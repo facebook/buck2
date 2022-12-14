@@ -270,12 +270,16 @@ def haskell_prebuilt_library_impl(ctx: "context") -> ["provider"]:
     solibs = {}
     for soname, lib in ctx.attrs.shared_libs.items():
         solibs[soname] = LinkedObject(output = lib)
-    args = flatten([["-isystem", d] for d in ctx.attrs.cxx_header_dirs])
+
+    inherited_pp_info = cxx_inherited_preprocessor_infos(ctx.attrs.deps)
+    own_pp_info = CPreprocessor(
+        args = flatten([["-isystem", d] for d in ctx.attrs.cxx_header_dirs]),
+    )
 
     return [
         DefaultInfo(),
         haskell_lib_provider,
-        cxx_merge_cpreprocessors(ctx, [CPreprocessor(args = args)], []),
+        cxx_merge_cpreprocessors(ctx, [own_pp_info], inherited_pp_info),
         merge_shared_libraries(
             ctx.actions,
             create_shared_libraries(ctx, solibs),
