@@ -341,6 +341,7 @@ conan_package = rule(
     attrs = {
         "lockfile": attrs.source(doc = "The Conan lockfile defining the package and its dependencies."),
         "reference": attrs.string(doc = "The Conan package reference <name>/<version>#<revision>."),
+        "package_id": attrs.string(doc = "The Conan package-id."),
         "deps": attrs.list(attrs.dep(providers = [ConanPackageInfo], doc = "Conan Package dependencies.")),
         "_conan_toolchain": attrs.default_only(attrs.toolchain_dep(default = "toolchains//:conan", providers = [ConanToolchainInfo])),
         "_conan_init": attrs.dep(providers = [ConanInitInfo], default = "toolchains//:conan-init"),

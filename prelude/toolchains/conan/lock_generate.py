@@ -48,6 +48,7 @@ conan_package(
     name = {name},
     lockfile = {lockfile},
     reference = {reference},
+    package_id = {package_id},
     deps = {deps},
 )
 """
@@ -55,12 +56,14 @@ conan_package(
         for pkg in pkgs.values():
             name = "_package_" + pkg["name"]
             reference = pkg["reference"]
+            package_id = pkg["package_id"]
             deps = [":_package_" + pkgs[key]["name"] for key in pkg["requires"]]
             f.write(package_template.format(
                 name = repr(name),
                 # TODO[AH] Remove that lockfile and generate a minimal one in the rule.
                 lockfile = repr(lockfile_label),
                 reference = repr(reference),
+                package_id = repr(package_id),
                 deps = repr(deps)))
 
 
