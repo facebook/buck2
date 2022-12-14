@@ -385,6 +385,7 @@ fn copy_file<'v>(
     dest: Value<'v>,
     src: Value<'v>,
     copy: CopyMode,
+    output_type: OutputType,
 ) -> anyhow::Result<Value<'v>> {
     let src = src
         .as_artifact()
@@ -392,9 +393,8 @@ fn copy_file<'v>(
 
     let (artifact, associated_artifacts) = src.get_bound_artifact_and_associated_artifacts()?;
     let mut this = this.state();
-    // `copy_file` can copy either a file or a directory, even though its name has the word `file` in it
     let (declaration, output_artifact) =
-        this.get_or_declare_output(eval, dest, "dest", OutputType::FileOrDirectory)?;
+        this.get_or_declare_output(eval, dest, "dest", output_type)?;
 
     this.register_action(
         indexset![ArtifactGroup::Artifact(artifact)],
@@ -635,7 +635,15 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         #[starlark(require = pos)] src: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
-        copy_file(eval, this, dest, src, CopyMode::Copy)
+        // `copy_file` can copy either a file or a directory, even though its name has the word `file` in it
+        copy_file(
+            eval,
+            this,
+            dest,
+            src,
+            CopyMode::Copy,
+            OutputType::FileOrDirectory,
+        )
     }
 
     fn symlink_file<'v>(
@@ -644,7 +652,15 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         #[starlark(require = pos)] src: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
-        copy_file(eval, this, dest, src, CopyMode::Symlink)
+        // `copy_file` can copy either a file or a directory, even though its name has the word `file` in it
+        copy_file(
+            eval,
+            this,
+            dest,
+            src,
+            CopyMode::Symlink,
+            OutputType::FileOrDirectory,
+        )
     }
 
     fn symlinked_dir<'v>(
