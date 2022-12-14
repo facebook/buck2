@@ -18,9 +18,7 @@ load("@prelude//utils:utils.bzl", "flatten")
 
 ConanInitInfo = provider(fields = ["user_home"])
 ConanLockInfo = provider(fields = ["lockfile"])
-ConanPackageInfo = provider(fields = ["reference", "cache_out"])
-# TODO[AH] Add package_id and package_out for package directory
-# ConanPackageInfo = provider(fields = ["reference", "package_id", "cache_out", "package_out"])
+ConanPackageInfo = provider(fields = ["reference", "package_id", "cache_out", "package_out"])
 ConanToolchainInfo = provider(fields = ["conan"])
 
 def _conan_package_extract_impl(ctx: "context") -> ["provider"]:
@@ -294,6 +292,7 @@ def _conan_package_impl(ctx: "context") -> ["provider"]:
     install_info = ctx.actions.declare_output("install-info.json")
     trace_log = ctx.actions.declare_output("trace.log")
     cache_out = ctx.actions.declare_output("cache-out")
+    package_out = ctx.actions.declare_output("package")
 
     cmd = cmd_args([conan_package])
     cmd.add(["--conan", conan_toolchain.conan])
@@ -301,6 +300,7 @@ def _conan_package_impl(ctx: "context") -> ["provider"]:
     cmd.add(["--buckler", ctx.attrs._buckler])
     cmd.add(["--lockfile", ctx.attrs.lockfile])
     cmd.add(["--reference", ctx.attrs.reference])
+    cmd.add(["--package-id", ctx.attrs.package_id])
     cmd.add(["--install-folder", install_folder.as_output()])
     cmd.add(["--output-folder", output_folder.as_output()])
     cmd.add(["--user-home", user_home.as_output()])
@@ -308,6 +308,7 @@ def _conan_package_impl(ctx: "context") -> ["provider"]:
     cmd.add(["--install-info", install_info.as_output()])
     cmd.add(["--trace-file", trace_log.as_output()])
     cmd.add(["--cache-out", cache_out.as_output()])
+    cmd.add(["--package-out", package_out.as_output()])
     # TODO[AH] Track transitive dependencies.
     for dep in ctx.attrs.deps:
         info = dep[ConanPackageInfo]
@@ -317,17 +318,22 @@ def _conan_package_impl(ctx: "context") -> ["provider"]:
     return [
         ConanPackageInfo(
             reference = ctx.attrs.reference,
+            package_id = ctx.attrs.package_id,
             cache_out = cache_out,
+            package_out = package_out,
         ),
-        DefaultInfo(default_outputs = [
-            install_folder,
-            output_folder,
-            user_home,
-            manifests,
-            install_info,
-            trace_log,
-            cache_out,
-        ]),
+        DefaultInfo(
+            default_outputs = [package_out],
+            other_outputs = [
+                install_folder,
+                output_folder,
+                user_home,
+                manifests,
+                install_info,
+                trace_log,
+                cache_out,
+            ],
+        ),
     ]
 
 conan_package = rule(
