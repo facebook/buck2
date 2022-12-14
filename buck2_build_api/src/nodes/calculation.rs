@@ -790,7 +790,13 @@ impl NodeCalculation for DiceComputations {
         Ok(self
             .get_interpreter_results(target.pkg())
             .await
-            .with_context(|| format!("loading targets in package `{}`", target.pkg()))?
+            .with_context(|| {
+                format!(
+                    "when loading targets in package `{}` for target `{}`",
+                    target.pkg(),
+                    target
+                )
+            })?
             .targets()
             .get(target.name())
             .ok_or_else(|| {
