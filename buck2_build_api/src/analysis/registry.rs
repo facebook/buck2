@@ -166,7 +166,6 @@ impl<'v> AnalysisRegistry<'v> {
         let declaration_location = eval.call_stack_top_location();
         let heap = eval.heap();
         if let Some(path) = value.unpack_str() {
-            let (path, output_type) = output_type.parse_path(path)?;
             let artifact = self.declare_output(None, path, output_type)?;
             Ok((
                 ArtifactDeclaration {

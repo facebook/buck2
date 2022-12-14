@@ -416,8 +416,6 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         #[starlark(require = named, default = false)] dir: bool,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<StarlarkDeclaredArtifact> {
-        let _ = dir;
-
         // We take either one or two positional arguments, namely (filename) or (prefix, filename).
         // The prefix argument is optional, but first, so we pretend the filename is optional
         // and fix them up here.
@@ -426,7 +424,11 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
             Some(filename) => (Some(prefix), filename),
         };
 
-        let (filename, output_type) = OutputType::FileOrDirectory.parse_path(filename)?;
+        let output_type = if dir {
+            OutputType::Directory
+        } else {
+            OutputType::FileOrDirectory
+        };
         let artifact = this.state().declare_output(prefix, filename, output_type)?;
 
         Ok(StarlarkDeclaredArtifact::new(

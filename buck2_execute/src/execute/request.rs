@@ -318,8 +318,6 @@ pub enum OutputType {
 enum OutputTypeError {
     #[error("Expected {1:?}, but `{0}` is already declared as {2:?}")]
     CheckPath(String, OutputType, OutputType),
-    #[error("Expected file, but `{0}` is a directory because of the trailing `/`")]
-    ParsePathExpectedFile(String),
 }
 
 impl OutputType {
@@ -340,19 +338,6 @@ impl OutputType {
                 OutputTypeError::CheckPath(path_for_error_message.to_string(), self, output_type)
                     .into(),
             )
-        }
-    }
-
-    /// We are hoping for something of output type self, and got a string.
-    /// If it's incompatible, raise an error, otherwise return the inferred output type.
-    pub fn parse_path(self, path: &str) -> anyhow::Result<(&str, OutputType)> {
-        // FIXME: One day we should require that anyone requesting Directory has a trailing slash
-        match path.strip_suffix('/') {
-            None => Ok((path, self)),
-            Some(_) if self == OutputType::File => {
-                Err(OutputTypeError::ParsePathExpectedFile(path.to_owned()).into())
-            }
-            Some(path) => Ok((path, OutputType::Directory)),
         }
     }
 }
