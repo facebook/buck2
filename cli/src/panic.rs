@@ -118,7 +118,7 @@ mod imp {
     fn get_metadata_for_panic() -> HashMap<String, String> {
         let mut map = metadata::collect();
         if let Some(commands) = buck2_server::active_commands::active_commands() {
-            let commands = commands.iter().map(|id| id.to_string()).collect::<Vec<_>>();
+            let commands = commands.keys().map(|id| id.to_string()).collect::<Vec<_>>();
             map.insert("active_commands".to_owned(), commands.join(","));
         }
         map
