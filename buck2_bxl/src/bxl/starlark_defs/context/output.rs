@@ -16,12 +16,14 @@ use std::ops::DerefMut;
 
 use allocative::Allocative;
 use anyhow::Context;
-use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
+use buck2_build_api::bxl::build_result::BxlBuildResult;
+use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_execute::artifact::fs::ArtifactFs;
 use derivative::Derivative;
 use derive_more::Display;
 use gazebo::any::ProvidesStaticType;
+use gazebo::dupe::Dupe;
 use gazebo::prelude::SliceExt;
 use itertools::Itertools;
 use serde::Serialize;
@@ -52,7 +54,7 @@ use starlark::values::ValueLike;
 use starlark::StarlarkDocs;
 
 use crate::bxl::starlark_defs::artifacts::EnsuredArtifact;
-use crate::bxl::starlark_defs::artifacts::EnsuredArtifactGen;
+use crate::bxl::starlark_defs::build_result::StarlarkBxlBuildResult;
 use crate::bxl::starlark_defs::context::build::StarlarkProvidersArtifactIterable;
 
 #[derive(
@@ -67,20 +69,20 @@ use crate::bxl::starlark_defs::context::build::StarlarkProvidersArtifactIterable
 #[display(fmt = "{:?}", self)]
 #[starlark_docs_attrs(directory = "bxl")]
 #[derivative(Debug)]
-pub struct OutputStream<'v> {
+pub struct OutputStream {
     #[derivative(Debug = "ignore")]
     #[trace(unsafe_ignore)]
     #[allocative(skip)]
     sink: RefCell<Box<dyn Write>>,
     #[trace(unsafe_ignore)]
-    artifacts_to_ensure: RefCell<Option<SmallSet<Value<'v>>>>,
+    artifacts_to_ensure: RefCell<Option<SmallSet<EnsuredArtifact>>>,
     #[derivative(Debug = "ignore")]
     pub(crate) project_fs: ProjectRoot,
     #[derivative(Debug = "ignore")]
     pub(crate) artifact_fs: ArtifactFs,
 }
 
-impl<'v> OutputStream<'v> {
+impl OutputStream {
     pub fn new(
         project_fs: ProjectRoot,
         artifact_fs: ArtifactFs,
@@ -94,24 +96,24 @@ impl<'v> OutputStream<'v> {
         }
     }
 
-    pub fn take_artifacts(&self) -> SmallSet<Value<'v>> {
+    pub fn take_artifacts(&self) -> SmallSet<EnsuredArtifact> {
         self.artifacts_to_ensure.borrow_mut().take().unwrap()
     }
 }
 
-impl<'v> StarlarkTypeRepr for &'v OutputStream<'v> {
+impl<'v> StarlarkTypeRepr for &'v OutputStream {
     fn starlark_type_repr() -> String {
         OutputStream::get_type_starlark_repr()
     }
 }
 
-impl<'v> UnpackValue<'v> for &'v OutputStream<'v> {
+impl<'v> UnpackValue<'v> for &'v OutputStream {
     fn unpack_value(x: Value<'v>) -> Option<&'v OutputStream> {
         x.downcast_ref()
     }
 }
 
-impl<'v> StarlarkValue<'v> for OutputStream<'v> {
+impl<'v> StarlarkValue<'v> for OutputStream {
     starlark_type!("bxl_output_stream");
 
     fn get_methods() -> Option<&'static Methods> {
@@ -120,7 +122,7 @@ impl<'v> StarlarkValue<'v> for OutputStream<'v> {
     }
 }
 
-impl<'v> AllocValue<'v> for OutputStream<'v> {
+impl<'v> AllocValue<'v> for OutputStream {
     fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
         heap.alloc_complex_no_freeze(self)
     }
@@ -146,11 +148,11 @@ fn register_output_stream(builder: &mut MethodsBuilder) {
                 .try_map(|x| {
                     anyhow::Ok(
                         if let Some(ensured) = <&EnsuredArtifact>::unpack_value(*x) {
-                            let resolved = this.artifact_fs.resolve(
-                                ensured.artifact.as_artifact().unwrap().get_artifact_path(),
-                            )?;
+                            let resolved = this
+                                .artifact_fs
+                                .resolve(ensured.as_artifact().get_artifact_path())?;
 
-                            if ensured.abs {
+                            if ensured.abs() {
                                 format!("{}", this.project_fs.resolve(&resolved).display())
                             } else {
                                 resolved.as_str().to_owned()
@@ -199,10 +201,10 @@ fn register_output_stream(builder: &mut MethodsBuilder) {
                 if let Some(ensured) = <&EnsuredArtifact>::unpack_value(self.value) {
                     let resolved = self
                         .artifact_fs
-                        .resolve(ensured.artifact.as_artifact().unwrap().get_artifact_path())
+                        .resolve(ensured.as_artifact().get_artifact_path())
                         .map_err(|err| serde::ser::Error::custom(format!("{:#}", err)))?;
 
-                    if ensured.abs {
+                    if ensured.abs() {
                         serializer.serialize_str(&format!(
                             "{}",
                             self.project_fs.resolve(&resolved).display()
@@ -249,84 +251,91 @@ fn register_output_stream(builder: &mut MethodsBuilder) {
     ///
     /// This function returns an `ensured_artifact` type that can be printed via `ctx.output.print()`
     /// to print its actual path on disk.
-    fn ensure<'v>(
-        this: &OutputStream<'v>,
-        artifact: Value<'v>,
-    ) -> anyhow::Result<EnsuredArtifactGen<Value<'v>>> {
-        validate_artifact_like(artifact)?;
+    fn ensure<'v>(this: &OutputStream, artifact: Value<'v>) -> anyhow::Result<EnsuredArtifact> {
+        let artifact = EnsuredArtifact::new(artifact)?;
+        populate_ensured_artifacts(this, &artifact)?;
 
-        populate_ensured_artifacts(this, artifact)?;
-
-        EnsuredArtifactGen::new(artifact)
+        Ok(artifact)
     }
 
     /// Same as `ensure`, but for multiple.
     fn ensure_multiple<'v>(
-        this: &OutputStream<'v>,
+        this: &OutputStream,
         artifacts: Value<'v>,
-        heap: &'v Heap,
-    ) -> anyhow::Result<Vec<EnsuredArtifactGen<Value<'v>>>> {
+    ) -> anyhow::Result<Vec<EnsuredArtifact>> {
         if artifacts.is_none() {
             Ok(vec![])
         } else if let Some(list) = <&ListRef>::unpack_value(artifacts) {
             list.content().try_map(|artifact| {
-                validate_artifact_like(*artifact)?;
-                populate_ensured_artifacts(this, *artifact)?;
+                let artifact = EnsuredArtifact::new(*artifact)?;
 
-                EnsuredArtifactGen::new(*artifact)
+                populate_ensured_artifacts(this, &artifact)?;
+
+                Ok(artifact)
             })
         } else if let Some(artifact_gen) =
             <&StarlarkProvidersArtifactIterable>::unpack_value(artifacts)
         {
-            artifact_gen
-                .iterate(heap)?
-                .map(|artifact| try {
-                    artifact.as_artifact().ok_or_else(|| {
-                        ValueError::IncorrectParameterTypeWithExpected(
-                            "artifact-like".to_owned(),
-                            artifact.get_type().to_owned(),
-                        )
-                    })?;
-
-                    this.artifacts_to_ensure
-                        .borrow_mut()
-                        .as_mut()
-                        .expect("should not have been taken")
-                        .insert_hashed(artifact.get_hashed()?);
-
-                    EnsuredArtifactGen::new(artifact)?
-                })
-                .collect::<anyhow::Result<_>>()
+            get_artifacts_from_bxl_build_result(
+                artifact_gen
+                    .0
+                    .downcast_ref::<StarlarkBxlBuildResult>()
+                    .unwrap(),
+                this,
+            )
+        } else if let Some(bxl_build_result) = <&StarlarkBxlBuildResult>::unpack_value(artifacts) {
+            get_artifacts_from_bxl_build_result(bxl_build_result, this)
         } else {
-            Err(anyhow::anyhow!(
-                ValueError::IncorrectParameterTypeWithExpected(
-                    "list of artifacts or bxl-built-artifacts-iterable".to_owned(),
-                    artifacts.get_type().to_owned()
-                )
-            ))
+            Err(anyhow::anyhow!(incorrect_parameter_type_error(artifacts)))
         }
     }
 }
 
-fn validate_artifact_like(artifact: Value) -> anyhow::Result<()> {
-    artifact.as_artifact().ok_or_else(|| {
-        ValueError::IncorrectParameterTypeWithExpected(
-            "artifact-like".to_owned(),
-            artifact.get_type().to_owned(),
-        )
-    })?;
-    Ok(())
+fn incorrect_parameter_type_error(artifacts: Value) -> ValueError {
+    ValueError::IncorrectParameterTypeWithExpected(
+        "list of artifacts or bxl_built_artifacts_iterable".to_owned(),
+        artifacts.get_type().to_owned(),
+    )
 }
 
-fn populate_ensured_artifacts<'v>(
-    output_stream: &OutputStream<'v>,
-    artifact: Value<'v>,
+fn populate_ensured_artifacts(
+    output_stream: &OutputStream,
+    ensured: &EnsuredArtifact,
 ) -> anyhow::Result<()> {
     output_stream
         .artifacts_to_ensure
         .borrow_mut()
         .as_mut()
         .expect("should not have been taken")
-        .insert_hashed(artifact.get_hashed()?);
+        .insert(ensured.clone());
     Ok(())
+}
+
+fn get_artifacts_from_bxl_build_result(
+    bxl_build_result: &StarlarkBxlBuildResult,
+    output_stream: &OutputStream,
+) -> anyhow::Result<Vec<EnsuredArtifact>> {
+    match &bxl_build_result.0 {
+        BxlBuildResult::None => Ok(Vec::new()),
+        BxlBuildResult::Built(result) => result
+            .outputs
+            .iter()
+            .filter_map(|built| {
+                built.as_ref().ok().map(|artifacts| {
+                    artifacts
+                        .values
+                        .iter()
+                        .map(|(artifact, _)| EnsuredArtifact::Artifact {
+                            artifact: StarlarkArtifact::new(artifact.dupe()),
+                            abs: false,
+                        })
+                })
+            })
+            .flatten()
+            .map(|artifact| try {
+                populate_ensured_artifacts(output_stream, &artifact)?;
+                artifact
+            })
+            .collect::<anyhow::Result<_>>(),
+    }
 }

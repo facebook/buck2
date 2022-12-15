@@ -18,7 +18,6 @@ use allocative::Allocative;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::calculation::Calculation;
-use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_build_api::query::dice::DiceQueryDelegate;
 use buck2_common::dice::cells::HasCellResolver;
@@ -112,7 +111,7 @@ pub struct BxlContext<'v> {
     #[allocative(skip)]
     pub(crate) async_ctx: BxlSafeDiceComputations<'v>,
     pub(crate) state: ValueTyped<'v, AnalysisActions<'v>>,
-    pub(crate) output_stream: ValueTyped<'v, OutputStream<'v>>,
+    pub(crate) output_stream: ValueTyped<'v, OutputStream>,
 }
 
 impl<'v> BxlContext<'v> {
@@ -194,7 +193,6 @@ impl<'v> BxlContext<'v> {
                 .map(|v| {
                     let artifact_or_err = v
                         .as_artifact()
-                        .unwrap()
                         .get_bound_artifact_and_associated_artifacts();
                     match artifact_or_err {
                         Err(e) => Err(e),
