@@ -40,8 +40,6 @@ commands:
             brew install opam
             opam init --shell-setup --disable-sandboxing -y
             eval $(opam env --switch=default)
-            # Override path '/usr/lib/ocaml' with '/Users/distiller/.opam/lib/ocaml'.
-            (cd examples/prelude && sed -i ' ' 's/\/usr\/lib/\/Users\/distiller\/.opam\/default\/lib/g' toolchains/toolchain.bzl)
       - print_versions
 
   setup_windows_env:
