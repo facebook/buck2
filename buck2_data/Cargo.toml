@@ -11,6 +11,7 @@ prost-types = { workspace = true }
 serde = { workspace = true }
 tonic = { workspace = true }
 allocative = { workspace = true }
+either = { workspace = true }
 buck2_core = { path = "../app/buck2_core" }
 
 gazebo = { workspace = true }

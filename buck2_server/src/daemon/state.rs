@@ -457,6 +457,7 @@ impl DaemonState {
     pub async fn prepare_command(
         &self,
         dispatcher: EventDispatcher,
+        drop_guard: ActiveCommandDropGuard,
     ) -> SharedResult<BaseServerCommandContext> {
         check_working_dir::check_working_dir()?;
 
@@ -474,8 +475,6 @@ impl DaemonState {
         ];
 
         dispatcher.instant_event(buck2_data::TagEvent { tags });
-
-        let drop_guard = ActiveCommandDropGuard::new(&dispatcher);
 
         // Sync any FS changes and invalidate DICE state if necessary.
         data.io.settle().await?;

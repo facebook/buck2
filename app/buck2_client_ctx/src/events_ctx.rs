@@ -101,6 +101,7 @@ impl EventsCtx {
     async fn handle_stream_next(
         &mut self,
         next: Option<Vec<anyhow::Result<StreamValue>>>,
+        shutdown: &mut Option<buck2_data::DaemonShutdown>,
     ) -> anyhow::Result<ControlFlow<CommandResult, ()>> {
         let next = next.context(BuckdCommunicationError::MissingCommandResult)?;
         let mut events = Vec::with_capacity(next.len());
@@ -108,7 +109,7 @@ impl EventsCtx {
             let next = match next {
                 Ok(next) => next,
                 Err(e) => {
-                    self.handle_events(events).await?;
+                    self.handle_events(events, shutdown).await?;
                     return Err(e).context("Buck daemon event bus encountered an error");
                 }
             };
@@ -118,13 +119,13 @@ impl EventsCtx {
                     events.push(event);
                 }
                 StreamValue::Result(res) => {
-                    self.handle_events(events).await?;
+                    self.handle_events(events, shutdown).await?;
                     self.handle_command_result(&res).await?;
                     return Ok(ControlFlow::Break(res));
                 }
             }
         }
-        self.handle_events(events).await?;
+        self.handle_events(events, shutdown).await?;
         Ok(ControlFlow::Continue(()))
     }
 
@@ -159,12 +160,16 @@ impl EventsCtx {
 
         let mut stream = stream.ready_chunks(1000);
 
+        // NOTE: When unpacking the stream we capture any shutdown event we encounter. If we fail
+        // to unpack the stream to completion, we'll use that later.
+        let mut shutdown = None;
+
         let command_result: anyhow::Result<CommandResult> = try {
             loop {
                 tokio::select! {
                     next = stream.next() => {
                         // Make sure we still flush if next produces an error is accurate
-                        match self.handle_stream_next(next).await? {
+                        match self.handle_stream_next(next, &mut shutdown).await? {
                             ControlFlow::Continue(()) => {}
                             ControlFlow::Break(res) => break res,
                         }
@@ -188,7 +193,26 @@ impl EventsCtx {
         let flush_result = self.flush(&mut Some(tailers)).await;
         let exit_result = self.handle_exit().await;
 
-        let command_result = command_result?;
+        let command_result = match (command_result, shutdown) {
+            (Ok(r), _) => r,
+            (Err(e), Some(shutdown)) => {
+                // NOTE: When we get an error unpacking the stream, that means we didn't get a
+                // CommandResult, or we had an error on the stream. Both of those things are *most
+                // often* caused by a daemon shutdown, so if we did have a daemon shutdown reported
+                // to us over the event stream, we show that instead. We log the real error for
+                // debugging in case that's useful, but it's sufficiently likely (as in: almost
+                // certain) the daemon shutdown is the cause for us to simply claim it is.
+                tracing::debug!("Original unpack_stream error was: {:#}", e);
+
+                return Err(anyhow::anyhow!(
+                    "The Buck2 daemon was shut down while executing your command. \
+                    This happened because: {}",
+                    shutdown,
+                ));
+            }
+            (Err(e), None) => return Err(e),
+        };
+
         flush_result?;
         exit_result?;
         Ok(command_result)
@@ -334,25 +358,34 @@ impl EventsCtx {
             .await
     }
 
-    async fn handle_events(&mut self, events: Vec<BuckEvent>) -> anyhow::Result<()> {
+    async fn handle_events(
+        &mut self,
+        events: Vec<BuckEvent>,
+        shutdown: &mut Option<buck2_data::DaemonShutdown>,
+    ) -> anyhow::Result<()> {
         let events = events.into_map(|mut event| {
             let timestamp = event.timestamp();
             if let buck2_data::buck_event::Data::Instant(instant_event) = event.data_mut() {
-                if let Some(buck2_data::instant_event::Data::Snapshot(snapshot)) =
-                    &mut instant_event.data
-                {
-                    let now = SystemTime::now();
-                    // `None` on overflow.
-                    let this_event_client_delay_ms = match now.duration_since(timestamp) {
-                        Ok(duration) => i64::try_from(duration.as_millis()).ok(),
-                        Err(e) => i64::try_from(e.duration().as_millis())
-                            .ok()
-                            .and_then(|x| x.checked_neg()),
-                    };
-                    snapshot.this_event_client_delay_ms = this_event_client_delay_ms;
+                match &mut instant_event.data {
+                    Some(buck2_data::instant_event::Data::Snapshot(snapshot)) => {
+                        let now = SystemTime::now();
+                        // `None` on overflow.
+                        let this_event_client_delay_ms = match now.duration_since(timestamp) {
+                            Ok(duration) => i64::try_from(duration.as_millis()).ok(),
+                            Err(e) => i64::try_from(e.duration().as_millis())
+                                .ok()
+                                .and_then(|x| x.checked_neg()),
+                        };
+                        snapshot.this_event_client_delay_ms = this_event_client_delay_ms;
 
-                    snapshot.client_cpu_percents = self.client_cpu_tracker.tick_cpu_time_percents();
-                }
+                        snapshot.client_cpu_percents =
+                            self.client_cpu_tracker.tick_cpu_time_percents();
+                    }
+                    Some(buck2_data::instant_event::Data::DaemonShutdown(msg)) => {
+                        *shutdown = Some(msg.clone());
+                    }
+                    _ => {}
+                };
             }
             Arc::new(event)
         });

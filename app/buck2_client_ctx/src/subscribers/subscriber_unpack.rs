@@ -274,6 +274,9 @@ pub trait UnpackingEventSubscriber: Send {
             buck2_data::instant_event::Data::MaterializerStateInfo(materializer_state) => {
                 self.handle_materializer_state_info(materializer_state)
             }
+            buck2_data::instant_event::Data::DaemonShutdown(daemon_shutdown) => {
+                self.handle_daemon_shutdown(daemon_shutdown)
+            }
         }
         .await
     }
@@ -677,6 +680,12 @@ pub trait UnpackingEventSubscriber: Send {
     async fn handle_materializer_state_info(
         &mut self,
         _materializer_state_info: &buck2_data::MaterializerStateInfo,
+    ) -> anyhow::Result<()> {
+        Ok(())
+    }
+    async fn handle_daemon_shutdown(
+        &mut self,
+        _daemon_shtudown: &buck2_data::DaemonShutdown,
     ) -> anyhow::Result<()> {
         Ok(())
     }

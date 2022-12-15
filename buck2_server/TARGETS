@@ -18,7 +18,6 @@ rust_library(
         "fbsource//third-party/rust:chrono",
         "fbsource//third-party/rust:constant_time_eq",
         "fbsource//third-party/rust:crossbeam-channel",
-        "fbsource//third-party/rust:either",
         "fbsource//third-party/rust:flate2",
         "fbsource//third-party/rust:futures",
         "fbsource//third-party/rust:inferno",

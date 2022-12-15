@@ -153,6 +153,9 @@ message InstantEvent {
 
     // Info about materializer state
     MaterializerStateInfo materializer_state_info = 18;
+
+    // Notify the client that the daemon is shutting down.
+    DaemonShutdown daemon_shutdown = 19;
   }
 
   reserved 12; // Log
@@ -1357,4 +1360,12 @@ message ErrorReport {
 message MaterializerStateInfo {
   // Number of entries loaded from sqlite
   uint64 num_entries_from_sqlite = 1;
+}
+
+message NoopEvent {}
+
+message DaemonShutdown {
+  string reason = 1;
+  optional string caller = 3; // TODO: Deprecate (Jan 2023)
+  repeated string callers = 4;
 }

@@ -8,12 +8,14 @@
  */
 
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::sync::Mutex;
 
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::trace::TraceId;
 use gazebo::prelude::*;
 use once_cell::sync::Lazy;
+use tokio::sync::oneshot;
 
 static ACTIVE_COMMANDS: Lazy<Mutex<HashMap<TraceId, ActiveCommandHandle>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
@@ -28,14 +30,42 @@ pub fn active_commands() -> Option<HashMap<TraceId, ActiveCommandHandle>> {
 #[derive(Clone, Dupe)]
 pub struct ActiveCommandHandle {
     dispatcher: EventDispatcher,
+    daemon_shutdown_channel: Arc<Mutex<Option<oneshot::Sender<buck2_data::DaemonShutdown>>>>,
+}
+
+impl ActiveCommandHandle {
+    pub fn notify_shutdown(&self, shutdown: buck2_data::DaemonShutdown) {
+        let channel = self
+            .daemon_shutdown_channel
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .take();
+
+        if let Some(channel) = channel {
+            let _ignored = channel.send(shutdown); // Nothing to do if receiver hung up.
+        }
+    }
 }
 
 pub struct ActiveCommandDropGuard {
     trace_id: TraceId,
 }
 
-impl ActiveCommandDropGuard {
+impl Drop for ActiveCommandDropGuard {
+    fn drop(&mut self) {
+        ACTIVE_COMMANDS.lock().unwrap().remove(&self.trace_id);
+    }
+}
+
+pub struct ActiveCommand {
+    pub guard: ActiveCommandDropGuard,
+    pub daemon_shutdown_channel: oneshot::Receiver<buck2_data::DaemonShutdown>,
+}
+
+impl ActiveCommand {
     pub fn new(event_dispatcher: &EventDispatcher) -> Self {
+        let (sender, receiver) = oneshot::channel();
+
         let trace_id = event_dispatcher.trace_id().dupe();
         let result = {
             // Scope the guard so it's locked as little as possible
@@ -51,6 +81,7 @@ impl ActiveCommandDropGuard {
                 trace_id.dupe(),
                 ActiveCommandHandle {
                     dispatcher: event_dispatcher.dupe(),
+                    daemon_shutdown_channel: Arc::new(Mutex::new(Some(sender))),
                 },
             );
 
@@ -74,12 +105,9 @@ impl ActiveCommandDropGuard {
             }
         }
 
-        Self { trace_id }
-    }
-}
-
-impl Drop for ActiveCommandDropGuard {
-    fn drop(&mut self) {
-        ACTIVE_COMMANDS.lock().unwrap().remove(&self.trace_id);
+        Self {
+            guard: ActiveCommandDropGuard { trace_id },
+            daemon_shutdown_channel: receiver,
+        }
     }
 }

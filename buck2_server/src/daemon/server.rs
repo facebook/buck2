@@ -9,8 +9,6 @@
 
 #![allow(clippy::significant_drop_in_scrutinee)] // FIXME?
 
-use std::borrow::Cow;
-use std::fmt::Write;
 use std::future;
 use std::io;
 use std::path::Path;
@@ -52,18 +50,20 @@ use cli_proto::daemon_api_server::*;
 use cli_proto::*;
 use dice::cycles::DetectCycles;
 use dice::Dice;
-use either::Either;
 use futures::channel::mpsc;
 use futures::channel::mpsc::UnboundedReceiver;
 use futures::channel::mpsc::UnboundedSender;
 use futures::stream;
 use futures::Future;
+use futures::FutureExt;
 use futures::Stream;
 use futures::StreamExt;
+use futures::TryFutureExt;
 use gazebo::prelude::*;
 use more_futures::drop::DropTogether;
 use more_futures::spawn::spawn_dropcancel;
 use starlark::environment::GlobalsBuilder;
+use tokio::sync::oneshot;
 use tonic::service::interceptor;
 use tonic::service::Interceptor;
 use tonic::transport::Server;
@@ -73,6 +73,7 @@ use tonic::Response;
 use tonic::Status;
 use tracing::debug_span;
 
+use crate::active_commands::ActiveCommand;
 use crate::clean_stale::clean_stale_command;
 use crate::ctx::ServerCommandContext;
 use crate::daemon::server_allocative::spawn_allocative;
@@ -110,12 +111,21 @@ impl DaemonShutdown {
     ///
     /// As we might be processing a `kill()` (or other) request, we cannot wait for the server to actually
     /// shutdown (as it will wait for current requests to finish), so this returns immediately.
-    fn start_shutdown(&self, reason: String, timeout: Option<Duration>) {
+    fn start_shutdown(&self, reason: buck2_data::DaemonShutdown, timeout: Option<Duration>) {
+        for cmd in crate::active_commands::active_commands()
+            .as_ref()
+            .into_iter()
+            .flat_map(|commands| commands.values())
+        {
+            cmd.notify_shutdown(reason.clone());
+        }
+
         let timeout = timeout.unwrap_or(DEFAULT_KILL_TIMEOUT);
 
         // Ignore errrors on shutdown_channel as that would mean we've already started shutdown;
         let _ = self.shutdown_channel.unbounded_send(());
-        self.delegate.force_shutdown_with_timeout(reason, timeout);
+        self.delegate
+            .force_shutdown_with_timeout(reason.to_string(), timeout);
     }
 }
 
@@ -376,6 +386,10 @@ impl BuckdServer {
         let daemon_state = self.0.daemon_state.dupe();
         let trace_id = req.get_ref().client_context()?.trace_id.parse()?;
         let (events, dispatch) = daemon_state.prepare_events(trace_id).await?;
+        let ActiveCommand {
+            guard,
+            daemon_shutdown_channel,
+        } = ActiveCommand::new(&dispatch);
         let data = daemon_state.data()?;
 
         dispatch.instant_event(snapshot::SnapshotCollector::pre_initialization_snapshot(
@@ -384,29 +398,35 @@ impl BuckdServer {
 
         let configure_bxl_file_globals = self.0.callbacks.configure_bxl_file_globals();
 
-        let resp = streaming(req, events, dispatch.dupe(), move |req| async move {
-            let result: anyhow::Result<Res> = try {
-                let base_context = daemon_state.prepare_command(dispatch.dupe()).await?;
-                build_listener::scope(base_context.events.dupe(), |build_sender| async {
-                    let context = ServerCommandContext::new(
-                        base_context,
-                        req.client_context()?,
-                        build_sender,
-                        opts.starlark_profiler_instrumentation_override(&req)?,
-                        req.build_options(),
-                        daemon_state.paths.buck_out_dir(),
-                        req.record_target_call_stacks(),
-                        configure_bxl_file_globals,
-                    )?;
+        let resp = streaming(
+            req,
+            events,
+            dispatch.dupe(),
+            daemon_shutdown_channel,
+            move |req| async move {
+                let result: anyhow::Result<Res> = try {
+                    let base_context = daemon_state.prepare_command(dispatch.dupe(), guard).await?;
+                    build_listener::scope(base_context.events.dupe(), |build_sender| async {
+                        let context = ServerCommandContext::new(
+                            base_context,
+                            req.client_context()?,
+                            build_sender,
+                            opts.starlark_profiler_instrumentation_override(&req)?,
+                            req.build_options(),
+                            daemon_state.paths.buck_out_dir(),
+                            req.record_target_call_stacks(),
+                            configure_bxl_file_globals,
+                        )?;
 
-                    func(context, req).await
-                })
-                .await?
-            };
+                        func(context, req).await
+                    })
+                    .await?
+                };
 
-            let result: CommandResult = result_to_command_result(result);
-            dispatch.control_event(ControlEvent::CommandResult(result));
-        })
+                let result: CommandResult = result_to_command_result(result);
+                dispatch.control_event(ControlEvent::CommandResult(result));
+            },
+        )
         .await;
         Ok(resp)
     }
@@ -582,6 +602,7 @@ async fn streaming<
     req: Request<Req>,
     events: E,
     dispatcher: EventDispatcher,
+    daemon_shutdown_channel: oneshot::Receiver<buck2_data::DaemonShutdown>,
     func: F,
 ) -> Response<ResponseStream>
 where
@@ -604,6 +625,8 @@ where
             &self.dispatcher
         }
     }
+
+    let trace_id = dispatcher.trace_id().dupe();
 
     let req = req.into_inner();
     let events_ctx = EventsCtx { dispatcher };
@@ -633,12 +656,44 @@ where
         }
     };
 
-    // The stream we ultimately return is the receiving end of the channel that the above task is writing to.
+    //
+    // Note that while this is an event, we don't send it through our normal event
+    // processing. The reason for that is that we dont want this event to queue behind any other
+    // events in the (2) unbounded channels that form our event pipeline. So, we inject this one
+    // directly where Tonic is polling for responses (which, unlike the rest of the pipeline, is
+    // not unbounded, and has backpressure).
+
+    let daemon_shutdown_stream = daemon_shutdown_channel
+        .map_ok(move |shutdown| CommandProgress {
+            progress: Some(command_progress::Progress::Event(buck2_data::BuckEvent {
+                timestamp: Some(SystemTime::now().into()),
+                trace_id: trace_id.to_string(),
+                span_id: 0,
+                parent_id: 0,
+                data: Some(
+                    buck2_data::InstantEvent {
+                        data: Some(shutdown.into()),
+                    }
+                    .into(),
+                ),
+            })),
+        })
+        .into_stream()
+        .filter_map(|e| {
+            // If the channel yields an Err, that means we didnt shut down, so for us that is
+            // simply something we want to drop from the stream.
+            futures::future::ready(e.ok().map(Ok))
+        });
+
+    // The stream we ultimately return is the receiving end of the channel that the above task is
+    // writing to, plus the shutdown channel.
+    let events = futures::stream::select(
+        tokio_stream::wrappers::UnboundedReceiverStream::new(output_recv),
+        daemon_shutdown_stream,
+    );
+
     Response::new(Box::pin(SyncStream {
-        wrapped: sync_wrapper::SyncWrapper::new(DropTogether::new(
-            tokio_stream::wrappers::UnboundedReceiverStream::new(output_recv),
-            cancellable,
-        )),
+        wrapped: sync_wrapper::SyncWrapper::new(DropTogether::new(events, cancellable)),
     }))
 }
 
@@ -666,37 +721,13 @@ impl DaemonApi for BuckdServer {
                 .map(convert_positive_duration)
                 .transpose()?;
 
-            let mut message = format!("{}, caller:", req.reason);
-
-            let caller_iter = if req.callers.is_empty() {
-                Either::Left(std::iter::once(
-                    req.caller.as_deref().unwrap_or("<not known>"),
-                ))
-            } else {
-                Either::Right(req.callers.iter().map(|s| s.as_str()))
+            let reason = buck2_data::DaemonShutdown {
+                reason: req.reason,
+                caller: req.caller,
+                callers: req.callers,
             };
 
-            for caller in caller_iter {
-                let max_len = 70;
-
-                let short_caller = if caller.len() > max_len {
-                    Cow::Owned(
-                        caller
-                            .chars()
-                            .take(max_len)
-                            .chain(std::iter::repeat('.').take(3))
-                            .collect(),
-                    )
-                } else {
-                    Cow::Borrowed(caller)
-                };
-
-                // Write to a string never panics.
-                writeln!(&mut message).unwrap();
-                write!(&mut message, "  * {}", short_caller).unwrap();
-            }
-
-            self.0.daemon_shutdown.start_shutdown(message, timeout);
+            self.0.daemon_shutdown.start_shutdown(reason, timeout);
             Ok(KillResponse {})
         })
         .await
@@ -968,9 +999,18 @@ impl DaemonApi for BuckdServer {
             Err(e) => return Ok(error_to_response_stream(e)),
         };
 
+        let ActiveCommand {
+            guard,
+            daemon_shutdown_channel,
+        } = ActiveCommand::new(&dispatcher);
+
         let this = self.0.dupe();
-        Ok(
-            streaming(req, event_source, dispatcher.dupe(), |req| async move {
+        Ok(streaming(
+            req,
+            event_source,
+            dispatcher.dupe(),
+            daemon_shutdown_channel,
+            move |req| async move {
                 let result = try {
                     spawn_allocative(
                         this,
@@ -983,9 +1023,11 @@ impl DaemonApi for BuckdServer {
 
                 let result: CommandResult = result_to_command_result(result);
                 dispatcher.control_event(ControlEvent::CommandResult(result));
-            })
-            .await,
+
+                drop(guard);
+            },
         )
+        .await)
     }
 
     type UnstableDocsStream = ResponseStream;

@@ -10,6 +10,7 @@ rust_protobuf_library(
     protos = ["data.proto"],
     deps = [
         "fbsource//third-party/rust:derive_more",
+        "fbsource//third-party/rust:either",
         "fbsource//third-party/rust:hex",
         "fbsource//third-party/rust:prost-types",
         "fbsource//third-party/rust:serde",

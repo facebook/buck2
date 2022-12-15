@@ -7,7 +7,10 @@
  * of this source tree.
  */
 
+use std::borrow::Cow;
 use std::fmt;
+
+use either::Either;
 
 mod serialize_duration {
     use serde::Deserialize;
@@ -178,5 +181,40 @@ impl fmt::Display for ErrorCause {
         };
 
         write!(f, "{}", msg)
+    }
+}
+
+impl fmt::Display for DaemonShutdown {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}, caller:", self.reason)?;
+
+        let callers = if self.callers.is_empty() {
+            Either::Left(std::iter::once(
+                self.caller.as_deref().unwrap_or("<not known>"),
+            ))
+        } else {
+            Either::Right(self.callers.iter().map(|s| s.as_str()))
+        };
+
+        for caller in callers {
+            let max_len = 70;
+
+            let short_caller = if caller.len() > max_len {
+                Cow::Owned(
+                    caller
+                        .chars()
+                        .take(max_len)
+                        .chain(std::iter::repeat('.').take(3))
+                        .collect(),
+                )
+            } else {
+                Cow::Borrowed(caller)
+            };
+
+            writeln!(f)?;
+            write!(f, "  * {}", short_caller)?;
+        }
+
+        Ok(())
     }
 }
