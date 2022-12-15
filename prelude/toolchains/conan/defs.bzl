@@ -34,8 +34,15 @@ def _conan_package_extract_impl(ctx: "context") -> ["provider"]:
             fail("File-name collision: " + filename)
         sub_targets[filename] = [DefaultInfo(default_outputs = [output])]
 
+    i = 0
     for dirname in ctx.attrs.directories:
-        output = ctx.actions.declare_output(dirname)
+        # Some packages provide overlapping include directories, e.g.
+        # `include`, and `include/jemalloc`. Such overlapping directories
+        # cannot both be passed to `prebuilt_cxx_library`'s `include_dirs`.
+        # This adds a counter prefix to avoid the overlap.
+        prefix = str(i) + "/"
+        i += 1
+        output = ctx.actions.declare_output(prefix + dirname)
         cmd.add(["--directory-from", dirname, "--directory-to", output.as_output()])
         if dirname in sub_targets:
             fail("Directory-name collision: " + dirname)
