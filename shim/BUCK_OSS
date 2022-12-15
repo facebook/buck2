@@ -1,21 +1,23 @@
-load(":toolchain.bzl", "cxx_toolchain", "python_toolchain", "python_bootstrap_toolchain", "rust_toolchain")
+load("@prelude//toolchains:cxx.bzl", "system_cxx_toolchain")
+load("@prelude//toolchains:python.bzl", "system_python_bootstrap_toolchain", "system_python_toolchain")
+load("@prelude//toolchains:rust.bzl", "system_rust_toolchain")
 
-cxx_toolchain(
-    name="cxx",
-    visibility=["PUBLIC"],
+system_cxx_toolchain(
+    name = "cxx",
+    visibility = ["PUBLIC"],
 )
 
-python_toolchain(
-    name="python",
-    visibility=["PUBLIC"],
-)
-
-python_bootstrap_toolchain(
-    name="python_bootstrap",
-    visibility=["PUBLIC"],
-)
-
-rust_toolchain(
+system_rust_toolchain(
     name = "rust",
-    visibility=["PUBLIC"],
+    visibility = ["PUBLIC"],
+)
+
+system_python_toolchain(
+    name = "python",
+    visibility = ["PUBLIC"],
+)
+
+system_python_bootstrap_toolchain(
+    name = "python_bootstrap",
+    visibility = ["PUBLIC"],
 )
