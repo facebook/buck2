@@ -73,6 +73,7 @@ system_python_toolchain = rule(
         "make_pex_inplace": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//python/tools:make_pex_inplace")),
         "make_pex_modules": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//python/tools:make_pex_modules")),
         "make_source_db": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//python/tools:make_source_db")),
+        "make_source_db_no_deps": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//python/tools:make_source_db_no_deps")),
     },
     is_toolchain_rule = True,
 )
