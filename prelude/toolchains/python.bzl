@@ -6,7 +6,12 @@
 # of this source tree.
 
 load(
-    "//python_bootstrap:python_bootstrap.bzl",
+    "@prelude//python:toolchain.bzl",
+    "PythonPlatformInfo",
+    "PythonToolchainInfo",
+)
+load(
+    "@prelude//python_bootstrap:python_bootstrap.bzl",
     "PythonBootstrapToolchainInfo",
 )
 
@@ -35,6 +40,36 @@ system_python_bootstrap_toolchain = rule(
             "ovr_config//os:macos": "python3",
             "ovr_config//os:windows": "python",
         })),
+    },
+    is_toolchain_rule = True,
+)
+
+def _system_python_toolchain_impl(ctx):
+    """
+    A very simple toolchain that is hardcoded to the current environment.
+    """
+
+    return [
+        DefaultInfo(),
+        PythonToolchainInfo(
+            make_source_db = ctx.attrs.make_source_db[RunInfo],
+            host_interpreter = RunInfo(args = ["python3"]),
+            interpreter = RunInfo(args = ["python3"]),
+            make_pex_modules = ctx.attrs.make_pex_modules[RunInfo],
+            make_pex_inplace = ctx.attrs.make_pex_inplace[RunInfo],
+            compile = RunInfo(args = ["echo", "COMPILEINFO"]),
+            package_style = "inplace",
+            native_link_strategy = "merged",
+        ),
+        PythonPlatformInfo(name = "x86_64"),
+    ]
+
+system_python_toolchain = rule(
+    impl = _system_python_toolchain_impl,
+    attrs = {
+        "make_pex_inplace": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//python/tools:make_pex_inplace")),
+        "make_pex_modules": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//python/tools:make_pex_modules")),
+        "make_source_db": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//python/tools:make_source_db")),
     },
     is_toolchain_rule = True,
 )

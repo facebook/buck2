@@ -23,19 +23,12 @@ load(
     "LinkStyle",
 )
 load(
-    "@prelude//python:toolchain.bzl",
-    "PythonPlatformInfo",
-    "PythonToolchainInfo",
-)
-load(
     "@prelude//ocaml/providers.bzl",
     "OCamlPlatformInfo",
     "OCamlToolchainInfo",
 )
 
 DEFAULT_MAKE_COMP_DB = "@prelude//cxx/tools:make_comp_db"
-DEFAULT_MAKE_PEX_INPLACE = "@prelude//python/tools:make_pex_inplace"
-DEFAULT_MAKE_PEX_MODULES = "@prelude//python/tools:make_pex_modules"
 
 def _cxx_toolchain(ctx):
     """
@@ -110,36 +103,6 @@ cxx_toolchain = rule(
         "link_style": attrs.string(default = "shared"),
         "make_comp_db": attrs.dep(providers = [RunInfo], default = DEFAULT_MAKE_COMP_DB),
         "make_shlib_intf": attrs.dep(providers = [RunInfo], default = DEFAULT_MAKE_COMP_DB),
-    },
-    is_toolchain_rule = True,
-)
-
-def _python_toolchain(ctx):
-    """
-    A very simple toolchain that is hardcoded to the current environment.
-    """
-
-    return [
-        DefaultInfo(),
-        PythonToolchainInfo(
-            make_source_db = ctx.attrs.make_source_db[RunInfo],
-            host_interpreter = RunInfo(args = ["python3"]),
-            interpreter = RunInfo(args = ["python3"]),
-            make_pex_modules = ctx.attrs.make_pex_modules[RunInfo],
-            make_pex_inplace = ctx.attrs.make_pex_inplace[RunInfo],
-            compile = RunInfo(args = ["echo", "COMPILEINFO"]),
-            package_style = "inplace",
-            native_link_strategy = "merged",
-        ),
-        PythonPlatformInfo(name = "x86_64"),
-    ]
-
-python_toolchain = rule(
-    impl = _python_toolchain,
-    attrs = {
-        "make_pex_inplace": attrs.dep(providers = [RunInfo], default = DEFAULT_MAKE_PEX_INPLACE),
-        "make_pex_modules": attrs.dep(providers = [RunInfo], default = DEFAULT_MAKE_PEX_MODULES),
-        "make_source_db": attrs.dep(providers = [RunInfo], default = DEFAULT_MAKE_COMP_DB),
     },
     is_toolchain_rule = True,
 )
