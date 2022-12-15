@@ -10,14 +10,25 @@ load(
     "PythonBootstrapToolchainInfo",
 )
 
-def _python_bootstrap_toolchain_impl(ctx):
+def _system_python_bootstrap_toolchain_impl(ctx):
     return [
         DefaultInfo(),
         PythonBootstrapToolchainInfo(interpreter = ctx.attrs.interpreter),
     ]
 
-_python_bootstrap_toolchain = rule(
-    impl = _python_bootstrap_toolchain_impl,
+# Creates a new bootstrap toolchain using Python that is installed on your system.
+# You may use it in your toolchain cell as follows:
+#
+# ```bzl
+# load("@prelude//toolchains:python.bzl", "system_python_bootstrap_toolchain")
+#
+# system_python_bootstrap_toolchain(
+#     name = "python_bootstrap", # the default name rules look for
+#     visibility = ["PUBLIC"],
+# )
+# ```
+system_python_bootstrap_toolchain = rule(
+    impl = _system_python_bootstrap_toolchain_impl,
     attrs = {
         "interpreter": attrs.string(default = select({
             "ovr_config//os:linux": "python3",
@@ -27,27 +38,3 @@ _python_bootstrap_toolchain = rule(
     },
     is_toolchain_rule = True,
 )
-
-def python_bootstrap_toolchain(name, visibility = None):
-    """
-    Creates a new bootstrap toolchain with the given name
-    and visibility levels. IF the visibility is not provided,
-    defaults to public. You may use it in your toolchain cell
-    as follows:
-
-    ```bzl
-    load("@prelude//toolchains:python.bzl", "python_bootstrap_toolchain")
-
-    python_bootstrap_toolchain(
-        name="python_bootstrap", # the default name rules look for
-        visibility=["PUBLIC"],
-    )
-    ```
-    """
-    if visibility == None:
-        visibility = ["PUBLIC"]
-
-    _python_bootstrap_toolchain(
-        name = name,
-        visibility = visibility,
-    )

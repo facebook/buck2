@@ -1,5 +1,5 @@
 load(":toolchain.bzl", "cxx_toolchain", "ocaml_toolchain", "python_toolchain")
-load("@prelude//toolchains:python.bzl", "python_bootstrap_toolchain")
+load("@prelude//toolchains:python.bzl", "system_python_bootstrap_toolchain")
 
 cxx_toolchain(
     name="cxx",
@@ -16,10 +16,7 @@ ocaml_toolchain(
     visibility=["PUBLIC"],
 )
 
-# the bootstrap toolchain is used
-# to poentially initialize other
-# toolchains
-python_bootstrap_toolchain(
-    name="python_bootstrap",
-    visibility=["PUBLIC"],
+system_python_bootstrap_toolchain(
+    name = "python_bootstrap",
+    visibility = ["PUBLIC"],
 )
