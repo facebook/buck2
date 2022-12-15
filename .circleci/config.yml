@@ -153,15 +153,21 @@ jobs:
           with_cache: false
       - rust/build:
           with_cache: false
+      - run:
+          name: Build buck2 binary
+          command: |
+            mkdir C:/tmp/artifacts
+            cargo build --bin=buck2 --release -Z unstable-options --out-dir=C:/tmp/artifacts
+      - run:
+          name: Setup and build example/prelude directory
+          command: |
+            cd examples/prelude
+            cmd.exe /c mklink /D prelude C:\Users\circleci\project\prelude
+            C:/tmp/artifacts/buck2.exe build //...
       - when:
           condition:
             *is_main_branch
           steps:
-          - run:
-              name: Build buck2 binary to upload
-              command: |
-                mkdir C:/tmp/artifacts
-                cargo build --bin=buck2 --release -Z unstable-options --out-dir=C:/tmp/artifacts
           - store_artifacts:
               path: C:/tmp/artifacts/buck2.exe
               destination: buck2-windows.exe
