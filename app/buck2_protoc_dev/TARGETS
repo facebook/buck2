@@ -7,6 +7,7 @@ rust_library(
     name = "buck2_protoc_dev",
     srcs = glob(["src/**/*.rs"]),
     deps = [
+        "fbsource//third-party/rust:dunce",
         "fbsource//third-party/rust:tonic-build",
     ],
 )

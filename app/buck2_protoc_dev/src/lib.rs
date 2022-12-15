@@ -9,7 +9,6 @@
 
 use std::env;
 use std::ffi::OsString;
-use std::fs;
 use std::io;
 use std::path::Path;
 use std::path::PathBuf;
@@ -35,7 +34,7 @@ fn maybe_set_var(var: &str, path: &Path) {
         return;
     }
 
-    let path = fs::canonicalize(path).expect("Failed to canonicalize path");
+    let path = dunce::canonicalize(path).expect("Failed to canonicalize path");
     eprintln!("INFO: Variable ${} set to {:?}", var, path);
     env::set_var(var, path);
 }
