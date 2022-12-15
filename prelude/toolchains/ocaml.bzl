@@ -28,17 +28,19 @@ def _system_ocaml_toolchain_impl(_ctx):
             # [Note: What is `binutils_ld`?] in `providers.bzl`.
             binutils_ld = None,
 
-            # This one was introduced in D37700753. The diff talks about
-            # cross-compilation IIUC.
+            # `ocamlopt.opt` makes calls to `as`. If this config
+            # paramter is `None` thos calls will resolve to whatever
+            # `as` is in the environment. If not `None` then the
+            # provided value will be what's invoked.
             binutils_as = None,
             dep_tool = RunInfo(args = ["ocamldep.opt"]),
             yacc_compiler = RunInfo(args = ["ocamlyacc"]),
-            menhir_compiler = RunInfo(args = ["menir"]),
-            lex_compiler = RunInfo(args = ["lex.compiler"]),
+            menhir_compiler = RunInfo(args = ["menhir"]),
+            lex_compiler = RunInfo(args = ["ocamllex.opt"]),
             interop_includes = None,
             libc = None,
             ocaml_bytecode_compiler = RunInfo(args = ["ocamlc.opt"]),
-            debug = RunInfo(args = ["ocamldebug"]),
+            debug = None,
             warnings_flags = "-4-29-35-41-42-44-45-48-50-58-70",
             ocaml_compiler_flags = [],  # e.g. "-opaque"
         ),

@@ -1,4 +1,3 @@
-load("@prelude//rules.bzl", "ocaml_binary")
 load("//test_utils.bzl", "assert_output")
 
 ocaml_binary(
