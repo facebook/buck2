@@ -30,7 +30,10 @@ impl KillCommand {
                 }
                 Ok(mut client) => {
                     buck2_client_ctx::eprintln!("killing buckd server")?;
-                    client.with_flushing().kill("`buck kill` invoked").await?;
+                    client
+                        .with_flushing()
+                        .kill("`buck kill` was invoked")
+                        .await?;
                 }
             }
             Ok(())

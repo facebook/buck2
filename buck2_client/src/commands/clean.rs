@@ -104,7 +104,7 @@ impl CleanCommand {
             {
                 buckd
                     .with_flushing()
-                    .kill("Killing daemon to safely clean")
+                    .kill("`buck2 clean` was invoked")
                     .await?;
             }
             clean(buck_out_dir, daemon_dir, console, Some(&lifecycle_lock)).await
