@@ -131,6 +131,7 @@ _FRAMEWORK_INTRODUCED_VERSIONS = {
         "iphoneos": (13, 0, 0),
         "maccatalyst": (13, 0, 0),
     },
+    "BusinessChat": {"iphoneos": (11, 3, 0), "macosx": (10, 13, 4)},
     "CFNetwork": {
         "appletvos": (9, 0, 0),
         "iphoneos": (2, 0, 0),
