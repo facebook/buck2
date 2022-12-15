@@ -1,0 +1,7 @@
+ocaml_binary(
+    name = "calc",                                                              srcs = [
+        "calc.ml",
+        "lexer.mll",
+        "parser.mly",
+    ],
+)

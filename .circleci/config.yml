@@ -18,28 +18,24 @@ commands:
     description: Setup env for Linux
     steps:
       - run: sudo apt-get update
-      - run: sudo apt-get install libssl-dev cmake protobuf-compiler clang
+      - run: sudo apt-get install libssl-dev cmake protobuf-compiler clang opam
       - run:
-          name: Install opam
+          name: Init opam
           command: |
-            sudo apt-get install opam
-            opam init --shell-setup --disable-sandboxing -y
-            eval $(opam env --switch=default)
-            # Path '/usr/lib/ocaml' is correct for Linux.
-            :
+            opam init --disable-sandboxing -y
+            opam install menhir -y
       - print_versions
 
   setup_macos_env:
     description: Setup env for macOS
     steps:
       - run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-      - run: brew install cmake protobuf coreutils
+      - run: brew install cmake protobuf coreutils opam
       - run:
-          name: Install opam
+          name: Init opam
           command: |
-            brew install opam
-            opam init --shell-setup --disable-sandboxing -y
-            eval $(opam env --switch=default)
+            opam init --disable-sandboxing -y
+            opam install menhir -y
       - print_versions
 
   setup_windows_env:
@@ -84,6 +80,9 @@ jobs:
           command: |
             cd examples/prelude
             ln -s $(realpath ../../prelude) prelude
+            which ocamlopt.opt
+            eval $(opam env --switch=default)
+            which menhir
             /tmp/artifacts/buck2 build //...
       - when:
           condition:
