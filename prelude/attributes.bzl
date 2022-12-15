@@ -1,4 +1,4 @@
-# @generated SignedSource<<52dac3cce8ff0e6025a809fa1d6a80c3>>
+# @generated SignedSource<<0a87f7d403228a5f79e0ca5ec9c87dc7>>
 # Generated with generate_rules_shim.py from a dump of buck v1's attrs.
 # See `fbsource/fbcode/buck2/scripts/generate_rules_shim.py` for how to reproduce it.
 # Add any Buck2-only arguments or overrides to `extra_attributes` in `rules_impl.bzl`
@@ -971,6 +971,7 @@ attributes = {
         "labels": attrs.list(attrs.string(), default = []),
         "licenses": attrs.list(attrs.source(), default = []),
         "platform": attrs.configuration_label(),
+        "propagate_flavors": attrs.bool(),
         "within_view": attrs.option(attrs.list(attrs.string())),
     },
     "constraint_setting": {
