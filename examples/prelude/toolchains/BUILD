@@ -1,4 +1,5 @@
-load(":toolchain.bzl", "cxx_toolchain", "ocaml_toolchain")
+load(":toolchain.bzl", "cxx_toolchain")
+load("@prelude//toolchains:ocaml.bzl", "system_ocaml_toolchain")
 load("@prelude//toolchains:python.bzl", "system_python_bootstrap_toolchain", "system_python_toolchain")
 
 cxx_toolchain(
@@ -6,9 +7,9 @@ cxx_toolchain(
     visibility=["PUBLIC"],
 )
 
-ocaml_toolchain(
-    name="ocaml",
-    visibility=["PUBLIC"],
+system_ocaml_toolchain(
+    name = "ocaml",
+    visibility = ["PUBLIC"],
 )
 
 system_python_toolchain(

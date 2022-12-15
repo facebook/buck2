@@ -22,11 +22,6 @@ load(
     "@prelude//linking:link_info.bzl",
     "LinkStyle",
 )
-load(
-    "@prelude//ocaml/providers.bzl",
-    "OCamlPlatformInfo",
-    "OCamlToolchainInfo",
-)
 
 DEFAULT_MAKE_COMP_DB = "@prelude//cxx/tools:make_comp_db"
 
@@ -103,50 +98,6 @@ cxx_toolchain = rule(
         "link_style": attrs.string(default = "shared"),
         "make_comp_db": attrs.dep(providers = [RunInfo], default = DEFAULT_MAKE_COMP_DB),
         "make_shlib_intf": attrs.dep(providers = [RunInfo], default = DEFAULT_MAKE_COMP_DB),
-    },
-    is_toolchain_rule = True,
-)
-
-def _ocaml_toolchain(_ctx):
-    """
-    A very simple toolchain that is hardcoded to the current environment.
-    """
-
-    return [
-        DefaultInfo(
-        ),
-        OCamlToolchainInfo(
-            ocaml_compiler = RunInfo(args = ["ocamlopt.opt"]),
-
-            # "Partial linking" (via `ocamlopt.opt -output-obj`) emits calls to
-            # `ld -r -o`. If not `None`, this is the `ld` that will be invoked;
-            # the default is to use whatever `ld` is in the environment. See
-            # [Note: What is `binutils_ld`?] in `providers.bzl`.
-            binutils_ld = None,
-
-            # This one was introduced in D37700753. The diff talks about
-            # cross-compilation IIUC.
-            binutils_as = None,
-            dep_tool = RunInfo(args = ["ocamldep.opt"]),
-            yacc_compiler = RunInfo(args = ["ocamlyacc"]),
-            menhir_compiler = RunInfo(args = ["menir"]),
-            lex_compiler = RunInfo(args = ["lex.compiler"]),
-
-            # These are choices for CircleCI ubuntu. The right values vary from
-            # platform to platform.
-            interop_includes = "/usr/lib/ocaml",
-            libc = None,
-            ocaml_bytecode_compiler = RunInfo(args = ["ocamlc.opt"]),
-            debug = RunInfo(args = ["ocamldebug"]),
-            warnings_flags = "-4-29-35-41-42-44-45-48-50-58-70",
-            ocaml_compiler_flags = [],  # e.g. "-opaque"
-        ),
-        OCamlPlatformInfo(name = "x86_64"),
-    ]
-
-ocaml_toolchain = rule(
-    impl = _ocaml_toolchain,
-    attrs = {
     },
     is_toolchain_rule = True,
 )
