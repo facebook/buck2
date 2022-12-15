@@ -94,26 +94,14 @@ def make_pex(
 
     if not (standalone or
             package_style == PackageStyle("inplace") or
-            package_style == PackageStyle("inplace_lite") or
-            package_style == PackageStyle("relocatable")):
+            package_style == PackageStyle("inplace_lite")):
         fail("unsupported package style: {}".format(package_style))
 
-    if standalone:
-        # No separate modules directory for standalone style
-        modules_dir = None
-    else:
-        # relocatable packages will not have symlinks at runtime, but they're still
-        # symlinks in buck-out here
-        modules_suffix = "tree" if PackageStyle("relocatable") == package_style else "link-tree"
-        modules_dir = ctx.actions.declare_output("{}#{}".format(ctx.attrs.name, modules_suffix))
+    symlink_tree_path = None
+    if not standalone:
+        symlink_tree_path = ctx.actions.declare_output("{}#link-tree".format(ctx.attrs.name))
 
-    modules_args, hidden = _pex_modules_args(
-        ctx,
-        pex_modules,
-        {name: lib for name, (lib, _) in shared_libraries.items()},
-        modules_dir,
-        package_style,
-    )
+    modules_args, hidden = _pex_modules_args(ctx, pex_modules, {name: lib for name, (lib, _) in shared_libraries.items()}, symlink_tree_path)
 
     bootstrap_args = _pex_bootstrap_args(
         ctx,
@@ -123,7 +111,7 @@ def make_pex(
         main_module,
         output,
         shared_libraries,
-        modules_dir,
+        symlink_tree_path,
         package_style,
     )
     bootstrap_args.add(build_args)
@@ -142,23 +130,14 @@ def make_pex(
         ctx.actions.run(cmd, prefer_local = prefer_local, category = "par", identifier = "standalone")
 
     else:
-        hidden.append(modules_dir)
+        hidden.append(symlink_tree_path)
         modules = cmd_args(python_toolchain.make_pex_modules)
         modules.add(modules_args)
         ctx.actions.run(modules, category = "par", identifier = "modules")
 
         bootstrap = cmd_args(python_toolchain.make_pex_inplace)
         bootstrap.add(bootstrap_args)
-        local_only = False
-        if package_style == PackageStyle("relocatable"):
-            if python_toolchain.pex_uploader == None:
-                fail("Python toolchain does not provide pex_uploader")
-
-            bootstrap.add("--uploader", cmd_args(python_toolchain.pex_uploader, delimiter = " "))
-            bootstrap.hidden(hidden)
-            local_only = True
-
-        ctx.actions.run(bootstrap, local_only = local_only, category = "par", identifier = "bootstrap")
+        ctx.actions.run(bootstrap, category = "par", identifier = "bootstrap")
 
     runtime_files.extend(hidden)
 
@@ -184,7 +163,7 @@ def _pex_bootstrap_args(
         main_module: str.type,
         output: "artifact",
         shared_libraries: {str.type: (LinkedObject.type, bool.type)},
-        modules_dir: [None, "artifact"],
+        symlink_tree_path: [None, "artifact"],
         package_style: PackageStyle.type) -> "cmd_args":
     preload_libraries_path = ctx.actions.write(
         "__preload_libraries.txt",
@@ -207,8 +186,8 @@ def _pex_bootstrap_args(
     ])
     if python_interpreter_flags:
         cmd.add("--python-interpreter-flags", python_interpreter_flags)
-    if modules_dir != None:
-        cmd.add(cmd_args(["--modules-dir", modules_dir]).ignore_artifacts())
+    if symlink_tree_path != None:
+        cmd.add(cmd_args(["--modules-dir", symlink_tree_path]).ignore_artifacts())
 
     # Package style `inplace_lite` cannot be used with shared libraries
     if package_style == PackageStyle("inplace_lite") and not shared_libraries:
@@ -221,8 +200,7 @@ def _pex_modules_args(
         ctx: "context",
         pex_modules: PexModules.type,
         shared_libraries: {str.type: LinkedObject.type},
-        modules_dir: [None, "artifact"],
-        package_style: PackageStyle.type) -> ("cmd_args", ["_arglike"]):
+        symlink_tree_path: [None, "artifact"]) -> ("cmd_args", ["_arglike"]):
     """
     Produces args to deal with a PEX's modules. Returns args to pass to the
     modules builder, and artifacts the resulting modules would require at
@@ -294,8 +272,8 @@ def _pex_modules_args(
         cmd.add(cmd_args(dwp_srcs_args, format = "@{}"))
         cmd.add(cmd_args(dwp_dests_path, format = "@{}"))
 
-    if modules_dir != None:
-        cmd.add(["--modules-dir", modules_dir.as_output()])
+    if symlink_tree_path != None:
+        cmd.add(["--modules-dir", symlink_tree_path.as_output()])
 
     # Accumulate all the artifacts we depend on. Only add them to the command
     # if we are not going to create symlinks.
@@ -306,7 +284,7 @@ def _pex_modules_args(
         dwp +
         flatten([lib.external_debug_info for lib in shared_libraries.values()])
     )
-    if package_style == PackageStyle("standalone"):
+    if symlink_tree_path == None:
         cmd.hidden(hidden)
         hidden = []
 

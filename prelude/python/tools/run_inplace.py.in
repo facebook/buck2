@@ -13,7 +13,6 @@ native_libs_dir = <NATIVE_LIBS_DIR>
 native_libs_preload_env_var = "<NATIVE_LIBS_PRELOAD_ENV_VAR>"
 native_libs_preload = <NATIVE_LIBS_PRELOAD>
 interpreter_flags = "<PYTHON_INTERPRETER_FLAGS>"
-modules_digest = "<REMOTE_MODULES_DIGEST>"
 
 import os
 import platform
@@ -71,18 +70,6 @@ if platform.system() == "Windows":
     # actual pex we want to execute, if we're in a symlink. os.path.realpath
     # does *not* dereference symlinks on windows until, like, 3.8 maybe.
     dirpath = os.path.dirname(try_resolve_possible_symlink(sys.argv[0]))
-
-if modules_digest:
-    modules_dir = os.path.join(modules_dir, modules_digest.replace(':', '_'))
-    native_libs_dir = os.path.join(native_libs_dir, modules_digest.replace(':', '_'))
-
-pythonpath = os.path.join(dirpath, modules_dir)
-if not os.path.exists(pythonpath) and modules_digest:
-    # TODO: unhardcode this and stop relying on frecli
-    subprocess.run(
-        ["/usr/local/bin/frecli", "cas", "download-tree", modules_digest, pythonpath],
-        check=True,
-    )
 
 env_vals_to_restore = {}
 # Update the environment variable for the dynamic loader to the native
@@ -196,7 +183,7 @@ def __run():
 __run()
 """.format(
     arg0=sys.argv[0],
-    pythonpath=pythonpath,
+    pythonpath=os.path.join(dirpath, modules_dir),
     env_vals=env_vals_to_restore,
     main_module=main_module,
     this_file=__file__,

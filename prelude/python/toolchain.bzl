@@ -30,7 +30,6 @@ PackageStyle = enum(
     "inplace",
     "standalone",
     "inplace_lite",
-    "relocatable",
 )
 
 PythonToolchainInfo = provider(fields = [
@@ -51,7 +50,6 @@ PythonToolchainInfo = provider(fields = [
     "pex_executor",
     "pex_extension",
     "emit_omnibus_metadata",
-    "pex_uploader",
 ])
 
 # Stores "platform"/flavor name used to resolve *platform_* arguments

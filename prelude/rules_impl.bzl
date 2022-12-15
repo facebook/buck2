@@ -214,15 +214,12 @@ def _cxx_python_extension_attrs():
     })
     return res
 
-PackageStyle = ["standalone", "inplace", "inplace_lite", "relocatable"]
-
 def _python_test_attrs():
     return {
         "allow_huge_dwp": attrs.bool(default = False),
         "bundled_runtime": attrs.bool(default = False),
         "enable_distributed_thinlto": attrs.bool(default = False),
         "package_split_dwarf_dwp": attrs.bool(default = False),
-        "package_style": attrs.option(attrs.enum(PackageStyle), default = None),
         "remote_execution": attrs.option(attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False)),
         "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source(allow_directory = True)), sorted = True, default = []),
         "_create_manifest_for_source_dir": _create_manifest_for_source_dir(),
@@ -282,7 +279,6 @@ def _python_binary_attrs():
         "link_style": attrs.enum(LinkableDepType, default = "static"),
         "native_link_strategy": attrs.option(attrs.enum(NativeLinkStrategy), default = None),
         "package_split_dwarf_dwp": attrs.bool(default = False),
-        "package_style": attrs.option(attrs.enum(PackageStyle), default = None),
         "par_style": attrs.option(attrs.string(), default = None),
         "use_link_groups": attrs.bool(default = False),
         "_create_manifest_for_source_dir": _create_manifest_for_source_dir(),
