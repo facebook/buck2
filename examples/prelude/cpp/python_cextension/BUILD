@@ -18,4 +18,4 @@ cxx_library(
         "-isystem{}".format("/usr/include/python3.10"),
     ],
     visibility = ["PUBLIC"],
-)
+) if not host_info().os.is_windows else None

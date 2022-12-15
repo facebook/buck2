@@ -6,10 +6,10 @@ cxx_binary(
     link_style = "static",
     srcs = ["main.cpp"],
     deps = ["//cpp/library:print"]
-)
+) if not host_info().os.is_windows else None
 
 assert_output(
     name = "check_main",
     command = "$(exe_target :main)",
     output = "hello world from cpp toolchain",
-)
+) if not host_info().os.is_windows else None
