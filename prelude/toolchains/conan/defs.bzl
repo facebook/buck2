@@ -89,8 +89,6 @@ def conan_component(
         directories = include_paths,
     )
 
-    # TODO[AH] Handle system_libs.
-
     if len(libs) == 1:
         lib = libs[0]
         if lib in shared_libs:
