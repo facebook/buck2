@@ -109,7 +109,7 @@ impl Forkserver for UnixForkserverService {
 
             let mut cmd = prepare_command(cmd);
 
-            let child = cmd.spawn().context("Spawn failed")?;
+            let child = cmd.spawn();
 
             let timeout = timeout_into_cancellation(timeout);
 

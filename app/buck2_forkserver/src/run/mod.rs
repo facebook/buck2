@@ -144,12 +144,22 @@ pub async fn timeout_into_cancellation(
 }
 
 pub fn stream_command_events<T>(
-    mut child: Child,
+    child: io::Result<Child>,
     cancellation: T,
 ) -> anyhow::Result<impl Stream<Item = anyhow::Result<CommandEvent>>>
 where
     T: Future<Output = anyhow::Result<GatherOutputStatus>>,
 {
+    let mut child = match child {
+        Ok(child) => child,
+        Err(e) => {
+            let event = Ok(CommandEvent::Exit(GatherOutputStatus::SpawnFailed(
+                e.to_string(),
+            )));
+            return Ok(futures::stream::once(futures::future::ready(event)).left_stream());
+        }
+    };
+
     let stdout = child.stdout.take().context("Child stdout is not piped")?;
     let stderr = child.stderr.take().context("Child stderr is not piped")?;
 
@@ -199,7 +209,7 @@ where
 
     let stdio = futures::stream::select(stdout, stderr);
 
-    Ok(CommandEventStream::new(status, stdio))
+    Ok(CommandEventStream::new(status, stdio).right_stream())
 }
 
 pub(crate) async fn decode_command_event_stream<S>(
@@ -235,10 +245,7 @@ where
 {
     let cmd = prepare_command(cmd);
 
-    let child = spawn_retry_txt_busy(cmd, || tokio::time::sleep(Duration::from_millis(50)))
-        .await
-        .context("Failed to start command")?;
-
+    let child = spawn_retry_txt_busy(cmd, || tokio::time::sleep(Duration::from_millis(50))).await;
     let stream = stream_command_events(child, cancellation)?;
     decode_command_event_stream(stream).await
 }
@@ -512,7 +519,7 @@ mod tests {
         };
         cmd.args(["-c", "exit 0"]);
 
-        let child = prepare_command(cmd).spawn()?;
+        let child = prepare_command(cmd).spawn();
         let mut events = stream_command_events(child, futures::future::pending())?.boxed();
         assert_matches!(events.next().await, Some(Ok(CommandEvent::Exit(..))));
         assert_matches!(futures::poll!(events.next()), Poll::Ready(None));
