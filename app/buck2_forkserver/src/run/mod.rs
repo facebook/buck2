@@ -38,6 +38,7 @@ pub enum GatherOutputStatus {
     Finished(ExitStatus),
     TimedOut(Duration),
     Cancelled,
+    SpawnFailed(String),
 }
 
 #[derive(Debug)]

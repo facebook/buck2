@@ -377,6 +377,21 @@ impl LocalExecutor {
                     v => manager.failure(execution_kind, outputs, std_streams, v),
                 }
             }
+            GatherOutputStatus::SpawnFailed(reason) => {
+                // We are lying about the std streams here because we don't have a good mechanism
+                // to report that the command does not exist, and because that's exactly what RE
+                // also does when this happens.
+                manager.failure(
+                    execution_kind,
+                    Default::default(),
+                    CommandStdStreams::Local {
+                        stdout: Default::default(),
+                        stderr: format!("Spawning executable `{}` failed: {}", args[0], reason)
+                            .into_bytes(),
+                    },
+                    None,
+                )
+            }
             GatherOutputStatus::TimedOut(duration) => {
                 manager.timeout(execution_kind, duration, std_streams, timing)
             }

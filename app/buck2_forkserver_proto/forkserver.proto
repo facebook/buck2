@@ -60,6 +60,7 @@ message CommandEvent {
     StreamEvent stdout = 4;
     StreamEvent stderr = 5;
     CancelEvent cancel = 6;
+    SpawnFailedEvent spawn_failed = 7;
   }
 }
 
@@ -78,6 +79,10 @@ message StreamEvent {
 message CancelEvent {}
 
 message CancelRequest {}
+
+message SpawnFailedEvent {
+  string reason = 1;
+}
 
 message RequestEvent {
   oneof data {

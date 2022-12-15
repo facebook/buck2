@@ -58,6 +58,9 @@ where
             CommandEvent::Exit(GatherOutputStatus::Cancelled) => {
                 Data::Cancel(buck2_forkserver_proto::CancelEvent {})
             }
+            CommandEvent::Exit(GatherOutputStatus::SpawnFailed(reason)) => {
+                Data::SpawnFailed(buck2_forkserver_proto::SpawnFailedEvent { reason })
+            }
         };
 
         buck2_forkserver_proto::CommandEvent { data: Some(data) }
@@ -111,6 +114,9 @@ where
             }
             Data::Cancel(buck2_forkserver_proto::CancelEvent {}) => {
                 CommandEvent::Exit(GatherOutputStatus::Cancelled)
+            }
+            Data::SpawnFailed(buck2_forkserver_proto::SpawnFailedEvent { reason }) => {
+                CommandEvent::Exit(GatherOutputStatus::SpawnFailed(reason))
             }
         };
 
