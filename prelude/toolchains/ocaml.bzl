@@ -35,10 +35,7 @@ def _system_ocaml_toolchain_impl(_ctx):
             yacc_compiler = RunInfo(args = ["ocamlyacc"]),
             menhir_compiler = RunInfo(args = ["menir"]),
             lex_compiler = RunInfo(args = ["lex.compiler"]),
-
-            # These are choices for CircleCI ubuntu. The right values vary from
-            # platform to platform.
-            interop_includes = "/usr/lib/ocaml",
+            interop_includes = None,
             libc = None,
             ocaml_bytecode_compiler = RunInfo(args = ["ocamlc.opt"]),
             debug = RunInfo(args = ["ocamldebug"]),

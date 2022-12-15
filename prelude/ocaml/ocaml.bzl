@@ -215,7 +215,9 @@ def _compiler_cmd(ctx: "context", compiler: "cmd_args", cc: "cmd_args") -> "cmd_
     ocaml_toolchain = ctx.attrs._ocaml_toolchain[OCamlToolchainInfo]
 
     cmd = cmd_args(compiler)
-    cmd.add("-g", "-noautolink", "-nostdlib")
+    cmd.add("-g", "-noautolink")
+    if ocaml_toolchain.interop_includes:
+        cmd.add("-nostdlib")
     cmd.add("-cc", cc)
 
     # First add compiler flags. These contain 'ocaml_common.bzl' flags
@@ -237,7 +239,7 @@ def _include_paths_in_context(ctx: "context", bytecode_or_native: BuildMode.type
     ocaml_toolchain = ctx.attrs._ocaml_toolchain[OCamlToolchainInfo]
     is_native = bytecode_or_native.value == "native"
 
-    includes = [cmd_args(ocaml_toolchain.interop_includes)]
+    includes = [cmd_args(ocaml_toolchain.interop_includes)] if ocaml_toolchain.interop_includes else []
     ocaml_libs = merge_ocaml_link_infos(_attr_deps_ocaml_link_infos(ctx)).info
     accessible_libs = [d.label for d in ctx.attrs.deps] + [d.label for d in _by_platform(ctx, ctx.attrs.platform_deps)]
     for lib in ocaml_libs:
@@ -695,8 +697,9 @@ def ocaml_binary_impl(ctx: "context") -> ["provider"]:
     cmd_byt = _compiler_cmd(ctx, ocamlc, ld_byt)
 
     # These -I's are to find 'stdlib.cmxa'/'stdlib.cma'.
-    cmd_nat.add(cmd_args(ocaml_toolchain.interop_includes, format = "-I={}"))
-    cmd_byt.add(cmd_args(ocaml_toolchain.interop_includes, format = "-I={}"))
+    if ocaml_toolchain.interop_includes:
+        cmd_nat.add(cmd_args(ocaml_toolchain.interop_includes, format = "-I={}"))
+        cmd_byt.add(cmd_args(ocaml_toolchain.interop_includes, format = "-I={}"))
 
     for lib in merge_ocaml_link_infos(_attr_deps_ocaml_link_infos(ctx)).info:
         cmd_nat.add(lib.cmxas, lib.c_libs, lib.native_c_libs, lib.stbs_nat)
@@ -768,7 +771,8 @@ def ocaml_object_impl(ctx: "context") -> ["provider"]:
     cmd = _compiler_cmd(ctx, ocamlopt, ld)
 
     # These -I's are to find 'stdlib.cmxa'/'stdlib.cma'.
-    cmd.add(cmd_args(ocaml_toolchain.interop_includes, format = "-I={}"))
+    if ocaml_toolchain.interop_includes:
+        cmd.add(cmd_args(ocaml_toolchain.interop_includes, format = "-I={}"))
 
     for lib in merge_ocaml_link_infos(_attr_deps_ocaml_link_infos(ctx)).info:
         cmd.add(lib.cmxas, lib.c_libs, lib.native_c_libs, lib.stbs_nat)
