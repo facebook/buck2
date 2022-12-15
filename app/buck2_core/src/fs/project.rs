@@ -194,7 +194,7 @@ impl ProjectRoot {
     ///
     /// # anyhow::Ok(())
     /// ```
-    pub fn as_relative_path<P: ?Sized + AsRef<ProjectRelativePath>>(&self, path: &P) -> PathBuf {
+    pub fn as_relative_path<P: AsRef<ProjectRelativePath>>(&self, path: P) -> PathBuf {
         let rel: &RelativePath = (path.as_ref().0).as_ref();
         PathBuf::from(rel.as_str())
     }
@@ -241,9 +241,9 @@ impl ProjectRoot {
     /// # anyhow::Ok(())
     /// ```
     pub fn relativize<'a, P: ?Sized + AsRef<AbsNormPath>>(
-        &'a self,
+        &self,
         p: &'a P,
-    ) -> anyhow::Result<Cow<ProjectRelativePath>> {
+    ) -> anyhow::Result<Cow<'a, ProjectRelativePath>> {
         let relative_path = p.as_ref().strip_prefix(self.root()).map_err(|_| {
             anyhow::anyhow!(
                 "Error relativizing: `{}` is not relative to project root `{}`",
