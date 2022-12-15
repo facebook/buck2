@@ -263,13 +263,20 @@ impl BuckdClient {
 
     pub async fn kill(&mut self, reason: &str) -> anyhow::Result<()> {
         let pid = self.info.pid;
+        let callers = get_callers_for_kill();
+
         let request_fut = self
             .client
             .daemon_only_mut()
             .kill(Request::new(KillRequest {
                 reason: reason.to_owned(),
                 timeout: Some(GRACEFUL_SHUTDOWN_TIMEOUT.try_into()?),
-                caller: get_caller_for_kill(),
+                caller: if callers.is_empty() {
+                    None
+                } else {
+                    Some(itertools::join(callers.iter(), " -> "))
+                },
+                callers,
             }));
         let time_to_kill = GRACEFUL_SHUTDOWN_TIMEOUT + FORCE_SHUTDOWN_TIMEOUT;
         let time_req_sent = Instant::now();
@@ -617,12 +624,12 @@ fn create_client_stream<
     stream::once(async move { init_req }).chain(requests.map(|request| request.into()))
 }
 
-fn get_caller_for_kill() -> Option<String> {
+fn get_callers_for_kill() -> Vec<String> {
     /// Add a proess to our parts, and return its parent PID.
     fn push_process(pid: Pid, system: &mut System, process_tree: &mut Vec<String>) -> Option<Pid> {
         system.refresh_process_specifics(pid, ProcessRefreshKind::new());
         let proc = system.process(pid)?;
-        let title = format!("({})", shlex::join(proc.cmd().iter().map(|s| s.as_str())));
+        let title = shlex::join(proc.cmd().iter().map(|s| s.as_str()));
         process_tree.push(title);
         proc.parent()
     }
@@ -635,11 +642,7 @@ fn get_caller_for_kill() -> Option<String> {
         pid = push_process(p, &mut system, &mut process_tree);
     }
 
-    if process_tree.is_empty() {
-        return None;
-    }
-
-    Some(itertools::join(process_tree.iter().rev(), " -> "))
+    process_tree.into_iter().rev().collect()
 }
 
 #[cfg(test)]

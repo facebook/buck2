@@ -9,6 +9,8 @@
 
 #![allow(clippy::significant_drop_in_scrutinee)] // FIXME?
 
+use std::borrow::Cow;
+use std::fmt::Write;
 use std::future;
 use std::io;
 use std::path::Path;
@@ -50,6 +52,7 @@ use cli_proto::daemon_api_server::*;
 use cli_proto::*;
 use dice::cycles::DetectCycles;
 use dice::Dice;
+use either::Either;
 use futures::channel::mpsc;
 use futures::channel::mpsc::UnboundedReceiver;
 use futures::channel::mpsc::UnboundedSender;
@@ -663,11 +666,35 @@ impl DaemonApi for BuckdServer {
                 .map(convert_positive_duration)
                 .transpose()?;
 
-            let message = format!(
-                "{}, caller: {}",
-                req.reason,
-                req.caller.as_deref().unwrap_or("not known")
-            );
+            let mut message = format!("{}, caller:", req.reason);
+
+            let caller_iter = if req.callers.is_empty() {
+                Either::Left(std::iter::once(
+                    req.caller.as_deref().unwrap_or("<not known>"),
+                ))
+            } else {
+                Either::Right(req.callers.iter().map(|s| s.as_str()))
+            };
+
+            for caller in caller_iter {
+                let max_len = 70;
+
+                let short_caller = if caller.len() > max_len {
+                    Cow::Owned(
+                        caller
+                            .chars()
+                            .take(max_len)
+                            .chain(std::iter::repeat('.').take(3))
+                            .collect(),
+                    )
+                } else {
+                    Cow::Borrowed(caller)
+                };
+
+                // Write to a string never panics.
+                writeln!(&mut message).unwrap();
+                write!(&mut message, "  * {}", short_caller).unwrap();
+            }
 
             self.0.daemon_shutdown.start_shutdown(message, timeout);
             Ok(KillResponse {})
