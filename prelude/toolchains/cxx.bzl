@@ -23,9 +23,7 @@ load(
     "LinkStyle",
 )
 
-DEFAULT_MAKE_COMP_DB = "@prelude//cxx/tools:make_comp_db"
-
-def _cxx_toolchain(ctx):
+def _system_cxx_toolchain_impl(ctx):
     """
     A very simple toolchain that is hardcoded to the current environment.
     """
@@ -55,7 +53,7 @@ def _cxx_toolchain(ctx):
                 static_pic_dep_runtime_ld_flags = [],
                 shared_dep_runtime_ld_flags = [],
                 independent_shlib_interface_linker_flags = [],
-                mk_shlib_intf = ctx.attrs.make_shlib_intf,
+                shlib_interfaces = "disabled",
                 link_style = LinkStyle(ctx.attrs.link_style),
                 link_weight = 1,
                 binary_extension = "",
@@ -92,12 +90,12 @@ def _cxx_toolchain(ctx):
         CxxPlatformInfo(name = "x86_64"),
     ]
 
-cxx_toolchain = rule(
-    impl = _cxx_toolchain,
+# A curious mix of clang and g++. Probably needs tidying up.
+system_cxx_toolchain = rule(
+    impl = _system_cxx_toolchain_impl,
     attrs = {
         "link_style": attrs.string(default = "shared"),
-        "make_comp_db": attrs.dep(providers = [RunInfo], default = DEFAULT_MAKE_COMP_DB),
-        "make_shlib_intf": attrs.dep(providers = [RunInfo], default = DEFAULT_MAKE_COMP_DB),
+        "make_comp_db": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//cxx/tools:make_comp_db")),
     },
     is_toolchain_rule = True,
 )
