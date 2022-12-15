@@ -104,7 +104,7 @@ def conan_component(
         native.prebuilt_cxx_library(
             name = name,
             deps = deps,  # TODO[AH] Do we need exported_deps?
-            exported_headers = extract_include_paths,  # TODO[AH] Should we use header_dirs? Should we list individual files here?
+            header_dirs = extract_include_paths,
             exported_preprocessor_flags = ["-D" + d for d in defines],
             exported_lang_preprocessor_flags = {
                 "c": cflags,
