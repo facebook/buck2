@@ -110,6 +110,7 @@ def conan_component(
                 "c": cflags,
                 "cxx": cppflags,
             },
+            exported_post_linker_flags = ["-l" + lib for lib in system_libs],
             shared_lib = shared_lib,
             static_lib = static_lib,
             # TODO[AH] Can we set static_pic_lib, some libs seem to end on _pic?
