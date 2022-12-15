@@ -332,11 +332,9 @@ async fn command_details(
     let omit_details =
         allow_omit_details && matches!(command.status, CommandExecutionStatus::Success { .. });
 
-    // NOTE: This is a bit sketchy. We know that either we don't care about the exit code,
-    // or that it's there and nonzero. A better representation would be to move the
-    // exit_code to only be present on the CommandFailed variant, but that's a breaking
-    // protobuf change for little benefit, so for now we don't do it.
-    let exit_code = command.exit_code.unwrap_or(0) as u32;
+    // It's somewhat unfortunate that we internally track exit codes as i32 but our protobuf turns
+    // them into u32.
+    let exit_code = command.exit_code.and_then(|e| e.try_into().ok());
 
     let stdout;
     let stderr;

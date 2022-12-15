@@ -10,6 +10,7 @@
 // TODO(brasselsprouts): move this onto the original core types and convert in events
 
 use std::borrow::Cow;
+use std::fmt;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -481,9 +482,25 @@ fn failure_reason_for_command_execution(
     Ok(match status {
         Status::Success(Success {}) => "Unexpected command status".to_owned(),
         Status::Failure(Failure {}) => {
+            struct OptionalExitCode {
+                code: Option<u32>,
+            }
+
+            impl fmt::Display for OptionalExitCode {
+                fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                    match self.code {
+                        Some(code) => write!(f, "{}", code),
+                        None => write!(f, "<no exit code>"),
+                    }
+                }
+            }
+
             format!(
                 "{}command returned non-zero exit code {}",
-                locality, command.exit_code
+                locality,
+                OptionalExitCode {
+                    code: command.exit_code
+                }
             )
         }
         Status::Timeout(Timeout { duration }) => {
