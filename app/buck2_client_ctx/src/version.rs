@@ -32,18 +32,13 @@ impl BuckVersion {
         Self::get().version()
     }
 
-    #[cfg(any(fbcode_build, cargo_internal_build))]
     fn compute_revision() -> Option<&'static str> {
-        let revision = build_info::BuildInfo::get_revision();
-        if revision.is_empty() {
-            None
-        } else {
-            Some(revision)
+        if let Some(rev) = std::option_env!("BUCK2_SET_EXPLICIT_VERSION") {
+            if !rev.is_empty() {
+                return Some(rev);
+            }
         }
-    }
 
-    #[cfg(not(any(fbcode_build, cargo_internal_build)))]
-    fn compute_revision() -> Option<&'static str> {
         None
     }
 

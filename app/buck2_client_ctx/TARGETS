@@ -6,6 +6,12 @@ oncall("buck2")
 rust_library(
     name = "buck2_client_ctx",
     srcs = glob(["src/**/*.rs"]),
+    env = {
+        # This config value is set by the upload script, and controls the output of `--version`. We
+        # would like to use build info for this, but it is unfortunately not reliably available, see
+        # T140147872.
+        "BUCK2_SET_EXPLICIT_VERSION": read_config("buck", "set_explicit_version", ""),
+    },
     os_deps = [
         (
             "linux",
@@ -79,7 +85,6 @@ rust_library(
         "//buck2/facebook/find_certs:find_certs",
         "//buck2/gazebo/gazebo:gazebo",
         "//buck2/superconsole:superconsole",
-        # @oss-disable: "//common/rust/build_info:build_info", 
         "//common/rust/shed/fbinit:fbinit",
         # @oss-disable: "//common/rust/shed/hostcaps:hostcaps", 
     ],
