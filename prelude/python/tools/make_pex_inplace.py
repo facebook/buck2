@@ -35,10 +35,12 @@ $ ./bin.pex
 """
 
 import argparse
-import errno
 import os
 import platform
+import shlex
 import stat
+import subprocess
+import sys
 from pathlib import Path
 
 
@@ -115,6 +117,17 @@ def parse_args() -> argparse.Namespace:
         ),
         help="The dynamic loader env used to find native library deps",
     )
+    parser.add_argument(
+        "--uploader",
+        type=str,
+        help=(
+            "Path to an uploader binary. When set, the link tree directory will be "
+            "passed to it, and the output bootstrapper script will contain the digest "
+            "of the upload. The binary should expect a single argument (the link tree "
+            "directory) and should print the digest of the upload on stdout. It should "
+            "exit with non-0 to signal failure."
+        ),
+    )
     # Compatibility with existing make_par scripts
     parser.add_argument("--passthrough", action="append", default=[])
 
@@ -123,6 +136,10 @@ def parse_args() -> argparse.Namespace:
 
 def write_bootstrapper(args: argparse.Namespace) -> None:
     """Write the .pex bootstrapper script using a template"""
+
+    modules_digest = None
+    if args.uploader:
+        modules_digest = upload_modules(args.uploader, args.modules_dir)
 
     template = args.template_lite if args.use_lite else args.template
     with open(template, "r", encoding="utf8") as fin:
@@ -159,12 +176,26 @@ def write_bootstrapper(args: argparse.Namespace) -> None:
     new_data = new_data.replace("<NATIVE_LIBS_DIR>", repr(relative_modules_dir))
     new_data = new_data.replace("<NATIVE_LIBS_PRELOAD_ENV_VAR>", "LD_PRELOAD")
     new_data = new_data.replace("<NATIVE_LIBS_PRELOAD>", ld_preload)
+    new_data = new_data.replace("<REMOTE_MODULES_DIGEST>", modules_digest or "")
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     with open(args.output, "w", encoding="utf8") as fout:
         fout.write(new_data)
     mode = os.stat(args.output).st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
     os.chmod(args.output, mode)
+
+
+def upload_modules(uploader: str, dir: str) -> str:
+    try:
+        proc = subprocess.run(
+            [*shlex.split(uploader), dir],
+            check=True,
+            capture_output=True,
+        )
+    except subprocess.CalledProcessError as e:
+        print(e.stderr, file=sys.stderr)
+        raise
+    return proc.stdout.strip().decode()
 
 
 def main() -> None:

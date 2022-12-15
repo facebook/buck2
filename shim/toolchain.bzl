@@ -134,6 +134,7 @@ python_toolchain = rule(
         "make_pex_inplace": attrs.dep(providers = [RunInfo], default = DEFAULT_MAKE_PEX_INPLACE),
         "make_pex_modules": attrs.dep(providers = [RunInfo], default = DEFAULT_MAKE_PEX_MODULES),
         "make_source_db": attrs.dep(providers = [RunInfo], default = DEFAULT_MAKE_COMP_DB),
+        "pex_uploader": attrs.option(attrs.dep(providers = [RunInfo]), default = None),
     },
     is_toolchain_rule = True,
 )
