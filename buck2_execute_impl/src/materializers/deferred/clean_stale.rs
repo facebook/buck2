@@ -158,8 +158,8 @@ fn find_stale_recursive(
     mut result: StaleFinderResult,
 ) -> anyhow::Result<StaleFinderResult> {
     // Use symlink_metadata to not follow symlinks (stale/untracked symlink target may have been cleaned first)
-    let path_type = FileType::from(fs_util::symlink_metadata(&path)?.file_type());
-    let rel_path = fs.relativize(&path)?;
+    let path_type = FileType::from(fs_util::symlink_metadata(path)?.file_type());
+    let rel_path = fs.relativize(path)?;
 
     let clean_untracked = |mut result: StaleFinderResult| {
         result.untracked_count += 1;

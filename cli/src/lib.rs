@@ -320,7 +320,7 @@ impl CommandKind {
             CommandKind::Test(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Cquery(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Kill(cmd) => cmd.exec(matches, command_ctx).into(),
-            CommandKind::Clean(cmd) => cmd.exec(matches, command_ctx).into(),
+            CommandKind::Clean(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Root(cmd) => cmd.exec(matches, command_ctx).into(),
             CommandKind::Query(cmd) => {
                 buck2_client_ctx::eprintln!(
