@@ -15,6 +15,12 @@ load(
     "PythonBootstrapToolchainInfo",
 )
 
+_INTERPRETER = select({
+    "ovr_config//os:linux": "python3",
+    "ovr_config//os:macos": "python3",
+    "ovr_config//os:windows": "python",
+})
+
 def _system_python_bootstrap_toolchain_impl(ctx):
     return [
         DefaultInfo(),
@@ -35,11 +41,7 @@ def _system_python_bootstrap_toolchain_impl(ctx):
 system_python_bootstrap_toolchain = rule(
     impl = _system_python_bootstrap_toolchain_impl,
     attrs = {
-        "interpreter": attrs.string(default = select({
-            "ovr_config//os:linux": "python3",
-            "ovr_config//os:macos": "python3",
-            "ovr_config//os:windows": "python",
-        })),
+        "interpreter": attrs.string(default = _INTERPRETER),
     },
     is_toolchain_rule = True,
 )
@@ -53,8 +55,8 @@ def _system_python_toolchain_impl(ctx):
         DefaultInfo(),
         PythonToolchainInfo(
             make_source_db = ctx.attrs.make_source_db[RunInfo],
-            host_interpreter = RunInfo(args = ["python3"]),
-            interpreter = RunInfo(args = ["python3"]),
+            host_interpreter = RunInfo(args = [ctx.attrs.interpreter]),
+            interpreter = RunInfo(args = [ctx.attrs.interpreter]),
             make_pex_modules = ctx.attrs.make_pex_modules[RunInfo],
             make_pex_inplace = ctx.attrs.make_pex_inplace[RunInfo],
             compile = RunInfo(args = ["echo", "COMPILEINFO"]),
@@ -67,6 +69,7 @@ def _system_python_toolchain_impl(ctx):
 system_python_toolchain = rule(
     impl = _system_python_toolchain_impl,
     attrs = {
+        "interpreter": attrs.string(default = _INTERPRETER),
         "make_pex_inplace": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//python/tools:make_pex_inplace")),
         "make_pex_modules": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//python/tools:make_pex_modules")),
         "make_source_db": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//python/tools:make_source_db")),
