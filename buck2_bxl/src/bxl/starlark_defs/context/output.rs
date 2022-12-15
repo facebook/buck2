@@ -35,6 +35,7 @@ use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
 use starlark::starlark_type;
 use starlark::values::dict::Dict;
+use starlark::values::dict::DictRef;
 use starlark::values::list::List;
 use starlark::values::list::ListRef;
 use starlark::values::none::NoneType;
@@ -258,33 +259,59 @@ fn register_output_stream(builder: &mut MethodsBuilder) {
         Ok(artifact)
     }
 
-    /// Same as `ensure`, but for multiple.
+    /// Same as `ensure`, but for multiple. Will preserve the shape of the inputs (i.e. if the resulting
+    /// `Dict` of a `ctx.build()` is passed in, the output will be a `Dict` where the key is preserved,
+    /// and the values are converted to `EnsuredArtifact`s).
     fn ensure_multiple<'v>(
         this: &OutputStream,
         artifacts: Value<'v>,
-    ) -> anyhow::Result<Vec<EnsuredArtifact>> {
+        heap: &'v Heap,
+    ) -> anyhow::Result<Value<'v>> {
         if artifacts.is_none() {
-            Ok(vec![])
+            Ok(heap.alloc(Vec::<EnsuredArtifact>::new()))
         } else if let Some(list) = <&ListRef>::unpack_value(artifacts) {
-            list.content().try_map(|artifact| {
+            let artifacts: Vec<EnsuredArtifact> = list.content().try_map(|artifact| {
                 let artifact = EnsuredArtifact::new(*artifact)?;
 
                 populate_ensured_artifacts(this, &artifact)?;
 
-                Ok(artifact)
-            })
+                Ok::<EnsuredArtifact, anyhow::Error>(artifact)
+            })?;
+
+            Ok(heap.alloc(artifacts))
         } else if let Some(artifact_gen) =
             <&StarlarkProvidersArtifactIterable>::unpack_value(artifacts)
         {
-            get_artifacts_from_bxl_build_result(
+            Ok(heap.alloc(get_artifacts_from_bxl_build_result(
                 artifact_gen
                     .0
                     .downcast_ref::<StarlarkBxlBuildResult>()
                     .unwrap(),
                 this,
-            )
+            )?))
         } else if let Some(bxl_build_result) = <&StarlarkBxlBuildResult>::unpack_value(artifacts) {
-            get_artifacts_from_bxl_build_result(bxl_build_result, this)
+            Ok(heap.alloc(get_artifacts_from_bxl_build_result(bxl_build_result, this)?))
+        } else if let Some(build_result_dict) = <DictRef>::unpack_value(artifacts) {
+            Ok(heap.alloc(Dict::new(
+                build_result_dict
+                    .iter()
+                    .map(|(label, value)| {
+                        if let Some(bxl_build_result) =
+                            <&StarlarkBxlBuildResult>::unpack_value(value)
+                        {
+                            Ok((
+                                label.get_hashed()?,
+                                heap.alloc(get_artifacts_from_bxl_build_result(
+                                    bxl_build_result,
+                                    this,
+                                )?),
+                            ))
+                        } else {
+                            Err(anyhow::anyhow!(incorrect_parameter_type_error(artifacts)))
+                        }
+                    })
+                    .collect::<anyhow::Result<_>>()?,
+            )))
         } else {
             Err(anyhow::anyhow!(incorrect_parameter_type_error(artifacts)))
         }
