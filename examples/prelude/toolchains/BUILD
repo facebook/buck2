@@ -1,5 +1,5 @@
 load(":toolchain.bzl", "cxx_toolchain", "ocaml_toolchain", "python_toolchain")
-load("@prelude//toolchains/python/bootstrap:defs.bzl", "python_bootstrap_toolchain")
+load("@prelude//toolchains:python.bzl", "python_bootstrap_toolchain")
 
 cxx_toolchain(
     name="cxx",

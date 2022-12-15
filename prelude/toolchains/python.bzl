@@ -36,7 +36,7 @@ def python_bootstrap_toolchain(name, visibility = None):
     as follows:
 
     ```bzl
-    load("@prelude//toolchains/python/bootstrap:defs.bzl", "python_bootstrap_toolchain")
+    load("@prelude//toolchains:python.bzl", "python_bootstrap_toolchain")
 
     python_bootstrap_toolchain(
         name="python_bootstrap", # the default name rules look for
