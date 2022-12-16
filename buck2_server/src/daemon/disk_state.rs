@@ -10,6 +10,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use allocative::Allocative;
 use anyhow::Context;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::legacy_configs::LegacyBuckConfig;
@@ -25,13 +26,14 @@ use buck2_execute_impl::materializers::sqlite::MaterializerStateSqliteDb;
 use buck2_execute_impl::materializers::sqlite::DB_SCHEMA_VERSION;
 use chrono::Utc;
 
-pub(crate) struct DiskStateOptions {
-    sqlite_materializer_state: bool,
+#[derive(Allocative)]
+pub struct DiskStateOptions {
+    pub sqlite_materializer_state: bool,
     // In future, this will include the config for dep files on disk
 }
 
 impl DiskStateOptions {
-    pub(crate) fn new(
+    pub fn new(
         root_config: &LegacyBuckConfig,
         materialization_method: MaterializationMethod,
     ) -> anyhow::Result<Self> {

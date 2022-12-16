@@ -121,6 +121,9 @@ pub struct DaemonStateData {
     /// Whether or not to hash all commands
     pub hash_all_commands: bool,
 
+    /// What buck2 state to store on disk, ex. materializer state on sqlite
+    pub disk_state_options: DiskStateOptions,
+
     pub start_time: Instant,
 
     #[allocative(skip)]
@@ -319,6 +322,7 @@ impl DaemonState {
             forkserver,
             event_logging_data,
             hash_all_commands,
+            disk_state_options,
             start_time: std::time::Instant::now(),
             create_unhashed_outputs_lock,
         }))
@@ -472,6 +476,10 @@ impl DaemonState {
                     .variant_name()
             ),
             format!("hash-all-commands:{}", data.hash_all_commands),
+            format!(
+                "sqlite-materializer-state:{}",
+                data.disk_state_options.sqlite_materializer_state
+            ),
         ];
 
         dispatcher.instant_event(buck2_data::TagEvent { tags });
