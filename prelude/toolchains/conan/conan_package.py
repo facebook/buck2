@@ -9,7 +9,6 @@ import conan_common
 
 def conan_install(
         conan,
-        profile,
         reference,
         lockfile,
         options,
@@ -24,7 +23,6 @@ def conan_install(
             trace_log=trace_log)
 
     args = ["install"]
-    args.extend(["--profile", profile])
     args.extend(["--build", "missing"])
     args.extend(["--lockfile", lockfile])
     args.extend(["--install-folder", install_folder])
@@ -55,12 +53,6 @@ def main():
             type=str,
             required=True,
             help="Path to the base Conan user-home.")
-    parser.add_argument(
-            "--profile",
-            metavar="FILE",
-            type=str,
-            required=True,
-            help="Path to the Conan profile.")
     parser.add_argument(
             "--lockfile",
             metavar="FILE",
@@ -174,7 +166,6 @@ def main():
     conan = args.conan
     conan_install(
             conan,
-            args.profile
             args.reference,
             args.lockfile,
             args.option,
