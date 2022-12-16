@@ -68,4 +68,11 @@ impl Verbosity {
     pub fn print_status(self) -> bool {
         self.at(Self::Default)
     }
+
+    /// Whether we should print I/O stats and so on when outputting status of what we're waiting
+    /// on. Note that we'll still print them if we hit a condition where we think they are
+    /// relevant, such as zero open spans.
+    pub fn always_print_stats_in_status(self) -> bool {
+        self.at(Self::Verbose)
+    }
 }

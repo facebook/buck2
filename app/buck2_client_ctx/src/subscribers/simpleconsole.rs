@@ -583,6 +583,8 @@ impl UnpackingEventSubscriber for SimpleConsole {
 
     async fn tick(&mut self, _: &Tick) -> anyhow::Result<()> {
         if self.verbosity.print_status() && self.last_print_time.elapsed() > KEEPALIVE_TIME_LIMIT {
+            let mut show_stats = self.show_waiting_message;
+
             let mut roots = self.span_tracker.iter_roots();
             let sample_event = roots.next();
             match sample_event {
@@ -606,11 +608,13 @@ impl UnpackingEventSubscriber for SimpleConsole {
                         )?,
                         child,
                         roots.len()
-                    )?
+                    )?;
+
+                    show_stats = self.verbosity.always_print_stats_in_status();
                 }
                 None => {
                     if self.show_waiting_message {
-                        echo!("Waiting on buck2 daemon...")?
+                        echo!("Waiting on buck2 daemon...")?;
                     }
                 }
             }
@@ -618,7 +622,7 @@ impl UnpackingEventSubscriber for SimpleConsole {
             // and doesn't get dropped until the end of this scope otherwise.
             std::mem::drop(roots);
 
-            if self.show_waiting_message {
+            if show_stats {
                 self.print_stats_while_waiting()?;
             }
 
