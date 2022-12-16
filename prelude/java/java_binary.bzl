@@ -15,7 +15,7 @@ load(
     "get_java_packaging_info",
 )
 
-def _generate_script(generate_wrapper: bool.type, native_libs: ["artifact"]) -> bool.type:
+def _generate_script(generate_wrapper: bool.type, native_libs: {str.type: "SharedLibrary"}) -> bool.type:
     # if `generate_wrapper` is set and no native libs then it should be a wrapper script as result,
     # otherwise fat jar will be generated (inner jar or script will be included inside a final fat jar)
     return generate_wrapper and len(native_libs) == 0
@@ -24,7 +24,7 @@ def _create_fat_jar(
         ctx: "context",
         java_toolchain: JavaToolchainInfo.type,
         jars: "cmd_args",
-        native_libs: ["artifact"],
+        native_libs: {str.type: "SharedLibrary"},
         generate_wrapper: bool.type) -> ["artifact"]:
     extension = "sh" if _generate_script(generate_wrapper, native_libs) else "jar"
     output = ctx.actions.declare_output("{}.{}".format(ctx.label.name, extension))
@@ -50,7 +50,7 @@ def _create_fat_jar(
             "--fat_jar_lib",
             java_toolchain.fat_jar_main_class_lib,
             "--native_libs_file",
-            ctx.actions.write("native_libs", native_libs),
+            ctx.actions.write("native_libs", [cmd_args([so_name, native_lib.lib.output], delimiter = " ") for so_name, native_lib in native_libs.items()]),
             # fat jar's main class
             "--fat_jar_main_class",
             "com.facebook.buck.jvm.java.FatJarMain",
@@ -89,7 +89,7 @@ def _create_fat_jar(
         outputs.append(classpath_args_output)
 
     fat_jar_cmd = cmd_args(args)
-    fat_jar_cmd.hidden(jars, native_libs)
+    fat_jar_cmd.hidden(jars, [native_lib.lib.output for native_lib in native_libs.values()])
 
     ctx.actions.run(fat_jar_cmd, category = "fat_jar")
 
@@ -142,7 +142,7 @@ def java_binary_impl(ctx: "context") -> ["provider"]:
         ctx.actions,
         deps = filter(None, [x.get(SharedLibraryInfo) for x in ctx.attrs.deps]),
     )
-    native_deps = [shared_lib.lib.output for shared_lib in traverse_shared_library_info(shared_library_info).values()]
+    native_deps = traverse_shared_library_info(shared_library_info)
 
     java_toolchain = ctx.attrs._java_toolchain[JavaToolchainInfo]
     need_to_generate_wrapper = ctx.attrs.generate_wrapper == True
