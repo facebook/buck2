@@ -35,11 +35,18 @@ def linker_map_args(ctx, linker_map) -> LinkArgs.type:
         # (e.g. due to relocation overflows). Turn errors into warnings so the
         # path/to:binary[linker-map] sub-target succesfully runs and produces the linker map file.
         "-noinhibit-exec",
+    ]
+    extra_clang_flags = [
         # If linking hits relocation overflows these will produce a huge amount of almost identical logs.
         "-Xlinker",
         "--error-limit=1",
     ]
-    return LinkArgs(flags = darwin_flags if get_cxx_toolchain_info(ctx).linker_info.type == "darwin" else gnu_flags)
+
+    if get_cxx_toolchain_info(ctx).linker_info.type == "darwin":
+        return LinkArgs(flags = darwin_flags)
+    if get_cxx_toolchain_info(ctx).c_compiler_info.compiler_type == "gcc":
+        return LinkArgs(flags = gnu_flags)
+    return LinkArgs(flags = gnu_flags + extra_clang_flags)
 
 def map_link_args_for_dwo(ctx: "context", links: ["LinkArgs"], dwo_dir_name: [str.type, None]) -> (["LinkArgs"], ["artifact", None]):
     """
