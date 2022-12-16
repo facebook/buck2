@@ -161,11 +161,7 @@ impl<'v, V: ValueLike<'v>> ProviderCollectionGen<V> {
         mut value: Value<'v>,
     ) -> anyhow::Result<SmallMap<Arc<ProviderId>, Value<'v>>> {
         // Sometimes we might have a resolved promise here, in which case see through that
-        if let Some(promise) = StarlarkPromise::from_value(value) {
-            if let Some(x) = promise.get() {
-                value = x;
-            }
-        }
+        value = StarlarkPromise::get_recursive(value);
 
         let list = match List::from_value(value) {
             Some(v) => v,

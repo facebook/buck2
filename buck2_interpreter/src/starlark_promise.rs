@@ -108,6 +108,21 @@ impl<'v> StarlarkPromise<'v> {
         }
     }
 
+    /// A recursive version of [`StarlarkPromise::get`], which continues to see through
+    /// promises while they are resolved.
+    /// The returned value will either be an unresolved promise, or not a promise.
+    pub fn get_recursive(mut value: Value<'v>) -> Value<'v> {
+        while let Some(promise) = StarlarkPromise::from_value(value) {
+            if let Some(x) = promise.get() {
+                value = x;
+            } else {
+                // We have an unresolved promise, stop looping
+                break;
+            }
+        }
+        value
+    }
+
     fn apply(
         f: Value<'v>,
         x: Value<'v>,
