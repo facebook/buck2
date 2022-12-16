@@ -7,6 +7,26 @@
 
 load("@prelude//rust:rust_toolchain.bzl", "RustPlatformInfo", "RustToolchainInfo")
 
+_DEFAULT_TRIPLE = select({
+    "ovr_config//os:linux": select({
+        "ovr_config//cpu:arm64": "aarch64-unknown-linux-gnu",
+        "ovr_config//cpu:x86_64": "x86_64-unknown-linux-gnu",
+    }),
+    "ovr_config//os:macos": select({
+        "ovr_config//cpu:arm64": "aarch64-apple-darwin",
+        "ovr_config//cpu:x86_64": "x86_64-apple-darwin",
+    }),
+    "ovr_config//os:windows": select({
+        # FIXME: rustup's default ABI for the host on Windows is MSVC, not GNU.
+        # When you do `rustup install stable` that's the one you get. It makes
+        # you opt in to GNU by `rustup install stable-gnu`. We should match that
+        # default when we're able; but for now buck2 doesn't work with the MSVC
+        # toolchain yet.
+        "ovr_config//cpu:arm64": "aarch64-pc-windows-gnu",
+        "ovr_config//cpu:x86_64": "x86_64-pc-windows-gnu",
+    }),
+})
+
 def _system_rust_toolchain_impl(ctx):
     return [
         DefaultInfo(),
@@ -20,7 +40,7 @@ def _system_rust_toolchain_impl(ctx):
             report_unused_deps = False,
             rustc_action = ctx.attrs.rustc_action[RunInfo],
             default_edition = "2021",
-            rustc_target_triple = "x86_64-pc-windows-gnu" if host_info().os.is_windows else "x86_64-unknown-linux-gnu",
+            rustc_target_triple = ctx.attrs.rustc_target_triple,
             rustc_test_flags = "",
             rustdoc = "rustdoc",
             rustc_flags = ctx.attrs.rustc_flags,
@@ -37,6 +57,7 @@ system_rust_toolchain = rule(
         "failure_filter_action": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//rust/tools:failure_filter_action")),
         "rustc_action": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//rust/tools:rustc_action")),
         "rustc_flags": attrs.list(attrs.string(), default = []),
+        "rustc_target_triple": attrs.string(default = _DEFAULT_TRIPLE),
         "rustdoc_flags": attrs.list(attrs.string(), default = []),
     },
     is_toolchain_rule = True,

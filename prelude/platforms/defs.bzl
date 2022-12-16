@@ -6,7 +6,11 @@
 # of this source tree.
 
 def _execution_platform_impl(ctx: "context") -> ["provider"]:
-    cfg = ctx.attrs.configuration[ConfigurationInfo]
+    constraints = dict()
+    constraints.update(ctx.attrs.cpu_configuration[ConfigurationInfo].constraints)
+    constraints.update(ctx.attrs.os_configuration[ConfigurationInfo].constraints)
+    cfg = ConfigurationInfo(constraints = constraints, values = {})
+
     name = ctx.label.raw_target()
     platform = ExecutionPlatformInfo(
         label = name,
@@ -17,6 +21,7 @@ def _execution_platform_impl(ctx: "context") -> ["provider"]:
             use_windows_path_separators = ctx.attrs.use_windows_path_separators,
         ),
     )
+
     return [
         DefaultInfo(),
         platform,
@@ -27,7 +32,8 @@ def _execution_platform_impl(ctx: "context") -> ["provider"]:
 execution_platform = rule(
     impl = _execution_platform_impl,
     attrs = {
-        "configuration": attrs.dep(providers = [ConfigurationInfo]),
+        "cpu_configuration": attrs.dep(providers = [ConfigurationInfo]),
+        "os_configuration": attrs.dep(providers = [ConfigurationInfo]),
         "use_windows_path_separators": attrs.bool(),
     },
 )
