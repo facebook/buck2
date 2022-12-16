@@ -88,7 +88,6 @@ lalrpop = "0.19.7"
 lalrpop-util = "0.19.7"
 libc = "0.2.132"
 linked-hash-map = { version = "0.5", features = ["serde_impl"] }
-lock_api = ">=0.4, <0.4.7" # Not using this as an explicit dep, but lock_api 0.4.7 is only compatible with latest nightly
 log = "0.4"
 logos = "0.12"
 lsp-server = "0.5"
