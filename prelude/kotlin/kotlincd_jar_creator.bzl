@@ -16,7 +16,6 @@ load(
     "@prelude//jvm:cd_jar_creator_util.bzl",
     "OutputPaths",
     "TargetType",
-    "add_java_7_8_bootclasspath",
     "add_output_paths_to_cmd_args",
     "base_qualified_name",
     "declare_prefixed_output",
@@ -60,11 +59,6 @@ def create_jar_artifact_kotlincd(
         resources = resources,
         resources_root = resources_root,
     )
-    bootclasspath_entries = add_java_7_8_bootclasspath(
-        target_level = target_level,
-        bootclasspath_entries = bootclasspath_entries,
-        java_toolchain = java_toolchain,
-    )
 
     expect(abi_generation_mode != AbiGenerationMode("source"), "abi_generation_mode: source is not supported in kotlincd")
     actual_abi_generation_mode = abi_generation_mode or AbiGenerationMode("class") if srcs else AbiGenerationMode("class")
@@ -76,7 +70,7 @@ def create_jar_artifact_kotlincd(
 
     def encode_kotlin_extra_params(kotlin_compiler_plugins):
         return struct(
-            extraClassPaths = [encode_path(path.library_output.full_library) for path in map_idx(JavaLibraryInfo, kotlin_toolchain.kotlinc_classpath)] + [encode_path(path) for path in bootclasspath_entries],
+            extraClassPaths = [encode_path(path) for path in bootclasspath_entries],
             standardLibraryClassPath = encode_path(kotlin_toolchain.kotlin_stdlib[JavaLibraryInfo].library_output.full_library),
             annotationProcessingClassPath = encode_path(kotlin_toolchain.annotation_processing_jar[JavaLibraryInfo].library_output.full_library),
             kotlinCompilerPlugins = {plugin: {"params": plugin_options} if plugin_options else {} for plugin, plugin_options in kotlin_compiler_plugins.items()},
