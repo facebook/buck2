@@ -185,7 +185,7 @@ def _conan_generate_impl(ctx: "context") -> ["provider"]:
     cmd = cmd_args([conan_generate])
     cmd.add(["--conan", conan_toolchain.conan])
     cmd.add(["--conan-init", conan_init.user_home])
-    cmd.add(["--profile", conan_init.profile])
+    cmd.hidden(conan_init.profile)  # The profile is inlined in the lockfile.
     cmd.add(["--buckler", ctx.attrs._buckler])
     cmd.add(["--install-folder", install_folder.as_output()])
     cmd.add(["--output-folder", output_folder.as_output()])
@@ -317,7 +317,7 @@ def _conan_package_impl(ctx: "context") -> ["provider"]:
     cmd = cmd_args([conan_package])
     cmd.add(["--conan", conan_toolchain.conan])
     cmd.add(["--conan-init", conan_init.user_home])
-    cmd.add(["--profile", conan_init.profile])
+    cmd.hidden(conan_init.profile)  # The profile is inlined in the lockfile.
     cmd.add(["--lockfile", ctx.attrs.lockfile])
     cmd.add(["--reference", ctx.attrs.reference])
     cmd.add(["--package-id", ctx.attrs.package_id])
