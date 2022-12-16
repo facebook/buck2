@@ -39,10 +39,8 @@ def _system_cxx_toolchain_impl(ctx):
         CxxToolchainInfo(
             mk_comp_db = ctx.attrs.make_comp_db,
             linker_info = LinkerInfo(
-                linker = RunInfo(args = ["g++"]),
-                linker_flags = [
-                    "-lstdc++",
-                ],
+                linker = RunInfo(args = ["clang++"]),
+                linker_flags = [],
                 archiver = RunInfo(args = ["ar", "rcs"]),
                 archiver_type = archiver_type,
                 type = linker_type,
@@ -98,7 +96,7 @@ def _system_cxx_toolchain_impl(ctx):
         CxxPlatformInfo(name = "x86_64"),
     ]
 
-# A curious mix of clang and g++. Probably needs tidying up.
+# Use clang, since thats available everywhere and what we have tested with.
 system_cxx_toolchain = rule(
     impl = _system_cxx_toolchain_impl,
     attrs = {
