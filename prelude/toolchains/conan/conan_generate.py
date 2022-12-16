@@ -22,6 +22,7 @@ def conan_install(
             trace_log=trace_log)
 
     args = ["install"]
+    args.extend(["--build", "missing"])
     args.extend(["--generator", "BucklerGenerator"])
     args.extend(["--lockfile", lockfile])
     args.extend(["--install-folder", install_folder])

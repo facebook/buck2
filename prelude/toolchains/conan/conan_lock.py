@@ -19,6 +19,7 @@ def conan_lock(
             trace_log=trace_log)
 
     args = ["lock", "create"]
+    args.extend(["--build", "missing"])
     if lockfile:
         args.extend(["--lockfile", lockfile])
     args.extend(["--lockfile-out", lockfile_out])
