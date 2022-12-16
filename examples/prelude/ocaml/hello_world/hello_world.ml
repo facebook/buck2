@@ -7,4 +7,4 @@
  * of this source tree.
  *)
 
-let hello_world () = Printf.printf "hello world from ocaml toolchain\n"
+let _: unit = Hello_world_lib.hello_world ()

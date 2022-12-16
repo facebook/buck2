@@ -7,4 +7,4 @@
  * of this source tree.
  *)
 
-let _: unit = Library.hello_world ()
+let hello_world () = Printf.printf "Hello world!\n"
