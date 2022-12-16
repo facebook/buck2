@@ -109,6 +109,8 @@ jobs:
             cd examples/prelude
             ln -s $(realpath ../../prelude) prelude
             eval $(opam env --switch=default)
+            printf "\n[ocaml]\nopam_switch_prefix=$OPAM_SWITCH_PREFIX\n" >> .buckconfig
+            cat .buckconfig
             /tmp/artifacts/buck2 build //... -v 2
       - when:
           condition:
@@ -165,6 +167,8 @@ jobs:
             cd examples/prelude
             ln -s $(realpath ../../prelude) prelude
             eval $(opam env --switch=default)
+            printf "\n[ocaml]\nopam_switch_prefix=$OPAM_SWITCH_PREFIX\n" >> .buckconfig
+            cat .buckconfig
             /tmp/artifacts/buck2 build //... -v 2
       - when:
           condition:
