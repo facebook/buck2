@@ -1,3 +1,4 @@
-/buck-out/
-/target/
+examples/prelude/prelude
+examples/prelude/buck-out
+target/
 Cargo.lock
