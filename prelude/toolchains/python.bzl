@@ -55,6 +55,7 @@ def _system_python_toolchain_impl(ctx):
         DefaultInfo(),
         PythonToolchainInfo(
             make_source_db = ctx.attrs.make_source_db[RunInfo],
+            make_source_db_no_deps = ctx.attrs.make_source_db_no_deps[RunInfo],
             host_interpreter = RunInfo(args = [ctx.attrs.interpreter]),
             interpreter = RunInfo(args = [ctx.attrs.interpreter]),
             make_pex_modules = ctx.attrs.make_pex_modules[RunInfo],
