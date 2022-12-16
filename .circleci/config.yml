@@ -14,6 +14,16 @@ commands:
             cargo --version
             rustup --version
 
+  print_ocaml_config:
+    description: OCaml Configuration Info
+    steps:
+      - run:
+          name: OCaml Configuration Info
+          command: |
+            eval $(opam env --switch=default)
+            env | grep OPAM_SWITCH_PREFIX
+            ocamlopt.opt -config
+
   setup_linux_env:
     description: Setup env for Linux
     steps:
@@ -25,6 +35,7 @@ commands:
             opam init --disable-sandboxing -y
             opam install menhir -y
       - print_versions
+      - print_ocaml_config
 
   setup_macos_env:
     description: Setup env for macOS
@@ -37,6 +48,7 @@ commands:
             opam init --disable-sandboxing -y
             opam install menhir -y
       - print_versions
+      - print_ocaml_config
 
   setup_windows_env:
     description: Setup env for Windows
@@ -91,6 +103,8 @@ jobs:
             cd examples/prelude
             ln -s $(realpath ../../prelude) prelude
             eval $(opam env --switch=default)
+            ln -s $(realpath "$OPAM_SWITCH_PREFIX") dotopam
+            ls -lasp dotopam
             /tmp/artifacts/buck2 build //... -v 2
       - when:
           condition:
@@ -146,6 +160,8 @@ jobs:
             cd examples/prelude
             ln -s $(realpath ../../prelude) prelude
             eval $(opam env --switch=default)
+            ln -s $(realpath $"OPAM_SWITCH_PREFIX") dotopam
+            ls -lasp dotopam
             /tmp/artifacts/buck2 build //... -v 2
       - when:
           condition:
