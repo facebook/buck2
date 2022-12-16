@@ -24,6 +24,7 @@ load(
 )
 load(
     "@prelude//java:java_toolchain.bzl",
+    "AbiGenerationMode",
     "JavaToolchainInfo",
 )
 load("@prelude//java/plugins:java_annotation_processor.bzl", "create_ap_params", "create_ksp_ap_params")
@@ -277,6 +278,8 @@ def build_kotlin_library(
             ctx.attrs.srcs,
             bootclasspath_entries = bootclasspath_entries,
             additional_classpath_entries = additional_classpath_entries,
+            # Match buck1, which always does class ABI generation for Kotlin targets unless explicitly specified.
+            override_abi_generation_mode = get_abi_generation_mode(ctx.attrs.abi_generation_mode) or AbiGenerationMode("class"),
         )
 
     else:

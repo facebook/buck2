@@ -508,7 +508,8 @@ def build_java_library(
         additional_classpath_entries: ["artifact"] = [],
         bootclasspath_entries: ["artifact"] = [],
         additional_compiled_srcs: ["artifact", None] = None,
-        generated_sources: ["artifact"] = []) -> JavaProviders.type:
+        generated_sources: ["artifact"] = [],
+        override_abi_generation_mode: ["AbiGenerationMode", None] = None) -> JavaProviders.type:
     expect(
         not getattr(ctx.attrs, "_build_only_native_code", False),
         "Shouldn't call build_java_library if we're only building native code!",
@@ -547,7 +548,7 @@ def build_java_library(
     common_compile_kwargs = None
     sub_targets = {}
     if srcs or additional_compiled_srcs or resources or ap_params or plugin_params or manifest_file:
-        abi_generation_mode = get_abi_generation_mode(ctx.attrs.abi_generation_mode)
+        abi_generation_mode = override_abi_generation_mode or get_abi_generation_mode(ctx.attrs.abi_generation_mode)
 
         common_compile_kwargs = {
             "abi_generation_mode": abi_generation_mode,
