@@ -24,7 +24,7 @@ def conan_profile(
         ("settings.arch_build", "x86_64"),
         ("settings.build_type", "Release"),
         ("settings.compiler", "clang"),
-        ("settings.compiler.version", "13"),
+        ("settings.compiler.version", "15"),
         ("settings.compiler.libcxx", "libc++"),
         ("settings.os", "Linux"),
         ("settings.os_build", "Linux"),
