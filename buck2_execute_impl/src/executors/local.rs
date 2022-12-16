@@ -890,7 +890,7 @@ mod tests {
             cmd.args(["-c", "(sleep 10 &) && echo hello"]);
         }
 
-        let timeout = if cfg!(windows) { 5 } else { 1 };
+        let timeout = if cfg!(windows) { 9 } else { 1 };
         let (status, stdout, stderr) = gather_output(
             cmd,
             timeout_into_cancellation(Some(Duration::from_secs(timeout))),
