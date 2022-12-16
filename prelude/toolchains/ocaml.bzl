@@ -28,17 +28,22 @@ def _system_ocaml_toolchain_impl(_ctx):
             # [Note: What is `binutils_ld`?] in `providers.bzl`.
             binutils_ld = None,
 
-            # This one was introduced in D37700753. The diff talks about
-            # cross-compilation IIUC.
+            # `ocamlopt.opt` makes calls to `as`. If this config paramter is
+            # `None` those calls will resolve to whatever `as` is in the
+            # environment. If not `None` then the provided value will be what's
+            # invoked.
             binutils_as = None,
             dep_tool = RunInfo(args = ["ocamldep.opt"]),
             yacc_compiler = RunInfo(args = ["ocamlyacc"]),
-            menhir_compiler = RunInfo(args = ["menir"]),
-            lex_compiler = RunInfo(args = ["lex.compiler"]),
             interop_includes = None,
+            menhir_compiler = RunInfo(args = ["menhir"]),
+            lex_compiler = RunInfo(args = ["ocamllex.opt"]),
             libc = None,
             ocaml_bytecode_compiler = RunInfo(args = ["ocamlc.opt"]),
-            debug = RunInfo(args = ["ocamldebug"]),
+            # `ocamldebug` is bytecode intended to be run by `ocamlrun`. There
+            # is no "debugger" executable (but then `debug` is not referenced by
+            # the ocaml build rules) so `None` will do for this.
+            debug = None,
             warnings_flags = "-4-29-35-41-42-44-45-48-50-58-70",
             ocaml_compiler_flags = [],  # e.g. "-opaque"
         ),
