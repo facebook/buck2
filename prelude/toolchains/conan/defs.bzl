@@ -14,6 +14,7 @@ manage and install third-party C/C++ dependencies.
 # TODO[AH] Not sure if this self-reference within the prelude is acceptable.
 #   If not, consider a custom rule implementation using the C++ API.
 load("@prelude//:prelude.bzl", "native")
+load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load("@prelude//utils:utils.bzl", "flatten")
 
 ConanInitInfo = provider(fields = ["user_home"])
@@ -360,6 +361,65 @@ conan_package = rule(
         "_conan_toolchain": attrs.default_only(attrs.toolchain_dep(default = "toolchains//:conan", providers = [ConanToolchainInfo])),
         "_conan_init": attrs.dep(providers = [ConanInitInfo], default = "toolchains//:conan-init"),
         "_conan_package": attrs.dep(providers = [RunInfo], default = "prelude//toolchains/conan:conan_package"),
+    },
+)
+
+def _profile_env_tool(name, tool):
+    return cmd_args([name, cmd_args(tool, delimiter = " ")], delimiter = "=", quote = "shell")
+
+def _conan_profile_impl(ctx: "context") -> ["provider"]:
+    cxx = ctx.attrs._cxx_toolchain[CxxToolchainInfo]
+
+    content = cmd_args()
+
+    content.add("[settings]")
+    content.add(cmd_args(ctx.attrs.arch, format = "arch={}"))
+    content.add(cmd_args(ctx.attrs.os, format = "os={}"))
+    content.add(cmd_args(ctx.attrs.build_type, format = "build_type={}"))
+    # TODO[AH] Define translation of CxxToolProviderType to compiler setting.
+    content.add(cmd_args(ctx.attrs.compiler, format = "compiler={}"))
+    content.add(cmd_args(ctx.attrs.compiler_version, format = "compiler.version={}"))
+    content.add(cmd_args(ctx.attrs.compiler_libcxx, format = "compiler.libcxx={}"))
+
+    content.add("")
+    content.add("[env]")
+    # TODO[AH] Define CMAKE_FIND_ROOT_PATH
+    # TODO[AH] Define CMAKE_SYSROOT
+    # TODO[AH] Do we need to overwrite PATH?
+    # TODO[AH] Define target CHOST for cross-compilation
+    content.add(_profile_env_tool("AR", cxx.linker_info.archiver))
+    if cxx.as_compiler_info:
+        content.add(_profile_env_tool("AS", cxx.as_compiler_info.compiler))
+        # TODO[AH] Use asm_compiler_info for Windows
+    if cxx.binary_utilities_info:
+        if cxx.binary_utilities_info.nm:
+            content.add(_profile_env_tool("NM", cxx.binary_utilities_info.nm))
+        if cxx.binary_utilities_info.ranlib:
+            content.add(_profile_env_tool("RANLIB", cxx.binary_utilities_info.ranlib))
+        if cxx.binary_utilities_info.strip:
+            content.add(_profile_env_tool("STRIP", cxx.binary_utilities_info.strip))
+    if cxx.c_compiler_info:
+        content.add(_profile_env_tool("CC", cxx.c_compiler_info.compiler))
+        content.add(_profile_env_tool("CFLAGS", cxx.c_compiler_info.compiler_flags))
+    if cxx.cxx_compiler_info:
+        content.add(_profile_env_tool("CXX", cxx.cxx_compiler_info.compiler))
+        content.add(_profile_env_tool("CXXFLAGS", cxx.cxx_compiler_info.compiler_flags))
+
+    output = ctx.actions.declare_output(ctx.label.name)
+    ctx.actions.write(output, content)
+
+    return [DefaultInfo(default_outputs = [output])]
+
+conan_profile = rule(
+    impl = _conan_profile_impl,
+    attrs = {
+        "arch": attrs.string(doc = "The target architecture"),
+        "os": attrs.string(doc = "The target operating system"),
+        "build_type": attrs.string(doc = "The Conan build-type, e.g. Release or Debug"),
+        "compiler": attrs.string(doc = "The name of the C/C++ compiler, e.g. gcc, clang, or Visual Studio."),
+        "compiler_version": attrs.string(doc = "The version of the C/C++ compiler, e.g. 12.2 for gcc, 15 for clang, or 17 for Visual Studio."),
+        "compiler_libcxx": attrs.string(doc = "The C++ standard library, e.g. libstdc++, or libc++"),
+        "_cxx_toolchain": attrs.default_only(attrs.toolchain_dep(default = "toolchains//:cxx", providers = [CxxToolchainInfo])),
     },
 )
 
