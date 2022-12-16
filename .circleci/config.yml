@@ -125,6 +125,7 @@ jobs:
           command: |
             cd examples/prelude
             ln -s $(realpath ../../prelude) prelude
+            eval $(opam env --switch=default)
             /tmp/artifacts/buck2 build //...
       - when:
           condition:
