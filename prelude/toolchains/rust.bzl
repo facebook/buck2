@@ -35,7 +35,7 @@ def _system_rust_toolchain_impl(ctx):
             compiler = "rustc",
             failure_filter_action = ctx.attrs.failure_filter_action[RunInfo],
             rustc_action = ctx.attrs.rustc_action[RunInfo],
-            default_edition = "2021",
+            default_edition = ctx.attrs.default_edition,
             rustc_target_triple = ctx.attrs.rustc_target_triple,
             rustdoc = "rustdoc",
             rustc_flags = ctx.attrs.rustc_flags,
@@ -49,6 +49,7 @@ def _system_rust_toolchain_impl(ctx):
 system_rust_toolchain = rule(
     impl = _system_rust_toolchain_impl,
     attrs = {
+        "default_edition": attrs.option(attrs.string(), default = None),
         "failure_filter_action": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//rust/tools:failure_filter_action")),
         "rustc_action": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//rust/tools:rustc_action")),
         "rustc_flags": attrs.list(attrs.string(), default = []),

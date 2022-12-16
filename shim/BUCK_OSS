@@ -9,6 +9,7 @@ system_cxx_toolchain(
 
 system_rust_toolchain(
     name = "rust",
+    default_edition = "2021",
     visibility = ["PUBLIC"],
 )
 
