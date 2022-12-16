@@ -81,7 +81,7 @@ pub fn handle_soft_error(
         }
     }
 
-    if HARD_ERROR.get_copied().ok() == Some(Some(true)) {
+    if HARD_ERROR.get_copied()? == Some(true) {
         eprintln!("Important warning caused failure due to $BUCK2_TEST_HARD_ERROR");
         Err(err)
     } else {
