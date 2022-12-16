@@ -632,7 +632,7 @@ fn lines_for_command_details(
                 match truncate(command) {
                     None => Cow::Borrowed(command),
                     Some(short) => Cow::Owned(format!(
-                        "{} (rerun your previous command with -v2 to view the untruncated command)",
+                        "{} (run `buck2 log what-failed` to get the full command)",
                         short
                     )),
                 }
