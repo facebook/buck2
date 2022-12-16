@@ -365,7 +365,7 @@ inlined_extra_attributes = {
         "deps_query": attrs.option(attrs.query(), default = None),
         "extra_xcode_sources": attrs.list(attrs.source(allow_directory = True), default = []),
         "force_emit_omnibus_shared_root": attrs.bool(default = False),
-        "link_deps_query_whole": attrs.bool(),
+        "link_deps_query_whole": attrs.bool(default = False),
         "link_group_map": link_group_map_attr(),
         "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
         "prefer_stripped_objects": attrs.bool(default = False),

@@ -122,9 +122,9 @@ extra_attributes = {
         "_apple_xctoolchain_bundle_id": get_apple_xctoolchain_bundle_id_attr(),
         "_codesign_type": attrs.option(attrs.enum(CodeSignType.values()), default = None),
         "_compile_resources_locally_override": attrs.option(attrs.bool(), default = None),
-        "_incremental_bundling_enabled": attrs.bool(),
+        "_incremental_bundling_enabled": attrs.bool(default = False),
         "_omnibus_environment": omnibus_environment_attr(),
-        "_profile_bundling_enabled": attrs.bool(),
+        "_profile_bundling_enabled": attrs.bool(default = False),
         APPLE_LINK_LIBRARIES_LOCALLY_OVERRIDE_ATTR_NAME: attrs.option(attrs.bool(), default = None),
     },
     "apple_toolchain": {
