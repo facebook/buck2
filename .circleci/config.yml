@@ -55,9 +55,9 @@ orbs:
   rust: circleci/rust@1.6.0
   win: circleci/windows@2.2.0
 jobs:
-  linux-test-and-upload:
+  linux-build-and-test:
     description: |
-      Run tests and upload buck2 binary for Linux
+      Build and test all with cargo for Linux
     docker:
       - image: cimg/rust:1.65.0
     resource_class: xlarge
@@ -70,6 +70,16 @@ jobs:
           with_cache: false
       - rust/test:
           with_cache: false
+
+  linux-build-example-and-upload-binary:
+    description: |
+      Build the example project and upload buck2 binary for Linux
+    docker:
+      - image: cimg/rust:1.65.0
+    resource_class: xlarge
+    steps:
+      - checkout
+      - setup_linux_env
       - run:
           name: Build buck2 binary
           command: |
@@ -92,7 +102,7 @@ jobs:
 
   macos-test:
     description: |
-      Run tests for macOS
+      Test all with cargo for macOS
     macos:
       xcode: 13.4.1
     resource_class: large
@@ -104,9 +114,9 @@ jobs:
       - rust/test:
           with_cache: false
 
-  macos-build-and-upload:
+  macos-build:
     description: |
-      Build all and upload buck2 binary for MacOS
+      Build all with cargo for macOS
     macos:
       xcode: 13.4.1
     resource_class: large
@@ -115,6 +125,16 @@ jobs:
       - setup_macos_env
       - rust/build:
           with_cache: false
+
+  macos-build-example-and-upload-binary:
+    description: |
+      Build the example project and upload buck2 binary for macOS
+    macos:
+      xcode: 13.4.1
+    resource_class: large
+    steps:
+      - checkout
+      - setup_macos_env
       - run:
           name: Build buck2 binary
           command: |
@@ -135,9 +155,9 @@ jobs:
                 path: /tmp/artifacts/buck2
                 destination: buck2-macos
 
-  windows-build-and-upload:
+  windows-build-and-test:
     description: |
-      Build all and upload buck2 binary for Windows
+      Build and test all with cargo for Windows
     executor:
       name: win/default
       size: "xlarge"
@@ -151,6 +171,17 @@ jobs:
           with_cache: false
       - rust/build:
           with_cache: false
+
+  windows-build-example-and-upload-binary:
+    description: |
+      Build the example project and upload buck2 binary for Windows
+    executor:
+      name: win/default
+      size: "xlarge"
+      shell: powershell.exe
+    steps:
+      - checkout
+      - setup_windows_env
       - run:
           name: Build buck2 binary
           command: |
@@ -171,9 +202,12 @@ jobs:
               destination: buck2-windows.exe
 
 workflows:
-  test-and-upload:
+  build-test-and-upload:
     jobs:
-      - linux-test-and-upload
+      - linux-build-and-test
+      - linux-build-example-and-upload-binary
       - macos-test
-      - macos-build-and-upload
-      - windows-build-and-upload
+      - macos-build
+      - macos-build-example-and-upload-binary
+      - windows-build-and-test
+      - windows-build-example-and-upload-binary
