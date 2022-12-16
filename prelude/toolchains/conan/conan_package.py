@@ -24,8 +24,6 @@ def conan_install(
 
     args = ["install"]
     args.extend(["--build", "missing"])
-    # TODO[AH] Remove buckler
-    args.extend(["--generator", "BucklerGenerator"])
     args.extend(["--lockfile", lockfile])
     args.extend(["--install-folder", install_folder])
     args.extend(["--output-folder", output_folder])
@@ -55,12 +53,6 @@ def main():
             type=str,
             required=True,
             help="Path to the base Conan user-home.")
-    parser.add_argument(
-            "--buckler",
-            metavar="FILE",
-            type=str,
-            required=True,
-            help="Path to the Buckler generator.")
     parser.add_argument(
             "--lockfile",
             metavar="FILE",
@@ -162,7 +154,6 @@ def main():
     args = parser.parse_args()
 
     conan_common.install_user_home(args.user_home, args.conan_init)
-    conan_common.install_generator(args.user_home, args.buckler)
     assert len(args.dep_reference) == len(args.dep_cache_out), "Mismatching dependency arguments."
     for ref, cache_out in zip(args.dep_reference, args.dep_cache_out):
         conan_common.install_reference(args.user_home, ref, cache_out)
