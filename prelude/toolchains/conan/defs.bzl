@@ -17,7 +17,7 @@ load("@prelude//:prelude.bzl", "native")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load("@prelude//utils:utils.bzl", "flatten")
 
-ConanInitInfo = provider(fields = ["user_home"])
+ConanInitInfo = provider(fields = ["profile", "user_home"])
 ConanLockInfo = provider(fields = ["lockfile"])
 ConanPackageInfo = provider(fields = ["reference", "package_id", "cache_out", "package_out"])
 ConanToolchainInfo = provider(fields = ["conan"])
@@ -240,6 +240,7 @@ def _conan_init_impl(ctx: "context") -> ["provider"]:
     return [
         ConanInitInfo(
             user_home = user_home,
+            profile = ctx.attrs.profile,
         ),
         DefaultInfo(default_outputs = [
             user_home,
@@ -250,6 +251,7 @@ def _conan_init_impl(ctx: "context") -> ["provider"]:
 conan_init = rule(
     impl = _conan_init_impl,
     attrs = {
+        "profile": attrs.source(),
         "_conan_toolchain": attrs.default_only(attrs.toolchain_dep(default = "toolchains//:conan", providers = [ConanToolchainInfo])),
         "_conan_init": attrs.dep(providers = [RunInfo], default = "prelude//toolchains/conan:conan_init"),
     },
