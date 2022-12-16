@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//:paths.bzl", "paths")
 load(
     "@prelude//linking:link_info.bzl",
     "LinkInfo",
@@ -17,6 +18,7 @@ load(
     "LinkableProviders",  # @unused Used as type
 )
 load("@prelude//linking:shared_libraries.bzl", "SharedLibrariesTSet")
+load("@prelude//linking:strip.bzl", "strip_debug_info")
 
 LinkableProvidersTSet = transitive_set()
 
@@ -68,15 +70,22 @@ def rewrite_static_symbols(
         libraries: {LinkStyle.type: LinkInfos.type},
         cxx_toolchain: "CxxToolchainInfo") -> {LinkStyle.type: LinkInfos.type}:
     symbols_file = write_syms_file(ctx, pic_objects + non_pic_objects, suffix, cxx_toolchain)
-    rewritten_static_linkable = suffix_symbols(ctx, suffix, non_pic_objects, symbols_file, cxx_toolchain)
-    rewritten_static_pic_linkable = suffix_symbols(ctx, suffix, pic_objects, symbols_file, cxx_toolchain)
+    static_objects, stripped_static_objects = suffix_symbols(ctx, suffix, non_pic_objects, symbols_file, cxx_toolchain)
+    static_pic_objects, stripped_static_pic_objects = suffix_symbols(ctx, suffix, pic_objects, symbols_file, cxx_toolchain)
 
     static_info = libraries[LinkStyle("static")].default
     updated_static_info = LinkInfo(
         name = static_info.name,
         pre_flags = static_info.pre_flags,
         post_flags = static_info.post_flags,
-        linkables = [rewritten_static_linkable],
+        linkables = [static_objects],
+        use_link_groups = static_info.use_link_groups,
+    )
+    updated_stripped_static_info = LinkInfo(
+        name = static_info.name,
+        pre_flags = static_info.pre_flags,
+        post_flags = static_info.post_flags,
+        linkables = [stripped_static_objects],
         use_link_groups = static_info.use_link_groups,
     )
 
@@ -85,12 +94,19 @@ def rewrite_static_symbols(
         name = static_pic_info.name,
         pre_flags = static_pic_info.pre_flags,
         post_flags = static_pic_info.post_flags,
-        linkables = [rewritten_static_pic_linkable],
+        linkables = [static_pic_objects],
+        use_link_groups = static_pic_info.use_link_groups,
+    )
+    updated_stripped_static_pic_info = LinkInfo(
+        name = static_pic_info.name,
+        pre_flags = static_pic_info.pre_flags,
+        post_flags = static_pic_info.post_flags,
+        linkables = [stripped_static_pic_objects],
         use_link_groups = static_pic_info.use_link_groups,
     )
     updated_libraries = {
-        LinkStyle("static"): LinkInfos(default = updated_static_info),
-        LinkStyle("static_pic"): LinkInfos(default = updated_static_pic_info),
+        LinkStyle("static"): LinkInfos(default = updated_static_info, stripped = updated_stripped_static_info),
+        LinkStyle("static_pic"): LinkInfos(default = updated_static_pic_info, stripped = updated_stripped_static_pic_info),
     }
     return updated_libraries
 
@@ -144,15 +160,17 @@ def suffix_symbols(
         suffix: str.type,
         objects: ["artifact"],
         symbols_file: "artifact",
-        cxx_toolchain: "CxxToolchainInfo") -> ObjectsLinkable.type:
+        cxx_toolchain: "CxxToolchainInfo") -> (ObjectsLinkable.type, ObjectsLinkable.type):
     """
     Take a list of objects and append a suffix to all  defined symbols.
     """
     objcopy = cxx_toolchain.binary_utilities_info.objcopy
 
     artifacts = []
+    stripped_artifacts = []
     for obj in objects:
-        updated_name = suffix + "_" + obj.short_path
+        base, name = paths.split_extension(obj.short_path)
+        updated_name = "_".join([base, suffix, name])
         artifact = ctx.actions.declare_output(updated_name)
 
         script_env = {
@@ -178,10 +196,17 @@ def suffix_symbols(
             category = "suffix_symbols",
             identifier = updated_name,
         )
-        artifacts.append(artifact)
 
-    return ObjectsLinkable(
+        artifacts.append(artifact)
+        updated_base, _ = paths.split_extension(artifact.short_path)
+        stripped_artifacts.append(strip_debug_info(ctx, updated_base + ".stripped.o", artifact))
+
+    default = ObjectsLinkable(
         objects = artifacts,
         linker_type = cxx_toolchain.linker_info.type,
-        link_whole = True,
     )
+    stripped = ObjectsLinkable(
+        objects = stripped_artifacts,
+        linker_type = cxx_toolchain.linker_info.type,
+    )
+    return default, stripped
