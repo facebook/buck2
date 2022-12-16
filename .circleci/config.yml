@@ -81,7 +81,7 @@ jobs:
             cd examples/prelude
             ln -s $(realpath ../../prelude) prelude
             eval $(opam env --switch=default)
-            /tmp/artifacts/buck2 build //... -v2
+            /tmp/artifacts/buck2 build //... -v 2
       - when:
           condition:
             *is_main_branch
