@@ -236,7 +236,7 @@ pub(crate) fn display_event(
             Data::CommandCritical(..) => Err(ParseEventError::UnexpectedEvent.into()),
             Data::Command(..) => Err(ParseEventError::UnexpectedEvent.into()),
             Data::FileWatcher(x) => Ok(format!(
-                "Syncing file changes (via {})",
+                "Syncing file changes via {}",
                 display_file_watcher(x.provider)
             )),
             Data::MatchDepFiles(buck2_data::MatchDepFilesStart {}) => Ok("dep_files".to_owned()),
