@@ -9,6 +9,7 @@ import conan_common
 
 def conan_lock(
         conan,
+        profile,
         conanfile,
         lockfile_out,
         lockfile,
@@ -19,6 +20,7 @@ def conan_lock(
             trace_log=trace_log)
 
     args = ["lock", "create"]
+    args.extend(["--profile", profile])
     args.extend(["--build", "missing"])
     if lockfile:
         args.extend(["--lockfile", lockfile])
@@ -44,6 +46,12 @@ def main():
             type=str,
             required=True,
             help="Path to the base Conan user-home.")
+    parser.add_argument(
+            "--profile",
+            metavar="FILE",
+            type=str,
+            required=True,
+            help="Path to the Conan profile.")
     parser.add_argument(
             "--user-home",
             metavar="PATH",
@@ -80,6 +88,7 @@ def main():
 
     conan_lock(
             args.conan,
+            args.profile,
             args.conanfile,
             args.lockfile_out,
             args.lockfile,
