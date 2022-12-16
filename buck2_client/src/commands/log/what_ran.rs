@@ -70,8 +70,18 @@ pub enum WhatRanSubcommandOutput {
 /// (if unsure, use `buck2 root --kind project` to find it), then run the command. The command is
 /// already shell-quoted.
 #[derive(Debug, clap::Parser)]
-#[clap(group = clap::ArgGroup::with_name("event_log"))]
 pub struct WhatRanCommand {
+    #[clap(flatten)]
+    pub common: WhatRanCommandCommon,
+
+    /// Show only commands that failed
+    #[clap(long)]
+    pub failed: bool,
+}
+
+#[derive(Debug, clap::Parser)]
+#[clap(group = clap::ArgGroup::with_name("event_log"))]
+pub struct WhatRanCommandCommon {
     /// The path to read the event log from.
     #[clap(
         help = "A path to an event-log file to read from. Only works for log files with a single command in them.",
@@ -98,10 +108,6 @@ pub struct WhatRanCommand {
     )]
     pub output: WhatRanSubcommandOutput,
 
-    /// Show only commands that failed
-    #[clap(long)]
-    pub failed: bool,
-
     #[clap(flatten)]
     pub options: WhatRanOptions,
 }
@@ -109,10 +115,13 @@ pub struct WhatRanCommand {
 impl WhatRanCommand {
     pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext) -> ExitResult {
         let Self {
-            path,
-            recent,
-            mut output,
-            options,
+            common:
+                WhatRanCommandCommon {
+                    path,
+                    recent,
+                    mut output,
+                    options,
+                },
             failed,
         } = self;
 

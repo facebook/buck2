@@ -9,6 +9,7 @@
 
 pub mod last_log;
 pub mod show_log;
+pub mod what_failed;
 pub mod what_ran;
 pub mod what_up;
 
@@ -21,6 +22,10 @@ pub enum LogCommand {
     /// Shows the commands that buck ran
     #[clap(alias = "whatran")]
     WhatRan(what_ran::WhatRanCommand),
+
+    /// Shows the commands that buck ran, but only those that failed
+    #[clap(alias = "whatfailed")]
+    WhatFailed(what_failed::WhatFailedCommand),
 
     /// Shows the path to the most recent event log
     Last(last_log::LastLogCommand),
@@ -37,6 +42,7 @@ impl LogCommand {
     pub fn exec(self, matches: &clap::ArgMatches, ctx: ClientCommandContext) -> ExitResult {
         match self {
             Self::WhatRan(cmd) => cmd.exec(matches, ctx),
+            Self::WhatFailed(cmd) => cmd.exec(matches, ctx),
             Self::Last(cmd) => cmd.exec(matches, ctx),
             Self::Show(cmd) => cmd.exec(matches, ctx),
             Self::WhatUp(cmd) => cmd.exec(matches, ctx),
