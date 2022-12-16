@@ -22,9 +22,10 @@ pub enum Verbosity {
     Default,
     /// Print more things, but still a manageable and potentially useful amount of output.
     Verbose,
-    /// Print everything that could possibly be printed. For any non-trivial build this will be too
-    /// much.
+    /// Print even more things, this is likely not very useful.
     AllCommands,
+    /// Print too much output, this is likely not useful.
+    AllStderr,
 }
 
 impl Verbosity {
@@ -33,7 +34,8 @@ impl Verbosity {
             i if i <= 0 => Self::Quiet,
             1 => Self::Default,
             2 => Self::Verbose,
-            _ => Self::AllCommands,
+            3 => Self::AllCommands,
+            _ => Self::AllStderr,
         })
     }
 
@@ -44,7 +46,7 @@ impl Verbosity {
 
     /// Whether stderr should be printed to users for successful commands by default.
     pub fn print_success_stderr(self) -> bool {
-        self.at(Self::AllCommands)
+        self.at(Self::AllStderr)
     }
 
     /// Whether the full command for failed actions should be printed. Otherwise, a truncated command is printed.
@@ -54,7 +56,7 @@ impl Verbosity {
 
     /// Whether to print all commands that are being executed
     pub fn print_all_commands(self) -> bool {
-        self.at(Self::Verbose)
+        self.at(Self::AllCommands)
     }
 
     /// Whether we should print periodic status messages
