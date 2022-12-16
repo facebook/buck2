@@ -59,6 +59,11 @@ impl Verbosity {
         self.at(Self::AllCommands)
     }
 
+    /// Whether we should show all actions (in consoles where that is relevant).
+    pub fn print_all_actions(self) -> bool {
+        self.at(Self::Verbose)
+    }
+
     /// Whether we should print periodic status messages
     pub fn print_status(self) -> bool {
         self.at(Self::Default)

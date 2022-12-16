@@ -491,11 +491,13 @@ impl UnpackingEventSubscriber for SimpleConsole {
             TargetDisplayOptions::for_log(),
         )?;
 
-        if self.verbosity.print_status() {
+        let stderr = display::success_stderr(action, self.verbosity)?;
+
+        if self.verbosity.print_all_actions() || stderr.is_some() {
             let complete = self.span_tracker.roots_completed();
             let incomplete = self.span_tracker.roots_ongoing();
             echo!("{} / {}: {}", complete, complete + incomplete, action_id)?;
-            if let Some(stderr) = display::success_stderr(action, self.verbosity)? {
+            if let Some(stderr) = stderr {
                 // TODO(nmj): Factor out behavior here so that handling ttymode isn't ad hoc.  i.e. write a method that formats text based on tty mode
                 match self.tty_mode {
                     TtyMode::Enabled => {
@@ -511,6 +513,7 @@ impl UnpackingEventSubscriber for SimpleConsole {
                     }
                 }
             }
+            self.notify_printed();
         }
 
         if let Some(error) = &action.error {
@@ -525,8 +528,8 @@ impl UnpackingEventSubscriber for SimpleConsole {
 
             action_error.print(self.tty_mode)?;
             self.action_errors.push(action_error);
+            self.notify_printed();
         }
-        self.notify_printed();
 
         Ok(())
     }
