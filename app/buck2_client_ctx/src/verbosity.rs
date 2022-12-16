@@ -20,13 +20,11 @@ pub enum Verbosity {
     Quiet,
     /// The default verbosity. Error messages are printed, but extra details may not be.
     Default,
-    /// If an error has additional details to print, they are printed.
-    ///
-    /// This may be something like a stack trace, or fuller information about a command's
-    /// execution.
-    VerboseError,
-    /// Includes printing the command line and stderr of actions.
-    VerboseEverything,
+    /// Print more things, but still a manageable and potentially useful amount of output.
+    Verbose,
+    /// Print everything that could possibly be printed. For any non-trivial build this will be too
+    /// much.
+    AllCommands,
 }
 
 impl Verbosity {
@@ -34,8 +32,8 @@ impl Verbosity {
         Ok(match value.parse::<i64>()? {
             i if i <= 0 => Self::Quiet,
             1 => Self::Default,
-            2 => Self::VerboseError,
-            _ => Self::VerboseEverything,
+            2 => Self::Verbose,
+            _ => Self::AllCommands,
         })
     }
 
@@ -46,17 +44,17 @@ impl Verbosity {
 
     /// Whether stderr should be printed to users for successful commands by default.
     pub fn print_success_stderr(self) -> bool {
-        self.at(Self::VerboseEverything)
+        self.at(Self::AllCommands)
     }
 
     /// Whether the full command for failed actions should be printed. Otherwise, a truncated command is printed.
     pub fn print_failure_full_command(self) -> bool {
-        self.at(Self::VerboseError)
+        self.at(Self::Verbose)
     }
 
     /// Whether to print all commands that are being executed
     pub fn print_all_commands(self) -> bool {
-        self.at(Self::VerboseError)
+        self.at(Self::Verbose)
     }
 
     /// Whether we should print periodic status messages
