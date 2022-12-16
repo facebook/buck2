@@ -31,6 +31,7 @@ pub struct WhatRanOptions {
 }
 
 /// An action that makes sense to use to contextualize a command we ran.
+#[derive(Copy, Clone, Dupe)]
 pub enum WhatRanRelevantAction<'a> {
     ActionExecution(&'a buck2_data::ActionExecutionStart),
     TestDiscovery(&'a buck2_data::TestDiscoveryStart),
@@ -106,67 +107,9 @@ pub fn emit_event_if_relevant<T: fmt::Display + Copy>(
     output: &mut impl WhatRanOutputWriter,
     options: &WhatRanOptions,
 ) -> anyhow::Result<()> {
-    match data {
-        buck2_data::buck_event::Data::SpanStart(span) => match &span.data {
-            Some(buck2_data::span_start_event::Data::ExecutorStage(executor_stage)) => {
-                match &executor_stage.stage {
-                    Some(buck2_data::executor_stage_start::Stage::CacheQuery(cache_hit))
-                        if options.emit_cache_queries =>
-                    {
-                        emit(
-                            parent_span_id,
-                            CommandReproducer::CacheQuery(cache_hit),
-                            state,
-                            output,
-                        )?;
-                    }
-                    Some(buck2_data::executor_stage_start::Stage::CacheHit(cache_hit))
-                        if !options.skip_cache_hits =>
-                    {
-                        emit(
-                            parent_span_id,
-                            CommandReproducer::CacheHit(cache_hit),
-                            state,
-                            output,
-                        )?;
-                    }
-                    Some(buck2_data::executor_stage_start::Stage::Re(re_stage))
-                        if !options.skip_remote_executions =>
-                    {
-                        match &re_stage.stage {
-                            Some(buck2_data::re_stage::Stage::Execute(execute)) => {
-                                emit(
-                                    parent_span_id,
-                                    CommandReproducer::ReExecute(execute),
-                                    state,
-                                    output,
-                                )?;
-                            }
-                            _ => {}
-                        }
-                    }
-                    Some(buck2_data::executor_stage_start::Stage::Local(local_stage)) => {
-                        if !options.skip_local_executions {
-                            match &local_stage.stage {
-                                Some(buck2_data::local_stage::Stage::Execute(local_execute)) => {
-                                    emit(
-                                        parent_span_id,
-                                        CommandReproducer::LocalExecute(local_execute),
-                                        state,
-                                        output,
-                                    )?;
-                                }
-                                _ => {}
-                            }
-                        }
-                    }
-                    _ => {}
-                }
-            }
-            _ => {}
-        },
-        _ => {}
-    };
+    if let Some(repro) = CommandReproducer::from_buck_data(data, options) {
+        emit(parent_span_id, repro, state, output)?;
+    }
 
     Ok(())
 }
@@ -178,8 +121,14 @@ fn emit<T: fmt::Display + Copy>(
     state: &impl WhatRanState<T>,
     output: &mut impl WhatRanOutputWriter,
 ) -> anyhow::Result<()> {
-    let action = state.get(parent_span_id);
+    emit_reproducer(state.get(parent_span_id), repro, output)
+}
 
+pub fn emit_reproducer(
+    action: Option<WhatRanRelevantAction<'_>>,
+    repro: CommandReproducer<'_>,
+    output: &mut impl WhatRanOutputWriter,
+) -> anyhow::Result<()> {
     let (reason, identity, extra) = match action {
         Some(WhatRanRelevantAction::ActionExecution(action)) => (
             "build",
@@ -190,26 +139,20 @@ fn emit<T: fmt::Display + Copy>(
             )?),
             None,
         ),
-        Some(WhatRanRelevantAction::TestDiscovery(test)) => {
-            ("test.discovery", Cow::Borrowed(&test.suite_name), None)
-        }
+        Some(WhatRanRelevantAction::TestDiscovery(test)) => (
+            "test.discovery",
+            Cow::Borrowed(test.suite_name.as_str()),
+            None,
+        ),
         Some(WhatRanRelevantAction::TestRun(test)) => match test.suite.as_ref() {
             Some(suite) => (
                 "test.run",
-                Cow::Borrowed(&suite.suite_name),
+                Cow::Borrowed(suite.suite_name.as_str()),
                 Some(WhatRanOutputCommandExtra::TestCases(&suite.test_names)),
             ),
-            None => (
-                "test.run",
-                Cow::Owned(format!("unknown test suite (span id: {})", parent_span_id)),
-                None,
-            ),
+            None => ("test.run", Cow::Borrowed("unknown test suite"), None),
         },
-        None => (
-            "unknown",
-            Cow::Owned(format!("unknown action (span id: {})", parent_span_id)),
-            None,
-        ),
+        None => ("unknown", Cow::Borrowed("unknown action"), None),
     };
 
     output.emit_command(WhatRanOutputCommand {
@@ -244,6 +187,59 @@ impl<'a> CommandReproducer<'a> {
     /// Human-readable representation of this repro instruction
     pub fn as_human_readable(&self) -> HumanReadableCommandReproducer<'a> {
         HumanReadableCommandReproducer { command: *self }
+    }
+
+    pub fn from_buck_data(
+        data: &'a buck2_data::buck_event::Data,
+        options: &WhatRanOptions,
+    ) -> Option<Self> {
+        match data {
+            buck2_data::buck_event::Data::SpanStart(span) => match &span.data {
+                Some(buck2_data::span_start_event::Data::ExecutorStage(executor_stage)) => {
+                    match &executor_stage.stage {
+                        Some(buck2_data::executor_stage_start::Stage::CacheQuery(cache_hit))
+                            if options.emit_cache_queries =>
+                        {
+                            return Some(CommandReproducer::CacheQuery(cache_hit));
+                        }
+                        Some(buck2_data::executor_stage_start::Stage::CacheHit(cache_hit))
+                            if !options.skip_cache_hits =>
+                        {
+                            return Some(CommandReproducer::CacheHit(cache_hit));
+                        }
+                        Some(buck2_data::executor_stage_start::Stage::Re(re_stage))
+                            if !options.skip_remote_executions =>
+                        {
+                            match &re_stage.stage {
+                                Some(buck2_data::re_stage::Stage::Execute(execute)) => {
+                                    return Some(CommandReproducer::ReExecute(execute));
+                                }
+                                _ => {}
+                            }
+                        }
+                        Some(buck2_data::executor_stage_start::Stage::Local(local_stage)) => {
+                            if !options.skip_local_executions {
+                                match &local_stage.stage {
+                                    Some(buck2_data::local_stage::Stage::Execute(
+                                        local_execute,
+                                    )) => {
+                                        return Some(CommandReproducer::LocalExecute(
+                                            local_execute,
+                                        ));
+                                    }
+                                    _ => {}
+                                }
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+                _ => {}
+            },
+            _ => {}
+        };
+
+        None
     }
 }
 
