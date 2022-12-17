@@ -4,12 +4,20 @@ ocaml_binary(
     name = "hello",
     srcs = [
         "hello.ml",
+    ],
+    deps = [":hello-stubs"],
+) if host_info().os.is_linux else None
+
+cxx_library(
+    name = "hello-stubs",
+    srcs = [
         "hello_stubs.c",
     ],
-) if not host_info().os.is_windows else None
+    deps = ["root//ocaml/opam:ocaml-dev"],
+) if host_info().os.is_linux else None
 
 assert_output(
-    name = "hello-check",
+    name = "check-hello",
     command = "$(exe_target :hello)",
     output = "Hello",
-) if not host_info().os.is_windows else None
+) if host_info().os.is_linux else None
