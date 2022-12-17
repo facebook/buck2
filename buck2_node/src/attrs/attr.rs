@@ -21,6 +21,8 @@ use crate::attrs::coerced_attr::CoercedAttr;
 pub struct Attribute {
     /// The default value. If None, the value is not optional and must be provided by the user
     pub default: Option<Arc<CoercedAttr>>,
+    /// Is that default only arising through a previous mistake we are working on eliminating
+    pub deprecated_default: bool,
     /// Documentation for what the attribute actually means
     pub doc: String,
     /// The coercer to take this parameter's value from Starlark value -> an
@@ -32,6 +34,7 @@ impl Attribute {
     pub fn new_internal(default: Option<Arc<CoercedAttr>>, doc: String, coercer: AttrType) -> Self {
         Self {
             default,
+            deprecated_default: false,
             doc,
             coercer,
         }
@@ -67,6 +70,7 @@ pub mod testing {
         fn testing_new(default: Option<Arc<CoercedAttr>>, coercer: AttrType) -> Attribute {
             Attribute {
                 default,
+                deprecated_default: false,
                 doc: String::new(),
                 coercer,
             }

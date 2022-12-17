@@ -79,6 +79,7 @@ impl AttributeExt for Attribute {
         };
         Ok(AttributeAsStarlarkValue(Attribute {
             default,
+            deprecated_default: false,
             doc: doc.to_owned(),
             coercer,
         }))
@@ -119,6 +120,7 @@ fn attr_any<'v>(doc: &'v str) -> AttributeAsStarlarkValue {
 
     AttributeAsStarlarkValue(Attribute {
         default: Some(Arc::new(AnyAttrType::empty_string())),
+        deprecated_default: false,
         doc: doc.to_owned(),
         coercer,
     })
@@ -218,6 +220,7 @@ pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
 
         Ok(AttributeAsStarlarkValue(Attribute {
             default: coerced_default.map(Arc::new),
+            deprecated_default: false,
             doc: doc.to_owned(),
             coercer,
         }))
@@ -263,6 +266,7 @@ pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
 
         Ok(AttributeAsStarlarkValue(Attribute {
             default: coerced_default.map(Arc::new),
+            deprecated_default: false,
             doc: doc.to_owned(),
             coercer,
         }))
@@ -287,11 +291,18 @@ pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
     }
 
     fn bool<'v>(
-        #[starlark(require = named, default = false)] default: Value<'v>,
+        #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<AttributeAsStarlarkValue> {
-        Attribute::attr(eval, Some(default), doc, AttrType::bool())
+        let mut at = Attribute::attr(
+            eval,
+            Some(default.unwrap_or_else(|| Value::new_bool(false))),
+            doc,
+            AttrType::bool(),
+        )?;
+        at.0.deprecated_default = default.is_none();
+        Ok(at)
     }
 
     fn option<'v>(
@@ -316,6 +327,7 @@ pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
     ) -> anyhow::Result<AttributeAsStarlarkValue> {
         Ok(AttributeAsStarlarkValue(Attribute {
             default: inner.default.dupe(),
+            deprecated_default: false,
             doc: doc.to_owned(),
             coercer: AttrType::default_only(),
         }))
@@ -458,6 +470,7 @@ pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
 
         Ok(AttributeAsStarlarkValue(Attribute {
             default: Some(Arc::new(AnyAttrType::empty_list(element_type))),
+            deprecated_default: false,
             doc: doc.to_owned(),
             coercer,
         }))
@@ -520,7 +533,7 @@ mod tests {
     fn boolean_works() -> SharedResult<()> {
         run_starlark_bzl_test(indoc!(
             r#"
-            frozen = attrs.bool()
+            frozen = attrs.bool(default=False)
             def test():
                 assert_eq('attrs.bool(default=True)', repr(attrs.bool(default=True, doc = "foo")))
                 assert_eq('attrs.bool(default=False)', repr(frozen))
