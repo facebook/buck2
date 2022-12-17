@@ -1,5 +1,3 @@
-load("@prelude//rules.bzl", "cxx_python_extension")
-
 # cxx_python_extension(
 #     name = "cpprint",
 #     srcs = ["print.cpp"],
