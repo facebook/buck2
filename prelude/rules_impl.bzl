@@ -348,9 +348,9 @@ inlined_extra_attributes = {
         "actual": attrs.label(),
         # We use a separate field instead of re-purposing `actual`, as we want
         # to keep output format compatibility with v1.
-        "configured_actual": attrs.option(attrs.configured_dep()),
+        "configured_actual": attrs.option(attrs.configured_dep(), default = None),
         # If `configured_actual` is `None`, fallback to this unconfigured dep.
-        "fallback_actual": attrs.option(attrs.dep()),
+        "fallback_actual": attrs.option(attrs.dep(), default = None),
         "platform": attrs.option(attrs.configuration_label()),
     },
     "cxx_binary": _cxx_binary_and_test_attrs(),
