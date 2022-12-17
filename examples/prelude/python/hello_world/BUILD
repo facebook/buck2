@@ -1,4 +1,3 @@
-load("@prelude//rules.bzl", "python_binary")
 load("//test_utils.bzl", "assert_output")
 
 python_binary(

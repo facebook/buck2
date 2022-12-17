@@ -1,6 +1,7 @@
 load("@prelude//toolchains:cxx.bzl", "system_cxx_toolchain")
 load("@prelude//toolchains:ocaml.bzl", "system_ocaml_toolchain")
 load("@prelude//toolchains:python.bzl", "system_python_bootstrap_toolchain", "system_python_toolchain")
+load("@prelude//toolchains:rust.bzl", "system_rust_toolchain")
 
 system_cxx_toolchain(
     name = "cxx",
@@ -19,5 +20,11 @@ system_python_toolchain(
 
 system_python_bootstrap_toolchain(
     name = "python_bootstrap",
+    visibility = ["PUBLIC"],
+)
+
+system_rust_toolchain(
+    name = "rust",
+    default_edition = "2021",
     visibility = ["PUBLIC"],
 )
