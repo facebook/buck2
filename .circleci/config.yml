@@ -28,7 +28,7 @@ commands:
     description: Setup env for Linux
     steps:
       - run: sudo apt-get update
-      - run: sudo apt-get install libssl-dev cmake protobuf-compiler clang opam
+      - run: sudo apt-get install libssl-dev cmake protobuf-compiler clang lld opam
       - run:
           name: Init opam
           command: |
@@ -41,7 +41,13 @@ commands:
     description: Setup env for macOS
     steps:
       - run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-      - run: brew install cmake protobuf coreutils opam
+      - run:
+          name: Brew install
+          command: |
+            # Avoid: "Error: The `brew link` step did not complete
+            # successfully" (for llvm dependency 'six').
+            rm -f '/usr/local/lib/python3.9/site-packages/six.py'
+            brew install cmake protobuf coreutils opam llvm
       - run:
           name: Init opam
           command: |
@@ -155,6 +161,7 @@ jobs:
       - run:
           name: Setup and build example/prelude directory
           command: |
+            export PATH=/usr/local/opt/llvm/bin:"$PATH"
             cd examples/prelude
             ln -s $(realpath ../../prelude) prelude
             eval $(opam env --switch=default)

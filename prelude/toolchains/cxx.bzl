@@ -40,7 +40,7 @@ def _system_cxx_toolchain_impl(ctx):
             mk_comp_db = ctx.attrs.make_comp_db,
             linker_info = LinkerInfo(
                 linker = RunInfo(args = ["clang++"]),
-                linker_flags = [],
+                linker_flags = ["-fuse-ld=lld"],
                 archiver = RunInfo(args = ["ar", "rcs"]),
                 archiver_type = archiver_type,
                 type = linker_type,
