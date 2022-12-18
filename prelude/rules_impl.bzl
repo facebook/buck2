@@ -220,7 +220,7 @@ def _python_test_attrs():
         "bundled_runtime": attrs.bool(default = False),
         "enable_distributed_thinlto": attrs.bool(default = False),
         "package_split_dwarf_dwp": attrs.bool(default = False),
-        "remote_execution": attrs.option(attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False)),
+        "remote_execution": attrs.option(attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False), default = None),
         "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source(allow_directory = True)), sorted = True, default = []),
         "_create_manifest_for_source_dir": _create_manifest_for_source_dir(),
         "_cxx_hacks": attrs.default_only(attrs.dep(default = "prelude//cxx/tools:cxx_hacks")),
@@ -380,7 +380,7 @@ inlined_extra_attributes = {
     },
     "cxx_python_extension": _cxx_python_extension_attrs(),
     "cxx_test": dict(
-        remote_execution = attrs.option(attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False)),
+        remote_execution = attrs.option(attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False), default = None),
         **_cxx_binary_and_test_attrs()
     ),
     "cxx_toolchain": {
@@ -461,13 +461,13 @@ inlined_extra_attributes = {
     # http things get only 1 hash in v1 but in v2 we allow multiple. Also,
     # don't default hashes to empty strings.
     "http_archive": {
-        "sha1": attrs.option(attrs.string()),
-        "sha256": attrs.option(attrs.string()),
+        "sha1": attrs.option(attrs.string(), default = None),
+        "sha256": attrs.option(attrs.string(), default = None),
         "_create_exclusion_list": attrs.default_only(attrs.exec_dep(default = "prelude//http_archive/tools:create_exclusion_list")),
     },
     "http_file": {
-        "sha1": attrs.option(attrs.string()),
-        "sha256": attrs.option(attrs.string()),
+        "sha1": attrs.option(attrs.string(), default = None),
+        "sha256": attrs.option(attrs.string(), default = None),
     },
 
     #ocaml
@@ -494,7 +494,7 @@ inlined_extra_attributes = {
         "platform_linker_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.string())), default = []),
         "srcs": attrs.option(attrs.named_set(attrs.source(), sorted = False), default = None),
         "warnings_flags": attrs.option(attrs.string(), default = None),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.list(attrs.string()), default = None),
         "_cxx_toolchain": _cxx_toolchain(),
         "_ocaml_toolchain": _ocaml_toolchain(),
     },
@@ -519,12 +519,12 @@ inlined_extra_attributes = {
         # block overrides/corrects them here so as to be in terms of
         # `attrs.source()`.
         "bytecode_c_libs": attrs.list(attrs.source(), default = []),
-        "bytecode_lib": attrs.option(attrs.source()),
+        "bytecode_lib": attrs.option(attrs.source(), default = None),
         "c_libs": attrs.list(attrs.source(), default = []),
-        "include_dir": attrs.option(attrs.source(allow_directory = True)),
-        "lib_dir": attrs.option(attrs.source(allow_directory = True)),
+        "include_dir": attrs.option(attrs.source(allow_directory = True), default = None),
+        "lib_dir": attrs.option(attrs.source(allow_directory = True), default = None),
         "native_c_libs": attrs.list(attrs.source(), default = []),
-        "native_lib": attrs.option(attrs.source()),
+        "native_lib": attrs.option(attrs.source(), default = None),
     },
 
     #python
@@ -561,18 +561,18 @@ inlined_extra_attributes = {
         "env": attrs.dict(key = attrs.string(), value = attrs.arg(), sorted = False, default = {}),
         "labels": attrs.list(attrs.string(), default = []),
         "needed_coverage": attrs.list(attrs.tuple(attrs.int(), attrs.dep(), attrs.option(attrs.string())), default = []),
-        "remote_execution": attrs.option(attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False)),
+        "remote_execution": attrs.option(attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False), default = None),
         "test": attrs.dep(providers = [ExternalRunnerTestInfo]),
     },
     "python_test": _python_test_attrs(),
     "remote_file": {
-        "sha1": attrs.option(attrs.string()),
-        "sha256": attrs.option(attrs.string()),
+        "sha1": attrs.option(attrs.string(), default = None),
+        "sha256": attrs.option(attrs.string(), default = None),
         "_unzip_tool": attrs.default_only(attrs.exec_dep(providers = [RunInfo], default = "prelude//zip_file/tools:unzip")),
     },
     #rust
     "rust_binary": {
-        "incremental_build_mode": attrs.option(attrs.string()),
+        "incremental_build_mode": attrs.option(attrs.string(), default = None),
         "incremental_enabled": attrs.bool(default = False),
         "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source()), sorted = True, default = []),
         "_cxx_toolchain": _cxx_toolchain(),
@@ -585,7 +585,7 @@ inlined_extra_attributes = {
         # them and it simplifies the implementation of Rust rules since they
         # don't have to know whether we're building a rust_binary or a
         # rust_library.
-        "incremental_build_mode": attrs.option(attrs.string()),
+        "incremental_build_mode": attrs.option(attrs.string(), default = None),
         "incremental_enabled": attrs.bool(default = False),
         "linker_flags": attrs.list(attrs.arg(), default = []),
         "preferred_linkage": attrs.enum(Linkage, default = "any"),
@@ -597,9 +597,9 @@ inlined_extra_attributes = {
     },
     "rust_test": {
         "framework": attrs.bool(default = True),
-        "incremental_build_mode": attrs.option(attrs.string()),
+        "incremental_build_mode": attrs.option(attrs.string(), default = None),
         "incremental_enabled": attrs.bool(default = False),
-        "remote_execution": attrs.option(attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False)),
+        "remote_execution": attrs.option(attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False), default = None),
         "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source()), sorted = True, default = []),
         "_cxx_toolchain": _cxx_toolchain(),
         "_rust_toolchain": _rust_toolchain(),
