@@ -25,7 +25,6 @@ use buck2_node::attrs::configurable::AttrIsConfigurable;
 use gazebo::prelude::*;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
-use starlark::values::none::NoneType;
 use starlark::values::Value;
 use starlark::values::ValueError;
 use thiserror::Error;
@@ -307,17 +306,24 @@ pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
 
     fn option<'v>(
         inner: &AttributeAsStarlarkValue,
-        #[starlark(require = named, default = NoneType)] default: Value<'v>,
+        #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<AttributeAsStarlarkValue> {
         let coercer = AttrType::option(inner.coercer.dupe());
-        let attr = Attribute::attr(eval, Some(default), doc, coercer)?;
+        let mut attr = Attribute::attr(
+            eval,
+            Some(default.unwrap_or_else(Value::new_none)),
+            doc,
+            coercer,
+        )?;
+        attr.0.deprecated_default = default.is_none();
 
-        if attr.default.as_ref().map_or(true, |x| x.may_return_none()) {
-            Ok(attr)
-        } else {
-            Err(AttrError::OptionDefaultNone(default.to_string()).into())
+        match &attr.default {
+            Some(default) if !default.may_return_none() => {
+                Err(AttrError::OptionDefaultNone(default.to_string()).into())
+            }
+            _ => Ok(attr),
         }
     }
 
