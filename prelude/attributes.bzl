@@ -1,4 +1,4 @@
-# @generated SignedSource<<df3e1b25b54d6628d893a9d6d2035ed0>>
+# @generated SignedSource<<9fac650ac1ae0db92547dfc3334dd033>>
 # Generated with generate_rules_shim.py from a dump of buck v1's attrs.
 # See `fbsource/fbcode/buck2/scripts/generate_rules_shim.py` for how to reproduce it.
 # Add any Buck2-only arguments or overrides to `extra_attributes` in `rules_impl.bzl`
@@ -118,7 +118,7 @@ attributes = {
         "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
         "labels": attrs.list(attrs.string(), default = []),
         "licenses": attrs.list(attrs.source(), default = []),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "android_aar": {
         "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
@@ -174,7 +174,7 @@ attributes = {
         "srcs": attrs.list(attrs.source(), default = []),
         "target": attrs.option(attrs.string(), default = None),
         "use_jvm_abi_gen": attrs.option(attrs.bool(), default = None),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "android_app_modularity": {
         "application_module_blacklist": attrs.option(attrs.list(attrs.query()), default = None),
@@ -188,7 +188,7 @@ attributes = {
         "no_dx": attrs.list(attrs.dep(), default = []),
         "should_include_classes": attrs.bool(default = True),
         "should_include_libraries": attrs.bool(default = False),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "android_binary": {
         "aapt2_keep_raw_values": attrs.bool(default = False),
@@ -267,7 +267,7 @@ attributes = {
         "skip_proguard": attrs.bool(default = False),
         "trim_resource_ids": attrs.bool(default = False),
         "use_split_dex": attrs.bool(default = False),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
         "xz_compression_level": attrs.int(default = 4),
     },
     "android_build_config": {
@@ -278,7 +278,7 @@ attributes = {
         "package": attrs.string(default = ""),
         "values": attrs.list(attrs.string(), default = []),
         "values_file": attrs.option(attrs.source(), default = None),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "android_bundle": {
         "aapt2_keep_raw_values": attrs.bool(default = False),
@@ -358,7 +358,7 @@ attributes = {
         "skip_proguard": attrs.bool(default = False),
         "trim_resource_ids": attrs.bool(default = False),
         "use_split_dex": attrs.bool(default = False),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
         "xz_compression_level": attrs.int(default = 4),
     },
     "android_instrumentation_apk": {
@@ -373,7 +373,7 @@ attributes = {
         "licenses": attrs.list(attrs.source(), default = []),
         "manifest": attrs.option(attrs.source(), default = None),
         "manifest_skeleton": attrs.option(attrs.source(), default = None),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "android_instrumentation_test": {
         "apk": attrs.dep(),
@@ -383,7 +383,7 @@ attributes = {
         "labels": attrs.list(attrs.string(), default = []),
         "licenses": attrs.list(attrs.source(), default = []),
         "test_rule_timeout_ms": attrs.option(attrs.int(), default = None),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "android_library": {
         "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
@@ -427,7 +427,7 @@ attributes = {
         "srcs": attrs.list(attrs.source(), default = []),
         "target": attrs.option(attrs.string(), default = None),
         "use_jvm_abi_gen": attrs.option(attrs.bool(), default = None),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "android_manifest": {
         "contacts": attrs.list(attrs.string(), default = []),
@@ -436,12 +436,12 @@ attributes = {
         "labels": attrs.list(attrs.string(), default = []),
         "licenses": attrs.list(attrs.source(), default = []),
         "skeleton": attrs.source(),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "android_platform": {
         "base_platform": attrs.configuration_label(),
         "native_platforms": attrs.dict(key = attrs.enum(TargetCpuType), value = attrs.configuration_label(), sorted = False, default = {}),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "android_prebuilt_aar": {
         "aar": attrs.source(),
@@ -455,7 +455,7 @@ attributes = {
         "required_for_source_only_abi": attrs.bool(default = False),
         "source_jar": attrs.option(attrs.source(), default = None),
         "use_system_library_loader": attrs.bool(default = False),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "android_resource": {
         "allowlisted_locales": attrs.option(attrs.set(attrs.string(), sorted = False), default = None),
@@ -472,7 +472,7 @@ attributes = {
         "project_res": attrs.option(attrs.source(), default = None),
         "res": attrs.option(attrs.one_of(attrs.source(), attrs.dict(key = attrs.string(), value = attrs.source(), sorted = True)), default = None),
         "resource_union": attrs.bool(default = False),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "apk_genrule": {
         "aab": attrs.option(attrs.dep(), default = None),
@@ -492,7 +492,7 @@ attributes = {
         "out": attrs.option(attrs.string(), default = None),
         "remote": attrs.option(attrs.bool(), default = None),
         "srcs": attrs.named_set(attrs.source(), sorted = False, default = []),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "apple_asset_catalog": {
         "app_icon": attrs.option(attrs.string(), default = None),
@@ -502,7 +502,7 @@ attributes = {
         "labels": attrs.list(attrs.string(), default = []),
         "launch_image": attrs.option(attrs.string(), default = None),
         "licenses": attrs.list(attrs.source(), default = []),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "apple_binary": {
         "bridging_header": attrs.option(attrs.source(), default = None),
@@ -593,7 +593,7 @@ attributes = {
         "uses_cxx_explicit_modules": attrs.bool(default = False),
         "uses_explicit_modules": attrs.bool(default = False),
         "uses_modules": attrs.bool(default = False),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
         "xcode_private_headers_symlinks": attrs.option(attrs.bool(), default = None),
         "xcode_public_headers_symlinks": attrs.option(attrs.bool(), default = None),
     },
@@ -620,7 +620,7 @@ attributes = {
         "resource_group_map": attrs.option(attrs.list(attrs.tuple(attrs.string(), attrs.list(attrs.tuple(attrs.dep(), attrs.enum(Traversal), attrs.option(attrs.string()))))), default = None),
         "skip_copying_swift_stdlib": attrs.option(attrs.bool(), default = None),
         "try_skip_code_signing": attrs.option(attrs.bool(), default = None),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
         "xcode_product_type": attrs.option(attrs.string(), default = None),
     },
     "apple_library": {
@@ -711,7 +711,7 @@ attributes = {
         "uses_cxx_explicit_modules": attrs.bool(default = False),
         "uses_explicit_modules": attrs.bool(default = False),
         "uses_modules": attrs.bool(default = False),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
         "xcode_private_headers_symlinks": attrs.option(attrs.bool(), default = None),
         "xcode_public_headers_symlinks": attrs.option(attrs.bool(), default = None),
     },
@@ -723,7 +723,7 @@ attributes = {
         "labels": attrs.list(attrs.string(), default = []),
         "licenses": attrs.list(attrs.source(), default = []),
         "need_android_tools": attrs.bool(default = False),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "apple_resource": {
         "codesign_on_copy": attrs.bool(default = False),
@@ -738,7 +738,7 @@ attributes = {
         "named_variants": attrs.dict(key = attrs.string(), value = attrs.set(attrs.source(), sorted = False), sorted = False, default = {}),
         "resources_from_deps": attrs.list(attrs.dep(), default = []),
         "variants": attrs.list(attrs.source(), default = []),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "apple_test": {
         "asset_catalogs_compilation_options": attrs.dict(key = attrs.string(), value = attrs.any(), default = {}),
@@ -845,7 +845,7 @@ attributes = {
         "uses_cxx_explicit_modules": attrs.bool(default = False),
         "uses_explicit_modules": attrs.bool(default = False),
         "uses_modules": attrs.bool(default = False),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
         "xcode_private_headers_symlinks": attrs.option(attrs.bool(), default = None),
         "xcode_product_type": attrs.option(attrs.string(), default = None),
         "xcode_public_headers_symlinks": attrs.option(attrs.bool(), default = None),
@@ -877,7 +877,7 @@ attributes = {
         "swift_toolchain": attrs.option(attrs.dep(), default = None),
         "version": attrs.string(default = ""),
         "watch_kit_stub_binary": attrs.option(attrs.source(), default = None),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
         "work_around_dsymutil_lto_stack_overflow_bug": attrs.option(attrs.bool(), default = None),
         "xcode_build_version": attrs.string(default = ""),
         "xcode_version": attrs.string(default = ""),
@@ -889,7 +889,7 @@ attributes = {
         "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
         "labels": attrs.list(attrs.string(), default = []),
         "licenses": attrs.list(attrs.source(), default = []),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "cgo_library": {
         "cgo_compiler_flags": attrs.list(attrs.string(), default = []),
@@ -945,7 +945,7 @@ attributes = {
         "thin_lto": attrs.bool(default = False),
         "version_universe": attrs.option(attrs.string(), default = None),
         "weak_framework_names": attrs.list(attrs.string(), default = []),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "command_alias": {
         "args": attrs.list(attrs.arg(), default = []),
@@ -957,12 +957,12 @@ attributes = {
         "licenses": attrs.list(attrs.source(), default = []),
         "platform_exe": attrs.dict(key = attrs.enum(Platform), value = attrs.dep(), sorted = False, default = {}),
         "resources": attrs.list(attrs.source(), default = []),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "config_setting": {
         "constraint_values": attrs.list(attrs.configuration_label(), default = []),
         "values": attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False, default = {}),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "configured_alias": {
         "actual": attrs.configuration_label(),
@@ -972,14 +972,14 @@ attributes = {
         "licenses": attrs.list(attrs.source(), default = []),
         "platform": attrs.configuration_label(),
         "propagate_flavors": attrs.bool(default = False),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "constraint_setting": {
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "constraint_value": {
         "constraint_setting": attrs.configuration_label(),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "core_data_model": {
         "contacts": attrs.list(attrs.string(), default = []),
@@ -987,7 +987,7 @@ attributes = {
         "labels": attrs.list(attrs.string(), default = []),
         "licenses": attrs.list(attrs.source(), default = []),
         "path": attrs.source(),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "csharp_library": {
         "compiler_flags": attrs.list(attrs.string(), default = []),
@@ -1000,7 +1000,7 @@ attributes = {
         "licenses": attrs.list(attrs.source(), default = []),
         "resources": attrs.dict(key = attrs.string(), value = attrs.source(), sorted = False, default = {}),
         "srcs": attrs.list(attrs.source(), default = []),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "cxx_binary": {
         "compiler_flags": attrs.list(attrs.arg(), default = []),
@@ -1051,7 +1051,7 @@ attributes = {
         "thin_lto": attrs.bool(default = False),
         "version_universe": attrs.option(attrs.string(), default = None),
         "weak_framework_names": attrs.list(attrs.string(), default = []),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "cxx_genrule": {
         "bash": attrs.option(attrs.arg(), default = None),
@@ -1071,7 +1071,7 @@ attributes = {
         "remote": attrs.option(attrs.bool(), default = None),
         "srcs": attrs.named_set(attrs.source(), sorted = False, default = []),
         "type": attrs.option(attrs.string(), default = None),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "cxx_library": {
         "bridging_header": attrs.option(attrs.source(), default = None),
@@ -1154,7 +1154,7 @@ attributes = {
         "uses_explicit_modules": attrs.bool(default = False),
         "version_universe": attrs.option(attrs.string(), default = None),
         "weak_framework_names": attrs.list(attrs.string(), default = []),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
         "xcode_private_headers_symlinks": attrs.option(attrs.bool(), default = None),
         "xcode_public_headers_symlinks": attrs.option(attrs.bool(), default = None),
     },
@@ -1196,7 +1196,7 @@ attributes = {
         "raw_headers": attrs.set(attrs.source(), sorted = True, default = []),
         "srcs": attrs.list(attrs.one_of(attrs.source(), attrs.tuple(attrs.source(), attrs.list(attrs.arg()))), default = []),
         "version_universe": attrs.option(attrs.string(), default = None),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "cxx_precompiled_header": {
         "contacts": attrs.list(attrs.string(), default = []),
@@ -1206,7 +1206,7 @@ attributes = {
         "licenses": attrs.list(attrs.source(), default = []),
         "src": attrs.source(),
         "version_universe": attrs.option(attrs.string(), default = None),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "cxx_python_extension": {
         "base_module": attrs.option(attrs.string(), default = None),
@@ -1249,7 +1249,7 @@ attributes = {
         "srcs": attrs.list(attrs.one_of(attrs.source(), attrs.tuple(attrs.source(), attrs.list(attrs.arg()))), default = []),
         "type_stub": attrs.option(attrs.source(), default = None),
         "version_universe": attrs.option(attrs.string(), default = None),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "cxx_test": {
         "additional_coverage_targets": attrs.list(attrs.source(), default = []),
@@ -1307,7 +1307,7 @@ attributes = {
         "use_default_test_main": attrs.option(attrs.bool(), default = None),
         "version_universe": attrs.option(attrs.string(), default = None),
         "weak_framework_names": attrs.list(attrs.string(), default = []),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "cxx_toolchain": {
         "archive_contents": attrs.enum(ArchiveContents, default = "normal"),
@@ -1383,7 +1383,7 @@ attributes = {
         "strip_non_global_flags": attrs.option(attrs.list(attrs.arg()), default = None),
         "use_arg_file": attrs.bool(default = False),
         "use_header_map": attrs.bool(default = False),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "d_binary": {
         "contacts": attrs.list(attrs.string(), default = []),
@@ -1393,7 +1393,7 @@ attributes = {
         "licenses": attrs.list(attrs.source(), default = []),
         "linker_flags": attrs.list(attrs.string(), default = []),
         "srcs": attrs.named_set(attrs.source(), sorted = True, default = []),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "d_library": {
         "contacts": attrs.list(attrs.string(), default = []),
@@ -1403,7 +1403,7 @@ attributes = {
         "licenses": attrs.list(attrs.source(), default = []),
         "linker_flags": attrs.list(attrs.string(), default = []),
         "srcs": attrs.named_set(attrs.source(), sorted = True, default = []),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "d_test": {
         "contacts": attrs.list(attrs.string(), default = []),
@@ -1414,7 +1414,7 @@ attributes = {
         "linker_flags": attrs.list(attrs.string(), default = []),
         "srcs": attrs.named_set(attrs.source(), sorted = True, default = []),
         "test_rule_timeout_ms": attrs.option(attrs.int(), default = None),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "export_file": {
         "contacts": attrs.list(attrs.string(), default = []),
@@ -1424,7 +1424,7 @@ attributes = {
         "mode": attrs.option(attrs.enum(ExportFileDescriptionMode), default = None),
         "out": attrs.option(attrs.string(), default = None),
         "src": attrs.option(attrs.source(), default = None),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "external_test_runner": {
         "binary": attrs.dep(),
@@ -1432,7 +1432,7 @@ attributes = {
         "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
         "labels": attrs.list(attrs.string(), default = []),
         "licenses": attrs.list(attrs.source(), default = []),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "filegroup": {
         "contacts": attrs.list(attrs.string(), default = []),
@@ -1440,7 +1440,7 @@ attributes = {
         "labels": attrs.list(attrs.string(), default = []),
         "licenses": attrs.list(attrs.source(), default = []),
         "srcs": attrs.option(attrs.named_set(attrs.source(), sorted = False), default = None),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "gen_aidl": {
         "aidl": attrs.source(),
@@ -1452,7 +1452,7 @@ attributes = {
         "import_paths": attrs.list(attrs.string(), default = []),
         "labels": attrs.list(attrs.string(), default = []),
         "licenses": attrs.list(attrs.source(), default = []),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "genrule": {
         "bash": attrs.option(attrs.arg(), default = None),
@@ -1473,7 +1473,7 @@ attributes = {
         "remote": attrs.option(attrs.bool(), default = None),
         "srcs": attrs.named_set(attrs.source(), sorted = False, default = []),
         "type": attrs.option(attrs.string(), default = None),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "go_binary": {
         "assembler_flags": attrs.list(attrs.string(), default = []),
@@ -1491,7 +1491,7 @@ attributes = {
         "platform_external_linker_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg())), default = []),
         "resources": attrs.list(attrs.source(), default = []),
         "srcs": attrs.list(attrs.source(), default = []),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "go_exported_library": {
         "assembler_flags": attrs.list(attrs.string(), default = []),
@@ -1510,7 +1510,7 @@ attributes = {
         "platform_external_linker_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg())), default = []),
         "resources": attrs.list(attrs.source(), default = []),
         "srcs": attrs.list(attrs.source(), default = []),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "go_library": {
         "assembler_flags": attrs.list(attrs.string(), default = []),
@@ -1523,7 +1523,7 @@ attributes = {
         "licenses": attrs.list(attrs.source(), default = []),
         "package_name": attrs.option(attrs.string(), default = None),
         "srcs": attrs.list(attrs.source(), default = []),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "go_test": {
         "assembler_flags": attrs.list(attrs.string(), default = []),
@@ -1548,7 +1548,7 @@ attributes = {
         "specs": attrs.option(attrs.arg(json = True), default = None),
         "srcs": attrs.list(attrs.source(), default = []),
         "test_rule_timeout_ms": attrs.option(attrs.int(), default = None),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "go_test_runner": {
         "contacts": attrs.list(attrs.string(), default = []),
@@ -1556,7 +1556,7 @@ attributes = {
         "labels": attrs.list(attrs.string(), default = []),
         "licenses": attrs.list(attrs.source(), default = []),
         "test_runner_generator": attrs.source(),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "groovy_library": {
         "annotation_processor_deps": attrs.list(attrs.dep(), default = []),
@@ -1590,7 +1590,7 @@ attributes = {
         "source_only_abi_deps": attrs.list(attrs.dep(), default = []),
         "srcs": attrs.list(attrs.source(), default = []),
         "target": attrs.option(attrs.string(), default = None),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "groovy_test": {
         "annotation_processor_deps": attrs.list(attrs.dep(), default = []),
@@ -1638,7 +1638,7 @@ attributes = {
         "use_cxx_libraries": attrs.option(attrs.bool(), default = None),
         "use_dependency_order_classpath": attrs.option(attrs.bool(), default = None),
         "vm_args": attrs.list(attrs.arg(), default = []),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "gwt_binary": {
         "contacts": attrs.list(attrs.string(), default = []),
@@ -1655,7 +1655,7 @@ attributes = {
         "strict": attrs.option(attrs.bool(), default = None),
         "style": attrs.option(attrs.enum(Style), default = None),
         "vm_args": attrs.list(attrs.string(), default = []),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "halide_library": {
         "compiler_deps": attrs.list(attrs.dep(), default = []),
@@ -1710,7 +1710,7 @@ attributes = {
         "thin_lto": attrs.bool(default = False),
         "version_universe": attrs.option(attrs.string(), default = None),
         "weak_framework_names": attrs.list(attrs.string(), default = []),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "haskell_binary": {
         "compiler_flags": attrs.list(attrs.string(), default = []),
@@ -1731,7 +1731,7 @@ attributes = {
         "platform_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
         "platform_linker_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg())), default = []),
         "srcs": attrs.named_set(attrs.source(), sorted = True, default = []),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "haskell_ghci": {
         "compiler_flags": attrs.list(attrs.string(), default = []),
@@ -1751,7 +1751,7 @@ attributes = {
         "platform_preload_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
         "preload_deps": attrs.set(attrs.dep(), sorted = True, default = []),
         "srcs": attrs.named_set(attrs.source(), sorted = True, default = []),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "haskell_haddock": {
         "contacts": attrs.list(attrs.string(), default = []),
@@ -1762,7 +1762,7 @@ attributes = {
         "labels": attrs.list(attrs.string(), default = []),
         "licenses": attrs.list(attrs.source(), default = []),
         "platform": attrs.option(attrs.string(), default = None),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "haskell_ide": {
         "compiler_flags": attrs.list(attrs.string(), default = []),
@@ -1778,7 +1778,7 @@ attributes = {
         "platform": attrs.option(attrs.string(), default = None),
         "platform_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
         "srcs": attrs.named_set(attrs.source(), sorted = True, default = []),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "haskell_library": {
         "compiler_flags": attrs.list(attrs.string(), default = []),
@@ -1798,7 +1798,7 @@ attributes = {
         "platform_linker_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg())), default = []),
         "preferred_linkage": attrs.enum(Linkage),
         "srcs": attrs.named_set(attrs.source(), sorted = True, default = []),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "haskell_prebuilt_library": {
         "contacts": attrs.list(attrs.string(), default = []),
@@ -1819,7 +1819,7 @@ attributes = {
         "shared_libs": attrs.dict(key = attrs.string(), value = attrs.source(), sorted = False, default = {}),
         "static_libs": attrs.list(attrs.source(), default = []),
         "version": attrs.string(default = ""),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "http_archive": {
         "contacts": attrs.list(attrs.string(), default = []),
@@ -1833,7 +1833,7 @@ attributes = {
         "strip_prefix": attrs.option(attrs.string(), default = None),
         "type": attrs.option(attrs.string(), default = None),
         "urls": attrs.list(attrs.string(validate = _uri), default = []),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "http_file": {
         "contacts": attrs.list(attrs.string(), default = []),
@@ -1845,7 +1845,7 @@ attributes = {
         "sha1": attrs.option(attrs.string(), default = None),
         "sha256": attrs.string(default = ""),
         "urls": attrs.list(attrs.string(validate = _uri), default = []),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "jar_genrule": {
         "bash": attrs.option(attrs.arg(), default = None),
@@ -1862,7 +1862,7 @@ attributes = {
         "remote": attrs.option(attrs.bool(), default = None),
         "srcs": attrs.named_set(attrs.source(), sorted = False, default = []),
         "type": attrs.option(attrs.string(), default = None),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "java_annotation_processor": {
         "contacts": attrs.list(attrs.string(), default = []),
@@ -1874,7 +1874,7 @@ attributes = {
         "licenses": attrs.list(attrs.source(), default = []),
         "processor_class": attrs.string(default = ""),
         "supports_abi_generation_from_source": attrs.bool(default = False),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "java_binary": {
         "blacklist": attrs.list(attrs.regex(), default = []),
@@ -1888,7 +1888,7 @@ attributes = {
         "main_class": attrs.option(attrs.string(), default = None),
         "manifest_file": attrs.option(attrs.source(), default = None),
         "meta_inf_directory": attrs.option(attrs.source(), default = None),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "java_library": {
         "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
@@ -1922,7 +1922,7 @@ attributes = {
         "source_only_abi_deps": attrs.list(attrs.dep(), default = []),
         "srcs": attrs.list(attrs.source(), default = []),
         "target": attrs.option(attrs.string(), default = None),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "java_plugin": {
         "contacts": attrs.list(attrs.string(), default = []),
@@ -1934,7 +1934,7 @@ attributes = {
         "licenses": attrs.list(attrs.source(), default = []),
         "plugin_name": attrs.string(default = ""),
         "supports_abi_generation_from_source": attrs.bool(default = False),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "java_test": {
         "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
@@ -1984,7 +1984,7 @@ attributes = {
         "use_cxx_libraries": attrs.option(attrs.bool(), default = None),
         "use_dependency_order_classpath": attrs.option(attrs.bool(), default = None),
         "vm_args": attrs.list(attrs.arg(), default = []),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "java_test_runner": {
         "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
@@ -2019,7 +2019,7 @@ attributes = {
         "source_only_abi_deps": attrs.list(attrs.dep(), default = []),
         "srcs": attrs.list(attrs.source(), default = []),
         "target": attrs.option(attrs.string(), default = None),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "js_bundle": {
         "android_package": attrs.option(attrs.string(), default = None),
@@ -2033,7 +2033,7 @@ attributes = {
         "fallback_transform_profile": attrs.option(attrs.string(), default = None),
         "labels": attrs.list(attrs.string(), default = []),
         "licenses": attrs.list(attrs.source(), default = []),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
         "worker": attrs.dep(),
     },
     "js_bundle_genrule": {
@@ -2057,7 +2057,7 @@ attributes = {
         "rewrite_sourcemap": attrs.bool(default = False),
         "skip_resources": attrs.bool(default = False),
         "srcs": attrs.named_set(attrs.source(), sorted = False, default = []),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "js_library": {
         "asset_extensions": attrs.option(attrs.set(attrs.string(), sorted = False), default = None),
@@ -2071,7 +2071,7 @@ attributes = {
         "labels": attrs.list(attrs.string(), default = []),
         "licenses": attrs.list(attrs.source(), default = []),
         "srcs": attrs.list(attrs.one_of(attrs.source(), attrs.tuple(attrs.source(), attrs.string())), default = []),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
         "worker": attrs.dep(),
     },
     "keystore": {
@@ -2082,7 +2082,7 @@ attributes = {
         "licenses": attrs.list(attrs.source(), default = []),
         "properties": attrs.source(),
         "store": attrs.source(),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "kotlin_library": {
         "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
@@ -2121,7 +2121,7 @@ attributes = {
         "srcs": attrs.list(attrs.source(), default = []),
         "target": attrs.option(attrs.string(), default = None),
         "use_jvm_abi_gen": attrs.option(attrs.bool(), default = None),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "kotlin_test": {
         "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
@@ -2174,7 +2174,7 @@ attributes = {
         "use_dependency_order_classpath": attrs.option(attrs.bool(), default = None),
         "use_jvm_abi_gen": attrs.option(attrs.bool(), default = None),
         "vm_args": attrs.list(attrs.arg(), default = []),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "legacy_toolchain": {
         "contacts": attrs.list(attrs.string(), default = []),
@@ -2182,7 +2182,7 @@ attributes = {
         "labels": attrs.list(attrs.string(), default = []),
         "licenses": attrs.list(attrs.source(), default = []),
         "toolchain_name": attrs.string(default = ""),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "lua_binary": {
         "contacts": attrs.list(attrs.string(), default = []),
@@ -2196,7 +2196,7 @@ attributes = {
         "platform": attrs.option(attrs.string(), default = None),
         "platform_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
         "python_platform": attrs.option(attrs.string(), default = None),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "lua_library": {
         "base_module": attrs.option(attrs.string(), default = None),
@@ -2207,7 +2207,7 @@ attributes = {
         "licenses": attrs.list(attrs.source(), default = []),
         "platform_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
         "srcs": attrs.named_set(attrs.source(), sorted = True, default = []),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "ndk_library": {
         "contacts": attrs.list(attrs.string(), default = []),
@@ -2218,7 +2218,7 @@ attributes = {
         "labels": attrs.list(attrs.string(), default = []),
         "licenses": attrs.list(attrs.source(), default = []),
         "srcs": attrs.list(attrs.source(), default = []),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "ndk_toolchain": {
         "contacts": attrs.list(attrs.string(), default = []),
@@ -2230,7 +2230,7 @@ attributes = {
         "objdump": attrs.source(),
         "shared_runtime_path": attrs.option(attrs.source(), default = None),
         "strip_apk_libs_flags": attrs.option(attrs.list(attrs.arg()), default = None),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "ocaml_binary": {
         "bytecode_only": attrs.option(attrs.bool(), default = None),
@@ -2248,7 +2248,7 @@ attributes = {
         "platform_linker_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.string())), default = []),
         "srcs": attrs.option(attrs.named_set(attrs.source(), sorted = False), default = None),
         "warnings_flags": attrs.option(attrs.string(), default = None),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "ocaml_library": {
         "bytecode_only": attrs.bool(default = False),
@@ -2265,12 +2265,12 @@ attributes = {
         "platform_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
         "srcs": attrs.option(attrs.named_set(attrs.source(), sorted = False), default = None),
         "warnings_flags": attrs.option(attrs.string(), default = None),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "platform": {
         "constraint_values": attrs.list(attrs.configuration_label(), default = []),
         "deps": attrs.list(attrs.configuration_label(), default = []),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "prebuilt_apple_framework": {
         "code_sign_on_copy": attrs.option(attrs.bool(), default = None),
@@ -2286,7 +2286,7 @@ attributes = {
         "licenses": attrs.list(attrs.source(), default = []),
         "preferred_linkage": attrs.enum(Linkage),
         "supported_platforms_regex": attrs.option(attrs.regex(), default = None),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "prebuilt_cxx_library": {
         "can_be_asset": attrs.bool(default = False),
@@ -2341,7 +2341,7 @@ attributes = {
         "versioned_soname": attrs.option(attrs.versioned(attrs.string()), default = None),
         "versioned_static_lib": attrs.option(attrs.versioned(attrs.source()), default = None),
         "versioned_static_pic_lib": attrs.option(attrs.versioned(attrs.source()), default = None),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "prebuilt_cxx_library_group": {
         "contacts": attrs.list(attrs.string(), default = []),
@@ -2363,7 +2363,7 @@ attributes = {
         "static_pic_libs": attrs.list(attrs.source(), default = []),
         "static_pic_link": attrs.list(attrs.string(), default = []),
         "supported_platforms_regex": attrs.option(attrs.regex(), default = None),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "prebuilt_dotnet_library": {
         "assembly": attrs.source(),
@@ -2371,7 +2371,7 @@ attributes = {
         "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
         "labels": attrs.list(attrs.string(), default = []),
         "licenses": attrs.list(attrs.source(), default = []),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "prebuilt_go_library": {
         "contacts": attrs.list(attrs.string(), default = []),
@@ -2382,7 +2382,7 @@ attributes = {
         "library": attrs.source(),
         "licenses": attrs.list(attrs.source(), default = []),
         "package_name": attrs.option(attrs.string(), default = None),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "prebuilt_jar": {
         "binary_jar": attrs.source(),
@@ -2397,7 +2397,7 @@ attributes = {
         "never_mark_as_unused_dependency": attrs.bool(default = False),
         "required_for_source_only_abi": attrs.bool(default = False),
         "source_jar": attrs.option(attrs.source(), default = None),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "prebuilt_native_library": {
         "contacts": attrs.list(attrs.string(), default = []),
@@ -2408,7 +2408,7 @@ attributes = {
         "labels": attrs.list(attrs.string(), default = []),
         "licenses": attrs.list(attrs.source(), default = []),
         "native_libs": attrs.source(),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "prebuilt_ocaml_library": {
         "bytecode_c_libs": attrs.list(attrs.string(), default = []),
@@ -2426,7 +2426,7 @@ attributes = {
         "native_c_libs": attrs.list(attrs.string(), default = []),
         "native_lib": attrs.string(default = ""),
         "platform_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "prebuilt_python_library": {
         "binary_src": attrs.source(),
@@ -2438,7 +2438,7 @@ attributes = {
         "ignore_compile_errors": attrs.bool(default = False),
         "labels": attrs.list(attrs.string(), default = []),
         "licenses": attrs.list(attrs.source(), default = []),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "prebuilt_rust_library": {
         "contacts": attrs.list(attrs.string(), default = []),
@@ -2451,7 +2451,7 @@ attributes = {
         "platform_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
         "proc_macro": attrs.bool(default = False),
         "rlib": attrs.source(),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "python_binary": {
         "base_module": attrs.option(attrs.string(), default = None),
@@ -2478,7 +2478,7 @@ attributes = {
         "prefer_stripped_native_objects": attrs.bool(default = False),
         "preload_deps": attrs.list(attrs.dep(), default = []),
         "version_universe": attrs.option(attrs.string(), default = None),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
         "zip_safe": attrs.option(attrs.bool(), default = None),
     },
     "python_library": {
@@ -2501,7 +2501,7 @@ attributes = {
         "version_universe": attrs.option(attrs.string(), default = None),
         "versioned_resources": attrs.option(attrs.versioned(attrs.named_set(attrs.source(), sorted = True)), default = None),
         "versioned_srcs": attrs.option(attrs.versioned(attrs.named_set(attrs.source(), sorted = True)), default = None),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
         "zip_safe": attrs.option(attrs.bool(), default = None),
     },
     "python_test": {
@@ -2541,7 +2541,7 @@ attributes = {
         "version_universe": attrs.option(attrs.string(), default = None),
         "versioned_resources": attrs.option(attrs.versioned(attrs.named_set(attrs.source(), sorted = True)), default = None),
         "versioned_srcs": attrs.option(attrs.versioned(attrs.named_set(attrs.source(), sorted = True)), default = None),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
         "zip_safe": attrs.option(attrs.bool(), default = None),
     },
     "python_test_runner": {
@@ -2551,7 +2551,7 @@ attributes = {
         "licenses": attrs.list(attrs.source(), default = []),
         "main_module": attrs.string(default = ""),
         "src": attrs.source(),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "remote_file": {
         "contacts": attrs.list(attrs.string(), default = []),
@@ -2563,7 +2563,7 @@ attributes = {
         "sha256": attrs.option(attrs.string(), default = None),
         "type": attrs.option(attrs.enum(RemoteFileType), default = None),
         "url": attrs.string(validate = _uri),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "robolectric_test": {
         "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
@@ -2624,7 +2624,7 @@ attributes = {
         "use_dependency_order_classpath": attrs.option(attrs.bool(), default = None),
         "use_jvm_abi_gen": attrs.option(attrs.bool(), default = None),
         "vm_args": attrs.list(attrs.arg(), default = []),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "rust_binary": {
         "contacts": attrs.list(attrs.string(), default = []),
@@ -2653,7 +2653,7 @@ attributes = {
         "rustdoc_flags": attrs.list(attrs.arg(), default = []),
         "srcs": attrs.list(attrs.source(), default = []),
         "version_universe": attrs.option(attrs.string(), default = None),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "rust_library": {
         "contacts": attrs.list(attrs.string(), default = []),
@@ -2679,7 +2679,7 @@ attributes = {
         "rustdoc_flags": attrs.list(attrs.arg(), default = []),
         "srcs": attrs.list(attrs.source(), default = []),
         "version_universe": attrs.option(attrs.string(), default = None),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "rust_test": {
         "contacts": attrs.list(attrs.string(), default = []),
@@ -2708,7 +2708,7 @@ attributes = {
         "rustdoc_flags": attrs.list(attrs.arg(), default = []),
         "srcs": attrs.list(attrs.source(), default = []),
         "version_universe": attrs.option(attrs.string(), default = None),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "scala_library": {
         "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
@@ -2742,7 +2742,7 @@ attributes = {
         "source_only_abi_deps": attrs.list(attrs.dep(), default = []),
         "srcs": attrs.list(attrs.source(), default = []),
         "target": attrs.option(attrs.string(), default = None),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "scala_test": {
         "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
@@ -2790,7 +2790,7 @@ attributes = {
         "use_cxx_libraries": attrs.option(attrs.bool(), default = None),
         "use_dependency_order_classpath": attrs.option(attrs.bool(), default = None),
         "vm_args": attrs.list(attrs.arg(), default = []),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "scene_kit_assets": {
         "contacts": attrs.list(attrs.string(), default = []),
@@ -2798,7 +2798,7 @@ attributes = {
         "labels": attrs.list(attrs.string(), default = []),
         "licenses": attrs.list(attrs.source(), default = []),
         "path": attrs.source(),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "sh_binary": {
         "contacts": attrs.list(attrs.string(), default = []),
@@ -2808,7 +2808,7 @@ attributes = {
         "licenses": attrs.list(attrs.source(), default = []),
         "main": attrs.source(),
         "resources": attrs.list(attrs.source(), default = []),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "sh_test": {
         "args": attrs.list(attrs.arg(), default = []),
@@ -2827,7 +2827,7 @@ attributes = {
         "test": attrs.option(attrs.source(), default = None),
         "test_rule_timeout_ms": attrs.option(attrs.int(), default = None),
         "type": attrs.option(attrs.string(), default = None),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "supermodule_target_graph": {
         "contacts": attrs.list(attrs.string(), default = []),
@@ -2838,7 +2838,7 @@ attributes = {
         "licenses": attrs.list(attrs.source(), default = []),
         "on_duplicate_entry": attrs.enum(OnDuplicateEntry, default = "overwrite"),
         "out": attrs.string(default = ""),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "swift_library": {
         "bridging_header": attrs.option(attrs.source(), default = None),
@@ -2861,7 +2861,7 @@ attributes = {
         "target_sdk_version": attrs.option(attrs.string(), default = None),
         "uses_explicit_modules": attrs.bool(default = False),
         "version": attrs.option(attrs.string(), default = None),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "swift_toolchain": {
         "can_toolchain_emit_obj_c_header_textually": attrs.bool(default = False),
@@ -2883,14 +2883,14 @@ attributes = {
         "swift_stdlib_tool_flags": attrs.list(attrs.arg(), default = []),
         "swiftc": attrs.source(),
         "swiftc_flags": attrs.list(attrs.arg(), default = []),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "test_suite": {
         "contacts": attrs.list(attrs.string(), default = []),
         "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
         "labels": attrs.list(attrs.string(), default = []),
         "licenses": attrs.list(attrs.source(), default = []),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "versioned_alias": {
         "contacts": attrs.list(attrs.string(), default = []),
@@ -2898,7 +2898,7 @@ attributes = {
         "labels": attrs.list(attrs.string(), default = []),
         "licenses": attrs.list(attrs.source(), default = []),
         "versions": attrs.dict(key = attrs.string(), value = attrs.dep(), sorted = False, default = {}),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "worker_tool": {
         "args": attrs.one_of(attrs.arg(), attrs.list(attrs.arg())),
@@ -2911,7 +2911,7 @@ attributes = {
         "max_workers": attrs.option(attrs.int(), default = None),
         "max_workers_per_thread_percent": attrs.option(attrs.int(), default = None),
         "persistent": attrs.option(attrs.bool(), default = None),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "xcode_postbuild_script": {
         "cmd": attrs.string(default = ""),
@@ -2924,7 +2924,7 @@ attributes = {
         "output_file_lists": attrs.list(attrs.string(), default = []),
         "outputs": attrs.list(attrs.string(), default = []),
         "srcs": attrs.list(attrs.source(), default = []),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "xcode_prebuild_script": {
         "cmd": attrs.string(default = ""),
@@ -2937,7 +2937,7 @@ attributes = {
         "output_file_lists": attrs.list(attrs.string(), default = []),
         "outputs": attrs.list(attrs.string(), default = []),
         "srcs": attrs.list(attrs.source(), default = []),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
     },
     "xcode_workspace_config": {
         "action_config_names": attrs.dict(key = attrs.enum(SchemeActionType), value = attrs.string(), sorted = False, default = {}),
@@ -2958,7 +2958,7 @@ attributes = {
         "src_target": attrs.option(attrs.dep(), default = None),
         "was_created_for_app_extension": attrs.option(attrs.bool(), default = None),
         "watch_interface": attrs.option(attrs.enum(WatchInterface), default = None),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
         "workspace_name": attrs.option(attrs.string(), default = None),
     },
     "zip_file": {
@@ -2970,7 +2970,7 @@ attributes = {
         "on_duplicate_entry": attrs.enum(OnDuplicateEntry, default = "overwrite"),
         "out": attrs.string(default = ""),
         "srcs": attrs.list(attrs.source(), default = []),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
         "zip_srcs": attrs.list(attrs.source(), default = []),
     },
 }
