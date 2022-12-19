@@ -7,8 +7,6 @@
  * of this source tree.
  */
 
-#![allow(clippy::needless_return)] // FIXME?
-
 pub mod file_names;
 pub mod upload;
 
@@ -266,7 +264,7 @@ impl EventLogPathBuf {
                     Some(command_progress::Progress::Result(result)) => {
                         Ok(StreamValue::Result(result))
                     }
-                    None => return Err(anyhow::anyhow!("Event type not recognized")),
+                    None => Err(anyhow::anyhow!("Event type not recognized")),
                 },
             }
         });
