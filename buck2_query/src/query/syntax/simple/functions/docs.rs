@@ -7,8 +7,6 @@
  * of this source tree.
  */
 
-#![allow(clippy::format_push_string)] // FIXME?
-
 use std::fmt::Write;
 
 use enum_iterator::IntoEnumIterator;

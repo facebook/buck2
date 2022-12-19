@@ -13,8 +13,6 @@
 //! If there are no buckconfig changes, nor file changes, then commands can be allowed to execute
 //! concurrently. Otherwise, `buck2` will block waiting for other commands to finish.
 
-#![allow(clippy::extra_unused_lifetimes)] // FIXME?
-
 use std::fmt::Debug;
 use std::future::Future;
 use std::str::FromStr;

@@ -7,8 +7,6 @@
  * of this source tree.
  */
 
-#![allow(clippy::borrow_deref_ref)] // FIXME?
-
 use std::collections::HashMap;
 use std::ops::ControlFlow;
 use std::sync::Arc;

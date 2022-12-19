@@ -22,7 +22,6 @@
 // third bit is a tag set by the user (get_user_tag)
 
 // We group our bytes based on the tag info, not traditional alignment.
-// This lint is fairly new, so have to also enable unknown-clippy-lints.
 #![allow(clippy::unusual_byte_groupings)]
 
 use std::marker::PhantomData;
