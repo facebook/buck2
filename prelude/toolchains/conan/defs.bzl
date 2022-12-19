@@ -384,18 +384,23 @@ def _profile_env_var(name, value):
     #   very end which causes failures in Conan package builds.
     return cmd_args([name, cmd_args(value, delimiter = " ")], delimiter = "=")
 
-def _profile_env_tool(ctx, name, tool):
+def _make_wrapper_script(ctx, name, tool):
     wrapper = ctx.actions.declare_output(name)
-    _, inputs = ctx.actions.write(
+    return ctx.actions.write(
         wrapper,
         cmd_args([
             "#!/bin/sh",
             '_SCRIPTDIR=`dirname "$0"`',
-            cmd_args("exec", tool, '"$@"', delimiter = " ").relative_to(wrapper, parent = 1).absolute_prefix('"$_SCRIPTDIR"/'),
+            cmd_args("exec", tool, '"$@"', delimiter = " ")
+                .relative_to(wrapper, parent = 1)
+                .absolute_prefix('"$_SCRIPTDIR"/'),
         ]),
         allow_args = True,
         is_executable = True,
     )
+
+def _profile_env_tool(ctx, name, tool):
+    wrapper, inputs = _make_wrapper_script(ctx, name, tool)
     return _profile_env_var(name, wrapper).hidden(tool).hidden(inputs)
 
 def _conan_profile_impl(ctx: "context") -> ["provider"]:
