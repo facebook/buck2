@@ -7,8 +7,6 @@
  * of this source tree.
  */
 
-#![allow(clippy::significant_drop_in_scrutinee)]
-
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::Duration;

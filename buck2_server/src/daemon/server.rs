@@ -7,8 +7,6 @@
  * of this source tree.
  */
 
-#![allow(clippy::significant_drop_in_scrutinee)] // FIXME?
-
 use std::future;
 use std::io;
 use std::path::Path;

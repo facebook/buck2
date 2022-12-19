@@ -7,8 +7,6 @@
  * of this source tree.
  */
 
-#![allow(clippy::significant_drop_in_scrutinee)] // FIXME?
-
 mod demo;
 
 use std::collections::HashSet;

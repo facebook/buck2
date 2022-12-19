@@ -7,8 +7,6 @@
  * of this source tree.
  */
 
-#![allow(clippy::significant_drop_in_scrutinee)] // FIXME?
-
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;

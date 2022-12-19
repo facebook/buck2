@@ -18,8 +18,6 @@
 //! up-to-date-ness of cache entries.
 //!
 
-#![allow(clippy::significant_drop_in_scrutinee)] // FIXME?
-
 pub(crate) mod dependencies;
 pub(crate) mod storage_properties;
 

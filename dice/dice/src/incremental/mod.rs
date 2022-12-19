@@ -14,8 +14,6 @@
 //! with multiple versions in-flight at the same time.
 //!
 
-#![allow(clippy::significant_drop_in_scrutinee)] // FIXME?
-
 pub(crate) mod dep_trackers;
 pub(crate) mod evaluator;
 pub(crate) mod graph;

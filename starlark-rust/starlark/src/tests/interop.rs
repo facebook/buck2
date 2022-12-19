@@ -17,8 +17,6 @@
 
 //! Test starlark-rust embedding.
 
-#![allow(clippy::significant_drop_in_scrutinee)] // FIXME?
-
 use std::cell::RefCell;
 use std::sync::Arc;
 use std::sync::Mutex;
