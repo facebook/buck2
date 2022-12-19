@@ -77,7 +77,6 @@ impl ChangeType {
 struct NotifyFileData {
     changed: FileChangeTracker,
     stats: FileWatcherStats,
-    #[allocative(skip)]
     error: Option<anyhow::Error>,
 }
 
