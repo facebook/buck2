@@ -29,9 +29,6 @@ def conan_install(
     args.extend(["--output-folder", output_folder])
     args.extend(["--manifests", manifests])
     args.extend(["--json", install_info])
-    # TODO options cannot be combined with lockfile.
-    #for option in options:
-    #    args.extend(["--options", option])
     args.append(reference.split("#")[0] + "@")
 
     conan_common.run_conan(conan, *args, env=env)
@@ -142,15 +139,11 @@ def main():
             action="append",
             default=[],
             help="Conan package dependency cache output directory. All --dep-* arguments must align.")
-    # TODO Look into --manifests and --verify to enforce buck built deps.
-    # TODO Look into --no-imports.
-    # TODO Look into --build-require for exec deps.
-    # TODO Look into --json for machine readable output metadata.
-    # TODO Look into --require-override to enforce Buck2 provided dependencies.
-    # TODO Look into --build to enforce from-source builds with correct toolchain.
-    # TODO Can we avoid having to pass --lockfile, or is it needed.
-    # TODO If the lockfile is needed, can we shrink it to the relevant deps? To avoid unnecessary cache invalidation.
-    # TODO Look into --settings and the like to configure a Buck2 provided toolchain.
+    # TODO[AH] Remove the unused `--manifests` and `--verify` flags and
+    #   outputs.
+    # TODO[AH] Should we enable the `--no-imports` flag?
+    # TODO[AH] Handle packages that are build requirements and set
+    #   `--build-require` in that case.
     args = parser.parse_args()
 
     conan_common.install_user_home(args.user_home, args.conan_init)
@@ -158,7 +151,6 @@ def main():
     for ref, cache_out in zip(args.dep_reference, args.dep_cache_out):
         conan_common.install_reference(args.user_home, ref, cache_out)
 
-    # TODO Do we need to pre-create these?
     os.mkdir(args.install_folder)
     os.mkdir(args.output_folder)
     os.mkdir(args.manifests)
@@ -175,10 +167,14 @@ def main():
             args.manifests,
             args.install_info,
             args.trace_file)
-    # TODO Verify with the trace-log that only the current package was
-    #   downloaded or built and dependencies were all found in cache.
-    #   Alternatively, we could use the install-info.json and check that only
-    #   the current package has one of `"downloaded": true` or `"built": true`.
+    # TODO[AH] Verify that only the current package was built and that
+    #   dependencies were found in the Conan cache as installed by
+    #   `install_reference` above. Possible ways to do this:
+    #   - Use the install-info produced with the `--json` flag and check for
+    #     the `downloaded` and `built` fields of the `packages` objects.
+    #   - Use the trace log produced with the `CONAN_TRACE_FILE` env-var and
+    #     check for `GOT_RECIPE_FROM_LOCAL_CACHE` entries as opposed to
+    #     `DOWNLOADED_PACKAGE` or `PACKAGE_BUILT_FROM_SOURCES`.
     conan_common.extract_reference(
             args.user_home,
             args.reference,

@@ -116,9 +116,6 @@ class _BucklerDepCppComponent(object):
         self.defines = component_info.defines
         self.cflags = component_info.cflags
         self.cppflags = component_info.cppflags
-        # TODO[AH] Do we need these?
-        # self.sharedlinkflags = component_info.sharedlinkflags
-        # self.exelinkflags = component_info.exelinkflags
 
         self.include_paths = _map_rel_to_root(rootpath, component_info.include_paths)
 

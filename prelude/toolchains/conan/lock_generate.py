@@ -61,6 +61,14 @@ conan_package(
             f.write(package_template.format(
                 name = repr(name),
                 # TODO[AH] Remove that lockfile and generate a minimal one in the rule.
+                #   Using the full lock file means that any change to the set
+                #   of Conan packages will require a rebuild of all Conan
+                #   packages. Generating minimal lock files with only the
+                #   required information per package will only invalidate those
+                #   packages that were affected by a change. Note, the lock
+                #   file also contains the Conan profile, which defines the
+                #   Buck2 provided C/C++ toolchain. This information would need
+                #   to be included in a minimal lockfile.
                 lockfile = repr(lockfile_label),
                 reference = repr(reference),
                 package_id = repr(package_id),
