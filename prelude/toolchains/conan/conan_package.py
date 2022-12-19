@@ -171,8 +171,7 @@ def main():
             action="append",
             default=[],
             help="Conan package dependency cache output directory. All --dep-* arguments must align.")
-    # TODO[AH] Remove the unused `--manifests` and `--verify` flags and
-    #   outputs.
+    # TODO[AH] Remove unused `--manifests` and `--verify` flags and outputs.
     # TODO[AH] Should we enable the `--no-imports` flag?
     # TODO[AH] Handle packages that are build requirements and set
     #   `--build-require` in that case.
