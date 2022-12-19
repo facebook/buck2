@@ -411,6 +411,8 @@ def _conan_profile_impl(ctx: "context") -> ["provider"]:
         content.add(_profile_env_tool("CXXFLAGS", cxx.cxx_compiler_info.compiler_flags))
 
     output = ctx.actions.declare_output(ctx.label.name)
+    content.relative_to(output, parent = 1)
+    content.absolute_prefix("$PROFILE_DIR/")
     ctx.actions.write(output, content)
 
     return [DefaultInfo(default_outputs = [output])]
