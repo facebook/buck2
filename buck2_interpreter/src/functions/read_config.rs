@@ -23,13 +23,6 @@ pub fn register_read_config(globals: &mut GlobalsBuilder) {
         default: Option<Value<'v>>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
-        // In Buck v1, we read additional configuration information from /etc/buckconfig.d.
-        // On devservers and other locations, the file fb_chef.ini has host_features.gvfs = true.
-        // Replicate that specific key, otherwise we can't build targets like protoc.
-        if section.as_str() == "host_features" && key.as_str() == "gvfs" {
-            return Ok(eval.heap().alloc("true"));
-        }
-
         let buckconfig = &BuildContext::from_context(eval)?.buckconfig;
         match buckconfig.get(section, key)? {
             Some(v) => Ok(v.to_value()),
