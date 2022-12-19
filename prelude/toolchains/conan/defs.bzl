@@ -370,7 +370,10 @@ conan_package = rule(
 )
 
 def _profile_env_tool(name, tool):
-    return cmd_args([name, cmd_args(tool, delimiter = " ")], delimiter = "=", quote = "shell")
+    # TODO[AH] Do we need `quote = "shell"` here?
+    #   Setting it causes Buck2 to escape the `$PROFILE_DIR` prefix set in the
+    #   very end which causes failures in Conan package builds.
+    return cmd_args([name, cmd_args(tool, delimiter = " ")], delimiter = "=")
 
 def _conan_profile_impl(ctx: "context") -> ["provider"]:
     cxx = ctx.attrs._cxx_toolchain[CxxToolchainInfo]
