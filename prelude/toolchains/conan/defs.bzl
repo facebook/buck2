@@ -254,6 +254,9 @@ def _conan_init_impl(ctx: "context") -> ["provider"]:
 conan_init = rule(
     impl = _conan_init_impl,
     attrs = {
+        # TODO[AH] Define separate profiles for
+        #   the target platform (`--profile:build`) and
+        #   exec platform (`--profile:host`).
         "profile": attrs.source(),
         "_conan_toolchain": attrs.default_only(attrs.toolchain_dep(default = "toolchains//:conan", providers = [ConanToolchainInfo])),
         "_conan_init": attrs.dep(providers = [RunInfo], default = "prelude//toolchains/conan:conan_init"),
