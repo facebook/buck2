@@ -109,16 +109,16 @@ def get_bundle_name(ctx: "context", default_bundle_name: str.type) -> str.type:
     else:
         return default_bundle_name
 
-def run_worker_command(
+def run_worker_commands(
         ctx: "context",
         worker_tool: "dependency",
-        command_args_file: "artifact",
+        command_args_files: ["artifact"],
         identifier: str.type,
         category: str.type,
-        hidden_artifacts = "cmd_args"):
+        hidden_artifacts = ["cmd_args"]):
     worker_tool_info = worker_tool[WorkerToolInfo]
     worker_command = worker_tool_info.command.copy()
-    worker_command.add("--command-args-file", command_args_file)
+    worker_command.add("--command-args-file", command_args_files)
     worker_command.hidden(hidden_artifacts)
     worker_command.add("--command-args-file-extra-data-fixup-hack=true")
 

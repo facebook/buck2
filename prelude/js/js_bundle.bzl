@@ -9,7 +9,7 @@ load("@prelude//android:android_providers.bzl", "AndroidResourceInfo", "merge_an
 load("@prelude//android:android_resource.bzl", "JAVA_PACKAGE_FILENAME", "aapt2_compile", "get_text_symbols")
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//js:js_providers.bzl", "JsBundleInfo", "JsLibraryInfo", "get_transitive_outputs")
-load("@prelude//js:js_utils.bzl", "RAM_BUNDLE_TYPES", "TRANSFORM_PROFILES", "get_bundle_name", "get_flavors", "run_worker_command")
+load("@prelude//js:js_utils.bzl", "RAM_BUNDLE_TYPES", "TRANSFORM_PROFILES", "get_bundle_name", "get_flavors", "run_worker_commands")
 load("@prelude//utils:utils.bzl", "expect", "map_idx")
 
 def _build_dependencies_file(
@@ -42,16 +42,16 @@ def _build_dependencies_file(
         job_args,
     )
 
-    run_worker_command(
+    run_worker_commands(
         ctx = ctx,
         worker_tool = ctx.attrs.worker,
-        command_args_file = command_args_file,
+        command_args_files = [command_args_file],
         identifier = transform_profile,
         category = "dependencies",
-        hidden_artifacts = cmd_args([
+        hidden_artifacts = [cmd_args([
             dependencies_file.as_output(),
             extra_data_args,
-        ]).add(transitive_js_library_outputs),
+        ]).add(transitive_js_library_outputs)],
     )
     return dependencies_file
 
@@ -103,19 +103,19 @@ def _build_js_bundle(
         job_args,
     )
 
-    run_worker_command(
+    run_worker_commands(
         ctx = ctx,
         worker_tool = ctx.attrs.worker,
-        command_args_file = command_args_file,
+        command_args_files = [command_args_file],
         identifier = base_dir,
         category = job_args["command"],
-        hidden_artifacts = cmd_args([
+        hidden_artifacts = [cmd_args([
             bundle_dir_output.as_output(),
             assets_dir.as_output(),
             misc_dir_path.as_output(),
             source_map.as_output(),
             extra_data_args,
-        ]).add(transitive_js_library_outputs),
+        ]).add(transitive_js_library_outputs)],
     )
 
     return JsBundleInfo(

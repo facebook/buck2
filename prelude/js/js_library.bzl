@@ -7,7 +7,7 @@
 
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//js:js_providers.bzl", "JsLibraryInfo", "get_transitive_outputs")
-load("@prelude//js:js_utils.bzl", "TRANSFORM_PROFILES", "get_canonical_src_name", "get_flavors", "run_worker_command")
+load("@prelude//js:js_utils.bzl", "TRANSFORM_PROFILES", "get_canonical_src_name", "get_flavors", "run_worker_commands")
 load("@prelude//utils:utils.bzl", "expect", "map_idx")
 
 # A group of sources that all have the same canonical name. The main_source is arbitrary but
@@ -74,16 +74,16 @@ def _build_js_file(
         job_args,
     )
 
-    run_worker_command(
+    run_worker_commands(
         ctx = ctx,
         worker_tool = ctx.attrs.worker,
-        command_args_file = command_args_file,
+        command_args_files = [command_args_file],
         identifier = identifier,
         category = "transform",
-        hidden_artifacts = cmd_args([
+        hidden_artifacts = [cmd_args([
             output_path.as_output(),
             grouped_src.main_source,
-        ] + grouped_src.additional_sources),
+        ] + grouped_src.additional_sources)],
     )
 
     return output_path
@@ -106,13 +106,13 @@ def _build_library_files(
         },
     )
 
-    run_worker_command(
+    run_worker_commands(
         ctx = ctx,
         worker_tool = ctx.attrs.worker,
-        command_args_file = command_args_file,
+        command_args_files = [command_args_file],
         identifier = transform_profile,
         category = "library_files",
-        hidden_artifacts = cmd_args([output_path.as_output()] + js_files),
+        hidden_artifacts = [cmd_args([output_path.as_output()] + js_files)],
     )
     return output_path
 
@@ -141,16 +141,16 @@ def _build_js_library(
         job_args,
     )
 
-    run_worker_command(
+    run_worker_commands(
         ctx = ctx,
         worker_tool = ctx.attrs.worker,
-        command_args_file = command_args_file,
+        command_args_files = [command_args_file],
         identifier = transform_profile,
         category = "library_dependencies",
-        hidden_artifacts = cmd_args([
+        hidden_artifacts = [cmd_args([
             output_path.as_output(),
             library_files,
-        ] + js_library_deps),
+        ] + js_library_deps)],
     )
 
     return output_path
