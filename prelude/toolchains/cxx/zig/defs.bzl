@@ -307,7 +307,7 @@ def _cxx_zig_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
     return [ctx.attrs.distribution[DefaultInfo]] + cxx_toolchain_infos(
         platform_name = dist.arch,
         c_compiler_info = CCompilerInfo(
-            compiler = RunInfo(args = cmd_args([zig, "cc"])),
+            compiler = RunInfo(args = cmd_args([zig, "cc"], delimiter = " ")),
             compiler_type = "clang",
             compiler_flags = cmd_args(target + ctx.attrs.c_compiler_flags),
             #preprocessor = None,
@@ -316,7 +316,7 @@ def _cxx_zig_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
             #dep_files_processor = None,
         ),
         cxx_compiler_info = CxxCompilerInfo(
-            compiler = RunInfo(args = cmd_args([zig, "c++"])),
+            compiler = RunInfo(args = cmd_args([zig, "c++"], delimiter = " ")),
             compiler_type = "clang",
             compiler_flags = cmd_args(target + ctx.attrs.cxx_compiler_flags),
             #preprocessor = None,
@@ -325,7 +325,7 @@ def _cxx_zig_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
             #dep_files_processor = None,
         ),
         linker_info = LinkerInfo(
-            archiver = RunInfo(args = cmd_args([zig, "ar"])),
+            archiver = RunInfo(args = cmd_args([zig, "ar"], delimiter = " ")),
             archiver_type = "gnu",
             archiver_supports_argfiles = True,
             #archive_contents = None,
@@ -337,7 +337,7 @@ def _cxx_zig_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
             link_style = LinkStyle(ctx.attrs.link_style),
             link_weight = 1,
             #link_ordering = None,
-            linker = RunInfo(args = cmd_args([zig, "c++"])),
+            linker = RunInfo(args = cmd_args([zig, "c++"], delimiter = " ")),
             linker_flags = cmd_args(target + ctx.attrs.linker_flags),
             #lto_mode = None,  # TODO support LTO
             object_file_extension = "o",
@@ -364,7 +364,7 @@ def _cxx_zig_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
             dwp = None,
             nm = RunInfo(args = ["nm"]),  # not included in the zig distribution.
             objcopy = RunInfo(args = ["objcopy"]),  # not included in the zig distribution.
-            ranlib = RunInfo(args = cmd_args([zig, "ranlib"])),
+            ranlib = RunInfo(args = cmd_args([zig, "ranlib"], delimiter = " ")),
             strip = RunInfo(args = ["strip"]),  # not included in the zig distribution.
         ),
         header_mode = HeaderMode("symlink_tree_only"),  # header map modes require mk_hmap
