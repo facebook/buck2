@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import json
 import os
 import shutil
 import subprocess
@@ -32,6 +33,37 @@ def conan_install(
     args.append(reference.split("#")[0] + "@")
 
     conan_common.run_conan(conan, *args, env=env)
+
+
+def verify_build_and_cached_deps(install_info, package, deps):
+    """Verify that the package was built and dependencies were cached."""
+    with open(install_info, "r") as f:
+        info = json.load(f)
+    package_parsed = conan_common.parse_reference(package)
+    deps_parsed = set(conan_common.parse_reference(dep) for dep in deps)
+    for installed in info["installed"]:
+        recipe_id = installed["recipe"]["id"]
+        ref = conan_common.parse_reference(recipe_id)
+        is_package = ref == package_parsed
+        is_dep = ref in deps_parsed
+
+        if not is_package and not is_dep:
+            raise RuntimeError("Unexpected installed package found: {}".format(recipe_id))
+
+        recipe_downloaded = installed["recipe"]["downloaded"]
+        if is_package and not recipe_downloaded:
+            raise RuntimeError("Cached package to build detected: {}".format(recipe_id))
+        elif is_dep and recipe_downloaded:
+            raise RuntimeError("Downloaded dependency detected: {}".format(recipe_id))
+
+        for package in installed["packages"]:
+            package_id = package["id"]
+            package_downloaded = package["downloaded"]
+            package_built = package["built"]
+            if is_package and not (package_downloaded or package_built):
+                raise RuntimeError("Cached package to build detected: {}-{}".format(recipe_id, package_id))
+            elif is_dep and (recipe_downloaded or package_built):
+                raise RuntimeError("Downloaded or built dependency detected: {}-{}".format(recipe_id, package_id))
 
 
 def main():
@@ -167,14 +199,10 @@ def main():
             args.manifests,
             args.install_info,
             args.trace_file)
-    # TODO[AH] Verify that only the current package was built and that
-    #   dependencies were found in the Conan cache as installed by
-    #   `install_reference` above. Possible ways to do this:
-    #   - Use the install-info produced with the `--json` flag and check for
-    #     the `downloaded` and `built` fields of the `packages` objects.
-    #   - Use the trace log produced with the `CONAN_TRACE_FILE` env-var and
-    #     check for `GOT_RECIPE_FROM_LOCAL_CACHE` entries as opposed to
-    #     `DOWNLOADED_PACKAGE` or `PACKAGE_BUILT_FROM_SOURCES`.
+    verify_build_and_cached_deps(
+            args.install_info,
+            args.reference,
+            args.dep_reference)
     conan_common.extract_reference(
             args.user_home,
             args.reference,
