@@ -22,9 +22,18 @@ load("@prelude//utils:utils.bzl", "flatten")
 
 ConanInitInfo = provider(fields = ["profile", "user_home"])
 ConanLockInfo = provider(fields = ["lockfile"])
-ConanPackageInfo = provider(fields = ["reference", "package_id", "cache_out", "package_out"])
+ConanPackageInfo = provider(fields = ["reference", "package_id", "cache_out", "package_out", "cache_tset"])
 ConanProfileInfo = provider(fields = ["config", "inputs"])
 ConanToolchainInfo = provider(fields = ["conan"])
+
+def _project_conan_package_dep(value: (str.type, "artifact")) -> "cmd_args":
+    return cmd_args(["--dep-reference", value[0], "--dep-cache-out", value[1]])
+
+ConanPackageCacheTSet = transitive_set(
+    args_projections = {
+        "dep-flags": _project_conan_package_dep,
+    },
+)
 
 def _conan_package_extract_impl(ctx: "context") -> ["provider"]:
     conan_package_extract = ctx.attrs._conan_package_extract[RunInfo]
@@ -338,10 +347,17 @@ def _conan_package_impl(ctx: "context") -> ["provider"]:
     cmd.add(["--trace-file", trace_log.as_output()])
     cmd.add(["--cache-out", cache_out.as_output()])
     cmd.add(["--package-out", package_out.as_output()])
-    # TODO[AH] Track transitive dependencies.
-    for dep in ctx.attrs.deps:
-        info = dep[ConanPackageInfo]
-        cmd.add(["--dep-reference", info.reference, "--dep-cache-out", info.cache_out])
+
+    # TODO[AH] Do we need to separate deps and build_deps?
+    deps = ctx.actions.tset(
+        ConanPackageCacheTSet,
+        children = [
+            dep[ConanPackageInfo].cache_tset
+            for dep in ctx.attrs.deps + ctx.attrs.build_deps
+        ],
+    )
+    cmd.add(deps.project_as_args("dep-flags"))
+
     ctx.actions.run(cmd, category = "conan_build")
 
     return [
@@ -350,6 +366,7 @@ def _conan_package_impl(ctx: "context") -> ["provider"]:
             package_id = ctx.attrs.package_id,
             cache_out = cache_out,
             package_out = package_out,
+            cache_tset = ctx.actions.tset(ConanPackageCacheTSet, value = (ctx.attrs.reference, cache_out), children = [deps]),
         ),
         DefaultInfo(
             default_outputs = [package_out],
@@ -371,7 +388,8 @@ conan_package = rule(
         "lockfile": attrs.source(doc = "The Conan lockfile defining the package and its dependencies."),
         "reference": attrs.string(doc = "The Conan package reference <name>/<version>#<revision>."),
         "package_id": attrs.string(doc = "The Conan package-id."),
-        "deps": attrs.list(attrs.dep(providers = [ConanPackageInfo], doc = "Conan Package dependencies.")),
+        "deps": attrs.list(attrs.dep(providers = [ConanPackageInfo], doc = "Conan package dependencies.")),
+        "build_deps": attrs.list(attrs.dep(providers = [ConanPackageInfo], doc = "Conan build dependencies.")),
         "_conan_toolchain": attrs.default_only(attrs.toolchain_dep(default = "toolchains//:conan", providers = [ConanToolchainInfo])),
         "_conan_init": attrs.dep(providers = [ConanInitInfo], default = "toolchains//:conan-init"),
         "_conan_package": attrs.dep(providers = [RunInfo], default = "prelude//toolchains/conan:conan_package"),
