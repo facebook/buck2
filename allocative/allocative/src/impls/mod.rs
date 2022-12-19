@@ -13,6 +13,7 @@ mod anyhow;
 mod bumpalo;
 pub(crate) mod common;
 mod dashmap;
+mod either;
 mod futures;
 pub(crate) mod hashbrown;
 pub(crate) mod hashbrown_util;

@@ -206,7 +206,7 @@ sorted_vector_map.version = "0.1"
 
 allocative.version = "0.2"
 allocative.path = "allocative/allocative"
-allocative.features = ["anyhow", "bumpalo", "dashmap", "futures", "hashbrown", "indexmap", "num-bigint", "once_cell", "owning_ref", "parking_lot", "prost-types", "relative-path", "sequence_trie", "smallvec", "smartstring", "sorted_vector_map"]
+allocative.features = ["anyhow", "bumpalo", "dashmap", "either", "futures", "hashbrown", "indexmap", "num-bigint", "once_cell", "owning_ref", "parking_lot", "prost-types", "relative-path", "sequence_trie", "smallvec", "smartstring", "sorted_vector_map"]
 gazebo.version = "0.8.1"
 gazebo.features = ["str_pattern_extensions"]
 # @oss-disable: gazebo.path = "gazebo/gazebo"
