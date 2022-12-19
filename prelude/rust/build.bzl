@@ -136,24 +136,28 @@ def generate_rustdoc(
         rustdoc_cmd.add("--document-private-items")
 
     url_prefix = toolchain_info.extern_html_root_url_prefix
-    for rust_dependency in resolve_deps(ctx):
-        dep = rust_dependency.dep
-        if dep.label.cell != ctx.label.cell:
-            # TODO: support a different extern_html_root_url_prefix per cell
-            continue
+    if url_prefix != None:
+        # Flag --extern-html-root-url used below is only supported on nightly.
+        rustdoc_cmd.add("-Zunstable-options")
 
-        if rust_dependency.name:
-            name = normalize_crate(rust_dependency.name)
-        else:
-            info = dep.get(RustLinkInfo)
-            if info == None:
+        for rust_dependency in resolve_deps(ctx):
+            dep = rust_dependency.dep
+            if dep.label.cell != ctx.label.cell:
+                # TODO: support a different extern_html_root_url_prefix per cell
                 continue
-            name = info.crate
 
-        rustdoc_cmd.add(
-            "--extern-html-root-url={}={}/{}:{}"
-                .format(name, url_prefix, dep.label.package, dep.label.name),
-        )
+            if rust_dependency.name:
+                name = normalize_crate(rust_dependency.name)
+            else:
+                info = dep.get(RustLinkInfo)
+                if info == None:
+                    continue
+                name = info.crate
+
+            rustdoc_cmd.add(
+                "--extern-html-root-url={}={}/{}:{}"
+                    .format(name, url_prefix, dep.label.package, dep.label.name),
+            )
 
     rustdoc_cmd.hidden(toolchain_info.rustdoc, compile_ctx.symlinked_srcs)
 

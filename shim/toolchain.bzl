@@ -158,7 +158,6 @@ def _rust_toolchain(ctx):
         RustToolchainInfo(
             clippy_driver = "clippy-driver",
             compiler = "rustc",
-            extern_html_root_url_prefix = "",
             failure_filter = False,
             failure_filter_action = None,
             pipelined = False,

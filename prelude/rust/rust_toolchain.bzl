@@ -51,9 +51,9 @@ _rust_toolchain_attrs = {
     "allow_lints": [],
     "deny_lints": [],
     "warn_lints": [],
-    # Prefix (/intern/rustdoc in our case) where fbcode crates' docs are hosted.
-    # Used for linking types in signatures to their definition in another crate.
-    "extern_html_root_url_prefix": "",
+    # URL prefix (e.g. /path/to/docs) where crates' docs are hosted. Used for
+    # linking types in signatures to their definition in another crate.
+    "extern_html_root_url_prefix": None,
 }
 
 RustToolchainInfo = provider(fields = _rust_toolchain_attrs.keys())
