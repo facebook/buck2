@@ -374,11 +374,11 @@ conan_package = rule(
     },
 )
 
-def _profile_env_tool(name, tool):
+def _profile_env_var(name, value):
     # TODO[AH] Do we need `quote = "shell"` here?
     #   Setting it causes Buck2 to escape the `$PROFILE_DIR` prefix set in the
     #   very end which causes failures in Conan package builds.
-    return cmd_args([name, cmd_args(tool, delimiter = " ")], delimiter = "=")
+    return cmd_args([name, cmd_args(value, delimiter = " ")], delimiter = "=")
 
 def _conan_profile_impl(ctx: "context") -> ["provider"]:
     cxx = ctx.attrs._cxx_toolchain[CxxToolchainInfo]
@@ -397,26 +397,26 @@ def _conan_profile_impl(ctx: "context") -> ["provider"]:
 
     content.add("")
     content.add("[env]")
-    content.add(_profile_env_tool("CMAKE_FIND_ROOT_PATH", ""))
+    content.add(_profile_env_var("CMAKE_FIND_ROOT_PATH", ""))
     # TODO[AH] Define CMAKE_SYSROOT if needed.
     # TODO[AH] Define target CHOST for cross-compilation
-    content.add(_profile_env_tool("AR", cxx.linker_info.archiver))
+    content.add(_profile_env_var("AR", cxx.linker_info.archiver))
     if cxx.as_compiler_info:
-        content.add(_profile_env_tool("AS", cxx.as_compiler_info.compiler))
+        content.add(_profile_env_var("AS", cxx.as_compiler_info.compiler))
         # TODO[AH] Use asm_compiler_info for Windows
     if cxx.binary_utilities_info:
         if cxx.binary_utilities_info.nm:
-            content.add(_profile_env_tool("NM", cxx.binary_utilities_info.nm))
+            content.add(_profile_env_var("NM", cxx.binary_utilities_info.nm))
         if cxx.binary_utilities_info.ranlib:
-            content.add(_profile_env_tool("RANLIB", cxx.binary_utilities_info.ranlib))
+            content.add(_profile_env_var("RANLIB", cxx.binary_utilities_info.ranlib))
         if cxx.binary_utilities_info.strip:
-            content.add(_profile_env_tool("STRIP", cxx.binary_utilities_info.strip))
+            content.add(_profile_env_var("STRIP", cxx.binary_utilities_info.strip))
     if cxx.c_compiler_info:
-        content.add(_profile_env_tool("CC", cxx.c_compiler_info.compiler))
-        content.add(_profile_env_tool("CFLAGS", cxx.c_compiler_info.compiler_flags))
+        content.add(_profile_env_var("CC", cxx.c_compiler_info.compiler))
+        content.add(_profile_env_var("CFLAGS", cxx.c_compiler_info.compiler_flags))
     if cxx.cxx_compiler_info:
-        content.add(_profile_env_tool("CXX", cxx.cxx_compiler_info.compiler))
-        content.add(_profile_env_tool("CXXFLAGS", cxx.cxx_compiler_info.compiler_flags))
+        content.add(_profile_env_var("CXX", cxx.cxx_compiler_info.compiler))
+        content.add(_profile_env_var("CXXFLAGS", cxx.cxx_compiler_info.compiler_flags))
 
     output = ctx.actions.declare_output(ctx.label.name)
     content.relative_to(output, parent = 1)
