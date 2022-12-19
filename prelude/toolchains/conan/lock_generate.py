@@ -28,6 +28,7 @@ def parse_lockfile(lockfile):
         package_id = item["package_id"]
         options = item["options"]
         requires = item.get("requires", [])
+        build_requires = item.get("build_requires", [])
         # context = item["context"]  # TODO[AH] Do we need this?
         pkgs[key] = {
             "name": name,
@@ -35,6 +36,7 @@ def parse_lockfile(lockfile):
             "package_id": package_id,
             "options": options,
             "requires": requires,
+            "build_requires": build_requires,
         }
 
     return pkgs
@@ -50,6 +52,7 @@ conan_package(
     reference = {reference},
     package_id = {package_id},
     deps = {deps},
+    build_deps = {build_deps},
 )
 """
     with open(targets_out, "w") as f:
@@ -58,6 +61,7 @@ conan_package(
             reference = pkg["reference"]
             package_id = pkg["package_id"]
             deps = [":_package_" + pkgs[key]["name"] for key in pkg["requires"]]
+            build_deps = [":_package_" + pkgs[key]["name"] for key in pkg["build_requires"]]
             f.write(package_template.format(
                 name = repr(name),
                 # TODO[AH] Remove that lockfile and generate a minimal one in the rule.
@@ -72,7 +76,8 @@ conan_package(
                 lockfile = repr(lockfile_label),
                 reference = repr(reference),
                 package_id = repr(package_id),
-                deps = repr(deps)))
+                deps = repr(deps),
+                build_deps = repr(build_deps)))
 
 
 def main():
