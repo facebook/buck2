@@ -11,8 +11,11 @@ Provides a toolchain and rules to use the [Conan package manager][conan] to
 manage and install third-party C/C++ dependencies.
 """
 
-# TODO[AH] Not sure if this self-reference within the prelude is acceptable.
-#   If not, consider a custom rule implementation using the C++ API.
+# TODO[AH] May prelude modules load the top-level prelude?
+#   This module defines a macro that calls prebuilt_cxx_library,
+#   which is provided by the prelude. Alternatively, we could change the
+#   prelude to make prebuilt_cxx_library directly importable, or replace the
+#   macro by a custom rule that directly constricuts the relevant providers.
 load("@prelude//:prelude.bzl", "native")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load("@prelude//utils:utils.bzl", "flatten")
@@ -117,7 +120,8 @@ def conan_component(
             # TODO[AH] Do we need supports_shared_library_interface?
         )
     else:
-        fail("Implement prebuilt_cxx_library_group")
+        # TODO[AH] Implement prebuilt_cxx_library_group.
+        fail("Support for package components with multiple libraries is not yet implemented.")
         #"contacts": attrs.list(attrs.string(), default = []),
         #"default_host_platform": attrs.option(attrs.configuration_label(), default = None),
         #"deps": attrs.list(attrs.dep(), default = []),
@@ -199,7 +203,6 @@ def _conan_generate_impl(ctx: "context") -> ["provider"]:
     ctx.actions.run(cmd, category = "conan_build")
 
     return [
-        # TODO[AH] ConanGenerateInfo with the generated targets file
         DefaultInfo(
             default_outputs = [targets_out],
             other_outputs = [
@@ -384,16 +387,16 @@ def _conan_profile_impl(ctx: "context") -> ["provider"]:
     content.add(cmd_args(ctx.attrs.arch, format = "arch={}"))
     content.add(cmd_args(ctx.attrs.os, format = "os={}"))
     content.add(cmd_args(ctx.attrs.build_type, format = "build_type={}"))
-    # TODO[AH] Define translation of CxxToolProviderType to compiler setting.
+    # TODO[AH] Auto-generate the compiler setting based on the toolchain.
+    #   Needs a translation of CxxToolProviderType to compiler setting.
     content.add(cmd_args(ctx.attrs.compiler, format = "compiler={}"))
     content.add(cmd_args(ctx.attrs.compiler_version, format = "compiler.version={}"))
     content.add(cmd_args(ctx.attrs.compiler_libcxx, format = "compiler.libcxx={}"))
 
     content.add("")
     content.add("[env]")
-    # TODO[AH] Define CMAKE_FIND_ROOT_PATH
-    # TODO[AH] Define CMAKE_SYSROOT
-    # TODO[AH] Do we need to overwrite PATH?
+    content.add(_profile_env_tool("CMAKE_FIND_ROOT_PATH", ""))
+    # TODO[AH] Define CMAKE_SYSROOT if needed.
     # TODO[AH] Define target CHOST for cross-compilation
     content.add(_profile_env_tool("AR", cxx.linker_info.archiver))
     if cxx.as_compiler_info:
