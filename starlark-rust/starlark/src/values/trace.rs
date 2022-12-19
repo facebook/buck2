@@ -32,6 +32,7 @@ use std::sync::atomic::AtomicUsize;
 use std::sync::Arc;
 use std::sync::Mutex;
 
+use either::Either;
 use hashbrown::raw::RawTable;
 
 use crate::collections::SmallMap;
@@ -155,6 +156,15 @@ unsafe impl<'v, T1: Trace<'v>, T2: Trace<'v>, T3: Trace<'v>, T4: Trace<'v>> Trac
         self.1.trace(tracer);
         self.2.trace(tracer);
         self.3.trace(tracer);
+    }
+}
+
+unsafe impl<'v, T1: Trace<'v>, T2: Trace<'v>> Trace<'v> for Either<T1, T2> {
+    fn trace(&mut self, tracer: &Tracer<'v>) {
+        match self {
+            Either::Left(x) => x.trace(tracer),
+            Either::Right(x) => x.trace(tracer),
+        }
     }
 }
 
