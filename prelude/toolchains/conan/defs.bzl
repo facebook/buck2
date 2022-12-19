@@ -456,6 +456,8 @@ def _conan_profile_impl(ctx: "context") -> ["provider"]:
     # TODO[AH] `inputs` returned from `write` is empty, use `content`.
     #   This is surprising as `content.inputs` is non-empty.
     _, inputs = ctx.actions.write(output, content, allow_args = True)
+    print("write-inputs", inputs)
+    print("content-inputs", content.inputs)
 
     return [
         DefaultInfo(default_outputs = [output]),
