@@ -400,6 +400,15 @@ def _make_wrapper_script(ctx, name, tool):
     )
 
 def _profile_env_tool(ctx, name, tool):
+    """Create a wrapper script and assign it to the profile variable.
+
+    Conan configures the build tools it invokes through environment variables.
+    Some build tools don't accept full command-lines in the environment
+    variables configuring the compiler. E.g. CMake expects `CC` to contain the
+    compiler alone, not a command-line such as `zig cc`. This first creates a
+    wrapper script around the provided tool to avoid build failures with tools
+    that configured as full command lines.
+    """
     wrapper, inputs = _make_wrapper_script(ctx, name, tool)
     return _profile_env_var(name, wrapper).hidden(tool).hidden(inputs)
 
