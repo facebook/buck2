@@ -23,6 +23,7 @@ load("@prelude//utils:utils.bzl", "flatten")
 ConanInitInfo = provider(fields = ["profile", "user_home"])
 ConanLockInfo = provider(fields = ["lockfile"])
 ConanPackageInfo = provider(fields = ["reference", "package_id", "cache_out", "package_out"])
+ConanProfileInfo = provider(fields = ["config", "inputs"])
 ConanToolchainInfo = provider(fields = ["conan"])
 
 def _conan_package_extract_impl(ctx: "context") -> ["provider"]:
@@ -188,7 +189,8 @@ def _conan_generate_impl(ctx: "context") -> ["provider"]:
     cmd = cmd_args([conan_generate])
     cmd.add(["--conan", conan_toolchain.conan])
     cmd.add(["--conan-init", conan_init.user_home])
-    cmd.hidden(conan_init.profile)  # The profile is inlined in the lockfile.
+    cmd.hidden(conan_init.profile.config)  # The profile is inlined in the lockfile.
+    cmd.hidden(conan_init.profile.inputs)
     cmd.add(["--buckler", ctx.attrs._buckler])
     cmd.add(["--install-folder", install_folder.as_output()])
     cmd.add(["--output-folder", output_folder.as_output()])
@@ -243,7 +245,7 @@ def _conan_init_impl(ctx: "context") -> ["provider"]:
     return [
         ConanInitInfo(
             user_home = user_home,
-            profile = ctx.attrs.profile,
+            profile = ctx.attrs.profile[ConanProfileInfo],
         ),
         DefaultInfo(default_outputs = [
             user_home,
@@ -257,7 +259,7 @@ conan_init = rule(
         # TODO[AH] Define separate profiles for
         #   the target platform (`--profile:build`) and
         #   exec platform (`--profile:host`).
-        "profile": attrs.source(),
+        "profile": attrs.dep(providers = [ConanProfileInfo]),
         "_conan_toolchain": attrs.default_only(attrs.toolchain_dep(default = "toolchains//:conan", providers = [ConanToolchainInfo])),
         "_conan_init": attrs.dep(providers = [RunInfo], default = "prelude//toolchains/conan:conan_init"),
     },
@@ -275,7 +277,8 @@ def _conan_lock_impl(ctx: "context") -> ["provider"]:
     cmd = cmd_args([conan_lock])
     cmd.add(["--conan", conan_toolchain.conan])
     cmd.add(["--conan-init", conan_init.user_home])
-    cmd.add(["--profile", conan_init.profile])
+    cmd.add(["--profile", conan_init.profile.config])
+    cmd.hidden(conan_init.profile.inputs)
     cmd.add(["--user-home", user_home.as_output()])
     cmd.add(["--trace-file", trace_log.as_output()])
     cmd.add(["--conanfile", ctx.attrs.conanfile])
@@ -322,7 +325,8 @@ def _conan_package_impl(ctx: "context") -> ["provider"]:
     cmd = cmd_args([conan_package])
     cmd.add(["--conan", conan_toolchain.conan])
     cmd.add(["--conan-init", conan_init.user_home])
-    cmd.hidden(conan_init.profile)  # The profile is inlined in the lockfile.
+    cmd.hidden(conan_init.profile.config)  # The profile is inlined in the lockfile.
+    cmd.hidden(conan_init.profile.inputs)
     cmd.add(["--lockfile", ctx.attrs.lockfile])
     cmd.add(["--reference", ctx.attrs.reference])
     cmd.add(["--package-id", ctx.attrs.package_id])
@@ -381,13 +385,18 @@ def _profile_env_var(name, value):
     return cmd_args([name, cmd_args(value, delimiter = " ")], delimiter = "=")
 
 def _profile_env_tool(ctx, name, tool):
-    wrapper, inputs = ctx.actions.write(
-        name,
-        cmd_args(["#!/bin/sh", cmd_args("exec", tool, '"$@"', delimiter = " ")]),
+    wrapper = ctx.actions.declare_output(name)
+    _, inputs = ctx.actions.write(
+        wrapper,
+        cmd_args([
+            "#!/bin/sh",
+            '_SCRIPTDIR=`dirname "$0"`',
+            cmd_args("exec", tool, '"$@"', delimiter = " ").relative_to(wrapper, parent = 1).absolute_prefix('"$_SCRIPTDIR"/'),
+        ]),
         allow_args = True,
         is_executable = True,
     )
-    return _profile_env_var(name, wrapper).hidden(inputs)
+    return _profile_env_var(name, wrapper).hidden(tool).hidden(inputs)
 
 def _conan_profile_impl(ctx: "context") -> ["provider"]:
     cxx = ctx.attrs._cxx_toolchain[CxxToolchainInfo]
@@ -430,9 +439,14 @@ def _conan_profile_impl(ctx: "context") -> ["provider"]:
     output = ctx.actions.declare_output(ctx.label.name)
     content.relative_to(output, parent = 1)
     content.absolute_prefix("$PROFILE_DIR/")
-    ctx.actions.write(output, content)
+    # TODO[AH] `inputs` returned from `write` is empty, use `content`.
+    #   This is surprising as `content.inputs` is non-empty.
+    _, inputs = ctx.actions.write(output, content, allow_args = True)
 
-    return [DefaultInfo(default_outputs = [output])]
+    return [
+        DefaultInfo(default_outputs = [output]),
+        ConanProfileInfo(config = output, inputs = content),
+    ]
 
 conan_profile = rule(
     impl = _conan_profile_impl,
