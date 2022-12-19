@@ -107,9 +107,15 @@ jobs:
           name: Setup and build example/prelude directory
           command: |
             cd examples/prelude
+            # Link 'prelude'
             ln -s $(realpath ../../prelude) prelude
+            # Bring the ocaml toolchain into scope
             eval $(opam env --switch=default)
-            (cd ocaml/opam && ln -s /usr/lib/ocaml ocaml)
+            # Link 'third-party/ocaml/standard_library'
+            (cd third-party/ocaml && ln -s "$(ocamlopt.opt -config | grep standard_library\: | awk '{ print $2 }' )" standard_library)
+            # Link 'third-party/ocaml/opam'
+            (cd third-party/ocaml && ln -s "$OPAM_SWITCH_PREFIX" opam)
+            # Build
             /tmp/artifacts/buck2 build //... -v 2
       - when:
           condition:
