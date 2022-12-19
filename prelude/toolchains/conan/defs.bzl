@@ -143,14 +143,13 @@ def conan_component(
         #"supported_platforms_regex": attrs.option(attrs.regex(), default = None),
         #"within_view": attrs.option(attrs.list(attrs.string())),
 
-def _conan_cxx_libraries_impl(ctx: "context") -> list.type:
+def _conan_cxx_libraries_impl(ctx: "context") -> ["provider"]:
     default_info = DefaultInfo(
         default_outputs = ctx.attrs.main[DefaultInfo].default_outputs + flatten([c[DefaultInfo].default_outputs for c in ctx.attrs.components.values()]),
         sub_targets = { n: c.providers for n, c in ctx.attrs.components.items() },
     )
     providers = [p for p in ctx.attrs.main.providers if type(p) != "DefaultInfo"]
     providers.append(default_info)
-    # TODO[AH] This doesn't satisfy the return type annotation ["provider"], why?
     return providers
 
 _conan_cxx_libraries = rule(
