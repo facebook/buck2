@@ -13,7 +13,7 @@ cxx_library(
     srcs = [
         "hello_stubs.c",
     ],
-    deps = ["root//ocaml/opam:ocaml-dev"],
+    deps = ["//third-party/ocaml:ocaml-dev"],
 ) if host_info().os.is_linux else None
 
 assert_output(

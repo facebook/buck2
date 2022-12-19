@@ -107,9 +107,7 @@ jobs:
           name: Setup and build example/prelude directory
           command: |
             cd examples/prelude
-            ln -s $(realpath ../../prelude) prelude
-            eval $(opam env --switch=default)
-            (cd ocaml/opam && ln -s /usr/lib/ocaml ocaml)
+            source ./setup.sh
             /tmp/artifacts/buck2 build //... -v 2
       - when:
           condition:
@@ -164,9 +162,7 @@ jobs:
           command: |
             export PATH=/usr/local/opt/llvm/bin:"$PATH"
             cd examples/prelude
-            ln -s $(realpath ../../prelude) prelude
-            eval $(opam env --switch=default)
-            (cd ocaml/opam && ln -s /usr/lib/ocaml ocaml)
+            source ./setup.sh
             /tmp/artifacts/buck2 build //... -v 2
       - when:
           condition:
