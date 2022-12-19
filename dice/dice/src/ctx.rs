@@ -7,8 +7,6 @@
  * of this source tree.
  */
 
-#![allow(clippy::borrow_deref_ref)] // FIXME?
-
 use std::fmt::Debug;
 use std::fmt::Display;
 use std::future::Future;
@@ -557,7 +555,7 @@ mod tests {
                         trigger
                     );
                     assert_eq!(
-                        &*cyclic_keys,
+                        cyclic_keys,
                         &indexset![
                             Arc::new(K(1)) as Arc<dyn RequestedKey>,
                             Arc::new(K(2)) as Arc<dyn RequestedKey>,

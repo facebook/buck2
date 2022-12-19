@@ -9,8 +9,6 @@
 
 //! Cycle detection in DICE
 
-#![allow(clippy::borrow_deref_ref)] // FIXME?
-
 use std::any::TypeId;
 use std::fmt::Debug;
 use std::fmt::Display;
@@ -180,7 +178,7 @@ mod tests {
                         trigger
                     );
                     assert_eq!(
-                        &*cyclic_keys,
+                        cyclic_keys,
                         &indexset![
                             Arc::new(K(1)) as Arc<dyn RequestedKey>,
                             Arc::new(K(2)) as Arc<dyn RequestedKey>,
