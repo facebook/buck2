@@ -79,7 +79,7 @@ def _silly_compilation_impl(ctx):
     ))
     return [DefaultInfo(), _SillyCompilation(compiled = out)]
 
-_silly_compilation = anon_rule(
+_silly_compilation = rule(
     impl = _silly_compilation_impl,
     attrs = {
         "src": attrs.src(),
@@ -90,17 +90,18 @@ _silly_compilation = anon_rule(
 # We may define `anon_targets` as a builtin in future.
 # ctx.actions, but it isn't necessary, but will increase parallelism
 def anon_targets(ctx, xs, k):
-    def f(ctx, xs, ps, k):
+    def f(xs, ps):
         if len(xs) == 0:
-            return k(ctx, ps)
+            return k(ps)
         else:
             return ctx.actions.anon_target(xs[0][0], xs[0][1]).map(
-                lambda ctx, p: f(ctx, xs[1..], ps+[p], k)
+                lambda p: f(xs[1:], ps+[p])
             )
-    return f(ctx, xs, [], k)
+    return f(0, [])
+
 
 def _silly_binary_impl(ctx):
-    def k(ctx, providers):
+    def k(providers):
         # Step 2: now link them all together
         out = ctx.actions.declare_output("out.exe")
         objs = [p[_SillyCompilation].compiled for p in providers]
