@@ -6,7 +6,7 @@ Welcome to Buck2! A successor to [Buck](https://buck.build). Buck2 is largely co
 
 ## Communication channels
 
-* [Buck2 prototyping](https://fb.workplace.com/groups/buck2prototyping) - where we have discussions about what features Buck2 should have, how it's going, status updates etc.
+* [Buck2 engineering](https://fb.workplace.com/groups/buck2prototyping) - where we have discussions about what features Buck2 should have, how it's going, status updates etc.
 * [Buck2 users](https://fb.workplace.com/groups/buck2users) - questions from users, reports of bugs.
 * [Buck2 rule authors](https://fb.workplace.com/groups/347532827186692) - discussions around specific language rules, e.g. C++.
 * [Buck2 oncall](https://www.internalfb.com/intern/monitor/oncall_profile?oncall=buck2) - urgent tasks and escalation.
