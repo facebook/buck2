@@ -82,11 +82,19 @@ def package_dir(user_home, name, version, user, channel, package_id):
     return os.path.join(reference_dir(user_home, name, version, user, channel), package_subtree(package_id))
 
 
+def _copytree(src, dst):
+    """Recursively copy the source directory tree to the destination.
+
+    Copies symbolic links and ignores dangling symbolic links.
+    """
+    shutil.copytree(src, dst, symlinks=True, ignore_dangling_symlinks=True)
+
+
 def install_user_home(user_home, base_user_home):
     """Copy the given base user-home to the current user-home."""
     src = base_user_home
     dst = user_home
-    shutil.copytree(src, dst)
+    _copytree(src, dst)
 
 
 def install_generator(user_home, generator_file):
@@ -106,7 +114,7 @@ def install_reference(user_home, reference, path):
     name, version, user, channel, _ = parse_reference(reference)
     src = path
     dst = reference_dir(user_home, name, version, user, channel)
-    shutil.copytree(src, dst)
+    _copytree(src, dst)
 
 
 def extract_reference(user_home, reference, output):
@@ -114,7 +122,7 @@ def extract_reference(user_home, reference, output):
     name, version, user, channel, _ = parse_reference(reference)
     src = reference_dir(user_home, name, version, user, channel)
     dst = output
-    shutil.copytree(src, dst)
+    _copytree(src, dst)
 
 
 def extract_package(user_home, reference, package_id, output):
@@ -122,7 +130,7 @@ def extract_package(user_home, reference, package_id, output):
     name, version, user, channel, _ = parse_reference(reference)
     src = package_dir(user_home, name, version, user, channel, package_id)
     dst = output
-    shutil.copytree(src, dst)
+    _copytree(src, dst)
 
 
 def conan_env(
