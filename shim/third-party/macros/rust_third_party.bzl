@@ -61,7 +61,7 @@ def _make_cmd(mode, buildscript, package_name, version, features, cfgs, env, tar
 
 # Invoke a Rust buildscript binary with the right surrounding
 # environment variables.
-def rust_buildscript_genrule_filter(name, buildscript_rule, outfile, package_name, version, features = None, cfgs = None, env = None, target = None):
+def rust_buildscript_genrule_args(name, buildscript_rule, outfile, package_name, version, features = None, cfgs = None, env = None, target = None):
     cmd = _make_cmd("args", buildscript_rule, package_name, version, features, cfgs, env, target)
     native.genrule(
         name = name,
