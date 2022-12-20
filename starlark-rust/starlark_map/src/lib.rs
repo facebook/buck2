@@ -17,8 +17,6 @@
 
 //! Ordered map optimized for starlark-rust use cases.
 
-// TODO(nga): fix.
-#![allow(clippy::should_implement_trait)]
 // Hints we disagree with
 #![allow(clippy::missing_safety_doc)]
 #![cfg_attr(rust_nightly, feature(core_intrinsics))]

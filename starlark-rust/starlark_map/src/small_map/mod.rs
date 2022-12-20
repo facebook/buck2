@@ -181,7 +181,7 @@ impl<K, V> SmallMap<K, V> {
 
     /// Entries iterator.
     #[inline]
-    pub fn into_iter(self) -> IntoIter<K, V> {
+    fn into_iter(self) -> IntoIter<K, V> {
         IntoIter {
             iter: self.entries.into_iter(),
         }
