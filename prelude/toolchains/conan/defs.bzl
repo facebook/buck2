@@ -349,6 +349,7 @@ def _conan_package_impl(ctx: "context") -> ["provider"]:
     cmd.add(["--package-out", package_out.as_output()])
 
     # TODO[AH] Do we need to separate deps and build_deps?
+    #   This may become necessary for cross-compilation support.
     deps = ctx.actions.tset(
         ConanPackageCacheTSet,
         children = [
