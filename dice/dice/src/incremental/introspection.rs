@@ -8,8 +8,6 @@
  */
 
 use std::collections::BTreeMap;
-use std::collections::HashMap;
-use std::collections::HashSet;
 use std::sync::Arc;
 
 use gazebo::prelude::*;
@@ -33,6 +31,8 @@ use crate::introspection::graph::KeyID;
 use crate::introspection::graph::NodeID;
 use crate::introspection::graph::SerializedGraphNode;
 use crate::introspection::graph::SerializedGraphNodesForKey;
+use crate::HashMap;
+use crate::HashSet;
 
 impl<K, T> EngineForIntrospection for IncrementalEngine<K>
 where

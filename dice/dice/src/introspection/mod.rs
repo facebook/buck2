@@ -30,8 +30,6 @@ impl Dice {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-
     use allocative::Allocative;
     use anyhow::Context as _;
     use async_trait::async_trait;
@@ -43,6 +41,7 @@ mod tests {
     use crate::serialize_graph;
     use crate::Dice;
     use crate::DiceComputations;
+    use crate::HashMap;
     use crate::Key;
 
     #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
@@ -103,7 +102,7 @@ mod tests {
         let nodes = String::from_utf8(nodes)?;
         let edges = String::from_utf8(edges)?;
 
-        let mut node_map = HashMap::<String, u64>::new();
+        let mut node_map = HashMap::<String, u64>::default();
         let mut edge_list = Vec::<(u64, u64)>::new();
 
         for line in nodes.lines() {

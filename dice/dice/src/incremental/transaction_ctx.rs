@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::collections::HashSet;
 use std::sync::Arc;
 use std::sync::Weak;
 
@@ -24,6 +23,7 @@ use crate::incremental::versions::VersionNumber;
 use crate::Dice;
 use crate::DiceError;
 use crate::DiceResult;
+use crate::HashSet;
 use crate::Key;
 
 /// Increment/decrement the number of active transactions.
@@ -165,7 +165,10 @@ impl Changes {
         key: K,
         change: Box<dyn FnOnce(VersionNumber) -> bool + Send>,
     ) -> DiceResult<()> {
-        let map = self.keys.entry::<HashSet<K>>().or_insert_with(HashSet::new);
+        let map = self
+            .keys
+            .entry::<HashSet<K>>()
+            .or_insert_with(HashSet::default);
         if !map.insert(key.clone()) {
             Err(DiceError::duplicate(Arc::new(key)))
         } else {

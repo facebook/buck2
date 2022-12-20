@@ -10,7 +10,6 @@
 //! Represents the forward and backward dependencies of the computation graph
 
 use std::collections::hash_map::Entry;
-use std::collections::HashMap;
 use std::fmt::Debug;
 use std::fmt::Display;
 use std::hash::Hash;
@@ -33,6 +32,7 @@ use crate::incremental::versions::MinorVersion;
 use crate::incremental::versions::VersionNumber;
 use crate::introspection::graph::AnyKey;
 use crate::DiceResult;
+use crate::HashMap;
 
 /// The dependency information stored by the core engine
 #[async_trait]

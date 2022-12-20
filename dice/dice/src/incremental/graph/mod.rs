@@ -22,7 +22,6 @@ pub(crate) mod dependencies;
 pub(crate) mod storage_properties;
 
 use std::collections::Bound;
-use std::collections::HashSet;
 use std::fmt::Debug;
 use std::ops::Bound::Included;
 use std::ops::Bound::Unbounded;
@@ -55,6 +54,7 @@ use crate::incremental::CellHistory;
 use crate::incremental::Dependency;
 use crate::incremental::VersionNumber;
 use crate::introspection::graph::AnyKey;
+use crate::HashSet;
 
 /// The Key for a Versioned, incremental computation
 #[derive(Clone, Debug)]
@@ -1124,7 +1124,7 @@ impl<K: StorageProperties> EntryUpdater<K> {
         match self {
             EntryUpdater::ValidOnly { res } => {
                 if storage_key.equality(&old.res, &res) {
-                    old.mark_unchanged(v, HashSet::new());
+                    old.mark_unchanged(v, HashSet::default());
                     EntryReused::Reused(old)
                 } else {
                     EntryReused::NotReusable(EntryUpdater::ValidOnly { res })
@@ -1357,7 +1357,6 @@ pub(crate) mod testing {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashSet;
     use std::fmt;
     use std::fmt::Debug;
     use std::fmt::Formatter;
@@ -1370,7 +1369,6 @@ mod tests {
     use async_trait::async_trait;
     use derive_more::Display;
     use gazebo::prelude::*;
-    use maplit::hashset;
     use sorted_vector_map::sorted_vector_set;
 
     use crate::incremental::dep_trackers::BothDeps;
@@ -1395,6 +1393,7 @@ mod tests {
     use crate::incremental::versions::VersionRanges;
     use crate::incremental::Computable;
     use crate::DiceComputations;
+    use crate::HashSet;
     use crate::InjectedKey;
     use crate::Key;
     use crate::StorageProperties;
@@ -1890,7 +1889,7 @@ mod tests {
             Some((VersionNumber::new(0), deps0.dupe()))
         );
 
-        entry.mark_unchanged(VersionNumber::new(1), HashSet::new());
+        entry.mark_unchanged(VersionNumber::new(1), HashSet::default());
         entry
             .read_meta()
             .hist
@@ -1906,13 +1905,13 @@ mod tests {
             Some((VersionNumber::new(1), Arc::new(Vec::new())))
         );
 
-        let deps1 = hashset![
+        let deps1 = HashSet::from_iter([
             ComputedDependencyExt::<EvaluatorUnreachable<_, usize>>::testing_raw(
                 7,
                 VersionNumber::new(1),
-                true
-            )
-        ];
+                true,
+            ),
+        ]);
         entry.mark_unchanged(VersionNumber::new(2), deps1);
         let deps1: Arc<Vec<Box<dyn Dependency>>> = Arc::new(vec![DependencyExt::<
             EvaluatorUnreachable<_, usize>,
@@ -2046,18 +2045,18 @@ mod tests {
             mv,
             res,
             BothDeps {
-                deps: hashset![
+                deps: HashSet::from_iter([
                     ComputedDependencyExt::<EvaluatorUnreachable<usize, usize>>::testing_raw(
                         1,
                         VersionNumber::new(0),
-                        true
+                        true,
                     ),
                     ComputedDependencyExt::<EvaluatorUnreachable<usize, usize>>::testing_raw(
                         2,
                         VersionNumber::new(0),
-                        false
-                    )
-                ],
+                        false,
+                    ),
+                ]),
                 rdeps: Vec::new(),
             },
         );

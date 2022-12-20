@@ -8,7 +8,6 @@
  */
 
 use std::collections::hash_map::Entry;
-use std::collections::HashMap;
 use std::io::Write;
 
 use anyhow::Context as _;
@@ -17,6 +16,7 @@ use serde::Serializer;
 
 use crate::introspection::graph::GraphIntrospectable;
 use crate::introspection::AnyKey;
+use crate::HashMap;
 
 pub fn serialize_graph(
     graph: &GraphIntrospectable,
@@ -59,7 +59,7 @@ pub fn serialize_dense_graph<S>(graph: &GraphIntrospectable, writer: S) -> Resul
 where
     S: Serializer,
 {
-    let mut reg = HashMap::new();
+    let mut reg = HashMap::default();
 
     let num_nodes = graph
         .introspectables
@@ -83,7 +83,7 @@ struct NodeRegistry {
 impl NodeRegistry {
     fn new() -> Self {
         Self {
-            keys: HashMap::new(),
+            keys: HashMap::default(),
         }
     }
 

@@ -23,8 +23,6 @@ pub(crate) mod transaction_ctx;
 pub(crate) mod versions;
 
 use std::borrow::Cow;
-use std::collections::HashMap;
-use std::collections::HashSet;
 use std::fmt::Debug;
 use std::fmt::Display;
 use std::future::Future;
@@ -72,6 +70,8 @@ use crate::projection::ProjectionKeyProperties;
 use crate::sync_handle::SyncDiceTaskHandle;
 use crate::DiceProjectionComputations;
 use crate::DiceResult;
+use crate::HashMap;
+use crate::HashSet;
 use crate::Key;
 use crate::OpaqueValue;
 use crate::ProjectionKey;
@@ -158,7 +158,7 @@ where
     pub(crate) fn new(evaluator: K) -> Arc<Self> {
         Arc::new(Self {
             versioned_cache: VersionedGraph::new(evaluator),
-            currently_running: RwLock::new(HashMap::new()),
+            currently_running: RwLock::new(HashMap::default()),
         })
     }
 
@@ -898,7 +898,7 @@ impl<K: IncrementalComputeProperties> IncrementalEngine<K> {
 
         let mut verified_versions = Cow::Borrowed(verified_versions);
 
-        let mut computed_deps = HashSet::new();
+        let mut computed_deps = HashSet::default();
         let mut computed_nodes = Vec::new();
         while let Some(dep_res) = fs.next().await {
             match dep_res {
@@ -1132,7 +1132,6 @@ pub(crate) mod testing {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashSet;
     use std::fmt;
     use std::fmt::Debug;
     use std::fmt::Formatter;
@@ -1153,7 +1152,6 @@ mod tests {
     use gazebo::cmp::PartialEqAny;
     use gazebo::prelude::*;
     use indexmap::indexset;
-    use maplit::hashset;
     use parking_lot::Mutex;
     use parking_lot::RwLock;
     use sorted_vector_map::sorted_vector_set;
@@ -1204,6 +1202,7 @@ mod tests {
     use crate::introspection::graph::AnyKey;
     use crate::DiceError;
     use crate::DiceResult;
+    use crate::HashSet;
     use crate::StorageProperties;
     use crate::StorageType;
     use crate::ValueWithDeps;
@@ -1223,7 +1222,7 @@ mod tests {
         let eval_fn = move |k| ValueWithDeps {
             value: k,
             both_deps: BothDeps {
-                deps: HashSet::new(),
+                deps: HashSet::default(),
                 rdeps: vec![graph_node.dupe()],
             },
         };
@@ -1254,18 +1253,18 @@ mod tests {
             .val());
         assert_eq!(t, 3);
 
-        let mut expected = hashset![
+        let mut expected = HashSet::from_iter([
             Arc::as_ptr(
                 &engine
                     .get_cached(2, VersionNumber::new(1), MinorVersion::testing_new(0))
-                    .into_dyn()
+                    .into_dyn(),
             ),
             Arc::as_ptr(
                 &engine
                     .get_cached(3, VersionNumber::new(1), MinorVersion::testing_new(0))
-                    .into_dyn()
-            )
-        ];
+                    .into_dyn(),
+            ),
+        ]);
         for rdep in node.read_meta().rdeps.rdeps().rdeps.iter() {
             assert!(
                 expected.remove(&Arc::as_ptr(&rdep.0.0.upgrade().unwrap())),
@@ -1679,9 +1678,9 @@ mod tests {
                     return ValueWithDeps {
                         value: eval_result.load(Ordering::SeqCst),
                         both_deps: BothDeps {
-                            deps: hashset![
+                            deps: HashSet::from_iter([
                                 (box dep.lock().take().unwrap()) as Box<dyn ComputedDependency>
-                            ],
+                            ]),
                             rdeps: Vec::new(),
                         },
                     };
@@ -1886,7 +1885,7 @@ mod tests {
         let engine0 = IncrementalEngine::new(EvaluatorFn::new(async move |k| ValueWithDeps {
             value: k,
             both_deps: BothDeps {
-                deps: HashSet::new(),
+                deps: HashSet::default(),
                 rdeps: Vec::new(),
             },
         }));
@@ -1897,7 +1896,7 @@ mod tests {
         let engine1 = IncrementalEngine::new(EvaluatorFn::new(async move |k| ValueWithDeps {
             value: k,
             both_deps: BothDeps {
-                deps: HashSet::new(),
+                deps: HashSet::default(),
                 rdeps: vec![node0.into_dyn()],
             },
         }));
@@ -1908,7 +1907,7 @@ mod tests {
         let engine2 = IncrementalEngine::new(EvaluatorFn::new(async move |k| ValueWithDeps {
             value: k,
             both_deps: BothDeps {
-                deps: HashSet::new(),
+                deps: HashSet::default(),
                 rdeps: vec![node1.into_dyn()],
             },
         }));
@@ -1919,7 +1918,7 @@ mod tests {
         let engine3 = IncrementalEngine::new(EvaluatorFn::new(async move |k| ValueWithDeps {
             value: k,
             both_deps: BothDeps {
-                deps: HashSet::new(),
+                deps: HashSet::default(),
                 rdeps: vec![node2.into_dyn()],
             },
         }));
@@ -2005,7 +2004,7 @@ mod tests {
                 ValueWithDeps {
                     value: 1usize,
                     both_deps: BothDeps {
-                        deps: HashSet::new(),
+                        deps: HashSet::default(),
                         rdeps: Vec::new(),
                     },
                 }
@@ -2125,7 +2124,7 @@ mod tests {
                         .unwrap()
                         % 2,
                     both_deps: BothDeps {
-                        deps: HashSet::new(),
+                        deps: HashSet::default(),
                         rdeps: Vec::new(),
                     },
                 }
@@ -2189,11 +2188,12 @@ mod tests {
                 ValueWithDeps {
                     value: *node.val(),
                     both_deps: BothDeps {
-                        deps: hashset![box ComputedDep {
+                        deps: HashSet::from_iter([box ComputedDep {
                             engine: Arc::downgrade(&self.0),
                             version: transaction_ctx.get_version(),
                             node: node.dupe(),
-                        } as Box<dyn ComputedDependency>],
+                        }
+                            as Box<dyn ComputedDependency>]),
                         rdeps: vec![node.into_dyn()],
                     },
                 }
@@ -2257,7 +2257,7 @@ mod tests {
                         instance_count: instance_count.fetch_add(1, Ordering::SeqCst),
                     },
                     both_deps: BothDeps {
-                        deps: HashSet::new(),
+                        deps: HashSet::default(),
                         rdeps: Vec::new(),
                     },
                 }

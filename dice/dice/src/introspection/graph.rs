@@ -9,8 +9,6 @@
 
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
-use std::collections::HashMap;
-use std::collections::HashSet;
 use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;
@@ -31,6 +29,8 @@ use serde::Serializer;
 use crate::dice_task::DiceTaskStateForDebugging;
 use crate::incremental::ErasedEngine;
 use crate::introspection::serialize_dense_graph;
+use crate::HashMap;
+use crate::HashSet;
 
 pub struct GraphIntrospectable {
     pub(crate) introspectables: Vec<Arc<dyn ErasedEngine + Send + Sync + 'static>>,

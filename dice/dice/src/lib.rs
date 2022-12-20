@@ -234,6 +234,8 @@ use std::sync::Weak;
 
 use allocative::Allocative;
 use async_trait::async_trait;
+pub use fnv::FnvHashMap as HashMap;
+pub use fnv::FnvHashSet as HashSet;
 use gazebo::prelude::*;
 use indexmap::IndexSet;
 use itertools::Itertools;

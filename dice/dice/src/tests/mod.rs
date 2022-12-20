@@ -9,7 +9,6 @@
 
 mod demo;
 
-use std::collections::HashSet;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 use std::sync::Barrier;
@@ -26,6 +25,7 @@ use crate::incremental::testing::IncrementalEngineExt;
 use crate::incremental::testing::VersionedCacheResultAssertsExt;
 use crate::incremental::versions::MinorVersion;
 use crate::incremental::versions::VersionNumber;
+use crate::HashSet;
 
 #[derive(Clone, Dupe, Debug, Display, Eq, Hash, PartialEq, Allocative)]
 #[display(fmt = "{:?}", self)]

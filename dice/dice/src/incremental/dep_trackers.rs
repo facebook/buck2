@@ -9,7 +9,6 @@
 
 //! Trackers that records dependencies and reverse dependencies during execution of requested nodes
 
-use std::collections::HashSet;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -23,6 +22,7 @@ use crate::incremental::graph::GraphNodeDyn;
 use crate::incremental::versions::VersionNumber;
 use crate::incremental::IncrementalComputeProperties;
 use crate::incremental::IncrementalEngine;
+use crate::HashSet;
 
 /// The 'DepsTracker' is used to record dependencies of a particular compute node by calling
 /// 'record' for each dependency, and then getting a list of 'Dependency's at the end by calling
@@ -35,7 +35,7 @@ struct RecordingDepsTracker {
 impl RecordingDepsTracker {
     fn new() -> Self {
         Self {
-            deps: HashSet::new(),
+            deps: HashSet::default(),
         }
     }
 
@@ -402,7 +402,6 @@ mod tests {
     use std::sync::Arc;
 
     use gazebo::prelude::*;
-    use maplit::hashset;
 
     use crate::ctx::testing::ComputationDataExt;
     use crate::ctx::ComputationData;
@@ -417,6 +416,7 @@ mod tests {
     use crate::incremental::versions::VersionNumber;
     use crate::incremental::IncrementalEngine;
     use crate::incremental::TransactionCtx;
+    use crate::HashSet;
     use crate::ValueWithDeps;
 
     #[test]
@@ -459,18 +459,18 @@ mod tests {
 
         let deps = deps_tracker.collect_deps();
 
-        let expected = hashset![
+        let expected = HashSet::from_iter([
             ComputedDependencyExt::<EvaluatorUnreachable<_, i32>>::testing_raw(
                 2,
                 VersionNumber::new(1),
-                true
+                true,
             ),
             ComputedDependencyExt::<EvaluatorUnreachable<_, i32>>::testing_raw(
                 3,
                 VersionNumber::new(1),
-                true
+                true,
             ),
-        ];
+        ]);
         assert_eq!(deps, expected);
 
         Ok(())
