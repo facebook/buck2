@@ -44,6 +44,6 @@ cxx_binary(
 assert_output(
     name = "check_main",
     command = "$(exe_target :main)",
-    output = "Hello Conan",
+    output = "395248644",
 ) if not host_info().os.is_windows else None
 
