@@ -658,25 +658,27 @@ pub async fn create_output_dirs(
         .map(|output| output.resolve(artifact_fs))
         .collect();
 
-    if request.outputs_cleanup {
-        // Invalidate all the output paths this action might provide. Note that this is a bit
-        // approximative: we might have previous instances of this action that declared
-        // different outputs with a different materialization method that will become invalid
-        // now. However, nothing should reference those stale outputs, so while this does not
-        // do a good job of cleaning up garbage, it prevents using invalid artifacts.
-        let outputs = outputs.map(|output| output.path.to_owned());
-        materializer.invalidate_many(outputs.clone()).await?;
+    // Invalidate all the output paths this action might provide. Note that this is a bit
+    // approximative: we might have previous instances of this action that declared
+    // different outputs with a different materialization method that will become invalid
+    // now. However, nothing should reference those stale outputs, so while this does not
+    // do a good job of cleaning up garbage, it prevents using invalid artifacts.
+    let output_paths = outputs.map(|output| output.path.to_owned());
+    materializer.invalidate_many(output_paths.clone()).await?;
 
+    if request.outputs_cleanup {
         // TODO(scottcao): Move this deletion logic into materializer itself.
         // Use Eden's clean up API if possible, it is significantly faster on Eden compared with
         // the native method as the API does not load and materialize files or folders
         if let Some(eden_buck_out) = materializer.eden_buck_out() {
             eden_buck_out
-                .remove_paths_recursive(artifact_fs.fs(), outputs)
+                .remove_paths_recursive(artifact_fs.fs(), output_paths)
                 .await?;
         } else {
             blocking_executor
-                .execute_io(box CleanOutputPaths { paths: outputs })
+                .execute_io(box CleanOutputPaths {
+                    paths: output_paths,
+                })
                 .await
                 .context("Failed to cleanup output directory")?;
         }
