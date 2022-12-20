@@ -151,6 +151,15 @@ commands:
             cd examples/no_prelude
             /tmp/artifacts/buck2 build //... -v 2
 
+  build_example_conan:
+    description: Buile examples/toolchains/conan_toolchain
+    steps:
+      - run:
+          name:
+            cd examples/toolchains/conan_toolchain
+            /tmp/artifacts/buck2 build //cpp/conan:lock -v 2 --show-output | cut -d\  -f2 | xargs cat
+            PATH="/tmp/artifacts:$PATH" /tmp/artifacts/buck2 run //cpp/conan:update -v 2
+
 
 version: 2.1
 orbs:
@@ -188,6 +197,7 @@ jobs:
             source ./ocaml-setup.sh
             /tmp/artifacts/buck2 build //... -v 2
             /tmp/artifacts/buck2 test //... -v 2
+      - build_example_conan
       - build_example_no_prelude
       - setup_reindeer
       - build_bootstrap
@@ -224,6 +234,7 @@ jobs:
             source ./ocaml-setup.sh
             /tmp/artifacts/buck2 build //... -v 2
             /tmp/artifacts/buck2 test //... -v 2
+      - build_example_conan
       - build_example_no_prelude
       - setup_reindeer
       - build_bootstrap
@@ -259,6 +270,7 @@ jobs:
             copy-item -Path $env:CIRCLE_WORKING_DIRECTORY\prelude -Destination prelude -Recurse
             /tmp/artifacts/buck2 build //... -v 2
             /tmp/artifacts/buck2 test //... -v 2
+      - build_example_conan
       - build_example_no_prelude
       - setup_reindeer
       - build_bootstrap
