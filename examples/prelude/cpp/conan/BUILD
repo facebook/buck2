@@ -39,11 +39,10 @@ cxx_binary(
     link_style = "static",
     srcs = ["main.cpp"],
     deps = ["//cpp/conan/import:zlib"],
-) if not host_info().os.is_windows else None
+)
 
 assert_output(
     name = "check_main",
     command = "$(exe_target :main)",
     output = "395248644",
-) if not host_info().os.is_windows else None
-
+)
