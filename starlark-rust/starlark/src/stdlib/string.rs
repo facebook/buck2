@@ -150,7 +150,7 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     ///     "H", "e", "l", "l", "o", ",", " ", "世", "界"]
     /// # "#);
     /// ```
-    fn elems<'v>(this: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    fn elems<'v>(this: StringValue<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         Ok(iterate_chars(this, heap))
     }
 
@@ -201,7 +201,7 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     /// list("Hello, 世界".codepoints()) == [72, 101, 108, 108, 111, 44, 32, 19990, 30028]
     /// # "#);
     /// ```
-    fn codepoints<'v>(this: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    fn codepoints<'v>(this: StringValue<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         Ok(iterate_codepoints(this, heap))
     }
 
