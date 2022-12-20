@@ -28,7 +28,8 @@ commands:
     description: Setup env for Linux
     steps:
       - run: sudo apt-get update
-      - run: sudo apt-get install libssl-dev cmake clang lld opam
+      - run: sudo apt-get install libssl-dev cmake clang lld opam python3-pip
+      - run: sudo pip3 install conan
       - run:
           name: Init opam
           command: |
@@ -47,7 +48,7 @@ commands:
             # Avoid: "Error: The `brew link` step did not complete
             # successfully" (for llvm dependency 'six').
             rm -f '/usr/local/lib/python3.9/site-packages/six.py'
-            brew install cmake coreutils opam llvm
+            brew install cmake conan coreutils opam llvm
       - run:
           name: Init opam
           command: |
@@ -65,6 +66,7 @@ commands:
             choco install rustup.install
             write-output "[net]`ngit-fetch-with-cli = true" | out-file -append -encoding utf8 $Env:USERPROFILE/.cargo/config
             type $Env:USERPROFILE/.cargo/config
+      - run: choco install conan
       - print_versions
 
 version: 2.1
