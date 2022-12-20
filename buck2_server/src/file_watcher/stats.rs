@@ -8,6 +8,7 @@
  */
 
 use allocative::Allocative;
+use buck2_core::collections::ordered_set::OrderedSet;
 
 const MAX_PRINT_MESSAGES: usize = 3;
 const MAX_FILE_CHANGE_RECORDS: usize = 850;
@@ -16,9 +17,9 @@ const MAX_FILE_CHANGE_RECORDS: usize = 850;
 pub(crate) struct FileWatcherStats {
     stats: buck2_data::FileWatcherStats,
     // None means overflowed MAX_FILE_CHANGE_RECORDS (so recording nothing)
-    changes: Option<Vec<buck2_data::FileWatcherEvent>>,
+    changes: Option<OrderedSet<buck2_data::FileWatcherEvent>>,
     // The first few paths that change (to print out), bounded by MAX_PRINT_MESSAGES
-    to_print: Vec<String>,
+    to_print: OrderedSet<String>,
 }
 
 impl FileWatcherStats {
@@ -31,13 +32,13 @@ impl FileWatcherStats {
         let changes = if min_count > MAX_FILE_CHANGE_RECORDS {
             None
         } else {
-            Some(Vec::with_capacity(min_count))
+            Some(OrderedSet::with_capacity(min_count))
         };
 
         Self {
             stats,
             changes,
-            to_print: Vec::new(),
+            to_print: OrderedSet::new(),
         }
     }
 
@@ -64,11 +65,11 @@ impl FileWatcherStats {
         self.stats.events_processed += 1;
 
         if self.to_print.len() < MAX_PRINT_MESSAGES {
-            self.to_print.push(path.clone());
+            self.to_print.insert(path.clone());
         }
 
         if let Some(records) = &mut self.changes {
-            records.push(buck2_data::FileWatcherEvent {
+            records.insert(buck2_data::FileWatcherEvent {
                 event: event as i32,
                 kind: kind as i32,
                 path,
@@ -99,7 +100,7 @@ impl FileWatcherStats {
                 )),
                 Some(records) => {
                     buck2_data::file_changes::Data::Records(buck2_data::FileWatcherEvents {
-                        events: records,
+                        events: records.into_iter().collect(),
                     })
                 }
             }),

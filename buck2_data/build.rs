@@ -87,6 +87,7 @@ fn main() -> io::Result<()> {
         .type_attribute("buck.data.BxlFunctionKey", "#[derive(Eq, Hash)]")
         .type_attribute("buck.data.ActionKey.owner", "#[derive(Eq, Hash)]")
         .type_attribute("buck.data.ActionKey", "#[derive(Eq, Hash)]")
+        .type_attribute("buck.data.FileWatcherEvent", "#[derive(Eq, Hash)]")
         .type_attribute(
             "buck.data.ActionKind",
             "#[derive(::gazebo::variants::VariantName)]",
