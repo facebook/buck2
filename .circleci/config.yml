@@ -33,7 +33,8 @@ commands:
     description: Setup env for Linux
     steps:
       - run: sudo apt-get update
-      - run: sudo apt-get install libssl-dev cmake clang lld opam libzstd-dev
+      - run: sudo apt-get install libssl-dev cmake clang lld opam libzstd-dev python3-pip
+      - run: sudo pip3 install conan
       - run:
           # the xlarge linux resource class has 8 CPUs, limit the number of jobs to 6 to avoid running out of resources
           name: "Set CARGO_BUILD_JOBS=6 to limit the number of CPUs used"
@@ -49,6 +50,9 @@ commands:
       - run:
           name: Brew install
           command: |
+            # Avoid: "Error: The `brew link` step did not complete
+            # successfully" (for llvm dependency 'six').
+            rm -f '/usr/local/lib/python3.9/site-packages/six.py'
             brew install cmake coreutils opam llvm protobuf zstd
             # TODO: Remove once non intel macos platform is supported on https://github.com/stepancheg/rust-protoc-bin-vendored/
             echo 'export BUCK2_BUILD_PROTOC=/opt/homebrew/opt/protobuf/bin/protoc' >> "$BASH_ENV"
@@ -75,6 +79,7 @@ commands:
             choco install -y rustup.install
             write-output "[net]`ngit-fetch-with-cli = true" | out-file -append -encoding utf8 $Env:USERPROFILE/.cargo/config.toml
             type $Env:USERPROFILE/.cargo/config.toml
+      - run: choco install conan
       - run:
           name: Create python3 symlink
           command: |
