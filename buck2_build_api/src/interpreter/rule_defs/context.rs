@@ -922,7 +922,7 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
 
         let use_case = RemoteExecutorUseCase::new(use_case.to_owned());
 
-        let expires_after_timestamp = Utc.timestamp(expires_after_timestamp, 0);
+        let expires_after_timestamp = Utc.timestamp_opt(expires_after_timestamp, 0).unwrap();
 
         let kind = match (is_tree, is_directory) {
             (true, true) => return Err(CasArtifactError::TreeAndDirectory.into()),

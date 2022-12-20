@@ -231,7 +231,7 @@ impl IncrementalActionExecutable for CasArtifactAction {
                 // NOTE: We assign a zero timestamp here because we didn't check the nodes in the tree,
                 // just the tree itself. Perhaps we should, but some of the prospective users for this
                 // have very large trees so that might not be wise.
-                let dir = re_tree_to_directory(&tree, &Utc.timestamp(0, 0))
+                let dir = re_tree_to_directory(&tree, &Utc.timestamp_opt(0, 0).unwrap())
                     .context("Invalid directory")?;
 
                 ArtifactValue::new(

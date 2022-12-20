@@ -327,7 +327,8 @@ impl<Kind> TrackedCasDigest<Kind> {
     }
 
     pub fn expires(&self) -> DateTime<Utc> {
-        Utc.timestamp(self.inner.expires.load(Ordering::Relaxed), 0)
+        Utc.timestamp_opt(self.inner.expires.load(Ordering::Relaxed), 0)
+            .unwrap()
     }
 
     pub fn update_expires(&self, time: DateTime<Utc>) {
