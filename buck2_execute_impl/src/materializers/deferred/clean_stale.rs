@@ -118,15 +118,31 @@ fn gather_clean_futures_for_stale_artifacts(
     let mut output = String::new();
     writeln!(
         output,
-        "Found {} stale artifacts {} recent artifacts and {} untracked artifacts",
-        result.stale_count, result.retained_count, result.untracked_count
+        "Found {} stale artifacts ({})",
+        result.stale_count,
+        bytesize::to_string(result.stale_bytes, true),
+    )?;
+    writeln!(
+        output,
+        "Found {} recent artifacts ({})",
+        result.retained_count,
+        bytesize::to_string(result.retained_bytes, true),
+    )?;
+    writeln!(
+        output,
+        "Found {} untracked artifacts ({})",
+        result.untracked_count,
+        bytesize::to_string(result.untracked_bytes, true),
     )?;
     let mut cleaning_futs = Vec::new();
     if !dry_run {
+        writeln!(output, "Cleaned {} artifacts", result.paths_to_clean.len())?;
+        let clean_size = result.untracked_bytes + result.stale_bytes;
         writeln!(
             output,
-            "Cleaning {} artifacts.",
-            result.paths_to_clean.len()
+            "{} bytes cleaned ({})",
+            clean_size,
+            bytesize::to_string(clean_size, true),
         )?;
 
         for path in result.paths_to_clean {
@@ -144,6 +160,9 @@ struct StaleFinderResult {
     stale_count: u64,
     retained_count: u64,
     untracked_count: u64,
+    stale_bytes: u64,
+    retained_bytes: u64,
+    untracked_bytes: u64,
     paths_to_clean: Vec<ProjectRelativePathBuf>,
 }
 
@@ -153,9 +172,25 @@ impl StaleFinderResult {
             stale_count: 0,
             retained_count: 0,
             untracked_count: 0,
+            stale_bytes: 0,
+            retained_bytes: 0,
+            untracked_bytes: 0,
             paths_to_clean: Vec::new(),
         }
     }
+}
+
+/// Get file size or directory size, without following symlinks
+pub fn get_size(path: &AbsNormPath) -> anyhow::Result<u64> {
+    let mut result = 0;
+    if path.is_dir() {
+        for entry in fs_util::read_dir(path)? {
+            result += get_size(&entry?.path())?;
+        }
+    } else {
+        result = path.symlink_metadata()?.len();
+    }
+    Ok(result)
 }
 
 fn find_stale_recursive(
@@ -166,11 +201,12 @@ fn find_stale_recursive(
     mut result: StaleFinderResult,
 ) -> anyhow::Result<StaleFinderResult> {
     // Use symlink_metadata to not follow symlinks (stale/untracked symlink target may have been cleaned first)
-    let path_type = FileType::from(fs_util::symlink_metadata(path)?.file_type());
-    let rel_path = fs.relativize(path)?;
+    let path_type = FileType::from(path.symlink_metadata()?.file_type());
+    let rel_path = fs.relativize(&path)?;
 
     let clean_untracked = |mut result: StaleFinderResult| {
         result.untracked_count += 1;
+        result.untracked_bytes += get_size(path)?;
         result.paths_to_clean.push(rel_path.clone().into_owned());
         tracing::trace!(path = %path, path_type = ?path_type, "marking as untracked");
         Ok(result)
@@ -185,10 +221,12 @@ fn find_stale_recursive(
         {
             if last_access_time < keep_since_time && !active {
                 result.stale_count += 1;
+                result.stale_bytes += get_size(path)?;
                 result.paths_to_clean.push(rel_path.clone().into_owned());
                 tracing::trace!(path = %path, path_type = ?path_type, "marking as stale");
             } else {
                 result.retained_count += 1;
+                result.retained_bytes += get_size(path)?;
                 tracing::trace!(path = %path, path_type = ?path_type, "marking as retained");
             }
             Ok(result)
