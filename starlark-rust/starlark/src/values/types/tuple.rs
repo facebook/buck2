@@ -17,8 +17,6 @@
 
 //! The list type, an immutable sequence of values.
 
-#![allow(clippy::extra_unused_lifetimes)] // FIXME?
-
 use std::cmp::Ordering;
 use std::fmt;
 use std::fmt::Debug;
@@ -301,7 +299,7 @@ impl<T1: StarlarkTypeRepr, T2: StarlarkTypeRepr> StarlarkTypeRepr for (T1, T2) {
     }
 }
 
-impl<'v, T1: StarlarkTypeRepr> StarlarkTypeRepr for (T1,) {
+impl<T1: StarlarkTypeRepr> StarlarkTypeRepr for (T1,) {
     fn starlark_type_repr() -> String {
         format!("({},)", T1::starlark_type_repr())
     }
