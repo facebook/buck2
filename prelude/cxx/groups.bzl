@@ -150,9 +150,6 @@ def compute_mappings(groups: [Group.type], graph_map: {"label": "_b"}) -> {"labe
     for group in groups:
         for mapping in group.mappings:
             targets_in_mapping = _find_targets_in_mapping(graph_map, mapping)
-            if not targets_in_mapping and group.name != NO_MATCH_LABEL:
-                warning("Could not find any targets for mapping: `{}` in group: `{}`".format(mapping, group.name))
-                continue
             for target in targets_in_mapping:
                 _update_target_to_group_mapping(graph_map, target_to_group_map, node_traversed_targets, group.name, mapping, target)
 

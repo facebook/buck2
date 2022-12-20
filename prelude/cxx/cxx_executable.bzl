@@ -58,7 +58,6 @@ load(
 )
 load(
     "@prelude//utils:utils.bzl",
-    "expect",
     "flatten_dict",
 )
 load(
@@ -318,12 +317,9 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
                 shared_libs[name] = shared_lib.lib
 
     if gnu_use_link_groups:
-        # All explicit link group libs (i.e. libraries that set `link_group`).
-        link_group_names = {n: None for n in link_group_mappings.values()}
+        # When there are no matches for a pattern based link group,
+        # `link_group_mappings` will not have an entry associated with the lib.
         for name, link_group_lib in link_group_libs.items():
-            # Is it possible to find a link group lib in our graph without it
-            # having a mapping setup?
-            expect(name in link_group_names)
             shared_libs.update(link_group_lib.shared_libs)
 
     toolchain_info = get_cxx_toolchain_info(ctx)
