@@ -33,7 +33,7 @@ impl<K: Allocative> Allocative for BTreeSet<K> {
     }
 }
 
-impl<K: Allocative, V: Allocative> Allocative for HashMap<K, V> {
+impl<K: Allocative, V: Allocative, S> Allocative for HashMap<K, V, S> {
     fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {
         let mut visitor = visitor.enter_self_sized::<Self>();
         // TODO: can do better extra capacity.
@@ -42,7 +42,7 @@ impl<K: Allocative, V: Allocative> Allocative for HashMap<K, V> {
     }
 }
 
-impl<K: Allocative> Allocative for HashSet<K> {
+impl<K: Allocative, S> Allocative for HashSet<K, S> {
     fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {
         let mut visitor = visitor.enter_self_sized::<Self>();
         // TODO: can do better extra capacity.
