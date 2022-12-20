@@ -268,6 +268,7 @@ conan_init = rule(
         # TODO[AH] Define separate profiles for
         #   the target platform (`--profile:build`) and
         #   exec platform (`--profile:host`).
+        #   This will be needed for cross-compilation.
         "profile": attrs.dep(providers = [ConanProfileInfo]),
         "_conan_toolchain": attrs.default_only(attrs.toolchain_dep(default = "toolchains//:conan", providers = [ConanToolchainInfo])),
         "_conan_init": attrs.dep(providers = [RunInfo], default = "prelude//toolchains/conan:conan_init"),
