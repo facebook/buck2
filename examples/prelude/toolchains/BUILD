@@ -11,13 +11,42 @@ system_conan_toolchain(
 )
 
 conan_profile(
-    name = "conan-profile",
+    name = "conan-profile-linux",
     arch = "x86_64",
-    os = "Linux",
+    os = "Linux" ,
     build_type = "Release",
     compiler = "gcc",
     compiler_version = "11.3",
     compiler_libcxx = "libstdc++",
+)
+
+conan_profile(
+    name = "conan-profile-macos",
+    arch = "x86_64",
+    os = "Macos" ,
+    build_type = "Release",
+    compiler = "clang",
+    compiler_version = "15",
+    compiler_libcxx = "libc++",
+)
+
+conan_profile(
+    name = "conan-profile-windows",
+    arch = "x86_64",
+    os = "Windows" ,
+    build_type = "Release",
+    compiler = "gcc",
+    compiler_version = "11.3",
+    compiler_libcxx = "libstdc++",
+)
+
+alias(
+    name = "conan-profile",
+    actual = select({
+        "prelude//os:linux": ":conan-profile-linux",
+        "prelude//os:macos": ":conan-profile-macos",
+        "prelude//os:windows": ":conan-profile-windows",
+    }),
 )
 
 conan_init(
