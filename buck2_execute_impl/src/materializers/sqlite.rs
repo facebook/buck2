@@ -304,7 +304,13 @@ impl MaterializerStateSqliteTable {
                     timestamp.timestamp(),
                 ],
             )
-            .with_context(|| format!("inserting into sqlite table {}", Self::TABLE_NAME))?;
+            .with_context(|| {
+                format!(
+                    "inserting `{}` into sqlite table {}",
+                    path,
+                    Self::TABLE_NAME
+                )
+            })?;
         Ok(())
     }
 
