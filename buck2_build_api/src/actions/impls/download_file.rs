@@ -259,6 +259,9 @@ impl IncrementalActionExecutable for DownloadFileAction {
                     digest,
                     is_executable: self.inner.is_executable,
                 };
+                ctx.materializer()
+                    .declare_existing(vec![(rel_path, ArtifactValue::file(metadata.dupe()))])
+                    .await?;
 
                 (metadata, ActionExecutionKind::Simple)
             }
