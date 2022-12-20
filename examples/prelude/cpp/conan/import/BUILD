@@ -1,0 +1,38 @@
+# @generated
+# Update using `buck2 run root//cpp/conan:update`
+
+load(
+    "@prelude//toolchains/conan:defs.bzl",
+    "conan_component",
+    "conan_dep",
+    "conan_package",
+)
+
+conan_package(
+    name = '_package_zlib',
+    lockfile = 'root//cpp/conan:lock',
+    reference = 'zlib/1.2.13',
+    package_id = 'c10a1a185befd155ccf9af892387d3946f445cf6',
+    deps = [],
+    build_deps = [],
+)
+
+conan_dep(
+    name = 'zlib',
+    components = {'zlib': ':_component_zlib_zlib'},
+    visibility = ['PUBLIC'],
+)
+
+conan_component(
+    name = '_component_zlib_zlib',
+    defines = [],
+    cflags = [],
+    cppflags = [],
+    include_paths = ['include'],
+    libs = ['z'],
+    static_libs = {'z': ['lib/libz.a']},
+    shared_libs = {},
+    system_libs = [],
+    deps = [],
+    package = ':_package_zlib',
+)
