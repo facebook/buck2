@@ -174,6 +174,7 @@ mod state_machine {
             io: Arc::new(StubIoHandler::default()),
             sqlite_db: None,
             rt: Handle::current(),
+            defer_write_actions: true,
         };
 
         let mut tree = ArtifactTree::new();

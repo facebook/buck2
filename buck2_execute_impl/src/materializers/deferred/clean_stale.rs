@@ -52,6 +52,14 @@ impl ExtensionCommand<DefaultIoHandler> for CleanStaleArtifacts {
         tree: &mut ArtifactTree,
         processor: &mut DeferredMaterializerCommandProcessor<DefaultIoHandler>,
     ) {
+        if !processor.defer_write_actions || processor.sqlite_db.is_none() {
+            let fut = async move {
+                Ok("Skipping clean, set buck2.sqlite_materializer_state and buck2.defer_write_actions to use clean --stale".to_owned())
+            }.boxed();
+            let _ignored = self.sender.send(fut);
+            return;
+        }
+
         let res = gather_clean_futures_for_stale_artifacts(
             tree,
             self.keep_since_time,

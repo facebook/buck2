@@ -210,6 +210,7 @@ struct DeferredMaterializerCommandProcessor<T> {
     /// The runtime the deferred materializer will spawn futures on. This is normally the runtime
     /// used by the rest of Buck.
     rt: Handle,
+    defer_write_actions: bool,
 }
 
 // NOTE: This doesn't derive `Error` and that's on purpose.  We don't want to make it easy (or
@@ -715,6 +716,7 @@ impl DeferredMaterializer {
             }),
             sqlite_db,
             rt: Handle::current(),
+            defer_write_actions: configs.defer_write_actions,
         };
 
         let num_entries_from_sqlite = sqlite_state.as_ref().map_or(0, |s| s.len()) as u64;
