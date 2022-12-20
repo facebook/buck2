@@ -61,7 +61,7 @@ def _make_cmd(mode, buildscript, package_name, version, features, cfgs, env, tar
 
 # Invoke a Rust buildscript binary with the right surrounding
 # environment variables.
-def rust_buildscript_genrule_args(name, buildscript_rule, outfile, package_name, version, features = None, cfgs = None, env = None, target = None):
+def rust_buildscript_genrule_args(name, buildscript_rule, outfile, package_name, version, features = [], cfgs = [], env = {}, target = None):
     cmd = _make_cmd("args", buildscript_rule, package_name, version, features, cfgs, env, target)
     native.genrule(
         name = name,
@@ -70,7 +70,7 @@ def rust_buildscript_genrule_args(name, buildscript_rule, outfile, package_name,
     )
 
 # Invoke a build script for its generated sources.
-def rust_buildscript_genrule_srcs(name, buildscript_rule, files, package_name, version, features = None, cfgs = None, env = None, target = None, srcs = None):
+def rust_buildscript_genrule_srcs(name, buildscript_rule, files, package_name, version, features = [], cfgs = [], env = {}, target = None, srcs = []):
     pre = _make_cmd("srcs", buildscript_rule, package_name, version, features, cfgs, env, target)
     native.cxx_genrule(
         name = name,
