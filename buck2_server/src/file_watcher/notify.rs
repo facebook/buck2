@@ -16,6 +16,7 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_common::dice::file_ops::FileChangeTracker;
 use buck2_common::file_ops::IgnoreSet;
+use buck2_common::invocation_paths::InvocationPaths;
 use buck2_core::cells::CellName;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
@@ -123,10 +124,15 @@ impl NotifyFileData {
             let cell_path = cells.get_cell_path(&path)?;
             let cell_path_str = cell_path.to_string();
 
-            let ignore = ignore_specs
-                .get(cell_path.cell())
-                .expect("unexpected cell name mismatch")
-                .is_match(cell_path.path());
+            // We ignore the buck-out prefix, as those are uninteresting events caused by us.
+            // We also ignore other buck-out directories, as if you have two isolation dirs running at once, they are not interesting.
+            // We do this in the notify-watcher, rather than a generic layer, as watchman users should configure
+            // to ignore buck-out, to reduce the number of events, rather than hiding them later.
+            let ignore = path.starts_with(InvocationPaths::buck_out_dir_prefix())
+                || ignore_specs
+                    .get(cell_path.cell())
+                    .expect("unexpected cell name mismatch")
+                    .is_match(cell_path.path());
 
             info!(
                 "FileWatcher: {:?} {:?} (ignore = {})",

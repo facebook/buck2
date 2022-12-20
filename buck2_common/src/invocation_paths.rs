@@ -155,8 +155,12 @@ impl InvocationPaths {
             .join(ForwardRelativePath::unchecked_new("dice_dump"))
     }
 
+    pub fn buck_out_dir_prefix() -> &'static ProjectRelativePath {
+        ProjectRelativePath::unchecked_new("buck-out")
+    }
+
     pub fn buck_out_dir(&self) -> ProjectRelativePathBuf {
-        ProjectRelativePath::unchecked_new("buck-out").join(&self.isolation)
+        Self::buck_out_dir_prefix().join(&self.isolation)
     }
 
     pub fn buck_out_path(&self) -> AbsNormPathBuf {
