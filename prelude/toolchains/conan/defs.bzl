@@ -229,6 +229,7 @@ ConanProfileInfo = provider(fields = ["config", "inputs"])
 ConanToolchainInfo = provider(fields = ["conan"])
 
 def _project_conan_package_dep(value: (str.type, "artifact")) -> "cmd_args":
+    """Generate dependency flags for conan_package.py"""
     return cmd_args(["--dep-reference", value[0], "--dep-cache-out", value[1]])
 
 ConanPackageCacheTSet = transitive_set(
@@ -272,11 +273,12 @@ def _conan_package_extract_impl(ctx: "context") -> ["provider"]:
 _conan_package_extract = rule(
     impl = _conan_package_extract_impl,
     attrs = {
-        "package": attrs.dep(providers = [ConanPackageInfo]),
-        "files": attrs.list(attrs.string()),
-        "directories": attrs.list(attrs.string()),
+        "package": attrs.dep(providers = [ConanPackageInfo], doc = "The Conan package directory to extract files from."),
+        "files": attrs.list(attrs.string(), doc = "Files to extract from the package."),
+        "directories": attrs.list(attrs.string(), doc = "Directories to extract from the package."),
         "_conan_package_extract": attrs.dep(providers = [RunInfo], default = "prelude//toolchains/conan:conan_package_extract"),
     },
+    doc = "Extract files and directories from Conan package directory.",
 )
 
 def conan_component(
@@ -291,6 +293,12 @@ def conan_component(
         system_libs: ["string"],
         deps: ["string"],
         package: "string"):
+    """Import a Conan package component.
+
+    Extracts the relevant files from the Conan package directory and exposes
+    them as a target that can be depended on by native Buck2 C/C++ targets such
+    as `cxx_library`.
+    """
 
     extract_name = name + "_extract"
     extract_tpl = ":" + extract_name + "[{}]"
@@ -367,12 +375,20 @@ def _conan_cxx_libraries_impl(ctx: "context") -> ["provider"]:
 _conan_cxx_libraries = rule(
     impl = _conan_cxx_libraries_impl,
     attrs = {
-        "main": attrs.dep(),
-        "components": attrs.dict(key = attrs.string(), value = attrs.dep()),
+        "main": attrs.dep(doc = "The main package target, depends on all components."),
+        "components": attrs.dict(key = attrs.string(), value = attrs.dep(), doc = "The package's components."),
     },
+    doc = "Helper rule to bundle Conan package components into a single target.",
 )
 
 def conan_dep(name: "string", components: {"string": "string"}, **kwargs):
+    """Bundle Conan package components into a single target.
+
+    The target itself represents the entire Conan package, including its
+    sub-components, if any. The individual components are exposed as sub-targets,
+    e.g. `:openssl` represents the entire openssl package, while `:openssl[crypto]`
+    represents only the `crypto` component.
+    """
     native.cxx_library(
         name = "_bundle_" + name,
         exported_deps = components.values(),
@@ -438,6 +454,7 @@ conan_generate = rule(
         "_buckler": attrs.source(default = "prelude//toolchains/conan:buckler"),
         "_conan_generate": attrs.dep(providers = [RunInfo], default = "prelude//toolchains/conan:conan_generate"),
     },
+    doc = "Generate Buck2 import targets for Conan packages using the Buckler generator.",
 )
 
 def _conan_init_impl(ctx: "context") -> ["provider"]:
@@ -471,10 +488,11 @@ conan_init = rule(
         #   the target platform (`--profile:build`) and
         #   exec platform (`--profile:host`).
         #   This will be needed for cross-compilation.
-        "profile": attrs.dep(providers = [ConanProfileInfo]),
+        "profile": attrs.dep(providers = [ConanProfileInfo], doc = "The Conan profile to use."),
         "_conan_toolchain": attrs.default_only(attrs.toolchain_dep(default = "toolchains//:conan", providers = [ConanToolchainInfo])),
         "_conan_init": attrs.dep(providers = [RunInfo], default = "prelude//toolchains/conan:conan_init"),
     },
+    doc = "Generate a Conan user-home directory.",
 )
 
 def _conan_lock_impl(ctx: "context") -> ["provider"]:
@@ -518,6 +536,7 @@ conan_lock = rule(
         "_conan_init": attrs.dep(providers = [ConanInitInfo], default = "toolchains//:conan-init"),
         "_conan_lock": attrs.dep(providers = [RunInfo], default = "prelude//toolchains/conan:conan_lock"),
     },
+    doc = "Generate a Conan lock-file.",
 )
 
 def _conan_package_impl(ctx: "context") -> ["provider"]:
@@ -598,6 +617,7 @@ conan_package = rule(
         "_conan_init": attrs.dep(providers = [ConanInitInfo], default = "toolchains//:conan-init"),
         "_conan_package": attrs.dep(providers = [RunInfo], default = "prelude//toolchains/conan:conan_package"),
     },
+    doc = "Build a single Conan package.",
 )
 
 def _profile_env_var(name, value):
@@ -696,6 +716,7 @@ conan_profile = rule(
         "compiler_libcxx": attrs.string(doc = "The C++ standard library, e.g. libstdc++, or libc++"),
         "_cxx_toolchain": attrs.default_only(attrs.toolchain_dep(default = "toolchains//:cxx", providers = [CxxToolchainInfo])),
     },
+    doc = "Defines a Conan profile.",
 )
 
 def _conan_update_impl(ctx: "context") -> ["provider"]:
@@ -752,6 +773,7 @@ lock_generate = rule(
         "lockfile": attrs.source(doc = "The Conan lockfile defining the package and its dependencies."),
         "_lock_generate": attrs.dep(providers = [RunInfo], default = "prelude//toolchains/conan:lock_generate"),
     },
+    doc = "Generate targets to build individual Conan packages in dependency order based on a Conan lock-file.",
 )
 
 def _system_conan_toolchain_impl(ctx: "context") -> ["provider"]:
