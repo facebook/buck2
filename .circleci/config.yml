@@ -274,7 +274,6 @@ jobs:
             copy-item -Path $env:CIRCLE_WORKING_DIRECTORY\prelude -Destination prelude -Recurse
             /tmp/artifacts/buck2 build //... -v 2
             /tmp/artifacts/buck2 test //... -v 2
-      - build_example_conan
       - build_example_no_prelude
       - setup_reindeer
       - build_bootstrap
