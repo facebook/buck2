@@ -154,10 +154,8 @@ commands:
       - run:
           name:
             cd examples/toolchains/conan_toolchain
-            /tmp/artifacts/buck2 build //cpp/conan:lock -v 2 --show-output | cut -d\  -f2 | xargs cat
+            # Generate Conan imports. TODO[AH] Make that unnecessary.
             PATH="/tmp/artifacts:$PATH" /tmp/artifacts/buck2 run //cpp/conan:update -v 2
-            cat cpp/conan/conan.lock
-            cat cpp/conan/import/BUCK
             /tmp/artifacts/buck2 build //... -v 2
             /tmp/artifacts/buck2 test //... -v 2
 
