@@ -18,6 +18,12 @@ lock_generate(
     lockfile = ":lock",
 )
 
+# TODO[AH] Prevent double build of packages.
+#   This rule builds or fetches all transitive dependencies defined by the
+#   conanfile in order to generate the import targets. These packages will
+#   later be built or fetched again one-by-one again as their corresponding
+#   conan_package targets. Avoid this double building. Mark this target manual,
+#   or don't tie the generation to it's default output.
 conan_generate(
     name = "conan-generate",
     conanfile = "conanfile.txt",
