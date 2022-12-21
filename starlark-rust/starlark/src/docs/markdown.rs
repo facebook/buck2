@@ -60,14 +60,10 @@ impl AsMarkdown for String {
         Some(self.clone())
     }
 }
+
 impl AsMarkdown for str {
     fn generate_markdown(&self, _flavor: MarkdownFlavor) -> Option<String> {
         Some(self.to_owned())
-    }
-}
-impl<T: AsMarkdown> AsMarkdown for &T {
-    fn generate_markdown(&self, flavor: MarkdownFlavor) -> Option<String> {
-        (*self).generate_markdown(flavor)
     }
 }
 
