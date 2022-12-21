@@ -201,6 +201,7 @@ jobs:
           command: |
             cd examples/prelude
             cmd.exe /c mklink /D prelude C:\Users\circleci\project\prelude
+            # Skip Conan tests on Windows. TODO[AH] Implement Windows support.
             Remove-Item -Recurse -Force cpp/conan
             C:/tmp/artifacts/buck2.exe build //... -v 2
       - when:
