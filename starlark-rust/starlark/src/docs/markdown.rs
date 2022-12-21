@@ -392,7 +392,7 @@ impl AsMarkdown for Doc {
 }
 
 /// Details about a member. Proxies to `PropertyDetailsRenderer` and `FunctionDetailsRenderer`
-pub struct MemberDetails<'a> {
+struct MemberDetails<'a> {
     name: String,
     member: &'a Member,
 }
@@ -419,7 +419,7 @@ impl<'a> AsMarkdown for MemberDetails<'a> {
 
 /// Render a "type". This is either a [`Type`] object, or details about a function to
 /// produce a function prototype.
-pub enum TypeRenderer<'a> {
+enum TypeRenderer<'a> {
     /// A general "type".
     Type(&'a Option<Type>),
     /// A function, with some extra formatting options.
@@ -513,7 +513,8 @@ impl<'a> AsMarkdown for TypeRenderer<'a> {
 }
 
 /// A string that should be put in "`" and be rendered literally.
-pub struct Code<'a>(Box<dyn AsMarkdown + 'a>);
+
+struct Code<'a>(Box<dyn AsMarkdown + 'a>);
 
 impl<'a> AsMarkdown for Code<'a> {
     fn generate_markdown(&self, flavor: MarkdownFlavor) -> Option<String> {
@@ -529,7 +530,7 @@ impl<'a> AsMarkdown for Code<'a> {
 
 /// A code block that optionally has a language. Note that this will always take multiple
 /// lines, so may not be ideal for tables at the moment.
-pub struct CodeBlock<'a> {
+struct CodeBlock<'a> {
     language: Option<String>,
     contents: Box<dyn AsMarkdown + 'a>,
 }
@@ -550,7 +551,7 @@ impl<'a> AsMarkdown for CodeBlock<'a> {
 }
 
 /// A table with an optional css class to be applied.
-pub struct Table<'a>(Option<&'a str>, TableHeader<'a>, Vec<TableRow<'a>>);
+struct Table<'a>(Option<&'a str>, TableHeader<'a>, Vec<TableRow<'a>>);
 
 impl<'a> AsMarkdown for Table<'a> {
     fn generate_markdown(&self, flavor: MarkdownFlavor) -> Option<String> {
@@ -576,7 +577,7 @@ impl<'a> AsMarkdown for Table<'a> {
 }
 
 /// The header of a table including all decoration needed. (`<thead>`, `| --- |` rows, etc)
-pub struct TableHeader<'a>(&'a [&'a str]);
+struct TableHeader<'a>(&'a [&'a str]);
 
 impl<'a> AsMarkdown for TableHeader<'a> {
     fn generate_markdown(&self, flavor: MarkdownFlavor) -> Option<String> {
@@ -595,7 +596,7 @@ impl<'a> AsMarkdown for TableHeader<'a> {
 
 /// A row for a table with all decoration handled. Does not handled multi-line cells at the moment
 /// due to a restriction in the default markdown table syntax.
-pub struct TableRow<'a>(Vec<Box<dyn AsMarkdown + 'a>>);
+struct TableRow<'a>(Vec<Box<dyn AsMarkdown + 'a>>);
 
 impl<'a> AsMarkdown for TableRow<'a> {
     fn generate_markdown(&self, flavor: MarkdownFlavor) -> Option<String> {
