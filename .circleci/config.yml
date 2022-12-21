@@ -66,9 +66,6 @@ commands:
             choco install rustup.install
             write-output "[net]`ngit-fetch-with-cli = true" | out-file -append -encoding utf8 $Env:USERPROFILE/.cargo/config
             type $Env:USERPROFILE/.cargo/config
-      - run: choco install conan
-      - run: choco install mingw
-      - run: choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System'
       - print_versions
 
 version: 2.1
