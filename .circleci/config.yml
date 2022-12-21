@@ -108,10 +108,6 @@ jobs:
           command: |
             cd examples/prelude
             source ./setup.sh
-            /tmp/artifacts/buck2 build //cpp/conan:lock -v 2 --show-output | cut -d\  -f2 | xargs cat
-            PATH="/tmp/artifacts:$PATH" /tmp/artifacts/buck2 run //cpp/conan:update -v 2
-            cat cpp/conan/conan.lock
-            cat cpp/conan/import/BUILD
             /tmp/artifacts/buck2 build //... -v 2
       - when:
           condition:
