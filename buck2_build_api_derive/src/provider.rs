@@ -152,8 +152,8 @@ impl ProviderCodegen {
         } else {
             let docstring = Some(doc_lines.join("\n"));
             quote! {
-                starlark::values::docs::DocString::from_docstring(
-                    starlark::values::docs::DocStringKind::Rust,
+                starlark::docs::DocString::from_docstring(
+                    starlark::docs::DocStringKind::Rust,
                     #docstring,
                 )
             }
@@ -173,7 +173,7 @@ impl ProviderCodegen {
                         let rust_type = input.parse::<LitStr>()?.value();
                         let rust_type: proc_macro2::TokenStream = rust_type.parse()?;
                         Ok(quote! {
-                            Some(starlark::values::docs::Type {
+                            Some(starlark::docs::Type {
                                 raw_type: <#rust_type>::starlark_type_repr(),
                             })
                         })
@@ -226,7 +226,7 @@ impl ProviderCodegen {
         }
 
         Ok(quote! {
-            fn documentation(&self) -> Option<starlark::values::docs::DocItem> {
+            fn documentation(&self) -> Option<starlark::docs::DocItem> {
                 let docstring = #provider_docstring;
                 let field_names = [
                     #(#field_names.to_owned()),*

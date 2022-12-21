@@ -30,6 +30,8 @@ use starlark_map::Hashed;
 
 use crate as starlark;
 use crate::collections::symbol_map::SymbolMap;
+use crate::docs;
+use crate::docs::DocString;
 use crate::eval::runtime::arguments::ArgSymbol;
 use crate::eval::runtime::arguments::ArgumentsImpl;
 use crate::eval::runtime::arguments::FunctionError;
@@ -38,8 +40,6 @@ use crate::eval::Arguments;
 use crate::eval::Evaluator;
 use crate::hint::unlikely;
 use crate::values::dict::Dict;
-use crate::values::docs;
-use crate::values::docs::DocString;
 use crate::values::Heap;
 use crate::values::StringValue;
 use crate::values::UnpackValue;
@@ -767,10 +767,10 @@ mod tests {
     use std::collections::HashMap;
 
     use crate::assert::Assert;
+    use crate::docs::DocString;
     use crate::eval::compiler::def::FrozenDef;
     use crate::eval::runtime::params::ParameterKind;
     use crate::eval::ParametersSpec;
-    use crate::values::docs::DocString;
     use crate::values::FrozenValue;
 
     #[test]
@@ -838,7 +838,7 @@ mod tests {
         p.optional("b");
         let p = p.finish();
 
-        use crate::values::docs;
+        use crate::docs;
         let expected = vec![
             docs::Param::Args {
                 name: "*args".to_owned(),

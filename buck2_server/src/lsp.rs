@@ -56,6 +56,8 @@ use lsp_server::Connection;
 use lsp_server::Message;
 use lsp_types::Range;
 use lsp_types::Url;
+use starlark::docs::Doc;
+use starlark::docs::Location;
 use starlark::errors::EvalMessage;
 use starlark::lsp::server::server_with_connection;
 use starlark::lsp::server::LspContext;
@@ -63,8 +65,6 @@ use starlark::lsp::server::LspEvalResult;
 use starlark::lsp::server::LspUrl;
 use starlark::lsp::server::StringLiteralResult;
 use starlark::syntax::AstModule;
-use starlark::values::docs::Doc;
-use starlark::values::docs::Location;
 use tokio::sync::Mutex;
 use tokio::sync::MutexGuard;
 use tonic::Status;
@@ -853,12 +853,12 @@ fn handle_outgoing_lsp_message(event: Option<buck2_data::LspResult>) -> Option<L
 mod test {
     use lsp_types::Url;
     use maplit::hashmap;
+    use starlark::docs::Doc;
+    use starlark::docs::DocItem;
+    use starlark::docs::Function;
+    use starlark::docs::Identifier;
+    use starlark::docs::Location;
     use starlark::lsp::server::LspUrl;
-    use starlark::values::docs::Doc;
-    use starlark::values::docs::DocItem;
-    use starlark::values::docs::Function;
-    use starlark::values::docs::Identifier;
-    use starlark::values::docs::Location;
 
     use crate::lsp::DocsCache;
     use crate::lsp::DOCS_DIRECTORY_KEY;

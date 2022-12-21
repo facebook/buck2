@@ -56,6 +56,12 @@ use lsp_types::Url;
 use lsp_types::VersionedTextDocumentIdentifier;
 use serde::de::DeserializeOwned;
 
+use crate::docs::render_docs_as_code;
+use crate::docs::Doc;
+use crate::docs::DocItem;
+use crate::docs::Function;
+use crate::docs::Identifier;
+use crate::docs::Location;
 use crate::errors::EvalMessage;
 use crate::lsp::server::new_notification;
 use crate::lsp::server::server_with_connection;
@@ -66,12 +72,6 @@ use crate::lsp::server::LspUrl;
 use crate::lsp::server::StringLiteralResult;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;
-use crate::values::docs::render_docs_as_code;
-use crate::values::docs::Doc;
-use crate::values::docs::DocItem;
-use crate::values::docs::Function;
-use crate::values::docs::Identifier;
-use crate::values::docs::Location;
 
 /// Get the path from a URL, trimming off things like the leading slash that gets
 /// appended in some windows test environments.

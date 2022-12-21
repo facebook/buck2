@@ -24,14 +24,14 @@ use serde::Serializer;
 use starlark_derive::StarlarkDocs;
 
 use crate as starlark;
+use crate::docs::get_registered_docs;
+use crate::docs::DocItem;
+use crate::docs::DocString;
+use crate::docs::DocStringKind;
+use crate::docs::Member;
 use crate::environment::Methods;
 use crate::environment::MethodsBuilder;
 use crate::environment::MethodsStatic;
-use crate::values::docs::get_registered_docs;
-use crate::values::docs::DocItem;
-use crate::values::docs::DocString;
-use crate::values::docs::DocStringKind;
-use crate::values::docs::Member;
 use crate::values::StarlarkValue;
 use crate::values::ValueLike;
 

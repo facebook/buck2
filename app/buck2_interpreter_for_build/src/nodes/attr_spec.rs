@@ -19,9 +19,9 @@ use buck2_node::attrs::internal::NAME_ATTRIBUTE_FIELD;
 use buck2_node::attrs::spec::AttributeSpec;
 use buck2_node::attrs::values::AttrValues;
 use gazebo::prelude::*;
+use starlark::docs::DocString;
 use starlark::eval::ParametersParser;
 use starlark::eval::ParametersSpec;
-use starlark::values::docs::DocString;
 use starlark::values::Value;
 
 use crate::attrs::AttributeCoerceExt;

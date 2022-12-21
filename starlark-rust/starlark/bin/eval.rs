@@ -26,6 +26,10 @@ use gazebo::prelude::*;
 use itertools::Either;
 use lsp_types::Diagnostic;
 use lsp_types::Url;
+use starlark::docs::get_registered_docs;
+use starlark::docs::render_docs_as_code;
+use starlark::docs::Doc;
+use starlark::docs::DocItem;
 use starlark::environment::FrozenModule;
 use starlark::environment::Globals;
 use starlark::environment::Module;
@@ -37,10 +41,6 @@ use starlark::lsp::server::LspUrl;
 use starlark::lsp::server::StringLiteralResult;
 use starlark::syntax::AstModule;
 use starlark::syntax::Dialect;
-use starlark::values::docs::get_registered_docs;
-use starlark::values::docs::render_docs_as_code;
-use starlark::values::docs::Doc;
-use starlark::values::docs::DocItem;
 
 #[derive(Debug)]
 pub(crate) enum ContextMode {

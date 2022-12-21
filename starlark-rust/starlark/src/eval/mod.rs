@@ -38,6 +38,7 @@ pub use runtime::profile::data::ProfileData;
 pub use runtime::profile::ProfileMode;
 
 use crate::collections::symbol_map::Symbol;
+use crate::docs::DocString;
 use crate::environment::Globals;
 use crate::eval::compiler::def::DefInfo;
 use crate::eval::compiler::scope::CompilerAstMap;
@@ -50,7 +51,6 @@ use crate::eval::runtime::arguments::ArgumentsFull;
 use crate::hint::unlikely;
 use crate::syntax::ast::AstModule;
 use crate::syntax::DialectTypes;
-use crate::values::docs::DocString;
 use crate::values::Value;
 
 impl<'v, 'a> Evaluator<'v, 'a> {

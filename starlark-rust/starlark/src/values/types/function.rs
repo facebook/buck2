@@ -26,14 +26,14 @@ use gazebo::any::ProvidesStaticType;
 use gazebo::coerce::Coerce;
 
 use crate as starlark;
+use crate::docs;
+use crate::docs::DocItem;
+use crate::docs::DocStringKind;
 use crate::eval::Arguments;
 use crate::eval::Evaluator;
 use crate::eval::ParametersParser;
 use crate::eval::ParametersSpec;
 use crate::private::Private;
-use crate::values::docs;
-use crate::values::docs::DocItem;
-use crate::values::docs::DocStringKind;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::Freeze;

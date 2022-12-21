@@ -52,10 +52,10 @@ use crate as starlark;
 use crate::collections::Hashed;
 use crate::collections::SmallMap;
 use crate::collections::StarlarkHasher;
+use crate::docs;
+use crate::docs::DocItem;
 use crate::values::comparison::compare_small_map;
 use crate::values::comparison::equals_small_map;
-use crate::values::docs;
-use crate::values::docs::DocItem;
 use crate::values::error::ValueError;
 use crate::values::layout::typed::string::StringValueLike;
 use crate::values::type_repr::StarlarkTypeRepr;
@@ -298,10 +298,10 @@ impl<'v, V: UnpackValue<'v>> StructOf<'v, V> {
 #[cfg(test)]
 mod tests {
     use crate::assert;
-    use crate::values::docs;
-    use crate::values::docs::DocItem;
-    use crate::values::docs::DocString;
-    use crate::values::docs::DocStringKind;
+    use crate::docs;
+    use crate::docs::DocItem;
+    use crate::docs::DocString;
+    use crate::docs::DocStringKind;
 
     #[test]
     fn test_repr() {

@@ -14,10 +14,10 @@ use buck2_interpreter_for_build::interpreter::natives::register_module_natives;
 use either::Either;
 use itertools::Itertools;
 use starlark::collections::SmallMap;
+use starlark::docs::DocString;
+use starlark::docs::DocStringKind;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
-use starlark::values::docs::DocString;
-use starlark::values::docs::DocStringKind;
 use starlark::values::Value;
 use starlark_map::small_set::SmallSet;
 

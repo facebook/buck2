@@ -79,7 +79,7 @@ impl FrozenList {
     // The doc macros assume that FrozenList is an alias for ListGen, which isn't true,
     // so do some internal reexposing so everything works.
     #[doc(hidden)]
-    pub fn __generated_documentation() -> Option<starlark::values::docs::Doc> {
+    pub fn __generated_documentation() -> Option<starlark::docs::Doc> {
         ListGen::<FrozenList>::__generated_documentation()
     }
 }

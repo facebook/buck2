@@ -430,7 +430,7 @@ fn render_documentation(x: &StarFun) -> syn::Result<TokenStream> {
         .map(|(i, arg)| {
             let typ = &arg.ty;
             let typ_str = render_starlark_type(span, typ);
-            quote_spanned!(span=> (#i, starlark::values::docs::Type { raw_type: #typ_str }) )
+            quote_spanned!(span=> (#i, starlark::docs::Type { raw_type: #typ_str }) )
         })
         .collect();
 
@@ -440,7 +440,7 @@ fn render_documentation(x: &StarFun) -> syn::Result<TokenStream> {
             let signature = #documentation_signature;
             let parameter_types = std::collections::HashMap::from([#(#parameter_types),*]);
             let return_type = Some(
-                starlark::values::docs::Type {
+                starlark::docs::Type {
                     raw_type: #return_type_str
                 }
             );

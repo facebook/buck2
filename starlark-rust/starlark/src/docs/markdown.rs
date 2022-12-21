@@ -18,17 +18,17 @@
 use gazebo::prelude::*;
 use itertools::Itertools;
 
-use crate::values::docs::Doc;
-use crate::values::docs::DocItem;
-use crate::values::docs::DocString;
-use crate::values::docs::Function;
-use crate::values::docs::Identifier;
-use crate::values::docs::Member;
-use crate::values::docs::Module;
-use crate::values::docs::Object;
-use crate::values::docs::Param;
-use crate::values::docs::Property;
-use crate::values::docs::Type;
+use crate::docs::Doc;
+use crate::docs::DocItem;
+use crate::docs::DocString;
+use crate::docs::Function;
+use crate::docs::Identifier;
+use crate::docs::Member;
+use crate::docs::Module;
+use crate::docs::Object;
+use crate::docs::Param;
+use crate::docs::Property;
+use crate::docs::Type;
 
 /// The style of output that is being generated
 #[derive(Copy, Clone, Dupe)]
@@ -623,32 +623,32 @@ impl<'a> AsMarkdown for TableRow<'a> {
 mod test {
     use std::collections::HashMap;
 
-    use crate::values::docs::markdown::AsMarkdown;
-    use crate::values::docs::markdown::Code;
-    use crate::values::docs::markdown::CodeBlock;
-    use crate::values::docs::markdown::DSOpts;
-    use crate::values::docs::markdown::DocStringRenderer;
-    use crate::values::docs::markdown::FunctionDetailsRenderer;
-    use crate::values::docs::markdown::MarkdownFlavor;
-    use crate::values::docs::markdown::PropertyDetailsRenderer;
-    use crate::values::docs::markdown::Table;
-    use crate::values::docs::markdown::TableHeader;
-    use crate::values::docs::markdown::TableRow;
-    use crate::values::docs::markdown::TypeRenderer;
-    use crate::values::docs::Doc;
-    use crate::values::docs::DocItem;
-    use crate::values::docs::DocString;
-    use crate::values::docs::DocStringKind;
-    use crate::values::docs::Function;
-    use crate::values::docs::Identifier;
-    use crate::values::docs::Location;
-    use crate::values::docs::Member;
-    use crate::values::docs::Module;
-    use crate::values::docs::Object;
-    use crate::values::docs::Param;
-    use crate::values::docs::Property;
-    use crate::values::docs::Return;
-    use crate::values::docs::Type;
+    use crate::docs::markdown::AsMarkdown;
+    use crate::docs::markdown::Code;
+    use crate::docs::markdown::CodeBlock;
+    use crate::docs::markdown::DSOpts;
+    use crate::docs::markdown::DocStringRenderer;
+    use crate::docs::markdown::FunctionDetailsRenderer;
+    use crate::docs::markdown::MarkdownFlavor;
+    use crate::docs::markdown::PropertyDetailsRenderer;
+    use crate::docs::markdown::Table;
+    use crate::docs::markdown::TableHeader;
+    use crate::docs::markdown::TableRow;
+    use crate::docs::markdown::TypeRenderer;
+    use crate::docs::Doc;
+    use crate::docs::DocItem;
+    use crate::docs::DocString;
+    use crate::docs::DocStringKind;
+    use crate::docs::Function;
+    use crate::docs::Identifier;
+    use crate::docs::Location;
+    use crate::docs::Member;
+    use crate::docs::Module;
+    use crate::docs::Object;
+    use crate::docs::Param;
+    use crate::docs::Property;
+    use crate::docs::Return;
+    use crate::docs::Type;
 
     fn render(renderer: &dyn AsMarkdown) -> String {
         renderer.generate_markdown(MarkdownFlavor::DocFile).unwrap()

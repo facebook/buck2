@@ -20,19 +20,19 @@
 use crate::assert;
 use crate::assert::Assert;
 use crate::const_frozen_string;
+use crate::docs::DocStringKind;
 use crate::environment::Module;
 use crate::environment::ModuleDocs;
-use crate::values::docs::DocStringKind;
 use crate::values::Value;
 
 #[test]
 fn test_def_docstring_parses() -> anyhow::Result<()> {
-    use crate::values::docs::DocItem;
-    use crate::values::docs::DocString;
-    use crate::values::docs::Function;
-    use crate::values::docs::Param;
-    use crate::values::docs::Return;
-    use crate::values::docs::Type;
+    use crate::docs::DocItem;
+    use crate::docs::DocString;
+    use crate::docs::Function;
+    use crate::docs::Param;
+    use crate::docs::Return;
+    use crate::docs::Type;
 
     let fun = assert::pass(
         r#"
@@ -221,9 +221,9 @@ def f4(a: "string") -> "string":
 
 #[test]
 fn test_module_docstring_parses() {
-    use crate::values::docs::DocItem;
-    use crate::values::docs::DocString;
-    use crate::values::docs::Module;
+    use crate::docs::DocItem;
+    use crate::docs::DocString;
+    use crate::docs::Module;
 
     let m1 = assert::pass_module(
         r#"
@@ -281,10 +281,10 @@ Some extra details can go here,
 
 #[test]
 fn test_module_docs_return() {
-    use crate::values::docs::DocItem;
-    use crate::values::docs::DocString;
-    use crate::values::docs::Function;
-    use crate::values::docs::Module;
+    use crate::docs::DocItem;
+    use crate::docs::DocString;
+    use crate::docs::Function;
+    use crate::docs::Module;
 
     let mut a = Assert::new();
     let mod_a = r#"

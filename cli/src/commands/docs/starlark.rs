@@ -20,7 +20,7 @@ use buck2_client_ctx::streaming::StreamingCommand;
 use cli_proto::UnstableDocsRequest;
 use gazebo::dupe::Dupe;
 use gazebo::prelude::*;
-use starlark::values::docs::Doc;
+use starlark::docs::Doc;
 
 use crate::commands::docs::starlark::markdown::generate_markdown_files;
 use crate::commands::docs::starlark::markdown::MarkdownFileOptions;

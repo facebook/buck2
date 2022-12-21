@@ -44,12 +44,12 @@ use cli_proto::UnstableDocsRequest;
 use cli_proto::UnstableDocsResponse;
 use dice::DiceTransaction;
 use gazebo::prelude::*;
+use starlark::docs::get_registered_docs;
+use starlark::docs::Doc;
+use starlark::docs::DocItem;
+use starlark::docs::Identifier;
+use starlark::docs::Member;
 use starlark::environment::Globals;
-use starlark::values::docs::get_registered_docs;
-use starlark::values::docs::Doc;
-use starlark::values::docs::DocItem;
-use starlark::values::docs::Identifier;
-use starlark::values::docs::Member;
 use starlark::values::StarlarkValue;
 
 fn parse_import_paths(
@@ -254,7 +254,7 @@ async fn get_docs_from_module(
         docs.push(Doc {
             id: Identifier {
                 name: import_path_string.clone(),
-                location: Some(starlark::values::docs::Location {
+                location: Some(starlark::docs::Location {
                     path: import_path_string.clone(),
                     position: None,
                 }),
@@ -269,7 +269,7 @@ async fn get_docs_from_module(
                 // TODO(nmj): Map this back into the codemap to get a line/column
                 id: Identifier {
                     name: symbol,
-                    location: Some(starlark::values::docs::Location {
+                    location: Some(starlark::docs::Location {
                         path: import_path_string.clone(),
                         position: None,
                     }),

@@ -18,10 +18,10 @@ use buck2_core::fs::fs_util;
 //   (or maybe even write to the filesystem) on the server side.
 use buck2_server::lsp::output_subdir_for_doc;
 use itertools::Itertools;
-use starlark::values::docs::markdown::AsMarkdown;
-use starlark::values::docs::markdown::MarkdownFlavor;
-use starlark::values::docs::Doc;
-use starlark::values::docs::DocItem;
+use starlark::docs::markdown::AsMarkdown;
+use starlark::docs::markdown::MarkdownFlavor;
+use starlark::docs::Doc;
+use starlark::docs::DocItem;
 
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
 pub(crate) struct MarkdownFileOptions {
@@ -134,7 +134,7 @@ pub(crate) fn generate_markdown_files(
 #[cfg(test)]
 mod tests {
     use maplit::hashmap;
-    use starlark::values::docs::*;
+    use starlark::docs::*;
 
     use super::*;
 

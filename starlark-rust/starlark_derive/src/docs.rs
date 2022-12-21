@@ -104,17 +104,17 @@ fn expand_docs_derive(input: DeriveInput) -> syn::Result<proc_macro2::TokenStrea
             // Use 'docs here instead of 'v because someone might have 'v in their generics'
             // constraints, and we'd end up with duplicate lifetime definition errors.
             #[doc(hidden)]
-            pub fn __generated_documentation #constraint_lifetime () -> Option<starlark::values::docs::Doc>
+            pub fn __generated_documentation #constraint_lifetime () -> Option<starlark::docs::Doc>
             where #constraint {
                 #use_inventory
                 starlark::__derive_refs::inventory::submit! {
-                    starlark::values::docs::RegisteredDoc {
+                    starlark::docs::RegisteredDoc {
                         getter: #getter_call
                     }
                 };
 
                 let name = <Self as starlark::values::StarlarkValue>::get_type_value_static().as_str().to_owned();
-                let id = starlark::values::docs::Identifier {
+                let id = starlark::docs::Identifier {
                     name,
                     location: None,
                 };
@@ -122,7 +122,7 @@ fn expand_docs_derive(input: DeriveInput) -> syn::Result<proc_macro2::TokenStrea
                 let custom_attrs = std::collections::HashMap::from([
                     #(#custom_attrs),*
                 ]);
-                Some(starlark::values::docs::Doc {
+                Some(starlark::docs::Doc {
                     id,
                     item,
                     custom_attrs,

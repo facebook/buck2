@@ -39,12 +39,12 @@ use gazebo::any::ProvidesStaticType;
 
 use crate::collections::Hashed;
 use crate::collections::StarlarkHasher;
+use crate::docs::DocItem;
 use crate::environment::Methods;
 use crate::eval::Arguments;
 use crate::eval::Evaluator;
 use crate::private::Private;
 use crate::values::demand::Demand;
-use crate::values::docs::DocItem;
 use crate::values::error::ControlError;
 use crate::values::function::FUNCTION_TYPE;
 use crate::values::Freeze;

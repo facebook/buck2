@@ -13,8 +13,8 @@ use buck2_node::attrs::attr::Attribute;
 use buck2_node::attrs::attr::CoercedValue;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
-use starlark::values::docs::DocString;
-use starlark::values::docs::DocStringKind;
+use starlark::docs::DocString;
+use starlark::docs::DocStringKind;
 use starlark::values::Value;
 
 use crate::attrs::coerce::attr_type::AttrTypeExt;

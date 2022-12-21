@@ -93,7 +93,6 @@ mod comparison;
 mod alloc_value;
 pub(crate) mod basic;
 pub(crate) mod demand;
-pub mod docs;
 pub(crate) mod error;
 mod freeze;
 pub(crate) mod frozen_ref;

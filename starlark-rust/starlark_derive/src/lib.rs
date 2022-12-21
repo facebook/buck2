@@ -145,7 +145,7 @@ pub fn derive_starlark_attrs(input: proc_macro::TokenStream) -> proc_macro::Toke
 /// `starlark::StarlarkValue`.
 ///
 /// Types that derive `StarlarkDocs` are also registered automatically with the `inventory` crate.
-/// To get all types annotated with `StarlarkDocs`, see `starlark::values::docs::get_all_docs()`
+/// To get all types annotated with `StarlarkDocs`, see `starlark::docs::get_all_docs()`
 ///
 /// Note that for statically linked binaries, documentation from all compiled crates in the binary
 /// will be included.

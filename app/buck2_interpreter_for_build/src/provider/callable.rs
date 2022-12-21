@@ -12,10 +12,10 @@ use std::sync::Arc;
 use buck2_core::provider::id::ProviderId;
 use gazebo::any::ProvidesStaticType;
 use gazebo::dupe::Dupe;
-use starlark::values::docs;
-use starlark::values::docs::DocItem;
-use starlark::values::docs::DocString;
-use starlark::values::docs::Type;
+use starlark::docs;
+use starlark::docs::DocItem;
+use starlark::docs::DocString;
+use starlark::docs::Type;
 use starlark::values::ValueLike;
 
 #[derive(Debug, thiserror::Error)]
