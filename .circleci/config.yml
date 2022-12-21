@@ -113,6 +113,8 @@ jobs:
             source ./setup.sh
             /tmp/artifacts/buck2 build //cpp/conan:lock -v 2 --show-output | cut -d\  -f2 | xargs cat
             PATH="/tmp/artifacts:$PATH" /tmp/artifacts/buck2 run //cpp/conan:update -v 2
+            cat cpp/conan/conan.lock
+            cat cpp/conan/import/BUILD
             /tmp/artifacts/buck2 build //... -v 2
       - when:
           condition:
@@ -156,6 +158,8 @@ jobs:
             source ./setup.sh
             /tmp/artifacts/buck2 build //cpp/conan:lock -v 2 --show-output | cut -d\  -f2 | xargs cat
             PATH="/tmp/artifacts:$PATH" /tmp/artifacts/buck2 run //cpp/conan:update -v 2
+            cat cpp/conan/conan.lock
+            cat cpp/conan/import/BUILD
             /tmp/artifacts/buck2 build //... -v 2
       - when:
           condition:
@@ -204,6 +208,7 @@ jobs:
             cmd.exe /c mklink /D prelude C:\Users\circleci\project\prelude
             bash -c "/C/tmp/artifacts/buck2 build //cpp/conan:lock -v 2 --show-output | cut -d\  -f2 | xargs cat"
             bash -c "PATH=\"/C/tmp/artifacts:$PATH\" /C/tmp/artifacts/buck2 run //cpp/conan:update -v 2"
+            bash -c "cat cpp/conan/conan.lock; cat cpp/conan/import/BUILD"
             C:/tmp/artifacts/buck2.exe build //... -v 2
       - when:
           condition:
