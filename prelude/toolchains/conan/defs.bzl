@@ -695,14 +695,11 @@ def _conan_profile_impl(ctx: "context") -> ["provider"]:
     output = ctx.actions.declare_output(ctx.label.name)
     content.relative_to(output, parent = 1)
     content.absolute_prefix("$PROFILE_DIR/")
-    # TODO[AH] `inputs` returned from `write` is empty, why?
-    #   This is surprising as `content.inputs` is non-empty.
-    #   Workaround: Use `content` as hidden input to build actions.
-    ctx.actions.write(output, content, allow_args = True)
+    _, args_inputs = ctx.actions.write(output, content, allow_args = True)
 
     return [
         DefaultInfo(default_outputs = [output]),
-        ConanProfileInfo(config = output, inputs = content),
+        ConanProfileInfo(config = output, inputs = content.hidden(args_inputs)),
     ]
 
 conan_profile = rule(
