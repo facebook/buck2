@@ -9,6 +9,208 @@
 
 Provides a toolchain and rules to use the [Conan package manager][conan] to
 manage and install third-party C/C++ dependencies.
+
+[conan]: https://docs.conan.io/en/latest/introduction.html
+
+## Usage
+
+### Toolchain
+
+First you must define a Conan toolchain, profile, and user-home in the
+top-level package of the `toolchains` cell, i.e. `toolchains//:`. For example:
+
+```
+load("@prelude//toolchains/conan:defs.bzl", "conan_init", "conan_profile", "system_conan_toolchain")
+
+system_conan_toolchain(
+    name = "conan",
+    conan_path = "conan",
+    visibility = ["PUBLIC"],
+)
+
+conan_profile(
+    name = "conan-profile",
+    arch = "x86_64",
+    os = "Linux" ,
+    build_type = "Release",
+    compiler = "gcc",
+    compiler_version = "11.3",
+    compiler_libcxx = "libstdc++",
+)
+
+conan_init(
+    name = "conan-init",
+    profile = ":conan-profile",
+    visibility = ["PUBLIC"],
+)
+```
+
+### Packages
+
+Then you must define your project dependencies in a `conanfile.txt`. E.g.
+
+```
+[requires]
+zlib/1.2.13
+```
+
+Then you must define targets to generate and update the Conan integration
+targets. E.g.
+
+```
+load(
+    "@prelude//toolchains/conan:defs.bzl",
+    "conan_generate",
+    "conan_lock",
+    "conan_update",
+    "lock_generate",
+)
+
+conan_lock(
+    name = "lock",
+    conanfile = "conanfile.txt",
+    visibility = ["//cpp/conan/import:"],
+)
+
+lock_generate(
+    name = "lock-generate",
+    lockfile = ":lock",
+)
+
+conan_generate(
+    name = "conan-generate",
+    conanfile = "conanfile.txt",
+    lockfile = ":lock",
+)
+
+conan_update(
+    name = "update",
+    lockfile = ":lock",
+    lock_generate = ":lock-generate",
+    conan_generate = ":conan-generate",
+    conanfile = "conanfile.txt",
+    lockfile_name = "conan.lock",
+    targets_name = "conan/BUILD",
+)
+```
+
+On first use, or whenever you change a Conan dependency or the toolchain
+configuration you must regenerate the import targets. For example:
+
+```
+$ buck2 run //:update
+```
+
+Then you can depend on Conan provided packages defined in the generated file,
+configured with the `targets_name` attribute to `conan_update`. For example:
+
+```
+cxx_binary(
+    name = "main",
+    srcs = ["main.cpp"],
+    deps = ["//conan:zlib"],
+)
+```
+
+Note, only packages that are declared as direct dependencies in the
+`conanfile.txt` will have public visibility. If you wish to depend on a package
+that was a transitive dependency and is currently private, then you must first
+add it to the `conanfile.txt` and update the import targets.
+
+### Example
+
+See `examples/prelude/cpp/conan` in the Buck2 source repository for a full
+working example.
+
+## Motivation
+
+Buck2 has the ability to build C/C++ libraries natively. However, some C/C++
+projects have complex build systems and are difficult to migrate to a native
+Buck2 build. Other programming languages often have established standard
+package managers and such dependencies can be imported into a Buck2 project
+with the help of that package manager. This module provides such an integration
+for C/C++ with the help of the Conan package manager.
+
+Conan offers a relatively large [community package set][conan-center] and is
+compatible with Linux, MacOS, and Windows. It also allows for sufficient
+control to support an integration into Buck2, supports toolchain configuration
+and cross-compilation, and provides a Python extension API.
+
+[conan-center]: https://conan.io/center/
+
+## Design Goals
+
+The Buck2 integration of Conan should fulfill the following design goals:
+
+* The overall build should be controlled by Buck2:
+
+    Which packages are built at which point, which compiler toolchain and
+    configuration is used, where build artifacts are stored, and where
+    dependencies are looked up.
+
+    This enables the use of Buck2's own incremental build and caching
+    functionality. It also enables cross-platform and cross-compilation with
+    the help of Buck2's platforms and toolchains.
+
+* Conan should provide transitive dependencies:
+
+    The user should only have to declare the projects direct third-party C/C++
+    dependencies. The transitive dependency graph, package versions, package
+    downloads, and their build definitions - all these should be provided by
+    Conan.
+
+## Integration
+
+Conan provides a number of control and integration points that are relevant to
+the Buck2 integration:
+
+* Conanfile
+
+    A file `conanfile.txt` defines the direct dependencies of the project. This
+    file is provided by the user, and used by the integration and Conan.
+
+* Lockfile
+
+    Conan generates a lockfile which contains the set of transitive
+    dependencies, their precise versions, and their inter-dependencies. The
+    integration parses this file to generate build targets for individual Conan
+    packages to build in dependency order.
+
+* Command-Line
+
+    Conan's command-line interface can be used to request a build or fetch of
+    an individual package in the context of a given lockfile. Conan will build
+    only this package, provided that the package's dependencies have been built
+    before and are available in Conan's cache directory. The integration uses
+    this capability to build Conan packages in separate Buck2 build actions.
+
+* Install Location
+
+    Conan stores build artifacts and other data underneath the Conan home
+    directory, which is configurable with the `CONAN_USER_HOME` environment
+    variable. Package dependencies, newly built packages, and other resources
+    must be available under this path. The integration configures a Conan home
+    directory under Buck2's output directory and copies needed dependencies
+    into place before the build and extracts relevant build results into
+    dedicated output paths after the build.
+
+* Profiles
+
+    Conan profiles can configure the operating system and architecture to
+    target or build on, the compiler and its version, and other tools and
+    settings. The integration uses profiles to expose Buck2's own cxx toolchain
+    and other configuration to Conan.
+
+* Generators
+
+    Conan is designed to integrate with other build systems, this is a
+    necessity in the C/C++ ecosystem, as there is no single standard build
+    system used by all projects. Conan generators can access package metadata,
+    such as exposed libraries or header files, and can generate files to be
+    read by another build system to import Conan built packages. Buckler is a
+    Conan generator that creates Buck2 targets that import Conan built packages
+    and can be depended upon by native Buck2 C/C++ targets.
+
 """
 
 # TODO[AH] May prelude modules load the top-level prelude?
