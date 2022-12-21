@@ -33,7 +33,7 @@ def conan_lock(
 def main():
     parser = argparse.ArgumentParser(
             prog = "conan_lock",
-            description = "Update the Conan lock-file.")
+            description = "Generate a Conan lock-file.")
     parser.add_argument(
             "--conan",
             metavar="FILE",
