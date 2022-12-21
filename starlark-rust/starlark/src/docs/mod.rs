@@ -20,13 +20,15 @@
 // TODO(nga): document it
 #![allow(missing_docs)]
 
-pub mod markdown;
+mod markdown;
 
 use std::collections::HashMap;
 
 use allocative::Allocative;
 use gazebo::prelude::*;
 use itertools::Itertools;
+pub use markdown::AsMarkdown;
+pub use markdown::MarkdownFlavor;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use regex::RegexBuilder;
