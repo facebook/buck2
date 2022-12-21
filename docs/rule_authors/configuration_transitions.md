@@ -1,4 +1,7 @@
-# Configuration transitions
+---
+id: configuration_transitions
+title: Configuration Transitions
+---
 
 Configuration transition is a mechanism for changing the configuration
 when depending on a target. Currently we have incoming and outgoing transitions:

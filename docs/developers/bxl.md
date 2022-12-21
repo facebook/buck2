@@ -1,4 +1,7 @@
-# BXL
+---
+id: bxl
+title: Why BXL
+---
 
 BXL is a Starlark based script that allows integrators to inspect and interact with the buck2 graph.
 Integrators are able to write Starlark code that queries, analysis, and builds the buck2 graph, and

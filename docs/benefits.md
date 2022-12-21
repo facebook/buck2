@@ -1,5 +1,5 @@
 ---
-title: Benefits
+title: Benefits Compared to Buck1
 ---
 
 # Benefits compared to Buck1

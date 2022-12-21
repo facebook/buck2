@@ -1,4 +1,7 @@
-# Dep files
+---
+id: dep_files
+title: Dep Files
+---
 
 Dep files allow commands to declare which subset of their inputs were used when the command executed.
 

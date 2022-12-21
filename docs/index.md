@@ -1,4 +1,7 @@
-# Buck2 User Guide
+---
+id: index
+title: Introduction
+---
 
 Welcome to Buck2! A successor to [Buck](https://buck.build). Buck2 is largely compatible with Buck, so start typing `buck2` today.
 

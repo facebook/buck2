@@ -1,4 +1,7 @@
-# Finding commands that Buck2 ran
+---
+id: what-ran
+title: Finding Commands that Buck2 Ran
+---
 
 Buck2 logs all the commands it runs, so after you run a build, you can query Buck2 to get access to the exact command it used.
 

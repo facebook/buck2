@@ -72,7 +72,7 @@ const { fbContent, isInternal } = require('docusaurus-plugin-internaldocs-fb/int
             type: 'doc',
             docId: 'index',
             position: 'left',
-            label: 'User guide',
+            label: 'Docs',
           },
           {
             type: 'doc',

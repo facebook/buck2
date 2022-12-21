@@ -1,4 +1,7 @@
-# Dynamic dependencies
+---
+id: dynamic_dependencies
+title: Dynamic Dependencies
+---
 
 Dynamic dependencies allow a rule to use information that was not available when the rule was first run at analysis time. Dynamic dependencies in Buck2 are implemented using `dynamic_output`, and restricted in their power compared to fully generic dynamic dependencies.
 
