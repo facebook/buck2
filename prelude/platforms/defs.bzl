@@ -42,6 +42,10 @@ def _host_cpu_configuration() -> str.type:
     arch = host_info().arch
     if arch.is_aarch64:
         return "prelude//cpu:arm64"
+    elif arch.is_arm:
+        return "prelude//cpu:arm32"
+    elif arch.is_i386:
+        return "prelude//cpu:x86_32"
     else:
         return "prelude//cpu:x86_64"
 
