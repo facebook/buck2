@@ -37,3 +37,24 @@ execution_platform = rule(
         "use_windows_path_separators": attrs.bool(),
     },
 )
+
+def _host_cpu_configuration() -> str.type:
+    arch = host_info().arch
+    if arch.is_aarch64:
+        return "prelude//cpu:arm64"
+    else:
+        return "prelude//cpu:x86_64"
+
+def _host_os_configuration() -> str.type:
+    os = host_info().os
+    if os.is_macos:
+        return "prelude//os:macos"
+    elif os.is_windows:
+        return "prelude//os:windows"
+    else:
+        return "prelude//os:linux"
+
+host_configuration = struct(
+    cpu = _host_cpu_configuration(),
+    os = _host_os_configuration(),
+)
