@@ -51,7 +51,8 @@ use crate::module::typ::StarFun;
 use crate::module::typ::StarFunSource;
 use crate::module::typ::StarStmt;
 
-struct ProcessedAttributes {
+#[derive(Default)]
+struct FnAttrs {
     is_attribute: bool,
     type_attribute: Option<Expr>,
     speculative_exec_safe: bool,
@@ -143,20 +144,16 @@ fn parse_fn_param_attrs(attrs: Vec<Attribute>) -> syn::Result<FnParamAttrs> {
 }
 
 /// Parse `#[starlark(...)]` attribute.
-fn process_attributes(span: Span, xs: Vec<Attribute>) -> syn::Result<ProcessedAttributes> {
+fn parse_fn_attrs(span: Span, xs: Vec<Attribute>) -> syn::Result<FnAttrs> {
     const ERROR: &str = "Couldn't parse attribute. \
         Expected `#[starlark(type = \"ty\")]`, \
         `#[starlark(attribute)]` or `#[starlark(speculative_exec_safe)]`";
 
-    let mut attrs = Vec::with_capacity(xs.len());
-    let mut is_attribute = false;
-    let mut type_attribute = None;
-    let mut speculative_exec_safe = false;
-    let mut doc_attrs = Vec::new();
+    let mut res = FnAttrs::default();
     for x in xs {
         if x.path.is_ident("starlark") {
             if let Some(ty) = parse_starlark_type_eq(&x)? {
-                type_attribute = Some(ty);
+                res.type_attribute = Some(ty);
             } else {
                 match x.parse_meta()? {
                     Meta::List(list) => {
@@ -168,9 +165,9 @@ fn process_attributes(span: Span, xs: Vec<Attribute>) -> syn::Result<ProcessedAt
                                 }
                                 NestedMeta::Meta(meta) => {
                                     if meta.path().is_ident("attribute") {
-                                        is_attribute = true;
+                                        res.is_attribute = true;
                                     } else if meta.path().is_ident("speculative_exec_safe") {
-                                        speculative_exec_safe = true;
+                                        res.speculative_exec_safe = true;
                                     } else {
                                         return Err(syn::Error::new(meta.span(), ERROR));
                                     }
@@ -182,29 +179,24 @@ fn process_attributes(span: Span, xs: Vec<Attribute>) -> syn::Result<ProcessedAt
                 }
             }
         } else if let Some(ds) = is_attribute_docstring(&x) {
-            doc_attrs.push(ds);
+            match &mut res.docstring {
+                None => res.docstring = Some(ds),
+                Some(docstring) => {
+                    docstring.push('\n');
+                    docstring.push_str(&ds);
+                }
+            }
             // Important the attributes remain tagged to the function, so the test annotations
             // are present, and thus the doc test works properly.
-            attrs.push(x);
+            res.attrs.push(x);
         } else {
-            attrs.push(x);
+            res.attrs.push(x);
         }
     }
-    if is_attribute && type_attribute.is_some() {
+    if res.is_attribute && res.type_attribute.is_some() {
         return Err(syn::Error::new(span, "Can't be an attribute with a .type"));
     }
-    let docstring = if !doc_attrs.is_empty() {
-        Some(doc_attrs.join("\n"))
-    } else {
-        None
-    };
-    Ok(ProcessedAttributes {
-        is_attribute,
-        type_attribute,
-        speculative_exec_safe,
-        docstring,
-        attrs,
-    })
+    Ok(res)
 }
 
 /// Check if given type is `anyhow::Result<T>`, and if it is, return `T`.
@@ -249,13 +241,13 @@ fn is_anyhow_result(t: &Type) -> Option<Type> {
 pub(crate) fn parse_fun(func: ItemFn, module_kind: ModuleKind) -> syn::Result<StarStmt> {
     let sig_span = func.sig.span();
 
-    let ProcessedAttributes {
+    let FnAttrs {
         is_attribute,
         type_attribute,
         speculative_exec_safe,
         docstring,
         attrs,
-    } = process_attributes(func.span(), func.attrs)?;
+    } = parse_fn_attrs(func.span(), func.attrs)?;
 
     let has_v = parse_fn_generics(&func.sig.generics)?;
 
