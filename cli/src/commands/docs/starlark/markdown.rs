@@ -110,7 +110,7 @@ pub(crate) fn generate_markdown_files(
         let markdown_file = outputs
             .entry(markdown_path)
             .or_insert_with(MarkdownOutput::default);
-        if let Some(docs) = doc.generate_markdown(MarkdownFlavor::DocFile) {
+        if let Some(docs) = doc.render_markdown_opt(MarkdownFlavor::DocFile) {
             markdown_file.sections.push(docs);
         }
     }
@@ -234,34 +234,34 @@ mod tests {
             "{}\n\n---\n{}\n",
             docs.get(1)
                 .unwrap()
-                .generate_markdown_or_empty(MarkdownFlavor::DocFile),
+                .render_markdown(MarkdownFlavor::DocFile),
             docs.get(0)
                 .unwrap()
-                .generate_markdown_or_empty(MarkdownFlavor::DocFile)
+                .render_markdown(MarkdownFlavor::DocFile)
         );
 
         let expected_native_subdir = format!(
             "{}\n",
             docs.get(2)
                 .unwrap()
-                .generate_markdown_or_empty(MarkdownFlavor::DocFile),
+                .render_markdown(MarkdownFlavor::DocFile),
         );
 
         let expected_native_builtin_subdir = format!(
             "{}\n",
             docs.get(3)
                 .unwrap()
-                .generate_markdown_or_empty(MarkdownFlavor::DocFile),
+                .render_markdown(MarkdownFlavor::DocFile),
         );
 
         let expected_starlark = format!(
             "{}\n\n---\n{}\n",
             docs.get(5)
                 .unwrap()
-                .generate_markdown_or_empty(MarkdownFlavor::DocFile),
+                .render_markdown(MarkdownFlavor::DocFile),
             docs.get(4)
                 .unwrap()
-                .generate_markdown_or_empty(MarkdownFlavor::DocFile)
+                .render_markdown(MarkdownFlavor::DocFile)
         );
 
         let temp = tempfile::tempdir()?;

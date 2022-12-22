@@ -46,23 +46,23 @@ pub enum MarkdownFlavor {
 pub trait RenderMarkdown {
     /// Generate markdown of the given flavor if possible. For some types, there may not be
     /// any useful documentation available.
-    fn generate_markdown(&self, flavor: MarkdownFlavor) -> Option<String>;
+    fn render_markdown_opt(&self, flavor: MarkdownFlavor) -> Option<String>;
 
-    /// Convenience method that invokes `RenderMarkdown::generate_markdown`, and returns an
+    /// Convenience method that invokes `RenderMarkdown::render_markdown_opt`, and returns an
     /// empty string if that is `None`
-    fn generate_markdown_or_empty(&self, flavor: MarkdownFlavor) -> String {
-        self.generate_markdown(flavor).unwrap_or_default()
+    fn render_markdown(&self, flavor: MarkdownFlavor) -> String {
+        self.render_markdown_opt(flavor).unwrap_or_default()
     }
 }
 
 impl RenderMarkdown for String {
-    fn generate_markdown(&self, _flavor: MarkdownFlavor) -> Option<String> {
+    fn render_markdown_opt(&self, _flavor: MarkdownFlavor) -> Option<String> {
         Some(self.clone())
     }
 }
 
 impl RenderMarkdown for str {
-    fn generate_markdown(&self, _flavor: MarkdownFlavor) -> Option<String> {
+    fn render_markdown_opt(&self, _flavor: MarkdownFlavor) -> Option<String> {
         Some(self.to_owned())
     }
 }
@@ -81,7 +81,7 @@ enum DSOpts {
 struct DocStringRenderer<'a>(DSOpts, &'a Option<DocString>);
 
 impl<'a> RenderMarkdown for DocStringRenderer<'a> {
-    fn generate_markdown(&self, flavor: MarkdownFlavor) -> Option<String> {
+    fn render_markdown_opt(&self, flavor: MarkdownFlavor) -> Option<String> {
         match flavor {
             MarkdownFlavor::DocFile => self.1.as_ref().and_then(|d| match self.0 {
                 DSOpts::Summary => Some(d.summary.clone()),
@@ -103,19 +103,18 @@ struct PropertyDetailsRenderer<'a> {
 }
 
 impl<'a> RenderMarkdown for PropertyDetailsRenderer<'a> {
-    fn generate_markdown(&self, flavor: MarkdownFlavor) -> Option<String> {
+    fn render_markdown_opt(&self, flavor: MarkdownFlavor) -> Option<String> {
         match flavor {
             MarkdownFlavor::DocFile => {
                 let header = format!(
                     "## {} : {}",
                     self.name,
-                    Code(Box::new(TypeRenderer::Type(&self.p.typ)))
-                        .generate_markdown_or_empty(flavor)
+                    Code(Box::new(TypeRenderer::Type(&self.p.typ))).render_markdown(flavor)
                 );
                 let summary =
-                    DocStringRenderer(DSOpts::Summary, &self.p.docs).generate_markdown(flavor);
+                    DocStringRenderer(DSOpts::Summary, &self.p.docs).render_markdown_opt(flavor);
                 let details =
-                    DocStringRenderer(DSOpts::Details, &self.p.docs).generate_markdown(flavor);
+                    DocStringRenderer(DSOpts::Details, &self.p.docs).render_markdown_opt(flavor);
 
                 let mut body = header;
                 if let Some(summary) = summary {
@@ -162,19 +161,16 @@ impl<'a> FunctionDetailsRenderer<'a> {
             .iter()
             .filter_map(|p| match p {
                 Param::Arg { name, docs, .. } => {
-                    let docs = DocStringRenderer(DSOpts::Combined, docs)
-                        .generate_markdown_or_empty(flavor);
+                    let docs = DocStringRenderer(DSOpts::Combined, docs).render_markdown(flavor);
                     Some((name.clone(), docs))
                 }
                 Param::NoArgs => None,
                 Param::Args { name, docs, .. } => {
-                    let docs = DocStringRenderer(DSOpts::Combined, docs)
-                        .generate_markdown_or_empty(flavor);
+                    let docs = DocStringRenderer(DSOpts::Combined, docs).render_markdown(flavor);
                     Some((name.clone(), docs))
                 }
                 Param::Kwargs { name, docs, .. } => {
-                    let docs = DocStringRenderer(DSOpts::Combined, docs)
-                        .generate_markdown_or_empty(flavor);
+                    let docs = DocStringRenderer(DSOpts::Combined, docs).render_markdown(flavor);
                     Some((name.clone(), docs))
                 }
             })
@@ -182,12 +178,12 @@ impl<'a> FunctionDetailsRenderer<'a> {
             .collect();
 
         let table = Table(Some("starlark_parameters_table"), header, rows);
-        table.generate_markdown(flavor)
+        table.render_markdown_opt(flavor)
     }
 }
 
 impl<'a> RenderMarkdown for FunctionDetailsRenderer<'a> {
-    fn generate_markdown(&self, flavor: MarkdownFlavor) -> Option<String> {
+    fn render_markdown_opt(&self, flavor: MarkdownFlavor) -> Option<String> {
         match flavor {
             MarkdownFlavor::DocFile => {
                 let prototype = CodeBlock {
@@ -199,19 +195,15 @@ impl<'a> RenderMarkdown for FunctionDetailsRenderer<'a> {
                         f: self.f,
                     }),
                 };
-                let header = format!(
-                    "## {}\n\n{}",
-                    self.name,
-                    prototype.generate_markdown_or_empty(flavor)
-                );
+                let header = format!("## {}\n\n{}", self.name, prototype.render_markdown(flavor));
                 let summary =
-                    DocStringRenderer(DSOpts::Summary, &self.f.docs).generate_markdown(flavor);
+                    DocStringRenderer(DSOpts::Summary, &self.f.docs).render_markdown_opt(flavor);
                 let details =
-                    DocStringRenderer(DSOpts::Details, &self.f.docs).generate_markdown(flavor);
+                    DocStringRenderer(DSOpts::Details, &self.f.docs).render_markdown_opt(flavor);
 
                 let parameter_docs = self.parameters_table(flavor);
-                let return_docs =
-                    DocStringRenderer(DSOpts::Combined, &self.f.ret.docs).generate_markdown(flavor);
+                let return_docs = DocStringRenderer(DSOpts::Combined, &self.f.ret.docs)
+                    .render_markdown_opt(flavor);
 
                 let mut body = header;
                 if let Some(summary) = summary {
@@ -245,13 +237,13 @@ struct FunctionRenderer<'a> {
 }
 
 impl<'a> RenderMarkdown for FunctionRenderer<'a> {
-    fn generate_markdown(&self, flavor: MarkdownFlavor) -> Option<String> {
+    fn render_markdown_opt(&self, flavor: MarkdownFlavor) -> Option<String> {
         match flavor {
             MarkdownFlavor::DocFile => FunctionDetailsRenderer {
                 name: self.id.name.clone(),
                 f: self.function,
             }
-            .generate_markdown(flavor),
+            .render_markdown_opt(flavor),
             MarkdownFlavor::LspSummary => None,
         }
     }
@@ -264,15 +256,15 @@ struct ModuleRenderer<'a> {
 }
 
 impl<'a> RenderMarkdown for ModuleRenderer<'a> {
-    fn generate_markdown(&self, flavor: MarkdownFlavor) -> Option<String> {
+    fn render_markdown_opt(&self, flavor: MarkdownFlavor) -> Option<String> {
         match flavor {
             MarkdownFlavor::DocFile => {
                 let name = match &self.id.location {
                     Some(l) => l.path.as_str(),
                     None => self.id.name.as_str(),
                 };
-                let docs = DocStringRenderer(DSOpts::Combined, &self.module.docs)
-                    .generate_markdown_or_empty(flavor);
+                let docs =
+                    DocStringRenderer(DSOpts::Combined, &self.module.docs).render_markdown(flavor);
                 Some(format!("# {}\n\n{}", name, docs))
             }
             MarkdownFlavor::LspSummary => None,
@@ -287,7 +279,7 @@ struct ObjectRenderer<'a> {
 }
 
 impl<'a> RenderMarkdown for ObjectRenderer<'a> {
-    fn generate_markdown(&self, flavor: MarkdownFlavor) -> Option<String> {
+    fn render_markdown_opt(&self, flavor: MarkdownFlavor) -> Option<String> {
         match flavor {
             MarkdownFlavor::DocFile => {
                 // If this is a native, top level object, render it with a larger
@@ -298,7 +290,7 @@ impl<'a> RenderMarkdown for ObjectRenderer<'a> {
                     false => format!("## {}", self.id.name),
                 };
                 let summary = DocStringRenderer(DSOpts::Combined, &self.object.docs)
-                    .generate_markdown(flavor)
+                    .render_markdown_opt(flavor)
                     .map(|s| format!("\n\n{}", s))
                     .unwrap_or_default();
 
@@ -334,14 +326,14 @@ impl<'a> RenderMarkdown for ObjectRenderer<'a> {
                             name: name.clone(),
                             member,
                         }
-                        .generate_markdown_or_empty(flavor);
+                        .render_markdown(flavor);
                         (row, details)
                     })
                     .unzip();
 
                 let members_table =
                     Table(Some("starlark_members_table"), members_header, members_rows)
-                        .generate_markdown_or_empty(flavor);
+                        .render_markdown(flavor);
                 let members_details = member_details.join("\n\n---\n");
 
                 let page_body = format!(
@@ -359,7 +351,7 @@ impl<'a> RenderMarkdown for ObjectRenderer<'a> {
 }
 
 impl RenderMarkdown for Doc {
-    fn generate_markdown(&self, flavor: MarkdownFlavor) -> Option<String> {
+    fn render_markdown_opt(&self, flavor: MarkdownFlavor) -> Option<String> {
         match flavor {
             MarkdownFlavor::DocFile => {
                 // These just proxy to the Renderer types so we can add extra metadata to them,
@@ -369,17 +361,17 @@ impl RenderMarkdown for Doc {
                         id: &self.id,
                         module: m,
                     }
-                    .generate_markdown(flavor),
+                    .render_markdown_opt(flavor),
                     DocItem::Object(o) => ObjectRenderer {
                         id: &self.id,
                         object: o,
                     }
-                    .generate_markdown(flavor),
+                    .render_markdown_opt(flavor),
                     DocItem::Function(f) => FunctionRenderer {
                         id: &self.id,
                         function: f,
                     }
-                    .generate_markdown(flavor),
+                    .render_markdown_opt(flavor),
                 }
             }
             MarkdownFlavor::LspSummary => None,
@@ -394,19 +386,19 @@ struct MemberDetails<'a> {
 }
 
 impl<'a> RenderMarkdown for MemberDetails<'a> {
-    fn generate_markdown(&self, flavor: MarkdownFlavor) -> Option<String> {
+    fn render_markdown_opt(&self, flavor: MarkdownFlavor) -> Option<String> {
         match flavor {
             MarkdownFlavor::DocFile => match self.member {
                 Member::Property(p) => PropertyDetailsRenderer {
                     name: self.name.clone(),
                     p,
                 }
-                .generate_markdown(flavor),
+                .render_markdown_opt(flavor),
                 Member::Function(f) => FunctionDetailsRenderer {
                     name: self.name.clone(),
                     f,
                 }
-                .generate_markdown(flavor),
+                .render_markdown_opt(flavor),
             },
             MarkdownFlavor::LspSummary => None,
         }
@@ -433,7 +425,7 @@ enum TypeRenderer<'a> {
 }
 
 impl<'a> RenderMarkdown for TypeRenderer<'a> {
-    fn generate_markdown(&self, flavor: MarkdownFlavor) -> Option<String> {
+    fn render_markdown_opt(&self, flavor: MarkdownFlavor) -> Option<String> {
         fn raw_type(t: &Option<Type>) -> String {
             match t {
                 Some(t) if !t.raw_type.is_empty() => t.raw_type.clone(),
@@ -513,11 +505,11 @@ impl<'a> RenderMarkdown for TypeRenderer<'a> {
 struct Code<'a>(Box<dyn RenderMarkdown + 'a>);
 
 impl<'a> RenderMarkdown for Code<'a> {
-    fn generate_markdown(&self, flavor: MarkdownFlavor) -> Option<String> {
+    fn render_markdown_opt(&self, flavor: MarkdownFlavor) -> Option<String> {
         match flavor {
             MarkdownFlavor::DocFile => self
                 .0
-                .generate_markdown(flavor)
+                .render_markdown_opt(flavor)
                 .map(|md| format!("`{}`", md)),
             MarkdownFlavor::LspSummary => None,
         }
@@ -532,9 +524,9 @@ struct CodeBlock<'a> {
 }
 
 impl<'a> RenderMarkdown for CodeBlock<'a> {
-    fn generate_markdown(&self, flavor: MarkdownFlavor) -> Option<String> {
+    fn render_markdown_opt(&self, flavor: MarkdownFlavor) -> Option<String> {
         match flavor {
-            MarkdownFlavor::DocFile => self.contents.generate_markdown(flavor).map(|contents| {
+            MarkdownFlavor::DocFile => self.contents.render_markdown_opt(flavor).map(|contents| {
                 format!(
                     "```{}\n{}\n```",
                     self.language.clone().unwrap_or_default(),
@@ -550,16 +542,16 @@ impl<'a> RenderMarkdown for CodeBlock<'a> {
 struct Table<'a>(Option<&'a str>, TableHeader<'a>, Vec<TableRow<'a>>);
 
 impl<'a> RenderMarkdown for Table<'a> {
-    fn generate_markdown(&self, flavor: MarkdownFlavor) -> Option<String> {
+    fn render_markdown_opt(&self, flavor: MarkdownFlavor) -> Option<String> {
         match flavor {
             MarkdownFlavor::DocFile => {
                 let rows = self
                     .2
                     .iter()
-                    .filter_map(|row| row.generate_markdown(flavor))
+                    .filter_map(|row| row.render_markdown_opt(flavor))
                     .join("\n");
 
-                self.1.generate_markdown(flavor).map(|header| {
+                self.1.render_markdown_opt(flavor).map(|header| {
                     let css_class = format!("starlark_table{}", self.0.map(|c| format!(" {}", c)).unwrap_or_default());
                     format!(
                         "<table class=\"{}\">\n<thead>\n{}\n</thead>\n<tbody>\n{}\n</tbody>\n</table>",
@@ -576,7 +568,7 @@ impl<'a> RenderMarkdown for Table<'a> {
 struct TableHeader<'a>(&'a [&'a str]);
 
 impl<'a> RenderMarkdown for TableHeader<'a> {
-    fn generate_markdown(&self, flavor: MarkdownFlavor) -> Option<String> {
+    fn render_markdown_opt(&self, flavor: MarkdownFlavor) -> Option<String> {
         match flavor {
             MarkdownFlavor::DocFile => Some(format!(
                 "<tr>\n{}\n</tr>",
@@ -595,14 +587,14 @@ impl<'a> RenderMarkdown for TableHeader<'a> {
 struct TableRow<'a>(Vec<Box<dyn RenderMarkdown + 'a>>);
 
 impl<'a> RenderMarkdown for TableRow<'a> {
-    fn generate_markdown(&self, flavor: MarkdownFlavor) -> Option<String> {
+    fn render_markdown_opt(&self, flavor: MarkdownFlavor) -> Option<String> {
         match flavor {
             MarkdownFlavor::DocFile => Some(format!(
                 "<tr>\n{}\n</tr>",
                 self.0
                     .iter()
                     .map(|col| {
-                        let text = col.generate_markdown(flavor).unwrap_or_default();
+                        let text = col.render_markdown_opt(flavor).unwrap_or_default();
                         if text.is_empty() {
                             "<td></td>".to_owned()
                         } else {
@@ -648,7 +640,9 @@ mod test {
     use crate::docs::Type;
 
     fn render(renderer: &dyn RenderMarkdown) -> String {
-        renderer.generate_markdown(MarkdownFlavor::DocFile).unwrap()
+        renderer
+            .render_markdown_opt(MarkdownFlavor::DocFile)
+            .unwrap()
     }
 
     fn render_ds_summary(ds: &Option<DocString>) -> String {
@@ -717,49 +711,49 @@ mod test {
         assert_eq!(
             None,
             DocStringRenderer(DSOpts::Summary, &without_docstring)
-                .generate_markdown(MarkdownFlavor::DocFile)
+                .render_markdown_opt(MarkdownFlavor::DocFile)
         );
         assert_eq!(
             None,
             DocStringRenderer(DSOpts::Details, &without_docstring)
-                .generate_markdown(MarkdownFlavor::DocFile)
+                .render_markdown_opt(MarkdownFlavor::DocFile)
         );
         assert_eq!(
             None,
             DocStringRenderer(DSOpts::Combined, &without_docstring)
-                .generate_markdown(MarkdownFlavor::DocFile)
+                .render_markdown_opt(MarkdownFlavor::DocFile)
         );
 
         assert_eq!(
             Some("Summary".to_owned()),
             DocStringRenderer(DSOpts::Summary, &without_details)
-                .generate_markdown(MarkdownFlavor::DocFile)
+                .render_markdown_opt(MarkdownFlavor::DocFile)
         );
         assert_eq!(
             None,
             DocStringRenderer(DSOpts::Details, &without_details)
-                .generate_markdown(MarkdownFlavor::DocFile)
+                .render_markdown_opt(MarkdownFlavor::DocFile)
         );
         assert_eq!(
             Some("Summary".to_owned()),
             DocStringRenderer(DSOpts::Combined, &without_details)
-                .generate_markdown(MarkdownFlavor::DocFile)
+                .render_markdown_opt(MarkdownFlavor::DocFile)
         );
 
         assert_eq!(
             Some("Summary".to_owned()),
             DocStringRenderer(DSOpts::Summary, &with_details)
-                .generate_markdown(MarkdownFlavor::DocFile)
+                .render_markdown_opt(MarkdownFlavor::DocFile)
         );
         assert_eq!(
             Some("Details".to_owned()),
             DocStringRenderer(DSOpts::Details, &with_details)
-                .generate_markdown(MarkdownFlavor::DocFile)
+                .render_markdown_opt(MarkdownFlavor::DocFile)
         );
         assert_eq!(
             Some("Summary\n\nDetails".to_owned()),
             DocStringRenderer(DSOpts::Combined, &with_details)
-                .generate_markdown(MarkdownFlavor::DocFile)
+                .render_markdown_opt(MarkdownFlavor::DocFile)
         );
     }
 
