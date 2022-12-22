@@ -202,7 +202,7 @@ conan_dep(
             },
             visibility = ["PUBLIC"] if self.public else [])
 
-        for component in getattr(self, "components", {}).values():
+        for component in self.components.values():
             result += component.generate()
 
         return result
