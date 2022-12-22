@@ -357,7 +357,7 @@ impl TestServer {
         let mut builtin_symbols = HashMap::new();
 
         for (u, ds) in builtin {
-            builtin_docs.insert(u.clone(), render_docs_as_code(&ds).join("\n\n"));
+            builtin_docs.insert(u.clone(), render_docs_as_code(&ds));
             for d in ds {
                 builtin_symbols.insert(d.id.name, u.clone());
             }

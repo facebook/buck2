@@ -120,7 +120,7 @@ impl Context {
         }
         let builtin_docs = builtins
             .into_iter()
-            .map(|(u, ds)| (u, render_docs_as_code(&ds).join("\n\n")))
+            .map(|(u, ds)| (u, render_docs_as_code(&ds)))
             .collect();
 
         Ok(Self {

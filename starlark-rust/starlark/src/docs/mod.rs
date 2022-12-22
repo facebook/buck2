@@ -823,7 +823,7 @@ impl Doc {
 ///
 /// The returned array may not be in the same order as the originally provided docs.
 /// They are in the order that they should appear in the rendered starlark file.
-pub fn render_docs_as_code(docs: &[Doc]) -> Vec<String> {
+pub fn render_docs_as_code(docs: &[Doc]) -> String {
     let (modules, non_modules): (Vec<_>, Vec<_>) = docs.iter().partition(|d| match d.item {
         DocItem::Module(_) => true,
         _ => false,
@@ -832,7 +832,7 @@ pub fn render_docs_as_code(docs: &[Doc]) -> Vec<String> {
         .into_iter()
         .chain(non_modules.into_iter())
         .map(|d| d.render_as_code())
-        .collect()
+        .join("\n\n")
 }
 
 /// Get documentation for all items registered with `#[derive(StarlarkDocs)]`
@@ -1699,7 +1699,7 @@ mod tests {
         );
         let expected = textwrap::dedent(&expected).trim().to_owned();
 
-        let rendered = render_docs_as_code(&docs).join("\n\n");
+        let rendered = render_docs_as_code(&docs);
 
         assert_eq!(expected, rendered);
     }
