@@ -17,7 +17,6 @@
 
 use proc_macro2::Ident;
 use proc_macro2::Span;
-use proc_macro2::TokenStream;
 use syn::parse::ParseStream;
 use syn::spanned::Spanned;
 use syn::visit::Visit;
@@ -29,8 +28,6 @@ use syn::GenericParam;
 use syn::Generics;
 use syn::ItemFn;
 use syn::Lifetime;
-use syn::Meta;
-use syn::NestedMeta;
 use syn::Pat;
 use syn::PatType;
 use syn::PathArguments;
@@ -143,41 +140,55 @@ fn parse_fn_param_attrs(attrs: Vec<Attribute>) -> syn::Result<FnParamAttrs> {
     Ok(param_attrs)
 }
 
+/// Parse `#[starlark(...)]` fn attribute.
+fn parse_starlark_fn_attr(tokens: &Attribute, attrs: &mut FnAttrs) -> syn::Result<()> {
+    assert!(tokens.path.is_ident("starlark"));
+    let parse = |parser: ParseStream| -> syn::Result<()> {
+        let mut first = true;
+        while !parser.is_empty() {
+            if !first {
+                parser.parse::<Token![,]>()?;
+                // Allow trailing comma.
+                if parser.is_empty() {
+                    break;
+                }
+            }
+            first = false;
+
+            if parser.parse::<Token![type]>().is_ok() {
+                parser.parse::<Token![=]>()?;
+                attrs.type_attribute = Some(parser.parse::<Expr>()?);
+                continue;
+            } else {
+                let ident = parser.parse::<Ident>()?;
+                if ident == "attribute" {
+                    attrs.is_attribute = true;
+                    continue;
+                } else if ident == "speculative_exec_safe" {
+                    attrs.speculative_exec_safe = true;
+                    continue;
+                }
+                return Err(syn::Error::new(
+                    ident.span(),
+                    "Expecting \
+                    `#[starlark(type = \"ty\")]`, \
+                    `#[starlark(attribute)]`, \
+                    `#[starlark(speculative_exec_safe)]` attribute",
+                ));
+            }
+        }
+
+        Ok(())
+    };
+    tokens.parse_args_with(parse)
+}
+
 /// Parse `#[starlark(...)]` attribute.
 fn parse_fn_attrs(span: Span, xs: Vec<Attribute>) -> syn::Result<FnAttrs> {
-    const ERROR: &str = "Couldn't parse attribute. \
-        Expected `#[starlark(type = \"ty\")]`, \
-        `#[starlark(attribute)]` or `#[starlark(speculative_exec_safe)]`";
-
     let mut res = FnAttrs::default();
     for x in xs {
         if x.path.is_ident("starlark") {
-            if let Some(ty) = parse_starlark_type_eq(&x)? {
-                res.type_attribute = Some(ty);
-            } else {
-                match x.parse_meta()? {
-                    Meta::List(list) => {
-                        assert!(list.path.is_ident("starlark"));
-                        for nested in list.nested {
-                            match nested {
-                                NestedMeta::Lit(lit) => {
-                                    return Err(syn::Error::new(lit.span(), ERROR));
-                                }
-                                NestedMeta::Meta(meta) => {
-                                    if meta.path().is_ident("attribute") {
-                                        res.is_attribute = true;
-                                    } else if meta.path().is_ident("speculative_exec_safe") {
-                                        res.speculative_exec_safe = true;
-                                    } else {
-                                        return Err(syn::Error::new(meta.span(), ERROR));
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    _ => return Err(syn::Error::new(x.span(), ERROR)),
-                }
-            }
+            parse_starlark_fn_attr(&x, &mut res)?;
         } else if let Some(ds) = is_attribute_docstring(&x) {
             match &mut res.docstring {
                 None => res.docstring = Some(ds),
@@ -501,20 +512,6 @@ fn parse_fn_generics(generics: &Generics) -> syn::Result<bool> {
         }
     }
     Ok(seen_v)
-}
-
-/// Parse `#[starlark(type = expr)]`.
-fn parse_starlark_type_eq(tokens: &Attribute) -> syn::Result<Option<Expr>> {
-    assert!(tokens.path.is_ident("starlark"));
-    let parse = |parser: ParseStream| -> syn::Result<Option<Expr>> {
-        if parser.parse::<Token![type]>().is_err() {
-            parser.parse::<TokenStream>()?;
-            return Ok(None);
-        }
-        parser.parse::<Token![=]>()?;
-        parser.parse::<Expr>().map(Some)
-    };
-    tokens.parse_args_with(parse)
 }
 
 #[allow(clippy::large_enum_variant)]
