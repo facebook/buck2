@@ -824,10 +824,9 @@ impl Doc {
 /// The returned array may not be in the same order as the originally provided docs.
 /// They are in the order that they should appear in the rendered starlark file.
 pub fn render_docs_as_code(docs: &[Doc]) -> String {
-    let (modules, non_modules): (Vec<_>, Vec<_>) = docs.iter().partition(|d| match d.item {
-        DocItem::Module(_) => true,
-        _ => false,
-    });
+    let (modules, non_modules): (Vec<_>, Vec<_>) = docs
+        .iter()
+        .partition(|d| matches!(d.item, DocItem::Module(_)));
     modules
         .into_iter()
         .chain(non_modules.into_iter())
