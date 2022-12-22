@@ -313,7 +313,19 @@ def conan_component(
         directories = include_paths,
     )
 
-    if len(libs) == 1:
+    if len(libs) == 0:
+        native.prebuilt_cxx_library(
+            name = name,
+            deps = deps,  # TODO[AH] Do we need exported_deps?
+            header_dirs = extract_include_paths,
+            exported_preprocessor_flags = ["-D" + d for d in defines],
+            exported_lang_preprocessor_flags = {
+                "c": cflags,
+                "cxx": cppflags,
+            },
+            exported_post_linker_flags = ["-l" + lib for lib in system_libs],
+        )
+    elif len(libs) == 1:
         lib = libs[0]
         if lib in shared_libs:
             shared_lib = extract_shared_libs[lib][0]
