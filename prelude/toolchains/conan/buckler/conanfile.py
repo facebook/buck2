@@ -132,38 +132,38 @@ class _BucklerDepCppComponent(object):
         return """\
 
 conan_component(
-    name = {name},
-    defines = {defines},
-    cflags = {cflags},
-    cppflags = {cppflags},
-    include_paths = {include_paths},
-    libs = {libs},
-    static_libs = {static_libs},
-    shared_libs = {shared_libs},
-    system_libs = {system_libs},
-    deps = {deps},
-    package = {package},
+    name = {name!r},
+    defines = {defines!r},
+    cflags = {cflags!r},
+    cppflags = {cppflags!r},
+    include_paths = {include_paths!r},
+    libs = {libs!r},
+    static_libs = {static_libs!r},
+    shared_libs = {shared_libs!r},
+    system_libs = {system_libs!r},
+    deps = {deps!r},
+    package = {package!r},
 )
 """.format(
-            name = repr(name),
-            defines = repr(self.defines),
-            cflags = repr(self.cflags),
-            cppflags = repr(self.cppflags),
-            include_paths = repr(self.include_paths),
-            libs = repr(list(self.libs.keys())),
-            static_libs = repr({
+            name = name,
+            defines = self.defines,
+            cflags = self.cflags,
+            cppflags = self.cppflags,
+            include_paths = self.include_paths,
+            libs = list(self.libs.keys()),
+            static_libs = {
                 name: sorted(libs.static)
                 for name, libs in self.libs.items()
                 if libs.static
-            }),
-            shared_libs = repr({
+            },
+            shared_libs = {
                 name: sorted(libs.shared)
                 for name, libs in self.libs.items()
                 if libs.shared
-            }),
-            system_libs = repr(self.system_libs),
-            deps = repr(deps),
-            package = repr(":_package_" + self.package_name))
+            },
+            system_libs = self.system_libs,
+            deps = deps,
+            package = ":_package_" + self.package_name)
 
 
 class _BucklerDepCpp(object):
@@ -190,17 +190,17 @@ class _BucklerDepCpp(object):
         result = """\
 
 conan_dep(
-    name = {name},
-    components = {components},
-    visibility = {visibility},
+    name = {name!r},
+    components = {components!r},
+    visibility = {visibility!r},
 )
 """.format(
-            name = repr(self.name),
-            components = repr({
+            name = self.name,
+            components = {
                 name: _Requirement(None, name).to_label(self.name)
                 for name in self.components.keys()
-            }),
-            visibility = repr(["PUBLIC"]) if self.public else repr([]))
+            },
+            visibility = ["PUBLIC"] if self.public else [])
 
         for component in getattr(self, "components", {}).values():
             result += component.generate()

@@ -47,12 +47,12 @@ def generate_targets(lockfile_label, pkgs, targets_out):
     package_template = """\
 
 conan_package(
-    name = {name},
-    lockfile = {lockfile},
-    reference = {reference},
-    package_id = {package_id},
-    deps = {deps},
-    build_deps = {build_deps},
+    name = {name!r},
+    lockfile = {lockfile!r},
+    reference = {reference!r},
+    package_id = {package_id!r},
+    deps = {deps!r},
+    build_deps = {build_deps!r},
 )
 """
     with open(targets_out, "w") as f:
@@ -63,7 +63,7 @@ conan_package(
             deps = [":_package_" + pkgs[key]["name"] for key in pkg["requires"]]
             build_deps = [":_package_" + pkgs[key]["name"] for key in pkg["build_requires"]]
             f.write(package_template.format(
-                name = repr(name),
+                name = name,
                 # TODO[AH] Remove that lockfile and generate a minimal one in the rule.
                 #   Using the full lock file means that any change to the set
                 #   of Conan packages will require a rebuild of all Conan
@@ -73,11 +73,11 @@ conan_package(
                 #   file also contains the Conan profile, which defines the
                 #   Buck2 provided C/C++ toolchain. This information would need
                 #   to be included in a minimal lockfile.
-                lockfile = repr(lockfile_label),
-                reference = repr(reference),
-                package_id = repr(package_id),
-                deps = repr(deps),
-                build_deps = repr(build_deps)))
+                lockfile = lockfile_label,
+                reference = reference,
+                package_id = package_id,
+                deps = deps,
+                build_deps = build_deps))
 
 
 def main():
