@@ -529,14 +529,24 @@ impl Function {
                 let (function_docstring, sections) =
                     ds.parse_and_remove_sections(kind, &["arguments", "args", "returns", "return"]);
 
-                let arg_docs = match sections.get("arguments").or_else(|| sections.get("args")) {
-                    Some(args) => Self::parse_params(kind, args)
-                        .into_iter()
-                        .map(|(name, raw)| (name, DocString::from_docstring(kind, &raw)))
-                        .collect(),
-                    None => HashMap::new(),
-                };
-                let params = params_producer(arg_docs);
+                let mut params = params_producer(HashMap::new());
+                match sections.get("arguments").or_else(|| sections.get("args")) {
+                    Some(args) => {
+                        let entries = Self::parse_params(kind, args);
+                        for x in &mut params {
+                            match x {
+                                Param::Arg { name, docs, .. }
+                                | Param::Args { name, docs, .. }
+                                | Param::Kwargs { name, docs, .. } => match entries.get(name) {
+                                    Some(raw) => *docs = DocString::from_docstring(kind, raw),
+                                    _ => (),
+                                },
+                                _ => (),
+                            }
+                        }
+                    }
+                    _ => (),
+                }
 
                 let return_docs = sections
                     .get("return")
@@ -1370,6 +1380,15 @@ mod tests {
         assert_eq!(sections, expected_sections);
     }
 
+    fn arg(name: &str) -> Param {
+        Param::Arg {
+            name: name.to_owned(),
+            docs: None,
+            typ: None,
+            default_value: None,
+        }
+    }
+
     #[test]
     fn parses_starlark_function_docstring() {
         let docstring = r#"This is an example docstring
@@ -1435,17 +1454,13 @@ mod tests {
 
         let function_docs = Function::from_docstring(
             kind,
-            |param_docs| {
-                param_docs
-                    .into_iter()
-                    .sorted_by(|l, r| Ord::cmp(&l.0, &r.0))
-                    .map(|(name, docs)| Param::Arg {
-                        name,
-                        docs,
-                        typ: None,
-                        default_value: None,
-                    })
-                    .collect()
+            |_| {
+                vec![
+                    arg("**kwargs"),
+                    arg("*args"),
+                    arg("arg_bar"),
+                    arg("arg_foo"),
+                ]
             },
             return_type,
             Some(docstring),
@@ -1505,18 +1520,7 @@ mod tests {
 
         let function_docs = Function::from_docstring(
             kind,
-            |param_docs| {
-                param_docs
-                    .into_iter()
-                    .sorted_by(|l, r| Ord::cmp(&l.0, &r.0))
-                    .map(|(name, docs)| Param::Arg {
-                        name,
-                        docs,
-                        typ: None,
-                        default_value: None,
-                    })
-                    .collect()
-            },
+            |_| vec![arg("arg_bar"), arg("arg_foo")],
             return_type,
             Some(docstring),
         );
