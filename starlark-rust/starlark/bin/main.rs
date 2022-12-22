@@ -30,9 +30,15 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use clap::Parser;
+use clap::ValueEnum;
 use eval::Context;
 use gazebo::prelude::*;
 use itertools::Either;
+use itertools::Itertools;
+use starlark::docs::get_registered_docs;
+use starlark::docs::render_docs_as_code;
+use starlark::docs::MarkdownFlavor;
+use starlark::docs::RenderMarkdown;
 use starlark::errors::EvalMessage;
 use starlark::errors::EvalSeverity;
 use starlark::lsp;
@@ -56,6 +62,7 @@ struct Args {
             "dap",
             "check",
             "json",
+            "docs",
             "evaluate",
             "files",
         ],
@@ -70,6 +77,7 @@ struct Args {
             "lsp",
             "check",
             "json",
+            "docs",
             "extension",
             "prelude",
             "evaluate",
@@ -91,6 +99,13 @@ struct Args {
         conflicts_with_all = &["lsp", "dap"],
     )]
     json: bool,
+
+    #[arg(
+        long = "docs",
+        help = "Generate documentation output.",
+        conflicts_with_all = &["lsp", "dap"],
+    )]
+    docs: Option<ArgsDoc>,
 
     #[arg(
         long = "extension",
@@ -119,6 +134,13 @@ struct Args {
         conflicts_with_all = &["lsp", "dap"],
     )]
     files: Vec<PathBuf>,
+}
+
+#[derive(ValueEnum, Copy, Clone, Dupe, Debug, PartialEq, Eq)]
+enum ArgsDoc {
+    Lsp,
+    Markdown,
+    Code,
 }
 
 // Treat directories as things to recursively walk for .<extension> files,
@@ -234,6 +256,22 @@ fn main() -> anyhow::Result<()> {
         if args.lsp {
             ctx.mode = ContextMode::Check;
             lsp::server::stdio_server(ctx)?;
+        } else if let Some(docs) = args.docs {
+            let builtin = get_registered_docs();
+            match docs {
+                ArgsDoc::Markdown | ArgsDoc::Lsp => {
+                    let mode = if docs == ArgsDoc::Markdown {
+                        MarkdownFlavor::DocFile
+                    } else {
+                        MarkdownFlavor::LspSummary
+                    };
+                    println!(
+                        "{}",
+                        builtin.iter().map(|x| x.render_markdown(mode)).join("\n\n")
+                    )
+                }
+                ArgsDoc::Code => println!("{}", render_docs_as_code(&builtin)),
+            };
         } else if is_interactive {
             interactive(&ctx)?;
         } else {
