@@ -147,7 +147,7 @@ impl<'v> StarlarkValue<'v> for RuleCallable<'v> {
         let parameter_docs = self.attributes.docstrings();
         let function_docs = docs::Function::from_docstring(
             DocStringKind::Starlark,
-            |_| parameters_spec.documentation(parameter_types, parameter_docs),
+            parameters_spec.documentation(parameter_types, parameter_docs),
             Some(docs::Type {
                 raw_type: Value::new_none().to_string(),
             }),

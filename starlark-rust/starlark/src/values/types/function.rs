@@ -137,10 +137,8 @@ impl NativeCallableRawDocs {
     pub fn documentation(&self) -> docs::Function {
         docs::Function::from_docstring(
             DocStringKind::Rust,
-            |param_docs| {
-                self.signature
-                    .documentation(self.parameter_types.clone(), param_docs)
-            },
+            self.signature
+                .documentation(self.parameter_types.clone(), HashMap::new()),
             self.return_type.clone(),
             self.rust_docstring,
         )

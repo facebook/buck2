@@ -510,17 +510,15 @@ impl Function {
     ///
     /// # Arguments
     /// * `kind`: The kind of docstring. This determines the formatting that is parsed.
-    /// * `params_producer`: A function that takes a mapping of parameter names -> docstrings,
-    ///                      and creates a vec of params. These are then returned in the
-    ///                      main `Function` object.
+    /// * `params`: The parameters of the function.
     /// * `return_type`: The return type. This is pulled from typing info / directly from users,
     ///                  so it cannot be inferred generically.
     /// * `raw_docstring`: The raw docstring to be parsed and potentially modified,
     ///                    removing the sections detailing arguments and return values.
     ///                    The format is determined by `kind`.
-    pub fn from_docstring<F: FnOnce(HashMap<String, Option<DocString>>) -> Vec<Param>>(
+    pub fn from_docstring(
         kind: DocStringKind,
-        params_producer: F,
+        mut params: Vec<Param>,
         return_type: Option<Type>,
         raw_docstring: Option<&str>,
     ) -> Self {
@@ -529,7 +527,6 @@ impl Function {
                 let (function_docstring, sections) =
                     ds.parse_and_remove_sections(kind, &["arguments", "args", "returns", "return"]);
 
-                let mut params = params_producer(HashMap::new());
                 match sections.get("arguments").or_else(|| sections.get("args")) {
                     Some(args) => {
                         let entries = Self::parse_params(kind, args);
@@ -564,7 +561,7 @@ impl Function {
             }
             None => Function {
                 docs: None,
-                params: params_producer(HashMap::new()),
+                params,
                 ret: Return {
                     docs: None,
                     typ: return_type,
@@ -1454,14 +1451,12 @@ mod tests {
 
         let function_docs = Function::from_docstring(
             kind,
-            |_| {
-                vec![
-                    arg("**kwargs"),
-                    arg("*args"),
-                    arg("arg_bar"),
-                    arg("arg_foo"),
-                ]
-            },
+            vec![
+                arg("**kwargs"),
+                arg("*args"),
+                arg("arg_bar"),
+                arg("arg_foo"),
+            ],
             return_type,
             Some(docstring),
         );
@@ -1520,7 +1515,7 @@ mod tests {
 
         let function_docs = Function::from_docstring(
             kind,
-            |_| vec![arg("arg_bar"), arg("arg_foo")],
+            vec![arg("arg_bar"), arg("arg_foo")],
             return_type,
             Some(docstring),
         );

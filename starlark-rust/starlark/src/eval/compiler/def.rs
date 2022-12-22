@@ -525,7 +525,8 @@ impl<'v, T1: ValueLike<'v>> DefGen<T1> {
 
         let function_docs = docs::Function::from_docstring(
             DocStringKind::Starlark,
-            |param_docs| self.parameters.documentation(parameter_types, param_docs),
+            self.parameters
+                .documentation(parameter_types, HashMap::new()),
             return_type,
             self.def_info.docstring.as_ref().map(String::as_ref),
         );
