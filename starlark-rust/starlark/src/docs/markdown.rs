@@ -43,25 +43,25 @@ pub enum MarkdownFlavor {
 }
 
 /// This object can potentially generate markdown documentation about itself.
-pub trait AsMarkdown {
+pub trait RenderMarkdown {
     /// Generate markdown of the given flavor if possible. For some types, there may not be
     /// any useful documentation available.
     fn generate_markdown(&self, flavor: MarkdownFlavor) -> Option<String>;
 
-    /// Convenience method that invokes `AsMarkdown::generate_markdown`, and returns an
+    /// Convenience method that invokes `RenderMarkdown::generate_markdown`, and returns an
     /// empty string if that is `None`
     fn generate_markdown_or_empty(&self, flavor: MarkdownFlavor) -> String {
         self.generate_markdown(flavor).unwrap_or_default()
     }
 }
 
-impl AsMarkdown for String {
+impl RenderMarkdown for String {
     fn generate_markdown(&self, _flavor: MarkdownFlavor) -> Option<String> {
         Some(self.clone())
     }
 }
 
-impl AsMarkdown for str {
+impl RenderMarkdown for str {
     fn generate_markdown(&self, _flavor: MarkdownFlavor) -> Option<String> {
         Some(self.to_owned())
     }
@@ -80,7 +80,7 @@ enum DSOpts {
 /// Renders a docstring in a given fashion.
 struct DocStringRenderer<'a>(DSOpts, &'a Option<DocString>);
 
-impl<'a> AsMarkdown for DocStringRenderer<'a> {
+impl<'a> RenderMarkdown for DocStringRenderer<'a> {
     fn generate_markdown(&self, flavor: MarkdownFlavor) -> Option<String> {
         match flavor {
             MarkdownFlavor::DocFile => self.1.as_ref().and_then(|d| match self.0 {
@@ -102,7 +102,7 @@ struct PropertyDetailsRenderer<'a> {
     p: &'a Property,
 }
 
-impl<'a> AsMarkdown for PropertyDetailsRenderer<'a> {
+impl<'a> RenderMarkdown for PropertyDetailsRenderer<'a> {
     fn generate_markdown(&self, flavor: MarkdownFlavor) -> Option<String> {
         match flavor {
             MarkdownFlavor::DocFile => {
@@ -186,7 +186,7 @@ impl<'a> FunctionDetailsRenderer<'a> {
     }
 }
 
-impl<'a> AsMarkdown for FunctionDetailsRenderer<'a> {
+impl<'a> RenderMarkdown for FunctionDetailsRenderer<'a> {
     fn generate_markdown(&self, flavor: MarkdownFlavor) -> Option<String> {
         match flavor {
             MarkdownFlavor::DocFile => {
@@ -244,7 +244,7 @@ struct FunctionRenderer<'a> {
     function: &'a Function,
 }
 
-impl<'a> AsMarkdown for FunctionRenderer<'a> {
+impl<'a> RenderMarkdown for FunctionRenderer<'a> {
     fn generate_markdown(&self, flavor: MarkdownFlavor) -> Option<String> {
         match flavor {
             MarkdownFlavor::DocFile => FunctionDetailsRenderer {
@@ -263,7 +263,7 @@ struct ModuleRenderer<'a> {
     module: &'a Module,
 }
 
-impl<'a> AsMarkdown for ModuleRenderer<'a> {
+impl<'a> RenderMarkdown for ModuleRenderer<'a> {
     fn generate_markdown(&self, flavor: MarkdownFlavor) -> Option<String> {
         match flavor {
             MarkdownFlavor::DocFile => {
@@ -286,7 +286,7 @@ struct ObjectRenderer<'a> {
     object: &'a Object,
 }
 
-impl<'a> AsMarkdown for ObjectRenderer<'a> {
+impl<'a> RenderMarkdown for ObjectRenderer<'a> {
     fn generate_markdown(&self, flavor: MarkdownFlavor) -> Option<String> {
         match flavor {
             MarkdownFlavor::DocFile => {
@@ -358,7 +358,7 @@ impl<'a> AsMarkdown for ObjectRenderer<'a> {
     }
 }
 
-impl AsMarkdown for Doc {
+impl RenderMarkdown for Doc {
     fn generate_markdown(&self, flavor: MarkdownFlavor) -> Option<String> {
         match flavor {
             MarkdownFlavor::DocFile => {
@@ -393,7 +393,7 @@ struct MemberDetails<'a> {
     member: &'a Member,
 }
 
-impl<'a> AsMarkdown for MemberDetails<'a> {
+impl<'a> RenderMarkdown for MemberDetails<'a> {
     fn generate_markdown(&self, flavor: MarkdownFlavor) -> Option<String> {
         match flavor {
             MarkdownFlavor::DocFile => match self.member {
@@ -432,7 +432,7 @@ enum TypeRenderer<'a> {
     },
 }
 
-impl<'a> AsMarkdown for TypeRenderer<'a> {
+impl<'a> RenderMarkdown for TypeRenderer<'a> {
     fn generate_markdown(&self, flavor: MarkdownFlavor) -> Option<String> {
         fn raw_type(t: &Option<Type>) -> String {
             match t {
@@ -510,9 +510,9 @@ impl<'a> AsMarkdown for TypeRenderer<'a> {
 
 /// A string that should be put in "`" and be rendered literally.
 
-struct Code<'a>(Box<dyn AsMarkdown + 'a>);
+struct Code<'a>(Box<dyn RenderMarkdown + 'a>);
 
-impl<'a> AsMarkdown for Code<'a> {
+impl<'a> RenderMarkdown for Code<'a> {
     fn generate_markdown(&self, flavor: MarkdownFlavor) -> Option<String> {
         match flavor {
             MarkdownFlavor::DocFile => self
@@ -528,10 +528,10 @@ impl<'a> AsMarkdown for Code<'a> {
 /// lines, so may not be ideal for tables at the moment.
 struct CodeBlock<'a> {
     language: Option<String>,
-    contents: Box<dyn AsMarkdown + 'a>,
+    contents: Box<dyn RenderMarkdown + 'a>,
 }
 
-impl<'a> AsMarkdown for CodeBlock<'a> {
+impl<'a> RenderMarkdown for CodeBlock<'a> {
     fn generate_markdown(&self, flavor: MarkdownFlavor) -> Option<String> {
         match flavor {
             MarkdownFlavor::DocFile => self.contents.generate_markdown(flavor).map(|contents| {
@@ -549,7 +549,7 @@ impl<'a> AsMarkdown for CodeBlock<'a> {
 /// A table with an optional css class to be applied.
 struct Table<'a>(Option<&'a str>, TableHeader<'a>, Vec<TableRow<'a>>);
 
-impl<'a> AsMarkdown for Table<'a> {
+impl<'a> RenderMarkdown for Table<'a> {
     fn generate_markdown(&self, flavor: MarkdownFlavor) -> Option<String> {
         match flavor {
             MarkdownFlavor::DocFile => {
@@ -575,7 +575,7 @@ impl<'a> AsMarkdown for Table<'a> {
 /// The header of a table including all decoration needed. (`<thead>`, `| --- |` rows, etc)
 struct TableHeader<'a>(&'a [&'a str]);
 
-impl<'a> AsMarkdown for TableHeader<'a> {
+impl<'a> RenderMarkdown for TableHeader<'a> {
     fn generate_markdown(&self, flavor: MarkdownFlavor) -> Option<String> {
         match flavor {
             MarkdownFlavor::DocFile => Some(format!(
@@ -592,9 +592,9 @@ impl<'a> AsMarkdown for TableHeader<'a> {
 
 /// A row for a table with all decoration handled. Does not handled multi-line cells at the moment
 /// due to a restriction in the default markdown table syntax.
-struct TableRow<'a>(Vec<Box<dyn AsMarkdown + 'a>>);
+struct TableRow<'a>(Vec<Box<dyn RenderMarkdown + 'a>>);
 
-impl<'a> AsMarkdown for TableRow<'a> {
+impl<'a> RenderMarkdown for TableRow<'a> {
     fn generate_markdown(&self, flavor: MarkdownFlavor) -> Option<String> {
         match flavor {
             MarkdownFlavor::DocFile => Some(format!(
@@ -620,7 +620,6 @@ impl<'a> AsMarkdown for TableRow<'a> {
 mod test {
     use std::collections::HashMap;
 
-    use crate::docs::markdown::AsMarkdown;
     use crate::docs::markdown::Code;
     use crate::docs::markdown::CodeBlock;
     use crate::docs::markdown::DSOpts;
@@ -628,6 +627,7 @@ mod test {
     use crate::docs::markdown::FunctionDetailsRenderer;
     use crate::docs::markdown::MarkdownFlavor;
     use crate::docs::markdown::PropertyDetailsRenderer;
+    use crate::docs::markdown::RenderMarkdown;
     use crate::docs::markdown::Table;
     use crate::docs::markdown::TableHeader;
     use crate::docs::markdown::TableRow;
@@ -647,7 +647,7 @@ mod test {
     use crate::docs::Return;
     use crate::docs::Type;
 
-    fn render(renderer: &dyn AsMarkdown) -> String {
+    fn render(renderer: &dyn RenderMarkdown) -> String {
         renderer.generate_markdown(MarkdownFlavor::DocFile).unwrap()
     }
 
