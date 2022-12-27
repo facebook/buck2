@@ -69,8 +69,8 @@ use tokio::sync::Mutex;
 use tokio::sync::MutexGuard;
 use tonic::Status;
 
-use crate::docs::get_builtin_docs;
-use crate::docs::get_prelude_docs;
+use crate::builtin_docs::docs::get_builtin_docs;
+use crate::builtin_docs::docs::get_prelude_docs;
 use crate::streaming_request_handler::StreamingRequestHandler;
 
 static DOCS_DIRECTORY_KEY: &str = "directory";

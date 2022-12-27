@@ -52,6 +52,8 @@ use starlark::docs::Member;
 use starlark::environment::Globals;
 use starlark::values::StarlarkValue;
 
+use super::bxl_docs::get_builtin_bxl_docs;
+
 fn parse_import_paths(
     cell_resolver: &CellAliasResolver,
     current_dir: &CellPath,
@@ -77,7 +79,7 @@ fn parse_import_paths(
         .collect()
 }
 
-fn builtin_doc<S: ToString>(name: S, directory: &str, item: DocItem) -> Doc {
+pub(crate) fn builtin_doc<S: ToString>(name: S, directory: &str, item: DocItem) -> Doc {
     let mut custom_attrs = HashMap::new();
     if !directory.is_empty() {
         custom_attrs.insert("directory".to_owned(), directory.to_owned());
@@ -162,8 +164,13 @@ pub fn get_builtin_docs(
 ) -> anyhow::Result<Vec<Doc>> {
     let mut all_builtins = vec![
         get_builtin_global_starlark_docs(),
-        get_builtin_build_docs(cell_alias_resolver, interpreter_state)?,
+        get_builtin_build_docs(cell_alias_resolver.dupe(), interpreter_state.dupe())?,
     ];
+
+    all_builtins.extend(get_builtin_bxl_docs(
+        cell_alias_resolver,
+        interpreter_state,
+    )?);
 
     all_builtins.extend(get_builtin_provider_docs());
     if let Some(artifact) = get_artifact_docs() {

@@ -19,6 +19,7 @@ itertools = { workspace = true }
 lsp-server = { workspace = true }
 lsp-types = { workspace = true }
 once_cell = { workspace = true }
+maplit = { workspace = true }
 notify = { workspace = true }
 num_cpus = { workspace = true }
 prost-types = { workspace = true }

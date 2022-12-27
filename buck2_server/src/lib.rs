@@ -12,12 +12,12 @@
 #![feature(try_blocks)]
 
 pub mod active_commands;
+pub mod builtin_docs;
 pub mod clean_stale;
 pub mod configs;
 pub mod ctx;
 pub mod daemon;
 pub mod dice_tracker;
-pub mod docs;
 pub mod file_watcher;
 pub mod heartbeat_guard;
 pub mod host_info;
