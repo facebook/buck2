@@ -35,10 +35,23 @@ use crate::bxl::starlark_defs::context::BxlContext;
 use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
 use crate::bxl::starlark_defs::time::StarlarkInstant;
 
+/// Global methods on the target label.
 #[starlark_module]
 pub fn register_label_function(builder: &mut GlobalsBuilder) {
     /// Converts a `TargetLabel` into its corresponding `ProvidersLabel` given the subtarget names,
     /// which is a list for each layer of subtarget
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def _impl_sub_target(ctx):
+    ///     owners = ctx.cquery().owner("bin/TARGETS.fixture")
+    ///     for owner in owners:
+    ///         configured_label = owner.label
+    ///         unconfigured_label = configured_label.raw_target()
+    ///         ctx.output.print(sub_target(unconfigured_label))
+    ///         ctx.output.print(sub_target(unconfigured_label, "subtarget1"))
+    ///         ctx.output.print(sub_target(unconfigured_label, ["subtarget1", "subtarget2"))
+    /// ```
     fn sub_target<'v>(
         target: &StarlarkTargetLabel,
         #[starlark(default = FrozenList::empty())] subtarget_name: Value<'v>,
@@ -53,6 +66,17 @@ pub fn register_label_function(builder: &mut GlobalsBuilder) {
 
     /// Converts a `TargetLabel` into its corresponding `ProvidersLabel` given the subtarget name
     /// which is a list for each layer of subtarget
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def _impl_sub_target(ctx):
+    ///     owners = ctx.cquery().owner("bin/TARGETS.fixture")
+    ///     for owner in owners:
+    ///         configured_label = owner.label
+    ///         ctx.output.print(configured_sub_target(configured_label))
+    ///         ctx.output.print(configured_sub_target(configured_label, "subtarget1"))
+    ///         ctx.output.print(configured_sub_target(configured_label, ["subtarget1", "subtarget2"))
+    /// ```
     fn configured_sub_target<'v>(
         target: &StarlarkConfiguredTargetLabel,
         #[starlark(default = FrozenList::empty())] subtarget_name: Value<'v>,
@@ -66,18 +90,38 @@ pub fn register_label_function(builder: &mut GlobalsBuilder) {
     }
 }
 
+/// Global methods on the target set.
 #[starlark_module]
 pub fn register_target_function(builder: &mut GlobalsBuilder) {
+    /// Creates an empty target set.
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def _impl_target_set(ctx):
+    ///     targets = target_set()
+    ///     ctx.output.print(type(targets))
+    ///     ctx.output.print(len(targets))
+    /// ```
     fn target_set() -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
         Ok(StarlarkTargetSet::from(TargetSet::new()))
     }
 }
 
+/// Global methods on the StarlarkArtifact.
 #[starlark_module]
 pub fn register_artifact_function(builder: &mut GlobalsBuilder) {
     /// The project relative path of the source or build artifact.
     /// Note that this method returns an artifact path without asking for the artifact to be materialized,
     /// (i.e. it may not actually exist on the disk yet).
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def _impl_get_path_without_materialization(ctx):
+    ///     owner = ctx.cquery().owner("cell//path/to/file")[0]
+    ///     artifact = owner.get_source("cell//path/to/file", ctx)
+    ///     source_artifact_project_rel_path = get_path_without_materialization(artifact, ctx)
+    ///     ctx.output.print(source_artifact_project_rel_path) # Note this artifact is NOT ensured or materialized
+    /// ```
     fn get_path_without_materialization<'v>(
         this: &'v StarlarkArtifact,
         heap: &'v Heap,
@@ -92,8 +136,22 @@ pub fn register_artifact_function(builder: &mut GlobalsBuilder) {
     }
 }
 
+/// Global methods for Instant.
 #[starlark_module]
 pub fn register_instant_function(builder: &mut GlobalsBuilder) {
+    /// Creates an Instant at the current time.
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def _impl_elapsed_millis(ctx):
+    ///     now = now()
+    ///     time_a = now.elapsed_millis()
+    ///     # do something that takes a long time
+    ///     time_b = now.elapsed_millis()
+    ///
+    ///     ctx.output.print(time_a)
+    ///     ctx.output.print(time_b)
+    /// ```
     fn now<'v>(heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         Ok(heap.alloc(StarlarkInstant(Instant::now())))
     }

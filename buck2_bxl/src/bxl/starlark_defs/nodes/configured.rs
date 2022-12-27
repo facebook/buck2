@@ -69,7 +69,7 @@ mod attr_resolution_ctx;
 #[derive(Debug, Display, ProvidesStaticType, StarlarkDocs, Allocative)]
 #[derive(NoSerialize)] // TODO probably should be serializable the same as how queries serialize
 #[display(fmt = "configured_target_node(name = {}, ...)", "self.0.name()")]
-#[starlark_docs_attrs(directory = "bxl")]
+#[starlark_docs_attrs(directory = "BXL/Target Node")]
 pub struct StarlarkConfiguredTargetNode(pub ConfiguredTargetNode);
 
 starlark_simple_value!(StarlarkConfiguredTargetNode);
@@ -145,20 +145,30 @@ fn attrs_eager_impl<'v>(
     Ok(heap.alloc(Struct::new(attrs)))
 }
 
+/// Methods on the configured target node.
 #[starlark_module]
 fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     /// Gets the configured target label of this target node
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def _impl_label(ctx):
+    ///     node = ctx.configured_targets("my_cell//bin:the_binary")
+    ///     ctx.output.print(node.label)
+    /// ```
     #[starlark(attribute)]
     fn label(this: &StarlarkConfiguredTargetNode) -> anyhow::Result<StarlarkConfiguredTargetLabel> {
         Ok(StarlarkConfiguredTargetLabel::new(this.0.name().dupe()))
     }
 
     // TODO(@wendyy): remove this after migrating users over to `attrs_eager()`
+    /// Deprecated in favor of `attrs_eager()`
     fn attrs<'v>(this: &StarlarkConfiguredTargetNode, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         attrs_eager_impl(this, heap)
     }
 
     // TODO(@wendyy): remove this after migrating users over to `resolved_attrs_eager()`
+    /// Deprecated in favor of `resolved_attrs_eager()`
     fn resolved_attrs<'v>(
         this: &'v StarlarkConfiguredTargetNode,
         ctx: &'v BxlContext<'v>,
@@ -171,14 +181,21 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     /// attributes names, and the values are [`StarlarkConfiguredValue`].
     ///
     /// If you need to access many or all attrs on the same node, then this is the preferred way. Otherwise,
-
     /// using `attrs_lazy()` would be a better option for only accessing only a few attrs, although this really
     /// depends on what kind of attrs are on the node. Benchmarking performance will give you the best
     /// indication on which method to use.
     ///
     /// You should store the result of this function call for further usage in the code rather than calling
-
     /// `attrs_eager()` each time you need to access the attrs.
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def _impl_attrs_eager(ctx):
+    ///     node = ctx.cquery().owner("cell//path/to/TARGETS")[0]
+    ///     attrs = node.attrs_eager() # cache once
+    ///     ctx.output.print(attrs)
+    ///     # do more stuff with attrs
+    /// ```
     fn attrs_eager<'v>(
         this: &StarlarkConfiguredTargetNode,
         heap: &'v Heap,
@@ -190,14 +207,22 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     /// that you can call `get()` on that gets an attr one at a time.
     ///
     /// If you need to access only few attrs on the same node, then this is the preferred way. Otherwise,
-
     /// using `attrs_eager()` would be a better option for accessing many or all attrs, although this really
     /// depends on what kind of attrs are on the node. Benchmarking performance will give you the best
     /// indication on which method to use.
     ///
     /// You should store the result of this function call for further usage in the code rather than calling
-
-    /// `attrs_lazy()` each time to get the `StarlarkLazyAttrs` object.
+    /// `attrs_lazy()` each time to get the `StarlarkLazyAttrs` object. Note that if the `get()` is `NoneType`,
+    /// then any methods called on `NoneType` will result in an error.
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def _impl_attrs_lazy(ctx):
+    ///     node = ctx.cquery().owner("cell//path/to/TARGETS")[0]
+    ///     attrs = node.attrs_lazy() # cache once
+    ///     ctx.output.print(attrs.get("some_attributes").value())
+    ///     ctx.output.print(attrs.get("some_attribute").label)
+    /// ```
     fn attrs_lazy<'v>(
         this: &'v StarlarkConfiguredTargetNode,
     ) -> anyhow::Result<StarlarkLazyAttrs<'v>> {
@@ -208,14 +233,22 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     /// that you can call `get()` on that gets a resolved attr one at a time.
     ///
     /// If you need to access only few resolved attrs on the same node, then this is the preferred way. Otherwise,
-
     /// using `resolved_attrs_eager()` would be a better option for accessing many or all resolved attrs, although this really
     /// depends on what kind of resolved attrs are on the node. Benchmarking performance will give you the best
     /// indication on which method to use.
     ///
     /// You should store the result of this function call for further usage in the code rather than calling
-
-    /// `resolved_attrs_lazy()` each time to get the `StarlarkResolvedLazyAttrs` object.
+    /// `resolved_attrs_lazy()` each time to get the `StarlarkResolvedLazyAttrs` object. Note that if the `get()` is `NoneType`,
+    /// then any methods called on `NoneType` will result in an error.
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def _impl_resolved_attrs_lazy(ctx):
+    ///     node = ctx.cquery().owner("cell//path/to/TARGETS")[0]
+    ///     attrs = node.resolved_attrs_lazy() # cache once
+    ///     ctx.output.print(attrs.get("some_attributes").value())
+    ///     ctx.output.print(attrs.get("some_attribute").label)
+    /// ```
     fn resolved_attrs_lazy<'v>(
         this: &'v StarlarkConfiguredTargetNode,
         ctx: &'v BxlContext<'v>,
@@ -228,14 +261,21 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     /// attributes names, and the values are Starlark `[Value]`.
     ///
     /// If you need to access many or all resolved attrs on the same node, then this is the preferred way. Otherwise,
-
     /// using `resolved_attrs_lazy()` would be a better option for accessing only a few resolved attrs, although this really
     /// depends on what kind of resolved attrs are on the node. Benchmarking performance will give you the best
     /// indication on which method to use.
     ///
     /// You should store the result of this function call for further usage in the code rather than calling
-
     /// `resolved_attrs_eager()` each time you need all the resolved attrs.
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def _impl_resolved_attrs_eager(ctx):
+    ///     node = ctx.cquery().owner("cell//path/to/TARGETS")[0]
+    ///     attrs = node.resolved_attrs_eager() # cache once
+    ///     ctx.output.print(attrs)
+    ///     # do more stuff with attrs
+    /// ```
     fn resolved_attrs_eager<'v>(
         this: &'v StarlarkConfiguredTargetNode,
         ctx: &'v BxlContext<'v>,
@@ -246,12 +286,26 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
 
     /// Gets the targets' corresponding rule's name. This is the fully qualified rule name including
     /// the import path.
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def _impl_rule_type(ctx):
+    ///     node = ctx.configured_targets("my_cell//bin:the_binary")
+    ///     ctx.output.print(node.rule_type)
+    /// ```
     #[starlark(attribute)]
     fn rule_type(this: &StarlarkConfiguredTargetNode) -> anyhow::Result<String> {
         Ok(this.0.rule_type().to_string())
     }
 
     /// Returns a List of all the sources used by this node.
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def _impl_sources(ctx):
+    ///     node = ctx.configured_targets("my_cell//bin:the_binary")
+    ///     ctx.output.print(node.sources())
+    /// ```
     fn sources(this: &StarlarkConfiguredTargetNode) -> anyhow::Result<Vec<StarlarkArtifact>> {
         struct InputsCollector {
             inputs: Vec<StarlarkArtifact>,
@@ -277,6 +331,14 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     }
 
     /// Gets the `SourceArtifact` that corresponds to the given `path` given a context
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def _impl_get_source(ctx):
+    ///     owner = ctx.cquery().owner("cell//path/to/file")[0]
+    ///     artifact = owner.get_source("cell//path/to/file", ctx)
+    ///     ctx.output.print(artifact)
+    /// ```
     fn get_source(
         this: &StarlarkConfiguredTargetNode,
         path: &str,
@@ -347,7 +409,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
 )]
 #[display(fmt = "Traversal({})", "self.0")]
 #[repr(C)]
-#[starlark_docs_attrs(directory = "bxl")]
+#[starlark_docs_attrs(directory = "BXL/Target Node Attributes")]
 pub struct StarlarkConfiguredValue(ConfiguredAttr);
 
 starlark_simple_value!(StarlarkConfiguredValue);
@@ -361,15 +423,32 @@ impl<'v> StarlarkValue<'v> for StarlarkConfiguredValue {
     }
 }
 
+/// Methods on configured target node's attributes.
 #[starlark_module]
 fn configured_value_methods(builder: &mut MethodsBuilder) {
     /// Returns the type name of the attribute
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def _impl_type(ctx):
+    ///     node = ctx.cquery().owner("bin/TARGETS")[0]
+    ///     attrs = node.attrs_eager()
+    ///     ctx.output.print(attrs.name.type)
+    /// ```
     #[starlark(attribute)]
     fn r#type<'v>(this: &StarlarkConfiguredValue) -> anyhow::Result<&'v str> {
         this.0.starlark_type()
     }
 
     /// Returns the value of this attribute. The value here is not fully resolved like in rules.
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def _impl_value(ctx):
+    ///     node = ctx.cquery().owner("bin/TARGETS")[0]
+    ///     attrs = node.attrs_eager()
+    ///     ctx.output.print(attrs.name.value())
+    /// ```
     fn value<'v>(this: &StarlarkConfiguredValue, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         this.0.to_value(heap)
     }
@@ -385,7 +464,7 @@ fn configured_value_methods(builder: &mut MethodsBuilder) {
     StarlarkDocs,
     Allocative
 )]
-#[starlark_docs_attrs(directory = "bxl")]
+#[starlark_docs_attrs(directory = "BXL/Target Node Attributes")]
 #[derivative(Debug)]
 #[display(fmt = "{:?}", self)]
 pub struct StarlarkLazyAttrs<'v> {
@@ -430,9 +509,17 @@ impl<'v> StarlarkLazyAttrs<'v> {
     }
 }
 
+/// The context for getting attrs lazily on a `StarlarkConfiguredTargetNode`.
 #[starlark_module]
 fn lazy_attrs_methods(builder: &mut MethodsBuilder) {
-    /// Gets a single attribute.
+    /// Gets a single attribute. Returns an optional `[StarlarkConfiguredValue]`.
+    ///
+    /// def _impl_attrs_lazy(ctx):
+    ///     node = ctx.cquery().owner("cell//path/to/TARGETS")[0]
+    ///     attrs = node.attrs_lazy() # cache once
+    ///     ctx.output.print(attrs.get("some_attributes").value())
+    ///     ctx.output.print(attrs.get("some_attribute").label)
+    /// ```
     fn get<'v>(
         this: &StarlarkLazyAttrs<'v>,
         attr: &str,
@@ -445,7 +532,6 @@ fn lazy_attrs_methods(builder: &mut MethodsBuilder) {
     }
 }
 
-/// The context for getting resolved attrs lazily on a `StarlarkConfiguredTargetNode`.
 #[derive(
     ProvidesStaticType,
     Derivative,
@@ -455,7 +541,7 @@ fn lazy_attrs_methods(builder: &mut MethodsBuilder) {
     StarlarkDocs,
     Allocative
 )]
-#[starlark_docs_attrs(directory = "bxl")]
+#[starlark_docs_attrs(directory = "BXL/Target Node Attributes")]
 #[derivative(Debug)]
 #[display(fmt = "{:?}", self)]
 pub struct StarlarkLazyResolvedAttrs<'v> {
@@ -518,9 +604,19 @@ impl<'v> StarlarkLazyResolvedAttrs<'v> {
     }
 }
 
+/// The context for getting resolved attrs lazily on a `StarlarkConfiguredTargetNode`.
 #[starlark_module]
 fn lazy_resolved_attrs_methods(builder: &mut MethodsBuilder) {
-    /// Gets a single resolved attribute.
+    /// Gets a single resolved attribute. Returns an optional configured attribute.
+    ///
+    /// Gets a single attribute.
+    ///
+    /// def _impl_resolved_attrs_lazy(ctx):
+    ///     node = ctx.cquery().owner("cell//path/to/TARGETS")[0]
+    ///     attrs = node.resolved_attrs_lazy() # cache once
+    ///     ctx.output.print(attrs.get("some_attribute").value())
+    ///     ctx.output.print(attrs.get("some_attribute").label)
+    /// ```
     fn get<'v>(
         this: &StarlarkLazyResolvedAttrs<'v>,
         attr: &str,

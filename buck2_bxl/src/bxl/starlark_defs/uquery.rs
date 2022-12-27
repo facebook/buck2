@@ -35,6 +35,7 @@ use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
+use starlark::StarlarkDocs;
 
 use crate::bxl::starlark_defs::context::BxlContext;
 use crate::bxl::starlark_defs::query_util::parse_query_evaluation_result;
@@ -45,8 +46,10 @@ use crate::bxl::starlark_defs::query_util::parse_query_evaluation_result;
     Display,
     Trace,
     NoSerialize,
-    Allocative
+    Allocative,
+    StarlarkDocs
 )]
+#[starlark_docs_attrs(directory = "BXL/Queries")]
 #[derivative(Debug)]
 #[display(fmt = "{:?}", self)]
 #[allocative(skip)]
@@ -114,9 +117,18 @@ impl<'v> StarlarkUQueryCtx<'v> {
     }
 }
 
+/// The context for performing `uquery` operations in bxl. The functions offered on this ctx are
+/// the same behaviour as the query functions available within uquery command.
 #[starlark_module]
 fn register_uquery(builder: &mut MethodsBuilder) {
     /// Evaluates some general query string
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def _impl_eval(ctx):
+    ///     result = ctx.uquery().eval("inputs(cell//path/to/file:target)")
+    ///     ctx.output.print(result)
+    /// ```
     fn eval<'v>(
         this: &StarlarkUQueryCtx<'v>,
         query: &'v str,

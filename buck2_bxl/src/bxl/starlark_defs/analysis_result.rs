@@ -32,7 +32,7 @@ use starlark::StarlarkDocs;
     Allocative
 )]
 #[display(fmt = "{:?}", self)]
-#[starlark_docs_attrs(directory = "bxl")]
+#[starlark_docs_attrs(directory = "BXL/Analysis")]
 pub struct StarlarkAnalysisResult {
     analysis: AnalysisResult,
     label: ConfiguredProvidersLabel,
@@ -55,10 +55,21 @@ impl<'v> StarlarkValue<'v> for StarlarkAnalysisResult {
     }
 }
 
+/// The result of running an analysis in bxl.
 #[starlark_module]
 fn starlark_analysis_result_methods(builder: &mut MethodsBuilder) {
-    /// Access the providers of the rule. Returns a 'ProviderCollection' the same as accessing
+    /// Access the providers of the rule. Returns a `[ProviderCollection]` the same as accessing
     /// providers of dependencies within a rule implementation.
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def _impl_providers(ctx):
+    ///     node = ctx.configured_targets("root//bin:the_binary")
+    ///     providers = ctx.analysis(node).providers()
+    ///     ctx.output.print(providers[FooInfo])
+    ///     providers = ctx.analysis("//:bin").providers()
+    ///     ctx.output.print(providers[FooInfo])
+    /// ```
     fn providers<'v>(this: &'v StarlarkAnalysisResult) -> anyhow::Result<FrozenValue> {
         unsafe {
             // SAFETY:: this actually just returns a FrozenValue from in the StarlarkAnalysisResult

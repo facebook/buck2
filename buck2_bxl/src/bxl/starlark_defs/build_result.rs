@@ -37,13 +37,21 @@ use crate::bxl::starlark_defs::context::build::StarlarkProvidersArtifactIterable
     StarlarkDocs,
     Allocative
 )]
-#[starlark_docs_attrs(directory = "bxl")]
+#[starlark_docs_attrs(directory = "BXL/Build")]
 pub(crate) struct StarlarkBxlBuildResult(pub(crate) BxlBuildResult);
 
-/// The result of building in bxl
+/// The result of building in bxl.
 #[starlark_module]
 fn starlark_build_result_methods(builder: &mut MethodsBuilder) {
     /// Returns an optional iterable of artifacts that was successfully built.
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def _impl(ctx):
+    ///     outputs = {}
+    ///     for target, value in ctx.build(ctx.cli_args.target).items():
+    ///         ctx.output.print(value.artifacts())
+    /// ```
     fn artifacts<'v>(
         this: Value<'v>,
     ) -> anyhow::Result<Option<StarlarkProvidersArtifactIterable<'v>>> {
@@ -54,6 +62,14 @@ fn starlark_build_result_methods(builder: &mut MethodsBuilder) {
     }
 
     /// Returns an optional of iterable of artifacts that failed to be built.
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def _impl(ctx):
+    ///     outputs = {}
+    ///     for target, value in ctx.build(ctx.cli_args.target).items():
+    ///         ctx.output.print(value.failures())
+    /// ```
     fn failures<'v>(this: Value<'v>) -> anyhow::Result<Option<StarlarkFailedArtifactIterable<'v>>> {
         match &this.downcast_ref::<StarlarkBxlBuildResult>().unwrap().0 {
             BxlBuildResult::None => Ok(None),

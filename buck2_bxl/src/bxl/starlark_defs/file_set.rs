@@ -33,6 +33,7 @@ use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueError;
 use starlark::values::ValueLike;
+use starlark::StarlarkDocs;
 
 /// FileSetExpr is just a simple type that can be used in starlark_module
 /// functions for arguments that should be file sets. It will accept either a
@@ -94,9 +95,13 @@ impl<'v> UnpackValue<'v> for FileSetExpr<'v> {
     }
 }
 
-#[derive(Debug, Display, ProvidesStaticType, Allocative)]
+#[derive(Debug, Display, ProvidesStaticType, Allocative, StarlarkDocs)]
 #[derive(NoSerialize)] // TODO maybe this should be
-pub struct StarlarkFileSet(pub FileSet);
+#[starlark_docs_attrs(directory = "BXL/File System")]
+pub struct StarlarkFileSet(
+    /// Set of files or directories.
+    pub FileSet,
+);
 
 starlark_simple_value!(StarlarkFileSet);
 
@@ -147,9 +152,13 @@ impl Deref for StarlarkFileSet {
     }
 }
 
-#[derive(Debug, Display, ProvidesStaticType, Clone, Allocative)]
+#[derive(Debug, Display, ProvidesStaticType, Clone, Allocative, StarlarkDocs)]
 #[derive(NoSerialize)]
-pub struct StarlarkFileNode(pub CellPath);
+#[starlark_docs_attrs(directory = "BXL/File System")]
+pub struct StarlarkFileNode(
+    /// Cell path to the file or directory.
+    pub CellPath,
+);
 
 starlark_simple_value!(StarlarkFileNode);
 
@@ -157,11 +166,15 @@ impl StarlarkValue<'_> for StarlarkFileNode {
     starlark_type!("file_node");
 }
 
-#[derive(Debug, ProvidesStaticType, Clone, Allocative)]
+#[derive(Debug, ProvidesStaticType, Clone, Allocative, StarlarkDocs)]
 #[derive(NoSerialize)]
+#[starlark_docs_attrs(directory = "BXL/File System")]
 pub struct StarlarkReadDirSet {
+    /// Cell path to the directory/files.
     pub cell_path: CellPath,
+    /// Files that are not ignored within the buckconfig.
     pub included: Arc<Vec<SimpleDirEntry>>,
+    /// Files that are ignored within the buckconfig.
     pub ignored: Option<Arc<Vec<SimpleDirEntry>>>,
 }
 

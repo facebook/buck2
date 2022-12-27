@@ -28,6 +28,7 @@ use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueLike;
+use starlark::StarlarkDocs;
 
 use crate::bxl::starlark_defs::nodes::unconfigured::StarlarkTargetNode;
 
@@ -78,13 +79,15 @@ where
     }
 }
 
-#[derive(Debug, Display, ProvidesStaticType, From, Allocative)]
+#[derive(Debug, Display, ProvidesStaticType, From, Allocative, StarlarkDocs)]
 #[derive(NoSerialize)] // TODO probably should be serializable the same as how queries serialize
 #[display(fmt = "{:?}", self)]
+#[starlark_docs_attrs(directory = "BXL/Target Node Attributes")]
 pub struct StarlarkCoercedAttr(pub CoercedAttr);
 
 starlark_simple_value!(StarlarkCoercedAttr);
 
+/// Coerced attr from an unconfigured target node.
 impl<'v> StarlarkValue<'v> for StarlarkCoercedAttr {
     starlark_type!("coerced_attr");
 }

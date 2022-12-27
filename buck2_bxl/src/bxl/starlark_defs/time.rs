@@ -34,14 +34,26 @@ use starlark::StarlarkDocs;
     StarlarkDocs,
     Allocative
 )]
-#[starlark_docs_attrs(directory = "bxl")]
+#[starlark_docs_attrs(directory = "BXL/Instant")]
 #[display(fmt = "{:?}", _0)]
 pub struct StarlarkInstant(pub(crate) Instant);
 
-/// Instant methods, to aid in debugging
+/// Instant methods, to aid in debugging/timing individual pieces of the bxl script.
 #[starlark_module]
 fn starlark_instant_methods(builder: &mut MethodsBuilder) {
     /// Elapsed time in secs as a float
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def _impl_elapsed_secs(ctx):
+    ///     now = now()
+    ///     time_a = now.elapsed_secs()
+    ///     # do something that takes a long time
+    ///     time_b = now.elapsed_secs()
+    ///
+    ///     ctx.output.print(time_a)
+    ///     ctx.output.print(time_b)
+    /// ```
     fn elapsed_secs<'v>(this: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         let secs = this
             .downcast_ref::<StarlarkInstant>()
@@ -54,6 +66,18 @@ fn starlark_instant_methods(builder: &mut MethodsBuilder) {
     }
 
     /// Elapsed time in millis as a float
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def _impl_elapsed_millis(ctx):
+    ///     now = now()
+    ///     time_a = now.elapsed_millis()
+    ///     # do something that takes a long time
+    ///     time_b = now.elapsed_millis()
+    ///
+    ///     ctx.output.print(time_a)
+    ///     ctx.output.print(time_b)
+    /// ```
     fn elapsed_millis<'v>(this: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         let millis = this
             .downcast_ref::<StarlarkInstant>()

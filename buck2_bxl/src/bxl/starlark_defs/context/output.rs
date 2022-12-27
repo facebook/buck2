@@ -7,9 +7,6 @@
  * of this source tree.
  */
 
-//! The output stream for bxl to print values to the console as their result
-//!
-
 use std::cell::RefCell;
 use std::io::Write;
 use std::ops::DerefMut;
@@ -68,7 +65,7 @@ use crate::bxl::starlark_defs::context::build::StarlarkProvidersArtifactIterable
     Allocative
 )]
 #[display(fmt = "{:?}", self)]
-#[starlark_docs_attrs(directory = "bxl")]
+#[starlark_docs_attrs(directory = "BXL/Output and Ensuring")]
 #[derivative(Debug)]
 pub struct OutputStream {
     #[derivative(Debug = "ignore")]
@@ -129,6 +126,7 @@ impl<'v> AllocValue<'v> for OutputStream {
     }
 }
 
+/// The output stream for bxl to print values to the console as their result
 #[starlark_module]
 fn register_output_stream(builder: &mut MethodsBuilder) {
     /// Outputs results to the console via stdout. These outputs are considered to be the results
@@ -137,6 +135,12 @@ fn register_output_stream(builder: &mut MethodsBuilder) {
     ///
     /// Prints that are not result of the bxl should be printed via stderr via the stdlib `print`
     /// and `pprint`.
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def _impl_print(ctx):
+    ///     ctx.output.print("test")
+    /// ```
     fn print(
         this: &OutputStream,
         #[starlark(args)] args: Vec<Value>,
@@ -176,6 +180,14 @@ fn register_output_stream(builder: &mut MethodsBuilder) {
     ///
     /// Prints that are not result of the bxl should be printed via stderr via the stdlib `print`
     /// and `pprint`.
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def _impl_print_json(ctx):
+    ///     outputs = {}
+    ///     outputs.update({"foo": bar})
+    ///     ctx.output.print_json("test")
+    /// ```
     fn print_json(this: &OutputStream, value: Value) -> anyhow::Result<NoneType> {
         /// A wrapper with a Serialize instance so we can pass down the necessary context.
         struct SerializeValue<'a, 'v> {
@@ -252,6 +264,15 @@ fn register_output_stream(builder: &mut MethodsBuilder) {
     ///
     /// This function returns an `ensured_artifact` type that can be printed via `ctx.output.print()`
     /// to print its actual path on disk.
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def _impl_ensure(ctx):
+    ///     actions = ctx.bxl_actions.action_factory()
+    ///     output = actions.write("my_output", "my_content")
+    ///     ensured = ctx.output.ensure(output)
+    ///     ctx.output.print(ensured)
+    /// ```
     fn ensure<'v>(this: &OutputStream, artifact: Value<'v>) -> anyhow::Result<EnsuredArtifact> {
         let artifact = EnsuredArtifact::new(artifact)?;
         populate_ensured_artifacts(this, &artifact)?;
@@ -259,9 +280,18 @@ fn register_output_stream(builder: &mut MethodsBuilder) {
         Ok(artifact)
     }
 
-    /// Same as `ensure`, but for multiple. Will preserve the shape of the inputs (i.e. if the resulting
+    /// Same as `ensure`, but for multiple artifacts. Will preserve the shape of the inputs (i.e. if the resulting
     /// `Dict` of a `ctx.build()` is passed in, the output will be a `Dict` where the key is preserved,
     /// and the values are converted to `EnsuredArtifact`s).
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def _impl_ensure_multiple(ctx):
+    ///     outputs = {}
+    ///     for target, value in ctx.build(ctx.cli_args.target).items():
+    ///     outputs.update({target.raw_target(): ctx.output.ensure_multiple(value.artifacts())})
+    ///     ctx.output.print_json(outputs)
+    /// ```
     fn ensure_multiple<'v>(
         this: &OutputStream,
         artifacts: Value<'v>,

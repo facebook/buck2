@@ -55,7 +55,7 @@ enum BxlActionsError {
     StarlarkDocs,
     Allocative
 )]
-#[starlark_docs_attrs(directory = "bxl")]
+#[starlark_docs_attrs(directory = "BXL/Actions")]
 #[derivative(Debug)]
 #[display(fmt = "{:?}", self)]
 pub(crate) struct BxlActionsCtx<'v> {
@@ -95,14 +95,24 @@ impl<'v> UnpackValue<'v> for &'v BxlActionsCtx<'v> {
     }
 }
 
+/// The bxl action context for creating and running actions.
 #[starlark_module]
 fn register_context(builder: &mut MethodsBuilder) {
-    /// Returns the actions context [`AnalysisRegistry`] to create and register actions for this
+    /// Returns the analysis registry [`AnalysisRegistry`] to create and register actions for this
     /// bxl function. This will have the same functionality as the actions for rules.
     ///
     /// Actions created by bxl will not be built by default. Instead, they are marked to be built
     /// by `ctx.output.ensure(artifact)` on the output module of the [`BxlContext`]. Only artifacts
     /// marked by ensure will be built.
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def _impl_write_action(ctx):
+    ///     actions = ctx.bxl_actions.action_factory()
+    ///     output = actions.write("my_output", "my_content")
+    ///     ensured = ctx.output.ensure(output)
+    ///     ctx.output.print(ensured)
+    /// ```
     fn action_factory<'v>(this: &BxlActionsCtx<'v>) -> anyhow::Result<Value<'v>> {
         let mut registry = this.ctx.as_ref().state.state.borrow_mut();
         if (*registry).is_some() {

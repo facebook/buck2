@@ -85,8 +85,6 @@ pub mod fs;
 pub mod output;
 pub mod starlark_async;
 
-/// The bxl context that the top level bxl implementation receives as parameter.
-/// This context contains all the core bxl functions to query, build, create actions, etc.
 #[derive(
     ProvidesStaticType,
     Derivative,
@@ -96,7 +94,7 @@ pub mod starlark_async;
     StarlarkDocs,
     Allocative
 )]
-#[starlark_docs_attrs(directory = "bxl")]
+#[starlark_docs_attrs(directory = "BXL/Context")]
 #[derivative(Debug)]
 #[display(fmt = "{:?}", self)]
 pub struct BxlContext<'v> {
@@ -237,6 +235,8 @@ impl<'v> UnpackValue<'v> for &'v BxlContext<'v> {
     }
 }
 
+/// The bxl context that the top level bxl implementation receives as parameter.
+/// This context contains all the core bxl functions to query, build, create actions, etc.
 #[starlark_module]
 fn register_context(builder: &mut MethodsBuilder) {
     /// Gets the output stream to the console via stdout. Items written to the output stream

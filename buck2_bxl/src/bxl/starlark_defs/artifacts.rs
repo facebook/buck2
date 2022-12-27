@@ -39,11 +39,9 @@ use starlark::values::Value;
 use starlark::values::ValueLike;
 use starlark::values::ValueOf;
 
-/// An artifact that will be materialized to buck-out at the end of the bxl invocation.
-/// These artifacts can be printed to bxl's results. Doing so will print the path of the artifact
-/// rather than the standard representation.
 #[derive(Clone, Debug, Trace, ProvidesStaticType, StarlarkDocs, Allocative)]
 #[repr(C)]
+#[starlark_docs_attrs(directory = "BXL/Output and Ensuring")]
 pub enum EnsuredArtifact {
     Artifact {
         artifact: StarlarkArtifact,
@@ -166,9 +164,28 @@ where
     }
 }
 
+/// An artifact that will be materialized to buck-out at the end of the bxl invocation.
+/// These artifacts can be printed to bxl's results. Doing so will print the path of the artifact
+/// rather than the standard representation.
+///
+/// Ensured artifacts are serializable and hashable.
 #[starlark_module]
 fn artifact_methods(builder: &mut MethodsBuilder) {
-    /// converts this artifact to be printed by its absolute path
+    /// Converts this artifact to be printed by its absolute path. Note that this will only print out the
+    /// absolute path via `ctx.output.print()`. Starlark's `print()` will print out the display info for an
+    /// ensured artifact.
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def _impl_abs_path(ctx):
+    ///     actions = ctx.bxl_actions.action_factory()
+    ///     output = actions.write("my_output", "my_content")
+    ///     ensured = ctx.output.ensure(output) # currently defaults to creating an EnsuredArtifact with a relative path
+    ///     
+    ///     ensured_with_abs_path = ensured.abs_path() # create a new EnsuredArtifact with absolute path to reuse
+    ///     print(ensured_with_abs_path) # should return something like <ensured artifact ... >
+    ///     ctx.output.print(ensured_with_abs_path) # should return the absolute path of the artifact
+    /// ```
     fn abs_path<'v>(
         this: ValueOf<'v, &'v EnsuredArtifact>,
         heap: &'v Heap,
@@ -193,7 +210,21 @@ fn artifact_methods(builder: &mut MethodsBuilder) {
         }
     }
 
-    /// converts this artifact to be printed by its path relative to the project root
+    /// Converts this artifact to be printed by its path relative to the project root.
+    /// Note that this will only print out the relative path via `ctx.output.print()`.
+    /// Starlark's `print()` will print out the display info for an ensured artifact.
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def _impl_rel_path(ctx):
+    ///     actions = ctx.bxl_actions.action_factory()
+    ///     output = actions.write("my_output", "my_content")
+    ///     ensured = ctx.output.ensure(output) # currently defaults to creating an EnsuredArtifact with a relative path
+    ///     
+    ///     ensured_with_rel_path = ensured.rel_path() # create a new EnsuredArtifact with relative path to reuse
+    ///     print(ensured_with_rel_path) # should return something like <ensured artifact ... >
+    ///     ctx.output.print(ensured_with_rel_path) # should return the relative path of the artifact
+    /// ```
     fn rel_path<'v>(
         this: ValueOf<'v, &'v EnsuredArtifact>,
         heap: &'v Heap,

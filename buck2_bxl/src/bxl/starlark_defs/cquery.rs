@@ -50,8 +50,6 @@ use crate::bxl::starlark_defs::target_expr::TargetExpr;
 use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
 use crate::bxl::value_as_starlark_target_label::ValueAsStarlarkTargetLabel;
 
-/// The context for performing `cquery` operations in bxl. The functions offered on this ctx are
-/// the same behaviour as the query functions available within cquery command.
 #[derive(
     ProvidesStaticType,
     Derivative,
@@ -61,7 +59,7 @@ use crate::bxl::value_as_starlark_target_label::ValueAsStarlarkTargetLabel;
     StarlarkDocs,
     Allocative
 )]
-#[starlark_docs_attrs(directory = "bxl")]
+#[starlark_docs_attrs(directory = "BXL/Queries")]
 #[derivative(Debug)]
 #[display(fmt = "{:?}", self)]
 #[allocative(skip)]
@@ -139,9 +137,14 @@ impl<'v> StarlarkCQueryCtx<'v> {
     }
 }
 
+/// The context for performing `cquery` operations in bxl. The functions offered on this ctx are
+/// the same behaviour as the query functions available within cquery command.
+///
+/// Query results are `[StarlarkTargetSet]`s of `[ConfiguredTargetNod]`s, which supports iteration,
+/// indexing, `len()`, set addition/subtraction, and `equals()`.
 #[starlark_module]
 fn register_cquery(builder: &mut MethodsBuilder) {
-    /// The `allpaths` query.
+    /// The `allpaths` query for computing all dependency paths.
     fn allpaths<'v>(
         this: &StarlarkCQueryCtx<'v>,
         from: Value<'v>,
@@ -176,6 +179,7 @@ fn register_cquery(builder: &mut MethodsBuilder) {
         })?)
     }
 
+    // The somepaths query.
     fn somepaths<'v>(
         this: &StarlarkCQueryCtx<'v>,
         from: Value<'v>,
@@ -210,6 +214,7 @@ fn register_cquery(builder: &mut MethodsBuilder) {
         })?)
     }
 
+    /// The attrfilter query for rule attribute filtering.
     fn attrfilter<'v>(
         this: &StarlarkCQueryCtx<'v>,
         attr: &str,
@@ -236,6 +241,14 @@ fn register_cquery(builder: &mut MethodsBuilder) {
         })
     }
 
+    /// The kind query for filtering targets by rule type.
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def _impl_kind(ctx):
+    ///     kind = ctx.cquery().kind(".*1", "bin/kind/...")
+    ///     ctx.output.print(kind)
+    /// ```
     fn kind<'v>(
         this: &StarlarkCQueryCtx<'v>,
         regex: &str,
@@ -260,6 +273,14 @@ fn register_cquery(builder: &mut MethodsBuilder) {
         })
     }
 
+    /// The attrregexfilter query for rule attribute filtering with regex.
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def _impl_attrregexfilter(ctx):
+    ///     filtered = ctx.cquery().attrregexfilter("foo", "he.lo", "bin/kind/...")
+    ///     ctx.output.print(filtered)
+    /// ```
     fn attrregexfilter<'v>(
         this: &StarlarkCQueryCtx<'v>,
         attribute: &str,
@@ -286,6 +307,14 @@ fn register_cquery(builder: &mut MethodsBuilder) {
         })
     }
 
+    /// The owner query for finding targets that own specified files.
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def _owner_impl(ctx):
+    ///     owner = ctx.cquery().owner("bin/TARGETS.fixture")
+    ///     ctx.output.print(owner)
+    /// ```
     fn owner<'v>(
         this: &StarlarkCQueryCtx,
         files: FileSetExpr,
@@ -300,6 +329,14 @@ fn register_cquery(builder: &mut MethodsBuilder) {
             .map(StarlarkTargetSet::from)
     }
 
+    /// The deps query for finding the transitive closure of dependencies.
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def _impl_deps(ctx):
+    ///     result = ctx.cquery().deps("root//bin:the_binary", 1)
+    ///     ctx.output.print(result)
+    /// ```
     fn deps<'v>(
         this: &StarlarkCQueryCtx<'v>,
         universe: Value<'v>,
@@ -338,6 +375,14 @@ fn register_cquery(builder: &mut MethodsBuilder) {
             .map(StarlarkTargetSet::from)
     }
 
+    /// The filter query for filtering targets by name.
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def _impl_filter(ctx):
+    ///     result = ctx.cquery().filter(".*the_binary", "root//...")
+    ///     ctx.output.print(result)
+    /// ```
     pub fn filter<'v>(
         this: &StarlarkCQueryCtx<'v>,
         regex: &str,
@@ -363,6 +408,14 @@ fn register_cquery(builder: &mut MethodsBuilder) {
             .map(StarlarkTargetSet::from)
     }
 
+    /// The inputs query for finding input files.
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def _impl_inputs(ctx):
+    ///     result = ctx.cquery().inputs("root//bin:the_binary")
+    ///     ctx.output.print(result)
+    /// ```
     pub fn inputs<'v>(
         this: &StarlarkCQueryCtx<'v>,
         targets: Value<'v>,
@@ -386,6 +439,7 @@ fn register_cquery(builder: &mut MethodsBuilder) {
             .map(StarlarkFileSet::from)
     }
 
+    /// The testsof query for lising the tests of the specified targets.
     pub fn testsof<'v>(
         this: &StarlarkCQueryCtx<'v>,
         targets: Value<'v>,
@@ -412,6 +466,14 @@ fn register_cquery(builder: &mut MethodsBuilder) {
             .map(StarlarkTargetSet::from)
     }
 
+    /// The rdeps query for finding the transitive closure of reverse dependencies.
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def _impl_rdeps(ctx):
+    ///     result = ctx.cquery().rdeps("root//bin:the_binary", "//lib:file1", 100)
+    ///     ctx.output.print(result)
+    /// ```
     fn rdeps<'v>(
         this: &StarlarkCQueryCtx<'v>,
         universe: Value<'v>,
@@ -451,6 +513,13 @@ fn register_cquery(builder: &mut MethodsBuilder) {
     }
 
     /// Evaluates some general query string
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def _impl_eval(ctx):
+    ///     result = ctx.cquery().eval("inputs(root//bin:the_binary)")
+    ///     ctx.output.print(result)
+    /// ```
     fn eval<'v>(
         this: &StarlarkCQueryCtx<'v>,
         query: &'v str,
@@ -485,7 +554,15 @@ fn register_cquery(builder: &mut MethodsBuilder) {
         })
     }
 
-    // Find the build file(s) that defines a target or a target set.
+    /// Find the build file(s) that defines a target or a target set.
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def _buildfile_impl(ctx):
+    ///     owner = ctx.cquery().owner(["bin/TARGET", "bin/kind"])
+    ///     result = ctx.cquery().buildfile(owner)
+    ///     ctx.output.print(result)
+    /// ```
     fn buildfile<'v>(
         this: &StarlarkCQueryCtx<'v>,
         targets: Value<'v>,

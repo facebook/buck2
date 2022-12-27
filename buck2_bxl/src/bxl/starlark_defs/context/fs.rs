@@ -7,9 +7,6 @@
  * of this source tree.
  */
 
-//! Provides some basic tracked filesystem access for bxl functions so that they can meaningfully
-//! detect simple properties of artifacts, and source directories.
-
 use allocative::Allocative;
 use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::file_ops::FileOps;
@@ -49,7 +46,7 @@ use crate::bxl::starlark_defs::file_set::StarlarkReadDirSet;
     Allocative
 )]
 #[derivative(Debug)]
-#[starlark_docs_attrs(directory = "bxl")]
+#[starlark_docs_attrs(directory = "BXL/File System")]
 #[display(fmt = "{:?}", self)]
 #[allocative(skip)]
 pub struct BxlFilesystem<'v> {
@@ -105,9 +102,18 @@ impl<'v> UnpackValue<'v> for &'v BxlFilesystem<'v> {
     }
 }
 
+/// Provides some basic tracked filesystem access for bxl functions so that they can meaningfully
+/// detect simple properties of artifacts, and source directories.
 #[starlark_module]
 fn fs_operations(builder: &mut MethodsBuilder) {
-    /// Check if a path exists on disk, taking advantage of Buck's cached filesystem
+    /// Check if a path exists on disk, taking advantage of Buck's cached filesystem.
+    /// Takes in a literal, a source artifact (via `[StarlarkArtifact]`), or a `[StarlarkFileNode]`.
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def _impl_exists(ctx):
+    ///     ctx.output.print(ctx.fs.exists("bin"))
+    /// ```
     fn exists<'v>(this: &BxlFilesystem<'v>, expr: FileExpr<'v>) -> anyhow::Result<bool> {
         let path = expr.get(this.dice);
 
@@ -119,9 +125,18 @@ fn fs_operations(builder: &mut MethodsBuilder) {
         }
     }
 
-    /// Returns all the contents of the given 'FileExpr' that points to a directory.
-    /// Errors if the given path is a file.  the optional `include_ignored` specifies
+    /// Returns all the contents of the given input that points to a directory.
+    /// Errors if the given path is a file. The optional `include_ignored` specifies
     /// whether to include the buckconfig's ignored files in the output.
+    /// The input is a either a literal, a source artifact (via `[StarlarkArtifact]`), or a `[StarlarkFileNode]`.
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def _impl_list(ctx):
+    ///     list_results = ctx.fs.list("bin")
+    ///     for result in list_results:
+    ///         ctx.output.print(result)
+    /// ```
     fn list<'v>(
         this: &BxlFilesystem<'v>,
         expr: FileExpr<'v>,
@@ -150,12 +165,26 @@ fn fs_operations(builder: &mut MethodsBuilder) {
         }
     }
 
-    /// Returns whether the provided path is a dir. Takes in a 'FileExpr'. Returns false is the dir does not exist.
+    /// Returns whether the provided path is a dir. Returns false is the dir does not exist.
+    /// The input is a either a literal, a source artifact (via `[StarlarkArtifact]`), or a `[StarlarkFileNode]`.
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def _impl_is_dir(ctx):
+    ///     ctx.output.print(ctx.fs.is_dir("bin"))
+    /// ```
     fn is_dir<'v>(this: &BxlFilesystem<'v>, expr: FileExpr<'v>) -> anyhow::Result<bool> {
         Ok(std::path::Path::is_dir(resolve(this, expr)?.as_ref()))
     }
 
-    /// Returns whether the provided path is a file. Takes in a 'FileExpr'. Returns false is the file does not exist.
+    /// Returns whether the provided path is a file. Returns false is the file does not exist.
+    /// The input is a either a literal, a source artifact (via `[StarlarkArtifact]`), or a `[StarlarkFileNode]`.
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def _impl_is_file(ctx):
+    ///     ctx.output.print(ctx.fs.is_dir("bin"))
+    /// ```
     fn is_file<'v>(this: &BxlFilesystem<'v>, expr: FileExpr<'v>) -> anyhow::Result<bool> {
         Ok(std::path::Path::is_file(resolve(this, expr)?.as_ref()))
     }
