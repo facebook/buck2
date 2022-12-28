@@ -38,7 +38,7 @@ pub struct StarlarkTargetNode(pub TargetNode);
 starlark_simple_value!(StarlarkTargetNode);
 
 impl<'v> StarlarkValue<'v> for StarlarkTargetNode {
-    starlark_type!("target_node");
+    starlark_type!("unconfigured_target_node");
 
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
