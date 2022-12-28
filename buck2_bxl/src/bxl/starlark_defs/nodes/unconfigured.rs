@@ -25,14 +25,16 @@ use starlark::values::StarlarkValue;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
+use starlark::StarlarkDocs;
 
 use crate::bxl::starlark_defs::nodes::unconfigured::attribute::StarlarkTargetNodeCoercedAttributes;
 
 pub mod attribute;
 
-#[derive(Debug, Display, ProvidesStaticType, Allocative)]
+#[derive(Debug, Display, ProvidesStaticType, Allocative, StarlarkDocs)]
 #[derive(NoSerialize)] // TODO probably should be serializable the same as how queries serialize
 #[display(fmt = "{:?}", self)]
+#[starlark_docs_attrs(directory = "BXL/Target Node")]
 pub struct StarlarkTargetNode(pub TargetNode);
 
 starlark_simple_value!(StarlarkTargetNode);
@@ -58,8 +60,10 @@ impl<'a> UnpackValue<'a> for StarlarkTargetNode {
     }
 }
 
+/// Methods for unconfigured target node.
 #[starlark_module]
 fn target_node_value_methods(builder: &mut MethodsBuilder) {
+    /// Gets the coerced attributes from the unconfigured target node.
     #[starlark(attribute)]
     fn attributes<'v>(this: StarlarkTargetNode, heap: &Heap) -> anyhow::Result<Value<'v>> {
         Ok(heap.alloc(StarlarkTargetNodeCoercedAttributes {
@@ -67,6 +71,7 @@ fn target_node_value_methods(builder: &mut MethodsBuilder) {
         }))
     }
 
+    /// Gets the label from the unconfigured target node.
     #[starlark(attribute)]
     fn label(this: &StarlarkTargetNode) -> anyhow::Result<StarlarkTargetLabel> {
         Ok(this.0.label().dupe().into())
