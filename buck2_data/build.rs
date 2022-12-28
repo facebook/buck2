@@ -13,7 +13,7 @@ fn main() -> io::Result<()> {
     let proto_files = &["data.proto"];
 
     buck2_protoc_dev::configure()
-        .setup_protoc("../../..")
+        .setup_protoc()
         .type_attribute(
             "buck.data.BuckEvent.data",
             "#[allow(clippy::large_enum_variant)]",

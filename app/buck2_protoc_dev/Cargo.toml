@@ -6,3 +6,4 @@ edition = "2021"
 [dependencies]
 tonic-build = { workspace = true }
 dunce = { workspace = true }
+protoc-bin-vendored = { workspace = true }

@@ -13,7 +13,7 @@ fn main() -> io::Result<()> {
     let proto_files = &["forkserver.proto"];
 
     buck2_protoc_dev::configure()
-        .setup_protoc("../../../..")
+        .setup_protoc()
         .type_attribute(
             "buck.forkserver.RequestEvent.data",
             "#[derive(::derive_more::From, ::gazebo::variants::VariantName, ::gazebo::variants::UnpackVariants)]",

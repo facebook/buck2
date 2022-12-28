@@ -13,6 +13,6 @@ fn main() -> io::Result<()> {
     let proto_files = &["downward_api.proto"];
 
     buck2_protoc_dev::configure()
-        .setup_protoc("../../../..")
+        .setup_protoc()
         .compile(proto_files, &["."])
 }

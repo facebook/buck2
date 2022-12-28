@@ -11,28 +11,15 @@ use std::env;
 use std::ffi::OsString;
 use std::io;
 use std::path::Path;
-use std::path::PathBuf;
 
 fn get_env(key: &str) -> Option<OsString> {
     println!("cargo:rerun-if-env-changed={}", key);
     env::var_os(key)
 }
 
-fn maybe_set_var(var: &str, path: &Path) {
-    // Bail if the env var is explicitly set
-    if let Some(s) = get_env(var) {
-        eprintln!("INFO: Variable ${} is already set to {:?}", var, s);
-        return;
-    }
-
-    // Bail if we can't find the path, e.g. for OSS builds.
-    if !path.exists() {
-        eprintln!(
-            "INFO: Not setting ${} to {:?}, as path does not exist",
-            var, path
-        );
-        return;
-    }
+#[cfg(not(buck2_build))]
+fn set_var(var: &str, path: &Path) {
+    assert!(path.exists(), "Path does not exist: `{}`", path.display());
 
     let path = dunce::canonicalize(path).expect("Failed to canonicalize path");
     eprintln!("INFO: Variable ${} set to {:?}", var, path);
@@ -42,20 +29,22 @@ fn maybe_set_var(var: &str, path: &Path) {
 /// Set up $PROTOC to point to the in repo binary if available.
 ///
 /// Note: repo root is expected to be a relative or absolute path to the root of the repository.
-fn maybe_set_protoc(repo_root: &str) {
-    let mut protoc = PathBuf::from(repo_root);
-    protoc.push("third-party/protobuf/dotslash/protoc");
-    if cfg!(windows) {
-        protoc.set_extension("exe");
+fn maybe_set_protoc() {
+    #[cfg(not(buck2_build))]
+    {
+        set_var("PROTOC", &protoc_bin_vendored::protoc_bin_path().unwrap());
     }
-    maybe_set_var("PROTOC", &protoc)
 }
 
 /// Set $PROTOC_INCLUDE.
-fn maybe_set_protoc_include(repo_root: &str) {
-    let mut protoc_include = PathBuf::from(repo_root);
-    protoc_include.push("third-party/protobuf/protobuf/src");
-    maybe_set_var("PROTOC_INCLUDE", &protoc_include);
+fn maybe_set_protoc_include() {
+    #[cfg(not(buck2_build))]
+    {
+        set_var(
+            "PROTOC_INCLUDE",
+            &protoc_bin_vendored::include_path().unwrap(),
+        );
+    }
 }
 
 pub struct Builder {
@@ -89,10 +78,10 @@ impl Builder {
         }
     }
 
-    pub fn setup_protoc(self, repo_root: &str) -> Self {
+    pub fn setup_protoc(self) -> Self {
         // It would be great if there were on the config rather than an env variables...
-        maybe_set_protoc(repo_root);
-        maybe_set_protoc_include(repo_root);
+        maybe_set_protoc();
+        maybe_set_protoc_include();
         self
     }
 

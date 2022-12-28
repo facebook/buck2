@@ -22,6 +22,6 @@ fn main() -> io::Result<()> {
     ];
 
     buck2_protoc_dev::configure()
-        .setup_protoc("../../../../..")
+        .setup_protoc()
         .compile(proto_files, &["./proto/"])
 }

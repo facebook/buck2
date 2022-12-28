@@ -147,6 +147,7 @@ pretty_assertions = "0.6"
 proc-macro2 = "1.0"
 prost = "0.11"
 prost-types = "0.11"
+protoc-bin-vendored = "3.0.0"
 quote = "1.0.3"
 rand = { version = "0.8.4", features = ["small_rng"] }
 ref-cast = "1.0.0"
