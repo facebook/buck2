@@ -261,7 +261,18 @@ impl<'v> AnalysisRegistry<'v> {
         rule: ValueTyped<'v, FrozenRuleCallable>,
         attributes: DictOf<'v, &'v str, Value<'v>>,
     ) -> anyhow::Result<()> {
-        self.anon_targets.register(promise, rule, attributes)
+        self.anon_targets.register_one(promise, rule, attributes)
+    }
+
+    pub(crate) fn register_anon_targets(
+        &mut self,
+        promise: ValueTyped<'v, StarlarkPromise<'v>>,
+        rules: Vec<(
+            ValueTyped<'v, FrozenRuleCallable>,
+            DictOf<'v, &'v str, Value<'v>>,
+        )>,
+    ) -> anyhow::Result<()> {
+        self.anon_targets.register_many(promise, rules)
     }
 
     pub(crate) fn get_promises(&mut self) -> Option<AnonTargetsRegistry<'v>> {

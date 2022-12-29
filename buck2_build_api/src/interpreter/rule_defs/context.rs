@@ -1015,6 +1015,21 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         this.register_anon_target(res, rule, attrs)?;
         Ok(res)
     }
+
+    /// Generate a series of anonymous targets
+    fn anon_targets<'v>(
+        this: &AnalysisActions<'v>,
+        rules: Vec<(
+            ValueTyped<'v, FrozenRuleCallable>,
+            DictOf<'v, &'v str, Value<'v>>,
+        )>,
+        heap: &'v Heap,
+    ) -> anyhow::Result<ValueTyped<'v, StarlarkPromise<'v>>> {
+        let res = heap.alloc_typed(StarlarkPromise::new_unresolved());
+        let mut this = this.state();
+        this.register_anon_targets(res, rules)?;
+        Ok(res)
+    }
 }
 
 #[cfg(test)]

@@ -87,19 +87,6 @@ _silly_compilation = rule(
     },
 )
 
-# We may define `anon_targets` as a builtin in future.
-# ctx.actions, but it isn't necessary, but will increase parallelism
-def anon_targets(ctx, xs, k):
-    def f(xs, ps):
-        if len(xs) == 0:
-            return k(ps)
-        else:
-            return ctx.actions.anon_target(xs[0][0], xs[0][1]).map(
-                lambda p: f(xs[1:], ps+[p])
-            )
-    return f(0, [])
-
-
 def _silly_binary_impl(ctx):
     def k(providers):
         # Step 2: now link them all together
@@ -117,7 +104,7 @@ def _silly_binary_impl(ctx):
         ]
 
     # Step 1: compile all my individual files
-    return anon_targets(ctx,
+    return ctx.actions.anon_targets(
         [(_silly_compilation, {
             "src": src,
             "toolchain": ctx.attrs._silly_toolchain

@@ -59,6 +59,7 @@ use buck2_node::configuration::execution::ExecutionPlatformResolution;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
+use either::Either;
 use futures::future;
 use futures::stream::FuturesUnordered;
 use futures::Future;
@@ -95,7 +96,11 @@ pub(crate) struct AnonTargetsRegistry<'v> {
     // We inherit the execution platform of our parent
     execution_platform: ExecutionPlatformResolution,
     // The actual data
-    entries: Vec<(ValueTyped<'v, StarlarkPromise<'v>>, AnonTargetKey)>,
+    entries: Vec<(
+        ValueTyped<'v, StarlarkPromise<'v>>,
+        // Either a single entry, or a list that becomes a list of providers
+        Either<AnonTargetKey, Vec<AnonTargetKey>>,
+    )>,
 }
 
 #[derive(Debug, Error)]
@@ -452,7 +457,7 @@ impl<'v> AnonTargetsRegistry<'v> {
         }
     }
 
-    pub(crate) fn register(
+    pub(crate) fn register_one(
         &mut self,
         promise: ValueTyped<'v, StarlarkPromise<'v>>,
         rule: ValueTyped<'v, FrozenRuleCallable>,
@@ -460,8 +465,27 @@ impl<'v> AnonTargetsRegistry<'v> {
     ) -> anyhow::Result<()> {
         self.entries.push((
             promise,
-            AnonTargetKey::new(&self.execution_platform, rule, attributes)?,
+            Either::Left(AnonTargetKey::new(
+                &self.execution_platform,
+                rule,
+                attributes,
+            )?),
         ));
+        Ok(())
+    }
+
+    pub(crate) fn register_many(
+        &mut self,
+        promise: ValueTyped<'v, StarlarkPromise<'v>>,
+        rules: Vec<(
+            ValueTyped<'v, FrozenRuleCallable>,
+            DictOf<'v, &'v str, Value<'v>>,
+        )>,
+    ) -> anyhow::Result<()> {
+        let keys = rules.into_try_map(|(rule, attributes)| {
+            AnonTargetKey::new(&self.execution_platform, rule, attributes)
+        })?;
+        self.entries.push((promise, Either::Right(keys)));
         Ok(())
     }
 
@@ -482,16 +506,47 @@ impl<'v> AnonTargetsRegistry<'v> {
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<()> {
         // Resolve all the targets in parallel
+        // We have vectors of vectors, so we create a "shape" which has the same shape but with indicies
+        let mut shape = Vec::new();
+        let mut targets = Vec::new();
+        for (promise, xs) in self.entries {
+            match xs {
+                Either::Left(x) => {
+                    shape.push((promise, Either::Left(shape.len())));
+                    targets.push(x);
+                }
+                Either::Right(xs) => {
+                    shape.push((promise, Either::Right(shape.len()..shape.len() + xs.len())));
+                    targets.extend(xs);
+                }
+            }
+        }
+
         let values =
-            future::try_join_all(self.entries.iter().map(|(_, target)| target.resolve(dice)))
-                .await?;
+            future::try_join_all(targets.iter().map(|target| target.resolve(dice))).await?;
         // But must bind the promises sequentially
-        for ((promise, _), val) in self.entries.iter().zip(values) {
-            let val = val
-                .provider_collection
-                .value()
-                .owned_value(eval.frozen_heap());
-            promise.resolve(val, eval)?
+        for (promise, xs) in shape {
+            match xs {
+                Either::Left(i) => {
+                    let val = values[i]
+                        .provider_collection
+                        .value()
+                        .owned_value(eval.frozen_heap());
+                    promise.resolve(val, eval)?
+                }
+                Either::Right(is) => {
+                    let xs: Vec<_> = is
+                        .map(|i| {
+                            values[i]
+                                .provider_collection
+                                .value()
+                                .owned_value(eval.frozen_heap())
+                        })
+                        .collect();
+                    let list = eval.heap().alloc_list(&xs);
+                    promise.resolve(list, eval)?
+                }
+            }
         }
         Ok(())
     }
