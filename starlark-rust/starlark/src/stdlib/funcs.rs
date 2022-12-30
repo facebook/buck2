@@ -991,7 +991,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     fn sorted<'v>(
         #[starlark(require = pos)] x: Value<'v>,
         #[starlark(require = named)] key: Option<Value<'v>>,
-        #[starlark(require = named)] reverse: Option<Value<'v>>,
+        #[starlark(require = named, default = false)] reverse: bool,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         let it = x.iterate(eval.heap())?;
@@ -1008,7 +1008,6 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
 
         let mut compare_ok = Ok(());
 
-        let reverse = reverse.map_or(false, |x| x.to_bool());
         it.sort_by(|x: &(Value, Value), y: &(Value, Value)| {
             let ord_or_err = if reverse {
                 x.1.compare(y.1).map(Ordering::reverse)
