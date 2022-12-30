@@ -990,8 +990,8 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     // which might be not spec-safe.
     fn sorted<'v>(
         #[starlark(require = pos)] x: Value<'v>,
-        key: Option<Value<'v>>,
-        reverse: Option<Value<'v>>,
+        #[starlark(require = named)] key: Option<Value<'v>>,
+        #[starlark(require = named)] reverse: Option<Value<'v>>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         let it = x.iterate(eval.heap())?;
