@@ -505,7 +505,7 @@ impl<'v> Def<'v> {
         let captured = stmt
             .parent
             .as_ref()
-            .map(|copy| eval.clone_slot_capture(LocalCapturedSlotId(copy.parent.0)));
+            .map(|copy| eval.clone_slot_capture(LocalCapturedSlotId(copy.parent.0), &stmt));
         eval.heap().alloc(Self {
             parameters,
             parameter_captures,

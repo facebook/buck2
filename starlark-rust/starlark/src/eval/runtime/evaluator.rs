@@ -527,15 +527,20 @@ impl<'v, 'a> Evaluator<'v, 'a> {
             .ok_or_else(|| self.local_var_referenced_before_assignment(LocalSlotId(slot.0)))
     }
 
-    pub(crate) fn clone_slot_capture(&self, slot: LocalCapturedSlotId) -> Value<'v> {
+    pub(crate) fn clone_slot_capture(
+        &self,
+        slot: LocalCapturedSlotId,
+        target_def_info: &DefInfo,
+    ) -> Value<'v> {
         match self.current_frame.get_slot(slot.to_captured_or_not()) {
             Some(value_captured) => {
                 debug_assert!(
                     value_captured.downcast_ref::<ValueCaptured>().is_some(),
-                    "slot {:?} is expected to be ValueCaptured, it is {:?} ({})",
+                    "slot {:?} is expected to be ValueCaptured, it is {:?} ({}); def location: {}",
                     slot,
                     value_captured,
-                    value_captured.get_type()
+                    value_captured.get_type(),
+                    target_def_info.signature_span,
                 );
                 value_captured
             }
