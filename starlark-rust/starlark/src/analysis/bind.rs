@@ -29,6 +29,7 @@ use crate::syntax::ast::AstParameter;
 use crate::syntax::ast::AstStmt;
 use crate::syntax::ast::AstString;
 use crate::syntax::ast::Clause;
+use crate::syntax::ast::DefP;
 use crate::syntax::ast::Expr;
 use crate::syntax::ast::ForClause;
 use crate::syntax::ast::Stmt;
@@ -270,10 +271,16 @@ fn stmt(x: &AstStmt, res: &mut Vec<Bind>) {
             stmt(c, res);
             flow(res);
         }
-        Stmt::Def(name, args, ret, body, _payload) => {
-            opt_expr(ret.as_ref().map(|x| &**x), res);
+        Stmt::Def(DefP {
+            name,
+            params,
+            return_type,
+            body,
+            payload: _,
+        }) => {
+            opt_expr(return_type.as_ref().map(|x| &**x), res);
             let mut inner = Vec::new();
-            parameters(args, res, &mut inner);
+            parameters(params, res, &mut inner);
             res.push(Bind::Set(Assigner::Assign, name.clone()));
             stmt(body, &mut inner);
             res.push(Bind::Scope(Scope::new(inner)));

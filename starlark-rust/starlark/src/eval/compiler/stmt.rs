@@ -54,6 +54,7 @@ use crate::eval::runtime::slots::LocalCapturedSlotId;
 use crate::eval::runtime::slots::LocalSlotId;
 use crate::syntax::ast::AssignOp;
 use crate::syntax::ast::AssignP;
+use crate::syntax::ast::DefP;
 use crate::syntax::ast::StmtP;
 use crate::values::dict::Dict;
 use crate::values::list::List;
@@ -736,9 +737,15 @@ impl Compiler<'_, '_, '_> {
     fn stmt_direct(&mut self, stmt: CstStmt, allow_gc: bool) -> StmtsCompiled {
         let span = FrozenFileSpan::new(self.codemap, stmt.span);
         match stmt.node {
-            StmtP::Def(name, params, return_type, suite, scope_id) => {
+            StmtP::Def(DefP {
+                name,
+                params,
+                return_type,
+                body,
+                payload: scope_id,
+            }) => {
                 let rhs = IrSpanned {
-                    node: self.function(&name.0, scope_id, params, return_type, *suite),
+                    node: self.function(&name.0, scope_id, params, return_type, *body),
                     span,
                 };
                 let lhs = self.assign(Spanned {

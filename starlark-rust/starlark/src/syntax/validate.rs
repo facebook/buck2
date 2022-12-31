@@ -37,6 +37,7 @@ use crate::syntax::ast::AstExpr;
 use crate::syntax::ast::AstParameter;
 use crate::syntax::ast::AstStmt;
 use crate::syntax::ast::AstString;
+use crate::syntax::ast::DefP;
 use crate::syntax::ast::Expr;
 use crate::syntax::ast::Parameter;
 use crate::syntax::ast::Stmt;
@@ -254,20 +255,20 @@ impl Expr {
 impl Stmt {
     pub(crate) fn check_def(
         name: AstString,
-        parameters: Vec<AstParameter>,
+        params: Vec<AstParameter>,
         return_type: Option<Box<AstExpr>>,
         stmts: AstStmt,
         codemap: &CodeMap,
     ) -> anyhow::Result<Stmt> {
-        check_parameters(&parameters, codemap)?;
+        check_parameters(&params, codemap)?;
         let name = name.into_map(|s| AssignIdentP(s, ()));
-        Ok(Stmt::Def(
+        Ok(Stmt::Def(DefP {
             name,
-            parameters,
+            params,
             return_type,
-            Box::new(stmts),
-            (),
-        ))
+            body: Box::new(stmts),
+            payload: (),
+        }))
     }
 
     pub(crate) fn check_assign(codemap: &CodeMap, x: AstExpr) -> anyhow::Result<AstAssign> {
@@ -347,7 +348,7 @@ impl Stmt {
             let err = |x: anyhow::Error| Err(Diagnostic::new(x, stmt.span, codemap));
 
             match &stmt.node {
-                Stmt::Def(_, _, _, body, _payload) => f(codemap, dialect, body, false, false, true),
+                Stmt::Def(DefP { body, .. }) => f(codemap, dialect, body, false, false, true),
                 Stmt::For(_, over_body) => {
                     let (_, body) = &**over_body;
                     if top_level && !dialect.enable_top_level_stmt {

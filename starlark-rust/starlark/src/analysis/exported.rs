@@ -17,6 +17,7 @@
 
 use crate::codemap::FileSpan;
 use crate::collections::SmallMap;
+use crate::syntax::ast::DefP;
 use crate::syntax::ast::Stmt;
 use crate::syntax::AstModule;
 
@@ -33,7 +34,7 @@ impl AstModule {
                     result.entry(&name.0).or_insert(name.span);
                 });
             }
-            Stmt::Def(name, ..) => {
+            Stmt::Def(DefP { name, .. }) => {
                 result.entry(&name.0).or_insert(name.span);
             }
             _ => {}

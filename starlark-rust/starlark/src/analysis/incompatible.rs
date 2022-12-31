@@ -32,6 +32,7 @@ use crate::syntax::ast::AstAssignIdent;
 use crate::syntax::ast::AstExpr;
 use crate::syntax::ast::AstStmt;
 use crate::syntax::ast::BinOp;
+use crate::syntax::ast::DefP;
 use crate::syntax::ast::Expr;
 use crate::syntax::ast::Stmt;
 use crate::syntax::AstModule;
@@ -168,7 +169,7 @@ fn duplicate_top_level_assignment(module: &AstModule, res: &mut Vec<LintT<Incomp
             Stmt::AssignModify(lhs, _, _) => {
                 lhs.visit_lvalue(|x| ident(x, false, codemap, defined, res))
             }
-            Stmt::Def(name, ..) => ident(name, false, codemap, defined, res),
+            Stmt::Def(DefP { name, .. }) => ident(name, false, codemap, defined, res),
             Stmt::Load(load) => {
                 for (name, _) in &load.args {
                     ident(name, true, codemap, defined, res)

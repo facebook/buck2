@@ -263,6 +263,15 @@ pub enum Visibility {
 }
 
 #[derive(Debug)]
+pub(crate) struct DefP<P: AstPayload> {
+    pub(crate) name: AstAssignIdentP<P>,
+    pub(crate) params: Vec<AstParameterP<P>>,
+    pub(crate) return_type: Option<Box<AstExprP<P>>>,
+    pub(crate) body: Box<AstStmtP<P>>,
+    pub(crate) payload: P::DefPayload,
+}
+
+#[derive(Debug)]
 pub(crate) enum StmtP<P: AstPayload> {
     Break,
     Continue,
@@ -276,13 +285,7 @@ pub(crate) enum StmtP<P: AstPayload> {
     If(AstExprP<P>, Box<AstStmtP<P>>),
     IfElse(AstExprP<P>, Box<(AstStmtP<P>, AstStmtP<P>)>),
     For(AstAssignP<P>, Box<(AstExprP<P>, AstStmtP<P>)>),
-    Def(
-        AstAssignIdentP<P>,
-        Vec<AstParameterP<P>>,
-        Option<Box<AstExprP<P>>>,
-        Box<AstStmtP<P>>,
-        P::DefPayload,
-    ),
+    Def(DefP<P>),
     // The Visibility of a Load is implicit from the Dialect, not written by a user
     Load(LoadP<P>),
 }
@@ -595,7 +598,13 @@ impl Stmt {
                 writeln!(f, "{}for {} in {}:", tab, bind.node, coll.node)?;
                 suite.node.fmt_with_tab(f, tab + "  ")
             }
-            Stmt::Def(name, params, return_type, suite, _payload) => {
+            Stmt::Def(DefP {
+                name,
+                params,
+                return_type,
+                body,
+                payload: _,
+            }) => {
                 write!(f, "{}def {}(", tab, name.node)?;
                 comma_separated_fmt(f, params, |x, f| write!(f, "{}", x.node), false)?;
                 f.write_str(")")?;
@@ -603,7 +612,7 @@ impl Stmt {
                     write!(f, " -> {}", rt.node)?;
                 }
                 f.write_str(":\n")?;
-                suite.node.fmt_with_tab(f, tab + "  ")
+                body.node.fmt_with_tab(f, tab + "  ")
             }
             Stmt::Load(load) => {
                 write!(f, "{}load(", tab)?;

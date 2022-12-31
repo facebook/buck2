@@ -27,6 +27,7 @@ use crate::codemap::Spanned;
 use crate::syntax::ast::AstExpr;
 use crate::syntax::ast::AstLiteral;
 use crate::syntax::ast::AstStmt;
+use crate::syntax::ast::DefP;
 use crate::syntax::ast::Expr;
 use crate::syntax::ast::Stmt;
 use crate::syntax::AstModule;
@@ -110,11 +111,17 @@ fn require_return_expression(ret_type: &Option<Box<AstExpr>>) -> Option<Span> {
 
 fn check_stmt(codemap: &CodeMap, x: &AstStmt, res: &mut Vec<LintT<FlowIssue>>) {
     match &**x {
-        Stmt::Def(name, _params, ret_type, body, _payload) => {
+        Stmt::Def(DefP {
+            name,
+            params: _,
+            return_type,
+            body,
+            payload: _,
+        }) => {
             let rets = returns(body);
 
             // Do I require my return statements to have an expression
-            let require_expression = require_return_expression(ret_type)
+            let require_expression = require_return_expression(return_type)
                 .or_else(|| rets.iter().find(|x| x.1.is_some()).map(|x| x.0));
             if let Some(reason) = require_expression {
                 if !final_return(body) {
@@ -224,7 +231,7 @@ fn redundant(codemap: &CodeMap, x: &AstStmt, res: &mut Vec<LintT<FlowIssue>>) {
                 let (_over, body) = &**over_body;
                 check(true, codemap, body, res)
             }
-            Stmt::Def(_, _, _, body, _payload) => check(false, codemap, body, res),
+            Stmt::Def(DefP { body, .. }) => check(false, codemap, body, res),
             _ => {}
         }
         // We always want to look inside everything for other types of violation

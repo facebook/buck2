@@ -44,6 +44,7 @@ use crate::syntax::ast::AstPayload;
 use crate::syntax::ast::AstStmtP;
 use crate::syntax::ast::AstString;
 use crate::syntax::ast::ClauseP;
+use crate::syntax::ast::DefP;
 use crate::syntax::ast::ExprP;
 use crate::syntax::ast::ForClauseP;
 use crate::syntax::ast::ParameterP;
@@ -334,14 +335,21 @@ impl<'a> Scope<'a> {
         frozen_heap: &FrozenHeap,
         dialect: &Dialect,
     ) {
-        if let StmtP::Def(_name, params, _ret, suite, scope_id) = &mut code.node {
+        if let StmtP::Def(DefP {
+            name: _,
+            params,
+            return_type: _,
+            body,
+            payload: scope_id,
+        }) = &mut code.node
+        {
             // Here we traverse the AST twice: once for this def scope,
             // second time below for nested defs.
             Self::collect_defines_in_def(
                 scope_data,
                 *scope_id,
                 params,
-                Some(suite),
+                Some(body),
                 frozen_heap,
                 dialect,
             );
@@ -374,10 +382,16 @@ impl<'a> Scope<'a> {
 
     fn resolve_idents(&mut self, code: &mut CstStmt) {
         match &mut code.node {
-            StmtP::Def(_name, params, ret, body, scope_id) => self.resolve_idents_in_def(
+            StmtP::Def(DefP {
+                name: _,
+                params,
+                return_type,
+                body,
+                payload: scope_id,
+            }) => self.resolve_idents_in_def(
                 *scope_id,
                 params,
-                ret.as_mut().map(|r| &mut **r),
+                return_type.as_mut().map(|r| &mut **r),
                 Some(body),
                 None,
             ),
@@ -631,7 +645,7 @@ impl Stmt {
                 Assign::collect_defines_lvalue(dest, InLoop::Yes, scope_data, frozen_heap, result);
                 StmtP::collect_defines(body, InLoop::Yes, scope_data, frozen_heap, result, dialect);
             }
-            StmtP::Def(name, ..) => AssignIdent::collect_assign_ident(
+            StmtP::Def(DefP { name, .. }) => AssignIdent::collect_assign_ident(
                 name,
                 in_loop,
                 Visibility::Public,
@@ -934,6 +948,7 @@ mod tests {
     use crate::eval::compiler::scope::Scope;
     use crate::eval::compiler::scope::ScopeData;
     use crate::eval::compiler::scope::Slot;
+    use crate::syntax::ast::DefP;
     use crate::syntax::ast::ExprP;
     use crate::syntax::ast::StmtP;
     use crate::syntax::uniplate::Visit;
@@ -1026,7 +1041,7 @@ mod tests {
             fn visit_stmt(&mut self, stmt: &CstStmt) {
                 match &stmt.node {
                     StmtP::Assign(lhs, _rhs) => self.visit_assign(lhs),
-                    StmtP::Def(name, params, ..) => {
+                    StmtP::Def(DefP { name, params, .. }) => {
                         self.visit_lvalue(name);
                         for param in params {
                             let (name, def, typ) = param.split();

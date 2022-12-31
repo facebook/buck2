@@ -31,6 +31,7 @@ use crate::codemap::CodeMap;
 use crate::codemap::Span;
 use crate::syntax::ast::Assign;
 use crate::syntax::ast::AstStmt;
+use crate::syntax::ast::DefP;
 use crate::syntax::ast::Expr;
 use crate::syntax::ast::Stmt;
 use crate::syntax::AstModule;
@@ -215,7 +216,7 @@ fn inappropriate_underscore(
     res: &mut Vec<LintT<NameWarning>>,
 ) {
     match &**x {
-        Stmt::Def(name, _, _, x, _payload) => {
+        Stmt::Def(DefP { name, body, .. }) => {
             if !top && name.0.starts_with('_') {
                 res.push(LintT::new(
                     codemap,
@@ -223,7 +224,7 @@ fn inappropriate_underscore(
                     NameWarning::UnderscoreFunction(name.0.clone()),
                 ))
             }
-            inappropriate_underscore(codemap, x, false, res)
+            inappropriate_underscore(codemap, body, false, res)
         }
         Stmt::Assign(lhs, type_rhs) if !top => {
             let (_, rhs) = &**type_rhs;

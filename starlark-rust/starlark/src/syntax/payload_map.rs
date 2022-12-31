@@ -25,6 +25,7 @@ use crate::syntax::ast::AssignIdentP;
 use crate::syntax::ast::AssignP;
 use crate::syntax::ast::AstPayload;
 use crate::syntax::ast::ClauseP;
+use crate::syntax::ast::DefP;
 use crate::syntax::ast::ExprP;
 use crate::syntax::ast::ForClauseP;
 use crate::syntax::ast::LoadP;
@@ -98,13 +99,19 @@ impl<A: AstPayload> StmtP<A> {
                     Box::new((coll.into_map_payload(f), body.into_map_payload(f))),
                 )
             }
-            StmtP::Def(name, params, ret, body, p) => StmtP::Def(
-                name.into_map_payload(f),
-                params.into_map(|p| p.into_map_payload(f)),
-                ret.map(|ret| Box::new(ret.into_map_payload(f))),
-                Box::new(body.into_map_payload(f)),
-                f.map_def(p),
-            ),
+            StmtP::Def(DefP {
+                name,
+                params,
+                return_type,
+                body,
+                payload,
+            }) => StmtP::Def(DefP {
+                name: name.into_map_payload(f),
+                params: params.into_map(|p| p.into_map_payload(f)),
+                return_type: return_type.map(|ret| Box::new(ret.into_map_payload(f))),
+                body: Box::new(body.into_map_payload(f)),
+                payload: f.map_def(payload),
+            }),
             StmtP::Load(load) => StmtP::Load(load.into_map_payload(f)),
         }
     }
