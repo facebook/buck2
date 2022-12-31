@@ -39,7 +39,7 @@ use crate::values::ValueLike;
 #[display(fmt = "{:?}", self)] // This type should never be user visible
 #[repr(transparent)]
 #[allocative(skip)]
-pub(crate) struct ValueCaptured<'v>(pub Cell<Option<Value<'v>>>);
+pub(crate) struct ValueCaptured<'v>(Cell<Option<Value<'v>>>);
 
 #[derive(Debug, ProvidesStaticType, Display, NoSerialize, Allocative)]
 #[display(fmt = "{:?}", self)] // Type is not user visible
@@ -55,6 +55,14 @@ impl<'v> StarlarkValue<'v> for FrozenValueCaptured {
 }
 
 impl<'v> ValueCaptured<'v> {
+    pub(crate) fn new(payload: Option<Value<'v>>) -> ValueCaptured<'v> {
+        if let Some(payload) = payload {
+            debug_assert!(payload.downcast_ref::<ValueCaptured>().is_none());
+            debug_assert!(payload.downcast_ref::<FrozenValueCaptured>().is_none());
+        }
+        ValueCaptured(Cell::new(payload))
+    }
+
     pub(crate) fn set(&self, value: Value<'v>) {
         debug_assert!(value.downcast_ref::<ValueCaptured>().is_none());
         debug_assert!(value.downcast_ref::<FrozenValueCaptured>().is_none());

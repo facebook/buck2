@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-use std::cell::Cell;
 use std::collections::HashSet;
 use std::mem;
 use std::mem::MaybeUninit;
@@ -553,7 +552,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
                 value_captured
             }
             None => {
-                let value_captured = self.heap().alloc_complex(ValueCaptured(Cell::new(None)));
+                let value_captured = self.heap().alloc_complex(ValueCaptured::new(None));
                 self.current_frame.set_slot(copy.parent, value_captured);
                 value_captured
             }
@@ -592,9 +591,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
                 value_captured.set(value);
             }
             None => {
-                let value_captured = self
-                    .heap()
-                    .alloc_complex(ValueCaptured(Cell::new(Some(value))));
+                let value_captured = self.heap().alloc_complex(ValueCaptured::new(Some(value)));
                 self.current_frame
                     .set_slot(slot.to_captured_or_not(), value_captured);
             }
@@ -608,9 +605,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
             .get_slot(slot.to_captured_or_not())
             .expect("slot unset");
         debug_assert!(value.downcast_ref::<ValueCaptured>().is_none());
-        let value_captured = self
-            .heap()
-            .alloc_complex(ValueCaptured(Cell::new(Some(value))));
+        let value_captured = self.heap().alloc_complex(ValueCaptured::new(Some(value)));
         self.current_frame
             .set_slot(slot.to_captured_or_not(), value_captured);
     }
