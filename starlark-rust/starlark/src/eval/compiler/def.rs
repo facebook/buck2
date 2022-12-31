@@ -246,6 +246,8 @@ pub(crate) struct CopySlotFromParent {
 #[display(fmt = "DefInfo")]
 pub(crate) struct DefInfo {
     pub(crate) name: FrozenStringValue,
+    /// Span of function signature.
+    pub(crate) signature_span: FrozenFileSpan,
     /// Codemap of the file where the function is declared.
     pub(crate) codemap: FrozenRef<'static, CodeMap>,
     /// The raw docstring pulled out of the AST.
@@ -276,6 +278,7 @@ impl DefInfo {
     pub(crate) fn empty() -> FrozenRef<'static, DefInfo> {
         static EMPTY: Lazy<DefInfo> = Lazy::new(|| DefInfo {
             name: const_frozen_string!("<empty>"),
+            signature_span: FrozenFileSpan::default(),
             codemap: FrozenRef::new(CodeMap::empty_static()),
             docstring: None,
             used: FrozenRef::new(&[]),
@@ -297,6 +300,7 @@ impl DefInfo {
     ) -> DefInfo {
         DefInfo {
             name: const_frozen_string!("<module>"),
+            signature_span: FrozenFileSpan::default(),
             codemap,
             docstring: None,
             used: local_names,
@@ -376,6 +380,7 @@ impl Compiler<'_, '_, '_> {
     pub fn function(
         &mut self,
         name: &str,
+        signature_span: FrozenFileSpan,
         scope_id: ScopeId,
         params: Vec<CstParameter>,
         return_type: Option<Box<CstExpr>>,
@@ -415,6 +420,7 @@ impl Compiler<'_, '_, '_> {
             .alloc_any_slice_display_from_debug(&scope_names.used);
         let info = self.eval.module_env.frozen_heap().alloc_any(DefInfo {
             name,
+            signature_span,
             codemap: self.codemap,
             docstring,
             used,

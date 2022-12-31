@@ -1171,16 +1171,19 @@ impl<'v, 'a, 'e> Compiler<'v, 'a, 'e> {
         let span = FrameSpan::new(FrozenFileSpan::new(self.codemap, expr.span));
         let expr = match expr.node {
             ExprP::Identifier(ident, resolved_ident) => self.expr_ident(ident, resolved_ident),
-            ExprP::Lambda(LambdaP {
-                params,
-                body,
-                payload: scope_id,
-            }) => {
+            ExprP::Lambda(l) => {
+                let signature_span = l.signature_span();
+                let signature_span = FrozenFileSpan::new(self.codemap, signature_span);
+                let LambdaP {
+                    params,
+                    body,
+                    payload: scope_id,
+                } = l;
                 let suite = Spanned {
                     span: expr.span,
                     node: StmtP::Return(Some(*body)),
                 };
-                self.function("lambda", scope_id, params, None, suite)
+                self.function("lambda", signature_span, scope_id, params, None, suite)
             }
             ExprP::Tuple(exprs) => {
                 let xs = exprs.into_map(|x| self.expr(x));

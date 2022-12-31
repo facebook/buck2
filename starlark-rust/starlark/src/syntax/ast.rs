@@ -158,6 +158,19 @@ pub(crate) struct LambdaP<P: AstPayload> {
     pub(crate) payload: P::DefPayload,
 }
 
+impl<P: AstPayload> LambdaP<P> {
+    pub(crate) fn signature_span(&self) -> Span {
+        self.params
+            .iter()
+            .map(|p| p.span)
+            .reduce(|a, b| a.merge(b))
+            .unwrap_or(
+                // TODO(nga): this is not correct span.
+                self.body.span,
+            )
+    }
+}
+
 #[derive(Debug)]
 pub(crate) enum ExprP<P: AstPayload> {
     Tuple(Vec<AstExprP<P>>),
@@ -276,6 +289,19 @@ pub(crate) struct DefP<P: AstPayload> {
     pub(crate) return_type: Option<Box<AstExprP<P>>>,
     pub(crate) body: Box<AstStmtP<P>>,
     pub(crate) payload: P::DefPayload,
+}
+
+impl<P: AstPayload> DefP<P> {
+    pub(crate) fn signature_span(&self) -> Span {
+        let mut span = self.name.span;
+        for param in &self.params {
+            span = span.merge(param.span);
+        }
+        if let Some(return_type) = &self.return_type {
+            span = span.merge(return_type.span);
+        }
+        span
+    }
 }
 
 #[derive(Debug)]

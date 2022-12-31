@@ -731,15 +731,25 @@ impl Compiler<'_, '_, '_> {
     fn stmt_direct(&mut self, stmt: CstStmt, allow_gc: bool) -> StmtsCompiled {
         let span = FrameSpan::new(FrozenFileSpan::new(self.codemap, stmt.span));
         match stmt.node {
-            StmtP::Def(DefP {
-                name,
-                params,
-                return_type,
-                body,
-                payload: scope_id,
-            }) => {
+            StmtP::Def(def) => {
+                let signature_span = def.signature_span();
+                let signature_span = FrozenFileSpan::new(self.codemap, signature_span);
+                let DefP {
+                    name,
+                    params,
+                    return_type,
+                    body,
+                    payload: scope_id,
+                } = def;
                 let rhs = IrSpanned {
-                    node: self.function(&name.0, scope_id, params, return_type, *body),
+                    node: self.function(
+                        &name.0,
+                        signature_span,
+                        scope_id,
+                        params,
+                        return_type,
+                        *body,
+                    ),
                     span,
                 };
                 let lhs = self.assign(Spanned {
