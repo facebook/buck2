@@ -15,6 +15,9 @@
  * limitations under the License.
  */
 
+use std::fmt;
+use std::fmt::Display;
+
 use gazebo::dupe::Dupe;
 
 use crate::codemap::CodeMap;
@@ -27,6 +30,12 @@ use crate::values::FrozenRef;
 pub(crate) struct FrozenFileSpan {
     file: FrozenRef<'static, CodeMap>,
     span: Span,
+}
+
+impl Display for FrozenFileSpan {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        Display::fmt(&self.to_file_span(), f)
+    }
 }
 
 impl Default for FrozenFileSpan {

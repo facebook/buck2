@@ -50,7 +50,7 @@ impl FrameSpan {
 impl Display for FrameSpan {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // TODO(nga): either display inlined frames or remove this.
-        Display::fmt(&self.span.to_file_span(), f)
+        Display::fmt(&self.span, f)
     }
 }
 
