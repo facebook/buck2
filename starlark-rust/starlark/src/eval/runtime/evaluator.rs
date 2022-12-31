@@ -64,6 +64,7 @@ use crate::stdlib::extra::PrintHandler;
 use crate::stdlib::extra::StderrPrintHandler;
 use crate::values::function::NativeFunction;
 use crate::values::layout::value_captured::value_captured_get;
+use crate::values::layout::value_captured::FrozenValueCaptured;
 use crate::values::layout::value_captured::ValueCaptured;
 use crate::values::FrozenHeap;
 use crate::values::FrozenRef;
@@ -535,7 +536,10 @@ impl<'v, 'a> Evaluator<'v, 'a> {
         match self.current_frame.get_slot(copy.parent) {
             Some(value_captured) => {
                 debug_assert!(
-                    value_captured.downcast_ref::<ValueCaptured>().is_some(),
+                    value_captured.downcast_ref::<ValueCaptured>().is_some()
+                        || value_captured
+                            .downcast_ref::<FrozenValueCaptured>()
+                            .is_some(),
                     "slot {} ({}) is expected to be ValueCaptured, it is {:?} ({}); \
                         def location: {}",
                     copy.parent.0,

@@ -190,3 +190,26 @@ fn test_lambda_errors() {
     // Test from https://github.com/facebookexperimental/starlark-rust/issues/36
     assert::fail("lambda a,a:a", "duplicated parameter name");
 }
+
+#[test]
+fn test_double_capture_and_freeze() {
+    let mut a = Assert::new();
+    a.module(
+        "x.bzl",
+        r#"
+def f(x):
+    # `x` is captured by `g` and then frozen.
+    def g():
+        # When `h` is instantiated, `x` is already captured and frozen.
+        def h():
+            return noop(x)
+        return h
+
+    return g
+
+G = f(1)
+     "#,
+    );
+
+    a.pass("load('x.bzl', 'G')\nG()");
+}
