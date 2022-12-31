@@ -274,10 +274,9 @@ pub(crate) struct DefInfo {
 
 impl DefInfo {
     pub(crate) fn empty() -> FrozenRef<'static, DefInfo> {
-        static EMPTY_CODEMAP: Lazy<CodeMap> = Lazy::new(CodeMap::default);
         static EMPTY: Lazy<DefInfo> = Lazy::new(|| DefInfo {
             name: const_frozen_string!("<empty>"),
-            codemap: FrozenRef::new(&EMPTY_CODEMAP),
+            codemap: FrozenRef::new(CodeMap::empty_static()),
             docstring: None,
             used: FrozenRef::new(&[]),
             parent: FrozenRef::new(&[]),

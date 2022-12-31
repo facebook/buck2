@@ -19,7 +19,6 @@ use std::fmt;
 use std::fmt::Display;
 
 use gazebo::dupe::Dupe;
-use once_cell::sync::Lazy;
 
 use crate::codemap::CodeMap;
 use crate::codemap::Span;
@@ -53,9 +52,8 @@ impl FrameSpan {
 
 impl Default for FrameSpan {
     fn default() -> Self {
-        static EMPTY_FILE: Lazy<CodeMap> = Lazy::new(CodeMap::default);
         FrameSpan::new(FrozenFileSpan::new(
-            FrozenRef::new(&EMPTY_FILE),
+            FrozenRef::new(CodeMap::empty_static()),
             Span::default(),
         ))
     }

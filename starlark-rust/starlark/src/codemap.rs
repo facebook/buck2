@@ -34,6 +34,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use gazebo::prelude::*;
+use once_cell::sync::Lazy;
 
 /// A small, `Copy`, value representing a position in a `CodeMap`'s file.
 #[derive(
@@ -248,6 +249,11 @@ impl CodeMap {
             source,
             lines,
         })))
+    }
+
+    pub(crate) fn empty_static() -> &'static CodeMap {
+        static EMPTY_CODEMAP: Lazy<CodeMap> = Lazy::new(CodeMap::default);
+        &EMPTY_CODEMAP
     }
 
     /// Only used internally for profiling optimisations
