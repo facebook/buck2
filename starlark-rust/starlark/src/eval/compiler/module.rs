@@ -17,6 +17,7 @@
 
 //! Compile and evaluate module top-level statements.
 
+use crate::codemap::Spanned;
 use crate::environment::EnvironmentError;
 use crate::eval::bc::frame::alloca_frame;
 use crate::eval::compiler::add_span_to_expr_error;
@@ -81,7 +82,10 @@ impl<'v> Compiler<'v, '_, '_> {
                 Ok(last)
             }
             StmtP::Load(load) => {
-                self.eval_load(load)?;
+                self.eval_load(Spanned {
+                    node: load,
+                    span: stmt.span,
+                })?;
                 Ok(Value::new_none())
             }
             _ => {

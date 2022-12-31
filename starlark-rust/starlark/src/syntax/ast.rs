@@ -80,7 +80,6 @@ pub(crate) type AstString = Spanned<String>;
 pub(crate) type AstParameter = AstParameterP<AstNoPayload>;
 pub(crate) type AstInt = Spanned<TokenInt>;
 pub(crate) type AstFloat = Spanned<f64>;
-pub(crate) type AstLoad = AstLoadP<AstNoPayload>;
 pub(crate) type AstStmt = AstStmtP<AstNoPayload>;
 
 // We don't care _that_ much about the size of these structures,
@@ -285,7 +284,7 @@ pub(crate) enum StmtP<P: AstPayload> {
         P::DefPayload,
     ),
     // The Visibility of a Load is implicit from the Dialect, not written by a user
-    Load(AstLoadP<P>),
+    Load(LoadP<P>),
 }
 
 impl<P: AstPayload> ArgumentP<P> {
@@ -608,10 +607,10 @@ impl Stmt {
             }
             Stmt::Load(load) => {
                 write!(f, "{}load(", tab)?;
-                fmt_string_literal(f, &load.node.module.node)?;
+                fmt_string_literal(f, &load.module.node)?;
                 comma_separated_fmt(
                     f,
-                    &load.node.args,
+                    &load.args,
                     |x, f| {
                         write!(f, "{} = ", x.0.node)?;
                         fmt_string_literal(f, &(x.1.node))

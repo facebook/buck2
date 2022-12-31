@@ -641,7 +641,7 @@ impl Stmt {
             ),
             StmtP::Load(load) => {
                 let vis = dialect.load_visibility();
-                for (name, _) in &mut load.node.args {
+                for (name, _) in &mut load.args {
                     let mut vis = vis;
                     if Module::default_visibility(&name.0) == Visibility::Private {
                         vis = Visibility::Private;

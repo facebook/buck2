@@ -303,7 +303,7 @@ fn stmt(x: &AstStmt, res: &mut Vec<Bind>) {
             flow(res)
         }
         Stmt::Load(load) => {
-            for x in &load.node.args {
+            for x in &load.args {
                 res.push(Bind::Set(
                     Assigner::Load {
                         path: load.module.clone(),

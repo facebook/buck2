@@ -300,5 +300,4 @@ ast_payload_map_stub!(AssignP);
 ast_payload_map_stub!(AssignIdentP);
 ast_payload_map_stub!(ParameterP);
 ast_payload_map_stub!(ArgumentP);
-ast_payload_map_stub!(LoadP);
 ast_payload_map_stub!(StmtP);

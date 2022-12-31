@@ -180,8 +180,7 @@ ExprStmt_: Stmt = <Test> => Stmt::Expression(<>);
 LoadStmt: AstStmt = ASTS<LoadStmt_>;
 LoadStmt_: Stmt = LoadStmtInner => Stmt::Load(<>);
 
-LoadStmtInner: AstLoad = <l:@L> <s:LoadStmtInner_> <r:@R> => s.ast(l, r);
-LoadStmtInner_: Load = "load" "(" <module:string> <args:("," <LoadStmtSyms>)+> ","? ")" => {
+LoadStmtInner: Load = "load" "(" <module:string> <args:("," <LoadStmtSyms>)+> ","? ")" => {
     Load {
         module,
         args,
