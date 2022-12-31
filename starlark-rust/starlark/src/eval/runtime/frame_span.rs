@@ -20,14 +20,11 @@ use std::fmt::Display;
 
 use gazebo::dupe::Dupe;
 
-use crate::codemap::CodeMap;
-use crate::codemap::Span;
 use crate::eval::runtime::frozen_file_span::FrozenFileSpan;
 use crate::eval::runtime::inlined_frame::InlinedFrames;
-use crate::values::FrozenRef;
 
 /// Span of the call frame (including inlined call frames).
-#[derive(Debug, Clone, Copy, Dupe, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Dupe, PartialEq, Eq, Default)]
 pub(crate) struct FrameSpan {
     pub(crate) span: FrozenFileSpan,
     /// Parent frames.
@@ -47,15 +44,6 @@ impl FrameSpan {
             span: self.span.end_span(),
             inlined_frames: self.inlined_frames,
         }
-    }
-}
-
-impl Default for FrameSpan {
-    fn default() -> Self {
-        FrameSpan::new(FrozenFileSpan::new(
-            FrozenRef::new(CodeMap::empty_static()),
-            Span::default(),
-        ))
     }
 }
 

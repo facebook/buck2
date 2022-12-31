@@ -29,6 +29,12 @@ pub(crate) struct FrozenFileSpan {
     span: Span,
 }
 
+impl Default for FrozenFileSpan {
+    fn default() -> FrozenFileSpan {
+        FrozenFileSpan::new(FrozenRef::new(CodeMap::empty_static()), Span::default())
+    }
+}
+
 impl FrozenFileSpan {
     pub(crate) const fn new_unchecked(
         file: FrozenRef<'static, CodeMap>,
