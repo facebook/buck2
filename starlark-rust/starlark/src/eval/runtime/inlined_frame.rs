@@ -40,7 +40,7 @@ impl InlinedFrame {
     pub(crate) fn extend_frames(&self, frames: &mut Vec<Frame>) {
         frames.push(Frame {
             name: self.fun.to_value().name_for_call_stack(),
-            location: Some(self.span.to_file_span()),
+            location: Some(self.span.span.to_file_span()),
         });
         self.span.inlined_frames.extend_frames(frames);
     }
@@ -95,7 +95,6 @@ impl InlinedFrames {
     ) {
         self.frames = Some(span_alloc.alloc_frame(InlinedFrame {
             span: FrameSpan {
-                file: span.file,
                 span: span.span,
                 inlined_frames: *self,
             },
@@ -104,7 +103,6 @@ impl InlinedFrames {
         for f in span.inlined_frames.to_inlined_frames().into_iter().rev() {
             self.frames = Some(span_alloc.alloc_frame(InlinedFrame {
                 span: FrameSpan {
-                    file: f.span.file,
                     span: f.span.span,
                     inlined_frames: *self,
                 },
@@ -146,6 +144,7 @@ mod tests {
 
     use crate::codemap::CodeMap;
     use crate::eval::runtime::frame_span::FrameSpan;
+    use crate::eval::runtime::frozen_file_span::FrozenFileSpan;
     use crate::eval::runtime::inlined_frame::InlinedFrameAlloc;
     use crate::eval::runtime::inlined_frame::InlinedFrames;
     use crate::values::FrozenHeap;
@@ -175,8 +174,7 @@ mod tests {
             let codemap = CodeMap::new(format!("{}.bzl", text), text.to_owned());
             let codemap = heap.alloc_any_display_from_debug(codemap);
             FrameSpan {
-                file: codemap,
-                span: codemap.full_span(),
+                span: FrozenFileSpan::new(codemap, codemap.full_span()),
                 inlined_frames: InlinedFrames::default(),
             }
         }

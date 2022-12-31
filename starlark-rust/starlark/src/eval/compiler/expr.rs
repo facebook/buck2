@@ -43,6 +43,7 @@ use crate::eval::compiler::scope::Slot;
 use crate::eval::compiler::span::IrSpanned;
 use crate::eval::compiler::Compiler;
 use crate::eval::runtime::frame_span::FrameSpan;
+use crate::eval::runtime::frozen_file_span::FrozenFileSpan;
 use crate::eval::runtime::slots::LocalCapturedSlotId;
 use crate::eval::runtime::slots::LocalSlotId;
 use crate::syntax::ast::AstExprP;
@@ -1166,7 +1167,7 @@ impl<'v, 'a, 'e> Compiler<'v, 'a, 'e> {
 
     pub(crate) fn expr(&mut self, expr: CstExpr) -> IrSpanned<ExprCompiled> {
         // println!("compile {}", expr.node);
-        let span = FrameSpan::new(self.codemap, expr.span);
+        let span = FrameSpan::new(FrozenFileSpan::new(self.codemap, expr.span));
         let expr = match expr.node {
             ExprP::Identifier(ident, resolved_ident) => self.expr_ident(ident, resolved_ident),
             ExprP::Lambda(params, inner, scope_id) => {

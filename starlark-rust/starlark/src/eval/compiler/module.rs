@@ -29,6 +29,7 @@ use crate::eval::compiler::scope::Slot;
 use crate::eval::compiler::Compiler;
 use crate::eval::compiler::EvalException;
 use crate::eval::runtime::frame_span::FrameSpan;
+use crate::eval::runtime::frozen_file_span::FrozenFileSpan;
 use crate::syntax::ast::StmtP;
 use crate::values::FrozenRef;
 use crate::values::FrozenStringValue;
@@ -38,7 +39,7 @@ impl<'v> Compiler<'v, '_, '_> {
     fn eval_load(&mut self, load: CstLoad) -> Result<(), EvalException> {
         let name = load.node.module.node;
 
-        let span = FrameSpan::new(self.codemap, load.span);
+        let span = FrameSpan::new(FrozenFileSpan::new(self.codemap, load.span));
 
         let loadenv = match self.eval.loader.as_ref() {
             None => {
@@ -59,7 +60,10 @@ impl<'v> Compiler<'v, '_, '_> {
             };
             let value = expr_throw(
                 self.eval.module_env.load_symbol(&loadenv, &their_name.node),
-                FrameSpan::new(self.codemap, our_name.span.merge(their_name.span)),
+                FrameSpan::new(FrozenFileSpan::new(
+                    self.codemap,
+                    our_name.span.merge(their_name.span),
+                )),
                 self.eval,
             )?;
             self.eval.set_slot_module(slot, value)

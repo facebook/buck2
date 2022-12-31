@@ -21,12 +21,15 @@ macro_rules! rust_loc {
         use crate::codemap::CodeMap;
         use crate::codemap::NativeCodeMap;
         use crate::eval::runtime::frame_span::FrameSpan;
+        use crate::eval::runtime::frozen_file_span::FrozenFileSpan;
         use crate::values::FrozenRef;
 
         static NATIVE_CODEMAP: NativeCodeMap = NativeCodeMap::new(file!(), line!(), column!());
         static CODEMAP: CodeMap = NATIVE_CODEMAP.to_codemap();
-        static FROZEN_FILE_SPAN: FrameSpan =
-            FrameSpan::new_unchecked(FrozenRef::new(&CODEMAP), NativeCodeMap::FULL_SPAN);
+        static FROZEN_FILE_SPAN: FrameSpan = FrameSpan::new(FrozenFileSpan::new_unchecked(
+            FrozenRef::new(&CODEMAP),
+            NativeCodeMap::FULL_SPAN,
+        ));
         static LOC: FrozenRef<'static, FrameSpan> = FrozenRef::new(&FROZEN_FILE_SPAN);
         LOC
     }};

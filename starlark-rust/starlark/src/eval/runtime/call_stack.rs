@@ -51,7 +51,7 @@ struct CheapFrame<'v> {
 
 impl CheapFrame<'_> {
     fn location(&self) -> Option<FileSpan> {
-        self.span.map(|span| span.to_file_span())
+        self.span.map(|span| span.span.to_file_span())
     }
 
     fn extend_frames(&self, frames: &mut Vec<Frame>) {

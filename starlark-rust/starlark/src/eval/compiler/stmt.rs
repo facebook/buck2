@@ -28,7 +28,6 @@ use std::mem;
 use gazebo::prelude::*;
 use thiserror::Error;
 
-use crate::codemap::FileSpanRef;
 use crate::codemap::Span;
 use crate::codemap::Spanned;
 use crate::environment::slots::ModuleSlotId;
@@ -50,6 +49,7 @@ use crate::eval::compiler::Compiler;
 use crate::eval::runtime::evaluator::Evaluator;
 use crate::eval::runtime::evaluator::GC_THRESHOLD;
 use crate::eval::runtime::frame_span::FrameSpan;
+use crate::eval::runtime::frozen_file_span::FrozenFileSpan;
 use crate::eval::runtime::slots::LocalCapturedSlotId;
 use crate::eval::runtime::slots::LocalSlotId;
 use crate::syntax::ast::AssignOp;
@@ -402,7 +402,7 @@ impl IrSpanned<AssignCompiledValue> {
 
 impl Compiler<'_, '_, '_> {
     pub fn assign(&mut self, expr: CstAssign) -> IrSpanned<AssignCompiledValue> {
-        let span = FrameSpan::new(self.codemap, expr.span);
+        let span = FrameSpan::new(FrozenFileSpan::new(self.codemap, expr.span));
         let assign = match expr.node {
             AssignP::Dot(e, s) => {
                 let e = self.expr(*e);
@@ -450,8 +450,8 @@ impl Compiler<'_, '_, '_> {
         rhs: IrSpanned<ExprCompiled>,
         op: AssignOp,
     ) -> StmtsCompiled {
-        let span_stmt = FrameSpan::new(self.codemap, span_stmt);
-        let span_lhs = FrameSpan::new(self.codemap, lhs.span);
+        let span_stmt = FrameSpan::new(FrozenFileSpan::new(self.codemap, span_stmt));
+        let span_lhs = FrameSpan::new(FrozenFileSpan::new(self.codemap, lhs.span));
         match lhs.node {
             AssignP::Dot(e, s) => {
                 let e = self.expr(*e);
@@ -526,13 +526,7 @@ pub(crate) fn before_stmt(span: FrameSpan, eval: &mut Evaluator) {
     );
     let fs = mem::take(&mut eval.before_stmt.before_stmt);
     for f in &fs {
-        f(
-            FileSpanRef {
-                span: span.span(),
-                file: &span.file(),
-            },
-            eval,
-        )
+        f(span.span.file_span_ref(), eval)
     }
     let added = mem::replace(&mut eval.before_stmt.before_stmt, fs);
     assert!(
@@ -666,7 +660,7 @@ impl Compiler<'_, '_, '_> {
     }
 
     pub(crate) fn stmt(&mut self, stmt: CstStmt, allow_gc: bool) -> StmtsCompiled {
-        let span = FrameSpan::new(self.codemap, stmt.span);
+        let span = FrameSpan::new(FrozenFileSpan::new(self.codemap, stmt.span));
         let is_statements = matches!(&stmt.node, StmtP::Statements(_));
         let res = self.stmt_direct(stmt, allow_gc);
         // No point inserting a GC point around statements, since they will contain inner statements we can do
@@ -735,7 +729,7 @@ impl Compiler<'_, '_, '_> {
     }
 
     fn stmt_direct(&mut self, stmt: CstStmt, allow_gc: bool) -> StmtsCompiled {
-        let span = FrameSpan::new(self.codemap, stmt.span);
+        let span = FrameSpan::new(FrozenFileSpan::new(self.codemap, stmt.span));
         match stmt.node {
             StmtP::Def(DefP {
                 name,
@@ -804,7 +798,7 @@ impl Compiler<'_, '_, '_> {
             }
             StmtP::AssignModify(lhs, op, rhs) => {
                 let rhs = self.expr(*rhs);
-                self.assign_modify(span.span(), lhs, rhs, op)
+                self.assign_modify(span.span.span(), lhs, rhs, op)
             }
             StmtP::Load(..) => unreachable!(),
             StmtP::Pass => StmtsCompiled::empty(),
