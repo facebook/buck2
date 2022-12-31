@@ -37,6 +37,7 @@ use crate::environment::FrozenModuleRef;
 use crate::environment::Module;
 use crate::errors::Diagnostic;
 use crate::eval::bc::frame::BcFramePtr;
+use crate::eval::compiler::def::CopySlotFromParent;
 use crate::eval::compiler::def::Def;
 use crate::eval::compiler::def::DefInfo;
 use crate::eval::compiler::def::FrozenDef;
@@ -529,15 +530,22 @@ impl<'v, 'a> Evaluator<'v, 'a> {
 
     pub(crate) fn clone_slot_capture(
         &self,
-        slot: LocalCapturedSlotId,
+        copy: &CopySlotFromParent,
         target_def_info: &DefInfo,
     ) -> Value<'v> {
-        match self.current_frame.get_slot(slot.to_captured_or_not()) {
+        match self.current_frame.get_slot(copy.parent) {
             Some(value_captured) => {
                 debug_assert!(
                     value_captured.downcast_ref::<ValueCaptured>().is_some(),
-                    "slot {:?} is expected to be ValueCaptured, it is {:?} ({}); def location: {}",
-                    slot,
+                    "slot {} ({}) is expected to be ValueCaptured, it is {:?} ({}); \
+                        def location: {}",
+                    copy.parent.0,
+                    target_def_info
+                        .used
+                        .get(copy.child.0 as usize)
+                        .copied()
+                        .unwrap_or_default()
+                        .as_str(),
                     value_captured,
                     value_captured.get_type(),
                     target_def_info.signature_span,
@@ -546,8 +554,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
             }
             None => {
                 let value_captured = self.heap().alloc_complex(ValueCaptured(Cell::new(None)));
-                self.current_frame
-                    .set_slot(slot.to_captured_or_not(), value_captured);
+                self.current_frame.set_slot(copy.parent, value_captured);
                 value_captured
             }
         }

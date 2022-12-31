@@ -68,11 +68,6 @@ pub(crate) struct LocalCapturedSlotId(pub(crate) u32);
 
 impl LocalCapturedSlotId {
     #[inline]
-    pub(crate) fn to_captured_or_not(self) -> LocalSlotIdCapturedOrNot {
-        LocalSlotIdCapturedOrNot(self.0)
-    }
-
-    #[inline]
     pub(crate) fn to_bc_slot(self) -> BcSlot {
         BcSlot(self.0)
     }

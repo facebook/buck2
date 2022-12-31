@@ -66,7 +66,6 @@ use crate::eval::runtime::evaluator::Evaluator;
 use crate::eval::runtime::frame_span::FrameSpan;
 use crate::eval::runtime::frozen_file_span::FrozenFileSpan;
 use crate::eval::runtime::params::ParametersSpec;
-use crate::eval::runtime::slots::LocalCapturedSlotId;
 use crate::eval::runtime::slots::LocalSlotId;
 use crate::eval::runtime::slots::LocalSlotIdCapturedOrNot;
 use crate::eval::Arguments;
@@ -505,7 +504,7 @@ impl<'v> Def<'v> {
         let captured = stmt
             .parent
             .as_ref()
-            .map(|copy| eval.clone_slot_capture(LocalCapturedSlotId(copy.parent.0), &stmt));
+            .map(|copy| eval.clone_slot_capture(copy, &stmt));
         eval.heap().alloc(Self {
             parameters,
             parameter_captures,
