@@ -30,6 +30,7 @@ use crate::environment::Globals;
 use crate::environment::Module;
 use crate::errors::did_you_mean::did_you_mean;
 use crate::errors::Diagnostic;
+use crate::eval::compiler::def::CopySlotFromParent;
 use crate::eval::runtime::slots::LocalSlotIdCapturedOrNot;
 use crate::syntax::ast::Assign;
 use crate::syntax::ast::AssignIdent;
@@ -97,9 +98,9 @@ pub(crate) struct ScopeNames {
     pub used: Vec<FrozenStringValue>,
     /// The names that are in this scope
     pub mp: SmallMap<FrozenStringValue, (LocalSlotIdCapturedOrNot, BindingId)>,
-    /// Slots to copy from the parent. (index in parent, index in child).
+    /// Slots to copy from the parent.
     /// Module-level identifiers are not copied over, to avoid excess copying.
-    pub parent: Vec<(LocalSlotIdCapturedOrNot, LocalSlotIdCapturedOrNot)>,
+    pub parent: Vec<CopySlotFromParent>,
 }
 
 impl ScopeNames {
@@ -121,7 +122,10 @@ impl ScopeNames {
     ) -> LocalSlotIdCapturedOrNot {
         assert!(self.get_name(name).is_none()); // Or we'll be overwriting our variable
         let res = self.add_name(name, binding_id);
-        self.parent.push((parent_slot, res));
+        self.parent.push(CopySlotFromParent {
+            parent: parent_slot,
+            child: res,
+        });
         res
     }
 

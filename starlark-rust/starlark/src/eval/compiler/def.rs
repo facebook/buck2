@@ -230,6 +230,15 @@ impl<T> ParametersCompiled<T> {
     }
 }
 
+/// Copy local variable slot to nested function.
+#[derive(Debug, Clone, Dupe)]
+pub(crate) struct CopySlotFromParent {
+    /// Slot in the outer function.
+    pub(crate) parent: LocalSlotIdCapturedOrNot,
+    /// Slot in the nested function.
+    pub(crate) child: LocalSlotIdCapturedOrNot,
+}
+
 /// Static info for `def`, `lambda` or module.
 #[derive(Derivative, Display)]
 #[derivative(Debug)]
@@ -243,9 +252,9 @@ pub(crate) struct DefInfo {
     /// Slots this scope uses, including for parameters and `parent`.
     /// Indexed by [`LocalSlotId`], values are variable names.
     pub(crate) used: FrozenRef<'static, [FrozenStringValue]>,
-    /// Slots to copy from the parent. (index in parent, index in child).
+    /// Slots to copy from the parent.
     /// Module-level identifiers are not copied over, to avoid excess copying.
-    pub(crate) parent: FrozenRef<'static, [(LocalSlotIdCapturedOrNot, LocalSlotIdCapturedOrNot)]>,
+    pub(crate) parent: FrozenRef<'static, [CopySlotFromParent]>,
     /// Statement compiled for non-frozen def.
     #[derivative(Debug = "ignore")]
     stmt_compiled: Bc,
@@ -283,7 +292,7 @@ impl DefInfo {
     pub(crate) fn for_module(
         codemap: FrozenRef<'static, CodeMap>,
         local_names: FrozenRef<'static, [FrozenStringValue]>,
-        parent: FrozenRef<'static, [(LocalSlotIdCapturedOrNot, LocalSlotIdCapturedOrNot)]>,
+        parent: FrozenRef<'static, [CopySlotFromParent]>,
         globals: FrozenRef<'static, Globals>,
     ) -> DefInfo {
         DefInfo {
@@ -490,7 +499,7 @@ impl<'v> Def<'v> {
         let captured = stmt
             .parent
             .as_ref()
-            .map(|(x, _)| eval.clone_slot_capture(LocalCapturedSlotId(x.0)));
+            .map(|copy| eval.clone_slot_capture(LocalCapturedSlotId(copy.parent.0)));
         eval.heap().alloc(Self {
             parameters,
             parameter_captures,
@@ -705,8 +714,8 @@ where
         // Explicitly check `self.captured` is not empty to avoid accessing
         // self.def_info.scope_names which is two indirections.
         if !self.captured.is_empty() {
-            for ((_, me), captured) in self.def_info.parent.iter().zip(self.captured.iter()) {
-                eval.current_frame.set_slot(*me, captured.to_value());
+            for (copy, captured) in self.def_info.parent.iter().zip(self.captured.iter()) {
+                eval.current_frame.set_slot(copy.child, captured.to_value());
             }
         }
 
