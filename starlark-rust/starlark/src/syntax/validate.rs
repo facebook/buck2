@@ -40,6 +40,7 @@ use crate::syntax::ast::AstString;
 use crate::syntax::ast::Expr;
 use crate::syntax::ast::Parameter;
 use crate::syntax::ast::Stmt;
+use crate::syntax::dialect::DialectError;
 use crate::syntax::Dialect;
 
 #[derive(Error, Debug)]
@@ -343,31 +344,39 @@ impl Stmt {
             inside_for: bool,
             inside_def: bool,
         ) -> anyhow::Result<()> {
-            let err = |x| Err(Diagnostic::new(x, stmt.span, codemap));
+            let err = |x: anyhow::Error| Err(Diagnostic::new(x, stmt.span, codemap));
 
             match &stmt.node {
                 Stmt::Def(_, _, _, body, _payload) => f(codemap, dialect, body, false, false, true),
                 Stmt::For(_, over_body) => {
                     let (_, body) = &**over_body;
                     if top_level && !dialect.enable_top_level_stmt {
-                        err(ValidateError::NoTopLevelFor)
+                        err(ValidateError::NoTopLevelFor.into())
                     } else {
                         f(codemap, dialect, body, false, true, inside_def)
                     }
                 }
                 Stmt::If(..) | Stmt::IfElse(..) => {
                     if top_level && !dialect.enable_top_level_stmt {
-                        err(ValidateError::NoTopLevelIf)
+                        err(ValidateError::NoTopLevelIf.into())
                     } else {
                         stmt.node.visit_stmt_result(|x| {
                             f(codemap, dialect, x, false, inside_for, inside_def)
                         })
                     }
                 }
-                Stmt::Break if !inside_for => err(ValidateError::BreakOutsideLoop),
-                Stmt::Continue if !inside_for => err(ValidateError::ContinueOutsideLoop),
-                Stmt::Return(_) if !inside_def => err(ValidateError::ReturnOutsideDef),
-                Stmt::Load(..) if !top_level => err(ValidateError::LoadNotTop),
+                Stmt::Break if !inside_for => err(ValidateError::BreakOutsideLoop.into()),
+                Stmt::Continue if !inside_for => err(ValidateError::ContinueOutsideLoop.into()),
+                Stmt::Return(_) if !inside_def => err(ValidateError::ReturnOutsideDef.into()),
+                Stmt::Load(..) => {
+                    if !top_level {
+                        return err(ValidateError::LoadNotTop.into());
+                    }
+                    if !dialect.enable_load {
+                        return err(DialectError::Load.into());
+                    }
+                    Ok(())
+                }
                 _ => stmt.node.visit_stmt_result(|x| {
                     f(codemap, dialect, x, top_level, inside_for, inside_def)
                 }),

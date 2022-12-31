@@ -26,7 +26,7 @@ use crate::errors::Diagnostic;
 use crate::syntax::ast::Visibility;
 
 #[derive(Error, Debug)]
-enum DialectError {
+pub(crate) enum DialectError {
     #[error("`def` is not allowed in this dialect")]
     Def,
     #[error("`lambda` is not allowed in this dialect")]
@@ -135,18 +135,6 @@ impl Dialect {
             Ok(x)
         } else {
             err(codemap, x.span, DialectError::Def)
-        }
-    }
-
-    pub(crate) fn check_load<T>(
-        &self,
-        codemap: &CodeMap,
-        x: Spanned<T>,
-    ) -> anyhow::Result<Spanned<T>> {
-        if self.enable_load {
-            Ok(x)
-        } else {
-            err(codemap, x.span, DialectError::Load)
         }
     }
 

@@ -177,7 +177,7 @@ AssignStmt_: Stmt = <lhs:TestList> <ty:Type> <op:AssignOp> <rhs:TestList>
 ExprStmt: AstStmt = ASTS<ExprStmt_>;
 ExprStmt_: Stmt = <Test> => Stmt::Expression(<>);
 
-LoadStmt: AstStmt = ASTS<LoadStmt_> =>? Ok(dialect.check_load(codemap, <>)?);
+LoadStmt: AstStmt = ASTS<LoadStmt_>;
 LoadStmt_: Stmt = LoadStmtInner => Stmt::Load(<>);
 
 LoadStmtInner: AstLoad = <l:@L> <s:LoadStmtInner_> <r:@R> => s.ast(l, r);
