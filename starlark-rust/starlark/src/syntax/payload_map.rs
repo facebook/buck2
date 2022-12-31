@@ -28,6 +28,7 @@ use crate::syntax::ast::ClauseP;
 use crate::syntax::ast::DefP;
 use crate::syntax::ast::ExprP;
 use crate::syntax::ast::ForClauseP;
+use crate::syntax::ast::LambdaP;
 use crate::syntax::ast::LoadP;
 use crate::syntax::ast::ParameterP;
 use crate::syntax::ast::StmtP;
@@ -143,11 +144,15 @@ impl<A: AstPayload> ExprP<A> {
                 c.map(|e| Box::new(e.into_map_payload(f))),
             ),
             ExprP::Identifier(id, p) => ExprP::Identifier(id, f.map_ident(p)),
-            ExprP::Lambda(ps, body, p) => ExprP::Lambda(
-                ps.into_map(|p| p.into_map_payload(f)),
-                Box::new(body.into_map_payload(f)),
-                f.map_def(p),
-            ),
+            ExprP::Lambda(LambdaP {
+                params,
+                body,
+                payload,
+            }) => ExprP::Lambda(LambdaP {
+                params: params.into_map(|p| p.into_map_payload(f)),
+                body: Box::new(body.into_map_payload(f)),
+                payload: f.map_def(payload),
+            }),
             ExprP::Literal(l) => ExprP::Literal(l),
             ExprP::Not(e) => ExprP::Not(Box::new(e.into_map_payload(f))),
             ExprP::Minus(e) => ExprP::Minus(Box::new(e.into_map_payload(f))),

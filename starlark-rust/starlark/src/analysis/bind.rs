@@ -32,6 +32,7 @@ use crate::syntax::ast::Clause;
 use crate::syntax::ast::DefP;
 use crate::syntax::ast::Expr;
 use crate::syntax::ast::ForClause;
+use crate::syntax::ast::LambdaP;
 use crate::syntax::ast::Stmt;
 use crate::syntax::AstModule;
 
@@ -202,9 +203,13 @@ fn dot_access<'a>(lhs: &'a AstExpr, ident: &'a AstString, res: &mut Vec<Bind>) {
 fn expr(x: &AstExpr, res: &mut Vec<Bind>) {
     match &**x {
         Expr::Identifier(x, _) => res.push(Bind::Get(x.clone())),
-        Expr::Lambda(args, body, _) => {
+        Expr::Lambda(LambdaP {
+            params,
+            body,
+            payload: _,
+        }) => {
             let mut inner = Vec::new();
-            parameters(args, res, &mut inner);
+            parameters(params, res, &mut inner);
             expr(body, &mut inner);
             res.push(Bind::Scope(Scope::new(inner)));
         }

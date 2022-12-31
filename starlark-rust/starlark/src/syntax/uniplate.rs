@@ -30,6 +30,7 @@ use crate::syntax::ast::ClauseP;
 use crate::syntax::ast::DefP;
 use crate::syntax::ast::ExprP;
 use crate::syntax::ast::ForClauseP;
+use crate::syntax::ast::LambdaP;
 use crate::syntax::ast::ParameterP;
 use crate::syntax::ast::StmtP;
 
@@ -279,8 +280,12 @@ impl<P: AstPayload> ExprP<P> {
                 d.iter().for_each(|x| f(x));
             }
             ExprP::Identifier(..) => {}
-            ExprP::Lambda(args, body, _) => {
-                args.iter().for_each(|x| x.visit_expr(|x| f(x)));
+            ExprP::Lambda(LambdaP {
+                params,
+                body,
+                payload: _,
+            }) => {
+                params.iter().for_each(|x| x.visit_expr(|x| f(x)));
                 f(body);
             }
             ExprP::Literal(_) => {}
@@ -337,8 +342,12 @@ impl<P: AstPayload> ExprP<P> {
                 d.iter_mut().for_each(|x| f(x));
             }
             ExprP::Identifier(..) => {}
-            ExprP::Lambda(args, body, _) => {
-                args.iter_mut().for_each(|x| x.visit_expr_mut(|x| f(x)));
+            ExprP::Lambda(LambdaP {
+                params,
+                body,
+                payload: _,
+            }) => {
+                params.iter_mut().for_each(|x| x.visit_expr_mut(|x| f(x)));
                 f(body);
             }
             ExprP::Literal(_) => {}

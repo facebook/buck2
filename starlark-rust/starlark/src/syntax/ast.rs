@@ -152,6 +152,13 @@ pub(crate) enum AstLiteral {
 }
 
 #[derive(Debug)]
+pub(crate) struct LambdaP<P: AstPayload> {
+    pub(crate) params: Vec<AstParameterP<P>>,
+    pub(crate) body: Box<AstExprP<P>>,
+    pub(crate) payload: P::DefPayload,
+}
+
+#[derive(Debug)]
 pub(crate) enum ExprP<P: AstPayload> {
     Tuple(Vec<AstExprP<P>>),
     Dot(Box<AstExprP<P>>, AstString),
@@ -164,7 +171,7 @@ pub(crate) enum ExprP<P: AstPayload> {
         Option<Box<AstExprP<P>>>,
     ),
     Identifier(AstString, P::IdentPayload),
-    Lambda(Vec<AstParameterP<P>>, Box<AstExprP<P>>, P::DefPayload),
+    Lambda(LambdaP<P>),
     Literal(AstLiteral),
     Not(Box<AstExprP<P>>),
     Minus(Box<AstExprP<P>>),
@@ -410,11 +417,15 @@ impl Display for Expr {
                 f.write_str(")")
             }
             Expr::Dot(e, s) => write!(f, "{}.{}", e.node, s.node),
-            Expr::Lambda(params, e, _payload) => {
+            Expr::Lambda(LambdaP {
+                params,
+                body,
+                payload: _,
+            }) => {
                 f.write_str("(lambda ")?;
                 comma_separated_fmt(f, params, |x, f| write!(f, "{}", x.node), false)?;
                 f.write_str(": ")?;
-                write!(f, "{}", e.node)?;
+                write!(f, "{}", body.node)?;
                 f.write_str(")")
             }
             Expr::Call(e, args) => {

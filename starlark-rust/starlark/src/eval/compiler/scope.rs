@@ -48,6 +48,7 @@ use crate::syntax::ast::ClauseP;
 use crate::syntax::ast::DefP;
 use crate::syntax::ast::ExprP;
 use crate::syntax::ast::ForClauseP;
+use crate::syntax::ast::LambdaP;
 use crate::syntax::ast::ParameterP;
 use crate::syntax::ast::Stmt;
 use crate::syntax::ast::StmtP;
@@ -375,7 +376,12 @@ impl<'a> Scope<'a> {
         frozen_heap: &FrozenHeap,
         dialect: &Dialect,
     ) {
-        if let ExprP::Lambda(params, _expr, scope_id) = &mut code.node {
+        if let ExprP::Lambda(LambdaP {
+            params,
+            body: _,
+            payload: scope_id,
+        }) = &mut code.node
+        {
             Self::collect_defines_in_def(scope_data, *scope_id, params, None, frozen_heap, dialect);
         }
 
@@ -438,9 +444,11 @@ impl<'a> Scope<'a> {
     fn resolve_idents_in_expr(&mut self, expr: &mut CstExpr) {
         match &mut expr.node {
             ExprP::Identifier(ident, slot) => self.resolve_ident(ident, slot),
-            ExprP::Lambda(params, body, scope_id) => {
-                self.resolve_idents_in_def(*scope_id, params, None, None, Some(body))
-            }
+            ExprP::Lambda(LambdaP {
+                params,
+                body,
+                payload: scope_id,
+            }) => self.resolve_idents_in_def(*scope_id, params, None, None, Some(body)),
             ExprP::ListComprehension(expr, first_for, clauses) => {
                 self.resolve_idents_in_compr(&mut [expr], first_for, clauses)
             }

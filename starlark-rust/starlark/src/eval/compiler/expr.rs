@@ -52,6 +52,7 @@ use crate::syntax::ast::AstPayload;
 use crate::syntax::ast::AstString;
 use crate::syntax::ast::BinOp;
 use crate::syntax::ast::ExprP;
+use crate::syntax::ast::LambdaP;
 use crate::syntax::ast::StmtP;
 use crate::syntax::lexer::TokenInt;
 use crate::values::function::BoundMethodGen;
@@ -1170,10 +1171,14 @@ impl<'v, 'a, 'e> Compiler<'v, 'a, 'e> {
         let span = FrameSpan::new(FrozenFileSpan::new(self.codemap, expr.span));
         let expr = match expr.node {
             ExprP::Identifier(ident, resolved_ident) => self.expr_ident(ident, resolved_ident),
-            ExprP::Lambda(params, inner, scope_id) => {
+            ExprP::Lambda(LambdaP {
+                params,
+                body,
+                payload: scope_id,
+            }) => {
                 let suite = Spanned {
                     span: expr.span,
-                    node: StmtP::Return(Some(*inner)),
+                    node: StmtP::Return(Some(*body)),
                 };
                 self.function("lambda", scope_id, params, None, suite)
             }

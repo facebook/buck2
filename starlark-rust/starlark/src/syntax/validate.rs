@@ -39,6 +39,7 @@ use crate::syntax::ast::AstStmt;
 use crate::syntax::ast::AstString;
 use crate::syntax::ast::DefP;
 use crate::syntax::ast::Expr;
+use crate::syntax::ast::LambdaP;
 use crate::syntax::ast::Parameter;
 use crate::syntax::ast::Stmt;
 use crate::syntax::dialect::DialectError;
@@ -243,12 +244,16 @@ fn check_parameters(parameters: &[AstParameter], codemap: &CodeMap) -> anyhow::R
 
 impl Expr {
     pub(crate) fn check_lambda(
-        parameters: Vec<AstParameter>,
+        params: Vec<AstParameter>,
         body: AstExpr,
         codemap: &CodeMap,
     ) -> anyhow::Result<Expr> {
-        check_parameters(&parameters, codemap)?;
-        Ok(Expr::Lambda(parameters, Box::new(body), ()))
+        check_parameters(&params, codemap)?;
+        Ok(Expr::Lambda(LambdaP {
+            params,
+            body: Box::new(body),
+            payload: (),
+        }))
     }
 }
 
