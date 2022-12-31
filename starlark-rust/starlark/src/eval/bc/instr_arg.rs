@@ -46,7 +46,7 @@ use crate::eval::bc::stack_ptr::BcSlotInRange;
 use crate::eval::bc::stack_ptr::BcSlotInRangeFrom;
 use crate::eval::bc::stack_ptr::BcSlotOut;
 use crate::eval::runtime::arguments::ArgSymbol;
-use crate::eval::runtime::call_stack::FrameSpan;
+use crate::eval::runtime::frame_span::FrameSpan;
 use crate::eval::runtime::slots::LocalCapturedSlotId;
 use crate::eval::runtime::slots::LocalSlotId;
 use crate::values::layout::value_not_special::FrozenValueNotSpecial;

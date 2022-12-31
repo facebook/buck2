@@ -20,6 +20,7 @@ pub(crate) mod before_stmt;
 pub(crate) mod call_stack;
 pub(crate) mod evaluator;
 pub(crate) mod file_loader;
+pub(crate) mod frame_span;
 pub(crate) mod inlined_frame;
 pub(crate) mod params;
 pub(crate) mod profile;

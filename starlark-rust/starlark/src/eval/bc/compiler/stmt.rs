@@ -35,7 +35,7 @@ use crate::eval::compiler::stmt::AssignCompiledValue;
 use crate::eval::compiler::stmt::StmtCompileContext;
 use crate::eval::compiler::stmt::StmtCompiled;
 use crate::eval::compiler::stmt::StmtsCompiled;
-use crate::eval::runtime::call_stack::FrameSpan;
+use crate::eval::runtime::frame_span::FrameSpan;
 use crate::values::FrozenHeap;
 use crate::values::FrozenRef;
 use crate::values::FrozenStringValue;

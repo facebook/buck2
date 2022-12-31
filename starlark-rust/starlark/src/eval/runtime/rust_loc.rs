@@ -20,7 +20,7 @@ macro_rules! rust_loc {
     () => {{
         use crate::codemap::CodeMap;
         use crate::codemap::NativeCodeMap;
-        use crate::eval::runtime::call_stack::FrameSpan;
+        use crate::eval::runtime::frame_span::FrameSpan;
         use crate::values::FrozenRef;
 
         static NATIVE_CODEMAP: NativeCodeMap = NativeCodeMap::new(file!(), line!(), column!());

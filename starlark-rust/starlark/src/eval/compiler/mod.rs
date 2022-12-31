@@ -39,7 +39,7 @@ use crate::errors::Diagnostic;
 use crate::eval::compiler::scope::ScopeData;
 use crate::eval::compiler::scope::ScopeId;
 use crate::eval::compiler::scope::ScopeNames;
-use crate::eval::runtime::call_stack::FrameSpan;
+use crate::eval::runtime::frame_span::FrameSpan;
 use crate::eval::Evaluator;
 use crate::values::FrozenRef;
 

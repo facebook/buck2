@@ -56,7 +56,7 @@ use crate::docs::DocItem;
 use crate::eval::compiler::def::Def;
 use crate::eval::compiler::def::FrozenDef;
 use crate::eval::runtime::arguments::ArgumentsFull;
-use crate::eval::runtime::call_stack::FrameSpan;
+use crate::eval::runtime::frame_span::FrameSpan;
 use crate::eval::Arguments;
 use crate::eval::Evaluator;
 use crate::eval::ParametersSpec;

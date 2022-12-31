@@ -17,7 +17,7 @@
 
 use std::ops::Deref;
 
-use crate::eval::runtime::call_stack::FrameSpan;
+use crate::eval::runtime::frame_span::FrameSpan;
 
 /// Similar to `Spanned<T>` but with file span.
 ///

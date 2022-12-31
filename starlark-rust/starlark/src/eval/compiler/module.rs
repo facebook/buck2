@@ -28,7 +28,7 @@ use crate::eval::compiler::scope::ScopeId;
 use crate::eval::compiler::scope::Slot;
 use crate::eval::compiler::Compiler;
 use crate::eval::compiler::EvalException;
-use crate::eval::runtime::call_stack::FrameSpan;
+use crate::eval::runtime::frame_span::FrameSpan;
 use crate::syntax::ast::StmtP;
 use crate::values::FrozenRef;
 use crate::values::FrozenStringValue;

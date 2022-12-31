@@ -16,7 +16,7 @@
  */
 
 use crate::eval::bc::addr::BcAddr;
-use crate::eval::runtime::call_stack::FrameSpan;
+use crate::eval::runtime::frame_span::FrameSpan;
 use crate::values::FrozenRef;
 use crate::values::FrozenStringValue;
 

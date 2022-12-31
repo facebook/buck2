@@ -50,7 +50,7 @@ use crate::eval::compiler::call::CallCompiled;
 use crate::eval::compiler::def::FrozenDef;
 use crate::eval::compiler::expr::ExprCompiled;
 use crate::eval::compiler::span::IrSpanned;
-use crate::eval::runtime::call_stack::FrameSpan;
+use crate::eval::runtime::frame_span::FrameSpan;
 use crate::values::function::NativeFunction;
 use crate::values::types::known_methods::get_known_method;
 use crate::values::FrozenValue;

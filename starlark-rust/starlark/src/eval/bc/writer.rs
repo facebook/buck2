@@ -46,7 +46,7 @@ use crate::eval::bc::stack_ptr::BcSlotOut;
 use crate::eval::bc::stack_ptr::BcSlotRange;
 use crate::eval::bc::stack_ptr::BcSlotsN;
 use crate::eval::compiler::expr::MaybeNot;
-use crate::eval::runtime::call_stack::FrameSpan;
+use crate::eval::runtime::frame_span::FrameSpan;
 use crate::eval::runtime::slots::LocalCapturedSlotId;
 use crate::eval::runtime::slots::LocalSlotId;
 use crate::values::FrozenHeap;

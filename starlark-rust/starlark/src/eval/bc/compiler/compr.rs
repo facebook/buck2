@@ -30,7 +30,7 @@ use crate::eval::bc::writer::BcWriter;
 use crate::eval::compiler::compr::ClauseCompiled;
 use crate::eval::compiler::compr::ComprCompiled;
 use crate::eval::compiler::expr::MaybeNot;
-use crate::eval::runtime::call_stack::FrameSpan;
+use crate::eval::runtime::frame_span::FrameSpan;
 
 impl ClauseCompiled {
     fn write_bc(

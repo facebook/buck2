@@ -43,7 +43,7 @@ use crate::eval::bc::writer::BcWriter;
 use crate::eval::compiler::expr::ExprCompiled;
 use crate::eval::compiler::span::IrSpanned;
 use crate::eval::compiler::stmt::AssignModifyLhs;
-use crate::eval::runtime::call_stack::FrameSpan;
+use crate::eval::runtime::frame_span::FrameSpan;
 use crate::syntax::ast::AssignOp;
 
 impl AssignOp {

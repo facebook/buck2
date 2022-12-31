@@ -68,7 +68,7 @@ use crate::eval::compiler::stmt::possible_gc;
 use crate::eval::compiler::stmt::AssignError;
 use crate::eval::compiler::EvalException;
 use crate::eval::runtime::arguments::ResolvedArgName;
-use crate::eval::runtime::call_stack::FrameSpan;
+use crate::eval::runtime::frame_span::FrameSpan;
 use crate::eval::runtime::slots::LocalCapturedSlotId;
 use crate::eval::runtime::slots::LocalSlotId;
 use crate::eval::Arguments;

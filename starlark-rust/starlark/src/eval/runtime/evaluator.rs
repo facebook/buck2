@@ -42,7 +42,7 @@ use crate::eval::compiler::def::DefInfo;
 use crate::eval::compiler::def::FrozenDef;
 use crate::eval::runtime::before_stmt::BeforeStmt;
 use crate::eval::runtime::call_stack::CheapCallStack;
-use crate::eval::runtime::call_stack::FrameSpan;
+use crate::eval::runtime::frame_span::FrameSpan;
 use crate::eval::runtime::inlined_frame::InlinedFrames;
 use crate::eval::runtime::profile::bc::BcProfile;
 use crate::eval::runtime::profile::data::ProfileData;

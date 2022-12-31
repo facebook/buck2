@@ -20,7 +20,7 @@ use std::ptr;
 use gazebo::dupe::Dupe;
 
 use crate::errors::Frame;
-use crate::eval::runtime::call_stack::FrameSpan;
+use crate::eval::runtime::frame_span::FrameSpan;
 use crate::values::FrozenHeap;
 use crate::values::FrozenRef;
 use crate::values::FrozenValue;
@@ -145,7 +145,7 @@ mod tests {
     use gazebo::prelude::*;
 
     use crate::codemap::CodeMap;
-    use crate::eval::runtime::call_stack::FrameSpan;
+    use crate::eval::runtime::frame_span::FrameSpan;
     use crate::eval::runtime::inlined_frame::InlinedFrameAlloc;
     use crate::eval::runtime::inlined_frame::InlinedFrames;
     use crate::values::FrozenHeap;
