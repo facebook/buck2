@@ -30,7 +30,7 @@ use crate::eval::compiler::expr::Builtin1;
 use crate::eval::compiler::expr::ExprCompiled;
 use crate::eval::compiler::opt_ctx::OptCtx;
 use crate::eval::compiler::span::IrSpanned;
-use crate::eval::runtime::call_stack::FrozenFileSpan;
+use crate::eval::runtime::call_stack::FrameSpan;
 use crate::eval::runtime::inlined_frame::InlinedFrameAlloc;
 use crate::eval::runtime::visit_span::VisitSpanMut;
 use crate::values::string::interpolation::parse_format_one;
@@ -45,10 +45,10 @@ pub(crate) struct CallCompiled {
 
 impl CallCompiled {
     pub(crate) fn new_method(
-        span: FrozenFileSpan,
+        span: FrameSpan,
         this: IrSpanned<ExprCompiled>,
         field: &Symbol,
-        getattr_span: FrozenFileSpan,
+        getattr_span: FrameSpan,
         args: ArgsCompiledValue,
         ctx: &mut OptCtx,
     ) -> ExprCompiled {
@@ -120,7 +120,7 @@ impl CallCompiled {
 
     /// Inline calls to functions which are safe to inline.
     fn try_inline(
-        span: FrozenFileSpan,
+        span: FrameSpan,
         fun: &ExprCompiled,
         args: &ArgsCompiledValue,
         ctx: &mut OptCtx,
@@ -185,7 +185,7 @@ impl CallCompiled {
                 node: expr.node.clone(),
             };
             let mut span_alloc = InlinedFrameAlloc::new(ctx.frozen_heap());
-            expr.visit_spans(&mut |expr_span: &mut FrozenFileSpan| {
+            expr.visit_spans(&mut |expr_span: &mut FrameSpan| {
                 expr_span
                     .inlined_frames
                     .inline_into(span, fun.to_frozen_value(), &mut span_alloc);
@@ -195,7 +195,7 @@ impl CallCompiled {
     }
 
     fn try_spec_exec(
-        span: FrozenFileSpan,
+        span: FrameSpan,
         fun: &ExprCompiled,
         args: &ArgsCompiledValue,
         ctx: &mut OptCtx,
@@ -236,7 +236,7 @@ impl CallCompiled {
     }
 
     pub(crate) fn call(
-        span: FrozenFileSpan,
+        span: FrameSpan,
         fun: IrSpanned<ExprCompiled>,
         args: ArgsCompiledValue,
         ctx: &mut OptCtx,

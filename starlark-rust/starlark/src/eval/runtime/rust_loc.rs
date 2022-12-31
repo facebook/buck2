@@ -15,19 +15,19 @@
  * limitations under the License.
  */
 
-/// Initialize `$loc` to `FrozenRef<FrozenFileSpan>` with rust file and line number.
+/// Initialize `$loc` to `FrozenRef<FrameSpan>` with rust file and line number.
 macro_rules! rust_loc {
     () => {{
         use crate::codemap::CodeMap;
         use crate::codemap::NativeCodeMap;
-        use crate::eval::runtime::call_stack::FrozenFileSpan;
+        use crate::eval::runtime::call_stack::FrameSpan;
         use crate::values::FrozenRef;
 
         static NATIVE_CODEMAP: NativeCodeMap = NativeCodeMap::new(file!(), line!(), column!());
         static CODEMAP: CodeMap = NATIVE_CODEMAP.to_codemap();
-        static FROZEN_FILE_SPAN: FrozenFileSpan =
-            FrozenFileSpan::new_unchecked(FrozenRef::new(&CODEMAP), NativeCodeMap::FULL_SPAN);
-        static LOC: FrozenRef<'static, FrozenFileSpan> = FrozenRef::new(&FROZEN_FILE_SPAN);
+        static FROZEN_FILE_SPAN: FrameSpan =
+            FrameSpan::new_unchecked(FrozenRef::new(&CODEMAP), NativeCodeMap::FULL_SPAN);
+        static LOC: FrozenRef<'static, FrameSpan> = FrozenRef::new(&FROZEN_FILE_SPAN);
         LOC
     }};
 }

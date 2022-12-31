@@ -38,7 +38,7 @@ use crate::eval::compiler::expr::ExprCompiled;
 use crate::eval::compiler::expr::ExprLogicalBinOp;
 use crate::eval::compiler::expr::MaybeNot;
 use crate::eval::compiler::span::IrSpanned;
-use crate::eval::runtime::call_stack::FrozenFileSpan;
+use crate::eval::runtime::call_stack::FrameSpan;
 use crate::values::layout::value_not_special::FrozenValueNotSpecial;
 use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
@@ -221,7 +221,7 @@ impl IrSpanned<ExprCompiled> {
     }
 
     fn write_dict(
-        span: FrozenFileSpan,
+        span: FrameSpan,
         xs: &[(IrSpanned<ExprCompiled>, IrSpanned<ExprCompiled>)],
         target: BcSlotOut,
         bc: &mut BcWriter,
@@ -257,7 +257,7 @@ impl IrSpanned<ExprCompiled> {
     }
 
     fn write_equals_const(
-        span: FrozenFileSpan,
+        span: FrameSpan,
         a: &IrSpanned<ExprCompiled>,
         b: FrozenValue,
         target: BcSlotOut,
@@ -279,7 +279,7 @@ impl IrSpanned<ExprCompiled> {
     }
 
     fn write_equals(
-        span: FrozenFileSpan,
+        span: FrameSpan,
         a: &IrSpanned<ExprCompiled>,
         b: &IrSpanned<ExprCompiled>,
         target: BcSlotOut,

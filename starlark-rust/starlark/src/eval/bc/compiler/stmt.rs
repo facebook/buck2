@@ -35,7 +35,7 @@ use crate::eval::compiler::stmt::AssignCompiledValue;
 use crate::eval::compiler::stmt::StmtCompileContext;
 use crate::eval::compiler::stmt::StmtCompiled;
 use crate::eval::compiler::stmt::StmtsCompiled;
-use crate::eval::runtime::call_stack::FrozenFileSpan;
+use crate::eval::runtime::call_stack::FrameSpan;
 use crate::values::FrozenHeap;
 use crate::values::FrozenRef;
 use crate::values::FrozenStringValue;
@@ -44,7 +44,7 @@ use crate::values::FrozenValue;
 pub(crate) fn write_for(
     over: &IrSpanned<ExprCompiled>,
     var: &IrSpanned<AssignCompiledValue>,
-    span: FrozenFileSpan,
+    span: FrameSpan,
     bc: &mut BcWriter,
     body: impl FnOnce(&mut BcWriter),
 ) {
@@ -192,7 +192,7 @@ impl IrSpanned<StmtCompiled> {
 
     #[allow(clippy::collapsible_else_if)]
     fn write_return(
-        span: FrozenFileSpan,
+        span: FrameSpan,
         expr: &IrSpanned<ExprCompiled>,
         compiler: &StmtCompileContext,
         bc: &mut BcWriter,

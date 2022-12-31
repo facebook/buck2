@@ -31,7 +31,7 @@ use crate::eval::compiler::opt_ctx::OptCtx;
 use crate::eval::compiler::span::IrSpanned;
 use crate::eval::compiler::stmt::StmtCompiled;
 use crate::eval::compiler::stmt::StmtsCompiled;
-use crate::eval::runtime::call_stack::FrozenFileSpan;
+use crate::eval::runtime::call_stack::FrameSpan;
 use crate::eval::runtime::slots::LocalSlotId;
 use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
@@ -159,7 +159,7 @@ fn is_return_safe_to_inline_expr(
         None => {
             // Empty function is equivalent to `return None`.
             Some(IrSpanned {
-                span: FrozenFileSpan::default(),
+                span: FrameSpan::default(),
                 node: ExprCompiled::Value(FrozenValue::new_none()),
             })
         }

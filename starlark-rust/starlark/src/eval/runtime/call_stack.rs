@@ -42,17 +42,18 @@ use crate::values::Trace;
 use crate::values::Tracer;
 use crate::values::Value;
 
+/// Span of the call frame (including inlined call frames).
 #[derive(Debug, Clone, Copy, Dupe, PartialEq, Eq)]
-pub(crate) struct FrozenFileSpan {
+pub(crate) struct FrameSpan {
     pub(crate) file: FrozenRef<'static, CodeMap>,
     pub(crate) span: Span,
     /// Parent frames.
     pub(crate) inlined_frames: InlinedFrames,
 }
 
-impl FrozenFileSpan {
+impl FrameSpan {
     pub(crate) const fn new_unchecked(file: FrozenRef<'static, CodeMap>, span: Span) -> Self {
-        FrozenFileSpan {
+        FrameSpan {
             file,
             span,
             inlined_frames: InlinedFrames { frames: None },
@@ -74,8 +75,8 @@ impl FrozenFileSpan {
         self.span
     }
 
-    pub(crate) fn end_span(&self) -> FrozenFileSpan {
-        FrozenFileSpan {
+    pub(crate) fn end_span(&self) -> FrameSpan {
+        FrameSpan {
             file: self.file,
             span: self.span.end_span(),
             inlined_frames: self.inlined_frames,
@@ -83,20 +84,20 @@ impl FrozenFileSpan {
     }
 }
 
-impl Default for FrozenFileSpan {
+impl Default for FrameSpan {
     fn default() -> Self {
         static EMPTY_FILE: Lazy<CodeMap> = Lazy::new(CodeMap::default);
-        FrozenFileSpan::new(FrozenRef::new(&EMPTY_FILE), Span::default())
+        FrameSpan::new(FrozenRef::new(&EMPTY_FILE), Span::default())
     }
 }
 
-impl Display for FrozenFileSpan {
+impl Display for FrameSpan {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         Display::fmt(&self.to_file_span(), f)
     }
 }
 
-impl FrozenFileSpan {
+impl FrameSpan {
     pub(crate) fn to_file_span(&self) -> FileSpan {
         FileSpan {
             file: (*self.file).dupe(),
@@ -104,9 +105,9 @@ impl FrozenFileSpan {
         }
     }
 
-    pub(crate) fn merge(&self, other: &FrozenFileSpan) -> FrozenFileSpan {
+    pub(crate) fn merge(&self, other: &FrameSpan) -> FrameSpan {
         if self.file == other.file {
-            FrozenFileSpan {
+            FrameSpan {
                 file: self.file,
                 span: self.span.merge(other.span),
                 inlined_frames: self.inlined_frames,
@@ -124,7 +125,7 @@ impl FrozenFileSpan {
 #[derive(Clone, Copy, Dupe)]
 struct CheapFrame<'v> {
     function: Value<'v>,
-    span: Option<FrozenRef<'static, FrozenFileSpan>>,
+    span: Option<FrozenRef<'static, FrameSpan>>,
 }
 
 impl CheapFrame<'_> {
@@ -214,7 +215,7 @@ impl<'v> CheapCallStack<'v> {
     pub(crate) fn push(
         &mut self,
         function: Value<'v>,
-        span: Option<FrozenRef<'static, FrozenFileSpan>>,
+        span: Option<FrozenRef<'static, FrameSpan>>,
     ) -> anyhow::Result<()> {
         if unlikely(self.count >= MAX_CALLSTACK_RECURSION) {
             return Err(CallStackError::Overflow.into());

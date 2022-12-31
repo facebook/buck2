@@ -68,7 +68,7 @@ use crate::eval::compiler::stmt::possible_gc;
 use crate::eval::compiler::stmt::AssignError;
 use crate::eval::compiler::EvalException;
 use crate::eval::runtime::arguments::ResolvedArgName;
-use crate::eval::runtime::call_stack::FrozenFileSpan;
+use crate::eval::runtime::call_stack::FrameSpan;
 use crate::eval::runtime::slots::LocalCapturedSlotId;
 use crate::eval::runtime::slots::LocalSlotId;
 use crate::eval::Arguments;
@@ -1425,7 +1425,7 @@ impl InstrNoFlowImpl for InstrDefImpl {
 pub(crate) trait BcFrozenCallable: BcInstrArg + Copy {
     fn bc_invoke<'v>(
         self,
-        location: FrozenRef<'static, FrozenFileSpan>,
+        location: FrozenRef<'static, FrameSpan>,
         args: &Arguments<'v, '_>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>>;
@@ -1435,7 +1435,7 @@ impl BcFrozenCallable for FrozenValue {
     #[inline(always)]
     fn bc_invoke<'v>(
         self,
-        location: FrozenRef<'static, FrozenFileSpan>,
+        location: FrozenRef<'static, FrameSpan>,
         args: &Arguments<'v, '_>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
@@ -1447,7 +1447,7 @@ impl BcFrozenCallable for FrozenValueTyped<'static, FrozenDef> {
     #[inline(always)]
     fn bc_invoke<'v>(
         self,
-        location: FrozenRef<'static, FrozenFileSpan>,
+        location: FrozenRef<'static, FrameSpan>,
         args: &Arguments<'v, '_>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
@@ -1461,7 +1461,7 @@ impl BcFrozenCallable for BcNativeFunction {
     #[inline(always)]
     fn bc_invoke<'v>(
         self,
-        location: FrozenRef<'static, FrozenFileSpan>,
+        location: FrozenRef<'static, FrameSpan>,
         args: &Arguments<'v, '_>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
@@ -1500,14 +1500,14 @@ pub(crate) type InstrCallMaybeKnownMethodPos =
     InstrNoFlow<InstrCallMaybeKnownMethodImpl<BcCallArgsPos>>;
 
 impl<A: BcCallArgs<Symbol>> InstrNoFlowImpl for InstrCallImpl<A> {
-    type Arg = (BcSlotIn, A, FrozenRef<'static, FrozenFileSpan>, BcSlotOut);
+    type Arg = (BcSlotIn, A, FrozenRef<'static, FrameSpan>, BcSlotOut);
 
     #[inline(always)]
     fn run_with_args<'v>(
         eval: &mut Evaluator<'v, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
-        (this, args, span, target): &(BcSlotIn, A, FrozenRef<'static, FrozenFileSpan>, BcSlotOut),
+        (this, args, span, target): &(BcSlotIn, A, FrozenRef<'static, FrameSpan>, BcSlotOut),
     ) -> anyhow::Result<()> {
         let f = frame.get_bc_slot(*this);
         let arguments = Arguments(args.pop_from_stack(frame));
@@ -1520,14 +1520,14 @@ impl<A: BcCallArgs<Symbol>> InstrNoFlowImpl for InstrCallImpl<A> {
 impl<F: BcFrozenCallable, A: BcCallArgs<Symbol>> InstrNoFlowImpl
     for InstrCallFrozenGenericImpl<F, A>
 {
-    type Arg = (F, A, FrozenRef<'static, FrozenFileSpan>, BcSlotOut);
+    type Arg = (F, A, FrozenRef<'static, FrameSpan>, BcSlotOut);
 
     #[inline(always)]
     fn run_with_args<'v>(
         eval: &mut Evaluator<'v, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
-        (fun, args, span, target): &(F, A, FrozenRef<'static, FrozenFileSpan>, BcSlotOut),
+        (fun, args, span, target): &(F, A, FrozenRef<'static, FrameSpan>, BcSlotOut),
     ) -> anyhow::Result<()> {
         let arguments = Arguments(args.pop_from_stack(frame));
         let r = fun.bc_invoke(*span, &arguments, eval)?;
@@ -1540,7 +1540,7 @@ impl<A: BcCallArgsForDef> InstrNoFlowImpl for InstrCallFrozenDefImpl<A> {
     type Arg = (
         FrozenValueTyped<'static, FrozenDef>,
         A,
-        FrozenRef<'static, FrozenFileSpan>,
+        FrozenRef<'static, FrameSpan>,
         BcSlotOut,
     );
 
@@ -1552,7 +1552,7 @@ impl<A: BcCallArgsForDef> InstrNoFlowImpl for InstrCallFrozenDefImpl<A> {
         (fun, args, span, target): &(
             FrozenValueTyped<'static, FrozenDef>,
             A,
-            FrozenRef<'static, FrozenFileSpan>,
+            FrozenRef<'static, FrameSpan>,
             BcSlotOut,
         ),
     ) -> anyhow::Result<()> {
@@ -1573,7 +1573,7 @@ fn call_method_common<'v>(
     this: Value<'v>,
     symbol: &Symbol,
     arguments: &Arguments<'v, '_>,
-    span: FrozenRef<'static, FrozenFileSpan>,
+    span: FrozenRef<'static, FrameSpan>,
     target: BcSlotOut,
 ) -> anyhow::Result<()> {
     // TODO: wrong span: should be span of `object.method`, not of the whole expression
@@ -1595,7 +1595,7 @@ fn call_maybe_known_method_common<'v>(
     symbol: &Symbol,
     known_method: &KnownMethod,
     arguments: &Arguments<'v, '_>,
-    span: FrozenRef<'static, FrozenFileSpan>,
+    span: FrozenRef<'static, FrameSpan>,
     target: BcSlotOut,
 ) -> anyhow::Result<()> {
     if let Some(methods) = this.get_ref().get_methods() {
@@ -1619,7 +1619,7 @@ impl<A: BcCallArgs<Symbol>> InstrNoFlowImpl for InstrCallMethodImpl<A> {
         BcSlotIn,
         Symbol,
         A,
-        FrozenRef<'static, FrozenFileSpan>,
+        FrozenRef<'static, FrameSpan>,
         BcSlotOut,
     );
 
@@ -1632,7 +1632,7 @@ impl<A: BcCallArgs<Symbol>> InstrNoFlowImpl for InstrCallMethodImpl<A> {
             BcSlotIn,
             Symbol,
             A,
-            FrozenRef<'static, FrozenFileSpan>,
+            FrozenRef<'static, FrameSpan>,
             BcSlotOut,
         ),
     ) -> anyhow::Result<()> {
@@ -1648,7 +1648,7 @@ impl<A: BcCallArgs<Symbol>> InstrNoFlowImpl for InstrCallMaybeKnownMethodImpl<A>
         Symbol,
         KnownMethod,
         A,
-        FrozenRef<'static, FrozenFileSpan>,
+        FrozenRef<'static, FrameSpan>,
         BcSlotOut,
     );
 
@@ -1662,7 +1662,7 @@ impl<A: BcCallArgs<Symbol>> InstrNoFlowImpl for InstrCallMaybeKnownMethodImpl<A>
             Symbol,
             KnownMethod,
             A,
-            FrozenRef<'static, FrozenFileSpan>,
+            FrozenRef<'static, FrameSpan>,
             BcSlotOut,
         ),
     ) -> anyhow::Result<()> {
@@ -1708,7 +1708,7 @@ impl InstrNoFlowImpl for InstrPossibleGcImpl {
 }
 
 impl InstrNoFlowImpl for InstrBeforeStmtImpl {
-    type Arg = FrozenFileSpan;
+    type Arg = FrameSpan;
 
     fn run_with_args<'v>(
         eval: &mut Evaluator<'v, '_>,

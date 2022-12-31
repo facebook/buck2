@@ -26,7 +26,7 @@ use crate::eval::bc::writer::BcWriter;
 use crate::eval::compiler::def::DefCompiled;
 use crate::eval::compiler::def::ParametersCompiled;
 use crate::eval::compiler::span::IrSpanned;
-use crate::eval::runtime::call_stack::FrozenFileSpan;
+use crate::eval::runtime::call_stack::FrameSpan;
 
 impl DefCompiled {
     pub(crate) fn mark_definitely_assigned_after(&self, bc: &mut BcWriter) {
@@ -35,7 +35,7 @@ impl DefCompiled {
         let _ = bc;
     }
 
-    pub(crate) fn write_bc(&self, span: FrozenFileSpan, target: BcSlotOut, bc: &mut BcWriter) {
+    pub(crate) fn write_bc(&self, span: FrameSpan, target: BcSlotOut, bc: &mut BcWriter) {
         let DefCompiled {
             ref function_name,
             ref params,

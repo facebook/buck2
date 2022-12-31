@@ -30,7 +30,7 @@ use crate::eval::bc::writer::BcWriter;
 use crate::eval::compiler::compr::ClauseCompiled;
 use crate::eval::compiler::compr::ComprCompiled;
 use crate::eval::compiler::expr::MaybeNot;
-use crate::eval::runtime::call_stack::FrozenFileSpan;
+use crate::eval::runtime::call_stack::FrameSpan;
 
 impl ClauseCompiled {
     fn write_bc(
@@ -76,7 +76,7 @@ impl ComprCompiled {
             .mark_definitely_assigned_after(bc);
     }
 
-    pub(crate) fn write_bc(&self, span: FrozenFileSpan, target: BcSlotOut, bc: &mut BcWriter) {
+    pub(crate) fn write_bc(&self, span: FrameSpan, target: BcSlotOut, bc: &mut BcWriter) {
         bc.alloc_slot(|temp, bc| {
             match self {
                 ComprCompiled::List(ref expr, ref clauses) => {

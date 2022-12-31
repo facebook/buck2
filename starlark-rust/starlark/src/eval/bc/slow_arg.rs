@@ -16,7 +16,7 @@
  */
 
 use crate::eval::bc::addr::BcAddr;
-use crate::eval::runtime::call_stack::FrozenFileSpan;
+use crate::eval::runtime::call_stack::FrameSpan;
 use crate::values::FrozenRef;
 use crate::values::FrozenStringValue;
 
@@ -25,9 +25,9 @@ use crate::values::FrozenStringValue;
 #[derive(Default, Debug)]
 pub(crate) struct BcInstrSlowArg {
     /// Instruction code span.
-    pub(crate) span: FrozenFileSpan,
+    pub(crate) span: FrameSpan,
     /// Spans when an instruction needs multiple spans.
-    pub(crate) spans: Vec<FrozenFileSpan>,
+    pub(crate) spans: Vec<FrameSpan>,
 }
 
 #[derive(Debug, Default)]

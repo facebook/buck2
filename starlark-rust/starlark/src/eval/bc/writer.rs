@@ -46,7 +46,7 @@ use crate::eval::bc::stack_ptr::BcSlotOut;
 use crate::eval::bc::stack_ptr::BcSlotRange;
 use crate::eval::bc::stack_ptr::BcSlotsN;
 use crate::eval::compiler::expr::MaybeNot;
-use crate::eval::runtime::call_stack::FrozenFileSpan;
+use crate::eval::runtime::call_stack::FrameSpan;
 use crate::eval::runtime::slots::LocalCapturedSlotId;
 use crate::eval::runtime::slots::LocalSlotId;
 use crate::values::FrozenHeap;
@@ -179,7 +179,7 @@ impl<'f> BcWriter<'f> {
 
     fn write_instr_ret_arg<I: BcInstr>(
         &mut self,
-        span: FrozenFileSpan,
+        span: FrameSpan,
         arg: I::Arg,
     ) -> (BcAddr, *const I::Arg) {
         self.write_instr_ret_arg_explicit::<I>(
@@ -200,7 +200,7 @@ impl<'f> BcWriter<'f> {
     }
 
     /// Write an instruction.
-    pub(crate) fn write_instr<I: BcInstr>(&mut self, span: FrozenFileSpan, arg: I::Arg) {
+    pub(crate) fn write_instr<I: BcInstr>(&mut self, span: FrameSpan, arg: I::Arg) {
         self.write_instr_explicit::<I>(
             BcInstrSlowArg {
                 span,
@@ -211,12 +211,7 @@ impl<'f> BcWriter<'f> {
     }
 
     /// Write load constant instruction.
-    pub(crate) fn write_const(
-        &mut self,
-        span: FrozenFileSpan,
-        value: FrozenValue,
-        slot: BcSlotOut,
-    ) {
+    pub(crate) fn write_const(&mut self, span: FrameSpan, value: FrozenValue, slot: BcSlotOut) {
         assert!(slot.get().0 < self.local_count() + self.stack_size);
 
         self.write_instr::<InstrConst>(span, (value, slot));
@@ -225,7 +220,7 @@ impl<'f> BcWriter<'f> {
     /// Write load local instruction.
     pub(crate) fn write_load_local(
         &mut self,
-        span: FrozenFileSpan,
+        span: FrameSpan,
         slot: LocalSlotId,
         target: BcSlotOut,
     ) {
@@ -240,7 +235,7 @@ impl<'f> BcWriter<'f> {
 
     pub(crate) fn write_load_local_captured(
         &mut self,
-        span: FrozenFileSpan,
+        span: FrameSpan,
         source: LocalCapturedSlotId,
         target: BcSlotOut,
     ) {
@@ -249,7 +244,7 @@ impl<'f> BcWriter<'f> {
         self.write_instr_ret_arg::<InstrLoadLocalCaptured>(span, (source, target));
     }
 
-    pub(crate) fn write_mov(&mut self, span: FrozenFileSpan, source: BcSlotIn, target: BcSlotOut) {
+    pub(crate) fn write_mov(&mut self, span: FrameSpan, source: BcSlotIn, target: BcSlotOut) {
         assert!(source.get().0 < self.local_count() + self.stack_size);
         assert!(target.get().0 < self.local_count() + self.stack_size);
 
@@ -265,7 +260,7 @@ impl<'f> BcWriter<'f> {
 
     pub(crate) fn write_store_local_captured(
         &mut self,
-        span: FrozenFileSpan,
+        span: FrameSpan,
         source: BcSlotIn,
         target: LocalCapturedSlotId,
     ) {
@@ -286,20 +281,20 @@ impl<'f> BcWriter<'f> {
     }
 
     /// Write branch.
-    pub(crate) fn write_br(&mut self, span: FrozenFileSpan) -> PatchAddr {
+    pub(crate) fn write_br(&mut self, span: FrameSpan) -> PatchAddr {
         let (addr, arg) = self.write_instr_ret_arg::<InstrBr>(span, BcAddrOffset::FORWARD);
         self.instrs.addr_to_patch(addr, arg)
     }
 
     /// Write conditional branch.
-    pub(crate) fn write_if_not_br(&mut self, cond: BcSlotIn, span: FrozenFileSpan) -> PatchAddr {
+    pub(crate) fn write_if_not_br(&mut self, cond: BcSlotIn, span: FrameSpan) -> PatchAddr {
         let (addr, arg) =
             self.write_instr_ret_arg::<InstrIfNotBr>(span, (cond, BcAddrOffset::FORWARD));
         self.instrs.addr_to_patch(addr, unsafe { &(*arg).1 })
     }
 
     /// Write conditional branch.
-    pub(crate) fn write_if_br(&mut self, cond: BcSlotIn, span: FrozenFileSpan) -> PatchAddr {
+    pub(crate) fn write_if_br(&mut self, cond: BcSlotIn, span: FrameSpan) -> PatchAddr {
         let (addr, arg) =
             self.write_instr_ret_arg::<InstrIfBr>(span, (cond, BcAddrOffset::FORWARD));
         self.instrs.addr_to_patch(addr, unsafe { &(*arg).1 })
@@ -308,7 +303,7 @@ impl<'f> BcWriter<'f> {
     fn write_if_else_impl(
         &mut self,
         cond: BcSlotIn,
-        span: FrozenFileSpan,
+        span: FrameSpan,
         then_block: impl FnOnce(&mut Self),
         else_block: impl FnOnce(&mut Self),
     ) {
@@ -332,7 +327,7 @@ impl<'f> BcWriter<'f> {
         &mut self,
         cond: BcSlotIn,
         maybe_not: MaybeNot,
-        span: FrozenFileSpan,
+        span: FrameSpan,
         then_block: impl FnOnce(&mut Self),
         else_block: impl FnOnce(&mut Self),
     ) {
@@ -347,7 +342,7 @@ impl<'f> BcWriter<'f> {
         &mut self,
         over: BcSlotIn,
         var: BcSlotOut,
-        span: FrozenFileSpan,
+        span: FrameSpan,
         body: impl FnOnce(&mut Self),
     ) {
         // Definitely assigned save/restore is redundant here, it is performed more precisely
@@ -466,10 +461,7 @@ impl<'f> BcWriter<'f> {
         r
     }
 
-    pub(crate) fn alloc_file_span(
-        &self,
-        span: FrozenFileSpan,
-    ) -> FrozenRef<'static, FrozenFileSpan> {
+    pub(crate) fn alloc_file_span(&self, span: FrameSpan) -> FrozenRef<'static, FrameSpan> {
         self.heap.alloc_any(span)
     }
 }

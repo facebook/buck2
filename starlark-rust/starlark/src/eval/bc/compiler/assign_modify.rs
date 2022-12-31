@@ -43,7 +43,7 @@ use crate::eval::bc::writer::BcWriter;
 use crate::eval::compiler::expr::ExprCompiled;
 use crate::eval::compiler::span::IrSpanned;
 use crate::eval::compiler::stmt::AssignModifyLhs;
-use crate::eval::runtime::call_stack::FrozenFileSpan;
+use crate::eval::runtime::call_stack::FrameSpan;
 use crate::syntax::ast::AssignOp;
 
 impl AssignOp {
@@ -52,7 +52,7 @@ impl AssignOp {
         v0: BcSlotIn,
         v1: BcSlotIn,
         target: BcSlotOut,
-        span: FrozenFileSpan,
+        span: FrameSpan,
         bc: &mut BcWriter,
     ) {
         let arg = (v0, v1, target);
@@ -89,7 +89,7 @@ impl AssignModifyLhs {
 
     pub(crate) fn write_bc(
         &self,
-        span: FrozenFileSpan,
+        span: FrameSpan,
         op: AssignOp,
         rhs: &IrSpanned<ExprCompiled>,
         bc: &mut BcWriter,

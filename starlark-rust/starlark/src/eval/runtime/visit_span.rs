@@ -19,7 +19,7 @@ use crate::collections::symbol_map::Symbol;
 use crate::environment::slots::ModuleSlotId;
 use crate::eval::compiler::expr::CompareOp;
 use crate::eval::compiler::span::IrSpanned;
-use crate::eval::runtime::call_stack::FrozenFileSpan;
+use crate::eval::runtime::call_stack::FrameSpan;
 use crate::values::FrozenRef;
 use crate::values::FrozenValue;
 use crate::values::FrozenValueTyped;
@@ -27,67 +27,67 @@ use crate::values::StarlarkValue;
 
 /// Visitor for code spans in the IR.
 pub(crate) trait VisitSpanMut {
-    fn visit_spans(&mut self, visitor: &mut impl FnMut(&mut FrozenFileSpan));
+    fn visit_spans(&mut self, visitor: &mut impl FnMut(&mut FrameSpan));
 }
 
 impl<V: VisitSpanMut> VisitSpanMut for IrSpanned<V> {
-    fn visit_spans(&mut self, visitor: &mut impl FnMut(&mut FrozenFileSpan)) {
+    fn visit_spans(&mut self, visitor: &mut impl FnMut(&mut FrameSpan)) {
         visitor(&mut self.span);
         self.node.visit_spans(visitor);
     }
 }
 
 impl VisitSpanMut for FrozenValue {
-    fn visit_spans(&mut self, _visitor: &mut impl FnMut(&mut FrozenFileSpan)) {}
+    fn visit_spans(&mut self, _visitor: &mut impl FnMut(&mut FrameSpan)) {}
 }
 
 impl VisitSpanMut for String {
-    fn visit_spans(&mut self, _visitor: &mut impl FnMut(&mut FrozenFileSpan)) {}
+    fn visit_spans(&mut self, _visitor: &mut impl FnMut(&mut FrameSpan)) {}
 }
 
 impl VisitSpanMut for bool {
-    fn visit_spans(&mut self, _visitor: &mut impl FnMut(&mut FrozenFileSpan)) {}
+    fn visit_spans(&mut self, _visitor: &mut impl FnMut(&mut FrameSpan)) {}
 }
 
 impl VisitSpanMut for u32 {
-    fn visit_spans(&mut self, _visitor: &mut impl FnMut(&mut FrozenFileSpan)) {}
+    fn visit_spans(&mut self, _visitor: &mut impl FnMut(&mut FrameSpan)) {}
 }
 
 impl VisitSpanMut for ModuleSlotId {
-    fn visit_spans(&mut self, _visitor: &mut impl FnMut(&mut FrozenFileSpan)) {}
+    fn visit_spans(&mut self, _visitor: &mut impl FnMut(&mut FrameSpan)) {}
 }
 
 impl VisitSpanMut for CompareOp {
-    fn visit_spans(&mut self, _visitor: &mut impl FnMut(&mut FrozenFileSpan)) {}
+    fn visit_spans(&mut self, _visitor: &mut impl FnMut(&mut FrameSpan)) {}
 }
 
 impl<V: VisitSpanMut> VisitSpanMut for Box<V> {
-    fn visit_spans(&mut self, visitor: &mut impl FnMut(&mut FrozenFileSpan)) {
+    fn visit_spans(&mut self, visitor: &mut impl FnMut(&mut FrameSpan)) {
         (**self).visit_spans(visitor);
     }
 }
 
 impl<T: StarlarkValue<'static>> VisitSpanMut for FrozenValueTyped<'static, T> {
-    fn visit_spans(&mut self, _visitor: &mut impl FnMut(&mut FrozenFileSpan)) {}
+    fn visit_spans(&mut self, _visitor: &mut impl FnMut(&mut FrameSpan)) {}
 }
 
 impl<T> VisitSpanMut for FrozenRef<'static, T> {
-    fn visit_spans(&mut self, _visitor: &mut impl FnMut(&mut FrozenFileSpan)) {}
+    fn visit_spans(&mut self, _visitor: &mut impl FnMut(&mut FrameSpan)) {}
 }
 
 impl VisitSpanMut for Symbol {
-    fn visit_spans(&mut self, _visitor: &mut impl FnMut(&mut FrozenFileSpan)) {}
+    fn visit_spans(&mut self, _visitor: &mut impl FnMut(&mut FrameSpan)) {}
 }
 
 impl<A: VisitSpanMut, B: VisitSpanMut> VisitSpanMut for (A, B) {
-    fn visit_spans(&mut self, visitor: &mut impl FnMut(&mut FrozenFileSpan)) {
+    fn visit_spans(&mut self, visitor: &mut impl FnMut(&mut FrameSpan)) {
         self.0.visit_spans(visitor);
         self.1.visit_spans(visitor);
     }
 }
 
 impl<A: VisitSpanMut, B: VisitSpanMut, C: VisitSpanMut> VisitSpanMut for (A, B, C) {
-    fn visit_spans(&mut self, visitor: &mut impl FnMut(&mut FrozenFileSpan)) {
+    fn visit_spans(&mut self, visitor: &mut impl FnMut(&mut FrameSpan)) {
         self.0.visit_spans(visitor);
         self.1.visit_spans(visitor);
         self.2.visit_spans(visitor);
@@ -97,7 +97,7 @@ impl<A: VisitSpanMut, B: VisitSpanMut, C: VisitSpanMut> VisitSpanMut for (A, B, 
 impl<A: VisitSpanMut, B: VisitSpanMut, C: VisitSpanMut, D: VisitSpanMut> VisitSpanMut
     for (A, B, C, D)
 {
-    fn visit_spans(&mut self, visitor: &mut impl FnMut(&mut FrozenFileSpan)) {
+    fn visit_spans(&mut self, visitor: &mut impl FnMut(&mut FrameSpan)) {
         self.0.visit_spans(visitor);
         self.1.visit_spans(visitor);
         self.2.visit_spans(visitor);
@@ -106,7 +106,7 @@ impl<A: VisitSpanMut, B: VisitSpanMut, C: VisitSpanMut, D: VisitSpanMut> VisitSp
 }
 
 impl<V: VisitSpanMut> VisitSpanMut for Vec<V> {
-    fn visit_spans(&mut self, visitor: &mut impl FnMut(&mut FrozenFileSpan)) {
+    fn visit_spans(&mut self, visitor: &mut impl FnMut(&mut FrameSpan)) {
         for v in self {
             v.visit_spans(visitor);
         }
@@ -114,7 +114,7 @@ impl<V: VisitSpanMut> VisitSpanMut for Vec<V> {
 }
 
 impl<V: VisitSpanMut> VisitSpanMut for Option<V> {
-    fn visit_spans(&mut self, visitor: &mut impl FnMut(&mut FrozenFileSpan)) {
+    fn visit_spans(&mut self, visitor: &mut impl FnMut(&mut FrameSpan)) {
         if let Some(v) = self {
             v.visit_spans(visitor);
         }

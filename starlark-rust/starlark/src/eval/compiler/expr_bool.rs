@@ -21,7 +21,7 @@ use crate::eval::compiler::expr::Builtin1;
 use crate::eval::compiler::expr::ExprCompiled;
 use crate::eval::compiler::expr::ExprLogicalBinOp;
 use crate::eval::compiler::span::IrSpanned;
-use crate::eval::runtime::call_stack::FrozenFileSpan;
+use crate::eval::runtime::call_stack::FrameSpan;
 use crate::values::FrozenValue;
 
 /// Boolean expression.
@@ -57,7 +57,7 @@ impl ExprCompiledBool {
 
     /// `bool(x)` and do trivial optimizations.
     pub(crate) fn new(expr: IrSpanned<ExprCompiled>) -> IrSpanned<ExprCompiledBool> {
-        fn new_bool(span: FrozenFileSpan, b: bool) -> IrSpanned<ExprCompiledBool> {
+        fn new_bool(span: FrameSpan, b: bool) -> IrSpanned<ExprCompiledBool> {
             IrSpanned {
                 node: ExprCompiledBool::Const(b),
                 span,

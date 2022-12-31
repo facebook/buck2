@@ -39,7 +39,7 @@ use crate::errors::Diagnostic;
 use crate::eval::compiler::scope::ScopeData;
 use crate::eval::compiler::scope::ScopeId;
 use crate::eval::compiler::scope::ScopeNames;
-use crate::eval::runtime::call_stack::FrozenFileSpan;
+use crate::eval::runtime::call_stack::FrameSpan;
 use crate::eval::Evaluator;
 use crate::values::FrozenRef;
 
@@ -49,7 +49,7 @@ pub(crate) struct EvalException(pub(crate) anyhow::Error);
 
 #[cold]
 #[inline(never)]
-fn add_span_to_error(e: anyhow::Error, span: FrozenFileSpan, eval: &Evaluator) -> anyhow::Error {
+fn add_span_to_error(e: anyhow::Error, span: FrameSpan, eval: &Evaluator) -> anyhow::Error {
     Diagnostic::modify(e, |d: &mut Diagnostic| {
         d.set_span(span.span(), &span.file());
         d.set_call_stack(|| eval.call_stack.to_diagnostic_frames(span.inlined_frames));
@@ -60,7 +60,7 @@ fn add_span_to_error(e: anyhow::Error, span: FrozenFileSpan, eval: &Evaluator) -
 #[inline(never)]
 pub(crate) fn add_span_to_expr_error(
     e: anyhow::Error,
-    span: FrozenFileSpan,
+    span: FrameSpan,
     eval: &Evaluator,
 ) -> EvalException {
     EvalException(add_span_to_error(e, span, eval))
@@ -70,7 +70,7 @@ pub(crate) fn add_span_to_expr_error(
 #[inline(always)]
 pub(crate) fn expr_throw<'v, T>(
     r: anyhow::Result<T>,
-    span: FrozenFileSpan,
+    span: FrameSpan,
     eval: &Evaluator<'v, '_>,
 ) -> Result<T, EvalException> {
     match r {

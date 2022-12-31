@@ -20,7 +20,7 @@ use std::ptr;
 use gazebo::dupe::Dupe;
 
 use crate::errors::Frame;
-use crate::eval::runtime::call_stack::FrozenFileSpan;
+use crate::eval::runtime::call_stack::FrameSpan;
 use crate::values::FrozenHeap;
 use crate::values::FrozenRef;
 use crate::values::FrozenValue;
@@ -29,7 +29,7 @@ use crate::values::FrozenValue;
 /// the inlined frame for expressions in `a` which now reside in `b`.
 #[derive(Debug, PartialEq)]
 pub(crate) struct InlinedFrame {
-    pub(crate) span: FrozenFileSpan,
+    pub(crate) span: FrameSpan,
     pub(crate) fun: FrozenValue,
 }
 
@@ -89,12 +89,12 @@ impl InlinedFrames {
     /// self is empty stack for expression `{}`, `span` is `a()` and `fun` is `a`.
     pub(crate) fn inline_into(
         &mut self,
-        span: FrozenFileSpan,
+        span: FrameSpan,
         fun: FrozenValue,
         span_alloc: &mut InlinedFrameAlloc,
     ) {
         self.frames = Some(span_alloc.alloc_frame(InlinedFrame {
-            span: FrozenFileSpan {
+            span: FrameSpan {
                 file: span.file,
                 span: span.span,
                 inlined_frames: *self,
@@ -103,7 +103,7 @@ impl InlinedFrames {
         }));
         for f in span.inlined_frames.to_inlined_frames().into_iter().rev() {
             self.frames = Some(span_alloc.alloc_frame(InlinedFrame {
-                span: FrozenFileSpan {
+                span: FrameSpan {
                     file: f.span.file,
                     span: f.span.span,
                     inlined_frames: *self,
@@ -145,7 +145,7 @@ mod tests {
     use gazebo::prelude::*;
 
     use crate::codemap::CodeMap;
-    use crate::eval::runtime::call_stack::FrozenFileSpan;
+    use crate::eval::runtime::call_stack::FrameSpan;
     use crate::eval::runtime::inlined_frame::InlinedFrameAlloc;
     use crate::eval::runtime::inlined_frame::InlinedFrames;
     use crate::values::FrozenHeap;
@@ -171,10 +171,10 @@ mod tests {
 
         let frozen_heap = FrozenHeap::new();
 
-        fn make_span(heap: &FrozenHeap, text: &str) -> FrozenFileSpan {
+        fn make_span(heap: &FrozenHeap, text: &str) -> FrameSpan {
             let codemap = CodeMap::new(format!("{}.bzl", text), text.to_owned());
             let codemap = heap.alloc_any_display_from_debug(codemap);
-            FrozenFileSpan {
+            FrameSpan {
                 file: codemap,
                 span: codemap.full_span(),
                 inlined_frames: InlinedFrames::default(),
@@ -183,7 +183,7 @@ mod tests {
 
         let mut span_alloc = InlinedFrameAlloc::new(&frozen_heap);
 
-        fn assert_stack(expected: &[&str], span: &FrozenFileSpan) {
+        fn assert_stack(expected: &[&str], span: &FrameSpan) {
             let mut frames = Vec::new();
             span.inlined_frames.extend_frames(&mut frames);
             let frames = frames.map(|f| {

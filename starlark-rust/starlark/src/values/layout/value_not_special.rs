@@ -17,7 +17,7 @@
 
 use gazebo::dupe::Dupe;
 
-use crate::eval::runtime::call_stack::FrozenFileSpan;
+use crate::eval::runtime::call_stack::FrameSpan;
 use crate::eval::Arguments;
 use crate::eval::Evaluator;
 use crate::values::layout::vtable::AValueDyn;
@@ -74,7 +74,7 @@ impl FrozenValueNotSpecial {
     pub(crate) fn invoke_method<'v>(
         self,
         this: Value<'v>,
-        location: FrozenRef<'static, FrozenFileSpan>,
+        location: FrozenRef<'static, FrameSpan>,
         args: &Arguments<'v, '_>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {

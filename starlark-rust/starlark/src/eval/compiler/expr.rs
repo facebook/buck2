@@ -42,7 +42,7 @@ use crate::eval::compiler::scope::ResolvedIdent;
 use crate::eval::compiler::scope::Slot;
 use crate::eval::compiler::span::IrSpanned;
 use crate::eval::compiler::Compiler;
-use crate::eval::runtime::call_stack::FrozenFileSpan;
+use crate::eval::runtime::call_stack::FrameSpan;
 use crate::eval::runtime::slots::LocalCapturedSlotId;
 use crate::eval::runtime::slots::LocalSlotId;
 use crate::syntax::ast::AstExprP;
@@ -541,10 +541,7 @@ impl ExprCompiled {
         }
     }
 
-    pub(crate) fn not(
-        span: FrozenFileSpan,
-        expr: IrSpanned<ExprCompiled>,
-    ) -> IrSpanned<ExprCompiled> {
+    pub(crate) fn not(span: FrameSpan, expr: IrSpanned<ExprCompiled>) -> IrSpanned<ExprCompiled> {
         match expr.node {
             ExprCompiled::Value(x) => IrSpanned {
                 node: ExprCompiled::Value(FrozenValue::new_bool(!x.to_value().to_bool())),
@@ -724,7 +721,7 @@ impl ExprCompiled {
     }
 
     pub(crate) fn un_op(
-        span: FrozenFileSpan,
+        span: FrameSpan,
         op: &Builtin1,
         expr: IrSpanned<ExprCompiled>,
         ctx: &mut OptCtx,
@@ -751,7 +748,7 @@ impl ExprCompiled {
     }
 
     fn try_values(
-        span: FrozenFileSpan,
+        span: FrameSpan,
         values: &[Value],
         heap: &FrozenHeap,
     ) -> Option<Vec<IrSpanned<ExprCompiled>>> {
@@ -765,11 +762,7 @@ impl ExprCompiled {
     }
 
     /// Try convert a maybe not frozen value to an expression, or discard it.
-    pub(crate) fn try_value(
-        span: FrozenFileSpan,
-        v: Value,
-        heap: &FrozenHeap,
-    ) -> Option<ExprCompiled> {
+    pub(crate) fn try_value(span: FrameSpan, v: Value, heap: &FrozenHeap) -> Option<ExprCompiled> {
         if let Some(v) = v.unpack_frozen() {
             // If frozen, we are lucky.
             Some(ExprCompiled::Value(v))
@@ -861,7 +854,7 @@ impl ExprCompiled {
     }
 
     fn slice(
-        span: FrozenFileSpan,
+        span: FrameSpan,
         array: IrSpanned<ExprCompiled>,
         start: Option<IrSpanned<ExprCompiled>>,
         stop: Option<IrSpanned<ExprCompiled>>,
@@ -904,7 +897,7 @@ impl ExprCompiled {
         ExprCompiled::Builtin2(Builtin2::ArrayIndex, Box::new((array, index)))
     }
 
-    pub(crate) fn typ(span: FrozenFileSpan, v: IrSpanned<ExprCompiled>) -> ExprCompiled {
+    pub(crate) fn typ(span: FrameSpan, v: IrSpanned<ExprCompiled>) -> ExprCompiled {
         match &v.node {
             ExprCompiled::Value(v) => {
                 ExprCompiled::Value(v.to_value().get_type_value().to_frozen_value())
@@ -948,7 +941,7 @@ impl ExprCompiled {
         ExprCompiled::Builtin1(Builtin1::TypeIs(t), Box::new(v))
     }
 
-    pub(crate) fn len(span: FrozenFileSpan, arg: IrSpanned<ExprCompiled>) -> ExprCompiled {
+    pub(crate) fn len(span: FrameSpan, arg: IrSpanned<ExprCompiled>) -> ExprCompiled {
         if let Some(arg) = arg.as_value() {
             if let Ok(len) = arg.to_value().length() {
                 return ExprCompiled::Value(FrozenValue::new_int(len));
@@ -1173,7 +1166,7 @@ impl<'v, 'a, 'e> Compiler<'v, 'a, 'e> {
 
     pub(crate) fn expr(&mut self, expr: CstExpr) -> IrSpanned<ExprCompiled> {
         // println!("compile {}", expr.node);
-        let span = FrozenFileSpan::new(self.codemap, expr.span);
+        let span = FrameSpan::new(self.codemap, expr.span);
         let expr = match expr.node {
             ExprP::Identifier(ident, resolved_ident) => self.expr_ident(ident, resolved_ident),
             ExprP::Lambda(params, inner, scope_id) => {

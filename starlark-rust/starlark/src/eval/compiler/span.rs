@@ -17,14 +17,14 @@
 
 use std::ops::Deref;
 
-use crate::eval::runtime::call_stack::FrozenFileSpan;
+use crate::eval::runtime::call_stack::FrameSpan;
 
 /// Similar to `Spanned<T>` but with file span.
 ///
 /// For intermediate representation.
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct IrSpanned<T> {
-    pub(crate) span: FrozenFileSpan,
+    pub(crate) span: FrameSpan,
     pub(crate) node: T,
 }
 

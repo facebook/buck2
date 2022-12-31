@@ -62,7 +62,7 @@ use crate::eval::compiler::Compiler;
 use crate::eval::compiler::EvalException;
 use crate::eval::runtime::arguments::ArgumentsImpl;
 use crate::eval::runtime::arguments::ResolvedArgName;
-use crate::eval::runtime::call_stack::FrozenFileSpan;
+use crate::eval::runtime::call_stack::FrameSpan;
 use crate::eval::runtime::evaluator::Evaluator;
 use crate::eval::runtime::params::ParametersSpec;
 use crate::eval::runtime::slots::LocalCapturedSlotId;
@@ -350,7 +350,7 @@ impl Compiler<'_, '_, '_> {
         &mut self,
         x: CstParameter,
     ) -> IrSpanned<ParameterCompiled<IrSpanned<ExprCompiled>>> {
-        let span = FrozenFileSpan::new(self.codemap, x.span);
+        let span = FrameSpan::new(self.codemap, x.span);
         IrSpanned {
             span,
             node: match x.node {

@@ -56,7 +56,7 @@ use crate::docs::DocItem;
 use crate::eval::compiler::def::Def;
 use crate::eval::compiler::def::FrozenDef;
 use crate::eval::runtime::arguments::ArgumentsFull;
-use crate::eval::runtime::call_stack::FrozenFileSpan;
+use crate::eval::runtime::call_stack::FrameSpan;
 use crate::eval::Arguments;
 use crate::eval::Evaluator;
 use crate::eval::ParametersSpec;
@@ -581,7 +581,7 @@ impl<'v> Value<'v> {
 
     pub(crate) fn invoke_with_loc(
         self,
-        location: Option<FrozenRef<'static, FrozenFileSpan>>,
+        location: Option<FrozenRef<'static, FrameSpan>>,
         args: &Arguments<'v, '_>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {

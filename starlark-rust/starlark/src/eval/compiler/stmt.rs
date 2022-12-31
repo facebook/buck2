@@ -47,7 +47,7 @@ use crate::eval::compiler::scope::Slot;
 use crate::eval::compiler::small_vec_1::SmallVec1;
 use crate::eval::compiler::span::IrSpanned;
 use crate::eval::compiler::Compiler;
-use crate::eval::runtime::call_stack::FrozenFileSpan;
+use crate::eval::runtime::call_stack::FrameSpan;
 use crate::eval::runtime::evaluator::Evaluator;
 use crate::eval::runtime::evaluator::GC_THRESHOLD;
 use crate::eval::runtime::slots::LocalCapturedSlotId;
@@ -298,7 +298,7 @@ impl StmtsCompiled {
     }
 
     fn if_stmt(
-        span: FrozenFileSpan,
+        span: FrameSpan,
         cond: IrSpanned<ExprCompiled>,
         t: StmtsCompiled,
         f: StmtsCompiled,
@@ -332,7 +332,7 @@ impl StmtsCompiled {
     }
 
     fn for_stmt(
-        span: FrozenFileSpan,
+        span: FrameSpan,
         var: IrSpanned<AssignCompiledValue>,
         over: IrSpanned<ExprCompiled>,
         body: StmtsCompiled,
@@ -402,7 +402,7 @@ impl IrSpanned<AssignCompiledValue> {
 
 impl Compiler<'_, '_, '_> {
     pub fn assign(&mut self, expr: CstAssign) -> IrSpanned<AssignCompiledValue> {
-        let span = FrozenFileSpan::new(self.codemap, expr.span);
+        let span = FrameSpan::new(self.codemap, expr.span);
         let assign = match expr.node {
             AssignP::Dot(e, s) => {
                 let e = self.expr(*e);
@@ -450,8 +450,8 @@ impl Compiler<'_, '_, '_> {
         rhs: IrSpanned<ExprCompiled>,
         op: AssignOp,
     ) -> StmtsCompiled {
-        let span_stmt = FrozenFileSpan::new(self.codemap, span_stmt);
-        let span_lhs = FrozenFileSpan::new(self.codemap, lhs.span);
+        let span_stmt = FrameSpan::new(self.codemap, span_stmt);
+        let span_lhs = FrameSpan::new(self.codemap, lhs.span);
         match lhs.node {
             AssignP::Dot(e, s) => {
                 let e = self.expr(*e);
@@ -519,7 +519,7 @@ impl Compiler<'_, '_, '_> {
 // The purposes are GC, profiling and debugging.
 //
 // This function is called only if `before_stmt` is set before compilation start.
-pub(crate) fn before_stmt(span: FrozenFileSpan, eval: &mut Evaluator) {
+pub(crate) fn before_stmt(span: FrameSpan, eval: &mut Evaluator) {
     assert!(
         eval.before_stmt.enabled(),
         "this code should not be called if `before_stmt` is set"
@@ -666,7 +666,7 @@ impl Compiler<'_, '_, '_> {
     }
 
     pub(crate) fn stmt(&mut self, stmt: CstStmt, allow_gc: bool) -> StmtsCompiled {
-        let span = FrozenFileSpan::new(self.codemap, stmt.span);
+        let span = FrameSpan::new(self.codemap, stmt.span);
         let is_statements = matches!(&stmt.node, StmtP::Statements(_));
         let res = self.stmt_direct(stmt, allow_gc);
         // No point inserting a GC point around statements, since they will contain inner statements we can do
@@ -705,7 +705,7 @@ impl Compiler<'_, '_, '_> {
 
     fn stmt_if(
         &mut self,
-        span: FrozenFileSpan,
+        span: FrameSpan,
         cond: CstExpr,
         then_block: CstStmt,
         allow_gc: bool,
@@ -717,7 +717,7 @@ impl Compiler<'_, '_, '_> {
 
     fn stmt_if_else(
         &mut self,
-        span: FrozenFileSpan,
+        span: FrameSpan,
         cond: CstExpr,
         then_block: CstStmt,
         else_block: CstStmt,
@@ -735,7 +735,7 @@ impl Compiler<'_, '_, '_> {
     }
 
     fn stmt_direct(&mut self, stmt: CstStmt, allow_gc: bool) -> StmtsCompiled {
-        let span = FrozenFileSpan::new(self.codemap, stmt.span);
+        let span = FrameSpan::new(self.codemap, stmt.span);
         match stmt.node {
             StmtP::Def(DefP {
                 name,

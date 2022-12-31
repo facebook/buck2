@@ -65,7 +65,7 @@ fn derive(input: DeriveInput) -> syn::Result<TokenStream> {
 
     Ok(quote! {
         impl #impl_generics crate::eval::runtime::visit_span::VisitSpanMut for #name #type_generics #where_clause {
-            fn visit_spans(&mut self, visitor: &mut impl FnMut(&mut crate::eval::runtime::call_stack::FrozenFileSpan)) {
+            fn visit_spans(&mut self, visitor: &mut impl FnMut(&mut crate::eval::runtime::call_stack::FrameSpan)) {
                 #body
             }
         }

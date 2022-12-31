@@ -50,7 +50,7 @@ use crate::eval::compiler::call::CallCompiled;
 use crate::eval::compiler::def::FrozenDef;
 use crate::eval::compiler::expr::ExprCompiled;
 use crate::eval::compiler::span::IrSpanned;
-use crate::eval::runtime::call_stack::FrozenFileSpan;
+use crate::eval::runtime::call_stack::FrameSpan;
 use crate::values::function::NativeFunction;
 use crate::values::types::known_methods::get_known_method;
 use crate::values::FrozenValue;
@@ -107,7 +107,7 @@ impl CallCompiled {
 
 impl IrSpanned<CallCompiled> {
     fn write_record_call_enter_exit_slot(
-        span: FrozenFileSpan,
+        span: FrameSpan,
         fun: BcSlotIn,
         bc: &mut BcWriter,
         k: impl FnOnce(&mut BcWriter),
@@ -120,7 +120,7 @@ impl IrSpanned<CallCompiled> {
     }
 
     fn write_maybe_record_call_enter_exit_slot(
-        span: FrozenFileSpan,
+        span: FrameSpan,
         fun: BcSlotIn,
         bc: &mut BcWriter,
         k: impl FnOnce(&mut BcWriter),
@@ -133,7 +133,7 @@ impl IrSpanned<CallCompiled> {
     }
 
     fn write_maybe_record_call_enter_exit_const(
-        span: FrozenFileSpan,
+        span: FrameSpan,
         fun: FrozenValue,
         bc: &mut BcWriter,
         k: impl FnOnce(&mut BcWriter),
@@ -149,7 +149,7 @@ impl IrSpanned<CallCompiled> {
     }
 
     fn write_maybe_record_call_enter_exit_method(
-        span: FrozenFileSpan,
+        span: FrameSpan,
         this: BcSlotIn,
         field: &Symbol,
         bc: &mut BcWriter,
@@ -186,7 +186,7 @@ impl IrSpanned<CallCompiled> {
     fn write_args_then_maybe_record_call_enter_exit(
         args: &ArgsCompiledValue,
         fun: FrozenValue,
-        fun_span: FrozenFileSpan,
+        fun_span: FrameSpan,
         bc: &mut BcWriter,
         k: impl FnOnce(Either<BcCallArgsPos, BcCallArgsFull<Symbol>>, &mut BcWriter),
     ) {
@@ -202,7 +202,7 @@ impl IrSpanned<CallCompiled> {
     }
 
     fn write_call_frozen(
-        span: FrozenFileSpan,
+        span: FrameSpan,
         fun: FrozenValue,
         args: &ArgsCompiledValue,
         target: BcSlotOut,
@@ -264,7 +264,7 @@ impl IrSpanned<CallCompiled> {
 
     fn write_call_method(
         target: BcSlotOut,
-        span: FrozenFileSpan,
+        span: FrameSpan,
         this: &IrSpanned<ExprCompiled>,
         symbol: &Symbol,
         args: &ArgsCompiledValue,
