@@ -158,43 +158,43 @@ impl<K, V> Vec2<K, V> {
     }
 
     #[inline]
-    fn keys_ptr(&self) -> *mut K {
-        unsafe { self.values_ptr.cast::<K>().as_ptr().sub(self.cap) }
+    fn keys_ptr(&self) -> NonNull<K> {
+        unsafe { NonNull::new_unchecked(self.values_ptr.cast::<K>().as_ptr().sub(self.cap)) }
     }
 
     #[inline]
-    fn values_ptr(&self) -> *mut V {
-        self.values_ptr.as_ptr()
+    fn values_ptr(&self) -> NonNull<V> {
+        self.values_ptr
     }
 
     #[inline]
     pub(crate) fn keys(&self) -> &[K] {
-        unsafe { slice::from_raw_parts(self.keys_ptr(), self.len) }
+        unsafe { slice::from_raw_parts(self.keys_ptr().as_ptr(), self.len) }
     }
 
     #[inline]
     pub(crate) fn keys_mut(&mut self) -> &mut [K] {
-        unsafe { slice::from_raw_parts_mut(self.keys_ptr(), self.len) }
+        unsafe { slice::from_raw_parts_mut(self.keys_ptr().as_ptr(), self.len) }
     }
 
     #[inline]
     fn keys_uninit(&mut self) -> &mut [MaybeUninit<K>] {
-        unsafe { slice::from_raw_parts_mut(self.keys_ptr() as *mut _, self.cap) }
+        unsafe { slice::from_raw_parts_mut(self.keys_ptr().as_ptr() as *mut _, self.cap) }
     }
 
     #[inline]
     pub(crate) fn values(&self) -> &[V] {
-        unsafe { slice::from_raw_parts(self.values_ptr(), self.len) }
+        unsafe { slice::from_raw_parts(self.values_ptr().as_ptr(), self.len) }
     }
 
     #[inline]
     fn values_mut(&mut self) -> &mut [V] {
-        unsafe { slice::from_raw_parts_mut(self.values_ptr(), self.len) }
+        unsafe { slice::from_raw_parts_mut(self.values_ptr().as_ptr(), self.len) }
     }
 
     #[inline]
     fn values_uninit(&mut self) -> &mut [MaybeUninit<V>] {
-        unsafe { slice::from_raw_parts_mut(self.values_ptr() as *mut _, self.cap) }
+        unsafe { slice::from_raw_parts_mut(self.values_ptr().as_ptr() as *mut _, self.cap) }
     }
 
     // This is what `Vec` does.
@@ -216,8 +216,12 @@ impl<K, V> Vec2<K, V> {
         let new_cap = cmp::max(new_cap, self.cap * 2);
         let new = Self::with_capacity(new_cap);
         unsafe {
-            ptr::copy_nonoverlapping(self.keys_ptr(), new.keys_ptr(), self.len);
-            ptr::copy_nonoverlapping(self.values_ptr(), new.values_ptr(), self.len);
+            ptr::copy_nonoverlapping(self.keys_ptr().as_ptr(), new.keys_ptr().as_ptr(), self.len);
+            ptr::copy_nonoverlapping(
+                self.values_ptr().as_ptr(),
+                new.values_ptr().as_ptr(),
+                self.len,
+            );
             self.dealloc();
             self.values_ptr = new.values_ptr;
             mem::forget(new);
@@ -286,8 +290,8 @@ impl<K, V> Vec2<K, V> {
     #[inline]
     pub(crate) unsafe fn get_unchecked_mut(&mut self, index: usize) -> (&mut K, &mut V) {
         debug_assert!(index < self.len);
-        let k_ptr = self.keys_ptr();
-        let v_ptr = self.values_ptr();
+        let k_ptr = self.keys_ptr().as_ptr();
+        let v_ptr = self.values_ptr().as_ptr();
         (&mut *k_ptr.add(index), &mut *v_ptr.add(index))
     }
 
@@ -303,13 +307,13 @@ impl<K, V> Vec2<K, V> {
         unsafe {
             let (k, v) = self.read(index);
             ptr::copy(
-                self.keys_ptr().add(index + 1),
-                self.keys_ptr().add(index),
+                self.keys_ptr().as_ptr().add(index + 1),
+                self.keys_ptr().as_ptr().add(index),
                 self.len - index - 1,
             );
             ptr::copy(
-                self.values_ptr().add(index + 1),
-                self.values_ptr().add(index),
+                self.values_ptr().as_ptr().add(index + 1),
+                self.values_ptr().as_ptr().add(index),
                 self.len - index - 1,
             );
             self.len -= 1;
@@ -348,7 +352,7 @@ impl<K, V> Vec2<K, V> {
         let iter = iter::IntoIter {
             keys_begin: self.keys_ptr(),
             values_begin: self.values_ptr(),
-            values_end: unsafe { self.values_ptr().add(self.len) },
+            values_end: unsafe { NonNull::new_unchecked(self.values_ptr().as_ptr().add(self.len)) },
             values_ptr: self.values_ptr,
             cap: self.cap,
         };

@@ -27,7 +27,7 @@ use crate::vec2::Vec2;
 #[derive(Clone_)]
 pub(crate) struct Iter<'a, K, V> {
     pub(crate) keys: slice::Iter<'a, K>,
-    pub(crate) values: *const V,
+    pub(crate) values: NonNull<V>,
     pub(crate) _marker: PhantomData<slice::Iter<'a, V>>,
 }
 
@@ -40,8 +40,8 @@ impl<'a, K, V> Iterator for Iter<'a, K, V> {
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         let key = self.keys.next()?;
-        let value = unsafe { &*self.values };
-        self.values = unsafe { self.values.add(1) };
+        let value = unsafe { &*self.values.as_ptr() };
+        self.values = unsafe { NonNull::new_unchecked(self.values.as_ptr().add(1)) };
         Some((key, value))
     }
 
@@ -62,17 +62,22 @@ impl<'a, K, V> DoubleEndedIterator for Iter<'a, K, V> {
     #[inline]
     fn next_back(&mut self) -> Option<Self::Item> {
         let key = self.keys.next_back()?;
-        let value = unsafe { &*self.values.add(self.keys.len()) };
+        let value = unsafe { &*self.values.as_ptr().add(self.keys.len()) };
         Some((key, value))
     }
 }
 
 pub(crate) struct IntoIter<K, V> {
-    // TODO: make NonNull
-    pub(crate) keys_begin: *mut K,
-    pub(crate) values_begin: *mut V,
-    pub(crate) values_end: *mut V,
+    /// Pointer to the next key. Updated as we iterate.
+    pub(crate) keys_begin: NonNull<K>,
+    /// Pointer to the next value. Updated as we iterate.
+    pub(crate) values_begin: NonNull<V>,
+    /// Pointer to the end of the values. Updated as we iterate.
+    pub(crate) values_end: NonNull<V>,
+    /// The layout of `Vec2` is `[padding, keys, values]`.
+    /// This field is a pointer to the values. Used for `Drop`.
     pub(crate) values_ptr: NonNull<V>,
+    /// `Vec2` capacity. Used for `Drop`.
     pub(crate) cap: usize,
 }
 
@@ -88,10 +93,10 @@ impl<K, V> Iterator for IntoIter<K, V> {
             None
         } else {
             unsafe {
-                let k = ptr::read(self.keys_begin);
-                let v = ptr::read(self.values_begin);
-                self.keys_begin = self.keys_begin.add(1);
-                self.values_begin = self.values_begin.add(1);
+                let k = ptr::read(self.keys_begin.as_ref());
+                let v = ptr::read(self.values_begin.as_ref());
+                self.keys_begin = NonNull::new_unchecked(self.keys_begin.as_ptr().add(1));
+                self.values_begin = NonNull::new_unchecked(self.values_begin.as_ptr().add(1));
                 Some((k, v))
             }
         }
@@ -108,8 +113,8 @@ impl<K, V> Drop for IntoIter<K, V> {
     fn drop(&mut self) {
         unsafe {
             let rem = self.len();
-            ptr::drop_in_place(slice::from_raw_parts_mut(self.keys_begin, rem));
-            ptr::drop_in_place(slice::from_raw_parts_mut(self.values_begin, rem));
+            ptr::drop_in_place(slice::from_raw_parts_mut(self.keys_begin.as_ptr(), rem));
+            ptr::drop_in_place(slice::from_raw_parts_mut(self.values_begin.as_ptr(), rem));
             Vec2::<K, V>::dealloc_impl(self.values_ptr, self.cap);
         }
     }
@@ -118,7 +123,11 @@ impl<K, V> Drop for IntoIter<K, V> {
 impl<K, V> ExactSizeIterator for IntoIter<K, V> {
     #[inline]
     fn len(&self) -> usize {
-        unsafe { self.values_end.offset_from(self.values_begin) as usize }
+        unsafe {
+            self.values_end
+                .as_ptr()
+                .offset_from(self.values_begin.as_ptr()) as usize
+        }
     }
 }
 
@@ -128,9 +137,17 @@ impl<K, V> DoubleEndedIterator for IntoIter<K, V> {
             None
         } else {
             unsafe {
-                self.values_end = self.values_end.sub(1);
-                let k = ptr::read(self.keys_begin.add(self.len()));
-                let v = ptr::read(self.values_end);
+                self.values_end = NonNull::new_unchecked(self.values_end.as_ptr().sub(1));
+                let new_len = self.len();
+
+                debug_assert!(ptr::eq(
+                    self.values_begin.as_ptr().add(new_len),
+                    self.values_end.as_ptr()
+                ));
+
+                let k = ptr::read(self.keys_begin.as_ptr().add(new_len));
+                let v = ptr::read(self.values_end.as_ptr());
+
                 Some((k, v))
             }
         }
