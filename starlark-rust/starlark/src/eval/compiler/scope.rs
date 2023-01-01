@@ -154,7 +154,7 @@ impl ScopeNames {
         unscope: &mut Unscope,
     ) -> LocalSlotIdCapturedOrNot {
         let slot = self.next_slot(name);
-        let undo = match self.mp.get_mut_hashed(name.get_hashed().borrow()) {
+        let undo = match self.mp.get_mut_hashed(name.get_hashed().as_ref()) {
             Some(v) => {
                 let old = *v;
                 *v = (slot, binding_id);
@@ -186,7 +186,7 @@ impl ScopeNames {
     }
 
     fn get_name(&self, name: FrozenStringValue) -> Option<(LocalSlotIdCapturedOrNot, BindingId)> {
-        self.mp.get_hashed(name.get_hashed().borrow()).copied()
+        self.mp.get_hashed(name.get_hashed().as_ref()).copied()
     }
 }
 
@@ -614,7 +614,7 @@ impl<'a> Scope<'a> {
         }
         let binding_id = self
             .module_bindings
-            .get_hashed(name.get_hashed().borrow())
+            .get_hashed(name.get_hashed().as_ref())
             .copied();
         match binding_id {
             Some(binding_id) => {

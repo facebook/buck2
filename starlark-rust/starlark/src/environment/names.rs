@@ -82,7 +82,7 @@ impl MutableNames {
         vis: Visibility,
     ) -> ModuleSlotId {
         let mut x = self.0.borrow_mut();
-        match x.get_mut_hashed(name.get_hashed().borrow()) {
+        match x.get_mut_hashed(name.get_hashed().as_ref()) {
             Some((slot, stored_vis)) => {
                 // Public visibility wins.
                 if *stored_vis == Visibility::Private {

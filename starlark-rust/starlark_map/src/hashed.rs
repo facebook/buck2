@@ -105,8 +105,7 @@ impl<K> Hashed<K> {
     }
 
     /// Convert `Hashed<K>` to `Hashed<&K>`.
-    // TODO(nga): rename to `as_ref`.
-    pub fn borrow(&self) -> Hashed<&K> {
+    pub fn as_ref(&self) -> Hashed<&K> {
         Hashed::new_unchecked(self.hash, &self.key)
     }
 }
