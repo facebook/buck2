@@ -26,11 +26,10 @@ mod equivalent;
 mod hash_value;
 mod hashed;
 mod hasher;
+mod iter;
 mod mix_u32;
 pub mod small_map;
 pub mod small_set;
-// TODO(nga): make private.
-mod iter;
 pub(crate) mod vec2;
 pub(crate) mod vec_map;
 
