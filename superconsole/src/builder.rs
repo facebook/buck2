@@ -23,6 +23,12 @@ pub struct Builder {
     stream: Box<dyn Write + Send + 'static + Sync>,
 }
 
+impl Default for Builder {
+    fn default() -> Self {
+        Builder::new()
+    }
+}
+
 impl Builder {
     pub fn new() -> Self {
         Self {
@@ -30,6 +36,8 @@ impl Builder {
             stream: Box::new(io::stderr()),
         }
     }
+
+
 
     /// Enable non-blocking I/O.
     pub fn non_blocking(&mut self) -> &mut Self {

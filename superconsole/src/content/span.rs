@@ -162,7 +162,7 @@ impl Span {
         cell::unicode_column_width(&self.content, None)
     }
 
-    pub fn is_empty(self) -> bool {
+    pub fn is_empty(&self) -> bool {
         self.content.is_empty()
     }
 
