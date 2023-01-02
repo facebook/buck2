@@ -77,10 +77,7 @@ impl<'v, V: ValueLike<'v>> StructGen<'v, V> {
 
     /// Create a new [`Struct`].
     pub fn new(fields: SmallMap<V::String, V>) -> Self {
-        Self {
-            fields,
-            _marker: marker::PhantomData,
-        }
+        Self { fields }
     }
 
     /// Iterate over the elements in the struct.
@@ -112,7 +109,6 @@ starlark_complex_value!(pub Struct<'v>);
 pub struct StructGen<'v, V: ValueLike<'v>> {
     /// The fields in a struct.
     pub fields: SmallMap<V::String, V>,
-    _marker: marker::PhantomData<&'v String>,
 }
 
 unsafe impl<'v> Coerce<StructGen<'v, Value<'v>>> for StructGen<'static, FrozenValue> {}
@@ -150,10 +146,7 @@ impl<'v> StructBuilder<'v> {
 
     /// Finish building and produce a [`Struct`].
     pub fn build(self) -> Struct<'v> {
-        Struct {
-            fields: self.1,
-            _marker: marker::PhantomData,
-        }
+        Struct { fields: self.1 }
     }
 }
 
