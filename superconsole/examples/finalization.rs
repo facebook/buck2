@@ -99,7 +99,7 @@ async fn main() {
 
     let mut timer = time::interval(Duration::from_secs_f32(0.5));
     let mut last = None;
-    for i in 0..(10 as usize) {
+    for i in 0..10usize {
         console.emit(vec![vec![i.to_string()].try_into().unwrap()]);
         let customers = (i..std::cmp::min(10, i + 2))
             .map(|x| CustomerName(people[x].to_owned()))

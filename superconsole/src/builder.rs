@@ -23,6 +23,12 @@ pub struct Builder {
     stream: Box<dyn Write + Send + 'static + Sync>,
 }
 
+impl Default for Builder {
+    fn default() -> Self {
+        Builder::new()
+    }
+}
+
 impl Builder {
     pub fn new() -> Self {
         Self {

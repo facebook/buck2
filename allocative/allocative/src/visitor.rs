@@ -21,7 +21,7 @@ use crate::key::Key;
 pub(crate) trait VisitorImpl {
     /// Enter simple field like `u32`.
     /// All sizes are in bytes.
-    fn enter_inline_impl<'a>(&'a mut self, name: Key, size: usize, parent: NodeKind);
+    fn enter_inline_impl(&mut self, name: Key, size: usize, parent: NodeKind);
     /// Enter field which points to heap-allocated unique memory (e.g. `Box<T>`).
     fn enter_unique_impl(&mut self, name: Key, size: usize, parent: NodeKind);
     /// Enter field which points to heap-allocated shared memory (e.g. `Arc<T>`).

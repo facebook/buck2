@@ -40,7 +40,7 @@ enum InternalSplitKind {
 }
 
 impl SplitKind {
-    fn to_internal_split_kind(self, children_len: usize) -> InternalSplitKind {
+    fn to_internal_split_kind(&self, children_len: usize) -> InternalSplitKind {
         match self {
             SplitKind::Sized(sizes) => {
                 assert_eq!(
@@ -50,7 +50,7 @@ impl SplitKind {
                 );
 
                 let total: f64 = sizes.iter().sum();
-                let normalized_sizes = sizes.into_iter().map(|size| size / total).collect();
+                let normalized_sizes = sizes.iter().map(|size| size / total).collect();
 
                 InternalSplitKind::SizedNormalized(normalized_sizes)
             }

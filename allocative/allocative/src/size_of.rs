@@ -38,7 +38,7 @@ pub fn size_of_unique_allocated_data(root: &dyn Allocative) -> usize {
     }
 
     impl VisitorImpl for SizeOfUniqueAllocatedDataVisitor {
-        fn enter_inline_impl<'a>(&'a mut self, _name: Key, size: usize, parent: NodeKind) {
+        fn enter_inline_impl(&mut self, _name: Key, size: usize, parent: NodeKind) {
             if let NodeKind::Unique = parent {
                 self.size += size;
             }
