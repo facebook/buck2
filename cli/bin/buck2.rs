@@ -37,22 +37,36 @@ fn init_logging(_fb: FacebookInit) -> anyhow::Result<()> {
     const ENV_VAR: &str = "BUCK_LOG";
     static ENV_TRACING_LOG_FILE_PATH: &str = "BUCK_LOG_TO_FILE_PATH";
 
-    // By default, show warnings/errors.
-    // If the user specifies BUCK_LOG, we want to honour that.
+    use tracing_subscriber::fmt::MakeWriter;
+    use tracing_subscriber::prelude::*;
 
-    let filter = match std::env::var_os(ENV_VAR) {
-        Some(v) => {
-            let v = v
-                .into_string()
-                .ok()
-                .with_context(|| format!("Failed to parse ${} as utf-8", ENV_VAR))?;
-            EnvFilter::try_new(v)
-                .with_context(|| format!("Failed to parse ${} as a filter", ENV_VAR))?
-        }
-        None => EnvFilter::new("warn"),
-    };
+    fn init_tracing_for_writer<W>(writer: W) -> anyhow::Result<()>
+    where
+        W: for<'writer> MakeWriter<'writer> + Send + Sync + 'static,
+    {
+        // By default, show warnings/errors.
+        // If the user specifies BUCK_LOG, we want to honour that.
 
-    let logger = tracing_subscriber::fmt().with_env_filter(filter);
+        let filter = match std::env::var_os(ENV_VAR) {
+            Some(v) => {
+                let v = v
+                    .into_string()
+                    .ok()
+                    .with_context(|| format!("Failed to parse ${} as utf-8", ENV_VAR))?;
+                EnvFilter::try_new(v)
+                    .with_context(|| format!("Failed to parse ${} as a filter", ENV_VAR))?
+            }
+            None => EnvFilter::new("warn"),
+        };
+
+        let logger = tracing_subscriber::fmt::layer()
+            .with_writer(writer)
+            .with_filter(filter);
+
+        tracing_subscriber::registry().with(logger).init();
+
+        Ok(())
+    }
 
     match std::env::var_os(ENV_TRACING_LOG_FILE_PATH) {
         Some(path) => {
@@ -63,12 +77,10 @@ fn init_logging(_fb: FacebookInit) -> anyhow::Result<()> {
             fs::create_dir_all(&path)?;
             let tracing_log = path.join("tracing_log");
             let file = TracingLogFile::new(tracing_log)?;
-            logger.with_writer(file).init();
+            init_tracing_for_writer(file)
         }
-        _ => {
-            logger.with_writer(io::stderr).init();
-        }
-    };
+        _ => init_tracing_for_writer(io::stderr),
+    }?;
 
     #[cfg(fbcode_build)]
     {
