@@ -51,6 +51,7 @@ pub mod directory;
 pub mod env_helper;
 pub mod fs;
 pub mod io_counters;
+pub mod logging;
 pub mod package;
 pub mod pattern;
 pub mod process;

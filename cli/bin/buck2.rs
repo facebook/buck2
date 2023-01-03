@@ -17,14 +17,13 @@ use std::fs;
 use std::io;
 use std::path::PathBuf;
 
-use anyhow::Context as _;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_core::fs::working_dir::WorkingDir;
+use buck2_core::logging::init_tracing_for_writer;
 use cli::exec;
 use cli::panic;
 use cli::TracingLogFile;
 use fbinit::FacebookInit;
-use tracing_subscriber::EnvFilter;
 
 // fbcode likes to set its own allocator in fbcode.default_allocator
 // So when we set our own allocator, buck build buck2 or buck2 build buck2 often breaks.
@@ -34,39 +33,7 @@ use tracing_subscriber::EnvFilter;
 static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
 
 fn init_logging(_fb: FacebookInit) -> anyhow::Result<()> {
-    const ENV_VAR: &str = "BUCK_LOG";
     static ENV_TRACING_LOG_FILE_PATH: &str = "BUCK_LOG_TO_FILE_PATH";
-
-    use tracing_subscriber::fmt::MakeWriter;
-    use tracing_subscriber::prelude::*;
-
-    fn init_tracing_for_writer<W>(writer: W) -> anyhow::Result<()>
-    where
-        W: for<'writer> MakeWriter<'writer> + Send + Sync + 'static,
-    {
-        // By default, show warnings/errors.
-        // If the user specifies BUCK_LOG, we want to honour that.
-
-        let filter = match std::env::var_os(ENV_VAR) {
-            Some(v) => {
-                let v = v
-                    .into_string()
-                    .ok()
-                    .with_context(|| format!("Failed to parse ${} as utf-8", ENV_VAR))?;
-                EnvFilter::try_new(v)
-                    .with_context(|| format!("Failed to parse ${} as a filter", ENV_VAR))?
-            }
-            None => EnvFilter::new("warn"),
-        };
-
-        let logger = tracing_subscriber::fmt::layer()
-            .with_writer(writer)
-            .with_filter(filter);
-
-        tracing_subscriber::registry().with(logger).init();
-
-        Ok(())
-    }
 
     match std::env::var_os(ENV_TRACING_LOG_FILE_PATH) {
         Some(path) => {

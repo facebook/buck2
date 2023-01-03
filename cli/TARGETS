@@ -87,7 +87,6 @@ buck_rust_binary(
     unittests = False,
     deps = [
         "fbsource//third-party/rust:anyhow",
-        "fbsource//third-party/rust:tracing-subscriber",
         "//buck2/app/buck2_client_ctx:buck2_client_ctx",
         "//buck2/app/buck2_core:buck2_core",
         "//buck2/buck2_events:buck2_events",

@@ -32,6 +32,7 @@ either = { workspace = true }
 assert_matches = { workspace = true }
 static_assertions = { workspace = true }
 tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
 rand = { workspace = true }
 smartstring = { workspace = true }
 starlark_map = { workspace = true }

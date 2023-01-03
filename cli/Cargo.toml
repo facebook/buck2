@@ -25,8 +25,6 @@ termimad = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 tokio-stream = { workspace = true }
-tracing = { workspace = true }
-tracing-subscriber = { workspace = true }
 which = "4.2.4"
 
 dice = { path = "../dice/dice" }
