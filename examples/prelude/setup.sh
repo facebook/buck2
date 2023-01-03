@@ -1,4 +1,3 @@
-#!/bin/bash
 # Copyright (c) Meta Platforms, Inc. and affiliates.
 #
 # This source code is licensed under both the MIT license found in the
@@ -6,18 +5,23 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-set -euo pipefail
+# The commands in this script are to be executed in the current shell
+# and so invoke it via the builtin 'source' command e.g. `source
+# setup.sh`. It assumes an opam installation. In addition to
+# symlinking the 'prelude' directory it activates the 'default' opam
+# switch and create symlinks in the 'third-party/opam' directory to
+# support building the example OCaml targets.
 
 CWD="$(pwd)"
 BASENAME="$(basename "$CWD")"
 DIRNAME="$(basename "$(dirname "$CWD")")"
 if [ "$DIRNAME" != "examples" ] && [ "$BASENAME" != "prelude" ]; then
-    echo "$0 should be run from directory 'examples/prelude'"
+    echo "$0 should be sourced from directory 'examples/prelude'"
     exit 1
 fi
 
 # Bring the OCaml toolchain into scope.
-eval "$(opam env --switch=default)"
+eval "$(opam env --switch=default --set-switch)"
 
 # Link 'prelude'.
 if [ ! -L prelude ]; then
