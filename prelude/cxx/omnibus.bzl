@@ -707,6 +707,10 @@ def _create_omnibus(
         inputs.append(LinkInfo(pre_flags = [
             "-Wl,--version-script",
             global_sym_vers,
+            # The version script contains symbols that are not defined. Up to
+            # LLVM 15 this behavior was ignored but LLVM 16 turns it into
+            # warning by default.
+            "-Wl,--undefined-version",
         ]))
 
     soname = _omnibus_soname(ctx)
