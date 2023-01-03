@@ -108,7 +108,7 @@ starlark_complex_value!(pub Struct<'v>);
 #[repr(C)]
 pub struct StructGen<'v, V: ValueLike<'v>> {
     /// The fields in a struct.
-    pub fields: SmallMap<V::String, V>,
+    fields: SmallMap<V::String, V>,
 }
 
 unsafe impl<'v> Coerce<StructGen<'v, Value<'v>>> for StructGen<'static, FrozenValue> {}
