@@ -299,7 +299,7 @@ def _get_shared_flags(
     if toolchain.can_toolchain_emit_obj_c_header_textually:
         cmd.add([
             "-Xfrontend",
-            "-emit-objc-header-textually",
+            "-emit-clang-header-nonmodular-includes",
         ])
 
     # Add flags required to import ObjC module dependencies
