@@ -6,8 +6,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-set -euo pipefail
-
 CWD="$(pwd)"
 BASENAME="$(basename "$CWD")"
 DIRNAME="$(basename "$(dirname "$CWD")")"
@@ -17,7 +15,7 @@ if [ "$DIRNAME" != "examples" ] && [ "$BASENAME" != "prelude" ]; then
 fi
 
 # Bring the OCaml toolchain into scope.
-eval "$(opam env --switch=default)"
+eval "$(opam env --switch=default --set-switch)"
 
 # Link 'prelude'.
 if [ ! -L prelude ]; then
