@@ -184,6 +184,10 @@ def _attr_preferred_linkage(ctx: "context") -> Linkage.type:
 
 # --
 
+def _is_boot_src(x: str.type) -> bool.type:
+    _, ext = paths.split_extension(x)
+    return ext == ".hs-boot"
+
 def _src_to_module_name(x: str.type) -> str.type:
     base, _ext = paths.split_extension(x)
     return base.replace("/", ".")
@@ -337,7 +341,9 @@ def _srcs_to_objfiles(
         osuf: str.type) -> "cmd_args":
     objfiles = cmd_args()
     for src in ctx.attrs.srcs:
-        objfiles.add(cmd_args([odir, "/", paths.replace_extension(src, "." + osuf)], delimiter = ""))
+        # Don't link boot sources, as they're only meant to be used for compiling.
+        if not _is_boot_src(src):
+            objfiles.add(cmd_args([odir, "/", paths.replace_extension(src, "." + osuf)], delimiter = ""))
     return objfiles
 
 # Compile all the context's sources.
@@ -414,11 +420,9 @@ def _compile(
     compile.add(extra_args)
 
     for (path, src) in ctx.attrs.srcs.items():
-        (_name, ext) = paths.split_extension(path)
-
         # hs-boot files aren't expected to be an argument to compiler but does need
         # to be included in the directory of the associated src file
-        if ext == ".hs-boot":
+        if _is_boot_src(path):
             compile.hidden(src)
         else:
             compile.add(src)
@@ -469,7 +473,8 @@ def _make_package(
         hlis: [HaskellLibraryInfo.type],
         hi: "artifact",
         lib: "artifact") -> "artifact":
-    modules = [_src_to_module_name(x) for x in ctx.attrs.srcs.keys()]
+    # Don't expose boot sources, as they're only meant to be used for compiling.
+    modules = [_src_to_module_name(x) for x in ctx.attrs.srcs if not _is_boot_src(x)]
 
     uniq_hlis = {}
     for x in hlis:
