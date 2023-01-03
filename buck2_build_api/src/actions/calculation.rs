@@ -332,9 +332,7 @@ async fn command_details(
     let omit_details =
         allow_omit_details && matches!(command.status, CommandExecutionStatus::Success { .. });
 
-    // It's somewhat unfortunate that we internally track exit codes as i32 but our protobuf turns
-    // them into u32.
-    let exit_code = command.exit_code.and_then(|e| e.try_into().ok());
+    let signed_exit_code = command.exit_code;
 
     let stdout;
     let stderr;
@@ -389,10 +387,11 @@ async fn command_details(
     });
 
     buck2_data::CommandExecutionDetails {
-        exit_code,
+        exit_code: signed_exit_code.and_then(|e| e.try_into().ok()), // To be deprecated in favor of signed_exit_code
         stdout,
         stderr,
         command,
+        signed_exit_code,
     }
 }
 

@@ -483,7 +483,7 @@ fn failure_reason_for_command_execution(
         Status::Success(Success {}) => "Unexpected command status".to_owned(),
         Status::Failure(Failure {}) => {
             struct OptionalExitCode {
-                code: Option<u32>,
+                code: Option<i32>,
             }
 
             impl fmt::Display for OptionalExitCode {
@@ -499,7 +499,9 @@ fn failure_reason_for_command_execution(
                 "{}command returned non-zero exit code {}",
                 locality,
                 OptionalExitCode {
-                    code: command.exit_code
+                    code: command
+                        .signed_exit_code
+                        .or_else(|| command.exit_code.and_then(|e| e.try_into().ok()))
                 }
             )
         }

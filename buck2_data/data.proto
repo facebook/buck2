@@ -710,6 +710,8 @@ message CommandExecutionDetails {
 
   // The exit code of the command.
   optional uint32 exit_code = 1;
+  // Same as exit_code but allowing negative values
+  optional sint32 signed_exit_code = 4;
   // The stdout of the command. This may be omitted for successful commands.
   string stdout = 2;
   // The stderr of the command.
