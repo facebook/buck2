@@ -526,6 +526,9 @@ def build_java_library(
     )
 
     resources = ctx.attrs.resources
+    resources_root = ctx.attrs.resources_root
+    expect(resources_root != "", "Empty resources_root is not legal, try '.' instead!")
+
     ap_params = create_ap_params(
         ctx,
         ctx.attrs.plugins,
@@ -556,7 +559,7 @@ def build_java_library(
             "remove_classes": ctx.attrs.remove_classes,
             "required_for_source_only_abi": ctx.attrs.required_for_source_only_abi,
             "resources": resources,
-            "resources_root": ctx.attrs.resources_root,
+            "resources_root": resources_root,
             "source_level": source_level,
             "source_only_abi_deps": ctx.attrs.source_only_abi_deps,
             "srcs": srcs,
