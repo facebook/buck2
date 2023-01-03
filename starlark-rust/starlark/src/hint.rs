@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-// TODO(nga): also enable if cargo build and nightly.
 #[cfg(rust_nightly)]
 pub(crate) use std::intrinsics::likely;
 #[cfg(rust_nightly)]
