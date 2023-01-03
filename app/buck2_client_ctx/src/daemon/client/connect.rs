@@ -380,20 +380,11 @@ impl BuckdConnectOptions {
         &self,
         paths: &InvocationPaths,
     ) -> anyhow::Result<BootstrapBuckdClient> {
-        match self.try_connect_existing(&paths.daemon_dir()?).await {
-            Ok(mut client) => {
-                if self.existing_only || client.0.client.check_version().await?.is_match() {
-                    // either the version matches or we don't care about the version, return the client.
-                    return Ok(client);
-                }
-                // fallthrough to the more complicated startup case.
-            }
-            Err(e) if self.existing_only => {
-                return Err(e.context("No existing connection and not asked to start one"));
-            }
-            Err(_) => {
-                // fallthrough to the startup case
-            }
+        if let Some(client) = self
+            .try_connect_existing_before_daemon_restart(paths)
+            .await?
+        {
+            return Ok(client);
         }
 
         // At this point, we've either failed to connect to buckd or buckd had the wrong version. At this point,
@@ -450,6 +441,35 @@ impl BuckdConnectOptions {
                 Err(BuckdConnectError::BuckDaemonVersionWrongAfterStart { expected, actual }.into())
             }
         }
+    }
+
+    /// Connect to buckd before attempt to restart the server.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Some(client))` if we connected to an existing buckd
+    /// * `Ok(None)` if we failed to connect and should restart buckd
+    /// * `Err` if we failed to connect and should abandon startup
+    async fn try_connect_existing_before_daemon_restart(
+        &self,
+        paths: &InvocationPaths,
+    ) -> anyhow::Result<Option<BootstrapBuckdClient>> {
+        match self.try_connect_existing(&paths.daemon_dir()?).await {
+            Ok(mut client) => {
+                if self.existing_only || client.0.client.check_version().await?.is_match() {
+                    // either the version matches or we don't care about the version, return the client.
+                    return Ok(Some(client));
+                }
+                // fallthrough to the more complicated startup case.
+            }
+            Err(e) if self.existing_only => {
+                return Err(e.context("No existing connection and not asked to start one"));
+            }
+            Err(_) => {
+                // fallthrough to the startup case
+            }
+        }
+        Ok(None)
     }
 
     async fn try_connect_existing(
