@@ -400,12 +400,12 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
         sub_targets[XCODE_DATA_SUB_TARGET] = xcode_data_default_info
         providers.append(xcode_data_info)
 
-    # Gather link inputs.
-    inherited_non_exported_link = cxx_inherited_link_info(ctx, non_exported_deps)
-    inherited_exported_link = cxx_inherited_link_info(ctx, exported_deps)
-
     # Propagate link info provider.
     if impl_params.generate_providers.merged_native_link_info or impl_params.generate_providers.template_placeholders:
+        # Gather link inputs.
+        inherited_non_exported_link = cxx_inherited_link_info(ctx, non_exported_deps)
+        inherited_exported_link = cxx_inherited_link_info(ctx, exported_deps)
+
         merged_native_link_info = create_merged_link_info(
             ctx,
             # Add link info for each link style,
