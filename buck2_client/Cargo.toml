@@ -35,7 +35,6 @@ num_cpus = { workspace = true }
 threadpool = { workspace = true }
 dice = { path = "../dice/dice" }
 gazebo = { workspace = true }
-fbinit = { workspace = true }
 superconsole = { version = "0.1.0", path = "../superconsole" }
 
 # Please do not add dependency on `buck2_build_api`.

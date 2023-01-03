@@ -57,7 +57,7 @@ impl ReplayCommand {
         self,
         _matches: &clap::ArgMatches,
         ctx: ClientCommandContext,
-        exec: ExecFn,
+        exec: impl ExecFn,
     ) -> ExitResult {
         let Self {
             path,
@@ -86,11 +86,6 @@ impl ReplayCommand {
             (override_args, ctx.working_dir.clone())
         };
 
-        exec(
-            args,
-            working_dir,
-            ctx.init,
-            Some((ctx.process_context, replayer)),
-        )
+        exec(args, working_dir, ctx.process_context, replayer)
     }
 }

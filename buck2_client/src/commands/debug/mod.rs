@@ -89,19 +89,14 @@ pub enum DebugCommand {
 }
 
 /// `cli::exec` function.
-pub type ExecFn = fn(
-    Vec<String>,
-    WorkingDir,
-    fbinit::FacebookInit,
-    Option<(ProcessContext, Replayer)>,
-) -> ExitResult;
+pub trait ExecFn = FnOnce(Vec<String>, WorkingDir, ProcessContext, Replayer) -> ExitResult;
 
 impl DebugCommand {
     pub fn exec(
         self,
         matches: &clap::ArgMatches,
         ctx: ClientCommandContext,
-        exec: ExecFn,
+        exec: impl ExecFn,
     ) -> ExitResult {
         let matches = matches.subcommand().expect("subcommand not found").1;
         match self {

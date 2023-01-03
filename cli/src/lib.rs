@@ -334,7 +334,13 @@ impl CommandKind {
             CommandKind::Audit(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Run(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Uquery(cmd) => cmd.exec(matches, command_ctx),
-            CommandKind::Debug(cmd) => cmd.exec(matches, command_ctx, exec),
+            CommandKind::Debug(cmd) => cmd.exec(
+                matches,
+                command_ctx,
+                |args, cwd, process_context, replayer| {
+                    exec(args, cwd, init, Some((process_context, replayer)))
+                },
+            ),
             CommandKind::Docs(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Profile(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Rage(cmd) => cmd.exec(matches, command_ctx),

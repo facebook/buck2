@@ -11,6 +11,7 @@
 #![feature(box_syntax)]
 #![feature(try_blocks)]
 #![feature(try_trait_v2)]
+#![feature(trait_alias)]
 
 pub mod args;
 pub mod commands;
