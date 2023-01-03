@@ -65,9 +65,7 @@ pub struct Methods(Arc<MethodsData>);
 #[derive(Debug, Allocative)]
 struct GlobalsData {
     heap: FrozenHeapRef,
-    #[allocative(skip)] // TODO(nga): do not skip.
     variables: SymbolMap<FrozenValue>,
-    #[allocative(skip)]
     variable_names: Vec<FrozenStringValue>,
     docstring: Option<String>,
 }

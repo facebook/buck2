@@ -46,10 +46,7 @@ use crate::values::FrozenStringValue;
 pub(crate) struct MutableNames(RefCell<SmallMap<FrozenStringValue, (ModuleSlotId, Visibility)>>);
 
 #[derive(Debug, Allocative)]
-pub(crate) struct FrozenNames(
-    // TODO(nga): measure.
-    #[allocative(skip)] SmallMap<FrozenStringValue, (ModuleSlotId, Visibility)>,
-);
+pub(crate) struct FrozenNames(SmallMap<FrozenStringValue, (ModuleSlotId, Visibility)>);
 
 impl MutableNames {
     pub fn new() -> Self {

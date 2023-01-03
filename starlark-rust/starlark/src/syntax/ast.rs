@@ -23,6 +23,7 @@ use std::fmt::Display;
 use std::fmt::Formatter;
 use std::mem;
 
+use allocative::Allocative;
 use derivative::Derivative;
 use gazebo::prelude::*;
 use gazebo::variants::VariantName;
@@ -276,7 +277,7 @@ pub(crate) enum AssignOp {
     RightShift,  // >>=
 }
 
-#[derive(Debug, Copy, Clone, Dupe, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Dupe, Eq, PartialEq, Allocative)]
 pub enum Visibility {
     Private,
     Public,

@@ -25,7 +25,7 @@ use crate::values::Freezer;
 use crate::values::FrozenValue;
 use crate::values::Value;
 
-#[derive(Clone, Copy, Dupe, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Dupe, Debug, PartialEq, Eq, Allocative)]
 pub(crate) struct ModuleSlotId(pub(crate) u32);
 
 impl ModuleSlotId {
