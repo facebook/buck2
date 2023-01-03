@@ -24,7 +24,7 @@ load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
 load("@prelude//java:javacd_jar_creator.bzl", "create_jar_artifact_javacd")
 load("@prelude//java/plugins:java_annotation_processor.bzl", "create_ap_params")
 load("@prelude//java/plugins:java_plugin.bzl", "PluginParams", "create_plugin_params")
-load("@prelude//java/utils:java_utils.bzl", "derive_javac", "get_abi_generation_mode", "get_default_info", "get_java_version_attributes", "get_path_separator", "to_java_version")
+load("@prelude//java/utils:java_utils.bzl", "declare_prefixed_name", "derive_javac", "get_abi_generation_mode", "get_default_info", "get_java_version_attributes", "get_path_separator", "to_java_version")
 load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo")
 load("@prelude//utils:utils.bzl", "expect")
 
@@ -55,7 +55,7 @@ def classpath_args(args):
 
 def _process_plugins(
         actions: "actions",
-        actions_prefix: str.type,
+        actions_identifier: [str.type, None],
         ap_params: ["AnnotationProcessorParams"],
         plugin_params: ["PluginParams", None],
         javac_args: "cmd_args",
@@ -107,7 +107,7 @@ def _process_plugins(
             actions,
             processors_classpath,
             cmd,
-            "{}plugin_cp_args".format(actions_prefix),
+            declare_prefixed_name("plugin_cp_args", actions_identifier),
             "--javac_processors_classpath_file",
         )
 
@@ -136,7 +136,7 @@ def _build_bootclasspath(bootclasspath_entries: ["artifact"], source_level: int.
 
 def _append_javac_params(
         actions: "actions",
-        actions_prefix: str.type,
+        actions_identifier: [str.type, None],
         java_toolchain: "JavaToolchainInfo",
         srcs: ["artifact"],
         remove_classes: [str.type],
@@ -159,17 +159,13 @@ def _append_javac_params(
     )
     javac_args.add(*extra_arguments)
 
-    # we want something that looks nice when prepended to another string, so add "_" to non-empty prefixes.
-    if actions_prefix:
-        actions_prefix += "_"
-
     compiling_classpath = _build_classpath(actions, deps, additional_classpath_entries, "args_for_compiling")
     if compiling_classpath:
         _process_classpath(
             actions,
             classpath_args(compiling_classpath),
             cmd,
-            "{}classpath_args".format(actions_prefix),
+            declare_prefixed_name("classpath_args", actions_identifier),
             "--javac_classpath_file",
         )
     else:
@@ -186,13 +182,13 @@ def _append_javac_params(
             actions,
             classpath_args(bootclasspath_list),
             cmd,
-            "{}bootclasspath_args".format(actions_prefix),
+            declare_prefixed_name("bootclasspath_args", actions_identifier),
             "--javac_bootclasspath_file",
         )
 
     _process_plugins(
         actions,
-        actions_prefix,
+        actions_identifier,
         annotation_processor_params,
         javac_plugin_params,
         javac_args,
@@ -205,7 +201,7 @@ def _append_javac_params(
 
     javac_args.add(*plain_sources)
     args_file, _ = actions.write(
-        "{}javac_args".format(actions_prefix),
+        declare_prefixed_name("javac_args", actions_identifier),
         javac_args,
         allow_args = True,
     )
@@ -217,11 +213,11 @@ def _append_javac_params(
     cmd.add("--javac_args_file", args_file)
 
     if zipped_sources:
-        cmd.add("--zipped_sources_file", actions.write("{}zipped_source_args".format(actions_prefix), zipped_sources))
+        cmd.add("--zipped_sources_file", actions.write(declare_prefixed_name("zipped_source_args", actions_identifier), zipped_sources))
         cmd.hidden(zipped_sources)
 
     if remove_classes:
-        cmd.add("--remove_classes", actions.write("{}remove_classes_args".format(actions_prefix), remove_classes))
+        cmd.add("--remove_classes", actions.write(declare_prefixed_name("remove_classes_args", actions_identifier), remove_classes))
 
 def split_on_archives_and_plain_files(
         srcs: ["artifact"],
@@ -248,13 +244,13 @@ def _is_supported_archive(src: "artifact") -> bool.type:
 
 def _copy_resources(
         actions: "actions",
-        actions_prefix: str.type,
+        actions_identifier: [str.type, None],
         java_toolchain: JavaToolchainInfo.type,
         package: str.type,
         resources: ["artifact"],
         resources_root: [str.type, None]) -> "artifact":
     resources_to_copy = get_resources_map(java_toolchain, package, resources, resources_root)
-    resource_output = actions.symlinked_dir("{}resources".format(actions_prefix), resources_to_copy)
+    resource_output = actions.symlinked_dir(declare_prefixed_name("resources", actions_identifier), resources_to_copy)
     return resource_output
 
 def _jar_creator(
@@ -273,7 +269,7 @@ def compile_to_jar(
         *,
         abi_generation_mode: ["AbiGenerationMode", None] = None,
         output: ["artifact", None] = None,
-        actions_prefix: [str.type, None] = None,
+        actions_identifier: [str.type, None] = None,
         javac_tool: ["", None] = None,
         resources: [["artifact"], None] = None,
         resources_root: [str.type, None] = None,
@@ -302,8 +298,6 @@ def compile_to_jar(
         deps = []
     if not remove_classes:
         remove_classes = []
-    if not actions_prefix:
-        actions_prefix = ""
     if not ap_params:
         ap_params = []
     if not source_only_abi_deps:
@@ -321,7 +315,7 @@ def compile_to_jar(
 
     return _jar_creator(javac_tool, java_toolchain)(
         ctx.actions,
-        actions_prefix,
+        actions_identifier,
         abi_generation_mode,
         java_toolchain,
         ctx.label,
@@ -348,7 +342,7 @@ def compile_to_jar(
 
 def _create_jar_artifact(
         actions: "actions",
-        actions_prefix: str.type,
+        actions_identifier: [str.type, None],
         _abi_generation_mode: ["AbiGenerationMode", None],
         java_toolchain: JavaToolchainInfo.type,
         label: "label",
@@ -377,7 +371,7 @@ def _create_jar_artifact(
     Returns a single artifacts that represents jar output file
     """
     javac_tool = javac_tool or java_toolchain.javac
-    jar_out = output or actions.declare_output(paths.join(actions_prefix or "jar", "lib.jar"))
+    jar_out = output or actions.declare_output(paths.join(actions_identifier or "jar", "lib.jar"))
 
     args = [
         java_toolchain.compile_and_package[RunInfo],
@@ -394,7 +388,7 @@ def _create_jar_artifact(
         args += ["--javac_tool", javac_tool]
 
     if resources:
-        resource_dir = _copy_resources(actions, actions_prefix, java_toolchain, label.package, resources, resources_root)
+        resource_dir = _copy_resources(actions, actions_identifier, java_toolchain, label.package, resources, resources_root)
         args += ["--resources_dir", resource_dir]
 
     if manifest_file:
@@ -407,10 +401,10 @@ def _create_jar_artifact(
 
     generated_sources_dir = None
     if not skip_javac:
-        generated_sources_dir = actions.declare_output("{}generated_sources".format(actions_prefix))
+        generated_sources_dir = actions.declare_output(declare_prefixed_name("generated_sources", actions_identifier))
         _append_javac_params(
             actions,
-            actions_prefix,
+            actions_identifier,
             java_toolchain,
             srcs,
             remove_classes,
@@ -426,7 +420,7 @@ def _create_jar_artifact(
             generated_sources_dir,
         )
 
-    actions.run(compile_and_package_cmd, category = "javac_and_jar", identifier = actions_prefix)
+    actions.run(compile_and_package_cmd, category = "javac_and_jar", identifier = actions_identifier)
 
     abi = None if java_toolchain.is_bootstrap_toolchain else create_abi(actions, java_toolchain.class_abi_generator, jar_out)
 
@@ -607,7 +601,7 @@ def build_java_library(
         # plugin
         compile_to_jar(
             ctx,
-            actions_prefix = "ast",
+            actions_identifier = "ast",
             plugin_params = ast_dumping_plugin_params,
             javac_tool = java_toolchain.fallback_javac,
             **common_compile_kwargs

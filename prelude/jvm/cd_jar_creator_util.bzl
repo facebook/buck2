@@ -14,6 +14,7 @@ load(
     "derive_compiling_deps",
 )
 load("@prelude//java:java_toolchain.bzl", "AbiGenerationMode")
+load("@prelude//java/utils:java_utils.bzl", "declare_prefixed_name")
 
 def add_java_7_8_bootclasspath(target_level: int.type, bootclasspath_entries: ["artifact"], java_toolchain: "JavaToolchainInfo") -> ["artifact"]:
     if target_level == 7:
@@ -22,8 +23,8 @@ def add_java_7_8_bootclasspath(target_level: int.type, bootclasspath_entries: ["
         return bootclasspath_entries + java_toolchain.bootclasspath_8
     return bootclasspath_entries
 
-def declare_prefixed_output(actions: "actions", prefix: str.type, output) -> "artifact":
-    return actions.declare_output("{}{}".format(prefix, output))
+def declare_prefixed_output(actions: "actions", prefix: [str.type, None], output: str.type) -> "artifact":
+    return actions.declare_output(declare_prefixed_name(output, prefix))
 
 # The library and the toolchain can both set a specific abi generation
 # mode. The toolchain's setting is effectively the "highest" form of abi
@@ -107,7 +108,7 @@ def get_qualified_name(label: "label", target_type: TargetType.type) -> str.type
         TargetType("source_only_abi"): base_qualified_name(label) + "[source-only-abi]",
     }[target_type]
 
-def define_output_paths(actions: "actions", prefix: str.type) -> OutputPaths.type:
+def define_output_paths(actions: "actions", prefix: [str.type, None]) -> OutputPaths.type:
     # currently, javacd requires that at least some outputs are in the root
     # output dir. so we put all of them there. If javacd is updated we
     # could consolidate some of these into one subdir.
@@ -333,7 +334,7 @@ def encode_base_jar_command(
 # location.
 def prepare_final_jar(
         actions: "actions",
-        actions_prefix: str.type,
+        actions_identifier: [str.type, None],
         output: ["artifact", None],
         output_paths: OutputPaths.type,
         additional_compiled_srcs: ["artifact", None],
@@ -346,9 +347,9 @@ def prepare_final_jar(
 
     merged_jar = output
     if not merged_jar:
-        merged_jar = declare_prefixed_output(actions, actions_prefix, "merged.jar")
+        merged_jar = declare_prefixed_output(actions, actions_identifier, "merged.jar")
     files_to_merge = [output_paths.jar, additional_compiled_srcs]
-    files_to_merge_file = actions.write("{}_files_to_merge.txt".format(actions_prefix), files_to_merge)
+    files_to_merge_file = actions.write(declare_prefixed_name("files_to_merge.txt", actions_identifier), files_to_merge)
     actions.run(
         cmd_args([
             jar_builder,
@@ -357,13 +358,14 @@ def prepare_final_jar(
             "--entries-to-jar",
             files_to_merge_file,
         ]).hidden(files_to_merge),
-        category = "{}merge_additional_srcs".format(actions_prefix),
+        category = "merge_additional_srcs",
+        identifier = actions_identifier,
     )
     return merged_jar
 
 def generate_abi_jars(
         actions: "actions",
-        actions_prefix: str.type,
+        actions_identifier: [str.type, None],
         label: "label",
         abi_generation_mode: [AbiGenerationMode.type, None],
         additional_compiled_srcs: ["artifact", None],
@@ -382,24 +384,24 @@ def generate_abi_jars(
     # abi. This allows us to build/inspect/debug source/source-only abi for rules that don't have it enabled.
     if not additional_compiled_srcs:
         if abi_generation_mode == AbiGenerationMode("source") or not is_building_android_binary:
-            source_abi_prefix = "{}source_abi_".format(actions_prefix)
+            source_abi_identifier = declare_prefixed_name("source_abi", actions_identifier)
             source_abi_target_type = TargetType("source_abi")
             source_abi_qualified_name = get_qualified_name(label, source_abi_target_type)
-            source_abi_output_paths = define_output_paths(actions, source_abi_prefix)
+            source_abi_output_paths = define_output_paths(actions, source_abi_identifier)
             source_abi_command = encode_abi_command(source_abi_output_paths, source_abi_target_type)
-            define_javacd_action(source_abi_prefix, source_abi_command, source_abi_qualified_name, source_abi_output_paths, path_to_class_hashes = None)
+            define_javacd_action(source_abi_identifier, source_abi_command, source_abi_qualified_name, source_abi_output_paths, path_to_class_hashes = None)
             source_abi = source_abi_output_paths.jar
 
             if abi_generation_mode == AbiGenerationMode("source"):
                 classpath_abi = source_abi
 
         if abi_generation_mode == AbiGenerationMode("source_only") or not is_building_android_binary:
-            source_only_abi_prefix = "{}source_only_abi_".format(actions_prefix)
+            source_only_abi_identifier = declare_prefixed_name("source_only_abi", actions_identifier)
             source_only_abi_target_type = TargetType("source_only_abi")
             source_only_abi_qualified_name = get_qualified_name(label, source_only_abi_target_type)
-            source_only_abi_output_paths = define_output_paths(actions, source_only_abi_prefix)
+            source_only_abi_output_paths = define_output_paths(actions, source_only_abi_identifier)
             source_only_abi_command = encode_abi_command(source_only_abi_output_paths, source_only_abi_target_type)
-            define_javacd_action(source_only_abi_prefix, source_only_abi_command, source_only_abi_qualified_name, source_only_abi_output_paths, path_to_class_hashes = None)
+            define_javacd_action(source_only_abi_identifier, source_only_abi_command, source_only_abi_qualified_name, source_only_abi_output_paths, path_to_class_hashes = None)
             source_only_abi = source_only_abi_output_paths.jar
 
             if abi_generation_mode == AbiGenerationMode("source_only"):

@@ -332,7 +332,7 @@ def build_kotlin_library(
             source_level, target_level = get_java_version_attributes(ctx)
             outputs = create_jar_artifact_kotlincd(
                 actions = ctx.actions,
-                actions_prefix = "",
+                actions_identifier = "",
                 abi_generation_mode = get_abi_generation_mode(ctx.attrs.abi_generation_mode),
                 java_toolchain = ctx.attrs._java_toolchain[JavaToolchainInfo],
                 kotlin_toolchain = kotlin_toolchain,

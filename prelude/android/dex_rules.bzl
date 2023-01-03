@@ -660,7 +660,7 @@ def _create_canary_class(
     prefix = module_to_canary_class_name_function(module)
     canary_class_java_file = ctx.actions.write(_CANARY_FILE_NAME_TEMPLATE.format(prefix, index), [_CANARY_CLASS_PACKAGE_TEMPLATE.format(prefix, index), _CANARY_CLASS_INTERFACE_DEFINITION])
     canary_class_jar = ctx.actions.declare_output("canary_classes/{}/canary_jar_{}.jar".format(prefix, index))
-    compile_to_jar(ctx, [canary_class_java_file], output = canary_class_jar, actions_prefix = "{}_canary_class{}".format(prefix, index))
+    compile_to_jar(ctx, [canary_class_java_file], output = canary_class_jar, actions_identifier = "{}_canary_class{}".format(prefix, index))
 
     dex_library_info = get_dex_produced_from_java_library(ctx, dex_toolchain = dex_toolchain, jar_to_dex = canary_class_jar)
 

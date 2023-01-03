@@ -211,7 +211,7 @@ def _generate_and_compile_r_dot_java(
         compile_to_jar(
             ctx,
             output = outputs[r_dot_java_out],
-            actions_prefix = identifier,
+            actions_identifier = identifier,
             javac_tool = None,
             srcs = r_dot_java_srcs,
             remove_classes = remove_classes,

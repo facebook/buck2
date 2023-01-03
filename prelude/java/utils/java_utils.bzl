@@ -92,3 +92,9 @@ def get_default_info(
             sub_targets = extra_sub_targets | sub_targets,
         )
     return default_info
+
+def declare_prefixed_name(name: str.type, prefix: [str.type, None]) -> str.type:
+    if not prefix:
+        return name
+
+    return "{}_{}".format(prefix, name)

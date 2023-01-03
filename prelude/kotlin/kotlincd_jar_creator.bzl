@@ -30,7 +30,7 @@ load("@prelude//utils:utils.bzl", "expect", "map_idx")
 
 def create_jar_artifact_kotlincd(
         actions: "actions",
-        actions_prefix: [str.type, None],
+        actions_identifier: [str.type, None],
         abi_generation_mode: [AbiGenerationMode.type, None],
         java_toolchain: "JavaToolchainInfo",
         kotlin_toolchain: "KotlinToolchainInfo",
@@ -63,10 +63,8 @@ def create_jar_artifact_kotlincd(
     expect(abi_generation_mode != AbiGenerationMode("source"), "abi_generation_mode: source is not supported in kotlincd")
     actual_abi_generation_mode = abi_generation_mode or AbiGenerationMode("class") if srcs else AbiGenerationMode("class")
 
-    if actions_prefix:
-        actions_prefix += "_"
-    output_paths = define_output_paths(actions, actions_prefix)
-    path_to_class_hashes_out = declare_prefixed_output(actions, actions_prefix, "classes.txt")
+    output_paths = define_output_paths(actions, actions_identifier)
+    path_to_class_hashes_out = declare_prefixed_output(actions, actions_identifier, "classes.txt")
 
     def encode_kotlin_extra_params(kotlin_compiler_plugins):
         return struct(
@@ -185,12 +183,12 @@ def create_jar_artifact_kotlincd(
 
     # buildifier: disable=uninitialized
     def define_kotlincd_action(
-            actions_prefix: str.type,
+            actions_identifier: [str.type, None],
             encoded_command: struct.type,
             qualified_name: str.type,
             output_paths: OutputPaths.type,
             path_to_class_hashes: ["artifact", None]):
-        proto = declare_prefixed_output(actions, actions_prefix, "jar_command.proto.json")
+        proto = declare_prefixed_output(actions, actions_identifier, "jar_command.proto.json")
         classpath_jars_tag = actions.artifact_tag()
         proto_with_inputs = classpath_jars_tag.tag_inputs(actions.write_json(proto, encoded_command, with_inputs = True))
 
@@ -203,19 +201,20 @@ def create_jar_artifact_kotlincd(
         ])
         cmd = add_output_paths_to_cmd_args(cmd, output_paths, path_to_class_hashes)
 
-        event_pipe_out = declare_prefixed_output(actions, actions_prefix, "events.data")
+        event_pipe_out = declare_prefixed_output(actions, actions_identifier, "events.data")
         actions.run(
             cmd,
             env = {
                 "BUCK_EVENT_PIPE": event_pipe_out.as_output(),
                 "JAVACD_ABSOLUTE_PATHS_ARE_RELATIVE_TO_CWD": "1",
             },
-            category = "{}kotlincd_jar".format(actions_prefix),
+            category = "kotlincd_jar",
+            identifier = actions_identifier,
         )
 
     command = encode_library_command(output_paths, path_to_class_hashes_out)
     define_kotlincd_action(
-        actions_prefix = actions_prefix,
+        actions_identifier = actions_identifier,
         encoded_command = command,
         qualified_name = base_qualified_name(label),
         output_paths = output_paths,
@@ -224,7 +223,7 @@ def create_jar_artifact_kotlincd(
 
     final_jar = prepare_final_jar(
         actions = actions,
-        actions_prefix = actions_prefix,
+        actions_identifier = actions_identifier,
         output = None,
         output_paths = output_paths,
         additional_compiled_srcs = None,
@@ -234,7 +233,7 @@ def create_jar_artifact_kotlincd(
     # kotlincd does not support source abi
     class_abi, _, source_only_abi, classpath_abi = generate_abi_jars(
         actions = actions,
-        actions_prefix = actions_prefix,
+        actions_identifier = actions_identifier,
         label = label,
         abi_generation_mode = actual_abi_generation_mode,
         additional_compiled_srcs = None,

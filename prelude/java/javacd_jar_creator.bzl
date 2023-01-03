@@ -30,7 +30,7 @@ load(
 
 def create_jar_artifact_javacd(
         actions: "actions",
-        actions_prefix: str.type,
+        actions_identifier: [str.type, None],
         abi_generation_mode: [AbiGenerationMode.type, None],
         java_toolchain: "JavaToolchainInfo",
         label,
@@ -66,12 +66,8 @@ def create_jar_artifact_javacd(
     bootclasspath_entries = add_java_7_8_bootclasspath(target_level, bootclasspath_entries, java_toolchain)
     abi_generation_mode = get_abi_generation_mode(abi_generation_mode, java_toolchain, srcs, ap_params)
 
-    # now prefix is just used for categories and prefixes of path segments, so we want it either non-empty or w/ a trailing underscore
-    if actions_prefix:
-        actions_prefix += "_"
-
-    output_paths = define_output_paths(actions, actions_prefix)
-    path_to_class_hashes_out = declare_prefixed_output(actions, actions_prefix, "classes.txt")
+    output_paths = define_output_paths(actions, actions_identifier)
+    path_to_class_hashes_out = declare_prefixed_output(actions, actions_identifier, "classes.txt")
 
     def encode_library_command(output_paths: OutputPaths.type, path_to_class_hashes: "artifact") -> struct.type:
         target_type = TargetType("library")
@@ -152,8 +148,8 @@ def create_jar_artifact_javacd(
         )
 
     # buildifier: disable=uninitialized
-    def define_javacd_action(actions_prefix: str.type, encoded_command: struct.type, qualified_name: str.type, output_paths: OutputPaths.type, path_to_class_hashes: ["artifact", None]):
-        proto = declare_prefixed_output(actions, actions_prefix, "jar_command.proto.json")
+    def define_javacd_action(actions_identifier: [str.type, None], encoded_command: struct.type, qualified_name: str.type, output_paths: OutputPaths.type, path_to_class_hashes: ["artifact", None]):
+        proto = declare_prefixed_output(actions, actions_identifier, "jar_command.proto.json")
 
         classpath_jars_tag = actions.artifact_tag()
 
@@ -169,19 +165,19 @@ def create_jar_artifact_javacd(
         cmd = add_output_paths_to_cmd_args(cmd, output_paths, path_to_class_hashes)
 
         # TODO(cjhopman): make sure this works both locally and remote.
-        event_pipe_out = declare_prefixed_output(actions, actions_prefix, "events.data")
+        event_pipe_out = declare_prefixed_output(actions, actions_identifier, "events.data")
 
         dep_files = {}
         if srcs and java_toolchain.dep_files == "simple":
             dep_files["classpath_jars"] = classpath_jars_tag
             used_classes_json = output_paths.jar_parent.project("used-classes.json")
-            dep_file = declare_prefixed_output(actions, actions_prefix, "dep_file.txt")
+            dep_file = declare_prefixed_output(actions, actions_identifier, "dep_file.txt")
 
             # TODO(T134944772) We won't need this once we can do tag_artifacts on a JSON projection,
             # but for now we have to tag all the inputs on the .proto definition, and so we need to
             # tell the dep file to include all the inputs that the compiler won't report.
             srcs_and_resources = actions.write(
-                declare_prefixed_output(actions, actions_prefix, "srcs_and_resources"),
+                declare_prefixed_output(actions, actions_identifier, "srcs_and_resources"),
                 srcs + resources_map.values(),
             )
 
@@ -199,16 +195,17 @@ def create_jar_artifact_javacd(
                 "BUCK_EVENT_PIPE": event_pipe_out.as_output(),
                 "JAVACD_ABSOLUTE_PATHS_ARE_RELATIVE_TO_CWD": "1",
             },
-            category = "{}javacd_jar".format(actions_prefix),
+            category = "javacd_jar",
+            identifier = actions_identifier,
             dep_files = dep_files,
         )
 
     command = encode_library_command(output_paths, path_to_class_hashes_out)
-    define_javacd_action(actions_prefix, command, base_qualified_name(label), output_paths, path_to_class_hashes_out)
-    final_jar = prepare_final_jar(actions, actions_prefix, output, output_paths, additional_compiled_srcs, java_toolchain.jar_builder)
+    define_javacd_action(actions_identifier, command, base_qualified_name(label), output_paths, path_to_class_hashes_out)
+    final_jar = prepare_final_jar(actions, actions_identifier, output, output_paths, additional_compiled_srcs, java_toolchain.jar_builder)
     class_abi, source_abi, source_only_abi, classpath_abi = generate_abi_jars(
         actions,
-        actions_prefix,
+        actions_identifier,
         label,
         abi_generation_mode,
         additional_compiled_srcs,

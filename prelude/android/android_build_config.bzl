@@ -97,7 +97,7 @@ def _compile_and_package_build_config_dot_java(
         build_config_dot_java: "artifact") -> "JavaCompileOutputs":
     return compile_to_jar(
         ctx,
-        actions_prefix = "build_config_{}".format(java_package.replace(".", "_")),
+        actions_identifier = "build_config_{}".format(java_package.replace(".", "_")),
         srcs = [build_config_dot_java],
     )
 
