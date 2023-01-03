@@ -124,7 +124,7 @@ def create_jar_artifact_kotlincd(
             ap_params = ap_params,
             plugin_params = plugin_params,
             extra_arguments = extra_arguments,
-            track_class_usage = False,
+            track_class_usage = True,
             build_target_value_extra_params = build_target_value_extra_params,
         )
 
@@ -164,7 +164,7 @@ def create_jar_artifact_kotlincd(
             ap_params,
             plugin_params,
             extra_arguments,
-            False,
+            True,
             build_target_value_extra_params,
         )
         abi_params = encode_jar_params(remove_classes, output_paths)
