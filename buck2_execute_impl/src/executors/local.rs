@@ -88,7 +88,7 @@ pub struct LocalExecutor {
     artifact_fs: ArtifactFs,
     materializer: Arc<dyn Materializer>,
     blocking_executor: Arc<dyn BlockingExecutor>,
-    host_sharing_broker: Arc<HostSharingBroker>,
+    pub(crate) host_sharing_broker: Arc<HostSharingBroker>,
     root: AbsNormPathBuf,
     #[cfg_attr(not(unix), allow(unused))]
     forkserver: Option<ForkserverClient>,

@@ -35,7 +35,6 @@ use futures::future::Future;
 use futures::FutureExt;
 use gazebo::prelude::*;
 use host_sharing::HostSharingRequirements;
-use host_sharing::WeightClass;
 use remote_execution as RE;
 
 use crate::executors::local::LocalExecutor;
@@ -173,8 +172,12 @@ impl PreparedCommandExecutor for HybridExecutor {
 
         let weight = match command.request.host_sharing_requirements() {
             HostSharingRequirements::ExclusiveAccess => self.low_pass_filter.capacity(),
-            HostSharingRequirements::OnePerToken(.., WeightClass::Permits(permits)) => *permits,
-            HostSharingRequirements::Shared(WeightClass::Permits(permits)) => *permits,
+            HostSharingRequirements::OnePerToken(.., class) => {
+                self.local.host_sharing_broker.requested_permits(class)
+            }
+            HostSharingRequirements::Shared(class) => {
+                self.local.host_sharing_broker.requested_permits(class)
+            }
         };
 
         let is_retryable_status = move |r: &CommandExecutionResult| {

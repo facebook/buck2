@@ -68,7 +68,7 @@ pub struct HostSharingBroker {
 impl HostSharingBroker {
     // If a test requires Permits(4) permits but the machine only has 3 permits then we cap the
     // test's required permits to 3. Otherwise the test would never be allowed to run.
-    fn requested_permits(&self, weight_class: &WeightClass) -> usize {
+    pub fn requested_permits(&self, weight_class: &WeightClass) -> usize {
         match weight_class {
             WeightClass::Permits(required_permits) => {
                 self.num_machine_permits.min(*required_permits)
