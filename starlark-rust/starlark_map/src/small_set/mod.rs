@@ -31,7 +31,7 @@ use crate::small_map::SmallMap;
 pub use crate::small_set::iter::IntoIter;
 pub use crate::small_set::iter::Iter;
 
-/// An memory-efficient set with determinstic order, based on [`SmallMap`].
+/// An memory-efficient set with deterministic order, based on [`SmallMap`].
 #[derive(Clone, Default_, Allocative)]
 pub struct SmallSet<T>(SmallMap<T, ()>);
 
@@ -181,6 +181,8 @@ impl<T> SmallSet<T> {
     }
 
     /// Remove the element from the set if it is present.
+    ///
+    /// Time complexity of this operation is *O(N)* where *N* is the number of entries in the set.
     #[inline]
     pub fn remove<Q>(&mut self, key: &Q) -> bool
     where

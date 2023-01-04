@@ -465,7 +465,7 @@ impl<K, V> SmallMap<K, V> {
 
     /// Remove the entry for the key.
     ///
-    /// This operation is linear in the number of entries in the map.
+    /// Time complexity of this operation is *O(N)* where *N* is the number of entries in the map.
     pub fn remove_hashed<Q>(&mut self, key: Hashed<&Q>) -> Option<V>
     where
         Q: ?Sized + Equivalent<K>,
@@ -475,7 +475,7 @@ impl<K, V> SmallMap<K, V> {
 
     /// Remove the entry for the key.
     ///
-    /// This operation is linear in the number of entries in the map.
+    /// Time complexity of this operation is *O(N)* where *N* is the number of entries in the map.
     pub fn remove_hashed_entry<Q>(&mut self, key: Hashed<&Q>) -> Option<(K, V)>
     where
         Q: ?Sized + Equivalent<K>,
@@ -505,6 +505,8 @@ impl<K, V> SmallMap<K, V> {
     }
 
     /// Remove the entry for the key.
+    ///
+    /// Time complexity of this operation is *O(N)* where *N* is the number of entries in the map.
     pub fn remove<Q>(&mut self, key: &Q) -> Option<V>
     where
         Q: ?Sized + Hash + Equivalent<K>,
@@ -513,6 +515,8 @@ impl<K, V> SmallMap<K, V> {
     }
 
     /// Remove the entry for the key.
+    ///
+    /// Time complexity of this operation is *O(N)* where *N* is the number of entries in the map.
     pub fn remove_entry<Q>(&mut self, key: &Q) -> Option<(K, V)>
     where
         Q: ?Sized + Hash + Equivalent<K>,
