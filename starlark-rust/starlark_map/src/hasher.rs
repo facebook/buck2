@@ -58,6 +58,7 @@ impl Hasher for StarlarkHasher {
     }
 }
 
+/// [`BuildHasher`] implementation which produces [`StarlarkHasher`].
 #[derive(Default, Debug, Clone, Copy, Dupe)]
 pub struct StarlarkHasherBuilder;
 

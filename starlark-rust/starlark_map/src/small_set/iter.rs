@@ -19,10 +19,12 @@ use crate::iter::def_double_ended_iter;
 use crate::iter::def_iter;
 use crate::small_map;
 
+/// Iterator over the hashed entries of [`SmallSet`](crate::small_set::SmallSet).
 pub struct Iter<'a, T> {
     pub(crate) iter: small_map::Iter<'a, T, ()>,
 }
 
+///
 pub struct IntoIter<T> {
     pub(crate) iter: small_map::IntoIter<T, ()>,
 }

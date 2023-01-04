@@ -19,6 +19,8 @@
 
 // Hints we disagree with
 #![allow(clippy::missing_safety_doc)]
+#![deny(missing_docs)]
+#![deny(rustdoc::broken_intra_doc_links)]
 #![cfg_attr(rust_nightly, feature(core_intrinsics))]
 #![cfg_attr(rust_nightly, feature(portable_simd))]
 

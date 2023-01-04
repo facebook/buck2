@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+//! Ordered set.
+
 mod iter;
 
 use std::fmt;
@@ -171,6 +173,11 @@ impl<T> SmallSet<T> {
         self.0.get_index_of_hashed(value)
     }
 
+    /// Find the index of the given hashed value.
+    ///
+    /// This operations is similar to [`get_index_of_hashed`](Self::get_index_of_hashed),
+    /// but it takes the key by value, instead of by reference
+    /// which sometimes generates better code.
     #[inline]
     pub fn get_index_of_hashed_by_value<Q>(&self, value: Hashed<Q>) -> Option<usize>
     where

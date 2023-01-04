@@ -296,6 +296,7 @@ impl<K, V> SmallMap<K, V> {
         self.get_index_of_hashed_raw(key.hash(), |k| key.key().equivalent(k))
     }
 
+    /// Get the index of the entry given a hashed key.
     #[inline]
     pub fn get_index_of_hashed_by_value<Q>(&self, key: Hashed<Q>) -> Option<usize>
     where
@@ -348,6 +349,7 @@ impl<K, V> SmallMap<K, V> {
         self.get_index_of_hashed(key).is_some()
     }
 
+    /// Find if an entry by a given hashed key exists.
     #[inline]
     pub fn contains_key_hashed_by_value<Q>(&self, key: Hashed<Q>) -> bool
     where

@@ -22,6 +22,7 @@ use crate::iter::def_iter;
 use crate::vec_map;
 use crate::Hashed;
 
+/// Iterator over the hashed entries of [`SmallMap`](crate::small_map::SmallMap).
 #[derive(Clone_)]
 pub struct IterHashed<'a, K, V> {
     pub(crate) iter: vec_map::IterHashed<'a, K, V>,
@@ -110,6 +111,7 @@ impl<'a, K, V> DoubleEndedIterator for IterMut<'a, K, V> {
     def_double_ended_iter!();
 }
 
+/// Iterator that moves hashed entries out of a [`SmallMap`](crate::small_map::SmallMap).
 pub struct IntoIterHashed<K, V> {
     pub(crate) iter: vec_map::IntoIterHashed<K, V>,
 }
@@ -138,7 +140,7 @@ impl<K, V> DoubleEndedIterator for IntoIterHashed<K, V> {
     def_double_ended_iter!();
 }
 
-/// Iterator over a small map entries.
+/// Iterator that moves entries out of a [`SmallMap`](crate::small_map::SmallMap).
 pub struct IntoIter<K, V> {
     pub(crate) iter: vec_map::IntoIter<K, V>,
 }
@@ -167,6 +169,7 @@ impl<K, V> DoubleEndedIterator for IntoIter<K, V> {
     def_double_ended_iter!();
 }
 
+/// Iterator over a [`SmallMap`](crate::small_map::SmallMap) keys.
 #[derive(Clone_)]
 pub struct Keys<'a, K, V> {
     pub(crate) iter: vec_map::Keys<'a, K, V>,
@@ -196,6 +199,7 @@ impl<'a, K, V> DoubleEndedIterator for Keys<'a, K, V> {
     def_double_ended_iter!();
 }
 
+/// Iterator over a [`SmallMap`](crate::small_map::SmallMap) values.
 #[derive(Clone_)]
 pub struct Values<'a, K, V> {
     pub(crate) iter: vec_map::Values<'a, K, V>,
@@ -225,6 +229,7 @@ impl<'a, K, V> DoubleEndedIterator for Values<'a, K, V> {
     def_double_ended_iter!();
 }
 
+/// Iterator over a [`SmallMap`](crate::small_map::SmallMap) mutable values.
 pub struct ValuesMut<'a, K, V> {
     pub(crate) iter: vec_map::ValuesMut<'a, K, V>,
 }
