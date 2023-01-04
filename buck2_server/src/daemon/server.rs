@@ -1106,6 +1106,21 @@ impl DaemonApi for BuckdServer {
         )
         .await
     }
+
+    async fn set_log_filter(
+        &self,
+        req: Request<SetLogFilterRequest>,
+    ) -> Result<Response<SetLogFilterResponse>, Status> {
+        let req = req.into_inner();
+
+        self.0
+            .log_reload_handle
+            .update_log_filter(&req.log_filter)
+            .context("Error updating daemon log filter")
+            .map_err(|e| Status::invalid_argument(format!("{:#}", e)))?;
+
+        Ok(Response::new(SetLogFilterResponse {}))
+    }
 }
 
 /// Options to configure the execution of a oneshot command (i.e. what happens in `oneshot()`).

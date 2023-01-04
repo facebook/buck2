@@ -27,6 +27,7 @@ use crate::commands::debug::allocative::AllocativeCommand;
 use crate::commands::debug::daemon_dir::DaemonDirCommand;
 use crate::commands::debug::exe::ExeCommand;
 use crate::commands::debug::segfault::SegfaultCommand;
+use crate::commands::debug::set_log_filter::SetLogFilterCommand;
 use crate::commands::debug::upload_re_logs::UploadReLogsCommand;
 use crate::commands::log::last_log::LastLogCommand;
 use crate::commands::log::what_ran::WhatRanCommand;
@@ -44,6 +45,7 @@ mod internal_version;
 mod materialize;
 pub mod replay;
 mod segfault;
+mod set_log_filter;
 mod upload_re_logs;
 
 #[derive(Debug, clap::Parser)]
@@ -86,6 +88,7 @@ pub enum DebugCommand {
     /// Prints buck2 executable (this executable) path.
     Exe(ExeCommand),
     Allocative(AllocativeCommand),
+    SetLogFilter(SetLogFilterCommand),
 }
 
 /// `cli::exec` function.
@@ -116,6 +119,7 @@ impl DebugCommand {
             DebugCommand::DaemonDir(cmd) => cmd.exec(matches, ctx),
             DebugCommand::Exe(cmd) => cmd.exec(matches, ctx),
             DebugCommand::Allocative(cmd) => cmd.exec(matches, ctx),
+            DebugCommand::SetLogFilter(cmd) => cmd.exec(matches, ctx),
         }
     }
 }

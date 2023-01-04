@@ -613,6 +613,12 @@ message CleanStaleResponse {
 
 message FlushDepFilesRequest {}
 
+message SetLogFilterRequest {
+  string log_filter = 1;
+}
+
+message SetLogFilterResponse {}
+
 // Note: When adding new request or response types, some of the declarations in
 // src/lib.rs need to be updated to derive common things for buck's cli package.
 service DaemonApi {
@@ -661,4 +667,7 @@ service DaemonApi {
 
   // Starts a starlark LSP server.
   rpc Lsp(stream StreamingRequest) returns (stream CommandProgress);
+
+  // Update the daemon's log filter.
+  rpc SetLogFilter(SetLogFilterRequest) returns (SetLogFilterResponse);
 }

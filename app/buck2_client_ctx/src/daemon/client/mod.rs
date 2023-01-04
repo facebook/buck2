@@ -428,6 +428,15 @@ impl BuckdClient {
             status.process_info.unwrap().version,
         ))
     }
+
+    pub async fn set_log_filter(&mut self, log_filter: String) -> anyhow::Result<()> {
+        self.client
+            .daemon_only_mut()
+            .set_log_filter(Request::new(SetLogFilterRequest { log_filter }))
+            .await?;
+
+        Ok(())
+    }
 }
 
 pub struct FlushingBuckdClient<'a> {
@@ -605,6 +614,7 @@ impl<'a> FlushingBuckdClient<'a> {
     wrap_method!(kill(reason: &str), ());
     wrap_method!(status(snapshot: bool), StatusResponse);
     wrap_method!(check_version(), VersionCheckResult);
+    wrap_method!(set_log_filter(log_filter: String), ());
 }
 
 /// Create a stream that is sent over as a parameter via GRPC to the daemon.
