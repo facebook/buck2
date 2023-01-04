@@ -223,6 +223,41 @@ impl DaemonState {
         let valid_cache_dirs = paths.valid_cache_dirs();
         let fs_duped = fs.dupe();
 
+        let deferred_materializer_configs = {
+            let defer_write_actions = root_config
+                .parse::<RolloutPercentage>("buck2", "defer_write_actions")?
+                .unwrap_or_else(RolloutPercentage::never)
+                .roll();
+
+            // RE will refresh any TTL < 1 hour, so we check twice an hour and refresh any TTL
+            // < 1 hour.
+            let ttl_refresh_frequency = root_config
+                .parse("buck2", "ttl_refresh_frequency_seconds")?
+                .unwrap_or(1800);
+
+            let ttl_refresh_min_ttl = root_config
+                .parse("buck2", "ttl_refresh_min_ttl_seconds")?
+                .unwrap_or(3600);
+
+            let ttl_refresh_enabled = root_config
+                .parse::<RolloutPercentage>("buck2", "ttl_refresh_enabled")?
+                .unwrap_or_else(RolloutPercentage::never)
+                .roll();
+
+            DeferredMaterializerConfigs {
+                materialize_final_artifacts: matches!(
+                    materialization_method,
+                    MaterializationMethod::Deferred
+                ),
+                defer_write_actions,
+                ttl_refresh: TtlRefreshConfiguration {
+                    frequency: std::time::Duration::from_secs(ttl_refresh_frequency),
+                    min_ttl: chrono::Duration::seconds(ttl_refresh_min_ttl),
+                    enabled: ttl_refresh_enabled,
+                },
+            }
+        };
+
         let (io, forkserver, _, (materializer_db, materializer_state)) =
             futures::future::try_join4(
                 buck2_common::io::create_io_provider(
@@ -262,7 +297,7 @@ impl DaemonState {
             re_client_manager.dupe(),
             blocking_executor.dupe(),
             materialization_method,
-            root_config,
+            deferred_materializer_configs,
             materializer_db,
             materializer_state,
         )?;
@@ -333,7 +368,7 @@ impl DaemonState {
         re_client_manager: Arc<ReConnectionManager>,
         blocking_executor: Arc<dyn BlockingExecutor>,
         materialization_method: MaterializationMethod,
-        root_config: &LegacyBuckConfig,
+        deferred_materializer_configs: DeferredMaterializerConfigs,
         materializer_db: Option<MaterializerStateSqliteDb>,
         materializer_state: Option<MaterializerState>,
     ) -> anyhow::Result<Arc<dyn Materializer>> {
@@ -344,45 +379,12 @@ impl DaemonState {
                 blocking_executor,
             ))),
             MaterializationMethod::Deferred | MaterializationMethod::DeferredSkipFinalArtifacts => {
-                let defer_write_actions = root_config
-                    .parse::<RolloutPercentage>("buck2", "defer_write_actions")?
-                    .unwrap_or_else(RolloutPercentage::never)
-                    .roll();
-
-                // RE will refresh any TTL < 1 hour, so we check twice an hour and refresh any TTL
-                // < 1 hour.
-                let ttl_refresh_frequency = root_config
-                    .parse("buck2", "ttl_refresh_frequency_seconds")?
-                    .unwrap_or(1800);
-
-                let ttl_refresh_min_ttl = root_config
-                    .parse("buck2", "ttl_refresh_min_ttl_seconds")?
-                    .unwrap_or(3600);
-
-                let ttl_refresh_enabled = root_config
-                    .parse::<RolloutPercentage>("buck2", "ttl_refresh_enabled")?
-                    .unwrap_or_else(RolloutPercentage::never)
-                    .roll();
-
-                let config = DeferredMaterializerConfigs {
-                    materialize_final_artifacts: matches!(
-                        materialization_method,
-                        MaterializationMethod::Deferred
-                    ),
-                    defer_write_actions,
-                    ttl_refresh: TtlRefreshConfiguration {
-                        frequency: std::time::Duration::from_secs(ttl_refresh_frequency),
-                        min_ttl: chrono::Duration::seconds(ttl_refresh_min_ttl),
-                        enabled: ttl_refresh_enabled,
-                    },
-                };
-
                 Ok(Arc::new(DeferredMaterializer::new(
                     fs,
                     buck_out_path,
                     re_client_manager,
                     blocking_executor,
-                    config,
+                    deferred_materializer_configs,
                     materializer_db,
                     materializer_state,
                 )?))
