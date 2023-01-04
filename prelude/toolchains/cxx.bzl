@@ -66,7 +66,7 @@ def _system_cxx_toolchain_impl(ctx):
                 nm = RunInfo(args = ["nm"]),
                 # objcopy = ctx.attrs.objcopy_for_shared_library_interface[RunInfo],
                 # ranlib = ctx.attrs.ranlib[RunInfo],
-                ranlib = RunInfo(args = ["raninfo"]),
+                ranlib = RunInfo(args = ["ranlib"]),
                 strip = RunInfo(args = ["strip"]),
                 dwp = None,
                 bolt_msdk = None,
