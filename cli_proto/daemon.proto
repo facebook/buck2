@@ -615,6 +615,8 @@ message FlushDepFilesRequest {}
 
 message SetLogFilterRequest {
   string log_filter = 1;
+  bool daemon = 2;
+  bool forkserver = 3;
 }
 
 message SetLogFilterResponse {}
