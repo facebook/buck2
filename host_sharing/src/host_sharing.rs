@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::fmt;
+
 use anyhow::Context;
 use futures_intrusive::sync::SharedSemaphore;
 use futures_intrusive::sync::SharedSemaphoreReleaser;
@@ -31,6 +33,15 @@ pub enum WeightClass {
     Permits(usize),
     /// A percentage of available resources.
     Percentage(WeightPercentage),
+}
+
+impl fmt::Display for WeightClass {
+    fn fmt(&self, w: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Permits(p) => write!(w, "{}", p),
+            Self::Percentage(p) => write!(w, "{}%", p.into_value()),
+        }
+    }
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
