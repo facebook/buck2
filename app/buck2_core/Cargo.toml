@@ -7,6 +7,7 @@ edition = "2021"
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 blake3 = { workspace = true }
+compact_str = { workspace = true }
 tempfile = { workspace = true }
 derive_more = { workspace = true }
 derivative = { workspace = true }
@@ -34,7 +35,6 @@ static_assertions = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 rand = { workspace = true }
-smartstring = { workspace = true }
 starlark_map = { workspace = true }
 
 gazebo = { workspace = true }

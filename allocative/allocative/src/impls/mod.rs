@@ -12,6 +12,7 @@
 mod anyhow;
 mod bumpalo;
 pub(crate) mod common;
+mod compact_str;
 mod dashmap;
 mod either;
 mod futures;
@@ -27,6 +28,5 @@ mod prost_types;
 mod relative_path;
 mod sequence_trie;
 mod smallvec;
-mod smartstring;
 mod sorted_vector_map;
 mod std;

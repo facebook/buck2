@@ -7,10 +7,9 @@
  * of this source tree.
  */
 
-#![cfg(feature = "smartstring")]
+#![cfg(feature = "compact_str")]
 
-use smartstring::SmartString;
-use smartstring::SmartStringMode;
+use compact_str::CompactString;
 
 use crate::allocative_trait::Allocative;
 use crate::impls::common::PTR_NAME;
@@ -18,10 +17,10 @@ use crate::impls::common::UNUSED_CAPACITY_NAME;
 use crate::key::Key;
 use crate::visitor::Visitor;
 
-impl<M: SmartStringMode + 'static> Allocative for SmartString<M> {
+impl Allocative for CompactString {
     fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {
         let mut visitor = visitor.enter_self_sized::<Self>();
-        if !self.is_inline() {
+        if self.is_heap_allocated() {
             let mut visitor = visitor.enter_unique(PTR_NAME, std::mem::size_of::<*const u8>());
             visitor.visit_simple(Key::new("str"), self.len());
             let unused_capacity = self.capacity() - self.len();

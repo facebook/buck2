@@ -24,7 +24,7 @@ rust_library(
         "relative-path",
         "sequence_trie",
         "smallvec",
-        "smartstring",
+        "compact_str",
         "sorted_vector_map",
     ],
     rustc_flags = [
@@ -33,6 +33,7 @@ rust_library(
     deps = [
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:bumpalo",
+        "fbsource//third-party/rust:compact_str",
         "fbsource//third-party/rust:ctor",
         "fbsource//third-party/rust:dashmap",
         "fbsource//third-party/rust:either",
@@ -47,7 +48,6 @@ rust_library(
         "fbsource//third-party/rust:relative-path",
         "fbsource//third-party/rust:sequence_trie",
         "fbsource//third-party/rust:smallvec",
-        "fbsource//third-party/rust:smartstring",
         "//buck2/allocative/allocative_derive:allocative_derive",
         "//common/rust/shed/sorted_vector_map:sorted_vector_map",
     ],

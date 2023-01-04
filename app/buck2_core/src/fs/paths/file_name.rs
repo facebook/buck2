@@ -14,11 +14,10 @@ use std::ops::Deref;
 use std::path::Path;
 
 use allocative::Allocative;
+use compact_str::CompactString;
 use derive_more::Display;
 use ref_cast::RefCast;
 use relative_path::RelativePath;
-use smartstring::LazyCompact;
-use smartstring::SmartString;
 use thiserror::Error;
 
 use crate::fs::paths::forward_rel_path::ForwardRelativePath;
@@ -177,23 +176,24 @@ impl ToOwned for FileName {
     type Owned = FileNameBuf;
 
     fn to_owned(&self) -> FileNameBuf {
-        FileNameBuf(self.0.into())
+        FileNameBuf(CompactString::new(&self.0))
     }
 }
 
 /// Owned version of [`FileName`].
 #[derive(Ord, PartialOrd, Eq, Display, Debug, Clone, Allocative)]
-pub struct FileNameBuf(SmartString<LazyCompact>);
+pub struct FileNameBuf(CompactString);
 
 impl FileNameBuf {
     pub fn unchecked_new<T>(s: T) -> Self
     where
-        T: Into<SmartString<LazyCompact>>,
+        T: Into<CompactString>,
     {
+        // NOTE: This does not turn a String into an inlined string if it's already allocated.
         Self(s.into())
     }
 
-    pub fn into_inner(self) -> SmartString<LazyCompact> {
+    pub fn into_inner(self) -> CompactString {
         self.0
     }
 
@@ -271,6 +271,7 @@ impl TryFrom<String> for FileNameBuf {
     type Error = anyhow::Error;
 
     fn try_from(value: String) -> anyhow::Result<FileNameBuf> {
+        // NOTE: This does not turn a String into an inlined string.
         verify_file_name(value.as_str())?;
         Ok(FileNameBuf(value.into()))
     }

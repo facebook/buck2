@@ -41,8 +41,9 @@ byteorder = "1.4.3"
 bytes = "1.0"
 bytesize = "1.1.0"
 chrono = "=0.4.19"  # Avoid a dependency iana-time-zone, which requires a fixup
-clap = { version = "3.1.18", features = ["derive", "env"] }
 clap-4 = { package = "clap", version = "4.0.7", features = ["derive", "env"] }
+clap = { version = "3.1.18", features = ["derive", "env"] }
+compact_str = "0.6"
 constant_time_eq = "0.2.4"
 convert_case = "0.4.0"
 criterion = { version = "0.3.4", features = ["async", "async_tokio", "html_reports"] }
@@ -133,7 +134,6 @@ shlex = "1.1"
 siphasher = "0.3.5"
 slog = "2.7.0"
 smallvec = "1.7"
-smartstring = "0.2.9"
 static_assertions = "1.1.0"
 strsim = "0.10.0"
 structopt = "0.3.23"
