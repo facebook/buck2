@@ -625,15 +625,25 @@ impl<K, V> SmallMap<K, V> {
             return;
         }
 
-        // TODO(nga): make it panic safe.
-        self.entries.sort_keys();
-        if let Some(index) = &mut self.index {
-            index.clear();
-            for (i, (k, _)) in self.entries.iter_hashed().enumerate() {
-                // SAFETY: capacity >= self.entries.len()
-                unsafe { index.insert_no_grow(k.hash().promote(), i) };
+        // Rebuild index on drop to make this code panic-safe.
+        struct RebuildIndexOnDrop<'a, K, V> {
+            map: &'a mut SmallMap<K, V>,
+        }
+
+        impl<'a, K, V> Drop for RebuildIndexOnDrop<'a, K, V> {
+            fn drop(&mut self) {
+                if let Some(index) = &mut self.map.index {
+                    index.clear();
+                    for (i, (k, _)) in self.map.entries.iter_hashed().enumerate() {
+                        // SAFETY: capacity >= self.entries.len()
+                        unsafe { index.insert_no_grow(k.hash().promote(), i) };
+                    }
+                }
             }
         }
+
+        let map = RebuildIndexOnDrop { map: self };
+        map.map.entries.sort_keys();
     }
 
     /// Equal if the keys and values are equal in the iteration order.
@@ -893,6 +903,10 @@ macro_rules! smallmap {
 
 #[cfg(test)]
 mod tests {
+    use std::cmp::Ordering;
+    use std::panic::catch_unwind;
+    use std::panic::AssertUnwindSafe;
+
     use super::*;
 
     #[test]
@@ -1139,6 +1153,35 @@ mod tests {
         for i in 1..=100 {
             assert_eq!(i * 10, *map.get(&i).unwrap());
         }
+    }
+
+    #[test]
+    fn test_sort_keys_updates_index_on_panic() {
+        #[derive(Hash, PartialEq, Eq, Debug)]
+        struct Key(u32);
+
+        impl PartialOrd for Key {
+            fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+                Some(self.cmp(other))
+            }
+        }
+
+        impl Ord for Key {
+            fn cmp(&self, other: &Self) -> Ordering {
+                if self.0 < 10 && other.0 < 10 {
+                    panic!("panic in Ord::cmp")
+                }
+                self.0.cmp(&other.0)
+            }
+        }
+
+        let mut map = SmallMap::new();
+        for i in (1..=100).rev() {
+            map.insert(Key(i), i * 10);
+        }
+        catch_unwind(AssertUnwindSafe(|| map.sort_keys())).unwrap_err();
+        // If index is not updated on panic, the following assertion will fail.
+        map.assert_invariants();
     }
 
     #[test]
