@@ -51,6 +51,7 @@ rust_library(
         "fbsource//third-party/rust:tracing",
         "//buck2/allocative/allocative:allocative",
         "//buck2/app/buck2_core:buck2_core",
+        "//buck2/app/buck2_build_info:buck2_build_info",
         "//buck2/app/buck2_interpreter_for_build:buck2_interpreter_for_build",
         "//buck2/app/buck2_query_parser:buck2_query_parser",
         "//buck2/app/buck2_test_api:buck2_test_api",
@@ -71,6 +72,5 @@ rust_library(
         "//buck2/shed/more_futures:more_futures",
         "//buck2/starlark-rust/starlark:starlark",
         "//buck2/starlark-rust/starlark_map:starlark_map",
-        # @oss-disable: "//common/rust/build_info:build_info", 
     ],
 )

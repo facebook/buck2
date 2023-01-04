@@ -1,0 +1,18 @@
+load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
+load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
+
+oncall("buck2")
+
+rust_library(
+    name = "buck2_build_info",
+    srcs = glob(["src/**/*.rs"]),
+    env = {
+        # This config value is set by the upload script, and controls the output of `--version`. We
+        # would like to use build info for this, but it is unfortunately not reliably available, see
+        # T140147872.
+        "BUCK2_SET_EXPLICIT_VERSION": read_config("buck", "set_explicit_version", ""),
+    },
+    deps = [
+        # @oss-disable: "//common/rust/build_info:build_info", 
+    ],
+)

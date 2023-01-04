@@ -23,7 +23,6 @@ uuid = { workspace = true }
 crossbeam-channel = { workspace = true }
 crossbeam-epoch = { workspace = true }
 
-# @oss-disable: build_info = { path = "../../common/rust/build_info" }
 fbinit = { workspace = true }
 gazebo = { workspace = true }
 gazebo_lint.version = "0.1"
@@ -33,6 +32,7 @@ gazebo_lint.optional = true
 allocative = { workspace = true }
 
 cli_proto = { path = "../cli_proto" }
+buck2_build_info = { path = "../app/buck2_build_info" }
 buck2_core = { path = "../app/buck2_core" }
 buck2_data = { path = "../buck2_data" }
 

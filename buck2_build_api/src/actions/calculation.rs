@@ -141,9 +141,7 @@ async fn build_action_no_redirect(
         let mut did_cache_upload = None;
         let mut eligible_for_full_hybrid = None;
 
-        #[allow(unused_mut)] // Not set in all configurations
         let mut buck2_revision = None;
-        #[allow(unused_mut)] // Not set in all configurations
         let mut buck2_build_time = None;
 
         match execute_result {
@@ -186,11 +184,8 @@ async fn build_action_no_redirect(
                 output_size = 0;
                 // We define the below fields only in the instance of an action error
                 // so as to reduce Scribe traffic and log it in buck2_action_errors
-                #[cfg(any(fbcode_build, cargo_internal_build))]
-                {
-                    buck2_revision = Some(build_info::BuildInfo::get_revision().to_owned());
-                    buck2_build_time = Some(build_info::BuildInfo::get_time_iso8601().to_owned());
-                }
+                buck2_revision = buck2_build_info::revision().map(|s| s.to_owned());
+                buck2_build_time = buck2_build_info::time_iso8601().map(|s| s.to_owned());
             }
         };
 

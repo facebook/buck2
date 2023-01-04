@@ -37,18 +37,12 @@ pub fn collect() -> HashMap<String, String> {
         map.insert("username".to_owned(), username);
     }
 
-    #[cfg(any(fbcode_build, cargo_internal_build))]
-    {
-        // The revision that built the buck2 binary currently in use.
-        map.insert(
-            "buck2_revision".to_owned(),
-            build_info::BuildInfo::get_revision().to_owned(),
-        );
-        // The time when the buck2 binary servicing this command was built.
-        map.insert(
-            "buck2_build_time".to_owned(),
-            build_info::BuildInfo::get_time_iso8601().to_owned(),
-        );
+    if let Some(rev) = buck2_build_info::revision() {
+        map.insert("buck2_revision".to_owned(), rev.to_owned());
+    }
+
+    if let Some(time) = buck2_build_info::time_iso8601() {
+        map.insert("buck2_build_time".to_owned(), time.to_owned());
     }
 
     // Global trace ID

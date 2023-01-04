@@ -32,16 +32,6 @@ impl BuckVersion {
         Self::get().version()
     }
 
-    fn compute_revision() -> Option<&'static str> {
-        if let Some(rev) = std::option_env!("BUCK2_SET_EXPLICIT_VERSION") {
-            if !rev.is_empty() {
-                return Some(rev);
-            }
-        }
-
-        None
-    }
-
     fn extract_unique_id(file: &object::File) -> Option<String> {
         if let Ok(Some(build_id)) = file.build_id() {
             Some(hex::encode(build_id))
@@ -98,7 +88,7 @@ impl BuckVersion {
             Self::hash_binary(&mut file)
         };
 
-        let version = if let Some(version) = Self::compute_revision() {
+        let version = if let Some(version) = buck2_build_info::revision() {
             version.to_owned()
         } else {
             format!("{} <local>", internal_exe_hash)
