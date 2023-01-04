@@ -37,7 +37,7 @@ use crate::bxl::starlark_defs::context::build::StarlarkProvidersArtifactIterable
     StarlarkDocs,
     Allocative
 )]
-#[starlark_docs_attrs(directory = "BXL/Build")]
+#[starlark_docs_attrs(directory = "bxl")]
 pub(crate) struct StarlarkBxlBuildResult(pub(crate) BxlBuildResult);
 
 /// The result of building in bxl.

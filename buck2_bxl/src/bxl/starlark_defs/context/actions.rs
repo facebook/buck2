@@ -55,7 +55,7 @@ enum BxlActionsError {
     StarlarkDocs,
     Allocative
 )]
-#[starlark_docs_attrs(directory = "BXL/Actions")]
+#[starlark_docs_attrs(directory = "bxl")]
 #[derivative(Debug)]
 #[display(fmt = "{:?}", self)]
 pub(crate) struct BxlActionsCtx<'v> {

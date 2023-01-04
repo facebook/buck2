@@ -65,7 +65,7 @@ use crate::bxl::starlark_defs::context::build::StarlarkProvidersArtifactIterable
     Allocative
 )]
 #[display(fmt = "{:?}", self)]
-#[starlark_docs_attrs(directory = "BXL/Output and Ensuring")]
+#[starlark_docs_attrs(directory = "bxl")]
 #[derivative(Debug)]
 pub struct OutputStream {
     #[derivative(Debug = "ignore")]

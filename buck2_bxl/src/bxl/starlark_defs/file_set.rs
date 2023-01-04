@@ -97,7 +97,7 @@ impl<'v> UnpackValue<'v> for FileSetExpr<'v> {
 
 #[derive(Debug, Display, ProvidesStaticType, Allocative, StarlarkDocs)]
 #[derive(NoSerialize)] // TODO maybe this should be
-#[starlark_docs_attrs(directory = "BXL/File System")]
+#[starlark_docs_attrs(directory = "bxl")]
 pub struct StarlarkFileSet(
     /// Set of files or directories.
     pub FileSet,
@@ -154,7 +154,7 @@ impl Deref for StarlarkFileSet {
 
 #[derive(Debug, Display, ProvidesStaticType, Clone, Allocative, StarlarkDocs)]
 #[derive(NoSerialize)]
-#[starlark_docs_attrs(directory = "BXL/File System")]
+#[starlark_docs_attrs(directory = "bxl")]
 pub struct StarlarkFileNode(
     /// Cell path to the file or directory.
     pub CellPath,
@@ -168,7 +168,7 @@ impl StarlarkValue<'_> for StarlarkFileNode {
 
 #[derive(Debug, ProvidesStaticType, Clone, Allocative, StarlarkDocs)]
 #[derive(NoSerialize)]
-#[starlark_docs_attrs(directory = "BXL/File System")]
+#[starlark_docs_attrs(directory = "bxl")]
 pub struct StarlarkReadDirSet {
     /// Cell path to the directory/files.
     pub cell_path: CellPath,

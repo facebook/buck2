@@ -94,7 +94,7 @@ pub mod starlark_async;
     StarlarkDocs,
     Allocative
 )]
-#[starlark_docs_attrs(directory = "BXL/Context")]
+#[starlark_docs_attrs(directory = "bxl")]
 #[derivative(Debug)]
 #[display(fmt = "{:?}", self)]
 pub struct BxlContext<'v> {

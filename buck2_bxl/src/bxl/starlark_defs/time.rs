@@ -34,7 +34,7 @@ use starlark::StarlarkDocs;
     StarlarkDocs,
     Allocative
 )]
-#[starlark_docs_attrs(directory = "BXL/Instant")]
+#[starlark_docs_attrs(directory = "bxl")]
 #[display(fmt = "{:?}", _0)]
 pub struct StarlarkInstant(pub(crate) Instant);
 

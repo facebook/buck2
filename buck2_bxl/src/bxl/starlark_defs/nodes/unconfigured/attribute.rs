@@ -82,7 +82,7 @@ where
 #[derive(Debug, Display, ProvidesStaticType, From, Allocative, StarlarkDocs)]
 #[derive(NoSerialize)] // TODO probably should be serializable the same as how queries serialize
 #[display(fmt = "{:?}", self)]
-#[starlark_docs_attrs(directory = "BXL/Target Node Attributes")]
+#[starlark_docs_attrs(directory = "bxl")]
 pub struct StarlarkCoercedAttr(pub CoercedAttr);
 
 starlark_simple_value!(StarlarkCoercedAttr);

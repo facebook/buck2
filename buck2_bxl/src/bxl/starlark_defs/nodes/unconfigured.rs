@@ -34,7 +34,7 @@ pub mod attribute;
 #[derive(Debug, Display, ProvidesStaticType, Allocative, StarlarkDocs)]
 #[derive(NoSerialize)] // TODO probably should be serializable the same as how queries serialize
 #[display(fmt = "{:?}", self)]
-#[starlark_docs_attrs(directory = "BXL/Target Node")]
+#[starlark_docs_attrs(directory = "bxl")]
 pub struct StarlarkTargetNode(pub TargetNode);
 
 starlark_simple_value!(StarlarkTargetNode);

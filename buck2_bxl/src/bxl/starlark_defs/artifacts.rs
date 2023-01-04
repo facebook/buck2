@@ -41,7 +41,7 @@ use starlark::values::ValueOf;
 
 #[derive(Clone, Debug, Trace, ProvidesStaticType, StarlarkDocs, Allocative)]
 #[repr(C)]
-#[starlark_docs_attrs(directory = "BXL/Output and Ensuring")]
+#[starlark_docs_attrs(directory = "bxl")]
 pub enum EnsuredArtifact {
     Artifact {
         artifact: StarlarkArtifact,
