@@ -5,6 +5,7 @@ authors = ["Logan Wendholt <lwendholt@fb.com>"]
 edition = "2021"
 
 [dependencies]
+allocative = { workspace = true }
 anyhow = { workspace = true }
 dashmap = { workspace = true }
 futures-intrusive = { workspace = true }
