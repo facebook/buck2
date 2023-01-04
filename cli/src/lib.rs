@@ -59,6 +59,7 @@ use buck2_common::invocation_roots::find_invocation_roots;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::working_dir::WorkingDir;
+use buck2_core::logging::LogReloadHandle;
 use clap::AppSettings;
 use clap::Parser;
 use dice::cycles::DetectCycles;
@@ -136,6 +137,7 @@ impl Opt {
         working_dir: WorkingDir,
         matches: &clap::ArgMatches,
         init: fbinit::FacebookInit,
+        log_reload_handle: Box<dyn LogReloadHandle>,
         replay: Option<(ProcessContext, Replayer)>,
     ) -> ExitResult {
         let subcommand_matches = match matches.subcommand().map(|s| s.1) {
@@ -148,6 +150,7 @@ impl Opt {
             subcommand_matches,
             self.common_opts,
             init,
+            log_reload_handle,
             replay,
         )
     }
@@ -157,6 +160,7 @@ pub fn exec(
     args: Vec<String>,
     working_dir: WorkingDir,
     init: fbinit::FacebookInit,
+    log_reload_handle: Box<dyn LogReloadHandle>,
     replay: Option<(ProcessContext, Replayer)>,
 ) -> ExitResult {
     let mut expanded_args =
@@ -179,7 +183,7 @@ pub fn exec(
         }
     }
 
-    opt.exec(working_dir, &matches, init, replay)
+    opt.exec(working_dir, &matches, init, log_reload_handle, replay)
 }
 
 #[derive(Debug, clap::Subcommand, VariantName)]
@@ -229,6 +233,7 @@ impl CommandKind {
         matches: &clap::ArgMatches,
         common_opts: CommonOptions,
         init: fbinit::FacebookInit,
+        log_reload_handle: Box<dyn LogReloadHandle>,
         replay: Option<(ProcessContext, Replayer)>,
     ) -> ExitResult {
         let roots = find_invocation_roots(working_dir.path())?;
@@ -241,7 +246,13 @@ impl CommandKind {
         // want to create threads.
         if let CommandKind::Daemon(cmd) = &self {
             return cmd
-                .exec(init, paths, common_opts.detect_cycles, || {})
+                .exec(
+                    init,
+                    log_reload_handle,
+                    paths,
+                    common_opts.detect_cycles,
+                    || {},
+                )
                 .into();
         }
 
@@ -266,6 +277,7 @@ impl CommandKind {
                         let tx_clone = tx.clone();
                         let result = DaemonCommand::new_in_process().exec(
                             init,
+                            <dyn LogReloadHandle>::noop(),
                             paths,
                             common_opts.detect_cycles,
                             move || drop(tx_clone.send(Ok(()))),
@@ -338,7 +350,13 @@ impl CommandKind {
                 matches,
                 command_ctx,
                 |args, cwd, process_context, replayer| {
-                    exec(args, cwd, init, Some((process_context, replayer)))
+                    exec(
+                        args,
+                        cwd,
+                        init,
+                        <dyn LogReloadHandle>::noop(),
+                        Some((process_context, replayer)),
+                    )
                 },
             ),
             CommandKind::Docs(cmd) => cmd.exec(matches, command_ctx),

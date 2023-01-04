@@ -20,6 +20,7 @@ use std::path::PathBuf;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_core::fs::working_dir::WorkingDir;
 use buck2_core::logging::init_tracing_for_writer;
+use buck2_core::logging::LogReloadHandle;
 use cli::exec;
 use cli::panic;
 use cli::TracingLogFile;
@@ -32,10 +33,10 @@ use fbinit::FacebookInit;
 #[cfg(all(unix, not(fbcode_build), not(buck_oss_build)))]
 static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
 
-fn init_logging(_fb: FacebookInit) -> anyhow::Result<()> {
+fn init_logging(_fb: FacebookInit) -> anyhow::Result<Box<dyn LogReloadHandle>> {
     static ENV_TRACING_LOG_FILE_PATH: &str = "BUCK_LOG_TO_FILE_PATH";
 
-    match std::env::var_os(ENV_TRACING_LOG_FILE_PATH) {
+    let handle = match std::env::var_os(ENV_TRACING_LOG_FILE_PATH) {
         Some(path) => {
             let path = PathBuf::from(path);
             // we set the writer to stderr first until later, when we have the logdir, set the
@@ -73,7 +74,7 @@ fn init_logging(_fb: FacebookInit) -> anyhow::Result<()> {
         }
     }
 
-    Ok(())
+    Ok(handle)
 }
 
 // When using a cargo build, some essential services (e.g. RE, scribe)
@@ -97,12 +98,12 @@ fn main(init: fbinit::FacebookInit) -> ! {
     fn main_with_result(init: fbinit::FacebookInit) -> ExitResult {
         panic::initialize(init);
         check_cargo();
-        init_logging(init)?;
+        let log_reload_handle = init_logging(init)?;
 
         let args = std::env::args().collect::<Vec<String>>();
         let cwd = WorkingDir::current_dir()?;
 
-        exec(args, cwd, init, None)
+        exec(args, cwd, init, log_reload_handle, None)
     }
 
     main_with_result(init).report()

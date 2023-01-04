@@ -8,11 +8,46 @@
  */
 
 use anyhow::Context as _;
+use tracing_subscriber::filter::Filtered;
 use tracing_subscriber::fmt::MakeWriter;
 use tracing_subscriber::prelude::*;
+use tracing_subscriber::reload;
+use tracing_subscriber::reload::Handle;
 use tracing_subscriber::EnvFilter;
 
-pub fn init_tracing_for_writer<W>(writer: W) -> anyhow::Result<()>
+pub trait LogReloadHandle: Send + Sync + 'static {
+    fn update_log_filter(&self, format: &str) -> anyhow::Result<()>;
+}
+
+impl dyn LogReloadHandle {
+    pub fn noop() -> Box<dyn LogReloadHandle> {
+        box NoopLogReloadHandle as _
+    }
+}
+
+struct NoopLogReloadHandle;
+
+impl LogReloadHandle for NoopLogReloadHandle {
+    fn update_log_filter(&self, _filter: &str) -> anyhow::Result<()> {
+        Ok(())
+    }
+}
+
+impl<L, R> LogReloadHandle for Handle<Filtered<L, EnvFilter, R>, R>
+where
+    L: Send + Sync + 'static,
+    R: Send + Sync + 'static,
+{
+    fn update_log_filter(&self, raw: &str) -> anyhow::Result<()> {
+        let filter = EnvFilter::try_new(raw).context("Invalid log filter")?;
+        self.modify(|layer| *layer.filter_mut() = filter)
+            .context("Error updating log filter")?;
+        tracing::debug!("Log filter was updated to: `{}`", raw);
+        Ok(())
+    }
+}
+
+pub fn init_tracing_for_writer<W>(writer: W) -> anyhow::Result<Box<dyn LogReloadHandle>>
 where
     W: for<'writer> MakeWriter<'writer> + Send + Sync + 'static,
 {
@@ -36,7 +71,9 @@ where
         .with_writer(writer)
         .with_filter(filter);
 
+    let (layer, handle) = reload::Layer::new(layer);
+
     tracing_subscriber::registry().with(layer).init();
 
-    Ok(())
+    Ok(Box::new(handle) as _)
 }
