@@ -62,7 +62,7 @@ def _system_python_toolchain_impl(ctx):
             make_pex_inplace = ctx.attrs.make_pex_inplace[RunInfo],
             compile = RunInfo(args = ["echo", "COMPILEINFO"]),
             package_style = "inplace",
-            native_link_strategy = "merged",
+            native_link_strategy = "separate",
         ),
         PythonPlatformInfo(name = "x86_64"),
     ]
