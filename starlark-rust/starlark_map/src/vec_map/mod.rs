@@ -209,7 +209,7 @@ impl<K, V> VecMap<K, V> {
     #[inline]
     pub(crate) fn iter(&self) -> Iter<K, V> {
         Iter {
-            iter: self.iter_hashed(),
+            iter: self.buckets.keys().iter(),
         }
     }
 

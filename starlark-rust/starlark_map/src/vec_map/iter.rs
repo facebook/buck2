@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-use core::slice;
+use std::slice;
 
 use gazebo::prelude::Clone_;
 
@@ -113,7 +113,7 @@ impl<'a, K: 'a, V: 'a> ExactSizeIterator for ValuesMut<'a, K, V> {
 
 #[derive(Clone_)]
 pub(crate) struct Iter<'a, K: 'a, V: 'a> {
-    pub(crate) iter: IterHashed<'a, K, V>,
+    pub(crate) iter: slice::Iter<'a, (K, V)>,
 }
 
 impl<'a, K: 'a, V: 'a> Iterator for Iter<'a, K, V> {
@@ -130,8 +130,8 @@ impl<'a, K: 'a, V: 'a> ExactSizeIterator for Iter<'a, K, V> {}
 
 impl<'a, K: 'a, V: 'a> Iter<'a, K, V> {
     #[inline]
-    fn map((k, v): (Hashed<&'a K>, &'a V)) -> (&'a K, &'a V) {
-        (k.into_key(), v)
+    fn map((k, v): &'a (K, V)) -> (&'a K, &'a V) {
+        (k, v)
     }
 }
 
