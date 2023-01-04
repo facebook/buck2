@@ -109,7 +109,7 @@ pub struct DaemonStateData {
     /// materializations to work properly between distinct build commands.
     pub(crate) materializer: Arc<dyn Materializer>,
 
-    forkserver: Option<ForkserverClient>,
+    pub(crate) forkserver: Option<ForkserverClient>,
 
     /// Data pertaining to event logging, which controls the ways that event data is written throughout the course of
     /// a command.

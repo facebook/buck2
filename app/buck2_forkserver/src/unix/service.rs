@@ -13,10 +13,13 @@ use std::pin::Pin;
 
 use anyhow::Context as _;
 use buck2_common::convert::ProstDurationExt;
+use buck2_core::logging::LogReloadHandle;
 use buck2_core::process::background_command;
 use buck2_forkserver_proto::forkserver_server::Forkserver;
 use buck2_forkserver_proto::CommandRequest;
 use buck2_forkserver_proto::RequestEvent;
+use buck2_forkserver_proto::SetLogFilterRequest;
+use buck2_forkserver_proto::SetLogFilterResponse;
 use buck2_grpc::to_tonic;
 use futures::future::select;
 use futures::future::FutureExt;
@@ -36,7 +39,9 @@ use crate::run::GatherOutputStatus;
 type RunStream =
     Pin<Box<dyn Stream<Item = Result<buck2_forkserver_proto::CommandEvent, Status>> + Send>>;
 
-pub struct UnixForkserverService;
+pub struct UnixForkserverService {
+    pub(super) log_reload_handle: Box<dyn LogReloadHandle>,
+}
 
 #[async_trait::async_trait]
 impl Forkserver for UnixForkserverService {
@@ -120,5 +125,17 @@ impl Forkserver for UnixForkserverService {
             Ok(Box::pin(stream) as _)
         })
         .await
+    }
+
+    async fn set_log_filter(
+        &self,
+        req: Request<SetLogFilterRequest>,
+    ) -> Result<Response<SetLogFilterResponse>, Status> {
+        self.log_reload_handle
+            .update_log_filter(&req.get_ref().log_filter)
+            .context("Error updating forkserver filter")
+            .map_err(|e| Status::invalid_argument(format!("{:#}", e)))?;
+
+        Ok(Response::new(SetLogFilterResponse {}))
     }
 }

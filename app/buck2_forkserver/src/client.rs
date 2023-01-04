@@ -19,6 +19,7 @@ use futures::stream;
 use futures::stream::StreamExt;
 use gazebo::prelude::*;
 use tonic::transport::Channel;
+use tonic::Request;
 
 use crate::convert::decode_event_stream;
 use crate::run::decode_command_event_stream;
@@ -74,5 +75,17 @@ impl ForkserverClient {
             .into_inner();
         let stream = decode_event_stream(stream);
         decode_command_event_stream(stream).await
+    }
+
+    pub async fn set_log_filter(&self, log_filter: String) -> anyhow::Result<()> {
+        self.inner
+            .rpc
+            .clone()
+            .set_log_filter(Request::new(buck2_forkserver_proto::SetLogFilterRequest {
+                log_filter,
+            }))
+            .await?;
+
+        Ok(())
     }
 }

@@ -8,6 +8,7 @@
  */
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
+use buck2_core::logging::LogReloadHandle;
 
 #[cfg(unix)]
 type RawFd = std::os::unix::io::RawFd;
@@ -27,6 +28,7 @@ impl ForkserverCommand {
         self,
         _matches: &clap::ArgMatches,
         _ctx: ClientCommandContext,
+        log_reload_handle: Box<dyn LogReloadHandle>,
     ) -> anyhow::Result<()> {
         #[cfg(unix)]
         {
@@ -38,11 +40,15 @@ impl ForkserverCommand {
                 .enable_all()
                 .build()?;
 
-            rt.block_on(buck2_forkserver::unix::run_forkserver(self.fd))
+            rt.block_on(buck2_forkserver::unix::run_forkserver(
+                self.fd,
+                log_reload_handle,
+            ))
         }
 
         #[cfg(not(unix))]
         {
+            let _ignored = log_reload_handle;
             Err(anyhow::anyhow!("The forkserver is only available on UNIX"))
         }
     }

@@ -91,6 +91,15 @@ message RequestEvent {
   }
 }
 
+message SetLogFilterRequest {
+  string log_filter = 1;
+}
+
+message SetLogFilterResponse {}
+
 service Forkserver {
   rpc Run(stream RequestEvent) returns (stream CommandEvent) {}
+
+  // Update the daemon's log filter.
+  rpc SetLogFilter(SetLogFilterRequest) returns (SetLogFilterResponse);
 }

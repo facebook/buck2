@@ -1119,6 +1119,16 @@ impl DaemonApi for BuckdServer {
             .context("Error updating daemon log filter")
             .map_err(|e| Status::invalid_argument(format!("{:#}", e)))?;
 
+        if let Ok(data) = self.0.daemon_state.data() {
+            if let Some(forkserver) = data.forkserver.as_ref() {
+                forkserver
+                    .set_log_filter(req.log_filter)
+                    .await
+                    .context("Error forwarding daemon log filter to forkserver")
+                    .map_err(|e| Status::invalid_argument(format!("{:#}", e)))?;
+            }
+        }
+
         Ok(Response::new(SetLogFilterResponse {}))
     }
 }

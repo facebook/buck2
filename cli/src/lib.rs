@@ -325,7 +325,9 @@ impl CommandKind {
 
         match self {
             CommandKind::Daemon(..) => unreachable!("Checked earlier"),
-            CommandKind::Forkserver(cmd) => cmd.exec(matches, command_ctx).into(),
+            CommandKind::Forkserver(cmd) => {
+                cmd.exec(matches, command_ctx, log_reload_handle).into()
+            }
             CommandKind::Aquery(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Build(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Bxl(cmd) => cmd.exec(matches, command_ctx),
