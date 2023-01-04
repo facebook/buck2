@@ -21,6 +21,7 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_core::rollout_percentage::RolloutPercentage;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::materialize::materializer::MaterializationMethod;
+use buck2_execute_impl::materializers::deferred::DeferredMaterializerConfigs;
 use buck2_execute_impl::materializers::sqlite::MaterializerState;
 use buck2_execute_impl::materializers::sqlite::MaterializerStateSqliteDb;
 use buck2_execute_impl::materializers::sqlite::DB_SCHEMA_VERSION;
@@ -56,6 +57,7 @@ pub(crate) async fn maybe_initialize_materializer_sqlite_db(
     paths: &InvocationPaths,
     io_executor: Arc<dyn BlockingExecutor>,
     root_config: &LegacyBuckConfig,
+    deferred_materializer_configs: &DeferredMaterializerConfigs,
     fs: ProjectRoot,
 ) -> anyhow::Result<(Option<MaterializerStateSqliteDb>, Option<MaterializerState>)> {
     if !options.sqlite_materializer_state {
@@ -74,8 +76,15 @@ pub(crate) async fn maybe_initialize_materializer_sqlite_db(
         timestamp_on_initialization,
     );
 
-    let mut versions =
-        HashMap::from([("schema_version".to_owned(), DB_SCHEMA_VERSION.to_string())]);
+    let mut versions = HashMap::from([
+        ("schema_version".to_owned(), DB_SCHEMA_VERSION.to_string()),
+        (
+            "defer_write_actions".to_owned(),
+            deferred_materializer_configs
+                .defer_write_actions
+                .to_string(),
+        ),
+    ]);
     if let Some(buckconfig_version) =
         root_config.parse("buck2", "sqlite_materializer_state_version")?
     {

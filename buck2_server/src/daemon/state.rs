@@ -277,6 +277,7 @@ impl DaemonState {
                     paths,
                     blocking_executor.dupe() as Arc<dyn BlockingExecutor>,
                     root_config,
+                    &deferred_materializer_configs,
                     fs,
                 ),
             )
