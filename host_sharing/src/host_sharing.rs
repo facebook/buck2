@@ -27,7 +27,7 @@ const SINGLE_RUN: usize = 1;
 /// on Sandcastle machines with 56 cores so we want to move away from the core-analogy and instead use
 /// the term "permits" to describe the limited resources available on each machine.
 /// More long term we want improve this to also take into account memory usage, cpu usage etc.
-#[derive(Debug, Clone, PartialEq, Eq, Allocative)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Allocative)]
 pub enum WeightClass {
     /// Tests can require any number of permits and this can be used to mimic resource utilization like
     /// memory or cpu. For now, we map the Testpilot behaviour as Normal->Permits(1) and Heavy->Permits(4).

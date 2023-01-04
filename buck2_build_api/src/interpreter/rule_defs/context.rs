@@ -31,6 +31,8 @@ use derive_more::Display;
 use dice::DiceComputations;
 use gazebo::any::ProvidesStaticType;
 use gazebo::prelude::*;
+use host_sharing::WeightClass;
+use host_sharing::WeightPercentage;
 use indexmap::indexset;
 use indexmap::IndexSet;
 use sha1::Digest;
@@ -334,6 +336,8 @@ enum RunActionError {
     NoOutputsSpecified,
     #[error("`weight` must be a positive integer, got `{0}`")]
     InvalidWeight(i32),
+    #[error("`weight` and `weight_percentage` cannot both be passed")]
+    DuplicateWeightsSpecified,
     #[error("`dep_files` values must be artifact tags, got `{}` for key `{}`", .value, .key)]
     InvalidDepFileTag { key: String, value: String },
     #[error("`dep_files` value with key `{}` has an invalid count of associated outputs. Expected 1, got {}.", .key, .count)]
@@ -715,7 +719,8 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         #[starlark(require = named, default = false)] local_only: bool,
         #[starlark(require = named, default = false)] prefer_local: bool,
         #[starlark(require = named, default = false)] always_print_stderr: bool,
-        #[starlark(require = named, default = 1)] weight: i32,
+        #[starlark(require = named)] weight: Option<i32>,
+        #[starlark(require = named)] weight_percentage: Option<i32>,
         #[starlark(require = named)] dep_files: Option<ValueOf<'v, SmallMap<&'v str, Value<'v>>>>,
         #[starlark(require = named)] metadata_env_var: Option<String>,
         #[starlark(require = named)] metadata_path: Option<String>,
@@ -766,10 +771,22 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         let starlark_cli = StarlarkCommandLine::try_from_value(arguments)?;
         starlark_cli.visit_artifacts(&mut artifact_visitor)?;
 
-        if weight < 1 {
-            return Err(RunActionError::InvalidWeight(weight).into());
-        }
-        let weight = weight as usize;
+        let weight = match (weight, weight_percentage) {
+            (None, None) => WeightClass::Permits(1),
+            (Some(v), None) => {
+                if v < 1 {
+                    return Err(RunActionError::InvalidWeight(v).into());
+                } else {
+                    WeightClass::Permits(v as usize)
+                }
+            }
+            (None, Some(v)) => WeightClass::Percentage(
+                WeightPercentage::try_new(v).context("Invalid `weight_percentage`")?,
+            ),
+            (Some(..), Some(..)) => {
+                return Err(RunActionError::DuplicateWeightsSpecified.into());
+            }
+        };
 
         let starlark_env = match env {
             None => Value::new_none(),

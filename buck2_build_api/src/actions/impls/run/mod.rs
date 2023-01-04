@@ -115,7 +115,7 @@ pub(crate) struct UnregisteredRunAction {
     pub identifier: Option<String>,
     pub executor_preference: ExecutorPreference,
     pub always_print_stderr: bool,
-    pub weight: usize,
+    pub weight: WeightClass,
     pub dep_files: RunActionDepFiles,
     pub metadata_param: Option<MetadataParameter>,
     pub no_outputs_cleanup: bool,
@@ -379,8 +379,7 @@ impl IncrementalActionExecutable for RunAction {
         }
 
         // Run actions are assumed to be shared
-        let host_sharing_requirements =
-            HostSharingRequirements::Shared(WeightClass::Permits(self.inner.weight));
+        let host_sharing_requirements = HostSharingRequirements::Shared(self.inner.weight);
 
         let req = CommandExecutionRequest::new(
             cli,
