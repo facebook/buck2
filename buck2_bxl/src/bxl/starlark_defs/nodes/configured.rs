@@ -95,57 +95,6 @@ impl<'a> UnpackValue<'a> for StarlarkConfiguredTargetNode {
     }
 }
 
-fn resolved_attrs_eager_impl<'v>(
-    this: &'v StarlarkConfiguredTargetNode,
-    ctx: &'v BxlContext<'v>,
-    eval: &mut Evaluator<'v, '_>,
-) -> anyhow::Result<Value<'v>> {
-    let configured_node = &this.0;
-
-    let dep_analysis: anyhow::Result<Vec<(&ConfiguredTargetLabel, AnalysisResult)>, _> = ctx
-        .async_ctx
-        .via_dice(|dice_ctx| async move { get_dep_analysis(configured_node, dice_ctx).await });
-
-    let query_results = ctx
-        .async_ctx
-        .via_dice(|dice_ctx| async move { resolve_queries(dice_ctx, configured_node).await })?;
-
-    let resolution_ctx = RuleAnalysisAttrResolutionContext {
-        module: eval.module(),
-        dep_analysis_results: get_deps_from_analysis_results(dep_analysis?)?,
-        query_results,
-    };
-
-    let attrs_iter = this.0.attrs(AttrInspectOptions::All);
-    let mut resolved_attrs = SmallMap::with_capacity(attrs_iter.size_hint().0);
-
-    for (name, attr) in attrs_iter {
-        resolved_attrs.insert(
-            eval.heap().alloc_str(name),
-            attr.resolve_single(&resolution_ctx)?,
-        );
-    }
-
-    Ok(eval.heap().alloc(Struct::new(resolved_attrs)))
-}
-
-fn attrs_eager_impl<'v>(
-    this: &StarlarkConfiguredTargetNode,
-    heap: &'v Heap,
-) -> anyhow::Result<Value<'v>> {
-    let attrs_iter = this.0.attrs(AttrInspectOptions::All);
-    let mut attrs = SmallMap::with_capacity(attrs_iter.size_hint().0);
-    for (name, attr) in attrs_iter {
-        attrs.insert(
-            heap.alloc_str(name),
-            heap.alloc(StarlarkConfiguredValue(attr)),
-        );
-    }
-
-    Ok(heap.alloc(Struct::new(attrs)))
-}
-
-/// Methods on the configured target node.
 #[starlark_module]
 fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     /// Gets the configured target label of this target node
@@ -159,22 +108,6 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn label(this: &StarlarkConfiguredTargetNode) -> anyhow::Result<StarlarkConfiguredTargetLabel> {
         Ok(StarlarkConfiguredTargetLabel::new(this.0.name().dupe()))
-    }
-
-    // TODO(@wendyy): remove this after migrating users over to `attrs_eager()`
-    /// Deprecated in favor of `attrs_eager()`
-    fn attrs<'v>(this: &StarlarkConfiguredTargetNode, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        attrs_eager_impl(this, heap)
-    }
-
-    // TODO(@wendyy): remove this after migrating users over to `resolved_attrs_eager()`
-    /// Deprecated in favor of `resolved_attrs_eager()`
-    fn resolved_attrs<'v>(
-        this: &'v StarlarkConfiguredTargetNode,
-        ctx: &'v BxlContext<'v>,
-        eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<Value<'v>> {
-        resolved_attrs_eager_impl(this, ctx, eval)
     }
 
     /// Returns a struct of all the attributes of this target node. The structs fields are the
@@ -200,7 +133,16 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
         this: &StarlarkConfiguredTargetNode,
         heap: &'v Heap,
     ) -> anyhow::Result<Value<'v>> {
-        attrs_eager_impl(this, heap)
+        let attrs_iter = this.0.attrs(AttrInspectOptions::All);
+        let mut attrs = SmallMap::with_capacity(attrs_iter.size_hint().0);
+        for (name, attr) in attrs_iter {
+            attrs.insert(
+                heap.alloc_str(name),
+                heap.alloc(StarlarkConfiguredValue(attr)),
+            );
+        }
+
+        Ok(heap.alloc(Struct::new(attrs)))
     }
 
     /// Gets a `StarlarkLazyAttrs` for getting attrs lazily. Returns a `StarlarkLazyAttrs` object
@@ -281,7 +223,33 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
         ctx: &'v BxlContext<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
-        resolved_attrs_eager_impl(this, ctx, eval)
+        let configured_node = &this.0;
+
+        let dep_analysis: anyhow::Result<Vec<(&ConfiguredTargetLabel, AnalysisResult)>, _> = ctx
+            .async_ctx
+            .via_dice(|dice_ctx| async move { get_dep_analysis(configured_node, dice_ctx).await });
+
+        let query_results = ctx
+            .async_ctx
+            .via_dice(|dice_ctx| async move { resolve_queries(dice_ctx, configured_node).await })?;
+
+        let resolution_ctx = RuleAnalysisAttrResolutionContext {
+            module: eval.module(),
+            dep_analysis_results: get_deps_from_analysis_results(dep_analysis?)?,
+            query_results,
+        };
+
+        let attrs_iter = this.0.attrs(AttrInspectOptions::All);
+        let mut resolved_attrs = SmallMap::with_capacity(attrs_iter.size_hint().0);
+
+        for (name, attr) in attrs_iter {
+            resolved_attrs.insert(
+                eval.heap().alloc_str(name),
+                attr.resolve_single(&resolution_ctx)?,
+            );
+        }
+
+        Ok(eval.heap().alloc(Struct::new(resolved_attrs)))
     }
 
     /// Gets the targets' corresponding rule's name. This is the fully qualified rule name including
