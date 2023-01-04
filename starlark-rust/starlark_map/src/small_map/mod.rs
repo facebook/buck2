@@ -472,7 +472,8 @@ impl<K, V> SmallMap<K, V> {
                 // Practically this is not an issue, we do not remove elements often, but
                 // TODO(nga): fix that.
                 for bucket in index.iter() {
-                    if *bucket.as_mut() >= i {
+                    debug_assert!(*bucket.as_ref() != i);
+                    if *bucket.as_mut() > i {
                         *bucket.as_mut() -= 1;
                     }
                 }
@@ -1131,5 +1132,13 @@ mod tests {
         assert!(m0.eq_ordered(&m1));
         assert!(!m0.eq_ordered(&m2));
         assert!(!m0.eq_ordered(&m3));
+    }
+
+    #[test]
+    fn test_remove() {
+        // Large enough so the index is used.
+        let mut m = (0..100).map(|i| (i, i * 10)).collect::<SmallMap<_, _>>();
+        assert_eq!(Some((1, 10)), m.remove_entry(&1));
+        assert_eq!(Some(&30), m.get(&3));
     }
 }
