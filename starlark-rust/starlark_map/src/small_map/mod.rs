@@ -111,6 +111,27 @@ impl<K, V> SmallMap<K, V> {
         }
     }
 
+    /// Verify that the map is internally consistent.
+    #[cfg(test)]
+    fn assert_invariants(&self)
+    where
+        K: Eq,
+    {
+        if let Some(index) = &self.index {
+            assert_eq!(index.len(), self.entries.len());
+            for (i, (k, _)) in self.entries.iter_hashed().enumerate() {
+                let j = *index
+                    .get(k.hash().promote(), |j| {
+                        &self.entries.get_index(*j).unwrap().0 == k.key()
+                    })
+                    .unwrap();
+                assert_eq!(i, j);
+            }
+        } else {
+            assert!(self.entries.len() <= NO_INDEX_THRESHOLD);
+        }
+    }
+
     /// Drop the index if the map is too small, and the index is not really needed.
     ///
     /// We don't allocate index prematurely when we add entries the map,
@@ -466,15 +487,13 @@ impl<K, V> SmallMap<K, V> {
                 key.key().equivalent(entries.get_unchecked(i).0.key())
             })?;
             unsafe {
-                // This updates all the table, which is `O(N)`,
-                // but this is very inefficient when the map is large
-                // and only last elements are removed (could be `O(1)`).
-                // Practically this is not an issue, we do not remove elements often, but
-                // TODO(nga): fix that.
-                for bucket in index.iter() {
-                    debug_assert!(*bucket.as_ref() != i);
-                    if *bucket.as_mut() > i {
-                        *bucket.as_mut() -= 1;
+                // No need to update the index when the last entry is removed.
+                if i != self.entries.len() - 1 {
+                    for bucket in index.iter() {
+                        debug_assert!(*bucket.as_ref() != i);
+                        if *bucket.as_mut() > i {
+                            *bucket.as_mut() -= 1;
+                        }
                     }
                 }
             }
@@ -1140,5 +1159,15 @@ mod tests {
         let mut m = (0..100).map(|i| (i, i * 10)).collect::<SmallMap<_, _>>();
         assert_eq!(Some((1, 10)), m.remove_entry(&1));
         assert_eq!(Some(&30), m.get(&3));
+        m.assert_invariants();
+    }
+
+    #[test]
+    fn test_remove_last() {
+        // Large enough so the index is used.
+        let mut m = (0..100).map(|i| (i, i * 10)).collect::<SmallMap<_, _>>();
+        assert_eq!(Some((99, 990)), m.remove_entry(&99));
+        assert_eq!(Some(&980), m.get(&98));
+        m.assert_invariants();
     }
 }
