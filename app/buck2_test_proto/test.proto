@@ -31,9 +31,20 @@ message DisplayMetadata {
   }
 }
 
+message WeightClass {
+  oneof value {
+    uint64 permits = 1;
+    uint32 percentage = 2; // Between 0 and 100.
+  }
+}
+
 message HostSharingRequirements {
   message Shared {
     uint64 weight = 1;
+  }
+
+  message Shared2 {
+    WeightClass weight_class = 1;
   }
 
   message ExclusiveAccess {}
@@ -43,10 +54,17 @@ message HostSharingRequirements {
     uint64 weight = 2;
   }
 
+  message OnePerToken2 {
+    string identifier = 1;
+    WeightClass weight_class = 2;
+  }
+
   oneof requirements {
     Shared shared = 1;
     ExclusiveAccess exclusive_access = 2;
     OnePerToken one_per_token = 3;
+    Shared2 shared_2 = 4;
+    OnePerToken2 one_per_token_2 = 5;
   }
 }
 

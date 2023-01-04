@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use anyhow::Context;
 use futures_intrusive::sync::SharedSemaphore;
 use futures_intrusive::sync::SharedSemaphoreReleaser;
 
@@ -28,6 +29,38 @@ pub enum WeightClass {
     /// Tests can require any number of permits and this can be used to mimic resource utilization like
     /// memory or cpu. For now, we map the Testpilot behaviour as Normal->Permits(1) and Heavy->Permits(4).
     Permits(usize),
+    /// A percentage of available resources.
+    Percentage(WeightPercentage),
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub struct WeightPercentage {
+    value: u8, // Between 0 and 100
+}
+
+impl WeightPercentage {
+    pub fn try_new<T, E>(value: T) -> anyhow::Result<Self>
+    where
+        u8: TryFrom<T, Error = E>,
+        E: Into<anyhow::Error>,
+    {
+        let value = u8::try_from(value)
+            .map_err(|e| e.into())
+            .context("WeightPercentage value must convert to u8")?;
+
+        if value > 100 {
+            return Err(anyhow::anyhow!(
+                "WeightPercentage value cannot exceed 100: {}",
+                value
+            ));
+        }
+
+        Ok(Self { value })
+    }
+
+    pub fn into_value(self) -> u8 {
+        self.value
+    }
 }
 
 /// Some commands require that we only run one instance of this binary (using an identifier)
@@ -72,6 +105,10 @@ impl HostSharingBroker {
         match weight_class {
             WeightClass::Permits(required_permits) => {
                 self.num_machine_permits.min(*required_permits)
+            }
+            WeightClass::Percentage(percentage) => {
+                let percentage: usize = percentage.into_value().into();
+                (self.num_machine_permits * percentage).div_ceil(100)
             }
         }
     }
@@ -141,9 +178,7 @@ pub enum HostSharingStrategy {
 
 #[cfg(test)]
 mod tests {
-    use super::HostSharingBroker;
-    use super::HostSharingStrategy;
-    use super::WeightClass;
+    use super::*;
 
     #[test]
     // if we only have 2 machine permits then even a test requiring 4 permits will be capped to only require 2 permits
@@ -153,5 +188,36 @@ mod tests {
 
         let permits = broker.requested_permits(&WeightClass::Permits(4));
         assert_eq!(2, permits);
+    }
+
+    #[test]
+    fn test_percentage() {
+        let broker = HostSharingBroker::new(HostSharingStrategy::SmallerTasksFirst, 10);
+
+        assert_eq!(
+            broker.requested_permits(&WeightClass::Percentage(WeightPercentage { value: 0 })),
+            0,
+        );
+
+        assert_eq!(
+            broker.requested_permits(&WeightClass::Percentage(WeightPercentage { value: 40 })),
+            4,
+        );
+
+        // This rounds up.
+        assert_eq!(
+            broker.requested_permits(&WeightClass::Percentage(WeightPercentage { value: 15 })),
+            2,
+        );
+
+        assert_eq!(
+            broker.requested_permits(&WeightClass::Percentage(WeightPercentage { value: 99 })),
+            10,
+        );
+
+        assert_eq!(
+            broker.requested_permits(&WeightClass::Percentage(WeightPercentage { value: 100 })),
+            10,
+        );
     }
 }
