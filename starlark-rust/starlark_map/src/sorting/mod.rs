@@ -15,27 +15,4 @@
  * limitations under the License.
  */
 
-//! Ordered map optimized for starlark-rust use cases.
-
-// Hints we disagree with
-#![allow(clippy::missing_safety_doc)]
-#![cfg_attr(rust_nightly, feature(core_intrinsics))]
-#![cfg_attr(rust_nightly, feature(portable_simd))]
-
-mod equivalent;
-mod hash_value;
-mod hashed;
-mod hasher;
-mod iter;
-mod mix_u32;
-pub mod small_map;
-pub mod small_set;
-pub(crate) mod sorting;
-pub(crate) mod vec2;
-pub(crate) mod vec_map;
-
-pub use equivalent::Equivalent;
-pub use hash_value::StarlarkHashValue;
-pub use hashed::Hashed;
-pub use hasher::StarlarkHasher;
-pub use hasher::StarlarkHasherBuilder;
+pub(crate) mod insertion;

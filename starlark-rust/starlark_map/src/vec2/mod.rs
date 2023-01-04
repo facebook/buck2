@@ -31,6 +31,9 @@ use std::slice;
 use allocative::Allocative;
 use allocative::Visitor;
 
+use crate::sorting::insertion::insertion_sort;
+use crate::sorting::insertion::slice_swap_shift;
+
 pub(crate) mod iter;
 
 #[derive(Eq, PartialEq, Debug)]
@@ -360,10 +363,34 @@ impl<K, V> Vec2<K, V> {
         iter
     }
 
+    pub(crate) fn sort_insertion_by<F>(&mut self, mut compare: F)
+    where
+        F: FnMut((&K, &V), (&K, &V)) -> Ordering,
+    {
+        insertion_sort(
+            self,
+            self.len,
+            |vec2, i, j| unsafe {
+                compare(vec2.get_unchecked(i), vec2.get_unchecked(j)) == Ordering::Less
+            },
+            |vec2, a, b| {
+                slice_swap_shift(vec2.keys_mut(), a, b);
+                slice_swap_shift(vec2.values_mut(), a, b);
+            },
+        );
+    }
+
     pub(crate) fn sort_by<F>(&mut self, mut compare: F)
     where
         F: FnMut((&K, &V), (&K, &V)) -> Ordering,
     {
+        // Constant from rust stdlib.
+        const MAX_INSERTION: usize = 20;
+        if self.len() <= MAX_INSERTION {
+            self.sort_insertion_by(compare);
+            return;
+        }
+
         // TODO: sort without allocation.
         // TODO: drain.
         let mut entries: Vec<(K, V)> = mem::take(self).into_iter().collect();
@@ -478,5 +505,19 @@ mod tests {
             assert_eq!(i.to_string(), k);
             assert_eq!(i * 2, v);
         }
+    }
+
+    #[test]
+    fn test_sort_insertion_by() {
+        let mut v = Vec2::new();
+        v.push(1, 2);
+        v.push(3, 4);
+        v.push(2, 3);
+        v.push(3, 2);
+        v.sort_insertion_by(|(ak, av), (bk, bv)| (ak, av).cmp(&(bk, bv)));
+        assert_eq!(Some((&1, &2)), v.get(0));
+        assert_eq!(Some((&2, &3)), v.get(1));
+        assert_eq!(Some((&3, &2)), v.get(2));
+        assert_eq!(Some((&3, &4)), v.get(3));
     }
 }
