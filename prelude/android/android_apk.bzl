@@ -325,7 +325,7 @@ def get_install_config() -> {str.type: ""}:
     # TODO: read from toolchains
     return {
         "adb_executable": read_config("android", "adb", "/opt/android_sdk/platform-tools/adb"),
-        "adb_restart_on_failure": read_config("adb", "adb_restart_on_failure", "false"),
+        "adb_restart_on_failure": read_config("adb", "adb_restart_on_failure", "true"),
         "agent_port_base": read_config("adb", "agent_port_base", "2828"),
         "always_use_java_agent": read_config("adb", "always_use_java_agent", "false"),
         "is_zstd_compression_enabled": read_config("adb", "is_zstd_compression_enabled", "false"),
