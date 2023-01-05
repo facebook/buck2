@@ -97,13 +97,14 @@ pub enum InstallError {
     ErrorRetrievingHash(String),
 
     #[error(
-        "Installer failed to process file ready request for `{install_id}`. Artifact: `{artifact}` located at `{path}`. Error message: `{err}`"
+        "Installer failed to process file ready request for `{install_id}`. Artifact: `{artifact}` located at `{path}`. Error message: `{err}`\n. More details can be found at `{installer_log}`"
     )]
     ProcessingFileReadyFailure {
         install_id: String,
         artifact: String,
         path: AbsNormPathBuf,
         err: String,
+        installer_log: String,
     },
 
     #[error("Installer failed for `{install_id}` with `{err}`")]
@@ -360,7 +361,14 @@ async fn handle_install_request<'a>(
 
         let send_files_result = tokio_stream::wrappers::UnboundedReceiverStream::new(files_rx)
             .map(anyhow::Ok)
-            .try_for_each_concurrent(None, |file| send_file(file, &artifact_fs, client.clone()))
+            .try_for_each_concurrent(None, |file| {
+                send_file(
+                    file,
+                    &artifact_fs,
+                    client.clone(),
+                    installer_log_filename.to_owned(),
+                )
+            })
             .await;
         send_shutdown_command(client.clone()).await?;
         send_files_result.context("Failed to send artifacts to installer")?;
@@ -611,6 +619,7 @@ async fn send_file(
     file: FileResult,
     artifact_fs: &ArtifactFs,
     mut client: InstallerClient<Channel>,
+    install_log: String,
 ) -> anyhow::Result<()> {
     let install_id = file.install_id;
     let name = file.name;
@@ -653,6 +662,7 @@ async fn send_file(
                         artifact: name,
                         path: path.to_owned(),
                         err: status.message().to_owned(),
+                        installer_log: install_log.to_owned(),
                     }
                     .into()),
                     end,
@@ -669,6 +679,7 @@ async fn send_file(
                     "Received install id: {} doesn't match with the sent one: {}",
                     response.install_id, &install_id
                 ),
+                installer_log: install_log.to_owned(),
             }
             .into());
         }
@@ -679,6 +690,7 @@ async fn send_file(
                 artifact: name.to_owned(),
                 path: path.to_owned(),
                 err: error_detail.message,
+                installer_log: install_log.to_owned(),
             }
             .into());
         }
