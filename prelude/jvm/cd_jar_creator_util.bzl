@@ -43,7 +43,7 @@ def get_abi_generation_mode(
         java_toolchain: "JavaToolchainInfo",
         srcs: ["artifact"],
         ap_params: ["AnnotationProcessorParams"]) -> "AbiGenerationMode":
-    resolved_mode = AbiGenerationMode("class") if not srcs else _resolve_abi_generation_mode(abi_generation_mode, java_toolchain)
+    resolved_mode = AbiGenerationMode("none") if not srcs else _resolve_abi_generation_mode(abi_generation_mode, java_toolchain)
     if resolved_mode == AbiGenerationMode("source_only"):
         def plugins_support_source_only_abi():
             for ap in ap_params:
@@ -74,6 +74,7 @@ TargetType = enum("library", "source_abi", "source_only_abi")
 
 def encode_abi_generation_mode(mode: AbiGenerationMode.type) -> str.type:
     return {
+        AbiGenerationMode("none"): "NONE",
         AbiGenerationMode("class"): "CLASS",
         AbiGenerationMode("source"): "SOURCE",
         AbiGenerationMode("source_only"): "SOURCE_ONLY",
@@ -406,6 +407,9 @@ def generate_abi_jars(
 
             if abi_generation_mode == AbiGenerationMode("source_only"):
                 classpath_abi = source_only_abi
+
+        if abi_generation_mode == AbiGenerationMode("none"):
+            classpath_abi = final_jar
 
     if classpath_abi == None or not is_building_android_binary:
         class_abi = create_abi(actions, class_abi_generator, final_jar)

@@ -61,7 +61,7 @@ def create_jar_artifact_kotlincd(
     )
 
     expect(abi_generation_mode != AbiGenerationMode("source"), "abi_generation_mode: source is not supported in kotlincd")
-    actual_abi_generation_mode = abi_generation_mode or AbiGenerationMode("class") if srcs else AbiGenerationMode("class")
+    actual_abi_generation_mode = abi_generation_mode or AbiGenerationMode("class") if srcs else AbiGenerationMode("none")
 
     output_paths = define_output_paths(actions, actions_identifier)
     path_to_class_hashes_out = declare_prefixed_output(actions, actions_identifier, "classes.txt")

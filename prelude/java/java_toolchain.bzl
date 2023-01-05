@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-AbiGenerationMode = enum("class", "source", "source_only")
+AbiGenerationMode = enum("class", "none", "source", "source_only")
 
 JavacProtocol = enum("classic", "javacd")
 
