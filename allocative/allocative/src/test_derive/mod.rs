@@ -11,6 +11,7 @@
 #![allow(dead_code)]
 
 mod skip;
+mod visit;
 mod with_flamegraph;
 
 use crate as allocative;

@@ -25,6 +25,7 @@ use syn::FieldsUnnamed;
 use syn::GenericParam;
 use syn::Generics;
 use syn::LitStr;
+use syn::Path;
 use syn::Token;
 use syn::Variant;
 
@@ -268,6 +269,16 @@ fn gen_visit_field(
     let field_key = measure_key(label);
     if attrs.skip {
         Ok(quote_spanned! {field.span()=>})
+    } else if let Some(visit) = attrs.visit {
+        let ty = &field.ty;
+        Ok(quote_spanned! {field.span()=>
+            // TODO(nga): figure out how to put this snippet in a member function of the visitor.
+            {
+                let mut visitor = visitor.enter(#field_key, std::mem::size_of::<#ty>());
+                #visit(#ident, &mut visitor);
+                visitor.exit();
+            }
+        })
     } else {
         // Specify type parameter explicitly to prevent implicit conversion.
         let ty = &field.ty;
@@ -281,6 +292,7 @@ fn gen_visit_field(
 struct MeasureAttrs {
     skip: bool,
     bound: Option<String>,
+    visit: Option<Path>,
 }
 
 /// Parse an `#[allocative(...)]` annotation.
@@ -288,6 +300,7 @@ struct MeasureAttrs {
 fn extract_attrs(attrs: &[Attribute]) -> syn::Result<MeasureAttrs> {
     syn::custom_keyword!(skip);
     syn::custom_keyword!(bound);
+    syn::custom_keyword!(visit);
 
     let mut opts = MeasureAttrs::default();
 
@@ -310,6 +323,13 @@ fn extract_attrs(attrs: &[Attribute]) -> syn::Result<MeasureAttrs> {
                         return Err(input.error("`bound` was set twice"));
                     }
                     opts.bound = Some(bound.value());
+                } else if input.parse::<visit>().is_ok() {
+                    input.parse::<Token![=]>()?;
+                    let visit = input.parse::<Path>()?;
+                    if opts.visit.is_some() {
+                        return Err(input.error("`visit` was set twice"));
+                    }
+                    opts.visit = Some(visit);
                 }
 
                 if input.is_empty() {
