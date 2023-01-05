@@ -131,6 +131,7 @@ pub mod build_file_cell;
 pub mod cell_path;
 pub mod cell_root_path;
 pub mod paths;
+pub(crate) mod sequence_trie_allocative;
 
 use std::borrow::Borrow;
 use std::collections::HashMap;
@@ -334,6 +335,7 @@ pub struct CellResolver(Arc<CellResolverInternals>);
 #[derive(PartialEq, Eq, Debug, Allocative)]
 struct CellResolverInternals {
     cells: HashMap<CellName, CellInstance>,
+    #[allocative(visit = crate::cells::sequence_trie_allocative::visit_sequence_trie)]
     path_mappings: SequenceTrie<FileNameBuf, CellName>,
 }
 
