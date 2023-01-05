@@ -167,7 +167,7 @@ const manualSidebar = [
     label: 'Build Observability',
     items: [
       isInternal() ? 'developers/observability' : [],
-      'build_observability/datasets',
+      isInternal() ? 'build_observability/datasets' : [],
     ],
   },
   {
