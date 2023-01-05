@@ -80,7 +80,8 @@ impl BuckVersion {
         {
             internal_exe_hash
         } else {
-            if !buck2_core::is_open_source() {
+            //T136782979 TODO(lmvasquezg): Fix on Windows
+            if !buck2_core::is_open_source() && !cfg!(windows) {
                 let _ignored = crate::eprintln!(
                     "version extraction failed. This indicates an issue with the buck2 release, will fallback to binary hash"
                 );
