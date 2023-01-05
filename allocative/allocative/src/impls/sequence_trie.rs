@@ -14,7 +14,6 @@ use std::hash::Hash;
 use sequence_trie::SequenceTrie;
 
 use crate::allocative_trait::Allocative;
-use crate::impls::common::visit_generic_map;
 use crate::key::Key;
 use crate::visitor::Visitor;
 
@@ -24,10 +23,7 @@ impl<K: Allocative + Eq + Hash, V: Allocative> Allocative for SequenceTrie<K, V>
         if let Some(root) = self.get([]) {
             visitor.visit_field(Key::new("root"), root);
         }
-        visit_generic_map(
-            &mut visitor,
-            self.iter().filter_map(|(mut k, v)| Some((k.pop()?, v))),
-        );
+        visitor.visit_generic_map_fields(self.iter().filter_map(|(mut k, v)| Some((k.pop()?, v))));
         visitor.exit();
     }
 }

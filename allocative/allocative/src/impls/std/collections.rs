@@ -13,14 +13,12 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 
 use crate::allocative_trait::Allocative;
-use crate::impls::common::visit_generic_map;
-use crate::impls::common::visit_generic_set;
 use crate::visitor::Visitor;
 
 impl<K: Allocative, V: Allocative> Allocative for BTreeMap<K, V> {
     fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {
         let mut visitor = visitor.enter_self_sized::<Self>();
-        visit_generic_map(&mut visitor, self);
+        visitor.visit_generic_map_fields(self);
         visitor.exit();
     }
 }
@@ -28,7 +26,7 @@ impl<K: Allocative, V: Allocative> Allocative for BTreeMap<K, V> {
 impl<K: Allocative> Allocative for BTreeSet<K> {
     fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {
         let mut visitor = visitor.enter_self_sized::<Self>();
-        visit_generic_set(&mut visitor, self);
+        visitor.visit_generic_set_fields(self);
         visitor.exit();
     }
 }
@@ -37,7 +35,7 @@ impl<K: Allocative, V: Allocative, S> Allocative for HashMap<K, V, S> {
     fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {
         let mut visitor = visitor.enter_self_sized::<Self>();
         // TODO: can do better extra capacity.
-        visit_generic_map(&mut visitor, self);
+        visitor.visit_generic_map_fields(self);
         visitor.exit();
     }
 }
@@ -46,7 +44,7 @@ impl<K: Allocative, S> Allocative for HashSet<K, S> {
     fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {
         let mut visitor = visitor.enter_self_sized::<Self>();
         // TODO: can do better extra capacity.
-        visit_generic_set(&mut visitor, self);
+        visitor.visit_generic_set_fields(self);
         visitor.exit();
     }
 }

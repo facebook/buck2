@@ -11,7 +11,10 @@ use std::mem;
 
 use crate::allocative_trait::Allocative;
 use crate::impls::common::CAPACITY_NAME;
+use crate::impls::common::DATA_NAME;
+use crate::impls::common::KEY_NAME;
 use crate::impls::common::UNUSED_CAPACITY_NAME;
+use crate::impls::common::VALUE_NAME;
 use crate::key::Key;
 
 /// Actual implementation of the visitor.
@@ -180,6 +183,31 @@ impl<'a> Visitor<'a> {
             UNUSED_CAPACITY_NAME,
             mem::size_of::<T>() * capacity.wrapping_sub(data.len()),
         );
+        visitor.exit();
+    }
+
+    pub fn visit_generic_map_fields<'b, 'x, K: Allocative + 'x, V: Allocative + 'x>(
+        &'b mut self,
+        entries: impl IntoIterator<Item = (&'x K, &'x V)>,
+    ) {
+        let mut visitor = self.enter_unique(DATA_NAME, mem::size_of::<*const ()>());
+        for (k, v) in entries {
+            visitor.visit_field(KEY_NAME, k);
+            visitor.visit_field(VALUE_NAME, v);
+        }
+        visitor.exit();
+    }
+
+    pub fn visit_generic_set_fields<'b, 'x, K: Allocative + 'x>(
+        &'b mut self,
+        entries: impl IntoIterator<Item = &'x K>,
+    ) where
+        'a: 'b,
+    {
+        let mut visitor = self.enter_unique(DATA_NAME, mem::size_of::<*const ()>());
+        for k in entries {
+            visitor.visit_field(KEY_NAME, k);
+        }
         visitor.exit();
     }
 
