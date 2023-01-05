@@ -344,9 +344,14 @@ impl BaseDeferredKey {
                     "__",
                     target.name().as_ref(),
                     "__",
-                    action_key.unwrap_or_default(),
-                    if action_key.is_none() { "" } else { "__" },
                     "/",
+                    if action_key.is_none() {
+                        ""
+                    } else {
+                        "__action__"
+                    },
+                    action_key.unwrap_or_default(),
+                    if action_key.is_none() { "" } else { "__/" },
                     path.as_str(),
                 ];
 
@@ -560,7 +565,9 @@ mod tests {
         );
         let resolved = path_resolver.resolve_gen(&path);
 
-        let re = Regex::new("buck-out/gen/foo/[0-9a-z]+/baz-package/__target-name__xxx__/quux")?;
+        let re = Regex::new(
+            "buck-out/gen/foo/[0-9a-z]+/baz-package/__target-name__/__action__xxx__/quux",
+        )?;
         assert!(
             re.is_match(resolved.as_str()),
             "{}.is_match({})",
