@@ -655,6 +655,14 @@ impl DeferredTable {
             None => Err(anyhow::anyhow!(DeferredErrors::DeferredNotFound(id.id))),
         }
     }
+
+    /// Iterator on the DeferredTable which converts a `DeferredTableEntry` to a `DeferredLookup`
+    pub fn iter(&self) -> impl Iterator<Item = DeferredLookup<'_>> {
+        self.0.iter().map(|deferred| match deferred {
+            DeferredTableEntry::Complex(deferred) => DeferredLookup::Complex(&**deferred),
+            DeferredTableEntry::Trivial(value) => DeferredLookup::Trivial(value),
+        })
+    }
 }
 
 impl DeferredResult {
