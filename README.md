@@ -10,6 +10,12 @@ This repo contains the code for the Buck2 build system - the successor to the or
 
 To build Buck2 type `cargo build --bin=buck2 --release` from this directory and copy the resulting binary (probably `target/release/buck2`) to your `$PATH`. Typing `buck2 --help` should now work.
 
+Build uses prebuilt `protoc` binary from
+[protoc-bin-vendored](https://crates.io/crates/protoc-bin-vendored) crate.
+If these binaries to do not work on your machine (for example, when building for NixOS),
+path to `protoc` binary and protobuf include path can be specified via
+`BUCK2_BUILD_PROTOC` and `BUCK2_BUILD_PROTOC_INCLUDE` environment variables.
+
 ### Building sample targets
 
 __FIXME(marwhal): This section needs to be made to work__

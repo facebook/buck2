@@ -18,8 +18,17 @@ fn get_env(key: &str) -> Option<OsString> {
 }
 
 #[cfg(not(buck2_build))]
-fn set_var(var: &str, path: &Path) {
+fn set_var(var: &str, override_var: &str, path: &Path) {
     assert!(path.exists(), "Path does not exist: `{}`", path.display());
+
+    let path_buf;
+    let path = if let Some(override_var_value) = env::var_os(override_var) {
+        eprintln!("INFO: Variable ${} is overridden by ${}", var, override_var);
+        path_buf = std::path::PathBuf::from(override_var_value);
+        &path_buf
+    } else {
+        path
+    };
 
     let path = dunce::canonicalize(path).expect("Failed to canonicalize path");
     eprintln!("INFO: Variable ${} set to {:?}", var, path);
@@ -32,7 +41,17 @@ fn set_var(var: &str, path: &Path) {
 fn maybe_set_protoc() {
     #[cfg(not(buck2_build))]
     {
-        set_var("PROTOC", &protoc_bin_vendored::protoc_bin_path().unwrap());
+        // `cargo build` of `buck2` does not require external `protoc` dependency
+        // because it uses prebuilt bundled `protoc` binary from `protoc-bin-vendored` crate.
+        // However, prebuilt `protoc` binaries do not work in NixOS builds, see
+        // https://github.com/facebookincubator/buck2/issues/65
+        // So for NixOS builds path to `protoc` binary can be overridden with
+        // `BUCK2_BUILD_PROTOC` environment variable.
+        set_var(
+            "PROTOC",
+            "BUCK2_BUILD_PROTOC",
+            &protoc_bin_vendored::protoc_bin_path().unwrap(),
+        );
     }
 }
 
@@ -42,6 +61,7 @@ fn maybe_set_protoc_include() {
     {
         set_var(
             "PROTOC_INCLUDE",
+            "BUCK2_BUILD_PROTOC_INCLUDE",
             &protoc_bin_vendored::include_path().unwrap(),
         );
     }
