@@ -283,7 +283,7 @@ struct MeasureAttrs {
     bound: Option<String>,
 }
 
-/// Parse a #[freeze(validator = function)] annotation.
+/// Parse an `#[allocative(...)]` annotation.
 #[cfg_attr(feature = "gazebo_lint", allow(gazebo_lint_impl_dupe))] // The custom_keyword macro
 fn extract_attrs(attrs: &[Attribute]) -> syn::Result<MeasureAttrs> {
     syn::custom_keyword!(skip);
