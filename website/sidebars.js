@@ -49,6 +49,7 @@ const manualSidebar = [
           isInternal() ? 'testimonials' : [],
         ],
       },
+      isInternal() ? 'knowledge_sharing' : [],
     ],
   },
   {
