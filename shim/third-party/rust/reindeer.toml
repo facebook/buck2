@@ -139,7 +139,7 @@ versioned_dirs = true
 # Configuration for generated BUCK file
 [buck]
 # Name of the generated file
-file_name = "BUCK_OSS"
+file_name = "BUILD"
 
 # Rules used for various kinds of targets. These rules don't directly correspond
 # with BUCK rules - they have extra attributes such as per-platform settings.
