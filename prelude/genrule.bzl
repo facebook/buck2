@@ -26,6 +26,7 @@ _BUILD_ROOT_LABELS = {label: True for label in [
     "bundle_pch_genrule",  # Compiles C++, and so need to run from build root
     "lpm_package",
     "haskell_dll",
+    "fnlc_build",
 ]}
 
 # In Buck1 the SRCS environment variable is only set if the substring SRCS is on the command line.
