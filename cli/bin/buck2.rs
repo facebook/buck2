@@ -20,7 +20,7 @@ use std::path::PathBuf;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_core::fs::working_dir::WorkingDir;
 use buck2_core::logging::init_tracing_for_writer;
-use buck2_core::logging::LogReloadHandle;
+use buck2_core::logging::LogConfigurationReloadHandle;
 use cli::exec;
 use cli::panic;
 use cli::TracingLogFile;
@@ -33,7 +33,7 @@ use fbinit::FacebookInit;
 #[cfg(all(unix, not(fbcode_build), not(buck_oss_build)))]
 static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
 
-fn init_logging(_fb: FacebookInit) -> anyhow::Result<Box<dyn LogReloadHandle>> {
+fn init_logging(_fb: FacebookInit) -> anyhow::Result<Box<dyn LogConfigurationReloadHandle>> {
     static ENV_TRACING_LOG_FILE_PATH: &str = "BUCK_LOG_TO_FILE_PATH";
 
     let handle = match std::env::var_os(ENV_TRACING_LOG_FILE_PATH) {

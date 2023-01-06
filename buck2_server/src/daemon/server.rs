@@ -36,7 +36,7 @@ use buck2_common::memory;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::error::reset_soft_error_counters;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
-use buck2_core::logging::LogReloadHandle;
+use buck2_core::logging::LogConfigurationReloadHandle;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::ControlEvent;
 use buck2_events::Event;
@@ -254,7 +254,7 @@ pub(crate) struct BuckdServerData {
     #[allocative(skip)]
     callbacks: &'static dyn BuckdServerDependencies,
     #[allocative(skip)]
-    log_reload_handle: Box<dyn LogReloadHandle>,
+    log_reload_handle: Box<dyn LogConfigurationReloadHandle>,
 }
 
 /// The BuckdServer implements the DaemonApi.
@@ -267,7 +267,7 @@ pub struct BuckdServer(Arc<BuckdServerData>);
 impl BuckdServer {
     pub async fn run<I>(
         fb: fbinit::FacebookInit,
-        log_reload_handle: Box<dyn LogReloadHandle>,
+        log_reload_handle: Box<dyn LogConfigurationReloadHandle>,
         paths: InvocationPaths,
         delegate: Box<dyn BuckdServerDelegate>,
         detect_cycles: Option<DetectCycles>,

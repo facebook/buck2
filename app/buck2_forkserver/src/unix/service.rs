@@ -13,7 +13,7 @@ use std::pin::Pin;
 
 use anyhow::Context as _;
 use buck2_common::convert::ProstDurationExt;
-use buck2_core::logging::LogReloadHandle;
+use buck2_core::logging::LogConfigurationReloadHandle;
 use buck2_core::process::background_command;
 use buck2_forkserver_proto::forkserver_server::Forkserver;
 use buck2_forkserver_proto::CommandRequest;
@@ -40,7 +40,7 @@ type RunStream =
     Pin<Box<dyn Stream<Item = Result<buck2_forkserver_proto::CommandEvent, Status>> + Send>>;
 
 pub struct UnixForkserverService {
-    pub(super) log_reload_handle: Box<dyn LogReloadHandle>,
+    pub(super) log_reload_handle: Box<dyn LogConfigurationReloadHandle>,
 }
 
 #[async_trait::async_trait]

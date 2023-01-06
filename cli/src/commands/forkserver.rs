@@ -8,7 +8,7 @@
  */
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
-use buck2_core::logging::LogReloadHandle;
+use buck2_core::logging::LogConfigurationReloadHandle;
 
 #[cfg(unix)]
 type RawFd = std::os::unix::io::RawFd;
@@ -28,7 +28,7 @@ impl ForkserverCommand {
         self,
         _matches: &clap::ArgMatches,
         _ctx: ClientCommandContext,
-        log_reload_handle: Box<dyn LogReloadHandle>,
+        log_reload_handle: Box<dyn LogConfigurationReloadHandle>,
     ) -> anyhow::Result<()> {
         #[cfg(unix)]
         {

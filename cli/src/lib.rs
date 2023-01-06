@@ -59,7 +59,7 @@ use buck2_common::invocation_roots::find_invocation_roots;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::working_dir::WorkingDir;
-use buck2_core::logging::LogReloadHandle;
+use buck2_core::logging::LogConfigurationReloadHandle;
 use clap::AppSettings;
 use clap::Parser;
 use dice::cycles::DetectCycles;
@@ -137,7 +137,7 @@ impl Opt {
         working_dir: WorkingDir,
         matches: &clap::ArgMatches,
         init: fbinit::FacebookInit,
-        log_reload_handle: Box<dyn LogReloadHandle>,
+        log_reload_handle: Box<dyn LogConfigurationReloadHandle>,
         replay: Option<(ProcessContext, Replayer)>,
     ) -> ExitResult {
         let subcommand_matches = match matches.subcommand().map(|s| s.1) {
@@ -160,7 +160,7 @@ pub fn exec(
     args: Vec<String>,
     working_dir: WorkingDir,
     init: fbinit::FacebookInit,
-    log_reload_handle: Box<dyn LogReloadHandle>,
+    log_reload_handle: Box<dyn LogConfigurationReloadHandle>,
     replay: Option<(ProcessContext, Replayer)>,
 ) -> ExitResult {
     let mut expanded_args =
@@ -233,7 +233,7 @@ impl CommandKind {
         matches: &clap::ArgMatches,
         common_opts: CommonOptions,
         init: fbinit::FacebookInit,
-        log_reload_handle: Box<dyn LogReloadHandle>,
+        log_reload_handle: Box<dyn LogConfigurationReloadHandle>,
         replay: Option<(ProcessContext, Replayer)>,
     ) -> ExitResult {
         let roots = find_invocation_roots(working_dir.path())?;
@@ -277,7 +277,7 @@ impl CommandKind {
                         let tx_clone = tx.clone();
                         let result = DaemonCommand::new_in_process().exec(
                             init,
-                            <dyn LogReloadHandle>::noop(),
+                            <dyn LogConfigurationReloadHandle>::noop(),
                             paths,
                             common_opts.detect_cycles,
                             move || drop(tx_clone.send(Ok(()))),
@@ -356,7 +356,7 @@ impl CommandKind {
                         args,
                         cwd,
                         init,
-                        <dyn LogReloadHandle>::noop(),
+                        <dyn LogConfigurationReloadHandle>::noop(),
                         Some((process_context, replayer)),
                     )
                 },

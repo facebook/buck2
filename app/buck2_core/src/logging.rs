@@ -15,25 +15,25 @@ use tracing_subscriber::reload;
 use tracing_subscriber::reload::Handle;
 use tracing_subscriber::EnvFilter;
 
-pub trait LogReloadHandle: Send + Sync + 'static {
+pub trait LogConfigurationReloadHandle: Send + Sync + 'static {
     fn update_log_filter(&self, format: &str) -> anyhow::Result<()>;
 }
 
-impl dyn LogReloadHandle {
-    pub fn noop() -> Box<dyn LogReloadHandle> {
-        box NoopLogReloadHandle as _
+impl dyn LogConfigurationReloadHandle {
+    pub fn noop() -> Box<dyn LogConfigurationReloadHandle> {
+        box NoopLogConfigurationReloadHandle as _
     }
 }
 
-struct NoopLogReloadHandle;
+struct NoopLogConfigurationReloadHandle;
 
-impl LogReloadHandle for NoopLogReloadHandle {
+impl LogConfigurationReloadHandle for NoopLogConfigurationReloadHandle {
     fn update_log_filter(&self, _filter: &str) -> anyhow::Result<()> {
         Ok(())
     }
 }
 
-impl<L, R> LogReloadHandle for Handle<Filtered<L, EnvFilter, R>, R>
+impl<L, R> LogConfigurationReloadHandle for Handle<Filtered<L, EnvFilter, R>, R>
 where
     L: Send + Sync + 'static,
     R: Send + Sync + 'static,
@@ -47,7 +47,9 @@ where
     }
 }
 
-pub fn init_tracing_for_writer<W>(writer: W) -> anyhow::Result<Box<dyn LogReloadHandle>>
+pub fn init_tracing_for_writer<W>(
+    writer: W,
+) -> anyhow::Result<Box<dyn LogConfigurationReloadHandle>>
 where
     W: for<'writer> MakeWriter<'writer> + Send + Sync + 'static,
 {

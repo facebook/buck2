@@ -32,7 +32,7 @@ use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::memory;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::fs_util;
-use buck2_core::logging::LogReloadHandle;
+use buck2_core::logging::LogConfigurationReloadHandle;
 use buck2_server::builtin_docs::docs::docs_command;
 use buck2_server::daemon::daemon_tcp::create_listener;
 use buck2_server::daemon::server::BuckdServer;
@@ -264,7 +264,7 @@ impl DaemonCommand {
     fn run(
         &self,
         fb: fbinit::FacebookInit,
-        log_reload_handle: Box<dyn LogReloadHandle>,
+        log_reload_handle: Box<dyn LogConfigurationReloadHandle>,
         paths: InvocationPaths,
         detect_cycles: Option<DetectCycles>,
         listener_created: impl FnOnce() + Send,
@@ -486,7 +486,7 @@ impl DaemonCommand {
     pub(crate) fn exec(
         &self,
         init: fbinit::FacebookInit,
-        log_reload_handle: Box<dyn LogReloadHandle>,
+        log_reload_handle: Box<dyn LogConfigurationReloadHandle>,
         paths: InvocationPaths,
         detect_cycles: Option<DetectCycles>,
         listener_created: impl FnOnce() + Send,
@@ -575,7 +575,7 @@ mod tests {
     use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
     use buck2_core::fs::paths::file_name::FileNameBuf;
     use buck2_core::fs::project::ProjectRoot;
-    use buck2_core::logging::LogReloadHandle;
+    use buck2_core::logging::LogConfigurationReloadHandle;
     use buck2_server::daemon::daemon_tcp::create_listener;
     use buck2_server::daemon::server::BuckdServer;
     use buck2_server::daemon::server::BuckdServerDelegate;
@@ -624,7 +624,7 @@ mod tests {
 
         let handle = tokio::spawn(BuckdServer::run(
             fbinit,
-            <dyn LogReloadHandle>::noop(),
+            <dyn LogConfigurationReloadHandle>::noop(),
             invocation_paths,
             box Delegate,
             None,

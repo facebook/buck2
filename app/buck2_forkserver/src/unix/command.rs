@@ -11,7 +11,7 @@ use std::os::unix::io::FromRawFd;
 use std::os::unix::io::RawFd;
 use std::os::unix::net::UnixStream as StdUnixStream;
 
-use buck2_core::logging::LogReloadHandle;
+use buck2_core::logging::LogConfigurationReloadHandle;
 use buck2_forkserver_proto::forkserver_server;
 use buck2_grpc::DuplexChannel;
 use tokio::net::UnixStream;
@@ -20,7 +20,7 @@ use super::service::UnixForkserverService;
 
 pub async fn run_forkserver(
     fd: RawFd,
-    log_reload_handle: Box<dyn LogReloadHandle>,
+    log_reload_handle: Box<dyn LogConfigurationReloadHandle>,
 ) -> anyhow::Result<()> {
     // SAFETY: At worst, we just read (or close) the wrong FD.
     let io = UnixStream::from_std(unsafe { StdUnixStream::from_raw_fd(fd) })
