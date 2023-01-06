@@ -347,6 +347,7 @@ message InstallRequest {
   repeated buck.data.TargetPattern target_patterns = 2;
   CommonBuildOptions build_opts = 3;
   repeated string installer_run_args = 4;
+  bool installer_debug = 5;
 }
 
 message BuildTarget {

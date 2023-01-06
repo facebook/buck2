@@ -39,6 +39,13 @@ pub struct InstallCommand {
     patterns: Vec<String>,
 
     #[clap(
+        long,
+        name = "installer-debug",
+        help = "Prints installer output to stderr. It might break superconsole"
+    )]
+    installer_debug: bool,
+
+    #[clap(
         name = "INSTALL_ARGS",
         help = "Additional arguments passed to the install when running it",
         raw = true
@@ -66,6 +73,7 @@ impl StreamingCommand for InstallCommand {
                     }),
                     build_opts: Some(self.build_opts.to_proto()),
                     installer_run_args: self.extra_run_args,
+                    installer_debug: self.installer_debug,
                 },
                 ctx.stdin().console_interaction_stream(&self.console_opts),
             )

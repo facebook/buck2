@@ -82,8 +82,6 @@ use install_proto::ShutdownRequest;
 use tempfile::Builder;
 use tokio::sync::mpsc;
 use tonic::transport::Channel;
-use tracing::level_filters::LevelFilter;
-use tracing_subscriber::EnvFilter;
 
 #[derive(Debug, thiserror::Error)]
 pub enum InstallError {
@@ -272,6 +270,7 @@ async fn install(
                 &install_files_vector,
                 installer_label,
                 installer_run_args,
+                request.installer_debug,
             )
             .await
         };
@@ -311,6 +310,7 @@ async fn handle_install_request<'a>(
     install_files_slice: &[(&String, IndexMap<&str, Artifact>)],
     installer_label: &ConfiguredProvidersLabel,
     initial_installer_run_args: &[String],
+    installer_debug: bool,
 ) -> anyhow::Result<()> {
     let (files_tx, files_rx) = mpsc::unbounded_channel();
     let build_files = async move {
@@ -349,7 +349,7 @@ async fn handle_install_request<'a>(
             installer_log_filename.to_owned(),
         ]);
 
-        build_launch_installer(ctx, installer_label, &installer_run_args).await?;
+        build_launch_installer(ctx, installer_label, &installer_run_args, installer_debug).await?;
 
         let client: InstallerClient<Channel> =
             connect_to_installer(PathBuf::from(uds_socket_filename), tcp_port).await?;
@@ -441,6 +441,7 @@ async fn build_launch_installer<'a>(
     ctx: &'a DiceComputations,
     providers_label: &ConfiguredProvidersLabel,
     installer_run_args: &[String],
+    installer_log_console: bool,
 ) -> anyhow::Result<()> {
     let frozen_providers = ctx
         .get_providers(providers_label)
@@ -477,7 +478,7 @@ async fn build_launch_installer<'a>(
         background_command(&run_args[0])
             .args(&run_args[1..])
             .args(installer_run_args)
-            .stderr(get_stdio()?)
+            .stderr(get_stdio(installer_log_console)?)
             .spawn()
             .context("Failed to spawn installer")?;
 
@@ -487,19 +488,12 @@ async fn build_launch_installer<'a>(
     }
 }
 
-fn get_stdio() -> anyhow::Result<Stdio> {
-    // TODO: handle exit code, std.out and std.err from the install app command,
-    // and print outputs in case exit code is not equals 0
-
-    let log_level = match std::env::var("BUCK_LOG") {
-        Ok(v) => v,
-        Err(_) => "warn".to_owned(),
-    };
-    let level_filter = EnvFilter::try_new(log_level)?;
-    if level_filter.max_level_hint().unwrap() > LevelFilter::INFO {
-        return Ok(Stdio::inherit());
+fn get_stdio(log_installer_console: bool) -> anyhow::Result<Stdio> {
+    if log_installer_console {
+        Ok(Stdio::inherit())
+    } else {
+        Ok(Stdio::null())
     }
-    Ok(Stdio::null())
 }
 
 #[derive(Debug)]
