@@ -477,7 +477,6 @@ async fn build_launch_installer<'a>(
         background_command(&run_args[0])
             .args(&run_args[1..])
             .args(installer_run_args)
-            .stdout(get_stdio()?)
             .stderr(get_stdio()?)
             .spawn()
             .context("Failed to spawn installer")?;
