@@ -17,33 +17,24 @@ use std::time::Duration;
 use std::time::SystemTime;
 
 use anyhow::Context;
+use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::exit_result::ExitResult;
+use buck2_client_ctx::path_arg::PathArg;
+use buck2_client_ctx::stream_value::StreamValue;
+use buck2_client_ctx::subscribers::display;
 use buck2_client_ctx::subscribers::display::TargetDisplayOptions;
 use buck2_client_ctx::subscribers::event_log::file_names::retrieve_nth_recent_log;
 use buck2_client_ctx::subscribers::event_log::EventLogPathBuf;
+use buck2_client_ctx::subscribers::event_log::Invocation;
 use buck2_client_ctx::subscribers::subscriber::VisitorError;
 use buck2_common::convert::ProstDurationExt;
-use buck2_events::span::SpanId;
+use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_events::BuckEvent;
 use futures::TryStreamExt;
 use gazebo::prelude::*;
 use serde::Serialize;
 use serde_json::json;
-use thiserror::Error;
 use tokio::runtime;
-
-#[derive(Error, Debug)]
-pub enum ChromeTraceError {
-    #[error("Couldn't assign track to {0:?}: no track assigned to parent {1:?}")]
-    ParentSpanNotFound(SpanId, SpanId),
-}
-
-use buck2_client_ctx::client_ctx::ClientCommandContext;
-use buck2_client_ctx::path_arg::PathArg;
-use buck2_client_ctx::stream_value::StreamValue;
-use buck2_client_ctx::subscribers::display;
-use buck2_client_ctx::subscribers::event_log::Invocation;
-use buck2_core::fs::paths::abs_path::AbsPathBuf;
 
 #[derive(Debug, clap::Parser)]
 pub struct ChromeTraceCommand {
@@ -491,7 +482,13 @@ impl ChromeTraceWriter {
         track_key: &'static str,
         event: &BuckEvent,
     ) -> anyhow::Result<SpanTrackAssignment> {
-        match event.parent_id() {
+        let parent_track_id = event.parent_id().and_then(|parent_id| {
+            self.open_spans
+                .get(&parent_id)
+                .map(|open_span| open_span.track.get_track_id())
+        });
+
+        match parent_track_id {
             None => Ok(SpanTrackAssignment::Owned(TrackId(
                 track_key,
                 self.unused_track_ids
@@ -499,16 +496,7 @@ impl ChromeTraceWriter {
                     .or_insert_with(TrackIdAllocator::new)
                     .get_smallest(),
             ))),
-            Some(parent_id) => {
-                let track_id = self
-                    .open_spans
-                    .get(&parent_id)
-                    .map(|open_span| open_span.track.get_track_id())
-                    .ok_or_else(|| {
-                        ChromeTraceError::ParentSpanNotFound(event.span_id().unwrap(), parent_id)
-                    })?;
-                Ok(SpanTrackAssignment::Inherited(track_id))
-            }
+            Some(track_id) => Ok(SpanTrackAssignment::Inherited(track_id)),
         }
     }
 
