@@ -102,8 +102,9 @@ def _create_symbols_file_from_script(
         name: str.type,
         script: str.type,
         symbol_files: ["artifact"],
-        category: [str.type, None] = None,
-        prefer_local: bool.type = False) -> "artifact":
+        category: str.type,
+        prefer_local: bool.type,
+        weight_percentage: int.type) -> "artifact":
     """
     Generate a version script exporting symbols from from the given objects and
     link args.
@@ -124,6 +125,7 @@ def _create_symbols_file_from_script(
         cmd,
         category = category,
         prefer_local = prefer_local,
+        weight_percentage = weight_percentage,
     )
     return output
 
@@ -147,6 +149,7 @@ def create_undefined_symbols_argsfile(
         symbol_files = symbol_files,
         category = category,
         prefer_local = prefer_local,
+        weight_percentage = 15,  # 10% + a little padding
     )
 
 def create_global_symbols_version_script(
@@ -173,4 +176,5 @@ echo "};" >> "$2"
         symbol_files = symbol_files,
         category = category,
         prefer_local = prefer_local,
+        weight_percentage = 15,  # 10% + a little padding
     )

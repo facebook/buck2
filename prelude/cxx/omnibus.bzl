@@ -551,6 +551,7 @@ def _extract_global_symbols_from_link_args(
         ],
         category = "omnibus_global_symbol_flags",
         prefer_local = prefer_local,
+        weight_percentage = 15,  # 10% + a little padding
     )
     return output
 
