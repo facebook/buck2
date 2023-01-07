@@ -26,7 +26,7 @@ use gazebo::prelude::*;
 use itertools::Either;
 use lsp_types::Diagnostic;
 use lsp_types::Url;
-use starlark::docs::get_registered_docs;
+use starlark::docs::get_registered_starlark_docs;
 use starlark::docs::render_docs_as_code;
 use starlark::docs::Doc;
 use starlark::docs::DocItem;
@@ -113,7 +113,7 @@ impl Context {
         };
         let mut builtins: HashMap<LspUrl, Vec<Doc>> = HashMap::new();
         let mut builtin_symbols: HashMap<String, LspUrl> = HashMap::new();
-        for doc in get_registered_docs() {
+        for doc in get_registered_starlark_docs() {
             let uri = Self::url_for_doc(&doc);
             builtin_symbols.insert(doc.id.name.clone(), uri.clone());
             builtins.entry(uri).or_default().push(doc);

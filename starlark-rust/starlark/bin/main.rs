@@ -35,7 +35,7 @@ use eval::Context;
 use gazebo::prelude::*;
 use itertools::Either;
 use itertools::Itertools;
-use starlark::docs::get_registered_docs;
+use starlark::docs::get_registered_starlark_docs;
 use starlark::docs::render_docs_as_code;
 use starlark::docs::MarkdownFlavor;
 use starlark::docs::RenderMarkdown;
@@ -257,7 +257,7 @@ fn main() -> anyhow::Result<()> {
             ctx.mode = ContextMode::Check;
             lsp::server::stdio_server(ctx)?;
         } else if let Some(docs) = args.docs {
-            let builtin = get_registered_docs();
+            let builtin = get_registered_starlark_docs();
             match docs {
                 ArgsDoc::Markdown | ArgsDoc::Lsp => {
                     let mode = if docs == ArgsDoc::Markdown {

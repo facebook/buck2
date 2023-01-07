@@ -848,7 +848,7 @@ pub fn render_docs_as_code(docs: &[Doc]) -> String {
 ///
 /// For dynamically linked binaries, documentation will only be able to retrieved after the crate's
 /// library is `dlopen()`ed.
-pub fn get_registered_docs() -> Vec<Doc> {
+pub fn get_registered_starlark_docs() -> Vec<Doc> {
     inventory::iter::<RegisteredDoc>
         .into_iter()
         .filter_map(|d| (d.getter)())

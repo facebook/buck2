@@ -24,7 +24,7 @@ use serde::Serializer;
 use starlark_derive::StarlarkDocs;
 
 use crate as starlark;
-use crate::docs::get_registered_docs;
+use crate::docs::get_registered_starlark_docs;
 use crate::docs::DocItem;
 use crate::docs::DocString;
 use crate::docs::DocStringKind;
@@ -114,7 +114,7 @@ where
 
 #[test]
 fn test_derive_docs() {
-    let docs = get_registered_docs()
+    let docs = get_registered_starlark_docs()
         .into_iter()
         .find(|d| d.id.name == "TestExample")
         .unwrap();
@@ -142,7 +142,7 @@ fn test_derive_docs() {
 
 #[test]
 fn test_derive_docs_on_complex_values() {
-    let complex_docs = get_registered_docs()
+    let complex_docs = get_registered_starlark_docs()
         .into_iter()
         .find(|d| d.id.name == "ComplexTestExample")
         .unwrap();
@@ -200,7 +200,7 @@ impl<'v> StarlarkValue<'v> for TestAttrExample {
 
 #[test]
 fn test_derive_docs_custom_attrs() {
-    let docs = get_registered_docs()
+    let docs = get_registered_starlark_docs()
         .into_iter()
         .find(|d| d.id.name == "TestAttrExample")
         .unwrap();

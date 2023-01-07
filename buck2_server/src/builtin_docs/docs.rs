@@ -44,7 +44,7 @@ use cli_proto::UnstableDocsRequest;
 use cli_proto::UnstableDocsResponse;
 use dice::DiceTransaction;
 use gazebo::prelude::*;
-use starlark::docs::get_registered_docs;
+use starlark::docs::get_registered_starlark_docs;
 use starlark::docs::Doc;
 use starlark::docs::DocItem;
 use starlark::docs::Identifier;
@@ -178,7 +178,7 @@ pub fn get_builtin_docs(
     }
     all_builtins.extend(get_ctx_docs());
 
-    all_builtins.extend(get_registered_docs());
+    all_builtins.extend(get_registered_starlark_docs());
 
     Ok(all_builtins)
 }
