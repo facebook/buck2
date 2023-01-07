@@ -152,7 +152,7 @@ pub type FrozenRecordType = RecordTypeGen<FrozenValue, Option<String>>;
 #[repr(C)]
 pub struct RecordGen<V> {
     typ: V, // Must be RecordType
-    values: Vec<V>,
+    values: Box<[V]>,
 }
 
 impl<'v, V: ValueLike<'v>> Display for RecordGen<V> {
@@ -308,7 +308,10 @@ where
                     };
                     values.push(value);
                 }
-                Ok(eval.heap().alloc_complex(Record { typ: this, values }))
+                Ok(eval.heap().alloc_complex(Record {
+                    typ: this,
+                    values: values.into_boxed_slice(),
+                }))
             })
     }
 
@@ -411,7 +414,7 @@ where
 
     fn write_hash(&self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {
         self.typ.write_hash(hasher)?;
-        for v in &self.values {
+        for v in &*self.values {
             v.write_hash(hasher)?;
         }
         Ok(())
