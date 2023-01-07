@@ -37,6 +37,7 @@ use crate::values::num::Num;
 use crate::values::range::Range;
 use crate::values::string::STRING_TYPE;
 use crate::values::tuple::Tuple;
+use crate::values::FrozenStringValue;
 use crate::values::Heap;
 use crate::values::StringValue;
 use crate::values::Value;
@@ -105,7 +106,10 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// # "#);
     /// ```
     #[starlark(speculative_exec_safe)]
-    fn any<'v>(#[starlark(require = pos)] x: Value<'v>, heap: &'v Heap) -> anyhow::Result<bool> {
+    fn any<'v>(
+        #[starlark(require = pos, type = "iter(\"\")")] x: Value<'v>,
+        heap: &'v Heap,
+    ) -> anyhow::Result<bool> {
         x.with_iterator(heap, |it| {
             for i in it {
                 if i.to_bool() {
@@ -136,7 +140,10 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// # "#);
     /// ```
     #[starlark(speculative_exec_safe)]
-    fn all<'v>(#[starlark(require = pos)] x: Value<'v>, heap: &'v Heap) -> anyhow::Result<bool> {
+    fn all<'v>(
+        #[starlark(require = pos, type = "iter(\"\")")] x: Value<'v>,
+        heap: &'v Heap,
+    ) -> anyhow::Result<bool> {
         x.with_iterator(heap, |it| {
             for i in it {
                 if !i.to_bool() {
@@ -198,7 +205,9 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// # "#);
     /// ```
     #[starlark(speculative_exec_safe)]
-    fn chr(#[starlark(require = pos)] i: Value) -> anyhow::Result<String> {
+    fn chr(
+        #[starlark(require = pos, type = "[int.type, bool.type]")] i: Value,
+    ) -> anyhow::Result<String> {
         let cp = i.to_int()? as u32;
         match std::char::from_u32(cp) {
             Some(x) => Ok(x.to_string()),
@@ -320,7 +329,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// ```
     #[starlark(speculative_exec_safe)]
     fn enumerate<'v>(
-        #[starlark(require = pos)] it: Value<'v>,
+        #[starlark(require = pos, type = "iter(\"\")")] it: Value<'v>,
         #[starlark(default = 0)] start: i32,
         heap: &'v Heap,
     ) -> anyhow::Result<Value<'v>> {
@@ -359,7 +368,11 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// # "#, "argument must be a string, a number, or a boolean");
     /// ```
     #[starlark(type = StarlarkFloat::TYPE, speculative_exec_safe)]
-    fn float(#[starlark(require = pos)] a: Option<Value>) -> anyhow::Result<f64> {
+    fn float(
+        #[starlark(require = pos, type = "[str.type, int.type, float.type, bool.type]")] a: Option<
+            Value,
+        >,
+    ) -> anyhow::Result<f64> {
         if a.is_none() {
             return Ok(0.0);
         }
@@ -534,10 +547,10 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// int(float("inf"))   # error: cannot convert infinity to int
     /// # "#, "cannot convert float to integer");
     /// ```
-    #[starlark(type = INT_TYPE, speculative_exec_safe)]
+    #[starlark(type = INT_TYPE, speculative_exec_safe, return_type = "int.type")]
     fn int<'v>(
         #[starlark(require = pos)] a: Option<Value<'v>>,
-        base: Option<Value<'v>>,
+        #[starlark(type = "[int.type, bool.type]")] base: Option<Value<'v>>,
     ) -> anyhow::Result<Value<'v>> {
         if a.is_none() {
             return Ok(Value::new_int(0));
@@ -681,9 +694,9 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// list("strings are not iterable") # error: not supported
     /// # "#, "not supported");
     /// ```
-    #[starlark(type = List::TYPE, speculative_exec_safe)]
+    #[starlark(type = List::TYPE, speculative_exec_safe, return_type = "[\"\"]")]
     fn list<'v>(
-        #[starlark(require = pos)] a: Option<Value<'v>>,
+        #[starlark(require = pos, type = "iter(\"\")")] a: Option<Value<'v>>,
         heap: &'v Heap,
     ) -> anyhow::Result<Value<'v>> {
         Ok(if let Some(a) = a {
@@ -837,18 +850,16 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// # "#);
     /// ```
     #[starlark(speculative_exec_safe)]
-    fn ord(#[starlark(require = pos)] a: Value) -> anyhow::Result<i32> {
-        if let Some(s) = a.unpack_str() {
-            let mut chars = s.chars();
-            if let Some(c) = chars.next() {
-                if chars.next().is_none() {
-                    return Ok(u32::from(c) as i32);
-                }
+    fn ord<'v>(#[starlark(require = pos)] a: StringValue<'v>) -> anyhow::Result<i32> {
+        let mut chars = a.as_str().chars();
+        if let Some(c) = chars.next() {
+            if chars.next().is_none() {
+                return Ok(u32::from(c) as i32);
             }
         }
         Err(anyhow::anyhow!(
             "ord(): {} is not a single character string",
-            a.to_repr()
+            a.to_value().to_repr()
         ))
     }
 
@@ -948,9 +959,9 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// reversed({"one": 1, "two": 2}.keys())  == ["two", "one"]
     /// # "#);
     /// ```
-    #[starlark(speculative_exec_safe)]
+    #[starlark(speculative_exec_safe, return_type = "[\"\"]")]
     fn reversed<'v>(
-        #[starlark(require = pos)] a: Value<'v>,
+        #[starlark(require = pos, type = "iter(\"\")")] a: Value<'v>,
         heap: &'v Heap,
     ) -> anyhow::Result<Value<'v>> {
         let mut v: Vec<Value> = a.iterate(heap)?.collect();
@@ -982,8 +993,9 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// ```
     // This function is not spec-safe, because it may call `key` function
     // which might be not spec-safe.
+    #[starlark(return_type = "[\"\"]")]
     fn sorted<'v>(
-        #[starlark(require = pos)] x: Value<'v>,
+        #[starlark(require = pos, type = "iter(\"\")")] x: Value<'v>,
         #[starlark(require = named)] key: Option<Value<'v>>,
         #[starlark(require = named, default = false)] reverse: bool,
         eval: &mut Evaluator<'v, '_>,
@@ -1068,7 +1080,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// ```
     #[starlark(type = Tuple::TYPE, speculative_exec_safe)]
     fn tuple<'v>(
-        #[starlark(require = pos)] a: Option<Value<'v>>,
+        #[starlark(require = pos, type = "iter(\"\")")] a: Option<Value<'v>>,
         heap: &'v Heap,
     ) -> anyhow::Result<Value<'v>> {
         let mut l = Vec::new();
@@ -1094,8 +1106,8 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// # "#);
     /// ```
     #[starlark(speculative_exec_safe)]
-    fn r#type<'v>(#[starlark(require = pos)] a: Value) -> anyhow::Result<Value<'v>> {
-        Ok(a.get_type_value().to_frozen_value().to_value())
+    fn r#type<'v>(#[starlark(require = pos)] a: Value) -> anyhow::Result<FrozenStringValue> {
+        Ok(a.get_type_value())
     }
 
     /// [zip](
@@ -1116,7 +1128,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// zip(range(5), "abc".elems())    == [(0, "a"), (1, "b"), (2, "c")]
     /// # "#);
     /// ```
-    #[starlark(speculative_exec_safe)]
+    #[starlark(speculative_exec_safe, return_type = "[\"\"]")]
     fn zip<'v>(
         #[starlark(args)] args: Vec<Value<'v>>,
         heap: &'v Heap,

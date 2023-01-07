@@ -51,9 +51,10 @@ use crate::values::ValueLike;
 
 #[starlark_module]
 pub fn filter(builder: &mut GlobalsBuilder) {
+    #[starlark(return_type = "[\"\"]")]
     fn filter<'v>(
         #[starlark(require = pos)] func: Value<'v>,
-        #[starlark(require = pos)] seq: Value<'v>,
+        #[starlark(require = pos, type = "iter(\"\")")] seq: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         let mut res = Vec::new();
@@ -73,9 +74,10 @@ pub fn filter(builder: &mut GlobalsBuilder) {
 
 #[starlark_module]
 pub fn map(builder: &mut GlobalsBuilder) {
+    #[starlark(return_type = "[\"\"]")]
     fn map<'v>(
         #[starlark(require = pos)] func: Value<'v>,
-        #[starlark(require = pos)] seq: Value<'v>,
+        #[starlark(require = pos, type = "iter(\"\")")] seq: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         let it = seq.iterate(eval.heap())?;
