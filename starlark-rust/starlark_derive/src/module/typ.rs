@@ -106,6 +106,7 @@ pub(crate) struct StarFun {
     pub return_type: Type,
     /// `T`.
     pub return_type_arg: Type,
+    pub starlark_return_type: Option<String>,
     pub speculative_exec_safe: bool,
     pub body: Block,
     pub source: StarFunSource,
@@ -151,6 +152,7 @@ pub(crate) struct StarAttr {
     pub return_type: Type,
     /// `T`.
     pub return_type_arg: Type,
+    pub starlark_return_type: Option<String>,
     pub speculative_exec_safe: bool,
     pub body: Block,
     pub docstring: Option<String>,
@@ -191,6 +193,7 @@ pub(crate) struct StarArg {
     pub pass_style: StarArgPassStyle,
     pub name: Ident,
     pub ty: Type,
+    pub starlark_type: Option<String>,
     pub default: Option<Expr>,
     pub source: StarArgSource,
 }

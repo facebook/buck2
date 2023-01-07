@@ -668,10 +668,10 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     /// "a".join("ctmrn".elems()) == "catamaran"
     /// # "#);
     /// ```
-    #[starlark(speculative_exec_safe)]
+    #[starlark(speculative_exec_safe, return_type = "str.type")]
     fn join<'v>(
         this: &str,
-        #[starlark(require = pos)] to_join: Value<'v>,
+        #[starlark(require = pos, type = "iter(str.type)")] to_join: Value<'v>,
         heap: &'v Heap,
     ) -> anyhow::Result<Value<'v>> {
         #[inline(always)]

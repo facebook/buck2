@@ -88,6 +88,7 @@ fn render_attr(x: StarAttr) -> TokenStream {
         attrs,
         return_type,
         return_type_arg,
+        starlark_return_type,
         speculative_exec_safe,
         body,
         docstring,
@@ -104,7 +105,7 @@ fn render_attr(x: StarAttr) -> TokenStream {
         None
     };
 
-    let return_type_str = render_starlark_type(span, &return_type_arg);
+    let return_type_str = render_starlark_type(span, &return_type_arg, &starlark_return_type);
 
     quote_spanned! {
         span=>
@@ -202,15 +203,27 @@ fn get_lifetimes(span: proc_macro2::Span, typ: &syn::Type) -> TokenStream {
     }
 }
 
-pub(crate) fn render_starlark_type(span: proc_macro2::Span, typ: &syn::Type) -> TokenStream {
-    let lifetimes = get_lifetimes(span, typ);
-    quote_spanned! {span=>
-        {
-            #[allow(clippy::extra_unused_lifetimes)]
-            fn get_type_string #lifetimes() -> String {
-                <#typ as starlark::values::type_repr::StarlarkTypeRepr>::starlark_type_repr()
+pub(crate) fn render_starlark_type(
+    span: proc_macro2::Span,
+    typ: &syn::Type,
+    // If the user supplied a Starlark version of the string, pass it along
+    starlark_type: &Option<String>,
+) -> TokenStream {
+    match starlark_type {
+        None => {
+            let lifetimes = get_lifetimes(span, typ);
+            quote_spanned! {span=>
+                {
+                    #[allow(clippy::extra_unused_lifetimes)]
+                    fn get_type_string #lifetimes() -> String {
+                        <#typ as starlark::values::type_repr::StarlarkTypeRepr>::starlark_type_repr()
+                    }
+                    get_type_string()
+                }
             }
-            get_type_string()
+        }
+        Some(t) => {
+            quote_spanned! {span=> #t.to_owned()}
         }
     }
 }

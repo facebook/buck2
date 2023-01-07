@@ -428,13 +428,12 @@ fn render_documentation(x: &StarFun) -> syn::Result<TokenStream> {
         .filter(|a| a.pass_style != StarArgPassStyle::This) // "this" gets ignored when creating the signature, so make sure the indexes match up.
         .enumerate()
         .map(|(i, arg)| {
-            let typ = &arg.ty;
-            let typ_str = render_starlark_type(span, typ);
+            let typ_str = render_starlark_type(span, &arg.ty, &arg.starlark_type);
             quote_spanned!(span=> (#i, starlark::docs::Type { raw_type: #typ_str }) )
         })
         .collect();
 
-    let return_type_str = render_starlark_type(span, return_type_arg);
+    let return_type_str = render_starlark_type(span, return_type_arg, &x.starlark_return_type);
     Ok(quote_spanned!(span=>
         let __documentation_renderer = {
             let signature = #documentation_signature;
