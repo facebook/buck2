@@ -136,8 +136,8 @@ impl<'v> StarlarkPromise<'v> {
         f: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<ValueTyped<'v, StarlarkPromise<'v>>> {
-        match x.value.get() {
-            PromiseValue::Resolved(x) => Ok(eval
+        match x.get() {
+            Some(x) => Ok(eval
                 .heap()
                 .alloc_typed(Self::new_resolved(Self::apply(f, x, eval)?))),
             _ => {
@@ -153,8 +153,8 @@ impl<'v> StarlarkPromise<'v> {
 
     /// Validate the type of a promise. Will execute once the promise is resolved.
     pub fn validate(&self, f: fn(Value<'v>) -> anyhow::Result<()>) -> anyhow::Result<()> {
-        match self.value.get() {
-            PromiseValue::Resolved(x) => f(x),
+        match self.get() {
+            Some(x) => f(x),
             _ => {
                 self.validate.borrow_mut().push(Validate(f));
                 Ok(())
