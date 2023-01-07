@@ -40,7 +40,7 @@ use buck2_core::fs::paths::RelativePathBuf;
 use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
-use buck2_core::soft_error;
+use buck2_core::quiet_soft_error;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::artifact_value::ArtifactValue;
@@ -1000,7 +1000,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 .materializer_state_table()
                 .insert(path, metadata, Utc::now())
             {
-                soft_error!("materializer_error", e).unwrap();
+                quiet_soft_error!("materializer_error", e).unwrap();
             }
         }
     }
@@ -1225,7 +1225,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                             .materializer_state_table()
                             .update_access_time(path.to_buf(), timestamp)
                         {
-                            soft_error!("materializer_error", e).unwrap();
+                            quiet_soft_error!("materializer_error", e).unwrap();
                         }
                     }
 
@@ -1504,7 +1504,7 @@ impl ArtifactTree {
                             // TODO (torozco): Soft-erroring here is not appropriate. We should
                             // exit the process at this point. Let's check we don't unexpectedly hit
                             // this first.
-                            soft_error!("materializer_error", e).unwrap();
+                            quiet_soft_error!("materializer_error", e).unwrap();
                         }
                     }
 
@@ -1550,7 +1550,7 @@ impl ArtifactTree {
                 .materializer_state_table()
                 .delete(invalidated_paths)
             {
-                soft_error!("materializer_error", e).unwrap();
+                quiet_soft_error!("materializer_error", e).unwrap();
             }
         }
 
