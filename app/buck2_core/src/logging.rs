@@ -77,5 +77,5 @@ where
 
     tracing_subscriber::registry().with(layer).init();
 
-    Ok(Box::new(handle) as _)
+    Ok(box handle as _)
 }
