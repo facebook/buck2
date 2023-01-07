@@ -104,7 +104,7 @@ pub(crate) fn list_methods(builder: &mut MethodsBuilder) {
     /// ```
     fn extend<'v>(
         this: Value<'v>,
-        #[starlark(require = pos)] other: Value<'v>,
+        #[starlark(require = pos, type = "iter(\"\")")] other: Value<'v>,
         heap: &'v Heap,
     ) -> anyhow::Result<NoneType> {
         let res = List::from_value_mut(this)?;

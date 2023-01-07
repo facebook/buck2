@@ -150,6 +150,7 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     ///     "H", "e", "l", "l", "o", ",", " ", "世", "界"]
     /// # "#);
     /// ```
+    #[starlark(return_type = "iter(str.type)")]
     fn elems<'v>(this: StringValue<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         Ok(iterate_chars(this, heap))
     }
@@ -201,6 +202,7 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     /// list("Hello, 世界".codepoints()) == [72, 101, 108, 108, 111, 44, 32, 19990, 30028]
     /// # "#);
     /// ```
+    #[starlark(return_type = "iter(str.type)")]
     fn codepoints<'v>(this: StringValue<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         Ok(iterate_codepoints(this, heap))
     }
@@ -977,7 +979,7 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     /// "one two  three".rsplit(None, 1) == ["one two", "three"]
     /// # "#);
     /// ```
-    #[starlark(speculative_exec_safe)]
+    #[starlark(speculative_exec_safe, return_type = "[str.type]")]
     fn rsplit<'v>(
         this: &str,
         #[starlark(require = pos, default = NoneOr::None)] sep: NoneOr<&str>,
@@ -1076,7 +1078,7 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     /// "banana".split("n", 1) == ["ba", "ana"]
     /// # "#);
     /// ```
-    #[starlark(speculative_exec_safe)]
+    #[starlark(speculative_exec_safe, return_type = "[str.type]")]
     fn split<'v>(
         this: &str,
         #[starlark(require = pos, default = NoneOr::None)] sep: NoneOr<&str>,
@@ -1141,7 +1143,7 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     /// "a\nb".splitlines() == ["a", "b"]
     /// # "#);
     /// ```
-    #[starlark(speculative_exec_safe)]
+    #[starlark(speculative_exec_safe, return_type = "[str.type]")]
     fn splitlines<'v>(
         this: &str,
         #[starlark(require = pos, default = false)] keepends: bool,
@@ -1309,13 +1311,13 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     /// ```
     #[starlark(speculative_exec_safe)]
     fn removeprefix<'v>(
-        this: Value<'v>,
+        this: StringValue<'v>,
         #[starlark(require = pos)] prefix: &str,
         heap: &'v Heap,
-    ) -> anyhow::Result<Value<'v>> {
-        let x = this.unpack_str().unwrap();
+    ) -> anyhow::Result<StringValue<'v>> {
+        let x = this.as_str();
         if x.starts_with(prefix) && !prefix.is_empty() {
-            Ok(heap.alloc(&x[prefix.len()..]))
+            Ok(heap.alloc_str(&x[prefix.len()..]))
         } else {
             Ok(this)
         }
@@ -1339,13 +1341,13 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     /// ```
     #[starlark(speculative_exec_safe)]
     fn removesuffix<'v>(
-        this: Value<'v>,
+        this: StringValue<'v>,
         #[starlark(require = pos)] suffix: &str,
         heap: &'v Heap,
-    ) -> anyhow::Result<Value<'v>> {
-        let x = this.unpack_str().unwrap();
+    ) -> anyhow::Result<StringValue<'v>> {
+        let x = this.as_str();
         if x.ends_with(suffix) && !suffix.is_empty() {
-            Ok(heap.alloc(&x[..x.len() - suffix.len()]))
+            Ok(heap.alloc_str(&x[..x.len() - suffix.len()]))
         } else {
             Ok(this)
         }

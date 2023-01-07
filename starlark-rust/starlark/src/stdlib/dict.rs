@@ -107,7 +107,7 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
     /// x.items() == [("one", 1), ("two", 2)]
     /// # "#);
     /// ```
-    #[starlark(speculative_exec_safe)]
+    #[starlark(speculative_exec_safe, return_type = "[(\"\", \"\")]")]
     fn items<'v>(this: DictRef<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         Ok(heap.alloc_list_iter(this.iter().map(|(k, v)| heap.alloc((k, v)))))
     }
@@ -127,7 +127,7 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
     /// x.keys() == ["one", "two"]
     /// # "#);
     /// ```
-    #[starlark(speculative_exec_safe)]
+    #[starlark(speculative_exec_safe, return_type = "[\"\"]")]
     fn keys<'v>(this: DictRef<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         Ok(heap.alloc_list_iter(this.keys()))
     }
@@ -365,7 +365,7 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
     /// x.values() == [1, 2]
     /// # "#);
     /// ```
-    #[starlark(speculative_exec_safe)]
+    #[starlark(speculative_exec_safe, return_type = "[\"\"]")]
     fn values<'v>(this: DictRef<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         Ok(heap.alloc_list_iter(this.values()))
     }
