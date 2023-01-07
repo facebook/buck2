@@ -289,23 +289,24 @@ where
                 let fields = record_fields(RecordType::from_value(this).unwrap());
                 let mut values = Vec::with_capacity(fields.len());
                 for (name, field) in fields.iter() {
-                    match field.0.default {
+                    let value = match field.0.default {
                         None => {
                             let v: Value = param_parser.next(name)?;
                             v.check_type_compiled(field.0.typ, &field.1, Some(name))?;
-                            values.push(v);
+                            v
                         }
                         Some(default) => {
                             let v: Option<Value> = param_parser.next_opt(name)?;
                             match v {
-                                None => values.push(default),
+                                None => default,
                                 Some(v) => {
                                     v.check_type_compiled(field.0.typ, &field.1, Some(name))?;
-                                    values.push(v);
+                                    v
                                 }
                             }
                         }
-                    }
+                    };
+                    values.push(value);
                 }
                 Ok(eval.heap().alloc_complex(Record { typ: this, values }))
             })
