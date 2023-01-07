@@ -8,7 +8,6 @@
  */
 
 //! A type [`StarlarkPromise`] which provides basic promise-like functionality.
-use std::cell::Cell;
 use std::cell::RefCell;
 use std::mem;
 
@@ -16,7 +15,6 @@ use allocative::Allocative;
 use derivative::Derivative;
 use derive_more::Display;
 use gazebo::any::ProvidesStaticType;
-use gazebo::prelude::*;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
@@ -47,8 +45,7 @@ use thiserror::Error;
 #[display(fmt = "promise()")]
 pub struct StarlarkPromise<'v> {
     /// The value of the promise.
-    #[allocative(skip)]
-    value: Cell<PromiseValue<'v>>,
+    value: RefCell<PromiseValue<'v>>,
     /// Everyone who is downstream of this promise and needs executing when it changes.
     /// These will all be `.map` style nodes.
     /// Note that as a consequence of this back pointer, we can't garbage collect promises
@@ -63,7 +60,7 @@ pub struct StarlarkPromise<'v> {
 #[derive(Allocative, Trace)]
 struct Validate<'v>(#[trace(unsafe_ignore)] fn(Value<'v>) -> anyhow::Result<()>);
 
-#[derive(Copy, Clone, Dupe, Debug, Trace, Allocative)]
+#[derive(Clone, Debug, Trace, Allocative)]
 enum PromiseValue<'v> {
     Unresolved,
     Resolved(Value<'v>),
@@ -86,7 +83,7 @@ impl<'v> StarlarkPromise<'v> {
     /// Must have [`StarlarkPromise::resolve`] called on it later.
     pub fn new_unresolved() -> Self {
         Self {
-            value: Cell::new(PromiseValue::Unresolved),
+            value: RefCell::new(PromiseValue::Unresolved),
             downstream: RefCell::new(Vec::new()),
             validate: RefCell::new(Vec::new()),
         }
@@ -95,15 +92,15 @@ impl<'v> StarlarkPromise<'v> {
     /// Create a new resolved promise.
     pub fn new_resolved(value: Value<'v>) -> Self {
         Self {
-            value: Cell::new(PromiseValue::Resolved(value)),
+            value: RefCell::new(PromiseValue::Resolved(value)),
             ..Self::new_unresolved()
         }
     }
 
     /// Get the value from a resolved promise, or [`None`] otherwise.
     pub fn get(&self) -> Option<Value<'v>> {
-        match self.value.get() {
-            PromiseValue::Resolved(x) => Some(x),
+        match &*self.value.borrow() {
+            PromiseValue::Resolved(x) => Some(*x),
             _ => None,
         }
     }
@@ -142,7 +139,7 @@ impl<'v> StarlarkPromise<'v> {
                 .alloc_typed(Self::new_resolved(Self::apply(f, x, eval)?))),
             _ => {
                 let res = eval.heap().alloc_typed(Self {
-                    value: Cell::new(PromiseValue::Map(x, f)),
+                    value: RefCell::new(PromiseValue::Map(x, f)),
                     ..Self::new_unresolved()
                 });
                 x.downstream.borrow_mut().push(res);
@@ -165,27 +162,27 @@ impl<'v> StarlarkPromise<'v> {
     /// Resolve a promise. Errors if the promise was produced by `.map` or the promise has
     /// already been resolved.
     pub fn resolve(&self, x: Value<'v>, eval: &mut Evaluator<'v, '_>) -> anyhow::Result<()> {
-        if matches!(self.value.get(), PromiseValue::Map(..)) {
+        if matches!(&*self.value.borrow(), PromiseValue::Map(..)) {
             return Err(PromiseError::CantResolveMap.into());
         }
         self.resolve_rec(x, eval)
     }
 
     fn resolve_rec(&self, x: Value<'v>, eval: &mut Evaluator<'v, '_>) -> anyhow::Result<()> {
-        if matches!(self.value.get(), PromiseValue::Resolved(_)) {
+        if matches!(&*self.value.borrow(), PromiseValue::Resolved(_)) {
             return Err(PromiseError::CantResolveTwice.into());
         }
         for f in self.validate.borrow().iter() {
             f.0(x)?;
         }
-        self.value.set(PromiseValue::Resolved(x));
+        *self.value.borrow_mut() = PromiseValue::Resolved(x);
         // We clear validate/downstream because we don't need them anymore, so might as well save the memory
         self.validate.borrow_mut().clear();
         let mut downstream = Vec::new();
         mem::swap(&mut *self.downstream.borrow_mut(), &mut downstream);
         for d in downstream {
-            let map = match d.value.get() {
-                PromiseValue::Map(_, f) => f,
+            let map = match &*d.value.borrow() {
+                PromiseValue::Map(_, f) => *f,
                 _ => panic!("Impossible to reach a downstream promise that is not a map"),
             };
             let x2 = Self::apply(map, x, eval)?;
