@@ -104,7 +104,7 @@ fn derive_allocative_impl(
 
     Ok(quote_spanned! {input.span()=>
         impl #impl_generics allocative::Allocative for #name #type_generics #where_clause {
-            #[allow(unused_mut, unused_variables)]
+            #[allow(unused, warnings)]
             fn visit<'allocative_a, 'allocative_b: 'allocative_a>(
                 &self,
                 visitor: &'allocative_a mut allocative::Visitor<'allocative_b>,
