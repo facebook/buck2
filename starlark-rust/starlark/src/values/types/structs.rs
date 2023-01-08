@@ -59,7 +59,6 @@ use crate::values::comparison::equals_small_map;
 use crate::values::error::ValueError;
 use crate::values::layout::typed::string::StringValueLike;
 use crate::values::type_repr::StarlarkTypeRepr;
-use crate::values::AllocValue;
 use crate::values::Freeze;
 use crate::values::FrozenValue;
 use crate::values::Heap;
@@ -122,31 +121,6 @@ impl<'v, V: ValueLike<'v>> Display for StructGen<'v, V> {
             "=",
             self.iter().map(|(k, v)| (k.as_str(), v)),
         )
-    }
-}
-
-/// A builder to create a `Struct` easily.
-pub struct StructBuilder<'v>(&'v Heap, SmallMap<StringValue<'v>, Value<'v>>);
-
-impl<'v> StructBuilder<'v> {
-    /// Create a new [`StructBuilder`] with a given capacity.
-    pub fn with_capacity(heap: &'v Heap, capacity: usize) -> Self {
-        Self(heap, SmallMap::with_capacity(capacity))
-    }
-
-    /// Create a new [`StructBuilder`].
-    pub fn new(heap: &'v Heap) -> Self {
-        Self(heap, SmallMap::new())
-    }
-
-    /// Add an element to the underlying [`Struct`].
-    pub fn add(&mut self, key: &str, val: impl AllocValue<'v>) {
-        self.1.insert(self.0.alloc_str(key), self.0.alloc(val));
-    }
-
-    /// Finish building and produce a [`Struct`].
-    pub fn build(self) -> Struct<'v> {
-        Struct { fields: self.1 }
     }
 }
 
