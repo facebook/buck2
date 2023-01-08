@@ -15,31 +15,10 @@
  * limitations under the License.
  */
 
-//! The struct type, an associative-map created with `struct()`.
-//!
-//! This struct type is related to both the [dictionary](crate::values::dict) and the
-//! [record](crate::values::record) types, all being associative maps.
-//!
-//! * Like a record, a struct is immutable, fields can be referred to with `struct.field`, and
-//!   it uses strings for keys.
-//! * Like a dictionary, the struct is untyped, and manipulating structs from Rust is ergonomic.
-//!
-//! The `struct()` function creates a struct. It accepts keyword arguments, keys become
-//! struct field names, and values become field values.
-//!
-//! ```
-//! # starlark::assert::is_true(r#"
-//! ip_address = struct(host='localhost', port=80)
-//! ip_address.port == 80
-//! # "#);
-//! ```
-
 use std::cmp::Ordering;
 use std::fmt;
 use std::fmt::Display;
 use std::hash::Hash;
-use std::marker;
-use std::marker::PhantomData;
 
 use allocative::Allocative;
 use gazebo::any::ProvidesStaticType;
@@ -47,28 +26,23 @@ use gazebo::coerce::coerce;
 use gazebo::coerce::Coerce;
 use gazebo::display::display_keyed_container;
 use serde::Serialize;
+use starlark_map::small_map::SmallMap;
+use starlark_map::Hashed;
+use starlark_map::StarlarkHasher;
 
 use crate as starlark;
-use crate::collections::Hashed;
-use crate::collections::SmallMap;
-use crate::collections::StarlarkHasher;
 use crate::docs;
 use crate::docs::DocItem;
 use crate::values::comparison::compare_small_map;
 use crate::values::comparison::equals_small_map;
-use crate::values::error::ValueError;
-use crate::values::layout::typed::string::StringValueLike;
-use crate::values::type_repr::StarlarkTypeRepr;
-use crate::values::Freeze;
 use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
 use crate::values::StringValue;
-use crate::values::Trace;
-use crate::values::UnpackValue;
+use crate::values::StringValueLike;
 use crate::values::Value;
+use crate::values::ValueError;
 use crate::values::ValueLike;
-use crate::values::ValueOf;
 
 impl<'v, V: ValueLike<'v>> StructGen<'v, V> {
     /// The result of calling `type()` on a struct.
@@ -107,7 +81,7 @@ starlark_complex_value!(pub Struct<'v>);
 #[repr(C)]
 pub struct StructGen<'v, V: ValueLike<'v>> {
     /// The fields in a struct.
-    fields: SmallMap<V::String, V>,
+    pub(crate) fields: SmallMap<V::String, V>,
 }
 
 unsafe impl<'v> Coerce<StructGen<'v, Value<'v>>> for StructGen<'static, FrozenValue> {}
@@ -206,59 +180,6 @@ impl<'v, V: ValueLike<'v>> Serialize for StructGen<'v, V> {
         S: serde::Serializer,
     {
         serializer.collect_map(self.iter())
-    }
-}
-
-/// Like [`ValueOf`](crate::values::ValueOf), but only validates value types; does not construct
-/// or store a map.
-#[derive(Debug)]
-pub struct StructOf<'v, V: UnpackValue<'v>> {
-    value: ValueOf<'v, &'v Struct<'v>>,
-    _marker: PhantomData<V>,
-}
-
-impl<'v, V: UnpackValue<'v>> StarlarkTypeRepr for StructOf<'v, V> {
-    fn starlark_type_repr() -> String {
-        Struct::TYPE.to_owned()
-    }
-}
-
-impl<'v, V: UnpackValue<'v>> UnpackValue<'v> for StructOf<'v, V> {
-    fn expected() -> String {
-        format!("struct with fields of type {}", V::expected())
-    }
-
-    fn unpack_value(value: Value<'v>) -> Option<StructOf<'v, V>> {
-        let value = ValueOf::<&Struct>::unpack_value(value)?;
-        for (_k, &v) in &value.typed.fields {
-            // Validate field types
-            V::unpack_value(v)?;
-        }
-        Some(StructOf {
-            value,
-            _marker: marker::PhantomData,
-        })
-    }
-}
-
-impl<'v, V: UnpackValue<'v>> StructOf<'v, V> {
-    /// Get the actual value this `StructOf` wraps.
-    pub fn to_value(&self) -> Value<'v> {
-        self.value.value
-    }
-
-    /// Get untyped struct reference.
-    pub fn as_struct(&self) -> &Struct<'v> {
-        self.value.typed
-    }
-
-    /// Collect field structs.
-    pub fn to_map(&self) -> SmallMap<StringValue<'v>, V> {
-        self.as_struct()
-            .fields
-            .iter()
-            .map(|(&k, &v)| (k, V::unpack_value(v).expect("validated at construction")))
-            .collect()
     }
 }
 
