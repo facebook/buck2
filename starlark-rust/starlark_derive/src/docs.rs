@@ -83,7 +83,16 @@ fn expand_docs_derive(input: DeriveInput) -> syn::Result<proc_macro2::TokenStrea
             );
             quote_spanned! {span=> #frozen::__generated_documentation}
         }
-        false => quote_spanned! {span=> #name::__generated_documentation },
+        false => {
+            if generics.type_params().count() != 0 {
+                return Err(syn::Error::new(
+                    span,
+                    "If a an item name does not end in `Gen`, it must have no type parameters",
+                ));
+            }
+
+            quote_spanned! {span=> #name::__generated_documentation }
+        }
     };
 
     // If we do ConcreteType: Trait<'docs> then we require every instance of ConcreteType
