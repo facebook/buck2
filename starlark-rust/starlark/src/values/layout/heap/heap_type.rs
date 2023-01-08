@@ -143,6 +143,13 @@ struct FrozenFrozenHeap {
 unsafe impl Sync for FrozenFrozenHeap {}
 unsafe impl Send for FrozenFrozenHeap {}
 
+impl FrozenFrozenHeap {
+    fn is_empty(&self) -> bool {
+        let FrozenFrozenHeap { arena, refs } = self;
+        arena.is_empty() && refs.is_empty()
+    }
+}
+
 impl Debug for FrozenHeap {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let mut x = f.debug_struct("FrozenHeap");
@@ -242,6 +249,10 @@ impl FrozenHeap {
     /// is kept alive. Used if a [`FrozenValue`] in this heap points at values in another
     /// [`FrozenHeap`].
     pub fn add_reference(&self, heap: &FrozenHeapRef) {
+        if heap.0.is_empty() {
+            return;
+        }
+
         let mut refs = self.refs.borrow_mut();
         if !refs.contains(heap) {
             refs.insert(heap.dupe());
