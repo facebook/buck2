@@ -140,6 +140,10 @@ impl<'c> Iterator for ChunkIter<'c> {
 }
 
 impl Arena {
+    pub(crate) fn is_empty(&self) -> bool {
+        self.allocated_bytes() == 0
+    }
+
     /// Number of allocated bytes plus padding size.
     pub(crate) fn allocated_bytes(&self) -> usize {
         // This overestimates the allocates size, see `Bump::allocated_bytes()`:
@@ -563,5 +567,13 @@ mod tests {
         assert_eq!(entry.count, 2);
         // Because `arena.allocated_bytes` over-approximates.
         assert!(entry.bytes <= arena.allocated_bytes());
+    }
+
+    #[test]
+    fn test_is_empty() {
+        let arena = Arena::default();
+        assert!(arena.is_empty());
+        arena.alloc_str("xyz");
+        assert!(!arena.is_empty());
     }
 }

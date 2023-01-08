@@ -230,10 +230,12 @@ impl FrozenHeap {
     /// and ensures the underlying values allocated on the [`FrozenHeap`] remain valid.
     pub fn into_ref(self) -> FrozenHeapRef {
         let FrozenHeap { arena, refs, .. } = self;
-        FrozenHeapRef(Arc::new(FrozenFrozenHeap {
-            arena,
-            refs: refs.into_inner(),
-        }))
+        let refs = refs.into_inner();
+        if arena.is_empty() && refs.is_empty() {
+            FrozenHeapRef::default()
+        } else {
+            FrozenHeapRef(Arc::new(FrozenFrozenHeap { arena, refs }))
+        }
     }
 
     /// Keep the argument [`FrozenHeapRef`] alive as long as this [`FrozenHeap`]
