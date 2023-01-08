@@ -24,7 +24,7 @@ use starlark_map::Equivalent;
 
 use crate::collections::SmallMap;
 
-pub fn equals_slice<E, X1, X2>(
+pub(crate) fn equals_slice<E, X1, X2>(
     xs: &[X1],
     ys: &[X2],
     f: impl Fn(&X1, &X2) -> Result<bool, E>,
@@ -35,7 +35,7 @@ pub fn equals_slice<E, X1, X2>(
     })
 }
 
-pub fn equals_small_map<E, K1: Eq, K2: Eq, V1, V2>(
+pub(crate) fn equals_small_map<E, K1: Eq, K2: Eq, V1, V2>(
     x: &SmallMap<K1, V1>,
     y: &SmallMap<K2, V2>,
     f: impl Fn(&V1, &V2) -> Result<bool, E>,
@@ -51,7 +51,7 @@ where
     })
 }
 
-pub fn compare_slice<E, X1, X2>(
+pub(crate) fn compare_slice<E, X1, X2>(
     xs: &[X1],
     ys: &[X2],
     f: impl Fn(&X1, &X2) -> Result<Ordering, E>,
@@ -62,7 +62,7 @@ pub fn compare_slice<E, X1, X2>(
     })
 }
 
-pub fn compare_small_map<E, K, K2: Ord + Hash, V1, V2>(
+pub(crate) fn compare_small_map<E, K, K2: Ord + Hash, V1, V2>(
     x: &SmallMap<K, V1>,
     y: &SmallMap<K, V2>,
     key: impl Fn(&K) -> K2,

@@ -86,12 +86,9 @@ pub use crate::values::types::tuple;
 pub use crate::values::unpack::UnpackValue;
 pub use crate::values::unpack::ValueOf;
 
-#[macro_use]
-mod comparison;
-
-// Submodules
 mod alloc_value;
 pub(crate) mod basic;
+mod comparison;
 pub(crate) mod demand;
 pub(crate) mod error;
 mod freeze;
