@@ -292,4 +292,14 @@ struct(
 
         assert_eq!(expected, docs);
     }
+
+    #[test]
+    fn test_comparison_bug() {
+        // TODO(nga): this should be false, because `a < b`,
+        //   and comparisons are usually lexicographic.
+        // TODO(nga): Also, since structs are ordered, but not sorted,
+        //   comparisons on structs should be forbidden
+        //   (because it is too expensive to sort keys on each comparison).
+        assert::is_true("struct(b=1) < struct(a=1, x=1)")
+    }
 }

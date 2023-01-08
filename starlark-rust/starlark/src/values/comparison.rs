@@ -69,6 +69,12 @@ pub(crate) fn compare_small_map<E, K, K2: Ord + Hash, V1, V2>(
     f: impl Fn(&V1, &V2) -> Result<Ordering, E>,
 ) -> Result<Ordering, E> {
     Ok(cmp_chain! {
+        // TODO(nga): this function is only used to compare structs,
+        //   and it compares them incorrectly. This code is supposed to return `False`:
+        //   ```
+        //   struct(b=1) < struct(a=1, x=1)
+        //   ```
+        //   It returns `True`.
         x.len().cmp(&y.len()),
         x.iter()
             .sorted_by_key(|(k, _)| key(k))
