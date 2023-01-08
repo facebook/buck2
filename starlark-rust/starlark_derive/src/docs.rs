@@ -30,7 +30,7 @@ use syn::Token;
 
 const STARLARK_DOCS_ATTRS: &str = "starlark_docs_attrs";
 
-pub fn derive_docs(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+pub(crate) fn derive_docs(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
 
     expand_docs_derive(input)
