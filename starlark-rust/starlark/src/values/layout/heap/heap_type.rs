@@ -18,7 +18,6 @@
 use std::cell::Cell;
 use std::cell::RefCell;
 use std::cmp;
-use std::collections::HashSet;
 use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
@@ -41,6 +40,7 @@ use either::Either;
 use gazebo::cast;
 use gazebo::prelude::*;
 use once_cell::sync::Lazy;
+use starlark_map::small_set::SmallSet;
 
 use crate::collections::maybe_uninit_backport::maybe_uninit_write_slice;
 use crate::collections::maybe_uninit_backport::maybe_uninit_write_slice_cloned;
@@ -125,7 +125,7 @@ pub struct FrozenHeap {
     /// My memory.
     arena: Arena,
     /// Memory I depend on.
-    refs: RefCell<HashSet<FrozenHeapRef>>,
+    refs: RefCell<SmallSet<FrozenHeapRef>>,
     /// String interner.
     str_interner: RefCell<FrozenStringInterner>,
 }
@@ -136,7 +136,7 @@ pub struct FrozenHeap {
 #[allow(clippy::non_send_fields_in_send_ty)]
 struct FrozenFrozenHeap {
     arena: Arena,
-    refs: HashSet<FrozenHeapRef>,
+    refs: SmallSet<FrozenHeapRef>,
 }
 
 // Safe because we never mutate the Arena other than with &mut
