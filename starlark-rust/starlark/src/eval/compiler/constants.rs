@@ -26,6 +26,9 @@ pub(crate) struct BuiltinFn(pub(crate) FrozenValue);
 
 impl PartialEq<FrozenValue> for BuiltinFn {
     fn eq(&self, other: &FrozenValue) -> bool {
+        // Pointer equality works because `#[starlark_module]` proc macro
+        // generates a singleton which allocates the function only once
+        // even if builder function is called multiple times.
         self.0.to_value().ptr_eq(other.to_value())
     }
 }
