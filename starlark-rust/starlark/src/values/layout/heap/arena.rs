@@ -141,14 +141,14 @@ impl<'c> Iterator for ChunkIter<'c> {
 
 impl Arena {
     /// Number of allocated bytes plus padding size.
-    pub fn allocated_bytes(&self) -> usize {
+    pub(crate) fn allocated_bytes(&self) -> usize {
         // This overestimates the allocates size, see `Bump::allocated_bytes()`:
         // "those padding bytes will add to this method’s resulting sum".
         // https://docs.rs/bumpalo/3.11.0/bumpalo/struct.Bump.html#method.allocated_bytes
         self.drop.allocated_bytes() + self.non_drop.allocated_bytes()
     }
 
-    pub fn available_bytes(&self) -> usize {
+    pub(crate) fn available_bytes(&self) -> usize {
         self.drop.chunk_capacity() + self.non_drop.chunk_capacity()
     }
 
@@ -294,7 +294,7 @@ impl Arena {
 
     // Iterate over the values in the heap in the order they
     // were added.
-    pub fn for_each_ordered<'a>(&'a mut self, mut f: impl FnMut(&'a AValueOrForward)) {
+    pub(crate) fn for_each_ordered<'a>(&'a mut self, mut f: impl FnMut(&'a AValueOrForward)) {
         // We get the chunks from most newest to oldest as per the bumpalo spec.
         // And within each chunk, the values are filled newest to oldest.
         // So need to do two sets of reversing.
@@ -364,7 +364,7 @@ impl Arena {
     }
 
     // Iterate over the values in the drop bump in any order
-    pub fn for_each_drop_unordered<'a>(&'a mut self, mut f: impl FnMut(&'a AValueHeader)) {
+    pub(crate) fn for_each_drop_unordered<'a>(&'a mut self, mut f: impl FnMut(&'a AValueHeader)) {
         for chunk in self.drop.iter_allocated_chunks() {
             for x in Arena::iter_chunk(chunk) {
                 if let Some(x) = x.unpack_header() {
@@ -395,7 +395,7 @@ impl Arena {
     }
 
     // For each Rust-level type (the String) report how many entries there are in the heap, and how much size they consume
-    pub fn allocated_summary(&self) -> HeapSummary {
+    pub(crate) fn allocated_summary(&self) -> HeapSummary {
         // Record how many times each header occurs
         // We deliberately hash by the AValueHeader for higher performance, less type lookup
         let mut entries: HashMap<AValueHeader, (&'static str, AllocCounts)> = HashMap::new();
