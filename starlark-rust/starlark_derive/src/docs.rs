@@ -121,7 +121,7 @@ fn expand_docs_derive(input: DeriveInput) -> syn::Result<proc_macro2::TokenStrea
                     }
                 };
 
-                let name = <Self as starlark::values::StarlarkValue>::get_type_value_static().as_str().to_owned();
+                let name = <Self as starlark::values::StarlarkValue>::TYPE.to_owned();
                 let id = starlark::docs::Identifier {
                     name,
                     location: None,
