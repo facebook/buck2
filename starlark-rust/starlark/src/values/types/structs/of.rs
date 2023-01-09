@@ -20,7 +20,7 @@ use std::marker::PhantomData;
 
 use starlark_map::small_map::SmallMap;
 
-use crate::values::structs::Struct;
+use crate::values::structs::value::Struct;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::StringValue;
 use crate::values::UnpackValue;
@@ -66,7 +66,7 @@ impl<'v, V: UnpackValue<'v>> StructOf<'v, V> {
     }
 
     /// Get untyped struct reference.
-    pub fn as_struct(&self) -> &Struct<'v> {
+    fn as_struct(&self) -> &Struct<'v> {
         self.value.typed
     }
 

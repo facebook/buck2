@@ -46,15 +46,15 @@ use crate::values::ValueLike;
 
 impl<'v, V: ValueLike<'v>> StructGen<'v, V> {
     /// The result of calling `type()` on a struct.
-    pub const TYPE: &'static str = "struct";
+    pub(crate) const TYPE: &'static str = "struct";
 
     /// Create a new [`Struct`].
-    pub fn new(fields: SmallMap<V::String, V>) -> Self {
+    pub(crate) fn new(fields: SmallMap<V::String, V>) -> Self {
         Self { fields }
     }
 
     /// Iterate over the elements in the struct.
-    pub fn iter<'a>(&'a self) -> impl ExactSizeIterator<Item = (StringValue<'v>, V)> + 'a
+    pub(crate) fn iter<'a>(&'a self) -> impl ExactSizeIterator<Item = (StringValue<'v>, V)> + 'a
     where
         'v: 'a,
     {
@@ -64,7 +64,7 @@ impl<'v, V: ValueLike<'v>> StructGen<'v, V> {
     }
 }
 
-starlark_complex_value!(pub Struct<'v>);
+starlark_complex_value!(pub(crate) Struct<'v>);
 
 /// The result of calling `struct()`.
 #[derive(
@@ -79,7 +79,7 @@ starlark_complex_value!(pub Struct<'v>);
 )]
 #[starlark_docs(builtin = "extension")]
 #[repr(C)]
-pub struct StructGen<'v, V: ValueLike<'v>> {
+pub(crate) struct StructGen<'v, V: ValueLike<'v>> {
     /// The fields in a struct.
     pub(crate) fields: SmallMap<V::String, V>,
 }

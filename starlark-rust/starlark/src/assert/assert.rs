@@ -46,7 +46,7 @@ use crate::syntax::lexer::Token;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;
 use crate::values::none::NoneType;
-use crate::values::structs::Struct;
+use crate::values::structs::value::Struct;
 use crate::values::Heap;
 use crate::values::OwnedFrozenValue;
 use crate::values::Value;

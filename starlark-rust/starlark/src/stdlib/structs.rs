@@ -19,7 +19,7 @@
 use crate as starlark;
 use crate::environment::GlobalsBuilder;
 use crate::eval::Arguments;
-use crate::values::structs::Struct;
+use crate::values::structs::value::Struct;
 use crate::values::Heap;
 
 #[starlark_module]

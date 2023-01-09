@@ -42,6 +42,3 @@ pub(crate) mod value;
 pub use crate::values::types::structs::alloc::AllocStruct;
 pub use crate::values::types::structs::of::StructOf;
 pub use crate::values::types::structs::refs::StructRef;
-pub use crate::values::types::structs::value::FrozenStruct;
-pub use crate::values::types::structs::value::Struct;
-pub use crate::values::types::structs::value::StructGen;

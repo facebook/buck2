@@ -93,7 +93,7 @@ use crate::values::recursive_repr_or_json_guard::json_stack_push;
 use crate::values::recursive_repr_or_json_guard::repr_stack_push;
 use crate::values::stack_guard;
 use crate::values::string::StarlarkStr;
-use crate::values::structs::FrozenStruct;
+use crate::values::structs::value::FrozenStruct;
 use crate::values::tuple::FrozenTuple;
 use crate::values::tuple::Tuple;
 use crate::values::type_repr::StarlarkTypeRepr;

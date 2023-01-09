@@ -41,7 +41,7 @@ use crate::values::function::NativeFunc;
 use crate::values::function::NativeMeth;
 use crate::values::layout::value::ValueLike;
 use crate::values::layout::value_not_special::FrozenValueNotSpecial;
-use crate::values::structs::FrozenStruct;
+use crate::values::structs::value::FrozenStruct;
 use crate::values::types::function::NativeFunction;
 use crate::values::types::function::NativeMethod;
 use crate::values::AllocFrozenValue;
