@@ -112,8 +112,7 @@ fn expand_docs_derive(input: DeriveInput) -> syn::Result<proc_macro2::TokenStrea
         impl #impl_generics #name #ty_generics #where_clause  {
             // Use 'docs here instead of 'v because someone might have 'v in their generics'
             // constraints, and we'd end up with duplicate lifetime definition errors.
-            #[doc(hidden)]
-            pub fn __generated_documentation #constraint_lifetime () -> Option<starlark::docs::Doc>
+            fn __generated_documentation #constraint_lifetime () -> Option<starlark::docs::Doc>
             where #constraint {
                 #use_inventory
                 starlark::__derive_refs::inventory::submit! {
