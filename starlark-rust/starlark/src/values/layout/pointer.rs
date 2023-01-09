@@ -24,6 +24,7 @@
 // We group our bytes based on the tag info, not traditional alignment.
 #![allow(clippy::unusual_byte_groupings)]
 
+use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::mem;
 use std::num::NonZeroUsize;
@@ -41,6 +42,14 @@ use crate::values::layout::heap::repr::AValueOrForward;
 /// Tagged pointer logically equivalent to `*mut AValueHeader`.
 #[derive(Clone, Copy, Dupe, PartialEq, Eq, Hash)]
 pub(crate) struct RawPointer(pub(crate) NonZeroUsize);
+
+impl Debug for RawPointer {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("RawPointer")
+            .field(&format_args!("0x{:x}", self.ptr_value()))
+            .finish()
+    }
+}
 
 impl RawPointer {
     #[inline]
