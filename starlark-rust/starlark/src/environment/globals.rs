@@ -41,7 +41,7 @@ use crate::values::function::NativeFunc;
 use crate::values::function::NativeMeth;
 use crate::values::layout::value::ValueLike;
 use crate::values::layout::value_not_special::FrozenValueNotSpecial;
-use crate::values::structs::value::FrozenStruct;
+use crate::values::structs::AllocStruct;
 use crate::values::types::function::NativeFunction;
 use crate::values::types::function::NativeMethod;
 use crate::values::AllocFrozenValue;
@@ -266,7 +266,7 @@ impl GlobalsBuilder {
         self.struct_fields.push(SmallMap::new());
         f(self);
         let fields = self.struct_fields.pop().unwrap();
-        self.set(name, FrozenStruct::new(fields));
+        self.set(name, AllocStruct(fields));
     }
 
     /// A fluent API for modifying [`GlobalsBuilder`] and returning the result.

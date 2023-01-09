@@ -46,7 +46,7 @@ use crate::syntax::lexer::Token;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;
 use crate::values::none::NoneType;
-use crate::values::structs::value::Struct;
+use crate::values::structs::AllocStruct;
 use crate::values::Heap;
 use crate::values::OwnedFrozenValue;
 use crate::values::Value;
@@ -161,8 +161,8 @@ pub(crate) fn test_functions(builder: &mut GlobalsBuilder) {
     const fibonacci: Vec<i32> = vec![0, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89];
 
     // Approximate version of a method used by the Go test suite
-    fn hasfields<'v>() -> anyhow::Result<Struct<'v>> {
-        Ok(Struct::new(SmallMap::new()))
+    fn hasfields<'v>() -> anyhow::Result<AllocStruct<SmallMap<String, String>>> {
+        Ok(AllocStruct(SmallMap::new()))
     }
 
     // Approximate version of a method used by the Go test suite
