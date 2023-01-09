@@ -53,6 +53,19 @@ use crate::values::UnpackValue;
 use crate::values::Value;
 use crate::values::ValueLike;
 
+#[derive(Debug, thiserror::Error)]
+enum ValueTypedError {
+    #[error("Expecting a value of type `{0}`, got a value of type `{1}`")]
+    WrongType(&'static str, &'static str),
+}
+
+impl ValueTypedError {
+    #[cold]
+    fn wrong_type<'v, T: StarlarkValue<'v>>(v: Value) -> anyhow::Error {
+        ValueTypedError::WrongType(T::TYPE, v.get_type()).into()
+    }
+}
+
 /// [`Value`] wrapper which asserts contained value is of type `<T>`.
 #[derive(Copy_, Clone_, Dupe_, ProvidesStaticType, Allocative)]
 #[allocative(skip)] // Heap owns the value.
@@ -130,9 +143,19 @@ impl<'v, T: StarlarkValue<'v>> Serialize for FrozenValueTyped<'v, T> {
 
 impl<'v, T: StarlarkValue<'v>> ValueTyped<'v, T> {
     /// Downcast.
+    #[inline]
     pub fn new(value: Value<'v>) -> Option<ValueTyped<'v, T>> {
         value.downcast_ref::<T>()?;
         Some(ValueTyped(value, marker::PhantomData))
+    }
+
+    /// Downcast with returning an error instead of `None`.
+    #[inline]
+    pub(crate) fn new_or_err(value: Value<'v>) -> anyhow::Result<ValueTyped<'v, T>> {
+        match Self::new(value) {
+            Some(value) => Ok(value),
+            None => Err(ValueTypedError::wrong_type::<T>(value)),
+        }
     }
 
     /// Construct typed value without checking the value is of type `<T>`.
@@ -183,9 +206,19 @@ impl<'v, T: StarlarkValue<'v>> FrozenValueTyped<'v, T> {
     }
 
     /// Downcast.
+    #[inline]
     pub fn new(value: FrozenValue) -> Option<FrozenValueTyped<'v, T>> {
         value.downcast_ref::<T>()?;
         Some(FrozenValueTyped(value, marker::PhantomData))
+    }
+
+    /// Downcast with returning an error instead of `None`.
+    #[inline]
+    pub(crate) fn new_or_err(value: FrozenValue) -> anyhow::Result<FrozenValueTyped<'v, T>> {
+        match Self::new(value) {
+            Some(v) => Ok(v),
+            None => Err(ValueTypedError::wrong_type::<T>(value.to_value())),
+        }
     }
 
     pub(crate) fn new_repr<A: AValue<'v, StarlarkValue = T>>(
