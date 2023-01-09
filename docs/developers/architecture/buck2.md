@@ -97,6 +97,4 @@ If a user ran `buck2 test`, then there is a final transformation for Buck2 to co
 
 ### Phase E: Test with TPX
 
-Testing is handled by TestPilotX (TPX), which is a test run coordinator within Meta, and Buck2 merely sends a constructed command to TPX for it to execute. Note that TPX is never accessed through Buck2 CLI directly.
-
-When running a test with Buck2, Buck2 generates the providers exposed by the target after evaluation, configuring, and analyzing the target. The providers are bundled up with the actual test command and metadata and sent to TPX. Buck2 itself does not know what to do with this test info – only TPX knows how to interpret the data.
+For more detail on testing, review [Test Execution](/docs/rule_authors/test_execution).
