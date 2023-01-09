@@ -100,11 +100,6 @@ impl FrozenTemplatePlaceholderInfo {
             .collect()
     }
 
-    pub fn _unkeyed_variables_raw(&self) -> &FrozenDict {
-        FrozenDict::from_frozen_value(&self.unkeyed_variables)
-            .expect("Type should have been checked on construction.")
-    }
-
     pub fn keyed_variables(
         &self,
     ) -> SmallMap<
@@ -140,11 +135,6 @@ impl FrozenTemplatePlaceholderInfo {
                 })
             })
             .collect()
-    }
-
-    pub fn _keyed_variables_raw(&self) -> &FrozenDict {
-        FrozenDict::from_frozen_value(&self.keyed_variables)
-            .expect("Type should have been checked on construction.")
     }
 
     pub fn _lookup_provider_raw(providers: &FrozenProviderCollectionValue) -> Option<&FrozenValue> {
