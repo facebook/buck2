@@ -48,7 +48,7 @@ use starlark::values::dict::DictOf;
 use starlark::values::function::FUNCTION_TYPE;
 use starlark::values::none::NoneOr;
 use starlark::values::none::NoneType;
-use starlark::values::structs::Struct;
+use starlark::values::structs::StructRef;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
@@ -218,7 +218,7 @@ impl<'v> AnalysisContext<'v> {
         registry: AnalysisRegistry<'v>,
     ) -> Self {
         // Check the types match what the user expects.
-        assert!(Struct::from_value(attributes).is_some());
+        assert!(StructRef::from_value(attributes).is_some());
 
         Self {
             attributes,
@@ -1062,14 +1062,13 @@ mod tests {
     use gazebo::prelude::*;
     use indoc::indoc;
     use maplit::hashmap;
-    use starlark::collections::SmallMap;
     use starlark::environment::GlobalsBuilder;
     use starlark::environment::Module;
     use starlark::eval::Evaluator;
     use starlark::eval::ReturnFileLoader;
     use starlark::syntax::AstModule;
     use starlark::syntax::Dialect;
-    use starlark::values::structs::Struct;
+    use starlark::values::structs::AllocStruct;
     use starlark::values::Value;
 
     use crate::analysis::registry::AnalysisRegistry;
@@ -1112,12 +1111,7 @@ mod tests {
             BaseDeferredKey::TargetLabel(label.dupe()),
             ExecutionPlatformResolution::unspecified(),
         );
-        let mut values = SmallMap::with_capacity(1);
-        values.insert(
-            eval.heap().alloc_str("name"),
-            eval.heap().alloc("some_name"),
-        );
-        let attributes = eval.heap().alloc(Struct::new(values));
+        let attributes = eval.heap().alloc(AllocStruct([("name", "some_name")]));
 
         let ctx = eval.heap().alloc(AnalysisContext::new(
             eval.heap(),

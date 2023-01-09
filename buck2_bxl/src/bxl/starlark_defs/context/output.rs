@@ -37,7 +37,7 @@ use starlark::values::list::List;
 use starlark::values::list::ListRef;
 use starlark::values::none::NoneType;
 use starlark::values::record::Record;
-use starlark::values::structs::Struct;
+use starlark::values::structs::StructRef;
 use starlark::values::tuple::Tuple;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;
@@ -234,7 +234,7 @@ fn register_output_stream(builder: &mut MethodsBuilder) {
                         x.iter()
                             .map(|(k, v)| (self.with_value(k), self.with_value(v))),
                     )
-                } else if let Some(x) = Struct::from_value(self.value) {
+                } else if let Some(x) = StructRef::from_value(self.value) {
                     serializer.collect_map(x.iter().map(|(k, v)| (k, self.with_value(v))))
                 } else if let Some(x) = Record::from_value(self.value) {
                     serializer.collect_map(x.iter().map(|(k, v)| (k, self.with_value(v))))
