@@ -77,7 +77,7 @@ starlark_complex_value!(pub Struct<'v>);
     StarlarkDocs,
     Allocative
 )]
-#[starlark_docs_attrs(builtin = "extension")]
+#[starlark_docs(builtin = "extension")]
 #[repr(C)]
 pub struct StructGen<'v, V: ValueLike<'v>> {
     /// The fields in a struct.

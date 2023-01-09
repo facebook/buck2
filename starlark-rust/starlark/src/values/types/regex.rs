@@ -32,7 +32,7 @@ use crate::values::StarlarkValue;
 /// A type that can be passed around as a StarlarkRegex, which wraps Rust value
 /// fancy_regex::Regex.
 #[derive(ProvidesStaticType, Debug, NoSerialize, StarlarkDocs, Allocative)]
-#[starlark_docs_attrs(builtin = "extension")]
+#[starlark_docs(builtin = "extension")]
 pub struct StarlarkRegex(#[allocative(skip)] pub Regex);
 
 impl StarlarkValue<'_> for StarlarkRegex {

@@ -88,7 +88,7 @@ impl UnpackValue<'_> for i32 {
 // Therefore, don't derive stuff on it, since it will be wrong.
 // However, `ProvidesStaticType` promises not to peek at its value, so that's fine.
 #[derive(ProvidesStaticType, StarlarkDocs, Allocative)]
-#[starlark_docs_attrs(builtin = "standard")]
+#[starlark_docs(builtin = "standard")]
 #[repr(C)]
 pub(crate) struct PointerI32 {
     _private: (),

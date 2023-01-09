@@ -88,7 +88,7 @@ enum EnumError {
     StarlarkDocs,
     Allocative
 )]
-#[starlark_docs_attrs(builtin = "extension")]
+#[starlark_docs(builtin = "extension")]
 #[repr(C)]
 // Deliberately store fully populated values
 // for each entry, so we can produce enum values with zero allocation.

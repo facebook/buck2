@@ -181,7 +181,7 @@ fn object_docs_2(_: &mut MethodsBuilder) {}
     StarlarkDocs,
     Allocative
 )]
-#[starlark_docs_attrs(key = "value", key2 = "value2")]
+#[starlark_docs(key = "value", key2 = "value2")]
 struct TestAttrExample {}
 
 starlark_simple_value!(TestAttrExample);

@@ -28,7 +28,7 @@ use syn::DeriveInput;
 use syn::MetaNameValue;
 use syn::Token;
 
-const STARLARK_DOCS_ATTRS: &str = "starlark_docs_attrs";
+const STARLARK_DOCS_ATTRS: &str = "starlark_docs";
 
 pub(crate) fn derive_docs(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = parse_macro_input!(input as DeriveInput);

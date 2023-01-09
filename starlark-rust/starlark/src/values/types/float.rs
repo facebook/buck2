@@ -164,7 +164,7 @@ pub(crate) fn write_compact<W: fmt::Write>(
     StarlarkDocs,
     Allocative
 )]
-#[starlark_docs_attrs(builtin = "standard")]
+#[starlark_docs(builtin = "standard")]
 #[serde(transparent)]
 pub struct StarlarkFloat(pub f64);
 

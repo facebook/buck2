@@ -103,7 +103,7 @@ pub(crate) struct StarlarkStrN<const N: usize> {
 /// A pointer to this type represents a Starlark string.
 /// Use of this type is discouraged and not considered stable.
 #[derive(ProvidesStaticType, StarlarkDocs, Allocative)]
-#[starlark_docs_attrs(builtin = "standard")]
+#[starlark_docs(builtin = "standard")]
 #[repr(C)]
 pub struct StarlarkStr {
     str: StarlarkStrN<0>,

@@ -49,7 +49,7 @@ use crate::bxl::starlark_defs::query_util::parse_query_evaluation_result;
     Allocative,
     StarlarkDocs
 )]
-#[starlark_docs_attrs(directory = "bxl")]
+#[starlark_docs(directory = "bxl")]
 #[derivative(Debug)]
 #[display(fmt = "{:?}", self)]
 #[allocative(skip)]

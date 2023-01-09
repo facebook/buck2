@@ -32,7 +32,7 @@ use starlark::StarlarkDocs;
     Allocative
 )]
 #[display(fmt = "{:?}", self)]
-#[starlark_docs_attrs(directory = "bxl")]
+#[starlark_docs(directory = "bxl")]
 pub struct StarlarkAnalysisResult {
     analysis: AnalysisResult,
     label: ConfiguredProvidersLabel,

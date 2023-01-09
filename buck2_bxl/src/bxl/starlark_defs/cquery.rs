@@ -59,7 +59,7 @@ use crate::bxl::value_as_starlark_target_label::ValueAsStarlarkTargetLabel;
     StarlarkDocs,
     Allocative
 )]
-#[starlark_docs_attrs(directory = "bxl")]
+#[starlark_docs(directory = "bxl")]
 #[derivative(Debug)]
 #[display(fmt = "{:?}", self)]
 #[allocative(skip)]

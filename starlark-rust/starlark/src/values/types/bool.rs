@@ -50,7 +50,7 @@ pub const BOOL_TYPE: &str = "bool";
 
 // We have to alias bool so we can have a Display that uses True/False.
 #[derive(ProvidesStaticType, Debug, Serialize, StarlarkDocs, Allocative)]
-#[starlark_docs_attrs(builtin = "standard")]
+#[starlark_docs(builtin = "standard")]
 #[serde(transparent)]
 pub(crate) struct StarlarkBool(pub(crate) bool);
 

@@ -88,7 +88,7 @@ use crate::values::ValueLike;
     StarlarkDocs,
     Allocative
 )]
-#[starlark_docs_attrs(builtin = "extension")]
+#[starlark_docs(builtin = "extension")]
 pub struct FieldGen<V> {
     pub(crate) typ: V,
     default: Option<V>,
@@ -118,7 +118,7 @@ unsafe impl<From: Coerce<To>, To> Coerce<FieldGen<To>> for FieldGen<From> {}
     StarlarkDocs,
     Allocative
 )]
-#[starlark_docs_attrs(builtin = "extension")]
+#[starlark_docs(builtin = "extension")]
 pub struct RecordTypeGen<V, Typ> {
     /// The name of this type, e.g. MyRecord
     /// Either `Option<String>` or a `RefCell` thereof.

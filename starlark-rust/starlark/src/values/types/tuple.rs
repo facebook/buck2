@@ -52,7 +52,7 @@ use crate::values::ValueLike;
 /// Define the tuple type. See [`Tuple`] and [`FrozenTuple`] as the two aliases.
 #[repr(C)]
 #[derive(ProvidesStaticType, StarlarkDocs, Allocative)]
-#[starlark_docs_attrs(builtin = "standard")]
+#[starlark_docs(builtin = "standard")]
 pub struct TupleGen<V> {
     len: usize,
     /// The data stored by the tuple.

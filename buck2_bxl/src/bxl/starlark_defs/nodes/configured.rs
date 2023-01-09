@@ -69,7 +69,7 @@ mod attr_resolution_ctx;
 #[derive(Debug, Display, ProvidesStaticType, StarlarkDocs, Allocative)]
 #[derive(NoSerialize)] // TODO probably should be serializable the same as how queries serialize
 #[display(fmt = "configured_target_node(name = {}, ...)", "self.0.name()")]
-#[starlark_docs_attrs(directory = "bxl")]
+#[starlark_docs(directory = "bxl")]
 pub struct StarlarkConfiguredTargetNode(pub ConfiguredTargetNode);
 
 starlark_simple_value!(StarlarkConfiguredTargetNode);
@@ -377,7 +377,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
 )]
 #[display(fmt = "Traversal({})", "self.0")]
 #[repr(C)]
-#[starlark_docs_attrs(directory = "bxl")]
+#[starlark_docs(directory = "bxl")]
 pub struct StarlarkConfiguredValue(ConfiguredAttr);
 
 starlark_simple_value!(StarlarkConfiguredValue);
@@ -432,7 +432,7 @@ fn configured_value_methods(builder: &mut MethodsBuilder) {
     StarlarkDocs,
     Allocative
 )]
-#[starlark_docs_attrs(directory = "bxl")]
+#[starlark_docs(directory = "bxl")]
 #[derivative(Debug)]
 #[display(fmt = "{:?}", self)]
 pub struct StarlarkLazyAttrs<'v> {
@@ -509,7 +509,7 @@ fn lazy_attrs_methods(builder: &mut MethodsBuilder) {
     StarlarkDocs,
     Allocative
 )]
-#[starlark_docs_attrs(directory = "bxl")]
+#[starlark_docs(directory = "bxl")]
 #[derivative(Debug)]
 #[display(fmt = "{:?}", self)]
 pub struct StarlarkLazyResolvedAttrs<'v> {

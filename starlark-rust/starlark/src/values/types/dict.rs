@@ -74,7 +74,7 @@ use crate::values::ValueLike;
     StarlarkDocs,
     Allocative
 )]
-#[starlark_docs_attrs(builtin = "standard")]
+#[starlark_docs(builtin = "standard")]
 struct DictGen<T>(T);
 
 impl FrozenDict {

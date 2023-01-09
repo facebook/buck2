@@ -50,7 +50,7 @@ use crate::values::Value;
     StarlarkDocs,
     Allocative
 )]
-#[starlark_docs_attrs(builtin = "standard")]
+#[starlark_docs(builtin = "standard")]
 #[display(fmt = "None")]
 pub struct NoneType;
 

@@ -46,7 +46,7 @@ use crate::bxl::starlark_defs::file_set::StarlarkReadDirSet;
     Allocative
 )]
 #[derivative(Debug)]
-#[starlark_docs_attrs(directory = "bxl")]
+#[starlark_docs(directory = "bxl")]
 #[display(fmt = "{:?}", self)]
 #[allocative(skip)]
 pub struct BxlFilesystem<'v> {

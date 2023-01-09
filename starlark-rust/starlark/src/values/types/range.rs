@@ -46,7 +46,7 @@ use crate::values::ValueLike;
     StarlarkDocs,
     Allocative
 )]
-#[starlark_docs_attrs(builtin = "standard")]
+#[starlark_docs(builtin = "standard")]
 pub struct Range {
     start: i32,
     stop: i32,

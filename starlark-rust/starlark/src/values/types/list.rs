@@ -71,7 +71,7 @@ use crate::values::ValueTyped;
     StarlarkDocs,
     Allocative
 )]
-#[starlark_docs_attrs(builtin = "standard")]
+#[starlark_docs(builtin = "standard")]
 #[repr(transparent)]
 pub(crate) struct ListGen<T>(pub(crate) T);
 
