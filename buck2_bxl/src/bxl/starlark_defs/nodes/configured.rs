@@ -40,7 +40,6 @@ use gazebo::any::ProvidesStaticType;
 use gazebo::prelude::*;
 use once_cell::sync::OnceCell;
 use serde::Serialize;
-use starlark::collections::SmallMap;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
@@ -49,7 +48,7 @@ use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
 use starlark::starlark_type;
-use starlark::values::structs::Struct;
+use starlark::values::structs::AllocStruct;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
@@ -134,15 +133,9 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
         heap: &'v Heap,
     ) -> anyhow::Result<Value<'v>> {
         let attrs_iter = this.0.attrs(AttrInspectOptions::All);
-        let mut attrs = SmallMap::with_capacity(attrs_iter.size_hint().0);
-        for (name, attr) in attrs_iter {
-            attrs.insert(
-                heap.alloc_str(name),
-                heap.alloc(StarlarkConfiguredValue(attr)),
-            );
-        }
+        let attrs = attrs_iter.map(|(name, attr)| (name, StarlarkConfiguredValue(attr)));
 
-        Ok(heap.alloc(Struct::new(attrs)))
+        Ok(heap.alloc(AllocStruct(attrs)))
     }
 
     /// Gets a `StarlarkLazyAttrs` for getting attrs lazily. Returns a `StarlarkLazyAttrs` object
@@ -240,16 +233,13 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
         };
 
         let attrs_iter = this.0.attrs(AttrInspectOptions::All);
-        let mut resolved_attrs = SmallMap::with_capacity(attrs_iter.size_hint().0);
+        let mut resolved_attrs = Vec::with_capacity(attrs_iter.size_hint().0);
 
         for (name, attr) in attrs_iter {
-            resolved_attrs.insert(
-                eval.heap().alloc_str(name),
-                attr.resolve_single(&resolution_ctx)?,
-            );
+            resolved_attrs.push((name, attr.resolve_single(&resolution_ctx)?));
         }
 
-        Ok(eval.heap().alloc(Struct::new(resolved_attrs)))
+        Ok(eval.heap().alloc(AllocStruct(resolved_attrs)))
     }
 
     /// Gets the targets' corresponding rule's name. This is the fully qualified rule name including

@@ -25,11 +25,9 @@ use buck2_node::configuration::execution::ExecutionPlatformResolution;
 use dice::DiceComputations;
 use futures::Future;
 use gazebo::prelude::*;
-use starlark::collections::SmallMap;
 use starlark::environment::FrozenModule;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
-use starlark::values::structs::Struct;
 use starlark::values::FrozenRef;
 use starlark::values::Value;
 use starlark::values::ValueLike;
@@ -58,6 +56,7 @@ use buck2_interpreter::types::label::Label;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::rule_type::StarlarkRuleType;
+use starlark::values::structs::AllocStruct;
 
 use crate::attrs::resolve::configured_attr::ConfiguredAttrExt;
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
@@ -297,19 +296,16 @@ async fn run_analysis_with_env_underlying(
     };
 
     let attrs_iter = node.attrs(AttrInspectOptions::All);
-    let mut resolved_attrs = SmallMap::with_capacity(attrs_iter.size_hint().0);
+    let mut resolved_attrs = Vec::with_capacity(attrs_iter.size_hint().0);
     for (name, attr) in attrs_iter {
-        resolved_attrs.insert(
-            env.heap().alloc_str(name),
-            attr.resolve_single(&resolution_ctx)?,
-        );
+        resolved_attrs.push((name, attr.resolve_single(&resolution_ctx)?));
     }
 
     let registry = AnalysisRegistry::new_from_owner(
         BaseDeferredKey::TargetLabel(node.name().dupe()),
         analysis_env.execution_platform.dupe(),
     );
-    let attributes = env.heap().alloc(Struct::new(resolved_attrs));
+    let attributes = env.heap().alloc(AllocStruct(resolved_attrs));
     let ctx = env.heap().alloc_typed(AnalysisContext::new(
         eval.heap(),
         attributes,

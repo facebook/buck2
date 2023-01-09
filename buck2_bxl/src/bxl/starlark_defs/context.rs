@@ -12,6 +12,7 @@
 
 use std::cell::RefCell;
 use std::io::Write;
+use std::iter;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -50,7 +51,7 @@ use starlark::starlark_module;
 use starlark::starlark_type;
 use starlark::values::dict::Dict;
 use starlark::values::none::NoneType;
-use starlark::values::structs::Struct;
+use starlark::values::structs::AllocStruct;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
@@ -132,7 +133,7 @@ impl<'v> BxlContext<'v> {
             async_ctx,
             state: heap.alloc_typed(AnalysisActions {
                 state: RefCell::new(None),
-                attributes: heap.alloc(Struct::default()),
+                attributes: heap.alloc(AllocStruct(iter::empty::<(String, String)>())),
             }),
             output_stream: heap.alloc_typed(OutputStream::new(
                 project_fs,

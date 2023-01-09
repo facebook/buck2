@@ -30,12 +30,10 @@ use dice::Key;
 use gazebo::dupe::Dupe;
 use gazebo::prelude::*;
 use itertools::Itertools;
-use starlark::collections::SmallMap;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::values::dict::DictOf;
-use starlark::values::structs::Struct;
-use starlark::values::StringValueLike;
+use starlark::values::structs::AllocStruct;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
 use thiserror::Error;
@@ -114,19 +112,19 @@ async fn do_apply_transition(
 ) -> SharedResult<TransitionApplied> {
     let transition = ctx.fetch_transition(transition_id).await?;
     let module = Module::new();
-    let mut refs = SmallMap::new();
+    let mut refs = Vec::with_capacity(transition.refs.len());
     let mut refs_refs = Vec::new();
     for (s, t) in &transition.refs {
         let provider_collection_value = ctx.fetch_transition_function_reference(t).await?;
-        refs.insert(
-            module.heap().alloc_str(s),
+        refs.push((
+            *s,
             // This is safe because we store a reference to provider collection in `refs_refs`.
-            unsafe { provider_collection_value.value().to_frozen_value() }.to_value(),
-        );
+            unsafe { provider_collection_value.value().to_frozen_value() },
+        ));
         refs_refs.push(provider_collection_value);
     }
     let mut eval = Evaluator::new(&module);
-    let refs = module.heap().alloc_complex(Struct::new(refs));
+    let refs = module.heap().alloc(AllocStruct(refs));
     let attrs = match (&transition.attrs, attrs) {
         (Some(names), Some(values)) => {
             if names.len() != values.len() {
@@ -134,7 +132,7 @@ async fn do_apply_transition(
                     ApplyTransitionError::InconsistentTransitionAndComputation,
                 ));
             }
-            let mut attrs = SmallMap::new();
+            let mut attrs = Vec::with_capacity(names.len());
             for (name, value) in names.iter().zip(values.iter()) {
                 let value = match value {
                     Some(value) => value.to_value(module.heap()).with_context(|| {
@@ -146,14 +144,9 @@ async fn do_apply_transition(
                     })?,
                     None => Value::new_none(),
                 };
-                let prev = attrs.insert(name.to_string_value(), value);
-                assert!(
-                    prev.is_none(),
-                    "Non-unique attribute name, should not happen, \
-                    attributes are verified to be unique during transition object construction"
-                );
+                attrs.push((*name, value));
             }
-            Some(module.heap().alloc_complex(Struct::new(attrs)))
+            Some(module.heap().alloc(AllocStruct(attrs)))
         }
         (None, None) => None,
         (Some(_), None) | (None, Some(_)) => {

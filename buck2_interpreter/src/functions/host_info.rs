@@ -8,10 +8,9 @@
  */
 
 use once_cell::sync::Lazy;
-use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
-use starlark::values::structs::FrozenStruct;
+use starlark::values::structs::AllocStruct;
 use starlark::values::AllocFrozenValue;
 use starlark::values::FrozenHeap;
 use starlark::values::FrozenValue;
@@ -41,11 +40,7 @@ fn new_host_info(
         heap: &FrozenHeap,
         values: &[(&str, V)],
     ) -> FrozenValue {
-        let mut fields = SmallMap::with_capacity(values.len());
-        for (k, v) in values {
-            fields.insert(heap.alloc_str(k), heap.alloc(*v));
-        }
-        heap.alloc(FrozenStruct::new(fields))
+        heap.alloc(AllocStruct(values.iter().copied()))
     }
 
     let os = new_struct(

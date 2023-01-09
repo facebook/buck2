@@ -65,11 +65,10 @@ use futures::stream::FuturesUnordered;
 use futures::Future;
 use gazebo::prelude::*;
 use ref_cast::RefCast;
-use starlark::collections::SmallMap;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::values::dict::DictOf;
-use starlark::values::structs::Struct;
+use starlark::values::structs::AllocStruct;
 use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueTyped;
@@ -324,14 +323,11 @@ impl AnonTargetKey {
             query_results: HashMap::new(),
         };
 
-        let mut resolved_attrs = SmallMap::with_capacity(self.0.attrs().len());
+        let mut resolved_attrs = Vec::with_capacity(self.0.attrs().len());
         for (name, attr) in self.0.attrs().iter() {
-            resolved_attrs.insert(
-                env.heap().alloc_str(name),
-                attr.resolve_single(&resolution_ctx)?,
-            );
+            resolved_attrs.push((name, attr.resolve_single(&resolution_ctx)?));
         }
-        let attributes = env.heap().alloc(Struct::new(resolved_attrs));
+        let attributes = env.heap().alloc(AllocStruct(resolved_attrs));
 
         let exec_resolution = ExecutionPlatformResolution::new(
             Some(

@@ -40,7 +40,7 @@ use dice::DiceTransaction;
 use gazebo::prelude::*;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
-use starlark::values::structs::Struct;
+use starlark::values::structs::AllocStruct;
 use starlark::values::OwnedFrozenValueTyped;
 use starlark::values::Value;
 use starlark::values::ValueTyped;
@@ -92,11 +92,10 @@ pub async fn eval(
         move || {
             let env = Module::new();
 
-            let resolved_args = env.heap().alloc(Struct::new(
+            let resolved_args = env.heap().alloc(AllocStruct(
                 key.cli_args()
                     .iter()
-                    .map(|(k, v)| (env.heap().alloc_str(k), v.as_starlark(env.heap())))
-                    .collect(),
+                    .map(|(k, v)| (k, v.as_starlark(env.heap()))),
             ));
 
             // we put a file as our output stream cache. The file is associated with the `BxlKey`, which
