@@ -72,7 +72,7 @@ fn expand_docs_derive(input: DeriveInput) -> syn::Result<proc_macro2::TokenStrea
     // For now, we just assume if the struct ends in "Gen", it is a starlark_complex_value.
     // It would be simple enough to make this configurable in the future if required.
     let is_complex_value = name.to_string().ends_with("Gen");
-    let getter_call = match is_complex_value {
+    let frozen_name = match is_complex_value {
         true => {
             let frozen = Ident::new(
                 &format!(
@@ -81,7 +81,7 @@ fn expand_docs_derive(input: DeriveInput) -> syn::Result<proc_macro2::TokenStrea
                 ),
                 name.span(),
             );
-            quote_spanned! {span=> #frozen::__generated_documentation}
+            quote_spanned! {span=> #frozen }
         }
         false => {
             if generics.type_params().count() != 0 {
@@ -91,7 +91,7 @@ fn expand_docs_derive(input: DeriveInput) -> syn::Result<proc_macro2::TokenStrea
                 ));
             }
 
-            quote_spanned! {span=> #name::__generated_documentation }
+            quote_spanned! {span=> #name }
         }
     };
 
@@ -109,6 +109,9 @@ fn expand_docs_derive(input: DeriveInput) -> syn::Result<proc_macro2::TokenStrea
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
     Ok(quote_spanned! {span=>
+        // TODO(nga): generate this function only for frozen type, not for all type parameters.
+        //   At the moment of writing it is not possible because `FrozenList` and `FrozenDict`
+        //   are not `StarlarkValue` implementations.
         impl #impl_generics #name #ty_generics #where_clause  {
             // Use 'docs here instead of 'v because someone might have 'v in their generics'
             // constraints, and we'd end up with duplicate lifetime definition errors.
@@ -117,7 +120,7 @@ fn expand_docs_derive(input: DeriveInput) -> syn::Result<proc_macro2::TokenStrea
                 #use_inventory
                 starlark::__derive_refs::inventory::submit! {
                     starlark::docs::RegisteredDoc {
-                        getter: #getter_call
+                        getter: #frozen_name::__generated_documentation,
                     }
                 };
 
