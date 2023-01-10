@@ -16,7 +16,7 @@ use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use gazebo::prelude::*;
 use itertools::Itertools;
-use starlark::values::list::List;
+use starlark::values::list::ListRef;
 use starlark::values::tuple::Tuple;
 use starlark::values::Value;
 
@@ -53,7 +53,7 @@ impl AttrTypeCoerce for TupleAttrType {
         };
         if let Some(list) = Tuple::from_value(value) {
             coerce(value, list.content())
-        } else if let Some(list) = List::from_value(value) {
+        } else if let Some(list) = ListRef::from_value(value) {
             coerce(value, list.content())
         } else {
             Err(anyhow::anyhow!(CoercionError::type_error(

@@ -30,7 +30,7 @@ use starlark::collections::SmallMap;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
-use starlark::values::list::List;
+use starlark::values::list::ListRef;
 use starlark::values::Freeze;
 use starlark::values::Freezer;
 use starlark::values::FrozenRef;
@@ -163,7 +163,7 @@ impl<'v, V: ValueLike<'v>> ProviderCollectionGen<V> {
         // Sometimes we might have a resolved promise here, in which case see through that
         value = StarlarkPromise::get_recursive(value);
 
-        let list = match List::from_value(value) {
+        let list = match ListRef::from_value(value) {
             Some(v) => v,
             None => {
                 return Err(ProviderCollectionError::CollectionNotAList {

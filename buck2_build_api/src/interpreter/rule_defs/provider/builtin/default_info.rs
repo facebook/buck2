@@ -23,7 +23,7 @@ use starlark::values::dict::Dict;
 use starlark::values::dict::FrozenDict;
 use starlark::values::list::AllocList;
 use starlark::values::list::FrozenList;
-use starlark::values::list::List;
+use starlark::values::list::ListRef;
 use starlark::values::none::NoneType;
 use starlark::values::type_repr::DictType;
 use starlark::values::Freeze;
@@ -137,7 +137,7 @@ pub struct DefaultInfoGen<V> {
 
 fn validate_default_info(info: &FrozenDefaultInfo) -> anyhow::Result<()> {
     // Check length of default outputs
-    let default_output_list = List::from_value(info.default_outputs.to_value())
+    let default_output_list = ListRef::from_value(info.default_outputs.to_value())
         .expect("should be a list from constructor");
     if default_output_list.len() > 1 {
         tracing::info!("DefaultInfo.default_output should only have a maximum of 1 item.");
@@ -401,7 +401,7 @@ fn default_info_creator(builder: &mut GlobalsBuilder) {
 
         // support both list and singular options for now until we migrate all the rules.
         let valid_default_outputs = if !default_outputs.is_none() {
-            match List::from_value(default_outputs) {
+            match ListRef::from_value(default_outputs) {
                 Some(list) => {
                     if !default_output.is_none() {
                         return Err(anyhow::anyhow!(DefaultOutputError::ConflictingArguments));
@@ -435,7 +435,7 @@ fn default_info_creator(builder: &mut GlobalsBuilder) {
             }
         };
 
-        let valid_other_outputs = match List::from_value(other_outputs) {
+        let valid_other_outputs = match ListRef::from_value(other_outputs) {
             Some(list) => {
                 if list.iter().all(|v| v.as_artifact_traversable().is_some()) {
                     Ok(other_outputs)

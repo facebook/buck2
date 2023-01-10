@@ -33,7 +33,6 @@ use starlark::starlark_module;
 use starlark::starlark_type;
 use starlark::values::dict::Dict;
 use starlark::values::dict::DictRef;
-use starlark::values::list::List;
 use starlark::values::list::ListRef;
 use starlark::values::none::NoneType;
 use starlark::values::record::Record;
@@ -225,7 +224,7 @@ fn register_output_stream(builder: &mut MethodsBuilder) {
                     } else {
                         serializer.serialize_str(resolved.as_str())
                     }
-                } else if let Some(x) = List::from_value(self.value) {
+                } else if let Some(x) = ListRef::from_value(self.value) {
                     serializer.collect_seq(x.iter().map(|v| self.with_value(v)))
                 } else if let Some(x) = Tuple::from_value(self.value) {
                     serializer.collect_seq(x.iter().map(|v| self.with_value(v)))

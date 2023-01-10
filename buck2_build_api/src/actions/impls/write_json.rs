@@ -36,7 +36,6 @@ use serde::Serializer;
 use starlark::values::dict::Dict;
 use starlark::values::dict::DictRef;
 use starlark::values::enumeration::EnumValue;
-use starlark::values::list::List;
 use starlark::values::list::ListRef;
 use starlark::values::record::Record;
 use starlark::values::structs::StructRef;
@@ -154,7 +153,7 @@ fn unpack<'v>(value: Value<'v>) -> JsonUnpack<'v> {
         JsonUnpack::Number(x)
     } else if let Some(x) = value.unpack_bool() {
         JsonUnpack::Bool(x)
-    } else if let Some(x) = List::from_value(value) {
+    } else if let Some(x) = ListRef::from_value(value) {
         JsonUnpack::List(x)
     } else if let Some(x) = Tuple::from_value(value) {
         JsonUnpack::Tuple(x)

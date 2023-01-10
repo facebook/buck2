@@ -14,6 +14,7 @@ use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use gazebo::prelude::*;
 use starlark::values::list::List;
+use starlark::values::list::ListRef;
 use starlark::values::tuple::Tuple;
 use starlark::values::Value;
 
@@ -28,7 +29,7 @@ impl AttrTypeCoerce for ListAttrType {
         ctx: &dyn AttrCoercionContext,
         value: Value,
     ) -> anyhow::Result<AttrLiteral<CoercedAttr>> {
-        if let Some(list) = List::from_value(value) {
+        if let Some(list) = ListRef::from_value(value) {
             Ok(AttrLiteral::List(
                 list.content()
                     .try_map(|v| (self.inner).coerce(configurable, ctx, *v))?

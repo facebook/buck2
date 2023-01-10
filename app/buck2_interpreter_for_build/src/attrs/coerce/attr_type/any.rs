@@ -14,7 +14,7 @@ use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use starlark::values::dict::Dict;
-use starlark::values::list::List;
+use starlark::values::list::ListRef;
 use starlark::values::tuple::Tuple;
 use starlark::values::Value;
 
@@ -39,7 +39,7 @@ fn to_literal(value: Value) -> AttrLiteral<CoercedAttr> {
         )
     } else if let Some(x) = Tuple::from_value(value) {
         AttrLiteral::Tuple(x.iter().map(to_coerced_literal).collect())
-    } else if let Some(x) = List::from_value(value) {
+    } else if let Some(x) = ListRef::from_value(value) {
         AttrLiteral::List(x.iter().map(to_coerced_literal).collect(), AttrType::any())
     } else {
         AttrLiteral::String(value.to_str())

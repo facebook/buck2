@@ -22,7 +22,7 @@ use gazebo::prelude::*;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
-use starlark::values::list::List;
+use starlark::values::list::ListRef;
 use starlark::values::Freeze;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
@@ -164,7 +164,7 @@ impl<'v, V: ValueLike<'v>> TransitiveSetArgsProjectionGen<V> {
         }
 
         let value = v.to_value();
-        if let Some(values) = List::from_value(value) {
+        if let Some(values) = ListRef::from_value(value) {
             for v in values.content() {
                 v.as_command_line_err()?;
             }

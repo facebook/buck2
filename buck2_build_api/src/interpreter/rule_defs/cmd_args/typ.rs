@@ -33,7 +33,7 @@ use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::starlark_type;
-use starlark::values::list::List;
+use starlark::values::list::ListRef;
 use starlark::values::Freeze;
 use starlark::values::Freezer;
 use starlark::values::FrozenValue;
@@ -445,7 +445,7 @@ impl<'v> StarlarkCommandLine<'v> {
 
 impl<'v> StarlarkCommandLineDataGen<'v, Value<'v>> {
     fn add_value(&mut self, value: Value<'v>) -> anyhow::Result<()> {
-        if let Some(values) = List::from_value(value) {
+        if let Some(values) = ListRef::from_value(value) {
             self.add_values(values.content())?;
         } else {
             self.items.push(CommandLineArgGen::try_from_value(value)?);
@@ -467,7 +467,7 @@ impl<'v> StarlarkCommandLineDataGen<'v, Value<'v>> {
     /// Add values to the artifact that don't show up on the command line, but do for dependency
     fn add_hidden(&mut self, values: &[Value<'v>]) -> anyhow::Result<()> {
         for value in values {
-            if let Some(values) = List::from_value(*value) {
+            if let Some(values) = ListRef::from_value(*value) {
                 self.add_hidden(values.content())?;
             } else {
                 self.hidden.push(CommandLineArgGen::try_from_value(*value)?);

@@ -38,7 +38,7 @@ use starlark::starlark_simple_value;
 use starlark::starlark_type;
 use starlark::values::float::StarlarkFloat;
 use starlark::values::list::AllocList;
-use starlark::values::list::List;
+use starlark::values::list::ListRef;
 use starlark::values::none::NoneType;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
@@ -261,7 +261,7 @@ impl CliArgType {
                 }
             }
             CliArgType::List(inner) => {
-                let list = List::from_value(value).ok_or_else(|| {
+                let list = ListRef::from_value(value).ok_or_else(|| {
                     CliArgError::DefaultValueTypeError(self.dupe(), value.get_type().to_owned())
                 })?;
                 let mut result = vec![];

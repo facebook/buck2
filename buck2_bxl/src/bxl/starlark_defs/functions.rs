@@ -25,7 +25,7 @@ use gazebo::prelude::*;
 use starlark::environment::GlobalsBuilder;
 use starlark::starlark_module;
 use starlark::values::list::AllocList;
-use starlark::values::list::List;
+use starlark::values::list::ListRef;
 use starlark::values::Heap;
 use starlark::values::StringValue;
 use starlark::values::Value;
@@ -158,7 +158,7 @@ pub fn register_instant_function(builder: &mut GlobalsBuilder) {
 }
 
 fn value_to_providers_name<'v>(subtarget_name: Value<'v>) -> anyhow::Result<ProvidersName> {
-    let subtarget = if let Some(list) = List::from_value(subtarget_name) {
+    let subtarget = if let Some(list) = ListRef::from_value(subtarget_name) {
         list.iter()
             .map(|name| {
                 name.unpack_str()

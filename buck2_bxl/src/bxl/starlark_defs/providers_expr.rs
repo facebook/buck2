@@ -24,7 +24,7 @@ use buck2_node::nodes::unconfigured::TargetNode;
 use gazebo::dupe::Dupe;
 use itertools::Either;
 use starlark::eval::Evaluator;
-use starlark::values::list::List;
+use starlark::values::list::ListRef;
 use starlark::values::StarlarkValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
@@ -141,7 +141,7 @@ impl ProvidersExpr {
             } else if let Some(s) = value.downcast_ref::<StarlarkTargetSet<ConfiguredTargetNode>>()
             {
                 Some(Either::Left(s.iterate(eval.heap())?))
-            } else if let Some(iterable) = List::from_value(value) {
+            } else if let Some(iterable) = ListRef::from_value(value) {
                 Some(Either::Right(iterable.iter()))
             } else {
                 None

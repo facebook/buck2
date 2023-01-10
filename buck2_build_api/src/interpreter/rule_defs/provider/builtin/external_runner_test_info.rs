@@ -18,7 +18,7 @@ use gazebo::any::ProvidesStaticType;
 use gazebo::coerce::Coerce;
 use starlark::environment::GlobalsBuilder;
 use starlark::values::dict::Dict;
-use starlark::values::list::List;
+use starlark::values::list::ListRef;
 use starlark::values::none::NoneOr;
 use starlark::values::none::NoneType;
 use starlark::values::tuple::Tuple;
@@ -184,7 +184,7 @@ impl<'v> TestCommandMember<'v> {
 }
 
 fn iter_value<'v>(value: Value<'v>) -> anyhow::Result<impl Iterator<Item = Value<'v>> + 'v> {
-    match (List::from_value(value), Tuple::from_value(value)) {
+    match (ListRef::from_value(value), Tuple::from_value(value)) {
         (Some(list), None) => Ok(Either::Left(list.iter())),
         (None, Some(tuple)) => Ok(Either::Right(tuple.iter())),
         _ => Err(anyhow::anyhow!(
