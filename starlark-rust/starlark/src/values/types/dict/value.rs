@@ -132,12 +132,6 @@ impl AllocFrozenValue for FrozenDict {
 }
 
 impl<'v> Dict<'v> {
-    /// Downcast the value to a dict.
-    // TODO(nga): inline.
-    pub fn from_value(x: Value<'v>) -> Option<DictRef<'v>> {
-        DictRef::from_value(x)
-    }
-
     pub(crate) fn is_dict_type(x: TypeId) -> bool {
         x == TypeId::of::<DictGen<FrozenDict>>()
             || x == TypeId::of::<DictGen<RefCell<Dict<'static>>>>()
