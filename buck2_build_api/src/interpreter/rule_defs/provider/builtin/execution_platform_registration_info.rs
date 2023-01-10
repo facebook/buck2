@@ -14,7 +14,7 @@ use buck2_build_api_derive::internal_provider;
 use gazebo::any::ProvidesStaticType;
 use gazebo::coerce::Coerce;
 use starlark::environment::GlobalsBuilder;
-use starlark::values::list::FrozenList;
+use starlark::values::list::ListRef;
 use starlark::values::Freeze;
 use starlark::values::FrozenRef;
 use starlark::values::Trace;
@@ -45,7 +45,7 @@ impl FrozenExecutionPlatformRegistrationInfo {
     pub fn platforms(
         &self,
     ) -> anyhow::Result<Vec<FrozenRef<'static, FrozenExecutionPlatformInfo>>> {
-        FrozenList::from_frozen_value(&self.platforms)
+        ListRef::from_frozen_value(self.platforms)
             .ok_or_else(|| {
                 ExecutionPlatformRegistrationTypeError::ExpectedListOfPlatforms(
                     self.platforms.to_value().to_repr(),

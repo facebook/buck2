@@ -11,7 +11,7 @@ use buck2_core::buck_path::BuckPath;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_execute::artifact::source_artifact::SourceArtifact;
 use buck2_node::attrs::attr_type::source::SourceAttrType;
-use starlark::values::list::FrozenList;
+use starlark::values::list::ListRef;
 use starlark::values::Value;
 
 use crate::attrs::resolve::ctx::AttrResolutionContext;
@@ -38,7 +38,7 @@ pub(crate) trait SourceAttrTypeExt {
             .provider_collection()
             .default_info()
             .default_outputs_raw();
-        let res = FrozenList::from_frozen_value(&default_outputs)
+        let res = ListRef::from_frozen_value(default_outputs)
             .unwrap()
             .iter()
             .collect();

@@ -22,7 +22,6 @@ use starlark::eval::Evaluator;
 use starlark::values::dict::Dict;
 use starlark::values::dict::FrozenDict;
 use starlark::values::list::AllocList;
-use starlark::values::list::FrozenList;
 use starlark::values::list::ListRef;
 use starlark::values::none::NoneType;
 use starlark::values::type_repr::DictType;
@@ -187,7 +186,7 @@ impl FrozenDefaultInfo {
     ) -> anyhow::Result<
         impl Iterator<Item = anyhow::Result<FrozenRef<'static, StarlarkArtifact>>> + '_,
     > {
-        let list = FrozenList::from_frozen_value(&self.default_outputs)
+        let list = ListRef::from_frozen_value(self.default_outputs)
             .context("Should be list of artifacts")?;
 
         Ok(list.iter().map(|v| {
@@ -301,7 +300,7 @@ impl FrozenDefaultInfo {
         value: FrozenValue,
         mut processor: impl FnMut(Value) -> anyhow::Result<()>,
     ) -> anyhow::Result<()> {
-        let outputs_list = FrozenList::from_frozen_value(&value)
+        let outputs_list = ListRef::from_frozen_value(value)
             .unwrap_or_else(|| panic!("expected list, got `{:?}` from info `{:?}`", value, self));
 
         for value in outputs_list.iter() {
