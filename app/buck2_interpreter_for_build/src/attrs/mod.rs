@@ -8,7 +8,7 @@
  */
 
 use anyhow::Context;
-use buck2_core::quiet_soft_error;
+use buck2_core::soft_error;
 use buck2_node::attrs::attr::Attribute;
 use buck2_node::attrs::attr::CoercedValue;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
@@ -65,7 +65,7 @@ impl AttributeCoerceExt for Attribute {
                 .with_context(|| format!("when coercing attribute `{}`", param_name)),
             (Some(_), _) => {
                 if self.deprecated_default {
-                    quiet_soft_error!(
+                    soft_error!(
                         "attr_default",
                         anyhow::anyhow!(
                             "Use of attribute default for `{}`, when the attribute didn't specify a default",
