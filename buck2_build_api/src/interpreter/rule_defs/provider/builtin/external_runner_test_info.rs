@@ -17,7 +17,7 @@ use either::Either;
 use gazebo::any::ProvidesStaticType;
 use gazebo::coerce::Coerce;
 use starlark::environment::GlobalsBuilder;
-use starlark::values::dict::Dict;
+use starlark::values::dict::DictRef;
 use starlark::values::list::ListRef;
 use starlark::values::none::NoneOr;
 use starlark::values::none::NoneType;
@@ -138,7 +138,7 @@ impl FrozenExternalRunnerTestInfo {
 
     /// Access a specific executor override.
     pub fn executor_override(&self, key: &str) -> Option<&dyn StarlarkCommandExecutorConfigLike> {
-        let executor_overrides = Dict::from_value(self.executor_overrides.to_value()).unwrap();
+        let executor_overrides = DictRef::from_value(self.executor_overrides.to_value()).unwrap();
         executor_overrides
             .get_str(key)
             .map(|v| <dyn StarlarkCommandExecutorConfigLike>::from_value(v.to_value()).unwrap())
@@ -234,7 +234,7 @@ fn iter_test_env<'v>(
         return Either::Left(Either::Left(empty()));
     }
 
-    let env = match Dict::from_value(env) {
+    let env = match DictRef::from_value(env) {
         Some(env) => env,
         None => {
             return Either::Left(Either::Right(once(Err(anyhow::anyhow!(
@@ -296,7 +296,7 @@ fn iter_executor_overrides<'v>(
         return Either::Left(Either::Left(empty()));
     }
 
-    let executor_overrides = match Dict::from_value(executor_overrides) {
+    let executor_overrides = match DictRef::from_value(executor_overrides) {
         Some(executor_overrides) => executor_overrides,
         None => {
             return Either::Left(Either::Right(once(Err(anyhow::anyhow!(

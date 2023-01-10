@@ -33,7 +33,6 @@ use indexmap::IndexSet;
 use once_cell::sync::Lazy;
 use serde::Serialize;
 use serde::Serializer;
-use starlark::values::dict::Dict;
 use starlark::values::dict::DictRef;
 use starlark::values::enumeration::EnumValue;
 use starlark::values::list::ListRef;
@@ -157,7 +156,7 @@ fn unpack<'v>(value: Value<'v>) -> JsonUnpack<'v> {
         JsonUnpack::List(x)
     } else if let Some(x) = Tuple::from_value(value) {
         JsonUnpack::Tuple(x)
-    } else if let Some(x) = Dict::from_value(value) {
+    } else if let Some(x) = DictRef::from_value(value) {
         JsonUnpack::Dict(x)
     } else if let Some(x) = StructRef::from_value(value) {
         JsonUnpack::Struct(x)

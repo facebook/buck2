@@ -23,7 +23,7 @@ use buck2_common::executor_config::RemoteExecutorUseCase;
 use derive_more::Display;
 use gazebo::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
-use starlark::values::dict::Dict;
+use starlark::values::dict::DictRef;
 use starlark::values::none::NoneOr;
 use starlark::values::none::NoneType;
 use starlark::values::Freeze;
@@ -130,7 +130,7 @@ impl<'v> StarlarkCommandExecutorConfig<'v> {
             None
         };
         let remote_options = if self.remote_enabled {
-            let re_properties = Dict::from_value(self.remote_execution_properties.to_value())
+            let re_properties = DictRef::from_value(self.remote_execution_properties.to_value())
                 .ok_or_else(|| {
                     CommandExecutorConfigErrors::RePropertiesNotADict(
                         self.remote_execution_properties.to_value().to_repr(),

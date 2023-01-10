@@ -24,7 +24,7 @@ use gazebo::prelude::*;
 use indexmap::IndexSet;
 use itertools::Itertools;
 use once_cell::sync::Lazy;
-use starlark::values::dict::Dict;
+use starlark::values::dict::DictRef;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::Value;
 use starlark::values::ValueError;
@@ -96,7 +96,7 @@ impl UnregisteredSymlinkedDirAction {
     fn unpack_args(
         srcs: Value,
     ) -> Option<(Vec<(ArtifactGroup, PathBuf)>, SmallSet<ArtifactGroup>)> {
-        let srcs = Dict::from_value(srcs)?;
+        let srcs = DictRef::from_value(srcs)?;
 
         // This assignment doesn't look like it should be necessary, but we get an error if we
         // don't do it.

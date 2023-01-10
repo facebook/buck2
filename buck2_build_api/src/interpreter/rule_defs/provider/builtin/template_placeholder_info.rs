@@ -16,7 +16,7 @@ use gazebo::any::ProvidesStaticType;
 use gazebo::coerce::Coerce;
 use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
-use starlark::values::dict::Dict;
+use starlark::values::dict::DictRef;
 use starlark::values::dict::FrozenDict;
 use starlark::values::Freeze;
 use starlark::values::FrozenRef;
@@ -146,7 +146,7 @@ impl FrozenTemplatePlaceholderInfo {
 }
 
 fn verify_variables_type(field_key: &str, variables: Value) -> anyhow::Result<()> {
-    match Dict::from_value(variables) {
+    match DictRef::from_value(variables) {
         None => Err(TemplatePlaceholderInfoError::VariablesNotADict {
             field_key: field_key.to_owned(),
             value_repr: variables.to_repr(),
@@ -158,7 +158,7 @@ fn verify_variables_type(field_key: &str, variables: Value) -> anyhow::Result<()
                     continue;
                 }
 
-                if let Some(dict) = Dict::from_value(value) {
+                if let Some(dict) = DictRef::from_value(value) {
                     for (inner_key, value) in dict.iter() {
                         if value.as_command_line().is_none() {
                             return Err(

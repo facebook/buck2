@@ -228,7 +228,7 @@ fn register_output_stream(builder: &mut MethodsBuilder) {
                     serializer.collect_seq(x.iter().map(|v| self.with_value(v)))
                 } else if let Some(x) = Tuple::from_value(self.value) {
                     serializer.collect_seq(x.iter().map(|v| self.with_value(v)))
-                } else if let Some(x) = Dict::from_value(self.value) {
+                } else if let Some(x) = DictRef::from_value(self.value) {
                     serializer.collect_map(
                         x.iter()
                             .map(|(k, v)| (self.with_value(k), self.with_value(v))),

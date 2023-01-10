@@ -68,7 +68,7 @@ impl FrozenInstallInfo {
 
     pub fn get_files(&self) -> anyhow::Result<IndexMap<&str, Artifact>> {
         let mut artifacts: IndexMap<&str, Artifact> = IndexMap::new();
-        let files = Dict::from_value(self.files.to_value()).expect("Value is a Dict");
+        let files = DictRef::from_value(self.files.to_value()).expect("Value is a Dict");
         for (k, v) in files.deref().iter() {
             artifacts.insert(
                 k.unpack_str().expect("should be a string"),
@@ -104,7 +104,7 @@ fn validate_install_info<'v, V>(info: &InstallInfoGen<V>) -> anyhow::Result<()>
 where
     V: ValueLike<'v>,
 {
-    let files = Dict::from_value(info.files.to_value()).expect("Value is a Dict");
+    let files = DictRef::from_value(info.files.to_value()).expect("Value is a Dict");
     for (k, v) in files.deref().iter() {
         let (artifact, other_artifacts) = v
             .as_artifact()

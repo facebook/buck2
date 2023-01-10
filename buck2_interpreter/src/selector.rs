@@ -18,6 +18,7 @@ use starlark::eval::Evaluator;
 use starlark::starlark_complex_value;
 use starlark::starlark_type;
 use starlark::values::dict::Dict;
+use starlark::values::dict::DictRef;
 use starlark::values::Freeze;
 use starlark::values::Freezer;
 use starlark::values::FrozenValue;
@@ -100,7 +101,7 @@ impl<'v> Selector<'v> {
         if let Some(selector) = Selector::from_value(val) {
             match *selector {
                 SelectorGen::Inner(selector) => {
-                    let selector = Dict::from_value(selector).unwrap();
+                    let selector = DictRef::from_value(selector).unwrap();
                     let mut mapped = SmallMap::with_capacity(selector.len());
                     for (k, v) in selector.iter_hashed() {
                         mapped.insert_hashed(k, invoke(eval, func, v)?);
@@ -150,7 +151,7 @@ impl<'v> Selector<'v> {
         if let Some(selector) = Selector::from_value(val) {
             match *selector {
                 SelectorGen::Inner(selector) => {
-                    let selector = Dict::from_value(selector).unwrap();
+                    let selector = DictRef::from_value(selector).unwrap();
                     for v in selector.values() {
                         let result = invoke(eval, func, v)?;
                         if result {

@@ -17,7 +17,7 @@ use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
-use starlark::values::dict::Dict;
+use starlark::values::dict::DictRef;
 use starlark::values::Value;
 use thiserror::Error;
 
@@ -71,7 +71,7 @@ impl CoercedAttrExr for CoercedAttr {
 
             match *selector {
                 SelectorGen::Inner(v) => {
-                    if let Some(dict) = Dict::from_value(v) {
+                    if let Some(dict) = DictRef::from_value(v) {
                         let mut items = OrderedMap::with_capacity(dict.len());
                         let mut default = None;
                         for (k, v) in dict.iter() {

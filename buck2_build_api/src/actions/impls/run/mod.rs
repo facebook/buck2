@@ -30,7 +30,7 @@ use indexmap::indexmap;
 use indexmap::IndexSet;
 use itertools::Itertools;
 use serde_json::json;
-use starlark::values::dict::Dict;
+use starlark::values::dict::DictRef;
 use starlark::values::tuple::Tuple;
 use starlark::values::OwnedFrozenValue;
 use thiserror::Error;
@@ -159,7 +159,7 @@ impl RunAction {
         let env = if env.is_none() {
             Vec::new()
         } else {
-            let d = Dict::from_value(env)?;
+            let d = DictRef::from_value(env)?;
             let mut res = Vec::with_capacity(d.len());
             for (k, v) in d.iter() {
                 res.push((k.unpack_str()?, v.as_command_line()?));

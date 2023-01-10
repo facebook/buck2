@@ -26,6 +26,7 @@ use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::values::dict::Dict;
 use starlark::values::dict::DictOf;
+use starlark::values::dict::DictRef;
 use starlark::values::type_repr::DictType;
 use starlark::values::Freeze;
 use starlark::values::Heap;
@@ -53,7 +54,7 @@ pub(crate) struct ConfigurationInfoGen<V> {
 impl<'v, V: ValueLike<'v>> ConfigurationInfoGen<V> {
     pub fn to_configuration_data(&self) -> ConfigurationData {
         let constraints =
-            Dict::from_value(self.constraints.to_value()).expect("type checked on construction");
+            DictRef::from_value(self.constraints.to_value()).expect("type checked on construction");
         let mut converted_constraints = BTreeMap::new();
         for (k, v) in constraints.iter() {
             let key_target = StarlarkTargetLabel::from_value(k.to_value())
@@ -67,7 +68,7 @@ impl<'v, V: ValueLike<'v>> ConfigurationInfoGen<V> {
         }
 
         let values =
-            Dict::from_value(self.values.to_value()).expect("type checked on construction");
+            DictRef::from_value(self.values.to_value()).expect("type checked on construction");
         let mut converted_values = BTreeMap::new();
         for (k, v) in values.iter() {
             let key_config = k.to_value().to_str();

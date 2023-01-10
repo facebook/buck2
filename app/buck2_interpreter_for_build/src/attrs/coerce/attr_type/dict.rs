@@ -15,6 +15,7 @@ use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use starlark::values::dict::Dict;
+use starlark::values::dict::DictRef;
 use starlark::values::Value;
 
 use crate::attrs::coerce::attr_type::AttrTypeExt;
@@ -28,7 +29,7 @@ impl AttrTypeCoerce for DictAttrType {
         ctx: &dyn AttrCoercionContext,
         value: Value,
     ) -> anyhow::Result<AttrLiteral<CoercedAttr>> {
-        if let Some(dict) = Dict::from_value(value) {
+        if let Some(dict) = DictRef::from_value(value) {
             let mut res = Vec::with_capacity(dict.len());
             if self.sorted {
                 // First sort the values
