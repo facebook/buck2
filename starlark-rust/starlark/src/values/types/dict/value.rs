@@ -290,7 +290,7 @@ impl<'v> Dict<'v> {
 
 impl FrozenDict {
     /// Iterate through the key/value pairs in the dictionary.
-    pub fn iter<'a>(&'a self) -> impl Iterator<Item = (FrozenValue, FrozenValue)> + 'a {
+    pub fn iter<'a>(&'a self) -> impl ExactSizeIterator<Item = (FrozenValue, FrozenValue)> + 'a {
         self.content.iter().map(|(l, r)| (*l, *r))
     }
 

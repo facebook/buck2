@@ -24,5 +24,6 @@ pub(crate) mod value;
 pub use crate::values::dict::of::DictOf;
 pub use crate::values::dict::refs::DictMut;
 pub use crate::values::dict::refs::DictRef;
+pub use crate::values::dict::refs::FrozenDictRef;
 pub use crate::values::dict::value::Dict;
 pub use crate::values::dict::value::FrozenDict;

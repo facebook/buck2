@@ -62,7 +62,7 @@ use crate::eval::Evaluator;
 use crate::eval::ParametersSpec;
 use crate::sealed::Sealed;
 use crate::values::demand::request_value_impl;
-use crate::values::dict::FrozenDict;
+use crate::values::dict::FrozenDictRef;
 use crate::values::enumeration::EnumType;
 use crate::values::enumeration::FrozenEnumValue;
 use crate::values::float::StarlarkFloat;
@@ -965,7 +965,7 @@ impl FrozenValue {
             || self.unpack_int().is_some()
             || FrozenValueTyped::<StarlarkFloat>::new(self).is_some()
             || FrozenListData::from_frozen_value(&self).is_some()
-            || FrozenDict::from_frozen_value(&self).is_some()
+            || FrozenDictRef::from_frozen_value(self).is_some()
             || FrozenValueTyped::<FrozenTuple>::new(self).is_some()
             || FrozenValueTyped::<Range>::new(self).is_some()
             || FrozenValueTyped::<FrozenDef>::new(self).is_some()

@@ -27,6 +27,7 @@ use crate::values::dict::value::DictGen;
 use crate::values::dict::Dict;
 use crate::values::dict::FrozenDict;
 use crate::values::type_repr::StarlarkTypeRepr;
+use crate::values::FrozenValue;
 use crate::values::UnpackValue;
 use crate::values::Value;
 use crate::values::ValueError;
@@ -40,6 +41,11 @@ pub struct DictRef<'v> {
 /// Mutably borrowed `Dict`.
 pub struct DictMut<'v> {
     pub(crate) aref: RefMut<'v, Dict<'v>>,
+}
+
+/// Reference to frozen `Dict`.
+pub struct FrozenDictRef {
+    dict: &'static FrozenDict,
 }
 
 impl<'v> DictRef<'v> {
@@ -84,6 +90,24 @@ impl<'v> DictMut<'v> {
                 Err(_) => Err(ValueError::MutationDuringIteration.into()),
             },
         }
+    }
+}
+
+impl FrozenDictRef {
+    /// Downcast to frozen dict.
+    pub fn from_frozen_value(x: FrozenValue) -> Option<FrozenDictRef> {
+        x.downcast_ref::<DictGen<FrozenDict>>()
+            .map(|x| FrozenDictRef { dict: &x.0 })
+    }
+
+    /// Get value by a string key.
+    pub fn get_str(&self, key: &str) -> Option<FrozenValue> {
+        self.dict.get_str(key)
+    }
+
+    /// Iterate over dict entries.
+    pub fn iter(&self) -> impl ExactSizeIterator<Item = (FrozenValue, FrozenValue)> {
+        self.dict.iter()
     }
 }
 
