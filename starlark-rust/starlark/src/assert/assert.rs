@@ -23,6 +23,7 @@
 #![allow(clippy::if_then_panic)]
 
 use std::collections::HashMap;
+use std::iter;
 
 use gazebo::prelude::*;
 use once_cell::sync::Lazy;
@@ -32,7 +33,6 @@ use crate::codemap::CodeMap;
 use crate::codemap::FileSpanRef;
 use crate::codemap::Pos;
 use crate::codemap::Span;
-use crate::collections::SmallMap;
 use crate::environment::FrozenModule;
 use crate::environment::Globals;
 use crate::environment::GlobalsBuilder;
@@ -47,6 +47,7 @@ use crate::syntax::AstModule;
 use crate::syntax::Dialect;
 use crate::values::none::NoneType;
 use crate::values::structs::AllocStruct;
+use crate::values::AllocValue;
 use crate::values::Heap;
 use crate::values::OwnedFrozenValue;
 use crate::values::Value;
@@ -161,8 +162,8 @@ pub(crate) fn test_functions(builder: &mut GlobalsBuilder) {
     const fibonacci: Vec<i32> = vec![0, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89];
 
     // Approximate version of a method used by the Go test suite
-    fn hasfields<'v>() -> anyhow::Result<AllocStruct<SmallMap<String, String>>> {
-        Ok(AllocStruct(SmallMap::new()))
+    fn hasfields<'v>() -> anyhow::Result<impl AllocValue<'v>> {
+        Ok(AllocStruct(iter::empty::<(String, String)>()))
     }
 
     // Approximate version of a method used by the Go test suite
