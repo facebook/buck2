@@ -15,8 +15,6 @@
  * limitations under the License.
  */
 
-//! The list type, a mutable sequence of values.
-
 use std::any::TypeId;
 use std::cell::Cell;
 use std::cmp;
@@ -25,14 +23,11 @@ use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
 use std::fmt::Formatter;
-use std::marker::PhantomData;
-use std::ops::Deref;
 use std::slice;
 
 use allocative::Allocative;
 use gazebo::any::ProvidesStaticType;
 use gazebo::coerce::coerce;
-use gazebo::coerce::Coerce;
 use gazebo::display::display_container;
 use gazebo::prelude::*;
 use serde::Serialize;
@@ -49,6 +44,7 @@ use crate::values::comparison::equals_slice;
 use crate::values::error::ValueError;
 use crate::values::index::apply_slice;
 use crate::values::index::convert_index;
+use crate::values::list::ListRef;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
@@ -112,32 +108,6 @@ impl Debug for FrozenList {
 impl ListGen<FrozenList> {
     pub(crate) fn offset_of_content() -> usize {
         memoffset::offset_of!(FrozenList, content)
-    }
-}
-
-/// Reference to list content.
-#[repr(transparent)]
-#[derive(Coerce)]
-pub struct ListRef<'v> {
-    content: [Value<'v>],
-}
-
-impl<'v> ListRef<'v> {
-    fn new<'a>(slice: &'a [Value<'v>]) -> &'a ListRef<'v> {
-        coerce(slice)
-    }
-
-    /// List elements.
-    pub fn content(&self) -> &[Value<'v>] {
-        &self.content
-    }
-
-    /// Iterate over the elements in the list.
-    pub fn iter<'a>(&'a self) -> impl ExactSizeIterator<Item = Value<'v>> + 'a
-    where
-        'v: 'a,
-    {
-        self.content.iter().copied()
     }
 }
 
@@ -269,14 +239,6 @@ impl<'v> List<'v> {
     }
 }
 
-impl<'v> Deref for ListRef<'v> {
-    type Target = [Value<'v>];
-
-    fn deref(&self) -> &[Value<'v>] {
-        &self.content
-    }
-}
-
 impl<'v, V: AllocValue<'v>> AllocValue<'v> for Vec<V> {
     fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
         heap.alloc_list_iter(self.into_map(|x| x.alloc_value(heap)))
@@ -396,12 +358,6 @@ impl<'v> Display for List<'v> {
 impl Display for FrozenList {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         display_list(coerce(&self.content()), f)
-    }
-}
-
-impl<'v> Display for ListRef<'v> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        display_list(&self.content, f)
     }
 }
 
@@ -618,73 +574,6 @@ impl<'v, T: ListLike<'v>> Serialize for ListGen<T> {
         S: serde::Serializer,
     {
         serializer.collect_seq(self.0.content().iter())
-    }
-}
-
-/// Like `ValueOf`, but only validates item types; does not construct or store a
-/// vec. Use `to_vec` to get a Vec.
-#[derive(Debug, Trace)]
-pub struct ListOf<'v, V: UnpackValue<'v>> {
-    value: Value<'v>,
-    phantom: PhantomData<V>,
-}
-
-impl<'v, V: UnpackValue<'v>> ListOf<'v, V> {
-    /// Collect the list elements into a `Vec`.
-    pub fn to_vec(&self) -> Vec<V> {
-        List::from_value(self.value)
-            .expect("already validated as a list")
-            .iter()
-            .map(|v| V::unpack_value(v).expect("already validated value"))
-            .collect()
-    }
-}
-
-impl<'v> StarlarkTypeRepr for &'v ListRef<'v> {
-    fn starlark_type_repr() -> String {
-        Vec::<Value<'v>>::starlark_type_repr()
-    }
-}
-
-impl<'v> UnpackValue<'v> for &'v ListRef<'v> {
-    fn expected() -> String {
-        "list".to_owned()
-    }
-
-    fn unpack_value(value: Value<'v>) -> Option<Self> {
-        List::from_value(value)
-    }
-}
-
-impl<'v, V: UnpackValue<'v>> StarlarkTypeRepr for ListOf<'v, V> {
-    fn starlark_type_repr() -> String {
-        Vec::<V>::starlark_type_repr()
-    }
-}
-
-impl<'v, V: UnpackValue<'v>> UnpackValue<'v> for ListOf<'v, V> {
-    fn expected() -> String {
-        format!("list of {}", V::expected())
-    }
-
-    fn unpack_value(value: Value<'v>) -> Option<Self> {
-        let list = List::from_value(value)?;
-        if list.iter().all(|v| V::unpack_value(v).is_some()) {
-            Some(ListOf {
-                value,
-                phantom: PhantomData,
-            })
-        } else {
-            None
-        }
-    }
-}
-
-impl<'v, V: UnpackValue<'v>> Deref for ListOf<'v, V> {
-    type Target = Value<'v>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.value
     }
 }
 

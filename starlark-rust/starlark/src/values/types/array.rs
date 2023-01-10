@@ -32,7 +32,7 @@ use gazebo::any::ProvidesStaticType;
 use serde::Serialize;
 
 use crate::private::Private;
-use crate::values::types::list::display_list;
+use crate::values::types::list::value::display_list;
 use crate::values::StarlarkValue;
 use crate::values::Value;
 
