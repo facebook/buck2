@@ -133,17 +133,9 @@ impl AllocFrozenValue for FrozenDict {
 
 impl<'v> Dict<'v> {
     /// Downcast the value to a dict.
+    // TODO(nga): inline.
     pub fn from_value(x: Value<'v>) -> Option<DictRef<'v>> {
-        if x.unpack_frozen().is_some() {
-            x.downcast_ref::<DictGen<FrozenDict>>().map(|x| DictRef {
-                aref: ARef::new_ptr(coerce(&x.0)),
-            })
-        } else {
-            let ptr = x.downcast_ref::<DictGen<RefCell<Dict<'v>>>>()?;
-            Some(DictRef {
-                aref: ARef::new_ref(ptr.0.borrow()),
-            })
-        }
+        DictRef::from_value(x)
     }
 
     pub(crate) fn is_dict_type(x: TypeId) -> bool {
@@ -415,7 +407,7 @@ where
     }
 
     fn equals(&self, other: Value<'v>) -> anyhow::Result<bool> {
-        match Dict::from_value(other) {
+        match DictRef::from_value(other) {
             None => Ok(false),
             Some(other) => {
                 equals_small_map(&*self.0.content(), &other.content, |x, y| x.equals(*y))
@@ -467,7 +459,7 @@ where
     }
 
     fn bit_or(&self, rhs: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        let rhs = Dict::from_value(rhs)
+        let rhs = DictRef::from_value(rhs)
             .map_or_else(|| ValueError::unsupported_with(self, "|", rhs), Ok)?;
         if self.0.content().is_empty() {
             return Ok(heap.alloc(rhs.clone()));
@@ -504,7 +496,7 @@ impl<'v, K: UnpackValue<'v> + Hash + Eq, V: UnpackValue<'v>> UnpackValue<'v> for
     }
 
     fn unpack_value(value: Value<'v>) -> Option<Self> {
-        let dict = Dict::from_value(value)?;
+        let dict = DictRef::from_value(value)?;
         let mut r = SmallMap::new();
         for (k, v) in dict.content.iter() {
             r.insert(K::unpack_value(*k)?, V::unpack_value(*v)?);

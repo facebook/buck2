@@ -22,7 +22,6 @@ use std::mem;
 use crate as starlark;
 use crate::environment::MethodsBuilder;
 use crate::hint::unlikely;
-use crate::values::dict::Dict;
 use crate::values::dict::DictMut;
 use crate::values::dict::DictRef;
 use crate::values::none::NoneType;
@@ -325,7 +324,7 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
 
         let mut this = DictMut::from_value(this)?;
         if let Some(pairs) = pairs {
-            if let Some(dict) = Dict::from_value(pairs) {
+            if let Some(dict) = DictRef::from_value(pairs) {
                 for (k, v) in dict.iter_hashed() {
                     this.insert_hashed(k, v);
                 }

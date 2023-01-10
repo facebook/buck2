@@ -29,6 +29,7 @@ use crate::eval::Arguments;
 use crate::eval::Evaluator;
 use crate::values::bool::BOOL_TYPE;
 use crate::values::dict::Dict;
+use crate::values::dict::DictRef;
 use crate::values::float::StarlarkFloat;
 use crate::values::int::INT_TYPE;
 use crate::values::list::AllocList;
@@ -267,7 +268,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
         match pos {
             None => Ok(kwargs),
             Some(pos) => {
-                let mut result = match Dict::from_value(pos) {
+                let mut result = match DictRef::from_value(pos) {
                     Some(pos) => {
                         let mut result = pos.clone();
                         result.reserve(kwargs.len());

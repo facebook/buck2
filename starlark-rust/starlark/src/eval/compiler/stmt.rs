@@ -58,6 +58,7 @@ use crate::syntax::ast::DefP;
 use crate::syntax::ast::StmtP;
 use crate::values::dict::Dict;
 use crate::values::dict::DictMut;
+use crate::values::dict::DictRef;
 use crate::values::list::List;
 use crate::values::FrozenHeap;
 use crate::values::FrozenValue;
@@ -594,7 +595,7 @@ pub(crate) fn bit_or_assign<'v>(
         if lhs.ptr_eq(rhs) {
             // Nothing to do as union is idempotent
         } else {
-            let rhs = Dict::from_value(rhs).map_or_else(
+            let rhs = DictRef::from_value(rhs).map_or_else(
                 || ValueError::unsupported_owned(lhs_aref.get_type(), "|=", Some(rhs.get_type())),
                 Ok,
             )?;

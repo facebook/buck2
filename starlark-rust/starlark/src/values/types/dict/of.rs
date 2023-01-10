@@ -22,7 +22,7 @@ use std::ops::Deref;
 use starlark_map::small_map::SmallMap;
 
 use crate as starlark;
-use crate::values::dict::Dict;
+use crate::values::dict::DictRef;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::UnpackValue;
 use crate::values::Value;
@@ -39,7 +39,7 @@ impl<'v, K: UnpackValue<'v>, V: UnpackValue<'v>> DictOf<'v, K, V> {
     /// Get all the elements.
     // This should return an iterator, but it is not trivial to do with `ARef`.
     pub fn collect_entries(&self) -> Vec<(K, V)> {
-        Dict::from_value(self.value)
+        DictRef::from_value(self.value)
             .expect("already validated as a dict")
             .iter()
             .map(|(k, v)| {
@@ -55,7 +55,7 @@ impl<'v, K: UnpackValue<'v>, V: UnpackValue<'v>> DictOf<'v, K, V> {
 impl<'v, K: UnpackValue<'v> + Hash + Eq, V: UnpackValue<'v>> DictOf<'v, K, V> {
     /// Collect all the elements to a fresh `SmallMap`.
     pub fn to_dict(&self) -> SmallMap<K, V> {
-        Dict::from_value(self.value)
+        DictRef::from_value(self.value)
             .expect("already validated as a dict")
             .iter()
             .map(|(k, v)| {
@@ -84,7 +84,7 @@ impl<'v, K: UnpackValue<'v>, V: UnpackValue<'v>> UnpackValue<'v> for DictOf<'v, 
     }
 
     fn unpack_value(value: Value<'v>) -> Option<Self> {
-        let dict = Dict::from_value(value)?;
+        let dict = DictRef::from_value(value)?;
         let all_valid = dict
             .iter()
             .all(|(k, v)| K::unpack_value(k).is_some() && V::unpack_value(v).is_some());

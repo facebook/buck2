@@ -215,7 +215,7 @@ impl TypeCompiled {
 
         impl TypeCompiledImpl for IsDict {
             fn matches(&self, value: Value) -> bool {
-                Dict::from_value(value).is_some()
+                DictRef::from_value(value).is_some()
             }
         }
 
@@ -228,7 +228,7 @@ impl TypeCompiled {
 
         impl TypeCompiledImpl for IsDictOf {
             fn matches(&self, value: Value) -> bool {
-                match Dict::from_value(value) {
+                match DictRef::from_value(value) {
                     None => false,
                     Some(dict) => dict
                         .iter()
@@ -347,7 +347,7 @@ impl TypeCompiled {
             TypeCompiled::from_tuple(t, heap)
         } else if let Some(t) = ListRef::from_value(ty) {
             TypeCompiled::from_list(t, heap)
-        } else if let Some(t) = Dict::from_value(ty) {
+        } else if let Some(t) = DictRef::from_value(ty) {
             TypeCompiled::from_dict(t, heap)
         } else {
             Err(invalid_type_annotation(ty, heap).into())

@@ -21,6 +21,7 @@ use std::ops::Deref;
 use std::ops::DerefMut;
 
 use gazebo::cell::ARef;
+use gazebo::coerce::coerce;
 
 use crate::values::dict::value::DictGen;
 use crate::values::dict::Dict;
@@ -39,6 +40,22 @@ pub struct DictRef<'v> {
 /// Mutably borrowed `Dict`.
 pub struct DictMut<'v> {
     pub(crate) aref: RefMut<'v, Dict<'v>>,
+}
+
+impl<'v> DictRef<'v> {
+    /// Downcast the value to a dict.
+    pub fn from_value(x: Value<'v>) -> Option<DictRef<'v>> {
+        if x.unpack_frozen().is_some() {
+            x.downcast_ref::<DictGen<FrozenDict>>().map(|x| DictRef {
+                aref: ARef::new_ptr(coerce(&x.0)),
+            })
+        } else {
+            let ptr = x.downcast_ref::<DictGen<RefCell<Dict<'v>>>>()?;
+            Some(DictRef {
+                aref: ARef::new_ref(ptr.0.borrow()),
+            })
+        }
+    }
 }
 
 impl<'v> DictMut<'v> {
@@ -104,6 +121,6 @@ impl<'v> UnpackValue<'v> for DictRef<'v> {
     }
 
     fn unpack_value(value: Value<'v>) -> Option<DictRef<'v>> {
-        Dict::from_value(value)
+        DictRef::from_value(value)
     }
 }

@@ -344,7 +344,7 @@ impl<'v, 'a> Arguments<'v, 'a> {
     pub fn unpack_kwargs(&self) -> anyhow::Result<Option<DictRef<'v>>> {
         match self.0.kwargs {
             None => Ok(None),
-            Some(kwargs) => match Dict::from_value(kwargs) {
+            Some(kwargs) => match DictRef::from_value(kwargs) {
                 None => Err(FunctionError::KwArgsIsNotDict.into()),
                 Some(x) => Ok(Some(x)),
             },

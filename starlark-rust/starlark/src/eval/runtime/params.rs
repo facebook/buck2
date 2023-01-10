@@ -40,6 +40,7 @@ use crate::eval::Arguments;
 use crate::eval::Evaluator;
 use crate::hint::unlikely;
 use crate::values::dict::Dict;
+use crate::values::dict::DictRef;
 use crate::values::Heap;
 use crate::values::StringValue;
 use crate::values::UnpackValue;
@@ -512,7 +513,7 @@ impl<'v, V: ValueLike<'v>> ParametersSpec<V> {
 
         // Now insert the kwargs, if there are any
         if let Some(param_kwargs) = args.kwargs() {
-            match Dict::from_value(param_kwargs) {
+            match DictRef::from_value(param_kwargs) {
                 Some(y) => {
                     for (k, v) in y.iter_hashed() {
                         match StringValue::new(*k.key()) {
