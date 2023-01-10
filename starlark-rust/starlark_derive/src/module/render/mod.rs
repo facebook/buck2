@@ -28,6 +28,7 @@ use crate::module::render::fun::render_fun;
 use crate::module::typ::SpecialParam;
 use crate::module::typ::StarAttr;
 use crate::module::typ::StarConst;
+use crate::module::typ::StarFun;
 use crate::module::typ::StarModule;
 use crate::module::typ::StarStmt;
 use crate::module::util::ident_string;
@@ -224,6 +225,24 @@ pub(crate) fn render_starlark_type(
         }
         Some(t) => {
             quote_spanned! {span=> #t.to_owned()}
+        }
+    }
+}
+
+pub(crate) fn render_starlark_return_type(
+    fun: &StarFun,
+    // If the user supplied a Starlark version of the string, pass it along
+    starlark_type: &Option<String>,
+) -> TokenStream {
+    match starlark_type {
+        None => {
+            let struct_name = fun.struct_name();
+            quote_spanned! {fun.span()=>
+                #struct_name::return_type_starlark_type_repr()
+            }
+        }
+        Some(t) => {
+            quote_spanned! {fun.span()=> #t.to_owned()}
         }
     }
 }

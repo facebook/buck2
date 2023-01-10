@@ -104,8 +104,6 @@ pub(crate) struct StarFun {
     pub eval: Option<SpecialParam>,
     /// `anyhow::Result<T>`.
     pub return_type: Type,
-    /// `T`.
-    pub return_type_arg: Type,
     pub starlark_return_type: Option<String>,
     pub speculative_exec_safe: bool,
     pub body: Block,

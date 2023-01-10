@@ -374,7 +374,6 @@ pub(crate) fn parse_fun(func: ItemFn, module_kind: ModuleKind) -> syn::Result<St
             heap,
             eval,
             return_type,
-            return_type_arg,
             starlark_return_type,
             speculative_exec_safe,
             body: *func.block,

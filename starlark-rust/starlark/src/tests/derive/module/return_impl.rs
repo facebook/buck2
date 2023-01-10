@@ -15,11 +15,14 @@
  * limitations under the License.
  */
 
-mod basic;
-mod default_value;
-mod methods;
-mod named_positional;
-mod return_impl;
-mod special_params;
-mod type_annotation;
-mod unpack_value;
+use crate as starlark;
+use crate::environment::GlobalsBuilder;
+use crate::values::AllocValue;
+use crate::values::Value;
+
+#[starlark_module]
+fn _test_return_impl_alloc_value(globals: &mut GlobalsBuilder) {
+    fn func<'v>(v: Value<'v>) -> anyhow::Result<impl AllocValue<'v>> {
+        Ok(v)
+    }
+}

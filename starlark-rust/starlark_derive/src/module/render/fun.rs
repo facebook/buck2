@@ -20,9 +20,11 @@ use proc_macro2::Ident;
 use proc_macro2::TokenStream;
 use quote::format_ident;
 use quote::quote_spanned;
+use syn::spanned::Spanned;
 use syn::Attribute;
 use syn::Type;
 
+use crate::module::render::render_starlark_return_type;
 use crate::module::render::render_starlark_type;
 use crate::module::typ::SpecialParam;
 use crate::module::typ::StarArg;
@@ -50,55 +52,88 @@ impl StarFun {
     }
 
     /// Evaluator function parameter and call argument.
-    fn eval_param_arg(&self) -> (Option<TokenStream>, Option<TokenStream>) {
+    fn eval_param_arg(
+        &self,
+    ) -> (
+        Option<TokenStream>,
+        Option<TokenStream>,
+        Option<TokenStream>,
+    ) {
         if let Some(SpecialParam { ident, ty }) = &self.eval {
             (
                 Some(quote_spanned! {self.span()=>
                     #ident: #ty,
                 }),
                 Some(quote_spanned! {self.span()=>
+                    #ty,
+                }),
+                Some(quote_spanned! {self.span()=>
                     eval,
                 }),
             )
         } else {
-            (None, None)
+            (None, None, None)
         }
     }
 
     /// Heap function parameter and call argument.
-    fn heap_param_arg(&self) -> (Option<TokenStream>, Option<TokenStream>) {
+    fn heap_param_arg(
+        &self,
+    ) -> (
+        Option<TokenStream>,
+        Option<TokenStream>,
+        Option<TokenStream>,
+    ) {
         if let Some(SpecialParam { ident, ty }) = &self.heap {
             (
                 Some(quote_spanned! {self.span()=>
                     #ident: #ty,
                 }),
                 Some(quote_spanned! {self.span()=>
+                    #ty,
+                }),
+                Some(quote_spanned! {self.span()=>
                     eval.heap(),
                 }),
             )
         } else {
-            (None, None)
+            (None, None, None)
         }
     }
 
     /// `this` param if needed and call argument.
-    fn this_param_arg(&self) -> (Option<TokenStream>, Option<TokenStream>) {
+    fn this_param_arg(
+        &self,
+    ) -> (
+        Option<TokenStream>,
+        Option<TokenStream>,
+        Option<TokenStream>,
+    ) {
         if self.is_method() {
             (
                 Some(quote_spanned! {self.span()=> __this: starlark::values::Value<'v>, }),
+                Some(quote_spanned! {self.span()=> starlark::values::Value<'v>, }),
                 Some(quote_spanned! {self.span()=> __this, }),
             )
         } else {
-            (None, None)
+            (None, None, None)
         }
     }
 
     /// Non-special params.
-    fn binding_params_arg(&self) -> (Vec<TokenStream>, TokenStream, Vec<TokenStream>) {
+    fn binding_params_arg(
+        &self,
+    ) -> (
+        Vec<TokenStream>,
+        Vec<TokenStream>,
+        TokenStream,
+        Vec<TokenStream>,
+    ) {
         let Bindings { prepare, bindings } = render_binding(self);
         let binding_params: Vec<_> = bindings.map(|b| b.render_param());
+        let binding_param_types: Vec<_> = bindings.map(|b| b.render_param_type());
         let binding_args: Vec<_> = bindings.map(|b| b.render_arg());
-        (binding_params, prepare, binding_args)
+        (binding_params, binding_param_types, prepare, binding_args)
     }
 
     fn trait_name(&self) -> TokenStream {
@@ -113,7 +148,7 @@ impl StarFun {
         ident_string(&self.name)
     }
 
-    fn struct_name(&self) -> Ident {
+    pub(crate) fn struct_name(&self) -> Ident {
         format_ident!("Impl_{}", self.name_str())
     }
 
@@ -187,10 +222,10 @@ pub(crate) fn render_fun(x: StarFun) -> syn::Result<TokenStream> {
 
     let (documentation_var, documentation) = render_documentation(&x)?;
 
-    let (this_param, this_arg) = x.this_param_arg();
-    let (eval_param, eval_arg) = x.eval_param_arg();
-    let (heap_param, heap_arg) = x.heap_param_arg();
-    let (binding_params, prepare, binding_args) = x.binding_params_arg();
+    let (this_param, this_param_type, this_arg) = x.this_param_arg();
+    let (eval_param, eval_param_type, eval_arg) = x.eval_param_arg();
+    let (heap_param, heap_param_type, heap_arg) = x.heap_param_arg();
+    let (binding_params, binding_param_types, prepare, binding_args) = x.binding_params_arg();
 
     let trait_name = x.trait_name();
     let (struct_fields, struct_fields_init) = x.struct_fields()?;
@@ -224,6 +259,26 @@ pub(crate) fn render_fun(x: StarFun) -> syn::Result<TokenStream> {
                 #heap_param
             ) -> #return_type {
                 #body
+            }
+
+            // When function signature declares return type as `anyhow::Result<impl AllocValue>`,
+            // we cannot call `T::starlark_type_repr` to render documentation, because there's no T.
+            // Future Rust will provide syntax `type ReturnType = impl AllocValue`:
+            // https://github.com/rust-lang/rfcs/pull/2515
+            // Until then we use this hack as a workaround.
+            #[allow(dead_code)] // Function is not used when return type is specified explicitly.
+            fn return_type_starlark_type_repr() -> std::string::String {
+                fn get_impl<'v, T: starlark::values::AllocValue<'v>>(
+                    _f: fn(
+                        #this_param_type
+                        #( #binding_param_types, )*
+                        #eval_param_type
+                        #heap_param_type
+                    ) -> anyhow::Result<T>,
+                ) -> std::string::String {
+                    <T as starlark::values::type_repr::StarlarkTypeRepr>::starlark_type_repr()
+                }
+                get_impl(Self::invoke_impl)
             }
         }
 
@@ -348,10 +403,17 @@ struct BindingArg {
 }
 
 impl BindingArg {
+    fn render_param_type(&self) -> TokenStream {
+        let BindingArg { ty, .. } = self;
+        quote_spanned! { ty.span()=>
+            #ty
+        }
+    }
+
     fn render_param(&self) -> TokenStream {
         let mutability = &self.mutability;
         let name = &self.name;
-        let ty = &self.ty;
+        let ty = self.render_param_type();
         let attrs = &self.attrs;
         quote_spanned! {
             self.name.span()=>
@@ -460,7 +522,6 @@ fn render_documentation(x: &StarFun) -> syn::Result<(Ident, TokenStream)> {
         Some(d) => quote_spanned!(span=> Some(#d)),
         None => quote_spanned!(span=> None),
     };
-    let return_type_arg = &x.return_type_arg;
     let parameter_types: Vec<_> = x
         .args
         .iter()
@@ -472,7 +533,7 @@ fn render_documentation(x: &StarFun) -> syn::Result<(Ident, TokenStream)> {
         })
         .collect();
 
-    let return_type_str = render_starlark_type(span, return_type_arg, &x.starlark_return_type);
+    let return_type_str = render_starlark_return_type(x, &x.starlark_return_type);
     let var_name = format_ident!("__documentation");
     let documentation = quote_spanned!(span=>
         let #var_name = {
