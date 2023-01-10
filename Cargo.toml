@@ -242,6 +242,3 @@ incremental = true
 
 [profile.bench]
 incremental = true
-
-[patch.crates-io]
-libbpf-rs = { git = 'https://github.com/krallin/libbpf-rs', rev = '5dde4d9f2bc222559afcbe68277da317e6de6776' } # https://github.com/libbpf/libbpf-rs/issues/303
