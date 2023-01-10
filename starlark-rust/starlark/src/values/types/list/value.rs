@@ -112,12 +112,6 @@ impl ListGen<FrozenList> {
 }
 
 impl<'v> List<'v> {
-    /// Downcast the list.
-    // TODO(nga): inline.
-    pub fn from_value(x: Value<'v>) -> Option<&'v ListRef<'v>> {
-        ListRef::from_value(x)
-    }
-
     #[inline]
     pub(crate) fn from_value_mut(x: Value<'v>) -> anyhow::Result<&'v Self> {
         #[derive(thiserror::Error, Debug)]
