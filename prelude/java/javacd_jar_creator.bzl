@@ -148,7 +148,13 @@ def create_jar_artifact_javacd(
         )
 
     # buildifier: disable=uninitialized
-    def define_javacd_action(actions_identifier: [str.type, None], encoded_command: struct.type, qualified_name: str.type, output_paths: OutputPaths.type, path_to_class_hashes: ["artifact", None]):
+    def define_javacd_action(
+            category_prefix: str.type,
+            actions_identifier: [str.type, None],
+            encoded_command: struct.type,
+            qualified_name: str.type,
+            output_paths: OutputPaths.type,
+            path_to_class_hashes: ["artifact", None]):
         proto = declare_prefixed_output(actions, actions_identifier, "jar_command.proto.json")
 
         classpath_jars_tag = actions.artifact_tag()
@@ -195,13 +201,20 @@ def create_jar_artifact_javacd(
                 "BUCK_EVENT_PIPE": event_pipe_out.as_output(),
                 "JAVACD_ABSOLUTE_PATHS_ARE_RELATIVE_TO_CWD": "1",
             },
-            category = "javacd_jar",
+            category = "{}javacd_jar".format(category_prefix),
             identifier = actions_identifier,
             dep_files = dep_files,
         )
 
     command = encode_library_command(output_paths, path_to_class_hashes_out)
-    define_javacd_action(actions_identifier, command, base_qualified_name(label), output_paths, path_to_class_hashes_out)
+    define_javacd_action(
+        "",
+        actions_identifier,
+        command,
+        base_qualified_name(label),
+        output_paths,
+        path_to_class_hashes_out,
+    )
     final_jar = prepare_final_jar(actions, actions_identifier, output, output_paths, additional_compiled_srcs, java_toolchain.jar_builder)
     class_abi, source_abi, source_only_abi, classpath_abi = generate_abi_jars(
         actions,

@@ -183,6 +183,7 @@ def create_jar_artifact_kotlincd(
 
     # buildifier: disable=uninitialized
     def define_kotlincd_action(
+            category_prefix: str.type,
             actions_identifier: [str.type, None],
             encoded_command: struct.type,
             qualified_name: str.type,
@@ -208,12 +209,13 @@ def create_jar_artifact_kotlincd(
                 "BUCK_EVENT_PIPE": event_pipe_out.as_output(),
                 "JAVACD_ABSOLUTE_PATHS_ARE_RELATIVE_TO_CWD": "1",
             },
-            category = "kotlincd_jar",
+            category = "{}kotlincd_jar".format(category_prefix),
             identifier = actions_identifier,
         )
 
     command = encode_library_command(output_paths, path_to_class_hashes_out)
     define_kotlincd_action(
+        category_prefix = "",
         actions_identifier = actions_identifier,
         encoded_command = command,
         qualified_name = base_qualified_name(label),
@@ -241,7 +243,7 @@ def create_jar_artifact_kotlincd(
         class_abi_generator = java_toolchain.class_abi_generator,
         final_jar = final_jar,
         encode_abi_command = encode_abi_command,
-        define_javacd_action = define_kotlincd_action,
+        define_action = define_kotlincd_action,
     )
     return make_compile_outputs(
         full_library = final_jar,
