@@ -25,6 +25,7 @@ use crate as starlark;
 use crate::collections::SmallMap;
 use crate::environment::GlobalsBuilder;
 use crate::values::dict::Dict;
+use crate::values::list::AllocList;
 use crate::values::types::bigint::StarlarkBigInt;
 use crate::values::Heap;
 use crate::values::Value;
@@ -52,7 +53,7 @@ fn serde_to_starlark<'v>(x: serde_json::Value, heap: &'v Heap) -> anyhow::Result
         }
         serde_json::Value::String(x) => Ok(heap.alloc(x)),
         serde_json::Value::Array(x) => {
-            Ok(heap.alloc_list_iter(x.into_try_map(|v| serde_to_starlark(v, heap))?))
+            Ok(heap.alloc(AllocList(x.into_try_map(|v| serde_to_starlark(v, heap))?)))
         }
         serde_json::Value::Object(x) => {
             let mut mp = SmallMap::with_capacity(x.len());

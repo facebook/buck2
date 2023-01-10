@@ -31,12 +31,14 @@ use crate::values::bool::BOOL_TYPE;
 use crate::values::dict::Dict;
 use crate::values::float::StarlarkFloat;
 use crate::values::int::INT_TYPE;
+use crate::values::list::AllocList;
 use crate::values::list::List;
 use crate::values::none::NoneType;
 use crate::values::num::Num;
 use crate::values::range::Range;
 use crate::values::string::STRING_TYPE;
 use crate::values::tuple::Tuple;
+use crate::values::AllocValue;
 use crate::values::FrozenStringValue;
 use crate::values::Heap;
 use crate::values::StringValue;
@@ -332,12 +334,12 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
         #[starlark(require = pos, type = "iter(\"\")")] it: Value<'v>,
         #[starlark(default = 0)] start: i32,
         heap: &'v Heap,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> anyhow::Result<impl AllocValue<'v>> {
         let v = it
             .iterate(heap)?
             .enumerate()
-            .map(|(k, v)| heap.alloc((k as i32 + start, v)));
-        Ok(heap.alloc_list_iter(v))
+            .map(move |(k, v)| (k as i32 + start, v));
+        Ok(AllocList(v))
     }
 
     /// [float](
@@ -703,10 +705,10 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
             if let Some(xs) = List::from_value(a) {
                 heap.alloc_list(xs.content())
             } else {
-                a.with_iterator(heap, |it| heap.alloc_list_iter(it))?
+                a.with_iterator(heap, |it| heap.alloc(AllocList(it)))?
             }
         } else {
-            heap.alloc_list(&[])
+            heap.alloc(AllocList::EMPTY)
         })
     }
 
@@ -999,7 +1001,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
         #[starlark(require = named)] key: Option<Value<'v>>,
         #[starlark(require = named, default = false)] reverse: bool,
         eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> anyhow::Result<AllocList<impl IntoIterator<Item = Value<'v>>>> {
         let it = x.iterate(eval.heap())?;
         let mut it = match key {
             None => it.map(|x| (x, x)).collect(),
@@ -1031,7 +1033,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
 
         compare_ok?;
 
-        Ok(eval.heap().alloc_list_iter(it.into_iter().map(|x| x.0)))
+        Ok(AllocList(it.into_iter().map(|x| x.0)))
     }
 
     /// [str](
