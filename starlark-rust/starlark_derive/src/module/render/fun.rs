@@ -37,7 +37,7 @@ impl StarFun {
     fn type_expr(&self) -> TokenStream {
         match &self.type_attribute {
             Some(x) => quote_spanned! {
-                self.span()=>
+            self.span()=>
                 std::option::Option::Some(starlark::const_frozen_string!(#x).to_frozen_value())
             },
             None => {
@@ -48,58 +48,112 @@ impl StarFun {
             }
         }
     }
-}
 
-pub(crate) fn render_fun(x: StarFun) -> syn::Result<TokenStream> {
-    let span = x.span();
+    /// Evaluator function parameter and call argument.
+    fn eval_param_arg(&self) -> (Option<TokenStream>, Option<TokenStream>) {
+        if let Some(SpecialParam { ident, ty }) = &self.eval {
+            (
+                Some(quote_spanned! {self.span()=>
+                    #ident: #ty,
+                }),
+                Some(quote_spanned! {self.span()=>
+                    eval,
+                }),
+            )
+        } else {
+            (None, None)
+        }
+    }
 
-    let name_str = ident_string(&x.name);
-    let signature = if let StarFunSource::Argument(..) = x.source {
-        Some(render_signature(&x)?)
-    } else {
-        None
-    };
-    let (documentation_var, documentation) = render_documentation(&x)?;
-    let binding = render_binding(&x);
-    let is_method = x.is_method();
+    /// Heap function parameter and call argument.
+    fn heap_param_arg(&self) -> (Option<TokenStream>, Option<TokenStream>) {
+        if let Some(SpecialParam { ident, ty }) = &self.heap {
+            (
+                Some(quote_spanned! {self.span()=>
+                    #ident: #ty,
+                }),
+                Some(quote_spanned! {self.span()=>
+                    eval.heap(),
+                }),
+            )
+        } else {
+            (None, None)
+        }
+    }
 
-    let typ = x.type_expr();
+    /// `this` param if needed and call argument.
+    fn this_param_arg(&self) -> (Option<TokenStream>, Option<TokenStream>) {
+        if self.is_method() {
+            (
+                Some(quote_spanned! {self.span()=> __this: starlark::values::Value<'v>, }),
+                Some(quote_spanned! {self.span()=> __this, }),
+            )
+        } else {
+            (None, None)
+        }
+    }
 
-    let StarFun {
-        attrs,
-        heap,
-        eval,
-        return_type,
-        speculative_exec_safe,
-        body,
-        ..
-    } = x;
+    /// Non-special params.
+    fn binding_params_arg(&self) -> (Vec<TokenStream>, TokenStream, Vec<TokenStream>) {
+        let Bindings { prepare, bindings } = render_binding(self);
+        let binding_params: Vec<_> = bindings.map(|b| b.render_param());
+        let binding_args: Vec<_> = bindings.map(|b| b.render_arg());
+        (binding_params, prepare, binding_args)
+    }
 
-    let struct_name = format_ident!("Impl_{}", name_str);
-    let trait_name = if is_method {
-        quote_spanned! {span=> starlark::values::function::NativeMeth }
-    } else {
-        quote_spanned! {span=> starlark::values::function::NativeFunc }
-    };
+    fn trait_name(&self) -> TokenStream {
+        if self.is_method() {
+            quote_spanned! {self.span()=> starlark::values::function::NativeMeth }
+        } else {
+            quote_spanned! {self.span()=> starlark::values::function::NativeFunc }
+        }
+    }
 
-    let (struct_fields, struct_fields_init) = if let Some(signature) = signature {
-        (
-            quote_spanned! { span=>
-                signature: starlark::eval::ParametersSpec<starlark::values::FrozenValue>,
-            },
-            quote_spanned! { span=>
-                signature: #signature,
-            },
-        )
-    } else {
-        (quote_spanned! { span=> }, quote_spanned! { span=> })
-    };
+    fn name_str(&self) -> String {
+        ident_string(&self.name)
+    }
 
-    let (this_param, this_arg, builder_set) = if is_method {
-        (
-            quote_spanned! {span=> __this: starlark::values::Value<'v>, },
-            quote_spanned! {span=> __this, },
-            quote_spanned! {span=>
+    fn struct_name(&self) -> Ident {
+        format_ident!("Impl_{}", self.name_str())
+    }
+
+    /// Fields and field initializers for the struct implementing the trait.
+    fn struct_fields(&self) -> syn::Result<(TokenStream, TokenStream)> {
+        let signature = if let StarFunSource::Argument(..) = self.source {
+            Some(render_signature(self)?)
+        } else {
+            None
+        };
+        if let Some(signature) = signature {
+            Ok((
+                quote_spanned! { self.span()=>
+                    signature: starlark::eval::ParametersSpec<starlark::values::FrozenValue>,
+                },
+                quote_spanned! { self.span()=>
+                    signature: #signature,
+                },
+            ))
+        } else {
+            Ok((
+                quote_spanned! { self.span()=> },
+                quote_spanned! { self.span()=> },
+            ))
+        }
+    }
+
+    /// Globals builder call to register the function.
+    fn builder_set(
+        &self,
+        documentation_var: &Ident,
+        struct_fields_init: TokenStream,
+    ) -> TokenStream {
+        let name_str = self.name_str();
+        let speculative_exec_safe = self.speculative_exec_safe;
+        let typ = self.type_expr();
+        let struct_name = self.struct_name();
+
+        if self.is_method() {
+            quote_spanned! {self.span()=>
                 #[allow(clippy::redundant_closure)]
                 globals_builder.set_method(
                     #name_str,
@@ -110,13 +164,9 @@ pub(crate) fn render_fun(x: StarFun) -> syn::Result<TokenStream> {
                         #struct_fields_init
                     },
                 );
-            },
-        )
-    } else {
-        (
-            quote_spanned! {span=> },
-            quote_spanned! {span=> },
-            quote_spanned! {span=>
+            }
+        } else {
+            quote_spanned! {self.span()=>
                 #[allow(clippy::redundant_closure)]
                 globals_builder.set_function(
                     #name_str,
@@ -127,38 +177,34 @@ pub(crate) fn render_fun(x: StarFun) -> syn::Result<TokenStream> {
                         #struct_fields_init
                     },
                 );
-            },
-        )
-    };
+            }
+        }
+    }
+}
 
-    let (eval_param, eval_arg) = if let Some(SpecialParam { ident, ty }) = eval {
-        (
-            Some(quote_spanned! {span=>
-                #ident: #ty,
-            }),
-            Some(quote_spanned! {span=>
-                eval,
-            }),
-        )
-    } else {
-        (None, None)
-    };
-    let (heap_param, heap_arg) = if let Some(SpecialParam { ident, ty }) = heap {
-        (
-            Some(quote_spanned! {span=>
-                #ident: #ty,
-            }),
-            Some(quote_spanned! {span=>
-                eval.heap(),
-            }),
-        )
-    } else {
-        (None, None)
-    };
+pub(crate) fn render_fun(x: StarFun) -> syn::Result<TokenStream> {
+    let span = x.span();
 
-    let Bindings { prepare, bindings } = binding;
-    let binding_params: Vec<_> = bindings.map(|b| b.render_param());
-    let binding_args: Vec<_> = bindings.map(|b| b.render_arg());
+    let (documentation_var, documentation) = render_documentation(&x)?;
+
+    let (this_param, this_arg) = x.this_param_arg();
+    let (eval_param, eval_arg) = x.eval_param_arg();
+    let (heap_param, heap_arg) = x.heap_param_arg();
+    let (binding_params, prepare, binding_args) = x.binding_params_arg();
+
+    let trait_name = x.trait_name();
+    let (struct_fields, struct_fields_init) = x.struct_fields()?;
+
+    let struct_name = x.struct_name();
+
+    let builder_set = x.builder_set(&documentation_var, struct_fields_init);
+
+    let StarFun {
+        attrs,
+        return_type,
+        body,
+        ..
+    } = x;
 
     Ok(quote_spanned! {
         span=>
