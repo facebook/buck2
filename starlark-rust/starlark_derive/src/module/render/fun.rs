@@ -59,7 +59,7 @@ pub(crate) fn render_fun(x: StarFun) -> syn::Result<TokenStream> {
     } else {
         None
     };
-    let documentation = render_documentation(&x)?;
+    let (documentation_var, documentation) = render_documentation(&x)?;
     let binding = render_binding(&x);
     let is_method = x.is_method();
 
@@ -104,7 +104,7 @@ pub(crate) fn render_fun(x: StarFun) -> syn::Result<TokenStream> {
                 globals_builder.set_method(
                     #name_str,
                     #speculative_exec_safe,
-                    __documentation_renderer,
+                    #documentation_var,
                     #typ,
                     #struct_name {
                         #struct_fields_init
@@ -121,7 +121,7 @@ pub(crate) fn render_fun(x: StarFun) -> syn::Result<TokenStream> {
                 globals_builder.set_function(
                     #name_str,
                     #speculative_exec_safe,
-                    __documentation_renderer,
+                    #documentation_var,
                     #typ,
                     #struct_name {
                         #struct_fields_init
@@ -390,7 +390,7 @@ fn render_signature(x: &StarFun) -> syn::Result<TokenStream> {
     })
 }
 
-fn render_documentation(x: &StarFun) -> syn::Result<TokenStream> {
+fn render_documentation(x: &StarFun) -> syn::Result<(Ident, TokenStream)> {
     let span = x.args_span();
 
     // A signature is not needed to invoke positional-only functions, but we still want
@@ -427,8 +427,9 @@ fn render_documentation(x: &StarFun) -> syn::Result<TokenStream> {
         .collect();
 
     let return_type_str = render_starlark_type(span, return_type_arg, &x.starlark_return_type);
-    Ok(quote_spanned!(span=>
-        let __documentation_renderer = {
+    let var_name = format_ident!("__documentation");
+    let documentation = quote_spanned!(span=>
+        let #var_name = {
             let signature = #documentation_signature;
             let parameter_types = std::collections::HashMap::from([#(#parameter_types),*]);
             let return_type = Some(
@@ -443,7 +444,8 @@ fn render_documentation(x: &StarFun) -> syn::Result<TokenStream> {
                 return_type,
             }
         };
-    ))
+    );
+    Ok((var_name, documentation))
 }
 
 fn render_signature_args(args: &[StarArg], signature_var: &Ident) -> syn::Result<TokenStream> {
