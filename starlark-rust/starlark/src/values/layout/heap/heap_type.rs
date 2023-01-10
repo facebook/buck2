@@ -328,7 +328,7 @@ impl FrozenHeap {
     }
 
     /// Allocate a list with the given elements on this heap.
-    pub fn alloc_list(&self, elems: &[FrozenValue]) -> FrozenValue {
+    pub(crate) fn alloc_list(&self, elems: &[FrozenValue]) -> FrozenValue {
         if elems.is_empty() {
             return FrozenValue::new_repr(&VALUE_EMPTY_FROZEN_LIST);
         }
@@ -645,14 +645,17 @@ impl Heap {
     }
 
     /// Allocate a list with the given elements.
-    pub fn alloc_list<'v>(&'v self, elems: &[Value<'v>]) -> Value<'v> {
+    pub(crate) fn alloc_list<'v>(&'v self, elems: &[Value<'v>]) -> Value<'v> {
         let array = self.alloc_array(elems.len());
         array.extend_from_slice(elems);
         self.alloc_raw(list_avalue(array))
     }
 
     /// Allocate a list with the given elements.
-    pub fn alloc_list_iter<'v>(&'v self, elems: impl IntoIterator<Item = Value<'v>>) -> Value<'v> {
+    pub(crate) fn alloc_list_iter<'v>(
+        &'v self,
+        elems: impl IntoIterator<Item = Value<'v>>,
+    ) -> Value<'v> {
         let elems = elems.into_iter();
         let array = self.alloc_array(0);
         let list = self.alloc_raw_typed(list_avalue(array));
