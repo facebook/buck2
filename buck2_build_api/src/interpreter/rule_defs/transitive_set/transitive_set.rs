@@ -25,6 +25,7 @@ use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::eval::Evaluator;
+use starlark::values::list::AllocList;
 use starlark::values::Freeze;
 use starlark::values::Freezer;
 use starlark::values::FrozenValue;
@@ -399,7 +400,7 @@ impl<'v> TransitiveSet<'v> {
                         .copied()
                         .with_context(|| format!("Child {} is missing reduction {}", c, idx))
                 })?;
-                let children_values = eval.heap().alloc_list(&children_values);
+                let children_values = eval.heap().alloc(AllocList(children_values));
 
                 let value = value.unwrap_or_else(Value::new_none);
 

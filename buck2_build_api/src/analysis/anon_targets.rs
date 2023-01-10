@@ -68,6 +68,7 @@ use ref_cast::RefCast;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::values::dict::DictOf;
+use starlark::values::list::AllocList;
 use starlark::values::structs::AllocStruct;
 use starlark::values::Trace;
 use starlark::values::Value;
@@ -539,7 +540,7 @@ impl<'v> AnonTargetsRegistry<'v> {
                                 .owned_value(eval.frozen_heap())
                         })
                         .collect();
-                    let list = eval.heap().alloc_list(&xs);
+                    let list = eval.heap().alloc(AllocList(xs));
                     promise.resolve(list, eval)?
                 }
             }

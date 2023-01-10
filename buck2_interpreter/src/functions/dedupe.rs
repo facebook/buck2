@@ -10,6 +10,7 @@
 use std::collections::HashSet;
 
 use starlark::environment::GlobalsBuilder;
+use starlark::values::list::AllocList;
 use starlark::values::Heap;
 use starlark::values::Value;
 
@@ -30,7 +31,7 @@ pub(crate) fn dedupe(builder: &mut GlobalsBuilder) {
                 res.push(v);
             }
         }
-        Ok(heap.alloc_list(&res))
+        Ok(heap.alloc(AllocList(res)))
     }
 }
 

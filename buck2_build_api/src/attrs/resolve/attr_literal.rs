@@ -22,6 +22,7 @@ use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use gazebo::prelude::*;
 use starlark::collections::SmallMap;
 use starlark::values::dict::Dict;
+use starlark::values::list::AllocList;
 use starlark::values::none::NoneType;
 use starlark::values::FrozenValue;
 use starlark::values::Heap;
@@ -64,7 +65,7 @@ impl UnconfiguredAttrLiteralExt for AttrLiteral<CoercedAttr> {
                 for e in l.iter() {
                     v.push(e.to_value(heap)?);
                 }
-                Ok(heap.alloc_list(&v))
+                Ok(heap.alloc(AllocList(v)))
             }
             AttrLiteral::Tuple(l) => {
                 let mut v = Vec::with_capacity(l.len());

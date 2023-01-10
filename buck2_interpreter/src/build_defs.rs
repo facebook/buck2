@@ -11,6 +11,7 @@ use sha2::Digest;
 use sha2::Sha256;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
+use starlark::values::list::AllocList;
 use starlark::values::Value;
 
 use crate::extra::BuildContext;
@@ -57,10 +58,8 @@ pub fn native_module(builder: &mut GlobalsBuilder) {
         let extra = BuildContext::from_context(eval)?;
         let excludes = exclude.unwrap_or_default();
         let spec = GlobSpec::new(&include, &excludes)?;
-        let res = extra
-            .resolve_glob(&spec)?
-            .map(|path| eval.heap().alloc(path.as_str()));
-        Ok(eval.heap().alloc_list_iter(res))
+        let res = extra.resolve_glob(&spec)?.map(|path| path.as_str());
+        Ok(eval.heap().alloc(AllocList(res)))
     }
 
     fn package(eval: &mut Evaluator) -> anyhow::Result<String> {

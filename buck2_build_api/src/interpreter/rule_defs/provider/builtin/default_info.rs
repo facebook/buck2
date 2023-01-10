@@ -21,6 +21,7 @@ use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::values::dict::Dict;
 use starlark::values::dict::FrozenDict;
+use starlark::values::list::AllocList;
 use starlark::values::list::FrozenList;
 use starlark::values::list::List;
 use starlark::values::none::NoneType;
@@ -388,8 +389,8 @@ fn default_info_creator(builder: &mut GlobalsBuilder) {
     ) -> anyhow::Result<DefaultInfo<'v>> {
         let heap = eval.heap();
         let default_info_creator = || {
-            let default_outputs = heap.alloc_list(&[]);
-            let other_outputs = heap.alloc_list(&[]);
+            let default_outputs = heap.alloc(AllocList::EMPTY);
+            let other_outputs = heap.alloc(AllocList::EMPTY);
             let sub_targets = heap.alloc(Dict::default());
             heap.alloc(DefaultInfo {
                 sub_targets,
@@ -424,9 +425,9 @@ fn default_info_creator(builder: &mut GlobalsBuilder) {
             // handle where we didn't specify `default_outputs`, which means we should use the new
             // `default_output`.
             if default_output.is_none() {
-                eval.heap().alloc_list(&[])
+                eval.heap().alloc(AllocList::EMPTY)
             } else if default_output.as_artifact().is_some() {
-                eval.heap().alloc_list(&[default_output])
+                eval.heap().alloc(AllocList([default_output]))
             } else {
                 return Err(anyhow::anyhow!(ValueError::IncorrectParameterTypeNamed(
                     "default_output".to_owned()

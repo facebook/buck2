@@ -37,6 +37,7 @@ use starlark::starlark_module;
 use starlark::starlark_simple_value;
 use starlark::starlark_type;
 use starlark::values::float::StarlarkFloat;
+use starlark::values::list::AllocList;
 use starlark::values::list::List;
 use starlark::values::none::NoneType;
 use starlark::values::Heap;
@@ -119,7 +120,7 @@ impl CliArgValueExt for CliArgValue {
             CliArgValue::Int(i) => Value::new_int(*i),
             CliArgValue::Float(f) => heap.alloc(f.parse::<f64>().expect("already verified")),
             CliArgValue::String(s) => heap.alloc(s),
-            CliArgValue::List(l) => heap.alloc_list_iter(l.iter().map(|v| v.as_starlark(heap))),
+            CliArgValue::List(l) => heap.alloc(AllocList(l.iter().map(|v| v.as_starlark(heap)))),
             CliArgValue::None => Value::new_none(),
             CliArgValue::TargetLabel(t) => heap.alloc(StarlarkTargetLabel::new(t.dupe())),
             CliArgValue::ProvidersLabel(p) => heap.alloc(StarlarkProvidersLabel::new(p.clone())),
