@@ -23,6 +23,7 @@ use crate as starlark;
 use crate::environment::MethodsBuilder;
 use crate::hint::unlikely;
 use crate::values::dict::Dict;
+use crate::values::dict::DictMut;
 use crate::values::dict::DictRef;
 use crate::values::none::NoneType;
 use crate::values::Heap;
@@ -50,7 +51,7 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
     /// # "#);
     /// ```
     fn clear(this: Value) -> anyhow::Result<NoneType> {
-        let mut this = Dict::from_value_mut(this)?;
+        let mut this = DictMut::from_value(this)?;
         this.clear();
         Ok(NoneType)
     }
@@ -172,7 +173,7 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
         #[starlark(require = pos)] key: Value<'v>,
         #[starlark(require = pos)] default: Option<Value<'v>>,
     ) -> anyhow::Result<Value<'v>> {
-        let mut me = Dict::from_value_mut(this)?;
+        let mut me = DictMut::from_value(this)?;
         match me.remove_hashed(key.get_hashed()?) {
             Some(x) => Ok(x),
             None => match default {
@@ -221,7 +222,7 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
     /// # "#, "empty dict");
     /// ```
     fn popitem<'v>(this: Value<'v>) -> anyhow::Result<(Value<'v>, Value<'v>)> {
-        let mut this = Dict::from_value_mut(this)?;
+        let mut this = DictMut::from_value(this)?;
 
         let key = this.iter_hashed().next().map(|(k, _)| k);
         match key {
@@ -266,7 +267,7 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
         #[starlark(require = pos)] key: Value<'v>,
         #[starlark(require = pos)] default: Option<Value<'v>>,
     ) -> anyhow::Result<Value<'v>> {
-        let mut this = Dict::from_value_mut(this)?;
+        let mut this = DictMut::from_value(this)?;
         let key = key.get_hashed()?;
         if let Some(r) = this.get_hashed(key) {
             return Ok(r);
@@ -322,7 +323,7 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
             pairs
         };
 
-        let mut this = Dict::from_value_mut(this)?;
+        let mut this = DictMut::from_value(this)?;
         if let Some(pairs) = pairs {
             if let Some(dict) = Dict::from_value(pairs) {
                 for (k, v) in dict.iter_hashed() {

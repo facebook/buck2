@@ -15,16 +15,21 @@
  * limitations under the License.
  */
 
+use std::cell::RefCell;
 use std::cell::RefMut;
 use std::ops::Deref;
 use std::ops::DerefMut;
 
 use gazebo::cell::ARef;
 
+use crate::values::dict::value::DictGen;
 use crate::values::dict::Dict;
+use crate::values::dict::FrozenDict;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::UnpackValue;
 use crate::values::Value;
+use crate::values::ValueError;
+use crate::values::ValueLike;
 
 /// Borrowed `Dict`.
 pub struct DictRef<'v> {
@@ -34,6 +39,35 @@ pub struct DictRef<'v> {
 /// Mutably borrowed `Dict`.
 pub struct DictMut<'v> {
     pub(crate) aref: RefMut<'v, Dict<'v>>,
+}
+
+impl<'v> DictMut<'v> {
+    /// Downcast the value to a mutable dict reference.
+    #[inline]
+    pub fn from_value(x: Value<'v>) -> anyhow::Result<DictMut> {
+        #[derive(thiserror::Error, Debug)]
+        #[error("Value is not dict, value type: `{0}`")]
+        struct NotDictError(&'static str);
+
+        #[cold]
+        #[inline(never)]
+        fn error<'v>(x: Value<'v>) -> anyhow::Error {
+            if x.downcast_ref::<DictGen<FrozenDict>>().is_some() {
+                ValueError::CannotMutateImmutableValue.into()
+            } else {
+                NotDictError(x.get_type()).into()
+            }
+        }
+
+        let ptr = x.downcast_ref::<DictGen<RefCell<Dict<'v>>>>();
+        match ptr {
+            None => Err(error(x)),
+            Some(ptr) => match ptr.0.try_borrow_mut() {
+                Ok(x) => Ok(DictMut { aref: x }),
+                Err(_) => Err(ValueError::MutationDuringIteration.into()),
+            },
+        }
+    }
 }
 
 impl<'v> Deref for DictRef<'v> {
