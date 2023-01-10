@@ -21,6 +21,7 @@ use std::marker::PhantomData;
 use starlark_map::small_map::SmallMap;
 
 use crate::values::structs::value::Struct;
+use crate::values::structs::StructRef;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::StringValue;
 use crate::values::UnpackValue;
@@ -31,7 +32,7 @@ use crate::values::ValueOf;
 /// or store a map.
 #[derive(Debug)]
 pub struct StructOf<'v, V: UnpackValue<'v>> {
-    value: ValueOf<'v, &'v Struct<'v>>,
+    value: ValueOf<'v, StructRef<'v>>,
     _marker: PhantomData<V>,
 }
 
@@ -47,8 +48,8 @@ impl<'v, V: UnpackValue<'v>> UnpackValue<'v> for StructOf<'v, V> {
     }
 
     fn unpack_value(value: Value<'v>) -> Option<StructOf<'v, V>> {
-        let value = ValueOf::<&Struct>::unpack_value(value)?;
-        for (_k, &v) in &value.typed.fields {
+        let value = ValueOf::<StructRef>::unpack_value(value)?;
+        for (_k, v) in value.typed.iter() {
             // Validate field types
             V::unpack_value(v)?;
         }
@@ -66,16 +67,15 @@ impl<'v, V: UnpackValue<'v>> StructOf<'v, V> {
     }
 
     /// Get untyped struct reference.
-    fn as_struct(&self) -> &Struct<'v> {
-        self.value.typed
+    fn as_struct(&self) -> &StructRef<'v> {
+        &self.value.typed
     }
 
     /// Collect field structs.
     pub fn to_map(&self) -> SmallMap<StringValue<'v>, V> {
         self.as_struct()
-            .fields
             .iter()
-            .map(|(&k, &v)| (k, V::unpack_value(v).expect("validated at construction")))
+            .map(|(k, v)| (k, V::unpack_value(v).expect("validated at construction")))
             .collect()
     }
 }

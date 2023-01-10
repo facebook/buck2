@@ -15,14 +15,18 @@
  * limitations under the License.
  */
 
+use crate::values::structs::value::FrozenStruct;
 use crate::values::structs::value::Struct;
+use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::StringValue;
+use crate::values::UnpackValue;
 use crate::values::Value;
 
 /// Reference to a struct allocated on the heap.
 ///
 /// Struct implementation (for example, memory layout) may change,
 /// this type provides implementation agnostics API to it.
+#[derive(Debug)]
 pub struct StructRef<'v>(&'v Struct<'v>);
 
 impl<'v> StructRef<'v> {
@@ -34,5 +38,17 @@ impl<'v> StructRef<'v> {
     /// Iterate over struct fields.
     pub fn iter(&self) -> impl ExactSizeIterator<Item = (StringValue<'v>, Value<'v>)> + '_ {
         self.0.iter()
+    }
+}
+
+impl<'v> StarlarkTypeRepr for StructRef<'v> {
+    fn starlark_type_repr() -> String {
+        FrozenStruct::starlark_type_repr()
+    }
+}
+
+impl<'v> UnpackValue<'v> for StructRef<'v> {
+    fn unpack_value(value: Value<'v>) -> Option<Self> {
+        StructRef::from_value(value)
     }
 }
