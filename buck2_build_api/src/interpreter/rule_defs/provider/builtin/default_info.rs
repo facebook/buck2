@@ -20,7 +20,7 @@ use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::values::dict::Dict;
-use starlark::values::dict::FrozenDict;
+use starlark::values::dict::FrozenDictRef;
 use starlark::values::list::AllocList;
 use starlark::values::list::ListRef;
 use starlark::values::none::NoneType;
@@ -163,7 +163,7 @@ impl FrozenDefaultInfo {
         &self,
         name: &str,
     ) -> anyhow::Result<Option<FrozenValueTyped<'static, FrozenProviderCollection>>> {
-        FrozenDict::from_frozen_value(&self.sub_targets)
+        FrozenDictRef::from_frozen_value(self.sub_targets)
             .context("sub_targets should be a dict-like object")?
             .get_str(name)
             .map(|v| {
@@ -215,7 +215,7 @@ impl FrozenDefaultInfo {
     ) -> anyhow::Result<
         impl Iterator<Item = anyhow::Result<(&str, FrozenRef<'static, FrozenProviderCollection>)>> + '_,
     > {
-        let sub_targets = FrozenDict::from_frozen_value(&self.sub_targets)
+        let sub_targets = FrozenDictRef::from_frozen_value(self.sub_targets)
             .context("sub_targets should be a dict-like object")?;
 
         Ok(sub_targets.iter().map(|(k, v)| {

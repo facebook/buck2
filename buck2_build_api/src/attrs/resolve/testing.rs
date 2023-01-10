@@ -24,7 +24,7 @@ use starlark::environment::FrozenModule;
 use starlark::environment::Globals;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Module;
-use starlark::values::dict::FrozenDict;
+use starlark::values::dict::FrozenDictRef;
 use starlark::values::FrozenRef;
 use starlark_map::small_map::SmallMap;
 use starlark_map::smallmap;
@@ -149,7 +149,7 @@ pub(crate) fn resolution_ctx_with_providers<'v>(
                     .configure(Configuration::testing_new());
                 let val = FrozenProviderCollectionValue::try_from_value(
                     frozen.get("ret").unwrap().map(|x| {
-                        FrozenDict::from_frozen_value(&x)
+                        FrozenDictRef::from_frozen_value(x)
                             .unwrap()
                             .get_str(var_name)
                             .unwrap()

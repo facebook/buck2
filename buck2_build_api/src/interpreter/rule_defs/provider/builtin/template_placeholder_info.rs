@@ -18,6 +18,7 @@ use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
 use starlark::values::dict::DictRef;
 use starlark::values::dict::FrozenDict;
+use starlark::values::dict::FrozenDictRef;
 use starlark::values::Freeze;
 use starlark::values::FrozenRef;
 use starlark::values::FrozenValue;
@@ -88,7 +89,7 @@ impl FrozenTemplatePlaceholderInfo {
     pub fn unkeyed_variables(
         &self,
     ) -> SmallMap<FrozenRef<'static, str>, FrozenRef<'static, dyn FrozenCommandLineArgLike>> {
-        FrozenDict::from_frozen_value(&self.unkeyed_variables)
+        FrozenDictRef::from_frozen_value(self.unkeyed_variables)
             .expect("should be a dict-like object")
             .iter()
             .map(|(k, v)| {
@@ -109,12 +110,12 @@ impl FrozenTemplatePlaceholderInfo {
             SmallMap<FrozenRef<'static, str>, FrozenRef<'static, dyn FrozenCommandLineArgLike>>,
         >,
     > {
-        FrozenDict::from_frozen_value(&self.keyed_variables)
+        FrozenDictRef::from_frozen_value(self.keyed_variables)
             .expect("should be a dict-like object")
             .iter()
             .map(|(k, v)| {
                 (k.downcast_frozen_str().expect("should have string keys"), {
-                    let either = if let Some(dict) = FrozenDict::from_frozen_value(&v) {
+                    let either = if let Some(dict) = FrozenDictRef::from_frozen_value(v) {
                         Either::Right(
                             dict.iter()
                                 .map(|(k, v)| {
