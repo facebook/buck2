@@ -12,7 +12,6 @@
 
 use std::cell::RefCell;
 use std::io::Write;
-use std::iter;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -133,7 +132,7 @@ impl<'v> BxlContext<'v> {
             async_ctx,
             state: heap.alloc_typed(AnalysisActions {
                 state: RefCell::new(None),
-                attributes: heap.alloc(AllocStruct(iter::empty::<(String, String)>())),
+                attributes: heap.alloc(AllocStruct::EMPTY),
             }),
             output_stream: heap.alloc_typed(OutputStream::new(
                 project_fs,

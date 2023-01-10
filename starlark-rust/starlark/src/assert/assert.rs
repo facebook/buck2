@@ -23,7 +23,6 @@
 #![allow(clippy::if_then_panic)]
 
 use std::collections::HashMap;
-use std::iter;
 
 use gazebo::prelude::*;
 use once_cell::sync::Lazy;
@@ -163,7 +162,7 @@ pub(crate) fn test_functions(builder: &mut GlobalsBuilder) {
 
     // Approximate version of a method used by the Go test suite
     fn hasfields<'v>() -> anyhow::Result<impl AllocValue<'v>> {
-        Ok(AllocStruct(iter::empty::<(String, String)>()))
+        Ok(AllocStruct::EMPTY)
     }
 
     // Approximate version of a method used by the Go test suite

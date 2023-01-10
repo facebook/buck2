@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+use std::iter;
+
 use starlark_map::small_map::SmallMap;
 
 use crate::values::structs::value::FrozenStruct;
@@ -48,6 +50,11 @@ use crate::values::Value;
 /// let fs = frozen_heap.alloc(AllocStruct([("a", 1), ("b", 2)]));
 /// # }
 pub struct AllocStruct<S>(pub S);
+
+impl AllocStruct<iter::Empty<(String, String)>> {
+    /// Allocate an empty struct.
+    pub const EMPTY: AllocStruct<iter::Empty<(String, String)>> = AllocStruct(iter::empty());
+}
 
 impl<'v, K, V, S> StarlarkTypeRepr for AllocStruct<S>
 where
