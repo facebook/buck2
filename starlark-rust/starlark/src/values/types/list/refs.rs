@@ -22,13 +22,16 @@ use std::ops::Deref;
 use gazebo::coerce::coerce;
 
 use crate::values::list::value::display_list;
+use crate::values::list::value::ListGen;
+use crate::values::list::FrozenList;
 use crate::values::list::List;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::Coerce;
 use crate::values::UnpackValue;
 use crate::values::Value;
+use crate::values::ValueLike;
 
-/// Reference to list content.
+/// Reference to list content (mutable or frozen).
 #[repr(transparent)]
 #[derive(Coerce)]
 pub struct ListRef<'v> {
@@ -51,6 +54,17 @@ impl<'v> ListRef<'v> {
         'v: 'a,
     {
         self.content.iter().copied()
+    }
+
+    /// Downcast the value to the list or frozen list (both are represented by `ListRef`).
+    pub fn from_value(x: Value<'v>) -> Option<&'v ListRef<'v>> {
+        if x.unpack_frozen().is_some() {
+            x.downcast_ref::<ListGen<FrozenList>>()
+                .map(|x| ListRef::new(coerce(x.0.content())))
+        } else {
+            let ptr = x.downcast_ref::<ListGen<List>>()?;
+            Some(ListRef::new(ptr.0.content()))
+        }
     }
 }
 
@@ -80,6 +94,6 @@ impl<'v> UnpackValue<'v> for &'v ListRef<'v> {
     }
 
     fn unpack_value(value: Value<'v>) -> Option<Self> {
-        List::from_value(value)
+        ListRef::from_value(value)
     }
 }

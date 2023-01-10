@@ -19,7 +19,7 @@ use std::marker::PhantomData;
 use std::ops::Deref;
 
 use crate as starlark;
-use crate::values::list::List;
+use crate::values::list::ListRef;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::UnpackValue;
 use crate::values::Value;
@@ -35,7 +35,7 @@ pub struct ListOf<'v, V: UnpackValue<'v>> {
 impl<'v, V: UnpackValue<'v>> ListOf<'v, V> {
     /// Collect the list elements into a `Vec`.
     pub fn to_vec(&self) -> Vec<V> {
-        List::from_value(self.value)
+        ListRef::from_value(self.value)
             .expect("already validated as a list")
             .iter()
             .map(|v| V::unpack_value(v).expect("already validated value"))
@@ -55,7 +55,7 @@ impl<'v, V: UnpackValue<'v>> UnpackValue<'v> for ListOf<'v, V> {
     }
 
     fn unpack_value(value: Value<'v>) -> Option<Self> {
-        let list = List::from_value(value)?;
+        let list = ListRef::from_value(value)?;
         if list.iter().all(|v| V::unpack_value(v).is_some()) {
             Some(ListOf {
                 value,

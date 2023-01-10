@@ -25,7 +25,6 @@ use thiserror::Error;
 
 use crate::values::dict::Dict;
 use crate::values::dict::DictRef;
-use crate::values::list::List;
 use crate::values::list::ListRef;
 use crate::values::tuple::Tuple;
 use crate::values::tuple::TupleGen;
@@ -161,7 +160,7 @@ impl TypeCompiled {
 
         impl TypeCompiledImpl for IsList {
             fn matches(&self, value: Value) -> bool {
-                List::from_value(value).is_some()
+                ListRef::from_value(value).is_some()
             }
         }
 
@@ -174,7 +173,7 @@ impl TypeCompiled {
 
         impl TypeCompiledImpl for IsListOf {
             fn matches(&self, value: Value) -> bool {
-                match List::from_value(value) {
+                match ListRef::from_value(value) {
                     None => false,
                     Some(list) => list.iter().all(|v| self.0.matches(v)),
                 }
@@ -346,7 +345,7 @@ impl TypeCompiled {
             Ok(TypeCompiled::type_none())
         } else if let Some(t) = Tuple::from_value(ty) {
             TypeCompiled::from_tuple(t, heap)
-        } else if let Some(t) = List::from_value(ty) {
+        } else if let Some(t) = ListRef::from_value(ty) {
             TypeCompiled::from_list(t, heap)
         } else if let Some(t) = Dict::from_value(ty) {
             TypeCompiled::from_dict(t, heap)

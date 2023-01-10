@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-use crate::values::list::List;
+use crate::values::list::ListRef;
 use crate::values::Freeze;
 use crate::values::Freezer;
 use crate::values::FrozenHeap;
@@ -34,7 +34,7 @@ impl<'v> Freeze for Test<Value<'v>> {
         let test = Test {
             field: self.field.freeze(freezer)?,
         };
-        let members = List::from_value(test.field.to_value()).unwrap();
+        let members = ListRef::from_value(test.field.to_value()).unwrap();
         assert_eq!(members[0].unpack_num().unwrap().as_int().unwrap(), 1);
         assert_eq!(members[1].unpack_num().unwrap().as_int().unwrap(), 2);
         Ok(test)

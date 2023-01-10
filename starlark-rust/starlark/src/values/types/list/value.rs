@@ -113,14 +113,9 @@ impl ListGen<FrozenList> {
 
 impl<'v> List<'v> {
     /// Downcast the list.
+    // TODO(nga): inline.
     pub fn from_value(x: Value<'v>) -> Option<&'v ListRef<'v>> {
-        if x.unpack_frozen().is_some() {
-            x.downcast_ref::<ListGen<FrozenList>>()
-                .map(|x| ListRef::new(coerce(x.0.content())))
-        } else {
-            let ptr = x.downcast_ref::<ListGen<List>>()?;
-            Some(ListRef::new(ptr.0.content()))
-        }
+        ListRef::from_value(x)
     }
 
     #[inline]
@@ -474,14 +469,14 @@ where
     }
 
     fn equals(&self, other: Value<'v>) -> anyhow::Result<bool> {
-        match List::from_value(other) {
+        match ListRef::from_value(other) {
             None => Ok(false),
             Some(other) => equals_slice(self.0.content(), &other.content, |x, y| x.equals(*y)),
         }
     }
 
     fn compare(&self, other: Value<'v>) -> anyhow::Result<Ordering> {
-        match List::from_value(other) {
+        match ListRef::from_value(other) {
             None => ValueError::unsupported_with(self, "cmp()", other),
             Some(other) => compare_slice(self.0.content(), &other.content, |x, y| x.compare(*y)),
         }
@@ -536,7 +531,7 @@ where
     }
 
     fn add(&self, other: Value<'v>, heap: &'v Heap) -> Option<anyhow::Result<Value<'v>>> {
-        List::from_value(other)
+        ListRef::from_value(other)
             .map(|other| Ok(heap.alloc_list_concat(self.0.content(), other.content())))
     }
 

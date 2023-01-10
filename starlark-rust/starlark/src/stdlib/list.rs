@@ -289,7 +289,7 @@ pub(crate) fn list_methods(builder: &mut MethodsBuilder) {
         // Written in two separate blocks so we ensure we give up the
         // immutable borrow before making the mutable borrow.
         let position = {
-            let this = List::from_value(this).unwrap();
+            let this = ListRef::from_value(this).unwrap();
             let position = this.iter().position(|v| v == needle);
             match position {
                 Some(i) => i,

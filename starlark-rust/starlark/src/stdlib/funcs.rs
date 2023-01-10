@@ -33,6 +33,7 @@ use crate::values::float::StarlarkFloat;
 use crate::values::int::INT_TYPE;
 use crate::values::list::AllocList;
 use crate::values::list::List;
+use crate::values::list::ListRef;
 use crate::values::none::NoneType;
 use crate::values::num::Num;
 use crate::values::range::Range;
@@ -702,7 +703,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
         heap: &'v Heap,
     ) -> anyhow::Result<Value<'v>> {
         Ok(if let Some(a) = a {
-            if let Some(xs) = List::from_value(a) {
+            if let Some(xs) = ListRef::from_value(a) {
                 heap.alloc_list(xs.content())
             } else {
                 a.with_iterator(heap, |it| heap.alloc(AllocList(it)))?

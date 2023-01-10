@@ -22,7 +22,7 @@ use std::ops::Deref;
 use either::Either;
 use gazebo::prelude::*;
 
-use crate::values::list::List;
+use crate::values::list::ListRef;
 use crate::values::tuple::Tuple;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::Value;
@@ -146,7 +146,7 @@ impl<'v, T: UnpackValue<'v>> UnpackValue<'v> for Vec<T> {
     }
 
     fn unpack_value(value: Value<'v>) -> Option<Self> {
-        if let Some(o) = List::from_value(value) {
+        if let Some(o) = ListRef::from_value(value) {
             o.iter().map(T::unpack_value).collect::<Option<Vec<_>>>()
         } else if let Some(o) = Tuple::from_value(value) {
             o.iter().map(T::unpack_value).collect::<Option<Vec<_>>>()

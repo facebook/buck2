@@ -58,6 +58,7 @@ use crate::syntax::lexer::TokenInt;
 use crate::values::function::BoundMethodGen;
 use crate::values::function::FrozenBoundMethod;
 use crate::values::layout::value_not_special::FrozenValueNotSpecial;
+use crate::values::list::ListRef;
 use crate::values::string::interpolation::parse_percent_s_one;
 use crate::values::types::bigint::StarlarkBigInt;
 use crate::values::types::bool::StarlarkBool;
@@ -781,7 +782,7 @@ impl ExprCompiled {
             Some(ExprCompiled::Value(heap.alloc_float(*v)))
         } else if let Some(v) = v.downcast_ref::<Range>() {
             Some(ExprCompiled::Value(heap.alloc(*v)))
-        } else if let Some(v) = List::from_value(v) {
+        } else if let Some(v) = ListRef::from_value(v) {
             // When spec-safe function returned a non-frozen list,
             // we try to convert that list to a list of constants instruction.
             let items = Self::try_values(span, v.content(), heap)?;
