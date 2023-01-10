@@ -383,7 +383,7 @@ fn default_info_creator(builder: &mut GlobalsBuilder) {
     fn DefaultInfo<'v>(
         #[starlark(default = NoneType)] default_output: Value<'v>,
         #[starlark(default = NoneType)] default_outputs: Value<'v>,
-        #[starlark(default = FrozenList::empty())] other_outputs: Value<'v>,
+        #[starlark(default = AllocList::EMPTY)] other_outputs: Value<'v>,
         #[starlark(default = SmallMap::new())] sub_targets: SmallMap<String, Value<'v>>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<DefaultInfo<'v>> {

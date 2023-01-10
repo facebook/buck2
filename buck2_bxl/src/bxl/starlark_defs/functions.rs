@@ -24,7 +24,7 @@ use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use gazebo::prelude::*;
 use starlark::environment::GlobalsBuilder;
 use starlark::starlark_module;
-use starlark::values::list::FrozenList;
+use starlark::values::list::AllocList;
 use starlark::values::list::List;
 use starlark::values::Heap;
 use starlark::values::StringValue;
@@ -54,7 +54,7 @@ pub fn register_label_function(builder: &mut GlobalsBuilder) {
     /// ```
     fn sub_target<'v>(
         target: &StarlarkTargetLabel,
-        #[starlark(default = FrozenList::empty())] subtarget_name: Value<'v>,
+        #[starlark(default = AllocList::EMPTY)] subtarget_name: Value<'v>,
     ) -> anyhow::Result<StarlarkProvidersLabel> {
         let providers_name = value_to_providers_name(subtarget_name)?;
 
@@ -79,7 +79,7 @@ pub fn register_label_function(builder: &mut GlobalsBuilder) {
     /// ```
     fn configured_sub_target<'v>(
         target: &StarlarkConfiguredTargetLabel,
-        #[starlark(default = FrozenList::empty())] subtarget_name: Value<'v>,
+        #[starlark(default = AllocList::EMPTY)] subtarget_name: Value<'v>,
     ) -> anyhow::Result<Label> {
         let providers_name = value_to_providers_name(subtarget_name)?;
 

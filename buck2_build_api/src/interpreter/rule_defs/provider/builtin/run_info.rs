@@ -15,7 +15,7 @@ use gazebo::any::ProvidesStaticType;
 use gazebo::coerce::Coerce;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
-use starlark::values::list::FrozenList;
+use starlark::values::list::AllocList;
 use starlark::values::Freeze;
 use starlark::values::Trace;
 use starlark::values::Value;
@@ -43,7 +43,7 @@ pub struct RunInfoGen<V> {
 fn run_info_creator(globals: &mut GlobalsBuilder) {
     #[starlark(type = "RunInfo")]
     fn RunInfo<'v>(
-        #[starlark(default = FrozenList::empty())] args: Value<'v>,
+        #[starlark(default = AllocList::EMPTY)] args: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<RunInfo<'v>> {
         let heap = eval.heap();
