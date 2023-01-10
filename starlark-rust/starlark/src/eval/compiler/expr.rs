@@ -64,7 +64,7 @@ use crate::values::types::bigint::StarlarkBigInt;
 use crate::values::types::bool::StarlarkBool;
 use crate::values::types::dict::Dict;
 use crate::values::types::float::StarlarkFloat;
-use crate::values::types::list::value::FrozenList;
+use crate::values::types::list::value::FrozenListData;
 use crate::values::types::list::List;
 use crate::values::types::range::Range;
 use crate::values::types::string::interpolation::format_one;
@@ -343,7 +343,7 @@ impl ExprCompiled {
                 xs.try_map(|x| x.as_value().ok_or(())).ok()
             }
             ExprCompiled::Value(v) => {
-                let list = FrozenList::from_frozen_value(v)?;
+                let list = FrozenListData::from_frozen_value(v)?;
                 if list.len() <= MAX_LEN {
                     Some(list.content().to_owned())
                 } else {

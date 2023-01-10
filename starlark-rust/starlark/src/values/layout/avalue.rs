@@ -51,7 +51,7 @@ use crate::values::string::StarlarkStr;
 use crate::values::traits::StarlarkValueDyn;
 use crate::values::types::any_array::AnyArray;
 use crate::values::types::array::Array;
-use crate::values::types::list::value::FrozenList;
+use crate::values::types::list::value::FrozenListData;
 use crate::values::types::tuple::FrozenTuple;
 use crate::values::types::tuple::Tuple;
 use crate::values::ComplexValue;
@@ -96,11 +96,11 @@ pub(crate) static VALUE_EMPTY_TUPLE: AValueRepr<AValueImpl<Direct, FrozenTuple>>
     )
 };
 
-pub(crate) static VALUE_EMPTY_FROZEN_LIST: AValueRepr<AValueImpl<Direct, ListGen<FrozenList>>> = {
-    const PAYLOAD: AValueImpl<Direct, ListGen<FrozenList>> =
-        AValueImpl(Direct, ListGen(unsafe { FrozenList::new(0) }));
+pub(crate) static VALUE_EMPTY_FROZEN_LIST: AValueRepr<AValueImpl<Direct, ListGen<FrozenListData>>> = {
+    const PAYLOAD: AValueImpl<Direct, ListGen<FrozenListData>> =
+        AValueImpl(Direct, ListGen(unsafe { FrozenListData::new(0) }));
     AValueRepr::with_metadata(
-        AValueVTable::new::<AValueImpl<Direct, ListGen<FrozenList>>>(),
+        AValueVTable::new::<AValueImpl<Direct, ListGen<FrozenListData>>>(),
         PAYLOAD,
     )
 };
@@ -209,7 +209,7 @@ pub(crate) fn list_avalue<'v>(
 }
 
 pub(crate) fn frozen_list_avalue(len: usize) -> impl AValue<'static, ExtraElem = FrozenValue> {
-    AValueImpl(Direct, unsafe { ListGen(FrozenList::new(len)) })
+    AValueImpl(Direct, unsafe { ListGen(FrozenListData::new(len)) })
 }
 
 pub(crate) fn array_avalue<'v>(
@@ -518,10 +518,13 @@ impl<'v> AValue<'v> for AValueImpl<Direct, ListGen<List<'v>>> {
             return Ok(fv);
         }
 
-        let (fv, r, extra) =
-            freezer.reserve_with_extra::<AValueImpl<Direct, ListGen<FrozenList>>>(content.len());
+        let (fv, r, extra) = freezer
+            .reserve_with_extra::<AValueImpl<Direct, ListGen<FrozenListData>>>(content.len());
         AValueHeader::overwrite_with_forward::<Self>(me, ForwardPtr::new(fv.0.raw().ptr_value()));
-        r.fill(AValueImpl(Direct, ListGen(FrozenList::new(content.len()))));
+        r.fill(AValueImpl(
+            Direct,
+            ListGen(FrozenListData::new(content.len())),
+        ));
         assert_eq!(extra.len(), content.len());
         for (elem_place, elem) in extra.iter_mut().zip(content) {
             elem_place.write(freezer.freeze(*elem)?);
@@ -534,8 +537,8 @@ impl<'v> AValue<'v> for AValueImpl<Direct, ListGen<List<'v>>> {
     }
 }
 
-impl<'v> AValue<'v> for AValueImpl<Direct, ListGen<FrozenList>> {
-    type StarlarkValue = ListGen<FrozenList>;
+impl<'v> AValue<'v> for AValueImpl<Direct, ListGen<FrozenListData>> {
+    type StarlarkValue = ListGen<FrozenListData>;
 
     type ExtraElem = FrozenValue;
 
@@ -544,7 +547,7 @@ impl<'v> AValue<'v> for AValueImpl<Direct, ListGen<FrozenList>> {
     }
 
     fn offset_of_extra() -> usize {
-        ListGen::<FrozenList>::offset_of_content()
+        ListGen::<FrozenListData>::offset_of_content()
     }
 
     unsafe fn heap_freeze(

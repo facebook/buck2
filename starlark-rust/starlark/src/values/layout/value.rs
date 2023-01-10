@@ -96,7 +96,7 @@ use crate::values::structs::value::FrozenStruct;
 use crate::values::tuple::FrozenTuple;
 use crate::values::tuple::Tuple;
 use crate::values::type_repr::StarlarkTypeRepr;
-use crate::values::types::list::value::FrozenList;
+use crate::values::types::list::value::FrozenListData;
 use crate::values::types::unbound::MaybeUnboundValue;
 use crate::values::Freeze;
 use crate::values::Freezer;
@@ -964,7 +964,7 @@ impl FrozenValue {
             || self.unpack_bool().is_some()
             || self.unpack_int().is_some()
             || FrozenValueTyped::<StarlarkFloat>::new(self).is_some()
-            || FrozenList::from_frozen_value(&self).is_some()
+            || FrozenListData::from_frozen_value(&self).is_some()
             || FrozenDict::from_frozen_value(&self).is_some()
             || FrozenValueTyped::<FrozenTuple>::new(self).is_some()
             || FrozenValueTyped::<Range>::new(self).is_some()

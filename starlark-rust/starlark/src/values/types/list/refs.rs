@@ -22,7 +22,7 @@ use std::ops::Deref;
 use gazebo::coerce::coerce;
 
 use crate::values::list::value::display_list;
-use crate::values::list::value::FrozenList;
+use crate::values::list::value::FrozenListData;
 use crate::values::list::value::ListGen;
 use crate::values::list::List;
 use crate::values::type_repr::StarlarkTypeRepr;
@@ -60,7 +60,7 @@ impl<'v> ListRef<'v> {
     /// Downcast the value to the list or frozen list (both are represented by `ListRef`).
     pub fn from_value(x: Value<'v>) -> Option<&'v ListRef<'v>> {
         if x.unpack_frozen().is_some() {
-            x.downcast_ref::<ListGen<FrozenList>>()
+            x.downcast_ref::<ListGen<FrozenListData>>()
                 .map(|x| ListRef::new(coerce(x.0.content())))
         } else {
             let ptr = x.downcast_ref::<ListGen<List>>()?;
@@ -70,7 +70,7 @@ impl<'v> ListRef<'v> {
 
     /// Downcast the list.
     pub fn from_frozen_value<'f>(x: FrozenValue) -> Option<&'f ListRef<'f>> {
-        x.downcast_ref::<ListGen<FrozenList>>()
+        x.downcast_ref::<ListGen<FrozenListData>>()
             .map(|x| ListRef::new(coerce(x.0.content())))
     }
 }

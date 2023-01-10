@@ -71,15 +71,6 @@ use crate::values::ValueTyped;
 #[repr(transparent)]
 pub(crate) struct ListGen<T>(pub(crate) T);
 
-impl FrozenList {
-    // The doc macros assume that FrozenList is an alias for ListGen, which isn't true,
-    // so do some internal reexposing so everything works.
-    #[doc(hidden)]
-    pub fn __generated_documentation() -> Option<starlark::docs::Doc> {
-        ListGen::<FrozenList>::__generated_documentation()
-    }
-}
-
 /// Define the mutable list type.
 #[derive(Trace, Debug, ProvidesStaticType, Allocative)]
 pub struct List<'v> {
@@ -91,13 +82,13 @@ pub struct List<'v> {
 /// Define the frozen list type.
 #[derive(ProvidesStaticType, Allocative)]
 #[repr(C)]
-pub(crate) struct FrozenList {
+pub(crate) struct FrozenListData {
     len: usize,
     /// The data stored by the tuple.
     content: [FrozenValue; 0],
 }
 
-impl Debug for FrozenList {
+impl Debug for FrozenListData {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("FrozenList")
             .field("content", &self.content())
@@ -105,9 +96,12 @@ impl Debug for FrozenList {
     }
 }
 
-impl ListGen<FrozenList> {
+/// Alias is used in `StarlarkDocs` derive.
+type FrozenList = ListGen<FrozenListData>;
+
+impl ListGen<FrozenListData> {
     pub(crate) fn offset_of_content() -> usize {
-        memoffset::offset_of!(FrozenList, content)
+        memoffset::offset_of!(FrozenListData, content)
     }
 }
 
@@ -121,7 +115,7 @@ impl<'v> List<'v> {
         #[cold]
         #[inline(never)]
         fn error<'v>(x: Value<'v>) -> anyhow::Error {
-            if x.downcast_ref::<ListGen<FrozenList>>().is_some() {
+            if x.downcast_ref::<ListGen<FrozenListData>>().is_some() {
                 ValueError::CannotMutateImmutableValue.into()
             } else {
                 NotListError(x.get_type()).into()
@@ -143,7 +137,7 @@ impl<'v> List<'v> {
     }
 
     pub(crate) fn is_list_type(x: TypeId) -> bool {
-        x == TypeId::of::<ListGen<List>>() || x == TypeId::of::<ListGen<FrozenList>>()
+        x == TypeId::of::<ListGen<List>>() || x == TypeId::of::<ListGen<FrozenListData>>()
     }
 
     /// Return an error if there's at least one iterator over the list.
@@ -267,9 +261,9 @@ where
     }
 }
 
-impl FrozenList {
-    pub(crate) const unsafe fn new(len: usize) -> FrozenList {
-        FrozenList { len, content: [] }
+impl FrozenListData {
+    pub(crate) const unsafe fn new(len: usize) -> FrozenListData {
+        FrozenListData { len, content: [] }
     }
 
     pub(crate) fn len(&self) -> usize {
@@ -280,11 +274,11 @@ impl FrozenList {
         unsafe { slice::from_raw_parts(self.content.as_ptr(), self.len) }
     }
 
-    /// Obtain the [`FrozenList`] pointed at by a [`FrozenValue`].
+    /// Obtain the [`FrozenListData`] pointed at by a [`FrozenValue`].
     #[allow(clippy::trivially_copy_pass_by_ref)]
     // We need a lifetime because FrozenValue doesn't contain the right lifetime
-    pub fn from_frozen_value(x: &FrozenValue) -> Option<&FrozenList> {
-        x.downcast_ref::<ListGen<FrozenList>>().map(|x| &x.0)
+    pub fn from_frozen_value(x: &FrozenValue) -> Option<&FrozenListData> {
+        x.downcast_ref::<ListGen<FrozenListData>>().map(|x| &x.0)
     }
 }
 
@@ -294,7 +288,7 @@ impl<'v> List<'v> {
 
     /// Type of list as frozen string value.
     pub fn get_type_value_static() -> FrozenStringValue {
-        ListGen::<FrozenList>::get_type_value_static()
+        ListGen::<FrozenListData>::get_type_value_static()
     }
 
     pub(crate) fn new(content: ValueTyped<'v, Array<'v>>) -> Self {
@@ -331,7 +325,7 @@ impl<'v> Display for List<'v> {
     }
 }
 
-impl Display for FrozenList {
+impl Display for FrozenListData {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         display_list(coerce(&self.content()), f)
     }
@@ -376,7 +370,7 @@ impl<'v> ListLike<'v> for List<'v> {
     }
 }
 
-impl<'v> ListLike<'v> for FrozenList {
+impl<'v> ListLike<'v> for FrozenListData {
     fn content(&self) -> &[Value<'v>] {
         coerce(self.content())
     }
