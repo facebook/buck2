@@ -80,7 +80,7 @@ impl FrozenList {
     }
 }
 
-/// Define the list type. See [`List`] and [`FrozenList`] as the two possible representations.
+/// Define the mutable list type.
 #[derive(Trace, Debug, ProvidesStaticType, Allocative)]
 pub struct List<'v> {
     /// The data stored by the list.
@@ -88,10 +88,10 @@ pub struct List<'v> {
     pub(crate) content: Cell<ValueTyped<'v, Array<'v>>>,
 }
 
-/// Define the list type. See [`List`] and [`FrozenList`] as the two possible representations.
+/// Define the frozen list type.
 #[derive(ProvidesStaticType, Allocative)]
 #[repr(C)]
-pub struct FrozenList {
+pub(crate) struct FrozenList {
     len: usize,
     /// The data stored by the tuple.
     content: [FrozenValue; 0],
@@ -334,16 +334,6 @@ impl<'v> Display for List<'v> {
 impl Display for FrozenList {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         display_list(coerce(&self.content()), f)
-    }
-}
-
-impl FrozenList {
-    /// Iterate over the elements in the list.
-    pub fn iter<'a, 'v>(&'a self) -> impl ExactSizeIterator<Item = Value<'v>> + 'a
-    where
-        'v: 'a,
-    {
-        self.content().iter().map(|e| e.to_value())
     }
 }
 

@@ -18,8 +18,8 @@
 use std::iter;
 
 use crate::values::list::value::ListGen;
-use crate::values::list::FrozenList;
 use crate::values::type_repr::StarlarkTypeRepr;
+use crate::values::types::list::value::FrozenList;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::FrozenHeap;

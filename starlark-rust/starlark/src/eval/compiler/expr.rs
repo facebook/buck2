@@ -64,7 +64,7 @@ use crate::values::types::bigint::StarlarkBigInt;
 use crate::values::types::bool::StarlarkBool;
 use crate::values::types::dict::Dict;
 use crate::values::types::float::StarlarkFloat;
-use crate::values::types::list::FrozenList;
+use crate::values::types::list::value::FrozenList;
 use crate::values::types::list::List;
 use crate::values::types::range::Range;
 use crate::values::types::string::interpolation::format_one;

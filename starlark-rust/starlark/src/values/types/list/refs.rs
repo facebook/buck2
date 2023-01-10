@@ -22,8 +22,8 @@ use std::ops::Deref;
 use gazebo::coerce::coerce;
 
 use crate::values::list::value::display_list;
+use crate::values::list::value::FrozenList;
 use crate::values::list::value::ListGen;
-use crate::values::list::FrozenList;
 use crate::values::list::List;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::Coerce;
