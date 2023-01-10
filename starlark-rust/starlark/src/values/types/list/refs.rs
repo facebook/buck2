@@ -27,6 +27,7 @@ use crate::values::list::FrozenList;
 use crate::values::list::List;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::Coerce;
+use crate::values::FrozenValue;
 use crate::values::UnpackValue;
 use crate::values::Value;
 use crate::values::ValueLike;
@@ -65,6 +66,12 @@ impl<'v> ListRef<'v> {
             let ptr = x.downcast_ref::<ListGen<List>>()?;
             Some(ListRef::new(ptr.0.content()))
         }
+    }
+
+    /// Downcast the list.
+    pub fn from_frozen_value<'f>(x: FrozenValue) -> Option<&'f ListRef<'f>> {
+        x.downcast_ref::<ListGen<FrozenList>>()
+            .map(|x| ListRef::new(coerce(x.0.content())))
     }
 }
 
