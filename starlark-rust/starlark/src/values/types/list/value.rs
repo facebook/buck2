@@ -279,19 +279,6 @@ where
 }
 
 impl FrozenList {
-    /// Utility to allocate an empty frozen list.
-    pub fn empty() -> impl AllocFrozenValue {
-        struct EmptyFrozenList;
-
-        impl AllocFrozenValue for EmptyFrozenList {
-            fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
-                heap.alloc_list(&[])
-            }
-        }
-
-        EmptyFrozenList
-    }
-
     pub(crate) const unsafe fn new(len: usize) -> FrozenList {
         FrozenList { len, content: [] }
     }
