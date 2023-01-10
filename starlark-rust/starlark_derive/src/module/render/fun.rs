@@ -54,7 +54,11 @@ pub(crate) fn render_fun(x: StarFun) -> syn::Result<TokenStream> {
     let span = x.span();
 
     let name_str = ident_string(&x.name);
-    let signature = render_signature(&x)?;
+    let signature = if let StarFunSource::Argument(..) = x.source {
+        Some(render_signature(&x)?)
+    } else {
+        None
+    };
     let documentation = render_documentation(&x)?;
     let binding = render_binding(&x);
     let is_method = x.is_method();
@@ -371,22 +375,18 @@ fn render_binding_arg(arg: &StarArg) -> BindingArg {
 
 // Given the arguments, create a variable `signature` with a `ParametersSpec` object.
 // Or return None if you don't need a signature
-fn render_signature(x: &StarFun) -> syn::Result<Option<TokenStream>> {
+fn render_signature(x: &StarFun) -> syn::Result<TokenStream> {
     let span = x.args_span();
-    if let StarFunSource::Argument(args_count) = x.source {
-        let name_str = ident_string(&x.name);
-        let sig_args = render_signature_args(&x.args)?;
-        Ok(Some(quote_spanned! {
-            span=> {
-                #[allow(unused_mut)]
-                let mut __signature = starlark::eval::ParametersSpec::with_capacity(#name_str.to_owned(), #args_count);
-                #sig_args
-                __signature.finish()
-            }
-        }))
-    } else {
-        Ok(None)
-    }
+    let name_str = ident_string(&x.name);
+    let sig_args = render_signature_args(&x.args)?;
+    Ok(quote_spanned! {
+        span=> {
+            #[allow(unused_mut)]
+            let mut __signature = starlark::eval::ParametersSpec::new(#name_str.to_owned());
+            #sig_args
+            __signature.finish()
+        }
+    })
 }
 
 fn render_documentation(x: &StarFun) -> syn::Result<TokenStream> {
@@ -394,26 +394,18 @@ fn render_documentation(x: &StarFun) -> syn::Result<TokenStream> {
 
     // A signature is not needed to invoke positional-only functions, but we still want
     // information like names, order, type, etc to be available to call '.documentation()' on.
-    let args_count = match &x.source {
-        StarFunSource::Argument(args_count) => Some(*args_count),
-        StarFunSource::Positional(required, optional) => Some(required + optional),
-        StarFunSource::Parameters | StarFunSource::ThisParameters => None,
-    };
     let name_str = ident_string(&x.name);
-    let documentation_signature = match args_count {
-        Some(args_count) => {
-            let sig_args = render_signature_args(&x.args)?;
-            quote_spanned! {
-                span=> {
-                #[allow(unused_mut)]
-                let mut __signature = starlark::eval::ParametersSpec::with_capacity(#name_str.to_owned(), #args_count);
-                #sig_args
-                __signature.finish()
-                }
-            }
-        }
-        None => {
-            quote_spanned!(span=> starlark::eval::ParametersSpec::<starlark::values::FrozenValue>::new(#name_str.to_owned()).finish())
+    let need_render_signature = match &x.source {
+        StarFunSource::Argument(..) => true,
+        StarFunSource::Positional(..) => true,
+        StarFunSource::Parameters | StarFunSource::ThisParameters => false,
+    };
+    let documentation_signature = if need_render_signature {
+        render_signature(x)?
+    } else {
+        quote_spanned! { span=>
+            starlark::eval::ParametersSpec::<starlark::values::FrozenValue>::new(#name_str.to_owned())
+                    .finish()
         }
     };
 
