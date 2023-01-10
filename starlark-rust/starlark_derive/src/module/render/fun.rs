@@ -378,13 +378,14 @@ fn render_binding_arg(arg: &StarArg) -> BindingArg {
 fn render_signature(x: &StarFun) -> syn::Result<TokenStream> {
     let span = x.args_span();
     let name_str = ident_string(&x.name);
-    let sig_args = render_signature_args(&x.args)?;
+    let signature_var = format_ident!("__signature");
+    let sig_args = render_signature_args(&x.args, &signature_var)?;
     Ok(quote_spanned! {
         span=> {
             #[allow(unused_mut)]
-            let mut __signature = starlark::eval::ParametersSpec::new(#name_str.to_owned());
+            let mut #signature_var = starlark::eval::ParametersSpec::new(#name_str.to_owned());
             #sig_args
-            __signature.finish()
+            #signature_var.finish()
         }
     })
 }
@@ -445,7 +446,7 @@ fn render_documentation(x: &StarFun) -> syn::Result<TokenStream> {
     ))
 }
 
-fn render_signature_args(args: &[StarArg]) -> syn::Result<TokenStream> {
+fn render_signature_args(args: &[StarArg], signature_var: &Ident) -> syn::Result<TokenStream> {
     #[derive(PartialEq, Eq, PartialOrd, Ord)]
     enum CurrentParamStyle {
         PosOnly,
@@ -489,7 +490,7 @@ fn render_signature_args(args: &[StarArg]) -> syn::Result<TokenStream> {
             StarArgPassStyle::PosOrNamed => {
                 if last_param_style == CurrentParamStyle::PosOnly {
                     sig_args.extend(quote_spanned! { arg.span=>
-                        __signature.no_more_positional_only_args();
+                        #signature_var.no_more_positional_only_args();
                     });
                 }
                 last_param_style = CurrentParamStyle::PosOrNamed;
@@ -497,7 +498,7 @@ fn render_signature_args(args: &[StarArg]) -> syn::Result<TokenStream> {
             StarArgPassStyle::NamedOnly => {
                 if last_param_style < CurrentParamStyle::NamedOnly {
                     sig_args.extend(quote_spanned! { arg.span=>
-                        __signature.no_more_positional_args();
+                        #signature_var.no_more_positional_args();
                     });
                 }
                 last_param_style = CurrentParamStyle::NamedOnly;
@@ -509,39 +510,43 @@ fn render_signature_args(args: &[StarArg]) -> syn::Result<TokenStream> {
                 ));
             }
         }
-        sig_args.extend(render_signature_arg(arg)?);
+        sig_args.extend(render_signature_arg(arg, signature_var)?);
     }
     Ok(sig_args)
 }
 
 // Generate a statement that modifies signature to add a new argument in.
-fn render_signature_arg(arg: &StarArg) -> syn::Result<TokenStream> {
+fn render_signature_arg(arg: &StarArg, signature_var: &Ident) -> syn::Result<TokenStream> {
     let span = arg.span;
 
     let name_str = ident_string(&arg.name);
 
     if arg.pass_style == StarArgPassStyle::Args {
         assert!(arg.default.is_none(), "Can't have *args with a default");
-        Ok(quote_spanned! { span=> __signature.args();})
+        Ok(quote_spanned! { span=> #signature_var.args();})
     } else if arg.pass_style == StarArgPassStyle::Kwargs {
         assert!(arg.default.is_none(), "Can't have **kwargs with a default");
-        Ok(quote_spanned! { span=> __signature.kwargs();})
+        Ok(quote_spanned! { span=> #signature_var.kwargs();})
     } else if arg.pass_style == StarArgPassStyle::This {
         Ok(quote_spanned! { span=> })
     } else if arg.is_option() {
-        Ok(quote_spanned! { span=> __signature.optional(#name_str);})
+        Ok(quote_spanned! { span=> #signature_var.optional(#name_str);})
     } else if let Some(default) = &arg.default {
         // For things that are type Value, we put them on the frozen heap.
         // For things that aren't type value, use optional and then next_opt/unwrap
         // to avoid the to/from value conversion.
         if arg.is_value() {
-            Ok(
-                quote_spanned! { span=> __signature.defaulted(#name_str, globals_builder.alloc(#default));},
-            )
+            Ok(quote_spanned! { span=>
+                #signature_var.defaulted(#name_str, globals_builder.alloc(#default));
+            })
         } else {
-            Ok(quote_spanned! { span=> __signature.optional(#name_str);})
+            Ok(quote_spanned! { span=>
+                #signature_var.optional(#name_str);
+            })
         }
     } else {
-        Ok(quote_spanned! { span=> __signature.required(#name_str);})
+        Ok(quote_spanned! { span=>
+            #signature_var.required(#name_str);
+        })
     }
 }
