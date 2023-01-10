@@ -15,8 +15,6 @@
  * limitations under the License.
  */
 
-//! The dictionary type, a mutable associative-map, which iterates in insertion order.
-
 use std::any::TypeId;
 use std::cell::Ref;
 use std::cell::RefCell;
@@ -26,9 +24,6 @@ use std::fmt::Debug;
 use std::fmt::Display;
 use std::hash::Hash;
 use std::hash::Hasher;
-use std::marker::PhantomData;
-use std::ops::Deref;
-use std::ops::DerefMut;
 
 use allocative::Allocative;
 use gazebo::any::ProvidesStaticType;
@@ -46,6 +41,9 @@ use crate::environment::Methods;
 use crate::environment::MethodsStatic;
 use crate::hint::unlikely;
 use crate::values::comparison::equals_small_map;
+use crate::values::dict::DictMut;
+use crate::values::dict::DictOf;
+use crate::values::dict::DictRef;
 use crate::values::error::ValueError;
 use crate::values::iter::ARefIterator;
 use crate::values::string::hash_string_value;
@@ -134,38 +132,6 @@ impl AllocFrozenValue for FrozenDict {
     }
 }
 
-/// Borrowed `Dict`.
-pub struct DictRef<'v> {
-    aref: ARef<'v, Dict<'v>>,
-}
-
-/// Mutably borrowed `Dict`.
-pub struct DictMut<'v> {
-    aref: RefMut<'v, Dict<'v>>,
-}
-
-impl<'v> Deref for DictRef<'v> {
-    type Target = Dict<'v>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.aref
-    }
-}
-
-impl<'v> Deref for DictMut<'v> {
-    type Target = Dict<'v>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.aref
-    }
-}
-
-impl<'v> DerefMut for DictMut<'v> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.aref
-    }
-}
-
 impl<'v> Dict<'v> {
     /// Downcast the value to a dict.
     pub fn from_value(x: Value<'v>) -> Option<DictRef<'v>> {
@@ -216,22 +182,6 @@ impl<'v> Dict<'v> {
     pub(crate) unsafe fn from_value_unchecked_mut(x: Value<'v>) -> RefMut<'v, Self> {
         let dict = &x.downcast_ref_unchecked::<DictGen<RefCell<Dict<'v>>>>().0;
         dict.borrow_mut()
-    }
-}
-
-impl<'v> StarlarkTypeRepr for DictRef<'v> {
-    fn starlark_type_repr() -> String {
-        Dict::<'v>::starlark_type_repr()
-    }
-}
-
-impl<'v> UnpackValue<'v> for DictRef<'v> {
-    fn expected() -> String {
-        "dict".to_owned()
-    }
-
-    fn unpack_value(value: Value<'v>) -> Option<DictRef<'v>> {
-        Dict::from_value(value)
     }
 }
 
@@ -588,86 +538,6 @@ impl<'v, K: UnpackValue<'v> + Hash + Eq, V: UnpackValue<'v>> UnpackValue<'v> for
             r.insert(K::unpack_value(*k)?, V::unpack_value(*v)?);
         }
         Some(r)
-    }
-}
-
-/// Like [`ValueOf`](crate::values::ValueOf), but only validates key and value types; does not construct
-/// or store a map. Use `to_dict` to get at the map.
-#[derive(Debug, Trace)]
-pub struct DictOf<'v, K: UnpackValue<'v>, V: UnpackValue<'v>> {
-    value: Value<'v>,
-    phantom: PhantomData<(K, V)>,
-}
-
-impl<'v, K: UnpackValue<'v>, V: UnpackValue<'v>> DictOf<'v, K, V> {
-    /// Get all the elements.
-    // This should return an iterator, but it is not trivial to do with `ARef`.
-    pub fn collect_entries(&self) -> Vec<(K, V)> {
-        Dict::from_value(self.value)
-            .expect("already validated as a dict")
-            .iter()
-            .map(|(k, v)| {
-                (
-                    K::unpack_value(k).expect("already validated key"),
-                    V::unpack_value(v).expect("already validated value"),
-                )
-            })
-            .collect()
-    }
-}
-
-impl<'v, K: UnpackValue<'v> + Hash + Eq, V: UnpackValue<'v>> DictOf<'v, K, V> {
-    /// Collect all the elements to a fresh `SmallMap`.
-    pub fn to_dict(&self) -> SmallMap<K, V> {
-        Dict::from_value(self.value)
-            .expect("already validated as a dict")
-            .iter()
-            .map(|(k, v)| {
-                (
-                    K::unpack_value(k).expect("already validated key"),
-                    V::unpack_value(v).expect("already validated value"),
-                )
-            })
-            .collect()
-    }
-}
-
-impl<'v, K: UnpackValue<'v>, V: UnpackValue<'v>> StarlarkTypeRepr for DictOf<'v, K, V> {
-    fn starlark_type_repr() -> String {
-        format!(
-            "{{{}: {}}}",
-            K::starlark_type_repr(),
-            V::starlark_type_repr()
-        )
-    }
-}
-
-impl<'v, K: UnpackValue<'v>, V: UnpackValue<'v>> UnpackValue<'v> for DictOf<'v, K, V> {
-    fn expected() -> String {
-        format!("dict mapping {} to {}", K::expected(), V::expected())
-    }
-
-    fn unpack_value(value: Value<'v>) -> Option<Self> {
-        let dict = Dict::from_value(value)?;
-        let all_valid = dict
-            .iter()
-            .all(|(k, v)| K::unpack_value(k).is_some() && V::unpack_value(v).is_some());
-        if all_valid {
-            Some(DictOf {
-                value,
-                phantom: PhantomData,
-            })
-        } else {
-            None
-        }
-    }
-}
-
-impl<'v, K: UnpackValue<'v> + Hash, V: UnpackValue<'v>> Deref for DictOf<'v, K, V> {
-    type Target = Value<'v>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.value
     }
 }
 

@@ -22,7 +22,7 @@ use once_cell::sync::Lazy;
 use crate::environment::Methods;
 use crate::eval::Arguments;
 use crate::eval::Evaluator;
-use crate::values::dict::dict_methods;
+use crate::values::dict::value::dict_methods;
 use crate::values::function::NativeMeth;
 use crate::values::function::NativeMethod;
 use crate::values::list::value::list_methods;
