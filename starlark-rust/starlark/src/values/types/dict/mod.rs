@@ -17,10 +17,12 @@
 
 //! The dictionary type, a mutable associative-map, which iterates in insertion order.
 
+mod alloc;
 mod of;
 mod refs;
 pub(crate) mod value;
 
+pub use crate::values::dict::alloc::AllocDict;
 pub use crate::values::dict::of::DictOf;
 pub use crate::values::dict::refs::DictMut;
 pub use crate::values::dict::refs::DictRef;

@@ -114,7 +114,7 @@ impl<'v> StarlarkTypeRepr for Dict<'v> {
 #[repr(transparent)]
 pub struct FrozenDict {
     /// The data stored by the dictionary. The keys must all be hashable values.
-    content: SmallMap<FrozenValue, FrozenValue>,
+    pub(crate) content: SmallMap<FrozenValue, FrozenValue>,
 }
 
 unsafe impl<'v> Coerce<Dict<'v>> for FrozenDict {}
