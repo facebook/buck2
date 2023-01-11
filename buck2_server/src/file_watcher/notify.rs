@@ -137,9 +137,10 @@ impl NotifyFileData {
     }
 
     fn sync(self) -> (buck2_data::FileWatcherStats, FileChangeTracker) {
+        // The changes that go into the DICE transaction
         let mut changed = FileChangeTracker::new();
-        let mut stats = FileWatcherStats::new(0, None);
-        stats.add_ignored(self.ignored);
+        // The files that were changed for accumulating the stats
+        let mut changed_paths = OrderedSet::new();
 
         for (cell_path, change_type) in self.events {
             let cell_path_str = cell_path.to_string();
@@ -153,15 +154,23 @@ impl NotifyFileData {
                     changed.file_added_or_removed(cell_path)
                 }
             }
+            // We use changed_paths to deduplicate
+            changed_paths.insert(cell_path_str);
+        }
+
+        let mut stats = FileWatcherStats::new(changed_paths.len(), None);
+        stats.add_ignored(self.ignored);
+        for path in changed_paths {
             // The event type and watcher kind are just made up, but that's not a big deal
             // since we only use this path open source, where we don't log the information to Scuba anyway.
             // The path is right, which is probably what matters most
             stats.add(
-                cell_path_str,
+                path,
                 buck2_data::FileWatcherEventType::Modify,
                 buck2_data::FileWatcherKind::File,
             );
         }
+
         (stats.finish(), changed)
     }
 }
