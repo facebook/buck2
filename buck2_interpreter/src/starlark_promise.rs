@@ -8,6 +8,7 @@
  */
 
 //! A type [`StarlarkPromise`] which provides basic promise-like functionality.
+use std::cell::Cell;
 use std::cell::RefCell;
 use std::mem;
 
@@ -65,6 +66,39 @@ enum PromiseValue<'v> {
     Unresolved,
     Resolved(Value<'v>),
     Map(ValueTyped<'v, StarlarkPromise<'v>>, Value<'v>),
+    Join(PromiseJoin<'v>),
+}
+
+#[derive(Clone, Debug, Trace, Allocative)]
+struct PromiseJoin<'v> {
+    /// Number of items that are currently unresolved
+    #[allocative(skip)]
+    unresolved: Cell<usize>,
+    items: Vec<ValueTyped<'v, StarlarkPromise<'v>>>,
+}
+
+impl<'v> PromiseJoin<'v> {
+    fn new(items: Vec<ValueTyped<'v, StarlarkPromise<'v>>>) -> Self {
+        let unresolved = Cell::new(items.iter().filter(|x| x.get().is_none()).count());
+        Self { unresolved, items }
+    }
+
+    fn resolve_one(&self) {
+        self.unresolved
+            .set(self.unresolved.get().checked_sub(1).unwrap());
+    }
+
+    fn get(&self) -> Option<Vec<Value<'v>>> {
+        if self.unresolved.get() != 0 {
+            None
+        } else {
+            let mut res = Vec::with_capacity(self.items.len());
+            for x in &self.items {
+                res.push(x.get().expect("invariant broken in promise join"))
+            }
+            Some(res)
+        }
+    }
 }
 
 #[derive(Debug, Error)]
@@ -148,6 +182,25 @@ impl<'v> StarlarkPromise<'v> {
         }
     }
 
+    fn join(
+        args: Vec<ValueTyped<'v, StarlarkPromise<'v>>>,
+        heap: &'v Heap,
+    ) -> ValueTyped<'v, StarlarkPromise<'v>> {
+        let join = PromiseJoin::new(args);
+        match join.get() {
+            Some(values) => heap.alloc_typed(Self::new_resolved(heap.alloc_tuple(&values))),
+            None => {
+                let promise = Self::new_unresolved();
+                let value = heap.alloc_typed(promise);
+                for arg in &join.items {
+                    arg.downstream.borrow_mut().push(value);
+                }
+                *value.value.borrow_mut() = PromiseValue::Join(join);
+                value
+            }
+        }
+    }
+
     /// Validate the type of a promise. Will execute once the promise is resolved.
     pub fn validate(&self, f: fn(Value<'v>) -> anyhow::Result<()>) -> anyhow::Result<()> {
         match self.get() {
@@ -181,12 +234,23 @@ impl<'v> StarlarkPromise<'v> {
         let mut downstream = Vec::new();
         mem::swap(&mut *self.downstream.borrow_mut(), &mut downstream);
         for d in downstream {
-            let map = match &*d.value.borrow() {
-                PromiseValue::Map(_, f) => *f,
-                _ => panic!("Impossible to reach a downstream promise that is not a map"),
-            };
-            let x2 = Self::apply(map, x, eval)?;
-            d.resolve_rec(x2, eval)?;
+            // Make sure we drop the borrow BEFORE calling resolve_rec
+            let borrow = d.value.borrow();
+            match &*borrow {
+                PromiseValue::Map(_, f) => {
+                    let f = *f;
+                    drop(borrow);
+                    d.resolve_rec(Self::apply(f, x, eval)?, eval)?;
+                }
+                PromiseValue::Join(join) => {
+                    join.resolve_one();
+                    if let Some(elems) = join.get() {
+                        drop(borrow);
+                        d.resolve_rec(eval.heap().alloc_tuple(&elems), eval)?;
+                    }
+                }
+                _ => panic!("Impossible to reach a downstream promise that is not a map or join"),
+            }
         }
         Ok(())
     }
@@ -229,12 +293,27 @@ impl<'v> StarlarkValue<'v> for StarlarkPromise<'v> {
 
 #[starlark_module]
 fn promise_methods(builder: &mut MethodsBuilder) {
+    /// Given a promise, apply a function to the value it contains, producing a promise with the resulting value.
     fn map<'v>(
         this: ValueTyped<'v, StarlarkPromise<'v>>,
         #[starlark(require = pos)] func: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<ValueTyped<'v, StarlarkPromise<'v>>> {
         StarlarkPromise::map(this, func, eval)
+    }
+
+    /// Join a set of promises together into a single promise.
+    ///
+    /// Given a series of promises, `p4 = p1.join(p2, p3)` will produce a promise
+    /// where the value is promise that resolves to a tuple containing the three values,
+    /// those from `p1`, `p2` and `p3` respectively.
+    fn join<'v>(
+        this: ValueTyped<'v, StarlarkPromise<'v>>,
+        #[starlark(args)] mut args: Vec<ValueTyped<'v, StarlarkPromise<'v>>>,
+        heap: &'v Heap,
+    ) -> anyhow::Result<ValueTyped<'v, StarlarkPromise<'v>>> {
+        args.insert(0, this);
+        Ok(StarlarkPromise::join(args, heap))
     }
 }
 
@@ -389,6 +468,47 @@ promise_validate(p)
 p
 "#,
             "VALIDATE_FAILED",
+        );
+    }
+
+    #[test]
+    fn test_promise_join() {
+        let modu = Module::new();
+        let res = assert_promise(
+            &modu,
+            r#"
+p1 = promise_resolved("a")
+p2 = promise_resolved("b")
+p3 = promise_resolved("c")
+p1.join(p2, p3)
+"#,
+        )
+        .unwrap();
+        assert_eq!(
+            StarlarkPromise::from_value(res)
+                .unwrap()
+                .get()
+                .unwrap()
+                .to_string(),
+            "(\"a\", \"b\", \"c\")"
+        );
+        let res = assert_promise(
+            &modu,
+            r#"
+p1 = promise_resolved("a")
+p2 = promise_unresolved("B")
+p3 = promise_unresolved("C")
+p1.join(p2, p3)
+"#,
+        )
+        .unwrap();
+        assert_eq!(
+            StarlarkPromise::from_value(res)
+                .unwrap()
+                .get()
+                .unwrap()
+                .to_string(),
+            "(\"a\", \"B\", \"C\")"
         );
     }
 }
