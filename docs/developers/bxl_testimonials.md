@@ -3,7 +3,7 @@ id: bxl_testimonials
 title: Testimonials
 ---
 
-# Testimonials
+# BXL Testimonials
 
 For XCode project generation:
 
