@@ -16,14 +16,6 @@ use starlark::values::Value;
 
 use crate::interpreter::module_internals::ModuleInternals;
 
-#[derive(Debug, thiserror::Error)]
-enum OncallErrors {
-    #[error("Called `oncall` after one or more targets were declared, `oncall` must be first.")]
-    OncallAfterTargets,
-    #[error("Called `oncall` more than once in the file.")]
-    DuplicateOncall,
-}
-
 #[starlark_module]
 pub fn register_module_natives(globals: &mut GlobalsBuilder) {
     /// This should be called "target exists", not "rule exists"
@@ -40,16 +32,8 @@ pub fn register_module_natives(globals: &mut GlobalsBuilder) {
         eval: &mut Evaluator,
     ) -> anyhow::Result<NoneType> {
         let internals = ModuleInternals::from_context(eval)?;
-        if !internals.recorded_is_empty() {
-            // We require oncall to be first both so users can find it,
-            // and so we can propagate it to all targets more easily.
-            Err(OncallErrors::OncallAfterTargets.into())
-        } else if internals.has_seen_oncall() {
-            Err(OncallErrors::DuplicateOncall.into())
-        } else {
-            internals.set_oncall(name);
-            Ok(NoneType)
-        }
+        internals.set_oncall(name)?;
+        Ok(NoneType)
     }
 
     fn implicit_package_symbol<'v>(

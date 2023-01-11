@@ -8,6 +8,8 @@
  */
 
 use std::cell::RefCell;
+use std::cell::RefMut;
+use std::mem;
 use std::sync::Arc;
 
 use buck2_core::build_file_path::BuildFilePath;
@@ -30,13 +32,31 @@ impl From<ModuleInternals> for EvaluationResult {
     // TODO(cjhopman): Let's make this an `into_evaluation_result()` on ModuleInternals instead.
     fn from(internals: ModuleInternals) -> Self {
         let ModuleInternals {
-            recorder,
-            buildfile_path,
+            state,
             imports,
+            buildfile_path,
             ..
         } = internals;
+        let recorder = match state.into_inner() {
+            State::BeforeTargets(_) => TargetsRecorder::new(),
+            State::Targets(RecordingTargets { recorder, .. }) => recorder,
+        };
         EvaluationResult::new(buildfile_path, imports, recorder.take())
     }
+}
+
+struct Oncall(Arc<String>);
+
+struct RecordingTargets {
+    package: Arc<Package>,
+    recorder: TargetsRecorder,
+}
+
+enum State {
+    /// No targets recorded yet, `oncall` call is allowed unless it was already called.
+    BeforeTargets(Option<Oncall>),
+    /// First target seen.
+    Targets(RecordingTargets),
 }
 
 /// ModuleInternals contains the module/package-specific information for
@@ -47,12 +67,9 @@ pub struct ModuleInternals {
     attr_coercion_context: BuildAttrCoercionContext,
     buildfile_path: Arc<BuildFilePath>,
     /// Have you seen an oncall annotation yet
-    oncall: RefCell<Option<Arc<String>>>,
-    /// Lazily initialized when first target is created.
-    package: RefCell<Option<Arc<Package>>>,
+    state: RefCell<State>,
     /// Directly imported modules.
     imports: Vec<ImportPath>,
-    recorder: TargetsRecorder,
     package_implicits: Option<PackageImplicits>,
     default_visibility_to_public: bool,
     record_target_call_stacks: bool,
@@ -80,6 +97,14 @@ impl PackageImplicits {
     }
 }
 
+#[derive(Debug, thiserror::Error)]
+enum OncallErrors {
+    #[error("Called `oncall` after one or more targets were declared, `oncall` must be first.")]
+    OncallAfterTargets,
+    #[error("Called `oncall` more than once in the file.")]
+    DuplicateOncall,
+}
+
 impl ModuleInternals {
     pub(crate) fn new(
         attr_coercion_context: BuildAttrCoercionContext,
@@ -92,11 +117,9 @@ impl ModuleInternals {
         Self {
             attr_coercion_context,
             buildfile_path,
-            oncall: RefCell::new(None),
-            package: RefCell::new(None),
+            state: RefCell::new(State::BeforeTargets(None)),
             imports,
             package_implicits,
-            recorder: TargetsRecorder::new(),
             default_visibility_to_public,
             record_target_call_stacks,
         }
@@ -107,23 +130,48 @@ impl ModuleInternals {
     }
 
     pub fn record(&self, target_node: TargetNode) -> anyhow::Result<()> {
-        self.recorder.record(target_node)
+        self.recording_targets().recorder.record(target_node)
     }
 
-    pub(crate) fn recorded_is_empty(&self) -> bool {
-        self.recorder.is_empty()
+    pub(crate) fn set_oncall(&self, name: &str) -> anyhow::Result<()> {
+        match &mut *self.state.borrow_mut() {
+            State::BeforeTargets(Some(_)) => Err(OncallErrors::DuplicateOncall.into()),
+            State::BeforeTargets(oncall) => {
+                assert!(oncall.is_none());
+                *oncall = Some(Oncall(Arc::new(name.to_owned())));
+                Ok(())
+            }
+            State::Targets(..) => {
+                // We require oncall to be first both so users can find it,
+                // and so we can propagate it to all targets more easily.
+                Err(OncallErrors::OncallAfterTargets.into())
+            }
+        }
     }
 
-    pub(crate) fn has_seen_oncall(&self) -> bool {
-        self.oncall.borrow().is_some()
-    }
-
-    pub(crate) fn set_oncall(&self, name: &str) {
-        *self.oncall.borrow_mut() = Some(Arc::new(name.to_owned()))
+    fn recording_targets(&self) -> RefMut<RecordingTargets> {
+        RefMut::map(self.state.borrow_mut(), |state| {
+            loop {
+                match state {
+                    State::BeforeTargets(oncall) => {
+                        let oncall = mem::take(oncall).map(|Oncall(name)| name);
+                        *state = State::Targets(RecordingTargets {
+                            package: Arc::new(Package {
+                                buildfile_path: self.buildfile_path.dupe(),
+                                oncall,
+                            }),
+                            recorder: TargetsRecorder::new(),
+                        });
+                        continue;
+                    }
+                    State::Targets(r) => return r,
+                }
+            }
+        })
     }
 
     pub(crate) fn target_exists(&self, name: &str) -> bool {
-        (*self.recorder.targets.borrow()).contains_key(name)
+        self.recording_targets().recorder.targets.contains_key(name)
     }
 
     pub fn buildfile_path(&self) -> &Arc<BuildFilePath> {
@@ -131,15 +179,7 @@ impl ModuleInternals {
     }
 
     pub fn package(&self) -> Arc<Package> {
-        let mut package = self.package.borrow_mut();
-        package
-            .get_or_insert_with(|| {
-                Arc::new(Package {
-                    buildfile_path: self.buildfile_path.dupe(),
-                    oncall: self.oncall.borrow().dupe(),
-                })
-            })
-            .dupe()
+        self.recording_targets().package.dupe()
     }
 
     pub(crate) fn get_package_implicit(&self, name: &str) -> Option<OwnedFrozenValue> {
@@ -159,7 +199,7 @@ impl ModuleInternals {
 
 // Records the targets declared when evaluating a build file.
 struct TargetsRecorder {
-    targets: RefCell<TargetsMap>,
+    targets: TargetsMap,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -171,17 +211,12 @@ enum TargetsError {
 impl TargetsRecorder {
     fn new() -> Self {
         Self {
-            targets: RefCell::new(TargetsMap::new()),
+            targets: TargetsMap::new(),
         }
     }
 
-    fn is_empty(&self) -> bool {
-        self.targets.borrow().is_empty()
-    }
-
-    fn record(&self, target_node: TargetNode) -> anyhow::Result<()> {
-        let mut rules = self.targets.borrow_mut();
-        match rules.entry(target_node.label().name().dupe()) {
+    fn record(&mut self, target_node: TargetNode) -> anyhow::Result<()> {
+        match self.targets.entry(target_node.label().name().dupe()) {
             small_map::Entry::Vacant(o) => {
                 o.insert(target_node);
                 Ok(())
@@ -193,6 +228,6 @@ impl TargetsRecorder {
     }
 
     fn take(self) -> TargetsMap {
-        self.targets.into_inner()
+        self.targets
     }
 }
