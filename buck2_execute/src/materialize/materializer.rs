@@ -131,6 +131,9 @@ pub enum MaterializationError {
 ///    declared.
 #[async_trait]
 pub trait Materializer: Allocative + Send + Sync + 'static {
+    /// The name of this materializer, for logging.
+    fn name(&self) -> &str;
+
     /// Declare that a set of artifacts exist on disk already.
     async fn declare_existing(
         &self,

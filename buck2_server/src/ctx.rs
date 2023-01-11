@@ -648,6 +648,11 @@ impl ServerCommandContextTrait for ServerCommandContext {
             self.base_context.io.name().to_owned(),
         );
 
+        metadata.insert(
+            "materializer".to_owned(),
+            self.base_context.materializer.name().to_owned(),
+        );
+
         if let Some(oncall) = &self.oncall {
             metadata.insert("oncall".to_owned(), oncall.clone());
         }

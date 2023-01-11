@@ -35,6 +35,10 @@ pub struct NoDiskMaterializer;
 
 #[async_trait]
 impl Materializer for NoDiskMaterializer {
+    fn name(&self) -> &str {
+        "noop"
+    }
+
     async fn declare_existing(
         &self,
         _artifacts: Vec<(ProjectRelativePathBuf, ArtifactValue)>,

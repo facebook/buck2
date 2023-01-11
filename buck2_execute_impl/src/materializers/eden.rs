@@ -58,6 +58,10 @@ pub struct EdenMaterializer {
 
 #[async_trait]
 impl Materializer for EdenMaterializer {
+    fn name(&self) -> &str {
+        "eden"
+    }
+
     async fn declare_existing(
         &self,
         _artifacts: Vec<(ProjectRelativePathBuf, ArtifactValue)>,

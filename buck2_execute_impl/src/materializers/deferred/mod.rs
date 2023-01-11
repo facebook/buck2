@@ -466,6 +466,10 @@ impl MaterializationMethodToProto for ArtifactMaterializationMethod {
 
 #[async_trait]
 impl Materializer for DeferredMaterializer {
+    fn name(&self) -> &str {
+        "deferred"
+    }
+
     async fn declare_existing(
         &self,
         artifacts: Vec<(ProjectRelativePathBuf, ArtifactValue)>,

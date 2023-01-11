@@ -70,6 +70,10 @@ impl ImmediateMaterializer {
 
 #[async_trait]
 impl Materializer for ImmediateMaterializer {
+    fn name(&self) -> &str {
+        "immediate"
+    }
+
     async fn declare_existing(
         &self,
         _artifacts: Vec<(ProjectRelativePathBuf, ArtifactValue)>,
