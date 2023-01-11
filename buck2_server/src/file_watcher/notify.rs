@@ -125,7 +125,7 @@ impl NotifyFileData {
             );
 
             if ignore || change_type == ChangeType::None {
-                self.stats.add_ignored();
+                self.stats.add_ignored(1);
             } else {
                 match change_type {
                     ChangeType::None => {}

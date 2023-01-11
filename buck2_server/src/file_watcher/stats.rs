@@ -38,8 +38,8 @@ impl FileWatcherStats {
     }
 
     /// I have seen an event that I am ignoring
-    pub(crate) fn add_ignored(&mut self) {
-        self.stats.events_total += 1;
+    pub(crate) fn add_ignored(&mut self, count: u64) {
+        self.stats.events_total += count;
     }
 
     /// I have seen an event that I am processing
