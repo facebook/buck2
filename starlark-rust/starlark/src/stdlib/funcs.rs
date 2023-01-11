@@ -18,6 +18,7 @@
 //! A module with the standard function and constants that are by default in all
 //! dialect of Starlark
 
+use std::char;
 use std::cmp::Ordering;
 use std::fmt::Display;
 use std::num::NonZeroI32;
@@ -212,8 +213,17 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     fn chr(
         #[starlark(require = pos, type = "[int.type, bool.type]")] i: Value,
     ) -> anyhow::Result<char> {
-        let cp = i.to_int()? as u32;
-        match std::char::from_u32(cp) {
+        let i = i.to_int()?;
+        let cp = match u32::try_from(i) {
+            Ok(cp) => cp,
+            Err(_) => {
+                return Err(anyhow::anyhow!(
+                    "chr() parameter value negative integer {}",
+                    i
+                ));
+            }
+        };
+        match char::from_u32(cp) {
             Some(x) => Ok(x),
             None => Err(anyhow::anyhow!(
                 "chr() parameter value is 0x{:x} which is not a valid UTF-8 codepoint",
@@ -1169,8 +1179,9 @@ mod tests {
     }
 
     #[test]
-    fn test_error_codes() {
+    fn test_chr() {
         assert::fail("chr(0x110000)", "not a valid UTF-8");
+        assert::fail("chr(-1)", "negative");
     }
 
     #[test]
