@@ -28,6 +28,11 @@ load(
 )
 load("@prelude//utils:utils.bzl", "expect", "map_idx")
 
+buckPaths = struct(
+    configuredBuckOut = encode_path("buck-out/v2"),
+    includeTargetConfigHash = True,
+)
+
 def create_jar_artifact_kotlincd(
         actions: "actions",
         actions_identifier: [str.type, None],
@@ -95,10 +100,7 @@ def create_jar_artifact_kotlincd(
             cellRelativeBasePath = encoded_base_path,
             shortNameAndFlavorPostfix = short_name,
             shortName = short_name,
-            buckPaths = struct(
-                configuredBuckOut = encode_path("buck-out/v2"),
-                includeTargetConfigHash = True,
-            ),
+            buckPaths = buckPaths,
         )
 
     kotlin_extra_params = encode_kotlin_extra_params(kotlin_compiler_plugins)
