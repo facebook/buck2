@@ -128,11 +128,16 @@ impl NotifyFileData {
             // We also ignore other buck-out directories, as if you have two isolation dirs running at once, they are not interesting.
             // We do this in the notify-watcher, rather than a generic layer, as watchman users should configure
             // to ignore buck-out, to reduce the number of events, rather than hiding them later.
-            let ignore = path.starts_with(InvocationPaths::buck_out_dir_prefix())
-                || ignore_specs
-                    .get(cell_path.cell())
-                    .expect("unexpected cell name mismatch")
-                    .is_match(cell_path.path());
+            if path.starts_with(InvocationPaths::buck_out_dir_prefix()) {
+                // We don't want to event add them as ignored events, since they are super common
+                // and very boring
+                continue;
+            }
+
+            let ignore = ignore_specs
+                .get(cell_path.cell())
+                .expect("unexpected cell name mismatch")
+                .is_match(cell_path.path());
 
             info!(
                 "FileWatcher: {:?} {:?} (ignore = {})",
