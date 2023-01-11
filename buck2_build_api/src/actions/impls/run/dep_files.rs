@@ -199,7 +199,7 @@ impl DepFileState {
         if let DepFileStateInputSignatures::Deferred(ref mut directories) = *guard {
             let directories = directories
                 .take()
-                .expect("Poisioned DepFileStateInputSignatures")
+                .expect("Poisoned DepFileStateInputSignatures")
                 .unshare()
                 .filter(dep_files.into_owned())
                 .fingerprint();
