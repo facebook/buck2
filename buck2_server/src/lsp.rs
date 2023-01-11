@@ -65,6 +65,7 @@ use starlark::lsp::server::LspEvalResult;
 use starlark::lsp::server::LspUrl;
 use starlark::lsp::server::StringLiteralResult;
 use starlark::syntax::AstModule;
+use tokio::runtime::Handle;
 use tokio::sync::Mutex;
 use tokio::sync::MutexGuard;
 use tonic::Status;
@@ -344,6 +345,7 @@ struct BuckLspContext {
     server_ctx: Box<dyn ServerCommandContextTrait>,
     fs: ProjectRoot,
     docs_cache_manager: DocsCacheManager,
+    runtime: Handle,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -369,6 +371,7 @@ impl BuckLspContext {
             server_ctx,
             fs,
             docs_cache_manager,
+            runtime: Handle::current(),
         })
     }
 
@@ -434,12 +437,6 @@ impl BuckLspContext {
                 )?))
             }
         }
-    }
-
-    fn runtime(&self) -> tokio::runtime::Runtime {
-        tokio::runtime::Builder::new_current_thread()
-            .build()
-            .unwrap()
     }
 
     async fn parse_file_with_contents(
@@ -558,7 +555,7 @@ impl BuckLspContext {
 impl LspContext for BuckLspContext {
     fn parse_file_with_contents(&self, uri: &LspUrl, content: String) -> LspEvalResult {
         let dispatcher = self.server_ctx.events().dupe();
-        self.runtime()
+        self.runtime
             .block_on(with_dispatcher_async(dispatcher, async {
                 match uri {
                     LspUrl::File(_) | LspUrl::Starlark(_) => {
@@ -580,7 +577,7 @@ impl LspContext for BuckLspContext {
 
     fn resolve_load(&self, path: &str, current_file: &LspUrl) -> anyhow::Result<LspUrl> {
         let dispatcher = self.server_ctx.events().dupe();
-        self.runtime()
+        self.runtime
             .block_on(with_dispatcher_async(dispatcher, async {
                 match current_file {
                     LspUrl::File(current_file) => {
@@ -624,7 +621,7 @@ impl LspContext for BuckLspContext {
         current_file: &LspUrl,
     ) -> anyhow::Result<Option<StringLiteralResult>> {
         let dispatcher = self.server_ctx.events().dupe();
-        self.runtime()
+        self.runtime
             .block_on(with_dispatcher_async(dispatcher, async {
                 let import_path = match current_file {
                     LspUrl::File(current_file) => {
@@ -660,7 +657,7 @@ impl LspContext for BuckLspContext {
 
     fn get_load_contents(&self, uri: &LspUrl) -> anyhow::Result<Option<String>> {
         let dispatcher = self.server_ctx.events().dupe();
-        self.runtime()
+        self.runtime
             .block_on(with_dispatcher_async(dispatcher, async {
                 match uri {
                     LspUrl::File(path) => {
@@ -701,7 +698,7 @@ impl LspContext for BuckLspContext {
         symbol: &str,
     ) -> anyhow::Result<Option<LspUrl>> {
         let dispatcher = self.server_ctx.events().dupe();
-        self.runtime()
+        self.runtime
             .block_on(with_dispatcher_async(dispatcher, async {
                 let docs_cache = self
                     .with_dice_ctx(|dice_ctx| async {
