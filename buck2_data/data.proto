@@ -1031,12 +1031,12 @@ message FileChanges {
 // outside of the cells we care about, which is why events_total and
 // events_processed might differ.
 message FileWatcherStats {
+  reserved 5;
+
   bool fresh_instance = 1;
   uint64 events_total = 2;
   uint64 events_processed = 3;
   optional string branched_from_revision = 4;
-  // DEPRECATED: Populated for historical reasons
-  FileChanges file_changes_since_last_build = 5;
   repeated FileWatcherEvent events = 6;
   // Present if the results are incomplete
   optional string incomplete_events_reason = 7;
