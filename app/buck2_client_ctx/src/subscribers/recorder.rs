@@ -522,7 +522,21 @@ mod imp {
         ) -> anyhow::Result<()> {
             if let Some(stats) = &file_watcher.stats {
                 self.branched_from_revision = stats.branched_from_revision.clone();
-                self.file_changes_since_last_build = stats.file_changes_since_last_build.clone();
+                if let Some(reason) = &stats.incomplete_events_reason {
+                    self.file_changes_since_last_build = Some(buck2_data::FileChanges {
+                        data: Some(buck2_data::file_changes::Data::NoRecordReason(
+                            reason.clone(),
+                        )),
+                    })
+                } else {
+                    self.file_changes_since_last_build = Some(buck2_data::FileChanges {
+                        data: Some(buck2_data::file_changes::Data::Records(
+                            buck2_data::FileWatcherEvents {
+                                events: stats.events.clone(),
+                            },
+                        )),
+                    })
+                }
             }
             Ok(())
         }
