@@ -237,16 +237,14 @@ impl<'v> StarlarkValue<'v> for FrozenRuleCallable {
             // The body of the callable returned by `rule()`.
             // Records the target in this package's `TargetMap`.
             let internals = ModuleInternals::from_context(eval)?;
-            let buildfile_path = internals.buildfile_path().dupe();
             let target_node = TargetNode::from_params(
                 self.rule.dupe(),
+                internals.package(),
                 internals,
                 param_parser,
                 arg_count,
                 self.ignore_attrs_for_profiling,
-                buildfile_path,
                 call_stack,
-                internals.get_oncall(),
             )?;
             internals.record(target_node)?;
             Ok(Value::new_none())

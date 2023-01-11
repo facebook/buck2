@@ -36,6 +36,7 @@ use crate::nodes::attributes::DEPS;
 use crate::nodes::attributes::ONCALL;
 use crate::nodes::attributes::PACKAGE;
 use crate::nodes::attributes::TYPE;
+use crate::package::Package;
 use crate::rule::Rule;
 use crate::rule_type::RuleType;
 use crate::visibility::VisibilitySpecification;
@@ -70,10 +71,10 @@ pub struct TargetNodeData {
     /// Rule type for this target.
     pub rule: Arc<Rule>,
 
-    label: TargetLabel,
+    /// Package.
+    package: Arc<Package>,
 
-    /// The build file which defined this target, e.g. `fbcode//foo/bar/TARGETS`
-    buildfile_path: Arc<BuildFilePath>,
+    label: TargetLabel,
 
     /// The attribute->value mapping for this rule. It's guaranteed that if an attribute does not
     /// have a value here, it does have a default value in the AttributeSpec.
@@ -88,31 +89,26 @@ pub struct TargetNodeData {
 
     /// Call stack for the target.
     call_stack: Option<StarlarkCallStack>,
-
-    /// The oncall attribute, if set
-    oncall: Option<Arc<String>>,
 }
 
 impl TargetNode {
     pub fn new(
         rule: Arc<Rule>,
+        package: Arc<Package>,
         label: TargetLabel,
-        buildfile_path: Arc<BuildFilePath>,
         attributes: AttrValues,
         deps_cache: CoercedDeps,
         visibility: VisibilitySpecification,
         call_stack: Option<StarlarkCallStack>,
-        oncall: Option<Arc<String>>,
     ) -> TargetNode {
         TargetNode(Arc::new(TargetNodeData {
             rule,
+            package,
             label,
-            buildfile_path,
             attributes,
             deps_cache,
             visibility,
             call_stack,
-            oncall,
         }))
     }
 
@@ -152,7 +148,7 @@ impl TargetNode {
     }
 
     pub fn buildfile_path(&self) -> &BuildFilePath {
-        &self.0.buildfile_path
+        &self.0.package.buildfile_path
     }
 
     fn deps_cache(&self) -> &CoercedDeps {
@@ -222,7 +218,7 @@ impl TargetNode {
     }
 
     pub fn oncall(&self) -> Option<&str> {
-        self.0.oncall.as_ref().map(|x| x.as_str())
+        self.0.package.oncall.as_ref().map(|x| x.as_str())
     }
 
     pub fn is_visible_to(&self, target: &TargetLabel) -> bool {
@@ -463,12 +459,14 @@ pub mod testing {
                     rule_kind: RuleKind::Normal,
                     cfg: None,
                 }),
+                Arc::new(Package {
+                    buildfile_path,
+                    oncall: None,
+                }),
                 label,
-                buildfile_path,
                 attributes,
                 CoercedDeps::from(deps_cache),
                 VisibilitySpecification::Public,
-                None,
                 None,
             )
         }

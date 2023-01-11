@@ -18,6 +18,7 @@ use buck2_interpreter::package_imports::ImplicitImport;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_node::nodes::unconfigured::TargetsMap;
+use buck2_node::package::Package;
 use gazebo::prelude::*;
 use starlark::environment::FrozenModule;
 use starlark::values::OwnedFrozenValue;
@@ -47,6 +48,8 @@ pub struct ModuleInternals {
     buildfile_path: Arc<BuildFilePath>,
     /// Have you seen an oncall annotation yet
     oncall: RefCell<Option<Arc<String>>>,
+    /// Lazily initialized when first target is created.
+    package: RefCell<Option<Arc<Package>>>,
     /// Directly imported modules.
     imports: Vec<ImportPath>,
     recorder: TargetsRecorder,
@@ -90,6 +93,7 @@ impl ModuleInternals {
             attr_coercion_context,
             buildfile_path,
             oncall: RefCell::new(None),
+            package: RefCell::new(None),
             imports,
             package_implicits,
             recorder: TargetsRecorder::new(),
@@ -118,16 +122,24 @@ impl ModuleInternals {
         *self.oncall.borrow_mut() = Some(Arc::new(name.to_owned()))
     }
 
-    pub fn get_oncall(&self) -> Option<Arc<String>> {
-        self.oncall.borrow().dupe()
-    }
-
     pub(crate) fn target_exists(&self, name: &str) -> bool {
         (*self.recorder.targets.borrow()).contains_key(name)
     }
 
     pub fn buildfile_path(&self) -> &Arc<BuildFilePath> {
         &self.buildfile_path
+    }
+
+    pub fn package(&self) -> Arc<Package> {
+        let mut package = self.package.borrow_mut();
+        package
+            .get_or_insert_with(|| {
+                Arc::new(Package {
+                    buildfile_path: self.buildfile_path.dupe(),
+                    oncall: self.oncall.borrow().dupe(),
+                })
+            })
+            .dupe()
     }
 
     pub(crate) fn get_package_implicit(&self, name: &str) -> Option<OwnedFrozenValue> {

@@ -10,7 +10,6 @@
 use std::sync::Arc;
 
 use anyhow::Context;
-use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::target::TargetLabel;
 use buck2_core::target::TargetName;
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
@@ -24,6 +23,7 @@ use buck2_node::attrs::internal::VISIBILITY_ATTRIBUTE_FIELD;
 use buck2_node::attrs::values::AttrValues;
 use buck2_node::call_stack::StarlarkCallStack;
 use buck2_node::nodes::unconfigured::TargetNode;
+use buck2_node::package::Package;
 use buck2_node::rule::Rule;
 use buck2_node::visibility::VisibilityPattern;
 use buck2_node::visibility::VisibilitySpecification;
@@ -38,20 +38,19 @@ use crate::nodes::attr_spec::AttributeSpecExt;
 pub trait TargetNodeExt: Sized {
     fn from_params_ignore_attrs_for_profiling<'v>(
         rule: Arc<Rule>,
+        package: Arc<Package>,
         internals: &ModuleInternals,
         param_parser: ParametersParser<'v, '_>,
-        buildfile_path: Arc<BuildFilePath>,
     ) -> anyhow::Result<Self>;
 
     fn from_params<'v>(
         rule: Arc<Rule>,
+        package: Arc<Package>,
         internals: &ModuleInternals,
         param_parser: ParametersParser<'v, '_>,
         arg_count: usize,
         ignore_attrs_for_profiling: bool,
-        buildfile_path: Arc<BuildFilePath>,
         call_stack: Option<CallStack>,
-        oncall: Option<Arc<String>>,
     ) -> anyhow::Result<Self>;
 }
 
@@ -59,9 +58,9 @@ impl TargetNodeExt for TargetNode {
     /// Extact only the name attribute from rule arguments, ignore the others.
     fn from_params_ignore_attrs_for_profiling<'v>(
         rule: Arc<Rule>,
+        package: Arc<Package>,
         internals: &ModuleInternals,
         mut param_parser: ParametersParser<'v, '_>,
-        buildfile_path: Arc<BuildFilePath>,
     ) -> anyhow::Result<Self> {
         for (attr_name, _attr_idx, _attr) in rule.attributes.attr_specs() {
             let value: Value = param_parser.next(attr_name)?;
@@ -72,12 +71,11 @@ impl TargetNodeExt for TargetNode {
                 );
                 return Ok(TargetNode::new(
                     rule.dupe(),
+                    package,
                     label,
-                    buildfile_path,
                     AttrValues::with_capacity(0),
                     CoercedDeps::default(),
                     VisibilitySpecification::Public,
-                    None,
                     None,
                 ));
             }
@@ -89,27 +87,26 @@ impl TargetNodeExt for TargetNode {
     #[allow(clippy::box_collection)] // Parameter `call_stack`, because this is the field type.
     fn from_params<'v>(
         rule: Arc<Rule>,
+        package: Arc<Package>,
         internals: &ModuleInternals,
         param_parser: ParametersParser<'v, '_>,
         arg_count: usize,
         ignore_attrs_for_profiling: bool,
-        buildfile_path: Arc<BuildFilePath>,
         call_stack: Option<CallStack>,
-        oncall: Option<Arc<String>>,
     ) -> anyhow::Result<Self> {
         if ignore_attrs_for_profiling {
             return Self::from_params_ignore_attrs_for_profiling(
                 rule,
+                package,
                 internals,
                 param_parser,
-                buildfile_path,
             );
         }
 
         let (target_name, attr_values) =
             rule.attributes
                 .parse_params(param_parser, arg_count, internals)?;
-        let package = internals.buildfile_path().package();
+        let package_name = internals.buildfile_path().package();
 
         let mut visibility = match rule.attributes.attr_or_none(
             &attr_values,
@@ -127,7 +124,7 @@ impl TargetNodeExt for TargetNode {
             visibility = VisibilitySpecification::Public;
         }
 
-        let label = TargetLabel::new(package.dupe(), target_name);
+        let label = TargetLabel::new(package_name.dupe(), target_name);
         let mut deps_cache = CoercedDepsCollector::new();
 
         for (_, value) in rule.attributes.attrs(&attr_values, AttrInspectOptions::All) {
@@ -136,13 +133,12 @@ impl TargetNodeExt for TargetNode {
 
         Ok(TargetNode::new(
             rule,
+            package,
             label,
-            buildfile_path,
             attr_values,
             CoercedDeps::from(deps_cache),
             visibility,
             call_stack.map(StarlarkCallStack::new),
-            oncall,
         ))
     }
 }
