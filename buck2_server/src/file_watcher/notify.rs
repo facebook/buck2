@@ -17,8 +17,10 @@ use async_trait::async_trait;
 use buck2_common::dice::file_ops::FileChangeTracker;
 use buck2_common::file_ops::IgnoreSet;
 use buck2_common::invocation_paths::InvocationPaths;
+use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::CellName;
 use buck2_core::cells::CellResolver;
+use buck2_core::collections::ordered_set::OrderedSet;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_events::dispatch::span_async;
@@ -36,7 +38,7 @@ use tracing::info;
 use crate::file_watcher::stats::FileWatcherStats;
 use crate::file_watcher::FileWatcher;
 
-#[derive(Debug, Clone, Copy, Dupe, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Dupe, PartialEq, Eq, Hash, Allocative)]
 enum ChangeType {
     None,
     FileContents,
@@ -74,17 +76,19 @@ impl ChangeType {
     }
 }
 
+/// Buffer containing the events that have happened since we last got a message.
+/// Used to dedupe events, since notify sends a notification on every change.
 #[derive(Allocative)]
 struct NotifyFileData {
-    changed: FileChangeTracker,
-    stats: FileWatcherStats,
+    ignored: u64,
+    events: OrderedSet<(CellPath, ChangeType)>,
 }
 
 impl NotifyFileData {
     fn new() -> Self {
         Self {
-            changed: FileChangeTracker::new(),
-            stats: FileWatcherStats::new(0, None),
+            ignored: 0,
+            events: OrderedSet::new(),
         }
     }
 
@@ -101,8 +105,6 @@ impl NotifyFileData {
             // Testing shows that we get absolute paths back from the `notify` library.
             // It's not documented though.
             let path = root.relativize(AbsNormPath::new(&path)?)?;
-            let cell_path = cells.get_cell_path(&path)?;
-            let cell_path_str = cell_path.to_string();
 
             // We ignore the buck-out prefix, as those are uninteresting events caused by us.
             // We also ignore other buck-out directories, as if you have two isolation dirs running at once, they are not interesting.
@@ -114,6 +116,7 @@ impl NotifyFileData {
                 continue;
             }
 
+            let cell_path = cells.get_cell_path(&path)?;
             let ignore = ignore_specs
                 .get(cell_path.cell())
                 .expect("unexpected cell name mismatch")
@@ -125,33 +128,41 @@ impl NotifyFileData {
             );
 
             if ignore || change_type == ChangeType::None {
-                self.stats.add_ignored(1);
+                self.ignored += 1;
             } else {
-                match change_type {
-                    ChangeType::None => {}
-                    ChangeType::FileContents => self.changed.file_changed(cell_path),
-                    ChangeType::FileExistence => self.changed.file_added_or_removed(cell_path),
-                    ChangeType::DirExistence => self.changed.dir_added_or_removed(cell_path),
-                    ChangeType::SomeExistence | ChangeType::Unknown => {
-                        self.changed.dir_added_or_removed(cell_path.clone());
-                        self.changed.file_added_or_removed(cell_path)
-                    }
-                }
-                // The event type and watcher kind are just made up, but that's not a big deal
-                // since we only use this path open source, where we don't log the information to Scuba anyway.
-                // The path is right, which is probably what matters most
-                self.stats.add(
-                    cell_path_str,
-                    buck2_data::FileWatcherEventType::Modify,
-                    buck2_data::FileWatcherKind::File,
-                );
+                self.events.insert((cell_path, change_type));
             }
         }
         Ok(())
     }
 
     fn sync(self) -> (buck2_data::FileWatcherStats, FileChangeTracker) {
-        (self.stats.finish(), self.changed)
+        let mut changed = FileChangeTracker::new();
+        let mut stats = FileWatcherStats::new(0, None);
+        stats.add_ignored(self.ignored);
+
+        for (cell_path, change_type) in self.events {
+            let cell_path_str = cell_path.to_string();
+            match change_type {
+                ChangeType::None => {}
+                ChangeType::FileContents => changed.file_changed(cell_path),
+                ChangeType::FileExistence => changed.file_added_or_removed(cell_path),
+                ChangeType::DirExistence => changed.dir_added_or_removed(cell_path),
+                ChangeType::SomeExistence | ChangeType::Unknown => {
+                    changed.dir_added_or_removed(cell_path.clone());
+                    changed.file_added_or_removed(cell_path)
+                }
+            }
+            // The event type and watcher kind are just made up, but that's not a big deal
+            // since we only use this path open source, where we don't log the information to Scuba anyway.
+            // The path is right, which is probably what matters most
+            stats.add(
+                cell_path_str,
+                buck2_data::FileWatcherEventType::Modify,
+                buck2_data::FileWatcherKind::File,
+            );
+        }
+        (stats.finish(), changed)
     }
 }
 
