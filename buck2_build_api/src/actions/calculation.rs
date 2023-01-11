@@ -423,7 +423,7 @@ mod tests {
     use buck2_core::fs::project::ProjectRootTemp;
     use buck2_core::package::package_relative_path::PackageRelativePathBuf;
     use buck2_core::package::testing::PackageExt;
-    use buck2_core::package::Package;
+    use buck2_core::package::PackageLabel;
     use buck2_core::target::testing::ConfiguredTargetLabelExt;
     use buck2_core::target::ConfiguredTargetLabel;
     use buck2_core::target::TargetName;
@@ -484,7 +484,7 @@ mod tests {
         target_name: &str,
     ) -> BuildArtifact {
         let configured_target_label = ConfiguredTargetLabel::testing_new(
-            Package::testing_new(package_cell, package_path),
+            PackageLabel::testing_new(package_cell, package_path),
             TargetName::unchecked_new(target_name),
             Configuration::testing_new(),
         );
@@ -503,7 +503,7 @@ mod tests {
         target_name: &str,
     ) -> SourceArtifact {
         SourceArtifact::new(BuckPath::new(
-            Package::testing_new(package_cell, package_path),
+            PackageLabel::testing_new(package_cell, package_path),
             PackageRelativePathBuf::unchecked_new(target_name.into()),
         ))
     }

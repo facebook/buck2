@@ -448,7 +448,7 @@ mod tests {
     use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
     use buck2_core::fs::project::ProjectRelativePathBuf;
     use buck2_core::package::package_relative_path::PackageRelativePathBuf;
-    use buck2_core::package::Package;
+    use buck2_core::package::PackageLabel;
     use buck2_core::target::TargetLabel;
     use buck2_core::target::TargetName;
     use gazebo::prelude::*;
@@ -470,7 +470,7 @@ mod tests {
 
         let resolved = path_resolver.resolve(
             BuckPath::new(
-                Package::new(
+                PackageLabel::new(
                     &CellName::unchecked_new("foo".into()),
                     CellRelativePath::unchecked_new("baz-package"),
                 ),
@@ -488,7 +488,7 @@ mod tests {
             path_resolver
                 .resolve(
                     BuckPath::new(
-                        Package::new(
+                        PackageLabel::new(
                             &CellName::unchecked_new("none_existant".into()),
                             CellRelativePath::unchecked_new("baz")
                         ),
@@ -509,7 +509,7 @@ mod tests {
             "base/buck-out/v2".into(),
         ));
 
-        let pkg = Package::new(
+        let pkg = PackageLabel::new(
             &CellName::unchecked_new("foo".into()),
             CellRelativePath::unchecked_new("baz-package"),
         );
@@ -537,7 +537,7 @@ mod tests {
         let path_resolver =
             BuckOutPathResolver::new(ProjectRelativePathBuf::unchecked_new("buck-out".into()));
 
-        let pkg = Package::new(
+        let pkg = PackageLabel::new(
             &CellName::unchecked_new("foo".to_owned()),
             CellRelativePath::unchecked_new("baz-package"),
         );
@@ -580,7 +580,7 @@ mod tests {
 
     #[test]
     fn buck_out_path_eq() -> anyhow::Result<()> {
-        let pkg = Package::new(
+        let pkg = PackageLabel::new(
             &CellName::unchecked_new("foo".into()),
             CellRelativePath::unchecked_new("baz-package"),
         );
@@ -606,7 +606,7 @@ mod tests {
 
     #[test]
     fn test_scratch_path_is_sensible() {
-        let pkg = Package::new(
+        let pkg = PackageLabel::new(
             &CellName::unchecked_new("foo".into()),
             CellRelativePath::unchecked_new("baz-package"),
         );

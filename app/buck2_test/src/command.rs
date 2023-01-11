@@ -26,7 +26,7 @@ use buck2_common::pattern::resolve::ResolvedPattern;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::project::*;
-use buck2_core::package::Package;
+use buck2_core::package::PackageLabel;
 use buck2_core::pattern::PackageSpec;
 use buck2_core::pattern::ProvidersPattern;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
@@ -473,7 +473,7 @@ async fn test_targets(
 
 enum TestDriverTask {
     InterpretTarget {
-        package: Package,
+        package: PackageLabel,
         spec: PackageSpec<ProvidersPattern>,
     },
     ConfigureTargets {
@@ -551,7 +551,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
         }
     }
 
-    fn interpret_targets(&mut self, package: Package, spec: PackageSpec<ProvidersPattern>) {
+    fn interpret_targets(&mut self, package: PackageLabel, spec: PackageSpec<ProvidersPattern>) {
         let state = self.state;
 
         self.work.push(

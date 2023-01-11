@@ -40,7 +40,7 @@ use buck2_core::directory::DirectoryEntry;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
-use buck2_core::package::Package;
+use buck2_core::package::PackageLabel;
 use buck2_core::pattern::ProvidersPattern;
 use buck2_core::process::background_command;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
@@ -86,7 +86,7 @@ use tonic::transport::Channel;
 #[derive(Debug, thiserror::Error)]
 pub enum InstallError {
     #[error("Target {1}:{0} cannot be installed as it does not expose an InstallInfo provider")]
-    NoInstallProvider(TargetName, Package),
+    NoInstallProvider(TargetName, PackageLabel),
 
     #[error("Installer target `{0}` doesn't expose RunInfo provider")]
     NoRunInfoProvider(TargetName),

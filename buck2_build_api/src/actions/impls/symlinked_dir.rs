@@ -270,7 +270,7 @@ mod tests {
     use buck2_core::buck_path::BuckPath;
     use buck2_core::package::package_relative_path::PackageRelativePathBuf;
     use buck2_core::package::testing::PackageExt;
-    use buck2_core::package::Package;
+    use buck2_core::package::PackageLabel;
     use buck2_execute::artifact::source_artifact::SourceArtifact;
 
     use super::*;
@@ -278,7 +278,7 @@ mod tests {
     use crate::actions::ArtifactGroup;
 
     fn mk_artifact() -> Artifact {
-        let pkg = Package::testing_new("cell", "pkg");
+        let pkg = PackageLabel::testing_new("cell", "pkg");
         let path = PackageRelativePathBuf::unchecked_new("".to_owned());
         let buck_path = BuckPath::new(pkg, path);
         Artifact::from(SourceArtifact::new(buck_path))

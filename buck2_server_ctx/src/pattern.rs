@@ -16,7 +16,7 @@ use buck2_common::target_aliases::BuckConfigTargetAliasResolver;
 use buck2_core::cells::CellInstance;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::project::ProjectRelativePath;
-use buck2_core::package::Package;
+use buck2_core::package::PackageLabel;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::PatternType;
 use buck2_core::target::TargetLabel;
@@ -26,7 +26,7 @@ use gazebo::prelude::*;
 
 pub struct PatternParser {
     cell: CellInstance,
-    cwd: Package,
+    cwd: PackageLabel,
     target_alias_resolver: BuckConfigTargetAliasResolver,
 }
 
@@ -36,7 +36,7 @@ impl PatternParser {
         config: &LegacyBuckConfigs,
         cwd: &ProjectRelativePath,
     ) -> anyhow::Result<Self> {
-        let cwd = Package::from_cell_path(&cell_resolver.get_cell_path(&cwd)?);
+        let cwd = PackageLabel::from_cell_path(&cell_resolver.get_cell_path(&cwd)?);
         let cell_name = cwd.as_cell_path().cell();
 
         // Targets with cell aliases should be resolved against the cell mapping

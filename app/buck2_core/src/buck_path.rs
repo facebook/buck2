@@ -14,7 +14,7 @@ use gazebo::dupe::Dupe;
 use crate::cells::cell_path::CellPath;
 use crate::package::package_relative_path::PackageRelativePath;
 use crate::package::package_relative_path::PackageRelativePathBuf;
-use crate::package::Package;
+use crate::package::PackageLabel;
 
 /// Represents a resolvable path corresponding to some path that is part of a
 /// 'Package'. The 'BuckPath' refers to only paths in the repo source, not
@@ -32,16 +32,16 @@ use crate::package::Package;
 )]
 #[display(fmt = "{}", "self.as_ref()")]
 pub struct BuckPath {
-    pkg: Package,
+    pkg: PackageLabel,
     path: PackageRelativePathBuf,
 }
 
 impl BuckPath {
-    pub fn new(pkg: Package, path: PackageRelativePathBuf) -> Self {
+    pub fn new(pkg: PackageLabel, path: PackageRelativePathBuf) -> Self {
         BuckPath { pkg, path }
     }
 
-    pub fn package(&self) -> &Package {
+    pub fn package(&self) -> &PackageLabel {
         &self.pkg
     }
 
@@ -64,16 +64,16 @@ impl BuckPath {
 #[derive(Display, Debug, Eq, Hash, PartialEq, Clone, Dupe)]
 #[display(fmt = "{}/{}", pkg, "path.as_str()")]
 pub struct BuckPathRef<'a> {
-    pkg: Package,
+    pkg: PackageLabel,
     path: &'a PackageRelativePath,
 }
 
 impl<'a> BuckPathRef<'a> {
-    pub fn new(pkg: Package, path: &'a PackageRelativePath) -> BuckPathRef<'a> {
+    pub fn new(pkg: PackageLabel, path: &'a PackageRelativePath) -> BuckPathRef<'a> {
         BuckPathRef { pkg, path }
     }
 
-    pub fn package(&self) -> &Package {
+    pub fn package(&self) -> &PackageLabel {
         &self.pkg
     }
 

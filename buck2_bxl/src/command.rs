@@ -28,7 +28,7 @@ use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::result::SharedError;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::project::ProjectRelativePath;
-use buck2_core::package::Package;
+use buck2_core::package::PackageLabel;
 use buck2_execute::bxl::types::BxlFunctionLabel;
 use buck2_execute::bxl::types::BxlKey;
 use buck2_interpreter::common::BxlFilePath;
@@ -135,7 +135,7 @@ pub(crate) async fn get_bxl_key(
 
     let bxl_label = parse_bxl_label_from_cli(cwd, bxl_label, &cell_resolver)?;
 
-    let cur_package = Package::from_cell_path(&cell_resolver.get_cell_path(&cwd)?);
+    let cur_package = PackageLabel::from_cell_path(&cell_resolver.get_cell_path(&cwd)?);
     let cell_name = cell_resolver.find(&cwd)?;
 
     // Targets with cell aliases should be resolved against the cell mapping

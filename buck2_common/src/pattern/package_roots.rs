@@ -12,7 +12,7 @@ use std::collections::HashSet;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
-use buck2_core::package::Package;
+use buck2_core::package::PackageLabel;
 use dice::DiceComputations;
 use futures::channel::mpsc;
 use futures::stream::FuturesUnordered;
@@ -35,7 +35,7 @@ use crate::find_buildfile::find_buildfile;
 pub async fn find_package_roots_stream(
     ctx: &DiceComputations,
     paths: Vec<CellPath>,
-) -> impl Stream<Item = anyhow::Result<Package>> {
+) -> impl Stream<Item = anyhow::Result<PackageLabel>> {
     // Ideally we wouldn't take a ctx here, but if we pull things like the package_listing_resolver
     // out of the ctx, that resolver would have a lifetime bound to the ctx and then we couldn't
     // do a tokio::spawn (or even the ctx.temporary_spawn). So, we need to only pull those things
@@ -64,7 +64,7 @@ async fn find_package_roots_impl<E>(
     file_ops: &dyn FileOps,
     cell_resolver: &CellResolver,
     paths: Vec<CellPath>,
-    mut func: impl FnMut(anyhow::Result<Package>) -> Result<(), E>,
+    mut func: impl FnMut(anyhow::Result<PackageLabel>) -> Result<(), E>,
 ) -> Result<(), E> {
     // While we are discovering packages we may also be trying to load them. Both of these can
     // require reading dirs so we want to leave some capacity to serve the package loading.
@@ -115,7 +115,7 @@ async fn find_package_roots_impl<E>(
         };
 
         if find_buildfile(buildfile_candidates, &listing).is_some() {
-            func(Ok(Package::from_cell_path(&path)))?;
+            func(Ok(PackageLabel::from_cell_path(&path)))?;
         }
 
         // The rev() call isn't necessary, it ends up causing us to slightly prefer running
@@ -141,7 +141,7 @@ pub(crate) async fn find_package_roots(
     cell_path: CellPath,
     fs: &dyn FileOps,
     cells: &CellResolver,
-) -> anyhow::Result<Vec<Package>> {
+) -> anyhow::Result<Vec<PackageLabel>> {
     let mut results = Vec::new();
     find_package_roots_impl(fs, cells, vec![cell_path], |res| {
         results.push(res);

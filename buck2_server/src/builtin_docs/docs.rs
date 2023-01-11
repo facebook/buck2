@@ -26,7 +26,7 @@ use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellName;
 use buck2_core::package::package_relative_path::PackageRelativePathBuf;
-use buck2_core::package::Package;
+use buck2_core::package::PackageLabel;
 use buck2_execute::artifact::source_artifact::SourceArtifact;
 use buck2_interpreter::common::StarlarkModulePath;
 use buck2_interpreter::dice::calculation::DiceCalculationDelegate;
@@ -130,7 +130,7 @@ fn get_builtin_build_docs(
 }
 
 fn get_artifact_docs() -> Option<Doc> {
-    let pkg = Package::new(
+    let pkg = PackageLabel::new(
         &CellName::unchecked_new("".to_owned()),
         CellRelativePath::unchecked_new("__native__"),
     );

@@ -17,14 +17,14 @@ use crate::cells::paths::CellRelativePathBuf;
 use crate::cells::CellName;
 use crate::fs::paths::file_name::FileName;
 use crate::fs::paths::file_name::FileNameBuf;
-use crate::package::Package;
+use crate::package::PackageLabel;
 
 /// Path of a build file (e.g. `BUCK`) only. (`bzl` files are not included).
 #[derive(Clone, Hash, Eq, PartialEq, Debug, derive_more::Display, Allocative)]
 #[display(fmt = "{}", id)]
 pub struct BuildFilePath {
     /// The package of this build file
-    package: Package,
+    package: PackageLabel,
     /// The build file's filename (which can be configured). i.e. `BUCK`
     filename: FileNameBuf,
     /// A ModuleID for the import.
@@ -32,7 +32,7 @@ pub struct BuildFilePath {
 }
 
 impl BuildFilePath {
-    pub fn new(package: Package, filename: FileNameBuf) -> Self {
+    pub fn new(package: PackageLabel, filename: FileNameBuf) -> Self {
         let id = ModuleID(format!("{}:{}", package, filename));
         Self {
             package,
@@ -42,7 +42,7 @@ impl BuildFilePath {
     }
 
     pub fn unchecked_new(cell: &str, package: &str, filename: &str) -> Self {
-        let package = Package::new(
+        let package = PackageLabel::new(
             &CellName::unchecked_new(cell.to_owned()),
             &CellRelativePathBuf::unchecked_new(package.to_owned()),
         );
@@ -54,7 +54,7 @@ impl BuildFilePath {
         self.package.cell_name()
     }
 
-    pub fn package(&self) -> &Package {
+    pub fn package(&self) -> &PackageLabel {
         &self.package
     }
 

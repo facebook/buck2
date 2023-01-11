@@ -61,15 +61,15 @@ use crate::fs::project::ProjectRelativePathBuf;
 
 /// A 'Package' as defined above.
 #[derive(Clone, Debug, Display, Eq, PartialEq, Ord, PartialOrd, Allocative)]
-pub struct Package(Intern<PackageData>);
+pub struct PackageLabel(Intern<PackageData>);
 
 /// Intern is Copy, so Clone is super cheap
-impl Dupe for Package {}
+impl Dupe for PackageLabel {}
 
 /// The Hash impl for Intern will hash the pointer. That's not stable across runs and its too
 /// easy for us to assume that it would be, so use a deterministic hash here.
 #[allow(clippy::derive_hash_xor_eq)] // The derived PartialEq is still correct.
-impl std::hash::Hash for Package {
+impl std::hash::Hash for PackageLabel {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         (*self.0).hash(state)
     }
@@ -124,7 +124,7 @@ impl<'a> Equiv<PackageData> for PackageDataRef<'a> {
 
 static INTERNER: StaticInterner<PackageData, FnvHasher> = StaticInterner::new();
 
-impl Package {
+impl PackageLabel {
     pub fn new(cell: &CellName, path: &CellRelativePath) -> Self {
         Self(INTERNER.intern(PackageDataRef { cell, path }))
     }
@@ -153,7 +153,7 @@ impl Package {
         if path.is_empty() {
             self.dupe()
         } else {
-            Package::new(
+            PackageLabel::new(
                 self.as_cell_path().cell(),
                 &self.as_cell_path().path().join(path),
             )
@@ -172,7 +172,7 @@ impl CellResolver {
     /// use buck2_core::cells::{CellResolver, CellName};
     /// use buck2_core::fs::project::{ProjectRelativePath, ProjectRelativePathBuf};
     /// use buck2_core::fs::paths::forward_rel_path::{ForwardRelativePathBuf, ForwardRelativePath};
-    /// use buck2_core::package::Package;
+    /// use buck2_core::package::PackageLabel;
     /// use std::convert::TryFrom;
     /// use buck2_core::cells::cell_root_path::CellRootPathBuf;
     /// use buck2_core::cells::paths::CellRelativePath;
@@ -184,7 +184,7 @@ impl CellResolver {
     ///     (CellName::unchecked_new("mycell".to_owned()), CellRootPathBuf::new(cell_path.to_buf()))
     /// ]);
     ///
-    /// let pkg = Package::new(
+    /// let pkg = PackageLabel::new(
     ///     &CellName::unchecked_new("mycell".into()),
     ///     CellRelativePath::unchecked_new("somepkg"),
     /// );
@@ -196,7 +196,7 @@ impl CellResolver {
     ///
     /// # anyhow::Ok(())
     /// ```
-    pub fn resolve_package(&self, pkg: &Package) -> anyhow::Result<ProjectRelativePathBuf> {
+    pub fn resolve_package(&self, pkg: &PackageLabel) -> anyhow::Result<ProjectRelativePathBuf> {
         self.resolve_path(&pkg.0.0)
     }
 }
@@ -204,13 +204,13 @@ impl CellResolver {
 pub mod testing {
     use crate::cells::paths::CellRelativePathBuf;
     use crate::cells::CellName;
-    use crate::package::Package;
+    use crate::package::PackageLabel;
 
     pub trait PackageExt {
         fn testing_new(cell: &str, path: &str) -> Self;
     }
 
-    impl PackageExt for Package {
+    impl PackageExt for PackageLabel {
         fn testing_new(cell: &str, path: &str) -> Self {
             Self::new(
                 &CellName::unchecked_new(cell.into()),

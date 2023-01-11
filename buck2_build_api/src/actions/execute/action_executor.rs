@@ -524,7 +524,7 @@ mod tests {
     use buck2_core::fs::project::ProjectRelativePathBuf;
     use buck2_core::fs::project::ProjectRootTemp;
     use buck2_core::package::package_relative_path::PackageRelativePathBuf;
-    use buck2_core::package::Package;
+    use buck2_core::package::PackageLabel;
     use buck2_core::target::testing::ConfiguredTargetLabelExt;
     use buck2_core::target::ConfiguredTargetLabel;
     use buck2_core::target::TargetName;
@@ -689,7 +689,7 @@ mod tests {
             }
         }
 
-        let pkg = Package::new(
+        let pkg = PackageLabel::new(
             &CellName::unchecked_new("cell".into()),
             CellRelativePath::unchecked_new("pkg"),
         );

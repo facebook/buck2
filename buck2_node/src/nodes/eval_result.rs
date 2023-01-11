@@ -13,7 +13,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bzl::ImportPath;
-use buck2_core::package::Package;
+use buck2_core::package::PackageLabel;
 use buck2_core::target::TargetName;
 use gazebo::prelude::*;
 use itertools::Itertools;
@@ -29,7 +29,7 @@ Did you mean one of the {num_targets} targets in {buildfile_path}?{similar_targe
     )]
     UnknownTarget {
         target: TargetName,
-        package: Package,
+        package: PackageLabel,
         num_targets: usize,
         buildfile_path: Arc<BuildFilePath>,
         similar_targets: SuggestedSimilarTargets,
@@ -64,7 +64,7 @@ impl EvaluationResult {
         &self.buildfile_path
     }
 
-    pub fn package(&self) -> &Package {
+    pub fn package(&self) -> &PackageLabel {
         self.buildfile_path.package()
     }
 
@@ -96,14 +96,14 @@ impl EvaluationResult {
 
 #[derive(Debug)]
 struct SuggestedSimilarTargets {
-    package: Package,
+    package: PackageLabel,
     targets: Vec<TargetName>,
 }
 
 impl SuggestedSimilarTargets {
     pub fn suggest<'a>(
         target: &TargetName,
-        package: Package,
+        package: PackageLabel,
         available_targets: impl Iterator<Item = &'a TargetName>,
     ) -> Self {
         const MAX_RESULTS: usize = 10;

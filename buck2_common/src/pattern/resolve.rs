@@ -9,7 +9,7 @@
 
 use anyhow::Context;
 use buck2_core::cells::CellResolver;
-use buck2_core::package::Package;
+use buck2_core::package::PackageLabel;
 use buck2_core::pattern::PackageSpec;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::PatternType;
@@ -21,7 +21,7 @@ use crate::pattern::package_roots::find_package_roots;
 
 #[derive(Debug)]
 pub struct ResolvedPattern<T> {
-    pub specs: IndexMap<Package, PackageSpec<T>>,
+    pub specs: IndexMap<PackageLabel, PackageSpec<T>>,
 }
 
 impl<T> ResolvedPattern<T>
@@ -34,11 +34,11 @@ where
         }
     }
 
-    pub fn add_package(&mut self, package: &Package) {
+    pub fn add_package(&mut self, package: &PackageLabel) {
         self.specs.insert(package.dupe(), PackageSpec::All);
     }
 
-    pub fn add_target(&mut self, package: &Package, target: &T) {
+    pub fn add_target(&mut self, package: &PackageLabel, target: &T) {
         if let Some(s) = self.specs.get_mut(package) {
             match s {
                 PackageSpec::Targets(ref mut t) => t.push(target.clone()),
@@ -98,7 +98,7 @@ mod tests {
     use buck2_core::cells::CellsAggregator;
     use buck2_core::fs::project::ProjectRelativePathBuf;
     use buck2_core::package::testing::PackageExt;
-    use buck2_core::package::Package;
+    use buck2_core::package::PackageLabel;
     use buck2_core::pattern::PackageSpec;
     use buck2_core::pattern::ParsedPattern;
     use buck2_core::pattern::PatternType;
@@ -180,14 +180,14 @@ mod tests {
     }
 
     trait ResolvedTargetPatternTestExt<T> {
-        fn assert_eq(&self, expected: &[(Package, PackageSpec<T>)]);
+        fn assert_eq(&self, expected: &[(PackageLabel, PackageSpec<T>)]);
     }
 
     impl<T> ResolvedTargetPatternTestExt<T> for ResolvedPattern<T>
     where
         T: PatternType,
     {
-        fn assert_eq(&self, expected: &[(Package, PackageSpec<T>)]) {
+        fn assert_eq(&self, expected: &[(PackageLabel, PackageSpec<T>)]) {
             let expected: BTreeMap<_, _> = expected.iter().map(|(p, s)| (p.dupe(), s)).collect();
 
             let expected_keys: BTreeSet<_> = expected.keys().collect();
@@ -227,13 +227,16 @@ mod tests {
             .await?
             .assert_eq(&[
                 (
-                    Package::testing_new("root", "some"),
+                    PackageLabel::testing_new("root", "some"),
                     PackageSpec::Targets(vec![
                         TargetName::unchecked_new("target"),
                         TargetName::unchecked_new("other_target"),
                     ]),
                 ),
-                (Package::testing_new("child", "a/package"), PackageSpec::All),
+                (
+                    PackageLabel::testing_new("child", "a/package"),
+                    PackageSpec::All,
+                ),
             ]);
         Ok(())
     }
@@ -254,7 +257,7 @@ mod tests {
             .await?
             .assert_eq(&[
                 (
-                    Package::testing_new("root", "some"),
+                    PackageLabel::testing_new("root", "some"),
                     PackageSpec::Targets(vec![
                         ProvidersPattern {
                             target: TargetName::unchecked_new("target"),
@@ -268,7 +271,10 @@ mod tests {
                         },
                     ]),
                 ),
-                (Package::testing_new("child", "a/package"), PackageSpec::All),
+                (
+                    PackageLabel::testing_new("child", "a/package"),
+                    PackageSpec::All,
+                ),
             ]);
         Ok(())
     }
@@ -306,29 +312,29 @@ mod tests {
                 .await
                 .unwrap()
                 .assert_eq(&[
-                    (Package::testing_new("root", "other"), PackageSpec::All),
+                    (PackageLabel::testing_new("root", "other"), PackageSpec::All),
                     (
-                        Package::testing_new("root", "other/a/bit/deeper"),
+                        PackageLabel::testing_new("root", "other/a/bit/deeper"),
                         PackageSpec::All,
                     ),
                     (
-                        Package::testing_new("root", "other/a/bit/deeper/and/deeper"),
+                        PackageLabel::testing_new("root", "other/a/bit/deeper/and/deeper"),
                         PackageSpec::All,
                     ),
                     (
-                        Package::testing_new("root", "some/thing/dir/a"),
+                        PackageLabel::testing_new("root", "some/thing/dir/a"),
                         PackageSpec::All,
                     ),
                     (
-                        Package::testing_new("root", "some/thing/dir/a/b"),
+                        PackageLabel::testing_new("root", "some/thing/dir/a/b"),
                         PackageSpec::All,
                     ),
                     (
-                        Package::testing_new("root", "some/thing/extra"),
+                        PackageLabel::testing_new("root", "some/thing/extra"),
                         PackageSpec::All,
                     ),
-                    (Package::testing_new("child", ""), PackageSpec::All),
-                    (Package::testing_new("child", "foo"), PackageSpec::All),
+                    (PackageLabel::testing_new("child", ""), PackageSpec::All),
+                    (PackageLabel::testing_new("child", "foo"), PackageSpec::All),
                 ]);
         })
     }

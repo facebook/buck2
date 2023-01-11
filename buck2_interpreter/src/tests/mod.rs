@@ -24,7 +24,7 @@ use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_core::fs::project::ProjectRootTemp;
-use buck2_core::package::Package;
+use buck2_core::package::PackageLabel;
 use buck2_events::dispatch::with_dispatcher_async;
 use buck2_events::dispatch::EventDispatcher;
 use dice::cycles::DetectCycles;
@@ -219,7 +219,7 @@ async fn test_eval_build_file() -> anyhow::Result<()> {
         .get_interpreter_calculator(&root_cell(), &BuildFileCell::new(root_cell()))
         .await?;
 
-    let package = Package::new(
+    let package = PackageLabel::new(
         &root_cell(),
         CellRelativePath::new(ForwardRelativePath::new("package")?),
     );

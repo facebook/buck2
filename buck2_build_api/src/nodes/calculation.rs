@@ -842,7 +842,7 @@ mod tests {
     use buck2_core::configuration::Configuration;
     use buck2_core::fs::paths::file_name::FileNameBuf;
     use buck2_core::package::testing::PackageExt;
-    use buck2_core::package::Package;
+    use buck2_core::package::PackageLabel;
     use buck2_core::provider::label::ProvidersLabel;
     use buck2_core::provider::label::ProvidersName;
     use buck2_core::target::TargetLabel;
@@ -880,7 +880,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_node() -> anyhow::Result<()> {
         let cfg = Configuration::testing_new();
-        let pkg = Package::testing_new("cell", "foo/bar");
+        let pkg = PackageLabel::testing_new("cell", "foo/bar");
 
         let name1 = TargetName::unchecked_new("t1");
         let label1 = TargetLabel::new(pkg.dupe(), name1.dupe());

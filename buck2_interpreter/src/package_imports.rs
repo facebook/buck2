@@ -17,7 +17,7 @@ use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::cells::paths::CellRelativePathBuf;
 use buck2_core::cells::CellAliasResolver;
-use buck2_core::package::Package;
+use buck2_core::package::PackageLabel;
 use thiserror::Error;
 
 use crate::parse_import::parse_import;
@@ -109,7 +109,7 @@ impl PackageImplicitImports {
         Ok(Self { mappings })
     }
 
-    pub fn get(&self, package: &Package) -> Option<&Arc<ImplicitImport>> {
+    pub fn get(&self, package: &PackageLabel) -> Option<&Arc<ImplicitImport>> {
         let package_dir = package.cell_relative_path();
         let mut package_dir: Option<&CellRelativePath> = Some(package_dir);
 
@@ -157,10 +157,13 @@ mod tests {
             ),
         )?;
 
-        assert_eq!(None, imports.get(&Package::testing_new("root", "java/src")));
+        assert_eq!(
+            None,
+            imports.get(&PackageLabel::testing_new("root", "java/src"))
+        );
 
         let expect_import = |cell, path| {
-            let package = Package::testing_new(cell, path);
+            let package = PackageLabel::testing_new(cell, path);
             match imports.get(&package) {
                 None => panic!("Should've had implicit import for {}", package),
                 Some(v) => v,
@@ -186,10 +189,10 @@ mod tests {
         assert_eq!("alias3", import.lookup_alias("alias3"));
         assert_eq!("symbol1", import.lookup_alias("symbol1"));
 
-        assert_eq!(None, imports.get(&Package::testing_new("root", "")));
+        assert_eq!(None, imports.get(&PackageLabel::testing_new("root", "")));
         assert_eq!(
             None,
-            imports.get(&Package::testing_new("root", "third_party/src"))
+            imports.get(&PackageLabel::testing_new("root", "third_party/src"))
         );
 
         Ok(())

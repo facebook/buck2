@@ -29,7 +29,7 @@ use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::pattern::resolve::ResolvedPattern;
 use buck2_core::fs::fs_util;
-use buck2_core::package::Package;
+use buck2_core::package::PackageLabel;
 use buck2_core::pattern::PackageSpec;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::ProvidersPattern;
@@ -425,7 +425,7 @@ fn build_providers_to_providers_to_build(build_providers: &BuildProviders) -> Pr
 
 async fn build_targets_for_spec(
     ctx: &DiceComputations,
-    package: Package,
+    package: PackageLabel,
     spec: PackageSpec<ProvidersPattern>,
     global_target_platform: Option<TargetLabel>,
     res: Arc<EvaluationResult>,

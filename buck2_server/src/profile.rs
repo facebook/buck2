@@ -20,7 +20,7 @@ use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_core::cells::build_file_cell::BuildFileCell;
-use buck2_core::package::Package;
+use buck2_core::package::PackageLabel;
 use buck2_core::pattern::PackageSpec;
 use buck2_core::pattern::TargetPattern;
 use buck2_core::target::TargetLabel;
@@ -46,7 +46,7 @@ use gazebo::prelude::*;
 
 async fn generate_profile_analysis(
     ctx: DiceTransaction,
-    package: Package,
+    package: PackageLabel,
     spec: PackageSpec<TargetPattern>,
     global_target_platform: Option<TargetLabel>,
     profile_mode: &StarlarkProfilerConfiguration,
@@ -81,7 +81,7 @@ async fn generate_profile_analysis(
 
 async fn generate_profile_loading(
     ctx: DiceTransaction,
-    package: Package,
+    package: PackageLabel,
     spec: PackageSpec<TargetPattern>,
     profile_mode: &StarlarkProfilerConfiguration,
 ) -> anyhow::Result<Arc<StarlarkProfileDataAndStats>> {

@@ -59,7 +59,7 @@ pub mod testing {
     use buck2_core::fs::project::ProjectRelativePathBuf;
     use buck2_core::fs::project::ProjectRoot;
     use buck2_core::package::package_relative_path::PackageRelativePathBuf;
-    use buck2_core::package::Package;
+    use buck2_core::package::PackageLabel;
     use buck2_core::pattern::ParsedPattern;
     use buck2_core::pattern::TargetPattern;
     use buck2_core::target::ConfiguredTargetLabel;
@@ -118,7 +118,7 @@ pub mod testing {
             eval: &mut Evaluator,
         ) -> anyhow::Result<StarlarkArtifact> {
             let ctx = BuildContext::from_context(eval)?;
-            let package = Package::new(
+            let package = PackageLabel::new(
                 ctx.cell_info().name().name(),
                 CellRelativePath::from_path(package).unwrap(),
             );

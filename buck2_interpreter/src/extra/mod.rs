@@ -19,7 +19,7 @@ use buck2_common::result::SharedResult;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bzl::ImportPath;
 use buck2_core::package::package_relative_path::PackageRelativePath;
-use buck2_core::package::Package;
+use buck2_core::package::PackageLabel;
 use gazebo::any::ProvidesStaticType;
 use gazebo::cmp::PartialEqAny;
 use gazebo::dupe::Dupe;
@@ -141,7 +141,7 @@ impl<'a> BuildContext<'a> {
         self.cell_info
     }
 
-    pub fn require_package(&self) -> anyhow::Result<&Package> {
+    pub fn require_package(&self) -> anyhow::Result<&PackageLabel> {
         match self.starlark_path {
             StarlarkPath::BuildFile(b) => Ok(b.package()),
             _ => Err(anyhow::anyhow!(
@@ -274,7 +274,7 @@ pub mod testing {
     use buck2_common::result::SharedResult;
     use buck2_core::build_file_path::BuildFilePath;
     use buck2_core::bzl::ImportPath;
-    use buck2_core::package::Package;
+    use buck2_core::package::PackageLabel;
     use gazebo::cmp::PartialEqAny;
     use gazebo::prelude::*;
     use serde_json::Map;
@@ -299,13 +299,13 @@ pub mod testing {
 
     #[derive(Clone, Debug)]
     pub struct TesterEvalResult {
-        pub package: Package,
+        pub package: PackageLabel,
         pub targets: HashMap<String, HashMap<String, String>>,
     }
 
     #[derive(Clone)]
     pub struct TesterExtraContext {
-        package: Package,
+        package: PackageLabel,
         recorder: Arc<Mutex<HashMap<String, HashMap<String, String>>>>,
     }
 

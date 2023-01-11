@@ -23,7 +23,7 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::paths::RelativePath;
 use buck2_core::fs::project::ProjectRoot;
-use buck2_core::package::Package;
+use buck2_core::package::PackageLabel;
 use buck2_interpreter::common::StarlarkModulePath;
 use buck2_interpreter::file_loader::LoadedModule;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
@@ -169,7 +169,7 @@ async fn load_and_collect_includes(
     let parent = path
         .parent()
         .ok_or_else(|| anyhow::anyhow!(AuditIncludesError::InvalidPath(path.clone())))?;
-    let package = Package::new(parent.cell(), parent.path());
+    let package = PackageLabel::new(parent.cell(), parent.path());
     let load_result = ctx.get_interpreter_results(&package).await?;
 
     let buildfile_name = load_result.buildfile_path().filename();

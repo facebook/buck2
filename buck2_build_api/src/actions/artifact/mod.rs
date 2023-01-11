@@ -502,7 +502,7 @@ mod tests {
     use buck2_core::fs::project::ProjectRoot;
     use buck2_core::package::package_relative_path::PackageRelativePathBuf;
     use buck2_core::package::testing::PackageExt;
-    use buck2_core::package::Package;
+    use buck2_core::package::PackageLabel;
     use buck2_core::target::testing::ConfiguredTargetLabelExt;
     use buck2_core::target::ConfiguredTargetLabel;
     use buck2_core::target::TargetName;
@@ -528,7 +528,7 @@ mod tests {
     #[test]
     fn artifact_binding() -> anyhow::Result<()> {
         let target = ConfiguredTargetLabel::testing_new(
-            Package::testing_new("cell", "pkg"),
+            PackageLabel::testing_new("cell", "pkg"),
             TargetName::unchecked_new("foo"),
             Configuration::testing_new(),
         );
@@ -574,7 +574,7 @@ mod tests {
     #[test]
     fn resolve_artifact() -> anyhow::Result<()> {
         let source = SourceArtifact::new(BuckPath::new(
-            Package::testing_new("cell", "pkg"),
+            PackageLabel::testing_new("cell", "pkg"),
             PackageRelativePathBuf::unchecked_new("src.cpp".into()),
         ));
 
@@ -603,7 +603,7 @@ mod tests {
         let project_fs = ProjectRoot::new(AbsNormPathBuf::try_from(tempdir.into_path()).unwrap());
 
         let target = ConfiguredTargetLabel::testing_new(
-            Package::testing_new("cell", "pkg"),
+            PackageLabel::testing_new("cell", "pkg"),
             TargetName::unchecked_new("foo"),
             Configuration::testing_new(),
         );

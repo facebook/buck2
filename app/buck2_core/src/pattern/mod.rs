@@ -28,7 +28,7 @@ use crate::cells::cell_path::CellPath;
 use crate::cells::paths::CellRelativePath;
 use crate::cells::CellAliasResolver;
 use crate::fs::paths::forward_rel_path::ForwardRelativePath;
-use crate::package::Package;
+use crate::package::PackageLabel;
 use crate::pattern::ascii_pattern::split1_opt_ascii;
 use crate::pattern::ascii_pattern::strip_suffix_ascii;
 use crate::pattern::ascii_pattern::trim_prefix_ascii;
@@ -137,7 +137,7 @@ pub struct ProvidersPattern {
 }
 
 impl ProvidersPattern {
-    pub fn into_providers_label(self, package: Package) -> ProvidersLabel {
+    pub fn into_providers_label(self, package: PackageLabel) -> ProvidersLabel {
         ProvidersLabel::new(TargetLabel::new(package, self.target), self.providers)
     }
 }
@@ -198,13 +198,13 @@ impl PatternType for ProvidersPattern {
 pub enum ParsedPattern<T> {
     /// A target pattern that matches a explicit target pattern type T. See
     /// `PatternType` for pattern
-    Target(Package, T),
+    Target(PackageLabel, T),
     /// A target pattern that matches an entire package. Ex. `//some/package:`
-    Package(Package),
+    Package(PackageLabel),
     /// A target pattern that matches all recursive packages. Ex.
     /// `//some/package/...`. The path component here is not required to be
     /// an actual package (i.e. a build file is not required at the path)
-    /// and so we don't hold this as a [Package].
+    /// and so we don't hold this as a [PackageLabel].
     Recursive(CellPath),
 }
 
@@ -236,7 +236,7 @@ impl ParsedPattern<ProvidersPattern> {
 
 impl<T: PatternType> ParsedPattern<T> {
     /// Extract a literal from a [ParsedPattern], or `Err` if it is not a literal.
-    pub fn as_literal(self, original: &str) -> anyhow::Result<(Package, T)> {
+    pub fn as_literal(self, original: &str) -> anyhow::Result<(PackageLabel, T)> {
         // FIXME: Would be better if we had a Display on self, so we could produce a nice error message.
         //        For now, just require the original string to be passed in for good errors.
         match self {
@@ -264,7 +264,7 @@ impl<T: PatternType> ParsedPattern<T> {
 
     pub fn parsed_opt_absolute(
         cell_resolver: &CellAliasResolver,
-        relative_dir: Option<&Package>,
+        relative_dir: Option<&PackageLabel>,
         pattern: &str,
     ) -> anyhow::Result<Self> {
         parse_target_pattern(
@@ -292,7 +292,7 @@ impl<T: PatternType> ParsedPattern<T> {
     pub fn parse_relative(
         target_alias_resolver: &dyn TargetAliasResolver,
         cell_resolver: &CellAliasResolver,
-        relative_dir: &Package,
+        relative_dir: &PackageLabel,
         pattern: &str,
     ) -> anyhow::Result<Self> {
         parse_target_pattern(
@@ -324,7 +324,7 @@ impl<T: PatternType> ParsedPattern<T> {
     pub fn parse_relaxed(
         target_alias_resolver: &dyn TargetAliasResolver,
         cell_resolver: &CellAliasResolver,
-        relative_dir: &Package,
+        relative_dir: &PackageLabel,
         pattern: &str,
     ) -> anyhow::Result<Self> {
         parse_target_pattern(
@@ -549,7 +549,7 @@ fn normalize_package<'a>(
 struct TargetParsingOptions<'a> {
     /// The dir this pattern should be intepreted relative to.  This will be used to prepend to the
     /// package if `relative` is set, otherwise it'll only be used for targets such as `:foo`.
-    relative_dir: Option<&'a Package>,
+    relative_dir: Option<&'a PackageLabel>,
     /// Whether to interpret packages relatively.
     relative: bool,
     /// Whether to infer the target in a pattern such as `foo/bar` (to `foo/bar:bar`).
@@ -639,7 +639,7 @@ where
             // `Package` reconstruction is relatively cheap, but not free.
             rel.dupe()
         }
-        _ => Package::new(cell, CellRelativePath::new(package_path)),
+        _ => PackageLabel::new(cell, CellRelativePath::new(package_path)),
     };
 
     match pattern {
@@ -763,7 +763,7 @@ mod tests {
     use crate::target::TargetLabel;
 
     fn mk_package<P>(cell: &str, path: &str) -> ParsedPattern<P> {
-        ParsedPattern::Package(Package::testing_new(cell, path))
+        ParsedPattern::Package(PackageLabel::testing_new(cell, path))
     }
 
     fn mk_recursive<P>(cell: &str, path: &str) -> ParsedPattern<P> {
@@ -775,7 +775,7 @@ mod tests {
 
     fn mk_target(cell: &str, path: &str, target: &str) -> ParsedPattern<TargetPattern> {
         ParsedPattern::Target(
-            Package::testing_new(cell, path),
+            PackageLabel::testing_new(cell, path),
             TargetName::unchecked_new(target),
         )
     }
@@ -787,7 +787,7 @@ mod tests {
         providers: Option<&[&str]>,
     ) -> ParsedPattern<ProvidersPattern> {
         ParsedPattern::Target(
-            Package::testing_new(cell, path),
+            PackageLabel::testing_new(cell, path),
             ProvidersPattern {
                 target: TargetName::unchecked_new(target),
                 providers: providers.map_or(ProvidersName::Default, |n| {
@@ -852,7 +852,7 @@ mod tests {
     #[test_case(PhantomData::< TargetPattern >; "parsing TargetPattern")]
     #[test_case(PhantomData::< ProvidersPattern >; "parsing ProvidersPattern")]
     fn parse_absolute_pattern<T: PatternType>(_: PhantomData<T>) {
-        let package = Package::new(
+        let package = PackageLabel::new(
             resolver().resolve_self(),
             CellRelativePath::unchecked_new("package/path"),
         );
@@ -903,7 +903,7 @@ mod tests {
 
     #[test]
     fn parse_relative_pattern() -> anyhow::Result<()> {
-        let package = Package::new(
+        let package = PackageLabel::new(
             resolver().resolve_self(),
             CellRelativePath::unchecked_new("package/path"),
         );
@@ -921,7 +921,7 @@ mod tests {
 
     #[test]
     fn test_relaxed() -> anyhow::Result<()> {
-        let package = Package::new(
+        let package = PackageLabel::new(
             resolver().resolve_self(),
             CellRelativePath::unchecked_new("package"),
         );
@@ -1012,7 +1012,7 @@ mod tests {
 
     #[test]
     fn test_parsed_opt_absolute() -> anyhow::Result<()> {
-        let package = Package::new(
+        let package = PackageLabel::new(
             resolver().resolve_self(),
             CellRelativePath::unchecked_new("package/path"),
         );
@@ -1059,7 +1059,7 @@ mod tests {
 
     #[test]
     fn test_aliases() -> anyhow::Result<()> {
-        let package = Package::new(
+        let package = PackageLabel::new(
             resolver().resolve_self(),
             CellRelativePath::unchecked_new("package"),
         );
@@ -1143,7 +1143,7 @@ mod tests {
 
     #[test]
     fn parse_providers_pattern_with_alias() -> anyhow::Result<()> {
-        let package = Package::new(
+        let package = PackageLabel::new(
             resolver().resolve_self(),
             CellRelativePath::unchecked_new("package"),
         );
@@ -1233,19 +1233,19 @@ mod tests {
     fn parsed_pattern_contains() -> anyhow::Result<()> {
         let cell_resolver = resolver();
 
-        let pkg1 = Package::new(
+        let pkg1 = PackageLabel::new(
             cell_resolver.resolve_self(),
             CellRelativePath::unchecked_new("package/path"),
         );
-        let pkg2 = Package::new(
+        let pkg2 = PackageLabel::new(
             cell_resolver.resolve_self(),
             CellRelativePath::unchecked_new("package"),
         );
-        let pkg3 = Package::new(
+        let pkg3 = PackageLabel::new(
             cell_resolver.resolve_self(),
             CellRelativePath::unchecked_new("package2"),
         );
-        let pkg_in_different_cell = Package::new(
+        let pkg_in_different_cell = PackageLabel::new(
             cell_resolver.resolve("cell1")?,
             CellRelativePath::unchecked_new("package/path"),
         );

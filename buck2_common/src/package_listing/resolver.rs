@@ -9,20 +9,20 @@
 
 use async_trait::async_trait;
 use buck2_core::cells::cell_path::CellPath;
-use buck2_core::package::Package;
+use buck2_core::package::PackageLabel;
 
 use crate::package_listing::listing::PackageListing;
 use crate::result::SharedResult;
 
 #[async_trait]
 pub trait PackageListingResolver: Send + Sync {
-    async fn resolve(&self, package: &Package) -> SharedResult<PackageListing>;
+    async fn resolve(&self, package: &PackageLabel) -> SharedResult<PackageListing>;
 
-    async fn get_enclosing_package(&self, path: &CellPath) -> anyhow::Result<Package>;
+    async fn get_enclosing_package(&self, path: &CellPath) -> anyhow::Result<PackageLabel>;
 
     async fn get_enclosing_packages(
         &self,
         path: &CellPath,
         enclosing_path: &CellPath,
-    ) -> anyhow::Result<Vec<Package>>;
+    ) -> anyhow::Result<Vec<PackageLabel>>;
 }

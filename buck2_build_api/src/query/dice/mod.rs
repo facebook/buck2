@@ -36,7 +36,7 @@ use buck2_core::fs::paths::RelativePath;
 use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
-use buck2_core::package::Package;
+use buck2_core::package::PackageLabel;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::ProvidersPattern;
 use buck2_core::target::ConfiguredTargetLabel;
@@ -69,7 +69,7 @@ pub mod aquery;
 
 pub(crate) struct LiteralParser {
     // file and target literals are resolved relative to the working dir.
-    working_dir: Package,
+    working_dir: PackageLabel,
     project_root: ProjectRoot,
     cell_resolver: CellResolver,
     cell_alias_resolver: CellAliasResolver,
@@ -154,7 +154,7 @@ impl<'c> DiceQueryDelegate<'c> {
         target_alias_resolver: BuckConfigTargetAliasResolver,
     ) -> anyhow::Result<Self> {
         let cell_path = cell_resolver.get_cell_path(working_dir)?;
-        let package = Package::from_cell_path(&cell_path);
+        let package = PackageLabel::from_cell_path(&cell_path);
         let cell_name = package.as_cell_path().cell();
         let cell_alias_resolver = cell_resolver.get(cell_name)?.cell_alias_resolver().dupe();
 
@@ -188,7 +188,7 @@ impl<'c> DiceQueryDelegate<'c> {
 
 #[async_trait]
 impl<'c> UqueryDelegate for DiceQueryDelegate<'c> {
-    async fn eval_build_file(&self, package: &Package) -> SharedResult<Arc<EvaluationResult>> {
+    async fn eval_build_file(&self, package: &PackageLabel) -> SharedResult<Arc<EvaluationResult>> {
         self.ctx.get_interpreter_results(package).await
     }
 
@@ -220,7 +220,7 @@ impl<'c> UqueryDelegate for DiceQueryDelegate<'c> {
     }
 
     // This returns 1 package normally but can return multiple packages if the path is covered under `self.package_boundary_exceptions`.
-    async fn get_enclosing_packages(&self, path: &CellPath) -> anyhow::Result<Vec<Package>> {
+    async fn get_enclosing_packages(&self, path: &CellPath) -> anyhow::Result<Vec<PackageLabel>> {
         let package_listing_resolver = self.ctx.get_package_listing_resolver();
 
         // Without package boundary violations, there is only 1 owning package for a path.
@@ -287,7 +287,7 @@ impl<'c> CqueryDelegate for DiceQueryDelegate<'c> {
 /// Converts target nodes to a set of compatible configured target nodes.
 pub async fn get_compatible_targets(
     ctx: &DiceComputations,
-    loaded_targets: impl Iterator<Item = (&Package, SharedResult<Vec<TargetNode>>)>,
+    loaded_targets: impl Iterator<Item = (&PackageLabel, SharedResult<Vec<TargetNode>>)>,
     global_target_platform: Option<TargetLabel>,
 ) -> anyhow::Result<TargetSet<ConfiguredTargetNode>> {
     let mut by_package_futs: Vec<_> = Vec::new();

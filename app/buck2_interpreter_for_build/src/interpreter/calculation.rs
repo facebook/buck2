@@ -15,7 +15,7 @@ use async_trait::async_trait;
 use buck2_common::result::SharedResult;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
-use buck2_core::package::Package;
+use buck2_core::package::PackageLabel;
 use buck2_interpreter::common::StarlarkModulePath;
 use buck2_interpreter::dice::starlark_profiler::GetStarlarkProfilerInstrumentation;
 use buck2_interpreter::dice::HasCalculationDelegate;
@@ -35,7 +35,7 @@ pub trait InterpreterCalculation<'c> {
     /// of `TargetNode`s of interpreting that build file.
     async fn get_interpreter_results(
         &self,
-        package: &Package,
+        package: &PackageLabel,
     ) -> SharedResult<Arc<EvaluationResult>>;
 
     /// Returns the LoadedModule for a given starlark file. This is cached on the dice graph.
@@ -51,7 +51,7 @@ pub trait InterpreterCalculation<'c> {
 impl<'c> InterpreterCalculation<'c> for DiceComputations {
     async fn get_interpreter_results(
         &self,
-        package: &Package,
+        package: &PackageLabel,
     ) -> SharedResult<Arc<EvaluationResult>> {
         #[async_trait]
         impl Key for InterpreterResultsKey {
@@ -109,14 +109,14 @@ impl<'c> InterpreterCalculation<'c> for DiceComputations {
 
 mod keys {
     use allocative::Allocative;
-    use buck2_core::package::Package;
+    use buck2_core::package::PackageLabel;
     use derive_more::Display;
     use gazebo::prelude::*;
 
     // Key for 'InterpreterCalculation::get_interpreter_results'
     #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
     #[display(fmt = "{}", _0)]
-    pub struct InterpreterResultsKey(pub Package);
+    pub struct InterpreterResultsKey(pub PackageLabel);
 }
 
 pub mod testing {

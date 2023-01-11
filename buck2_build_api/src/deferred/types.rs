@@ -890,7 +890,7 @@ mod tests {
     use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
     use buck2_core::fs::project::ProjectRoot;
     use buck2_core::package::testing::PackageExt;
-    use buck2_core::package::Package;
+    use buck2_core::package::PackageLabel;
     use buck2_core::target::testing::ConfiguredTargetLabelExt;
     use buck2_core::target::ConfiguredTargetLabel;
     use buck2_core::target::TargetName;
@@ -972,7 +972,7 @@ mod tests {
 
     fn dummy_base() -> BaseDeferredKey {
         BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_new(
-            Package::testing_new("cell", "pkg"),
+            PackageLabel::testing_new("cell", "pkg"),
             TargetName::unchecked_new("foo"),
             Configuration::testing_new(),
         ))
@@ -1030,7 +1030,7 @@ mod tests {
     #[test]
     fn mapping_async_data() -> anyhow::Result<()> {
         let base = BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_new(
-            Package::testing_new("cell", "pkg"),
+            PackageLabel::testing_new("cell", "pkg"),
             TargetName::unchecked_new("foo"),
             Configuration::testing_new(),
         ));
@@ -1082,7 +1082,7 @@ mod tests {
     #[test]
     fn combined_asyncs() -> anyhow::Result<()> {
         let base = BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_new(
-            Package::testing_new("cell", "pkg"),
+            PackageLabel::testing_new("cell", "pkg"),
             TargetName::unchecked_new("foo"),
             Configuration::testing_new(),
         ));
@@ -1139,7 +1139,7 @@ mod tests {
     #[test]
     fn register_nested_deferred() -> anyhow::Result<()> {
         let target = ConfiguredTargetLabel::testing_new(
-            Package::testing_new("cell", "pkg"),
+            PackageLabel::testing_new("cell", "pkg"),
             TargetName::unchecked_new("foo"),
             Configuration::testing_new(),
         );
@@ -1226,7 +1226,7 @@ mod tests {
     #[test]
     fn reserving_deferred() -> anyhow::Result<()> {
         let base = BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_new(
-            Package::testing_new("cell", "pkg"),
+            PackageLabel::testing_new("cell", "pkg"),
             TargetName::unchecked_new("foo"),
             Configuration::testing_new(),
         ));
@@ -1277,7 +1277,7 @@ mod tests {
     #[test]
     fn reserving_deferred_unbound() {
         let base = BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_new(
-            Package::testing_new("cell", "pkg"),
+            PackageLabel::testing_new("cell", "pkg"),
             TargetName::unchecked_new("foo"),
             Configuration::testing_new(),
         ));
@@ -1292,7 +1292,7 @@ mod tests {
     #[test]
     fn trivial_deferred() -> anyhow::Result<()> {
         let base = BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_new(
-            Package::testing_new("cell", "pkg"),
+            PackageLabel::testing_new("cell", "pkg"),
             TargetName::unchecked_new("foo"),
             Configuration::testing_new(),
         ));

@@ -17,7 +17,7 @@ use buck2_core::collections::sorted_set::SortedSet;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::package::package_relative_path::PackageRelativePathBuf;
-use buck2_core::package::Package;
+use buck2_core::package::PackageLabel;
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
 use thiserror::Error;
@@ -39,7 +39,7 @@ enum PackageListingError {
 
 #[async_trait]
 impl<'c> PackageListingResolver for InterpreterPackageListingResolver<'c> {
-    async fn resolve(&self, package: &Package) -> SharedResult<PackageListing> {
+    async fn resolve(&self, package: &PackageLabel) -> SharedResult<PackageListing> {
         Ok(self
             .gather_package_listing(package)
             .await
@@ -47,7 +47,7 @@ impl<'c> PackageListingResolver for InterpreterPackageListingResolver<'c> {
             .with_context(|| format!("when gathering package listing for `{}`", package))?)
     }
 
-    async fn get_enclosing_package(&self, path: &CellPath) -> anyhow::Result<Package> {
+    async fn get_enclosing_package(&self, path: &CellPath) -> anyhow::Result<PackageLabel> {
         let path = path.clone();
         let cell_instance = self.cell_resolver.get(path.cell())?;
         let buildfile_candidates = cell_instance.buildfiles();
@@ -55,7 +55,7 @@ impl<'c> PackageListingResolver for InterpreterPackageListingResolver<'c> {
             for path in path.ancestors() {
                 let listing = self.fs.read_dir(&path).await?;
                 if find_buildfile(buildfile_candidates, &listing).is_some() {
-                    return Ok(Package::from_cell_path(&path));
+                    return Ok(PackageLabel::from_cell_path(&path));
                 }
             }
         }
@@ -70,7 +70,7 @@ impl<'c> PackageListingResolver for InterpreterPackageListingResolver<'c> {
         &self,
         path: &CellPath,
         enclosing_path: &CellPath,
-    ) -> anyhow::Result<Vec<Package>> {
+    ) -> anyhow::Result<Vec<PackageLabel>> {
         let path = path.clone();
         let cell_instance = self.cell_resolver.get(path.cell())?;
         let buildfile_candidates = cell_instance.buildfiles();
@@ -83,7 +83,7 @@ impl<'c> PackageListingResolver for InterpreterPackageListingResolver<'c> {
                 }
                 let listing = self.fs.read_dir(&path).await?;
                 if find_buildfile(buildfile_candidates, &listing).is_some() {
-                    packages.push(Package::from_cell_path(&path));
+                    packages.push(PackageLabel::from_cell_path(&path));
                 }
             }
             Ok(packages)
@@ -109,7 +109,7 @@ impl<'c> InterpreterPackageListingResolver<'c> {
 
     pub async fn gather_package_listing<'a>(
         &'a self,
-        root: &'a Package,
+        root: &'a PackageLabel,
     ) -> anyhow::Result<PackageListing> {
         let cell_instance = self.cell_resolver.get(root.cell_name())?;
         let buildfile_candidates = cell_instance.buildfiles();
@@ -171,7 +171,7 @@ impl<'c> InterpreterPackageListingResolver<'c> {
         dirs.sort();
         subpackages.sort();
 
-        fn strip_prefixes<T>(root: &Package, xs: &[CellPath]) -> anyhow::Result<T>
+        fn strip_prefixes<T>(root: &PackageLabel, xs: &[CellPath]) -> anyhow::Result<T>
         where
             T: FromIterator<PackageRelativePathBuf>,
         {

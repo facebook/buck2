@@ -17,7 +17,7 @@ use buck2_common::pattern::package_roots::find_package_roots_stream;
 use buck2_common::pattern::resolve::ResolvedPattern;
 use buck2_common::result::SharedResult;
 use buck2_core::configuration::Configuration;
-use buck2_core::package::Package;
+use buck2_core::package::PackageLabel;
 use buck2_core::pattern::PackageSpec;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::PatternType;
@@ -66,10 +66,10 @@ use crate::nodes::calculation::get_execution_platform_toolchain_dep;
 #[derive(Debug, Error)]
 pub enum BuildErrors {
     #[error("No target with name `{1}` in package `{0}`.")]
-    MissingTarget(Package, TargetName),
+    MissingTarget(PackageLabel, TargetName),
 
     #[error("Did not find package with name `{0}`.")]
-    MissingPackage(Package),
+    MissingPackage(PackageLabel),
 }
 
 pub trait ConfigurableTarget: Send + Sync {
@@ -277,7 +277,7 @@ async fn resolve_patterns_and_load_buildfiles<'c, T: PatternType>(
     parsed_patterns: Vec<ParsedPattern<T>>,
 ) -> anyhow::Result<(
     ResolvedPattern<T>,
-    impl Stream<Item = (Package, SharedResult<Arc<EvaluationResult>>)> + 'c,
+    impl Stream<Item = (PackageLabel, SharedResult<Arc<EvaluationResult>>)> + 'c,
 )> {
     let mut spec = ResolvedPattern::<T>::new();
     let load_package_futs = FuturesUnordered::new();
@@ -285,8 +285,8 @@ async fn resolve_patterns_and_load_buildfiles<'c, T: PatternType>(
 
     fn load_package<'a>(
         ctx: &'a DiceComputations,
-        package: Package,
-    ) -> BoxFuture<'a, (Package, SharedResult<Arc<EvaluationResult>>)> {
+        package: PackageLabel,
+    ) -> BoxFuture<'a, (PackageLabel, SharedResult<Arc<EvaluationResult>>)> {
         // it's important that this is not async and the temporary spawn happens when the function is called as we don't immediately start polling these.
         ctx.temporary_spawn(async move |ctx| {
             let res = ctx.get_interpreter_results(&package).await;
@@ -323,11 +323,13 @@ async fn resolve_patterns_and_load_buildfiles<'c, T: PatternType>(
 }
 
 pub struct LoadedPatterns<T> {
-    results: BTreeMap<Package, SharedResult<BTreeMap<T, TargetNode>>>,
+    results: BTreeMap<PackageLabel, SharedResult<BTreeMap<T, TargetNode>>>,
 }
 
 impl<T> LoadedPatterns<T> {
-    pub fn iter(&self) -> impl Iterator<Item = (&Package, &SharedResult<BTreeMap<T, TargetNode>>)> {
+    pub fn iter(
+        &self,
+    ) -> impl Iterator<Item = (&PackageLabel, &SharedResult<BTreeMap<T, TargetNode>>)> {
         self.results.iter()
     }
 
@@ -335,7 +337,7 @@ impl<T> LoadedPatterns<T> {
     #[allow(clippy::should_implement_trait)]
     pub fn into_iter(
         self,
-    ) -> impl Iterator<Item = (Package, SharedResult<BTreeMap<T, TargetNode>>)> {
+    ) -> impl Iterator<Item = (PackageLabel, SharedResult<BTreeMap<T, TargetNode>>)> {
         self.results.into_iter()
     }
 
@@ -351,7 +353,7 @@ impl<T> LoadedPatterns<T> {
 
     pub fn iter_loaded_targets_by_package(
         &self,
-    ) -> impl Iterator<Item = (&Package, SharedResult<Vec<TargetNode>>)> {
+    ) -> impl Iterator<Item = (&PackageLabel, SharedResult<Vec<TargetNode>>)> {
         self.results.iter().map(|(package, result)| {
             let targets = result
                 .as_ref()
@@ -365,7 +367,7 @@ impl<T> LoadedPatterns<T> {
 /// Finds all the requested targets in `spec` from a map of loaded targets in `load_result`.
 fn apply_spec<T: PatternType>(
     spec: ResolvedPattern<T>,
-    load_results: BTreeMap<Package, SharedResult<Arc<EvaluationResult>>>,
+    load_results: BTreeMap<PackageLabel, SharedResult<Arc<EvaluationResult>>>,
 ) -> anyhow::Result<LoadedPatterns<T>> {
     let mut all_targets = BTreeMap::new();
     for (pkg, pkg_spec) in spec.specs.into_iter() {
@@ -421,7 +423,7 @@ pub async fn load_patterns<T: PatternType>(
     let (spec, mut load_package_futs) =
         resolve_patterns_and_load_buildfiles(ctx, parsed_patterns).await?;
 
-    let mut results: BTreeMap<Package, SharedResult<Arc<EvaluationResult>>> = BTreeMap::new();
+    let mut results: BTreeMap<PackageLabel, SharedResult<Arc<EvaluationResult>>> = BTreeMap::new();
     while let Some((pkg, load_res)) = load_package_futs.next().await {
         results.insert(pkg, load_res);
     }

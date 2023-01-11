@@ -232,7 +232,7 @@ pub mod testing {
 
     use super::*;
     use crate::package::testing::*;
-    use crate::package::Package;
+    use crate::package::PackageLabel;
     use crate::target::TargetLabel;
     use crate::target::TargetName;
 
@@ -254,7 +254,7 @@ pub mod testing {
         ) -> ProvidersLabel {
             ProvidersLabel::new(
                 TargetLabel::new(
-                    Package::testing_new(cell, package),
+                    PackageLabel::testing_new(cell, package),
                     TargetName::new(target).unwrap(),
                 ),
                 match name {

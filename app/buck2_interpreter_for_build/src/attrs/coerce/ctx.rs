@@ -14,7 +14,7 @@ use buck2_common::package_listing::listing::PackageListing;
 use buck2_core::buck_path::BuckPath;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::package::package_relative_path::PackageRelativePathBuf;
-use buck2_core::package::Package;
+use buck2_core::package::PackageLabel;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::PatternType;
 use buck2_core::pattern::ProvidersPattern;
@@ -41,13 +41,13 @@ enum BuildAttrCoercionContextError {
     #[error("Expected a package: `{0}` can only be specified in a build file.")]
     NotBuildFileContext(String),
     #[error("Expected file, but got a directory for path `{1}` in package `{0}`.")]
-    SourceFileIsDirectory(Package, String),
+    SourceFileIsDirectory(PackageLabel, String),
     #[error("Source file `{1}` does not exist as a member of package `{0}`.")]
-    SourceFileMissing(Package, String),
+    SourceFileMissing(PackageLabel, String),
     #[error(
         "Directory `{1}` of package `{0}` may not cover any subpackages, but includes subpackage `{2}`."
     )]
-    SourceDirectoryIncludesSubPackage(Package, String, PackageRelativePathBuf),
+    SourceDirectoryIncludesSubPackage(PackageLabel, String, PackageRelativePathBuf),
 }
 
 /// An incomplete attr coercion context. Will be replaced with a real one later.
@@ -58,7 +58,7 @@ pub struct BuildAttrCoercionContext {
     /// is being evaluated, however it is absent if an extension file is being
     /// evaluated. The latter case occurs when default values for attributes
     /// are coerced when a UDR is declared.
-    enclosing_package: Option<(Package, PackageListing)>,
+    enclosing_package: Option<(PackageLabel, PackageListing)>,
     /// Does this package (if present) have a package boundary exception on it.
     package_boundary_exception: bool,
     /// Allocator for `label_cache`.
@@ -75,7 +75,7 @@ pub struct BuildAttrCoercionContext {
 impl BuildAttrCoercionContext {
     fn new(
         cell_alias_resolver: CellAliasResolver,
-        enclosing_package: Option<(Package, PackageListing)>,
+        enclosing_package: Option<(PackageLabel, PackageListing)>,
         package_boundary_exception: bool,
         query_functions: Arc<dyn QueryFunctionsVisitLiterals>,
     ) -> Self {
@@ -98,7 +98,7 @@ impl BuildAttrCoercionContext {
 
     pub fn new_with_package(
         cell_alias_resolver: CellAliasResolver,
-        enclosing_package: (Package, PackageListing),
+        enclosing_package: (PackageLabel, PackageListing),
         package_boundary_exception: bool,
         query_functions: Arc<dyn QueryFunctionsVisitLiterals>,
     ) -> Self {
@@ -126,7 +126,10 @@ impl BuildAttrCoercionContext {
         }
     }
 
-    fn require_enclosing_package(&self, msg: &str) -> anyhow::Result<&(Package, PackageListing)> {
+    fn require_enclosing_package(
+        &self,
+        msg: &str,
+    ) -> anyhow::Result<&(PackageLabel, PackageListing)> {
         self.enclosing_package.as_ref().ok_or_else(|| {
             BuildAttrCoercionContextError::NotBuildFileContext(msg.to_owned()).into()
         })

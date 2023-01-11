@@ -12,7 +12,7 @@ use anyhow::Context;
 use crate::cells::paths::CellRelativePath;
 use crate::cells::CellAliasResolver;
 use crate::fs::paths::forward_rel_path::ForwardRelativePath;
-use crate::package::Package;
+use crate::package::PackageLabel;
 
 #[derive(Debug, thiserror::Error)]
 enum ParsePackageError {
@@ -24,7 +24,7 @@ enum ParsePackageError {
 pub fn parse_package(
     package: &str,
     cell_alias_resolver: &CellAliasResolver,
-) -> anyhow::Result<Package> {
+) -> anyhow::Result<PackageLabel> {
     // There's no ready to use parser for package, so create simple one here.
     let (cell, cell_relative) = package
         .split_once("//")
@@ -35,7 +35,7 @@ pub fn parse_package(
         ForwardRelativePath::new(cell_relative).context("Parsing package argument")?;
     let cell_relative = CellRelativePath::new(cell_relative);
 
-    Ok(Package::new(cell, cell_relative))
+    Ok(PackageLabel::new(cell, cell_relative))
 }
 
 #[cfg(test)]

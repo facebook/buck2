@@ -19,7 +19,7 @@ use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::cells::CellAlias;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellName;
-use buck2_core::package::Package;
+use buck2_core::package::PackageLabel;
 use buck2_interpreter::common::StarlarkPath;
 use buck2_interpreter::extra::cell_info::InterpreterCellInfo;
 use buck2_interpreter::extra::BuildContext;
@@ -75,7 +75,7 @@ pub fn coercion_ctx_listing(package_listing: PackageListing) -> impl AttrCoercio
         CellAlias::new("cell1".to_owned()) => CellName::unchecked_new("cell1".to_owned()),
     ];
 
-    let package = Package::new(
+    let package = PackageLabel::new(
         &root_cell_name,
         CellRelativePath::unchecked_new("package/subdir"),
     );

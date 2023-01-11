@@ -21,7 +21,7 @@ use buck2_build_api::nodes::lookup::TargetNodeLookup;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_core::cells::cell_path::CellPath;
-use buck2_core::package::Package;
+use buck2_core::package::PackageLabel;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::TargetPattern;
 use buck2_core::target::TargetLabel;
@@ -62,10 +62,10 @@ struct TargetInfo<'a> {
 trait TargetPrinter: Send {
     fn begin(&mut self) {}
     fn end(&mut self) -> String;
-    fn package(&mut self, _package: &Package) {}
+    fn package(&mut self, _package: &PackageLabel) {}
     fn package_end(&mut self) {}
-    fn target(&mut self, _package: &Package, _target_info: TargetInfo<'_>) {}
-    fn err(&mut self, package: &Package, e: &anyhow::Error) {
+    fn target(&mut self, _package: &PackageLabel, _target_info: TargetInfo<'_>) {}
+    fn err(&mut self, package: &PackageLabel, e: &anyhow::Error) {
         eprintln!("Error parsing {}", package);
         eprintln!("{:?}", e);
     }
@@ -92,11 +92,11 @@ impl TargetPrinter for JsonPrinter {
         // ignored
     }
 
-    fn package(&mut self, _package: &Package) {
+    fn package(&mut self, _package: &PackageLabel) {
         // ignored
     }
 
-    fn target(&mut self, package: &Package, target_info: TargetInfo<'_>) {
+    fn target(&mut self, package: &PackageLabel, target_info: TargetInfo<'_>) {
         if self.target_idx != 0 {
             writeln!(self.json_string, ",").unwrap();
         }
@@ -177,15 +177,15 @@ impl TargetPrinter for StatsPrinter {
         format!("{:?}", self)
     }
 
-    fn package(&mut self, _package: &Package) {
+    fn package(&mut self, _package: &PackageLabel) {
         self.success += 1;
     }
 
-    fn target(&mut self, _package: &Package, _target_info: TargetInfo<'_>) {
+    fn target(&mut self, _package: &PackageLabel, _target_info: TargetInfo<'_>) {
         self.targets += 1;
     }
 
-    fn err(&mut self, package: &Package, e: &anyhow::Error) {
+    fn err(&mut self, package: &PackageLabel, e: &anyhow::Error) {
         self.errors += 1;
         eprintln!("Error parsing {}", package);
         eprintln!("{:?}", e);
@@ -202,7 +202,7 @@ impl TargetPrinter for TargetNamePrinter {
         std::mem::take(&mut self.display_string)
     }
 
-    fn target(&mut self, package: &Package, target_info: TargetInfo<'_>) {
+    fn target(&mut self, package: &PackageLabel, target_info: TargetInfo<'_>) {
         if self.target_hash_graph_type != TargetHashGraphType::None {
             match target_info.target_hash {
                 Some(BuckTargetHash(hash)) => writeln!(

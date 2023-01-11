@@ -9,7 +9,7 @@
 
 use buck2_build_api::calculation::Calculation;
 use buck2_core::cells::paths::CellRelativePath;
-use buck2_core::package::Package;
+use buck2_core::package::PackageLabel;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::ProvidersPattern;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
@@ -97,7 +97,7 @@ impl ProvidersExpr {
                     ParsedPattern::<ProvidersPattern>::parse_relaxed(
                         &ctx.target_alias_resolver,
                         ctx.cell.cell_alias_resolver(),
-                        &Package::new(ctx.cell.name(), CellRelativePath::empty()),
+                        &PackageLabel::new(ctx.cell.name(), CellRelativePath::empty()),
                         s,
                     )?
                     .as_providers_label(s)?,

@@ -442,7 +442,7 @@ mod tests {
     use buck2_core::fs::project::ProjectRelativePathBuf;
     use buck2_core::fs::project::ProjectRootTemp;
     use buck2_core::package::testing::PackageExt;
-    use buck2_core::package::Package;
+    use buck2_core::package::PackageLabel;
     use buck2_core::provider::id::testing::ProviderIdExt;
     use buck2_core::provider::id::ProviderId;
     use buck2_core::target::testing::TargetLabelExt;
@@ -558,7 +558,7 @@ mod tests {
                 Ok(module),
             )
             .mock_and_return(
-                InterpreterResultsKey(Package::testing_new("cell", "pkg")),
+                InterpreterResultsKey(PackageLabel::testing_new("cell", "pkg")),
                 Ok(Arc::new(eval_res)),
             )
             .mock_and_return(ExecutionPlatformsKey, Ok(None))

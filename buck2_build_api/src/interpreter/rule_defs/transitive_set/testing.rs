@@ -13,7 +13,7 @@ use std::sync::atomic::Ordering;
 use anyhow::Context as _;
 use buck2_core::configuration::Configuration;
 use buck2_core::package::testing::PackageExt;
-use buck2_core::package::Package;
+use buck2_core::package::PackageLabel;
 use buck2_core::target::testing::ConfiguredTargetLabelExt;
 use buck2_core::target::ConfiguredTargetLabel;
 use buck2_core::target::TargetName;
@@ -46,7 +46,7 @@ pub fn tset_factory(builder: &mut GlobalsBuilder) {
         static LAST_ID: AtomicU32 = AtomicU32::new(0);
 
         let target = ConfiguredTargetLabel::testing_new(
-            Package::testing_new("cell", "path"),
+            PackageLabel::testing_new("cell", "path"),
             TargetName::unchecked_new("target"),
             Configuration::testing_new(),
         );

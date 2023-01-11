@@ -27,7 +27,7 @@ use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::CellName;
-use buck2_core::package::Package;
+use buck2_core::package::PackageLabel;
 use buck2_events::dispatch::span;
 use buck2_events::dispatch::span_async;
 use derive_more::Display;
@@ -228,7 +228,10 @@ impl<'c> DiceCalculationDelegate<'c> {
         &self.fs
     }
 
-    async fn resolve_package_listing(&self, package: &Package) -> SharedResult<PackageListing> {
+    async fn resolve_package_listing(
+        &self,
+        package: &PackageLabel,
+    ) -> SharedResult<PackageListing> {
         self.ctx
             .get_package_listing_resolver()
             .resolve(package)
@@ -353,7 +356,7 @@ impl<'c> DiceCalculationDelegate<'c> {
 
     pub async fn eval_build_file<T: ExtraContext>(
         &self,
-        package: &Package,
+        package: &PackageLabel,
         profiler: &mut StarlarkProfilerOrInstrumentation<'_>,
     ) -> anyhow::Result<T::EvalResult> {
         let listing = span_async(

@@ -507,7 +507,7 @@ mod tests {
     use buck2_core::buck_path::BuckPath;
     use buck2_core::cells::paths::CellRelativePath;
     use buck2_core::package::package_relative_path::PackageRelativePathBuf;
-    use buck2_core::package::Package;
+    use buck2_core::package::PackageLabel;
     use buck2_interpreter_for_build::attrs::coerce::attr_type::AttrTypeExt;
     use buck2_interpreter_for_build::attrs::coerce::ctx::BuildAttrCoercionContext;
     use buck2_node::attrs::attr_type::AttrType;
@@ -598,7 +598,7 @@ mod tests {
         let some_cells = cells(None)?;
         let cell_alias_resolver = some_cells.0;
         let enclosing_package = (
-            Package::new(
+            PackageLabel::new(
                 cell_alias_resolver.resolve_self(),
                 CellRelativePath::unchecked_new("foo"),
             ),
@@ -753,7 +753,7 @@ mod tests {
     #[test]
     fn coercing_src_to_path_works() -> anyhow::Result<()> {
         let cell_alias_resolver = cells(None).unwrap().0;
-        let package = Package::new(
+        let package = PackageLabel::new(
             cell_alias_resolver.resolve("")?,
             CellRelativePath::unchecked_new("foo/bar"),
         );

@@ -10,7 +10,7 @@
 use buck2_common::target_aliases::BuckConfigTargetAliasResolver;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::cells::CellInstance;
-use buck2_core::package::Package;
+use buck2_core::package::PackageLabel;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::TargetPattern;
 use buck2_core::target::TargetLabel;
@@ -46,7 +46,7 @@ impl<'v> ValueAsStarlarkTargetLabel for Value<'v> {
                 ParsedPattern::<TargetPattern>::parse_relaxed(
                     target_alias_resolver,
                     cell.cell_alias_resolver(),
-                    &Package::new(cell.name(), CellRelativePath::empty()),
+                    &PackageLabel::new(cell.name(), CellRelativePath::empty()),
                     s,
                 )?
                 .as_target_label(s)?,

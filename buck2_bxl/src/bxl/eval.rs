@@ -20,7 +20,7 @@ use buck2_common::target_aliases::BuckConfigTargetAliasResolver;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::collections::ordered_map::OrderedMap;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
-use buck2_core::package::Package;
+use buck2_core::package::PackageLabel;
 use buck2_events::dispatch::with_dispatcher;
 use buck2_execute::base_deferred_key::BaseDeferredKey;
 use buck2_execute::bxl::types::BxlFunctionLabel;
@@ -227,7 +227,7 @@ pub fn get_bxl_callable<'a>(
 pub struct CliResolutionCtx<'a> {
     pub target_alias_resolver: BuckConfigTargetAliasResolver,
     pub cell_resolver: CellAliasResolver,
-    pub relative_dir: Package,
+    pub relative_dir: PackageLabel,
     pub dice: &'a DiceComputations,
 }
 

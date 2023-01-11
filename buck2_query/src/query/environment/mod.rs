@@ -17,7 +17,7 @@ use anyhow::Context;
 use async_trait::async_trait;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::cell_path::CellPath;
-use buck2_core::package::Package;
+use buck2_core::package::PackageLabel;
 use buck2_core::target::TargetLabel;
 use futures::stream::FuturesUnordered;
 use futures::stream::TryStreamExt;
@@ -37,7 +37,7 @@ pub enum QueryEnvironmentError {
     #[error("Missing target `{}`. Targets in the package: <{}>", .0, .1.join(", "))]
     MissingTargetError(String, Vec<String>),
     #[error("Expected package `{0}` to be available in traversal.")]
-    TraversalMissingPackage(Package),
+    TraversalMissingPackage(PackageLabel),
     #[error("Dependency cycle, didn't manage to visit `{0}` which is a dependency of `{1}`")]
     DependencyCycle(String, String),
 }

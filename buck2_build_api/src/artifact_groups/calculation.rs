@@ -305,7 +305,7 @@ mod tests {
     use buck2_core::fs::project::ProjectRootTemp;
     use buck2_core::package::package_relative_path::PackageRelativePathBuf;
     use buck2_core::package::testing::PackageExt;
-    use buck2_core::package::Package;
+    use buck2_core::package::PackageLabel;
     use buck2_execute::artifact::source_artifact::SourceArtifact;
     use buck2_execute::artifact_value::ArtifactValue;
     use dice::testing::DiceBuilder;
@@ -364,7 +364,7 @@ mod tests {
         );
 
         let foo_artifact = Artifact::from(SourceArtifact::new(BuckPath::new(
-            Package::testing_new("", "foo"),
+            PackageLabel::testing_new("", "foo"),
             PackageRelativePathBuf::unchecked_new("foo".to_owned()),
         )));
 
@@ -374,7 +374,7 @@ mod tests {
         };
 
         let bar_artifact = Artifact::from(SourceArtifact::new(BuckPath::new(
-            Package::testing_new("", "bar"),
+            PackageLabel::testing_new("", "bar"),
             PackageRelativePathBuf::unchecked_new("bar".to_owned()),
         )));
 

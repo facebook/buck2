@@ -24,7 +24,7 @@ use buck2_core::configuration::transition::applied::TransitionApplied;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::configuration::Configuration;
 use buck2_core::configuration::ConfigurationData;
-use buck2_core::package::Package;
+use buck2_core::package::PackageLabel;
 use buck2_core::pattern::lex_target_pattern;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::PatternData;
@@ -194,7 +194,7 @@ impl AnonTargetKey {
         let cell = CellName::unchecked_new(lex.cell_alias.unwrap_or_default().to_owned());
         match lex.pattern.reject_ambiguity()? {
             PatternData::TargetInPackage { package, target } => Ok(TargetLabel::new(
-                Package::new(&cell, CellRelativePath::new(package)),
+                PackageLabel::new(&cell, CellRelativePath::new(package)),
                 target,
             )),
             _ => Err(err().into()),
@@ -202,7 +202,7 @@ impl AnonTargetKey {
     }
 
     fn create_name(rule_name: &str) -> anyhow::Result<TargetLabel> {
-        let pkg = Package::new(
+        let pkg = PackageLabel::new(
             &CellName::unchecked_new("anon".to_owned()),
             CellRelativePath::empty(),
         );

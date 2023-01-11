@@ -48,7 +48,7 @@ use thiserror::Error;
 
 use crate::ascii_char_set::AsciiCharSet;
 use crate::configuration::Configuration;
-use crate::package::Package;
+use crate::package::PackageLabel;
 
 /// 'TargetName' is the name given to a particular target.
 /// e.g. `foo` in the label `fbsource//package/path:foo`.
@@ -139,16 +139,16 @@ impl PartialEq<str> for TargetName {
 )]
 #[display(fmt = "{}:{}", pkg, name)]
 pub struct TargetLabel {
-    pkg: Package,
+    pkg: PackageLabel,
     name: TargetName,
 }
 
 impl TargetLabel {
-    pub fn new(pkg: Package, name: TargetName) -> Self {
+    pub fn new(pkg: PackageLabel, name: TargetName) -> Self {
         TargetLabel { pkg, name }
     }
 
-    pub fn pkg(&self) -> &Package {
+    pub fn pkg(&self) -> &PackageLabel {
         &self.pkg
     }
 
@@ -211,7 +211,7 @@ impl Display for ConfiguredTargetLabel {
 }
 
 impl ConfiguredTargetLabel {
-    pub fn pkg(&self) -> &Package {
+    pub fn pkg(&self) -> &PackageLabel {
         &self.target.pkg
     }
 
@@ -250,7 +250,7 @@ impl TargetLabelMaybeConfigured for ConfiguredTargetLabel {}
 pub mod testing {
     use crate::configuration::Configuration;
     use crate::package::testing::PackageExt;
-    use crate::package::Package;
+    use crate::package::PackageLabel;
     use crate::target::ConfiguredTargetLabel;
     use crate::target::TargetLabel;
     use crate::target::TargetName;
@@ -258,7 +258,7 @@ pub mod testing {
     pub trait ConfiguredTargetLabelExt {
         /// creates 'ConfiguredTargetLabel'
         fn testing_new(
-            pkg: Package,
+            pkg: PackageLabel,
             label: TargetName,
             cfg: Configuration,
         ) -> ConfiguredTargetLabel {
@@ -276,7 +276,7 @@ pub mod testing {
         fn testing_parse(target_label: &str) -> TargetLabel {
             let (cell, cell_rel) = target_label.split_once("//").expect("no //");
             let (path, name) = cell_rel.split_once(':').expect("no :");
-            let pkg = Package::testing_new(cell, path);
+            let pkg = PackageLabel::testing_new(cell, path);
             let name = TargetName::unchecked_new(name);
             TargetLabel { pkg, name }
         }

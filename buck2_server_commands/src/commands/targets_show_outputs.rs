@@ -17,7 +17,7 @@ use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::pattern::resolve::ResolvedPattern;
 use buck2_core::cells::CellResolver;
-use buck2_core::package::Package;
+use buck2_core::package::PackageLabel;
 use buck2_core::pattern::PackageSpec;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::ProvidersPattern;
@@ -165,7 +165,7 @@ async fn retrieve_artifacts_for_targets(
 
 async fn retrieve_artifacts_for_spec(
     ctx: &DiceComputations,
-    package: Package,
+    package: PackageLabel,
     spec: PackageSpec<ProvidersPattern>,
     global_target_platform: Option<TargetLabel>,
     res: Arc<EvaluationResult>,

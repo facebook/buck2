@@ -27,7 +27,7 @@ use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRoot;
-use buck2_core::package::Package;
+use buck2_core::package::PackageLabel;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::ProvidersPattern;
 use buck2_core::target::TargetName;
@@ -476,7 +476,7 @@ impl BuckLspContext {
 
     async fn parse_file_from_string(
         &self,
-        current_package: &Package,
+        current_package: &PackageLabel,
         literal: &str,
     ) -> anyhow::Result<Option<StringLiteralResult>> {
         match ForwardRelativePath::new(literal) {
@@ -501,7 +501,7 @@ impl BuckLspContext {
 
     async fn parse_target_from_string(
         &self,
-        current_package: &Package,
+        current_package: &PackageLabel,
         literal: &str,
     ) -> anyhow::Result<Option<StringLiteralResult>> {
         let cell_resolver = self
@@ -632,7 +632,7 @@ impl LspContext for BuckLspContext {
                         current_file.clone(),
                     )),
                 }?;
-                let current_package = Package::from_cell_path(import_path.borrow().path());
+                let current_package = PackageLabel::from_cell_path(import_path.borrow().path());
 
                 // Right now we swallow the errors up as they can happen for a lot of reasons that are
                 // perfectly recoverable (e.g. an invalid cell is specified, we can't list an invalid

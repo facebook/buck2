@@ -12,7 +12,7 @@ use std::collections::BTreeSet;
 
 use buck2_common::pattern::resolve::ResolvedPattern;
 use buck2_core::cells::cell_path::CellPath;
-use buck2_core::package::Package;
+use buck2_core::package::PackageLabel;
 use buck2_core::pattern::PackageSpec;
 use buck2_core::pattern::PatternType;
 use buck2_core::pattern::ProvidersPattern;
@@ -31,13 +31,14 @@ use itertools::Itertools;
 ///
 /// Targets are resolved in the universe, and file owners are also resolved in the universe.
 pub struct CqueryUniverse {
-    targets: BTreeMap<Package, BTreeMap<TargetName, BTreeSet<LabelIndexed<ConfiguredTargetNode>>>>,
+    targets:
+        BTreeMap<PackageLabel, BTreeMap<TargetName, BTreeSet<LabelIndexed<ConfiguredTargetNode>>>>,
 }
 
 impl CqueryUniverse {
     pub(crate) fn new(
         targets: BTreeMap<
-            Package,
+            PackageLabel,
             BTreeMap<TargetName, BTreeSet<LabelIndexed<ConfiguredTargetNode>>>,
         >,
     ) -> CqueryUniverse {
@@ -48,7 +49,7 @@ impl CqueryUniverse {
         universe: &TargetSet<ConfiguredTargetNode>,
     ) -> anyhow::Result<CqueryUniverse> {
         let mut targets: BTreeMap<
-            Package,
+            PackageLabel,
             BTreeMap<TargetName, BTreeSet<LabelIndexed<ConfiguredTargetNode>>>,
         > = BTreeMap::new();
 
@@ -103,7 +104,7 @@ impl CqueryUniverse {
 
     fn get_from_package<'a, P: PatternType>(
         &'a self,
-        package: &Package,
+        package: &PackageLabel,
         spec: &'a PackageSpec<P>,
     ) -> impl Iterator<Item = (&'a ConfiguredTargetNode, P::ExtraParts)> + 'a {
         self.targets
@@ -142,7 +143,7 @@ impl CqueryUniverse {
             // This does not leave this function, so we are probably fine.
             // We do it because the map is by `Package`,
             // and `BTreeMap` does not allow lookup by equivalent key.
-            let package = Package::from_cell_path(&package);
+            let package = PackageLabel::from_cell_path(&package);
             let package_data = match self.targets.get(&package) {
                 None => continue,
                 Some(package_data) => package_data,

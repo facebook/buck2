@@ -733,7 +733,7 @@ mod test {
     use buck2_core::configuration::Configuration;
     use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
     use buck2_core::package::testing::PackageExt;
-    use buck2_core::package::Package;
+    use buck2_core::package::PackageLabel;
     use buck2_core::target::testing::ConfiguredTargetLabelExt;
     use buck2_core::target::ConfiguredTargetLabel;
     use buck2_core::target::TargetName;
@@ -748,7 +748,7 @@ mod test {
     #[test]
     fn test_declares_same_dep_files() {
         let target = ConfiguredTargetLabel::testing_new(
-            Package::testing_new("cell", "pkg"),
+            PackageLabel::testing_new("cell", "pkg"),
             TargetName::unchecked_new("foo"),
             Configuration::testing_new(),
         );

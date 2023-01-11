@@ -22,7 +22,7 @@ use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::CellName;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::file_name::FileNameBuf;
-use buck2_core::package::Package;
+use buck2_core::package::PackageLabel;
 use buck2_core::target::TargetLabel;
 use buck2_core::target::TargetName;
 use buck2_node::nodes::eval_result::EvaluationResult;
@@ -77,7 +77,8 @@ pub enum SpecialAttr {
 #[async_trait]
 pub trait UqueryDelegate: Send + Sync {
     /// Returns the EvaluationResult for evaluation of the buildfile.
-    async fn eval_build_file(&self, packages: &Package) -> SharedResult<Arc<EvaluationResult>>;
+    async fn eval_build_file(&self, packages: &PackageLabel)
+    -> SharedResult<Arc<EvaluationResult>>;
 
     /// Get the imports from a LoadedModule corresponding to some path.
     async fn eval_module_imports(&self, path: &ImportPath) -> SharedResult<Vec<ImportPath>>;
@@ -95,7 +96,7 @@ pub trait UqueryDelegate: Send + Sync {
     // Get all enclosing packages needed to compute owner function.
     // This always includes the immediate enclosing package of the path but can also include
     // all parent packages if the package matches `project.package_boundary_exceptions` buckconfig.
-    async fn get_enclosing_packages(&self, path: &CellPath) -> anyhow::Result<Vec<Package>>;
+    async fn get_enclosing_packages(&self, path: &CellPath) -> anyhow::Result<Vec<PackageLabel>>;
 }
 
 #[async_trait]
@@ -518,7 +519,7 @@ async fn top_level_imports_by_build_file<'c>(
                 (
                     file.dupe(),
                     delegate
-                        .eval_build_file(&Package::new(parent.cell(), parent.path()))
+                        .eval_build_file(&PackageLabel::new(parent.cell(), parent.path()))
                         .await,
                 )
             } else {
