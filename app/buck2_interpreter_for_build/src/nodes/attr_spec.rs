@@ -18,7 +18,6 @@ use buck2_node::attrs::internal::attr_is_configurable;
 use buck2_node::attrs::internal::NAME_ATTRIBUTE_FIELD;
 use buck2_node::attrs::spec::AttributeSpec;
 use buck2_node::attrs::values::AttrValues;
-use gazebo::prelude::*;
 use starlark::docs::DocString;
 use starlark::eval::ParametersParser;
 use starlark::eval::ParametersSpec;
@@ -108,7 +107,7 @@ impl AttributeSpecExt for AttributeSpec {
 
     /// Returns a starlark Parameters for the rule callable.
     fn signature(&self, rule_name: String) -> ParametersSpec<Value<'_>> {
-        let mut signature = ParametersSpec::with_capacity(rule_name, self.indices.len());
+        let mut signature = ParametersSpec::with_capacity(rule_name, self.len());
         signature.no_more_positional_args();
         for (name, _idx, attribute) in self.attr_specs() {
             match attribute.default {
@@ -120,7 +119,9 @@ impl AttributeSpecExt for AttributeSpec {
     }
 
     fn starlark_types(&self) -> Vec<String> {
-        self.attributes.map(|a| a.starlark_type())
+        self.attr_specs()
+            .map(|(_, _, a)| a.starlark_type())
+            .collect()
     }
 
     fn docstrings(&self) -> HashMap<String, Option<DocString>> {

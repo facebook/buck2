@@ -28,8 +28,8 @@ use crate::attrs::values::AttrValues;
 pub struct AttributeSpec {
     // TODO(nga): either "map" or "ordered" is redundant here:
     //   `AttributeId` in `indices` is always equal to the index of the entry in ordered map.
-    pub indices: OrderedMap<String, AttributeId>,
-    pub attributes: Vec<Attribute>,
+    indices: OrderedMap<String, AttributeId>,
+    attributes: Vec<Attribute>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -92,6 +92,11 @@ impl AttributeSpec {
             indices,
             attributes: instances,
         })
+    }
+
+    #[allow(clippy::len_without_is_empty)]
+    pub fn len(&self) -> usize {
+        self.attributes.len()
     }
 
     pub fn attr_specs(&self) -> impl Iterator<Item = (&str, AttributeId, &Attribute)> {

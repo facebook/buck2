@@ -143,7 +143,7 @@ impl AnonTargetKey {
 
         let entries = attributes.collect_entries();
         let attrs_spec = rule.attributes();
-        let mut attrs = OrderedMap::with_capacity(attrs_spec.attributes.len());
+        let mut attrs = OrderedMap::with_capacity(attrs_spec.len());
         for (k, v) in entries {
             if k == "name" {
                 name = Some(Self::coerce_name(v)?);
