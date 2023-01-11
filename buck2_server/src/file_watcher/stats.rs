@@ -16,8 +16,10 @@ const MAX_FILE_CHANGE_RECORDS: usize = 100;
 #[derive(Allocative)]
 pub(crate) struct FileWatcherStats {
     stats: buck2_data::FileWatcherStats,
-    // None means overflowed MAX_FILE_CHANGE_RECORDS (so recording nothing)
-    changes: Option<OrderedSet<buck2_data::FileWatcherEvent>>,
+    // Bounded by MAX_FILE_CHANGE_RECORDS
+    changes: OrderedSet<buck2_data::FileWatcherEvent>,
+    // Did we not insert things into changes
+    changes_missed: bool,
     // The first few paths that change (to print out), bounded by MAX_PRINT_MESSAGES
     to_print: OrderedSet<String>,
 }
@@ -29,15 +31,12 @@ impl FileWatcherStats {
             ..Default::default()
         };
 
-        let changes = if min_count > MAX_FILE_CHANGE_RECORDS {
-            None
-        } else {
-            Some(OrderedSet::with_capacity(min_count))
-        };
+        let changes = OrderedSet::with_capacity(std::cmp::min(MAX_FILE_CHANGE_RECORDS, min_count));
 
         Self {
             stats,
             changes,
+            changes_missed: false,
             to_print: OrderedSet::new(),
         }
     }
@@ -61,15 +60,14 @@ impl FileWatcherStats {
             self.to_print.insert(path.clone());
         }
 
-        if let Some(records) = &mut self.changes {
-            records.insert(buck2_data::FileWatcherEvent {
+        if self.changes.len() < MAX_FILE_CHANGE_RECORDS {
+            self.changes.insert(buck2_data::FileWatcherEvent {
                 event: event as i32,
                 kind: kind as i32,
                 path,
             });
-            if records.len() > MAX_PRINT_MESSAGES {
-                self.changes = None;
-            }
+        } else {
+            self.changes_missed = true;
         }
     }
 
@@ -77,6 +75,7 @@ impl FileWatcherStats {
         let Self {
             mut stats,
             changes,
+            changes_missed,
             to_print,
         } = self;
 
@@ -88,28 +87,24 @@ impl FileWatcherStats {
             eprintln!("{} additional file changes", unprinted_paths);
         }
 
-        match changes {
-            None => {
-                let reason = format!(
-                    "Too many files changed ({}, max {})",
-                    stats.events_processed, MAX_FILE_CHANGE_RECORDS
-                );
-                stats.incomplete_events_reason = Some(reason.clone());
-                stats.file_changes_since_last_build = Some(buck2_data::FileChanges {
-                    data: Some(buck2_data::file_changes::Data::NoRecordReason(reason)),
-                });
-            }
-            Some(records) => {
-                let records: Vec<_> = records.into_iter().collect();
-                stats.events = records.clone();
-                stats.file_changes_since_last_build = Some(buck2_data::FileChanges {
-                    data: Some({
-                        buck2_data::file_changes::Data::Records(buck2_data::FileWatcherEvents {
-                            events: records,
-                        })
-                    }),
-                })
-            }
+        stats.events = changes.into_iter().collect();
+        if changes_missed {
+            let reason = format!(
+                "Too many files changed ({}, max {})",
+                stats.events_processed, MAX_FILE_CHANGE_RECORDS
+            );
+            stats.incomplete_events_reason = Some(reason.clone());
+            stats.file_changes_since_last_build = Some(buck2_data::FileChanges {
+                data: Some(buck2_data::file_changes::Data::NoRecordReason(reason)),
+            });
+        } else {
+            stats.file_changes_since_last_build = Some(buck2_data::FileChanges {
+                data: Some({
+                    buck2_data::file_changes::Data::Records(buck2_data::FileWatcherEvents {
+                        events: stats.events.clone(),
+                    })
+                }),
+            })
         }
 
         stats
