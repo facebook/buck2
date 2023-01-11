@@ -43,6 +43,7 @@ pub mod deferred_materializer;
 pub mod dep_files;
 pub mod execution_platform_resolution;
 pub mod includes;
+pub mod output;
 pub mod prelude;
 pub mod providers;
 pub mod server;
