@@ -88,11 +88,13 @@ def create_jar_artifact_kotlincd(
         )
 
     def encode_build_target_value_extra_params():
+        encoded_base_path = encode_path(label.path)
+        short_name = label.name
         return struct(
-            basePathForBaseName = encode_path(label.path),
-            shortNameAndFlavorPostfix = label.name,
-            shortName = label.name,
-            cellRelativeBasePath = encode_path(label.path),
+            basePathForBaseName = encoded_base_path,
+            cellRelativeBasePath = encoded_base_path,
+            shortNameAndFlavorPostfix = short_name,
+            shortName = short_name,
             buckPaths = struct(
                 configuredBuckOut = encode_path("buck-out/v2"),
                 includeTargetConfigHash = True,
