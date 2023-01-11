@@ -8,7 +8,6 @@
  */
 
 use allocative::Allocative;
-use buck2_core::collections::ordered_set::OrderedSet;
 
 const MAX_FILE_CHANGE_RECORDS: usize = 100;
 
@@ -16,7 +15,7 @@ const MAX_FILE_CHANGE_RECORDS: usize = 100;
 pub(crate) struct FileWatcherStats {
     stats: buck2_data::FileWatcherStats,
     // Bounded by MAX_FILE_CHANGE_RECORDS
-    changes: OrderedSet<buck2_data::FileWatcherEvent>,
+    changes: Vec<buck2_data::FileWatcherEvent>,
     // Did we not insert things into changes
     changes_missed: bool,
 }
@@ -28,7 +27,7 @@ impl FileWatcherStats {
             ..Default::default()
         };
 
-        let changes = OrderedSet::with_capacity(std::cmp::min(MAX_FILE_CHANGE_RECORDS, min_count));
+        let changes = Vec::with_capacity(std::cmp::min(MAX_FILE_CHANGE_RECORDS, min_count));
 
         Self {
             stats,
@@ -53,7 +52,7 @@ impl FileWatcherStats {
         self.stats.events_processed += 1;
 
         if self.changes.len() < MAX_FILE_CHANGE_RECORDS {
-            self.changes.insert(buck2_data::FileWatcherEvent {
+            self.changes.push(buck2_data::FileWatcherEvent {
                 event: event as i32,
                 kind: kind as i32,
                 path,
@@ -70,7 +69,7 @@ impl FileWatcherStats {
             changes_missed,
         } = self;
 
-        stats.events = changes.into_iter().collect();
+        stats.events = changes;
         if changes_missed {
             let reason = format!(
                 "Too many files changed ({}, max {})",
