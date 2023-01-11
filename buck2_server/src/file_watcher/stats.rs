@@ -11,7 +11,7 @@ use allocative::Allocative;
 use buck2_core::collections::ordered_set::OrderedSet;
 
 const MAX_PRINT_MESSAGES: usize = 3;
-const MAX_FILE_CHANGE_RECORDS: usize = 850;
+const MAX_FILE_CHANGE_RECORDS: usize = 100;
 
 #[derive(Allocative)]
 pub(crate) struct FileWatcherStats {
