@@ -88,19 +88,30 @@ impl FileWatcherStats {
             eprintln!("{} additional file changes", unprinted_paths);
         }
 
-        stats.file_changes_since_last_build = Some(buck2_data::FileChanges {
-            data: Some(match changes {
-                None => buck2_data::file_changes::Data::NoRecordReason(format!(
+        match changes {
+            None => {
+                let reason = format!(
                     "Too many files changed ({}, max {})",
                     stats.events_processed, MAX_FILE_CHANGE_RECORDS
-                )),
-                Some(records) => {
-                    buck2_data::file_changes::Data::Records(buck2_data::FileWatcherEvents {
-                        events: records.into_iter().collect(),
-                    })
-                }
-            }),
-        });
+                );
+                stats.incomplete_events_reason = Some(reason.clone());
+                stats.file_changes_since_last_build = Some(buck2_data::FileChanges {
+                    data: Some(buck2_data::file_changes::Data::NoRecordReason(reason)),
+                });
+            }
+            Some(records) => {
+                let records: Vec<_> = records.into_iter().collect();
+                stats.events = records.clone();
+                stats.file_changes_since_last_build = Some(buck2_data::FileChanges {
+                    data: Some({
+                        buck2_data::file_changes::Data::Records(buck2_data::FileWatcherEvents {
+                            events: records,
+                        })
+                    }),
+                })
+            }
+        }
+
         stats
     }
 }

@@ -240,6 +240,7 @@ impl SyncableQueryProcessor for WatchmanQueryProcessor {
                         "Fresh instance".to_owned(),
                     )),
                 }),
+                incomplete_events_reason: Some("Fresh instance".to_owned()),
                 ..Default::default()
             },
             ctx,
