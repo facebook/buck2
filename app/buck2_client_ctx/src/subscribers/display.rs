@@ -288,17 +288,27 @@ pub(crate) fn display_file_watcher_end(
     let mut res = Vec::new();
 
     if let Some(stats) = &file_watcher_end.stats {
+        // The `FileWatcherEvent` contain no duplicates. However, there can be two distinct events
+        // for the same file, e.g. `foo` was deleted as a file and then created as a directory.
+        //
+        // It looks really odd to print "File changed: foo" twice, so we dedupe user messages.
+        //
+        // If there are more file change records than we passed over, and some of the omitted ones are
+        // duplicates on the same file, then our "additional file change events" count is slightly high.
+        // Shouldn't be a big deal in practice, since it is rare, and fairly big numbers already.
+
         let mut to_print = OrderedSet::new();
         for x in &stats.events {
             to_print.insert(&x.path);
-            if to_print.len() >= MAX_PRINT_MESSAGES {
-                break;
-            }
         }
-        for path in &to_print {
+        for path in to_print.iter().take(MAX_PRINT_MESSAGES) {
             res.push(format!("File changed: {}", path));
         }
-        let unprinted_paths = stats.events_processed as usize - to_print.len();
+        let unprinted_paths =
+            // those we have the names of but didn't print
+            to_print.len().saturating_sub(MAX_PRINT_MESSAGES) +
+            // plus those we didn't get the names for
+            (stats.events_processed as usize).saturating_sub(stats.events.len());
         if unprinted_paths > 0 {
             res.push(format!("{} additional file change events", unprinted_paths));
         }
