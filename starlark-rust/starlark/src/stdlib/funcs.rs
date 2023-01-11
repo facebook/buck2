@@ -211,10 +211,10 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     #[starlark(speculative_exec_safe)]
     fn chr(
         #[starlark(require = pos, type = "[int.type, bool.type]")] i: Value,
-    ) -> anyhow::Result<String> {
+    ) -> anyhow::Result<char> {
         let cp = i.to_int()? as u32;
         match std::char::from_u32(cp) {
-            Some(x) => Ok(x.to_string()),
+            Some(x) => Ok(x),
             None => Err(anyhow::anyhow!(
                 "chr() parameter value is 0x{:x} which is not a valid UTF-8 codepoint",
                 cp
