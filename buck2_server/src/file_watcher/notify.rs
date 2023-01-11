@@ -78,7 +78,6 @@ impl ChangeType {
 struct NotifyFileData {
     changed: FileChangeTracker,
     stats: FileWatcherStats,
-    error: Option<anyhow::Error>,
 }
 
 impl NotifyFileData {
@@ -86,29 +85,10 @@ impl NotifyFileData {
         Self {
             changed: FileChangeTracker::new(),
             stats: FileWatcherStats::new(0, None),
-            error: None,
         }
     }
 
     fn process(
-        &mut self,
-        event: notify::Result<notify::Event>,
-        root: &ProjectRoot,
-        cells: &CellResolver,
-        ignore_specs: &HashMap<CellName, IgnoreSet>,
-    ) {
-        if self.error.is_some() {
-            return;
-        }
-        if let Err(e) = self.process_err(event, root, cells, ignore_specs) {
-            self.error = Some(e);
-            // Might as well clear out the memory we aren't going to use
-            self.changed = FileChangeTracker::new();
-            self.stats = FileWatcherStats::new(0, None);
-        }
-    }
-
-    fn process_err(
         &mut self,
         event: notify::Result<notify::Event>,
         root: &ProjectRoot,
@@ -170,14 +150,8 @@ impl NotifyFileData {
         Ok(())
     }
 
-    fn sync(&mut self) -> anyhow::Result<(buck2_data::FileWatcherStats, FileChangeTracker)> {
-        let changed = mem::replace(&mut self.changed, FileChangeTracker::new());
-        let stats = mem::replace(&mut self.stats, FileWatcherStats::new(0, None));
-
-        match self.error.take() {
-            Some(err) => Err(err),
-            None => Ok((stats.finish(), changed)),
-        }
+    fn sync(self) -> (buck2_data::FileWatcherStats, FileChangeTracker) {
+        (self.stats.finish(), self.changed)
     }
 }
 
@@ -185,7 +159,7 @@ impl NotifyFileData {
 pub struct NotifyFileWatcher {
     #[allocative(skip)]
     watcher: RecommendedWatcher,
-    data: Arc<Mutex<NotifyFileData>>,
+    data: Arc<Mutex<anyhow::Result<NotifyFileData>>>,
 }
 
 impl NotifyFileWatcher {
@@ -194,14 +168,16 @@ impl NotifyFileWatcher {
         cells: CellResolver,
         ignore_specs: HashMap<CellName, IgnoreSet>,
     ) -> anyhow::Result<Self> {
-        let data = Arc::new(Mutex::new(NotifyFileData::new()));
+        let data = Arc::new(Mutex::new(Ok(NotifyFileData::new())));
         let data2 = data.dupe();
         let root2 = root.dupe();
         let mut watcher = notify::recommended_watcher(move |event| {
-            data2
-                .lock()
-                .unwrap()
-                .process(event, &root2, &cells, &ignore_specs)
+            let mut guard = data2.lock().unwrap();
+            if let Ok(state) = &mut *guard {
+                if let Err(e) = state.process(event, &root2, &cells, &ignore_specs) {
+                    *guard = Err(e);
+                }
+            }
         })?;
         watcher.watch(root.root().as_path(), notify::RecursiveMode::Recursive)?;
         Ok(Self { watcher, data })
@@ -211,7 +187,9 @@ impl NotifyFileWatcher {
         &self,
         dice: DiceTransaction,
     ) -> anyhow::Result<(buck2_data::FileWatcherStats, DiceTransaction)> {
-        let (stats, changes) = self.data.lock().unwrap().sync()?;
+        let mut guard = self.data.lock().unwrap();
+        let old = mem::replace(&mut *guard, Ok(NotifyFileData::new()));
+        let (stats, changes) = old?.sync();
         changes.write_to_dice(&dice)?;
         Ok((stats, dice))
     }
