@@ -323,13 +323,20 @@ impl<'v> StarlarkValue<'v> for PointerI32 {
         Ok(Value::new_int(!self.get()))
     }
 
-    fn left_shift(&self, other: Value, _heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    fn left_shift(&self, other: Value, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         match other.unpack_num() {
             None | Some(Num::Float(_)) => ValueError::unsupported_with(self, "<<", other),
             Some(Num::Int(other)) => {
                 if let Ok(other) = other.try_into() {
                     if let Some(r) = self.get().checked_shl(other) {
                         Ok(Value::new_int(r))
+                    } else if other < 100_000 {
+                        // Limit the size of the BigInt to avoid accidentally consuming
+                        // too much memory. 100_000 is practically enough for most use cases.
+                        Ok(StarlarkBigInt::alloc_bigint(
+                            BigInt::from(self.get()) << other,
+                            heap,
+                        ))
                     } else {
                         Err(ValueError::IntegerOverflow.into())
                     }
