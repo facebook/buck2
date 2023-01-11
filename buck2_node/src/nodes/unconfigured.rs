@@ -28,7 +28,6 @@ use crate::attrs::coerced_deps_collector::CoercedDeps;
 use crate::attrs::inspect_options::AttrInspectOptions;
 use crate::attrs::internal::DEFAULT_TARGET_PLATFORM_ATTRIBUTE_FIELD;
 use crate::attrs::internal::TESTS_ATTRIBUTE_FIELD;
-use crate::attrs::spec::AttributeSpec;
 use crate::attrs::traversal::CoercedAttrTraversal;
 use crate::attrs::values::AttrValues;
 use crate::call_stack::StarlarkCallStack;
@@ -37,6 +36,7 @@ use crate::nodes::attributes::DEPS;
 use crate::nodes::attributes::ONCALL;
 use crate::nodes::attributes::PACKAGE;
 use crate::nodes::attributes::TYPE;
+use crate::rule::Rule;
 use crate::rule_type::RuleType;
 use crate::visibility::VisibilitySpecification;
 
@@ -67,23 +67,13 @@ pub enum RuleKind {
 
 #[derive(Debug, Eq, PartialEq, Hash, Allocative)]
 pub struct TargetNodeData {
-    label: TargetLabel,
+    /// Rule type for this target.
+    pub rule: Arc<Rule>,
 
-    /// The 'type', used to find the implementation function from the graph
-    rule_type: RuleType,
+    label: TargetLabel,
 
     /// The build file which defined this target, e.g. `fbcode//foo/bar/TARGETS`
     buildfile_path: Arc<BuildFilePath>,
-
-    /// The kind of rule, e.g. configuration or otherwise.
-    rule_kind: RuleKind,
-
-    /// Transition to apply to the target.
-    pub cfg: Option<Arc<TransitionId>>,
-
-    /// The attribute spec. This holds the attribute name -> index mapping and the default values
-    /// (for those attributes without explicit values).
-    attr_spec: Arc<AttributeSpec>,
 
     /// The attribute->value mapping for this rule. It's guaranteed that if an attribute does not
     /// have a value here, it does have a default value in the AttributeSpec.
@@ -105,12 +95,9 @@ pub struct TargetNodeData {
 
 impl TargetNode {
     pub fn new(
+        rule: Arc<Rule>,
         label: TargetLabel,
-        rule_type: RuleType,
         buildfile_path: Arc<BuildFilePath>,
-        rule_kind: RuleKind,
-        cfg: Option<Arc<TransitionId>>,
-        attr_spec: Arc<AttributeSpec>,
         attributes: AttrValues,
         deps_cache: CoercedDeps,
         visibility: VisibilitySpecification,
@@ -118,12 +105,9 @@ impl TargetNode {
         oncall: Option<Arc<String>>,
     ) -> TargetNode {
         TargetNode(Arc::new(TargetNodeData {
+            rule,
             label,
-            rule_type,
             buildfile_path,
-            rule_kind,
-            cfg,
-            attr_spec,
             attributes,
             deps_cache,
             visibility,
@@ -133,15 +117,15 @@ impl TargetNode {
     }
 
     pub fn rule_kind(&self) -> RuleKind {
-        self.0.rule_kind
+        self.0.rule.rule_kind
     }
 
     pub fn is_configuration_rule(&self) -> bool {
-        self.0.rule_kind == RuleKind::Configuration
+        self.0.rule.rule_kind == RuleKind::Configuration
     }
 
     pub fn is_toolchain_rule(&self) -> bool {
-        self.0.rule_kind == RuleKind::Toolchain
+        self.0.rule.rule_kind == RuleKind::Toolchain
     }
 
     pub fn get_default_target_platform(&self) -> Option<&TargetLabel> {
@@ -164,7 +148,7 @@ impl TargetNode {
     }
 
     pub fn rule_type(&self) -> &RuleType {
-        &self.0.rule_type
+        &self.0.rule.rule_type
     }
 
     pub fn buildfile_path(&self) -> &BuildFilePath {
@@ -249,7 +233,7 @@ impl TargetNode {
     }
 
     pub fn attrs(&self, opts: AttrInspectOptions) -> impl Iterator<Item = (&str, &CoercedAttr)> {
-        self.0.attr_spec.attrs(&self.0.attributes, opts)
+        self.0.rule.attributes.attrs(&self.0.attributes, opts)
     }
 
     pub fn platform_deps(&self) -> impl Iterator<Item = &TargetLabel> {
@@ -258,7 +242,10 @@ impl TargetNode {
 
     /// Return `None` if attribute is not present or unknown.
     pub fn attr_or_none(&self, key: &str, opts: AttrInspectOptions) -> Option<&CoercedAttr> {
-        self.0.attr_spec.attr_or_none(&self.0.attributes, key, opts)
+        self.0
+            .rule
+            .attributes
+            .attr_or_none(&self.0.attributes, key, opts)
     }
 
     /// Get attribute.
@@ -271,7 +258,8 @@ impl TargetNode {
         opts: AttrInspectOptions,
     ) -> anyhow::Result<Option<&CoercedAttr>> {
         self.0
-            .attr_spec
+            .rule
+            .attributes
             .attr(&self.0.attributes, key, opts)
             .with_context(|| format!("attribute `{}` not found", key))
     }
@@ -469,12 +457,14 @@ pub mod testing {
                 FileNameBuf::unchecked_new("BUCK"),
             ));
             TargetNode::new(
+                Arc::new(Rule {
+                    attributes: Arc::new(AttributeSpec::testing_new(indices, instances)),
+                    rule_type,
+                    rule_kind: RuleKind::Normal,
+                    cfg: None,
+                }),
                 label,
-                rule_type,
                 buildfile_path,
-                RuleKind::Normal,
-                None,
-                Arc::new(AttributeSpec::testing_new(indices, instances)),
                 attributes,
                 CoercedDeps::from(deps_cache),
                 VisibilitySpecification::Public,

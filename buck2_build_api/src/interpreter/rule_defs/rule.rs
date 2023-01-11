@@ -26,6 +26,8 @@ use buck2_node::attrs::attr::Attribute;
 use buck2_node::attrs::spec::AttributeSpec;
 use buck2_node::nodes::unconfigured::RuleKind;
 use buck2_node::nodes::unconfigured::TargetNode;
+use buck2_node::rule::Rule;
+use buck2_node::rule_type::RuleType;
 use buck2_node::rule_type::StarlarkRuleType;
 use derive_more::Display;
 use gazebo::any::ProvidesStaticType;
@@ -172,12 +174,15 @@ impl<'v> Freeze for RuleCallable<'v> {
         let signature = self.attributes.signature(rule_name).freeze(freezer)?;
 
         Ok(FrozenRuleCallable {
+            rule: Arc::new(Rule {
+                attributes: self.attributes,
+                rule_type: RuleType::Starlark(rule_type.dupe()),
+                cfg: self.cfg,
+                rule_kind: self.rule_kind,
+            }),
+            rule_type,
             implementation: frozen_impl,
             signature,
-            rule_type,
-            attributes: self.attributes,
-            cfg: self.cfg,
-            rule_kind: self.rule_kind,
             rule_docs,
             ignore_attrs_for_profiling: self.ignore_attrs_for_profiling,
         })
@@ -185,14 +190,13 @@ impl<'v> Freeze for RuleCallable<'v> {
 }
 
 #[derive(Debug, Display, ProvidesStaticType, NoSerialize, Allocative)]
-#[display(fmt = "{}()", "rule_type.name")]
+#[display(fmt = "{}()", "rule.rule_type.name()")]
 pub struct FrozenRuleCallable {
+    rule: Arc<Rule>,
+    /// Identical to `rule.rule_type` but more specific type.
+    rule_type: Arc<StarlarkRuleType>,
     implementation: FrozenValue,
     signature: ParametersSpec<FrozenValue>,
-    rule_type: Arc<StarlarkRuleType>,
-    attributes: Arc<AttributeSpec>,
-    cfg: Option<Arc<TransitionId>>,
-    rule_kind: RuleKind,
     rule_docs: Option<DocItem>,
     ignore_attrs_for_profiling: bool,
 }
@@ -208,7 +212,7 @@ impl FrozenRuleCallable {
     }
 
     pub fn attributes(&self) -> &Arc<AttributeSpec> {
-        &self.attributes
+        &self.rule.attributes
     }
 }
 
@@ -235,15 +239,12 @@ impl<'v> StarlarkValue<'v> for FrozenRuleCallable {
             let internals = ModuleInternals::from_context(eval)?;
             let buildfile_path = internals.buildfile_path().dupe();
             let target_node = TargetNode::from_params(
+                self.rule.dupe(),
                 internals,
-                self.cfg.dupe(),
                 param_parser,
                 arg_count,
                 self.ignore_attrs_for_profiling,
-                self.rule_type.dupe(),
                 buildfile_path,
-                self.rule_kind,
-                self.attributes.dupe(),
                 call_stack,
                 internals.get_oncall(),
             )?;

@@ -20,5 +20,6 @@ pub mod compatibility;
 pub mod configuration;
 pub mod nodes;
 pub mod query;
+pub mod rule;
 pub mod rule_type;
 pub mod visibility;

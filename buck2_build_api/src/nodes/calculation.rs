@@ -726,7 +726,7 @@ async fn compute_configured_target_node(
         _ => {}
     }
 
-    if let Some(transition_id) = &target_node.0.cfg {
+    if let Some(transition_id) = &target_node.0.rule.cfg {
         #[async_trait]
         impl Key for ConfiguredTransitionedNodeKey {
             type Value = SharedResult<MaybeCompatible<ConfiguredTargetNode>>;
