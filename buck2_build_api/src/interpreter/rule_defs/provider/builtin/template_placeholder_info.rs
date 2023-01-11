@@ -16,8 +16,8 @@ use gazebo::any::ProvidesStaticType;
 use gazebo::coerce::Coerce;
 use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
+use starlark::values::dict::AllocDict;
 use starlark::values::dict::DictRef;
-use starlark::values::dict::FrozenDict;
 use starlark::values::dict::FrozenDictRef;
 use starlark::values::Freeze;
 use starlark::values::FrozenRef;
@@ -204,8 +204,8 @@ impl<'v> TemplatePlaceholderInfo<'v> {
 fn template_placeholder_info_creator(builder: &mut GlobalsBuilder) {
     #[starlark(type = "TemplatePlaceholderInfo")]
     fn TemplatePlaceholderInfo<'v>(
-        #[starlark(default = FrozenDict::default())] unkeyed_variables: Value<'v>,
-        #[starlark(default = FrozenDict::default())] keyed_variables: Value<'v>,
+        #[starlark(default = AllocDict::EMPTY)] unkeyed_variables: Value<'v>,
+        #[starlark(default = AllocDict::EMPTY)] keyed_variables: Value<'v>,
     ) -> anyhow::Result<TemplatePlaceholderInfo<'v>> {
         TemplatePlaceholderInfo::new(unkeyed_variables, keyed_variables)
     }
