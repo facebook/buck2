@@ -75,18 +75,7 @@ impl FileWatcherStats {
                 "Too many files changed ({}, max {})",
                 stats.events_processed, MAX_FILE_CHANGE_RECORDS
             );
-            stats.incomplete_events_reason = Some(reason.clone());
-            stats.file_changes_since_last_build = Some(buck2_data::FileChanges {
-                data: Some(buck2_data::file_changes::Data::NoRecordReason(reason)),
-            });
-        } else {
-            stats.file_changes_since_last_build = Some(buck2_data::FileChanges {
-                data: Some({
-                    buck2_data::file_changes::Data::Records(buck2_data::FileWatcherEvents {
-                        events: stats.events.clone(),
-                    })
-                }),
-            })
+            stats.incomplete_events_reason = Some(reason);
         }
 
         stats

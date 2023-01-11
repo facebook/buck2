@@ -235,11 +235,6 @@ impl SyncableQueryProcessor for WatchmanQueryProcessor {
             buck2_data::FileWatcherStats {
                 fresh_instance: true,
                 branched_from_revision: mergebase.clone(),
-                file_changes_since_last_build: Some(buck2_data::FileChanges {
-                    data: Some(buck2_data::file_changes::Data::NoRecordReason(
-                        "Fresh instance".to_owned(),
-                    )),
-                }),
                 incomplete_events_reason: Some("Fresh instance".to_owned()),
                 ..Default::default()
             },
