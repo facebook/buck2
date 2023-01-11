@@ -47,7 +47,7 @@ impl UploadReLogsCommand {
     where
         R: AsyncRead + Unpin + ?Sized,
     {
-        let bucket_path = &format!("flat/{}.log.zst", self.session_id);
+        let bucket_path = &format!("{}.log.zst", self.session_id);
 
         let upload = manifold::upload_command("buck2_re_logs", bucket_path, "buck2_re_logs-key")?;
 

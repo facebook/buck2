@@ -15,17 +15,18 @@ use crate::find_certs::find_tls_cert;
 
 pub fn upload_command(
     manifold_bucket_name: &str,
-    manifold_bucket_path: &str,
+    manifold_filename: &str,
     bucket_key: &str,
 ) -> anyhow::Result<Option<Command>> {
     // we use manifold CLI as it works cross-platform
     let manifold_cli_path = get_cli_path();
+    let bucket_path = &format!("flat/{}", manifold_filename);
 
     match manifold_cli_path {
-        None => curl_upload_command(manifold_bucket_name, manifold_bucket_path, bucket_key),
+        None => curl_upload_command(manifold_bucket_name, bucket_path, bucket_key),
         Some(cli_path) => Ok(Some(cli_upload_command(
             cli_path,
-            &format!("{}/{}", manifold_bucket_name, manifold_bucket_path),
+            &format!("{}/{}", manifold_bucket_name, bucket_path),
             bucket_key,
         ))),
     }

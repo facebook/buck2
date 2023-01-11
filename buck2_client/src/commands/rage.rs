@@ -384,12 +384,12 @@ async fn upload_dice_dump(
         })?;
 
     // create dice dump name using the old command being rage on and the trace id of this rage command.
-    let bucket_path = format!("flat/{}_{}_dice-dump.gz", old_trace_id, new_trace_id);
+    let manifold_filename = format!("{}_{}_dice-dump.gz", old_trace_id, new_trace_id);
     buck2_client_ctx::eprintln!(
         "Compressed internal state file being uploaded to manifold as {}...",
-        &bucket_path
+        &manifold_filename
     )?;
-    upload_to_manifold(&this_dice_dump_folder, &bucket_path)
+    upload_to_manifold(&this_dice_dump_folder, &manifold_filename)
         .await
         .with_context(|| "Failed during manifold upload!")?;
 
@@ -399,7 +399,7 @@ async fn upload_dice_dump(
             this_dice_dump_folder
         )
     })?;
-    Ok(format!("buck2_dice_dump/{}", bucket_path))
+    Ok(format!("buck2_dice_dump/flat/{}", manifold_filename))
 }
 
 #[allow(unused_variables)] // Conditional compilation

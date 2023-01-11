@@ -55,7 +55,7 @@ pub(crate) async fn log_upload(
         }
     };
 
-    let manifold_path = &format!("flat/{}{}", trace_id, path.encoding.extensions[0]);
+    let manifold_path = &format!("{}{}", trace_id, path.encoding.extensions[0]);
     let upload = manifold::upload_command("buck2_logs", manifold_path, "buck2_logs-key")?;
     match upload {
         None => Ok(()),
