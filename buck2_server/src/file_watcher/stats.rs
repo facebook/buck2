@@ -10,7 +10,6 @@
 use allocative::Allocative;
 use buck2_core::collections::ordered_set::OrderedSet;
 
-const MAX_PRINT_MESSAGES: usize = 3;
 const MAX_FILE_CHANGE_RECORDS: usize = 100;
 
 #[derive(Allocative)]
@@ -20,8 +19,6 @@ pub(crate) struct FileWatcherStats {
     changes: OrderedSet<buck2_data::FileWatcherEvent>,
     // Did we not insert things into changes
     changes_missed: bool,
-    // The first few paths that change (to print out), bounded by MAX_PRINT_MESSAGES
-    to_print: OrderedSet<String>,
 }
 
 impl FileWatcherStats {
@@ -37,7 +34,6 @@ impl FileWatcherStats {
             stats,
             changes,
             changes_missed: false,
-            to_print: OrderedSet::new(),
         }
     }
 
@@ -56,10 +52,6 @@ impl FileWatcherStats {
         self.stats.events_total += 1;
         self.stats.events_processed += 1;
 
-        if self.to_print.len() < MAX_PRINT_MESSAGES {
-            self.to_print.insert(path.clone());
-        }
-
         if self.changes.len() < MAX_FILE_CHANGE_RECORDS {
             self.changes.insert(buck2_data::FileWatcherEvent {
                 event: event as i32,
@@ -76,16 +68,7 @@ impl FileWatcherStats {
             mut stats,
             changes,
             changes_missed,
-            to_print,
         } = self;
-
-        for path in &to_print {
-            eprintln!("File changed: {}", path);
-        }
-        let unprinted_paths = stats.events_total as usize - to_print.len();
-        if unprinted_paths > 0 {
-            eprintln!("{} additional file changes", unprinted_paths);
-        }
 
         stats.events = changes.into_iter().collect();
         if changes_missed {

@@ -41,6 +41,7 @@ use superconsole::State;
 pub(crate) use superconsole::SuperConsole;
 
 use crate::subscribers::display;
+use crate::subscribers::display::display_file_watcher_end;
 use crate::subscribers::display::TargetDisplayOptions;
 use crate::subscribers::io::IoHeader;
 use crate::subscribers::simpleconsole::SimpleConsole;
@@ -338,6 +339,26 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
                 Ok(())
             }
             None => self.state.simple_console.handle_stderr(msg).await,
+        }
+    }
+
+    async fn handle_file_watcher_end(
+        &mut self,
+        file_watcher: &buck2_data::FileWatcherEnd,
+        event: &BuckEvent,
+    ) -> anyhow::Result<()> {
+        match &mut self.super_console {
+            Some(super_console) => {
+                super_console
+                    .emit(display_file_watcher_end(file_watcher).into_map(|x| Line::sanitized(&x)));
+                Ok(())
+            }
+            None => {
+                self.state
+                    .simple_console
+                    .handle_file_watcher_end(file_watcher, event)
+                    .await
+            }
         }
     }
 

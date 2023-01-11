@@ -27,6 +27,7 @@ use termwiz::escape::Action;
 use termwiz::escape::ControlCode;
 
 use crate::subscribers::display;
+use crate::subscribers::display::display_file_watcher_end;
 use crate::subscribers::display::TargetDisplayOptions;
 use crate::subscribers::humanized_bytes::HumanizedBytes;
 use crate::subscribers::io::io_in_flight_non_zero_counters;
@@ -368,6 +369,18 @@ impl UnpackingEventSubscriber for SimpleConsole {
 
     async fn handle_stderr(&mut self, stderr: &str) -> anyhow::Result<()> {
         echo!("{}", stderr)?;
+        self.notify_printed();
+        Ok(())
+    }
+
+    async fn handle_file_watcher_end(
+        &mut self,
+        file_watcher: &buck2_data::FileWatcherEnd,
+        _event: &BuckEvent,
+    ) -> anyhow::Result<()> {
+        for x in display_file_watcher_end(file_watcher) {
+            echo!("{}", x)?;
+        }
         self.notify_printed();
         Ok(())
     }

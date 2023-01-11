@@ -16,6 +16,7 @@ use std::time::Duration;
 
 use anyhow::Context as _;
 use buck2_common::convert::ProstDurationExt;
+use buck2_core::collections::ordered_set::OrderedSet;
 use buck2_data::action_key;
 use buck2_data::span_start_event::Data;
 use buck2_data::ActionKey;
@@ -278,6 +279,32 @@ pub(crate) fn display_analysis_stage(
         Stage::ResolveQueries(()) => "resolve_queries",
         Stage::EvaluateRule(()) => "evaluate_rule",
     }
+}
+
+pub(crate) fn display_file_watcher_end(
+    file_watcher_end: &buck2_data::FileWatcherEnd,
+) -> Vec<String> {
+    const MAX_PRINT_MESSAGES: usize = 3;
+    let mut res = Vec::new();
+
+    if let Some(stats) = &file_watcher_end.stats {
+        let mut to_print = OrderedSet::new();
+        for x in &stats.events {
+            to_print.insert(&x.path);
+            if to_print.len() >= MAX_PRINT_MESSAGES {
+                break;
+            }
+        }
+        for path in &to_print {
+            res.push(format!("File changed: {}", path));
+        }
+        let unprinted_paths = stats.events_processed as usize - to_print.len();
+        if unprinted_paths > 0 {
+            res.push(format!("{} additional file change events", unprinted_paths));
+        }
+    }
+
+    res
 }
 
 pub fn display_executor_stage(
