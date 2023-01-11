@@ -7,25 +7,21 @@
  * of this source tree.
  */
 
+mod rage_dumps;
+
 use std::fmt;
 use std::future::Future;
-use std::path::Path;
 use std::process::Stdio;
 use std::time::Duration;
 use std::time::SystemTime;
 
 use anyhow::Context;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
-use buck2_client_ctx::daemon::client::connect::BuckdConnectOptions;
 use buck2_client_ctx::exit_result::ExitResult;
-use buck2_client_ctx::manifold;
 use buck2_client_ctx::stream_value::StreamValue;
 use buck2_client_ctx::subscribers::event_log::file_names::get_local_logs;
 use buck2_client_ctx::subscribers::event_log::EventLogPathBuf;
 use buck2_client_ctx::subscribers::event_log::EventLogSummary;
-use buck2_core::fs::fs_util::create_dir_all;
-use buck2_core::fs::fs_util::remove_dir_all;
-use buck2_core::process::background_command;
 use buck2_data::RageInvoked;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::metadata;
@@ -34,8 +30,6 @@ use buck2_events::trace::TraceId;
 use buck2_events::BuckEvent;
 use chrono::offset::Local;
 use chrono::DateTime;
-use cli_proto::unstable_dice_dump_request::DiceDumpFormat;
-use cli_proto::UnstableDiceDumpRequest;
 use futures::future::FutureExt;
 use futures::future::LocalBoxFuture;
 use futures::TryStreamExt;
@@ -50,10 +44,6 @@ use tokio::process::Command;
 
 #[derive(Debug, Error)]
 enum RageError {
-    #[error("Failed to upload dice dump folder `{0}` to manifold with exit code {1}")]
-    ManifoldUploadWithExitCodeError(String, i32),
-    #[error("Failed to upload dice dump folder `{0}` to manifold due to signal interrupt")]
-    ManifoldUploadSignalInterruptError(String),
     #[error("Failed to get a valid user selection")]
     InvalidSelectionError,
     #[error("Pastry command timeout, make sure you are on Lighthouse/VPN")]
@@ -70,8 +60,6 @@ enum RageError {
     SnapshotCommandError(i32, String),
     #[error("Failed to read event log")]
     EventLogReadError,
-    #[error("Failed to find suitable Manifold upload command")]
-    ManifoldUploadCommandNotFound,
 }
 
 #[derive(Debug, PartialEq, Serialize)]
@@ -193,7 +181,7 @@ impl RageCommand {
 
             if self.dice_dump {
                 sections.push(RageSection::get("Dice Dump".to_owned(), timeout, || {
-                    upload_dice_dump(&ctx, &new_trace_id, &old_trace_id)
+                    rage_dumps::upload_dice_dump(&ctx, &new_trace_id, &old_trace_id)
                 }));
             }
 
@@ -345,63 +333,6 @@ fn dispatch_event_to_scribe(
     Ok(())
 }
 
-async fn upload_dice_dump(
-    ctx: &ClientCommandContext,
-    new_trace_id: &TraceId,
-    old_trace_id: &TraceId,
-) -> anyhow::Result<String> {
-    let mut buckd = ctx
-        .connect_buckd(BuckdConnectOptions::existing_only_no_console())
-        .await?;
-    let dice_dump_folder_name = chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string();
-    let dice_dump_folder = ctx.paths.dice_dump_dir();
-
-    create_dir_all(&dice_dump_folder).with_context(|| {
-        format!(
-            "Failed to create directory {:?}, no dice dump will be created",
-            &dice_dump_folder
-        )
-    })?;
-
-    let this_dice_dump_folder = dice_dump_folder
-        .as_path()
-        .join(Path::new(&dice_dump_folder_name));
-
-    buck2_client_ctx::eprintln!("Dumping Buck2 internal state...")?;
-
-    buckd
-        .with_flushing()
-        .unstable_dice_dump(UnstableDiceDumpRequest {
-            destination_path: this_dice_dump_folder.to_str().unwrap().to_owned(),
-            format: DiceDumpFormat::Tsv.into(),
-        })
-        .await
-        .with_context(|| {
-            format!(
-                "Dice Dump at {:?} failed to complete",
-                this_dice_dump_folder,
-            )
-        })?;
-
-    // create dice dump name using the old command being rage on and the trace id of this rage command.
-    let manifold_filename = format!("{}_{}_dice-dump.gz", old_trace_id, new_trace_id);
-    buck2_client_ctx::eprintln!(
-        "Compressed internal state file being uploaded to manifold as {}...",
-        &manifold_filename
-    )?;
-    upload_to_manifold(&this_dice_dump_folder, &manifold_filename)
-        .await
-        .with_context(|| "Failed during manifold upload!")?;
-
-    remove_dir_all(&this_dice_dump_folder).with_context(|| {
-        format!(
-            "Failed to remove Buck2 internal state folder at {:?}. Please remove this manually as it could be quite large.",
-            this_dice_dump_folder
-        )
-    })?;
-    Ok(format!("buck2_dice_dump/flat/{}", manifold_filename))
-}
-
 #[allow(unused_variables)] // Conditional compilation
 fn create_scribe_event_dispatcher(
     ctx: &ClientCommandContext,
@@ -411,49 +342,6 @@ fn create_scribe_event_dispatcher(
     // without using configurations at the call site
     let sink = new_thrift_scribe_sink_if_enabled(ctx.fbinit(), /* buffer size */ 100)?;
     Ok(sink.map(|sink| EventDispatcher::new(trace_id, sink)))
-}
-
-async fn upload_to_manifold(
-    dice_dump_folder_to_upload: &Path,
-    bucket_path: &str,
-) -> anyhow::Result<()> {
-    if !cfg!(target_os = "windows") {
-        buck2_core::facebook_only();
-
-        let tar_gzip = background_command("tar")
-            .arg("-c")
-            .arg(dice_dump_folder_to_upload)
-            .stdin(std::process::Stdio::null())
-            .stdout(std::process::Stdio::piped())
-            .stderr(std::process::Stdio::null())
-            .spawn()?;
-
-        let mut upload =
-            manifold::upload_command("buck2_dice_dump", bucket_path, "buck2_dice_dump-key")?
-                .context(RageError::ManifoldUploadCommandNotFound)?;
-        upload.stdin(tar_gzip.stdout.unwrap());
-        let exit_code_result = upload.spawn()?.wait().await?.code();
-
-        match exit_code_result {
-            Some(code) => match code {
-                0 => {}
-                e => {
-                    return Err(RageError::ManifoldUploadWithExitCodeError(
-                        dice_dump_folder_to_upload.display().to_string(),
-                        e,
-                    )
-                    .into());
-                }
-            },
-            None => {
-                return Err(RageError::ManifoldUploadSignalInterruptError(
-                    dice_dump_folder_to_upload.display().to_string(),
-                )
-                .into());
-            }
-        }
-    }
-    Ok(())
 }
 
 async fn user_prompt_select_log<'a>(
