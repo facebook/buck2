@@ -144,18 +144,18 @@ extra_attributes = {
         "lipo": attrs.dep(providers = [RunInfo]),
         "min_version": attrs.option(attrs.string(), default = None),
         "momc": attrs.dep(providers = [RunInfo]),
-        "platform_path": attrs.option(attrs.source()),  # Mark as optional until we remove `_internal_platform_path`
-        "sdk_path": attrs.option(attrs.source()),  # Mark as optional until we remove `_internal_sdk_path`
+        "platform_path": attrs.option(attrs.source(), default = None),  # Mark as optional until we remove `_internal_platform_path`
+        "sdk_path": attrs.option(attrs.source(), default = None),  # Mark as optional until we remove `_internal_sdk_path`
         "version": attrs.option(attrs.string(), default = None),
         "xcode_build_version": attrs.option(attrs.string(), default = None),
         "xcode_version": attrs.option(attrs.string(), default = None),
         "xctest": attrs.dep(providers = [RunInfo]),
         # TODO(T111858757): Mirror of `platform_path` but treated as a string. It allows us to
         #                   pass abs paths during development and using the currently selected Xcode.
-        "_internal_platform_path": attrs.option(attrs.string()),
+        "_internal_platform_path": attrs.option(attrs.string(), default = None),
         # TODO(T111858757): Mirror of `sdk_path` but treated as a string. It allows us to
         #                   pass abs paths during development and using the currently selected Xcode.
-        "_internal_sdk_path": attrs.option(attrs.string()),
+        "_internal_sdk_path": attrs.option(attrs.string(), default = None),
     },
     "core_data_model": {
         "path": attrs.source(allow_directory = True),
@@ -174,9 +174,9 @@ extra_attributes = {
     },
     "swift_toolchain": {
         "architecture": attrs.option(attrs.string(), default = None),  # TODO(T115173356): Make field non-optional
-        "platform_path": attrs.option(attrs.source()),  # Mark as optional until we remove `_internal_platform_path`
+        "platform_path": attrs.option(attrs.source(), default = None),  # Mark as optional until we remove `_internal_platform_path`
         "sdk_modules": attrs.list(attrs.dep(), default = []),  # A list or a root target that represent a graph of sdk modules (e.g Frameworks)
-        "sdk_path": attrs.option(attrs.source()),  # Mark as optional until we remove `_internal_sdk_path`
+        "sdk_path": attrs.option(attrs.source(), default = None),  # Mark as optional until we remove `_internal_sdk_path`
         "swift_stdlib_tool": attrs.exec_dep(providers = [RunInfo]),
         "swiftc": attrs.exec_dep(providers = [RunInfo]),
         # TODO(T111858757): Mirror of `platform_path` but treated as a string. It allows us to
