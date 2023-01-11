@@ -18,6 +18,50 @@ use gazebo::dupe::Dupe;
 
 use crate::attrs::traversal::CoercedAttrTraversal;
 
+#[derive(Default, Debug, PartialEq, Eq, Hash, Allocative)]
+pub struct CoercedDeps {
+    /// Contains the deps derived from the attributes.
+    /// Does not include the transition, exec or configuration deps.
+    pub deps: Box<[TargetLabel]>,
+
+    /// Contains the deps which are transitioned to other configuration
+    /// (including split transitions).
+    pub transition_deps: Box<[(TargetLabel, Arc<TransitionId>)]>,
+
+    /// Contains the execution deps derived from the attributes.
+    pub exec_deps: Box<[TargetLabel]>,
+
+    /// Contains the toolchain deps derived from the attributes.
+    pub toolchain_deps: Box<[TargetLabel]>,
+
+    /// Contains the configuration deps. These are deps that appear as conditions in selects.
+    pub configuration_deps: Box<[TargetLabel]>,
+
+    /// Contains platform targets of configured_alias()
+    pub platform_deps: Box<[TargetLabel]>,
+}
+
+impl From<CoercedDepsCollector> for CoercedDeps {
+    fn from(collector: CoercedDepsCollector) -> CoercedDeps {
+        let CoercedDepsCollector {
+            deps,
+            transition_deps,
+            exec_deps,
+            toolchain_deps,
+            configuration_deps,
+            platform_deps,
+        } = collector;
+        CoercedDeps {
+            deps: deps.into_iter().collect(),
+            transition_deps: transition_deps.into_iter().collect(),
+            exec_deps: exec_deps.into_iter().collect(),
+            toolchain_deps: toolchain_deps.into_iter().collect(),
+            configuration_deps: configuration_deps.into_iter().collect(),
+            platform_deps: platform_deps.into_iter().collect(),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Eq, Hash, Allocative)]
 pub struct CoercedDepsCollector {
     /// Contains the deps derived from the attributes.

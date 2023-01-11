@@ -24,7 +24,7 @@ use gazebo::dupe::Dupe;
 use crate::attrs::attr_type::attr_literal::AttrLiteral;
 use crate::attrs::attr_type::AttrType;
 use crate::attrs::coerced_attr::CoercedAttr;
-use crate::attrs::coerced_deps_collector::CoercedDepsCollector;
+use crate::attrs::coerced_deps_collector::CoercedDeps;
 use crate::attrs::inspect_options::AttrInspectOptions;
 use crate::attrs::internal::DEFAULT_TARGET_PLATFORM_ATTRIBUTE_FIELD;
 use crate::attrs::internal::TESTS_ATTRIBUTE_FIELD;
@@ -91,7 +91,7 @@ pub struct TargetNodeData {
 
     // TODO(cjhopman): Consider removing these cached derived fields. Query definitely needs deps
     // cached, but for builds it's potentially unimportant.
-    deps_cache: CoercedDepsCollector,
+    deps_cache: CoercedDeps,
 
     /// Visibility specification restricts what targets can depend on this one.
     visibility: VisibilitySpecification,
@@ -112,7 +112,7 @@ impl TargetNode {
         cfg: Option<Arc<TransitionId>>,
         attr_spec: Arc<AttributeSpec>,
         attributes: AttrValues,
-        deps_cache: CoercedDepsCollector,
+        deps_cache: CoercedDeps,
         visibility: VisibilitySpecification,
         call_stack: Option<StarlarkCallStack>,
         oncall: Option<Arc<String>>,
@@ -171,7 +171,7 @@ impl TargetNode {
         &self.0.buildfile_path
     }
 
-    fn deps_cache(&self) -> &CoercedDepsCollector {
+    fn deps_cache(&self) -> &CoercedDeps {
         &self.0.deps_cache
     }
 
@@ -476,7 +476,7 @@ pub mod testing {
                 None,
                 Arc::new(AttributeSpec::testing_new(indices, instances)),
                 attributes,
-                deps_cache,
+                CoercedDeps::from(deps_cache),
                 VisibilitySpecification::Public,
                 None,
                 None,

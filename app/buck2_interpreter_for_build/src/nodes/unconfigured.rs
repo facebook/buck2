@@ -16,6 +16,7 @@ use buck2_core::target::TargetLabel;
 use buck2_core::target::TargetName;
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
+use buck2_node::attrs::coerced_deps_collector::CoercedDeps;
 use buck2_node::attrs::coerced_deps_collector::CoercedDepsCollector;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
@@ -90,7 +91,7 @@ impl TargetNodeExt for TargetNode {
                     cfg,
                     attr_spec.dupe(),
                     AttrValues::with_capacity(0),
-                    CoercedDepsCollector::new(),
+                    CoercedDeps::default(),
                     VisibilitySpecification::Public,
                     None,
                     None,
@@ -162,7 +163,7 @@ impl TargetNodeExt for TargetNode {
             cfg,
             attr_spec,
             attr_values,
-            deps_cache,
+            CoercedDeps::from(deps_cache),
             visibility,
             call_stack.map(StarlarkCallStack::new),
             oncall,
