@@ -29,10 +29,7 @@ pub fn host_sharing_requirements_from_grpc(
     use buck2_test_proto::host_sharing_requirements::*;
 
     let requirements = match input.requirements.context("Missing `requirements`")? {
-        Requirements::Shared(Shared { weight }) => {
-            host_sharing::HostSharingRequirements::Shared(WeightClass::Permits(weight.try_into()?))
-        }
-        Requirements::Shared2(Shared2 { weight_class }) => {
+        Requirements::Shared(Shared { weight_class }) => {
             host_sharing::HostSharingRequirements::Shared(weight_class_from_grpc(
                 weight_class.context("Missing `weight_class`")?,
             )?)
@@ -40,13 +37,7 @@ pub fn host_sharing_requirements_from_grpc(
         Requirements::ExclusiveAccess(ExclusiveAccess {}) => {
             host_sharing::HostSharingRequirements::ExclusiveAccess
         }
-        Requirements::OnePerToken(OnePerToken { identifier, weight }) => {
-            host_sharing::HostSharingRequirements::OnePerToken(
-                identifier,
-                WeightClass::Permits(weight.try_into()?),
-            )
-        }
-        Requirements::OnePerToken2(OnePerToken2 {
+        Requirements::OnePerToken(OnePerToken {
             identifier,
             weight_class,
         }) => host_sharing::HostSharingRequirements::OnePerToken(
@@ -77,30 +68,14 @@ pub fn host_sharing_requirements_to_grpc(
     use buck2_test_proto::host_sharing_requirements::*;
 
     let requirements = match input {
-        host_sharing::HostSharingRequirements::Shared(WeightClass::Permits(weight)) => {
-            // NOTE: Not using Shared2 here yet for compatibility.
-            Requirements::Shared(Shared {
-                weight: weight.try_into()?,
-            })
-        }
-        host_sharing::HostSharingRequirements::Shared(weight) => Requirements::Shared2(Shared2 {
+        host_sharing::HostSharingRequirements::Shared(weight) => Requirements::Shared(Shared {
             weight_class: Some(weight_class_to_grpc(weight)?),
         }),
         host_sharing::HostSharingRequirements::ExclusiveAccess => {
             Requirements::ExclusiveAccess(ExclusiveAccess {})
         }
-        host_sharing::HostSharingRequirements::OnePerToken(
-            identifier,
-            WeightClass::Permits(weight),
-        ) => {
-            // NOTE: Not using OnePerToken2 here yet for compatibility.
-            Requirements::OnePerToken(OnePerToken {
-                identifier,
-                weight: weight.try_into()?,
-            })
-        }
         host_sharing::HostSharingRequirements::OnePerToken(identifier, weight) => {
-            Requirements::OnePerToken2(OnePerToken2 {
+            Requirements::OnePerToken(OnePerToken {
                 identifier,
                 weight_class: Some(weight_class_to_grpc(weight)?),
             })
