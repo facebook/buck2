@@ -57,7 +57,7 @@ pub static NAME_ATTRIBUTE_FIELD: &str = "name";
 
 /// The callable that's returned from a `rule()` call. Once frozen, and called, it adds targets'
 /// parameters to the context
-#[derive(Debug, Clone, ProvidesStaticType, Trace, NoSerialize, Allocative)]
+#[derive(Debug, ProvidesStaticType, Trace, NoSerialize, Allocative)]
 struct RuleCallable<'v> {
     /// The import path that contains the rule() call; stored here so we can retrieve extra
     /// information during `export_as()`
@@ -69,7 +69,7 @@ struct RuleCallable<'v> {
     /// ctx
     implementation: Value<'v>,
     // Field Name -> Attribute
-    attributes: Arc<AttributeSpec>,
+    attributes: AttributeSpec,
     /// When specified, this transition will be applied to the target before configuring it.
     cfg: Option<Arc<TransitionId>>,
     /// This kind of the rule, e.g. whether it can be used in configuration context.
@@ -211,7 +211,7 @@ impl FrozenRuleCallable {
         &self.rule_type
     }
 
-    pub fn attributes(&self) -> &Arc<AttributeSpec> {
+    pub fn attributes(&self) -> &AttributeSpec {
         &self.rule.attributes
     }
 }
@@ -307,7 +307,7 @@ pub fn register_rule_function(builder: &mut GlobalsBuilder) {
             import_path: bzl_path,
             id: RefCell::new(None),
             implementation,
-            attributes: Arc::new(AttributeSpec::from(sorted_validated_attrs)?),
+            attributes: AttributeSpec::from(sorted_validated_attrs)?,
             cfg,
             rule_kind,
             docs: Some(doc.to_owned()),

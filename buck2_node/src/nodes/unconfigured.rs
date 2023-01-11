@@ -458,7 +458,7 @@ pub mod testing {
             ));
             TargetNode::new(
                 Arc::new(Rule {
-                    attributes: Arc::new(AttributeSpec::testing_new(indices, instances)),
+                    attributes: AttributeSpec::testing_new(indices, instances),
                     rule_type,
                     rule_kind: RuleKind::Normal,
                     cfg: None,

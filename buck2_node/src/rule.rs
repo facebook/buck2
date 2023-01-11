@@ -21,7 +21,7 @@ use crate::rule_type::RuleType;
 pub struct Rule {
     /// The attribute spec. This holds the attribute name -> index mapping and the default values
     /// (for those attributes without explicit values).
-    pub attributes: Arc<AttributeSpec>,
+    pub attributes: AttributeSpec,
     /// The 'type', used to find the implementation function from the graph
     pub rule_type: RuleType,
     /// The kind of rule, e.g. configuration or otherwise.
