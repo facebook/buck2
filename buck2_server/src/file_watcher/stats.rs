@@ -42,16 +42,9 @@ impl FileWatcherStats {
         }
     }
 
-    fn add_common(&mut self) {
-        self.stats.events_total += 1;
-        if self.stats.events_total as usize > MAX_FILE_CHANGE_RECORDS {
-            self.changes = None;
-        }
-    }
-
     /// I have seen an event that I am ignoring
     pub(crate) fn add_ignored(&mut self) {
-        // Nothing to do
+        self.stats.events_total += 1;
     }
 
     /// I have seen an event that I am processing
@@ -61,7 +54,7 @@ impl FileWatcherStats {
         event: buck2_data::FileWatcherEventType,
         kind: buck2_data::FileWatcherKind,
     ) {
-        self.add_common();
+        self.stats.events_total += 1;
         self.stats.events_processed += 1;
 
         if self.to_print.len() < MAX_PRINT_MESSAGES {
@@ -74,6 +67,9 @@ impl FileWatcherStats {
                 kind: kind as i32,
                 path,
             });
+            if records.len() > MAX_PRINT_MESSAGES {
+                self.changes = None;
+            }
         }
     }
 
@@ -96,7 +92,7 @@ impl FileWatcherStats {
             data: Some(match changes {
                 None => buck2_data::file_changes::Data::NoRecordReason(format!(
                     "Too many files changed ({}, max {})",
-                    stats.events_total, MAX_FILE_CHANGE_RECORDS
+                    stats.events_processed, MAX_FILE_CHANGE_RECORDS
                 )),
                 Some(records) => {
                     buck2_data::file_changes::Data::Records(buck2_data::FileWatcherEvents {
