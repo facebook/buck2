@@ -329,6 +329,14 @@ impl DeferredAny for TrivialDeferredValue {
     fn execute(&self, _ctx: &mut dyn DeferredCtx) -> anyhow::Result<DeferredValueAny> {
         Ok(DeferredValueAny::Ready(self.0.dupe()))
     }
+
+    fn as_any(&self) -> &dyn Any {
+        self.0.into_any()
+    }
+
+    fn type_name(&self) -> &str {
+        self.0.type_name()
+    }
 }
 
 #[derive(Allocative)]
@@ -349,6 +357,20 @@ impl DeferredAny for DeferredTableEntry {
         match self {
             Self::Trivial(v) => v.execute(ctx),
             Self::Complex(v) => v.execute(ctx),
+        }
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        match self {
+            Self::Trivial(v) => v.as_any(),
+            Self::Complex(v) => v.as_any(),
+        }
+    }
+
+    fn type_name(&self) -> &str {
+        match self {
+            Self::Trivial(v) => v.type_name(),
+            Self::Complex(v) => v.type_name(),
         }
     }
 }
@@ -750,6 +772,23 @@ pub trait DeferredAny: Allocative + Send + Sync {
 
     /// executes this 'Deferred', assuming all inputs and input artifacts are already computed
     fn execute(&self, ctx: &mut dyn DeferredCtx) -> anyhow::Result<DeferredValueAny>;
+
+    fn as_any(&self) -> &dyn Any;
+
+    fn type_name(&self) -> &str;
+}
+
+impl dyn DeferredAny {
+    pub fn downcast<T: Deferred + Send + 'static>(&self) -> anyhow::Result<&T> {
+        match self.as_any().downcast_ref::<T>() {
+            Some(t) => Ok(t),
+            None => Err(anyhow::anyhow!(
+                "Cannot cast Deferred of value type `{}` into type `{}`",
+                self.type_name(),
+                type_name::<T>()
+            )),
+        }
+    }
 }
 
 /// An id to look up the deferred work
@@ -775,7 +814,7 @@ impl DeferredId {
 
 impl<D, T> DeferredAny for D
 where
-    D: Deferred<Output = T> + Send + Sync + 'static,
+    D: Deferred<Output = T> + Send + Sync + Any + 'static,
     T: Allocative + Clone + Debug + Send + Sync + 'static,
 {
     fn inputs(&self) -> &IndexSet<DeferredInput> {
@@ -787,6 +826,14 @@ where
             DeferredValue::Ready(t) => Ok(DeferredValueAny::ready(t)),
             DeferredValue::Deferred(d) => Ok(DeferredValueAny::defer(d)),
         }
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn type_name(&self) -> &str {
+        type_name::<D>()
     }
 }
 
