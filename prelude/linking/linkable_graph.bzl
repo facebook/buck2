@@ -190,21 +190,11 @@ def linkable_graph(dep: "dependency") -> [LinkableGraph.type, None]:
 def get_link_info(
         node: LinkableNode.type,
         link_style: LinkStyle.type,
-        prefer_stripped: bool.type = False,
-        force_no_link_groups = False) -> LinkInfo.type:
+        prefer_stripped: bool.type = False) -> LinkInfo.type:
     info = _get_link_info(
         node.link_infos[link_style],
         prefer_stripped = prefer_stripped,
     )
-
-    if force_no_link_groups and info.use_link_groups:
-        return LinkInfo(
-            name = info.name,
-            pre_flags = info.pre_flags,
-            post_flags = info.post_flags,
-            linkables = info.linkables,
-            use_link_groups = False,
-        )
     return info
 
 def get_deps_for_link(

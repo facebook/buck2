@@ -102,7 +102,6 @@ load(
     "cxx_is_gnu",
     "cxx_mk_shlib_intf",
     "cxx_platform_supported",
-    "cxx_use_link_groups",
     "cxx_use_shlib_intfs",
 )
 load(
@@ -342,6 +341,7 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
         preferred_linkage = preferred_linkage,
         shared_links = shared_links,
         extra_static_linkables = [frameworks_linkable] if frameworks_linkable else [],
+        gnu_use_link_groups = cxx_is_gnu(ctx) and bool(link_group_mappings),
     )
 
     actual_link_style = get_actual_link_style(cxx_attr_link_style(ctx), preferred_linkage)
@@ -680,7 +680,8 @@ def _form_library_outputs(
         compiled_srcs: _CxxCompiledSourcesOutput.type,
         preferred_linkage: Linkage.type,
         shared_links: LinkArgs.type,
-        extra_static_linkables: ["FrameworksLinkable"]) -> _CxxAllLibraryOutputs.type:
+        extra_static_linkables: ["FrameworksLinkable"],
+        gnu_use_link_groups: bool.type) -> _CxxAllLibraryOutputs.type:
     # Build static/shared libs and the link info we use to export them to dependents.
     outputs = {}
     libraries = {}
@@ -739,6 +740,7 @@ def _form_library_outputs(
                      (compiled_srcs.pic_objects if compiled_srcs.pic_objects_have_external_debug_info else []) +
                      impl_params.additional.external_debug_info),
                     shared_links,
+                    gnu_use_link_groups,
                 )
                 output = _CxxLibraryOutput(
                     default = shlib.output,
@@ -941,7 +943,8 @@ def _shared_library(
         impl_params: "CxxRuleConstructorParams",
         objects: ["artifact"],
         external_debug_info: ["_arglike"],
-        dep_infos: "LinkArgs") -> (str.type, LinkedObject.type, LinkInfo.type):
+        dep_infos: "LinkArgs",
+        gnu_use_link_groups: bool.type) -> (str.type, LinkedObject.type, LinkInfo.type):
     """
     Generate a shared library and the associated native link info used by
     dependents to link against it.
@@ -997,7 +1000,7 @@ def _shared_library(
     # TODO(agallagher): There's a bug in shlib intfs interacting with link
     # groups, where we don't include the symbols we're meant to export from
     # deps that get statically linked in.
-    if cxx_use_shlib_intfs(ctx) and not cxx_use_link_groups(ctx):
+    if cxx_use_shlib_intfs(ctx) and not gnu_use_link_groups:
         link_info = LinkInfo(
             pre_flags = link_info.pre_flags,
             linkables = link_info.linkables,

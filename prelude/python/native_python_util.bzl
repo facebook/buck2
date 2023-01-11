@@ -79,14 +79,12 @@ def rewrite_static_symbols(
         pre_flags = static_info.pre_flags,
         post_flags = static_info.post_flags,
         linkables = [static_objects],
-        use_link_groups = static_info.use_link_groups,
     )
     updated_stripped_static_info = LinkInfo(
         name = static_info.name,
         pre_flags = static_info.pre_flags,
         post_flags = static_info.post_flags,
         linkables = [stripped_static_objects],
-        use_link_groups = static_info.use_link_groups,
     )
 
     static_pic_info = libraries[LinkStyle("static")].default
@@ -95,14 +93,12 @@ def rewrite_static_symbols(
         pre_flags = static_pic_info.pre_flags,
         post_flags = static_pic_info.post_flags,
         linkables = [static_pic_objects],
-        use_link_groups = static_pic_info.use_link_groups,
     )
     updated_stripped_static_pic_info = LinkInfo(
         name = static_pic_info.name,
         pre_flags = static_pic_info.pre_flags,
         post_flags = static_pic_info.post_flags,
         linkables = [stripped_static_pic_objects],
-        use_link_groups = static_pic_info.use_link_groups,
     )
     updated_libraries = {
         LinkStyle("static"): LinkInfos(default = updated_static_info, stripped = updated_stripped_static_info),
