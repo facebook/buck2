@@ -969,10 +969,10 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     fn reversed<'v>(
         #[starlark(require = pos, type = "iter(\"\")")] a: Value<'v>,
         heap: &'v Heap,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> anyhow::Result<Vec<Value<'v>>> {
         let mut v: Vec<Value> = a.iterate(heap)?.collect();
         v.reverse();
-        Ok(heap.alloc_list(&v))
+        Ok(v)
     }
 
     /// [sorted](
@@ -1138,7 +1138,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     fn zip<'v>(
         #[starlark(args)] args: Vec<Value<'v>>,
         heap: &'v Heap,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> anyhow::Result<Vec<Value<'v>>> {
         let mut v = Vec::new();
         let mut first = true;
         for arg in args {
@@ -1155,7 +1155,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
             v.truncate(idx);
             first = false;
         }
-        Ok(heap.alloc_list(&v))
+        Ok(v)
     }
 }
 
