@@ -141,6 +141,10 @@ pub struct RageCommand {
     /// Stop collecting information after <timeout> seconds
     #[clap(long, default_value = "60")]
     timeout: u64,
+    /// We may want to omit paste if this is not a user
+    /// or is called in a machine with no pastry command
+    #[clap(long)]
+    no_paste: bool,
 }
 
 impl RageCommand {
@@ -188,13 +192,17 @@ impl RageCommand {
 
             let sections = futures::future::join_all(sections).await;
             let output: Vec<String> = sections.iter().map(|i| i.to_string()).collect();
+            let output = output.join("");
 
-            let paste = generate_paste("Buck2 Rage", &output.join("")).await?;
-
-            buck2_client_ctx::eprintln!(
-                "\nPlease post in https://fb.workplace.com/groups/buck2users with the following link:\n\n{}\n",
-                paste
-            )?;
+            if self.no_paste {
+                buck2_client_ctx::println!("{}", output)?;
+            } else {
+                let paste = generate_paste("Buck2 Rage", &output).await?;
+                buck2_client_ctx::eprintln!(
+                    "\nPlease post in https://fb.workplace.com/groups/buck2users with the following link:\n\n{}\n",
+                    paste
+                )?;
+            };
 
             ExitResult::success()
         })
