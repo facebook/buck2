@@ -18,15 +18,21 @@
 use crate::iter::def_double_ended_iter;
 use crate::iter::def_iter;
 use crate::small_map;
+use crate::Hashed;
 
 /// Iterator over the hashed entries of [`SmallSet`](crate::small_set::SmallSet).
 pub struct Iter<'a, T> {
     pub(crate) iter: small_map::Iter<'a, T, ()>,
 }
 
-///
+/// Iterator that moves entries out of a [`SmallSet`](crate::small_set::SmallSet).
 pub struct IntoIter<T> {
     pub(crate) iter: small_map::IntoIter<T, ()>,
+}
+
+/// Iterator that moves hashed entries out of a [`SmallSet`](crate::small_set::SmallSet).
+pub struct IntoIterHashed<T> {
+    pub(crate) iter: small_map::IntoIterHashed<T, ()>,
 }
 
 impl<'a, T> Clone for Iter<'a, T> {
@@ -47,6 +53,13 @@ impl<'a, T> Iter<'a, T> {
 impl<T> IntoIter<T> {
     #[inline]
     fn map((k, ()): (T, ())) -> T {
+        k
+    }
+}
+
+impl<T> IntoIterHashed<T> {
+    #[inline]
+    fn map((k, ()): (Hashed<T>, ())) -> Hashed<T> {
         k
     }
 }
@@ -79,6 +92,23 @@ impl<T> DoubleEndedIterator for IntoIter<T> {
 }
 
 impl<T> ExactSizeIterator for IntoIter<T> {
+    #[inline]
+    fn len(&self) -> usize {
+        self.iter.len()
+    }
+}
+
+impl<T> Iterator for IntoIterHashed<T> {
+    type Item = Hashed<T>;
+
+    def_iter!();
+}
+
+impl<T> DoubleEndedIterator for IntoIterHashed<T> {
+    def_double_ended_iter!();
+}
+
+impl<T> ExactSizeIterator for IntoIterHashed<T> {
     #[inline]
     fn len(&self) -> usize {
         self.iter.len()

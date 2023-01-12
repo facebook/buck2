@@ -31,6 +31,7 @@ use crate::equivalent::Equivalent;
 use crate::hashed::Hashed;
 use crate::small_map::SmallMap;
 pub use crate::small_set::iter::IntoIter;
+pub use crate::small_set::iter::IntoIterHashed;
 pub use crate::small_set::iter::Iter;
 
 /// An memory-efficient set with deterministic order, based on [`SmallMap`].
@@ -91,6 +92,14 @@ impl<T> SmallSet<T> {
     #[inline]
     pub fn iter(&self) -> Iter<T> {
         self.into_iter()
+    }
+
+    /// Into hashed entries.
+    #[inline]
+    pub fn into_iter_hashed(self) -> IntoIterHashed<T> {
+        IntoIterHashed {
+            iter: self.0.into_iter_hashed(),
+        }
     }
 
     /// Insert the element into the set.
