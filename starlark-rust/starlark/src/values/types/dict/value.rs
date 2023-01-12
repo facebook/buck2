@@ -74,15 +74,6 @@ use crate::values::ValueLike;
 #[starlark_docs(builtin = "standard")]
 pub(crate) struct DictGen<T>(pub(crate) T);
 
-impl FrozenDict {
-    // The doc macros assume that FrozenDict is an alias for DictGen, which isn't true,
-    // so do some internal reexposing so everything works.
-    #[doc(hidden)]
-    pub fn __generated_documentation() -> Option<starlark::docs::Doc> {
-        DictGen::<FrozenDict>::__generated_documentation()
-    }
-}
-
 impl<'v, T: DictLike<'v>> Display for DictGen<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         display_keyed_container(f, "{", "}", ": ", self.0.content().iter())
@@ -109,15 +100,17 @@ impl<'v> StarlarkTypeRepr for Dict<'v> {
     }
 }
 
-/// Define the list type. See [`Dict`] and [`FrozenDict`] as the two possible representations.
 #[derive(Clone, Default, Debug, ProvidesStaticType, Allocative)]
 #[repr(transparent)]
-pub(crate) struct FrozenDict {
+pub(crate) struct FrozenDictData {
     /// The data stored by the dictionary. The keys must all be hashable values.
     pub(crate) content: SmallMap<FrozenValue, FrozenValue>,
 }
 
-unsafe impl<'v> Coerce<Dict<'v>> for FrozenDict {}
+/// Alias is used in `StarlarkDocs` derive.
+type FrozenDict = DictGen<FrozenDictData>;
+
+unsafe impl<'v> Coerce<Dict<'v>> for FrozenDictData {}
 
 impl<'v> AllocValue<'v> for Dict<'v> {
     fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
@@ -125,7 +118,7 @@ impl<'v> AllocValue<'v> for Dict<'v> {
     }
 }
 
-impl AllocFrozenValue for FrozenDict {
+impl AllocFrozenValue for FrozenDictData {
     fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
         heap.alloc_simple(DictGen(self))
     }
@@ -133,7 +126,7 @@ impl AllocFrozenValue for FrozenDict {
 
 impl<'v> Dict<'v> {
     pub(crate) fn is_dict_type(x: TypeId) -> bool {
-        x == TypeId::of::<DictGen<FrozenDict>>()
+        x == TypeId::of::<DictGen<FrozenDictData>>()
             || x == TypeId::of::<DictGen<RefCell<Dict<'static>>>>()
     }
 
@@ -171,7 +164,7 @@ impl<'v> Dict<'v> {
 
     /// Dict type string as Starlark frozen string value.
     pub fn get_type_value_static() -> FrozenStringValue {
-        DictGen::<FrozenDict>::get_type_value_static()
+        DictGen::<FrozenDictData>::get_type_value_static()
     }
 
     /// Create a new [`Dict`].
@@ -279,7 +272,7 @@ impl<'v> Dict<'v> {
     }
 }
 
-impl FrozenDict {
+impl FrozenDictData {
     /// Iterate through the key/value pairs in the dictionary.
     pub fn iter<'a>(&'a self) -> impl ExactSizeIterator<Item = (FrozenValue, FrozenValue)> + 'a {
         self.content.iter().map(|(l, r)| (*l, *r))
@@ -293,10 +286,10 @@ impl FrozenDict {
 }
 
 impl<'v> Freeze for DictGen<RefCell<Dict<'v>>> {
-    type Frozen = DictGen<FrozenDict>;
+    type Frozen = DictGen<FrozenDictData>;
     fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
         let content = self.0.into_inner().content.freeze(freezer)?;
-        Ok(DictGen(FrozenDict { content }))
+        Ok(DictGen(FrozenDictData { content }))
     }
 }
 
@@ -321,7 +314,7 @@ impl<'v> DictLike<'v> for RefCell<Dict<'v>> {
     }
 }
 
-impl<'v> DictLike<'v> for FrozenDict {
+impl<'v> DictLike<'v> for FrozenDictData {
     fn content(&self) -> ARef<SmallMap<Value<'v>, Value<'v>>> {
         ARef::new_ptr(coerce(&self.content))
     }

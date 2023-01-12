@@ -24,7 +24,7 @@ use gazebo::cell::ARef;
 use gazebo::coerce::coerce;
 
 use crate::values::dict::value::DictGen;
-use crate::values::dict::value::FrozenDict;
+use crate::values::dict::value::FrozenDictData;
 use crate::values::dict::Dict;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::FrozenValue;
@@ -45,16 +45,17 @@ pub struct DictMut<'v> {
 
 /// Reference to frozen `Dict`.
 pub struct FrozenDictRef {
-    dict: &'static FrozenDict,
+    dict: &'static FrozenDictData,
 }
 
 impl<'v> DictRef<'v> {
     /// Downcast the value to a dict.
     pub fn from_value(x: Value<'v>) -> Option<DictRef<'v>> {
         if x.unpack_frozen().is_some() {
-            x.downcast_ref::<DictGen<FrozenDict>>().map(|x| DictRef {
-                aref: ARef::new_ptr(coerce(&x.0)),
-            })
+            x.downcast_ref::<DictGen<FrozenDictData>>()
+                .map(|x| DictRef {
+                    aref: ARef::new_ptr(coerce(&x.0)),
+                })
         } else {
             let ptr = x.downcast_ref::<DictGen<RefCell<Dict<'v>>>>()?;
             Some(DictRef {
@@ -75,7 +76,7 @@ impl<'v> DictMut<'v> {
         #[cold]
         #[inline(never)]
         fn error<'v>(x: Value<'v>) -> anyhow::Error {
-            if x.downcast_ref::<DictGen<FrozenDict>>().is_some() {
+            if x.downcast_ref::<DictGen<FrozenDictData>>().is_some() {
                 ValueError::CannotMutateImmutableValue.into()
             } else {
                 NotDictError(x.get_type()).into()
@@ -96,7 +97,7 @@ impl<'v> DictMut<'v> {
 impl FrozenDictRef {
     /// Downcast to frozen dict.
     pub fn from_frozen_value(x: FrozenValue) -> Option<FrozenDictRef> {
-        x.downcast_ref::<DictGen<FrozenDict>>()
+        x.downcast_ref::<DictGen<FrozenDictData>>()
             .map(|x| FrozenDictRef { dict: &x.0 })
     }
 

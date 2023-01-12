@@ -20,7 +20,7 @@ use std::iter;
 use starlark_map::small_map::SmallMap;
 
 use crate::values::dict::value::DictGen;
-use crate::values::dict::value::FrozenDict;
+use crate::values::dict::value::FrozenDictData;
 use crate::values::dict::Dict;
 use crate::values::layout::value::ValueLike;
 use crate::values::type_repr::StarlarkTypeRepr;
@@ -66,7 +66,7 @@ where
 {
     fn starlark_type_repr() -> String {
         // TODO(nga): give more precise type: we know element type.
-        DictGen::<FrozenDict>::starlark_type_repr()
+        DictGen::<FrozenDictData>::starlark_type_repr()
     }
 }
 
@@ -104,6 +104,6 @@ where
                 v.alloc_frozen_value(heap),
             );
         }
-        heap.alloc(FrozenDict { content: map })
+        heap.alloc(FrozenDictData { content: map })
     }
 }
