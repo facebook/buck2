@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::ffi::OsString;
 use std::str::FromStr;
 
 use gazebo::prelude::*;
@@ -29,17 +30,28 @@ pub struct RolloutPercentage {
 
 impl RolloutPercentage {
     pub fn roll(&self) -> bool {
+        self.roll_inner(|| hostname::get().ok())
+    }
+
+    fn roll_inner<F>(&self, get_hostname: F) -> bool
+    where
+        F: FnOnce() -> Option<OsString>,
+    {
         match self.inner {
             Inner::Hostname(pct) => {
-                if let Ok(hostname) = hostname::get() {
-                    let hash = blake3::hash(&hostname.to_raw_bytes());
-                    // For simplicity, we just divide the value of the first byte by 255
-                    // to get a decimal value to compare against our percentage.
-                    // TODO(scottcao): Use get_shard internally
-                    (hash.as_bytes()[0] as f64 / std::u8::MAX as f64) < pct
-                } else {
-                    tracing::warn!("Unable to obtain hostname");
-                    false
+                match get_hostname() {
+                    Some(h) => {
+                        let hash = blake3::hash(&h.to_raw_bytes());
+                        // For simplicity, we just divide the value of the first byte by 256 to get a
+                        // decimal value to compare against our percentage. Note that the first byte
+                        // can never exceed 255, so if we set the percentage to 100% we return true.
+                        // TODO(scottcao): Use get_shard internally
+                        (hash.as_bytes()[0] as f64 / 256_f64) < pct
+                    }
+                    None => {
+                        tracing::warn!("Unable to obtain hostname");
+                        false
+                    }
                 }
             }
             Inner::Rate(pct) => rand::thread_rng().gen::<f64>() < pct,
@@ -118,6 +130,8 @@ fn rate(val: f64) -> anyhow::Result<f64> {
 #[cfg(test)]
 mod tests {
     use assert_matches::assert_matches;
+    use rand::distributions::Alphanumeric;
+    use rand::distributions::DistString;
 
     use super::*;
 
@@ -139,11 +153,17 @@ mod tests {
 
     #[test]
     fn test_roll() {
+        let hostname = || {
+            Some(OsString::from(
+                Alphanumeric.sample_string(&mut rand::thread_rng(), 16),
+            ))
+        };
+
         assert!(
             RolloutPercentage {
                 inner: Inner::Bool(true)
             }
-            .roll()
+            .roll_inner(&hostname)
         );
 
         for _ in 0..1000 {
@@ -151,13 +171,13 @@ mod tests {
                 RolloutPercentage {
                     inner: Inner::Rate(1.0)
                 }
-                .roll()
+                .roll_inner(&hostname)
             );
             assert!(
                 !RolloutPercentage {
                     inner: Inner::Rate(0.0)
                 }
-                .roll()
+                .roll_inner(&hostname)
             );
         }
 
@@ -166,14 +186,26 @@ mod tests {
                 RolloutPercentage {
                     inner: Inner::Hostname(1.0)
                 }
-                .roll()
+                .roll_inner(&hostname)
             );
             assert!(
                 !RolloutPercentage {
                     inner: Inner::Hostname(0.0)
                 }
-                .roll()
+                .roll_inner(&hostname)
             );
         }
+    }
+
+    #[test]
+    fn test_roll_no_hostname() {
+        let hostname = || None;
+
+        assert!(
+            !RolloutPercentage {
+                inner: Inner::Hostname(0.99999)
+            }
+            .roll_inner(&hostname)
+        );
     }
 }
