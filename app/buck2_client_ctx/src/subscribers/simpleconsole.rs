@@ -566,16 +566,6 @@ impl UnpackingEventSubscriber for SimpleConsole {
         Ok(())
     }
 
-    async fn handle_panic(
-        &mut self,
-        panic: &buck2_data::Panic,
-        _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        echo!("{:?}", panic)?;
-        self.notify_printed();
-        Ok(())
-    }
-
     async fn handle_test_result(
         &mut self,
         result: &buck2_data::TestResult,
