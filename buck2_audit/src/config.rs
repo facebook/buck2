@@ -208,22 +208,31 @@ impl AuditSubcommand for AuditConfigCommand {
                     .unwrap()
                     .cell_alias_resolver();
 
-                let cell = match &self.cell {
+                let relevant_cell = match &self.cell {
                     Some(v) => v,
                     None => "",
                 };
 
+                let resolved_relevant_cell = cell_alias_resolver.resolve(relevant_cell)?;
+
                 let config = ctx.get_legacy_configs().await?;
 
                 let specs = self.specs.try_map(|v| {
-                    let (cell, config) = v.split_once("//").unwrap_or((cell, v));
+                    let (cell, config) = match v.split_once("//") {
+                        Some((cell, config)) => (cell_alias_resolver.resolve(cell)?, config),
+                        None => (resolved_relevant_cell, v.as_str()),
+                    };
                     let (section, key) = config.split1(".");
-
-                    anyhow::Ok((cell_alias_resolver.resolve(cell)?, section, key, v))
+                    anyhow::Ok((cell, section, key, v))
                 })?;
+
                 let filter = move |cell: &CellName, section: &str, key: &str| {
                     if specs.is_empty() {
-                        Some(format!("{}.{}", section, key))
+                        if cell == resolved_relevant_cell {
+                            Some(format!("{}.{}", section, key))
+                        } else {
+                            None
+                        }
                     } else {
                         for (filter_cell, filter_section, filter_key, spec) in &specs {
                             if &cell == filter_cell
