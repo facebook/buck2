@@ -130,11 +130,7 @@ impl AttributeSpec {
                 Some((entry_idx, entry_attr)) if *entry_idx == idx => {
                     pos += 1;
                     entry = attr_values.get_by_index(pos);
-                    if opts.include_defined() {
-                        Some((name, entry_attr))
-                    } else {
-                        None
-                    }
+                    Some((name, entry_attr))
                 }
                 _ => {
                     let default: &CoercedAttr = attr.default.as_ref().unwrap();
@@ -154,11 +150,7 @@ impl AttributeSpec {
         opts: AttrInspectOptions,
     ) -> Option<&'v CoercedAttr> {
         if let Some(attr) = attr_values.get(idx) {
-            if opts.include_defined() {
-                return Some(attr);
-            } else {
-                return None;
-            }
+            return Some(attr);
         }
 
         if opts.include_default() {

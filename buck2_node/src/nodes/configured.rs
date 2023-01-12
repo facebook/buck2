@@ -81,11 +81,7 @@ impl TargetNodeOrForward {
         match self {
             TargetNodeOrForward::TargetNode(target_node) => Either::Left(target_node.attrs(opts)),
             TargetNodeOrForward::Forward(actual, _) => {
-                let actual_attr = if opts.include_defined() {
-                    Some((ACTUAL_ATTR_NAME, actual))
-                } else {
-                    None
-                };
+                let actual_attr = Some((ACTUAL_ATTR_NAME, actual));
                 Either::Right(actual_attr.into_iter())
             }
         }
@@ -130,7 +126,7 @@ impl TargetNodeOrForward {
         match self {
             TargetNodeOrForward::TargetNode(target_node) => target_node.attr_or_none(name, opts),
             TargetNodeOrForward::Forward(actual, _) => {
-                if name == ACTUAL_ATTR_NAME && opts.include_defined() {
+                if name == ACTUAL_ATTR_NAME {
                     Some(actual)
                 } else {
                     None

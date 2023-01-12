@@ -11,19 +11,11 @@ use gazebo::dupe::Dupe;
 
 #[derive(Clone, Dupe, Copy)]
 pub enum AttrInspectOptions {
-    DefaultOnly,
     DefinedOnly,
     All,
 }
 
 impl AttrInspectOptions {
-    pub fn include_defined(&self) -> bool {
-        match self {
-            AttrInspectOptions::DefaultOnly => false,
-            _ => true,
-        }
-    }
-
     pub fn include_default(&self) -> bool {
         match self {
             AttrInspectOptions::DefinedOnly => false,
