@@ -35,20 +35,20 @@ use crate::providers::AuditProvidersCommand;
 use crate::starlark::StarlarkCommand;
 use crate::visibility::AuditVisibilityCommand;
 
-pub mod analysis_queries;
-pub mod cell;
-pub mod config;
-pub mod configurations;
-pub mod deferred_materializer;
-pub mod dep_files;
-pub mod execution_platform_resolution;
-pub mod includes;
-pub mod output;
-pub mod prelude;
-pub mod providers;
+mod analysis_queries;
+mod cell;
+mod config;
+mod configurations;
+mod deferred_materializer;
+mod dep_files;
+mod execution_platform_resolution;
+mod includes;
+mod output;
+mod prelude;
+mod providers;
 pub mod server;
-pub mod starlark;
-pub mod visibility;
+mod starlark;
+mod visibility;
 
 #[derive(Debug, clap::Subcommand, serde::Serialize, serde::Deserialize)]
 #[clap(name = "audit", about = "Perform lower level queries")]
