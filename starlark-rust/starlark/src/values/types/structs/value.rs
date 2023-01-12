@@ -138,6 +138,11 @@ where
     }
 
     fn write_hash(&self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {
+        // TODO(nga): hash and equality are inconsistent:
+        //   Hash is ordered, equality ignores order.
+        //   So structs like `struct(a=1, b=2)` and `struct(b=2, a=1)`
+        //   are equal but have different hashes.
+
         for (k, v) in self.fields.iter_hashed() {
             Hash::hash(&k, hasher);
             v.write_hash(hasher)?;
