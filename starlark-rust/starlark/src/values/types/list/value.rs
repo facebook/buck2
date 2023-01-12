@@ -224,7 +224,7 @@ impl<'v> List<'v> {
 
 impl<'v, V: AllocValue<'v>> AllocValue<'v> for Vec<V> {
     fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
-        heap.alloc_list_iter(self.into_map(|x| x.alloc_value(heap)))
+        heap.alloc_list_iter(self.into_iter().map(|x| x.alloc_value(heap)))
     }
 }
 
