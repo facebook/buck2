@@ -17,9 +17,7 @@
 
 use std::iter;
 
-use crate::values::list::value::ListGen;
 use crate::values::type_repr::StarlarkTypeRepr;
-use crate::values::types::list::value::FrozenListData;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::FrozenHeap;
@@ -53,8 +51,7 @@ where
     L::Item: AllocValue<'v>,
 {
     fn starlark_type_repr() -> String {
-        // TODO(nga): give more precise type: we know element type.
-        ListGen::<FrozenListData>::starlark_type_repr()
+        format!("[{}]", L::Item::starlark_type_repr())
     }
 }
 

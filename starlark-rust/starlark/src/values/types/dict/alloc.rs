@@ -19,7 +19,6 @@ use std::iter;
 
 use starlark_map::small_map::SmallMap;
 
-use crate::values::dict::value::DictGen;
 use crate::values::dict::value::FrozenDictData;
 use crate::values::dict::Dict;
 use crate::values::layout::value::ValueLike;
@@ -65,8 +64,11 @@ where
     V: AllocValue<'v>,
 {
     fn starlark_type_repr() -> String {
-        // TODO(nga): give more precise type: we know element type.
-        DictGen::<FrozenDictData>::starlark_type_repr()
+        format!(
+            "{{{}: {}}}",
+            K::starlark_type_repr(),
+            V::starlark_type_repr()
+        )
     }
 }
 
