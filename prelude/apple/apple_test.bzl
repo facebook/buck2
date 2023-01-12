@@ -19,7 +19,7 @@ load(
 )
 load(":apple_bundle.bzl", "AppleBundlePartListConstructorParams", "get_apple_bundle_part_list")
 load(":apple_bundle_destination.bzl", "AppleBundleDestination")
-load(":apple_bundle_part.bzl", "AppleBundlePart", "assemble_bundle", "bundle_output")
+load(":apple_bundle_part.bzl", "AppleBundlePart", "assemble_bundle", "bundle_output", "get_bundle_dir_name")
 load(":apple_bundle_types.bzl", "AppleBundleInfo")
 load(":xcode.bzl", "apple_populate_xcode_attributes")
 
@@ -35,6 +35,8 @@ def apple_test_impl(ctx: "context") -> ["provider"]:
         "-import-objc-header",
         cmd_args(ctx.attrs.bridging_header),
     ] if ctx.attrs.bridging_header else []
+
+    dsym_name = get_bundle_dir_name(ctx) + ".dSYM"
 
     constructor_params, _, _ = apple_library_rule_constructor_params_and_swift_providers(
         ctx,
@@ -71,6 +73,8 @@ def apple_test_impl(ctx: "context") -> ["provider"]:
             # which we can achieve by forcing link group linking with
             # an empty mapping (i.e., default mapping).
             force_link_group_linking = True,
+            # This is going to return constant string, but it's fine, because those constructor params are only used to build single binary for XCTest bundle (which is dynamically linked framework basically).
+            dsym_output_path_override = lambda _: dsym_name,
         ),
     )
     cxx_library_output = cxx_library_parameterized(ctx, constructor_params)

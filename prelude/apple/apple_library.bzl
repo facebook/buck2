@@ -142,7 +142,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: "context", pa
             # follow.
             external_debug_info = [_get_transitive_swiftmodule_paths(swift_providers)],
         ),
-        link_style_sub_targets_and_providers_factory = _get_shared_link_style_sub_targets_and_providers,
+        link_style_sub_targets_and_providers_factory = lambda *args: _get_shared_link_style_sub_targets_and_providers(dsym_output_path_override = params.dsym_output_path_override, *args),
         shared_library_flags = params.shared_library_flags,
         # apple_library's 'stripped' arg only applies to shared subtargets, or,
         # targets with 'preferred_linkage = "shared"'
