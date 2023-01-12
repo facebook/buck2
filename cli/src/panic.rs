@@ -56,6 +56,7 @@ mod imp {
     use buck2_data::Location;
     use buck2_events::metadata;
     use buck2_events::sink::scribe::new_thrift_scribe_sink_if_enabled;
+    use buck2_events::BuckEvent;
     use fbinit::FacebookInit;
     use tokio::runtime::Builder;
 
@@ -132,7 +133,7 @@ mod imp {
             line: loc.line(),
             column: loc.column(),
         });
-        write_to_scribe(fb, location, message);
+        write_to_scribe(fb, panic_payload(location, message));
     }
 
     pub(crate) fn write_soft_error_to_scribe(
@@ -143,20 +144,31 @@ mod imp {
     ) {
         write_to_scribe(
             fb,
-            Some(location),
-            format!("Soft Error: {}: {:#}", category, err),
+            panic_payload(
+                Some(location),
+                format!("Soft Error: {}: {:#}", category, err),
+            ),
         );
     }
 
+    fn panic_payload(location: Option<Location>, message: String) -> buck2_data::Panic {
+        let metadata = get_metadata_for_panic();
+        buck2_data::Panic {
+            location,
+            payload: message,
+            metadata,
+            backtrace: get_stack(),
+        }
+    }
+
     /// Writes a representation of the given error (hard or soft) to Scribe
-    fn write_to_scribe(fb: FacebookInit, location: Option<Location>, message: String) {
+    fn write_to_scribe(fb: FacebookInit, data: buck2_data::Panic) {
         use std::time::SystemTime;
 
         use buck2_core::facebook_only;
         use buck2_data::InstantEvent;
         use buck2_events::sink::scribe;
         use buck2_events::trace::TraceId;
-        use buck2_events::BuckEvent;
         use buck2_events::EventSink;
 
         facebook_only();
@@ -172,25 +184,16 @@ mod imp {
             }
         };
 
-        let metadata = get_metadata_for_panic();
-        let panic_payload: buck2_data::instant_event::Data = buck2_data::Panic {
-            location,
-            payload: message,
-            metadata,
-            backtrace: get_stack(),
-        }
-        .into();
-        let event = BuckEvent::new(
+        sink.send(BuckEvent::new(
             SystemTime::now(),
             TraceId::new(),
             None,
             None,
             InstantEvent {
-                data: Some(panic_payload),
+                data: Some(data.into()),
             }
             .into(),
-        );
-        sink.send(event);
+        ));
 
         // There are some dubious ways of acquiring a handle to the current Tokio runtime, if one exists, such as this
         // one: https://docs.rs/tokio/latest/tokio/runtime/struct.Handle.html#method.current. However, there doesn't
