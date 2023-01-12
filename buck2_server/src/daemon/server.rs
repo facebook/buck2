@@ -78,6 +78,7 @@ use crate::ctx::ServerCommandContext;
 use crate::daemon::server_allocative::spawn_allocative;
 use crate::daemon::state::DaemonState;
 use crate::daemon::state::DaemonStateDiceConstructor;
+use crate::file_status::file_status_command;
 use crate::jemalloc_stats::jemalloc_stats;
 use crate::lsp::run_lsp_server_command;
 use crate::materialize::materialize_command;
@@ -787,6 +788,17 @@ impl DaemonApi for BuckdServer {
             let FlushDepFilesRequest {} = req;
             buck2_build_api::actions::impls::run::dep_files::flush_dep_files();
             Ok(GenericResponse {})
+        })
+        .await
+    }
+
+    type FileStatusStream = ResponseStream;
+    async fn file_status(
+        &self,
+        req: Request<FileStatusRequest>,
+    ) -> Result<Response<ResponseStream>, Status> {
+        self.run_streaming(req, DefaultCommandOptions, |context, req| {
+            file_status_command(context, req)
         })
         .await
     }

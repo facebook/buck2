@@ -17,6 +17,7 @@ use buck2_core::fs::working_dir::WorkingDir;
 use chrome_trace::ChromeTraceCommand;
 use crash::CrashCommand;
 use dice_dump::DiceDumpCommand;
+use file_status::FileStatusCommand;
 use flush_dep_files::FlushDepFilesCommand;
 use heap_dump::HeapDumpCommand;
 use internal_version::InternalVersionCommand;
@@ -39,6 +40,7 @@ mod crash;
 mod daemon_dir;
 mod dice_dump;
 mod exe;
+mod file_status;
 mod flush_dep_files;
 mod heap_dump;
 mod internal_version;
@@ -75,6 +77,8 @@ pub enum DebugCommand {
     Materialize(MaterializeCommand),
     // Upload RE logs given an RE session ID
     UploadReLogs(UploadReLogsCommand),
+    /// Validates that Buck2 and disk agree on the state of files.
+    FileStatus(FileStatusCommand),
 
     // Those 2 log commands kept here for historical compatibility
     /// Shows the commands that buck ran
@@ -120,6 +124,7 @@ impl DebugCommand {
             DebugCommand::Exe(cmd) => cmd.exec(matches, ctx),
             DebugCommand::Allocative(cmd) => cmd.exec(matches, ctx),
             DebugCommand::SetLogFilter(cmd) => cmd.exec(matches, ctx),
+            DebugCommand::FileStatus(cmd) => cmd.exec(matches, ctx),
         }
     }
 }

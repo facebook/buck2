@@ -425,6 +425,7 @@ message CommandStart {
     ProfileCommandStart profile = 31;
     BxlCommandStart bxl = 32;
     LspCommandStart lsp = 33;
+    FileStatusCommandStart file_status = 34;
   }
 }
 
@@ -496,6 +497,8 @@ message MaterializeCommandStart {
   // TODO fill this with useful fields
 }
 
+message FileStatusCommandStart {}
+
 message ProfileCommandStart {}
 
 message CommandEnd {
@@ -519,6 +522,7 @@ message CommandEnd {
     ProfileCommandEnd profile = 31;
     BxlCommandEnd bxl = 32;
     LspCommandEnd lsp = 33;
+    FileStatusCommandEnd file_status = 34;
   }
 
   bool is_success = 2;
@@ -592,6 +596,8 @@ message InstallCommandEnd {
 message MaterializeCommandEnd {
   // TODO fill this with useful fields
 }
+
+message FileStatusCommandEnd {}
 
 message ProfileCommandEnd {}
 

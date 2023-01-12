@@ -612,6 +612,12 @@ message CleanStaleResponse {
   string response = 1;
 }
 
+message FileStatusRequest {
+  ClientContext context = 1;
+  // The paths we want to learn about
+  repeated string paths = 2;
+}
+
 message FlushDepFilesRequest {}
 
 message SetLogFilterRequest {
@@ -644,6 +650,7 @@ service DaemonApi {
   rpc Install(InstallRequest) returns (stream CommandProgress);
   rpc Materialize(MaterializeRequest) returns (stream CommandProgress);
   rpc CleanStale(CleanStaleRequest) returns (stream CommandProgress);
+  rpc FileStatus(FileStatusRequest) returns (stream CommandProgress);
   rpc Profile2(ProfileRequest) returns (stream CommandProgress);
 
   // Crashes the Buck daemon. Unless you are writing tests or checking Buck2's

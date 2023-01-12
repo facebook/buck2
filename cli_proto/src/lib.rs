@@ -270,5 +270,6 @@ define_request!(ProfileRequest, has(context));
 define_request!(MaterializeRequest, has(context));
 define_request!(AllocativeRequest, has(context));
 define_request!(CleanStaleRequest, has(context));
+define_request!(FileStatusRequest, has(context));
 
 define_request!(InstallRequest, has(context, build_options));

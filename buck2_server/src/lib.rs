@@ -18,6 +18,7 @@ mod configs;
 mod ctx;
 pub mod daemon;
 mod dice_tracker;
+mod file_status;
 mod file_watcher;
 mod heartbeat_guard;
 mod host_info;
