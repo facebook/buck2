@@ -19,6 +19,7 @@ use std::cmp::Ordering;
 use std::fmt;
 use std::fmt::Display;
 use std::hash::Hash;
+use std::hash::Hasher;
 
 use allocative::Allocative;
 use gazebo::any::ProvidesStaticType;
@@ -35,6 +36,7 @@ use crate::docs;
 use crate::docs::DocItem;
 use crate::values::comparison::compare_small_map;
 use crate::values::comparison::equals_small_map;
+use crate::values::structs::unordered_hasher::UnorderedHasher;
 use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
@@ -138,15 +140,21 @@ where
     }
 
     fn write_hash(&self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {
-        // TODO(nga): hash and equality are inconsistent:
-        //   Hash is ordered, equality ignores order.
-        //   So structs like `struct(a=1, b=2)` and `struct(b=2, a=1)`
-        //   are equal but have different hashes.
+        // Must use unordered hash because equality is unordered,
+        // and `a = b  =>  hash(a) = hash(b)`.
+        let mut unordered_hasher = UnorderedHasher::new();
 
         for (k, v) in self.fields.iter_hashed() {
-            Hash::hash(&k, hasher);
-            v.write_hash(hasher)?;
+            // Should hash key and value together, so two structs
+            // `a=1 b=2` and `a=2 b=1` would produce different hashes.
+            let mut entry_hasher = StarlarkHasher::new();
+            k.hash().hash(&mut entry_hasher);
+            v.write_hash(&mut entry_hasher)?;
+            unordered_hasher.write_hash(entry_hasher.finish());
         }
+
+        hasher.write_u64(unordered_hasher.finish());
+
         Ok(())
     }
 

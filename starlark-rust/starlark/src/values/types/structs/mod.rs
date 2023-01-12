@@ -37,6 +37,7 @@
 pub(crate) mod alloc;
 pub(crate) mod of;
 pub(crate) mod refs;
+pub(crate) mod unordered_hasher;
 pub(crate) mod value;
 
 pub use crate::values::types::structs::alloc::AllocStruct;
