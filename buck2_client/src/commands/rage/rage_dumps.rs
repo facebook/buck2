@@ -22,6 +22,7 @@ use buck2_core::process::background_command;
 use buck2_events::trace::TraceId;
 use cli_proto::unstable_dice_dump_request::DiceDumpFormat;
 use cli_proto::UnstableDiceDumpRequest;
+use gazebo::prelude::*;
 
 #[derive(Debug, thiserror::Error)]
 enum DumpError {
@@ -42,7 +43,7 @@ pub async fn upload_dice_dump(
         .connect_buckd(BuckdConnectOptions::existing_only_no_console())
         .await?;
     let this_dump_folder_name = chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string();
-    let buck_out_dice = ctx.paths.dice_dump_dir();
+    let buck_out_dice = ctx.paths.as_ref().map_err(|e| e.dupe())?.dice_dump_dir();
 
     let manifold_filename = format!("{}_{}_dice-dump.gz", old_trace_id, new_trace_id);
 

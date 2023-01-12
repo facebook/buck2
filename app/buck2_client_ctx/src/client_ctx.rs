@@ -12,6 +12,7 @@ use std::str::FromStr;
 
 use anyhow::Context;
 use buck2_common::invocation_paths::InvocationPaths;
+use buck2_common::result::SharedResult;
 use buck2_core::fs::working_dir::WorkingDir;
 use buck2_events::trace::TraceId;
 use cli_proto::client_context::HostArchOverride as GrpcHostArchOverride;
@@ -56,7 +57,7 @@ impl ProcessContext {
 
 pub struct ClientCommandContext {
     pub init: fbinit::FacebookInit,
-    pub paths: InvocationPaths,
+    pub paths: SharedResult<InvocationPaths>,
     pub working_dir: WorkingDir,
     pub replayer: Option<sync_wrapper::SyncWrapper<Replayer>>,
     pub verbosity: Verbosity,
@@ -73,6 +74,13 @@ pub struct ClientCommandContext {
 impl ClientCommandContext {
     pub fn fbinit(&self) -> fbinit::FacebookInit {
         self.init
+    }
+
+    pub fn paths(&self) -> SharedResult<&InvocationPaths> {
+        match &self.paths {
+            Ok(p) => Ok(p),
+            Err(e) => Err(e.dupe()),
+        }
     }
 
     pub fn with_runtime<Fut: Future, F: FnOnce(ClientCommandContext) -> Fut>(
@@ -95,7 +103,7 @@ impl ClientCommandContext {
         options: BuckdConnectOptions,
     ) -> anyhow::Result<BuckdClientConnector> {
         BuckdConnectOptions { ..options }
-            .connect(&self.paths)
+            .connect(self.paths()?)
             .await
         .context("Failed to connect to buck daemon. Try running `buck2 clean` and your command afterwards. Alternatively, try running `rm -rf ~/.buck/buckd` and your command afterwards")
     }

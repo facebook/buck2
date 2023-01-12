@@ -33,6 +33,7 @@ use chrono::DateTime;
 use futures::future::FutureExt;
 use futures::future::LocalBoxFuture;
 use futures::TryStreamExt;
+use gazebo::prelude::*;
 use humantime::format_duration;
 use serde::Serialize;
 use thiserror::Error;
@@ -148,7 +149,7 @@ impl RageCommand {
 
         ctx.with_runtime(async move |mut ctx| {
             let timeout = Duration::from_secs(3600); // arbitrary timeout
-            let log_dir = ctx.paths.log_dir();
+            let log_dir = ctx.paths.as_ref().map_err(|e| e.dupe())?.log_dir();
             let logs = get_local_logs(&log_dir)?
                 .into_iter()
                 .rev() // newest first

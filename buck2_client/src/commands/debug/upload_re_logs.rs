@@ -31,7 +31,7 @@ impl UploadReLogsCommand {
         buck2_core::facebook_only();
 
         ctx.with_runtime(async move |ctx| {
-            let re_logs_location = ctx.paths.re_logs_dir();
+            let re_logs_location = ctx.paths()?.re_logs_dir();
             let logs_path = re_logs_location
                 .join(ForwardRelativePath::new(&self.session_id)?)
                 .join(ForwardRelativePath::new("REClientFolly.log")?);

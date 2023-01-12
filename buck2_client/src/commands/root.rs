@@ -66,16 +66,16 @@ impl RootCommand {
             RootKind::Package => return Err(RootError::PackageRootUnimplemented.into()),
             RootKind::Cell => match self.dir {
                 Some(dir) => find_invocation_roots(&dir.resolve(&ctx.working_dir))?.cell_root,
-                None => ctx.paths.cell_root().to_owned(),
+                None => ctx.paths()?.cell_root().to_owned(),
             },
             RootKind::Project => match self.dir {
                 Some(dir) => find_invocation_roots(&dir.resolve(&ctx.working_dir))?
                     .project_root
                     .root()
                     .to_owned(),
-                None => ctx.paths.project_root().root().to_owned(),
+                None => ctx.paths()?.project_root().root().to_owned(),
             },
-            RootKind::Daemon => ctx.paths.daemon_dir()?.path,
+            RootKind::Daemon => ctx.paths()?.daemon_dir()?.path,
         };
 
         buck2_client_ctx::println!("{}", root.to_string_lossy())?;

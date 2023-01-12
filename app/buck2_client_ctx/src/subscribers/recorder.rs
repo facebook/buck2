@@ -574,8 +574,8 @@ pub(crate) fn try_get_invocation_recorder(
                 ctx.async_cleanup_context().dupe(),
                 sink,
                 sanitized_argv,
-                BuildCountManager::new(ctx.paths.build_count_dir()),
-                ctx.paths.project_root().root().to_buf(),
+                BuildCountManager::new(ctx.paths()?.build_count_dir()),
+                ctx.paths()?.project_root().root().to_buf(),
             );
             return Ok(Some(Box::new(UnpackingEventSubscriberAsEventSubscriber(
                 recorder,

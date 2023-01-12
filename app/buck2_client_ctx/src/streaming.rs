@@ -132,7 +132,7 @@ impl<T: StreamingCommand> BuckSubcommand for T {
 
                 let buckd = match (ctx.replayer.take(), ctx.start_in_process_daemon.take()) {
                     (Some(replayer), _) => {
-                        connect_options.replay(replayer.into_inner(), &ctx.paths)?
+                        connect_options.replay(replayer.into_inner(), ctx.paths()?)?
                     }
                     (None, None) => ctx.connect_buckd(connect_options).await?,
                     (None, Some(start_in_process_daemon)) => {

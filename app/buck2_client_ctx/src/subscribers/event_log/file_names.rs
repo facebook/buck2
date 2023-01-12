@@ -74,7 +74,7 @@ pub fn retrieve_nth_recent_log(
     ctx: &ClientCommandContext,
     n: usize,
 ) -> anyhow::Result<AbsNormPathBuf> {
-    let log_dir = ctx.paths.log_dir();
+    let log_dir = ctx.paths()?.log_dir();
     let mut logfiles = get_local_logs(&log_dir)?;
     logfiles.reverse(); // newest first
     let chosen = logfiles

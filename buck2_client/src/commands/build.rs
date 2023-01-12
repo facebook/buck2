@@ -312,7 +312,7 @@ impl StreamingCommand for BuildCommand {
         if let Some(out) = &self.output_path {
             copy_to_out(
                 &response.build_targets,
-                ctx.paths.project_root(),
+                ctx.paths()?.project_root(),
                 &ctx.working_dir,
                 out,
             )

@@ -85,7 +85,7 @@ pub(crate) fn try_get_event_log_subscriber(
         // We don't want to write logs when replaying command
         return Ok(None);
     }
-    let logdir = ctx.paths.log_dir();
+    let logdir = ctx.paths()?.log_dir();
     let log = EventLog::new(
         logdir,
         ctx.working_dir.clone(),
@@ -108,7 +108,7 @@ pub(crate) fn try_get_re_log_subscriber(
         return Ok(None);
     }
     let log = ReLog::new(
-        ctx.paths.isolation.clone(),
+        ctx.paths()?.isolation.clone(),
         ctx.async_cleanup_context().dupe(),
     );
     Ok(Some(box UnpackingEventSubscriberAsEventSubscriber(log)))

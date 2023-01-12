@@ -16,7 +16,7 @@ pub struct DaemonDirCommand {}
 
 impl DaemonDirCommand {
     pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext) -> ExitResult {
-        buck2_client_ctx::println!("{}", ctx.paths.daemon_dir()?.path.display())?;
+        buck2_client_ctx::println!("{}", ctx.paths?.daemon_dir()?.path.display())?;
         ExitResult::success()
     }
 }

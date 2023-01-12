@@ -212,7 +212,7 @@ impl StreamingCommand for TargetsCommand {
         if self.show_output {
             targets_show_outputs(ctx.stdin(), buckd, target_request, None, &self.console_opts).await
         } else if self.show_full_output {
-            let project_root = ctx.paths.roots.project_root.clone();
+            let project_root = ctx.paths()?.roots.project_root.clone();
             targets_show_outputs(
                 ctx.stdin(),
                 buckd,

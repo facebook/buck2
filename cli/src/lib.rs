@@ -56,6 +56,7 @@ use buck2_client_ctx::verbosity::Verbosity;
 use buck2_client_ctx::version::BuckVersion;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::invocation_roots::find_invocation_roots;
+use buck2_common::result::ToSharedResultExt;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::working_dir::WorkingDir;
@@ -236,11 +237,13 @@ impl CommandKind {
         log_reload_handle: Box<dyn LogConfigurationReloadHandle>,
         replay: Option<(ProcessContext, Replayer)>,
     ) -> ExitResult {
-        let roots = find_invocation_roots(working_dir.path())?;
-        let paths = InvocationPaths {
-            roots,
-            isolation: common_opts.isolation_dir,
-        };
+        let roots = find_invocation_roots(working_dir.path());
+        let paths = roots
+            .map(|r| InvocationPaths {
+                roots: r,
+                isolation: common_opts.isolation_dir,
+            })
+            .shared_error();
 
         // Handle the daemon command earlier: it wants to fork, but the things we do below might
         // want to create threads.
@@ -249,7 +252,7 @@ impl CommandKind {
                 .exec(
                     init,
                     log_reload_handle,
-                    paths,
+                    paths?,
                     common_opts.detect_cycles,
                     || {},
                 )
@@ -268,7 +271,7 @@ impl CommandKind {
 
         let start_in_process_daemon: Option<Box<dyn FnOnce() -> anyhow::Result<()> + Send + Sync>> =
             if common_opts.no_buckd {
-                let paths = paths.clone();
+                let paths = paths.clone()?;
                 // Create a function which spawns an in-process daemon.
                 Some(box move || {
                     let (tx, rx) = std::sync::mpsc::channel();
