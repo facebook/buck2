@@ -29,7 +29,7 @@ pub struct FileStatusCommand {
     event_log_opts: CommonDaemonCommandOptions,
 
     /// Paths to validate, relative to project root
-    #[clap(value_name = "PATH")]
+    #[clap(value_name = "PATH", required = true)]
     paths: Vec<String>,
 }
 
