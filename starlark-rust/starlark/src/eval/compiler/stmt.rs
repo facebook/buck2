@@ -59,7 +59,7 @@ use crate::syntax::ast::StmtP;
 use crate::values::dict::Dict;
 use crate::values::dict::DictMut;
 use crate::values::dict::DictRef;
-use crate::values::list::List;
+use crate::values::types::list::value::List;
 use crate::values::FrozenHeap;
 use crate::values::FrozenValue;
 use crate::values::Heap;

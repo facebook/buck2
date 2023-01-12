@@ -47,7 +47,6 @@ use crate::values::layout::heap::repr::ForwardPtr;
 use crate::values::layout::vtable::AValueDyn;
 use crate::values::layout::vtable::AValueVTable;
 use crate::values::list::value::ListGen;
-use crate::values::list::List;
 use crate::values::none::NoneType;
 use crate::values::num::Num;
 use crate::values::string::StarlarkStr;
@@ -55,6 +54,7 @@ use crate::values::traits::StarlarkValueDyn;
 use crate::values::types::any_array::AnyArray;
 use crate::values::types::array::Array;
 use crate::values::types::list::value::FrozenListData;
+use crate::values::types::list::value::List;
 use crate::values::types::tuple::FrozenTuple;
 use crate::values::types::tuple::Tuple;
 use crate::values::ComplexValue;
@@ -796,7 +796,7 @@ impl<'v, Mode: 'static, T: StarlarkValue<'v>> Serialize for AValueImpl<Mode, T> 
 #[cfg(test)]
 mod tests {
     use crate::environment::Module;
-    use crate::values::list::List;
+    use crate::values::types::list::value::List;
 
     #[test]
     fn tuple_cycle_freeze() {

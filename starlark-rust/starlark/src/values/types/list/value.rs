@@ -73,7 +73,7 @@ pub(crate) struct ListGen<T>(pub(crate) T);
 
 /// Define the mutable list type.
 #[derive(Trace, Debug, ProvidesStaticType, Allocative)]
-pub struct List<'v> {
+pub(crate) struct List<'v> {
     /// The data stored by the list.
     #[allocative(skip)]
     pub(crate) content: Cell<ValueTyped<'v, Array<'v>>>,
@@ -308,14 +308,6 @@ impl<'v> List<'v> {
     /// holding the slice. But such mutation does not violate memory-safety.
     pub fn content(&self) -> &[Value<'v>] {
         self.content.get().as_ref().content()
-    }
-
-    /// Iterate over the elements in the list.
-    pub fn iter<'a>(&'a self) -> impl ExactSizeIterator<Item = Value<'v>> + 'a
-    where
-        'v: 'a,
-    {
-        self.content.get().as_ref().iter()
     }
 }
 

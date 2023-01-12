@@ -65,7 +65,7 @@ use crate::values::types::bool::StarlarkBool;
 use crate::values::types::dict::Dict;
 use crate::values::types::float::StarlarkFloat;
 use crate::values::types::list::value::FrozenListData;
-use crate::values::types::list::List;
+use crate::values::types::list::value::List;
 use crate::values::types::range::Range;
 use crate::values::types::string::interpolation::format_one;
 use crate::values::types::string::interpolation::percent_s_one;
