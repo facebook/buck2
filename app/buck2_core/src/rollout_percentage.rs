@@ -163,7 +163,7 @@ mod tests {
             RolloutPercentage {
                 inner: Inner::Bool(true)
             }
-            .roll_inner(&hostname)
+            .roll_inner(hostname)
         );
 
         for _ in 0..1000 {
@@ -171,13 +171,13 @@ mod tests {
                 RolloutPercentage {
                     inner: Inner::Rate(1.0)
                 }
-                .roll_inner(&hostname)
+                .roll_inner(hostname)
             );
             assert!(
                 !RolloutPercentage {
                     inner: Inner::Rate(0.0)
                 }
-                .roll_inner(&hostname)
+                .roll_inner(hostname)
             );
         }
 
@@ -186,13 +186,13 @@ mod tests {
                 RolloutPercentage {
                     inner: Inner::Hostname(1.0)
                 }
-                .roll_inner(&hostname)
+                .roll_inner(hostname)
             );
             assert!(
                 !RolloutPercentage {
                     inner: Inner::Hostname(0.0)
                 }
-                .roll_inner(&hostname)
+                .roll_inner(hostname)
             );
         }
     }
@@ -205,14 +205,14 @@ mod tests {
             !RolloutPercentage {
                 inner: Inner::Hostname(0.99999)
             }
-            .roll_inner(&hostname)
+            .roll_inner(hostname)
         );
 
         assert!(
             RolloutPercentage {
                 inner: Inner::Hostname(1.0)
             }
-            .roll_inner(&hostname)
+            .roll_inner(hostname)
         );
     }
 }
