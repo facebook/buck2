@@ -37,6 +37,6 @@ registration_spec = RuleRegistrationSpec(
         # .tar.gz archive with the contents of the result directory
         "contents_archive": attrs.source(),
         # name of the result directory, if omitted, `name` attribute will be used instead
-        "directory_name": attrs.option(attrs.string()),
+        "directory_name": attrs.option(attrs.string(), default = None),
     },
 )

@@ -36,7 +36,7 @@ def _apple_bundle_base_attrs():
         "resource_group_map": attrs.option(attrs.list(attrs.tuple(attrs.string(), attrs.list(attrs.tuple(attrs.dep(), attrs.enum(Traversal), attrs.option(attrs.string()))))), default = None),
         "skip_copying_swift_stdlib": attrs.option(attrs.bool(), default = None),
         "try_skip_code_signing": attrs.option(attrs.bool(), default = None),
-        "within_view": attrs.option(attrs.list(attrs.string())),
+        "within_view": attrs.option(attrs.list(attrs.string()), default = None),
         "xcode_product_type": attrs.option(attrs.string(), default = None),
     }
 
