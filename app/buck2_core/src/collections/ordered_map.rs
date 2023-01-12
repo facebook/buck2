@@ -63,6 +63,21 @@ impl<K, V> OrderedMap<K, V> {
         self.0.get(k)
     }
 
+    /// Find an entry by an index.
+    #[inline]
+    pub fn get_index(&self, index: usize) -> Option<(&K, &V)> {
+        self.0.get_index(index)
+    }
+
+    /// Find an entry index for a given key.
+    #[inline]
+    pub fn get_index_of<Q>(&self, key: &Q) -> Option<usize>
+    where
+        Q: Hash + Equivalent<K> + ?Sized,
+    {
+        self.0.get_index_of(key)
+    }
+
     pub fn contains_key<Q>(&self, k: &Q) -> bool
     where
         Q: Hash + Equivalent<K> + ?Sized,
