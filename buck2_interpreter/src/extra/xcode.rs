@@ -16,11 +16,12 @@ use serde::Deserialize;
 
 const XCODE_SELECT_SYMLINK: &str = "/var/db/xcode_select_link";
 
-/// Only fields we care about from Xcode Info.plist.
+/// Only fields we care about from Xcode version.plist.
 #[derive(Deserialize)]
 #[allow(non_snake_case)]
-struct XcodeInfoPlist {
+struct XcodeVersionPlistSchema {
     CFBundleShortVersionString: String,
+    ProductBuildVersion: String,
 }
 
 /// Versioning information for the currently selected Xcode on the host machine.
@@ -39,20 +40,20 @@ pub struct XcodeVersionInfo {
 }
 
 impl XcodeVersionInfo {
-    // Construct from Info.plist in root of Xcode install dir.
+    // Construct from version.plist in root of Xcode install dir.
     pub fn new() -> anyhow::Result<Self> {
         let resolved_xcode_path = fs_util::canonicalize(&PathBuf::from(XCODE_SELECT_SYMLINK))
             .context("resolve selected xcode link")?;
         let plist_path = resolved_xcode_path
             .parent()
-            .map(|base| base.join("Info.plist"))
-            .ok_or_else(|| anyhow::anyhow!("unable to construct path to Xcode Info.plist"))?;
-        Self::from_info_plist(&plist_path)
+            .map(|base| base.join("version.plist"))
+            .ok_or_else(|| anyhow::anyhow!("unable to construct path to Xcode version.plist"))?;
+        Self::from_plist(&plist_path)
     }
 
-    pub(crate) fn from_info_plist(plist_path: &Path) -> anyhow::Result<Self> {
-        let plist: XcodeInfoPlist =
-            plist::from_file(plist_path).context("deserializing Xcode Info.plist")?;
+    pub(crate) fn from_plist(plist_path: &Path) -> anyhow::Result<Self> {
+        let plist: XcodeVersionPlistSchema =
+            plist::from_file(plist_path).context("deserializing Xcode version.plist")?;
 
         let version_parts = &mut plist.CFBundleShortVersionString.split('.');
         let major = version_parts.next().map(|v| v.to_owned());
@@ -61,14 +62,14 @@ impl XcodeVersionInfo {
             .next()
             .map(|v| v.to_owned())
             .or_else(|| Some("0".to_owned()));
+        let build_number = Some(plist.ProductBuildVersion);
 
         Ok(Self {
             version_string: Some(plist.CFBundleShortVersionString),
             major_version: major,
             minor_version: minor,
             patch_version: patch,
-            // Build Identifier isn't actually stored in Info.plist. Weird.
-            build_number: None,
+            build_number,
         })
     }
 }
@@ -86,7 +87,7 @@ mod tests {
             .recursive(true)
             .create(&fake_xcode_dir)
             .unwrap();
-        let plist_path = fake_xcode_dir.join("Info.plist");
+        let plist_path = fake_xcode_dir.join("version.plist");
         fs::write(&plist_path, plist_content).expect("failed to write plist");
         (workspace, plist_path)
     }
@@ -99,22 +100,30 @@ mod tests {
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>CFBundleIconName</key>
-    <string>Xcode</string>
-    <key>CFBundleShortVersionString</key>
-    <string>14.0.1</string>
+        <key>BuildVersion</key>
+        <string>2</string>
+        <key>CFBundleShortVersionString</key>
+        <string>14.1.2</string>
+        <key>CFBundleVersion</key>
+        <string>21534.1</string>
+        <key>ProductBuildVersion</key>
+        <string>14B47b</string>
+        <key>ProjectName</key>
+        <string>IDEFrameworks</string>
+        <key>SourceVersion</key>
+        <string>21534001000000000</string>
 </dict>
 </plist>
         "#,
         );
 
-        let got = XcodeVersionInfo::from_info_plist(&plist).expect("failed to parse version info");
+        let got = XcodeVersionInfo::from_plist(&plist).expect("failed to parse version info");
         let want = XcodeVersionInfo {
-            version_string: Some("14.0.1".to_owned()),
+            version_string: Some("14.1.2".to_owned()),
             major_version: Some("14".to_owned()),
-            minor_version: Some("0".to_owned()),
-            patch_version: Some("1".to_owned()),
-            build_number: None,
+            minor_version: Some("1".to_owned()),
+            patch_version: Some("2".to_owned()),
+            build_number: Some("14B47b".to_owned()),
         };
         assert_eq!(want, got);
     }
@@ -127,50 +136,30 @@ mod tests {
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>CFBundleIconName</key>
-    <string>Xcode</string>
-    <key>CFBundleShortVersionString</key>
-    <string>14.0</string>
+        <key>BuildVersion</key>
+        <string>2</string>
+        <key>CFBundleShortVersionString</key>
+        <string>14.1</string>
+        <key>CFBundleVersion</key>
+        <string>21534.1</string>
+        <key>ProductBuildVersion</key>
+        <string>14B47b</string>
+        <key>ProjectName</key>
+        <string>IDEFrameworks</string>
+        <key>SourceVersion</key>
+        <string>21534001000000000</string>
 </dict>
 </plist>
         "#,
         );
 
-        let got = XcodeVersionInfo::from_info_plist(&plist).expect("failed to parse version info");
+        let got = XcodeVersionInfo::from_plist(&plist).expect("failed to parse version info");
         let want = XcodeVersionInfo {
-            version_string: Some("14.0".to_owned()),
+            version_string: Some("14.1".to_owned()),
             major_version: Some("14".to_owned()),
-            minor_version: Some("0".to_owned()),
+            minor_version: Some("1".to_owned()),
             patch_version: Some("0".to_owned()),
-            build_number: None,
-        };
-        assert_eq!(want, got);
-    }
-
-    #[test]
-    fn test_resolves_version_from_plist_beta() {
-        let (_t, plist) = write_plist(
-            r#"
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>CFBundleIconName</key>
-    <string>XcodeBeta</string>
-    <key>CFBundleShortVersionString</key>
-    <string>14.0</string>
-</dict>
-</plist>
-        "#,
-        );
-
-        let got = XcodeVersionInfo::from_info_plist(&plist).expect("failed to parse version info");
-        let want = XcodeVersionInfo {
-            version_string: Some("14.0".to_owned()),
-            major_version: Some("14".to_owned()),
-            minor_version: Some("0".to_owned()),
-            patch_version: Some("0".to_owned()),
-            build_number: None,
+            build_number: Some("14B47b".to_owned()),
         };
         assert_eq!(want, got);
     }
