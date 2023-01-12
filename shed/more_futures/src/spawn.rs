@@ -23,6 +23,7 @@ use futures::future::BoxFuture;
 use futures::FutureExt;
 use pin_project::pin_project;
 use tokio::sync::oneshot;
+use tracing::debug;
 use tracing::Span;
 
 use crate::instrumented_shared::SharedEvents;
@@ -108,6 +109,7 @@ where
                     Poll::Ready(t) => {
                         // don't run on_cancel since we are ready now
                         inner.on_cancel.take();
+                        debug!(parent: this.instrumented_span.id(), "poll ready and deleted cancel");
                         Poll::Ready(Some(t))
                     }
                     Poll::Pending => Poll::Pending,
@@ -117,6 +119,8 @@ where
         };
 
         CURRENT_TASK_GUARD.with(|g| g.replace(old_guard));
+
+        debug!(parent: this.instrumented_span.id(), "drop cancel result ready");
 
         res.map(|_| ())
     }
@@ -165,9 +169,15 @@ where
     //
     // We can ignore any error from tx.send because the only instance of an error is when
     // the receiver was dropped by the client (the result is no longer useful).
+    let id = span.id();
     let task = async move {
         let res = task.await;
-        let _ignored = tx.send(res);
+        let ignored = tx.send(res);
+        debug!(
+            parent: id,
+            status = %ignored.is_ok(),
+            m = "task complete and sent to channel",
+        );
     };
 
     let (weak_task, guard) = guarded_rc(RefCell::new(DropCancelInner {
@@ -215,9 +225,15 @@ where
     //
     // We can ignore any error from tx.send because the only instance of an error is when
     // the receiver was dropped by the client (the result is no longer useful).
+    let id = span.id();
     let task = async move {
         let res = task.await;
-        let _ignored = tx.send(res);
+        let ignored = tx.send(res);
+        debug!(
+            parent: id,
+            status = %ignored.is_ok(),
+            m = "task complete and sent to channel",
+        );
     };
 
     let (weak_task, guard) = guarded_rc(RefCell::new(DropCancelInner {

@@ -413,6 +413,8 @@ where
                     );
                 }
 
+                debug!("finished. returning result");
+
                 res
             },
             {
@@ -425,7 +427,8 @@ where
                         match engine.currently_running.read().get(&v) {
                             None => {}
                             Some(map) => {
-                                match map.entry(k) {
+                                debug!(msg = "cancelling... awaiting lock", k = %k, v = %v);
+                                match map.entry(k.clone()) {
                                     Entry::Occupied(entry) => {
                                         // on cancellation, we must check that the `currently_running` entry
                                         // is still of an entry that is canceled. This is because we allow
@@ -445,10 +448,12 @@ where
                                         // this thread is never responsible for dropping another future.
                                         if !entry.get().is_pollable() {
                                             entry.remove();
+                                            debug!(msg = "cancelling... future removed", k = %k, v = %v);
                                         }
                                     }
                                     Entry::Vacant(_) => {}
                                 }
+                                debug!(msg = "cancelling... complete", k = %k, v = %v);
                             }
                         }
                     }
