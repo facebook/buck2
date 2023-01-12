@@ -20,8 +20,8 @@ use std::iter;
 use starlark_map::small_map::SmallMap;
 
 use crate::values::dict::value::DictGen;
+use crate::values::dict::value::FrozenDict;
 use crate::values::dict::Dict;
-use crate::values::dict::FrozenDict;
 use crate::values::layout::value::ValueLike;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocFrozenValue;

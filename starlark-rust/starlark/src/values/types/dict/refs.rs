@@ -24,8 +24,8 @@ use gazebo::cell::ARef;
 use gazebo::coerce::coerce;
 
 use crate::values::dict::value::DictGen;
+use crate::values::dict::value::FrozenDict;
 use crate::values::dict::Dict;
-use crate::values::dict::FrozenDict;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::FrozenValue;
 use crate::values::UnpackValue;

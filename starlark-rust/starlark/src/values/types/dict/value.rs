@@ -95,7 +95,7 @@ impl<'v> Display for Dict<'v> {
     }
 }
 
-/// Define the list type. See [`Dict`] and [`FrozenDict`] as the two possible representations.
+/// Define the dict type.
 #[derive(Clone, Default, Trace, Debug, ProvidesStaticType, Allocative)]
 #[repr(transparent)]
 pub struct Dict<'v> {
@@ -112,7 +112,7 @@ impl<'v> StarlarkTypeRepr for Dict<'v> {
 /// Define the list type. See [`Dict`] and [`FrozenDict`] as the two possible representations.
 #[derive(Clone, Default, Debug, ProvidesStaticType, Allocative)]
 #[repr(transparent)]
-pub struct FrozenDict {
+pub(crate) struct FrozenDict {
     /// The data stored by the dictionary. The keys must all be hashable values.
     pub(crate) content: SmallMap<FrozenValue, FrozenValue>,
 }
@@ -140,15 +140,6 @@ impl<'v> Dict<'v> {
     pub(crate) unsafe fn from_value_unchecked_mut(x: Value<'v>) -> RefMut<'v, Self> {
         let dict = &x.downcast_ref_unchecked::<DictGen<RefCell<Dict<'v>>>>().0;
         dict.borrow_mut()
-    }
-}
-
-impl FrozenDict {
-    /// Obtain the [`FrozenDict`] pointed at by a [`FrozenValue`].
-    #[allow(clippy::trivially_copy_pass_by_ref)]
-    // We need a lifetime because FrozenValue doesn't contain the right lifetime
-    pub fn from_frozen_value(x: &FrozenValue) -> Option<&FrozenDict> {
-        x.downcast_ref::<DictGen<FrozenDict>>().map(|x| &x.0)
     }
 }
 
@@ -292,29 +283,6 @@ impl FrozenDict {
     /// Iterate through the key/value pairs in the dictionary.
     pub fn iter<'a>(&'a self) -> impl ExactSizeIterator<Item = (FrozenValue, FrozenValue)> + 'a {
         self.content.iter().map(|(l, r)| (*l, *r))
-    }
-
-    /// Iterate through the key/value pairs in the dictionary, but retaining the hash of the keys.
-    pub fn iter_hashed<'a>(
-        &'a self,
-    ) -> impl Iterator<Item = (Hashed<FrozenValue>, FrozenValue)> + 'a {
-        self.content.iter_hashed().map(|(l, r)| (l.copied(), *r))
-    }
-
-    /// Iterator over keys.
-    pub fn keys<'a>(&'a self) -> impl Iterator<Item = FrozenValue> + 'a {
-        self.content.keys().copied()
-    }
-
-    /// Iterator over keys.
-    pub fn values<'a>(&'a self) -> impl Iterator<Item = FrozenValue> + 'a {
-        self.content.values().copied()
-    }
-
-    /// Get the value associated with a particular key. Will be [`Err`] if the key is not hashable,
-    /// and otherwise [`Some`] if the key exists in the dictionary and [`None`] otherwise.
-    pub fn get<'v>(&self, key: Value<'v>) -> anyhow::Result<Option<FrozenValue>> {
-        Ok(self.content.get_hashed_by_value(key.get_hashed()?).copied())
     }
 
     /// Get the value associated with a particular string. Equivalent to allocating the
