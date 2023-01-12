@@ -53,7 +53,6 @@ def apple_test_impl(ctx: "context") -> ["provider"]:
                 compilation_database = False,
                 headers = False,
                 link_group_map = False,
-                link_style_outputs = False,
             ),
             generate_providers = CxxRuleProviderParams(
                 compilation_database = True,
