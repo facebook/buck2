@@ -15,8 +15,6 @@
  * limitations under the License.
  */
 
-//! The list type, an immutable sequence of values.
-
 use std::cmp::Ordering;
 use std::fmt;
 use std::fmt::Debug;
@@ -39,8 +37,6 @@ use crate::values::comparison::compare_slice;
 use crate::values::comparison::equals_slice;
 use crate::values::index::apply_slice;
 use crate::values::index::convert_index;
-use crate::values::type_repr::StarlarkTypeRepr;
-use crate::values::AllocValue;
 use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
@@ -262,76 +258,6 @@ impl<'v, V: ValueLike<'v>> Serialize for TupleGen<V> {
         }
 
         tuple_serializer.end()
-    }
-}
-
-impl<'v, T1: AllocValue<'v>> AllocValue<'v> for (T1,) {
-    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
-        heap.alloc_tuple(&[self.0.alloc_value(heap)])
-    }
-}
-
-impl<'v, T1: AllocValue<'v>, T2: AllocValue<'v>> AllocValue<'v> for (T1, T2) {
-    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
-        heap.alloc_tuple(&[self.0.alloc_value(heap), self.1.alloc_value(heap)])
-    }
-}
-
-impl<'v, T1: AllocValue<'v>, T2: AllocValue<'v>, T3: AllocValue<'v>> AllocValue<'v>
-    for (T1, T2, T3)
-{
-    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
-        heap.alloc_tuple(&[
-            self.0.alloc_value(heap),
-            self.1.alloc_value(heap),
-            self.2.alloc_value(heap),
-        ])
-    }
-}
-
-impl<T1: StarlarkTypeRepr, T2: StarlarkTypeRepr> StarlarkTypeRepr for (T1, T2) {
-    fn starlark_type_repr() -> String {
-        format!(
-            "({}, {})",
-            T1::starlark_type_repr(),
-            T2::starlark_type_repr()
-        )
-    }
-}
-
-impl<T1: StarlarkTypeRepr> StarlarkTypeRepr for (T1,) {
-    fn starlark_type_repr() -> String {
-        format!("({},)", T1::starlark_type_repr())
-    }
-}
-
-impl<T1: StarlarkTypeRepr, T2: StarlarkTypeRepr, T3: StarlarkTypeRepr> StarlarkTypeRepr
-    for (T1, T2, T3)
-{
-    fn starlark_type_repr() -> String {
-        format!(
-            "({}, {}, {})",
-            T1::starlark_type_repr(),
-            T2::starlark_type_repr(),
-            T3::starlark_type_repr()
-        )
-    }
-}
-
-impl<'v, T1: UnpackValue<'v>, T2: UnpackValue<'v>> UnpackValue<'v> for (T1, T2) {
-    fn expected() -> String {
-        format!("tuple ({}, {})", T1::expected(), T2::expected())
-    }
-
-    fn unpack_value(value: Value<'v>) -> Option<Self> {
-        let t = Tuple::from_value(value)?;
-        if t.len() != 2 {
-            return None;
-        }
-        Some((
-            T1::unpack_value(t.content()[0])?,
-            T2::unpack_value(t.content()[1])?,
-        ))
     }
 }
 
