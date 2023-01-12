@@ -433,7 +433,6 @@ pub mod testing {
             attrs: Vec<(&str, Attribute, CoercedAttr)>,
         ) -> TargetNode {
             let mut indices = OrderedMap::with_capacity(attrs.len());
-            let mut instances = Vec::with_capacity(attrs.len());
             let mut attributes = AttrValues::with_capacity(attrs.len());
 
             let mut deps_cache = CoercedDepsCollector::new();
@@ -442,8 +441,7 @@ pub mod testing {
                 let idx = AttributeId {
                     index_in_attribute_spec,
                 };
-                indices.insert(name.to_owned(), idx);
-                instances.push(attr);
+                indices.insert(name.to_owned(), attr);
                 val.traverse(&mut deps_cache).unwrap();
                 attributes.push_sorted(idx, val);
             }
@@ -454,7 +452,7 @@ pub mod testing {
             ));
             TargetNode::new(
                 Arc::new(Rule {
-                    attributes: AttributeSpec::testing_new(indices, instances),
+                    attributes: AttributeSpec::testing_new(indices),
                     rule_type,
                     rule_kind: RuleKind::Normal,
                     cfg: None,

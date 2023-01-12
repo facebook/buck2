@@ -26,10 +26,7 @@ use crate::attrs::values::AttrValues;
 /// only for the values that are explicitly set. Default values need to be looked up through the AttributeSpec.
 #[derive(Debug, Eq, PartialEq, Hash, Allocative)]
 pub struct AttributeSpec {
-    // TODO(nga): either "map" or "ordered" is redundant here:
-    //   `AttributeId` in `indices` is always equal to the index of the entry in ordered map.
-    indices: OrderedMap<String, AttributeId>,
-    attributes: Vec<Attribute>,
+    attributes: OrderedMap<String, Attribute>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -46,31 +43,19 @@ impl AttributeSpec {
     pub fn from(attributes: Vec<(String, Attribute)>) -> anyhow::Result<Self> {
         let internal_attrs = internal_attrs();
 
-        let mut indices = OrderedMap::with_capacity(attributes.len() + internal_attrs.len());
-        let mut instances = Vec::with_capacity(attributes.len());
+        let mut instances: OrderedMap<String, Attribute> =
+            OrderedMap::with_capacity(attributes.len());
         for (name, instance) in internal_attrs {
-            let index_in_attribute_spec = indices.len();
-            if indices
-                .insert(
-                    (*name).to_owned(),
-                    AttributeId {
-                        index_in_attribute_spec,
-                    },
-                )
-                .is_some()
-            {
+            let prev = instances.insert((*name).to_owned(), instance.clone());
+            if prev.is_some() {
                 unreachable!("duplicate internal attr: '{}'", name);
             }
-            instances.push(instance.clone());
         }
 
         for (name, instance) in attributes.into_iter() {
-            let index_in_attribute_spec = indices.len();
-            match indices.entry(name) {
+            match instances.entry(name) {
                 small_map::Entry::Vacant(e) => {
-                    e.insert(AttributeId {
-                        index_in_attribute_spec,
-                    });
+                    e.insert(instance);
                 }
                 small_map::Entry::Occupied(e) => {
                     let name = e.key();
@@ -85,11 +70,9 @@ impl AttributeSpec {
                     }
                 }
             }
-            instances.push(instance);
         }
 
-        Ok(Self {
-            indices,
+        Ok(AttributeSpec {
             attributes: instances,
         })
     }
@@ -99,22 +82,38 @@ impl AttributeSpec {
         self.attributes.len()
     }
 
-    pub fn attr_specs(&self) -> impl Iterator<Item = (&str, AttributeId, &Attribute)> {
-        self.indices.iter().map(|(name, id)| {
-            (
-                name.as_str(),
-                *id,
-                &self.attributes[id.index_in_attribute_spec],
-            )
-        })
+    pub fn attr_specs(&self) -> impl ExactSizeIterator<Item = (&str, AttributeId, &Attribute)> {
+        self.attributes
+            .iter()
+            .enumerate()
+            .map(|(index_in_attribute_spec, (name, attribute))| {
+                (
+                    name.as_str(),
+                    AttributeId {
+                        index_in_attribute_spec,
+                    },
+                    attribute,
+                )
+            })
     }
 
     fn attribute_by_id(&self, id: AttributeId) -> &Attribute {
-        &self.attributes[id.index_in_attribute_spec]
+        self.attributes
+            .get_index(id.index_in_attribute_spec)
+            .unwrap()
+            .1
+    }
+
+    fn attribute_id_by_name(&self, name: &str) -> Option<AttributeId> {
+        self.attributes
+            .get_index_of(name)
+            .map(|index_in_attribute_spec| AttributeId {
+                index_in_attribute_spec,
+            })
     }
 
     pub fn attribute(&self, name: &str) -> Option<&Attribute> {
-        Some(self.attribute_by_id(*self.indices.get(name)?))
+        self.attributes.get(name)
     }
 
     /// Returns an iterator over all of the attribute (name, value) pairs.
@@ -174,8 +173,8 @@ impl AttributeSpec {
         key: &str,
         opts: AttrInspectOptions,
     ) -> Option<&'v CoercedAttr> {
-        if let Some(idx) = self.indices.get(key) {
-            self.known_attr_or_none(*idx, attr_values, opts)
+        if let Some(idx) = self.attribute_id_by_name(key) {
+            self.known_attr_or_none(idx, attr_values, opts)
         } else {
             None
         }
@@ -187,8 +186,8 @@ impl AttributeSpec {
         key: &str,
         opts: AttrInspectOptions,
     ) -> anyhow::Result<Option<&'v CoercedAttr>> {
-        if let Some(idx) = self.indices.get(key) {
-            Ok(self.known_attr_or_none(*idx, attr_values, opts))
+        if let Some(idx) = self.attribute_id_by_name(key) {
+            Ok(self.known_attr_or_none(idx, attr_values, opts))
         } else {
             Err(AttributeSpecError::UnknownAttribute(key.to_owned()).into())
         }
@@ -200,18 +199,11 @@ pub(crate) mod testing {
     use buck2_core::collections::ordered_map::OrderedMap;
 
     use crate::attrs::attr::Attribute;
-    use crate::attrs::id::AttributeId;
     use crate::attrs::spec::AttributeSpec;
 
     impl AttributeSpec {
-        pub(crate) fn testing_new(
-            indices: OrderedMap<String, AttributeId>,
-            attributes: Vec<Attribute>,
-        ) -> AttributeSpec {
-            AttributeSpec {
-                indices,
-                attributes,
-            }
+        pub(crate) fn testing_new(attributes: OrderedMap<String, Attribute>) -> AttributeSpec {
+            AttributeSpec { attributes }
         }
     }
 }
