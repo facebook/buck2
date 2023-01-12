@@ -30,7 +30,7 @@ AppleBundlePart = record(
 )
 
 def bundle_output(ctx: "context") -> "artifact":
-    bundle_dir_name = _get_bundle_dir_name(ctx)
+    bundle_dir_name = get_bundle_dir_name(ctx)
     output = ctx.actions.declare_output(bundle_dir_name)
     return output
 
@@ -125,7 +125,7 @@ def assemble_bundle(ctx: "context", bundle: "artifact", parts: [AppleBundlePart.
         **run_incremental_args
     )
 
-def _get_bundle_dir_name(ctx: "context") -> str.type:
+def get_bundle_dir_name(ctx: "context") -> str.type:
     return paths.replace_extension(get_product_name(ctx), "." + get_extension_attr(ctx))
 
 def _bundle_relative_destination_path(ctx: "context", part: AppleBundlePart.type) -> str.type:
