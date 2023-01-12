@@ -25,7 +25,7 @@ pub fn initialize(fb: FacebookInit) {
         hook(info);
     });
     buck2_core::error::initialize(box move |category, err, loc| {
-        imp::write_soft_error_to_scribe(
+        imp::write_soft_error(
             fb,
             category,
             err,
@@ -136,7 +136,7 @@ mod imp {
         write_to_scribe(fb, panic_payload(location, message));
     }
 
-    pub(crate) fn write_soft_error_to_scribe(
+    pub(crate) fn write_soft_error(
         fb: FacebookInit,
         category: &'static str,
         err: &anyhow::Error,
@@ -147,7 +147,17 @@ mod imp {
             format!("Soft Error: {}: {:#}", category, err),
         );
 
-        buck2_server::active_commands::broadcast_instant_event(&event);
+        // If the soft error was fired in a context with an ambient dispatcher, then we only send
+        // it there, but some contexts don't have one, and in that case, we notify all running
+        // commands.
+        match buck2_events::dispatch::get_dispatcher_opt() {
+            Some(dispatcher) => {
+                dispatcher.instant_event(event.clone());
+            }
+            None => {
+                buck2_server::active_commands::broadcast_instant_event(&event);
+            }
+        }
 
         write_to_scribe(fb, event);
     }
