@@ -1004,7 +1004,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 .materializer_state_table()
                 .insert(path, metadata, Utc::now())
             {
-                quiet_soft_error!("materializer_error", e).unwrap();
+                quiet_soft_error!("materializer_declare_existing_error", e).unwrap();
             }
         }
     }
@@ -1235,7 +1235,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                             .materializer_state_table()
                             .update_access_time(path.to_buf(), timestamp)
                         {
-                            quiet_soft_error!("materializer_error", e).unwrap();
+                            quiet_soft_error!("materializer_materialize_error", e).unwrap();
                         }
                     }
 
@@ -1514,7 +1514,7 @@ impl ArtifactTree {
                             // TODO (torozco): Soft-erroring here is not appropriate. We should
                             // exit the process at this point. Let's check we don't unexpectedly hit
                             // this first.
-                            quiet_soft_error!("materializer_error", e).unwrap();
+                            quiet_soft_error!("materializer_finished_error", e).unwrap();
                         }
                     }
 
@@ -1560,7 +1560,7 @@ impl ArtifactTree {
                 .materializer_state_table()
                 .delete(invalidated_paths)
             {
-                quiet_soft_error!("materializer_error", e).unwrap();
+                quiet_soft_error!("materializer_invalidate_error", e).unwrap();
             }
         }
 
