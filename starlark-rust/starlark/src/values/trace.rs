@@ -87,24 +87,17 @@ unsafe impl<'v, T: Trace<'v>> Trace<'v> for RawTable<T> {
 
 unsafe impl<'v, K: Trace<'v>, V: Trace<'v>> Trace<'v> for SmallMap<K, V> {
     fn trace(&mut self, tracer: &Tracer<'v>) {
-        self.iter_mut().for_each(|(k, v)| {
-            // We are going to replace it, but promise morally it's the same Value
-            // so things like Hash/Ord/Eq will work the same
-            #[allow(clippy::cast_ref_to_mut)]
-            let k_mut = unsafe { &mut *(k as *const K as *mut K) };
-            k_mut.trace(tracer);
+        for (k, v) in self.iter_mut_unchecked() {
+            k.trace(tracer);
             v.trace(tracer);
-        })
+        }
     }
 }
 
 unsafe impl<'v, T: Trace<'v>> Trace<'v> for SmallSet<T> {
     fn trace(&mut self, tracer: &Tracer<'v>) {
-        for v in self.iter() {
-            // TODO(nga): this is probably incorrect. Provide API to do it safely.
-            #[allow(clippy::cast_ref_to_mut)]
-            let v_mut = unsafe { &mut *(v as *const T as *mut T) };
-            v_mut.trace(tracer);
+        for v in self.iter_mut_unchecked() {
+            v.trace(tracer);
         }
     }
 }
