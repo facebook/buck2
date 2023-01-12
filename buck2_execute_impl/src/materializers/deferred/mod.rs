@@ -1210,7 +1210,6 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
             }
             ArtifactMaterializationStage::Materialized {
                 ref mut last_access_time,
-                ref active,
                 ..
             } => match check_deps {
                 true => None,
@@ -1220,9 +1219,16 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                     let timestamp = Utc::now();
                     *last_access_time = timestamp;
 
-                    if !active {
-                        tracing::warn!(path = %path, "Expected artifact to be marked active by declare")
-                    }
+                    // NOTE (T142264535): We mostly expect that artifacts are always declared
+                    // before they are materialized, but there's one case where that doesn't
+                    // happen. In particular, when incremental actions execute, they will trigger
+                    // materialization of outputs from a previous run. The artifact isn't really
+                    // "active" (it's not an output that we'll use), but we do warn here (when we
+                    // probably shouldn't).
+                    //
+                    // if !active {
+                    //     tracing::warn!(path = %path, "Expected artifact to be marked active by declare")
+                    // }
 
                     if let Some(sqlite_db) = self.sqlite_db.as_mut() {
                         if let Err(e) = sqlite_db
