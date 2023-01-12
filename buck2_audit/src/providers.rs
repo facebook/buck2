@@ -44,7 +44,7 @@ pub struct AuditProvidersCommand {
     #[clap(name = "TARGET_PATTERNS", help = "Patterns to analyze")]
     patterns: Vec<String>,
 
-    #[clap(long)]
+    #[clap(long, conflicts_with_all=&["list", "print-debug"])]
     quiet: bool,
 
     #[clap(
@@ -56,7 +56,8 @@ pub struct AuditProvidersCommand {
 
     #[clap(
         long = "print-debug",
-        help = "Print the providers using debug format (very verbose)"
+        help = "Print the providers using debug format (very verbose)",
+        conflicts_with_all=&["list", "quiet"]
     )]
     print_debug: bool,
 }
