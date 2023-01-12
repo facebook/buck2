@@ -16,7 +16,7 @@ use buck2_client_ctx::daemon::client::connect::BuckdConnectOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::manifold;
 use buck2_core::fs::fs_util::create_dir_all;
-use buck2_core::fs::fs_util::remove_dir_all;
+use buck2_core::fs::fs_util::remove_all;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::process::background_command;
 use buck2_events::trace::TraceId;
@@ -106,12 +106,6 @@ impl DiceDump {
             .await
             .with_context(|| "Failed during manifold upload!")?;
 
-        remove_dir_all(&self.dump_folder).with_context(|| {
-        format!(
-            "Failed to remove Buck2 DICE dump folder at `{}`. Please remove this manually as it could be quite large.",
-            self.dump_folder.display()
-        )
-        })?;
         Ok(())
     }
 }
@@ -154,4 +148,15 @@ async fn upload_to_manifold(dump_folder: &Path, manifold_filename: &str) -> anyh
         }
     }
     Ok(())
+}
+
+impl Drop for DiceDump {
+    fn drop(&mut self) {
+        if let Err(e) = remove_all(&self.dump_folder).with_context(|| {
+            format!(
+                "Failed to remove Buck2 DICE dump folder at `{}`. Please remove this manually as it could be quite large.",
+                self.dump_folder.display()
+            )
+        }) { tracing::warn!("{:#}", e); };
+    }
 }

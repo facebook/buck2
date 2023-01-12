@@ -29,6 +29,7 @@ thiserror = { workspace = true }
 tokio = { workspace = true }
 tokio-stream = { workspace = true }
 tokio-util = { workspace = true }
+tracing = { workspace = true }
 httparse = { workspace = true }
 walkdir = { workspace = true }
 num_cpus = { workspace = true }
