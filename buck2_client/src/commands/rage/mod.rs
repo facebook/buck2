@@ -141,9 +141,6 @@ pub struct RageCommand {
     /// Stop collecting information after <timeout> seconds
     #[clap(long, default_value = "60")]
     timeout: u64,
-    /// Capture and upload a DICE dump
-    #[clap(long)]
-    dice_dump: bool,
 }
 
 impl RageCommand {
@@ -178,19 +175,16 @@ impl RageCommand {
             buck2_client_ctx::eprintln!("Collection will terminate after {} seconds (override with --timeout param)", self.timeout)?;
             buck2_client_ctx::eprintln!("Collecting debug info...\n\n")?;
 
-            let mut sections = vec![
+            let sections = vec![
                 RageSection::get("System info".to_owned(), timeout, get_system_info),
                 RageSection::get("Hg snapshot ID".to_owned(), timeout, get_hg_snapshot),
                 RageSection::get("Build info".to_owned(), timeout, || {
                     get_build_info(selected_log)
                 }),
-            ];
-
-            if self.dice_dump {
-                sections.push(RageSection::get("Dice Dump".to_owned(), timeout, || {
+                RageSection::get("Dice Dump".to_owned(), timeout, || {
                     rage_dumps::upload_dice_dump(&ctx, &new_trace_id, &old_trace_id)
-                }));
-            }
+                }),
+            ];
 
             let sections = futures::future::join_all(sections).await;
             let output: Vec<String> = sections.iter().map(|i| i.to_string()).collect();
