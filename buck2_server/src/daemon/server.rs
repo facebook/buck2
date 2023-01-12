@@ -111,13 +111,7 @@ impl DaemonShutdown {
     /// As we might be processing a `kill()` (or other) request, we cannot wait for the server to actually
     /// shutdown (as it will wait for current requests to finish), so this returns immediately.
     fn start_shutdown(&self, reason: buck2_data::DaemonShutdown, timeout: Option<Duration>) {
-        for cmd in crate::active_commands::active_commands()
-            .as_ref()
-            .into_iter()
-            .flat_map(|commands| commands.values())
-        {
-            cmd.notify_shutdown(reason.clone());
-        }
+        crate::active_commands::broadcast_shutdown(&reason);
 
         let timeout = timeout.unwrap_or(DEFAULT_KILL_TIMEOUT);
 

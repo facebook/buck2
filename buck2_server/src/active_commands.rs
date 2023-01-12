@@ -32,15 +32,24 @@ pub fn broadcast_instant_event<E: Into<buck2_data::instant_event::Data> + Clone>
     }
 }
 
+pub fn broadcast_shutdown(shutdown: &buck2_data::DaemonShutdown) {
+    for cmd in ACTIVE_COMMANDS.lock().unwrap().values() {
+        cmd.notify_shutdown(shutdown.clone());
+    }
+}
+
 /// Allows interactions with commands found via active_commands().
 #[derive(Clone, Dupe)]
 pub struct ActiveCommandHandle {
     dispatcher: EventDispatcher,
+
+    /// A separate channel to broadcast shutdown events. This is separate from the EventDispatcher
+    /// because we want to allow shutdown events to jump the queue.
     daemon_shutdown_channel: Arc<Mutex<Option<oneshot::Sender<buck2_data::DaemonShutdown>>>>,
 }
 
 impl ActiveCommandHandle {
-    pub fn notify_shutdown(&self, shutdown: buck2_data::DaemonShutdown) {
+    fn notify_shutdown(&self, shutdown: buck2_data::DaemonShutdown) {
         let channel = self
             .daemon_shutdown_channel
             .lock()
