@@ -65,20 +65,13 @@ fn unpack_pair<'v>(pair: Value<'v>, heap: &'v Heap) -> anyhow::Result<(Value<'v>
     })?
 }
 
-/// Common implementation of `min` and `max`.
-fn min_max<'v>(
-    mut args: Vec<Value<'v>>,
+fn min_max_iter<'v>(
+    mut it: impl Iterator<Item = Value<'v>>,
     key: Option<Value<'v>>,
     eval: &mut Evaluator<'v, '_>,
     // Select min on true, max on false.
     min: bool,
 ) -> anyhow::Result<Value<'v>> {
-    let args = if args.len() == 1 {
-        args.swap_remove(0)
-    } else {
-        eval.heap().alloc(args)
-    };
-    let mut it = args.iterate(eval.heap())?;
     let mut max = match it.next() {
         Some(x) => x,
         None => {
@@ -112,6 +105,22 @@ fn min_max<'v>(
         }
     };
     Ok(max)
+}
+
+/// Common implementation of `min` and `max`.
+fn min_max<'v>(
+    mut args: Vec<Value<'v>>,
+    key: Option<Value<'v>>,
+    eval: &mut Evaluator<'v, '_>,
+    // Select min on true, max on false.
+    min: bool,
+) -> anyhow::Result<Value<'v>> {
+    if args.len() == 1 {
+        args.swap_remove(0)
+            .with_iterator(eval.heap(), |it| min_max_iter(it, key, eval, min))?
+    } else {
+        min_max_iter(args.into_iter(), key, eval, min)
+    }
 }
 
 #[starlark_module]
