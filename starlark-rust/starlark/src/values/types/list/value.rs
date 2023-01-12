@@ -375,14 +375,14 @@ impl<'v> ListLike<'v> for FrozenListData {
     where
         'v: 'a,
     {
-        Box::new(coerce(self.content()).iter().copied())
+        Box::new(ListLike::content(self).iter().copied())
     }
 
     fn with_iterator(
         &self,
         f: &mut dyn FnMut(&mut dyn Iterator<Item = Value<'v>>) -> anyhow::Result<()>,
     ) -> anyhow::Result<()> {
-        f(&mut coerce(self.content()).iter().copied())
+        f(&mut ListLike::content(self).iter().copied())
     }
 }
 

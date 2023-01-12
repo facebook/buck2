@@ -39,6 +39,13 @@ pub struct ListRef<'v> {
     pub(crate) content: [Value<'v>],
 }
 
+/// Reference to frozen list content.
+#[repr(transparent)]
+#[derive(Coerce)]
+pub struct FrozenListRef {
+    pub(crate) content: [FrozenValue],
+}
+
 impl<'v> ListRef<'v> {
     /// `type([])`, which is `"list"`.
     pub const TYPE: &'static str = ListData::TYPE;
@@ -78,10 +85,43 @@ impl<'v> ListRef<'v> {
     }
 }
 
+impl FrozenListRef {
+    /// `type([])`, which is `"list"`.
+    pub const TYPE: &'static str = ListRef::TYPE;
+
+    fn new(slice: &[FrozenValue]) -> &FrozenListRef {
+        coerce(slice)
+    }
+
+    /// Downcast to the frozen list.
+    ///
+    /// This function returns `None` if the value is not a list or the list is not frozen.
+    pub fn from_value(x: Value) -> Option<&'static FrozenListRef> {
+        Self::from_frozen_value(x.unpack_frozen()?)
+    }
+
+    /// Downcast to the frozen list.
+    ///
+    /// This function returns `None` if the value is not a frozen list.
+    /// (Value cannot be a mutable list because value is frozen.)
+    pub fn from_frozen_value(x: FrozenValue) -> Option<&'static FrozenListRef> {
+        x.downcast_ref::<ListGen<FrozenListData>>()
+            .map(|x| FrozenListRef::new(x.0.content()))
+    }
+}
+
 impl<'v> Deref for ListRef<'v> {
     type Target = [Value<'v>];
 
     fn deref(&self) -> &[Value<'v>] {
+        &self.content
+    }
+}
+
+impl Deref for FrozenListRef {
+    type Target = [FrozenValue];
+
+    fn deref(&self) -> &[FrozenValue] {
         &self.content
     }
 }
@@ -92,9 +132,21 @@ impl<'v> Display for ListRef<'v> {
     }
 }
 
+impl Display for FrozenListRef {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        display_list(coerce(&self.content), f)
+    }
+}
+
 impl<'v> StarlarkTypeRepr for &'v ListRef<'v> {
     fn starlark_type_repr() -> String {
         Vec::<Value<'v>>::starlark_type_repr()
+    }
+}
+
+impl<'v> StarlarkTypeRepr for &'v FrozenListRef {
+    fn starlark_type_repr() -> String {
+        Vec::<FrozenValue>::starlark_type_repr()
     }
 }
 
@@ -105,5 +157,15 @@ impl<'v> UnpackValue<'v> for &'v ListRef<'v> {
 
     fn unpack_value(value: Value<'v>) -> Option<Self> {
         ListRef::from_value(value)
+    }
+}
+
+impl<'v> UnpackValue<'v> for &'v FrozenListRef {
+    fn expected() -> String {
+        "frozen list".to_owned()
+    }
+
+    fn unpack_value(value: Value<'v>) -> Option<Self> {
+        FrozenListRef::from_value(value)
     }
 }
