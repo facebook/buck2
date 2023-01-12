@@ -52,6 +52,8 @@ AppleLibraryAdditionalParams = record(
     # Forces link group linking logic, even when there's no mapping. Link group linking
     # without a mapping is equivalent to statically linking the whole transitive dep graph.
     force_link_group_linking = field(bool.type, False),
+    # Allows to customize how dSYM bundle is named. Function should take single "artifact" argument representing binary and produce short path for output dSYM for that binary.
+    dsym_output_path_override = field(["function", None], None),
 )
 
 def apple_library_impl(ctx: "context") -> ["provider"]:
@@ -169,7 +171,8 @@ def _get_shared_link_style_sub_targets_and_providers(
         ctx: "context",
         executable: "artifact",
         external_debug_info: ["_arglike"],
-        _dwp: ["artifact", None]) -> ({str.type: ["provider"]}, ["provider"]):
+        _dwp: ["artifact", None],
+        dsym_output_path_override: ["function", None] = None) -> ({str.type: ["provider"]}, ["provider"]):
     if link_style != LinkStyle("shared"):
         return ({}, [])
 
@@ -181,6 +184,7 @@ def _get_shared_link_style_sub_targets_and_providers(
         executable = executable,
         external_debug_info = external_debug_info,
         action_identifier = executable.short_path,
+        output_path_override = dsym_output_path_override,
     )
     return ({
         DSYM_SUBTARGET: [DefaultInfo(default_outputs = [dsym_artifact])],
