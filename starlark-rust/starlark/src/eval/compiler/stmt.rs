@@ -59,7 +59,7 @@ use crate::syntax::ast::StmtP;
 use crate::values::dict::Dict;
 use crate::values::dict::DictMut;
 use crate::values::dict::DictRef;
-use crate::values::types::list::value::List;
+use crate::values::types::list::value::ListData;
 use crate::values::FrozenHeap;
 use crate::values::FrozenValue;
 use crate::values::Heap;
@@ -633,11 +633,11 @@ pub(crate) fn add_assign<'v>(
     let lhs_aref = lhs.get_ref();
     let lhs_ty = lhs_aref.static_type_of_value();
 
-    if List::is_list_type(lhs_ty) {
+    if ListData::is_list_type(lhs_ty) {
         if let Some(v) = rhs.get_ref().radd(lhs, heap) {
             v
         } else {
-            let list = List::from_value_mut(lhs)?;
+            let list = ListData::from_value_mut(lhs)?;
             if lhs.ptr_eq(rhs) {
                 list.double(heap);
             } else {

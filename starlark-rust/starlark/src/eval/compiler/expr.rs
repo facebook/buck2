@@ -65,7 +65,7 @@ use crate::values::types::bool::StarlarkBool;
 use crate::values::types::dict::Dict;
 use crate::values::types::float::StarlarkFloat;
 use crate::values::types::list::value::FrozenListData;
-use crate::values::types::list::value::List;
+use crate::values::types::list::value::ListData;
 use crate::values::types::range::Range;
 use crate::values::types::string::interpolation::format_one;
 use crate::values::types::string::interpolation::percent_s_one;
@@ -909,7 +909,7 @@ impl ExprCompiled {
                 ExprCompiled::Value(Tuple::get_type_value_static().to_frozen_value())
             }
             ExprCompiled::List(xs) if xs.iter().all(|e| e.is_pure_infallible()) => {
-                ExprCompiled::Value(List::get_type_value_static().to_frozen_value())
+                ExprCompiled::Value(ListData::get_type_value_static().to_frozen_value())
             }
             ExprCompiled::Dict(xs) if xs.is_empty() => {
                 ExprCompiled::Value(Dict::get_type_value_static().to_frozen_value())

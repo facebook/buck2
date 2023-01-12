@@ -212,7 +212,7 @@ fn test_display_debug() {
     assert_eq!(val.to_str(), "([1, 2], \"test\", True)");
     assert_eq!(
         format!("{:?}", val),
-        "Value(TupleGen { content: [Value(ListGen(List { content: Cell { value: ValueTyped(Value(Array { len: 2, capacity: 4, iter_count: 0, content: [Value(1), Value(2)] })) } })), Value(\"test\"), Value(StarlarkBool(true))] })"
+        "Value(TupleGen { content: [Value(ListGen(ListData { content: Cell { value: ValueTyped(Value(Array { len: 2, capacity: 4, iter_count: 0, content: [Value(1), Value(2)] })) } })), Value(\"test\"), Value(StarlarkBool(true))] })"
     );
     let v = heap.alloc("test");
     assert_eq!(format!("{}", v), "\"test\"");

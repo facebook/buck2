@@ -54,7 +54,7 @@ use crate::values::traits::StarlarkValueDyn;
 use crate::values::types::any_array::AnyArray;
 use crate::values::types::array::Array;
 use crate::values::types::list::value::FrozenListData;
-use crate::values::types::list::value::List;
+use crate::values::types::list::value::ListData;
 use crate::values::types::tuple::FrozenTuple;
 use crate::values::types::tuple::Tuple;
 use crate::values::ComplexValue;
@@ -194,8 +194,8 @@ pub(crate) fn frozen_tuple_avalue(len: usize) -> impl AValue<'static, ExtraElem 
 
 pub(crate) fn list_avalue<'v>(
     content: ValueTyped<'v, Array<'v>>,
-) -> impl AValue<'v, StarlarkValue = ListGen<List<'v>>, ExtraElem = ()> {
-    AValueImpl(Direct, ListGen(List::new(content)))
+) -> impl AValue<'v, StarlarkValue = ListGen<ListData<'v>>, ExtraElem = ()> {
+    AValueImpl(Direct, ListGen(ListData::new(content)))
 }
 
 pub(crate) fn frozen_list_avalue(len: usize) -> impl AValue<'static, ExtraElem = FrozenValue> {
@@ -480,8 +480,8 @@ impl<'v> AValue<'v> for AValueImpl<Direct, FrozenTuple> {
     }
 }
 
-impl<'v> AValue<'v> for AValueImpl<Direct, ListGen<List<'v>>> {
-    type StarlarkValue = ListGen<List<'v>>;
+impl<'v> AValue<'v> for AValueImpl<Direct, ListGen<ListData<'v>>> {
+    type StarlarkValue = ListGen<ListData<'v>>;
 
     type ExtraElem = ();
 
@@ -796,14 +796,14 @@ impl<'v, Mode: 'static, T: StarlarkValue<'v>> Serialize for AValueImpl<Mode, T> 
 #[cfg(test)]
 mod tests {
     use crate::environment::Module;
-    use crate::values::types::list::value::List;
+    use crate::values::types::list::value::ListData;
 
     #[test]
     fn tuple_cycle_freeze() {
         let module = Module::new();
         let list = module.heap().alloc_list(&[]);
         let tuple = module.heap().alloc_tuple(&[list]);
-        List::from_value_mut(list)
+        ListData::from_value_mut(list)
             .unwrap()
             .push(tuple, module.heap());
         module.set("t", tuple);

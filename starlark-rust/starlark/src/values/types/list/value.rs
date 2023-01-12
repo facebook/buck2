@@ -73,7 +73,7 @@ pub(crate) struct ListGen<T>(pub(crate) T);
 
 /// Define the mutable list type.
 #[derive(Trace, Debug, ProvidesStaticType, Allocative)]
-pub(crate) struct List<'v> {
+pub(crate) struct ListData<'v> {
     /// The data stored by the list.
     #[allocative(skip)]
     pub(crate) content: Cell<ValueTyped<'v, Array<'v>>>,
@@ -105,7 +105,7 @@ impl ListGen<FrozenListData> {
     }
 }
 
-impl<'v> List<'v> {
+impl<'v> ListData<'v> {
     #[inline]
     pub(crate) fn from_value_mut(x: Value<'v>) -> anyhow::Result<&'v Self> {
         #[derive(thiserror::Error, Debug)]
@@ -122,7 +122,7 @@ impl<'v> List<'v> {
             }
         }
 
-        if let Some(x) = x.downcast_ref::<ListGen<List<'v>>>() {
+        if let Some(x) = x.downcast_ref::<ListGen<ListData<'v>>>() {
             x.0.check_can_mutate()?;
             Ok(&x.0)
         } else {
@@ -131,13 +131,13 @@ impl<'v> List<'v> {
     }
 
     pub(crate) unsafe fn from_value_unchecked_mut(x: Value<'v>) -> &'v Self {
-        let list = x.downcast_ref_unchecked::<ListGen<List<'v>>>();
+        let list = x.downcast_ref_unchecked::<ListGen<ListData<'v>>>();
         debug_assert!(list.0.check_can_mutate().is_ok());
         &list.0
     }
 
     pub(crate) fn is_list_type(x: TypeId) -> bool {
-        x == TypeId::of::<ListGen<List>>() || x == TypeId::of::<ListGen<FrozenListData>>()
+        x == TypeId::of::<ListGen<ListData>>() || x == TypeId::of::<ListGen<FrozenListData>>()
     }
 
     /// Return an error if there's at least one iterator over the list.
@@ -282,7 +282,7 @@ impl FrozenListData {
     }
 }
 
-impl<'v> List<'v> {
+impl<'v> ListData<'v> {
     /// The result of calling `type()` on lists.
     pub const TYPE: &'static str = "list";
 
@@ -292,7 +292,7 @@ impl<'v> List<'v> {
     }
 
     pub(crate) fn new(content: ValueTyped<'v, Array<'v>>) -> Self {
-        List {
+        ListData {
             content: Cell::new(content),
         }
     }
@@ -311,7 +311,7 @@ impl<'v> List<'v> {
     }
 }
 
-impl<'v> Display for List<'v> {
+impl<'v> Display for ListData<'v> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         display_list(self.content.get().content(), f)
     }
@@ -336,7 +336,7 @@ pub(crate) trait ListLike<'v>: Debug + Allocative {
     ) -> anyhow::Result<()>;
 }
 
-impl<'v> ListLike<'v> for List<'v> {
+impl<'v> ListLike<'v> for ListData<'v> {
     fn content(&self) -> &[Value<'v>] {
         self.content.get().as_ref().content()
     }
@@ -405,7 +405,7 @@ impl<'v, T: ListLike<'v> + 'v> StarlarkValue<'v> for ListGen<T>
 where
     Self: ProvidesStaticType + Display,
 {
-    starlark_type!(List::TYPE);
+    starlark_type!(ListData::TYPE);
 
     fn is_special(_: Private) -> bool
     where

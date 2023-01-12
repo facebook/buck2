@@ -25,7 +25,7 @@ use crate::values::list::value::display_list;
 use crate::values::list::value::FrozenListData;
 use crate::values::list::value::ListGen;
 use crate::values::type_repr::StarlarkTypeRepr;
-use crate::values::types::list::value::List;
+use crate::values::types::list::value::ListData;
 use crate::values::Coerce;
 use crate::values::FrozenValue;
 use crate::values::UnpackValue;
@@ -41,7 +41,7 @@ pub struct ListRef<'v> {
 
 impl<'v> ListRef<'v> {
     /// `type([])`, which is `"list"`.
-    pub const TYPE: &'static str = List::TYPE;
+    pub const TYPE: &'static str = ListData::TYPE;
 
     pub(crate) fn new<'a>(slice: &'a [Value<'v>]) -> &'a ListRef<'v> {
         coerce(slice)
@@ -66,7 +66,7 @@ impl<'v> ListRef<'v> {
             x.downcast_ref::<ListGen<FrozenListData>>()
                 .map(|x| ListRef::new(coerce(x.0.content())))
         } else {
-            let ptr = x.downcast_ref::<ListGen<List>>()?;
+            let ptr = x.downcast_ref::<ListGen<ListData>>()?;
             Some(ListRef::new(ptr.0.content()))
         }
     }

@@ -40,7 +40,6 @@ use crate::values::num::Num;
 use crate::values::range::Range;
 use crate::values::string::STRING_TYPE;
 use crate::values::tuple::Tuple;
-use crate::values::types::list::value::List;
 use crate::values::AllocValue;
 use crate::values::FrozenStringValue;
 use crate::values::Heap;
@@ -766,7 +765,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// list("strings are not iterable") # error: not supported
     /// # "#, "not supported");
     /// ```
-    #[starlark(type = List::TYPE, speculative_exec_safe, return_type = "[\"\"]")]
+    #[starlark(type = ListRef::TYPE, speculative_exec_safe, return_type = "[\"\"]")]
     fn list<'v>(
         #[starlark(require = pos, type = "iter(\"\")")] a: Option<Value<'v>>,
         heap: &'v Heap,

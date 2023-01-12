@@ -376,7 +376,7 @@ assert_eq(
         assert::pass(
             r#"assert_eq(
                 debug([1,2]),
-                "Value(ListGen(List { content: Cell { value: ValueTyped(Value(Array { len: 2, capacity: 2, iter_count: 0, content: [Value(1), Value(2)] })) } }))"
+                "Value(ListGen(ListData { content: Cell { value: ValueTyped(Value(Array { len: 2, capacity: 2, iter_count: 0, content: [Value(1), Value(2)] })) } }))"
                 )"#,
         );
     }

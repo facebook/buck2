@@ -24,7 +24,7 @@ use crate::stdlib::util::convert_indices;
 use crate::values::list::ListRef;
 use crate::values::none::NoneOr;
 use crate::values::none::NoneType;
-use crate::values::types::list::value::List;
+use crate::values::types::list::value::ListData;
 use crate::values::Heap;
 use crate::values::Value;
 use crate::values::ValueError;
@@ -55,7 +55,7 @@ pub(crate) fn list_methods(builder: &mut MethodsBuilder) {
         #[starlark(require = pos)] el: Value<'v>,
         heap: &'v Heap,
     ) -> anyhow::Result<NoneType> {
-        let this = List::from_value_mut(this)?;
+        let this = ListData::from_value_mut(this)?;
         this.push(el, heap);
         Ok(NoneType)
     }
@@ -77,7 +77,7 @@ pub(crate) fn list_methods(builder: &mut MethodsBuilder) {
     /// # "#);
     /// ```
     fn clear(this: Value) -> anyhow::Result<NoneType> {
-        let this = List::from_value_mut(this)?;
+        let this = ListData::from_value_mut(this)?;
         this.clear();
         Ok(NoneType)
     }
@@ -107,7 +107,7 @@ pub(crate) fn list_methods(builder: &mut MethodsBuilder) {
         #[starlark(require = pos, type = "iter(\"\")")] other: Value<'v>,
         heap: &'v Heap,
     ) -> anyhow::Result<NoneType> {
-        let res = List::from_value_mut(this)?;
+        let res = ListData::from_value_mut(this)?;
         if this.ptr_eq(other) {
             // If the types alias, we can't borrow the `other` for iteration.
             // But we can do something smarter to double the elements
@@ -200,7 +200,7 @@ pub(crate) fn list_methods(builder: &mut MethodsBuilder) {
         #[starlark(require = pos)] el: Value<'v>,
         heap: &'v Heap,
     ) -> anyhow::Result<NoneType> {
-        let this = List::from_value_mut(this)?;
+        let this = ListData::from_value_mut(this)?;
         let index = convert_index(this.len() as i32, index);
         this.insert(index, el, heap);
         Ok(NoneType)
@@ -238,7 +238,7 @@ pub(crate) fn list_methods(builder: &mut MethodsBuilder) {
             None => None,
         };
 
-        let this = List::from_value_mut(this)?;
+        let this = ListData::from_value_mut(this)?;
         let index = index.unwrap_or_else(|| (this.len() as i32) - 1);
         if index < 0 || index >= this.len() as i32 {
             return Err(ValueError::IndexOutOfBound(index).into());
@@ -304,7 +304,7 @@ pub(crate) fn list_methods(builder: &mut MethodsBuilder) {
         };
         {
             // now mutate it with no further value calls
-            let this = List::from_value_mut(this)?;
+            let this = ListData::from_value_mut(this)?;
             this.remove(position);
             Ok(NoneType)
         }
