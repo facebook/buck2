@@ -26,6 +26,7 @@ load(
     "LinkableGraph",  # @unused Used as a type
     "LinkableNode",  # @unused Used as a type
     "create_linkable_graph",
+    "get_deps_for_link",
     "get_link_info",
     "get_linkable_graph_node_map_func",
 )
@@ -146,6 +147,36 @@ def get_link_group_preferred_linkage(link_groups: [Group.type]) -> {"label": Lin
         if mapping.root != None and mapping.preferred_linkage != None
     }
 
+def transitively_update_shared_linkage(
+        linkable_graph_node_map: {"label": LinkableNode.type},
+        link_group: [str.type, None],
+        link_style: LinkStyle.type,
+        link_group_preferred_linkage: {"label": Linkage.type},
+        link_group_roots: {"label": str.type}):
+    # Identify targets whose shared linkage style may be propagated to
+    # dependencies. Implicitly created root libraries are skipped.
+    shared_lib_roots = []
+    for target in link_group_preferred_linkage:
+        node = linkable_graph_node_map[target]
+        actual_link_style = get_actual_link_style(link_style, link_group_preferred_linkage.get(target, node.preferred_linkage))
+        if actual_link_style == LinkStyle("shared"):
+            target_link_group = link_group_roots.get(target)
+            if target_link_group == None or target_link_group == link_group:
+                shared_lib_roots.append(target)
+
+    # buildifier: disable=uninitialized
+    def process_dependency(node: "label") -> ["label"]:
+        linkable_node = linkable_graph_node_map[node]
+        if linkable_node.preferred_linkage == Linkage("any"):
+            link_group_preferred_linkage[node] = Linkage("shared")
+        return get_deps_for_link(linkable_node, link_style)
+
+    breadth_first_traversal_by(
+        linkable_graph_node_map,
+        shared_lib_roots,
+        process_dependency,
+    )
+
 def get_filtered_labels_to_links_map(
         linkable_graph_node_map: {"label": LinkableNode.type},
         link_group: [str.type, None],
@@ -197,6 +228,16 @@ def get_filtered_labels_to_links_map(
         if lib.label != None
     }
 
+    # Transitively update preferred linkage to avoid runtime issues from
+    # missing dependencies (e.g. for prebuilt shared libs).
+    transitively_update_shared_linkage(
+        linkable_graph_node_map,
+        link_group,
+        link_style,
+        link_group_preferred_linkage,
+        link_group_roots,
+    )
+
     linkable_map = {}
 
     # Keep track of whether we've already added a link group to the link line
@@ -245,12 +286,6 @@ def get_filtered_labels_to_links_map(
                 add_link_group(target, target_link_group)
             else:
                 add_link(target, LinkStyle("shared"))
-
-                # Mark transitive deps as shared.
-                for exported_dep in node.exported_deps:
-                    exported_node = linkable_graph_node_map[exported_dep]
-                    if exported_node.preferred_linkage == Linkage("any"):
-                        link_group_preferred_linkage[exported_dep] = Linkage("shared")
         else:  # static or static_pic
             target_link_group = link_group_mappings.get(target)
 
