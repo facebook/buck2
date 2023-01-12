@@ -18,6 +18,7 @@
 use std::collections::HashMap;
 
 use proc_macro2::Ident;
+use quote::format_ident;
 use quote::quote;
 use quote::quote_spanned;
 use syn::parse_macro_input;
@@ -95,35 +96,16 @@ fn expand_docs_derive(input: DeriveInput) -> syn::Result<proc_macro2::TokenStrea
         }
     };
 
-    // If we do ConcreteType: Trait<'docs> then we require every instance of ConcreteType
-    // to have lifetime 'docs, which breaks for StarlarkStr at least.
-    let (constraint_lifetime, constraint) = if generics.params.is_empty() {
-        (quote! {}, quote! {})
-    } else {
-        (
-            quote! {<'__docs>},
-            quote! { Self: starlark::values::StarlarkValue<'__docs>},
-        )
-    };
-
-    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+    let namespace_fn_name = format_ident!("_{}_register_starlark_docs", name_str.to_lowercase());
 
     Ok(quote_spanned! {span=>
-        // TODO(nga): generate this function only for frozen type, not for all type parameters.
-        //   At the moment of writing it is not possible because `FrozenList` and `FrozenDict`
-        //   are not `StarlarkValue` implementations.
-        impl #impl_generics #name #ty_generics #where_clause  {
-            // Use 'docs here instead of 'v because someone might have 'v in their generics'
-            // constraints, and we'd end up with duplicate lifetime definition errors.
-            fn __generated_documentation #constraint_lifetime ()
-            where #constraint {
-                #use_inventory
-                starlark::__derive_refs::inventory::submit! {
-                    starlark::docs::RegisteredDoc {
-                        getter: || starlark::docs::RegisteredDoc::for_type::<#frozen_name>(&[#(#custom_attrs),*]),
-                    }
-                };
-            }
+        fn #namespace_fn_name() {
+            #use_inventory
+            starlark::__derive_refs::inventory::submit! {
+                starlark::docs::RegisteredDoc {
+                    getter: || starlark::docs::RegisteredDoc::for_type::<#frozen_name>(&[#(#custom_attrs),*]),
+                }
+            };
         }
     })
 }
