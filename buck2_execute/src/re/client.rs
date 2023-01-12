@@ -98,6 +98,8 @@ pub struct RemoteExecutionStaticMetadata {
     pub rich_client_attempt_timeout_ms: Option<i32>,
     pub rich_client_retries_count: Option<i32>,
     pub force_enable_deduplicate_find_missing: Option<bool>,
+
+    pub features_config_path: Option<String>,
 }
 
 impl RemoteExecutionStaticMetadata {
@@ -143,6 +145,8 @@ impl RemoteExecutionStaticMetadata {
                 BUCK2_RE_CLIENT_CFG_SECTION,
                 "force_enable_deduplicate_find_missing",
             )?,
+            features_config_path: legacy_config
+                .parse(BUCK2_RE_CLIENT_CFG_SECTION, "features_config_path")?,
         })
     }
 }
@@ -645,8 +649,11 @@ impl RemoteExecutionClientImpl {
                 re_client_config.log_rollup_window_size = 10;
             }
 
-            re_client_config.features_config_path =
-                "remote_execution/features/re_client_buck2".to_owned();
+            re_client_config.features_config_path = static_metadata
+                .features_config_path
+                .as_deref()
+                .unwrap_or("remote_execution/features/re_client_buck2")
+                .to_owned();
 
             // TODO(ndmitchell): For now, we just drop RE log messages, but ideally we'd put them in our log stream.
             let logger = slog::Logger::root(slog::Discard, slog::o!());
