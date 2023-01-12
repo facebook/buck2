@@ -34,6 +34,7 @@ use std::sync::Mutex;
 
 use either::Either;
 use hashbrown::raw::RawTable;
+use starlark_map::small_set::SmallSet;
 
 use crate::collections::SmallMap;
 use crate::values::FrozenValue;
@@ -94,6 +95,17 @@ unsafe impl<'v, K: Trace<'v>, V: Trace<'v>> Trace<'v> for SmallMap<K, V> {
             k_mut.trace(tracer);
             v.trace(tracer);
         })
+    }
+}
+
+unsafe impl<'v, T: Trace<'v>> Trace<'v> for SmallSet<T> {
+    fn trace(&mut self, tracer: &Tracer<'v>) {
+        for v in self.iter() {
+            // TODO(nga): this is probably incorrect. Provide API to do it safely.
+            #[allow(clippy::cast_ref_to_mut)]
+            let v_mut = unsafe { &mut *(v as *const T as *mut T) };
+            v_mut.trace(tracer);
+        }
     }
 }
 

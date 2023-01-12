@@ -21,6 +21,7 @@ use std::marker::PhantomData;
 
 use gazebo::prelude::*;
 use starlark_map::small_map::SmallMap;
+use starlark_map::small_set::SmallSet;
 use starlark_map::Hashed;
 
 use crate::values::Freezer;
@@ -195,6 +196,23 @@ where
             let key = Hashed::new_unchecked(hash, key);
             let value = value.freeze(freezer)?;
             new.insert_hashed_unique_unchecked(key, value);
+        }
+        Ok(new)
+    }
+}
+
+impl<T> Freeze for SmallSet<T>
+where
+    T: Freeze,
+{
+    type Frozen = SmallSet<T::Frozen>;
+
+    fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+        let mut new = SmallSet::with_capacity(self.len());
+        for value in self.into_iter_hashed() {
+            let value = value.freeze(freezer)?;
+            // TODO(nga): verify hash unchanged after freeze.
+            new.insert_hashed_unique_unchecked(value);
         }
         Ok(new)
     }
