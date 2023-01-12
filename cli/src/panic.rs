@@ -142,13 +142,14 @@ mod imp {
         err: &anyhow::Error,
         location: Location,
     ) {
-        write_to_scribe(
-            fb,
-            panic_payload(
-                Some(location),
-                format!("Soft Error: {}: {:#}", category, err),
-            ),
+        let event = panic_payload(
+            Some(location),
+            format!("Soft Error: {}: {:#}", category, err),
         );
+
+        buck2_server::active_commands::broadcast_instant_event(&event);
+
+        write_to_scribe(fb, event);
     }
 
     fn panic_payload(location: Option<Location>, message: String) -> buck2_data::Panic {

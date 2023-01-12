@@ -26,6 +26,12 @@ pub fn active_commands() -> Option<HashMap<TraceId, ActiveCommandHandle>> {
     Some(ACTIVE_COMMANDS.try_lock().ok()?.clone())
 }
 
+pub fn broadcast_instant_event<E: Into<buck2_data::instant_event::Data> + Clone>(event: &E) {
+    for cmd in ACTIVE_COMMANDS.lock().unwrap().values() {
+        cmd.dispatcher.instant_event(event.clone())
+    }
+}
+
 /// Allows interactions with commands found via active_commands().
 #[derive(Clone, Dupe)]
 pub struct ActiveCommandHandle {
