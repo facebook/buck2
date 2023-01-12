@@ -50,7 +50,7 @@ impl RolloutPercentage {
                     }
                     None => {
                         tracing::warn!("Unable to obtain hostname");
-                        false
+                        pct == 1f64 // 1.0 is an exact value in floats, we *can* compare that one.
                     }
                 }
             }
@@ -204,6 +204,13 @@ mod tests {
         assert!(
             !RolloutPercentage {
                 inner: Inner::Hostname(0.99999)
+            }
+            .roll_inner(&hostname)
+        );
+
+        assert!(
+            RolloutPercentage {
+                inner: Inner::Hostname(1.0)
             }
             .roll_inner(&hostname)
         );
