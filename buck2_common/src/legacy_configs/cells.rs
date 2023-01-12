@@ -14,6 +14,7 @@ use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::CellAlias;
 use buck2_core::cells::CellResolver;
 use buck2_core::cells::CellsAggregator;
+use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::file_name::FileNameBuf;
@@ -136,6 +137,11 @@ impl BuckConfigBasedCells {
         let processed_config_args =
             LegacyBuckConfig::process_config_args(config_args, Some(&cell_resolution), file_ops)?;
 
+        static SKIP_EXTERNAL_CONFIG: EnvHelper<bool> =
+            EnvHelper::<bool>::new("BUCK2_TEST_SKIP_EXTERNAL_CONFIG");
+
+        let skip_external_config = SKIP_EXTERNAL_CONFIG.get()?.copied().unwrap_or_default();
+
         while let Some(path) = work.pop() {
             if buckconfigs.contains_key(&path) {
                 continue;
@@ -144,6 +150,10 @@ impl BuckConfigBasedCells {
             let mut buckconfig_paths: Vec<MainConfigFile> = Vec::new();
 
             for buckconfig in DEFAULT_BUCK_CONFIG_FILES {
+                if skip_external_config && buckconfig.is_external() {
+                    continue;
+                }
+
                 match buckconfig {
                     BuckConfigFile::ProjectRelativeFile(file) => {
                         let buckconfig_path = ForwardRelativePath::new(file)?;

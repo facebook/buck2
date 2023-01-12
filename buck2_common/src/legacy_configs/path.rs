@@ -27,6 +27,19 @@ pub(crate) enum BuckConfigFile {
     GlobalFolder(&'static str),
 }
 
+impl BuckConfigFile {
+    /// Returns whether this specific BuckConfigFile is external to the current project.
+    pub fn is_external(&self) -> bool {
+        match self {
+            Self::ProjectRelativeFile(..) | Self::ProjectRelativeFolder(..) => false,
+            Self::UserFile(..)
+            | Self::UserFolder(..)
+            | Self::GlobalFile(..)
+            | Self::GlobalFolder(..) => true,
+        }
+    }
+}
+
 /// The override order of buck config, from highest priority to lowest
 /// 1. .buckconfig.local in repo
 /// 2. .buckconfig in repo
