@@ -13,7 +13,6 @@ use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use gazebo::prelude::*;
-use starlark::values::list::List;
 use starlark::values::list::ListRef;
 use starlark::values::tuple::Tuple;
 use starlark::values::Value;
@@ -45,7 +44,7 @@ impl AttrTypeCoerce for ListAttrType {
             ))
         } else {
             Err(anyhow::anyhow!(CoercionError::type_error(
-                List::TYPE,
+                ListRef::TYPE,
                 value,
             )))
         }

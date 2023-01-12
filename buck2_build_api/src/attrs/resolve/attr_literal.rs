@@ -175,7 +175,7 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
             AttrLiteral::String(_) | AttrLiteral::EnumVariant(_) => {
                 Ok(starlark::values::string::STRING_TYPE)
             }
-            AttrLiteral::List(_, _) => Ok(starlark::values::list::List::TYPE),
+            AttrLiteral::List(_, _) => Ok(starlark::values::list::ListRef::TYPE),
             AttrLiteral::Tuple(_) => Ok(starlark::values::tuple::Tuple::TYPE),
             AttrLiteral::Dict(_) => Ok(Dict::TYPE),
             AttrLiteral::None => Ok(NoneType::TYPE),
