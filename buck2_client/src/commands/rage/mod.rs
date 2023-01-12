@@ -138,6 +138,9 @@ impl fmt::Display for RageSection {
     about = "Record information about the previous failed buck2 command"
 )]
 pub struct RageCommand {
+    /// Stop collecting information after <timeout> seconds
+    #[clap(long, default_value = "60")]
+    timeout: u64,
     /// Capture and upload a DICE dump
     #[clap(long)]
     dice_dump: bool,
@@ -148,7 +151,7 @@ impl RageCommand {
         buck2_core::facebook_only();
 
         ctx.with_runtime(async move |mut ctx| {
-            let timeout = Duration::from_secs(3600); // arbitrary timeout
+            let timeout = Duration::from_secs(self.timeout);
             let log_dir = ctx.paths.as_ref().map_err(|e| e.dupe())?.log_dir();
             let logs = get_local_logs(&log_dir)?
                 .into_iter()
@@ -171,6 +174,9 @@ impl RageCommand {
             let new_trace_id = TraceId::new();
 
             dispatch_event_to_scribe(&ctx, &new_trace_id, &old_trace_id)?;
+
+            buck2_client_ctx::eprintln!("Collection will terminate after {} seconds (override with --timeout param)", self.timeout)?;
+            buck2_client_ctx::eprintln!("Collecting debug info...\n\n")?;
 
             let mut sections = vec![
                 RageSection::get("System info".to_owned(), timeout, get_system_info),
