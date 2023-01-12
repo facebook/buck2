@@ -331,12 +331,22 @@ where
     EVENTS.scope(dispatcher, fut)
 }
 
+/// Get the ambient dispatcher, if one is available (and None otherwise). In contexts that aren't
+/// tied to a specific command (e.g. materializer command loop), an ambient dispatcher may not be
+/// available.
+pub fn get_dispatcher_opt() -> Option<EventDispatcher> {
+    match EVENTS.try_with(|dispatcher| dispatcher.dupe()) {
+        Ok(dispatcher) => Some(dispatcher),
+        Err(..) => None,
+    }
+}
+
 pub fn get_dispatcher() -> EventDispatcher {
     static ENFORCE_DISPATCHER_SET: EnvHelper<bool> = EnvHelper::new("ENFORCE_DISPATCHER_SET");
 
-    match EVENTS.try_with(|dispatcher| dispatcher.dupe()) {
-        Ok(dispatcher) => dispatcher,
-        Err(_) => {
+    match get_dispatcher_opt() {
+        Some(dispatcher) => dispatcher,
+        None => {
             let should_error = ENFORCE_DISPATCHER_SET
                 .get()
                 .ok()
