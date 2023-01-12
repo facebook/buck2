@@ -66,72 +66,46 @@ use crate::values::Tracer;
 use crate::values::Value;
 use crate::values::ValueTyped;
 
-pub(crate) static VALUE_NONE: AValueRepr<AValueImpl<Basic, NoneType>> = {
-    const PAYLOAD: AValueImpl<Basic, NoneType> = AValueImpl(Basic, NoneType);
-    AValueRepr::with_metadata(AValueVTable::new::<AValueImpl<Basic, NoneType>>(), PAYLOAD)
-};
+const fn alloc_static<M, T>(mode: M, value: T) -> AValueRepr<AValueImpl<M, T>>
+where
+    AValueImpl<M, T>: AValue<'static>,
+{
+    let payload = AValueImpl(mode, value);
+    AValueRepr::with_metadata(AValueVTable::new::<AValueImpl<M, T>>(), payload)
+}
 
-pub(crate) static VALUE_FALSE: AValueRepr<AValueImpl<Basic, StarlarkBool>> = {
-    const PAYLOAD: AValueImpl<Basic, StarlarkBool> = AValueImpl(Basic, StarlarkBool(false));
-    AValueRepr::with_metadata(
-        AValueVTable::new::<AValueImpl<Basic, StarlarkBool>>(),
-        PAYLOAD,
-    )
-};
+pub(crate) static VALUE_NONE: AValueRepr<AValueImpl<Basic, NoneType>> =
+    alloc_static(Basic, NoneType);
 
-pub(crate) static VALUE_TRUE: AValueRepr<AValueImpl<Basic, StarlarkBool>> = {
-    const PAYLOAD: AValueImpl<Basic, StarlarkBool> = AValueImpl(Basic, StarlarkBool(true));
-    AValueRepr::with_metadata(
-        AValueVTable::new::<AValueImpl<Basic, StarlarkBool>>(),
-        PAYLOAD,
-    )
-};
+pub(crate) static VALUE_FALSE: AValueRepr<AValueImpl<Basic, StarlarkBool>> =
+    alloc_static(Basic, StarlarkBool(false));
+pub(crate) static VALUE_TRUE: AValueRepr<AValueImpl<Basic, StarlarkBool>> =
+    alloc_static(Basic, StarlarkBool(true));
 
 pub(crate) const VALUE_STR_A_VALUE_PTR: AValueHeader =
     AValueHeader::new_const::<StarlarkStrAValue>();
 
-pub(crate) static VALUE_EMPTY_TUPLE: AValueRepr<AValueImpl<Direct, FrozenTuple>> = {
-    const PAYLOAD: AValueImpl<Direct, FrozenTuple> =
-        AValueImpl(Direct, unsafe { FrozenTuple::new(0) });
-    AValueRepr::with_metadata(
-        AValueVTable::new::<AValueImpl<Direct, FrozenTuple>>(),
-        PAYLOAD,
-    )
-};
+pub(crate) static VALUE_EMPTY_TUPLE: AValueRepr<AValueImpl<Direct, FrozenTuple>> =
+    alloc_static(Direct, unsafe { FrozenTuple::new(0) });
 
-pub(crate) static VALUE_EMPTY_FROZEN_LIST: AValueRepr<AValueImpl<Direct, ListGen<FrozenListData>>> = {
-    const PAYLOAD: AValueImpl<Direct, ListGen<FrozenListData>> =
-        AValueImpl(Direct, ListGen(unsafe { FrozenListData::new(0) }));
-    AValueRepr::with_metadata(
-        AValueVTable::new::<AValueImpl<Direct, ListGen<FrozenListData>>>(),
-        PAYLOAD,
-    )
-};
+pub(crate) static VALUE_EMPTY_FROZEN_LIST: AValueRepr<AValueImpl<Direct, ListGen<FrozenListData>>> =
+    alloc_static(Direct, unsafe { ListGen(FrozenListData::new(0)) });
 
-pub(crate) static VALUE_EMPTY_FROZEN_DICT: AValueRepr<AValueImpl<Simple, DictGen<FrozenDictData>>> = {
-    const PAYLOAD: AValueImpl<Simple, DictGen<FrozenDictData>> = AValueImpl(
+pub(crate) static VALUE_EMPTY_FROZEN_DICT: AValueRepr<AValueImpl<Simple, DictGen<FrozenDictData>>> =
+    alloc_static(
         Simple,
         DictGen(FrozenDictData {
             content: SmallMap::new(),
         }),
     );
-    AValueRepr::with_metadata(
-        AValueVTable::new::<AValueImpl<Simple, DictGen<FrozenDictData>>>(),
-        PAYLOAD,
-    )
-};
 
 /// `Array` is not `Sync`, so wrap it into this struct to store it in static variable.
 /// Empty `Array` is logically `Sync`.
 pub(crate) struct ValueEmptyArray(AValueRepr<AValueImpl<Direct, Array<'static>>>);
 unsafe impl Sync for ValueEmptyArray {}
 
-pub(crate) static VALUE_EMPTY_ARRAY: ValueEmptyArray = {
-    ValueEmptyArray(AValueRepr::with_metadata(
-        AValueVTable::new::<AValueImpl<Direct, Array>>(),
-        AValueImpl(Direct, unsafe { Array::new(0, 0) }),
-    ))
-};
+pub(crate) static VALUE_EMPTY_ARRAY: ValueEmptyArray =
+    ValueEmptyArray(alloc_static(Direct, unsafe { Array::new(0, 0) }));
 
 impl ValueEmptyArray {
     pub(crate) fn repr<'v>(
