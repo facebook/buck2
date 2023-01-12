@@ -87,9 +87,23 @@ pub struct IterMut<'a, K, V> {
     pub(crate) iter: vec_map::IterMut<'a, K, V>,
 }
 
+/// Iterator over a small map mutable entry references.
+///
+/// This iterator provides mutable references to keys, not just to values.
+pub struct IterMutUnchecked<'a, K, V> {
+    pub(crate) iter: vec_map::IterMutUnchecked<'a, K, V>,
+}
+
 impl<'a, K, V> IterMut<'a, K, V> {
     #[inline]
     fn map((k, v): (&'a K, &'a mut V)) -> <Self as Iterator>::Item {
+        (k, v)
+    }
+}
+
+impl<'a, K, V> IterMutUnchecked<'a, K, V> {
+    #[inline]
+    fn map((k, v): (&'a mut K, &'a mut V)) -> <Self as Iterator>::Item {
         (k, v)
     }
 }
@@ -108,6 +122,23 @@ impl<'a, K, V> ExactSizeIterator for IterMut<'a, K, V> {
 }
 
 impl<'a, K, V> DoubleEndedIterator for IterMut<'a, K, V> {
+    def_double_ended_iter!();
+}
+
+impl<'a, K, V> Iterator for IterMutUnchecked<'a, K, V> {
+    type Item = (&'a mut K, &'a mut V);
+
+    def_iter!();
+}
+
+impl<'a, K, V> ExactSizeIterator for IterMutUnchecked<'a, K, V> {
+    #[inline]
+    fn len(&self) -> usize {
+        self.iter.len()
+    }
+}
+
+impl<'a, K, V> DoubleEndedIterator for IterMutUnchecked<'a, K, V> {
     def_double_ended_iter!();
 }
 

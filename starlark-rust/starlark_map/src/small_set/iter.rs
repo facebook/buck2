@@ -25,6 +25,11 @@ pub struct Iter<'a, T> {
     pub(crate) iter: small_map::Iter<'a, T, ()>,
 }
 
+/// Iterator over mutable entries of [`SmallSet`](crate::small_set::SmallSet).
+pub struct IterMutUnchecked<'a, T> {
+    pub(crate) iter: small_map::IterMutUnchecked<'a, T, ()>,
+}
+
 /// Iterator that moves entries out of a [`SmallSet`](crate::small_set::SmallSet).
 pub struct IntoIter<T> {
     pub(crate) iter: small_map::IntoIter<T, ()>,
@@ -46,6 +51,13 @@ impl<'a, T> Clone for Iter<'a, T> {
 impl<'a, T> Iter<'a, T> {
     #[inline]
     fn map((k, ()): (&'a T, &'a ())) -> &'a T {
+        k
+    }
+}
+
+impl<'a, T> IterMutUnchecked<'a, T> {
+    #[inline]
+    fn map((k, ()): (&'a mut T, &'a mut ())) -> &'a mut T {
         k
     }
 }
@@ -75,6 +87,23 @@ impl<'a, T> DoubleEndedIterator for Iter<'a, T> {
 }
 
 impl<'a, T> ExactSizeIterator for Iter<'a, T> {
+    #[inline]
+    fn len(&self) -> usize {
+        self.iter.len()
+    }
+}
+
+impl<'a, T> Iterator for IterMutUnchecked<'a, T> {
+    type Item = &'a mut T;
+
+    def_iter!();
+}
+
+impl<'a, T> DoubleEndedIterator for IterMutUnchecked<'a, T> {
+    def_double_ended_iter!();
+}
+
+impl<'a, T> ExactSizeIterator for IterMutUnchecked<'a, T> {
     #[inline]
     fn len(&self) -> usize {
         self.iter.len()

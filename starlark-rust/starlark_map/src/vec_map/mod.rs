@@ -36,6 +36,7 @@ pub(crate) use crate::vec_map::iter::IntoIterHashed;
 pub(crate) use crate::vec_map::iter::Iter;
 pub(crate) use crate::vec_map::iter::IterHashed;
 pub(crate) use crate::vec_map::iter::IterMut;
+pub(crate) use crate::vec_map::iter::IterMutUnchecked;
 pub(crate) use crate::vec_map::iter::Keys;
 pub(crate) use crate::vec_map::iter::Values;
 pub(crate) use crate::vec_map::iter::ValuesMut;
@@ -232,6 +233,13 @@ impl<K, V> VecMap<K, V> {
     #[inline]
     pub(crate) fn iter_mut(&mut self) -> IterMut<K, V> {
         IterMut {
+            iter: self.buckets.keys_mut().iter_mut(),
+        }
+    }
+
+    #[inline]
+    pub(crate) fn iter_mut_unchecked(&mut self) -> IterMutUnchecked<K, V> {
+        IterMutUnchecked {
             iter: self.buckets.keys_mut().iter_mut(),
         }
     }

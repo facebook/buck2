@@ -168,9 +168,20 @@ pub(crate) struct IterMut<'a, K: 'a, V: 'a> {
     pub(crate) iter: slice::IterMut<'a, (K, V)>,
 }
 
+pub(crate) struct IterMutUnchecked<'a, K: 'a, V: 'a> {
+    pub(crate) iter: slice::IterMut<'a, (K, V)>,
+}
+
 impl<'a, K: 'a, V: 'a> IterMut<'a, K, V> {
     #[inline]
     fn map((k, v): &mut (K, V)) -> (&K, &mut V) {
+        (k, v)
+    }
+}
+
+impl<'a, K: 'a, V: 'a> IterMutUnchecked<'a, K, V> {
+    #[inline]
+    fn map((k, v): &mut (K, V)) -> (&mut K, &mut V) {
         (k, v)
     }
 }
@@ -186,6 +197,23 @@ impl<'a, K: 'a, V: 'a> DoubleEndedIterator for IterMut<'a, K, V> {
 }
 
 impl<'a, K: 'a, V: 'a> ExactSizeIterator for IterMut<'a, K, V> {
+    #[inline]
+    fn len(&self) -> usize {
+        self.iter.len()
+    }
+}
+
+impl<'a, K: 'a, V: 'a> Iterator for IterMutUnchecked<'a, K, V> {
+    type Item = (&'a mut K, &'a mut V);
+
+    def_iter!();
+}
+
+impl<'a, K: 'a, V: 'a> DoubleEndedIterator for IterMutUnchecked<'a, K, V> {
+    def_double_ended_iter!();
+}
+
+impl<'a, K: 'a, V: 'a> ExactSizeIterator for IterMutUnchecked<'a, K, V> {
     #[inline]
     fn len(&self) -> usize {
         self.iter.len()

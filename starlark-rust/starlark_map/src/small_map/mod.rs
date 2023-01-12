@@ -39,6 +39,7 @@ pub use crate::small_map::iter::IntoIterHashed;
 pub use crate::small_map::iter::Iter;
 pub use crate::small_map::iter::IterHashed;
 pub use crate::small_map::iter::IterMut;
+pub use crate::small_map::iter::IterMutUnchecked;
 pub use crate::small_map::iter::Keys;
 pub use crate::small_map::iter::Values;
 pub use crate::small_map::iter::ValuesMut;
@@ -197,6 +198,17 @@ impl<K, V> SmallMap<K, V> {
     pub fn iter_mut(&mut self) -> IterMut<'_, K, V> {
         IterMut {
             iter: self.entries.iter_mut(),
+        }
+    }
+
+    /// Mutable entry references iterator, with mutable key references.
+    ///
+    /// This operation is memory safe, but otherwise no guarantees
+    /// if keys are mutated inconsistently (hash or equality changes).
+    #[inline]
+    pub fn iter_mut_unchecked(&mut self) -> IterMutUnchecked<'_, K, V> {
+        IterMutUnchecked {
+            iter: self.entries.iter_mut_unchecked(),
         }
     }
 

@@ -33,6 +33,7 @@ use crate::small_map::SmallMap;
 pub use crate::small_set::iter::IntoIter;
 pub use crate::small_set::iter::IntoIterHashed;
 pub use crate::small_set::iter::Iter;
+pub use crate::small_set::iter::IterMutUnchecked;
 
 /// An memory-efficient set with deterministic order, based on [`SmallMap`].
 #[derive(Clone, Default_, Allocative)]
@@ -92,6 +93,17 @@ impl<T> SmallSet<T> {
     #[inline]
     pub fn iter(&self) -> Iter<T> {
         self.into_iter()
+    }
+
+    /// Iterate the mutable element references.
+    ///
+    /// This operation is memory safe, but otherwise no guarantees
+    /// if keys are mutated inconsistently (hash or equality changes).
+    #[inline]
+    pub fn iter_mut_unchecked(&mut self) -> IterMutUnchecked<T> {
+        IterMutUnchecked {
+            iter: self.0.iter_mut_unchecked(),
+        }
     }
 
     /// Into hashed entries.
