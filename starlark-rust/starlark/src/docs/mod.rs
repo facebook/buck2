@@ -43,6 +43,7 @@ use crate::syntax::ast::AstPayload;
 use crate::syntax::ast::AstStmtP;
 use crate::syntax::ast::ExprP;
 use crate::syntax::ast::StmtP;
+use crate::values::StarlarkValue;
 use crate::values::Trace;
 
 /// There have been bugs around line endings in the textwrap crate. Just join
@@ -861,6 +862,27 @@ pub struct RegisteredDoc {
 }
 
 inventory::collect!(RegisteredDoc);
+
+impl RegisteredDoc {
+    /// This function is called from generated code.
+    pub fn for_type<'v, T: StarlarkValue<'v>>(custom_attrs: &[(&str, &str)]) -> Option<Doc> {
+        let name = T::TYPE.to_owned();
+        let id = Identifier {
+            name,
+            location: None,
+        };
+        let item = T::get_methods()?.documentation();
+        let custom_attrs = custom_attrs
+            .iter()
+            .map(|(k, v)| ((*k).to_owned(), (*v).to_owned()))
+            .collect();
+        Some(Doc {
+            id,
+            item,
+            custom_attrs,
+        })
+    }
+}
 
 #[cfg(test)]
 mod tests {

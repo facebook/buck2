@@ -61,7 +61,7 @@ fn expand_docs_derive(input: DeriveInput) -> syn::Result<proc_macro2::TokenStrea
     let custom_attrs: Vec<_> = parsed_attrs
         .into_iter()
         .map(|(k, v)| {
-            quote! { (#k.to_owned(), #v.to_owned())}
+            quote! { (#k, #v)}
         })
         .collect();
 
@@ -115,29 +115,14 @@ fn expand_docs_derive(input: DeriveInput) -> syn::Result<proc_macro2::TokenStrea
         impl #impl_generics #name #ty_generics #where_clause  {
             // Use 'docs here instead of 'v because someone might have 'v in their generics'
             // constraints, and we'd end up with duplicate lifetime definition errors.
-            fn __generated_documentation #constraint_lifetime () -> Option<starlark::docs::Doc>
+            fn __generated_documentation #constraint_lifetime ()
             where #constraint {
                 #use_inventory
                 starlark::__derive_refs::inventory::submit! {
                     starlark::docs::RegisteredDoc {
-                        getter: #frozen_name::__generated_documentation,
+                        getter: || starlark::docs::RegisteredDoc::for_type::<#frozen_name>(&[#(#custom_attrs),*]),
                     }
                 };
-
-                let name = <Self as starlark::values::StarlarkValue>::TYPE.to_owned();
-                let id = starlark::docs::Identifier {
-                    name,
-                    location: None,
-                };
-                let item = <Self as starlark::values::StarlarkValue>::get_methods()?.documentation();
-                let custom_attrs = std::collections::HashMap::from([
-                    #(#custom_attrs),*
-                ]);
-                Some(starlark::docs::Doc {
-                    id,
-                    item,
-                    custom_attrs,
-                })
             }
         }
     })
