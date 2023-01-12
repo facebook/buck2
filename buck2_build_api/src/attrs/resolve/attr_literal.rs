@@ -24,6 +24,7 @@ use starlark::collections::SmallMap;
 use starlark::values::dict::Dict;
 use starlark::values::list::AllocList;
 use starlark::values::none::NoneType;
+use starlark::values::tuple::AllocTuple;
 use starlark::values::FrozenValue;
 use starlark::values::Heap;
 use starlark::values::StarlarkValue;
@@ -72,7 +73,7 @@ impl UnconfiguredAttrLiteralExt for AttrLiteral<CoercedAttr> {
                 for e in l.iter() {
                     v.push(e.to_value(heap)?);
                 }
-                Ok(heap.alloc_tuple(&v))
+                Ok(heap.alloc(AllocTuple(v)))
             }
             AttrLiteral::Dict(d) => {
                 let mut m = SmallMap::with_capacity(d.len());
@@ -124,7 +125,7 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
                 for v in list.iter() {
                     values.append(&mut v.resolve(ctx)?);
                 }
-                Ok(ctx.heap().alloc_tuple(&values))
+                Ok(ctx.heap().alloc(AllocTuple(values)))
             }
             AttrLiteral::Dict(dict) => {
                 let mut res = SmallMap::with_capacity(dict.len());
@@ -200,7 +201,7 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
             AttrLiteral::Int(v) => heap.alloc(*v),
             AttrLiteral::String(s) | AttrLiteral::EnumVariant(s) => heap.alloc(s),
             AttrLiteral::List(list, _ty) => heap.alloc(list.try_map(|v| v.to_value(heap))?),
-            AttrLiteral::Tuple(v) => heap.alloc_tuple(&v.try_map(|v| v.to_value(heap))?),
+            AttrLiteral::Tuple(v) => heap.alloc(AllocTuple(v.try_map(|v| v.to_value(heap))?)),
             AttrLiteral::Dict(map) => {
                 let mut res = SmallMap::with_capacity(map.len());
 
