@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use anyhow::Context;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
@@ -74,7 +75,7 @@ pub fn retrieve_nth_recent_log(
     ctx: &ClientCommandContext,
     n: usize,
 ) -> anyhow::Result<AbsNormPathBuf> {
-    let log_dir = ctx.paths()?.log_dir();
+    let log_dir = ctx.paths().context("Error identifying log dir")?.log_dir();
     let mut logfiles = get_local_logs(&log_dir)?;
     logfiles.reverse(); // newest first
     let chosen = logfiles
