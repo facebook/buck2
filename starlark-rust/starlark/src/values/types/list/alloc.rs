@@ -71,13 +71,6 @@ where
     L::Item: AllocFrozenValue,
 {
     fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
-        // TODO(nga): collect to `Vec` is not needed when iterator size is known.
-        heap.alloc_list(
-            &self
-                .0
-                .into_iter()
-                .map(|x| heap.alloc(x))
-                .collect::<Vec<_>>(),
-        )
+        heap.alloc_list_iter(self.0.into_iter().map(|x| heap.alloc(x)))
     }
 }

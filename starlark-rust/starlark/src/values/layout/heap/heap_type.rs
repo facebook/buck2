@@ -71,6 +71,7 @@ use crate::values::layout::heap::call_enter_exit::CallExit;
 use crate::values::layout::heap::call_enter_exit::NeedsDrop;
 use crate::values::layout::heap::call_enter_exit::NoDrop;
 use crate::values::layout::heap::fast_cell::FastCell;
+use crate::values::layout::heap::maybe_uninit_slice_util::maybe_uninit_write_from_exact_size_iter;
 use crate::values::layout::heap::profile::by_type::HeapSummary;
 use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::layout::static_string::constant_string;
@@ -337,6 +338,31 @@ impl FrozenHeap {
             let (avalue, elem_places) = self.arena.alloc_extra(frozen_list_avalue(elems.len()));
             maybe_uninit_write_slice(elem_places, elems);
             FrozenValue::new_repr(&*avalue)
+        }
+    }
+
+    pub(crate) fn alloc_list_iter(
+        &self,
+        elems: impl IntoIterator<Item = FrozenValue>,
+    ) -> FrozenValue {
+        let elems = elems.into_iter();
+        let (lower, upper) = elems.size_hint();
+        if Some(lower) == upper {
+            if lower == 0 {
+                return FrozenValue::new_repr(&VALUE_EMPTY_FROZEN_LIST);
+            }
+
+            unsafe {
+                let (avalue, elem_places) = self.arena.alloc_extra(frozen_list_avalue(lower));
+                maybe_uninit_write_from_exact_size_iter(
+                    elem_places,
+                    elems,
+                    FrozenValue::new_none(),
+                );
+                FrozenValue::new_repr(&*avalue)
+            }
+        } else {
+            self.alloc_list(&elems.collect::<Vec<_>>())
         }
     }
 
