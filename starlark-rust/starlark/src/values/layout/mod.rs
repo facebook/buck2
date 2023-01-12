@@ -18,7 +18,7 @@
 // Possible optimisations:
 // Encoding none, bool etc in the pointer of frozen value
 
-mod avalue;
+pub(crate) mod avalue;
 mod const_frozen_string;
 pub(crate) mod const_type_id;
 pub(crate) mod heap;

@@ -45,6 +45,7 @@ use crate::values::dict::DictOf;
 use crate::values::dict::DictRef;
 use crate::values::error::ValueError;
 use crate::values::iter::ARefIterator;
+use crate::values::layout::avalue::VALUE_EMPTY_FROZEN_DICT;
 use crate::values::string::hash_string_value;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocFrozenValue;
@@ -120,7 +121,11 @@ impl<'v> AllocValue<'v> for Dict<'v> {
 
 impl AllocFrozenValue for FrozenDictData {
     fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
-        heap.alloc_simple(DictGen(self))
+        if self.content.is_empty() {
+            FrozenValue::new_repr(&VALUE_EMPTY_FROZEN_DICT)
+        } else {
+            heap.alloc_simple(DictGen(self))
+        }
     }
 }
 

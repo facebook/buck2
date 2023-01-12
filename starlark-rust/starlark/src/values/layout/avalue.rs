@@ -28,6 +28,7 @@ use gazebo::cast;
 use gazebo::prelude::*;
 use serde::Serialize;
 use serde::Serializer;
+use starlark_map::small_map::SmallMap;
 
 use crate::collections::maybe_uninit_backport::maybe_uninit_write_slice;
 use crate::collections::StarlarkHashValue;
@@ -36,6 +37,8 @@ use crate::eval::compiler::def::FrozenDef;
 use crate::private::Private;
 use crate::values::basic::StarlarkValueBasic;
 use crate::values::bool::StarlarkBool;
+use crate::values::dict::value::DictGen;
+use crate::values::dict::value::FrozenDictData;
 use crate::values::float::StarlarkFloat;
 use crate::values::layout::heap::repr::AValueForward;
 use crate::values::layout::heap::repr::AValueHeader;
@@ -101,6 +104,19 @@ pub(crate) static VALUE_EMPTY_FROZEN_LIST: AValueRepr<AValueImpl<Direct, ListGen
         AValueImpl(Direct, ListGen(unsafe { FrozenListData::new(0) }));
     AValueRepr::with_metadata(
         AValueVTable::new::<AValueImpl<Direct, ListGen<FrozenListData>>>(),
+        PAYLOAD,
+    )
+};
+
+pub(crate) static VALUE_EMPTY_FROZEN_DICT: AValueRepr<AValueImpl<Simple, DictGen<FrozenDictData>>> = {
+    const PAYLOAD: AValueImpl<Simple, DictGen<FrozenDictData>> = AValueImpl(
+        Simple,
+        DictGen(FrozenDictData {
+            content: SmallMap::new(),
+        }),
+    );
+    AValueRepr::with_metadata(
+        AValueVTable::new::<AValueImpl<Simple, DictGen<FrozenDictData>>>(),
         PAYLOAD,
     )
 };
