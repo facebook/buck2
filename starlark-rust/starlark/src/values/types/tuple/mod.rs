@@ -17,10 +17,12 @@
 
 //! The list type, an immutable sequence of values.
 
+pub(crate) mod alloc;
 pub(crate) mod refs;
 pub(crate) mod rust_tuple;
 pub(crate) mod value;
 
+pub use crate::values::types::tuple::alloc::AllocTuple;
 pub use crate::values::types::tuple::refs::FrozenTupleRef;
 pub use crate::values::types::tuple::refs::TupleRef;
 pub use crate::values::types::tuple::value::FrozenTuple;

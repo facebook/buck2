@@ -328,6 +328,28 @@ impl FrozenHeap {
         }
     }
 
+    /// Allocate a tuple from iterator of elements.
+    pub(crate) fn alloc_tuple_iter(
+        &self,
+        elems: impl IntoIterator<Item = FrozenValue>,
+    ) -> FrozenValue {
+        let elems = elems.into_iter();
+        let (lower, upper) = elems.size_hint();
+        if Some(lower) == upper {
+            if lower == 0 {
+                return FrozenValue::new_repr(&VALUE_EMPTY_TUPLE);
+            }
+
+            unsafe {
+                let (avalue, extra) = self.arena.alloc_extra::<_>(frozen_tuple_avalue(lower));
+                maybe_uninit_write_from_exact_size_iter(extra, elems, FrozenValue::new_none());
+                FrozenValue::new_repr(&*avalue)
+            }
+        } else {
+            self.alloc_tuple(&elems.collect::<Vec<_>>())
+        }
+    }
+
     /// Allocate a list with the given elements on this heap.
     pub(crate) fn alloc_list(&self, elems: &[FrozenValue]) -> FrozenValue {
         if elems.is_empty() {
@@ -654,6 +676,28 @@ impl Heap {
             let (avalue, extra) = arena.alloc_extra(tuple_avalue(elems.len()));
             maybe_uninit_write_slice(extra, elems);
             Value::new_repr(&*avalue)
+        }
+    }
+
+    pub(crate) fn alloc_tuple_iter<'v>(
+        &'v self,
+        elems: impl IntoIterator<Item = Value<'v>>,
+    ) -> Value<'v> {
+        let elems = elems.into_iter();
+        let (lower, upper) = elems.size_hint();
+        if Some(lower) == upper {
+            if lower == 0 {
+                return FrozenValue::new_repr(&VALUE_EMPTY_TUPLE).to_value();
+            }
+
+            unsafe {
+                let arena = self.arena.borrow();
+                let (avalue, extra) = arena.alloc_extra(tuple_avalue(lower));
+                maybe_uninit_write_from_exact_size_iter(extra, elems, Value::new_none());
+                Value::new_repr(&*avalue)
+            }
+        } else {
+            self.alloc_tuple(&elems.collect::<Vec<_>>())
         }
     }
 
