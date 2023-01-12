@@ -19,16 +19,16 @@ use std::iter;
 
 use starlark_map::small_map::SmallMap;
 
+use crate::values::alloc_value::AllocFrozenStringValue;
+use crate::values::alloc_value::AllocStringValue;
 use crate::values::structs::value::FrozenStruct;
 use crate::values::structs::value::Struct;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::FrozenHeap;
-use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
 use crate::values::Heap;
-use crate::values::StringValue;
 use crate::values::Value;
 
 /// Utility to allocate a struct on a heap.
@@ -59,7 +59,7 @@ impl AllocStruct<iter::Empty<(String, String)>> {
 impl<'v, K, V, S> StarlarkTypeRepr for AllocStruct<S>
 where
     S: IntoIterator<Item = (K, V)>,
-    K: AllocValue<'v>,
+    K: AllocStringValue<'v>,
     V: AllocValue<'v>,
 {
     fn starlark_type_repr() -> String {
@@ -70,15 +70,14 @@ where
 impl<'v, K, V, S> AllocValue<'v> for AllocStruct<S>
 where
     S: IntoIterator<Item = (K, V)>,
-    K: AllocValue<'v>,
+    K: AllocStringValue<'v>,
     V: AllocValue<'v>,
 {
     fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
         let iter = self.0.into_iter();
         let mut fields = SmallMap::with_capacity(iter.size_hint().0);
         for (k, v) in iter {
-            let k = k.alloc_value(heap);
-            let k = StringValue::new_or_err(k).unwrap();
+            let k = k.alloc_string_value(heap);
             let v = v.alloc_value(heap);
             let prev = fields.insert(k, v);
             assert!(prev.is_none(), "non-unique key: {}", k);
@@ -90,15 +89,14 @@ where
 impl<K, V, S> AllocFrozenValue for AllocStruct<S>
 where
     S: IntoIterator<Item = (K, V)>,
-    K: AllocFrozenValue,
+    K: AllocFrozenStringValue,
     V: AllocFrozenValue,
 {
     fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
         let iter = self.0.into_iter();
         let mut fields = SmallMap::with_capacity(iter.size_hint().0);
         for (k, v) in iter {
-            let k = k.alloc_frozen_value(heap);
-            let k = FrozenStringValue::new_or_err(k).unwrap();
+            let k = k.alloc_frozen_string_value(heap);
             let v = v.alloc_frozen_value(heap);
             let prev = fields.insert(k, v);
             assert!(prev.is_none(), "non-unique key: {}", k);

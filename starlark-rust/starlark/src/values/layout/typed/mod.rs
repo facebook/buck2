@@ -33,6 +33,8 @@ use serde::Serialize;
 
 use crate::gazebo::any::AnyLifetime;
 use crate::gazebo::any::ProvidesStaticType;
+use crate::values::alloc_value::AllocFrozenStringValue;
+use crate::values::alloc_value::AllocStringValue;
 use crate::values::int::PointerI32;
 use crate::values::layout::avalue::AValue;
 use crate::values::layout::heap::repr::AValueRepr;
@@ -44,27 +46,17 @@ use crate::values::Freeze;
 use crate::values::Freezer;
 use crate::values::FrozenHeap;
 use crate::values::FrozenRef;
+use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
+use crate::values::StringValue;
+use crate::values::StringValueLike;
 use crate::values::Trace;
 use crate::values::Tracer;
 use crate::values::UnpackValue;
 use crate::values::Value;
 use crate::values::ValueLike;
-
-#[derive(Debug, thiserror::Error)]
-enum ValueTypedError {
-    #[error("Expecting a value of type `{0}`, got a value of type `{1}`")]
-    WrongType(&'static str, &'static str),
-}
-
-impl ValueTypedError {
-    #[cold]
-    fn wrong_type<'v, T: StarlarkValue<'v>>(v: Value) -> anyhow::Error {
-        ValueTypedError::WrongType(T::TYPE, v.get_type()).into()
-    }
-}
 
 /// [`Value`] wrapper which asserts contained value is of type `<T>`.
 #[derive(Copy_, Clone_, Dupe_, ProvidesStaticType, Allocative)]
@@ -149,15 +141,6 @@ impl<'v, T: StarlarkValue<'v>> ValueTyped<'v, T> {
         Some(ValueTyped(value, marker::PhantomData))
     }
 
-    /// Downcast with returning an error instead of `None`.
-    #[inline]
-    pub(crate) fn new_or_err(value: Value<'v>) -> anyhow::Result<ValueTyped<'v, T>> {
-        match Self::new(value) {
-            Some(value) => Ok(value),
-            None => Err(ValueTypedError::wrong_type::<T>(value)),
-        }
-    }
-
     /// Construct typed value without checking the value is of type `<T>`.
     pub unsafe fn new_unchecked(value: Value<'v>) -> ValueTyped<'v, T> {
         debug_assert!(value.downcast_ref::<T>().is_some());
@@ -210,15 +193,6 @@ impl<'v, T: StarlarkValue<'v>> FrozenValueTyped<'v, T> {
     pub fn new(value: FrozenValue) -> Option<FrozenValueTyped<'v, T>> {
         value.downcast_ref::<T>()?;
         Some(FrozenValueTyped(value, marker::PhantomData))
-    }
-
-    /// Downcast with returning an error instead of `None`.
-    #[inline]
-    pub(crate) fn new_or_err(value: FrozenValue) -> anyhow::Result<FrozenValueTyped<'v, T>> {
-        match Self::new(value) {
-            Some(v) => Ok(v),
-            None => Err(ValueTypedError::wrong_type::<T>(value.to_value())),
-        }
     }
 
     pub(crate) fn new_repr<A: AValue<'v, StarlarkValue = T>>(
@@ -345,21 +319,39 @@ impl<'v, T: StarlarkValue<'v>> AllocValue<'v> for ValueTyped<'v, T> {
     }
 }
 
+impl<'v> AllocStringValue<'v> for StringValue<'v> {
+    fn alloc_string_value(self, _heap: &'v Heap) -> StringValue<'v> {
+        self
+    }
+}
+
 impl<'v, T: StarlarkValue<'v>> StarlarkTypeRepr for FrozenValueTyped<'v, T> {
     fn starlark_type_repr() -> String {
         T::starlark_type_repr()
     }
 }
 
-impl<'v, T: StarlarkValue<'v>> AllocValue<'v> for FrozenValueTyped<'v, T> {
+impl<'v, 'f, T: StarlarkValue<'f>> AllocValue<'v> for FrozenValueTyped<'f, T> {
     fn alloc_value(self, _heap: &'v Heap) -> Value<'v> {
         self.0.to_value()
+    }
+}
+
+impl<'v> AllocStringValue<'v> for FrozenStringValue {
+    fn alloc_string_value(self, _heap: &'v Heap) -> StringValue<'v> {
+        self.to_string_value()
     }
 }
 
 impl<'v, T: StarlarkValue<'v>> AllocFrozenValue for FrozenValueTyped<'v, T> {
     fn alloc_frozen_value(self, _heap: &FrozenHeap) -> FrozenValue {
         self.0
+    }
+}
+
+impl AllocFrozenStringValue for FrozenStringValue {
+    fn alloc_frozen_string_value(self, _heap: &FrozenHeap) -> FrozenStringValue {
+        self
     }
 }
 

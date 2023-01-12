@@ -19,8 +19,10 @@
 
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::FrozenHeap;
+use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
 use crate::values::Heap;
+use crate::values::StringValue;
 use crate::values::Value;
 
 /// Trait for things that can be created on a [`Heap`] producing a [`Value`].
@@ -35,6 +37,12 @@ pub trait AllocValue<'v>: StarlarkTypeRepr {
     /// Note, for certain values (e.g. empty strings) no allocation is actually performed,
     /// and a reference to the statically allocated object is returned.
     fn alloc_value(self, heap: &'v Heap) -> Value<'v>;
+}
+
+/// Type which allocates a string.
+pub trait AllocStringValue<'v>: AllocValue<'v> + Sized {
+    /// Allocate a string.
+    fn alloc_string_value(self, heap: &'v Heap) -> StringValue<'v>;
 }
 
 impl<'v> AllocValue<'v> for FrozenValue {
@@ -65,6 +73,12 @@ where
 pub trait AllocFrozenValue {
     /// Allocate a value in the frozen heap and return a reference to the allocated value.
     fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue;
+}
+
+/// Type which allocates a string.
+pub trait AllocFrozenStringValue: AllocFrozenValue + Sized {
+    /// Allocate a string.
+    fn alloc_frozen_string_value(self, heap: &FrozenHeap) -> FrozenStringValue;
 }
 
 impl AllocFrozenValue for FrozenValue {
