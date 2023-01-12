@@ -48,6 +48,13 @@ pub struct AuditProvidersCommand {
     quiet: bool,
 
     #[clap(
+        long,
+        short = 'l',
+        help = "List the available providers", conflicts_with_all=&["print-debug", "quiet"]
+    )]
+    list: bool,
+
+    #[clap(
         long = "print-debug",
         help = "Print the providers using debug format (very verbose)"
     )]
@@ -154,6 +161,20 @@ impl AuditProvidersCommand {
 
                     if self.quiet {
                         writeln!(&mut stdout, "{}", target)?
+                    } else if self.list {
+                        let mut provider_names = v.provider_collection().provider_names();
+                        // Create a deterministic output.
+                        provider_names.sort();
+                        write!(
+                            &mut stdout,
+                            "{}:\n{}",
+                            target,
+                            indent(
+                                &provider_names
+                                    .iter()
+                                    .fold(String::new(), |acc, arg| acc + &format!("- {}\n", arg))
+                            )
+                        )?;
                     } else if self.print_debug {
                         write!(
                             &mut stdout,
