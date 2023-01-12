@@ -42,7 +42,7 @@ pub mod invocation_paths;
 pub mod invocation_roots;
 pub mod io;
 pub mod legacy_configs;
-pub mod liveliness_manager;
+pub mod liveliness_observer;
 pub mod memory;
 pub mod package_boundary;
 pub mod package_listing;

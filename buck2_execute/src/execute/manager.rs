@@ -11,7 +11,7 @@ use std::future::Future;
 use std::sync::Arc;
 use std::time::Duration;
 
-use buck2_common::liveliness_manager::LivelinessManager;
+use buck2_common::liveliness_observer::LivelinessObserver;
 use buck2_events::dispatch::span;
 use buck2_events::dispatch::span_async;
 use buck2_events::dispatch::EventDispatcher;
@@ -44,19 +44,19 @@ trait CommandExecutionManagerLike: Sized {
 pub struct CommandExecutionManager {
     pub claim_manager: Box<dyn ClaimManager>,
     pub events: EventDispatcher,
-    pub liveliness_manager: Arc<dyn LivelinessManager>,
+    pub liveliness_observer: Arc<dyn LivelinessObserver>,
 }
 
 impl CommandExecutionManager {
     pub fn new(
         claim_manager: Box<dyn ClaimManager>,
         events: EventDispatcher,
-        liveliness_manager: Arc<dyn LivelinessManager>,
+        liveliness_observer: Arc<dyn LivelinessObserver>,
     ) -> Self {
         Self {
             claim_manager,
             events,
-            liveliness_manager,
+            liveliness_observer,
         }
     }
 
@@ -67,7 +67,7 @@ impl CommandExecutionManager {
         CommandExecutionManagerWithClaim {
             claim,
             events: self.events,
-            liveliness_manager: self.liveliness_manager,
+            liveliness_observer: self.liveliness_observer,
         }
     }
 
@@ -126,7 +126,7 @@ impl CommandExecutionManagerLike for CommandExecutionManager {
 
 pub struct CommandExecutionManagerWithClaim {
     pub events: EventDispatcher,
-    pub liveliness_manager: Arc<dyn LivelinessManager>,
+    pub liveliness_observer: Arc<dyn LivelinessObserver>,
     claim: Box<dyn Claim>,
 }
 

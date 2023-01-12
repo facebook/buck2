@@ -30,7 +30,7 @@ use buck2_build_api::interpreter::rule_defs::provider::builtin::external_runner_
 use buck2_build_api::interpreter::rule_defs::provider::builtin::external_runner_test_info::TestCommandMember;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::executor_config::CommandExecutorConfig;
-use buck2_common::liveliness_manager::LivelinessManager;
+use buck2_common::liveliness_observer::LivelinessObserver;
 use buck2_core::category::Category;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
@@ -123,21 +123,21 @@ pub struct BuckTestOrchestrator {
     /// identifiers (e.g. Uuid or similar) because each might create some temporary outputs on disk,
     /// so use sequential identifiers for each target.
     identifiers: DashMap<ConfiguredTargetLabel, usize>,
-    liveliness_manager: Arc<dyn LivelinessManager>,
+    liveliness_observer: Arc<dyn LivelinessObserver>,
 }
 
 impl BuckTestOrchestrator {
     pub async fn new(
         dice: DiceTransaction,
         session: Arc<TestSession>,
-        liveliness_manager: Arc<dyn LivelinessManager>,
+        liveliness_observer: Arc<dyn LivelinessObserver>,
         results_channel: UnboundedSender<anyhow::Result<TestResultOrExitCode>>,
     ) -> anyhow::Result<Self> {
         let events = dice.per_transaction_data().get_dispatcher().dupe();
         Ok(Self::from_parts(
             dice,
             session,
-            liveliness_manager,
+            liveliness_observer,
             results_channel,
             events,
         ))
@@ -146,14 +146,14 @@ impl BuckTestOrchestrator {
     fn from_parts(
         dice: DiceTransaction,
         session: Arc<TestSession>,
-        liveliness_manager: Arc<dyn LivelinessManager>,
+        liveliness_observer: Arc<dyn LivelinessObserver>,
         results_channel: UnboundedSender<anyhow::Result<TestResultOrExitCode>>,
         events: EventDispatcher,
     ) -> Self {
         Self {
             dice,
             session,
-            liveliness_manager,
+            liveliness_observer,
             results_channel,
             events,
             identifiers: Default::default(),
@@ -193,7 +193,7 @@ impl TestOrchestrator for BuckTestOrchestrator {
         pre_create_dirs: Vec<DeclaredOutput>,
         executor_override: Option<ExecutorConfigOverride>,
     ) -> anyhow::Result<ExecutionResult2> {
-        self.liveliness_manager.require_alive().await?;
+        self.liveliness_observer.require_alive().await?;
 
         let test_target = self.session.get(test_target)?;
 
@@ -255,7 +255,7 @@ impl TestOrchestrator for BuckTestOrchestrator {
             )
             .await?;
 
-        self.liveliness_manager.require_alive().await?;
+        self.liveliness_observer.require_alive().await?;
 
         let (outputs, paths_to_materialize) = outputs
             .into_iter()
@@ -439,7 +439,7 @@ impl BuckTestOrchestrator {
         let manager = CommandExecutionManager::new(
             box MutexClaimManager::new(),
             self.events.dupe(),
-            self.liveliness_manager.dupe(),
+            self.liveliness_observer.dupe(),
         );
 
         let command = executor.exec_cmd(command_execution_target, &request, manager);
@@ -959,7 +959,7 @@ mod tests {
     use buck2_build_api::context::SetBuildContextData;
     use buck2_common::dice::cells::HasCellResolver;
     use buck2_common::dice::data::testing::SetTestingIoProvider;
-    use buck2_common::liveliness_manager::NoopLivelinessManager;
+    use buck2_common::liveliness_observer::NoopLivelinessObserver;
     use buck2_core::cells::testing::CellResolverExt;
     use buck2_core::cells::CellName;
     use buck2_core::cells::CellResolver;
@@ -1002,7 +1002,7 @@ mod tests {
             BuckTestOrchestrator::from_parts(
                 dice,
                 Arc::new(TestSession::new(Default::default())),
-                NoopLivelinessManager::create(),
+                NoopLivelinessObserver::create(),
                 sender,
                 EventDispatcher::null(),
             ),

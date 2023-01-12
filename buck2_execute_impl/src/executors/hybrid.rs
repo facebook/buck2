@@ -13,10 +13,10 @@ use anyhow::Context;
 use async_trait::async_trait;
 use buck2_common::executor_config::HybridExecutionLevel;
 use buck2_common::executor_config::RemoteExecutorUseCase;
-use buck2_common::liveliness_manager::CancelledLivelinessGuard;
-use buck2_common::liveliness_manager::LivelinessGuard;
-use buck2_common::liveliness_manager::LivelinessManager;
-use buck2_common::liveliness_manager::LivelinessManagerExt;
+use buck2_common::liveliness_observer::CancelledLivelinessGuard;
+use buck2_common::liveliness_observer::LivelinessGuard;
+use buck2_common::liveliness_observer::LivelinessObserver;
+use buck2_common::liveliness_observer::LivelinessObserverExt;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::execute::claim::Claim;
 use buck2_execute::execute::claim::ClaimManager;
@@ -61,9 +61,10 @@ impl HybridExecutor {
         command: &PreparedCommand<'_, '_>,
         claim_manager: Box<dyn ClaimManager>,
         events: EventDispatcher,
-        liveliness_manager: Arc<dyn LivelinessManager>,
+        liveliness_observer: Arc<dyn LivelinessObserver>,
     ) -> CommandExecutionResult {
-        let local_manager = CommandExecutionManager::new(claim_manager, events, liveliness_manager);
+        let local_manager =
+            CommandExecutionManager::new(claim_manager, events, liveliness_observer);
         self.local.exec_cmd(command, local_manager).await
     }
 
@@ -72,10 +73,10 @@ impl HybridExecutor {
         command: &PreparedCommand<'_, '_>,
         claim_manager: Box<dyn ClaimManager>,
         events: EventDispatcher,
-        liveliness_manager: Arc<dyn LivelinessManager>,
+        liveliness_observer: Arc<dyn LivelinessObserver>,
     ) -> CommandExecutionResult {
         let remote_manager =
-            CommandExecutionManager::new(claim_manager, events, liveliness_manager);
+            CommandExecutionManager::new(claim_manager, events, liveliness_observer);
         self.remote.exec_cmd(command, remote_manager).await
     }
 }
@@ -105,11 +106,11 @@ impl PreparedCommandExecutor for HybridExecutor {
         // can truly race RE and local: if RE finishes even after local started, it'll cancel the
         // local execution, we'll get back here with a ClaimCancelled from local execution, cancel
         // local's claim, and then resume RE.
-        let (local_execution_liveliness_manager, local_execution_liveliness_guard) =
+        let (local_execution_liveliness_observer, local_execution_liveliness_guard) =
             LivelinessGuard::create();
 
         // Used to monitor that the RE execution is alive.
-        let (remote_execution_liveliness_manager, remote_execution_liveliness_guard) =
+        let (remote_execution_liveliness_observer, remote_execution_liveliness_guard) =
             LivelinessGuard::create();
 
         let claim_manager = MutexClaimManager::new();
@@ -122,9 +123,9 @@ impl PreparedCommandExecutor for HybridExecutor {
             manager.events.dupe(),
             Arc::new(
                 manager
-                    .liveliness_manager
+                    .liveliness_observer
                     .dupe()
-                    .and(local_execution_liveliness_manager.dupe()),
+                    .and(local_execution_liveliness_observer.dupe()),
             ),
         );
 
@@ -136,7 +137,7 @@ impl PreparedCommandExecutor for HybridExecutor {
                 remote_execution_liveliness_guard,
             ),
             manager.events.dupe(),
-            manager.liveliness_manager.dupe(),
+            manager.liveliness_observer.dupe(),
         );
 
         if executor_preference.requires_local()
@@ -233,7 +234,7 @@ impl PreparedCommandExecutor for HybridExecutor {
                         // - we only have a few actions (that's low_pass_filter)
                         // - the remote executor aborts (that's remote_execution_liveliness_guard)
                         let access = self.low_pass_filter.access(weight);
-                        let alive = remote_execution_liveliness_manager.while_alive();
+                        let alive = remote_execution_liveliness_observer.while_alive();
                         futures::pin_mut!(access);
                         futures::pin_mut!(alive);
                         futures::pin_mut!(bypass_low_pass_filter);

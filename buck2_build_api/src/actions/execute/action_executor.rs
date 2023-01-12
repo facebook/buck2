@@ -14,7 +14,7 @@ use allocative::Allocative;
 use anyhow::Context;
 use async_trait::async_trait;
 use buck2_common::executor_config::CommandExecutorConfig;
-use buck2_common::liveliness_manager::NoopLivelinessManager;
+use buck2_common::liveliness_observer::NoopLivelinessObserver;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::artifact::fs::ArtifactFs;
 use buck2_execute::artifact::fs::ExecutorFs;
@@ -325,7 +325,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
         let manager = CommandExecutionManager::new(
             box MutexClaimManager::new(),
             self.executor.events.dupe(),
-            NoopLivelinessManager::create(),
+            NoopLivelinessObserver::create(),
         );
         let CommandExecutionResult {
             outputs,

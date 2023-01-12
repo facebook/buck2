@@ -22,7 +22,7 @@ use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
-use buck2_common::liveliness_manager::LivelinessManager;
+use buck2_common::liveliness_observer::LivelinessObserver;
 use buck2_core::directory::DirectoryEntry;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
@@ -127,7 +127,7 @@ impl LocalExecutor {
         working_directory: Option<&'a ProjectRelativePath>,
         timeout: Option<Duration>,
         env_inheritance: Option<&'a EnvironmentInheritance>,
-        liveliness_manager: Arc<dyn LivelinessManager>,
+        liveliness_observer: Arc<dyn LivelinessObserver>,
     ) -> impl futures::future::Future<Output = anyhow::Result<(GatherOutputStatus, Vec<u8>, Vec<u8>)>> + 'a
     {
         async move {
@@ -150,7 +150,7 @@ impl LocalExecutor {
                             working_directory,
                             timeout,
                             env_inheritance,
-                            liveliness_manager,
+                            liveliness_observer,
                         )
                         .await
                     }
@@ -173,7 +173,7 @@ impl LocalExecutor {
                         env_inheritance,
                     );
                     let timeout = timeout_into_cancellation(timeout);
-                    let alive = liveliness_manager
+                    let alive = liveliness_observer
                         .while_alive()
                         .map(|()| anyhow::Ok(GatherOutputStatus::Cancelled));
                     let cancellation =
@@ -299,7 +299,7 @@ impl LocalExecutor {
                 )))
         };
 
-        let liveliness_manager = manager.liveliness_manager.dupe();
+        let liveliness_observer = manager.liveliness_observer.dupe();
 
         let (timing, res) = manager
             .stage_async(
@@ -334,7 +334,7 @@ impl LocalExecutor {
                             request.working_directory(),
                             request.timeout(),
                             request.local_environment_inheritance(),
-                            liveliness_manager,
+                            liveliness_observer,
                         )
                         .await;
 
@@ -769,7 +769,7 @@ mod unix {
         working_directory: &Path,
         comand_timeout: Option<Duration>,
         env_inheritance: Option<&EnvironmentInheritance>,
-        liveliness_manager: Arc<dyn LivelinessManager>,
+        liveliness_observer: Arc<dyn LivelinessObserver>,
     ) -> anyhow::Result<(GatherOutputStatus, Vec<u8>, Vec<u8>)> {
         let exe = exe.as_ref();
 
@@ -787,7 +787,7 @@ mod unix {
         };
         apply_local_execution_environment(&mut req, working_directory, env, env_inheritance);
         forkserver
-            .execute(req, liveliness_manager.while_alive_owned())
+            .execute(req, liveliness_observer.while_alive_owned())
             .await
     }
 
@@ -842,7 +842,7 @@ mod tests {
     use std::sync::Arc;
     use std::time::Instant;
 
-    use buck2_common::liveliness_manager::NoopLivelinessManager;
+    use buck2_common::liveliness_observer::NoopLivelinessObserver;
     use buck2_core::cells::cell_root_path::CellRootPathBuf;
     use buck2_core::cells::testing::CellResolverExt;
     use buck2_core::cells::CellName;
@@ -985,7 +985,7 @@ mod tests {
                 None,
                 None,
                 None,
-                NoopLivelinessManager::create(),
+                NoopLivelinessObserver::create(),
             )
             .await?;
         assert!(matches!(status, GatherOutputStatus::Finished(s) if s.code() == Some(0)));
@@ -1020,7 +1020,7 @@ mod tests {
                 None,
                 None,
                 Some(&EnvironmentInheritance::empty()),
-                NoopLivelinessManager::create(),
+                NoopLivelinessObserver::create(),
             )
             .await?;
         assert!(matches!(status, GatherOutputStatus::Finished(s) if s.code() == Some(0)));

@@ -16,16 +16,16 @@ use tokio::sync::OwnedRwLockWriteGuard;
 use tokio::sync::RwLock;
 
 #[derive(Debug, Error, Copy, Clone, Dupe)]
-#[error("LivelinessManager reports this session is shutting down")]
+#[error("LivelinessObserver reports this session is shutting down")]
 struct NotAlive;
 
 #[async_trait]
-pub trait LivelinessManager: Send + Sync {
+pub trait LivelinessObserver: Send + Sync {
     /// Pending while we are alive. Ready when we aren't.
     async fn while_alive(&self);
 }
 
-impl dyn LivelinessManager {
+impl dyn LivelinessObserver {
     pub async fn while_alive_owned(self: Arc<Self>) {
         self.while_alive().await
     }
@@ -54,19 +54,19 @@ impl dyn LivelinessManager {
 ///
 /// In an ideal world, this would be a newtype, but that means it needs to contain an `Arc<RwLock>`
 /// to support `try_write_owned()`, and now we have 2 Arcs unnecessarily.
-type LivelinessManagerForGuard = RwLock<LivelinessManagerState>;
+type LivelinessObserverForGuard = RwLock<LivelinessObserverState>;
 
 pub struct LivelinessGuard {
-    guard: OwnedRwLockWriteGuard<LivelinessManagerState>,
+    guard: OwnedRwLockWriteGuard<LivelinessObserverState>,
 
     // A reference to the underyling manager to support `cancel`.
-    manager: Arc<LivelinessManagerForGuard>,
+    manager: Arc<LivelinessObserverForGuard>,
 }
 
 impl LivelinessGuard {
-    pub fn create() -> (Arc<dyn LivelinessManager>, LivelinessGuard) {
-        let manager = Arc::new(LivelinessManagerForGuard::new(
-            LivelinessManagerState::AliveWhenLocked,
+    pub fn create() -> (Arc<dyn LivelinessObserver>, LivelinessGuard) {
+        let manager = Arc::new(LivelinessObserverForGuard::new(
+            LivelinessObserverState::AliveWhenLocked,
         ));
 
         let guard = manager
@@ -88,13 +88,13 @@ impl LivelinessGuard {
     /// Declare that the underlying liveliness manager should stay alive forever, even when we drop
     /// this guard.
     pub fn forget(mut self) {
-        *self.guard = LivelinessManagerState::ForeverAlive;
+        *self.guard = LivelinessObserverState::ForeverAlive;
     }
 }
 
 #[derive(Debug)]
 pub struct CancelledLivelinessGuard {
-    manager: Arc<LivelinessManagerForGuard>,
+    manager: Arc<LivelinessObserverForGuard>,
 }
 
 impl CancelledLivelinessGuard {
@@ -112,39 +112,39 @@ impl CancelledLivelinessGuard {
 /// is holding the lock, but if `forget` was called, then we'll record that even upon a successful
 /// lock acquisition, the manager should be considered alive.
 #[derive(Debug)]
-enum LivelinessManagerState {
+enum LivelinessObserverState {
     AliveWhenLocked,
     ForeverAlive,
 }
 
 #[async_trait]
-impl LivelinessManager for LivelinessManagerForGuard {
+impl LivelinessObserver for LivelinessObserverForGuard {
     async fn while_alive(&self) {
         match *self.read().await {
-            LivelinessManagerState::AliveWhenLocked => {}
-            LivelinessManagerState::ForeverAlive => futures::future::pending().await,
+            LivelinessObserverState::AliveWhenLocked => {}
+            LivelinessObserverState::ForeverAlive => futures::future::pending().await,
         }
     }
 }
 
 /// Always alive.
-pub struct NoopLivelinessManager;
+pub struct NoopLivelinessObserver;
 
-impl NoopLivelinessManager {
-    pub fn create() -> Arc<dyn LivelinessManager> {
+impl NoopLivelinessObserver {
+    pub fn create() -> Arc<dyn LivelinessObserver> {
         Arc::new(Self) as _
     }
 }
 
 #[async_trait]
-impl LivelinessManager for NoopLivelinessManager {
+impl LivelinessObserver for NoopLivelinessObserver {
     async fn while_alive(&self) {
         futures::future::pending().await
     }
 }
 
 #[async_trait]
-impl LivelinessManager for Arc<dyn LivelinessManager> {
+impl LivelinessObserver for Arc<dyn LivelinessObserver> {
     async fn while_alive(&self) {
         self.as_ref().while_alive().await
     }
@@ -156,10 +156,10 @@ pub struct LivelinessAnd<A, B> {
 }
 
 #[async_trait]
-impl<A, B> LivelinessManager for LivelinessAnd<A, B>
+impl<A, B> LivelinessObserver for LivelinessAnd<A, B>
 where
-    A: LivelinessManager,
-    B: LivelinessManager,
+    A: LivelinessObserver,
+    B: LivelinessObserver,
 {
     async fn while_alive(&self) {
         let a = self.a.while_alive();
@@ -170,13 +170,13 @@ where
     }
 }
 
-pub trait LivelinessManagerExt: Sized {
+pub trait LivelinessObserverExt: Sized {
     fn and<B>(self, b: B) -> LivelinessAnd<Self, B>;
 }
 
-impl<T> LivelinessManagerExt for T
+impl<T> LivelinessObserverExt for T
 where
-    T: LivelinessManager + Sized,
+    T: LivelinessObserver + Sized,
 {
     fn and<B>(self, b: B) -> LivelinessAnd<Self, B> {
         LivelinessAnd { a: self, b }
@@ -198,10 +198,10 @@ mod tests {
     #[tokio::test]
     async fn test_and() {
         let (manager_a, guard) = LivelinessGuard::create();
-        let manager_b = NoopLivelinessManager::create();
+        let manager_b = NoopLivelinessObserver::create();
 
         let manager = manager_a.and(manager_b);
-        let manager = &manager as &dyn LivelinessManager;
+        let manager = &manager as &dyn LivelinessObserver;
 
         assert!(manager.is_alive().await);
         drop(guard);

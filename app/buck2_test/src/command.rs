@@ -21,7 +21,7 @@ use buck2_build_api::interpreter::rule_defs::provider::test_provider::TestProvid
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
-use buck2_common::liveliness_manager::LivelinessGuard;
+use buck2_common::liveliness_observer::LivelinessGuard;
 use buck2_common::pattern::resolve::ResolvedPattern;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
@@ -345,7 +345,7 @@ async fn test_targets(
     cell_resolver: CellResolver,
 ) -> anyhow::Result<TestOutcome> {
     let session = Arc::new(session);
-    let (liveliness_manager, _guard) = LivelinessGuard::create();
+    let (liveliness_observer, _guard) = LivelinessGuard::create();
 
     let tpx_args = {
         let mut args = vec![
@@ -381,7 +381,7 @@ async fn test_targets(
                 let orchestrator = BuckTestOrchestrator::new(
                     ctx.dupe(),
                     session.dupe(),
-                    liveliness_manager.dupe(),
+                    liveliness_observer.dupe(),
                     test_status_sender,
                 )
                 .await
@@ -402,7 +402,7 @@ async fn test_targets(
 
                 {
                     let drive = driver.drive_to_completion();
-                    let alive = liveliness_manager.while_alive();
+                    let alive = liveliness_observer.while_alive();
                     futures::pin_mut!(drive);
                     futures::pin_mut!(alive);
                     match futures::future::select(drive, alive).await {
