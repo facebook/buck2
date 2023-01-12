@@ -13,17 +13,17 @@
 
 pub mod active_commands;
 pub mod builtin_docs;
-pub mod clean_stale;
-pub mod configs;
-pub mod ctx;
+mod clean_stale;
+mod configs;
+mod ctx;
 pub mod daemon;
-pub mod dice_tracker;
-pub mod file_watcher;
-pub mod heartbeat_guard;
-pub mod host_info;
-pub mod jemalloc_stats;
+mod dice_tracker;
+mod file_watcher;
+mod heartbeat_guard;
+mod host_info;
+mod jemalloc_stats;
 pub mod lsp;
-pub mod materialize;
+mod materialize;
 pub mod profile;
-pub mod snapshot;
-pub mod streaming_request_handler;
+mod snapshot;
+mod streaming_request_handler;
