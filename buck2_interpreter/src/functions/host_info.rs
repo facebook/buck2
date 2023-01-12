@@ -22,14 +22,6 @@ use crate::extra::InterpreterHostArchitecture;
 use crate::extra::InterpreterHostPlatform;
 use crate::extra::XcodeVersionInfo;
 
-fn alloc_option_str(heap: &FrozenHeap, s: Option<String>) -> FrozenValue {
-    if let Some(unwrapped) = s {
-        heap.alloc(unwrapped)
-    } else {
-        heap.alloc(FrozenValue::new_none())
-    }
-}
-
 fn new_host_info(
     host_platform: InterpreterHostPlatform,
     host_architecture: InterpreterHostArchitecture,
@@ -81,39 +73,45 @@ fn new_host_info(
         ],
     );
 
-    // Hack: Xcode version must be inferred from the platform we're running on
-    // since multiple Xcodes can live side-by-side and this is external state.
-    // Only try to populate this struct if we're running on macOS.
-    let xcode_info = if host_platform == InterpreterHostPlatform::MacOS {
-        XcodeVersionInfo::new().unwrap_or_default()
-    } else {
-        XcodeVersionInfo::default()
+    let xcode = {
+        // Hack: Xcode version must be inferred from the platform we're running on
+        // since multiple Xcodes can live side-by-side and this is external state.
+        // Only try to populate this struct if we're running on macOS.
+        let xcode_info = if host_platform == InterpreterHostPlatform::MacOS {
+            XcodeVersionInfo::new().ok()
+        } else {
+            None
+        };
+
+        let (version_string, major_version, minor_version, patch_version, build_number) =
+            match xcode_info {
+                Some(i) => (
+                    heap.alloc(i.version_string),
+                    heap.alloc(i.major_version),
+                    heap.alloc(i.minor_version),
+                    heap.alloc(i.patch_version),
+                    heap.alloc(i.build_number),
+                ),
+                None => (
+                    FrozenValue::new_none(),
+                    FrozenValue::new_none(),
+                    FrozenValue::new_none(),
+                    FrozenValue::new_none(),
+                    FrozenValue::new_none(),
+                ),
+            };
+
+        new_struct(
+            &heap,
+            &[
+                ("version_string", version_string),
+                ("major_version", major_version),
+                ("minor_version", minor_version),
+                ("patch_version", patch_version),
+                ("build_number", build_number),
+            ],
+        )
     };
-    let xcode = new_struct(
-        &heap,
-        &[
-            (
-                "version_string",
-                alloc_option_str(&heap, xcode_info.version_string),
-            ),
-            (
-                "major_version",
-                alloc_option_str(&heap, xcode_info.major_version),
-            ),
-            (
-                "minor_version",
-                alloc_option_str(&heap, xcode_info.minor_version),
-            ),
-            (
-                "patch_version",
-                alloc_option_str(&heap, xcode_info.patch_version),
-            ),
-            (
-                "build_number",
-                alloc_option_str(&heap, xcode_info.build_number),
-            ),
-        ],
-    );
 
     let info = new_struct(
         &heap,

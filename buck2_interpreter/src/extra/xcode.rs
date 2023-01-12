@@ -13,6 +13,15 @@ use std::path::PathBuf;
 use anyhow::Context;
 use buck2_core::fs::fs_util;
 use serde::Deserialize;
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+enum XcodeVersionError {
+    #[error("Unable to construct path to `version.plist` in Xcode install directory.")]
+    UnableToConstructVersionInfoPath,
+    #[error("Expected short version `{0}` to contain at least major and minor versions")]
+    MalformedShortVersion(String),
+}
 
 const XCODE_SELECT_SYMLINK: &str = "/var/db/xcode_select_link";
 
@@ -28,15 +37,15 @@ struct XcodeVersionPlistSchema {
 #[derive(Debug, Default, PartialEq)]
 pub struct XcodeVersionInfo {
     /// e.g. "14.0.1"
-    pub version_string: Option<String>,
+    pub version_string: String,
     /// The "14" in "14.0.1"
-    pub major_version: Option<String>,
+    pub major_version: String,
     /// The "0" in "14.0.1"
-    pub minor_version: Option<String>,
+    pub minor_version: String,
     /// The "1" in "14.0.1"
-    pub patch_version: Option<String>,
+    pub patch_version: String,
     /// Xcode-specific build number like "14A309"
-    pub build_number: Option<String>,
+    pub build_number: String,
 }
 
 impl XcodeVersionInfo {
@@ -47,25 +56,32 @@ impl XcodeVersionInfo {
         let plist_path = resolved_xcode_path
             .parent()
             .map(|base| base.join("version.plist"))
-            .ok_or_else(|| anyhow::anyhow!("unable to construct path to Xcode version.plist"))?;
+            .ok_or(XcodeVersionError::UnableToConstructVersionInfoPath)?;
         Self::from_plist(&plist_path)
     }
 
     pub(crate) fn from_plist(plist_path: &Path) -> anyhow::Result<Self> {
         let plist: XcodeVersionPlistSchema =
-            plist::from_file(plist_path).context("deserializing Xcode version.plist")?;
+            plist::from_file(plist_path).context("deserializing Xcode `version.plist`")?;
 
         let version_parts = &mut plist.CFBundleShortVersionString.split('.');
-        let major = version_parts.next().map(|v| v.to_owned());
-        let minor = version_parts.next().map(|v| v.to_owned());
-        let patch = version_parts
+        let major = version_parts
             .next()
-            .map(|v| v.to_owned())
-            .or_else(|| Some("0".to_owned()));
-        let build_number = Some(plist.ProductBuildVersion);
+            .ok_or_else(|| {
+                XcodeVersionError::MalformedShortVersion(plist.CFBundleShortVersionString.clone())
+            })
+            .map(|v| v.to_owned())?;
+        let minor = version_parts
+            .next()
+            .ok_or_else(|| {
+                XcodeVersionError::MalformedShortVersion(plist.CFBundleShortVersionString.clone())
+            })
+            .map(|v| v.to_owned())?;
+        let patch = version_parts.next().unwrap_or("0").to_owned();
+        let build_number = plist.ProductBuildVersion;
 
         Ok(Self {
-            version_string: Some(plist.CFBundleShortVersionString),
+            version_string: plist.CFBundleShortVersionString,
             major_version: major,
             minor_version: minor,
             patch_version: patch,
@@ -119,11 +135,11 @@ mod tests {
 
         let got = XcodeVersionInfo::from_plist(&plist).expect("failed to parse version info");
         let want = XcodeVersionInfo {
-            version_string: Some("14.1.2".to_owned()),
-            major_version: Some("14".to_owned()),
-            minor_version: Some("1".to_owned()),
-            patch_version: Some("2".to_owned()),
-            build_number: Some("14B47b".to_owned()),
+            version_string: "14.1.2".to_owned(),
+            major_version: "14".to_owned(),
+            minor_version: "1".to_owned(),
+            patch_version: "2".to_owned(),
+            build_number: "14B47b".to_owned(),
         };
         assert_eq!(want, got);
     }
@@ -155,11 +171,11 @@ mod tests {
 
         let got = XcodeVersionInfo::from_plist(&plist).expect("failed to parse version info");
         let want = XcodeVersionInfo {
-            version_string: Some("14.1".to_owned()),
-            major_version: Some("14".to_owned()),
-            minor_version: Some("1".to_owned()),
-            patch_version: Some("0".to_owned()),
-            build_number: Some("14B47b".to_owned()),
+            version_string: "14.1".to_owned(),
+            major_version: "14".to_owned(),
+            minor_version: "1".to_owned(),
+            patch_version: "0".to_owned(),
+            build_number: "14B47b".to_owned(),
         };
         assert_eq!(want, got);
     }
