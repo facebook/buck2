@@ -65,6 +65,55 @@ fn unpack_pair<'v>(pair: Value<'v>, heap: &'v Heap) -> anyhow::Result<(Value<'v>
     })?
 }
 
+/// Common implementation of `min` and `max`.
+fn min_max<'v>(
+    mut args: Vec<Value<'v>>,
+    key: Option<Value<'v>>,
+    eval: &mut Evaluator<'v, '_>,
+    // Select min on true, max on false.
+    min: bool,
+) -> anyhow::Result<Value<'v>> {
+    let args = if args.len() == 1 {
+        args.swap_remove(0)
+    } else {
+        eval.heap().alloc(args)
+    };
+    let mut it = args.iterate(eval.heap())?;
+    let mut max = match it.next() {
+        Some(x) => x,
+        None => {
+            return Err(anyhow::anyhow!(
+                "Argument is an empty iterable, max() expect a non empty iterable"
+            ));
+        }
+    };
+    let update_max_ordering = if min {
+        Ordering::Greater
+    } else {
+        Ordering::Less
+    };
+    match key {
+        None => {
+            for i in it {
+                if max.compare(i)? == update_max_ordering {
+                    max = i;
+                }
+            }
+        }
+        Some(key) => {
+            let mut cached = key.invoke_pos(&[max], eval)?;
+            for i in it {
+                let keyi = key.invoke_pos(&[i], eval)?;
+                if cached.compare(keyi)? == update_max_ordering {
+                    max = i;
+                    cached = keyi;
+                }
+            }
+        }
+    };
+    Ok(max)
+}
+
 #[starlark_module]
 pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     const None: NoneType = NoneType;
@@ -749,40 +798,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
         key: Option<Value<'v>>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
-        let args = if args.len() == 1 {
-            args.swap_remove(0)
-        } else {
-            eval.heap().alloc(args)
-        };
-        let mut it = args.iterate(eval.heap())?;
-        let mut max = match it.next() {
-            Some(x) => x,
-            None => {
-                return Err(anyhow::anyhow!(
-                    "Argument is an empty iterable, max() expect a non empty iterable"
-                ));
-            }
-        };
-        match key {
-            None => {
-                for i in it {
-                    if max.compare(i)? == Ordering::Less {
-                        max = i;
-                    }
-                }
-            }
-            Some(key) => {
-                let mut cached = key.invoke_pos(&[max], eval)?;
-                for i in it {
-                    let keyi = key.invoke_pos(&[i], eval)?;
-                    if cached.compare(keyi)? == Ordering::Less {
-                        max = i;
-                        cached = keyi;
-                    }
-                }
-            }
-        };
-        Ok(max)
+        min_max(args, key, eval, false)
     }
 
     /// [min](
@@ -807,40 +823,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
         key: Option<Value<'v>>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
-        let args = if args.len() == 1 {
-            args.swap_remove(0)
-        } else {
-            eval.heap().alloc(args)
-        };
-        let mut it = args.iterate(eval.heap())?;
-        let mut min = match it.next() {
-            Some(x) => x,
-            None => {
-                return Err(anyhow::anyhow!(
-                    "Argument is an empty iterable, min() expect a non empty iterable"
-                ));
-            }
-        };
-        match key {
-            None => {
-                for i in it {
-                    if min.compare(i)? == Ordering::Greater {
-                        min = i;
-                    }
-                }
-            }
-            Some(key) => {
-                let mut cached = key.invoke_pos(&[min], eval)?;
-                for i in it {
-                    let keyi = key.invoke_pos(&[i], eval)?;
-                    if cached.compare(keyi)? == Ordering::Greater {
-                        min = i;
-                        cached = keyi;
-                    }
-                }
-            }
-        };
-        Ok(min)
+        min_max(args, key, eval, true)
     }
 
     /// [ord](
