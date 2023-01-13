@@ -97,7 +97,7 @@ pub(crate) mod testing {
             "TestingUnreachable"
         }
 
-        fn storage_type(&self, _key: &Self::Key) -> StorageType {
+        fn storage_type(&self) -> StorageType {
             unreachable!()
         }
 
@@ -192,7 +192,7 @@ pub(crate) mod testing {
             "EvaluatorFn"
         }
 
-        fn storage_type(&self, _key: &Self::Key) -> StorageType {
+        fn storage_type(&self) -> StorageType {
             StorageType::LastN(1)
         }
 

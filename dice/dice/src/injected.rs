@@ -55,7 +55,7 @@ where
         Self::compare(x, y)
     }
 
-    fn storage_type(&self) -> StorageType {
+    fn storage_type() -> StorageType {
         // if we store more than usize max value, we are in trouble.
         StorageType::LastN(usize::max_value())
     }

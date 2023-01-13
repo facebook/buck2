@@ -61,7 +61,7 @@ pub trait Key: Allocative + Debug + Display + Clone + Eq + Hash + Send + Sync + 
         true
     }
 
-    fn storage_type(&self) -> StorageType {
+    fn storage_type() -> StorageType {
         StorageType::LastN(1)
     }
 }
@@ -89,8 +89,8 @@ where
     type Key = K;
     type Value = K::Value;
 
-    fn storage_type(&self, key: &K) -> StorageType {
-        Key::storage_type(key)
+    fn storage_type(&self) -> StorageType {
+        K::storage_type()
     }
 
     fn equality(&self, x: &Self::Value, y: &Self::Value) -> bool {

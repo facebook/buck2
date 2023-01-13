@@ -26,7 +26,7 @@ pub(crate) trait StorageProperties:
     fn key_type_name() -> &'static str;
 
     /// How long the value should be stored.
-    fn storage_type(&self, key: &Self::Key) -> StorageType;
+    fn storage_type(&self) -> StorageType;
     /// Are values equal?
     fn equality(&self, x: &Self::Value, y: &Self::Value) -> bool;
     /// Is computed value valid (or transient)?
@@ -116,7 +116,7 @@ pub(crate) mod testing {
             "TestingLastN"
         }
 
-        fn storage_type(&self, _: &T) -> StorageType {
+        fn storage_type(&self) -> StorageType {
             StorageType::LastN(self.n)
         }
 

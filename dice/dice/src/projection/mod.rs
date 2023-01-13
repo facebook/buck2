@@ -106,7 +106,7 @@ impl<P: ProjectionKey> StorageProperties for ProjectionKeyProperties<P> {
     type Key = ProjectionKeyAsKey<P>;
     type Value = P::Value;
 
-    fn storage_type(&self, _key: &Self::Key) -> StorageType {
+    fn storage_type(&self) -> StorageType {
         StorageType::LastN(1)
     }
 

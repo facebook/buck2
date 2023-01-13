@@ -757,7 +757,7 @@ where
         key: VersionedGraphKey<K::Key>,
         entry_updater: EntryUpdater<K>,
     ) -> (GraphNode<K>, Option<GraphNode<K>>) {
-        let StorageType::LastN(num_to_keep) = self.storage_properties.storage_type(&key.k);
+        let StorageType::LastN(num_to_keep) = self.storage_properties.storage_type();
         // persistent keys, if any changes, are committed at the moment when the version
         // is increased. therefore, it must be the case that the current update for the
         // persistent key is the largest/newest version. it's also the case that they are
@@ -1745,8 +1745,7 @@ mod tests {
             "SPForTransientTests"
         }
 
-        fn storage_type(&self, key: &Self::Key) -> StorageType {
-            let _ = key;
+        fn storage_type(&self) -> StorageType {
             self.storage_type
         }
 
@@ -2077,8 +2076,7 @@ mod tests {
                 "<test>"
             }
 
-            fn storage_type(&self, key: &Self::Key) -> StorageType {
-                let _ = key;
+            fn storage_type(&self) -> StorageType {
                 StorageType::LastN(1)
             }
 

@@ -2086,7 +2086,7 @@ mod tests {
                 "EvalEvenOdd"
             }
 
-            fn storage_type(&self, _key: &Self::Key) -> StorageType {
+            fn storage_type(&self) -> StorageType {
                 StorageType::LastN(1)
             }
 
@@ -2150,7 +2150,7 @@ mod tests {
                 "Eval"
             }
 
-            fn storage_type(&self, _key: &Self::Key) -> StorageType {
+            fn storage_type(&self) -> StorageType {
                 StorageType::LastN(1)
             }
 
