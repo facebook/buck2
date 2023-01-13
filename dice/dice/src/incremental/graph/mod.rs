@@ -711,11 +711,24 @@ where
         // EntryUpdater
         match value_unchanged.0 {
             GraphNodeInner::Occupied(o) => {
-                self.update(key, EntryUpdater::Reuse { e: o, both_deps }).0
+                self.update(
+                    key,
+                    EntryUpdater {
+                        storage_properties: &self.storage_properties,
+                        kind: EntryUpdaterKind::Reuse { e: o, both_deps },
+                    },
+                )
+                .0
             }
             GraphNodeInner::Transient(t) => {
-                self.update(key, EntryUpdater::ReuseTransient { e: t, m_v })
-                    .0
+                self.update(
+                    key,
+                    EntryUpdater {
+                        storage_properties: &self.storage_properties,
+                        kind: EntryUpdaterKind::ReuseTransient { e: t, m_v },
+                    },
+                )
+                .0
             }
         }
     }
@@ -727,10 +740,13 @@ where
         res: K::Value,
         both_deps: BothDeps,
     ) -> (GraphNode<K>, Option<GraphNode<K>>) {
-        let entry_updater: EntryUpdater<K> = EntryUpdater::Computed {
-            res,
-            m_v,
-            both_deps,
+        let entry_updater: EntryUpdater<K> = EntryUpdater {
+            storage_properties: &self.storage_properties,
+            kind: EntryUpdaterKind::Computed {
+                res,
+                m_v,
+                both_deps,
+            },
         };
 
         self.update(key, entry_updater)
@@ -743,7 +759,10 @@ where
         key: VersionedGraphKey<K::Key>,
         res: K::Value,
     ) -> (GraphNode<K>, Option<GraphNode<K>>) {
-        let entry_updater = EntryUpdater::ValidOnly { res };
+        let entry_updater = EntryUpdater {
+            storage_properties: &self.storage_properties,
+            kind: EntryUpdaterKind::ValidOnly { res },
+        };
 
         self.update(key, entry_updater)
     }
@@ -841,7 +860,6 @@ where
         >,
     ) -> (GraphNode<K>, Option<GraphNode<K>>) {
         let (v, entry) = entry_creator.build(
-            &self.storage_properties,
             v,
             v,
             VersionedGraphNode::Vacant(Arc::new(VacantGraphNode {
@@ -868,7 +886,7 @@ where
         version_of_e: VersionNumber,
         e: Arc<OccupiedGraphNode<K>>,
     ) -> (GraphNode<K>, Option<GraphNode<K>>) {
-        match entry_creator.try_reuse_occupied_entry(&self.storage_properties, v, e.dupe()) {
+        match entry_creator.try_reuse_occupied_entry(v, e.dupe()) {
             EntryReused::Reused(reused) => {
                 if v < version_of_e {
                     assert!(
@@ -892,7 +910,6 @@ where
                     .hist
                     .make_new_verified_history(v, latest_dep_verified);
                 let (v_new, new) = entry_creator.build(
-                    &self.storage_properties,
                     v,
                     version_of_e,
                     VersionedGraphNode::Occupied(e.dupe()),
@@ -954,7 +971,6 @@ where
             .get_history()
             .make_new_verified_history(v, None);
         let (v_new, new) = entry_creator.build(
-            &self.storage_properties,
             v,
             version_of_vacant,
             VersionedGraphNode::Vacant(vacant_entry),
@@ -981,7 +997,7 @@ where
         version_of_transient: VersionNumber,
         transient_entry: Arc<TransientGraphNode<K>>,
     ) -> (GraphNode<K>, Option<GraphNode<K>>) {
-        if entry_creator.can_reuse_transient(&self.storage_properties, &transient_entry) {
+        if entry_creator.can_reuse_transient(&transient_entry) {
             transient_entry.mark_unchanged(v);
 
             if v < version_of_transient {
@@ -1069,7 +1085,12 @@ where
     }
 }
 
-enum EntryUpdater<K: StorageProperties> {
+struct EntryUpdater<'a, K: StorageProperties> {
+    kind: EntryUpdaterKind<K>,
+    storage_properties: &'a K,
+}
+
+enum EntryUpdaterKind<K: StorageProperties> {
     ValidOnly {
         res: K::Value,
     },
@@ -1088,26 +1109,25 @@ enum EntryUpdater<K: StorageProperties> {
     },
 }
 
-enum EntryReused<K: StorageProperties> {
+enum EntryReused<'a, K: StorageProperties> {
     Reused(Arc<OccupiedGraphNode<K>>),
-    NotReusable(EntryUpdater<K>),
+    NotReusable(EntryUpdater<'a, K>),
 }
 
-impl<K: StorageProperties> EntryUpdater<K> {
+impl<'a, K: StorageProperties> EntryUpdater<'a, K> {
     fn both_deps(&self) -> Option<&BothDeps> {
-        match self {
-            EntryUpdater::ValidOnly { .. } => None,
-            EntryUpdater::Computed { both_deps, .. } => Some(both_deps),
-            EntryUpdater::Reuse { both_deps, .. } => Some(both_deps),
-            EntryUpdater::ReuseTransient { .. } => None,
+        match &self.kind {
+            EntryUpdaterKind::ValidOnly { .. } => None,
+            EntryUpdaterKind::Computed { both_deps, .. } => Some(both_deps),
+            EntryUpdaterKind::Reuse { both_deps, .. } => Some(both_deps),
+            EntryUpdaterKind::ReuseTransient { .. } => None,
         }
     }
     fn try_reuse_occupied_entry(
         self,
-        storage_key: &K,
         v: VersionNumber,
         old: Arc<OccupiedGraphNode<K>>,
-    ) -> EntryReused<K> {
+    ) -> EntryReused<'a, K> {
         fn reuse_node<K2: StorageProperties>(
             v: VersionNumber,
             e: &Arc<OccupiedGraphNode<K2>>,
@@ -1121,49 +1141,59 @@ impl<K: StorageProperties> EntryUpdater<K> {
             }
         }
 
-        match self {
-            EntryUpdater::ValidOnly { res } => {
-                if storage_key.equality(&old.res, &res) {
+        match self.kind {
+            EntryUpdaterKind::ValidOnly { res } => {
+                if self.storage_properties.equality(&old.res, &res) {
                     old.mark_unchanged(v, HashSet::default());
                     EntryReused::Reused(old)
                 } else {
-                    EntryReused::NotReusable(EntryUpdater::ValidOnly { res })
+                    EntryReused::NotReusable(EntryUpdater {
+                        storage_properties: self.storage_properties,
+                        kind: EntryUpdaterKind::ValidOnly { res },
+                    })
                 }
             }
-            EntryUpdater::Computed {
+            EntryUpdaterKind::Computed {
                 res,
                 m_v,
                 both_deps,
             } => {
-                if storage_key.equality(&old.res, &res) {
+                if self.storage_properties.equality(&old.res, &res) {
                     reuse_node(v, &old, both_deps);
                     EntryReused::Reused(old)
                 } else {
-                    EntryReused::NotReusable(EntryUpdater::Computed {
-                        res,
-                        m_v,
-                        both_deps,
+                    EntryReused::NotReusable(EntryUpdater {
+                        storage_properties: self.storage_properties,
+                        kind: EntryUpdaterKind::Computed {
+                            res,
+                            m_v,
+                            both_deps,
+                        },
                     })
                 }
             }
-            EntryUpdater::Reuse { e, both_deps } => {
-                if Arc::ptr_eq(&old, &e) || storage_key.equality(&old.res, &e.res) {
+            EntryUpdaterKind::Reuse { e, both_deps } => {
+                if Arc::ptr_eq(&old, &e) || self.storage_properties.equality(&old.res, &e.res) {
                     reuse_node(v, &old, both_deps);
                     EntryReused::Reused(old)
                 } else {
-                    EntryReused::NotReusable(EntryUpdater::Reuse { e, both_deps })
+                    EntryReused::NotReusable(EntryUpdater {
+                        storage_properties: self.storage_properties,
+                        kind: EntryUpdaterKind::Reuse { e, both_deps },
+                    })
                 }
             }
-            EntryUpdater::ReuseTransient { e, m_v } => {
-                EntryReused::NotReusable(EntryUpdater::ReuseTransient { e, m_v })
-            }
+            EntryUpdaterKind::ReuseTransient { e, m_v } => EntryReused::NotReusable(EntryUpdater {
+                storage_properties: self.storage_properties,
+                kind: EntryUpdaterKind::ReuseTransient { e, m_v },
+            }),
         }
     }
 
-    fn can_reuse_transient(&self, storage_key: &K, old: &Arc<TransientGraphNode<K>>) -> bool {
-        match self {
-            EntryUpdater::ReuseTransient { e, .. } => {
-                Arc::ptr_eq(old, e) || storage_key.equality(&old.res, &e.res)
+    fn can_reuse_transient(&self, old: &Arc<TransientGraphNode<K>>) -> bool {
+        match &self.kind {
+            EntryUpdaterKind::ReuseTransient { e, .. } => {
+                Arc::ptr_eq(old, e) || self.storage_properties.equality(&old.res, &e.res)
             }
             _ => false,
         }
@@ -1171,15 +1201,14 @@ impl<K: StorageProperties> EntryUpdater<K> {
 
     fn build(
         self,
-        storage_key: &K,
         v_computed: VersionNumber,
         exising_version: VersionNumber,
         existing_entry: VersionedGraphNode<K>,
         since: VersionNumber,
         hist: CellHistory,
     ) -> (VersionNumber, VersionedGraphNodeInternal<K>) {
-        match self {
-            EntryUpdater::ValidOnly { res, .. } => (
+        match self.kind {
+            EntryUpdaterKind::ValidOnly { res, .. } => (
                 since,
                 VersionedGraphNodeInternal::Occupied(Self::make_entry(
                     existing_entry.key().clone(),
@@ -1189,7 +1218,7 @@ impl<K: StorageProperties> EntryUpdater<K> {
                     hist,
                 )),
             ),
-            EntryUpdater::Reuse { e, both_deps, .. } => (
+            EntryUpdaterKind::Reuse { e, both_deps, .. } => (
                 since,
                 VersionedGraphNodeInternal::Occupied(Self::make_entry(
                     existing_entry.key().clone(),
@@ -1199,7 +1228,7 @@ impl<K: StorageProperties> EntryUpdater<K> {
                     hist,
                 )),
             ),
-            EntryUpdater::Computed {
+            EntryUpdaterKind::Computed {
                 res,
                 m_v,
                 both_deps,
@@ -1210,7 +1239,9 @@ impl<K: StorageProperties> EntryUpdater<K> {
                 // without having to be aware of what is transient for its dependencies.
                 // Any transient value will automatically make all values that depend on it
                 // transient, so the next request will recompute all these values.
-                if storage_key.validity(&res) && both_deps.deps.iter().all(|d| d.is_valid()) {
+                if self.storage_properties.validity(&res)
+                    && both_deps.deps.iter().all(|d| d.is_valid())
+                {
                     (
                         since,
                         VersionedGraphNodeInternal::Occupied(Self::make_entry(
@@ -1234,7 +1265,7 @@ impl<K: StorageProperties> EntryUpdater<K> {
                     )
                 }
             }
-            EntryUpdater::ReuseTransient { e, m_v, .. } => (
+            EntryUpdaterKind::ReuseTransient { e, m_v, .. } => (
                 since,
                 VersionedGraphNodeInternal::Transient(Arc::new(TransientGraphNode::new(
                     existing_entry.key().clone(),
