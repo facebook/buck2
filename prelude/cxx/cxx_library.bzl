@@ -728,6 +728,12 @@ def _form_library_outputs(
                     stripped = True,
                     extra_linkables = extra_static_linkables,
                 )
+            else:
+                # Header only libraries can have `extra_static_linkables`
+                info = LinkInfo(
+                    name = ctx.label.name,
+                    linkables = extra_static_linkables,
+                )
         else:  # shared
             # We still generate a shared library with no source objects because it can still point to dependencies.
             # i.e. a rust_python_extension is an empty .so depending on a rust shared object
