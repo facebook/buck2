@@ -649,13 +649,13 @@ def ocaml_library_impl(ctx: "context") -> ["provider"]:
 
     info_ide = [
         DefaultInfo(
-            default_outputs = [cmxa],
+            default_output = cmxa,
             other_outputs = [cmd_args(other_outputs_info.info.project_as_args("ide"))],
         ),
     ]
     info_byt = [
         DefaultInfo(
-            default_outputs = [cma],
+            default_output = cma,
             other_outputs = [cmd_args(other_outputs_info.info.project_as_args("bytecode"))],
         ),
     ]
@@ -665,7 +665,7 @@ def ocaml_library_impl(ctx: "context") -> ["provider"]:
         return info_byt
 
     return [
-        DefaultInfo(default_outputs = [cmxa], sub_targets = sub_targets),
+        DefaultInfo(default_output = cmxa, sub_targets = sub_targets),
         merge_ocaml_link_infos(infos),
         merge_link_infos(ctx, _attr_deps_merged_link_infos(ctx)),
         merge_shared_libraries(ctx.actions, deps = filter_and_map_idx(SharedLibraryInfo, _attr_deps(ctx))),
@@ -736,13 +736,13 @@ def ocaml_binary_impl(ctx: "context") -> ["provider"]:
 
     info_ide = [
         DefaultInfo(
-            default_outputs = [binary_nat],
+            default_output = binary_nat,
             other_outputs = [cmd_args(other_outputs_info.info.project_as_args("ide"))],
         ),
     ]
     info_byt = [
         DefaultInfo(
-            default_outputs = [binary_byt],
+            default_output = binary_byt,
             other_outputs = [cmd_args(other_outputs_info.info.project_as_args("bytecode"))],
         ),
         RunInfo(args = [binary_byt]),
@@ -753,7 +753,7 @@ def ocaml_binary_impl(ctx: "context") -> ["provider"]:
         return info_byt
 
     return [
-        DefaultInfo(default_outputs = [binary_nat], sub_targets = sub_targets),
+        DefaultInfo(default_output = binary_nat, sub_targets = sub_targets),
         RunInfo(args = [binary_nat]),
     ]
 
@@ -802,7 +802,7 @@ def ocaml_object_impl(ctx: "context") -> ["provider"]:
     )
 
     return [
-        DefaultInfo(default_outputs = [obj]),
+        DefaultInfo(default_output = obj),
         obj_link_info,
         merge_link_group_lib_info(deps = _attr_deps(ctx)),
         merge_shared_libraries(ctx.actions, deps = filter_and_map_idx(SharedLibraryInfo, _attr_deps(ctx))),
