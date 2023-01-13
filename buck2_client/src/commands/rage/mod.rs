@@ -18,10 +18,13 @@ use std::time::SystemTime;
 use anyhow::Context;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::exit_result::ExitResult;
+use buck2_client_ctx::manifold;
+use buck2_client_ctx::manifold::UploadError;
 use buck2_client_ctx::stream_value::StreamValue;
 use buck2_client_ctx::subscribers::event_log::file_names::get_local_logs;
 use buck2_client_ctx::subscribers::event_log::EventLogPathBuf;
 use buck2_client_ctx::subscribers::event_log::EventLogSummary;
+use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_data::RageInvoked;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::metadata;
@@ -63,6 +66,8 @@ enum RageError {
     SnapshotCommandError(i32, String),
     #[error("Failed to read event log")]
     EventLogReadError,
+    #[error("Failed to open file `{0}`")]
+    OpenFileError(String),
 }
 
 #[derive(Debug, PartialEq, Serialize)]
@@ -158,8 +163,9 @@ impl RageCommand {
 
         ctx.with_runtime(async move |mut ctx| {
             let timeout = Duration::from_secs(self.timeout);
-            let log_dir = ctx.paths.as_ref().map_err(|e| e.dupe())?.log_dir();
-            let logs = get_local_logs(&log_dir)?
+            let paths = ctx.paths.as_ref().map_err(|e| e.dupe())?;
+            let stderr_path = paths.daemon_dir()?.buckd_stderr();
+            let logs = get_local_logs(&paths.log_dir())?
                 .into_iter()
                 .rev() // newest first
                 .map(|log_path| EventLogPathBuf::infer(log_path.into_abs_path_buf()))
@@ -191,6 +197,9 @@ impl RageCommand {
 
             let sections = vec![
                 RageSection::get("System info".to_owned(), timeout, get_system_info),
+                RageSection::get("Daemon stderr".to_owned(), timeout, || {
+                    upload_daemon_stderr(stderr_path, &manifold_id)
+                }),
                 RageSection::get("Hg snapshot ID".to_owned(), timeout, get_hg_snapshot),
                 RageSection::get("Build info".to_owned(), timeout, || {
                     get_build_info(selected_log)
@@ -233,6 +242,33 @@ os_version: {}
         info.os_version.unwrap_or_else(|| "".to_owned()),
     );
     Ok(output)
+}
+
+async fn upload_daemon_stderr(
+    path: AbsNormPathBuf,
+    manifold_id: &String,
+) -> anyhow::Result<String> {
+    // can't use async_fs_util
+    // the trait to convert from tokio::fs::File is not implemented for Stdio
+    let upload_log_file: Stdio = std::fs::File::open(&path)
+        .context(RageError::OpenFileError(path.display().to_string()))?
+        .into();
+    let filename = format!("{}.stderr", manifold_id);
+    let mut upload =
+        manifold::upload_command("buck2_rage_dumps", &filename, "buck2_rage_dumps-key")?
+            .context(UploadError::CommandNotFound)?;
+    upload.stdin(upload_log_file);
+    match upload
+        .spawn()?
+        .wait()
+        .await?
+        .code()
+        .context(UploadError::NoResultCodeError(path.display().to_string()))?
+    {
+        0 => Ok::<(), anyhow::Error>(()),
+        e => Err(UploadError::ExitCodeError(path.display().to_string(), e).into()),
+    }?;
+    Ok(format!("buck2_rage_dumps/flat/{}", filename))
 }
 
 async fn get_hg_snapshot() -> anyhow::Result<String> {
