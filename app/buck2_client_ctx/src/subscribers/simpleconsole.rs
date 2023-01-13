@@ -11,6 +11,7 @@ use std::borrow::Cow;
 use std::fmt;
 use std::fmt::Display;
 use std::io::Write;
+use std::process::Stdio;
 use std::sync::Arc;
 use std::time::Duration;
 use std::time::Instant;
@@ -232,6 +233,8 @@ pub(crate) struct SimpleConsole {
     re_panel: RePanel,
     pub(crate) io_state: IoState,
     two_snapshots: TwoSnapshots,
+    last_had_open_spans: Instant, // Used to detect hangs
+    already_raged: bool,
 }
 
 impl SimpleConsole {
@@ -248,6 +251,8 @@ impl SimpleConsole {
             re_panel: RePanel::new(),
             io_state: IoState::default(),
             two_snapshots: TwoSnapshots::default(),
+            last_had_open_spans: Instant::now(),
+            already_raged: false,
         }
     }
 
@@ -264,6 +269,8 @@ impl SimpleConsole {
             re_panel: RePanel::new(),
             io_state: IoState::default(),
             two_snapshots: TwoSnapshots::default(),
+            last_had_open_spans: Instant::now(),
+            already_raged: false,
         }
     }
 
@@ -355,6 +362,23 @@ impl SimpleConsole {
             }
         }
 
+        Ok(())
+    }
+
+    pub(crate) async fn detect_hangs(&mut self) -> anyhow::Result<()> {
+        if self.spans().iter_roots().len() > 0 {
+            self.last_had_open_spans = Instant::now();
+            return Ok(());
+        }
+        // Do nothing if less than 10 minutes since last open span
+        if self.last_had_open_spans.elapsed().as_secs() < 10 * 60 {
+            return Ok(());
+        }
+        // When command is stuck we call `rage` to gather debugging information
+        if !self.already_raged {
+            self.already_raged = true;
+            tokio::spawn(call_rage()).await?;
+        }
         Ok(())
     }
 }
@@ -585,6 +609,7 @@ impl UnpackingEventSubscriber for SimpleConsole {
     }
 
     async fn tick(&mut self, _: &Tick) -> anyhow::Result<()> {
+        self.detect_hangs().await?;
         if self.verbosity.print_status() && self.last_print_time.elapsed() > KEEPALIVE_TIME_LIMIT {
             let mut show_stats = self.show_waiting_message;
 
@@ -685,4 +710,26 @@ mod tests {
 
         assert_eq!("Foo\tBar\nBaz\r\nQuz", sanitized);
     }
+}
+
+async fn call_rage() {
+    match call_rage_impl().await {
+        Ok(_) => {}
+        Err(e) => tracing::warn!("Error calling buck2 rage: {:#}", e),
+    };
+}
+
+async fn call_rage_impl() -> anyhow::Result<()> {
+    let current_exe = std::env::current_exe().context("Not current_exe")?;
+    let _child = buck2_core::process::async_background_command(current_exe)
+        .arg("rage")
+        .arg("--timeout")
+        .arg("3600")
+        .arg("--no-paste")
+        .args(["--invocation", "0"]) // last invocation
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::piped())
+        .spawn()?;
+    Ok(())
 }

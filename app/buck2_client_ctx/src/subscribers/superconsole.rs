@@ -451,6 +451,7 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
     }
 
     async fn tick(&mut self, tick: &Tick) -> anyhow::Result<()> {
+        self.state.simple_console.detect_hangs().await?;
         match &mut self.super_console {
             Some(super_console) => {
                 self.state.current_tick = tick.dupe();
