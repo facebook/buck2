@@ -242,6 +242,7 @@ def erlang_test_impl(ctx: "context") -> ["provider"]:
             env = ctx.attrs.env,
             labels = ["tpx-fb-test-type=16"] + ctx.attrs.labels,
             contacts = ctx.attrs.contacts,
+            run_from_project_root = True,
         ),
         ErlangTestInfo(
             name = suite_name,

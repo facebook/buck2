@@ -6,7 +6,7 @@
 # of this source tree.
 
 load("@prelude//:paths.bzl", "paths")
-load(":erlang_build.bzl", "BuildEnvironment", "erlang_build", "input_artifact_path")
+load(":erlang_build.bzl", "BuildEnvironment", "erlang_build")
 load(":erlang_info.bzl", "ErlangAppIncludeInfo")
 load(
     ":erlang_toolchain.bzl",
@@ -28,9 +28,7 @@ def erlang_application_includes_impl(ctx: "context") -> ["provider"]:
     # input mapping
     input_mapping = {}
     for input_artifact in ctx.attrs.includes:
-        input_mapping[paths.basename(input_artifact.short_path)] = (
-            input_artifact_path(ctx, input_artifact)
-        )
+        input_mapping[paths.basename(input_artifact.short_path)] = input_artifact
 
     toolchains = select_toolchains(ctx)
     build_environments = {}

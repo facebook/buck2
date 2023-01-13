@@ -51,6 +51,8 @@ def convert(data: "") -> "cmd_args":
         return convert_string(data)
     elif type(data) == "cmd_args":
         return data
+    elif type(data) == "bool":
+        return convert_bool(data)
 
     args = cmd_args([])
     args.add(cmd_args(["\"", data, "\""], delimiter = ""))
@@ -103,6 +105,12 @@ def convert_args(data: "cmd_args") -> "cmd_args":
 def convert_string(st: "string") -> "cmd_args":
     args = cmd_args()
     return args.add(cmd_args(["\"", st.replace("\"", "\\\""), "\""], delimiter = ""))
+
+def convert_bool(bl: "bool") -> "cmd_args":
+    if bl:
+        return cmd_args(["true"])
+    else:
+        return cmd_args(["false"])
 
 def multidict_projection(build_environments: {"string": "BuildEnvironment"}, field_name: "string") -> "dict":
     field = {}

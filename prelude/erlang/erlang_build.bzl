@@ -11,8 +11,9 @@ load(
     ":erlang_info.bzl",
     "ErlangAppIncludeInfo",
     "ErlangAppInfo",
+    "ErlangTestInfo",
 )
-load(":erlang_utils.bzl", "action_identifier")
+load(":erlang_utils.bzl", "action_identifier", "to_term_args")
 
 # mapping
 #   from include base name and application (e.g. ("app1", "header.hrl")
@@ -32,7 +33,7 @@ ModuleArtifactMapping = {"string": "artifact"}
 # mapping
 #   from input base name
 #   path to input artifact from repo root
-InputArtifactMapping = {"string": "string"}
+InputArtifactMapping = {"string": "artifact"}
 
 BuildEnvironment = record(
     includes = field(IncludesMapping, {}),
@@ -103,8 +104,11 @@ def _prepare_build_environment(
 
             if dep_info.name == ctx.attrs.name:
                 continue
+        elif ErlangTestInfo in dep:
+            # we only care about application deps
+            continue
         else:
-            fail("invalid dependency")
+            fail("invalid dep {}", dep)
 
         # add transitive input mapping
         # Note: the build will fail if there is ambuigity in the basename
@@ -121,10 +125,9 @@ def _prepare_build_environment(
     # Note: this must be after the dependencies to overwrite private includes
     for input_artifact in getattr(ctx.attrs, "srcs", []) + getattr(ctx.attrs, "includes", []):
         key = input_artifact.basename
-        path = input_artifact_path(ctx, input_artifact)
-        if key in input_mapping and input_mapping[key] != path:
-            fail("conflicting inputs for {}: {} {}".format(key, input_mapping[key], path))
-        input_mapping[key] = path
+        if key in input_mapping and input_mapping[key] != input_artifact:
+            fail("conflicting inputs for {}: {} {}".format(key, input_mapping[key], input_artifact))
+        input_mapping[key] = input_artifact
 
     return BuildEnvironment(
         includes = includes,
@@ -479,9 +482,9 @@ def _add_dependencies_to_args(
         artifacts,
         queue: ["string"],
         done: {"string": "bool"},
-        input_mapping: {"string": ("string", "string")},
+        input_mapping: {"string": ("bool", ["string", "artifact"])},
         args: "cmd_args",
-        build_environment: "BuildEnvironment") -> ("cmd_args", {"string": ("string", "string")}):
+        build_environment: "BuildEnvironment") -> ("cmd_args", {"string": ("bool", ["string", "artifact"])}):
     """Add the transitive closure of all per-file Erlang dependencies as specified in the deps files to the `args` with .hidden.
 
     This function traverses the deps specified in the deps files and adds all discovered dependencies.
@@ -503,10 +506,10 @@ def _add_dependencies_to_args(
                 app = dep["app"]
                 if (app, file) in build_environment.includes:
                     artifact = build_environment.includes[(app, file)]
-                    input_mapping[file] = ("found", build_environment.input_mapping[artifact.basename])
+                    input_mapping[file] = (True, build_environment.input_mapping[artifact.basename])
                 else:
                     # the file might come from OTP
-                    input_mapping[file] = ("not_found", paths.join(app, "include", file))
+                    input_mapping[file] = (False, paths.join(app, "include", file))
                     continue
 
             elif dep["type"] == "include":
@@ -516,7 +519,7 @@ def _add_dependencies_to_args(
                     artifact = build_environment.private_includes[file]
 
                     if artifact.basename in build_environment.input_mapping:
-                        input_mapping[file] = ("found", build_environment.input_mapping[artifact.basename])
+                        input_mapping[file] = (True, build_environment.input_mapping[artifact.basename])
                 else:
                     # at this point we don't know the application the include is coming
                     # from, and have to check all public include directories
@@ -526,7 +529,7 @@ def _add_dependencies_to_args(
                         fail("-include(\"%s\") is ambiguous as the following applications declare public includes with the same name: %s" % (file, offending_apps))
                     elif candidates:
                         artifact = build_environment.includes[candidates[0]]
-                        input_mapping[file] = ("found", build_environment.input_mapping[artifact.basename])
+                        input_mapping[file] = (True, build_environment.input_mapping[artifact.basename])
                     else:
                         # we didn't find the include, build will fail during compile
                         continue
@@ -724,16 +727,13 @@ def _add(a: "dict", key: "", value: "") -> "dict":
 def _build_dir(toolchain: "Toolchain") -> "string":
     return paths.join("__build", toolchain.name)
 
-def input_artifact_path(ctx: "context", artifact: "artifact") -> "string":
-    target = str(ctx.label.path)
-    return paths.join(target.split("//")[1], artifact.short_path)
-
-def _generate_file_mapping_string(mapping: {"string": ("string", "string")}) -> "string":
+def _generate_file_mapping_string(mapping: {"string": ("bool", ["string", "artifact"])}) -> "cmd_args":
     """produces an easily parsable string for the file mapping"""
-    items = []
-    for file, (if_found, path) in mapping.items():
-        items.append("\"{}\" => {{{}, \"{}\"}}".format(file, if_found, path))
-    return "#{{{}}}.".format(",".join(items))
+    items = {}
+    for file, (if_found, artifact) in mapping.items():
+        items[file] = (if_found, artifact)
+
+    return to_term_args(items)
 
 # export
 

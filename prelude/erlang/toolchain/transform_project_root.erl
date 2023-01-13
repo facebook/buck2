@@ -10,7 +10,7 @@
 
 -export([parse_transform/2]).
 
--type mapping() :: #{file:filename_all() => {found | not_found, file:filename_all()}}.
+-type mapping() :: #{file:filename_all() => {true | false, file:filename_all()}}.
 
 -spec parse_transform(Forms, Options) -> Forms when
     Forms :: [erl_parse:abstract_form() | erl_parse:form_info()], Options :: [compile:option()].
@@ -39,13 +39,13 @@ path_relativize(
     Mapping
 ) ->
     case Mapping of
-        #{File := {found, RelativePath}} ->
+        #{File := {true, RelativePath}} ->
             RelativePath;
-        #{File := {not_found, MaybeOTPPath}} ->
+        #{File := {false, MaybeOTPPath}} ->
             case find_in_otp(MaybeOTPPath, OTPRoot) of
-                {found, FoundPath} ->
+                {true, FoundPath} ->
                     FoundPath;
-                not_found ->
+                false ->
                     %% We failed to find the file in OTP, at this point the build should
                     %% have already failed and we let the compiler report the error.
                     MaybeOTPPath
@@ -57,14 +57,14 @@ path_relativize(
     end.
 
 -spec find_in_otp(file:filename_all(), file:filename_all()) ->
-    {found, file:filename_all()}
-    | not_found.
+    {true, file:filename_all()}
+    | false.
 find_in_otp(Path, OTPRoot) ->
     [App, "include", Header] = filename:split(Path),
     Pattern = filename:join(["lib", [App, "-*"], "include", Header]),
     case filelib:wildcard(Pattern, OTPRoot) of
-        [FoundPath] -> {found, filename:join("/otp", FoundPath)};
-        _ -> not_found
+        [FoundPath] -> {true, filename:join("/otp", FoundPath)};
+        _ -> false
     end.
 
 -spec get_source([compile:option()]) -> file:filename_all().
@@ -87,4 +87,4 @@ get_mapping(Options) ->
     {ok, Tokens, _} = erl_scan:string(String),
     {ok, Mapping} = erl_parse:parse_term(Tokens),
     Source = get_source(Options),
-    Mapping#{filename:basename(Source) => {found, Source}}.
+    Mapping#{filename:basename(Source) => {true, Source}}.

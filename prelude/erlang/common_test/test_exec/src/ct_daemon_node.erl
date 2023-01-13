@@ -22,7 +22,7 @@
 
 -export([node_main/1, get_domain_type/0]).
 
--define(LOG_BASE, ".log").
+-define(LOG_BASE, "/tmp/ct_daemon").
 
 -type config() :: #{
     type := shortnames | longnames,
