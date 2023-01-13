@@ -40,7 +40,7 @@ def http_file_shared(
             local_only = sha1 == None,
         )
 
-    providers = [DefaultInfo(default_outputs = [output])]
+    providers = [DefaultInfo(default_output = output)]
     if is_executable:
         providers.append(RunInfo(args = [output]))
     return providers
