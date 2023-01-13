@@ -51,6 +51,7 @@ mod imp {
     use std::collections::HashMap;
     use std::panic::PanicInfo;
     use std::thread;
+    use std::time::Duration;
 
     use backtrace::Backtrace;
     use buck2_data::Location;
@@ -192,7 +193,12 @@ mod imp {
             return;
         }
 
-        let sink = match new_thrift_scribe_sink_if_enabled(fb, /* buffer size */ 100) {
+        let sink = match new_thrift_scribe_sink_if_enabled(
+            fb,
+            /* buffer size */ 100,
+            /* retry_backoff */ Duration::from_millis(500),
+            /* retry_attempts */ 5,
+        ) {
             Ok(Some(sink)) => sink,
             _ => {
                 // We're already panicking and we can't connect to the scribe daemon? Things are bad and we're SOL.

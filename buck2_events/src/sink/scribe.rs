@@ -10,6 +10,7 @@
 //! A Sink for forwarding events directly to Scribe.
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
+use std::time::Duration;
 
 use buck2_core::env_helper::EnvHelper;
 use fbinit::FacebookInit;
@@ -17,6 +18,7 @@ use fbinit::FacebookInit;
 #[cfg(fbcode_build)]
 mod fbcode {
 
+    use std::time::Duration;
     use std::time::SystemTime;
 
     use buck2_core::truncate::truncate;
@@ -49,8 +51,11 @@ mod fbcode {
             fb: FacebookInit,
             category: String,
             buffer_size: usize,
+            retry_backoff: Duration,
+            retry_attempts: usize,
         ) -> anyhow::Result<ThriftScribeSink> {
-            let client = scribe_client::ScribeClient::new(fb, buffer_size)?;
+            let client =
+                scribe_client::ScribeClient::new(fb, buffer_size, retry_backoff, retry_attempts)?;
             Ok(ThriftScribeSink { category, client })
         }
 
@@ -316,6 +321,8 @@ pub use fbcode::*;
 fn new_thrift_scribe_sink_if_fbcode(
     fb: FacebookInit,
     buffer_size: usize,
+    retry_backoff: Duration,
+    retry_attempts: usize,
 ) -> anyhow::Result<Option<ThriftScribeSink>> {
     #[cfg(fbcode_build)]
     {
@@ -323,11 +330,13 @@ fn new_thrift_scribe_sink_if_fbcode(
             fb,
             scribe_category()?,
             buffer_size,
+            retry_backoff,
+            retry_attempts,
         )?))
     }
     #[cfg(not(fbcode_build))]
     {
-        let _ = (fb, buffer_size);
+        let _ = (fb, buffer_size, retry_backoff, retry_attempts);
         Ok(None)
     }
 }
@@ -335,9 +344,11 @@ fn new_thrift_scribe_sink_if_fbcode(
 pub fn new_thrift_scribe_sink_if_enabled(
     fb: FacebookInit,
     buffer_size: usize,
+    retry_backoff: Duration,
+    retry_attempts: usize,
 ) -> anyhow::Result<Option<ThriftScribeSink>> {
     if is_enabled() {
-        new_thrift_scribe_sink_if_fbcode(fb, buffer_size)
+        new_thrift_scribe_sink_if_fbcode(fb, buffer_size, retry_backoff, retry_attempts)
     } else {
         Ok(None)
     }

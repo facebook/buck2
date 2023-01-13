@@ -10,6 +10,7 @@
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
+use std::time::Duration;
 use std::time::Instant;
 
 use allocative::Allocative;
@@ -151,6 +152,10 @@ impl DaemonStatePanicDiceDump for DaemonStateData {
 pub struct EventLoggingData {
     /// The size of the queue for in-flight messages.
     buffer_size: usize,
+    /// Retry backoff factor (might be multiples of this duration).
+    retry_backoff: Duration,
+    /// The max number of times we'll try to write a group of messages.
+    retry_attempts: usize,
 }
 
 pub trait DaemonStateDiceConstructor: Allocative + Send + Sync + 'static {
@@ -306,7 +311,19 @@ impl DaemonState {
         let buffer_size = root_config
             .parse("buck2", "event_log_buffer_size")?
             .unwrap_or(10000);
-        let event_logging_data = Arc::new(EventLoggingData { buffer_size });
+        let retry_backoff = Duration::from_millis(
+            root_config
+                .parse("buck2", "event_log_retry_backoff_duration_ms")?
+                .unwrap_or(500),
+        );
+        let retry_attempts = root_config
+            .parse("buck2", "event_log_retry_attempts")?
+            .unwrap_or(5);
+        let event_logging_data = Arc::new(EventLoggingData {
+            buffer_size,
+            retry_backoff,
+            retry_attempts,
+        });
 
         let dice = dice_constructor.construct_dice(io.dupe(), root_config)?;
 
@@ -443,9 +460,12 @@ impl DaemonState {
         facebook_only();
         let (events, sink) = buck2_events::create_source_sink_pair();
         let data = self.data()?;
-        let dispatcher = if let Some(scribe_sink) =
-            scribe::new_thrift_scribe_sink_if_enabled(self.fb, data.event_logging_data.buffer_size)?
-        {
+        let dispatcher = if let Some(scribe_sink) = scribe::new_thrift_scribe_sink_if_enabled(
+            self.fb,
+            data.event_logging_data.buffer_size,
+            data.event_logging_data.retry_backoff,
+            data.event_logging_data.retry_attempts,
+        )? {
             EventDispatcher::new(trace_id, TeeSink::new(scribe_sink, sink))
         } else {
             // Writing to Scribe via the HTTP gateway (what we do for a Cargo build) is many times slower than the fbcode

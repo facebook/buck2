@@ -8,6 +8,7 @@
  */
 
 use std::path::PathBuf;
+use std::time::Duration;
 
 use buck2_events::sink::scribe::new_thrift_scribe_sink_if_enabled;
 use gazebo::dupe::Dupe;
@@ -569,7 +570,9 @@ pub(crate) fn try_get_invocation_recorder(
     sanitized_argv: Vec<String>,
 ) -> anyhow::Result<Option<Box<dyn EventSubscriber>>> {
     if ctx.replayer.is_none() {
-        if let Some(sink) = new_thrift_scribe_sink_if_enabled(ctx.fbinit(), 1)? {
+        if let Some(sink) =
+            new_thrift_scribe_sink_if_enabled(ctx.fbinit(), 1, Duration::from_millis(500), 5)?
+        {
             let recorder = imp::InvocationRecorder::new(
                 ctx.async_cleanup_context().dupe(),
                 sink,

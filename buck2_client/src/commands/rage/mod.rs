@@ -349,7 +349,12 @@ fn create_scribe_event_dispatcher(
 ) -> anyhow::Result<Option<EventDispatcher>> {
     // TODO(swgiillespie) scribe_logging is likely the right feature for this, but we should be able to inject a sink
     // without using configurations at the call site
-    let sink = new_thrift_scribe_sink_if_enabled(ctx.fbinit(), /* buffer size */ 100)?;
+    let sink = new_thrift_scribe_sink_if_enabled(
+        ctx.fbinit(),
+        /* buffer size */ 100,
+        /* retry_backoff */ Duration::from_millis(500),
+        /* retry_attempts */ 5,
+    )?;
     Ok(sink.map(|sink| EventDispatcher::new(trace_id, sink)))
 }
 
