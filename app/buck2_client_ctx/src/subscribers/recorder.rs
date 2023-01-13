@@ -550,6 +550,11 @@ mod imp {
             Ok(())
         }
 
+        async fn handle_console_interaction(&mut self, _c: char) -> anyhow::Result<()> {
+            self.tags.push("console-interaction".to_owned());
+            Ok(())
+        }
+
         async fn handle_event(&mut self, event: &Arc<BuckEvent>) -> anyhow::Result<()> {
             // TODO(nga): query now once in `EventsCtx`.
             let now = SystemTime::now();
