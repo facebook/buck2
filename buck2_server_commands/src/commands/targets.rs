@@ -128,7 +128,7 @@ impl TargetPrinter for JsonPrinter {
         print_attr(DEPS, &format!("[{}]", deps));
 
         if let Some(BuckTargetHash(hash)) = target_info.target_hash {
-            print_attr(TARGET_HASH, &format!("\"{:x}\"", hash));
+            print_attr(TARGET_HASH, &format!("\"{hash:032x}\""));
         }
         print_attr(PACKAGE, &format!("\"{}\"", package));
 
@@ -207,10 +207,8 @@ impl TargetPrinter for TargetNamePrinter {
             match target_info.target_hash {
                 Some(BuckTargetHash(hash)) => writeln!(
                     self.display_string,
-                    "{}:{} {:x}",
-                    package,
-                    target_info.node.label().name(),
-                    hash
+                    "{package}:{name} {hash:032x}",
+                    name = target_info.node.label().name(),
                 )
                 .unwrap(),
                 None => {} // print nothing if there is no hash and show_target_hash is specified.
