@@ -15,6 +15,7 @@ load("@prelude//apple:apple_bundle_macro_layer.bzl", "apple_bundle_macro_impl")
 load("@prelude//apple:apple_macro_layer.bzl", "apple_binary_macro_impl", "apple_library_macro_impl")
 load("@prelude//apple:apple_test_macro_layer.bzl", "apple_test_macro_impl")
 load("@prelude//cxx:cxx_toolchain_types.bzl", _cxx = "cxx")
+load("@prelude//erlang:erlang.bzl", _erlang_application = "erlang_application", _erlang_tests = "erlang_tests")
 load("@prelude//python:toolchain.bzl", _python = "python")
 load("@prelude//user:all.bzl", _user_rules = "rules")
 load("@prelude//utils:utils.bzl", "expect")
@@ -309,6 +310,20 @@ def _apple_library_macro_stub(**kwargs):
         **kwargs
     )
 
+def _erlang_application_macro_stub(**kwargs):
+    _erlang_application(
+        erlang_app_rule = __rules__["erlang_app"],
+        erlang_app_includes_rule = __rules__["erlang_app_includes"],
+        **kwargs
+    )
+
+def _erlang_tests_macro_stub(**kwargs):
+    _erlang_tests(
+        erlang_app_rule = __rules__["erlang_app"],
+        erlang_test_rule = __rules__["erlang_test"],
+        **kwargs
+    )
+
 # TODO(cjhopman): These macro wrappers should be handled in prelude/rules.bzl+rule_impl.bzl.
 # Probably good if they were defined to take in the base rule that
 # they are wrapping and return the wrapped one.
@@ -321,6 +336,8 @@ __extra_rules__ = {
     "apple_test": _apple_test_macro_stub,
     "apple_watchos_bundle": _apple_watchos_bundle_macro_stub,
     "configured_alias": _configured_alias_macro_stub,
+    "erlang_application": _erlang_application_macro_stub,
+    "erlang_tests": _erlang_tests_macro_stub,
     "export_file": _export_file_macro_stub,
     "prebuilt_cxx_library": _prebuilt_cxx_library_macro_stub,
     "python_library": _python_library_macro_stub,

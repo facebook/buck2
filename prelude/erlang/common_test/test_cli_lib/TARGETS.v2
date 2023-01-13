@@ -1,0 +1,11 @@
+erlang_application(
+    name = "test_cli_lib",
+    srcs = glob(["src/*.erl"]),
+    applications = [
+        "//erlang/common_test/test_binary:test_binary",
+    ] + read_config("erlang", "test_shell_apps", "").split(),
+    resources = [
+        # "//erl/config:sys.ct.config",
+    ],
+    visibility = ["PUBLIC"],
+)

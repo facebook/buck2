@@ -24,6 +24,9 @@ load("@prelude//cxx:headers.bzl", "CPrecompiledHeaderInfo")
 load("@prelude//cxx:omnibus.bzl", "omnibus_environment_attr")
 load("@prelude//cxx:prebuilt_cxx_library_group.bzl", "prebuilt_cxx_library_group_impl")
 load("@prelude//cxx/user:link_group_map.bzl", "link_group_map_attr")
+
+# Erlang
+load("@prelude//erlang:erlang.bzl", _erlang_extra_attributes = "attributes", _erlang_implemented_rules = "implemented_rules")
 load("@prelude//go:cgo_library.bzl", "cgo_library_impl")
 load("@prelude//go:coverage.bzl", "GoCoverageMode")
 
@@ -182,6 +185,7 @@ implemented_rules = struct(
         _android_implemented_rules,
         _apple_implemented_rules,
         _config_implemented_rules,
+        _erlang_implemented_rules,
         _java_implemented_rules,
         _js_implemented_rules,
         _kotlin_implemented_rules,
@@ -643,6 +647,7 @@ all_extra_attributes = _merge_dictionaries([
     _android_extra_attributes,
     _apple_extra_attributes,
     _config_extra_attributes,
+    _erlang_extra_attributes,
     _java_extra_attributes,
     _js_extra_attributes,
     _kotlin_extra_attributes,
