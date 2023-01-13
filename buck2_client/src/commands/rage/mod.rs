@@ -180,10 +180,11 @@ impl RageCommand {
             }?;
 
             let log_summary = selected_log.get_summary().await?;
-            let old_trace_id = log_summary.trace_id;
-            let new_trace_id = TraceId::new();
+            let command_id = log_summary.trace_id;
+            let rage_id = TraceId::new();
+            let manifold_id = format!("{}_{}", command_id, rage_id);
 
-            dispatch_event_to_scribe(&ctx, &new_trace_id, &old_trace_id)?;
+            dispatch_event_to_scribe(&ctx, &rage_id, &command_id)?;
 
             buck2_client_ctx::eprintln!("Collection will terminate after {} seconds (override with --timeout param)", self.timeout)?;
             buck2_client_ctx::eprintln!("Collecting debug info...\n\n")?;
@@ -195,7 +196,7 @@ impl RageCommand {
                     get_build_info(selected_log)
                 }),
                 RageSection::get("Dice Dump".to_owned(), timeout, || {
-                    rage_dumps::upload_dice_dump(&ctx, &new_trace_id, &old_trace_id)
+                    rage_dumps::upload_dice_dump(&ctx, &manifold_id)
                 }),
             ];
 
@@ -332,13 +333,13 @@ daemon uptime: {}
 
 fn dispatch_event_to_scribe(
     ctx: &ClientCommandContext,
-    new_trace_id: &TraceId,
-    old_trace_id: &TraceId,
+    rage_id: &TraceId,
+    command_id: &TraceId,
 ) -> anyhow::Result<()> {
     // dispatch event to scribe if possible
-    match create_scribe_event_dispatcher(ctx, new_trace_id.to_owned())? {
+    match create_scribe_event_dispatcher(ctx, rage_id.to_owned())? {
         Some(dispatcher) => {
-            let recent_command_trace_id = old_trace_id.to_string();
+            let recent_command_trace_id = command_id.to_string();
             let metadata = metadata::collect();
             let rage_invoked = RageInvoked {
                 metadata,

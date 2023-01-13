@@ -19,7 +19,6 @@ use buck2_core::fs::fs_util::create_dir_all;
 use buck2_core::fs::fs_util::remove_all;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::process::background_command;
-use buck2_events::trace::TraceId;
 use cli_proto::unstable_dice_dump_request::DiceDumpFormat;
 use cli_proto::UnstableDiceDumpRequest;
 use gazebo::prelude::*;
@@ -36,19 +35,16 @@ enum DumpError {
 
 pub async fn upload_dice_dump(
     ctx: &ClientCommandContext,
-    new_trace_id: &TraceId,
-    old_trace_id: &TraceId,
+    manifold_id: &String,
 ) -> anyhow::Result<String> {
+    let manifold_filename = &format!("{}_dice-dump.gz", manifold_id);
     let buckd = ctx
         .connect_buckd(BuckdConnectOptions::existing_only_no_console())
         .await?;
     let this_dump_folder_name = chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string();
     let buck_out_dice = ctx.paths.as_ref().map_err(|e| e.dupe())?.dice_dump_dir();
-
-    let manifold_filename = format!("{}_{}_dice-dump.gz", old_trace_id, new_trace_id);
-
     DiceDump::new(buck_out_dice, &this_dump_folder_name)
-        .upload(buckd, &manifold_filename)
+        .upload(buckd, manifold_filename)
         .await?;
 
     Ok(format!("buck2_rage_dumps/flat/{}", manifold_filename))
