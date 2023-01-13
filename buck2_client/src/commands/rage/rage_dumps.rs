@@ -51,7 +51,7 @@ pub async fn upload_dice_dump(
         .upload(buckd, &manifold_filename)
         .await?;
 
-    Ok(format!("buck2_dice_dump/flat/{}", manifold_filename))
+    Ok(format!("buck2_rage_dumps/flat/{}", manifold_filename))
 }
 
 struct DiceDump {
@@ -122,9 +122,12 @@ async fn upload_to_manifold(dump_folder: &Path, manifold_filename: &str) -> anyh
             .stderr(std::process::Stdio::null())
             .spawn()?;
 
-        let mut upload =
-            manifold::upload_command("buck2_dice_dump", manifold_filename, "buck2_dice_dump-key")?
-                .context(DumpError::ManifoldUploadCommandNotFound)?;
+        let mut upload = manifold::upload_command(
+            "buck2_rage_dumps",
+            manifold_filename,
+            "buck2_rage_dumps-key",
+        )?
+        .context(DumpError::ManifoldUploadCommandNotFound)?;
         upload.stdin(tar_gzip.stdout.unwrap());
         let exit_code_result = upload.spawn()?.wait().await?.code();
 
