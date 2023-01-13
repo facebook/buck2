@@ -546,7 +546,6 @@ inlined_extra_attributes = {
         "bytecode_lib": attrs.option(attrs.source(), default = None),
         "c_libs": attrs.list(attrs.source(), default = []),
         "include_dir": attrs.option(attrs.source(allow_directory = True), default = None),
-        "lib_dir": attrs.option(attrs.source(allow_directory = True), default = None),
         "native_c_libs": attrs.list(attrs.source(), default = []),
         "native_lib": attrs.option(attrs.source(), default = None),
     },
