@@ -47,6 +47,8 @@ use tokio::process::Command;
 enum RageError {
     #[error("Failed to get a valid user selection")]
     InvalidSelectionError,
+    #[error("Failed to find the logs for command")]
+    LogNotFoundError,
     #[error("Pastry command timeout, make sure you are on Lighthouse/VPN")]
     PastryTimeout,
     #[error("Failed to spawn pastry")]
@@ -141,6 +143,9 @@ pub struct RageCommand {
     /// Stop collecting information after <timeout> seconds
     #[clap(long, default_value = "60")]
     timeout: u64,
+    /// Use value 0 to select last invocation, 1 to select second to last and so on
+    #[clap(long)]
+    invocation: Option<usize>,
     /// We may want to omit paste if this is not a user
     /// or is called in a machine with no pastry command
     #[clap(long)]
@@ -165,10 +170,14 @@ impl RageCommand {
                 return ExitResult::failure();
             }
 
-            let selected_log = {
-                let mut stdin = BufReader::new(ctx.stdin());
-                user_prompt_select_log(&mut stdin, &logs).await?
-            };
+            // TODO iguridi: this fails when run right after `buck2 clean`
+            let selected_log = match self.invocation {
+                Some(i) => logs.get(i).ok_or_else(|| RageError::LogNotFoundError.into()),
+                None => {
+                    let mut stdin = BufReader::new(ctx.stdin());
+                    user_prompt_select_log(&mut stdin, &logs).await
+                },
+            }?;
 
             let log_summary = selected_log.get_summary().await?;
             let old_trace_id = log_summary.trace_id;
@@ -379,9 +388,8 @@ async fn user_prompt_select_log<'a>(
 
     let timestamp: DateTime<Local> = chosen_log.timestamp.into();
     buck2_client_ctx::eprintln!("Selected invocation at {}\n", timestamp.format("%c %Z"))?;
-
     logs.get(selection)
-        .ok_or_else(|| RageError::InvalidSelectionError.into())
+        .ok_or_else(|| RageError::LogNotFoundError.into())
 }
 
 async fn get_user_selection<P>(
