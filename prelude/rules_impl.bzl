@@ -61,7 +61,7 @@ load("@prelude//lua:lua_binary.bzl", "lua_binary_impl")
 load("@prelude//lua:lua_library.bzl", "lua_library_impl")
 
 # OCaml
-load("@prelude//ocaml:ocaml.bzl", "ocaml_binary_impl", "ocaml_library_impl", "ocaml_object_impl", "prebuilt_ocaml_library_impl")
+load("@prelude//ocaml:ocaml.bzl", "ocaml_binary_impl", "ocaml_library_impl", "ocaml_object_impl", "ocaml_shared_impl", "prebuilt_ocaml_library_impl")
 load("@prelude//ocaml:providers.bzl", "OCamlPlatformInfo", "OCamlToolchainInfo")
 
 # Python
@@ -160,6 +160,7 @@ implemented_rules = struct(
     #ocaml
     ocaml_binary = ocaml_binary_impl,
     ocaml_object = ocaml_object_impl,
+    ocaml_shared = ocaml_shared_impl,
     ocaml_library = ocaml_library_impl,
     prebuilt_ocaml_library = prebuilt_ocaml_library_impl,
 
@@ -484,6 +485,25 @@ inlined_extra_attributes = {
         "_ocaml_toolchain": _ocaml_toolchain(),
     },
     "ocaml_object": {
+        "bytecode_only": attrs.option(attrs.bool(), default = None),
+        "compiler_flags": attrs.list(attrs.arg(), default = []),
+        "contacts": attrs.list(attrs.string(), default = []),
+        "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
+        "deps": attrs.list(attrs.dep(), default = []),
+        "labels": attrs.list(attrs.string(), default = []),
+        "licenses": attrs.list(attrs.source(), default = []),
+        "linker_flags": attrs.list(attrs.string(), default = []),
+        "ocamldep_flags": attrs.list(attrs.arg(), default = []),
+        "platform": attrs.option(attrs.string(), default = None),
+        "platform_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
+        "platform_linker_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.string())), default = []),
+        "srcs": attrs.option(attrs.named_set(attrs.source(), sorted = False), default = None),
+        "warnings_flags": attrs.option(attrs.string(), default = None),
+        "within_view": attrs.option(attrs.list(attrs.string()), default = None),
+        "_cxx_toolchain": _cxx_toolchain(),
+        "_ocaml_toolchain": _ocaml_toolchain(),
+    },
+    "ocaml_shared": {
         "bytecode_only": attrs.option(attrs.bool(), default = None),
         "compiler_flags": attrs.list(attrs.arg(), default = []),
         "contacts": attrs.list(attrs.string(), default = []),

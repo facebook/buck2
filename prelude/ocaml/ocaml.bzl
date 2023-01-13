@@ -812,6 +812,66 @@ def ocaml_object_impl(ctx: "context") -> ["provider"]:
         ),
     ]
 
+# `ocaml_shared` enables one to produce an OCaml "plugin". Such native code
+# ('.cmxs') files can be dynamically loaded into a running-process via the
+# `Dynlink` module. Example use cases include writing compiler plugins for use
+# with the `-plugin` compiler flag & "deriver" plugins for use with the
+# `ppx_deriving` framework.
+def ocaml_shared_impl(ctx: "context") -> ["provider"]:
+    ocaml_toolchain = ctx.attrs._ocaml_toolchain[OCamlToolchainInfo]
+
+    env = _mk_env(ctx)
+    ocamlopt = _mk_ocaml_compiler(ctx, env, BuildMode("native"))
+
+    link_infos = merge_link_infos(
+        ctx,
+        _attr_deps_merged_link_infos(ctx) + filter(None, [ocaml_toolchain.libc]),
+    )
+    link_info = get_link_args(link_infos, LinkStyle("static"))
+    ld_args = unpack_link_args(link_info)
+
+    # 'ocamlopt.opt' with '-cc' fails to propagate '-shared' (and potentially
+    # other required flags - see the darwin "dylib" specific block below) to the
+    # linker. See https://www.internalfb.com/phabricator/paste/view/P596226070.
+    # This is a workaround.
+    shared_args = ["-shared"]
+    if host_info().os.is_macos:
+        shared_args.extend(["-flat_namespace", "-undefined suppress", "-Wl,-no_compact_unwind"])
+
+    ld_nat = _mk_ld(ctx, shared_args + [ld_args], "ld_native.sh")
+
+    cmd_nat = _compiler_cmd(ctx, ocamlopt, ld_nat)
+
+    cmxs_order, stbs, objs, cmis_nat, _cmos, cmxs, cmts_nat, cmtis_nat = _compile_result_to_tuple(_compile(ctx, ocamlopt, BuildMode("native")))
+    cmd_nat.add(stbs, "-args", cmxs_order)
+
+    # These were produced by the compile step and are therefore hidden
+    # dependencies of the link step.
+    cmd_nat.hidden(cmxs, cmis_nat, cmts_nat, cmtis_nat, objs)
+    binary_nat = ctx.actions.declare_output(ctx.attrs.name + ".cmxs")
+    cmd_nat.add("-shared")
+    cmd_nat.add("-o", binary_nat.as_output())
+    local_only = link_cxx_binary_locally(ctx)
+    ctx.actions.run(cmd_nat, category = "ocaml_shared_link", local_only = local_only)
+
+    other_outputs = {
+        "bytecode": [],
+        "ide": cmis_nat + cmtis_nat + cmts_nat,
+    }
+    other_outputs_info = merge_other_outputs_info(ctx, other_outputs, _attr_deps_other_outputs_infos(ctx))
+
+    info_ide = [
+        DefaultInfo(
+            default_outputs = [binary_nat],
+            other_outputs = [cmd_args(other_outputs_info.info.project_as_args("ide"))],
+        ),
+    ]
+    sub_targets = {"ide": info_ide}
+
+    return [
+        DefaultInfo(default_outputs = [binary_nat], sub_targets = sub_targets),
+    ]
+
 def prebuilt_ocaml_library_impl(ctx: "context") -> ["provider"]:
     # examples:
     #   name: 'threads'
