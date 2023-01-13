@@ -13,6 +13,18 @@ use tokio::process::Command;
 
 use crate::find_certs::find_tls_cert;
 
+#[derive(Debug, thiserror::Error)]
+pub enum UploadError {
+    #[error("Failed to upload path `{0}` to Manifold with exit code {1}")]
+    ExitCodeError(String, i32),
+    #[error(
+        "No result code from uploading path `{0}` to Manifold, probably due to signal interrupt"
+    )]
+    NoResultCodeError(String),
+    #[error("Failed to find suitable Manifold upload command")]
+    CommandNotFound,
+}
+
 pub fn upload_command(
     manifold_bucket_name: &str,
     manifold_filename: &str,

@@ -15,6 +15,7 @@ use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::daemon::client::connect::BuckdConnectOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::manifold;
+use buck2_client_ctx::manifold::UploadError;
 use buck2_core::fs::fs_util::create_dir_all;
 use buck2_core::fs::fs_util::remove_all;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
@@ -22,16 +23,6 @@ use buck2_core::process::background_command;
 use cli_proto::unstable_dice_dump_request::DiceDumpFormat;
 use cli_proto::UnstableDiceDumpRequest;
 use gazebo::prelude::*;
-
-#[derive(Debug, thiserror::Error)]
-enum DumpError {
-    #[error("Failed to upload DICE dump folder `{0}` to manifold with exit code {1}")]
-    ManifoldUploadWithExitCodeError(String, i32),
-    #[error("Failed to upload DICE dump folder `{0}` to manifold due to signal interrupt")]
-    ManifoldUploadSignalInterruptError(String),
-    #[error("Failed to find suitable Manifold upload command")]
-    ManifoldUploadCommandNotFound,
-}
 
 pub async fn upload_dice_dump(
     ctx: &ClientCommandContext,
@@ -123,28 +114,16 @@ async fn upload_to_manifold(dump_folder: &Path, manifold_filename: &str) -> anyh
             manifold_filename,
             "buck2_rage_dumps-key",
         )?
-        .context(DumpError::ManifoldUploadCommandNotFound)?;
+        .context(UploadError::CommandNotFound)?;
         upload.stdin(tar_gzip.stdout.unwrap());
         let exit_code_result = upload.spawn()?.wait().await?.code();
 
-        match exit_code_result {
-            Some(code) => match code {
-                0 => {}
-                e => {
-                    return Err(DumpError::ManifoldUploadWithExitCodeError(
-                        dump_folder.display().to_string(),
-                        e,
-                    )
-                    .into());
-                }
-            },
-            None => {
-                return Err(DumpError::ManifoldUploadSignalInterruptError(
-                    dump_folder.display().to_string(),
-                )
-                .into());
-            }
-        }
+        match exit_code_result.context(UploadError::NoResultCodeError(
+            dump_folder.display().to_string(),
+        ))? {
+            0 => Ok::<(), anyhow::Error>(()),
+            e => Err(UploadError::ExitCodeError(dump_folder.display().to_string(), e).into()),
+        }?
     }
     Ok(())
 }
