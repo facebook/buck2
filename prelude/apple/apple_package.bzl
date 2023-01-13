@@ -20,4 +20,4 @@ def apple_package_impl(ctx: "context") -> ["provider"]:
     zip = cmd_args(["(cd \"", cmd_args(payload).parent(), "\" && zip -X -r - \"", payload.basename, "\") > ", package.as_output()], delimiter = "")
     ctx.actions.run(["sh", "-c", zip], category = "apple_package_zip")
 
-    return [DefaultInfo(default_outputs = [package])]
+    return [DefaultInfo(default_output = package)]

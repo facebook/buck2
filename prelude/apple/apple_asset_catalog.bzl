@@ -27,7 +27,7 @@ def apple_asset_catalog_impl(ctx: "context") -> ["provider"]:
         exported_deps = [],
         asset_catalog_spec = spec,
     )
-    return [DefaultInfo(default_outputs = []), graph]
+    return [DefaultInfo(default_output = None), graph]
 
 def compile_apple_asset_catalog(ctx: "context", specs: [AppleAssetCatalogSpec.type]) -> [AppleAssetCatalogResult.type, None]:
     single_spec = _merge_asset_catalog_specs(ctx, specs)

@@ -137,7 +137,7 @@ def apple_bundle_impl(ctx: "context") -> ["provider"]:
     install_data = generate_install_data(ctx)
 
     return [
-        DefaultInfo(default_outputs = [bundle], sub_targets = sub_targets),
+        DefaultInfo(default_output = bundle, sub_targets = sub_targets),
         AppleBundleInfo(bundle = bundle, binary_name = get_product_name(ctx), is_watchos = get_is_watch_bundle(ctx)),
         AppleDebuggableInfo(dsyms = dsym_artifacts, external_debug_info = external_debug_info),
         InstallInfo(

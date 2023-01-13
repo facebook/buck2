@@ -86,7 +86,7 @@ def apple_test_impl(ctx: "context") -> ["provider"]:
     sub_targets = cxx_library_output.sub_targets
 
     # If the test has a test host, add a subtarget to build the test host app bundle.
-    sub_targets["test-host"] = [DefaultInfo(default_outputs = [test_host_app_bundle])] if test_host_app_bundle else [DefaultInfo()]
+    sub_targets["test-host"] = [DefaultInfo(default_output = test_host_app_bundle)] if test_host_app_bundle else [DefaultInfo()]
 
     # When interacting with Tpx, we just pass our various inputs via env vars,
     # since Tpx basiclaly wants structured output for this.
@@ -102,7 +102,7 @@ def apple_test_impl(ctx: "context") -> ["provider"]:
     labels.append(tpx_label)
 
     return [
-        DefaultInfo(default_outputs = [xctest_bundle], sub_targets = sub_targets),
+        DefaultInfo(default_output = xctest_bundle, sub_targets = sub_targets),
         ExternalRunnerTestInfo(
             type = "custom",  # We inherit a label via the macro layer that overrides this.
             command = ["false"],  # Tpx makes up its own args, we just pass params via the env.

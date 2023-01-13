@@ -53,7 +53,7 @@ def apple_binary_impl(ctx: "context") -> ["provider"]:
         external_debug_info = cxx_output.external_debug_info,
         action_identifier = cxx_output.binary.short_path,
     )
-    cxx_output.sub_targets[DSYM_SUBTARGET] = [DefaultInfo(default_outputs = [dsym_artifact])]
+    cxx_output.sub_targets[DSYM_SUBTARGET] = [DefaultInfo(default_output = dsym_artifact)]
 
     cxx_output.sub_targets[DEBUGINFO_SUBTARGET] = [DefaultInfo(other_outputs = cxx_output.external_debug_info)]
 
@@ -68,7 +68,7 @@ def apple_binary_impl(ctx: "context") -> ["provider"]:
     )
 
     return [
-        DefaultInfo(default_outputs = [cxx_output.binary], sub_targets = cxx_output.sub_targets),
+        DefaultInfo(default_output = cxx_output.binary, sub_targets = cxx_output.sub_targets),
         RunInfo(args = cmd_args(cxx_output.binary).hidden(cxx_output.runtime_files)),
         AppleEntitlementsInfo(entitlements_file = ctx.attrs.entitlements_file),
         AppleDebuggableInfo(dsyms = [dsym_artifact], external_debug_info = cxx_output.external_debug_info),

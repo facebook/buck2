@@ -97,7 +97,7 @@ def prebuilt_apple_framework_impl(ctx: "context") -> ["provider"]:
         providers.append(linkable_graph)
 
     # The default output is the provided framework.
-    providers.append(DefaultInfo(default_outputs = [framework_directory_artifact]))
+    providers.append(DefaultInfo(default_output = framework_directory_artifact))
     providers.append(AppleBundleInfo(bundle = framework_directory_artifact, is_watchos = None))
     providers.append(merge_link_group_lib_info(deps = ctx.attrs.deps))
     providers.append(merge_shared_libraries(ctx.actions, deps = filter_and_map_idx(SharedLibraryInfo, ctx.attrs.deps)))

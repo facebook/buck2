@@ -187,7 +187,7 @@ def _get_shared_link_style_sub_targets_and_providers(
         output_path_override = dsym_output_path_override,
     )
     return ({
-        DSYM_SUBTARGET: [DefaultInfo(default_outputs = [dsym_artifact])],
+        DSYM_SUBTARGET: [DefaultInfo(default_output = dsym_artifact)],
         DEBUGINFO_SUBTARGET: [DefaultInfo(other_outputs = external_debug_info)],
     }, [AppleDebuggableInfo(dsyms = [dsym_artifact], external_debug_info = external_debug_info)] + min_version_providers)
 
