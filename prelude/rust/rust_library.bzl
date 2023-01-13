@@ -85,7 +85,7 @@ def prebuilt_rust_library_impl(ctx: "context") -> ["provider"]:
     # Default output.
     providers.append(
         DefaultInfo(
-            default_outputs = [ctx.attrs.rlib],
+            default_output = ctx.attrs.rlib,
         ),
     )
 
@@ -378,9 +378,9 @@ def _default_providers(
 
     providers.append(
         DefaultInfo(
-            default_outputs = [check_artifacts["check"]],
+            default_output = check_artifacts["check"],
             sub_targets = {
-                k: [DefaultInfo(default_outputs = [v])]
+                k: [DefaultInfo(default_output = v)]
                 for (k, v) in targets.items()
             },
         ),

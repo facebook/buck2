@@ -180,14 +180,14 @@ def _rust_binary_common(
         ("save-analysis", save_analysis.outputs[Emit("save-analysis")]),
         ("sources", compile_ctx.symlinked_srcs),
     ]
-    sub_targets = {k: [DefaultInfo(default_outputs = [v])] for k, v in extra_targets}
+    sub_targets = {k: [DefaultInfo(default_output = v)] for k, v in extra_targets}
     for (k, (sub_link, sub_args, _sub_extra, sub_runtime_files)) in styles.items():
         sub_targets[k.value] = [
             DefaultInfo(
-                default_outputs = [sub_link],
+                default_output = sub_link,
                 other_outputs = sub_runtime_files,
                 # Check/save-analysis for each link style?
-                # sub_targets = { k: [DefaultInfo(default_outputs = [v])] for k, v in sub_extra }
+                # sub_targets = { k: [DefaultInfo(default_output = v)] for k, v in sub_extra }
             ),
             RunInfo(args = sub_args),
         ]
@@ -196,7 +196,7 @@ def _rust_binary_common(
 
     providers = [
         DefaultInfo(
-            default_outputs = [link],
+            default_output = link,
             other_outputs = runtime_files,
             sub_targets = sub_targets,
         ),
