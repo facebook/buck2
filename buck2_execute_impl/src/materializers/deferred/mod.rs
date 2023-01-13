@@ -218,7 +218,10 @@ struct DeferredMaterializerCommandProcessor<T> {
 #[derive(Debug, Clone, Dupe)]
 enum SharedMaterializingError {
     Error(SharedError),
-    NotFound { info: Arc<CasDownloadInfo> },
+    NotFound {
+        info: Arc<CasDownloadInfo>,
+        debug: Arc<str>,
+    },
 }
 
 #[derive(Error, Debug)]
@@ -227,15 +230,18 @@ enum MaterializeEntryError {
     Error(#[from] anyhow::Error),
 
     /// The artifact wasn't found. This typically means it expired in the CAS.
-    #[error("Artifact not found: declared by action {}", .info)]
-    NotFound { info: Arc<CasDownloadInfo> },
+    #[error("Artifact not found (digest origin: {}, debug: {})", .info, .debug)]
+    NotFound {
+        info: Arc<CasDownloadInfo>,
+        debug: Arc<str>,
+    },
 }
 
 impl From<MaterializeEntryError> for SharedMaterializingError {
     fn from(e: MaterializeEntryError) -> SharedMaterializingError {
         match e {
             MaterializeEntryError::Error(e) => Self::Error(e.into()),
-            MaterializeEntryError::NotFound { info } => Self::NotFound { info },
+            MaterializeEntryError::NotFound { info, debug } => Self::NotFound { info, debug },
         }
     }
 }
@@ -966,8 +972,8 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                             path,
                             source: source.into(),
                         },
-                        SharedMaterializingError::NotFound { info } => {
-                            MaterializationError::NotFound { path, info }
+                        SharedMaterializingError::NotFound { info, debug } => {
+                            MaterializationError::NotFound { path, info, debug }
                         }
                     })
                 })

@@ -163,9 +163,10 @@ impl DefaultIoHandler {
                     .materialize_files(files, info.re_use_case)
                     .await
                     .map_err(|e| match e.downcast_ref::<REClientError>() {
-                        Some(e) if e.code == TCode::NOT_FOUND => {
-                            MaterializeEntryError::NotFound { info: info.dupe() }
-                        }
+                        Some(e) if e.code == TCode::NOT_FOUND => MaterializeEntryError::NotFound {
+                            info: info.dupe(),
+                            debug: Arc::from(e.message.as_str()),
+                        },
                         _ => MaterializeEntryError::Error(e.context({
                             format!("Error materializing files declared by action: {}", info)
                         })),
