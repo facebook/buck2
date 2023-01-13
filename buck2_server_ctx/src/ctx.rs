@@ -69,7 +69,7 @@ pub struct DiceAccessor {
 pub trait ServerCommandDiceContext {
     async fn with_dice_ctx<'v, F, Fut, R>(&'v self, exec: F) -> anyhow::Result<R>
     where
-        F: FnOnce(&'v Box<dyn ServerCommandContextTrait>, DiceTransaction) -> Fut + Send,
+        F: FnOnce(&'v dyn ServerCommandContextTrait, DiceTransaction) -> Fut + Send,
         Fut: Future<Output = anyhow::Result<R>> + Send;
 }
 
@@ -78,7 +78,7 @@ impl ServerCommandDiceContext for Box<dyn ServerCommandContextTrait> {
     /// Allows running a section of code that uses the shared DiceTransaction
     async fn with_dice_ctx<'v, F, Fut, R>(&'v self, exec: F) -> anyhow::Result<R>
     where
-        F: FnOnce(&'v Box<dyn ServerCommandContextTrait>, DiceTransaction) -> Fut + Send,
+        F: FnOnce(&'v dyn ServerCommandContextTrait, DiceTransaction) -> Fut + Send,
         Fut: Future<Output = anyhow::Result<R>> + Send,
     {
         let dice_accessor = self.dice_accessor(PrivateStruct(())).await?;
@@ -106,7 +106,7 @@ impl ServerCommandDiceContext for Box<dyn ServerCommandContextTrait> {
                                         },
                                         async move {
                                             (
-                                                exec(self, dice).await,
+                                                exec(&**self, dice).await,
                                                 CommandCriticalEnd { metadata },
                                             )
                                         },

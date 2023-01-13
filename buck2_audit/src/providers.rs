@@ -71,7 +71,7 @@ impl AuditSubcommand for AuditProvidersCommand {
     ) -> anyhow::Result<()> {
         server_ctx
             .with_dice_ctx(move |server_ctx, ctx| {
-                self.server_execute_with_dice(client_ctx, &**server_ctx, ctx)
+                self.server_execute_with_dice(client_ctx, server_ctx, ctx)
             })
             .await
     }

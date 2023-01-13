@@ -65,7 +65,7 @@ pub async fn run_server_command<T: ServerCommandTemplate>(
 
     span_async(start_event, async {
         let result = server_ctx
-            .with_dice_ctx(|server_ctx, ctx| command.command(&**server_ctx, ctx))
+            .with_dice_ctx(|server_ctx, ctx| command.command(server_ctx, ctx))
             .await;
         let end_event = command_end_ext(metadata, &result, command.end_event(), |result| {
             command.is_success(result)
