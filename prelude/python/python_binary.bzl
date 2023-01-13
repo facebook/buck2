@@ -242,9 +242,9 @@ def convert_python_library_to_executable(
             omnibus_info = DefaultInfo()
             if omnibus_linked_obj:
                 omnibus_info = DefaultInfo(
-                    default_outputs = [omnibus_linked_obj.output],
+                    default_output = omnibus_linked_obj.output,
                     sub_targets = {
-                        "dwp": [DefaultInfo(default_outputs = [omnibus_linked_obj.dwp] if omnibus_linked_obj.dwp else [])],
+                        "dwp": [DefaultInfo(default_output = omnibus_linked_obj.dwp if omnibus_linked_obj.dwp else None)],
                     },
                 )
             extra["omnibus"] = [
@@ -259,13 +259,13 @@ def convert_python_library_to_executable(
             extra["omnibus-exclusion-roots"] = [DefaultInfo(default_outputs = [exclusion_roots])]
 
             roots = ctx.actions.write_json("omnibus/roots.json", omnibus_libs.roots)
-            extra["omnibus-roots"] = [DefaultInfo(default_outputs = [roots])]
+            extra["omnibus-roots"] = [DefaultInfo(default_output = roots)]
 
             omnibus_excluded = ctx.actions.write_json("omnibus/excluded.json", omnibus_libs.excluded)
-            extra["omnibus-excluded"] = [DefaultInfo(default_outputs = [omnibus_excluded])]
+            extra["omnibus-excluded"] = [DefaultInfo(default_output = omnibus_excluded)]
 
             omnibus_graph_json = ctx.actions.write_json("omnibus_graph.json", omnibus_graph)
-            extra["linkable-graph"] = [DefaultInfo(default_outputs = [omnibus_graph_json])]
+            extra["linkable-graph"] = [DefaultInfo(default_output = omnibus_graph_json)]
     elif _link_strategy(ctx) == NativeLinkStrategy("native"):
         expect(package_style == PackageStyle("standalone"), "native_link_strategy=native is only supported for standalone builds")
         executable_deps = ctx.attrs.executable_deps

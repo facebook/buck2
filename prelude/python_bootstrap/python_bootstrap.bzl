@@ -13,7 +13,7 @@ def python_bootstrap_library_impl(ctx: "context") -> ["provider"]:
     tree = {src.short_path: src for src in ctx.attrs.srcs}
     output = ctx.actions.symlinked_dir("__{}__".format(ctx.attrs.name), tree)
     return [
-        DefaultInfo(default_outputs = [output]),
+        DefaultInfo(default_output = output),
         PythonBootstrapSources(srcs = ctx.attrs.srcs),
     ]
 

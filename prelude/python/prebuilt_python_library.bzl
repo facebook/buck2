@@ -66,7 +66,7 @@ def prebuilt_python_library_impl(ctx: "context") -> ["provider"]:
     providers.append(linkable_graph)
 
     sub_targets = {"source-db-no-deps": [create_source_db_no_deps_from_manifest(ctx, src_manifest), library_info]}
-    providers.append(DefaultInfo(default_outputs = [ctx.attrs.binary_src], sub_targets = sub_targets))
+    providers.append(DefaultInfo(default_output = ctx.attrs.binary_src, sub_targets = sub_targets))
 
     # C++ resources.
     providers.append(ResourceInfo(resources = gather_resources(

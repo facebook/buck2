@@ -40,7 +40,7 @@ def create_source_db(
 
     ctx.actions.run(cmd, category = "py_source_db")
 
-    return DefaultInfo(default_outputs = [output], other_outputs = artifacts)
+    return DefaultInfo(default_output = output, other_outputs = artifacts)
 
 def create_source_db_no_deps(
         ctx: "context",

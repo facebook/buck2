@@ -119,7 +119,7 @@ def cxx_python_extension_impl(ctx: "context") -> ["provider"]:
     extension = shared_objects[0]
 
     providers.append(DefaultInfo(
-        default_outputs = [shared_output.default],
+        default_output = shared_output.default,
         other_outputs = shared_output.other,
         sub_targets = cxx_library_info.sub_targets,
     ))

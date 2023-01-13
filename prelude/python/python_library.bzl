@@ -288,7 +288,7 @@ def python_library_impl(ctx: "context") -> ["provider"]:
     bytecode_manifest = None
     if src_manifest != None:
         bytecode = compile_manifests(ctx, [src_manifest])
-        sub_targets["compile"] = [DefaultInfo(default_outputs = [bytecode])]
+        sub_targets["compile"] = [DefaultInfo(default_output = bytecode)]
         bytecode_manifest = create_manifest_for_source_dir(ctx, "bytecode", bytecode)
 
     raw_deps = (
