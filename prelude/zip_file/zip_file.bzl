@@ -60,7 +60,7 @@ def zip_file_impl(ctx: "context") -> ["provider"]:
 
     ctx.actions.run(create_zip_cmd, category = "zip")
 
-    return [DefaultInfo(default_outputs = [output])]
+    return [DefaultInfo(default_output = output)]
 
 def _select_zip_file_toolchain():
     # FIXME: prelude// should be standalone (not refer to fbsource//)
