@@ -1,0 +1,16 @@
+[package]
+name = "gazebo"
+version = "0.8.1"
+license = "MIT OR Apache-2.0"
+authors = ["Facebook"]
+edition = "2021"
+description = "A collection of well-tested utilities"
+repository = "https://github.com/facebookincubator/gazebo"
+documentation = "https://docs.rs/gazebo"
+categories = ["rust-patterns"]
+
+[features]
+str_pattern_extensions = []
+
+[dependencies]
+gazebo_derive = { version = "0.8.0", path = "../gazebo_derive" }
