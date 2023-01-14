@@ -398,7 +398,7 @@ def get_filtered_targets(labels_to_links_map: {"label": LinkGroupLinkInfo.type})
 
 def get_link_group_map_json(ctx: "context", targets: ["target_label"]) -> DefaultInfo.type:
     json_map = ctx.actions.write_json(LINK_GROUP_MAP_FILE_NAME, sorted(targets))
-    return DefaultInfo(default_outputs = [json_map])
+    return DefaultInfo(default_output = json_map)
 
 def create_link_group(
         ctx: "context",

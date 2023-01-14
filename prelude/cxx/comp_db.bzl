@@ -62,4 +62,4 @@ def create_compilation_database(
     cmd.add(entries.values())
     ctx.actions.run(cmd, category = "cxx_compilation_database_merge")
 
-    return DefaultInfo(default_outputs = [db], other_outputs = other_outputs)
+    return DefaultInfo(default_output = db, other_outputs = other_outputs)

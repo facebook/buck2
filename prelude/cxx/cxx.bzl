@@ -159,7 +159,7 @@ def _get_shared_link_style_sub_targets_and_providers(
         dwp: ["artifact", None]) -> ({str.type: ["provider"]}, ["provider"]):
     if link_style != LinkStyle("shared") or dwp == None:
         return ({}, [])
-    return ({"dwp": [DefaultInfo(default_outputs = [dwp])]}, [])
+    return ({"dwp": [DefaultInfo(default_output = dwp)]}, [])
 
 def cxx_library_impl(ctx: "context") -> ["provider"]:
     if ctx.attrs.can_be_asset and ctx.attrs.used_by_wrap_script:
@@ -229,7 +229,7 @@ def cxx_binary_impl(ctx: "context") -> ["provider"]:
 
     return [
         DefaultInfo(
-            default_outputs = [output.binary],
+            default_output = output.binary,
             other_outputs = output.runtime_files,
             sub_targets = output.sub_targets,
         ),
@@ -287,7 +287,7 @@ def prebuilt_cxx_library_impl(ctx: "context") -> ["provider"]:
     expect(not ctx.attrs.versioned_static_pic_lib)
 
     if not cxx_platform_supported(ctx):
-        return [DefaultInfo(default_outputs = [])]
+        return [DefaultInfo(default_output = None)]
 
     providers = []
 
@@ -544,7 +544,7 @@ def cxx_precompiled_header_impl(ctx: "context") -> ["provider"]:
     inherited_pp_infos = cxx_inherited_preprocessor_infos(ctx.attrs.deps)
     inherited_link = cxx_inherited_link_info(ctx, ctx.attrs.deps)
     return [
-        DefaultInfo(default_outputs = [ctx.attrs.src]),
+        DefaultInfo(default_output = ctx.attrs.src),
         cxx_merge_cpreprocessors(ctx, [], inherited_pp_infos),
         inherited_link,
         CPrecompiledHeaderInfo(header = ctx.attrs.src),
@@ -586,7 +586,7 @@ def cxx_test_impl(ctx: "context") -> ["provider"]:
             use_project_relative_paths = re_executor != None,
         ),
     ) + [
-        DefaultInfo(default_outputs = [output.binary], other_outputs = output.runtime_files, sub_targets = output.sub_targets),
+        DefaultInfo(default_output = output.binary, other_outputs = output.runtime_files, sub_targets = output.sub_targets),
         comp_db_info,
         xcode_data_info,
     ]

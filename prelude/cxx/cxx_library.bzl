@@ -232,9 +232,9 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
 
         # Needed to handle cases of the named output (e.g. [static-pic]) being called directly.
         for link_style in get_link_styles_for_linkage(cxx_attr_preferred_linkage(ctx)):
-            sub_targets[link_style.value.replace("_", "-")] = [DefaultInfo(default_outputs = [])]
+            sub_targets[link_style.value.replace("_", "-")] = [DefaultInfo(default_output = None)]
 
-        return _CxxLibraryParameterizedOutput(sub_targets = sub_targets, providers = [DefaultInfo(default_outputs = [], sub_targets = sub_targets)])
+        return _CxxLibraryParameterizedOutput(sub_targets = sub_targets, providers = [DefaultInfo(default_output = None, sub_targets = sub_targets)])
 
     non_exported_deps = cxx_attr_deps(ctx)
     exported_deps = cxx_attr_exported_deps(ctx)
@@ -363,7 +363,7 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
 
             if impl_params.generate_sub_targets.link_style_outputs:
                 sub_targets[link_style.value.replace("_", "-")] = [DefaultInfo(
-                    default_outputs = [output.default],
+                    default_output = output.default,
                     other_outputs = output.other,
                     sub_targets = link_style_sub_targets,
                 )] + (link_style_providers if link_style_providers else [])
@@ -484,7 +484,7 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
 
         if linkable_root.shared_root:
             sub_targets["omnibus-shared-root"] = [DefaultInfo(
-                default_outputs = [linkable_root.shared_root.product.shared_library.output],
+                default_output = linkable_root.shared_root.product.shared_library.output,
             )]
 
     # Augment and provide the linkable graph.
@@ -579,7 +579,7 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
 
     if impl_params.generate_providers.default:
         providers.append(DefaultInfo(
-            default_outputs = [default_output.default] if default_output != None else [],
+            default_output = default_output.default if default_output != None else None,
             other_outputs = default_output.other if default_output != None else [],
             sub_targets = sub_targets,
         ))

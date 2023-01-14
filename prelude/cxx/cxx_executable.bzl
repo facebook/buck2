@@ -375,20 +375,20 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
     # - sub-sub-targets that reference shared library dependencies and their respective dwp
     # - [shared-libraries] - a json map that references the above rules.
     if shared_libs_symlink_tree:
-        sub_targets["rpath-tree"] = [DefaultInfo(default_outputs = [shared_libs_symlink_tree])]
+        sub_targets["rpath-tree"] = [DefaultInfo(default_output = shared_libs_symlink_tree)]
     sub_targets["shared-libraries"] = [DefaultInfo(
-        default_outputs = [ctx.actions.write_json(
+        default_output = ctx.actions.write_json(
             binary.output.basename + ".shared-libraries.json",
             {
                 "libraries": ["{}:{}[shared-libraries][{}]".format(ctx.label.path, ctx.label.name, name) for name in shared_libs.keys()],
                 "librariesdwp": ["{}:{}[shared-libraries][{}][dwp]".format(ctx.label.path, ctx.label.name, name) for name, lib in shared_libs.items() if lib.dwp],
                 "rpathtree": ["{}:{}[rpath-tree]".format(ctx.label.path, ctx.label.name)] if shared_libs_symlink_tree else [],
             },
-        )],
+        ),
         sub_targets = {
             name: [DefaultInfo(
-                default_outputs = [lib.output],
-                sub_targets = {"dwp": [DefaultInfo(default_outputs = [lib.dwp])]} if lib.dwp else {},
+                default_output = lib.output,
+                sub_targets = {"dwp": [DefaultInfo(default_output = lib.dwp)]} if lib.dwp else {},
             )]
             for name, lib in shared_libs.items()
         },
@@ -422,12 +422,12 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
 
     if binary.dwp:
         # A `dwp` sub-target which generates the `.dwp` file for this binary.
-        sub_targets["dwp"] = [DefaultInfo(default_outputs = [binary.dwp])]
+        sub_targets["dwp"] = [DefaultInfo(default_output = binary.dwp)]
 
     # If bolt is not ran, binary.prebolt_output will be the same as binary.output. Only
     # expose binary.prebolt_output if cxx_use_bolt(ctx) is True to avoid confusion
     if cxx_use_bolt(ctx):
-        sub_targets["prebolt"] = [DefaultInfo(default_outputs = [binary.prebolt_output])]
+        sub_targets["prebolt"] = [DefaultInfo(default_output = binary.prebolt_output)]
 
     (linker_map, binary_for_linker_map) = _linker_map(
         ctx,
@@ -436,15 +436,15 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
         prefer_local = link_cxx_binary_locally(ctx, toolchain_info),
         link_weight = linker_info.link_weight,
     )
-    sub_targets["linker-map"] = [DefaultInfo(default_outputs = [linker_map], other_outputs = [binary_for_linker_map])]
+    sub_targets["linker-map"] = [DefaultInfo(default_output = linker_map, other_outputs = [binary_for_linker_map])]
 
     sub_targets["linker.argsfile"] = [DefaultInfo(
-        default_outputs = [binary.linker_argsfile],
+        default_output = binary.linker_argsfile,
     )]
 
     if linker_info.supports_distributed_thinlto and ctx.attrs.enable_distributed_thinlto:
         sub_targets["index.argsfile"] = [DefaultInfo(
-            default_outputs = [binary.index_argsfile],
+            default_output = binary.index_argsfile,
         )]
 
     return _CxxExecutableOutput(
