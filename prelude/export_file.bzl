@@ -18,4 +18,4 @@ def export_file_impl(ctx: "context") -> [DefaultInfo.type]:
         fail("export_file does not allow specifying `out` without also specifying `mode = 'copy'`")
     else:
         output = ctx.attrs.src
-    return [DefaultInfo(default_outputs = [output])]
+    return [DefaultInfo(default_output = output)]
