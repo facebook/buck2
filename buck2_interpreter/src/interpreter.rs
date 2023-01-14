@@ -422,6 +422,14 @@ impl InterpreterConfigForCell {
         })
     }
 
+    pub fn starlark_path_global_env(&self, path: &StarlarkPath) -> &Globals {
+        match path {
+            StarlarkPath::BuildFile(_) => self.build_file_global_env(),
+            StarlarkPath::LoadFile(_) => self.extension_file_global_env(),
+            StarlarkPath::BxlFile(_) => self.bxl_file_global_env(),
+        }
+    }
+
     pub fn build_file_global_env(&self) -> &Globals {
         &self.global_state.build_file_global_env
     }
@@ -622,11 +630,7 @@ impl InterpreterForCell {
         extra_context: Option<Box<dyn ExtraContextDyn>>,
         profiler: &mut StarlarkProfilerOrInstrumentation,
     ) -> anyhow::Result<Option<Box<dyn ExtraContextDyn>>> {
-        let globals = match import {
-            StarlarkPath::BuildFile(_) => self.config.build_file_global_env(),
-            StarlarkPath::LoadFile(_) => self.config.extension_file_global_env(),
-            StarlarkPath::BxlFile(_) => self.config.bxl_file_global_env(),
-        };
+        let globals = self.config.starlark_path_global_env(&import);
         let file_loader =
             InterpreterFileLoader::new(loaded_modules, Arc::new(self.load_resolver(import)));
         let cell_info = self.get_cell_config(import.build_file_cell());
