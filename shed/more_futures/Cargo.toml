@@ -5,9 +5,7 @@ edition = "2021"
 
 [dependencies]
 futures = "0.3"
-gazebo.version = "0.8.1"
-gazebo.features = ["str_pattern_extensions"]
-# @oss-disable: gazebo.path = "../../gazebo/gazebo"
+gazebo = { workspace = true }
 gazebo_lint.version = "0.1"
 gazebo_lint.optional = true
 # @oss-disable: gazebo_lint.path = "../../gazebo_lint/gazebo_lint"

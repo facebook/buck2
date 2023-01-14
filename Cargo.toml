@@ -50,8 +50,8 @@ members = [
     # @oss-disable: "gazebo_lint/gazebo_lint",
     # Uncomment to manually test linter_test
     # "gazebo_lint/linter_test",
-    # @oss-disable: "gazebo/gazebo",
-    # @oss-disable: "gazebo/gazebo_derive",
+    "gazebo/gazebo",
+    "gazebo/gazebo_derive",
     "remote_execution/oss/re_grpc",
     "remote_execution/oss/re_grpc_proto",
     "starlark-rust/starlark",
@@ -211,7 +211,7 @@ allocative.path = "allocative/allocative"
 allocative.features = ["anyhow", "bumpalo", "dashmap", "either", "futures", "hashbrown", "indexmap", "num-bigint", "once_cell", "owning_ref", "parking_lot", "prost-types", "relative-path", "smallvec", "compact_str", "sorted_vector_map"]
 gazebo.version = "0.8.1"
 gazebo.features = ["str_pattern_extensions"]
-# @oss-disable: gazebo.path = "gazebo/gazebo"
+gazebo.path = "gazebo/gazebo"
 host_sharing = { path = "host_sharing" }
 more_futures = { path = "shed/more_futures" }
 remote_execution = { path = "remote_execution/oss/re_grpc" }
