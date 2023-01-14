@@ -135,6 +135,35 @@ impl<'a> StarlarkPath<'a> {
     }
 }
 
+#[derive(Clone, Display, Debug, Eq, Hash, PartialEq, Allocative)]
+#[display(fmt = "{}", self.borrow())]
+pub enum OwnedStarlarkPath {
+    /// a build file
+    BuildFile(BuildFilePath),
+    /// a file to be imported
+    LoadFile(ImportPath),
+    /// a bxl file to be evaluated
+    BxlFile(BxlFilePath),
+}
+
+impl OwnedStarlarkPath {
+    pub fn new(path: StarlarkPath<'_>) -> Self {
+        match path {
+            StarlarkPath::BuildFile(p) => Self::BuildFile(p.clone()),
+            StarlarkPath::LoadFile(p) => Self::LoadFile(p.clone()),
+            StarlarkPath::BxlFile(p) => Self::BxlFile(p.clone()),
+        }
+    }
+
+    pub fn borrow(&self) -> StarlarkPath<'_> {
+        match self {
+            OwnedStarlarkPath::BuildFile(p) => StarlarkPath::BuildFile(p),
+            OwnedStarlarkPath::LoadFile(p) => StarlarkPath::LoadFile(p),
+            OwnedStarlarkPath::BxlFile(p) => StarlarkPath::BxlFile(p),
+        }
+    }
+}
+
 impl<'a> From<StarlarkModulePath<'a>> for StarlarkPath<'a> {
     fn from(s: StarlarkModulePath<'a>) -> Self {
         match s {
