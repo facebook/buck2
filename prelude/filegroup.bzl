@@ -20,4 +20,4 @@ def filegroup_impl(ctx):
 
     # It seems that buck1 always copies, and that's important for Python rules
     output = ctx.actions.copied_dir(ctx.label.name, srcs)
-    return [DefaultInfo(default_outputs = [output])]
+    return [DefaultInfo(default_output = output)]
