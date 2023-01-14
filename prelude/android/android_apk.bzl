@@ -83,10 +83,10 @@ def android_apk_impl(ctx: "context") -> ["provider"]:
             jars_to_owners = proguard_output.jars_to_owners
             sub_targets["proguard_text_output"] = [
                 DefaultInfo(
-                    default_outputs = [ctx.actions.symlinked_dir(
+                    default_output = ctx.actions.symlinked_dir(
                         "proguard_text_output",
                         {artifact.basename: artifact for artifact in proguard_output.proguard_artifacts},
-                    )],
+                    ),
                 ),
             ]
         else:
@@ -115,7 +115,7 @@ def android_apk_impl(ctx: "context") -> ["provider"]:
     unstripped_native_libs = native_library_info.unstripped_libs
     sub_targets["unstripped_native_libraries"] = [
         DefaultInfo(
-            default_outputs = [ctx.actions.write("unstripped_native_libraries", unstripped_native_libs)],
+            default_output = ctx.actions.write("unstripped_native_libraries", unstripped_native_libs),
             other_outputs = unstripped_native_libs,
         ),
     ]
@@ -155,7 +155,7 @@ def android_apk_impl(ctx: "context") -> ["provider"]:
             resource_infos = resources_info.unfiltered_resource_infos,
             shared_libraries = native_library_info.apk_under_test_shared_libraries,
         ),
-        DefaultInfo(default_outputs = [output_apk], other_outputs = _get_exopackage_outputs(exopackage_info), sub_targets = sub_targets),
+        DefaultInfo(default_output = output_apk, other_outputs = _get_exopackage_outputs(exopackage_info), sub_targets = sub_targets),
         _get_install_info(ctx, output_apk = output_apk, manifest = resources_info.manifest, exopackage_info = exopackage_info),
     ]
 

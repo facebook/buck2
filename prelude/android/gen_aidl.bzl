@@ -52,6 +52,6 @@ def gen_aidl_impl(ctx: "context") -> ["provider"]:
     ctx.actions.run(jar_cmd, category = "aidl_jar")
 
     return [
-        DefaultInfo(default_outputs = [out]),
+        DefaultInfo(default_output = out),
         _AidlSourceInfo(srcs = [ctx.attrs.aidl] + ctx.attrs.aidl_srcs + dep_srcs),
     ]

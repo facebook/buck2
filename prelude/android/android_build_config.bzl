@@ -30,7 +30,7 @@ def android_build_config_impl(ctx: "context") -> ["provider"]:
     providers.append(java_packaging_info)
     providers.append(build_config_dot_java_library)
 
-    providers.append(DefaultInfo(default_outputs = [build_config_dot_java_library.library_output.full_library]))
+    providers.append(DefaultInfo(default_output = build_config_dot_java_library.library_output.full_library))
     return providers
 
 def generate_android_build_config(

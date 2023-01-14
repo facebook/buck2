@@ -81,7 +81,7 @@ def android_instrumentation_apk_impl(ctx: "context"):
     return [
         AndroidApkInfo(apk = output_apk, manifest = resources_info.manifest),
         AndroidInstrumentationApkInfo(apk_under_test = ctx.attrs.apk[AndroidApkInfo].apk),
-        DefaultInfo(default_outputs = [output_apk]),
+        DefaultInfo(default_output = output_apk),
     ]
 
 def _verify_params(ctx: "context"):

@@ -22,7 +22,7 @@ def android_manifest_impl(ctx: "context") -> ["provider"]:
 
     return [
         AndroidManifestInfo(manifest = output, merge_report = merge_report),
-        DefaultInfo(default_outputs = [output], other_outputs = [merge_report]),
+        DefaultInfo(default_output = output, other_outputs = [merge_report]),
     ]
 
 def generate_android_manifest(

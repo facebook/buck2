@@ -81,7 +81,7 @@ def android_app_modularity_impl(ctx: "context") -> ["provider"]:
 
     ctx.actions.run(cmd, category = "apk_module_graph")
 
-    return [DefaultInfo(default_outputs = [output])]
+    return [DefaultInfo(default_output = output)]
 
 def get_target_to_module_mapping(ctx: "context", deps: ["dependency"]) -> ["artifact", None]:
     if not ctx.attrs.application_module_configs:

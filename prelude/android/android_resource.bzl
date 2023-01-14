@@ -36,7 +36,7 @@ def android_resource_impl(ctx: "context") -> ["provider"]:
     if res:
         aapt2_compile_output = aapt2_compile(ctx, res, ctx.attrs._android_toolchain[AndroidToolchainInfo])
 
-        sub_targets["aapt2_compile"] = [DefaultInfo(default_outputs = [aapt2_compile_output])]
+        sub_targets["aapt2_compile"] = [DefaultInfo(default_output = aapt2_compile_output)]
 
         r_dot_txt_output = get_text_symbols(ctx, res, ctx.attrs.deps)
         default_outputs.append(r_dot_txt_output)
