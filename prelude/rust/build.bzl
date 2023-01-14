@@ -38,6 +38,7 @@ load(
 load(
     ":link_info.bzl",
     "RustLinkInfo",
+    "RustLinkStyleInfo",
     "inherited_non_rust_link_info",
     "normalize_crate",
     "resolve_deps",
@@ -113,9 +114,10 @@ def generate_rustdoc(
         params = params,
         link_style = params.dep_link_style,
         default_roots = default_roots,
+        is_rustdoc_test = False,
     )
 
-    subdir = common_args.subdir + "_rustdoc"
+    subdir = common_args.subdir + "-rustdoc"
     output = ctx.actions.declare_output(subdir)
 
     plain_env, path_env = _process_env(ctx)
@@ -164,6 +166,54 @@ def generate_rustdoc(
     ctx.actions.run(rustdoc_cmd, category = "rustdoc")
 
     return output
+
+def generate_rustdoc_test(
+        ctx: "context",
+        compile_ctx: CompileContext.type,
+        crate: str.type,
+        library: RustLinkStyleInfo.type,
+        params: BuildParams.type,
+        default_roots: [str.type]) -> "cmd_args":
+    toolchain_info = ctx_toolchain_info(ctx)
+
+    common_args = _compute_common_args(
+        ctx = ctx,
+        compile_ctx = compile_ctx,
+        emit = Emit("link"),
+        crate = crate,
+        params = params,
+        link_style = params.dep_link_style,
+        default_roots = default_roots,
+        is_rustdoc_test = True,
+        extra_transitive_deps = library.transitive_deps,
+    )
+
+    link_args, hidden, _dwo_dir_unused_in_rust = make_link_args(
+        ctx,
+        [get_link_args(inherited_non_rust_link_info(ctx), LinkStyle("static_pic"))],
+        "{}-{}".format(common_args.subdir, common_args.tempfile),
+    )
+
+    linker_argsfile, _ = ctx.actions.write(
+        "{}/__{}_linker_args.txt".format(common_args.subdir, common_args.tempfile),
+        link_args,
+        allow_args = True,
+    )
+
+    rustdoc_cmd = cmd_args(
+        toolchain_info.rustdoc,
+        "--test",
+        toolchain_info.rustdoc_flags,
+        ctx.attrs.rustdoc_flags,
+        common_args.args,
+        cmd_args("--extern=", crate, "=", library.rlib, delimiter = ""),
+        compile_ctx.linker_args,
+        cmd_args(linker_argsfile, format = "-Clink-arg=@{}"),
+    )
+
+    rustdoc_cmd.hidden(compile_ctx.symlinked_srcs, hidden)
+
+    return rustdoc_cmd
 
 # Generate multiple compile artifacts so that distinct sets of artifacts can be
 # generated concurrently.
@@ -226,6 +276,7 @@ def rust_compile(
         params = params,
         link_style = link_style,
         default_roots = default_roots,
+        is_rustdoc_test = False,
     )
 
     rustc_cmd = cmd_args(
@@ -349,7 +400,9 @@ def _dependency_args(
         subdir: str.type,
         crate_type: CrateType.type,
         link_style: LinkStyle.type,
-        is_check: bool.type) -> ("cmd_args", {str.type: "label"}):
+        is_check: bool.type,
+        is_rustdoc_test: bool.type,
+        extra_transitive_deps: {"artifact": None}) -> ("cmd_args", {str.type: "label"}):
     args = cmd_args()
     transitive_deps = {}
     deps = []
@@ -370,7 +423,7 @@ def _dependency_args(
 
         # Use rmeta dependencies whenever possible because they
         # should be cheaper to produce.
-        if is_check or (ctx_toolchain_info(ctx).pipelined and not crate_type_codegen(crate_type)):
+        if is_check or (ctx_toolchain_info(ctx).pipelined and not crate_type_codegen(crate_type) and not is_rustdoc_test):
             artifact = style.rmeta
             transitive_artifacts = style.transitive_rmeta_deps
         else:
@@ -385,6 +438,8 @@ def _dependency_args(
 
         # Unwanted transitive_deps have already been excluded
         transitive_deps.update(transitive_artifacts)
+
+    transitive_deps.update(extra_transitive_deps)
 
     # Add as many -Ldependency dirs as we need to avoid name conflicts
     deps_dirs = [{}]
@@ -442,15 +497,19 @@ def _compute_common_args(
         crate: str.type,
         params: BuildParams.type,
         link_style: LinkStyle.type,
-        default_roots: [str.type]) -> CommonArgsInfo.type:
+        default_roots: [str.type],
+        is_rustdoc_test: bool.type,
+        extra_transitive_deps: {"artifact": None} = {}) -> CommonArgsInfo.type:
     crate_type = params.crate_type
 
-    args_key = (crate_type, emit, link_style)
+    args_key = (crate_type, emit, link_style, is_rustdoc_test)
     if args_key in compile_ctx.common_args:
         return compile_ctx.common_args[args_key]
 
     # Keep filenames distinct in per-flavour subdirs
     subdir = "{}-{}-{}-{}".format(crate_type.value, params.reloc_model.value, link_style.value, emit.value)
+    if is_rustdoc_test:
+        subdir = "{}-rustdoc-test".format(subdir)
 
     # Included in tempfiles
     tempfile = "{}-{}".format(crate, emit.value)
@@ -468,6 +527,8 @@ def _compute_common_args(
         crate_type = crate_type,
         link_style = link_style,
         is_check = is_check,
+        is_rustdoc_test = is_rustdoc_test,
+        extra_transitive_deps = extra_transitive_deps,
     )
 
     if crate_type == CrateType("proc-macro"):

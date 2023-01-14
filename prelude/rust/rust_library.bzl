@@ -54,6 +54,7 @@ load(
     "RustcOutput",  # @unused Used as a type
     "compile_context",
     "generate_rustdoc",
+    "generate_rustdoc_test",
     "rust_compile",
     "rust_compile_multi",
 )
@@ -181,13 +182,24 @@ def rust_library_impl(ctx: "context") -> ["provider"]:
         else:
             fail("Unhandled lang {}".format(lang))
 
+    static_library_params = lang_style_param[(LinkageLang("rust"), LinkStyle("static_pic"))]
+    default_roots = ["lib.rs"]
     rustdoc = generate_rustdoc(
         ctx = ctx,
         compile_ctx = compile_ctx,
         crate = crate,
-        params = lang_style_param[(LinkageLang("rust"), LinkStyle("static_pic"))],
-        default_roots = ["lib.rs"],
+        params = static_library_params,
+        default_roots = default_roots,
         document_private_items = False,
+    )
+
+    rustdoc_test = generate_rustdoc_test(
+        ctx = ctx,
+        compile_ctx = compile_ctx,
+        crate = crate,
+        library = rust_param_artifact[static_library_params],
+        params = static_library_params,
+        default_roots = default_roots,
     )
 
     expand = rust_compile(
@@ -195,9 +207,9 @@ def rust_library_impl(ctx: "context") -> ["provider"]:
         compile_ctx = compile_ctx,
         emit = Emit("expand"),
         crate = crate,
-        params = lang_style_param[(LinkageLang("rust"), LinkStyle("static_pic"))],
+        params = static_library_params,
         link_style = LinkStyle("static_pic"),
-        default_roots = ["lib.rs"],
+        default_roots = default_roots,
     )
 
     save_analysis = rust_compile(
@@ -205,9 +217,9 @@ def rust_library_impl(ctx: "context") -> ["provider"]:
         compile_ctx = compile_ctx,
         emit = Emit("save-analysis"),
         crate = crate,
-        params = lang_style_param[(LinkageLang("rust"), LinkStyle("static_pic"))],
+        params = static_library_params,
         link_style = LinkStyle("static_pic"),
-        default_roots = ["lib.rs"],
+        default_roots = default_roots,
     )
 
     providers = []
@@ -216,6 +228,7 @@ def rust_library_impl(ctx: "context") -> ["provider"]:
         lang_style_param = lang_style_param,
         param_artifact = rust_param_artifact,
         rustdoc = rustdoc,
+        rustdoc_test = rustdoc_test,
         check_artifacts = check_artifacts,
         expand = expand.outputs[Emit("expand")],
         save_analysis = save_analysis.outputs[Emit("save-analysis")],
@@ -356,6 +369,7 @@ def _default_providers(
         lang_style_param: {(LinkageLang.type, LinkStyle.type): BuildParams.type},
         param_artifact: {BuildParams.type: RustLinkStyleInfo.type},
         rustdoc: "artifact",
+        rustdoc_test: "cmd_args",
         check_artifacts: {str.type: "artifact"},
         expand: "artifact",
         save_analysis: "artifact",
@@ -369,24 +383,27 @@ def _default_providers(
     # Add provider for default output, and for each link-style...
     targets = {k.value: v.rlib for (k, v) in style_info.items()}
     targets.update(check_artifacts)
-    targets["doc"] = rustdoc
     targets["sources"] = sources
     targets["expand"] = expand
     targets["save-analysis"] = save_analysis
+    sub_targets = {
+        k: [DefaultInfo(default_output = v)]
+        for (k, v) in targets.items()
+    }
 
-    providers = []
-
-    providers.append(
-        DefaultInfo(
-            default_output = check_artifacts["check"],
-            sub_targets = {
-                k: [DefaultInfo(default_output = v)]
-                for (k, v) in targets.items()
-            },
+    sub_targets["doc"] = [
+        DefaultInfo(default_output = rustdoc),
+        ExternalRunnerTestInfo(
+            type = "rustdoc",
+            command = [rustdoc_test],
+            run_from_project_root = True,
         ),
-    )
+    ]
 
-    return providers
+    return [DefaultInfo(
+        default_output = check_artifacts["check"],
+        sub_targets = sub_targets,
+    )]
 
 def _rust_providers(
         ctx: "context",
