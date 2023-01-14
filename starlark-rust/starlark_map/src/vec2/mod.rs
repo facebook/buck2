@@ -37,14 +37,14 @@ use crate::sorting::insertion::slice_swap_shift;
 pub(crate) mod iter;
 
 #[derive(Eq, PartialEq, Debug)]
-struct Vec2Layout<K, V> {
+struct Vec2Layout<A, B> {
     layout: Layout,
-    offset_of_values: usize,
-    _marker: PhantomData<*mut (K, V)>,
+    offset_of_bbb: usize,
+    _marker: PhantomData<*mut (A, B)>,
 }
 
-impl<K, V> Vec2Layout<K, V> {
-    fn new(cap: usize) -> Vec2Layout<K, V> {
+impl<A, B> Vec2Layout<A, B> {
+    fn new(cap: usize) -> Vec2Layout<A, B> {
         Self::new_checked(cap).unwrap_or_else(|err| {
             panic!(
                 "Vec2Layout failed with {:?} when allocating capacity of {}",
@@ -53,77 +53,77 @@ impl<K, V> Vec2Layout<K, V> {
         })
     }
 
-    fn new_checked(cap: usize) -> Result<Vec2Layout<K, V>, LayoutError> {
+    fn new_checked(cap: usize) -> Result<Vec2Layout<A, B>, LayoutError> {
         debug_assert!(cap != 0);
-        let k = Layout::array::<K>(cap)?;
-        let v = Layout::array::<V>(cap)?;
-        let (layout, offset_of_values) = k.extend(v)?;
+        let a = Layout::array::<A>(cap)?;
+        let b = Layout::array::<B>(cap)?;
+        let (layout, offset_of_bbb) = a.extend(b)?;
 
-        debug_assert!(offset_of_values <= layout.size());
-        debug_assert!(layout.align() >= k.align());
-        debug_assert!(layout.align() >= v.align());
-        debug_assert!(offset_of_values % k.align() == 0);
+        debug_assert!(offset_of_bbb <= layout.size());
+        debug_assert!(layout.align() >= a.align());
+        debug_assert!(layout.align() >= b.align());
+        debug_assert!(offset_of_bbb % a.align() == 0);
 
         Ok(Vec2Layout {
             layout,
-            offset_of_values,
+            offset_of_bbb,
             _marker: PhantomData,
         })
     }
 
-    unsafe fn alloc(&self) -> NonNull<V> {
+    unsafe fn alloc(&self) -> NonNull<B> {
         let ptr: *mut u8 = alloc::alloc(self.layout);
-        let values_ptr: *mut V = ptr.add(self.offset_of_values).cast();
-        NonNull::new_unchecked(values_ptr)
+        let bbb_ptr: *mut B = ptr.add(self.offset_of_bbb).cast();
+        NonNull::new_unchecked(bbb_ptr)
     }
 
-    unsafe fn dealloc(&self, values_ptr: NonNull<V>) {
-        let ptr: *mut u8 = values_ptr.as_ptr().cast::<u8>().sub(self.offset_of_values);
+    unsafe fn dealloc(&self, bbb_ptr: NonNull<B>) {
+        let ptr: *mut u8 = bbb_ptr.as_ptr().cast::<u8>().sub(self.offset_of_bbb);
         alloc::dealloc(ptr, self.layout)
     }
 }
 
-/// Array of pairs (K, V), where K and V are stored separately.
-/// This reduces memory consumption when K and V have different alignments.
-pub(crate) struct Vec2<K, V> {
-    // Layout is `[padding, K, K, ..., K, V, V, ..., V]`
-    values_ptr: NonNull<V>,
+/// Array of pairs `(A, B)`, where `A` and `B` are stored separately.
+/// This reduces memory consumption when `A` and `B` have different alignments.
+pub(crate) struct Vec2<A, B> {
+    // Layout is `[padding, A, A, ..., A, B, B, ..., B]`
+    bbb_ptr: NonNull<B>,
     len: usize,
     cap: usize,
-    _marker: PhantomData<(K, V)>,
+    _marker: PhantomData<(A, B)>,
 }
 
-unsafe impl<K: Send, V: Send> Send for Vec2<K, V> {}
-unsafe impl<K: Sync, V: Sync> Sync for Vec2<K, V> {}
+unsafe impl<A: Send, B: Send> Send for Vec2<A, B> {}
+unsafe impl<A: Sync, B: Sync> Sync for Vec2<A, B> {}
 
-impl<K, V> Default for Vec2<K, V> {
+impl<A, B> Default for Vec2<A, B> {
     #[inline]
-    fn default() -> Vec2<K, V> {
+    fn default() -> Vec2<A, B> {
         Vec2::new()
     }
 }
 
-impl<K: Debug, V: Debug> Debug for Vec2<K, V> {
+impl<A: Debug, B: Debug> Debug for Vec2<A, B> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_list().entries(self.iter()).finish()
     }
 }
 
-impl<K: Clone, V: Clone> Clone for Vec2<K, V> {
-    fn clone(&self) -> Vec2<K, V> {
+impl<A: Clone, B: Clone> Clone for Vec2<A, B> {
+    fn clone(&self) -> Vec2<A, B> {
         let mut r = Vec2::with_capacity(self.len());
-        for (k, v) in self.iter() {
-            r.push(k.clone(), v.clone());
+        for (a, b) in self.iter() {
+            r.push(a.clone(), b.clone());
         }
         r
     }
 }
 
-impl<K, V> Vec2<K, V> {
+impl<A, B> Vec2<A, B> {
     #[inline]
-    pub(crate) const fn new() -> Vec2<K, V> {
+    pub(crate) const fn new() -> Vec2<A, B> {
         Vec2 {
-            values_ptr: NonNull::dangling(),
+            bbb_ptr: NonNull::dangling(),
             len: 0,
             cap: 0,
             _marker: PhantomData,
@@ -131,13 +131,13 @@ impl<K, V> Vec2<K, V> {
     }
 
     #[inline]
-    pub(crate) fn with_capacity(cap: usize) -> Vec2<K, V> {
+    pub(crate) fn with_capacity(cap: usize) -> Vec2<A, B> {
         if cap == 0 {
             Vec2::new()
         } else {
-            let values_ptr = unsafe { Vec2Layout::<K, V>::new(cap).alloc() };
+            let bbb_ptr = unsafe { Vec2Layout::<A, B>::new(cap).alloc() };
             Vec2 {
-                values_ptr,
+                bbb_ptr,
                 len: 0,
                 cap,
                 _marker: PhantomData,
@@ -161,49 +161,49 @@ impl<K, V> Vec2<K, V> {
     }
 
     #[inline]
-    fn keys_ptr(&self) -> NonNull<K> {
-        unsafe { NonNull::new_unchecked(self.values_ptr.cast::<K>().as_ptr().sub(self.cap)) }
+    fn aaa_ptr(&self) -> NonNull<A> {
+        unsafe { NonNull::new_unchecked(self.bbb_ptr.cast::<A>().as_ptr().sub(self.cap)) }
     }
 
     #[inline]
-    fn values_ptr(&self) -> NonNull<V> {
-        self.values_ptr
+    fn bbb_ptr(&self) -> NonNull<B> {
+        self.bbb_ptr
     }
 
     #[inline]
-    pub(crate) fn keys(&self) -> &[K] {
-        unsafe { slice::from_raw_parts(self.keys_ptr().as_ptr(), self.len) }
+    pub(crate) fn aaa(&self) -> &[A] {
+        unsafe { slice::from_raw_parts(self.aaa_ptr().as_ptr(), self.len) }
     }
 
     #[inline]
-    pub(crate) fn keys_mut(&mut self) -> &mut [K] {
-        unsafe { slice::from_raw_parts_mut(self.keys_ptr().as_ptr(), self.len) }
+    pub(crate) fn aaa_mut(&mut self) -> &mut [A] {
+        unsafe { slice::from_raw_parts_mut(self.aaa_ptr().as_ptr(), self.len) }
     }
 
     #[inline]
-    fn keys_uninit(&mut self) -> &mut [MaybeUninit<K>] {
-        unsafe { slice::from_raw_parts_mut(self.keys_ptr().as_ptr() as *mut _, self.cap) }
+    fn aaa_uninit(&mut self) -> &mut [MaybeUninit<A>] {
+        unsafe { slice::from_raw_parts_mut(self.aaa_ptr().as_ptr() as *mut _, self.cap) }
     }
 
     #[inline]
-    pub(crate) fn values(&self) -> &[V] {
-        unsafe { slice::from_raw_parts(self.values_ptr().as_ptr(), self.len) }
+    pub(crate) fn bbb(&self) -> &[B] {
+        unsafe { slice::from_raw_parts(self.bbb_ptr().as_ptr(), self.len) }
     }
 
     #[inline]
-    fn values_mut(&mut self) -> &mut [V] {
-        unsafe { slice::from_raw_parts_mut(self.values_ptr().as_ptr(), self.len) }
+    fn bbb_mut(&mut self) -> &mut [B] {
+        unsafe { slice::from_raw_parts_mut(self.bbb_ptr().as_ptr(), self.len) }
     }
 
     #[inline]
-    fn values_uninit(&mut self) -> &mut [MaybeUninit<V>] {
-        unsafe { slice::from_raw_parts_mut(self.values_ptr().as_ptr() as *mut _, self.cap) }
+    fn bbb_uninit(&mut self) -> &mut [MaybeUninit<B>] {
+        unsafe { slice::from_raw_parts_mut(self.bbb_ptr().as_ptr() as *mut _, self.cap) }
     }
 
     // This is what `Vec` does.
-    const MIN_NON_ZERO_CAP: usize = if mem::size_of::<(K, V)>() == 1 {
+    const MIN_NON_ZERO_CAP: usize = if mem::size_of::<(A, B)>() == 1 {
         8
-    } else if mem::size_of::<(K, V)>() <= 1024 {
+    } else if mem::size_of::<(A, B)>() <= 1024 {
         4
     } else {
         1
@@ -219,14 +219,10 @@ impl<K, V> Vec2<K, V> {
         let new_cap = cmp::max(new_cap, self.cap * 2);
         let new = Self::with_capacity(new_cap);
         unsafe {
-            ptr::copy_nonoverlapping(self.keys_ptr().as_ptr(), new.keys_ptr().as_ptr(), self.len);
-            ptr::copy_nonoverlapping(
-                self.values_ptr().as_ptr(),
-                new.values_ptr().as_ptr(),
-                self.len,
-            );
+            ptr::copy_nonoverlapping(self.aaa_ptr().as_ptr(), new.aaa_ptr().as_ptr(), self.len);
+            ptr::copy_nonoverlapping(self.bbb_ptr().as_ptr(), new.bbb_ptr().as_ptr(), self.len);
             self.dealloc();
-            self.values_ptr = new.values_ptr;
+            self.bbb_ptr = new.bbb_ptr;
             mem::forget(new);
             self.cap = new_cap;
         }
@@ -240,41 +236,41 @@ impl<K, V> Vec2<K, V> {
     }
 
     #[inline]
-    unsafe fn dealloc_impl(data: NonNull<V>, cap: usize) {
+    unsafe fn dealloc_impl(data: NonNull<B>, cap: usize) {
         if cap != 0 {
-            Vec2Layout::<K, V>::new(cap).dealloc(data);
+            Vec2Layout::<A, B>::new(cap).dealloc(data);
         }
     }
 
     /// Deallocate, but do not call destructors.
     #[inline]
     unsafe fn dealloc(&mut self) {
-        Self::dealloc_impl(self.values_ptr, self.cap);
+        Self::dealloc_impl(self.bbb_ptr, self.cap);
     }
 
     unsafe fn drop_in_place(&mut self) {
-        ptr::drop_in_place::<[K]>(self.keys_mut());
-        ptr::drop_in_place::<[V]>(self.values_mut());
+        ptr::drop_in_place::<[A]>(self.aaa_mut());
+        ptr::drop_in_place::<[B]>(self.bbb_mut());
     }
 
     #[inline]
-    pub(crate) fn push(&mut self, key: K, value: V) {
+    pub(crate) fn push(&mut self, a: A, b: B) {
         self.reserve(1);
         let len = self.len;
         unsafe {
-            self.keys_uninit().get_unchecked_mut(len).write(key);
-            self.values_uninit().get_unchecked_mut(len).write(value);
+            self.aaa_uninit().get_unchecked_mut(len).write(a);
+            self.bbb_uninit().get_unchecked_mut(len).write(b);
         }
         self.len += 1;
     }
 
     #[inline]
-    pub(crate) fn get(&self, index: usize) -> Option<(&K, &V)> {
+    pub(crate) fn get(&self, index: usize) -> Option<(&A, &B)> {
         if index < self.len {
             unsafe {
-                let k = self.keys().get_unchecked(index);
-                let v = self.values().get_unchecked(index);
-                Some((k, v))
+                let a = self.aaa().get_unchecked(index);
+                let b = self.bbb().get_unchecked(index);
+                Some((a, b))
             }
         } else {
             None
@@ -282,45 +278,45 @@ impl<K, V> Vec2<K, V> {
     }
 
     #[inline]
-    pub(crate) unsafe fn get_unchecked(&self, index: usize) -> (&K, &V) {
+    pub(crate) unsafe fn get_unchecked(&self, index: usize) -> (&A, &B) {
         debug_assert!(index < self.len);
         (
-            self.keys().get_unchecked(index),
-            self.values().get_unchecked(index),
+            self.aaa().get_unchecked(index),
+            self.bbb().get_unchecked(index),
         )
     }
 
     #[inline]
-    pub(crate) unsafe fn get_unchecked_mut(&mut self, index: usize) -> (&mut K, &mut V) {
+    pub(crate) unsafe fn get_unchecked_mut(&mut self, index: usize) -> (&mut A, &mut B) {
         debug_assert!(index < self.len);
-        let k_ptr = self.keys_ptr().as_ptr();
-        let v_ptr = self.values_ptr().as_ptr();
+        let k_ptr = self.aaa_ptr().as_ptr();
+        let v_ptr = self.bbb_ptr().as_ptr();
         (&mut *k_ptr.add(index), &mut *v_ptr.add(index))
     }
 
     #[inline]
-    unsafe fn read(&self, index: usize) -> (K, V) {
+    unsafe fn read(&self, index: usize) -> (A, B) {
         debug_assert!(index < self.len);
-        let (k, v) = self.get_unchecked(index);
-        (ptr::read(k), ptr::read(v))
+        let (a, b) = self.get_unchecked(index);
+        (ptr::read(a), ptr::read(b))
     }
 
-    pub(crate) fn remove(&mut self, index: usize) -> (K, V) {
+    pub(crate) fn remove(&mut self, index: usize) -> (A, B) {
         assert!(index < self.len);
         unsafe {
-            let (k, v) = self.read(index);
+            let (a, b) = self.read(index);
             ptr::copy(
-                self.keys_ptr().as_ptr().add(index + 1),
-                self.keys_ptr().as_ptr().add(index),
+                self.aaa_ptr().as_ptr().add(index + 1),
+                self.aaa_ptr().as_ptr().add(index),
                 self.len - index - 1,
             );
             ptr::copy(
-                self.values_ptr().as_ptr().add(index + 1),
-                self.values_ptr().as_ptr().add(index),
+                self.bbb_ptr().as_ptr().add(index + 1),
+                self.bbb_ptr().as_ptr().add(index),
                 self.len - index - 1,
             );
             self.len -= 1;
-            (k, v)
+            (a, b)
         }
     }
 
@@ -333,30 +329,30 @@ impl<K, V> Vec2<K, V> {
     }
 
     #[inline]
-    pub(crate) fn pop(&mut self) -> Option<(K, V)> {
+    pub(crate) fn pop(&mut self) -> Option<(A, B)> {
         let new_len = self.len.checked_sub(1)?;
-        let (k, v) = unsafe { self.read(new_len) };
+        let (a, b) = unsafe { self.read(new_len) };
         self.len = new_len;
-        Some((k, v))
+        Some((a, b))
     }
 
     #[inline]
-    pub(crate) fn iter(&self) -> iter::Iter<'_, K, V> {
+    pub(crate) fn iter(&self) -> iter::Iter<'_, A, B> {
         iter::Iter {
-            keys: self.keys().iter(),
-            values: self.values_ptr(),
+            aaa: self.aaa().iter(),
+            bbb: self.bbb_ptr(),
             _marker: PhantomData,
         }
     }
 
     #[allow(clippy::mem_forget)]
     #[inline]
-    pub(crate) fn into_iter(self) -> iter::IntoIter<K, V> {
+    pub(crate) fn into_iter(self) -> iter::IntoIter<A, B> {
         let iter = iter::IntoIter {
-            keys_begin: self.keys_ptr(),
-            values_begin: self.values_ptr(),
-            values_end: unsafe { NonNull::new_unchecked(self.values_ptr().as_ptr().add(self.len)) },
-            values_ptr: self.values_ptr,
+            aaa_begin: self.aaa_ptr(),
+            bbb_begin: self.bbb_ptr(),
+            bbb_end: unsafe { NonNull::new_unchecked(self.bbb_ptr().as_ptr().add(self.len)) },
+            bbb_ptr: self.bbb_ptr,
             cap: self.cap,
         };
         mem::forget(self);
@@ -365,7 +361,7 @@ impl<K, V> Vec2<K, V> {
 
     pub(crate) fn sort_insertion_by<F>(&mut self, mut compare: F)
     where
-        F: FnMut((&K, &V), (&K, &V)) -> Ordering,
+        F: FnMut((&A, &B), (&A, &B)) -> Ordering,
     {
         insertion_sort(
             self,
@@ -374,15 +370,15 @@ impl<K, V> Vec2<K, V> {
                 compare(vec2.get_unchecked(i), vec2.get_unchecked(j)) == Ordering::Less
             },
             |vec2, a, b| {
-                slice_swap_shift(vec2.keys_mut(), a, b);
-                slice_swap_shift(vec2.values_mut(), a, b);
+                slice_swap_shift(vec2.aaa_mut(), a, b);
+                slice_swap_shift(vec2.bbb_mut(), a, b);
             },
         );
     }
 
     pub(crate) fn sort_by<F>(&mut self, mut compare: F)
     where
-        F: FnMut((&K, &V), (&K, &V)) -> Ordering,
+        F: FnMut((&A, &B), (&A, &B)) -> Ordering,
     {
         // Constant from rust stdlib.
         const MAX_INSERTION: usize = 20;
@@ -393,15 +389,15 @@ impl<K, V> Vec2<K, V> {
 
         // TODO: sort without allocation.
         // TODO: drain.
-        let mut entries: Vec<(K, V)> = mem::take(self).into_iter().collect();
-        entries.sort_by(|(ak, av), (bk, bv)| compare((ak, av), (bk, bv)));
-        for (k, v) in entries {
-            self.push(k, v);
+        let mut entries: Vec<(A, B)> = mem::take(self).into_iter().collect();
+        entries.sort_by(|(xa, xb), (ya, yb)| compare((xa, xb), (ya, yb)));
+        for (a, b) in entries {
+            self.push(a, b);
         }
     }
 }
 
-impl<K, V> Drop for Vec2<K, V> {
+impl<A, B> Drop for Vec2<A, B> {
     #[inline]
     fn drop(&mut self) {
         unsafe {
@@ -413,9 +409,9 @@ impl<K, V> Drop for Vec2<K, V> {
     }
 }
 
-impl<'a, K, V> IntoIterator for &'a Vec2<K, V> {
-    type Item = (&'a K, &'a V);
-    type IntoIter = iter::Iter<'a, K, V>;
+impl<'s, A, B> IntoIterator for &'s Vec2<A, B> {
+    type Item = (&'s A, &'s B);
+    type IntoIter = iter::Iter<'s, A, B>;
 
     #[inline]
     fn into_iter(self) -> Self::IntoIter {
@@ -423,7 +419,7 @@ impl<'a, K, V> IntoIterator for &'a Vec2<K, V> {
     }
 }
 
-impl<K: Allocative, V: Allocative> Allocative for Vec2<K, V> {
+impl<A: Allocative, B: Allocative> Allocative for Vec2<A, B> {
     fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {
         let mut visitor = visitor.enter_self_sized::<Self>();
         if self.cap != 0 {
@@ -432,11 +428,11 @@ impl<K: Allocative, V: Allocative> Allocative for Vec2<K, V> {
             {
                 let mut visitor = visitor.enter(
                     allocative::Key::new("data"),
-                    Vec2Layout::<K, V>::new(self.cap).layout.size(),
+                    Vec2Layout::<A, B>::new(self.cap).layout.size(),
                 );
-                for (k, v) in self {
-                    k.visit(&mut visitor);
-                    v.visit(&mut visitor);
+                for (a, b) in self {
+                    a.visit(&mut visitor);
+                    b.visit(&mut visitor);
                 }
                 visitor.exit();
             }
@@ -458,7 +454,7 @@ mod tests {
     fn test_layout_for() {
         assert_eq!(
             Vec2Layout {
-                offset_of_values: 4,
+                offset_of_bbb: 4,
                 layout: Layout::from_size_align(8, 4).unwrap(),
                 _marker: PhantomData,
             },
@@ -501,9 +497,9 @@ mod tests {
         for i in 0..100 {
             v.push(i.to_string(), i * 2);
         }
-        for (i, (k, v)) in v.into_iter().enumerate() {
-            assert_eq!(i.to_string(), k);
-            assert_eq!(i * 2, v);
+        for (i, (a, b)) in v.into_iter().enumerate() {
+            assert_eq!(i.to_string(), a);
+            assert_eq!(i * 2, b);
         }
     }
 
@@ -514,7 +510,7 @@ mod tests {
         v.push(3, 4);
         v.push(2, 3);
         v.push(3, 2);
-        v.sort_insertion_by(|(ak, av), (bk, bv)| (ak, av).cmp(&(bk, bv)));
+        v.sort_insertion_by(|(xa, xb), (ya, yb)| (xa, xb).cmp(&(ya, yb)));
         assert_eq!(Some((&1, &2)), v.get(0));
         assert_eq!(Some((&2, &3)), v.get(1));
         assert_eq!(Some((&3, &2)), v.get(2));

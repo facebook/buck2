@@ -97,11 +97,11 @@ impl<K, V> VecMap<K, V> {
     ) -> Option<usize> {
         const _: () = assert!(mem::size_of::<StarlarkHashValue>() == mem::size_of::<u32>());
         let hashes_ints =
-            unsafe { &*(self.buckets.values() as *const [StarlarkHashValue] as *const [u32]) };
+            unsafe { &*(self.buckets.bbb() as *const [StarlarkHashValue] as *const [u32]) };
         let mut i = 0;
         while i < hashes_ints.len() {
             i += find_hash_in_array(&hashes_ints[i..], hash.get())?;
-            let k = unsafe { &self.buckets.keys().get_unchecked(i).0 };
+            let k = unsafe { &self.buckets.aaa().get_unchecked(i).0 };
             if likely(eq(k)) {
                 return Some(i);
             }
@@ -210,7 +210,7 @@ impl<K, V> VecMap<K, V> {
     #[inline]
     pub(crate) fn iter(&self) -> Iter<K, V> {
         Iter {
-            iter: self.buckets.keys().iter(),
+            iter: self.buckets.aaa().iter(),
         }
     }
 
@@ -233,14 +233,14 @@ impl<K, V> VecMap<K, V> {
     #[inline]
     pub(crate) fn iter_mut(&mut self) -> IterMut<K, V> {
         IterMut {
-            iter: self.buckets.keys_mut().iter_mut(),
+            iter: self.buckets.aaa_mut().iter_mut(),
         }
     }
 
     #[inline]
     pub(crate) fn iter_mut_unchecked(&mut self) -> IterMutUnchecked<K, V> {
         IterMutUnchecked {
-            iter: self.buckets.keys_mut().iter_mut(),
+            iter: self.buckets.aaa_mut().iter_mut(),
         }
     }
 
@@ -255,7 +255,7 @@ impl<K, V> VecMap<K, V> {
     where
         K: Ord,
     {
-        self.buckets.keys().windows(2).all(|w| w[0].0 <= w[1].0)
+        self.buckets.aaa().windows(2).all(|w| w[0].0 <= w[1].0)
     }
 
     /// Equal if entries are equal in the iterator order.
@@ -266,8 +266,7 @@ impl<K, V> VecMap<K, V> {
     {
         // We compare hashes before comparing keys and values because it is faster
         // (fewer branches, and no comparison of the rest it at lest one hash is different).
-        self.buckets.values() == other.buckets.values()
-            && self.buckets.keys() == other.buckets.keys()
+        self.buckets.bbb() == other.buckets.bbb() && self.buckets.aaa() == other.buckets.aaa()
     }
 
     /// Hash entries in the iterator order.
