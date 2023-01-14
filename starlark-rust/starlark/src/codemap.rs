@@ -450,6 +450,13 @@ impl<'a> FileSpanRef<'a> {
 }
 
 impl FileSpan {
+    /// Creates an new `FileSpan` covering the entire file.
+    pub fn new(filename: String, source: String) -> Self {
+        let file = CodeMap::new(filename, source);
+        let span = file.full_span();
+        Self { file, span }
+    }
+
     /// Filename of this span.
     pub fn filename(&self) -> &str {
         self.file.filename()
