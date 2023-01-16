@@ -100,7 +100,7 @@ fn derive_coerce_params(input: DeriveInput) -> syn::Result<proc_macro2::TokenStr
     let fields: Vec<_> = match &input.data {
         Data::Struct(x) => x.fields.iter().collect(),
         Data::Enum(x) => x.variants.iter().flat_map(|x| &x.fields).collect(),
-        _ => {
+        Data::Union(..) => {
             return Err(syn::Error::new_spanned(
                 input,
                 "Type-parameter cannot be a union",
