@@ -314,7 +314,7 @@ impl FrozenHeap {
     }
 
     /// Allocate a tuple with the given elements on this heap.
-    pub fn alloc_tuple<'v>(&'v self, elems: &[FrozenValue]) -> FrozenValue {
+    pub(crate) fn alloc_tuple<'v>(&'v self, elems: &[FrozenValue]) -> FrozenValue {
         if elems.is_empty() {
             return FrozenValue::new_repr(&VALUE_EMPTY_TUPLE);
         }
@@ -666,7 +666,7 @@ impl Heap {
     }
 
     /// Allocate a tuple with the given elements.
-    pub fn alloc_tuple<'v>(&'v self, elems: &[Value<'v>]) -> Value<'v> {
+    pub(crate) fn alloc_tuple<'v>(&'v self, elems: &[Value<'v>]) -> Value<'v> {
         if elems.is_empty() {
             return FrozenValue::new_repr(&VALUE_EMPTY_TUPLE).to_value();
         }
