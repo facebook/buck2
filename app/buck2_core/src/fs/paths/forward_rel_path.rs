@@ -16,6 +16,7 @@ use std::path::PathBuf;
 
 use allocative::Allocative;
 use derive_more::Display;
+use gazebo::transmute;
 use ref_cast::RefCast;
 use relative_path::RelativePath;
 use relative_path::RelativePathBuf;
@@ -31,9 +32,14 @@ use crate::fs::paths::file_name::FileName;
 /// with '/'.
 ///
 /// This path is platform agnostic, so path separators are always '/'.
-#[derive(Display, Debug, RefCast, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(
+    Display, Debug, RefCast, PartialEq, Eq, PartialOrd, Ord, Hash, Allocative
+)]
 #[repr(transparent)]
-pub struct ForwardRelativePath(str);
+pub struct ForwardRelativePath(
+    // Note we transmute between `ForwardRelativePath` and `str`.
+    str,
+);
 
 /// The owned version of 'ForwardRelativePath', like how 'PathBuf' relates to
 /// 'Path'
@@ -70,6 +76,13 @@ impl<'a> Iterator for ForwardRelativePathIter<'a> {
 impl ForwardRelativePath {
     pub fn unchecked_new<S: ?Sized + AsRef<str>>(s: &S) -> &Self {
         ForwardRelativePath::ref_cast(s.as_ref())
+    }
+
+    pub fn unchecked_new_box(s: Box<str>) -> Box<ForwardRelativePath> {
+        unsafe {
+            // SAFETY: `ForwardRelativePath` is a transparent wrapper around `str`.
+            transmute!(Box<str>, Box<ForwardRelativePath>, s)
+        }
     }
 
     pub fn empty() -> &'static Self {
@@ -772,6 +785,10 @@ impl ForwardRelativePathBuf {
         }
 
         Ok(())
+    }
+
+    pub fn into_string(self) -> String {
+        self.0
     }
 }
 

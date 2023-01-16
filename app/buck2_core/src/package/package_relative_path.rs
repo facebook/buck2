@@ -13,6 +13,7 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use allocative::Allocative;
+use gazebo::transmute;
 use ref_cast::RefCast;
 use relative_path::RelativePath;
 use relative_path::RelativePathBuf;
@@ -33,11 +34,13 @@ use crate::package::quoted_display;
     Eq,
     PartialOrd,
     Ord,
-    RefCast
+    RefCast,
+    Allocative
 )]
 #[derivative(Debug)]
 #[repr(transparent)]
 pub struct PackageRelativePath(
+    // Note we transmute between `PackageRelativePath` and `ForwardRelativePath`.
     #[derivative(Debug(format_with = "quoted_display"))] ForwardRelativePath,
 );
 
@@ -88,9 +91,22 @@ impl AsRef<ForwardRelativePathBuf> for PackageRelativePathBuf {
     }
 }
 
+impl Clone for Box<PackageRelativePath> {
+    fn clone(&self) -> Self {
+        Self::from(&**self)
+    }
+}
+
 impl PackageRelativePath {
     pub fn unchecked_new<S: ?Sized + AsRef<str>>(s: &S) -> &Self {
         PackageRelativePath::ref_cast(ForwardRelativePath::unchecked_new(s))
+    }
+
+    pub fn unchecked_new_box(p: Box<ForwardRelativePath>) -> Box<PackageRelativePath> {
+        unsafe {
+            // SAFETY: `PackageRelativePath` is a transparent wrapper around `ForwardRelativePath`.
+            transmute!(Box<ForwardRelativePath>, Box<PackageRelativePath>, p)
+        }
     }
 
     /// Creates an 'PackageRelativePath' if the given path represents a forward,
@@ -374,6 +390,18 @@ impl PackageRelativePathBuf {
     /// Pushes a `RelativePath` to the existing buffer, normalizing it
     pub fn push_normalized<P: AsRef<RelativePath>>(&mut self, path: P) -> anyhow::Result<()> {
         self.0.push_normalized(path)
+    }
+
+    pub fn into_box(self) -> Box<PackageRelativePath> {
+        let s: Box<str> = self.0.into_string().into_boxed_str();
+        PackageRelativePath::unchecked_new_box(ForwardRelativePath::unchecked_new_box(s))
+    }
+}
+
+impl<'a> From<&'a PackageRelativePath> for Box<PackageRelativePath> {
+    fn from(p: &'a PackageRelativePath) -> Box<PackageRelativePath> {
+        let path: Box<str> = Box::from(p.as_str());
+        PackageRelativePath::unchecked_new_box(ForwardRelativePath::unchecked_new_box(path))
     }
 }
 

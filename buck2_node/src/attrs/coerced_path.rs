@@ -9,18 +9,17 @@
 
 use allocative::Allocative;
 use buck2_core::package::package_relative_path::PackageRelativePath;
-use buck2_core::package::package_relative_path::PackageRelativePathBuf;
 use either::Either;
 use static_assertions::assert_eq_size;
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative)]
 pub enum CoercedPath {
-    File(PackageRelativePathBuf),
-    Directory(PackageRelativePathBuf, Box<[PackageRelativePathBuf]>),
+    File(Box<PackageRelativePath>),
+    Directory(Box<PackageRelativePath>, Box<[Box<PackageRelativePath>]>),
 }
 
 // Avoid changing the size accidentally.
-assert_eq_size!(CoercedPath, [usize; 5]);
+assert_eq_size!(CoercedPath, [usize; 4]);
 
 impl CoercedPath {
     pub fn path(&self) -> &PackageRelativePath {
