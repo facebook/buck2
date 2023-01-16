@@ -92,7 +92,7 @@ def apple_test_impl(ctx: "context") -> ["provider"]:
         executable = test_binary,
         external_debug_info = debuginfo.other_outputs,
         action_identifier = "generate_apple_test_dsym",
-        output_path_override = lambda _: get_bundle_dir_name(ctx) + ".dSYM",
+        output_path_override = get_bundle_dir_name(ctx) + ".dSYM",
     )
     sub_targets[DSYM_SUBTARGET] = [DefaultInfo(default_output = dsym_artifact)]
 

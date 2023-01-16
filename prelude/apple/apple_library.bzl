@@ -52,8 +52,6 @@ AppleLibraryAdditionalParams = record(
     # Forces link group linking logic, even when there's no mapping. Link group linking
     # without a mapping is equivalent to statically linking the whole transitive dep graph.
     force_link_group_linking = field(bool.type, False),
-    # Allows to customize how dSYM bundle is named. Function should take single "artifact" argument representing binary and produce short path for output dSYM for that binary.
-    dsym_output_path_override = field(["function", None], None),
 )
 
 def apple_library_impl(ctx: "context") -> ["provider"]:
@@ -142,7 +140,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: "context", pa
             # follow.
             external_debug_info = [_get_transitive_swiftmodule_paths(swift_providers)],
         ),
-        link_style_sub_targets_and_providers_factory = lambda *args: _get_shared_link_style_sub_targets_and_providers(dsym_output_path_override = params.dsym_output_path_override, *args),
+        link_style_sub_targets_and_providers_factory = _get_shared_link_style_sub_targets_and_providers,
         shared_library_flags = params.shared_library_flags,
         # apple_library's 'stripped' arg only applies to shared subtargets, or,
         # targets with 'preferred_linkage = "shared"'
@@ -171,8 +169,7 @@ def _get_shared_link_style_sub_targets_and_providers(
         ctx: "context",
         executable: "artifact",
         external_debug_info: ["_arglike"],
-        _dwp: ["artifact", None],
-        dsym_output_path_override: ["function", None] = None) -> ({str.type: ["provider"]}, ["provider"]):
+        _dwp: ["artifact", None]) -> ({str.type: ["provider"]}, ["provider"]):
     if link_style != LinkStyle("shared"):
         return ({}, [])
 
@@ -184,7 +181,6 @@ def _get_shared_link_style_sub_targets_and_providers(
         executable = executable,
         external_debug_info = external_debug_info,
         action_identifier = executable.short_path,
-        output_path_override = dsym_output_path_override,
     )
     return ({
         DSYM_SUBTARGET: [DefaultInfo(default_output = dsym_artifact)],
