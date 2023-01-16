@@ -4,7 +4,11 @@ erlang_application(
         "src/*.erl",
         "src/*.hrl",
     ]),
-    applications = ["common_test"],
+    applications = [
+        "kernel",
+        "stdlib",
+        "common_test",
+    ],
     shell_libs = [],
     use_global_parse_transforms = False,
     visibility = ["PUBLIC"],
@@ -13,5 +17,6 @@ erlang_application(
 erlang_application(
     name = "compiled_suites",
     srcs = glob(["tests/cth_tpx_SUITE_data/*.erl"]),
+    applications = ["stdlib"],
     visibility = ["PUBLIC"],
 )

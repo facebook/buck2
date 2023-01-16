@@ -14,6 +14,10 @@ erlang_application(
         "src/*.hrl",
     ]),
     applications = [
+        "kernel",
+        "stdlib",
+        "syntax_tools",
+        "xmerl",
         "prelude//erlang/toolchain:resources[jsone]",
         "prelude//erlang/common_test/common:common",
         "prelude//erlang/common_test/cth_hooks:cth_hooks",

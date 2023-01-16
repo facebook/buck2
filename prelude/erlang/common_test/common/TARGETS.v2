@@ -4,7 +4,10 @@ erlang_application(
         "src/*.erl",
         "src/*.hrl",
     ]),
-    applications = [],
+    applications = [
+        "kernel",
+        "stdlib",
+    ],
     includes = glob(["include/*.hrl"]),
     shell_libs = [],
     use_global_parse_transforms = False,
