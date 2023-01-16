@@ -239,10 +239,10 @@ impl AnonTargetKey {
         let ctx = AnonAttrCtx::new();
         let a = match unpack_dep(&attr.coercer.0) {
             Some(attr_type) => match Dependency::from_value(x) {
-                Some(dep) => AttrLiteral::ConfiguredDep(box DepAttr::new(
-                    attr_type,
-                    dep.label().inner().clone(),
-                )),
+                Some(dep) => {
+                    let label = dep.label().inner().clone();
+                    AttrLiteral::ConfiguredDep(box DepAttr { attr_type, label })
+                }
                 _ => return Err(AnonTargetsError::InvalidDep(x.get_type().to_owned()).into()),
             },
             _ => attr

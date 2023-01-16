@@ -62,20 +62,6 @@ pub struct DepAttr<T: ProvidersLabelMaybeConfigured + AttrLike> {
     pub label: T,
 }
 
-impl<T: ProvidersLabelMaybeConfigured + AttrLike> DepAttr<T> {
-    pub fn new(attr_type: DepAttrType, label: T) -> Self {
-        Self { attr_type, label }
-    }
-
-    pub fn label(&self) -> &T {
-        &self.label
-    }
-
-    pub fn into_label(self) -> T {
-        self.label
-    }
-}
-
 impl<T: ProvidersLabelMaybeConfigured + AttrLike> Display for DepAttr<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         Display::fmt(&self.label, f)
@@ -134,10 +120,10 @@ impl DepAttrType {
             DepAttrTransition::Toolchain => ctx.configure_toolchain_target(label),
             DepAttrTransition::Transition(tr) => ctx.configure_transition_target(label, tr)?,
         };
-        Ok(AttrLiteral::Dep(box DepAttr::new(
-            dep_attr.attr_type.dupe(),
-            configured_label,
-        )))
+        Ok(AttrLiteral::Dep(box DepAttr {
+            attr_type: dep_attr.attr_type.dupe(),
+            label: configured_label,
+        }))
     }
 }
 

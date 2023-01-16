@@ -909,12 +909,10 @@ mod tests {
                 "some_deps",
                 Attribute::testing_new(None, AttrType::list(AttrType::dep(Vec::new()))),
                 CoercedAttr::from_literal(AttrLiteral::List(box ListLiteral {
-                    items: vec![CoercedAttr::from_literal(AttrLiteral::Dep(
-                        box DepAttr::new(
-                            DepAttrType::new(Vec::new(), DepAttrTransition::Identity),
-                            ProvidersLabel::new(label2.dupe(), ProvidersName::Default),
-                        ),
-                    ))]
+                    items: vec![CoercedAttr::from_literal(AttrLiteral::Dep(box DepAttr {
+                        attr_type: DepAttrType::new(Vec::new(), DepAttrTransition::Identity),
+                        label: ProvidersLabel::new(label2.dupe(), ProvidersName::Default),
+                    }))]
                     .into_boxed_slice(),
                     item_type: AttrType::dep(Vec::new()),
                 })),
@@ -972,11 +970,11 @@ mod tests {
              ConfiguredAttr::from_literal(AttrLiteral::String("some_string".into())),
             "some_deps" =>
              ConfiguredAttr::from_literal(AttrLiteral::List(box ListLiteral{items: vec![
-                ConfiguredAttr::from_literal(AttrLiteral::Dep(box DepAttr::new(
-                    DepAttrType::new(Vec::new(), DepAttrTransition::Identity),
-                    ProvidersLabel::new(label2.dupe(), ProvidersName::Default)
+                ConfiguredAttr::from_literal(AttrLiteral::Dep(box DepAttr {
+                    attr_type: DepAttrType::new(Vec::new(), DepAttrTransition::Identity),
+                    label: ProvidersLabel::new(label2.dupe(), ProvidersName::Default)
                         .configure(cfg.dupe()),
-                ))),
+                })),
             ].into_boxed_slice(), item_type: AttrType::dep(Vec::new())})),
         ];
 

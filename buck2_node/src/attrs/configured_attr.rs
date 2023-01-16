@@ -175,14 +175,14 @@ impl ConfiguredAttr {
 
     pub fn unpack_dep(&self) -> Option<&ConfiguredProvidersLabel> {
         match &self.0 {
-            AttrLiteral::Dep(d) => Some(d.label()),
+            AttrLiteral::Dep(d) => Some(&d.label),
             _ => None,
         }
     }
 
     pub fn try_into_dep(self) -> Option<ConfiguredProvidersLabel> {
         match self.0 {
-            AttrLiteral::Dep(d) => Some(d.into_label()),
+            AttrLiteral::Dep(d) => Some(d.label),
             _ => None,
         }
     }

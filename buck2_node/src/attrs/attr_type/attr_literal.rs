@@ -378,7 +378,7 @@ impl AttrLiteral<CoercedAttr> {
             AttrLiteral::None => Ok(()),
             AttrLiteral::Dep(dep) => dep.traverse(traversal),
             AttrLiteral::ConfigurationDep(dep) => traversal.configuration_dep(dep),
-            AttrLiteral::ConfiguredDep(dep) => traversal.dep(dep.label().target().unconfigured()),
+            AttrLiteral::ConfiguredDep(dep) => traversal.dep(dep.label.target().unconfigured()),
             AttrLiteral::ExplicitConfiguredDep(dep) => dep.traverse(traversal),
             AttrLiteral::SplitTransitionDep(dep) => {
                 traversal.split_transition_dep(dep.label.target(), &dep.transition)

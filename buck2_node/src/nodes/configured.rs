@@ -241,10 +241,10 @@ impl ConfiguredTargetNode {
         Self(Arc::new(Hashed::new(ConfiguredTargetNodeData {
             label: name.dupe(),
             target_node: TargetNodeOrForward::Forward(
-                CoercedAttr::Literal(AttrLiteral::ConfiguredDep(box DepAttr::new(
-                    DepAttrType::new(ProviderIdSet::new(), DepAttrTransition::Identity),
-                    configured_providers_label,
-                ))),
+                CoercedAttr::Literal(AttrLiteral::ConfiguredDep(box DepAttr {
+                    attr_type: DepAttrType::new(ProviderIdSet::new(), DepAttrTransition::Identity),
+                    label: configured_providers_label,
+                })),
                 transitioned_node.dupe(),
             ),
             // We have no attributes with selects, so resolved configurations is empty.
