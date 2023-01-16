@@ -136,7 +136,7 @@ def get_multi_dex(
     primary_dex_file = ctx.actions.declare_output("classes.dex")
     primary_dex_class_names = ctx.actions.declare_output("primary_dex_class_names.txt")
     root_module_secondary_dex_output_dir = ctx.actions.declare_output("root_module_secondary_dex_output_dir")
-    secondary_dex_dir = ctx.actions.declare_output("secondary_dex_output_dir")
+    secondary_dex_dir = ctx.actions.declare_output("secondary_dex_output_dir", dir = True)
 
     # dynamic actions are not valid with no input, but it's easier to use the same code regardless,
     # so just create an empty input.
@@ -358,10 +358,10 @@ def merge_to_split_dex(
     primary_dex_artifact_list = ctx.actions.declare_output("pre_dexed_artifacts_for_primary_dex.txt")
     primary_dex_output = ctx.actions.declare_output("classes.dex")
     primary_dex_class_names_list = ctx.actions.declare_output("primary_dex_class_names_list.txt")
-    root_module_secondary_dexes_dir = ctx.actions.declare_output("root_module_secondary_dexes_dir")
+    root_module_secondary_dexes_dir = ctx.actions.declare_output("root_module_secondary_dexes_dir", dir = True)
     root_module_secondary_dexes_subdir = root_module_secondary_dexes_dir.project(_get_secondary_dex_subdir(ROOT_MODULE))
     root_module_secondary_dexes_metadata = root_module_secondary_dexes_dir.project(paths.join(_get_secondary_dex_subdir(ROOT_MODULE), "metadata.txt"))
-    non_root_module_secondary_dexes_dir = ctx.actions.declare_output("non_root_module_secondary_dexes_dir")
+    non_root_module_secondary_dexes_dir = ctx.actions.declare_output("non_root_module_secondary_dexes_dir", dir = True)
 
     outputs = [primary_dex_output, primary_dex_artifact_list, primary_dex_class_names_list, root_module_secondary_dexes_dir, non_root_module_secondary_dexes_dir]
 
