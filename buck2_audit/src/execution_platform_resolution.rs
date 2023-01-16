@@ -107,11 +107,11 @@ impl AuditSubcommand for AuditExecutionPlatformResolutionCommand {
                             writeln!(stdout, "  Execution platform: {}", platform.cfg())?;
                             writeln!(stdout, "    Execution deps:")?;
                             for execution_dep in configured_node.exec_deps() {
-                                writeln!(stdout, "      {}", execution_dep.name())?;
+                                writeln!(stdout, "      {}", execution_dep.label())?;
                             }
                             writeln!(stdout, "    Toolchain deps:")?;
                             for toolchain_dep in configured_node.toolchain_deps() {
-                                writeln!(stdout, "      {}", toolchain_dep.name())?;
+                                writeln!(stdout, "      {}", toolchain_dep.label())?;
                             }
                             for (label, reason) in resolution.skipped() {
                                 writeln!(stdout, "    Skipped {}", label)?;

@@ -67,7 +67,7 @@ mod attr_resolution_ctx;
 
 #[derive(Debug, Display, ProvidesStaticType, StarlarkDocs, Allocative)]
 #[derive(NoSerialize)] // TODO probably should be serializable the same as how queries serialize
-#[display(fmt = "configured_target_node(name = {}, ...)", "self.0.name()")]
+#[display(fmt = "configured_target_node(name = {}, ...)", "self.0.label()")]
 #[starlark_docs(directory = "bxl")]
 pub struct StarlarkConfiguredTargetNode(pub ConfiguredTargetNode);
 
@@ -106,7 +106,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     /// ```
     #[starlark(attribute)]
     fn label(this: &StarlarkConfiguredTargetNode) -> anyhow::Result<StarlarkConfiguredTargetLabel> {
-        Ok(StarlarkConfiguredTargetLabel::new(this.0.name().dupe()))
+        Ok(StarlarkConfiguredTargetLabel::new(this.0.label().dupe()))
     }
 
     /// Returns a struct of all the attributes of this target node. The structs fields are the

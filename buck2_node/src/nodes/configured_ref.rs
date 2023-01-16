@@ -33,7 +33,7 @@ pub struct ConfiguredGraphNodeRef(pub ConfiguredTargetNode);
 
 impl ConfiguredGraphNodeRef {
     pub fn label(&self) -> &ConfiguredTargetLabel {
-        self.0.name()
+        self.0.label()
     }
 }
 

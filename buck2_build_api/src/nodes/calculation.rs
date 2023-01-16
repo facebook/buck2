@@ -633,7 +633,7 @@ async fn compute_configured_target_node_no_transition(
                 if !dep.is_visible_to(target_label.unconfigured()) {
                     ControlFlow::Break(
                         Err(anyhow::anyhow!(VisibilityError::NotVisibleTo(
-                            dep.name().unconfigured().dupe(),
+                            dep.label().unconfigured().dupe(),
                             target_label.unconfigured().dupe(),
                         )))
                         .shared_error(),

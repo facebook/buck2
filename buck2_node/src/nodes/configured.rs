@@ -142,7 +142,7 @@ impl TargetNodeOrForward {
 //  3. deps could probably be approximated a diff against the targetnode's deps
 #[derive(Eq, PartialEq, Hash, Allocative)]
 struct ConfiguredTargetNodeData {
-    name: ConfiguredTargetLabel,
+    label: ConfiguredTargetLabel,
     target_node: TargetNodeOrForward,
     resolved_configuration: ResolvedConfiguration,
     resolved_transition_configurations: OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>,
@@ -158,7 +158,7 @@ struct ConfiguredTargetNodeData {
 impl Debug for ConfiguredTargetNodeData {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ConfiguredTargetNodeData")
-            .field("name", &self.name)
+            .field("label", &self.label)
             .finish_non_exhaustive()
     }
 }
@@ -202,7 +202,7 @@ impl ConfiguredTargetNode {
         platform_cfgs: OrderedMap<TargetLabel, Configuration>,
     ) -> Self {
         Self(Arc::new(Hashed::new(ConfiguredTargetNodeData {
-            name,
+            label: name,
             target_node: TargetNodeOrForward::TargetNode(target_node),
             resolved_configuration,
             resolved_transition_configurations: resolved_tr_configurations,
@@ -222,12 +222,12 @@ impl ConfiguredTargetNode {
     ) -> Self {
         assert_eq!(
             name.unconfigured(),
-            transitioned_node.name().unconfigured(),
+            transitioned_node.label().unconfigured(),
             "Forward node can only be created for the same unconfigured node"
         );
         assert_ne!(
             &name,
-            transitioned_node.name(),
+            transitioned_node.label(),
             "Creating a forward node to identical target label would be a mistake"
         );
 
@@ -236,9 +236,9 @@ impl ConfiguredTargetNode {
         let providers_label = ProvidersLabel::new(name.unconfigured().dupe(), providers_name);
 
         let configured_providers_label =
-            providers_label.configure(transitioned_node.name().cfg().dupe());
+            providers_label.configure(transitioned_node.label().cfg().dupe());
         Self(Arc::new(Hashed::new(ConfiguredTargetNodeData {
-            name: name.dupe(),
+            label: name.dupe(),
             target_node: TargetNodeOrForward::Forward(
                 CoercedAttr::Literal(AttrLiteral::ConfiguredDep(box DepAttr::new(
                     DepAttrType::new(ProviderIdSet::new(), DepAttrTransition::Identity),
@@ -389,8 +389,8 @@ impl ConfiguredTargetNode {
         traversal.labels.into_iter()
     }
 
-    pub fn name(&self) -> &ConfiguredTargetLabel {
-        &self.0.name
+    pub fn label(&self) -> &ConfiguredTargetLabel {
+        &self.0.label
     }
 
     pub fn rule_type(&self) -> &RuleType {
@@ -415,7 +415,7 @@ impl ConfiguredTargetNode {
             self.deps()
                 .map(|t| {
                     ConfiguredAttr(AttrLiteral::Label(box ConfiguredProvidersLabel::new(
-                        t.name().dupe(),
+                        t.label().dupe(),
                         ProvidersName::Default,
                     )))
                 })
@@ -438,7 +438,7 @@ impl ConfiguredTargetNode {
             ),
             (
                 TARGET_CONFIGURATION,
-                ConfiguredAttr::new(AttrLiteral::String(self.0.name.cfg().to_string())),
+                ConfiguredAttr::new(AttrLiteral::String(self.0.label.cfg().to_string())),
             ),
             (
                 EXECUTION_PLATFORM,
@@ -527,7 +527,7 @@ impl Hash for ConfiguredTargetNodeDeps {
         let it = self.0.iter();
         state.write_usize(it.len());
         for node in it {
-            node.name().hash(state);
+            node.label().hash(state);
         }
     }
 }

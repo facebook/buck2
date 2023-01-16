@@ -54,7 +54,7 @@ impl CqueryUniverse {
         > = BTreeMap::new();
 
         configured_node_visit_all_deps(universe.iter().duped(), |target| {
-            let label = target.name();
+            let label = target.label();
             let package_targets: &mut _ = targets
                 .entry(label.pkg().dupe())
                 .or_insert_with(BTreeMap::new);
@@ -95,7 +95,7 @@ impl CqueryUniverse {
             targets.extend(
                 self.get_from_package(package, spec)
                     .map(|(node, providers)| {
-                        ConfiguredProvidersLabel::new(node.name().dupe(), providers)
+                        ConfiguredProvidersLabel::new(node.label().dupe(), providers)
                     }),
             );
         }

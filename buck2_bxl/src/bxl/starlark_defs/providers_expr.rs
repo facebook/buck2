@@ -84,7 +84,7 @@ impl ProvidersExpr {
     ) -> anyhow::Result<Option<Self>> {
         if let Some(configured_target) = value.downcast_ref::<StarlarkConfiguredTargetNode>() {
             Ok(Some(Self::Literal(ConfiguredProvidersLabel::new(
-                configured_target.0.name().dupe(),
+                configured_target.0.label().dupe(),
                 ProvidersName::Default,
             ))))
         } else if let Some(configured_target) = value.downcast_ref::<Label>() {

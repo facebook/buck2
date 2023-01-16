@@ -302,7 +302,7 @@ async fn run_analysis_with_env_underlying(
     }
 
     let registry = AnalysisRegistry::new_from_owner(
-        BaseDeferredKey::TargetLabel(node.name().dupe()),
+        BaseDeferredKey::TargetLabel(node.label().dupe()),
         analysis_env.execution_platform.dupe(),
     );
     let attributes = env.heap().alloc(AllocStruct(resolved_attrs));

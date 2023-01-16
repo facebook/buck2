@@ -220,10 +220,10 @@ pub async fn get_dep_analysis<'v>(
             .deps()
             .map(async move |dep| {
                 let res = ctx
-                    .get_analysis_result(dep.name())
+                    .get_analysis_result(dep.label())
                     .await
                     .and_then(|v| v.require_compatible().shared_error());
-                res.map(|x| (dep.name(), x))
+                res.map(|x| (dep.label(), x))
             })
             .collect::<FuturesUnordered<_>>(),
     )
@@ -384,7 +384,7 @@ pub async fn profile_analysis_recursively(
 
     let mut futures = all_deps
         .iter()
-        .map(|node| ctx.get_analysis_result(node.name()))
+        .map(|node| ctx.get_analysis_result(node.label()))
         .collect::<FuturesOrdered<_>>();
 
     let mut profile_datas: Vec<Arc<StarlarkProfileDataAndStats>> = Vec::new();

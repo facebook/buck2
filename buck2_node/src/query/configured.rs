@@ -25,7 +25,7 @@ impl LabeledNode for ConfiguredTargetNode {
     type NodeRef = ConfiguredTargetLabel;
 
     fn node_ref(&self) -> &Self::NodeRef {
-        ConfiguredTargetNode::name(self)
+        ConfiguredTargetNode::label(self)
     }
 }
 
@@ -42,15 +42,15 @@ impl QueryTarget for ConfiguredTargetNode {
 
     // TODO(cjhopman): Use existential traits to remove the Box<> once they are stabilized.
     fn deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::NodeRef> + Send + 'a> {
-        box ConfiguredTargetNode::deps(self).map(|v| v.name())
+        box ConfiguredTargetNode::deps(self).map(|v| v.label())
     }
 
     fn exec_deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::NodeRef> + Send + 'a> {
-        box ConfiguredTargetNode::exec_deps(self).map(|v| v.name())
+        box ConfiguredTargetNode::exec_deps(self).map(|v| v.label())
     }
 
     fn target_deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::NodeRef> + Send + 'a> {
-        box ConfiguredTargetNode::target_deps(self).map(|v| v.name())
+        box ConfiguredTargetNode::target_deps(self).map(|v| v.label())
     }
 
     fn tests<'a>(&'a self) -> Option<Box<dyn Iterator<Item = Self::NodeRef> + Send + 'a>> {
