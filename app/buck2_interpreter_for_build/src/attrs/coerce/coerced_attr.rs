@@ -107,17 +107,17 @@ impl CoercedAttrExr for CoercedAttr {
                     }
                     let l = CoercedAttr::coerce(attr, configuable, ctx, l, None)?;
                     let mut l = match l {
-                        CoercedAttr::Concat(l) => l,
+                        CoercedAttr::Concat(l) => l.into_vec(),
                         l => vec![l],
                     };
                     let r = CoercedAttr::coerce(attr, configuable, ctx, r, None)?;
                     let r = match r {
-                        CoercedAttr::Concat(r) => r,
+                        CoercedAttr::Concat(r) => r.into_vec(),
                         r => vec![r],
                     };
 
                     l.extend(r);
-                    Ok(CoercedAttr::Concat(l))
+                    Ok(CoercedAttr::Concat(l.into_boxed_slice()))
                 }
             }
         } else {
@@ -322,7 +322,7 @@ mod tests {
     fn test_to_json_concat() {
         assert_eq!(
             r#"{"__type":"concat","items":["a","b","c","d"]}"#,
-            CoercedAttr::Concat(vec![
+            CoercedAttr::Concat(box [
                 CoercedAttr::Literal(AttrLiteral::String("a".into())),
                 CoercedAttr::Literal(AttrLiteral::String("b".into())),
                 CoercedAttr::Literal(AttrLiteral::String("c".into())),

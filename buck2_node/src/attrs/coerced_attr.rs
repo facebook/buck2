@@ -62,7 +62,7 @@ enum SelectError {
 pub enum CoercedAttr {
     Literal(AttrLiteral<Self>),
     Selector(Box<(OrderedMap<TargetLabel, Self>, Option<Self>)>),
-    Concat(Vec<Self>),
+    Concat(Box<[Self]>),
 }
 
 // This is just to help understand any impact that changes have to the size of this.
@@ -192,7 +192,7 @@ impl CoercedAttr {
                 Ok(())
             }
             CoercedAttr::Concat(items) => {
-                for item in items {
+                for item in &**items {
                     item.traverse(pkg, traversal)?;
                 }
                 Ok(())
@@ -283,7 +283,7 @@ impl CoercedAttr {
                 }
             }
             CoercedAttr::Concat(items) => {
-                for item in items {
+                for item in &**items {
                     if item.any_matches(filter)? {
                         return Ok(true);
                     }
