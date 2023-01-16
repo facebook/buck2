@@ -39,6 +39,7 @@ use crate::values::none::NoneType;
 use crate::values::num::Num;
 use crate::values::range::Range;
 use crate::values::string::STRING_TYPE;
+use crate::values::tuple::TupleRef;
 use crate::values::types::tuple::value::Tuple;
 use crate::values::AllocValue;
 use crate::values::FrozenStringValue;
@@ -1090,6 +1091,10 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     ) -> anyhow::Result<Value<'v>> {
         let mut l = Vec::new();
         if let Some(a) = a {
+            if TupleRef::from_value(a).is_some() {
+                return Ok(a);
+            }
+
             a.with_iterator(heap, |it| {
                 l.extend(it);
             })?;
@@ -1216,5 +1221,10 @@ hash(foo)
         assert::eq("0", "int('-0')");
         assert::fail("int('2147483648')", "overflow");
         assert::fail("int('-2147483649')", "overflow");
+    }
+
+    #[test]
+    fn test_tuple() {
+        assert::eq("(1, 2)", "tuple((1, 2))");
     }
 }
