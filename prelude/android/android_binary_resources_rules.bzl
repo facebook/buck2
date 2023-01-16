@@ -375,6 +375,7 @@ def _get_manifest(
     if robolectric_manifest:
         return robolectric_manifest
 
+    android_toolchain = ctx.attrs._android_toolchain[AndroidToolchainInfo]
     if ctx.attrs.manifest:
         expect(ctx.attrs.manifest_skeleton == None, "Only one of manifest and manifest_skeleton should be declared")
         if type(ctx.attrs.manifest) == "dependency":
@@ -387,16 +388,29 @@ def _get_manifest(
             manifest_skeleton = ctx.attrs.manifest_skeleton[DefaultInfo].default_outputs[0]
         else:
             manifest_skeleton = ctx.attrs.manifest_skeleton
+
         android_manifest, _ = generate_android_manifest(
             ctx,
-            ctx.attrs._android_toolchain[AndroidToolchainInfo].generate_manifest[RunInfo],
+            android_toolchain.generate_manifest[RunInfo],
             manifest_skeleton,
             "dex",  # ROOT_APKMODULE_NAME,
             android_packageable_info.manifests,
             manifest_entries.get("placeholders", {}),
         )
 
-    return android_manifest
+    if android_toolchain.set_application_id_to_specified_package:
+        android_manifest_with_replaced_application_id = ctx.actions.declare_output("android_manifest_with_replaced_application_id")
+        replace_application_id_placeholders_cmd = cmd_args([
+            ctx.attrs._android_toolchain[AndroidToolchainInfo].replace_application_id_placeholders[RunInfo],
+            "--manifest",
+            android_manifest,
+            "--output",
+            android_manifest_with_replaced_application_id.as_output(),
+        ])
+        ctx.actions.run(replace_application_id_placeholders_cmd, category = "replace_application_id_placeholders")
+        return android_manifest_with_replaced_application_id
+    else:
+        return android_manifest
 
 # Returns the "primary resources APK" (i.e. the resource that are packaged into the primary APK),
 # and optionally an "exopackaged assets APK" and the hash for that APK.
