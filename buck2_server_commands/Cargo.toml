@@ -13,7 +13,6 @@ chrono = { workspace = true }
 derivative = { workspace = true }
 futures = { workspace = true }
 indent_write = { workspace = true }
-indexmap = { workspace = true }
 itertools = { workspace = true }
 once_cell = { workspace = true }
 os_str_bytes = { workspace = true }
@@ -33,6 +32,7 @@ dice = { path = "../dice/dice" }
 dupe = { workspace = true }
 gazebo = { workspace = true }
 allocative = { workspace = true }
+starlark_map = { workspace = true }
 
 buck2_build_api = { path = "../buck2_build_api" }
 buck2_common = { path = "../buck2_common" }

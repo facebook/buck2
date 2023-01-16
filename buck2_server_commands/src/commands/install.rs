@@ -75,11 +75,11 @@ use futures::stream::StreamExt;
 use futures::stream::TryStreamExt;
 use gazebo::prelude::StrExt;
 use gazebo::prelude::*;
-use indexmap::IndexMap;
 use install_proto::installer_client::InstallerClient;
 use install_proto::FileReadyRequest;
 use install_proto::InstallInfoRequest;
 use install_proto::ShutdownRequest;
+use starlark_map::small_map::SmallMap;
 use tempfile::Builder;
 use tokio::sync::mpsc;
 use tonic::transport::Channel;
@@ -258,7 +258,7 @@ async fn install(
         let ctx = &ctx;
         let installer_run_args = &request.installer_run_args;
 
-        let mut install_files_vector = Vec::new();
+        let mut install_files_vector: Vec<(&String, SmallMap<_, _>)> = Vec::new();
         for (install_id, install_info) in install_info_vector {
             let install_files = install_info.get_files()?;
             install_files_vector.push((install_id, install_files));
@@ -308,7 +308,7 @@ fn calculate_hash<T: Hash>(t: &T) -> u64 {
 async fn handle_install_request<'a>(
     ctx: &'a DiceComputations,
     install_log_dir: &AbsNormPathBuf,
-    install_files_slice: &[(&String, IndexMap<&str, Artifact>)],
+    install_files_slice: &[(&String, SmallMap<&str, Artifact>)],
     installer_label: &ConfiguredProvidersLabel,
     initial_installer_run_args: &[String],
     installer_debug: bool,
@@ -382,7 +382,7 @@ async fn handle_install_request<'a>(
 async fn send_install_info(
     mut client: InstallerClient<Channel>,
     install_id: &str,
-    install_files: &IndexMap<&str, Artifact>,
+    install_files: &SmallMap<&str, Artifact>,
     artifact_fs: &ArtifactFs,
 ) -> anyhow::Result<()> {
     let mut files_map = HashMap::new();
@@ -507,7 +507,7 @@ pub struct FileResult {
 
 async fn build_files(
     ctx: &DiceComputations,
-    install_files_slice: &[(&String, IndexMap<&str, Artifact>)],
+    install_files_slice: &[(&String, SmallMap<&str, Artifact>)],
     tx: mpsc::UnboundedSender<FileResult>,
 ) -> anyhow::Result<()> {
     let mut file_outputs = Vec::with_capacity(install_files_slice.len());

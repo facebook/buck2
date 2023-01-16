@@ -10,9 +10,8 @@
 use buck2_query::query::environment::QueryTarget;
 use buck2_query::query::environment::QueryTargets;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
-use indexmap::indexmap;
-use indexmap::IndexMap;
 use regex::RegexSet;
+use starlark_map::small_map::SmallMap;
 
 use crate::dot::DotDigraph;
 use crate::dot::DotEdge;
@@ -66,7 +65,7 @@ impl<'a, T: QueryTarget> DotNode for DotTargetGraphNode<'a, T> {
     fn attrs(&self) -> anyhow::Result<DotNodeAttrs> {
         let extra = match &self.1.attributes {
             Some(attr_regex) => {
-                let mut extra = IndexMap::new();
+                let mut extra = SmallMap::new();
                 QueryTargets::for_all_attrs::<anyhow::Error, _, _>(
                     self.0,
                     |attr_name, attr_value| {
@@ -79,7 +78,7 @@ impl<'a, T: QueryTarget> DotNode for DotTargetGraphNode<'a, T> {
                 )?;
                 extra
             }
-            None => indexmap![],
+            None => SmallMap::new(),
         };
         Ok(DotNodeAttrs {
             style: Some("filled".to_owned()),

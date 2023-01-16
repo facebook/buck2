@@ -42,7 +42,7 @@ pub mod result_report {
     use cli_proto::build_target::BuildOutput;
     use cli_proto::BuildTarget;
     use dupe::Dupe;
-    use indexmap::IndexMap;
+    use starlark_map::small_map::SmallMap;
 
     use crate::commands::build::results::BuildOwner;
     use crate::commands::build::results::BuildResultCollector;
@@ -101,9 +101,9 @@ pub mod result_report {
 
             if let Ok(r) = &mut self.results {
                 let artifacts = if self.options.return_outputs {
-                    // NOTE: We use an IndexMap here to preserve the order the rule author wrote, all
+                    // NOTE: We use an SmallMap here to preserve the order the rule author wrote, all
                     // the while avoiding duplicates.
-                    let mut artifacts = IndexMap::new();
+                    let mut artifacts = SmallMap::new();
 
                     for output in outputs {
                         let ProviderArtifacts {
@@ -192,9 +192,9 @@ pub mod build_report {
     use buck2_execute::bxl::types::BxlFunctionLabel;
     use derivative::Derivative;
     use dupe::Dupe;
-    use indexmap::IndexSet;
     use itertools::Itertools;
     use serde::Serialize;
+    use starlark_map::small_set::SmallSet;
 
     use crate::commands::build::results::BuildOwner;
     use crate::commands::build::results::BuildResultCollector;
@@ -304,8 +304,8 @@ pub mod build_report {
     impl<'a> BuildResultCollector for BuildReportCollector<'a> {
         fn collect_result(&mut self, label: &BuildOwner, result: &BuildTargetResult) {
             let (default_outs, other_outs, success) = {
-                let mut default_outs = IndexSet::new();
-                let mut other_outs = IndexSet::new();
+                let mut default_outs = SmallSet::new();
+                let mut other_outs = SmallSet::new();
                 let mut success = true;
 
                 result.outputs.iter().for_each(|res| {

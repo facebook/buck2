@@ -14,7 +14,6 @@ use buck2_build_api_derive::internal_provider;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_interpreter::types::label::Label;
 use gazebo::any::ProvidesStaticType;
-use indexmap::IndexMap;
 use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
 use starlark::values::dict::*;
@@ -66,10 +65,10 @@ impl FrozenInstallInfo {
         Ok(label)
     }
 
-    pub fn get_files(&self) -> anyhow::Result<IndexMap<&str, Artifact>> {
-        let mut artifacts: IndexMap<&str, Artifact> = IndexMap::new();
+    pub fn get_files(&self) -> anyhow::Result<SmallMap<&str, Artifact>> {
         let files = DictRef::from_value(self.files.to_value()).expect("Value is a Dict");
-        for (k, v) in files.deref().iter() {
+        let mut artifacts: SmallMap<&str, Artifact> = SmallMap::with_capacity(files.len());
+        for (k, v) in files.iter() {
             artifacts.insert(
                 k.unpack_str().expect("should be a string"),
                 v.as_artifact()

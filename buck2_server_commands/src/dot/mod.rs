@@ -24,9 +24,9 @@ use std::collections::HashMap;
 use std::fmt::Display;
 use std::io::Write;
 
-use indexmap::IndexMap;
 use once_cell::sync::Lazy;
 use regex::Regex;
+use starlark_map::small_map::SmallMap;
 
 pub mod targets;
 
@@ -35,7 +35,7 @@ pub struct DotNodeAttrs {
     pub style: Option<String>,
     pub color: Option<String>,
     pub label: Option<String>,
-    pub extra: IndexMap<String, String>,
+    pub extra: SmallMap<String, String>,
 }
 
 impl Display for DotNodeAttrs {
