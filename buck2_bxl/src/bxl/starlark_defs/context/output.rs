@@ -37,7 +37,7 @@ use starlark::values::list::ListRef;
 use starlark::values::none::NoneType;
 use starlark::values::record::Record;
 use starlark::values::structs::StructRef;
-use starlark::values::tuple::Tuple;
+use starlark::values::tuple::TupleRef;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
@@ -226,7 +226,7 @@ fn register_output_stream(builder: &mut MethodsBuilder) {
                     }
                 } else if let Some(x) = ListRef::from_value(self.value) {
                     serializer.collect_seq(x.iter().map(|v| self.with_value(v)))
-                } else if let Some(x) = Tuple::from_value(self.value) {
+                } else if let Some(x) = TupleRef::from_value(self.value) {
                     serializer.collect_seq(x.iter().map(|v| self.with_value(v)))
                 } else if let Some(x) = DictRef::from_value(self.value) {
                     serializer.collect_map(

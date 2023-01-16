@@ -21,7 +21,7 @@ use starlark::values::dict::DictRef;
 use starlark::values::list::ListRef;
 use starlark::values::none::NoneOr;
 use starlark::values::none::NoneType;
-use starlark::values::tuple::Tuple;
+use starlark::values::tuple::TupleRef;
 use starlark::values::type_repr::DictType;
 use starlark::values::Freeze;
 use starlark::values::FrozenValue;
@@ -184,7 +184,7 @@ impl<'v> TestCommandMember<'v> {
 }
 
 fn iter_value<'v>(value: Value<'v>) -> anyhow::Result<impl Iterator<Item = Value<'v>> + 'v> {
-    match (ListRef::from_value(value), Tuple::from_value(value)) {
+    match (ListRef::from_value(value), TupleRef::from_value(value)) {
         (Some(list), None) => Ok(Either::Left(list.iter())),
         (None, Some(tuple)) => Ok(Either::Right(tuple.iter())),
         _ => Err(anyhow::anyhow!(

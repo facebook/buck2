@@ -38,7 +38,7 @@ use starlark::values::enumeration::EnumValue;
 use starlark::values::list::ListRef;
 use starlark::values::record::Record;
 use starlark::values::structs::StructRef;
-use starlark::values::tuple::Tuple;
+use starlark::values::tuple::TupleRef;
 use starlark::values::Freeze;
 use starlark::values::NoSerialize;
 use starlark::values::OwnedFrozenValue;
@@ -129,7 +129,7 @@ enum JsonUnpack<'v> {
     Number(i32),
     Bool(bool),
     List(&'v ListRef<'v>),
-    Tuple(&'v Tuple<'v>),
+    Tuple(&'v TupleRef<'v>),
     Dict(DictRef<'v>),
     Struct(StructRef<'v>),
     Record(&'v Record<'v>),
@@ -154,7 +154,7 @@ fn unpack<'v>(value: Value<'v>) -> JsonUnpack<'v> {
         JsonUnpack::Bool(x)
     } else if let Some(x) = ListRef::from_value(value) {
         JsonUnpack::List(x)
-    } else if let Some(x) = Tuple::from_value(value) {
+    } else if let Some(x) = TupleRef::from_value(value) {
         JsonUnpack::Tuple(x)
     } else if let Some(x) = DictRef::from_value(value) {
         JsonUnpack::Dict(x)

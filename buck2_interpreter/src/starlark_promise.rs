@@ -328,7 +328,7 @@ mod tests {
     use starlark::syntax::AstModule;
     use starlark::syntax::Dialect;
     use starlark::values::none::NoneType;
-    use starlark::values::tuple::Tuple;
+    use starlark::values::tuple::TupleRef;
     use starlark::values::Value;
 
     use super::*;
@@ -436,7 +436,10 @@ f = e.map(lambda x: x.upper())
         )
         .unwrap();
         let wants = &["test", "TEST", "TEST!", "Test", "more", "MORE"];
-        for (want, got) in wants.iter().zip(Tuple::from_value(res).unwrap().content()) {
+        for (want, got) in wants
+            .iter()
+            .zip(TupleRef::from_value(res).unwrap().content())
+        {
             assert_eq!(
                 StarlarkPromise::from_value(*got)
                     .unwrap()

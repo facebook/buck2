@@ -31,7 +31,7 @@ use indexmap::IndexSet;
 use itertools::Itertools;
 use serde_json::json;
 use starlark::values::dict::DictRef;
-use starlark::values::tuple::Tuple;
+use starlark::values::tuple::TupleRef;
 use starlark::values::OwnedFrozenValue;
 use thiserror::Error;
 
@@ -151,7 +151,7 @@ impl RunAction {
         Vec<(&str, &dyn CommandLineArgLike)>,
     )> {
         // We expect (CmdArgs, Option<Dict<String, CmdArgs>>) in the Starlark value
-        let (cli, env) = match Tuple::from_value(args.value())?.content() {
+        let (cli, env) = match TupleRef::from_value(args.value())?.content() {
             [cli, env] => (*cli, *env),
             _ => return None,
         };

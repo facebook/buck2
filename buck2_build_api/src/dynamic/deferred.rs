@@ -22,7 +22,7 @@ use starlark::collections::SmallMap;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::values::dict::Dict;
-use starlark::values::tuple::Tuple;
+use starlark::values::tuple::TupleRef;
 use starlark::values::OwnedFrozenValue;
 use thiserror::Error;
 
@@ -171,7 +171,7 @@ impl Deferred for DynamicLambda {
         let mut eval = Evaluator::new(&env);
 
         let data =
-            Tuple::from_value(self.attributes_lambda.owned_value(env.frozen_heap())).unwrap();
+            TupleRef::from_value(self.attributes_lambda.owned_value(env.frozen_heap())).unwrap();
         assert_eq!(data.len(), 2);
         let attributes = data.content()[0];
         let lambda = data.content()[1];

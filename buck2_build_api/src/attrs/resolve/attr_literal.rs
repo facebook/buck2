@@ -177,7 +177,7 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
                 Ok(starlark::values::string::STRING_TYPE)
             }
             AttrLiteral::List(_, _) => Ok(starlark::values::list::ListRef::TYPE),
-            AttrLiteral::Tuple(_) => Ok(starlark::values::tuple::Tuple::TYPE),
+            AttrLiteral::Tuple(_) => Ok(starlark::values::tuple::TupleRef::TYPE),
             AttrLiteral::Dict(_) => Ok(Dict::TYPE),
             AttrLiteral::None => Ok(NoneType::TYPE),
             AttrLiteral::Dep(_) => Ok(Label::get_type_value_static().as_str()),

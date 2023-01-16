@@ -14,7 +14,7 @@ use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use gazebo::prelude::*;
 use starlark::values::list::ListRef;
-use starlark::values::tuple::Tuple;
+use starlark::values::tuple::TupleRef;
 use starlark::values::Value;
 
 use crate::attrs::coerce::attr_type::AttrTypeExt;
@@ -35,7 +35,7 @@ impl AttrTypeCoerce for ListAttrType {
                     .into_boxed_slice(),
                 self.inner.dupe(),
             ))
-        } else if let Some(list) = Tuple::from_value(value) {
+        } else if let Some(list) = TupleRef::from_value(value) {
             Ok(AttrLiteral::List(
                 list.content()
                     .try_map(|v| (self.inner).coerce(configurable, ctx, *v))?
