@@ -110,14 +110,8 @@ fn derive_coerce_params(input: DeriveInput) -> syn::Result<proc_macro2::TokenStr
     for x in fields {
         let mut to_ty = x.ty.clone();
         let mut from_ty = x.ty.clone();
-        let to = replace_type(&mut to_ty, &ty_args, "To");
-        let from = replace_type(&mut from_ty, &ty_args, "From");
-        if to.is_none() || from.is_none() {
-            return Err(syn::Error::new_spanned(
-                &input,
-                "Don't know how to deal with some of the fields",
-            ));
-        }
+        replace_type(&mut to_ty, &ty_args, "To")?;
+        replace_type(&mut from_ty, &ty_args, "From")?;
         if to_ty != from_ty {
             constraints.push(quote! { #from_ty : gazebo::coerce::Coerce< #to_ty >});
         }
@@ -131,7 +125,7 @@ fn derive_coerce_params(input: DeriveInput) -> syn::Result<proc_macro2::TokenStr
     })
 }
 
-fn replace_type(ty: &mut Type, idents: &HashSet<Ident>, prefix: &str) -> Option<()> {
+fn replace_type(ty: &mut Type, idents: &HashSet<Ident>, prefix: &str) -> syn::Result<()> {
     match ty {
         Type::Path(x)
             if x.qself.is_none()
@@ -142,18 +136,19 @@ fn replace_type(ty: &mut Type, idents: &HashSet<Ident>, prefix: &str) -> Option<
             if idents.contains(i) {
                 *i = format_ident!("{}{}", prefix, i);
             }
-            Some(())
+            Ok(())
         }
         _ => descend_type(ty, |ty| replace_type(ty, idents, prefix)),
     }
 }
 
-/// Descend into all the nested type values within a type, or return None if you don't know how
-fn descend_type(ty: &mut Type, op: impl Fn(&mut Type) -> Option<()>) -> Option<()> {
+/// Descend into all the nested type values within a type,
+/// or return an error if you don't know how.
+fn descend_type(ty: &mut Type, op: impl Fn(&mut Type) -> syn::Result<()>) -> syn::Result<()> {
     match ty {
         Type::Array(x) => op(&mut x.elem),
         Type::Group(x) => op(&mut x.elem),
-        Type::Never(_) => Some(()),
+        Type::Never(_) => Ok(()),
         Type::Paren(x) => op(&mut x.elem),
         Type::Path(x) => {
             if let Some(qself) = &mut x.qself {
@@ -165,7 +160,7 @@ fn descend_type(ty: &mut Type, op: impl Fn(&mut Type) -> Option<()>) -> Option<(
                     PathArguments::AngleBracketed(x) => {
                         x.args.iter_mut().try_for_each(|x| match x {
                             GenericArgument::Type(x) => op(x),
-                            _ => Some(()),
+                            _ => Ok(()),
                         })?
                     }
                     PathArguments::Parenthesized(x) => {
@@ -176,13 +171,13 @@ fn descend_type(ty: &mut Type, op: impl Fn(&mut Type) -> Option<()>) -> Option<(
                     }
                 }
             }
-            Some(())
+            Ok(())
         }
         Type::Ptr(x) => op(&mut x.elem),
         Type::Reference(x) => op(&mut x.elem),
         Type::Slice(x) => op(&mut x.elem),
         Type::Tuple(xs) => xs.elems.iter_mut().try_for_each(op),
-        _ => None,
+        _ => Err(syn::Error::new_spanned(ty, "Unsupported type")),
     }
 }
 
