@@ -21,6 +21,8 @@ load(":apple_bundle.bzl", "AppleBundlePartListConstructorParams", "get_apple_bun
 load(":apple_bundle_destination.bzl", "AppleBundleDestination")
 load(":apple_bundle_part.bzl", "AppleBundlePart", "assemble_bundle", "bundle_output", "get_bundle_dir_name")
 load(":apple_bundle_types.bzl", "AppleBundleInfo")
+load(":apple_bundle_utility.bzl", "get_product_name")
+load(":apple_dsym.bzl", "DEBUGINFO_SUBTARGET", "DSYM_SUBTARGET", "get_apple_dsym")
 load(":xcode.bzl", "apple_populate_xcode_attributes")
 
 def apple_test_impl(ctx: "context") -> ["provider"]:
@@ -35,8 +37,6 @@ def apple_test_impl(ctx: "context") -> ["provider"]:
         "-import-objc-header",
         cmd_args(ctx.attrs.bridging_header),
     ] if ctx.attrs.bridging_header else []
-
-    dsym_name = get_bundle_dir_name(ctx) + ".dSYM"
 
     constructor_params, _, _ = apple_library_rule_constructor_params_and_swift_providers(
         ctx,
@@ -73,17 +73,28 @@ def apple_test_impl(ctx: "context") -> ["provider"]:
             # which we can achieve by forcing link group linking with
             # an empty mapping (i.e., default mapping).
             force_link_group_linking = True,
-            # This is going to return constant string, but it's fine, because those constructor params are only used to build single binary for XCTest bundle (which is dynamically linked framework basically).
-            dsym_output_path_override = lambda _: dsym_name,
         ),
     )
     cxx_library_output = cxx_library_parameterized(ctx, constructor_params)
+    test_binary_output = ctx.actions.declare_output(get_product_name(ctx))
 
-    binary_part = AppleBundlePart(source = cxx_library_output.default_output.default, destination = AppleBundleDestination("executables"), new_name = ctx.attrs.name)
+    # Rename in order to generate dSYM with correct binary name (dsymutil doesn't provide a way to control binary name in output dSYM bundle).
+    test_binary = ctx.actions.copy_file(test_binary_output, cxx_library_output.default_output.default)
+
+    binary_part = AppleBundlePart(source = test_binary, destination = AppleBundleDestination("executables"), new_name = ctx.attrs.name)
     part_list_output = get_apple_bundle_part_list(ctx, AppleBundlePartListConstructorParams(binaries = [binary_part]))
     assemble_bundle(ctx, xctest_bundle, part_list_output.parts, part_list_output.info_plist_part)
 
     sub_targets = cxx_library_output.sub_targets
+    (debuginfo,) = sub_targets[DEBUGINFO_SUBTARGET]
+    dsym_artifact = get_apple_dsym(
+        ctx = ctx,
+        executable = test_binary,
+        external_debug_info = debuginfo.other_outputs,
+        action_identifier = "generate_apple_test_dsym",
+        output_path_override = lambda _: get_bundle_dir_name(ctx) + ".dSYM",
+    )
+    sub_targets[DSYM_SUBTARGET] = [DefaultInfo(default_output = dsym_artifact)]
 
     # If the test has a test host, add a subtarget to build the test host app bundle.
     sub_targets["test-host"] = [DefaultInfo(default_output = test_host_app_bundle)] if test_host_app_bundle else [DefaultInfo()]
