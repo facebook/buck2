@@ -327,4 +327,15 @@ mod tests {
         #[derive(ProvidesStaticType)]
         struct FooBar<'x, P: My<'x>>(&'x P);
     }
+
+    #[test]
+    fn test_any_lifetime_unsound() {
+        fn _use_after_free(s: &mut &str) {
+            let ss = (s as &mut dyn AnyLifetime).downcast_mut().unwrap();
+            // We allocate a string here, but do not store it anywhere, so it is dropped.
+            // But the pointer to it is available in `s` at call site.
+            // This is use after free.
+            *ss = &".".repeat(40);
+        }
+    }
 }
