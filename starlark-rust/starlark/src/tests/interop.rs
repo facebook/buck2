@@ -53,13 +53,12 @@ fn test_export_as() {
 
     use crate as starlark;
     use crate::values::AllocValue;
-    use crate::values::Freezer;
     use crate::values::Heap;
     use crate::values::StarlarkValue;
     use crate::values::Trace;
     use crate::values::Value;
 
-    #[derive(Debug, Trace, ProvidesStaticType, NoSerialize, Allocative)]
+    #[derive(Debug, Trace, ProvidesStaticType, NoSerialize, Allocative, Freeze)]
     #[allocative(skip)]
     struct Exporter<T> {
         // Either String or a RefCell therefore
@@ -89,16 +88,6 @@ fn test_export_as() {
     impl AllocValue<'_> for Exporter<RefCell<String>> {
         fn alloc_value(self, heap: &Heap) -> Value {
             heap.alloc_complex(self)
-        }
-    }
-
-    impl Freeze for Exporter<RefCell<String>> {
-        type Frozen = Exporter<String>;
-        fn freeze(self, _freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
-            Ok(Exporter {
-                named: self.named.into_inner(),
-                value: self.value,
-            })
         }
     }
 
