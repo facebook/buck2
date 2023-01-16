@@ -11,7 +11,6 @@ rust_library(
     features = [
         "str_pattern_extensions",
     ],
-    test_srcs = ["src/test.rs"],
     deps = [
         "//buck2/gazebo/gazebo_derive:gazebo_derive",
     ],
