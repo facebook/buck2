@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::fmt::Display;
 use std::hash::Hash;
 
 use allocative::Allocative;
@@ -25,6 +24,9 @@ use serde::Serializer;
 use crate::attrs::attr_type::attr_literal::AttrLiteral;
 use crate::attrs::configuration_context::AttrConfigurationContext;
 use crate::attrs::configured_attr::ConfiguredAttr;
+use crate::attrs::display::AttrDisplayWithContext;
+use crate::attrs::display::AttrDisplayWithContextExt;
+use crate::attrs::fmt_context::AttrFmtContext;
 use crate::attrs::traversal::CoercedAttrTraversal;
 
 #[derive(thiserror::Error, Debug)]
@@ -68,28 +70,30 @@ static_assertions::assert_eq_size!(CoercedAttr, [usize; 4]);
 /// Provides roughly the stringified version of the starlark code that would produce this attr. For example, a dictionary
 /// of string keys and values may result in `{"key1":"value1","key2":"value2"}` (note that strings will explicitly include
 /// the wrapping `"`).
-impl Display for CoercedAttr {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl AttrDisplayWithContext for CoercedAttr {
+    fn fmt(&self, ctx: &AttrFmtContext, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            CoercedAttr::Literal(v) => Display::fmt(v, f),
+            CoercedAttr::Literal(v) => AttrDisplayWithContext::fmt(v, ctx, f),
             CoercedAttr::Selector(box (items, default)) => {
                 write!(f, "select(")?;
                 for (i, (condition, value)) in items.iter().enumerate() {
                     if i > 0 {
                         write!(f, ",")?;
                     }
-                    write!(f, "\"{}\"={}", condition, value)?;
+                    write!(f, "\"{}\"={}", condition, value.as_display(ctx))?;
                 }
                 if let Some(default) = default {
                     if !items.is_empty() {
                         write!(f, ",")?;
                     }
-                    write!(f, "\"DEFAULT\"={}", default)?;
+                    write!(f, "\"DEFAULT\"={}", default.as_display(ctx))?;
                 }
                 write!(f, ")")?;
                 Ok(())
             }
-            CoercedAttr::Concat(items) => write!(f, "{}", items.iter().format("+")),
+            CoercedAttr::Concat(items) => {
+                write!(f, "{}", items.iter().map(|a| a.as_display(ctx)).format("+"))
+            }
         }
     }
 }

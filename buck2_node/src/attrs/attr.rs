@@ -15,6 +15,7 @@ use allocative::Allocative;
 
 use crate::attrs::attr_type::AttrType;
 use crate::attrs::coerced_attr::CoercedAttr;
+use crate::attrs::display::AttrDisplayWithContextExt;
 
 /// Starlark compatible container for results from e.g. `attrs.string()`
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Allocative)]
@@ -43,8 +44,13 @@ impl Attribute {
 
 impl Display for Attribute {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.coercer
-            .fmt_with_default(f, self.default.as_ref().map(|x| x.to_string()).as_deref())
+        self.coercer.fmt_with_default(
+            f,
+            self.default
+                .as_ref()
+                .map(|x| x.as_display_no_ctx().to_string())
+                .as_deref(),
+        )
     }
 }
 

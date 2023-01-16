@@ -218,6 +218,7 @@ mod tests {
     use buck2_node::attrs::configurable::AttrIsConfigurable;
     use buck2_node::attrs::configuration_context::AttrConfigurationContext;
     use buck2_node::attrs::configured_info::ConfiguredAttrInfo;
+    use buck2_node::attrs::display::AttrDisplayWithContextExt;
     use buck2_node::attrs::testing::configuration_ctx;
     use gazebo::prelude::SliceExt;
     use starlark::environment::GlobalsBuilder;
@@ -263,7 +264,7 @@ mod tests {
         let configured = coerced.configure(&configuration_ctx())?;
         assert_eq!(
             r#""$(exe root//:foo (cfg_for//:testing_exec)) $(location root//:bar (<testing>))""#,
-            configured.to_string()
+            configured.as_display_no_ctx().to_string(),
         );
 
         Ok(())

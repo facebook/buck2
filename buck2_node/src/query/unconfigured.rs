@@ -17,6 +17,8 @@ use buck2_query::query::environment::QueryTarget;
 use dupe::Dupe;
 
 use crate::attrs::coerced_attr::CoercedAttr;
+use crate::attrs::display::AttrDisplayWithContextExt;
+use crate::attrs::fmt_context::AttrFmtContext;
 use crate::attrs::inspect_options::AttrInspectOptions;
 use crate::nodes::unconfigured::TargetNode;
 
@@ -102,6 +104,11 @@ impl QueryTarget for TargetNode {
     }
 
     fn attr_to_string_alternate(&self, attr: &Self::Attr) -> String {
-        format!("{:#}", attr)
+        format!(
+            "{:#}",
+            attr.as_display(&AttrFmtContext {
+                package: Some(self.label().pkg().dupe()),
+            })
+        )
     }
 }

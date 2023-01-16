@@ -142,7 +142,7 @@ impl DepAttrType {
 }
 
 /// Represents both configured and unconfigured forms.
-pub trait ExplicitConfiguredDepMaybeConfigured: Allocative {
+pub trait ExplicitConfiguredDepMaybeConfigured: Display + Allocative {
     fn to_json(&self) -> anyhow::Result<serde_json::Value>;
     fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool>;
 }

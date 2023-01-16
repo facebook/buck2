@@ -222,7 +222,7 @@ impl Serialize for ConfiguredProvidersLabel {
 }
 
 /// [`ProvidersLabel`] or [`ConfiguredProvidersLabel`].
-pub trait ProvidersLabelMaybeConfigured: Allocative {}
+pub trait ProvidersLabelMaybeConfigured: Display + Allocative {}
 
 impl ProvidersLabelMaybeConfigured for ProvidersLabel {}
 impl ProvidersLabelMaybeConfigured for ConfiguredProvidersLabel {}

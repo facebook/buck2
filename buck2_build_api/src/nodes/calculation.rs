@@ -33,6 +33,7 @@ use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use buck2_node::attrs::configuration_context::AttrConfigurationContextImpl;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_node::attrs::configured_traversal::ConfiguredAttrTraversal;
+use buck2_node::attrs::display::AttrDisplayWithContextExt;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::attrs::internal::EXEC_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
 use buck2_node::attrs::internal::LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
@@ -419,7 +420,7 @@ fn unpack_target_compatible_with_attr(
         }
         None => Err(NodeCalculationError::TargetCompatibleNotList(
             attr_name.to_owned(),
-            attr.to_string(),
+            attr.as_display_no_ctx().to_string(),
         )
         .into()),
     }

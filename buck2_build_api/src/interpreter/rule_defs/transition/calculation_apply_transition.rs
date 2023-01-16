@@ -22,6 +22,7 @@ use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::configuration::Configuration;
 use buck2_core::target::TargetLabel;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
+use buck2_node::attrs::display::AttrDisplayWithContextExt;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::nodes::unconfigured::TargetNode;
 use derive_more::Display;
@@ -139,7 +140,7 @@ async fn do_apply_transition(
                         format!(
                             "when converting attribute `{}={}` to Starlark value",
                             name.as_str(),
-                            value
+                            value.as_display_no_ctx(),
                         )
                     })?,
                     None => Value::new_none(),
@@ -239,7 +240,7 @@ impl ApplyTransition for DiceComputations {
                             .iter()
                             .map(|a| {
                                 if let Some(attr) = a {
-                                    attr.to_string()
+                                    attr.as_display_no_ctx().to_string()
                                 } else {
                                     "None".to_owned()
                                 }

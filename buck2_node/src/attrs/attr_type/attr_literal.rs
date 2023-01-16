@@ -33,6 +33,9 @@ use crate::attrs::coerced_path::CoercedPath;
 use crate::attrs::configuration_context::AttrConfigurationContext;
 use crate::attrs::configured_attr::ConfiguredAttr;
 use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
+use crate::attrs::display::AttrDisplayWithContext;
+use crate::attrs::display::AttrDisplayWithContextExt;
+use crate::attrs::fmt_context::AttrFmtContext;
 use crate::attrs::traversal::CoercedAttrTraversal;
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative)]
@@ -75,8 +78,8 @@ pub enum AttrLiteral<C: AttrConfig> {
 // Prevent size regression.
 assert_eq_size!(AttrLiteral<CoercedAttr>, [usize; 4]);
 
-impl<C: AttrConfig> Display for AttrLiteral<C> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl<C: AttrConfig> AttrDisplayWithContext for AttrLiteral<C> {
+    fn fmt(&self, ctx: &AttrFmtContext, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             AttrLiteral::Bool(v) => {
                 let s = if *v { "True" } else { "False" };
@@ -98,7 +101,7 @@ impl<C: AttrConfig> Display for AttrLiteral<C> {
                     if i != 0 {
                         write!(f, ",")?;
                     }
-                    Display::fmt(v, f)?;
+                    AttrDisplayWithContext::fmt(v, ctx, f)?;
                 }
                 write!(f, "]")?;
                 Ok(())
@@ -109,7 +112,7 @@ impl<C: AttrConfig> Display for AttrLiteral<C> {
                     if i != 0 {
                         write!(f, ",")?;
                     }
-                    Display::fmt(v, f)?;
+                    AttrDisplayWithContext::fmt(v, ctx, f)?;
                 }
                 write!(f, ")")?;
                 Ok(())
@@ -120,7 +123,7 @@ impl<C: AttrConfig> Display for AttrLiteral<C> {
                     if i != 0 {
                         write!(f, ",")?;
                     }
-                    write!(f, "{}: {}", k, v)?;
+                    write!(f, "{}: {}", k.as_display(ctx), v.as_display(ctx))?;
                 }
                 write!(f, "}}")?;
                 Ok(())

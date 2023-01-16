@@ -8,6 +8,8 @@
  */
 
 use std::borrow::Cow;
+use std::fmt;
+use std::fmt::Display;
 use std::path::Path;
 
 use allocative::Allocative;
@@ -26,12 +28,15 @@ use buck2_core::buck_path::BuckPathRef;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::project::ProjectRelativePath;
+use buck2_core::package::PackageLabel;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::ConfiguredTargetLabel;
 use buck2_execute::artifact::source_artifact::SourceArtifact;
 use buck2_interpreter::types::target_label::StarlarkConfiguredTargetLabel;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_node::attrs::configured_traversal::ConfiguredAttrTraversal;
+use buck2_node::attrs::display::AttrDisplayWithContext;
+use buck2_node::attrs::fmt_context::AttrFmtContext;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use derivative::Derivative;
@@ -40,6 +45,7 @@ use dupe::Dupe;
 use gazebo::any::ProvidesStaticType;
 use once_cell::sync::OnceCell;
 use serde::Serialize;
+use serde::Serializer;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
@@ -133,7 +139,12 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
         heap: &'v Heap,
     ) -> anyhow::Result<Value<'v>> {
         let attrs_iter = this.0.attrs(AttrInspectOptions::All);
-        let attrs = attrs_iter.map(|(name, attr)| (name, StarlarkConfiguredValue(attr)));
+        let attrs = attrs_iter.map(|(name, attr)| {
+            (
+                name,
+                StarlarkConfiguredValue(attr, this.0.label().pkg().dupe()),
+            )
+        });
 
         Ok(heap.alloc(AllocStruct(attrs)))
     }
@@ -356,19 +367,30 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     }
 }
 
-#[derive(
-    Debug,
-    Clone,
-    Display,
-    ProvidesStaticType,
-    Serialize,
-    StarlarkDocs,
-    Allocative
-)]
-#[display(fmt = "Traversal({})", "self.0")]
+#[derive(Debug, Clone, ProvidesStaticType, StarlarkDocs, Allocative)]
 #[repr(C)]
 #[starlark_docs(directory = "bxl")]
-pub struct StarlarkConfiguredValue(ConfiguredAttr);
+pub struct StarlarkConfiguredValue(ConfiguredAttr, PackageLabel);
+
+impl Display for StarlarkConfiguredValue {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(
+            &AttrFmtContext {
+                package: Some(self.1.dupe()),
+            },
+            f,
+        )
+    }
+}
+
+impl Serialize for StarlarkConfiguredValue {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        self.0.serialize(serializer)
+    }
+}
 
 starlark_simple_value!(StarlarkConfiguredValue);
 
@@ -486,7 +508,9 @@ fn lazy_attrs_methods(builder: &mut MethodsBuilder) {
             .configured_target_node
             .0
             .get(attr, AttrInspectOptions::All)
-            .map(StarlarkConfiguredValue))
+            .map(|a| {
+                StarlarkConfiguredValue(a, this.configured_target_node.0.label().pkg().dupe())
+            }))
     }
 }
 

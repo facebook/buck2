@@ -22,6 +22,7 @@ use buck2_node::attrs::attr::Attribute;
 use buck2_node::attrs::attr_type::any::AnyAttrType;
 use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
+use buck2_node::attrs::display::AttrDisplayWithContextExt;
 use dupe::Dupe;
 use gazebo::prelude::*;
 use starlark::environment::GlobalsBuilder;
@@ -322,7 +323,7 @@ pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
 
         match &attr.default {
             Some(default) if !default.may_return_none() => {
-                Err(AttrError::OptionDefaultNone(default.to_string()).into())
+                Err(AttrError::OptionDefaultNone(default.as_display_no_ctx().to_string()).into())
             }
             _ => Ok(attr),
         }

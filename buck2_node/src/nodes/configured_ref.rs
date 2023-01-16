@@ -23,6 +23,8 @@ use ref_cast::RefCast;
 
 use crate::attrs::attr_type::attr_config::AttrConfig;
 use crate::attrs::configured_attr::ConfiguredAttr;
+use crate::attrs::display::AttrDisplayWithContextExt;
+use crate::attrs::fmt_context::AttrFmtContext;
 use crate::attrs::inspect_options::AttrInspectOptions;
 use crate::nodes::configured::ConfiguredTargetNode;
 
@@ -151,7 +153,12 @@ impl QueryTarget for ConfiguredGraphNodeRef {
     }
 
     fn attr_to_string_alternate(&self, attr: &Self::Attr) -> String {
-        format!("{:#}", attr)
+        format!(
+            "{:#}",
+            attr.as_display(&AttrFmtContext {
+                package: Some(self.0.label().pkg().dupe()),
+            })
+        )
     }
 }
 

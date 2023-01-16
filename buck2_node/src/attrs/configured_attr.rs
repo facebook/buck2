@@ -8,7 +8,6 @@
  */
 
 use std::fmt::Debug;
-use std::fmt::Display;
 
 use allocative::Allocative;
 use buck2_core::collections::ordered_map::OrderedMap;
@@ -21,6 +20,9 @@ use starlark_map::small_map;
 use crate::attrs::attr_type::attr_config::AttrConfig;
 use crate::attrs::attr_type::attr_literal::AttrLiteral;
 use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
+use crate::attrs::display::AttrDisplayWithContext;
+use crate::attrs::display::AttrDisplayWithContextExt;
+use crate::attrs::fmt_context::AttrFmtContext;
 
 #[derive(Debug, thiserror::Error)]
 enum ConfiguredAttrError {
@@ -49,9 +51,9 @@ impl Serialize for ConfiguredAttr {
     }
 }
 
-impl Display for ConfiguredAttr {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        Display::fmt(&self.0, f)
+impl AttrDisplayWithContext for ConfiguredAttr {
+    fn fmt(&self, ctx: &AttrFmtContext, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        AttrDisplayWithContext::fmt(&self.0, ctx, f)
     }
 }
 
@@ -79,7 +81,11 @@ impl ConfiguredAttr {
     /// This is used when a select() is added to another value, like `select(<...>) + select(<...>)` or `select(<...>) + [...]`.
     pub fn concat(self, items: impl Iterator<Item = anyhow::Result<Self>>) -> anyhow::Result<Self> {
         let mismatch = |ty, attr: AttrLiteral<ConfiguredAttr>| {
-            Err(ConfiguredAttrError::ConcatNotSupportedValues(ty, attr.to_string()).into())
+            Err(ConfiguredAttrError::ConcatNotSupportedValues(
+                ty,
+                attr.as_display_no_ctx().to_string(),
+            )
+            .into())
         };
 
         match self.0 {
@@ -118,7 +124,7 @@ impl ConfiguredAttr {
                                     }
                                     small_map::Entry::Occupied(e) => {
                                         return Err(ConfiguredAttrError::DictConcatDuplicateKeys(
-                                            e.key().to_string(),
+                                            e.key().as_display_no_ctx().to_string(),
                                         )
                                         .into());
                                     }
@@ -145,14 +151,17 @@ impl ConfiguredAttr {
                         AttrLiteral::Arg(x) => Ok(x),
                         attr => Err(ConfiguredAttrError::ConcatNotSupportedValues(
                             "arg",
-                            attr.to_string(),
+                            attr.as_display_no_ctx().to_string(),
                         )
                         .into()),
                     }
                 }))?;
                 Ok(Self(AttrLiteral::Arg(res)))
             }
-            val => Err(ConfiguredAttrError::ConcatNotSupported(val.to_string()).into()),
+            val => Err(ConfiguredAttrError::ConcatNotSupported(
+                val.as_display_no_ctx().to_string(),
+            )
+            .into()),
         }
     }
 

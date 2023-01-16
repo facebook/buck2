@@ -19,6 +19,7 @@ use buck2_node::attrs::attr_type::dep::DepAttrType;
 use buck2_node::attrs::attr_type::source::SourceAttrType;
 use buck2_node::attrs::attr_type::split_transition_dep::SplitTransitionDepAttrType;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
+use buck2_node::attrs::display::AttrDisplayWithContextExt;
 use dupe::Dupe;
 use gazebo::prelude::*;
 use starlark::collections::SmallMap;
@@ -91,7 +92,10 @@ impl UnconfiguredAttrLiteralExt for AttrLiteral<CoercedAttr> {
                 //
                 // For configuration deps, this function should resolve attributes to providers,
                 // but it is not implemented yet.
-                Err(ResolveError::AttrCannotBeConvertedToValue(x.to_string()).into())
+                Err(
+                    ResolveError::AttrCannotBeConvertedToValue(x.as_display_no_ctx().to_string())
+                        .into(),
+                )
             }
         }
     }

@@ -23,6 +23,7 @@ use crate::attrs::attr_type::split_transition_dep::SplitTransitionDep;
 use crate::attrs::attr_type::split_transition_dep::SplitTransitionDepMaybeConfigured;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::configured_attr::ConfiguredAttr;
+use crate::attrs::display::AttrDisplayWithContext;
 
 /// AttrConfig is used to implement things just once to cover both the configured and
 /// unconfigured case. For example, a Vec<C::TargetType> where C: AttrConfig, would be
@@ -35,7 +36,7 @@ use crate::attrs::configured_attr::ConfiguredAttr;
 ///
 /// There's really just two implementations of this, one for coerced attrs with
 /// unconfigured types and one for configured attrs with the configured types.
-pub trait AttrConfig: AttrLike {
+pub trait AttrConfig: AttrLike + AttrDisplayWithContext {
     type TargetType: TargetLabelMaybeConfigured + AttrLike;
     type ProvidersType: ProvidersLabelMaybeConfigured + AttrLike;
     type SplitTransitionDepType: SplitTransitionDepMaybeConfigured + AttrLike;
