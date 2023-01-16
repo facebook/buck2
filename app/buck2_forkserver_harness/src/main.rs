@@ -71,6 +71,7 @@ async fn main() -> anyhow::Result<()> {
     }
     #[cfg(not(unix))]
     {
+        drop(buck2); // Mute unused variable warning.
         forkserver = Err(anyhow::anyhow!("This is UNIX only"));
     }
 
