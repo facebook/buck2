@@ -421,6 +421,10 @@ mod tests {
         fn call_stack(&self) -> Option<String> {
             None
         }
+
+        fn attr_to_string_alternate(&self, _attr: &Self::Attr) -> String {
+            unimplemented!("not needed for tests")
+        }
     }
 
     struct Graph(HashMap<Ref, Node>);

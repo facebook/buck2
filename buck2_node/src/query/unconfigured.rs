@@ -100,4 +100,8 @@ impl QueryTarget for TargetNode {
     fn call_stack(&self) -> Option<String> {
         self.call_stack()
     }
+
+    fn attr_to_string_alternate(&self, attr: &Self::Attr) -> String {
+        format!("{:#}", attr)
+    }
 }

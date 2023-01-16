@@ -79,6 +79,10 @@ impl QueryTarget for TestTarget {
         box std::iter::empty()
     }
 
+    fn attr_to_string_alternate(&self, _attr: &Self::Attr) -> String {
+        unimplemented!("not needed for tests")
+    }
+
     fn attr_any_matches(
         _attr: &Self::Attr,
         _filter: &dyn Fn(&str) -> anyhow::Result<bool>,

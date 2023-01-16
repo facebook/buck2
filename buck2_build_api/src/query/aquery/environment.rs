@@ -261,6 +261,10 @@ impl QueryTarget for ActionQueryNode {
     fn call_stack(&self) -> Option<String> {
         None
     }
+
+    fn attr_to_string_alternate(&self, attr: &Self::Attr) -> String {
+        format!("{:#}", attr)
+    }
 }
 
 /// CqueryDelegate resolves information needed by the QueryEnvironment.

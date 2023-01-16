@@ -70,8 +70,10 @@ impl<'a, T: QueryTarget> DotNode for DotTargetGraphNode<'a, T> {
                     self.0,
                     |attr_name, attr_value| {
                         if attr_regex.is_match(attr_name) {
-                            extra
-                                .insert(format!("buck_{}", attr_name), format!("{:#}", attr_value));
+                            extra.insert(
+                                format!("buck_{}", attr_name),
+                                self.0.attr_to_string_alternate(attr_value),
+                            );
                         }
                         Ok(())
                     },

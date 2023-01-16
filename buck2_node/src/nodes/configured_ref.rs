@@ -149,6 +149,10 @@ impl QueryTarget for ConfiguredGraphNodeRef {
     fn call_stack(&self) -> Option<String> {
         self.0.call_stack()
     }
+
+    fn attr_to_string_alternate(&self, attr: &Self::Attr) -> String {
+        format!("{:#}", attr)
+    }
 }
 
 /// Graph lookup implementation for `ConfiguredGraphNodeRef`.

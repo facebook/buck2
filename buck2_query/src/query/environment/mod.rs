@@ -82,7 +82,7 @@ impl QueryTargets {
 }
 
 pub trait QueryTarget: LabeledNode + Dupe + Send + Sync + 'static {
-    type Attr: ?Sized + Display + Debug + Serialize;
+    type Attr: ?Sized + Debug + Serialize;
 
     /// Returns the input files for this node.
     fn inputs_for_each<E, F: FnMut(CellPath) -> Result<(), E>>(&self, func: F) -> Result<(), E>;
@@ -104,6 +104,8 @@ pub trait QueryTarget: LabeledNode + Dupe + Send + Sync + 'static {
     fn tests<'a>(&'a self) -> Option<Box<dyn Iterator<Item = Self::NodeRef> + Send + 'a>> {
         None
     }
+
+    fn attr_to_string_alternate(&self, attr: &Self::Attr) -> String;
 
     fn attr_any_matches(
         attr: &Self::Attr,
