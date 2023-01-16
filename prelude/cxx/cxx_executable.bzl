@@ -366,7 +366,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
         populate_rule_specific_attributes_func = impl_params.cxx_populate_xcode_attributes_func,
         srcs = impl_params.srcs + impl_params.additional.srcs,
         argsfiles_by_ext = compile_cmd_output.source_commands.argsfile_by_ext,
-        product_name = get_cxx_excutable_product_name(ctx),
+        product_name = get_cxx_executable_product_name(ctx),
     )
     sub_targets[XCODE_DATA_SUB_TARGET] = xcode_data_default_info
 
@@ -474,7 +474,7 @@ def _link_into_executable(
         strip_args_factory = None,
         link_postprocessor: ["cmd_args", None] = None,
         force_full_hybrid_if_capable: bool.type = False) -> (LinkedObject.type, ["_arglike"], ["artifact", None], [""]):
-    output = ctx.actions.declare_output("{}{}".format(get_cxx_excutable_product_name(ctx), "." + binary_extension if binary_extension else ""))
+    output = ctx.actions.declare_output("{}{}".format(get_cxx_executable_product_name(ctx), "." + binary_extension if binary_extension else ""))
     extra_args, runtime_files, shared_libs_symlink_tree = executable_shared_lib_arguments(
         ctx.actions,
         get_cxx_toolchain_info(ctx),
@@ -522,5 +522,5 @@ def _linker_map(
         binary_for_linker_map,
     )
 
-def get_cxx_excutable_product_name(ctx: "context") -> str.type:
+def get_cxx_executable_product_name(ctx: "context") -> str.type:
     return ctx.label.name + ("-wrapper" if cxx_use_bolt(ctx) else "")
