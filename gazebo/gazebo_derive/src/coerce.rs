@@ -19,6 +19,7 @@ use syn::token;
 use syn::Data;
 use syn::DeriveInput;
 use syn::Expr;
+use syn::Field;
 use syn::GenericArgument;
 use syn::Ident;
 use syn::Path;
@@ -97,16 +98,7 @@ fn derive_coerce_params(input: DeriveInput) -> syn::Result<proc_macro2::TokenStr
     }
 
     let mut constraints = Vec::new();
-    let fields: Vec<_> = match &input.data {
-        Data::Struct(x) => x.fields.iter().collect(),
-        Data::Enum(x) => x.variants.iter().flat_map(|x| &x.fields).collect(),
-        Data::Union(..) => {
-            return Err(syn::Error::new_spanned(
-                input,
-                "Type-parameter cannot be a union",
-            ));
-        }
-    };
+    let fields = collect_fields(&input)?;
     for x in fields {
         let mut to_ty = x.ty.clone();
         let mut from_ty = x.ty.clone();
@@ -123,6 +115,17 @@ fn derive_coerce_params(input: DeriveInput) -> syn::Result<proc_macro2::TokenStr
             for #name < #(#lifetimes,)* #(#ty_args_from,)* >
             where #(#constraints,)* {}
     })
+}
+
+fn collect_fields(input: &DeriveInput) -> syn::Result<Vec<&Field>> {
+    match &input.data {
+        Data::Struct(x) => Ok(x.fields.iter().collect()),
+        Data::Enum(x) => Ok(x.variants.iter().flat_map(|x| &x.fields).collect()),
+        Data::Union(..) => Err(syn::Error::new_spanned(
+            input,
+            "Type-parameter cannot be a union",
+        )),
+    }
 }
 
 fn replace_type(ty: &mut Type, idents: &HashSet<Ident>, prefix: &str) -> syn::Result<()> {
