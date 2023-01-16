@@ -193,4 +193,31 @@ mod tests {
         let new: StructWithLifetimeAndTypeParams<Bbb> = coerce(old);
         assert_eq!(10, *new.x.0);
     }
+
+    #[test]
+    fn test_coerce_is_unsound() {
+        // TODO(nga): fix it.
+
+        #[derive(Coerce)]
+        #[repr(transparent)]
+        struct Newtype(u8);
+
+        #[derive(Coerce)]
+        #[repr(transparent)]
+        struct Struct<T: Trait>(T::Assoc);
+
+        trait Trait {
+            type Assoc;
+        }
+        impl Trait for u8 {
+            type Assoc = ();
+        }
+        impl Trait for Newtype {
+            type Assoc = [u8; 50];
+        }
+
+        let s: &Struct<u8> = &Struct(());
+        // This should fail to compile because `[u8; 50]` is not coercible to `()`.
+        let _c: &Struct<Newtype> = coerce(s);
+    }
 }
