@@ -17,8 +17,8 @@
 
 //! Bindings to/from Rust tuple types.
 
-use crate::values::tuple::Tuple;
 use crate::values::type_repr::StarlarkTypeRepr;
+use crate::values::types::tuple::value::Tuple;
 use crate::values::AllocValue;
 use crate::values::Heap;
 use crate::values::UnpackValue;

@@ -69,7 +69,7 @@ use crate::values::types::list::value::ListData;
 use crate::values::types::range::Range;
 use crate::values::types::string::interpolation::format_one;
 use crate::values::types::string::interpolation::percent_s_one;
-use crate::values::types::tuple::Tuple;
+use crate::values::types::tuple::value::Tuple;
 use crate::values::types::unbound::MaybeUnboundValue;
 use crate::values::FrozenHeap;
 use crate::values::FrozenStringValue;

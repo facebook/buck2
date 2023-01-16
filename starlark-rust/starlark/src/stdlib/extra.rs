@@ -38,7 +38,7 @@ use crate::values::function::FUNCTION_TYPE;
 use crate::values::layout::typed::string::StringValueLike;
 use crate::values::none::NoneType;
 use crate::values::regex::StarlarkRegex;
-use crate::values::tuple::Tuple;
+use crate::values::types::tuple::value::Tuple;
 use crate::values::Freeze;
 use crate::values::Freezer;
 use crate::values::FrozenStringValue;

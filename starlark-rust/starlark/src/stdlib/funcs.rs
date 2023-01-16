@@ -39,7 +39,7 @@ use crate::values::none::NoneType;
 use crate::values::num::Num;
 use crate::values::range::Range;
 use crate::values::string::STRING_TYPE;
-use crate::values::tuple::Tuple;
+use crate::values::types::tuple::value::Tuple;
 use crate::values::AllocValue;
 use crate::values::FrozenStringValue;
 use crate::values::Heap;

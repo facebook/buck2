@@ -49,7 +49,7 @@ use crate::values::ValueLike;
 #[repr(C)]
 #[derive(ProvidesStaticType, StarlarkDocs, Allocative)]
 #[starlark_docs(builtin = "standard")]
-pub struct TupleGen<V> {
+pub(crate) struct TupleGen<V> {
     len: usize,
     /// The data stored by the tuple.
     content: [V; 0],
@@ -80,7 +80,7 @@ impl<'v, V: ValueLike<'v>> Debug for TupleGen<V> {
 
 impl<V> TupleGen<V> {
     /// `type(())`.
-    pub const TYPE: &'static str = "tuple";
+    pub(crate) const TYPE: &'static str = "tuple";
 
     pub(crate) const unsafe fn new(len: usize) -> TupleGen<V> {
         TupleGen { len, content: [] }
@@ -92,15 +92,15 @@ impl<V> TupleGen<V> {
 }
 
 /// Runtime type of unfrozen tuple.
-pub type Tuple<'v> = TupleGen<Value<'v>>;
+pub(crate) type Tuple<'v> = TupleGen<Value<'v>>;
 /// Runtime type of frozen tuple.
-pub type FrozenTuple = TupleGen<FrozenValue>;
+pub(crate) type FrozenTuple = TupleGen<FrozenValue>;
 
 unsafe impl<'v> Coerce<Tuple<'v>> for FrozenTuple {}
 
 impl<'v> Tuple<'v> {
     /// Downcast a value to a tuple.
-    pub fn from_value(value: Value<'v>) -> Option<&'v Self> {
+    pub(crate) fn from_value(value: Value<'v>) -> Option<&'v Self> {
         if value.unpack_frozen().is_some() {
             value.downcast_ref::<FrozenTuple>().map(coerce)
         } else {
@@ -111,12 +111,12 @@ impl<'v> Tuple<'v> {
 
 impl<'v, V: ValueLike<'v>> TupleGen<V> {
     /// Get the length of the tuple.
-    pub fn len(&self) -> usize {
+    pub(crate) fn len(&self) -> usize {
         self.content().len()
     }
 
     /// Tuple elements.
-    pub fn content(&self) -> &[V] {
+    pub(crate) fn content(&self) -> &[V] {
         unsafe { slice::from_raw_parts(self.content.as_ptr(), self.len) }
     }
 
@@ -125,7 +125,7 @@ impl<'v, V: ValueLike<'v>> TupleGen<V> {
     }
 
     /// Iterate over the elements of the tuple.
-    pub fn iter<'a>(&'a self) -> impl Iterator<Item = Value<'v>> + 'a
+    pub(crate) fn iter<'a>(&'a self) -> impl Iterator<Item = Value<'v>> + 'a
     where
         'v: 'a,
     {

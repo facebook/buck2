@@ -25,6 +25,3 @@ pub(crate) mod value;
 pub use crate::values::types::tuple::alloc::AllocTuple;
 pub use crate::values::types::tuple::refs::FrozenTupleRef;
 pub use crate::values::types::tuple::refs::TupleRef;
-pub use crate::values::types::tuple::value::FrozenTuple;
-pub use crate::values::types::tuple::value::Tuple;
-pub use crate::values::types::tuple::value::TupleGen;

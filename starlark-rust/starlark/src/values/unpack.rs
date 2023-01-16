@@ -23,8 +23,8 @@ use either::Either;
 use gazebo::prelude::*;
 
 use crate::values::list::ListRef;
-use crate::values::tuple::Tuple;
 use crate::values::type_repr::StarlarkTypeRepr;
+use crate::values::types::tuple::value::Tuple;
 use crate::values::Value;
 use crate::values::ValueError;
 

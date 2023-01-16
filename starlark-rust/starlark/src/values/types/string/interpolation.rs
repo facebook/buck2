@@ -31,7 +31,7 @@ use crate::values::dict::Dict;
 use crate::values::float;
 use crate::values::num;
 use crate::values::num::Num;
-use crate::values::tuple::Tuple;
+use crate::values::types::tuple::value::Tuple;
 use crate::values::Heap;
 use crate::values::StringValue;
 use crate::values::UnpackValue;
