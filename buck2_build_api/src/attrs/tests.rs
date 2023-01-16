@@ -31,6 +31,7 @@ use buck2_node::attrs::coerced_deps_collector::CoercedDepsCollector;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use buck2_node::attrs::configured_info::ConfiguredAttrInfo;
 use buck2_node::attrs::display::AttrDisplayWithContextExt;
+use buck2_node::attrs::fmt_context::AttrFmtContext;
 use buck2_node::attrs::testing::configuration_ctx;
 use gazebo::prelude::*;
 use indoc::indoc;
@@ -545,7 +546,11 @@ fn test_source_label() -> anyhow::Result<()> {
     )?;
     assert_eq!(
         "[\"root//some:target\",\"cell1//named:target[foo]\",\"root//package/subdir/foo/bar.cpp\"]",
-        coerced.as_display_no_ctx().to_string()
+        coerced
+            .as_display(&AttrFmtContext {
+                package: Some(PackageLabel::testing())
+            })
+            .to_string(),
     );
 
     let configured = coerced.configure(&configuration_ctx())?;
@@ -555,7 +560,11 @@ fn test_source_label() -> anyhow::Result<()> {
             "\"cell1//named:target[foo] (<testing>)\",",
             "\"root//package/subdir/foo/bar.cpp\"]",
         ),
-        configured.as_display_no_ctx().to_string()
+        configured
+            .as_display(&AttrFmtContext {
+                package: Some(PackageLabel::testing())
+            })
+            .to_string(),
     );
 
     Ok(())

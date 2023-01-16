@@ -506,7 +506,6 @@ mod tests {
     use buck2_common::package_listing::listing::testing::PackageListingExt;
     use buck2_common::package_listing::listing::PackageListing;
     use buck2_common::result::SharedResult;
-    use buck2_core::buck_path::BuckPath;
     use buck2_core::cells::paths::CellRelativePath;
     use buck2_core::package::package_relative_path::PackageRelativePathBuf;
     use buck2_core::package::PackageLabel;
@@ -792,12 +791,9 @@ mod tests {
             .unwrap_err();
         assert!(err.to_string().contains("normalized path"));
 
-        let expected = BuckPath::new(
-            package,
-            PackageRelativePathBuf::unchecked_new("baz/quz.cpp".to_owned()),
-        );
+        let expected = PackageRelativePathBuf::unchecked_new("baz/quz.cpp".to_owned());
         assert_eq!(
-            expected.as_ref(),
+            expected.as_path(),
             package_ctx
                 .coerce_path("baz/quz.cpp", false)
                 .unwrap()

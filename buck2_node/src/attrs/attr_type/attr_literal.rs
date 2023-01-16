@@ -10,10 +10,12 @@
 use std::fmt::Display;
 
 use allocative::Allocative;
+use buck2_core::buck_path::BuckPathRef;
 use buck2_core::package::PackageLabel;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::TargetLabel;
 use dupe::Dupe;
+use either::Either;
 use gazebo::prelude::*;
 use static_assertions::assert_eq_size;
 
@@ -136,7 +138,7 @@ impl<C: AttrConfig> AttrDisplayWithContext for AttrLiteral<C> {
             AttrLiteral::ConfigurationDep(v) => write!(f, "\"{}\"", v),
             AttrLiteral::Query(v) => write!(f, "\"{}\"", v.query()),
             AttrLiteral::SourceLabel(v) => write!(f, "\"{}\"", v),
-            AttrLiteral::SourceFile(v) => write!(f, "\"{}\"", v.path()),
+            AttrLiteral::SourceFile(v) => write!(f, "\"{}\"", Self::source_file_display(ctx, v)),
             AttrLiteral::Arg(a) => write!(f, "\"{}\"", a),
             AttrLiteral::SplitTransitionDep(d) => Display::fmt(d, f),
             AttrLiteral::Label(l) => write!(f, "\"{}\"", l),
@@ -145,6 +147,19 @@ impl<C: AttrConfig> AttrDisplayWithContext for AttrLiteral<C> {
 }
 
 impl<C: AttrConfig> AttrLiteral<C> {
+    fn source_file_display<'a>(
+        ctx: &'a AttrFmtContext,
+        source_file: &'a CoercedPath,
+    ) -> impl Display + 'a {
+        match &ctx.package {
+            Some(pkg) => Either::Left(BuckPathRef::new(pkg.dupe(), source_file.path())),
+            None => {
+                // This code is unreachable, but better this than panic.
+                Either::Right(format!("<no package>/{}", source_file.path()))
+            }
+        }
+    }
+
     pub fn to_json(&self, ctx: &AttrFmtContext) -> anyhow::Result<serde_json::Value> {
         use serde_json::to_value;
         match self {
@@ -170,7 +185,9 @@ impl<C: AttrConfig> AttrLiteral<C> {
             AttrLiteral::ConfiguredDep(l) => Ok(to_value(l.to_string())?),
             AttrLiteral::ExplicitConfiguredDep(l) => l.to_json(),
             AttrLiteral::Query(q) => Ok(to_value(q.query())?),
-            AttrLiteral::SourceFile(s) => Ok(to_value(s.path().to_string())?),
+            AttrLiteral::SourceFile(s) => {
+                Ok(to_value(Self::source_file_display(ctx, s).to_string())?)
+            }
             AttrLiteral::SourceLabel(s) => Ok(to_value(s.to_string())?),
             AttrLiteral::Arg(a) => Ok(to_value(a.to_string())?),
             AttrLiteral::ConfigurationDep(l) => Ok(to_value(l.to_string())?),
@@ -257,7 +274,7 @@ impl AttrLiteral<ConfiguredAttr> {
             AttrLiteral::Query(query) => query.traverse(traversal),
             AttrLiteral::SourceFile(box source) => {
                 for x in source.inputs() {
-                    traversal.input(x)?;
+                    traversal.input(BuckPathRef::new(pkg.dupe(), x))?;
                 }
                 Ok(())
             }
@@ -341,7 +358,7 @@ impl AttrLiteral<CoercedAttr> {
             AttrLiteral::Query(query) => query.traverse(traversal),
             AttrLiteral::SourceFile(box source) => {
                 for x in source.inputs() {
-                    traversal.input(x)?;
+                    traversal.input(BuckPathRef::new(pkg.dupe(), x))?;
                 }
                 Ok(())
             }

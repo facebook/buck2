@@ -9,6 +9,7 @@
 
 use std::fmt::Debug;
 
+use buck2_core::buck_path::BuckPath;
 use buck2_core::package::PackageLabel;
 use buck2_execute::artifact::source_artifact::SourceArtifact;
 use buck2_interpreter::types::label::Label;
@@ -171,7 +172,7 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
             AttrLiteral::Query(query) => query.resolve(ctx),
             AttrLiteral::SourceFile(s) => Ok(SourceAttrType::resolve_single_file(
                 ctx,
-                s.path().to_buck_path(),
+                BuckPath::new(pkg.dupe(), s.path().to_buf()),
             )),
             AttrLiteral::SourceLabel(s) => SourceAttrType::resolve_single_label(ctx, s),
             AttrLiteral::Arg(arg) => arg.resolve(ctx),
@@ -256,7 +257,7 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
             AttrLiteral::Query(q) => heap.alloc(q.query.query()),
             AttrLiteral::SourceLabel(s) => heap.alloc(Label::new(*s.clone())),
             AttrLiteral::SourceFile(f) => heap.alloc(StarlarkArtifact::new(Artifact::from(
-                SourceArtifact::new(f.path().to_buck_path()),
+                SourceArtifact::new(BuckPath::new(pkg.to_owned(), f.path().to_buf())),
             ))),
             AttrLiteral::Arg(arg) => heap.alloc(arg.to_string()),
             AttrLiteral::Label(l) => heap.alloc(Label::new(*l.clone())),

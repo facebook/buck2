@@ -11,7 +11,6 @@ use std::cell::RefCell;
 use std::sync::Arc;
 
 use buck2_common::package_listing::listing::PackageListing;
-use buck2_core::buck_path::BuckPath;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::package::package_relative_path::PackageRelativePathBuf;
 use buck2_core::package::PackageLabel;
@@ -184,14 +183,8 @@ impl AttrCoercionContext for BuildAttrCoercionContext {
                         soft_error!("source_directory_includes_subpackage", e.into())?;
                     }
                 }
-                let files = listing
-                    .files_within(&path)
-                    .map(|x| BuckPath::new(package.dupe(), x.to_owned()))
-                    .collect();
-                return Ok(CoercedPath::Directory(
-                    BuckPath::new(package.dupe(), path),
-                    files,
-                ));
+                let files = listing.files_within(&path).map(|x| x.to_owned()).collect();
+                return Ok(CoercedPath::Directory(path, files));
             } else {
                 let e = BuildAttrCoercionContextError::SourceFileMissing(
                     package.dupe(),
@@ -205,7 +198,7 @@ impl AttrCoercionContext for BuildAttrCoercionContext {
             }
         }
 
-        Ok(CoercedPath::File(BuckPath::new(package.dupe(), path)))
+        Ok(CoercedPath::File(path))
     }
 
     fn coerce_target_pattern(&self, pattern: &str) -> anyhow::Result<ParsedPattern<TargetPattern>> {

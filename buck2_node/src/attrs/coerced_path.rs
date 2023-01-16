@@ -8,29 +8,29 @@
  */
 
 use allocative::Allocative;
-use buck2_core::buck_path::BuckPath;
-use buck2_core::buck_path::BuckPathRef;
+use buck2_core::package::package_relative_path::PackageRelativePath;
+use buck2_core::package::package_relative_path::PackageRelativePathBuf;
 use either::Either;
 use static_assertions::assert_eq_size;
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative)]
 pub enum CoercedPath {
-    File(BuckPath),
-    Directory(BuckPath, Box<[BuckPath]>),
+    File(PackageRelativePathBuf),
+    Directory(PackageRelativePathBuf, Box<[PackageRelativePathBuf]>),
 }
 
 // Avoid changing the size accidentally.
-assert_eq_size!(CoercedPath, [usize; 6]);
+assert_eq_size!(CoercedPath, [usize; 5]);
 
 impl CoercedPath {
-    pub fn path(&self) -> BuckPathRef {
+    pub fn path(&self) -> &PackageRelativePath {
         match self {
-            CoercedPath::File(x) => x.as_ref(),
-            CoercedPath::Directory(x, _) => x.as_ref(),
+            CoercedPath::File(x) => x,
+            CoercedPath::Directory(x, _) => x,
         }
     }
 
-    pub fn inputs(&self) -> impl Iterator<Item = BuckPathRef> {
+    pub fn inputs(&self) -> impl Iterator<Item = &'_ PackageRelativePath> {
         match self {
             CoercedPath::File(x) => Either::Left(std::iter::once(x.as_ref())),
             CoercedPath::Directory(_, xs) => Either::Right(xs.iter().map(|x| x.as_ref())),
