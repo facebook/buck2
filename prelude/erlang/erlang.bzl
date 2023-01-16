@@ -35,12 +35,12 @@ common_application_attributes = dict({
 # target attributes for public erlang targets
 rules_attributes = {
     "erlang_app": dict({
-        "app_src": attrs.option(attrs.source()),
+        "app_src": attrs.option(attrs.source(), default = None),
         "build_edoc_chunks": attrs.bool(default = True),
-        "erl_opts": attrs.option(attrs.list(attrs.string())),
+        "erl_opts": attrs.option(attrs.list(attrs.string()), default = None),
         "extra_includes": attrs.list(attrs.dep(), default = []),
         "includes": attrs.list(attrs.source(), default = []),
-        "mod": attrs.option(attrs.tuple(attrs.string(), attrs.list(attrs.string()))),
+        "mod": attrs.option(attrs.tuple(attrs.string(), attrs.list(attrs.string())), default = None),
         "resources": attrs.list(attrs.dep(), default = []),
         "srcs": attrs.list(attrs.source(), default = []),
         "use_global_parse_transforms": attrs.bool(default = True),
@@ -54,9 +54,9 @@ rules_attributes = {
         "deps": attrs.list(attrs.dep()),
         "emu_args": attrs.list(attrs.string(), default = []),
         "include_priv": attrs.bool(default = False),
-        "main_module": attrs.option(attrs.string()),
+        "main_module": attrs.option(attrs.string(), default = None),
         "resources": attrs.list(attrs.dep(), default = []),
-        "script_name": attrs.option(attrs.string()),
+        "script_name": attrs.option(attrs.string(), default = None),
         "_toolchain": attrs.toolchain_dep(default = "toolchains//:erlang-default"),
     },
     "erlang_otp_binaries": {
@@ -70,9 +70,9 @@ rules_attributes = {
     "erlang_release": {
         "applications": attrs.list(attrs.one_of(attrs.dep(), attrs.tuple(attrs.dep(), attrs.enum(StartTypeValues)))),
         "include_erts": attrs.bool(default = False),
-        "multi_toolchain": attrs.option(attrs.list(attrs.dep())),
+        "multi_toolchain": attrs.option(attrs.list(attrs.dep()), default = None),
         "overlays": attrs.dict(key = attrs.string(), value = attrs.list(attrs.dep()), default = {}),
-        "release_name": attrs.option(attrs.string()),
+        "release_name": attrs.option(attrs.string(), default = None),
         "version": attrs.string(default = "1.0.0"),
         "_toolchain": attrs.toolchain_dep(default = "toolchains//:erlang-default"),
     },
