@@ -128,7 +128,7 @@ impl TargetNodeExt for TargetNode {
         let mut deps_cache = CoercedDepsCollector::new();
 
         for (_, value) in rule.attributes.attrs(&attr_values, AttrInspectOptions::All) {
-            value.traverse(&mut deps_cache)?;
+            value.traverse(label.pkg(), &mut deps_cache)?;
         }
 
         Ok(TargetNode::new(

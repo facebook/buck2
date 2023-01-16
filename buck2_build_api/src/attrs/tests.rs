@@ -17,6 +17,7 @@ use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
+use buck2_core::package::PackageLabel;
 use buck2_execute::artifact::fs::ArtifactFs;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::path::buck_out_path::BuckOutPathResolver;
@@ -89,7 +90,7 @@ fn test() -> anyhow::Result<()> {
     );
 
     let ctx = resolution_ctx(&env);
-    let resolved = configured.resolve_single(&ctx)?;
+    let resolved = configured.resolve_single(&PackageLabel::testing(), &ctx)?;
     assert_eq!(
         "[[[\"hello\", \"world!\", \"okay\", \"other\", \"...\", \"...\"]]]",
         resolved.to_string()
@@ -334,7 +335,7 @@ fn test_coerced_deps() -> anyhow::Result<()> {
     let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
 
     let mut visitor = CoercedDepsCollector::new();
-    coerced.traverse(&mut visitor)?;
+    coerced.traverse(&PackageLabel::testing(), &mut visitor)?;
     let CoercedDepsCollector {
         deps,
         configuration_deps,
@@ -387,7 +388,7 @@ fn test_configured_deps() -> anyhow::Result<()> {
     let configured = coerced.configure(&configuration_ctx())?;
 
     let mut info = ConfiguredAttrInfo::new();
-    configured.traverse(&mut info)?;
+    configured.traverse(&PackageLabel::testing(), &mut info)?;
 
     let expected_deps = vec![
         "root//some:target",
@@ -411,7 +412,7 @@ fn test_configured_deps() -> anyhow::Result<()> {
     let coerced_exec = attr_exec.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
     let configured_exec = coerced_exec.configure(&configuration_ctx())?;
     let mut info = ConfiguredAttrInfo::new();
-    configured_exec.traverse(&mut info)?;
+    configured_exec.traverse(&PackageLabel::testing(), &mut info)?;
     eprintln!("{:?}", info);
     assert_eq!(
         expected_deps.map(|s| format!("{} (cfg_for//:testing_exec)", s)),
@@ -444,7 +445,7 @@ fn test_resolved_deps() -> anyhow::Result<()> {
     let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
     let configured = coerced.configure(&configuration_ctx())?;
     let resolution_ctx = resolution_ctx(&env);
-    let resolved = configured.resolve_single(&resolution_ctx)?;
+    let resolved = configured.resolve_single(&PackageLabel::testing(), &resolution_ctx)?;
 
     env.set("res", resolved);
     let content = indoc!(
@@ -486,7 +487,7 @@ fn test_dep_requires_providers() -> anyhow::Result<()> {
     let configured = coerced.configure(&configuration_ctx())?;
 
     let err = configured
-        .resolve_single(&resolution_ctx)
+        .resolve_single(&PackageLabel::testing(), &resolution_ctx)
         .expect_err("Should have failed");
     assert_eq!(
         true,
@@ -501,7 +502,7 @@ fn test_dep_requires_providers() -> anyhow::Result<()> {
     let configured = coerced.configure(&configuration_ctx())?;
 
     // This dep has both FooInfo and BarInfo, so it should resolve properly
-    configured.resolve_single(&resolution_ctx)?;
+    configured.resolve_single(&PackageLabel::testing(), &resolution_ctx)?;
 
     Ok(())
 }
@@ -596,7 +597,7 @@ fn test_source_label_deps() -> anyhow::Result<()> {
     )?;
 
     let mut visitor = CoercedDepsCollector::new();
-    coerced.traverse(&mut visitor)?;
+    coerced.traverse(&PackageLabel::testing(), &mut visitor)?;
     let CoercedDepsCollector {
         deps,
         configuration_deps,
@@ -643,7 +644,7 @@ fn test_source_label_resolution() -> anyhow::Result<()> {
         )?;
         let configured = coerced.configure(&configuration_ctx())?;
         let resolution_ctx = resolution_ctx(&env);
-        let resolved = configured.resolve_single(&resolution_ctx)?;
+        let resolved = configured.resolve_single(&PackageLabel::testing(), &resolution_ctx)?;
 
         env.set("res", resolved);
         let success = to_value(&env, &globals, test_content);
@@ -708,7 +709,7 @@ fn test_single_source_label_fails_if_multiple_returned() -> anyhow::Result<()> {
     let configured = coerced.configure(&configuration_ctx())?;
     let resolution_ctx = resolution_ctx(&env);
     let err = configured
-        .resolve_single(&resolution_ctx)
+        .resolve_single(&PackageLabel::testing(), &resolution_ctx)
         .expect_err("Getting multiple values when expecting a single one should fail");
 
     assert_eq!(true, err.to_string().contains("Expected a single artifact"));
@@ -736,7 +737,7 @@ fn test_arg() -> anyhow::Result<()> {
     );
 
     let mut visitor = CoercedDepsCollector::new();
-    coerced.traverse(&mut visitor)?;
+    coerced.traverse(&PackageLabel::testing(), &mut visitor)?;
     let CoercedDepsCollector {
         deps, exec_deps, ..
     } = visitor;
@@ -744,7 +745,7 @@ fn test_arg() -> anyhow::Result<()> {
     let exec_deps: Vec<_> = exec_deps.iter().map(|t| t.to_string()).collect();
 
     let mut info = ConfiguredAttrInfo::new();
-    configured.traverse(&mut info)?;
+    configured.traverse(&PackageLabel::testing(), &mut info)?;
 
     let expected_deps = vec!["root//some:location"];
     let expected_exec_deps = vec!["root//some:exe"];
@@ -811,7 +812,7 @@ fn test_bool() -> anyhow::Result<()> {
     );
 
     let ctx = resolution_ctx(&env);
-    let resolved = configured.resolve_single(&ctx)?;
+    let resolved = configured.resolve_single(&PackageLabel::testing(), &ctx)?;
     assert_eq!("[True, False, False, True]", resolved.to_string());
 
     Ok(())
@@ -835,31 +836,35 @@ fn test_user_placeholders() -> anyhow::Result<()> {
         )?;
         let configured = coerced.configure(&configuration_ctx())?;
         let resolution_ctx = resolution_ctx(&env);
-        configured.resolve_single(&resolution_ctx).map(|v| {
-            // TODO: this is way too unnecessarily verbose for a test.
-            let project_fs = ProjectRoot::new(
-                AbsNormPathBuf::try_from(std::env::current_dir().unwrap()).unwrap(),
-            );
-            let fs = ArtifactFs::new(
-                BuckPathResolver::new(CellResolver::of_names_and_paths(&[(
-                    CellName::unchecked_new("cell".into()),
-                    CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("cell_path".into())),
-                )])),
-                BuckOutPathResolver::new(ProjectRelativePathBuf::unchecked_new(
-                    "buck_out/v2".into(),
-                )),
-                project_fs,
-            );
-            let executor_fs = ExecutorFs::new(&fs, PathSeparatorKind::Unix);
+        configured
+            .resolve_single(&PackageLabel::testing(), &resolution_ctx)
+            .map(|v| {
+                // TODO: this is way too unnecessarily verbose for a test.
+                let project_fs = ProjectRoot::new(
+                    AbsNormPathBuf::try_from(std::env::current_dir().unwrap()).unwrap(),
+                );
+                let fs = ArtifactFs::new(
+                    BuckPathResolver::new(CellResolver::of_names_and_paths(&[(
+                        CellName::unchecked_new("cell".into()),
+                        CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new(
+                            "cell_path".into(),
+                        )),
+                    )])),
+                    BuckOutPathResolver::new(ProjectRelativePathBuf::unchecked_new(
+                        "buck_out/v2".into(),
+                    )),
+                    project_fs,
+                );
+                let executor_fs = ExecutorFs::new(&fs, PathSeparatorKind::Unix);
 
-            let mut cli = Vec::<String>::new();
-            let mut ctx = DefaultCommandLineContext::new(&executor_fs);
-            v.as_command_line()
-                .unwrap()
-                .add_to_command_line(&mut cli, &mut ctx)
-                .unwrap();
-            cli.join(" ")
-        })
+                let mut cli = Vec::<String>::new();
+                let mut ctx = DefaultCommandLineContext::new(&executor_fs);
+                v.as_command_line()
+                    .unwrap()
+                    .add_to_command_line(&mut cli, &mut ctx)
+                    .unwrap();
+                cli.join(" ")
+            })
     };
 
     assert_eq!("clang++", resolve(r#""$(CXX)""#)?);

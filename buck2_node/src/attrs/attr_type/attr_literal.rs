@@ -10,6 +10,7 @@
 use std::fmt::Display;
 
 use allocative::Allocative;
+use buck2_core::package::PackageLabel;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::TargetLabel;
 use dupe::Dupe;
@@ -221,6 +222,7 @@ impl<C: AttrConfig> AttrLiteral<C> {
 impl AttrLiteral<ConfiguredAttr> {
     pub(crate) fn traverse<'a>(
         &'a self,
+        pkg: &PackageLabel,
         traversal: &mut dyn ConfiguredAttrTraversal<'a>,
     ) -> anyhow::Result<()> {
         match self {
@@ -230,14 +232,14 @@ impl AttrLiteral<ConfiguredAttr> {
             AttrLiteral::EnumVariant(_) => Ok(()),
             AttrLiteral::List(list, _) | AttrLiteral::Tuple(list) => {
                 for v in list.iter() {
-                    v.traverse(traversal)?;
+                    v.traverse(pkg, traversal)?;
                 }
                 Ok(())
             }
             AttrLiteral::Dict(dict) => {
                 for (k, v) in dict {
-                    k.traverse(traversal)?;
-                    v.traverse(traversal)?;
+                    k.traverse(pkg, traversal)?;
+                    v.traverse(pkg, traversal)?;
                 }
                 Ok(())
             }
@@ -307,6 +309,7 @@ impl AttrLiteral<CoercedAttr> {
 
     pub(crate) fn traverse<'a>(
         &'a self,
+        pkg: &PackageLabel,
         traversal: &mut dyn CoercedAttrTraversal<'a>,
     ) -> anyhow::Result<()> {
         match self {
@@ -316,14 +319,14 @@ impl AttrLiteral<CoercedAttr> {
             AttrLiteral::EnumVariant(_) => Ok(()),
             AttrLiteral::List(list, _) | AttrLiteral::Tuple(list) => {
                 for v in list.iter() {
-                    v.traverse(traversal)?;
+                    v.traverse(pkg, traversal)?;
                 }
                 Ok(())
             }
             AttrLiteral::Dict(dict) => {
                 for (k, v) in dict {
-                    k.traverse(traversal)?;
-                    v.traverse(traversal)?;
+                    k.traverse(pkg, traversal)?;
+                    v.traverse(pkg, traversal)?;
                 }
                 Ok(())
             }

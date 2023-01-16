@@ -330,7 +330,7 @@ impl TargetNode {
             .expect("tests is an internal attribute field and will always be present");
 
         let mut traversal = TestCollector::default();
-        tests.traverse(&mut traversal).unwrap();
+        tests.traverse(self.label().pkg(), &mut traversal).unwrap();
         traversal.labels.into_iter()
     }
 
@@ -383,7 +383,7 @@ impl TargetNode {
         }
         let mut traversal = InputsCollector { inputs: Vec::new() };
         for (_, attr) in self.attrs(AttrInspectOptions::All) {
-            attr.traverse(&mut traversal)
+            attr.traverse(self.label().pkg(), &mut traversal)
                 .expect("inputs collector shouldn't return errors");
         }
 
@@ -444,7 +444,7 @@ pub mod testing {
                     index_in_attribute_spec,
                 };
                 indices.insert(name.to_owned(), attr);
-                val.traverse(&mut deps_cache).unwrap();
+                val.traverse(label.pkg(), &mut deps_cache).unwrap();
                 attributes.push_sorted(idx, val);
             }
 

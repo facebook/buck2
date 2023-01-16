@@ -294,7 +294,7 @@ impl AnonTargetKey {
 
         let mut traversal = Traversal(Vec::new());
         for x in self.0.attrs().values() {
-            x.traverse(&mut traversal)?;
+            x.traverse(self.0.name().pkg(), &mut traversal)?;
         }
         Ok(traversal.0)
     }
@@ -327,7 +327,10 @@ impl AnonTargetKey {
 
         let mut resolved_attrs = Vec::with_capacity(self.0.attrs().len());
         for (name, attr) in self.0.attrs().iter() {
-            resolved_attrs.push((name, attr.resolve_single(&resolution_ctx)?));
+            resolved_attrs.push((
+                name,
+                attr.resolve_single(self.0.name().pkg(), &resolution_ctx)?,
+            ));
         }
         let attributes = env.heap().alloc(AllocStruct(resolved_attrs));
 

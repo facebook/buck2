@@ -248,7 +248,10 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
         let mut resolved_attrs = Vec::with_capacity(attrs_iter.size_hint().0);
 
         for (name, attr) in attrs_iter {
-            resolved_attrs.push((name, attr.resolve_single(&resolution_ctx)?));
+            resolved_attrs.push((
+                name,
+                attr.resolve_single(this.0.label().pkg(), &resolution_ctx)?,
+            ));
         }
 
         Ok(eval.heap().alloc(AllocStruct(resolved_attrs)))
@@ -295,7 +298,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
         }
         let mut traversal = InputsCollector { inputs: Vec::new() };
         for (_, attr) in this.0.attrs(AttrInspectOptions::All) {
-            attr.traverse(&mut traversal)?;
+            attr.traverse(this.0.label().pkg(), &mut traversal)?;
         }
         Ok(traversal.inputs)
     }
@@ -358,7 +361,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
             target: cell_path,
         };
         for (_, attr) in this.0.attrs(AttrInspectOptions::All) {
-            attr.traverse(&mut traversal)?;
+            attr.traverse(this.0.label().pkg(), &mut traversal)?;
 
             if let Some(found) = traversal.found {
                 return Ok(Some(found));
@@ -436,7 +439,7 @@ fn configured_value_methods(builder: &mut MethodsBuilder) {
     ///     ctx.output.print(attrs.name.value())
     /// ```
     fn value<'v>(this: &StarlarkConfiguredValue, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        this.0.to_value(heap)
+        this.0.to_value(&this.1, heap)
     }
 }
 
@@ -611,7 +614,9 @@ fn lazy_resolved_attrs_methods(builder: &mut MethodsBuilder) {
     ) -> anyhow::Result<Option<Value<'v>>> {
         Ok(
             match this.configured_node.get(attr, AttrInspectOptions::All) {
-                Some(attr) => Some(attr.resolve_single(&this.resolution_ctx)?),
+                Some(attr) => Some(
+                    attr.resolve_single(this.configured_node.label().pkg(), &this.resolution_ctx)?,
+                ),
                 None => None,
             },
         )

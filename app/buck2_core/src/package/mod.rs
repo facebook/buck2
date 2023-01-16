@@ -159,6 +159,14 @@ impl PackageLabel {
             )
         }
     }
+
+    /// Some package name usable in tests.
+    pub fn testing() -> PackageLabel {
+        PackageLabel::new(
+            &CellName::unchecked_new("root".to_owned()),
+            CellRelativePath::new(ForwardRelativePath::new("package/subdir").unwrap()),
+        )
+    }
 }
 
 ///

@@ -11,6 +11,7 @@ use std::fmt::Debug;
 
 use allocative::Allocative;
 use buck2_core::collections::ordered_map::OrderedMap;
+use buck2_core::package::PackageLabel;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::TargetLabel;
 use serde::Serialize;
@@ -72,9 +73,10 @@ impl ConfiguredAttr {
     /// Traverses the configured attribute and calls the traverse for every encountered target label (in deps, sources, or other places).
     pub fn traverse<'a>(
         &'a self,
+        pkg: &PackageLabel,
         traversal: &mut dyn ConfiguredAttrTraversal<'a>,
     ) -> anyhow::Result<()> {
-        self.0.traverse(traversal)
+        self.0.traverse(pkg, traversal)
     }
 
     /// Used for concatting the configured result of concatted selects. For most types this isn't allowed (it

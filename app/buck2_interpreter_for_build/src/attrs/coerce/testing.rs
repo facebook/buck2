@@ -15,7 +15,6 @@ use buck2_common::package_listing::listing::testing::PackageListingExt;
 use buck2_common::package_listing::listing::PackageListing;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
-use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::cells::CellAlias;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellName;
@@ -69,16 +68,11 @@ pub fn coercion_ctx() -> impl AttrCoercionContext {
 }
 
 pub fn coercion_ctx_listing(package_listing: PackageListing) -> impl AttrCoercionContext {
-    let root_cell_name = CellName::unchecked_new("root".to_owned());
+    let package = PackageLabel::testing();
     let aliases = hashmap![
-        CellAlias::new("".to_owned()) => root_cell_name.clone(),
+        CellAlias::new("".to_owned()) => package.cell_name().clone(),
         CellAlias::new("cell1".to_owned()) => CellName::unchecked_new("cell1".to_owned()),
     ];
-
-    let package = PackageLabel::new(
-        &root_cell_name,
-        CellRelativePath::unchecked_new("package/subdir"),
-    );
 
     struct NoFunctions;
     impl QueryFunctionsVisitLiterals for NoFunctions {

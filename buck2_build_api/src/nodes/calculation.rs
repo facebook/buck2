@@ -200,7 +200,7 @@ impl ExecutionPlatformConstraints {
                     name
                 )
             })?;
-            configured_attr.traverse(&mut me)?;
+            configured_attr.traverse(node.label().pkg(), &mut me)?;
             if name == EXEC_COMPATIBLE_WITH_ATTRIBUTE_FIELD {
                 me.exec_compatible_with.extend(
                     ConfiguredTargetNode::attr_as_target_compatible_with(configured_attr),
@@ -598,7 +598,7 @@ async fn compute_configured_target_node_no_transition(
         let configured_attr = attr
             .configure(&attr_cfg_ctx)
             .with_context(|| format!("when configuring attribute `{}`", attr_name))?;
-        configured_attr.traverse(&mut traversal)?;
+        configured_attr.traverse(target_node.label().pkg(), &mut traversal)?;
     }
 
     // Check transitive target compatibility.

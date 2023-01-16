@@ -318,7 +318,7 @@ impl ConfiguredTargetNode {
         }
         let mut traversal = InputsCollector { inputs: Vec::new() };
         for (_, attr) in self.attrs(AttrInspectOptions::All) {
-            attr.traverse(&mut traversal)
+            attr.traverse(self.label().pkg(), &mut traversal)
                 .expect("inputs collector shouldn't return errors");
         }
         traversal.inputs.into_iter()
@@ -350,7 +350,7 @@ impl ConfiguredTargetNode {
         }
         // TODO(cjhopman): optimize for non-query attrs
         for (_, attr) in self.attrs(AttrInspectOptions::All) {
-            attr.traverse(&mut traversal).unwrap();
+            attr.traverse(self.label().pkg(), &mut traversal).unwrap();
         }
         traversal.queries.into_iter()
     }
@@ -384,7 +384,7 @@ impl ConfiguredTargetNode {
 
         let mut traversal = TestCollector::default();
         if let Some(tests) = self.get(TESTS_ATTRIBUTE_FIELD, AttrInspectOptions::All) {
-            tests.traverse(&mut traversal).unwrap();
+            tests.traverse(self.label().pkg(), &mut traversal).unwrap();
         }
         traversal.labels.into_iter()
     }

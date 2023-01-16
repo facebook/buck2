@@ -9,6 +9,7 @@
 
 use std::fmt::Debug;
 
+use buck2_core::package::PackageLabel;
 use buck2_execute::artifact::source_artifact::SourceArtifact;
 use buck2_interpreter::types::label::Label;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
@@ -102,18 +103,30 @@ impl UnconfiguredAttrLiteralExt for AttrLiteral<CoercedAttr> {
 }
 
 pub(crate) trait ConfiguredAttrLiteralExt {
-    fn resolve_single<'v>(&self, ctx: &dyn AttrResolutionContext<'v>) -> anyhow::Result<Value<'v>>;
+    fn resolve_single<'v>(
+        &self,
+        pkg: &PackageLabel,
+        ctx: &dyn AttrResolutionContext<'v>,
+    ) -> anyhow::Result<Value<'v>>;
 
-    fn resolve<'v>(&self, ctx: &dyn AttrResolutionContext<'v>) -> anyhow::Result<Vec<Value<'v>>>;
+    fn resolve<'v>(
+        &self,
+        pkg: &PackageLabel,
+        ctx: &dyn AttrResolutionContext<'v>,
+    ) -> anyhow::Result<Vec<Value<'v>>>;
 
     fn starlark_type(&self) -> anyhow::Result<&'static str>;
 
     /// Converts the configured attr to a starlark value without fully resolving
-    fn to_value<'v>(&self, heap: &'v Heap) -> anyhow::Result<Value<'v>>;
+    fn to_value<'v>(&self, pkg: &PackageLabel, heap: &'v Heap) -> anyhow::Result<Value<'v>>;
 }
 
 impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
-    fn resolve_single<'v>(&self, ctx: &dyn AttrResolutionContext<'v>) -> anyhow::Result<Value<'v>> {
+    fn resolve_single<'v>(
+        &self,
+        pkg: &PackageLabel,
+        ctx: &dyn AttrResolutionContext<'v>,
+    ) -> anyhow::Result<Value<'v>> {
         match self {
             AttrLiteral::Bool(v) => Ok(Value::new_bool(*v)),
             AttrLiteral::Int(v) => Ok(Value::new_int(*v)),
@@ -121,21 +134,24 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
             AttrLiteral::List(list, _) => {
                 let mut values = Vec::with_capacity(list.len());
                 for v in list.iter() {
-                    values.append(&mut v.resolve(ctx)?);
+                    values.append(&mut v.resolve(pkg, ctx)?);
                 }
                 Ok(ctx.heap().alloc(values))
             }
             AttrLiteral::Tuple(list) => {
                 let mut values = Vec::with_capacity(list.len());
                 for v in list.iter() {
-                    values.append(&mut v.resolve(ctx)?);
+                    values.append(&mut v.resolve(pkg, ctx)?);
                 }
                 Ok(ctx.heap().alloc(AllocTuple(values)))
             }
             AttrLiteral::Dict(dict) => {
                 let mut res = SmallMap::with_capacity(dict.len());
                 for (k, v) in dict {
-                    res.insert_hashed(k.resolve_single(ctx)?.get_hashed()?, v.resolve_single(ctx)?);
+                    res.insert_hashed(
+                        k.resolve_single(pkg, ctx)?.get_hashed()?,
+                        v.resolve_single(pkg, ctx)?,
+                    );
                 }
                 Ok(ctx.heap().alloc(Dict::new(res)))
             }
@@ -166,11 +182,15 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
         }
     }
 
-    fn resolve<'v>(&self, ctx: &dyn AttrResolutionContext<'v>) -> anyhow::Result<Vec<Value<'v>>> {
+    fn resolve<'v>(
+        &self,
+        pkg: &PackageLabel,
+        ctx: &dyn AttrResolutionContext<'v>,
+    ) -> anyhow::Result<Vec<Value<'v>>> {
         match self {
             // SourceLabel is special since it is the only type that can be expand to many
             AttrLiteral::SourceLabel(src) => SourceAttrType::resolve_label(ctx, src),
-            _ => Ok(vec![self.resolve_single(ctx)?]),
+            _ => Ok(vec![self.resolve_single(pkg, ctx)?]),
         }
     }
 
@@ -200,18 +220,18 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
         }
     }
 
-    fn to_value<'v>(&self, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    fn to_value<'v>(&self, pkg: &PackageLabel, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         Ok(match &self {
             AttrLiteral::Bool(v) => heap.alloc(*v),
             AttrLiteral::Int(v) => heap.alloc(*v),
             AttrLiteral::String(s) | AttrLiteral::EnumVariant(s) => heap.alloc(s),
-            AttrLiteral::List(list, _ty) => heap.alloc(list.try_map(|v| v.to_value(heap))?),
-            AttrLiteral::Tuple(v) => heap.alloc(AllocTuple(v.try_map(|v| v.to_value(heap))?)),
+            AttrLiteral::List(list, _ty) => heap.alloc(list.try_map(|v| v.to_value(pkg, heap))?),
+            AttrLiteral::Tuple(v) => heap.alloc(AllocTuple(v.try_map(|v| v.to_value(pkg, heap))?)),
             AttrLiteral::Dict(map) => {
                 let mut res = SmallMap::with_capacity(map.len());
 
                 for (k, v) in map {
-                    res.insert_hashed(k.to_value(heap)?.get_hashed()?, v.to_value(heap)?);
+                    res.insert_hashed(k.to_value(pkg, heap)?.get_hashed()?, v.to_value(pkg, heap)?);
                 }
 
                 heap.alloc(Dict::new(res))

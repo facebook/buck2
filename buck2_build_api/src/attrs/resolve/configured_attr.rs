@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use buck2_core::package::PackageLabel;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use starlark::values::Heap;
 use starlark::values::Value;
@@ -15,13 +16,21 @@ use crate::attrs::resolve::attr_literal::ConfiguredAttrLiteralExt;
 use crate::attrs::resolve::ctx::AttrResolutionContext;
 
 pub trait ConfiguredAttrExt {
-    fn resolve<'v>(&self, ctx: &dyn AttrResolutionContext<'v>) -> anyhow::Result<Vec<Value<'v>>>;
+    fn resolve<'v>(
+        &self,
+        pkg: &PackageLabel,
+        ctx: &dyn AttrResolutionContext<'v>,
+    ) -> anyhow::Result<Vec<Value<'v>>>;
 
-    fn resolve_single<'v>(&self, ctx: &dyn AttrResolutionContext<'v>) -> anyhow::Result<Value<'v>>;
+    fn resolve_single<'v>(
+        &self,
+        pkg: &PackageLabel,
+        ctx: &dyn AttrResolutionContext<'v>,
+    ) -> anyhow::Result<Value<'v>>;
 
     fn starlark_type(&self) -> anyhow::Result<&'static str>;
 
-    fn to_value<'v>(&self, heap: &'v Heap) -> anyhow::Result<Value<'v>>;
+    fn to_value<'v>(&self, pkg: &PackageLabel, heap: &'v Heap) -> anyhow::Result<Value<'v>>;
 }
 
 impl ConfiguredAttrExt for ConfiguredAttr {
@@ -31,14 +40,22 @@ impl ConfiguredAttrExt for ConfiguredAttr {
     /// an inappropriate number of elements is returned. e.g. `attrs.list()` might
     /// accept and merge multiple returned values from `attrs.source()`, but
     /// `attrs.optional()` might only accept a single value, and fail otherwise.
-    fn resolve<'v>(&self, ctx: &dyn AttrResolutionContext<'v>) -> anyhow::Result<Vec<Value<'v>>> {
-        self.0.resolve(ctx)
+    fn resolve<'v>(
+        &self,
+        pkg: &PackageLabel,
+        ctx: &dyn AttrResolutionContext<'v>,
+    ) -> anyhow::Result<Vec<Value<'v>>> {
+        self.0.resolve(pkg, ctx)
     }
 
     /// Resolving a single value is common, so `resolve_single` will validate
     /// this function's output, and return a single value or an error.
-    fn resolve_single<'v>(&self, ctx: &dyn AttrResolutionContext<'v>) -> anyhow::Result<Value<'v>> {
-        self.0.resolve_single(ctx)
+    fn resolve_single<'v>(
+        &self,
+        pkg: &PackageLabel,
+        ctx: &dyn AttrResolutionContext<'v>,
+    ) -> anyhow::Result<Value<'v>> {
+        self.0.resolve_single(pkg, ctx)
     }
 
     /// Returns the starlark type of this attr without resolving
@@ -47,7 +64,7 @@ impl ConfiguredAttrExt for ConfiguredAttr {
     }
 
     /// Converts the configured attr to a starlark value without fully resolving
-    fn to_value<'v>(&self, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        self.0.to_value(heap)
+    fn to_value<'v>(&self, pkg: &PackageLabel, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+        self.0.to_value(pkg, heap)
     }
 }

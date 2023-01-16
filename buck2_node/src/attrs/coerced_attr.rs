@@ -13,6 +13,7 @@ use allocative::Allocative;
 use buck2_core::collections::ordered_map::OrderedMap;
 use buck2_core::configuration::Configuration;
 use buck2_core::configuration::ConfigurationData;
+use buck2_core::package::PackageLabel;
 use buck2_core::target::TargetLabel;
 use dupe::Dupe;
 use dupe::IterDupedExt;
@@ -175,23 +176,24 @@ impl CoercedAttr {
     /// are passed as configuration deps).
     pub fn traverse<'a>(
         &'a self,
+        pkg: &PackageLabel,
         traversal: &mut dyn CoercedAttrTraversal<'a>,
     ) -> anyhow::Result<()> {
         match self {
-            CoercedAttr::Literal(v) => v.traverse(traversal),
+            CoercedAttr::Literal(v) => v.traverse(pkg, traversal),
             CoercedAttr::Selector(box (selector, default)) => {
                 for (condition, value) in selector.iter() {
                     traversal.configuration_dep(condition)?;
-                    value.traverse(traversal)?;
+                    value.traverse(pkg, traversal)?;
                 }
                 if let Some(v) = default {
-                    v.traverse(traversal)?;
+                    v.traverse(pkg, traversal)?;
                 }
                 Ok(())
             }
             CoercedAttr::Concat(items) => {
                 for item in items {
-                    item.traverse(traversal)?;
+                    item.traverse(pkg, traversal)?;
                 }
                 Ok(())
             }
