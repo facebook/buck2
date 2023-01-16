@@ -28,6 +28,12 @@ from pathlib import Path
 from typing import List
 
 
+def _call_or_exit(cmd: List[str]):
+    ret = subprocess.call(cmd)
+    if ret != 0:
+        sys.exit(ret)
+
+
 def _compile(compile_prefix: List[str], output: Path, srcs: List[Path]):
     cmd = []
     cmd.extend(compile_prefix)
@@ -35,7 +41,7 @@ def _compile(compile_prefix: List[str], output: Path, srcs: List[Path]):
     cmd.append("-o")
     cmd.append(output)
     cmd.extend(srcs)
-    subprocess.check_call(cmd)
+    _call_or_exit(cmd)
 
 
 def _pack(pack_prefix: List[str], output: Path, items: List[Path]):
@@ -44,7 +50,7 @@ def _pack(pack_prefix: List[str], output: Path, items: List[Path]):
     cmd.append("r")
     cmd.append(output)
     cmd.extend(items)
-    subprocess.check_call(cmd)
+    _call_or_exit(cmd)
 
 
 def main(argv):
