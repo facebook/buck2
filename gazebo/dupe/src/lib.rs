@@ -23,6 +23,7 @@ pub use dupe_derive::Dupe_;
 /// constant time and zero allocation (e.g. a few [`Arc`](Arc) bumps).
 /// The implementation of `dupe` should _always_ call `clone`.
 pub trait Dupe: Clone {
+    #[inline]
     fn dupe(&self) -> Self {
         self.clone()
     }
