@@ -61,7 +61,7 @@ impl AttributeSpecExt for AttributeSpec {
 
                 attr_values.push_sorted(
                     attr_idx,
-                    CoercedAttr::Literal(AttrLiteral::String(name.to_owned())),
+                    CoercedAttr::Literal(AttrLiteral::String(name.into())),
                 );
 
                 TargetName::new(name)?

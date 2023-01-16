@@ -180,7 +180,7 @@ impl TargetNode {
 
     pub(crate) fn special_attrs(&self) -> impl Iterator<Item = (&str, CoercedAttr)> {
         let typ_attr =
-            CoercedAttr::new_literal(AttrLiteral::String(self.rule_type().name().to_owned()));
+            CoercedAttr::new_literal(AttrLiteral::String(self.rule_type().name().into()));
         let deps_attr = CoercedAttr::new_literal(AttrLiteral::List(
             self.deps()
                 .map(|t| {
@@ -191,8 +191,9 @@ impl TargetNode {
                 .collect(),
             AttrType::dep(Vec::new()),
         ));
-        let package_attr =
-            CoercedAttr::new_literal(AttrLiteral::String(self.buildfile_path().to_string()));
+        let package_attr = CoercedAttr::new_literal(AttrLiteral::String(
+            self.buildfile_path().to_string().into_boxed_str(),
+        ));
         vec![
             (TYPE, typ_attr),
             (
@@ -210,7 +211,7 @@ impl TargetNode {
                 ONCALL,
                 CoercedAttr::new_literal(match self.oncall() {
                     None => AttrLiteral::None,
-                    Some(x) => AttrLiteral::String(x.to_owned()),
+                    Some(x) => AttrLiteral::String(x.to_owned().into_boxed_str()),
                 }),
             ),
         ]

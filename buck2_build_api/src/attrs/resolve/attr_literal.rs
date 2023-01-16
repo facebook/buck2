@@ -81,7 +81,7 @@ impl UnconfiguredAttrLiteralExt for AttrLiteral<CoercedAttr> {
             }
             AttrLiteral::Dict(d) => {
                 let mut m = SmallMap::with_capacity(d.len());
-                for (k, v) in d {
+                for (k, v) in &**d {
                     m.insert_hashed(k.to_value(heap)?.get_hashed()?, v.to_value(heap)?);
                 }
                 Ok(heap.alloc(Dict::new(m)))
@@ -131,7 +131,7 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
         match self {
             AttrLiteral::Bool(v) => Ok(Value::new_bool(*v)),
             AttrLiteral::Int(v) => Ok(Value::new_int(*v)),
-            AttrLiteral::String(v) | AttrLiteral::EnumVariant(v) => Ok(ctx.heap().alloc(v)),
+            AttrLiteral::String(v) | AttrLiteral::EnumVariant(v) => Ok(ctx.heap().alloc(&**v)),
             AttrLiteral::List(list, _) => {
                 let mut values = Vec::with_capacity(list.len());
                 for v in list.iter() {
@@ -148,7 +148,7 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
             }
             AttrLiteral::Dict(dict) => {
                 let mut res = SmallMap::with_capacity(dict.len());
-                for (k, v) in dict {
+                for (k, v) in &**dict {
                     res.insert_hashed(
                         k.resolve_single(pkg, ctx)?.get_hashed()?,
                         v.resolve_single(pkg, ctx)?,
@@ -225,13 +225,13 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
         Ok(match &self {
             AttrLiteral::Bool(v) => heap.alloc(*v),
             AttrLiteral::Int(v) => heap.alloc(*v),
-            AttrLiteral::String(s) | AttrLiteral::EnumVariant(s) => heap.alloc(s),
+            AttrLiteral::String(s) | AttrLiteral::EnumVariant(s) => heap.alloc(&**s),
             AttrLiteral::List(list, _ty) => heap.alloc(list.try_map(|v| v.to_value(pkg, heap))?),
             AttrLiteral::Tuple(v) => heap.alloc(AllocTuple(v.try_map(|v| v.to_value(pkg, heap))?)),
             AttrLiteral::Dict(map) => {
                 let mut res = SmallMap::with_capacity(map.len());
 
-                for (k, v) in map {
+                for (k, v) in &**map {
                     res.insert_hashed(k.to_value(pkg, heap)?.get_hashed()?, v.to_value(pkg, heap)?);
                 }
 

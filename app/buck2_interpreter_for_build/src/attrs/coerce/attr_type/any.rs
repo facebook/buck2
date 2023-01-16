@@ -42,7 +42,7 @@ fn to_literal(value: Value) -> AttrLiteral<CoercedAttr> {
     } else if let Some(x) = ListRef::from_value(value) {
         AttrLiteral::List(x.iter().map(to_coerced_literal).collect(), AttrType::any())
     } else {
-        AttrLiteral::String(value.to_str())
+        AttrLiteral::String(value.to_str().into_boxed_str())
     }
 }
 

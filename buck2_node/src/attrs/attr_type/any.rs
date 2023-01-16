@@ -18,7 +18,7 @@ pub struct AnyAttrType;
 
 impl AnyAttrType {
     pub fn empty_string() -> CoercedAttr {
-        CoercedAttr::new_literal(AttrLiteral::String("".to_owned()))
+        CoercedAttr::new_literal(AttrLiteral::String("".to_owned().into_boxed_str()))
     }
 
     pub fn empty_list(element_type: AttrType) -> CoercedAttr {

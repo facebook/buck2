@@ -281,7 +281,7 @@ mod tests {
             CoercedAttr::Literal(AttrLiteral::Bool(true))
         }
         fn literal_str() -> CoercedAttr {
-            CoercedAttr::Literal(AttrLiteral::String("linux".to_owned()))
+            CoercedAttr::Literal(AttrLiteral::String("linux".into()))
         }
 
         // Test more specific is selected even if it is not first.
@@ -323,10 +323,10 @@ mod tests {
         assert_eq!(
             r#"{"__type":"concat","items":["a","b","c","d"]}"#,
             CoercedAttr::Concat(vec![
-                CoercedAttr::Literal(AttrLiteral::String("a".to_owned())),
-                CoercedAttr::Literal(AttrLiteral::String("b".to_owned())),
-                CoercedAttr::Literal(AttrLiteral::String("c".to_owned())),
-                CoercedAttr::Literal(AttrLiteral::String("d".to_owned())),
+                CoercedAttr::Literal(AttrLiteral::String("a".into())),
+                CoercedAttr::Literal(AttrLiteral::String("b".into())),
+                CoercedAttr::Literal(AttrLiteral::String("c".into())),
+                CoercedAttr::Literal(AttrLiteral::String("d".into())),
             ])
             .to_json(&AttrFmtContext::NO_CONTEXT)
             .unwrap()
@@ -349,7 +349,7 @@ mod tests {
                         CoercedAttr::Literal(AttrLiteral::Int(10))
                     ),
                 ]),
-                Some(CoercedAttr::Literal(AttrLiteral::String("ddd".to_owned()))),
+                Some(CoercedAttr::Literal(AttrLiteral::String("ddd".into()))),
             ))
             .to_json(&AttrFmtContext::NO_CONTEXT)
             .unwrap()

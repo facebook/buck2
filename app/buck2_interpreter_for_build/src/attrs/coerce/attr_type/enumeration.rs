@@ -31,7 +31,7 @@ impl AttrTypeCoerce for EnumAttrType {
                 // so we normalise them to lowercase to make rule implementations easier
                 let s = s.to_lowercase();
                 if self.variants.contains(&s) {
-                    Ok(AttrLiteral::EnumVariant(s))
+                    Ok(AttrLiteral::EnumVariant(s.into_boxed_str()))
                 } else {
                     let wanted = self.variants.iter().cloned().collect();
                     Err(CoercionError::InvalidEnumVariant(s, wanted).into())

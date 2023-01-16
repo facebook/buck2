@@ -26,7 +26,7 @@ impl AttrTypeCoerce for StringAttrType {
         value: Value,
     ) -> anyhow::Result<AttrLiteral<CoercedAttr>> {
         match value.unpack_str() {
-            Some(s) => Ok(AttrLiteral::String(s.to_owned())),
+            Some(s) => Ok(AttrLiteral::String(s.into())),
             None => Err(anyhow::anyhow!(CoercionError::type_error(
                 STRING_TYPE,
                 value

@@ -114,13 +114,13 @@ impl ConfiguredAttr {
             }
             AttrLiteral::Dict(left) => {
                 let mut res = OrderedMap::new();
-                for (k, v) in left {
+                for (k, v) in left.into_vec() {
                     res.insert(k, v);
                 }
                 for x in items {
                     match x?.0 {
                         AttrLiteral::Dict(right) => {
-                            for (k, v) in right {
+                            for (k, v) in right.into_vec() {
                                 match res.entry(k) {
                                     small_map::Entry::Vacant(e) => {
                                         e.insert(v);
@@ -139,14 +139,15 @@ impl ConfiguredAttr {
                 }
                 Ok(Self(AttrLiteral::Dict(res.into_iter().collect())))
             }
-            AttrLiteral::String(mut res) => {
+            AttrLiteral::String(res) => {
+                let mut res = res.into_string();
                 for x in items {
                     match x?.0 {
                         AttrLiteral::String(right) => res.push_str(&right),
                         attr => return mismatch("string", attr),
                     }
                 }
-                Ok(Self(AttrLiteral::String(res)))
+                Ok(Self(AttrLiteral::String(res.into_boxed_str())))
             }
             AttrLiteral::Arg(left) => {
                 let res = left.concat(items.map(|x| {

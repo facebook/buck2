@@ -53,16 +53,16 @@ pub enum AttrLiteral<C: AttrConfig> {
     //
     // So when working with configured attributes with pay with CPU for string copies,
     // but don't increase total memory usage, because these string copies are short living.
-    String(String),
+    String(Box<str>),
     // Like String, but drawn from a set of variants, so doesn't support concat
-    EnumVariant(String),
+    EnumVariant(Box<str>),
     // Type of list elements is used to verify that concatenation is valid.
     // That only can be checked after configuration took place,
     // so pass the type info together with values to be used later.
     List(Box<[C]>, AttrType),
     // We make Tuple a Box<[C]> so we can share code paths with List
     Tuple(Box<[C]>),
-    Dict(Vec<(C, C)>),
+    Dict(Box<[(C, C)]>),
     None,
     Dep(Box<DepAttr<C::ProvidersType>>),
     ConfiguredDep(Box<DepAttr<ConfiguredProvidersLabel>>),
@@ -172,7 +172,7 @@ impl<C: AttrConfig> AttrLiteral<C> {
             AttrLiteral::Dict(dict) => {
                 let mut res: serde_json::Map<String, serde_json::Value> =
                     serde_json::Map::with_capacity(dict.len());
-                for (k, v) in dict {
+                for (k, v) in &**dict {
                     res.insert(
                         k.to_json(ctx)?.as_str().unwrap().to_owned(),
                         v.to_json(ctx)?,
@@ -212,7 +212,7 @@ impl<C: AttrConfig> AttrLiteral<C> {
                 Ok(false)
             }
             AttrLiteral::Dict(d) => {
-                for (k, v) in d {
+                for (k, v) in &**d {
                     if k.any_matches(filter)? || v.any_matches(filter)? {
                         return Ok(true);
                     }
@@ -254,7 +254,7 @@ impl AttrLiteral<ConfiguredAttr> {
                 Ok(())
             }
             AttrLiteral::Dict(dict) => {
-                for (k, v) in dict {
+                for (k, v) in &**dict {
                     k.traverse(pkg, traversal)?;
                     v.traverse(pkg, traversal)?;
                 }
@@ -299,11 +299,14 @@ impl AttrLiteral<CoercedAttr> {
             AttrLiteral::Tuple(list) => {
                 AttrLiteral::Tuple(list.try_map(|v| v.configure(ctx))?.into_boxed_slice())
             }
-            AttrLiteral::Dict(dict) => AttrLiteral::Dict(dict.try_map(|(k, v)| {
-                let k2 = k.configure(ctx)?;
-                let v2 = v.configure(ctx)?;
-                anyhow::Ok((k2, v2))
-            })?),
+            AttrLiteral::Dict(dict) => AttrLiteral::Dict(
+                dict.try_map(|(k, v)| {
+                    let k2 = k.configure(ctx)?;
+                    let v2 = v.configure(ctx)?;
+                    anyhow::Ok((k2, v2))
+                })?
+                .into_boxed_slice(),
+            ),
             AttrLiteral::None => AttrLiteral::None,
             AttrLiteral::Dep(dep) => DepAttrType::configure(ctx, dep)?,
             AttrLiteral::ConfiguredDep(dep) => AttrLiteral::Dep(dep.clone()),
@@ -341,7 +344,7 @@ impl AttrLiteral<CoercedAttr> {
                 Ok(())
             }
             AttrLiteral::Dict(dict) => {
-                for (k, v) in dict {
+                for (k, v) in &**dict {
                     k.traverse(pkg, traversal)?;
                     v.traverse(pkg, traversal)?;
                 }

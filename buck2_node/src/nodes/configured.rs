@@ -410,7 +410,7 @@ impl ConfiguredTargetNode {
     }
 
     pub fn special_attrs(&self) -> impl Iterator<Item = (&str, ConfiguredAttr)> {
-        let typ_attr = ConfiguredAttr::new(AttrLiteral::String(self.rule_type().name().to_owned()));
+        let typ_attr = ConfiguredAttr::new(AttrLiteral::String(self.rule_type().name().into()));
         let deps_attr = ConfiguredAttr::new(AttrLiteral::List(
             self.deps()
                 .map(|t| {
@@ -423,8 +423,9 @@ impl ConfiguredTargetNode {
                 .into_boxed_slice(),
             AttrType::dep(Vec::new()),
         ));
-        let package_attr =
-            ConfiguredAttr::new(AttrLiteral::String(self.buildfile_path().to_string()));
+        let package_attr = ConfiguredAttr::new(AttrLiteral::String(
+            self.buildfile_path().to_string().into_boxed_str(),
+        ));
         vec![
             (TYPE, typ_attr),
             (DEPS, deps_attr),
@@ -433,20 +434,22 @@ impl ConfiguredTargetNode {
                 ONCALL,
                 ConfiguredAttr::new(match self.oncall() {
                     None => AttrLiteral::None,
-                    Some(x) => AttrLiteral::String(x.to_owned()),
+                    Some(x) => AttrLiteral::String(x.into()),
                 }),
             ),
             (
                 TARGET_CONFIGURATION,
-                ConfiguredAttr::new(AttrLiteral::String(self.0.label.cfg().to_string())),
+                ConfiguredAttr::new(AttrLiteral::String(
+                    self.0.label.cfg().to_string().into_boxed_str(),
+                )),
             ),
             (
                 EXECUTION_PLATFORM,
                 ConfiguredAttr::new(AttrLiteral::String(
-                    self.0
-                        .execution_platform_resolution
-                        .platform()
-                        .map_or_else(|_| "<NONE>".to_owned(), |v| v.id()),
+                    self.0.execution_platform_resolution.platform().map_or_else(
+                        |_| "<NONE>".to_owned().into_boxed_str(),
+                        |v| v.id().into_boxed_str(),
+                    ),
                 )),
             ),
         ]
