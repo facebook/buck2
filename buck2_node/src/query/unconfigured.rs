@@ -15,13 +15,13 @@ use buck2_core::target::TargetLabel;
 use buck2_query::query::environment::LabeledNode;
 use buck2_query::query::environment::QueryTarget;
 use dupe::Dupe;
-use serde::Serialize;
 use serde::Serializer;
 
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::display::AttrDisplayWithContextExt;
 use crate::attrs::fmt_context::AttrFmtContext;
 use crate::attrs::inspect_options::AttrInspectOptions;
+use crate::attrs::serialize::AttrSerializeWithContext;
 use crate::nodes::unconfigured::TargetNode;
 
 impl LabeledNode for TargetNode {
@@ -119,6 +119,11 @@ impl QueryTarget for TargetNode {
         attr: &Self::Attr,
         serializer: S,
     ) -> Result<S::Ok, S::Error> {
-        attr.serialize(serializer)
+        attr.serialize_with_ctx(
+            &AttrFmtContext {
+                package: Some(self.label().pkg().dupe()),
+            },
+            serializer,
+        )
     }
 }

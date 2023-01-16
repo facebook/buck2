@@ -146,6 +146,7 @@ mod tests {
     use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
     use buck2_node::attrs::coerced_attr::CoercedAttr;
     use buck2_node::attrs::configuration_context::AttrConfigurationContext;
+    use buck2_node::attrs::fmt_context::AttrFmtContext;
     use dupe::Dupe;
 
     #[test]
@@ -327,7 +328,7 @@ mod tests {
                 CoercedAttr::Literal(AttrLiteral::String("c".to_owned())),
                 CoercedAttr::Literal(AttrLiteral::String("d".to_owned())),
             ])
-            .to_json()
+            .to_json(&AttrFmtContext::NO_CONTEXT)
             .unwrap()
             .to_string()
         );
@@ -350,7 +351,7 @@ mod tests {
                 ]),
                 Some(CoercedAttr::Literal(AttrLiteral::String("ddd".to_owned()))),
             ))
-            .to_json()
+            .to_json(&AttrFmtContext::NO_CONTEXT)
             .unwrap()
             .to_string()
         );

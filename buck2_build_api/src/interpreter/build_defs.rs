@@ -256,7 +256,11 @@ mod tests {
                         "visibility": [],
                     },
             }),
-            targets_to_json(eval_result.targets(), AttrInspectOptions::All)?
+            targets_to_json(
+                eval_result.targets(),
+                build_path.package(),
+                AttrInspectOptions::All
+            )?
         );
         Ok(())
     }

@@ -599,13 +599,11 @@ mod tests {
         let heap = Heap::new();
         let some_cells = cells(None)?;
         let cell_alias_resolver = some_cells.0;
-        let enclosing_package = (
-            PackageLabel::new(
-                cell_alias_resolver.resolve_self(),
-                CellRelativePath::unchecked_new("foo"),
-            ),
-            PackageListing::testing_empty(),
+        let package = PackageLabel::new(
+            cell_alias_resolver.resolve_self(),
+            CellRelativePath::unchecked_new("foo"),
         );
+        let enclosing_package = (package.dupe(), PackageListing::testing_empty());
         let coercer_ctx = BuildAttrCoercionContext::new_with_package(
             cell_alias_resolver,
             enclosing_package,
@@ -659,17 +657,23 @@ mod tests {
         let invalid_label_value3 =
             label_coercer.coerce(AttrIsConfigurable::Yes, &coercer_ctx, heap.alloc("1"));
 
-        assert_eq!("root//foo:bar", value_to_string(&label_value1)?);
-        assert_eq!("root//foo:bar[baz]", value_to_string(&label_value2)?);
-        assert_eq!("root//foo:bar", value_to_string(&label_value3)?);
-        assert_eq!("root//foo:bar[baz]", value_to_string(&label_value4)?);
+        assert_eq!("root//foo:bar", value_to_string(&label_value1, &package)?);
+        assert_eq!(
+            "root//foo:bar[baz]",
+            value_to_string(&label_value2, &package)?
+        );
+        assert_eq!("root//foo:bar", value_to_string(&label_value3, &package)?);
+        assert_eq!(
+            "root//foo:bar[baz]",
+            value_to_string(&label_value4, &package)?
+        );
         assert!(invalid_label_value1.is_err());
         assert!(invalid_label_value2.is_err());
         assert!(invalid_label_value3.is_err());
 
         let string_value1 =
             string_coercer.coerce(AttrIsConfigurable::Yes, &coercer_ctx, heap.alloc("str"))?;
-        assert_eq!("str", value_to_string(&string_value1)?);
+        assert_eq!("str", value_to_string(&string_value1, &package)?);
 
         let enum_valid1 =
             enum_coercer.coerce(AttrIsConfigurable::Yes, &coercer_ctx, heap.alloc("red"))?;
@@ -681,9 +685,9 @@ mod tests {
             enum_coercer.coerce(AttrIsConfigurable::Yes, &coercer_ctx, heap.alloc("orange"));
         let enum_invalid2 =
             enum_coercer.coerce(AttrIsConfigurable::Yes, &coercer_ctx, heap.alloc(false));
-        assert_eq!("red", value_to_string(&enum_valid1)?);
-        assert_eq!("green", value_to_string(&enum_valid2)?);
-        assert_eq!("red", value_to_string(&enum_valid3)?);
+        assert_eq!("red", value_to_string(&enum_valid1, &package)?);
+        assert_eq!("green", value_to_string(&enum_valid2, &package)?);
+        assert_eq!("red", value_to_string(&enum_valid3, &package)?);
         assert!(enum_invalid1.is_err());
         assert!(enum_invalid2.is_err());
 

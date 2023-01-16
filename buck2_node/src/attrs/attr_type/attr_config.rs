@@ -24,6 +24,7 @@ use crate::attrs::attr_type::split_transition_dep::SplitTransitionDepMaybeConfig
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::configured_attr::ConfiguredAttr;
 use crate::attrs::display::AttrDisplayWithContext;
+use crate::attrs::fmt_context::AttrFmtContext;
 
 /// AttrConfig is used to implement things just once to cover both the configured and
 /// unconfigured case. For example, a Vec<C::TargetType> where C: AttrConfig, would be
@@ -42,7 +43,7 @@ pub trait AttrConfig: AttrLike + AttrDisplayWithContext {
     type SplitTransitionDepType: SplitTransitionDepMaybeConfigured + AttrLike;
     type ExplicitConfiguredDepType: ExplicitConfiguredDepMaybeConfigured + AttrLike;
 
-    fn to_json(&self) -> anyhow::Result<serde_json::Value>;
+    fn to_json(&self, ctx: &AttrFmtContext) -> anyhow::Result<serde_json::Value>;
 
     fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool>;
 }
@@ -53,8 +54,8 @@ impl AttrConfig for ConfiguredAttr {
     type SplitTransitionDepType = ConfiguredSplitTransitionDep;
     type ExplicitConfiguredDepType = ConfiguredExplicitConfiguredDep;
 
-    fn to_json(&self) -> anyhow::Result<serde_json::Value> {
-        self.0.to_json()
+    fn to_json(&self, ctx: &AttrFmtContext) -> anyhow::Result<serde_json::Value> {
+        self.0.to_json(ctx)
     }
 
     fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool> {
@@ -68,8 +69,8 @@ impl AttrConfig for CoercedAttr {
     type SplitTransitionDepType = SplitTransitionDep;
     type ExplicitConfiguredDepType = UnconfiguredExplicitConfiguredDep;
 
-    fn to_json(&self) -> anyhow::Result<serde_json::Value> {
-        CoercedAttr::to_json(self)
+    fn to_json(&self, ctx: &AttrFmtContext) -> anyhow::Result<serde_json::Value> {
+        CoercedAttr::to_json(self, ctx)
     }
 
     fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool> {

@@ -27,6 +27,7 @@ use crate::attrs::configured_attr::ConfiguredAttr;
 use crate::attrs::display::AttrDisplayWithContext;
 use crate::attrs::display::AttrDisplayWithContextExt;
 use crate::attrs::fmt_context::AttrFmtContext;
+use crate::attrs::serialize::AttrSerializeWithContext;
 use crate::attrs::traversal::CoercedAttrTraversal;
 
 #[derive(thiserror::Error, Debug)]
@@ -98,13 +99,13 @@ impl AttrDisplayWithContext for CoercedAttr {
     }
 }
 
-impl Serialize for CoercedAttr {
-    fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
+impl AttrSerializeWithContext for CoercedAttr {
+    fn serialize_with_ctx<S>(&self, ctx: &AttrFmtContext, s: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
         // TODO this is inefficient. We should impl Serialize and derive value from this instead.
-        self.to_json()
+        self.to_json(ctx)
             .map_err(|e| serde::ser::Error::custom(format!("{}", e)))?
             .serialize(s)
     }
@@ -119,16 +120,16 @@ impl CoercedAttr {
     /// things, a lot of the types will be dropped without special handling. For example, an artifact will just end
     /// up as the stringified version of its coerced value (i.e. while `//a:b` might represent some list of targets,
     /// in to_json it just appears as the string "//a:b").
-    pub fn to_json(&self) -> anyhow::Result<serde_json::Value> {
+    pub fn to_json(&self, ctx: &AttrFmtContext) -> anyhow::Result<serde_json::Value> {
         match self {
-            CoercedAttr::Literal(v) => v.to_json(),
+            CoercedAttr::Literal(v) => v.to_json(ctx),
             CoercedAttr::Selector(box (selector, default)) => {
                 let mut map = serde_json::Map::new();
                 for (k, v) in selector.iter() {
-                    map.insert(k.to_string(), v.to_json()?);
+                    map.insert(k.to_string(), v.to_json(ctx)?);
                 }
                 if let Some(default) = default {
-                    map.insert("DEFAULT".to_owned(), default.to_json()?);
+                    map.insert("DEFAULT".to_owned(), default.to_json(ctx)?);
                 }
                 let select = serde_json::Value::Object(map);
 
@@ -148,7 +149,9 @@ impl CoercedAttr {
                     ),
                     (
                         "items".to_owned(),
-                        serde_json::Value::Array(items.try_map(CoercedAttr::to_json)?),
+                        serde_json::Value::Array(
+                            items.try_map(|item| CoercedAttr::to_json(item, ctx))?,
+                        ),
                     ),
                 ])))
             }

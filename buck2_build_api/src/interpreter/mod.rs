@@ -367,6 +367,10 @@ pub(crate) mod testing {
             Ok(eval_result)
         }
 
+        pub(crate) fn build_file_path() -> BuildFilePath {
+            buildfile("root", "some/package")
+        }
+
         /// Run a starlark test with a basic environment. See
         /// `run_starlark_test()` above.
         pub(crate) fn run_starlark_test(&mut self, content: &str) -> SharedResult<TargetsMap> {
@@ -385,7 +389,7 @@ pub(crate) mod testing {
                     + content),
             )?;
 
-            let buildfile_path = buildfile("root", "some/package");
+            let buildfile_path = Self::build_file_path();
             let res = self.eval_build_file(
                 &buildfile_path,
                 indoc!(

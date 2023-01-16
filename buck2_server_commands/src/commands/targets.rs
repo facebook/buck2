@@ -133,7 +133,12 @@ impl TargetPrinter for JsonPrinter {
         print_attr(PACKAGE, &format!("\"{}\"", package));
 
         for (k, v) in target_info.node.attrs(self.attr_inspect_opts) {
-            print_attr(k, &value_to_json(v).unwrap().to_string());
+            print_attr(
+                k,
+                &value_to_json(v, target_info.node.label().pkg())
+                    .unwrap()
+                    .to_string(),
+            );
         }
 
         if self.target_call_stacks {

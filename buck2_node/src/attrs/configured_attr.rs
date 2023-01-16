@@ -23,6 +23,7 @@ use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
 use crate::attrs::display::AttrDisplayWithContext;
 use crate::attrs::display::AttrDisplayWithContextExt;
 use crate::attrs::fmt_context::AttrFmtContext;
+use crate::attrs::serialize::AttrSerializeWithContext;
 
 #[derive(Debug, thiserror::Error)]
 enum ConfiguredAttrError {
@@ -39,13 +40,13 @@ enum ConfiguredAttrError {
 #[derive(Eq, PartialEq, Hash, Clone, Allocative)]
 pub struct ConfiguredAttr(pub AttrLiteral<ConfiguredAttr>);
 
-impl Serialize for ConfiguredAttr {
-    fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
+impl AttrSerializeWithContext for ConfiguredAttr {
+    fn serialize_with_ctx<S>(&self, ctx: &AttrFmtContext, s: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
         // TODO this is inefficient. We should impl Serialize and derive value from this instead.
-        self.to_json()
+        self.to_json(ctx)
             .map_err(|e| serde::ser::Error::custom(format!("{}", e)))?
             .serialize(s)
     }

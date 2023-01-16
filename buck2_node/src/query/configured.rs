@@ -15,7 +15,6 @@ use buck2_core::target::ConfiguredTargetLabel;
 use buck2_query::query::environment::LabeledNode;
 use buck2_query::query::environment::QueryTarget;
 use dupe::Dupe;
-use serde::Serialize;
 use serde::Serializer;
 
 use crate::attrs::attr_type::attr_config::AttrConfig;
@@ -23,6 +22,7 @@ use crate::attrs::configured_attr::ConfiguredAttr;
 use crate::attrs::display::AttrDisplayWithContextExt;
 use crate::attrs::fmt_context::AttrFmtContext;
 use crate::attrs::inspect_options::AttrInspectOptions;
+use crate::attrs::serialize::AttrSerializeWithContext;
 use crate::nodes::configured::ConfiguredTargetNode;
 
 impl LabeledNode for ConfiguredTargetNode {
@@ -120,6 +120,11 @@ impl QueryTarget for ConfiguredTargetNode {
         attr: &Self::Attr,
         serializer: S,
     ) -> Result<S::Ok, S::Error> {
-        attr.serialize(serializer)
+        attr.serialize_with_ctx(
+            &AttrFmtContext {
+                package: Some(self.label().pkg().dupe()),
+            },
+            serializer,
+        )
     }
 }

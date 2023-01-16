@@ -144,20 +144,23 @@ impl<C: AttrConfig> AttrDisplayWithContext for AttrLiteral<C> {
 }
 
 impl<C: AttrConfig> AttrLiteral<C> {
-    pub fn to_json(&self) -> anyhow::Result<serde_json::Value> {
+    pub fn to_json(&self, ctx: &AttrFmtContext) -> anyhow::Result<serde_json::Value> {
         use serde_json::to_value;
         match self {
             AttrLiteral::Bool(v) => Ok(to_value(v)?),
             AttrLiteral::Int(v) => Ok(to_value(v)?),
             AttrLiteral::String(v) | AttrLiteral::EnumVariant(v) => Ok(to_value(v)?),
             AttrLiteral::List(list, _) | AttrLiteral::Tuple(list) => {
-                Ok(to_value(list.try_map(|c| c.to_json())?)?)
+                Ok(to_value(list.try_map(|c| c.to_json(ctx))?)?)
             }
             AttrLiteral::Dict(dict) => {
                 let mut res: serde_json::Map<String, serde_json::Value> =
                     serde_json::Map::with_capacity(dict.len());
                 for (k, v) in dict {
-                    res.insert(k.to_json()?.as_str().unwrap().to_owned(), v.to_json()?);
+                    res.insert(
+                        k.to_json(ctx)?.as_str().unwrap().to_owned(),
+                        v.to_json(ctx)?,
+                    );
                 }
                 Ok(res.into())
             }

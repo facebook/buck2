@@ -23,6 +23,7 @@ pub mod fmt_context;
 pub mod id;
 pub mod inspect_options;
 pub mod internal;
+pub mod serialize;
 pub mod spec;
 pub mod testing;
 pub mod traversal;

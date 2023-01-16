@@ -486,7 +486,11 @@ mod tests {
                 "visibility": [],
             },
         });
-        let actual = targets_to_json(&result, AttrInspectOptions::All)?;
+        let actual = targets_to_json(
+            &result,
+            Tester::build_file_path().package(),
+            AttrInspectOptions::All,
+        )?;
         assert_eq!(expected, actual, "`{:#?}` != `{:#?}`", expected, actual);
         Ok(())
     }

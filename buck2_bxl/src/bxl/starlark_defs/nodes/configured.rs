@@ -38,6 +38,7 @@ use buck2_node::attrs::configured_traversal::ConfiguredAttrTraversal;
 use buck2_node::attrs::display::AttrDisplayWithContext;
 use buck2_node::attrs::fmt_context::AttrFmtContext;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
+use buck2_node::attrs::serialize::AttrSerializeWithContext;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use derivative::Derivative;
 use derive_more::Display;
@@ -388,7 +389,12 @@ impl Serialize for StarlarkConfiguredValue {
     where
         S: Serializer,
     {
-        self.0.serialize(serializer)
+        self.0.serialize_with_ctx(
+            &AttrFmtContext {
+                package: Some(self.1.dupe()),
+            },
+            serializer,
+        )
     }
 }
 

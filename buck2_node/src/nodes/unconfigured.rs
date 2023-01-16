@@ -401,6 +401,7 @@ pub mod testing {
     use buck2_core::build_file_path::BuildFilePath;
     use buck2_core::collections::ordered_map::OrderedMap;
     use buck2_core::fs::paths::file_name::FileNameBuf;
+    use buck2_core::package::PackageLabel;
     use buck2_core::target::TargetLabel;
     use dupe::Dupe;
     use serde_json::map::Map;
@@ -410,6 +411,7 @@ pub mod testing {
     use crate::attrs::attr::Attribute;
     use crate::attrs::coerced_attr::CoercedAttr;
     use crate::attrs::coerced_deps_collector::CoercedDepsCollector;
+    use crate::attrs::fmt_context::AttrFmtContext;
     use crate::attrs::id::AttributeId;
     use crate::attrs::inspect_options::AttrInspectOptions;
     use crate::attrs::spec::AttributeSpec;
@@ -473,13 +475,24 @@ pub mod testing {
     /// Take a TargetsMap and convert it to a nice json representation. Adds in a __type__ attr
     /// for each target's values to make it clear what the rule type is. That can probably go
     /// away eventually.
-    pub fn targets_to_json(target: &TargetsMap, opts: AttrInspectOptions) -> anyhow::Result<Value> {
+    pub fn targets_to_json(
+        target: &TargetsMap,
+        pkg: &PackageLabel,
+        opts: AttrInspectOptions,
+    ) -> anyhow::Result<Value> {
         let map: Map<String, Value> = target
             .iter()
             .map(|(target_name, values)| {
                 let mut json_values: Map<String, Value> = values
                     .attrs(opts)
-                    .map(|(key, value)| Ok((key.to_owned(), value.to_json()?)))
+                    .map(|(key, value)| {
+                        Ok((
+                            key.to_owned(),
+                            value.to_json(&AttrFmtContext {
+                                package: Some(pkg.dupe()),
+                            })?,
+                        ))
+                    })
                     .collect::<anyhow::Result<Map<String, Value>>>()?;
                 json_values.insert(
                     "__type__".to_owned(),
