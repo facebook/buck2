@@ -35,7 +35,7 @@ rust_library(
         "fbsource//third-party/rust:zstd",
         "//buck2/app/buck2_forkserver:buck2_forkserver",
         "//buck2/app/buck2_forkserver_proto:buck2_forkserver_proto",
-        "//buck2/buck2_common:buck2_common",
+        "//buck2/app/buck2_common:buck2_common",
         "//buck2/app/buck2_core:buck2_core",
         "//buck2/buck2_data:buck2_data",
         "//buck2/buck2_events:buck2_events",

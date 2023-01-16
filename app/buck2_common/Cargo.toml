@@ -33,21 +33,21 @@ derivative = { workspace = true }
 parking_lot = { workspace = true }
 
 allocative = { workspace = true }
-dice = { path = "../dice/dice" }
-# @oss-disable: edenfs = { package = "thrift", path = "../../eden/fs/service" }
+dice = { path = "../../dice/dice" }
+# @oss-disable: edenfs = { package = "thrift", path = "../../../eden/fs/service" }
 fbinit = { workspace = true }
-# @oss-disable: fb303_core = { package = "fb303_core", path = "../../fb303/thrift" }
+# @oss-disable: fb303_core = { package = "fb303_core", path = "../../../fb303/thrift" }
 gazebo = { workspace = true }
 dupe = { workspace = true }
 gazebo_lint.version = "0.1"
 gazebo_lint.optional = true
-# @oss-disable: gazebo_lint.path = "../gazebo_lint/gazebo_lint"
-internment_tweaks = { path = "../shed/internment_tweaks" }
+# @oss-disable: gazebo_lint.path = "../../gazebo_lint/gazebo_lint"
+internment_tweaks = { path = "../../shed/internment_tweaks" }
 more_futures = { workspace = true }
 sorted_vector_map = { workspace = true }
 
-buck2_core = { path = "../app/buck2_core" }
-buck2_data = { path = "../buck2_data" }
+buck2_core = { path = "../../app/buck2_core" }
+buck2_data = { path = "../../buck2_data" }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 xattr = { workspace = true }
