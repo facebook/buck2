@@ -90,6 +90,7 @@ def create_jar_artifact_kotlincd(
             shouldVerifySourceOnlyAbiConstraints = actual_abi_generation_mode == AbiGenerationMode("source_only"),
             shouldGenerateAnnotationProcessingStats = True,
             extraKotlincArguments = extra_kotlinc_arguments,
+            shouldRemoveKotlinCompilerFromClassPath = True,
         )
 
     def encode_build_target_value_extra_params():
