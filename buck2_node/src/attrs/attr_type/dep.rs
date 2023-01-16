@@ -17,6 +17,7 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersLabelMaybeConfigured;
 use dupe::Dupe;
+use static_assertions::assert_eq_size;
 
 use crate::attrs::attr_type::attr_like::AttrLike;
 use crate::attrs::attr_type::attr_literal::AttrLiteral;
@@ -55,6 +56,8 @@ pub struct DepAttrType {
     pub required_providers: Option<Arc<ProviderIdSet>>,
     pub transition: DepAttrTransition,
 }
+
+assert_eq_size!(DepAttrType, [usize; 3]);
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Allocative)]
 pub struct DepAttr<T: ProvidersLabelMaybeConfigured + AttrLike> {
