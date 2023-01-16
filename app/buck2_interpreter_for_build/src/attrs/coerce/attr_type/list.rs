@@ -31,7 +31,7 @@ impl AttrTypeCoerce for ListAttrType {
         value: Value,
     ) -> anyhow::Result<AttrLiteral<CoercedAttr>> {
         if let Some(list) = ListRef::from_value(value) {
-            Ok(AttrLiteral::List(ListLiteral {
+            Ok(AttrLiteral::List(box ListLiteral {
                 items: list
                     .content()
                     .try_map(|v| (self.inner).coerce(configurable, ctx, *v))?
@@ -39,7 +39,7 @@ impl AttrTypeCoerce for ListAttrType {
                 item_type: self.inner.dupe(),
             }))
         } else if let Some(list) = TupleRef::from_value(value) {
-            Ok(AttrLiteral::List(ListLiteral {
+            Ok(AttrLiteral::List(box ListLiteral {
                 items: list
                     .content()
                     .try_map(|v| (self.inner).coerce(configurable, ctx, *v))?

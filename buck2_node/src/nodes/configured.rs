@@ -412,7 +412,7 @@ impl ConfiguredTargetNode {
 
     pub fn special_attrs(&self) -> impl Iterator<Item = (&str, ConfiguredAttr)> {
         let typ_attr = ConfiguredAttr::new(AttrLiteral::String(self.rule_type().name().into()));
-        let deps_attr = ConfiguredAttr::new(AttrLiteral::List(ListLiteral {
+        let deps_attr = ConfiguredAttr::new(AttrLiteral::List(box ListLiteral {
             items: self
                 .deps()
                 .map(|t| {

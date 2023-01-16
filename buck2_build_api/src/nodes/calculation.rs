@@ -908,7 +908,7 @@ mod tests {
             (
                 "some_deps",
                 Attribute::testing_new(None, AttrType::list(AttrType::dep(Vec::new()))),
-                CoercedAttr::from_literal(AttrLiteral::List(ListLiteral {
+                CoercedAttr::from_literal(AttrLiteral::List(box ListLiteral {
                     items: vec![CoercedAttr::from_literal(AttrLiteral::Dep(
                         box DepAttr::new(
                             DepAttrType::new(Vec::new(), DepAttrTransition::Identity),
@@ -971,7 +971,7 @@ mod tests {
             "another_field" =>
              ConfiguredAttr::from_literal(AttrLiteral::String("some_string".into())),
             "some_deps" =>
-             ConfiguredAttr::from_literal(AttrLiteral::List(ListLiteral{items: vec![
+             ConfiguredAttr::from_literal(AttrLiteral::List(box ListLiteral{items: vec![
                 ConfiguredAttr::from_literal(AttrLiteral::Dep(box DepAttr::new(
                     DepAttrType::new(Vec::new(), DepAttrTransition::Identity),
                     ProvidersLabel::new(label2.dupe(), ProvidersName::Default)
@@ -984,7 +984,7 @@ mod tests {
             "bool_field" => ConfiguredAttr::from_literal(AttrLiteral::Bool(true)),
             "another_field" =>
              ConfiguredAttr::from_literal(AttrLiteral::String("another_string".into())),
-            "some_deps" => ConfiguredAttr::from_literal(AttrLiteral::List(ListLiteral {
+            "some_deps" => ConfiguredAttr::from_literal(AttrLiteral::List(box ListLiteral {
                 items: Default::default(),
                 item_type: AttrType::dep(Vec::new())
             })),

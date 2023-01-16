@@ -182,7 +182,7 @@ impl TargetNode {
     pub(crate) fn special_attrs(&self) -> impl Iterator<Item = (&str, CoercedAttr)> {
         let typ_attr =
             CoercedAttr::new_literal(AttrLiteral::String(self.rule_type().name().into()));
-        let deps_attr = CoercedAttr::new_literal(AttrLiteral::List(ListLiteral {
+        let deps_attr = CoercedAttr::new_literal(AttrLiteral::List(box ListLiteral {
             items: self
                 .deps()
                 .map(|t| {
@@ -200,10 +200,12 @@ impl TargetNode {
             (TYPE, typ_attr),
             (
                 CONFIGURATION_DEPS,
-                CoercedAttr::new_literal(AttrLiteral::List(ListLiteral {
+                CoercedAttr::new_literal(AttrLiteral::List(box ListLiteral {
                     items: self
                         .get_configuration_deps()
-                        .map(|t| CoercedAttr::new_literal(AttrLiteral::ConfigurationDep(t.dupe())))
+                        .map(|t| {
+                            CoercedAttr::new_literal(AttrLiteral::ConfigurationDep(box t.dupe()))
+                        })
                         .collect(),
                     item_type: AttrType::configuration_dep(),
                 })),

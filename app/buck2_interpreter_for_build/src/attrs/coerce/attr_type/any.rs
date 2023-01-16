@@ -41,7 +41,7 @@ fn to_literal(value: Value) -> AttrLiteral<CoercedAttr> {
     } else if let Some(x) = TupleRef::from_value(value) {
         AttrLiteral::Tuple(x.iter().map(to_coerced_literal).collect())
     } else if let Some(x) = ListRef::from_value(value) {
-        AttrLiteral::List(ListLiteral {
+        AttrLiteral::List(box ListLiteral {
             items: x.iter().map(to_coerced_literal).collect(),
             item_type: AttrType::any(),
         })

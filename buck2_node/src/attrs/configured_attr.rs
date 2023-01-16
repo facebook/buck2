@@ -111,7 +111,7 @@ impl ConfiguredAttr {
                         attr => return mismatch("list", attr),
                     }
                 }
-                Ok(Self(AttrLiteral::List(ListLiteral {
+                Ok(Self(AttrLiteral::List(box ListLiteral {
                     items: res.into_boxed_slice(),
                     item_type: list.item_type,
                 })))
@@ -189,7 +189,7 @@ impl ConfiguredAttr {
 
     pub fn try_into_configuration_dep(self) -> Option<TargetLabel> {
         match self.0 {
-            AttrLiteral::ConfigurationDep(d) => Some(d),
+            AttrLiteral::ConfigurationDep(d) => Some(*d),
             _ => None,
         }
     }

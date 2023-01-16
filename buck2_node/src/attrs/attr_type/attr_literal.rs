@@ -43,6 +43,7 @@ use crate::attrs::traversal::CoercedAttrTraversal;
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative)]
 pub struct ListLiteral<C: AttrConfig> {
+    // TODO(nga): fix double boxing (here and in AttrLiteral).
     pub items: Box<[C]>,
     pub item_type: AttrType,
 }
@@ -65,14 +66,14 @@ pub enum AttrLiteral<C: AttrConfig> {
     // Type of list elements is used to verify that concatenation is valid.
     // That only can be checked after configuration took place,
     // so pass the type info together with values to be used later.
-    List(ListLiteral<C>),
+    List(Box<ListLiteral<C>>),
     Tuple(Box<[C]>),
     Dict(Box<[(C, C)]>),
     None,
     Dep(Box<DepAttr<C::ProvidersType>>),
     ConfiguredDep(Box<DepAttr<ConfiguredProvidersLabel>>),
     ExplicitConfiguredDep(Box<C::ExplicitConfiguredDepType>),
-    ConfigurationDep(TargetLabel),
+    ConfigurationDep(Box<TargetLabel>),
     SplitTransitionDep(Box<C::SplitTransitionDepType>),
     Query(Box<QueryAttr<C>>),
     SourceLabel(Box<C::ProvidersType>),
@@ -84,7 +85,7 @@ pub enum AttrLiteral<C: AttrConfig> {
 }
 
 // Prevent size regression.
-assert_eq_size!(AttrLiteral<CoercedAttr>, [usize; 4]);
+assert_eq_size!(AttrLiteral<CoercedAttr>, [usize; 3]);
 
 impl<C: AttrConfig> AttrDisplayWithContext for AttrLiteral<C> {
     fn fmt(&self, ctx: &AttrFmtContext, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -310,7 +311,7 @@ impl AttrLiteral<CoercedAttr> {
             AttrLiteral::Int(v) => AttrLiteral::Int(*v),
             AttrLiteral::String(v) => AttrLiteral::String(v.clone()),
             AttrLiteral::EnumVariant(v) => AttrLiteral::EnumVariant(v.clone()),
-            AttrLiteral::List(list) => AttrLiteral::List(ListLiteral {
+            AttrLiteral::List(list) => AttrLiteral::List(box ListLiteral {
                 items: list.items.try_map(|v| v.configure(ctx))?.into_boxed_slice(),
                 item_type: list.item_type.dupe(),
             }),

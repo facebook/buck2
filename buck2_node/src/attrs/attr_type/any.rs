@@ -23,7 +23,7 @@ impl AnyAttrType {
     }
 
     pub fn empty_list(element_type: AttrType) -> CoercedAttr {
-        CoercedAttr::new_literal(AttrLiteral::List(ListLiteral {
+        CoercedAttr::new_literal(AttrLiteral::List(box ListLiteral {
             items: Default::default(),
             item_type: element_type,
         }))

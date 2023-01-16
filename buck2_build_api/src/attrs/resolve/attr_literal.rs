@@ -49,8 +49,8 @@ use crate::attrs::CoercedAttr;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
 use crate::interpreter::rule_defs::provider::dependency::DependencyGen;
 
-static_assertions::assert_eq_size!(AttrLiteral<CoercedAttr>, [usize; 4]);
-static_assertions::assert_eq_size!(AttrLiteral<ConfiguredAttr>, [usize; 4]);
+static_assertions::assert_eq_size!(AttrLiteral<CoercedAttr>, [usize; 3]);
+static_assertions::assert_eq_size!(AttrLiteral<ConfiguredAttr>, [usize; 3]);
 
 pub(crate) trait UnconfiguredAttrLiteralExt {
     fn to_value<'v>(&self, heap: &'v Heap) -> anyhow::Result<Value<'v>>;
@@ -241,7 +241,7 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
             AttrLiteral::Dep(d) => heap.alloc(Label::new(d.label.clone())),
             AttrLiteral::ConfiguredDep(d) => heap.alloc(Label::new(d.label.clone())),
             AttrLiteral::ExplicitConfiguredDep(d) => heap.alloc(Label::new(d.label.clone())),
-            AttrLiteral::ConfigurationDep(c) => heap.alloc(StarlarkTargetLabel::new(c.dupe())),
+            AttrLiteral::ConfigurationDep(box c) => heap.alloc(StarlarkTargetLabel::new(c.dupe())),
             AttrLiteral::SplitTransitionDep(t) => {
                 let mut map = SmallMap::with_capacity(t.deps.len());
 
