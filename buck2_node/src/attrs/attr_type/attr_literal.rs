@@ -71,7 +71,7 @@ pub enum AttrLiteral<C: AttrConfig> {
     SplitTransitionDep(Box<C::SplitTransitionDepType>),
     Query(Box<QueryAttr<C>>),
     SourceLabel(Box<C::ProvidersType>),
-    SourceFile(Box<CoercedPath>),
+    SourceFile(CoercedPath),
     Arg(StringWithMacros<C>),
     // NOTE: unlike deps, labels are not traversed, as they are typically used in lieu of deps in
     // cases that would cause cycles.
@@ -272,7 +272,7 @@ impl AttrLiteral<ConfiguredAttr> {
                 Ok(())
             }
             AttrLiteral::Query(query) => query.traverse(traversal),
-            AttrLiteral::SourceFile(box source) => {
+            AttrLiteral::SourceFile(source) => {
                 for x in source.inputs() {
                     traversal.input(BuckPathRef::new(pkg.dupe(), x))?;
                 }
@@ -356,7 +356,7 @@ impl AttrLiteral<CoercedAttr> {
                 traversal.split_transition_dep(dep.label.target(), &dep.transition)
             }
             AttrLiteral::Query(query) => query.traverse(traversal),
-            AttrLiteral::SourceFile(box source) => {
+            AttrLiteral::SourceFile(source) => {
                 for x in source.inputs() {
                     traversal.input(BuckPathRef::new(pkg.dupe(), x))?;
                 }

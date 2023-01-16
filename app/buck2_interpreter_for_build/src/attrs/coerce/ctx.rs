@@ -21,6 +21,7 @@ use buck2_core::pattern::ProvidersPattern;
 use buck2_core::pattern::TargetPattern;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::soft_error;
+use buck2_node::attrs::coerced_path::CoercedDirectory;
 use buck2_node::attrs::coerced_path::CoercedPath;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_query::query::syntax::simple::eval::error::QueryError;
@@ -188,7 +189,10 @@ impl AttrCoercionContext for BuildAttrCoercionContext {
                     .files_within(&path)
                     .map(Box::<PackageRelativePath>::from)
                     .collect();
-                return Ok(CoercedPath::Directory(path.into_box(), files));
+                return Ok(CoercedPath::Directory(box CoercedDirectory {
+                    dir: path.into_box(),
+                    files,
+                }));
             } else {
                 let e = BuildAttrCoercionContextError::SourceFileMissing(
                     package.dupe(),
