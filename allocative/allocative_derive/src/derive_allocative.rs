@@ -109,7 +109,7 @@ fn derive_allocative_impl(
                 &self,
                 visitor: &'allocative_a mut allocative::Visitor<'allocative_b>,
             ) {
-                let mut visitor = visitor.enter_self_sized::<Self>();
+                let mut visitor = visitor.enter_self::<Self>(self);
                 #body
                 visitor.exit();
             }

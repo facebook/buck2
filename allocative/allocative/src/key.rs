@@ -71,7 +71,7 @@ impl Key {
         Key { hash, s }
     }
 
-    pub fn for_type_name<T>() -> Key {
+    pub fn for_type_name<T: ?Sized>() -> Key {
         // Compute hash at compile time.
         #[cfg(rust_nightly)]
         return Key {
@@ -85,10 +85,10 @@ impl Key {
 }
 
 #[cfg(rust_nightly)]
-struct MeasureKeyForType<T>(std::marker::PhantomData<T>);
+struct MeasureKeyForType<T: ?Sized>(std::marker::PhantomData<fn(&T)>);
 
 #[cfg(rust_nightly)]
-impl<T> MeasureKeyForType<T> {
+impl<T: ?Sized> MeasureKeyForType<T> {
     /// Force compute it at compile time. Const fn does not guarantee that.
     pub const KEY: Key = Key::new(any::type_name::<T>());
 }

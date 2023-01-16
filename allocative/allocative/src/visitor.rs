@@ -121,6 +121,15 @@ impl<'a> Visitor<'a> {
         self.enter(Key::for_type_name::<T>(), mem::size_of::<T>())
     }
 
+    /// This function is typically called as first function of `Allocative` trait
+    /// to record self.
+    pub fn enter_self<'b, T: ?Sized>(&'b mut self, this: &T) -> Visitor<'b>
+    where
+        'a: 'b,
+    {
+        self.enter(Key::for_type_name::<T>(), mem::size_of_val(this))
+    }
+
     /// Visit simple sized field (e.g. `u32`) without descending into children.
     pub fn visit_simple<'b>(&'b mut self, name: Key, size: usize)
     where
@@ -137,11 +146,11 @@ impl<'a> Visitor<'a> {
         self.enter_self_sized::<T>().exit();
     }
 
-    pub fn visit_field<'b, T: Allocative>(&'b mut self, name: Key, field: &T)
+    pub fn visit_field<'b, T: Allocative + ?Sized>(&'b mut self, name: Key, field: &T)
     where
         'a: 'b,
     {
-        let mut visitor = self.enter(name, mem::size_of::<T>());
+        let mut visitor = self.enter(name, mem::size_of_val::<T>(field));
         field.visit(&mut visitor);
         visitor.exit();
     }

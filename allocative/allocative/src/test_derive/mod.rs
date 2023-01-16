@@ -10,6 +10,7 @@
 #![cfg(test)]
 #![allow(dead_code)]
 
+mod dst;
 mod skip;
 mod visit;
 mod with_flamegraph;
