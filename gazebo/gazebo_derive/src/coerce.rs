@@ -71,6 +71,21 @@ fn derive_coerce_inner(input: DeriveInput) -> syn::Result<proc_macro2::TokenStre
     })
 }
 
+#[derive(Copy, Clone)]
+enum ParamNameMapping {
+    From,
+    To,
+}
+
+impl ParamNameMapping {
+    fn format_ident(self, ident: &Ident) -> Ident {
+        match self {
+            ParamNameMapping::From => format_ident!("From{}", ident),
+            ParamNameMapping::To => format_ident!("To{}", ident),
+        }
+    }
+}
+
 fn derive_coerce_params(input: DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
     let lifetimes = input.generics.lifetimes().collect::<Vec<_>>();
 
@@ -83,8 +98,8 @@ fn derive_coerce_params(input: DeriveInput) -> syn::Result<proc_macro2::TokenStr
     let mut ty_args_from1 = Vec::new();
     for t in input.generics.type_params() {
         ty_args.insert(t.ident.clone());
-        let to_ident = format_ident!("To{}", t.ident);
-        let from_ident = format_ident!("From{}", t.ident);
+        let to_ident = ParamNameMapping::To.format_ident(&t.ident);
+        let from_ident = ParamNameMapping::From.format_ident(&t.ident);
         ty_args_to.push(to_ident.clone());
         ty_args_from.push(from_ident.clone());
         if t.bounds.is_empty() {
@@ -102,8 +117,8 @@ fn derive_coerce_params(input: DeriveInput) -> syn::Result<proc_macro2::TokenStr
     for x in fields {
         let mut to_ty = x.ty.clone();
         let mut from_ty = x.ty.clone();
-        replace_type(&mut to_ty, &ty_args, "To")?;
-        replace_type(&mut from_ty, &ty_args, "From")?;
+        replace_type(&mut to_ty, &ty_args, ParamNameMapping::To)?;
+        replace_type(&mut from_ty, &ty_args, ParamNameMapping::From)?;
         if to_ty != from_ty {
             constraints.push(quote! { #from_ty : gazebo::coerce::Coerce< #to_ty >});
         }
@@ -128,7 +143,11 @@ fn collect_fields(input: &DeriveInput) -> syn::Result<Vec<&Field>> {
     }
 }
 
-fn replace_type(ty: &mut Type, idents: &HashSet<Ident>, prefix: &str) -> syn::Result<()> {
+fn replace_type(
+    ty: &mut Type,
+    idents: &HashSet<Ident>,
+    mapping: ParamNameMapping,
+) -> syn::Result<()> {
     match ty {
         Type::Path(x)
             if x.qself.is_none()
@@ -137,11 +156,11 @@ fn replace_type(ty: &mut Type, idents: &HashSet<Ident>, prefix: &str) -> syn::Re
         {
             let i = &mut x.path.segments[0].ident;
             if idents.contains(i) {
-                *i = format_ident!("{}{}", prefix, i);
+                *i = mapping.format_ident(i);
             }
             Ok(())
         }
-        _ => descend_type(ty, |ty| replace_type(ty, idents, prefix)),
+        _ => descend_type(ty, |ty| replace_type(ty, idents, mapping)),
     }
 }
 
