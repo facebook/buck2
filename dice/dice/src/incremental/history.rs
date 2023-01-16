@@ -13,7 +13,7 @@ use std::collections::Bound;
 use std::fmt::Debug;
 
 use allocative::Allocative;
-use gazebo::prelude::*;
+use dupe::IterDupedExt;
 use gazebo::variants::VariantName;
 use sorted_vector_map::sorted_vector_set;
 use sorted_vector_map::SortedVectorMap;

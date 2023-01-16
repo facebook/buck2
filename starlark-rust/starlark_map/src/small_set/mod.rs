@@ -494,6 +494,7 @@ mod tests {
     use std::rc::Rc;
 
     use dupe::Dupe;
+    use dupe::IterDupedExt;
 
     use super::*;
 

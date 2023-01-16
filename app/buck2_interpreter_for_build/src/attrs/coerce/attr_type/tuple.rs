@@ -14,7 +14,7 @@ use buck2_node::attrs::attr_type::tuple::TupleAttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
-use gazebo::prelude::*;
+use dupe::IterDupedExt;
 use itertools::Itertools;
 use starlark::values::list::ListRef;
 use starlark::values::tuple::TupleRef;

@@ -23,8 +23,8 @@ use buck2_node::nodes::configured_node_visit_all_deps::configured_node_visit_all
 use buck2_query::query::syntax::simple::eval::label_indexed::LabelIndexed;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use dupe::Dupe;
+use dupe::IterDupedExt;
 use either::Either;
-use gazebo::prelude::IterDuped;
 use itertools::Itertools;
 
 /// Subset of targets `cquery` command works with.

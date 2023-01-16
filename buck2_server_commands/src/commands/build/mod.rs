@@ -53,6 +53,7 @@ use cli_proto::BuildRequest;
 use dice::DiceComputations;
 use dice::DiceTransaction;
 use dupe::Dupe;
+use dupe::IterDupedExt;
 use futures::stream::futures_unordered::FuturesUnordered;
 use futures::stream::TryStreamExt;
 use gazebo::prelude::*;

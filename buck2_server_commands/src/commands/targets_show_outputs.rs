@@ -38,8 +38,8 @@ use cli_proto::TargetsShowOutputsResponse;
 use dice::DiceComputations;
 use dice::DiceTransaction;
 use dupe::Dupe;
+use dupe::IterDupedExt;
 use futures::stream::FuturesUnordered;
-use gazebo::prelude::IterDuped;
 use gazebo::prelude::VecExt;
 use tokio_stream::StreamExt;
 

@@ -8,9 +8,6 @@
  */
 
 use std::cmp::Ordering;
-use std::iter::Cloned;
-
-use dupe::Dupe;
 
 /// Extension traits on [`Iterator`](Iterator).
 pub trait IterExt {
@@ -194,24 +191,6 @@ pub trait IterExt {
         Self: Sized;
 }
 
-pub trait IterDuped: Sized {
-    /// Like `duped()`, but only works for types that implement `Dupe`.
-    /// Note that the return type is deliberately `Cloned`, as that behaves
-    /// the same as a `Duped` would be, but can take advantage of standard library
-    /// optimisations.
-    ///
-    /// ```
-    /// use gazebo::prelude::*;
-    /// use std::rc::Rc;
-    /// let inputs = vec![Rc::new("Hello"), Rc::new("World")];
-    /// let outputs = inputs.iter().duped().collect::<Vec<_>>();
-    /// assert_eq!(inputs, outputs);
-    /// ```
-    /// use gazebo::prelude::*;
-    /// use std::cmp::Ordering;
-    fn duped(self) -> Cloned<Self>;
-}
-
 pub trait IterOwned: Sized {
     /// Calls `to_owned()` on all the items provided by the inner Iterator.
     ///
@@ -361,17 +340,6 @@ where
             return None;
         }
         Some(ret)
-    }
-}
-
-impl<'a, I, T> IterDuped for I
-where
-    I: Sized,
-    I: Iterator<Item = &'a T>,
-    T: 'a + Dupe,
-{
-    fn duped(self) -> Cloned<Self> {
-        self.cloned()
     }
 }
 

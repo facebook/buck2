@@ -15,7 +15,7 @@ use buck2_core::configuration::Configuration;
 use buck2_core::configuration::ConfigurationData;
 use buck2_core::target::TargetLabel;
 use dupe::Dupe;
-use gazebo::prelude::IterDuped;
+use dupe::IterDupedExt;
 use gazebo::prelude::SliceExt;
 use itertools::Itertools;
 use serde::Serialize;

@@ -19,8 +19,8 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use dupe::Dupe;
+use dupe::IterDupedExt;
 use gazebo::cmp::PartialEqAny;
-use gazebo::prelude::*;
 use gazebo::variants::VariantName;
 use indexmap::set::IndexSet;
 use thiserror::Error;

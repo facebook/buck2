@@ -37,10 +37,10 @@ use buck2_query::query::syntax::simple::eval::label_indexed::LabelIndexedSet;
 use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
+use dupe::IterDupedExt;
 use futures::stream::FuturesOrdered;
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
-use gazebo::prelude::*;
 use starlark::eval::ProfileMode;
 
 use crate::analysis::calculation::keys::AnalysisKey;

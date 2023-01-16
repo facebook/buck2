@@ -26,6 +26,7 @@ use buck2_server_ctx::pattern::target_platform_from_client_context;
 use cli_proto::ClientContext;
 use dice::DiceTransaction;
 use dupe::Dupe;
+use dupe::IterDupedExt;
 use futures::stream::FuturesOrdered;
 use futures::StreamExt;
 use gazebo::prelude::*;
