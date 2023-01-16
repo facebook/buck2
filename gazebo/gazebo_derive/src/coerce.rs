@@ -18,7 +18,6 @@ use syn::parse_macro_input;
 use syn::token;
 use syn::Data;
 use syn::DeriveInput;
-use syn::Error;
 use syn::Expr;
 use syn::GenericArgument;
 use syn::Ident;
@@ -34,9 +33,14 @@ use syn::Type;
 // struct A<T>(...) => coerce A<T1> to A<T2> if coerce T1 to T2 and all the fields support it
 pub fn derive_coerce(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    if let Err(err) = check_repr(&input) {
-        return err.into_compile_error().into();
+    match derive_coerce_impl(input) {
+        Ok(x) => x.into(),
+        Err(e) => e.to_compile_error().into(),
     }
+}
+
+fn derive_coerce_impl(input: DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
+    check_repr(&input)?;
 
     let lifetimes = input.generics.lifetimes().collect::<Vec<_>>();
 
@@ -44,22 +48,19 @@ pub fn derive_coerce(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
         let field = match &input.data {
             Data::Struct(x) if x.fields.len() == 1 => x.fields.iter().next().unwrap(),
             _ => {
-                return syn::Error::new_spanned(
+                return Err(syn::Error::new_spanned(
                     input,
                     "Type-parameter free types must be a single field struct",
-                )
-                .into_compile_error()
-                .into();
+                ));
             }
         };
 
         let type1 = input.ident;
         let type2 = &field.ty;
-        let gen = quote! {
+        Ok(quote! {
             unsafe impl < #(#lifetimes),* > gazebo::coerce::Coerce<#type1< #(#lifetimes),* >> for #type2 {}
             unsafe impl < #(#lifetimes),* > gazebo::coerce::Coerce<#type2> for #type1< #(#lifetimes),* > {}
-        };
-        gen.into()
+        })
     } else {
         // unsafe impl <To__T, From__T> Coerce<X<To__T>> X<From__T> where ...
         let name = &input.ident;
@@ -89,9 +90,10 @@ pub fn derive_coerce(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
             Data::Struct(x) => x.fields.iter().collect(),
             Data::Enum(x) => x.variants.iter().flat_map(|x| &x.fields).collect(),
             _ => {
-                return syn::Error::new_spanned(input, "Type-parameter cannot be a union")
-                    .into_compile_error()
-                    .into();
+                return Err(syn::Error::new_spanned(
+                    input,
+                    "Type-parameter cannot be a union",
+                ));
             }
         };
         for x in fields {
@@ -100,25 +102,22 @@ pub fn derive_coerce(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
             let to = replace_type(&mut to_ty, &ty_args, "To");
             let from = replace_type(&mut from_ty, &ty_args, "From");
             if to.is_none() || from.is_none() {
-                return syn::Error::new_spanned(
+                return Err(syn::Error::new_spanned(
                     &input,
                     "Don't know how to deal with some of the fields",
-                )
-                .into_compile_error()
-                .into();
+                ));
             }
             if to_ty != from_ty {
                 constraints.push(quote! { #from_ty : gazebo::coerce::Coerce< #to_ty >});
             }
         }
 
-        let gen = quote! {
+        Ok(quote! {
             unsafe impl < #(#lifetimes,)* #(#ty_args_from1,)* #(#ty_args_to1,)* >
                 gazebo::coerce::Coerce<#name < #(#lifetimes,)* #(#ty_args_to,)* >>
                 for #name < #(#lifetimes,)* #(#ty_args_from,)* >
                 where #(#constraints,)* {}
-        };
-        gen.into()
+        })
     }
 }
 
@@ -182,7 +181,7 @@ fn check_repr(input: &DeriveInput) -> syn::Result<()> {
     let mut has_repr = false;
     let mut errors = None;
     let mut push_error = |error| match &mut errors {
-        Some(errors) => Error::combine(errors, error),
+        Some(errors) => syn::Error::combine(errors, error),
         None => errors = Some(error),
     };
 
@@ -211,7 +210,7 @@ fn check_repr(input: &DeriveInput) -> syn::Result<()> {
                         } else {
                             "unrecognized repr on struct that implements Coerce"
                         };
-                        push_error(Error::new_spanned(meta_item_span, msg));
+                        push_error(syn::Error::new_spanned(meta_item_span, msg));
                     }
                     if !input.is_empty() {
                         input.parse::<Token![,]>()?;
@@ -225,7 +224,7 @@ fn check_repr(input: &DeriveInput) -> syn::Result<()> {
     }
 
     if !has_repr {
-        let mut requires_repr = Error::new(
+        let mut requires_repr = syn::Error::new(
             Span::call_site(),
             "Coerce trait requires #[repr(C)] or #[repr(transparent)]",
         );
