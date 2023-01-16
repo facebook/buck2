@@ -384,7 +384,7 @@ fn register_cquery(builder: &mut MethodsBuilder) {
     ///     result = ctx.cquery().filter(".*the_binary", "root//...")
     ///     ctx.output.print(result)
     /// ```
-    pub fn filter<'v>(
+    fn filter<'v>(
         this: &StarlarkCQueryCtx<'v>,
         regex: &str,
         targets: Value<'v>,
@@ -417,7 +417,7 @@ fn register_cquery(builder: &mut MethodsBuilder) {
     ///     result = ctx.cquery().inputs("root//bin:the_binary")
     ///     ctx.output.print(result)
     /// ```
-    pub fn inputs<'v>(
+    fn inputs<'v>(
         this: &StarlarkCQueryCtx<'v>,
         targets: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
@@ -441,7 +441,7 @@ fn register_cquery(builder: &mut MethodsBuilder) {
     }
 
     /// The testsof query for lising the tests of the specified targets.
-    pub fn testsof<'v>(
+    fn testsof<'v>(
         this: &StarlarkCQueryCtx<'v>,
         targets: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
