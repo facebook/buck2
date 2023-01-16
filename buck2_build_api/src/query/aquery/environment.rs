@@ -37,6 +37,7 @@ use indexmap::IndexMap;
 use internment::ArcIntern;
 use ref_cast::RefCast;
 use serde::Serialize;
+use serde::Serializer;
 
 use crate::actions::key::ActionKey;
 use crate::actions::RegisteredAction;
@@ -264,6 +265,14 @@ impl QueryTarget for ActionQueryNode {
 
     fn attr_to_string_alternate(&self, attr: &Self::Attr) -> String {
         format!("{:#}", attr)
+    }
+
+    fn attr_serialize<S: Serializer>(
+        &self,
+        attr: &Self::Attr,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
+        attr.serialize(serializer)
     }
 }
 

@@ -19,6 +19,7 @@ use derive_more::Display;
 use derive_more::From;
 use gazebo::prelude::*;
 use indexmap::IndexSet;
+use serde::Serializer;
 
 use super::*;
 use crate::query::traversal::AsyncNodeLookup;
@@ -28,7 +29,7 @@ struct TestTargetId(u64);
 
 impl NodeLabel for TestTargetId {}
 
-#[derive(Debug, Copy, Clone, Dupe, Eq, PartialEq, Hash, Display, Serialize)]
+#[derive(Debug, Copy, Clone, Dupe, Eq, PartialEq, Hash, Display)]
 struct TestTargetAttr;
 
 #[derive(Clone, Dupe, Eq, PartialEq)]
@@ -80,6 +81,14 @@ impl QueryTarget for TestTarget {
     }
 
     fn attr_to_string_alternate(&self, _attr: &Self::Attr) -> String {
+        unimplemented!("not needed for tests")
+    }
+
+    fn attr_serialize<S: Serializer>(
+        &self,
+        _attr: &Self::Attr,
+        _serializer: S,
+    ) -> Result<S::Ok, S::Error> {
         unimplemented!("not needed for tests")
     }
 

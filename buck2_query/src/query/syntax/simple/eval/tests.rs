@@ -21,6 +21,7 @@ use buck2_query_parser::parse_expr;
 use derive_more::Display;
 use dupe::Dupe;
 use serde::Serialize;
+use serde::Serializer;
 
 use crate::query::environment::NodeLabel;
 use crate::query::environment::QueryEnvironment;
@@ -107,6 +108,14 @@ impl QueryTarget for Target {
     }
 
     fn attr_to_string_alternate(&self, _attr: &Self::Attr) -> String {
+        unimplemented!("not needed for tests")
+    }
+
+    fn attr_serialize<S: Serializer>(
+        &self,
+        _attr: &Self::Attr,
+        _serializer: S,
+    ) -> Result<S::Ok, S::Error> {
         unimplemented!("not needed for tests")
     }
 }

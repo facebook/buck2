@@ -336,6 +336,7 @@ mod tests {
     use dupe::Dupe;
     use gazebo::prelude::*;
     use serde::Serialize;
+    use serde::Serializer;
 
     use super::*;
     use crate::query::environment::NodeLabel;
@@ -423,6 +424,14 @@ mod tests {
         }
 
         fn attr_to_string_alternate(&self, _attr: &Self::Attr) -> String {
+            unimplemented!("not needed for tests")
+        }
+
+        fn attr_serialize<S: Serializer>(
+            &self,
+            _attr: &Self::Attr,
+            _serializer: S,
+        ) -> Result<S::Ok, S::Error> {
             unimplemented!("not needed for tests")
         }
     }

@@ -15,6 +15,8 @@ use buck2_core::target::TargetLabel;
 use buck2_query::query::environment::LabeledNode;
 use buck2_query::query::environment::QueryTarget;
 use dupe::Dupe;
+use serde::Serialize;
+use serde::Serializer;
 
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::display::AttrDisplayWithContextExt;
@@ -110,5 +112,13 @@ impl QueryTarget for TargetNode {
                 package: Some(self.label().pkg().dupe()),
             })
         )
+    }
+
+    fn attr_serialize<S: Serializer>(
+        &self,
+        attr: &Self::Attr,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
+        attr.serialize(serializer)
     }
 }

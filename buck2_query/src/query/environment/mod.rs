@@ -22,7 +22,6 @@ use buck2_core::target::TargetLabel;
 use dupe::Dupe;
 use futures::stream::FuturesUnordered;
 use futures::stream::TryStreamExt;
-use serde::Serialize;
 use thiserror::Error;
 
 use crate::query::syntax::simple::eval::error::QueryError;
@@ -82,7 +81,7 @@ impl QueryTargets {
 }
 
 pub trait QueryTarget: LabeledNode + Dupe + Send + Sync + 'static {
-    type Attr: ?Sized + Debug + Serialize;
+    type Attr: ?Sized + Debug;
 
     /// Returns the input files for this node.
     fn inputs_for_each<E, F: FnMut(CellPath) -> Result<(), E>>(&self, func: F) -> Result<(), E>;
@@ -106,6 +105,12 @@ pub trait QueryTarget: LabeledNode + Dupe + Send + Sync + 'static {
     }
 
     fn attr_to_string_alternate(&self, attr: &Self::Attr) -> String;
+
+    fn attr_serialize<S: serde::Serializer>(
+        &self,
+        attr: &Self::Attr,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error>;
 
     fn attr_any_matches(
         attr: &Self::Attr,

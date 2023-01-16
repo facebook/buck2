@@ -20,6 +20,8 @@ use buck2_query::query::traversal::AsyncNodeLookup;
 use buck2_query::query::traversal::NodeLookup;
 use dupe::Dupe;
 use ref_cast::RefCast;
+use serde::Serialize;
+use serde::Serializer;
 
 use crate::attrs::attr_type::attr_config::AttrConfig;
 use crate::attrs::configured_attr::ConfiguredAttr;
@@ -159,6 +161,14 @@ impl QueryTarget for ConfiguredGraphNodeRef {
                 package: Some(self.0.label().pkg().dupe()),
             })
         )
+    }
+
+    fn attr_serialize<S: Serializer>(
+        &self,
+        attr: &Self::Attr,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
+        attr.serialize(serializer)
     }
 }
 
