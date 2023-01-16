@@ -39,6 +39,7 @@ use crate::values::none::NoneType;
 use crate::values::num::Num;
 use crate::values::range::Range;
 use crate::values::string::STRING_TYPE;
+use crate::values::tuple::AllocTuple;
 use crate::values::tuple::TupleRef;
 use crate::values::types::tuple::value::Tuple;
 use crate::values::AllocValue;
@@ -1089,17 +1090,15 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
         #[starlark(require = pos, type = "iter(\"\")")] a: Option<Value<'v>>,
         heap: &'v Heap,
     ) -> anyhow::Result<Value<'v>> {
-        let mut l = Vec::new();
         if let Some(a) = a {
             if TupleRef::from_value(a).is_some() {
                 return Ok(a);
             }
 
-            a.with_iterator(heap, |it| {
-                l.extend(it);
-            })?;
+            a.with_iterator(heap, |it| heap.alloc_tuple_iter(it))
+        } else {
+            Ok(heap.alloc(AllocTuple::EMPTY))
         }
-        Ok(heap.alloc_tuple(&l))
     }
 
     /// [type](
@@ -1226,5 +1225,6 @@ hash(foo)
     #[test]
     fn test_tuple() {
         assert::eq("(1, 2)", "tuple((1, 2))");
+        assert::eq("(1, 2)", "tuple([1, 2])");
     }
 }
