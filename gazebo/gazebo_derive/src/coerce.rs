@@ -42,83 +42,93 @@ pub fn derive_coerce(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 fn derive_coerce_impl(input: DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
     check_repr(&input)?;
 
+    if input.generics.type_params().count() == 0 {
+        derive_coerce_inner(input)
+    } else {
+        derive_coerce_params(input)
+    }
+}
+
+fn derive_coerce_inner(input: DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
     let lifetimes = input.generics.lifetimes().collect::<Vec<_>>();
 
-    if input.generics.type_params().count() == 0 {
-        let field = match &input.data {
-            Data::Struct(x) if x.fields.len() == 1 => x.fields.iter().next().unwrap(),
-            _ => {
-                return Err(syn::Error::new_spanned(
-                    input,
-                    "Type-parameter free types must be a single field struct",
-                ));
-            }
-        };
-
-        let type1 = input.ident;
-        let type2 = &field.ty;
-        Ok(quote! {
-            unsafe impl < #(#lifetimes),* > gazebo::coerce::Coerce<#type1< #(#lifetimes),* >> for #type2 {}
-            unsafe impl < #(#lifetimes),* > gazebo::coerce::Coerce<#type2> for #type1< #(#lifetimes),* > {}
-        })
-    } else {
-        // unsafe impl <To__T, From__T> Coerce<X<To__T>> X<From__T> where ...
-        let name = &input.ident;
-        let mut ty_args = HashSet::new();
-        let mut ty_args_to = Vec::new();
-        let mut ty_args_from = Vec::new();
-        let mut ty_args_to1 = Vec::new();
-        let mut ty_args_from1 = Vec::new();
-        for t in input.generics.type_params() {
-            ty_args.insert(t.ident.clone());
-            let to_ident = format_ident!("To{}", t.ident);
-            let from_ident = format_ident!("From{}", t.ident);
-            ty_args_to.push(to_ident.clone());
-            ty_args_from.push(from_ident.clone());
-            if t.bounds.is_empty() {
-                ty_args_to1.push(quote! { #to_ident });
-                ty_args_from1.push(quote! { #from_ident });
-            } else {
-                let bounds = &t.bounds;
-                ty_args_to1.push(quote! { #to_ident: #bounds });
-                ty_args_from1.push(quote! { #from_ident: #bounds });
-            }
+    let field = match &input.data {
+        Data::Struct(x) if x.fields.len() == 1 => x.fields.iter().next().unwrap(),
+        _ => {
+            return Err(syn::Error::new_spanned(
+                input,
+                "Type-parameter free types must be a single field struct",
+            ));
         }
+    };
 
-        let mut constraints = Vec::new();
-        let fields: Vec<_> = match &input.data {
-            Data::Struct(x) => x.fields.iter().collect(),
-            Data::Enum(x) => x.variants.iter().flat_map(|x| &x.fields).collect(),
-            _ => {
-                return Err(syn::Error::new_spanned(
-                    input,
-                    "Type-parameter cannot be a union",
-                ));
-            }
-        };
-        for x in fields {
-            let mut to_ty = x.ty.clone();
-            let mut from_ty = x.ty.clone();
-            let to = replace_type(&mut to_ty, &ty_args, "To");
-            let from = replace_type(&mut from_ty, &ty_args, "From");
-            if to.is_none() || from.is_none() {
-                return Err(syn::Error::new_spanned(
-                    &input,
-                    "Don't know how to deal with some of the fields",
-                ));
-            }
-            if to_ty != from_ty {
-                constraints.push(quote! { #from_ty : gazebo::coerce::Coerce< #to_ty >});
-            }
+    let type1 = input.ident;
+    let type2 = &field.ty;
+    Ok(quote! {
+        unsafe impl < #(#lifetimes),* > gazebo::coerce::Coerce<#type1< #(#lifetimes),* >> for #type2 {}
+        unsafe impl < #(#lifetimes),* > gazebo::coerce::Coerce<#type2> for #type1< #(#lifetimes),* > {}
+    })
+}
+
+fn derive_coerce_params(input: DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
+    let lifetimes = input.generics.lifetimes().collect::<Vec<_>>();
+
+    // unsafe impl <To__T, From__T> Coerce<X<To__T>> X<From__T> where ...
+    let name = &input.ident;
+    let mut ty_args = HashSet::new();
+    let mut ty_args_to = Vec::new();
+    let mut ty_args_from = Vec::new();
+    let mut ty_args_to1 = Vec::new();
+    let mut ty_args_from1 = Vec::new();
+    for t in input.generics.type_params() {
+        ty_args.insert(t.ident.clone());
+        let to_ident = format_ident!("To{}", t.ident);
+        let from_ident = format_ident!("From{}", t.ident);
+        ty_args_to.push(to_ident.clone());
+        ty_args_from.push(from_ident.clone());
+        if t.bounds.is_empty() {
+            ty_args_to1.push(quote! { #to_ident });
+            ty_args_from1.push(quote! { #from_ident });
+        } else {
+            let bounds = &t.bounds;
+            ty_args_to1.push(quote! { #to_ident: #bounds });
+            ty_args_from1.push(quote! { #from_ident: #bounds });
         }
-
-        Ok(quote! {
-            unsafe impl < #(#lifetimes,)* #(#ty_args_from1,)* #(#ty_args_to1,)* >
-                gazebo::coerce::Coerce<#name < #(#lifetimes,)* #(#ty_args_to,)* >>
-                for #name < #(#lifetimes,)* #(#ty_args_from,)* >
-                where #(#constraints,)* {}
-        })
     }
+
+    let mut constraints = Vec::new();
+    let fields: Vec<_> = match &input.data {
+        Data::Struct(x) => x.fields.iter().collect(),
+        Data::Enum(x) => x.variants.iter().flat_map(|x| &x.fields).collect(),
+        _ => {
+            return Err(syn::Error::new_spanned(
+                input,
+                "Type-parameter cannot be a union",
+            ));
+        }
+    };
+    for x in fields {
+        let mut to_ty = x.ty.clone();
+        let mut from_ty = x.ty.clone();
+        let to = replace_type(&mut to_ty, &ty_args, "To");
+        let from = replace_type(&mut from_ty, &ty_args, "From");
+        if to.is_none() || from.is_none() {
+            return Err(syn::Error::new_spanned(
+                &input,
+                "Don't know how to deal with some of the fields",
+            ));
+        }
+        if to_ty != from_ty {
+            constraints.push(quote! { #from_ty : gazebo::coerce::Coerce< #to_ty >});
+        }
+    }
+
+    Ok(quote! {
+        unsafe impl < #(#lifetimes,)* #(#ty_args_from1,)* #(#ty_args_to1,)* >
+            gazebo::coerce::Coerce<#name < #(#lifetimes,)* #(#ty_args_to,)* >>
+            for #name < #(#lifetimes,)* #(#ty_args_from,)* >
+            where #(#constraints,)* {}
+    })
 }
 
 fn replace_type(ty: &mut Type, idents: &HashSet<Ident>, prefix: &str) -> Option<()> {
