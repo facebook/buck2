@@ -43,6 +43,7 @@ fn derive_dupe_explicit(
     let body = duplicate_impl(&input.data, &quote! { dupe::Dupe::dupe });
     let gen = quote! {
         impl #impl_generics dupe::Dupe for #name #ty_generics #where_clause {
+            #[inline]
             fn dupe(&self) -> Self {
                 #body
             }
