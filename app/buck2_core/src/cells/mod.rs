@@ -145,6 +145,7 @@ use allocative::Allocative;
 use anyhow::Context;
 use derivative::Derivative;
 use derive_more::Display;
+use dupe::Dupe;
 use gazebo::prelude::*;
 use itertools::Itertools;
 use sequence_trie::SequenceTrie;

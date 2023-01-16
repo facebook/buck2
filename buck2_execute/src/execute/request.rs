@@ -16,7 +16,7 @@ use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use derive_more::Display;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 use gazebo::variants::UnpackVariants;
 use host_sharing::host_sharing::HostSharingRequirements;
 use indexmap::IndexMap;

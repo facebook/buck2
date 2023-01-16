@@ -22,7 +22,7 @@ use buck2_execute::directory::insert_artifact;
 use buck2_execute::directory::ActionDirectoryBuilder;
 use buck2_execute::directory::ActionSharedDirectory;
 use buck2_execute::directory::INTERNER;
-use gazebo::prelude::*;
+use dupe::Dupe;
 use smallvec::smallvec;
 use smallvec::SmallVec;
 

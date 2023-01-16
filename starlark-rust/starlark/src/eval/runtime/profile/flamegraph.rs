@@ -19,7 +19,7 @@
 
 use std::fmt::Write;
 
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 use starlark_map::small_map::SmallMap;
 
 use crate::values::layout::heap::profile::arc_str::ArcStr;

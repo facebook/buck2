@@ -43,7 +43,7 @@ use buck2_core::fs::project::ProjectRelativePath;
 use chrono::DateTime;
 use chrono::Utc;
 use derive_more::Display;
-use gazebo::prelude::*;
+use dupe::Dupe;
 use once_cell::sync::Lazy;
 use remote_execution as RE;
 use thiserror::Error;

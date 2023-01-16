@@ -24,8 +24,8 @@ use std::fmt::Write;
 use std::hash::Hasher;
 
 use allocative::Allocative;
+use dupe::Dupe;
 use gazebo::any::ProvidesStaticType;
-use gazebo::prelude::*;
 use serde::Serialize;
 
 use crate as starlark;

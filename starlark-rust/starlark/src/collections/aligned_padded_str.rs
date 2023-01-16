@@ -18,7 +18,7 @@
 use std::marker::PhantomData;
 use std::mem;
 
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 
 /// String which is `usize` aligned with zeros padding in the end.
 #[derive(Copy, Clone, Dupe)]

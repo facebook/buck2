@@ -22,6 +22,7 @@ use derive_more::Display;
 use dice::DiceComputations;
 use dice::InjectedKey;
 use dice::Key;
+use dupe::Dupe;
 use futures::future;
 use futures::FutureExt;
 use gazebo::prelude::*;

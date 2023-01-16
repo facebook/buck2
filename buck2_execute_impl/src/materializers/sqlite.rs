@@ -28,6 +28,7 @@ use buck2_execute::execute::blocking::BlockingExecutor;
 use chrono::DateTime;
 use chrono::TimeZone;
 use chrono::Utc;
+use dupe::Dupe;
 use gazebo::prelude::*;
 use itertools::Itertools;
 use parking_lot::Mutex;

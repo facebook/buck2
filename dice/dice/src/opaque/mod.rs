@@ -15,7 +15,8 @@ use std::fmt::Debug;
 use std::fmt::Formatter;
 use std::sync::Arc;
 
-use crate::gazebo::dupe::Dupe;
+use dupe::Dupe;
+
 use crate::incremental::dep_trackers::BothDeps;
 use crate::incremental::graph::GraphNode;
 use crate::DiceComputationImpl;

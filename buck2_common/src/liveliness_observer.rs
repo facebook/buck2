@@ -10,7 +10,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use gazebo::prelude::*;
+use dupe::Dupe;
 use thiserror::Error;
 use tokio::sync::OwnedRwLockWriteGuard;
 use tokio::sync::RwLock;

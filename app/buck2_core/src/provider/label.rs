@@ -13,7 +13,7 @@ use std::fmt::Formatter;
 
 use allocative::Allocative;
 use derive_more::Display;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 use serde::Serialize;
 use serde::Serializer;
 use thiserror::Error;

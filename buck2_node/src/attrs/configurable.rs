@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 
 /// Can we use `select` with this attribute?
 #[derive(Copy, Clone, Dupe)]

@@ -36,6 +36,7 @@ use buck2_query::query::syntax::simple::eval::evaluator::QueryEvaluator;
 use buck2_query::query::syntax::simple::eval::label_indexed::LabelIndexedSet;
 use dice::DiceComputations;
 use dice::Key;
+use dupe::Dupe;
 use futures::stream::FuturesOrdered;
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
@@ -403,7 +404,7 @@ mod keys {
     use allocative::Allocative;
     use buck2_core::target::ConfiguredTargetLabel;
     use derive_more::Display;
-    use gazebo::prelude::*;
+    use dupe::Dupe;
 
     #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
     #[display(fmt = "{}", "_0")]
@@ -459,7 +460,7 @@ mod tests {
     use buck2_interpreter_for_build::interpreter::configuror::BuildInterpreterConfiguror;
     use dice::testing::DiceBuilder;
     use dice::UserComputationData;
-    use gazebo::prelude::*;
+    use dupe::Dupe;
     use indoc::indoc;
     use itertools::Itertools;
     use maplit::hashmap;

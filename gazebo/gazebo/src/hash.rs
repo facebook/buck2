@@ -16,8 +16,7 @@ use std::fmt::Display;
 use std::hash::Hash;
 use std::hash::Hasher;
 
-use crate as gazebo;
-use crate::dupe::Dupe;
+use dupe::Dupe;
 
 /// A type `T`, but with the hash computed in advance, so hashing is O(1).
 #[derive(Dupe, Clone, Copy, PartialEq, Eq, Debug)]

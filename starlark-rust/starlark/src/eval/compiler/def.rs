@@ -28,6 +28,7 @@ use std::time::Instant;
 use allocative::Allocative;
 use derivative::Derivative;
 use derive_more::Display;
+use dupe::Dupe;
 use gazebo::any::ProvidesStaticType;
 use gazebo::prelude::*;
 use once_cell::sync::Lazy;

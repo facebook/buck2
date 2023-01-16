@@ -90,7 +90,7 @@ use dice::data::DiceData;
 use dice::DiceComputations;
 use dice::DiceTransaction;
 use dice::UserComputationData;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 use gazebo::prelude::SliceExt;
 use host_sharing::HostSharingBroker;
 use host_sharing::HostSharingStrategy;

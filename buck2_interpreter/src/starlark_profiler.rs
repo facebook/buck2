@@ -13,7 +13,7 @@ use std::time::Instant;
 
 use allocative::Allocative;
 use anyhow::Context;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 use starlark::environment::FrozenModule;
 use starlark::eval::Evaluator;
 use starlark::eval::ProfileData;

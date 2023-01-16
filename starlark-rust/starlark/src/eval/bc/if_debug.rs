@@ -20,7 +20,7 @@
 use std::cmp::Ordering;
 use std::marker;
 
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 
 /// Store `T` is debug assertions enabled, ZST otherwise.
 ///

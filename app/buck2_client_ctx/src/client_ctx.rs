@@ -18,7 +18,7 @@ use buck2_events::trace::TraceId;
 use cli_proto::client_context::HostArchOverride as GrpcHostArchOverride;
 use cli_proto::client_context::HostPlatformOverride as GrpcHostPlatformOverride;
 use cli_proto::ClientContext;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 use tokio::runtime::Builder;
 
 use crate::cleanup_ctx::AsyncCleanupContext;

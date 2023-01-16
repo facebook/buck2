@@ -14,7 +14,7 @@ use buck2_core::bzl::ImportPath;
 use buck2_core::bzl::ModuleID;
 use buck2_core::collections::ordered_map::OrderedMap;
 use derivative::Derivative;
-use gazebo::prelude::*;
+use dupe::Dupe;
 use starlark::codemap::FileSpan;
 use starlark::environment::FrozenModule;
 use starlark::eval::FileLoader;

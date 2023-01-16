@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 use once_cell::sync::Lazy;
 
 use crate::environment::Globals;

@@ -22,6 +22,7 @@ use buck2_execute::base_deferred_key::BaseDeferredKey;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
+use dupe::Dupe;
 use futures::stream::FuturesUnordered;
 use futures::Future;
 use futures::StreamExt;
@@ -325,7 +326,7 @@ impl DeferredHolder {
 mod keys {
     use allocative::Allocative;
     use derive_more::Display;
-    use gazebo::prelude::*;
+    use dupe::Dupe;
 
     use crate::deferred::types::DeferredKey;
 
@@ -364,7 +365,7 @@ mod tests {
     use buck2_node::rule_type::StarlarkRuleType;
     use dice::testing::DiceBuilder;
     use dice::UserComputationData;
-    use gazebo::prelude::*;
+    use dupe::Dupe;
     use indexmap::IndexSet;
     use indoc::indoc;
 

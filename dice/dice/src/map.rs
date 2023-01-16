@@ -12,6 +12,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use anymap::any::Any;
 use anymap::Map;
+use dupe::Dupe;
 use gazebo::prelude::*;
 
 use crate::incremental::ErasedEngine;
@@ -85,7 +86,7 @@ mod tests {
     use allocative::Allocative;
     use async_trait::async_trait;
     use derive_more::Display;
-    use gazebo::prelude::*;
+    use dupe::Dupe;
 
     use crate::incremental::testing::IncrementalEngineExt;
     use crate::incremental::versions::MinorVersion;

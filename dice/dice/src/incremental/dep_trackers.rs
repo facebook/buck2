@@ -12,7 +12,7 @@
 use std::sync::Arc;
 
 use allocative::Allocative;
-use gazebo::prelude::*;
+use dupe::Dupe;
 use parking_lot::Mutex;
 
 use crate::incremental::dep_trackers::internals::ComputedDep;
@@ -177,8 +177,8 @@ mod internals {
 
     use allocative::Allocative;
     use async_trait::async_trait;
+    use dupe::Dupe;
     use gazebo::cmp::PartialEqAny;
-    use gazebo::prelude::*;
 
     use crate::ctx::ComputationData;
     use crate::incremental::graph::GraphNode;
@@ -401,7 +401,7 @@ pub(crate) mod testing {
 mod tests {
     use std::sync::Arc;
 
-    use gazebo::prelude::*;
+    use dupe::Dupe;
 
     use crate::ctx::testing::ComputationDataExt;
     use crate::ctx::ComputationData;

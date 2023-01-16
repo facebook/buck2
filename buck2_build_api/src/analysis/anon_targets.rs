@@ -59,6 +59,7 @@ use buck2_node::configuration::execution::ExecutionPlatformResolution;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
+use dupe::Dupe;
 use either::Either;
 use futures::future;
 use futures::stream::FuturesUnordered;

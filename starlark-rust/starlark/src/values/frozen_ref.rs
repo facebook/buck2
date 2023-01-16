@@ -27,7 +27,9 @@ use std::ptr;
 use std::sync::atomic;
 
 use allocative::Allocative;
-use gazebo::prelude::*;
+use dupe::Clone_;
+use dupe::Copy_;
+use dupe::Dupe_;
 
 use crate::values::Freeze;
 use crate::values::Freezer;

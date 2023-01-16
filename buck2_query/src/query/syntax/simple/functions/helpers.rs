@@ -16,7 +16,6 @@ use buck2_query_parser::spanned::Spanned;
 use buck2_query_parser::Expr;
 use buck2_query_parser::SpannedExpr;
 use enum_iterator::IntoEnumIterator;
-use gazebo::prelude::*;
 use gazebo::variants::VariantName;
 
 use crate::query::environment::QueryEnvironment;
@@ -30,6 +29,8 @@ use crate::query::syntax::simple::eval::values::QueryValueSet;
 // IntoEnumIterator triggers this lint :/
 #[cfg_attr(feature = "gazebo_lint", allow(gazebo_lint_impl_dupe))]
 mod _scoped_allow {
+    use dupe::Dupe;
+
     use super::*;
 
     #[derive(Debug, Clone, Dupe, Copy, IntoEnumIterator)]

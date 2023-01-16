@@ -20,7 +20,9 @@ use std::sync::Arc;
 use std::sync::Weak;
 
 use allocative::Allocative;
-use gazebo::prelude::*;
+use dupe::Clone_;
+use dupe::Dupe;
+use dupe::Dupe_;
 
 /// Droppable type.
 ///

@@ -19,6 +19,7 @@ use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::io_counters::IoCounterKey;
 use derivative::Derivative;
+use dupe::Dupe;
 use edenfs::types::FileAttributes;
 use edenfs::types::ReaddirParams;
 use edenfs::types::SourceControlType;
@@ -26,7 +27,6 @@ use edenfs::types::SyncBehavior;
 use edenfs::types::SynchronizeWorkingCopyParams;
 use fbinit::FacebookInit;
 use gazebo::cmp::PartialEqAny;
-use gazebo::prelude::*;
 use tokio::sync::Semaphore;
 
 use crate::eden::EdenConnectionManager;

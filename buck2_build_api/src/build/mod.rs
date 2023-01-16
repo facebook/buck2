@@ -25,8 +25,8 @@ use dashmap::mapref::entry::Entry;
 use dashmap::DashMap;
 use dice::DiceComputations;
 use dice::UserComputationData;
+use dupe::Dupe;
 use futures::future;
-use gazebo::dupe::Dupe;
 use tokio::sync::Mutex;
 
 use crate::actions::artifact::build_artifact::BuildArtifact;

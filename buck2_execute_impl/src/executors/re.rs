@@ -34,6 +34,7 @@ use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::action_identity::ReActionIdentity;
 use buck2_execute::re::manager::ManagedRemoteExecutionClient;
 use buck2_execute::re::remote_action_result::RemoteActionResult;
+use dupe::Dupe;
 use gazebo::prelude::*;
 use indexmap::IndexMap;
 use remote_execution as RE;

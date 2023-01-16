@@ -12,12 +12,12 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use anyhow::Context;
+use dupe::Dupe;
 use futures::future;
 use futures::future::Future;
 use futures::future::FutureExt;
 use futures::stream;
 use futures::stream::StreamExt;
-use gazebo::prelude::*;
 use tonic::transport::Channel;
 use tonic::Request;
 

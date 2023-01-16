@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 use thiserror::Error;
 
 use crate::codemap::CodeMap;

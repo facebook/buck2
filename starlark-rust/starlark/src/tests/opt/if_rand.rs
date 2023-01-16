@@ -22,8 +22,8 @@ use std::fmt;
 use std::fmt::Display;
 
 use derive_more::Display;
+use dupe::Dupe;
 use gazebo::any::ProvidesStaticType;
-use gazebo::dupe::Dupe;
 use rand::rngs::SmallRng;
 use rand::Rng;
 use rand::SeedableRng;

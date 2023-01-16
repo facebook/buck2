@@ -19,7 +19,7 @@ use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::TargetLabel;
 use buck2_core::target::TargetName;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 
 use crate::attrs::attr_type::attr_literal::AttrLiteral;
 use crate::attrs::attr_type::AttrType;
@@ -402,7 +402,7 @@ pub mod testing {
     use buck2_core::collections::ordered_map::OrderedMap;
     use buck2_core::fs::paths::file_name::FileNameBuf;
     use buck2_core::target::TargetLabel;
-    use gazebo::dupe::Dupe;
+    use dupe::Dupe;
     use serde_json::map::Map;
     use serde_json::value::Value;
 

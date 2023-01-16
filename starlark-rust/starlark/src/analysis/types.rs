@@ -19,7 +19,7 @@ use std::fmt;
 use std::fmt::Display;
 use std::path::Path;
 
-use gazebo::prelude::*;
+use dupe::Dupe;
 use gazebo::variants::VariantName;
 use lsp_types::Diagnostic;
 use lsp_types::DiagnosticSeverity;

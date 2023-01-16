@@ -13,7 +13,7 @@ use buck2_node::attrs::attr_type::split_transition_dep::SplitTransitionDepAttrTy
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 use starlark::values::string::STRING_TYPE;
 use starlark::values::Value;
 

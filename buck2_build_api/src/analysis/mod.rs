@@ -24,7 +24,6 @@ use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
 use buck2_node::configuration::execution::ExecutionPlatformResolution;
 use dice::DiceComputations;
 use futures::Future;
-use gazebo::prelude::*;
 use starlark::environment::FrozenModule;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
@@ -56,6 +55,7 @@ use buck2_interpreter::types::label::Label;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::rule_type::StarlarkRuleType;
+use dupe::Dupe;
 use starlark::values::structs::AllocStruct;
 
 use crate::attrs::resolve::configured_attr::ConfiguredAttrExt;

@@ -21,7 +21,7 @@ use buck2_interpreter::types::target_label::StarlarkConfiguredTargetLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
-use gazebo::prelude::*;
+use dupe::Dupe;
 use starlark::environment::GlobalsBuilder;
 use starlark::starlark_module;
 use starlark::values::list::AllocList;

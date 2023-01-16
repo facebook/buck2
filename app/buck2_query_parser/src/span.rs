@@ -13,7 +13,7 @@ use std::ops::RangeTo;
 use std::str::CharIndices;
 use std::str::Chars;
 
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 use nom::Compare;
 use nom::CompareResult;
 use nom::InputIter;

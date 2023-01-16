@@ -18,7 +18,7 @@
 use std::fmt;
 use std::fmt::Display;
 
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 
 use crate::codemap::CodeMap;
 use crate::codemap::FileSpan;

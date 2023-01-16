@@ -29,7 +29,7 @@ use buck2_execute::materialize::materializer::CasDownloadInfo;
 use chrono::DateTime;
 use chrono::TimeZone;
 use chrono::Utc;
-use gazebo::prelude::*;
+use dupe::Dupe;
 use indexmap::indexset;
 use indexmap::IndexSet;
 use once_cell::sync::Lazy;

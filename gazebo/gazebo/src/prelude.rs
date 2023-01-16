@@ -12,8 +12,7 @@
 //! Contains:
 //!
 //! * Extension methods for [`str`](str) and slice/[`Vec`](Vec).
-//! * Exports the [`Dupe` trait](Dupe).
-//! * Defines derive macros such as [`Dupe_`](Dupe_).
+//! * Defines [`Default_`] macro.
 //!
 //! The derivation macros appended with underscore are like the normal
 //! derivations, but don't require the trait on any argument types.
@@ -21,20 +20,11 @@
 //!
 //! ```rust
 //! # use gazebo::prelude::*;
-//! # use std::sync::Arc;
-//! #[derive(Clone_)]
-//! struct Foo<T>(Arc<T>);
+//! #[derive(Default_)]
+//! struct Foo<T>(std::marker::PhantomData<T>);
 //! ```
-//!
-//! It is possible to use `derive(Clone)`, but that would require that
-//! `T` implements [`Clone`](Clone), which is unnecessary. Using
-//! [`Clone_`](Clone_) removes that constraint.
-pub use gazebo_derive::Clone_;
-pub use gazebo_derive::Copy_;
 pub use gazebo_derive::Default_;
 
-pub use crate::dupe::Dupe;
-pub use crate::dupe::Dupe_;
 pub use crate::ext::iter::IterDuped;
 pub use crate::ext::iter::IterExt;
 pub use crate::ext::iter::IterOwned;
@@ -51,7 +41,7 @@ pub use crate::ext::vec::VecExt;
 mod tests {
     use std::sync::Arc;
 
-    use super::*;
+    use dupe::Clone_;
 
     struct NoTraits();
 

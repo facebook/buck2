@@ -18,7 +18,7 @@ use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::StreamingCommand;
 use cli_proto::UnstableDocsRequest;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 use gazebo::prelude::*;
 use starlark::docs::Doc;
 

@@ -19,7 +19,7 @@ use buck2_core::cells::cell_path::CellPath;
 use buck2_query::query::environment::LabeledNode;
 use buck2_query_parser::parse_expr;
 use derive_more::Display;
-use gazebo::prelude::*;
+use dupe::Dupe;
 use serde::Serialize;
 
 use crate::query::environment::NodeLabel;

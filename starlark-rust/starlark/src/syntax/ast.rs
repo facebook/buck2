@@ -25,7 +25,7 @@ use std::mem;
 
 use allocative::Allocative;
 use derivative::Derivative;
-use gazebo::prelude::*;
+use dupe::Dupe;
 use gazebo::variants::VariantName;
 use static_assertions::assert_eq_size;
 

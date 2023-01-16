@@ -31,7 +31,7 @@ use buck2_query::query::traversal::AsyncNodeLookup;
 use buck2_query::query::traversal::AsyncTraversalDelegate;
 use derivative::Derivative;
 use derive_more::Display;
-use gazebo::prelude::*;
+use dupe::Dupe;
 use gazebo::variants::VariantName;
 use indexmap::IndexMap;
 use internment::ArcIntern;

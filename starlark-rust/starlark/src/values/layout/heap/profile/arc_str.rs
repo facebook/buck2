@@ -22,7 +22,7 @@ use std::ops::Deref;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 
 #[derive(Clone, Dupe, Debug, Allocative)]
 enum Inner {

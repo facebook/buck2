@@ -16,7 +16,7 @@ use std::ops::Deref;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 use serde::Serialize;
 use static_assertions::assert_eq_size;
 

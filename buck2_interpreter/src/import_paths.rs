@@ -22,7 +22,7 @@ use buck2_core::cells::paths::CellRelativePathBuf;
 use buck2_core::cells::CellAliasResolver;
 use dice::DiceComputations;
 use dice::Key;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 
 use crate::package_imports::PackageImplicitImports;
 

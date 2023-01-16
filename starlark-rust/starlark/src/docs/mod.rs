@@ -25,7 +25,7 @@ mod markdown;
 use std::collections::HashMap;
 
 use allocative::Allocative;
-use gazebo::prelude::*;
+use dupe::Dupe;
 use itertools::Itertools;
 pub use markdown::MarkdownFlavor;
 pub use markdown::RenderMarkdown;

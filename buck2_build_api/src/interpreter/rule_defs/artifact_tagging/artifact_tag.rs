@@ -13,8 +13,8 @@ use std::hash::Hasher;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use dupe::Dupe;
 use gazebo::any::ProvidesStaticType;
-use gazebo::prelude::*;
 use starlark::collections::StarlarkHasher;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;

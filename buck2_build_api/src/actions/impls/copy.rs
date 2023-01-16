@@ -16,6 +16,7 @@ use buck2_core::category::Category;
 use buck2_execute::artifact_utils::ArtifactValueBuilder;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
 use buck2_execute::materialize::materializer::CopiedArtifact;
+use dupe::Dupe;
 use gazebo::prelude::*;
 use indexmap::IndexSet;
 use once_cell::sync::Lazy;

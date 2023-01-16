@@ -14,7 +14,7 @@ use buck2_core::buck_path::BuckPathRef;
 use buck2_core::collections::ordered_set::OrderedSet;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::target::TargetLabel;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 
 use crate::attrs::traversal::CoercedAttrTraversal;
 

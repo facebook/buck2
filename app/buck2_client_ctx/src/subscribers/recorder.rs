@@ -11,7 +11,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use buck2_events::sink::scribe::new_thrift_scribe_sink_if_enabled;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 
 use crate::build_count::BuildCountManager;
 use crate::client_ctx::ClientCommandContext;
@@ -36,8 +36,8 @@ mod imp {
     use buck2_events::trace::TraceId;
     use buck2_events::BuckEvent;
     use buck2_events::EventSink;
+    use dupe::Dupe;
     use futures::FutureExt;
-    use gazebo::dupe::Dupe;
     use termwiz::istty::IsTty;
 
     use crate::build_count::BuildCountManager;

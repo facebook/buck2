@@ -51,6 +51,7 @@ pub mod spanned;
 
 use std::fmt::Display;
 
+use dupe::Dupe;
 use enum_map::Enum;
 use gazebo::prelude::*;
 use gazebo::variants::VariantName;

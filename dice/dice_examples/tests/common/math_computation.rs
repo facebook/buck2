@@ -18,7 +18,7 @@ use dice_examples::math_computation::Math;
 use dice_examples::math_computation::MathEquations;
 use dice_examples::math_computation::Unit;
 use dice_examples::math_computation::Var;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 
 fn var(name: &str) -> Var {
     Var(Arc::new(name.to_owned()))

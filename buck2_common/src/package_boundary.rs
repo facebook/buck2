@@ -23,7 +23,7 @@ use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
-use gazebo::prelude::*;
+use dupe::Dupe;
 use ref_cast::RefCast;
 
 use crate::legacy_configs::dice::HasLegacyConfigs;

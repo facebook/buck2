@@ -15,7 +15,7 @@ use buck2_core::cells::cell_path::CellPath;
 use buck2_core::package::PackageLabel;
 use dice::DiceComputations;
 use dice::Key;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 
 use crate::dice::cells::HasCellResolver;
 use crate::dice::file_ops::HasFileOps;

@@ -333,6 +333,7 @@ mod tests {
     use buck2_core::build_file_path::BuildFilePath;
     use buck2_core::cells::cell_path::CellPath;
     use derive_more::Display;
+    use dupe::Dupe;
     use gazebo::prelude::*;
     use serde::Serialize;
 

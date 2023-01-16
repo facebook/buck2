@@ -16,7 +16,7 @@ use buck2_core::fs::paths::RelativePath;
 use buck2_core::fs::paths::RelativePathBuf;
 use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRoot;
-use gazebo::prelude::*;
+use dupe::Dupe;
 
 use crate::artifact_value::ArtifactValue;
 use crate::directory::extract_artifact_value;

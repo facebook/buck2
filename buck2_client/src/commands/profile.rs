@@ -27,7 +27,7 @@ use cli_proto::BxlProfile;
 use cli_proto::ProfileRequest;
 use cli_proto::ProfileResponse;
 use cli_proto::TargetProfile;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 
 use super::bxl::BxlCommandOptions;
 

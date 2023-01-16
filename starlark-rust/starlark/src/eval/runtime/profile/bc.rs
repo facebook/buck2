@@ -22,7 +22,7 @@ use std::iter::Sum;
 use std::mem;
 use std::ops::AddAssign;
 
-use gazebo::prelude::*;
+use dupe::Dupe;
 
 use crate::eval::bc::opcode::BcOpcode;
 use crate::eval::runtime::evaluator::EvaluatorError;

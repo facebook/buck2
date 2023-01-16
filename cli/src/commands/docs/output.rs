@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use gazebo::prelude::*;
+use dupe::Dupe;
 
 #[derive(Debug, Clone, Dupe, clap::ArgEnum)]
 #[clap(rename_all = "snake_case")]

@@ -377,7 +377,7 @@ impl ProviderCodegen {
         let vis = &self.input.vis;
         let callable_name = self.callable_name()?;
         Ok(quote! {
-            #[derive(Debug, Clone, gazebo::dupe::Dupe, gazebo::any::ProvidesStaticType, starlark::values::NoSerialize, allocative::Allocative)]
+            #[derive(Debug, Clone, dupe::Dupe, gazebo::any::ProvidesStaticType, starlark::values::NoSerialize, allocative::Allocative)]
             #vis struct #callable_name {
                 id: &'static std::sync::Arc<buck2_core::provider::id::ProviderId>,
             }

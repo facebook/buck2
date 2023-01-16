@@ -13,7 +13,7 @@ use allocative::Allocative;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::InjectedKey;
-use gazebo::prelude::*;
+use dupe::Dupe;
 
 use crate::dice::HasInterpreterContext;
 use crate::extra::InterpreterConfiguror;

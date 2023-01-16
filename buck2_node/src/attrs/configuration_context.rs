@@ -19,7 +19,7 @@ use buck2_core::configuration::ConfigurationData;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::TargetLabel;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 
 use crate::configuration::resolved::ConfigurationSettingKeyRef;
 use crate::configuration::resolved::ResolvedConfiguration;

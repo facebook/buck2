@@ -18,6 +18,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use dupe::Dupe;
 use gazebo::cmp::PartialEqAny;
 use gazebo::prelude::*;
 use gazebo::variants::VariantName;
@@ -130,7 +131,7 @@ mod tests {
 
     use allocative::Allocative;
     use derive_more::Display;
-    use gazebo::prelude::*;
+    use dupe::Dupe;
     use indexmap::indexset;
 
     use crate::cycles::CycleDetector;

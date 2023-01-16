@@ -50,8 +50,8 @@ use buck2_server_ctx::concurrency::NestedInvocation;
 use buck2_server_ctx::concurrency::ParallelInvocation;
 use cli_proto::unstable_dice_dump_request::DiceDumpFormat;
 use dice::Dice;
+use dupe::Dupe;
 use fbinit::FacebookInit;
-use gazebo::dupe::Dupe;
 use gazebo::variants::VariantName;
 use tokio::sync::Mutex;
 

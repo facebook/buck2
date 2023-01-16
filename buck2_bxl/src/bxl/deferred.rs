@@ -38,7 +38,7 @@ mod tests {
     use buck2_interpreter::common::BxlFilePath;
     use dice::testing::DiceBuilder;
     use dice::UserComputationData;
-    use gazebo::dupe::Dupe;
+    use dupe::Dupe;
     use indexmap::IndexSet;
 
     use crate::bxl::calculation::testing::BxlComputeKey;

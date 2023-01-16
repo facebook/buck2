@@ -23,7 +23,7 @@ use buck2_data::DiceCriticalSectionStart;
 use buck2_events::dispatch::EventDispatcher;
 use dice::DiceComputations;
 use dice::DiceTransaction;
-use gazebo::prelude::*;
+use dupe::Dupe;
 
 use crate::concurrency::ConcurrencyHandler;
 use crate::concurrency::DiceDataProvider;

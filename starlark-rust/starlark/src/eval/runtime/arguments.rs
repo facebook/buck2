@@ -18,6 +18,8 @@
 use std::iter;
 use std::marker::PhantomData;
 
+use dupe::Clone_;
+use dupe::Dupe_;
 use either::Either;
 use gazebo::coerce::coerce;
 use gazebo::coerce::Coerce;

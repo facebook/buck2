@@ -17,7 +17,7 @@
 
 use std::marker::PhantomData;
 
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 
 use crate::values::layout::pointer::RawPointer;
 use crate::values::Value;

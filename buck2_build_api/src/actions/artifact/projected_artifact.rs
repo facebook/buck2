@@ -13,7 +13,7 @@ use allocative::Allocative;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use derive_more::Display;
-use gazebo::prelude::*;
+use dupe::Dupe;
 
 use crate::actions::artifact::BaseArtifactKind;
 

@@ -15,7 +15,7 @@ pub mod registry;
 use allocative::Allocative;
 pub use artifact_group_values::ArtifactGroupValues;
 use derive_more::Display;
-use gazebo::prelude::*;
+use dupe::Dupe;
 use gazebo::variants::UnpackVariants;
 
 use crate::actions::artifact::Artifact;

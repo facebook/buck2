@@ -17,7 +17,7 @@
 
 //! Helpers for numerical values.
 
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 
 use crate::collections::StarlarkHashValue;
 use crate::values::type_repr::StarlarkTypeRepr;

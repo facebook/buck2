@@ -10,9 +10,9 @@
 use allocative::Allocative;
 use anyhow::Context as _;
 use derive_more::Display;
+use dupe::Dupe;
 use gazebo::any::ProvidesStaticType;
 use gazebo::coerce::Coerce;
-use gazebo::dupe::Dupe;
 use starlark::values::Freeze;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;

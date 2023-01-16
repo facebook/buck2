@@ -22,9 +22,9 @@ use std::hash::Hash;
 use std::hash::Hasher;
 
 use allocative::Allocative;
+use dupe::Dupe;
 use gazebo::coerce::Coerce;
 use gazebo::coerce::CoerceKey;
-use gazebo::prelude::*;
 use serde::Serialize;
 use starlark_map::Equivalent;
 

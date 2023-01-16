@@ -17,6 +17,7 @@ use buck2_query::query::traversal::async_depth_first_postorder_traversal;
 use buck2_query::query::traversal::NodeLookup;
 use derive_more::Display;
 use derive_more::From;
+use gazebo::prelude::*;
 use indexmap::IndexSet;
 
 use super::*;

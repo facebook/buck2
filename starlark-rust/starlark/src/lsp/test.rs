@@ -25,6 +25,7 @@ use std::sync::Arc;
 use std::sync::RwLock;
 use std::time::Duration;
 
+use dupe::Dupe;
 use gazebo::prelude::*;
 use lsp_server::Connection;
 use lsp_server::Message;

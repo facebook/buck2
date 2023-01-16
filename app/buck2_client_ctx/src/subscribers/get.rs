@@ -8,7 +8,7 @@
  */
 
 use ::superconsole::Component;
-use gazebo::prelude::*;
+use dupe::Dupe;
 
 use crate::client_ctx::ClientCommandContext;
 use crate::common::CommonDaemonCommandOptions;

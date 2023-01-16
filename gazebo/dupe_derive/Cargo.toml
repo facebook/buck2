@@ -1,0 +1,18 @@
+[package]
+name = "dupe_derive"
+version = "0.8.0"
+license = "MIT OR Apache-2.0"
+authors = ["Facebook"]
+edition = "2021"
+description = "Derive Dupe"
+repository = "https://github.com/facebookincubator/gazebo"
+documentation = "https://docs.rs/dupe"
+categories = ["rust-patterns"]
+
+[lib]
+proc-macro = true
+
+[dependencies]
+proc-macro2 = "1.0"
+syn = {version = "1.0.27", features = ["extra-traits"]}
+quote = "1.0.3"

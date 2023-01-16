@@ -297,7 +297,7 @@ mod tests {
     use std::cell::RefCell;
     use std::rc::Rc;
 
-    use gazebo::prelude::*;
+    use dupe::Dupe;
 
     use crate::assert;
     use crate::assert::Assert;

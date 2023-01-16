@@ -19,7 +19,7 @@ use std::fmt::Display;
 use std::str::FromStr;
 
 use allocative::Allocative;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 
 pub(crate) mod bc;
 pub(crate) mod csv;

@@ -17,7 +17,7 @@ use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::manager::ReConnectionManager;
 use dice::Dice;
-use gazebo::prelude::*;
+use dupe::Dupe;
 
 use crate::jemalloc_stats::get_allocator_stats;
 

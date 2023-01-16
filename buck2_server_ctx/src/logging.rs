@@ -13,7 +13,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::Mutex;
 
-use gazebo::prelude::*;
+use dupe::Dupe;
 use tracing_subscriber::fmt::MakeWriter;
 
 static TRACING_LOG: Mutex<Option<TracingLogFile>> = Mutex::new(None);

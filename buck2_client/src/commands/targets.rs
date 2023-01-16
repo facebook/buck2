@@ -19,7 +19,7 @@ use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use cli_proto::targets_request;
 use cli_proto::TargetsRequest;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 use gazebo::prelude::*;
 
 use crate::commands::uquery::CommonAttributeArgs;

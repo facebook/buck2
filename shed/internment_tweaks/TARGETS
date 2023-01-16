@@ -11,6 +11,6 @@ rust_library(
         "fbsource//third-party/rust:hashbrown",
         "fbsource//third-party/rust:parking_lot",
         "//buck2/allocative/allocative:allocative",
-        "//buck2/gazebo/gazebo:gazebo",
+        "//buck2/gazebo/dupe:dupe",
     ],
 )

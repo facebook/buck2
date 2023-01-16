@@ -28,7 +28,7 @@ use cli_proto::CqueryRequest;
 use cli_proto::CqueryResponse;
 use dice::DiceComputations;
 use dice::DiceTransaction;
-use gazebo::prelude::*;
+use dupe::Dupe;
 
 use crate::commands::query::printer::ProviderLookUp;
 use crate::commands::query::printer::QueryResultPrinter;

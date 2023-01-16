@@ -17,7 +17,7 @@
 
 use allocative::Allocative;
 use derive_more::Display;
-use gazebo::prelude::*;
+use dupe::Dupe;
 
 use crate::target::TargetLabel;
 

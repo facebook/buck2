@@ -14,9 +14,9 @@ use anyhow::Context;
 use async_trait::async_trait;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_events::BuckEvent;
+use dupe::Dupe;
 use futures::Future;
 use futures::FutureExt;
-use gazebo::prelude::Dupe;
 use tokio::process::Child;
 
 use crate::cleanup_ctx::AsyncCleanupContext;

@@ -38,6 +38,7 @@ use buck2_execute::materialize::materializer::MaterializationError;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::materialize::materializer::WriteRequest;
 use buck2_execute::re::manager::ReConnectionManager;
+use dupe::Dupe;
 use futures::stream;
 use futures::stream::BoxStream;
 use futures::stream::StreamExt;

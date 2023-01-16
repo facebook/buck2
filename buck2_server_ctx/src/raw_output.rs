@@ -15,7 +15,7 @@ use std::str;
 
 use buck2_core::env_helper::EnvHelper;
 use buck2_events::dispatch::EventDispatcher;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 
 use crate::ctx::ServerCommandContextTrait;
 

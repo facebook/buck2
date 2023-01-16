@@ -41,6 +41,7 @@ use buck2_execute::re::manager::ManagedRemoteExecutionClient;
 use buck2_execute::re::remote_action_result::RemoteActionResult;
 use chrono::Duration;
 use chrono::Utc;
+use dupe::Dupe;
 use futures::future;
 use gazebo::prelude::*;
 use indexmap::IndexMap;

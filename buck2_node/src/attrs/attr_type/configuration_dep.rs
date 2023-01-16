@@ -9,7 +9,7 @@
 
 use allocative::Allocative;
 use buck2_core::target::TargetLabel;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 
 use crate::attrs::attr_type::attr_literal::AttrLiteral;
 use crate::attrs::configuration_context::AttrConfigurationContext;

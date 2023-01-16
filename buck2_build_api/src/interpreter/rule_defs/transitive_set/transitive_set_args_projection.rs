@@ -13,12 +13,12 @@ use std::iter;
 
 use allocative::Allocative;
 use anyhow::Context as _;
+use dupe::Dupe;
 use gazebo::any::ProvidesStaticType;
 use gazebo::coerce::Coerce;
 use gazebo::display::display_chain;
 use gazebo::display::display_container;
 use gazebo::display::display_pair;
-use gazebo::prelude::*;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;

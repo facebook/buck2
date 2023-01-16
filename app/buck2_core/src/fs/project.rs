@@ -66,7 +66,7 @@ use std::sync::Arc;
 use anyhow::Context;
 use derivative::Derivative;
 use derive_more::Display;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 use ref_cast::RefCast;
 use serde::Serialize;
 

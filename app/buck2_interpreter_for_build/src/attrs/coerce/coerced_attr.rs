@@ -146,7 +146,7 @@ mod tests {
     use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
     use buck2_node::attrs::coerced_attr::CoercedAttr;
     use buck2_node::attrs::configuration_context::AttrConfigurationContext;
-    use gazebo::prelude::Dupe;
+    use dupe::Dupe;
 
     #[test]
     fn selector_equals_accounts_for_ordering() {

@@ -9,6 +9,7 @@
 
 use allocative::Allocative;
 use derive_more::Display;
+use dupe::Dupe;
 use gazebo::prelude::*;
 
 use super::HasDirectoryDigest;

@@ -8,8 +8,9 @@
  */
 
 use allocative::Allocative;
+use dupe::Clone_;
+use dupe::Dupe;
 use futures::future::Shared;
-use gazebo::prelude::*;
 
 use crate::dice_task::DiceTask;
 use crate::dice_task::DiceTaskStateForDebugging;

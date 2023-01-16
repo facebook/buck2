@@ -22,7 +22,7 @@ use std::ops::Div;
 use std::time::Duration;
 
 use allocative::Allocative;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 
 /// Slightly faster than `Duration`.
 #[derive(Copy, Clone, Dupe, Default, Debug, Allocative)]

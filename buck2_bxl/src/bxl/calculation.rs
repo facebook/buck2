@@ -18,7 +18,7 @@ use buck2_execute::bxl::types::BxlKey;
 use buck2_interpreter::dice::starlark_profiler::GetStarlarkProfilerInstrumentation;
 use dice::DiceComputations;
 use dice::Key;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 
 use crate::bxl::eval::eval;
 
@@ -56,7 +56,7 @@ mod internal {
     use allocative::Allocative;
     use buck2_execute::bxl::types::BxlKey;
     use derive_more::Display;
-    use gazebo::prelude::*;
+    use dupe::Dupe;
 
     #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
     pub struct BxlComputeKey(pub BxlKey);

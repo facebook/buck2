@@ -16,7 +16,7 @@ use buck2_core::target_aliases::TargetAliasResolver;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
-use gazebo::prelude::*;
+use dupe::Dupe;
 use indexmap::IndexSet;
 use itertools::Itertools;
 

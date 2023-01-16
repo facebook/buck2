@@ -19,8 +19,8 @@
 
 use std::ops::Deref;
 
+use dupe::Dupe;
 use either::Either;
-use gazebo::prelude::*;
 
 use crate::values::list::ListRef;
 use crate::values::type_repr::StarlarkTypeRepr;

@@ -146,9 +146,7 @@ def _fix_dep(x: "string") -> [
     if x == "fbsource//third-party/blake3:blake3-rust":
         x = "fbsource//third-party/rust:blake3"
 
-    if x == "//buck2/gazebo/gazebo:gazebo":
-        return "fbsource//third-party/rust:gazebo"
-    elif x == "//common/rust/folly/logging:logging":
+    if x == "//common/rust/folly/logging:logging":
         return None
     elif x == "//watchman/rust/watchman_client:watchman_client":
         return "fbsource//third-party/rust:watchman_client"

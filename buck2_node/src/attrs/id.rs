@@ -8,7 +8,7 @@
  */
 
 use allocative::Allocative;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 
 #[derive(
     Debug, Clone, Dupe, Copy, Eq, Hash, PartialEq, Ord, PartialOrd, Allocative

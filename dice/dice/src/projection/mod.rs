@@ -19,7 +19,7 @@ use std::sync::Weak;
 
 use allocative::Allocative;
 use async_trait::async_trait;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 
 use crate::ctx::UserComputationData;
 use crate::incremental::IncrementalComputeProperties;

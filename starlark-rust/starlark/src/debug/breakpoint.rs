@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 
 use crate::codemap::CodeMap;
 use crate::codemap::FileSpan;

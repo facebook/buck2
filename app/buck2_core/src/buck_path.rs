@@ -9,7 +9,7 @@
 
 use allocative::Allocative;
 use derive_more::Display;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 
 use crate::cells::cell_path::CellPath;
 use crate::package::package_relative_path::PackageRelativePath;

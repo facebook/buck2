@@ -364,7 +364,7 @@ mod tests {
     use buck2_common::file_ops::TrackedFileDigest;
     use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
     use buck2_core::fs::paths::RelativePathBuf;
-    use gazebo::prelude::*;
+    use dupe::Dupe;
 
     use super::*;
     use crate::artifact_value::ArtifactValue;

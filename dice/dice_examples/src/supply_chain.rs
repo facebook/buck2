@@ -29,10 +29,10 @@ use dice::DiceComputations;
 use dice::DiceTransaction;
 use dice::InjectedKey;
 use dice::Key;
+use dupe::Dupe;
 use futures::future::join_all;
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
-use gazebo::dupe::Dupe;
 use gazebo::prelude::*;
 use ref_cast::RefCast;
 

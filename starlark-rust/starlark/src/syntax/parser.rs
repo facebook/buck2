@@ -19,7 +19,7 @@ use std::fmt::Write;
 use std::fs;
 use std::path::Path;
 
-use gazebo::prelude::*;
+use dupe::Dupe;
 use lalrpop_util as lu;
 
 use crate::codemap::CodeMap;

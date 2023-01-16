@@ -15,6 +15,7 @@ use buck2_core::target::ConfiguredTargetLabel;
 use buck2_node::attrs::attr_type::arg::QueryExpansion;
 use buck2_node::attrs::attr_type::query::QueryMacroBase;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
+use dupe::Dupe;
 use gazebo::prelude::*;
 use starlark::values::FrozenRef;
 

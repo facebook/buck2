@@ -21,6 +21,7 @@ uuid = { workspace = true }
 
 dice = { path = "../../dice/dice" }
 gazebo = { workspace = true }
+dupe = { workspace = true }
 host_sharing = { workspace = true }
 more_futures = { workspace = true }
 

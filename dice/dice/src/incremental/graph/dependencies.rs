@@ -19,8 +19,8 @@ use std::sync::Weak;
 
 use allocative::Allocative;
 use async_trait::async_trait;
+use dupe::Dupe;
 use gazebo::cmp::PartialEqAny;
-use gazebo::dupe::Dupe;
 use parking_lot::RwLock;
 use parking_lot::RwLockReadGuard;
 

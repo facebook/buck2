@@ -19,7 +19,7 @@ use std::fmt::Debug;
 use std::hash::Hash;
 
 use allocative::Allocative;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 
 use crate::hasher::StarlarkHasher;
 use crate::mix_u32::mix_u32;

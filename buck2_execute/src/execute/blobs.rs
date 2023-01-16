@@ -11,7 +11,7 @@ use std::collections::HashMap;
 
 use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::TrackedFileDigest;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 use prost::Message;
 
 /// Contains small blobs referenced from action messages (does not include any file contents blobs).

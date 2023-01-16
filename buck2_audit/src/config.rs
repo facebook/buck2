@@ -20,6 +20,7 @@ use buck2_core::cells::*;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use cli_proto::ClientContext;
+use dupe::Dupe;
 use gazebo::prelude::*;
 use serde_json::json;
 

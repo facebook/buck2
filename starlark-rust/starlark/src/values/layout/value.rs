@@ -36,6 +36,10 @@ use std::fmt::Debug;
 use std::fmt::Display;
 
 use allocative::Allocative;
+use dupe::Clone_;
+use dupe::Copy_;
+use dupe::Dupe;
+use dupe::Dupe_;
 use either::Either;
 use gazebo::any::AnyLifetime;
 use gazebo::any::ProvidesStaticType;
@@ -43,7 +47,6 @@ use gazebo::cast;
 use gazebo::coerce::coerce;
 use gazebo::coerce::Coerce;
 use gazebo::coerce::CoerceKey;
-use gazebo::prelude::*;
 use num_bigint::BigInt;
 use serde::Serialize;
 use serde::Serializer;

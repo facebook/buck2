@@ -15,6 +15,7 @@ use std::hash::Hash;
 use std::hash::Hasher;
 
 use assert_matches::assert_matches;
+use dupe::Dupe;
 use gazebo::prelude::*;
 
 use super::*;

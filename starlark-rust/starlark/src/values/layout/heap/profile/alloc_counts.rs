@@ -20,7 +20,7 @@ use std::ops::Add;
 use std::ops::AddAssign;
 
 use allocative::Allocative;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 
 /// Allocations counters.
 #[derive(Default, Copy, Clone, Dupe, Debug, Allocative)]

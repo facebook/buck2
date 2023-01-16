@@ -30,9 +30,9 @@ use buck2_data::span_start_event;
 use buck2_data::MercurialInfo;
 use buck2_data::SpanEndEvent;
 use buck2_data::SpanStartEvent;
+use dupe::Dupe;
 use futures::future;
 use futures::Future;
-use gazebo::prelude::*;
 
 use crate::sink::null::NullEventSink;
 use crate::span::SpanId;

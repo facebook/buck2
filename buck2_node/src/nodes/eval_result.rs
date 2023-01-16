@@ -15,6 +15,7 @@ use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bzl::ImportPath;
 use buck2_core::package::PackageLabel;
 use buck2_core::target::TargetName;
+use dupe::Dupe;
 use gazebo::prelude::*;
 use itertools::Itertools;
 

@@ -23,8 +23,8 @@ use std::marker::PhantomData;
 use std::num::NonZeroI32;
 
 use allocative::Allocative;
+use dupe::Dupe;
 use gazebo::any::ProvidesStaticType;
-use gazebo::prelude::*;
 
 use crate as starlark;
 use crate::values::index::convert_index;

@@ -39,6 +39,7 @@ use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use cli_proto::ClientContext;
 use derive_more::Display;
 use dice::DiceComputations;
+use dupe::Dupe;
 use futures::stream::FuturesOrdered;
 use futures::StreamExt;
 use gazebo::prelude::*;

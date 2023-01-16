@@ -16,9 +16,9 @@ use anyhow::Context as _;
 use bincode::Options;
 use cli_proto::unstable_dice_dump_request::DiceDumpFormat;
 use dice::Dice;
+use dupe::Dupe;
 use flate2::write::GzEncoder;
 use flate2::Compression;
-use gazebo::dupe::Dupe;
 
 pub(crate) async fn dice_dump_spawn(
     dice: &Arc<Dice>,

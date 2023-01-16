@@ -10,7 +10,7 @@
 use std::sync::atomic::AtomicU32;
 use std::sync::atomic::Ordering;
 
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 
 #[derive(Copy, Clone, Dupe, Debug)]
 pub enum IoCounterKey {

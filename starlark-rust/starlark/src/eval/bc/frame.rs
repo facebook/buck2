@@ -23,7 +23,7 @@ use std::mem::MaybeUninit;
 use std::ptr;
 use std::slice;
 
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 
 use crate::eval::bc::stack_ptr::BcSlotIn;
 use crate::eval::bc::stack_ptr::BcSlotInRange;

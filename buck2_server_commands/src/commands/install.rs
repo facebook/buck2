@@ -68,6 +68,7 @@ use cli_proto::InstallRequest;
 use cli_proto::InstallResponse;
 use dice::DiceComputations;
 use dice::DiceTransaction;
+use dupe::Dupe;
 use futures::future::try_join;
 use futures::future::try_join_all;
 use futures::stream::StreamExt;

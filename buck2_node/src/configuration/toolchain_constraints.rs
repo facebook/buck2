@@ -10,7 +10,7 @@
 use std::sync::Arc;
 
 use allocative::Allocative;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 use starlark_map::small_map::SmallMap;
 
 use crate::compatibility::IncompatiblePlatformReason;

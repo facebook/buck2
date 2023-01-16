@@ -60,10 +60,10 @@ where
 mod tests {
     use std::sync::Arc;
 
+    use dupe::Dupe;
     use futures::future;
     use futures::stream::FuturesOrdered;
     use futures::StreamExt;
-    use gazebo::prelude::*;
 
     use crate::drop::DropTogether;
 

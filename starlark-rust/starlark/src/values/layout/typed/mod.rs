@@ -25,10 +25,12 @@ use std::marker;
 use std::ops::Deref;
 
 use allocative::Allocative;
+use dupe::Clone_;
+use dupe::Copy_;
+use dupe::Dupe_;
 use gazebo::cast;
 use gazebo::coerce::Coerce;
 use gazebo::coerce::CoerceKey;
-use gazebo::prelude::*;
 use serde::Serialize;
 
 use crate::gazebo::any::AnyLifetime;

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 use hashbrown::HashMap;
 use once_cell::sync::Lazy;
 

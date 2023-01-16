@@ -22,6 +22,7 @@ use buck2_core::fs::fs_util;
 use buck2_core::fs::project::ProjectRelativePath;
 use chrono::DateTime;
 use chrono::Utc;
+use dupe::Dupe;
 use either::Either;
 use fbinit::FacebookInit;
 use futures::stream::BoxStream;

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 
 use crate::eval::runtime::frame_span::FrameSpan;
 use crate::eval::Arguments;

@@ -16,6 +16,7 @@ use std::fmt::Display;
 use allocative::Allocative;
 use buck2_core::fs::paths::RelativePathBuf;
 use derive_more::Display;
+use dupe::Dupe;
 use gazebo::any::ProvidesStaticType;
 use gazebo::cell::ARef;
 use gazebo::coerce::coerce;

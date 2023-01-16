@@ -22,6 +22,7 @@ use buck2_query::query::syntax::simple::functions::DefaultQueryFunctionsModule;
 use derivative::Derivative;
 use derive_more::Display;
 use dice::DiceComputations;
+use dupe::Dupe;
 use gazebo::any::ProvidesStaticType;
 use gazebo::prelude::*;
 use starlark::environment::Methods;

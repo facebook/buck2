@@ -14,7 +14,7 @@
 
 use std::str;
 
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 
 const fn assert_ascii_char(c: char) -> u8 {
     assert!((c as u32) <= 0xf7);

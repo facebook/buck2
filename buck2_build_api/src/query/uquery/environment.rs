@@ -44,6 +44,7 @@ use buck2_query::query::traversal::AsyncNodeLookup;
 use buck2_query::query::traversal::AsyncTraversalDelegate;
 use buck2_query::query::traversal::ChildVisitor;
 use derive_more::Display;
+use dupe::Dupe;
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
 use gazebo::prelude::*;

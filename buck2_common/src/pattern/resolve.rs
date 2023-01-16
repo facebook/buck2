@@ -13,7 +13,7 @@ use buck2_core::package::PackageLabel;
 use buck2_core::pattern::PackageSpec;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::PatternType;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 use indexmap::IndexMap;
 
 use crate::file_ops::FileOps;
@@ -107,6 +107,7 @@ mod tests {
     use buck2_core::provider::label::ProviderName;
     use buck2_core::provider::label::ProvidersName;
     use buck2_core::target::TargetName;
+    use dupe::Dupe;
     use gazebo::prelude::*;
     use test_case::test_case;
 

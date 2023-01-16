@@ -25,8 +25,8 @@ use buck2_interpreter::file_loader::LoadedModules;
 use buck2_interpreter::interpreter::configure_base_globals;
 use buck2_interpreter::package_imports::ImplicitImport;
 use buck2_query::query::syntax::simple::functions::QueryFunctionsVisitLiterals;
+use dupe::Dupe;
 use gazebo::cmp::PartialEqAny;
-use gazebo::dupe::Dupe;
 use starlark::environment::Globals;
 use starlark::environment::GlobalsBuilder;
 

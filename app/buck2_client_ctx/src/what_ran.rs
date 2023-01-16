@@ -10,7 +10,7 @@
 use std::borrow::Cow;
 use std::fmt;
 
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 use superconsole::Line;
 use superconsole::SuperConsole;
 

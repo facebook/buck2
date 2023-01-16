@@ -9,7 +9,7 @@
 
 use std::ffi::OsString;
 
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 use once_cell::sync::OnceCell;
 
 #[derive(Copy, Clone, Dupe, Debug)]

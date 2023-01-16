@@ -18,6 +18,7 @@ use buck2_core::target::ConfiguredTargetLabel;
 use buck2_node::compatibility::MaybeCompatible;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use dice::DiceComputations;
+use dupe::Dupe;
 use gazebo::prelude::*;
 use owning_ref::ArcRef;
 

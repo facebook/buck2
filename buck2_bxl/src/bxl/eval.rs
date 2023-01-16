@@ -37,7 +37,7 @@ use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
 use dice::DiceComputations;
 use dice::DiceTransaction;
-use gazebo::prelude::*;
+use dupe::Dupe;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::values::structs::AllocStruct;

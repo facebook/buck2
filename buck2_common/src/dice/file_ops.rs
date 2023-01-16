@@ -24,8 +24,8 @@ use derive_more::Display;
 use dice::DiceComputations;
 use dice::DiceTransaction;
 use dice::Key;
+use dupe::Dupe;
 use gazebo::cmp::PartialEqAny;
-use gazebo::prelude::*;
 use itertools::Itertools;
 
 use crate::dice::cells::HasCellResolver;
@@ -76,7 +76,7 @@ pub mod keys {
 
     use allocative::Allocative;
     use derive_more::Display;
-    use gazebo::prelude::*;
+    use dupe::Dupe;
 
     use crate::file_ops::FileOps;
 

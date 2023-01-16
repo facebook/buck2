@@ -13,7 +13,7 @@ use allocative::Allocative;
 use buck2_common::legacy_configs::view::LegacyBuckConfigView;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::CellAliasResolver;
-use gazebo::prelude::*;
+use dupe::Dupe;
 
 #[derive(Clone, Dupe, Debug, Allocative)]
 pub struct InterpreterCellInfo(Arc<Data>);

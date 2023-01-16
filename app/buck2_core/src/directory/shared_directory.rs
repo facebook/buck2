@@ -18,6 +18,8 @@ use dashmap::mapref::entry::Entry;
 use dashmap::DashMap;
 use derivative::Derivative;
 use derive_more::Display;
+use dupe::Clone_;
+use dupe::Dupe_;
 use gazebo::prelude::*;
 
 use super::impl_fingerprinted_directory;

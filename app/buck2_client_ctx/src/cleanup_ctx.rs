@@ -12,9 +12,9 @@ use std::sync::Mutex;
 use std::time::Duration;
 use std::time::Instant;
 
+use dupe::Dupe;
 use futures::future;
 use futures::future::BoxFuture;
-use gazebo::dupe::Dupe;
 use tokio::runtime::Builder;
 
 /// For cleanup we want to perform, but cant do in `drop` because it's async.

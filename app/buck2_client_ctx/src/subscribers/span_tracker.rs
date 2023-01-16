@@ -17,7 +17,7 @@ use buck2_events::span::SpanId;
 use buck2_events::BuckEvent;
 use derivative::Derivative;
 use derive_more::From;
-use gazebo::prelude::*;
+use dupe::Dupe;
 use linked_hash_map::LinkedHashMap;
 
 use crate::what_ran::WhatRanRelevantAction;

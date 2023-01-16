@@ -234,6 +234,7 @@ use std::sync::Weak;
 
 use allocative::Allocative;
 use async_trait::async_trait;
+use dupe::Dupe;
 pub use fnv::FnvHashMap as HashMap;
 pub use fnv::FnvHashSet as HashSet;
 use gazebo::prelude::*;

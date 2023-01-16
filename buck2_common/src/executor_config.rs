@@ -13,7 +13,7 @@ use std::hash::Hasher;
 use allocative::Allocative;
 use buck2_core::collections::sorted_map::SortedMap;
 use derive_more::Display;
-use gazebo::prelude::Dupe;
+use dupe::Dupe;
 use internment_tweaks::Intern;
 use internment_tweaks::StaticInterner;
 use once_cell::sync::Lazy;

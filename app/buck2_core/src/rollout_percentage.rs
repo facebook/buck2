@@ -10,7 +10,7 @@
 use std::ffi::OsString;
 use std::str::FromStr;
 
-use gazebo::prelude::*;
+use dupe::Dupe;
 use os_str_bytes::OsStrBytes;
 use rand::Rng;
 

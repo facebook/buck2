@@ -328,7 +328,7 @@ pub(crate) mod testings {
     use buck2_execute::execute::request::CommandExecutionRequest;
     use buck2_execute::execute::request::OutputType;
     use derivative::Derivative;
-    use gazebo::dupe::Dupe;
+    use dupe::Dupe;
     use indexmap::IndexSet;
     use maplit::hashmap;
     use starlark::values::OwnedFrozenValue;

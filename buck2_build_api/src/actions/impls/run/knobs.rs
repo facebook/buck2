@@ -8,7 +8,7 @@
  */
 
 use dice::UserComputationData;
-use gazebo::prelude::*;
+use dupe::Dupe;
 
 /// Knobs controlling how RunAction works.
 #[derive(Copy, Clone, Dupe, Default)]

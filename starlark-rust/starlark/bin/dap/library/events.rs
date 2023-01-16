@@ -16,7 +16,7 @@
  */
 
 use debugserver_types::*;
-use gazebo::prelude::*;
+use dupe::Dupe;
 use serde::Serialize;
 use serde_json::Value;
 

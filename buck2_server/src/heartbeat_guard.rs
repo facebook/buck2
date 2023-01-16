@@ -12,7 +12,7 @@ use std::sync::Mutex;
 use std::time::Duration;
 
 use buck2_events::dispatch::EventDispatcher;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 use tokio::task::JoinHandle;
 
 use crate::ctx::BaseServerCommandContext;

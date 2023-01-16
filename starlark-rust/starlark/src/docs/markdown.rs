@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-use gazebo::prelude::*;
+use dupe::Dupe;
 use itertools::Itertools;
 
 use crate::docs::Doc;

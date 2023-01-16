@@ -20,7 +20,7 @@ use std::fmt::Display;
 
 use allocative::Allocative;
 use anyhow::Context;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 use once_cell::sync::Lazy;
 use regex::Regex;
 

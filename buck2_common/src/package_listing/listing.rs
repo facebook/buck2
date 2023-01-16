@@ -15,7 +15,7 @@ use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::package::package_relative_path::PackageRelativePath;
 use buck2_core::package::package_relative_path::PackageRelativePathBuf;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 use indexmap::IndexSet;
 
 use crate::package_listing::file_listing::PackageFileListing;

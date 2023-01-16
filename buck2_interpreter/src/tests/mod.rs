@@ -31,7 +31,7 @@ use dice::cycles::DetectCycles;
 use dice::Dice;
 use dice::DiceTransaction;
 use dice::UserComputationData;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 use indoc::indoc;
 use maplit::hashmap;
 use serde_json::json;

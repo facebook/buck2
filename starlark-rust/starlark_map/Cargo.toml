@@ -11,6 +11,7 @@ authors = [
 ]
 
 [dependencies]
+dupe = { workspace = true }
 gazebo = { workspace = true }
 gazebo_lint.version = "0.1"
 gazebo_lint.optional = true

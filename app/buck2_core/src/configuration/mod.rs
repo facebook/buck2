@@ -26,7 +26,7 @@ use std::hash::Hash;
 use std::hash::Hasher;
 
 use allocative::Allocative;
-use gazebo::prelude::*;
+use dupe::Dupe;
 use internment_tweaks::Intern;
 use internment_tweaks::StaticInterner;
 use once_cell::sync::Lazy;
@@ -469,7 +469,7 @@ impl HashedPlatformConfigurationData {
 mod tests {
     use std::collections::BTreeMap;
 
-    use gazebo::dupe::Dupe;
+    use dupe::Dupe;
 
     use crate::configuration::constraints::ConstraintKey;
     use crate::configuration::constraints::ConstraintValue;

@@ -16,7 +16,8 @@
  */
 
 //! Implementation of `record` function.
-use gazebo::prelude::*;
+
+use dupe::Dupe;
 
 use crate as starlark;
 use crate::collections::SmallMap;

@@ -9,7 +9,7 @@
 
 use allocative::Allocative;
 use anyhow::Context;
-use gazebo::prelude::*;
+use dupe::Dupe;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::Value;
 

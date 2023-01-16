@@ -19,11 +19,11 @@ use buck2_core::provider::label::ProviderName;
 use buck2_core::provider::label::ProvidersName;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
 use buck2_interpreter_for_build::provider::callable::ValueAsProviderCallableLike;
+use dupe::Dupe;
 use either::Either;
 use gazebo::any::ProvidesStaticType;
 use gazebo::coerce::Coerce;
 use gazebo::display::display_container;
-use gazebo::dupe::Dupe;
 use serde::Serialize;
 use serde::Serializer;
 use starlark::collections::SmallMap;
@@ -449,7 +449,7 @@ impl FrozenProviderCollectionValue {
 #[cfg(test)]
 pub(crate) mod tester {
     use buck2_interpreter_for_build::provider::callable::ValueAsProviderCallableLike;
-    use gazebo::dupe::Dupe;
+    use dupe::Dupe;
     use starlark::environment::GlobalsBuilder;
     use starlark::values::Value;
     use starlark::values::ValueLike;

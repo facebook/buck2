@@ -45,8 +45,8 @@ use std::hash::Hasher;
 
 use allocative::Allocative;
 use derive_more::Display;
+use dupe::Dupe;
 use fnv::FnvHasher;
-use gazebo::prelude::*;
 use internment_tweaks::Equiv;
 use internment_tweaks::Intern;
 use internment_tweaks::StaticInterner;

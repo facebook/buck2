@@ -15,6 +15,7 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_execute::base_deferred_key::BaseDeferredKey;
 use buck2_interpreter::types::label::Label;
+use dupe::Dupe;
 use gazebo::prelude::*;
 use indexmap::indexset;
 use indexmap::IndexSet;

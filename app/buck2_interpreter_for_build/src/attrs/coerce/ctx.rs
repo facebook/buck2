@@ -29,7 +29,7 @@ use buck2_query::query::syntax::simple::functions::QueryLiteralVisitor;
 use buck2_query_parser::spanned::Spanned;
 use buck2_query_parser::Expr;
 use bumpalo::Bump;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 use hashbrown::raw::RawTable;
 use tracing::info;
 use twox_hash::xxh3;

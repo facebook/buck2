@@ -22,6 +22,7 @@ use buck2_node::attrs::attr::Attribute;
 use buck2_node::attrs::attr_type::any::AnyAttrType;
 use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
+use dupe::Dupe;
 use gazebo::prelude::*;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
@@ -513,7 +514,7 @@ mod tests {
     use buck2_node::attrs::attr_type::AttrType;
     use buck2_node::attrs::coercion_context::AttrCoercionContext;
     use buck2_node::attrs::configurable::AttrIsConfigurable;
-    use gazebo::prelude::*;
+    use dupe::Dupe;
     use indoc::indoc;
     use starlark::values::Heap;
 

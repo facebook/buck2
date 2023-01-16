@@ -15,7 +15,7 @@ use buck2_core::target::TargetLabel;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
 use buck2_query::query::syntax::simple::functions::DefaultQueryFunctionsModule;
 use dice::DiceComputations;
-use gazebo::prelude::*;
+use dupe::Dupe;
 
 use crate::query::analysis::evaluator::eval_query;
 use crate::query::aquery::environment::ActionQueryNode;

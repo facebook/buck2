@@ -10,7 +10,7 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use gazebo::prelude::*;
+use dupe::Dupe;
 use sorted_vector_map::SortedVectorMap;
 
 use crate::dice_task::DiceTask;

@@ -9,8 +9,8 @@
 
 use buck2_events::dispatch::with_dispatcher_async;
 use buck2_interpreter::dice::HasEvents;
+use dupe::Dupe;
 use futures::future::BoxFuture;
-use gazebo::dupe::Dupe;
 use more_futures::spawner::Spawner;
 use tokio::task::JoinHandle;
 
@@ -40,7 +40,6 @@ mod tests {
     use dice::data::DiceData;
     use dice::UserComputationData;
     use futures::future::FutureExt;
-    use gazebo::prelude::*;
     use more_futures::spawn::spawn_task;
 
     use super::*;

@@ -17,7 +17,7 @@ pub mod convert;
 use std::collections::HashMap;
 use std::time::Duration;
 
-use gazebo::prelude::*;
+use dupe::Dupe;
 use host_sharing::HostSharingRequirements;
 
 use crate::data::ArgValue;

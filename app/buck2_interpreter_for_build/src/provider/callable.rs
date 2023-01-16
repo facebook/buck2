@@ -10,8 +10,8 @@
 use std::sync::Arc;
 
 use buck2_core::provider::id::ProviderId;
+use dupe::Dupe;
 use gazebo::any::ProvidesStaticType;
-use gazebo::dupe::Dupe;
 use starlark::docs;
 use starlark::docs::DocItem;
 use starlark::docs::DocString;

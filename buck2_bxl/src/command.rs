@@ -44,8 +44,8 @@ use cli_proto::BxlRequest;
 use cli_proto::BxlResponse;
 use dice::DiceComputations;
 use dice::DiceTransaction;
+use dupe::Dupe;
 use futures::FutureExt;
-use gazebo::prelude::*;
 use itertools::Itertools;
 
 use crate::bxl::eval::get_bxl_callable;

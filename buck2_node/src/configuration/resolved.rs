@@ -16,7 +16,7 @@ use buck2_core::collections::unordered_map::UnorderedMap;
 use buck2_core::configuration::Configuration;
 use buck2_core::configuration::ConfigurationData;
 use buck2_core::target::TargetLabel;
-use gazebo::prelude::*;
+use dupe::Dupe;
 use starlark_map::Equivalent;
 
 #[derive(Debug, Eq, Allocative)]

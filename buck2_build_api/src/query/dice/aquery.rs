@@ -20,6 +20,7 @@ use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use dashmap::DashMap;
 use dice::DiceComputations;
 use dice::DiceTransaction;
+use dupe::Dupe;
 use futures::future::BoxFuture;
 use futures::future::Shared;
 use futures::stream::FuturesOrdered;

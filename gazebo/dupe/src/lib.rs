@@ -14,8 +14,10 @@ use std::num::*;
 use std::rc::Rc;
 use std::sync::Arc;
 
-pub use gazebo_derive::Dupe;
-pub use gazebo_derive::Dupe_;
+pub use dupe_derive::Clone_;
+pub use dupe_derive::Copy_;
+pub use dupe_derive::Dupe;
+pub use dupe_derive::Dupe_;
 
 /// Like [`Clone`](Clone), but should only be available if [`Clone`](Clone) is
 /// constant time and zero allocation (e.g. a few [`Arc`](Arc) bumps).
@@ -117,11 +119,9 @@ impl<A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, R> Dupe
 
 #[cfg(test)]
 mod tests {
-    use gazebo_derive::Clone_;
-
     use super::*;
     #[allow(unused_imports)] // Not actually unused, this makes testing the derive macro work
-    use crate as gazebo;
+    use crate as dupe;
 
     #[test]
     fn test_dupe_generic() {
@@ -148,9 +148,17 @@ mod tests {
     fn test_dupe_() {
         #[derive(Debug, PartialEq, Eq)]
         struct NoClone();
-        #[derive(Clone_, Dupe_, Debug, PartialEq, Eq)]
+        #[derive(Dupe_, Debug, PartialEq, Eq)]
         struct FooT<T> {
             foo: Arc<T>,
+        }
+
+        impl<T> Clone for FooT<T> {
+            fn clone(&self) -> Self {
+                FooT {
+                    foo: self.foo.clone(),
+                }
+            }
         }
 
         let x = FooT {

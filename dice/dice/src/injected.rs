@@ -13,7 +13,7 @@ use std::hash::Hash;
 
 use allocative::Allocative;
 use async_trait::async_trait;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 
 use crate::DiceComputations;
 use crate::Key;

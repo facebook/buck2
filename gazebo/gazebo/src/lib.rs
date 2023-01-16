@@ -18,7 +18,6 @@ pub mod cell;
 pub mod cmp;
 pub mod coerce;
 pub mod display;
-pub mod dupe;
 pub(crate) mod ext;
 pub mod file;
 pub mod hash;

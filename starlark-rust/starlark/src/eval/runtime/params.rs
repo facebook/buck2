@@ -22,9 +22,9 @@ use std::cmp;
 use std::collections::HashMap;
 
 use allocative::Allocative;
+use dupe::Dupe;
 use gazebo::coerce::coerce;
 use gazebo::coerce::Coerce;
-use gazebo::dupe::Dupe;
 use starlark_map::small_map::SmallMap;
 use starlark_map::Hashed;
 

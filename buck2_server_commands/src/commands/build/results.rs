@@ -41,7 +41,7 @@ pub mod result_report {
     use cli_proto::build_target::build_output::BuildOutputProviders;
     use cli_proto::build_target::BuildOutput;
     use cli_proto::BuildTarget;
-    use gazebo::prelude::*;
+    use dupe::Dupe;
     use indexmap::IndexMap;
 
     use crate::commands::build::results::BuildOwner;
@@ -191,7 +191,7 @@ pub mod build_report {
     use buck2_execute::artifact::fs::ArtifactFs;
     use buck2_execute::bxl::types::BxlFunctionLabel;
     use derivative::Derivative;
-    use gazebo::prelude::*;
+    use dupe::Dupe;
     use indexmap::IndexSet;
     use itertools::Itertools;
     use serde::Serialize;

@@ -13,7 +13,7 @@ use std::sync::Mutex;
 
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::trace::TraceId;
-use gazebo::prelude::*;
+use dupe::Dupe;
 use once_cell::sync::Lazy;
 use tokio::sync::oneshot;
 

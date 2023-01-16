@@ -42,7 +42,7 @@ use cli_proto::profile_request::ProfileOpts;
 use cli_proto::target_profile::Action;
 use cli_proto::ClientContext;
 use dice::DiceTransaction;
-use gazebo::prelude::*;
+use dupe::Dupe;
 
 async fn generate_profile_analysis(
     ctx: DiceTransaction,

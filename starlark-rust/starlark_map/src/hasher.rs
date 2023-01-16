@@ -18,8 +18,8 @@
 use std::hash::BuildHasher;
 use std::hash::Hasher;
 
+use dupe::Dupe;
 use fnv::FnvHasher;
-use gazebo::dupe::Dupe;
 
 use crate::hash_value::StarlarkHashValue;
 

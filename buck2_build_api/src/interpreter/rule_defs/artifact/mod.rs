@@ -73,7 +73,7 @@ pub mod testing {
     use buck2_execute::path::buck_out_path::BuckPathResolver;
     use buck2_interpreter::extra::BuildContext;
     use buck2_node::configuration::execution::ExecutionPlatformResolution;
-    use gazebo::prelude::*;
+    use dupe::Dupe;
     use indexmap::indexset;
     use indexmap::IndexSet;
     use starlark::environment::GlobalsBuilder;

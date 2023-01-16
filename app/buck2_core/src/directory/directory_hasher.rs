@@ -12,6 +12,7 @@ use std::fmt::Display;
 use std::hash::Hash;
 
 use allocative::Allocative;
+use dupe::Dupe;
 use gazebo::prelude::*;
 
 use super::DirectoryEntry;

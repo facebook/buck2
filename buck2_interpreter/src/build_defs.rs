@@ -145,7 +145,7 @@ mod tests {
     use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
     use buck2_core::fs::paths::file_name::FileNameBuf;
     use buck2_core::fs::project::ProjectRelativePathBuf;
-    use gazebo::prelude::*;
+    use dupe::Dupe;
     use indoc::indoc;
 
     use crate::common::OwnedStarlarkModulePath;

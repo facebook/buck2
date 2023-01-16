@@ -18,7 +18,7 @@ use buck2_query::query::environment::NodeLabel;
 use buck2_query::query::environment::QueryTarget;
 use buck2_query::query::traversal::AsyncNodeLookup;
 use buck2_query::query::traversal::NodeLookup;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 use ref_cast::RefCast;
 
 use crate::attrs::attr_type::attr_config::AttrConfig;

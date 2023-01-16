@@ -28,7 +28,7 @@ use buck2_data::ConfiguredTargetLabel;
 use buck2_data::TargetLabel;
 use buck2_events::BuckEvent;
 use buck2_test_api::data::TestStatus;
-use gazebo::prelude::*;
+use dupe::Dupe;
 use itertools::Itertools;
 use superconsole::content::lines_from_multiline_string;
 use superconsole::style::Stylize;

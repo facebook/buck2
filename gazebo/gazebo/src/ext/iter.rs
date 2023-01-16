@@ -10,7 +10,7 @@
 use std::cmp::Ordering;
 use std::iter::Cloned;
 
-use crate::dupe::Dupe;
+use dupe::Dupe;
 
 /// Extension traits on [`Iterator`](Iterator).
 pub trait IterExt {

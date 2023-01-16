@@ -13,7 +13,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use derivative::Derivative;
 use derive_more::Display;
-use gazebo::prelude::*;
+use dupe::Dupe;
 use tokio::sync::Mutex;
 use tokio::sync::OwnedMutexGuard;
 

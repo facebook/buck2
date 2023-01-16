@@ -12,7 +12,7 @@ use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering;
 
 use allocative::Allocative;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 use serde::Serialize;
 
 /// A SpanId is a unique identifier for a span, which is a pair of events that represent a conceptual start and stop

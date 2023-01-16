@@ -87,7 +87,7 @@ mod tests {
     use std::sync::atomic::Ordering;
     use std::sync::Arc;
 
-    use gazebo::dupe::Dupe;
+    use dupe::Dupe;
 
     use crate::values::FrozenHeap;
 

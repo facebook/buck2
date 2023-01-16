@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use crate::dupe::Dupe;
+use dupe::Dupe;
 
 /// Extension traits on [`Option`](Option) where it holds a ref.
 pub trait OptionRefExt {

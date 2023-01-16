@@ -62,6 +62,7 @@ use buck2_forkserver::run::gather_output;
 use buck2_forkserver::run::timeout_into_cancellation;
 use buck2_forkserver::run::GatherOutputStatus;
 use derive_more::From;
+use dupe::Dupe;
 use faccess::PathExt;
 use futures::future;
 use futures::future::select;

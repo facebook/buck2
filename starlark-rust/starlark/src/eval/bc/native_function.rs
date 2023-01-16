@@ -16,7 +16,7 @@
  */
 
 use allocative::Allocative;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 
 use crate::eval::Arguments;
 use crate::eval::Evaluator;

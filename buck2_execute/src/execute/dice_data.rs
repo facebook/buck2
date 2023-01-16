@@ -15,7 +15,7 @@ use buck2_common::executor_config::CommandExecutorConfig;
 use dice::data::DiceData;
 use dice::DiceComputations;
 use dice::UserComputationData;
-use gazebo::prelude::*;
+use dupe::Dupe;
 
 use crate::artifact::fs::ArtifactFs;
 use crate::execute::prepared::PreparedCommandExecutor;

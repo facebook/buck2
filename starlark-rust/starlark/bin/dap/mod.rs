@@ -29,6 +29,7 @@ use std::sync::Mutex;
 use std::thread;
 
 use debugserver_types::*;
+use dupe::Dupe;
 use gazebo::prelude::*;
 pub(crate) use library::*;
 use serde_json::Map;

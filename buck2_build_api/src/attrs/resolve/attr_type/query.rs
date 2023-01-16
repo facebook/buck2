@@ -16,7 +16,7 @@ use buck2_node::attrs::attr_type::dep::DepAttrType;
 use buck2_node::attrs::attr_type::query::QueryAttr;
 use buck2_node::attrs::attr_type::query::QueryAttrBase;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 use starlark::values::Value;
 
 use crate::attrs::resolve::attr_type::dep::DepAttrTypeExt;

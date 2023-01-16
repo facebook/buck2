@@ -26,7 +26,7 @@ use buck2_execute::base_deferred_key::BaseDeferredKey;
 use buck2_execute::execute::request::OutputType;
 use buck2_execute::path::buck_out_path::BuckOutPath;
 use buck2_node::configuration::execution::ExecutionPlatformResolution;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 use indexmap::IndexSet;
 
 use crate::actions::artifact::DeclaredArtifact;
@@ -269,7 +269,7 @@ mod tests {
     use buck2_execute::path::buck_out_path::BuckOutPath;
     use buck2_node::configuration::execution::ExecutionPlatform;
     use buck2_node::configuration::execution::ExecutionPlatformResolution;
-    use gazebo::prelude::*;
+    use dupe::Dupe;
     use indexmap::indexset;
 
     use crate::actions::artifact::build_artifact::BuildArtifact;

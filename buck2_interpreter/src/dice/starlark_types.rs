@@ -12,7 +12,7 @@ use async_trait::async_trait;
 use dice::DiceComputations;
 use dice::DiceTransaction;
 use dice::InjectedKey;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 
 #[derive(
     Debug,

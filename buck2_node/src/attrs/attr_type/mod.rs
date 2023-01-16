@@ -14,7 +14,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::provider::id::ProviderId;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 
 use crate::attrs::attr_type::any::AnyAttrType;
 use crate::attrs::attr_type::arg::ArgAttrType;

@@ -14,7 +14,7 @@ use std::ops::FromResidual;
 use std::time::Duration;
 use std::time::SystemTime;
 
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 use indexmap::IndexMap;
 
 use crate::artifact_value::ArtifactValue;

@@ -18,6 +18,8 @@
 //! A module with the standard function and constants that are by default in all
 //! dialect of Starlark
 
+use dupe::Dupe;
+
 use crate::environment::GlobalsBuilder;
 
 pub(crate) mod breakpoint;
@@ -26,7 +28,7 @@ pub(crate) mod enumeration;
 pub(crate) mod extra;
 mod funcs;
 pub(crate) mod json;
-use gazebo::prelude::*;
+
 pub(crate) mod list;
 pub(crate) mod record;
 pub(crate) mod string;
@@ -125,8 +127,8 @@ impl LibraryExtension {
 mod tests {
     use allocative::Allocative;
     use derive_more::Display;
+    use dupe::Dupe;
     use gazebo::any::ProvidesStaticType;
-    use gazebo::prelude::*;
 
     use crate as starlark;
     use crate::assert::Assert;

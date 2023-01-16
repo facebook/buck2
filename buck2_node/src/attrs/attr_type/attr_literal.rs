@@ -12,6 +12,7 @@ use std::fmt::Display;
 use allocative::Allocative;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::TargetLabel;
+use dupe::Dupe;
 use gazebo::prelude::*;
 use static_assertions::assert_eq_size;
 

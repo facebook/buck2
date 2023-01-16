@@ -23,6 +23,7 @@ use buck2_execute::execute::request::CommandExecutionInput;
 use buck2_execute::execute::request::CommandExecutionRequest;
 use buck2_execute::execute::request::ExecutorPreference;
 use buck2_execute::path::buck_out_path::BuckOutPath;
+use dupe::Dupe;
 use gazebo::prelude::*;
 use host_sharing::HostSharingRequirements;
 use host_sharing::WeightClass;

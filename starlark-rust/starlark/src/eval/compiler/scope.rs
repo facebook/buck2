@@ -18,7 +18,7 @@
 use std::iter;
 use std::mem;
 
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 use starlark_map::small_map;
 use starlark_map::small_map::SmallMap;
 
@@ -945,7 +945,7 @@ pub(crate) type CstLoad = AstLoadP<CstPayload>;
 mod tests {
     use std::fmt::Write;
 
-    use gazebo::dupe::Dupe;
+    use dupe::Dupe;
 
     use crate::environment::names::MutableNames;
     use crate::environment::Globals;

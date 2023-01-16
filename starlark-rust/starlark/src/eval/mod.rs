@@ -25,6 +25,7 @@ pub(crate) mod runtime;
 use std::mem;
 use std::time::Instant;
 
+use dupe::Dupe;
 use gazebo::prelude::*;
 pub use runtime::arguments::Arguments;
 pub use runtime::call_stack::CallStack;

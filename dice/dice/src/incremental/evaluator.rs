@@ -57,6 +57,7 @@ pub(crate) mod testing {
 
     use allocative::Allocative;
     use async_trait::async_trait;
+    use dupe::Dupe;
     use gazebo::prelude::*;
 
     use crate::incremental::evaluator::Evaluator;

@@ -20,7 +20,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use derive_more::Display;
-use gazebo::prelude::*;
+use dupe::Dupe;
 use itertools::Itertools;
 use once_cell::sync::Lazy;
 use once_cell::sync::OnceCell;

@@ -13,7 +13,7 @@ use allocative::Allocative;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::TargetLabel;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 
 use crate::attrs::attr_type::attr_literal::AttrLiteral;
 use crate::attrs::attr_type::dep::ExplicitConfiguredDepMaybeConfigured;

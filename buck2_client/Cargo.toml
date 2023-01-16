@@ -35,6 +35,7 @@ walkdir = { workspace = true }
 num_cpus = { workspace = true }
 threadpool = { workspace = true }
 dice = { path = "../dice/dice" }
+dupe = { workspace = true }
 gazebo = { workspace = true }
 superconsole = { version = "0.1.0", path = "../superconsole" }
 

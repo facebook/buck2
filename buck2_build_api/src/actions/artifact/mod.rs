@@ -34,9 +34,9 @@ use buck2_execute::execute::request::OutputType;
 use buck2_execute::path::buck_out_path::BuckOutPath;
 use derive_more::Display;
 use derive_more::From;
+use dupe::Dupe;
 use either::Either;
 use gazebo::cell::ARef;
-use gazebo::prelude::*;
 use thiserror::Error;
 
 use crate::actions::artifact::build_artifact::BuildArtifact;
@@ -416,7 +416,7 @@ pub mod testing {
     use buck2_execute::base_deferred_key::BaseDeferredKey;
     use buck2_execute::execute::request::OutputType;
     use buck2_execute::path::buck_out_path::BuckOutPath;
-    use gazebo::prelude::*;
+    use dupe::Dupe;
 
     use crate::actions::artifact::build_artifact::BuildArtifact;
     use crate::actions::artifact::DeclaredArtifact;
@@ -513,7 +513,7 @@ mod tests {
     use buck2_execute::path::buck_out_path::BuckOutPath;
     use buck2_execute::path::buck_out_path::BuckOutPathResolver;
     use buck2_execute::path::buck_out_path::BuckPathResolver;
-    use gazebo::prelude::*;
+    use dupe::Dupe;
 
     use crate::actions::artifact::build_artifact::BuildArtifact;
     use crate::actions::artifact::testing::BuildArtifactTestingExt;

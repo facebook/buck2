@@ -30,6 +30,7 @@ tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 
 dice = { path = "../dice/dice" }
+dupe = { workspace = true }
 gazebo = { workspace = true }
 allocative = { workspace = true }
 

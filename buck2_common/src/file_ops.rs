@@ -26,8 +26,8 @@ use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use derive_more::Display;
+use dupe::Dupe;
 use gazebo::cmp::PartialEqAny;
-use gazebo::prelude::*;
 use globset::Candidate;
 use globset::GlobSetBuilder;
 use once_cell::sync::Lazy;
@@ -642,8 +642,8 @@ pub mod testing {
     use allocative::Allocative;
     use async_trait::async_trait;
     use buck2_core::cells::cell_path::CellPath;
+    use dupe::Dupe;
     use gazebo::cmp::PartialEqAny;
-    use gazebo::prelude::*;
     use itertools::Itertools;
 
     use crate::external_symlink::ExternalSymlink;

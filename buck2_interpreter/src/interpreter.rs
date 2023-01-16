@@ -25,6 +25,7 @@ use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
+use dupe::Dupe;
 use gazebo::prelude::*;
 use starlark::codemap::FileSpan;
 use starlark::environment::FrozenModule;

@@ -36,6 +36,7 @@ tracing = { workspace = true }
 allocative = { workspace = true }
 fbinit = { workspace = true }
 gazebo = { workspace = true }
+dupe = { workspace = true }
 dice = { path = "../dice/dice" }
 more_futures = { workspace = true }
 starlark = { workspace = true }

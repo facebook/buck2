@@ -54,6 +54,7 @@ use buck2_query::query::syntax::simple::eval::file_set::FileNode;
 use buck2_query::query::syntax::simple::eval::file_set::FileSet;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use dice::DiceComputations;
+use dupe::Dupe;
 use gazebo::prelude::*;
 use indexmap::indexset;
 use ref_cast::RefCast;

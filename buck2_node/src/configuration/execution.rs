@@ -14,7 +14,7 @@ use buck2_common::executor_config::CommandExecutorConfig;
 use buck2_core::configuration::Configuration;
 use buck2_core::target::ConfiguredTargetLabel;
 use buck2_core::target::TargetLabel;
-use gazebo::prelude::*;
+use dupe::Dupe;
 use itertools::Itertools;
 use thiserror::Error;
 

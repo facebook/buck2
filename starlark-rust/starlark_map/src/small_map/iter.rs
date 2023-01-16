@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-use gazebo::prelude::*;
+use dupe::Clone_;
 
 use crate::iter::def_double_ended_iter;
 use crate::iter::def_iter;

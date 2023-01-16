@@ -10,7 +10,7 @@
 use allocative::Allocative;
 use anyhow::Context;
 use buck2_execute::base_deferred_key::BaseDeferredKey;
-use gazebo::prelude::*;
+use dupe::Dupe;
 use indexmap::IndexSet;
 
 use crate::actions::artifact::Artifact;

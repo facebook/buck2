@@ -20,6 +20,7 @@ use std::collections::HashMap;
 use std::slice;
 use std::time::Instant;
 
+use dupe::Dupe;
 use gazebo::prelude::*;
 
 use crate as starlark;

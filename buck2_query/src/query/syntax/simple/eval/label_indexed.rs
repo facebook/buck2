@@ -11,7 +11,8 @@ use std::hash::Hash;
 
 use allocative::Allocative;
 use buck2_core::collections::ordered_set::OrderedSet;
-use gazebo::prelude::*;
+use dupe::Clone_;
+use dupe::Dupe;
 use starlark_map::small_set;
 use starlark_map::Equivalent;
 

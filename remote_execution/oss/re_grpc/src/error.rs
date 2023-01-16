@@ -10,7 +10,7 @@
 use std::fmt;
 use std::fmt::Display;
 
-use gazebo::prelude::*;
+use dupe::Dupe;
 use thiserror::Error;
 
 #[derive(Error, Debug, Clone, Default)]

@@ -41,7 +41,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use derive_more::Display;
-use gazebo::prelude::*;
+use dupe::Dupe;
 use serde::ser::Serialize;
 use serde::ser::Serializer;
 use thiserror::Error;

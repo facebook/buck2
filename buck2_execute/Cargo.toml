@@ -34,6 +34,7 @@ dice = { path = "../dice/dice" }
 # @oss-disable: edenfs = { package = "thrift", path = "../../eden/fs/service" }
 fbinit = { workspace = true }
 gazebo = { workspace = true }
+dupe = { workspace = true }
 host_sharing = { workspace = true }
 more_futures = { workspace = true }
 remote_execution = { workspace = true }

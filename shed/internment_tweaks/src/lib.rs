@@ -33,7 +33,7 @@ use std::ptr;
 
 use allocative::Allocative;
 use allocative::Visitor;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 use hashbrown::raw::RawIter;
 use hashbrown::raw::RawTable;
 use parking_lot::const_rwlock;

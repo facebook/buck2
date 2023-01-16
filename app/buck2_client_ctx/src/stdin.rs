@@ -17,9 +17,9 @@ use std::thread::JoinHandle;
 
 use buck2_core::env_helper::EnvHelper;
 use bytes::Bytes;
+use dupe::Dupe;
 use futures::stream::Fuse;
 use futures::stream::StreamExt;
-use gazebo::dupe::Dupe;
 use parking_lot::Condvar;
 use parking_lot::Mutex;
 use pin_project::pin_project;

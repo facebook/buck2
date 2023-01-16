@@ -14,7 +14,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use dice::DiceError;
-use gazebo::prelude::*;
+use dupe::Dupe;
 
 /// SharedError is a simple, cloneable Error wrapper. It holds the inner error in an Arc to support Clone.
 ///

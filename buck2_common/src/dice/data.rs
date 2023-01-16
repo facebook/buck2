@@ -13,7 +13,7 @@ use std::sync::Arc;
 
 use dice::data::DiceData;
 use dice::DiceDataBuilder;
-use gazebo::prelude::*;
+use dupe::Dupe;
 
 use crate::io::IoProvider;
 

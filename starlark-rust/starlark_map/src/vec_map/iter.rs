@@ -17,7 +17,7 @@
 
 use std::slice;
 
-use gazebo::prelude::Clone_;
+use dupe::Clone_;
 
 use crate::iter::def_double_ended_iter;
 use crate::iter::def_iter;

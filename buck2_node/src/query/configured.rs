@@ -14,7 +14,7 @@ use buck2_core::cells::cell_path::CellPath;
 use buck2_core::target::ConfiguredTargetLabel;
 use buck2_query::query::environment::LabeledNode;
 use buck2_query::query::environment::QueryTarget;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 
 use crate::attrs::attr_type::attr_config::AttrConfig;
 use crate::attrs::configured_attr::ConfiguredAttr;

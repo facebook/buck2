@@ -12,7 +12,7 @@ use std::fmt::Display;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 
 use crate::attrs::attr_type::arg::QueryExpansion;
 use crate::attrs::attr_type::attr_config::AttrConfig;

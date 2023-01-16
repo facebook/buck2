@@ -19,7 +19,7 @@ use buck2_core::fs::project::ProjectRelativePathBuf;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::InjectedKey;
-use gazebo::prelude::*;
+use dupe::Dupe;
 use owning_ref::ArcRef;
 
 #[async_trait]

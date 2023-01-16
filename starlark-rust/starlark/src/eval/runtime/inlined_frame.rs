@@ -17,7 +17,7 @@
 
 use std::ptr;
 
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 
 use crate::errors::Frame;
 use crate::eval::runtime::frame_span::FrameSpan;

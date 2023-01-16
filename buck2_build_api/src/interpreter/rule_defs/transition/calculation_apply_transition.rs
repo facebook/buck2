@@ -27,7 +27,7 @@ use buck2_node::nodes::unconfigured::TargetNode;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 use gazebo::prelude::*;
 use itertools::Itertools;
 use starlark::environment::Module;

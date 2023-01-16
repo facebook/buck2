@@ -33,7 +33,10 @@ use std::sync::Weak;
 use allocative::Allocative;
 use dashmap::mapref::one::RefMut;
 use dashmap::DashMap;
-use gazebo::prelude::*;
+use dupe::Clone_;
+use dupe::Copy_;
+use dupe::Dupe;
+use dupe::Dupe_;
 use gazebo::variants::UnpackVariants;
 use gazebo::variants::VariantName;
 use parking_lot::MappedRwLockReadGuard;
@@ -1343,7 +1346,8 @@ mod introspection {
 
 #[cfg(test)]
 pub(crate) mod testing {
-    use gazebo::prelude::*;
+
+    use dupe::Dupe;
     use gazebo::variants::VariantName;
 
     use crate::incremental::graph::GraphNode;
@@ -1399,7 +1403,7 @@ mod tests {
     use allocative::Allocative;
     use async_trait::async_trait;
     use derive_more::Display;
-    use gazebo::prelude::*;
+    use dupe::Dupe;
     use sorted_vector_map::sorted_vector_set;
 
     use crate::incremental::dep_trackers::BothDeps;

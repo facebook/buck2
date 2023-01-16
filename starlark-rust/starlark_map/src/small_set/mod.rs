@@ -493,6 +493,8 @@ mod tests {
     use std::collections::HashSet;
     use std::rc::Rc;
 
+    use dupe::Dupe;
+
     use super::*;
 
     #[test]

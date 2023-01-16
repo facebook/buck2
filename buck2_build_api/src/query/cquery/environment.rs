@@ -28,7 +28,7 @@ use buck2_query::query::traversal::async_depth_first_postorder_traversal;
 use buck2_query::query::traversal::async_depth_limited_traversal;
 use buck2_query::query::traversal::AsyncNodeLookup;
 use buck2_query::query::traversal::AsyncTraversalDelegate;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 use tracing::warn;
 
 use crate::query::cquery::universe::CqueryUniverse;

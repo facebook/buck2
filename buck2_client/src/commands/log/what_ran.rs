@@ -25,9 +25,9 @@ use buck2_client_ctx::what_ran::WhatRanOutputCommandExtra;
 use buck2_client_ctx::what_ran::WhatRanOutputWriter;
 use buck2_client_ctx::what_ran::WhatRanRelevantAction;
 use buck2_client_ctx::what_ran::WhatRanState;
+use dupe::Dupe;
 use futures::stream::Stream;
 use futures::TryStreamExt;
-use gazebo::dupe::Dupe;
 use indexmap::IndexMap;
 use tokio::runtime;
 

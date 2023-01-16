@@ -212,6 +212,8 @@ allocative.features = ["anyhow", "bumpalo", "dashmap", "either", "futures", "has
 gazebo.version = "0.8.1"
 gazebo.features = ["str_pattern_extensions"]
 gazebo.path = "gazebo/gazebo"
+dupe.version = "0.8.1"
+dupe.path = "gazebo/dupe"
 host_sharing = { path = "host_sharing" }
 more_futures = { path = "shed/more_futures" }
 remote_execution = { path = "remote_execution/oss/re_grpc" }

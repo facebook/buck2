@@ -19,7 +19,7 @@ use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::paths::CellRelativePathBuf;
 use buck2_core::cells::CellName;
 use derive_more::Display;
-use gazebo::prelude::*;
+use dupe::Dupe;
 use gazebo::variants::UnpackVariants;
 use ref_cast::RefCast;
 use thiserror::Error;

@@ -19,6 +19,7 @@
 
 use std::cmp::Ordering;
 
+use dupe::Dupe;
 use gazebo::prelude::*;
 use thiserror::Error;
 

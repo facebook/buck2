@@ -32,7 +32,7 @@ fn derive_dupe_explicit(
 
     // Add a bound `T: Dupe` to every type parameter T.
     let generics = if with_traits {
-        let bound: TypeParamBound = parse_quote!(gazebo::dupe::Dupe);
+        let bound: TypeParamBound = parse_quote!(dupe::Dupe);
         add_trait_bounds(input.generics, &bound)
     } else {
         input.generics
@@ -40,9 +40,9 @@ fn derive_dupe_explicit(
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
     let name = &input.ident;
-    let body = duplicate_impl(&input.data, &quote! { gazebo::dupe::Dupe::dupe });
+    let body = duplicate_impl(&input.data, &quote! { dupe::Dupe::dupe });
     let gen = quote! {
-        impl #impl_generics gazebo::dupe::Dupe for #name #ty_generics #where_clause {
+        impl #impl_generics dupe::Dupe for #name #ty_generics #where_clause {
             fn dupe(&self) -> Self {
                 #body
             }

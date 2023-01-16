@@ -48,13 +48,13 @@ use std::fmt::Display;
 use std::hash::Hash;
 
 use allocative::Allocative;
+use dupe::Dupe;
 use either::Either;
 use gazebo::any::ProvidesStaticType;
 use gazebo::cell::AsARef;
 use gazebo::coerce::coerce;
 use gazebo::coerce::Coerce;
 use gazebo::display::display_keyed_container;
-use gazebo::prelude::*;
 use serde::Serialize;
 
 use crate as starlark;

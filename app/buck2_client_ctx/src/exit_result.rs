@@ -18,6 +18,7 @@ use std::ops::Try;
 
 use anyhow::Context;
 use cli_proto::command_result;
+use dupe::Dupe;
 use gazebo::prelude::*;
 
 pub struct ExecArgs {

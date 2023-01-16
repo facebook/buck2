@@ -20,6 +20,7 @@ use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_interpreter::types::cell_root::CellRoot;
 use derive_more::Display;
+use dupe::Dupe;
 use gazebo::prelude::*;
 use regex::Regex;
 use serde::Serialize;

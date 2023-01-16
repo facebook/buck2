@@ -16,6 +16,7 @@ use std::sync::Arc;
 use std::thread;
 
 use allocative::Allocative;
+use dupe::Dupe;
 use futures::FutureExt;
 use gazebo::prelude::*;
 use more_futures::spawn::spawn_dropcancel;
@@ -509,7 +510,7 @@ mod tests {
 
     use allocative::Allocative;
     use derive_more::Display;
-    use gazebo::prelude::*;
+    use dupe::Dupe;
     use indexmap::indexset;
 
     use crate::ctx::ComputationData;

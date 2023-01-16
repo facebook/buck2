@@ -9,6 +9,7 @@ async-trait = "0.1.24"
 derive_more = "0.99.3"
 futures = "0.3"
 ref-cast = "1.0.0"
+dupe = { workspace = true }
 gazebo = { workspace = true }
 gazebo_lint.version = "0.1"
 gazebo_lint.optional = true

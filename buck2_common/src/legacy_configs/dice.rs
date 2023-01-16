@@ -23,6 +23,7 @@ use dice::InjectedKey;
 use dice::Key;
 use dice::OpaqueValue;
 use dice::ProjectionKey;
+use dupe::Dupe;
 use gazebo::prelude::*;
 
 use crate::legacy_configs::view::LegacyBuckConfigView;

@@ -228,7 +228,7 @@ mod tests {
     use std::env;
     use std::rc::Rc;
 
-    use gazebo::dupe::Dupe;
+    use dupe::Dupe;
 
     use super::*;
     use crate::assert::Assert;

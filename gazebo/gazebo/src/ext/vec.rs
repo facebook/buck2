@@ -9,7 +9,8 @@
 
 use std::borrow::Borrow;
 
-use crate::dupe::Dupe;
+use dupe::Dupe;
+
 use crate::types::TEq;
 
 /// Optimised collect iterator into Vec, which might be a Result.
@@ -190,6 +191,7 @@ where
 /// Short hand analogous to `Iter::duped`, where items of `&T` are converted to `T` via `dupe`.
 ///
 /// ```
+/// use dupe::Dupe;
 /// use gazebo::prelude::*;
 ///
 /// #[derive(Clone, Dupe, Debug, PartialEq)]

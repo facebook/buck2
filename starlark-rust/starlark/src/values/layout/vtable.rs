@@ -24,9 +24,9 @@ use std::mem;
 use std::ptr;
 
 use allocative::Allocative;
+use dupe::Dupe;
 use gazebo::any::AnyLifetime;
 use gazebo::any::ProvidesStaticType;
-use gazebo::dupe::Dupe;
 
 use crate::collections::Hashed;
 use crate::collections::StarlarkHashValue;

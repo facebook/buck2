@@ -29,11 +29,11 @@ use buck2_execute::execute::request::ExecutorPreference;
 use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_execute::execute::result::CommandExecutionStatus;
 use derivative::Derivative;
+use dupe::Dupe;
 use futures::future::BoxFuture;
 use futures::future::Either;
 use futures::future::Future;
 use futures::FutureExt;
-use gazebo::prelude::*;
 use host_sharing::HostSharingRequirements;
 use remote_execution as RE;
 

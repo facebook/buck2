@@ -32,8 +32,8 @@ use std::sync::Arc;
 
 use clap::Parser;
 use clap::ValueEnum;
+use dupe::Dupe;
 use eval::Context;
-use gazebo::prelude::*;
 use itertools::Either;
 use itertools::Itertools;
 use starlark::docs::get_registered_starlark_docs;

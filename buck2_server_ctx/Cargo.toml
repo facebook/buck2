@@ -17,6 +17,7 @@ tracing-subscriber = { workspace = true }
 allocative = { workspace = true }
 dice = { path = "../dice/dice" }
 gazebo = { workspace = true }
+dupe = { workspace = true }
 
 # Please do not add dependency on `buck2_build_api`.
 buck2_common = { path = "../buck2_common" }

@@ -15,7 +15,7 @@ use std::sync::Weak;
 
 use allocative::Allocative;
 use async_trait::async_trait;
-use gazebo::prelude::*;
+use dupe::Dupe;
 
 use crate::introspection::graph::short_type_name;
 use crate::Dice;

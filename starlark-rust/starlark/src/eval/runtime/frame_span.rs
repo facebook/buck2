@@ -18,7 +18,7 @@
 use std::fmt;
 use std::fmt::Display;
 
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 
 use crate::eval::runtime::frozen_file_span::FrozenFileSpan;
 use crate::eval::runtime::inlined_frame::InlinedFrames;

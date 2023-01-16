@@ -33,7 +33,7 @@ use std::ptr;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use gazebo::prelude::*;
+use dupe::Dupe;
 use once_cell::sync::Lazy;
 
 /// A small, `Copy`, value representing a position in a `CodeMap`'s file.

@@ -29,10 +29,10 @@ use std::marker::PhantomData;
 use std::mem;
 use std::num::NonZeroUsize;
 
+use dupe::Dupe;
 use either::Either;
 use gazebo::cast;
 use gazebo::phantom::PhantomDataInvariant;
-use gazebo::prelude::*;
 use static_assertions::assert_eq_size;
 
 use crate::values::int::PointerI32;

@@ -12,7 +12,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use buck2_core::target::ConfiguredTargetLabel;
 use derive_more::Display;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 use gazebo::variants::UnpackVariants;
 
 use crate::anon_target::AnonTarget;

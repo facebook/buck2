@@ -16,7 +16,7 @@ use buck2_core::collections::sorted_map::SortedMap;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 
 use crate::attrs::attr_type::attr_literal::AttrLiteral;
 use crate::attrs::attr_type::dep::ProviderIdSet;

@@ -16,7 +16,7 @@
  */
 
 use allocative::Allocative;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 use starlark_map::small_set::SmallSet;
 
 use crate::values::layout::heap::profile::arc_str::ArcStr;

@@ -20,7 +20,7 @@
 
 use std::collections::HashMap;
 
-use gazebo::prelude::*;
+use dupe::Dupe;
 
 use crate::environment::FrozenModule;
 

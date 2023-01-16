@@ -19,6 +19,7 @@ use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
 use buck2_query::query::syntax::simple::functions::DefaultQueryFunctionsModule;
 use dice::DiceComputations;
+use dupe::Dupe;
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
 use gazebo::prelude::*;

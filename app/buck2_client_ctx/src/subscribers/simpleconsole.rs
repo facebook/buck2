@@ -20,7 +20,7 @@ use anyhow::Context;
 use async_trait::async_trait;
 use buck2_data::CommandExecutionDetails;
 use buck2_events::BuckEvent;
-use gazebo::prelude::*;
+use dupe::Dupe;
 use lsp_server::Message;
 use superconsole::DrawMode;
 use superconsole::SuperConsole;

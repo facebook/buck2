@@ -11,7 +11,7 @@ use async_trait::async_trait;
 use buck2_query::query::traversal::async_fast_depth_first_postorder_traversal;
 use buck2_query::query::traversal::AsyncTraversalDelegate;
 use buck2_query::query::traversal::ChildVisitor;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 
 use crate::nodes::configured::ConfiguredTargetNode;
 use crate::nodes::configured_ref::ConfiguredGraphNodeRef;

@@ -17,6 +17,7 @@
 
 mod fun;
 
+use dupe::Dupe;
 use gazebo::prelude::*;
 use syn::spanned::Spanned;
 use syn::Attribute;

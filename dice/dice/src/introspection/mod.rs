@@ -34,7 +34,7 @@ mod tests {
     use anyhow::Context as _;
     use async_trait::async_trait;
     use derive_more::Display;
-    use gazebo::prelude::*;
+    use dupe::Dupe;
 
     use crate::cycles::DetectCycles;
     use crate::introspection::graph::SerializedGraphNodesForKey;

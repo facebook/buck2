@@ -20,9 +20,9 @@ use std::mem;
 use std::mem::MaybeUninit;
 use std::path::Path;
 
+use dupe::Dupe;
 use gazebo::any::AnyLifetime;
 use gazebo::cast;
-use gazebo::dupe::Dupe;
 use thiserror::Error;
 
 use crate::codemap::FileSpan;

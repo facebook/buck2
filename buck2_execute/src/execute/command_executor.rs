@@ -19,6 +19,7 @@ use buck2_core::directory::DirectoryEntry;
 use buck2_core::directory::DirectoryIterator;
 use buck2_core::directory::FingerprintedDirectory;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
+use dupe::Dupe;
 use gazebo::coerce::coerce;
 use gazebo::prelude::*;
 use remote_execution as RE;

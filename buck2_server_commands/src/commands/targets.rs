@@ -44,9 +44,9 @@ use cli_proto::targets_request::TargetHashGraphType;
 use cli_proto::TargetsRequest;
 use cli_proto::TargetsResponse;
 use dice::DiceTransaction;
+use dupe::Dupe;
 use futures::stream::FuturesUnordered;
 use futures::stream::StreamExt;
-use gazebo::prelude::*;
 use itertools::Itertools;
 use regex::RegexSet;
 

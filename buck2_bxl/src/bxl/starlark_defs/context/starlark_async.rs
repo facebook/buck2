@@ -12,7 +12,7 @@ use std::future::Future;
 use buck2_events::dispatch::with_dispatcher_async;
 use buck2_interpreter::dice::HasEvents;
 use dice::DiceComputations;
-use gazebo::prelude::*;
+use dupe::Dupe;
 
 /// Provides a safe blocking calls to async functions for starlark that requires operations to
 /// be not async.

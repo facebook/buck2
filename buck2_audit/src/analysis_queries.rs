@@ -23,6 +23,7 @@ use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
 use buck2_server_ctx::pattern::resolve_patterns;
 use buck2_server_ctx::pattern::target_platform_from_client_context;
 use cli_proto::ClientContext;
+use dupe::Dupe;
 use gazebo::prelude::*;
 
 use crate::AuditCommandCommonOptions;

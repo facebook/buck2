@@ -21,7 +21,7 @@ use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::PatternType;
 use buck2_core::target::TargetLabel;
 use cli_proto::ClientContext;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 use gazebo::prelude::*;
 
 pub struct PatternParser {

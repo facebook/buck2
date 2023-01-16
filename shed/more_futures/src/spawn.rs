@@ -278,7 +278,7 @@ mod tests {
     use std::sync::atomic::AtomicBool;
     use std::sync::atomic::Ordering;
 
-    use gazebo::prelude::*;
+    use dupe::Dupe;
     use tokio::sync::oneshot;
 
     use super::*;

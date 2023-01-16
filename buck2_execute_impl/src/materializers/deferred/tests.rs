@@ -13,7 +13,7 @@ use std::collections::HashSet;
 use buck2_common::file_ops::FileMetadata;
 use buck2_execute::directory::insert_file;
 use buck2_execute::directory::ActionDirectoryBuilder;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 
 use super::*;
 

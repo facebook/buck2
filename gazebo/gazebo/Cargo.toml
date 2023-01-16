@@ -14,3 +14,4 @@ str_pattern_extensions = []
 
 [dependencies]
 gazebo_derive = { version = "0.8.0", path = "../gazebo_derive" }
+dupe = { version = "0.8", path = "../dupe" }

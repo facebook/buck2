@@ -10,7 +10,7 @@
 use std::fmt::Debug;
 
 use allocative::Allocative;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 
 use crate::incremental::Computable;
 use crate::StorageType;
@@ -40,7 +40,7 @@ pub(crate) mod testing {
 
     use allocative::Allocative;
     use async_trait::async_trait;
-    use gazebo::dupe::Dupe;
+    use dupe::Dupe;
 
     use crate::incremental::Computable;
     use crate::incremental::IncrementalComputeProperties;

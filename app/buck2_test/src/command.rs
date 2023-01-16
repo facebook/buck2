@@ -51,6 +51,7 @@ use cli_proto::TestRequest;
 use cli_proto::TestResponse;
 use dice::DiceComputations;
 use dice::DiceTransaction;
+use dupe::Dupe;
 use futures::channel::mpsc;
 use futures::future;
 use futures::future::BoxFuture;

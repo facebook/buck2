@@ -27,8 +27,8 @@ use std::sync::atomic::Ordering;
 use std::time::Instant;
 
 use allocative::Allocative;
+use dupe::Dupe;
 use either::Either;
-use gazebo::dupe::Dupe;
 use starlark_map::small_map::SmallMap;
 
 use crate::eval::runtime::profile::data::ProfileDataImpl;
@@ -423,7 +423,7 @@ impl RetainedHeapProfile {
 
 #[cfg(test)]
 mod tests {
-    use gazebo::dupe::Dupe;
+    use dupe::Dupe;
 
     use crate::const_frozen_string;
     use crate::values::layout::heap::heap_type::HeapKind;

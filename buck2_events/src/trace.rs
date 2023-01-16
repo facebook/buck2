@@ -16,7 +16,7 @@ use std::str::FromStr;
 use allocative::Allocative;
 use byteorder::ByteOrder;
 use byteorder::NetworkEndian;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 use uuid::Uuid;
 
 /// A TraceId is a unique identifier for a trace. Trace IDs are globally unique; their textual form is a v4 UUID.

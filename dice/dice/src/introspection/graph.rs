@@ -16,8 +16,8 @@ use std::hash::Hash;
 use std::hash::Hasher;
 use std::sync::Arc;
 
+use dupe::Dupe;
 use gazebo::cmp::PartialEqAny;
-use gazebo::prelude::*;
 use serde::de::Error;
 use serde::de::Unexpected;
 use serde::de::Visitor;

@@ -18,7 +18,7 @@
 use std::fmt::Debug;
 
 use allocative::Allocative;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 
 use crate::eval::runtime::profile::data::ProfileData;
 use crate::eval::runtime::profile::data::ProfileDataImpl;

@@ -20,7 +20,9 @@ use std::fmt::Display;
 use std::ops::Deref;
 
 use allocative::Allocative;
-use gazebo::prelude::*;
+use dupe::Clone_;
+use dupe::Dupe;
+use dupe::Dupe_;
 
 use crate::values::none::NoneType;
 use crate::values::AllocFrozenValue;

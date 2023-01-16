@@ -21,6 +21,7 @@ serde_json = { workspace = true }
 
 dice = { path = "../dice/dice" }
 gazebo = { workspace = true }
+dupe = { workspace = true }
 
 buck2_build_api = { path = "../buck2_build_api" }
 buck2_client_ctx = { path = "../app/buck2_client_ctx" }

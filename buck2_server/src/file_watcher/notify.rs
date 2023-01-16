@@ -25,7 +25,7 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_events::dispatch::span_async;
 use dice::DiceTransaction;
-use gazebo::prelude::*;
+use dupe::Dupe;
 use notify::event::CreateKind;
 use notify::event::MetadataKind;
 use notify::event::ModifyKind;

@@ -28,6 +28,7 @@ use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
 
+use dupe::Dupe;
 use gazebo::prelude::*;
 
 use crate::codemap::FileSpan;

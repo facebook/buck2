@@ -22,8 +22,8 @@ use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::configured_node_visit_all_deps::configured_node_visit_all_deps;
 use buck2_query::query::syntax::simple::eval::label_indexed::LabelIndexed;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
+use dupe::Dupe;
 use either::Either;
-use gazebo::dupe::Dupe;
 use gazebo::prelude::IterDuped;
 use itertools::Itertools;
 

@@ -27,6 +27,7 @@ use buck2_core::fs::fs_util;
 use cli_proto::common_build_options::ExecutionStrategy;
 use cli_proto::config_override::ConfigType;
 use cli_proto::ConfigOverride;
+use dupe::Dupe;
 use gazebo::prelude::*;
 use termwiz::istty::IsTty;
 

@@ -21,10 +21,10 @@ use std::mem;
 use std::mem::ManuallyDrop;
 use std::ptr;
 
+use dupe::Dupe;
 use either::Either;
 use gazebo::any::AnyLifetime;
 use gazebo::cast;
-use gazebo::dupe::Dupe;
 
 use crate::values::layout::avalue::AValue;
 use crate::values::layout::heap::arena::MIN_ALLOC;

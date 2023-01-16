@@ -12,6 +12,7 @@ use std::iter;
 
 use allocative::Allocative;
 use anyhow::Context as _;
+use dupe::Dupe;
 use gazebo::any::ProvidesStaticType;
 use gazebo::coerce::Coerce;
 use gazebo::display::display_chain;

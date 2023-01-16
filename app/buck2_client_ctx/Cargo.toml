@@ -43,6 +43,7 @@ tonic = { workspace = true }
 tracing = { workspace = true }
 parking_lot = { workspace = true }
 gazebo = { workspace = true }
+dupe = { workspace = true }
 fbinit = { workspace = true }
 which = "4.2.4"
 

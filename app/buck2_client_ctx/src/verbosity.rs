@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use gazebo::prelude::*;
+use dupe::Dupe;
 
 /// The logging verbosity to use in our various consoles.
 ///

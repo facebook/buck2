@@ -19,6 +19,7 @@ use std::cell::RefCell;
 use std::cell::RefMut;
 
 use allocative::Allocative;
+use dupe::Dupe;
 use gazebo::prelude::*;
 
 use crate::values::Freezer;

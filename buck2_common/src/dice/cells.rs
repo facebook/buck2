@@ -15,7 +15,7 @@ use buck2_core::cells::CellResolver;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::InjectedKey;
-use gazebo::prelude::*;
+use dupe::Dupe;
 
 #[async_trait]
 pub trait HasCellResolver {

@@ -26,6 +26,7 @@ use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
 use cli_proto::ClientContext;
 use dice::DiceTransaction;
+use dupe::Dupe;
 use gazebo::prelude::*;
 
 use crate::AuditCommandCommonOptions;

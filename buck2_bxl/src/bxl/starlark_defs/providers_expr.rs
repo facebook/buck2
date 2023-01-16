@@ -21,7 +21,7 @@ use buck2_interpreter::types::label::StarlarkProvidersLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::unconfigured::TargetNode;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 use itertools::Either;
 use starlark::eval::Evaluator;
 use starlark::values::list::ListRef;

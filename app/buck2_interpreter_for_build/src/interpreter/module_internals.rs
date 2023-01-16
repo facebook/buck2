@@ -21,7 +21,7 @@ use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_node::nodes::unconfigured::TargetsMap;
 use buck2_node::package::Package;
-use gazebo::prelude::*;
+use dupe::Dupe;
 use starlark::environment::FrozenModule;
 use starlark::values::OwnedFrozenValue;
 use starlark_map::small_map;

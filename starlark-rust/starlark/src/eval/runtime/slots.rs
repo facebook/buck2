@@ -16,7 +16,7 @@
  */
 
 use allocative::Allocative;
-use gazebo::prelude::*;
+use dupe::Dupe;
 
 use crate as starlark;
 use crate::eval::bc::stack_ptr::BcSlot;

@@ -13,7 +13,7 @@ use std::sync::Arc;
 
 use buck2_core::collections::ordered_map::OrderedMap;
 use buck2_core::provider::id::ProviderId;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 use once_cell::sync::Lazy;
 
 use crate::attrs::attr::Attribute;

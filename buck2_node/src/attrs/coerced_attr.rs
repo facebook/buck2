@@ -15,7 +15,7 @@ use buck2_core::collections::ordered_map::OrderedMap;
 use buck2_core::configuration::Configuration;
 use buck2_core::configuration::ConfigurationData;
 use buck2_core::target::TargetLabel;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 use gazebo::prelude::IterDuped;
 use gazebo::prelude::SliceExt;
 use itertools::Itertools;

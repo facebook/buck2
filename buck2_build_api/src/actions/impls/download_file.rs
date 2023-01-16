@@ -25,7 +25,7 @@ use buck2_execute::materialize::http::http_head;
 use buck2_execute::materialize::http::Checksum;
 use buck2_execute::materialize::http::HttpError;
 use buck2_execute::materialize::materializer::HttpDownloadInfo;
-use gazebo::prelude::*;
+use dupe::Dupe;
 use indexmap::IndexSet;
 use once_cell::sync::Lazy;
 use starlark::values::OwnedFrozenValue;

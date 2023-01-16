@@ -16,7 +16,7 @@ use std::hash::Hash;
 use std::hash::Hasher;
 use std::marker::PhantomData;
 
-use crate::dupe::Dupe;
+use dupe::Dupe;
 
 /// A type like [`PhantomData`](PhantomData), but where the contained `T` is invariant
 /// in both lifetimes and types. See [variance on the Nomicon](https://doc.rust-lang.org/nomicon/subtyping.html#variance) for an

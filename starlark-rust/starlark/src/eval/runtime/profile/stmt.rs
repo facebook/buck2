@@ -21,7 +21,7 @@ use std::collections::HashSet;
 use std::iter;
 use std::time::Instant;
 
-use gazebo::prelude::*;
+use dupe::Dupe;
 
 use crate::codemap::CodeMap;
 use crate::codemap::CodeMapId;

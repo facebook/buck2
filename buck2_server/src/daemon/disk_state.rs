@@ -167,7 +167,7 @@ mod tests {
     use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
     use buck2_core::fs::project::ProjectRelativePath;
     use buck2_core::fs::project::ProjectRootTemp;
-    use gazebo::dupe::Dupe;
+    use dupe::Dupe;
 
     use super::*;
 

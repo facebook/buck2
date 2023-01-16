@@ -16,7 +16,7 @@ use dice::DiceComputations;
 use dice::DiceTransaction;
 use dice::InjectedKey;
 use dice::Key;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 use starlark::eval::ProfileMode;
 
 use crate::starlark_profiler::StarlarkProfileModeOrInstrumentation;

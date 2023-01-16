@@ -21,7 +21,7 @@ use std::any;
 use std::any::TypeId;
 use std::marker;
 
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 
 use crate::eval::bc::instr::BcInstr;
 use crate::eval::bc::instr_impl::*;

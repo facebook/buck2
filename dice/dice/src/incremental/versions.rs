@@ -30,7 +30,7 @@ use allocative::Allocative;
 use dashmap::mapref::entry::Entry;
 use dashmap::DashMap;
 use derive_more::Display;
-use gazebo::prelude::*;
+use dupe::Dupe;
 use once_cell::sync::OnceCell;
 use parking_lot::lock_api::RawMutex as RawMutexApi;
 use parking_lot::RawMutex;
@@ -747,7 +747,7 @@ mod tests {
     use std::thread;
     use std::time::Duration;
 
-    use gazebo::dupe::Dupe;
+    use dupe::Dupe;
     use sorted_vector_map::sorted_vector_set;
 
     use crate::incremental::versions::MinorVersion;

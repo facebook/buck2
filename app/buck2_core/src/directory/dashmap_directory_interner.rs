@@ -13,6 +13,9 @@ use std::sync::Weak;
 use allocative::Allocative;
 use dashmap::mapref::entry::Entry;
 use dashmap::DashMap;
+use dupe::Clone_;
+use dupe::Dupe;
+use dupe::Dupe_;
 use gazebo::prelude::*;
 
 use super::DirectoryHasher;

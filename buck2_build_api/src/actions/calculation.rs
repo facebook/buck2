@@ -23,9 +23,9 @@ use buck2_execute::output_size::OutputSize;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
+use dupe::Dupe;
 use futures::future;
 use futures::stream::FuturesUnordered;
-use gazebo::prelude::*;
 use tracing::debug;
 
 use crate::actions::artifact::build_artifact::BuildArtifact;
@@ -454,7 +454,7 @@ mod tests {
     use dice::testing::DiceBuilder;
     use dice::DiceTransaction;
     use dice::UserComputationData;
-    use gazebo::prelude::*;
+    use dupe::Dupe;
     use indexmap::indexset;
     use maplit::btreemap;
     use maplit::hashmap;

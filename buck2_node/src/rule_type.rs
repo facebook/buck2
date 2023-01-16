@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_core::bzl::ImportPath;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 
 /// The identifier used to find the implementation function for this rule. Should point at the output of `rule()`
 #[derive(Debug, Clone, derive_more::Display, Eq, PartialEq, Hash, Allocative)]

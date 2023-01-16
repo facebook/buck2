@@ -19,7 +19,7 @@
 
 use std::ops::Add;
 
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 
 /// Index of the slot in the function frame.
 /// This can be both a local variable or a temporary.

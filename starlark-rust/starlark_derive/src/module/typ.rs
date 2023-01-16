@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 use proc_macro2::Ident;
 use proc_macro2::Span;
 use syn::spanned::Spanned;

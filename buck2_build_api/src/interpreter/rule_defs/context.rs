@@ -29,8 +29,8 @@ use chrono::TimeZone;
 use chrono::Utc;
 use derive_more::Display;
 use dice::DiceComputations;
+use dupe::Dupe;
 use gazebo::any::ProvidesStaticType;
-use gazebo::prelude::*;
 use host_sharing::WeightClass;
 use host_sharing::WeightPercentage;
 use indexmap::indexset;
@@ -1059,7 +1059,7 @@ mod tests {
     use buck2_execute::base_deferred_key::BaseDeferredKey;
     use buck2_interpreter::types::label::Label;
     use buck2_node::configuration::execution::ExecutionPlatformResolution;
-    use gazebo::prelude::*;
+    use dupe::Dupe;
     use indoc::indoc;
     use maplit::hashmap;
     use starlark::environment::GlobalsBuilder;

@@ -16,7 +16,7 @@ use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
 use buck2_query::query::syntax::simple::functions::DefaultQueryFunctionsModule;
 use dice::DiceComputations;
-use gazebo::prelude::*;
+use dupe::Dupe;
 
 use crate::query::analysis::evaluator::eval_query;
 use crate::query::dice::get_dice_query_delegate;

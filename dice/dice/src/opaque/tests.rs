@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 use parking_lot::Mutex;
 
 use crate::DetectCycles;

@@ -8,7 +8,7 @@
  */
 
 use allocative::Allocative;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 
 #[derive(Debug, Clone, Copy, Dupe)]
 pub(crate) enum DiceTaskStateForDebugging {

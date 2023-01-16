@@ -31,6 +31,7 @@ use buck2_execute::directory::INTERNER;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
+use dupe::Dupe;
 use futures::future;
 use futures::stream::FuturesOrdered;
 use gazebo::prelude::*;

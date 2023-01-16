@@ -13,7 +13,7 @@ use allocative::Allocative;
 use buck2_common::external_symlink::ExternalSymlink;
 use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::FileMetadata;
-use gazebo::prelude::*;
+use dupe::Dupe;
 
 use crate::directory::ActionDirectoryEntry;
 use crate::directory::ActionDirectoryMember;

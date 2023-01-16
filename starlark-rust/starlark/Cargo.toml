@@ -23,6 +23,7 @@ annotate-snippets = { version = "0.9.0", features = ["color"] }
 anyhow = "1.0.65"
 derivative = "2.2"
 derive_more = "0.99"
+dupe = { workspace = true }
 erased-serde = "0.3.20"
 lalrpop-util = "0.19.7"
 itertools = "0.10"

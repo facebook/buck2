@@ -30,8 +30,8 @@ use std::time::Instant;
 
 use allocative::Allocative;
 use derive_more::Display;
+use dupe::Dupe;
 use gazebo::any::ProvidesStaticType;
-use gazebo::prelude::*;
 use itertools::Itertools;
 
 use crate::collections::Hashed;

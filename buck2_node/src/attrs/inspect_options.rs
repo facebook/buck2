@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 
 #[derive(Clone, Dupe, Copy)]
 pub enum AttrInspectOptions {

@@ -17,7 +17,7 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_test_api::data::ConfiguredTargetHandle;
 use chrono::Local;
 use dashmap::DashMap;
-use gazebo::prelude::*;
+use dupe::Dupe;
 
 #[derive(Debug, Clone, Copy, Dupe, Default)]
 pub struct TestSessionOptions {

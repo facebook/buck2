@@ -35,6 +35,7 @@ use buck2_node::configuration::toolchain_constraints::ToolchainConstraints;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
+use dupe::Dupe;
 use gazebo::prelude::*;
 use indexmap::IndexSet;
 use starlark::collections::SmallMap;

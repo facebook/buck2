@@ -15,7 +15,7 @@ use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::TargetPattern;
 use buck2_core::target::TargetLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 use starlark::values::Value;
 use starlark::values::ValueLike;
 

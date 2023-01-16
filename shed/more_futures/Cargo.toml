@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 futures = "0.3"
 gazebo = { workspace = true }
+dupe = { workspace = true }
 gazebo_lint.version = "0.1"
 gazebo_lint.optional = true
 # @oss-disable: gazebo_lint.path = "../../gazebo_lint/gazebo_lint"

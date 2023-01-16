@@ -17,10 +17,10 @@ use buck2_data::SharedTaskStart;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_events::dispatch::Span;
 use buck2_events::trace::TraceId;
+use dupe::Dupe;
 use futures::future::Future;
 use futures::future::Shared;
 use futures::FutureExt;
-use gazebo::prelude::*;
 use pin_project::pin_project;
 
 /// A custom future type that wraps a Shared future that is possibly polled in different threads with

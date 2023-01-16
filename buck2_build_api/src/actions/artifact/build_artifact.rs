@@ -13,7 +13,7 @@ use buck2_execute::execute::request::OutputType;
 use buck2_execute::path::buck_out_path::BuckOutPath;
 use derivative::Derivative;
 use derive_more::Display;
-use gazebo::prelude::*;
+use dupe::Dupe;
 
 use crate::actions::key::ActionKey;
 

@@ -20,6 +20,7 @@ twox-hash = { workspace = true }
 allocative = { workspace = true }
 dice = { path = "../../dice/dice" }
 gazebo = { workspace = true }
+dupe = { workspace = true }
 starlark = { workspace = true }
 starlark_map = { workspace = true }
 

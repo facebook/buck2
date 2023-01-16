@@ -93,6 +93,7 @@ use buck2_test_api::protocol::TestOrchestrator;
 use dashmap::mapref::entry::Entry;
 use dashmap::DashMap;
 use dice::DiceTransaction;
+use dupe::Dupe;
 use futures::channel::mpsc::UnboundedSender;
 use gazebo::prelude::*;
 use host_sharing::HostSharingRequirements;

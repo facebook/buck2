@@ -23,7 +23,7 @@ use syn::TypeParamBound;
 use syn::Variant;
 
 // Add a bound to every type parameter.
-pub fn add_trait_bounds(mut generics: Generics, bound: &TypeParamBound) -> Generics {
+pub(crate) fn add_trait_bounds(mut generics: Generics, bound: &TypeParamBound) -> Generics {
     for param in &mut generics.params {
         if let GenericParam::Type(ref mut type_param) = *param {
             type_param.bounds.push(bound.clone());
@@ -126,7 +126,7 @@ fn duplicate_enum(data: &DataEnum, duplicate: &TokenStream) -> TokenStream {
     }
 }
 
-pub fn duplicate_impl(data: &Data, duplicate: &TokenStream) -> TokenStream {
+pub(crate) fn duplicate_impl(data: &Data, duplicate: &TokenStream) -> TokenStream {
     match data {
         Data::Struct(data) => duplicate_struct(data, duplicate),
         Data::Enum(data) => duplicate_enum(data, duplicate),

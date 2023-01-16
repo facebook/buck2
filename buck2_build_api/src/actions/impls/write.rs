@@ -17,7 +17,7 @@ use buck2_core::category::Category;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
 use buck2_execute::materialize::materializer::WriteRequest;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 use indexmap::indexmap;
 use indexmap::indexset;
 use indexmap::IndexMap;

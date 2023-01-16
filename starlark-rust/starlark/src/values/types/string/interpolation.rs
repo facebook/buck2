@@ -22,8 +22,8 @@ use std::fmt::Write;
 use std::mem;
 use std::str::FromStr;
 
+use dupe::Dupe;
 use gazebo::cast;
-use gazebo::prelude::*;
 use thiserror::Error;
 
 use crate::collections::string_pool::StringPool;

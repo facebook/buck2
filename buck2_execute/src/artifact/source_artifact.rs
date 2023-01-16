@@ -14,7 +14,7 @@ use allocative::Allocative;
 use buck2_core::buck_path::BuckPath;
 use buck2_core::buck_path::BuckPathRef;
 use derive_more::Display;
-use gazebo::prelude::*;
+use dupe::Dupe;
 
 /// An artifact in the source tree
 #[derive(

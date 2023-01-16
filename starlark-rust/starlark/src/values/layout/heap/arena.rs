@@ -39,8 +39,8 @@ use std::time::Instant;
 use allocative::Allocative;
 use allocative::Visitor;
 use bumpalo::Bump;
+use dupe::Dupe;
 use either::Either;
-use gazebo::prelude::*;
 use starlark_map::small_map::SmallMap;
 
 use crate::collections::StarlarkHashValue;

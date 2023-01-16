@@ -19,7 +19,7 @@ use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
 use buck2_execute::materialize::materializer::WriteRequest;
-use gazebo::prelude::*;
+use dupe::Dupe;
 use indexmap::IndexSet;
 use once_cell::sync::Lazy;
 use starlark::values::OwnedFrozenValue;

@@ -20,7 +20,7 @@ use buck2_execute::path::buck_out_path::BuckOutPath;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
 use buck2_node::configuration::execution::ExecutionPlatformResolution;
 use derivative::Derivative;
-use gazebo::prelude::*;
+use dupe::Dupe;
 use indexmap::IndexSet;
 use starlark::codemap::FileSpan;
 use starlark::environment::FrozenModule;

@@ -27,7 +27,7 @@ use buck2_node::package::Package;
 use buck2_node::rule::Rule;
 use buck2_node::visibility::VisibilityPattern;
 use buck2_node::visibility::VisibilitySpecification;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 use starlark::eval::CallStack;
 use starlark::eval::ParametersParser;
 use starlark::values::Value;

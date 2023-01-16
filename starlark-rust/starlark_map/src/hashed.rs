@@ -22,7 +22,7 @@ use std::hash::Hasher;
 use std::ops::Deref;
 
 use allocative::Allocative;
-use gazebo::prelude::Dupe;
+use dupe::Dupe;
 
 use crate::equivalent::Equivalent;
 use crate::hash_value::StarlarkHashValue;

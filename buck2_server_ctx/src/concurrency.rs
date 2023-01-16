@@ -33,6 +33,7 @@ use dice::Dice;
 use dice::DiceComputations;
 use dice::DiceTransaction;
 use dice::UserComputationData;
+use dupe::Dupe;
 use gazebo::prelude::*;
 use itertools::Itertools;
 use parking_lot::lock_api::MutexGuard;
@@ -466,7 +467,7 @@ mod tests {
     use dice::DiceTransaction;
     use dice::InjectedKey;
     use dice::UserComputationData;
-    use gazebo::prelude::*;
+    use dupe::Dupe;
     use tokio::sync::Barrier;
     use tokio::sync::RwLock;
 

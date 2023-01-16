@@ -46,7 +46,7 @@ use buck2_interpreter::dice::HasEvents;
 use derivative::Derivative;
 use derive_more::Display;
 use dice::DiceComputations;
-use gazebo::prelude::*;
+use dupe::Dupe;
 use indexmap::indexmap;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
@@ -546,7 +546,7 @@ mod tests {
     use buck2_execute::path::buck_out_path::BuckOutPathResolver;
     use buck2_execute::path::buck_out_path::BuckPathResolver;
     use buck2_execute::re::manager::ManagedRemoteExecutionClient;
-    use gazebo::prelude::*;
+    use dupe::Dupe;
     use indexmap::indexset;
     use indexmap::IndexSet;
     use once_cell::sync::Lazy;

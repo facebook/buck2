@@ -24,7 +24,7 @@ use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use dice::DiceComputations;
 use dice::Key;
-use gazebo::prelude::*;
+use dupe::Dupe;
 
 use crate::interpreter::calculation::keys::InterpreterResultsKey;
 use crate::interpreter::module_internals::ModuleInternals;
@@ -111,7 +111,7 @@ mod keys {
     use allocative::Allocative;
     use buck2_core::package::PackageLabel;
     use derive_more::Display;
-    use gazebo::prelude::*;
+    use dupe::Dupe;
 
     // Key for 'InterpreterCalculation::get_interpreter_results'
     #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]

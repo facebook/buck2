@@ -36,9 +36,9 @@ use std::time::Instant;
 use std::usize;
 
 use allocative::Allocative;
+use dupe::Dupe;
 use either::Either;
 use gazebo::cast;
-use gazebo::prelude::*;
 use once_cell::sync::Lazy;
 use starlark_map::small_set::SmallSet;
 

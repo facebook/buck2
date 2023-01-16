@@ -28,8 +28,8 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::ConfiguredTargetLabel;
 use buck2_core::target::TargetLabel;
+use dupe::Dupe;
 use either::Either;
-use gazebo::dupe::Dupe;
 use starlark_map::Hashed;
 
 use crate::attrs::attr_type::attr_literal::AttrLiteral;

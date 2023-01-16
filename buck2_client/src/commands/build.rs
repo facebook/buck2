@@ -38,6 +38,7 @@ use cli_proto::build_request::ResponseOptions;
 use cli_proto::build_target::BuildOutput;
 use cli_proto::BuildRequest;
 use cli_proto::BuildTarget;
+use dupe::Dupe;
 use futures::TryStreamExt;
 use gazebo::prelude::*;
 use multimap::MultiMap;

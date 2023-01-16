@@ -33,7 +33,7 @@ use buck2_events::dispatch::span_async;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
-use gazebo::prelude::*;
+use dupe::Dupe;
 use starlark::codemap::FileSpan;
 use starlark::syntax::AstModule;
 use thiserror::Error;

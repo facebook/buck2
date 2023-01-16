@@ -32,6 +32,7 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::*;
 use buck2_core::fs::project::*;
+use dupe::Dupe;
 use gazebo::eq_chain;
 use gazebo::prelude::*;
 use itertools::Itertools;

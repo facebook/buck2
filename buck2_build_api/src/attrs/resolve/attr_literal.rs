@@ -19,6 +19,7 @@ use buck2_node::attrs::attr_type::dep::DepAttrType;
 use buck2_node::attrs::attr_type::source::SourceAttrType;
 use buck2_node::attrs::attr_type::split_transition_dep::SplitTransitionDepAttrType;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
+use dupe::Dupe;
 use gazebo::prelude::*;
 use starlark::collections::SmallMap;
 use starlark::values::dict::Dict;

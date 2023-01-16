@@ -51,7 +51,7 @@ use buck2_node::visibility::VisibilityError;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
-use gazebo::prelude::*;
+use dupe::Dupe;
 use indexmap::IndexSet;
 use itertools::Either;
 use itertools::Itertools;
@@ -870,7 +870,7 @@ mod tests {
     use buck2_node::rule_type::StarlarkRuleType;
     use dice::testing::DiceBuilder;
     use dice::UserComputationData;
-    use gazebo::prelude::*;
+    use dupe::Dupe;
     use starlark::collections::SmallMap;
     use starlark_map::smallmap;
 

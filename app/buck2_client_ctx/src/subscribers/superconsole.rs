@@ -18,6 +18,7 @@ use async_trait::async_trait;
 use buck2_data::CommandExecutionDetails;
 use buck2_events::trace::TraceId;
 use buck2_events::BuckEvent;
+use dupe::Dupe;
 use gazebo::prelude::*;
 use superconsole::components::splitting::SplitKind;
 use superconsole::components::Bounded;

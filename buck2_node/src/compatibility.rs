@@ -17,7 +17,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use buck2_core::target::ConfiguredTargetLabel;
 use buck2_core::target::TargetLabel;
-use gazebo::prelude::*;
+use dupe::Dupe;
 use thiserror::Error;
 
 #[derive(Debug, Error)]

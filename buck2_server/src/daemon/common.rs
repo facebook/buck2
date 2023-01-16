@@ -36,7 +36,7 @@ use buck2_execute_impl::low_pass_filter::LowPassFilter;
 use buck2_forkserver::client::ForkserverClient;
 use cli_proto::client_context::HostPlatformOverride;
 use cli_proto::common_build_options::ExecutionStrategy;
-use gazebo::prelude::*;
+use dupe::Dupe;
 use host_sharing::HostSharingBroker;
 use once_cell::sync::OnceCell;
 

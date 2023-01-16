@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use gazebo::prelude::*;
+use dupe::Dupe;
 
 use crate::digest::*;
 use crate::error::*;

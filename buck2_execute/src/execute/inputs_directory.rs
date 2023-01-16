@@ -9,7 +9,7 @@
 
 use buck2_common::file_ops::FileMetadata;
 use buck2_core::directory::DirectoryEntry;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 
 use crate::artifact::fs::ArtifactFs;
 use crate::directory::ActionDirectoryBuilder;

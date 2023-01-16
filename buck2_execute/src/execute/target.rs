@@ -12,7 +12,7 @@ use std::fmt::Display;
 use buck2_core::category::Category;
 use buck2_data::ToProtoMessage;
 use derivative::Derivative;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 
 use crate::base_deferred_key::BaseDeferredKey;
 use crate::path::buck_out_path::BuckOutScratchPath;

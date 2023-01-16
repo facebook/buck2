@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 
 /// Daemon-level config that can tweak how the executors work.
 #[derive(Clone, Dupe, Default)]

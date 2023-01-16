@@ -27,7 +27,8 @@ use buck2_execute::base_deferred_key::BaseDeferredKey;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use derivative::Derivative;
 use derive_more::Display;
-use gazebo::prelude::*;
+use dupe::Clone_;
+use dupe::Dupe;
 use gazebo::variants::VariantName;
 use indexmap::indexset;
 use indexmap::IndexSet;
@@ -942,7 +943,7 @@ mod tests {
     use buck2_core::target::ConfiguredTargetLabel;
     use buck2_core::target::TargetName;
     use buck2_execute::base_deferred_key::BaseDeferredKey;
-    use gazebo::prelude::*;
+    use dupe::Dupe;
     use indexmap::indexset;
     use indexmap::IndexSet;
 

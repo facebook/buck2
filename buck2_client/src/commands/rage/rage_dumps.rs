@@ -22,7 +22,7 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::process::background_command;
 use cli_proto::unstable_dice_dump_request::DiceDumpFormat;
 use cli_proto::UnstableDiceDumpRequest;
-use gazebo::prelude::*;
+use dupe::Dupe;
 
 pub async fn upload_dice_dump(
     ctx: &ClientCommandContext,

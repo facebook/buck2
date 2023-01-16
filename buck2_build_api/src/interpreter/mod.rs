@@ -47,7 +47,7 @@ pub(crate) mod testing {
     use buck2_node::nodes::eval_result::EvaluationResult;
     use buck2_node::nodes::unconfigured::TargetsMap;
     use buck2_query::query::syntax::simple::functions::testing::QueryFunctionsPanic;
-    use gazebo::prelude::*;
+    use dupe::Dupe;
     use indoc::indoc;
     use maplit::hashmap;
     use starlark::environment::GlobalsBuilder;

@@ -16,7 +16,7 @@ use buck2_core::target::TargetLabel;
 use buck2_data::ToProtoMessage;
 use buck2_interpreter::common::BxlFilePath;
 use derive_more::Display;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 use itertools::Itertools;
 use serde::Serialize;
 use serde::Serializer;

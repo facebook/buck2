@@ -16,11 +16,11 @@ use buck2_events::dispatch::with_dispatcher_async;
 use buck2_events::dispatch::EventDispatcher;
 use dice::DiceEvent;
 use dice::DiceEventListener;
+use dupe::Dupe;
 use futures::channel::mpsc;
 use futures::channel::mpsc::UnboundedReceiver;
 use futures::channel::mpsc::UnboundedSender;
 use futures::StreamExt;
-use gazebo::dupe::Dupe;
 
 /// The BuckDiceTracker keeps track of the started/finished events for a dice computation and periodically sends a snapshot to the client.
 ///

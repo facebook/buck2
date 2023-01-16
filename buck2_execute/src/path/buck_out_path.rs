@@ -23,7 +23,7 @@ use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use derivative::Derivative;
 use derive_more::Display;
-use gazebo::prelude::*;
+use dupe::Dupe;
 
 use crate::base_deferred_key::BaseDeferredKey;
 
@@ -451,7 +451,7 @@ mod tests {
     use buck2_core::package::PackageLabel;
     use buck2_core::target::TargetLabel;
     use buck2_core::target::TargetName;
-    use gazebo::prelude::*;
+    use dupe::Dupe;
     use regex::Regex;
 
     use crate::base_deferred_key::BaseDeferredKey;

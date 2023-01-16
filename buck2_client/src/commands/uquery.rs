@@ -18,7 +18,7 @@ use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_core::soft_error;
 use cli_proto::QueryOutputFormat;
 use cli_proto::UqueryRequest;
-use gazebo::dupe::Dupe;
+use dupe::Dupe;
 use thiserror::Error;
 
 #[derive(Debug, Clone, Dupe, clap::ArgEnum)]

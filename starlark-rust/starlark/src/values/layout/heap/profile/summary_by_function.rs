@@ -15,11 +15,11 @@
  * limitations under the License.
  */
 
+use dupe::Dupe;
 use starlark_map::small_map::SmallMap;
 
 use crate::eval::runtime::profile::csv::CsvWriter;
 use crate::eval::runtime::small_duration::SmallDuration;
-use crate::gazebo::dupe::Dupe;
 use crate::values::layout::heap::profile::aggregated::AggregateHeapProfileInfo;
 use crate::values::layout::heap::profile::aggregated::StackFrame;
 use crate::values::layout::heap::profile::alloc_counts::AllocCounts;

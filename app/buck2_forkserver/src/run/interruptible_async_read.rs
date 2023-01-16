@@ -261,8 +261,8 @@ mod tests {
         use std::sync::Mutex;
 
         use assert_matches::assert_matches;
+        use dupe::Dupe;
         use futures::stream::Stream;
-        use gazebo::prelude::*;
         use tokio_util::codec::BytesCodec;
         use tokio_util::codec::FramedRead;
 

@@ -24,6 +24,7 @@ use buck2_events::metadata;
 use derive_more::Display;
 use derive_more::From;
 use dice::UserComputationData;
+use dupe::Dupe;
 use gazebo::prelude::*;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::mpsc::UnboundedSender;

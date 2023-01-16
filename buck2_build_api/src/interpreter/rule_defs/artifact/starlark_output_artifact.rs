@@ -13,8 +13,8 @@ use std::fmt::Display;
 
 use allocative::Allocative;
 use anyhow::Context;
+use dupe::Dupe;
 use gazebo::any::ProvidesStaticType;
-use gazebo::prelude::*;
 use starlark::starlark_type;
 use starlark::values::AllocValue;
 use starlark::values::Freeze;
