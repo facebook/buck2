@@ -148,7 +148,7 @@ fn parse_visibility(
     attr: &CoercedAttr,
 ) -> anyhow::Result<VisibilitySpecification> {
     let visibility = match attr {
-        CoercedAttr::Literal(AttrLiteral::List(values, _)) => values,
+        CoercedAttr::Literal(AttrLiteral::List(list)) => &list.items,
         CoercedAttr::Literal(_) => {
             unreachable!("coercion of visibility verified the type")
         }

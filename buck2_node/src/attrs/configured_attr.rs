@@ -20,6 +20,7 @@ use starlark_map::small_map;
 
 use crate::attrs::attr_type::attr_config::AttrConfig;
 use crate::attrs::attr_type::attr_literal::AttrLiteral;
+use crate::attrs::attr_type::attr_literal::ListLiteral;
 use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
 use crate::attrs::display::AttrDisplayWithContext;
 use crate::attrs::display::AttrDisplayWithContextExt;
@@ -92,25 +93,28 @@ impl ConfiguredAttr {
         };
 
         match self.0 {
-            AttrLiteral::List(res, ty) => {
-                let mut res = res.into_vec();
+            AttrLiteral::List(list) => {
+                let mut res = list.items.into_vec();
                 for x in items {
                     match x?.0 {
-                        AttrLiteral::List(items, ty2) => {
-                            if ty != ty2 {
+                        AttrLiteral::List(list2) => {
+                            if list.item_type != list2.item_type {
                                 return Err(ConfiguredAttrError::ConcatListDifferentTypes(
-                                    ty.to_string(),
-                                    ty2.to_string(),
+                                    list.item_type.to_string(),
+                                    list2.item_type.to_string(),
                                 )
                                 .into());
                             } else {
-                                res.extend(items.into_vec());
+                                res.extend(list2.items.into_vec());
                             }
                         }
                         attr => return mismatch("list", attr),
                     }
                 }
-                Ok(Self(AttrLiteral::List(res.into_boxed_slice(), ty)))
+                Ok(Self(AttrLiteral::List(ListLiteral {
+                    items: res.into_boxed_slice(),
+                    item_type: list.item_type,
+                })))
             }
             AttrLiteral::Dict(left) => {
                 let mut res = OrderedMap::new();
@@ -192,14 +196,14 @@ impl ConfiguredAttr {
 
     pub fn unpack_list(&self) -> Option<&[ConfiguredAttr]> {
         match &self.0 {
-            AttrLiteral::List(v, _) => Some(v),
+            AttrLiteral::List(list) => Some(&list.items),
             _ => None,
         }
     }
 
     pub fn try_into_list(self) -> Option<Vec<ConfiguredAttr>> {
         match self.0 {
-            AttrLiteral::List(v, _) => Some(v.into_vec()),
+            AttrLiteral::List(list) => Some(list.items.into_vec()),
             _ => None,
         }
     }

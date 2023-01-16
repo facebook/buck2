@@ -65,9 +65,9 @@ impl UnconfiguredAttrLiteralExt for AttrLiteral<CoercedAttr> {
             AttrLiteral::String(s) | AttrLiteral::EnumVariant(s) => {
                 Ok(heap.alloc_str(s).to_value())
             }
-            AttrLiteral::List(l, _) => {
-                let mut v = Vec::with_capacity(l.len());
-                for e in l.iter() {
+            AttrLiteral::List(l) => {
+                let mut v = Vec::with_capacity(l.items.len());
+                for e in l.items.iter() {
                     v.push(e.to_value(heap)?);
                 }
                 Ok(heap.alloc(AllocList(v)))
@@ -132,9 +132,9 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
             AttrLiteral::Bool(v) => Ok(Value::new_bool(*v)),
             AttrLiteral::Int(v) => Ok(Value::new_int(*v)),
             AttrLiteral::String(v) | AttrLiteral::EnumVariant(v) => Ok(ctx.heap().alloc(&**v)),
-            AttrLiteral::List(list, _) => {
-                let mut values = Vec::with_capacity(list.len());
-                for v in list.iter() {
+            AttrLiteral::List(list) => {
+                let mut values = Vec::with_capacity(list.items.len());
+                for v in list.items.iter() {
                     values.append(&mut v.resolve(pkg, ctx)?);
                 }
                 Ok(ctx.heap().alloc(values))
@@ -202,7 +202,7 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
             AttrLiteral::String(_) | AttrLiteral::EnumVariant(_) => {
                 Ok(starlark::values::string::STRING_TYPE)
             }
-            AttrLiteral::List(_, _) => Ok(starlark::values::list::ListRef::TYPE),
+            AttrLiteral::List(_) => Ok(starlark::values::list::ListRef::TYPE),
             AttrLiteral::Tuple(_) => Ok(starlark::values::tuple::TupleRef::TYPE),
             AttrLiteral::Dict(_) => Ok(Dict::TYPE),
             AttrLiteral::None => Ok(NoneType::TYPE),
@@ -226,7 +226,7 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
             AttrLiteral::Bool(v) => heap.alloc(*v),
             AttrLiteral::Int(v) => heap.alloc(*v),
             AttrLiteral::String(s) | AttrLiteral::EnumVariant(s) => heap.alloc(&**s),
-            AttrLiteral::List(list, _ty) => heap.alloc(list.try_map(|v| v.to_value(pkg, heap))?),
+            AttrLiteral::List(list) => heap.alloc(list.items.try_map(|v| v.to_value(pkg, heap))?),
             AttrLiteral::Tuple(v) => heap.alloc(AllocTuple(v.try_map(|v| v.to_value(pkg, heap))?)),
             AttrLiteral::Dict(map) => {
                 let mut res = SmallMap::with_capacity(map.len());

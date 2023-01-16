@@ -856,6 +856,7 @@ mod tests {
     use buck2_node::attrs::attr::Attribute;
     use buck2_node::attrs::attr_type::any::AnyAttrType;
     use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
+    use buck2_node::attrs::attr_type::attr_literal::ListLiteral;
     use buck2_node::attrs::attr_type::dep::DepAttr;
     use buck2_node::attrs::attr_type::dep::DepAttrTransition;
     use buck2_node::attrs::attr_type::dep::DepAttrType;
@@ -907,16 +908,16 @@ mod tests {
             (
                 "some_deps",
                 Attribute::testing_new(None, AttrType::list(AttrType::dep(Vec::new()))),
-                CoercedAttr::from_literal(AttrLiteral::List(
-                    vec![CoercedAttr::from_literal(AttrLiteral::Dep(
+                CoercedAttr::from_literal(AttrLiteral::List(ListLiteral {
+                    items: vec![CoercedAttr::from_literal(AttrLiteral::Dep(
                         box DepAttr::new(
                             DepAttrType::new(Vec::new(), DepAttrTransition::Identity),
                             ProvidersLabel::new(label2.dupe(), ProvidersName::Default),
                         ),
                     ))]
                     .into_boxed_slice(),
-                    AttrType::dep(Vec::new()),
-                )),
+                    item_type: AttrType::dep(Vec::new()),
+                })),
             ),
         ];
 
@@ -970,20 +971,23 @@ mod tests {
             "another_field" =>
              ConfiguredAttr::from_literal(AttrLiteral::String("some_string".into())),
             "some_deps" =>
-             ConfiguredAttr::from_literal(AttrLiteral::List(vec![
+             ConfiguredAttr::from_literal(AttrLiteral::List(ListLiteral{items: vec![
                 ConfiguredAttr::from_literal(AttrLiteral::Dep(box DepAttr::new(
                     DepAttrType::new(Vec::new(), DepAttrTransition::Identity),
                     ProvidersLabel::new(label2.dupe(), ProvidersName::Default)
                         .configure(cfg.dupe()),
                 ))),
-            ].into_boxed_slice(), AttrType::dep(Vec::new()))),
+            ].into_boxed_slice(), item_type: AttrType::dep(Vec::new())})),
         ];
 
         let conf_attrs2 = smallmap![
             "bool_field" => ConfiguredAttr::from_literal(AttrLiteral::Bool(true)),
             "another_field" =>
              ConfiguredAttr::from_literal(AttrLiteral::String("another_string".into())),
-            "some_deps" => ConfiguredAttr::from_literal(AttrLiteral::List(Default::default(), AttrType::dep(Vec::new()))),
+            "some_deps" => ConfiguredAttr::from_literal(AttrLiteral::List(ListLiteral {
+                items: Default::default(),
+                item_type: AttrType::dep(Vec::new())
+            })),
         ];
 
         let node = computations.get_target_node(&label1).await?;
