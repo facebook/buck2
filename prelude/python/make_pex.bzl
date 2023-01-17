@@ -99,7 +99,7 @@ def make_pex(
 
     symlink_tree_path = None
     if not standalone:
-        symlink_tree_path = ctx.actions.declare_output("{}#link-tree".format(ctx.attrs.name))
+        symlink_tree_path = ctx.actions.declare_output("{}#link-tree".format(ctx.attrs.name), dir = True)
 
     modules_args, hidden = _pex_modules_args(ctx, pex_modules, {name: lib for name, (lib, _) in shared_libraries.items()}, symlink_tree_path)
 
