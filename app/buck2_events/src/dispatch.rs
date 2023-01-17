@@ -22,7 +22,6 @@ use std::time::Instant;
 use std::time::SystemTime;
 
 use buck2_core::env_helper::EnvHelper;
-use buck2_core::process::background_command;
 use buck2_data::buck_event;
 use buck2_data::instant_event::Data::HgInfo;
 use buck2_data::span_end_event;
@@ -30,6 +29,7 @@ use buck2_data::span_start_event;
 use buck2_data::MercurialInfo;
 use buck2_data::SpanEndEvent;
 use buck2_data::SpanStartEvent;
+use buck2_util::process::background_command;
 use dupe::Dupe;
 use futures::future;
 use futures::Future;

@@ -65,3 +65,4 @@ jemalloc-ctl = { workspace = true }
 assert_matches = { workspace = true }
 maplit = { workspace = true }
 tempfile = { workspace = true }
+buck2_util = { workspace = true }

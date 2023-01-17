@@ -39,6 +39,7 @@ rust_library(
         "//buck2/app/buck2_core:buck2_core",
         "//buck2/app/buck2_forkserver_proto:buck2_forkserver_proto",
         "//buck2/app/buck2_grpc:buck2_grpc",
+        "//buck2/app/buck2_util:buck2_util",
         "//buck2/gazebo/dupe:dupe",
     ],
 )

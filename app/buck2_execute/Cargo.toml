@@ -46,6 +46,7 @@ buck2_data = { workspace = true }
 buck2_events = { workspace = true }
 buck2_interpreter = { workspace = true }
 buck2_node = { workspace = true }
+buck2_util = { workspace = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }

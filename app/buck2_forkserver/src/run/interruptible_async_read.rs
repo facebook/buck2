@@ -494,7 +494,7 @@ mod tests {
     mod unix_non_blocking_drainer {
         use std::process::Stdio;
 
-        use buck2_core::process::async_background_command;
+        use buck2_util::process::async_background_command;
 
         use super::*;
 

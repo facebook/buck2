@@ -71,7 +71,7 @@ fn curl_upload_command(
         cert.to_string_lossy(),
     );
 
-    let mut upload = buck2_core::process::async_background_command("curl");
+    let mut upload = buck2_util::process::async_background_command("curl");
     upload.args([
         "--silent",
         "--show-error",
@@ -94,7 +94,7 @@ fn cli_upload_command(
     manifold_bucket_path: &String,
     bucket_key: &str,
 ) -> Command {
-    let mut upload = buck2_core::process::async_background_command(cli_path);
+    let mut upload = buck2_util::process::async_background_command(cli_path);
 
     tracing::debug!(
         "Uploading event log to {} using manifold CLI with command {:?}",

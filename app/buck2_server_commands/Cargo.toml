@@ -45,4 +45,5 @@ buck2_node = { workspace = true }
 buck2_query = { workspace = true }
 buck2_server_ctx = { workspace = true }
 buck2_cli_proto = { workspace = true }
+buck2_util = { workspace = true }
 install_proto = { path = "../../install_proto" }

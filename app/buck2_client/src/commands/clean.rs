@@ -206,8 +206,8 @@ async fn try_clean_eden_buck_out(
 ) -> anyhow::Result<Option<Vec<String>>> {
     use std::process::Stdio;
 
-    use buck2_core::process::async_background_command;
     use buck2_execute::materialize::eden_api::is_recas_eden_mount;
+    use buck2_util::process::async_background_command;
 
     if !cfg!(unix) {
         return Ok(None);

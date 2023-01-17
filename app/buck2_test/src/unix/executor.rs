@@ -12,7 +12,7 @@ use std::os::unix::io::AsRawFd as _;
 use std::process::Stdio;
 
 use anyhow::Context as _;
-use buck2_core::process::async_background_command;
+use buck2_util::process::async_background_command;
 use tokio::net::UnixStream;
 use tokio::process::Child;
 

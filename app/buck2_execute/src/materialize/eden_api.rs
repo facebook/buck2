@@ -20,7 +20,7 @@ use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
-use buck2_core::process::background_command;
+use buck2_util::process::background_command;
 use edenfs::client::EdenService;
 use edenfs::CheckoutMode;
 use edenfs::EnsureMaterializedParams;

@@ -16,7 +16,7 @@ use std::time::Duration;
 use anyhow::Context as _;
 use assert_matches::assert_matches;
 use async_trait::async_trait;
-use buck2_core::process::async_background_command;
+use buck2_util::process::async_background_command;
 use gazebo::prelude::*;
 use tokio::io::AsyncWriteExt;
 use tokio::process::Child;

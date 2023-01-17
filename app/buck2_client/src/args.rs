@@ -22,7 +22,7 @@ use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::working_dir::WorkingDir;
-use buck2_core::process::background_command;
+use buck2_util::process::background_command;
 use once_cell::unsync::OnceCell;
 use termwiz::istty::IsTty;
 use thiserror::Error;

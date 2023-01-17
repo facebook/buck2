@@ -354,8 +354,8 @@ mod tests {
     use std::time::Instant;
 
     use assert_matches::assert_matches;
-    use buck2_core::process::async_background_command;
-    use buck2_core::process::background_command;
+    use buck2_util::process::async_background_command;
+    use buck2_util::process::background_command;
 
     use super::*;
 

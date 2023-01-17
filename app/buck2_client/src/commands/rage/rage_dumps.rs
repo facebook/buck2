@@ -21,7 +21,7 @@ use buck2_client_ctx::manifold::UploadError;
 use buck2_core::fs::fs_util::create_dir_all;
 use buck2_core::fs::fs_util::remove_all;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
-use buck2_core::process::background_command;
+use buck2_util::process::background_command;
 use dupe::Dupe;
 
 pub async fn upload_dice_dump(

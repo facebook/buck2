@@ -46,9 +46,6 @@ internment_tweaks = { path = "../../shed/internment_tweaks" }
 allocative = { workspace = true }
 sorted_vector_map = { workspace = true }
 
-[target.'cfg(windows)'.dependencies]
-winapi = { workspace = true }
-
 [dev-dependencies]
 maplit = { workspace = true }
 serde_json = { workspace = true }

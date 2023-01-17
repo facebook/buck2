@@ -1,0 +1,14 @@
+[package]
+name = "buck2_util"
+version = "0.1.0"
+edition = "2021"
+description = """
+Unsorted utilities used by buck2. Not specific to buck2, generic enough to be used by other projects.
+but not generic or stable enough to be published on crates.io as standalone crates.
+"""
+
+[dependencies]
+tokio = { workspace = true }
+
+[target.'cfg(windows)'.dependencies]
+winapi = { workspace = true }

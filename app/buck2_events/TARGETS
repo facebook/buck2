@@ -29,6 +29,7 @@ rust_library(
         "//buck2/allocative/allocative:allocative",
         "//buck2/app/buck2_build_info:buck2_build_info",
         "//buck2/app/buck2_core:buck2_core",
+        "//buck2/app/buck2_util:buck2_util",
         "//buck2/buck2_cli_proto:buck2_cli_proto",
         "//buck2/buck2_data:buck2_data",
         "//buck2/facebook/scribe_client:scribe_client",

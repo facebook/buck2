@@ -721,7 +721,7 @@ async fn call_rage() {
 
 async fn call_rage_impl() -> anyhow::Result<()> {
     let current_exe = std::env::current_exe().context("Not current_exe")?;
-    let _child = buck2_core::process::async_background_command(current_exe)
+    let _child = buck2_util::process::async_background_command(current_exe)
         .arg("rage")
         .arg("--timeout")
         .arg("3600")

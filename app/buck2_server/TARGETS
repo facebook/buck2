@@ -10,6 +10,7 @@ rust_library(
         "fbsource//third-party/rust:assert_matches",
         "fbsource//third-party/rust:maplit",
         "fbsource//third-party/rust:tempfile",
+        "//buck2/app/buck2_util:buck2_util",
     ],
     deps = [
         "fbsource//third-party/rust:anyhow",

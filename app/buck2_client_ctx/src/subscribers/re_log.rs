@@ -96,7 +96,7 @@ async fn log_upload_impl(session_id: String, isolation_dir: FileNameBuf) -> anyh
         return Ok(());
     }
 
-    let mut buck = buck2_core::process::async_background_command(std::env::current_exe()?);
+    let mut buck = buck2_util::process::async_background_command(std::env::current_exe()?);
     let command = buck
         .arg("--isolation-dir")
         .arg(isolation_dir.as_str())

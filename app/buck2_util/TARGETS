@@ -1,0 +1,24 @@
+load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
+load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
+
+oncall("buck2")
+
+rust_library(
+    name = "buck2_util",
+    srcs = glob(
+        ["src/**/*.rs"],
+    ),
+    os_deps = [
+        (
+            "windows",
+            [
+                "fbsource//third-party/rust:winapi",
+            ],
+        ),
+    ],
+    test_deps = [
+    ],
+    deps = [
+        "fbsource//third-party/rust:tokio",
+    ],
+)
