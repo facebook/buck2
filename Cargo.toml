@@ -10,6 +10,7 @@ members = [
     "app/buck2_audit",
     "app/buck2_bxl",
     "app/buck2_build_info",
+    "app/buck2_client",
     "app/buck2_client_ctx",
     "app/buck2_common",
     "app/buck2_core",
@@ -37,7 +38,6 @@ members = [
     "buck2_build_api",
     "buck2_build_api_derive",
     "buck2_cli_proto",
-    "buck2_client",
     "buck2_interpreter",
     "buck2_node",
     "buck2_execute",
@@ -248,7 +248,7 @@ buck2_tpx = { path = "buck2_tpx" }
 buck2_tpx_cli = { path = "buck2_tpx_cli" }
 buck2_build_api = { path = "buck2_build_api" }
 buck2_build_api_derive = { path = "buck2_build_api_derive" }
-buck2_client = { path = "buck2_client" }
+buck2_client = { path = "app/buck2_client" }
 buck2_interpreter = { path = "buck2_interpreter" }
 buck2_node = { path = "buck2_node" }
 buck2_execute = { path = "buck2_execute" }
