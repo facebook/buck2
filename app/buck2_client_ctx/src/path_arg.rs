@@ -8,6 +8,7 @@
  */
 
 use std::fmt::Display;
+use std::path::Path;
 use std::path::PathBuf;
 use std::str::FromStr;
 
@@ -42,5 +43,9 @@ impl PathArg {
 
     pub fn display(&self) -> impl Display + '_ {
         self.path.display()
+    }
+
+    pub fn path(&self) -> &Path {
+        &self.path
     }
 }

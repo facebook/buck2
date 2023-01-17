@@ -12,8 +12,17 @@ use std::io::Write;
 use async_trait::async_trait;
 use buck2_cli_proto::ClientContext;
 use buck2_client_ctx::path_arg::PathArg;
+use buck2_common::dice::cells::HasCellResolver;
+use buck2_common::dice::data::HasIoProvider;
+use buck2_common::io::IoProvider;
+use buck2_core::cells::CellResolver;
+use buck2_interpreter::common::StarlarkPath;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
+use buck2_server_ctx::ctx::ServerCommandDiceContext;
+use starlark::errors::Lint;
+use starlark::syntax::AstModule;
 
+use crate::util::paths::starlark_files;
 use crate::StarlarkCommandCommonOptions;
 use crate::StarlarkSubcommand;
 
@@ -27,6 +36,19 @@ pub struct StarlarkLintCommand {
     paths: Vec<PathArg>,
 }
 
+async fn lint_file(
+    path: &StarlarkPath<'_>,
+    cell_resolver: &CellResolver,
+    io: &dyn IoProvider,
+) -> anyhow::Result<Vec<Lint>> {
+    let dialect = path.dialect(false);
+    let path = cell_resolver.resolve_path(&path.path())?;
+    let path_str = path.to_string();
+    let content = io.read_file(path).await?;
+    let ast = AstModule::parse(&path_str, content, &dialect)?;
+    Ok(ast.lint(None))
+}
+
 #[async_trait]
 impl StarlarkSubcommand for StarlarkLintCommand {
     async fn server_execute(
@@ -34,11 +56,28 @@ impl StarlarkSubcommand for StarlarkLintCommand {
         server_ctx: Box<dyn ServerCommandContextTrait>,
         _client_ctx: ClientContext,
     ) -> anyhow::Result<()> {
+        let (cell_resolver, io) = server_ctx
+            .with_dice_ctx(async move |_, ctx| {
+                let cell_resolver = ctx.get_cell_resolver().await?;
+                let io = ctx.global_data().get_io_provider();
+                Ok((cell_resolver, io))
+            })
+            .await?;
+
         let mut stdout = server_ctx.stdout()?;
-        for x in &self.paths {
-            writeln!(stdout, "LINT RESULTS FOR: {:?}", x)?;
+        let mut lint_count = 0;
+        for file in starlark_files(&self.paths, &*server_ctx, &cell_resolver)? {
+            let lints = lint_file(&file.borrow(), &cell_resolver, &*io).await?;
+            lint_count += lints.len();
+            for lint in lints {
+                writeln!(stdout, "{}", lint)?;
+            }
         }
-        Ok(())
+        if lint_count > 0 {
+            Err(anyhow::anyhow!("Found {} lints", lint_count))
+        } else {
+            Ok(())
+        }
     }
 
     fn common_opts(&self) -> &StarlarkCommandCommonOptions {

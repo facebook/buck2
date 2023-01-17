@@ -24,8 +24,9 @@ use buck2_server_ctx::ctx::ServerCommandContextTrait;
 
 use crate::lint::StarlarkLintCommand;
 
-pub mod lint;
+mod lint;
 pub mod server;
+mod util;
 
 #[derive(Debug, clap::Subcommand, serde::Serialize, serde::Deserialize)]
 #[clap(name = "starlark", about = "Run Starlark operations")]

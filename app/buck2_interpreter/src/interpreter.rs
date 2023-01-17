@@ -66,7 +66,7 @@ pub struct StarlarkParseError(String);
 
 /// What type of file are we parsing - a `.bzl` file, `.bxl` file, or a `BUCK`/`TARGETS` file.
 impl<'a> StarlarkPath<'a> {
-    fn dialect(&self, disable_starlark_types: bool) -> Dialect {
+    pub fn dialect(&self, disable_starlark_types: bool) -> Dialect {
         let buck_dialect: Dialect = Dialect {
             enable_def: false,
             enable_lambda: true,

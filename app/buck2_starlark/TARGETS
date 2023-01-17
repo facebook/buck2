@@ -13,9 +13,13 @@ rust_library(
         "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:serde_json",
         "//buck2/app/buck2_client_ctx:buck2_client_ctx",
+        "//buck2/app/buck2_common:buck2_common",
+        "//buck2/app/buck2_core:buck2_core",
         "//buck2/app/buck2_events:buck2_events",
+        "//buck2/app/buck2_interpreter:buck2_interpreter",
         "//buck2/app/buck2_server_ctx:buck2_server_ctx",
         "//buck2/buck2_cli_proto:buck2_cli_proto",
         "//buck2/buck2_data:buck2_data",
+        "//buck2/starlark-rust/starlark:starlark",
     ],
 )
