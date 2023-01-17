@@ -32,6 +32,7 @@ mod fbcode {
     use crate::BuckEvent;
     use crate::ControlEvent;
     use crate::EventSink;
+    use crate::EventSinkStats;
     use crate::TraceId;
 
     // 1 MiB limit
@@ -213,6 +214,16 @@ mod fbcode {
         }
 
         fn send_control(&self, _control_event: ControlEvent) {}
+
+        fn stats(&self) -> Option<EventSinkStats> {
+            self.client
+                .export_counters()
+                .map(|counters| EventSinkStats {
+                    successes: counters.successes,
+                    failures: counters.failures,
+                    buffered: counters.queue_depth,
+                })
+        }
     }
 
     fn should_send_event(d: &buck2_data::buck_event::Data) -> bool {
@@ -302,6 +313,7 @@ mod fbcode {
     use crate::BuckEvent;
     use crate::ControlEvent;
     use crate::EventSink;
+    use crate::EventSinkStats;
 
     pub enum ThriftScribeSink {}
 
@@ -309,6 +321,10 @@ mod fbcode {
         fn send(&self, _event: BuckEvent) {}
 
         fn send_control(&self, _control_event: ControlEvent) {}
+
+        fn stats(&self) -> Option<EventSinkStats> {
+            None
+        }
     }
 
     impl ThriftScribeSink {

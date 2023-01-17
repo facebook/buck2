@@ -13,6 +13,7 @@ use std::time::Instant;
 use anyhow::Context as _;
 use buck2_common::process_stats::process_stats;
 use buck2_core::io_counters::IoCounterKey;
+use buck2_events::EventSink;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::manager::ReConnectionManager;
@@ -29,6 +30,7 @@ pub struct SnapshotCollector {
     daemon_start_time: Instant,
     dice: Arc<Dice>,
     materializer: Arc<dyn Materializer>,
+    event_sink: Option<Arc<dyn EventSink>>,
 }
 
 impl SnapshotCollector {
@@ -38,6 +40,7 @@ impl SnapshotCollector {
         daemon_start_time: Instant,
         dice: Arc<Dice>,
         materializer: Arc<dyn Materializer>,
+        event_sink: Option<Arc<dyn EventSink>>,
     ) -> SnapshotCollector {
         SnapshotCollector {
             re_client_manager,
@@ -45,6 +48,7 @@ impl SnapshotCollector {
             daemon_start_time,
             dice,
             materializer,
+            event_sink,
         }
     }
 
@@ -65,6 +69,7 @@ impl SnapshotCollector {
         self.add_io_metrics(&mut snapshot);
         self.add_dice_metrics(&mut snapshot);
         self.add_materializer_metrics(&mut snapshot);
+        self.add_sink_metrics(&mut snapshot);
         snapshot
     }
 
@@ -161,6 +166,14 @@ impl SnapshotCollector {
     fn add_materializer_metrics(&self, snapshot: &mut buck2_data::Snapshot) {
         if let Some(dm) = self.materializer.as_deferred_materializer_extension() {
             snapshot.deferred_materializer_queue_size = dm.queue_size() as _;
+        }
+    }
+
+    fn add_sink_metrics(&self, snapshot: &mut buck2_data::Snapshot) {
+        if let Some(metrics) = self.event_sink.as_ref().and_then(|sink| sink.stats()) {
+            snapshot.sink_successes = Some(metrics.successes);
+            snapshot.sink_failures = Some(metrics.failures);
+            snapshot.sink_buffer_depth = Some(metrics.buffered);
         }
     }
 }

@@ -23,6 +23,10 @@ fn main() -> io::Result<()> {
             "#[allow(clippy::large_enum_variant)]",
         )
         .type_attribute(
+            "buck.data.InstantEvent.data",
+            "#[allow(clippy::large_enum_variant)]",
+        )
+        .type_attribute(
             "buck.data.BuckEvent.data",
             "#[derive(::derive_more::From, ::gazebo::variants::VariantName)]",
         )

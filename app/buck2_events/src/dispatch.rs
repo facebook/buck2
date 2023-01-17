@@ -40,6 +40,7 @@ use crate::trace::TraceId;
 use crate::BuckEvent;
 use crate::ControlEvent;
 use crate::EventSink;
+use crate::EventSinkStats;
 
 /// A type-erased and dupe-able container for EventSinks, containing some additional metadata useful for all events
 /// emitted through the dispatcher.
@@ -59,6 +60,10 @@ impl EventDispatcher {
             trace_id,
             sink: Arc::new(sink),
         }
+    }
+
+    pub fn sink(&self) -> Arc<dyn EventSink> {
+        self.sink.dupe()
     }
 
     /// Creates a new null Event Dispatcher that accepts events but does not write them anywhere.
@@ -190,6 +195,11 @@ impl EventDispatcher {
     /// Returns the traceid for this event dispatcher.
     pub fn trace_id(&self) -> &TraceId {
         &self.trace_id
+    }
+
+    /// Collect stats for the underlying sink.
+    pub fn stats(&self) -> Option<EventSinkStats> {
+        self.sink.stats()
     }
 }
 

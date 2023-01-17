@@ -34,6 +34,7 @@ pub mod span;
 pub mod trace;
 
 use std::num::NonZeroU64;
+use std::sync::Arc;
 use std::time::SystemTime;
 
 use anyhow::Context;
@@ -238,6 +239,29 @@ pub enum Event {
     Buck(BuckEvent),
 }
 
+/// Statistics from this event sink on how messages were processed.
+#[derive(Clone, Debug)]
+pub struct EventSinkStats {
+    /// Count of number of successful messages (e.g. those that have been processed by their downstream destination).
+    pub successes: u64,
+    /// Count of messages that failed to be submitted and will not be retried.
+    pub failures: u64,
+    /// How many messages are currently buffered by this sink.
+    pub buffered: u64,
+}
+
+impl EventSinkStats {
+    /// Since there can be one or more sinks (e.g. with [`sink::TeeSink`](???)), we need to aggregate these into
+    /// useful singular values.
+    pub fn aggregate(&self, other: &Self) -> Self {
+        Self {
+            successes: self.successes + other.successes,
+            failures: self.failures + other.failures,
+            buffered: self.buffered + other.buffered,
+        }
+    }
+}
+
 /// A sink for events, easily plumbable to the guts of systems that intend to produce events consumeable by
 /// higher-level clients. Sending an event is synchronous.
 pub trait EventSink: Send + Sync {
@@ -248,6 +272,23 @@ pub trait EventSink: Send + Sync {
 
     /// Sends a control event into this sink, to be consumed elsewhere. Control events are not sent to gRPC clients.
     fn send_control(&self, control_event: ControlEvent);
+
+    /// Collects stats on this sink (e.g. messages accepted, rejected).
+    fn stats(&self) -> Option<EventSinkStats>;
+}
+
+impl EventSink for Arc<dyn EventSink> {
+    fn send(&self, event: BuckEvent) {
+        EventSink::send(self.as_ref(), event);
+    }
+
+    fn send_control(&self, control_event: ControlEvent) {
+        EventSink::send_control(self.as_ref(), control_event);
+    }
+
+    fn stats(&self) -> Option<EventSinkStats> {
+        EventSink::stats(self.as_ref())
+    }
 }
 
 /// A source for events, suitable for reading a stream of events coming out of Buck.

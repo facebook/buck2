@@ -10,6 +10,7 @@
 use crate::BuckEvent;
 use crate::ControlEvent;
 use crate::EventSink;
+use crate::EventSinkStats;
 
 /// A Sink implementation that wraps two EventSinks and sends events to both of them.
 pub struct TeeSink<A, B>(A, B);
@@ -29,5 +30,14 @@ impl<A: EventSink, B: EventSink> EventSink for TeeSink<A, B> {
     fn send_control(&self, control_event: ControlEvent) {
         self.0.send_control(control_event.clone());
         self.1.send_control(control_event);
+    }
+
+    fn stats(&self) -> Option<EventSinkStats> {
+        match (self.0.stats(), self.1.stats()) {
+            (Some(stats0), Some(stats1)) => Some(stats0.aggregate(&stats1)),
+            (Some(stats0), None) => Some(stats0),
+            (None, Some(stats1)) => Some(stats1),
+            _ => None,
+        }
     }
 }

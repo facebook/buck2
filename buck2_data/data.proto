@@ -352,6 +352,11 @@ message Snapshot {
 
   uint64 deferred_materializer_queue_size = 104;
 
+  // Sink write statistics; counts of sink statistics taken at this snapshot.
+  optional uint64 sink_successes = 105;
+  optional uint64 sink_failures = 106;
+  optional uint64 sink_buffer_depth = 107;
+
   // Client side metrics.
 
   // Delay between time snapshot is created and time it is received

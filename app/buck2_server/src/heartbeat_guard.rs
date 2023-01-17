@@ -34,13 +34,14 @@ impl HeartbeatGuard {
             ctx.daemon_start_time,
             ctx.dice_manager.unsafe_dice().dupe(),
             ctx.materializer.dupe(),
+            Some(ctx.events.sink().dupe()),
         );
 
         // NOTE: This doesn't use the ambient dispatcher wrappers because we want to control the
         // exact lifetime of the dispatcher.
         let handle = tokio::spawn({
             let events = events.dupe();
-            let collector = collector.dupe();
+            let collector = collector.clone();
             async move {
                 let mut interval = tokio::time::interval(Duration::from_secs(1));
                 interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);

@@ -32,6 +32,7 @@ use buck2_events::dispatch::EventDispatcher;
 use buck2_events::sink::scribe;
 use buck2_events::sink::tee::TeeSink;
 use buck2_events::trace::TraceId;
+use buck2_events::EventSink;
 use buck2_events::EventSource;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::execute::blocking::BuckBlockingExecutor;
@@ -112,10 +113,8 @@ pub struct DaemonStateData {
 
     pub(crate) forkserver: Option<ForkserverClient>,
 
-    /// Data pertaining to event logging, which controls the ways that event data is written throughout the course of
-    /// a command.
-    #[cfg_attr(not(fbcode_build), allow(dead_code))]
-    event_logging_data: Arc<EventLoggingData>,
+    #[allocative(skip)]
+    pub scribe_sink: Option<Arc<dyn EventSink>>,
 
     /// Whether or not to hash all commands
     pub hash_all_commands: bool,
@@ -144,18 +143,6 @@ impl DaemonStatePanicDiceDump for DaemonStateData {
     fn dice_dump(&self, path: &Path, format: DiceDumpFormat) -> anyhow::Result<()> {
         self.dice_dump(path, format)
     }
-}
-
-/// Configuration pertaining to event logging.
-#[cfg_attr(not(fbcode_build), allow(dead_code))]
-#[derive(Allocative)]
-pub struct EventLoggingData {
-    /// The size of the queue for in-flight messages.
-    buffer_size: usize,
-    /// Retry backoff factor (might be multiples of this duration).
-    retry_backoff: Duration,
-    /// The max number of times we'll try to write a group of messages.
-    retry_attempts: usize,
 }
 
 pub trait DaemonStateDiceConstructor: Allocative + Send + Sync + 'static {
@@ -308,23 +295,6 @@ impl DaemonState {
             materializer_state,
         )?;
 
-        let buffer_size = root_config
-            .parse("buck2", "event_log_buffer_size")?
-            .unwrap_or(10000);
-        let retry_backoff = Duration::from_millis(
-            root_config
-                .parse("buck2", "event_log_retry_backoff_duration_ms")?
-                .unwrap_or(500),
-        );
-        let retry_attempts = root_config
-            .parse("buck2", "event_log_retry_attempts")?
-            .unwrap_or(5);
-        let event_logging_data = Arc::new(EventLoggingData {
-            buffer_size,
-            retry_backoff,
-            retry_attempts,
-        });
-
         let dice = dice_constructor.construct_dice(io.dupe(), root_config)?;
 
         // TODO(cjhopman): We want to use Expr::True here, but we need to workaround
@@ -354,6 +324,20 @@ impl DaemonState {
 
         let create_unhashed_outputs_lock = Arc::new(Mutex::new(()));
 
+        let buffer_size = root_config
+            .parse("buck2", "event_log_buffer_size")?
+            .unwrap_or(10000);
+        let retry_backoff = Duration::from_millis(
+            root_config
+                .parse("buck2", "event_log_retry_backoff_duration_ms")?
+                .unwrap_or(500),
+        );
+        let retry_attempts = root_config
+            .parse("buck2", "event_log_retry_attempts")?
+            .unwrap_or(5);
+        let scribe_sink = Self::init_scribe_sink(fb, buffer_size, retry_backoff, retry_attempts)
+            .context("failed to init scribe sink")?;
+
         // Kick off an initial sync eagerly. This gets Watchamn to start watching the path we care
         // about (potentially kicking off an initial crawl).
 
@@ -371,7 +355,7 @@ impl DaemonState {
             blocking_executor,
             materializer,
             forkserver,
-            event_logging_data,
+            scribe_sink,
             hash_all_commands,
             disk_state_options,
             start_time: std::time::Instant::now(),
@@ -450,6 +434,17 @@ impl DaemonState {
         }
     }
 
+    pub fn init_scribe_sink(
+        fb: FacebookInit,
+        buffer_size: usize,
+        retry_backoff: Duration,
+        retry_attempts: usize,
+    ) -> anyhow::Result<Option<Arc<dyn EventSink>>> {
+        facebook_only();
+        scribe::new_thrift_scribe_sink_if_enabled(fb, buffer_size, retry_backoff, retry_attempts)
+            .map(|maybe_scribe| maybe_scribe.map(|scribe| Arc::new(scribe) as _))
+    }
+
     /// Prepares an event stream for a request by bootstrapping an event source and EventDispatcher pair. The given
     /// EventDispatcher will log to the returned EventSource and (optionally) to Scribe if enabled via buckconfig.
     pub async fn prepare_events(
@@ -460,17 +455,9 @@ impl DaemonState {
         facebook_only();
         let (events, sink) = buck2_events::create_source_sink_pair();
         let data = self.data()?;
-        let dispatcher = if let Some(scribe_sink) = scribe::new_thrift_scribe_sink_if_enabled(
-            self.fb,
-            data.event_logging_data.buffer_size,
-            data.event_logging_data.retry_backoff,
-            data.event_logging_data.retry_attempts,
-        )? {
+        let dispatcher = if let Some(scribe_sink) = data.scribe_sink.dupe() {
             EventDispatcher::new(trace_id, TeeSink::new(scribe_sink, sink))
         } else {
-            // Writing to Scribe via the HTTP gateway (what we do for a Cargo build) is many times slower than the fbcode
-            // Scribe client, so we don't do it. It's really, really bad for build performance - turning it on regresses
-            // build performance by 10x.
             EventDispatcher::new(trace_id, sink)
         };
         Ok((events, dispatcher))
