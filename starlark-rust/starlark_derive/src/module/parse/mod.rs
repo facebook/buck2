@@ -31,6 +31,7 @@ use syn::PatType;
 use syn::Stmt;
 use syn::Type;
 use syn::TypeReference;
+use syn::Visibility;
 
 use crate::module::parse::fun::parse_fun;
 use crate::module::typ::StarConst;
@@ -125,7 +126,7 @@ fn parse_module_docstring(input: &ItemFn) -> Option<String> {
 fn parse_stmt(stmt: Stmt, module_kind: ModuleKind) -> syn::Result<StarStmt> {
     match stmt {
         Stmt::Item(Item::Fn(x)) => parse_fun(x, module_kind),
-        Stmt::Item(Item::Const(x)) => Ok(StarStmt::Const(parse_const(x))),
+        Stmt::Item(Item::Const(x)) => Ok(StarStmt::Const(parse_const(x)?)),
         s => Err(syn::Error::new(
             s.span(),
             "Can only put constants and functions inside a #[starlark_module]",
@@ -133,12 +134,24 @@ fn parse_stmt(stmt: Stmt, module_kind: ModuleKind) -> syn::Result<StarStmt> {
     }
 }
 
-fn parse_const(x: ItemConst) -> StarConst {
-    StarConst {
+fn parse_visibility(vis: &Visibility) -> syn::Result<()> {
+    match vis {
+        Visibility::Inherited => Ok(()),
+        _ => Err(syn::Error::new(
+            vis.span(),
+            "Visibility modifiers are not allowed inside a `#[starlark_module]`",
+        )),
+    }
+}
+
+fn parse_const(x: ItemConst) -> syn::Result<StarConst> {
+    parse_visibility(&x.vis)?;
+
+    Ok(StarConst {
         name: x.ident,
         ty: *x.ty,
         value: *x.expr,
-    }
+    })
 }
 
 fn is_mut_something(x: &Type, smth: &str) -> bool {

@@ -39,6 +39,7 @@ use syn::Type;
 use crate::module::parse::is_attribute_docstring;
 use crate::module::parse::is_mut_something;
 use crate::module::parse::is_ref_something;
+use crate::module::parse::parse_visibility;
 use crate::module::parse::ModuleKind;
 use crate::module::typ::SpecialParam;
 use crate::module::typ::StarArg;
@@ -264,6 +265,8 @@ fn is_anyhow_result(t: &Type) -> Option<Type> {
 
 // Add a function to the `GlobalsModule` named `globals_builder`.
 pub(crate) fn parse_fun(func: ItemFn, module_kind: ModuleKind) -> syn::Result<StarStmt> {
+    parse_visibility(&func.vis)?;
+
     let sig_span = func.sig.span();
 
     let FnAttrs {
