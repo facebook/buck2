@@ -15,7 +15,7 @@ tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 
 allocative = { workspace = true }
-dice = { path = "../dice/dice" }
+dice = { path = "../../dice/dice" }
 gazebo = { workspace = true }
 dupe = { workspace = true }
 

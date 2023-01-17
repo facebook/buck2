@@ -29,6 +29,7 @@ members = [
     "app/buck2_query_derive",
     "app/buck2_server",
     "app/buck2_server_commands",
+    "app/buck2_server_ctx",
     "buck2_data",
     "buck2_query",
     # @oss-disable: "buck2_tpx",
@@ -41,7 +42,6 @@ members = [
     "buck2_node",
     "buck2_execute",
     "buck2_execute_impl",
-    "buck2_server_ctx",
     "cli",
     "dice/dice",
     "dice/dice_examples",
@@ -255,7 +255,7 @@ buck2_execute = { path = "buck2_execute" }
 buck2_execute_impl = { path = "buck2_execute_impl" }
 buck2_server = { path = "app/buck2_server" }
 buck2_server_commands = { path = "app/buck2_server_commands" }
-buck2_server_ctx = { path = "buck2_server_ctx" }
+buck2_server_ctx = { path = "app/buck2_server_ctx" }
 
 [profile.release]
 incremental = true
