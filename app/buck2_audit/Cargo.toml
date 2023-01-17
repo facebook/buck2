@@ -19,7 +19,7 @@ thiserror = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 
-dice = { path = "../dice/dice" }
+dice = { path = "../../dice/dice" }
 gazebo = { workspace = true }
 dupe = { workspace = true }
 
