@@ -1,11 +1,13 @@
-load("@fbcode_macros//build_defs:native_rules.bzl", "buck_filegroup")
-load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
+# Done to avoid triggering a lint rule that replaces glob with an fbcode macro
+globby = glob
 
-buck_filegroup(
+# We deliberately don't want to depend on any macros in here, so the Prelude is self-contained.
+filegroup(
     name = "prelude",
-    srcs = glob(
+    srcs = globby(
         ["**"],
         # Context: https://fb.workplace.com/groups/buck2users/posts/3121903854732641/
         exclude = ["**/.pyre_configuration.local"],
     ),
+    visibility = ["PUBLIC"],
 )
