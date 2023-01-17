@@ -103,7 +103,10 @@ impl<'a> UnpackValue<'a> for StarlarkConfiguredTargetNode {
 
 #[starlark_module]
 fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
-    /// Gets the configured target label of this target node
+    /// Gets the configured target label of this target node.
+    ///
+    /// Note that you cannot get a non-configured label from a configured target node because the
+    /// configured target node is not uniquely identified a non-configured label, only by the configured target label.
     ///
     /// Sample usage:
     /// ```text

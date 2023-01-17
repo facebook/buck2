@@ -114,6 +114,11 @@ pub fn register_artifact_function(builder: &mut GlobalsBuilder) {
     /// Note that this method returns an artifact path without asking for the artifact to be materialized,
     /// (i.e. it may not actually exist on the disk yet).
     ///
+    /// This is a risky function to call because you may accidentally pass this path to further BXL actions
+    /// that expect the artifact to be materialized. If this happens, the BXL script will error out.
+    /// If you want the path without materialization for other uses that don’t involve passing them into
+    /// further actions, then it’s safe.
+    ///
     /// Sample usage:
     /// ```text
     /// def _impl_get_path_without_materialization(ctx):

@@ -32,6 +32,21 @@ This exposes `your_function_name` as a function, with whatever arguments you def
 buck2 bxl //myscript.bxl:your_function_name -- --bool_arg true --list_type 1 --list_type 2 --target //foo:bar`
 ```
 
+You can also add helpdocs to the cli args and get them to show up in cli via `--help`:
+
+```python
+def _your_implementation(ctx):
+    # ...
+    pass
+
+your_function_name = bxl(
+    impl = _your_implementation,
+    cli_args = {
+        "my_bool": cli_args.bool(True, "this will be printed as part of `--help`")
+    },
+)
+```
+
 The implementation function takes a single context as parameter (see the documentation for `BxlContext`). Using it, you'll be able to access functions that enable you to perform queries, analysis, builds, and even create your own actions within BXL to build artifacts as part of a BXL function.
 
 The primary method to return information from BXL is to either print them, or build some artifact (for details, see the `OutputStream` documentation, available as part of `ctx.output`).

@@ -283,6 +283,10 @@ fn register_output_stream(builder: &mut MethodsBuilder) {
     /// `Dict` of a `ctx.build()` is passed in, the output will be a `Dict` where the key is preserved,
     /// and the values are converted to `EnsuredArtifact`s).
     ///
+    /// Note that is slower to loop through objects and ensure them one by one than it is to call `ensure_multiple()`
+    /// on all the objects at once (if possible).
+    /// So, it is suggested to use this method when you are only ensuring a few individual artifacts that are not stored in an iterable.
+    ///
     /// Sample usage:
     /// ```text
     /// def _impl_ensure_multiple(ctx):

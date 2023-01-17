@@ -513,7 +513,7 @@ fn register_cquery(builder: &mut MethodsBuilder) {
             .map(StarlarkTargetSet::from)
     }
 
-    /// Evaluates some general query string
+    /// Evaluates some general query string.
     ///
     /// Sample usage:
     /// ```text

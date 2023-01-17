@@ -150,7 +150,6 @@ const manualSidebar = [
         items: [
           'developers/bxl_getting_started',
           'developers/bxl_how_tos',
-          'developers/bxl_gotchas',
         ],
       },
       'developers/bxl_faqs',
