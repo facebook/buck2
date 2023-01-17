@@ -70,3 +70,23 @@ prelude.python_bootstrap_binary(
     main = "generate_static_extension_info.py",
     visibility = ["PUBLIC"],
 )
+
+# Main file used for native python binaries
+prelude.export_file(
+    name = "embedded_main.cpp",
+    src = "embedded_main.cpp",
+    visibility = ["PUBLIC"],
+)
+
+# Custom importer for native linked `cxx_python_extension' targets
+prelude.export_file(
+    name = "static_extension_utils.cpp",
+    src = "static_extension_utils.cpp",
+    visibility = ["PUBLIC"],
+)
+
+prelude.export_file(
+    name = "static_extension_finder.py",
+    src = "static_extension_finder.py",
+    visibility = ["PUBLIC"],
+)
