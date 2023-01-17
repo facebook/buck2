@@ -50,13 +50,13 @@ parking_lot = { workspace = true }
 fnv = { workspace = true }
 
 allocative = { workspace = true }
-dice = { path = "../dice/dice" }
+dice = { path = "../../dice/dice" }
 fbinit = { workspace = true }
 gazebo = { workspace = true }
 dupe = { workspace = true }
 gazebo_lint.version = "0.1"
 gazebo_lint.optional = true
-# @oss-disable: gazebo_lint.path = "../gazebo_lint/gazebo_lint"
+# @oss-disable: gazebo_lint.path = "../../gazebo_lint/gazebo_lint"
 host_sharing = { workspace = true }
 more_futures = { workspace = true }
 remote_execution = { workspace = true }

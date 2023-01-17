@@ -39,8 +39,8 @@ members = [
     "buck2_data",
     # @oss-disable: "buck2_tpx",
     # @oss-disable: "buck2_tpx_cli",
-    "buck2_build_api",
-    "buck2_build_api_derive",
+    "app/buck2_build_api",
+    "app/buck2_build_api_derive",
     "buck2_cli_proto",
     "cli",
     "dice/dice",
@@ -246,8 +246,8 @@ buck2_events = { path = "app/buck2_events" }
 buck2_query = { path = "app/buck2_query" }
 buck2_tpx = { path = "buck2_tpx" }
 buck2_tpx_cli = { path = "buck2_tpx_cli" }
-buck2_build_api = { path = "buck2_build_api" }
-buck2_build_api_derive = { path = "buck2_build_api_derive" }
+buck2_build_api = { path = "app/buck2_build_api" }
+buck2_build_api_derive = { path = "app/buck2_build_api_derive" }
 buck2_client = { path = "app/buck2_client" }
 buck2_interpreter = { path = "app/buck2_interpreter" }
 buck2_node = { path = "app/buck2_node" }
