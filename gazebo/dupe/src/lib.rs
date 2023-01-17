@@ -10,6 +10,7 @@
 //! A cheap version of [`Clone`](Clone).
 
 pub(crate) mod iter;
+pub(crate) mod option;
 
 use std::cell::Cell;
 use std::num::*;
@@ -22,6 +23,7 @@ pub use dupe_derive::Dupe;
 pub use dupe_derive::Dupe_;
 
 pub use crate::iter::IterDupedExt;
+pub use crate::option::OptionDupedExt;
 
 /// Like [`Clone`](Clone), but should only be available if [`Clone`](Clone) is
 /// constant time and zero allocation (e.g. a few [`Arc`](Arc) bumps).

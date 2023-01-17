@@ -18,7 +18,7 @@ use buck2_interpreter_for_build::attrs::coerce::testing;
 use buck2_interpreter_for_build::provider::callable::ValueAsProviderCallableLike;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use dupe::Dupe;
-use gazebo::prelude::OptionRefExt;
+use dupe::OptionDupedExt;
 use indoc::indoc;
 use starlark::environment::FrozenModule;
 use starlark::environment::Globals;

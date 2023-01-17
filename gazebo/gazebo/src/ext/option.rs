@@ -7,26 +7,6 @@
  * of this source tree.
  */
 
-use dupe::Dupe;
-
-/// Extension traits on [`Option`](Option) where it holds a ref.
-pub trait OptionRefExt {
-    type Item;
-
-    /// Like `cloned`, but with a `Dupe` constraint.
-    ///
-    /// ```
-    /// use gazebo::prelude::*;
-    /// use std::rc::Rc;
-    /// let rc = Rc::new("test");
-    /// assert_eq!(Some(&rc).duped(), Some(rc));
-    /// assert_eq!(None::<&Rc<String>>.duped(), None);
-    /// ```
-    fn duped(self) -> Option<Self::Item>
-    where
-        Self::Item: Dupe;
-}
-
 /// Extension traits on [`Option`](Option) where it holds any value or ref.
 pub trait OptionExt {
     type Item;
@@ -53,17 +33,6 @@ pub trait OptionExt {
     /// assert_eq!(Some("foo").try_map(|x| Err::<(), _>(())), Err(()));
     /// ```
     fn try_map<U, E, F: FnOnce(&Self::Item) -> Result<U, E>>(self, f: F) -> Result<Option<U>, E>;
-}
-
-impl<'a, T> OptionRefExt for Option<&'a T> {
-    type Item = T;
-
-    fn duped(self) -> Option<T>
-    where
-        T: Dupe,
-    {
-        self.map(|x| x.dupe())
-    }
 }
 
 impl<T> OptionExt for Option<T> {

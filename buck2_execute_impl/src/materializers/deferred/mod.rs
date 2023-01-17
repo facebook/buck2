@@ -67,6 +67,7 @@ use dupe::Clone_;
 use dupe::Copy_;
 use dupe::Dupe;
 use dupe::Dupe_;
+use dupe::OptionDupedExt;
 use futures::future::BoxFuture;
 use futures::future::FutureExt;
 use futures::future::Shared;

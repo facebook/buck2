@@ -27,7 +27,7 @@ use std::sync::RwLock;
 use derivative::Derivative;
 use derive_more::Display;
 use dupe::Dupe;
-use gazebo::prelude::*;
+use dupe::OptionDupedExt;
 use lsp_server::Connection;
 use lsp_server::Message;
 use lsp_server::Notification;

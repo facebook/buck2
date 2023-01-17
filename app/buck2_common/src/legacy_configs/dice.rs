@@ -24,7 +24,7 @@ use dice::Key;
 use dice::OpaqueValue;
 use dice::ProjectionKey;
 use dupe::Dupe;
-use gazebo::prelude::*;
+use dupe::OptionDupedExt;
 
 use crate::legacy_configs::view::LegacyBuckConfigView;
 use crate::legacy_configs::view::LegacyBuckConfigsView;

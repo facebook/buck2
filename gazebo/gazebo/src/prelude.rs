@@ -28,7 +28,6 @@ pub use gazebo_derive::Default_;
 pub use crate::ext::iter::IterExt;
 pub use crate::ext::iter::IterOwned;
 pub use crate::ext::option::OptionExt;
-pub use crate::ext::option::OptionRefExt;
 pub use crate::ext::str::StrExt;
 pub use crate::ext::vec::SliceClonedExt;
 pub use crate::ext::vec::SliceCopiedExt;

@@ -13,7 +13,7 @@ use allocative::Allocative;
 use anymap::any::Any;
 use anymap::Map;
 use dupe::Dupe;
-use gazebo::prelude::*;
+use dupe::OptionDupedExt;
 
 use crate::incremental::ErasedEngine;
 use crate::incremental::IncrementalComputeProperties;

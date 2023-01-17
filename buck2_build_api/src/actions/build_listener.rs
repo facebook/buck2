@@ -25,6 +25,7 @@ use derive_more::Display;
 use derive_more::From;
 use dice::UserComputationData;
 use dupe::Dupe;
+use dupe::OptionDupedExt;
 use gazebo::prelude::*;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::mpsc::UnboundedSender;

@@ -30,6 +30,7 @@ use std::thread;
 
 use debugserver_types::*;
 use dupe::Dupe;
+use dupe::OptionDupedExt;
 use gazebo::prelude::*;
 pub(crate) use library::*;
 use serde_json::Map;

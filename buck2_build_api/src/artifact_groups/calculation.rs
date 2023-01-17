@@ -32,9 +32,9 @@ use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
+use dupe::OptionDupedExt;
 use futures::future;
 use futures::stream::FuturesOrdered;
-use gazebo::prelude::*;
 use smallvec::SmallVec;
 
 use crate::actions::artifact::projected_artifact::ProjectedArtifact;
