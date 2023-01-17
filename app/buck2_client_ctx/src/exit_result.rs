@@ -15,6 +15,7 @@ use std::io::Write;
 use std::ops::ControlFlow;
 use std::ops::FromResidual;
 use std::ops::Try;
+use std::process::Command;
 
 use anyhow::Context;
 use buck2_cli_proto::command_result;
@@ -178,8 +179,10 @@ impl ExitResult {
                 // Terminate by exec-ing a new process - usually because of `buck2 run`.
                 //
                 // execv does not return on successful operation, so it always returns an error.
-                let e = execv(args).unwrap_err();
-                Self::Err(e).report()
+                match execv(args) {
+                    Ok(status) => status.report(),
+                    Err(e) => Self::Err(e).report(),
+                };
             }
             Self::Err(e) => {
                 match e.downcast_ref::<FailureExitCode>() {
@@ -251,20 +254,34 @@ pub enum FailureExitCode {
 
 /// Invokes the given program with the given argv and replaces the program image with the new program. Does not return
 /// in the case of successful execution.
-fn execv(args: ExecArgs) -> anyhow::Result<()> {
-    let argv_cstrs: Vec<CString> = args.argv.try_map(|s| CString::new(s.clone()))?;
-    let mut argv_ptrs: Vec<_> = argv_cstrs.map(|cstr| cstr.as_ptr());
-    // By convention, execv's second argument is terminated by a null pointer.
-    argv_ptrs.push(std::ptr::null());
-    let prog_cstr = CString::new(args.prog).context("program name contained a null byte")?;
-
+fn execv(args: ExecArgs) -> anyhow::Result<ExitResult> {
     if let Some(dir) = args.chdir {
         // This is OK because we immediately call execv after this
         // (otherwise this would be a really bad idea)
         std::env::set_current_dir(&dir)?;
     }
-    unsafe {
-        libc::execv(prog_cstr.as_ptr(), argv_ptrs.as_ptr());
+
+    if cfg!(windows) {
+        let status = Command::new(&args.prog)
+            .args(&args.argv[1..])
+            .status()
+            .with_context(|| {
+                format!(
+                    "Failed to execute target process, running {:?} {:?}",
+                    args.prog, args.argv
+                )
+            })?;
+        let code = status.code().unwrap_or(1);
+        return Ok(ExitResult::status(code.try_into().unwrap_or(1)));
+    } else {
+        let argv_cstrs: Vec<CString> = args.argv.try_map(|s| CString::new(s.clone()))?;
+        let mut argv_ptrs: Vec<_> = argv_cstrs.map(|cstr| cstr.as_ptr());
+        // By convention, execv's second argument is terminated by a null pointer.
+        argv_ptrs.push(std::ptr::null());
+        let prog_cstr = CString::new(args.prog).context("program name contained a null byte")?;
+        unsafe {
+            libc::execv(prog_cstr.as_ptr(), argv_ptrs.as_ptr());
+        }
     }
 
     // `execv` never returns on success; on failure, it sets errno.
