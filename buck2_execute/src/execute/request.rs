@@ -15,6 +15,7 @@ use allocative::Allocative;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRelativePathBuf;
+use buck2_core::quiet_soft_error;
 use derive_more::Display;
 use dupe::Dupe;
 use gazebo::variants::UnpackVariants;
@@ -328,7 +329,19 @@ impl OutputType {
         path_for_error_message: impl Display,
         output_type: OutputType,
     ) -> anyhow::Result<()> {
-        if self == output_type
+        if self == OutputType::Directory && output_type == OutputType::FileOrDirectory {
+            // If we treat paths whose declared type is FileOrDirectory like files, then that's incompatible with directory
+            quiet_soft_error!(
+                "declare_wrong_type",
+                OutputTypeError::CheckPath(
+                    path_for_error_message.to_string(),
+                    self,
+                    OutputType::File
+                )
+                .into()
+            )?;
+            Ok(())
+        } else if self == output_type
             || self == OutputType::FileOrDirectory
             || output_type == OutputType::FileOrDirectory
         {
