@@ -20,10 +20,10 @@ gazebo = { workspace = true }
 dupe = { workspace = true }
 
 # Please do not add dependency on `buck2_build_api`.
-buck2_common = { path = "../app/buck2_common" }
-buck2_core = { path = "../app/buck2_core" }
-buck2_data = { path = "../buck2_data" }
-buck2_events = { path = "../buck2_events" }
+buck2_common = { workspace = true }
+buck2_core = { workspace = true }
+buck2_data = { workspace = true }
+buck2_events = { workspace = true }
 cli_proto = { path = "../cli_proto" }
 starlark_map = { workspace = true }
 

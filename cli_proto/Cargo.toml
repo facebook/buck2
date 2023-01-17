@@ -12,7 +12,7 @@ serde = { workspace = true }
 thiserror = { workspace = true }
 tonic = { workspace = true }
 
-buck2_data = { path = "../buck2_data" }
+buck2_data = { workspace = true }
 
 [build-dependencies]
-buck2_protoc_dev = { path = "../app/buck2_protoc_dev" }
+buck2_protoc_dev = { workspace = true }

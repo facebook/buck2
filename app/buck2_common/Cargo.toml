@@ -46,8 +46,8 @@ internment_tweaks = { path = "../../shed/internment_tweaks" }
 more_futures = { workspace = true }
 sorted_vector_map = { workspace = true }
 
-buck2_core = { path = "../../app/buck2_core" }
-buck2_data = { path = "../../buck2_data" }
+buck2_core = { workspace = true }
+buck2_data = { workspace = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 xattr = { workspace = true }

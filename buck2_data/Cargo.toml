@@ -12,10 +12,10 @@ serde = { workspace = true }
 tonic = { workspace = true }
 allocative = { workspace = true }
 either = { workspace = true }
-buck2_core = { path = "../app/buck2_core" }
+buck2_core = { workspace = true }
 
 gazebo = { workspace = true }
 
 [build-dependencies]
-buck2_protoc_dev = { path = "../app/buck2_protoc_dev" }
+buck2_protoc_dev = { workspace = true }
 tonic-build = { workspace = true }

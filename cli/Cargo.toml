@@ -39,21 +39,21 @@ starlark = { workspace = true }
 # @oss-disable: user = { path = "../../common/rust/user", optional = true }
 allocative = { workspace = true }
 
-buck2_audit = { path = "../buck2_audit" }
-buck2_build_api = { path = "../buck2_build_api" }
-buck2_bxl = { path = "../app/buck2_bxl" }
-buck2_core = { path = "../app/buck2_core" }
-buck2_query = { path = "../buck2_query" }
-buck2_client = { path = "../buck2_client" }
-buck2_client_ctx = { path = "../app/buck2_client_ctx" }
-buck2_common = { path = "../app/buck2_common" }
-buck2_data = { path = "../buck2_data" }
-buck2_events = { path = "../buck2_events" }
-buck2_forkserver = { path = "../app/buck2_forkserver" }
-buck2_server = { path = "../buck2_server" }
-buck2_server_commands = { path = "../buck2_server_commands" }
-buck2_server_ctx = { path = "../buck2_server_ctx" }
-buck2_test = { path = "../app/buck2_test" }
+buck2_audit = { workspace = true }
+buck2_build_api = { workspace = true }
+buck2_bxl = { workspace = true }
+buck2_core = { workspace = true }
+buck2_query = { workspace = true }
+buck2_client = { workspace = true }
+buck2_client_ctx = { workspace = true }
+buck2_common = { workspace = true }
+buck2_data = { workspace = true }
+buck2_events = { workspace = true }
+buck2_forkserver = { workspace = true }
+buck2_server = { workspace = true }
+buck2_server_commands = { workspace = true }
+buck2_server_ctx = { workspace = true }
+buck2_test = { workspace = true }
 cli_proto = { path = "../cli_proto" }
 
 [target.'cfg(unix)'.dependencies]

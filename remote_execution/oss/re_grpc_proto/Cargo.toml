@@ -10,4 +10,4 @@ prost = { workspace = true }
 tonic = { workspace = true }
 
 [build-dependencies]
-buck2_protoc_dev = { path = "../../../app/buck2_protoc_dev" }
+buck2_protoc_dev = { workspace = true }

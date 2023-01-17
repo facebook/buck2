@@ -12,4 +12,4 @@ derive_more = { workspace = true }
 gazebo = { workspace = true }
 
 [build-dependencies]
-buck2_protoc_dev = { path = "../buck2_protoc_dev" }
+buck2_protoc_dev = { workspace = true }

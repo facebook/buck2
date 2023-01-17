@@ -10,6 +10,6 @@ inferno = { workspace = true }
 
 starlark = { workspace = true }
 
-buck2_core = { path = "../buck2_core" }
-buck2_interpreter = { path = "../../buck2_interpreter" }
+buck2_core = { workspace = true }
+buck2_interpreter = { workspace = true }
 cli_proto = { path = "../../cli_proto" }

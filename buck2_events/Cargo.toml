@@ -33,9 +33,9 @@ gazebo_lint.optional = true
 allocative = { workspace = true }
 
 cli_proto = { path = "../cli_proto" }
-buck2_build_info = { path = "../app/buck2_build_info" }
-buck2_core = { path = "../app/buck2_core" }
-buck2_data = { path = "../buck2_data" }
+buck2_build_info = { workspace = true }
+buck2_core = { workspace = true }
+buck2_data = { workspace = true }
 
 [features]
 # @oss-disable: default = ["gazebo_lint"]

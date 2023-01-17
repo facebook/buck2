@@ -40,12 +40,12 @@ more_futures = { workspace = true }
 remote_execution = { workspace = true }
 allocative = { workspace = true }
 
-buck2_common = { path = "../app/buck2_common" }
-buck2_core = { path = "../app/buck2_core" }
-buck2_data = { path = "../buck2_data" }
-buck2_events = { path = "../buck2_events" }
-buck2_interpreter = { path = "../buck2_interpreter" }
-buck2_node = { path = "../buck2_node" }
+buck2_common = { workspace = true }
+buck2_core = { workspace = true }
+buck2_data = { workspace = true }
+buck2_events = { workspace = true }
+buck2_interpreter = { workspace = true }
+buck2_node = { workspace = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }
