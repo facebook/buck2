@@ -608,6 +608,7 @@ inlined_extra_attributes = {
         # them and it simplifies the implementation of Rust rules since they
         # don't have to know whether we're building a rust_binary or a
         # rust_library.
+        "doctests": attrs.bool(default = True),
         "incremental_build_mode": attrs.option(attrs.string(), default = None),
         "incremental_enabled": attrs.bool(default = False),
         "linker_flags": attrs.list(attrs.arg(), default = []),

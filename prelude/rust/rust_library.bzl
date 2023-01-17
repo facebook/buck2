@@ -193,14 +193,16 @@ def rust_library_impl(ctx: "context") -> ["provider"]:
         document_private_items = False,
     )
 
-    rustdoc_test = generate_rustdoc_test(
-        ctx = ctx,
-        compile_ctx = compile_ctx,
-        crate = crate,
-        library = rust_param_artifact[static_library_params],
-        params = static_library_params,
-        default_roots = default_roots,
-    )
+    rustdoc_test = None
+    if ctx.attrs.doctests:
+        rustdoc_test = generate_rustdoc_test(
+            ctx = ctx,
+            compile_ctx = compile_ctx,
+            crate = crate,
+            library = rust_param_artifact[static_library_params],
+            params = static_library_params,
+            default_roots = default_roots,
+        )
 
     expand = rust_compile(
         ctx = ctx,
@@ -369,7 +371,7 @@ def _default_providers(
         lang_style_param: {(LinkageLang.type, LinkStyle.type): BuildParams.type},
         param_artifact: {BuildParams.type: RustLinkStyleInfo.type},
         rustdoc: "artifact",
-        rustdoc_test: "cmd_args",
+        rustdoc_test: ["cmd_args", None],
         check_artifacts: {str.type: "artifact"},
         expand: "artifact",
         save_analysis: "artifact",
@@ -386,19 +388,18 @@ def _default_providers(
     targets["sources"] = sources
     targets["expand"] = expand
     targets["save-analysis"] = save_analysis
+    targets["doc"] = rustdoc
     sub_targets = {
         k: [DefaultInfo(default_output = v)]
         for (k, v) in targets.items()
     }
 
-    sub_targets["doc"] = [
-        DefaultInfo(default_output = rustdoc),
-        ExternalRunnerTestInfo(
+    if rustdoc_test:
+        sub_targets["doc"].append(ExternalRunnerTestInfo(
             type = "rustdoc",
             command = [rustdoc_test],
             run_from_project_root = True,
-        ),
-    ]
+        ))
 
     return [DefaultInfo(
         default_output = check_artifacts["check"],
