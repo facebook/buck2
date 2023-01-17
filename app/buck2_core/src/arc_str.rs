@@ -34,6 +34,7 @@ impl ArcStr {
     /// Empty string.
     pub const EMPTY: ArcStr = ArcStr(None);
 
+    #[inline]
     pub fn as_str(&self) -> &str {
         match &self.0 {
             Some(s) => s,
@@ -45,24 +46,28 @@ impl ArcStr {
 impl Deref for ArcStr {
     type Target = str;
 
+    #[inline]
     fn deref(&self) -> &str {
         self.as_str()
     }
 }
 
 impl AsRef<str> for ArcStr {
+    #[inline]
     fn as_ref(&self) -> &str {
         self.as_str()
     }
 }
 
 impl Hash for ArcStr {
+    #[inline]
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.as_str().hash(state)
     }
 }
 
 impl PartialEq for ArcStr {
+    #[inline]
     fn eq(&self, other: &Self) -> bool {
         self.as_str() == other.as_str()
     }
@@ -71,30 +76,35 @@ impl PartialEq for ArcStr {
 impl Eq for ArcStr {}
 
 impl PartialOrd for ArcStr {
+    #[inline]
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         self.as_str().partial_cmp(other.as_str())
     }
 }
 
 impl Ord for ArcStr {
+    #[inline]
     fn cmp(&self, other: &Self) -> Ordering {
         self.as_str().cmp(other.as_str())
     }
 }
 
 impl Borrow<str> for ArcStr {
+    #[inline]
     fn borrow(&self) -> &str {
         self.as_str()
     }
 }
 
 impl Display for ArcStr {
+    #[inline]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         Display::fmt(self.as_str(), f)
     }
 }
 
 impl Debug for ArcStr {
+    #[inline]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         Debug::fmt(self.as_str(), f)
     }
@@ -111,12 +121,14 @@ impl<'a> From<&'a str> for ArcStr {
 }
 
 impl From<String> for ArcStr {
+    #[inline]
     fn from(s: String) -> ArcStr {
         ArcStr::from(s.as_str())
     }
 }
 
 impl From<Arc<str>> for ArcStr {
+    #[inline]
     fn from(s: Arc<str>) -> ArcStr {
         if s.is_empty() {
             ArcStr::default()
