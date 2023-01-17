@@ -9,6 +9,8 @@
 
 use anyhow::Context;
 use async_trait::async_trait;
+use buck2_cli_proto::CleanStaleRequest;
+use buck2_cli_proto::CleanStaleResponse;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonConsoleOptions;
@@ -20,8 +22,6 @@ use chrono::DateTime;
 use chrono::Duration;
 use chrono::TimeZone;
 use chrono::Utc;
-use cli_proto::CleanStaleRequest;
-use cli_proto::CleanStaleResponse;
 use humantime;
 
 /// Clean only old artifacts from a running buck daemon without killing the daemon.

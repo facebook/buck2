@@ -32,7 +32,7 @@ gazebo_lint.optional = true
 # @oss-disable: user = { path = "../../common/rust/user" }
 allocative = { workspace = true }
 
-cli_proto = { path = "../cli_proto" }
+buck2_cli_proto = { workspace = true }
 buck2_build_info = { workspace = true }
 buck2_core = { workspace = true }
 buck2_data = { workspace = true }

@@ -25,6 +25,7 @@ use buck2_bxl::bxl::calculation::BxlCalculationImpl;
 use buck2_bxl::bxl::starlark_defs::configure_bxl_file_globals;
 use buck2_bxl::command::bxl_command;
 use buck2_bxl::profile_command::bxl_profile_command;
+use buck2_cli_proto::DaemonProcessInfo;
 use buck2_client_ctx::version::BuckVersion;
 use buck2_common::buckd_connection::ConnectionType;
 use buck2_common::daemon_dir::DaemonDir;
@@ -48,7 +49,6 @@ use buck2_server_commands::commands::targets::targets_command;
 use buck2_server_commands::commands::targets_show_outputs::targets_show_outputs_command;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_test::command::test_command;
-use cli_proto::DaemonProcessInfo;
 use dice::cycles::DetectCycles;
 use futures::channel::mpsc;
 use futures::channel::mpsc::UnboundedSender;
@@ -110,48 +110,48 @@ impl BuckdServerDependencies for BuckdServerDependenciesImpl {
     async fn test(
         &self,
         ctx: Box<dyn ServerCommandContextTrait>,
-        req: cli_proto::TestRequest,
-    ) -> anyhow::Result<cli_proto::TestResponse> {
+        req: buck2_cli_proto::TestRequest,
+    ) -> anyhow::Result<buck2_cli_proto::TestResponse> {
         test_command(ctx, req).await
     }
     async fn build(
         &self,
         ctx: Box<dyn ServerCommandContextTrait>,
-        req: cli_proto::BuildRequest,
-    ) -> anyhow::Result<cli_proto::BuildResponse> {
+        req: buck2_cli_proto::BuildRequest,
+    ) -> anyhow::Result<buck2_cli_proto::BuildResponse> {
         build_command(ctx, req).await
     }
     async fn install(
         &self,
         ctx: Box<dyn ServerCommandContextTrait>,
-        req: cli_proto::InstallRequest,
-    ) -> anyhow::Result<cli_proto::InstallResponse> {
+        req: buck2_cli_proto::InstallRequest,
+    ) -> anyhow::Result<buck2_cli_proto::InstallResponse> {
         install_command(ctx, req).await
     }
     async fn bxl(
         &self,
         ctx: Box<dyn ServerCommandContextTrait>,
-        req: cli_proto::BxlRequest,
-    ) -> anyhow::Result<cli_proto::BxlResponse> {
+        req: buck2_cli_proto::BxlRequest,
+    ) -> anyhow::Result<buck2_cli_proto::BxlResponse> {
         bxl_command(ctx, req).await
     }
     async fn audit(
         &self,
         ctx: Box<dyn ServerCommandContextTrait>,
-        req: cli_proto::GenericRequest,
-    ) -> anyhow::Result<cli_proto::GenericResponse> {
+        req: buck2_cli_proto::GenericRequest,
+    ) -> anyhow::Result<buck2_cli_proto::GenericResponse> {
         server_audit_command(ctx, req).await
     }
     async fn profile(
         &self,
         ctx: Box<dyn ServerCommandContextTrait>,
-        req: cli_proto::ProfileRequest,
-    ) -> anyhow::Result<cli_proto::ProfileResponse> {
+        req: buck2_cli_proto::ProfileRequest,
+    ) -> anyhow::Result<buck2_cli_proto::ProfileResponse> {
         match req.profile_opts.as_ref().expect("Missing profile opts") {
-            cli_proto::profile_request::ProfileOpts::TargetProfile(_) => {
+            buck2_cli_proto::profile_request::ProfileOpts::TargetProfile(_) => {
                 profile_command(ctx, req).await
             }
-            cli_proto::profile_request::ProfileOpts::BxlProfile(_) => {
+            buck2_cli_proto::profile_request::ProfileOpts::BxlProfile(_) => {
                 bxl_profile_command(ctx, req).await
             }
         }
@@ -159,43 +159,43 @@ impl BuckdServerDependencies for BuckdServerDependenciesImpl {
     async fn uquery(
         &self,
         ctx: Box<dyn ServerCommandContextTrait>,
-        req: cli_proto::UqueryRequest,
-    ) -> anyhow::Result<cli_proto::UqueryResponse> {
+        req: buck2_cli_proto::UqueryRequest,
+    ) -> anyhow::Result<buck2_cli_proto::UqueryResponse> {
         uquery_command(ctx, req).await
     }
     async fn cquery(
         &self,
         ctx: Box<dyn ServerCommandContextTrait>,
-        req: cli_proto::CqueryRequest,
-    ) -> anyhow::Result<cli_proto::CqueryResponse> {
+        req: buck2_cli_proto::CqueryRequest,
+    ) -> anyhow::Result<buck2_cli_proto::CqueryResponse> {
         cquery_command(ctx, req).await
     }
     async fn aquery(
         &self,
         ctx: Box<dyn ServerCommandContextTrait>,
-        req: cli_proto::AqueryRequest,
-    ) -> anyhow::Result<cli_proto::AqueryResponse> {
+        req: buck2_cli_proto::AqueryRequest,
+    ) -> anyhow::Result<buck2_cli_proto::AqueryResponse> {
         aquery_command(ctx, req).await
     }
     async fn targets(
         &self,
         ctx: Box<dyn ServerCommandContextTrait>,
-        req: cli_proto::TargetsRequest,
-    ) -> anyhow::Result<cli_proto::TargetsResponse> {
+        req: buck2_cli_proto::TargetsRequest,
+    ) -> anyhow::Result<buck2_cli_proto::TargetsResponse> {
         targets_command(ctx, req).await
     }
     async fn targets_show_outputs(
         &self,
         ctx: Box<dyn ServerCommandContextTrait>,
-        req: cli_proto::TargetsRequest,
-    ) -> anyhow::Result<cli_proto::TargetsShowOutputsResponse> {
+        req: buck2_cli_proto::TargetsRequest,
+    ) -> anyhow::Result<buck2_cli_proto::TargetsShowOutputsResponse> {
         targets_show_outputs_command(ctx, req).await
     }
     async fn docs(
         &self,
         ctx: Box<dyn ServerCommandContextTrait>,
-        req: cli_proto::UnstableDocsRequest,
-    ) -> anyhow::Result<cli_proto::UnstableDocsResponse> {
+        req: buck2_cli_proto::UnstableDocsRequest,
+    ) -> anyhow::Result<buck2_cli_proto::UnstableDocsResponse> {
         docs_command(ctx, req).await
     }
     fn bxl_calculation(&self) -> &'static dyn BxlCalculationDyn {
@@ -569,6 +569,9 @@ mod tests {
     use std::time::Duration;
 
     use allocative::Allocative;
+    use buck2_cli_proto::DaemonProcessInfo;
+    use buck2_cli_proto::KillRequest;
+    use buck2_cli_proto::PingRequest;
     use buck2_client_ctx::daemon::client::connect::new_daemon_api_client;
     use buck2_common::invocation_paths::InvocationPaths;
     use buck2_common::invocation_roots::InvocationRoots;
@@ -579,9 +582,6 @@ mod tests {
     use buck2_server::daemon::daemon_tcp::create_listener;
     use buck2_server::daemon::server::BuckdServer;
     use buck2_server::daemon::server::BuckdServerDelegate;
-    use cli_proto::DaemonProcessInfo;
-    use cli_proto::KillRequest;
-    use cli_proto::PingRequest;
 
     use crate::commands::daemon::BuckdServerDependenciesImpl;
 

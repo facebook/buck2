@@ -18,6 +18,8 @@ use buck2_build_api::calculation::Calculation;
 use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollection;
 use buck2_build_api::interpreter::rule_defs::provider::test_provider::TestProvider;
+use buck2_cli_proto::TestRequest;
+use buck2_cli_proto::TestResponse;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
@@ -47,8 +49,6 @@ use buck2_server_ctx::template::ServerCommandTemplate;
 use buck2_test_api::data::TestResult;
 use buck2_test_api::data::TestStatus;
 use buck2_test_api::protocol::TestExecutor;
-use cli_proto::TestRequest;
-use cli_proto::TestResponse;
 use dice::DiceComputations;
 use dice::DiceTransaction;
 use dupe::Dupe;
@@ -133,8 +133,8 @@ impl CounterWithExamples {
         }
     }
 
-    fn to_cli_proto_counter(self) -> cli_proto::CounterWithExamples {
-        cli_proto::CounterWithExamples {
+    fn to_cli_proto_counter(self) -> buck2_cli_proto::CounterWithExamples {
+        buck2_cli_proto::CounterWithExamples {
             count: self.count,
             max: self.max,
             example_tests: self.example_tests,
@@ -185,14 +185,14 @@ pub async fn test_command(
 }
 
 struct TestServerCommand {
-    req: cli_proto::TestRequest,
+    req: buck2_cli_proto::TestRequest,
 }
 
 #[async_trait]
 impl ServerCommandTemplate for TestServerCommand {
     type StartEvent = buck2_data::TestCommandStart;
     type EndEvent = buck2_data::TestCommandEnd;
-    type Response = cli_proto::TestResponse;
+    type Response = buck2_cli_proto::TestResponse;
 
     fn is_success(&self, response: &Self::Response) -> bool {
         response.exit_code == 0
@@ -284,7 +284,7 @@ async fn test(
     // TODO(bobyf) remap exit code for buck reserved exit code
     let exit_code = test_outcome.exit_code().context("No exit code available")?;
 
-    let test_statuses = cli_proto::test_response::TestStatuses {
+    let test_statuses = buck2_cli_proto::test_response::TestStatuses {
         passed: Some(
             test_outcome
                 .executor_report

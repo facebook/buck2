@@ -12,6 +12,7 @@ use std::io::Write;
 use async_trait::async_trait;
 use buck2_build_api::analysis::calculation::resolve_queries;
 use buck2_build_api::calculation::Calculation;
+use buck2_cli_proto::ClientContext;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
@@ -22,7 +23,6 @@ use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
 use buck2_server_ctx::pattern::resolve_patterns;
 use buck2_server_ctx::pattern::target_platform_from_client_context;
-use cli_proto::ClientContext;
 use dupe::Dupe;
 use gazebo::prelude::*;
 

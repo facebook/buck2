@@ -440,10 +440,10 @@ impl UnpackingEventSubscriber for SimpleConsole {
 
     async fn handle_command_result(
         &mut self,
-        result: &cli_proto::CommandResult,
+        result: &buck2_cli_proto::CommandResult,
     ) -> anyhow::Result<()> {
-        if let cli_proto::CommandResult {
-            result: Some(cli_proto::command_result::Result::Error(e)),
+        if let buck2_cli_proto::CommandResult {
+            result: Some(buck2_cli_proto::command_result::Result::Error(e)),
         } = result
         {
             echo!("Command failed: ")?;

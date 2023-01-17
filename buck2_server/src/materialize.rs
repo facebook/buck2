@@ -18,8 +18,8 @@ use crate::ctx::ServerCommandContext;
 
 pub(crate) async fn materialize_command(
     context: ServerCommandContext,
-    req: cli_proto::MaterializeRequest,
-) -> anyhow::Result<cli_proto::MaterializeResponse> {
+    req: buck2_cli_proto::MaterializeRequest,
+) -> anyhow::Result<buck2_cli_proto::MaterializeResponse> {
     let metadata = context.request_metadata().await?;
     let start_event = buck2_data::CommandStart {
         metadata: metadata.clone(),
@@ -28,7 +28,7 @@ pub(crate) async fn materialize_command(
     span_async(start_event, async move {
         let result = materialize(&context.base_context, req.paths)
             .await
-            .map(|()| cli_proto::MaterializeResponse {})
+            .map(|()| buck2_cli_proto::MaterializeResponse {})
             .context("Failed to materialize paths");
         let end_event = command_end(metadata, &result, buck2_data::MaterializeCommandEnd {});
         (result, end_event)

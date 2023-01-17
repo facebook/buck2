@@ -9,14 +9,14 @@
 
 use async_trait::async_trait;
 use buck2_build_api::query::aquery::evaluator::get_aquery_evaluator;
+use buck2_cli_proto::AqueryRequest;
+use buck2_cli_proto::AqueryResponse;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::pattern::target_platform_from_client_context;
 use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
-use cli_proto::AqueryRequest;
-use cli_proto::AqueryResponse;
 use dice::DiceTransaction;
 
 use crate::commands::query::printer::QueryResultPrinter;
@@ -24,20 +24,20 @@ use crate::commands::query::printer::ShouldPrintProviders;
 
 pub async fn aquery_command(
     ctx: Box<dyn ServerCommandContextTrait>,
-    req: cli_proto::AqueryRequest,
-) -> anyhow::Result<cli_proto::AqueryResponse> {
+    req: buck2_cli_proto::AqueryRequest,
+) -> anyhow::Result<buck2_cli_proto::AqueryResponse> {
     run_server_command(AqueryServerCommand { req }, ctx).await
 }
 
 struct AqueryServerCommand {
-    req: cli_proto::AqueryRequest,
+    req: buck2_cli_proto::AqueryRequest,
 }
 
 #[async_trait]
 impl ServerCommandTemplate for AqueryServerCommand {
     type StartEvent = buck2_data::AqueryCommandStart;
     type EndEvent = buck2_data::AqueryCommandEnd;
-    type Response = cli_proto::AqueryResponse;
+    type Response = buck2_cli_proto::AqueryResponse;
 
     async fn command<'v>(
         &self,

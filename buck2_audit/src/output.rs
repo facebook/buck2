@@ -8,8 +8,8 @@
  */
 
 use async_trait::async_trait;
+use buck2_cli_proto::ClientContext;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
-use cli_proto::ClientContext;
 
 use crate::AuditCommandCommonOptions;
 use crate::AuditSubcommand;

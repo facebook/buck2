@@ -9,14 +9,14 @@
 
 use async_trait::async_trait;
 use buck2_build_api::query::uquery::evaluator::get_uquery_evaluator;
+use buck2_cli_proto::UqueryRequest;
+use buck2_cli_proto::UqueryResponse;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::pattern::target_platform_from_client_context;
 use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
-use cli_proto::UqueryRequest;
-use cli_proto::UqueryResponse;
 use dice::DiceTransaction;
 
 use crate::commands::query::printer::QueryResultPrinter;

@@ -36,12 +36,12 @@ use crate::ctx::ServerCommandContext;
 
 pub(crate) async fn file_status_command(
     ctx: ServerCommandContext,
-    req: cli_proto::FileStatusRequest,
-) -> anyhow::Result<cli_proto::GenericResponse> {
+    req: buck2_cli_proto::FileStatusRequest,
+) -> anyhow::Result<buck2_cli_proto::GenericResponse> {
     run_server_command(FileStatusServerCommand { req }, box ctx).await
 }
 struct FileStatusServerCommand {
-    req: cli_proto::FileStatusRequest,
+    req: buck2_cli_proto::FileStatusRequest,
 }
 
 struct FileStatusResult<'a> {
@@ -69,7 +69,7 @@ impl FileStatusResult<'_> {
 impl ServerCommandTemplate for FileStatusServerCommand {
     type StartEvent = buck2_data::FileStatusCommandStart;
     type EndEvent = buck2_data::FileStatusCommandEnd;
-    type Response = cli_proto::GenericResponse;
+    type Response = buck2_cli_proto::GenericResponse;
 
     async fn command<'v>(
         &self,
@@ -98,7 +98,7 @@ impl ServerCommandTemplate for FileStatusServerCommand {
                 "No mismatches detected ({} entries checked)",
                 result.checked
             )?;
-            Ok(cli_proto::GenericResponse {})
+            Ok(buck2_cli_proto::GenericResponse {})
         }
     }
 

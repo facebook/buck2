@@ -16,6 +16,9 @@ use async_trait::async_trait;
 use buck2_build_api::analysis::calculation::profile_analysis;
 use buck2_build_api::analysis::calculation::profile_analysis_recursively;
 use buck2_build_api::calculation::Calculation;
+use buck2_cli_proto::profile_request::ProfileOpts;
+use buck2_cli_proto::target_profile::Action;
+use buck2_cli_proto::ClientContext;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
@@ -38,9 +41,6 @@ use buck2_server_ctx::pattern::resolve_patterns;
 use buck2_server_ctx::pattern::target_platform_from_client_context;
 use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
-use cli_proto::profile_request::ProfileOpts;
-use cli_proto::target_profile::Action;
-use cli_proto::ClientContext;
 use dice::DiceTransaction;
 use dupe::Dupe;
 
@@ -113,20 +113,20 @@ async fn generate_profile_loading(
 
 pub async fn profile_command(
     ctx: Box<dyn ServerCommandContextTrait>,
-    req: cli_proto::ProfileRequest,
-) -> anyhow::Result<cli_proto::ProfileResponse> {
+    req: buck2_cli_proto::ProfileRequest,
+) -> anyhow::Result<buck2_cli_proto::ProfileResponse> {
     run_server_command(ProfileServerCommand { req }, ctx).await
 }
 
 struct ProfileServerCommand {
-    req: cli_proto::ProfileRequest,
+    req: buck2_cli_proto::ProfileRequest,
 }
 
 #[async_trait]
 impl ServerCommandTemplate for ProfileServerCommand {
     type StartEvent = buck2_data::ProfileCommandStart;
     type EndEvent = buck2_data::ProfileCommandEnd;
-    type Response = cli_proto::ProfileResponse;
+    type Response = buck2_cli_proto::ProfileResponse;
 
     async fn command<'v>(
         &self,
@@ -144,7 +144,7 @@ impl ServerCommandTemplate for ProfileServerCommand {
             .expect("Target profile not populated")
         {
             ProfileOpts::TargetProfile(opts) => {
-                let action = cli_proto::target_profile::Action::from_i32(opts.action)
+                let action = buck2_cli_proto::target_profile::Action::from_i32(opts.action)
                     .context("Invalid action")?;
                 let target_pattern = opts
                     .target_pattern

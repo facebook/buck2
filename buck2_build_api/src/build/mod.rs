@@ -13,6 +13,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use anyhow::Context;
+use buck2_cli_proto::build_request::Materializations;
 use buck2_common::executor_config::PathSeparatorKind;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
@@ -20,7 +21,6 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_events::dispatch::console_message;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_node::compatibility::MaybeCompatible;
-use cli_proto::build_request::Materializations;
 use dashmap::mapref::entry::Entry;
 use dashmap::DashMap;
 use dice::DiceComputations;

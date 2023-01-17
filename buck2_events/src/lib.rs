@@ -38,7 +38,7 @@ use std::time::SystemTime;
 
 use anyhow::Context;
 use async_trait::async_trait;
-use cli_proto::CommandResult;
+use buck2_cli_proto::CommandResult;
 use derive_more::From;
 use gazebo::variants::UnpackVariants;
 use serde::Serialize;

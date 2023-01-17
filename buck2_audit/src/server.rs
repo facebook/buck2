@@ -19,8 +19,8 @@ use crate::AuditCommand;
 
 pub async fn server_audit_command(
     ctx: Box<dyn ServerCommandContextTrait>,
-    req: cli_proto::GenericRequest,
-) -> anyhow::Result<cli_proto::GenericResponse> {
+    req: buck2_cli_proto::GenericRequest,
+) -> anyhow::Result<buck2_cli_proto::GenericResponse> {
     let metadata = ctx.request_metadata().await?;
     let start_event = buck2_data::CommandStart {
         metadata: metadata.clone(),
@@ -39,9 +39,9 @@ pub async fn server_audit_command(
 async fn server_audit_command_inner(
     metadata: HashMap<String, String>,
     context: Box<dyn ServerCommandContextTrait>,
-    req: cli_proto::GenericRequest,
+    req: buck2_cli_proto::GenericRequest,
 ) -> (
-    anyhow::Result<cli_proto::GenericResponse>,
+    anyhow::Result<buck2_cli_proto::GenericResponse>,
     buck2_data::CommandEnd,
 ) {
     let args = req.serialized_opts.to_owned();
@@ -57,14 +57,14 @@ async fn server_audit_command_inner(
         },
     );
 
-    let result = result.map(|()| cli_proto::GenericResponse {});
+    let result = result.map(|()| buck2_cli_proto::GenericResponse {});
 
     (result, end_event)
 }
 
 async fn parse_command_and_execute(
     context: Box<dyn ServerCommandContextTrait>,
-    req: cli_proto::GenericRequest,
+    req: buck2_cli_proto::GenericRequest,
 ) -> anyhow::Result<()> {
     let command: AuditCommand = serde_json::from_str(&req.serialized_opts)?;
     command

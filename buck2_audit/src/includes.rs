@@ -11,6 +11,7 @@ use std::io::Write;
 use std::path::Path;
 
 use async_trait::async_trait;
+use buck2_cli_proto::ClientContext;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
@@ -36,7 +37,6 @@ use buck2_query::query::traversal::AsyncTraversalDelegate;
 use buck2_query::query::traversal::ChildVisitor;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
-use cli_proto::ClientContext;
 use derive_more::Display;
 use dice::DiceComputations;
 use dupe::Dupe;

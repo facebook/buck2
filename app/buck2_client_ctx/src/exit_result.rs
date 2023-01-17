@@ -17,7 +17,7 @@ use std::ops::FromResidual;
 use std::ops::Try;
 
 use anyhow::Context;
-use cli_proto::command_result;
+use buck2_cli_proto::command_result;
 use dupe::Dupe;
 use gazebo::prelude::*;
 

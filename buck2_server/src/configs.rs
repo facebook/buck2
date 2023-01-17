@@ -8,14 +8,14 @@
  */
 
 use anyhow::Context;
+use buck2_cli_proto::config_override::ConfigType;
+use buck2_cli_proto::ConfigOverride;
 use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
 use buck2_common::legacy_configs::LegacyBuckConfigs;
 use buck2_common::legacy_configs::LegacyConfigCmdArg;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRoot;
-use cli_proto::config_override::ConfigType;
-use cli_proto::ConfigOverride;
 
 fn config_type_from_i32(value: i32) -> anyhow::Result<ConfigType> {
     ConfigType::from_i32(value).with_context(|| {

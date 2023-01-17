@@ -24,6 +24,10 @@ use buck2_build_api::calculation::Calculation;
 use buck2_build_api::query::cquery::evaluator::universe_from_literals;
 use buck2_build_api::query::cquery::universe::CqueryUniverse;
 use buck2_build_api::query::dice::get_dice_query_delegate;
+use buck2_cli_proto::build_request::build_providers::Action as BuildProviderAction;
+use buck2_cli_proto::build_request::BuildProviders;
+use buck2_cli_proto::build_request::Materializations;
+use buck2_cli_proto::BuildRequest;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
@@ -46,10 +50,6 @@ use buck2_server_ctx::pattern::resolve_patterns;
 use buck2_server_ctx::pattern::target_platform_from_client_context;
 use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
-use cli_proto::build_request::build_providers::Action as BuildProviderAction;
-use cli_proto::build_request::BuildProviders;
-use cli_proto::build_request::Materializations;
-use cli_proto::BuildRequest;
 use dice::DiceComputations;
 use dice::DiceTransaction;
 use dupe::Dupe;
@@ -72,20 +72,20 @@ mod unhashed_outputs;
 
 pub async fn build_command(
     ctx: Box<dyn ServerCommandContextTrait>,
-    req: cli_proto::BuildRequest,
-) -> anyhow::Result<cli_proto::BuildResponse> {
+    req: buck2_cli_proto::BuildRequest,
+) -> anyhow::Result<buck2_cli_proto::BuildResponse> {
     run_server_command(BuildServerCommand { req }, ctx).await
 }
 
 struct BuildServerCommand {
-    req: cli_proto::BuildRequest,
+    req: buck2_cli_proto::BuildRequest,
 }
 
 #[async_trait]
 impl ServerCommandTemplate for BuildServerCommand {
     type StartEvent = buck2_data::BuildCommandStart;
     type EndEvent = buck2_data::BuildCommandEnd;
-    type Response = cli_proto::BuildResponse;
+    type Response = buck2_cli_proto::BuildResponse;
 
     fn end_event(&self) -> Self::EndEvent {
         buck2_data::BuildCommandEnd {
@@ -117,7 +117,7 @@ async fn build(
     server_ctx: &dyn ServerCommandContextTrait,
     ctx: DiceTransaction,
     request: &BuildRequest,
-) -> anyhow::Result<cli_proto::BuildResponse> {
+) -> anyhow::Result<buck2_cli_proto::BuildResponse> {
     // TODO(nmj): Move build report printing logic out of here.
     let fs = server_ctx.project_root();
     let cwd = server_ctx.working_dir();
@@ -293,7 +293,7 @@ async fn build(
 
     let project_root = server_ctx.project_root().to_string();
 
-    Ok(cli_proto::BuildResponse {
+    Ok(buck2_cli_proto::BuildResponse {
         build_targets,
         project_root,
         serialized_build_report: serialized_build_report.unwrap_or_default(),

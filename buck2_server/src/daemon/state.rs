@@ -15,6 +15,7 @@ use std::time::Instant;
 
 use allocative::Allocative;
 use anyhow::Context;
+use buck2_cli_proto::unstable_dice_dump_request::DiceDumpFormat;
 use buck2_common::file_ops::IgnoreSet;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::io::IoProvider;
@@ -48,7 +49,6 @@ use buck2_forkserver::client::ForkserverClient;
 use buck2_server_ctx::concurrency::ConcurrencyHandler;
 use buck2_server_ctx::concurrency::NestedInvocation;
 use buck2_server_ctx::concurrency::ParallelInvocation;
-use cli_proto::unstable_dice_dump_request::DiceDumpFormat;
 use dice::Dice;
 use dupe::Dupe;
 use fbinit::FacebookInit;

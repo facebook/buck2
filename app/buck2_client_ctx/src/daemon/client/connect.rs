@@ -14,6 +14,8 @@ use std::net::Ipv4Addr;
 use std::time::Duration;
 
 use anyhow::Context;
+use buck2_cli_proto::daemon_api_client::DaemonApiClient;
+use buck2_cli_proto::DaemonProcessInfo;
 use buck2_common::buckd_connection::ConnectionType;
 use buck2_common::buckd_connection::BUCK_AUTH_TOKEN_HEADER;
 use buck2_common::client_utils::get_channel_tcp;
@@ -23,8 +25,6 @@ use buck2_common::daemon_dir::DaemonDir;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::process::async_background_command;
-use cli_proto::daemon_api_client::DaemonApiClient;
-use cli_proto::DaemonProcessInfo;
 use futures::future::try_join3;
 use thiserror::Error;
 use tokio::io::AsyncReadExt;

@@ -13,6 +13,10 @@ use std::io::Write;
 
 use anyhow::Context;
 use async_trait::async_trait;
+use buck2_cli_proto::build_request::build_providers;
+use buck2_cli_proto::build_request::BuildProviders;
+use buck2_cli_proto::build_request::Materializations;
+use buck2_cli_proto::BuildRequest;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::command_outcome::CommandOutcome;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
@@ -23,10 +27,6 @@ use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_client_ctx::subscribers::superconsole::SUPERCONSOLE_WIDTH;
-use cli_proto::build_request::build_providers;
-use cli_proto::build_request::BuildProviders;
-use cli_proto::build_request::Materializations;
-use cli_proto::BuildRequest;
 use serde::Serialize;
 use thiserror::Error;
 

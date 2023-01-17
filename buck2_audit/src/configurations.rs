@@ -10,9 +10,9 @@
 use std::io::Write;
 
 use async_trait::async_trait;
+use buck2_cli_proto::ClientContext;
 use buck2_core::configuration::Configuration;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
-use cli_proto::ClientContext;
 use itertools::Itertools;
 
 use crate::AuditCommandCommonOptions;

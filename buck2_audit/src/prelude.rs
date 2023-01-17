@@ -12,6 +12,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use buck2_build_api::interpreter::context::prelude_path;
+use buck2_cli_proto::ClientContext;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_core::cells::*;
 use buck2_interpreter::common::StarlarkModulePath;
@@ -20,7 +21,6 @@ use buck2_interpreter::dice::HasGlobalInterpreterState;
 use buck2_interpreter::interpreter::InterpreterConfigForCell;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
-use cli_proto::ClientContext;
 use maplit::hashmap;
 
 use crate::AuditCommandCommonOptions;

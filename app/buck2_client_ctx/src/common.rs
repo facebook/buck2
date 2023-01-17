@@ -23,10 +23,10 @@
 //! ```
 use std::path::Path;
 
+use buck2_cli_proto::common_build_options::ExecutionStrategy;
+use buck2_cli_proto::config_override::ConfigType;
+use buck2_cli_proto::ConfigOverride;
 use buck2_core::fs::fs_util;
-use cli_proto::common_build_options::ExecutionStrategy;
-use cli_proto::config_override::ConfigType;
-use cli_proto::ConfigOverride;
 use dupe::Dupe;
 use gazebo::prelude::*;
 use termwiz::istty::IsTty;
@@ -352,13 +352,13 @@ impl CommonBuildOptions {
         }
     }
 
-    pub fn to_proto(&self) -> cli_proto::CommonBuildOptions {
+    pub fn to_proto(&self) -> buck2_cli_proto::CommonBuildOptions {
         let (unstable_print_build_report, unstable_build_report_filename) = self.build_report();
         let concurrency = self
             .num_threads
-            .map(|num| cli_proto::Concurrency { concurrency: num });
+            .map(|num| buck2_cli_proto::Concurrency { concurrency: num });
 
-        cli_proto::CommonBuildOptions {
+        buck2_cli_proto::CommonBuildOptions {
             concurrency,
             execution_strategy: if self.local_only {
                 ExecutionStrategy::LocalOnly as i32

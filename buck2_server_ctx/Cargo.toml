@@ -24,7 +24,7 @@ buck2_common = { workspace = true }
 buck2_core = { workspace = true }
 buck2_data = { workspace = true }
 buck2_events = { workspace = true }
-cli_proto = { path = "../cli_proto" }
+buck2_cli_proto = { workspace = true }
 starlark_map = { workspace = true }
 
 [dev-dependencies]

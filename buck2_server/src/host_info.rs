@@ -7,10 +7,10 @@
  * of this source tree.
  */
 
+use buck2_cli_proto::client_context::HostArchOverride;
+use buck2_cli_proto::client_context::HostPlatformOverride;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
-use cli_proto::client_context::HostArchOverride;
-use cli_proto::client_context::HostPlatformOverride;
 
 pub fn get_host_info(
     host_platform: HostPlatformOverride,

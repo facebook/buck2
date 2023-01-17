@@ -8,6 +8,8 @@
  */
 
 use async_trait::async_trait;
+use buck2_cli_proto::targets_request;
+use buck2_cli_proto::TargetsRequest;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonConsoleOptions;
@@ -17,8 +19,6 @@ use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::stdin::Stdin;
 use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
-use cli_proto::targets_request;
-use cli_proto::TargetsRequest;
 use dupe::Dupe;
 use gazebo::prelude::*;
 

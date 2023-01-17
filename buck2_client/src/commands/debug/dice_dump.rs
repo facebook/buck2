@@ -9,6 +9,8 @@
 
 use anyhow::Context;
 use async_trait::async_trait;
+use buck2_cli_proto::unstable_dice_dump_request::DiceDumpFormat;
+use buck2_cli_proto::UnstableDiceDumpRequest;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonConsoleOptions;
@@ -17,8 +19,6 @@ use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::path_arg::PathArg;
 use buck2_client_ctx::streaming::StreamingCommand;
-use cli_proto::unstable_dice_dump_request::DiceDumpFormat;
-use cli_proto::UnstableDiceDumpRequest;
 
 #[derive(Debug, clap::Parser)]
 pub struct DiceDumpCommand {

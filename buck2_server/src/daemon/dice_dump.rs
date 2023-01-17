@@ -14,7 +14,7 @@ use std::sync::Arc;
 
 use anyhow::Context as _;
 use bincode::Options;
-use cli_proto::unstable_dice_dump_request::DiceDumpFormat;
+use buck2_cli_proto::unstable_dice_dump_request::DiceDumpFormat;
 use dice::Dice;
 use dupe::Dupe;
 use flate2::write::GzEncoder;

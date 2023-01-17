@@ -11,18 +11,18 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use anyhow::Context;
+use buck2_cli_proto::profile_request::ProfileOpts;
+use buck2_cli_proto::profile_request::Profiler;
 use buck2_core::fs::fs_util;
 use buck2_interpreter::dice::starlark_profiler::StarlarkProfilerConfiguration;
 use buck2_interpreter::starlark_profiler::StarlarkProfileDataAndStats;
-use cli_proto::profile_request::ProfileOpts;
-use cli_proto::profile_request::Profiler;
 use starlark::eval::ProfileMode;
 
 pub fn starlark_profiler_configuration_from_request(
-    req: &cli_proto::ProfileRequest,
+    req: &buck2_cli_proto::ProfileRequest,
 ) -> anyhow::Result<StarlarkProfilerConfiguration> {
-    let profiler_proto =
-        cli_proto::profile_request::Profiler::from_i32(req.profiler).context("Invalid profiler")?;
+    let profiler_proto = buck2_cli_proto::profile_request::Profiler::from_i32(req.profiler)
+        .context("Invalid profiler")?;
 
     let profile_mode = match profiler_proto {
         Profiler::HeapFlameAllocated => ProfileMode::HeapFlameAllocated,
@@ -38,21 +38,21 @@ pub fn starlark_profiler_configuration_from_request(
 
     match req.profile_opts.as_ref().expect("Missing profile opts") {
         ProfileOpts::TargetProfile(opts) => {
-            let action = cli_proto::target_profile::Action::from_i32(opts.action)
+            let action = buck2_cli_proto::target_profile::Action::from_i32(opts.action)
                 .context("Invalid action")?;
             Ok(match (action, opts.recursive) {
-                (cli_proto::target_profile::Action::Loading, false) => {
+                (buck2_cli_proto::target_profile::Action::Loading, false) => {
                     StarlarkProfilerConfiguration::ProfileLastLoading(profile_mode)
                 }
-                (cli_proto::target_profile::Action::Loading, true) => {
+                (buck2_cli_proto::target_profile::Action::Loading, true) => {
                     return Err(anyhow::anyhow!(
                         "Recursive profiling is not supported for loading profiling"
                     ));
                 }
-                (cli_proto::target_profile::Action::Analysis, false) => {
+                (buck2_cli_proto::target_profile::Action::Analysis, false) => {
                     StarlarkProfilerConfiguration::ProfileLastAnalysis(profile_mode)
                 }
-                (cli_proto::target_profile::Action::Analysis, true) => {
+                (buck2_cli_proto::target_profile::Action::Analysis, true) => {
                     StarlarkProfilerConfiguration::ProfileAnalysisRecursively(profile_mode)
                 }
             })
@@ -63,11 +63,11 @@ pub fn starlark_profiler_configuration_from_request(
 
 pub fn get_profile_response(
     profile_data: Arc<StarlarkProfileDataAndStats>,
-    req: &cli_proto::ProfileRequest,
+    req: &buck2_cli_proto::ProfileRequest,
     output: PathBuf,
-) -> anyhow::Result<cli_proto::ProfileResponse> {
-    let command_profile_mode =
-        cli_proto::profile_request::Profiler::from_i32(req.profiler).context("Invalid profiler")?;
+) -> anyhow::Result<buck2_cli_proto::ProfileResponse> {
+    let command_profile_mode = buck2_cli_proto::profile_request::Profiler::from_i32(req.profiler)
+        .context("Invalid profiler")?;
 
     match command_profile_mode {
         Profiler::HeapFlameAllocated | Profiler::HeapFlameRetained | Profiler::TimeFlame => {
@@ -96,7 +96,7 @@ pub fn get_profile_response(
         }
     };
 
-    Ok(cli_proto::ProfileResponse {
+    Ok(buck2_cli_proto::ProfileResponse {
         elapsed: Some(profile_data.elapsed().try_into()?),
         total_retained_bytes: profile_data.total_retained_bytes() as u64,
     })

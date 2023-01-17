@@ -35,4 +35,4 @@ buck2_interpreter_for_build = { workspace = true }
 buck2_node = { workspace = true }
 buck2_query = { workspace = true }
 buck2_server_ctx = { workspace = true }
-cli_proto = { path = "../cli_proto" }
+buck2_cli_proto = { workspace = true }

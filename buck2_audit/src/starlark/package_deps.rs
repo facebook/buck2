@@ -10,6 +10,7 @@
 use std::collections::HashSet;
 use std::io::Write;
 
+use buck2_cli_proto::ClientContext;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::package_listing::dice::HasPackageListingResolver;
 use buck2_common::package_listing::resolver::PackageListingResolver;
@@ -23,7 +24,6 @@ use buck2_interpreter::dice::HasCalculationDelegate;
 use buck2_interpreter::file_loader::LoadedModule;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
-use cli_proto::ClientContext;
 
 use crate::AuditCommandCommonOptions;
 

@@ -15,8 +15,8 @@ use crate::ctx::ServerCommandContext;
 
 pub(crate) async fn clean_stale_command(
     context: ServerCommandContext,
-    req: cli_proto::CleanStaleRequest,
-) -> anyhow::Result<cli_proto::CleanStaleResponse> {
+    req: buck2_cli_proto::CleanStaleRequest,
+) -> anyhow::Result<buck2_cli_proto::CleanStaleResponse> {
     let deferred_materializer = context
         .base_context
         .materializer
@@ -30,6 +30,6 @@ pub(crate) async fn clean_stale_command(
     deferred_materializer
         .clean_stale_artifacts(keep_since_time, req.dry_run, req.tracked_only)
         .await
-        .map(|s| cli_proto::CleanStaleResponse { response: s })
+        .map(|s| buck2_cli_proto::CleanStaleResponse { response: s })
         .context("Failed to clean stale artifacts.")
 }

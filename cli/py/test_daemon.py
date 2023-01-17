@@ -15,7 +15,7 @@ It also needs python-daemon available: https://pypi.org/project/python-daemon/
 Then from the buck2 root run:
 ```
 cargo build --bin=buck2 --release
-python3 -m grpc_tools.protoc -Icli_proto --python_out=/tmp/daemon_pb2_out --grpc_python_out=/tmp/daemon_pb2_out cli_proto/daemon.proto
+python3 -m grpc_tools.protoc -Icli_proto --python_out=/tmp/daemon_pb2_out --grpc_python_out=/tmp/daemon_pb2_out buck2_cli_proto/daemon.proto
 pytest cli/py/test_daemon.py
 
 ```

@@ -10,6 +10,7 @@
 use async_trait::async_trait;
 use buck2_build_api::calculation::load_patterns;
 use buck2_build_api::nodes::lookup::TargetNodeLookup;
+use buck2_cli_proto::ClientContext;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::result::SharedResult;
@@ -24,7 +25,6 @@ use buck2_query::query::traversal::ChildVisitor;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
-use cli_proto::ClientContext;
 use dice::DiceTransaction;
 use dupe::Dupe;
 use gazebo::prelude::*;

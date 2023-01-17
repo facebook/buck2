@@ -10,6 +10,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use buck2_cli_proto::CommandResult;
 use buck2_data::buck_event;
 use buck2_data::InstantEvent;
 use buck2_data::SpanCancelled;
@@ -20,7 +21,6 @@ use buck2_data::TestDiscoveryStart;
 use buck2_data::TestRunEnd;
 use buck2_data::TestRunStart;
 use buck2_events::BuckEvent;
-use cli_proto::CommandResult;
 
 use crate::subscribers::subscriber::EventSubscriber;
 use crate::subscribers::subscriber::Tick;
@@ -747,7 +747,7 @@ impl<U: UnpackingEventSubscriber> EventSubscriber for UnpackingEventSubscriberAs
 
     async fn handle_command_result(
         &mut self,
-        result: &cli_proto::CommandResult,
+        result: &buck2_cli_proto::CommandResult,
     ) -> anyhow::Result<()> {
         self.0.handle_command_result(result).await
     }

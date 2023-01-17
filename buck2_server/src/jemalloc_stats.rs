@@ -7,8 +7,8 @@
  * of this source tree.
  */
 
+use buck2_cli_proto::StatusResponse;
 use buck2_common::memory::allocator_stats;
-use cli_proto::StatusResponse;
 
 // TODO(raulgarcia4): this fn is used for `buck2 status` but will be redundant
 // and thus removed once we capture jemalloc stats in the Snapshot.
@@ -80,7 +80,7 @@ mod tests {
     #[test]
     fn test_jemalloc_stats() {
         if cfg!(unix) && !cfg!(fbcode_build) {
-            let mut response = cli_proto::StatusResponse::default();
+            let mut response = buck2_cli_proto::StatusResponse::default();
             jemalloc_stats(&mut response);
             assert!(response.bytes_allocated.is_some());
             assert!(response.bytes_resident.is_some());

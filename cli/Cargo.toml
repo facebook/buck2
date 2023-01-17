@@ -54,7 +54,7 @@ buck2_server = { workspace = true }
 buck2_server_commands = { workspace = true }
 buck2_server_ctx = { workspace = true }
 buck2_test = { workspace = true }
-cli_proto = { path = "../cli_proto" }
+buck2_cli_proto = { workspace = true }
 
 [target.'cfg(unix)'.dependencies]
 jemallocator = { workspace = true }

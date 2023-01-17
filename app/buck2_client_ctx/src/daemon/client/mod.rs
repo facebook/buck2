@@ -14,12 +14,12 @@ use std::time::Duration;
 use std::time::Instant;
 
 use anyhow::Context;
+use buck2_cli_proto::daemon_api_client::*;
+use buck2_cli_proto::*;
 use buck2_common::client_utils::retrying;
 use buck2_common::daemon_dir::DaemonDir;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
-use cli_proto::daemon_api_client::*;
-use cli_proto::*;
 use fs2::FileExt;
 use futures::future::BoxFuture;
 use futures::pin_mut;

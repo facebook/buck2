@@ -16,6 +16,7 @@ use buck2_build_api::actions::impls::run::dep_files::get_dep_files;
 use buck2_build_api::actions::impls::run::dep_files::DepFilesKey;
 use buck2_build_api::actions::impls::run::dep_files::StoredFingerprints;
 use buck2_build_api::calculation::Calculation;
+use buck2_cli_proto::ClientContext;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_core::category::Category;
@@ -28,7 +29,6 @@ use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
 use buck2_server_ctx::pattern::target_platform_from_client_context;
-use cli_proto::ClientContext;
 
 use crate::AuditCommandCommonOptions;
 use crate::AuditSubcommand;

@@ -28,6 +28,8 @@ use buck2_build_api::actions::build_listener;
 use buck2_build_api::bxl::calculation::BxlCalculationDyn;
 use buck2_build_api::configure_dice::configure_dice_for_buck;
 use buck2_build_api::spawner::BuckSpawner;
+use buck2_cli_proto::daemon_api_server::*;
+use buck2_cli_proto::*;
 use buck2_common::buckd_connection::BUCK_AUTH_TOKEN_HEADER;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::io::IoProvider;
@@ -45,8 +47,6 @@ use buck2_interpreter::dice::starlark_profiler::StarlarkProfilerConfiguration;
 use buck2_interpreter::dice::HasEvents;
 use buck2_profile::starlark_profiler_configuration_from_request;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
-use cli_proto::daemon_api_server::*;
-use cli_proto::*;
 use dice::cycles::DetectCycles;
 use dice::Dice;
 use dupe::Dupe;
@@ -167,33 +167,33 @@ pub trait BuckdServerDependencies: Send + Sync + 'static {
     async fn bxl(
         &self,
         ctx: Box<dyn ServerCommandContextTrait>,
-        req: cli_proto::BxlRequest,
+        req: buck2_cli_proto::BxlRequest,
     ) -> anyhow::Result<BxlResponse>;
     async fn audit(
         &self,
         ctx: Box<dyn ServerCommandContextTrait>,
-        req: cli_proto::GenericRequest,
-    ) -> anyhow::Result<cli_proto::GenericResponse>;
+        req: buck2_cli_proto::GenericRequest,
+    ) -> anyhow::Result<buck2_cli_proto::GenericResponse>;
     async fn profile(
         &self,
         ctx: Box<dyn ServerCommandContextTrait>,
-        req: cli_proto::ProfileRequest,
-    ) -> anyhow::Result<cli_proto::ProfileResponse>;
+        req: buck2_cli_proto::ProfileRequest,
+    ) -> anyhow::Result<buck2_cli_proto::ProfileResponse>;
     async fn uquery(
         &self,
         ctx: Box<dyn ServerCommandContextTrait>,
-        req: cli_proto::UqueryRequest,
-    ) -> anyhow::Result<cli_proto::UqueryResponse>;
+        req: buck2_cli_proto::UqueryRequest,
+    ) -> anyhow::Result<buck2_cli_proto::UqueryResponse>;
     async fn cquery(
         &self,
         ctx: Box<dyn ServerCommandContextTrait>,
-        req: cli_proto::CqueryRequest,
+        req: buck2_cli_proto::CqueryRequest,
     ) -> anyhow::Result<CqueryResponse>;
     async fn aquery(
         &self,
         ctx: Box<dyn ServerCommandContextTrait>,
-        req: cli_proto::AqueryRequest,
-    ) -> anyhow::Result<cli_proto::AqueryResponse>;
+        req: buck2_cli_proto::AqueryRequest,
+    ) -> anyhow::Result<buck2_cli_proto::AqueryResponse>;
     async fn targets(
         &self,
         ctx: Box<dyn ServerCommandContextTrait>,
@@ -207,8 +207,8 @@ pub trait BuckdServerDependencies: Send + Sync + 'static {
     async fn docs(
         &self,
         ctx: Box<dyn ServerCommandContextTrait>,
-        req: cli_proto::UnstableDocsRequest,
-    ) -> anyhow::Result<cli_proto::UnstableDocsResponse>;
+        req: buck2_cli_proto::UnstableDocsRequest,
+    ) -> anyhow::Result<buck2_cli_proto::UnstableDocsResponse>;
     fn bxl_calculation(&self) -> &'static dyn BxlCalculationDyn;
     fn configure_bxl_file_globals(&self) -> fn(&mut GlobalsBuilder);
 }
@@ -342,7 +342,7 @@ impl BuckdServer {
         let init_request = match req.message().await? {
             Some(
                 m @ StreamingRequest {
-                    request: Some(cli_proto::streaming_request::Request::Context(_)),
+                    request: Some(buck2_cli_proto::streaming_request::Request::Context(_)),
                 },
             ) => Ok(m),
             _ => Err(Status::failed_precondition(
@@ -552,7 +552,7 @@ impl<T: Stream<Item = Result<CommandProgress, Status>> + Send> Stream for SyncSt
 fn pump_events<E: EventSource>(
     mut events: E,
     output_send: tokio::sync::mpsc::UnboundedSender<
-        Result<cli_proto::CommandProgress, tonic::Status>,
+        Result<buck2_cli_proto::CommandProgress, tonic::Status>,
     >,
 ) {
     while let Some(next_event) = events.receive() {
@@ -974,7 +974,7 @@ impl DaemonApi for BuckdServer {
         let res: anyhow::Result<_> = try {
             let path = Path::new(&path);
             let format_proto =
-                cli_proto::unstable_dice_dump_request::DiceDumpFormat::from_i32(inner.format)
+                buck2_cli_proto::unstable_dice_dump_request::DiceDumpFormat::from_i32(inner.format)
                     .context("Invalid DICE dump format")?;
 
             self.0

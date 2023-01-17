@@ -12,6 +12,9 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use buck2_build_api::actions::artifact::Artifact;
 use buck2_build_api::calculation::Calculation;
+use buck2_cli_proto::targets_show_outputs_response::TargetPaths;
+use buck2_cli_proto::TargetsRequest;
+use buck2_cli_proto::TargetsShowOutputsResponse;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
@@ -32,9 +35,6 @@ use buck2_server_ctx::pattern::resolve_patterns;
 use buck2_server_ctx::pattern::target_platform_from_client_context;
 use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
-use cli_proto::targets_show_outputs_response::TargetPaths;
-use cli_proto::TargetsRequest;
-use cli_proto::TargetsShowOutputsResponse;
 use dice::DiceComputations;
 use dice::DiceTransaction;
 use dupe::Dupe;
@@ -63,7 +63,7 @@ struct TargetsShowOutputsServerCommand {
 impl ServerCommandTemplate for TargetsShowOutputsServerCommand {
     type StartEvent = buck2_data::TargetsCommandStart;
     type EndEvent = buck2_data::TargetsCommandEnd;
-    type Response = cli_proto::TargetsShowOutputsResponse;
+    type Response = buck2_cli_proto::TargetsShowOutputsResponse;
 
     async fn command<'v>(
         &self,

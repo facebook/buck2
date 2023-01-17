@@ -10,6 +10,8 @@
 use std::sync::Arc;
 
 use anyhow::Context as _;
+use buck2_cli_proto::client_context::HostPlatformOverride;
+use buck2_cli_proto::common_build_options::ExecutionStrategy;
 use buck2_common::executor_config::CacheUploadBehavior;
 use buck2_common::executor_config::CommandExecutorConfig;
 use buck2_common::executor_config::CommandExecutorKind;
@@ -34,8 +36,6 @@ use buck2_execute_impl::executors::re::ReExecutionPlatform;
 use buck2_execute_impl::executors::re::ReExecutor;
 use buck2_execute_impl::low_pass_filter::LowPassFilter;
 use buck2_forkserver::client::ForkserverClient;
-use cli_proto::client_context::HostPlatformOverride;
-use cli_proto::common_build_options::ExecutionStrategy;
 use dupe::Dupe;
 use host_sharing::HostSharingBroker;
 use once_cell::sync::OnceCell;

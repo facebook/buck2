@@ -13,6 +13,7 @@ use std::io;
 use std::io::ErrorKind;
 use std::path::Path;
 
+use buck2_cli_proto::*;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::file_ops::FileOps;
@@ -43,7 +44,6 @@ use buck2_interpreter::dice::HasGlobalInterpreterState;
 use buck2_server_ctx::command_end::command_end;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
-use cli_proto::*;
 use dice::DiceTransaction;
 use dupe::Dupe;
 use futures::channel::mpsc::UnboundedSender;
@@ -712,8 +712,8 @@ impl LspContext for BuckLspContext {
 
 pub(crate) async fn run_lsp_server_command(
     ctx: Box<dyn ServerCommandContextTrait>,
-    req: StreamingRequestHandler<cli_proto::LspRequest>,
-) -> anyhow::Result<cli_proto::LspResponse> {
+    req: StreamingRequestHandler<buck2_cli_proto::LspRequest>,
+) -> anyhow::Result<buck2_cli_proto::LspResponse> {
     let metadata = ctx.request_metadata().await?;
     let start_event = buck2_data::CommandStart {
         metadata: metadata.clone(),

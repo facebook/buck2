@@ -9,6 +9,9 @@
 
 use anyhow::Context;
 use async_trait::async_trait;
+use buck2_cli_proto::CounterWithExamples;
+use buck2_cli_proto::TestRequest;
+use buck2_cli_proto::TestSessionOptions;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonBuildOptions;
@@ -20,9 +23,6 @@ use buck2_client_ctx::final_console::FinalConsole;
 use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_client_ctx::subscribers::superconsole::test::StylizedCount;
 use buck2_client_ctx::subscribers::superconsole::test::TestHeader;
-use cli_proto::CounterWithExamples;
-use cli_proto::TestRequest;
-use cli_proto::TestSessionOptions;
 use crossterm::style::Color;
 use gazebo::prelude::*;
 

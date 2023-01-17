@@ -8,6 +8,7 @@
  */
 
 use anyhow::Context;
+use buck2_cli_proto::ClientContext;
 use buck2_common::file_ops::FileOps;
 use buck2_common::legacy_configs::LegacyBuckConfigs;
 use buck2_common::pattern::resolve::resolve_target_patterns;
@@ -20,7 +21,6 @@ use buck2_core::package::PackageLabel;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::PatternType;
 use buck2_core::target::TargetLabel;
-use cli_proto::ClientContext;
 use dupe::Dupe;
 use gazebo::prelude::*;
 

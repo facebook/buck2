@@ -423,12 +423,12 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
 
     async fn handle_command_result(
         &mut self,
-        result: &cli_proto::CommandResult,
+        result: &buck2_cli_proto::CommandResult,
     ) -> anyhow::Result<()> {
         match self.super_console.take() {
             Some(mut super_console) => {
-                if let cli_proto::CommandResult {
-                    result: Some(cli_proto::command_result::Result::Error(e)),
+                if let buck2_cli_proto::CommandResult {
+                    result: Some(buck2_cli_proto::command_result::Result::Error(e)),
                 } = result
                 {
                     let style = ContentStyle {
@@ -795,13 +795,13 @@ impl Component for SessionInfoComponent {
 mod tests {
     use std::time::SystemTime;
 
+    use buck2_cli_proto::CommandResult;
+    use buck2_cli_proto::GenericResponse;
     use buck2_data::LoadBuildFileEnd;
     use buck2_data::LoadBuildFileStart;
     use buck2_data::SpanEndEvent;
     use buck2_data::SpanStartEvent;
     use buck2_events::span::SpanId;
-    use cli_proto::CommandResult;
-    use cli_proto::GenericResponse;
     use superconsole::testing::frame_contains;
     use superconsole::testing::test_console;
     use superconsole::testing::SuperConsoleTestingExt;
@@ -841,7 +841,7 @@ mod tests {
         // drop into simple console
         console
             .handle_command_result(&CommandResult {
-                result: Some(cli_proto::command_result::Result::GenericResponse(
+                result: Some(buck2_cli_proto::command_result::Result::GenericResponse(
                     GenericResponse {},
                 )),
             })
@@ -962,7 +962,7 @@ mod tests {
         assert!(frame_contains(&frame, "In progress"));
 
         console
-            .handle_command_result(&cli_proto::CommandResult { result: None })
+            .handle_command_result(&buck2_cli_proto::CommandResult { result: None })
             .await?;
 
         Ok(())

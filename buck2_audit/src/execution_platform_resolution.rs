@@ -12,6 +12,7 @@ use std::io::Write;
 use async_trait::async_trait;
 use buck2_build_api::calculation::load_patterns;
 use buck2_build_api::calculation::Calculation;
+use buck2_cli_proto::ClientContext;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_core::configuration::Configuration;
@@ -20,7 +21,6 @@ use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::pattern::target_platform_from_client_context;
 use buck2_server_ctx::pattern::PatternParser;
-use cli_proto::ClientContext;
 use indent_write::io::IndentWriter;
 
 use crate::AuditCommandCommonOptions;

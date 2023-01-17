@@ -105,7 +105,7 @@ pub trait EventSubscriber: Send {
     }
     async fn handle_command_result(
         &mut self,
-        _result: &cli_proto::CommandResult,
+        _result: &buck2_cli_proto::CommandResult,
     ) -> anyhow::Result<()> {
         Ok(())
     }

@@ -7,10 +7,10 @@
  * of this source tree.
  */
 
+use buck2_cli_proto::SetLogFilterRequest;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::daemon::client::connect::BuckdConnectOptions;
 use buck2_client_ctx::exit_result::ExitResult;
-use cli_proto::SetLogFilterRequest;
 
 /// Change the log filter that's currently applied by the Buck2 daemon.
 #[derive(Debug, clap::Parser)]

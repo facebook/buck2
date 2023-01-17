@@ -8,6 +8,8 @@
  */
 
 use async_trait::async_trait;
+use buck2_cli_proto::QueryOutputFormat;
+use buck2_cli_proto::UqueryRequest;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonConsoleOptions;
@@ -16,8 +18,6 @@ use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_core::soft_error;
-use cli_proto::QueryOutputFormat;
-use cli_proto::UqueryRequest;
 use dupe::Dupe;
 use thiserror::Error;
 

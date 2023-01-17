@@ -11,6 +11,13 @@ use std::time::Duration;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
+use buck2_cli_proto::profile_request::ProfileOpts;
+use buck2_cli_proto::profile_request::Profiler;
+use buck2_cli_proto::target_profile::Action;
+use buck2_cli_proto::BxlProfile;
+use buck2_cli_proto::ProfileRequest;
+use buck2_cli_proto::ProfileResponse;
+use buck2_cli_proto::TargetProfile;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonConsoleOptions;
@@ -20,13 +27,6 @@ use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::path_arg::PathArg;
 use buck2_client_ctx::streaming::BuckSubcommand;
 use buck2_client_ctx::streaming::StreamingCommand;
-use cli_proto::profile_request::ProfileOpts;
-use cli_proto::profile_request::Profiler;
-use cli_proto::target_profile::Action;
-use cli_proto::BxlProfile;
-use cli_proto::ProfileRequest;
-use cli_proto::ProfileResponse;
-use cli_proto::TargetProfile;
 use dupe::Dupe;
 
 use super::bxl::BxlCommandOptions;

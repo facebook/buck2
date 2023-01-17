@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use cli_proto::CommandResult;
+use buck2_cli_proto::CommandResult;
 use serde::Deserialize;
 use serde::Serialize;
 

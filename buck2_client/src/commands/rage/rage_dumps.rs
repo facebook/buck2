@@ -11,6 +11,8 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use anyhow::Context;
+use buck2_cli_proto::unstable_dice_dump_request::DiceDumpFormat;
+use buck2_cli_proto::UnstableDiceDumpRequest;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::daemon::client::connect::BuckdConnectOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
@@ -20,8 +22,6 @@ use buck2_core::fs::fs_util::create_dir_all;
 use buck2_core::fs::fs_util::remove_all;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::process::background_command;
-use cli_proto::unstable_dice_dump_request::DiceDumpFormat;
-use cli_proto::UnstableDiceDumpRequest;
 use dupe::Dupe;
 
 pub async fn upload_dice_dump(

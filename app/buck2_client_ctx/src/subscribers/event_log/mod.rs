@@ -22,6 +22,7 @@ use async_compression::tokio::bufread::ZstdDecoder;
 use async_compression::tokio::write::GzipEncoder;
 use async_compression::tokio::write::ZstdEncoder;
 use async_trait::async_trait;
+use buck2_cli_proto::*;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::async_fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
@@ -32,7 +33,6 @@ use buck2_data::instant_event;
 use buck2_events::trace::TraceId;
 use buck2_events::BuckEvent;
 use bytes::BytesMut;
-use cli_proto::*;
 use dupe::Dupe;
 use futures::future::Future;
 use futures::stream::Stream;
@@ -627,7 +627,7 @@ impl EventSubscriber for EventLog {
 
     async fn handle_command_result(
         &mut self,
-        result: &cli_proto::CommandResult,
+        result: &buck2_cli_proto::CommandResult,
     ) -> anyhow::Result<()> {
         match &self.state {
             LogFileState::Opened(..) | LogFileState::Closed => {}
@@ -703,7 +703,7 @@ impl<'a> SerializeForLog for StreamValueRef<'a> {
             Self::Event(e) => command_progress_for_write::Progress::Event(e.encode_to_vec()),
             Self::Result(res) => command_progress_for_write::Progress::Result((*res).clone()),
         };
-        let stream_val = cli_proto::CommandProgressForWrite {
+        let stream_val = buck2_cli_proto::CommandProgressForWrite {
             progress: Some(progress),
         };
         stream_val.encode_length_delimited(buf)?;
@@ -714,7 +714,7 @@ impl<'a> SerializeForLog for StreamValueRef<'a> {
 #[allow(clippy::large_enum_variant)]
 enum Frame {
     Invocation(buck2_data::Invocation),
-    Value(cli_proto::CommandProgress),
+    Value(buck2_cli_proto::CommandProgress),
 }
 
 struct EventLogDecoder {
@@ -755,7 +755,7 @@ impl Decoder for EventLogDecoder {
 
         Some(
             if self.saw_invocation {
-                cli_proto::CommandProgress::decode_length_delimited(data).map(Frame::Value)
+                buck2_cli_proto::CommandProgress::decode_length_delimited(data).map(Frame::Value)
             } else {
                 self.saw_invocation = true;
                 buck2_data::Invocation::decode_length_delimited(data).map(Frame::Invocation)
@@ -947,7 +947,7 @@ mod tests {
         StreamValueRef::Event(event.event())
             .serialize_to_protobuf_length_delimited(&mut actual)
             .unwrap();
-        let expected = cli_proto::CommandProgress {
+        let expected = buck2_cli_proto::CommandProgress {
             progress: Some(command_progress::Progress::Event(
                 buck2_data::BuckEvent::from(event),
             )),

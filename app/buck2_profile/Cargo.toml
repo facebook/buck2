@@ -12,4 +12,4 @@ starlark = { workspace = true }
 
 buck2_core = { workspace = true }
 buck2_interpreter = { workspace = true }
-cli_proto = { path = "../../cli_proto" }
+buck2_cli_proto = { workspace = true }

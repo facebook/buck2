@@ -11,10 +11,10 @@ use std::io::Write;
 
 use anyhow::Context;
 use async_trait::async_trait;
+use buck2_cli_proto::ClientContext;
 use buck2_execute::materialize::materializer::HasMaterializer;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
-use cli_proto::ClientContext;
 use futures::stream::StreamExt;
 
 use crate::AuditCommandCommonOptions;

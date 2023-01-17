@@ -11,6 +11,9 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use buck2_cli_proto::profile_request::ProfileOpts;
+use buck2_cli_proto::ProfileRequest;
+use buck2_cli_proto::ProfileResponse;
 use buck2_interpreter::dice::starlark_profiler::StarlarkProfilerConfiguration;
 use buck2_interpreter::starlark_profiler::StarlarkProfileModeOrInstrumentation;
 use buck2_profile::get_profile_response;
@@ -18,9 +21,6 @@ use buck2_profile::starlark_profiler_configuration_from_request;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
-use cli_proto::profile_request::ProfileOpts;
-use cli_proto::ProfileRequest;
-use cli_proto::ProfileResponse;
 use dice::DiceTransaction;
 
 use crate::bxl::eval::eval;
@@ -41,7 +41,7 @@ struct BxlProfileServerCommand {
 impl ServerCommandTemplate for BxlProfileServerCommand {
     type StartEvent = buck2_data::ProfileCommandStart;
     type EndEvent = buck2_data::ProfileCommandEnd;
-    type Response = cli_proto::ProfileResponse;
+    type Response = buck2_cli_proto::ProfileResponse;
 
     async fn command<'v>(
         &self,

@@ -14,6 +14,7 @@ use std::fmt::Formatter;
 
 use async_trait::async_trait;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
+use buck2_cli_proto::QueryOutputFormat;
 use buck2_core::cells::CellResolver;
 use buck2_node::compatibility::MaybeCompatible;
 use buck2_query::query::environment::QueryTarget;
@@ -22,7 +23,6 @@ use buck2_query::query::syntax::simple::eval::file_set::FileSet;
 use buck2_query::query::syntax::simple::eval::multi_query::MultiQueryResult;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationValue;
-use cli_proto::QueryOutputFormat;
 use dupe::Clone_;
 use dupe::Copy_;
 use dupe::Dupe_;

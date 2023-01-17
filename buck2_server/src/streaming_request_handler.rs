@@ -9,7 +9,7 @@
 
 use std::marker::PhantomData;
 
-use cli_proto::StreamingRequest;
+use buck2_cli_proto::StreamingRequest;
 use tonic::Status;
 
 /// Simple container that holds onto a stream of incoming client requests.

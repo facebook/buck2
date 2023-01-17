@@ -35,12 +35,12 @@ pub mod result_report {
     use buck2_build_api::build::BuildProviderType;
     use buck2_build_api::build::BuildTargetResult;
     use buck2_build_api::build::ProviderArtifacts;
+    use buck2_cli_proto::build_target::build_output::BuildOutputProviders;
+    use buck2_cli_proto::build_target::BuildOutput;
+    use buck2_cli_proto::BuildTarget;
     use buck2_common::result::SharedError;
     use buck2_core::configuration::Configuration;
     use buck2_execute::artifact::fs::ArtifactFs;
-    use cli_proto::build_target::build_output::BuildOutputProviders;
-    use cli_proto::build_target::BuildOutput;
-    use cli_proto::BuildTarget;
     use dupe::Dupe;
     use starlark_map::small_map::SmallMap;
 

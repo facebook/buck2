@@ -11,13 +11,13 @@ use std::future::Future;
 use std::str::FromStr;
 
 use anyhow::Context;
+use buck2_cli_proto::client_context::HostArchOverride as GrpcHostArchOverride;
+use buck2_cli_proto::client_context::HostPlatformOverride as GrpcHostPlatformOverride;
+use buck2_cli_proto::ClientContext;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::result::SharedResult;
 use buck2_core::fs::working_dir::WorkingDir;
 use buck2_events::trace::TraceId;
-use cli_proto::client_context::HostArchOverride as GrpcHostArchOverride;
-use cli_proto::client_context::HostPlatformOverride as GrpcHostPlatformOverride;
-use cli_proto::ClientContext;
 use dupe::Dupe;
 use tokio::runtime::Builder;
 

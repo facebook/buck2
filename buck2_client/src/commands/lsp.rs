@@ -9,6 +9,7 @@
 
 use anyhow::Context as _;
 use async_trait::async_trait;
+use buck2_cli_proto::LspRequest;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonConsoleOptions;
@@ -19,7 +20,6 @@ use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_client_ctx::LSP_COMMAND_NAME;
 use bytes::BytesMut;
-use cli_proto::LspRequest;
 use futures::future::Either;
 use futures::future::Future;
 use futures::stream::Stream;

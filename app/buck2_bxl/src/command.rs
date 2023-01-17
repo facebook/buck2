@@ -22,6 +22,9 @@ use buck2_build_api::build::MaterializationContext;
 use buck2_build_api::bxl::build_result::BxlBuildResult;
 use buck2_build_api::bxl::calculation::BxlCalculation;
 use buck2_build_api::calculation::Calculation;
+use buck2_cli_proto::build_request::Materializations;
+use buck2_cli_proto::BxlRequest;
+use buck2_cli_proto::BxlResponse;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
@@ -39,9 +42,6 @@ use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculatio
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
-use cli_proto::build_request::Materializations;
-use cli_proto::BxlRequest;
-use cli_proto::BxlResponse;
 use dice::DiceComputations;
 use dice::DiceTransaction;
 use dupe::Dupe;
@@ -67,7 +67,7 @@ struct BxlServerCommand {
 impl ServerCommandTemplate for BxlServerCommand {
     type StartEvent = buck2_data::BxlCommandStart;
     type EndEvent = buck2_data::BxlCommandEnd;
-    type Response = cli_proto::BxlResponse;
+    type Response = buck2_cli_proto::BxlResponse;
 
     fn start_event(&self) -> Self::StartEvent {
         let bxl_label = self.req.bxl_label.clone();
@@ -96,7 +96,7 @@ async fn bxl(
     server_ctx: &dyn ServerCommandContextTrait,
     ctx: DiceTransaction,
     request: &BxlRequest,
-) -> anyhow::Result<cli_proto::BxlResponse> {
+) -> anyhow::Result<buck2_cli_proto::BxlResponse> {
     let cwd = server_ctx.working_dir();
 
     let bxl_key = get_bxl_key(cwd, &ctx, &request.bxl_label, &request.bxl_args).await?;

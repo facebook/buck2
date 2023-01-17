@@ -13,8 +13,8 @@ mod module;
 mod package_deps;
 
 use async_trait::async_trait;
+use buck2_cli_proto::ClientContext;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
-use cli_proto::ClientContext;
 
 use crate::starlark::module::StarlarkModuleCommand;
 use crate::starlark::package_deps::StarlarkPackageDepsCommand;

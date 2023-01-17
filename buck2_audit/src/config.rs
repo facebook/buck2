@@ -12,6 +12,7 @@ use std::io::Write;
 use std::str::FromStr;
 
 use async_trait::async_trait;
+use buck2_cli_proto::ClientContext;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::LegacyBuckConfigLocation;
@@ -19,7 +20,6 @@ use buck2_common::legacy_configs::LegacyBuckConfigValue;
 use buck2_core::cells::*;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
-use cli_proto::ClientContext;
 use dupe::Dupe;
 use gazebo::prelude::*;
 use serde_json::json;

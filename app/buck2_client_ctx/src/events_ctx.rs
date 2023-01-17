@@ -12,10 +12,10 @@ use std::sync::Arc;
 use std::time::SystemTime;
 
 use anyhow::Context;
+use buck2_cli_proto::command_result;
+use buck2_cli_proto::CommandResult;
 use buck2_common::daemon_dir::DaemonDir;
 use buck2_events::BuckEvent;
-use cli_proto::command_result;
-use cli_proto::CommandResult;
 use futures::stream::FuturesUnordered;
 use futures::Future;
 use futures::Stream;
@@ -395,7 +395,7 @@ impl EventsCtx {
 
     async fn handle_command_result(
         &mut self,
-        result: &cli_proto::CommandResult,
+        result: &buck2_cli_proto::CommandResult,
     ) -> anyhow::Result<()> {
         self.handle_subscribers(|subscriber| subscriber.handle_command_result(result))
             .await

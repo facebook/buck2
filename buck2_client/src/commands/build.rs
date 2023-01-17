@@ -15,6 +15,12 @@ use std::str::FromStr;
 
 use anyhow::Context;
 use async_trait::async_trait;
+use buck2_cli_proto::build_request::build_providers;
+use buck2_cli_proto::build_request::BuildProviders;
+use buck2_cli_proto::build_request::ResponseOptions;
+use buck2_cli_proto::build_target::BuildOutput;
+use buck2_cli_proto::BuildRequest;
+use buck2_cli_proto::BuildTarget;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::command_outcome::CommandOutcome;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
@@ -32,12 +38,6 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::working_dir::WorkingDir;
-use cli_proto::build_request::build_providers;
-use cli_proto::build_request::BuildProviders;
-use cli_proto::build_request::ResponseOptions;
-use cli_proto::build_target::BuildOutput;
-use cli_proto::BuildRequest;
-use cli_proto::BuildTarget;
 use dupe::Dupe;
 use futures::TryStreamExt;
 use gazebo::prelude::*;
@@ -217,18 +217,18 @@ pub enum FinalArtifactMaterializations {
 }
 
 pub trait MaterializationsToProto {
-    fn to_proto(&self) -> cli_proto::build_request::Materializations;
+    fn to_proto(&self) -> buck2_cli_proto::build_request::Materializations;
 }
 impl MaterializationsToProto for Option<FinalArtifactMaterializations> {
-    fn to_proto(&self) -> cli_proto::build_request::Materializations {
+    fn to_proto(&self) -> buck2_cli_proto::build_request::Materializations {
         match self {
             Some(FinalArtifactMaterializations::All) => {
-                cli_proto::build_request::Materializations::Materialize
+                buck2_cli_proto::build_request::Materializations::Materialize
             }
             Some(FinalArtifactMaterializations::None) => {
-                cli_proto::build_request::Materializations::Skip
+                buck2_cli_proto::build_request::Materializations::Skip
             }
-            None => cli_proto::build_request::Materializations::Default,
+            None => buck2_cli_proto::build_request::Materializations::Default,
         }
     }
 }
