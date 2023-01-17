@@ -61,6 +61,7 @@ use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::working_dir::WorkingDir;
 use buck2_core::logging::LogConfigurationReloadHandle;
+use buck2_starlark::StarlarkCommand;
 use clap::AppSettings;
 use clap::Parser;
 use dice::cycles::DetectCycles;
@@ -208,6 +209,8 @@ pub(crate) enum CommandKind {
     Run(RunCommand),
     Server(ServerCommand),
     Status(StatusCommand),
+    #[clap(subcommand)]
+    Starlark(StarlarkCommand),
     Targets(TargetsCommand),
     Uquery(UqueryCommand),
     #[clap(subcommand, setting(AppSettings::Hidden))]
@@ -349,6 +352,7 @@ impl CommandKind {
             CommandKind::Status(cmd) => cmd.exec(matches, command_ctx).into(),
             CommandKind::Targets(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Audit(cmd) => cmd.exec(matches, command_ctx),
+            CommandKind::Starlark(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Run(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Uquery(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Debug(cmd) => cmd.exec(

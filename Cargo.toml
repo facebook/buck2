@@ -23,6 +23,7 @@ members = [
     "app/buck2_interpreter",
     "app/buck2_interpreter_for_build",
     "app/buck2_node",
+    "app/buck2_starlark",
     "app/buck2_test",
     "app/buck2_test_api",
     "app/buck2_test_proto",
@@ -240,6 +241,7 @@ buck2_profile = { path = "app/buck2_profile" }
 buck2_protoc_dev = { path = "app/buck2_protoc_dev" }
 buck2_query_parser = { path = "app/buck2_query_parser" }
 buck2_query_derive = { path = "app/buck2_query_derive" }
+buck2_starlark = { path = "app/buck2_starlark" }
 buck2_audit = { path = "app/buck2_audit" }
 buck2_cli_proto = { path = "buck2_cli_proto" }
 buck2_data = { path = "buck2_data" }

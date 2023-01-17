@@ -1,0 +1,18 @@
+[package]
+name = "buck2_starlark"
+version = "0.1.0"
+edition = "2021"
+description = "`buck2 starlark` command implementation, both client and server"
+
+[dependencies]
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+clap = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+buck2_client_ctx = { workspace = true }
+buck2_data = { workspace = true }
+buck2_events = { workspace = true }
+buck2_server_ctx = { workspace = true }
+buck2_cli_proto = { workspace = true }

@@ -174,6 +174,11 @@ pub trait BuckdServerDependencies: Send + Sync + 'static {
         ctx: Box<dyn ServerCommandContextTrait>,
         req: buck2_cli_proto::GenericRequest,
     ) -> anyhow::Result<buck2_cli_proto::GenericResponse>;
+    async fn starlark(
+        &self,
+        ctx: Box<dyn ServerCommandContextTrait>,
+        req: buck2_cli_proto::GenericRequest,
+    ) -> anyhow::Result<buck2_cli_proto::GenericResponse>;
     async fn profile(
         &self,
         ctx: Box<dyn ServerCommandContextTrait>,
@@ -899,6 +904,18 @@ impl DaemonApi for BuckdServer {
         let callbacks = self.0.callbacks;
         self.run_streaming(req, DefaultCommandOptions, |ctx, req| {
             callbacks.audit(box ctx, req)
+        })
+        .await
+    }
+
+    type StarlarkStream = ResponseStream;
+    async fn starlark(
+        &self,
+        req: Request<GenericRequest>,
+    ) -> Result<Response<ResponseStream>, Status> {
+        let callbacks = self.0.callbacks;
+        self.run_streaming(req, DefaultCommandOptions, |ctx, req| {
+            callbacks.starlark(box ctx, req)
         })
         .await
     }

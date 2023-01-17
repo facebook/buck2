@@ -431,6 +431,7 @@ message CommandStart {
     BxlCommandStart bxl = 32;
     LspCommandStart lsp = 33;
     FileStatusCommandStart file_status = 34;
+    StarlarkCommandStart starlark = 35;
   }
 }
 
@@ -451,6 +452,8 @@ message CommandCriticalStart {
 message AuditCommandStart {
   // TODO(swgillespie) fill this with useful fields
 }
+
+message StarlarkCommandStart {}
 
 message BuildCommandStart {
   // TODO(swgillespie) fill this with useful fields
@@ -528,6 +531,7 @@ message CommandEnd {
     BxlCommandEnd bxl = 32;
     LspCommandEnd lsp = 33;
     FileStatusCommandEnd file_status = 34;
+    StarlarkCommandEnd starlark = 35;
   }
 
   bool is_success = 2;
@@ -545,6 +549,15 @@ message CommandCriticalEnd {
 }
 
 message AuditCommandEnd {
+  // output status
+  uint64 status = 1;
+  // arguments to command
+  string args = 2;
+  // execution dir
+  string dir = 3;
+}
+
+message StarlarkCommandEnd {
   // output status
   uint64 status = 1;
   // arguments to command

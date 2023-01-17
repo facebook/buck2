@@ -48,6 +48,7 @@ use buck2_server_commands::commands::query::uquery::uquery_command;
 use buck2_server_commands::commands::targets::targets_command;
 use buck2_server_commands::commands::targets_show_outputs::targets_show_outputs_command;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
+use buck2_starlark::server::server_starlark_command;
 use buck2_test::command::test_command;
 use dice::cycles::DetectCycles;
 use futures::channel::mpsc;
@@ -141,6 +142,13 @@ impl BuckdServerDependencies for BuckdServerDependenciesImpl {
         req: buck2_cli_proto::GenericRequest,
     ) -> anyhow::Result<buck2_cli_proto::GenericResponse> {
         server_audit_command(ctx, req).await
+    }
+    async fn starlark(
+        &self,
+        ctx: Box<dyn ServerCommandContextTrait>,
+        req: buck2_cli_proto::GenericRequest,
+    ) -> anyhow::Result<buck2_cli_proto::GenericResponse> {
+        server_starlark_command(ctx, req).await
     }
     async fn profile(
         &self,

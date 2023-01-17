@@ -583,6 +583,7 @@ impl<'a> FlushingBuckdClient<'a> {
     stream_method!(test, TestRequest, TestResponse);
     stream_method!(install, InstallRequest, InstallResponse);
     stream_method!(audit, GenericRequest, GenericResponse);
+    stream_method!(starlark, GenericRequest, GenericResponse);
     stream_method!(materialize, MaterializeRequest, MaterializeResponse);
     stream_method!(clean_stale, CleanStaleRequest, CleanStaleResponse);
     stream_method!(file_status, FileStatusRequest, GenericResponse);

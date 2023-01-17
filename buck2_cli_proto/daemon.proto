@@ -646,6 +646,7 @@ service DaemonApi {
   rpc Cquery(CqueryRequest) returns (stream CommandProgress);
   rpc Uquery(UqueryRequest) returns (stream CommandProgress);
   rpc Audit(GenericRequest) returns (stream CommandProgress);
+  rpc Starlark(GenericRequest) returns (stream CommandProgress);
   rpc UnstableDocs(UnstableDocsRequest) returns (stream CommandProgress);
   rpc Install(InstallRequest) returns (stream CommandProgress);
   rpc Materialize(MaterializeRequest) returns (stream CommandProgress);
