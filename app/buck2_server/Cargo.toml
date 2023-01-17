@@ -37,11 +37,11 @@ allocative = { workspace = true }
 fbinit = { workspace = true }
 gazebo = { workspace = true }
 dupe = { workspace = true }
-dice = { path = "../dice/dice" }
+dice = { path = "../../dice/dice" }
 more_futures = { workspace = true }
 starlark = { workspace = true }
 watchman_client.version = "0.8.0"
-# @oss-disable: watchman_client.path = "../../watchman/rust/watchman_client"
+# @oss-disable: watchman_client.path = "../../../watchman/rust/watchman_client"
 
 buck2_build_api = { workspace = true }
 buck2_common = { workspace = true }
