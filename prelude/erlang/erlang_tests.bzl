@@ -19,6 +19,7 @@ load(
     "flatten_dependencies",
 )
 load(":erlang_info.bzl", "ErlangAppInfo", "ErlangTestInfo")
+load(":erlang_otp_application.bzl", "normalize_application")
 load(":erlang_shell.bzl", "erlang_shell")
 load(
     ":erlang_toolchain.bzl",
@@ -50,7 +51,7 @@ def erlang_tests_macro(
     The macro also produces and adds
     resource targets for files in the suite associated <suitename>_data folder.
     """
-    deps = list(deps)
+    deps = [normalize_application(dep) for dep in deps]
     config_files = list(config_files)
 
     srcs_app = None

@@ -120,6 +120,7 @@ def erlang_application(
         erlang_app_includes_rule,
         name,
         applications = [],
+        included_applications = [],
         extra_includes = [],
         labels = [],
         **kwargs):
@@ -132,10 +133,16 @@ def erlang_application(
         for app in applications
     ]
 
+    normalized_included_applications = [
+        normalize_application(app)
+        for app in included_applications
+    ]
+
     return [
         erlang_app_rule(
             name = name,
             applications = normalized_applications,
+            included_applications = normalized_included_applications,
             extra_includes = [
                 _extra_include_name(dep)
                 for dep in extra_includes
