@@ -34,9 +34,9 @@ pub struct ExecArgs {
 /// The exit code is u8 integer and has the following meanings
 /// - Success             : 0
 /// - Uncategorized Error : 1
-/// - User Error          : 2-128
+/// - Infra Error         : 2
+/// - User Error          : 3
 /// - Signal Interruption : 129-192 (128 + signal number)
-/// - Infra Error         : 200-255
 ///
 /// We can easily turn a anyhow::Result (or anyhow::Error, or even a message) into a ExitResult,
 /// but the reverse is not possible: once created, the only useful thing we can with a
