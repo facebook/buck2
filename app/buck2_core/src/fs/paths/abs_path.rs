@@ -134,6 +134,17 @@ impl AbsPathBuf {
         self.0.into_os_string()
     }
 
+    /// Convert a path into a String. Fails if the path is not UTF8.
+    pub fn into_string(self) -> anyhow::Result<String> {
+        #[derive(Debug, thiserror::Error)]
+        #[error("Cannot convert path to UTF-8, `{0:?}`")]
+        struct PathCannotBeConvertedToUtf8(OsString);
+
+        self.into_os_string()
+            .into_string()
+            .map_err(|x| PathCannotBeConvertedToUtf8(x).into())
+    }
+
     pub fn capacity(&self) -> usize {
         self.0.capacity()
     }

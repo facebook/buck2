@@ -200,10 +200,7 @@ impl StreamingCommand for ProfileSubcommand {
         #[error("Cannot convert path to UTF-8")]
         struct PathCannotBeConvertedToUtf8;
 
-        let destination_path = destination_path
-            .into_os_string()
-            .into_string()
-            .map_err(|_| PathCannotBeConvertedToUtf8)?;
+        let destination_path = destination_path.into_string()?;
 
         let console_opts = ctx.stdin().console_interaction_stream(self.console_opts());
 
