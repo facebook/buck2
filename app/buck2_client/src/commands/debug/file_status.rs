@@ -15,7 +15,9 @@ use buck2_client_ctx::common::CommonConsoleOptions;
 use buck2_client_ctx::common::CommonDaemonCommandOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::exit_result::ExitResult;
+use buck2_client_ctx::path_arg::PathArg;
 use buck2_client_ctx::streaming::StreamingCommand;
+use gazebo::prelude::*;
 
 #[derive(Debug, clap::Parser)]
 pub struct FileStatusCommand {
@@ -28,9 +30,9 @@ pub struct FileStatusCommand {
     #[clap(flatten)]
     event_log_opts: CommonDaemonCommandOptions,
 
-    /// Paths to validate, relative to project root
+    /// Paths to validate
     #[clap(value_name = "PATH", required = true)]
-    paths: Vec<String>,
+    paths: Vec<PathArg>,
 }
 
 #[async_trait]
@@ -53,7 +55,9 @@ impl StreamingCommand for FileStatusCommand {
             .file_status(
                 FileStatusRequest {
                     context: Some(context),
-                    paths: self.paths,
+                    paths: self
+                        .paths
+                        .try_map(|x| x.resolve(&ctx.working_dir).into_string())?,
                 },
                 ctx.stdin().console_interaction_stream(&self.console_opts),
             )
