@@ -60,6 +60,14 @@ impl Display for OwnedFrozenValue {
     }
 }
 
+impl AllocFrozenValue for OwnedFrozenValue {
+    fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
+        // Safe because this is the standard expectation for alloc_frozen_value
+        // - you must keep the heap you allocate it on alive.
+        unsafe { self.owned_frozen_value(heap) }
+    }
+}
+
 impl OwnedFrozenValue {
     /// Create an [`OwnedFrozenValue`] - generally [`OwnedFrozenValue`]s are obtained
     /// from [`FrozenModule::get`](crate::environment::FrozenModule::get).
