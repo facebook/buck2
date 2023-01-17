@@ -6,12 +6,12 @@
 # of this source tree.
 
 load("@fbcode_macros//build_defs:rust_binary.bzl", "rust_binary")
-load("@fbcode_macros//build_defs/lib:cpp_common.bzl", "cpp_common")
+load("@fbcode_macros//build_defs/lib:link_styles.bzl", "link_styles")
 
 def buck_rust_binary(**kwargs):
     kwargs.setdefault("edition", "2021")
     if kwargs.get("link_style") == None:
-        link_style = cpp_common.get_link_style()
+        link_style = link_styles.default()
         kwargs["link_style"] = select({
             "DEFAULT": link_style,
             "ovr_config//os:macos": "static",
