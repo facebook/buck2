@@ -39,7 +39,7 @@ rust_library(
         "//buck2/app/buck2_core:buck2_core",
         "//buck2/buck2_data:buck2_data",
         "//buck2/app/buck2_events:buck2_events",
-        "//buck2/buck2_execute:buck2_execute",
+        "//buck2/app/buck2_execute:buck2_execute",
         "//buck2/gazebo/gazebo:gazebo",
         "//buck2/gazebo/dupe:dupe",
         "//buck2/host_sharing:host_sharing",

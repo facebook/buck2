@@ -30,8 +30,8 @@ tokio = { workspace = true }
 toml = { workspace = true }
 tracing = { workspace = true }
 
-dice = { path = "../dice/dice" }
-# @oss-disable: edenfs = { package = "thrift", path = "../../eden/fs/service" }
+dice = { path = "../../dice/dice" }
+# @oss-disable: edenfs = { package = "thrift", path = "../../../eden/fs/service" }
 fbinit = { workspace = true }
 gazebo = { workspace = true }
 dupe = { workspace = true }

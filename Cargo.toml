@@ -17,6 +17,8 @@ members = [
     "app/buck2_downward_api",
     "app/buck2_downward_api_proto",
     "app/buck2_events",
+    "app/buck2_execute",
+    "app/buck2_execute_impl",
     "app/buck2_grpc",
     "app/buck2_interpreter_for_build",
     "app/buck2_test",
@@ -40,8 +42,6 @@ members = [
     "buck2_cli_proto",
     "buck2_interpreter",
     "buck2_node",
-    "buck2_execute",
-    "buck2_execute_impl",
     "cli",
     "dice/dice",
     "dice/dice_examples",
@@ -251,8 +251,8 @@ buck2_build_api_derive = { path = "buck2_build_api_derive" }
 buck2_client = { path = "app/buck2_client" }
 buck2_interpreter = { path = "buck2_interpreter" }
 buck2_node = { path = "buck2_node" }
-buck2_execute = { path = "buck2_execute" }
-buck2_execute_impl = { path = "buck2_execute_impl" }
+buck2_execute = { path = "app/buck2_execute" }
+buck2_execute_impl = { path = "app/buck2_execute_impl" }
 buck2_server = { path = "app/buck2_server" }
 buck2_server_commands = { path = "app/buck2_server_commands" }
 buck2_server_ctx = { path = "app/buck2_server_ctx" }
