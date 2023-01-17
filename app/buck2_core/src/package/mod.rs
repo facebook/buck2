@@ -75,7 +75,7 @@ impl std::hash::Hash for PackageLabel {
     }
 }
 
-#[derive(Debug, Display, Ord, PartialOrd, Allocative)]
+#[derive(Debug, Display, Eq, PartialEq, Ord, PartialOrd, Allocative)]
 struct PackageData(CellPath);
 
 #[derive(Hash, Eq, PartialEq)]
@@ -102,14 +102,7 @@ impl PackageData {
     }
 }
 
-impl PartialEq for PackageData {
-    fn eq(&self, other: &Self) -> bool {
-        self.as_ref() == other.as_ref()
-    }
-}
-
-impl Eq for PackageData {}
-
+#[allow(clippy::derive_hash_xor_eq)]
 impl Hash for PackageData {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.as_ref().hash(state)
