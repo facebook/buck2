@@ -186,7 +186,6 @@ mod imp {
         use buck2_data::InstantEvent;
         use buck2_events::sink::scribe;
         use buck2_events::trace::TraceId;
-        use buck2_events::EventSink;
 
         facebook_only();
         if !scribe::is_enabled() {
@@ -206,17 +205,6 @@ mod imp {
             }
         };
 
-        sink.send(BuckEvent::new(
-            SystemTime::now(),
-            TraceId::new(),
-            None,
-            None,
-            InstantEvent {
-                data: Some(data.into()),
-            }
-            .into(),
-        ));
-
         // There are some dubious ways of acquiring a handle to the current Tokio runtime, if one exists, such as this
         // one: https://docs.rs/tokio/latest/tokio/runtime/struct.Handle.html#method.current. However, there doesn't
         // appear to be a good way to figure out if the thread we're running on is a tokio thread at all.
@@ -230,7 +218,18 @@ mod imp {
         let _err = thread::Builder::new()
             .spawn(move || {
                 let runtime = Builder::new_current_thread().enable_all().build().unwrap();
-                runtime.block_on(sink.flush_blocking());
+                runtime.block_on(
+                    sink.send_now(BuckEvent::new(
+                        SystemTime::now(),
+                        TraceId::new(),
+                        None,
+                        None,
+                        InstantEvent {
+                            data: Some(data.into()),
+                        }
+                        .into(),
+                    )),
+                );
             })
             .map_err(|_| ())
             .and_then(|t| t.join().map_err(|_| ()));

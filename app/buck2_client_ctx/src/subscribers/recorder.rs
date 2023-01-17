@@ -35,7 +35,6 @@ mod imp {
     use buck2_events::sink::scribe::ThriftScribeSink;
     use buck2_events::trace::TraceId;
     use buck2_events::BuckEvent;
-    use buck2_events::EventSink;
     use dupe::Dupe;
     use futures::FutureExt;
     use termwiz::istty::IsTty;
@@ -237,10 +236,9 @@ mod imp {
                     .into(),
                 );
                 tracing::info!("Recording invocation to Scribe: {:?}", &event);
-                self.scribe.send(event);
                 let scribe = self.scribe.dupe();
                 Some(async move {
-                    scribe.flush_blocking().await;
+                    scribe.send_now(event).await;
                 })
             } else {
                 None

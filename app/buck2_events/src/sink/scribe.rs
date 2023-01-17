@@ -60,13 +60,34 @@ mod fbcode {
             Ok(ThriftScribeSink { category, client })
         }
 
-        pub async fn flush_blocking(&self) {
-            self.client.flush_blocking().await;
+        // Send this event now, bypassing internal message queue.
+        pub async fn send_now(&self, event: BuckEvent) {
+            let message_key = event.trace_id().unwrap().hash();
+            if let Some(bytes) = Self::encode_message(event, false) {
+                self.client
+                    .send_now(scribe_client::Message {
+                        category: self.category.clone(),
+                        message: bytes,
+                        message_key: Some(message_key),
+                    })
+                    .await;
+            }
         }
 
-        fn send_internal(&self, mut event: BuckEvent, is_truncation: bool) {
+        // Send this event by placing it on the internal message queue.
+        pub fn offer(&self, event: BuckEvent) {
             let message_key = event.trace_id().unwrap().hash();
+            if let Some(bytes) = Self::encode_message(event, false) {
+                self.client.offer(scribe_client::Message {
+                    category: self.category.clone(),
+                    message: bytes,
+                    message_key: Some(message_key),
+                });
+            }
+        }
 
+        // Encodes message into something scribe understands.
+        fn encode_message(mut event: BuckEvent, is_truncated: bool) -> Option<Vec<u8>> {
             Self::smart_truncate_event(event.data_mut());
             let proto: buck2_data::BuckEvent = event.into();
 
@@ -82,12 +103,12 @@ mod fbcode {
             if b64.len() > SCRIBE_MESSAGE_SIZE_LIMIT {
                 // if this BuckEvent is already a truncated one but the b64 byte size exceeds the limit,
                 // do not send Scribe another truncated version
-                if is_truncation {
-                    return;
+                if is_truncated {
+                    return None;
                 }
                 let json = serde_json::to_string(&proto).unwrap();
 
-                return self.send_internal(
+                Self::encode_message(
                     BuckEvent::new(
                         SystemTime::now(),
                         TraceId::new(),
@@ -111,14 +132,10 @@ mod fbcode {
                         }),
                     ),
                     true,
-                );
+                )
+            } else {
+                Some(b64.as_bytes().to_vec())
             }
-
-            self.client.offer(scribe_client::Message {
-                category: self.category.clone(),
-                message: b64.as_bytes().to_vec(),
-                message_key: Some(message_key),
-            });
         }
 
         fn smart_truncate_event(d: &mut buck2_data::buck_event::Data) {
@@ -210,7 +227,7 @@ mod fbcode {
             if !should_send_event(event.data()) {
                 return;
             }
-            self.send_internal(event, false)
+            self.offer(event);
         }
 
         fn send_control(&self, _control_event: ControlEvent) {}
@@ -315,7 +332,11 @@ mod fbcode {
     use crate::EventSink;
     use crate::EventSinkStats;
 
-    pub enum ThriftScribeSink {}
+    pub struct ThriftScribeSink;
+
+    impl ThriftScribeSink {
+        pub async fn send_now(&self, _event: BuckEvent) {}
+    }
 
     impl EventSink for ThriftScribeSink {
         fn send(&self, _event: BuckEvent) {}
@@ -325,10 +346,6 @@ mod fbcode {
         fn stats(&self) -> Option<EventSinkStats> {
             None
         }
-    }
-
-    impl ThriftScribeSink {
-        pub async fn flush_blocking(&self) {}
     }
 }
 
