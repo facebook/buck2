@@ -195,11 +195,6 @@ impl StreamingCommand for ProfileSubcommand {
 
         let profile_mode = &self.common_opts.mode;
 
-        // Impossible: both current directory and relative path are known to be UTF-8.
-        #[derive(Debug, thiserror::Error)]
-        #[error("Cannot convert path to UTF-8")]
-        struct PathCannotBeConvertedToUtf8;
-
         let destination_path = destination_path.into_string()?;
 
         let console_opts = ctx.stdin().console_interaction_stream(self.console_opts());
