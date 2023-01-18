@@ -10,6 +10,7 @@ from importlib.machinery import ModuleSpec
 
 # Add a try except to force eager importing
 try:
+    # pyre-fixme[21]: Could not find module `_static_extension_utils`.
     from _static_extension_utils import _check_module, StaticExtensionLoader
 except BaseException:
     raise
@@ -17,6 +18,8 @@ except BaseException:
 
 class StaticExtensionFinder:
     @classmethod
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def find_spec(cls, fullname, path, target=None):
         """
         Use fullname to look up the PyInit function in the main binary. Returns None if not present.
@@ -32,5 +35,6 @@ class StaticExtensionFinder:
         return spec
 
 
+# pyre-fixme[3]: Return type must be annotated.
 def _initialize():
     sys.meta_path.insert(0, StaticExtensionFinder)
