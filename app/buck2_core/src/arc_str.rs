@@ -21,7 +21,7 @@ use std::ptr;
 use std::ptr::NonNull;
 use std::str;
 use std::sync::atomic;
-use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::AtomicU32;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -31,7 +31,7 @@ use static_assertions::assert_eq_size;
 
 #[repr(C)]
 struct ArcStrInner {
-    counter: AtomicUsize,
+    counter: AtomicU32,
     // data: [],
 }
 
@@ -165,7 +165,7 @@ impl<'a> From<&'a str> for ArcStr {
                 ptr::write(
                     alloc.cast::<ArcStrInner>(),
                     ArcStrInner {
-                        counter: AtomicUsize::new(1),
+                        counter: AtomicU32::new(1),
                     },
                 );
                 let data = alloc.add(ArcStrInner::OFFSET_OF_DATA);
@@ -194,7 +194,7 @@ impl Clone for ArcStr {
                 let old_count = arc_str_inner
                     .counter
                     .fetch_add(1, atomic::Ordering::Relaxed);
-                const MAX_REFCOUNT: usize = isize::MAX as usize;
+                const MAX_REFCOUNT: u32 = i32::MAX as u32;
                 if old_count > MAX_REFCOUNT {
                     arc_str_inner
                         .counter
@@ -301,7 +301,7 @@ mod tests {
 
     #[test]
     fn test_clone_drop_ref_count() {
-        fn ref_count(s: &ArcStr) -> usize {
+        fn ref_count(s: &ArcStr) -> u32 {
             assert!(!s.is_empty());
             unsafe {
                 (*(s.data.as_ptr().sub(ArcStrInner::OFFSET_OF_DATA) as *const ArcStrInner))
