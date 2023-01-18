@@ -20,6 +20,8 @@ use buck2_core::cells::CellResolver;
 use buck2_interpreter::common::StarlarkPath;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
+use starlark::codemap::FileSpan;
+use starlark::errors::Diagnostic;
 use starlark::errors::Lint;
 use starlark::syntax::AstModule;
 
@@ -46,8 +48,24 @@ async fn lint_file(
     let path = cell_resolver.resolve_path(&path.path())?;
     let path_str = path.to_string();
     let content = io.read_file(path).await?;
-    let ast = AstModule::parse(&path_str, content, &dialect)?;
-    Ok(ast.lint(None))
+    match AstModule::parse(&path_str, content.clone(), &dialect) {
+        Ok(ast) => Ok(ast.lint(None)),
+        Err(err) => {
+            // There was a parse error, so we don't want to fail, we want to give a nice error message
+            // Do the best we can - it is probably a `Diagnostic`, which gives us more precise info.
+            let (span, message) = match err.downcast::<Diagnostic>() {
+                Err(err) => (None, err),
+                Ok(diag) => (diag.span, diag.message),
+            };
+            Ok(vec![Lint {
+                location: span.unwrap_or_else(|| FileSpan::new(path_str, content)),
+                short_name: "parse_error".to_owned(),
+                serious: true,
+                problem: format!("{:#}", message),
+                original: "".to_owned(),
+            }])
+        }
+    }
 }
 
 #[async_trait]
