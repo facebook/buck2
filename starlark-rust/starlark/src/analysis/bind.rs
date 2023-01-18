@@ -156,38 +156,36 @@ fn comprehension(
     res.push(Bind::Scope(Scope::new(inner)))
 }
 
-fn dot_access<'a>(lhs: &'a AstExpr, ident: &'a AstString, res: &mut Vec<Bind>) {
-    let mut ids = vec![];
-
-    fn identifiers<'a>(lhs: &'a AstExpr, ids: &mut Vec<&'a AstString>, res: &mut Vec<Bind>) {
+/// Can we interpret this as a Dotted expression? If not, just treat it normally.
+/// Note that we treat `foo.bar().baz` like the dotted expression `foo.bar.baz`.
+fn dot_access<'a>(lhs: &'a AstExpr, attribute: &'a AstString, res: &mut Vec<Bind>) {
+    // The attributes are stored in reverse.
+    // Keep recursing while we have a chain of dots, if we find something else bail out
+    fn f<'a>(lhs: &'a AstExpr, mut attributes: Vec<&'a AstString>, res: &mut Vec<Bind>) {
         match &**lhs {
             Expr::Identifier(id, _) => {
-                ids.push(id);
+                let attrs = attributes.into_iter().rev().cloned().collect();
+                res.push(Bind::GetDotted(GetDotted::new(id.clone(), attrs)));
             }
-            Expr::Dot(lhs, id) => {
-                identifiers(lhs, ids, res);
-                ids.push(id);
+            Expr::Dot(lhs, attribute) => {
+                attributes.push(attribute);
+                f(lhs, attributes, res);
             }
             Expr::Call(name, parameters) => {
-                identifiers(name, ids, res);
+                f(name, attributes, res);
                 // make sure that if someone does a(b).c, 'b' is bound and considered used.
                 for parameter in parameters {
                     expr(parameter.expr(), res);
                 }
             }
             _ => {
-                // make sure that we iterate over the LHS properly. If one does
-                // a.b[c].d, without this, 'c' would not bind properly.
+                // We saw through a series of dots, but it isn't a dotted-identifier
+                // Bail out and just deal with the LHS normally
                 expr(lhs, res);
             }
         }
     }
-    identifiers(lhs, &mut ids, res);
-    ids.push(ident);
-    res.push(Bind::GetDotted(GetDotted::new(
-        ids[0].clone(),
-        ids[1..].iter().map(|x| (*x).clone()).collect(),
-    )));
+    f(lhs, vec![attribute], res);
 }
 
 fn expr(x: &AstExpr, res: &mut Vec<Bind>) {
@@ -203,7 +201,7 @@ fn expr(x: &AstExpr, res: &mut Vec<Bind>) {
             expr(body, &mut inner);
             res.push(Bind::Scope(Scope::new(inner)));
         }
-        Expr::Dot(lhs, ident) => dot_access(lhs, ident, res),
+        Expr::Dot(lhs, attribute) => dot_access(lhs, attribute, res),
         Expr::ListComprehension(x, for_, clauses) => {
             comprehension(for_, clauses, res, |res| expr(x, res))
         }

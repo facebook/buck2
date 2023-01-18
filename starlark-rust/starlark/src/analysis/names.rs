@@ -444,6 +444,9 @@ load("test", imported = "more")
 a = True + imported + no1
 def foo():
     fail("test") + no2(t = 3)
+def bar(ctx):
+    ctx.attrs.dep[fail.index].default_outputs[0]
+    ctx[0].default_outputs
 "#,
         );
         let mut res = Vec::new();
