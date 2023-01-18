@@ -447,7 +447,7 @@ pub mod testing {
 
             for (index_in_attribute_spec, (name, attr, val)) in attrs.into_iter().enumerate() {
                 let idx = AttributeId {
-                    index_in_attribute_spec,
+                    index_in_attribute_spec: u16::try_from(index_in_attribute_spec).unwrap(),
                 };
                 indices.insert(name.to_owned(), attr);
                 val.traverse(label.pkg(), &mut deps_cache).unwrap();

@@ -14,5 +14,9 @@ use dupe::Dupe;
     Debug, Clone, Dupe, Copy, Eq, Hash, PartialEq, Ord, PartialOrd, Allocative
 )]
 pub struct AttributeId {
-    pub index_in_attribute_spec: usize,
+    pub index_in_attribute_spec: u16,
+}
+
+impl AttributeId {
+    pub const MAX_INDEX: u16 = u16::MAX;
 }

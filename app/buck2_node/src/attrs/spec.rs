@@ -37,9 +37,18 @@ pub(crate) enum AttributeSpecError {
     DuplicateAttribute(String),
     #[error("Rule definition has no attribute `{0}`")]
     UnknownAttribute(String),
+    #[error("Too many attributes: {0} > {}", AttributeId::MAX_INDEX)]
+    TooManyAttributes(usize),
 }
 
 impl AttributeSpec {
+    fn new(attributes: OrderedMap<String, Attribute>) -> anyhow::Result<AttributeSpec> {
+        if attributes.len() > AttributeId::MAX_INDEX as usize {
+            return Err(AttributeSpecError::TooManyAttributes(attributes.len()).into());
+        }
+        Ok(AttributeSpec { attributes })
+    }
+
     pub fn from(attributes: Vec<(String, Attribute)>) -> anyhow::Result<Self> {
         let internal_attrs = internal_attrs();
 
@@ -72,9 +81,7 @@ impl AttributeSpec {
             }
         }
 
-        Ok(AttributeSpec {
-            attributes: instances,
-        })
+        AttributeSpec::new(instances)
     }
 
     #[allow(clippy::len_without_is_empty)]
@@ -90,7 +97,7 @@ impl AttributeSpec {
                 (
                     name.as_str(),
                     AttributeId {
-                        index_in_attribute_spec,
+                        index_in_attribute_spec: index_in_attribute_spec as u16,
                     },
                     attribute,
                 )
@@ -99,7 +106,7 @@ impl AttributeSpec {
 
     fn attribute_by_id(&self, id: AttributeId) -> &Attribute {
         self.attributes
-            .get_index(id.index_in_attribute_spec)
+            .get_index(id.index_in_attribute_spec as usize)
             .unwrap()
             .1
     }
@@ -108,7 +115,7 @@ impl AttributeSpec {
         self.attributes
             .get_index_of(name)
             .map(|index_in_attribute_spec| AttributeId {
-                index_in_attribute_spec,
+                index_in_attribute_spec: index_in_attribute_spec as u16,
             })
     }
 
@@ -195,7 +202,7 @@ pub(crate) mod testing {
 
     impl AttributeSpec {
         pub(crate) fn testing_new(attributes: OrderedMap<String, Attribute>) -> AttributeSpec {
-            AttributeSpec { attributes }
+            AttributeSpec::new(attributes).unwrap()
         }
     }
 }
