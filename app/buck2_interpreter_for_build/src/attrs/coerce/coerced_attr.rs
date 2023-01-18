@@ -34,6 +34,8 @@ pub enum SelectError {
     ConcatNotSupported(String, String),
     #[error("select() cannot be used in non-configuable attribute")]
     SelectCannotBeUsedForNonConfigurableAttr,
+    #[error("duplicate `\"DEFAULT\"` key in `select()` (internal error)")]
+    DuplicateDefaultKey,
 }
 
 pub trait CoercedAttrExr: Sized {
@@ -84,10 +86,9 @@ impl CoercedAttrExr for CoercedAttr {
                                 _ => CoercedAttr::coerce(attr, configuable, ctx, v, None)?,
                             };
                             if k == "DEFAULT" {
-                                assert!(
-                                    default.is_none(),
-                                    "Got repeated DEFAULT key, this should be impossible"
-                                );
+                                if default.is_some() {
+                                    return Err(SelectError::DuplicateDefaultKey.into());
+                                }
                                 default = Some(v);
                             } else {
                                 let target = ctx.coerce_target(k)?;
