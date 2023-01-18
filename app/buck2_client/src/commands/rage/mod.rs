@@ -93,24 +93,15 @@ impl RageSection {
         Fut: Future<Output = anyhow::Result<String>> + 'a,
     {
         let fut = command();
-
         async move {
-            match tokio::time::timeout(timeout, fut).await {
-                Err(_) => RageSection {
-                    title,
-                    status: CommandStatus::Timeout,
+            let status = match tokio::time::timeout(timeout, fut).await {
+                Err(_) => CommandStatus::Timeout,
+                Ok(Ok(output)) => CommandStatus::Success { output },
+                Ok(Err(e)) => CommandStatus::Failure {
+                    error: format!("Error: {:?}", e),
                 },
-                Ok(Ok(output)) => RageSection {
-                    title,
-                    status: CommandStatus::Success { output },
-                },
-                Ok(Err(e)) => RageSection {
-                    title,
-                    status: CommandStatus::Failure {
-                        error: format!("Error: {:?}", e),
-                    },
-                },
-            }
+            };
+            RageSection { title, status }
         }
         .boxed_local()
     }
