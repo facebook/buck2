@@ -24,8 +24,9 @@ use dupe::Clone_;
 
 use crate::vec2::Vec2;
 
+/// Iterator over [`Vec2`] elements.
 #[derive(Clone_)]
-pub(crate) struct Iter<'a, A, B> {
+pub struct Iter<'a, A, B> {
     pub(crate) aaa: slice::Iter<'a, A>,
     pub(crate) bbb: NonNull<B>,
     pub(crate) _marker: PhantomData<slice::Iter<'a, B>>,
@@ -67,7 +68,8 @@ impl<'s, A, B> DoubleEndedIterator for Iter<'s, A, B> {
     }
 }
 
-pub(crate) struct IntoIter<A, B> {
+/// Iterator which consumes the [`Vec2`].
+pub struct IntoIter<A, B> {
     /// Pointer to the next `A`. Updated as we iterate.
     pub(crate) aaa_begin: NonNull<A>,
     /// Pointer to the next `B`. Updated as we iterate.

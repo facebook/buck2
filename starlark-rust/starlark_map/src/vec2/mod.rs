@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+//! A `Vec<(A, B)>` like object which stores `A` and `B` separately.
+
 use std::alloc;
 use std::alloc::Layout;
 use std::alloc::LayoutError;
@@ -33,8 +35,8 @@ use allocative::Visitor;
 
 use crate::sorting::insertion::insertion_sort;
 use crate::sorting::insertion::slice_swap_shift;
-pub(crate) use crate::vec2::iter::IntoIter;
-pub(crate) use crate::vec2::iter::Iter;
+pub use crate::vec2::iter::IntoIter;
+pub use crate::vec2::iter::Iter;
 
 mod iter;
 
@@ -87,7 +89,7 @@ impl<A, B> Vec2Layout<A, B> {
 
 /// Array of pairs `(A, B)`, where `A` and `B` are stored separately.
 /// This reduces memory consumption when `A` and `B` have different alignments.
-pub(crate) struct Vec2<A, B> {
+pub struct Vec2<A, B> {
     // Layout is `[padding, A, A, ..., A, B, B, ..., B]`
     bbb_ptr: NonNull<B>,
     len: usize,
@@ -122,8 +124,9 @@ impl<A: Clone, B: Clone> Clone for Vec2<A, B> {
 }
 
 impl<A, B> Vec2<A, B> {
+    /// Empty vec.
     #[inline]
-    pub(crate) const fn new() -> Vec2<A, B> {
+    pub const fn new() -> Vec2<A, B> {
         Vec2 {
             bbb_ptr: NonNull::dangling(),
             len: 0,
@@ -132,8 +135,9 @@ impl<A, B> Vec2<A, B> {
         }
     }
 
+    /// New instance with given capacity.
     #[inline]
-    pub(crate) fn with_capacity(cap: usize) -> Vec2<A, B> {
+    pub fn with_capacity(cap: usize) -> Vec2<A, B> {
         if cap == 0 {
             Vec2::new()
         } else {
@@ -147,18 +151,21 @@ impl<A, B> Vec2<A, B> {
         }
     }
 
+    /// Number of elements.
     #[inline]
-    pub(crate) fn len(&self) -> usize {
+    pub fn len(&self) -> usize {
         self.len
     }
 
+    /// Capacity.
     #[inline]
-    pub(crate) fn capacity(&self) -> usize {
+    pub fn capacity(&self) -> usize {
         self.cap
     }
 
+    /// Is empty.
     #[inline]
-    pub(crate) fn is_empty(&self) -> bool {
+    pub fn is_empty(&self) -> bool {
         self.len == 0
     }
 
@@ -230,8 +237,9 @@ impl<A, B> Vec2<A, B> {
         }
     }
 
+    /// Reserve capacity for `additional` elements.
     #[inline]
-    pub(crate) fn reserve(&mut self, additional: usize) {
+    pub fn reserve(&mut self, additional: usize) {
         if self.cap - self.len < additional {
             self.reserve_slow(additional);
         }
@@ -255,8 +263,9 @@ impl<A, B> Vec2<A, B> {
         ptr::drop_in_place::<[B]>(self.bbb_mut());
     }
 
+    /// Push an element.
     #[inline]
-    pub(crate) fn push(&mut self, a: A, b: B) {
+    pub fn push(&mut self, a: A, b: B) {
         self.reserve(1);
         let len = self.len;
         unsafe {
@@ -266,8 +275,9 @@ impl<A, B> Vec2<A, B> {
         self.len += 1;
     }
 
+    /// Get an element reference by index.
     #[inline]
-    pub(crate) fn get(&self, index: usize) -> Option<(&A, &B)> {
+    pub fn get(&self, index: usize) -> Option<(&A, &B)> {
         if index < self.len {
             unsafe {
                 let a = self.aaa().get_unchecked(index);
@@ -279,8 +289,9 @@ impl<A, B> Vec2<A, B> {
         }
     }
 
+    /// Get an element reference by index skipping bounds check.
     #[inline]
-    pub(crate) unsafe fn get_unchecked(&self, index: usize) -> (&A, &B) {
+    pub unsafe fn get_unchecked(&self, index: usize) -> (&A, &B) {
         debug_assert!(index < self.len);
         (
             self.aaa().get_unchecked(index),
@@ -288,8 +299,9 @@ impl<A, B> Vec2<A, B> {
         )
     }
 
+    /// Get an element mutable reference by index.
     #[inline]
-    pub(crate) unsafe fn get_unchecked_mut(&mut self, index: usize) -> (&mut A, &mut B) {
+    pub unsafe fn get_unchecked_mut(&mut self, index: usize) -> (&mut A, &mut B) {
         debug_assert!(index < self.len);
         let k_ptr = self.aaa_ptr().as_ptr();
         let v_ptr = self.bbb_ptr().as_ptr();
@@ -303,7 +315,10 @@ impl<A, B> Vec2<A, B> {
         (ptr::read(a), ptr::read(b))
     }
 
-    pub(crate) fn remove(&mut self, index: usize) -> (A, B) {
+    /// Remove an element by index.
+    ///
+    /// This is an `O(n)` operation.
+    pub fn remove(&mut self, index: usize) -> (A, B) {
         assert!(index < self.len);
         unsafe {
             let (a, b) = self.read(index);
@@ -322,43 +337,32 @@ impl<A, B> Vec2<A, B> {
         }
     }
 
+    /// Remove all elements.
     #[inline]
-    pub(crate) fn clear(&mut self) {
+    pub fn clear(&mut self) {
         unsafe {
             self.drop_in_place();
             self.len = 0;
         }
     }
 
+    /// Remove the last element.
     #[inline]
-    pub(crate) fn pop(&mut self) -> Option<(A, B)> {
+    pub fn pop(&mut self) -> Option<(A, B)> {
         let new_len = self.len.checked_sub(1)?;
         let (a, b) = unsafe { self.read(new_len) };
         self.len = new_len;
         Some((a, b))
     }
 
+    /// Iterate over the elements.
     #[inline]
-    pub(crate) fn iter(&self) -> Iter<'_, A, B> {
+    pub fn iter(&self) -> Iter<'_, A, B> {
         Iter {
             aaa: self.aaa().iter(),
             bbb: self.bbb_ptr(),
             _marker: PhantomData,
         }
-    }
-
-    #[allow(clippy::mem_forget)]
-    #[inline]
-    pub(crate) fn into_iter(self) -> IntoIter<A, B> {
-        let iter = IntoIter {
-            aaa_begin: self.aaa_ptr(),
-            bbb_begin: self.bbb_ptr(),
-            bbb_end: unsafe { NonNull::new_unchecked(self.bbb_ptr().as_ptr().add(self.len)) },
-            bbb_ptr: self.bbb_ptr,
-            cap: self.cap,
-        };
-        mem::forget(self);
-        iter
     }
 
     pub(crate) fn sort_insertion_by<F>(&mut self, mut compare: F)
@@ -378,7 +382,8 @@ impl<A, B> Vec2<A, B> {
         );
     }
 
-    pub(crate) fn sort_by<F>(&mut self, mut compare: F)
+    /// Sort the elements using given comparator.
+    pub fn sort_by<F>(&mut self, mut compare: F)
     where
         F: FnMut((&A, &B), (&A, &B)) -> Ordering,
     {
@@ -418,6 +423,25 @@ impl<'s, A, B> IntoIterator for &'s Vec2<A, B> {
     #[inline]
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
+    }
+}
+
+impl<A, B> IntoIterator for Vec2<A, B> {
+    type Item = (A, B);
+    type IntoIter = IntoIter<A, B>;
+
+    #[allow(clippy::mem_forget)]
+    #[inline]
+    fn into_iter(self) -> IntoIter<A, B> {
+        let iter = IntoIter {
+            aaa_begin: self.aaa_ptr(),
+            bbb_begin: self.bbb_ptr(),
+            bbb_end: unsafe { NonNull::new_unchecked(self.bbb_ptr().as_ptr().add(self.len)) },
+            bbb_ptr: self.bbb_ptr,
+            cap: self.cap,
+        };
+        mem::forget(self);
+        iter
     }
 }
 
