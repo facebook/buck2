@@ -19,10 +19,9 @@ use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::stdin::Stdin;
 use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
+use buck2_query_common::query_args::CommonAttributeArgs;
 use dupe::Dupe;
 use gazebo::prelude::*;
-
-use crate::commands::uquery::CommonAttributeArgs;
 
 // Use non-camel case so the possible values match buck1's
 #[allow(non_camel_case_types)]

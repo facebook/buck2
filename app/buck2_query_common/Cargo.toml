@@ -1,0 +1,15 @@
+[package]
+description = "Some parts of Buck client"
+edition = "2021"
+name = "buck2_query_common"
+version = "0.1.0"
+
+[dependencies]
+anyhow = { workspace = true }
+clap = { workspace = true }
+dupe = { workspace = true }
+thiserror = {workspace = true }
+
+# Please do not add dependency on `buck2_build_api`.
+buck2_cli_proto = { workspace = true }
+buck2_core = { workspace = true }

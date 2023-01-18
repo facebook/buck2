@@ -16,8 +16,7 @@ use buck2_client_ctx::common::CommonDaemonCommandOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::StreamingCommand;
-
-use crate::commands::uquery::CommonQueryArgs;
+use buck2_query_common::query_args::CommonQueryArgs;
 
 /// Perform queries on the configured target graph.
 ///
