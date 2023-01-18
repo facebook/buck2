@@ -357,6 +357,18 @@ impl<A, B> Vec2<A, B> {
         Some((a, b))
     }
 
+    /// Get the first element reference.
+    #[inline]
+    pub fn first(&self) -> Option<(&A, &B)> {
+        self.get(0)
+    }
+
+    /// Get the last element reference.
+    #[inline]
+    pub fn last(&self) -> Option<(&A, &B)> {
+        self.get(self.len.checked_sub(1)?)
+    }
+
     /// If capacity exceeds length, shrink capacity to length.
     pub fn shrink_to_fit(&mut self) {
         if self.len() < self.capacity() {
@@ -593,5 +605,25 @@ mod tests {
                     .collect::<Vec<_>>()
             );
         }
+    }
+
+    #[test]
+    fn test_first() {
+        let mut v: Vec2<u32, u32> = Vec2::new();
+        assert_eq!(None, v.first());
+        v.push(1, 2);
+        assert_eq!(Some((&1, &2)), v.first());
+        v.push(3, 4);
+        assert_eq!(Some((&1, &2)), v.first());
+    }
+
+    #[test]
+    fn test_last() {
+        let mut v: Vec2<u32, u32> = Vec2::new();
+        assert_eq!(None, v.last());
+        v.push(1, 2);
+        assert_eq!(Some((&1, &2)), v.last());
+        v.push(3, 4);
+        assert_eq!(Some((&3, &4)), v.last());
     }
 }
