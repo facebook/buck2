@@ -20,20 +20,22 @@ def main(argv: List[str]) -> int:
 
     externs = []
     table = [
-        "struct _inittab _static_extension_info[] = {",
+        "std::unordered_map<std::string, pyinitfunc>  _static_extension_info = {",
     ]
     for python_name in args.extension:
         module_name, pyinit_func = python_name.split(":")
         # If this is a top level module we do not suffix the PyInit_ symbol
         externs.append(f"PyMODINIT_FUNC {pyinit_func}(void);")
         table.append(f'  {{ "{module_name}", {pyinit_func} }},')
-    table.append("  { nullptr, nullptr },")
     table.append("};")
 
     out_lines = (
         [
             '#include "Python.h"',
             '#include "import.h"',
+            "#include <unordered_map>",
+            "#include <string>",
+            "typedef PyObject* (*pyinitfunc)();",
         ]
         + externs
         + table

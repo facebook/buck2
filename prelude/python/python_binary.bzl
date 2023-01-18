@@ -285,6 +285,7 @@ def convert_python_library_to_executable(
 
         cxx_executable_srcs = [
             CxxSrcWithFlags(file = ctx.attrs.cxx_main, flags = []),
+            CxxSrcWithFlags(file = ctx.attrs.static_extension_utils, flags = []),
             CxxSrcWithFlags(file = static_extension_info_out, flags = []),
         ]
         extra_preprocessors = []
@@ -349,6 +350,7 @@ def convert_python_library_to_executable(
         # TODO expect(len(executable_info.runtime_files) == 0, "OH NO THERE ARE RUNTIME FILES")
         artifacts = dict(extension_info.artifacts)
         artifacts["runtime/bin/{}".format(ctx.attrs.executable_name)] = executable_info.binary
+        artifacts["static_extension_finder.py"] = ctx.attrs.static_extension_finder
         extra_manifests = create_manifest_for_source_map(ctx, "extension_stubs", artifacts)
         extensions = {}
     else:
