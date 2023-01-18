@@ -42,6 +42,7 @@ load(
     "inherited_non_rust_link_info",
     "normalize_crate",
     "resolve_deps",
+    "resolve_doc_deps",
     "style_info",
 )
 load(":rust_toolchain.bzl", "ctx_toolchain_info")
@@ -407,7 +408,7 @@ def _dependency_args(
     transitive_deps = {}
     deps = []
     crate_targets = {}
-    for x in resolve_deps(ctx):
+    for x in resolve_deps(ctx) + (resolve_doc_deps(ctx) if is_rustdoc_test else []):
         crate = x.name and normalize_crate(x.name)
         dep = x.dep
 

@@ -78,16 +78,40 @@ RustDependency = record(
 )
 
 # Returns all first-order dependencies, resolving the ones from "platform_deps"
-def resolve_deps(ctx: "context") -> [RustDependency.type]:
+def _do_resolve_deps(
+        ctx: "context",
+        deps: ["dependency"],
+        platform_deps: [(str.type, ["dependency"])],
+        named_deps: {str.type: "dependency"},
+        flagged_deps: [("dependency", [str.type])] = [],
+        platform_flagged_deps: [(str.type, [("dependency", [str.type])])] = []) -> [RustDependency.type]:
     return [
         RustDependency(name = name, dep = dep, flags = flags)
-        # The `getattr`s are needed for when we're operating on
-        # `prebuilt_rust_library` rules, which don't have those attrs.
-        for name, dep, flags in [(None, dep, []) for dep in ctx.attrs.deps + cxx_by_platform(ctx, ctx.attrs.platform_deps)] +
-                                [(name, dep, []) for name, dep in getattr(ctx.attrs, "named_deps", {}).items()] +
-                                [(None, dep, flags) for dep, flags in getattr(ctx.attrs, "flagged_deps", []) +
-                                                                      cxx_by_platform(ctx, getattr(ctx.attrs, "platform_flagged_deps", []))]
+        for name, dep, flags in [(None, dep, []) for dep in deps + cxx_by_platform(ctx, platform_deps)] +
+                                [(name, dep, []) for name, dep in named_deps.items()] +
+                                [(None, dep, flags) for dep, flags in flagged_deps +
+                                                                      cxx_by_platform(ctx, platform_flagged_deps)]
     ]
+
+def resolve_deps(ctx: "context") -> [RustDependency.type]:
+    # The `getattr`s are needed for when we're operating on
+    # `prebuilt_rust_library` rules, which don't have those attrs.
+    return _do_resolve_deps(
+        ctx = ctx,
+        deps = ctx.attrs.deps,
+        platform_deps = ctx.attrs.platform_deps,
+        named_deps = getattr(ctx.attrs, "named_deps", {}),
+        flagged_deps = getattr(ctx.attrs, "flagged_deps", []),
+        platform_flagged_deps = getattr(ctx.attrs, "platform_flagged_deps", []),
+    )
+
+def resolve_doc_deps(ctx: "context") -> [RustDependency.type]:
+    return _do_resolve_deps(
+        ctx = ctx,
+        deps = ctx.attrs.doc_deps,
+        platform_deps = ctx.attrs.doc_platform_deps,
+        named_deps = getattr(ctx.attrs, "doc_named_deps", {}),
+    )
 
 # Returns native link dependencies.
 def _non_rust_link_deps(ctx: "context") -> ["dependency"]:
