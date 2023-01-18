@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+use std::collections::HashSet;
+
 #[cfg(all(test, not(windows)))]
 pub(crate) use definition::helpers::FixtureWithRanges;
 pub(crate) use definition::Definition;
@@ -42,7 +44,7 @@ impl AstModule {
     /// Run a static linter over the module. If the complete set of global variables are known
     /// they can be passed as the `globals` argument, resulting in name-resolution lint errors.
     /// The precise checks run by the linter are not considered stable between versions.
-    pub fn lint(&self, globals: Option<&[&str]>) -> Vec<Lint> {
+    pub fn lint(&self, globals: Option<&HashSet<String>>) -> Vec<Lint> {
         let mut res = Vec::new();
         res.extend(flow::flow_issues(self).into_iter().map(LintT::erase));
         res.extend(

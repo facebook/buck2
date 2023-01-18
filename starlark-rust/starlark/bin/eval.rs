@@ -16,6 +16,7 @@
  */
 
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::fs;
 use std::io;
 use std::iter;
@@ -247,17 +248,22 @@ impl Context {
     }
 
     fn check(&self, module: &AstModule) -> impl Iterator<Item = EvalMessage> {
-        let mut globals = Vec::new();
-        for x in &self.prelude {
-            globals.extend(x.names().map(|s| s.as_str()));
-        }
         let globals = if self.prelude.is_empty() {
             None
         } else {
-            Some(globals.as_slice())
+            let mut globals = HashSet::new();
+            for modu in &self.prelude {
+                for name in modu.names() {
+                    globals.insert(name.as_str().to_owned());
+                }
+            }
+            Some(globals)
         };
 
-        module.lint(globals).into_iter().map(EvalMessage::from)
+        module
+            .lint(globals.as_ref())
+            .into_iter()
+            .map(EvalMessage::from)
     }
 }
 

@@ -79,7 +79,7 @@ impl NameWarning {
 
 pub(crate) fn name_warnings(
     module: &AstModule,
-    globals: Option<&[&str]>,
+    globals: Option<&HashSet<String>>,
 ) -> Vec<LintT<NameWarning>> {
     let mut res = Vec::new();
     let scope = bind::scope(module);
@@ -97,10 +97,9 @@ pub(crate) fn name_warnings(
 fn undefined_variable(
     codemap: &CodeMap,
     scope: &Scope,
-    globals: &[&str],
+    globals: &HashSet<String>,
     res: &mut Vec<LintT<NameWarning>>,
 ) {
-    let globals: HashSet<&str> = globals.iter().copied().collect();
     for (name, span) in &scope.free {
         if !globals.contains(name.as_str()) {
             res.push(LintT::new(
@@ -437,6 +436,8 @@ _h = []
 
     #[test]
     fn test_lint_undefined() {
+        let globals = HashSet::from(["True".to_owned(), "fail".to_owned()]);
+
         let m = module(
             r#"
 load("test", imported = "more")
@@ -447,7 +448,7 @@ def foo():
         );
         let mut res = Vec::new();
         let scope = bind::scope(&m);
-        undefined_variable(&m.codemap, &scope, &["True", "fail"], &mut res);
+        undefined_variable(&m.codemap, &scope, &globals, &mut res);
         let mut res = res.map(|x| x.problem.about());
         res.sort();
         assert_eq!(res, &["no1", "no2"])
