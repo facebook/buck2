@@ -8,6 +8,7 @@
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 
 DSYM_SUBTARGET = "dsym"
+DWARF_AND_DSYM_SUBTARGET = "dwarf-and-dsym"
 DEBUGINFO_SUBTARGET = "debuginfo"
 
 AppleDebuggableInfo = provider(fields = [

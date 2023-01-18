@@ -22,7 +22,7 @@ load(":apple_bundle_destination.bzl", "AppleBundleDestination")
 load(":apple_bundle_part.bzl", "AppleBundlePart", "assemble_bundle", "bundle_output", "get_bundle_dir_name")
 load(":apple_bundle_types.bzl", "AppleBundleInfo")
 load(":apple_bundle_utility.bzl", "get_product_name")
-load(":apple_dsym.bzl", "DEBUGINFO_SUBTARGET", "DSYM_SUBTARGET", "get_apple_dsym")
+load(":apple_dsym.bzl", "DEBUGINFO_SUBTARGET", "DSYM_SUBTARGET", "DWARF_AND_DSYM_SUBTARGET", "get_apple_dsym")
 load(":xcode.bzl", "apple_populate_xcode_attributes")
 
 def apple_test_impl(ctx: "context") -> ["provider"]:
@@ -112,30 +112,34 @@ def apple_test_impl(ctx: "context") -> ["provider"]:
     labels = ctx.attrs.labels + [tpx_label]
     labels.append(tpx_label)
 
+    test_info = ExternalRunnerTestInfo(
+        type = "custom",  # We inherit a label via the macro layer that overrides this.
+        command = ["false"],  # Tpx makes up its own args, we just pass params via the env.
+        env = env,
+        labels = labels,
+        use_project_relative_paths = True,
+        run_from_project_root = True,
+        contacts = ctx.attrs.contacts,
+        executor_overrides = {
+            "ios-simulator": CommandExecutorConfig(
+                local_enabled = False,
+                remote_enabled = True,
+                remote_execution_properties = {
+                    "platform": "ios-simulator-pure-re",
+                    "subplatform": "iPhone 8.iOS 15.0",
+                    "xcode-version": "xcodestable",
+                },
+                remote_execution_use_case = "tpx-default",
+            ),
+            "static-listing": CommandExecutorConfig(local_enabled = True, remote_enabled = False),
+        },
+    )
+
+    sub_targets[DWARF_AND_DSYM_SUBTARGET] = [DefaultInfo(default_output = xctest_bundle, other_outputs = [dsym_artifact]), test_info]
+
     return [
         DefaultInfo(default_output = xctest_bundle, sub_targets = sub_targets),
-        ExternalRunnerTestInfo(
-            type = "custom",  # We inherit a label via the macro layer that overrides this.
-            command = ["false"],  # Tpx makes up its own args, we just pass params via the env.
-            env = env,
-            labels = labels,
-            use_project_relative_paths = True,
-            run_from_project_root = True,
-            contacts = ctx.attrs.contacts,
-            executor_overrides = {
-                "ios-simulator": CommandExecutorConfig(
-                    local_enabled = False,
-                    remote_enabled = True,
-                    remote_execution_properties = {
-                        "platform": "ios-simulator-pure-re",
-                        "subplatform": "iPhone 8.iOS 15.0",
-                        "xcode-version": "xcodestable",
-                    },
-                    remote_execution_use_case = "tpx-default",
-                ),
-                "static-listing": CommandExecutorConfig(local_enabled = True, remote_enabled = False),
-            },
-        ),
+        test_info,
         cxx_library_output.xcode_data_info,
         cxx_library_output.cxx_compilationdb_info,
     ]
