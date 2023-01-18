@@ -195,6 +195,7 @@ AndroidLibraryIntellijInfo = provider(
     "Information about android library that is required for Intellij project generation",
     fields = [
         "dummy_r_dot_java",  # ["artifact", None]
+        "android_resource_deps",  # ["AndroidResourceInfo"]
     ],
 )
 
