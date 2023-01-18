@@ -18,6 +18,7 @@ use std::time::Instant;
 
 use anyhow::Context;
 use async_trait::async_trait;
+use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_data::CommandExecutionDetails;
 use buck2_events::BuckEvent;
 use dupe::Dupe;
@@ -235,10 +236,15 @@ pub(crate) struct SimpleConsole {
     two_snapshots: TwoSnapshots,
     last_had_open_spans: Instant, // Used to detect hangs
     already_raged: bool,
+    isolation_dir: FileNameBuf,
 }
 
 impl SimpleConsole {
-    pub(crate) fn with_tty(verbosity: Verbosity, show_waiting_message: bool) -> Self {
+    pub(crate) fn with_tty(
+        isolation_dir: FileNameBuf,
+        verbosity: Verbosity,
+        show_waiting_message: bool,
+    ) -> Self {
         SimpleConsole {
             tty_mode: TtyMode::Enabled,
             verbosity,
@@ -253,10 +259,15 @@ impl SimpleConsole {
             two_snapshots: TwoSnapshots::default(),
             last_had_open_spans: Instant::now(),
             already_raged: false,
+            isolation_dir,
         }
     }
 
-    pub(crate) fn without_tty(verbosity: Verbosity, show_waiting_message: bool) -> Self {
+    pub(crate) fn without_tty(
+        isolation_dir: FileNameBuf,
+        verbosity: Verbosity,
+        show_waiting_message: bool,
+    ) -> Self {
         SimpleConsole {
             tty_mode: TtyMode::Disabled,
             verbosity,
@@ -271,14 +282,19 @@ impl SimpleConsole {
             two_snapshots: TwoSnapshots::default(),
             last_had_open_spans: Instant::now(),
             already_raged: false,
+            isolation_dir,
         }
     }
 
     /// Create a SimpleConsole that auto detects whether it has a TTY or not.
-    pub(crate) fn autodetect(verbosity: Verbosity, show_waiting_message: bool) -> Self {
+    pub(crate) fn autodetect(
+        isolation_dir: FileNameBuf,
+        verbosity: Verbosity,
+        show_waiting_message: bool,
+    ) -> Self {
         match SuperConsole::compatible() {
-            true => Self::with_tty(verbosity, show_waiting_message),
-            false => Self::without_tty(verbosity, show_waiting_message),
+            true => Self::with_tty(isolation_dir, verbosity, show_waiting_message),
+            false => Self::without_tty(isolation_dir, verbosity, show_waiting_message),
         }
     }
 
@@ -377,7 +393,7 @@ impl SimpleConsole {
         // When command is stuck we call `rage` to gather debugging information
         if !self.already_raged {
             self.already_raged = true;
-            tokio::spawn(call_rage()).await?;
+            tokio::spawn(call_rage(self.isolation_dir.clone())).await?;
         }
         Ok(())
     }
@@ -712,16 +728,17 @@ mod tests {
     }
 }
 
-async fn call_rage() {
-    match call_rage_impl().await {
+async fn call_rage(isolation_dir: FileNameBuf) {
+    match call_rage_impl(isolation_dir).await {
         Ok(_) => {}
         Err(e) => tracing::warn!("Error calling buck2 rage: {:#}", e),
     };
 }
 
-async fn call_rage_impl() -> anyhow::Result<()> {
+async fn call_rage_impl(isolation_dir: FileNameBuf) -> anyhow::Result<()> {
     let current_exe = std::env::current_exe().context("Not current_exe")?;
     let _child = buck2_util::process::async_background_command(current_exe)
+        .args(["--isolation-dir", isolation_dir.as_str()])
         .arg("rage")
         .arg("--timeout")
         .arg("3600")

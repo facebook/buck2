@@ -15,6 +15,7 @@ use std::time::Duration;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
+use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_data::CommandExecutionDetails;
 use buck2_events::trace::TraceId;
 use buck2_events::BuckEvent;
@@ -169,6 +170,7 @@ impl StatefulSuperConsole {
         replay_speed: Option<f64>,
         stream: Option<Box<dyn Write + Send + 'static + Sync>>,
         config: SuperConsoleConfig,
+        isolation_dir: FileNameBuf,
     ) -> anyhow::Result<Self> {
         let fallback_size = ::superconsole::Dimensions {
             width: 100,
@@ -184,6 +186,7 @@ impl StatefulSuperConsole {
             show_waiting_message,
             replay_speed,
             config,
+            isolation_dir,
         )
     }
 
@@ -193,6 +196,7 @@ impl StatefulSuperConsole {
         show_waiting_message: bool,
         replay_speed: Option<f64>,
         config: SuperConsoleConfig,
+        isolation_dir: FileNameBuf,
     ) -> anyhow::Result<Option<Self>> {
         match Self::console_builder().build(root)? {
             None => Ok(None),
@@ -202,6 +206,7 @@ impl StatefulSuperConsole {
                 show_waiting_message,
                 replay_speed,
                 config,
+                isolation_dir,
             )?)),
         }
     }
@@ -212,6 +217,7 @@ impl StatefulSuperConsole {
         show_waiting_message: bool,
         replay_speed: Option<f64>,
         config: SuperConsoleConfig,
+        isolation_dir: FileNameBuf,
     ) -> anyhow::Result<Self> {
         Ok(Self {
             state: SuperConsoleState {
@@ -219,7 +225,11 @@ impl StatefulSuperConsole {
                 current_tick: Tick::now(),
                 session_info: SessionInfo::default(),
                 time_speed: TimeSpeed::new(replay_speed)?,
-                simple_console: SimpleConsole::with_tty(verbosity, show_waiting_message),
+                simple_console: SimpleConsole::with_tty(
+                    isolation_dir,
+                    verbosity,
+                    show_waiting_message,
+                ),
                 dice_state: DiceState::new(config.enable_dice),
                 debug_events: DebugEventsState::new(config.enable_debug_events),
                 commands_state: CommandsComponentState { enabled: false },
@@ -817,6 +827,7 @@ mod tests {
             None,
             None,
             Default::default(),
+            FileNameBuf::unchecked_new("placeholder"),
         )
         .unwrap();
 
@@ -883,6 +894,7 @@ mod tests {
             true,
             Default::default(),
             Default::default(),
+            FileNameBuf::unchecked_new("placeholder"),
         )?;
 
         console

@@ -54,6 +54,7 @@ fn default_subscribers<T: StreamingCommand>(
         ctx.replay_speed,
         root,
         console_opts.superconsole_config(),
+        ctx.paths()?.isolation.clone(),
     )? {
         subscribers.push(v)
     }

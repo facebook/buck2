@@ -25,6 +25,7 @@ use buck2_client_ctx::subscribers::superconsole::SessionInfoComponent;
 use buck2_client_ctx::subscribers::superconsole::StatefulSuperConsole;
 use buck2_client_ctx::subscribers::superconsole::CUTOFFS;
 use buck2_client_ctx::verbosity::Verbosity;
+use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_events::BuckEvent;
 use superconsole::components::splitting::SplitKind;
 use superconsole::components::Split;
@@ -95,6 +96,7 @@ impl WhatUpCommand {
                 None,
                 Some(Box::new(io::stdout())),
                 Default::default(),
+                FileNameBuf::unchecked_new("placeholder"),
             )?;
             let mut first_timestamp = None;
             let mut should_render = true;

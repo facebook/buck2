@@ -8,6 +8,7 @@
  */
 
 use ::superconsole::Component;
+use buck2_core::fs::paths::file_name::FileNameBuf;
 use dupe::Dupe;
 
 use crate::client_ctx::ClientCommandContext;
@@ -31,16 +32,17 @@ pub(crate) fn get_console_with_root(
     replay_speed: Option<f64>,
     root: Box<dyn Component>,
     config: SuperConsoleConfig,
+    isolation_dir: FileNameBuf,
 ) -> anyhow::Result<Option<Box<dyn EventSubscriber>>> {
     match console_type {
         ConsoleType::Simple => Ok(Some(box UnpackingEventSubscriberAsEventSubscriber(
-            SimpleConsole::autodetect(verbosity, show_waiting_message),
+            SimpleConsole::autodetect(isolation_dir, verbosity, show_waiting_message),
         ))),
         ConsoleType::SimpleNoTty => Ok(Some(box UnpackingEventSubscriberAsEventSubscriber(
-            SimpleConsole::without_tty(verbosity, show_waiting_message),
+            SimpleConsole::without_tty(isolation_dir, verbosity, show_waiting_message),
         ))),
         ConsoleType::SimpleTty => Ok(Some(box UnpackingEventSubscriberAsEventSubscriber(
-            SimpleConsole::with_tty(verbosity, show_waiting_message),
+            SimpleConsole::with_tty(isolation_dir, verbosity, show_waiting_message),
         ))),
         ConsoleType::Super => Ok(Some(box UnpackingEventSubscriberAsEventSubscriber(
             StatefulSuperConsole::new_with_root_forced(
@@ -50,6 +52,7 @@ pub(crate) fn get_console_with_root(
                 replay_speed,
                 None,
                 config,
+                isolation_dir,
             )?,
         ))),
         ConsoleType::Auto => {
@@ -59,12 +62,13 @@ pub(crate) fn get_console_with_root(
                 show_waiting_message,
                 replay_speed,
                 config,
+                isolation_dir.clone(),
             )? {
                 Some(super_console) => Ok(Some(box UnpackingEventSubscriberAsEventSubscriber(
                     super_console,
                 ))),
                 None => Ok(Some(box UnpackingEventSubscriberAsEventSubscriber(
-                    SimpleConsole::autodetect(verbosity, show_waiting_message),
+                    SimpleConsole::autodetect(isolation_dir, verbosity, show_waiting_message),
                 ))),
             }
         }
