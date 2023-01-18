@@ -266,9 +266,10 @@ mod tests {
                         },
                         ProvidersPattern {
                             target: TargetName::unchecked_new("other_target"),
-                            providers: ProvidersName::Named(vec![
-                                ProviderName::new("my-label".to_owned()).unwrap(),
-                            ]),
+                            providers: ProvidersName::Named(box [ProviderName::new(
+                                "my-label".to_owned(),
+                            )
+                            .unwrap()]),
                         },
                     ]),
                 ),

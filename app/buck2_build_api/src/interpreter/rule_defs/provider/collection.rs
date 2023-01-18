@@ -405,7 +405,7 @@ impl FrozenProviderCollectionValue {
                     self.value().try_map(|v| {
                         let mut collection_value = v;
 
-                        for provider_name in provider_names {
+                        for provider_name in &**provider_names {
                             let maybe_di = collection_value
                                 .default_info()
                                 .get_sub_target_providers(provider_name.as_str());
@@ -438,7 +438,7 @@ impl FrozenProviderCollectionValue {
             ProvidersName::UnrecognizedFlavor(flavor) => {
                 Err(ProviderCollectionError::UnknownFlavors {
                     target: label.unconfigured().to_string(),
-                    flavor: flavor.clone(),
+                    flavor: (**flavor).to_owned(),
                 }
                 .into())
             }

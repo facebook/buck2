@@ -174,7 +174,7 @@ impl PatternType for ProvidersPattern {
                 ));
             }
 
-            Ok((t, ProvidersName::Named(names)))
+            Ok((t, ProvidersName::Named(names.into_boxed_slice())))
         } else {
             Ok((s, ProvidersName::Default))
         }
@@ -791,7 +791,10 @@ mod tests {
             ProvidersPattern {
                 target: TargetName::unchecked_new(target),
                 providers: providers.map_or(ProvidersName::Default, |n| {
-                    ProvidersName::Named(n.map(|s| ProviderName::new((*s).to_owned()).unwrap()))
+                    ProvidersName::Named(
+                        n.map(|s| ProviderName::new((*s).to_owned()).unwrap())
+                            .into_boxed_slice(),
+                    )
                 }),
             },
         )

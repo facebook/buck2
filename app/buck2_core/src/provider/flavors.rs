@@ -56,7 +56,7 @@ pub fn map_flavors(flavors: &str) -> anyhow::Result<ProvidersName> {
 
     // sort a flavors list to have a deterministic order.
     flavors_parts.sort_unstable();
-    Ok(ProvidersName::Named(vec![ProviderName::new_unchecked(
+    Ok(ProvidersName::Named(box [ProviderName::new_unchecked(
         match flavors_parts.len() {
             // If we only had one flavor that represents some specific platform then return a default provider name.
             0 => {
@@ -91,7 +91,7 @@ pub fn map_flavors(flavors: &str) -> anyhow::Result<ProvidersName> {
                 // This is for js_bundle. We strip it and let the configuration handle it instead.
                 "android" => return Ok(ProvidersName::Default),
 
-                _ => return Ok(ProvidersName::UnrecognizedFlavor(flavors.to_owned())),
+                _ => return Ok(ProvidersName::UnrecognizedFlavor(flavors.into())),
             },
 
             // For js_bundle rules. The platform and optimization ("release") flavors are stripped
@@ -101,14 +101,14 @@ pub fn map_flavors(flavors: &str) -> anyhow::Result<ProvidersName> {
                 ("android", "misc") => "misc".to_owned(),
                 ("android", "source_map") => "source_map".to_owned(),
                 ("android", "release") => return Ok(ProvidersName::Default),
-                _ => return Ok(ProvidersName::UnrecognizedFlavor(flavors.to_owned())),
+                _ => return Ok(ProvidersName::UnrecognizedFlavor(flavors.into())),
             },
 
             3 => match (flavors_parts[0], flavors_parts[1], flavors_parts[2]) {
                 ("android", "dependencies", "release") => "dependencies".to_owned(),
                 ("android", "misc", "release") => "misc".to_owned(),
                 ("android", "release", "source_map") => "source_map".to_owned(),
-                _ => return Ok(ProvidersName::UnrecognizedFlavor(flavors.to_owned())),
+                _ => return Ok(ProvidersName::UnrecognizedFlavor(flavors.into())),
             },
 
             4 => match (
@@ -120,11 +120,11 @@ pub fn map_flavors(flavors: &str) -> anyhow::Result<ProvidersName> {
                 ("android", "misc", "rambundle-indexed", "release") => {
                     "rambundle-indexed-misc".to_owned()
                 }
-                _ => return Ok(ProvidersName::UnrecognizedFlavor(flavors.to_owned())),
+                _ => return Ok(ProvidersName::UnrecognizedFlavor(flavors.into())),
             },
 
             // This allows us to pass parsing for this thing.
-            _ => return Ok(ProvidersName::UnrecognizedFlavor(flavors.to_owned())),
+            _ => return Ok(ProvidersName::UnrecognizedFlavor(flavors.into())),
         },
     )]))
 }

@@ -196,6 +196,6 @@ fn value_to_providers_name<'v>(subtarget_name: Value<'v>) -> anyhow::Result<Prov
     Ok(if subtarget.is_empty() {
         ProvidersName::Default
     } else {
-        ProvidersName::Named(subtarget)
+        ProvidersName::Named(subtarget.into_boxed_slice())
     })
 }
