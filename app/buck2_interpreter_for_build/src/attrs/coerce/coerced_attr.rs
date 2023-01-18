@@ -20,6 +20,7 @@ use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use starlark::values::dict::DictRef;
 use starlark::values::Value;
+use starlark_map::small_map;
 use thiserror::Error;
 
 use crate::attrs::coerce::attr_type::AttrTypeExt;
@@ -36,6 +37,8 @@ enum SelectError {
     SelectCannotBeUsedForNonConfigurableAttr,
     #[error("duplicate `\"DEFAULT\"` key in `select()` (internal error)")]
     DuplicateDefaultKey,
+    #[error("duplicate key `{0}` in `select()`")]
+    DuplicateKey(String),
 }
 
 pub trait CoercedAttrExr: Sized {
@@ -92,7 +95,26 @@ impl CoercedAttrExr for CoercedAttr {
                                 default = Some(v);
                             } else {
                                 let target = ctx.coerce_target(k)?;
-                                entries.insert(target, v);
+                                match entries.entry(target) {
+                                    small_map::Entry::Occupied(e) => {
+                                        // This is possible for example when select keys
+                                        // are specified like:
+                                        // ```
+                                        // select({
+                                        //   "cell//foo:bar": 2,
+                                        //   "//foo:bar": 1,
+                                        //   ":bar": 3,
+                                        // })
+                                        // ```
+                                        // Keys are strings, but resolved to the same target.
+                                        return Err(
+                                            SelectError::DuplicateKey(e.key().to_string()).into()
+                                        );
+                                    }
+                                    small_map::Entry::Vacant(e) => {
+                                        e.insert(v);
+                                    }
+                                }
                             }
                         }
                         Ok(CoercedAttr::Selector(box CoercedSelector {
