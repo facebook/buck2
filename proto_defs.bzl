@@ -10,7 +10,14 @@ load("@fbcode_macros//build_defs:export_files.bzl", "export_file")
 load("@fbcode_macros//build_defs:native_rules.bzl", "buck_genrule")
 load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
 
-def rust_protobuf_library(name, srcs, build_script, protos, build_env = None, deps = None):
+def rust_protobuf_library(
+        name,
+        srcs,
+        build_script,
+        protos,
+        build_env = None,
+        deps = None,
+        doctests = True):
     build_name = name + "-build"
     proto_name = name + "-proto"
 
@@ -44,6 +51,7 @@ def rust_protobuf_library(name, srcs, build_script, protos, build_env = None, de
     rust_library(
         name = name,
         srcs = srcs,
+        doctests = doctests,
         env = {
             # This is where tonic looks for generated .rs files
             "OUT_DIR": "$(location :{})".format(proto_name),

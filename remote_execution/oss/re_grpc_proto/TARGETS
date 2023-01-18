@@ -7,6 +7,7 @@ rust_protobuf_library(
     name = "re_grpc_proto",
     srcs = glob(["src/**/*.rs"]),
     build_script = "build.rs",
+    doctests = False,  # FIXME
     protos = glob(["proto/**/*.proto"]),
     deps = [
         "fbsource//third-party/rust:prost",

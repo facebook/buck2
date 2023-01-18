@@ -48,7 +48,8 @@ def rust_protobuf_library(
         build_script,
         protos,
         build_env = None,
-        deps = None):
+        deps = None,
+        doctests = True):
     deps = _fix_deps(deps) if deps else None
     if build_env:
         build_env = {
@@ -90,6 +91,7 @@ def rust_protobuf_library(
     rust_library(
         name = name,
         srcs = srcs,
+        doctests = doctests,
         env = {
             # This is where tonic looks for generated .rs files
             "OUT_DIR": "$(location :{})".format(proto_name),
