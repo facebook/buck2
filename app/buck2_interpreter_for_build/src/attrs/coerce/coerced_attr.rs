@@ -25,7 +25,7 @@ use thiserror::Error;
 use crate::attrs::coerce::attr_type::AttrTypeExt;
 
 #[derive(Error, Debug)]
-pub enum SelectError {
+enum SelectError {
     #[error("select() condition was not a string, got `{0}`.")]
     KeyNotString(String),
     #[error("select() value was not a dict, got `{0}`.")]
