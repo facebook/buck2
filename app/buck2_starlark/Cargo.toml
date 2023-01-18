@@ -6,11 +6,14 @@ description = "`buck2 starlark` command implementation, both client and server"
 
 [dependencies]
 anyhow = { workspace = true }
+async-recursion = { workspace = true }
 async-trait = { workspace = true }
 clap = { workspace = true }
+dupe = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 starlark = { workspace = true }
+thiserror = { workspace = true }
 
 buck2_client_ctx = { workspace = true }
 buck2_cli_proto = { workspace = true }

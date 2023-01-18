@@ -14,6 +14,7 @@ use buck2_cli_proto::ClientContext;
 use buck2_client_ctx::path_arg::PathArg;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::data::HasIoProvider;
+use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::io::IoProvider;
 use buck2_core::cells::CellResolver;
 use buck2_interpreter::common::StarlarkPath;
@@ -56,28 +57,35 @@ impl StarlarkSubcommand for StarlarkLintCommand {
         server_ctx: Box<dyn ServerCommandContextTrait>,
         _client_ctx: ClientContext,
     ) -> anyhow::Result<()> {
-        let (cell_resolver, io) = server_ctx
-            .with_dice_ctx(async move |_, ctx| {
+        server_ctx
+            .with_dice_ctx(async move |server_ctx, ctx| {
                 let cell_resolver = ctx.get_cell_resolver().await?;
+                let fs = ctx.file_ops();
                 let io = ctx.global_data().get_io_provider();
-                Ok((cell_resolver, io))
-            })
-            .await?;
 
-        let mut stdout = server_ctx.stdout()?;
-        let mut lint_count = 0;
-        for file in starlark_files(&self.paths, &*server_ctx, &cell_resolver)? {
-            let lints = lint_file(&file.borrow(), &cell_resolver, &*io).await?;
-            lint_count += lints.len();
-            for lint in lints {
-                writeln!(stdout, "{}", lint)?;
-            }
-        }
-        if lint_count > 0 {
-            Err(anyhow::anyhow!("Found {} lints", lint_count))
-        } else {
-            Ok(())
-        }
+                let mut stdout = server_ctx.stdout()?;
+                let mut lint_count = 0;
+                let files =
+                    starlark_files(&self.paths, server_ctx, &cell_resolver, &fs, &*io).await?;
+                for file in &files {
+                    let lints = lint_file(&file.borrow(), &cell_resolver, &*io).await?;
+                    lint_count += lints.len();
+                    for lint in lints {
+                        writeln!(stdout, "{}", lint)?;
+                    }
+                }
+                if lint_count > 0 {
+                    Err(anyhow::anyhow!("Found {} lints", lint_count))
+                } else {
+                    writeln!(
+                        server_ctx.stderr()?,
+                        "Found no lints in {} files",
+                        files.len()
+                    )?;
+                    Ok(())
+                }
+            })
+            .await
     }
 
     fn common_opts(&self) -> &StarlarkCommandCommonOptions {
