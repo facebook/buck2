@@ -137,7 +137,7 @@ impl<'a, K: 'a, V: 'a> Iter<'a, K, V> {
 
 #[derive(Clone_)]
 pub(crate) struct IterHashed<'a, K: 'a, V: 'a> {
-    pub(crate) iter: vec2::iter::Iter<'a, (K, V), StarlarkHashValue>,
+    pub(crate) iter: vec2::Iter<'a, (K, V), StarlarkHashValue>,
 }
 
 impl<'a, K: 'a, V: 'a> IterHashed<'a, K, V> {
@@ -221,7 +221,7 @@ impl<'a, K: 'a, V: 'a> ExactSizeIterator for IterMutUnchecked<'a, K, V> {
 }
 
 pub(crate) struct IntoIterHashed<K, V> {
-    pub(crate) iter: vec2::iter::IntoIter<(K, V), StarlarkHashValue>,
+    pub(crate) iter: vec2::IntoIter<(K, V), StarlarkHashValue>,
 }
 
 impl<K, V> IntoIterHashed<K, V> {

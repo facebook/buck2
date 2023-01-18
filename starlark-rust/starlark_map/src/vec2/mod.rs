@@ -33,8 +33,10 @@ use allocative::Visitor;
 
 use crate::sorting::insertion::insertion_sort;
 use crate::sorting::insertion::slice_swap_shift;
+pub(crate) use crate::vec2::iter::IntoIter;
+pub(crate) use crate::vec2::iter::Iter;
 
-pub(crate) mod iter;
+mod iter;
 
 #[derive(Eq, PartialEq, Debug)]
 struct Vec2Layout<A, B> {
@@ -337,8 +339,8 @@ impl<A, B> Vec2<A, B> {
     }
 
     #[inline]
-    pub(crate) fn iter(&self) -> iter::Iter<'_, A, B> {
-        iter::Iter {
+    pub(crate) fn iter(&self) -> Iter<'_, A, B> {
+        Iter {
             aaa: self.aaa().iter(),
             bbb: self.bbb_ptr(),
             _marker: PhantomData,
@@ -347,8 +349,8 @@ impl<A, B> Vec2<A, B> {
 
     #[allow(clippy::mem_forget)]
     #[inline]
-    pub(crate) fn into_iter(self) -> iter::IntoIter<A, B> {
-        let iter = iter::IntoIter {
+    pub(crate) fn into_iter(self) -> IntoIter<A, B> {
+        let iter = IntoIter {
             aaa_begin: self.aaa_ptr(),
             bbb_begin: self.bbb_ptr(),
             bbb_end: unsafe { NonNull::new_unchecked(self.bbb_ptr().as_ptr().add(self.len)) },
@@ -411,7 +413,7 @@ impl<A, B> Drop for Vec2<A, B> {
 
 impl<'s, A, B> IntoIterator for &'s Vec2<A, B> {
     type Item = (&'s A, &'s B);
-    type IntoIter = iter::Iter<'s, A, B>;
+    type IntoIter = Iter<'s, A, B>;
 
     #[inline]
     fn into_iter(self) -> Self::IntoIter {
