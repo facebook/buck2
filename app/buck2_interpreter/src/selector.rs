@@ -30,22 +30,23 @@ use starlark::values::Tracer;
 use starlark::values::Value;
 use starlark::values::ValueLike;
 
+/// Representation of `select()` in Starlark.
 #[derive(Debug, ProvidesStaticType, NoSerialize, Allocative)] // TODO selector should probably support serializing
 #[repr(C)]
-pub enum SelectorGen<ValueType> {
+pub enum StarlarkSelectorGen<ValueType> {
     Inner(ValueType),
     Added(ValueType, ValueType),
 }
 
-impl<V: Display> Display for SelectorGen<V> {
+impl<V: Display> Display for StarlarkSelectorGen<V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            SelectorGen::Inner(v) => {
+            StarlarkSelectorGen::Inner(v) => {
                 f.write_str("select(")?;
                 v.fmt(f)?;
                 f.write_str(")")
             }
-            SelectorGen::Added(l, r) => {
+            StarlarkSelectorGen::Added(l, r) => {
                 l.fmt(f)?;
                 f.write_str(" + ")?;
                 r.fmt(f)
@@ -54,17 +55,17 @@ impl<V: Display> Display for SelectorGen<V> {
     }
 }
 
-unsafe impl<From: Coerce<To>, To> Coerce<SelectorGen<To>> for SelectorGen<From> {}
+unsafe impl<From: Coerce<To>, To> Coerce<StarlarkSelectorGen<To>> for StarlarkSelectorGen<From> {}
 
-starlark_complex_value!(pub Selector);
+starlark_complex_value!(pub StarlarkSelector);
 
-impl<'v> Selector<'v> {
+impl<'v> StarlarkSelector<'v> {
     pub fn new(d: Value<'v>) -> Self {
-        Selector::Inner(d)
+        StarlarkSelector::Inner(d)
     }
 
     pub fn added(left: Value<'v>, right: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        Ok(heap.alloc(Selector::Added(left, right)))
+        Ok(heap.alloc(StarlarkSelector::Added(left, right)))
     }
 
     /// Tests that two selects are equal to each other. For testing use only.
@@ -98,9 +99,9 @@ impl<'v> Selector<'v> {
             eval.eval_function(func, &[val], &[])
         }
 
-        if let Some(selector) = Selector::from_value(val) {
+        if let Some(selector) = StarlarkSelector::from_value(val) {
             match *selector {
-                SelectorGen::Inner(selector) => {
+                StarlarkSelectorGen::Inner(selector) => {
                     let selector = DictRef::from_value(selector).unwrap();
                     let mut mapped = SmallMap::with_capacity(selector.len());
                     for (k, v) in selector.iter_hashed() {
@@ -108,12 +109,14 @@ impl<'v> Selector<'v> {
                     }
                     Ok(eval
                         .heap()
-                        .alloc(Selector::new(eval.heap().alloc(Dict::new(mapped)))))
+                        .alloc(StarlarkSelector::new(eval.heap().alloc(Dict::new(mapped)))))
                 }
-                SelectorGen::Added(left, right) => Ok(eval.heap().alloc(SelectorGen::Added(
-                    Self::select_map(left, eval, func)?,
-                    Self::select_map(right, eval, func)?,
-                ))),
+                StarlarkSelectorGen::Added(left, right) => {
+                    Ok(eval.heap().alloc(StarlarkSelectorGen::Added(
+                        Self::select_map(left, eval, func)?,
+                        Self::select_map(right, eval, func)?,
+                    )))
+                }
             }
         } else {
             invoke(eval, func, val)
@@ -148,9 +151,9 @@ impl<'v> Selector<'v> {
                 })
         }
 
-        if let Some(selector) = Selector::from_value(val) {
+        if let Some(selector) = StarlarkSelector::from_value(val) {
             match *selector {
-                SelectorGen::Inner(selector) => {
+                StarlarkSelectorGen::Inner(selector) => {
                     let selector = DictRef::from_value(selector).unwrap();
                     for v in selector.values() {
                         let result = invoke(eval, func, v)?;
@@ -160,7 +163,7 @@ impl<'v> Selector<'v> {
                     }
                     Ok(false)
                 }
-                SelectorGen::Added(left, right) => {
+                StarlarkSelectorGen::Added(left, right) => {
                     Ok(Self::select_test(left, eval, func)?
                         || Self::select_test(right, eval, func)?)
                 }
@@ -171,15 +174,15 @@ impl<'v> Selector<'v> {
     }
 }
 
-pub trait SelectorBase<'v> {
+trait StarlarkSelectorBase<'v> {
     type Item: ValueLike<'v>;
 }
 
-impl<'v> SelectorBase<'v> for Selector<'v> {
+impl<'v> StarlarkSelectorBase<'v> for StarlarkSelector<'v> {
     type Item = Value<'v>;
 }
 
-unsafe impl<'v> Trace<'v> for Selector<'v> {
+unsafe impl<'v> Trace<'v> for StarlarkSelector<'v> {
     fn trace(&mut self, tracer: &Tracer<'v>) {
         match self {
             Self::Inner(a) => tracer.trace(a),
@@ -191,23 +194,25 @@ unsafe impl<'v> Trace<'v> for Selector<'v> {
     }
 }
 
-impl<'v> Freeze for Selector<'v> {
-    type Frozen = FrozenSelector;
+impl<'v> Freeze for StarlarkSelector<'v> {
+    type Frozen = FrozenStarlarkSelector;
     fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
         Ok(match self {
-            Selector::Inner(v) => FrozenSelector::Inner(v.freeze(freezer)?),
-            Selector::Added(l, r) => FrozenSelector::Added(l.freeze(freezer)?, r.freeze(freezer)?),
+            StarlarkSelector::Inner(v) => FrozenStarlarkSelector::Inner(v.freeze(freezer)?),
+            StarlarkSelector::Added(l, r) => {
+                FrozenStarlarkSelector::Added(l.freeze(freezer)?, r.freeze(freezer)?)
+            }
         })
     }
 }
 
-impl SelectorBase<'_> for FrozenSelector {
+impl StarlarkSelectorBase<'_> for FrozenStarlarkSelector {
     type Item = FrozenValue;
 }
 
-impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for SelectorGen<V>
+impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for StarlarkSelectorGen<V>
 where
-    Self: ProvidesStaticType + SelectorBase<'v, Item = V>,
+    Self: ProvidesStaticType + StarlarkSelectorBase<'v, Item = V>,
 {
     starlark_type!("selector");
 
@@ -217,21 +222,25 @@ where
 
     fn radd(&self, left: Value<'v>, heap: &'v Heap) -> Option<anyhow::Result<Value<'v>>> {
         let right = heap.alloc(match self {
-            SelectorGen::Inner(x) => SelectorGen::Inner(x.to_value()),
-            SelectorGen::Added(x, y) => SelectorGen::Added(x.to_value(), y.to_value()),
+            StarlarkSelectorGen::Inner(x) => StarlarkSelectorGen::Inner(x.to_value()),
+            StarlarkSelectorGen::Added(x, y) => {
+                StarlarkSelectorGen::Added(x.to_value(), y.to_value())
+            }
         });
-        Some(Selector::added(left, right, heap))
+        Some(StarlarkSelector::added(left, right, heap))
     }
 
     fn add(&self, other: Value<'v>, heap: &'v Heap) -> Option<anyhow::Result<Value<'v>>> {
         let this = match self {
-            Self::Inner(ref v) => heap.alloc(Selector::new(v.to_value())),
-            Self::Added(ref l, ref r) => match Selector::added(l.to_value(), r.to_value(), heap) {
-                Err(e) => return Some(Err(e)),
-                Ok(v) => v,
-            },
+            Self::Inner(ref v) => heap.alloc(StarlarkSelector::new(v.to_value())),
+            Self::Added(ref l, ref r) => {
+                match StarlarkSelector::added(l.to_value(), r.to_value(), heap) {
+                    Err(e) => return Some(Err(e)),
+                    Ok(v) => v,
+                }
+            }
         };
 
-        Some(Selector::added(this, other, heap))
+        Some(StarlarkSelector::added(this, other, heap))
     }
 }

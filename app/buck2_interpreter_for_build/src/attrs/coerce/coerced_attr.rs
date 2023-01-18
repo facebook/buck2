@@ -11,8 +11,8 @@
 
 use anyhow::Context;
 use buck2_core::collections::ordered_map::OrderedMap;
-use buck2_interpreter::selector::Selector;
-use buck2_interpreter::selector::SelectorGen;
+use buck2_interpreter::selector::StarlarkSelector;
+use buck2_interpreter::selector::StarlarkSelectorGen;
 use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
@@ -64,13 +64,13 @@ impl CoercedAttrExr for CoercedAttr {
         // Even if it did, we still need to verify that the two sides
         // are actually compatible (i.e. selectable can ensure that both sides are
         // lists, we can ensure that  both sides are List<T>)
-        if let Some(selector) = Selector::from_value(value) {
+        if let Some(selector) = StarlarkSelector::from_value(value) {
             if let AttrIsConfigurable::No = configuable {
                 return Err(SelectError::SelectCannotBeUsedForNonConfigurableAttr.into());
             }
 
             match *selector {
-                SelectorGen::Inner(v) => {
+                StarlarkSelectorGen::Inner(v) => {
                     if let Some(dict) = DictRef::from_value(v) {
                         let mut items = OrderedMap::with_capacity(dict.len());
                         let mut default = None;
@@ -98,7 +98,7 @@ impl CoercedAttrExr for CoercedAttr {
                         Err(anyhow::anyhow!(SelectError::ValueNotDict(v.to_repr())))
                     }
                 }
-                SelectorGen::Added(l, r) => {
+                StarlarkSelectorGen::Added(l, r) => {
                     if !attr.supports_concat() {
                         return Err(anyhow::anyhow!(SelectError::ConcatNotSupported(
                             attr.to_string(),
