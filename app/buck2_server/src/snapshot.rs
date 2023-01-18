@@ -11,12 +11,12 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use anyhow::Context as _;
-use buck2_common::process_stats::process_stats;
 use buck2_core::io_counters::IoCounterKey;
 use buck2_events::EventSink;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::manager::ReConnectionManager;
+use buck2_util::process_stats::process_stats;
 use dice::Dice;
 use dupe::Dupe;
 

@@ -10,7 +10,7 @@
 use std::mem;
 use std::time::Instant;
 
-use buck2_common::process_stats::process_cpu_time_us;
+use buck2_util::process_stats::process_cpu_time_us;
 
 pub(crate) struct ClientCpuTracker {
     last_instant: Instant,

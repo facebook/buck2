@@ -8,6 +8,7 @@ but not generic or stable enough to be published on crates.io as standalone crat
 """
 
 [dependencies]
+libc = { workspace = true }
 tokio = { workspace = true }
 
 [target.'cfg(windows)'.dependencies]
