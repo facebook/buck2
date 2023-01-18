@@ -10,19 +10,18 @@
 use allocative::Allocative;
 use buck2_core::collections::sorted_set::SortedSet;
 use buck2_core::package::package_relative_path::PackageRelativePath;
-use buck2_core::package::package_relative_path::PackageRelativePathBuf;
 
 use crate::package_listing::binary_search::binary_search_by;
 
 #[derive(Eq, PartialEq, Debug, Allocative)]
 pub struct PackageFileListing {
     /// This is kept sorted for efficient prefix matching.
-    pub(crate) files: SortedSet<PackageRelativePathBuf>,
+    pub(crate) files: SortedSet<Box<PackageRelativePath>>,
 }
 
 impl PackageFileListing {
     pub fn files(&self) -> impl ExactSizeIterator<Item = &PackageRelativePath> {
-        self.files.iter().map(PackageRelativePathBuf::as_ref)
+        self.files.iter().map(|x| &**x)
     }
 
     pub(crate) fn files_within(
@@ -90,7 +89,7 @@ pub mod testing {
         pub fn testing_new(files: &[&str]) -> PackageFileListing {
             let files = files
                 .iter()
-                .map(|f| PackageRelativePath::new(*f).unwrap().to_owned());
+                .map(|f| PackageRelativePath::new(*f).unwrap().to_owned().into_box());
             PackageFileListing {
                 files: SortedSet::from_iter(files),
             }

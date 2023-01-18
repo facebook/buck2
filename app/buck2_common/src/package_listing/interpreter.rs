@@ -16,7 +16,7 @@ use buck2_core::cells::CellResolver;
 use buck2_core::collections::sorted_set::SortedSet;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
-use buck2_core::package::package_relative_path::PackageRelativePathBuf;
+use buck2_core::package::package_relative_path::PackageRelativePath;
 use buck2_core::package::PackageLabel;
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
@@ -173,13 +173,14 @@ impl<'c> InterpreterPackageListingResolver<'c> {
 
         fn strip_prefixes<T>(root: &PackageLabel, xs: &[CellPath]) -> anyhow::Result<T>
         where
-            T: FromIterator<PackageRelativePathBuf>,
+            T: FromIterator<Box<PackageRelativePath>>,
         {
             xs.iter()
                 .map(|cell_path| {
-                    anyhow::Ok(PackageRelativePathBuf::from(
-                        cell_path.strip_prefix(root.as_cell_path())?.to_buf(),
-                    ))
+                    anyhow::Ok(
+                        <&PackageRelativePath>::from(cell_path.strip_prefix(root.as_cell_path())?)
+                            .to_box(),
+                    )
                 })
                 .collect::<anyhow::Result<T>>()
         }

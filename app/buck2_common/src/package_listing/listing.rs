@@ -14,7 +14,6 @@ use buck2_core::collections::sorted_set::SortedSet;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::package::package_relative_path::PackageRelativePath;
-use buck2_core::package::package_relative_path::PackageRelativePathBuf;
 use dupe::Dupe;
 use indexmap::IndexSet;
 
@@ -28,16 +27,16 @@ pub struct PackageListing {
 #[derive(Eq, PartialEq, Debug, Allocative)]
 struct PackageListingData {
     files: PackageFileListing,
-    directories: IndexSet<PackageRelativePathBuf>,
-    subpackages: Vec<PackageRelativePathBuf>,
+    directories: IndexSet<Box<PackageRelativePath>>,
+    subpackages: Vec<Box<PackageRelativePath>>,
     buildfile: FileNameBuf,
 }
 
 impl PackageListing {
     pub(crate) fn new(
-        files: SortedSet<PackageRelativePathBuf>,
-        directories: IndexSet<PackageRelativePathBuf>,
-        subpackages: Vec<PackageRelativePathBuf>,
+        files: SortedSet<Box<PackageRelativePath>>,
+        directories: IndexSet<Box<PackageRelativePath>>,
+        subpackages: Vec<Box<PackageRelativePath>>,
         buildfile: FileNameBuf,
     ) -> Self {
         Self {
@@ -117,9 +116,11 @@ pub mod testing {
 
         #[allow(clippy::from_iter_instead_of_collect)]
         fn testing_new(files: &[&str], buildfile: &str) -> Self {
-            let files = files
-                .iter()
-                .map(|f| PackageRelativePathBuf::unchecked_new((*f).to_owned()));
+            let files = files.iter().map(|f| {
+                PackageRelativePathBuf::try_from((*f).to_owned())
+                    .unwrap()
+                    .into_box()
+            });
             PackageListing::new(
                 SortedSet::from_iter(files),
                 IndexSet::new(),

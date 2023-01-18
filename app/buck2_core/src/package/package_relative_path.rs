@@ -326,6 +326,10 @@ impl PackageRelativePath {
     pub fn to_buf(&self) -> PackageRelativePathBuf {
         self.to_owned()
     }
+
+    pub fn to_box(&self) -> Box<PackageRelativePath> {
+        self.to_buf().into_box()
+    }
 }
 
 impl<'a> From<&'a ForwardRelativePath> for &'a PackageRelativePath {
