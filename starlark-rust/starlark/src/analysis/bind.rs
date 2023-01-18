@@ -17,8 +17,6 @@
 
 use std::collections::HashMap;
 
-use gazebo::prelude::SliceClonedExt;
-
 use crate::codemap::Pos;
 use crate::codemap::Span;
 use crate::syntax::ast::AssignIdentP;
@@ -58,44 +56,33 @@ pub(crate) enum Bind {
 
 /// A 'get' bind that was part of a dotted member access pattern.
 ///
-/// e.g. `x.y.z` would be considered an access of `x` with an access of `x.y.z`
+/// e.g. `x.y.z` would be considered a variable of `x` with attributes `y` and `z`
 #[derive(Debug, Clone)]
 pub(crate) struct GetDotted {
-    segments: Vec<AstString>,
+    pub(crate) variable: AstString,
+    pub(crate) attributes: Vec<AstString>,
 }
 
 impl GetDotted {
-    fn new(segments: Vec<AstString>) -> Self {
-        if segments.is_empty() {
-            // These are only constructed internally, so zero length is
-            // an incorrect usage, full stop.
-            panic!("Received empty GetDotted segments");
+    fn new(variable: AstString, attributes: Vec<AstString>) -> Self {
+        Self {
+            variable,
+            attributes,
         }
-        Self { segments }
-    }
-
-    /// All segments of a dotted access expression
-    ///
-    /// e.g. for `x.y.z` this would be `vec!["x", "y", "z"]`
-    pub(crate) fn segments(&self) -> &Vec<AstString> {
-        &self.segments
-    }
-
-    /// The identifier at the far left of the expression
-    ///
-    /// e.g. for `x.y.z` this would be `x`
-    pub(crate) fn root_identifier(&self) -> &AstString {
-        self.segments.first().expect("at least one element")
     }
 
     /// Determines if a position is contained in this dot access.
     ///
     /// The returned value is the index of the segment where `pos` was found, and
-    /// the span that contained it.
-    pub(crate) fn contains(&self, pos: Pos) -> Option<(usize, Span)> {
-        for (i, s) in self.segments.iter().enumerate() {
+    /// the span that contained it. If the Pos is inside the variable the index is None,
+    /// otherwise the index inside the attributes.
+    pub(crate) fn contains(&self, pos: Pos) -> Option<(Option<usize>, Span)> {
+        if self.variable.span.contains(pos) {
+            return Some((None, self.variable.span));
+        }
+        for (i, s) in self.attributes.iter().enumerate() {
             if s.span.contains(pos) {
-                return Some((i, s.span));
+                return Some((Some(i), s.span));
             }
         }
         None
@@ -124,8 +111,8 @@ impl Scope {
                     free.entry(x.node.clone()).or_insert(x.span);
                 }
                 Bind::GetDotted(x) => {
-                    let x = x.root_identifier();
-                    free.entry(x.node.clone()).or_insert(x.span);
+                    free.entry(x.variable.node.clone())
+                        .or_insert(x.variable.span);
                 }
                 Bind::Scope(scope) => scope.free.iter().for_each(|(k, v)| {
                     free.entry(k.clone()).or_insert(*v);
@@ -197,7 +184,10 @@ fn dot_access<'a>(lhs: &'a AstExpr, ident: &'a AstString, res: &mut Vec<Bind>) {
     }
     identifiers(lhs, &mut ids, res);
     ids.push(ident);
-    res.push(Bind::GetDotted(GetDotted::new(ids.cloned())));
+    res.push(Bind::GetDotted(GetDotted::new(
+        ids[0].clone(),
+        ids[1..].iter().map(|x| (*x).clone()).collect(),
+    )));
 }
 
 fn expr(x: &AstExpr, res: &mut Vec<Bind>) {
@@ -336,7 +326,9 @@ pub(crate) fn scope(module: &AstModule) -> Scope {
 
 #[cfg(test)]
 mod test {
-    use gazebo::prelude::VecExt;
+    use std::iter;
+
+    use gazebo::prelude::*;
 
     use crate::analysis::bind::scope;
     use crate::analysis::bind::Bind;
@@ -364,9 +356,10 @@ mod test {
             .inner
             .iter()
             .map(|b| match b {
-                Bind::GetDotted(get) => {
-                    Ok(get.segments.iter().map(|s| s.node.to_owned()).collect())
-                }
+                Bind::GetDotted(get) => Ok(iter::once(&get.variable)
+                    .chain(&get.attributes)
+                    .map(|s| s.node.to_owned())
+                    .collect()),
                 _ => Err(anyhow::anyhow!("Unexpected bind {:?}", b)),
             })
             .collect::<anyhow::Result<Vec<Vec<_>>>>()?;
@@ -396,9 +389,9 @@ mod test {
         let z1_pos = Pos::new(7);
         let x2_pos = Pos::new(10);
 
-        let x1_expected = Some((0, Span::new(Pos::new(0), Pos::new(2))));
-        let y1_expected = Some((1, Span::new(Pos::new(3), Pos::new(5))));
-        let z1_expected = Some((2, Span::new(Pos::new(6), Pos::new(8))));
+        let x1_expected = Some((None, Span::new(Pos::new(0), Pos::new(2))));
+        let y1_expected = Some((Some(0), Span::new(Pos::new(3), Pos::new(5))));
+        let z1_expected = Some((Some(1), Span::new(Pos::new(6), Pos::new(8))));
 
         assert_eq!(x1_expected, get.contains(x1_pos));
         assert_eq!(y1_expected, get.contains(y1_pos));

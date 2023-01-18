@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+use std::iter;
+
 use crate::analysis::bind::scope;
 use crate::analysis::bind::Assigner;
 use crate::analysis::bind::Bind;
@@ -131,10 +133,12 @@ struct TempDottedDefinition<'a> {
     ///
     /// For example, this would be the location of `x` if `source` enclosed `y` in `x.y.z`.
     root_definition_location: TempIdentifierDefinition<'a>,
-    /// All of the identifiers up to the one that `source` includes.
+    /// The variable you are pointing at, e.g. `x.y.z` would be `x`.
+    variable: &'a AstString,
+    /// All of the attributes up to the one that `source` includes.
     ///
-    /// For example. if the `y` in `x.y.z` is the source, this would contain `x` and `y`.
-    segments: &'a [AstString],
+    /// For example. if the `y` in `x.y.z` is the source, this would contain `y`.
+    attributes: &'a [AstString],
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -246,7 +250,10 @@ impl LspModule {
                     &scope,
                     current_pos,
                 ),
-                segments: def.segments.iter().map(|s| s.node.to_owned()).collect(),
+                segments: iter::once(def.variable)
+                    .chain(def.attributes)
+                    .map(|s| s.node.to_owned())
+                    .collect(),
             }
             .into(),
         }
@@ -302,7 +309,8 @@ impl LspModule {
                                     source: root_source,
                                     name: root_name,
                                 },
-                            segments,
+                            variable,
+                            attributes,
                         }) => {
                             return TempDefinition::Dotted(TempDottedDefinition {
                                 source,
@@ -311,7 +319,8 @@ impl LspModule {
                                     root_name,
                                     root_source,
                                 ),
-                                segments,
+                                variable,
+                                attributes,
                             });
                         }
                         x @ TempDefinition::Identifier(TempIdentifierDefinition::Location {
@@ -327,22 +336,24 @@ impl LspModule {
                 }
                 Bind::GetDotted(dotted) => {
                     if let Some((idx, source)) = dotted.contains(pos) {
-                        let root_identifier = dotted.root_identifier();
+                        let root_identifier = &dotted.variable;
                         let root_definition_location = resolve_get_in_scope(
                             scope,
                             root_identifier.node.as_str(),
                             root_identifier.span,
                         );
                         // If someone clicks on the "root" identifier, just treat it as a "get"
-                        if idx == 0 {
-                            return root_definition_location.into();
-                        } else {
-                            return TempDottedDefinition {
-                                source,
-                                root_definition_location,
-                                segments: &dotted.segments()[0..idx + 1],
+                        match idx {
+                            None => return root_definition_location.into(),
+                            Some(idx) => {
+                                return TempDottedDefinition {
+                                    source,
+                                    root_definition_location,
+                                    variable: &dotted.variable,
+                                    attributes: &dotted.attributes[0..idx + 1],
+                                }
+                                .into();
                             }
-                            .into();
                         }
                     }
                 }

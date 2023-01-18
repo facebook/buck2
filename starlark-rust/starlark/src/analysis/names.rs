@@ -134,7 +134,7 @@ fn duplicate_assign(
                 warnings.remove(x.node.as_str());
             }
             Bind::GetDotted(x) => {
-                warnings.remove(x.root_identifier().node.as_str());
+                warnings.remove(x.variable.node.as_str());
             }
             Bind::Scope(scope) => {
                 duplicate_assign(codemap, scope, false, res);
@@ -167,7 +167,7 @@ fn unused_variable(codemap: &CodeMap, scope: &Scope, top: bool, res: &mut Vec<Li
                 warnings.remove(&x.node);
             }
             Bind::GetDotted(x) => {
-                warnings.remove(&x.root_identifier().node);
+                warnings.remove(&x.variable.node);
             }
             Bind::Scope(scope) => {
                 unused_variable(codemap, scope, false, res);
