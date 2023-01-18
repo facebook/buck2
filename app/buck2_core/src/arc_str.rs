@@ -127,17 +127,6 @@ impl From<String> for ArcStr {
     }
 }
 
-impl From<Arc<str>> for ArcStr {
-    #[inline]
-    fn from(s: Arc<str>) -> ArcStr {
-        if s.is_empty() {
-            ArcStr::default()
-        } else {
-            ArcStr(Some(s))
-        }
-    }
-}
-
 impl Serialize for ArcStr {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         self.as_str().serialize(serializer)
