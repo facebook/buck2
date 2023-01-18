@@ -86,6 +86,9 @@ pub use buck2_server_ctx::logging::TracingLogFile;
 
 #[derive(Debug, clap::Parser)]
 pub(crate) struct CommonOptions {
+    /// Instances of Buck2 share a daemon if and only if their isolation directory is identical.
+    /// The isolation directory also influences the output paths provided by Buck2,
+    /// and as a result using a non-default isolation dir will cause cache misses (and slower builds).
     #[clap(
         parse(try_from_str = parse_isolation_dir),
         env("BUCK_ISOLATION_DIR"),
