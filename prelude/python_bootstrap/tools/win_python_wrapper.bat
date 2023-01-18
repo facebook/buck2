@@ -17,6 +17,5 @@ setlocal enabledelayedexpansion
 set args=;;;;;;%*
 set args=!args:;;;;;;%1 =!
 
-set PYTHONPATH=%1;
+set PYTHONPATH=%1
 %args%
-endlocal
