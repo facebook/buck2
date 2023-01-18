@@ -61,8 +61,8 @@ load("@prelude//lua:lua_binary.bzl", "lua_binary_impl")
 load("@prelude//lua:lua_library.bzl", "lua_library_impl")
 
 # OCaml
+load("@prelude//ocaml:attrs.bzl", _ocaml_extra_attributes = "ocaml_extra_attributes")
 load("@prelude//ocaml:ocaml.bzl", "ocaml_binary_impl", "ocaml_library_impl", "ocaml_object_impl", "ocaml_shared_impl", "prebuilt_ocaml_library_impl")
-load("@prelude//ocaml:providers.bzl", "OCamlPlatformInfo", "OCamlToolchainInfo")
 
 # Python
 load("@prelude//python:cxx_python_extension.bzl", "cxx_python_extension_impl")
@@ -313,9 +313,6 @@ def _rust_toolchain():
 def _go_toolchain():
     return _toolchain("go", [GoToolchainInfo])
 
-def _ocaml_toolchain():
-    return _toolchain("ocaml", [OCamlToolchainInfo, OCamlPlatformInfo])
-
 def _python_toolchain():
     return _toolchain("python", [PythonToolchainInfo, PythonPlatformInfo])
 
@@ -476,54 +473,6 @@ inlined_extra_attributes = {
         "sha1": attrs.option(attrs.string(), default = None),
         "sha256": attrs.option(attrs.string(), default = None),
     },
-
-    #ocaml
-    "ocaml_binary": {
-        "_cxx_toolchain": _cxx_toolchain(),
-        "_ocaml_toolchain": _ocaml_toolchain(),
-    },
-    "ocaml_library": {
-        "_cxx_toolchain": _cxx_toolchain(),
-        "_ocaml_toolchain": _ocaml_toolchain(),
-    },
-    "ocaml_object": {
-        "bytecode_only": attrs.option(attrs.bool(), default = None),
-        "compiler_flags": attrs.list(attrs.arg(), default = []),
-        "contacts": attrs.list(attrs.string(), default = []),
-        "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-        "deps": attrs.list(attrs.dep(), default = []),
-        "labels": attrs.list(attrs.string(), default = []),
-        "licenses": attrs.list(attrs.source(), default = []),
-        "linker_flags": attrs.list(attrs.string(), default = []),
-        "ocamldep_flags": attrs.list(attrs.arg(), default = []),
-        "platform": attrs.option(attrs.string(), default = None),
-        "platform_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
-        "platform_linker_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.string())), default = []),
-        "srcs": attrs.option(attrs.named_set(attrs.source(), sorted = False), default = None),
-        "warnings_flags": attrs.option(attrs.string(), default = None),
-        "within_view": attrs.option(attrs.list(attrs.string()), default = None),
-        "_cxx_toolchain": _cxx_toolchain(),
-        "_ocaml_toolchain": _ocaml_toolchain(),
-    },
-    "ocaml_shared": {
-        "bytecode_only": attrs.option(attrs.bool(), default = None),
-        "compiler_flags": attrs.list(attrs.arg(), default = []),
-        "contacts": attrs.list(attrs.string(), default = []),
-        "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-        "deps": attrs.list(attrs.dep(), default = []),
-        "labels": attrs.list(attrs.string(), default = []),
-        "licenses": attrs.list(attrs.source(), default = []),
-        "linker_flags": attrs.list(attrs.string(), default = []),
-        "ocamldep_flags": attrs.list(attrs.arg(), default = []),
-        "platform": attrs.option(attrs.string(), default = None),
-        "platform_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
-        "platform_linker_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.string())), default = []),
-        "srcs": attrs.option(attrs.named_set(attrs.source(), sorted = False), default = None),
-        "warnings_flags": attrs.option(attrs.string(), default = None),
-        "within_view": attrs.option(attrs.list(attrs.string()), default = None),
-        "_cxx_toolchain": _cxx_toolchain(),
-        "_ocaml_toolchain": _ocaml_toolchain(),
-    },
     "prebuilt_cxx_library": {
         "exported_header_style": attrs.enum(IncludeType, default = "system"),
         "header_dirs": attrs.option(attrs.list(attrs.source(allow_directory = True)), default = None),
@@ -536,20 +485,6 @@ inlined_extra_attributes = {
         "versioned_header_dirs": attrs.option(attrs.versioned(attrs.list(attrs.source(allow_directory = True))), default = None),
         "_cxx_toolchain": _cxx_toolchain(),
         "_omnibus_environment": omnibus_environment_attr(),
-    },
-    "prebuilt_ocaml_library": {
-
-        # These fields in 'attributes.bzl' are wrong.
-        #
-        # There they are defined in terms of `attrs.string()`. This
-        # block overrides/corrects them here so as to be in terms of
-        # `attrs.source()`.
-        "bytecode_c_libs": attrs.list(attrs.source(), default = []),
-        "bytecode_lib": attrs.option(attrs.source(), default = None),
-        "c_libs": attrs.list(attrs.source(), default = []),
-        "include_dir": attrs.option(attrs.source(allow_directory = True), default = None),
-        "native_c_libs": attrs.list(attrs.source(), default = []),
-        "native_lib": attrs.option(attrs.source(), default = None),
     },
 
     #python
@@ -676,6 +611,7 @@ all_extra_attributes = _merge_dictionaries([
     _java_extra_attributes,
     _js_extra_attributes,
     _kotlin_extra_attributes,
+    _ocaml_extra_attributes,
     _zip_file_extra_attributes,
 ])
 

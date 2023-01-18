@@ -95,7 +95,7 @@ load("@prelude//utils:graph_utils.bzl", "breadth_first_traversal", "topo_sort")
 load("@prelude//utils:platform_flavors_util.bzl", "by_platform")
 load("@prelude//utils:utils.bzl", "filter_and_map_idx", "flatten")
 load(":makefile.bzl", "parse_makefile")
-load(":providers.bzl", "OCamlLibraryInfo", "OCamlLinkInfo", "OCamlToolchainInfo", "OtherOutputsInfo", "merge_ocaml_link_infos", "merge_other_outputs_info")
+load(":ocaml_toolchain_types.bzl", "OCamlLibraryInfo", "OCamlLinkInfo", "OCamlToolchainInfo", "OtherOutputsInfo", "merge_ocaml_link_infos", "merge_other_outputs_info")
 
 BuildMode = enum("native", "bytecode")
 

@@ -6,7 +6,7 @@
 # of this source tree.
 
 load(
-    "@prelude//ocaml/providers.bzl",
+    "@prelude//ocaml/ocaml_toolchain_types.bzl",
     "OCamlPlatformInfo",
     "OCamlToolchainInfo",
 )
