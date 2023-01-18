@@ -19,10 +19,10 @@
 
 use allocative::Allocative;
 use derive_more::Display;
-use gazebo::any::ProvidesStaticType;
 use gazebo::coerce::Coerce;
 
 use crate as starlark;
+use crate::any::ProvidesStaticType;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
 use crate::values::StringValue;

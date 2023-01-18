@@ -22,7 +22,7 @@ use buck2_execute::base_deferred_key::BaseDeferredKey;
 use buck2_execute::path::artifact_path::ArtifactPath;
 use buck2_interpreter::types::label::Label;
 use dupe::Dupe;
-use gazebo::any::ProvidesStaticType;
+use starlark::any::ProvidesStaticType;
 use starlark::codemap::FileSpan;
 use starlark::collections::StarlarkHasher;
 use starlark::environment::Methods;

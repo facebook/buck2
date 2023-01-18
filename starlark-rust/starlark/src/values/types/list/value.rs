@@ -26,13 +26,13 @@ use std::fmt::Formatter;
 use std::slice;
 
 use allocative::Allocative;
-use gazebo::any::ProvidesStaticType;
 use gazebo::coerce::coerce;
 use gazebo::display::display_container;
 use gazebo::prelude::*;
 use serde::Serialize;
 
 use crate as starlark;
+use crate::any::ProvidesStaticType;
 use crate::environment::Methods;
 use crate::environment::MethodsStatic;
 use crate::hint::likely;

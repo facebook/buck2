@@ -277,7 +277,7 @@ impl ProviderCodegen {
             impl<'v, V: starlark::values::ValueLike<'v> + 'v> starlark::values::StarlarkValue<'v>
                 for #gen_name<V>
             where
-                Self: gazebo::any::ProvidesStaticType,
+                Self: starlark::any::ProvidesStaticType,
             {
                 starlark::starlark_type!(#name_str);
 
@@ -377,7 +377,7 @@ impl ProviderCodegen {
         let vis = &self.input.vis;
         let callable_name = self.callable_name()?;
         Ok(quote! {
-            #[derive(Debug, Clone, dupe::Dupe, gazebo::any::ProvidesStaticType, starlark::values::NoSerialize, allocative::Allocative)]
+            #[derive(Debug, Clone, dupe::Dupe, starlark::any::ProvidesStaticType, starlark::values::NoSerialize, allocative::Allocative)]
             #vis struct #callable_name {
                 id: &'static std::sync::Arc<buck2_core::provider::id::ProviderId>,
             }

@@ -21,9 +21,9 @@ use std::fmt::Display;
 
 use allocative::Allocative;
 use fancy_regex::Regex;
-use gazebo::any::ProvidesStaticType;
 
 use crate as starlark;
+use crate::any::ProvidesStaticType;
 use crate::environment::Methods;
 use crate::environment::MethodsBuilder;
 use crate::environment::MethodsStatic;

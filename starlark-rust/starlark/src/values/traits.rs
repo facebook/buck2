@@ -35,8 +35,8 @@ use std::fmt::Write;
 
 use allocative::Allocative;
 use erased_serde::Serialize;
-use gazebo::any::ProvidesStaticType;
 
+use crate::any::ProvidesStaticType;
 use crate::collections::Hashed;
 use crate::collections::StarlarkHasher;
 use crate::docs::DocItem;

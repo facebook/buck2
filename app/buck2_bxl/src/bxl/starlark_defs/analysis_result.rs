@@ -11,7 +11,7 @@ use allocative::Allocative;
 use buck2_build_api::analysis::AnalysisResult;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use derive_more::Display;
-use gazebo::any::ProvidesStaticType;
+use starlark::any::ProvidesStaticType;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;

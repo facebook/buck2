@@ -9,8 +9,8 @@
 
 use allocative::Allocative;
 use derive_more::Display;
-use gazebo::any::ProvidesStaticType;
 use gazebo::coerce::Coerce;
+use starlark::any::ProvidesStaticType;
 use starlark::starlark_type;
 use starlark::values::Freeze;
 use starlark::values::NoSerialize;

@@ -10,7 +10,7 @@
 use std::sync::Arc;
 
 use buck2_core::configuration::transition::id::TransitionId;
-use gazebo::any::ProvidesStaticType;
+use starlark::any::ProvidesStaticType;
 use starlark::values::Value;
 
 #[derive(Debug, thiserror::Error)]

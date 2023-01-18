@@ -22,10 +22,10 @@ use std::collections::HashMap;
 use allocative::Allocative;
 use derivative::Derivative;
 use derive_more::Display;
-use gazebo::any::ProvidesStaticType;
 use gazebo::coerce::Coerce;
 
 use crate as starlark;
+use crate::any::ProvidesStaticType;
 use crate::docs;
 use crate::docs::DocItem;
 use crate::docs::DocStringKind;

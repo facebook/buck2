@@ -21,7 +21,7 @@ use buck2_common::executor_config::PathSeparatorKind;
 use buck2_common::executor_config::RemoteExecutorOptions;
 use buck2_common::executor_config::RemoteExecutorUseCase;
 use derive_more::Display;
-use gazebo::any::ProvidesStaticType;
+use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
 use starlark::values::dict::DictRef;
 use starlark::values::none::NoneOr;

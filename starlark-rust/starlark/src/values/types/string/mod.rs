@@ -34,10 +34,10 @@ use std::sync::atomic;
 
 use allocative::Allocative;
 use dupe::Dupe;
-use gazebo::any::ProvidesStaticType;
 use serde::Serialize;
 
 use crate as starlark;
+use crate::any::ProvidesStaticType;
 use crate::collections::aligned_padded_str::AlignedPaddedStr;
 use crate::collections::Hashed;
 use crate::collections::StarlarkHashValue;

@@ -14,7 +14,7 @@ use std::fmt::Display;
 use allocative::Allocative;
 use anyhow::Context;
 use dupe::Dupe;
-use gazebo::any::ProvidesStaticType;
+use starlark::any::ProvidesStaticType;
 use starlark::starlark_type;
 use starlark::values::AllocValue;
 use starlark::values::Freeze;

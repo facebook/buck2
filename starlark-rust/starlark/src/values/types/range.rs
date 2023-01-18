@@ -24,9 +24,9 @@ use std::num::NonZeroI32;
 
 use allocative::Allocative;
 use dupe::Dupe;
-use gazebo::any::ProvidesStaticType;
 
 use crate as starlark;
+use crate::any::ProvidesStaticType;
 use crate::values::index::convert_index;
 use crate::values::index::convert_slice_indices;
 use crate::values::Heap;

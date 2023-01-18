@@ -12,7 +12,7 @@ use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use buck2_node::nodes::unconfigured::TargetNode;
 use derive_more::Display;
 use dupe::Dupe;
-use gazebo::any::ProvidesStaticType;
+use starlark::any::ProvidesStaticType;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;

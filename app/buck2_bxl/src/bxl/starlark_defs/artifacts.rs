@@ -19,9 +19,9 @@ use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::S
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkDeclaredArtifact;
 use dupe::Dupe;
-use gazebo::any::ProvidesStaticType;
 use serde::Serialize;
 use serde::Serializer;
+use starlark::any::ProvidesStaticType;
 use starlark::collections::StarlarkHasher;
 use starlark::docs::StarlarkDocs;
 use starlark::environment::Methods;

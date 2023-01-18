@@ -50,7 +50,6 @@ use std::hash::Hash;
 use allocative::Allocative;
 use dupe::Dupe;
 use either::Either;
-use gazebo::any::ProvidesStaticType;
 use gazebo::cell::AsARef;
 use gazebo::coerce::coerce;
 use gazebo::coerce::Coerce;
@@ -58,6 +57,7 @@ use gazebo::display::display_keyed_container;
 use serde::Serialize;
 
 use crate as starlark;
+use crate::any::ProvidesStaticType;
 use crate::collections::Hashed;
 use crate::collections::SmallMap;
 use crate::collections::StarlarkHasher;

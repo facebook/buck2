@@ -591,10 +591,10 @@ fn common_documentation<'a>(
 #[cfg(test)]
 mod tests {
     use derive_more::Display;
-    use gazebo::any::ProvidesStaticType;
 
     use super::*;
     use crate as starlark;
+    use crate::any::ProvidesStaticType;
     use crate::assert::Assert;
     use crate::starlark_type;
     use crate::values::NoSerialize;

@@ -12,7 +12,6 @@
 
 //! A collection of well-tested primitives that have been useful. Most modules stand alone.
 
-pub mod any;
 pub mod cast;
 pub mod cell;
 pub mod cmp;

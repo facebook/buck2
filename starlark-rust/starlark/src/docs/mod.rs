@@ -890,11 +890,11 @@ mod tests {
     use std::fmt::Formatter;
 
     use allocative::Allocative;
-    use gazebo::any::ProvidesStaticType;
     use starlark_derive::starlark_module;
 
     use super::*;
     use crate as starlark;
+    use crate::any::ProvidesStaticType;
     use crate::environment::GlobalsBuilder;
     use crate::environment::GlobalsStatic;
     use crate::environment::Methods;

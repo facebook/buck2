@@ -33,8 +33,9 @@ use gazebo::coerce::Coerce;
 use gazebo::coerce::CoerceKey;
 use serde::Serialize;
 
-use crate::gazebo::any::AnyLifetime;
-use crate::gazebo::any::ProvidesStaticType;
+use crate as starlark;
+use crate::any::AnyLifetime;
+use crate::any::ProvidesStaticType;
 use crate::values::alloc_value::AllocFrozenStringValue;
 use crate::values::alloc_value::AllocStringValue;
 use crate::values::int::PointerI32;

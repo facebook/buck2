@@ -28,9 +28,10 @@ use std::ptr;
 use std::slice;
 
 use allocative::Allocative;
-use gazebo::any::ProvidesStaticType;
 use serde::Serialize;
 
+use crate as starlark;
+use crate::any::ProvidesStaticType;
 use crate::private::Private;
 use crate::values::types::list::value::display_list;
 use crate::values::StarlarkValue;

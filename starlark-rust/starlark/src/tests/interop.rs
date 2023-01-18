@@ -23,10 +23,10 @@ use std::sync::Mutex;
 
 use allocative::Allocative;
 use derive_more::Display;
-use gazebo::any::ProvidesStaticType;
 use gazebo::cell::AsARef;
 
 use crate as starlark;
+use crate::any::ProvidesStaticType;
 use crate::assert;
 use crate::assert::Assert;
 use crate::collections::SmallMap;
@@ -49,9 +49,8 @@ fn test_export_as() {
     use std::fmt::Debug;
     use std::fmt::Display;
 
-    use gazebo::any::ProvidesStaticType;
-
     use crate as starlark;
+    use crate::any::ProvidesStaticType;
     use crate::values::AllocValue;
     use crate::values::Heap;
     use crate::values::StarlarkValue;

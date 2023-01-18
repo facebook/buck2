@@ -11,8 +11,8 @@ use std::fmt;
 use std::fmt::Display;
 
 use allocative::Allocative;
-use gazebo::any::ProvidesStaticType;
 use gazebo::coerce::Coerce;
+use starlark::any::ProvidesStaticType;
 use starlark::collections::SmallMap;
 use starlark::eval::Evaluator;
 use starlark::starlark_complex_value;

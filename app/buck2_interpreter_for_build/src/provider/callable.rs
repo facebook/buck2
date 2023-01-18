@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 use buck2_core::provider::id::ProviderId;
 use dupe::Dupe;
-use gazebo::any::ProvidesStaticType;
+use starlark::any::ProvidesStaticType;
 use starlark::docs;
 use starlark::docs::DocItem;
 use starlark::docs::DocString;

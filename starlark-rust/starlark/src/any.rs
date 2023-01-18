@@ -1,10 +1,18 @@
 /*
- * Copyright (c) Meta Platforms, Inc. and affiliates.
+ * Copyright 2019 The Starlark in Rust Authors.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
- * This source code is licensed under both the MIT license found in the
- * LICENSE-MIT file in the root directory of this source tree and the Apache
- * License, Version 2.0 found in the LICENSE-APACHE file in the root directory
- * of this source tree.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 //! Methods that build upon the [`Any` trait](std::any::Any).
@@ -18,7 +26,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::Arc;
 
-pub use gazebo_derive::ProvidesStaticType;
+pub use starlark_derive::ProvidesStaticType;
 
 /// Provides access to the same type as `Self` but with all lifetimes dropped to `'static`
 /// (including lifetimes of parameters).
@@ -61,7 +69,7 @@ unsafe impl<'a, T: ProvidesStaticType + 'a + ?Sized> AnyLifetime<'a> for T {
 /// `AnyLifetime`:
 ///
 /// ```
-/// use gazebo::any::ProvidesStaticType;
+/// use starlark::any::ProvidesStaticType;
 /// #[derive(ProvidesStaticType)]
 /// struct Foo1();
 /// #[derive(ProvidesStaticType)]
@@ -72,7 +80,7 @@ unsafe impl<'a, T: ProvidesStaticType + 'a + ?Sized> AnyLifetime<'a> for T {
 /// directly.
 ///
 /// ```
-/// use gazebo::any::ProvidesStaticType;
+/// use starlark::any::ProvidesStaticType;
 /// # fn main() {
 /// # use std::fmt::Display;
 /// struct Baz<T: Display>(T);
@@ -243,8 +251,7 @@ mod tests {
     use std::fmt::Display;
 
     use super::*;
-    #[allow(unused_imports)] // Not actually unused, this makes testing the derive macro work
-    use crate as gazebo;
+    use crate as starlark;
 
     #[test]
     fn test_can_convert() {

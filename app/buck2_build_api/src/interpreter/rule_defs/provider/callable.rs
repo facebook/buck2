@@ -18,7 +18,7 @@ use buck2_core::cells::cell_path::CellPath;
 use buck2_core::provider::id::ProviderId;
 use buck2_interpreter_for_build::provider::callable::ProviderCallableLike;
 use dupe::Dupe;
-use gazebo::any::ProvidesStaticType;
+use starlark::any::ProvidesStaticType;
 use starlark::docs::DocItem;
 use starlark::docs::DocString;
 use starlark::environment::GlobalsBuilder;

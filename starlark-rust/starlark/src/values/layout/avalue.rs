@@ -23,13 +23,14 @@ use std::mem;
 
 use allocative::Allocative;
 use derive_more::Display;
-use gazebo::any::ProvidesStaticType;
 use gazebo::cast;
 use gazebo::prelude::*;
 use serde::Serialize;
 use serde::Serializer;
 use starlark_map::small_map::SmallMap;
 
+use crate as starlark;
+use crate::any::ProvidesStaticType;
 use crate::collections::maybe_uninit_backport::maybe_uninit_write_slice;
 use crate::collections::StarlarkHashValue;
 use crate::collections::StarlarkHasher;

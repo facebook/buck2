@@ -18,8 +18,7 @@
 use std::any::TypeId;
 use std::marker::PhantomData;
 
-use gazebo::any::AnyLifetime;
-
+use crate::any::AnyLifetime;
 use crate::values::Value;
 
 /// Taken by [`StarlarkValue::provide`](crate::values::StarlarkValue::provide)
@@ -61,9 +60,9 @@ pub(crate) fn request_value_impl<'v, T: AnyLifetime<'v>>(value: Value<'v>) -> Op
 #[cfg(test)]
 mod tests {
     use allocative::Allocative;
-    use gazebo::any::ProvidesStaticType;
 
     use crate as starlark;
+    use crate::any::ProvidesStaticType;
     use crate::values::demand::Demand;
     use crate::values::Heap;
     use crate::values::StarlarkValue;

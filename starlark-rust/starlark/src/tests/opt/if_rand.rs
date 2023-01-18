@@ -23,12 +23,12 @@ use std::fmt::Display;
 
 use derive_more::Display;
 use dupe::Dupe;
-use gazebo::any::ProvidesStaticType;
 use rand::rngs::SmallRng;
 use rand::Rng;
 use rand::SeedableRng;
 
 use crate as starlark;
+use crate::any::ProvidesStaticType;
 use crate::environment::GlobalsBuilder;
 use crate::environment::Module;
 use crate::eval::Evaluator;

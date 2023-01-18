@@ -25,10 +25,10 @@ use std::hash::Hasher;
 
 use allocative::Allocative;
 use dupe::Dupe;
-use gazebo::any::ProvidesStaticType;
 use serde::Serialize;
 
 use crate as starlark;
+use crate::any::ProvidesStaticType;
 use crate::collections::StarlarkHasher;
 use crate::private::Private;
 use crate::values::num::Num;

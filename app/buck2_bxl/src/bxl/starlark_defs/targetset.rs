@@ -15,7 +15,7 @@ use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use buck2_query::query::syntax::simple::eval::set::TargetSetExt;
 use derive_more::Display;
 use dupe::Dupe;
-use gazebo::any::ProvidesStaticType;
+use starlark::any::ProvidesStaticType;
 use starlark::starlark_type;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;

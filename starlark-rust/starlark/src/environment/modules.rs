@@ -31,9 +31,10 @@ use std::time::Instant;
 use allocative::Allocative;
 use derive_more::Display;
 use dupe::Dupe;
-use gazebo::any::ProvidesStaticType;
 use itertools::Itertools;
 
+use crate as starlark;
+use crate::any::ProvidesStaticType;
 use crate::collections::Hashed;
 use crate::docs;
 use crate::docs::DocItem;

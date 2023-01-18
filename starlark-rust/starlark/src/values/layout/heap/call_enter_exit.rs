@@ -21,9 +21,9 @@ use std::fmt::Debug;
 use std::time::Instant;
 
 use allocative::Allocative;
-use gazebo::any::ProvidesStaticType;
 
 use crate as starlark;
+use crate::any::ProvidesStaticType;
 use crate::values::StarlarkValue;
 use crate::values::Trace;
 use crate::values::Value;

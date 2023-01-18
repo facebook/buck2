@@ -23,9 +23,9 @@ use std::ptr;
 
 use dupe::Dupe;
 use either::Either;
-use gazebo::any::AnyLifetime;
 use gazebo::cast;
 
+use crate::any::AnyLifetime;
 use crate::values::layout::avalue::AValue;
 use crate::values::layout::heap::arena::MIN_ALLOC;
 use crate::values::layout::heap::heap_type::HeapKind;

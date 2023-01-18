@@ -73,9 +73,9 @@ use std::fmt::Debug;
 use std::fmt::Display;
 
 use allocative::Allocative;
-use gazebo::any::ProvidesStaticType;
 
 use crate as starlark;
+use crate::any::ProvidesStaticType;
 use crate::values::AllocValue;
 use crate::values::Heap;
 use crate::values::StarlarkValue;

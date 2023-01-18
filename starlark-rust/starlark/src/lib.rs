@@ -112,7 +112,7 @@
 //! use starlark::eval::Evaluator;
 //! use starlark::syntax::{AstModule, Dialect};
 //! use starlark::values::{none::NoneType, Value, ValueLike};
-//! use gazebo::any::ProvidesStaticType;
+//! use starlark::any::ProvidesStaticType;
 //! use std::cell::RefCell;
 //!
 //! let content = r#"
@@ -390,6 +390,7 @@ pub use starlark_derive::starlark_module;
 pub use starlark_derive::StarlarkDocs;
 
 pub(crate) mod analysis;
+pub mod any;
 pub mod assert;
 pub mod codemap;
 pub mod collections;

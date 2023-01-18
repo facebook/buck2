@@ -23,9 +23,9 @@ use std::mem;
 use std::ptr;
 
 use allocative::Allocative;
-use gazebo::any::ProvidesStaticType;
 
 use crate as starlark;
+use crate::any::ProvidesStaticType;
 use crate::values::StarlarkValue;
 
 #[derive(derive_more::Display, ProvidesStaticType, NoSerialize, Allocative)]

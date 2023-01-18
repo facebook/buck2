@@ -24,10 +24,10 @@ use std::cell::Cell;
 
 use allocative::Allocative;
 use derive_more::Display;
-use gazebo::any::ProvidesStaticType;
 use gazebo::prelude::*;
 
 use crate as starlark;
+use crate::any::ProvidesStaticType;
 use crate::values::Freeze;
 use crate::values::Freezer;
 use crate::values::FrozenValue;

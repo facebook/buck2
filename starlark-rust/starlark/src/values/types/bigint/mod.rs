@@ -24,7 +24,6 @@ use std::hash::Hash;
 use std::ops::Not;
 
 use allocative::Allocative;
-use gazebo::any::ProvidesStaticType;
 use num_bigint::BigInt;
 use num_bigint::Sign;
 use num_traits::cast::ToPrimitive;
@@ -32,6 +31,8 @@ use num_traits::Signed;
 use num_traits::Zero;
 use serde::Serialize;
 
+use crate as starlark;
+use crate::any::ProvidesStaticType;
 use crate::collections::StarlarkHasher;
 use crate::values::float::StarlarkFloat;
 use crate::values::num::Num;

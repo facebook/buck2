@@ -21,10 +21,10 @@ use std::mem::MaybeUninit;
 use std::path::Path;
 
 use dupe::Dupe;
-use gazebo::any::AnyLifetime;
 use gazebo::cast;
 use thiserror::Error;
 
+use crate::any::AnyLifetime;
 use crate::codemap::FileSpan;
 use crate::codemap::FileSpanRef;
 use crate::codemap::ResolvedFileSpan;

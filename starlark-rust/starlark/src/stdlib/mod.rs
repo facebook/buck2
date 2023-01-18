@@ -128,9 +128,9 @@ mod tests {
     use allocative::Allocative;
     use derive_more::Display;
     use dupe::Dupe;
-    use gazebo::any::ProvidesStaticType;
 
     use crate as starlark;
+    use crate::any::ProvidesStaticType;
     use crate::assert::Assert;
     use crate::environment::GlobalsBuilder;
     use crate::environment::Methods;

@@ -16,9 +16,9 @@
  */
 
 use allocative::Allocative;
-use gazebo::any::ProvidesStaticType;
 
 use crate as starlark;
+use crate::any::ProvidesStaticType;
 use crate::assert::Assert;
 use crate::environment::Methods;
 use crate::environment::MethodsBuilder;

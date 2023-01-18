@@ -22,7 +22,6 @@ use std::hash::Hash;
 use std::hash::Hasher;
 
 use allocative::Allocative;
-use gazebo::any::ProvidesStaticType;
 use gazebo::coerce::coerce;
 use gazebo::coerce::Coerce;
 use gazebo::display::display_keyed_container;
@@ -32,6 +31,7 @@ use starlark_map::Hashed;
 use starlark_map::StarlarkHasher;
 
 use crate as starlark;
+use crate::any::ProvidesStaticType;
 use crate::docs;
 use crate::docs::DocItem;
 use crate::values::comparison::compare_small_map;

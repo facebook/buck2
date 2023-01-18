@@ -11,7 +11,7 @@ use std::ops::Deref;
 
 use allocative::Allocative;
 use buck2_node::attrs::attr::Attribute;
-use gazebo::any::ProvidesStaticType;
+use starlark::any::ProvidesStaticType;
 use starlark::starlark_simple_value;
 use starlark::starlark_type;
 use starlark::values::NoSerialize;

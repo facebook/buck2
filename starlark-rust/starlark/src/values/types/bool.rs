@@ -26,10 +26,10 @@ use std::fmt::Display;
 use std::hash::Hasher;
 
 use allocative::Allocative;
-use gazebo::any::ProvidesStaticType;
 use serde::Serialize;
 
 use crate as starlark;
+use crate::any::ProvidesStaticType;
 use crate::collections::StarlarkHashValue;
 use crate::collections::StarlarkHasher;
 use crate::private::Private;

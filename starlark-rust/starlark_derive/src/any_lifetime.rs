@@ -1,10 +1,18 @@
 /*
- * Copyright (c) Meta Platforms, Inc. and affiliates.
+ * Copyright 2019 The Starlark in Rust Authors.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
- * This source code is licensed under both the MIT license found in the
- * LICENSE-MIT file in the root directory of this source tree and the Apache
- * License, Version 2.0 found in the LICENSE-APACHE file in the root directory
- * of this source tree.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 use quote::quote;
@@ -160,7 +168,7 @@ fn derive_provides_static_type_impl(
                     static_type_params.push(quote! { #param_name});
                 } else {
                     type_param_bounds.push(quote! {
-                        #param_name : #(#param_bounds+)* gazebo::any::ProvidesStaticType + Sized
+                        #param_name : #(#param_bounds+)* starlark::any::ProvidesStaticType + Sized
                     });
                     let param_bounds = param
                         .bounds
@@ -183,7 +191,7 @@ fn derive_provides_static_type_impl(
 
     let gen = if input.generics.lt_token.is_none() {
         quote! {
-            unsafe impl #impl_generics gazebo::any::ProvidesStaticType for #name #ty_generics #where_clause {
+            unsafe impl #impl_generics starlark::any::ProvidesStaticType for #name #ty_generics #where_clause {
                 type StaticType = #name #ty_generics;
             }
         }
@@ -193,7 +201,7 @@ fn derive_provides_static_type_impl(
                 #(#lifetimes,)*
                 #(#type_param_bounds,)*
                 #(#const_params,)*
-                    > gazebo::any::ProvidesStaticType
+                    > starlark::any::ProvidesStaticType
             for #name <
                 #(#lifetimes,)*
                 #(#type_param_names,)*

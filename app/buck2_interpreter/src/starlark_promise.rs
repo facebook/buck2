@@ -15,7 +15,7 @@ use std::mem;
 use allocative::Allocative;
 use derivative::Derivative;
 use derive_more::Display;
-use gazebo::any::ProvidesStaticType;
+use starlark::any::ProvidesStaticType;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
@@ -322,7 +322,7 @@ fn promise_methods(builder: &mut MethodsBuilder) {
 mod tests {
     use std::cell::RefCell;
 
-    use gazebo::any::ProvidesStaticType;
+    use starlark::any::ProvidesStaticType;
     use starlark::environment::GlobalsBuilder;
     use starlark::environment::Module;
     use starlark::syntax::AstModule;

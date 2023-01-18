@@ -20,9 +20,9 @@ use std::fmt::Write;
 
 use allocative::Allocative;
 use derive_more::Display;
-use gazebo::any::ProvidesStaticType;
 
 use crate as starlark;
+use crate::any::ProvidesStaticType;
 use crate::assert;
 use crate::assert::Assert;
 use crate::collections::SmallMap;

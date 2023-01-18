@@ -17,9 +17,9 @@
 
 use allocative::Allocative;
 use derive_more::Display;
-use gazebo::any::ProvidesStaticType;
 
 use crate as starlark;
+use crate::any::ProvidesStaticType;
 use crate::assert::Assert;
 use crate::values::StarlarkAttrs;
 use crate::values::StarlarkValue;

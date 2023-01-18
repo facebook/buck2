@@ -41,8 +41,6 @@ use dupe::Copy_;
 use dupe::Dupe;
 use dupe::Dupe_;
 use either::Either;
-use gazebo::any::AnyLifetime;
-use gazebo::any::ProvidesStaticType;
 use gazebo::cast;
 use gazebo::coerce::coerce;
 use gazebo::coerce::Coerce;
@@ -52,6 +50,9 @@ use serde::Serialize;
 use serde::Serializer;
 use starlark_map::Equivalent;
 
+use crate as starlark;
+use crate::any::AnyLifetime;
+use crate::any::ProvidesStaticType;
 use crate::collections::Hashed;
 use crate::collections::StarlarkHashValue;
 use crate::collections::StarlarkHasher;

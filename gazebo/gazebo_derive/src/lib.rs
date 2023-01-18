@@ -13,7 +13,6 @@
 #[allow(unused_extern_crates)] // proc_macro is very special
 extern crate proc_macro;
 
-mod any_lifetime;
 mod coerce;
 mod default;
 mod variant;
@@ -22,13 +21,6 @@ mod variant;
 #[proc_macro_derive(Default_)]
 pub fn derive_default_(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     default::derive_default_(input)
-}
-
-/// Derive the `ProvidesStaticType` trait. Requires the type has no type arguments, no constant arguments,
-/// and at most one lifetime argument.
-#[proc_macro_derive(ProvidesStaticType)]
-pub fn derive_provides_static_type(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    any_lifetime::derive_provides_static_type(input)
 }
 
 /// Derive the `VariantName` trait.

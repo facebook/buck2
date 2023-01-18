@@ -26,6 +26,7 @@ extern crate proc_macro;
 
 use proc_macro::TokenStream;
 
+mod any_lifetime;
 mod attrs;
 mod bc;
 mod docs;
@@ -169,4 +170,11 @@ pub fn derive_starlark_docs(input: proc_macro::TokenStream) -> proc_macro::Token
 #[proc_macro]
 pub fn starlark_attrs(_: proc_macro::TokenStream) -> proc_macro::TokenStream {
     attrs::starlark_attrs()
+}
+
+/// Derive the `ProvidesStaticType` trait. Requires the type has no type arguments, no constant arguments,
+/// and at most one lifetime argument.
+#[proc_macro_derive(ProvidesStaticType)]
+pub fn derive_provides_static_type(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    any_lifetime::derive_provides_static_type(input)
 }
