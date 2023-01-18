@@ -23,6 +23,8 @@ use std::alloc::LayoutError;
 use std::cmp;
 use std::cmp::Ordering;
 use std::fmt::Debug;
+use std::hash::Hash;
+use std::hash::Hasher;
 use std::marker::PhantomData;
 use std::mem;
 use std::mem::MaybeUninit;
@@ -455,6 +457,25 @@ impl<A, B> IntoIterator for Vec2<A, B> {
         };
         mem::forget(self);
         iter
+    }
+}
+
+impl<A: PartialEq, B: PartialEq> PartialEq for Vec2<A, B> {
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+        self.len == other.len && self.iter().eq(other.iter())
+    }
+}
+
+impl<A: Eq, B: Eq> Eq for Vec2<A, B> {}
+
+impl<A: Hash, B: Hash> Hash for Vec2<A, B> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.len.hash(state);
+        for (a, b) in self.iter() {
+            a.hash(state);
+            b.hash(state);
+        }
     }
 }
 
