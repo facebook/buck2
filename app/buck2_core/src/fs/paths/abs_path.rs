@@ -21,6 +21,8 @@ use thiserror::Error;
 enum AbsPathError {
     #[error("expected an absolute path but got a relative path instead: `{0}`")]
     PathNotAbsolute(PathBuf),
+    #[error("Cannot convert path to UTF-8, `{0:?}`")]
+    PathCannotBeConvertedToUtf8(OsString),
 }
 
 #[derive(Hash, Eq, PartialEq, PartialOrd, Ord)]
@@ -136,13 +138,9 @@ impl AbsPathBuf {
 
     /// Convert a path into a String. Fails if the path is not UTF8.
     pub fn into_string(self) -> anyhow::Result<String> {
-        #[derive(Debug, thiserror::Error)]
-        #[error("Cannot convert path to UTF-8, `{0:?}`")]
-        struct PathCannotBeConvertedToUtf8(OsString);
-
         self.into_os_string()
             .into_string()
-            .map_err(|x| PathCannotBeConvertedToUtf8(x).into())
+            .map_err(|x| AbsPathError::PathCannotBeConvertedToUtf8(x).into())
     }
 
     pub fn capacity(&self) -> usize {
