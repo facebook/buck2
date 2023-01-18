@@ -162,21 +162,20 @@ impl ResolvedMacro {
                             ResolvedMacroError::KeyedPlaceholderInfoMissing(label.clone())
                         })?;
                 let keyed_variables = placeholder_info.keyed_variables();
-                let either_cmd_or_mapping =
-                    keyed_variables.get(name.as_str()).ok_or_else(|| {
-                        ResolvedMacroError::KeyedPlaceholderMappingMissing(
-                            name.clone(),
-                            label.clone(),
-                        )
-                    })?;
+                let either_cmd_or_mapping = keyed_variables.get(&**name).ok_or_else(|| {
+                    ResolvedMacroError::KeyedPlaceholderMappingMissing(
+                        (**name).to_owned(),
+                        label.to_owned(),
+                    )
+                })?;
 
                 let value = match (arg, either_cmd_or_mapping) {
                     (None, Either::Left(mapping)) => mapping,
                     (Some(arg), Either::Left(_)) => {
                         return Err(ResolvedMacroError::KeyedPlaceholderMappingNotADict(
-                            name.clone(),
+                            (**name).to_owned(),
                             label.clone(),
-                            arg.clone(),
+                            (**arg).to_owned(),
                         )
                         .into());
                     }
@@ -184,7 +183,7 @@ impl ResolvedMacro {
                         let arg = arg.as_deref().unwrap_or("DEFAULT");
                         mapping.get(arg).ok_or_else(|| {
                             ResolvedMacroError::KeyedPlaceholderArgMissing(
-                                name.clone(),
+                                (**name).to_owned(),
                                 label.clone(),
                                 arg.to_owned(),
                             )

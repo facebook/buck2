@@ -121,8 +121,8 @@ pub enum StringWithMacrosPart<C: AttrConfig> {
     Macro(/* write_to_file */ bool, MacroBase<C>),
 }
 
-assert_eq_size!(MacroBase<CoercedAttr>, [usize; 13]);
-assert_eq_size!(StringWithMacrosPart<CoercedAttr>, [usize; 14]);
+assert_eq_size!(MacroBase<CoercedAttr>, [usize; 11]);
+assert_eq_size!(StringWithMacrosPart<CoercedAttr>, [usize; 12]);
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative)]
 pub enum MacroBase<C: AttrConfig> {
@@ -136,7 +136,7 @@ pub enum MacroBase<C: AttrConfig> {
     UserUnkeyedPlaceholder(String),
 
     /// A user-defined macro (like `$(cxxppflags //some:target)`). This will be resolved based on the propagated TemplateVariableInfos.
-    UserKeyedPlaceholder(String, C::ProvidersType, Option<String>),
+    UserKeyedPlaceholder(Box<str>, C::ProvidersType, Option<Box<str>>),
 
     Query(Box<QueryMacroBase<C>>),
 

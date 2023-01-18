@@ -161,9 +161,9 @@ pub trait UnconfiguredMacroExt {
             None
         };
         Ok(UnconfiguredMacro::UserKeyedPlaceholder(
-            var_name,
+            var_name.into_boxed_str(),
             ctx.coerce_label(&args[0])?,
-            arg,
+            arg.map(|a| a.into_boxed_str()),
         ))
     }
 
