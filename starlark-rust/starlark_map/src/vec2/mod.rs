@@ -355,6 +355,19 @@ impl<A, B> Vec2<A, B> {
         Some((a, b))
     }
 
+    /// If capacity exceeds length, shrink capacity to length.
+    pub fn shrink_to_fit(&mut self) {
+        if self.len() < self.capacity() {
+            let mut new_vec = Vec2::with_capacity(self.len());
+            for (a, b) in mem::take(self).into_iter() {
+                new_vec.push(a, b);
+            }
+            *self = new_vec;
+        } else {
+            debug_assert!(self.len() == self.capacity());
+        }
+    }
+
     /// Iterate over the elements.
     #[inline]
     pub fn iter(&self) -> Iter<'_, A, B> {
@@ -541,5 +554,23 @@ mod tests {
         assert_eq!(Some((&2, &3)), v.get(1));
         assert_eq!(Some((&3, &2)), v.get(2));
         assert_eq!(Some((&3, &4)), v.get(3));
+    }
+
+    #[test]
+    fn test_shrink_to_fit() {
+        let mut v = Vec2::with_capacity(10);
+        v.push("a".to_owned(), "b".to_owned());
+        v.push("c".to_owned(), "d".to_owned());
+        v.shrink_to_fit();
+        for _ in 0..2 {
+            assert_eq!(2, v.len());
+            assert_eq!(2, v.capacity());
+            assert_eq!(
+                vec![("a", "b"), ("c", "d")],
+                v.iter()
+                    .map(|(a, b)| (a.as_str(), b.as_str()))
+                    .collect::<Vec<_>>()
+            );
+        }
     }
 }
