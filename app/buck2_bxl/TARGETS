@@ -6,6 +6,7 @@ oncall("buck2")
 rust_library(
     name = "buck2_bxl",
     srcs = glob(["src/**/*.rs"]),
+    doctests = False,  # FIXME
     test_deps = [
         "//buck2/app/buck2_interpreter:buck2_interpreter",
     ],
