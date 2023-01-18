@@ -47,6 +47,12 @@ enum SelectError {
     ConcatEmpty,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Allocative)]
+pub struct CoercedSelector {
+    pub entries: OrderedMap<TargetLabel, CoercedAttr>,
+    pub default: Option<CoercedAttr>,
+}
+
 /// CoercedAttr is the "coerced" representation of an attribute. It has been type-checked and converted to
 /// specific types (for example, where we expect target-like things, it has been converted to something like
 /// a TargetLable or ProvidersLabel).
@@ -61,7 +67,7 @@ enum SelectError {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Allocative)]
 pub enum CoercedAttr {
     Literal(AttrLiteral<Self>),
-    Selector(Box<(OrderedMap<TargetLabel, Self>, Option<Self>)>),
+    Selector(Box<CoercedSelector>),
     Concat(Box<[Self]>),
 }
 
@@ -76,16 +82,16 @@ impl AttrDisplayWithContext for CoercedAttr {
     fn fmt(&self, ctx: &AttrFmtContext, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             CoercedAttr::Literal(v) => AttrDisplayWithContext::fmt(v, ctx, f),
-            CoercedAttr::Selector(box (items, default)) => {
+            CoercedAttr::Selector(box CoercedSelector { entries, default }) => {
                 write!(f, "select(")?;
-                for (i, (condition, value)) in items.iter().enumerate() {
+                for (i, (condition, value)) in entries.iter().enumerate() {
                     if i > 0 {
                         write!(f, ",")?;
                     }
                     write!(f, "\"{}\"={}", condition, value.as_display(ctx))?;
                 }
                 if let Some(default) = default {
-                    if !items.is_empty() {
+                    if !entries.is_empty() {
                         write!(f, ",")?;
                     }
                     write!(f, "\"DEFAULT\"={}", default.as_display(ctx))?;
@@ -124,9 +130,9 @@ impl CoercedAttr {
     pub fn to_json(&self, ctx: &AttrFmtContext) -> anyhow::Result<serde_json::Value> {
         match self {
             CoercedAttr::Literal(v) => v.to_json(ctx),
-            CoercedAttr::Selector(box (selector, default)) => {
+            CoercedAttr::Selector(box CoercedSelector { entries, default }) => {
                 let mut map = serde_json::Map::new();
-                for (k, v) in selector.iter() {
+                for (k, v) in entries.iter() {
                     map.insert(k.to_string(), v.to_json(ctx)?);
                 }
                 if let Some(default) = default {
@@ -164,9 +170,9 @@ impl CoercedAttr {
         match self {
             Self::Literal(AttrLiteral::None) => true,
             Self::Literal(_) => false,
-            Self::Selector(box (alts, def)) => {
-                def.as_ref().map_or(true, |x| x.may_return_none())
-                    || alts.values().any(|x| x.may_return_none())
+            Self::Selector(box CoercedSelector { entries, default }) => {
+                default.as_ref().map_or(true, |x| x.may_return_none())
+                    || entries.values().any(|x| x.may_return_none())
             }
             Self::Concat(_) => false,
         }
@@ -181,8 +187,8 @@ impl CoercedAttr {
     ) -> anyhow::Result<()> {
         match self {
             CoercedAttr::Literal(v) => v.traverse(pkg, traversal),
-            CoercedAttr::Selector(box (selector, default)) => {
-                for (condition, value) in selector.iter() {
+            CoercedAttr::Selector(box CoercedSelector { entries, default }) => {
+                for (condition, value) in entries.iter() {
                     traversal.configuration_dep(condition)?;
                     value.traverse(pkg, traversal)?;
                 }
@@ -235,8 +241,8 @@ impl CoercedAttr {
     pub fn configure(&self, ctx: &dyn AttrConfigurationContext) -> anyhow::Result<ConfiguredAttr> {
         match self {
             CoercedAttr::Literal(v) => v.configure(ctx),
-            CoercedAttr::Selector(box (selector, default)) => {
-                if let Some(v) = Self::select_the_most_specific(ctx, selector)? {
+            CoercedAttr::Selector(box CoercedSelector { entries, default }) => {
+                if let Some(v) = Self::select_the_most_specific(ctx, entries)? {
                     return v.configure(ctx);
                 }
                 default
@@ -244,7 +250,7 @@ impl CoercedAttr {
                     .ok_or_else(|| {
                         SelectError::MissingDefault(
                             ctx.cfg().dupe(),
-                            selector.keys().duped().collect(),
+                            entries.keys().duped().collect(),
                         )
                     })?
                     .configure(ctx)
@@ -270,8 +276,8 @@ impl CoercedAttr {
     ) -> anyhow::Result<bool> {
         match self {
             CoercedAttr::Literal(v) => v.any_matches(filter),
-            CoercedAttr::Selector(box (selector, default)) => {
-                for value in selector.values() {
+            CoercedAttr::Selector(box CoercedSelector { entries, default }) => {
+                for value in entries.values() {
                     if value.any_matches(filter)? {
                         return Ok(true);
                     }

@@ -15,6 +15,7 @@ use buck2_interpreter::selector::StarlarkSelector;
 use buck2_interpreter::selector::StarlarkSelectorGen;
 use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
+use buck2_node::attrs::coerced_attr::CoercedSelector;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use starlark::values::dict::DictRef;
@@ -72,7 +73,7 @@ impl CoercedAttrExr for CoercedAttr {
             match *selector {
                 StarlarkSelectorGen::Inner(v) => {
                     if let Some(dict) = DictRef::from_value(v) {
-                        let mut items = OrderedMap::with_capacity(dict.len());
+                        let mut entries = OrderedMap::with_capacity(dict.len());
                         let mut default = None;
                         for (k, v) in dict.iter() {
                             let k = k.unpack_str().ok_or_else(|| {
@@ -90,10 +91,13 @@ impl CoercedAttrExr for CoercedAttr {
                                 default = Some(v);
                             } else {
                                 let target = ctx.coerce_target(k)?;
-                                items.insert(target, v);
+                                entries.insert(target, v);
                             }
                         }
-                        Ok(CoercedAttr::Selector(box (items, default)))
+                        Ok(CoercedAttr::Selector(box CoercedSelector {
+                            entries,
+                            default,
+                        }))
                     } else {
                         Err(anyhow::anyhow!(SelectError::ValueNotDict(v.to_repr())))
                     }
@@ -145,14 +149,15 @@ mod tests {
     use buck2_core::target::TargetLabel;
     use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
     use buck2_node::attrs::coerced_attr::CoercedAttr;
+    use buck2_node::attrs::coerced_attr::CoercedSelector;
     use buck2_node::attrs::configuration_context::AttrConfigurationContext;
     use buck2_node::attrs::fmt_context::AttrFmtContext;
     use dupe::Dupe;
 
     #[test]
     fn selector_equals_accounts_for_ordering() {
-        let s1 = CoercedAttr::Selector(box (
-            OrderedMap::from_iter([
+        let s1 = CoercedAttr::Selector(box CoercedSelector {
+            entries: OrderedMap::from_iter([
                 (
                     TargetLabel::testing_parse("cell1//pkg1:target1"),
                     CoercedAttr::Literal(AttrLiteral::Bool(true)),
@@ -162,10 +167,10 @@ mod tests {
                     CoercedAttr::Literal(AttrLiteral::Bool(false)),
                 ),
             ]),
-            None,
-        ));
-        let s2 = CoercedAttr::Selector(box (
-            OrderedMap::from_iter([
+            default: None,
+        });
+        let s2 = CoercedAttr::Selector(box CoercedSelector {
+            entries: OrderedMap::from_iter([
                 (
                     TargetLabel::testing_parse("cell1//pkg1:target1"),
                     CoercedAttr::Literal(AttrLiteral::Bool(true)),
@@ -175,13 +180,13 @@ mod tests {
                     CoercedAttr::Literal(AttrLiteral::Bool(false)),
                 ),
             ]),
-            None,
-        ));
+            default: None,
+        });
 
         assert_eq!(s1 == s2, true);
 
-        let s2 = CoercedAttr::Selector(box (
-            OrderedMap::from_iter([
+        let s2 = CoercedAttr::Selector(box CoercedSelector {
+            entries: OrderedMap::from_iter([
                 (
                     TargetLabel::testing_parse("cell2//pkg2:target2"),
                     CoercedAttr::Literal(AttrLiteral::Bool(false)),
@@ -191,8 +196,8 @@ mod tests {
                     CoercedAttr::Literal(AttrLiteral::Bool(true)),
                 ),
             ]),
-            None,
-        ));
+            default: None,
+        });
 
         assert_eq!(s1 == s2, false);
     }
@@ -338,8 +343,8 @@ mod tests {
     fn test_to_json_selector() {
         assert_eq!(
             r#"{"__type":"selector","entries":{"//:a":true,"//:b":10,"DEFAULT":"ddd"}}"#,
-            CoercedAttr::Selector(box (
-                OrderedMap::from_iter([
+            CoercedAttr::Selector(box CoercedSelector {
+                entries: OrderedMap::from_iter([
                     (
                         TargetLabel::testing_parse("//:a"),
                         CoercedAttr::Literal(AttrLiteral::Bool(true))
@@ -349,8 +354,8 @@ mod tests {
                         CoercedAttr::Literal(AttrLiteral::Int(10))
                     ),
                 ]),
-                Some(CoercedAttr::Literal(AttrLiteral::String("ddd".into()))),
-            ))
+                default: Some(CoercedAttr::Literal(AttrLiteral::String("ddd".into()))),
+            })
             .to_json(&AttrFmtContext::NO_CONTEXT)
             .unwrap()
             .to_string()
