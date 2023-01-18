@@ -7,27 +7,27 @@
  * of this source tree.
  */
 
-use std::slice;
-
 use allocative::Allocative;
+use starlark_map::vec2;
+use starlark_map::vec2::Vec2;
 
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::id::AttributeId;
 
 #[derive(Debug, Eq, PartialEq, Hash, Default, Allocative)]
 pub struct AttrValues {
-    sorted: Vec<(AttributeId, CoercedAttr)>,
+    sorted: Vec2<AttributeId, CoercedAttr>,
 }
 
 impl AttrValues {
     pub fn with_capacity(capacity: usize) -> AttrValues {
         AttrValues {
-            sorted: Vec::with_capacity(capacity),
+            sorted: Vec2::with_capacity(capacity),
         }
     }
 
-    pub(crate) fn get_by_index(&self, index: usize) -> Option<&(AttributeId, CoercedAttr)> {
-        self.sorted.get(index)
+    pub(crate) fn get_by_index(&self, index: usize) -> Option<(AttributeId, &CoercedAttr)> {
+        self.sorted.get(index).map(|(id, v)| (*id, v))
     }
 
     pub(crate) fn get(&self, id: AttributeId) -> Option<&CoercedAttr> {
@@ -54,13 +54,13 @@ impl AttrValues {
         if let Some((last_id, _)) = self.sorted.last() {
             assert!(&id > last_id, "attributed must be sorted");
         }
-        self.sorted.push((id, value))
+        self.sorted.push(id, value)
     }
 }
 
 impl<'a> IntoIterator for &'a AttrValues {
-    type Item = &'a (AttributeId, CoercedAttr);
-    type IntoIter = slice::Iter<'a, (AttributeId, CoercedAttr)>;
+    type Item = (&'a AttributeId, &'a CoercedAttr);
+    type IntoIter = vec2::Iter<'a, AttributeId, CoercedAttr>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.sorted.iter()

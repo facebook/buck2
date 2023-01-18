@@ -130,11 +130,11 @@ impl AttributeSpec {
         opts: AttrInspectOptions,
     ) -> impl Iterator<Item = (&'v str, &'v CoercedAttr)> {
         let mut pos = 0;
-        let mut entry: Option<&(AttributeId, CoercedAttr)> = attr_values.get_by_index(0);
+        let mut entry: Option<(AttributeId, &CoercedAttr)> = attr_values.get_by_index(0);
 
         self.attr_specs()
-            .filter_map(move |(name, idx, attr)| match &entry {
-                Some((entry_idx, entry_attr)) if *entry_idx == idx => {
+            .filter_map(move |(name, idx, attr)| match entry {
+                Some((entry_idx, entry_attr)) if entry_idx == idx => {
                     pos += 1;
                     entry = attr_values.get_by_index(pos);
                     Some((name, entry_attr))
