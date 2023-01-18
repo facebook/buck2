@@ -47,10 +47,32 @@ enum SelectError {
     ConcatEmpty,
 }
 
+enum CoercedSelectorKeyRef<'a> {
+    Target(&'a TargetLabel),
+    Default,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Allocative)]
 pub struct CoercedSelector {
     pub entries: OrderedMap<TargetLabel, CoercedAttr>,
     pub default: Option<CoercedAttr>,
+}
+
+impl CoercedSelector {
+    fn all_entries(&self) -> impl Iterator<Item = (CoercedSelectorKeyRef, &CoercedAttr)> {
+        self.entries
+            .iter()
+            .map(|(k, v)| (CoercedSelectorKeyRef::Target(k), v))
+            .chain(
+                self.default
+                    .iter()
+                    .map(|default| (CoercedSelectorKeyRef::Default, default)),
+            )
+    }
+
+    fn all_values(&self) -> impl Iterator<Item = &'_ CoercedAttr> {
+        self.all_entries().map(|(_, v)| v)
+    }
 }
 
 /// CoercedAttr is the "coerced" representation of an attribute. It has been type-checked and converted to
@@ -82,19 +104,20 @@ impl AttrDisplayWithContext for CoercedAttr {
     fn fmt(&self, ctx: &AttrFmtContext, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             CoercedAttr::Literal(v) => AttrDisplayWithContext::fmt(v, ctx, f),
-            CoercedAttr::Selector(box CoercedSelector { entries, default }) => {
+            CoercedAttr::Selector(s) => {
                 write!(f, "select(")?;
-                for (i, (condition, value)) in entries.iter().enumerate() {
+                for (i, (key, value)) in s.all_entries().enumerate() {
                     if i > 0 {
                         write!(f, ",")?;
                     }
-                    write!(f, "\"{}\"={}", condition, value.as_display(ctx))?;
-                }
-                if let Some(default) = default {
-                    if !entries.is_empty() {
-                        write!(f, ",")?;
+                    match key {
+                        CoercedSelectorKeyRef::Target(k) => {
+                            write!(f, "\"{}\"={}", k, value.as_display(ctx))?;
+                        }
+                        CoercedSelectorKeyRef::Default => {
+                            write!(f, "\"DEFAULT\"={}", value.as_display(ctx))?;
+                        }
                     }
-                    write!(f, "\"DEFAULT\"={}", default.as_display(ctx))?;
                 }
                 write!(f, ")")?;
                 Ok(())
@@ -130,13 +153,17 @@ impl CoercedAttr {
     pub fn to_json(&self, ctx: &AttrFmtContext) -> anyhow::Result<serde_json::Value> {
         match self {
             CoercedAttr::Literal(v) => v.to_json(ctx),
-            CoercedAttr::Selector(box CoercedSelector { entries, default }) => {
+            CoercedAttr::Selector(s) => {
                 let mut map = serde_json::Map::new();
-                for (k, v) in entries.iter() {
-                    map.insert(k.to_string(), v.to_json(ctx)?);
-                }
-                if let Some(default) = default {
-                    map.insert("DEFAULT".to_owned(), default.to_json(ctx)?);
+                for (key, value) in s.all_entries() {
+                    match key {
+                        CoercedSelectorKeyRef::Target(k) => {
+                            map.insert(k.to_string(), value.to_json(ctx)?);
+                        }
+                        CoercedSelectorKeyRef::Default => {
+                            map.insert("DEFAULT".to_owned(), value.to_json(ctx)?);
+                        }
+                    }
                 }
                 let select = serde_json::Value::Object(map);
 
@@ -170,10 +197,7 @@ impl CoercedAttr {
         match self {
             Self::Literal(AttrLiteral::None) => true,
             Self::Literal(_) => false,
-            Self::Selector(box CoercedSelector { entries, default }) => {
-                default.as_ref().map_or(true, |x| x.may_return_none())
-                    || entries.values().any(|x| x.may_return_none())
-            }
+            Self::Selector(s) => s.all_values().any(|x| x.may_return_none()),
             Self::Concat(_) => false,
         }
     }
@@ -276,17 +300,13 @@ impl CoercedAttr {
     ) -> anyhow::Result<bool> {
         match self {
             CoercedAttr::Literal(v) => v.any_matches(filter),
-            CoercedAttr::Selector(box CoercedSelector { entries, default }) => {
-                for value in entries.values() {
+            CoercedAttr::Selector(s) => {
+                for value in s.all_values() {
                     if value.any_matches(filter)? {
                         return Ok(true);
                     }
                 }
-                if let Some(v) = default {
-                    v.any_matches(filter)
-                } else {
-                    Ok(false)
-                }
+                Ok(false)
             }
             CoercedAttr::Concat(items) => {
                 for item in &**items {
