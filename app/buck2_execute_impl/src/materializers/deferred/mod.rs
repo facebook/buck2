@@ -76,6 +76,7 @@ use futures::stream::BoxStream;
 use futures::stream::FuturesOrdered;
 use futures::stream::StreamExt;
 use gazebo::prelude::*;
+use itertools::Itertools;
 use thiserror::Error;
 use tokio::runtime::Handle;
 use tokio::sync::mpsc;
@@ -216,6 +217,7 @@ struct DeferredMaterializerCommandProcessor<T> {
     /// used by the rest of Buck.
     rt: Handle,
     defer_write_actions: bool,
+    log_buffer: LogBuffer,
 }
 
 // NOTE: This doesn't derive `Error` and that's on purpose.  We don't want to make it easy (or
@@ -326,7 +328,7 @@ impl<T> std::fmt::Debug for MaterializerCommand<T> {
                 write!(f, "GetMaterializedFilePaths({:?}, _)", paths,)
             }
             MaterializerCommand::DeclareExisting(paths) => {
-                write!(f, "GetMaterializedFilePaths({:?})", paths,)
+                write!(f, "DeclareExisting({:?})", paths,)
             }
             MaterializerCommand::Declare(path, value, method) => {
                 write!(f, "Declare({:?}, {:?}, {:?})", path, value, method,)
@@ -732,6 +734,7 @@ impl DeferredMaterializer {
             sqlite_db,
             rt: Handle::current(),
             defer_write_actions: configs.defer_write_actions,
+            log_buffer: LogBuffer::new(25),
         };
 
         let num_entries_from_sqlite = sqlite_state.as_ref().map_or(0, |s| s.len()) as u64;
@@ -789,6 +792,35 @@ impl DeferredMaterializer {
     }
 }
 
+/// Simple ring buffer for tracking recent commands, to be shown on materializer error
+#[derive(Clone)]
+struct LogBuffer {
+    inner: VecDeque<String>,
+}
+
+impl LogBuffer {
+    pub fn new(capacity: usize) -> Self {
+        Self {
+            inner: VecDeque::with_capacity(capacity),
+        }
+    }
+
+    pub fn push(&mut self, item: String) {
+        if self.inner.len() == self.inner.capacity() {
+            self.inner.pop_front();
+            self.inner.push_back(item);
+        } else {
+            self.inner.push_back(item);
+        }
+    }
+}
+
+impl std::fmt::Display for LogBuffer {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.inner.iter().join("\n"))
+    }
+}
+
 impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
     /// Loop that runs for as long as the materializer is alive.
     ///
@@ -833,6 +865,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         while let Some(op) = stream.next().await {
             match op {
                 Op::Command(command) => {
+                    self.log_buffer.push(format!("{:?}", command));
                     match command {
                         // Entry point for `get_materialized_file_paths` calls
                         MaterializerCommand::GetMaterializedFilePaths(paths, result_sender) => {
@@ -1015,7 +1048,11 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 .materializer_state_table()
                 .insert(path, metadata, Utc::now())
             {
-                quiet_soft_error!("materializer_declare_existing_error", e).unwrap();
+                quiet_soft_error!(
+                    "materializer_declare_existing_error",
+                    e.context(self.log_buffer.clone())
+                )
+                .unwrap();
             }
         }
     }
@@ -1246,7 +1283,11 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                             .materializer_state_table()
                             .update_access_time(path.to_buf(), timestamp)
                         {
-                            quiet_soft_error!("materializer_materialize_error", e).unwrap();
+                            quiet_soft_error!(
+                                "materializer_materialize_error",
+                                e.context(self.log_buffer.clone())
+                            )
+                            .unwrap();
                         }
                     }
 

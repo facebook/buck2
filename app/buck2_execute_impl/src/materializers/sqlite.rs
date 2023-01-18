@@ -386,7 +386,7 @@ impl MaterializerStateSqliteTable {
             // number of query placeholders.
             itertools::repeat_n("?", paths.len()).join(","),
         );
-        tracing::trace!(sql = %sql, "deleting from table");
+        tracing::trace!(sql = %sql, paths = ?paths, "deleting from table");
         let rows_deleted = self
             .connection
             .lock()

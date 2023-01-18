@@ -175,6 +175,7 @@ mod state_machine {
             sqlite_db: None,
             rt: Handle::current(),
             defer_write_actions: true,
+            log_buffer: LogBuffer::new(1),
         };
 
         let mut tree = ArtifactTree::new();
