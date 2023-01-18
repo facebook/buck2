@@ -121,8 +121,8 @@ pub enum StringWithMacrosPart<C: AttrConfig> {
     Macro(/* write_to_file */ bool, MacroBase<C>),
 }
 
-assert_eq_size!(MacroBase<CoercedAttr>, [usize; 11]);
-assert_eq_size!(StringWithMacrosPart<CoercedAttr>, [usize; 12]);
+assert_eq_size!(MacroBase<CoercedAttr>, [usize; 7]);
+assert_eq_size!(StringWithMacrosPart<CoercedAttr>, [usize; 8]);
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative)]
 pub enum MacroBase<C: AttrConfig> {
@@ -136,7 +136,7 @@ pub enum MacroBase<C: AttrConfig> {
     UserUnkeyedPlaceholder(String),
 
     /// A user-defined macro (like `$(cxxppflags //some:target)`). This will be resolved based on the propagated TemplateVariableInfos.
-    UserKeyedPlaceholder(Box<str>, C::ProvidersType, Option<Box<str>>),
+    UserKeyedPlaceholder(Box<(Box<str>, C::ProvidersType, Option<Box<str>>)>),
 
     Query(Box<QueryMacroBase<C>>),
 
@@ -153,7 +153,9 @@ impl MacroBase<ConfiguredAttr> {
     ) -> anyhow::Result<()> {
         // macros can't reference repo inputs (they only reference the outputs of other targets)
         match self {
-            MacroBase::Location(l) | MacroBase::UserKeyedPlaceholder(_, l, _) => traversal.dep(l),
+            MacroBase::Location(l) | MacroBase::UserKeyedPlaceholder(box (_, l, _)) => {
+                traversal.dep(l)
+            }
             MacroBase::Exe {
                 label,
                 exec_dep: true,
@@ -185,12 +187,12 @@ impl MacroBase<CoercedAttr> {
             UnconfiguredMacro::UserUnkeyedPlaceholder(var_name) => {
                 ConfiguredMacro::UserUnkeyedPlaceholder(var_name.clone())
             }
-            UnconfiguredMacro::UserKeyedPlaceholder(var_name, target, arg) => {
-                ConfiguredMacro::UserKeyedPlaceholder(
+            UnconfiguredMacro::UserKeyedPlaceholder(box (var_name, target, arg)) => {
+                ConfiguredMacro::UserKeyedPlaceholder(box (
                     var_name.clone(),
                     ctx.configure_target(target),
                     arg.clone(),
-                )
+                ))
             }
             UnconfiguredMacro::Query(query) => ConfiguredMacro::Query(box query.configure(ctx)?),
             UnconfiguredMacro::UnrecognizedMacro(macro_type, args) => {
@@ -204,7 +206,7 @@ impl MacroBase<CoercedAttr> {
         traversal: &mut dyn CoercedAttrTraversal<'a>,
     ) -> anyhow::Result<()> {
         match self {
-            MacroBase::Location(l) | MacroBase::UserKeyedPlaceholder(_, l, _) => {
+            MacroBase::Location(l) | MacroBase::UserKeyedPlaceholder(box (_, l, _)) => {
                 traversal.dep(l.target())
             }
             MacroBase::Exe {
@@ -249,7 +251,7 @@ impl<C: AttrConfig> Display for MacroBase<C> {
             }
             MacroBase::Query(query) => Display::fmt(query, f),
             MacroBase::UserUnkeyedPlaceholder(var) => write!(f, "{}", var),
-            MacroBase::UserKeyedPlaceholder(macro_type, target, arg) => write!(
+            MacroBase::UserKeyedPlaceholder(box (macro_type, target, arg)) => write!(
                 f,
                 "{} {}{}",
                 macro_type,

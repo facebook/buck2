@@ -154,7 +154,7 @@ impl ResolvedMacro {
                 })?;
                 Ok(ResolvedMacro::ArgLike(provider))
             }
-            ConfiguredMacro::UserKeyedPlaceholder(name, label, arg) => {
+            ConfiguredMacro::UserKeyedPlaceholder(box (name, label, arg)) => {
                 let providers = ctx.get_dep(label)?;
                 let placeholder_info =
                     FrozenTemplatePlaceholderInfo::from_providers(providers.provider_collection())

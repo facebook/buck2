@@ -160,11 +160,11 @@ pub trait UnconfiguredMacroExt {
         } else {
             None
         };
-        Ok(UnconfiguredMacro::UserKeyedPlaceholder(
+        Ok(UnconfiguredMacro::UserKeyedPlaceholder(box (
             var_name.into_boxed_str(),
             ctx.coerce_label(&args[0])?,
             arg.map(|a| a.into_boxed_str()),
-        ))
+        )))
     }
 
     fn new_query(
