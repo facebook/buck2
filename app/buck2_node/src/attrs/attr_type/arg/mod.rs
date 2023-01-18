@@ -121,6 +121,9 @@ pub enum StringWithMacrosPart<C: AttrConfig> {
     Macro(/* write_to_file */ bool, MacroBase<C>),
 }
 
+assert_eq_size!(MacroBase<CoercedAttr>, [usize; 14]);
+assert_eq_size!(StringWithMacrosPart<CoercedAttr>, [usize; 15]);
+
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative)]
 pub enum MacroBase<C: AttrConfig> {
     Location(C::ProvidersType),
