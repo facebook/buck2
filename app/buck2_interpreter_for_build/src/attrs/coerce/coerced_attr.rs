@@ -78,7 +78,10 @@ impl CoercedAttrExr for CoercedAttr {
             match *selector {
                 StarlarkSelectorGen::Inner(v) => {
                     if let Some(dict) = DictRef::from_value(v) {
-                        let mut entries = OrderedMap::with_capacity(dict.len());
+                        let has_default = dict.get_str("DEFAULT").is_some();
+                        let mut entries = OrderedMap::with_capacity(
+                            dict.len().saturating_sub(has_default as usize),
+                        );
                         let mut default = None;
                         for (k, v) in dict.iter() {
                             let k = k.unpack_str().ok_or_else(|| {
