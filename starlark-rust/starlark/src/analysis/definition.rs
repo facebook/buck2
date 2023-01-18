@@ -225,7 +225,13 @@ impl LspModule {
         //            LSPModule doesn't need to reparse anything.
 
         let scope = scope(&self.ast);
-        let line_span = self.ast.codemap.line_span(line as usize);
+        let line_span = match self.ast.codemap.line_span_opt(line as usize) {
+            None => {
+                // The document got edited to add new lines, just bail out
+                return Definition::Identifier(IdentifierDefinition::NotFound);
+            }
+            Some(line_span) => line_span,
+        };
         let current_pos = std::cmp::min(line_span.begin() + col, line_span.end());
 
         // Finalize the results after recursing down from and back up to the the top level scope.

@@ -343,28 +343,29 @@ impl CodeMap {
         &self.source()[(span.begin.0 as usize)..(span.end.0 as usize)]
     }
 
+    /// Like `line_span_opt` but panics if the line number is out of range.
+    pub(crate) fn line_span(&self, line: usize) -> Span {
+        self.line_span_opt(line)
+            .unwrap_or_else(|| panic!("Line {} is out of range for {:?}", line, self))
+    }
+
     /// Gets the span representing a line by line number.
     ///
     /// The line number is 0-indexed (first line is numbered 0). The returned span includes the
     /// line terminator.
     ///
-    /// Panics if the line number is out of range.
-    pub(crate) fn line_span(&self, line: usize) -> Span {
+    /// Returns None if the number if out of range.
+    pub(crate) fn line_span_opt(&self, line: usize) -> Option<Span> {
         match &self.0 {
-            CodeMapImpl::Real(data) => {
-                assert!(line < data.lines.len());
-                Span {
-                    begin: data.lines[line],
-                    end: *data.lines.get(line + 1).unwrap_or(&self.full_span().end),
-                }
-            }
-            CodeMapImpl::Native(data) => {
-                assert_eq!(line, data.start.line);
-                Span {
-                    begin: Pos(0),
-                    end: Pos(NativeCodeMap::SOURCE.len() as u32),
-                }
-            }
+            CodeMapImpl::Real(data) if line < data.lines.len() => Some(Span {
+                begin: data.lines[line],
+                end: *data.lines.get(line + 1).unwrap_or(&self.full_span().end),
+            }),
+            CodeMapImpl::Native(data) if line == data.start.line => Some(Span {
+                begin: Pos(0),
+                end: Pos(NativeCodeMap::SOURCE.len() as u32),
+            }),
+            _ => None,
         }
     }
 
@@ -627,6 +628,7 @@ mod tests {
                 }
             );
         }
+        assert_eq!(codemap.line_span_opt(4), None);
     }
 
     #[test]
