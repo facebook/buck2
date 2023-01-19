@@ -156,6 +156,12 @@ impl BuildSignalReceiver {
                         action_name: name,
                         action_key: Some(action.key().as_proto()),
                         duration: Some(duration.try_into()?),
+                        action_name_fields: Some(buck2_data::ActionName {
+                            category: action.category().to_string(),
+                            identifier: action
+                                .identifier()
+                                .map_or_else(|| "".to_owned(), |i| i.to_owned()),
+                        }),
                     })
                 },
             )?,

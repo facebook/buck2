@@ -249,6 +249,7 @@ message CriticalPathEntry {
   // The action key (valid only locally within this build), useful for analysis
   // that wants to identify actions on the critical path.
   ActionKey action_key = 3;
+  ActionName action_name_fields = 4;
 }
 
 // Sent once per build.
