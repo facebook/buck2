@@ -37,7 +37,6 @@
 use std::borrow::Borrow;
 use std::fmt;
 use std::fmt::Display;
-use std::sync::Arc;
 
 use allocative::Allocative;
 use derive_more::Display;
@@ -46,6 +45,7 @@ use serde::ser::Serialize;
 use serde::ser::Serializer;
 use thiserror::Error;
 
+use crate::arc_str::ArcStr;
 use crate::ascii_char_set::AsciiCharSet;
 use crate::configuration::Configuration;
 use crate::package::PackageLabel;
@@ -56,7 +56,7 @@ use crate::package::PackageLabel;
     Clone, Debug, Dupe, Display, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative
 )]
 // TODO intern this?
-pub struct TargetName(Arc<str>);
+pub struct TargetName(ArcStr);
 
 #[derive(Error, Debug)]
 enum InvalidTarget {
@@ -76,7 +76,7 @@ enum InvalidTarget {
 impl TargetName {
     pub fn new(name: &str) -> anyhow::Result<Self> {
         if Self::verify(name) {
-            Ok(Self(Arc::from(name)))
+            Ok(Self(ArcStr::from(name)))
         } else {
             if let Some((_, p)) = name.split_once('[') {
                 if p.contains(']') {
@@ -90,7 +90,7 @@ impl TargetName {
     }
 
     pub fn unchecked_new(name: &str) -> Self {
-        Self(Arc::from(name))
+        Self(ArcStr::from(name))
     }
 
     fn verify(name: &str) -> bool {
@@ -286,21 +286,21 @@ pub mod testing {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
 
+    use crate::arc_str::ArcStr;
     use crate::target::TargetName;
 
     #[test]
     fn target_name_validation() {
         assert_eq!(
             TargetName::new("foo").unwrap(),
-            TargetName(Arc::from("foo"))
+            TargetName(ArcStr::from("foo"))
         );
         assert_eq!(
             // Copied allowed symbols from above.
             // `,`, `.`, `=`, `-`, `/`, `~`, `@`, `!`, `+` and `_`
             TargetName::new("foo,.=-/~@$!+_1").unwrap(),
-            TargetName(Arc::from("foo,.=-/~@$!+_1"))
+            TargetName(ArcStr::from("foo,.=-/~@$!+_1"))
         );
         assert_eq!(TargetName::new("foo bar").is_err(), true);
         assert_eq!(TargetName::new("foo?bar").is_err(), true);
