@@ -99,6 +99,18 @@ def apple_test_impl(ctx: "context") -> ["provider"]:
     # If the test has a test host, add a subtarget to build the test host app bundle.
     sub_targets["test-host"] = [DefaultInfo(default_output = test_host_app_bundle)] if test_host_app_bundle else [DefaultInfo()]
 
+    test_info = _get_test_info(ctx, xctest_bundle, test_host_app_bundle)
+
+    sub_targets[DWARF_AND_DSYM_SUBTARGET] = [DefaultInfo(default_output = xctest_bundle, other_outputs = [dsym_artifact]), test_info]
+
+    return [
+        DefaultInfo(default_output = xctest_bundle, sub_targets = sub_targets),
+        test_info,
+        cxx_library_output.xcode_data_info,
+        cxx_library_output.cxx_compilationdb_info,
+    ]
+
+def _get_test_info(ctx: "context", xctest_bundle: "artifact", test_host_app_bundle: ["artifact", None]) -> "provider":
     # When interacting with Tpx, we just pass our various inputs via env vars,
     # since Tpx basiclaly wants structured output for this.
     env = {"XCTEST_BUNDLE": xctest_bundle}
@@ -112,7 +124,7 @@ def apple_test_impl(ctx: "context") -> ["provider"]:
     labels = ctx.attrs.labels + [tpx_label]
     labels.append(tpx_label)
 
-    test_info = ExternalRunnerTestInfo(
+    return ExternalRunnerTestInfo(
         type = "custom",  # We inherit a label via the macro layer that overrides this.
         command = ["false"],  # Tpx makes up its own args, we just pass params via the env.
         env = env,
@@ -134,15 +146,6 @@ def apple_test_impl(ctx: "context") -> ["provider"]:
             "static-listing": CommandExecutorConfig(local_enabled = True, remote_enabled = False),
         },
     )
-
-    sub_targets[DWARF_AND_DSYM_SUBTARGET] = [DefaultInfo(default_output = xctest_bundle, other_outputs = [dsym_artifact]), test_info]
-
-    return [
-        DefaultInfo(default_output = xctest_bundle, sub_targets = sub_targets),
-        test_info,
-        cxx_library_output.xcode_data_info,
-        cxx_library_output.cxx_compilationdb_info,
-    ]
 
 def _get_test_host_app_bundle(ctx: "context") -> ["artifact", None]:
     """ Get the bundle for the test host app, if one exists for this test. """
