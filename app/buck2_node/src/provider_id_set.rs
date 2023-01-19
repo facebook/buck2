@@ -36,10 +36,11 @@ impl ProviderIdSet {
 
 impl From<Vec<Arc<ProviderId>>> for ProviderIdSet {
     #[inline]
-    fn from(v: Vec<Arc<ProviderId>>) -> Self {
+    fn from(mut v: Vec<Arc<ProviderId>>) -> Self {
         if v.is_empty() {
             ProviderIdSet::EMPTY
         } else {
+            v.sort_unstable();
             ProviderIdSet(Some(Arc::new(v)))
         }
     }
