@@ -429,7 +429,7 @@ def prebuilt_cxx_library_impl(ctx: "context") -> ["provider"]:
                         soname_lib = ctx.actions.copy_file(soname, shared_lib.output)
                     else:
                         soname_lib = shared_lib.output
-                    sub_targets["soname-lib"] = [DefaultInfo(default_outputs = [soname_lib])]
+                    sub_targets["soname-lib"] = [DefaultInfo(default_output = soname_lib)]
 
         # TODO(cjhopman): is it okay that we sometimes don't have a linkable?
         outputs[link_style] = outs
