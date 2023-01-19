@@ -135,6 +135,7 @@ fn solve_bindings(
 }
 
 /// Structure containing all the inferred types.
+#[derive(Debug)]
 pub struct TypeMap {
     codemap: CodeMap,
     bindings: HashMap<BindingId, (String, Span, Ty)>,
