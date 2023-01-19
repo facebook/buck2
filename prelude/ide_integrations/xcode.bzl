@@ -28,4 +28,4 @@ def generate_xcode_data(
         data.update(populate_rule_specific_attributes_func(ctx, **kwargs))
 
     json_file = ctx.actions.write_json(_XCODE_DATA_FILE_NAME, data)
-    return [DefaultInfo(default_outputs = [json_file])], XcodeDataInfo(data = data)
+    return [DefaultInfo(default_output = json_file)], XcodeDataInfo(data = data)
