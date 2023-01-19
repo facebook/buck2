@@ -23,9 +23,17 @@ use std::fmt::Display;
 use either::Either;
 use gazebo::prelude::*;
 
+use crate::docs;
 use crate::eval::compiler::scope::CstExpr;
+use crate::syntax::ast::AstExpr;
+use crate::syntax::ast::AstExprP;
 use crate::syntax::ast::AstLiteral;
+use crate::syntax::ast::AstPayload;
+use crate::syntax::ast::AstStmt;
 use crate::syntax::ast::ExprP;
+use crate::syntax::ast::StmtP;
+use crate::syntax::AstModule;
+use crate::syntax::Dialect;
 use crate::typing::ctx::TyCtx;
 
 /// A typing operation wasn't able to produce a precise result,
@@ -566,7 +574,10 @@ impl Ty {
         }
     }
 
-    pub(crate) fn from_expr(x: &CstExpr, approximations: &mut Vec<Approximation>) -> Self {
+    pub(crate) fn from_expr<P: AstPayload>(
+        x: &AstExprP<P>,
+        approximations: &mut Vec<Approximation>,
+    ) -> Self {
         match &**x {
             ExprP::Tuple(xs) => Ty::Tuple(xs.map(|x| Self::from_expr(x, approximations))),
             ExprP::Dot(x, b) if &**b == "type" => match &***x {
@@ -600,6 +611,67 @@ impl Ty {
             ExprP::Identifier(x, _) if &**x == "None" => Ty::None,
             _ => {
                 approximations.push(Approximation::new("Unknown type", x));
+                Ty::Any
+            }
+        }
+    }
+
+    pub(crate) fn from_docs_member(member: &docs::Member) -> Self {
+        match member {
+            docs::Member::Property(x) => Self::from_docs_type(&x.typ),
+            docs::Member::Function(x) => Self::from_docs_function(x),
+        }
+    }
+
+    pub(crate) fn from_docs_function(function: &docs::Function) -> Self {
+        let mut params = Vec::with_capacity(function.params.len());
+        let mut no_args = false;
+        for p in &function.params {
+            match p {
+                docs::Param::Arg {
+                    name,
+                    typ,
+                    default_value,
+                    ..
+                } => {
+                    let mut r = if no_args {
+                        Param::name_only(name, Ty::from_docs_type(typ))
+                    } else {
+                        Param::pos_or_name(name, Ty::from_docs_type(typ))
+                    };
+                    if default_value.is_some() {
+                        r = r.optional();
+                    }
+                    params.push(r);
+                }
+                docs::Param::NoArgs => no_args = true,
+                docs::Param::Args { typ, .. } => params.push(Param::args(Ty::from_docs_type(typ))),
+                docs::Param::Kwargs { typ, .. } => {
+                    params.push(Param::kwargs(Ty::from_docs_type(typ)))
+                }
+            }
+        }
+        Ty::function(params, Self::from_docs_type(&function.ret.typ))
+    }
+
+    pub(crate) fn from_docs_type(ty: &Option<docs::Type>) -> Self {
+        fn get_expr(x: &AstStmt) -> Option<&AstExpr> {
+            match &x.node {
+                StmtP::Statements(x) if x.len() == 1 => get_expr(&x[0]),
+                StmtP::Expression(x) => Some(x),
+                _ => None,
+            }
+        }
+
+        match ty {
+            None => Ty::Any,
+            Some(x) => {
+                if let Ok(ast) = AstModule::parse("type", x.raw_type.clone(), &Dialect::Standard) {
+                    if let Some(expr) = &get_expr(&ast.statement) {
+                        // We just ignore the approximations, given we ignore lots of other type details
+                        return Ty::from_expr(expr, &mut Vec::new());
+                    }
+                }
                 Ty::Any
             }
         }

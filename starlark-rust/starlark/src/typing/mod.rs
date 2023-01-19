@@ -25,11 +25,13 @@
 
 pub(crate) mod bindings;
 pub(crate) mod ctx;
+pub(crate) mod docs;
 pub(crate) mod oracle;
 pub(crate) mod ty;
 pub(crate) mod typecheck;
 
 pub use bindings::Interface;
+pub use docs::OracleDocs;
 pub use oracle::OracleNoBuiltins;
 pub use oracle::OracleNone;
 pub use oracle::OracleSequence;

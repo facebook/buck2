@@ -1,0 +1,97 @@
+/*
+ * Copyright 2019 The Starlark in Rust Authors.
+ * Copyright (c) Facebook, Inc. and its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+use std::collections::HashMap;
+
+use crate::docs::Doc;
+use crate::docs::DocItem;
+use crate::typing::Ty;
+use crate::typing::TypingOracle;
+
+/// A [`TypingOracle`] based on information from documentation.
+pub struct OracleDocs {
+    /// Indexed by type name, then the attribute
+    objects: HashMap<String, HashMap<String, Ty>>,
+    functions: HashMap<String, Ty>,
+}
+
+impl OracleDocs {
+    /// Create a new [`OracleDocs`], usually given the output of
+    /// [`get_registered_starlark_docs`](crate::docs::get_registered_starlark_docs).
+    pub fn new(docs: &[Doc]) -> Self {
+        let mut objects = HashMap::new();
+        let mut functions = HashMap::new();
+
+        for doc in docs {
+            match &doc.item {
+                DocItem::Module(_) => {} // These don't have any useful info
+                DocItem::Object(obj) => {
+                    let mut items = HashMap::with_capacity(obj.members.len());
+                    for (name, member) in &obj.members {
+                        items.insert(name.clone(), Ty::from_docs_member(member));
+                    }
+                    objects.insert(doc.id.name.clone(), items);
+                }
+                DocItem::Function(x) => {
+                    functions.insert(doc.id.name.clone(), Ty::from_docs_function(x));
+                }
+            }
+        }
+        Self { objects, functions }
+    }
+
+    /// Create a new [`OracleDocs`] given the documentation, usually from
+    /// [`Globals::documentation`](crate::environment::Globals::documentation).
+    /// Only produces interesting content if the result is an [`Object`](crate::docs::Object) (which it is for those two).
+    pub fn new_object(docs: &DocItem) -> Self {
+        let mut functions = HashMap::new();
+        if let DocItem::Object(obj) = docs {
+            for (name, member) in &obj.members {
+                functions.insert(name.clone(), Ty::from_docs_member(member));
+            }
+        }
+        Self {
+            objects: HashMap::new(),
+            functions,
+        }
+    }
+}
+
+impl TypingOracle for OracleDocs {
+    fn attribute(&self, ty: &Ty, attr: &str) -> Option<Result<Ty, ()>> {
+        if attr.starts_with("__") && attr.ends_with("__") {
+            // We don't record operator info in the docs, so it is always missing
+            return None;
+        }
+        let name = match ty {
+            Ty::Name(x) => x.as_str(),
+            Ty::List(_) => "list",
+            Ty::Tuple(_) => "tuple",
+            Ty::Dict(_) => "dict",
+            Ty::Struct { .. } => "struct",
+            _ => return None,
+        };
+        match self.objects.get(name)?.get(attr) {
+            None => Some(Err(())),
+            Some(res) => Some(Ok(res.clone())),
+        }
+    }
+
+    fn builtin(&self, name: &str) -> Option<Result<Ty, ()>> {
+        Some(Ok(self.functions.get(name)?.clone()))
+    }
+}
