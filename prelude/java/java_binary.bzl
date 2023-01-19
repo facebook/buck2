@@ -169,7 +169,7 @@ def java_binary_impl(ctx: "context") -> ["provider"]:
         other_outputs = [classpath_file] + [packaging_jar_args] + _get_java_tool_artifacts(java_toolchain)
 
     return [
-        DefaultInfo(default_outputs = [main_artifact], other_outputs = other_outputs),
+        DefaultInfo(default_output = main_artifact, other_outputs = other_outputs),
         RunInfo(args = run_cmd),
         create_template_info(packaging_info, first_order_libs),
     ]

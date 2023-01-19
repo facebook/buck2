@@ -53,5 +53,5 @@ def java_plugin_impl(ctx: "context") -> ["provider"]:
             processors = [ctx.attrs.plugin_name],
             type = JavaProcessorsType("plugin"),
         ),
-        DefaultInfo(default_outputs = []),
+        DefaultInfo(default_output = None),
     ]

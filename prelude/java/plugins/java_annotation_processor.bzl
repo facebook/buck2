@@ -131,5 +131,5 @@ def java_annotation_processor_impl(ctx: "context") -> ["provider"]:
             affects_abi = not ctx.attrs.does_not_affect_abi,
             supports_source_only_abi = ctx.attrs.supports_abi_generation_from_source,
         ),
-        DefaultInfo(default_outputs = []),
+        DefaultInfo(default_output = None),
     ]

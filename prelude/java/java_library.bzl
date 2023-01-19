@@ -610,7 +610,7 @@ def build_java_library(
             **common_compile_kwargs
         )
 
-        sub_targets["ast"] = [DefaultInfo(default_outputs = [ast_output])]
+        sub_targets["ast"] = [DefaultInfo(default_output = ast_output)]
 
     java_library_info, java_packaging_info, shared_library_info, cxx_resource_info, template_placeholder_info, intellij_info = create_java_library_providers(
         ctx,

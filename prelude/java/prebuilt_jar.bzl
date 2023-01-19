@@ -65,7 +65,7 @@ def prebuilt_jar_impl(ctx: "context") -> ["provider"]:
     sub_targets["abi"] = [
         java_library_info,
         template_placeholder_info,
-        DefaultInfo(default_outputs = [library_output_classpath_entry.abi]),
+        DefaultInfo(default_output = library_output_classpath_entry.abi),
     ]
 
     return [
@@ -75,5 +75,5 @@ def prebuilt_jar_impl(ctx: "context") -> ["provider"]:
         cxx_resource_info,
         android_packageable_info,
         template_placeholder_info,
-        DefaultInfo(default_outputs = [output], sub_targets = sub_targets),
+        DefaultInfo(default_output = output, sub_targets = sub_targets),
     ]
