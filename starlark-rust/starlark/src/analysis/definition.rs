@@ -455,11 +455,7 @@ impl LspModule {
         let mut identifier_span = None;
         let mut symbol_to_lookup = None;
 
-        self.ast.statement.visit_stmt(|v| {
-            if symbol_to_lookup.is_some() {
-                return;
-            }
-
+        'outer: for v in self.ast.top_level_statements() {
             if let StmtP::Assign(l, ty_r) = &v.node {
                 let (_ty, r) = &**ty_r;
                 let main_assign_span = match &l.node {
@@ -467,7 +463,7 @@ impl LspModule {
                         main_assign_id.span
                     }
                     _ => {
-                        return;
+                        continue 'outer;
                     }
                 };
                 // If nothing else, go to the left hand of the assignment expression.
@@ -480,7 +476,7 @@ impl LspModule {
                     match &function_name.node {
                         ExprP::Identifier(function_name, _) if function_name.node == "struct" => {}
                         _ => {
-                            return;
+                            continue 'outer;
                         }
                     }
 
@@ -494,14 +490,14 @@ impl LspModule {
                             }
                             if let ExprP::Identifier(arg_value_id, _) = &arg_expr.node {
                                 symbol_to_lookup = Some(arg_value_id.span);
-                                return;
+                                break 'outer;
                             }
                             break;
                         }
                     }
                 }
             }
-        });
+        }
 
         // Try to find the symbol that is assigned, but if not, try to get to that "closest" span.
         symbol_to_lookup

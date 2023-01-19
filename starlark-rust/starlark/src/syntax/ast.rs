@@ -112,6 +112,26 @@ pub struct AstModule {
     pub(crate) dialect: Dialect,
 }
 
+impl AstModule {
+    /// List the top-level statements in the AST.
+    pub(crate) fn top_level_statements(&self) -> Vec<&AstStmt> {
+        fn f<'a>(ast: &'a AstStmt, res: &mut Vec<&'a AstStmt>) {
+            match &**ast {
+                StmtP::Statements(xs) => {
+                    for x in xs {
+                        f(x, res);
+                    }
+                }
+                _ => res.push(ast),
+            }
+        }
+
+        let mut res = Vec::new();
+        f(&self.statement, &mut res);
+        res
+    }
+}
+
 // A trait rather than a function to allow .ast() chaining in the parser.
 pub(crate) trait ToAst: Sized {
     fn ast(self, begin: usize, end: usize) -> Spanned<Self> {

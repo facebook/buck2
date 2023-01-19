@@ -28,17 +28,19 @@ impl AstModule {
         // Map since we only want to store the first of each export
         // IndexMap since we want the order to match the order they were defined in
         let mut result: SmallMap<&str, _> = SmallMap::new();
-        self.statement.visit_stmt(|x| match &**x {
-            Stmt::Assign(dest, _) | Stmt::AssignModify(dest, _, _) => {
-                dest.visit_lvalue(|name| {
+        for x in self.top_level_statements() {
+            match &**x {
+                Stmt::Assign(dest, _) | Stmt::AssignModify(dest, _, _) => {
+                    dest.visit_lvalue(|name| {
+                        result.entry(&name.0).or_insert(name.span);
+                    });
+                }
+                Stmt::Def(DefP { name, .. }) => {
                     result.entry(&name.0).or_insert(name.span);
-                });
+                }
+                _ => {}
             }
-            Stmt::Def(DefP { name, .. }) => {
-                result.entry(&name.0).or_insert(name.span);
-            }
-            _ => {}
-        });
+        }
         result
             .into_iter()
             .filter(|(name, _)| !name.starts_with('_'))
