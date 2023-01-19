@@ -140,9 +140,13 @@ fn test_invalid_concat_coercion_into_one_of() -> anyhow::Result<()> {
     ]);
 
     let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
-    coerced
+    let err = coerced
         .configure(&configuration_ctx())
         .expect_err("Should fail to concatenate configured lists");
+    assert!(
+        err.to_string()
+            .contains("addition not supported for lists of different types")
+    );
     Ok(())
 }
 
