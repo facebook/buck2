@@ -113,7 +113,7 @@ def sh_binary_impl(ctx):
     (script, resources_dir) = _generate_script(ctx.label.name, ctx.attrs.main, ctx.attrs.resources, ctx.actions, is_windows)
 
     return [
-        DefaultInfo(default_outputs = [script], other_outputs = [resources_dir]),
+        DefaultInfo(default_output = script, other_outputs = [resources_dir]),
         RunInfo(
             # TODO(cjhopman): Figure out if we need to specify the link targets
             # as inputs. We shouldn't need to, but need to verify it.
