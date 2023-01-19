@@ -128,7 +128,7 @@ port_loop(Port, Replay, StdOut) ->
 get_additional_paths(Path) ->
     case
         run_command(
-            "buck2 bxl --reuse-current-config --console super @prelude//erlang/shell/shell.bxl:ebin_paths -- --source ~s",
+            "buck2 bxl --reuse-current-config --console super prelude//erlang/shell/shell.bxl:ebin_paths -- --source ~s",
             [
                 Path
             ]
