@@ -25,7 +25,7 @@ load(":packages.bzl", "go_attr_pkg_name", "merge_pkgs")
 
 def go_library_impl(ctx: "context") -> ["provider"]:
     pkgs = {}
-    default_outputs = []
+    default_output = None
     pkg_name = None
     if ctx.attrs.srcs:
         pkg_name = go_attr_pkg_name(ctx)
@@ -35,11 +35,11 @@ def go_library_impl(ctx: "context") -> ["provider"]:
             get_filtered_srcs(ctx, ctx.attrs.srcs),
             deps = ctx.attrs.deps + ctx.attrs.exported_deps,
         )
-        default_outputs.append(lib)
+        default_output = lib
         pkgs[pkg_name] = lib
 
     return [
-        DefaultInfo(default_outputs = default_outputs),
+        DefaultInfo(default_output = default_output),
         GoPkgCompileInfo(pkgs = merge_pkgs([
             pkgs,
             get_inherited_compile_pkgs(ctx.attrs.exported_deps),
