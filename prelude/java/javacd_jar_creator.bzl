@@ -28,6 +28,11 @@ load(
     "prepare_final_jar",
 )
 
+base_command_params = struct(
+    withDownwardApi = True,
+    spoolMode = "DIRECT_TO_JAR",
+)
+
 def create_jar_artifact_javacd(
         actions: "actions",
         actions_identifier: [str.type, None],
@@ -95,10 +100,7 @@ def create_jar_artifact_javacd(
         )
 
         return struct(
-            baseCommandParams = struct(
-                withDownwardApi = True,
-                spoolMode = "DIRECT_TO_JAR",
-            ),
+            baseCommandParams = base_command_params,
             libraryJarCommand = struct(
                 baseJarCommand = base_jar_command,
                 libraryJarBaseCommand = struct(
@@ -140,10 +142,7 @@ def create_jar_artifact_javacd(
         )
 
         return struct(
-            baseCommandParams = struct(
-                withDownwardApi = True,
-                spoolMode = "DIRECT_TO_JAR",
-            ),
+            baseCommandParams = base_command_params,
             abiJarCommand = abi_command,
         )
 
