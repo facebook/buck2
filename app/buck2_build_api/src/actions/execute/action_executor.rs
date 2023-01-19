@@ -440,20 +440,20 @@ impl ActionExecutor for BuckActionExecutor {
 
             // Check that all the outputs are the right output_type
             for x in outputs.iter() {
-                let wanted = x.output_type();
+                let declared = x.output_type();
                 // FIXME: One day we should treat FileOrDirectory as a File, and soft_error if it is a directory
-                if wanted != OutputType::FileOrDirectory {
+                if declared != OutputType::FileOrDirectory {
                     if let Some(t) = result.0.outputs.get(x.get_path()) {
-                        let got = if t.is_dir() {
+                        let real = if t.is_dir() {
                             OutputType::Directory
                         } else {
                             OutputType::File
                         };
-                        if got != wanted {
+                        if real != declared {
                             return Err(ExecuteError::WrongOutputType {
                                 path: self.command_executor.fs().resolve_build(x.get_path()),
-                                wanted,
-                                got,
+                                declared,
+                                real,
                             });
                         }
                     }
@@ -467,12 +467,12 @@ impl ActionExecutor for BuckActionExecutor {
                 .map(|b| b.get_path())
                 .eq(result.0.outputs.keys())
             {
-                let wanted = outputs
+                let declared = outputs
                     .iter()
                     .filter(|x| !result.0.outputs.contains_key(x.get_path()))
                     .map(|x| self.command_executor.fs().resolve_build(x.get_path()))
                     .collect();
-                let got = result
+                let real = result
                     .0
                     .outputs
                     .keys()
@@ -482,10 +482,10 @@ impl ActionExecutor for BuckActionExecutor {
                     })
                     .map(|x| self.command_executor.fs().resolve_build(x))
                     .collect::<Vec<_>>();
-                if got.is_empty() {
-                    Err(ExecuteError::MissingOutputs { wanted })
+                if real.is_empty() {
+                    Err(ExecuteError::MissingOutputs { declared })
                 } else {
-                    Err(ExecuteError::MismatchedOutputs { wanted, got })
+                    Err(ExecuteError::MismatchedOutputs { declared, real })
                 }
             } else {
                 Ok((result, metadata))

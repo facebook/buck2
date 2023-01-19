@@ -17,16 +17,16 @@ use thiserror::Error;
 #[derive(Debug)]
 pub enum ExecuteError {
     MissingOutputs {
-        wanted: Vec<ProjectRelativePathBuf>,
+        declared: Vec<ProjectRelativePathBuf>,
     },
     MismatchedOutputs {
-        wanted: Vec<ProjectRelativePathBuf>,
-        got: Vec<ProjectRelativePathBuf>,
+        declared: Vec<ProjectRelativePathBuf>,
+        real: Vec<ProjectRelativePathBuf>,
     },
     WrongOutputType {
         path: ProjectRelativePathBuf,
-        wanted: OutputType,
-        got: OutputType,
+        declared: OutputType,
+        real: OutputType,
     },
     Error {
         error: anyhow::Error,
@@ -37,21 +37,21 @@ pub enum ExecuteError {
 impl ExecuteError {
     pub(crate) fn as_proto(&self) -> buck2_data::action_execution_end::Error {
         match self {
-            ExecuteError::MissingOutputs { wanted } => buck2_data::CommandOutputsMissing {
-                message: format!("Action failed to produce outputs: {}", error_items(wanted)),
+            ExecuteError::MissingOutputs { declared } => buck2_data::CommandOutputsMissing {
+                message: format!("Action failed to produce outputs: {}", error_items(declared)),
             }
             .into(),
-            ExecuteError::MismatchedOutputs { wanted, got } => buck2_data::CommandOutputsMissing {
+            ExecuteError::MismatchedOutputs { declared, real } => buck2_data::CommandOutputsMissing {
                 message: format!(
-                    "Action didn't produce the right set of outputs.\nExpected {}`\nGot {}",
-                    error_items(wanted),
-                    error_items(got)
+                    "Action didn't produce the right set of outputs.\nExpected {}`\nreal {}",
+                    error_items(declared),
+                    error_items(real)
                 ),
             }
             .into(),
-            ExecuteError::WrongOutputType {path, wanted, got} => buck2_data::CommandOutputsMissing {
+            ExecuteError::WrongOutputType {path, declared, real} => buck2_data::CommandOutputsMissing {
                 message: format!(
-                    "Action didn't produce output of the right type.\nExpected {path} to be {wanted:?}\nGot {got:?}",
+                    "Action didn't produce output of the right type.\nExpected {path} to be {declared:?}\nreal {real:?}",
                 ),
             }
             .into(),
