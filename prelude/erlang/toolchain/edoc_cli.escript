@@ -10,6 +10,7 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 
+%% @format
 %% @doc EDoc command line interface
 -module(edoc_cli).
 -export([main/1]).
@@ -53,7 +54,10 @@ main(Args) ->
                 true ->
                     erlang:halt(1);
                 false ->
-                    ok
+                    case verify_files_exist(Opts) of
+                        true -> ok;
+                        false -> erlang:halt(1)
+                    end
             end;
         _ ->
             ok
@@ -63,9 +67,17 @@ remove_loggers() ->
     [logger:remove_handler(H) || H <- logger:get_handler_ids()].
 
 generate_empty_chunk(File, OutputDir) ->
+    file:write_file(
+        chunk_path(File, OutputDir),
+        erlang:term_to_binary(failed_to_build_doc_chunk)
+    ).
+
+verify_files_exist(#{files := Files, out_dir := OutputDir}) ->
+    lists:all(fun(File) -> filelib:is_regular(chunk_path(File, OutputDir)) end, Files).
+
+chunk_path(File, OutputDir) ->
     ModuleName = filename:basename(File, ".erl"),
-    ChunkFile = filename:join([OutputDir, "chunks", ModuleName ++ ".chunk"]),
-    file:write_file(ChunkFile, erlang:term_to_binary(failed_to_build_doc_chunk)).
+    filename:join([OutputDir, "chunks", ModuleName ++ ".chunk"]).
 
 set_output_types(#{errors_as := ErrType, warnings_as := WarnType}) ->
     erlang:put(errors_fd, get_fd(ErrType)),
