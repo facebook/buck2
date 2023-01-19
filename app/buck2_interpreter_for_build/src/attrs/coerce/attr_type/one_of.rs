@@ -31,7 +31,10 @@ impl AttrTypeCoerce for OneOfAttrType {
         for x in &self.xs {
             match x.coerce_item(configurable, ctx, value) {
                 Ok(v) => return Ok(v),
-                Err(e) => errs.push(e),
+                Err(e) => {
+                    // TODO(nga): anyhow error creation is expensive.
+                    errs.push(e)
+                }
             }
         }
         Err(CoercionError::one_of_many(errs))
