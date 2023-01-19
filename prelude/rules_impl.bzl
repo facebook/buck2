@@ -204,9 +204,10 @@ def _cxx_python_extension_attrs():
     res = {k: attrs.default_only(library[k]) for k in library if k not in me}
     res.update({
         "allow_embedding": attrs.bool(default = True),
-        # Copied from cxx_library.
         "allow_huge_dwp": attrs.bool(default = False),
         "allow_suffixing": attrs.bool(default = True),
+        # Copied from cxx_library.
+        "auto_link_groups": attrs.bool(default = False),
         "link_whole": attrs.default_only(attrs.bool(default = True)),
         "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
         "preferred_linkage": attrs.default_only(attrs.string(default = "any")),
@@ -366,6 +367,7 @@ inlined_extra_attributes = {
     },
     "cxx_library": {
         "allow_huge_dwp": attrs.bool(default = False),
+        "auto_link_groups": attrs.bool(default = False),
         "deps_query": attrs.option(attrs.query(), default = None),
         "extra_xcode_sources": attrs.list(attrs.source(allow_directory = True), default = []),
         "force_emit_omnibus_shared_root": attrs.bool(default = False),
