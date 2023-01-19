@@ -25,6 +25,7 @@ use starlark::errors::Diagnostic;
 use starlark::errors::Lint;
 use starlark::syntax::AstModule;
 
+use crate::util::globals::CachedGlobals;
 use crate::util::paths::starlark_files;
 use crate::StarlarkCommandCommonOptions;
 use crate::StarlarkSubcommand;
@@ -43,13 +44,14 @@ async fn lint_file(
     path: &StarlarkPath<'_>,
     cell_resolver: &CellResolver,
     io: &dyn IoProvider,
+    cached_globals: &mut CachedGlobals<'_>,
 ) -> anyhow::Result<Vec<Lint>> {
     let dialect = path.dialect(false);
-    let path = cell_resolver.resolve_path(&path.path())?;
-    let path_str = path.to_string();
-    let content = io.read_file(path).await?;
+    let proj_path = cell_resolver.resolve_path(&path.path())?;
+    let path_str = proj_path.to_string();
+    let content = io.read_file(proj_path).await?;
     match AstModule::parse(&path_str, content.clone(), &dialect) {
-        Ok(ast) => Ok(ast.lint(None)),
+        Ok(ast) => Ok(ast.lint(Some(&*cached_globals.get_names(path).await?))),
         Err(err) => {
             // There was a parse error, so we don't want to fail, we want to give a nice error message
             // Do the best we can - it is probably a `Diagnostic`, which gives us more precise info.
@@ -80,13 +82,16 @@ impl StarlarkSubcommand for StarlarkLintCommand {
                 let cell_resolver = ctx.get_cell_resolver().await?;
                 let fs = ctx.file_ops();
                 let io = ctx.global_data().get_io_provider();
+                let mut cached_globals = CachedGlobals::new(&ctx);
 
                 let mut stdout = server_ctx.stdout()?;
                 let mut lint_count = 0;
                 let files =
                     starlark_files(&self.paths, server_ctx, &cell_resolver, &fs, &*io).await?;
                 for file in &files {
-                    let lints = lint_file(&file.borrow(), &cell_resolver, &*io).await?;
+                    let lints =
+                        lint_file(&file.borrow(), &cell_resolver, &*io, &mut cached_globals)
+                            .await?;
                     lint_count += lints.len();
                     for lint in lints {
                         writeln!(stdout, "{}", lint)?;

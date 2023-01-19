@@ -7,4 +7,5 @@
  * of this source tree.
  */
 
+pub(crate) mod globals;
 pub(crate) mod paths;

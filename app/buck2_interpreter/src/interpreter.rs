@@ -280,6 +280,10 @@ impl GlobalInterpreterState {
             disable_starlark_types,
         })
     }
+
+    pub fn configuror(&self) -> &Arc<dyn InterpreterConfiguror> {
+        &self.configuror
+    }
 }
 
 struct InterpreterLoadResolver {
@@ -476,7 +480,7 @@ impl InterpreterForCell {
                 .env();
             env.import_public_symbols(prelude_env);
             if let StarlarkPath::BuildFile(_) = starlark_path {
-                if let Ok(native) = prelude_env.get("native") {
+                if let Some(native) = prelude_env.get_option("native")? {
                     let native = native.value();
                     for attr in native.dir_attr() {
                         if let Some(value) = native.get_attr(&attr, env.heap())? {

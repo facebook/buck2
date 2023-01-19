@@ -66,10 +66,14 @@ impl ImportPaths {
             package_imports,
         })
     }
+
+    pub fn root_import(&self) -> Option<&ImportPath> {
+        self.root_import.as_ref()
+    }
 }
 
 #[async_trait]
-pub(crate) trait HasImportPaths {
+pub trait HasImportPaths {
     async fn import_paths_for_cell(
         &self,
         cell_name: &BuildFileCell,
