@@ -28,7 +28,7 @@ def _impl(ctx: "context") -> ["provider"]:
     ctx.actions.run(cmd_args(["/bin/sh", script])
         .hidden([archive, output.as_output()]), category = "extract_archive")
 
-    return [DefaultInfo(default_outputs = [output])]
+    return [DefaultInfo(default_output = output)]
 
 registration_spec = RuleRegistrationSpec(
     name = "extract_archive",
