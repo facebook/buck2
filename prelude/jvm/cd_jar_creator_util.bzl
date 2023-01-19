@@ -67,9 +67,6 @@ def get_abi_generation_mode(
 
 # Our protobuf format mostly encodes paths in RelPath/AbsPath structs with a single "path" field.
 # Note that we don't actually use abspath and instead enable JAVACD_ABSOLUTE_PATHS_ARE_RELATIVE_TO_CWD
-def encode_path(path):
-    return struct(path = path)
-
 TargetType = enum("library", "source_abi", "source_only_abi")
 
 def encode_abi_generation_mode(mode: AbiGenerationMode.type) -> str.type:
@@ -135,12 +132,12 @@ def add_output_paths_to_cmd_args(cmd: "cmd_args", output_paths: OutputPaths.type
 
 def encode_output_paths(label: "label", paths: OutputPaths.type, target_type: TargetType.type) -> struct.type:
     paths = struct(
-        classesDir = encode_path(paths.classes.as_output()),
-        outputJarDirPath = encode_path(paths.jar_parent.as_output()),
-        annotationPath = encode_path(paths.annotations.as_output()),
-        pathToSourcesList = encode_path(cmd_args([paths.scratch.as_output(), "/", "__srcs__"], delimiter = "")),
-        workingDirectory = encode_path(paths.scratch.as_output()),
-        outputJarPath = encode_path(paths.jar.as_output()),
+        classesDir = paths.classes.as_output(),
+        outputJarDirPath = paths.jar_parent.as_output(),
+        annotationPath = paths.annotations.as_output(),
+        pathToSourcesList = cmd_args([paths.scratch.as_output(), "/", "__srcs__"], delimiter = ""),
+        workingDirectory = paths.scratch.as_output(),
+        outputJarPath = paths.jar.as_output(),
     )
 
     return struct(
@@ -152,13 +149,11 @@ def encode_output_paths(label: "label", paths: OutputPaths.type, target_type: Ta
 
 def encode_jar_params(remove_classes: [str.type], output_paths: OutputPaths.type) -> struct.type:
     return struct(
-        jarPath = encode_path(output_paths.jar.as_output()),
+        jarPath = output_paths.jar.as_output(),
         removeEntryPredicate = struct(
             patterns = remove_classes,
         ),
-        entriesToJar = [
-            encode_path(output_paths.classes.as_output()),
-        ],
+        entriesToJar = [output_paths.classes.as_output()],
         # TODO(cjhopman): Get correct duplicatesLogLevel
         duplicatesLogLevel = "INFO",
     )
@@ -176,8 +171,8 @@ def command_abi_generation_mode(target_type: TargetType.type, abi_generation_mod
 # TODO(cjhopman): Get correct ignore paths.
 filesystem_params = struct(
     # For buck2, everything is relative to the project root.
-    rootPath = encode_path(""),
-    configuredBuckOut = encode_path("buck-out/v2"),
+    rootPath = "",
+    configuredBuckOut = "buck-out/v2",
     globIgnorePaths = [],
 )
 
@@ -207,7 +202,7 @@ def get_compiling_classpath(actions: "actions", deps: ["dependency"], additional
             def filter_compiling_deps(dep):
                 return dep in source_only_abi_deps_filter or dep.required_for_source_only_abi
 
-            compiling_classpath = [encode_path(compiling_dep.abi) for compiling_dep in list(compiling_deps_tset.traverse()) if filter_compiling_deps(compiling_dep)]
+            compiling_classpath = [compiling_dep.abi for compiling_dep in list(compiling_deps_tset.traverse()) if filter_compiling_deps(compiling_dep)]
         else:
             compiling_classpath = compiling_deps_tset.project_as_json("javacd_json")
     return compiling_classpath
@@ -289,10 +284,7 @@ def encode_base_jar_command(
         extraParams = build_target_value_extra_params,
     )
     resolved_java_options = struct(
-        bootclasspathList = [
-            encode_path(v)
-            for v in bootclasspath_entries
-        ],
+        bootclasspathList = bootclasspath_entries,
         languageLevelOptions = struct(
             sourceLevel = source_level,
             targetLevel = target_level,
@@ -306,7 +298,7 @@ def encode_base_jar_command(
     return struct(
         outputPathsValue = encode_output_paths(label, output_paths, target_type),
         compileTimeClasspathPaths = compiling_classpath,
-        javaSrcs = [encode_path(s) for s in srcs],
+        javaSrcs = srcs,
         # TODO(cjhopman): populate jar infos. I think these are only used for unused dependencies (and appear to be broken in buck1 w/javacd anyway).
         fullJarInfos = [],
         abiJarInfos = [],
@@ -320,8 +312,8 @@ def encode_base_jar_command(
         cellToPathMappings = {},
         resourcesMap = [
             {
-                "key": encode_path(v),
-                "value": encode_path(cmd_args([output_paths.classes.as_output(), "/", k], delimiter = "")),
+                "key": v,
+                "value": cmd_args([output_paths.classes.as_output(), "/", k], delimiter = ""),
             }
             for (k, v) in resources_map.items()
         ],

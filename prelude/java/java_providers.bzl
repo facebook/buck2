@@ -100,7 +100,7 @@ def _args_for_compiling(entry: JavaClasspathEntry.type):
     return entry.abi
 
 def _javacd_json(v):
-    return struct(path = v.abi)
+    return v.abi
 
 JavaCompilingDepsTSet = transitive_set(
     args_projections = {
@@ -133,10 +133,7 @@ def _args_for_classpath_macro(dep: JavaPackagingDep.type):
     return dep.output_for_classpath_macro
 
 def _packaging_dep_javacd_json(dep: JavaPackagingDep.type):
-    if dep.jar:
-        return struct(path = dep.jar)
-
-    return struct()
+    return dep.jar or ""
 
 JavaPackagingDepTSet = transitive_set(
     args_projections = {

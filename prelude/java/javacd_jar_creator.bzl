@@ -22,7 +22,6 @@ load(
     "define_output_paths",
     "encode_base_jar_command",
     "encode_jar_params",
-    "encode_path",
     "generate_abi_jars",
     "get_abi_generation_mode",
     "prepare_final_jar",
@@ -104,10 +103,10 @@ def create_jar_artifact_javacd(
             libraryJarCommand = struct(
                 baseJarCommand = base_jar_command,
                 libraryJarBaseCommand = struct(
-                    pathToClasses = encode_path(output_paths.jar.as_output()),
-                    rootOutput = encode_path(output_paths.jar_parent.as_output()),
-                    pathToClassHashes = encode_path(path_to_class_hashes.as_output()),
-                    annotationsPath = encode_path(output_paths.annotations.as_output()),
+                    pathToClasses = output_paths.jar.as_output(),
+                    rootOutput = output_paths.jar_parent.as_output(),
+                    pathToClassHashes = path_to_class_hashes.as_output(),
+                    annotationsPath = output_paths.annotations.as_output(),
                 ),
             ),
         )

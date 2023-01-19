@@ -22,14 +22,13 @@ load(
     "define_output_paths",
     "encode_base_jar_command",
     "encode_jar_params",
-    "encode_path",
     "generate_abi_jars",
     "prepare_final_jar",
 )
 load("@prelude//utils:utils.bzl", "expect", "map_idx")
 
 buckPaths = struct(
-    configuredBuckOut = encode_path("buck-out/v2"),
+    configuredBuckOut = "buck-out/v2",
     includeTargetConfigHash = True,
 )
 
@@ -73,17 +72,17 @@ def create_jar_artifact_kotlincd(
 
     def encode_kotlin_extra_params(kotlin_compiler_plugins):
         return struct(
-            extraClassPaths = [encode_path(path) for path in bootclasspath_entries],
-            standardLibraryClassPath = encode_path(kotlin_toolchain.kotlin_stdlib[JavaLibraryInfo].library_output.full_library),
-            annotationProcessingClassPath = encode_path(kotlin_toolchain.annotation_processing_jar[JavaLibraryInfo].library_output.full_library),
+            extraClassPaths = bootclasspath_entries,
+            standardLibraryClassPath = kotlin_toolchain.kotlin_stdlib[JavaLibraryInfo].library_output.full_library,
+            annotationProcessingClassPath = kotlin_toolchain.annotation_processing_jar[JavaLibraryInfo].library_output.full_library,
             kotlinCompilerPlugins = {plugin: {"params": plugin_options} if plugin_options else {} for plugin, plugin_options in kotlin_compiler_plugins.items()},
             kosabiPluginOptions = struct(
-                kosabi_stubs_gen_plugin = encode_path(kotlin_toolchain.kosabi_stubs_gen_plugin),
-                kosabi_applicability_plugin = encode_path(kotlin_toolchain.kosabi_applicability_plugin),
-                kosabi_jvm_abi_gen_plugin = encode_path(kotlin_toolchain.kosabi_jvm_abi_gen_plugin),
+                kosabi_stubs_gen_plugin = kotlin_toolchain.kosabi_stubs_gen_plugin,
+                kosabi_applicability_plugin = kotlin_toolchain.kosabi_applicability_plugin,
+                kosabi_jvm_abi_gen_plugin = kotlin_toolchain.kosabi_jvm_abi_gen_plugin,
             ),
-            friendPaths = [encode_path(friend_path.library_output.abi) for friend_path in map_idx(JavaLibraryInfo, friend_paths)],
-            kotlinHomeLibraries = [encode_path(target) for target in kotlin_toolchain.kotlin_home_libraries],
+            friendPaths = [friend_path.library_output.abi for friend_path in map_idx(JavaLibraryInfo, friend_paths)],
+            kotlinHomeLibraries = kotlin_toolchain.kotlin_home_libraries,
             jvmTarget = "1.8",
             kosabiJvmAbiGenEarlyTerminationMessagePrefix = "exception: java.lang.RuntimeException: Terminating compilation. We're done with ABI.",
             shouldUseJvmAbiGen = True,
@@ -94,7 +93,7 @@ def create_jar_artifact_kotlincd(
         )
 
     def encode_build_target_value_extra_params():
-        encoded_base_path = encode_path(label.path)
+        encoded_base_path = label.path
         short_name = label.name
         return struct(
             basePathForBaseName = encoded_base_path,
@@ -142,10 +141,10 @@ def create_jar_artifact_kotlincd(
                 kotlinExtraParams = kotlin_extra_params,
                 baseJarCommand = base_jar_command,
                 libraryJarBaseCommand = struct(
-                    pathToClasses = encode_path(output_paths.jar.as_output()),
-                    rootOutput = encode_path(output_paths.jar_parent.as_output()),
-                    pathToClassHashes = encode_path(path_to_class_hashes.as_output()),
-                    annotationsPath = encode_path(output_paths.annotations.as_output()),
+                    pathToClasses = output_paths.jar.as_output(),
+                    rootOutput = output_paths.jar_parent.as_output(),
+                    pathToClassHashes = path_to_class_hashes.as_output(),
+                    annotationsPath = output_paths.annotations.as_output(),
                 ),
             ),
         )
