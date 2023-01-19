@@ -288,7 +288,7 @@ impl TyCtx<'_> {
     }
 
     fn expression_attribute(&self, ty: &Ty, attr: &str, span: Span) -> Ty {
-        match self.oracle.attribute(ty, attr) {
+        match ty.attribute(attr, self) {
             Ok(x) => x,
             Err(()) => self.add_error(TypingError::AttributeNotAvailable {
                 loc: self.resolve(span),

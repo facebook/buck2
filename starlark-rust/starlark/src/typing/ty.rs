@@ -480,6 +480,30 @@ impl Ty {
         self.overlaps(&Self::list(Ty::Any), None)
     }
 
+    /// See what lies behind an attribute on a type
+    pub(crate) fn attribute(&self, attr: &str, ctx: &TyCtx) -> Result<Ty, ()> {
+        // There are some structural types which have to be handled in a specific way
+        match self {
+            Ty::Any => Ok(Ty::Any),
+            Ty::Void => Ok(Ty::Void),
+            Ty::Union(xs) => {
+                let rs = xs
+                    .alternatives()
+                    .iter()
+                    .flat_map(|x| x.attribute(attr, ctx))
+                    .collect::<Vec<_>>();
+                if rs.is_empty() {
+                    // Since xs wasn't empty, we must have had all types give us an invalid attribute.
+                    // So therefore this attribute must be invalid.
+                    Err(())
+                } else {
+                    Ok(Ty::unions(rs))
+                }
+            }
+            _ => ctx.oracle.attribute(self, attr),
+        }
+    }
+
     /// If you get to a point where these types are being checked, might they succeed
     pub(crate) fn overlaps(&self, other: &Self, ctx: Option<&TyCtx>) -> bool {
         if self.is_any() || self.is_void() || other.is_any() || other.is_void() {
