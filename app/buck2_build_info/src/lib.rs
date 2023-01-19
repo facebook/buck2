@@ -19,6 +19,16 @@ pub fn revision() -> Option<&'static str> {
     None
 }
 
+/// Get the generated version for the windows binary. We use this for defining bucks internal version
+pub fn win_internal_version() -> Option<&'static str> {
+    if let Some(win) = std::option_env!("BUCK2_WIN_INTERNAL_VERSION") {
+        if !win.is_empty() {
+            return Some(win);
+        }
+    }
+    None
+}
+
 /// Get the time at which this binary was built, if available.
 pub fn time_iso8601() -> Option<&'static str> {
     #[cfg(any(fbcode_build, cargo_internal_build))]

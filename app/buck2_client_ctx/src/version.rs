@@ -37,6 +37,8 @@ impl BuckVersion {
             Some(hex::encode(build_id))
         } else if let Ok(Some(uuid)) = file.mach_uuid() {
             Some(hex::encode(uuid))
+        } else if cfg!(windows) {
+            buck2_build_info::win_internal_version().map(|s| s.to_owned())
         } else {
             None
         }
@@ -80,8 +82,7 @@ impl BuckVersion {
         {
             internal_exe_hash
         } else {
-            //T136782979 TODO(lmvasquezg): Fix on Windows
-            if !buck2_core::is_open_source() && !cfg!(windows) {
+            if !buck2_core::is_open_source() {
                 let _ignored = crate::eprintln!(
                     "version extraction failed. This indicates an issue with the buck2 release, will fallback to binary hash"
                 );

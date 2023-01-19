@@ -11,6 +11,8 @@ rust_library(
         # would like to use build info for this, but it is unfortunately not reliably available, see
         # T140147872.
         "BUCK2_SET_EXPLICIT_VERSION": read_config("buck", "set_explicit_version", ""),
+        # This config value is set by the upload script, and controls the output of `--internal-version` on windows
+        "BUCK2_WIN_INTERNAL_VERSION": read_config("buck", "win_internal_version", ""),
     },
     deps = [
         # @oss-disable: "//common/rust/build_info:build_info", 
