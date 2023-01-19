@@ -137,7 +137,7 @@ def _get_fallback_transform_profile(ctx: "context") -> str.type:
     fail("Invalid fallback_transform_profile attribute {}!".format(ctx.attrs.fallback_transform_profile))
 
 def _get_default_providers(js_bundle_info: JsBundleInfo.type) -> ["provider"]:
-    return [DefaultInfo(default_outputs = [js_bundle_info.built_js])]
+    return [DefaultInfo(default_output = js_bundle_info.built_js)]
 
 def _get_android_resource_info(ctx: "context", js_bundle_info: JsBundleInfo.type, identifier: str.type) -> "AndroidResourceInfo":
     aapt2_compile_output = aapt2_compile(
@@ -186,9 +186,9 @@ def js_bundle_impl(ctx: "context") -> ["provider"]:
             simple_name = transform_profile if not ram_bundle_name else "{}-{}".format(ram_bundle_name, transform_profile)
             built_js_providers = _get_default_providers(js_bundle_info)
             extra_providers = _get_extra_providers(ctx, js_bundle_info, simple_name)
-            misc_providers = [DefaultInfo(default_outputs = [js_bundle_info.misc])]
-            source_map_providers = [DefaultInfo(default_outputs = [js_bundle_info.source_map])]
-            dependencies_providers = [DefaultInfo(default_outputs = [js_bundle_info.dependencies_file])]
+            misc_providers = [DefaultInfo(default_output = js_bundle_info.misc)]
+            source_map_providers = [DefaultInfo(default_output = js_bundle_info.source_map)]
+            dependencies_providers = [DefaultInfo(default_output = js_bundle_info.dependencies_file)]
 
             sub_targets[simple_name] = built_js_providers + extra_providers
             sub_targets["{}-misc".format(simple_name)] = misc_providers

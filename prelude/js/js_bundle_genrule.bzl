@@ -107,22 +107,22 @@ def js_bundle_genrule_impl(ctx: "context") -> ["provider"]:
             js_bundle_out = _build_js_bundle(ctx, bundle_name_out, js_bundle_info, simple_named_output)
 
             sub_targets[simple_named_output] = [
-                DefaultInfo(default_outputs = [js_bundle_out.built_js]),
+                DefaultInfo(default_output = js_bundle_out.built_js),
                 js_bundle_out,
             ] + _get_extra_providers(ctx, ctx.attrs.skip_resources, js_bundle, js_bundle_out)
-            sub_targets["{}-misc".format(simple_named_output)] = [DefaultInfo(default_outputs = [js_bundle_out.misc])]
-            sub_targets["{}-source_map".format(simple_named_output)] = [DefaultInfo(default_outputs = [js_bundle_out.source_map])]
-            sub_targets["{}-dependencies".format(simple_named_output)] = [DefaultInfo(default_outputs = [js_bundle_out.dependencies_file])]
+            sub_targets["{}-misc".format(simple_named_output)] = [DefaultInfo(default_output = js_bundle_out.misc)]
+            sub_targets["{}-source_map".format(simple_named_output)] = [DefaultInfo(default_output = js_bundle_out.source_map)]
+            sub_targets["{}-dependencies".format(simple_named_output)] = [DefaultInfo(default_output = js_bundle_out.dependencies_file)]
 
     js_bundle_info = ctx.attrs.js_bundle[JsBundleInfo]
     bundle_name_out = get_bundle_name(ctx, js_bundle_info.bundle_name)
     js_bundle_out = _build_js_bundle(ctx, bundle_name_out, js_bundle_info, "default")
 
-    sub_targets["dependencies"] = [DefaultInfo(default_outputs = [js_bundle_out.dependencies_file])]
-    sub_targets["misc"] = [DefaultInfo(default_outputs = [js_bundle_out.misc])]
-    sub_targets["source_map"] = [DefaultInfo(default_outputs = [js_bundle_out.source_map])]
+    sub_targets["dependencies"] = [DefaultInfo(default_output = js_bundle_out.dependencies_file)]
+    sub_targets["misc"] = [DefaultInfo(default_output = js_bundle_out.misc)]
+    sub_targets["source_map"] = [DefaultInfo(default_output = js_bundle_out.source_map)]
     default_info_out = DefaultInfo(
-        default_outputs = [js_bundle_out.built_js],
+        default_output = js_bundle_out.built_js,
         sub_targets = sub_targets,
     )
 

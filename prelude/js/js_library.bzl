@@ -212,7 +212,7 @@ def js_library_impl(ctx: "context") -> ["provider"]:
         )
 
         sub_targets[transform_profile] = [
-            DefaultInfo(default_outputs = [js_library]),
+            DefaultInfo(default_output = js_library),
             JsLibraryInfo(
                 output = js_library,
                 transitive_outputs = transitive_outputs,
@@ -220,5 +220,5 @@ def js_library_impl(ctx: "context") -> ["provider"]:
         ]
 
     return [
-        DefaultInfo(default_outputs = [], sub_targets = sub_targets),
+        DefaultInfo(default_output = None, sub_targets = sub_targets),
     ]
