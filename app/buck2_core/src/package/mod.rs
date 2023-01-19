@@ -72,7 +72,7 @@ impl Dupe for PackageLabel {}
 #[allow(clippy::derive_hash_xor_eq)] // The derived PartialEq is still correct.
 impl std::hash::Hash for PackageLabel {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.0.0.hash().hash(state)
+        Hashed::hash(&self.0.0).hash(state)
     }
 }
 
