@@ -166,7 +166,7 @@ def cgo_library_impl(ctx: "context") -> ["provider"]:
 
     pkgs = {pkg_name: lib}
     return [
-        DefaultInfo(default_outputs = [lib]),
+        DefaultInfo(default_output = lib),
         GoPkgCompileInfo(pkgs = merge_pkgs([
             pkgs,
             get_inherited_compile_pkgs(ctx.attrs.exported_deps),

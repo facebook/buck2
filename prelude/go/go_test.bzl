@@ -88,4 +88,4 @@ def go_test_impl(ctx: "context") -> ["provider"]:
             labels = ctx.attrs.labels,
             contacts = ctx.attrs.contacts,
         ),
-    ) + [DefaultInfo(default_outputs = [bin], other_outputs = [gen_main] + runtime_files)]
+    ) + [DefaultInfo(default_output = bin, other_outputs = [gen_main] + runtime_files)]

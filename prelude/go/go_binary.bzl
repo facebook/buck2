@@ -37,7 +37,7 @@ def go_binary_impl(ctx: "context") -> ["provider"]:
 
     return [
         DefaultInfo(
-            default_outputs = [bin],
+            default_output = bin,
             other_outputs = hidden + runtime_files,
         ),
         RunInfo(args = cmd_args(bin).hidden(hidden + runtime_files)),
