@@ -25,6 +25,7 @@ use std::sync::atomic::AtomicU32;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use buck2_util::rtabort;
 use dupe::Dupe;
 use serde::Serialize;
 use static_assertions::assert_eq_size;
@@ -199,7 +200,7 @@ impl Clone for ArcStr {
                     arc_str_inner
                         .counter
                         .fetch_sub(1, atomic::Ordering::Relaxed);
-                    panic!("refcount overflow");
+                    rtabort!("refcount overflow");
                 }
                 ArcStr {
                     data: self.data,

@@ -46,6 +46,8 @@ internment_tweaks = { path = "../../shed/internment_tweaks" }
 allocative = { workspace = true }
 sorted_vector_map = { workspace = true }
 
+buck2_util = { workspace = true }
+
 [dev-dependencies]
 maplit = { workspace = true }
 serde_json = { workspace = true }
