@@ -1,0 +1,36 @@
+load("//test_utils.bzl", "assert_output")
+
+ocaml_library(
+    name = "ppx-record-selectors",
+    srcs = ["record_selectors.ml"],
+    deps = [
+        "//third-party/ocaml:ppxlib"
+    ]
+) if not host_info().os.is_windows else None
+
+ocaml_binary(
+    name = "ppx",
+    srcs = ["ppx_driver.ml"],
+    compiler_flags = [
+        "-linkall",
+    ],
+   deps = [
+        ":ppx-record-selectors",
+        "//third-party/ocaml:ppxlib",
+    ]
+) if not host_info().os.is_windows else None
+
+ocaml_binary(
+    name = "ppx-record-selectors-test",
+    srcs = ["ppx_record_selectors_test.ml"],
+    compiler_flags = [
+        "-pp",
+        "$(exe :ppx)"
+    ]
+) if not host_info().os.is_windows else None
+
+assert_output(
+    name = "ppx-record-selectors-test-check",
+    command = "$(exe_target :ppx-record-selectors-test)",
+    output = "4 quux",
+) if not host_info().os.is_windows else None

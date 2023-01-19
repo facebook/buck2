@@ -34,6 +34,7 @@ commands:
           command: |
             opam init --disable-sandboxing -y
             opam install menhir -y
+            opam install ppxlib -y
       - print_versions
       - print_ocaml_config
 
@@ -53,6 +54,7 @@ commands:
           command: |
             opam init --disable-sandboxing -y
             opam install menhir -y
+            opam install ppxlib -y
       - print_versions
       - print_ocaml_config
 
