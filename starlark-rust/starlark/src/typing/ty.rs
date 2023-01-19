@@ -26,7 +26,7 @@ use gazebo::prelude::*;
 use crate::eval::compiler::scope::CstExpr;
 use crate::syntax::ast::AstLiteral;
 use crate::syntax::ast::ExprP;
-use crate::typing::oracle::*;
+use crate::typing::ctx::TyCtx;
 
 /// A typing operation wasn't able to produce a precise result,
 /// so made some kind of approximation.
@@ -261,7 +261,7 @@ impl TyUnion {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TyFunction {
     /// The name of the function. Typically `""`, but for a few special builtin functions the name
-    /// is used later to call [`TypingOracle::builtin_call`].
+    /// is used later to call [`TypingOracle::builtin_call`](crate::typing::TypingOracle::builtin_call).
     pub name: String,
     /// The `.type` property of the function, often `""`.
     pub type_attr: String,
@@ -477,33 +477,41 @@ impl Ty {
         if self.is_void() {
             return false;
         }
-        self.overlaps(&Self::list(Ty::Any), &OracleNone)
+        self.overlaps(&Self::list(Ty::Any), None)
     }
 
     /// If you get to a point where these types are being checked, might they succeed
-    pub(crate) fn overlaps(&self, other: &Self, oracle: &dyn TypingOracle) -> bool {
+    pub(crate) fn overlaps(&self, other: &Self, ctx: Option<&TyCtx>) -> bool {
         if self.is_any() || self.is_void() || other.is_any() || other.is_void() {
             return true;
         }
 
+        let equal_names = |x, y| {
+            x == y
+                || match ctx {
+                    None => false,
+                    Some(ctx) => ctx.oracle.subtype(x, y) || ctx.oracle.subtype(y, x),
+                }
+        };
+
+        let itered = |ty| ctx?.oracle.attribute(ty, "__iter__").ok();
+
         for x in self.iter_union() {
             for y in other.iter_union() {
                 let b = match (x, y) {
-                    (Ty::Name(x), Ty::Name(y)) => {
-                        x == y || oracle.subtype(x, y) || oracle.subtype(y, x)
-                    }
-                    (Ty::List(x), Ty::List(y)) => x.overlaps(y, oracle),
+                    (Ty::Name(x), Ty::Name(y)) => equal_names(x, y),
+                    (Ty::List(x), Ty::List(y)) => x.overlaps(y, ctx),
                     (Ty::Dict(x), Ty::Dict(y)) => {
-                        x.0.overlaps(&y.0, oracle) && x.1.overlaps(&y.1, oracle)
+                        x.0.overlaps(&y.0, ctx) && x.1.overlaps(&y.1, ctx)
                     }
                     (Ty::Tuple(_), t) | (Ty::Tuple(_), t) if t.is_name("tuple") => true,
                     (Ty::Tuple(xs), Ty::Tuple(ys)) if xs.len() == ys.len() => {
-                        std::iter::zip(xs, ys).all(|(x, y)| x.overlaps(y, oracle))
+                        std::iter::zip(xs, ys).all(|(x, y)| x.overlaps(y, ctx))
                     }
-                    (Ty::Iter(x), Ty::Iter(y)) => x.overlaps(y, oracle),
-                    (Ty::Iter(x), y) | (y, Ty::Iter(x)) => match oracle.attribute(y, "__iter__") {
-                        Ok(yy) => x.overlaps(&yy, oracle),
-                        Err(_) => false,
+                    (Ty::Iter(x), Ty::Iter(y)) => x.overlaps(y, ctx),
+                    (Ty::Iter(x), y) | (y, Ty::Iter(x)) => match itered(y) {
+                        Some(yy) => x.overlaps(&yy, ctx),
+                        None => false,
                     },
                     (Ty::Function(_), Ty::Function(_)) => true,
                     (Ty::Struct { .. }, Ty::Struct { .. }) => {

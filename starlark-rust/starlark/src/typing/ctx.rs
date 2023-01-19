@@ -268,7 +268,7 @@ impl TyCtx<'_> {
     }
 
     pub(crate) fn validate_type(&self, got: &Ty, require: &Ty, span: Span) {
-        if !got.overlaps(require, self.oracle) {
+        if !got.overlaps(require, Some(self)) {
             self.add_error(TypingError::IncompatibleType {
                 loc: self.resolve(span),
                 got: got.to_string(),
