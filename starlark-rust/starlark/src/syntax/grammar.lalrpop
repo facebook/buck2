@@ -132,9 +132,8 @@ SimpleStmt<S>: AstStmt =
         if v.is_empty() {
             e
         } else {
-            Stmt::Statements(
-                vec![e].into_iter().chain(v.into_iter()).collect())
-                    .ast(l, r)
+            Stmt::Statements(std::iter::once(e).chain(v).collect())
+                .ast(l, r)
         }
     };
 
