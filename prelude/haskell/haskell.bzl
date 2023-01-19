@@ -781,7 +781,7 @@ def haskell_binary_impl(ctx: "context") -> ["provider"]:
         run.hidden(symlink_dir)
 
     providers = [
-        DefaultInfo(default_outputs = [output]),
+        DefaultInfo(default_output = output),
         RunInfo(args = run),
     ]
 
