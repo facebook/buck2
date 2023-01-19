@@ -60,7 +60,7 @@ def worker_tool(ctx: "context") -> ["provider"]:
         worker_tool_cmd.add(env_args_file)
 
     return [
-        DefaultInfo(default_outputs = []),
+        DefaultInfo(),
         TemplatePlaceholderInfo(keyed_variables = {
             "worker": worker_tool_cmd,
         }),
