@@ -853,7 +853,7 @@ mod tests {
             )?,
             &CellName::unchecked_new("cell3".into())
         );
-        assert_eq!(cells.find(ProjectRelativePath::new("blah")?).is_err(), true);
+        assert!(cells.find(ProjectRelativePath::new("blah")?).is_err());
 
         assert_eq!(
             cells.get_cell_path(cell1_path)?,

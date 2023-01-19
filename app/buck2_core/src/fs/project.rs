@@ -1230,18 +1230,15 @@ mod tests {
         fs.path
             .copy(file4, ProjectRelativePath::new("out/other1/file4")?)?;
 
-        assert_eq!(
-            true,
-            std::path::Path::is_dir(fs.path.resolve(expected_dir1).as_ref())
-        );
-        assert_eq!(
-            true,
-            std::path::Path::is_dir(fs.path.resolve(expected_dir2).as_ref())
-        );
-        assert_eq!(
-            true,
-            std::path::Path::is_dir(fs.path.resolve(expected_dir3).as_ref())
-        );
+        assert!(std::path::Path::is_dir(
+            fs.path.resolve(expected_dir1).as_ref()
+        ));
+        assert!(std::path::Path::is_dir(
+            fs.path.resolve(expected_dir2).as_ref()
+        ));
+        assert!(std::path::Path::is_dir(
+            fs.path.resolve(expected_dir3).as_ref()
+        ));
         // Absolute link path
         assert_eq!(
             fs.path.resolve(dir2).as_ref() as &Path,

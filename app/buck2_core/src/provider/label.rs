@@ -287,11 +287,10 @@ mod tests {
         assert!(ProvidersLabel::maybe_relative_label(":foo"));
         assert!(ProvidersLabel::maybe_relative_label(":foo[bar]"));
         assert!(ProvidersLabel::maybe_relative_label(":invalid@label"));
-        assert_eq!(ProvidersLabel::maybe_relative_label("root//:bar"), false);
-        assert_eq!(ProvidersLabel::maybe_relative_label("root//foo:foo"), false);
-        assert_eq!(
-            ProvidersLabel::maybe_relative_label("root//foo:invalid@label"),
-            false
-        );
+        assert!(!ProvidersLabel::maybe_relative_label("root//:bar"));
+        assert!(!ProvidersLabel::maybe_relative_label("root//foo:foo"));
+        assert!(!ProvidersLabel::maybe_relative_label(
+            "root//foo:invalid@label"
+        ));
     }
 }

@@ -302,8 +302,8 @@ mod tests {
             TargetName::new("foo,.=-/~@$!+_1").unwrap(),
             TargetName(ArcStr::from("foo,.=-/~@$!+_1"))
         );
-        assert_eq!(TargetName::new("foo bar").is_err(), true);
-        assert_eq!(TargetName::new("foo?bar").is_err(), true);
+        assert!(TargetName::new("foo bar").is_err());
+        assert!(TargetName::new("foo?bar").is_err());
 
         if let Err(e) = TargetName::new("target[label]") {
             let msg = format!("{:#}", e);
