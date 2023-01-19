@@ -30,7 +30,9 @@ pub(crate) mod ty;
 pub(crate) mod typecheck;
 
 pub use bindings::Interface;
+pub use oracle::OracleNoBuiltins;
 pub use oracle::OracleNone;
+pub use oracle::OracleSequence;
 pub use oracle::TypingOracle;
 pub use ty::Approximation;
 pub use ty::Arg;

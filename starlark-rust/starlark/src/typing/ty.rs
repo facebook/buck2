@@ -500,7 +500,10 @@ impl Ty {
                     Ok(Ty::unions(rs))
                 }
             }
-            _ => ctx.oracle.attribute(self, attr),
+            _ => match ctx.oracle.attribute(self, attr) {
+                Some(r) => r,
+                None => Ok(ctx.approximation("oracle.attribute", format!("{}.{}", self, attr))),
+            },
         }
     }
 
@@ -518,7 +521,7 @@ impl Ty {
                 }
         };
 
-        let itered = |ty| ctx?.oracle.attribute(ty, "__iter__").ok();
+        let itered = |ty| ctx?.oracle.attribute(ty, "__iter__")?.ok();
 
         for x in self.iter_union() {
             for y in other.iter_union() {

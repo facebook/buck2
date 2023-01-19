@@ -90,7 +90,7 @@ impl TyCtx<'_> {
         Ty::Void
     }
 
-    fn approximation(&self, category: &'static str, message: impl Debug) -> Ty {
+    pub(crate) fn approximation(&self, category: &'static str, message: impl Debug) -> Ty {
         self.approximoations
             .borrow_mut()
             .push(Approximation::new(category, message));
@@ -279,11 +279,12 @@ impl TyCtx<'_> {
 
     fn builtin(&self, name: &str, span: Span) -> Ty {
         match self.oracle.builtin(name) {
-            Ok(x) => x,
-            Err(()) => self.add_error(TypingError::UnknownBuiltin {
+            Some(Ok(x)) => x,
+            Some(Err(())) => self.add_error(TypingError::UnknownBuiltin {
                 loc: self.resolve(span),
                 name: name.to_owned(),
             }),
+            None => self.approximation("oracle.builtin", name),
         }
     }
 
