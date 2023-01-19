@@ -44,6 +44,7 @@ mod imp {
     use crate::subscribers::last_command_execution_kind;
     use crate::subscribers::last_command_execution_kind::LastCommandExecutionKind;
     use crate::subscribers::recorder::is_eden_dir;
+    use crate::subscribers::recorder::system_memory_stats;
     use crate::subscribers::subscriber_unpack::UnpackingEventSubscriber;
 
     pub struct InvocationRecorder {
@@ -90,6 +91,7 @@ mod imp {
         time_to_first_analysis: Option<Duration>,
         time_to_load_first_build_file: Option<Duration>,
         time_to_first_command_execution_start: Option<Duration>,
+        system_total_memory_bytes: Option<u64>,
     }
 
     impl InvocationRecorder {
@@ -144,6 +146,7 @@ mod imp {
                 time_to_first_analysis: None,
                 time_to_load_first_build_file: None,
                 time_to_first_command_execution_start: None,
+                system_total_memory_bytes: Some(system_memory_stats()),
             }
         }
 
@@ -224,6 +227,7 @@ mod imp {
                     time_to_first_command_execution_start_ms: self
                         .time_to_first_command_execution_start
                         .and_then(|d| u64::try_from(d.as_millis()).ok()),
+                    system_total_memory_bytes: self.system_total_memory_bytes,
                 };
                 let event = BuckEvent::new(
                     SystemTime::now(),
@@ -650,5 +654,26 @@ pub fn is_eden_dir(mut dir: PathBuf) -> anyhow::Result<bool> {
         Ok(true)
     } else {
         Ok(false)
+    }
+}
+
+fn system_memory_stats() -> u64 {
+    use sysinfo::RefreshKind;
+    use sysinfo::System;
+    use sysinfo::SystemExt;
+
+    let system = System::new_with_specifics(RefreshKind::new().with_memory());
+    system.total_memory()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn get_system_memory_stats() {
+        let total_mem = system_memory_stats();
+        // sysinfo returns zero when fails to retrieve data
+        assert!(total_mem > 0);
     }
 }
