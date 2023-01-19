@@ -52,7 +52,7 @@ pub(crate) struct Bucket<K, V> {
 
 #[allow(clippy::derive_hash_xor_eq)]
 impl<K: Hash, V: Hash> Hash for Bucket<K, V> {
-    fn hash<S: Hasher>(&self, state: &mut S) {
+    fn hash<H: Hasher>(&self, state: &mut H) {
         self.hash.hash(state);
         // Ignore the key, because `hash` is already the hash of the key,
         // although maybe not as good hash as what is requested.
