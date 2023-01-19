@@ -81,4 +81,4 @@ def http_archive_impl(ctx: "context") -> ["provider"]:
     ctx.actions.run(cmd_args(["/bin/sh", script])
         .hidden(exclude_hidden + [archive, output.as_output()]), category = "http_archive", local_only = local_only)
 
-    return [DefaultInfo(default_outputs = [output])]
+    return [DefaultInfo(default_output = output)]
