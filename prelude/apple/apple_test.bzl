@@ -99,20 +99,23 @@ def apple_test_impl(ctx: "context") -> ["provider"]:
     # If the test has a test host, add a subtarget to build the test host app bundle.
     sub_targets["test-host"] = [DefaultInfo(default_output = test_host_app_bundle)] if test_host_app_bundle else [DefaultInfo()]
 
-    test_info = _get_test_info(ctx, xctest_bundle, test_host_app_bundle)
-
-    sub_targets[DWARF_AND_DSYM_SUBTARGET] = [DefaultInfo(default_output = xctest_bundle, other_outputs = [dsym_artifact]), test_info]
+    sub_targets[DWARF_AND_DSYM_SUBTARGET] = [
+        DefaultInfo(default_output = xctest_bundle, other_outputs = [dsym_artifact]),
+        _get_test_info(ctx, xctest_bundle, test_host_app_bundle, dsym_artifact),
+    ]
 
     return [
         DefaultInfo(default_output = xctest_bundle, sub_targets = sub_targets),
-        test_info,
+        _get_test_info(ctx, xctest_bundle, test_host_app_bundle),
         cxx_library_output.xcode_data_info,
         cxx_library_output.cxx_compilationdb_info,
     ]
 
-def _get_test_info(ctx: "context", xctest_bundle: "artifact", test_host_app_bundle: ["artifact", None]) -> "provider":
+def _get_test_info(ctx: "context", xctest_bundle: "artifact", test_host_app_bundle: ["artifact", None], dsym_artifact: ["artifact", None] = None) -> "provider":
     # When interacting with Tpx, we just pass our various inputs via env vars,
     # since Tpx basiclaly wants structured output for this.
+
+    xctest_bundle = cmd_args(xctest_bundle).hidden(dsym_artifact) if dsym_artifact else xctest_bundle
     env = {"XCTEST_BUNDLE": xctest_bundle}
 
     if test_host_app_bundle == None:
