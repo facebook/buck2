@@ -403,6 +403,7 @@ pub mod lsp;
 mod private;
 pub mod read_line;
 mod sealed;
+pub mod typing;
 
 mod hint;
 mod stdlib;
