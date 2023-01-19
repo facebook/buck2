@@ -7,8 +7,6 @@
  * of this source tree.
  */
 
-use std::sync::Arc;
-
 use allocative::Allocative;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
@@ -17,28 +15,18 @@ use dupe::Dupe;
 
 use crate::attrs::attr_type::attr_literal::AttrLiteral;
 use crate::attrs::attr_type::dep::ExplicitConfiguredDepMaybeConfigured;
-use crate::attrs::attr_type::dep::ProviderIdSet;
 use crate::attrs::configuration_context::AttrConfigurationContext;
 use crate::attrs::configured_attr::ConfiguredAttr;
 use crate::attrs::traversal::CoercedAttrTraversal;
+use crate::provider_id_set::ProviderIdSet;
 
 /// Represents attrs.configured_dep()
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Dupe, Allocative)]
 pub struct ExplicitConfiguredDepAttrType {
-    pub required_providers: Option<Arc<ProviderIdSet>>,
+    pub required_providers: ProviderIdSet,
 }
 
 impl ExplicitConfiguredDepAttrType {
-    pub fn new(required_providers: ProviderIdSet) -> Self {
-        let required_providers = if required_providers.is_empty() {
-            None
-        } else {
-            Some(Arc::new(required_providers))
-        };
-
-        Self { required_providers }
-    }
-
     pub(crate) fn configure(
         ctx: &dyn AttrConfigurationContext,
         dep_attr: &UnconfiguredExplicitConfiguredDep,

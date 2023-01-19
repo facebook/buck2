@@ -45,10 +45,14 @@ impl ConfiguredQueryAttrExt for QueryAttr<ConfiguredAttr> {
         for (target, providers) in &*query_results {
             let providers_label =
                 ConfiguredProvidersLabel::new(target.dupe(), ProvidersName::Default);
-            if let Some(provider_ids) = &self.providers {
+            if !self.providers.is_empty() {
                 let provider_collection = providers.provider_collection();
 
-                DepAttrType::check_providers(provider_ids, provider_collection, &providers_label)?;
+                DepAttrType::check_providers(
+                    &self.providers,
+                    provider_collection,
+                    &providers_label,
+                )?;
             }
             dependencies.push(DepAttrType::alloc_dependency(
                 ctx.starlark_module(),

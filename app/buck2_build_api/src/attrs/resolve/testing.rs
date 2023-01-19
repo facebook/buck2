@@ -11,12 +11,12 @@ use std::sync::Arc;
 
 use buck2_common::result::SharedResult;
 use buck2_core::configuration::Configuration;
-use buck2_core::provider::id::ProviderId;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_interpreter_for_build::attrs::coerce;
 use buck2_interpreter_for_build::attrs::coerce::testing;
 use buck2_interpreter_for_build::provider::callable::ValueAsProviderCallableLike;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
+use buck2_node::provider_id_set::ProviderIdSet;
 use dupe::Dupe;
 use dupe::OptionDupedExt;
 use indoc::indoc;
@@ -43,7 +43,7 @@ pub(crate) fn resolution_ctx<'v>(module: &'v Module) -> impl AttrResolutionConte
 
 pub(crate) fn resolution_ctx_with_providers<'v>(
     module: &'v Module,
-) -> (impl AttrResolutionContext<'v>, Vec<Arc<ProviderId>>) {
+) -> (impl AttrResolutionContext<'v>, ProviderIdSet) {
     struct Ctx<'v> {
         module: &'v Module,
         // This module needs to be kept alive in order for the FrozenValues to stick around
@@ -109,7 +109,7 @@ pub(crate) fn resolution_ctx_with_providers<'v>(
         fn simple_deps() -> (
             FrozenModule,
             SmallMap<ConfiguredProvidersLabel, FrozenProviderCollectionValue>,
-            Vec<Arc<ProviderId>>,
+            ProviderIdSet,
         ) {
             let globals = GlobalsBuilder::extended()
                 .with(buck2_interpreter::build_defs::register_natives)
@@ -187,7 +187,7 @@ pub(crate) fn resolution_ctx_with_providers<'v>(
                 keyed_placeholder_label => keyed_placeholder_result
             ];
 
-            let provider_ids = vec![
+            let provider_ids = ProviderIdSet::from(vec![
                 foo_info
                     .value()
                     .as_provider_callable()
@@ -202,7 +202,7 @@ pub(crate) fn resolution_ctx_with_providers<'v>(
                     .id()
                     .unwrap()
                     .dupe(),
-            ];
+            ]);
             (frozen, res, provider_ids)
         }
     }

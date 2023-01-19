@@ -9,7 +9,6 @@
 
 use std::collections::BTreeMap;
 use std::fmt::Display;
-use std::sync::Arc;
 
 use allocative::Allocative;
 use dupe::Dupe;
@@ -17,12 +16,12 @@ use dupe::Dupe;
 use crate::attrs::attr_type::arg::QueryExpansion;
 use crate::attrs::attr_type::attr_config::AttrConfig;
 use crate::attrs::attr_type::dep::DepAttrType;
-use crate::attrs::attr_type::dep::ProviderIdSet;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::configuration_context::AttrConfigurationContext;
 use crate::attrs::configured_attr::ConfiguredAttr;
 use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
 use crate::attrs::traversal::CoercedAttrTraversal;
+use crate::provider_id_set::ProviderIdSet;
 
 #[derive(Debug, Eq, PartialEq, Hash, Allocative)]
 pub struct QueryAttrType {
@@ -37,7 +36,7 @@ impl QueryAttrType {
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative)]
 pub struct QueryAttr<C: AttrConfig> {
-    pub providers: Option<Arc<ProviderIdSet>>,
+    pub providers: ProviderIdSet,
     pub query: QueryAttrBase<C>,
 }
 

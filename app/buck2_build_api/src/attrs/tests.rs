@@ -33,6 +33,8 @@ use buck2_node::attrs::configured_info::ConfiguredAttrInfo;
 use buck2_node::attrs::display::AttrDisplayWithContextExt;
 use buck2_node::attrs::fmt_context::AttrFmtContext;
 use buck2_node::attrs::testing::configuration_ctx;
+use buck2_node::provider_id_set::ProviderIdSet;
+use dupe::Dupe;
 use gazebo::prelude::*;
 use indoc::indoc;
 use starlark::environment::GlobalsBuilder;
@@ -294,7 +296,7 @@ fn test_label() -> anyhow::Result<()> {
     let heap = Heap::new();
     let value = heap.alloc(vec!["//some:target", "cell1//named:target[foo]"]);
 
-    let attr = AttrType::list(AttrType::dep(Vec::new()));
+    let attr = AttrType::list(AttrType::dep(ProviderIdSet::EMPTY));
 
     let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
     assert_eq!(
@@ -332,7 +334,7 @@ fn test_coerced_deps() -> anyhow::Result<()> {
     // Check that `x` is captured with the function
     let value = to_value(&env, &globals, content);
 
-    let attr = AttrType::list(AttrType::dep(Vec::new()));
+    let attr = AttrType::list(AttrType::dep(ProviderIdSet::EMPTY));
     let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
 
     let mut visitor = CoercedDepsCollector::new();
@@ -384,7 +386,7 @@ fn test_configured_deps() -> anyhow::Result<()> {
     // Check that `x` is captured with the function
     let value = to_value(&env, &globals, content);
 
-    let attr = AttrType::list(AttrType::dep(Vec::new()));
+    let attr = AttrType::list(AttrType::dep(ProviderIdSet::EMPTY));
     let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
     let configured = coerced.configure(&configuration_ctx())?;
 
@@ -409,7 +411,7 @@ fn test_configured_deps() -> anyhow::Result<()> {
     );
 
     // Check also that execution deps are handled slightly differently.
-    let attr_exec = AttrType::list(AttrType::exec_dep(Vec::new()));
+    let attr_exec = AttrType::list(AttrType::exec_dep(ProviderIdSet::EMPTY));
     let coerced_exec = attr_exec.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
     let configured_exec = coerced_exec.configure(&configuration_ctx())?;
     let mut info = ConfiguredAttrInfo::new();
@@ -442,7 +444,7 @@ fn test_resolved_deps() -> anyhow::Result<()> {
     // Check that `x` is captured with the function
     let value = to_value(&env, &globals, content);
 
-    let attr = AttrType::list(AttrType::dep(Vec::new()));
+    let attr = AttrType::list(AttrType::dep(ProviderIdSet::EMPTY));
     let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
     let configured = coerced.configure(&configuration_ctx())?;
     let resolution_ctx = resolution_ctx(&env);
@@ -483,7 +485,7 @@ fn test_dep_requires_providers() -> anyhow::Result<()> {
     let heap = Heap::new();
     let foo_only = heap.alloc("//sub/dir:foo[foo_only]");
 
-    let attr = AttrType::dep(provider_ids.clone());
+    let attr = AttrType::dep(provider_ids.dupe());
     let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), foo_only)?;
     let configured = coerced.configure(&configuration_ctx())?;
 

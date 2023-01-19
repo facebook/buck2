@@ -7,15 +7,12 @@
  * of this source tree.
  */
 
-use std::sync::Arc;
-
-use buck2_core::provider::id::ProviderId;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_node::attrs::attr_type::configured_dep::ConfiguredExplicitConfiguredDep;
 use buck2_node::attrs::attr_type::configured_dep::ExplicitConfiguredDepAttrType;
 use buck2_node::attrs::attr_type::dep::DepAttr;
 use buck2_node::attrs::attr_type::dep::DepAttrType;
-use buck2_node::attrs::attr_type::dep::ProviderIdSet;
+use buck2_node::provider_id_set::ProviderIdSet;
 use starlark::environment::Module;
 use starlark::values::Value;
 use thiserror::Error;
@@ -33,7 +30,7 @@ enum ResolutionError {
 
 pub(crate) trait DepAttrTypeExt {
     fn check_providers(
-        required_providers: &[Arc<ProviderId>],
+        required_providers: &ProviderIdSet,
         providers: &FrozenProviderCollection,
         target: &ConfiguredProvidersLabel,
     ) -> anyhow::Result<()>;
@@ -47,7 +44,7 @@ pub(crate) trait DepAttrTypeExt {
     fn resolve_single_impl<'v>(
         ctx: &dyn AttrResolutionContext<'v>,
         target: &ConfiguredProvidersLabel,
-        required_providers: &Option<Arc<ProviderIdSet>>,
+        required_providers: &ProviderIdSet,
     ) -> anyhow::Result<Value<'v>>;
 
     fn resolve_single<'v>(
@@ -58,7 +55,7 @@ pub(crate) trait DepAttrTypeExt {
 
 impl DepAttrTypeExt for DepAttrType {
     fn check_providers(
-        required_providers: &[Arc<ProviderId>],
+        required_providers: &ProviderIdSet,
         providers: &FrozenProviderCollection,
         target: &ConfiguredProvidersLabel,
     ) -> anyhow::Result<()> {
@@ -90,13 +87,11 @@ impl DepAttrTypeExt for DepAttrType {
     fn resolve_single_impl<'v>(
         ctx: &dyn AttrResolutionContext<'v>,
         target: &ConfiguredProvidersLabel,
-        required_providers: &Option<Arc<ProviderIdSet>>,
+        required_providers: &ProviderIdSet,
     ) -> anyhow::Result<Value<'v>> {
         let v = ctx.get_dep(target)?;
         let provider_collection = v.provider_collection();
-        if let Some(provider_ids) = required_providers {
-            Self::check_providers(provider_ids, provider_collection, target)?;
-        }
+        Self::check_providers(required_providers, provider_collection, target)?;
 
         Ok(Self::alloc_dependency(ctx.starlark_module(), target, &v))
     }

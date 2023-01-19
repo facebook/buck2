@@ -38,6 +38,7 @@ use crate::nodes::attributes::ONCALL;
 use crate::nodes::attributes::PACKAGE;
 use crate::nodes::attributes::TYPE;
 use crate::package::Package;
+use crate::provider_id_set::ProviderIdSet;
 use crate::rule::Rule;
 use crate::rule_type::RuleType;
 use crate::visibility::VisibilitySpecification;
@@ -191,7 +192,7 @@ impl TargetNode {
                     )))
                 })
                 .collect(),
-            item_type: AttrType::dep(Vec::new()),
+            item_type: AttrType::dep(ProviderIdSet::EMPTY),
         }));
         let package_attr = CoercedAttr::new_literal(AttrLiteral::String(
             self.buildfile_path().to_string().into_boxed_str(),

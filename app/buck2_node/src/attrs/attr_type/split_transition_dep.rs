@@ -19,23 +19,18 @@ use buck2_core::provider::label::ProvidersLabel;
 use dupe::Dupe;
 
 use crate::attrs::attr_type::attr_literal::AttrLiteral;
-use crate::attrs::attr_type::dep::ProviderIdSet;
 use crate::attrs::configuration_context::AttrConfigurationContext;
 use crate::attrs::configured_attr::ConfiguredAttr;
+use crate::provider_id_set::ProviderIdSet;
 
 #[derive(Debug, PartialEq, Eq, Hash, Allocative)]
 pub struct SplitTransitionDepAttrType {
-    pub required_providers: Option<Arc<ProviderIdSet>>,
+    pub required_providers: ProviderIdSet,
     pub transition: Arc<TransitionId>,
 }
 
 impl SplitTransitionDepAttrType {
     pub fn new(required_providers: ProviderIdSet, transition: Arc<TransitionId>) -> Self {
-        let required_providers = if required_providers.is_empty() {
-            None
-        } else {
-            Some(Arc::new(required_providers))
-        };
         SplitTransitionDepAttrType {
             required_providers,
             transition,
@@ -66,7 +61,7 @@ pub trait SplitTransitionDepMaybeConfigured: Display + Allocative {
 #[derive(Hash, PartialEq, Eq, Debug, Clone, Allocative)]
 pub struct ConfiguredSplitTransitionDep {
     pub deps: SortedMap<String, ConfiguredProvidersLabel>,
-    pub required_providers: Option<Arc<ProviderIdSet>>,
+    pub required_providers: ProviderIdSet,
 }
 
 impl Display for ConfiguredSplitTransitionDep {
@@ -107,7 +102,7 @@ impl SplitTransitionDepMaybeConfigured for ConfiguredSplitTransitionDep {
 pub struct SplitTransitionDep {
     pub label: ProvidersLabel,
     pub transition: Arc<TransitionId>,
-    pub required_providers: Option<Arc<ProviderIdSet>>,
+    pub required_providers: ProviderIdSet,
 }
 
 impl SplitTransitionDepMaybeConfigured for SplitTransitionDep {

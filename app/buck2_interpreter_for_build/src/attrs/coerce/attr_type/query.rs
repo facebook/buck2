@@ -17,6 +17,7 @@ use buck2_node::attrs::attr_type::query::QueryAttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
+use buck2_node::provider_id_set::ProviderIdSet;
 use buck2_query::query::syntax::simple::functions::QueryLiteralVisitor;
 use buck2_query_parser::parse_expr;
 use starlark::values::string::STRING_TYPE;
@@ -93,7 +94,7 @@ impl AttrTypeCoerce for QueryAttrType {
 
         Ok(AttrLiteral::Query(box QueryAttr {
             query: Self::coerce(ctx, query.to_owned())?,
-            providers: None,
+            providers: ProviderIdSet::EMPTY,
         }))
     }
 

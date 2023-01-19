@@ -37,7 +37,6 @@ use crate::attrs::attr_type::attr_literal::ListLiteral;
 use crate::attrs::attr_type::dep::DepAttr;
 use crate::attrs::attr_type::dep::DepAttrTransition;
 use crate::attrs::attr_type::dep::DepAttrType;
-use crate::attrs::attr_type::dep::ProviderIdSet;
 use crate::attrs::attr_type::query::ResolvedQueryLiterals;
 use crate::attrs::attr_type::AttrType;
 use crate::attrs::coerced_attr::CoercedAttr;
@@ -57,6 +56,7 @@ use crate::nodes::attributes::TARGET_CONFIGURATION;
 use crate::nodes::attributes::TYPE;
 use crate::nodes::unconfigured::RuleKind;
 use crate::nodes::unconfigured::TargetNode;
+use crate::provider_id_set::ProviderIdSet;
 use crate::rule_type::RuleType;
 
 /// ConfiguredTargetNode contains the information for a target in a particular configuration.
@@ -242,7 +242,7 @@ impl ConfiguredTargetNode {
             label: name.dupe(),
             target_node: TargetNodeOrForward::Forward(
                 CoercedAttr::Literal(AttrLiteral::ConfiguredDep(box DepAttr {
-                    attr_type: DepAttrType::new(ProviderIdSet::new(), DepAttrTransition::Identity),
+                    attr_type: DepAttrType::new(ProviderIdSet::EMPTY, DepAttrTransition::Identity),
                     label: configured_providers_label,
                 })),
                 transitioned_node.dupe(),
@@ -423,7 +423,7 @@ impl ConfiguredTargetNode {
                 })
                 .collect::<Vec<_>>()
                 .into_boxed_slice(),
-            item_type: AttrType::dep(Vec::new()),
+            item_type: AttrType::dep(ProviderIdSet::EMPTY),
         }));
         let package_attr = ConfiguredAttr::new(AttrLiteral::String(
             self.buildfile_path().to_string().into_boxed_str(),

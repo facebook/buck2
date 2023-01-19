@@ -868,6 +868,7 @@ mod tests {
     use buck2_node::nodes::unconfigured::testing::TargetNodeExt;
     use buck2_node::nodes::unconfigured::TargetNode;
     use buck2_node::nodes::unconfigured::TargetsMap;
+    use buck2_node::provider_id_set::ProviderIdSet;
     use buck2_node::rule_type::RuleType;
     use buck2_node::rule_type::StarlarkRuleType;
     use dice::testing::DiceBuilder;
@@ -907,14 +908,17 @@ mod tests {
             ),
             (
                 "some_deps",
-                Attribute::testing_new(None, AttrType::list(AttrType::dep(Vec::new()))),
+                Attribute::testing_new(None, AttrType::list(AttrType::dep(ProviderIdSet::EMPTY))),
                 CoercedAttr::from_literal(AttrLiteral::List(box ListLiteral {
                     items: vec![CoercedAttr::from_literal(AttrLiteral::Dep(box DepAttr {
-                        attr_type: DepAttrType::new(Vec::new(), DepAttrTransition::Identity),
+                        attr_type: DepAttrType::new(
+                            ProviderIdSet::EMPTY,
+                            DepAttrTransition::Identity,
+                        ),
                         label: ProvidersLabel::new(label2.dupe(), ProvidersName::Default),
                     }))]
                     .into_boxed_slice(),
-                    item_type: AttrType::dep(Vec::new()),
+                    item_type: AttrType::dep(ProviderIdSet::EMPTY),
                 })),
             ),
         ];
@@ -934,8 +938,8 @@ mod tests {
             ),
             (
                 "some_deps",
-                Attribute::testing_new(None, AttrType::list(AttrType::dep(Vec::new()))),
-                AnyAttrType::empty_list(AttrType::dep(Vec::new())),
+                Attribute::testing_new(None, AttrType::list(AttrType::dep(ProviderIdSet::EMPTY))),
+                AnyAttrType::empty_list(AttrType::dep(ProviderIdSet::EMPTY)),
             ),
         ];
 
@@ -971,11 +975,11 @@ mod tests {
             "some_deps" =>
              ConfiguredAttr::from_literal(AttrLiteral::List(box ListLiteral{items: vec![
                 ConfiguredAttr::from_literal(AttrLiteral::Dep(box DepAttr {
-                    attr_type: DepAttrType::new(Vec::new(), DepAttrTransition::Identity),
+                    attr_type: DepAttrType::new(ProviderIdSet::EMPTY, DepAttrTransition::Identity),
                     label: ProvidersLabel::new(label2.dupe(), ProvidersName::Default)
                         .configure(cfg.dupe()),
                 })),
-            ].into_boxed_slice(), item_type: AttrType::dep(Vec::new())})),
+            ].into_boxed_slice(), item_type: AttrType::dep(ProviderIdSet::EMPTY)})),
         ];
 
         let conf_attrs2 = smallmap![
@@ -984,7 +988,7 @@ mod tests {
              ConfiguredAttr::from_literal(AttrLiteral::String("another_string".into())),
             "some_deps" => ConfiguredAttr::from_literal(AttrLiteral::List(box ListLiteral {
                 items: Default::default(),
-                item_type: AttrType::dep(Vec::new())
+                item_type: AttrType::dep(ProviderIdSet::EMPTY)
             })),
         ];
 

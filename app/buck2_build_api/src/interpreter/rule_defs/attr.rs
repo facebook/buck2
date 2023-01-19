@@ -10,7 +10,6 @@
 use std::sync::Arc;
 
 use anyhow::Context as _;
-use buck2_core::provider::id::ProviderId;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_interpreter::extra::BuildContext;
 use buck2_interpreter_for_build::attrs::attribute_as_starlark_value::AttributeAsStarlarkValue;
@@ -23,6 +22,7 @@ use buck2_node::attrs::attr_type::any::AnyAttrType;
 use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use buck2_node::attrs::display::AttrDisplayWithContextExt;
+use buck2_node::provider_id_set::ProviderIdSet;
 use dupe::Dupe;
 use gazebo::prelude::*;
 use starlark::environment::GlobalsBuilder;
@@ -137,13 +137,13 @@ enum DepError {
 }
 
 /// Common code to handle `providers` argument of dep-like attrs.
-fn dep_like_attr_handle_providers_arg(
-    providers: Vec<Value>,
-) -> anyhow::Result<Vec<Arc<ProviderId>>> {
-    providers.try_map(|v| match v.as_provider_callable() {
-        Some(callable) => callable.require_id(),
-        None => Err(ValueError::IncorrectParameterTypeNamed("providers".to_owned()).into()),
-    })
+fn dep_like_attr_handle_providers_arg(providers: Vec<Value>) -> anyhow::Result<ProviderIdSet> {
+    Ok(ProviderIdSet::from(providers.try_map(
+        |v| match v.as_provider_callable() {
+            Some(callable) => callable.require_id(),
+            None => Err(ValueError::IncorrectParameterTypeNamed("providers".to_owned()).into()),
+        },
+    )?))
 }
 
 #[starlark_module]
@@ -390,7 +390,7 @@ pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
     ) -> anyhow::Result<AttributeAsStarlarkValue> {
         // TODO(nga): explain how this is different from `dep`.
         //   This probably meant to be similar to `label`, but not configurable.
-        Attribute::attr(eval, None, doc, AttrType::dep(Vec::new()))
+        Attribute::attr(eval, None, doc, AttrType::dep(ProviderIdSet::EMPTY))
     }
 
     fn regex<'v>(
@@ -514,6 +514,7 @@ mod tests {
     use buck2_node::attrs::attr_type::AttrType;
     use buck2_node::attrs::coercion_context::AttrCoercionContext;
     use buck2_node::attrs::configurable::AttrIsConfigurable;
+    use buck2_node::provider_id_set::ProviderIdSet;
     use dupe::Dupe;
     use indoc::indoc;
     use starlark::values::Heap;
@@ -609,7 +610,7 @@ mod tests {
             false,
             Arc::new(ConfiguredGraphQueryEnvironment::functions()),
         );
-        let label_coercer = AttrType::dep(Vec::new());
+        let label_coercer = AttrType::dep(ProviderIdSet::EMPTY);
         let string_coercer = AttrType::string();
         let enum_coercer = AttrType::enumeration(vec![
             "red".to_owned(),

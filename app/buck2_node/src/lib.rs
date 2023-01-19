@@ -20,6 +20,7 @@ pub mod compatibility;
 pub mod configuration;
 pub mod nodes;
 pub mod package;
+pub mod provider_id_set;
 pub mod query;
 pub mod rule;
 pub mod rule_type;

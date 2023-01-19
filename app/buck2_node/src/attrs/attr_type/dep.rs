@@ -12,7 +12,6 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_core::configuration::transition::id::TransitionId;
-use buck2_core::provider::id::ProviderId;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersLabelMaybeConfigured;
@@ -26,12 +25,11 @@ use crate::attrs::configuration_context::AttrConfigurationContext;
 use crate::attrs::configured_attr::ConfiguredAttr;
 use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
 use crate::attrs::traversal::CoercedAttrTraversal;
+use crate::provider_id_set::ProviderIdSet;
 
 // Just a placeholder for what a label should resolve to.
 #[derive(Debug)]
 pub struct DefaultProvider {}
-
-pub type ProviderIdSet = Vec<Arc<ProviderId>>;
 
 /// How configuration is changed when configuring a dep.
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Dupe, Allocative)]
@@ -51,9 +49,7 @@ pub enum DepAttrTransition {
 pub struct DepAttrType {
     /// The set of providers that are required to be available, during attr resolution we'll verify that these
     /// are present on each attribute value.
-    ///
-    /// Both None and Some(Arc([])) represent that no specific providers are required.
-    pub required_providers: Option<Arc<ProviderIdSet>>,
+    pub required_providers: ProviderIdSet,
     pub transition: DepAttrTransition,
 }
 
@@ -101,11 +97,6 @@ impl DepAttr<ProvidersLabel> {
 
 impl DepAttrType {
     pub fn new(required_providers: ProviderIdSet, transition: DepAttrTransition) -> Self {
-        let required_providers = if required_providers.is_empty() {
-            None
-        } else {
-            Some(Arc::new(required_providers))
-        };
         Self {
             required_providers,
             transition,

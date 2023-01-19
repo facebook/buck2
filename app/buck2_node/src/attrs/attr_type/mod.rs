@@ -13,7 +13,6 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_core::configuration::transition::id::TransitionId;
-use buck2_core::provider::id::ProviderId;
 use dupe::Dupe;
 
 use crate::attrs::attr_type::any::AnyAttrType;
@@ -36,6 +35,7 @@ use crate::attrs::attr_type::source::SourceAttrType;
 use crate::attrs::attr_type::split_transition_dep::SplitTransitionDepAttrType;
 use crate::attrs::attr_type::string::StringAttrType;
 use crate::attrs::attr_type::tuple::TupleAttrType;
+use crate::provider_id_set::ProviderIdSet;
 
 pub mod any;
 pub mod arg;
@@ -161,7 +161,7 @@ impl AttrType {
     ///
     /// If `required_providers` is non-empty, the dependency must return those providers
     /// from its implementation function. Otherwise an error will result at resolution time.
-    pub fn dep(required_providers: Vec<Arc<ProviderId>>) -> Self {
+    pub fn dep(required_providers: ProviderIdSet) -> Self {
         Self(Arc::new(AttrTypeInner::Dep(DepAttrType::new(
             required_providers,
             DepAttrTransition::Identity,
@@ -173,7 +173,7 @@ impl AttrType {
     ///
     /// If `required_providers` is non-empty, the dependency must return those providers
     /// from its implementation function. Otherwise an error will result at resolution time.
-    pub fn exec_dep(required_providers: Vec<Arc<ProviderId>>) -> Self {
+    pub fn exec_dep(required_providers: ProviderIdSet) -> Self {
         Self(Arc::new(AttrTypeInner::Dep(DepAttrType::new(
             required_providers,
             DepAttrTransition::Exec,
@@ -185,7 +185,7 @@ impl AttrType {
     ///
     /// If `required_providers` is non-empty, the dependency must return those providers
     /// from its implementation function. Otherwise an error will result at resolution time.
-    pub fn toolchain_dep(required_providers: Vec<Arc<ProviderId>>) -> Self {
+    pub fn toolchain_dep(required_providers: ProviderIdSet) -> Self {
         Self(Arc::new(AttrTypeInner::Dep(DepAttrType::new(
             required_providers,
             DepAttrTransition::Toolchain,
@@ -197,26 +197,20 @@ impl AttrType {
     ///
     /// If `required_providers` is non-empty, the dependency must return those providers
     /// from its implementation function. Otherwise an error will result at resolution time.
-    pub fn transition_dep(
-        required_providers: Vec<Arc<ProviderId>>,
-        cfg: Arc<TransitionId>,
-    ) -> Self {
+    pub fn transition_dep(required_providers: ProviderIdSet, cfg: Arc<TransitionId>) -> Self {
         Self(Arc::new(AttrTypeInner::Dep(DepAttrType::new(
             required_providers,
             DepAttrTransition::Transition(cfg),
         ))))
     }
 
-    pub fn configured_dep(required_providers: Vec<Arc<ProviderId>>) -> Self {
+    pub fn configured_dep(required_providers: ProviderIdSet) -> Self {
         Self(Arc::new(AttrTypeInner::ConfiguredDep(
-            ExplicitConfiguredDepAttrType::new(required_providers),
+            ExplicitConfiguredDepAttrType { required_providers },
         )))
     }
 
-    pub fn split_transition_dep(
-        required_providers: Vec<Arc<ProviderId>>,
-        cfg: Arc<TransitionId>,
-    ) -> Self {
+    pub fn split_transition_dep(required_providers: ProviderIdSet, cfg: Arc<TransitionId>) -> Self {
         Self(Arc::new(AttrTypeInner::SplitTransitionDep(
             SplitTransitionDepAttrType::new(required_providers, cfg),
         )))
@@ -252,7 +246,7 @@ impl AttrType {
 
     pub fn query() -> Self {
         Self(Arc::new(AttrTypeInner::Query(QueryAttrType::new(
-            DepAttrType::new(vec![], DepAttrTransition::Identity),
+            DepAttrType::new(ProviderIdSet::EMPTY, DepAttrTransition::Identity),
         ))))
     }
 

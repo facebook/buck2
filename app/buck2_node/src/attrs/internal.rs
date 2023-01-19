@@ -22,6 +22,7 @@ use crate::attrs::attr_type::attr_literal::AttrLiteral;
 use crate::attrs::attr_type::AttrType;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::configurable::AttrIsConfigurable;
+use crate::provider_id_set::ProviderIdSet;
 
 // TODO(cjhopman): figure out something better for these default attributes that we need to interpret
 // internally. There's currently a lot of awkwardness involved: accessing the value, needing to create
@@ -65,9 +66,9 @@ fn default_target_platform_attribute() -> Attribute {
             AttrLiteral::None,
         ))),
         "specifies the default target platform, used when no platforms are specified on the command line".to_owned(),
-        AttrType::option(AttrType::dep(vec![
+        AttrType::option(AttrType::dep(ProviderIdSet::from(vec![
             internal_attrs_platform_info_provider_id().dupe(),
-        ])),
+        ]))),
     )
 }
 
