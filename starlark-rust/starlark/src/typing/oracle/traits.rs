@@ -23,6 +23,9 @@ use crate::typing::ty::Ty;
 use crate::typing::ty::TyName;
 
 /// Callbacks which provide types when typechecking a module.
+///
+/// The instance for slices/`Vec` allow composing a series of oracles
+/// which are tried in order until one succeeds.
 #[allow(unused_variables)] // Otherwise the types are bad in completions
 pub trait TypingOracle {
     /// Given a type and a `.` attribute, what is its type.
@@ -59,7 +62,7 @@ pub struct OracleNone;
 
 impl TypingOracle for OracleNone {}
 
-/// Declare that there are no builtins, usually used at the end of [`OracleSequence`]
+/// Declare that there are no builtins, usually used at the end of a [`Vec`].
 pub struct OracleNoBuiltins;
 
 impl TypingOracle for OracleNoBuiltins {
@@ -68,25 +71,68 @@ impl TypingOracle for OracleNoBuiltins {
     }
 }
 
-/// A list of oracles that are called in order, with the first to succeed being used.
-pub struct OracleSequence<'a>(pub Vec<&'a dyn TypingOracle>);
-
-impl<'a> TypingOracle for OracleSequence<'a> {
+impl<T: TypingOracle> TypingOracle for [T] {
     fn attribute(&self, ty: &Ty, attr: &str) -> Option<Result<Ty, ()>> {
-        self.0.iter().find_map(|oracle| oracle.attribute(ty, attr))
+        self.iter().find_map(|oracle| oracle.attribute(ty, attr))
     }
 
     fn builtin(&self, name: &str) -> Option<Result<Ty, ()>> {
-        self.0.iter().find_map(|oracle| oracle.builtin(name))
+        self.iter().find_map(|oracle| oracle.builtin(name))
     }
 
     fn builtin_call(&self, name: &str, args: &[Arg]) -> Option<Result<Ty, String>> {
-        self.0
-            .iter()
+        self.iter()
             .find_map(|oracle| oracle.builtin_call(name, args))
     }
 
     fn subtype(&self, require: &TyName, got: &TyName) -> bool {
-        self.0.iter().any(|oracle| oracle.subtype(require, got))
+        self.iter().any(|oracle| oracle.subtype(require, got))
+    }
+}
+
+// Forwarding traits
+
+impl<'a, T: TypingOracle + ?Sized> TypingOracle for &'a T {
+    fn attribute(&self, ty: &Ty, attr: &str) -> Option<Result<Ty, ()>> {
+        (*self).attribute(ty, attr)
+    }
+    fn builtin(&self, name: &str) -> Option<Result<Ty, ()>> {
+        (*self).builtin(name)
+    }
+    fn builtin_call(&self, name: &str, args: &[Arg]) -> Option<Result<Ty, String>> {
+        (*self).builtin_call(name, args)
+    }
+    fn subtype(&self, require: &TyName, got: &TyName) -> bool {
+        (*self).subtype(require, got)
+    }
+}
+
+impl<T: TypingOracle + ?Sized> TypingOracle for Box<T> {
+    fn attribute(&self, ty: &Ty, attr: &str) -> Option<Result<Ty, ()>> {
+        self.as_ref().attribute(ty, attr)
+    }
+    fn builtin(&self, name: &str) -> Option<Result<Ty, ()>> {
+        self.as_ref().builtin(name)
+    }
+    fn builtin_call(&self, name: &str, args: &[Arg]) -> Option<Result<Ty, String>> {
+        self.as_ref().builtin_call(name, args)
+    }
+    fn subtype(&self, require: &TyName, got: &TyName) -> bool {
+        self.as_ref().subtype(require, got)
+    }
+}
+
+impl<T: TypingOracle> TypingOracle for Vec<T> {
+    fn attribute(&self, ty: &Ty, attr: &str) -> Option<Result<Ty, ()>> {
+        self.as_slice().attribute(ty, attr)
+    }
+    fn builtin(&self, name: &str) -> Option<Result<Ty, ()>> {
+        self.as_slice().builtin(name)
+    }
+    fn builtin_call(&self, name: &str, args: &[Arg]) -> Option<Result<Ty, String>> {
+        self.as_slice().builtin_call(name, args)
+    }
+    fn subtype(&self, require: &TyName, got: &TyName) -> bool {
+        self.as_slice().subtype(require, got)
     }
 }

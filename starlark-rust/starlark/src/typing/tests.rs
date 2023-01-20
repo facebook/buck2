@@ -23,26 +23,21 @@ use crate::docs::get_registered_starlark_docs;
 use crate::environment::Globals;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;
+use crate::typing::oracle::traits::TypingOracle;
 use crate::typing::Approximation;
 use crate::typing::Interface;
 use crate::typing::OracleDocs;
 use crate::typing::OracleNoBuiltins;
-use crate::typing::OracleSequence;
 use crate::typing::Param;
 use crate::typing::Ty;
 use crate::typing::TypeMap;
-use crate::typing::TypingOracle;
 
-fn mk_oracle() -> Box<dyn TypingOracle> {
+fn mk_oracle() -> impl TypingOracle {
     static MEMBERS: Lazy<OracleDocs> =
         Lazy::new(|| OracleDocs::new(&get_registered_starlark_docs()));
     static GLOBALS: Lazy<OracleDocs> =
         Lazy::new(|| OracleDocs::new_object(&Globals::standard().documentation()));
-    Box::new(OracleSequence(vec![
-        &*MEMBERS,
-        &*GLOBALS,
-        &OracleNoBuiltins,
-    ]))
+    vec![&*MEMBERS as &dyn TypingOracle, &*GLOBALS, &OracleNoBuiltins]
 }
 
 #[test]
@@ -72,7 +67,7 @@ fn typecheck(
 ) -> (Vec<anyhow::Error>, TypeMap, Interface, Vec<Approximation>) {
     AstModule::parse("filename", code.to_owned(), &Dialect::Extended)
         .unwrap()
-        .typecheck(&*mk_oracle(), loads)
+        .typecheck(&mk_oracle(), loads)
 }
 
 #[test]

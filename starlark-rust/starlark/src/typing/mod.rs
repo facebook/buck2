@@ -36,7 +36,6 @@ pub use bindings::Interface;
 pub use oracle::docs::OracleDocs;
 pub use oracle::traits::OracleNoBuiltins;
 pub use oracle::traits::OracleNone;
-pub use oracle::traits::OracleSequence;
 pub use oracle::traits::TypingOracle;
 pub use ty::Approximation;
 pub use ty::Arg;
