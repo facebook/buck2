@@ -1279,6 +1279,8 @@ message InvocationRecord {
   optional uint64 time_to_first_command_execution_start_ms = 45;
   // Total system memory in bytes
   optional uint64 system_total_memory_bytes = 46;
+  // Information of file changes provided by file watcher
+  FileWatcherStats file_watcher_stats = 47;
 }
 
 message CacheUploadStart {

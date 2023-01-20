@@ -215,6 +215,23 @@ mod fbcode {
                                 }
                             }
                         }
+                        if let Some(ref mut file_watcher_stats) =
+                            invocation_record.file_watcher_stats
+                        {
+                            const MAX_FILE_CHANGE_BYTES: usize = 100 * 1024;
+                            let mut bytes: usize = 0;
+                            for (index, ev) in file_watcher_stats.events.iter().enumerate() {
+                                bytes += ev.path.len();
+                                if bytes > MAX_FILE_CHANGE_BYTES {
+                                    file_watcher_stats.events.truncate(index);
+                                    file_watcher_stats.incomplete_events_reason = Some(format!(
+                                        "Too long file change records ({} bytes, max {} bytes)",
+                                        bytes, MAX_FILE_CHANGE_BYTES
+                                    ));
+                                    break;
+                                }
+                            }
+                        }
                     }
                 }
                 _ => {}
