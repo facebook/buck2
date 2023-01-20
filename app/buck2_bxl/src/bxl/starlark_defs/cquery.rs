@@ -350,7 +350,7 @@ fn register_cquery(builder: &mut MethodsBuilder) {
             .via(|| async {
                 let filter = filter
                     .into_option()
-                    .try_map(|v| buck2_query_parser::parse_expr(v))?;
+                    .try_map(buck2_query_parser::parse_expr)?;
 
                 this.functions
                     .deps(

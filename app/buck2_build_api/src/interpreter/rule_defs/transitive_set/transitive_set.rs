@@ -311,9 +311,9 @@ impl<'v> Freeze for TransitiveSet<'v> {
             children,
         } = self;
         let definition = definition.freeze(freezer)?;
-        let node = node.into_try_map(|node| node.freeze(freezer))?;
-        let children = children.into_try_map(|x| x.freeze(freezer))?;
-        let reductions = reductions.into_try_map(|x| x.freeze(freezer))?;
+        let node = node.try_map(|node| node.freeze(freezer))?;
+        let children = children.try_map(|x| x.freeze(freezer))?;
+        let reductions = reductions.try_map(|x| x.freeze(freezer))?;
         Ok(TransitiveSetGen {
             key,
             definition,
@@ -362,7 +362,7 @@ impl<'v> TransitiveSet<'v> {
             }
         })?;
 
-        let node = value.into_try_map(|value| {
+        let node = value.try_map(|value| {
             let projections = def
                 .operations()
                 .projections

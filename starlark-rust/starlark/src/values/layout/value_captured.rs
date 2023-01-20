@@ -75,7 +75,7 @@ impl<'v> Freeze for ValueCaptured<'v> {
 
     fn freeze(self, freezer: &Freezer) -> anyhow::Result<FrozenValueCaptured> {
         Ok(FrozenValueCaptured(
-            self.0.get().into_try_map(|v| freezer.freeze(v))?,
+            self.0.get().try_map(|v| freezer.freeze(v))?,
         ))
     }
 }

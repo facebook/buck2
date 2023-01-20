@@ -16,40 +16,17 @@ pub trait OptionExt {
     /// ```
     /// use gazebo::prelude::*;
     ///
-    /// assert_eq!(Some("foo").into_try_map(|x| Ok::<_, ()>(x.len())), Ok(Some(3)));
-    /// assert_eq!(Some("foo").into_try_map(|x| Err::<(), _>(())), Err(()));
-    /// ```
-    fn into_try_map<U, E, F: FnOnce(Self::Item) -> Result<U, E>>(
-        self,
-        f: F,
-    ) -> Result<Option<U>, E>;
-
-    /// Like `map`, but as a `Result`
-    ///
-    /// ```
-    /// use gazebo::prelude::*;
-    ///
     /// assert_eq!(Some("foo").try_map(|x| Ok::<_, ()>(x.len())), Ok(Some(3)));
     /// assert_eq!(Some("foo").try_map(|x| Err::<(), _>(())), Err(()));
     /// ```
-    fn try_map<U, E, F: FnOnce(&Self::Item) -> Result<U, E>>(self, f: F) -> Result<Option<U>, E>;
+    fn try_map<U, E, F: FnOnce(Self::Item) -> Result<U, E>>(self, f: F) -> Result<Option<U>, E>;
 }
 
 impl<T> OptionExt for Option<T> {
     type Item = T;
 
-    fn into_try_map<U, E, F: FnOnce(Self::Item) -> Result<U, E>>(
-        self,
-        f: F,
-    ) -> Result<Option<U>, E> {
+    fn try_map<U, E, F: FnOnce(Self::Item) -> Result<U, E>>(self, f: F) -> Result<Option<U>, E> {
         Ok(match self {
-            None => None,
-            Some(x) => Some(f(x)?),
-        })
-    }
-
-    fn try_map<U, E, F: FnOnce(&Self::Item) -> Result<U, E>>(self, f: F) -> Result<Option<U>, E> {
-        Ok(match &self {
             None => None,
             Some(x) => Some(f(x)?),
         })

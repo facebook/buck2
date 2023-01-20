@@ -147,7 +147,7 @@ pub fn register_args_function(builder: &mut GlobalsBuilder) {
             delimiter,
             format,
             prepend,
-            quote.try_map(|q| QuoteStyle::parse(q))?,
+            quote.try_map(QuoteStyle::parse)?,
         )
     }
 }

@@ -280,7 +280,7 @@ impl TryInto<buck2_test_proto::TestResult> for TestResult {
             status: self.status.try_into().context("Invalid `status`")?,
             details: self.details,
             msg: self.msg.map(|msg| OptionalMsg { msg }),
-            duration: self.duration.into_try_map(|d| d.try_into())?,
+            duration: self.duration.try_map(|d| d.try_into())?,
         })
     }
 }

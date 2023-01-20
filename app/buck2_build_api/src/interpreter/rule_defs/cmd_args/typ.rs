@@ -401,7 +401,7 @@ impl<'v> Freeze for StarlarkCommandLine<'v> {
 
         let items = items.into_try_map(|x| x.freeze(freezer))?;
         let hidden = hidden.into_try_map(|x| x.freeze(freezer))?;
-        let options = options.into_try_map(|options| options.freeze(freezer))?;
+        let options = options.try_map(|options| options.freeze(freezer))?;
 
         Ok(StarlarkCommandLineGen(StarlarkCommandLineDataGen {
             items,

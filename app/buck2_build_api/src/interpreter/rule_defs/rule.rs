@@ -292,7 +292,7 @@ pub fn register_rule_function(builder: &mut GlobalsBuilder) {
             })
             .collect::<anyhow::Result<Vec<(String, Attribute)>>>()?;
 
-        let cfg = cfg.try_map(|x| transition_id_from_value(*x))?;
+        let cfg = cfg.try_map(transition_id_from_value)?;
 
         let rule_kind = match (is_configuration_rule, is_toolchain_rule) {
             (false, false) => RuleKind::Normal,

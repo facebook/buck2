@@ -164,7 +164,7 @@ where
     type Frozen = Option<T::Frozen>;
 
     fn freeze(self, freezer: &Freezer) -> anyhow::Result<Option<T::Frozen>> {
-        self.into_try_map(|v| v.freeze(freezer))
+        self.try_map(|v| v.freeze(freezer))
     }
 }
 
