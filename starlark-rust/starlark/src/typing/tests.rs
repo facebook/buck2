@@ -33,11 +33,14 @@ use crate::typing::Ty;
 use crate::typing::TypeMap;
 
 fn mk_oracle() -> impl TypingOracle {
-    static MEMBERS: Lazy<OracleDocs> =
-        Lazy::new(|| OracleDocs::new(&get_registered_starlark_docs()));
-    static GLOBALS: Lazy<OracleDocs> =
-        Lazy::new(|| OracleDocs::new_object(&Globals::standard().documentation()));
-    vec![&*MEMBERS as &dyn TypingOracle, &*GLOBALS, &OracleNoBuiltins]
+    static ORACLE: Lazy<Vec<Box<dyn TypingOracle + Send + Sync + 'static>>> = Lazy::new(|| {
+        vec![
+            Box::new(OracleDocs::new(&get_registered_starlark_docs())),
+            Box::new(OracleDocs::new_object(&Globals::standard().documentation())),
+            Box::new(&OracleNoBuiltins),
+        ]
+    });
+    &*ORACLE
 }
 
 #[test]
