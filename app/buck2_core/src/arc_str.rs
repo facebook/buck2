@@ -248,14 +248,18 @@ impl Allocative for ArcStr {
     fn visit<'a, 'b: 'a>(&self, visitor: &'a mut allocative::Visitor<'b>) {
         let mut visitor = visitor.enter_self_sized::<Self>();
         if self.len != 0 {
-            let mut visitor =
-                visitor.enter_unique(allocative::Key::new("data"), mem::size_of::<*const u8>());
-            visitor.visit_simple(
-                allocative::Key::new("ArcStrInner"),
-                mem::size_of::<ArcStrInner>(),
-            );
-            visitor.visit_simple(allocative::Key::new("data"), self.len);
-            visitor.exit();
+            if let Some(mut visitor) = visitor.enter_shared(
+                allocative::Key::new("data"),
+                mem::size_of::<*const u8>(),
+                self.data.as_ptr() as *const (),
+            ) {
+                visitor.visit_simple(
+                    allocative::Key::new("ArcStrInner"),
+                    mem::size_of::<ArcStrInner>(),
+                );
+                visitor.visit_simple(allocative::Key::new("data"), self.len);
+                visitor.exit();
+            }
         }
         visitor.exit();
     }
