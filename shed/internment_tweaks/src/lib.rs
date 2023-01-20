@@ -19,9 +19,9 @@
 #![cfg_attr(feature = "gazebo_lint", allow(gazebo_lint_use_box))]
 
 use std::borrow::Borrow;
+use std::cmp::Ordering;
 use std::collections::hash_map::DefaultHasher;
 use std::fmt;
-use std::fmt::Debug;
 use std::fmt::Display;
 use std::fmt::Formatter;
 use std::hash::Hash;
@@ -41,8 +41,15 @@ use parking_lot::RwLock;
 use parking_lot::RwLockReadGuard;
 
 pub struct StaticInterner<T: 'static, H = DefaultHasher> {
-    tables: [RwLock<RawTable<&'static T>>; 64],
+    tables: [RwLock<RawTable<&'static InternedData<T>>>; 64],
     _marker: marker::PhantomData<H>,
+}
+
+/// This structure is similar to `Hashed<T>`, but it is not parameterized by hash function.
+#[derive(Debug)]
+struct InternedData<T: 'static> {
+    data: T,
+    hash: u64,
 }
 
 /// An interned pointer.
@@ -50,9 +57,9 @@ pub struct StaticInterner<T: 'static, H = DefaultHasher> {
 /// Equality of this type is a pointer comparison.
 /// But note, this works correctly only if `Intern` pointers created
 /// from the same instance of `StaticInterner`.
-#[derive(Debug, PartialOrd, Ord)]
+#[derive(Debug)]
 pub struct Intern<T: 'static> {
-    pointer: &'static T,
+    pointer: &'static InternedData<T>,
 }
 
 // TODO(nga): derive.
@@ -94,14 +101,14 @@ impl<T: 'static> Deref for Intern<T> {
 
     #[inline]
     fn deref(&self) -> &T {
-        self.pointer
+        &self.pointer.data
     }
 }
 
 impl<T: 'static> Intern<T> {
     #[inline]
     pub fn deref_static(&self) -> &'static T {
-        self.pointer
+        &self.pointer.data
     }
 }
 
@@ -114,10 +121,22 @@ impl<T> PartialEq for Intern<T> {
 
 impl<T> Eq for Intern<T> {}
 
+impl<T: PartialOrd> PartialOrd for Intern<T> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.pointer.data.partial_cmp(&other.pointer.data)
+    }
+}
+
+impl<T: Ord> Ord for Intern<T> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.pointer.data.cmp(&other.pointer.data)
+    }
+}
+
 impl<T: Display> Display for Intern<T> {
     #[inline]
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        Display::fmt(self.pointer, f)
+        Display::fmt(&self.pointer.data, f)
     }
 }
 
@@ -241,7 +260,10 @@ impl<T: 'static, H> StaticInterner<T, H> {
 }
 
 impl<T: 'static, H: Hasher + Default> StaticInterner<T, H> {
-    fn table_for_hash(&'static self, hash: usize) -> &'static RwLock<RawTable<&'static T>> {
+    fn table_for_hash(
+        &'static self,
+        hash: usize,
+    ) -> &'static RwLock<RawTable<&'static InternedData<T>>> {
         // Note hashbrown uses high 8 bits for some secondary hash,
         // and since we are using low 6 bits for partitioning, we are fine.
         &self.tables[hash % self.tables.len()]
@@ -249,12 +271,16 @@ impl<T: 'static, H: Hasher + Default> StaticInterner<T, H> {
 
     // This takes the values of a Hashed because it's easier than supporting both when the
     // Hashed owns the value and when it just has a reference.
-    fn table_get<'a, Q>(table: &'a RawTable<&'static T>, hash: u64, value: &Q) -> Option<&'static T>
+    fn table_get<'a, Q>(
+        table: &'a RawTable<&'static InternedData<T>>,
+        hash: u64,
+        value: &Q,
+    ) -> Option<&'static InternedData<T>>
     where
         Q: Hash + Equiv<T> + ?Sized,
         T: Eq + Hash,
     {
-        table.get(hash, |t| value.equivalent(*t)).copied()
+        table.get(hash, |t| value.equivalent(&t.data)).copied()
     }
 }
 
@@ -279,7 +305,7 @@ impl<T: 'static, H: Hasher + Default> StaticInterner<T, H> {
     fn intern_slow<Q>(
         &'static self,
         hashed_value: Hashed<Q, H>,
-        table_for_hash: &'static RwLock<RawTable<&'static T>>,
+        table_for_hash: &'static RwLock<RawTable<&'static InternedData<T>>>,
     ) -> Intern<T>
     where
         Q: Hash + Equiv<T> + Into<T>,
@@ -289,8 +315,11 @@ impl<T: 'static, H: Hasher + Default> StaticInterner<T, H> {
         if let Some(pointer) = Self::table_get(&*guard, hashed_value.hash, &hashed_value.value) {
             return Intern { pointer };
         }
-        let pointer = Box::leak(Box::new(hashed_value.value.into()));
-        guard.insert(hashed_value.hash, pointer, |t| Hashed::<T, H>::hash(*t));
+        let pointer = Box::leak(Box::new(InternedData {
+            data: hashed_value.value.into(),
+            hash: hashed_value.hash,
+        }));
+        guard.insert(hashed_value.hash, pointer, |t| t.hash);
         Intern { pointer }
     }
 
@@ -333,12 +362,12 @@ impl<'a, T: 'static, H: 'static> Iter<'a, T, H> {
 
 struct InnerIter<'a, T: 'static> {
     // The guard ensures that use of the iter is safe.
-    _guard: RwLockReadGuard<'a, RawTable<&'static T>>,
-    iter: RawIter<&'static T>,
+    _guard: RwLockReadGuard<'a, RawTable<&'static InternedData<T>>>,
+    iter: RawIter<&'static InternedData<T>>,
 }
 
 impl<'a, T: 'static> InnerIter<'a, T> {
-    fn new(guard: RwLockReadGuard<'a, RawTable<&'static T>>) -> Self {
+    fn new(guard: RwLockReadGuard<'a, RawTable<&'static InternedData<T>>>) -> Self {
         let iter = unsafe { guard.iter() };
         Self {
             _guard: guard,
