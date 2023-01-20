@@ -101,16 +101,28 @@ def make_pex(
     if not standalone:
         symlink_tree_path = ctx.actions.declare_output("{}#link-tree".format(ctx.attrs.name), dir = True)
 
-    modules_args, hidden = _pex_modules_args(ctx, pex_modules, {name: lib for name, (lib, _) in shared_libraries.items()}, symlink_tree_path)
+    common_modules_args, dep_artifacts = _pex_modules_common_args(
+        ctx,
+        pex_modules,
+        {name: lib for name, (lib, _) in shared_libraries.items()},
+    )
+
+    modules_args = _pex_modules_args(
+        common_modules_args,
+        dep_artifacts,
+        symlink_tree_path,
+    )
+
+    preload_libraries = _preload_libraries_args(ctx, shared_libraries)
 
     bootstrap_args = _pex_bootstrap_args(
-        ctx,
         python_toolchain.interpreter,
         None,
         python_toolchain.host_interpreter,
         main_module,
         output,
         shared_libraries,
+        preload_libraries,
         symlink_tree_path,
         package_style,
     )
@@ -130,7 +142,8 @@ def make_pex(
         ctx.actions.run(cmd, prefer_local = prefer_local, category = "par", identifier = "standalone")
 
     else:
-        hidden.append(symlink_tree_path)
+        runtime_files.extend(dep_artifacts)
+        runtime_files.append(symlink_tree_path)
         modules = cmd_args(python_toolchain.make_pex_modules)
         modules.add(modules_args)
         ctx.actions.run(modules, category = "par", identifier = "modules")
@@ -138,8 +151,6 @@ def make_pex(
         bootstrap = cmd_args(python_toolchain.make_pex_inplace)
         bootstrap.add(bootstrap_args)
         ctx.actions.run(bootstrap, category = "par", identifier = "bootstrap")
-
-    runtime_files.extend(hidden)
 
     run_args = []
 
@@ -155,16 +166,7 @@ def make_pex(
         run_cmd = cmd_args(run_args).hidden(runtime_files),
     )
 
-def _pex_bootstrap_args(
-        ctx: "context",
-        python_interpreter: "_arglike",
-        python_interpreter_flags: [None, str.type],
-        python_host_interpreter: "_arglike",
-        main_module: str.type,
-        output: "artifact",
-        shared_libraries: {str.type: (LinkedObject.type, bool.type)},
-        symlink_tree_path: [None, "artifact"],
-        package_style: PackageStyle.type) -> "cmd_args":
+def _preload_libraries_args(ctx: "context", shared_libraries: {str.type: (LinkedObject.type, bool.type)}) -> "cmd_args":
     preload_libraries_path = ctx.actions.write(
         "__preload_libraries.txt",
         cmd_args([
@@ -173,9 +175,20 @@ def _pex_bootstrap_args(
             if preload
         ]),
     )
+    return cmd_args(preload_libraries_path, format = "@{}")
 
+def _pex_bootstrap_args(
+        python_interpreter: "_arglike",
+        python_interpreter_flags: [None, str.type],
+        python_host_interpreter: "_arglike",
+        main_module: str.type,
+        output: "artifact",
+        shared_libraries: {str.type: (LinkedObject.type, bool.type)},
+        preload_libraries: "cmd_args",
+        symlink_tree_path: [None, "artifact"],
+        package_style: PackageStyle.type) -> "cmd_args":
     cmd = cmd_args()
-    cmd.add(cmd_args(preload_libraries_path, format = "@{}"))
+    cmd.add(preload_libraries)
     cmd.add([
         "--python",
         python_interpreter,
@@ -196,17 +209,10 @@ def _pex_bootstrap_args(
 
     return cmd
 
-def _pex_modules_args(
+def _pex_modules_common_args(
         ctx: "context",
         pex_modules: PexModules.type,
-        shared_libraries: {str.type: LinkedObject.type},
-        symlink_tree_path: [None, "artifact"]) -> ("cmd_args", ["_arglike"]):
-    """
-    Produces args to deal with a PEX's modules. Returns args to pass to the
-    modules builder, and artifacts the resulting modules would require at
-    runtime (this might be empty for e.g. a standalone pex).
-    """
-
+        shared_libraries: {str.type: LinkedObject.type}) -> ("cmd_args", ["_arglike"]):
     srcs = []
     src_artifacts = []
 
@@ -271,24 +277,34 @@ def _pex_modules_args(
         dwp_srcs_args = cmd_args(dwp_srcs_path)
         cmd.add(cmd_args(dwp_srcs_args, format = "@{}"))
         cmd.add(cmd_args(dwp_dests_path, format = "@{}"))
+    deps = (src_artifacts +
+            resource_artifacts +
+            native_libraries +
+            dwp +
+            flatten([lib.external_debug_info for lib in shared_libraries.values()]))
+    return (cmd, deps)
+
+def _pex_modules_args(
+        common_args: "cmd_args",
+        dep_artifacts: ["_arglike"],
+        symlink_tree_path: [None, "artifact"]) -> "cmd_args":
+    """
+    Produces args to deal with a PEX's modules. Returns args to pass to the
+    modules builder, and artifacts the resulting modules would require at
+    runtime (this might be empty for e.g. a standalone pex).
+    """
+
+    cmd = cmd_args()
+    cmd.add(common_args)
 
     if symlink_tree_path != None:
         cmd.add(["--modules-dir", symlink_tree_path.as_output()])
+    else:
+        # Accumulate all the artifacts we depend on. Only add them to the command
+        # if we are not going to create symlinks.
+        cmd.hidden(dep_artifacts)
 
-    # Accumulate all the artifacts we depend on. Only add them to the command
-    # if we are not going to create symlinks.
-    hidden = (
-        src_artifacts +
-        resource_artifacts +
-        native_libraries +
-        dwp +
-        flatten([lib.external_debug_info for lib in shared_libraries.values()])
-    )
-    if symlink_tree_path == None:
-        cmd.hidden(hidden)
-        hidden = []
-
-    return (cmd, hidden)
+    return cmd
 
 def _hidden_resources_error_message(current_target: "label", hidden_resources) -> str.type:
     """
