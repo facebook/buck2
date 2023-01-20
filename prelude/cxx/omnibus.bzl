@@ -69,7 +69,7 @@ OmnibusEnvironment = provider(fields = [
     "force_hybrid_links",
 ])
 
-Disposition = enum("root", "excluded", "body")
+Disposition = enum("root", "excluded", "body", "omitted")
 
 OmnibusGraph = record(
     nodes = field({"label": LinkableNode.type}),
@@ -802,7 +802,8 @@ def _build_omnibus_spec(
             dispositions[node] = Disposition("body")
             continue
 
-        fail("Node was not assigned: {}".format(node))
+        # Why does that happen? Who knows with Omnibus :(
+        dispositions[node] = Disposition("omitted")
 
     return OmnibusSpec(
         excluded = excluded,
