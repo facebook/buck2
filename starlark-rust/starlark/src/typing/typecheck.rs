@@ -38,7 +38,7 @@ use crate::syntax::AstModule;
 use crate::syntax::Dialect;
 use crate::typing::bindings::*;
 use crate::typing::ctx::*;
-use crate::typing::oracle::TypingOracle;
+use crate::typing::oracle::traits::TypingOracle;
 use crate::typing::ty::*;
 use crate::values::FrozenHeap;
 use crate::values::FrozenRef;

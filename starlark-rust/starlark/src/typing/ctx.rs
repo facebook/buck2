@@ -39,7 +39,7 @@ use crate::syntax::ast::ClauseP;
 use crate::syntax::ast::ExprP;
 use crate::syntax::ast::ForClauseP;
 use crate::typing::bindings::*;
-use crate::typing::oracle::*;
+use crate::typing::oracle::traits::TypingOracle;
 use crate::typing::ty::*;
 
 #[derive(Error, Debug)]
