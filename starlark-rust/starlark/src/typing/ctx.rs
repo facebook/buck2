@@ -74,7 +74,7 @@ pub(crate) enum TypingError {
     TooManyPositionalArguments { loc: ResolvedFileSpan },
 }
 
-pub(crate) struct TyCtx<'a> {
+pub(crate) struct TypingContext<'a> {
     pub(crate) codemap: CodeMap,
     pub(crate) oracle: &'a dyn TypingOracle,
     // We'd prefer this to be a &mut self,
@@ -84,7 +84,7 @@ pub(crate) struct TyCtx<'a> {
     pub(crate) types: HashMap<BindingId, Ty>,
 }
 
-impl TyCtx<'_> {
+impl TypingContext<'_> {
     fn add_error(&self, err: TypingError) -> Ty {
         self.errors.borrow_mut().push(err);
         Ty::Void
@@ -268,7 +268,7 @@ impl TyCtx<'_> {
     }
 
     pub(crate) fn validate_type(&self, got: &Ty, require: &Ty, span: Span) {
-        if !got.overlaps(require, Some(self)) {
+        if !got.intersects(require, Some(self)) {
             self.add_error(TypingError::IncompatibleType {
                 loc: self.resolve(span),
                 got: got.to_string(),

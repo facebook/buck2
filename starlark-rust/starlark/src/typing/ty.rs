@@ -34,7 +34,7 @@ use crate::syntax::ast::ExprP;
 use crate::syntax::ast::StmtP;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;
-use crate::typing::ctx::TyCtx;
+use crate::typing::ctx::TypingContext;
 
 /// A typing operation wasn't able to produce a precise result,
 /// so made some kind of approximation.
@@ -485,11 +485,11 @@ impl Ty {
         if self.is_void() {
             return false;
         }
-        self.overlaps(&Self::list(Ty::Any), None)
+        self.intersects(&Self::list(Ty::Any), None)
     }
 
     /// See what lies behind an attribute on a type
-    pub(crate) fn attribute(&self, attr: &str, ctx: &TyCtx) -> Result<Ty, ()> {
+    pub(crate) fn attribute(&self, attr: &str, ctx: &TypingContext) -> Result<Ty, ()> {
         // There are some structural types which have to be handled in a specific way
         match self {
             Ty::Any => Ok(Ty::Any),
@@ -516,12 +516,12 @@ impl Ty {
     }
 
     /// If you get to a point where these types are being checked, might they succeed
-    pub(crate) fn overlaps(&self, other: &Self, ctx: Option<&TyCtx>) -> bool {
+    pub(crate) fn intersects(&self, other: &Self, ctx: Option<&TypingContext>) -> bool {
         if self.is_any() || self.is_void() || other.is_any() || other.is_void() {
             return true;
         }
 
-        let equal_names = |x, y| {
+        let equal_names = |x: &TyName, y: &TyName| {
             x == y
                 || match ctx {
                     None => false,
@@ -529,23 +529,23 @@ impl Ty {
                 }
         };
 
-        let itered = |ty| ctx?.oracle.attribute(ty, "__iter__")?.ok();
+        let itered = |ty: &Ty| ctx?.oracle.attribute(ty, "__iter__")?.ok();
 
         for x in self.iter_union() {
             for y in other.iter_union() {
                 let b = match (x, y) {
                     (Ty::Name(x), Ty::Name(y)) => equal_names(x, y),
-                    (Ty::List(x), Ty::List(y)) => x.overlaps(y, ctx),
+                    (Ty::List(x), Ty::List(y)) => x.intersects(y, ctx),
                     (Ty::Dict(x), Ty::Dict(y)) => {
-                        x.0.overlaps(&y.0, ctx) && x.1.overlaps(&y.1, ctx)
+                        x.0.intersects(&y.0, ctx) && x.1.intersects(&y.1, ctx)
                     }
                     (Ty::Tuple(_), t) | (Ty::Tuple(_), t) if t.is_name("tuple") => true,
                     (Ty::Tuple(xs), Ty::Tuple(ys)) if xs.len() == ys.len() => {
-                        std::iter::zip(xs, ys).all(|(x, y)| x.overlaps(y, ctx))
+                        std::iter::zip(xs, ys).all(|(x, y)| x.intersects(y, ctx))
                     }
-                    (Ty::Iter(x), Ty::Iter(y)) => x.overlaps(y, ctx),
+                    (Ty::Iter(x), Ty::Iter(y)) => x.intersects(y, ctx),
                     (Ty::Iter(x), y) | (y, Ty::Iter(x)) => match itered(y) {
-                        Some(yy) => x.overlaps(&yy, ctx),
+                        Some(yy) => x.intersects(&yy, ctx),
                         None => false,
                     },
                     (Ty::Function(_), Ty::Function(_)) => true,

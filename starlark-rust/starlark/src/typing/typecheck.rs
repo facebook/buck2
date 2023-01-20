@@ -84,7 +84,7 @@ fn solve_bindings(
     }
     // FIXME: Should be a fixed point, just do 10 iterations since that probably converges
     let mut changed = false;
-    let mut ctx = TyCtx {
+    let mut ctx = TypingContext {
         codemap: codemap.dupe(),
         oracle,
         errors: RefCell::new(Vec::new()),
