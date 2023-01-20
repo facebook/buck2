@@ -37,7 +37,9 @@ use crate::syntax::ast::ForClauseP;
 use crate::syntax::ast::ParameterP;
 use crate::syntax::ast::StmtP;
 use crate::syntax::uniplate::Visit;
-use crate::typing::ty::*;
+use crate::typing::ty::Approximation;
+use crate::typing::ty::Param;
+use crate::typing::ty::Ty;
 
 #[derive(Clone)]
 pub(crate) enum BindExpr<'a> {

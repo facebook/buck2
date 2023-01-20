@@ -38,9 +38,14 @@ use crate::syntax::ast::BinOp;
 use crate::syntax::ast::ClauseP;
 use crate::syntax::ast::ExprP;
 use crate::syntax::ast::ForClauseP;
-use crate::typing::bindings::*;
+use crate::typing::bindings::BindExpr;
 use crate::typing::oracle::traits::TypingOracle;
-use crate::typing::ty::*;
+use crate::typing::ty::Approximation;
+use crate::typing::ty::Arg;
+use crate::typing::ty::Param;
+use crate::typing::ty::ParamMode;
+use crate::typing::ty::Ty;
+use crate::typing::ty::TyFunction;
 
 #[derive(Error, Debug)]
 pub(crate) enum TypingError {

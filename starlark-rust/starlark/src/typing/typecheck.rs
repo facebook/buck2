@@ -36,10 +36,13 @@ use crate::eval::compiler::scope::ScopeData;
 use crate::syntax::ast::Visibility;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;
-use crate::typing::bindings::*;
-use crate::typing::ctx::*;
+use crate::typing::bindings::Bindings;
+use crate::typing::bindings::Interface;
+use crate::typing::ctx::TypingContext;
+use crate::typing::ctx::TypingError;
 use crate::typing::oracle::traits::TypingOracle;
-use crate::typing::ty::*;
+use crate::typing::ty::Approximation;
+use crate::typing::ty::Ty;
 use crate::values::FrozenHeap;
 use crate::values::FrozenRef;
 
