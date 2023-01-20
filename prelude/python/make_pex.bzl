@@ -15,6 +15,7 @@ load(
     "@prelude//linking:link_info.bzl",
     "LinkedObject",  # @unused Used as a type
 )
+load("@prelude//os_lookup:defs.bzl", "OsLookup")
 load("@prelude//utils:utils.bzl", "flatten")
 load(":interface.bzl", "PythonLibraryManifestsInterface")
 load(":manifest.bzl", "ManifestInfo")  # @unused Used as a type
@@ -155,7 +156,7 @@ def make_pex(
     run_args = []
 
     # Windows can't run PAR directly.
-    if ctx.attrs._target_os_type == "windows":
+    if ctx.attrs._exec_os_type[OsLookup].platform == "windows":
         run_args.append(ctx.attrs._python_toolchain[PythonToolchainInfo].interpreter)
     run_args.append(output)
 

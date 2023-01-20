@@ -5,6 +5,8 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//os_lookup:defs.bzl", "OsLookup")
+
 PythonBootstrapSources = provider(fields = ["srcs"])
 
 PythonBootstrapToolchainInfo = provider(fields = ["interpreter"])
@@ -39,7 +41,7 @@ def python_bootstrap_binary_impl(ctx: "context") -> ["provider"]:
     run_tree = ctx.actions.symlinked_dir("__%s__" % ctx.attrs.name, run_tree_inputs)
     output = ctx.actions.copy_file(ctx.attrs.main.short_path, ctx.attrs.main)
 
-    is_windows = ctx.attrs._target_os_type == "windows"
+    is_windows = ctx.attrs._exec_os_type[OsLookup].platform == "windows"
     interpreter = ctx.attrs._python_bootstrap_toolchain[PythonBootstrapToolchainInfo].interpreter
 
     run_args = cmd_args()
