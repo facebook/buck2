@@ -63,32 +63,32 @@ use crate::fs::project::ProjectRelativePathBuf;
 #[derive(
     Clone, Debug, Display, Eq, PartialEq, Hash, Ord, PartialOrd, Allocative
 )]
-pub struct PackageLabel(Intern<PackageData>);
+pub struct PackageLabel(Intern<PackageLabelData>);
 
 /// Intern is Copy, so Clone is super cheap
 impl Dupe for PackageLabel {}
 
 #[derive(Debug, Display, Eq, PartialEq, Ord, PartialOrd, Allocative)]
-struct PackageData(CellPath);
+struct PackageLabelData(CellPath);
 
 #[derive(Hash, Eq, PartialEq)]
-struct PackageDataRef<'a> {
+struct PackageLabelDataRef<'a> {
     cell: &'a CellName,
     path: &'a CellRelativePath,
 }
 
-impl<'a> From<PackageDataRef<'a>> for PackageData {
-    fn from(package_data: PackageDataRef<'a>) -> Self {
-        PackageData(CellPath::new(
+impl<'a> From<PackageLabelDataRef<'a>> for PackageLabelData {
+    fn from(package_data: PackageLabelDataRef<'a>) -> Self {
+        PackageLabelData(CellPath::new(
             package_data.cell.clone(),
             package_data.path.to_buf(),
         ))
     }
 }
 
-impl PackageData {
-    fn as_ref(&self) -> PackageDataRef {
-        PackageDataRef {
+impl PackageLabelData {
+    fn as_ref(&self) -> PackageLabelDataRef {
+        PackageLabelDataRef {
             cell: self.0.cell(),
             path: self.0.path(),
         }
@@ -96,23 +96,23 @@ impl PackageData {
 }
 
 #[allow(clippy::derive_hash_xor_eq)]
-impl Hash for PackageData {
+impl Hash for PackageLabelData {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.as_ref().hash(state)
     }
 }
 
-impl<'a> Equiv<PackageData> for PackageDataRef<'a> {
-    fn equivalent(&self, key: &PackageData) -> bool {
+impl<'a> Equiv<PackageLabelData> for PackageLabelDataRef<'a> {
+    fn equivalent(&self, key: &PackageLabelData) -> bool {
         self == &key.as_ref()
     }
 }
 
-static INTERNER: StaticInterner<PackageData, FnvHasher> = StaticInterner::new();
+static INTERNER: StaticInterner<PackageLabelData, FnvHasher> = StaticInterner::new();
 
 impl PackageLabel {
     pub fn new(cell: &CellName, path: &CellRelativePath) -> Self {
-        Self(INTERNER.intern(PackageDataRef { cell, path }))
+        Self(INTERNER.intern(PackageLabelDataRef { cell, path }))
     }
 
     pub fn from_cell_path(path: &CellPath) -> Self {
