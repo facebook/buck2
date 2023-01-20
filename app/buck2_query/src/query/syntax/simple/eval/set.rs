@@ -40,6 +40,10 @@ impl<T: QueryTarget> TargetSet<T> {
         self.targets.insert(value)
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.targets.len() == 0
+    }
+
     pub fn len(&self) -> usize {
         self.targets.len()
     }

@@ -219,7 +219,7 @@ pub trait QueryEnvironment: Send + Sync {
                 func: &mut dyn ChildVisitor<Q>,
             ) -> anyhow::Result<()> {
                 // Stop adding more children if we are putting a path back together.
-                if self.path.len() > 0 || self.to.contains(target.node_ref()) {
+                if !self.path.is_empty() || self.to.contains(target.node_ref()) {
                     return Ok(());
                 }
                 let res: anyhow::Result<_> = try {
