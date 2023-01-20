@@ -90,6 +90,10 @@ impl<'a> Visitor<'a> {
         }
     }
 
+    /// Enter a field containing a shared pointed.
+    ///
+    /// This functions does nothing and returns `None`
+    /// if pointee (`ptr` argument) was previously visited.
     pub fn enter_shared<'b>(
         &'b mut self,
         name: Key,
