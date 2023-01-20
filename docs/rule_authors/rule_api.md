@@ -108,3 +108,9 @@ An artifact, which has a location on disk. Some of that location is considered p
 * `owner` gives back a `label` representing the rule that created it (if it is a build output)  or `None` (if it is a source).
 * `as_output()` gives a value suitable for setting as an output to `ctx.actions.run`.
 * `short_path` gives back `hello/world.txt`
+
+### Projected artifacts
+
+Artifacts can be *projected* via the `project()` method. Projecting an artifact yields a path within it.
+
+For example, if artifact `foo` is a directory containing a file `bar`, then `foo.project("bar")` yields the file `bar`.
