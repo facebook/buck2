@@ -19,24 +19,22 @@ use std::collections::HashMap;
 
 use once_cell::sync::Lazy;
 
-use crate::docs::get_registered_starlark_docs;
-use crate::environment::Globals;
+use crate::stdlib::LibraryExtension;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;
-use crate::typing::oracle::traits::TypingOracle;
 use crate::typing::Approximation;
 use crate::typing::Interface;
-use crate::typing::OracleDocs;
 use crate::typing::OracleNoBuiltins;
+use crate::typing::OracleStandard;
 use crate::typing::Param;
 use crate::typing::Ty;
 use crate::typing::TypeMap;
+use crate::typing::TypingOracle;
 
 fn mk_oracle() -> impl TypingOracle {
     static ORACLE: Lazy<Vec<Box<dyn TypingOracle + Send + Sync + 'static>>> = Lazy::new(|| {
-        let mut docs = OracleDocs::new(&get_registered_starlark_docs());
-        docs.add_object(&Globals::standard().documentation());
-        vec![Box::new(docs), Box::new(OracleNoBuiltins)]
+        let standard = OracleStandard::new(LibraryExtension::all());
+        vec![Box::new(standard), Box::new(OracleNoBuiltins)]
     });
     &*ORACLE
 }
