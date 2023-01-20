@@ -62,9 +62,8 @@ COMMA<E>: Vec<E> =
     <v0:(<E> ",")*> <e1:E?>
         => v0.into_iter().chain(e1).collect();
 
-pub(crate) Starlark: AstStmt = ASTS<starlark_>;
-starlark_: Stmt = "\n"* <(<Stmt> "\n"*)*>
-    => Stmt::Statements(<>);
+pub(crate) Starlark: AstStmt = "\n"* <l:@L> <s:(<Stmt> "\n"*)*> <r:@R>
+    => Stmt::statements(s, l, r);
 
 DefStmt: AstStmt = ASTS<DefStmt_> =>? Ok(dialect.check_def(codemap, <>)?);
 DefStmt_: Stmt =
@@ -102,7 +101,7 @@ Type: Option<Box<AstExpr>> = {
 Suite: AstStmt = {
     SimpleStmt<SmallStmt>,
     "\n"+ "INDENT" <l:@L> "\n"* <v:(<Stmt> "\n"*)+> <r:@R> "DEDENT"
-        => Stmt::Statements(v).ast(l, r)
+        => Stmt::statements(v, l, r)
 };
 
 Stmt: AstStmt = { DefStmt, IfStmt, ForStmt, SimpleStmt<SmallStmt> };

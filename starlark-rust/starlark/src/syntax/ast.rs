@@ -344,6 +344,17 @@ pub(crate) enum StmtP<P: AstPayload> {
     Load(LoadP<P>),
 }
 
+impl<P: AstPayload> StmtP<P> {
+    /// Ensure we produce normalised Statements, rather than singleton Statements
+    pub(crate) fn statements(mut xs: Vec<AstStmtP<P>>, begin: usize, end: usize) -> AstStmtP<P> {
+        if xs.len() == 1 {
+            xs.pop().unwrap()
+        } else {
+            Self::Statements(xs).ast(begin, end)
+        }
+    }
+}
+
 impl<P: AstPayload> ArgumentP<P> {
     pub(crate) fn expr(&self) -> &AstExprP<P> {
         match self {
