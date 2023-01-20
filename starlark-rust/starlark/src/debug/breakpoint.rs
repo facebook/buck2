@@ -38,8 +38,27 @@ impl AstModule {
     /// Locations where statements occur.
     pub fn stmt_locations(&self) -> Vec<FileSpan> {
         let mut res = Vec::new();
-        self.statement
-            .visit_stmt(|x| go(x, &self.codemap, &mut res));
+        go(&self.statement, &self.codemap, &mut res);
         res
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use gazebo::prelude::*;
+
+    use crate::assert;
+
+    #[test]
+    fn test_locations() {
+        fn get(code: &str) -> String {
+            assert::parse_ast(code)
+                .stmt_locations()
+                .map(|x| x.resolve_span().to_string())
+                .join(" ")
+        }
+
+        assert_eq!(&get("foo"), "1:1-4");
+        assert_eq!(&get("foo\ndef x():\n   pass"), "1:1-4 2:1-3:8 3:4-8");
     }
 }
