@@ -290,12 +290,13 @@ status_from_test_result(_R, _) ->
 get_fresh_config(Suite, OutputDir) ->
     {module, Suite} = code:ensure_loaded(Suite),
     SuitePath = code:which(Suite),
-    DataDir = filename:join(filename:dirname(SuitePath), io_lib:format("~s_data", [Suite])),
-    PrivDir = filename:join([
-        OutputDir,
-        io_lib:format("~s.~s", [Suite, calendar:system_time_to_rfc3339(erlang:system_time(second))]),
-        "private_log"
-    ]),
+    DataDir = filename:join(filename:dirname(SuitePath), io_lib:format("~s_data", [Suite])) ++ "/",
+    PrivDir =
+        filename:join([
+            OutputDir,
+            io_lib:format("~s.~s", [Suite, calendar:system_time_to_rfc3339(erlang:system_time(second))]),
+            "private_log"
+        ]) ++ "/",
     ok = filelib:ensure_path(PrivDir),
     [{priv_dir, PrivDir}, {data_dir, DataDir}].
 
