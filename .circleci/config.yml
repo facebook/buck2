@@ -33,7 +33,7 @@ commands:
           name: Init opam
           command: |
             opam init --disable-sandboxing -y
-            opam install menhir -y
+            opam install menhir ppxlib -y
       - print_versions
       - print_ocaml_config
 
@@ -52,7 +52,7 @@ commands:
           name: Init opam
           command: |
             opam init --disable-sandboxing -y
-            opam install menhir -y
+            opam install menhir ppxlib -y
       - print_versions
       - print_ocaml_config
 
