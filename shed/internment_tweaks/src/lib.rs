@@ -112,6 +112,14 @@ impl<T: 'static> Intern<T> {
     }
 }
 
+impl<T> Hash for Intern<T> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        // We could hash only the pointer, since we only compare the pointers,
+        // but users may expect hashing to be stable between runs.
+        self.pointer.hash.hash(state);
+    }
+}
+
 impl<T> PartialEq for Intern<T> {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
