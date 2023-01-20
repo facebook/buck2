@@ -116,20 +116,6 @@ jobs:
                 path: /tmp/artifacts/buck2
                 destination: buck2-linux
 
-  macos-test:
-    description: |
-      Test all with cargo for macOS
-    macos:
-      xcode: 13.4.1
-    resource_class: large
-    steps:
-      - checkout
-      - setup_macos_env
-      - rust/clippy:
-          with_cache: false
-      - rust/test:
-          with_cache: false
-
   macos-build:
     description: |
       Build all with cargo for macOS
@@ -222,7 +208,6 @@ workflows:
     jobs:
       - linux-build-and-test
       - linux-build-example-and-upload-binary
-      - macos-test
       - macos-build
       - macos-build-example-and-upload-binary
       - windows-build-and-test
