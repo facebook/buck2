@@ -30,6 +30,9 @@ pub(crate) mod oracle;
 pub(crate) mod ty;
 pub(crate) mod typecheck;
 
+#[cfg(test)]
+mod tests;
+
 pub use bindings::Interface;
 pub use docs::OracleDocs;
 pub use oracle::OracleNoBuiltins;
