@@ -76,12 +76,14 @@ impl<T: Allocative> Allocative for Intern<T> {
 impl<T: 'static> Copy for Intern<T> {}
 
 impl<T: 'static> Clone for Intern<T> {
+    #[inline]
     fn clone(&self) -> Self {
         *self
     }
 }
 
 impl<T: 'static> Dupe for Intern<T> {
+    #[inline]
     fn dupe(&self) -> Self {
         *self
     }
@@ -90,18 +92,21 @@ impl<T: 'static> Dupe for Intern<T> {
 impl<T: 'static> Deref for Intern<T> {
     type Target = T;
 
+    #[inline]
     fn deref(&self) -> &T {
         self.pointer
     }
 }
 
 impl<T: 'static> Intern<T> {
+    #[inline]
     pub fn deref_static(&self) -> &'static T {
         self.pointer
     }
 }
 
 impl<T> PartialEq for Intern<T> {
+    #[inline]
     fn eq(&self, other: &Self) -> bool {
         ptr::eq(self.pointer, other.pointer)
     }
@@ -110,6 +115,7 @@ impl<T> PartialEq for Intern<T> {
 impl<T> Eq for Intern<T> {}
 
 impl<T: Display> Display for Intern<T> {
+    #[inline]
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         Display::fmt(self.pointer, f)
     }
@@ -301,6 +307,7 @@ impl<T: 'static, H: Hasher + Default> StaticInterner<T, H> {
 
     /// Iterate over the interned values. The iterator will hold always hold a lock on (a portion of) the interned
     /// data and the user should take care to not make calls to StaticInterner until the returned iterator is dropped.
+    #[inline]
     pub fn iter(&'static self) -> Iter<'static, T, H> {
         Iter::new(self)
     }
@@ -314,6 +321,7 @@ pub struct Iter<'a, T: 'static, H: 'static> {
 }
 
 impl<'a, T: 'static, H: 'static> Iter<'a, T, H> {
+    #[inline]
     fn new(interner: &'static StaticInterner<T, H>) -> Self {
         Self {
             v: interner,
