@@ -15,14 +15,14 @@ load("@prelude//utils:utils.bzl", "value_or")
 
 def cxx_toolchain_impl(ctx):
     c_info = CCompilerInfo(
-        compiler = ctx.attrs.c_compiler[RunInfo],
+        compiler = _get_maybe_wrapped_msvc(ctx.attrs.c_compiler[RunInfo], ctx.attrs.c_compiler_type or ctx.attrs.compiler_type, ctx.attrs._msvc_hermetic_exec[RunInfo]),
         compiler_type = ctx.attrs.c_compiler_type or ctx.attrs.compiler_type,
         compiler_flags = cmd_args(ctx.attrs.c_compiler_flags),
         preprocessor_flags = cmd_args(ctx.attrs.c_preprocessor_flags),
         dep_files_processor = ctx.attrs._dep_files_processor[RunInfo],
     )
     cxx_info = CxxCompilerInfo(
-        compiler = ctx.attrs.cxx_compiler[RunInfo],
+        compiler = _get_maybe_wrapped_msvc(ctx.attrs.cxx_compiler[RunInfo], ctx.attrs.cxx_compiler_type or ctx.attrs.compiler_type, ctx.attrs._msvc_hermetic_exec[RunInfo]),
         compiler_type = ctx.attrs.cxx_compiler_type or ctx.attrs.compiler_type,
         compiler_flags = cmd_args(ctx.attrs.cxx_compiler_flags),
         preprocessor_flags = cmd_args(ctx.attrs.cxx_preprocessor_flags),
@@ -168,3 +168,8 @@ def _get_shared_library_versioned_name_format(ctx: "context") -> str.type:
         extension_format = LINKERS[linker_type].default_shared_library_versioned_extension_format
     prefix = "" if extension_format == "dll" else "lib"
     return prefix + "{}." + extension_format
+
+def _get_maybe_wrapped_msvc(compiler: "RunInfo", compiler_type: str.type, msvc_hermetic_exec: "RunInfo") -> "RunInfo":
+    if compiler_type == "windows":
+        return RunInfo(args = cmd_args(msvc_hermetic_exec, compiler))
+    return compiler

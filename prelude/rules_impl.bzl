@@ -419,6 +419,7 @@ inlined_extra_attributes = {
         "_mk_comp_db": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//cxx/tools:make_comp_db")),
         # FIXME: prelude// should be standalone (not refer to fbsource//)
         "_mk_hmap": attrs.default_only(attrs.dep(providers = [RunInfo], default = "fbsource//xplat/buck2/tools/cxx:hmap_wrapper")),
+        "_msvc_hermetic_exec": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//windows/tools:msvc_hermetic_exec")),
     },
     "export_file": {
         "src": attrs.source(allow_directory = True),
