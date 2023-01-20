@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+use std::collections::BTreeMap;
 use std::collections::HashMap;
 
 use crate::docs::Doc;
@@ -24,6 +25,7 @@ use crate::stdlib::LibraryExtension;
 use crate::typing::oracle::docs::OracleDocs;
 use crate::typing::oracle::traits::TypingOracle;
 use crate::typing::ty::Arg;
+use crate::typing::ty::Param;
 use crate::typing::ty::Ty;
 use crate::typing::ty::TyName;
 use crate::values::StarlarkValue;
@@ -83,11 +85,61 @@ impl TypingOracle for OracleStandard {
     }
 
     fn builtin(&self, name: &str) -> Option<Result<Ty, ()>> {
-        self.fallback.builtin(name)
+        Some(Ok(match name {
+            "None" => Ty::None,
+            "True" | "False" => Ty::bool(),
+            "zip" => Ty::special_function("zip", vec![Param::args(Ty::Any)], Ty::list(Ty::Any)),
+            "struct" => Ty::special_function(
+                "struct",
+                vec![Param::kwargs(Ty::Any)],
+                Ty::Struct {
+                    fields: BTreeMap::new(),
+                    extra: true,
+                },
+            ),
+            _ => return self.fallback.builtin(name),
+        }))
     }
 
-    fn builtin_call(&self, _name: &str, _args: &[Arg]) -> Option<Result<Ty, String>> {
-        None
+    fn builtin_call(&self, name: &str, args: &[Arg]) -> Option<Result<Ty, String>> {
+        match name {
+            "struct" => {
+                let mut fields = BTreeMap::new();
+                let mut extra = false;
+                for x in args {
+                    match x {
+                        Arg::Pos(_) | Arg::Args(_) => {
+                            return Some(Err("Positional arguments not allowed".to_owned()));
+                        }
+                        Arg::Name(name, val) => {
+                            fields.insert(name.clone(), val.clone());
+                        }
+                        Arg::Kwargs(_) => extra = true,
+                    }
+                }
+                Some(Ok(Ty::Struct { fields, extra }))
+            }
+            "zip" => {
+                let mut res = Vec::new();
+                for x in args {
+                    match x {
+                        Arg::Pos(x) => match self.attribute(x, "__iter__") {
+                            Some(Err(_)) => {
+                                return Some(Err("Argument does not allow iteration".to_owned()));
+                            }
+                            Some(Ok(t)) => res.push(t),
+                            // We are only asking our own oracle, not all the oracles about the iter attribute.
+                            // So will get to this approximation even if an externally defined iterable type exists.
+                            None => res.push(Ty::Any),
+                        },
+                        Arg::Args(_) => return Some(Ok(Ty::name("tuple"))),
+                        _ => return Some(Err("Named arguments not allowed".to_owned())),
+                    }
+                }
+                Some(Ok(Ty::list(Ty::Tuple(res))))
+            }
+            _ => None,
+        }
     }
 
     fn subtype(&self, _require: &TyName, _got: &TyName) -> bool {
