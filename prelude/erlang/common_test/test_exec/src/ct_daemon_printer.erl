@@ -54,6 +54,12 @@ print_result(Name, {error, {Error, Reason, Stacktrace}}) ->
     io:format("~nrun failed:~n", []),
     io:format("~ts~n", [erl_error:format_exception(Error, Reason, Stacktrace)]),
     fail;
+print_result(Name, {skip, Where, {Error, Reason, Stacktrace}}) ->
+    io:format("~ts ~ts~n", [?SKIP_MARK, Name]),
+    io:format("skipped at ~s because of ~n~ts~n", [
+        print_skip_location(Where), erl_error:format_exception(Error, Reason, Stacktrace)
+    ]),
+    skip;
 print_result(Name, {skip, Where, Reason}) ->
     io:format("~ts ~ts~n", [?SKIP_MARK, Name]),
     io:format("skipped at ~s because of ~p~n", [print_skip_location(Where), Reason]),
