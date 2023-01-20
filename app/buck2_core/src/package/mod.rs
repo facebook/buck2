@@ -50,7 +50,6 @@ use fnv::FnvHasher;
 use internment_tweaks::Equiv;
 use internment_tweaks::Intern;
 use internment_tweaks::StaticInterner;
-use starlark_map::Hashed;
 
 use crate::cells::cell_path::CellPath;
 use crate::cells::paths::CellRelativePath;
@@ -61,26 +60,16 @@ use crate::fs::paths::forward_rel_path::ForwardRelativePath;
 use crate::fs::project::ProjectRelativePathBuf;
 
 /// A 'Package' as defined above.
-#[derive(Clone, Debug, Display, Eq, PartialEq, Ord, PartialOrd, Allocative)]
-pub struct PackageLabel(Intern<HashedPackageData>);
+#[derive(
+    Clone, Debug, Display, Eq, PartialEq, Hash, Ord, PartialOrd, Allocative
+)]
+pub struct PackageLabel(Intern<PackageData>);
 
 /// Intern is Copy, so Clone is super cheap
 impl Dupe for PackageLabel {}
 
-/// The Hash impl for Intern will hash the pointer. That's not stable across runs and its too
-/// easy for us to assume that it would be, so use a deterministic hash here.
-#[allow(clippy::derive_hash_xor_eq)] // The derived PartialEq is still correct.
-impl std::hash::Hash for PackageLabel {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        Hashed::hash(&self.0.0).hash(state)
-    }
-}
-
 #[derive(Debug, Display, Eq, PartialEq, Ord, PartialOrd, Allocative)]
 struct PackageData(CellPath);
-
-#[derive(Debug, Display, Eq, PartialEq, Ord, PartialOrd, Hash, Allocative)]
-struct HashedPackageData(Hashed<PackageData>);
 
 #[derive(Hash, Eq, PartialEq)]
 struct PackageDataRef<'a> {
@@ -88,28 +77,11 @@ struct PackageDataRef<'a> {
     path: &'a CellRelativePath,
 }
 
-#[derive(Hash, Eq, PartialEq)]
-struct HashedPackageDataRef<'a>(Hashed<PackageDataRef<'a>>);
-
 impl<'a> From<PackageDataRef<'a>> for PackageData {
     fn from(package_data: PackageDataRef<'a>) -> Self {
         PackageData(CellPath::new(
             package_data.cell.clone(),
             package_data.path.to_buf(),
-        ))
-    }
-}
-
-impl<'a> From<HashedPackageDataRef<'a>> for HashedPackageData {
-    fn from(package_data: HashedPackageDataRef<'a>) -> Self {
-        let hash = package_data.0.hash();
-        let package_data = package_data.0.into_key();
-        HashedPackageData(Hashed::new_unchecked(
-            hash,
-            PackageData(CellPath::new(
-                package_data.cell.clone(),
-                package_data.path.to_buf(),
-            )),
         ))
     }
 }
@@ -130,22 +102,17 @@ impl Hash for PackageData {
     }
 }
 
-impl<'a> Equiv<HashedPackageData> for HashedPackageDataRef<'a> {
-    fn equivalent(&self, key: &HashedPackageData) -> bool {
-        self.0.hash() == key.0.hash() && self.0.key() == &key.0.key().as_ref()
+impl<'a> Equiv<PackageData> for PackageDataRef<'a> {
+    fn equivalent(&self, key: &PackageData) -> bool {
+        self == &key.as_ref()
     }
 }
 
-static INTERNER: StaticInterner<HashedPackageData, FnvHasher> = StaticInterner::new();
+static INTERNER: StaticInterner<PackageData, FnvHasher> = StaticInterner::new();
 
 impl PackageLabel {
     pub fn new(cell: &CellName, path: &CellRelativePath) -> Self {
-        Self(
-            INTERNER.intern(HashedPackageDataRef(Hashed::new(PackageDataRef {
-                cell,
-                path,
-            }))),
-        )
+        Self(INTERNER.intern(PackageDataRef { cell, path }))
     }
 
     pub fn from_cell_path(path: &CellPath) -> Self {
@@ -153,19 +120,19 @@ impl PackageLabel {
     }
 
     pub fn cell_name(&self) -> &CellName {
-        self.0.0.0.cell()
+        self.0.0.cell()
     }
 
     pub fn cell_relative_path(&self) -> &CellRelativePath {
-        self.0.0.0.path()
+        self.0.0.path()
     }
 
     pub fn to_cell_path(&self) -> CellPath {
-        self.0.0.0.clone()
+        self.0.0.clone()
     }
 
     pub fn as_cell_path(&self) -> &CellPath {
-        &self.0.0.0
+        &self.0.0
     }
 
     pub fn join(&self, path: &ForwardRelativePath) -> Self {
@@ -224,7 +191,7 @@ impl CellResolver {
     /// # anyhow::Ok(())
     /// ```
     pub fn resolve_package(&self, pkg: &PackageLabel) -> anyhow::Result<ProjectRelativePathBuf> {
-        self.resolve_path(&pkg.0.0.0)
+        self.resolve_path(&pkg.0.0)
     }
 }
 
