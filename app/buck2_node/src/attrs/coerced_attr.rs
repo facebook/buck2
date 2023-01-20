@@ -7,10 +7,10 @@
  * of this source tree.
  */
 
+use std::collections::HashSet;
 use std::hash::Hash;
 
 use allocative::Allocative;
-use buck2_core::collections::ordered_map::OrderedMap;
 use buck2_core::configuration::Configuration;
 use buck2_core::configuration::ConfigurationData;
 use buck2_core::package::PackageLabel;
@@ -21,6 +21,7 @@ use gazebo::prelude::SliceExt;
 use itertools::Itertools;
 use serde::Serialize;
 use serde::Serializer;
+use starlark_map::StarlarkHasherBuilder;
 
 use crate::attrs::attr_type::attr_literal::AttrLiteral;
 use crate::attrs::configuration_context::AttrConfigurationContext;
@@ -45,6 +46,8 @@ enum SelectError {
     TwoKeysDoNotRefineEachOther(String, String),
     #[error("concat with no items (internal error)")]
     ConcatEmpty,
+    #[error("duplicate key `{0}` in `select()`")]
+    DuplicateKey(String),
 }
 
 enum CoercedSelectorKeyRef<'a> {
@@ -54,11 +57,53 @@ enum CoercedSelectorKeyRef<'a> {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Allocative)]
 pub struct CoercedSelector {
-    pub entries: OrderedMap<TargetLabel, CoercedAttr>,
-    pub default: Option<CoercedAttr>,
+    pub(crate) entries: Box<[(TargetLabel, CoercedAttr)]>,
+    pub(crate) default: Option<CoercedAttr>,
 }
 
 impl CoercedSelector {
+    pub fn new(
+        entries: Box<[(TargetLabel, CoercedAttr)]>,
+        default: Option<CoercedAttr>,
+    ) -> anyhow::Result<CoercedSelector> {
+        Self::check_all_keys_unique(&entries)?;
+        Ok(CoercedSelector { entries, default })
+    }
+
+    fn check_all_keys_unique(entries: &[(TargetLabel, CoercedAttr)]) -> anyhow::Result<()> {
+        // This is possible when select keys are specified like:
+        // ```
+        // select({
+        //   "cell//foo:bar": 2,
+        //   "//foo:bar": 1,
+        //   ":bar": 3,
+        // })
+        // ```
+        // Keys are unique strings, but resolved to the same target.
+
+        // Quadratic is cheaper than hashing for small `N`.
+        // For 32 entries we do 496 comparisons, which is cheaper than 32 hashing operations.
+        if entries.len() <= 32 {
+            for i in 0..entries.len() {
+                for j in i + 1..entries.len() {
+                    if entries[i].0 == entries[j].0 {
+                        return Err(SelectError::DuplicateKey(entries[i].0.to_string()).into());
+                    }
+                }
+            }
+        } else {
+            let mut visited_keys: HashSet<&TargetLabel, _> =
+                HashSet::with_capacity_and_hasher(entries.len(), StarlarkHasherBuilder);
+            for (k, _) in entries {
+                if !visited_keys.insert(k) {
+                    return Err(SelectError::DuplicateKey(k.to_string()).into());
+                }
+            }
+        }
+
+        Ok(())
+    }
+
     fn all_entries(&self) -> impl Iterator<Item = (CoercedSelectorKeyRef, &CoercedAttr)> {
         self.entries
             .iter()
@@ -233,7 +278,7 @@ impl CoercedAttr {
     /// If more than one select key matches, select the most specific.
     pub fn select_the_most_specific<'a>(
         ctx: &dyn AttrConfigurationContext,
-        select_entries: &'a OrderedMap<TargetLabel, CoercedAttr>,
+        select_entries: &'a [(TargetLabel, CoercedAttr)],
     ) -> anyhow::Result<Option<&'a CoercedAttr>> {
         let mut matching: Option<(&TargetLabel, &ConfigurationData, &CoercedAttr)> = None;
         for (k, v) in select_entries {
@@ -274,7 +319,7 @@ impl CoercedAttr {
                     .ok_or_else(|| {
                         SelectError::MissingDefault(
                             ctx.cfg().dupe(),
-                            entries.keys().duped().collect(),
+                            entries.iter().map(|(k, _)| k).duped().collect(),
                         )
                     })?
                     .configure(ctx)
@@ -317,5 +362,53 @@ impl CoercedAttr {
                 Ok(false)
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use buck2_core::target::testing::TargetLabelExt;
+    use buck2_core::target::TargetLabel;
+    use dupe::Dupe;
+
+    use crate::attrs::attr_type::attr_literal::AttrLiteral;
+    use crate::attrs::coerced_attr::CoercedAttr;
+    use crate::attrs::coerced_attr::CoercedSelector;
+
+    #[test]
+    fn test_check_all_keys_unique_small() {
+        let a = TargetLabel::testing_parse("foo//:a");
+        let b = TargetLabel::testing_parse("foo//:b");
+        let c = TargetLabel::testing_parse("foo//:c");
+        let attr = CoercedAttr::Literal(AttrLiteral::None);
+        let a = (a.dupe(), attr.clone());
+        let b = (b.dupe(), attr.clone());
+        let c = (c.dupe(), attr);
+        assert!(
+            CoercedSelector::check_all_keys_unique(&[a.clone(), b.clone(), a.clone()]).is_err()
+        );
+        assert!(
+            CoercedSelector::check_all_keys_unique(&[a.clone(), b.clone(), b.clone()]).is_err()
+        );
+        assert!(
+            CoercedSelector::check_all_keys_unique(&[a.clone(), a.clone(), b.clone()]).is_err()
+        );
+        assert!(CoercedSelector::check_all_keys_unique(&[a, b, c]).is_ok());
+    }
+
+    #[test]
+    fn test_check_all_keys_unique_large() {
+        let attr = CoercedAttr::Literal(AttrLiteral::None);
+        let mut long = (0..100)
+            .map(|i| {
+                (
+                    TargetLabel::testing_parse(&format!("foo//:{}", i)),
+                    attr.clone(),
+                )
+            })
+            .collect::<Vec<_>>();
+        assert!(CoercedSelector::check_all_keys_unique(&long).is_ok());
+        long[10].0 = long[0].0.dupe();
+        assert!(CoercedSelector::check_all_keys_unique(&long).is_err());
     }
 }

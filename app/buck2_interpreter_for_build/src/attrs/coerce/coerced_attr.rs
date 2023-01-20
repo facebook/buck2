@@ -10,7 +10,6 @@
 //! Contains the internal support within the attribute framework for `select()`.
 
 use anyhow::Context;
-use buck2_core::collections::ordered_map::OrderedMap;
 use buck2_interpreter::selector::StarlarkSelector;
 use buck2_interpreter::selector::StarlarkSelectorGen;
 use buck2_node::attrs::attr_type::AttrType;
@@ -20,7 +19,6 @@ use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use starlark::values::dict::DictRef;
 use starlark::values::Value;
-use starlark_map::small_map;
 use thiserror::Error;
 
 use crate::attrs::coerce::attr_type::AttrTypeExt;
@@ -37,8 +35,6 @@ enum SelectError {
     SelectCannotBeUsedForNonConfigurableAttr,
     #[error("duplicate `\"DEFAULT\"` key in `select()` (internal error)")]
     DuplicateDefaultKey,
-    #[error("duplicate key `{0}` in `select()`")]
-    DuplicateKey(String),
 }
 
 pub trait CoercedAttrExr: Sized {
@@ -79,9 +75,9 @@ impl CoercedAttrExr for CoercedAttr {
                 StarlarkSelectorGen::Inner(v) => {
                     if let Some(dict) = DictRef::from_value(v) {
                         let has_default = dict.get_str("DEFAULT").is_some();
-                        let mut entries = OrderedMap::with_capacity(
-                            dict.len().saturating_sub(has_default as usize),
-                        );
+                        let mut entries =
+                            Vec::with_capacity(dict.len().saturating_sub(has_default as usize));
+
                         let mut default = None;
                         for (k, v) in dict.iter() {
                             let k = k.unpack_str().ok_or_else(|| {
@@ -98,32 +94,16 @@ impl CoercedAttrExr for CoercedAttr {
                                 default = Some(v);
                             } else {
                                 let target = ctx.coerce_target(k)?;
-                                match entries.entry(target) {
-                                    small_map::Entry::Occupied(e) => {
-                                        // This is possible for example when select keys
-                                        // are specified like:
-                                        // ```
-                                        // select({
-                                        //   "cell//foo:bar": 2,
-                                        //   "//foo:bar": 1,
-                                        //   ":bar": 3,
-                                        // })
-                                        // ```
-                                        // Keys are strings, but resolved to the same target.
-                                        return Err(
-                                            SelectError::DuplicateKey(e.key().to_string()).into()
-                                        );
-                                    }
-                                    small_map::Entry::Vacant(e) => {
-                                        e.insert(v);
-                                    }
-                                }
+                                entries.push((target, v));
                             }
                         }
-                        Ok(CoercedAttr::Selector(box CoercedSelector {
-                            entries,
+
+                        assert_eq!(entries.capacity(), entries.len());
+
+                        Ok(CoercedAttr::Selector(box CoercedSelector::new(
+                            entries.into_boxed_slice(),
                             default,
-                        }))
+                        )?))
                     } else {
                         Err(anyhow::anyhow!(SelectError::ValueNotDict(v.to_repr())))
                     }
@@ -182,48 +162,57 @@ mod tests {
 
     #[test]
     fn selector_equals_accounts_for_ordering() {
-        let s1 = CoercedAttr::Selector(box CoercedSelector {
-            entries: OrderedMap::from_iter([
-                (
-                    TargetLabel::testing_parse("cell1//pkg1:target1"),
-                    CoercedAttr::Literal(AttrLiteral::Bool(true)),
-                ),
-                (
-                    TargetLabel::testing_parse("cell2//pkg2:target2"),
-                    CoercedAttr::Literal(AttrLiteral::Bool(false)),
-                ),
-            ]),
-            default: None,
-        });
-        let s2 = CoercedAttr::Selector(box CoercedSelector {
-            entries: OrderedMap::from_iter([
-                (
-                    TargetLabel::testing_parse("cell1//pkg1:target1"),
-                    CoercedAttr::Literal(AttrLiteral::Bool(true)),
-                ),
-                (
-                    TargetLabel::testing_parse("cell2//pkg2:target2"),
-                    CoercedAttr::Literal(AttrLiteral::Bool(false)),
-                ),
-            ]),
-            default: None,
-        });
+        let s1 = CoercedAttr::Selector(
+            box CoercedSelector::new(
+                box [
+                    (
+                        TargetLabel::testing_parse("cell1//pkg1:target1"),
+                        CoercedAttr::Literal(AttrLiteral::Bool(true)),
+                    ),
+                    (
+                        TargetLabel::testing_parse("cell2//pkg2:target2"),
+                        CoercedAttr::Literal(AttrLiteral::Bool(false)),
+                    ),
+                ],
+                None,
+            )
+            .unwrap(),
+        );
+        let s2 = CoercedAttr::Selector(
+            box CoercedSelector::new(
+                box [
+                    (
+                        TargetLabel::testing_parse("cell1//pkg1:target1"),
+                        CoercedAttr::Literal(AttrLiteral::Bool(true)),
+                    ),
+                    (
+                        TargetLabel::testing_parse("cell2//pkg2:target2"),
+                        CoercedAttr::Literal(AttrLiteral::Bool(false)),
+                    ),
+                ],
+                None,
+            )
+            .unwrap(),
+        );
 
         assert_eq!(s1 == s2, true);
 
-        let s2 = CoercedAttr::Selector(box CoercedSelector {
-            entries: OrderedMap::from_iter([
-                (
-                    TargetLabel::testing_parse("cell2//pkg2:target2"),
-                    CoercedAttr::Literal(AttrLiteral::Bool(false)),
-                ),
-                (
-                    TargetLabel::testing_parse("cell1//pkg1:target1"),
-                    CoercedAttr::Literal(AttrLiteral::Bool(true)),
-                ),
-            ]),
-            default: None,
-        });
+        let s2 = CoercedAttr::Selector(
+            box CoercedSelector::new(
+                box [
+                    (
+                        TargetLabel::testing_parse("cell2//pkg2:target2"),
+                        CoercedAttr::Literal(AttrLiteral::Bool(false)),
+                    ),
+                    (
+                        TargetLabel::testing_parse("cell1//pkg1:target1"),
+                        CoercedAttr::Literal(AttrLiteral::Bool(true)),
+                    ),
+                ],
+                None,
+            )
+            .unwrap(),
+        );
 
         assert_eq!(s1 == s2, false);
     }
@@ -316,34 +305,34 @@ mod tests {
         }
 
         // Test more specific is selected even if it is not first.
-        let select_entries = OrderedMap::from_iter([
+        let select_entries = box [
             (linux.dupe(), literal_true()),
             (linux_x86_64.dupe(), literal_str()),
-        ]);
+        ];
         assert_eq!(
             Some(&literal_str()),
-            CoercedAttr::select_the_most_specific(&ctx, &select_entries).unwrap()
+            CoercedAttr::select_the_most_specific(&ctx, &*select_entries).unwrap()
         );
 
         // Test more specific is selected even if it is first.
-        let select_entries = OrderedMap::from_iter([
+        let select_entries = box [
             (linux_x86_64.dupe(), literal_str()),
             (linux.dupe(), literal_true()),
-        ]);
+        ];
         assert_eq!(
             Some(&literal_str()),
-            CoercedAttr::select_the_most_specific(&ctx, &select_entries).unwrap()
+            CoercedAttr::select_the_most_specific(&ctx, &*select_entries).unwrap()
         );
 
         // Conflicting keys.
-        let select_entries = OrderedMap::from_iter([
+        let select_entries = box [
             (linux_arm64.dupe(), literal_true()),
             (linux_x86_64.dupe(), literal_str()),
-        ]);
+        ];
         assert_eq!(
             "Both select keys `//:linux-arm64` and `//:linux-x86_64` match the configuration, \
             but neither is more specific",
-            CoercedAttr::select_the_most_specific(&ctx, &select_entries)
+            CoercedAttr::select_the_most_specific(&ctx, &*select_entries)
                 .unwrap_err()
                 .to_string()
         );
@@ -369,19 +358,22 @@ mod tests {
     fn test_to_json_selector() {
         assert_eq!(
             r#"{"__type":"selector","entries":{"//:a":true,"//:b":10,"DEFAULT":"ddd"}}"#,
-            CoercedAttr::Selector(box CoercedSelector {
-                entries: OrderedMap::from_iter([
-                    (
-                        TargetLabel::testing_parse("//:a"),
-                        CoercedAttr::Literal(AttrLiteral::Bool(true))
-                    ),
-                    (
-                        TargetLabel::testing_parse("//:b"),
-                        CoercedAttr::Literal(AttrLiteral::Int(10))
-                    ),
-                ]),
-                default: Some(CoercedAttr::Literal(AttrLiteral::String("ddd".into()))),
-            })
+            CoercedAttr::Selector(
+                box CoercedSelector::new(
+                    box [
+                        (
+                            TargetLabel::testing_parse("//:a"),
+                            CoercedAttr::Literal(AttrLiteral::Bool(true))
+                        ),
+                        (
+                            TargetLabel::testing_parse("//:b"),
+                            CoercedAttr::Literal(AttrLiteral::Int(10))
+                        ),
+                    ],
+                    Some(CoercedAttr::Literal(AttrLiteral::String("ddd".into()))),
+                )
+                .unwrap()
+            )
             .to_json(&AttrFmtContext::NO_CONTEXT)
             .unwrap()
             .to_string()
