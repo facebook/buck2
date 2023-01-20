@@ -103,11 +103,11 @@ struct BuckdLifecycle<'a> {
 impl<'a> BuckdLifecycle<'a> {
     async fn lock_with_timeout(
         paths: &'a InvocationPaths,
-        timeout: Duration,
+        deadline: StartupDeadline,
     ) -> anyhow::Result<BuckdLifecycle<'a>> {
         Ok(BuckdLifecycle::<'a> {
             paths,
-            lock: BuckdLifecycleLock::lock_with_timeout(paths.daemon_dir()?, timeout).await?,
+            lock: BuckdLifecycleLock::lock_with_timeout(paths.daemon_dir()?, deadline).await?,
         })
     }
 
@@ -394,12 +394,11 @@ impl BuckdConnectOptions {
         // At this point, we've either failed to connect to buckd or buckd had the wrong version. At this point,
         // we'll get the lifecycle lock to ensure we don't have races with other processes as we check and change things.
 
-        let lifecycle_lock = BuckdLifecycle::lock_with_timeout(
-            paths,
-            deadline.rem_duration("acquire lifecycle lock")?,
-        )
-        .await
-        .with_context(|| "when locking buckd lifecycle.lock")?;
+        let lifecycle_lock = deadline
+            .down("acquire lifecycle lock", |deadline| {
+                BuckdLifecycle::lock_with_timeout(paths, deadline)
+            })
+            .await?;
 
         // Even if we didn't connect before, it's possible that we just raced with another invocation
         // starting the server, so we try to connect again while holding the lock.

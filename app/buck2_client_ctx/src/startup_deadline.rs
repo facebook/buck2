@@ -26,12 +26,12 @@ use buck2_common::client_utils::retrying;
 /// Additionally, when going down, we should decrease timeout a bit,
 /// to make sure inner operation times out before outer one.
 #[derive(Debug)]
-pub(crate) struct StartupDeadline {
+pub struct StartupDeadline {
     deadline: Instant,
 }
 
 impl StartupDeadline {
-    pub(crate) fn duration_from_now(duration: Duration) -> anyhow::Result<StartupDeadline> {
+    pub fn duration_from_now(duration: Duration) -> anyhow::Result<StartupDeadline> {
         Ok(StartupDeadline {
             deadline: Instant::now().checked_add(duration).context("overflow")?,
         })

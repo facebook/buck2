@@ -28,7 +28,7 @@ pub mod find_certs;
 pub mod manifold;
 pub mod path_arg;
 pub mod replayer;
-pub(crate) mod startup_deadline;
+pub mod startup_deadline;
 pub mod stdin;
 pub mod stdio;
 pub mod stream_value;

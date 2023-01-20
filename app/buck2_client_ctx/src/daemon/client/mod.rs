@@ -16,7 +16,6 @@ use std::time::Instant;
 use anyhow::Context;
 use buck2_cli_proto::daemon_api_client::*;
 use buck2_cli_proto::*;
-use buck2_common::client_utils::retrying;
 use buck2_common::daemon_dir::DaemonDir;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
@@ -48,6 +47,7 @@ use crate::version::BuckVersion;
 pub mod connect;
 
 use crate::replayer::Replayer;
+use crate::startup_deadline::StartupDeadline;
 
 static GRACEFUL_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(4);
 static FORCE_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(2);
@@ -117,18 +117,19 @@ impl BuckdLifecycleLock {
 
     pub async fn lock_with_timeout(
         daemon_dir: DaemonDir,
-        timeout: Duration,
+        deadline: StartupDeadline,
     ) -> anyhow::Result<BuckdLifecycleLock> {
         create_dir_all(&daemon_dir.path)?;
         let lifecycle_path = daemon_dir.path.as_path().join(Self::BUCKD_LIFECYCLE);
         let file = File::create(lifecycle_path)?;
-        retrying(
-            Duration::from_millis(5),
-            Duration::from_millis(100),
-            timeout,
-            async || Ok(file.try_lock_exclusive()?),
-        )
-        .await?;
+        deadline
+            .retrying(
+                "locking buckd lifecycle",
+                Duration::from_millis(5),
+                Duration::from_millis(100),
+                async || Ok(file.try_lock_exclusive()?),
+            )
+            .await?;
 
         Ok(BuckdLifecycleLock {
             lock_file: file,

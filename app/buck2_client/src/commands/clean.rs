@@ -20,6 +20,7 @@ use buck2_client_ctx::daemon::client::connect::BuckdConnectOptions;
 use buck2_client_ctx::daemon::client::BuckdLifecycleLock;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::final_console::FinalConsole;
+use buck2_client_ctx::startup_deadline::StartupDeadline;
 use buck2_client_ctx::streaming::BuckSubcommand;
 use buck2_common::daemon_dir::DaemonDir;
 use buck2_core::fs::fs_util;
@@ -94,7 +95,7 @@ impl CleanCommand {
             // This will ensure we have exclusive access to the directories in question
             let lifecycle_lock = BuckdLifecycleLock::lock_with_timeout(
                 ctx.paths()?.daemon_dir()?,
-                Duration::from_secs(10),
+                StartupDeadline::duration_from_now(Duration::from_secs(10))?,
             )
             .await
             .with_context(|| "when locking buckd lifecycle.lock")?;
