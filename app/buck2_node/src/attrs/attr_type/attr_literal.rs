@@ -30,7 +30,6 @@ use crate::attrs::attr_type::label::LabelAttrType;
 use crate::attrs::attr_type::query::QueryAttr;
 use crate::attrs::attr_type::split_transition_dep::SplitTransitionDepAttrType;
 use crate::attrs::attr_type::split_transition_dep::SplitTransitionDepMaybeConfigured;
-use crate::attrs::attr_type::AttrType;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::coerced_path::CoercedPath;
 use crate::attrs::configuration_context::AttrConfigurationContext;
@@ -43,9 +42,7 @@ use crate::attrs::traversal::CoercedAttrTraversal;
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative)]
 pub struct ListLiteral<C: AttrConfig> {
-    // TODO(nga): fix double boxing (here and in AttrLiteral).
     pub items: Box<[C]>,
-    pub item_type: AttrType,
 }
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative)]
@@ -66,7 +63,7 @@ pub enum AttrLiteral<C: AttrConfig> {
     // Type of list elements is used to verify that concatenation is valid.
     // That only can be checked after configuration took place,
     // so pass the type info together with values to be used later.
-    List(Box<ListLiteral<C>>),
+    List(ListLiteral<C>),
     Tuple(Box<[C]>),
     Dict(Box<[(C, C)]>),
     None,
@@ -82,6 +79,13 @@ pub enum AttrLiteral<C: AttrConfig> {
     // NOTE: unlike deps, labels are not traversed, as they are typically used in lieu of deps in
     // cases that would cause cycles.
     Label(Box<C::ProvidersType>),
+    OneOf(
+        Box<(
+            Self,
+            // Index of matched oneof attr type variant.
+            u32,
+        )>,
+    ),
 }
 
 // Prevent size regression.
@@ -148,6 +152,7 @@ impl<C: AttrConfig> AttrDisplayWithContext for AttrLiteral<C> {
             AttrLiteral::Arg(a) => write!(f, "\"{}\"", a),
             AttrLiteral::SplitTransitionDep(d) => Display::fmt(d, f),
             AttrLiteral::Label(l) => write!(f, "\"{}\"", l),
+            AttrLiteral::OneOf(box (l, _)) => AttrDisplayWithContext::fmt(l, ctx, f),
         }
     }
 }
@@ -198,6 +203,7 @@ impl<C: AttrConfig> AttrLiteral<C> {
             AttrLiteral::ConfigurationDep(l) => Ok(to_value(l.to_string())?),
             AttrLiteral::SplitTransitionDep(l) => l.to_json(),
             AttrLiteral::Label(l) => Ok(to_value(l.to_string())?),
+            AttrLiteral::OneOf(box (l, _)) => l.to_json(ctx),
         }
     }
 
@@ -245,6 +251,7 @@ impl<C: AttrConfig> AttrLiteral<C> {
             AttrLiteral::ConfigurationDep(d) => filter(&d.to_string()),
             AttrLiteral::SplitTransitionDep(d) => d.any_matches(filter),
             AttrLiteral::Label(l) => filter(&l.to_string()),
+            AttrLiteral::OneOf(box (l, _)) => l.any_matches(filter),
         }
     }
 }
@@ -300,6 +307,7 @@ impl AttrLiteral<ConfiguredAttr> {
             AttrLiteral::SourceLabel(box dep) => traversal.dep(dep),
             AttrLiteral::Arg(arg) => arg.traverse(traversal),
             AttrLiteral::Label(label) => traversal.label(label),
+            AttrLiteral::OneOf(box (l, _)) => l.traverse(pkg, traversal),
         }
     }
 }
@@ -311,9 +319,8 @@ impl AttrLiteral<CoercedAttr> {
             AttrLiteral::Int(v) => AttrLiteral::Int(*v),
             AttrLiteral::String(v) => AttrLiteral::String(v.clone()),
             AttrLiteral::EnumVariant(v) => AttrLiteral::EnumVariant(v.clone()),
-            AttrLiteral::List(list) => AttrLiteral::List(box ListLiteral {
+            AttrLiteral::List(list) => AttrLiteral::List(ListLiteral {
                 items: list.items.try_map(|v| v.configure(ctx))?.into_boxed_slice(),
-                item_type: list.item_type.dupe(),
             }),
             AttrLiteral::Tuple(list) => {
                 AttrLiteral::Tuple(list.try_map(|v| v.configure(ctx))?.into_boxed_slice())
@@ -343,6 +350,10 @@ impl AttrLiteral<CoercedAttr> {
             }
             AttrLiteral::Arg(arg) => AttrLiteral::Arg(arg.configure(ctx)?),
             AttrLiteral::Label(label) => LabelAttrType::configure(ctx, label)?,
+            AttrLiteral::OneOf(box (l, i)) => {
+                let ConfiguredAttr(configured) = l.configure(ctx)?;
+                AttrLiteral::OneOf(box (configured, *i))
+            }
         }))
     }
 
@@ -393,6 +404,7 @@ impl AttrLiteral<CoercedAttr> {
             AttrLiteral::SourceLabel(box s) => traversal.dep(s.target()),
             AttrLiteral::Arg(arg) => arg.traverse(traversal),
             AttrLiteral::Label(label) => traversal.label(label),
+            AttrLiteral::OneOf(box (l, _)) => l.traverse(pkg, traversal),
         }
     }
 }

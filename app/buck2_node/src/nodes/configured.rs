@@ -38,7 +38,6 @@ use crate::attrs::attr_type::dep::DepAttr;
 use crate::attrs::attr_type::dep::DepAttrTransition;
 use crate::attrs::attr_type::dep::DepAttrType;
 use crate::attrs::attr_type::query::ResolvedQueryLiterals;
-use crate::attrs::attr_type::AttrType;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::configuration_context::AttrConfigurationContextImpl;
 use crate::attrs::configured_attr::ConfiguredAttr;
@@ -412,7 +411,7 @@ impl ConfiguredTargetNode {
 
     pub fn special_attrs(&self) -> impl Iterator<Item = (&str, ConfiguredAttr)> {
         let typ_attr = ConfiguredAttr::new(AttrLiteral::String(self.rule_type().name().into()));
-        let deps_attr = ConfiguredAttr::new(AttrLiteral::List(box ListLiteral {
+        let deps_attr = ConfiguredAttr::new(AttrLiteral::List(ListLiteral {
             items: self
                 .deps()
                 .map(|t| {
@@ -423,7 +422,6 @@ impl ConfiguredTargetNode {
                 })
                 .collect::<Vec<_>>()
                 .into_boxed_slice(),
-            item_type: AttrType::dep(ProviderIdSet::EMPTY),
         }));
         let package_attr = ConfiguredAttr::new(AttrLiteral::String(
             self.buildfile_path().to_string().into_boxed_str(),

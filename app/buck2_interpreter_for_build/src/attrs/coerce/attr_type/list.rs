@@ -13,7 +13,6 @@ use buck2_node::attrs::attr_type::list::ListAttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
-use dupe::Dupe;
 use gazebo::prelude::*;
 use starlark::values::list::ListRef;
 use starlark::values::tuple::TupleRef;
@@ -31,20 +30,18 @@ impl AttrTypeCoerce for ListAttrType {
         value: Value,
     ) -> anyhow::Result<AttrLiteral<CoercedAttr>> {
         if let Some(list) = ListRef::from_value(value) {
-            Ok(AttrLiteral::List(box ListLiteral {
+            Ok(AttrLiteral::List(ListLiteral {
                 items: list
                     .content()
                     .try_map(|v| (self.inner).coerce(configurable, ctx, *v))?
                     .into_boxed_slice(),
-                item_type: self.inner.dupe(),
             }))
         } else if let Some(list) = TupleRef::from_value(value) {
-            Ok(AttrLiteral::List(box ListLiteral {
+            Ok(AttrLiteral::List(ListLiteral {
                 items: list
                     .content()
                     .try_map(|v| (self.inner).coerce(configurable, ctx, *v))?
                     .into_boxed_slice(),
-                item_type: self.inner.dupe(),
             }))
         } else {
             Err(anyhow::anyhow!(CoercionError::type_error(

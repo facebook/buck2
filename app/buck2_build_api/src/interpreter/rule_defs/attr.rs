@@ -477,7 +477,7 @@ pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
         let coercer = AttrType::list(element_type.dupe());
 
         Ok(AttributeAsStarlarkValue(Attribute {
-            default: Some(Arc::new(AnyAttrType::empty_list(element_type))),
+            default: Some(Arc::new(AnyAttrType::empty_list())),
             deprecated_default: false,
             doc: doc.to_owned(),
             coercer,

@@ -145,7 +145,7 @@ fn test_invalid_concat_coercion_into_one_of() -> anyhow::Result<()> {
         .expect_err("Should fail to concatenate configured lists");
     assert!(
         err.to_string()
-            .contains("addition not supported for lists of different types")
+            .contains("addition not supported for values of different types")
     );
     Ok(())
 }

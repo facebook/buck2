@@ -23,7 +23,6 @@ use dupe::Dupe;
 
 use crate::attrs::attr_type::attr_literal::AttrLiteral;
 use crate::attrs::attr_type::attr_literal::ListLiteral;
-use crate::attrs::attr_type::AttrType;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::coerced_deps_collector::CoercedDeps;
 use crate::attrs::inspect_options::AttrInspectOptions;
@@ -38,7 +37,6 @@ use crate::nodes::attributes::ONCALL;
 use crate::nodes::attributes::PACKAGE;
 use crate::nodes::attributes::TYPE;
 use crate::package::Package;
-use crate::provider_id_set::ProviderIdSet;
 use crate::rule::Rule;
 use crate::rule_type::RuleType;
 use crate::visibility::VisibilitySpecification;
@@ -183,7 +181,7 @@ impl TargetNode {
     pub(crate) fn special_attrs(&self) -> impl Iterator<Item = (&str, CoercedAttr)> {
         let typ_attr =
             CoercedAttr::new_literal(AttrLiteral::String(self.rule_type().name().into()));
-        let deps_attr = CoercedAttr::new_literal(AttrLiteral::List(box ListLiteral {
+        let deps_attr = CoercedAttr::new_literal(AttrLiteral::List(ListLiteral {
             items: self
                 .deps()
                 .map(|t| {
@@ -192,7 +190,6 @@ impl TargetNode {
                     )))
                 })
                 .collect(),
-            item_type: AttrType::dep(ProviderIdSet::EMPTY),
         }));
         let package_attr = CoercedAttr::new_literal(AttrLiteral::String(
             self.buildfile_path().to_string().into_boxed_str(),
@@ -201,14 +198,13 @@ impl TargetNode {
             (TYPE, typ_attr),
             (
                 CONFIGURATION_DEPS,
-                CoercedAttr::new_literal(AttrLiteral::List(box ListLiteral {
+                CoercedAttr::new_literal(AttrLiteral::List(ListLiteral {
                     items: self
                         .get_configuration_deps()
                         .map(|t| {
                             CoercedAttr::new_literal(AttrLiteral::ConfigurationDep(box t.dupe()))
                         })
                         .collect(),
-                    item_type: AttrType::configuration_dep(),
                 })),
             ),
             (DEPS, deps_attr),

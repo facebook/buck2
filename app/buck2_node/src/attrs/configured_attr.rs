@@ -35,8 +35,10 @@ enum ConfiguredAttrError {
     ConcatNotSupportedValues(&'static str, String),
     #[error("got same key in both sides of dictionary concat (key `{0}`).")]
     DictConcatDuplicateKeys(String),
-    #[error("addition not supported for lists of different types, got `{0}` and `{1}`.")]
-    ConcatListDifferentTypes(String, String),
+    #[error("addition not supported for values of different types")]
+    ConcatDifferentTypes,
+    #[error("while concat, LHS is oneof, expecting RHS to also be oneof (internal error)")]
+    LhsOneOfRhsNotOneOf,
 }
 
 #[derive(Eq, PartialEq, Hash, Clone, Allocative)]
@@ -83,7 +85,10 @@ impl ConfiguredAttr {
     /// Used for concatting the configured result of concatted selects. For most types this isn't allowed (it
     /// should be unreachable as concat-ability is checked during coercion and the type would've returned false from `AttrType::supports_concat`).
     /// This is used when a select() is added to another value, like `select(<...>) + select(<...>)` or `select(<...>) + [...]`.
-    pub fn concat(self, items: impl Iterator<Item = anyhow::Result<Self>>) -> anyhow::Result<Self> {
+    pub fn concat(
+        self,
+        items: &mut dyn Iterator<Item = anyhow::Result<Self>>,
+    ) -> anyhow::Result<Self> {
         let mismatch = |ty, attr: AttrLiteral<ConfiguredAttr>| {
             Err(ConfiguredAttrError::ConcatNotSupportedValues(
                 ty,
@@ -93,27 +98,33 @@ impl ConfiguredAttr {
         };
 
         match self.0 {
+            AttrLiteral::OneOf(box (first, first_i)) => {
+                ConfiguredAttr(first).concat(&mut items.map(|next| {
+                    match next?.0 {
+                        AttrLiteral::OneOf(box (next, next_i)) => {
+                            if first_i != next_i {
+                                // TODO(nga): figure out how to make better error message.
+                                //   We already lost lhs type here.
+                                return Err(ConfiguredAttrError::ConcatDifferentTypes.into());
+                            }
+                            Ok(ConfiguredAttr(next))
+                        }
+                        _ => Err(ConfiguredAttrError::LhsOneOfRhsNotOneOf.into()),
+                    }
+                }))
+            }
             AttrLiteral::List(list) => {
                 let mut res = list.items.into_vec();
                 for x in items {
                     match x?.0 {
                         AttrLiteral::List(list2) => {
-                            if list.item_type != list2.item_type {
-                                return Err(ConfiguredAttrError::ConcatListDifferentTypes(
-                                    list.item_type.to_string(),
-                                    list2.item_type.to_string(),
-                                )
-                                .into());
-                            } else {
-                                res.extend(list2.items.into_vec());
-                            }
+                            res.extend(list2.items.into_vec());
                         }
                         attr => return mismatch("list", attr),
                     }
                 }
-                Ok(Self(AttrLiteral::List(box ListLiteral {
+                Ok(Self(AttrLiteral::List(ListLiteral {
                     items: res.into_boxed_slice(),
-                    item_type: list.item_type,
                 })))
             }
             AttrLiteral::Dict(left) => {

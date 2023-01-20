@@ -28,9 +28,9 @@ impl AttrTypeCoerce for OneOfAttrType {
     ) -> anyhow::Result<AttrLiteral<CoercedAttr>> {
         let mut errs = Vec::new();
         // Bias towards the start of the list - try and use success/failure from first in preference
-        for x in &self.xs {
+        for (i, x) in self.xs.iter().enumerate() {
             match x.coerce_item(configurable, ctx, value) {
-                Ok(v) => return Ok(v),
+                Ok(v) => return Ok(AttrLiteral::OneOf(box (v, i as u32))),
                 Err(e) => {
                     // TODO(nga): anyhow error creation is expensive.
                     errs.push(e)

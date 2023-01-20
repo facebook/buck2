@@ -331,7 +331,7 @@ impl CoercedAttr {
                 if singleton {
                     Ok(first)
                 } else {
-                    first.concat(it)
+                    first.concat(&mut it)
                 }
             }
         }

@@ -909,7 +909,7 @@ mod tests {
             (
                 "some_deps",
                 Attribute::testing_new(None, AttrType::list(AttrType::dep(ProviderIdSet::EMPTY))),
-                CoercedAttr::from_literal(AttrLiteral::List(box ListLiteral {
+                CoercedAttr::from_literal(AttrLiteral::List(ListLiteral {
                     items: vec![CoercedAttr::from_literal(AttrLiteral::Dep(box DepAttr {
                         attr_type: DepAttrType::new(
                             ProviderIdSet::EMPTY,
@@ -918,7 +918,6 @@ mod tests {
                         label: ProvidersLabel::new(label2.dupe(), ProvidersName::Default),
                     }))]
                     .into_boxed_slice(),
-                    item_type: AttrType::dep(ProviderIdSet::EMPTY),
                 })),
             ),
         ];
@@ -939,7 +938,7 @@ mod tests {
             (
                 "some_deps",
                 Attribute::testing_new(None, AttrType::list(AttrType::dep(ProviderIdSet::EMPTY))),
-                AnyAttrType::empty_list(AttrType::dep(ProviderIdSet::EMPTY)),
+                AnyAttrType::empty_list(),
             ),
         ];
 
@@ -973,22 +972,21 @@ mod tests {
             "another_field" =>
              ConfiguredAttr::from_literal(AttrLiteral::String("some_string".into())),
             "some_deps" =>
-             ConfiguredAttr::from_literal(AttrLiteral::List(box ListLiteral{items: vec![
+             ConfiguredAttr::from_literal(AttrLiteral::List(ListLiteral{items: vec![
                 ConfiguredAttr::from_literal(AttrLiteral::Dep(box DepAttr {
                     attr_type: DepAttrType::new(ProviderIdSet::EMPTY, DepAttrTransition::Identity),
                     label: ProvidersLabel::new(label2.dupe(), ProvidersName::Default)
                         .configure(cfg.dupe()),
                 })),
-            ].into_boxed_slice(), item_type: AttrType::dep(ProviderIdSet::EMPTY)})),
+            ].into_boxed_slice()})),
         ];
 
         let conf_attrs2 = smallmap![
             "bool_field" => ConfiguredAttr::from_literal(AttrLiteral::Bool(true)),
             "another_field" =>
              ConfiguredAttr::from_literal(AttrLiteral::String("another_string".into())),
-            "some_deps" => ConfiguredAttr::from_literal(AttrLiteral::List(box ListLiteral {
+            "some_deps" => ConfiguredAttr::from_literal(AttrLiteral::List(ListLiteral {
                 items: Default::default(),
-                item_type: AttrType::dep(ProviderIdSet::EMPTY)
             })),
         ];
 

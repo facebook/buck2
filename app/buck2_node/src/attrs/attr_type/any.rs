@@ -11,7 +11,6 @@ use allocative::Allocative;
 
 use crate::attrs::attr_type::attr_literal::AttrLiteral;
 use crate::attrs::attr_type::attr_literal::ListLiteral;
-use crate::attrs::attr_type::AttrType;
 use crate::attrs::coerced_attr::CoercedAttr;
 
 #[derive(Debug, Eq, PartialEq, Hash, Allocative)]
@@ -22,10 +21,9 @@ impl AnyAttrType {
         CoercedAttr::new_literal(AttrLiteral::String("".to_owned().into_boxed_str()))
     }
 
-    pub fn empty_list(element_type: AttrType) -> CoercedAttr {
-        CoercedAttr::new_literal(AttrLiteral::List(box ListLiteral {
+    pub fn empty_list() -> CoercedAttr {
+        CoercedAttr::new_literal(AttrLiteral::List(ListLiteral {
             items: Default::default(),
-            item_type: element_type,
         }))
     }
 }
