@@ -23,6 +23,7 @@ use crate::typing::Ty;
 use crate::typing::TypingOracle;
 
 /// A [`TypingOracle`] based on information from documentation.
+#[derive(Default)]
 pub struct OracleDocs {
     /// Indexed by type name, then the attribute
     objects: HashMap<String, HashMap<String, Ty>>,
@@ -33,40 +34,47 @@ impl OracleDocs {
     /// Create a new [`OracleDocs`], usually given the output of
     /// [`get_registered_starlark_docs`](crate::docs::get_registered_starlark_docs).
     pub fn new(docs: &[Doc]) -> Self {
-        let mut objects = HashMap::new();
-        let mut functions = HashMap::new();
-
+        let mut res = Self::default();
         for doc in docs {
-            match &doc.item {
-                DocItem::Module(_) => {} // These don't have any useful info
-                DocItem::Object(obj) => {
-                    let mut items = HashMap::with_capacity(obj.members.len());
-                    for (name, member) in &obj.members {
-                        items.insert(name.clone(), Ty::from_docs_member(member));
-                    }
-                    objects.insert(doc.id.name.clone(), items);
+            res.add_doc(doc);
+        }
+        res
+    }
+
+    /// Like [`Self::new`], but adding to an existing oracle (overwriting any duplicates).
+    pub fn add_doc(&mut self, doc: &Doc) {
+        match &doc.item {
+            DocItem::Module(_) => {} // These don't have any useful info
+            DocItem::Object(obj) => {
+                let mut items = HashMap::with_capacity(obj.members.len());
+                for (name, member) in &obj.members {
+                    items.insert(name.clone(), Ty::from_docs_member(member));
                 }
-                DocItem::Function(x) => {
-                    functions.insert(doc.id.name.clone(), Ty::from_docs_function(x));
-                }
+                self.objects.insert(doc.id.name.clone(), items);
+            }
+            DocItem::Function(x) => {
+                self.functions
+                    .insert(doc.id.name.clone(), Ty::from_docs_function(x));
             }
         }
-        Self { objects, functions }
     }
 
     /// Create a new [`OracleDocs`] given the documentation, usually from
     /// [`Globals::documentation`](crate::environment::Globals::documentation).
     /// Only produces interesting content if the result is an [`Object`](crate::docs::Object) (which it is for those two).
     pub fn new_object(docs: &DocItem) -> Self {
-        let mut functions = HashMap::new();
+        let mut res = Self::default();
+        res.add_object(docs);
+        res
+    }
+
+    /// Like [`Self::new_object`], but adding to an existing oracle (overwriting any duplicates).
+    pub fn add_object(&mut self, docs: &DocItem) {
         if let DocItem::Object(obj) = docs {
             for (name, member) in &obj.members {
-                functions.insert(name.clone(), Ty::from_docs_member(member));
+                self.functions
+                    .insert(name.clone(), Ty::from_docs_member(member));
             }
-        }
-        Self {
-            objects: HashMap::new(),
-            functions,
         }
     }
 }

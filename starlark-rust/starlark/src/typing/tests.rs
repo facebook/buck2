@@ -34,11 +34,9 @@ use crate::typing::TypeMap;
 
 fn mk_oracle() -> impl TypingOracle {
     static ORACLE: Lazy<Vec<Box<dyn TypingOracle + Send + Sync + 'static>>> = Lazy::new(|| {
-        vec![
-            Box::new(OracleDocs::new(&get_registered_starlark_docs())),
-            Box::new(OracleDocs::new_object(&Globals::standard().documentation())),
-            Box::new(&OracleNoBuiltins),
-        ]
+        let mut docs = OracleDocs::new(&get_registered_starlark_docs());
+        docs.add_object(&Globals::standard().documentation());
+        vec![Box::new(docs), Box::new(OracleNoBuiltins)]
     });
     &*ORACLE
 }
