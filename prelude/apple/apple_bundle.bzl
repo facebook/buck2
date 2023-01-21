@@ -127,7 +127,7 @@ def apple_bundle_impl(ctx: "context") -> ["provider"]:
 
     assemble_bundle(ctx, bundle, apple_bundle_part_list_output.parts, apple_bundle_part_list_output.info_plist_part)
 
-    sub_targets[_PLIST] = [DefaultInfo(default_outputs = [apple_bundle_part_list_output.info_plist_part.source])]
+    sub_targets[_PLIST] = [DefaultInfo(default_output = apple_bundle_part_list_output.info_plist_part.source)]
 
     sub_targets[_XCTOOLCHAIN_SUB_TARGET] = ctx.attrs._apple_xctoolchain.providers
 
