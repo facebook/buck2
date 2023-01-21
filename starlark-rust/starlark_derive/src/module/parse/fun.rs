@@ -391,14 +391,14 @@ pub(crate) fn parse_fun(func: ItemFn, module_kind: ModuleKind) -> syn::Result<St
 fn resolve_args(args: &mut [StarArg]) -> syn::Result<StarFunSource> {
     if args.len() == 1 && args[0].pass_style == StarArgPassStyle::Arguments {
         args[0].source = StarArgSource::Parameters;
-        Ok(StarFunSource::Parameters)
+        Ok(StarFunSource::Arguments)
     } else if args.len() == 2
         && args[0].pass_style == StarArgPassStyle::This
         && args[1].pass_style == StarArgPassStyle::Arguments
     {
         args[0].source = StarArgSource::This;
         args[1].source = StarArgSource::Parameters;
-        Ok(StarFunSource::ThisParameters)
+        Ok(StarFunSource::ThisArguments)
     } else {
         let use_arguments = args
             .iter()
@@ -414,7 +414,7 @@ fn resolve_args(args: &mut [StarArg]) -> syn::Result<StarFunSource> {
                     count += 1;
                 }
             }
-            Ok(StarFunSource::Argument { count })
+            Ok(StarFunSource::Signature { count })
         } else {
             let mut required = 0;
             let mut optional = 0;

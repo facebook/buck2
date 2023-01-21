@@ -154,7 +154,7 @@ impl StarFun {
 
     /// Fields and field initializers for the struct implementing the trait.
     fn struct_fields(&self) -> syn::Result<(TokenStream, TokenStream)> {
-        let signature = if let StarFunSource::Argument { .. } = self.source {
+        let signature = if let StarFunSource::Signature { .. } = self.source {
             Some(render_signature(self)?)
         } else {
             None
@@ -315,7 +315,7 @@ struct Bindings {
 fn render_binding(x: &StarFun) -> Bindings {
     let span = x.args_span();
     match x.source {
-        StarFunSource::Parameters => {
+        StarFunSource::Arguments => {
             let StarArg {
                 span,
                 attrs,
@@ -335,7 +335,7 @@ fn render_binding(x: &StarFun) -> Bindings {
                 }],
             }
         }
-        StarFunSource::ThisParameters => {
+        StarFunSource::ThisArguments => {
             let StarArg {
                 span,
                 attrs,
@@ -359,7 +359,7 @@ fn render_binding(x: &StarFun) -> Bindings {
                 ],
             }
         }
-        StarFunSource::Argument { count } => {
+        StarFunSource::Signature { count } => {
             let bind_args: Vec<BindingArg> = x.args.map(render_binding_arg);
             Bindings {
                 prepare: quote_spanned! { span=>
@@ -505,9 +505,8 @@ fn render_documentation(x: &StarFun) -> syn::Result<(Ident, TokenStream)> {
     // information like names, order, type, etc to be available to call '.documentation()' on.
     let name_str = ident_string(&x.name);
     let need_render_signature = match &x.source {
-        StarFunSource::Argument { .. } => true,
-        StarFunSource::Positional { .. } => true,
-        StarFunSource::Parameters | StarFunSource::ThisParameters => false,
+        StarFunSource::Signature { .. } | StarFunSource::Positional { .. } => true,
+        StarFunSource::Arguments | StarFunSource::ThisArguments => false,
     };
     let documentation_signature = if need_render_signature {
         render_signature(x)?

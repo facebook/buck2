@@ -209,16 +209,14 @@ pub(crate) enum StarArgSource {
 #[derive(Debug)]
 pub(crate) enum StarFunSource {
     /// Function signature is single `Arguments` parameter.
-    Parameters,
+    Arguments,
     /// Function signature is `this` parameter followed by `Arguments` parameter.
-    ThisParameters,
-    Argument {
-        count: usize,
-    },
-    Positional {
-        required: usize,
-        optional: usize,
-    },
+    ThisArguments,
+    /// Normal function which uses a signature and parameters parser.
+    Signature { count: usize },
+    /// Fast-path function of some required parameters, followed by some optional parameters.
+    /// No named parameters or `*args`/`**kwargs`.
+    Positional { required: usize, optional: usize },
 }
 
 impl StarArg {
