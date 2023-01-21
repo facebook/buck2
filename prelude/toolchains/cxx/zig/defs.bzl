@@ -212,7 +212,7 @@ def _http_archive_impl(ctx: "context") -> ["provider"]:
     ctx.actions.run(cmd_args(["/bin/sh", script])
         .hidden([archive, output.as_output()]), category = "http_archive")
 
-    return [DefaultInfo(default_outputs = [output])]
+    return [DefaultInfo(default_output = output)]
 
 # TODO Switch to http_archive once that supports zip download.
 #   See https://github.com/facebookincubator/buck2/issues/21
