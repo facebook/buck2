@@ -10,7 +10,6 @@
 use allocative::Allocative;
 
 use crate::attrs::attr_type::attr_literal::AttrLiteral;
-use crate::attrs::attr_type::attr_literal::ListLiteral;
 use crate::attrs::coerced_attr::CoercedAttr;
 
 #[derive(Debug, Eq, PartialEq, Hash, Allocative)]
@@ -22,8 +21,6 @@ impl AnyAttrType {
     }
 
     pub fn empty_list() -> CoercedAttr {
-        CoercedAttr::new_literal(AttrLiteral::List(ListLiteral {
-            items: Default::default(),
-        }))
+        CoercedAttr::new_literal(AttrLiteral::List(box []))
     }
 }

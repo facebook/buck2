@@ -856,7 +856,6 @@ mod tests {
     use buck2_node::attrs::attr::Attribute;
     use buck2_node::attrs::attr_type::any::AnyAttrType;
     use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
-    use buck2_node::attrs::attr_type::attr_literal::ListLiteral;
     use buck2_node::attrs::attr_type::dep::DepAttr;
     use buck2_node::attrs::attr_type::dep::DepAttrTransition;
     use buck2_node::attrs::attr_type::dep::DepAttrType;
@@ -909,16 +908,15 @@ mod tests {
             (
                 "some_deps",
                 Attribute::testing_new(None, AttrType::list(AttrType::dep(ProviderIdSet::EMPTY))),
-                CoercedAttr::from_literal(AttrLiteral::List(ListLiteral {
-                    items: vec![CoercedAttr::from_literal(AttrLiteral::Dep(box DepAttr {
+                CoercedAttr::from_literal(AttrLiteral::List(box [CoercedAttr::from_literal(
+                    AttrLiteral::Dep(box DepAttr {
                         attr_type: DepAttrType::new(
                             ProviderIdSet::EMPTY,
                             DepAttrTransition::Identity,
                         ),
                         label: ProvidersLabel::new(label2.dupe(), ProvidersName::Default),
-                    }))]
-                    .into_boxed_slice(),
-                })),
+                    }),
+                )])),
             ),
         ];
 
@@ -972,22 +970,22 @@ mod tests {
             "another_field" =>
              ConfiguredAttr::from_literal(AttrLiteral::String("some_string".into())),
             "some_deps" =>
-             ConfiguredAttr::from_literal(AttrLiteral::List(ListLiteral{items: vec![
+             ConfiguredAttr::from_literal(AttrLiteral::List(box [
                 ConfiguredAttr::from_literal(AttrLiteral::Dep(box DepAttr {
                     attr_type: DepAttrType::new(ProviderIdSet::EMPTY, DepAttrTransition::Identity),
                     label: ProvidersLabel::new(label2.dupe(), ProvidersName::Default)
                         .configure(cfg.dupe()),
                 })),
-            ].into_boxed_slice()})),
+            ])),
         ];
 
         let conf_attrs2 = smallmap![
             "bool_field" => ConfiguredAttr::from_literal(AttrLiteral::Bool(true)),
             "another_field" =>
              ConfiguredAttr::from_literal(AttrLiteral::String("another_string".into())),
-            "some_deps" => ConfiguredAttr::from_literal(AttrLiteral::List(ListLiteral {
-                items: Default::default(),
-            })),
+            "some_deps" => ConfiguredAttr::from_literal(AttrLiteral::List(
+                box []
+            )),
         ];
 
         let node = computations.get_target_node(&label1).await?;

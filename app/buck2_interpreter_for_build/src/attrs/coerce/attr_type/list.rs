@@ -8,7 +8,6 @@
  */
 
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
-use buck2_node::attrs::attr_type::attr_literal::ListLiteral;
 use buck2_node::attrs::attr_type::list::ListAttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
@@ -30,19 +29,17 @@ impl AttrTypeCoerce for ListAttrType {
         value: Value,
     ) -> anyhow::Result<AttrLiteral<CoercedAttr>> {
         if let Some(list) = ListRef::from_value(value) {
-            Ok(AttrLiteral::List(ListLiteral {
-                items: list
-                    .content()
+            Ok(AttrLiteral::List(
+                list.content()
                     .try_map(|v| (self.inner).coerce(configurable, ctx, *v))?
                     .into_boxed_slice(),
-            }))
+            ))
         } else if let Some(list) = TupleRef::from_value(value) {
-            Ok(AttrLiteral::List(ListLiteral {
-                items: list
-                    .content()
+            Ok(AttrLiteral::List(
+                list.content()
                     .try_map(|v| (self.inner).coerce(configurable, ctx, *v))?
                     .into_boxed_slice(),
-            }))
+            ))
         } else {
             Err(anyhow::anyhow!(CoercionError::type_error(
                 ListRef::TYPE,

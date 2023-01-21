@@ -20,7 +20,6 @@ use starlark_map::small_map;
 
 use crate::attrs::attr_type::attr_config::AttrConfig;
 use crate::attrs::attr_type::attr_literal::AttrLiteral;
-use crate::attrs::attr_type::attr_literal::ListLiteral;
 use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
 use crate::attrs::display::AttrDisplayWithContext;
 use crate::attrs::display::AttrDisplayWithContextExt;
@@ -114,18 +113,16 @@ impl ConfiguredAttr {
                 }))
             }
             AttrLiteral::List(list) => {
-                let mut res = list.items.into_vec();
+                let mut res = list.into_vec();
                 for x in items {
                     match x?.0 {
                         AttrLiteral::List(list2) => {
-                            res.extend(list2.items.into_vec());
+                            res.extend(list2.into_vec());
                         }
                         attr => return mismatch("list", attr),
                     }
                 }
-                Ok(Self(AttrLiteral::List(ListLiteral {
-                    items: res.into_boxed_slice(),
-                })))
+                Ok(Self(AttrLiteral::List(res.into_boxed_slice())))
             }
             AttrLiteral::Dict(left) => {
                 let mut res = OrderedMap::new();
@@ -207,14 +204,14 @@ impl ConfiguredAttr {
 
     pub fn unpack_list(&self) -> Option<&[ConfiguredAttr]> {
         match &self.0 {
-            AttrLiteral::List(list) => Some(&list.items),
+            AttrLiteral::List(list) => Some(list),
             _ => None,
         }
     }
 
     pub fn try_into_list(self) -> Option<Vec<ConfiguredAttr>> {
         match self.0 {
-            AttrLiteral::List(list) => Some(list.items.into_vec()),
+            AttrLiteral::List(list) => Some(list.into_vec()),
             _ => None,
         }
     }

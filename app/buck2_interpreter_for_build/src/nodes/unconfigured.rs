@@ -148,7 +148,7 @@ fn parse_visibility(
     attr: &CoercedAttr,
 ) -> anyhow::Result<VisibilitySpecification> {
     let visibility = match attr {
-        CoercedAttr::Literal(AttrLiteral::List(list)) => &list.items,
+        CoercedAttr::Literal(AttrLiteral::List(list)) => &**list,
         CoercedAttr::Literal(_) => {
             unreachable!("coercion of visibility verified the type")
         }
@@ -158,7 +158,7 @@ fn parse_visibility(
     };
 
     let mut specs = Vec::new();
-    for item in visibility.iter() {
+    for item in visibility {
         let value = match item {
             CoercedAttr::Literal(AttrLiteral::String(value)) => value,
             CoercedAttr::Literal(_) => {

@@ -33,7 +33,6 @@ use either::Either;
 use starlark_map::Hashed;
 
 use crate::attrs::attr_type::attr_literal::AttrLiteral;
-use crate::attrs::attr_type::attr_literal::ListLiteral;
 use crate::attrs::attr_type::dep::DepAttr;
 use crate::attrs::attr_type::dep::DepAttrTransition;
 use crate::attrs::attr_type::dep::DepAttrType;
@@ -411,9 +410,8 @@ impl ConfiguredTargetNode {
 
     pub fn special_attrs(&self) -> impl Iterator<Item = (&str, ConfiguredAttr)> {
         let typ_attr = ConfiguredAttr::new(AttrLiteral::String(self.rule_type().name().into()));
-        let deps_attr = ConfiguredAttr::new(AttrLiteral::List(ListLiteral {
-            items: self
-                .deps()
+        let deps_attr = ConfiguredAttr::new(AttrLiteral::List(
+            self.deps()
                 .map(|t| {
                     ConfiguredAttr(AttrLiteral::Label(box ConfiguredProvidersLabel::new(
                         t.label().dupe(),
@@ -422,7 +420,7 @@ impl ConfiguredTargetNode {
                 })
                 .collect::<Vec<_>>()
                 .into_boxed_slice(),
-        }));
+        ));
         let package_attr = ConfiguredAttr::new(AttrLiteral::String(
             self.buildfile_path().to_string().into_boxed_str(),
         ));

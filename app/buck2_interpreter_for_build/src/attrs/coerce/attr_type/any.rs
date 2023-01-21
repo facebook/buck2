@@ -9,7 +9,6 @@
 
 use buck2_node::attrs::attr_type::any::AnyAttrType;
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
-use buck2_node::attrs::attr_type::attr_literal::ListLiteral;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
@@ -40,9 +39,7 @@ fn to_literal(value: Value) -> AttrLiteral<CoercedAttr> {
     } else if let Some(x) = TupleRef::from_value(value) {
         AttrLiteral::Tuple(x.iter().map(to_coerced_literal).collect())
     } else if let Some(x) = ListRef::from_value(value) {
-        AttrLiteral::List(ListLiteral {
-            items: x.iter().map(to_coerced_literal).collect(),
-        })
+        AttrLiteral::List(x.iter().map(to_coerced_literal).collect())
     } else {
         AttrLiteral::String(value.to_str().into_boxed_str())
     }

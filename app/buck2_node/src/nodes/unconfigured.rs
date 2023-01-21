@@ -22,7 +22,6 @@ use buck2_core::target::TargetName;
 use dupe::Dupe;
 
 use crate::attrs::attr_type::attr_literal::AttrLiteral;
-use crate::attrs::attr_type::attr_literal::ListLiteral;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::coerced_deps_collector::CoercedDeps;
 use crate::attrs::inspect_options::AttrInspectOptions;
@@ -181,16 +180,15 @@ impl TargetNode {
     pub(crate) fn special_attrs(&self) -> impl Iterator<Item = (&str, CoercedAttr)> {
         let typ_attr =
             CoercedAttr::new_literal(AttrLiteral::String(self.rule_type().name().into()));
-        let deps_attr = CoercedAttr::new_literal(AttrLiteral::List(ListLiteral {
-            items: self
-                .deps()
+        let deps_attr = CoercedAttr::new_literal(AttrLiteral::List(
+            self.deps()
                 .map(|t| {
                     CoercedAttr::new_literal(AttrLiteral::Label(box ProvidersLabel::default_for(
                         t.dupe(),
                     )))
                 })
                 .collect(),
-        }));
+        ));
         let package_attr = CoercedAttr::new_literal(AttrLiteral::String(
             self.buildfile_path().to_string().into_boxed_str(),
         ));
@@ -198,14 +196,13 @@ impl TargetNode {
             (TYPE, typ_attr),
             (
                 CONFIGURATION_DEPS,
-                CoercedAttr::new_literal(AttrLiteral::List(ListLiteral {
-                    items: self
-                        .get_configuration_deps()
+                CoercedAttr::new_literal(AttrLiteral::List(
+                    self.get_configuration_deps()
                         .map(|t| {
                             CoercedAttr::new_literal(AttrLiteral::ConfigurationDep(box t.dupe()))
                         })
                         .collect(),
-                })),
+                )),
             ),
             (DEPS, deps_attr),
             (PACKAGE, package_attr),
