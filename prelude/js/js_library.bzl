@@ -174,7 +174,7 @@ def js_library_impl(ctx: "context") -> ["provider"]:
 
         for transform_profile in TRANSFORM_PROFILES:
             sub_targets[transform_profile] = [
-                DefaultInfo(default_outputs = [unused_output]),
+                DefaultInfo(default_output = unused_output),
                 JsLibraryInfo(
                     output = unused_output,
                     transitive_outputs = None,
@@ -182,7 +182,7 @@ def js_library_impl(ctx: "context") -> ["provider"]:
             ]
 
         return [
-            DefaultInfo(default_outputs = [], sub_targets = sub_targets),
+            DefaultInfo(default_outputs = None, sub_targets = sub_targets),
         ]
 
     grouped_srcs = _get_grouped_srcs(ctx)
