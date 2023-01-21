@@ -86,9 +86,9 @@ def get_default_info(
         ]
         for (name, artifact) in abis:
             if artifact != None:
-                sub_targets[name] = [DefaultInfo(default_outputs = [artifact])]
+                sub_targets[name] = [DefaultInfo(default_output = artifact)]
         default_info = DefaultInfo(
-            default_outputs = [outputs.full_library],
+            default_output = outputs.full_library,
             sub_targets = extra_sub_targets | sub_targets,
         )
     return default_info

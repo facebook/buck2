@@ -129,7 +129,7 @@ def java_binary_impl(ctx: "context") -> ["provider"]:
 
     if ctx.attrs._build_only_native_code:
         return [
-            DefaultInfo(default_outputs = [ctx.actions.write("unused.jar", [])]),
+            DefaultInfo(default_output = ctx.actions.write("unused.jar", [])),
             RunInfo(),
         ]
 
