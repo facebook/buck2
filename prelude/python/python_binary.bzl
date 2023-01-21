@@ -256,7 +256,7 @@ def convert_python_library_to_executable(
             ]
 
             exclusion_roots = ctx.actions.write_json("omnibus/exclusion_roots.json", omnibus_libs.exclusion_roots)
-            extra["omnibus-exclusion-roots"] = [DefaultInfo(default_outputs = [exclusion_roots])]
+            extra["omnibus-exclusion-roots"] = [DefaultInfo(default_output = exclusion_roots)]
 
             roots = ctx.actions.write_json("omnibus/roots.json", omnibus_libs.roots)
             extra["omnibus-roots"] = [DefaultInfo(default_output = roots)]
@@ -281,7 +281,7 @@ def convert_python_library_to_executable(
         # TODO we don't need to do this ...
         ctx.actions.run(cmd, category = "generate_static_extension_info")
 
-        extra["static_extension_info"] = [DefaultInfo(default_outputs = [static_extension_info_out])]
+        extra["static_extension_info"] = [DefaultInfo(default_output = static_extension_info_out)]
 
         cxx_executable_srcs = [
             CxxSrcWithFlags(file = ctx.attrs.cxx_main, flags = []),
@@ -314,7 +314,7 @@ def convert_python_library_to_executable(
         )
 
         executable_info, _, _ = cxx_executable(ctx, impl_params)
-        extra["native-executable"] = [DefaultInfo(default_outputs = [executable_info.binary])]
+        extra["native-executable"] = [DefaultInfo(default_output = executable_info.binary)]
 
         linkable_graph = create_linkable_graph(
             ctx,
@@ -345,7 +345,7 @@ def convert_python_library_to_executable(
 
         # Add sub-targets for libs.
         for name, lib in native_libs.items():
-            extra[name] = [DefaultInfo(default_outputs = [lib.output])]
+            extra[name] = [DefaultInfo(default_output = lib.output)]
 
         # TODO expect(len(executable_info.runtime_files) == 0, "OH NO THERE ARE RUNTIME FILES")
         artifacts = dict(extension_info.artifacts)

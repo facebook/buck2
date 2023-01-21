@@ -47,7 +47,7 @@ def create_source_db_no_deps(
         srcs: [{str.type: "artifact"}, None]) -> DefaultInfo.type:
     content = {} if srcs == None else srcs
     output = ctx.actions.write_json("db_no_deps.json", content)
-    return DefaultInfo(default_outputs = [output], other_outputs = content.values())
+    return DefaultInfo(default_output = output, other_outputs = content.values())
 
 def create_source_db_no_deps_from_manifest(
         ctx: "context",
@@ -57,4 +57,4 @@ def create_source_db_no_deps_from_manifest(
     cmd.add(cmd_args(output.as_output(), format = "--output={}"))
     cmd.add(srcs.manifest)
     ctx.actions.run(cmd, category = "py_source_db")
-    return DefaultInfo(default_outputs = [output], other_outputs = srcs.artifacts)
+    return DefaultInfo(default_output = output, other_outputs = srcs.artifacts)
