@@ -37,7 +37,6 @@ extern crate maplit;
 #[macro_use]
 pub mod error;
 
-pub mod arc_str;
 mod ascii_char_set;
 pub mod async_once_cell;
 pub mod buck_path;

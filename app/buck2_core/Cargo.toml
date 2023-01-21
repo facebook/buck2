@@ -31,7 +31,6 @@ regex = { workspace = true }
 dashmap = { workspace = true }
 either = { workspace = true }
 assert_matches = { workspace = true }
-static_assertions = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 rand = { workspace = true }
@@ -50,7 +49,6 @@ buck2_util = { workspace = true }
 
 [dev-dependencies]
 maplit = { workspace = true }
-serde_json = { workspace = true }
 test-case = { workspace = true }
 
 [features]

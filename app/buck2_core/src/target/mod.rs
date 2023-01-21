@@ -39,13 +39,13 @@ use std::fmt;
 use std::fmt::Display;
 
 use allocative::Allocative;
+use buck2_util::arc_str::ArcStr;
 use derive_more::Display;
 use dupe::Dupe;
 use serde::ser::Serialize;
 use serde::ser::Serializer;
 use thiserror::Error;
 
-use crate::arc_str::ArcStr;
 use crate::ascii_char_set::AsciiCharSet;
 use crate::configuration::Configuration;
 use crate::package::PackageLabel;
@@ -287,7 +287,8 @@ pub mod testing {
 #[cfg(test)]
 mod tests {
 
-    use crate::arc_str::ArcStr;
+    use buck2_util::arc_str::ArcStr;
+
     use crate::target::TargetName;
 
     #[test]

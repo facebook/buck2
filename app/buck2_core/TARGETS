@@ -12,7 +12,6 @@ rust_library(
     test_deps = [
         "fbsource//third-party/rust:assert_matches",
         "fbsource//third-party/rust:maplit",
-        "fbsource//third-party/rust:serde_json",
         "fbsource//third-party/rust:test-case",
     ],
     deps = [
@@ -38,7 +37,6 @@ rust_library(
         "fbsource//third-party/rust:relative-path",
         "fbsource//third-party/rust:sequence_trie",
         "fbsource//third-party/rust:serde",
-        "fbsource//third-party/rust:static_assertions",
         "fbsource//third-party/rust:tempfile",
         "fbsource//third-party/rust:thiserror",
         "fbsource//third-party/rust:tokio",

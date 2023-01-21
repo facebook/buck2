@@ -17,9 +17,14 @@ rust_library(
         ),
     ],
     test_deps = [
+        "fbsource//third-party/rust:serde_json",
     ],
     deps = [
         "fbsource//third-party/rust:libc",
+        "fbsource//third-party/rust:serde",
+        "fbsource//third-party/rust:static_assertions",
         "fbsource//third-party/rust:tokio",
+        "//buck2/allocative/allocative:allocative",
+        "//buck2/gazebo/dupe:dupe",
     ],
 )

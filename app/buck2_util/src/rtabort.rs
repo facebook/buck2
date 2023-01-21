@@ -21,9 +21,9 @@ macro_rules! rtabort {
             let _abort = $crate::rtabort::AbortOnDrop;
 
             // `eprintln!` followed by `abort` does not print anything in tests.
-            let _ = std::io::Write::write_fmt(
+            std::io::Write::write_fmt(
                 &mut std::io::stderr(),
-                format_args!("{}:{}: abort: {}\n", file!(), line!(), format_args!($($t)*)));
+                format_args!("{}:{}: abort: {}\n", file!(), line!(), format_args!($($t)*))).ok();
 
             // Tell the compiler that we never return.
             std::process::abort();

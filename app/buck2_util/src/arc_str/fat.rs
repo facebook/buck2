@@ -25,10 +25,11 @@ use std::sync::atomic::AtomicU32;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use buck2_util::rtabort;
 use dupe::Dupe;
 use serde::Serialize;
 use static_assertions::assert_eq_size;
+
+use crate::rtabort;
 
 #[repr(C)]
 struct ArcStrInner {
@@ -280,8 +281,8 @@ mod tests {
 
     use dupe::Dupe;
 
+    use crate::arc_str::fat::ArcStrInner;
     use crate::arc_str::ArcStr;
-    use crate::arc_str::ArcStrInner;
 
     #[test]
     fn test_serialize() {

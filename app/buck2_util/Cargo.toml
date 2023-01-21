@@ -8,8 +8,16 @@ but not generic or stable enough to be published on crates.io as standalone crat
 """
 
 [dependencies]
+allocative = { workspace = true }
+dupe = { workspace = true }
+
 libc = { workspace = true }
+serde = { workspace = true }
+static_assertions = { workspace = true }
 tokio = { workspace = true }
 
 [target.'cfg(windows)'.dependencies]
 winapi = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
