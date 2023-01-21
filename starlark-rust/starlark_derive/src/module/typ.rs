@@ -212,8 +212,13 @@ pub(crate) enum StarFunSource {
     Parameters,
     /// Function signature is `this` parameter followed by `Arguments` parameter.
     ThisParameters,
-    Argument(usize),
-    Positional(usize, usize),
+    Argument {
+        count: usize,
+    },
+    Positional {
+        required: usize,
+        optional: usize,
+    },
 }
 
 impl StarArg {

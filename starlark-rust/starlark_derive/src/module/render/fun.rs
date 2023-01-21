@@ -154,7 +154,7 @@ impl StarFun {
 
     /// Fields and field initializers for the struct implementing the trait.
     fn struct_fields(&self) -> syn::Result<(TokenStream, TokenStream)> {
-        let signature = if let StarFunSource::Argument(..) = self.source {
+        let signature = if let StarFunSource::Argument { .. } = self.source {
             Some(render_signature(self)?)
         } else {
             None
@@ -359,16 +359,16 @@ fn render_binding(x: &StarFun) -> Bindings {
                 ],
             }
         }
-        StarFunSource::Argument(arg_count) => {
+        StarFunSource::Argument { count } => {
             let bind_args: Vec<BindingArg> = x.args.map(render_binding_arg);
             Bindings {
                 prepare: quote_spanned! { span=>
-                    let __args: [_; #arg_count] = self.signature.collect_into(parameters, eval.heap())?;
+                    let __args: [_; #count] = self.signature.collect_into(parameters, eval.heap())?;
                 },
                 bindings: bind_args,
             }
         }
-        StarFunSource::Positional(required, optional) => {
+        StarFunSource::Positional { required, optional } => {
             let bind_args = x.args.map(render_binding_arg);
             if optional == 0 {
                 Bindings {
@@ -505,8 +505,8 @@ fn render_documentation(x: &StarFun) -> syn::Result<(Ident, TokenStream)> {
     // information like names, order, type, etc to be available to call '.documentation()' on.
     let name_str = ident_string(&x.name);
     let need_render_signature = match &x.source {
-        StarFunSource::Argument(..) => true,
-        StarFunSource::Positional(..) => true,
+        StarFunSource::Argument { .. } => true,
+        StarFunSource::Positional { .. } => true,
         StarFunSource::Parameters | StarFunSource::ThisParameters => false,
     };
     let documentation_signature = if need_render_signature {

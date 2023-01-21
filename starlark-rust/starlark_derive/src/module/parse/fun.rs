@@ -405,16 +405,16 @@ fn resolve_args(args: &mut [StarArg]) -> syn::Result<StarFunSource> {
             .filter(|x| x.pass_style != StarArgPassStyle::This)
             .any(|x| x.requires_signature());
         if use_arguments {
-            let mut argument = 0;
+            let mut count = 0;
             for x in args.iter_mut() {
                 if x.pass_style == StarArgPassStyle::This {
                     x.source = StarArgSource::This;
                 } else {
-                    x.source = StarArgSource::Argument(argument);
-                    argument += 1;
+                    x.source = StarArgSource::Argument(count);
+                    count += 1;
                 }
             }
-            Ok(StarFunSource::Argument(argument))
+            Ok(StarFunSource::Argument { count })
         } else {
             let mut required = 0;
             let mut optional = 0;
@@ -431,7 +431,7 @@ fn resolve_args(args: &mut [StarArg]) -> syn::Result<StarFunSource> {
                     optional += 1;
                 }
             }
-            Ok(StarFunSource::Positional(required, optional))
+            Ok(StarFunSource::Positional { required, optional })
         }
     }
 }
