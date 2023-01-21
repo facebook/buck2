@@ -97,7 +97,7 @@ def android_prebuilt_aar_impl(ctx: "context") -> ["provider"]:
         java_library_intellij_info,
         merge_android_packageable_info(ctx.label, ctx.actions, ctx.attrs.deps, manifest = manifest, prebuilt_native_library_dir = native_library, resource_info = resource_info),
         resource_info,
-        DefaultInfo(default_outputs = [all_classes_jar], other_outputs = [
+        DefaultInfo(default_output = all_classes_jar, other_outputs = [
             manifest,
             r_dot_txt,
             res,
