@@ -72,11 +72,9 @@ pub enum AttrLiteral<C: AttrConfig> {
     // cases that would cause cycles.
     Label(Box<C::ProvidersType>),
     OneOf(
-        Box<(
-            Self,
-            // Index of matched oneof attr type variant.
-            u32,
-        )>,
+        Box<Self>,
+        // Index of matched oneof attr type variant.
+        u32,
     ),
 }
 
@@ -144,7 +142,7 @@ impl<C: AttrConfig> AttrDisplayWithContext for AttrLiteral<C> {
             AttrLiteral::Arg(a) => write!(f, "\"{}\"", a),
             AttrLiteral::SplitTransitionDep(d) => Display::fmt(d, f),
             AttrLiteral::Label(l) => write!(f, "\"{}\"", l),
-            AttrLiteral::OneOf(box (l, _)) => AttrDisplayWithContext::fmt(l, ctx, f),
+            AttrLiteral::OneOf(box l, _) => AttrDisplayWithContext::fmt(l, ctx, f),
         }
     }
 }
@@ -196,7 +194,7 @@ impl<C: AttrConfig> AttrLiteral<C> {
             AttrLiteral::ConfigurationDep(l) => Ok(to_value(l.to_string())?),
             AttrLiteral::SplitTransitionDep(l) => l.to_json(),
             AttrLiteral::Label(l) => Ok(to_value(l.to_string())?),
-            AttrLiteral::OneOf(box (l, _)) => l.to_json(ctx),
+            AttrLiteral::OneOf(box l, _) => l.to_json(ctx),
         }
     }
 
@@ -236,7 +234,7 @@ impl<C: AttrConfig> AttrLiteral<C> {
             AttrLiteral::ConfigurationDep(d) => filter(&d.to_string()),
             AttrLiteral::SplitTransitionDep(d) => d.any_matches(filter),
             AttrLiteral::Label(l) => filter(&l.to_string()),
-            AttrLiteral::OneOf(box (l, _)) => l.any_matches(filter),
+            AttrLiteral::OneOf(l, _) => l.any_matches(filter),
         }
     }
 }
@@ -286,7 +284,7 @@ impl AttrLiteral<ConfiguredAttr> {
             AttrLiteral::SourceLabel(box dep) => traversal.dep(dep),
             AttrLiteral::Arg(arg) => arg.traverse(traversal),
             AttrLiteral::Label(label) => traversal.label(label),
-            AttrLiteral::OneOf(box (l, _)) => l.traverse(pkg, traversal),
+            AttrLiteral::OneOf(l, _) => l.traverse(pkg, traversal),
         }
     }
 }
@@ -329,9 +327,9 @@ impl AttrLiteral<CoercedAttr> {
             }
             AttrLiteral::Arg(arg) => AttrLiteral::Arg(arg.configure(ctx)?),
             AttrLiteral::Label(label) => LabelAttrType::configure(ctx, label)?,
-            AttrLiteral::OneOf(box (l, i)) => {
+            AttrLiteral::OneOf(l, i) => {
                 let ConfiguredAttr(configured) = l.configure(ctx)?;
-                AttrLiteral::OneOf(box (configured, *i))
+                AttrLiteral::OneOf(box configured, *i)
             }
         }))
     }
@@ -377,7 +375,7 @@ impl AttrLiteral<CoercedAttr> {
             AttrLiteral::SourceLabel(box s) => traversal.dep(s.target()),
             AttrLiteral::Arg(arg) => arg.traverse(traversal),
             AttrLiteral::Label(label) => traversal.label(label),
-            AttrLiteral::OneOf(box (l, _)) => l.traverse(pkg, traversal),
+            AttrLiteral::OneOf(box l, _) => l.traverse(pkg, traversal),
         }
     }
 }

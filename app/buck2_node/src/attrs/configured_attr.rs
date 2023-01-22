@@ -100,10 +100,10 @@ impl ConfiguredAttr {
         };
 
         match self.0 {
-            AttrLiteral::OneOf(box (first, first_i)) => {
+            AttrLiteral::OneOf(box first, first_i) => {
                 ConfiguredAttr(first).concat(&mut items.map(|next| {
                     match next?.0 {
-                        AttrLiteral::OneOf(box (next, next_i)) => {
+                        AttrLiteral::OneOf(box next, next_i) => {
                             if first_i != next_i {
                                 // TODO(nga): figure out how to make better error message.
                                 //   We already lost lhs type here.

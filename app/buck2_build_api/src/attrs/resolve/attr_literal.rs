@@ -180,7 +180,7 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
                 let label = Label::new(*label.clone());
                 Ok(ctx.heap().alloc(label))
             }
-            AttrLiteral::OneOf(box (l, _)) => l.resolve_single(pkg, ctx),
+            AttrLiteral::OneOf(box l, _) => l.resolve_single(pkg, ctx),
         }
     }
 
@@ -219,7 +219,7 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
             AttrLiteral::SourceFile(_) => Ok(StarlarkArtifact::get_type_value_static().as_str()),
             AttrLiteral::Arg(_) => Ok(starlark::values::string::STRING_TYPE),
             AttrLiteral::Label(_) => Ok(Label::get_type_value_static().as_str()),
-            AttrLiteral::OneOf(box (l, _)) => l.starlark_type(),
+            AttrLiteral::OneOf(box l, _) => l.starlark_type(),
         }
     }
 
@@ -263,7 +263,7 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
             ))),
             AttrLiteral::Arg(arg) => heap.alloc(arg.to_string()),
             AttrLiteral::Label(l) => heap.alloc(Label::new(*l.clone())),
-            AttrLiteral::OneOf(box (l, _)) => l.to_value(pkg, heap)?,
+            AttrLiteral::OneOf(box l, _) => l.to_value(pkg, heap)?,
         })
     }
 }
