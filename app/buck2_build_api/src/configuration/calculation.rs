@@ -17,7 +17,7 @@ use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::parse_config_section_and_key;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
-use buck2_core::cells::CellName;
+use buck2_core::cells::name::CellName;
 use buck2_core::collections::unordered_map::UnorderedMap;
 use buck2_core::configuration::Configuration;
 use buck2_core::configuration::ConfigurationData;

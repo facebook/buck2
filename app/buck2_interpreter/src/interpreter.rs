@@ -745,7 +745,7 @@ mod tests {
     use buck2_common::legacy_configs::LegacyBuckConfig;
     use buck2_common::legacy_configs::LegacyBuckConfigs;
     use buck2_common::package_listing::listing::testing::PackageListingExt;
-    use buck2_core::cells::CellName;
+    use buck2_core::cells::name::CellName;
     use buck2_core::collections::ordered_map::OrderedMap;
     use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
     use buck2_core::fs::project::ProjectRelativePath;

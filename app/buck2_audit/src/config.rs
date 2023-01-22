@@ -17,7 +17,7 @@ use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::LegacyBuckConfigLocation;
 use buck2_common::legacy_configs::LegacyBuckConfigValue;
-use buck2_core::cells::*;
+use buck2_core::cells::name::CellName;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use dupe::Dupe;

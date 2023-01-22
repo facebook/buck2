@@ -15,8 +15,8 @@ use allocative::Allocative;
 
 use crate::cells::build_file_cell::BuildFileCell;
 use crate::cells::cell_path::CellPath;
+use crate::cells::name::CellName;
 use crate::cells::paths::CellRelativePath;
-use crate::cells::CellName;
 use crate::fs::paths::file_name::FileName;
 
 /// The starlark interpreter expects imports

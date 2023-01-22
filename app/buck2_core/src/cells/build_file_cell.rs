@@ -10,7 +10,7 @@
 use allocative::Allocative;
 use ref_cast::RefCast;
 
-use crate::cells::CellName;
+use crate::cells::name::CellName;
 
 /// Used to hold the cell name for the top-level build file being interpreted.
 /// There's a subtlety where that doesn't necessarily match the cell of the file

@@ -44,8 +44,8 @@ mod tests {
     use std::sync::Arc;
 
     use buck2_core::bzl::ImportPath;
+    use buck2_core::cells::name::CellName;
     use buck2_core::cells::paths::CellRelativePath;
-    use buck2_core::cells::CellName;
     use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
     use buck2_core::package::PackageLabel;
     use buck2_interpreter_for_build::attrs::coerce::attr_type::AttrTypeExt;

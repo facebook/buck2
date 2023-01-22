@@ -18,7 +18,7 @@ use buck2_common::dice::file_ops::FileChangeTracker;
 use buck2_common::file_ops::IgnoreSet;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_core::cells::cell_path::CellPath;
-use buck2_core::cells::CellName;
+use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellResolver;
 use buck2_core::collections::ordered_set::OrderedSet;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;

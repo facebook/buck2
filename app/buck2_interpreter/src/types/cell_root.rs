@@ -9,8 +9,8 @@
 
 use allocative::Allocative;
 use buck2_core::cells::cell_path::CellPath;
+use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePathBuf;
-use buck2_core::cells::CellName;
 use derive_more::Display;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::Methods;

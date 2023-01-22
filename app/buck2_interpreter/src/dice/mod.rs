@@ -21,7 +21,7 @@ use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::package_listing::dice::HasPackageListingResolver;
 use buck2_common::result::SharedResult;
 use buck2_core::cells::build_file_cell::BuildFileCell;
-use buck2_core::cells::CellName;
+use buck2_core::cells::name::CellName;
 use buck2_events::dispatch::EventDispatcher;
 use dice::DiceComputations;
 use dice::UserComputationData;

@@ -10,9 +10,9 @@
 use allocative::Allocative;
 use relative_path::RelativePath;
 
+use crate::cells::name::CellName;
 use crate::cells::paths::CellRelativePath;
 use crate::cells::paths::CellRelativePathBuf;
-use crate::cells::CellName;
 use crate::fs::paths::forward_rel_path::ForwardRelativePath;
 
 #[derive(thiserror::Error, Debug)]
@@ -56,7 +56,7 @@ impl CellPath {
     /// ```
     /// use buck2_core::cells::cell_path::CellPath;
     /// use buck2_core::cells::paths::{CellRelativePathBuf};
-    /// use buck2_core::cells::CellName;
+    /// use buck2_core::cells::name::CellName;
     /// use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
     ///
     /// let path = CellPath::new(
@@ -80,7 +80,7 @@ impl CellPath {
     /// ```
     /// use buck2_core::cells::cell_path::CellPath;
     /// use buck2_core::cells::paths::{CellRelativePathBuf};
-    /// use buck2_core::cells::CellName;
+    /// use buck2_core::cells::name::CellName;
     ///
     /// assert_eq!(
     ///     Some(
@@ -109,7 +109,7 @@ impl CellPath {
     /// ```
     /// use buck2_core::cells::cell_path::CellPath;
     /// use buck2_core::cells::paths::{CellRelativePathBuf};
-    /// use buck2_core::cells::CellName;
+    /// use buck2_core::cells::name::CellName;
     ///
     /// let path = CellPath::testing_new("cell", "foo/bar");
     /// let mut ancestors = path.ancestors();
@@ -151,7 +151,7 @@ impl CellPath {
     /// ```
     /// use buck2_core::cells::cell_path::CellPath;
     /// use buck2_core::cells::paths::{CellRelativePathBuf};
-    /// use buck2_core::cells::CellName;
+    /// use buck2_core::cells::name::CellName;
     /// use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
     ///
     /// let path = CellPath::new(
@@ -202,7 +202,7 @@ impl CellPath {
     /// ```
     ///
     /// use buck2_core::cells::paths::CellRelativePathBuf;
-    /// use buck2_core::cells::CellName;
+    /// use buck2_core::cells::name::CellName;
     /// use std::convert::TryFrom;
     /// use buck2_core::cells::cell_path::CellPath;
     ///
@@ -240,7 +240,7 @@ impl CellPath {
     ///
     /// use buck2_core::cells::paths::CellRelativePathBuf;
     /// use buck2_core::cells::cell_path::CellPath;
-    /// use buck2_core::cells::CellName;
+    /// use buck2_core::cells::name::CellName;
     /// use std::convert::TryFrom;
     ///
     /// assert!(

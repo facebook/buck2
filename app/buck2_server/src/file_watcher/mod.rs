@@ -14,7 +14,7 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_common::file_ops::IgnoreSet;
 use buck2_common::legacy_configs::LegacyBuckConfig;
-use buck2_core::cells::CellName;
+use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::is_open_source;

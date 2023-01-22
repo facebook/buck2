@@ -120,8 +120,8 @@ impl TargetPlatformDetector {
 mod tests {
     use std::sync::Arc;
 
+    use buck2_core::cells::name::CellName;
     use buck2_core::cells::CellAlias;
-    use buck2_core::cells::CellName;
     use buck2_core::target::testing::TargetLabelExt;
     use maplit::hashmap;
 

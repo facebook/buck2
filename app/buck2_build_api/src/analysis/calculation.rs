@@ -434,9 +434,9 @@ mod tests {
     use buck2_core::build_file_path::BuildFilePath;
     use buck2_core::bzl::ImportPath;
     use buck2_core::cells::cell_root_path::CellRootPathBuf;
+    use buck2_core::cells::name::CellName;
     use buck2_core::cells::CellAlias;
     use buck2_core::cells::CellAliasResolver;
-    use buck2_core::cells::CellName;
     use buck2_core::cells::CellsAggregator;
     use buck2_core::collections::ordered_map::OrderedMap;
     use buck2_core::configuration::Configuration;

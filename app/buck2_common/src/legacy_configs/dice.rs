@@ -14,7 +14,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
-use buck2_core::cells::CellName;
+use buck2_core::cells::name::CellName;
 use buck2_core::collections::sorted_map::SortedMap;
 use derive_more::Display;
 use dice::DiceComputations;
@@ -360,7 +360,7 @@ impl HasLegacyConfigs for DiceComputations {
 
 #[cfg(test)]
 mod tests {
-    use buck2_core::cells::CellName;
+    use buck2_core::cells::name::CellName;
     use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
     use dice::InjectedKey;
 

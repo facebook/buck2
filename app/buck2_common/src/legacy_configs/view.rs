@@ -11,7 +11,7 @@ use std::fmt::Debug;
 use std::str::FromStr;
 use std::sync::Arc;
 
-use buck2_core::cells::CellName;
+use buck2_core::cells::name::CellName;
 
 use crate::legacy_configs::LegacyBuckConfig;
 

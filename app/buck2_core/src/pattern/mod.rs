@@ -756,9 +756,9 @@ mod tests {
     use test_case::test_case;
 
     use super::*;
+    use crate::cells::name::CellName;
     use crate::cells::paths::CellRelativePathBuf;
     use crate::cells::CellAlias;
-    use crate::cells::CellName;
     use crate::package::testing::PackageExt;
     use crate::target::TargetLabel;
 

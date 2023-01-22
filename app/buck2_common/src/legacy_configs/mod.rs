@@ -25,7 +25,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use anyhow::Context;
-use buck2_core::cells::CellName;
+use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellResolver;
 use buck2_core::collections::sorted_map::SortedMap;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;

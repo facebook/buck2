@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use buck2_common::result::SharedResult;
-use buck2_core::cells::CellName;
+use buck2_core::cells::name::CellName;
 use buck2_core::configuration::Configuration;
 use buck2_core::target::ConfiguredTargetLabel;
 use buck2_core::target::TargetLabel;

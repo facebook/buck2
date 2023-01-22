@@ -79,10 +79,11 @@
 //! ```
 //! use buck2_core::fs::project::{ProjectRelativePath, ProjectRelativePathBuf};
 //! use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
-//! use buck2_core::cells::{CellResolver, CellName, CellAlias};
+//! use buck2_core::cells::{CellResolver, CellAlias};
 //! use std::convert::TryFrom;
 //! use maplit::hashmap;
 //! use buck2_core::cells::cell_root_path::CellRootPathBuf;
+//! use buck2_core::cells::name::CellName;
 //! use buck2_core::cells::testing::CellResolverExt;
 //!
 //! let cell_config = ForwardRelativePathBuf::try_from(".buckconfig".to_owned())?;
@@ -130,6 +131,7 @@
 pub mod build_file_cell;
 pub mod cell_path;
 pub mod cell_root_path;
+pub mod name;
 pub mod paths;
 pub(crate) mod sequence_trie_allocative;
 
@@ -154,6 +156,7 @@ use thiserror::Error;
 use crate::cells::cell_path::CellPath;
 use crate::cells::cell_root_path::CellRootPath;
 use crate::cells::cell_root_path::CellRootPathBuf;
+use crate::cells::name::CellName;
 use crate::fs::paths::abs_norm_path::AbsNormPath;
 use crate::fs::paths::abs_norm_path::AbsNormPathBuf;
 use crate::fs::paths::file_name::FileNameBuf;
@@ -246,30 +249,6 @@ impl CellAliasResolver {
 
     pub fn mappings(&self) -> impl Iterator<Item = (&CellAlias, &CellName)> {
         self.0.iter()
-    }
-}
-
-/// A 'CellName' is a canonicalized, human-readable name that corresponds to a
-/// 'CellInstance'. There should be a one to one mapping between a 'CellName'
-/// and a 'CellInstance'.
-///
-/// The cell within a fully qualified target like `foo//some:target` is `foo`.
-/// The cell name is also restricted to alphabet characters (i.e. shouldn't
-/// contain any special characters like `/`), so `foo/bar//some:target` has an
-/// invalid cell name of `foo/bar`.
-// TODO consider if we need to intern the string
-#[derive(
-    Clone, Debug, Display, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative
-)]
-pub struct CellName(String);
-
-impl CellName {
-    pub fn unchecked_new(name: String) -> CellName {
-        CellName(name)
-    }
-
-    pub fn as_str(&self) -> &str {
-        &self.0
     }
 }
 
@@ -457,11 +436,12 @@ impl CellResolver {
     /// the 'Package'
     ///
     /// ```
-    /// use buck2_core::cells::{CellResolver, CellName};
+    /// use buck2_core::cells::{CellResolver };
     /// use buck2_core::fs::project::{ProjectRelativePath, ProjectRelativePathBuf};
     /// use std::convert::TryFrom;
     /// use buck2_core::cells::cell_path::CellPath;
     /// use buck2_core::cells::cell_root_path::CellRootPathBuf;
+    /// use buck2_core::cells::name::CellName;
     /// use buck2_core::cells::paths::CellRelativePathBuf;
     /// use buck2_core::cells::testing::CellResolverExt;
     ///
@@ -623,10 +603,10 @@ pub mod testing {
 
     use super::default_buildfiles;
     use crate::cells::cell_root_path::CellRootPathBuf;
+    use crate::cells::name::CellName;
     use crate::cells::CellAlias;
     use crate::cells::CellAliasResolver;
     use crate::cells::CellInstance;
-    use crate::cells::CellName;
     use crate::cells::CellResolver;
     pub trait CellResolverExt {
         /// Creates a new 'CellResolver' based on the given iterator of (cell

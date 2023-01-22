@@ -42,9 +42,9 @@ pub fn parse_package(
 mod tests {
     use std::sync::Arc;
 
+    use crate::cells::name::CellName;
     use crate::cells::CellAlias;
     use crate::cells::CellAliasResolver;
-    use crate::cells::CellName;
     use crate::pattern::parse_package::parse_package;
 
     #[test]

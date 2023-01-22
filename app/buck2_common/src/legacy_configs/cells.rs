@@ -337,8 +337,8 @@ impl BuckConfigBasedCells {
 
 #[cfg(test)]
 mod tests {
+    use buck2_core::cells::name::CellName;
     use buck2_core::cells::CellAlias;
-    use buck2_core::cells::CellName;
     use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
     use buck2_core::fs::project::ProjectRelativePath;
     use buck2_core::fs::project::ProjectRoot;

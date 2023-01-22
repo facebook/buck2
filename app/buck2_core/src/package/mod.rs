@@ -52,8 +52,8 @@ use internment_tweaks::Intern;
 use internment_tweaks::StaticInterner;
 
 use crate::cells::cell_path::CellPath;
+use crate::cells::name::CellName;
 use crate::cells::paths::CellRelativePath;
-use crate::cells::CellName;
 use crate::cells::CellResolver;
 use crate::fs::paths::fmt::quoted_display;
 use crate::fs::paths::forward_rel_path::ForwardRelativePath;
@@ -163,12 +163,13 @@ impl CellResolver {
     /// the 'Package'
     ///
     /// ```
-    /// use buck2_core::cells::{CellResolver, CellName};
+    /// use buck2_core::cells::CellResolver;
     /// use buck2_core::fs::project::{ProjectRelativePath, ProjectRelativePathBuf};
     /// use buck2_core::fs::paths::forward_rel_path::{ForwardRelativePathBuf, ForwardRelativePath};
     /// use buck2_core::package::PackageLabel;
     /// use std::convert::TryFrom;
     /// use buck2_core::cells::cell_root_path::CellRootPathBuf;
+    /// use buck2_core::cells::name::CellName;
     /// use buck2_core::cells::paths::CellRelativePath;
     /// use buck2_core::cells::testing::CellResolverExt;
     ///
@@ -196,8 +197,8 @@ impl CellResolver {
 }
 
 pub mod testing {
+    use crate::cells::name::CellName;
     use crate::cells::paths::CellRelativePathBuf;
-    use crate::cells::CellName;
     use crate::package::PackageLabel;
 
     pub trait PackageExt {

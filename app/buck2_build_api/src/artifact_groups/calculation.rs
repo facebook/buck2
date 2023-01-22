@@ -298,9 +298,9 @@ mod tests {
     use buck2_core::buck_path::BuckPath;
     use buck2_core::cells::cell_path::CellPath;
     use buck2_core::cells::cell_root_path::CellRootPathBuf;
+    use buck2_core::cells::name::CellName;
     use buck2_core::cells::paths::CellRelativePathBuf;
     use buck2_core::cells::testing::CellResolverExt;
-    use buck2_core::cells::CellName;
     use buck2_core::cells::CellResolver;
     use buck2_core::fs::project::ProjectRelativePathBuf;
     use buck2_core::fs::project::ProjectRootTemp;

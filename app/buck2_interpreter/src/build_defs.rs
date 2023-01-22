@@ -137,9 +137,9 @@ mod tests {
     use buck2_core::bzl::ImportPath;
     use buck2_core::cells::build_file_cell::BuildFileCell;
     use buck2_core::cells::cell_root_path::CellRootPathBuf;
+    use buck2_core::cells::name::CellName;
     use buck2_core::cells::CellAlias;
     use buck2_core::cells::CellAliasResolver;
-    use buck2_core::cells::CellName;
     use buck2_core::cells::CellResolver;
     use buck2_core::cells::CellsAggregator;
     use buck2_core::fs::paths::abs_norm_path::AbsNormPath;

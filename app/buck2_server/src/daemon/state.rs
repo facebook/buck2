@@ -23,7 +23,7 @@ use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
 use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
-use buck2_core::cells::CellName;
+use buck2_core::cells::name::CellName;
 use buck2_core::facebook_only;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
