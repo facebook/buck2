@@ -582,7 +582,7 @@ pub(crate) fn try_get_invocation_recorder(
 ) -> anyhow::Result<Option<Box<dyn EventSubscriber>>> {
     if ctx.replayer.is_none() {
         if let Some(sink) =
-            new_thrift_scribe_sink_if_enabled(ctx.fbinit(), 1, Duration::from_millis(500), 5)?
+            new_thrift_scribe_sink_if_enabled(ctx.fbinit(), 1, Duration::from_millis(500), 5, None)?
         {
             let recorder = imp::InvocationRecorder::new(
                 ctx.async_cleanup_context().dupe(),

@@ -391,6 +391,7 @@ fn create_scribe_event_dispatcher(
         /* buffer size */ 100,
         /* retry_backoff */ Duration::from_millis(500),
         /* retry_attempts */ 5,
+        /* message_batch_size */ None,
     )?;
     Ok(sink.map(|sink| EventDispatcher::new(trace_id, sink)))
 }

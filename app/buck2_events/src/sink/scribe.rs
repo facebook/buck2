@@ -54,9 +54,15 @@ mod fbcode {
             buffer_size: usize,
             retry_backoff: Duration,
             retry_attempts: usize,
+            message_batch_size: Option<usize>,
         ) -> anyhow::Result<ThriftScribeSink> {
-            let client =
-                scribe_client::ScribeClient::new(fb, buffer_size, retry_backoff, retry_attempts)?;
+            let client = scribe_client::ScribeClient::new(
+                fb,
+                buffer_size,
+                retry_backoff,
+                retry_attempts,
+                message_batch_size,
+            )?;
             Ok(ThriftScribeSink { category, client })
         }
 
@@ -374,6 +380,7 @@ fn new_thrift_scribe_sink_if_fbcode(
     buffer_size: usize,
     retry_backoff: Duration,
     retry_attempts: usize,
+    message_batch_size: Option<usize>,
 ) -> anyhow::Result<Option<ThriftScribeSink>> {
     #[cfg(fbcode_build)]
     {
@@ -383,11 +390,18 @@ fn new_thrift_scribe_sink_if_fbcode(
             buffer_size,
             retry_backoff,
             retry_attempts,
+            message_batch_size,
         )?))
     }
     #[cfg(not(fbcode_build))]
     {
-        let _ = (fb, buffer_size, retry_backoff, retry_attempts);
+        let _ = (
+            fb,
+            buffer_size,
+            retry_backoff,
+            retry_attempts,
+            message_batch_size,
+        );
         Ok(None)
     }
 }
@@ -397,9 +411,16 @@ pub fn new_thrift_scribe_sink_if_enabled(
     buffer_size: usize,
     retry_backoff: Duration,
     retry_attempts: usize,
+    message_batch_size: Option<usize>,
 ) -> anyhow::Result<Option<ThriftScribeSink>> {
     if is_enabled() {
-        new_thrift_scribe_sink_if_fbcode(fb, buffer_size, retry_backoff, retry_attempts)
+        new_thrift_scribe_sink_if_fbcode(
+            fb,
+            buffer_size,
+            retry_backoff,
+            retry_attempts,
+            message_batch_size,
+        )
     } else {
         Ok(None)
     }

@@ -335,8 +335,15 @@ impl DaemonState {
         let retry_attempts = root_config
             .parse("buck2", "event_log_retry_attempts")?
             .unwrap_or(5);
-        let scribe_sink = Self::init_scribe_sink(fb, buffer_size, retry_backoff, retry_attempts)
-            .context("failed to init scribe sink")?;
+        let message_batch_size = root_config.parse("buck2", "event_log_message_batch_size")?;
+        let scribe_sink = Self::init_scribe_sink(
+            fb,
+            buffer_size,
+            retry_backoff,
+            retry_attempts,
+            message_batch_size,
+        )
+        .context("failed to init scribe sink")?;
 
         // Kick off an initial sync eagerly. This gets Watchamn to start watching the path we care
         // about (potentially kicking off an initial crawl).
@@ -439,10 +446,17 @@ impl DaemonState {
         buffer_size: usize,
         retry_backoff: Duration,
         retry_attempts: usize,
+        message_batch_size: Option<usize>,
     ) -> anyhow::Result<Option<Arc<dyn EventSink>>> {
         facebook_only();
-        scribe::new_thrift_scribe_sink_if_enabled(fb, buffer_size, retry_backoff, retry_attempts)
-            .map(|maybe_scribe| maybe_scribe.map(|scribe| Arc::new(scribe) as _))
+        scribe::new_thrift_scribe_sink_if_enabled(
+            fb,
+            buffer_size,
+            retry_backoff,
+            retry_attempts,
+            message_batch_size,
+        )
+        .map(|maybe_scribe| maybe_scribe.map(|scribe| Arc::new(scribe) as _))
     }
 
     /// Prepares an event stream for a request by bootstrapping an event source and EventDispatcher pair. The given
