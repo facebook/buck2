@@ -15,6 +15,7 @@ use std::iter;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use anyhow::Context;
 use buck2_core::buck_path::BuckPathRef;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::cell_path::CellPath;
@@ -267,7 +268,11 @@ impl ConfiguredTargetNode {
             AttrInspectOptions::All,
         )
         .into_iter()
-        .flat_map(Self::attr_as_target_compatible_with)
+        .flat_map(|a| {
+            Self::attr_as_target_compatible_with(a).map(|a| {
+                a.with_context(|| format!("attribute `{}`", TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD))
+            })
+        })
     }
 
     pub fn attr_as_target_compatible_with(

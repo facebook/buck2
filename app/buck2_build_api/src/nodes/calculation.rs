@@ -201,7 +201,9 @@ impl ExecutionPlatformConstraints {
             configured_attr.traverse(node.label().pkg(), &mut me)?;
             if name == EXEC_COMPATIBLE_WITH_ATTRIBUTE_FIELD {
                 for a in ConfiguredTargetNode::attr_as_target_compatible_with(configured_attr) {
-                    me.exec_compatible_with.push(a?);
+                    me.exec_compatible_with.push(a.with_context(|| {
+                        format!("attribute `{}`", EXEC_COMPATIBLE_WITH_ATTRIBUTE_FIELD)
+                    })?);
                 }
             }
         }
@@ -475,7 +477,12 @@ fn check_compatible(
     // TODO(cjhopman): Should we report _all_ the things that are incompatible?
     let incompatible_target = match compatibility_constraints {
         CompatibilityConstraints::Any(attr) => {
-            let (compatible, incompatible) = check_compatibility(attr)?;
+            let (compatible, incompatible) = check_compatibility(attr).with_context(|| {
+                format!(
+                    "attribute `{}`",
+                    LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD
+                )
+            })?;
             let incompatible = incompatible.into_iter().next();
             match (compatible.is_empty(), incompatible.into_iter().next()) {
                 (false, _) | (true, None) => {
@@ -485,7 +492,9 @@ fn check_compatible(
             }
         }
         CompatibilityConstraints::All(attr) => {
-            let (_compatible, incompatible) = check_compatibility(attr)?;
+            let (_compatible, incompatible) = check_compatibility(attr).with_context(|| {
+                format!("attribute `{}`", TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD)
+            })?;
             match incompatible.into_iter().next() {
                 Some(label) => label,
                 None => {
