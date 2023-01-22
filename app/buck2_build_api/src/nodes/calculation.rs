@@ -54,8 +54,6 @@ use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
 use indexmap::IndexSet;
-use itertools::Either;
-use itertools::Itertools;
 use starlark::collections::SmallSet;
 use thiserror::Error;
 
@@ -202,9 +200,9 @@ impl ExecutionPlatformConstraints {
             })?;
             configured_attr.traverse(node.label().pkg(), &mut me)?;
             if name == EXEC_COMPATIBLE_WITH_ATTRIBUTE_FIELD {
-                me.exec_compatible_with.extend(
-                    ConfiguredTargetNode::attr_as_target_compatible_with(configured_attr),
-                );
+                for a in ConfiguredTargetNode::attr_as_target_compatible_with(configured_attr) {
+                    me.exec_compatible_with.push(a?);
+                }
             }
         }
         Ok(me)
@@ -459,20 +457,25 @@ fn check_compatible(
 
     // We are compatible if the list of target expressions is empty,
     // OR if we match ANY expression in the list of attributes.
-    let check_compatibility = |attr| -> (Vec<_>, Vec<_>) {
-        ConfiguredTargetNode::attr_as_target_compatible_with(attr).partition_map(|label| {
+    let check_compatibility = |attr| -> anyhow::Result<(Vec<_>, Vec<_>)> {
+        let mut left = Vec::new();
+        let mut right = Vec::new();
+        for label in ConfiguredTargetNode::attr_as_target_compatible_with(attr) {
+            let label = label?;
             match resolved_cfg.matches(&label) {
-                Some(_) => Either::Left(label),
-                None => Either::Right(label),
+                Some(_) => left.push(label),
+                None => right.push(label),
             }
-        })
+        }
+
+        Ok((left, right))
     };
 
     // We only record the first incompatibility, for either ANY or ALL.
     // TODO(cjhopman): Should we report _all_ the things that are incompatible?
     let incompatible_target = match compatibility_constraints {
         CompatibilityConstraints::Any(attr) => {
-            let (compatible, incompatible) = check_compatibility(attr);
+            let (compatible, incompatible) = check_compatibility(attr)?;
             let incompatible = incompatible.into_iter().next();
             match (compatible.is_empty(), incompatible.into_iter().next()) {
                 (false, _) | (true, None) => {
@@ -482,7 +485,7 @@ fn check_compatible(
             }
         }
         CompatibilityConstraints::All(attr) => {
-            let (_compatible, incompatible) = check_compatibility(attr);
+            let (_compatible, incompatible) = check_compatibility(attr)?;
             match incompatible.into_iter().next() {
                 Some(label) => label,
                 None => {

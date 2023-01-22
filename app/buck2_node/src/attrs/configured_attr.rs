@@ -37,6 +37,10 @@ enum ConfiguredAttrError {
     ConcatDifferentTypes,
     #[error("while concat, LHS is oneof, expecting RHS to also be oneof (internal error)")]
     LhsOneOfRhsNotOneOf,
+    #[error("expecting a list, got `{0}`")]
+    ExpectingList(String),
+    #[error("expecting configuration dep, got `{0}`")]
+    ExpectingConfigurationDep(String),
 }
 
 #[derive(Eq, PartialEq, Hash, Clone, Allocative)]
@@ -180,10 +184,13 @@ impl ConfiguredAttr {
         }
     }
 
-    pub(crate) fn try_into_configuration_dep(self) -> Option<TargetLabel> {
+    pub(crate) fn try_into_configuration_dep(self) -> anyhow::Result<TargetLabel> {
         match self.0 {
-            AttrLiteral::ConfigurationDep(d) => Some(*d),
-            _ => None,
+            AttrLiteral::ConfigurationDep(d) => Ok(*d),
+            a => Err(ConfiguredAttrError::ExpectingConfigurationDep(
+                a.as_display_no_ctx().to_string(),
+            )
+            .into()),
         }
     }
 
@@ -194,10 +201,10 @@ impl ConfiguredAttr {
         }
     }
 
-    pub(crate) fn try_into_list(self) -> Option<Vec<ConfiguredAttr>> {
+    pub(crate) fn try_into_list(self) -> anyhow::Result<Vec<ConfiguredAttr>> {
         match self.0 {
-            AttrLiteral::List(list) => Some(list.into_vec()),
-            _ => None,
+            AttrLiteral::List(list) => Ok(list.into_vec()),
+            a => Err(ConfiguredAttrError::ExpectingList(a.as_display_no_ctx().to_string()).into()),
         }
     }
 }

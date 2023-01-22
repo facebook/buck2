@@ -11,6 +11,7 @@ use std::fmt::Debug;
 use std::fmt::Formatter;
 use std::hash::Hash;
 use std::hash::Hasher;
+use std::iter;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -260,7 +261,7 @@ impl ConfiguredTargetNode {
         })))
     }
 
-    pub fn target_compatible_with(&self) -> impl Iterator<Item = TargetLabel> {
+    pub fn target_compatible_with(&self) -> impl Iterator<Item = anyhow::Result<TargetLabel>> {
         self.get(
             TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD,
             AttrInspectOptions::All,
@@ -271,14 +272,12 @@ impl ConfiguredTargetNode {
 
     pub fn attr_as_target_compatible_with(
         attr: ConfiguredAttr,
-    ) -> impl Iterator<Item = TargetLabel> {
-        attr.try_into_list()
-            .expect("expecting list")
-            .into_iter()
-            .map(|val| {
-                val.try_into_configuration_dep()
-                    .expect("target_compatible_with should be list<dep>")
-            })
+    ) -> impl Iterator<Item = anyhow::Result<TargetLabel>> {
+        let list = match attr.try_into_list() {
+            Ok(list) => list,
+            Err(e) => return Either::Left(iter::once(Err(e))),
+        };
+        Either::Right(list.into_iter().map(|val| val.try_into_configuration_dep()))
     }
 
     pub fn execution_platform_resolution(&self) -> &ExecutionPlatformResolution {
