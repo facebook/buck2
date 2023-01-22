@@ -36,6 +36,7 @@ use buck2_client::commands::debug::DebugCommand;
 use buck2_client::commands::init::InitCommand;
 use buck2_client::commands::install::InstallCommand;
 use buck2_client::commands::kill::KillCommand;
+use buck2_client::commands::killall::KillallCommand;
 use buck2_client::commands::log::LogCommand;
 use buck2_client::commands::lsp::LspCommand;
 use buck2_client::commands::profile::ProfileCommand;
@@ -207,6 +208,7 @@ pub(crate) enum CommandKind {
     Init(InitCommand),
     Install(InstallCommand),
     Kill(KillCommand),
+    Killall(KillallCommand), // @oss-disable: there's no buck2 wrapper in oss version.
     Root(RootCommand),
     Query(UqueryCommand),
     Run(RunCommand),
@@ -343,6 +345,7 @@ impl CommandKind {
             CommandKind::Test(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Cquery(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Kill(cmd) => cmd.exec(matches, command_ctx).into(),
+            CommandKind::Killall(cmd) => cmd.exec(matches, command_ctx).into(),
             CommandKind::Clean(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Root(cmd) => cmd.exec(matches, command_ctx).into(),
             CommandKind::Query(cmd) => {
