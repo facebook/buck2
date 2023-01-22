@@ -272,12 +272,13 @@ impl ConfiguredTargetNode {
     pub fn attr_as_target_compatible_with(
         attr: ConfiguredAttr,
     ) -> impl Iterator<Item = TargetLabel> {
-        attr.try_into_list().into_iter().flat_map(|v| {
-            v.into_iter().map(|val| {
+        attr.try_into_list()
+            .expect("expecting list")
+            .into_iter()
+            .map(|val| {
                 val.try_into_configuration_dep()
                     .expect("target_compatible_with should be list<dep>")
             })
-        })
     }
 
     pub fn execution_platform_resolution(&self) -> &ExecutionPlatformResolution {
