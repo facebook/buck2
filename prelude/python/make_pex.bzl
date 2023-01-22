@@ -53,6 +53,8 @@ def _srcs(srcs: [""], format = "{}") -> "cmd_args":
 def make_pex(
         ctx: "context",
         python_toolchain: "PythonToolchainInfo",
+        # A rule-provided tool to use to build the PEX.
+        make_pex_cmd: [RunInfo.type, None],
         bundled_runtime: bool.type,
         package_style: PackageStyle.type,
         build_args: ["_arglike"],
@@ -137,7 +139,9 @@ def make_pex(
         # current style of build info stamping (e.g. T10696178).
         prefer_local = package_python_locally(ctx, python_toolchain)
 
-        cmd = cmd_args(python_toolchain.make_pex_standalone)
+        cmd = cmd_args(
+            make_pex_cmd if make_pex_cmd != None else python_toolchain.make_pex_standalone,
+        )
         cmd.add(modules_args)
         cmd.add(bootstrap_args)
         ctx.actions.run(cmd, prefer_local = prefer_local, category = "par", identifier = "standalone")
@@ -145,13 +149,20 @@ def make_pex(
     else:
         runtime_files.extend(dep_artifacts)
         runtime_files.append(symlink_tree_path)
-        modules = cmd_args(python_toolchain.make_pex_modules)
-        modules.add(modules_args)
-        ctx.actions.run(modules, category = "par", identifier = "modules")
 
-        bootstrap = cmd_args(python_toolchain.make_pex_inplace)
-        bootstrap.add(bootstrap_args)
-        ctx.actions.run(bootstrap, category = "par", identifier = "bootstrap")
+        if make_pex_cmd != None:
+            cmd = cmd_args(make_pex_cmd)
+            cmd.add(modules_args)
+            cmd.add(bootstrap_args)
+            ctx.actions.run(cmd, category = "par", identifier = "inplace")
+        else:
+            modules = cmd_args(python_toolchain.make_pex_modules)
+            modules.add(modules_args)
+            ctx.actions.run(modules, category = "par", identifier = "modules")
+
+            bootstrap = cmd_args(python_toolchain.make_pex_inplace)
+            bootstrap.add(bootstrap_args)
+            ctx.actions.run(bootstrap, category = "par", identifier = "bootstrap")
 
     run_args = []
 

@@ -226,6 +226,7 @@ def _python_executable_attrs():
         "allow_huge_dwp": attrs.bool(default = False),
         "bundled_runtime": attrs.bool(default = False),
         "enable_distributed_thinlto": attrs.bool(default = False),
+        "make_pex": attrs.option(attrs.exec_dep(providers = [RunInfo])),
         "package_split_dwarf_dwp": attrs.bool(default = False),
         "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source(allow_directory = True)), sorted = True, default = []),
         "_create_manifest_for_source_dir": _create_manifest_for_source_dir(),

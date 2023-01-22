@@ -382,6 +382,7 @@ def convert_python_library_to_executable(
     pex = make_pex(
         ctx,
         python_toolchain,
+        ctx.attrs.make_pex[RunInfo] if ctx.attrs.make_pex != None else None,
         ctx.attrs.bundled_runtime,
         package_style,
         ctx.attrs.build_args,
