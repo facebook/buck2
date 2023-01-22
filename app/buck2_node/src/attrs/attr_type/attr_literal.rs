@@ -55,9 +55,6 @@ pub enum AttrLiteral<C: AttrConfig> {
     String(Box<str>),
     // Like String, but drawn from a set of variants, so doesn't support concat
     EnumVariant(Box<str>),
-    // Type of list elements is used to verify that concatenation is valid.
-    // That only can be checked after configuration took place,
-    // so pass the type info together with values to be used later.
     List(Box<[C]>),
     Tuple(Box<[C]>),
     Dict(Box<[(C, C)]>),
