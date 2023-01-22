@@ -164,7 +164,7 @@ use crate::fs::project::ProjectRoot;
 
 /// Errors from cell creation
 #[derive(Error, Debug)]
-pub enum CellError {
+enum CellError {
     #[error("Cell paths `{1}` and `{2}` had the same alias `{0}`.")]
     DuplicateAliases(CellAlias, CellRootPathBuf, CellRootPathBuf),
     #[error("Cell paths `{1}` and `{2}` had the same cell name `{0}`.")]
@@ -175,10 +175,6 @@ pub enum CellError {
     UnknownCellAlias(CellAlias, Vec<CellAlias>),
     #[error("unknown cell name: `{0}`. known cell names are `{}`", .1.iter().join(", "))]
     UnknownCellName(CellName, Vec<CellName>),
-    #[error(
-        "cells should be specified as `cellname`=`relative path` on each line, but found line: `{0}`."
-    )]
-    ParsingError(String),
 }
 
 /// A 'CellInstance', contains a 'CellName' and a path for that cell.

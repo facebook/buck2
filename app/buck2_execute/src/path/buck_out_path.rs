@@ -19,7 +19,6 @@ use buck2_core::buck_path::BuckPathRef;
 use buck2_core::category::Category;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::paths::CellRelativePath;
-use buck2_core::cells::CellError;
 use buck2_core::cells::CellName;
 use buck2_core::cells::CellResolver;
 use buck2_core::configuration::Configuration;
@@ -522,16 +521,7 @@ fn get_cell_path<'v>(
         Some(cell_name) => {
             let cell_name = CellName::unchecked_new(cell_name.to_owned());
 
-            if !cell_resolver.contains(&cell_name) {
-                return Err(anyhow::Error::new(CellError::UnknownCellName(
-                    cell_name,
-                    cell_resolver
-                        .cells()
-                        .map(|(name, _)| name)
-                        .cloned()
-                        .collect(),
-                )));
-            }
+            cell_resolver.get(&cell_name)?;
 
             // Advance iterator to the config hash
             let config_hash = match iter.next() {
