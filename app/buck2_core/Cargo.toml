@@ -25,6 +25,7 @@ relative-path = { workspace = true }
 ref-cast = { workspace = true }
 sequence_trie = { workspace = true }
 serde = { workspace = true }
+static_assertions = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 regex = { workspace = true }

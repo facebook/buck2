@@ -16,6 +16,7 @@ use derive_more::Display;
 use dupe::Dupe;
 use serde::Serialize;
 use serde::Serializer;
+use static_assertions::assert_eq_size;
 use thiserror::Error;
 
 use crate::ascii_char_set::AsciiCharSet;
@@ -119,6 +120,8 @@ pub struct ProvidersLabel {
     target: TargetLabel,
     name: ProvidersName,
 }
+
+assert_eq_size!(ProvidersLabel, [usize; 6]);
 
 impl ProvidersLabel {
     pub fn new(target: TargetLabel, name: ProvidersName) -> Self {
