@@ -12,7 +12,6 @@ use std::fmt::Debug;
 use allocative::Allocative;
 use buck2_core::collections::ordered_map::OrderedMap;
 use buck2_core::package::PackageLabel;
-use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::TargetLabel;
 use serde::Serialize;
 use serde::Serializer;
@@ -68,7 +67,7 @@ impl Debug for ConfiguredAttr {
 }
 
 impl ConfiguredAttr {
-    pub fn new(v: AttrLiteral<ConfiguredAttr>) -> Self {
+    pub(crate) fn new(v: AttrLiteral<ConfiguredAttr>) -> Self {
         Self(v)
     }
 
@@ -84,7 +83,7 @@ impl ConfiguredAttr {
     /// Used for concatting the configured result of concatted selects. For most types this isn't allowed (it
     /// should be unreachable as concat-ability is checked during coercion and the type would've returned false from `AttrType::supports_concat`).
     /// This is used when a select() is added to another value, like `select(<...>) + select(<...>)` or `select(<...>) + [...]`.
-    pub fn concat(
+    pub(crate) fn concat(
         self,
         items: &mut dyn Iterator<Item = anyhow::Result<Self>>,
     ) -> anyhow::Result<Self> {
@@ -181,21 +180,7 @@ impl ConfiguredAttr {
         }
     }
 
-    pub fn unpack_dep(&self) -> Option<&ConfiguredProvidersLabel> {
-        match &self.0 {
-            AttrLiteral::Dep(d) => Some(&d.label),
-            _ => None,
-        }
-    }
-
-    pub fn try_into_dep(self) -> Option<ConfiguredProvidersLabel> {
-        match self.0 {
-            AttrLiteral::Dep(d) => Some(d.label),
-            _ => None,
-        }
-    }
-
-    pub fn try_into_configuration_dep(self) -> Option<TargetLabel> {
+    pub(crate) fn try_into_configuration_dep(self) -> Option<TargetLabel> {
         match self.0 {
             AttrLiteral::ConfigurationDep(d) => Some(*d),
             _ => None,
@@ -209,23 +194,9 @@ impl ConfiguredAttr {
         }
     }
 
-    pub fn try_into_list(self) -> Option<Vec<ConfiguredAttr>> {
+    pub(crate) fn try_into_list(self) -> Option<Vec<ConfiguredAttr>> {
         match self.0 {
             AttrLiteral::List(list) => Some(list.into_vec()),
-            _ => None,
-        }
-    }
-
-    pub fn unpack_label(&self) -> Option<&ConfiguredProvidersLabel> {
-        match &self.0 {
-            AttrLiteral::Label(label) => Some(label),
-            _ => None,
-        }
-    }
-
-    pub fn try_into_label(self) -> Option<ConfiguredProvidersLabel> {
-        match self.0 {
-            AttrLiteral::Label(label) => Some(*label),
             _ => None,
         }
     }
