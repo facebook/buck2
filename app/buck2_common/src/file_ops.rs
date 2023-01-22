@@ -834,15 +834,15 @@ mod tests {
     fn file_ignores() -> anyhow::Result<()> {
         let cells = &[
             (
-                &CellName::unchecked_new("root".to_owned()),
+                &CellName::unchecked_new("root"),
                 CellRootPath::new(ProjectRelativePath::unchecked_new("root")),
             ),
             (
-                &CellName::unchecked_new("other".to_owned()),
+                &CellName::unchecked_new("other"),
                 CellRootPath::new(ProjectRelativePath::unchecked_new("root/other_cell")),
             ),
             (
-                &CellName::unchecked_new("third".to_owned()),
+                &CellName::unchecked_new("third"),
                 CellRootPath::new(ProjectRelativePath::unchecked_new("third")),
             ),
         ];

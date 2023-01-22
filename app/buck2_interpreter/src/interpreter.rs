@@ -817,7 +817,7 @@ mod tests {
         )?;
         Ok((
             cell_resolver
-                .get(&CellName::unchecked_new("root".to_owned()))?
+                .get(&CellName::unchecked_new("root"))?
                 .cell_alias_resolver()
                 .dupe(),
             cell_resolver,
@@ -840,7 +840,7 @@ mod tests {
         }
 
         fn interpreter(&self) -> anyhow::Result<InterpreterForCell> {
-            let root_cell = BuildFileCell::new(CellName::unchecked_new("root".to_owned()));
+            let root_cell = BuildFileCell::new(CellName::unchecked_new("root"));
             let import_paths = ImportPaths::parse(
                 self.configs.get(root_cell.name()).unwrap(),
                 &root_cell,

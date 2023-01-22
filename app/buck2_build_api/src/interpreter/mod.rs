@@ -150,7 +150,7 @@ pub(crate) mod testing {
         };
 
         let configs = hashmap![
-            CellName::unchecked_new("root".to_owned()) =>
+            CellName::unchecked_new("root") =>
             LegacyBuckConfig::parse_with_file_ops(
                 root_path,
                 &TestConfigParserFileOps::new(&[
@@ -178,7 +178,7 @@ pub(crate) mod testing {
 
         Ok((
             resolver
-                .get(&CellName::unchecked_new("root".to_owned()))?
+                .get(&CellName::unchecked_new("root"))?
                 .cell_alias_resolver()
                 .dupe(),
             resolver,

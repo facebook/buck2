@@ -68,7 +68,7 @@ fn import(cell: &str, package: &str, filename: &str) -> ImportPath {
 }
 
 fn root_cell() -> CellName {
-    CellName::unchecked_new("".to_owned())
+    CellName::unchecked_new("")
 }
 
 fn calculation(fs: &ProjectRootTemp) -> anyhow::Result<DiceTransaction> {
@@ -82,10 +82,10 @@ fn calculation(fs: &ProjectRootTemp) -> anyhow::Result<DiceTransaction> {
     let ctx = dice.with_ctx_data(per_transaction_data);
 
     let resolver = CellResolver::with_names_and_paths_with_alias(&[(
-        CellName::unchecked_new("".to_owned()),
+        CellName::unchecked_new(""),
         CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("".to_owned())),
         hashmap![
-            CellAlias::new("".to_owned()) => CellName::unchecked_new("".to_owned())
+            CellAlias::new("".to_owned()) => CellName::unchecked_new("")
         ],
     )]);
     let cell_configs = empty_configs(&resolver);

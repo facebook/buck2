@@ -165,15 +165,15 @@ mod tests {
         let mut m = HashMap::new();
         m.insert(
             CellAlias::new("".to_owned()),
-            CellName::unchecked_new("root".to_owned()),
+            CellName::unchecked_new("root"),
         );
         m.insert(
             CellAlias::new("cell1".to_owned()),
-            CellName::unchecked_new("cell1".to_owned()),
+            CellName::unchecked_new("cell1"),
         );
         m.insert(
             CellAlias::new("alias2".to_owned()),
-            CellName::unchecked_new("cell2".to_owned()),
+            CellName::unchecked_new("cell2"),
         );
         CellAliasResolver::new(Arc::new(m)).expect("valid resolver")
     }
@@ -184,7 +184,7 @@ mod tests {
 
     fn path(cell: &str, dir: &str, filename: &str) -> CellPath {
         CellPath::new(
-            CellName::unchecked_new(cell.to_owned()),
+            CellName::unchecked_new(cell),
             CellRelativePath::unchecked_new(dir).join(FileName::unchecked_new(filename)),
         )
     }

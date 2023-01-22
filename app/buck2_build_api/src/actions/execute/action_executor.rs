@@ -576,7 +576,7 @@ mod tests {
     #[tokio::test]
     async fn can_execute_some_action() {
         let cells = CellResolver::of_names_and_paths(&[(
-            CellName::unchecked_new("cell".into()),
+            CellName::unchecked_new("cell"),
             CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("cell_path".into())),
         )]);
 
@@ -690,7 +690,7 @@ mod tests {
         }
 
         let pkg = PackageLabel::new(
-            &CellName::unchecked_new("cell".into()),
+            &CellName::unchecked_new("cell"),
             CellRelativePath::unchecked_new("pkg"),
         );
 

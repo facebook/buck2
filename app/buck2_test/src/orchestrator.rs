@@ -985,7 +985,7 @@ mod tests {
         let fs = ProjectRootTemp::new().unwrap();
 
         let cell_resolver = CellResolver::of_names_and_paths(&[(
-            CellName::unchecked_new("cell".to_owned()),
+            CellName::unchecked_new("cell"),
             CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("cell".to_owned())),
         )]);
         let buckout_path = ProjectRelativePathBuf::unchecked_new("buck_out/v2".into());

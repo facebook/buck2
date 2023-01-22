@@ -156,7 +156,7 @@ mod tests {
             ProjectRoot::new(AbsNormPathBuf::try_from(std::env::current_dir().unwrap()).unwrap());
         let fs = ArtifactFs::new(
             BuckPathResolver::new(CellResolver::of_names_and_paths(&[(
-                CellName::unchecked_new("cell".into()),
+                CellName::unchecked_new("cell"),
                 CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("cell_path".into())),
             )])),
             BuckOutPathResolver::new(ProjectRelativePathBuf::unchecked_new("buck_out".into())),

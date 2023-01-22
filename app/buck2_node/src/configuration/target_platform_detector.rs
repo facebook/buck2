@@ -130,8 +130,8 @@ mod tests {
     #[test]
     fn test_parse_errors() -> anyhow::Result<()> {
         let cell_alias_resolver = CellAliasResolver::new(Arc::new(hashmap! {
-            CellAlias::new("".to_owned()) => CellName::unchecked_new("".to_owned()),
-            CellAlias::new("alias1".to_owned()) => CellName::unchecked_new("cell1".to_owned()),
+            CellAlias::new("".to_owned()) => CellName::unchecked_new(""),
+            CellAlias::new("alias1".to_owned()) => CellName::unchecked_new("cell1"),
         }))?;
 
         let check_fails = |spec| {
@@ -172,8 +172,8 @@ mod tests {
     #[test]
     fn test_detect() -> anyhow::Result<()> {
         let cell_alias_resolver = CellAliasResolver::new(Arc::new(hashmap! {
-            CellAlias::new("".to_owned()) => CellName::unchecked_new("".to_owned()),
-            CellAlias::new("alias1".to_owned()) => CellName::unchecked_new("cell1".to_owned()),
+            CellAlias::new("".to_owned()) => CellName::unchecked_new(""),
+            CellAlias::new("alias1".to_owned()) => CellName::unchecked_new("cell1"),
         }))?;
 
         let detector = TargetPlatformDetector::parse_spec(

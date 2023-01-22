@@ -493,15 +493,15 @@ mod tests {
             cells.make_cell_resolver()?
         };
         let configs = LegacyBuckConfigs::new(hashmap![
-            CellName::unchecked_new("".to_owned()) =>
+            CellName::unchecked_new("") =>
             LegacyBuckConfig::empty(),
-            CellName::unchecked_new("cell".to_owned()) =>
+            CellName::unchecked_new("cell") =>
             LegacyBuckConfig::empty(),
         ]);
         let interpreter = Tester::with_cells((
             CellAliasResolver::new(Arc::new(hashmap![
                 CellAlias::new("".to_owned()) =>
-                CellName::unchecked_new("cell".to_owned()),
+                CellName::unchecked_new("cell"),
             ]))?,
             resolver.dupe(),
             configs.dupe(),

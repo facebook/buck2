@@ -94,13 +94,13 @@ impl ImportPath {
         build_file_cell: &str,
     ) -> Self {
         let cell_path = CellPath::new(
-            CellName::unchecked_new(cell.to_owned()),
+            CellName::unchecked_new(cell),
             CellRelativePath::unchecked_new(cell_relative_path)
                 .join(FileName::unchecked_new(filename)),
         );
         Self::new(
             cell_path,
-            BuildFileCell::new(CellName::unchecked_new(build_file_cell.to_owned())),
+            BuildFileCell::new(CellName::unchecked_new(build_file_cell)),
         )
         .unwrap()
     }

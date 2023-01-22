@@ -169,7 +169,7 @@ mod tests {
         {
             let aliases = self
                 .resolver
-                .get(&CellName::unchecked_new("root".to_owned()))
+                .get(&CellName::unchecked_new("root"))
                 .unwrap()
                 .cell_alias_resolver();
 

@@ -410,9 +410,9 @@ mod tests {
 
         let resolver = &cells.cell_resolver;
 
-        let root_instance = resolver.get(&CellName::unchecked_new("root".to_owned()))?;
-        let other_instance = resolver.get(&CellName::unchecked_new("other".to_owned()))?;
-        let tp_instance = resolver.get(&CellName::unchecked_new("third_party".to_owned()))?;
+        let root_instance = resolver.get(&CellName::unchecked_new("root"))?;
+        let other_instance = resolver.get(&CellName::unchecked_new("other"))?;
+        let tp_instance = resolver.get(&CellName::unchecked_new("third_party"))?;
 
         assert_eq!(
             vec!["BUCK.v2", "BUCK"],
@@ -511,14 +511,10 @@ mod tests {
         )?;
 
         let configs = &cells.configs_by_name;
-        let root_config = configs
-            .get(&CellName::unchecked_new("root".to_owned()))
-            .unwrap();
-        let other_config = configs
-            .get(&CellName::unchecked_new("other".to_owned()))
-            .unwrap();
+        let root_config = configs.get(&CellName::unchecked_new("root")).unwrap();
+        let other_config = configs.get(&CellName::unchecked_new("other")).unwrap();
         let tp_config = configs
-            .get(&CellName::unchecked_new("third_party".to_owned()))
+            .get(&CellName::unchecked_new("third_party"))
             .unwrap();
 
         assert_eq!(root_config.get("foo", "bar"), Some("blah"));
@@ -562,9 +558,7 @@ mod tests {
 
         let configs = &cells.configs_by_name;
 
-        let ohter_config = configs
-            .get(&CellName::unchecked_new("other".to_owned()))
-            .unwrap();
+        let ohter_config = configs.get(&CellName::unchecked_new("other")).unwrap();
 
         assert_eq!(ohter_config.get("foo", "bar"), Some("baz"));
 
@@ -628,9 +622,7 @@ mod tests {
         )?;
 
         let configs = &cells.configs_by_name;
-        let other_config = configs
-            .get(&CellName::unchecked_new("other".to_owned()))
-            .unwrap();
+        let other_config = configs.get(&CellName::unchecked_new("other")).unwrap();
 
         assert_eq!(other_config.get("apple", "ide"), Some("Xcode"));
         assert_eq!(other_config.get("apple", "test_tool"), Some("xctool"));
@@ -676,9 +668,7 @@ mod tests {
         )?;
 
         let configs = &cells.configs_by_name;
-        let config = configs
-            .get(&CellName::unchecked_new("root".to_owned()))
-            .unwrap();
+        let config = configs.get(&CellName::unchecked_new("root")).unwrap();
         // No local override
         assert_config_value(config, "apple", "key", "value1");
         // local override to new value
@@ -755,12 +745,8 @@ mod tests {
         )?;
 
         let configs = &cells.configs_by_name;
-        let root_config = configs
-            .get(&CellName::unchecked_new("root".to_owned()))
-            .unwrap();
-        let other_config = configs
-            .get(&CellName::unchecked_new("other".to_owned()))
-            .unwrap();
+        let root_config = configs.get(&CellName::unchecked_new("root")).unwrap();
+        let other_config = configs.get(&CellName::unchecked_new("other")).unwrap();
 
         // No local override
         assert_config_value(root_config, "apple", "key", "value1");

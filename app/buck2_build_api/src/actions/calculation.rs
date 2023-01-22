@@ -537,7 +537,7 @@ mod tests {
         let fs = temp_fs.path().dupe();
 
         let cell_resolver = CellResolver::of_names_and_paths(&[(
-            CellName::unchecked_new("cell".into()),
+            CellName::unchecked_new("cell"),
             CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("cell-path".into())),
         )]);
         let output_path = ProjectRelativePathBuf::unchecked_new("buck-out/v2".into());
@@ -760,7 +760,7 @@ mod tests {
     #[tokio::test]
     async fn test_ensure_artifact_source_artifact() -> anyhow::Result<()> {
         let path = CellPath::new(
-            CellName::unchecked_new("cell".to_owned()),
+            CellName::unchecked_new("cell"),
             CellRelativePathBuf::unchecked_new("pkg/src.cpp".to_owned()),
         );
         let source_artifact = create_test_source_artifact("cell", "pkg", "src.cpp");
@@ -806,7 +806,7 @@ mod tests {
     #[tokio::test]
     async fn test_ensure_artifact_external_symlink() -> anyhow::Result<()> {
         let path = CellPath::new(
-            CellName::unchecked_new("cell".to_owned()),
+            CellName::unchecked_new("cell"),
             CellRelativePathBuf::unchecked_new("proj/to_gvfs/include".to_owned()),
         );
         let source_artifact = create_test_source_artifact("cell", "proj/to_gvfs", "include");

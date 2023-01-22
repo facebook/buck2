@@ -355,12 +355,12 @@ mod tests {
         let heap = set.owner();
 
         let cell_resolver = CellResolver::of_names_and_paths(&[(
-            CellName::unchecked_new("".into()),
+            CellName::unchecked_new(""),
             CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("cell-path".into())),
         )]);
 
         let foo = CellPath::new(
-            CellName::unchecked_new("".to_owned()),
+            CellName::unchecked_new(""),
             CellRelativePathBuf::unchecked_new("foo/foo".to_owned()),
         );
 
@@ -380,7 +380,7 @@ mod tests {
         )));
 
         let bar = CellPath::new(
-            CellName::unchecked_new("".to_owned()),
+            CellName::unchecked_new(""),
             CellRelativePathBuf::unchecked_new("bar/bar".to_owned()),
         );
 

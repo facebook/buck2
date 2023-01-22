@@ -173,7 +173,7 @@ mod tests {
         let repo_root = if cfg!(windows) { "C:/root" } else { "/root" };
 
         let configs = maplit::hashmap![
-            CellName::unchecked_new("root".to_owned()) =>
+            CellName::unchecked_new("root") =>
             LegacyBuckConfig::parse_with_file_ops(
                 AbsNormPath::new(repo_root).unwrap(),
                 &TestConfigParserFileOps::new(&[(
@@ -196,7 +196,7 @@ mod tests {
 
         Ok((
             resolver
-                .get(&CellName::unchecked_new("root".to_owned()))?
+                .get(&CellName::unchecked_new("root"))?
                 .cell_alias_resolver()
                 .dupe(),
             resolver,
@@ -205,7 +205,7 @@ mod tests {
     }
 
     fn interpreter() -> anyhow::Result<InterpreterForCell> {
-        let root_cell = BuildFileCell::new(CellName::unchecked_new("root".to_owned()));
+        let root_cell = BuildFileCell::new(CellName::unchecked_new("root"));
         let (cell_alias_resolver, resolver, configs) = cells()?;
         let import_paths = ImportPaths::parse(
             configs.get(root_cell.name()).unwrap(),

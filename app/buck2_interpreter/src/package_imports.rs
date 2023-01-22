@@ -142,13 +142,13 @@ mod tests {
                 .map(|(alias, name)| {
                     (
                         CellAlias::new(alias.to_owned()),
-                        CellName::unchecked_new(name.to_owned()),
+                        CellName::unchecked_new(name),
                     )
                 })
                 .collect(),
         ))?;
 
-        let root_name = CellName::unchecked_new("root".to_owned());
+        let root_name = CellName::unchecked_new("root");
         let imports = PackageImplicitImports::new(
             &BuildFileCell::new(root_name),
             cell_alias_resolver,

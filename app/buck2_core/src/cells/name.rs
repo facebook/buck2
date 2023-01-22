@@ -25,8 +25,8 @@ use derive_more::Display;
 pub struct CellName(String);
 
 impl CellName {
-    pub fn unchecked_new(name: String) -> CellName {
-        CellName(name)
+    pub fn unchecked_new(name: &str) -> CellName {
+        CellName(name.to_owned())
     }
 
     pub fn as_str(&self) -> &str {

@@ -59,7 +59,7 @@ impl AuditSubcommand for AuditPreludeCommand {
                 // we first have to wrap it in an InterpreterConfig with a fake CellAliasResolver
                 let aliases = hashmap![
                     CellAlias::new("".to_owned()) =>
-                    CellName::unchecked_new("".to_owned()),
+                    CellName::unchecked_new(""),
                 ];
                 let interpreter_config = InterpreterConfigForCell::new(
                     CellAliasResolver::new(Arc::new(aliases))?,

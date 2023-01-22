@@ -132,7 +132,7 @@ fn get_builtin_build_docs(
 
 fn get_artifact_docs() -> Option<Doc> {
     let pkg = PackageLabel::new(
-        &CellName::unchecked_new("".to_owned()),
+        &CellName::unchecked_new(""),
         CellRelativePath::unchecked_new("__native__"),
     );
 

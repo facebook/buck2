@@ -860,7 +860,7 @@ fn test_user_placeholders() -> anyhow::Result<()> {
                 );
                 let fs = ArtifactFs::new(
                     BuckPathResolver::new(CellResolver::of_names_and_paths(&[(
-                        CellName::unchecked_new("cell".into()),
+                        CellName::unchecked_new("cell"),
                         CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new(
                             "cell_path".into(),
                         )),

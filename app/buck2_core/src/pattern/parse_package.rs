@@ -55,11 +55,11 @@ mod tests {
                 [
                     (
                         CellAlias::new("foo".to_owned()),
-                        CellName::unchecked_new("oof".to_owned()),
+                        CellName::unchecked_new("oof"),
                     ),
                     (
                         CellAlias::new("".to_owned()),
-                        CellName::unchecked_new("oof".to_owned()),
+                        CellName::unchecked_new("oof"),
                     ),
                 ]
                 .into_iter()
