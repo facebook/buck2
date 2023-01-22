@@ -45,7 +45,7 @@ pub enum StringWithMacros<C: AttrConfig> {
 // Avoid changing the size accidentally.
 assert_eq_size!(StringWithMacros<CoercedAttr>, [usize; 3]);
 
-impl<C: AttrConfig> StringWithMacros<C> {
+impl StringWithMacros<ConfiguredAttr> {
     pub fn concat(self, items: impl Iterator<Item = anyhow::Result<Self>>) -> anyhow::Result<Self> {
         let mut parts = Vec::new();
         for x in std::iter::once(Ok(self)).chain(items) {
