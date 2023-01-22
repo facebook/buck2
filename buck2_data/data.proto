@@ -354,9 +354,14 @@ message Snapshot {
   uint64 deferred_materializer_queue_size = 104;
 
   // Sink write statistics; counts of sink statistics taken at this snapshot.
+  // Cumulative count of messages that were successfully emitted.
   optional uint64 sink_successes = 105;
+  // Cumulative count of messages that failed to be emitted.
   optional uint64 sink_failures = 106;
+  // Current number of messages queued up to be submitted.
   optional uint64 sink_buffer_depth = 107;
+  // Cumulative count of messages that were dropped (i.e. not even processed).
+  optional uint64 sink_dropped = 108;
 
   // Client side metrics.
 

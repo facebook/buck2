@@ -248,6 +248,8 @@ pub struct EventSinkStats {
     pub failures: u64,
     /// How many messages are currently buffered by this sink.
     pub buffered: u64,
+    /// How many messages were not even enqueued by this sink.
+    pub dropped: u64,
 }
 
 impl EventSinkStats {
@@ -258,6 +260,7 @@ impl EventSinkStats {
             successes: self.successes + other.successes,
             failures: self.failures + other.failures,
             buffered: self.buffered + other.buffered,
+            dropped: self.dropped + other.dropped,
         }
     }
 }

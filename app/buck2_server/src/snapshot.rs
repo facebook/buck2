@@ -174,6 +174,7 @@ impl SnapshotCollector {
             snapshot.sink_successes = Some(metrics.successes);
             snapshot.sink_failures = Some(metrics.failures);
             snapshot.sink_buffer_depth = Some(metrics.buffered);
+            snapshot.sink_dropped = Some(metrics.dropped);
         }
     }
 }

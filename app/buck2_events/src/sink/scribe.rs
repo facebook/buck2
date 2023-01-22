@@ -256,6 +256,7 @@ mod fbcode {
                     successes: counters.successes,
                     failures: counters.failures,
                     buffered: counters.queue_depth,
+                    dropped: counters.dropped,
                 })
         }
     }
