@@ -31,7 +31,7 @@ pub enum VisibilitySpecification {
     Public,
     // Default is used when a target doesn't specify any visibility.
     Default,
-    VisibleTo(Vec<VisibilityPattern>),
+    VisibleTo(Box<[VisibilityPattern]>),
 }
 
 impl VisibilitySpecification {
@@ -40,7 +40,7 @@ impl VisibilitySpecification {
             VisibilitySpecification::Public => true,
             VisibilitySpecification::Default => false,
             VisibilitySpecification::VisibleTo(patterns) => {
-                for pattern in patterns {
+                for pattern in &**patterns {
                     if pattern.0.matches(target) {
                         return true;
                     }

@@ -157,7 +157,7 @@ fn parse_visibility(
         }
     };
 
-    let mut specs = Vec::new();
+    let mut specs: Option<Vec<_>> = None;
     for item in visibility {
         let value = match item {
             CoercedAttr::Literal(AttrLiteral::String(value)) => value,
@@ -174,11 +174,12 @@ fn parse_visibility(
             return Ok(VisibilitySpecification::Public);
         }
 
-        specs.push(VisibilityPattern(ctx.coerce_target_pattern(value)?));
+        specs
+            .get_or_insert_with(|| Vec::with_capacity(visibility.len()))
+            .push(VisibilityPattern(ctx.coerce_target_pattern(value)?));
     }
-    if specs.is_empty() {
-        Ok(VisibilitySpecification::Default)
-    } else {
-        Ok(VisibilitySpecification::VisibleTo(specs))
+    match specs {
+        None => Ok(VisibilitySpecification::Default),
+        Some(specs) => Ok(VisibilitySpecification::VisibleTo(specs.into_boxed_slice())),
     }
 }
