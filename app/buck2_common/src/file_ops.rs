@@ -98,8 +98,8 @@ pub struct SimpleDirEntry {
 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Dupe, Allocative)]
 pub struct ReadDirOutput {
-    pub included: Arc<Vec<SimpleDirEntry>>,
-    pub ignored: Arc<Vec<SimpleDirEntry>>,
+    pub included: Arc<[SimpleDirEntry]>,
+    pub ignored: Arc<[SimpleDirEntry]>,
 }
 
 #[derive(Allocative)]
@@ -325,7 +325,7 @@ impl<T> From<PathMetadata> for PathMetadataOrRedirection<T> {
 pub trait FileOps: Allocative + Send + Sync {
     async fn read_file(&self, path: &CellPath) -> anyhow::Result<String>;
 
-    async fn read_dir(&self, path: &CellPath) -> SharedResult<Arc<Vec<SimpleDirEntry>>>;
+    async fn read_dir(&self, path: &CellPath) -> SharedResult<Arc<[SimpleDirEntry]>>;
 
     async fn read_dir_with_ignores(&self, path: &CellPath) -> SharedResult<ReadDirOutput>;
 
@@ -374,7 +374,7 @@ impl<T: DefaultFileOpsDelegate> FileOps for T {
         self.io_provider().read_file(project_path).await
     }
 
-    async fn read_dir(&self, path: &CellPath) -> SharedResult<Arc<Vec<SimpleDirEntry>>> {
+    async fn read_dir(&self, path: &CellPath) -> SharedResult<Arc<[SimpleDirEntry]>> {
         Ok(self.read_dir_with_ignores(path).await?.included)
     }
 
@@ -420,8 +420,8 @@ impl<T: DefaultFileOpsDelegate> FileOps for T {
             return Err(err.into());
         }
         Ok(ReadDirOutput {
-            included: Arc::new(included_entries),
-            ignored: Arc::new(ignored_entries),
+            included: included_entries.into(),
+            ignored: ignored_entries.into(),
         })
     }
 
@@ -768,13 +768,13 @@ pub mod testing {
                 .ok_or_else(|| anyhow::anyhow!("couldn't find file {:?}", path))
         }
 
-        async fn read_dir(&self, path: &CellPath) -> SharedResult<Arc<Vec<SimpleDirEntry>>> {
+        async fn read_dir(&self, path: &CellPath) -> SharedResult<Arc<[SimpleDirEntry]>> {
             self.entries
                 .get(path)
                 .and_then(|e| match e {
-                    TestFileOpsEntry::Directory(listing) => Some(Arc::new(
-                        listing.iter().cloned().sorted().collect::<Vec<_>>(),
-                    )),
+                    TestFileOpsEntry::Directory(listing) => {
+                        Some(listing.iter().cloned().sorted().collect::<Vec<_>>().into())
+                    }
                     _ => None,
                 })
                 .ok_or_else(|| anyhow::anyhow!("couldn't find dir {:?}", path))
@@ -784,7 +784,7 @@ pub mod testing {
         async fn read_dir_with_ignores(&self, path: &CellPath) -> SharedResult<ReadDirOutput> {
             Ok(ReadDirOutput {
                 included: self.read_dir(path).await?,
-                ignored: Arc::new(Vec::new()),
+                ignored: Vec::new().into(),
             })
         }
 

@@ -173,9 +173,9 @@ pub struct StarlarkReadDirSet {
     /// Cell path to the directory/files.
     pub cell_path: CellPath,
     /// Files that are not ignored within the buckconfig.
-    pub included: Arc<Vec<SimpleDirEntry>>,
+    pub included: Arc<[SimpleDirEntry]>,
     /// Files that are ignored within the buckconfig.
-    pub ignored: Option<Arc<Vec<SimpleDirEntry>>>,
+    pub ignored: Option<Arc<[SimpleDirEntry]>>,
 }
 
 starlark_simple_value!(StarlarkReadDirSet);

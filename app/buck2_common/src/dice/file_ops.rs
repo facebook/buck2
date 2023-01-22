@@ -356,7 +356,7 @@ impl<'c> FileOps for DiceFileOps<'c> {
             .await
     }
 
-    async fn read_dir(&self, path: &CellPath) -> SharedResult<Arc<Vec<SimpleDirEntry>>> {
+    async fn read_dir(&self, path: &CellPath) -> SharedResult<Arc<[SimpleDirEntry]>> {
         Ok(self.read_dir_with_ignores(path).await?.included)
     }
 
