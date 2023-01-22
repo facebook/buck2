@@ -7,8 +7,43 @@
  * of this source tree.
  */
 
+use std::hash::Hash;
+use std::hash::Hasher;
+
 use allocative::Allocative;
 use derive_more::Display;
+use dupe::Dupe;
+use fnv::FnvHasher;
+use internment_tweaks::Equiv;
+use internment_tweaks::Intern;
+use internment_tweaks::StaticInterner;
+
+#[derive(Clone, Debug, Display, Eq, PartialEq, Ord, PartialOrd, Allocative)]
+struct CellNameData(Box<str>);
+
+#[allow(clippy::derive_hash_xor_eq)]
+impl Hash for CellNameData {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        CellNameDataRef(&self.0).hash(state)
+    }
+}
+
+#[derive(Clone, Debug, Display, Hash, Eq, PartialEq)]
+struct CellNameDataRef<'a>(&'a str);
+
+impl<'a> Equiv<CellNameData> for CellNameDataRef<'a> {
+    fn equivalent(&self, key: &CellNameData) -> bool {
+        self.0 == &*key.0
+    }
+}
+
+impl<'a> From<CellNameDataRef<'a>> for CellNameData {
+    fn from(d: CellNameDataRef<'a>) -> Self {
+        CellNameData(d.0.into())
+    }
+}
+
+static INTERNER: StaticInterner<CellNameData, FnvHasher> = StaticInterner::new();
 
 /// A 'CellName' is a canonicalized, human-readable name that corresponds to a
 /// 'CellInstance'. There should be a one to one mapping between a 'CellName'
@@ -20,16 +55,16 @@ use derive_more::Display;
 /// invalid cell name of `foo/bar`.
 // TODO consider if we need to intern the string
 #[derive(
-    Clone, Debug, Display, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative
+    Clone, Dupe, Debug, Display, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative
 )]
-pub struct CellName(String);
+pub struct CellName(Intern<CellNameData>);
 
 impl CellName {
     pub fn unchecked_new(name: &str) -> CellName {
-        CellName(name.to_owned())
+        CellName(INTERNER.intern(CellNameDataRef(name)))
     }
 
     pub fn as_str(&self) -> &str {
-        &self.0
+        &self.0.0
     }
 }
