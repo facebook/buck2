@@ -7,6 +7,9 @@
  * of this source tree.
  */
 
+use std::fmt;
+use std::fmt::Display;
+
 use allocative::Allocative;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::TargetPattern;
@@ -21,12 +24,12 @@ pub enum VisibilityError {
     NotVisibleTo(TargetLabel, TargetLabel),
 }
 
-#[derive(Debug, Eq, PartialEq, Hash, Allocative)]
+#[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative, derive_more::Display)]
 pub struct VisibilityPattern(pub ParsedPattern<TargetPattern>);
 
 /// Represents the visibility spec of a target. Note that targets in the same package will ignore the
 /// visibility spec of each other.
-#[derive(Debug, Eq, PartialEq, Hash, Allocative)]
+#[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative)]
 pub enum VisibilitySpecification {
     Public,
     // Default is used when a target doesn't specify any visibility.
@@ -46,6 +49,25 @@ impl VisibilitySpecification {
                     }
                 }
                 false
+            }
+        }
+    }
+}
+
+impl Display for VisibilitySpecification {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            VisibilitySpecification::Public => write!(f, "[\"PUBLIC\"]"),
+            VisibilitySpecification::Default => write!(f, "[]"),
+            VisibilitySpecification::VisibleTo(patterns) => {
+                write!(f, "[")?;
+                for (i, pattern) in patterns.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "\"{}\"", pattern)?;
+                }
+                write!(f, "]")
             }
         }
     }
