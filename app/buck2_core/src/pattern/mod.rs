@@ -347,7 +347,7 @@ impl<T: PatternType> ParsedPattern<T> {
     }
 }
 
-impl Display for ParsedPattern<ProvidersPattern> {
+impl<T: Display> Display for ParsedPattern<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             ParsedPattern::Target(package, pattern) => {
