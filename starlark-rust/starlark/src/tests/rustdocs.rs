@@ -90,7 +90,7 @@ def custom_types(arg1: str.type, arg2: "input") -> "output": pass
 def default_arg(arg1: [None, ""] = None, arg2: "" = None) -> [str.type]: pass
 def pos_named(arg1: int.type, *, arg2: int.type) -> int.type: pass
 def simple(arg_int: int.type, arg_bool: bool.type, arg_vec: [str.type], arg_dict: {str.type: (bool.type, int.type)}) -> None: pass
-def with_arguments() -> int.type: pass
+def with_arguments(*args, **kwargs) -> int.type: pass
 "#,
     );
 

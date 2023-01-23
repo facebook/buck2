@@ -511,9 +511,14 @@ fn render_documentation(x: &StarFun) -> syn::Result<(Ident, TokenStream)> {
     let documentation_signature = if need_render_signature {
         render_signature(x)?
     } else {
-        quote_spanned! { span=>
-            starlark::eval::ParametersSpec::<starlark::values::FrozenValue>::new(#name_str.to_owned())
-                    .finish()
+        // An Arguments can take anything, so give the most generic documentation signature
+        quote_spanned! {
+            span=> {
+                let mut __signature = starlark::eval::ParametersSpec::<starlark::values::FrozenValue>::new(#name_str.to_owned());
+                __signature.args();
+                __signature.kwargs();
+                __signature.finish()
+            }
         }
     };
 
@@ -524,7 +529,11 @@ fn render_documentation(x: &StarFun) -> syn::Result<(Ident, TokenStream)> {
     let parameter_types: Vec<_> = x
         .args
         .iter()
-        .filter(|a| a.pass_style != StarArgPassStyle::This) // "this" gets ignored when creating the signature, so make sure the indexes match up.
+        .filter(|a| {
+            // "this" gets ignored when creating the signature, so make sure the indexes match up.
+            // Arguments doesn't correspond to a parameter type, since it is many parameters
+            a.pass_style != StarArgPassStyle::This && a.pass_style != StarArgPassStyle::Arguments
+        })
         .enumerate()
         .map(|(i, arg)| {
             let typ_str = render_starlark_type(span, &arg.ty, &arg.starlark_type);
