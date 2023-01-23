@@ -8,6 +8,7 @@
  */
 
 pub mod file_names;
+pub mod options;
 pub mod upload;
 
 use std::io::Cursor;
@@ -26,6 +27,7 @@ use buck2_cli_proto::*;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::async_fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::fs::working_dir::WorkingDir;
 use buck2_data::buck_event;
@@ -180,6 +182,10 @@ impl EventLogPathBuf {
     pub fn infer(path: AbsPathBuf) -> anyhow::Result<Self> {
         Self::infer_opt(path)?
             .map_err(|NoInference(path)| EventLogInferenceError::InvalidExtension(path).into())
+    }
+
+    pub fn path(&self) -> &AbsPath {
+        &self.path
     }
 
     fn infer_opt(path: AbsPathBuf) -> anyhow::Result<Result<Self, NoInference>> {

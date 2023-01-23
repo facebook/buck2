@@ -10,7 +10,6 @@
 use std::pin::Pin;
 use std::time::SystemTime;
 
-use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use futures::stream::BoxStream;
 use futures::task::Poll;
 use futures::Future;
@@ -42,10 +41,9 @@ pub struct Replayer<T = BoxStream<'static, anyhow::Result<StreamValue>>> {
 
 impl Replayer {
     pub async fn new(
-        log_path: AbsPathBuf,
+        log_path: EventLogPathBuf,
         speed: Option<f64>,
     ) -> anyhow::Result<(Self, Invocation)> {
-        let log_path = EventLogPathBuf::infer(log_path)?;
         let (invocation, events) = log_path.unpack_stream().await?;
 
         let syncher = Syncher::new(speed);

@@ -15,10 +15,8 @@ use std::time::SystemTimeError;
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::exit_result::ExitResult;
-use buck2_client_ctx::path_arg::PathArg;
 use buck2_client_ctx::stream_value::StreamValue;
-use buck2_client_ctx::subscribers::event_log::file_names::retrieve_nth_recent_log;
-use buck2_client_ctx::subscribers::event_log::EventLogPathBuf;
+use buck2_client_ctx::subscribers::event_log::options::EventLogOptions;
 use buck2_client_ctx::subscribers::subscriber_unpack::UnpackingEventSubscriber;
 use buck2_client_ctx::subscribers::superconsole::timed_list::TimedList;
 use buck2_client_ctx::subscribers::superconsole::SessionInfoComponent;
@@ -36,20 +34,9 @@ use tokio_stream::StreamExt;
 
 /// Show the spans that were open when the log ended
 #[derive(Debug, clap::Parser)]
-#[clap(group = clap::ArgGroup::with_name("event_log"))]
 pub struct WhatUpCommand {
-    /// A path to an event-log file to read from. Only works for log files with a single command in them.
-    #[clap(group = "event_log", value_name = "PATH")]
-    path: Option<PathArg>,
-
-    /// Which recent command to read the event log from.
-    #[clap(
-        long,
-        help = "Replay the Nth most recent command (`--recent 0` is the most recent).",
-        group = "event_log",
-        value_name = "NUMBER"
-    )]
-    pub recent: Option<usize>,
+    #[clap(flatten)]
+    event_log: EventLogOptions,
 
     /// Show spans after X amount of miliseconds
     #[clap(
@@ -62,18 +49,10 @@ pub struct WhatUpCommand {
 
 impl WhatUpCommand {
     pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext) -> ExitResult {
-        let Self {
-            path,
-            recent,
-            after,
-        } = self;
+        let Self { event_log, after } = self;
         let cutoff_time = after.map(Duration::from_millis);
 
-        let path = match path {
-            Some(path) => path.resolve(&ctx.working_dir),
-            None => retrieve_nth_recent_log(&ctx, recent.unwrap_or(0))?.into_abs_path_buf(),
-        };
-        let log_path = EventLogPathBuf::infer(path)?;
+        let log_path = event_log.get(&ctx)?;
 
         // Create space for a very big console
         let mut components: Vec<Box<dyn Component>> = vec![box SessionInfoComponent];
