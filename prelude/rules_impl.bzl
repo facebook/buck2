@@ -225,7 +225,7 @@ def _python_executable_attrs():
     return {
         "allow_huge_dwp": attrs.bool(default = False),
         "enable_distributed_thinlto": attrs.bool(default = False),
-        "make_pex": attrs.option(attrs.exec_dep(providers = [RunInfo])),
+        "make_pex": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
         "package_split_dwarf_dwp": attrs.bool(default = False),
         "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source(allow_directory = True)), sorted = True, default = []),
         "_create_manifest_for_source_dir": _create_manifest_for_source_dir(),
@@ -240,7 +240,7 @@ def _python_executable_attrs():
 def _python_test_attrs():
     test_attrs = _python_executable_attrs()
     test_attrs.update({
-        "remote_execution": attrs.option(attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False)),
+        "remote_execution": attrs.option(attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False), default = None),
         "_test_main": attrs.source(default = "prelude//python/tools:__test_main__.py"),
     })
     return test_attrs
