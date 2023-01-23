@@ -875,6 +875,7 @@ mod tests {
     use buck2_node::attrs::coerced_attr::CoercedAttr;
     use buck2_node::attrs::configured_attr::ConfiguredAttr;
     use buck2_node::attrs::inspect_options::AttrInspectOptions;
+    use buck2_node::attrs::internal::internal_attrs;
     use buck2_node::nodes::eval_result::EvaluationResult;
     use buck2_node::nodes::unconfigured::testing::TargetNodeExt;
     use buck2_node::nodes::unconfigured::TargetNode;
@@ -1010,14 +1011,20 @@ mod tests {
             .get_configured_target_node(&label1.configure(cfg.dupe()))
             .await?;
         let node = node.require_compatible()?;
-        let node_attrs: SmallMap<_, _> = node.attrs(AttrInspectOptions::All).collect();
+        let node_attrs: SmallMap<_, _> = node
+            .attrs(AttrInspectOptions::All)
+            .filter(|(k, _)| !internal_attrs().contains_key(k))
+            .collect();
         assert_eq!(node_attrs, conf_attrs1);
 
         let node = computations
             .get_configured_target_node(&label2.configure(cfg.dupe()))
             .await?;
         let node = node.require_compatible()?;
-        let node_attrs: SmallMap<_, _> = node.attrs(AttrInspectOptions::All).collect();
+        let node_attrs: SmallMap<_, _> = node
+            .attrs(AttrInspectOptions::All)
+            .filter(|(k, _)| !internal_attrs().contains_key(k))
+            .collect();
         assert_eq!(node_attrs, conf_attrs2);
 
         Ok(())

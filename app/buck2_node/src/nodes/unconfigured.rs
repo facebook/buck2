@@ -399,7 +399,6 @@ pub mod testing {
     use std::sync::Arc;
 
     use buck2_core::build_file_path::BuildFilePath;
-    use buck2_core::collections::ordered_map::OrderedMap;
     use buck2_core::fs::paths::file_name::FileNameBuf;
     use buck2_core::package::PackageLabel;
     use buck2_core::target::TargetLabel;
@@ -412,7 +411,6 @@ pub mod testing {
     use crate::attrs::coerced_attr::CoercedAttr;
     use crate::attrs::coerced_deps_collector::CoercedDepsCollector;
     use crate::attrs::fmt_context::AttrFmtContext;
-    use crate::attrs::id::AttributeId;
     use crate::attrs::inspect_options::AttrInspectOptions;
     use crate::attrs::spec::AttributeSpec;
     use crate::attrs::values::AttrValues;
@@ -434,16 +432,24 @@ pub mod testing {
             rule_type: RuleType,
             attrs: Vec<(&str, Attribute, CoercedAttr)>,
         ) -> TargetNode {
-            let mut indices = OrderedMap::with_capacity(attrs.len());
-            let mut attributes = AttrValues::with_capacity(attrs.len());
+            let attr_spec = AttributeSpec::testing_new(
+                attrs
+                    .iter()
+                    .map(|(name, attr, _)| ((*name).to_owned(), attr.clone()))
+                    .collect(),
+            );
+
+            let mut attributes = AttrValues::with_capacity(attrs.len() + 1);
+
+            attributes.push_sorted(
+                AttributeSpec::name_attr_id(),
+                CoercedAttr::Literal(AttrLiteral::String(label.name().value().into())),
+            );
 
             let mut deps_cache = CoercedDepsCollector::new();
 
-            for (index_in_attribute_spec, (name, attr, val)) in attrs.into_iter().enumerate() {
-                let idx = AttributeId {
-                    index_in_attribute_spec: u16::try_from(index_in_attribute_spec).unwrap(),
-                };
-                indices.insert(name.to_owned(), attr);
+            for (name, _attr, val) in attrs.into_iter() {
+                let idx = attr_spec.attribute_id_by_name(name).unwrap();
                 val.traverse(label.pkg(), &mut deps_cache).unwrap();
                 attributes.push_sorted(idx, val);
             }
@@ -454,7 +460,7 @@ pub mod testing {
             ));
             TargetNode::new(
                 Arc::new(Rule {
-                    attributes: AttributeSpec::testing_new(indices),
+                    attributes: attr_spec,
                     rule_type,
                     rule_kind: RuleKind::Normal,
                     cfg: None,

@@ -9,6 +9,7 @@
 
 use allocative::Allocative;
 use buck2_core::collections::ordered_map::OrderedMap;
+use once_cell::sync::Lazy;
 use starlark_map::small_map;
 
 use crate::attrs::attr::Attribute;
@@ -16,6 +17,7 @@ use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::id::AttributeId;
 use crate::attrs::inspect_options::AttrInspectOptions;
 use crate::attrs::internal::internal_attrs;
+use crate::attrs::internal::NAME_ATTRIBUTE_FIELD;
 use crate::attrs::values::AttrValues;
 
 /// AttributeSpec holds the specification for a rules attributes as defined in the rule() call. This
@@ -42,6 +44,22 @@ pub(crate) enum AttributeSpecError {
 }
 
 impl AttributeSpec {
+    pub(crate) fn name_attr_id() -> AttributeId {
+        static ID: Lazy<AttributeId> = Lazy::new(|| {
+            let index_in_attribute_spec = u16::try_from(
+                internal_attrs()
+                    .keys()
+                    .position(|name| *name == NAME_ATTRIBUTE_FIELD)
+                    .unwrap(),
+            )
+            .unwrap();
+            AttributeId {
+                index_in_attribute_spec,
+            }
+        });
+        *ID
+    }
+
     fn new(attributes: OrderedMap<String, Attribute>) -> anyhow::Result<AttributeSpec> {
         if attributes.len() > AttributeId::MAX_INDEX as usize {
             return Err(AttributeSpecError::TooManyAttributes(attributes.len()).into());
@@ -111,7 +129,7 @@ impl AttributeSpec {
             .1
     }
 
-    fn attribute_id_by_name(&self, name: &str) -> Option<AttributeId> {
+    pub(crate) fn attribute_id_by_name(&self, name: &str) -> Option<AttributeId> {
         self.attributes
             .get_index_of(name)
             .map(|index_in_attribute_spec| AttributeId {
@@ -205,7 +223,7 @@ pub(crate) mod testing {
 
     impl AttributeSpec {
         pub(crate) fn testing_new(attributes: OrderedMap<String, Attribute>) -> AttributeSpec {
-            AttributeSpec::new(attributes).unwrap()
+            AttributeSpec::from(attributes.into_iter().collect()).unwrap()
         }
     }
 }
