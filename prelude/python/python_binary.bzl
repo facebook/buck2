@@ -313,7 +313,7 @@ def convert_python_library_to_executable(
         )
 
         executable_info, _, _ = cxx_executable(ctx, impl_params)
-        extra["native-executable"] = [DefaultInfo(default_output = executable_info.binary)]
+        extra["native-executable"] = [DefaultInfo(default_output = executable_info.binary, sub_targets = executable_info.sub_targets)]
 
         linkable_graph = create_linkable_graph(
             ctx,
