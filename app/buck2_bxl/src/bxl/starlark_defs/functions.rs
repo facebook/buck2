@@ -12,6 +12,7 @@ use std::time::Instant;
 use anyhow::Context;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
+use buck2_core::provider::label::NonDefaultProvidersName;
 use buck2_core::provider::label::ProviderName;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
@@ -196,6 +197,8 @@ fn value_to_providers_name<'v>(subtarget_name: Value<'v>) -> anyhow::Result<Prov
     Ok(if subtarget.is_empty() {
         ProvidersName::Default
     } else {
-        ProvidersName::Named(subtarget.into_boxed_slice())
+        ProvidersName::NonDefault(box NonDefaultProvidersName::Named(
+            subtarget.into_boxed_slice(),
+        ))
     })
 }

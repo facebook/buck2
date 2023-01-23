@@ -24,6 +24,7 @@
 #![feature(box_syntax)]
 #![feature(never_type)]
 #![feature(pattern)]
+#![feature(box_patterns)]
 #![cfg_attr(windows, feature(windows_file_type_ext))]
 // Plugins
 #![cfg_attr(feature = "gazebo_lint", feature(plugin))]

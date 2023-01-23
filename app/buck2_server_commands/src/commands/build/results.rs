@@ -185,6 +185,7 @@ pub mod build_report {
     use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
     use buck2_core::fs::project::ProjectRelativePathBuf;
     use buck2_core::fs::project::ProjectRoot;
+    use buck2_core::provider::label::NonDefaultProvidersName;
     use buck2_core::provider::label::ProvidersName;
     use buck2_core::target::TargetLabel;
     use buck2_events::trace::TraceId;
@@ -417,8 +418,10 @@ pub mod build_report {
         match label {
             BuildOwner::Target(t) => match t.name() {
                 ProvidersName::Default => "DEFAULT".to_owned(),
-                ProvidersName::Named(names) => names.iter().join("|"),
-                ProvidersName::UnrecognizedFlavor(f) => {
+                ProvidersName::NonDefault(box NonDefaultProvidersName::Named(names)) => {
+                    names.iter().join("|")
+                }
+                ProvidersName::NonDefault(box NonDefaultProvidersName::UnrecognizedFlavor(f)) => {
                     format!("#{}", f)
                 }
             },

@@ -11,6 +11,7 @@
 
 #![feature(async_closure)]
 #![feature(box_syntax)]
+#![feature(box_patterns)]
 
 pub mod commands;
 pub mod dot;

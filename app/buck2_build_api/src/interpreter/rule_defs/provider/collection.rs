@@ -15,6 +15,7 @@ use allocative::Allocative;
 use buck2_core::provider::id::ProviderId;
 use buck2_core::provider::id::ProviderIdWithType;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
+use buck2_core::provider::label::NonDefaultProvidersName;
 use buck2_core::provider::label::ProviderName;
 use buck2_core::provider::label::ProvidersName;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
@@ -400,7 +401,7 @@ impl FrozenProviderCollectionValue {
     pub fn lookup_inner(&self, label: &ConfiguredProvidersLabel) -> anyhow::Result<Self> {
         match label.name() {
             ProvidersName::Default => anyhow::Ok(self.dupe()),
-            ProvidersName::Named(provider_names) => {
+            ProvidersName::NonDefault(box NonDefaultProvidersName::Named(provider_names)) => {
                 Ok(FrozenProviderCollectionValue::from_value(
                     self.value().try_map(|v| {
                         let mut collection_value = v;
@@ -435,7 +436,7 @@ impl FrozenProviderCollectionValue {
                     })?,
                 ))
             }
-            ProvidersName::UnrecognizedFlavor(flavor) => {
+            ProvidersName::NonDefault(box NonDefaultProvidersName::UnrecognizedFlavor(flavor)) => {
                 Err(ProviderCollectionError::UnknownFlavors {
                     target: label.unconfigured().to_string(),
                     flavor: (**flavor).to_owned(),

@@ -9,6 +9,7 @@
 
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::TargetPattern;
+use buck2_core::provider::label::NonDefaultProvidersName;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::TargetLabel;
@@ -29,7 +30,7 @@ enum AttrCoercionContextError {
 pub trait AttrCoercionContext {
     fn coerce_target(&self, value: &str) -> anyhow::Result<TargetLabel> {
         let label = self.coerce_label(value)?;
-        if let ProvidersName::Named(_) = label.name() {
+        if let ProvidersName::NonDefault(box NonDefaultProvidersName::Named(_)) = label.name() {
             return Err(AttrCoercionContextError::UnexpectedProvidersName(value.to_owned()).into());
         }
         Ok(label.into_parts().0)

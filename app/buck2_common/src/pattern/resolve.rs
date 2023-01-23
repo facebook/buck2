@@ -104,6 +104,7 @@ mod tests {
     use buck2_core::pattern::PatternType;
     use buck2_core::pattern::ProvidersPattern;
     use buck2_core::pattern::TargetPattern;
+    use buck2_core::provider::label::NonDefaultProvidersName;
     use buck2_core::provider::label::ProviderName;
     use buck2_core::provider::label::ProvidersName;
     use buck2_core::target::TargetName;
@@ -266,10 +267,12 @@ mod tests {
                         },
                         ProvidersPattern {
                             target: TargetName::unchecked_new("other_target"),
-                            providers: ProvidersName::Named(box [ProviderName::new(
-                                "my-label".to_owned(),
-                            )
-                            .unwrap()]),
+                            providers: ProvidersName::NonDefault(
+                                box NonDefaultProvidersName::Named(box [ProviderName::new(
+                                    "my-label".to_owned(),
+                                )
+                                .unwrap()]),
+                            ),
                         },
                     ]),
                 ),

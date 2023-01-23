@@ -64,15 +64,8 @@ impl ProviderName {
     }
 }
 
-///
-/// A 'ProvidersName' is an optional String label that refers to the specific
-/// set of inner providers of a rule.
-/// It should be non-empty alphanumeric characteres, '/', '.', ',', '-','=',
-/// and'_' character. All other special characters including spaces are
-/// prohibited.
 #[derive(Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative)]
-pub enum ProvidersName {
-    Default,
+pub enum NonDefaultProvidersName {
     Named(Box<[ProviderName]>),
     // For some flavors from buck1, we can translate them to ProvidersName::Named
     // as we know that we can implement them as a subtarget. For many flavored targets,
@@ -83,7 +76,19 @@ pub enum ProvidersName {
     // so that we can display them in their original form.
 }
 
-assert_eq_size!(ProvidersName, [usize; 3]);
+///
+/// A 'ProvidersName' is an optional String label that refers to the specific
+/// set of inner providers of a rule.
+/// It should be non-empty alphanumeric characteres, '/', '.', ',', '-','=',
+/// and'_' character. All other special characters including spaces are
+/// prohibited.
+#[derive(Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative)]
+pub enum ProvidersName {
+    Default,
+    NonDefault(Box<NonDefaultProvidersName>),
+}
+
+assert_eq_size!(ProvidersName, [usize; 1]);
 
 impl Default for ProvidersName {
     fn default() -> Self {
@@ -97,13 +102,13 @@ impl Display for ProvidersName {
             ProvidersName::Default => {
                 write!(f, "")
             }
-            ProvidersName::Named(names) => {
+            ProvidersName::NonDefault(box NonDefaultProvidersName::Named(names)) => {
                 for name in &**names {
                     write!(f, "[{}]", name)?;
                 }
                 Ok(())
             }
-            ProvidersName::UnrecognizedFlavor(s) => {
+            ProvidersName::NonDefault(box NonDefaultProvidersName::UnrecognizedFlavor(s)) => {
                 write!(f, "#{}", s)
             }
         }
@@ -123,7 +128,7 @@ pub struct ProvidersLabel {
     name: ProvidersName,
 }
 
-assert_eq_size!(ProvidersLabel, [usize; 6]);
+assert_eq_size!(ProvidersLabel, [usize; 4]);
 
 impl ProvidersLabel {
     pub fn new(target: TargetLabel, name: ProvidersName) -> Self {
@@ -263,10 +268,10 @@ pub mod testing {
                     TargetName::new(target).unwrap(),
                 ),
                 match name {
-                    Some(n) => ProvidersName::Named(
+                    Some(n) => ProvidersName::NonDefault(box NonDefaultProvidersName::Named(
                         n.map(|s| ProviderName::new((*s).to_owned()).unwrap())
                             .into_boxed_slice(),
-                    ),
+                    )),
                     _ => ProvidersName::Default,
                 },
             )

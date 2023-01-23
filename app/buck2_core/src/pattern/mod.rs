@@ -36,6 +36,7 @@ use crate::pattern::ascii_pattern::AsciiChar;
 use crate::pattern::ascii_pattern::AsciiStr;
 use crate::pattern::ascii_pattern::AsciiStr2;
 use crate::provider::flavors::map_flavors;
+use crate::provider::label::NonDefaultProvidersName;
 use crate::provider::label::ProviderName;
 use crate::provider::label::ProvidersLabel;
 use crate::provider::label::ProvidersName;
@@ -174,7 +175,12 @@ impl PatternType for ProvidersPattern {
                 ));
             }
 
-            Ok((t, ProvidersName::Named(names.into_boxed_slice())))
+            Ok((
+                t,
+                ProvidersName::NonDefault(box NonDefaultProvidersName::Named(
+                    names.into_boxed_slice(),
+                )),
+            ))
         } else {
             Ok((s, ProvidersName::Default))
         }
@@ -791,10 +797,10 @@ mod tests {
             ProvidersPattern {
                 target: TargetName::unchecked_new(target),
                 providers: providers.map_or(ProvidersName::Default, |n| {
-                    ProvidersName::Named(
+                    ProvidersName::NonDefault(box NonDefaultProvidersName::Named(
                         n.map(|s| ProviderName::new((*s).to_owned()).unwrap())
                             .into_boxed_slice(),
-                    )
+                    ))
                 }),
             },
         )

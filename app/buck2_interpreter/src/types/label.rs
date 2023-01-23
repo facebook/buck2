@@ -11,6 +11,7 @@ use std::hash::Hash;
 
 use allocative::Allocative;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
+use buck2_core::provider::label::NonDefaultProvidersName;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use derive_more::Display;
@@ -123,11 +124,15 @@ fn configured_label_methods(builder: &mut MethodsBuilder) {
     fn sub_target<'v>(this: &'v Label) -> anyhow::Result<Option<Vec<&'v str>>> {
         Ok(match this.label.name() {
             ProvidersName::Default => None,
-            ProvidersName::Named(s) => Some(s.iter().map(|p| p.as_str()).collect()),
-            ProvidersName::UnrecognizedFlavor(_) => unreachable!(
-                "This should have been an error when looking up the corresponding analysis (`{}`)",
-                this.label
-            ),
+            ProvidersName::NonDefault(box NonDefaultProvidersName::Named(s)) => {
+                Some(s.iter().map(|p| p.as_str()).collect())
+            }
+            ProvidersName::NonDefault(box NonDefaultProvidersName::UnrecognizedFlavor(_)) => {
+                unreachable!(
+                    "This should have been an error when looking up the corresponding analysis (`{}`)",
+                    this.label
+                )
+            }
         })
     }
 
@@ -233,11 +238,15 @@ fn label_methods(builder: &mut MethodsBuilder) {
     fn sub_target<'v>(this: &'v StarlarkProvidersLabel) -> anyhow::Result<Option<Vec<&'v str>>> {
         Ok(match this.label.name() {
             ProvidersName::Default => None,
-            ProvidersName::Named(s) => Some(s.iter().map(|p| p.as_str()).collect()),
-            ProvidersName::UnrecognizedFlavor(_) => unreachable!(
-                "This should have been an error when looking up the corresponding analysis (`{}`)",
-                this.label
-            ),
+            ProvidersName::NonDefault(box NonDefaultProvidersName::Named(s)) => {
+                Some(s.iter().map(|p| p.as_str()).collect())
+            }
+            ProvidersName::NonDefault(box NonDefaultProvidersName::UnrecognizedFlavor(_)) => {
+                unreachable!(
+                    "This should have been an error when looking up the corresponding analysis (`{}`)",
+                    this.label
+                )
+            }
         })
     }
 
