@@ -83,6 +83,8 @@ pub enum ProvidersName {
     // so that we can display them in their original form.
 }
 
+assert_eq_size!(ProvidersName, [usize; 3]);
+
 impl Default for ProvidersName {
     fn default() -> Self {
         Self::Default
