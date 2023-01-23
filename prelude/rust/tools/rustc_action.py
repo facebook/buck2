@@ -211,6 +211,8 @@ async def main() -> int:
             # on Mac.
             "USER",
             "DOTSLASH_CACHE",
+            # Required to run Python on Windows (for linker wrapper).
+            "SYSTEMROOT",
         ]
         if k in os.environ
     }
