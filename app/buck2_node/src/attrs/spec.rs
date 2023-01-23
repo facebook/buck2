@@ -158,7 +158,7 @@ impl AttributeSpec {
                     Some((name, entry_attr))
                 }
                 _ => {
-                    let default: &CoercedAttr = match &attr.default {
+                    let default: &CoercedAttr = match attr.default() {
                         Some(default) => default,
                         None => panic!("no default for attribute `{}`", name),
                     };
@@ -182,7 +182,7 @@ impl AttributeSpec {
         }
 
         if opts.include_default() {
-            return self.attribute_by_id(idx).default.as_deref();
+            return self.attribute_by_id(idx).default().map(|v| &**v);
         }
         None
     }

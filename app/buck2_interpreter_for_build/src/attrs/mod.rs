@@ -52,19 +52,14 @@ impl AttributeCoerceExt for Attribute {
         coercer_ctx: &dyn AttrCoercionContext,
         value: Option<Value<'v>>,
     ) -> anyhow::Result<CoercedValue> {
-        match (&self.default, value) {
+        match (self.default(), value) {
             (default, Some(value)) if !value.is_none() => self
-                .coercer
-                .coerce_with_default(
-                    configurable,
-                    coercer_ctx,
-                    value,
-                    default.as_ref().map(|x| &**x),
-                )
+                .coercer()
+                .coerce_with_default(configurable, coercer_ctx, value, default.map(|x| &**x))
                 .map(CoercedValue::Custom)
                 .with_context(|| format!("when coercing attribute `{}`", param_name)),
             (Some(_), _) => {
-                if self.deprecated_default {
+                if self.deprecated_default() {
                     soft_error!(
                         "attr_default",
                         anyhow::anyhow!(
@@ -82,10 +77,10 @@ impl AttributeCoerceExt for Attribute {
     }
 
     fn docstring(&self) -> Option<DocString> {
-        DocString::from_docstring(DocStringKind::Starlark, &self.doc)
+        DocString::from_docstring(DocStringKind::Starlark, self.doc())
     }
 
     fn starlark_type(&self) -> String {
-        self.coercer.starlark_type()
+        self.coercer().starlark_type()
     }
 }

@@ -46,7 +46,7 @@ pub const VISIBILITY_ATTRIBUTE_FIELD: &str = "visibility";
 pub const TESTS_ATTRIBUTE_FIELD: &str = "tests";
 
 fn name_attribute() -> Attribute {
-    Attribute::new_internal(None, "name of the target".to_owned(), AttrType::string())
+    Attribute::new_simple(None, "name of the target", AttrType::string())
 }
 
 pub fn internal_attrs_platform_info_provider_id() -> &'static Arc<ProviderId> {
@@ -61,11 +61,9 @@ pub fn internal_attrs_platform_info_provider_id() -> &'static Arc<ProviderId> {
 }
 
 fn default_target_platform_attribute() -> Attribute {
-    Attribute::new_internal(
-        Some(Arc::new(CoercedAttr::Literal(
-            AttrLiteral::None,
-        ))),
-        "specifies the default target platform, used when no platforms are specified on the command line".to_owned(),
+    Attribute::new_simple(
+        Some(Arc::new(CoercedAttr::Literal(AttrLiteral::None))),
+        "specifies the default target platform, used when no platforms are specified on the command line",
         AttrType::option(AttrType::dep(ProviderIdSet::from(vec![
             internal_attrs_platform_info_provider_id().dupe(),
         ]))),
@@ -74,20 +72,18 @@ fn default_target_platform_attribute() -> Attribute {
 
 fn target_compatible_with_attribute() -> Attribute {
     let entry_type = AttrType::configuration_dep();
-    Attribute::new_internal(
-        Some(Arc::new(AnyAttrType::empty_list(),
-        )),
-        "a list of constraints that are required to be satisfied for this target to be compatible with a configuration".to_owned(),
+    Attribute::new_simple(
+        Some(Arc::new(AnyAttrType::empty_list())),
+        "a list of constraints that are required to be satisfied for this target to be compatible with a configuration",
         AttrType::list(entry_type),
     )
 }
 
 fn exec_compatible_with_attribute() -> Attribute {
     let entry_type = AttrType::configuration_dep();
-    Attribute::new_internal(
-        Some(Arc::new(AnyAttrType::empty_list(),
-        )),
-        "a list of constraints that are required to be satisfied for this target to be compatible with an execution platform".to_owned(),
+    Attribute::new_simple(
+        Some(Arc::new(AnyAttrType::empty_list())),
+        "a list of constraints that are required to be satisfied for this target to be compatible with an execution platform",
         AttrType::list(entry_type),
     )
 }
@@ -95,18 +91,18 @@ fn exec_compatible_with_attribute() -> Attribute {
 fn visibility_attribute() -> Attribute {
     // TODO(cjhopman): We currently just use strings here and then do custom validation and conversion. Maybe we should have an attribute type for this.
     let entry_type = AttrType::string();
-    Attribute::new_internal(
+    Attribute::new_simple(
         Some(Arc::new(AnyAttrType::empty_list())),
-        "a list of visibility patterns restricting what targets can depend on this one".to_owned(),
+        "a list of visibility patterns restricting what targets can depend on this one",
         AttrType::list(entry_type),
     )
 }
 
 fn tests_attribute() -> Attribute {
     let entry_type = AttrType::label();
-    Attribute::new_internal(
+    Attribute::new_simple(
         Some(Arc::new(AnyAttrType::empty_list())),
-        "a list of targets that provide tests for this one".to_owned(),
+        "a list of targets that provide tests for this one",
         AttrType::list(entry_type),
     )
 }

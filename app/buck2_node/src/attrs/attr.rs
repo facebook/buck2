@@ -17,32 +17,72 @@ use crate::attrs::attr_type::AttrType;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::display::AttrDisplayWithContextExt;
 
+#[derive(Debug, thiserror::Error)]
+enum AttributeError {
+    #[error("`default` must be set when `deprecated_default = true` (internal error)")]
+    DeprecatedDefaultWithoutDefault,
+}
+
 /// Starlark compatible container for results from e.g. `attrs.string()`
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Allocative)]
 pub struct Attribute {
     /// The default value. If None, the value is not optional and must be provided by the user
-    pub default: Option<Arc<CoercedAttr>>,
+    default: Option<Arc<CoercedAttr>>,
     /// If this field is true, it means `default` field contains `None` for `attrs.option()`
     /// and `False` for `attrs.bool()`, and these default values were not
     /// explicitly specified by users. This is a deprecated behavior:
     /// using unspecified default value should be an error.
     /// Currently this is `soft_error` and will be changed to hard error in the future.
-    pub deprecated_default: bool,
+    deprecated_default: bool,
     /// Documentation for what the attribute actually means
-    pub doc: String,
+    doc: String,
     /// The coercer to take this parameter's value from Starlark value -> an
     /// internal representation
-    pub coercer: AttrType,
+    coercer: AttrType,
 }
 
 impl Attribute {
-    pub fn new_internal(default: Option<Arc<CoercedAttr>>, doc: String, coercer: AttrType) -> Self {
-        Self {
+    pub fn new_simple(default: Option<Arc<CoercedAttr>>, doc: &str, coercer: AttrType) -> Self {
+        Attribute {
             default,
             deprecated_default: false,
-            doc,
+            doc: doc.to_owned(),
             coercer,
         }
+    }
+
+    pub fn new(
+        default: Option<Arc<CoercedAttr>>,
+        deprecated_default: bool,
+        doc: &str,
+        coercer: AttrType,
+    ) -> anyhow::Result<Self> {
+        if deprecated_default && default.is_none() {
+            return Err(AttributeError::DeprecatedDefaultWithoutDefault.into());
+        }
+
+        Ok(Attribute {
+            default,
+            deprecated_default,
+            doc: doc.to_owned(),
+            coercer,
+        })
+    }
+
+    pub fn coercer(&self) -> &AttrType {
+        &self.coercer
+    }
+
+    pub fn default(&self) -> Option<&Arc<CoercedAttr>> {
+        self.default.as_ref()
+    }
+
+    pub fn deprecated_default(&self) -> bool {
+        self.deprecated_default
+    }
+
+    pub fn doc(&self) -> &str {
+        &self.doc
     }
 }
 

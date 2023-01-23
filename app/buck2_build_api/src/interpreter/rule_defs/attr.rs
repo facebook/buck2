@@ -44,8 +44,6 @@ enum AttrError {
         OPTION_NONE_EXPLANATION
     )]
     OptionDefaultNone(String),
-    #[error("`default` must be set when `deprecated_default = true` (internal error)")]
-    DeprecatedDefaultWithoutDefault,
 }
 
 pub(crate) trait AttributeExt {
@@ -71,10 +69,6 @@ impl AttributeExt for Attribute {
         doc: &str,
         coercer: AttrType,
     ) -> anyhow::Result<AttributeAsStarlarkValue> {
-        if deprecated_default && default.is_none() {
-            return Err(AttrError::DeprecatedDefaultWithoutDefault.into());
-        }
-
         let default = match default {
             None => None,
             Some(x) => Some(Arc::new(
@@ -87,12 +81,12 @@ impl AttributeExt for Attribute {
                     .context("When coercing attribute default")?,
             )),
         };
-        Ok(AttributeAsStarlarkValue::new(Attribute {
+        Ok(AttributeAsStarlarkValue::new(Attribute::new(
             default,
             deprecated_default,
-            doc: doc.to_owned(),
+            doc,
             coercer,
-        }))
+        )?))
     }
 
     /// An `attr` which is not allowed to have a default as a relative label.
@@ -128,12 +122,11 @@ pub(crate) fn get_attr_coercion_context<'v>(
 fn attr_any<'v>(doc: &'v str) -> AttributeAsStarlarkValue {
     let coercer = AttrType::any();
 
-    AttributeAsStarlarkValue::new(Attribute {
-        default: Some(Arc::new(AnyAttrType::empty_string())),
-        deprecated_default: false,
-        doc: doc.to_owned(),
+    AttributeAsStarlarkValue::new(Attribute::new_simple(
+        Some(Arc::new(AnyAttrType::empty_string())),
+        doc,
         coercer,
-    })
+    ))
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -228,12 +221,11 @@ pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
             }
         };
 
-        Ok(AttributeAsStarlarkValue::new(Attribute {
-            default: coerced_default.map(Arc::new),
-            deprecated_default: false,
-            doc: doc.to_owned(),
+        Ok(AttributeAsStarlarkValue::new(Attribute::new_simple(
+            coerced_default.map(Arc::new),
+            doc,
             coercer,
-        }))
+        )))
     }
 
     fn configured_dep<'v>(
@@ -274,12 +266,11 @@ pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
             }
         };
 
-        Ok(AttributeAsStarlarkValue::new(Attribute {
-            default: coerced_default.map(Arc::new),
-            deprecated_default: false,
-            doc: doc.to_owned(),
+        Ok(AttributeAsStarlarkValue::new(Attribute::new_simple(
+            coerced_default.map(Arc::new),
+            doc,
             coercer,
-        }))
+        )))
     }
 
     fn dep<'v>(
@@ -341,12 +332,11 @@ pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
         inner: &AttributeAsStarlarkValue,
         #[starlark(require = named, default = "")] doc: &str,
     ) -> anyhow::Result<AttributeAsStarlarkValue> {
-        Ok(AttributeAsStarlarkValue::new(Attribute {
-            default: inner.default().duped(),
-            deprecated_default: false,
-            doc: doc.to_owned(),
-            coercer: AttrType::default_only(),
-        }))
+        Ok(AttributeAsStarlarkValue::new(Attribute::new_simple(
+            inner.default().duped(),
+            doc,
+            AttrType::default_only(),
+        )))
     }
 
     fn label<'v>(
@@ -484,12 +474,11 @@ pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
         ]);
         let coercer = AttrType::list(element_type.dupe());
 
-        Ok(AttributeAsStarlarkValue::new(Attribute {
-            default: Some(Arc::new(AnyAttrType::empty_list())),
-            deprecated_default: false,
-            doc: doc.to_owned(),
+        Ok(AttributeAsStarlarkValue::new(Attribute::new_simple(
+            Some(Arc::new(AnyAttrType::empty_list())),
+            doc,
             coercer,
-        }))
+        )))
     }
 
     fn source<'v>(

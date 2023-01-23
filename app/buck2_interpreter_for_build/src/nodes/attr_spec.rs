@@ -72,7 +72,7 @@ impl AttributeSpecExt for AttributeSpec {
         for (attr_name, attr_idx, attribute) in indices {
             let configurable = attr_is_configurable(attr_name);
 
-            let user_value: Option<Value> = match attribute.default {
+            let user_value: Option<Value> = match attribute.default() {
                 Some(_) => param_parser.next_opt(attr_name)?,
                 None => Some(param_parser.next(attr_name)?),
             };
@@ -110,7 +110,7 @@ impl AttributeSpecExt for AttributeSpec {
         let mut signature = ParametersSpec::with_capacity(rule_name, self.len());
         signature.no_more_positional_args();
         for (name, _idx, attribute) in self.attr_specs() {
-            match attribute.default {
+            match attribute.default() {
                 Some(_) => signature.optional(name),
                 None => signature.required(name),
             };

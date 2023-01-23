@@ -163,7 +163,7 @@ impl AnonTargetKey {
         }
         for (k, _, a) in attrs_spec.attr_specs() {
             if !attrs.contains_key(k) && !internal_attrs.contains_key(k) {
-                if let Some(x) = &a.default {
+                if let Some(x) = a.default() {
                     attrs.insert(k.to_owned(), Self::configure_attr(x)?);
                 } else {
                     return Err(AnonTargetsError::MissingAttribute(k.to_owned()).into());
@@ -234,7 +234,7 @@ impl AnonTargetKey {
         }
 
         let ctx = AnonAttrCtx::new();
-        let a = match unpack_dep(&attr.coercer.0) {
+        let a = match unpack_dep(&attr.coercer().0) {
             Some(attr_type) => match Dependency::from_value(x) {
                 Some(dep) => {
                     let label = dep.label().inner().clone();
@@ -243,7 +243,7 @@ impl AnonTargetKey {
                 _ => return Err(AnonTargetsError::InvalidDep(x.get_type().to_owned()).into()),
             },
             _ => attr
-                .coercer
+                .coercer()
                 .0
                 .coerce_item(AttrIsConfigurable::No, &ctx, x)?,
         };

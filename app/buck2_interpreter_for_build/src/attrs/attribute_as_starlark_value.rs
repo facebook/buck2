@@ -46,10 +46,10 @@ impl AttributeAsStarlarkValue {
 
     /// Coercer to put into higher lever coercer (e. g. for `attrs.list(xxx)`).
     pub fn coercer_for_inner(&self) -> AttrType {
-        self.0.coercer.dupe()
+        self.0.coercer().dupe()
     }
 
     pub fn default(&self) -> Option<&Arc<CoercedAttr>> {
-        self.0.default.as_ref()
+        self.0.default()
     }
 }
