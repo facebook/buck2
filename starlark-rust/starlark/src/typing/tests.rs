@@ -123,3 +123,14 @@ res = [foo([])]
     assert!(errs.is_empty());
     assert_eq!(interface.get("res").unwrap(), &Ty::list(Ty::string()));
 }
+
+/// Test things that have previous claimed incorrectly they were type errors
+#[test]
+fn test_false_negative() {
+    let (errs, _, _, approx) = typecheck(
+        r#"fail("Expected variable expansion in string: `{}`".format("x"))"#,
+        &HashMap::new(),
+    );
+    assert!(approx.is_empty());
+    assert!(errs.is_empty());
+}
