@@ -287,7 +287,7 @@ pub fn register_rule_function(builder: &mut GlobalsBuilder) {
                 if name == NAME_ATTRIBUTE_FIELD {
                     Err(RuleError::InvalidParameterName(NAME_ATTRIBUTE_FIELD.to_owned()).into())
                 } else {
-                    Ok((name.to_owned(), value.0.clone()))
+                    Ok((name.to_owned(), value.clone_attribute()))
                 }
             })
             .collect::<anyhow::Result<Vec<(String, Attribute)>>>()?;
