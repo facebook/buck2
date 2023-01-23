@@ -589,18 +589,32 @@ def _clippy_wrapper(ctx: "context") -> "cmd_args":
     clippy_driver = cmd_args(ctx_toolchain_info(ctx).clippy_driver)
     rustc = cmd_args(ctx_toolchain_info(ctx).compiler)
 
-    wrapper_file, _ = ctx.actions.write(
-        ctx.actions.declare_output("__clippy_driver_wrapper.sh"),
-        [
-            "#!/bin/bash",
-            # Force clippy to be clippy: https://github.com/rust-lang/rust-clippy/blob/e405c68b3c1265daa9a091ed9b4b5c5a38c0c0ba/src/driver.rs#L334
-            "export __CLIPPY_INTERNAL_TESTS=true",
-            cmd_args(rustc, format = "export SYSROOT=$({} --print=sysroot)"),
-            cmd_args(clippy_driver, format = "{} \"$@\"\n"),
-        ],
-        is_executable = True,
-        allow_args = True,
-    )
+    if ctx.attrs._exec_os_type[OsLookup].platform == "windows":
+        wrapper_file, _ = ctx.actions.write(
+            ctx.actions.declare_output("__clippy_driver_wrapper.bat"),
+            [
+                "@echo off",
+                "set __CLIPPY_INTERNAL_TESTS=true",
+                cmd_args(rustc, format = 'FOR /F "tokens=* USEBACKQ" %%F IN (`{} --print=sysroot`) DO ('),
+                "set SYSROOT=%%F",
+                ")",
+                cmd_args(clippy_driver, format = "{} %*"),
+            ],
+            allow_args = True,
+        )
+    else:
+        wrapper_file, _ = ctx.actions.write(
+            ctx.actions.declare_output("__clippy_driver_wrapper.sh"),
+            [
+                "#!/bin/bash",
+                # Force clippy to be clippy: https://github.com/rust-lang/rust-clippy/blob/e405c68b3c1265daa9a091ed9b4b5c5a38c0c0ba/src/driver.rs#L334
+                "export __CLIPPY_INTERNAL_TESTS=true",
+                cmd_args(rustc, format = "export SYSROOT=$({} --print=sysroot)"),
+                cmd_args(clippy_driver, format = "{} \"$@\"\n"),
+            ],
+            is_executable = True,
+            allow_args = True,
+        )
 
     return cmd_args(wrapper_file).hidden(clippy_driver, rustc)
 
@@ -625,7 +639,6 @@ def _linker_args(ctx: "context") -> "cmd_args":
                 "@echo off",
                 cmd_args(cmd_args(_shell_quote(linker), delimiter = "^\n "), format = "{} %*\n"),
             ],
-            is_executable = True,
             allow_args = True,
         )
     else:
