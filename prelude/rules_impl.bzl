@@ -224,7 +224,6 @@ def _cxx_python_extension_attrs():
 def _python_executable_attrs():
     return {
         "allow_huge_dwp": attrs.bool(default = False),
-        "bundled_runtime": attrs.bool(default = False),
         "enable_distributed_thinlto": attrs.bool(default = False),
         "make_pex": attrs.option(attrs.exec_dep(providers = [RunInfo])),
         "package_split_dwarf_dwp": attrs.bool(default = False),

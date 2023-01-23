@@ -55,7 +55,6 @@ def make_pex(
         python_toolchain: "PythonToolchainInfo",
         # A rule-provided tool to use to build the PEX.
         make_pex_cmd: [RunInfo.type, None],
-        bundled_runtime: bool.type,
         package_style: PackageStyle.type,
         build_args: ["_arglike"],
         pex_modules: PexModules.type,
@@ -89,11 +88,6 @@ def make_pex(
         fail(error_msg)
     if hidden_resources != None:
         runtime_files.extend(hidden_resources)
-
-    # HACK: runtime bundling is only implemented in make_par (via
-    # python_toolchain.make_pex_standalone), so pretend we're doing a standalone build
-    if bundled_runtime:
-        standalone = True
 
     if not (standalone or
             package_style == PackageStyle("inplace") or

@@ -44,7 +44,7 @@ load(
     "@prelude//utils:types.bzl",
     "unchecked",  # @unused Used as a type
 )
-load("@prelude//utils:utils.bzl", "expect", "flatten", "value_or")
+load("@prelude//utils:utils.bzl", "flatten", "value_or")
 load("@prelude//paths.bzl", "paths")
 load("@prelude//resources.bzl", "gather_resources")
 load(":compile.bzl", "compile_manifests")
@@ -267,7 +267,6 @@ def convert_python_library_to_executable(
             omnibus_graph_json = ctx.actions.write_json("omnibus_graph.json", omnibus_graph)
             extra["linkable-graph"] = [DefaultInfo(default_output = omnibus_graph_json)]
     elif _link_strategy(ctx) == NativeLinkStrategy("native"):
-        expect(package_style == PackageStyle("standalone"), "native_link_strategy=native is only supported for standalone builds")
         executable_deps = ctx.attrs.executable_deps
         extension_info = merge_cxx_extension_info(ctx.actions, deps + executable_deps)
         inherited_preprocessor_info = cxx_inherited_preprocessor_infos(executable_deps)
@@ -383,7 +382,6 @@ def convert_python_library_to_executable(
         ctx,
         python_toolchain,
         ctx.attrs.make_pex[RunInfo] if ctx.attrs.make_pex != None else None,
-        ctx.attrs.bundled_runtime,
         package_style,
         ctx.attrs.build_args,
         pex_modules,
