@@ -41,8 +41,12 @@ use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::quiet_soft_error;
+use buck2_events::dispatch::current_span;
 use buck2_events::dispatch::get_dispatcher;
+use buck2_events::dispatch::get_dispatcher_opt;
 use buck2_events::dispatch::EventDispatcher;
+use buck2_events::span::SpanId;
+use buck2_events::trace::TraceId;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::directory::ActionDirectory;
 use buck2_execute::directory::ActionDirectoryEntry;
@@ -276,7 +280,11 @@ enum MaterializerCommand<T: ?Sized> {
     ),
 
     /// Declares that a set of artifacts already exist
-    DeclareExisting(Vec<(ProjectRelativePathBuf, ArtifactValue)>),
+    DeclareExisting(
+        Vec<(ProjectRelativePathBuf, ArtifactValue)>,
+        Option<SpanId>,
+        Option<TraceId>,
+    ),
 
     /// Declares an artifact: its path, value, and how to materialize it.
     Declare(
@@ -327,8 +335,12 @@ impl<T> std::fmt::Debug for MaterializerCommand<T> {
             MaterializerCommand::GetMaterializedFilePaths(paths, _) => {
                 write!(f, "GetMaterializedFilePaths({:?}, _)", paths,)
             }
-            MaterializerCommand::DeclareExisting(paths) => {
-                write!(f, "DeclareExisting({:?})", paths,)
+            MaterializerCommand::DeclareExisting(paths, current_span, trace_id) => {
+                write!(
+                    f,
+                    "DeclareExisting({:?}, {:?}, {:?})",
+                    paths, current_span, trace_id
+                )
             }
             MaterializerCommand::Declare(path, value, method) => {
                 write!(f, "Declare({:?}, {:?}, {:?})", path, value, method,)
@@ -487,7 +499,11 @@ impl Materializer for DeferredMaterializer {
         &self,
         artifacts: Vec<(ProjectRelativePathBuf, ArtifactValue)>,
     ) -> anyhow::Result<()> {
-        let cmd = MaterializerCommand::DeclareExisting(artifacts);
+        let cmd = MaterializerCommand::DeclareExisting(
+            artifacts,
+            current_span(),
+            get_dispatcher_opt().map(|d| d.trace_id().dupe()),
+        );
         self.command_sender.send(cmd)?;
         Ok(())
     }
@@ -872,7 +888,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                             let result = paths.into_map(|p| tree.file_contents_path(p));
                             result_sender.send(result).ok();
                         }
-                        MaterializerCommand::DeclareExisting(artifacts) => {
+                        MaterializerCommand::DeclareExisting(artifacts, ..) => {
                             for (path, artifact) in artifacts {
                                 self.declare_existing(&mut tree, path, artifact, next_version);
                                 next_version += 1;

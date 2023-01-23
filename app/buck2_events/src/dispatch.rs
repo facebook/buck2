@@ -375,7 +375,7 @@ pub fn get_dispatcher() -> EventDispatcher {
     }
 }
 
-fn current_span() -> Option<SpanId> {
+pub fn current_span() -> Option<SpanId> {
     CURRENT_SPAN.with(|tl_span| tl_span.get())
 }
 
