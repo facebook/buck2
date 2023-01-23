@@ -62,6 +62,7 @@ pub use crate::allocative_trait::Allocative;
 pub use crate::flamegraph::FlameGraphBuilder;
 pub use crate::global_root::register_root;
 pub use crate::key::Key;
+pub use crate::size_of::size_of_unique;
 pub use crate::size_of::size_of_unique_allocated_data;
 pub use crate::visitor::Visitor;
 

@@ -77,6 +77,29 @@ pub fn size_of_unique_allocated_data(root: &dyn Allocative) -> usize {
     visitor_impl.size
 }
 
+/// Size of a piece of data and data allocated in unique pointers in the struct.
+///
+/// * Excludes shared pointers
+///
+/// # Example
+///
+/// ```
+/// use allocative::Allocative;
+///
+/// #[derive(Allocative)]
+/// struct Foo {
+///     data: Vec<u8>,
+/// }
+///
+/// assert_eq!(3 + std::mem::size_of::<Vec<u8>>(), allocative::size_of_unique(&Foo { data: vec![10, 20, 30] }));
+/// ```
+pub fn size_of_unique<T>(root: &T) -> usize
+where
+    T: Allocative,
+{
+    std::mem::size_of::<T>() + size_of_unique_allocated_data(root)
+}
+
 #[cfg(test)]
 mod tests {
     use std::mem;
@@ -84,6 +107,7 @@ mod tests {
     use allocative_derive::Allocative;
 
     use crate as allocative;
+    use crate::size_of_unique;
     use crate::size_of_unique_allocated_data;
 
     #[test]
@@ -93,9 +117,13 @@ mod tests {
             data: Box<u32>,
         }
 
+        let boxed = Boxed { data: Box::new(17) };
+
+        assert_eq!(mem::size_of::<u32>(), size_of_unique_allocated_data(&boxed));
+
         assert_eq!(
-            mem::size_of::<u32>(),
-            size_of_unique_allocated_data(&Boxed { data: Box::new(17) })
+            mem::size_of::<u32>() + mem::size_of::<Boxed>(),
+            size_of_unique(&boxed)
         );
     }
 
@@ -106,11 +134,18 @@ mod tests {
             data: Box<[u32]>,
         }
 
+        let boxed = Boxed {
+            data: vec![1, 2, 3].into_boxed_slice(),
+        };
+
         assert_eq!(
             mem::size_of::<u32>() * 3,
-            size_of_unique_allocated_data(&Boxed {
-                data: vec![1, 2, 3].into_boxed_slice()
-            })
+            size_of_unique_allocated_data(&boxed)
+        );
+
+        assert_eq!(
+            mem::size_of::<Boxed>() + mem::size_of::<u32>() * 3,
+            size_of_unique(&boxed)
         );
     }
 
@@ -127,14 +162,21 @@ mod tests {
             data: Box<Data>,
         }
 
+        let boxed = Boxed {
+            data: Box::new(Data {
+                a: 1,
+                b: Box::new(2),
+            }),
+        };
+
         assert_eq!(
             mem::size_of::<Data>() + mem::size_of::<u32>(),
-            size_of_unique_allocated_data(&Boxed {
-                data: Box::new(Data {
-                    a: 1,
-                    b: Box::new(2)
-                })
-            })
+            size_of_unique_allocated_data(&boxed)
+        );
+
+        assert_eq!(
+            mem::size_of::<Boxed>() + mem::size_of::<Data>() + mem::size_of::<u32>(),
+            size_of_unique(&boxed)
         );
     }
 }
