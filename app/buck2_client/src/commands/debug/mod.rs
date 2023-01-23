@@ -27,6 +27,7 @@ use replay::ReplayCommand;
 use crate::commands::debug::allocative::AllocativeCommand;
 use crate::commands::debug::daemon_dir::DaemonDirCommand;
 use crate::commands::debug::exe::ExeCommand;
+use crate::commands::debug::log_perf::LogPerfCommand;
 use crate::commands::debug::segfault::SegfaultCommand;
 use crate::commands::debug::set_log_filter::SetLogFilterCommand;
 use crate::commands::debug::upload_re_logs::UploadReLogsCommand;
@@ -44,6 +45,7 @@ mod file_status;
 mod flush_dep_files;
 mod heap_dump;
 mod internal_version;
+mod log_perf;
 mod materialize;
 pub mod replay;
 mod segfault;
@@ -93,6 +95,8 @@ pub enum DebugCommand {
     Exe(ExeCommand),
     Allocative(AllocativeCommand),
     SetLogFilter(SetLogFilterCommand),
+    /// Make sense of log perf
+    LogPerf(LogPerfCommand),
 }
 
 /// `cli::exec` function.
@@ -125,6 +129,7 @@ impl DebugCommand {
             DebugCommand::Allocative(cmd) => cmd.exec(matches, ctx),
             DebugCommand::SetLogFilter(cmd) => cmd.exec(matches, ctx),
             DebugCommand::FileStatus(cmd) => cmd.exec(matches, ctx),
+            DebugCommand::LogPerf(cmd) => cmd.exec(matches, ctx),
         }
     }
 }
