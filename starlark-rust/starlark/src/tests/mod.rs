@@ -28,5 +28,6 @@ mod go;
 mod interop;
 mod opt;
 mod runtime;
+mod rustdocs;
 mod type_annot;
 mod uncategorized;
