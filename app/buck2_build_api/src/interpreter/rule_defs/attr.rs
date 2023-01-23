@@ -123,6 +123,7 @@ fn attr_any<'v>(doc: &'v str) -> AttributeAsStarlarkValue {
     let coercer = AttrType::any();
 
     AttributeAsStarlarkValue::new(Attribute::new_simple(
+        // TODO(nga): `attrs.any()` should not have a default value (or at least not `""`).
         Some(Arc::new(AnyAttrType::empty_string())),
         doc,
         coercer,
