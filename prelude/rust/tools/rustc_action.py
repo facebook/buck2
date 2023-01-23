@@ -203,7 +203,10 @@ async def main() -> int:
             # TODO(andirauter): Required by RE. Remove them when no longer required T119466023
             "EXECUTION_ID",
             "SESSION_ID",
+            "ACTION_DIGEST",
+            "RE_PLATFORM",
             "CAS_DAEMON_PORT",
+            "SHARED_DOTSLASH_CACHE",
             # Required by Dotslash, which is how the Rust toolchain is shipped
             # on Mac.
             "USER",
