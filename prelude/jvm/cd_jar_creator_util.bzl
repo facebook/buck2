@@ -272,8 +272,7 @@ def encode_base_jar_command(
         ap_params: ["AnnotationProcessorParams"],
         plugin_params: ["PluginParams", None],
         extra_arguments: ["string"],
-        track_class_usage: bool.type,
-        build_target_value_extra_params: [struct.type, None]) -> struct.type:
+        track_class_usage: bool.type) -> struct.type:
     library_jar_params = encode_jar_params(remove_classes, output_paths)
     qualified_name = get_qualified_name(label, target_type)
     compiling_classpath = get_compiling_classpath(actions, deps, additional_classpath_entries, target_type, source_only_abi_deps)
@@ -281,7 +280,6 @@ def encode_base_jar_command(
     build_target_value = struct(
         fullyQualifiedName = qualified_name,
         type = encode_target_type(target_type),
-        extraParams = build_target_value_extra_params,
     )
     resolved_java_options = struct(
         bootclasspathList = bootclasspath_entries,

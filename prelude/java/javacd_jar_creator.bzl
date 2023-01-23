@@ -95,7 +95,6 @@ def create_jar_artifact_javacd(
             plugin_params,
             extra_arguments,
             track_class_usage = True,
-            build_target_value_extra_params = None,
         )
 
         return struct(
@@ -131,7 +130,6 @@ def create_jar_artifact_javacd(
             plugin_params,
             extra_arguments,
             track_class_usage = True,
-            build_target_value_extra_params = None,
         )
         abi_params = encode_jar_params(remove_classes, output_paths)
 

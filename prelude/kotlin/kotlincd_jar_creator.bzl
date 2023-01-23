@@ -92,19 +92,7 @@ def create_jar_artifact_kotlincd(
             shouldRemoveKotlinCompilerFromClassPath = True,
         )
 
-    def encode_build_target_value_extra_params():
-        encoded_base_path = label.path
-        short_name = label.name
-        return struct(
-            basePathForBaseName = encoded_base_path,
-            cellRelativeBasePath = encoded_base_path,
-            shortNameAndFlavorPostfix = short_name,
-            shortName = short_name,
-            buckPaths = buckPaths,
-        )
-
     kotlin_extra_params = encode_kotlin_extra_params(kotlin_compiler_plugins)
-    build_target_value_extra_params = encode_build_target_value_extra_params()
 
     def encode_library_command(
             output_paths: OutputPaths.type,
@@ -129,7 +117,6 @@ def create_jar_artifact_kotlincd(
             plugin_params = plugin_params,
             extra_arguments = extra_arguments,
             track_class_usage = True,
-            build_target_value_extra_params = build_target_value_extra_params,
         )
 
         return struct(
@@ -169,7 +156,6 @@ def create_jar_artifact_kotlincd(
             plugin_params,
             extra_arguments,
             True,
-            build_target_value_extra_params,
         )
         abi_params = encode_jar_params(remove_classes, output_paths)
         abi_command = struct(
