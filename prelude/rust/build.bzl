@@ -19,6 +19,7 @@ load(
     "LinkStyle",  #@unused Used as a type
     "get_link_args",
 )
+load("@prelude//os_lookup:defs.bzl", "OsLookup")
 load("@prelude//utils:set.bzl", "set")
 load(
     ":build_params.bzl",
@@ -616,15 +617,26 @@ def _linker_args(ctx: "context") -> "cmd_args":
 
     # Now we create a wrapper to actually run the linker. Use $(cat <<heredoc) to
     # combine the multiline command into a single logical command.
-    wrapper, _ = ctx.actions.write(
-        ctx.actions.declare_output("__linker_wrapper.sh"),
-        [
-            "#!/bin/bash",
-            cmd_args(cmd_args(_shell_quote(linker), delimiter = " \\\n"), format = "{} \"$@\"\n"),
-        ],
-        is_executable = True,
-        allow_args = True,
-    )
+    if ctx.attrs._exec_os_type[OsLookup].platform == "windows":
+        wrapper, _ = ctx.actions.write(
+            ctx.actions.declare_output("__linker_wrapper.bat"),
+            [
+                "@echo off",
+                cmd_args(cmd_args(_shell_quote(linker), delimiter = "^\n "), format = "{} %*\n"),
+            ],
+            is_executable = True,
+            allow_args = True,
+        )
+    else:
+        wrapper, _ = ctx.actions.write(
+            ctx.actions.declare_output("__linker_wrapper.sh"),
+            [
+                "#!/bin/bash",
+                cmd_args(cmd_args(_shell_quote(linker), delimiter = " \\\n"), format = "{} \"$@\"\n"),
+            ],
+            is_executable = True,
+            allow_args = True,
+        )
 
     return cmd_args(wrapper, format = "-Clinker={}").hidden(linker)
 

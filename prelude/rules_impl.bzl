@@ -538,6 +538,7 @@ inlined_extra_attributes = {
         "incremental_enabled": attrs.bool(default = False),
         "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source()), sorted = True, default = []),
         "_cxx_toolchain": _cxx_toolchain(),
+        "_exec_os_type": _exec_os_type(),
         "_rust_toolchain": _rust_toolchain(),
     },
     "rust_library": {
@@ -558,6 +559,7 @@ inlined_extra_attributes = {
         "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source()), sorted = True, default = []),
         "supports_python_dlopen": attrs.option(attrs.bool(), default = None),
         "_cxx_toolchain": _cxx_toolchain(),
+        "_exec_os_type": _exec_os_type(),
         "_omnibus_environment": omnibus_environment_attr(),
         "_rust_toolchain": _rust_toolchain(),
     },
@@ -568,6 +570,7 @@ inlined_extra_attributes = {
         "remote_execution": attrs.option(attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False), default = None),
         "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source()), sorted = True, default = []),
         "_cxx_toolchain": _cxx_toolchain(),
+        "_exec_os_type": _exec_os_type(),
         "_rust_toolchain": _rust_toolchain(),
     },
 
