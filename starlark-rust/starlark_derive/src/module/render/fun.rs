@@ -535,6 +535,7 @@ fn render_documentation(x: &StarFun) -> syn::Result<(Ident, TokenStream)> {
             a.pass_style != StarArgPassStyle::This && a.pass_style != StarArgPassStyle::Arguments
         })
         .enumerate()
+        .filter(|(_, a)| a.pass_style != StarArgPassStyle::Args) // these aren't coerced according to their type (Vec vs tuple)
         .map(|(i, arg)| {
             let typ_str = render_starlark_type(span, &arg.ty, &arg.starlark_type);
             quote_spanned!(span=> (#i, starlark::docs::Type { raw_type: #typ_str }) )

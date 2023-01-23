@@ -85,7 +85,7 @@ fn test_rustdoc() {
     let got = GlobalsBuilder::new().with(globals).build();
     let expected = assert::pass_module(
         r#"
-def args_kwargs(*args: [""], **kwargs: "") -> None: pass
+def args_kwargs(*args, **kwargs: "") -> None: pass
 def custom_types(arg1: str.type, arg2: "input") -> "output": pass
 def default_arg(arg1: [None, ""] = None, arg2: "" = None) -> [str.type]: pass
 def pos_named(arg1: int.type, *, arg2: int.type) -> int.type: pass
