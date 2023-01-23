@@ -7,11 +7,12 @@
  * of this source tree.
  */
 
+use allocative::Allocative;
 use buck2_cli_proto::CommandResult;
 use serde::Deserialize;
 use serde::Serialize;
 
-#[derive(Deserialize)]
+#[derive(Allocative, Deserialize)]
 #[allow(clippy::large_enum_variant)]
 pub enum StreamValue {
     Result(CommandResult),

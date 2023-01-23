@@ -70,6 +70,7 @@ rust_library(
         "fbsource//third-party/rust:tonic",
         "fbsource//third-party/rust:tracing",
         "fbsource//third-party/rust:which",
+        "//buck2/allocative/allocative:allocative",
         "//buck2/app/buck2_build_info:buck2_build_info",
         "//buck2/app/buck2_common:buck2_common",
         "//buck2/app/buck2_core:buck2_core",
