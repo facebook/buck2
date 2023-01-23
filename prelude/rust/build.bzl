@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@prelude//:local_only.bzl", "link_cxx_binary_locally")
+load("@prelude//:paths.bzl", "paths")
 load("@prelude//cxx:cxx_link_utility.bzl", "make_link_args")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load(
@@ -740,7 +741,9 @@ def _rustc_emits(
         emit_args.add(cmd_args("--emit=", emit.value, "=", output.as_output(), delimiter = ""))
 
     if emit not in (Emit("expand"), Emit("save-analysis")):
-        extra_dir = subdir + "/extras/" + output_filename(crate, emit, params)
+        # Strip file extension from directory name.
+        base, _ext = paths.split_extension(output_filename(crate, emit, params))
+        extra_dir = subdir + "/extras/" + base
         extra_out = ctx.actions.declare_output(extra_dir)
         emit_args.add(cmd_args(extra_out.as_output(), format = "--out-dir={}"))
 
