@@ -24,6 +24,7 @@ gazebo = { workspace = true }
 dupe = { workspace = true }
 host_sharing = { workspace = true }
 more_futures = { workspace = true }
+starlark = { workspace = true }
 
 buck2_build_api = { workspace = true }
 buck2_common = { workspace = true }

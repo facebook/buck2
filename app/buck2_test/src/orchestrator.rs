@@ -100,6 +100,7 @@ use host_sharing::HostSharingRequirements;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
 use once_cell::sync::Lazy;
+use starlark::values::FrozenRef;
 use uuid::Uuid;
 
 use crate::session::TestSession;
@@ -200,14 +201,18 @@ impl TestOrchestrator for BuckTestOrchestrator {
 
         let fs = self.dice.get_artifact_fs().await?;
 
+        let test_info = self.get_test_info(&test_target).await?;
+        let executor = self
+            .get_test_executor(&test_target, &test_info, executor_override, &fs)
+            .await?;
         let test_executable_expanded = self
             .expand_test_executable(
-                &fs,
                 &test_target,
+                &test_info,
                 cmd,
                 env,
                 pre_create_dirs,
-                executor_override,
+                &executor.executor_fs(),
             )
             .await?;
 
@@ -218,7 +223,6 @@ impl TestOrchestrator for BuckTestOrchestrator {
             inputs,
             supports_re,
             declared_outputs,
-            executor,
         } = test_executable_expanded;
         let execution_request = self
             .create_command_execution_request(
@@ -348,14 +352,19 @@ impl TestOrchestrator for BuckTestOrchestrator {
 
         let fs = self.dice.get_artifact_fs().await?;
 
+        let test_info = self.get_test_info(&test_target).await?;
+        // Tests are not run, so there is no executor override.
+        let executor = self
+            .get_test_executor(&test_target, &test_info, None, &fs)
+            .await?;
         let test_executable_expanded = self
             .expand_test_executable(
-                &fs,
                 &test_target,
+                &test_info,
                 cmd,
                 env,
                 pre_create_dirs,
-                None, // No executor used, so there isn't a executor to override.
+                &executor.executor_fs(),
             )
             .await?;
 
@@ -366,7 +375,6 @@ impl TestOrchestrator for BuckTestOrchestrator {
             inputs,
             supports_re: _,
             declared_outputs,
-            executor: _,
         } = test_executable_expanded;
 
         let execution_request = self
@@ -551,15 +559,29 @@ impl BuckTestOrchestrator {
         Ok(executor)
     }
 
-    async fn expand_test_executable(
+    async fn get_test_info(
         &self,
-        fs: &ArtifactFs,
         test_target: &ConfiguredProvidersLabel,
-        cmd: Vec<ArgValue>,
-        env: HashMap<String, ArgValue>,
-        pre_create_dirs: Vec<DeclaredOutput>,
+    ) -> anyhow::Result<FrozenRef<'static, FrozenExternalRunnerTestInfo>> {
+        let providers = self
+            .dice
+            .get_providers(test_target)
+            .await?
+            .require_compatible()?;
+
+        let providers = providers.provider_collection();
+        providers
+            .get_provider(ExternalRunnerTestInfoCallable::provider_id_t())
+            .context("Test executable only supports ExternalRunnerTestInfo providers")
+    }
+
+    async fn get_test_executor(
+        &self,
+        test_target: &ConfiguredProvidersLabel,
+        test_info: &FrozenExternalRunnerTestInfo,
         executor_override: Option<ExecutorConfigOverride>,
-    ) -> anyhow::Result<ExpandedTestExecutable> {
+        fs: &ArtifactFs,
+    ) -> anyhow::Result<CommandExecutor> {
         // NOTE: get_providers() implicitly calls this already but it's not the end of the world
         // since this will get cached in DICE.
         let node = self
@@ -568,12 +590,44 @@ impl BuckTestOrchestrator {
             .await?
             .require_compatible()?;
 
-        let providers = self
-            .dice
-            .get_providers(test_target)
-            .await?
-            .require_compatible()?;
+        let resolved_executor_override = match executor_override.as_ref() {
+            Some(executor_override) => Some(
+                test_info
+                    .executor_override(&executor_override.name)
+                    .context("The `executor_override` provided does not exist")
+                    .and_then(|o| {
+                        o.command_executor_config()
+                            .context("The `executor_override` is invalid")
+                    })
+                    .with_context(|| {
+                        format!(
+                            "Error processing `executor_override`: `{}`",
+                            executor_override.name
+                        )
+                    })?,
+            ),
+            None => test_info
+                .default_executor()
+                .map(|o| {
+                    o.command_executor_config()
+                        .context("The `default_executor` is invalid")
+                })
+                .transpose()?,
+        };
 
+        self.get_command_executor(fs, &node, resolved_executor_override.as_deref())
+            .context("Error constructing CommandExecutor")
+    }
+
+    async fn expand_test_executable(
+        &self,
+        test_target: &ConfiguredProvidersLabel,
+        test_info: &FrozenExternalRunnerTestInfo,
+        cmd: Vec<ArgValue>,
+        env: HashMap<String, ArgValue>,
+        pre_create_dirs: Vec<DeclaredOutput>,
+        executor_fs: &ExecutorFs<'_>,
+    ) -> anyhow::Result<ExpandedTestExecutable> {
         let output_root = self
             .session
             .prefix()
@@ -587,15 +641,9 @@ impl BuckTestOrchestrator {
 
         let cwd;
         let expanded;
-        let executor;
 
         {
             let opts = self.session.options();
-
-            let providers = providers.provider_collection();
-            let test_info = providers
-                .get_provider(ExternalRunnerTestInfoCallable::provider_id_t())
-                .context("Test executable only supports ExternalRunnerTestInfo providers")?;
 
             cwd = if test_info.run_from_project_root() || opts.force_run_from_project_root {
                 CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("".to_owned()))
@@ -607,40 +655,11 @@ impl BuckTestOrchestrator {
                 cell.path().to_buf()
             };
 
-            let resolved_executor_override = match executor_override.as_ref() {
-                Some(executor_override) => Some(
-                    test_info
-                        .executor_override(&executor_override.name)
-                        .context("The `executor_override` provided does not exist")
-                        .and_then(|o| {
-                            o.command_executor_config()
-                                .context("The `executor_override` is invalid")
-                        })
-                        .with_context(|| {
-                            format!(
-                                "Error processing `executor_override`: `{}`",
-                                executor_override.name
-                            )
-                        })?,
-                ),
-                None => test_info
-                    .default_executor()
-                    .map(|o| {
-                        o.command_executor_config()
-                            .context("The `default_executor` is invalid")
-                    })
-                    .transpose()?,
-            };
-
-            executor = self
-                .get_command_executor(fs, &node, resolved_executor_override.as_deref())
-                .context("Error constructing CommandExecutor")?;
-
             let expander = Execute2RequestExpander {
-                test_info: &test_info,
+                test_info,
                 output_root: &output_root,
                 declared_outputs: &mut declared_outputs,
-                fs: &executor.executor_fs(),
+                fs: executor_fs,
                 cmd,
                 env,
             };
@@ -669,7 +688,6 @@ impl BuckTestOrchestrator {
             inputs,
             declared_outputs,
             supports_re,
-            executor,
         })
     }
 
@@ -869,7 +887,6 @@ struct ExpandedTestExecutable {
     inputs: IndexSet<ArtifactGroup>,
     supports_re: bool,
     declared_outputs: IndexMap<BuckOutTestPath, OutputCreationBehavior>,
-    executor: CommandExecutor,
 }
 
 fn create_prepare_for_local_execution_result(
