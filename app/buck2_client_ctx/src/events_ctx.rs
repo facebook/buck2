@@ -110,7 +110,7 @@ impl EventsCtx {
                 Ok(next) => next,
                 Err(e) => {
                     self.handle_events(events, shutdown).await?;
-                    return Err(e).context("Buck daemon event bus encountered an error");
+                    return Err(e).context("Buck daemon event bus encountered an error, the root cause (if available) is displayed above this message.");
                 }
             };
             match next {
