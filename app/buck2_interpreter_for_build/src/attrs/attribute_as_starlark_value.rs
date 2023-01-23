@@ -12,6 +12,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use buck2_node::attrs::attr::Attribute;
 use buck2_node::attrs::attr_type::AttrType;
+use buck2_node::attrs::attr_type::AttrTypeInner;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
@@ -19,6 +20,12 @@ use starlark::starlark_simple_value;
 use starlark::starlark_type;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
+
+#[derive(Debug, thiserror::Error)]
+enum AttributeAsStarlarkValueError {
+    #[error("`attrs.default_only()` cannot be used in nested attributes")]
+    DefaultOnlyInNested,
+}
 
 #[derive(
     derive_more::Display,
@@ -45,8 +52,12 @@ impl AttributeAsStarlarkValue {
     }
 
     /// Coercer to put into higher lever coercer (e. g. for `attrs.list(xxx)`).
-    pub fn coercer_for_inner(&self) -> AttrType {
-        self.0.coercer().dupe()
+    pub fn coercer_for_inner(&self) -> anyhow::Result<AttrType> {
+        let coercer = self.0.coercer();
+        if let AttrTypeInner::DefaultOnly(_) = &*coercer.0 {
+            return Err(AttributeAsStarlarkValueError::DefaultOnlyInNested.into());
+        }
+        Ok(coercer.dupe())
     }
 
     pub fn default(&self) -> Option<&Arc<CoercedAttr>> {

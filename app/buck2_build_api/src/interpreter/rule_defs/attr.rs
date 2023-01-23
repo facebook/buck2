@@ -167,7 +167,7 @@ pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<AttributeAsStarlarkValue> {
-        let coercer = AttrType::list(inner.coercer_for_inner());
+        let coercer = AttrType::list(inner.coercer_for_inner()?);
         Attribute::attr(eval, default, false, doc, coercer)
     }
 
@@ -311,7 +311,7 @@ pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<AttributeAsStarlarkValue> {
-        let coercer = AttrType::option(inner.coercer_for_inner());
+        let coercer = AttrType::option(inner.coercer_for_inner()?);
         let attr = Attribute::attr(
             eval,
             Some(default.unwrap_or_else(Value::new_none)),
@@ -355,7 +355,7 @@ pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<AttributeAsStarlarkValue> {
-        let coercer = AttrType::dict(key.coercer_for_inner(), value.coercer_for_inner(), sorted);
+        let coercer = AttrType::dict(key.coercer_for_inner()?, value.coercer_for_inner()?, sorted);
         Attribute::attr(eval, default, false, doc, coercer)
     }
 
@@ -408,7 +408,7 @@ pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<AttributeAsStarlarkValue> {
-        let coercer = AttrType::list(value_type.coercer_for_inner());
+        let coercer = AttrType::list(value_type.coercer_for_inner()?);
         Attribute::attr(eval, default, false, doc, coercer)
     }
 
@@ -419,7 +419,7 @@ pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<AttributeAsStarlarkValue> {
-        let value_coercer = value_type.coercer_for_inner();
+        let value_coercer = value_type.coercer_for_inner()?;
         let coercer = AttrType::one_of(vec![
             AttrType::dict(AttrType::string(), value_coercer.dupe(), sorted),
             AttrType::list(value_coercer),
@@ -433,7 +433,7 @@ pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<AttributeAsStarlarkValue> {
-        let coercer = AttrType::one_of(args.into_map(|arg| arg.coercer_for_inner()));
+        let coercer = AttrType::one_of(args.into_try_map(|arg| arg.coercer_for_inner())?);
         Attribute::attr(eval, default, false, doc, coercer)
     }
 
@@ -443,7 +443,7 @@ pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<AttributeAsStarlarkValue> {
-        let coercer = AttrType::tuple(args.into_map(|arg| arg.coercer_for_inner()));
+        let coercer = AttrType::tuple(args.into_try_map(|arg| arg.coercer_for_inner())?);
         Attribute::attr(eval, default, false, doc, coercer)
     }
 
@@ -470,7 +470,7 @@ pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
         // [ ({"key":"value1"}, arg), ({"key":"value2"}, arg) ]
         let element_type = AttrType::tuple(vec![
             AttrType::dict(AttrType::string(), AttrType::string(), false),
-            value_type.coercer_for_inner(),
+            value_type.coercer_for_inner()?,
         ]);
         let coercer = AttrType::list(element_type.dupe());
 
