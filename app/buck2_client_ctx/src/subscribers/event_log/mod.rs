@@ -11,10 +11,15 @@ pub mod file_names;
 pub mod options;
 pub mod upload;
 
+use std::io;
 use std::io::Cursor;
 use std::mem;
 use std::pin::Pin;
+use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::Ordering;
 use std::sync::Arc;
+use std::task::Context;
+use std::task::Poll;
 use std::time::SystemTime;
 
 use anyhow::Context as _;
@@ -37,11 +42,13 @@ use buck2_events::BuckEvent;
 use bytes::BytesMut;
 use dupe::Dupe;
 use futures::future::Future;
+use futures::stream::BoxStream;
 use futures::stream::Stream;
 use futures::stream::TryStreamExt;
 use futures::FutureExt;
 use futures::StreamExt;
 use itertools::Itertools;
+use pin_project::pin_project;
 use prost::Message;
 use serde::Deserialize;
 use serde::Serialize;
@@ -52,6 +59,7 @@ use tokio::io::AsyncRead;
 use tokio::io::AsyncWrite;
 use tokio::io::AsyncWriteExt;
 use tokio::io::BufReader;
+use tokio::io::ReadBuf;
 use tokio_stream::wrappers::LinesStream;
 use tokio_util::codec::Decoder;
 use tokio_util::codec::FramedRead;
@@ -142,7 +150,71 @@ const KNOWN_ENCODINGS: &[Encoding] = &[
 ];
 
 type EventLogWriter = Box<dyn AsyncWrite + Send + Sync + Unpin + 'static>;
-type EventLogReader = Box<dyn AsyncRead + Send + Sync + Unpin + 'static>;
+type EventLogReader<'a> = Box<dyn AsyncRead + Send + Sync + Unpin + 'a>;
+
+pub struct ReaderStats {
+    compressed_bytes: AtomicUsize,
+    decompressed_bytes: AtomicUsize,
+}
+
+impl ReaderStats {
+    pub fn new() -> Self {
+        Self {
+            compressed_bytes: AtomicUsize::new(0),
+            decompressed_bytes: AtomicUsize::new(0),
+        }
+    }
+
+    pub fn compressed_bytes(&self) -> usize {
+        self.compressed_bytes.load(Ordering::Relaxed)
+    }
+
+    pub fn decompressed_bytes(&self) -> usize {
+        self.decompressed_bytes.load(Ordering::Relaxed)
+    }
+}
+
+mod counting_reader {
+    #![allow(clippy::ref_option_ref)] // for the projection
+
+    use super::*;
+
+    #[pin_project]
+    pub struct CountingReader<'a, T> {
+        #[pin]
+        pub(super) inner: T,
+        pub(super) stats: Option<&'a AtomicUsize>,
+    }
+}
+
+use counting_reader::CountingReader;
+
+impl<'a, T> CountingReader<'a, T> {
+    fn new(inner: T, stats: Option<&'a AtomicUsize>) -> Self {
+        Self { inner, stats }
+    }
+}
+
+impl<'a, T> AsyncRead for CountingReader<'a, T>
+where
+    T: AsyncRead,
+{
+    fn poll_read(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &mut ReadBuf<'_>,
+    ) -> Poll<io::Result<()>> {
+        let before = buf.remaining();
+
+        let this = self.project();
+        futures::ready!(this.inner.poll_read(cx, buf))?;
+        if let Some(stats) = this.stats.as_mut() {
+            stats.fetch_add(before - buf.remaining(), Ordering::Relaxed);
+        }
+
+        Poll::Ready(Ok(()))
+    }
+}
 
 #[derive(Error, Debug)]
 enum EventLogInferenceError {
@@ -209,15 +281,13 @@ impl EventLogPathBuf {
         Ok(Err(NoInference(path)))
     }
 
-    async fn unpack_stream_json(
+    async fn unpack_stream_json<'a>(
         &self,
-    ) -> anyhow::Result<(
-        Invocation,
-        Pin<Box<dyn Stream<Item = anyhow::Result<StreamValue>> + Send>>,
-    )> {
+        stats: Option<&'a ReaderStats>,
+    ) -> anyhow::Result<(Invocation, BoxStream<'a, anyhow::Result<StreamValue>>)> {
         assert_eq!(self.encoding.mode, LogMode::Json);
 
-        let log_file = self.open().await?;
+        let log_file = self.open(stats).await?;
         let log_file = BufReader::new(log_file);
         let mut log_lines = log_file.lines();
 
@@ -239,15 +309,13 @@ impl EventLogPathBuf {
         Ok((invocation, events.boxed()))
     }
 
-    async fn unpack_stream_protobuf(
+    async fn unpack_stream_protobuf<'a>(
         &self,
-    ) -> anyhow::Result<(
-        Invocation,
-        Pin<Box<dyn Stream<Item = anyhow::Result<StreamValue>> + Send>>,
-    )> {
+        stats: Option<&'a ReaderStats>,
+    ) -> anyhow::Result<(Invocation, BoxStream<'a, anyhow::Result<StreamValue>>)> {
         assert_eq!(self.encoding.mode, LogMode::Protobuf);
 
-        let log_file = self.open().await?;
+        let log_file = self.open(stats).await?;
         let mut stream = FramedRead::new(log_file, EventLogDecoder::new());
 
         let invocation = match stream.try_next().await?.context("No invocation found")? {
@@ -278,28 +346,68 @@ impl EventLogPathBuf {
         Ok((invocation, events.boxed()))
     }
 
-    /// Read the invocation line then the event stream.
-    pub async fn unpack_stream(
+    async fn unpack_stream_inner<'a>(
         &self,
-    ) -> anyhow::Result<(Invocation, impl Stream<Item = anyhow::Result<StreamValue>>)> {
+        stats: Option<&'a ReaderStats>,
+    ) -> anyhow::Result<(
+        Invocation,
+        impl Stream<Item = anyhow::Result<StreamValue>> + 'a,
+    )> {
         match self.encoding.mode {
-            LogMode::Json => self.unpack_stream_json().await,
-            LogMode::Protobuf => self.unpack_stream_protobuf().await,
+            LogMode::Json => self.unpack_stream_json(stats).await,
+            LogMode::Protobuf => self.unpack_stream_protobuf(stats).await,
         }
     }
 
-    async fn open(&self) -> anyhow::Result<EventLogReader> {
+    /// Read the invocation line then the event stream.
+    pub async fn unpack_stream_with_stats<'a>(
+        &self,
+        stats: &'a ReaderStats,
+    ) -> anyhow::Result<(
+        Invocation,
+        impl Stream<Item = anyhow::Result<StreamValue>> + 'a,
+    )> {
+        self.unpack_stream_inner(Some(stats)).await
+    }
+
+    pub async fn unpack_stream(
+        &self,
+    ) -> anyhow::Result<(
+        Invocation,
+        impl Stream<Item = anyhow::Result<StreamValue>> + 'static,
+    )> {
+        self.unpack_stream_inner(None).await
+    }
+
+    async fn open<'a>(&self, stats: Option<&'a ReaderStats>) -> anyhow::Result<EventLogReader<'a>> {
         tracing::info!(
             "Open {} using encoding {:?}",
             self.path.display(),
             self.encoding
         );
 
+        let (compressed_bytes, decompressed_bytes) = match stats {
+            Some(stats) => (
+                Some(&stats.compressed_bytes),
+                Some(&stats.decompressed_bytes),
+            ),
+            None => (None, None),
+        };
+
         let file = async_fs_util::open(&self.path).await?;
+        let file = CountingReader::new(file, compressed_bytes);
         let file = match self.encoding.compression {
-            Compression::None => box file as EventLogReader,
-            Compression::Gzip => box GzipDecoder::new(BufReader::new(file)) as EventLogReader,
-            Compression::Zstd => box ZstdDecoder::new(BufReader::new(file)) as EventLogReader,
+            Compression::None => {
+                box CountingReader::new(file, decompressed_bytes) as EventLogReader
+            }
+            Compression::Gzip => {
+                box CountingReader::new(GzipDecoder::new(BufReader::new(file)), decompressed_bytes)
+                    as EventLogReader
+            }
+            Compression::Zstd => {
+                box CountingReader::new(ZstdDecoder::new(BufReader::new(file)), decompressed_bytes)
+                    as EventLogReader
+            }
         };
 
         Ok(file)
