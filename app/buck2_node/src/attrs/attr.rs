@@ -22,7 +22,11 @@ use crate::attrs::display::AttrDisplayWithContextExt;
 pub struct Attribute {
     /// The default value. If None, the value is not optional and must be provided by the user
     pub default: Option<Arc<CoercedAttr>>,
-    /// Is that default only arising through a previous mistake we are working on eliminating
+    /// If this field is true, it means `default` field contains `None` for `attrs.option()`
+    /// and `False` for `attrs.bool()`, and these default values were not
+    /// explicitly specified by users. This is a deprecated behavior:
+    /// using unspecified default value should be an error.
+    /// Currently this is `soft_error` and will be changed to hard error in the future.
     pub deprecated_default: bool,
     /// Documentation for what the attribute actually means
     pub doc: String,
