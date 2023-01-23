@@ -39,6 +39,7 @@ pub(crate) fn render(x: StarModule) -> syn::Result<TokenStream> {
         name,
         globals_builder,
         visibility,
+        attrs,
         docstring,
         stmts,
         module_kind,
@@ -49,6 +50,7 @@ pub(crate) fn render(x: StarModule) -> syn::Result<TokenStream> {
         docstring.map(|ds| quote_spanned!(span=> globals_builder.set_docstring(#ds);));
     Ok(quote_spanned! {
         span=>
+        #( #attrs )*
         #visibility fn #name(globals_builder: #globals_builder) {
             fn build(globals_builder: #globals_builder) {
                 #set_docstring

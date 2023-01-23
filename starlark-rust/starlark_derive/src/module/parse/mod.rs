@@ -55,7 +55,7 @@ impl ModuleKind {
 }
 
 pub(crate) fn parse(mut input: ItemFn) -> syn::Result<StarModule> {
-    let module_docstring = parse_module_docstring(&input);
+    let (module_docstring, attrs) = parse_module_attributes(&input);
     let visibility = input.vis;
     let sig_span = input.sig.span();
     let name = input.sig.ident;
@@ -88,6 +88,7 @@ pub(crate) fn parse(mut input: ItemFn) -> syn::Result<StarModule> {
         visibility,
         globals_builder: *ty,
         name,
+        attrs,
         docstring: module_docstring,
         stmts: input
             .block
@@ -109,18 +110,23 @@ fn is_attribute_docstring(x: &Attribute) -> Option<String> {
     None
 }
 
-fn parse_module_docstring(input: &ItemFn) -> Option<String> {
+/// Return (docstring, other attributes)
+fn parse_module_attributes(input: &ItemFn) -> (Option<String>, Vec<Attribute>) {
     let mut doc_attrs = Vec::new();
+    let mut attrs = Vec::new();
     for attr in &input.attrs {
         if let Some(ds) = is_attribute_docstring(attr) {
             doc_attrs.push(ds);
+        } else {
+            attrs.push(attr.clone());
         }
     }
-    if doc_attrs.is_empty() {
+    let docs = if doc_attrs.is_empty() {
         None
     } else {
         Some(doc_attrs.join("\n"))
-    }
+    };
+    (docs, attrs)
 }
 
 fn parse_stmt(stmt: Stmt, module_kind: ModuleKind) -> syn::Result<StarStmt> {

@@ -36,6 +36,7 @@ pub(crate) struct StarModule {
     // make sense
     pub globals_builder: Type,
     pub name: Ident,
+    pub attrs: Vec<Attribute>,
     pub docstring: Option<String>,
     pub stmts: Vec<StarStmt>,
 }
