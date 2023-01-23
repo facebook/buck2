@@ -1,13 +1,19 @@
-# Optimization
+---
+id: optimization
+title: Optimization
+---
 
-Techniques for figuring out the performance of Buck2, and specific actions that Buck2 performs. This document both covers the internals for developers of Buck2, and details around Starlark that are more likely relevant to end users.
+Optimization involves the use of techniques for determining and improving the performance of Buck2 and specific actions performed by Buck2. This page covers the internals for developers of Buck2 and provides details of Starlark that are likely to be relevant to end users.
 
-## Starlark Profiling
+## Starlark profiling
 
-`buck2` supports profiling of evaluation of specific `BUCK` files
-and profiling of analysis of specific targets. There are two `buck2` commands to do that:
+`buck2` supports profiling of the evaluation of specific `BUCK` files and profiling of the analysis of specific targets.
+
+There are two `buck2` profiling commands:
+
 * `buck2 profile loading`
 * `buck2 profile analysis`
+* `buck2 profile bxl`
 
 For example:
 
@@ -16,9 +22,11 @@ buck2 profile loading --mode=heap-summary -o heap-summary.csv //some/package:
 buck2 profile analysis --mode=heap-summary -o heap-summary.csv //some/package:target
 ```
 
-### Heap profiling
+### Summary profiling
 
-The first profiling mode provides the time spent within a function and the allocations that are performed. As an example, running over a folly BUCK file, we get a CSV file whose top-left corner is:
+The first profiling mode provides the time spent within a function and the allocations that are performed.
+
+As an example, running over a folly BUCK file, produces a CSV file whose top-left corner is:
 
 ```text
 Function         Time(s)  TimeRec(s)    Calls   Allocs
@@ -30,9 +38,14 @@ type               0.435       0.435  2053296        0
 ...
 ```
 
-This tells us that the total execution was 10.455s (which will be a bit slower than normal, because profiling is on), and that 1.163s was spent in `fbchain_configs` itself, and 2.514s in that function and things it calls. A disturbing 1.5M calls and 1s is spent testing if things are strings, which is almost certainly responsible for half the type calls. Happily, `is_string` doesn't allocate, but `fbchain_configs` does - and scrolling to the right on the full CSV file shows it allocates 1 tuple and 2 dict per call. We can also see that `fbchain_configs` is mostly called by `_add_code_coverage_configs`.
+This reveals the following:
 
-This profiling mode is implemented by turning off garbage collection, so the heap retains everything, and pushing function entry/exit entries on to the heap with the time they happen. After execution, we can scan the heap in order to reconstruct the call tree and allocation patterns. As a result, this profile mode may consume significantly more memory.
+* Total execution was 10.455s, which will be a bit slower than normal, because profiling is on.
+* 1.163s was spent in `fbchain_configs` itself and 2.514s in that function and the things it calls.
+* A disturbing 1.5M calls and 1.028s is spent testing if things are strings, which is almost certainly responsible for half the type calls.
+* Happily, `is_string` doesn't allocate, but `fbchain_configs` does. Scrolling to the right, on the full CSV file (not shown), reveals it allocates 1 tuple and 2 dict per call. It can also be seen that `fbchain_configs` is mostly called by `_add_code_coverage_configs`.
+
+This profiling mode is implemented by turning off garbage collection, so the heap retains everything, and pushing function entry/exit entries on to the heap with the time they happen. After execution, the heap can be scanned in order to reconstruct the call tree and allocation patterns. As a result, this profile mode may consume significantly more memory.
 
 ### Statement profiling
 
@@ -56,24 +69,26 @@ for _package in _recursive_allowlist:
         return True
 ```
 
-The `if` statement is at location 420:9-423:1 and takes 0.27s. The `if` statement runs 456K times, while looking at the outer statement in the profile (not shown) we see that the `for` loop is only called 3188 times, implying an average of 143 iterations per call. I suspect this loop could be rewritten as some clever dictionary lookup, perhaps iterating over the path components of `_package`.
+The `if` statement is at location 420:9-423:1 and takes 0.27s. The `if` statement runs approximatey 456K times. While looking at the outer statement in the profile (not shown), it can be seen that the `for` loop is only called 3188 times, implying an average of 143 iterations per call. It's possible that this loop could be rewritten as some clever dictionary lookup, perhaps iterating over the path components of `_package`.
 
-Line profiling builds on top of the `before_stmt` hook that is used for debugging. It records the time each statement is entered, and then blames that statement for all time until the next statement. That means that sometimes due to statements making function calls, the `return` of the function call may be "blamed" until the next statement executes. As a result, treat the results with slight caution.
+Line profiling builds on top of the `before_stmt` hook that is used for debugging. It records the time each statement is entered then blames that statement for all time until the next statement. That means that sometimes, due to statements making function calls, the `return` of the function call may be 'blamed' until the next statement executes. As a result, treat the results with slight caution.
 
 ### Flame profiling
 
-The flame profile prints out a file that can be fed to [`flameprofile.pl`](https://github.com/brendangregg/FlameGraph/blob/master/flamegraph.pl), e.g. `flameprofile.pl profile.csv > profile.svg`. The flame profile gives a list of where time goes based on call stacks. You can find an example [here](https://www.internalfb.com/intern/px/p/1Mz2W).
+The flame profiling modes produces a `.svg` flamegraph showing either time spent or allocations.
 
-## Native Profiling
+The flame profile provides a list of how time is used based on call stacks (you can download an example [here](https://www.internalfb.com/intern/px/p/1Mz2W)).
+
+## Native profiling
 
 * Profiling on Linux can be done with `perf record -g --call-graph=dwarf,20000 ...` and `perf report --call-graph`
-  * Don't profile the `buck2` process directly unless you are interested in profiling the CLI; you likely want to profile
-    the `buck2` daemon process. You can find the pid with `buck2 status` and attach `perf` to that PID.
-* Profiling on Mac can be done with [`Instruments` on mac](https://www.internalfb.com/intern/wiki/GraphQL/Build_Infra/Running_and_Testing_Builds/#profiling-the-rust-code).
-* To run jemalloc profiling on Linux, you can run `_RJEM_MALLOC_CONF=prof:true,prof_prefix:/tmp/buck2,lg_prof_interval:28,lg_prof_sample:24 ...`. This will dump jemalloc profiles as /tmp/buck2.*.heap files. You may need to change `lg_prof_interval` or `lg_prof_sample` to finetune the number of profile files dumped. Then run `jeprof --text $PATH_TO_BINARY /tmp/buck2.*.heap | pastry` to visualize the output in text. For profiling the daemon, you may need to kill the daemon in between profiling to initialize _RJEM_MALLOC_CONF to different settings.
+  * Don't profile the `buck2` process directly unless you are interested in profiling the CLI; you likely want to profile the `buck2` daemon process. You can find the pid with `buck2 status` and attach `perf` to that PID.
+* Profiling on Mac can be done with `Instruments` (for details, see the Wiki article [Running and Testing Builds](https://www.internalfb.com/intern/wiki/GraphQL/Build_Infra/Running_and_Testing_Builds/#profiling-the-rust-code)).
 
 ## Benchmarking
 
-* If you want to do proper statistically relevant A/B testing, use `absh -a testa -b testb` - see [the repo](https://github.com/stepancheg/absh).
-* To measure number of instructions, on Linux do `perf stat foo`, on Mac do `/usr/bin/time -lp foo`.
-* On Mac, to run something with the time profiler on the command line, do `xcrun xctrace record --template 'Time Profiler' --launch -- foo` , then `open Foo.trace` for the name of the trace file it spits out (or pass `--output` to control the output filename).
+* If you want to do proper statistically relevant A/B testing, use `absh -a testa -b testb` (see [absh](https://github.com/stepancheg/absh) in the GitHUb repository).
+* To measure the number of instructions:
+  * On Linux, use `perf stat foo`
+  * On Mac, use `/usr/bin/time -lp foo`
+* On Mac, to run something with the time profiler on the command line, use `xcrun xctrace record --template 'Time Profiler' --launch -- foo`, then `open Foo.trace` for the name of the trace file it spits out (or pass `--output` to control the output filename).
