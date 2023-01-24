@@ -12,6 +12,7 @@ use buck2_node::attrs::attr_type::enumeration::EnumAttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
+use buck2_util::arc_str::ArcStr;
 use starlark::values::string::STRING_TYPE;
 use starlark::values::Value;
 
@@ -31,7 +32,7 @@ impl AttrTypeCoerce for EnumAttrType {
                 // so we normalise them to lowercase to make rule implementations easier
                 let s = s.to_lowercase();
                 if self.variants.contains(&s) {
-                    Ok(AttrLiteral::EnumVariant(s.into_boxed_str()))
+                    Ok(AttrLiteral::EnumVariant(ArcStr::from(s)))
                 } else {
                     let wanted = self.variants.iter().cloned().collect();
                     Err(CoercionError::InvalidEnumVariant(s, wanted).into())

@@ -30,6 +30,7 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::ConfiguredTargetLabel;
 use buck2_core::target::TargetLabel;
+use buck2_util::arc_str::ArcStr;
 use dupe::Dupe;
 use either::Either;
 use starlark_map::Hashed;
@@ -426,9 +427,9 @@ impl ConfiguredTargetNode {
                 .collect::<Vec<_>>()
                 .into_boxed_slice(),
         ));
-        let package_attr = ConfiguredAttr::new(AttrLiteral::String(
-            self.buildfile_path().to_string().into_boxed_str(),
-        ));
+        let package_attr = ConfiguredAttr::new(AttrLiteral::String(ArcStr::from(
+            self.buildfile_path().to_string(),
+        )));
         vec![
             (TYPE, typ_attr),
             (DEPS, deps_attr),
@@ -437,22 +438,22 @@ impl ConfiguredTargetNode {
                 ONCALL,
                 ConfiguredAttr::new(match self.oncall() {
                     None => AttrLiteral::None,
-                    Some(x) => AttrLiteral::String(x.into()),
+                    Some(x) => AttrLiteral::String(ArcStr::from(x)),
                 }),
             ),
             (
                 TARGET_CONFIGURATION,
-                ConfiguredAttr::new(AttrLiteral::String(
-                    self.0.label.cfg().to_string().into_boxed_str(),
-                )),
+                ConfiguredAttr::new(AttrLiteral::String(ArcStr::from(
+                    self.0.label.cfg().to_string(),
+                ))),
             ),
             (
                 EXECUTION_PLATFORM,
                 ConfiguredAttr::new(AttrLiteral::String(
-                    self.0.execution_platform_resolution.platform().map_or_else(
-                        |_| "<NONE>".to_owned().into_boxed_str(),
-                        |v| v.id().into_boxed_str(),
-                    ),
+                    self.0
+                        .execution_platform_resolution
+                        .platform()
+                        .map_or_else(|_| ArcStr::from("<NONE>"), |v| ArcStr::from(v.id())),
                 )),
             ),
         ]

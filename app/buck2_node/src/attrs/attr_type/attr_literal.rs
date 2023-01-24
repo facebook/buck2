@@ -14,6 +14,7 @@ use buck2_core::buck_path::BuckPathRef;
 use buck2_core::package::PackageLabel;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::TargetLabel;
+use buck2_util::arc_str::ArcStr;
 use dupe::Dupe;
 use either::Either;
 use gazebo::prelude::*;
@@ -52,9 +53,9 @@ pub enum AttrLiteral<C: AttrConfig> {
     //
     // So when working with configured attributes with pay with CPU for string copies,
     // but don't increase total memory usage, because these string copies are short living.
-    String(Box<str>),
+    String(ArcStr),
     // Like String, but drawn from a set of variants, so doesn't support concat
-    EnumVariant(Box<str>),
+    EnumVariant(ArcStr),
     List(Box<[C]>),
     Tuple(Box<[C]>),
     Dict(Box<[(C, C)]>),
@@ -294,8 +295,8 @@ impl AttrLiteral<CoercedAttr> {
         Ok(ConfiguredAttr(match self {
             AttrLiteral::Bool(v) => AttrLiteral::Bool(*v),
             AttrLiteral::Int(v) => AttrLiteral::Int(*v),
-            AttrLiteral::String(v) => AttrLiteral::String(v.clone()),
-            AttrLiteral::EnumVariant(v) => AttrLiteral::EnumVariant(v.clone()),
+            AttrLiteral::String(v) => AttrLiteral::String(v.dupe()),
+            AttrLiteral::EnumVariant(v) => AttrLiteral::EnumVariant(v.dupe()),
             AttrLiteral::List(list) => {
                 AttrLiteral::List(list.try_map(|v| v.configure(ctx))?.into_boxed_slice())
             }

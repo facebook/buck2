@@ -19,6 +19,7 @@ use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::TargetLabel;
 use buck2_core::target::TargetName;
+use buck2_util::arc_str::ArcStr;
 use dupe::Dupe;
 
 use crate::attrs::attr_type::attr_literal::AttrLiteral;
@@ -189,9 +190,9 @@ impl TargetNode {
                 })
                 .collect(),
         ));
-        let package_attr = CoercedAttr::new_literal(AttrLiteral::String(
-            self.buildfile_path().to_string().into_boxed_str(),
-        ));
+        let package_attr = CoercedAttr::new_literal(AttrLiteral::String(ArcStr::from(
+            self.buildfile_path().to_string(),
+        )));
         vec![
             (TYPE, typ_attr),
             (
@@ -210,7 +211,7 @@ impl TargetNode {
                 ONCALL,
                 CoercedAttr::new_literal(match self.oncall() {
                     None => AttrLiteral::None,
-                    Some(x) => AttrLiteral::String(x.to_owned().into_boxed_str()),
+                    Some(x) => AttrLiteral::String(ArcStr::from(x)),
                 }),
             ),
         ]

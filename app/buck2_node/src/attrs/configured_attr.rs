@@ -13,6 +13,7 @@ use allocative::Allocative;
 use buck2_core::collections::ordered_map::OrderedMap;
 use buck2_core::package::PackageLabel;
 use buck2_core::target::TargetLabel;
+use buck2_util::arc_str::ArcStr;
 use serde::Serialize;
 use serde::Serializer;
 use starlark_map::small_map;
@@ -155,14 +156,19 @@ impl ConfiguredAttr {
                 Ok(Self(AttrLiteral::Dict(res.into_iter().collect())))
             }
             AttrLiteral::String(res) => {
-                let mut res = res.into_string();
-                for x in items {
-                    match x?.0 {
-                        AttrLiteral::String(right) => res.push_str(&right),
-                        attr => return mismatch("string", attr),
+                let mut items = items.peekable();
+                if items.peek().is_none() {
+                    Ok(Self(AttrLiteral::String(res)))
+                } else {
+                    let mut res = str::to_owned(&res);
+                    for x in items {
+                        match x?.0 {
+                            AttrLiteral::String(right) => res.push_str(&right),
+                            attr => return mismatch("string", attr),
+                        }
                     }
+                    Ok(Self(AttrLiteral::String(ArcStr::from(res))))
                 }
-                Ok(Self(AttrLiteral::String(res.into_boxed_str())))
             }
             AttrLiteral::Arg(left) => {
                 let res = left.concat(items.map(|x| {

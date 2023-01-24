@@ -158,6 +158,7 @@ mod tests {
     use buck2_node::attrs::coerced_attr::CoercedSelector;
     use buck2_node::attrs::configuration_context::AttrConfigurationContext;
     use buck2_node::attrs::fmt_context::AttrFmtContext;
+    use buck2_util::arc_str::ArcStr;
     use dupe::Dupe;
 
     #[test]
@@ -301,7 +302,7 @@ mod tests {
             CoercedAttr::Literal(AttrLiteral::Bool(true))
         }
         fn literal_str() -> CoercedAttr {
-            CoercedAttr::Literal(AttrLiteral::String("linux".into()))
+            CoercedAttr::Literal(AttrLiteral::String(ArcStr::from("linux")))
         }
 
         // Test more specific is selected even if it is not first.
@@ -343,10 +344,10 @@ mod tests {
         assert_eq!(
             r#"{"__type":"concat","items":["a","b","c","d"]}"#,
             CoercedAttr::Concat(box [
-                CoercedAttr::Literal(AttrLiteral::String("a".into())),
-                CoercedAttr::Literal(AttrLiteral::String("b".into())),
-                CoercedAttr::Literal(AttrLiteral::String("c".into())),
-                CoercedAttr::Literal(AttrLiteral::String("d".into())),
+                CoercedAttr::Literal(AttrLiteral::String(ArcStr::from("a"))),
+                CoercedAttr::Literal(AttrLiteral::String(ArcStr::from("b"))),
+                CoercedAttr::Literal(AttrLiteral::String(ArcStr::from("c"))),
+                CoercedAttr::Literal(AttrLiteral::String(ArcStr::from("d"))),
             ])
             .to_json(&AttrFmtContext::NO_CONTEXT)
             .unwrap()
@@ -370,7 +371,9 @@ mod tests {
                             CoercedAttr::Literal(AttrLiteral::Int(10))
                         ),
                     ],
-                    Some(CoercedAttr::Literal(AttrLiteral::String("ddd".into()))),
+                    Some(CoercedAttr::Literal(AttrLiteral::String(ArcStr::from(
+                        "ddd"
+                    )))),
                 )
                 .unwrap()
             )

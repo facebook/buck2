@@ -18,6 +18,7 @@ use buck2_node::attrs::internal::attr_is_configurable;
 use buck2_node::attrs::internal::NAME_ATTRIBUTE_FIELD;
 use buck2_node::attrs::spec::AttributeSpec;
 use buck2_node::attrs::values::AttrValues;
+use buck2_util::arc_str::ArcStr;
 use starlark::docs::DocString;
 use starlark::eval::ParametersParser;
 use starlark::eval::ParametersSpec;
@@ -61,7 +62,7 @@ impl AttributeSpecExt for AttributeSpec {
 
                 attr_values.push_sorted(
                     attr_idx,
-                    CoercedAttr::Literal(AttrLiteral::String(name.into())),
+                    CoercedAttr::Literal(AttrLiteral::String(ArcStr::from(name))),
                 );
 
                 TargetName::new(name)?

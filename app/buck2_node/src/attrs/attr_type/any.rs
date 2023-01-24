@@ -8,6 +8,7 @@
  */
 
 use allocative::Allocative;
+use buck2_util::arc_str::ArcStr;
 
 use crate::attrs::attr_type::attr_literal::AttrLiteral;
 use crate::attrs::coerced_attr::CoercedAttr;
@@ -17,7 +18,7 @@ pub struct AnyAttrType;
 
 impl AnyAttrType {
     pub fn empty_string() -> CoercedAttr {
-        CoercedAttr::new_literal(AttrLiteral::String("".to_owned().into_boxed_str()))
+        CoercedAttr::new_literal(AttrLiteral::String(ArcStr::default()))
     }
 
     pub fn empty_list() -> CoercedAttr {
