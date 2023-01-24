@@ -18,6 +18,7 @@ buck2_data = { workspace = true }
 allocative = { workspace = true }
 parking_lot = { workspace = true }
 take_mut = { workspace = true }
+thiserror = { workspace = true }
 
 [features]
 # @oss-disable: default = ["gazebo_lint"]

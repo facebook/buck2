@@ -14,22 +14,23 @@ use std::task::Poll;
 use futures::future::BoxFuture;
 use more_futures::instrumented_shared::SharedEventsFuture;
 use more_futures::spawn::StrongJoinHandle;
+use more_futures::spawn::WeakFutureError;
 
 use crate::DiceResult;
 use crate::GraphNode;
 use crate::StorageProperties;
 
+type DiceJoinHandle<S> = StrongJoinHandle<
+    SharedEventsFuture<BoxFuture<'static, Result<DiceResult<GraphNode<S>>, WeakFutureError>>>,
+>;
+
 pub(crate) enum DiceFuture<S: StorageProperties> {
     /// Earlier computed value.
     Ready(Option<DiceResult<GraphNode<S>>>),
     /// Current computation spawned the task.
-    AsyncCancellableSpawned(
-        StrongJoinHandle<SharedEventsFuture<BoxFuture<'static, DiceResult<GraphNode<S>>>>>,
-    ),
+    AsyncCancellableSpawned(DiceJoinHandle<S>),
     /// Other computation for current key spawned the task.
-    AsyncCancellableJoining(
-        StrongJoinHandle<SharedEventsFuture<BoxFuture<'static, DiceResult<GraphNode<S>>>>>,
-    ),
+    AsyncCancellableJoining(DiceJoinHandle<S>),
 }
 
 impl<S> Future for DiceFuture<S>

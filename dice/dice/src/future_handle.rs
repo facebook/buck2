@@ -11,6 +11,7 @@
 //! shareable across different computation units.
 //!
 use allocative::Allocative;
+use more_futures::spawn::WeakFutureError;
 use more_futures::spawn::WeakJoinHandle;
 
 use crate::dice_future::DiceFuture;
@@ -23,7 +24,7 @@ use crate::StorageProperties;
 #[derive(Allocative)]
 pub(crate) struct WeakDiceFutureHandle<S: StorageProperties> {
     #[allocative(skip)] // TODO(nga): value may be hiding in there.
-    handle: WeakJoinHandle<DiceResult<GraphNode<S>>>,
+    handle: WeakJoinHandle<Result<DiceResult<GraphNode<S>>, WeakFutureError>>,
 }
 
 impl<S: StorageProperties> DiceTask for WeakDiceFutureHandle<S> {
@@ -43,7 +44,7 @@ impl<S: StorageProperties> DiceTask for WeakDiceFutureHandle<S> {
 
 impl<S: StorageProperties> WeakDiceFutureHandle<S> {
     pub(crate) fn async_cancellable(
-        handle: WeakJoinHandle<DiceResult<GraphNode<S>>>,
+        handle: WeakJoinHandle<Result<DiceResult<GraphNode<S>>, WeakFutureError>>,
     ) -> WeakDiceFutureHandle<S> {
         WeakDiceFutureHandle { handle }
     }

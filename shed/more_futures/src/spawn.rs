@@ -23,6 +23,7 @@ use dupe::Dupe;
 use futures::future::BoxFuture;
 use futures::FutureExt;
 use pin_project::pin_project;
+use thiserror::Error;
 use tracing::Span;
 
 use crate::cancellable_future::CancellableFuture;
@@ -34,6 +35,15 @@ use crate::spawner::Spawner;
 
 thread_local! {
     static CURRENT_TASK_GUARD: RefCell<Option<WeakRefCount>> = RefCell::new(None);
+}
+
+#[derive(Debug, Error, Copy, Clone)]
+pub enum WeakFutureError {
+    #[error("Join Error")]
+    JoinError,
+
+    #[error("Cancelled")]
+    Cancelled,
 }
 
 /// A unit of computation within Dice. Futures to the result of this computation should be obtained
@@ -56,7 +66,7 @@ impl<T: Clone + 'static> WeakJoinHandle<T> {
     }
 }
 
-/// The actual pollable future that returns the result of the task. This keeps the future alive
+/// The actual pollable future that returns the result of the task. This keeps the future alive.
 #[pin_project]
 pub struct StrongJoinHandle<F> {
     guard: StrongRefCount,
@@ -91,12 +101,16 @@ impl<F: Future> StrongJoinHandle<F> {
     }
 }
 
-impl<F: Future> Future for StrongJoinHandle<F> {
-    type Output = F::Output;
+impl<F, T> Future for StrongJoinHandle<F>
+where
+    F: Future<Output = Result<T, WeakFutureError>>,
+{
+    type Output = T;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        // When we have a StrongJoinHandle, we expect the future to not have been cancelled.
         let this = self.project();
-        this.fut.poll(cx)
+        this.fut.poll(cx).map(|r| r.unwrap())
     }
 }
 
@@ -135,8 +149,8 @@ pub fn spawn_task<T, S>(
     ctx: &S,
     span: Span,
 ) -> (
-    WeakJoinHandle<T::Output>,
-    StrongJoinHandle<SharedEventsFuture<BoxFuture<'static, T::Output>>>,
+    WeakJoinHandle<Result<T::Output, WeakFutureError>>,
+    StrongJoinHandle<SharedEventsFuture<BoxFuture<'static, Result<T::Output, WeakFutureError>>>>,
 )
 where
     T: Future + Send + 'static,
@@ -151,7 +165,7 @@ pub fn spawn_dropcancel<T, S>(
     spawner: &dyn Spawner<S>,
     ctx: &S,
     span: Span,
-) -> StrongJoinHandle<BoxFuture<'static, T::Output>>
+) -> StrongJoinHandle<BoxFuture<'static, Result<T::Output, WeakFutureError>>>
 where
     T: Future + Send + 'static,
     T::Output: Any + Send + 'static,
@@ -167,10 +181,10 @@ where
     let task = spawner.spawn(ctx, drop.boxed());
     let task = task
         .map(|v| {
-            v.expect("Tokio task was cancelled")
+            v.map_err(|_e: tokio::task::JoinError| WeakFutureError::JoinError)?
                 .downcast::<Option<T::Output>>()
                 .expect("Spawned task returned the wrong type")
-                .expect("Cancelled task was awaited")
+                .ok_or(WeakFutureError::Cancelled)
         })
         .boxed();
 
