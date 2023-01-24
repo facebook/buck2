@@ -25,11 +25,12 @@
 # To avoid name collisions (where '/' designates the build output
 # directory root):
 #
-#   - Binaries (.exe) and libraries (.a, .cmxa) are written to '/'
+
+#   - Binaries (.opt) and libraries (.a, .cmxa) are written to '/'
 #   - Where <mode> is one of 'bytecode'  or 'native':
 #     - Generated sources are written to `/_<mode>_gen_`
-#     - Intermedidate files (.cmi, .cmti, .cmt, .cmx, .o, ...) are written to
-#       `/_<mode>_obj_`
+#     - Intermedidate files (.cmi, .cmti, .cmt, .cmx, .o, .pp.ml, ...) are
+#       written to `/_<mode>_obj_`
 #
 # For example given,
 #   ocaml_binary(
@@ -48,7 +49,7 @@
 #     quux/corge/corge.cmi
 #     quux/corge/corge.cmx
 #     quux/corge/corge.o
-#   quux
+#   quux.opt
 
 load("@prelude//:local_only.bzl", "link_cxx_binary_locally")
 load("@prelude//:paths.bzl", "paths")
@@ -120,10 +121,14 @@ CompileResultInfo = record(
     cmts = field(["artifact"], []),
     # .cmti files
     cmtis = field(["artifact"], []),
+    # .pp.mli files
+    ppmlis = field(["artifact"], []),
+    # .pp.ml files
+    ppmls = field(["artifact"], []),
 )
 
 def _compile_result_to_tuple(r):
-    return (r.cmxs_order, r.stbs, r.objs, r.cmis, r.cmos, r.cmxs, r.cmts, r.cmtis)
+    return (r.cmxs_order, r.stbs, r.objs, r.cmis, r.cmos, r.cmxs, r.cmts, r.cmtis, r.ppmlis, r.ppmls)
 
 # ---
 
@@ -356,6 +361,7 @@ def _depends(ctx: "context", srcs: ["artifact"], bytecode_or_native: BuildMode.t
 #     (e.g. 'ocamlc.opt')
 #   - if `bytecode_or_native` == "native" then `compiler` is a native compiler
 #     (e.g. 'ocamlopt.opt')
+#
 def _compile(ctx: "context", compiler: "cmd_args", bytecode_or_native: BuildMode.type) -> CompileResultInfo.type:
     ocaml_toolchain = ctx.attrs._ocaml_toolchain[OCamlToolchainInfo]
 
@@ -375,7 +381,7 @@ def _compile(ctx: "context", compiler: "cmd_args", bytecode_or_native: BuildMode
     # Compile
     produces = {}  # A tuple of things each source file produces.
     includes = {}  # Source file, .cmi pairs.
-    stbs, objs, cmis, cmos, cmxs, cmts, cmtis = ([], [], [], [], [], [], [])
+    stbs, objs, cmis, cmos, cmxs, cmts, cmtis, ppmlis, ppmls = ([], [], [], [], [], [], [], [], [])
     obj_dir = "_" + bytecode_or_native.value + "obj_/"
     for src in srcs:
         obj_name = obj_dir + paths.replace_extension(src.short_path, "")
@@ -384,10 +390,14 @@ def _compile(ctx: "context", compiler: "cmd_args", bytecode_or_native: BuildMode
         if ext == ".mli":
             cmi = ctx.actions.declare_output(obj_name + ".cmi")
             cmti = ctx.actions.declare_output(obj_name + ".cmti")
-            produces[src] = (cmi, cmti)
+            ppmli = ctx.actions.declare_output(obj_name + ".pp.mli") if is_native else None
+            produces[src] = (cmi, cmti, ppmli)
             includes[src] = cmi
             cmis.append(cmi)
             cmtis.append(cmti)
+            if ppmli != None:
+                ppmlis.append(ppmli)
+
         elif ext == ".ml":
             # Sometimes a .ml file has an explicit .mli, sometimes its implicit
             # and we generate it. The variable below contains the artifact of
@@ -399,7 +409,8 @@ def _compile(ctx: "context", compiler: "cmd_args", bytecode_or_native: BuildMode
             cmx = ctx.actions.declare_output(obj_name + ".cmx") if is_native else None
             cmo = ctx.actions.declare_output(obj_name + ".cmo") if is_bytecode else None
             cmi = ctx.actions.declare_output(obj_name + ".cmi") if mli == None else None
-            produces[src] = (obj, cmo, cmx, cmt, cmi)
+            ppml = ctx.actions.declare_output(obj_name + ".pp.ml") if is_native else None
+            produces[src] = (obj, cmo, cmx, cmt, cmi, ppml)
 
             if cmo != None:
                 cmos.append(cmo)
@@ -410,6 +421,8 @@ def _compile(ctx: "context", compiler: "cmd_args", bytecode_or_native: BuildMode
             if cmi != None:
                 cmis.append(cmi)
                 includes[src] = cmi
+            if ppml != None:
+                ppmls.append(ppml)
             cmts.append(cmt)
 
         elif ext == ".c":
@@ -505,14 +518,22 @@ def _compile(ctx: "context", compiler: "cmd_args", bytecode_or_native: BuildMode
             all_include_paths = depends_include_paths + global_include_paths
 
             if ext == ".mli":
-                (cmi, cmti) = produces[src]
+                (cmi, cmti, ppmli) = produces[src]
                 cmd = _compile_cmd(ctx, compiler, cc, all_include_paths)
                 cmd.add(src, "-c", "-o", mk_out(cmi))
+                if is_native:
+                    cmd.add("-dsource")
                 cmd.hidden(mk_out(cmti), depends_produce)
-                ctx.actions.run(cmd, category = "ocaml_compile_mli_" + bytecode_or_native.value, identifier = src.short_path)
+
+                if is_native:
+                    cmd_in_shell = cmd_args(["/bin/sh", "-c", '"$@" 2> "$preprocessed_source_file"', "--", cmd])
+                    env = {"preprocessed_source_file": mk_out(ppmli)}
+                    ctx.actions.run(cmd_in_shell, category = "ocaml_compile_mli_" + bytecode_or_native.value, identifier = src.short_path, env = env)
+                else:
+                    ctx.actions.run(cmd, category = "ocaml_compile_mli_" + bytecode_or_native.value, identifier = src.short_path)
 
             elif ext == ".ml":
-                (obj, cmo, cmx, cmt, cmi) = produces[src]
+                (obj, cmo, cmx, cmt, cmi, ppml) = produces[src]
                 cmd = _compile_cmd(ctx, compiler, cc, all_include_paths)
                 cmd.hidden(depends_produce)
                 if cmo != None:
@@ -520,6 +541,8 @@ def _compile(ctx: "context", compiler: "cmd_args", bytecode_or_native: BuildMode
                 if cmx != None:
                     cmd.add(src, "-c", "-o", mk_out(cmx))
                 cmd.hidden(mk_out(cmt))
+                if is_native:
+                    cmd.add("-dsource")
                 if obj != None:
                     cmd.hidden(mk_out(obj))
                 if cmi != None:
@@ -527,7 +550,13 @@ def _compile(ctx: "context", compiler: "cmd_args", bytecode_or_native: BuildMode
                 else:
                     # An explicit '.mli' for this '.ml' is a dependency.
                     cmd.hidden(mlis[paths.replace_extension(src.short_path, ".mli")])
-                ctx.actions.run(cmd, category = "ocaml_compile_ml_" + bytecode_or_native.value, identifier = src.short_path)
+
+                if is_native:
+                    cmd_in_shell = cmd_args(["/bin/sh", "-c", '"$@" 2> "$preprocessed_source_file"', "--", cmd])
+                    env = {"preprocessed_source_file": mk_out(ppml)}
+                    ctx.actions.run(cmd_in_shell, category = "ocaml_compile_ml_" + bytecode_or_native.value, identifier = src.short_path, env = env)
+                else:
+                    ctx.actions.run(cmd, category = "ocaml_compile_ml_" + bytecode_or_native.value, identifier = src.short_path)
 
             elif ext == ".c":
                 (stb,) = produces[src]
@@ -549,7 +578,7 @@ def _compile(ctx: "context", compiler: "cmd_args", bytecode_or_native: BuildMode
     else:
         ctx.actions.dynamic_output(dynamic = [depends_output], inputs = todo_inputs, outputs = outputs + [cmxs_order], f = f)
 
-    return CompileResultInfo(cmxs_order = cmxs_order, stbs = stbs, objs = objs, cmis = cmis, cmos = cmos, cmxs = cmxs, cmts = cmts, cmtis = cmtis)
+    return CompileResultInfo(cmxs_order = cmxs_order, stbs = stbs, objs = objs, cmis = cmis, cmos = cmos, cmxs = cmxs, cmts = cmts, cmtis = cmtis, ppmlis = ppmlis, ppmls = ppmls)
 
 # The include path directories a client will provide a compile command to use
 # the given artifacts.
@@ -584,7 +613,7 @@ def ocaml_library_impl(ctx: "context") -> ["provider"]:
     cmd_nat = _compiler_cmd(ctx, ocamlopt, ld_nat)
     cmd_byt = _compiler_cmd(ctx, ocamlc, ld_byt)
 
-    cmxs_order, stbs_nat, objs, cmis_nat, _cmos, cmxs, cmts_nat, cmtis_nat = _compile_result_to_tuple(_compile(ctx, ocamlopt, BuildMode("native")))
+    cmxs_order, stbs_nat, objs, cmis_nat, _cmos, cmxs, cmts_nat, cmtis_nat, ppmlis, ppmls = _compile_result_to_tuple(_compile(ctx, ocamlopt, BuildMode("native")))
     cmd_nat.add("-a")
     cmxa = ctx.actions.declare_output("lib" + ctx.attrs.name + ".cmxa")
     cmd_nat.add("-o", cmxa.as_output())
@@ -604,7 +633,7 @@ def ocaml_library_impl(ctx: "context") -> ["provider"]:
     cmd_nat.hidden(cmxs, cmis_nat, objs, cmts_nat, cmtis_nat)
     ctx.actions.run(cmd_nat, category = "ocaml_archive_native")
 
-    cmxs_order, stbs_byt, _objs, cmis_byt, cmos, _cmxs, cmts_byt, cmtis_byt = _compile_result_to_tuple(_compile(ctx, ocamlc, BuildMode("bytecode")))
+    cmxs_order, stbs_byt, _objs, cmis_byt, cmos, _cmxs, cmts_byt, cmtis_byt, _ppmlis, _ppmls = _compile_result_to_tuple(_compile(ctx, ocamlc, BuildMode("bytecode")))
     cmd_byt.add("-a")
 
     cma = ctx.actions.declare_output("lib" + ctx.attrs.name + ".cma")
@@ -646,6 +675,7 @@ def ocaml_library_impl(ctx: "context") -> ["provider"]:
 
     other_outputs = {
         "bytecode": cmis_byt + cmos,
+        "expand": ppmlis + ppmls,
         "ide": cmis_nat + cmtis_nat + cmts_nat,
     }
     other_outputs_info = merge_other_outputs_info(ctx, other_outputs, _attr_deps_other_outputs_infos(ctx))
@@ -662,7 +692,13 @@ def ocaml_library_impl(ctx: "context") -> ["provider"]:
             other_outputs = [cmd_args(other_outputs_info.info.project_as_args("bytecode"))],
         ),
     ]
-    sub_targets = {"bytecode": info_byt, "ide": info_ide}
+    info_expand = [
+        DefaultInfo(
+            default_output = cmxa,
+            other_outputs = [cmd_args(other_outputs_info.info.project_as_args("expand"))],
+        ),
+    ]
+    sub_targets = {"bytecode": info_byt, "expand": info_expand, "ide": info_ide}
 
     if ctx.attrs.bytecode_only:
         return info_byt
@@ -707,7 +743,7 @@ def ocaml_binary_impl(ctx: "context") -> ["provider"]:
         cmd_nat.add(lib.cmxas, lib.c_libs, lib.native_c_libs, lib.stbs_nat)
         cmd_byt.add(lib.cmas, lib.c_libs, lib.bytecode_c_libs, lib.stbs_byt)
 
-    cmxs_order, stbs_nat, objs, cmis_nat, _cmos, cmxs, cmts_nat, cmtis_nat = _compile_result_to_tuple(_compile(ctx, ocamlopt, BuildMode("native")))
+    cmxs_order, stbs_nat, objs, cmis_nat, _cmos, cmxs, cmts_nat, cmtis_nat, ppmlis, ppmls = _compile_result_to_tuple(_compile(ctx, ocamlopt, BuildMode("native")))
     cmd_nat.add(stbs_nat, "-args", cmxs_order)
 
     # These were produced by the compile step and are therefore hidden
@@ -718,7 +754,7 @@ def ocaml_binary_impl(ctx: "context") -> ["provider"]:
     local_only = link_cxx_binary_locally(ctx)
     ctx.actions.run(cmd_nat, category = "ocaml_link_native", local_only = local_only)
 
-    cmxs_order, stbs_byt, _objs, cmis_byt, cmos, _cmxs, cmts_byt, cmtis_byt = _compile_result_to_tuple(_compile(ctx, ocamlc, BuildMode("bytecode")))
+    cmxs_order, stbs_byt, _objs, cmis_byt, cmos, _cmxs, cmts_byt, cmtis_byt, _, _ = _compile_result_to_tuple(_compile(ctx, ocamlc, BuildMode("bytecode")))
     cmd_byt.add(stbs_byt, "-args", cmxs_order)
 
     # These were produced by the compile step and are therefore hidden
@@ -732,6 +768,7 @@ def ocaml_binary_impl(ctx: "context") -> ["provider"]:
 
     other_outputs = {
         "bytecode": cmis_byt + cmos,
+        "expand": ppmlis + ppmls,
         "ide": cmis_nat + cmtis_nat + cmts_nat,
     }
     other_outputs_info = merge_other_outputs_info(ctx, other_outputs, _attr_deps_other_outputs_infos(ctx))
@@ -742,6 +779,12 @@ def ocaml_binary_impl(ctx: "context") -> ["provider"]:
             other_outputs = [cmd_args(other_outputs_info.info.project_as_args("ide"))],
         ),
     ]
+    info_expand = [
+        DefaultInfo(
+            default_output = binary_nat,
+            other_outputs = [cmd_args(other_outputs_info.info.project_as_args("expand"))],
+        ),
+    ]
     info_byt = [
         DefaultInfo(
             default_output = binary_byt,
@@ -749,7 +792,7 @@ def ocaml_binary_impl(ctx: "context") -> ["provider"]:
         ),
         RunInfo(args = [binary_byt]),
     ]
-    sub_targets = {"bytecode": info_byt, "ide": info_ide}
+    sub_targets = {"bytecode": info_byt, "expand": info_expand, "ide": info_ide}
 
     if ctx.attrs.bytecode_only:
         return info_byt
@@ -768,7 +811,7 @@ def ocaml_object_impl(ctx: "context") -> ["provider"]:
     ld_args, _, _ = make_link_args(ctx, [get_link_args(deps_link_info, LinkStyle("static"))])
     ld = _mk_ld(ctx, [ld_args], "ld.sh")
 
-    cmxs_order, stbs, objs, cmis, _cmos, cmxs, cmts, cmtis = _compile_result_to_tuple(_compile(ctx, ocamlopt, BuildMode("native")))
+    cmxs_order, stbs, objs, cmis, _cmos, cmxs, cmts, cmtis, ppmlis, ppmls = _compile_result_to_tuple(_compile(ctx, ocamlopt, BuildMode("native")))
 
     cmd = _compiler_cmd(ctx, ocamlopt, ld)
 
@@ -803,8 +846,35 @@ def ocaml_object_impl(ctx: "context") -> ["provider"]:
         exported_deps = [deps_link_info],
     )
 
+    other_outputs = {
+        "bytecode": [],
+        "expand": ppmlis + ppmls,
+        "ide": cmis + cmtis + cmts,
+    }
+    other_outputs_info = merge_other_outputs_info(ctx, other_outputs, _attr_deps_other_outputs_infos(ctx))
+
+    info_ide = [
+        DefaultInfo(
+            default_output = obj,
+            other_outputs = [cmd_args(other_outputs_info.info.project_as_args("ide"))],
+        ),
+    ]
+    info_byt = [
+        DefaultInfo(
+            default_output = obj,
+            other_outputs = [cmd_args(other_outputs_info.info.project_as_args("bytecode"))],
+        ),
+    ]
+    info_expand = [
+        DefaultInfo(
+            default_output = obj,
+            other_outputs = [cmd_args(other_outputs_info.info.project_as_args("expand"))],
+        ),
+    ]
+    sub_targets = {"bytecode": info_byt, "expand": info_expand, "ide": info_ide}
+
     return [
-        DefaultInfo(default_output = obj),
+        DefaultInfo(default_output = obj, sub_targets = sub_targets),
         obj_link_info,
         merge_link_group_lib_info(deps = _attr_deps(ctx)),
         merge_shared_libraries(ctx.actions, deps = filter_and_map_idx(SharedLibraryInfo, _attr_deps(ctx))),
@@ -843,7 +913,7 @@ def ocaml_shared_impl(ctx: "context") -> ["provider"]:
 
     cmd_nat = _compiler_cmd(ctx, ocamlopt, ld_nat)
 
-    cmxs_order, stbs, objs, cmis_nat, _cmos, cmxs, cmts_nat, cmtis_nat = _compile_result_to_tuple(_compile(ctx, ocamlopt, BuildMode("native")))
+    cmxs_order, stbs, objs, cmis_nat, _cmos, cmxs, cmts_nat, cmtis_nat, ppmlis, ppmls = _compile_result_to_tuple(_compile(ctx, ocamlopt, BuildMode("native")))
     cmd_nat.add(stbs, "-args", cmxs_order)
 
     # These were produced by the compile step and are therefore hidden
@@ -857,6 +927,7 @@ def ocaml_shared_impl(ctx: "context") -> ["provider"]:
 
     other_outputs = {
         "bytecode": [],
+        "expand": ppmlis + ppmls,
         "ide": cmis_nat + cmtis_nat + cmts_nat,
     }
     other_outputs_info = merge_other_outputs_info(ctx, other_outputs, _attr_deps_other_outputs_infos(ctx))
@@ -867,7 +938,13 @@ def ocaml_shared_impl(ctx: "context") -> ["provider"]:
             other_outputs = [cmd_args(other_outputs_info.info.project_as_args("ide"))],
         ),
     ]
-    sub_targets = {"ide": info_ide}
+    info_expand = [
+        DefaultInfo(
+            default_outputs = [binary_nat],
+            other_outputs = [cmd_args(other_outputs_info.info.project_as_args("expand"))],
+        ),
+    ]
+    sub_targets = {"expand": info_expand, "ide": info_ide}
 
     return [
         DefaultInfo(default_outputs = [binary_nat], sub_targets = sub_targets),

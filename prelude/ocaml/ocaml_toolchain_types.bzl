@@ -96,6 +96,9 @@ OCamlLibraryInfo = record(
 def merge_ocaml_link_infos(lis: ["OCamlLinkInfo"]) -> "OCamlLinkInfo":
     return OCamlLinkInfo(info = dedupe(flatten([li.info for li in lis])))
 
+def project_expand(value: {str.type: ["artifact"]}):
+    return value["expand"]
+
 def project_ide(value: {str.type: ["artifact"]}):
     return value["ide"]
 
@@ -103,7 +106,7 @@ def project_bytecode(value: {str.type: ["artifact"]}):
     return value["bytecode"]
 
 OtherOutputsTSet = transitive_set(
-    args_projections = {"bytecode": project_bytecode, "ide": project_ide},
+    args_projections = {"bytecode": project_bytecode, "expand": project_expand, "ide": project_ide},
 )
 
 OtherOutputsInfo = provider(
