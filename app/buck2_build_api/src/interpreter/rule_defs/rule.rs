@@ -629,7 +629,7 @@ mod tests {
             empty_spec.docstrings(),
         );
         params.extend(vec![
-            arg("any", "\"\"", Some("None")),
+            arg("any", "\"\"", None),
             arg("arg", "str.type", Some("None")),
             arg("bool", "bool.type", Some("None")),
             arg("default_only", "default_only", Some("None")),

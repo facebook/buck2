@@ -279,8 +279,7 @@ pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
         #[starlark(require = named, default = "")] doc: &str,
     ) -> anyhow::Result<AttributeAsStarlarkValue> {
         Ok(AttributeAsStarlarkValue::new(Attribute::new_simple(
-            // TODO(nga): `attrs.any()` should not have a default value (or at least not `""`).
-            Some(Arc::new(AnyAttrType::empty_string())),
+            None,
             doc,
             AttrType::any(),
         )))
