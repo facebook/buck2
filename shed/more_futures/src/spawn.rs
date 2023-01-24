@@ -22,6 +22,7 @@ use futures::future::BoxFuture;
 use futures::FutureExt;
 use pin_project::pin_project;
 use thiserror::Error;
+use tracing::Instrument;
 use tracing::Span;
 
 use crate::cancellable_future::current_task_guard;
@@ -109,29 +110,6 @@ where
     }
 }
 
-/// Future that gets canceled if all Refs to it are dropped
-#[pin_project]
-struct DropCancel<F> {
-    #[pin]
-    inner: CancellableFuture<F>,
-    instrumented_span: Span,
-}
-
-impl<F> Future for DropCancel<F>
-where
-    F: Future + Send + 'static,
-{
-    type Output = <CancellableFuture<F> as Future>::Output;
-
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let this = self.project();
-
-        let _enter = this.instrumented_span.enter();
-
-        this.inner.poll(cx)
-    }
-}
-
 pub fn spawn_task<T, S>(
     future: T,
     spawner: &dyn Spawner<S>,
@@ -160,14 +138,9 @@ where
     T::Output: Any + Send + 'static,
 {
     let (future, guard) = CancellableFuture::new_refcounted(future);
+    let future = future.instrument(span).map(|v| box v as _);
 
-    let drop = DropCancel {
-        inner: future,
-        instrumented_span: span,
-    }
-    .map(|v| box v as _);
-
-    let task = spawner.spawn(ctx, drop.boxed());
+    let task = spawner.spawn(ctx, future.boxed());
     let task = task
         .map(|v| {
             v.map_err(|_e: tokio::task::JoinError| WeakFutureError::JoinError)?
