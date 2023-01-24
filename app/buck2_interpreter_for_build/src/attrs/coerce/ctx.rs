@@ -29,11 +29,14 @@ use buck2_query::query::syntax::simple::functions::QueryFunctionsVisitLiterals;
 use buck2_query::query::syntax::simple::functions::QueryLiteralVisitor;
 use buck2_query_parser::spanned::Spanned;
 use buck2_query_parser::Expr;
+use buck2_util::arc_str::ArcStr;
 use bumpalo::Bump;
 use dupe::Dupe;
 use hashbrown::raw::RawTable;
 use tracing::info;
 use twox_hash::xxh3;
+
+use super::interner::AttrCoercionInterner;
 
 #[derive(Debug, thiserror::Error)]
 enum BuildAttrCoercionContextError {
@@ -69,6 +72,7 @@ pub struct BuildAttrCoercionContext {
     /// allocating a key to perform a query using `entry` API.
     /// Strings are owned by `alloc`, using bump allocator makes evaluation 0.5% faster.
     label_cache: RefCell<RawTable<(u64, *const str, ProvidersLabel)>>,
+    str_interner: AttrCoercionInterner<ArcStr>,
     /// `ConfiguredGraphQueryEnvironment::functions()`.
     query_functions: Arc<dyn QueryFunctionsVisitLiterals>,
 }
@@ -86,6 +90,7 @@ impl BuildAttrCoercionContext {
             package_boundary_exception,
             alloc: Bump::new(),
             label_cache: RefCell::new(RawTable::new()),
+            str_interner: AttrCoercionInterner::<ArcStr, _>::new(),
             query_functions,
         }
     }
@@ -135,15 +140,15 @@ impl BuildAttrCoercionContext {
             BuildAttrCoercionContextError::NotBuildFileContext(msg.to_owned()).into()
         })
     }
+
+    fn compute_hash(s: &str) -> u64 {
+        xxh3::hash64(s.as_bytes())
+    }
 }
 
 impl AttrCoercionContext for BuildAttrCoercionContext {
     fn coerce_label(&self, value: &str) -> anyhow::Result<ProvidersLabel> {
-        fn compute_hash(s: &str) -> u64 {
-            xxh3::hash64(s.as_bytes())
-        }
-
-        let hash = compute_hash(value);
+        let hash = Self::compute_hash(value);
         let mut label_cache = self.label_cache.borrow_mut();
 
         if let Some((_h, _v, label)) = label_cache.get(hash, |(_h, v, _)| value == unsafe { &**v })
@@ -158,6 +163,14 @@ impl AttrCoercionContext for BuildAttrCoercionContext {
             |(h, _v, _)| *h,
         );
         Ok(label)
+    }
+
+    fn intern_str(&self, value: &str) -> ArcStr {
+        if value.is_empty() {
+            return ArcStr::default();
+        }
+
+        self.str_interner.intern(value)
     }
 
     fn coerce_path(&self, value: &str, allow_directory: bool) -> anyhow::Result<CoercedPath> {

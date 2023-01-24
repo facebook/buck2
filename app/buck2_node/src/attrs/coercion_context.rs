@@ -16,6 +16,7 @@ use buck2_core::target::TargetLabel;
 use buck2_query::query::syntax::simple::functions::QueryLiteralVisitor;
 use buck2_query_parser::spanned::Spanned;
 use buck2_query_parser::Expr;
+use buck2_util::arc_str::ArcStr;
 
 use crate::attrs::coerced_path::CoercedPath;
 
@@ -38,6 +39,9 @@ pub trait AttrCoercionContext {
 
     /// Attempt to convert a string into a label
     fn coerce_label(&self, value: &str) -> anyhow::Result<ProvidersLabel>;
+
+    /// Reuse previously allocated string if possible.
+    fn intern_str(&self, value: &str) -> ArcStr;
 
     /// Attempt to convert a string into a BuckPath
     fn coerce_path(&self, value: &str, allow_directory: bool) -> anyhow::Result<CoercedPath>;

@@ -56,6 +56,7 @@ use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_node::attrs::configured_traversal::ConfiguredAttrTraversal;
 use buck2_node::attrs::internal::internal_attrs;
 use buck2_node::configuration::execution::ExecutionPlatformResolution;
+use buck2_util::arc_str::ArcStr;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
@@ -398,6 +399,11 @@ impl AnonAttrCtx {
 impl AttrCoercionContext for AnonAttrCtx {
     fn coerce_label(&self, value: &str) -> anyhow::Result<ProvidersLabel> {
         Err(AnonTargetsError::CantParseDuringCoerce(value.to_owned()).into())
+    }
+
+    fn intern_str(&self, value: &str) -> ArcStr {
+        // TODO(scottcao): do intern.
+        ArcStr::from(value)
     }
 
     fn coerce_path(&self, value: &str, _allow_directory: bool) -> anyhow::Result<CoercedPath> {

@@ -7,9 +7,6 @@
  * of this source tree.
  */
 
-// TODO(scottcao): use it
-#![allow(dead_code)]
-
 use std::cell::RefCell;
 use std::hash::Hash;
 use std::hash::Hasher;
