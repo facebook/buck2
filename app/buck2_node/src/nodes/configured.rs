@@ -20,7 +20,6 @@ use buck2_core::buck_path::BuckPathRef;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::collections::ordered_map::OrderedMap;
-use buck2_core::collections::ordered_set::OrderedSet;
 use buck2_core::collections::unordered_map::UnorderedMap;
 use buck2_core::configuration::transition::applied::TransitionApplied;
 use buck2_core::configuration::transition::id::TransitionId;
@@ -207,8 +206,8 @@ impl ConfiguredTargetNode {
             ResolvedConfiguration::new(name.cfg().dupe(), UnorderedMap::new()),
             OrderedMap::new(),
             execution_platform_resolution,
-            OrderedSet::new(),
-            OrderedSet::new(),
+            Vec::new(),
+            Vec::new(),
             OrderedMap::new(),
         )
     }
@@ -219,8 +218,8 @@ impl ConfiguredTargetNode {
         resolved_configuration: ResolvedConfiguration,
         resolved_tr_configurations: OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>,
         execution_platform_resolution: ExecutionPlatformResolution,
-        deps: OrderedSet<ConfiguredTargetNode>,
-        exec_deps: OrderedSet<ConfiguredTargetNode>,
+        deps: Vec<ConfiguredTargetNode>,
+        exec_deps: Vec<ConfiguredTargetNode>,
         platform_cfgs: OrderedMap<TargetLabel, Configuration>,
     ) -> Self {
         Self(Arc::new(Hashed::new(ConfiguredTargetNodeData {
@@ -229,8 +228,8 @@ impl ConfiguredTargetNode {
             resolved_configuration,
             resolved_transition_configurations: resolved_tr_configurations,
             execution_platform_resolution,
-            deps: ConfiguredTargetNodeDeps(deps),
-            exec_deps: ConfiguredTargetNodeDeps(exec_deps),
+            deps: ConfiguredTargetNodeDeps(deps.into_boxed_slice()),
+            exec_deps: ConfiguredTargetNodeDeps(exec_deps.into_boxed_slice()),
             platform_cfgs,
         })))
     }
@@ -277,8 +276,8 @@ impl ConfiguredTargetNode {
             resolved_transition_configurations: OrderedMap::new(),
             // Nothing to execute for a forward node.
             execution_platform_resolution: ExecutionPlatformResolution::unspecified(),
-            deps: ConfiguredTargetNodeDeps(OrderedSet::from_iter([transitioned_node])),
-            exec_deps: ConfiguredTargetNodeDeps(OrderedSet::new()),
+            deps: ConfiguredTargetNodeDeps(box [transitioned_node]),
+            exec_deps: ConfiguredTargetNodeDeps(box []),
             platform_cfgs: OrderedMap::new(),
         })))
     }
@@ -533,7 +532,7 @@ impl ConfiguredTargetNode {
 /// The representation of the deps for a ConfiguredTargetNode. Provides the operations we require
 /// (iteration, eq, and hash), but guarantees those aren't recursive of the dep nodes' data.
 #[derive(Allocative)]
-struct ConfiguredTargetNodeDeps(OrderedSet<ConfiguredTargetNode>);
+struct ConfiguredTargetNodeDeps(Box<[ConfiguredTargetNode]>);
 
 impl ConfiguredTargetNodeDeps {
     fn iter(&self) -> impl ExactSizeIterator<Item = &ConfiguredTargetNode> {

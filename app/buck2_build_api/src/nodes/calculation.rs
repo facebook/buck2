@@ -19,7 +19,6 @@ use buck2_common::result::SharedError;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
 use buck2_core::collections::ordered_map::OrderedMap;
-use buck2_core::collections::ordered_set::OrderedSet;
 use buck2_core::configuration::transition::applied::TransitionApplied;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::configuration::Configuration;
@@ -628,8 +627,8 @@ async fn compute_configured_target_node_no_transition(
     )
     .await;
 
-    let mut deps = OrderedSet::with_capacity(deps.len());
-    let mut exec_deps = OrderedSet::with_capacity(exec_deps.len());
+    let mut deps = Vec::with_capacity(deps.len());
+    let mut exec_deps = Vec::with_capacity(exec_deps.len());
 
     let unpack_dep = |
         result: SharedResult<MaybeCompatible<ConfiguredTargetNode>>| -> ControlFlow<_, ConfiguredTargetNode>
@@ -660,13 +659,13 @@ async fn compute_configured_target_node_no_transition(
 
     for dep in dep_results {
         match unpack_dep(dep) {
-            ControlFlow::Continue(dep) => deps.insert(dep),
+            ControlFlow::Continue(dep) => deps.push(dep),
             ControlFlow::Break(r) => return r,
         };
     }
     for dep in exec_dep_results {
         match unpack_dep(dep) {
-            ControlFlow::Continue(dep) => exec_deps.insert(dep),
+            ControlFlow::Continue(dep) => exec_deps.push(dep),
             ControlFlow::Break(r) => return r,
         };
     }
