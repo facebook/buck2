@@ -48,7 +48,6 @@ impl<'c> PackageListingResolver for InterpreterPackageListingResolver<'c> {
     }
 
     async fn get_enclosing_package(&self, path: &CellPath) -> anyhow::Result<PackageLabel> {
-        let path = path.clone();
         let cell_instance = self.cell_resolver.get(path.cell())?;
         let buildfile_candidates = cell_instance.buildfiles();
         if let Some(path) = path.parent() {
@@ -71,7 +70,6 @@ impl<'c> PackageListingResolver for InterpreterPackageListingResolver<'c> {
         path: &CellPath,
         enclosing_path: &CellPath,
     ) -> anyhow::Result<Vec<PackageLabel>> {
-        let path = path.clone();
         let cell_instance = self.cell_resolver.get(path.cell())?;
         let buildfile_candidates = cell_instance.buildfiles();
         if let Some(path) = path.parent() {
