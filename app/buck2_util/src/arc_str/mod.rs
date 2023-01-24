@@ -9,5 +9,7 @@
 
 pub(crate) mod base;
 mod fat;
+mod thin;
 
 pub use crate::arc_str::fat::ArcStr;
+pub use crate::arc_str::thin::ThinArcStr;

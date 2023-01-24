@@ -54,7 +54,7 @@ pub(crate) unsafe trait ArcStrLenStrategy: Sized + 'static {
 #[repr(C)]
 pub(crate) struct ArcStrBaseInner<P: ArcStrLenStrategy> {
     pub(crate) refcount: AtomicU32,
-    allocated_payload: P::AllocatedPayload,
+    pub(crate) allocated_payload: P::AllocatedPayload,
     // data: [u8],
 }
 
