@@ -104,8 +104,11 @@ pub(crate) trait IncrementalComputeProperties: StorageProperties {
 #[derive(Allocative)]
 struct RunningEntry<K: IncrementalComputeProperties> {
     task: <K as IncrementalComputeProperties>::DiceTask,
-    epoch: u64,
+    epoch: Epoch,
 }
+
+#[derive(Allocative, Copy, Clone, Dupe, Eq, PartialEq, derive_more::Display)]
+struct Epoch(u64);
 
 /// The incremental engine that manages all the handling of the results of a
 /// specific key, performing the recomputation if necessary
@@ -174,8 +177,8 @@ where
         })
     }
 
-    fn next_epoch(&self) -> u64 {
-        self.epoch.fetch_add(1, Ordering::Relaxed)
+    fn next_epoch(&self) -> Epoch {
+        Epoch(self.epoch.fetch_add(1, Ordering::Relaxed))
     }
 
     /// Dirties the value at K
@@ -369,7 +372,7 @@ where
 
         struct Evaluation<K: IncrementalComputeProperties> {
             engine: Arc<IncrementalEngine<K>>,
-            epoch: u64,
+            epoch: Epoch,
             k: K::Key,
             v: VersionNumber,
         }
