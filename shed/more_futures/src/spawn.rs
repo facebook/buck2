@@ -19,22 +19,21 @@ use std::task::Context;
 use std::task::Poll;
 
 use allocative::Allocative;
+use dupe::Dupe;
 use futures::future::BoxFuture;
 use futures::FutureExt;
 use pin_project::pin_project;
-use tracing::debug;
 use tracing::Span;
 
+use crate::cancellable_future::CancellableFuture;
+use crate::cancellable_future::StrongRefCount;
+use crate::cancellable_future::WeakRefCount;
 use crate::instrumented_shared::SharedEvents;
 use crate::instrumented_shared::SharedEventsFuture;
 use crate::spawner::Spawner;
-use crate::util::guarded_rc::guarded_rc;
-use crate::util::guarded_rc::GuardedRcStrongGuard;
-use crate::util::guarded_rc::GuardedRcWeakGuard;
-use crate::util::guarded_rc::GuardedWeakRc;
 
 thread_local! {
-    static CURRENT_TASK_GUARD: RefCell<Option<GuardedRcWeakGuard>> = RefCell::new(None);
+    static CURRENT_TASK_GUARD: RefCell<Option<WeakRefCount>> = RefCell::new(None);
 }
 
 /// A unit of computation within Dice. Futures to the result of this computation should be obtained
@@ -43,70 +42,24 @@ thread_local! {
 pub struct WeakJoinHandle<T: Clone> {
     #[allocative(skip)] // TODO(nga): `Shared` requires `Clone`.
     join_handle: SharedEventsFuture<BoxFuture<'static, T>>,
-    ref_handle: GuardedRcWeakGuard,
+    #[allocative(skip)]
+    guard: WeakRefCount,
 }
 
 impl<T: Clone + 'static> WeakJoinHandle<T> {
     /// Return `None` if the task has been canceled.
     pub fn pollable(&self) -> Option<StrongJoinHandle<SharedEventsFuture<BoxFuture<'static, T>>>> {
-        self.ref_handle.upgrade().map(|inner| StrongJoinHandle {
+        self.guard.upgrade().map(|inner| StrongJoinHandle {
             guard: inner,
             fut: self.join_handle.clone(),
         })
     }
 }
 
-/// Future that gets canceled if all Refs to it are dropped
-#[pin_project]
-struct DropCancel<T> {
-    #[pin]
-    inner: GuardedWeakRc<RefCell<DropCancelInner<T>>>,
-    instrumented_span: Span,
-}
-
-struct DropCancelInner<T> {
-    future: BoxFuture<'static, T>,
-}
-
-impl<T> Future for DropCancel<T>
-where
-    T: 'static,
-{
-    type Output = Option<T>;
-
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let this = self.project();
-
-        let guard = this.inner.make_weak_guard();
-        let old_guard = CURRENT_TASK_GUARD.with(|g| g.replace(Some(guard)));
-
-        let res = match this.inner.upgrade() {
-            Some(inner) => {
-                let _enter = this.instrumented_span.enter();
-                let mut inner = inner.borrow_mut();
-                match inner.future.poll_unpin(cx) {
-                    Poll::Ready(t) => {
-                        debug!(parent: this.instrumented_span.id(), "poll ready and deleted cancel");
-                        Poll::Ready(Some(t))
-                    }
-                    Poll::Pending => Poll::Pending,
-                }
-            }
-            None => Poll::Ready(None),
-        };
-
-        CURRENT_TASK_GUARD.with(|g| g.replace(old_guard));
-
-        debug!(parent: this.instrumented_span.id(), "drop cancel result ready");
-
-        res
-    }
-}
-
 /// The actual pollable future that returns the result of the task. This keeps the future alive
 #[pin_project]
 pub struct StrongJoinHandle<F> {
-    guard: GuardedRcStrongGuard,
+    guard: StrongRefCount,
     #[pin]
     fut: F,
 }
@@ -127,7 +80,7 @@ where
     fn weak_handle(&self) -> WeakJoinHandle<T> {
         WeakJoinHandle {
             join_handle: self.fut.clone(),
-            ref_handle: self.guard.downgrade(),
+            guard: self.guard.downgrade(),
         }
     }
 }
@@ -144,6 +97,35 @@ impl<F: Future> Future for StrongJoinHandle<F> {
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.project();
         this.fut.poll(cx)
+    }
+}
+
+/// Future that gets canceled if all Refs to it are dropped
+#[pin_project]
+struct DropCancel<F> {
+    #[pin]
+    inner: CancellableFuture<F>,
+    instrumented_span: Span,
+}
+
+impl<F> Future for DropCancel<F>
+where
+    F: Future + Send + 'static,
+{
+    type Output = <CancellableFuture<F> as Future>::Output;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let this = self.project();
+
+        let guard = this.inner.ref_count().dupe();
+        let old_guard = CURRENT_TASK_GUARD.with(|g| g.replace(Some(guard)));
+
+        let _enter = this.instrumented_span.enter();
+
+        let res = this.inner.poll(cx);
+        CURRENT_TASK_GUARD.with(|g| g.replace(old_guard));
+
+        res
     }
 }
 
@@ -174,12 +156,10 @@ where
     T: Future + Send + 'static,
     T::Output: Any + Send + 'static,
 {
-    let (weak_task, guard) = guarded_rc(RefCell::new(DropCancelInner {
-        future: future.boxed(),
-    }));
+    let (future, guard) = CancellableFuture::new_refcounted(future);
 
     let drop = DropCancel {
-        inner: weak_task,
+        inner: future,
         instrumented_span: span,
     }
     .map(|v| box v as _);
@@ -197,10 +177,10 @@ where
     StrongJoinHandle { guard, fut: task }
 }
 
-/// Obtain a GuardedRcStrongGuard that keeps the current task alive, assuming it polls a DropCancel
+/// Obtain a StrongRefCount that keeps the current task alive, assuming it polls a DropCancel
 /// future. While this guard is alive, the future will not be dropped. Use to protect critical
 /// sections during which a task should not be cancelled.
-fn current_task_guard() -> Option<GuardedRcStrongGuard> {
+fn current_task_guard() -> Option<StrongRefCount> {
     CURRENT_TASK_GUARD.with(|g| g.borrow().as_ref().and_then(|g| g.upgrade()))
 }
 
