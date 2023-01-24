@@ -155,16 +155,86 @@ def _library_prefix_suffix(platform):
     }[platform]
 
 _BUILD_PARAMS = {
-    _BINARY_SHARED: (RustcFlags(crate_type = CrateType("bin"), reloc_model = RelocModel("pic"), dep_link_style = LinkStyle("shared")), _executable_prefix_suffix),
-    _BINARY_PIE: (RustcFlags(crate_type = CrateType("bin"), reloc_model = RelocModel("pic"), dep_link_style = LinkStyle("static_pic")), _executable_prefix_suffix),
-    _BINARY_NON_PIE: (RustcFlags(crate_type = CrateType("bin"), reloc_model = RelocModel("static"), dep_link_style = LinkStyle("static")), _executable_prefix_suffix),
-    _NATIVE_LINKABLE_SHARED_OBJECT: (RustcFlags(crate_type = CrateType("cdylib"), reloc_model = RelocModel("pic"), dep_link_style = LinkStyle("shared")), _library_prefix_suffix),
-    _RUST_DYLIB_SHARED: (RustcFlags(crate_type = CrateType("dylib"), reloc_model = RelocModel("pic"), dep_link_style = LinkStyle("shared")), _library_prefix_suffix),
-    _RUST_PROC_MACRO: (RustcFlags(crate_type = CrateType("proc-macro"), reloc_model = RelocModel("pic"), dep_link_style = LinkStyle("static_pic")), _library_prefix_suffix),
-    _RUST_STATIC_PIC_LIBRARY: (RustcFlags(crate_type = CrateType("rlib"), reloc_model = RelocModel("pic"), dep_link_style = LinkStyle("static_pic")), lambda _: ("lib", ".rlib")),
-    _RUST_STATIC_NON_PIC_LIBRARY: (RustcFlags(crate_type = CrateType("rlib"), reloc_model = RelocModel("static"), dep_link_style = LinkStyle("static")), lambda _: ("lib", ".rlib")),
-    _NATIVE_LINKABLE_STATIC_PIC: (RustcFlags(crate_type = CrateType("staticlib"), reloc_model = RelocModel("pic"), dep_link_style = LinkStyle("static_pic")), lambda _: ("lib", "_pic.a")),
-    _NATIVE_LINKABLE_STATIC_NON_PIC: (RustcFlags(crate_type = CrateType("staticlib"), reloc_model = RelocModel("static"), dep_link_style = LinkStyle("static")), lambda _: ("lib", ".a")),
+    _BINARY_SHARED: (
+        RustcFlags(
+            crate_type = CrateType("bin"),
+            reloc_model = RelocModel("pic"),
+            dep_link_style = LinkStyle("shared"),
+        ),
+        _executable_prefix_suffix,
+    ),
+    _BINARY_PIE: (
+        RustcFlags(
+            crate_type = CrateType("bin"),
+            reloc_model = RelocModel("pic"),
+            dep_link_style = LinkStyle("static_pic"),
+        ),
+        _executable_prefix_suffix,
+    ),
+    _BINARY_NON_PIE: (
+        RustcFlags(
+            crate_type = CrateType("bin"),
+            reloc_model = RelocModel("static"),
+            dep_link_style = LinkStyle("static"),
+        ),
+        _executable_prefix_suffix,
+    ),
+    _NATIVE_LINKABLE_SHARED_OBJECT: (
+        RustcFlags(
+            crate_type = CrateType("cdylib"),
+            reloc_model = RelocModel("pic"),
+            dep_link_style = LinkStyle("shared"),
+        ),
+        _library_prefix_suffix,
+    ),
+    _RUST_DYLIB_SHARED: (
+        RustcFlags(
+            crate_type = CrateType("dylib"),
+            reloc_model = RelocModel("pic"),
+            dep_link_style = LinkStyle("shared"),
+        ),
+        _library_prefix_suffix,
+    ),
+    _RUST_PROC_MACRO: (
+        RustcFlags(
+            crate_type = CrateType("proc-macro"),
+            reloc_model = RelocModel("pic"),
+            dep_link_style = LinkStyle("static_pic"),
+        ),
+        _library_prefix_suffix,
+    ),
+    _RUST_STATIC_PIC_LIBRARY: (
+        RustcFlags(
+            crate_type = CrateType("rlib"),
+            reloc_model = RelocModel("pic"),
+            dep_link_style = LinkStyle("static_pic"),
+        ),
+        lambda _: ("lib", ".rlib"),
+    ),
+    _RUST_STATIC_NON_PIC_LIBRARY: (
+        RustcFlags(
+            crate_type = CrateType("rlib"),
+            reloc_model = RelocModel("static"),
+            dep_link_style = LinkStyle("static"),
+        ),
+        lambda _: ("lib", ".rlib"),
+    ),
+    _NATIVE_LINKABLE_STATIC_PIC: (
+        RustcFlags(
+            crate_type = CrateType("staticlib"),
+            reloc_model = RelocModel("pic"),
+            dep_link_style = LinkStyle("static_pic"),
+        ),
+        lambda _: ("lib", "_pic.a"),
+    ),
+    _NATIVE_LINKABLE_STATIC_NON_PIC: (
+        RustcFlags(
+            crate_type = CrateType("staticlib"),
+            reloc_model = RelocModel("static"),
+            dep_link_style = LinkStyle("static"),
+        ),
+        lambda _: ("lib", ".a"),
+    ),
 }
 
 _INPUTS = {
