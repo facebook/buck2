@@ -20,4 +20,3 @@ pub mod drop;
 pub mod instrumented_shared;
 pub mod spawn;
 pub mod spawner;
-pub mod util;
