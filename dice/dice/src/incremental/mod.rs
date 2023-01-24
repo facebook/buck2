@@ -473,7 +473,7 @@ where
         spawner_ctx: &UserComputationData,
         span: Span,
     ) -> (WeakDiceFutureHandle<K>, DiceFuture<K>) {
-        let (task, fut) = spawn_task(future, &spawner_ctx.spawner, spawner_ctx, span);
+        let (task, fut) = spawn_task(future, spawner_ctx.spawner.as_ref(), spawner_ctx, span);
         let task = WeakDiceFutureHandle::async_cancellable(task);
         let fut = DiceFuture::AsyncCancellableSpawned(fut);
         (task, fut)

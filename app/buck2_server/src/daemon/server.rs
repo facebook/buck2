@@ -635,7 +635,7 @@ where
     let events_ctx = EventsCtx { dispatcher };
     let cancellable = spawn_dropcancel(
         func(req),
-        Arc::new(BuckSpawner::default()),
+        &BuckSpawner::default(),
         &events_ctx,
         debug_span!(parent: None, "running-command",),
     );

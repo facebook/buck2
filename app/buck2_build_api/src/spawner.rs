@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::any::Any;
+
 use buck2_events::dispatch::with_dispatcher_async;
 use buck2_interpreter::dice::HasEvents;
 use dupe::Dupe;
@@ -18,7 +20,11 @@ use tokio::task::JoinHandle;
 pub struct BuckSpawner;
 
 impl<T: HasEvents> Spawner<T> for BuckSpawner {
-    fn spawn(&self, ctx: &T, fut: BoxFuture<'static, ()>) -> JoinHandle<()> {
+    fn spawn(
+        &self,
+        ctx: &T,
+        fut: BoxFuture<'static, Box<dyn Any + Send + 'static>>,
+    ) -> JoinHandle<Box<dyn Any + Send + 'static>> {
         let dispatcher = ctx.get_dispatcher().dupe();
         let task = async move { with_dispatcher_async(dispatcher, fut).await };
         tokio::spawn(task)
@@ -90,10 +96,7 @@ mod tests {
         let ctx = create_ctx(dispatcher);
         let (start, end) = create_start_end_events();
 
-        let task = async {
-            span(start, || ((), end));
-        }
-        .boxed();
+        let task = async { span(start, || (box () as _, end)) }.boxed();
 
         sp.spawn(&ctx, task).await.expect("Task panicked");
 
@@ -109,7 +112,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_spawn_task() {
-        let sp: Arc<dyn Spawner<UserComputationData>> = Arc::new(BuckSpawner::default());
+        let sp = Arc::new(BuckSpawner::default());
 
         // Create dispatchers
         let (mut events1, sink1) = create_source_sink_pair();
@@ -138,8 +141,8 @@ mod tests {
         }
         .boxed();
 
-        let (_, poll1) = spawn_task(task1, &sp, &ctx1, tracing::debug_span!("test"));
-        let (_, poll2) = spawn_task(task2, &sp, &ctx2, tracing::debug_span!("test"));
+        let (_, poll1) = spawn_task(task1, sp.as_ref(), &ctx1, tracing::debug_span!("test"));
+        let (_, poll2) = spawn_task(task2, sp.as_ref(), &ctx2, tracing::debug_span!("test"));
         let joins = vec![poll1, poll2];
 
         assert_eq!(

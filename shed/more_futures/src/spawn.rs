@@ -11,10 +11,10 @@
 //! tokio's JoinHandle
 //!
 
+use std::any::Any;
 use std::cell::RefCell;
 use std::future::Future;
 use std::pin::Pin;
-use std::sync::Arc;
 use std::task::Context;
 use std::task::Poll;
 
@@ -22,7 +22,6 @@ use allocative::Allocative;
 use futures::future::BoxFuture;
 use futures::FutureExt;
 use pin_project::pin_project;
-use tokio::sync::oneshot;
 use tracing::debug;
 use tracing::Span;
 
@@ -55,7 +54,7 @@ impl<T: Clone + 'static> WeakJoinHandle<T> {
         self.ref_handle
             .upgrade()
             .map(|inner| StrongCancellableJoinHandle {
-                _ref: inner,
+                guard: inner,
                 fut: self.join_handle.clone(),
             })
     }
@@ -77,7 +76,7 @@ impl<T> Future for DropCancel<T>
 where
     T: 'static,
 {
-    type Output = ();
+    type Output = Option<T>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.project();
@@ -104,16 +103,37 @@ where
 
         debug!(parent: this.instrumented_span.id(), "drop cancel result ready");
 
-        res.map(|_| ())
+        res
     }
 }
 
 /// The actual pollable future that returns the result of the task. This keeps the future alive
 #[pin_project]
 pub struct StrongCancellableJoinHandle<F> {
-    _ref: GuardedRcStrongGuard,
+    guard: GuardedRcStrongGuard,
     #[pin]
     fut: F,
+}
+
+impl<F> StrongCancellableJoinHandle<F> {
+    fn map<F2>(self, map: impl FnOnce(F) -> F2) -> StrongCancellableJoinHandle<F2> {
+        StrongCancellableJoinHandle {
+            guard: self.guard,
+            fut: map(self.fut),
+        }
+    }
+}
+
+impl<T> StrongCancellableJoinHandle<SharedEventsFuture<BoxFuture<'static, T>>>
+where
+    T: Clone,
+{
+    fn weak_handle(&self) -> WeakJoinHandle<T> {
+        WeakJoinHandle {
+            join_handle: self.fut.clone(),
+            ref_handle: self.guard.downgrade(),
+        }
+    }
 }
 
 impl<F: Future> StrongCancellableJoinHandle<F> {
@@ -132,8 +152,8 @@ impl<F: Future> Future for StrongCancellableJoinHandle<F> {
 }
 
 pub fn spawn_task<T, S>(
-    task: T,
-    spawner: &Arc<dyn Spawner<S>>,
+    future: T,
+    spawner: &dyn Spawner<S>,
     ctx: &S,
     span: Span,
 ) -> (
@@ -142,96 +162,43 @@ pub fn spawn_task<T, S>(
 )
 where
     T: Future + Send + 'static,
-    T::Output: Clone + Send + 'static,
+    T::Output: Any + Clone + Send + 'static,
 {
-    let (tx, rx) = oneshot::channel::<T::Output>();
-
-    // Await the task and send the result to the oneshot channel.
-    //
-    // We can ignore any error from tx.send because the only instance of an error is when
-    // the receiver was dropped by the client (the result is no longer useful).
-    let id = span.id();
-    let task = async move {
-        let res = task.await;
-        let ignored = tx.send(res);
-        debug!(
-            parent: id,
-            status = %ignored.is_ok(),
-            m = "task complete and sent to channel",
-        );
-    };
-
-    let (weak_task, guard) = guarded_rc(RefCell::new(DropCancelInner {
-        future: task.boxed(),
-    }));
-
-    let drop = DropCancel {
-        inner: weak_task,
-        instrumented_span: span,
-    };
-
-    spawner.spawn(ctx, drop.boxed());
-
-    // recv operation only fails if tx is dropped/disconnected (cancelled).
-    let fut = rx
-        .map(|r: Result<T::Output, oneshot::error::RecvError>| r.expect("spawned task cancelled"))
-        .boxed()
-        .instrumented_shared();
-
-    let task = WeakJoinHandle {
-        join_handle: fut.clone(),
-        ref_handle: guard.downgrade(),
-    };
-
-    let poll = StrongCancellableJoinHandle { _ref: guard, fut };
-
-    (task, poll)
+    let strong = spawn_dropcancel(future, spawner, ctx, span).map(|f| f.instrumented_shared());
+    (strong.weak_handle(), strong)
 }
 
 pub fn spawn_dropcancel<T, S>(
-    task: T,
-    spawner: Arc<dyn Spawner<S>>,
+    future: T,
+    spawner: &dyn Spawner<S>,
     ctx: &S,
     span: Span,
 ) -> StrongCancellableJoinHandle<BoxFuture<'static, T::Output>>
 where
     T: Future + Send + 'static,
-    T::Output: Send + 'static,
+    T::Output: Any + Send + 'static,
 {
-    let (tx, rx) = oneshot::channel();
-
-    // Await the task and send the result to the oneshot channel.
-    //
-    // We can ignore any error from tx.send because the only instance of an error is when
-    // the receiver was dropped by the client (the result is no longer useful).
-    let id = span.id();
-    let task = async move {
-        let res = task.await;
-        let ignored = tx.send(res);
-        debug!(
-            parent: id,
-            status = %ignored.is_ok(),
-            m = "task complete and sent to channel",
-        );
-    };
-
     let (weak_task, guard) = guarded_rc(RefCell::new(DropCancelInner {
-        future: task.boxed(),
+        future: future.boxed(),
     }));
 
     let drop = DropCancel {
         inner: weak_task,
         instrumented_span: span,
-    };
+    }
+    .map(|v| box v as _);
 
-    spawner.spawn(ctx, drop.boxed());
-
-    // recv operation only fails if tx is dropped/disconnected (cancelled).
-    let fut = rx
-        .map(|r: Result<T::Output, oneshot::error::RecvError>| r.expect("spawned task cancelled"))
+    let task = spawner.spawn(ctx, drop.boxed());
+    let task = task
+        .map(|v| {
+            v.expect("Tokio task was cancelled")
+                .downcast::<Option<T::Output>>()
+                .expect("Spawned task returned the wrong type")
+                .expect("Cancelled task was awaited")
+        })
         .boxed();
 
-    StrongCancellableJoinHandle { _ref: guard, fut }
+    StrongCancellableJoinHandle { guard, fut: task }
 }
 
 /// Obtain a GuardedRcStrongGuard that keeps the current task alive, assuming it polls a DropCancel
@@ -253,6 +220,8 @@ where
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
     use tokio::sync::oneshot;
 
     use super::*;
@@ -266,14 +235,14 @@ mod tests {
         let (release_task, recv_release_task) = oneshot::channel();
         let (notify_success, recv_success) = oneshot::channel();
 
-        let sp: Arc<dyn Spawner<MockCtx>> = Arc::new(TokioSpawner::default());
+        let sp = Arc::new(TokioSpawner::default());
 
         let (_task, poll) = spawn_task(
             async move {
                 recv_release_task.await.unwrap();
                 notify_success.send(()).unwrap();
             },
-            &sp,
+            sp.as_ref(),
             &MockCtx::default(),
             tracing::debug_span!("test"),
         );
@@ -295,7 +264,7 @@ mod tests {
         let (task_ready, recv_task_ready) = oneshot::channel();
         let (notify_success, recv_success) = oneshot::channel();
 
-        let sp: Arc<dyn Spawner<MockCtx>> = Arc::new(TokioSpawner::default());
+        let sp = Arc::new(TokioSpawner::default());
 
         let (_task, poll) = spawn_task(
             async move {
@@ -306,7 +275,7 @@ mod tests {
                 })
                 .await;
             },
-            &sp,
+            sp.as_ref(),
             &MockCtx::default(),
             tracing::debug_span!("test"),
         );
@@ -328,10 +297,15 @@ mod tests {
 
     #[tokio::test]
     async fn test_spawn() {
-        let sp: Arc<dyn Spawner<MockCtx>> = Arc::new(TokioSpawner::default());
+        let sp = Arc::new(TokioSpawner::default());
         let fut = async { "Hello world!" };
 
-        let (_task, poll) = spawn_task(fut, &sp, &MockCtx::default(), tracing::debug_span!("test"));
+        let (_task, poll) = spawn_task(
+            fut,
+            sp.as_ref(),
+            &MockCtx::default(),
+            tracing::debug_span!("test"),
+        );
 
         let res = poll.await;
         assert_eq!(res, "Hello world!");
