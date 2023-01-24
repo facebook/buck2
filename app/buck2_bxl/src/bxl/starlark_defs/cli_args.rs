@@ -537,6 +537,21 @@ mod tests {
     use crate::bxl::starlark_defs::cli_args::CliArgValue;
 
     #[test]
+    fn print_cli_arg_list() -> anyhow::Result<()> {
+        let args = vec![
+            CliArgValue::Bool(true),
+            CliArgValue::String("test".to_owned()),
+            CliArgValue::Int(1),
+        ];
+
+        let cli_arg = CliArgValue::List(args);
+        let printed = format!("{}", cli_arg);
+        assert_eq!(printed, "true,test,1");
+
+        Ok(())
+    }
+
+    #[test]
     fn coerce_starlark() -> anyhow::Result<()> {
         let heap = Heap::new();
 

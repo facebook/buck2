@@ -35,7 +35,7 @@ pub enum CliArgValue {
     // Type of list elements is used to verify that concatenation is valid.
     // That only can be checked after configuration took place,
     // so pass the type info together with values to be used later.
-    #[display(fmt = "_0.iter().map(|v| v.to_string()).join(',')")]
+    #[display(fmt = "{}", "_0.iter().map(|v| v.to_string()).join(\",\")")]
     List(Vec<CliArgValue>),
     None,
     TargetLabel(TargetLabel),
