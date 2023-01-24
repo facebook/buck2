@@ -81,7 +81,7 @@ def create_jar_artifact_kotlincd(
                 kosabi_applicability_plugin = kotlin_toolchain.kosabi_applicability_plugin,
                 kosabi_jvm_abi_gen_plugin = kotlin_toolchain.kosabi_jvm_abi_gen_plugin,
             ),
-            friendPaths = [friend_path.library_output.abi for friend_path in map_idx(JavaLibraryInfo, friend_paths)],
+            friendPaths = [friend_path.library_output.abi for friend_path in map_idx(JavaLibraryInfo, friend_paths) if friend_path.library_output],
             kotlinHomeLibraries = kotlin_toolchain.kotlin_home_libraries,
             jvmTarget = "1.8",
             kosabiJvmAbiGenEarlyTerminationMessagePrefix = "exception: java.lang.RuntimeException: Terminating compilation. We're done with ABI.",
