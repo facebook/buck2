@@ -27,7 +27,7 @@
 #
 
 #   - Binaries (.opt) and libraries (.a, .cmxa) are written to '/'
-#   - Where <mode> is one of 'bytecode'  or 'native':
+#   - Where <mode> is one of 'bytecode' or 'native':
 #     - Generated sources are written to `/_<mode>_gen_`
 #     - Intermedidate files (.cmi, .cmti, .cmt, .cmx, .o, .pp.ml, ...) are
 #       written to `/_<mode>_obj_`
@@ -102,6 +102,10 @@ load(":makefile.bzl", "parse_makefile")
 load(":ocaml_toolchain_types.bzl", "OCamlLibraryInfo", "OCamlLinkInfo", "OCamlToolchainInfo", "OtherOutputsInfo", "merge_ocaml_link_infos", "merge_other_outputs_info")
 
 BuildMode = enum("native", "bytecode")
+
+# Native vs. bytecode compiler.
+def _is_native(mode: "BuildMode") -> bool.type:
+    return mode.value in ("native",)
 
 # The type of the return value of the `_compile()` function.
 CompileResultInfo = record(
@@ -208,13 +212,13 @@ def _mk_ld(ctx: "context", link_args: [""], ld_sh_filename: "") -> "cmd_args":
 
 # This should get called only once for any invocation of `ocaml_library_impl`,
 # `ocaml_binary_impl` (or `prebuilt_ocaml_library_impl`) and choice of
-# `bytecode_or_native`. It produces a script that forwards arguments to the
-# ocaml compiler (one of `ocamlopt.opt` vs `ocamlc.opt` consistent with the
-# value of `bytecode_or_native`) in the environment of a local 'bin' directory.
-def _mk_ocaml_compiler(ctx: "context", env: {str.type: ""}, bytecode_or_native: BuildMode.type) -> "cmd_args":
+# `build_mode`. It produces a script that forwards arguments to the ocaml
+# compiler (one of `ocamlopt.opt` vs `ocamlc.opt` consistent with the value of
+# `build_mode`) in the environment of a local 'bin' directory.
+def _mk_ocaml_compiler(ctx: "context", env: {str.type: ""}, build_mode: BuildMode.type) -> "cmd_args":
     ocaml_toolchain = ctx.attrs._ocaml_toolchain[OCamlToolchainInfo]
-    compiler = ocaml_toolchain.ocaml_compiler if bytecode_or_native.value == "native" else ocaml_toolchain.ocaml_bytecode_compiler
-    script_name = "ocamlopt" + bytecode_or_native.value + ".sh"
+    compiler = ocaml_toolchain.ocaml_compiler if _is_native(build_mode) else ocaml_toolchain.ocaml_bytecode_compiler
+    script_name = "ocamlopt" + build_mode.value + ".sh"
     script_args = _mk_script(ctx, script_name, [compiler], env)
     return script_args
 
@@ -243,17 +247,15 @@ def _compiler_cmd(ctx: "context", compiler: "cmd_args", cc: "cmd_args") -> "cmd_
     return cmd
 
 # The include paths for the immediate dependencies of the current target.
-def _include_paths_in_context(ctx: "context", bytecode_or_native: BuildMode.type):
+def _include_paths_in_context(ctx: "context", build_mode: BuildMode.type):
     ocaml_toolchain = ctx.attrs._ocaml_toolchain[OCamlToolchainInfo]
-    is_native = bytecode_or_native.value == "native"
-
     includes = [cmd_args(ocaml_toolchain.interop_includes)] if ocaml_toolchain.interop_includes else []
     ocaml_libs = merge_ocaml_link_infos(_attr_deps_ocaml_link_infos(ctx)).info
     accessible_libs = [d.label for d in ctx.attrs.deps] + [d.label for d in _by_platform(ctx, ctx.attrs.platform_deps)]
     for lib in ocaml_libs:
         if lib.target not in accessible_libs:
             continue
-        includes.extend(lib.include_dirs_nat if is_native else lib.include_dirs_byt)
+        includes.extend(lib.include_dirs_nat if _is_native(build_mode) else lib.include_dirs_byt)
 
     return includes
 
@@ -270,14 +272,14 @@ def _compile_cmd(ctx: "context", compiler: "cmd_args", cc: "cmd_args", includes:
     return cmd
 
 # Run any preprocessors, returning a list of ml/mli/c artifacts you can compile
-def _preprocess(ctx: "context", srcs: ["artifact"], bytecode_or_native: BuildMode.type) -> ["artifact"]:
+def _preprocess(ctx: "context", srcs: ["artifact"], build_mode: BuildMode.type) -> ["artifact"]:
     ocaml_toolchain = ctx.attrs._ocaml_toolchain[OCamlToolchainInfo]
     ocamllex = ocaml_toolchain.lex_compiler
     _ocamlyacc = ocaml_toolchain.yacc_compiler  # Not used.
     menhir = ocaml_toolchain.menhir_compiler  # Rather, we use menhir exclusively.
 
     result = []
-    gen_dir = "_" + bytecode_or_native.value + "_gen_/"
+    gen_dir = "_" + build_mode.value + "_gen_/"
     for src in srcs:
         ext = src.extension
 
@@ -293,7 +295,7 @@ def _preprocess(ctx: "context", srcs: ["artifact"], bytecode_or_native: BuildMod
 
             cmd = cmd_args([menhir, "--fixed-exception", "-b", cmd_args(prefix).ignore_artifacts(), src])
             cmd.hidden(parser.as_output(), parser_sig.as_output())
-            ctx.actions.run(cmd, category = "ocaml_yacc_" + bytecode_or_native.value, identifier = src.short_path)
+            ctx.actions.run(cmd, category = "ocaml_yacc_" + build_mode.value, identifier = src.short_path)
 
         elif ext == ".mll":
             name = gen_dir + paths.replace_extension(src.short_path, "")
@@ -301,7 +303,7 @@ def _preprocess(ctx: "context", srcs: ["artifact"], bytecode_or_native: BuildMod
             result.append(lexer)
 
             cmd = cmd_args([ocamllex, src, "-o", lexer.as_output()])
-            ctx.actions.run(cmd, category = "ocaml_lex_" + bytecode_or_native.value, identifier = src.short_path)
+            ctx.actions.run(cmd, category = "ocaml_lex_" + build_mode.value, identifier = src.short_path)
 
         else:
             result.append(src)
@@ -309,7 +311,7 @@ def _preprocess(ctx: "context", srcs: ["artifact"], bytecode_or_native: BuildMod
     return result
 
 # Generate the dependencies
-def _depends(ctx: "context", srcs: ["artifact"], bytecode_or_native: BuildMode.type) -> "artifact":
+def _depends(ctx: "context", srcs: ["artifact"], build_mode: BuildMode.type) -> "artifact":
     # Utility for harvesting pp/ppx args from a context's compiler
     # flags.
     def gather(flag: str.type, ctx: "context") -> ["_a"]:
@@ -329,7 +331,7 @@ def _depends(ctx: "context", srcs: ["artifact"], bytecode_or_native: BuildMode.t
     ocaml_toolchain = ctx.attrs._ocaml_toolchain[OCamlToolchainInfo]
     ocamldep = ocaml_toolchain.dep_tool
 
-    dep_output_filename = "deps_" + bytecode_or_native.value + ".mk"
+    dep_output_filename = "deps_" + build_mode.value + ".mk"
     dep_output = ctx.actions.declare_output(dep_output_filename)
     dep_cmdline = cmd_args([ocamldep, "-native"])  # Yes, always native (see D36426635 for details).
 
@@ -340,49 +342,41 @@ def _depends(ctx: "context", srcs: ["artifact"], bytecode_or_native: BuildMode.t
     # These -I's are for ocamldep.
     dep_cmdline.add(cmd_args([cmd_args(src).parent() for src in srcs], format = "-I {}"))
     dep_cmdline.add(srcs)
-    dep_script_name = "deps_" + bytecode_or_native.value + ".sh"
+    dep_script_name = "deps_" + build_mode.value + ".sh"
     dep_sh, _ = ctx.actions.write(
         dep_script_name,
         ["#!/usr/bin/env bash", cmd_args([dep_cmdline, ">", dep_output], delimiter = " ")],
         is_executable = True,
         allow_args = True,
     )
-    ctx.actions.run(cmd_args(dep_sh).hidden(dep_output.as_output(), dep_cmdline), category = "ocaml_dep_" + bytecode_or_native.value)
+    ctx.actions.run(cmd_args(dep_sh).hidden(dep_output.as_output(), dep_cmdline), category = "ocaml_dep_" + build_mode.value)
     return dep_output
 
 # Compile all the context's sources. If bytecode compiling, 'cmxs' & 'objs' will
 # be empty in the returned tuple while 'cmos' will be non-empty. If compiling
 # native code, 'cmos' in the returned info will be empty while 'objs' & 'cmxs'
 # will be non-empty.
-#
-# Pre:
-#   - `bytecode_or_native` is one of "bytecode" or "native"
-#   - if `bytecode_or_native` == "bytecode" then `compiler` is a bytecode compiler
-#     (e.g. 'ocamlc.opt')
-#   - if `bytecode_or_native` == "native" then `compiler` is a native compiler
-#     (e.g. 'ocamlopt.opt')
-#
-def _compile(ctx: "context", compiler: "cmd_args", bytecode_or_native: BuildMode.type) -> CompileResultInfo.type:
+def _compile(ctx: "context", compiler: "cmd_args", build_mode: BuildMode.type) -> CompileResultInfo.type:
     ocaml_toolchain = ctx.attrs._ocaml_toolchain[OCamlToolchainInfo]
 
     opaque_enabled = "-opaque" in ocaml_toolchain.ocaml_compiler_flags
-    is_native = bytecode_or_native.value == "native"
+    is_native = _is_native(build_mode)
     is_bytecode = not is_native
 
     # Preprocess: Generate modules from lexers and parsers.
-    srcs = _preprocess(ctx, ctx.attrs.srcs, bytecode_or_native)
+    srcs = _preprocess(ctx, ctx.attrs.srcs, build_mode)
     headers = [s for s in srcs if s.extension == ".h"]
     mlis = {s.short_path: s for s in srcs if s.extension == ".mli"}
 
     # 'ocamldep' will be sorting .cmo files or it will be sorting .cmx files and
     # so needs to know if we are byte or native compiling.
-    depends_output = _depends(ctx, srcs, bytecode_or_native)
+    depends_output = _depends(ctx, srcs, build_mode)
 
     # Compile
     produces = {}  # A tuple of things each source file produces.
     includes = {}  # Source file, .cmi pairs.
     stbs, objs, cmis, cmos, cmxs, cmts, cmtis, ppmlis, ppmls = ([], [], [], [], [], [], [], [], [])
-    obj_dir = "_" + bytecode_or_native.value + "obj_/"
+    obj_dir = "_" + build_mode.value + "obj_/"
     for src in srcs:
         obj_name = obj_dir + paths.replace_extension(src.short_path, "")
         ext = src.extension
@@ -446,16 +440,16 @@ def _compile(ctx: "context", compiler: "cmd_args", bytecode_or_native: BuildMode
 
     # A file containing topologically sorted .cmx or .cmo files. We use the name
     # 'cmxs_order' without regard for which.
-    cmxs_order = ctx.actions.declare_output("cmxs_order_" + bytecode_or_native.value + ".lst")
+    cmxs_order = ctx.actions.declare_output("cmxs_order_" + build_mode.value + ".lst")
 
     pre = cxx_merge_cpreprocessors(ctx, [], filter(None, [d.get(CPreprocessorInfo) for d in _attr_deps(ctx)]))
     pre_args = pre.set.project_as_args("args")
-    cc_sh_filename = "cc_" + bytecode_or_native.value + ".sh"
+    cc_sh_filename = "cc_" + build_mode.value + ".sh"
     cc = _mk_cc(ctx, [pre_args], cc_sh_filename)
 
     # These -I's are common to all compile commands for the given 'ctx'. This
     # includes the compiler include path.
-    global_include_paths = _include_paths_in_context(ctx, bytecode_or_native)
+    global_include_paths = _include_paths_in_context(ctx, build_mode)
 
     def f(ctx: "context", artifacts, outputs):
         # A pair of mappings that detail which source files depend on which. See
@@ -526,11 +520,11 @@ def _compile(ctx: "context", compiler: "cmd_args", bytecode_or_native: BuildMode
                 cmd.hidden(mk_out(cmti), depends_produce)
 
                 if is_native:
-                    cmd_in_shell = cmd_args(["/bin/sh", "-c", '"$@" 2> "$preprocessed_source_file"', "--", cmd])
+                    sh = cmd_args(["/bin/sh", "-c", '"$@" 2> "$preprocessed_source_file"', "--", cmd])
                     env = {"preprocessed_source_file": mk_out(ppmli)}
-                    ctx.actions.run(cmd_in_shell, category = "ocaml_compile_mli_" + bytecode_or_native.value, identifier = src.short_path, env = env)
+                    ctx.actions.run(sh, category = "ocaml_compile_mli_" + build_mode.value, identifier = src.short_path, env = env)
                 else:
-                    ctx.actions.run(cmd, category = "ocaml_compile_mli_" + bytecode_or_native.value, identifier = src.short_path)
+                    ctx.actions.run(cmd, category = "ocaml_compile_mli_" + build_mode.value, identifier = src.short_path)
 
             elif ext == ".ml":
                 (obj, cmo, cmx, cmt, cmi, ppml) = produces[src]
@@ -552,11 +546,11 @@ def _compile(ctx: "context", compiler: "cmd_args", bytecode_or_native: BuildMode
                     cmd.hidden(mlis[paths.replace_extension(src.short_path, ".mli")])
 
                 if is_native:
-                    cmd_in_shell = cmd_args(["/bin/sh", "-c", '"$@" 2> "$preprocessed_source_file"', "--", cmd])
+                    sh = cmd_args(["/bin/sh", "-c", '"$@" 2> "$preprocessed_source_file"', "--", cmd])
                     env = {"preprocessed_source_file": mk_out(ppml)}
-                    ctx.actions.run(cmd_in_shell, category = "ocaml_compile_ml_" + bytecode_or_native.value, identifier = src.short_path, env = env)
+                    ctx.actions.run(sh, category = "ocaml_compile_ml_" + build_mode.value, identifier = src.short_path, env = env)
                 else:
-                    ctx.actions.run(cmd, category = "ocaml_compile_ml_" + bytecode_or_native.value, identifier = src.short_path)
+                    ctx.actions.run(cmd, category = "ocaml_compile_ml_" + build_mode.value, identifier = src.short_path)
 
             elif ext == ".c":
                 (stb,) = produces[src]
