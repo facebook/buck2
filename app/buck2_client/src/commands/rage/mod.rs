@@ -361,12 +361,12 @@ daemon uptime: {}
 fn dispatch_event_to_scribe(
     ctx: &ClientCommandContext,
     rage_id: &TraceId,
-    command_id: &TraceId,
+    trace_id: &TraceId,
 ) -> anyhow::Result<()> {
     // dispatch event to scribe if possible
     match create_scribe_event_dispatcher(ctx, rage_id.to_owned())? {
         Some(dispatcher) => {
-            let recent_command_trace_id = command_id.to_string();
+            let recent_command_trace_id = trace_id.to_string();
             let metadata = metadata::collect();
             let rage_invoked = RageInvoked {
                 metadata,
