@@ -48,15 +48,11 @@ pub struct WeakJoinHandle<T: Clone> {
 
 impl<T: Clone + 'static> WeakJoinHandle<T> {
     /// Return `None` if the task has been canceled.
-    pub fn pollable(
-        &self,
-    ) -> Option<StrongCancellableJoinHandle<SharedEventsFuture<BoxFuture<'static, T>>>> {
-        self.ref_handle
-            .upgrade()
-            .map(|inner| StrongCancellableJoinHandle {
-                guard: inner,
-                fut: self.join_handle.clone(),
-            })
+    pub fn pollable(&self) -> Option<StrongJoinHandle<SharedEventsFuture<BoxFuture<'static, T>>>> {
+        self.ref_handle.upgrade().map(|inner| StrongJoinHandle {
+            guard: inner,
+            fut: self.join_handle.clone(),
+        })
     }
 }
 
@@ -109,22 +105,22 @@ where
 
 /// The actual pollable future that returns the result of the task. This keeps the future alive
 #[pin_project]
-pub struct StrongCancellableJoinHandle<F> {
+pub struct StrongJoinHandle<F> {
     guard: GuardedRcStrongGuard,
     #[pin]
     fut: F,
 }
 
-impl<F> StrongCancellableJoinHandle<F> {
-    fn map<F2>(self, map: impl FnOnce(F) -> F2) -> StrongCancellableJoinHandle<F2> {
-        StrongCancellableJoinHandle {
+impl<F> StrongJoinHandle<F> {
+    fn map<F2>(self, map: impl FnOnce(F) -> F2) -> StrongJoinHandle<F2> {
+        StrongJoinHandle {
             guard: self.guard,
             fut: map(self.fut),
         }
     }
 }
 
-impl<T> StrongCancellableJoinHandle<SharedEventsFuture<BoxFuture<'static, T>>>
+impl<T> StrongJoinHandle<SharedEventsFuture<BoxFuture<'static, T>>>
 where
     T: Clone,
 {
@@ -136,13 +132,13 @@ where
     }
 }
 
-impl<F: Future> StrongCancellableJoinHandle<F> {
+impl<F: Future> StrongJoinHandle<F> {
     pub fn inner(&self) -> &F {
         &self.fut
     }
 }
 
-impl<F: Future> Future for StrongCancellableJoinHandle<F> {
+impl<F: Future> Future for StrongJoinHandle<F> {
     type Output = F::Output;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
@@ -158,7 +154,7 @@ pub fn spawn_task<T, S>(
     span: Span,
 ) -> (
     WeakJoinHandle<T::Output>,
-    StrongCancellableJoinHandle<SharedEventsFuture<BoxFuture<'static, T::Output>>>,
+    StrongJoinHandle<SharedEventsFuture<BoxFuture<'static, T::Output>>>,
 )
 where
     T: Future + Send + 'static,
@@ -173,7 +169,7 @@ pub fn spawn_dropcancel<T, S>(
     spawner: &dyn Spawner<S>,
     ctx: &S,
     span: Span,
-) -> StrongCancellableJoinHandle<BoxFuture<'static, T::Output>>
+) -> StrongJoinHandle<BoxFuture<'static, T::Output>>
 where
     T: Future + Send + 'static,
     T::Output: Any + Send + 'static,
@@ -198,7 +194,7 @@ where
         })
         .boxed();
 
-    StrongCancellableJoinHandle { guard, fut: task }
+    StrongJoinHandle { guard, fut: task }
 }
 
 /// Obtain a GuardedRcStrongGuard that keeps the current task alive, assuming it polls a DropCancel
