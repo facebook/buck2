@@ -108,6 +108,7 @@ extra_attributes = {
         # Used to create the shared test library. Any library deps whose `preferred_linkage` isn't "shared" will
         # be treated as "static" deps and linked into the shared test library.
         "link_style": attrs.enum(LinkableDepType, default = "static"),
+        "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
         # The test source code and lib dependencies should be built into a shared library.
         "preferred_linkage": attrs.enum(Linkage, default = "shared"),
         # Expected by `apple_bundle`, for `apple_test` this field is always None.
