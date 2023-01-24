@@ -59,13 +59,6 @@ impl<T: Clone + 'static> WeakJoinHandle<T> {
                 fut: self.join_handle.clone(),
             })
     }
-
-    /// Returns whether or not the task is still alive at this moment, without obtaining any strong
-    /// references to the underlying task. This means that the task could still be canceled after
-    /// this function returns.
-    pub fn is_pollable(&self) -> bool {
-        self.ref_handle.strong_count() > 0
-    }
 }
 
 /// Future that gets canceled if all Refs to it are dropped

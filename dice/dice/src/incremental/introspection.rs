@@ -87,7 +87,7 @@ where
                         (
                             AnyKey::new(k.clone()),
                             crate::introspection::graph::VersionNumber(v.0),
-                            e.state_for_debugging(),
+                            e.task.state_for_debugging(),
                         )
                     })
                     .collect::<Vec<_>>()

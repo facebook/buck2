@@ -27,6 +27,8 @@ use std::fmt::Debug;
 use std::fmt::Display;
 use std::future::Future;
 use std::hash::Hash;
+use std::sync::atomic::AtomicU64;
+use std::sync::atomic::Ordering;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -99,6 +101,12 @@ pub(crate) trait IncrementalComputeProperties: StorageProperties {
     ) -> DiceResult<GraphNode<Self>>;
 }
 
+#[derive(Allocative)]
+struct RunningEntry<K: IncrementalComputeProperties> {
+    task: <K as IncrementalComputeProperties>::DiceTask,
+    epoch: u64,
+}
+
 /// The incremental engine that manages all the handling of the results of a
 /// specific key, performing the recomputation if necessary
 ///
@@ -111,7 +119,10 @@ pub(crate) struct IncrementalEngine<K: IncrementalComputeProperties> {
     versioned_cache: VersionedGraph<K>,
     /// tracks the currently running computations. This is evicted upon
     /// completion of the computation
-    currently_running: RwLock<HashMap<VersionNumber, DashMap<K::Key, K::DiceTask>>>,
+    currently_running: RwLock<HashMap<VersionNumber, DashMap<K::Key, RunningEntry<K>>>>,
+    /// Tracks the last scheduled task. We use this when deleting from the currently_running map,
+    /// since it's possible to overwrite an existing entry while both futures are running.
+    epoch: AtomicU64,
 }
 
 impl<K: IncrementalComputeProperties> Debug for IncrementalEngine<K> {
@@ -159,7 +170,12 @@ where
         Arc::new(Self {
             versioned_cache: VersionedGraph::new(evaluator),
             currently_running: RwLock::new(HashMap::default()),
+            epoch: AtomicU64::new(0),
         })
+    }
+
+    fn next_epoch(&self) -> u64 {
+        self.epoch.fetch_add(1, Ordering::Relaxed)
     }
 
     /// Dirties the value at K
@@ -303,7 +319,7 @@ where
 
             let res = match running_map.entry(k.clone()) {
                 Entry::Occupied(mut occupied) => {
-                    if let Some(existing) = occupied.get().pollable() {
+                    if let Some(existing) = occupied.get().task.pollable() {
                         debug!(k=%k, msg = "found a task that is currently running. polling on existing task");
                         existing
                     } else {
@@ -339,7 +355,7 @@ where
         k: K::Key,
         transaction_ctx: &Arc<TransactionCtx>,
         extra: ComputationData,
-    ) -> (WeakDiceFutureHandle<K>, DiceFuture<K>) {
+    ) -> (RunningEntry<K>, DiceFuture<K>) {
         debug!(
             "no matching entry in cache, and no tasks currently running. spawning a new task..."
         );
@@ -347,17 +363,53 @@ where
         let eval_ctx = transaction_ctx.dupe();
         let key = k.clone();
         let v = eval_ctx.get_version();
+        let epoch = self.next_epoch();
 
         let user_data = extra.user_data.dupe();
-        let weak = Arc::downgrade(&self);
 
-        Self::spawn_task(
+        struct Evaluation<K: IncrementalComputeProperties> {
+            engine: Arc<IncrementalEngine<K>>,
+            epoch: u64,
+            k: K::Key,
+            v: VersionNumber,
+        }
+
+        impl<K: IncrementalComputeProperties> Drop for Evaluation<K> {
+            fn drop(&mut self) {
+                debug!(msg = "cancelling", k = %self.k, v = %self.v);
+                match self.engine.currently_running.read().get(&self.v) {
+                    None => {}
+                    Some(map) => {
+                        debug!(msg = "cancelling... awaiting lock", k = %self.k, v = %self.v);
+                        match map.entry(self.k.clone()) {
+                            Entry::Occupied(entry) => {
+                                if entry.get().epoch == self.epoch {
+                                    entry.remove();
+                                    debug!(msg = "cancelling... future removed", k = %self.k, v = %self.v);
+                                }
+                            }
+                            Entry::Vacant(_) => {}
+                        }
+                        debug!(msg = "cancelling... complete", k = %self.k, v = %self.v);
+                    }
+                }
+            }
+        }
+
+        let ev = Evaluation {
+            engine: self,
+            epoch,
+            k,
+            v,
+        };
+
+        let (task, handle) = Self::spawn_task(
             async move {
                 // check again since another thread could have inserted into the versioned
                 // cache before we entered the index.
                 let res = Ok(
-                    match self.versioned_cache.get(
-                        VersionedGraphKeyRef::new(eval_ctx.get_version(), &k),
+                    match ev.engine.versioned_cache.get(
+                        VersionedGraphKeyRef::new(eval_ctx.get_version(), &ev.k),
                         eval_ctx.get_minor_version(),
                     ) {
                         VersionedGraphResult::Match(entry) => {
@@ -376,12 +428,12 @@ where
                             {
                                 DidDepsChange::Changed | DidDepsChange::NoDeps => {
                                     debug!("dependencies changed. recomputing...");
-                                    self.compute(&k, eval_ctx, extra).await
+                                    ev.engine.compute(&ev.k, eval_ctx, extra).await
                                 }
                                 DidDepsChange::NoChange(unchanged_both_deps) => {
                                     debug!("dependencies are unchanged, reusing entry");
-                                    self.reuse(
-                                        k.clone(),
+                                    ev.engine.reuse(
+                                        ev.k.clone(),
                                         &eval_ctx,
                                         mismatch.entry,
                                         unchanged_both_deps,
@@ -391,91 +443,34 @@ where
                         }
                         VersionedGraphResult::Dirty | VersionedGraphResult::None => {
                             debug!("dirtied. recomputing...");
-                            self.compute(&k, eval_ctx, extra).await
+                            ev.engine.compute(&ev.k, eval_ctx, extra).await
                         }
                     },
                 );
 
-                // on complete, we go a separate code path from cancellation removal of
-                // `currently_running` because when in a spawned task, we always unconditionally
-                // remove the current task when complete since only one of each task can be alive.
-                // However, when canceling, we make sure to only remove canceled tasks since we
-                // allow new tasks to replace canceled tasks when necessary.
-                if let Some(running_map) = self.currently_running.read().get(&v) {
-                    // note that it's possible our version was already cleaned up because our
-                    // transaction was dropped, but the future is still not quite done
-                    // running, so we make sure that the currently_running map for our
-                    // version still exists
-                    let removed = running_map.remove(&k);
-                    assert!(
-                        removed.is_some(),
-                        "recompute can only be called by a running task"
-                    );
-                }
-
                 debug!("finished. returning result");
 
                 res
-            },
-            {
-                let k = key.clone();
-                let engine = weak;
-
-                Some(box move || {
-                    if let Some(engine) = engine.upgrade() {
-                        debug!(msg = "cancelling", k = %k, v = %v);
-                        match engine.currently_running.read().get(&v) {
-                            None => {}
-                            Some(map) => {
-                                debug!(msg = "cancelling... awaiting lock", k = %k, v = %v);
-                                match map.entry(k.clone()) {
-                                    Entry::Occupied(entry) => {
-                                        // on cancellation, we must check that the `currently_running` entry
-                                        // is still of an entry that is canceled. This is because we allow
-                                        // new tasks to override the entry if they see a canceled one, which
-                                        // means when we attempt to remove ourselves, someone may have
-                                        // already removed us (the canceled task).
-                                        // Also extremely important: when checking for cancel or not, we
-                                        // must make sure to NOT obtain an actual strong reference to the
-                                        // underlying task. This is because if we do, then we, on this thread,
-                                        // may become responsible for dropping that task, which requires
-                                        // this thread to run the destructor, and the task cancellation
-                                        // handling. Since we currently, in the task cancellation, hold a
-                                        // lock to the `currently_running`, doing another task cancellation
-                                        // would result in deadlock on the `currently_running` map.
-                                        // So, we use the `is_pollable` function, which tests for
-                                        // cancellation without ever obtaining the actual task, so that
-                                        // this thread is never responsible for dropping another future.
-                                        if !entry.get().is_pollable() {
-                                            entry.remove();
-                                            debug!(msg = "cancelling... future removed", k = %k, v = %v);
-                                        }
-                                    }
-                                    Entry::Vacant(_) => {}
-                                }
-                                debug!(msg = "cancelling... complete", k = %k, v = %v);
-                            }
-                        }
-                    }
-                })
             },
             &user_data,
             debug_span!(
                 parent: None,
                 "spawned_dice_task",
                 key = % key,
-                version = % v
+                version = % v,
+                epoch = % epoch,
             ),
-        )
+        );
+
+        (RunningEntry { task, epoch }, handle)
     }
 
     fn spawn_task(
         future: impl Future<Output = DiceResult<GraphNode<K>>> + Send + 'static,
-        on_cancel: Option<Box<dyn FnOnce() + Send>>,
         spawner_ctx: &UserComputationData,
         span: Span,
     ) -> (WeakDiceFutureHandle<K>, DiceFuture<K>) {
-        let (task, fut) = spawn_task(future, on_cancel, &spawner_ctx.spawner, spawner_ctx, span);
+        let (task, fut) = spawn_task(future, None, &spawner_ctx.spawner, spawner_ctx, span);
         let task = WeakDiceFutureHandle::async_cancellable(task);
         let fut = DiceFuture::AsyncCancellableSpawned(fut);
         (task, fut)
@@ -576,10 +571,13 @@ impl<P: ProjectionKey> IncrementalEngine<ProjectionKeyProperties<P>> {
                 let running_map = self.get_running_map(transaction_ctx);
 
                 let val = match running_map.entry(k.clone()) {
-                    Entry::Occupied(occupied) => Val::Occupied(occupied.get().dupe()),
+                    Entry::Occupied(occupied) => Val::Occupied(occupied.get().task.dupe()),
                     Entry::Vacant(vacant) => {
                         let (tx, rx) = tokio::sync::oneshot::channel();
-                        vacant.insert(SyncDiceTaskHandle { rx: rx.shared() });
+                        vacant.insert(RunningEntry {
+                            task: SyncDiceTaskHandle { rx: rx.shared() },
+                            epoch: self.next_epoch(),
+                        });
                         Val::Vacant(tx)
                     }
                 };
@@ -806,10 +804,13 @@ impl<P: ProjectionKey> IncrementalEngine<ProjectionKeyProperties<P>> {
             let running_map = self.get_running_map(transaction_ctx);
 
             let val = match running_map.entry(k.clone()) {
-                Entry::Occupied(occupied) => Val::Occupied(occupied.get().dupe()),
+                Entry::Occupied(occupied) => Val::Occupied(occupied.get().task.dupe()),
                 Entry::Vacant(vacant) => {
                     let (tx, rx) = tokio::sync::oneshot::channel();
-                    vacant.insert(SyncDiceTaskHandle { rx: rx.shared() });
+                    vacant.insert(RunningEntry {
+                        task: SyncDiceTaskHandle { rx: rx.shared() },
+                        epoch: self.next_epoch(),
+                    });
                     Val::Vacant(tx)
                 }
             };
@@ -938,7 +939,7 @@ impl<K: IncrementalComputeProperties> IncrementalEngine<K> {
     fn get_running_map<'a>(
         self: &'a Arc<Self>,
         transaction_ctx: &Arc<TransactionCtx>,
-    ) -> MappedRwLockReadGuard<'a, DashMap<K::Key, K::DiceTask>> {
+    ) -> MappedRwLockReadGuard<'a, DashMap<K::Key, RunningEntry<K>>> {
         let locked = self.currently_running.read();
 
         if locked.get(&transaction_ctx.get_version()).is_some() {

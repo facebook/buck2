@@ -53,8 +53,4 @@ impl<S: StorageProperties> WeakDiceFutureHandle<S> {
             .pollable()
             .map(DiceFuture::AsyncCancellableJoining)
     }
-
-    pub(crate) fn is_pollable(&self) -> bool {
-        self.handle.is_pollable()
-    }
 }
