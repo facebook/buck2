@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::cell::RefCell;
 use std::pin::Pin;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
@@ -22,6 +23,11 @@ use futures::task::Poll;
 use futures::task::Waker;
 use parking_lot::Mutex;
 use pin_project::pin_project;
+
+thread_local! {
+    /// The ExecutionContext for the currently executing CancellableFuture.
+    static CURRENT: RefCell<Option<Box<ExecutionContext>>> = RefCell::new(None);
+}
 
 enum State {
     /// This future has been constructed, but not polled yet.
@@ -72,11 +78,18 @@ impl SharedState {
     }
 }
 
+struct ExecutionContext {
+    ref_count: WeakRefCount,
+}
+
 #[pin_project(project = CancellableFutureProj)]
 pub struct CancellableFuture<F> {
     shared: SharedState,
 
-    ref_count: WeakRefCount,
+    /// This is notionally a `ExecutionContext` field, but we put it in an Option<Box<...>> to
+    /// cheaply move it into a thread local every time we enter `poll()`. This is used for the
+    /// running future to be able to access the API we expose to e.g. upgrade the refcount.
+    execution: Option<Box<ExecutionContext>>,
 
     /// NOTE: this is duplicative of the `SharedState`, but unlike that state this is not behind a
     /// lock. This avoids us needing to grab the lock to check if we're Pending every time we poll.
@@ -95,7 +108,11 @@ where
             return Poll::Ready(None);
         }
 
-        self.future.as_mut().poll(cx).map(Some)
+        let previous = CURRENT.with(|g| g.replace(Some(self.execution.take().unwrap())));
+        let res = self.future.as_mut().poll(cx).map(Some);
+        *self.execution = CURRENT.with(|g| g.replace(previous));
+
+        res
     }
 }
 
@@ -186,17 +203,21 @@ impl<F> CancellableFuture<F> {
         (
             CancellableFuture {
                 shared,
-                ref_count: ref_count.downgrade(),
+                execution: Some(box ExecutionContext {
+                    ref_count: ref_count.downgrade(),
+                }),
                 started: false,
                 future,
             },
             ref_count,
         )
     }
+}
 
-    pub fn ref_count(&self) -> &WeakRefCount {
-        &self.ref_count
-    }
+/// Obtain a StrongRefCount for the current task (to potentially prevent it from being droped in a
+/// critical section).
+pub fn current_task_guard() -> Option<StrongRefCount> {
+    CURRENT.with(|g| g.borrow().as_ref().and_then(|g| g.ref_count.upgrade()))
 }
 
 #[cfg(test)]
@@ -273,5 +294,30 @@ mod tests {
 
         task.await.unwrap();
         assert!(*dropped.lock());
+    }
+
+    #[tokio::test]
+    async fn test_current_task_guard() {
+        let (fut, guard) = CancellableFuture::new_refcounted(async {
+            {
+                let _guard = current_task_guard();
+                tokio::task::yield_now().await;
+            }
+            futures::future::pending::<()>().await
+        });
+        futures::pin_mut!(fut);
+
+        // We reach the first yield. At this point there are 2 guards: ours and the one held via
+        // current_task_guard().
+        assert_matches!(futures::poll!(&mut fut), Poll::Pending);
+
+        // Drop our guard, then poll again. Cancellation is checked, *then* the guard in the future
+        // is dropped, so at this point we proceed to the pending() step after havin cancelled the
+        // future (we would get notified for wakeup if we weren't manually polling).
+        drop(guard);
+        assert_matches!(futures::poll!(&mut fut), Poll::Pending);
+
+        // Poll again, this time we don't enter the future's poll because it is cancelled.
+        assert_matches!(futures::poll!(&mut fut), Poll::Ready(None));
     }
 }

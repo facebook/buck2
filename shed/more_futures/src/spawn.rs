@@ -12,30 +12,25 @@
 //!
 
 use std::any::Any;
-use std::cell::RefCell;
 use std::future::Future;
 use std::pin::Pin;
 use std::task::Context;
 use std::task::Poll;
 
 use allocative::Allocative;
-use dupe::Dupe;
 use futures::future::BoxFuture;
 use futures::FutureExt;
 use pin_project::pin_project;
 use thiserror::Error;
 use tracing::Span;
 
+use crate::cancellable_future::current_task_guard;
 use crate::cancellable_future::CancellableFuture;
 use crate::cancellable_future::StrongRefCount;
 use crate::cancellable_future::WeakRefCount;
 use crate::instrumented_shared::SharedEvents;
 use crate::instrumented_shared::SharedEventsFuture;
 use crate::spawner::Spawner;
-
-thread_local! {
-    static CURRENT_TASK_GUARD: RefCell<Option<WeakRefCount>> = RefCell::new(None);
-}
 
 #[derive(Debug, Error, Copy, Clone)]
 pub enum WeakFutureError {
@@ -131,15 +126,9 @@ where
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.project();
 
-        let guard = this.inner.ref_count().dupe();
-        let old_guard = CURRENT_TASK_GUARD.with(|g| g.replace(Some(guard)));
-
         let _enter = this.instrumented_span.enter();
 
-        let res = this.inner.poll(cx);
-        CURRENT_TASK_GUARD.with(|g| g.replace(old_guard));
-
-        res
+        this.inner.poll(cx)
     }
 }
 
@@ -189,13 +178,6 @@ where
         .boxed();
 
     StrongJoinHandle { guard, fut: task }
-}
-
-/// Obtain a StrongRefCount that keeps the current task alive, assuming it polls a DropCancel
-/// future. While this guard is alive, the future will not be dropped. Use to protect critical
-/// sections during which a task should not be cancelled.
-fn current_task_guard() -> Option<StrongRefCount> {
-    CURRENT_TASK_GUARD.with(|g| g.borrow().as_ref().and_then(|g| g.upgrade()))
 }
 
 /// Enter a critical section during which the current DropCancel future (if any) should not be
