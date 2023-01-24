@@ -75,7 +75,7 @@ where
         let target_node = &starlark_target_node.0;
         Ok(box target_node
             .attrs(AttrInspectOptions::All)
-            .map(|(name, value)| heap.alloc((name, StarlarkCoercedAttr::from(value.clone())))))
+            .map(|a| heap.alloc((a.name, StarlarkCoercedAttr::from(a.value.clone())))))
     }
 }
 

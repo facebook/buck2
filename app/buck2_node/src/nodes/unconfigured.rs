@@ -24,6 +24,7 @@ use dupe::Dupe;
 
 use crate::attrs::attr_type::attr_literal::AttrLiteral;
 use crate::attrs::coerced_attr::CoercedAttr;
+use crate::attrs::coerced_attr_full::CoercedAttrFull;
 use crate::attrs::coerced_deps_collector::CoercedDeps;
 use crate::attrs::inspect_options::AttrInspectOptions;
 use crate::attrs::internal::DEFAULT_TARGET_PLATFORM_ATTRIBUTE_FIELD;
@@ -129,7 +130,7 @@ impl TargetNode {
             DEFAULT_TARGET_PLATFORM_ATTRIBUTE_FIELD,
             AttrInspectOptions::All,
         ) {
-            Some(v) => match v {
+            Some(v) => match v.value {
                 CoercedAttr::Literal(v) => match v {
                     AttrLiteral::None => None,
                     AttrLiteral::Dep(t) => Some(t.label.target()),
@@ -229,7 +230,7 @@ impl TargetNode {
         self.0.visibility.is_visible_to(target)
     }
 
-    pub fn attrs(&self, opts: AttrInspectOptions) -> impl Iterator<Item = (&str, &CoercedAttr)> {
+    pub fn attrs(&self, opts: AttrInspectOptions) -> impl Iterator<Item = CoercedAttrFull> {
         self.0.rule.attributes.attrs(&self.0.attributes, opts)
     }
 
@@ -238,7 +239,11 @@ impl TargetNode {
     }
 
     /// Return `None` if attribute is not present or unknown.
-    pub fn attr_or_none(&self, key: &str, opts: AttrInspectOptions) -> Option<&CoercedAttr> {
+    pub fn attr_or_none<'a>(
+        &'a self,
+        key: &str,
+        opts: AttrInspectOptions,
+    ) -> Option<CoercedAttrFull<'a>> {
         self.0
             .rule
             .attributes
@@ -383,8 +388,8 @@ impl TargetNode {
             }
         }
         let mut traversal = InputsCollector { inputs: Vec::new() };
-        for (_, attr) in self.attrs(AttrInspectOptions::All) {
-            attr.traverse(self.label().pkg(), &mut traversal)
+        for a in self.attrs(AttrInspectOptions::All) {
+            a.traverse(self.label().pkg(), &mut traversal)
                 .expect("inputs collector shouldn't return errors");
         }
 
@@ -492,10 +497,10 @@ pub mod testing {
             .map(|(target_name, values)| {
                 let mut json_values: Map<String, Value> = values
                     .attrs(opts)
-                    .map(|(key, value)| {
+                    .map(|a| {
                         Ok((
-                            key.to_owned(),
-                            value.to_json(&AttrFmtContext {
+                            a.name.to_owned(),
+                            a.value.to_json(&AttrFmtContext {
                                 package: Some(pkg.dupe()),
                             })?,
                         ))

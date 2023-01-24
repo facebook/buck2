@@ -10,12 +10,14 @@
 pub mod attr;
 pub mod attr_type;
 pub mod coerced_attr;
+pub mod coerced_attr_full;
 pub mod coerced_deps_collector;
 pub mod coerced_path;
 pub mod coercion_context;
 pub mod configurable;
 pub mod configuration_context;
 pub mod configured_attr;
+pub mod configured_attr_full;
 pub mod configured_info;
 pub mod configured_traversal;
 pub mod display;

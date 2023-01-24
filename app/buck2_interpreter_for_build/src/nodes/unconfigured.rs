@@ -113,8 +113,10 @@ impl TargetNodeExt for TargetNode {
             VISIBILITY_ATTRIBUTE_FIELD,
             AttrInspectOptions::All,
         ) {
-            Some(visibility) => parse_visibility(internals.attr_coercion_context(), visibility)
-                .context("When parsing `visibility` attribute")?,
+            Some(visibility) => {
+                parse_visibility(internals.attr_coercion_context(), visibility.value)
+                    .context("When parsing `visibility` attribute")?
+            }
             None => VisibilitySpecification::Default,
         };
 
@@ -127,8 +129,8 @@ impl TargetNodeExt for TargetNode {
         let label = TargetLabel::new(package_name.dupe(), target_name);
         let mut deps_cache = CoercedDepsCollector::new();
 
-        for (_, value) in rule.attributes.attrs(&attr_values, AttrInspectOptions::All) {
-            value.traverse(label.pkg(), &mut deps_cache)?;
+        for a in rule.attributes.attrs(&attr_values, AttrInspectOptions::All) {
+            a.traverse(label.pkg(), &mut deps_cache)?;
         }
 
         Ok(TargetNode::new(

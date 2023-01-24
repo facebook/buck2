@@ -191,17 +191,19 @@ impl ExecutionPlatformConstraints {
             platform_cfgs: &compute_platform_cfgs(ctx, node).await?,
         };
 
-        for (name, attr) in node.attrs(AttrInspectOptions::All) {
-            let configured_attr = attr.configure(&cfg_ctx).with_context(|| {
+        for a in node.attrs(AttrInspectOptions::All) {
+            let configured_attr = a.configure(&cfg_ctx).with_context(|| {
                 format!(
                     "when configuring attribute `{}` to resolve execution platform",
-                    name
+                    a.name
                 )
             })?;
             configured_attr.traverse(node.label().pkg(), &mut me)?;
-            if name == EXEC_COMPATIBLE_WITH_ATTRIBUTE_FIELD {
-                for a in ConfiguredTargetNode::attr_as_target_compatible_with(configured_attr) {
-                    me.exec_compatible_with.push(a.with_context(|| {
+            if a.name == EXEC_COMPATIBLE_WITH_ATTRIBUTE_FIELD {
+                for label in
+                    ConfiguredTargetNode::attr_as_target_compatible_with(configured_attr.value)
+                {
+                    me.exec_compatible_with.push(label.with_context(|| {
                         format!("attribute `{}`", EXEC_COMPATIBLE_WITH_ATTRIBUTE_FIELD)
                     })?);
                 }
@@ -410,17 +412,17 @@ fn unpack_target_compatible_with_attr(
         .configure(&AttrConfigurationContextToResolveCompatibleWith { resolved_cfg })
         .with_context(|| format!("when configuring attribute `{}`", attr_name))?;
 
-    match attr.unpack_list() {
+    match attr.value.unpack_list() {
         Some(values) => {
             if !values.is_empty() {
-                Ok(Some(attr))
+                Ok(Some(attr.value))
             } else {
                 Ok(None)
             }
         }
         None => Err(NodeCalculationError::TargetCompatibleNotList(
-            attr_name.to_owned(),
-            attr.as_display_no_ctx().to_string(),
+            attr.name.to_owned(),
+            attr.value.as_display_no_ctx().to_string(),
         )
         .into()),
     }
@@ -595,7 +597,7 @@ async fn compute_configured_target_node_no_transition(
 
     // We need to collect deps and to ensure that all attrs can be successfully
     // configured so that we don't need to support propagate configuration errors on attr access.
-    for (attr_name, attr) in target_node.attrs(AttrInspectOptions::All) {
+    for a in target_node.attrs(AttrInspectOptions::All) {
         let mut traversal = Traversal {
             deps: &mut deps,
             exec_deps: &mut exec_deps,
@@ -607,9 +609,7 @@ async fn compute_configured_target_node_no_transition(
             platform_cfgs: &platform_cfgs,
         };
 
-        let configured_attr = attr
-            .configure(&attr_cfg_ctx)
-            .with_context(|| format!("when configuring attribute `{}`", attr_name))?;
+        let configured_attr = a.configure(&attr_cfg_ctx)?;
         configured_attr.traverse(target_node.label().pkg(), &mut traversal)?;
     }
 
@@ -1013,7 +1013,13 @@ mod tests {
         let node = node.require_compatible()?;
         let node_attrs: SmallMap<_, _> = node
             .attrs(AttrInspectOptions::All)
-            .filter(|(k, _)| !internal_attrs().contains_key(k))
+            .filter_map(|a| {
+                if internal_attrs().contains_key(a.name) {
+                    None
+                } else {
+                    Some((a.name, a.value))
+                }
+            })
             .collect();
         assert_eq!(node_attrs, conf_attrs1);
 
@@ -1023,7 +1029,13 @@ mod tests {
         let node = node.require_compatible()?;
         let node_attrs: SmallMap<_, _> = node
             .attrs(AttrInspectOptions::All)
-            .filter(|(k, _)| !internal_attrs().contains_key(k))
+            .filter_map(|a| {
+                if internal_attrs().contains_key(a.name) {
+                    None
+                } else {
+                    Some((a.name, a.value))
+                }
+            })
             .collect();
         assert_eq!(node_attrs, conf_attrs2);
 

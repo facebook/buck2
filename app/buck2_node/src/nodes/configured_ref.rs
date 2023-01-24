@@ -130,14 +130,19 @@ impl QueryTarget for ConfiguredGraphNodeRef {
         &self,
         mut func: F,
     ) -> Result<(), E> {
-        for (name, attr) in self.0.attrs(AttrInspectOptions::All) {
-            func(name, &attr)?;
+        for a in self.0.attrs(AttrInspectOptions::All) {
+            func(a.name, &a.value)?;
         }
         Ok(())
     }
 
     fn map_attr<R, F: FnMut(Option<&Self::Attr>) -> R>(&self, key: &str, mut func: F) -> R {
-        func(self.0.get(key, AttrInspectOptions::All).as_ref())
+        func(
+            self.0
+                .get(key, AttrInspectOptions::All)
+                .as_ref()
+                .map(|a| &a.value),
+        )
     }
 
     fn inputs_for_each<E, F: FnMut(CellPath) -> Result<(), E>>(

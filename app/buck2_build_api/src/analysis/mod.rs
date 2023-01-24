@@ -297,10 +297,11 @@ async fn run_analysis_with_env_underlying(
 
     let attrs_iter = node.attrs(AttrInspectOptions::All);
     let mut resolved_attrs = Vec::with_capacity(attrs_iter.size_hint().0);
-    for (name, attr) in attrs_iter {
+    for a in attrs_iter {
         resolved_attrs.push((
-            name,
-            attr.resolve_single(node.label().pkg(), &resolution_ctx)?,
+            a.name,
+            a.value
+                .resolve_single(node.label().pkg(), &resolution_ctx)?,
         ));
     }
 

@@ -33,16 +33,21 @@ use buck2_core::target::TargetLabel;
 use buck2_util::arc_str::ArcStr;
 use dupe::Dupe;
 use either::Either;
+use once_cell::sync::Lazy;
 use starlark_map::Hashed;
 
+use crate::attrs::attr::Attribute;
 use crate::attrs::attr_type::attr_literal::AttrLiteral;
 use crate::attrs::attr_type::dep::DepAttr;
 use crate::attrs::attr_type::dep::DepAttrTransition;
 use crate::attrs::attr_type::dep::DepAttrType;
 use crate::attrs::attr_type::query::ResolvedQueryLiterals;
+use crate::attrs::attr_type::AttrType;
 use crate::attrs::coerced_attr::CoercedAttr;
+use crate::attrs::coerced_attr_full::CoercedAttrFull;
 use crate::attrs::configuration_context::AttrConfigurationContextImpl;
 use crate::attrs::configured_attr::ConfiguredAttr;
+use crate::attrs::configured_attr_full::ConfiguredAttrFull;
 use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
 use crate::attrs::inspect_options::AttrInspectOptions;
 use crate::attrs::internal::TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
@@ -79,11 +84,18 @@ enum TargetNodeOrForward {
 const ACTUAL_ATTR_NAME: &str = "actual";
 
 impl TargetNodeOrForward {
-    fn attrs(&self, opts: AttrInspectOptions) -> impl Iterator<Item = (&str, &CoercedAttr)> {
+    fn attrs<'a>(
+        &'a self,
+        opts: AttrInspectOptions,
+    ) -> impl Iterator<Item = CoercedAttrFull<'a>> + 'a {
         match self {
             TargetNodeOrForward::TargetNode(target_node) => Either::Left(target_node.attrs(opts)),
             TargetNodeOrForward::Forward(actual, _) => {
-                let actual_attr = Some((ACTUAL_ATTR_NAME, actual));
+                let actual_attr = Some(CoercedAttrFull {
+                    name: ACTUAL_ATTR_NAME,
+                    attr: ConfiguredTargetNode::actual_attribute(),
+                    value: actual,
+                });
                 Either::Right(actual_attr.into_iter())
             }
         }
@@ -124,12 +136,20 @@ impl TargetNodeOrForward {
         }
     }
 
-    fn attr_or_none(&self, name: &str, opts: AttrInspectOptions) -> Option<&CoercedAttr> {
+    fn attr_or_none<'a>(
+        &'a self,
+        name: &str,
+        opts: AttrInspectOptions,
+    ) -> Option<CoercedAttrFull<'a>> {
         match self {
             TargetNodeOrForward::TargetNode(target_node) => target_node.attr_or_none(name, opts),
             TargetNodeOrForward::Forward(actual, _) => {
                 if name == ACTUAL_ATTR_NAME {
-                    Some(actual)
+                    Some(CoercedAttrFull {
+                        name: ACTUAL_ATTR_NAME,
+                        attr: ConfiguredTargetNode::actual_attribute(),
+                        value: actual,
+                    })
                 } else {
                     None
                 }
@@ -263,14 +283,21 @@ impl ConfiguredTargetNode {
         })))
     }
 
-    pub fn target_compatible_with(&self) -> impl Iterator<Item = anyhow::Result<TargetLabel>> {
+    pub(crate) fn actual_attribute() -> &'static Attribute {
+        static ATTRIBUTE: Lazy<Attribute> = Lazy::new(|| {
+            Attribute::new_simple(None, "", AttrType::configured_dep(ProviderIdSet::EMPTY))
+        });
+        &ATTRIBUTE
+    }
+
+    pub fn target_compatible_with(&self) -> impl Iterator<Item = anyhow::Result<TargetLabel>> + '_ {
         self.get(
             TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD,
             AttrInspectOptions::All,
         )
         .into_iter()
         .flat_map(|a| {
-            Self::attr_as_target_compatible_with(a).map(|a| {
+            Self::attr_as_target_compatible_with(a.value).map(|a| {
                 a.with_context(|| format!("attribute `{}`", TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD))
             })
         })
@@ -322,8 +349,8 @@ impl ConfiguredTargetNode {
             }
         }
         let mut traversal = InputsCollector { inputs: Vec::new() };
-        for (_, attr) in self.attrs(AttrInspectOptions::All) {
-            attr.traverse(self.label().pkg(), &mut traversal)
+        for a in self.attrs(AttrInspectOptions::All) {
+            a.traverse(self.label().pkg(), &mut traversal)
                 .expect("inputs collector shouldn't return errors");
         }
         traversal.inputs.into_iter()
@@ -354,8 +381,8 @@ impl ConfiguredTargetNode {
             }
         }
         // TODO(cjhopman): optimize for non-query attrs
-        for (_, attr) in self.attrs(AttrInspectOptions::All) {
-            attr.traverse(self.label().pkg(), &mut traversal).unwrap();
+        for a in self.attrs(AttrInspectOptions::All) {
+            a.traverse(self.label().pkg(), &mut traversal).unwrap();
         }
         traversal.queries.into_iter()
     }
@@ -467,22 +494,23 @@ impl ConfiguredTargetNode {
     pub fn attrs<'a>(
         &'a self,
         opts: AttrInspectOptions,
-    ) -> impl Iterator<Item = (&str, ConfiguredAttr)> + 'a {
-        self.0.target_node.attrs(opts).map(move |(name, attr)| {
-            (
-                name,
-                attr.configure(&AttrConfigurationContextImpl {
-                    resolved_cfg: &self.0.resolved_configuration,
-                    exec_cfg: &self.0.execution_platform_resolution.cfg(),
-                    resolved_transitions: &self.0.resolved_transition_configurations,
-                    platform_cfgs: &self.0.platform_cfgs,
-                })
-                .expect("checked attr configuration in constructor"),
-            )
+    ) -> impl Iterator<Item = ConfiguredAttrFull<'a>> + 'a {
+        self.0.target_node.attrs(opts).map(move |a| {
+            a.configure(&AttrConfigurationContextImpl {
+                resolved_cfg: &self.0.resolved_configuration,
+                exec_cfg: &self.0.execution_platform_resolution.cfg(),
+                resolved_transitions: &self.0.resolved_transition_configurations,
+                platform_cfgs: &self.0.platform_cfgs,
+            })
+            .expect("checked attr configuration in constructor")
         })
     }
 
-    pub fn get(&self, attr: &str, opts: AttrInspectOptions) -> Option<ConfiguredAttr> {
+    pub fn get<'a>(
+        &'a self,
+        attr: &str,
+        opts: AttrInspectOptions,
+    ) -> Option<ConfiguredAttrFull<'a>> {
         self.0.target_node.attr_or_none(attr, opts).map(|v| {
             v.configure(&AttrConfigurationContextImpl {
                 resolved_cfg: &self.0.resolved_configuration,

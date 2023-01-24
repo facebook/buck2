@@ -14,6 +14,7 @@ use starlark_map::small_map;
 
 use crate::attrs::attr::Attribute;
 use crate::attrs::coerced_attr::CoercedAttr;
+use crate::attrs::coerced_attr_full::CoercedAttrFull;
 use crate::attrs::id::AttributeId;
 use crate::attrs::inspect_options::AttrInspectOptions;
 use crate::attrs::internal::internal_attrs;
@@ -129,6 +130,13 @@ impl AttributeSpec {
             .1
     }
 
+    fn attribute_name_by_id(&self, id: AttributeId) -> &str {
+        self.attributes
+            .get_index(id.index_in_attribute_spec as usize)
+            .unwrap()
+            .0
+    }
+
     pub(crate) fn attribute_id_by_name(&self, name: &str) -> Option<AttributeId> {
         self.attributes
             .get_index_of(name)
@@ -146,7 +154,7 @@ impl AttributeSpec {
         &'v self,
         attr_values: &'v AttrValues,
         opts: AttrInspectOptions,
-    ) -> impl Iterator<Item = (&'v str, &'v CoercedAttr)> {
+    ) -> impl Iterator<Item = CoercedAttrFull<'v>> {
         let mut pos = 0;
         let mut entry: Option<(AttributeId, &CoercedAttr)> = attr_values.get_by_index(0);
 
@@ -155,7 +163,11 @@ impl AttributeSpec {
                 Some((entry_idx, entry_attr)) if entry_idx == idx => {
                     pos += 1;
                     entry = attr_values.get_by_index(pos);
-                    Some((name, entry_attr))
+                    Some(CoercedAttrFull {
+                        name,
+                        attr,
+                        value: entry_attr,
+                    })
                 }
                 _ => {
                     let default: &CoercedAttr = match attr.default() {
@@ -163,7 +175,11 @@ impl AttributeSpec {
                         None => panic!("no default for attribute `{}`", name),
                     };
                     if opts.include_default() {
-                        Some((name, default))
+                        Some(CoercedAttrFull {
+                            name,
+                            attr,
+                            value: default,
+                        })
                     } else {
                         None
                     }
@@ -190,11 +206,15 @@ impl AttributeSpec {
     pub fn attr_or_none<'v>(
         &'v self,
         attr_values: &'v AttrValues,
-        key: &str,
+        name: &str,
         opts: AttrInspectOptions,
-    ) -> Option<&'v CoercedAttr> {
-        if let Some(idx) = self.attribute_id_by_name(key) {
-            self.known_attr_or_none(idx, attr_values, opts)
+    ) -> Option<CoercedAttrFull<'v>> {
+        if let Some(idx) = self.attribute_id_by_name(name) {
+            // Same as function parameter `name` but with lifetime of `self`.
+            let name = self.attribute_name_by_id(idx);
+            let attr = self.attribute_by_id(idx);
+            let value = self.known_attr_or_none(idx, attr_values, opts)?;
+            Some(CoercedAttrFull { name, attr, value })
         } else {
             None
         }

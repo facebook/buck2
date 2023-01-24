@@ -82,14 +82,18 @@ impl QueryTarget for ConfiguredTargetNode {
         &self,
         mut func: F,
     ) -> Result<(), E> {
-        for (name, attr) in self.attrs(AttrInspectOptions::All) {
-            func(name, &attr)?;
+        for a in self.attrs(AttrInspectOptions::All) {
+            func(a.name, &a.value)?;
         }
         Ok(())
     }
 
     fn map_attr<R, F: FnMut(Option<&Self::Attr>) -> R>(&self, key: &str, mut func: F) -> R {
-        func(self.get(key, AttrInspectOptions::All).as_ref())
+        func(
+            self.get(key, AttrInspectOptions::All)
+                .as_ref()
+                .map(|v| &v.value),
+        )
     }
 
     fn inputs_for_each<E, F: FnMut(CellPath) -> Result<(), E>>(

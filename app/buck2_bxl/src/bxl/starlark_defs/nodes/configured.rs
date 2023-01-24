@@ -143,10 +143,10 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
         heap: &'v Heap,
     ) -> anyhow::Result<Value<'v>> {
         let attrs_iter = this.0.attrs(AttrInspectOptions::All);
-        let attrs = attrs_iter.map(|(name, attr)| {
+        let attrs = attrs_iter.map(|a| {
             (
-                name,
-                StarlarkConfiguredValue(attr, this.0.label().pkg().dupe()),
+                a.name,
+                StarlarkConfiguredValue(a.value, this.0.label().pkg().dupe()),
             )
         });
 
@@ -250,10 +250,11 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
         let attrs_iter = this.0.attrs(AttrInspectOptions::All);
         let mut resolved_attrs = Vec::with_capacity(attrs_iter.size_hint().0);
 
-        for (name, attr) in attrs_iter {
+        for a in attrs_iter {
             resolved_attrs.push((
-                name,
-                attr.resolve_single(this.0.label().pkg(), &resolution_ctx)?,
+                a.name,
+                a.value
+                    .resolve_single(this.0.label().pkg(), &resolution_ctx)?,
             ));
         }
 
@@ -300,8 +301,8 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
             }
         }
         let mut traversal = InputsCollector { inputs: Vec::new() };
-        for (_, attr) in this.0.attrs(AttrInspectOptions::All) {
-            attr.traverse(this.0.label().pkg(), &mut traversal)?;
+        for a in this.0.attrs(AttrInspectOptions::All) {
+            a.traverse(this.0.label().pkg(), &mut traversal)?;
         }
         Ok(traversal.inputs)
     }
@@ -363,8 +364,8 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
             found: None,
             target: cell_path,
         };
-        for (_, attr) in this.0.attrs(AttrInspectOptions::All) {
-            attr.traverse(this.0.label().pkg(), &mut traversal)?;
+        for a in this.0.attrs(AttrInspectOptions::All) {
+            a.traverse(this.0.label().pkg(), &mut traversal)?;
 
             if let Some(found) = traversal.found {
                 return Ok(Some(found));
@@ -521,7 +522,7 @@ fn lazy_attrs_methods(builder: &mut MethodsBuilder) {
             .0
             .get(attr, AttrInspectOptions::All)
             .map(|a| {
-                StarlarkConfiguredValue(a, this.configured_target_node.0.label().pkg().dupe())
+                StarlarkConfiguredValue(a.value, this.configured_target_node.0.label().pkg().dupe())
             }))
     }
 }
@@ -618,7 +619,8 @@ fn lazy_resolved_attrs_methods(builder: &mut MethodsBuilder) {
         Ok(
             match this.configured_node.get(attr, AttrInspectOptions::All) {
                 Some(attr) => Some(
-                    attr.resolve_single(this.configured_node.label().pkg(), &this.resolution_ctx)?,
+                    attr.value
+                        .resolve_single(this.configured_node.label().pkg(), &this.resolution_ctx)?,
                 ),
                 None => None,
             },
