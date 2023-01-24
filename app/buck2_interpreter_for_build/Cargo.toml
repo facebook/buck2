@@ -30,3 +30,4 @@ buck2_node = { workspace = true }
 buck2_interpreter = { workspace = true }
 buck2_query = { workspace = true }
 buck2_query_parser = { workspace = true }
+buck2_util = { workspace = true }

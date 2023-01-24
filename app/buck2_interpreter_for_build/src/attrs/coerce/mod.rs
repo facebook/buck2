@@ -17,6 +17,7 @@ pub mod attr_type;
 pub mod coerced_attr;
 pub mod ctx;
 pub mod error;
+mod interner;
 pub mod testing;
 
 pub trait AttrTypeCoerce {
