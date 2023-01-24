@@ -71,12 +71,7 @@ impl XcodeVersionInfo {
                 XcodeVersionError::MalformedShortVersion(plist.CFBundleShortVersionString.clone())
             })
             .map(|v| v.to_owned())?;
-        let minor = version_parts
-            .next()
-            .ok_or_else(|| {
-                XcodeVersionError::MalformedShortVersion(plist.CFBundleShortVersionString.clone())
-            })
-            .map(|v| v.to_owned())?;
+        let minor = version_parts.next().unwrap_or("0").to_owned();
         let patch = version_parts.next().unwrap_or("0").to_owned();
         let build_number = plist.ProductBuildVersion;
 
@@ -176,6 +171,42 @@ mod tests {
             minor_version: "1".to_owned(),
             patch_version: "0".to_owned(),
             build_number: "14B47b".to_owned(),
+        };
+        assert_eq!(want, got);
+    }
+
+    #[test]
+    fn test_resolves_version_from_plist_no_minor_no_patch_version() {
+        let (_t, plist) = write_plist(
+            r#"
+            <?xml version="1.0" encoding="UTF-8"?>
+            <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+            <plist version="1.0">
+            <dict>
+                <key>BuildVersion</key>
+                <string>35</string>
+                <key>CFBundleShortVersionString</key>
+                <string>14</string>
+                <key>CFBundleVersion</key>
+                <string>21335</string>
+                <key>ProductBuildVersion</key>
+                <string>14A309</string>
+                <key>ProjectName</key>
+                <string>IDEFrameworks</string>
+                <key>SourceVersion</key>
+                <string>21335000000000000</string>
+            </dict>
+            </plist>
+        "#,
+        );
+
+        let got = XcodeVersionInfo::from_plist(&plist).expect("failed to parse version info");
+        let want = XcodeVersionInfo {
+            version_string: "14".to_owned(),
+            major_version: "14".to_owned(),
+            minor_version: "0".to_owned(),
+            patch_version: "0".to_owned(),
+            build_number: "14A309".to_owned(),
         };
         assert_eq!(want, got);
     }
