@@ -119,17 +119,6 @@ pub(crate) fn get_attr_coercion_context<'v>(
     ))
 }
 
-fn attr_any<'v>(doc: &'v str) -> AttributeAsStarlarkValue {
-    let coercer = AttrType::any();
-
-    AttributeAsStarlarkValue::new(Attribute::new_simple(
-        // TODO(nga): `attrs.any()` should not have a default value (or at least not `""`).
-        Some(Arc::new(AnyAttrType::empty_string())),
-        doc,
-        coercer,
-    ))
-}
-
 #[derive(Debug, thiserror::Error)]
 enum DepError {
     #[error(
@@ -289,7 +278,12 @@ pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
     fn any(
         #[starlark(require = named, default = "")] doc: &str,
     ) -> anyhow::Result<AttributeAsStarlarkValue> {
-        Ok(attr_any(doc))
+        Ok(AttributeAsStarlarkValue::new(Attribute::new_simple(
+            // TODO(nga): `attrs.any()` should not have a default value (or at least not `""`).
+            Some(Arc::new(AnyAttrType::empty_string())),
+            doc,
+            AttrType::any(),
+        )))
     }
 
     fn bool<'v>(
