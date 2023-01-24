@@ -102,7 +102,7 @@ impl PackageRelativePath {
         PackageRelativePath::ref_cast(ForwardRelativePath::unchecked_new(s))
     }
 
-    pub fn unchecked_new_box(p: Box<ForwardRelativePath>) -> Box<PackageRelativePath> {
+    pub fn new_box(p: Box<ForwardRelativePath>) -> Box<PackageRelativePath> {
         unsafe {
             // SAFETY: `PackageRelativePath` is a transparent wrapper around `ForwardRelativePath`.
             transmute!(Box<ForwardRelativePath>, Box<PackageRelativePath>, p)
@@ -398,14 +398,14 @@ impl PackageRelativePathBuf {
 
     pub fn into_box(self) -> Box<PackageRelativePath> {
         let s: Box<str> = self.0.into_string().into_boxed_str();
-        PackageRelativePath::unchecked_new_box(ForwardRelativePath::unchecked_new_box(s))
+        PackageRelativePath::new_box(ForwardRelativePath::unchecked_new_box(s))
     }
 }
 
 impl<'a> From<&'a PackageRelativePath> for Box<PackageRelativePath> {
     fn from(p: &'a PackageRelativePath) -> Box<PackageRelativePath> {
         let path: Box<str> = Box::from(p.as_str());
-        PackageRelativePath::unchecked_new_box(ForwardRelativePath::unchecked_new_box(path))
+        PackageRelativePath::new_box(ForwardRelativePath::unchecked_new_box(path))
     }
 }
 
