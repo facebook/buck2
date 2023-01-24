@@ -8,9 +8,14 @@ rust_library(
     srcs = glob(
         ["src/**/*.rs"],
     ),
+    test_deps = [
+        "fbsource//third-party/rust:assert_matches",
+    ],
     deps = [
         "fbsource//third-party/rust:futures",
+        "fbsource//third-party/rust:parking_lot",
         "fbsource//third-party/rust:pin-project",
+        "fbsource//third-party/rust:take_mut",
         "fbsource//third-party/rust:tokio",
         "fbsource//third-party/rust:tracing",
         "//buck2/allocative/allocative:allocative",

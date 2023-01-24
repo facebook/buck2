@@ -15,6 +15,7 @@
 #![cfg_attr(feature = "gazebo_lint", allow(deprecated))] // :(
 #![cfg_attr(feature = "gazebo_lint", plugin(gazebo_lint))]
 
+pub mod cancellable_future;
 pub mod drop;
 pub mod instrumented_shared;
 pub mod spawn;
