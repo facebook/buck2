@@ -12,7 +12,6 @@ use buck2_node::attrs::attr_type::string::StringAttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
-use buck2_util::arc_str::ArcStr;
 use starlark::values::string::STRING_TYPE;
 use starlark::values::Value;
 
@@ -23,11 +22,11 @@ impl AttrTypeCoerce for StringAttrType {
     fn coerce_item(
         &self,
         _configurable: AttrIsConfigurable,
-        _ctx: &dyn AttrCoercionContext,
+        ctx: &dyn AttrCoercionContext,
         value: Value,
     ) -> anyhow::Result<AttrLiteral<CoercedAttr>> {
         match value.unpack_str() {
-            Some(s) => Ok(AttrLiteral::String(ArcStr::from(s))),
+            Some(s) => Ok(AttrLiteral::String(ctx.intern_str(s))),
             None => Err(anyhow::anyhow!(CoercionError::type_error(
                 STRING_TYPE,
                 value
