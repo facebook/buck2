@@ -39,6 +39,7 @@ load(
 load(
     "@prelude//linking:linkable_graph.bzl",
     "AnnotatedLinkableRoot",
+    "DlopenableLibraryInfo",
     "create_linkable_graph",
     "create_linkable_graph_node",
     "create_linkable_node",
@@ -535,6 +536,10 @@ def _native_providers(
         create_shared_root = known_omnibus_root,
     )
     providers.append(linkable_root)
+
+    # Mark libraries that support `dlopen`.
+    if getattr(ctx.attrs, "supports_python_dlopen", False):
+        providers.append(DlopenableLibraryInfo())
 
     roots = {}
 

@@ -99,6 +99,10 @@ LinkableGraph = provider(fields = [
     "nodes",  # "LinkableGraphTSet"
 ])
 
+# Used to tag a rule as providing a shared native library that may be loaded
+# dynamically, at runtime (e.g. via `dlopen`).
+DlopenableLibraryInfo = provider(fields = [])
+
 def create_linkable_node(
         ctx: "context",
         preferred_linkage: Linkage.type = Linkage("any"),

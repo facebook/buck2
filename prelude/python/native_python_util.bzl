@@ -16,6 +16,7 @@ load(
 load(
     "@prelude//linking:linkables.bzl",
     "LinkableProviders",  # @unused Used as type
+    "linkable",
 )
 load("@prelude//linking:shared_libraries.bzl", "SharedLibrariesTSet")
 load("@prelude//linking:strip.bzl", "strip_debug_info")
@@ -29,6 +30,7 @@ CxxExtensionLinkInfo = provider(
         "shared_libraries",  # SharedLibrariesTSet.type
         "artifacts",  # {str.type: "_a"}
         "python_module_names",  # {str.type: str.type}
+        "dlopen_deps",  # {"label": LinkableProviders.type}
     ],
 )
 
@@ -38,11 +40,13 @@ def merge_cxx_extension_info(
         linkable_providers: [LinkableProviders.type, None] = None,
         shared_libraries: [SharedLibrariesTSet.type] = [],
         artifacts: {str.type: "_a"} = {},
-        python_module_names: {str.type: str.type} = {}) -> CxxExtensionLinkInfo.type:
+        python_module_names: {str.type: str.type} = {},
+        dlopen_deps: ["dependency"] = []) -> CxxExtensionLinkInfo.type:
     linkable_provider_children = []
     shared_libraries = list(shared_libraries)
     artifacts = dict(artifacts)
     python_module_names = dict(python_module_names)
+    dlopen_deps = {d.label: linkable(d) for d in dlopen_deps}
     for dep in deps:
         cxx_extension_info = dep.get(CxxExtensionLinkInfo)
         if cxx_extension_info == None:
@@ -51,6 +55,7 @@ def merge_cxx_extension_info(
         shared_libraries.append(cxx_extension_info.shared_libraries)
         artifacts.update(cxx_extension_info.artifacts)
         python_module_names.update(cxx_extension_info.python_module_names)
+        dlopen_deps.update(cxx_extension_info.dlopen_deps)
     linkable_providers_kwargs = {}
     if linkable_providers != None:
         linkable_providers_kwargs["value"] = linkable_providers
@@ -60,6 +65,7 @@ def merge_cxx_extension_info(
         shared_libraries = actions.tset(SharedLibrariesTSet, children = shared_libraries),
         artifacts = artifacts,
         python_module_names = python_module_names,
+        dlopen_deps = dlopen_deps,
     )
 
 def rewrite_static_symbols(

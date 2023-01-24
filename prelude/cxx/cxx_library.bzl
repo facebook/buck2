@@ -58,6 +58,7 @@ load(
 load(
     "@prelude//linking:linkable_graph.bzl",
     "AnnotatedLinkableRoot",
+    "DlopenableLibraryInfo",
     "LinkableRootInfo",
     "create_linkable_graph",
     "create_linkable_graph_node",
@@ -486,6 +487,10 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
             sub_targets["omnibus-shared-root"] = [DefaultInfo(
                 default_output = linkable_root.shared_root.product.shared_library.output,
             )]
+
+        # Mark libraries that support `dlopen`.
+        if getattr(ctx.attrs, "supports_python_dlopen", False):
+            providers.append(DlopenableLibraryInfo())
 
     # Augment and provide the linkable graph.
     if impl_params.generate_providers.linkable_graph:

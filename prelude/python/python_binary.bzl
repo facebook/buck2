@@ -6,15 +6,29 @@
 # of this source tree.
 
 load("@prelude//cxx:compile.bzl", "CxxSrcWithFlags")
-load("@prelude//cxx:cxx.bzl", "get_cxx_auto_link_group_specs")
+load("@prelude//cxx:cxx.bzl", "create_shared_lib_link_group_specs")
 load("@prelude//cxx:cxx_executable.bzl", "cxx_executable")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo")
 load(
     "@prelude//cxx:cxx_types.bzl",
     "CxxRuleConstructorParams",
 )
+load(
+    "@prelude//cxx:groups.bzl",
+    "Group",
+    "GroupMapping",
+    "GroupRoot",
+    "Traversal",
+    "compute_mappings",
+)
 load("@prelude//cxx:headers.bzl", "cxx_get_regular_cxx_headers_layout")
-load("@prelude//cxx:link_groups.bzl", "get_link_group_info")
+load(
+    "@prelude//cxx:link_groups.bzl",
+    "LinkGroupInfo",  # @unused Used as a type
+    "LinkGroupLibSpec",
+    "get_link_group_info",
+    "make_link_group_info",
+)
 load(
     "@prelude//cxx:omnibus.bzl",
     "all_deps",
@@ -34,17 +48,21 @@ load(
 )
 load(
     "@prelude//linking:linkable_graph.bzl",
+    "LinkableGraph",
+    "LinkableGraphTSet",
     "create_linkable_graph",
+    "get_linkable_graph_node_map_func",
 )
 load(
     "@prelude//linking:linkables.bzl",
+    "LinkableProviders",  # @unused Used as a type
     "linkables",
 )
 load(
     "@prelude//utils:types.bzl",
     "unchecked",  # @unused Used as a type
 )
-load("@prelude//utils:utils.bzl", "flatten", "value_or")
+load("@prelude//utils:utils.bzl", "expect", "flatten", "value_or")
 load("@prelude//paths.bzl", "paths")
 load("@prelude//resources.bzl", "gather_resources")
 load(":compile.bzl", "compile_manifests")
@@ -110,6 +128,90 @@ def _merge_extensions(
                 ),
             )
         extensions[extension_name] = (incoming_artifact, incoming_label)
+
+def _get_root_link_group_specs(link_deps: [LinkableProviders.type]) -> [LinkGroupLibSpec.type]:
+    """
+    Walk the linkable graph finding dlopen-able C++ libs.
+    """
+
+    # TODO(agallagher): We should handle `allow_embedding = False` C++ extensions
+    # here too.
+
+    specs = []
+
+    # Extract graph providers from `deps` and record potential roots.
+    for dep in link_deps:
+        specs.append(
+            LinkGroupLibSpec(
+                name = dep.linkable_root_info.name,
+                is_shared_lib = True,
+                group = Group(
+                    name = dep.linkable_root_info.name,
+                    mappings = [
+                        GroupMapping(
+                            root = GroupRoot(
+                                label = dep.linkable_graph.nodes.value.label,
+                                node = dep,
+                            ),
+                            traversal = Traversal("node"),
+                        ),
+                    ],
+                ),
+            ),
+        )
+
+    return specs
+
+def _get_link_group_info(ctx: "context", link_deps: [LinkableProviders.type], dlopen_deps: [LinkableProviders.type]) -> [(LinkGroupInfo.type, [[LinkGroupLibSpec.type], None]), None]:
+    """
+    Return the `LinkGroupInfo` and link group lib specs to use for this binary.
+    This will handle parsing the various user-specific parameters and automatic
+    link group lib spec generation for dlopen-enabled native libraries and,
+    eventually, extensions.
+    """
+
+    link_group_info = get_link_group_info(ctx, [d.linkable_graph for d in link_deps])
+
+    link_group_specs = None
+    if ctx.attrs.auto_link_groups:
+        link_group_specs = []
+
+        # Add link group specs from user-provided link group info.
+        if link_group_info != None:
+            link_group_specs.extend(create_shared_lib_link_group_specs(ctx, link_group_info))
+
+        # Add link group specs from dlopenable C++ libraries.
+        root_specs = _get_root_link_group_specs(dlopen_deps)
+        if root_specs:
+            # We prepend the dlopen roots, so that they take precedence over
+            # user-specific ones.
+            link_group_specs = root_specs + link_group_specs
+
+            # Regenerate the new `LinkGroupInfo` with the new link group lib
+            # groups.
+            linkable_graph = LinkableGraph(
+                #label = ctx.label,
+                nodes = ctx.actions.tset(
+                    LinkableGraphTSet,
+                    children = [d.linkable_graph.nodes for d in link_deps],
+                ),
+            )
+            linkable_graph_node_map = get_linkable_graph_node_map_func(linkable_graph)()
+            link_groups = [s.group for s in link_group_specs]
+            mappings = compute_mappings(
+                groups = link_groups,
+                graph_map = linkable_graph_node_map,
+            )
+            link_group_info = make_link_group_info(
+                groups = link_groups,
+                mappings = mappings,
+            )
+
+    if link_group_info == None:
+        expect(link_group_specs == None)
+        return None
+
+    return (link_group_info, link_group_specs)
 
 def python_executable(
         ctx: "context",
@@ -294,10 +396,12 @@ def convert_python_library_to_executable(
         # All deps inolved in the link.
         link_deps = (
             linkables(executable_deps) +
-            list(extension_info.linkable_providers.traverse())
+            list(extension_info.linkable_providers.traverse()) +
+            extension_info.dlopen_deps.values()
         )
 
-        link_group_info = get_link_group_info(ctx, [d.linkable_graph for d in link_deps])
+        link_groups = _get_link_group_info(ctx, link_deps, extension_info.dlopen_deps.values())
+
         impl_params = CxxRuleConstructorParams(
             rule_type = "python_binary",
             headers_layout = cxx_get_regular_cxx_headers_layout(ctx),
@@ -308,8 +412,8 @@ def convert_python_library_to_executable(
             extra_link_deps = link_deps,
             exe_shared_libs_link_tree = False,
             force_full_hybrid_if_capable = True,
-            link_group_info = link_group_info,
-            auto_link_group_specs = get_cxx_auto_link_group_specs(ctx, link_group_info),
+            link_group_info = link_groups[0] if link_groups != None else None,
+            auto_link_group_specs = link_groups[1] if link_groups != None else None,
         )
 
         executable_info, _, _ = cxx_executable(ctx, impl_params)
@@ -337,10 +441,13 @@ def convert_python_library_to_executable(
         # Include shared libs from e.g. link groups.
         native_libs.update(executable_info.shared_libs)
 
-        # Include dlopen-able shared lib deps.
-        for libs in extension_info.shared_libraries.traverse():
-            for name, shared_lib in libs.libraries.items():
-                native_libs[name] = shared_lib.lib
+        # If we're not using link groups to build extensions and dlopen-enabled
+        # native libs, then pull them in via the shared libraries we propagated
+        # up via deps.
+        if link_groups == None or not ctx.attrs.auto_link_groups:
+            for libs in extension_info.shared_libraries.traverse():
+                for name, shared_lib in libs.libraries.items():
+                    native_libs[name] = shared_lib.lib
 
         # Add sub-targets for libs.
         for name, lib in native_libs.items():

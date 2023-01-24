@@ -24,6 +24,7 @@ load(
 )
 load(
     "@prelude//linking:linkable_graph.bzl",
+    "DlopenableLibraryInfo",
     "create_linkable_graph",
     "create_linkable_graph_node",
 )
@@ -337,6 +338,7 @@ def python_library_impl(ctx: "context") -> ["provider"]:
             ctx.actions,
             deps,
             shared_libraries = [lib_info.set for lib_info in shared_libraries if lib_info.set != None],
+            dlopen_deps = [d for d in deps if DlopenableLibraryInfo in d],
         ),
     )
 

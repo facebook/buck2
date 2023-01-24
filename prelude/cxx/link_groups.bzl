@@ -91,6 +91,17 @@ def parse_link_group_definitions(mappings: list.type) -> [Group.type]:
 def get_link_group(ctx: "context") -> [str.type, None]:
     return ctx.attrs.link_group
 
+def build_link_group_info(
+        linkable_graph: LinkableGraph.type,
+        link_groups: [Group.type]) -> LinkGroupInfo.type:
+    linkable_graph_node_map = get_linkable_graph_node_map_func(linkable_graph)()
+    mappings = compute_mappings(groups = link_groups, graph_map = linkable_graph_node_map)
+    return LinkGroupInfo(
+        groups = link_groups,
+        groups_hash = hash(str(link_groups)),
+        mappings = mappings,
+    )
+
 def get_link_group_info(
         ctx: "context",
         executable_deps: [[LinkableGraph.type], None] = None) -> [LinkGroupInfo.type, None]:
@@ -114,13 +125,7 @@ def get_link_group_info(
         ctx,
         children = executable_deps,
     )
-    linkable_graph_node_map = get_linkable_graph_node_map_func(linkable_graph)()
-    mappings = compute_mappings(groups = link_groups, graph_map = linkable_graph_node_map)
-    return LinkGroupInfo(
-        groups = link_groups,
-        groups_hash = hash(str(link_groups)),
-        mappings = mappings,
-    )
+    return build_link_group_info(linkable_graph, link_groups)
 
 def get_auto_link_group_libs(ctx: "context") -> [{str.type: LinkGroupLib.type}, None]:
     """
@@ -465,4 +470,11 @@ def create_link_group(
         category_suffix = category_suffix,
         identifier = spec.name,
         prefer_local = prefer_local,
+    )
+
+def make_link_group_info(groups: [Group.type], mappings: {"label": str.type}) -> LinkGroupInfo.type:
+    return LinkGroupInfo(
+        groups = groups,
+        groups_hash = hash(str(groups)),
+        mappings = mappings,
     )

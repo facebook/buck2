@@ -32,6 +32,7 @@ load(
 load(
     "@prelude//linking:linkable_graph.bzl",
     "AnnotatedLinkableRoot",
+    "DlopenableLibraryInfo",
     "LinkableGraph",
     "create_linkable_graph",
     "create_linkable_graph_node",
@@ -194,9 +195,7 @@ def _only_shared_mappings(group: Group.type) -> bool.type:
             return False
     return True
 
-def get_cxx_auto_link_group_specs(ctx: "context", link_group_info: [LinkGroupInfo.type, None]) -> [[LinkGroupLibSpec.type], None]:
-    if link_group_info == None or not ctx.attrs.auto_link_groups:
-        return None
+def create_shared_lib_link_group_specs(ctx: "context", link_group_info: LinkGroupInfo.type) -> [LinkGroupLibSpec.type]:
     specs = []
     linker_info = get_cxx_toolchain_info(ctx).linker_info
     for group in link_group_info.groups:
@@ -216,6 +215,11 @@ def get_cxx_auto_link_group_specs(ctx: "context", link_group_info: [LinkGroupInf
         )
     return specs
 
+def get_auto_link_group_specs(ctx: "context", link_group_info: [LinkGroupInfo.type, None]) -> [[LinkGroupLibSpec.type], None]:
+    if link_group_info == None or not ctx.attrs.auto_link_groups:
+        return None
+    return create_shared_lib_link_group_specs(ctx, link_group_info)
+
 def cxx_binary_impl(ctx: "context") -> ["provider"]:
     link_group_info = get_link_group_info(ctx, filter_and_map_idx(LinkableGraph, cxx_attr_deps(ctx)))
     params = CxxRuleConstructorParams(
@@ -223,7 +227,7 @@ def cxx_binary_impl(ctx: "context") -> ["provider"]:
         headers_layout = cxx_get_regular_cxx_headers_layout(ctx),
         srcs = get_srcs_with_flags(ctx),
         link_group_info = link_group_info,
-        auto_link_group_specs = get_cxx_auto_link_group_specs(ctx, link_group_info),
+        auto_link_group_specs = get_auto_link_group_specs(ctx, link_group_info),
     )
     output, comp_db_info, xcode_data_info = cxx_executable(ctx, params)
 
@@ -506,6 +510,10 @@ def prebuilt_cxx_library_impl(ctx: "context") -> ["provider"]:
         )
         providers.append(linkable_root)
 
+        # Mark libraries that support `dlopen`.
+        if ctx.attrs.supports_python_dlopen:
+            providers.append(DlopenableLibraryInfo())
+
     roots = {}
 
     if linkable_root != None and known_omnibus_root:
@@ -559,7 +567,7 @@ def cxx_test_impl(ctx: "context") -> ["provider"]:
         headers_layout = cxx_get_regular_cxx_headers_layout(ctx),
         srcs = get_srcs_with_flags(ctx),
         link_group_info = link_group_info,
-        auto_link_group_specs = get_cxx_auto_link_group_specs(ctx, link_group_info),
+        auto_link_group_specs = get_auto_link_group_specs(ctx, link_group_info),
     )
     output, comp_db_info, xcode_data_info = cxx_executable(ctx, params, is_cxx_test = True)
 
