@@ -7,21 +7,12 @@
  * of this source tree.
  */
 
-use core::slice;
-use std::alloc;
-use std::alloc::Layout;
 use std::borrow::Borrow;
-use std::cmp::Ordering;
 use std::fmt::Debug;
 use std::fmt::Display;
 use std::hash::Hash;
-use std::mem;
 use std::ops::Deref;
-use std::ptr;
-use std::ptr::NonNull;
 use std::str;
-use std::sync::atomic;
-use std::sync::atomic::AtomicU32;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -29,63 +20,49 @@ use dupe::Dupe;
 use serde::Serialize;
 use static_assertions::assert_eq_size;
 
-use crate::rtabort;
+use crate::arc_str::base::ArcStrBase;
+use crate::arc_str::base::ArcStrBaseInner;
+use crate::arc_str::base::ArcStrBaseInnerConst;
+use crate::arc_str::base::ArcStrLenStrategy;
 
-#[repr(C)]
-struct ArcStrInner {
-    counter: AtomicU32,
-    // data: [],
-}
+struct ArcStrProperties;
 
-impl ArcStrInner {
-    const OFFSET_OF_DATA: usize = mem::size_of::<ArcStrInner>();
+unsafe impl ArcStrLenStrategy for ArcStrProperties {
+    type AllocatedPayload = ();
+    type ValuePayload = u32;
+    const EMPTY: (Self::AllocatedPayload, Self::ValuePayload) = ((), 0);
 
-    fn layout_for_len(len: usize) -> Layout {
-        let size = Self::OFFSET_OF_DATA.checked_add(len).unwrap();
-        let align = mem::align_of::<ArcStrInner>();
-        Layout::from_size_align(size, align).unwrap()
+    #[inline]
+    fn unpack_len(s: (Self::AllocatedPayload, Self::ValuePayload)) -> u32 {
+        s.1
     }
 
-    unsafe fn layout_for_len_unchecked(len: usize) -> Layout {
-        let size = Self::OFFSET_OF_DATA + len;
-        let align = mem::align_of::<ArcStrInner>();
-        unsafe { Layout::from_size_align_unchecked(size, align) }
+    #[inline]
+    fn inner_empty() -> &'static ArcStrBaseInnerConst<Self> {
+        &INNER_EMPTY
+    }
+
+    #[inline]
+    fn pack_len(len: u32) -> (Self::AllocatedPayload, Self::ValuePayload) {
+        ((), len as u32)
     }
 }
 
 /// Wrapper for `Arc<str>`.
+#[derive(PartialEq, Eq, Hash, PartialOrd, Ord, Allocative, Clone, Dupe, Default)]
 pub struct ArcStr {
-    /// Points to the end of `ArcStrInner` struct.
-    /// Dangling pointer when empty.
-    data: NonNull<u8>,
-    len: usize,
-}
-
-unsafe impl Send for ArcStr {}
-unsafe impl Sync for ArcStr {}
-
-impl Default for ArcStr {
-    fn default() -> ArcStr {
-        ArcStr::EMPTY
-    }
+    base: ArcStrBase<ArcStrProperties>,
 }
 
 assert_eq_size!(ArcStr, Arc<str>);
 assert_eq_size!(Option<ArcStr>, Arc<str>);
 
-impl ArcStr {
-    /// Empty string.
-    pub const EMPTY: ArcStr = ArcStr {
-        data: NonNull::dangling(),
-        len: 0,
-    };
+static INNER_EMPTY: ArcStrBaseInnerConst<ArcStrProperties> = ArcStrBaseInner::EMPTY;
 
+impl ArcStr {
     #[inline]
     pub fn as_str(&self) -> &str {
-        unsafe {
-            let bytes = slice::from_raw_parts(self.data.as_ptr(), self.len);
-            str::from_utf8_unchecked(bytes)
-        }
+        self.base.as_str()
     }
 }
 
@@ -102,36 +79,6 @@ impl AsRef<str> for ArcStr {
     #[inline]
     fn as_ref(&self) -> &str {
         self.as_str()
-    }
-}
-
-impl Hash for ArcStr {
-    #[inline]
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.as_str().hash(state)
-    }
-}
-
-impl PartialEq for ArcStr {
-    #[inline]
-    fn eq(&self, other: &Self) -> bool {
-        ptr::eq(self.data.as_ptr(), other.data.as_ptr()) || self.as_str() == other.as_str()
-    }
-}
-
-impl Eq for ArcStr {}
-
-impl PartialOrd for ArcStr {
-    #[inline]
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.as_str().partial_cmp(other.as_str())
-    }
-}
-
-impl Ord for ArcStr {
-    #[inline]
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.as_str().cmp(other.as_str())
     }
 }
 
@@ -157,112 +104,18 @@ impl Debug for ArcStr {
 }
 
 impl<'a> From<&'a str> for ArcStr {
+    #[inline]
     fn from(s: &'a str) -> ArcStr {
-        if s.is_empty() {
-            ArcStr::EMPTY
-        } else {
-            let layout = ArcStrInner::layout_for_len(s.len());
-            unsafe {
-                let alloc = alloc::alloc(layout);
-                ptr::write(
-                    alloc.cast::<ArcStrInner>(),
-                    ArcStrInner {
-                        counter: AtomicU32::new(1),
-                    },
-                );
-                let data = alloc.add(ArcStrInner::OFFSET_OF_DATA);
-                ptr::copy_nonoverlapping(s.as_ptr(), data, s.len());
-                ArcStr {
-                    data: NonNull::new(data).unwrap(),
-                    len: s.len(),
-                }
-            }
-        }
-    }
-}
-
-impl Clone for ArcStr {
-    fn clone(&self) -> Self {
-        if self.len == 0 {
-            ArcStr::EMPTY
-        } else {
-            unsafe {
-                let arc_str_inner = &*self
-                    .data
-                    .as_ptr()
-                    .sub(ArcStrInner::OFFSET_OF_DATA)
-                    .cast::<ArcStrInner>();
-                // This is what `Arc::clone` does.
-                let old_count = arc_str_inner
-                    .counter
-                    .fetch_add(1, atomic::Ordering::Relaxed);
-                const MAX_REFCOUNT: u32 = i32::MAX as u32;
-                if old_count > MAX_REFCOUNT {
-                    arc_str_inner
-                        .counter
-                        .fetch_sub(1, atomic::Ordering::Relaxed);
-                    rtabort!("refcount overflow");
-                }
-                ArcStr {
-                    data: self.data,
-                    len: self.len,
-                }
-            }
-        }
-    }
-}
-
-impl Dupe for ArcStr {}
-
-impl Drop for ArcStr {
-    fn drop(&mut self) {
-        if self.len != 0 {
-            unsafe {
-                let arc_str_inner = self
-                    .data
-                    .as_ptr()
-                    .sub(ArcStrInner::OFFSET_OF_DATA)
-                    .cast::<ArcStrInner>();
-                // Again, copy-paste from `Arc::drop`.
-                if (*arc_str_inner)
-                    .counter
-                    .fetch_sub(1, atomic::Ordering::Release)
-                    != 1
-                {
-                    return;
-                }
-                atomic::fence(atomic::Ordering::Acquire);
-                let layout = ArcStrInner::layout_for_len_unchecked(self.len);
-                alloc::dealloc(arc_str_inner.cast::<u8>(), layout);
-            }
+        ArcStr {
+            base: ArcStrBase::from(s),
         }
     }
 }
 
 impl From<String> for ArcStr {
+    #[inline]
     fn from(s: String) -> ArcStr {
         ArcStr::from(s.as_str())
-    }
-}
-
-impl Allocative for ArcStr {
-    fn visit<'a, 'b: 'a>(&self, visitor: &'a mut allocative::Visitor<'b>) {
-        let mut visitor = visitor.enter_self_sized::<Self>();
-        if self.len != 0 {
-            if let Some(mut visitor) = visitor.enter_shared(
-                allocative::Key::new("data"),
-                mem::size_of::<*const u8>(),
-                self.data.as_ptr() as *const (),
-            ) {
-                visitor.visit_simple(
-                    allocative::Key::new("ArcStrInner"),
-                    mem::size_of::<ArcStrInner>(),
-                );
-                visitor.visit_simple(allocative::Key::new("data"), self.len);
-                visitor.exit();
-            }
-        }
-        visitor.exit();
     }
 }
 
@@ -281,7 +134,6 @@ mod tests {
 
     use dupe::Dupe;
 
-    use crate::arc_str::fat::ArcStrInner;
     use crate::arc_str::ArcStr;
 
     #[test]
@@ -309,11 +161,7 @@ mod tests {
     fn test_clone_drop_ref_count() {
         fn ref_count(s: &ArcStr) -> u32 {
             assert!(!s.is_empty());
-            unsafe {
-                (*(s.data.as_ptr().sub(ArcStrInner::OFFSET_OF_DATA) as *const ArcStrInner))
-                    .counter
-                    .load(atomic::Ordering::Relaxed)
-            }
+            s.base.inner().refcount.load(atomic::Ordering::Relaxed)
         }
 
         let s = ArcStr::from("hello");

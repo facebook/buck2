@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+pub(crate) mod base;
 mod fat;
 
 pub use crate::arc_str::fat::ArcStr;
