@@ -11,20 +11,13 @@ def command_alias_impl(ctx):
     target_is_windows = ctx.attrs._target_os_type[OsLookup].platform == "windows"
     exec_is_windows = ctx.attrs._exec_os_type[OsLookup].platform == "windows"
 
-    # NOTE: We *could* error out only on attempting to use the `env` here
-    # (which is where the mismatches platform would cause us to try to run `sh`
-    # on Windows or `cmd.exe` on UNIX), but that seems like we'd be hiding real
-    # issues rather than solving them, so for now let's just error out
-    # consistently.
-    if (target_is_windows and (not exec_is_windows)) or ((not target_is_windows) and exec_is_windows):
-        fail(
-            "Target OS (target_is_windows = {}) and exec OS mismatch (exec_is_windows = {})".format(target_is_windows, exec_is_windows),
-        )
-
     if target_is_windows:
         # If the target is Windows, create a batch file based command wrapper instead
-        return _command_alias_impl_windows(ctx)
+        return _command_alias_impl_target_windows(ctx, exec_is_windows)
+    else:
+        return _command_alias_impl_target_unix(ctx, exec_is_windows)
 
+def _command_alias_impl_target_unix(ctx, exec_is_windows: bool.type):
     if ctx.attrs.exe == None:
         base = RunInfo()
     else:
@@ -59,28 +52,7 @@ def command_alias_impl(ctx):
 
         trampoline_args.add('"${ARGS[@]}"')
 
-        # FIXME(ndmitchell): more straightforward relativization with better API
-        non_materialized_reference = ctx.actions.write("dummy", "")
-        trampoline_args.relative_to(non_materialized_reference, parent = 1).absolute_prefix("__BUCK_COMMAND_ALIAS_ABSOLUTE__/")
-
-        trampoline_tmp, _ = ctx.actions.write("__command_alias_trampoline.sh.pre", trampoline_args, allow_args = True)
-
-        # FIXME (T111687922): Avert your eyes... We want to add
-        # $BUCK_COMMAND_ALIAS_ABSOLUTE a prefix on all the args we include, but
-        # those args will be shell-quoted (so that they might include e.g.
-        # spaces). However, our shell-quoting will apply to the absolute_prefix
-        # as well, which will render it inoperable. To fix this, we emit
-        # __BUCK_COMMAND_ALIAS_ABSOLUTE__ instead, and then we use sed to work
-        # around our own quoting to produce the thing we want.
-        trampoline = ctx.actions.declare_output("__command_alias_trampoline.sh")
-        ctx.actions.run([
-            "sh",
-            "-c",
-            "sed \"s|__BUCK_COMMAND_ALIAS_ABSOLUTE__|\\$BUCK_COMMAND_ALIAS_ABSOLUTE|g\" < \"$1\" > \"$2\" && chmod +x $2",
-            "--",
-            trampoline_tmp,
-            trampoline.as_output(),
-        ], category = "sed")
+        trampoline = _relativize_path(ctx, trampoline_args, exec_is_windows)
 
         run_info_args.add(trampoline)
         run_info_args.hidden([trampoline_args])
@@ -98,7 +70,7 @@ def command_alias_impl(ctx):
         RunInfo(args = run_info_args),
     ]
 
-def _command_alias_impl_windows(ctx):
+def _command_alias_impl_target_windows(ctx, exec_is_windows: bool.type):
     # If a windows specific exe is specified, take that. Otherwise just use the default exe.
     windows_exe = ctx.attrs.platform_exe.get("windows")
     if windows_exe != None:
@@ -132,27 +104,7 @@ def _command_alias_impl_windows(ctx):
         cmd.add("%*")
         trampoline_args.add(cmd)
 
-        # FIXME(ndmitchell): more straightforward relativization with better API
-        non_materialized_reference = ctx.actions.write("dummy", "")
-        trampoline_args.relative_to(non_materialized_reference, parent = 1).absolute_prefix("__BUCK_COMMAND_ALIAS_ABSOLUTE__/")
-
-        trampoline_tmp, _ = ctx.actions.write("__command_alias_trampoline.bat.pre", trampoline_args, allow_args = True)
-
-        # TODO: We might need to put some care around quoting as mentioned in the sh based implementation above
-        trampoline = ctx.actions.declare_output("__command_alias_trampoline.bat")
-
-        # Replace __BUCK_COMMAND_ALIAS_ABSOLUTE__ with the BUCK_COMMAND_ALIAS_ABSOLUTE environment variable set above
-        # so that the all paths are fully specified
-        ctx.actions.run(
-            [
-                _get_run_info_from_exe(ctx.attrs._find_and_replace_bat),
-                "__BUCK_COMMAND_ALIAS_ABSOLUTE__",
-                "%BUCK_COMMAND_ALIAS_ABSOLUTE%",
-                trampoline_tmp,
-                trampoline.as_output(),
-            ],
-            category = "sed",
-        )
+        trampoline = _relativize_path(ctx, trampoline_args, exec_is_windows)
         run_info_args.add(trampoline)
         run_info_args.hidden([trampoline_args])
     else:
@@ -168,6 +120,64 @@ def _command_alias_impl_windows(ctx):
         DefaultInfo(),
         RunInfo(args = run_info_args),
     ]
+
+def _relativize_path(ctx, trampoline_args: "cmd_args", exec_is_windows: bool.type) -> "artifact":
+    # Depending on where this action is done, we need to either run sed or a custom Windows sed-equivalent script
+    # TODO(marwhal): Bias the exec platform to be the same as target platform to simplify the relativization logic
+    if exec_is_windows:
+        return _relativize_path_windows(ctx, trampoline_args)
+    else:
+        return _relativize_path_unix(ctx, trampoline_args)
+
+def _relativize_path_unix(ctx, trampoline_args: "cmd_args") -> "artifact":
+    # FIXME(ndmitchell): more straightforward relativization with better API
+    non_materialized_reference = ctx.actions.write("dummy", "")
+    trampoline_args.relative_to(non_materialized_reference, parent = 1).absolute_prefix("__BUCK_COMMAND_ALIAS_ABSOLUTE__/")
+
+    trampoline_tmp, _ = ctx.actions.write("__command_alias_trampoline.sh.pre", trampoline_args, allow_args = True)
+
+    # FIXME (T111687922): Avert your eyes... We want to add
+    # $BUCK_COMMAND_ALIAS_ABSOLUTE a prefix on all the args we include, but
+    # those args will be shell-quoted (so that they might include e.g.
+    # spaces). However, our shell-quoting will apply to the absolute_prefix
+    # as well, which will render it inoperable. To fix this, we emit
+    # __BUCK_COMMAND_ALIAS_ABSOLUTE__ instead, and then we use sed to work
+    # around our own quoting to produce the thing we want.
+    trampoline = ctx.actions.declare_output("__command_alias_trampoline.sh")
+    ctx.actions.run([
+        "sh",
+        "-c",
+        "sed \"s|__BUCK_COMMAND_ALIAS_ABSOLUTE__|\\$BUCK_COMMAND_ALIAS_ABSOLUTE|g\" < \"$1\" > \"$2\" && chmod +x $2",
+        "--",
+        trampoline_tmp,
+        trampoline.as_output(),
+    ], category = "sed")
+
+    return trampoline
+
+def _relativize_path_windows(ctx, trampoline_args: "cmd_args") -> "artifact":
+    # FIXME(ndmitchell): more straightforward relativization with better API
+    non_materialized_reference = ctx.actions.write("dummy", "")
+    trampoline_args.relative_to(non_materialized_reference, parent = 1).absolute_prefix("__BUCK_COMMAND_ALIAS_ABSOLUTE__/")
+
+    trampoline_tmp, _ = ctx.actions.write("__command_alias_trampoline.bat.pre", trampoline_args, allow_args = True)
+
+    # TODO: We might need to put some care around quoting as mentioned in the sh based implementation above
+    trampoline = ctx.actions.declare_output("__command_alias_trampoline.bat")
+
+    # Replace __BUCK_COMMAND_ALIAS_ABSOLUTE__ with the BUCK_COMMAND_ALIAS_ABSOLUTE environment variable set above
+    # so that the all paths are fully specified
+    ctx.actions.run(
+        [
+            _get_run_info_from_exe(ctx.attrs._find_and_replace_bat),
+            "__BUCK_COMMAND_ALIAS_ABSOLUTE__",
+            "%BUCK_COMMAND_ALIAS_ABSOLUTE%",
+            trampoline_tmp,
+            trampoline.as_output(),
+        ],
+        category = "sed",
+    )
+    return trampoline
 
 def _add_platform_case_to_trampoline_args(trampoline_args: "cmd_args", platform_name: str.type, base: RunInfo.type, args: ["_arglike"]):
     trampoline_args.add("    {})".format(platform_name))
