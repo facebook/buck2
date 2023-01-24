@@ -167,7 +167,7 @@ use crate::fs::project::ProjectRoot;
 
 /// Errors from cell creation
 #[derive(Error, Debug)]
-enum CellError {
+pub enum CellError {
     #[error("Cell paths `{1}` and `{2}` had the same alias `{0}`.")]
     DuplicateAliases(CellAlias, CellRootPathBuf, CellRootPathBuf),
     #[error("Cell paths `{1}` and `{2}` had the same cell name `{0}`.")]

@@ -20,8 +20,10 @@ use buck2_core::category::Category;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePath;
+use buck2_core::cells::CellError;
 use buck2_core::cells::CellResolver;
 use buck2_core::configuration::Configuration;
+use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::project::ProjectRelativePath;
@@ -490,7 +492,7 @@ pub struct BuckOutPathParser<'v> {
 }
 
 fn validate_buck_out_and_isolation_prefix<'v>(
-    iter: &mut Peekable<impl Iterator<Item = &'v str>>,
+    iter: &mut Peekable<impl Iterator<Item = &'v FileName>>,
 ) -> anyhow::Result<()> {
     // Validate path starts with buck-out.
     match iter.next() {
@@ -510,7 +512,7 @@ fn validate_buck_out_and_isolation_prefix<'v>(
 }
 
 fn get_cell_path<'v>(
-    iter: &mut Peekable<impl Iterator<Item = &'v str>>,
+    iter: &mut Peekable<impl Iterator<Item = &'v FileName>>,
     cell_resolver: &'v CellResolver,
     generated_prefix: &'v str,
 ) -> anyhow::Result<(CellPath, String, Option<String>)> {
@@ -519,9 +521,18 @@ fn get_cell_path<'v>(
     // Get cell name and validate it exists
     match iter.next() {
         Some(cell_name) => {
-            let cell_name = CellName::unchecked_new(cell_name);
+            let cell_name = CellName::unchecked_new(cell_name.as_str());
 
-            cell_resolver.get(&cell_name)?;
+            if !cell_resolver.contains(&cell_name) {
+                return Err(anyhow::Error::new(CellError::UnknownCellName(
+                    cell_name,
+                    cell_resolver
+                        .cells()
+                        .map(|(name, _)| name)
+                        .cloned()
+                        .collect(),
+                )));
+            }
 
             // Advance iterator to the config hash
             let config_hash = match iter.next() {
@@ -551,13 +562,12 @@ fn get_cell_path<'v>(
             let mut cell_relative_path = CellRelativePath::unchecked_new("").to_owned();
 
             while let Some(part) = iter.next() {
-                cell_relative_path = cell_relative_path
-                    .join(ForwardRelativePath::unchecked_new(part))
-                    .to_owned();
+                cell_relative_path = cell_relative_path.join(part).to_owned();
 
                 // We make sure not to consume the target name part via the iterator.
                 match iter.peek() {
                     Some(maybe_target_name) => {
+                        let maybe_target_name = maybe_target_name.as_str();
                         // TODO(@wendyy) We assume that the first string that we find that starts and ends with "__"
                         // is the target name. There is a small risk of naming collisions (ex: if there's a directory
                         // name that follows this convention that contains a build file), but I will fix this at a
@@ -582,12 +592,12 @@ fn get_cell_path<'v>(
                             let anon_hash = if is_anon {
                                 // Iterator is pointing to the part right before the target name, aka the attr
                                 // hash for the anonymous target.
-                                Some(part.to_owned())
+                                Some(part.to_string())
                             } else {
                                 None
                             };
 
-                            return Ok((cell_path, config_hash, anon_hash));
+                            return Ok((cell_path, config_hash.to_string(), anon_hash));
                         }
                     }
                     None => (),
@@ -597,7 +607,7 @@ fn get_cell_path<'v>(
             if is_test {
                 Ok((
                     CellPath::new(cell_name, cell_relative_path.to_buf()),
-                    config_hash,
+                    config_hash.to_string(),
                     None,
                 ))
             } else {
@@ -609,11 +619,12 @@ fn get_cell_path<'v>(
 }
 
 fn get_target_name<'v>(
-    iter: &mut Peekable<impl Iterator<Item = &'v str>>,
+    iter: &mut Peekable<impl Iterator<Item = &'v FileName>>,
 ) -> anyhow::Result<&'v str> {
     // Get target name, which is prefixed and suffixed with "__"
     match iter.next() {
         Some(target_name_with_underscores) => {
+            let target_name_with_underscores = target_name_with_underscores.as_str();
             let target_name =
                 &target_name_with_underscores[2..(target_name_with_underscores.len() - 2)];
             Ok(target_name)
@@ -623,7 +634,7 @@ fn get_target_name<'v>(
 }
 
 fn get_target_label<'v>(
-    iter: &mut Peekable<impl Iterator<Item = &'v str>>,
+    iter: &mut Peekable<impl Iterator<Item = &'v FileName>>,
     path: CellPath,
 ) -> anyhow::Result<TargetLabel> {
     let target_name = get_target_name(iter)?;
@@ -634,7 +645,7 @@ fn get_target_label<'v>(
 }
 
 fn get_bxl_function_label<'v>(
-    iter: &mut Peekable<impl Iterator<Item = &'v str>>,
+    iter: &mut Peekable<impl Iterator<Item = &'v FileName>>,
     path: CellPath,
 ) -> anyhow::Result<BxlFunctionLabel> {
     let target_name = get_target_name(iter)?;
@@ -660,7 +671,8 @@ impl<'v> BuckOutPathParser<'v> {
     }
 
     fn parse_inner(&self, output_path: &str) -> anyhow::Result<BuckOutPathType> {
-        let mut iter = output_path.split('/').peekable();
+        let path_as_forward_rel_path = ForwardRelativePathBuf::new(output_path.to_owned())?;
+        let mut iter = path_as_forward_rel_path.iter().peekable();
 
         validate_buck_out_and_isolation_prefix(&mut iter)?;
 
@@ -669,7 +681,7 @@ impl<'v> BuckOutPathParser<'v> {
         // Advance the iterator to the prefix (tmp, test, gen, gen-anon, or gen-bxl)
         match iter.next() {
             Some(part) => {
-                let result = match part {
+                let result = match part.as_str() {
                     "tmp" => {
                         let (path, config_hash, _) =
                             get_cell_path(&mut iter, self.cell_resolver, "tmp")?;

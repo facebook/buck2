@@ -73,6 +73,12 @@ impl<'a> Iterator for ForwardRelativePathIter<'a> {
     }
 }
 
+impl<'a> Clone for ForwardRelativePathIter<'a> {
+    fn clone(&self) -> Self {
+        ForwardRelativePathIter(ForwardRelativePath::unchecked_new(self.0.as_str()))
+    }
+}
+
 impl ForwardRelativePath {
     pub fn unchecked_new<S: ?Sized + AsRef<str>>(s: &S) -> &Self {
         ForwardRelativePath::ref_cast(s.as_ref())
