@@ -40,6 +40,7 @@ use futures::stream::FuturesUnordered;
 use futures::FutureExt;
 use futures::StreamExt;
 use more_futures::spawn::spawn_task;
+use more_futures::spawn::CompletionObserver;
 use parking_lot::MappedRwLockReadGuard;
 use parking_lot::RwLock;
 use parking_lot::RwLockReadGuard;
@@ -326,19 +327,29 @@ where
                         debug!(k=%k, msg = "found a task that is currently running. polling on existing task");
                         existing
                     } else {
-                        let (task, fut) = this.new_dice_task(k.clone(), transaction_ctx, extra);
-                        occupied.insert(task);
+                        let mut fut = None;
 
-                        debug!(k=%k, msg = "new task inserted into running map");
+                        take_mut::take(occupied.get_mut(), |entry| {
+                            let (task, new_fut) = this.new_dice_task(
+                                k.clone(),
+                                transaction_ctx,
+                                extra,
+                                Some((entry.epoch, entry.task.into_completion_observer())),
+                            );
+                            fut = Some(new_fut);
+                            task
+                        });
 
-                        fut
+                        debug!(k=%k, epoch=%occupied.get().epoch, msg = "new task inserted into running map");
+
+                        fut.unwrap()
                     }
                 }
                 Entry::Vacant(vacant) => {
-                    let (task, fut) = this.new_dice_task(k.clone(), transaction_ctx, extra);
-                    vacant.insert(task);
+                    let (task, fut) = this.new_dice_task(k.clone(), transaction_ctx, extra, None);
+                    let entry = vacant.insert(task);
 
-                    debug!(k=%k, msg = "new task inserted into running map");
+                    debug!(k=%k, epoch=%entry.epoch, msg = "new task inserted into running map");
 
                     fut
                 }
@@ -350,7 +361,7 @@ where
 
     #[instrument(
         level = "debug",
-        skip(self, transaction_ctx, extra),
+        skip(self, transaction_ctx, extra, cancelled_instance),
         fields(k = %k),
     )]
     fn new_dice_task(
@@ -358,6 +369,7 @@ where
         k: K::Key,
         transaction_ctx: &Arc<TransactionCtx>,
         extra: ComputationData,
+        cancelled_instance: Option<(Epoch, CompletionObserver<DiceResult<GraphNode<K>>>)>,
     ) -> (RunningEntry<K>, DiceFuture<K>) {
         debug!(
             "no matching entry in cache, and no tasks currently running. spawning a new task..."
@@ -379,21 +391,30 @@ where
 
         impl<K: IncrementalComputeProperties> Drop for Evaluation<K> {
             fn drop(&mut self) {
-                debug!(msg = "cancelling", k = %self.k, v = %self.v);
+                let span = tracing::span!(
+                    tracing::Level::DEBUG,
+                    "Evaluation::drop",
+                    k = %self.k,
+                    v = %self.v,
+                    epoch = %self.epoch
+                );
+                let _guard = span.enter();
+
+                debug!("exiting");
                 match self.engine.currently_running.read().get(&self.v) {
                     None => {}
                     Some(map) => {
-                        debug!(msg = "cancelling... awaiting lock", k = %self.k, v = %self.v);
+                        debug!("awaiting lock");
                         match map.entry(self.k.clone()) {
                             Entry::Occupied(entry) => {
                                 if entry.get().epoch == self.epoch {
                                     entry.remove();
-                                    debug!(msg = "cancelling... future removed", k = %self.k, v = %self.v);
+                                    debug!("future removed");
                                 }
                             }
                             Entry::Vacant(_) => {}
                         }
-                        debug!(msg = "cancelling... complete", k = %self.k, v = %self.v);
+                        debug!("complete");
                     }
                 }
             }
@@ -406,74 +427,96 @@ where
             v,
         };
 
-        let (task, handle) = Self::spawn_task(
-            async move {
-                // check again since another thread could have inserted into the versioned
-                // cache before we entered the index.
-                let res = Ok(
-                    match ev.engine.versioned_cache.get(
-                        VersionedGraphKeyRef::new(eval_ctx.get_version(), &ev.k),
-                        eval_ctx.get_minor_version(),
-                    ) {
-                        VersionedGraphResult::Match(entry) => {
-                            debug!(
-                                "found existing entry with matching version in cache. reusing result."
-                            );
-                            entry
-                        }
-                        VersionedGraphResult::Mismatch(mismatch) => {
-                            debug!("no matching entry in cache. checking for dependency changes");
+        let future = async move {
+            // check again since another thread could have inserted into the versioned
+            // cache before we entered the index.
+            let res = Ok(
+                match ev.engine.versioned_cache.get(
+                    VersionedGraphKeyRef::new(eval_ctx.get_version(), &ev.k),
+                    eval_ctx.get_minor_version(),
+                ) {
+                    VersionedGraphResult::Match(entry) => {
+                        debug!(
+                            "found existing entry with matching version in cache. reusing result."
+                        );
+                        entry
+                    }
+                    VersionedGraphResult::Mismatch(mismatch) => {
+                        debug!("no matching entry in cache. checking for dependency changes");
 
-                            match Self::compute_whether_versioned_dependencies_changed(
-                                &eval_ctx, &extra, &mismatch,
-                            )
-                            .await
-                            {
-                                DidDepsChange::Changed | DidDepsChange::NoDeps => {
-                                    debug!("dependencies changed. recomputing...");
-                                    ev.engine.compute(&ev.k, eval_ctx, extra).await
-                                }
-                                DidDepsChange::NoChange(unchanged_both_deps) => {
-                                    debug!("dependencies are unchanged, reusing entry");
-                                    ev.engine.reuse(
-                                        ev.k.clone(),
-                                        &eval_ctx,
-                                        mismatch.entry,
-                                        unchanged_both_deps,
-                                    )
-                                }
+                        match Self::compute_whether_versioned_dependencies_changed(
+                            &eval_ctx, &extra, &mismatch,
+                        )
+                        .await
+                        {
+                            DidDepsChange::Changed | DidDepsChange::NoDeps => {
+                                debug!("dependencies changed. recomputing...");
+                                ev.engine.compute(&ev.k, eval_ctx, extra).await
+                            }
+                            DidDepsChange::NoChange(unchanged_both_deps) => {
+                                debug!("dependencies are unchanged, reusing entry");
+                                ev.engine.reuse(
+                                    ev.k.clone(),
+                                    &eval_ctx,
+                                    mismatch.entry,
+                                    unchanged_both_deps,
+                                )
                             }
                         }
-                        VersionedGraphResult::Dirty | VersionedGraphResult::None => {
-                            debug!("dirtied. recomputing...");
-                            ev.engine.compute(&ev.k, eval_ctx, extra).await
-                        }
-                    },
-                );
+                    }
+                    VersionedGraphResult::Dirty | VersionedGraphResult::None => {
+                        debug!("dirtied. recomputing...");
+                        ev.engine.compute(&ev.k, eval_ctx, extra).await
+                    }
+                },
+            );
 
-                debug!("finished. returning result");
+            debug!("finished. returning result");
 
-                res
-            },
-            &user_data,
-            debug_span!(
-                parent: None,
-                "spawned_dice_task",
-                key = % key,
-                version = % v,
-                epoch = % epoch,
-            ),
+            res
+        };
+
+        let span = debug_span!(
+            parent: None,
+            "spawned_dice_task",
+            key = % key,
+            version = % v,
+            epoch = % epoch,
         );
+
+        // If a task is being cancelled, then we need to wait for it to finish first. This wait
+        // should normally be fairly short. It goes into a non-cancellable preamble because we hold
+        // the only reference to this cancelled instance, so if we were to get cancelled too we
+        // would remove ourselves from the running map and lose it!
+        let (task, handle) = match cancelled_instance {
+            Some((instance_epoch, instance)) => Self::spawn_task(
+                future,
+                async move {
+                    debug!(msg = "awaiting cancelled future", epoch = %instance_epoch);
+                    instance.await
+                },
+                &user_data,
+                span,
+            ),
+            None => Self::spawn_task(future, futures::future::ready(()), &user_data, span),
+        };
 
         (RunningEntry { task, epoch }, handle)
     }
 
     fn spawn_task(
         future: impl Future<Output = DiceResult<GraphNode<K>>> + Send + 'static,
+        preamble: impl Future<Output = ()> + Send + 'static,
         spawner_ctx: &UserComputationData,
         span: Span,
     ) -> (WeakDiceFutureHandle<K>, DiceFuture<K>) {
-        let (task, fut) = spawn_task(future, spawner_ctx.spawner.as_ref(), spawner_ctx, span);
+        let (task, fut) = spawn_task(
+            future,
+            preamble,
+            spawner_ctx.spawner.as_ref(),
+            spawner_ctx,
+            span,
+        );
         let task = WeakDiceFutureHandle::async_cancellable(task);
         let fut = DiceFuture::AsyncCancellableSpawned(fut);
         (task, fut)

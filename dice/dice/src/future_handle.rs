@@ -11,6 +11,7 @@
 //! shareable across different computation units.
 //!
 use allocative::Allocative;
+use more_futures::spawn::CompletionObserver;
 use more_futures::spawn::WeakFutureError;
 use more_futures::spawn::WeakJoinHandle;
 
@@ -53,5 +54,11 @@ impl<S: StorageProperties> WeakDiceFutureHandle<S> {
         self.handle
             .pollable()
             .map(DiceFuture::AsyncCancellableJoining)
+    }
+
+    /// Turn this into a JoinHandle. The output is erased. This is used to observe this future
+    /// exiting, but that's it.
+    pub fn into_completion_observer(self) -> CompletionObserver<DiceResult<GraphNode<S>>> {
+        self.handle.into_completion_observer()
     }
 }

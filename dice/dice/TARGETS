@@ -29,6 +29,7 @@ rust_library(
         "fbsource//third-party/rust:once_cell",
         "fbsource//third-party/rust:parking_lot",
         "fbsource//third-party/rust:serde",
+        "fbsource//third-party/rust:take_mut",
         "fbsource//third-party/rust:thiserror",
         "fbsource//third-party/rust:tokio",
         "fbsource//third-party/rust:tracing",

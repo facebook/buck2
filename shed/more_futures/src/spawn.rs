@@ -12,13 +12,13 @@
 //!
 
 use std::any::Any;
-use std::future::Future;
 use std::pin::Pin;
 use std::task::Context;
 use std::task::Poll;
 
 use allocative::Allocative;
 use futures::future::BoxFuture;
+use futures::future::Future;
 use futures::FutureExt;
 use pin_project::pin_project;
 use thiserror::Error;
@@ -52,13 +52,19 @@ pub struct WeakJoinHandle<T: Clone> {
     guard: WeakRefCount,
 }
 
-impl<T: Clone + 'static> WeakJoinHandle<T> {
+impl<T: Send + Sync + Clone + 'static> WeakJoinHandle<T> {
     /// Return `None` if the task has been canceled.
     pub fn pollable(&self) -> Option<StrongJoinHandle<SharedEventsFuture<BoxFuture<'static, T>>>> {
         self.guard.upgrade().map(|inner| StrongJoinHandle {
             guard: inner,
             fut: self.join_handle.clone(),
         })
+    }
+}
+
+impl<T: Send + Sync + Clone + 'static> WeakJoinHandle<Result<T, WeakFutureError>> {
+    pub fn into_completion_observer(self) -> CompletionObserver<T> {
+        CompletionObserver { inner: self }
     }
 }
 
@@ -110,8 +116,24 @@ where
     }
 }
 
-pub fn spawn_task<T, S>(
+#[pin_project]
+pub struct CompletionObserver<T: Clone> {
+    inner: WeakJoinHandle<Result<T, WeakFutureError>>,
+}
+
+impl<T: Clone> Future for CompletionObserver<T> {
+    type Output = ();
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let this = self.project();
+        this.inner.join_handle.poll_unpin(cx).map(|_res| ())
+    }
+}
+
+/// Spawn a cancellable future. The preamble is a non-cancellable portion that can come before.
+pub fn spawn_task<T, S, P>(
     future: T,
+    preamble: P,
     spawner: &dyn Spawner<S>,
     ctx: &S,
     span: Span,
@@ -122,13 +144,16 @@ pub fn spawn_task<T, S>(
 where
     T: Future + Send + 'static,
     T::Output: Any + Clone + Send + 'static,
+    P: Future<Output = ()> + Send + 'static,
 {
-    let strong = spawn_dropcancel(future, spawner, ctx, span).map(|f| f.instrumented_shared());
+    let strong = spawn_inner(future, preamble, spawner, ctx, span).map(|f| f.instrumented_shared());
     (strong.weak_handle(), strong)
 }
 
-pub fn spawn_dropcancel<T, S>(
+/// Spawn a cancellable future. The preamble is a non-cancellable portion that can come before.
+fn spawn_inner<T, S, P>(
     future: T,
+    preamble: P,
     spawner: &dyn Spawner<S>,
     ctx: &S,
     span: Span,
@@ -136,8 +161,13 @@ pub fn spawn_dropcancel<T, S>(
 where
     T: Future + Send + 'static,
     T::Output: Any + Send + 'static,
+    P: Future<Output = ()> + Send + 'static,
 {
     let (future, guard) = CancellableFuture::new_refcounted(future);
+    let future = async move {
+        preamble.await;
+        future.await
+    };
     let future = future.instrument(span).map(|v| box v as _);
 
     let task = spawner.spawn(ctx, future.boxed());
@@ -151,6 +181,20 @@ where
         .boxed();
 
     StrongJoinHandle { guard, fut: task }
+}
+
+/// Spawn a cancellable future.
+pub fn spawn_dropcancel<T, S>(
+    future: T,
+    spawner: &dyn Spawner<S>,
+    ctx: &S,
+    span: Span,
+) -> StrongJoinHandle<BoxFuture<'static, Result<T::Output, WeakFutureError>>>
+where
+    T: Future + Send + 'static,
+    T::Output: Any + Send + 'static,
+{
+    spawn_inner(future, futures::future::ready(()), spawner, ctx, span)
 }
 
 /// Enter a critical section during which the current DropCancel future (if any) should not be
@@ -187,6 +231,7 @@ mod tests {
                 recv_release_task.await.unwrap();
                 notify_success.send(()).unwrap();
             },
+            futures::future::ready(()),
             sp.as_ref(),
             &MockCtx::default(),
             tracing::debug_span!("test"),
@@ -220,6 +265,7 @@ mod tests {
                 })
                 .await;
             },
+            futures::future::ready(()),
             sp.as_ref(),
             &MockCtx::default(),
             tracing::debug_span!("test"),
@@ -247,6 +293,7 @@ mod tests {
 
         let (_task, poll) = spawn_task(
             fut,
+            futures::future::ready(()),
             sp.as_ref(),
             &MockCtx::default(),
             tracing::debug_span!("test"),

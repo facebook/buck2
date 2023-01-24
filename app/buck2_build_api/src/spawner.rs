@@ -141,8 +141,20 @@ mod tests {
         }
         .boxed();
 
-        let (_, poll1) = spawn_task(task1, sp.as_ref(), &ctx1, tracing::debug_span!("test"));
-        let (_, poll2) = spawn_task(task2, sp.as_ref(), &ctx2, tracing::debug_span!("test"));
+        let (_, poll1) = spawn_task(
+            task1,
+            futures::future::ready(()),
+            sp.as_ref(),
+            &ctx1,
+            tracing::debug_span!("test"),
+        );
+        let (_, poll2) = spawn_task(
+            task2,
+            futures::future::ready(()),
+            sp.as_ref(),
+            &ctx2,
+            tracing::debug_span!("test"),
+        );
         let joins = vec![poll1, poll2];
 
         assert_eq!(
