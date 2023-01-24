@@ -144,7 +144,7 @@ def _get_test_info(ctx: "context", xctest_bundle: "artifact", test_host_app_bund
                     "subplatform": "iPhone 8.iOS 15.0",
                     "xcode-version": "xcodestable",
                 },
-                remote_execution_use_case = "tpx-default",
+                remote_execution_use_case = "buck2-default",
             ),
             "static-listing": CommandExecutorConfig(local_enabled = True, remote_enabled = False),
         },
