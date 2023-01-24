@@ -279,7 +279,6 @@ impl DiceComputations {
 
         spawn_dropcancel(
             async move { f(duped).await },
-            None,
             self.0.extra.user_data.spawner.dupe(),
             &self.0.extra.user_data,
             debug_span!(parent: None, "spawned_task",),

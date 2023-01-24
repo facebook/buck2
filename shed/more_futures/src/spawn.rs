@@ -71,15 +71,6 @@ struct DropCancel<T> {
 
 struct DropCancelInner<T> {
     future: BoxFuture<'static, T>,
-    on_cancel: Option<Box<dyn FnOnce() + Send>>,
-}
-
-impl<T> Drop for DropCancelInner<T> {
-    fn drop(&mut self) {
-        if let Some(on_cancel) = self.on_cancel.take() {
-            on_cancel()
-        }
-    }
 }
 
 impl<T> Future for DropCancel<T>
@@ -100,8 +91,6 @@ where
                 let mut inner = inner.borrow_mut();
                 match inner.future.poll_unpin(cx) {
                     Poll::Ready(t) => {
-                        // don't run on_cancel since we are ready now
-                        inner.on_cancel.take();
                         debug!(parent: this.instrumented_span.id(), "poll ready and deleted cancel");
                         Poll::Ready(Some(t))
                     }
@@ -144,7 +133,6 @@ impl<F: Future> Future for StrongCancellableJoinHandle<F> {
 
 pub fn spawn_task<T, S>(
     task: T,
-    on_cancel: Option<Box<dyn FnOnce() + Send>>,
     spawner: &Arc<dyn Spawner<S>>,
     ctx: &S,
     span: Span,
@@ -175,7 +163,6 @@ where
 
     let (weak_task, guard) = guarded_rc(RefCell::new(DropCancelInner {
         future: task.boxed(),
-        on_cancel,
     }));
 
     let drop = DropCancel {
@@ -203,7 +190,6 @@ where
 
 pub fn spawn_dropcancel<T, S>(
     task: T,
-    on_cancel: Option<Box<dyn FnOnce() + Send>>,
     spawner: Arc<dyn Spawner<S>>,
     ctx: &S,
     span: Span,
@@ -231,7 +217,6 @@ where
 
     let (weak_task, guard) = guarded_rc(RefCell::new(DropCancelInner {
         future: task.boxed(),
-        on_cancel,
     }));
 
     let drop = DropCancel {
@@ -268,10 +253,6 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::sync::atomic::AtomicBool;
-    use std::sync::atomic::Ordering;
-
-    use dupe::Dupe;
     use tokio::sync::oneshot;
 
     use super::*;
@@ -285,8 +266,6 @@ mod tests {
         let (release_task, recv_release_task) = oneshot::channel();
         let (notify_success, recv_success) = oneshot::channel();
 
-        let canceled = Arc::new(AtomicBool::new(false));
-
         let sp: Arc<dyn Spawner<MockCtx>> = Arc::new(TokioSpawner::default());
 
         let (_task, poll) = spawn_task(
@@ -294,10 +273,6 @@ mod tests {
                 recv_release_task.await.unwrap();
                 notify_success.send(()).unwrap();
             },
-            Some({
-                let canceled = canceled.dupe();
-                box move || canceled.store(true, Ordering::SeqCst)
-            }),
             &sp,
             &MockCtx::default(),
             tracing::debug_span!("test"),
@@ -310,10 +285,8 @@ mod tests {
         let _ignored = release_task.send(());
 
         // The task should never get to sending in notify_success since all its referenced had been
-        // dropped at that point.
+        // dropped at that point, but it *should* drop the channel itself.
         recv_success.await.unwrap_err();
-
-        assert!(canceled.load(Ordering::SeqCst));
     }
 
     #[tokio::test]
@@ -333,7 +306,6 @@ mod tests {
                 })
                 .await;
             },
-            None,
             &sp,
             &MockCtx::default(),
             tracing::debug_span!("test"),
@@ -359,15 +331,7 @@ mod tests {
         let sp: Arc<dyn Spawner<MockCtx>> = Arc::new(TokioSpawner::default());
         let fut = async { "Hello world!" };
 
-        let (_task, poll) = spawn_task(
-            fut,
-            Some(box || {
-                unreachable!("shouldn't run on_cancel since this task will finish normally")
-            }),
-            &sp,
-            &MockCtx::default(),
-            tracing::debug_span!("test"),
-        );
+        let (_task, poll) = spawn_task(fut, &sp, &MockCtx::default(), tracing::debug_span!("test"));
 
         let res = poll.await;
         assert_eq!(res, "Hello world!");

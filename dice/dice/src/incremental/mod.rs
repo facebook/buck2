@@ -473,7 +473,7 @@ where
         spawner_ctx: &UserComputationData,
         span: Span,
     ) -> (WeakDiceFutureHandle<K>, DiceFuture<K>) {
-        let (task, fut) = spawn_task(future, None, &spawner_ctx.spawner, spawner_ctx, span);
+        let (task, fut) = spawn_task(future, &spawner_ctx.spawner, spawner_ctx, span);
         let task = WeakDiceFutureHandle::async_cancellable(task);
         let fut = DiceFuture::AsyncCancellableSpawned(fut);
         (task, fut)
@@ -1153,6 +1153,7 @@ mod tests {
     use std::sync::Arc;
     use std::sync::Barrier;
     use std::sync::Weak;
+    use std::time::Duration;
 
     use allocative::Allocative;
     use async_trait::async_trait;
@@ -1976,6 +1977,7 @@ mod tests {
         let rt = tokio::runtime::Builder::new_multi_thread()
             .worker_threads(n_thread + 1)
             .max_blocking_threads(n_thread + 1)
+            .enable_time()
             .build()
             .unwrap();
 
@@ -2057,15 +2059,31 @@ mod tests {
 
             let _c_guard = check_guard.write().await;
 
+            // Verify that no futures made progress past an await point after being cancelled.
             assert!(!ran_counter.load(Ordering::SeqCst));
 
-            assert!(
-                engine
-                    .currently_running
-                    .read()
-                    .iter()
-                    .all(|(_v, e)| e.is_empty())
-            );
+            // Currently running should get cleared out, but that happens asynchronously as the
+            // futures get dropped.
+            tokio::time::timeout(Duration::from_secs(1), async move {
+                loop {
+                    let empty = engine
+                        .currently_running
+                        .read()
+                        .iter()
+                        .all(|(_v, e)| e.is_empty());
+
+                    if empty {
+                        break;
+                    }
+
+                    tokio::task::yield_now().await;
+                }
+            })
+            .await
+            .unwrap();
+
+            // Check again that no progress was made until shutdown.
+            assert!(!ran_counter.load(Ordering::SeqCst));
         })
     }
 

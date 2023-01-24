@@ -138,8 +138,8 @@ mod tests {
         }
         .boxed();
 
-        let (_, poll1) = spawn_task(task1, None, &sp, &ctx1, tracing::debug_span!("test"));
-        let (_, poll2) = spawn_task(task2, None, &sp, &ctx2, tracing::debug_span!("test"));
+        let (_, poll1) = spawn_task(task1, &sp, &ctx1, tracing::debug_span!("test"));
+        let (_, poll2) = spawn_task(task2, &sp, &ctx2, tracing::debug_span!("test"));
         let joins = vec![poll1, poll2];
 
         assert_eq!(
