@@ -53,7 +53,6 @@ static INTERNER: StaticInterner<CellNameData, FnvHasher> = StaticInterner::new()
 /// The cell name is also restricted to alphabet characters (i.e. shouldn't
 /// contain any special characters like `/`), so `foo/bar//some:target` has an
 /// invalid cell name of `foo/bar`.
-// TODO consider if we need to intern the string
 #[derive(
     Clone, Dupe, Debug, Display, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative
 )]
