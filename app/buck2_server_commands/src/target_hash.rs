@@ -241,6 +241,7 @@ impl TargetHashes {
             hashes: HashMap<T::NodeRef, Shared<BoxFuture<'static, SharedResult<BuckTargetHash>>>>,
             file_hasher: Arc<dyn FileHasher>,
             use_fast_hash: bool,
+            ctx: DiceTransaction,
         }
 
         #[async_trait]
@@ -260,6 +261,7 @@ impl TargetHashes {
                     .collect::<Result<Vec<_>, TargetHashError>>()?;
 
                 let file_hasher = self.file_hasher.dupe();
+                let ctx = self.ctx.dupe();
 
                 let use_fast_hash = self.use_fast_hash;
                 // we spawn off the hash computation since it can't be done in visit directly. Even if it could,
@@ -267,7 +269,7 @@ impl TargetHashes {
                 self.hashes.insert(
                     target.node_ref().clone(),
                     async move {
-                        tokio::spawn(async move {
+                        ctx.temporary_spawn(move |_| async move {
                             let mut hasher = TargetHashes::new_hasher(use_fast_hash);
                             TargetHashes::hash_node(&target, &mut *hasher)?;
 
@@ -290,7 +292,6 @@ impl TargetHashes {
                             Ok(hasher.finish_u128())
                         })
                         .await
-                        .unwrap()
                     }
                     .boxed()
                     .shared(),
@@ -319,13 +320,16 @@ impl TargetHashes {
             TargetHashFileMode::PathsOnly => Arc::new(PathsOnlyFileHasher {
                 pseudo_changed_paths: modified_paths,
             }),
-            TargetHashFileMode::PathsAndContents => Arc::new(PathsAndContentsHasher { ctx }),
+            TargetHashFileMode::PathsAndContents => {
+                Arc::new(PathsAndContentsHasher { ctx: ctx.dupe() })
+            }
         };
 
         let mut delegate = Delegate::<T> {
             hashes: HashMap::new(),
             file_hasher,
             use_fast_hash,
+            ctx,
         };
 
         async_depth_first_postorder_traversal(&lookup, targets.iter_names(), &mut delegate).await?;
