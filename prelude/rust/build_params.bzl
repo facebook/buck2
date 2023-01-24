@@ -92,6 +92,7 @@ RustcFlags = record(
     crate_type = field(CrateType.type),
     reloc_model = field(RelocModel.type),
     dep_link_style = field(LinkStyle.type),
+    platform_to_affix = field("function"),
 )
 
 # Filenames used for various emitted forms
@@ -155,85 +156,65 @@ def _library_prefix_suffix(platform):
     }[platform]
 
 _BUILD_PARAMS = {
-    _BINARY_SHARED: (
-        RustcFlags(
-            crate_type = CrateType("bin"),
-            reloc_model = RelocModel("pic"),
-            dep_link_style = LinkStyle("shared"),
-        ),
-        _executable_prefix_suffix,
+    _BINARY_SHARED: RustcFlags(
+        crate_type = CrateType("bin"),
+        reloc_model = RelocModel("pic"),
+        dep_link_style = LinkStyle("shared"),
+        platform_to_affix = _executable_prefix_suffix,
     ),
-    _BINARY_PIE: (
-        RustcFlags(
-            crate_type = CrateType("bin"),
-            reloc_model = RelocModel("pic"),
-            dep_link_style = LinkStyle("static_pic"),
-        ),
-        _executable_prefix_suffix,
+    _BINARY_PIE: RustcFlags(
+        crate_type = CrateType("bin"),
+        reloc_model = RelocModel("pic"),
+        dep_link_style = LinkStyle("static_pic"),
+        platform_to_affix = _executable_prefix_suffix,
     ),
-    _BINARY_NON_PIE: (
-        RustcFlags(
-            crate_type = CrateType("bin"),
-            reloc_model = RelocModel("static"),
-            dep_link_style = LinkStyle("static"),
-        ),
-        _executable_prefix_suffix,
+    _BINARY_NON_PIE: RustcFlags(
+        crate_type = CrateType("bin"),
+        reloc_model = RelocModel("static"),
+        dep_link_style = LinkStyle("static"),
+        platform_to_affix = _executable_prefix_suffix,
     ),
-    _NATIVE_LINKABLE_SHARED_OBJECT: (
-        RustcFlags(
-            crate_type = CrateType("cdylib"),
-            reloc_model = RelocModel("pic"),
-            dep_link_style = LinkStyle("shared"),
-        ),
-        _library_prefix_suffix,
+    _NATIVE_LINKABLE_SHARED_OBJECT: RustcFlags(
+        crate_type = CrateType("cdylib"),
+        reloc_model = RelocModel("pic"),
+        dep_link_style = LinkStyle("shared"),
+        platform_to_affix = _library_prefix_suffix,
     ),
-    _RUST_DYLIB_SHARED: (
-        RustcFlags(
-            crate_type = CrateType("dylib"),
-            reloc_model = RelocModel("pic"),
-            dep_link_style = LinkStyle("shared"),
-        ),
-        _library_prefix_suffix,
+    _RUST_DYLIB_SHARED: RustcFlags(
+        crate_type = CrateType("dylib"),
+        reloc_model = RelocModel("pic"),
+        dep_link_style = LinkStyle("shared"),
+        platform_to_affix = _library_prefix_suffix,
     ),
-    _RUST_PROC_MACRO: (
-        RustcFlags(
-            crate_type = CrateType("proc-macro"),
-            reloc_model = RelocModel("pic"),
-            dep_link_style = LinkStyle("static_pic"),
-        ),
-        _library_prefix_suffix,
+    _RUST_PROC_MACRO: RustcFlags(
+        crate_type = CrateType("proc-macro"),
+        reloc_model = RelocModel("pic"),
+        dep_link_style = LinkStyle("static_pic"),
+        platform_to_affix = _library_prefix_suffix,
     ),
-    _RUST_STATIC_PIC_LIBRARY: (
-        RustcFlags(
-            crate_type = CrateType("rlib"),
-            reloc_model = RelocModel("pic"),
-            dep_link_style = LinkStyle("static_pic"),
-        ),
-        lambda _: ("lib", ".rlib"),
+    _RUST_STATIC_PIC_LIBRARY: RustcFlags(
+        crate_type = CrateType("rlib"),
+        reloc_model = RelocModel("pic"),
+        dep_link_style = LinkStyle("static_pic"),
+        platform_to_affix = lambda _: ("lib", ".rlib"),
     ),
-    _RUST_STATIC_NON_PIC_LIBRARY: (
-        RustcFlags(
-            crate_type = CrateType("rlib"),
-            reloc_model = RelocModel("static"),
-            dep_link_style = LinkStyle("static"),
-        ),
-        lambda _: ("lib", ".rlib"),
+    _RUST_STATIC_NON_PIC_LIBRARY: RustcFlags(
+        crate_type = CrateType("rlib"),
+        reloc_model = RelocModel("static"),
+        dep_link_style = LinkStyle("static"),
+        platform_to_affix = lambda _: ("lib", ".rlib"),
     ),
-    _NATIVE_LINKABLE_STATIC_PIC: (
-        RustcFlags(
-            crate_type = CrateType("staticlib"),
-            reloc_model = RelocModel("pic"),
-            dep_link_style = LinkStyle("static_pic"),
-        ),
-        lambda _: ("lib", "_pic.a"),
+    _NATIVE_LINKABLE_STATIC_PIC: RustcFlags(
+        crate_type = CrateType("staticlib"),
+        reloc_model = RelocModel("pic"),
+        dep_link_style = LinkStyle("static_pic"),
+        platform_to_affix = lambda _: ("lib", "_pic.a"),
     ),
-    _NATIVE_LINKABLE_STATIC_NON_PIC: (
-        RustcFlags(
-            crate_type = CrateType("staticlib"),
-            reloc_model = RelocModel("static"),
-            dep_link_style = LinkStyle("static"),
-        ),
-        lambda _: ("lib", ".a"),
+    _NATIVE_LINKABLE_STATIC_NON_PIC: RustcFlags(
+        crate_type = CrateType("staticlib"),
+        reloc_model = RelocModel("static"),
+        dep_link_style = LinkStyle("static"),
+        platform_to_affix = lambda _: ("lib", ".a"),
     ),
 }
 
@@ -308,8 +289,8 @@ def build_params(
     )
 
     build_kind_key = _INPUTS[input]
-    (flags, platform_to_affix) = _BUILD_PARAMS[build_kind_key]
-    (prefix, suffix) = platform_to_affix(linker_type)
+    flags = _BUILD_PARAMS[build_kind_key]
+    prefix, suffix = flags.platform_to_affix(linker_type)
 
     return BuildParams(
         crate_type = flags.crate_type,
