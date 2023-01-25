@@ -50,12 +50,14 @@ pub struct ForwardRelativePath(
 pub struct ForwardRelativePathBuf(String);
 
 impl AsRef<RelativePath> for ForwardRelativePath {
+    #[inline]
     fn as_ref(&self) -> &RelativePath {
         RelativePath::new(&self.0)
     }
 }
 
 impl AsRef<RelativePath> for ForwardRelativePathBuf {
+    #[inline]
     fn as_ref(&self) -> &RelativePath {
         RelativePath::new(&self.0)
     }
@@ -66,6 +68,7 @@ pub struct ForwardRelativePathIter<'a>(&'a ForwardRelativePath);
 impl<'a> Iterator for ForwardRelativePathIter<'a> {
     type Item = &'a FileName;
 
+    #[inline]
     fn next(&mut self) -> Option<&'a FileName> {
         let (first, rem) = self.0.split_first()?;
         self.0 = rem;
@@ -80,10 +83,12 @@ impl<'a> Clone for ForwardRelativePathIter<'a> {
 }
 
 impl ForwardRelativePath {
+    #[inline]
     pub fn unchecked_new<S: ?Sized + AsRef<str>>(s: &S) -> &Self {
         ForwardRelativePath::ref_cast(s.as_ref())
     }
 
+    #[inline]
     pub fn unchecked_new_box(s: Box<str>) -> Box<ForwardRelativePath> {
         unsafe {
             // SAFETY: `ForwardRelativePath` is a transparent wrapper around `str`.
@@ -91,6 +96,7 @@ impl ForwardRelativePath {
         }
     }
 
+    #[inline]
     pub fn empty() -> &'static Self {
         ForwardRelativePath::unchecked_new("")
     }
@@ -125,6 +131,7 @@ impl ForwardRelativePath {
     //   because paths can have backslashes.
     //   Conversion of `Path` to `ForwardRelativePath` should be done via
     //   `ForwardRelativePathBuf` which should normalize slashes.
+    #[inline]
     pub fn new<S: ?Sized + AsRef<Path>>(s: &S) -> anyhow::Result<&ForwardRelativePath> {
         <&ForwardRelativePath>::try_from(s.as_ref())
     }
@@ -170,18 +177,22 @@ impl ForwardRelativePath {
     ///
     /// # anyhow::Ok(())
     /// ```
+    #[inline]
     pub fn resolve<P: AsRef<AbsNormPath>>(&self, relative_to: P) -> AbsNormPathBuf {
         relative_to.as_ref().join(self)
     }
 
+    #[inline]
     pub fn as_str(&self) -> &str {
         &self.0
     }
 
+    #[inline]
     pub fn as_path(&self) -> &Path {
         Path::new(&self.0)
     }
 
+    #[inline]
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
@@ -198,6 +209,7 @@ impl ForwardRelativePath {
     ///
     /// # anyhow::Ok(())
     /// ```
+    #[inline]
     pub fn join<P: AsRef<ForwardRelativePath>>(&self, path: P) -> ForwardRelativePathBuf {
         let path = path.as_ref();
         if self.0.is_empty() {
@@ -535,6 +547,7 @@ impl ForwardRelativePath {
     ///
     /// # anyhow::Ok(())
     /// ```
+    #[inline]
     pub fn iter(&self) -> ForwardRelativePathIter<'_> {
         ForwardRelativePathIter(self)
     }
@@ -576,48 +589,57 @@ impl ForwardRelativePath {
         Some(rem)
     }
 
+    #[inline]
     pub fn to_buf(&self) -> ForwardRelativePathBuf {
         self.to_owned()
     }
 
     /// Return a RelativePath represenation of this ForwardRelativePath.
+    #[inline]
     pub fn as_relative_path(&self) -> &RelativePath {
         RelativePath::new(&self.0)
     }
 }
 
 impl ForwardRelativePathBuf {
+    #[inline]
     pub fn new(s: String) -> anyhow::Result<ForwardRelativePathBuf> {
         ForwardRelativePath::new(&s)?;
         Ok(ForwardRelativePathBuf(s))
     }
 
+    #[inline]
     pub fn unchecked_new(s: String) -> Self {
         Self(s)
     }
 
     /// Creates a new 'ForwardRelativePathBuf' with a given capacity used to create the internal
     /// 'String'. See 'with_capacity' defined on 'String'
+    #[inline]
     pub fn with_capacity(cap: usize) -> Self {
         Self(String::with_capacity(cap))
     }
 
     /// Returns the capacity of the underlying 'String'
+    #[inline]
     pub fn capacity(&self) -> usize {
         self.0.capacity()
     }
 
     /// Invokes 'reserve' on the underlying 'String'
+    #[inline]
     pub fn reserve(&mut self, additional: usize) {
         self.0.reserve(additional)
     }
 
     /// Invokes 'shrink_to_fit' on the underlying 'String'
+    #[inline]
     pub fn shrink_to_fit(&mut self) {
         self.0.shrink_to_fit()
     }
 
     /// Invokes 'shrink_to' on the underlying 'String'
+    #[inline]
     pub fn shrink_to(&mut self, min_capacity: usize) {
         self.0.shrink_to(min_capacity)
     }
@@ -793,6 +815,7 @@ impl ForwardRelativePathBuf {
         Ok(())
     }
 
+    #[inline]
     pub fn into_string(self) -> String {
         self.0
     }
@@ -820,6 +843,7 @@ impl<'a> IntoIterator for &'a ForwardRelativePath {
     type Item = &'a FileName;
     type IntoIter = ForwardRelativePathIter<'a>;
 
+    #[inline]
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
     }
@@ -844,6 +868,7 @@ impl<'a> TryFrom<&'a str> for &'a ForwardRelativePath {
     ///
     /// # anyhow::Ok(())
     /// ```
+    #[inline]
     fn try_from(s: &'a str) -> anyhow::Result<&'a ForwardRelativePath> {
         ForwardRelativePathVerifier::verify_str(s)?;
         Ok(ForwardRelativePath::ref_cast(s))
@@ -851,6 +876,7 @@ impl<'a> TryFrom<&'a str> for &'a ForwardRelativePath {
 }
 
 impl<'a> From<&'a FileName> for &'a ForwardRelativePath {
+    #[inline]
     fn from(p: &'a FileName) -> Self {
         ForwardRelativePath::unchecked_new(p.as_str())
     }
@@ -905,6 +931,7 @@ impl<'a> TryFrom<&'a RelativePath> for &'a ForwardRelativePath {
     ///
     /// # anyhow::Ok(())
     /// ```
+    #[inline]
     fn try_from(p: &'a RelativePath) -> anyhow::Result<&'a ForwardRelativePath> {
         ForwardRelativePathVerifier::verify_str(p.as_str())?;
         Ok(ForwardRelativePath::unchecked_new(p.as_str()))
@@ -936,6 +963,7 @@ impl TryFrom<String> for ForwardRelativePathBuf {
     ///
     /// # anyhow::Ok(())
     /// ```
+    #[inline]
     fn try_from(s: String) -> anyhow::Result<ForwardRelativePathBuf> {
         ForwardRelativePathVerifier::verify_str(&s)?;
         Ok(ForwardRelativePathBuf(s))
@@ -989,6 +1017,7 @@ impl TryFrom<RelativePathBuf> for ForwardRelativePathBuf {
     ///
     /// # anyhow::Ok(())
     /// ```
+    #[inline]
     fn try_from(p: RelativePathBuf) -> anyhow::Result<ForwardRelativePathBuf> {
         ForwardRelativePathBuf::try_from(p.into_string())
     }
@@ -997,24 +1026,28 @@ impl TryFrom<RelativePathBuf> for ForwardRelativePathBuf {
 impl ToOwned for ForwardRelativePath {
     type Owned = ForwardRelativePathBuf;
 
+    #[inline]
     fn to_owned(&self) -> ForwardRelativePathBuf {
         ForwardRelativePathBuf::unchecked_new(self.0.to_owned())
     }
 }
 
 impl AsRef<ForwardRelativePath> for ForwardRelativePath {
+    #[inline]
     fn as_ref(&self) -> &ForwardRelativePath {
         self
     }
 }
 
 impl AsRef<ForwardRelativePath> for ForwardRelativePathBuf {
+    #[inline]
     fn as_ref(&self) -> &ForwardRelativePath {
         ForwardRelativePath::unchecked_new(&self.0)
     }
 }
 
 impl Borrow<ForwardRelativePath> for ForwardRelativePathBuf {
+    #[inline]
     fn borrow(&self) -> &ForwardRelativePath {
         self.as_ref()
     }
@@ -1023,6 +1056,7 @@ impl Borrow<ForwardRelativePath> for ForwardRelativePathBuf {
 impl Deref for ForwardRelativePathBuf {
     type Target = ForwardRelativePath;
 
+    #[inline]
     fn deref(&self) -> &ForwardRelativePath {
         ForwardRelativePath::unchecked_new(&self.0)
     }

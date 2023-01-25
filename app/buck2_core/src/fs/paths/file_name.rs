@@ -59,36 +59,42 @@ fn verify_file_name(file_name: &str) -> anyhow::Result<()> {
 pub struct FileName(str);
 
 impl PartialEq<str> for FileName {
+    #[inline]
     fn eq(&self, other: &str) -> bool {
         &self.0 == other
     }
 }
 
 impl PartialEq<FileName> for str {
+    #[inline]
     fn eq(&self, other: &FileName) -> bool {
         self == &other.0
     }
 }
 
 impl AsRef<Path> for FileName {
+    #[inline]
     fn as_ref(&self) -> &Path {
         Path::new(&self.0)
     }
 }
 
 impl AsRef<str> for FileName {
+    #[inline]
     fn as_ref(&self) -> &str {
         &self.0
     }
 }
 
 impl AsRef<RelativePath> for FileName {
+    #[inline]
     fn as_ref(&self) -> &RelativePath {
         RelativePath::new(&self.0)
     }
 }
 
 impl AsRef<ForwardRelativePath> for FileName {
+    #[inline]
     fn as_ref(&self) -> &ForwardRelativePath {
         ForwardRelativePath::unchecked_new(&self.0)
     }
@@ -109,15 +115,18 @@ impl FileName {
     /// assert!(FileName::new("foo/").is_err());
     /// assert!(FileName::new("foo\\bar").is_err());
     /// ```
+    #[inline]
     pub fn new<S: ?Sized + AsRef<str>>(s: &S) -> anyhow::Result<&Self> {
         verify_file_name(s.as_ref())?;
         Ok(Self::unchecked_new(s))
     }
 
+    #[inline]
     pub fn unchecked_new<S: ?Sized + AsRef<str>>(s: &S) -> &Self {
         FileName::ref_cast(s.as_ref())
     }
 
+    #[inline]
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -141,6 +150,7 @@ impl FileName {
     ///
     /// # anyhow::Ok(())
     /// ```
+    #[inline]
     pub fn file_stem(&self) -> Option<&str> {
         ForwardRelativePath::unchecked_new(&self.0).file_stem()
     }
@@ -155,18 +165,21 @@ impl FileName {
     ///
     /// # anyhow::Ok(())
     /// ```
+    #[inline]
     pub fn extension(&self) -> Option<&str> {
         ForwardRelativePath::unchecked_new(&self.0).extension()
     }
 }
 
 impl PartialEq for FileName {
+    #[inline]
     fn eq(&self, other: &Self) -> bool {
         self.as_str() == other.as_str()
     }
 }
 
 impl Hash for FileName {
+    #[inline]
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.0.hash(state)
     }
@@ -175,6 +188,7 @@ impl Hash for FileName {
 impl ToOwned for FileName {
     type Owned = FileNameBuf;
 
+    #[inline]
     fn to_owned(&self) -> FileNameBuf {
         FileNameBuf(CompactString::new(&self.0))
     }
@@ -185,6 +199,7 @@ impl ToOwned for FileName {
 pub struct FileNameBuf(CompactString);
 
 impl FileNameBuf {
+    #[inline]
     pub fn unchecked_new<T>(s: T) -> Self
     where
         T: Into<CompactString>,
@@ -193,10 +208,12 @@ impl FileNameBuf {
         Self(s.into())
     }
 
+    #[inline]
     pub fn into_inner(self) -> CompactString {
         self.0
     }
 
+    #[inline]
     pub fn as_str(&self) -> &str {
         self.0.as_str()
     }
@@ -206,18 +223,21 @@ impl<T> PartialEq<T> for FileNameBuf
 where
     T: AsRef<str>,
 {
+    #[inline]
     fn eq(&self, other: &T) -> bool {
         self.0 == other.as_ref()
     }
 }
 
 impl Hash for FileNameBuf {
+    #[inline]
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.0.as_str().hash(state)
     }
 }
 
 impl Borrow<FileName> for FileNameBuf {
+    #[inline]
     fn borrow(&self) -> &FileName {
         self.as_ref()
     }
@@ -226,42 +246,49 @@ impl Borrow<FileName> for FileNameBuf {
 impl Deref for FileNameBuf {
     type Target = FileName;
 
+    #[inline]
     fn deref(&self) -> &Self::Target {
         self.as_ref()
     }
 }
 
 impl Borrow<str> for FileNameBuf {
+    #[inline]
     fn borrow(&self) -> &str {
         self.as_ref()
     }
 }
 
 impl AsRef<FileName> for FileNameBuf {
+    #[inline]
     fn as_ref(&self) -> &FileName {
         FileName::unchecked_new(self.0.as_str())
     }
 }
 
 impl AsRef<Path> for FileNameBuf {
+    #[inline]
     fn as_ref(&self) -> &Path {
         Path::new(self.0.as_str())
     }
 }
 
 impl AsRef<str> for FileNameBuf {
+    #[inline]
     fn as_ref(&self) -> &str {
         self.0.as_str()
     }
 }
 
 impl AsRef<RelativePath> for FileNameBuf {
+    #[inline]
     fn as_ref(&self) -> &RelativePath {
         RelativePath::new(self.0.as_str())
     }
 }
 
 impl AsRef<ForwardRelativePath> for FileNameBuf {
+    #[inline]
     fn as_ref(&self) -> &ForwardRelativePath {
         ForwardRelativePath::unchecked_new(self.0.as_str())
     }
@@ -270,6 +297,7 @@ impl AsRef<ForwardRelativePath> for FileNameBuf {
 impl TryFrom<String> for FileNameBuf {
     type Error = anyhow::Error;
 
+    #[inline]
     fn try_from(value: String) -> anyhow::Result<FileNameBuf> {
         // NOTE: This does not turn a String into an inlined string.
         verify_file_name(value.as_str())?;
