@@ -135,9 +135,11 @@ impl ParseResult {
         let mut loads = implicit_imports.into_map(|x| (None, x));
         for x in ast.loads() {
             let path = resolver
-                .resolve_load(x.1, Some(&x.0))
-                .with_context(|| format!("When loading `load` of `{}` from `{}`", x.1, x.0))?;
-            loads.push((Some(x.0), path));
+                .resolve_load(x.module_id, Some(&x.span))
+                .with_context(|| {
+                    format!("When loading `load` of `{}` from `{}`", x.module_id, x.span)
+                })?;
+            loads.push((Some(x.span), path));
         }
         Ok(Self(ast, Arc::new(loads)))
     }

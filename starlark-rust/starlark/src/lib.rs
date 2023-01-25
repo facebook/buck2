@@ -224,8 +224,8 @@
 //!    // We can get the loaded modules from `ast.loads`.
 //!    // And ultimately produce a `loader` capable of giving those modules to Starlark.
 //!    let mut loads = Vec::new();
-//!    for (_, load) in ast.loads() {
-//!        loads.push((load.to_owned(), get_module(load)?));
+//!    for load in ast.loads() {
+//!        loads.push((load.module_id.to_owned(), get_module(load.module_id)?));
 //!    }
 //!    let modules = loads.iter().map(|(a, b)| (a.as_str(), b)).collect();
 //!    let mut loader = ReturnFileLoader { modules: &modules };

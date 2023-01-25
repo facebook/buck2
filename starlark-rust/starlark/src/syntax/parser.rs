@@ -26,6 +26,7 @@ use crate::codemap::CodeMap;
 use crate::codemap::FileSpan;
 use crate::codemap::Pos;
 use crate::codemap::Span;
+use crate::collections::SmallMap;
 use crate::errors::Diagnostic;
 use crate::syntax::ast::AstModule;
 use crate::syntax::ast::AstStmt;
@@ -97,6 +98,17 @@ pub(crate) fn parse_error_add_span(
     Diagnostic::new(anyhow::anyhow!(message), span, codemap)
 }
 
+/// A `load` statement loading zero or more symbols from another module.
+#[derive(Debug)]
+pub struct AstLoad<'a> {
+    /// Span where this load is written
+    pub span: FileSpan,
+    /// Module being loaded
+    pub module_id: &'a str,
+    /// Symbols loaded from that module (local ident -> source ident)
+    pub symbols: SmallMap<&'a str, &'a str>,
+}
+
 impl AstModule {
     fn create(
         codemap: CodeMap,
@@ -142,18 +154,23 @@ impl AstModule {
 
     /// Return the file names of all the `load` statements in the module.
     /// If the [`Dialect`] had [`enable_load`](Dialect::enable_load) set to [`false`] this will be an empty list.
-    pub fn loads(&self) -> Vec<(FileSpan, &str)> {
+    pub fn loads(&self) -> Vec<AstLoad> {
         // We know that `load` statements must be at the top-level, so no need to descend inside `if`, `for`, `def` etc.
         // There is a suggestion that `load` statements should be at the top of a file, but we tolerate that not being true.
-        fn f<'a>(ast: &'a AstStmt, codemap: &CodeMap, vec: &mut Vec<(FileSpan, &'a str)>) {
+        fn f<'a>(ast: &'a AstStmt, codemap: &CodeMap, vec: &mut Vec<AstLoad<'a>>) {
             match &ast.node {
-                Stmt::Load(load) => vec.push((
-                    FileSpan {
+                Stmt::Load(load) => vec.push(AstLoad {
+                    span: FileSpan {
                         file: codemap.dupe(),
                         span: load.module.span,
                     },
-                    &load.module.node,
-                )),
+                    module_id: &load.module.node,
+                    symbols: load
+                        .args
+                        .iter()
+                        .map(|(name, sym)| (name.node.0.as_str(), sym.node.as_str()))
+                        .collect(),
+                }),
                 Stmt::Statements(stmts) => {
                     for s in stmts {
                         f(s, codemap, vec);
