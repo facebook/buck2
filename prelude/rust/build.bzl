@@ -258,6 +258,7 @@ def generate_rustdoc_test(
         toolchain_info.rustdoc,
         "--test",
         "-Zunstable-options",
+        cmd_args("--test-builder=", toolchain_info.compiler, delimiter = ""),
         toolchain_info.rustdoc_flags,
         ctx.attrs.rustdoc_flags,
         common_args.args,
@@ -270,7 +271,7 @@ def generate_rustdoc_test(
         cmd_args("--runtool-arg=--resources=", resources, delimiter = ""),
     )
 
-    rustdoc_cmd.hidden(compile_ctx.symlinked_srcs, hidden, runtime_files, toolchain_info.compiler)
+    rustdoc_cmd.hidden(compile_ctx.symlinked_srcs, hidden, runtime_files)
 
     return rustdoc_cmd
 
