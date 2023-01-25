@@ -91,7 +91,7 @@ impl<'a> BuckPathRef<'a> {
 
     #[inline]
     pub fn to_cell_path(&self) -> CellPath {
-        self.pkg.as_cell_path().join(self.path.as_ref())
+        self.pkg.as_cell_path().join(self.path)
     }
 
     #[inline]

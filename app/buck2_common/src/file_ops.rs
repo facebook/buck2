@@ -411,7 +411,7 @@ impl<T: DefaultFileOpsDelegate> FileOps for T {
         entries.sort_by(|a, b| a.file_name.cmp(&b.file_name));
 
         let is_ignored = |entry: &SimpleDirEntry| {
-            let entry_path = path.join(entry.file_name.as_ref());
+            let entry_path = path.join(&entry.file_name);
             let is_ignored =
                 DefaultFileOpsDelegate::check_ignored(self, entry_path.as_ref())?.is_ignored();
             anyhow::Ok(is_ignored)

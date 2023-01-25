@@ -59,7 +59,7 @@ impl BuildFilePath {
     }
 
     pub fn path(&self) -> CellPath {
-        self.package.as_cell_path().join(self.filename.as_ref())
+        self.package.as_cell_path().join(&self.filename)
     }
 
     pub fn build_file_cell(&self) -> BuildFileCell {

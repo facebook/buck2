@@ -77,7 +77,7 @@ impl CellPath {
     /// ```
     #[inline]
     pub fn join<P: AsRef<ForwardRelativePath>>(&self, path: P) -> CellPath {
-        self.as_ref().join(path.as_ref())
+        self.as_ref().join(path)
     }
 
     /// Returns a relative path of the parent directory
@@ -322,7 +322,7 @@ impl<'a> CellPathRef<'a> {
     }
 
     #[inline]
-    pub fn join(&self, path: &ForwardRelativePath) -> CellPath {
+    pub fn join<P: AsRef<ForwardRelativePath>>(&self, path: P) -> CellPath {
         CellPath {
             cell: self.cell,
             path: self.path.join(path),

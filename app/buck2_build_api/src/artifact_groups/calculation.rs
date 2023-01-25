@@ -101,11 +101,9 @@ async fn path_artifact_value(
                 let files = file_ops.read_dir(cell_path.dupe()).await?;
 
                 let entries = files.iter().map(|x| async {
-                    let value = path_artifact_value(
-                        file_ops,
-                        cell_path.join(x.file_name.as_ref()).as_ref(),
-                    )
-                    .await?;
+                    let value =
+                        path_artifact_value(file_ops, cell_path.join(&x.file_name).as_ref())
+                            .await?;
                     anyhow::Ok((x.file_name.clone(), value))
                 });
 
