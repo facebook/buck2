@@ -132,8 +132,8 @@ pub(crate) async fn find_execution_platform_by_configuration(
     cfg: &Configuration,
 ) -> SharedResult<ExecutionPlatform> {
     match ctx.get_execution_platforms().await? {
-        Some(candidates) if exec_cfg != &Configuration::unbound_exec() => {
-            for c in candidates.iter() {
+        Some(platforms) if exec_cfg != &Configuration::unbound_exec() => {
+            for c in platforms.candidates() {
                 if &c.cfg() == exec_cfg {
                     return Ok(c.dupe());
                 }

@@ -26,6 +26,7 @@ use buck2_core::target::ConfiguredTargetLabel;
 use buck2_core::target::TargetLabel;
 use buck2_node::compatibility::MaybeCompatible;
 use buck2_node::configuration::execution::ExecutionPlatform;
+use buck2_node::configuration::execution::ExecutionPlatformError;
 use buck2_node::configuration::execution::ExecutionPlatformIncompatibleReason;
 use buck2_node::configuration::execution::ExecutionPlatformResolution;
 use buck2_node::configuration::resolved::ConfigurationNode;
@@ -43,7 +44,9 @@ use thiserror::Error;
 
 use crate::analysis::calculation::RuleAnalysisCalculation;
 use crate::configuration::ConfigurationCalculation;
+use crate::configuration::ExecutionPlatformFallback;
 use crate::configuration::ExecutionPlatforms;
+use crate::configuration::ExecutionPlatformsData;
 use crate::configuration::ResolvedConfiguration;
 use crate::interpreter::rule_defs::provider::builtin::configuration_info::FrozenConfigurationInfo;
 use crate::interpreter::rule_defs::provider::builtin::execution_platform_registration_info::ExecutionPlatformRegistrationInfo;
@@ -148,7 +151,10 @@ async fn get_execution_platforms(
     for platform in result.platforms()? {
         platforms.push(platform.to_execution_platform()?);
     }
-    Ok(Some(Arc::new(platforms)))
+    Ok(Some(Arc::new(ExecutionPlatformsData::new(
+        platforms,
+        result.fallback()?,
+    ))))
 }
 
 /// Check if a particular execution platform is compatible with the constraints or not.
@@ -212,6 +218,14 @@ async fn check_execution_platform(
     Ok(Ok(()))
 }
 
+async fn get_execution_platforms_enabled(
+    ctx: &DiceComputations,
+) -> anyhow::Result<ExecutionPlatforms> {
+    ctx.get_execution_platforms()
+        .await?
+        .context("Execution platforms are not enabled")
+}
+
 async fn resolve_toolchain_constraints_from_constraints(
     ctx: &DiceComputations,
     target: &ConfiguredTargetLabel,
@@ -220,12 +234,7 @@ async fn resolve_toolchain_constraints_from_constraints(
     toolchain_allows: &[ToolchainConstraints],
 ) -> SharedResult<ToolchainConstraints> {
     let mut incompatible = SmallMap::new();
-    for exec_platform in ctx
-        .get_execution_platforms()
-        .await?
-        .context("Execution platforms are not enabled")?
-        .iter()
-    {
+    for exec_platform in get_execution_platforms_enabled(ctx).await?.candidates() {
         if let Err(e) = check_execution_platform(
             ctx,
             target.pkg().cell_name(),
@@ -253,12 +262,8 @@ async fn resolve_execution_platform_from_constraints(
     toolchain_allows: &[ToolchainConstraints],
 ) -> SharedResult<ExecutionPlatformResolution> {
     let mut skipped = Vec::new();
-    for exec_platform in ctx
-        .get_execution_platforms()
-        .await?
-        .context("Execution platforms are not enabled")?
-        .iter()
-    {
+    let execution_platforms = get_execution_platforms_enabled(ctx).await?;
+    for exec_platform in execution_platforms.candidates() {
         match check_execution_platform(
             ctx,
             target_node_cell,
@@ -280,7 +285,20 @@ async fn resolve_execution_platform_from_constraints(
             }
         }
     }
-    Ok(ExecutionPlatformResolution::new(None, skipped))
+
+    match execution_platforms.fallback() {
+        ExecutionPlatformFallback::UseUnspecifiedExec => {
+            Ok(ExecutionPlatformResolution::new(None, skipped))
+        }
+        ExecutionPlatformFallback::Error => Err(anyhow::anyhow!(
+            ExecutionPlatformError::NoCompatiblePlatform(Arc::new(skipped))
+        )
+        .into()),
+        ExecutionPlatformFallback::Platform(platform) => Ok(ExecutionPlatformResolution::new(
+            Some(platform.dupe()),
+            skipped,
+        )),
+    }
 }
 
 async fn configuration_matches(

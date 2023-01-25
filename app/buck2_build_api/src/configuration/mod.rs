@@ -9,6 +9,7 @@
 
 use std::sync::Arc;
 
+use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_common::result::SharedResult;
 use buck2_core::cells::name::CellName;
@@ -24,7 +25,37 @@ use indexmap::IndexSet;
 
 pub mod calculation;
 
-pub type ExecutionPlatforms = Arc<Vec<ExecutionPlatform>>;
+pub type ExecutionPlatforms = Arc<ExecutionPlatformsData>;
+
+#[derive(Debug, Allocative)]
+pub enum ExecutionPlatformFallback {
+    Error,
+    UseUnspecifiedExec,
+    Platform(ExecutionPlatform),
+}
+
+#[derive(Debug, Allocative)]
+pub struct ExecutionPlatformsData {
+    platforms: Vec<ExecutionPlatform>,
+    fallback: ExecutionPlatformFallback,
+}
+
+impl ExecutionPlatformsData {
+    pub fn new(platforms: Vec<ExecutionPlatform>, fallback: ExecutionPlatformFallback) -> Self {
+        Self {
+            platforms,
+            fallback,
+        }
+    }
+
+    pub fn candidates(&self) -> impl Iterator<Item = &ExecutionPlatform> {
+        self.platforms.iter()
+    }
+
+    pub fn fallback(&self) -> &ExecutionPlatformFallback {
+        &self.fallback
+    }
+}
 
 #[async_trait]
 pub trait ConfigurationCalculation {

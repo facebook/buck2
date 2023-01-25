@@ -21,6 +21,8 @@ use starlark::values::Trace;
 use starlark::values::Value;
 use thiserror::Error;
 
+use crate::configuration::ExecutionPlatformFallback;
+use crate::interpreter::rule_defs::provider::builtin::execution_platform_info::ExecutionPlatformInfo;
 use crate::interpreter::rule_defs::provider::builtin::execution_platform_info::FrozenExecutionPlatformInfo;
 
 #[derive(Debug, Error)]
@@ -29,6 +31,10 @@ enum ExecutionPlatformRegistrationTypeError {
     ExpectedListOfPlatforms(String, String),
     #[error("expected a ExecutionPlatformInfo, got `{0}` (type `{1}`)")]
     NotAPlatform(String, String),
+    #[error(
+        "expected an ExecutionPlatformInfo or one of the strings \"error\" or \"use_unspecified\", got `{0}` (type `{1}`)"
+    )]
+    InvalidFallback(String, String),
 }
 
 /// Provider that gives the list of all execution platforms available for this build.
@@ -38,6 +44,8 @@ enum ExecutionPlatformRegistrationTypeError {
 pub(crate) struct ExecutionPlatformRegistrationInfoGen<V> {
     #[provider(field_type = "Vec<FrozenExecutionPlatformInfo>")]
     platforms: V,
+    // OneOf<ExecutionPlatformInfo, \"error\", \"unspecified\", None>
+    fallback: V,
 }
 
 impl FrozenExecutionPlatformRegistrationInfo {
@@ -66,13 +74,40 @@ impl FrozenExecutionPlatformRegistrationInfo {
             })
             .collect::<anyhow::Result<_>>()
     }
+
+    pub fn fallback(&self) -> anyhow::Result<ExecutionPlatformFallback> {
+        if self.fallback.is_none() {
+            return Ok(ExecutionPlatformFallback::UseUnspecifiedExec);
+        }
+        let fallback = self.fallback.to_value();
+        if let Some(v) = ExecutionPlatformInfo::from_value(fallback) {
+            return Ok(ExecutionPlatformFallback::Platform(
+                v.to_execution_platform()?,
+            ));
+        }
+
+        match fallback.unpack_str() {
+            Some("error") => Ok(ExecutionPlatformFallback::Error),
+            Some("use_unspecified") => Ok(ExecutionPlatformFallback::UseUnspecifiedExec),
+            _ => Err(anyhow::anyhow!(
+                ExecutionPlatformRegistrationTypeError::InvalidFallback(
+                    fallback.to_repr(),
+                    fallback.get_type().to_owned(),
+                )
+            )),
+        }
+    }
 }
 
 #[starlark_module]
 fn info_creator(globals: &mut GlobalsBuilder) {
     fn ExecutionPlatformRegistrationInfo<'v>(
         #[starlark(require = named)] platforms: Value<'v>,
+        #[starlark(require = named)] fallback: Option<Value<'v>>,
     ) -> anyhow::Result<ExecutionPlatformRegistrationInfo<'v>> {
-        Ok(ExecutionPlatformRegistrationInfo { platforms })
+        Ok(ExecutionPlatformRegistrationInfo {
+            platforms,
+            fallback: fallback.unwrap_or_else(Value::new_none),
+        })
     }
 }

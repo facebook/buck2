@@ -15,6 +15,7 @@ use buck2_core::configuration::Configuration;
 use buck2_core::target::ConfiguredTargetLabel;
 use buck2_core::target::TargetLabel;
 use dupe::Dupe;
+use indent_write::indentable::Indentable;
 use itertools::Itertools;
 use thiserror::Error;
 
@@ -136,8 +137,9 @@ impl std::fmt::Display for ExecutionPlatformIncompatibleReason {
 }
 
 #[derive(Debug, Error)]
-enum ExecutionPlatformError {
-    #[error("No compatible execution platform.\n{}", .0.iter().map(|(id, reason)| format!("  `{}` skipped because\n:   {}", id, reason)).join("\n"))]
+pub enum ExecutionPlatformError {
+    // .indented() losing the alternate flag that we want to use to format the reason so we need to explicitly do that.
+    #[error("No compatible execution platform.\n{}", .0.iter().map(|(id, reason)| format!("  `{}` skipped because:\n{}", id, format!("{:#}", reason).indented("    "))).join("\n"))]
     NoCompatiblePlatform(Arc<Vec<(String, ExecutionPlatformIncompatibleReason)>>),
 }
 
