@@ -348,18 +348,18 @@ impl Dice {
         Arc::new(Dice {
             data,
             map,
-            global_versions: VersionTracker::new(box move |v, versions| {
-                if let Some(dropped) = v {
+            global_versions: VersionTracker::new(box move |update| {
+                if let Some(deleted) = update.deleted_version() {
                     if let Some(engines) = weak_map.upgrade() {
                         engines
                             .read()
                             .engines()
-                            .map(|engine| engine.gc_version(dropped));
+                            .map(|engine| engine.gc_version(deleted));
                     }
                 }
 
                 // If the corresponding Dice has been dropped, then so be it, ignore the error.
-                active_versions_sender.send_replace(versions.count());
+                active_versions_sender.send_replace(update.active_version_count());
             }),
             detect_cycles,
             active_transaction_count: AtomicU32::new(0),
