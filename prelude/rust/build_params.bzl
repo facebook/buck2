@@ -299,3 +299,41 @@ def build_params(
         prefix = prefix,
         suffix = suffix,
     )
+
+# This function is like:
+#
+#     build_params(
+#         rule = RuleType("binary"),
+#         proc_macro = False,
+#         lang = LinkageLang("rust"),
+#         ...
+#     )
+#
+# but without behavior that varies by `link_style`. The `preferred_linkage` is
+# instead always what takes effect.
+#
+# Doc tests are built using these build params.
+#
+# Rust libraries have a different output "artifact" for each possible
+# link_style, but do not have a different doc tests subtarget for each different
+# link_style. Doc tests always get built in the style determined by the build
+# mode's preferred linkage.
+def preferred_rust_binary_build_params(
+        preferred_linkage: Linkage.type,
+        linker_type: str.type) -> BuildParams.type:
+    build_kind_key = {
+        "any": _BINARY_SHARED,
+        "shared": _BINARY_SHARED,
+        "static": _BINARY_NON_PIE,
+    }[preferred_linkage.value]
+
+    flags = _BUILD_PARAMS[build_kind_key]
+    prefix, suffix = flags.platform_to_affix(linker_type)
+
+    return BuildParams(
+        crate_type = flags.crate_type,
+        reloc_model = flags.reloc_model,
+        dep_link_style = flags.dep_link_style,
+        prefix = prefix,
+        suffix = suffix,
+    )

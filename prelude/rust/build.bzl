@@ -7,7 +7,13 @@
 
 load("@prelude//:local_only.bzl", "link_cxx_binary_locally")
 load("@prelude//:paths.bzl", "paths")
-load("@prelude//cxx:cxx_link_utility.bzl", "make_link_args")
+load("@prelude//:resources.bzl", "create_resource_db", "gather_resources")
+load("@prelude//cxx:cxx_library_utility.bzl", "cxx_attr_deps")
+load(
+    "@prelude//cxx:cxx_link_utility.bzl",
+    "executable_shared_lib_arguments",
+    "make_link_args",
+)
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load(
     "@prelude//cxx:linker.bzl",
@@ -20,8 +26,14 @@ load(
     "LinkStyle",  #@unused Used as a type
     "get_link_args",
 )
+load(
+    "@prelude//linking:shared_libraries.bzl",
+    "merge_shared_libraries",
+    "traverse_shared_library_info",
+)
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
 load("@prelude//utils:set.bzl", "set")
+load("@prelude//utils:utils.bzl", "flatten_dict")
 load(
     ":build_params.bzl",
     "BuildParams",  # @unused Used as a type
@@ -41,12 +53,14 @@ load(
     ":link_info.bzl",
     "RustLinkInfo",
     "RustLinkStyleInfo",
+    "cxx_by_platform",
     "inherited_non_rust_link_info",
+    "inherited_non_rust_shared_libs",
     "normalize_crate",
     "resolve_deps",
-    "resolve_doc_deps",
     "style_info",
 )
+load(":resources.bzl", "rust_attr_resources")
 load(":rust_toolchain.bzl", "ctx_toolchain_info")
 
 # Struct for sharing common args between rustc and rustdoc
@@ -174,10 +188,38 @@ def generate_rustdoc_test(
         ctx: "context",
         compile_ctx: CompileContext.type,
         crate: str.type,
+        link_style: LinkStyle.type,
         library: RustLinkStyleInfo.type,
         params: BuildParams.type,
         default_roots: [str.type]) -> "cmd_args":
     toolchain_info = ctx_toolchain_info(ctx)
+
+    resources = create_resource_db(
+        ctx = ctx,
+        name = "doctest/resources.json",
+        binary = library.rlib,
+        resources = flatten_dict(gather_resources(
+            label = ctx.label,
+            resources = rust_attr_resources(ctx),
+            deps = cxx_attr_deps(ctx),
+        ).values()),
+    )
+
+    # Gather and setup symlink tree of transitive shared library deps.
+    shared_libs = {}
+    if link_style == LinkStyle("shared"):
+        shlib_info = merge_shared_libraries(
+            ctx.actions,
+            deps = inherited_non_rust_shared_libs(ctx, include_doc_deps = True),
+        )
+        for soname, shared_lib in traverse_shared_library_info(shlib_info).items():
+            shared_libs[soname] = shared_lib.lib
+    extra_link_args, runtime_files, _ = executable_shared_lib_arguments(
+        ctx.actions,
+        ctx.attrs._cxx_toolchain[CxxToolchainInfo],
+        resources,
+        shared_libs,
+    )
 
     common_args = _compute_common_args(
         ctx = ctx,
@@ -193,9 +235,18 @@ def generate_rustdoc_test(
 
     link_args, hidden, _dwo_dir_unused_in_rust = make_link_args(
         ctx,
-        [get_link_args(inherited_non_rust_link_info(ctx), LinkStyle("static_pic"))],
+        [
+            LinkArgs(flags = extra_link_args),
+            get_link_args(
+                inherited_non_rust_link_info(ctx, include_doc_deps = True),
+                link_style,
+            ),
+        ],
         "{}-{}".format(common_args.subdir, common_args.tempfile),
     )
+
+    link_args.add(ctx.attrs.doc_linker_flags or [])
+    link_args.add(cxx_by_platform(ctx, ctx.attrs.doc_platform_linker_flags or []))
 
     linker_argsfile, _ = ctx.actions.write(
         "{}/__{}_linker_args.txt".format(common_args.subdir, common_args.tempfile),
@@ -210,11 +261,15 @@ def generate_rustdoc_test(
         ctx.attrs.rustdoc_flags,
         common_args.args,
         cmd_args("--extern=", crate, "=", library.rlib, delimiter = ""),
+        "--extern=proc_macro" if ctx.attrs.proc_macro else [],
         compile_ctx.linker_args,
         cmd_args(linker_argsfile, format = "-Clink-arg=@{}"),
+        "--runtool=/usr/bin/env",
+        cmd_args(toolchain_info.rustdoc_test_with_resources, format = "--runtool-arg={}"),
+        cmd_args("--runtool-arg=--resources=", resources, delimiter = ""),
     )
 
-    rustdoc_cmd.hidden(compile_ctx.symlinked_srcs, hidden)
+    rustdoc_cmd.hidden(compile_ctx.symlinked_srcs, hidden, runtime_files, toolchain_info.compiler)
 
     return rustdoc_cmd
 
@@ -410,7 +465,7 @@ def _dependency_args(
     transitive_deps = {}
     deps = []
     crate_targets = {}
-    for x in resolve_deps(ctx) + (resolve_doc_deps(ctx) if is_rustdoc_test else []):
+    for x in resolve_deps(ctx, include_doc_deps = is_rustdoc_test):
         crate = x.name and normalize_crate(x.name)
         dep = x.dep
 

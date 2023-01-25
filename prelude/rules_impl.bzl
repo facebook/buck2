@@ -549,8 +549,10 @@ inlined_extra_attributes = {
         # don't have to know whether we're building a rust_binary or a
         # rust_library.
         "doc_deps": attrs.list(attrs.dep(), default = []),
+        "doc_linker_flags": attrs.list(attrs.arg(), default = []),
         "doc_named_deps": attrs.dict(key = attrs.string(), value = attrs.dep(), sorted = False, default = {}),
         "doc_platform_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
+        "doc_platform_linker_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg())), default = []),
         "doctests": attrs.bool(default = True),
         "incremental_build_mode": attrs.option(attrs.string(), default = None),
         "incremental_enabled": attrs.bool(default = False),

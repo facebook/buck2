@@ -33,14 +33,15 @@ def _system_rust_toolchain_impl(ctx):
         RustToolchainInfo(
             clippy_driver = "clippy-driver",
             compiler = "rustc",
+            default_edition = ctx.attrs.default_edition,
             extern_html_root_url_prefix = ctx.attrs.extern_html_root_url_prefix,
             failure_filter_action = ctx.attrs.failure_filter_action[RunInfo],
             rustc_action = ctx.attrs.rustc_action[RunInfo],
-            default_edition = ctx.attrs.default_edition,
+            rustc_flags = ctx.attrs.rustc_flags,
             rustc_target_triple = ctx.attrs.rustc_target_triple,
             rustdoc = "rustdoc",
-            rustc_flags = ctx.attrs.rustc_flags,
             rustdoc_flags = ctx.attrs.rustdoc_flags,
+            rustdoc_test_with_resources = ctx.attrs.rustdoc_test_with_resources[RunInfo],
         ),
         RustPlatformInfo(
             name = "x86_64",
@@ -57,6 +58,7 @@ system_rust_toolchain = rule(
         "rustc_flags": attrs.list(attrs.string(), default = []),
         "rustc_target_triple": attrs.string(default = _DEFAULT_TRIPLE),
         "rustdoc_flags": attrs.list(attrs.string(), default = []),
+        "rustdoc_test_with_resources": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//rust/tools:rustdoc_test_with_resources")),
     },
     is_toolchain_rule = True,
 )

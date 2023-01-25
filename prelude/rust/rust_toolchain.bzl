@@ -43,6 +43,8 @@ _rust_toolchain_attrs = {
     "clippy_driver": None,
     # Wrapper for rustc in actions
     "rustc_action": None,
+    # Wrapper for rustdoc-generated test executables
+    "rustdoc_test_with_resources": None,
     # Failure filter action
     "failure_filter_action": None,
     # The default edition to use, if not specified.

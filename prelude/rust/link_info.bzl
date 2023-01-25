@@ -93,10 +93,12 @@ def _do_resolve_deps(
                                                                       cxx_by_platform(ctx, platform_flagged_deps)]
     ]
 
-def resolve_deps(ctx: "context") -> [RustDependency.type]:
+def resolve_deps(
+        ctx: "context",
+        include_doc_deps: bool.type = False) -> [RustDependency.type]:
     # The `getattr`s are needed for when we're operating on
     # `prebuilt_rust_library` rules, which don't have those attrs.
-    return _do_resolve_deps(
+    dependencies = _do_resolve_deps(
         ctx = ctx,
         deps = ctx.attrs.deps,
         platform_deps = ctx.attrs.platform_deps,
@@ -105,16 +107,20 @@ def resolve_deps(ctx: "context") -> [RustDependency.type]:
         platform_flagged_deps = getattr(ctx.attrs, "platform_flagged_deps", []),
     )
 
-def resolve_doc_deps(ctx: "context") -> [RustDependency.type]:
-    return _do_resolve_deps(
-        ctx = ctx,
-        deps = ctx.attrs.doc_deps,
-        platform_deps = ctx.attrs.doc_platform_deps,
-        named_deps = getattr(ctx.attrs, "doc_named_deps", {}),
-    )
+    if include_doc_deps:
+        dependencies.extend(_do_resolve_deps(
+            ctx = ctx,
+            deps = ctx.attrs.doc_deps,
+            platform_deps = ctx.attrs.doc_platform_deps,
+            named_deps = getattr(ctx.attrs, "doc_named_deps", {}),
+        ))
+
+    return dependencies
 
 # Returns native link dependencies.
-def _non_rust_link_deps(ctx: "context") -> ["dependency"]:
+def _non_rust_link_deps(
+        ctx: "context",
+        include_doc_deps: bool.type = False) -> ["dependency"]:
     """
     Return all first-order native linkable dependencies of all transitive Rust
     libraries.
@@ -122,7 +128,7 @@ def _non_rust_link_deps(ctx: "context") -> ["dependency"]:
     This emulates v1's graph walk, where it traverses through Rust libraries
     looking for non-Rust native link infos (and terminating the search there).
     """
-    first_order_deps = [dep.dep for dep in resolve_deps(ctx)]
+    first_order_deps = [dep.dep for dep in resolve_deps(ctx, include_doc_deps)]
     return [
         d
         for d in first_order_deps
@@ -130,7 +136,9 @@ def _non_rust_link_deps(ctx: "context") -> ["dependency"]:
     ]
 
 # Returns native link dependencies.
-def _non_rust_link_infos(ctx: "context") -> ["MergedLinkInfo"]:
+def _non_rust_link_infos(
+        ctx: "context",
+        include_doc_deps: bool.type = False) -> ["MergedLinkInfo"]:
     """
     Return all first-order native link infos of all transitive Rust libraries.
 
@@ -139,17 +147,19 @@ def _non_rust_link_infos(ctx: "context") -> ["MergedLinkInfo"]:
     MergedLinkInfo is a mapping from link style to all the transitive deps
     rolled up in a tset.
     """
-    return [d[MergedLinkInfo] for d in _non_rust_link_deps(ctx)]
+    return [d[MergedLinkInfo] for d in _non_rust_link_deps(ctx, include_doc_deps)]
 
 # Returns native link dependencies.
-def _non_rust_shared_lib_infos(ctx: "context") -> ["SharedLibraryInfo"]:
+def _non_rust_shared_lib_infos(
+        ctx: "context",
+        include_doc_deps: bool.type = False) -> ["SharedLibraryInfo"]:
     """
     Return all transitive shared libraries for non-Rust native linkabes.
 
     This emulates v1's graph walk, where it traverses through -- and ignores --
     Rust libraries to collect all transitive shared libraries.
     """
-    first_order_deps = [dep.dep for dep in resolve_deps(ctx)]
+    first_order_deps = [dep.dep for dep in resolve_deps(ctx, include_doc_deps)]
     return [
         d[SharedLibraryInfo]
         for d in first_order_deps
@@ -157,8 +167,10 @@ def _non_rust_shared_lib_infos(ctx: "context") -> ["SharedLibraryInfo"]:
     ]
 
 # Returns native link dependencies.
-def _rust_link_infos(ctx: "context") -> ["RustLinkInfo"]:
-    first_order_deps = resolve_deps(ctx)
+def _rust_link_infos(
+        ctx: "context",
+        include_doc_deps: bool.type = False) -> ["RustLinkInfo"]:
+    first_order_deps = resolve_deps(ctx, include_doc_deps)
     return filter(None, [d.dep.get(RustLinkInfo) for d in first_order_deps])
 
 def normalize_crate(label: str.type) -> str.type:
@@ -173,16 +185,20 @@ def inherited_non_rust_exported_link_deps(ctx: "context") -> ["dependency"]:
             deps[dep.label] = dep
     return deps.values()
 
-def inherited_non_rust_link_info(ctx: "context") -> "MergedLinkInfo":
+def inherited_non_rust_link_info(
+        ctx: "context",
+        include_doc_deps: bool.type = False) -> "MergedLinkInfo":
     infos = []
-    infos.extend(_non_rust_link_infos(ctx))
-    infos.extend([d.non_rust_link_info for d in _rust_link_infos(ctx)])
+    infos.extend(_non_rust_link_infos(ctx, include_doc_deps))
+    infos.extend([d.non_rust_link_info for d in _rust_link_infos(ctx, include_doc_deps)])
     return merge_link_infos(ctx, infos)
 
-def inherited_non_rust_shared_libs(ctx: "context") -> ["SharedLibraryInfo"]:
+def inherited_non_rust_shared_libs(
+        ctx: "context",
+        include_doc_deps: bool.type = False) -> ["SharedLibraryInfo"]:
     infos = []
-    infos.extend(_non_rust_shared_lib_infos(ctx))
-    infos.extend([d.non_rust_shared_libs for d in _rust_link_infos(ctx)])
+    infos.extend(_non_rust_shared_lib_infos(ctx, include_doc_deps))
+    infos.extend([d.non_rust_shared_libs for d in _rust_link_infos(ctx, include_doc_deps)])
     return infos
 
 def attr_crate(ctx: "context") -> str.type:

@@ -67,6 +67,7 @@ load(
     "RuleType",
     "build_params",
     "crate_type_transitive_deps",
+    "preferred_rust_binary_build_params",
 )
 load(
     ":link_info.bzl",
@@ -196,12 +197,17 @@ def rust_library_impl(ctx: "context") -> ["provider"]:
 
     rustdoc_test = None
     if ctx.attrs.doctests:
+        rustdoc_test_params = preferred_rust_binary_build_params(
+            preferred_linkage = Linkage(ctx.attrs.preferred_linkage),
+            linker_type = ctx.attrs._cxx_toolchain[CxxToolchainInfo].linker_info.type,
+        )
         rustdoc_test = generate_rustdoc_test(
             ctx = ctx,
             compile_ctx = compile_ctx,
             crate = crate,
+            link_style = rustdoc_test_params.dep_link_style,
             library = rust_param_artifact[static_library_params],
-            params = static_library_params,
+            params = rustdoc_test_params,
             default_roots = default_roots,
         )
 
