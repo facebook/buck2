@@ -16,7 +16,6 @@ use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::package::package_relative_path::PackageRelativePath;
 use dupe::Dupe;
-use indexmap::IndexSet;
 
 use crate::package_listing::file_listing::PackageFileListing;
 
@@ -28,7 +27,7 @@ pub struct PackageListing {
 #[derive(Eq, PartialEq, Debug, Allocative)]
 struct PackageListingData {
     files: PackageFileListing,
-    directories: IndexSet<Box<PackageRelativePath>>,
+    directories: SortedSet<Box<PackageRelativePath>>,
     subpackages: SortedVec<Box<PackageRelativePath>>,
     buildfile: FileNameBuf,
 }
@@ -36,7 +35,7 @@ struct PackageListingData {
 impl PackageListing {
     pub(crate) fn new(
         files: SortedSet<Box<PackageRelativePath>>,
-        directories: IndexSet<Box<PackageRelativePath>>,
+        directories: SortedSet<Box<PackageRelativePath>>,
         subpackages: SortedVec<Box<PackageRelativePath>>,
         buildfile: FileNameBuf,
     ) -> Self {
@@ -53,7 +52,7 @@ impl PackageListing {
     pub fn empty(buildfile: FileNameBuf) -> Self {
         Self::new(
             SortedSet::new(),
-            IndexSet::new(),
+            SortedSet::new(),
             SortedVec::new(),
             buildfile,
         )
@@ -102,7 +101,6 @@ pub mod testing {
     use buck2_core::collections::sorted_vec::SortedVec;
     use buck2_core::fs::paths::file_name::FileNameBuf;
     use buck2_core::package::package_relative_path::PackageRelativePathBuf;
-    use indexmap::IndexSet;
 
     use crate::package_listing::listing::PackageListing;
 
@@ -130,7 +128,7 @@ pub mod testing {
             });
             PackageListing::new(
                 SortedSet::from_iter(files),
-                IndexSet::new(),
+                SortedSet::new(),
                 SortedVec::new(),
                 FileNameBuf::unchecked_new(buildfile),
             )

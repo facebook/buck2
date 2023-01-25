@@ -56,6 +56,13 @@ where
         self.inner.get(value)
     }
 
+    pub fn contains<Q: ?Sized>(&self, value: &Q) -> bool
+    where
+        Q: Hash + Equivalent<T>,
+    {
+        self.inner.contains(value)
+    }
+
     pub fn get_index(&self, index: usize) -> Option<&T> {
         self.inner.get_index(index)
     }

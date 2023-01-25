@@ -191,7 +191,7 @@ impl<'c> InterpreterPackageListingResolver<'c> {
 
         Ok(PackageListing::new(
             SortedSet::new_unchecked(strip_prefixes(root, &files)?),
-            strip_prefixes(root, &dirs)?,
+            SortedSet::new_unchecked(strip_prefixes(root, &dirs)?),
             SortedVec::new_unchecked(strip_prefixes(root, &subpackages)?),
             buildfile.to_owned(),
         ))
