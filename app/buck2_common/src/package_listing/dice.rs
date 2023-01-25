@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
-use buck2_core::cells::cell_path::CellPath;
+use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::package::PackageLabel;
 use dice::DiceComputations;
 use dice::Key;
@@ -77,7 +77,10 @@ impl<'c> PackageListingResolver for DicePackageListingResolver<'c> {
         self.0.compute(&PackageListingKey(package.dupe())).await?
     }
 
-    async fn get_enclosing_package(&self, path: &CellPath) -> anyhow::Result<PackageLabel> {
+    async fn get_enclosing_package(
+        &self,
+        path: CellPathRef<'async_trait>,
+    ) -> anyhow::Result<PackageLabel> {
         let cell_resolver = self.0.get_cell_resolver().await?;
         let file_ops = self.0.file_ops();
         InterpreterPackageListingResolver::new(cell_resolver, Arc::new(file_ops))
@@ -87,8 +90,8 @@ impl<'c> PackageListingResolver for DicePackageListingResolver<'c> {
 
     async fn get_enclosing_packages(
         &self,
-        path: &CellPath,
-        enclosing_violation_path: &CellPath,
+        path: CellPathRef<'async_trait>,
+        enclosing_violation_path: CellPathRef<'async_trait>,
     ) -> anyhow::Result<Vec<PackageLabel>> {
         let cell_resolver = self.0.get_cell_resolver().await?;
         let file_ops = self.0.file_ops();

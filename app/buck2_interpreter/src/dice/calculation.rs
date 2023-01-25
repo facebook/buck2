@@ -25,7 +25,7 @@ use buck2_common::package_listing::resolver::PackageListingResolver;
 use buck2_common::result::SharedResult;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
-use buck2_core::cells::cell_path::CellPath;
+use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::name::CellName;
 use buck2_core::package::PackageLabel;
 use buck2_events::dispatch::span;
@@ -199,8 +199,8 @@ impl<'c> DiceCalculationDelegate<'c> {
                 // because that wouldn't delegate back to us for inner eval_import calls.
                 Ok(ctx
                     .get_interpreter_calculator(
-                        starlark_path.cell(),
-                        starlark_path.build_file_cell(),
+                        &starlark_path.cell(),
+                        &starlark_path.build_file_cell(),
                     )
                     .await?
                     .eval_module_uncached(starlark_path, starlark_profiler_instrumentation)
@@ -256,15 +256,18 @@ impl<'c> DiceCalculationDelegate<'c> {
         self.ctx
             .get_legacy_configs_on_dice()
             .await?
-            .get(self.build_file_cell.name())
+            .get(&self.build_file_cell.name())
     }
 
-    async fn get_package_boundary_exception(&self, path: &CellPath) -> SharedResult<bool> {
+    async fn get_package_boundary_exception(&self, path: CellPathRef<'_>) -> SharedResult<bool> {
         self.ctx.get_package_boundary_exception(path).await
     }
 
     async fn parse_file(&self, starlark_path: StarlarkPath<'_>) -> anyhow::Result<ParseResult> {
-        let content = self.get_file_ops().read_file(&starlark_path.path()).await?;
+        let content = self
+            .get_file_ops()
+            .read_file(starlark_path.path().as_ref().as_ref())
+            .await?;
         self.parse_file_with_content(starlark_path, content).await
     }
 

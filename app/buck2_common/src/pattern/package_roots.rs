@@ -77,14 +77,14 @@ async fn find_package_roots_impl<E>(
     let mut queue = FuturesUnordered::new();
     let mut seen = HashSet::new();
 
-    let list_dir = |path| async move {
+    let list_dir = |path: CellPath| async move {
         let _permit = semaphore.acquire().await.unwrap();
-        let listing = file_ops.read_dir(&path).await;
+        let listing = file_ops.read_dir(path.as_ref()).await;
         (path, listing)
     };
 
     for path in paths {
-        match file_ops.is_ignored(&path).await {
+        match file_ops.is_ignored(path.as_ref()).await {
             Ok(true) => {
                 // TODO(cjhopman): Ignoring this matches buck1 behavior, but we'd like this to be an error.
             }
@@ -101,7 +101,7 @@ async fn find_package_roots_impl<E>(
 
     while let Some((path, listing)) = queue.next().await {
         let (buildfile_candidates, listing) = match cell_resolver
-            .get(path.cell())
+            .get(&path.cell())
             .and_then(|cell_instance| anyhow::Ok((cell_instance.buildfiles(), listing?)))
         {
             Ok(r) => r,
@@ -115,7 +115,7 @@ async fn find_package_roots_impl<E>(
         };
 
         if find_buildfile(buildfile_candidates, &listing).is_some() {
-            func(Ok(PackageLabel::from_cell_path(&path)))?;
+            func(Ok(PackageLabel::from_cell_path(path.as_ref())))?;
         }
 
         // The rev() call isn't necessary, it ends up causing us to slightly prefer running

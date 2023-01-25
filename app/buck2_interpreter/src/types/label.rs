@@ -149,7 +149,7 @@ fn configured_label_methods(builder: &mut MethodsBuilder) {
 
     #[starlark(attribute)]
     fn cell_root<'v>(this: &Label, heap: &Heap) -> anyhow::Result<Value<'v>> {
-        let cell_root = CellRoot::new(this.label.target().pkg().cell_name().clone());
+        let cell_root = CellRoot::new(this.label.target().pkg().cell_name());
         Ok(heap.alloc(cell_root))
     }
 

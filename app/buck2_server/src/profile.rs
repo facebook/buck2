@@ -94,7 +94,7 @@ async fn generate_profile_loading(
 
     let calculation = ctx
         .get_interpreter_calculator(
-            package.cell_name(),
+            &package.cell_name(),
             &BuildFileCell::new(package.cell_name().clone()),
         )
         .await?;

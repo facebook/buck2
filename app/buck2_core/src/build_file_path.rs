@@ -8,7 +8,6 @@
  */
 
 use allocative::Allocative;
-use ref_cast::RefCast;
 
 use crate::bzl::ModuleID;
 use crate::cells::build_file_cell::BuildFileCell;
@@ -43,14 +42,14 @@ impl BuildFilePath {
 
     pub fn unchecked_new(cell: &str, package: &str, filename: &str) -> Self {
         let package = PackageLabel::new(
-            &CellName::unchecked_new(cell),
+            CellName::unchecked_new(cell),
             &CellRelativePathBuf::unchecked_new(package.to_owned()),
         );
         let filename = FileNameBuf::unchecked_new(filename);
         Self::new(package, filename)
     }
 
-    pub fn cell(&self) -> &CellName {
+    pub fn cell(&self) -> CellName {
         self.package.cell_name()
     }
 
@@ -59,11 +58,11 @@ impl BuildFilePath {
     }
 
     pub fn path(&self) -> CellPath {
-        self.package.as_cell_path().join(&self.filename)
+        self.package.as_cell_path().join(self.filename.as_ref())
     }
 
-    pub fn build_file_cell(&self) -> &BuildFileCell {
-        BuildFileCell::ref_cast(self.cell())
+    pub fn build_file_cell(&self) -> BuildFileCell {
+        BuildFileCell::new(self.cell())
     }
 
     pub fn filename(&self) -> &FileName {

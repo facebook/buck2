@@ -18,7 +18,7 @@ use buck2_common::file_ops::FileOps;
 use buck2_common::file_ops::PathMetadata;
 use buck2_common::file_ops::PathMetadataOrRedirection;
 use buck2_common::result::SharedResult;
-use buck2_core::cells::cell_path::CellPath;
+use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::directory::DirectoryData;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::directory::extract_artifact_value;
@@ -86,9 +86,9 @@ impl ArtifactGroupCalculation for DiceComputations {
 #[async_recursion]
 async fn path_artifact_value(
     file_ops: &dyn FileOps,
-    cell_path: &CellPath,
+    cell_path: CellPathRef<'async_recursion>,
 ) -> anyhow::Result<ActionDirectoryEntry<ActionSharedDirectory>> {
-    let raw = file_ops.read_path_metadata(cell_path).await?;
+    let raw = file_ops.read_path_metadata(cell_path.dupe()).await?;
     match PathMetadataOrRedirection::from(raw) {
         PathMetadataOrRedirection::PathMetadata(meta) => match meta {
             PathMetadata::ExternalSymlink(symlink) => Ok(ActionDirectoryEntry::Leaf(
@@ -98,11 +98,14 @@ async fn path_artifact_value(
                 ActionDirectoryMember::File(metadata),
             )),
             PathMetadata::Directory => {
-                let files = file_ops.read_dir(cell_path).await?;
+                let files = file_ops.read_dir(cell_path.dupe()).await?;
 
                 let entries = files.iter().map(|x| async {
-                    let value =
-                        path_artifact_value(file_ops, &cell_path.join(&x.file_name)).await?;
+                    let value = path_artifact_value(
+                        file_ops,
+                        cell_path.join(x.file_name.as_ref()).as_ref(),
+                    )
+                    .await?;
                     anyhow::Ok((x.file_name.clone(), value))
                 });
 
@@ -115,7 +118,7 @@ async fn path_artifact_value(
         },
         PathMetadataOrRedirection::Redirection(r) => {
             // TODO (T126181780): This should have a limit on recursion.
-            path_artifact_value(file_ops, r.as_ref()).await
+            path_artifact_value(file_ops, r.as_ref().as_ref()).await
         }
     }
 }
@@ -138,7 +141,7 @@ async fn ensure_base_artifact(
         }
         BaseArtifactKind::Source(ref source) => Ok(path_artifact_value(
             &dice.file_ops(),
-            &source.get_path().to_cell_path(),
+            source.get_path().to_cell_path().as_ref(),
         )
         .await?
         .into()),

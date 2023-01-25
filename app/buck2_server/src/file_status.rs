@@ -140,13 +140,15 @@ async fn check_file_status(
     result.checking();
 
     let cell_path = cell_resolver.get_cell_path(path)?;
-    if file_ops.is_ignored(&cell_path).await? {
+    if file_ops.is_ignored(cell_path.as_ref()).await? {
         return Ok(());
     }
 
     let abs_path = project_root.resolve(path);
     let fs_metadata = fs_util::symlink_metadata_if_exists(&abs_path)?;
-    let dice_metadata = file_ops.read_path_metadata_if_exists(&cell_path).await?;
+    let dice_metadata = file_ops
+        .read_path_metadata_if_exists(cell_path.as_ref())
+        .await?;
 
     match (&fs_metadata, &dice_metadata) {
         (None, None) => {}
@@ -162,7 +164,7 @@ async fn check_file_status(
                     if let Ok(fs_to) = fs_util::canonicalize(&abs_path) {
                         let dice_to = match dice_to {
                             RawSymlink::Relative(x) => project_root
-                                .resolve(&cell_resolver.resolve_path(x)?)
+                                .resolve(&cell_resolver.resolve_path(x.as_ref().as_ref())?)
                                 .as_path()
                                 .to_owned(),
                             RawSymlink::External(x) => x.to_path_buf(),
@@ -211,7 +213,7 @@ async fn check_file_status(
                             entry?.file_name().into_string().unwrap(),
                         )?);
                     }
-                    let dice_read_dir = file_ops.read_dir_with_ignores(&cell_path).await?;
+                    let dice_read_dir = file_ops.read_dir_with_ignores(cell_path.as_ref()).await?;
                     let mut dice_list: Vec<_> = dice_read_dir
                         .included
                         .iter()

@@ -23,6 +23,7 @@ use buck2_common::file_ops::PathMetadata;
 use buck2_common::file_ops::PathMetadataOrRedirection;
 use buck2_common::result::SharedResult;
 use buck2_core::cells::cell_path::CellPath;
+use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::package::PackageLabel;
 use buck2_core::target::TargetLabel;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
@@ -118,10 +119,10 @@ impl FileHasher for PathsAndContentsHasher {
         #[async_recursion]
         async fn hash_item(
             file_ops: &dyn FileOps,
-            cell_path: &CellPath,
+            cell_path: CellPathRef<'async_recursion>,
             res: &mut Vec<u8>,
         ) -> anyhow::Result<()> {
-            let info = file_ops.read_path_metadata(cell_path).await?;
+            let info = file_ops.read_path_metadata(cell_path.dupe()).await?;
             // Important that the different branches can never clash, so add a prefix byte to them
             match PathMetadataOrRedirection::from(info) {
                 PathMetadataOrRedirection::PathMetadata(meta) => match meta {
@@ -143,19 +144,20 @@ impl FileHasher for PathsAndContentsHasher {
                     }
                     PathMetadata::Directory => {
                         res.push(2u8);
-                        let files = file_ops.read_dir(cell_path).await?;
+                        let files = file_ops.read_dir(cell_path.dupe()).await?;
                         res.extend(files.len().to_be_bytes());
                         for x in &*files {
                             let name = x.file_name.as_str();
                             res.extend(name.len().to_be_bytes());
                             res.extend(name.as_bytes());
-                            hash_item(file_ops, &cell_path.join(&x.file_name), res).await?;
+                            hash_item(file_ops, cell_path.join(x.file_name.as_ref()).as_ref(), res)
+                                .await?;
                         }
                     }
                 },
                 PathMetadataOrRedirection::Redirection(r) => {
                     // TODO (T126181780): This should have a limit on recursion.
-                    hash_item(file_ops, r.as_ref(), res).await?;
+                    hash_item(file_ops, r.as_ref().as_ref(), res).await?;
                 }
             }
             Ok(())
@@ -163,7 +165,7 @@ impl FileHasher for PathsAndContentsHasher {
 
         let file_ops = self.ctx.file_ops();
         let mut res = Vec::new();
-        hash_item(&file_ops, cell_path, &mut res).await?;
+        hash_item(&file_ops, cell_path.as_ref(), &mut res).await?;
         Ok(res)
     }
 }

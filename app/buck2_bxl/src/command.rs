@@ -135,7 +135,7 @@ pub(crate) async fn get_bxl_key(
 
     let bxl_label = parse_bxl_label_from_cli(cwd, bxl_label, &cell_resolver)?;
 
-    let cur_package = PackageLabel::from_cell_path(&cell_resolver.get_cell_path(&cwd)?);
+    let cur_package = PackageLabel::from_cell_path(cell_resolver.get_cell_path(&cwd)?.as_ref());
     let cell_name = cell_resolver.find(&cwd)?;
 
     // Targets with cell aliases should be resolved against the cell mapping
@@ -257,7 +257,7 @@ fn parse_bxl_label_from_cli(
     // Targets with cell aliases should be resolved against the cell mapping
     // as defined the cell derived from the cwd.
     let cell_alias_resolver = cell_resolver
-        .get(current_cell.cell())
+        .get(&current_cell.cell())
         .unwrap()
         .cell_alias_resolver();
 

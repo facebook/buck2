@@ -112,7 +112,7 @@ pub fn parse_import_with_config(
                 Some((alias, cell_relative_path)) => {
                     let cell = cell_resolver.resolve(alias)?;
                     Ok(CellPath::new(
-                        cell.clone(),
+                        cell,
                         CellRelativePathBuf::try_from(cell_relative_path.to_owned())?,
                     ))
                 }
@@ -142,7 +142,7 @@ pub fn parse_import_with_config(
                         .ok_or_else(|| ImportParseError::MatchFailed(import.to_owned()))?;
                 let cell = cell_resolver.resolve(alias)?;
                 Ok(CellPath::new(
-                    cell.clone(),
+                    cell,
                     <&CellRelativePath>::try_from(cell_relative_path)?.join(filename),
                 ))
             }

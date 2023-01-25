@@ -24,7 +24,6 @@ use buck2_interpreter::file_loader::LoadedModule;
 use buck2_interpreter::import_paths::HasImportPaths;
 use dice::DiceTransaction;
 use dupe::Dupe;
-use ref_cast::RefCast;
 
 #[derive(Copy, Dupe, Clone, Debug, Hash, PartialEq, Eq)]
 enum PathType {
@@ -67,7 +66,7 @@ impl<'a> CachedGlobals<'a> {
         let cell = path.cell();
         let calc = self
             .dice
-            .get_interpreter_calculator(cell, BuildFileCell::ref_cast(cell))
+            .get_interpreter_calculator(&cell.dupe(), &BuildFileCell::new(cell))
             .await?;
         Ok(calc.eval_module(StarlarkModulePath::LoadFile(path)).await?)
     }
@@ -96,7 +95,7 @@ impl<'a> CachedGlobals<'a> {
 
         // Next grab the prelude, unless we are in the prelude cell and not a build file
         if let Some(prelude) = config.prelude_import() {
-            if path == PathType::Build || prelude.cell() != cell {
+            if path == PathType::Build || prelude.cell() != *cell {
                 let env = self.load_module(prelude).await?;
                 for x in env.env().names() {
                     res.insert(x.as_str().to_owned());
@@ -115,7 +114,7 @@ impl<'a> CachedGlobals<'a> {
         // Now grab the pre-load things
         let import_paths = self
             .dice
-            .import_paths_for_cell(BuildFileCell::ref_cast(cell))
+            .import_paths_for_cell(&BuildFileCell::new(cell.dupe()))
             .await?;
         if let Some(root) = import_paths.root_import() {
             let env = self.load_module(root).await?;

@@ -228,7 +228,7 @@ async fn resolve_toolchain_constraints_from_constraints(
     {
         if let Err(e) = check_execution_platform(
             ctx,
-            target.pkg().cell_name(),
+            &target.pkg().cell_name(),
             exec_compatible_with,
             exec_deps,
             exec_platform,

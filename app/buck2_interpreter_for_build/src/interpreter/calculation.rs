@@ -61,7 +61,7 @@ impl<'c> InterpreterCalculation<'c> for DiceComputations {
                     ctx.get_starlark_profiler_instrumentation().await?;
                 let interpreter = ctx
                     .get_interpreter_calculator(
-                        self.0.cell_name(),
+                        &self.0.cell_name(),
                         &BuildFileCell::new(self.0.cell_name().clone()),
                     )
                     .await?;
@@ -92,7 +92,7 @@ impl<'c> InterpreterCalculation<'c> for DiceComputations {
 
     async fn get_loaded_module(&self, path: StarlarkModulePath<'_>) -> SharedResult<LoadedModule> {
         // this is already cached on the delegate.
-        self.get_interpreter_calculator(path.cell(), path.build_file_cell())
+        self.get_interpreter_calculator(&path.cell(), &path.build_file_cell())
             .await?
             .eval_module(path)
             .await

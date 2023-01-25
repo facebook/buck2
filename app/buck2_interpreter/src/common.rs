@@ -21,7 +21,6 @@ use buck2_core::cells::paths::CellRelativePathBuf;
 use derive_more::Display;
 use dupe::Dupe;
 use gazebo::variants::UnpackVariants;
-use ref_cast::RefCast;
 use thiserror::Error;
 
 /// Path of a `bxl` file for `bxl` commands
@@ -72,7 +71,7 @@ impl BxlFilePath {
         Self::unverified_new(path)
     }
 
-    pub fn cell(&self) -> &CellName {
+    pub fn cell(&self) -> CellName {
         self.path.cell()
     }
 
@@ -80,8 +79,8 @@ impl BxlFilePath {
         &self.path
     }
 
-    pub fn build_file_cell(&self) -> &BuildFileCell {
-        BuildFileCell::ref_cast(self.cell())
+    pub fn build_file_cell(&self) -> BuildFileCell {
+        BuildFileCell::new(self.cell())
     }
 
     pub fn id(&self) -> &ModuleID {
@@ -102,7 +101,7 @@ pub enum StarlarkPath<'a> {
 }
 
 impl<'a> StarlarkPath<'a> {
-    pub fn cell(&self) -> &CellName {
+    pub fn cell(&self) -> CellName {
         match self {
             StarlarkPath::BuildFile(b) => b.cell(),
             StarlarkPath::LoadFile(l) => l.cell(),
@@ -110,7 +109,7 @@ impl<'a> StarlarkPath<'a> {
         }
     }
 
-    pub fn build_file_cell(&self) -> &BuildFileCell {
+    pub fn build_file_cell(&self) -> BuildFileCell {
         match self {
             StarlarkPath::BuildFile(b) => b.build_file_cell(),
             StarlarkPath::LoadFile(l) => l.build_file_cell(),
@@ -184,14 +183,14 @@ pub enum StarlarkModulePath<'a> {
 }
 
 impl<'a> StarlarkModulePath<'a> {
-    pub fn cell(&self) -> &CellName {
+    pub fn cell(&self) -> CellName {
         match self {
             StarlarkModulePath::LoadFile(l) => l.cell(),
             StarlarkModulePath::BxlFile(b) => b.cell(),
         }
     }
 
-    pub fn build_file_cell(&self) -> &BuildFileCell {
+    pub fn build_file_cell(&self) -> BuildFileCell {
         match self {
             StarlarkModulePath::LoadFile(l) => l.build_file_cell(),
             StarlarkModulePath::BxlFile(b) => b.build_file_cell(),

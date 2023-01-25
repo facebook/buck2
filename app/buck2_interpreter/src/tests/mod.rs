@@ -220,7 +220,7 @@ async fn test_eval_build_file() -> anyhow::Result<()> {
         .await?;
 
     let package = PackageLabel::new(
-        &root_cell(),
+        root_cell(),
         CellRelativePath::new(ForwardRelativePath::new("package")?),
     );
     let eval_result = with_dispatcher_async(

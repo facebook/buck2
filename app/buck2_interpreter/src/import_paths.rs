@@ -46,10 +46,7 @@ impl ImportPaths {
             .map(|i| {
                 let (cell_alias, path): (&str, &str) = i.split_once("//").unwrap_or(("", i));
                 let path = CellRelativePathBuf::try_from(path.to_owned())?;
-                let path = CellPath::new(
-                    cell_alias_resolver.resolve(cell_alias)?.clone(),
-                    path.to_buf(),
-                );
+                let path = CellPath::new(cell_alias_resolver.resolve(cell_alias)?, path.to_buf());
 
                 // root imports are only going to be used by a top-level module in the cell they
                 // are defined, so we can set the build_file_cell early.
@@ -98,11 +95,11 @@ impl HasImportPaths for DiceComputations {
 
             async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
                 let config = ctx
-                    .get_legacy_config_for_cell(self.cell_name.name())
+                    .get_legacy_config_for_cell(&self.cell_name.name())
                     .await?;
                 let cell_resolver = ctx.get_cell_resolver().await?;
                 let cell_alias_resolver = cell_resolver
-                    .get(self.cell_name.name())?
+                    .get(&self.cell_name.name())?
                     .cell_alias_resolver();
                 Ok(Arc::new(ImportPaths::parse(
                     &config,

@@ -16,6 +16,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_core::cells::cell_path::CellPath;
+use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellResolver;
@@ -64,7 +65,7 @@ struct FileToken(Arc<CellPath>);
 
 impl FileToken {
     async fn read(&self, fs: &dyn FileOps) -> anyhow::Result<String> {
-        fs.read_file(&self.0).await
+        fs.read_file((*self.0).as_ref()).await
     }
 }
 
@@ -112,10 +113,10 @@ async fn get_default_file_ops(dice: &DiceComputations) -> SharedResult<Arc<dyn F
 
     #[async_trait]
     impl DefaultFileOpsDelegate for DiceFileOpsDelegate {
-        fn check_ignored(&self, path: &CellPath) -> anyhow::Result<FileIgnoreResult> {
+        fn check_ignored(&self, path: CellPathRef) -> anyhow::Result<FileIgnoreResult> {
             Ok(self
                 .ignores
-                .get(path.cell())
+                .get(&path.cell())
                 .unwrap_or_else(|| {
                     panic!(
                         "Should've had an ignore spec for `{}`. Had `{}`",
@@ -216,19 +217,20 @@ impl FileChangeTracker {
     pub fn file_added_or_removed(&mut self, path: CellPath) {
         let parent = path.parent();
 
-        self.file_contents_modify(path);
+        self.file_contents_modify(path.clone());
         if let Some(parent) = parent {
             // The above can be None (validly!) if we have a cell we either create or delete.
             // That never happens in established repos, but if you are setting one up, it's not uncommon.
             // Since we don't include paths in different cells, the fact we don't dirty the parent
             // (which is in an enclosing cell) doesn't matter.
-            self.dirs_to_dirty.insert(ReadDirKey(parent));
+            self.dirs_to_dirty.insert(ReadDirKey(parent.to_owned()));
         }
     }
 
     pub fn dir_added_or_removed(&mut self, path: CellPath) {
         self.paths_to_dirty.insert(PathMetadataKey(path.clone()));
         if let Some(parent) = path.parent() {
+            let parent = parent.to_owned();
             // The above can be None (validly!) if we have a cell we either create or delete.
             // That never happens in established repos, but if you are setting one up, it's not uncommon.
             // Since we don't include paths in different cells, the fact we don't dirty the parent
@@ -290,7 +292,7 @@ impl Key for ReadDirKey {
     async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
         get_default_file_ops(ctx)
             .await?
-            .read_dir_with_ignores(&self.0)
+            .read_dir_with_ignores(self.0.as_ref())
             .await
     }
 
@@ -316,7 +318,7 @@ impl Key for PathMetadataKey {
     async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
         let res = get_default_file_ops(ctx)
             .await?
-            .read_path_metadata_if_exists(&self.0)
+            .read_path_metadata_if_exists(self.0.as_ref())
             .await?;
 
         match res {
@@ -346,32 +348,39 @@ impl Key for PathMetadataKey {
 
 #[async_trait]
 impl<'c> FileOps for DiceFileOps<'c> {
-    async fn read_file(&self, path: &CellPath) -> anyhow::Result<String> {
+    async fn read_file(&self, path: CellPathRef<'async_trait>) -> anyhow::Result<String> {
+        let path = path.to_owned();
         let file_ops = get_default_file_ops(self.0).await?;
 
         self.0
-            .compute(&ReadFileKey(Arc::new(path.to_owned())))
+            .compute(&ReadFileKey(Arc::new(path)))
             .await?
             .read(&*file_ops)
             .await
     }
 
-    async fn read_dir(&self, path: &CellPath) -> SharedResult<Arc<[SimpleDirEntry]>> {
+    async fn read_dir(
+        &self,
+        path: CellPathRef<'async_trait>,
+    ) -> SharedResult<Arc<[SimpleDirEntry]>> {
         Ok(self.read_dir_with_ignores(path).await?.included)
     }
 
-    async fn read_dir_with_ignores(&self, path: &CellPath) -> SharedResult<ReadDirOutput> {
-        self.0.compute(&ReadDirKey(path.clone())).await?
+    async fn read_dir_with_ignores(
+        &self,
+        path: CellPathRef<'async_trait>,
+    ) -> SharedResult<ReadDirOutput> {
+        self.0.compute(&ReadDirKey(path.to_owned())).await?
     }
 
     async fn read_path_metadata_if_exists(
         &self,
-        path: &CellPath,
+        path: CellPathRef<'async_trait>,
     ) -> SharedResult<Option<RawPathMetadata>> {
-        self.0.compute(&PathMetadataKey(path.clone())).await?
+        self.0.compute(&PathMetadataKey(path.to_owned())).await?
     }
 
-    async fn is_ignored(&self, path: &CellPath) -> anyhow::Result<bool> {
+    async fn is_ignored(&self, path: CellPathRef<'async_trait>) -> anyhow::Result<bool> {
         let file_ops = get_default_file_ops(self.0).await?;
         file_ops.is_ignored(path).await
     }

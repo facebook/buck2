@@ -14,6 +14,7 @@ use allocative::Allocative;
 use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_core::cells::cell_path::CellPath;
+use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::cells::paths::CellRelativePathBuf;
@@ -115,10 +116,10 @@ impl PackageBoundaryExceptions {
 
     /// Returns the package boundary exception path that covers this path, if it exists
     pub fn get_package_boundary_exception_path(&self, path: &CellPath) -> Option<CellPath> {
-        if let Some(exceptions) = self.0.get(path.cell()) {
+        if let Some(exceptions) = self.0.get(&path.cell()) {
             exceptions
                 .get_package_boundary_exception_path(path.path())
-                .map(|p| CellPath::new(path.cell().clone(), p))
+                .map(|p| CellPath::new(path.cell(), p))
         } else {
             None
         }
@@ -137,7 +138,10 @@ pub trait HasPackageBoundaryExceptions {
     async fn get_package_boundary_exceptions(&self)
     -> SharedResult<Arc<PackageBoundaryExceptions>>;
 
-    async fn get_package_boundary_exception(&self, path: &CellPath) -> SharedResult<bool>;
+    async fn get_package_boundary_exception(
+        &self,
+        path: CellPathRef<'async_trait>,
+    ) -> SharedResult<bool>;
 }
 
 #[async_trait]
@@ -174,7 +178,10 @@ impl HasPackageBoundaryExceptions for DiceComputations {
         self.compute(&PackageBoundaryExceptionsKey).await?
     }
 
-    async fn get_package_boundary_exception(&self, path: &CellPath) -> SharedResult<bool> {
+    async fn get_package_boundary_exception(
+        &self,
+        path: CellPathRef<'async_trait>,
+    ) -> SharedResult<bool> {
         #[derive(Hash, Eq, PartialEq, Clone, Display, Debug, RefCast, Allocative)]
         #[repr(transparent)]
         struct PackageBoundaryExceptionKey(CellPath);
@@ -202,7 +209,7 @@ impl HasPackageBoundaryExceptions for DiceComputations {
             }
         }
 
-        self.compute(PackageBoundaryExceptionKey::ref_cast(path))
+        self.compute(&PackageBoundaryExceptionKey(path.to_owned()))
             .await?
     }
 }

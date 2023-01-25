@@ -196,7 +196,7 @@ impl AnonTargetKey {
         let cell = CellName::unchecked_new(lex.cell_alias.unwrap_or_default());
         match lex.pattern.reject_ambiguity()? {
             PatternData::TargetInPackage { package, target } => Ok(TargetLabel::new(
-                PackageLabel::new(&cell, CellRelativePath::new(package)),
+                PackageLabel::new(cell, CellRelativePath::new(package)),
                 target,
             )),
             _ => Err(err().into()),
@@ -204,7 +204,7 @@ impl AnonTargetKey {
     }
 
     fn create_name(rule_name: &str) -> anyhow::Result<TargetLabel> {
-        let pkg = PackageLabel::new(&CellName::unchecked_new("anon"), CellRelativePath::empty());
+        let pkg = PackageLabel::new(CellName::unchecked_new("anon"), CellRelativePath::empty());
         Ok(TargetLabel::new(pkg, TargetName::new(rule_name)?))
     }
 

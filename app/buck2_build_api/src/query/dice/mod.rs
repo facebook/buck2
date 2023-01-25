@@ -155,9 +155,9 @@ impl<'c> DiceQueryDelegate<'c> {
         target_alias_resolver: BuckConfigTargetAliasResolver,
     ) -> anyhow::Result<Self> {
         let cell_path = cell_resolver.get_cell_path(working_dir)?;
-        let package = PackageLabel::from_cell_path(&cell_path);
+        let package = PackageLabel::from_cell_path(cell_path.as_ref());
         let cell_name = package.as_cell_path().cell();
-        let cell_alias_resolver = cell_resolver.get(cell_name)?.cell_alias_resolver().dupe();
+        let cell_alias_resolver = cell_resolver.get(&cell_name)?.cell_alias_resolver().dupe();
 
         Ok(Self {
             ctx,
@@ -231,13 +231,15 @@ impl<'c> UqueryDelegate for DiceQueryDelegate<'c> {
             .get_package_boundary_exception_path(path)
         {
             return Ok(package_listing_resolver
-                .get_enclosing_packages(path, &enclosing_violation_path)
+                .get_enclosing_packages(path.as_ref(), enclosing_violation_path.as_ref())
                 .await?
                 .into_iter()
                 .collect());
         }
 
-        let package = package_listing_resolver.get_enclosing_package(path).await?;
+        let package = package_listing_resolver
+            .get_enclosing_package(path.as_ref())
+            .await?;
         Ok(vec![package])
     }
 

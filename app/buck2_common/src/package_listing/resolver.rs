@@ -8,7 +8,7 @@
  */
 
 use async_trait::async_trait;
-use buck2_core::cells::cell_path::CellPath;
+use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::package::PackageLabel;
 
 use crate::package_listing::listing::PackageListing;
@@ -18,11 +18,14 @@ use crate::result::SharedResult;
 pub trait PackageListingResolver: Send + Sync {
     async fn resolve(&self, package: &PackageLabel) -> SharedResult<PackageListing>;
 
-    async fn get_enclosing_package(&self, path: &CellPath) -> anyhow::Result<PackageLabel>;
+    async fn get_enclosing_package(
+        &self,
+        path: CellPathRef<'async_trait>,
+    ) -> anyhow::Result<PackageLabel>;
 
     async fn get_enclosing_packages(
         &self,
-        path: &CellPath,
-        enclosing_path: &CellPath,
+        path: CellPathRef<'async_trait>,
+        enclosing_path: CellPathRef<'async_trait>,
     ) -> anyhow::Result<Vec<PackageLabel>>;
 }

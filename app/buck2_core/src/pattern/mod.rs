@@ -227,7 +227,9 @@ impl ParsedPattern<TargetPattern> {
         match self {
             ParsedPattern::Target(pkg, t) => pkg == target_pkg && t == target.name(),
             ParsedPattern::Package(pkg) => target_pkg.as_cell_path() == pkg.as_cell_path(),
-            ParsedPattern::Recursive(cell_path) => target_pkg.as_cell_path().starts_with(cell_path),
+            ParsedPattern::Recursive(cell_path) => {
+                target_pkg.as_cell_path().starts_with(cell_path.as_ref())
+            }
         }
     }
 }
@@ -649,7 +651,9 @@ where
     };
 
     match pattern {
-        PatternData::Recursive { .. } => Ok(ParsedPattern::Recursive(path.as_cell_path().clone())),
+        PatternData::Recursive { .. } => {
+            Ok(ParsedPattern::Recursive(path.as_cell_path().to_owned()))
+        }
         PatternData::AllTargetsInPackage { .. } => Ok(ParsedPattern::Package(path)),
         PatternData::TargetInPackage { target, .. } => Ok(ParsedPattern::Target(path, target)),
     }

@@ -208,7 +208,7 @@ mod tests {
         let root_cell = BuildFileCell::new(CellName::unchecked_new("root"));
         let (cell_alias_resolver, resolver, configs) = cells()?;
         let import_paths = ImportPaths::parse(
-            configs.get(root_cell.name()).unwrap(),
+            configs.get(&root_cell.name()).unwrap(),
             &root_cell,
             &cell_alias_resolver,
         )?;

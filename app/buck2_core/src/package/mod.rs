@@ -52,6 +52,7 @@ use internment_tweaks::Intern;
 use internment_tweaks::StaticInterner;
 
 use crate::cells::cell_path::CellPath;
+use crate::cells::cell_path::CellPathRef;
 use crate::cells::name::CellName;
 use crate::cells::paths::CellRelativePath;
 use crate::cells::CellResolver;
@@ -73,7 +74,7 @@ struct PackageLabelData(CellPath);
 
 #[derive(Hash, Eq, PartialEq)]
 struct PackageLabelDataRef<'a> {
-    cell: &'a CellName,
+    cell: CellName,
     path: &'a CellRelativePath,
 }
 
@@ -89,7 +90,7 @@ impl<'a> From<PackageLabelDataRef<'a>> for PackageLabelData {
 impl PackageLabelData {
     fn as_ref(&self) -> PackageLabelDataRef {
         PackageLabelDataRef {
-            cell: self.0.cell(),
+            cell: self.0.cell().dupe(),
             path: self.0.path(),
         }
     }
@@ -111,28 +112,37 @@ impl<'a> Equiv<PackageLabelData> for PackageLabelDataRef<'a> {
 static INTERNER: StaticInterner<PackageLabelData, FnvHasher> = StaticInterner::new();
 
 impl PackageLabel {
-    pub fn new(cell: &CellName, path: &CellRelativePath) -> Self {
-        Self(INTERNER.intern(PackageLabelDataRef { cell, path }))
+    #[inline]
+    pub fn new(cell: CellName, path: &CellRelativePath) -> Self {
+        Self(INTERNER.intern(PackageLabelDataRef {
+            cell: cell.dupe(),
+            path,
+        }))
     }
 
-    pub fn from_cell_path(path: &CellPath) -> Self {
+    #[inline]
+    pub fn from_cell_path(path: CellPathRef) -> Self {
         Self::new(path.cell(), path.path())
     }
 
-    pub fn cell_name(&self) -> &CellName {
+    #[inline]
+    pub fn cell_name(&self) -> CellName {
         self.0.0.cell()
     }
 
+    #[inline]
     pub fn cell_relative_path(&self) -> &CellRelativePath {
         self.0.0.path()
     }
 
+    #[inline]
     pub fn to_cell_path(&self) -> CellPath {
         self.0.0.clone()
     }
 
-    pub fn as_cell_path(&self) -> &CellPath {
-        &self.0.0
+    #[inline]
+    pub fn as_cell_path(&self) -> CellPathRef {
+        self.0.0.as_ref()
     }
 
     pub fn join(&self, path: &ForwardRelativePath) -> Self {
@@ -149,7 +159,7 @@ impl PackageLabel {
     /// Some package name usable in tests.
     pub fn testing() -> PackageLabel {
         PackageLabel::new(
-            &CellName::unchecked_new("root"),
+            CellName::unchecked_new("root"),
             CellRelativePath::new(ForwardRelativePath::new("package/subdir").unwrap()),
         )
     }
@@ -180,7 +190,7 @@ impl CellResolver {
     /// ]);
     ///
     /// let pkg = PackageLabel::new(
-    ///     &CellName::unchecked_new("mycell"),
+    ///     CellName::unchecked_new("mycell"),
     ///     CellRelativePath::unchecked_new("somepkg"),
     /// );
     ///
@@ -192,7 +202,7 @@ impl CellResolver {
     /// # anyhow::Ok(())
     /// ```
     pub fn resolve_package(&self, pkg: &PackageLabel) -> anyhow::Result<ProjectRelativePathBuf> {
-        self.resolve_path(&pkg.0.0)
+        self.resolve_path(pkg.0.0.as_ref())
     }
 }
 
@@ -208,7 +218,7 @@ pub mod testing {
     impl PackageExt for PackageLabel {
         fn testing_new(cell: &str, path: &str) -> Self {
             Self::new(
-                &CellName::unchecked_new(cell),
+                CellName::unchecked_new(cell),
                 &CellRelativePathBuf::unchecked_new(path.into()),
             )
         }

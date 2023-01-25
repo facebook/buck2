@@ -70,7 +70,7 @@ pub fn coercion_ctx() -> impl AttrCoercionContext {
 pub fn coercion_ctx_listing(package_listing: PackageListing) -> impl AttrCoercionContext {
     let package = PackageLabel::testing();
     let aliases = hashmap![
-        CellAlias::new("".to_owned()) => package.cell_name().clone(),
+        CellAlias::new("".to_owned()) => package.cell_name(),
         CellAlias::new("cell1".to_owned()) => CellName::unchecked_new("cell1"),
     ];
 

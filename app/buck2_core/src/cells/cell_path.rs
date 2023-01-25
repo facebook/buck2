@@ -8,6 +8,7 @@
  */
 
 use allocative::Allocative;
+use dupe::Dupe;
 use relative_path::RelativePath;
 
 use crate::cells::name::CellName;
@@ -32,21 +33,24 @@ struct StripPrefixError(CellName, CellName);
     PartialOrd,
     Allocative
 )]
-#[display(fmt = "{}//{}", cell, path)]
+#[display(fmt = "{}", "self.as_ref()")]
 pub struct CellPath {
     cell: CellName,
     path: CellRelativePathBuf,
 }
 
 impl CellPath {
+    #[inline]
     pub fn new(cell: CellName, path: CellRelativePathBuf) -> Self {
         CellPath { cell, path }
     }
 
-    pub fn cell(&self) -> &CellName {
-        &self.cell
+    #[inline]
+    pub fn cell(&self) -> CellName {
+        self.cell.dupe()
     }
 
+    #[inline]
     pub fn path(&self) -> &CellRelativePath {
         &self.path
     }
@@ -71,8 +75,9 @@ impl CellPath {
     ///
     /// # anyhow::Ok(())
     /// ```
+    #[inline]
     pub fn join<P: AsRef<ForwardRelativePath>>(&self, path: P) -> CellPath {
-        CellPath::new(self.cell.clone(), self.path.join(path.as_ref()))
+        self.as_ref().join(path.as_ref())
     }
 
     /// Returns a relative path of the parent directory
@@ -90,15 +95,14 @@ impl CellPath {
     ///     CellPath::new(
     ///         CellName::unchecked_new("cell"),
     ///         CellRelativePathBuf::unchecked_new("foo/bar".into())
-    ///     ).parent(),
+    ///     ).parent().map(|p| p.to_owned()),
     /// );
     ///
     /// # anyhow::Ok(())
     /// ```
-    pub fn parent(&self) -> Option<CellPath> {
-        self.path
-            .parent()
-            .map(|p| CellPath::new(self.cell.clone(), p.to_buf()))
+    #[inline]
+    pub fn parent(&self) -> Option<CellPathRef> {
+        self.as_ref().parent()
     }
 
     /// Produces an iterator over CellPath and its ancestors.
@@ -114,32 +118,16 @@ impl CellPath {
     /// let path = CellPath::testing_new("cell", "foo/bar");
     /// let mut ancestors = path.ancestors();
     ///
-    /// assert_eq!(ancestors.next(), Some(CellPath::testing_new("cell", "foo/bar")));
-    /// assert_eq!(ancestors.next(), Some(CellPath::testing_new("cell", "foo")));
-    /// assert_eq!(ancestors.next(), Some(CellPath::testing_new("cell", "")));
+    /// assert_eq!(ancestors.next(), Some(CellPath::testing_new("cell", "foo/bar").as_ref()));
+    /// assert_eq!(ancestors.next(), Some(CellPath::testing_new("cell", "foo").as_ref()));
+    /// assert_eq!(ancestors.next(), Some(CellPath::testing_new("cell", "").as_ref()));
     /// assert_eq!(ancestors.next(), None);
     ///
     /// # anyhow::Ok(())
     /// ```
-    // TODO(nga): iterate without allocation
-    pub fn ancestors(&self) -> impl Iterator<Item = CellPath> {
-        struct Ancestors(Option<CellPath>);
-        impl Iterator for Ancestors {
-            type Item = CellPath;
-
-            fn next(&mut self) -> Option<Self::Item> {
-                match &self.0 {
-                    None => None,
-                    Some(v) => {
-                        let mut next = v.parent();
-                        std::mem::swap(&mut next, &mut self.0);
-                        next
-                    }
-                }
-            }
-        }
-
-        Ancestors(Some(self.clone()))
+    #[inline]
+    pub fn ancestors(&self) -> impl Iterator<Item = CellPathRef> {
+        self.as_ref().ancestors()
     }
 
     /// Returns a 'ForwardRelativePath' that, when joined onto `base`, yields
@@ -161,39 +149,40 @@ impl CellPath {
     ///
     /// assert_eq!(
     ///     path.strip_prefix(
-    ///         &CellPath::new(
+    ///         CellPath::new(
     ///             CellName::unchecked_new("cell"),
     ///             CellRelativePathBuf::unchecked_new("test".into()),
-    ///         )
+    ///         ).as_ref()
     ///     )?,
     ///     ForwardRelativePathBuf::unchecked_new("haha/foo.txt".into())
     /// );
     /// assert_eq!(
     ///     path.strip_prefix(
-    ///         &CellPath::new(
+    ///         CellPath::new(
     ///             CellName::unchecked_new("cell"),
     ///             CellRelativePathBuf::unchecked_new("asdf".into()),
-    ///         )
+    ///         ).as_ref()
     ///     ).is_err(),
     ///     true
     /// );
     /// assert_eq!(
     ///     path.strip_prefix(
-    ///         &CellPath::new(
+    ///         CellPath::new(
     ///             CellName::unchecked_new("another"),
     ///             CellRelativePathBuf::unchecked_new("test".into()),
-    ///         )
+    ///         ).as_ref()
     ///     ).is_err(),
     ///     true
     /// );
     ///
     /// # anyhow::Ok(())
     /// ```
-    pub fn strip_prefix(&self, base: &CellPath) -> anyhow::Result<&ForwardRelativePath> {
-        if self.cell != base.cell {
-            return Err(StripPrefixError(self.cell.clone(), base.cell.clone()).into());
-        }
-        self.path.strip_prefix(&base.path)
+    #[inline]
+    pub fn strip_prefix<'a>(
+        &'a self,
+        base: CellPathRef,
+    ) -> anyhow::Result<&'a ForwardRelativePath> {
+        self.as_ref().strip_prefix(base)
     }
 
     /// Build an owned `CellPath`, joined with the given path and
@@ -247,18 +236,20 @@ impl CellPath {
     ///     CellPath::new(
     ///         CellName::unchecked_new("cell"),
     ///         CellRelativePathBuf::unchecked_new("foo/bar".into())
-    ///     ).starts_with(&CellPath::new(
+    ///     ).starts_with(CellPath::new(
     ///         CellName::unchecked_new("cell"),
     ///         CellRelativePathBuf::unchecked_new("foo".into())
-    ///     )),
+    ///     ).as_ref()),
     /// );
     ///
     /// # anyhow::Ok(())
     /// ```
-    pub fn starts_with(&self, base: &CellPath) -> bool {
-        self.cell() == base.cell() && self.path().starts_with(base.path())
+    #[inline]
+    pub fn starts_with(&self, base: CellPathRef) -> bool {
+        self.as_ref().starts_with(base)
     }
 
+    #[inline]
     pub fn into_parts(self) -> (CellName, CellRelativePathBuf) {
         (self.cell, self.path)
     }
@@ -268,5 +259,89 @@ impl CellPath {
             CellName::unchecked_new(cell_name),
             CellRelativePathBuf::unchecked_new(relative_path.into()),
         )
+    }
+
+    #[inline]
+    pub fn as_ref(&self) -> CellPathRef {
+        CellPathRef {
+            cell: self.cell.dupe(),
+            path: &self.path,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Dupe, derive_more::Display)]
+#[display(fmt = "{}//{}", cell, path)]
+pub struct CellPathRef<'a> {
+    cell: CellName,
+    path: &'a CellRelativePath,
+}
+
+impl<'a> CellPathRef<'a> {
+    #[inline]
+    pub fn parent(&self) -> Option<CellPathRef<'a>> {
+        Some(CellPathRef {
+            cell: self.cell.dupe(),
+            path: self.path.parent()?,
+        })
+    }
+
+    #[inline]
+    pub fn to_owned(&self) -> CellPath {
+        CellPath {
+            cell: self.cell.dupe(),
+            path: self.path.to_owned(),
+        }
+    }
+
+    #[inline]
+    pub fn cell(&self) -> CellName {
+        self.cell.dupe()
+    }
+
+    #[inline]
+    pub fn path(&self) -> &'a CellRelativePath {
+        self.path
+    }
+
+    pub fn ancestors(&self) -> impl Iterator<Item = CellPathRef<'a>> + 'a {
+        struct Ancestors<'a>(Option<CellPathRef<'a>>);
+        impl<'a> Iterator for Ancestors<'a> {
+            type Item = CellPathRef<'a>;
+
+            fn next(&mut self) -> Option<Self::Item> {
+                match &self.0 {
+                    None => None,
+                    Some(v) => {
+                        let mut next = v.parent();
+                        std::mem::swap(&mut next, &mut self.0);
+                        next
+                    }
+                }
+            }
+        }
+
+        Ancestors(Some(self.dupe()))
+    }
+
+    #[inline]
+    pub fn join(&self, path: &ForwardRelativePath) -> CellPath {
+        CellPath {
+            cell: self.cell.dupe(),
+            path: self.path.join(path),
+        }
+    }
+
+    #[inline]
+    pub fn starts_with(&self, base: CellPathRef) -> bool {
+        self.cell() == base.cell() && self.path().starts_with(base.path())
+    }
+
+    #[inline]
+    pub fn strip_prefix(&self, base: CellPathRef) -> anyhow::Result<&'a ForwardRelativePath> {
+        if self.cell != base.cell {
+            return Err(StripPrefixError(self.cell.dupe(), base.cell.dupe()).into());
+        }
+        self.path.strip_prefix(&base.path)
     }
 }

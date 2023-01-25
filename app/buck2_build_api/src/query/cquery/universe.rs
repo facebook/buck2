@@ -143,7 +143,7 @@ impl CqueryUniverse {
             // This does not leave this function, so we are probably fine.
             // We do it because the map is by `Package`,
             // and `BTreeMap` does not allow lookup by equivalent key.
-            let package = PackageLabel::from_cell_path(&package);
+            let package = PackageLabel::from_cell_path(package);
             let package_data = match self.targets.get(&package) {
                 None => continue,
                 Some(package_data) => package_data,

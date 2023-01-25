@@ -221,7 +221,7 @@ impl AuditSubcommand for AuditConfigCommand {
                 let specs = self.specs.try_map(|v| {
                     let (cell, config) = match v.split_once("//") {
                         Some((cell, config)) => (cell_alias_resolver.resolve(cell)?, config),
-                        None => (resolved_relevant_cell, v.as_str()),
+                        None => (resolved_relevant_cell.dupe(), v.as_str()),
                     };
                     let (section, key) = config.split1(".");
                     anyhow::Ok((cell, section, key, v))
@@ -229,14 +229,14 @@ impl AuditSubcommand for AuditConfigCommand {
 
                 let filter = move |cell: &CellName, section: &str, key: &str| {
                     if specs.is_empty() {
-                        if cell == resolved_relevant_cell {
+                        if cell == &resolved_relevant_cell {
                             Some(format!("{}.{}", section, key))
                         } else {
                             None
                         }
                     } else {
                         for (filter_cell, filter_section, filter_key, spec) in &specs {
-                            if &cell == filter_cell
+                            if cell == filter_cell
                                 && &section == filter_section
                                 && (filter_key == &"" || &key == filter_key)
                             {

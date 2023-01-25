@@ -25,7 +25,7 @@ pub fn prelude_path(alias_resolver: &CellAliasResolver) -> anyhow::Result<Import
     let prelude_file = CellRelativePathBuf::unchecked_new("prelude.bzl".to_owned());
     ImportPath::new(
         CellPath::new(prelude_cell.clone(), prelude_file),
-        BuildFileCell::new(prelude_cell.clone()),
+        BuildFileCell::new(prelude_cell),
     )
 }
 

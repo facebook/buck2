@@ -53,7 +53,10 @@ impl AuditSubcommand for AuditPreludeCommand {
                 let cell_alias_resolver = cell_resolver.root_cell_instance().cell_alias_resolver();
                 let prelude_path = prelude_path(cell_alias_resolver)?;
                 let interpreter_calculation = ctx
-                    .get_interpreter_calculator(prelude_path.cell(), prelude_path.build_file_cell())
+                    .get_interpreter_calculator(
+                        &prelude_path.cell(),
+                        &prelude_path.build_file_cell(),
+                    )
                     .await?;
                 // Slightly odd that to get the build_file_global_env out of global_interpreter_state
                 // we first have to wrap it in an InterpreterConfig with a fake CellAliasResolver

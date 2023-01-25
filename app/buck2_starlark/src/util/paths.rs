@@ -47,7 +47,7 @@ async fn starlark_file(
     files: &mut Vec<OwnedStarlarkPath>,
 ) -> anyhow::Result<()> {
     let cell_path = cell_resolver.get_cell_path(&proj_path)?;
-    if recursive.is_some() && fs.is_ignored(&cell_path).await? {
+    if recursive.is_some() && fs.is_ignored(cell_path.as_ref()).await? {
         // File is ignored by Buck, give up on it
         return Ok(());
     }
@@ -80,7 +80,7 @@ async fn starlark_file(
             let is_buildfile = match proj_path.file_name() {
                 None => false,
                 Some(file_name) => cell_resolver
-                    .get(cell_path.cell())?
+                    .get(&cell_path.cell())?
                     .buildfiles()
                     .iter()
                     .any(|x| (*x).deref() == file_name),
@@ -96,7 +96,7 @@ async fn starlark_file(
             } else if recursive.is_none() || proj_path.as_str().ends_with(".bzl") {
                 // If a file was asked for explicitly, and is nothing else, treat it as .bzl file
                 // If it's not explicit, just ignore it (probably a source file)
-                let build_file_cell = BuildFileCell::new(cell_path.cell().to_owned());
+                let build_file_cell = BuildFileCell::new(cell_path.cell());
                 files.push(OwnedStarlarkPath::LoadFile(ImportPath::new(
                     cell_path,
                     build_file_cell,
@@ -128,7 +128,7 @@ pub(crate) async fn starlark_files(
             context.project_root(),
             context.working_dir(),
         )?;
-        let proj_path = cell_resolver.resolve_path(&cell_path)?;
+        let proj_path = cell_resolver.resolve_path(cell_path.as_ref())?;
         starlark_file(proj_path, None, cell_resolver, fs, io, &mut files).await?;
     }
     Ok(files)

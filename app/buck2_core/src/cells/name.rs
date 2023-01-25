@@ -63,7 +63,7 @@ impl CellName {
         CellName(INTERNER.intern(CellNameDataRef(name)))
     }
 
-    pub fn as_str(&self) -> &str {
-        &self.0.0
+    pub fn as_str(&self) -> &'static str {
+        &self.0.deref_static().0
     }
 }

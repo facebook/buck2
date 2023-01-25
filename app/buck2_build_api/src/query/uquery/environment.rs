@@ -476,10 +476,8 @@ fn split_universe_files<'c>(
     let buildfile_names_by_cell = delegate.get_buildfile_names_by_cell()?;
     for file in universe {
         let buildfile_names_for_file =
-            buildfile_names_by_cell.get(file.cell()).ok_or_else(|| {
-                anyhow::anyhow!(RBuildFilesError::CellMissingBuildFileNames(
-                    file.cell().clone()
-                ))
+            buildfile_names_by_cell.get(&file.cell()).ok_or_else(|| {
+                anyhow::anyhow!(RBuildFilesError::CellMissingBuildFileNames(file.cell()))
             })?;
 
         if let Some(name) = file.path().file_name() {

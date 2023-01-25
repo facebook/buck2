@@ -140,7 +140,7 @@ fn register_uquery(builder: &mut MethodsBuilder) {
                 ctx,
                 ctx.get_cell_resolver()
                     .await?
-                    .get(this.ctx.current_bxl.label().bxl_path.cell())?
+                    .get(&this.ctx.current_bxl.label().bxl_path.cell())?
                     .path(),
                 None,
             )

@@ -44,7 +44,7 @@ impl FetchTransition for DiceComputations {
         id: &TransitionId,
     ) -> SharedResult<OwnedFrozenValueTyped<FrozenTransition>> {
         let calculation = self
-            .get_interpreter_calculator(id.path.cell(), id.path.build_file_cell())
+            .get_interpreter_calculator(&id.path.cell(), &id.path.build_file_cell())
             .await?;
         let module = calculation
             .eval_module(StarlarkModulePath::LoadFile(&id.path))

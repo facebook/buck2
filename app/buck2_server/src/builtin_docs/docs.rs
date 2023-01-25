@@ -132,7 +132,7 @@ fn get_builtin_build_docs(
 
 fn get_artifact_docs() -> Option<Doc> {
     let pkg = PackageLabel::new(
-        &CellName::unchecked_new(""),
+        CellName::unchecked_new(""),
         CellRelativePath::unchecked_new("__native__"),
     );
 
@@ -197,7 +197,7 @@ pub async fn get_prelude_docs(
     let cell_alias_resolver = cell_resolver.root_cell_instance().cell_alias_resolver();
     let prelude_path = prelude_path(cell_alias_resolver)?;
     let interpreter_calculation = ctx
-        .get_interpreter_calculator(prelude_path.cell(), prelude_path.build_file_cell())
+        .get_interpreter_calculator(&prelude_path.cell(), &prelude_path.build_file_cell())
         .await?;
     let mut prelude_docs = get_docs_from_module(&interpreter_calculation, prelude_path).await?;
 
@@ -329,10 +329,10 @@ async fn docs(
 ) -> anyhow::Result<UnstableDocsResponse> {
     let cell_resolver = dice_ctx.get_cell_resolver().await?;
     let current_cell_path = cell_resolver.get_cell_path(server_ctx.working_dir())?;
-    let current_cell = BuildFileCell::new(current_cell_path.cell().clone());
+    let current_cell = BuildFileCell::new(current_cell_path.cell());
 
     let cell_alias_resolver = cell_resolver
-        .get(current_cell_path.cell())?
+        .get(&current_cell_path.cell())?
         .cell_alias_resolver();
 
     let lookups = parse_import_paths(
@@ -361,7 +361,7 @@ async fn docs(
         .into_iter()
         .map(|import_path| async {
             let interpreter_calc = dice_ctx
-                .get_interpreter_calculator(import_path.cell(), import_path.build_file_cell())
+                .get_interpreter_calculator(&import_path.cell(), &import_path.build_file_cell())
                 .await?;
             get_docs_from_module(&interpreter_calc, import_path).await
         })

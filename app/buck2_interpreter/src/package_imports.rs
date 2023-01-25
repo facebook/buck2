@@ -74,7 +74,7 @@ impl PackageImplicitImports {
         let mut mappings = HashMap::new();
         if let Some(value) = encoded_mappings {
             let root_path = CellPath::new(
-                cell_name.name().clone(),
+                cell_name.name(),
                 CellRelativePathBuf::unchecked_new("".to_owned()),
             );
             for item in value.split(',') {

@@ -91,7 +91,7 @@ mod tests {
             .unwrap();
 
         let package = PackageLabel::new(
-            &CellName::unchecked_new("root"),
+            CellName::unchecked_new("root"),
             CellRelativePath::new(ForwardRelativePath::new("foo/bar").unwrap()),
         );
 

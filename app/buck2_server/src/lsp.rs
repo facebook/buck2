@@ -193,7 +193,8 @@ impl DocsCache {
         let starlark_file = StarlarkPath::LoadFile(&root_import_path);
         let loaded_import_path = calculator.resolve_load(starlark_file, &path).await?;
 
-        let relative_path = cell_resolver.resolve_path(loaded_import_path.borrow().path())?;
+        let relative_path =
+            cell_resolver.resolve_path(loaded_import_path.borrow().path().as_ref())?;
         let abs_path = fs.resolve(&relative_path);
         Ok(Url::from_file_path(abs_path).unwrap().try_into()?)
     }
@@ -404,7 +405,7 @@ impl BuckLspContext {
                 // Instantiating a BuildFileCell off of the path of the file being originally evaluated.
                 // Unlike the build commands and such, there is no meaningful "build file cell" versus
                 // the cell of the file being currently evaluated.
-                let bfc = BuildFileCell::new(cell_path.cell().clone());
+                let bfc = BuildFileCell::new(cell_path.cell());
 
                 Ok(OwnedStarlarkModulePath::LoadFile(ImportPath::new(
                     cell_path, bfc,
@@ -430,7 +431,7 @@ impl BuckLspContext {
                 cell_path,
             )?)),
             _ => {
-                let bfc = BuildFileCell::new(cell_path.cell().clone());
+                let bfc = BuildFileCell::new(cell_path.cell());
 
                 Ok(OwnedStarlarkModulePath::LoadFile(ImportPath::new(
                     cell_path, bfc,
@@ -458,8 +459,8 @@ impl BuckLspContext {
             .with_dice_ctx(|dice_ctx| async move {
                 let calculator = dice_ctx
                     .get_interpreter_calculator(
-                        import_path.borrow().cell(),
-                        import_path.borrow().build_file_cell(),
+                        &import_path.borrow().cell(),
+                        &import_path.borrow().build_file_cell(),
                     )
                     .await?;
 
@@ -507,7 +508,7 @@ impl BuckLspContext {
         let cell_resolver = self
             .with_dice_ctx(|dice_ctx| async move { dice_ctx.get_cell_resolver().await })
             .await?;
-        let cell = cell_resolver.get(current_package.cell_name())?;
+        let cell = cell_resolver.get(&current_package.cell_name())?;
         match ParsedPattern::<ProvidersPattern>::parsed_opt_absolute(
             cell.cell_alias_resolver(),
             Some(current_package),
@@ -587,8 +588,8 @@ impl LspContext for BuckLspContext {
                             .with_dice_ctx(async move |dice_ctx| {
                                 let calculator = dice_ctx
                                     .get_interpreter_calculator(
-                                        borrowed_current_import_path.cell(),
-                                        borrowed_current_import_path.build_file_cell(),
+                                        &borrowed_current_import_path.cell(),
+                                        &borrowed_current_import_path.build_file_cell(),
                                     )
                                     .await?;
 
@@ -598,7 +599,7 @@ impl LspContext for BuckLspContext {
                                 let relative_path = dice_ctx
                                     .get_cell_resolver()
                                     .await?
-                                    .resolve_path(loaded_import_path.borrow().path())?;
+                                    .resolve_path(loaded_import_path.borrow().path().as_ref())?;
                                 let abs_path = self.fs.resolve(&relative_path);
                                 Ok(Url::from_file_path(abs_path).unwrap().try_into()?)
                             })
@@ -632,7 +633,8 @@ impl LspContext for BuckLspContext {
                         current_file.clone(),
                     )),
                 }?;
-                let current_package = PackageLabel::from_cell_path(import_path.borrow().path());
+                let current_package =
+                    PackageLabel::from_cell_path(import_path.borrow().path().as_ref());
 
                 // Right now we swallow the errors up as they can happen for a lot of reasons that are
                 // perfectly recoverable (e.g. an invalid cell is specified, we can't list an invalid
@@ -664,7 +666,11 @@ impl LspContext for BuckLspContext {
                         let path = self.import_path(path).await?;
 
                         self.with_dice_ctx(async move |dice_ctx| {
-                            match dice_ctx.file_ops().read_file(path.borrow().path()).await {
+                            match dice_ctx
+                                .file_ops()
+                                .read_file(path.borrow().path().as_ref())
+                                .await
+                            {
                                 Ok(s) => Ok(Some(s)),
                                 Err(e) => match e.downcast_ref::<io::Error>() {
                                     Some(inner_e) if inner_e.kind() == ErrorKind::NotFound => {

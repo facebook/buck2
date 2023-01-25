@@ -339,7 +339,11 @@ impl LoadResolver for InterpreterLoadResolver {
 
         // If you load the same .bzl file twice via different aliases (e.g. fbcode//buck2/prelude/foo.bzl and prelude.bzl)
         // then anything doing pointer equality (t-sets, provider identities) will go wrong.
-        let project_path = self.config.global_state.cell_resolver.resolve_path(&path)?;
+        let project_path = self
+            .config
+            .global_state
+            .cell_resolver
+            .resolve_path(path.as_ref())?;
         let reformed_path = self
             .config
             .global_state
@@ -365,7 +369,7 @@ impl LoadResolver for InterpreterLoadResolver {
         // checks in t-sets, which would fail if we had > 1 copy of the prelude.
         if let Some(prelude_import) = self.config.global_state.configuror.prelude_import() {
             if is_prelude_path(&path, prelude_import.path()) {
-                let cell = path.cell().clone();
+                let cell = path.cell();
                 return Ok(OwnedStarlarkModulePath::LoadFile(ImportPath::new(
                     path,
                     BuildFileCell::new(cell),
@@ -509,7 +513,7 @@ impl InterpreterForCell {
         loaded_modules: &LoadedModules,
     ) -> anyhow::Result<(Module, Box<dyn ExtraContextDyn>)> {
         let internals = self.config.global_state.configuror.new_extra_context(
-            self.get_cell_config(build_file.build_file_cell()),
+            self.get_cell_config(&build_file.build_file_cell()),
             build_file.clone(),
             package_listing.dupe(),
             package_boundary_exception,
@@ -549,13 +553,14 @@ impl InterpreterForCell {
             loader_path: current_file_path
                 .path()
                 .parent()
-                .expect("loading file should have parent directory"),
+                .expect("loading file should have parent directory")
+                .to_owned(),
             loader_file_type: match current_file_path {
                 StarlarkPath::BuildFile(_) => StarlarkFileType::Buck,
                 StarlarkPath::LoadFile(_) => StarlarkFileType::Bzl,
                 StarlarkPath::BxlFile(_) => StarlarkFileType::Bxl,
             },
-            build_file_cell: current_file_path.build_file_cell().clone(),
+            build_file_cell: current_file_path.build_file_cell(),
         }
     }
 
@@ -591,7 +596,7 @@ impl InterpreterForCell {
             .config
             .global_state
             .cell_resolver
-            .resolve_path(&import.path())?;
+            .resolve_path(import.path().as_ref().as_ref())?;
         let result: anyhow::Result<_> = try {
             let disable_starlark_types = self.config.global_state.disable_starlark_types;
             let ast = AstModule::parse(
@@ -638,7 +643,7 @@ impl InterpreterForCell {
         let globals = self.config.starlark_path_global_env(&import);
         let file_loader =
             InterpreterFileLoader::new(loaded_modules, Arc::new(self.load_resolver(import)));
-        let cell_info = self.get_cell_config(import.build_file_cell());
+        let cell_info = self.get_cell_config(&import.build_file_cell());
         let host_platform = self.config.global_state.configuror.host_platform();
         let host_architecture = self.config.global_state.configuror.host_architecture();
         let extra = BuildContext::new_for_module(
@@ -842,7 +847,7 @@ mod tests {
         fn interpreter(&self) -> anyhow::Result<InterpreterForCell> {
             let root_cell = BuildFileCell::new(CellName::unchecked_new("root"));
             let import_paths = ImportPaths::parse(
-                self.configs.get(root_cell.name()).unwrap(),
+                self.configs.get(&root_cell.name()).unwrap(),
                 &root_cell,
                 &self.cell_alias_resolver,
             )?;

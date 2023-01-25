@@ -690,7 +690,7 @@ mod tests {
         }
 
         let pkg = PackageLabel::new(
-            &CellName::unchecked_new("cell"),
+            CellName::unchecked_new("cell"),
             CellRelativePath::unchecked_new("pkg"),
         );
 

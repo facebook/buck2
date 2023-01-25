@@ -231,7 +231,7 @@ impl ExecutionPlatformConstraints {
         node: &TargetNode,
     ) -> SharedResult<ExecutionPlatformResolution> {
         ctx.resolve_execution_platform_from_constraints(
-            node.label().pkg().cell_name(),
+            &node.label().pkg().cell_name(),
             &self.exec_compatible_with,
             &self.exec_deps,
             &self.toolchain_allows(ctx).await?,
@@ -276,7 +276,7 @@ async fn execution_platforms_for_toolchain(
             let resolved_configuration = &ctx
                 .get_resolved_configuration(
                     self.0.cfg(),
-                    self.0.pkg().cell_name(),
+                    &self.0.pkg().cell_name(),
                     node.get_configuration_deps(),
                 )
                 .await?;
@@ -313,7 +313,7 @@ pub async fn get_execution_platform_toolchain_dep(
     let resolved_configuration = ctx
         .get_resolved_configuration(
             target_cfg,
-            target_cell,
+            &target_cell,
             target_node.get_configuration_deps(),
         )
         .await?;
@@ -523,7 +523,7 @@ async fn compute_configured_target_node_no_transition(
     let resolved_configuration = ctx
         .get_resolved_configuration(
             target_cfg,
-            target_cell,
+            &target_cell,
             target_node.get_configuration_deps(),
         )
         .await?;

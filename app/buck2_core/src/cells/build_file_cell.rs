@@ -8,7 +8,7 @@
  */
 
 use allocative::Allocative;
-use ref_cast::RefCast;
+use dupe::Dupe;
 
 use crate::cells::name::CellName;
 
@@ -17,23 +17,25 @@ use crate::cells::name::CellName;
 /// being interpreted. This gets its own type because its easy to get wrong.
 #[derive(
     Clone,
+    Dupe,
     Hash,
     Eq,
     PartialEq,
     Debug,
     derive_more::Display,
-    RefCast,
     Allocative
 )]
 #[repr(C)]
 pub struct BuildFileCell(CellName);
 
 impl BuildFileCell {
+    #[inline]
     pub fn new(name: CellName) -> Self {
         Self(name)
     }
 
-    pub fn name(&self) -> &CellName {
-        &self.0
+    #[inline]
+    pub fn name(&self) -> CellName {
+        self.0.dupe()
     }
 }

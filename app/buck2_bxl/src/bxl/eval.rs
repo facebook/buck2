@@ -65,12 +65,12 @@ pub async fn eval(
     let frozen_callable = get_bxl_callable(key.label(), &bxl_module)?;
 
     let bxl_cell = cell_resolver
-        .get(key.label().bxl_path.cell())
+        .get(&key.label().bxl_path.cell())
         .with_context(|| format!("Cell does not exist: `{}`", key.label().bxl_path.cell()))?
         .dupe();
 
     let config = ctx
-        .get_legacy_config_for_cell(key.label().bxl_path.cell())
+        .get_legacy_config_for_cell(&key.label().bxl_path.cell())
         .await
         .with_context(|| {
             format!(

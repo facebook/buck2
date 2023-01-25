@@ -82,7 +82,7 @@ impl<'a> BuckPathRef<'a> {
     }
 
     pub fn to_cell_path(&self) -> CellPath {
-        self.pkg.as_cell_path().join(self.path)
+        self.pkg.as_cell_path().join(self.path.as_ref())
     }
 
     pub fn to_buck_path(&self) -> BuckPath {

@@ -120,7 +120,7 @@ fn fs_operations(builder: &mut MethodsBuilder) {
         match path {
             Ok(p) => this
                 .dice
-                .via_dice(async move |ctx| ctx.file_ops().try_exists(&p).await),
+                .via_dice(async move |ctx| ctx.file_ops().try_exists(p.as_ref()).await),
             Err(e) => Err(e),
         }
     }
@@ -146,7 +146,7 @@ fn fs_operations(builder: &mut MethodsBuilder) {
 
         match path {
             Ok(path) => this.dice.via_dice(async move |ctx| {
-                let read_dir_output = ctx.file_ops().read_dir_with_ignores(&path).await;
+                let read_dir_output = ctx.file_ops().read_dir_with_ignores(path.as_ref()).await;
 
                 match read_dir_output {
                     Ok(read_dir_output) => Ok(StarlarkReadDirSet {

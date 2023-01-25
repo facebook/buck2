@@ -12,6 +12,7 @@ use std::fmt::Display;
 use std::fmt::Formatter;
 
 use allocative::Allocative;
+use dupe::Dupe;
 
 use crate::cells::build_file_cell::BuildFileCell;
 use crate::cells::cell_path::CellPath;
@@ -105,12 +106,12 @@ impl ImportPath {
         .unwrap()
     }
 
-    pub fn cell(&self) -> &CellName {
+    pub fn cell(&self) -> CellName {
         self.path.cell()
     }
 
-    pub fn build_file_cell(&self) -> &BuildFileCell {
-        &self.build_file_cell
+    pub fn build_file_cell(&self) -> BuildFileCell {
+        self.build_file_cell.dupe()
     }
 
     pub fn path(&self) -> &CellPath {
