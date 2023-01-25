@@ -15,7 +15,9 @@
 
 use std::cell::UnsafeCell;
 use std::cmp;
+use std::collections::hash_map::Entry;
 use std::collections::Bound;
+use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
@@ -27,12 +29,11 @@ use std::sync::Arc;
 use std::sync::Weak;
 
 use allocative::Allocative;
-use dashmap::mapref::entry::Entry;
-use dashmap::DashMap;
 use derive_more::Display;
 use dupe::Dupe;
 use once_cell::sync::OnceCell;
 use parking_lot::lock_api::RawMutex as RawMutexApi;
+use parking_lot::Mutex;
 use parking_lot::RawMutex;
 use parking_lot::RwLock;
 use sorted_vector_map::SortedVectorSet;
@@ -538,7 +539,7 @@ pub(crate) struct VersionTracker {
     on_cleanup: Box<dyn Fn(VersionNumber)>,
     current: RwLock<VersionToMinor>,
     /// Tracks the currently active versions and how many contexts are holding each of them.
-    active_versions: DashMap<VersionNumber, usize>,
+    active_versions: Mutex<HashMap<VersionNumber, usize>>,
     /// use a RawMutex here so that we can lock and unlock using our custom `VersionWriteGuard`
     /// that is Send and Sync, so that the write version can be sent across multiple threads for
     /// Dice updates, while guaranteeing that the lock is held so that updates to dice are mutually
@@ -567,7 +568,7 @@ impl VersionGuard {
         version: VersionNumber,
         minor_version_guard: MinorVersionGuard,
     ) -> Self {
-        *tracker.active_versions.entry(version).or_default() += 1;
+        *tracker.active_versions.lock().entry(version).or_default() += 1;
 
         Self {
             tracker,
@@ -579,7 +580,8 @@ impl VersionGuard {
 
 impl Drop for VersionGuard {
     fn drop(&mut self) {
-        let entry = self.tracker.active_versions.entry(self.version);
+        let mut active_versions = self.tracker.active_versions.lock();
+        let entry = active_versions.entry(self.version);
 
         match entry {
             Entry::Occupied(mut entry) => {
@@ -611,7 +613,7 @@ impl VersionTracker {
                 version: VersionNumber::ZERO,
                 minor_version_tracker: vec![MinorVersionTracker::new()],
             }),
-            active_versions: DashMap::new(),
+            active_versions: Mutex::new(HashMap::new()),
             write_lock: Arc::new(RawMutex::INIT),
             write_version: UnsafeCell::new(VersionNumber::ZERO),
         })
@@ -652,7 +654,7 @@ impl VersionTracker {
         let v = cur.version;
         let m = cur.minor_version_tracker[v.0].acquire();
 
-        *self.active_versions.entry(v).or_default() += 1;
+        *self.active_versions.lock().entry(v).or_default() += 1;
 
         VersionGuard {
             tracker: self.dupe(),
@@ -787,16 +789,16 @@ mod tests {
         });
         let vg1 = vt.current();
         assert_eq!(vg1.version, VersionNumber::new(0));
-        assert_eq!(*vt.active_versions.get(&vg1.version).unwrap(), 1,);
+        assert_eq!(*vt.active_versions.lock().get(&vg1.version).unwrap(), 1,);
 
         let vg2 = vt.current();
         assert_eq!(vg2.version, VersionNumber::new(0));
-        assert_eq!(*vt.active_versions.get(&vg2.version).unwrap(), 2,);
+        assert_eq!(*vt.active_versions.lock().get(&vg2.version).unwrap(), 2,);
 
         drop(vg2);
 
         assert!(cleaned.lock().unwrap().is_none());
-        assert_eq!(*vt.active_versions.get(&vg1.version).unwrap(), 1,);
+        assert_eq!(*vt.active_versions.lock().get(&vg1.version).unwrap(), 1,);
 
         {
             let w = vt.write();
@@ -805,21 +807,31 @@ mod tests {
 
         let vg3 = vt.current();
         assert_eq!(vg3.version, VersionNumber::new(1));
-        assert_eq!(*vt.active_versions.get(&vg3.version).unwrap(), 1,);
+        assert_eq!(*vt.active_versions.lock().get(&vg3.version).unwrap(), 1,);
 
-        assert_eq!(*vt.active_versions.get(&vg1.version).unwrap(), 1,);
+        assert_eq!(*vt.active_versions.lock().get(&vg1.version).unwrap(), 1,);
 
         drop(vg3);
 
-        assert!(vt.active_versions.get(&VersionNumber::new(1)).is_none());
+        assert!(
+            vt.active_versions
+                .lock()
+                .get(&VersionNumber::new(1))
+                .is_none()
+        );
         assert_eq!(*cleaned.lock().unwrap(), Some(VersionNumber::new(1)));
 
-        assert_eq!(*vt.active_versions.get(&vg1.version).unwrap(), 1,);
+        assert_eq!(*vt.active_versions.lock().get(&vg1.version).unwrap(), 1,);
 
         drop(vg1);
 
         assert_eq!(*cleaned.lock().unwrap(), Some(VersionNumber::new(0)));
-        assert!(vt.active_versions.get(&VersionNumber::new(0)).is_none());
+        assert!(
+            vt.active_versions
+                .lock()
+                .get(&VersionNumber::new(0))
+                .is_none()
+        );
     }
 
     #[test]
