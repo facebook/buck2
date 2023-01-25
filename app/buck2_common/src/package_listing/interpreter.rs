@@ -15,6 +15,7 @@ use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::CellResolver;
 use buck2_core::collections::sorted_set::SortedSet;
+use buck2_core::collections::sorted_vec::SortedVec;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::package::package_relative_path::PackageRelativePath;
@@ -191,7 +192,7 @@ impl<'c> InterpreterPackageListingResolver<'c> {
         Ok(PackageListing::new(
             SortedSet::new_unchecked(strip_prefixes(root, &files)?),
             strip_prefixes(root, &dirs)?,
-            strip_prefixes(root, &subpackages)?,
+            SortedVec::new_unchecked(strip_prefixes(root, &subpackages)?),
             buildfile.to_owned(),
         ))
     }

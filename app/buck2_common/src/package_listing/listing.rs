@@ -11,6 +11,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_core::collections::sorted_set::SortedSet;
+use buck2_core::collections::sorted_vec::SortedVec;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::package::package_relative_path::PackageRelativePath;
@@ -28,7 +29,7 @@ pub struct PackageListing {
 struct PackageListingData {
     files: PackageFileListing,
     directories: IndexSet<Box<PackageRelativePath>>,
-    subpackages: Vec<Box<PackageRelativePath>>,
+    subpackages: SortedVec<Box<PackageRelativePath>>,
     buildfile: FileNameBuf,
 }
 
@@ -36,7 +37,7 @@ impl PackageListing {
     pub(crate) fn new(
         files: SortedSet<Box<PackageRelativePath>>,
         directories: IndexSet<Box<PackageRelativePath>>,
-        subpackages: Vec<Box<PackageRelativePath>>,
+        subpackages: SortedVec<Box<PackageRelativePath>>,
         buildfile: FileNameBuf,
     ) -> Self {
         Self {
@@ -50,7 +51,12 @@ impl PackageListing {
     }
 
     pub fn empty(buildfile: FileNameBuf) -> Self {
-        Self::new(SortedSet::new(), IndexSet::new(), Vec::new(), buildfile)
+        Self::new(
+            SortedSet::new(),
+            IndexSet::new(),
+            SortedVec::new(),
+            buildfile,
+        )
     }
 
     pub fn files(&self) -> &PackageFileListing {
@@ -93,6 +99,7 @@ impl PackageListing {
 
 pub mod testing {
     use buck2_core::collections::sorted_set::SortedSet;
+    use buck2_core::collections::sorted_vec::SortedVec;
     use buck2_core::fs::paths::file_name::FileNameBuf;
     use buck2_core::package::package_relative_path::PackageRelativePathBuf;
     use indexmap::IndexSet;
@@ -124,7 +131,7 @@ pub mod testing {
             PackageListing::new(
                 SortedSet::from_iter(files),
                 IndexSet::new(),
-                Vec::new(),
+                SortedVec::new(),
                 FileNameBuf::unchecked_new(buildfile),
             )
         }
