@@ -33,6 +33,7 @@ use crate::incremental::transaction_ctx::Changes;
 use crate::incremental::transaction_ctx::TransactionCtx;
 use crate::incremental::versions::VersionForWrites;
 use crate::incremental::versions::VersionGuard;
+use crate::incremental::versions::VersionNumber;
 use crate::map::DiceMap;
 use crate::opaque::OpaqueValue;
 use crate::projection::ProjectionKeyAsKey;
@@ -162,8 +163,8 @@ impl DiceTransaction {
         self.0.0.transaction_ctx.get_version() == other.0.0.transaction_ctx.get_version()
     }
 
-    pub fn version(&self) -> u64 {
-        self.0.0.transaction_ctx.get_version().0 as u64
+    pub fn version(&self) -> VersionNumber {
+        self.0.0.transaction_ctx.get_version()
     }
 }
 

@@ -43,7 +43,7 @@ use sorted_vector_map::SortedVectorSet;
 // split this due to formatters not agreeing
 #[derive(PartialEq, Hash, Clone, Ord, PartialOrd, Allocative)]
 #[display(fmt = "v{}", "_0")]
-pub(crate) struct VersionNumber(pub(crate) usize);
+pub struct VersionNumber(pub(crate) usize);
 
 impl VersionNumber {
     /// First transaction has version number zero.

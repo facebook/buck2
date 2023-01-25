@@ -445,6 +445,8 @@ message CommandStart {
 // state. The period of time between CommandStart and CommandBegin is the time
 // spent synchronizing changes and waiting for concurrent commands to finish.
 message CommandCriticalStart {
+  reserved 2;
+
   // Metadata associated with this build. Values in this map have no particular
   // semantics and are useful for logging and telemetry only.
   //
@@ -452,7 +454,7 @@ message CommandCriticalStart {
   map<string, string> metadata = 1;
 
   // DICE transaction version number.
-  uint64 dice_version = 2;
+  string dice_version = 3;
 }
 
 message AuditCommandStart {
