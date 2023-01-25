@@ -301,7 +301,7 @@ fn get_re_execution_platform(host_platform: HostPlatformOverride) -> ReExecution
     // The version specified here is used for isolated tests which lack explicit
     // execution platform definitions.
     let mac = ReExecutionPlatform::MacOS {
-        xcode_version: "14.2".to_owned(),
+        subplatform: "xcode-14.2".to_owned(),
     };
 
     let windows = ReExecutionPlatform::Windows;

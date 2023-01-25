@@ -50,7 +50,7 @@ use crate::re::download::download_action_results;
 #[derive(Clone)]
 pub enum ReExecutionPlatform {
     Linux,
-    MacOS { xcode_version: String },
+    MacOS { subplatform: String },
     Windows,
 }
 
@@ -66,9 +66,9 @@ impl ReExecutionPlatform {
             Self::Linux => {
                 SortedMap::from_iter([("platform".to_owned(), "linux-remote-execution".to_owned())])
             }
-            Self::MacOS { xcode_version } => SortedMap::from_iter([
+            Self::MacOS { subplatform } => SortedMap::from_iter([
                 ("platform".to_owned(), "mac".to_owned()),
-                ("subplatform".to_owned(), format!("xcode-{}", xcode_version)),
+                ("subplatform".to_owned(), subplatform.to_owned()),
             ]),
             Self::Windows => SortedMap::from_iter([("platform".to_owned(), "windows".to_owned())]),
         }
