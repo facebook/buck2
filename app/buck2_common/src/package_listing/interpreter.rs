@@ -118,9 +118,9 @@ impl<'c> InterpreterPackageListingResolver<'c> {
         let cell_instance = self.cell_resolver.get(&root.cell_name())?;
         let buildfile_candidates = cell_instance.buildfiles();
 
-        let mut files = Vec::new();
-        let mut dirs = Vec::new();
-        let mut subpackages = Vec::new();
+        let mut files: Vec<CellPath> = Vec::new();
+        let mut dirs: Vec<CellPath> = Vec::new();
+        let mut subpackages: Vec<CellPath> = Vec::new();
 
         let root_entries = self
             .fs
@@ -139,7 +139,7 @@ impl<'c> InterpreterPackageListingResolver<'c> {
         let mut work = FuturesUnordered::new();
 
         let process_entries = |work: &mut FuturesUnordered<_>,
-                               files: &mut Vec<_>,
+                               files: &mut Vec<CellPath>,
                                path: CellPathRef,
                                entries: &[SimpleDirEntry]|
          -> anyhow::Result<()> {
