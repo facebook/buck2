@@ -134,7 +134,7 @@ impl<'v> TargetExpr<'v, ConfiguredTargetNode> {
             match ParsedPattern::<TargetPattern>::parse_relaxed(
                 &ctx.target_alias_resolver,
                 ctx.cell.cell_alias_resolver(),
-                &PackageLabel::new(ctx.cell.name(), CellRelativePath::empty()),
+                PackageLabel::new(ctx.cell.name(), CellRelativePath::empty()),
                 s,
             )? {
                 ParsedPattern::Target(pkg, name) => Ok(Some(Self::Label(Cow::Owned(
@@ -259,7 +259,7 @@ impl<'v> TargetExpr<'v, TargetNode> {
             match ParsedPattern::<TargetPattern>::parse_relaxed(
                 &ctx.target_alias_resolver,
                 ctx.cell.cell_alias_resolver(),
-                &PackageLabel::new(ctx.cell.name(), CellRelativePath::empty()),
+                PackageLabel::new(ctx.cell.name(), CellRelativePath::empty()),
                 s,
             )? {
                 ParsedPattern::Target(pkg, name) => {

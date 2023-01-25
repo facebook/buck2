@@ -120,7 +120,7 @@ impl AuditProvidersCommand {
             let targets = match spec {
                 buck2_core::pattern::PackageSpec::Targets(targets) => targets,
                 buck2_core::pattern::PackageSpec::All => {
-                    let interpreter_results = ctx.get_interpreter_results(&package).await?;
+                    let interpreter_results = ctx.get_interpreter_results(package.dupe()).await?;
                     interpreter_results
                         .targets()
                         .keys()

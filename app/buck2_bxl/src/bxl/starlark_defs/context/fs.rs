@@ -193,6 +193,6 @@ fn fs_operations(builder: &mut MethodsBuilder) {
 /// Returns the absolute path for a FileExpr.
 fn resolve<'v>(bxl_fs: &BxlFilesystem<'v>, expr: FileExpr<'v>) -> anyhow::Result<AbsNormPathBuf> {
     let cell_path = expr.get(bxl_fs.dice)?;
-    let project_rel_path = bxl_fs.artifact_fs.resolve_cell_path(&cell_path)?;
+    let project_rel_path = bxl_fs.artifact_fs.resolve_cell_path(cell_path.as_ref())?;
     Ok(bxl_fs.project_fs.resolve(&project_rel_path))
 }

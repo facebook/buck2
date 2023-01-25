@@ -18,20 +18,17 @@ use buck2_node::attrs::coerced_attr::CoercedAttr;
 pub mod hacks {
     use buck2_core::package::PackageLabel;
     use buck2_node::attrs::fmt_context::AttrFmtContext;
-    use dupe::Dupe;
 
     use super::*;
 
     pub fn value_to_json(
         value: &CoercedAttr,
-        pkg: &PackageLabel,
+        pkg: PackageLabel,
     ) -> anyhow::Result<serde_json::Value> {
-        value.to_json(&AttrFmtContext {
-            package: Some(pkg.dupe()),
-        })
+        value.to_json(&AttrFmtContext { package: Some(pkg) })
     }
 
-    pub fn value_to_string(value: &CoercedAttr, pkg: &PackageLabel) -> anyhow::Result<String> {
+    pub fn value_to_string(value: &CoercedAttr, pkg: PackageLabel) -> anyhow::Result<String> {
         match value_to_json(value, pkg)?.as_str() {
             Some(s) => Ok(s.to_owned()),
             None => Err(anyhow::Error::msg("Expected a string, did not get one")),
@@ -53,6 +50,7 @@ mod tests {
     use buck2_node::attrs::attr_type::AttrType;
     use buck2_node::attrs::configurable::AttrIsConfigurable;
     use buck2_node::rule_type::StarlarkRuleType;
+    use dupe::Dupe;
     use starlark::values::Heap;
 
     use super::*;
@@ -97,7 +95,7 @@ mod tests {
 
         assert_eq!(
             "Hello, world!".to_owned(),
-            hacks::value_to_string(&coerced, &package)?
+            hacks::value_to_string(&coerced, package.dupe())?
         );
 
         let list = AttrType::list(coercer).coerce(
@@ -105,7 +103,7 @@ mod tests {
             &coercer_ctx,
             heap.alloc(vec!["Hello, world!"]),
         )?;
-        assert!(hacks::value_to_string(&list, &package).is_err());
+        assert!(hacks::value_to_string(&list, package.dupe()).is_err());
         Ok(())
     }
 }

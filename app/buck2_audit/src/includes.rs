@@ -171,7 +171,7 @@ async fn load_and_collect_includes(
         .parent()
         .ok_or_else(|| anyhow::anyhow!(AuditIncludesError::InvalidPath(path.clone())))?;
     let package = PackageLabel::new(parent.cell(), parent.path());
-    let load_result = ctx.get_interpreter_results(&package).await?;
+    let load_result = ctx.get_interpreter_results(package).await?;
 
     let buildfile_name = load_result.buildfile_path().filename();
     if buildfile_name
@@ -246,7 +246,7 @@ impl AuditSubcommand for AuditIncludesCommand {
                 // This is expected to not return any errors, and so we're not careful about not propagating it.
                 let to_absolute_path = move |include: ImportPath| -> anyhow::Result<_> {
                     let include = include.path();
-                    let cell = cells.get(&include.cell())?;
+                    let cell = cells.get(include.cell())?;
                     let path = cell.path().join(include.path());
                     Ok(fs.resolve(&path))
                 };

@@ -41,7 +41,7 @@ pub struct DicePackageListingResolver<'compute>(&'compute DiceComputations);
 
 #[async_trait]
 impl<'c> PackageListingResolver for DicePackageListingResolver<'c> {
-    async fn resolve(&self, package: &PackageLabel) -> SharedResult<PackageListing> {
+    async fn resolve(&self, package: PackageLabel) -> SharedResult<PackageListing> {
         #[derive(
             Clone,
             Dupe,
@@ -62,7 +62,7 @@ impl<'c> PackageListingResolver for DicePackageListingResolver<'c> {
                 let cell_resolver = ctx.get_cell_resolver().await?;
                 let file_ops = ctx.file_ops();
                 InterpreterPackageListingResolver::new(cell_resolver, Arc::new(file_ops))
-                    .resolve(&self.0)
+                    .resolve(self.0.dupe())
                     .await
             }
 

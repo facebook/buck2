@@ -9,6 +9,7 @@
 
 use allocative::Allocative;
 use buck2_core::cells::cell_path::CellPath;
+use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePathBuf;
 use derive_more::Display;
@@ -30,8 +31,8 @@ impl CellRoot {
         ))
     }
 
-    pub fn cell_path(&self) -> &CellPath {
-        &self.0
+    pub fn cell_path(&self) -> CellPathRef {
+        self.0.as_ref()
     }
 }
 

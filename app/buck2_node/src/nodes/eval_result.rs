@@ -65,7 +65,7 @@ impl EvaluationResult {
         &self.buildfile_path
     }
 
-    pub fn package(&self) -> &PackageLabel {
+    pub fn package(&self) -> PackageLabel {
         self.buildfile_path.package()
     }
 

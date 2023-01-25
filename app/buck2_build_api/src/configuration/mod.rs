@@ -38,14 +38,14 @@ pub trait ConfigurationCalculation {
     async fn get_resolved_configuration<'a, T: Iterator<Item = &'a TargetLabel> + Send>(
         &self,
         target_cfg: &Configuration,
-        target_node_cell: &CellName,
+        target_node_cell: CellName,
         configuration_deps: T,
     ) -> SharedResult<ResolvedConfiguration>;
 
     async fn get_configuration_node(
         &self,
         target_cfg: &Configuration,
-        target_cell: &CellName,
+        target_cell: CellName,
         cfg_target: &TargetLabel,
     ) -> SharedResult<ConfigurationNode>;
 
@@ -65,7 +65,7 @@ pub trait ConfigurationCalculation {
     /// we expect these things to change rarely.
     async fn resolve_execution_platform_from_constraints(
         &self,
-        target_node_cell: &CellName,
+        target_node_cell: CellName,
         exec_compatible_with: &[TargetLabel],
         exec_deps: &IndexSet<TargetLabel>,
         toolchain_allows: &[ToolchainConstraints],

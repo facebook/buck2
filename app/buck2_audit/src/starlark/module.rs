@@ -48,7 +48,7 @@ impl StarlarkModuleCommand {
                 let current_cell = BuildFileCell::new(current_cell_path.cell());
 
                 let cell_alias_resolver = cell_resolver
-                    .get(&current_cell_path.cell())?
+                    .get(current_cell_path.cell())?
                     .cell_alias_resolver();
 
                 let path = parse_import_with_config(

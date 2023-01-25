@@ -443,7 +443,7 @@ fn configured_value_methods(builder: &mut MethodsBuilder) {
     ///     ctx.output.print(attrs.name.value())
     /// ```
     fn value<'v>(this: &StarlarkConfiguredValue, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        this.0.to_value(&this.1, heap)
+        this.0.to_value(this.1.dupe(), heap)
     }
 }
 

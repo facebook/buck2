@@ -178,7 +178,7 @@ pub(crate) mod testing {
 
         Ok((
             resolver
-                .get(&CellName::unchecked_new("root"))?
+                .get(CellName::unchecked_new("root"))?
                 .cell_alias_resolver()
                 .dupe(),
             resolver,
@@ -247,9 +247,9 @@ pub(crate) mod testing {
         fn interpreter(&self) -> anyhow::Result<InterpreterForCell> {
             let import_paths = ImportPaths::parse(
                 self.configs
-                    .get(&self.cell_alias_resolver.resolve_self())
+                    .get(self.cell_alias_resolver.resolve_self())
                     .unwrap(),
-                &BuildFileCell::new(self.cell_alias_resolver.resolve_self()),
+                BuildFileCell::new(self.cell_alias_resolver.resolve_self()),
                 &self.cell_alias_resolver,
             )?;
             let additional_globals = self.additional_globals.dupe();
@@ -308,7 +308,7 @@ pub(crate) mod testing {
                 interpreter.parse(StarlarkPath::LoadFile(path), content.to_owned())?;
             let buckconfig = self
                 .configs
-                .get(&self.cell_alias_resolver.resolve_self())
+                .get(self.cell_alias_resolver.resolve_self())
                 .unwrap();
             let env = interpreter.eval_module(
                 StarlarkModulePath::LoadFile(path),
@@ -354,7 +354,7 @@ pub(crate) mod testing {
                 interpreter.parse(StarlarkPath::BuildFile(path), content.to_owned())?;
             let buckconfig = self
                 .configs
-                .get(&self.cell_alias_resolver.resolve_self())
+                .get(self.cell_alias_resolver.resolve_self())
                 .unwrap();
             let eval_result = interpreter.eval_build_file::<ModuleInternals>(
                 path,

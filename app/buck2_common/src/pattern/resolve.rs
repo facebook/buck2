@@ -34,19 +34,19 @@ where
         }
     }
 
-    pub fn add_package(&mut self, package: &PackageLabel) {
-        self.specs.insert(package.dupe(), PackageSpec::All);
+    pub fn add_package(&mut self, package: PackageLabel) {
+        self.specs.insert(package, PackageSpec::All);
     }
 
-    pub fn add_target(&mut self, package: &PackageLabel, target: &T) {
-        if let Some(s) = self.specs.get_mut(package) {
+    pub fn add_target(&mut self, package: PackageLabel, target: &T) {
+        if let Some(s) = self.specs.get_mut(&package) {
             match s {
                 PackageSpec::Targets(ref mut t) => t.push(target.clone()),
                 PackageSpec::All => {}
             }
         } else {
             self.specs
-                .insert(package.dupe(), PackageSpec::Targets(vec![target.clone()]));
+                .insert(package, PackageSpec::Targets(vec![target.clone()]));
         }
     }
 }
@@ -65,17 +65,17 @@ pub async fn resolve_target_patterns<
     for pattern in patterns {
         match pattern {
             ParsedPattern::Target(package, target) => {
-                resolved.add_target(package, target);
+                resolved.add_target(package.dupe(), target);
             }
             ParsedPattern::Package(package) => {
-                resolved.add_package(package);
+                resolved.add_package(package.dupe());
             }
             ParsedPattern::Recursive(cell_path) => {
                 let roots = find_package_roots(cell_path.clone(), file_ops, cell_resolver)
                     .await
                     .context("When resolving recursive target pattern.")?;
                 for package in roots {
-                    resolved.add_package(&package);
+                    resolved.add_package(package);
                 }
             }
         }
@@ -170,7 +170,7 @@ mod tests {
         {
             let aliases = self
                 .resolver
-                .get(&CellName::unchecked_new("root"))
+                .get(CellName::unchecked_new("root"))
                 .unwrap()
                 .cell_alias_resolver();
 

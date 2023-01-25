@@ -289,7 +289,7 @@ async fn resolve_patterns_and_load_buildfiles<'c, T: PatternType>(
     ) -> BoxFuture<'a, (PackageLabel, SharedResult<Arc<EvaluationResult>>)> {
         // it's important that this is not async and the temporary spawn happens when the function is called as we don't immediately start polling these.
         ctx.temporary_spawn(async move |ctx| {
-            let res = ctx.get_interpreter_results(&package).await;
+            let res = ctx.get_interpreter_results(package.dupe()).await;
             (package, res)
         })
         .boxed()
@@ -298,12 +298,12 @@ async fn resolve_patterns_and_load_buildfiles<'c, T: PatternType>(
     for pattern in parsed_patterns {
         match pattern {
             ParsedPattern::Target(package, target) => {
-                spec.add_target(&package, &target);
-                load_package_futs.push(load_package(ctx, package));
+                spec.add_target(package.dupe(), &target);
+                load_package_futs.push(load_package(ctx, package.dupe()));
             }
             ParsedPattern::Package(package) => {
-                spec.add_package(&package);
-                load_package_futs.push(load_package(ctx, package));
+                spec.add_package(package.dupe());
+                load_package_futs.push(load_package(ctx, package.dupe()));
             }
             ParsedPattern::Recursive(package) => {
                 recursive_packages.push(package);
@@ -315,7 +315,7 @@ async fn resolve_patterns_and_load_buildfiles<'c, T: PatternType>(
     tokio::pin!(recursive_pattern_packages);
     while let Some(res) = recursive_pattern_packages.next().await {
         let package = res?;
-        spec.add_package(&package);
+        spec.add_package(package.dupe());
         load_package_futs.push(load_package(ctx, package));
     }
 
@@ -329,8 +329,8 @@ pub struct LoadedPatterns<T> {
 impl<T> LoadedPatterns<T> {
     pub fn iter(
         &self,
-    ) -> impl Iterator<Item = (&PackageLabel, &SharedResult<BTreeMap<T, TargetNode>>)> {
-        self.results.iter()
+    ) -> impl Iterator<Item = (PackageLabel, &SharedResult<BTreeMap<T, TargetNode>>)> {
+        self.results.iter().map(|(k, v)| (k.dupe(), v))
     }
 
     // Implementing IntoIterator requires explicitly specifying the iterator type, which seems higher cost than the value of doing it.
@@ -353,13 +353,13 @@ impl<T> LoadedPatterns<T> {
 
     pub fn iter_loaded_targets_by_package(
         &self,
-    ) -> impl Iterator<Item = (&PackageLabel, SharedResult<Vec<TargetNode>>)> {
+    ) -> impl Iterator<Item = (PackageLabel, SharedResult<Vec<TargetNode>>)> + '_ {
         self.results.iter().map(|(package, result)| {
             let targets = result
                 .as_ref()
                 .map(|label_to_node| label_to_node.values().map(|t| t.dupe()).collect::<Vec<_>>())
                 .map_err(|e| e.dupe());
-            (package, targets)
+            (package.dupe(), targets)
         })
     }
 }

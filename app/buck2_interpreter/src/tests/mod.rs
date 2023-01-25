@@ -57,7 +57,7 @@ fn rules() -> Vec<String> {
 fn empty_configs(resolver: &CellResolver) -> LegacyBuckConfigs {
     let config = resolver
         .cells()
-        .map(|(name, _)| (name.clone(), LegacyBuckConfig::empty()))
+        .map(|(name, _)| (name, LegacyBuckConfig::empty()))
         .collect();
 
     LegacyBuckConfigs::new(config)
@@ -114,7 +114,7 @@ async fn test_eval_import() -> anyhow::Result<()> {
     let ctx = calculation(&fs)?;
 
     let calculation = ctx
-        .get_interpreter_calculator(&root_cell(), &BuildFileCell::new(root_cell()))
+        .get_interpreter_calculator(root_cell(), BuildFileCell::new(root_cell()))
         .await?;
 
     let env = calculation
@@ -160,7 +160,7 @@ async fn test_eval_import_with_load() -> anyhow::Result<()> {
 
     let ctx = calculation(&fs)?;
     let calculation = ctx
-        .get_interpreter_calculator(&root_cell(), &BuildFileCell::new(root_cell()))
+        .get_interpreter_calculator(root_cell(), BuildFileCell::new(root_cell()))
         .await?;
 
     let env = calculation
@@ -216,7 +216,7 @@ async fn test_eval_build_file() -> anyhow::Result<()> {
 
     let ctx = calculation(&fs)?;
     let calculation = ctx
-        .get_interpreter_calculator(&root_cell(), &BuildFileCell::new(root_cell()))
+        .get_interpreter_calculator(root_cell(), BuildFileCell::new(root_cell()))
         .await?;
 
     let package = PackageLabel::new(
@@ -226,12 +226,12 @@ async fn test_eval_build_file() -> anyhow::Result<()> {
     let eval_result = with_dispatcher_async(
         EventDispatcher::null(),
         calculation.eval_build_file::<TesterExtraContext>(
-            &package,
+            package.dupe(),
             &mut StarlarkProfilerOrInstrumentation::disabled(),
         ),
     )
     .await?;
-    assert_eq!(package, eval_result.package);
+    assert_eq!(package.dupe(), eval_result.package);
     assert_eq!(
         json!({
                 "invoke_some-exported": {

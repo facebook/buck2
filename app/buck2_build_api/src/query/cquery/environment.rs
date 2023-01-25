@@ -133,7 +133,7 @@ impl<'c> CqueryEnvironment<'c> {
                     let targets = self
                         .delegate
                         .uquery_delegate()
-                        .eval_build_file(package)
+                        .eval_build_file(package.dupe())
                         .await?;
 
                     for node in targets.targets().values() {

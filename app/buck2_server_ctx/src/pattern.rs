@@ -42,11 +42,11 @@ impl PatternParser {
         // Targets with cell aliases should be resolved against the cell mapping
         // as defined the cell derived from the cwd.
         let cell = cell_resolver
-            .get(&cell_name)
+            .get(cell_name)
             .with_context(|| format!("Cell does not exist: `{}`", cell_name))?
             .dupe();
 
-        let target_alias_resolver = config.get(&cell_name)?.target_alias_resolver();
+        let target_alias_resolver = config.get(cell_name)?.target_alias_resolver();
 
         Ok(Self {
             cell,
@@ -59,7 +59,7 @@ impl PatternParser {
         ParsedPattern::parse_relaxed(
             &self.target_alias_resolver,
             self.cell.cell_alias_resolver(),
-            &self.cwd,
+            self.cwd.dupe(),
             pattern,
         )
     }
@@ -96,10 +96,7 @@ pub async fn target_platform_from_client_context(
     working_dir: &ProjectRelativePath,
 ) -> anyhow::Result<Option<TargetLabel>> {
     let cwd = cell_resolver.get_cell_path(working_dir)?;
-    let cell_alias_resolver = cell_resolver
-        .get(&cwd.cell())
-        .unwrap()
-        .cell_alias_resolver();
+    let cell_alias_resolver = cell_resolver.get(cwd.cell()).unwrap().cell_alias_resolver();
 
     Ok(match client_context {
         Some(client_context) => {

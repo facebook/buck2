@@ -16,7 +16,7 @@ use crate::result::SharedResult;
 
 #[async_trait]
 pub trait PackageListingResolver: Send + Sync {
-    async fn resolve(&self, package: &PackageLabel) -> SharedResult<PackageListing>;
+    async fn resolve(&self, package: PackageLabel) -> SharedResult<PackageListing>;
 
     async fn get_enclosing_package(
         &self,

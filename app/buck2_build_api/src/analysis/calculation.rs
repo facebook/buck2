@@ -235,10 +235,7 @@ pub(crate) async fn get_rule_impl(
     func: &StarlarkRuleType,
 ) -> anyhow::Result<impl RuleImplFunction> {
     let interpreter_calculation = ctx
-        .get_interpreter_calculator(
-            &func.import_path.cell(),
-            &func.import_path.build_file_cell(),
-        )
+        .get_interpreter_calculator(func.import_path.cell(), func.import_path.build_file_cell())
         .await?;
     let module = interpreter_calculation
         .eval_module(StarlarkModulePath::LoadFile(&func.import_path))

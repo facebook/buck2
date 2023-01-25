@@ -176,7 +176,7 @@ pub trait TargetHashingTargetNode: QueryTarget + Hash {
     // Target Nodes based on type of hashing specified.
     async fn get_target_nodes(
         ctx: &DiceComputations,
-        loaded_targets: impl Iterator<Item = (&PackageLabel, SharedResult<Vec<TargetNode>>)>
+        loaded_targets: impl Iterator<Item = (PackageLabel, SharedResult<Vec<TargetNode>>)>
         + std::marker::Send,
         global_target_platform: Option<TargetLabel>,
     ) -> anyhow::Result<TargetSet<Self>>;
@@ -186,7 +186,7 @@ pub trait TargetHashingTargetNode: QueryTarget + Hash {
 impl TargetHashingTargetNode for ConfiguredTargetNode {
     async fn get_target_nodes(
         ctx: &DiceComputations,
-        loaded_targets: impl Iterator<Item = (&PackageLabel, SharedResult<Vec<TargetNode>>)>
+        loaded_targets: impl Iterator<Item = (PackageLabel, SharedResult<Vec<TargetNode>>)>
         + std::marker::Send,
         global_target_platform: Option<TargetLabel>,
     ) -> anyhow::Result<TargetSet<Self>> {
@@ -198,7 +198,7 @@ impl TargetHashingTargetNode for ConfiguredTargetNode {
 impl TargetHashingTargetNode for TargetNode {
     async fn get_target_nodes(
         _ctx: &DiceComputations,
-        loaded_targets: impl Iterator<Item = (&PackageLabel, SharedResult<Vec<TargetNode>>)>
+        loaded_targets: impl Iterator<Item = (PackageLabel, SharedResult<Vec<TargetNode>>)>
         + std::marker::Send,
         _global_target_platform: Option<TargetLabel>,
     ) -> anyhow::Result<TargetSet<Self>> {
@@ -230,7 +230,7 @@ impl TargetHashes {
     pub async fn compute<T: TargetHashingTargetNode, L: AsyncNodeLookup<T>>(
         ctx: DiceTransaction,
         lookup: L,
-        targets: Vec<(&PackageLabel, SharedResult<Vec<TargetNode>>)>,
+        targets: Vec<(PackageLabel, SharedResult<Vec<TargetNode>>)>,
         global_target_platform: Option<TargetLabel>,
         file_hash_mode: TargetHashFileMode,
         modified_paths: HashSet<CellPath>,

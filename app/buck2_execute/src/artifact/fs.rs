@@ -9,7 +9,7 @@
 
 use allocative::Allocative;
 use buck2_common::executor_config::PathSeparatorKind;
-use buck2_core::cells::cell_path::CellPath;
+use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use either::Either;
@@ -65,7 +65,7 @@ impl ArtifactFs {
         self.buck_out_path_resolver.resolve_gen(path)
     }
 
-    pub fn resolve_cell_path(&self, path: &CellPath) -> anyhow::Result<ProjectRelativePathBuf> {
+    pub fn resolve_cell_path(&self, path: CellPathRef) -> anyhow::Result<ProjectRelativePathBuf> {
         self.buck_path_resolver.resolve_cell_path(path)
     }
 

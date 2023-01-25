@@ -147,8 +147,9 @@ async fn retrieve_artifacts_for_targets(
         .map(|(package, spec)| {
             let global_target_platform = global_target_platform.dupe();
             ctx.temporary_spawn(async move |ctx| {
-                let res = ctx.get_interpreter_results(&package).await?;
-                retrieve_artifacts_for_spec(&ctx, package, spec, global_target_platform, res).await
+                let res = ctx.get_interpreter_results(package.dupe()).await?;
+                retrieve_artifacts_for_spec(&ctx, package.dupe(), spec, global_target_platform, res)
+                    .await
             })
         })
         .collect();

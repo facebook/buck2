@@ -42,9 +42,9 @@ enum PackageListingError {
 
 #[async_trait]
 impl<'c> PackageListingResolver for InterpreterPackageListingResolver<'c> {
-    async fn resolve(&self, package: &PackageLabel) -> SharedResult<PackageListing> {
+    async fn resolve(&self, package: PackageLabel) -> SharedResult<PackageListing> {
         Ok(self
-            .gather_package_listing(package)
+            .gather_package_listing(package.dupe())
             .await
             .context(buck2_data::ErrorCause::InvalidPackage)
             .with_context(|| format!("when gathering package listing for `{}`", package))?)
@@ -54,7 +54,7 @@ impl<'c> PackageListingResolver for InterpreterPackageListingResolver<'c> {
         &self,
         path: CellPathRef<'async_trait>,
     ) -> anyhow::Result<PackageLabel> {
-        let cell_instance = self.cell_resolver.get(&path.cell())?;
+        let cell_instance = self.cell_resolver.get(path.cell())?;
         let buildfile_candidates = cell_instance.buildfiles();
         if let Some(path) = path.parent() {
             for path in path.ancestors() {
@@ -76,7 +76,7 @@ impl<'c> PackageListingResolver for InterpreterPackageListingResolver<'c> {
         path: CellPathRef<'async_trait>,
         enclosing_path: CellPathRef<'async_trait>,
     ) -> anyhow::Result<Vec<PackageLabel>> {
-        let cell_instance = self.cell_resolver.get(&path.cell())?;
+        let cell_instance = self.cell_resolver.get(path.cell())?;
         let buildfile_candidates = cell_instance.buildfiles();
         if let Some(path) = path.parent() {
             let mut packages = Vec::new();
@@ -113,9 +113,9 @@ impl<'c> InterpreterPackageListingResolver<'c> {
 
     pub async fn gather_package_listing<'a>(
         &'a self,
-        root: &'a PackageLabel,
+        root: PackageLabel,
     ) -> anyhow::Result<PackageListing> {
-        let cell_instance = self.cell_resolver.get(&root.cell_name())?;
+        let cell_instance = self.cell_resolver.get(root.cell_name())?;
         let buildfile_candidates = cell_instance.buildfiles();
 
         let mut files: Vec<CellPath> = Vec::new();
@@ -175,7 +175,7 @@ impl<'c> InterpreterPackageListingResolver<'c> {
         dirs.sort();
         subpackages.sort();
 
-        fn strip_prefixes<T>(root: &PackageLabel, xs: &[CellPath]) -> anyhow::Result<T>
+        fn strip_prefixes<T>(root: PackageLabel, xs: &[CellPath]) -> anyhow::Result<T>
         where
             T: FromIterator<Box<PackageRelativePath>>,
         {
@@ -190,9 +190,9 @@ impl<'c> InterpreterPackageListingResolver<'c> {
         }
 
         Ok(PackageListing::new(
-            SortedSet::new_unchecked(strip_prefixes(root, &files)?),
-            SortedSet::new_unchecked(strip_prefixes(root, &dirs)?),
-            SortedVec::new_unchecked(strip_prefixes(root, &subpackages)?),
+            SortedSet::new_unchecked(strip_prefixes(root.dupe(), &files)?),
+            SortedSet::new_unchecked(strip_prefixes(root.dupe(), &dirs)?),
+            SortedVec::new_unchecked(strip_prefixes(root.dupe(), &subpackages)?),
             buildfile.to_owned(),
         ))
     }

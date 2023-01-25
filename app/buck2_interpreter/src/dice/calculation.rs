@@ -77,8 +77,8 @@ pub struct EvalModuleError(String);
 impl<'c> HasCalculationDelegate<'c> for DiceComputations {
     async fn get_interpreter_calculator(
         &'c self,
-        cell: &CellName,
-        build_file_cell: &BuildFileCell,
+        cell: CellName,
+        build_file_cell: BuildFileCell,
     ) -> anyhow::Result<DiceCalculationDelegate<'c>> {
         #[derive(Clone, Dupe, Allocative)]
         struct ConfigsValue(Arc<HashMap<CellName, Arc<InterpreterConfigForCell>>>);
@@ -97,7 +97,7 @@ impl<'c> HasCalculationDelegate<'c> for DiceComputations {
                 let mut configs = HashMap::new();
                 for (name, cell) in cell_resolver.cells() {
                     configs.insert(
-                        name.clone(),
+                        name,
                         Arc::new(InterpreterConfigForCell::new(
                             cell.cell_alias_resolver().dupe(),
                             global_state.dupe(),
@@ -117,13 +117,13 @@ impl<'c> HasCalculationDelegate<'c> for DiceComputations {
         let configs = self.compute(&ConfigsKey()).await??;
 
         Ok(DiceCalculationDelegate {
-            build_file_cell: build_file_cell.clone(),
+            build_file_cell,
             ctx: self,
             fs: file_ops,
             configs: configs
                 .0
-                .get(cell)
-                .ok_or_else(|| ConfigError::UnknownCell(cell.clone()))?
+                .get(&cell)
+                .ok_or(ConfigError::UnknownCell(cell))?
                 .dupe(),
         })
     }
@@ -199,8 +199,8 @@ impl<'c> DiceCalculationDelegate<'c> {
                 // because that wouldn't delegate back to us for inner eval_import calls.
                 Ok(ctx
                     .get_interpreter_calculator(
-                        &starlark_path.cell(),
-                        &starlark_path.build_file_cell(),
+                        starlark_path.cell(),
+                        starlark_path.build_file_cell(),
                     )
                     .await?
                     .eval_module_uncached(starlark_path, starlark_profiler_instrumentation)
@@ -228,10 +228,7 @@ impl<'c> DiceCalculationDelegate<'c> {
         &self.fs
     }
 
-    async fn resolve_package_listing(
-        &self,
-        package: &PackageLabel,
-    ) -> SharedResult<PackageListing> {
+    async fn resolve_package_listing(&self, package: PackageLabel) -> SharedResult<PackageListing> {
         self.ctx
             .get_package_listing_resolver()
             .resolve(package)
@@ -243,10 +240,7 @@ impl<'c> DiceCalculationDelegate<'c> {
     ) -> anyhow::Result<crate::interpreter::InterpreterForCell> {
         // NOTE(nga): this takes build file cell, not cell.
         //   Not sure this is correct, but this is how it worked before D34278161.
-        let import_paths = self
-            .ctx
-            .import_paths_for_cell(&self.build_file_cell)
-            .await?;
+        let import_paths = self.ctx.import_paths_for_cell(self.build_file_cell).await?;
         Ok(InterpreterForCell::new(self.configs.dupe(), import_paths))
     }
 
@@ -256,7 +250,7 @@ impl<'c> DiceCalculationDelegate<'c> {
         self.ctx
             .get_legacy_configs_on_dice()
             .await?
-            .get(&self.build_file_cell.name())
+            .get(self.build_file_cell.name())
     }
 
     async fn get_package_boundary_exception(&self, path: CellPathRef<'_>) -> SharedResult<bool> {
@@ -359,7 +353,7 @@ impl<'c> DiceCalculationDelegate<'c> {
 
     pub async fn eval_build_file<T: ExtraContext>(
         &self,
-        package: &PackageLabel,
+        package: PackageLabel,
         profiler: &mut StarlarkProfilerOrInstrumentation<'_>,
     ) -> anyhow::Result<T::EvalResult> {
         let listing = span_async(
@@ -367,7 +361,7 @@ impl<'c> DiceCalculationDelegate<'c> {
                 path: package.as_cell_path().to_string(),
             },
             async {
-                let result = self.resolve_package_listing(package).await;
+                let result = self.resolve_package_listing(package.dupe()).await;
                 let error = result.create_error_report();
                 (
                     result,

@@ -257,7 +257,7 @@ fn parse_bxl_label_from_cli(
     // Targets with cell aliases should be resolved against the cell mapping
     // as defined the cell derived from the cwd.
     let cell_alias_resolver = cell_resolver
-        .get(&current_cell.cell())
+        .get(current_cell.cell())
         .unwrap()
         .cell_alias_resolver();
 

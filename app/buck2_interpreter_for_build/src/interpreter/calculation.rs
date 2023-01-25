@@ -35,7 +35,7 @@ pub trait InterpreterCalculation<'c> {
     /// of `TargetNode`s of interpreting that build file.
     async fn get_interpreter_results(
         &self,
-        package: &PackageLabel,
+        package: PackageLabel,
     ) -> SharedResult<Arc<EvaluationResult>>;
 
     /// Returns the LoadedModule for a given starlark file. This is cached on the dice graph.
@@ -51,7 +51,7 @@ pub trait InterpreterCalculation<'c> {
 impl<'c> InterpreterCalculation<'c> for DiceComputations {
     async fn get_interpreter_results(
         &self,
-        package: &PackageLabel,
+        package: PackageLabel,
     ) -> SharedResult<Arc<EvaluationResult>> {
         #[async_trait]
         impl Key for InterpreterResultsKey {
@@ -61,14 +61,14 @@ impl<'c> InterpreterCalculation<'c> for DiceComputations {
                     ctx.get_starlark_profiler_instrumentation().await?;
                 let interpreter = ctx
                     .get_interpreter_calculator(
-                        &self.0.cell_name(),
-                        &BuildFileCell::new(self.0.cell_name().clone()),
+                        self.0.cell_name(),
+                        BuildFileCell::new(self.0.cell_name()),
                     )
                     .await?;
                 Ok(Arc::new(
                     interpreter
                         .eval_build_file::<ModuleInternals>(
-                            &self.0,
+                            self.0.dupe(),
                             &mut StarlarkProfilerOrInstrumentation::maybe_instrumentation(
                                 starlark_profiler_instrumentation,
                             ),
@@ -92,7 +92,7 @@ impl<'c> InterpreterCalculation<'c> for DiceComputations {
 
     async fn get_loaded_module(&self, path: StarlarkModulePath<'_>) -> SharedResult<LoadedModule> {
         // this is already cached on the delegate.
-        self.get_interpreter_calculator(&path.cell(), &path.build_file_cell())
+        self.get_interpreter_calculator(path.cell(), path.build_file_cell())
             .await?
             .eval_module(path)
             .await

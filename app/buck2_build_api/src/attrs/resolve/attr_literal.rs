@@ -106,26 +106,26 @@ impl UnconfiguredAttrLiteralExt for AttrLiteral<CoercedAttr> {
 pub(crate) trait ConfiguredAttrLiteralExt {
     fn resolve_single<'v>(
         &self,
-        pkg: &PackageLabel,
+        pkg: PackageLabel,
         ctx: &dyn AttrResolutionContext<'v>,
     ) -> anyhow::Result<Value<'v>>;
 
     fn resolve<'v>(
         &self,
-        pkg: &PackageLabel,
+        pkg: PackageLabel,
         ctx: &dyn AttrResolutionContext<'v>,
     ) -> anyhow::Result<Vec<Value<'v>>>;
 
     fn starlark_type(&self) -> anyhow::Result<&'static str>;
 
     /// Converts the configured attr to a starlark value without fully resolving
-    fn to_value<'v>(&self, pkg: &PackageLabel, heap: &'v Heap) -> anyhow::Result<Value<'v>>;
+    fn to_value<'v>(&self, pkg: PackageLabel, heap: &'v Heap) -> anyhow::Result<Value<'v>>;
 }
 
 impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
     fn resolve_single<'v>(
         &self,
-        pkg: &PackageLabel,
+        pkg: PackageLabel,
         ctx: &dyn AttrResolutionContext<'v>,
     ) -> anyhow::Result<Value<'v>> {
         match self {
@@ -135,14 +135,14 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
             AttrLiteral::List(list) => {
                 let mut values = Vec::with_capacity(list.len());
                 for v in list.iter() {
-                    values.append(&mut v.resolve(pkg, ctx)?);
+                    values.append(&mut v.resolve(pkg.dupe(), ctx)?);
                 }
                 Ok(ctx.heap().alloc(values))
             }
             AttrLiteral::Tuple(list) => {
                 let mut values = Vec::with_capacity(list.len());
                 for v in list.iter() {
-                    values.append(&mut v.resolve(pkg, ctx)?);
+                    values.append(&mut v.resolve(pkg.dupe(), ctx)?);
                 }
                 Ok(ctx.heap().alloc(AllocTuple(values)))
             }
@@ -150,8 +150,8 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
                 let mut res = SmallMap::with_capacity(dict.len());
                 for (k, v) in &**dict {
                     res.insert_hashed(
-                        k.resolve_single(pkg, ctx)?.get_hashed()?,
-                        v.resolve_single(pkg, ctx)?,
+                        k.resolve_single(pkg.dupe(), ctx)?.get_hashed()?,
+                        v.resolve_single(pkg.dupe(), ctx)?,
                     );
                 }
                 Ok(ctx.heap().alloc(Dict::new(res)))
@@ -186,7 +186,7 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
 
     fn resolve<'v>(
         &self,
-        pkg: &PackageLabel,
+        pkg: PackageLabel,
         ctx: &dyn AttrResolutionContext<'v>,
     ) -> anyhow::Result<Vec<Value<'v>>> {
         match self {
@@ -223,18 +223,23 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
         }
     }
 
-    fn to_value<'v>(&self, pkg: &PackageLabel, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    fn to_value<'v>(&self, pkg: PackageLabel, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         Ok(match &self {
             AttrLiteral::Bool(v) => heap.alloc(*v),
             AttrLiteral::Int(v) => heap.alloc(*v),
             AttrLiteral::String(s) | AttrLiteral::EnumVariant(s) => heap.alloc(&**s),
-            AttrLiteral::List(list) => heap.alloc(list.try_map(|v| v.to_value(pkg, heap))?),
-            AttrLiteral::Tuple(v) => heap.alloc(AllocTuple(v.try_map(|v| v.to_value(pkg, heap))?)),
+            AttrLiteral::List(list) => heap.alloc(list.try_map(|v| v.to_value(pkg.dupe(), heap))?),
+            AttrLiteral::Tuple(v) => {
+                heap.alloc(AllocTuple(v.try_map(|v| v.to_value(pkg.dupe(), heap))?))
+            }
             AttrLiteral::Dict(map) => {
                 let mut res = SmallMap::with_capacity(map.len());
 
                 for (k, v) in &**map {
-                    res.insert_hashed(k.to_value(pkg, heap)?.get_hashed()?, v.to_value(pkg, heap)?);
+                    res.insert_hashed(
+                        k.to_value(pkg.dupe(), heap)?.get_hashed()?,
+                        v.to_value(pkg.dupe(), heap)?,
+                    );
                 }
 
                 heap.alloc(Dict::new(res))

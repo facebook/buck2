@@ -66,14 +66,14 @@ impl<'a> CachedGlobals<'a> {
         let cell = path.cell();
         let calc = self
             .dice
-            .get_interpreter_calculator(&cell.dupe(), &BuildFileCell::new(cell))
+            .get_interpreter_calculator(cell, BuildFileCell::new(cell))
             .await?;
         Ok(calc.eval_module(StarlarkModulePath::LoadFile(path)).await?)
     }
 
     async fn compute_names(
         &self,
-        cell: &CellName,
+        cell: CellName,
         path: PathType,
     ) -> anyhow::Result<HashSet<String>> {
         let mut res = HashSet::new();
@@ -95,7 +95,7 @@ impl<'a> CachedGlobals<'a> {
 
         // Next grab the prelude, unless we are in the prelude cell and not a build file
         if let Some(prelude) = config.prelude_import() {
-            if path == PathType::Build || prelude.cell() != *cell {
+            if path == PathType::Build || prelude.cell() != cell {
                 let env = self.load_module(prelude).await?;
                 for x in env.env().names() {
                     res.insert(x.as_str().to_owned());
@@ -114,7 +114,7 @@ impl<'a> CachedGlobals<'a> {
         // Now grab the pre-load things
         let import_paths = self
             .dice
-            .import_paths_for_cell(&BuildFileCell::new(cell.dupe()))
+            .import_paths_for_cell(BuildFileCell::new(cell))
             .await?;
         if let Some(root) = import_paths.root_import() {
             let env = self.load_module(root).await?;
@@ -131,11 +131,11 @@ impl<'a> CachedGlobals<'a> {
         path: &StarlarkPath<'_>,
     ) -> SharedResult<Arc<HashSet<String>>> {
         let path_type = PathType::from_path(path);
-        let cell = path.cell().clone();
-        if let Some(res) = self.cached.get(&(cell.clone(), path_type)) {
+        let cell = path.cell();
+        if let Some(res) = self.cached.get(&(cell, path_type)) {
             return res.dupe();
         }
-        let res = match self.compute_names(&cell, path_type).await {
+        let res = match self.compute_names(cell, path_type).await {
             Ok(v) => Ok(Arc::new(v)),
             Err(e) => Err(SharedError::new(e)),
         };

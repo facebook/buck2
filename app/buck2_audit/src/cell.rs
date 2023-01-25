@@ -105,7 +105,7 @@ impl AuditSubcommand for AuditCellCommand {
                                     fs.resolve(
                                         cells
                                             .get(
-                                                &cell_alias_resolver
+                                                cell_alias_resolver
                                                     .resolve(&CellAlias::new(alias.to_owned()))?,
                                             )
                                             .unwrap()

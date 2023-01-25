@@ -14,7 +14,7 @@ use std::ptr;
 
 use anyhow::Context as _;
 use buck2_common::executor_config::PathSeparatorKind;
-use buck2_core::cells::cell_path::CellPath;
+use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::fs::paths::RelativePathBuf;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
@@ -261,7 +261,7 @@ pub trait CommandLineContext {
             .with_context(|| format!("Error resolving artifact: {}", artifact))
     }
 
-    fn resolve_cell_path(&self, path: &CellPath) -> anyhow::Result<CommandLineLocation> {
+    fn resolve_cell_path(&self, path: CellPathRef) -> anyhow::Result<CommandLineLocation> {
         self.resolve_project_path(self.fs().fs().resolve_cell_path(path)?)
             .with_context(|| format!("Error resolving cell path: {}", path))
     }

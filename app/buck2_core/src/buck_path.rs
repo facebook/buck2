@@ -37,22 +37,27 @@ pub struct BuckPath {
 }
 
 impl BuckPath {
+    #[inline]
     pub fn new(pkg: PackageLabel, path: PackageRelativePathBuf) -> Self {
         BuckPath { pkg, path }
     }
 
-    pub fn package(&self) -> &PackageLabel {
-        &self.pkg
+    #[inline]
+    pub fn package(&self) -> PackageLabel {
+        self.pkg.dupe()
     }
 
+    #[inline]
     pub fn path(&self) -> &PackageRelativePath {
         &self.path
     }
 
+    #[inline]
     pub fn to_cell_path(&self) -> CellPath {
         self.as_ref().to_cell_path()
     }
 
+    #[inline]
     pub fn as_ref(&self) -> BuckPathRef {
         BuckPathRef {
             pkg: self.pkg.dupe(),
@@ -69,22 +74,27 @@ pub struct BuckPathRef<'a> {
 }
 
 impl<'a> BuckPathRef<'a> {
+    #[inline]
     pub fn new(pkg: PackageLabel, path: &'a PackageRelativePath) -> BuckPathRef<'a> {
         BuckPathRef { pkg, path }
     }
 
-    pub fn package(&self) -> &PackageLabel {
-        &self.pkg
+    #[inline]
+    pub fn package(&self) -> PackageLabel {
+        self.pkg.dupe()
     }
 
+    #[inline]
     pub fn path(&self) -> &PackageRelativePath {
         self.path
     }
 
+    #[inline]
     pub fn to_cell_path(&self) -> CellPath {
         self.pkg.as_cell_path().join(self.path.as_ref())
     }
 
+    #[inline]
     pub fn to_buck_path(&self) -> BuckPath {
         BuckPath {
             pkg: self.pkg.dupe(),

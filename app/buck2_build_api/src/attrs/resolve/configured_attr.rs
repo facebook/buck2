@@ -18,19 +18,19 @@ use crate::attrs::resolve::ctx::AttrResolutionContext;
 pub trait ConfiguredAttrExt {
     fn resolve<'v>(
         &self,
-        pkg: &PackageLabel,
+        pkg: PackageLabel,
         ctx: &dyn AttrResolutionContext<'v>,
     ) -> anyhow::Result<Vec<Value<'v>>>;
 
     fn resolve_single<'v>(
         &self,
-        pkg: &PackageLabel,
+        pkg: PackageLabel,
         ctx: &dyn AttrResolutionContext<'v>,
     ) -> anyhow::Result<Value<'v>>;
 
     fn starlark_type(&self) -> anyhow::Result<&'static str>;
 
-    fn to_value<'v>(&self, pkg: &PackageLabel, heap: &'v Heap) -> anyhow::Result<Value<'v>>;
+    fn to_value<'v>(&self, pkg: PackageLabel, heap: &'v Heap) -> anyhow::Result<Value<'v>>;
 }
 
 impl ConfiguredAttrExt for ConfiguredAttr {
@@ -42,7 +42,7 @@ impl ConfiguredAttrExt for ConfiguredAttr {
     /// `attrs.optional()` might only accept a single value, and fail otherwise.
     fn resolve<'v>(
         &self,
-        pkg: &PackageLabel,
+        pkg: PackageLabel,
         ctx: &dyn AttrResolutionContext<'v>,
     ) -> anyhow::Result<Vec<Value<'v>>> {
         self.0.resolve(pkg, ctx)
@@ -52,7 +52,7 @@ impl ConfiguredAttrExt for ConfiguredAttr {
     /// this function's output, and return a single value or an error.
     fn resolve_single<'v>(
         &self,
-        pkg: &PackageLabel,
+        pkg: PackageLabel,
         ctx: &dyn AttrResolutionContext<'v>,
     ) -> anyhow::Result<Value<'v>> {
         self.0.resolve_single(pkg, ctx)
@@ -64,7 +64,7 @@ impl ConfiguredAttrExt for ConfiguredAttr {
     }
 
     /// Converts the configured attr to a starlark value without fully resolving
-    fn to_value<'v>(&self, pkg: &PackageLabel, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    fn to_value<'v>(&self, pkg: PackageLabel, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         self.0.to_value(pkg, heap)
     }
 }

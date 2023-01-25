@@ -144,20 +144,24 @@ pub struct TargetLabel {
 }
 
 impl TargetLabel {
+    #[inline]
     pub fn new(pkg: PackageLabel, name: TargetName) -> Self {
         TargetLabel { pkg, name }
     }
 
-    pub fn pkg(&self) -> &PackageLabel {
-        &self.pkg
+    #[inline]
+    pub fn pkg(&self) -> PackageLabel {
+        self.pkg.dupe()
     }
 
+    #[inline]
     pub fn name(&self) -> &TargetName {
         &self.name
     }
 
     /// Creates a 'ConfiguredTargetLabel' from ['Self'] based on the provided
     /// configuration.
+    #[inline]
     pub fn configure(&self, cfg: Configuration) -> ConfiguredTargetLabel {
         ConfiguredTargetLabel {
             target: self.dupe(),
@@ -167,6 +171,7 @@ impl TargetLabel {
     }
 
     /// Like `configure`, but forces the execution configuration too.
+    #[inline]
     pub fn configure_with_exec(
         &self,
         cfg: Configuration,
@@ -211,22 +216,27 @@ impl Display for ConfiguredTargetLabel {
 }
 
 impl ConfiguredTargetLabel {
-    pub fn pkg(&self) -> &PackageLabel {
-        &self.target.pkg
+    #[inline]
+    pub fn pkg(&self) -> PackageLabel {
+        self.target.pkg.dupe()
     }
 
+    #[inline]
     pub fn name(&self) -> &TargetName {
         &self.target.name
     }
 
+    #[inline]
     pub fn unconfigured(&self) -> &TargetLabel {
         &self.target
     }
 
+    #[inline]
     pub fn cfg(&self) -> &Configuration {
         &self.cfg
     }
 
+    #[inline]
     pub fn exec_cfg(&self) -> Option<&Configuration> {
         self.exec_cfg.as_ref()
     }

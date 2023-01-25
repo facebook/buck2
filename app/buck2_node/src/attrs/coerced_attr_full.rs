@@ -40,7 +40,7 @@ impl<'a> CoercedAttrFull<'a> {
 
     pub fn traverse(
         &self,
-        pkg: &PackageLabel,
+        pkg: PackageLabel,
         traversal: &mut dyn CoercedAttrTraversal<'a>,
     ) -> anyhow::Result<()> {
         self.value

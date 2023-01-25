@@ -379,10 +379,10 @@ async fn build_targets_with_global_target_platform(
             let global_target_platform = global_target_platform.dupe();
             let materialization_context = materialization_context.dupe();
             ctx.temporary_spawn(async move |ctx| {
-                let res = ctx.get_interpreter_results(&package).await?;
+                let res = ctx.get_interpreter_results(package.dupe()).await?;
                 build_targets_for_spec(
                     &ctx,
-                    package,
+                    package.dupe(),
                     spec,
                     global_target_platform,
                     res,

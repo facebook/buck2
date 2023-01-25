@@ -396,7 +396,7 @@ impl CliArgType {
                             ParsedPattern::<TargetPattern>::parse_relaxed(
                                 &ctx.target_alias_resolver,
                                 &ctx.cell_resolver,
-                                &ctx.relative_dir,
+                                ctx.relative_dir.dupe(),
                                 x,
                             )?
                             .as_target_label(x)?,
@@ -410,7 +410,7 @@ impl CliArgType {
                             ParsedPattern::<ProvidersPattern>::parse_relaxed(
                                 &ctx.target_alias_resolver,
                                 &ctx.cell_resolver,
-                                &ctx.relative_dir,
+                                ctx.relative_dir.dupe(),
                                 x,
                             )?
                             .as_providers_label(x)?,
@@ -423,7 +423,7 @@ impl CliArgType {
                     let pattern = ParsedPattern::<TargetPattern>::parse_relaxed(
                         &ctx.target_alias_resolver,
                         &ctx.cell_resolver,
-                        &ctx.relative_dir,
+                        ctx.relative_dir.dupe(),
                         x,
                     )?;
                     let loaded = load_patterns(ctx.dice, vec![pattern]).await?;

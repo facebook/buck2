@@ -43,8 +43,8 @@ impl InterpreterCellInfo {
         })))
     }
 
-    pub fn name(&self) -> &BuildFileCell {
-        &self.0.cell_name
+    pub fn name(&self) -> BuildFileCell {
+        self.0.cell_name
     }
 
     pub fn cell_alias_resolver(&self) -> &CellAliasResolver {

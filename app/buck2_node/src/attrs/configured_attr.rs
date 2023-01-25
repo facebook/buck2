@@ -79,7 +79,7 @@ impl ConfiguredAttr {
     /// Traverses the configured attribute and calls the traverse for every encountered target label (in deps, sources, or other places).
     pub fn traverse<'a>(
         &'a self,
-        pkg: &PackageLabel,
+        pkg: PackageLabel,
         traversal: &mut dyn ConfiguredAttrTraversal<'a>,
     ) -> anyhow::Result<()> {
         self.0.traverse(pkg, traversal)

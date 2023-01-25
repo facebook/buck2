@@ -78,8 +78,7 @@ pub enum SpecialAttr {
 #[async_trait]
 pub trait UqueryDelegate: Send + Sync {
     /// Returns the EvaluationResult for evaluation of the buildfile.
-    async fn eval_build_file(&self, packages: &PackageLabel)
-    -> SharedResult<Arc<EvaluationResult>>;
+    async fn eval_build_file(&self, packages: PackageLabel) -> SharedResult<Arc<EvaluationResult>>;
 
     /// Get the imports from a LoadedModule corresponding to some path.
     async fn eval_module_imports(&self, path: &ImportPath) -> SharedResult<Vec<ImportPath>>;
@@ -245,7 +244,7 @@ impl<'c> QueryEnvironment for UqueryEnvironment<'c> {
                 Ok(packages) => {
                     let package_futs = packages.map(|package| async move {
                         // TODO(cjhopman): We should make sure that the file exists.
-                        let targets = self.delegate.eval_build_file(package).await?;
+                        let targets = self.delegate.eval_build_file(package.dupe()).await?;
 
                         let owner_targets: Vec<Self::Target> = targets
                             .targets()
@@ -506,7 +505,7 @@ async fn top_level_imports_by_build_file<'c>(
     for file in bzlfiles {
         let imports = vec![ImportPath::new(
             file.as_ref().clone(),
-            BuildFileCell::new(file.cell().clone()),
+            BuildFileCell::new(file.cell()),
         )?];
         top_level_import_by_build_file.insert(file.dupe(), imports);
     }
@@ -518,7 +517,7 @@ async fn top_level_imports_by_build_file<'c>(
                 (
                     file.dupe(),
                     delegate
-                        .eval_build_file(&PackageLabel::new(parent.cell(), parent.path()))
+                        .eval_build_file(PackageLabel::new(parent.cell(), parent.path()))
                         .await,
                 )
             } else {

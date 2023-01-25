@@ -18,6 +18,7 @@ use crate::cells::name::CellName;
 #[derive(
     Clone,
     Dupe,
+    Copy,
     Hash,
     Eq,
     PartialEq,

@@ -80,7 +80,7 @@ async fn starlark_file(
             let is_buildfile = match proj_path.file_name() {
                 None => false,
                 Some(file_name) => cell_resolver
-                    .get(&cell_path.cell())?
+                    .get(cell_path.cell())?
                     .buildfiles()
                     .iter()
                     .any(|x| (*x).deref() == file_name),

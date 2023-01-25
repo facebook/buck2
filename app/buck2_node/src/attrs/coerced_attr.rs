@@ -251,7 +251,7 @@ impl CoercedAttr {
     /// are passed as configuration deps).
     pub fn traverse<'a>(
         &'a self,
-        pkg: &PackageLabel,
+        pkg: PackageLabel,
         traversal: &mut dyn CoercedAttrTraversal<'a>,
     ) -> anyhow::Result<()> {
         match self {
@@ -259,16 +259,16 @@ impl CoercedAttr {
             CoercedAttr::Selector(box CoercedSelector { entries, default }) => {
                 for (condition, value) in entries.iter() {
                     traversal.configuration_dep(condition)?;
-                    value.traverse(pkg, traversal)?;
+                    value.traverse(pkg.dupe(), traversal)?;
                 }
                 if let Some(v) = default {
-                    v.traverse(pkg, traversal)?;
+                    v.traverse(pkg.dupe(), traversal)?;
                 }
                 Ok(())
             }
             CoercedAttr::Concat(items) => {
                 for item in &**items {
-                    item.traverse(pkg, traversal)?;
+                    item.traverse(pkg.dupe(), traversal)?;
                 }
                 Ok(())
             }

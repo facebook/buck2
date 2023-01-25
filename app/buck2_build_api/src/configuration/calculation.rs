@@ -155,7 +155,7 @@ async fn get_execution_platforms(
 /// Return either Ok/Ok if it is, or a reason if not.
 async fn check_execution_platform(
     ctx: &DiceComputations,
-    target_node_cell: &CellName,
+    target_node_cell: CellName,
     exec_compatible_with: &[TargetLabel],
     exec_deps: &IndexSet<TargetLabel>,
     exec_platform: &ExecutionPlatform,
@@ -228,7 +228,7 @@ async fn resolve_toolchain_constraints_from_constraints(
     {
         if let Err(e) = check_execution_platform(
             ctx,
-            &target.pkg().cell_name(),
+            target.pkg().cell_name(),
             exec_compatible_with,
             exec_deps,
             exec_platform,
@@ -247,7 +247,7 @@ async fn resolve_toolchain_constraints_from_constraints(
 
 async fn resolve_execution_platform_from_constraints(
     ctx: &DiceComputations,
-    target_node_cell: &CellName,
+    target_node_cell: CellName,
     exec_compatible_with: &[TargetLabel],
     exec_deps: &IndexSet<TargetLabel>,
     toolchain_allows: &[ToolchainConstraints],
@@ -286,7 +286,7 @@ async fn resolve_execution_platform_from_constraints(
 async fn configuration_matches(
     ctx: &DiceComputations,
     cfg: &Configuration,
-    target_node_cell: &CellName,
+    target_node_cell: CellName,
     constraints_and_configs: &ConfigurationData,
 ) -> SharedResult<bool> {
     for (key, value) in &constraints_and_configs.constraints {
@@ -365,7 +365,7 @@ impl ConfigurationCalculation for DiceComputations {
     async fn get_resolved_configuration<'a, T: Iterator<Item = &'a TargetLabel> + Send>(
         &self,
         target_cfg: &Configuration,
-        target_cell: &CellName,
+        target_cell: CellName,
         configuration_deps: T,
     ) -> SharedResult<ResolvedConfiguration> {
         #[async_trait]
@@ -374,7 +374,7 @@ impl ConfigurationCalculation for DiceComputations {
 
             async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
                 let config_futures: Vec<_> = self.configuration_deps.map(|d| async move {
-                    ctx.get_configuration_node(&self.target_cfg, &self.target_cell, d)
+                    ctx.get_configuration_node(&self.target_cfg, self.target_cell, d)
                         .await
                 });
                 let config_nodes = futures::future::join_all(config_futures).await;
@@ -398,7 +398,7 @@ impl ConfigurationCalculation for DiceComputations {
         let configuration_deps: Vec<TargetLabel> = configuration_deps.map(|t| t.dupe()).collect();
         self.compute(&ResolvedConfigurationKey {
             target_cfg: target_cfg.dupe(),
-            target_cell: target_cell.clone(),
+            target_cell,
             configuration_deps,
         })
         .await?
@@ -407,7 +407,7 @@ impl ConfigurationCalculation for DiceComputations {
     async fn get_configuration_node(
         &self,
         target_cfg: &Configuration,
-        target_cell: &CellName,
+        target_cell: CellName,
         cfg_target: &TargetLabel,
     ) -> SharedResult<ConfigurationNode> {
         #[async_trait]
@@ -438,8 +438,7 @@ impl ConfigurationCalculation for DiceComputations {
                 .to_configuration_data();
 
                 let matches =
-                    configuration_matches(ctx, &self.target_cfg, &self.target_cell, &result)
-                        .await?;
+                    configuration_matches(ctx, &self.target_cfg, self.target_cell, &result).await?;
 
                 Ok(ConfigurationNode::new(
                     self.target_cfg.dupe(),
@@ -459,7 +458,7 @@ impl ConfigurationCalculation for DiceComputations {
 
         self.compute(&ConfigurationNodeKey {
             target_cfg: target_cfg.dupe(),
-            target_cell: target_cell.clone(),
+            target_cell,
             cfg_target: cfg_target.dupe(),
         })
         .await?
@@ -491,7 +490,7 @@ impl ConfigurationCalculation for DiceComputations {
 
     async fn resolve_execution_platform_from_constraints(
         &self,
-        target_node_cell: &CellName,
+        target_node_cell: CellName,
         exec_compatible_with: &[TargetLabel],
         exec_deps: &IndexSet<TargetLabel>,
         toolchain_allows: &[ToolchainConstraints],

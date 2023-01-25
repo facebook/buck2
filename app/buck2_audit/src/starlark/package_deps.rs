@@ -24,6 +24,7 @@ use buck2_interpreter::dice::HasCalculationDelegate;
 use buck2_interpreter::file_loader::LoadedModule;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
+use dupe::Dupe;
 
 use crate::AuditCommandCommonOptions;
 
@@ -53,25 +54,25 @@ impl StarlarkPackageDepsCommand {
                 let current_cell = BuildFileCell::new(current_cell_path.cell());
 
                 let cell_alias_resolver = cell_resolver
-                    .get(&current_cell_path.cell())?
+                    .get(current_cell_path.cell())?
                     .cell_alias_resolver();
 
                 let package = parse_package(&self.package, cell_alias_resolver)?;
 
                 let calc = dice_ctx
-                    .get_interpreter_calculator(&package.cell_name(), &current_cell)
+                    .get_interpreter_calculator(package.cell_name(), current_cell)
                     .await?;
 
                 let build_file_name = dice_ctx
                     .get_package_listing_resolver()
-                    .resolve(&package)
+                    .resolve(package.dupe())
                     .await?
                     .buildfile()
                     .to_owned();
 
                 let (_module, module_deps) = calc
                     .prepare_eval(StarlarkPath::BuildFile(&BuildFilePath::new(
-                        package,
+                        package.dupe(),
                         build_file_name,
                     )))
                     .await?;

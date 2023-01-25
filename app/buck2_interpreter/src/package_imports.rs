@@ -67,7 +67,7 @@ impl PackageImplicitImports {
     /// `package_path`=>`import_path`::`symbol_spec`::`symbol_spec`::
     /// `symbol_spec`::... symbol_spec: `alias`=`symbol` | `symbol`
     pub fn new(
-        cell_name: &BuildFileCell,
+        cell_name: BuildFileCell,
         cell_alias_resolver: CellAliasResolver,
         encoded_mappings: Option<&str>,
     ) -> anyhow::Result<Self> {
@@ -87,7 +87,7 @@ impl PackageImplicitImports {
                 let import_path = parse_import(&cell_alias_resolver, &root_path, import)?;
                 // Package implicit imports are only going to be used for a top-level module in
                 // the same cell, so we can set that early.
-                let import_path = ImportPath::new(import_path, cell_name.clone())?;
+                let import_path = ImportPath::new(import_path, cell_name)?;
                 let mut symbols = HashMap::new();
                 for spec in symbol_specs.split("::") {
                     let (alias, symbol) = match spec.split_once('=') {
@@ -109,7 +109,7 @@ impl PackageImplicitImports {
         Ok(Self { mappings })
     }
 
-    pub fn get(&self, package: &PackageLabel) -> Option<&Arc<ImplicitImport>> {
+    pub fn get(&self, package: PackageLabel) -> Option<&Arc<ImplicitImport>> {
         let package_dir = package.cell_relative_path();
         let mut package_dir: Option<&CellRelativePath> = Some(package_dir);
 
@@ -131,6 +131,7 @@ mod tests {
     use buck2_core::cells::CellAlias;
     use buck2_core::cells::CellAliasResolver;
     use buck2_core::package::testing::PackageExt;
+    use dupe::Dupe;
 
     use super::*;
 
@@ -150,7 +151,7 @@ mod tests {
 
         let root_name = CellName::unchecked_new("root");
         let imports = PackageImplicitImports::new(
-            &BuildFileCell::new(root_name),
+            BuildFileCell::new(root_name),
             cell_alias_resolver,
             Some(
                 "src=>//:src.bzl::symbols,src/bin=>//:bin.bzl::symbols , other=>@cell1//:other.bzl::alias1=symbol1::alias2=symbol2::symbol3",
@@ -159,12 +160,12 @@ mod tests {
 
         assert_eq!(
             None,
-            imports.get(&PackageLabel::testing_new("root", "java/src"))
+            imports.get(PackageLabel::testing_new("root", "java/src"))
         );
 
         let expect_import = |cell, path| {
             let package = PackageLabel::testing_new(cell, path);
-            match imports.get(&package) {
+            match imports.get(package.dupe()) {
                 None => panic!("Should've had implicit import for {}", package),
                 Some(v) => v,
             }
@@ -189,10 +190,10 @@ mod tests {
         assert_eq!("alias3", import.lookup_alias("alias3"));
         assert_eq!("symbol1", import.lookup_alias("symbol1"));
 
-        assert_eq!(None, imports.get(&PackageLabel::testing_new("root", "")));
+        assert_eq!(None, imports.get(PackageLabel::testing_new("root", "")));
         assert_eq!(
             None,
-            imports.get(&PackageLabel::testing_new("root", "third_party/src"))
+            imports.get(PackageLabel::testing_new("root", "third_party/src"))
         );
 
         Ok(())

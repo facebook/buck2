@@ -110,9 +110,9 @@
 //! let fbcode_cell_name = cells.find(ProjectRelativePath::new("fbcode/something/in/fbcode")?)?.dupe();
 //! assert_eq!(fbcode_cell_name, CellName::unchecked_new("fbcode"));
 //!
-//! let fbsource_cell = cells.get(&fbsource_cell_name)?;
+//! let fbsource_cell = cells.get(fbsource_cell_name)?;
 //! assert_eq!(fbsource_cell.name(), CellName::unchecked_new("fbsource"));
-//! let fbcode_cell = cells.get(&fbcode_cell_name)?;
+//! let fbcode_cell = cells.get(fbcode_cell_name)?;
 //! assert_eq!(fbcode_cell.name(), CellName::unchecked_new("fbcode"));
 //!
 //! let fbsource_aliases = fbsource_cell.cell_alias_resolver();
@@ -250,8 +250,8 @@ impl CellAliasResolver {
         self.resolve("").expect("The alias \"\" to be valid")
     }
 
-    pub fn mappings(&self) -> impl Iterator<Item = (&CellAlias, &CellName)> {
-        self.0.iter()
+    pub fn mappings(&self) -> impl Iterator<Item = (&CellAlias, CellName)> {
+        self.0.iter().map(|(alias, name)| (alias, *name))
     }
 }
 
@@ -334,21 +334,21 @@ impl CellResolver {
         }))
     }
 
-    pub fn contains(&self, cell: &CellName) -> bool {
-        self.0.cells.contains_key(cell)
+    pub fn contains(&self, cell: CellName) -> bool {
+        self.0.cells.contains_key(&cell)
     }
 
     /// Get a `Cell` from the `CellMap`
-    pub fn get(&self, cell: &CellName) -> anyhow::Result<&CellInstance> {
-        self.0.cells.get(cell).ok_or_else(|| {
+    pub fn get(&self, cell: CellName) -> anyhow::Result<&CellInstance> {
+        self.0.cells.get(&cell).ok_or_else(|| {
             anyhow::Error::new(CellError::UnknownCellName(
-                cell.clone(),
-                self.0.cells.keys().cloned().collect(),
+                cell,
+                self.0.cells.keys().copied().collect(),
             ))
         })
     }
 
-    pub fn root_cell(&self) -> &CellName {
+    pub fn root_cell(&self) -> CellName {
         self.find(ProjectRelativePath::new("").unwrap())
             .expect("Should have had a cell at the project root.")
     }
@@ -368,10 +368,11 @@ impl CellResolver {
     pub fn find<P: AsRef<ProjectRelativePath> + ?Sized>(
         &self,
         path: &P,
-    ) -> anyhow::Result<&CellName> {
+    ) -> anyhow::Result<CellName> {
         self.0
             .path_mappings
             .get_ancestor(path.as_ref().iter())
+            .copied()
             .ok_or_else(|| {
                 anyhow::Error::new(CellError::UnknownCellPath(
                     path.as_ref().to_buf(),
@@ -392,7 +393,7 @@ impl CellResolver {
         let cell = self.find(path)?;
         let instance = self.get(cell)?;
         let relative = path.strip_prefix(instance.path().as_project_relative_path())?;
-        Ok(CellPath::new(cell.clone(), relative.to_owned().into()))
+        Ok(CellPath::new(cell, relative.to_owned().into()))
     }
 
     pub fn get_cell_path_from_abs_or_rel_path(
@@ -411,8 +412,11 @@ impl CellResolver {
         }
     }
 
-    pub fn cells(&self) -> impl Iterator<Item = (&CellName, &CellInstance)> {
-        self.0.cells.iter()
+    pub fn cells(&self) -> impl Iterator<Item = (CellName, &CellInstance)> {
+        self.0
+            .cells
+            .iter()
+            .map(|(name, instance)| (*name, instance))
     }
 
     /// Resolves a cell alias and a cell relative path into an absolute path.
@@ -434,7 +438,7 @@ impl CellResolver {
         let context_cell = self.get(context_cell_name)?;
 
         let resolved_cell_name = context_cell.cell_alias_resolver().resolve(cell_alias)?;
-        let cell = self.get(&resolved_cell_name)?;
+        let cell = self.get(resolved_cell_name)?;
         let cell_absolute_path = project_filesystem.resolve(cell.path().as_project_relative_path());
         cell_absolute_path.join_normalized(cell_relative_path)
     }
@@ -469,7 +473,7 @@ impl CellResolver {
     /// # anyhow::Ok(())
     /// ```
     pub fn resolve_path(&self, cell_path: CellPathRef) -> anyhow::Result<ProjectRelativePathBuf> {
-        Ok(self.get(&cell_path.cell())?.path().join(cell_path.path()))
+        Ok(self.get(cell_path.cell())?.path().join(cell_path.path()))
     }
 }
 
@@ -546,7 +550,7 @@ impl CellsAggregator {
     fn get_cell_name_from_path(&self, path: &CellRootPath) -> anyhow::Result<CellName> {
         self.cell_infos
             .get(path)
-            .and_then(|info| info.name.clone())
+            .and_then(|info| info.name)
             .ok_or_else(|| {
                 anyhow::anyhow!(CellError::UnknownCellPath(
                     path.as_project_relative_path().to_buf(),
@@ -566,18 +570,18 @@ impl CellsAggregator {
         for (cell_path, cell_info) in &self.cell_infos {
             let mut aliases_for_cell = HashMap::new();
             let cell_name = self.get_cell_name_from_path(cell_path)?;
-            aliases_for_cell.insert(CellAlias::new("".into()), cell_name.clone());
+            aliases_for_cell.insert(CellAlias::new("".into()), cell_name);
 
             for (alias, path_for_alias) in &cell_info.alias_mapping {
                 aliases_for_cell
                     .insert(alias.clone(), self.get_cell_name_from_path(path_for_alias)?);
             }
-            aliases_for_cell.insert(CellAlias::new("".into()), cell_name.clone());
+            aliases_for_cell.insert(CellAlias::new("".into()), cell_name);
 
             let old = cell_mappings.insert(
-                cell_name.clone(),
+                cell_name,
                 CellInstance::new(
-                    cell_name.clone(),
+                    cell_name,
                     cell_path.clone(),
                     cell_info
                         .buildfiles
@@ -633,16 +637,16 @@ pub mod testing {
 
             for (name, path) in cells {
                 cell_mappings.insert(
-                    name.clone(),
+                    *name,
                     CellInstance::new(
-                        name.clone(),
+                        *name,
                         path.clone(),
                         default_buildfiles(),
                         CellAliasResolver(Arc::new(Default::default())),
                     ),
                 );
 
-                path_mappings.insert(path.iter(), name.clone());
+                path_mappings.insert(path.iter(), *name);
             }
 
             Self::new(cell_mappings, path_mappings)
@@ -656,9 +660,9 @@ pub mod testing {
 
             for (name, path, alias) in cells {
                 let prev = cell_mappings.insert(
-                    name.clone(),
+                    *name,
                     CellInstance::new(
-                        name.clone(),
+                        *name,
                         path.clone(),
                         default_buildfiles(),
                         CellAliasResolver(Arc::new(alias.clone())),
@@ -666,7 +670,7 @@ pub mod testing {
                 );
                 assert!(prev.is_none());
 
-                let prev = path_mappings.insert(path.iter(), name.clone());
+                let prev = path_mappings.insert(path.iter(), *name);
                 assert!(prev.is_none());
             }
 
@@ -684,7 +688,7 @@ pub mod testing {
             CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("bar".into())),
         )]);
 
-        let cell = cell_resolver.get(&CellName::unchecked_new("foo"))?;
+        let cell = cell_resolver.get(CellName::unchecked_new("foo"))?;
         assert_eq!(CellName::unchecked_new("foo"), cell.name());
         assert_eq!("bar", cell.path().as_str());
 
@@ -740,7 +744,7 @@ mod tests {
         ]);
 
         {
-            let cell1 = cells.get(&CellName::unchecked_new("cell1")).unwrap();
+            let cell1 = cells.get(CellName::unchecked_new("cell1")).unwrap();
             assert_eq!(cell1.path(), cell1_path);
 
             let aliases = cell1.cell_alias_resolver();
@@ -763,7 +767,7 @@ mod tests {
         }
 
         {
-            let cell2 = cells.get(&CellName::unchecked_new("cell2")).unwrap();
+            let cell2 = cells.get(CellName::unchecked_new("cell2")).unwrap();
             assert_eq!(cell2.path(), cell2_path);
 
             let aliases = cell2.cell_alias_resolver();
@@ -786,7 +790,7 @@ mod tests {
         }
 
         {
-            let cell3 = cells.get(&CellName::unchecked_new("cell3")).unwrap();
+            let cell3 = cells.get(CellName::unchecked_new("cell3")).unwrap();
             assert_eq!(cell3.path(), cell3_path);
 
             let aliases = cell3.cell_alias_resolver();
@@ -808,16 +812,16 @@ mod tests {
             );
         }
 
-        assert_eq!(cells.find(cell1_path)?, &CellName::unchecked_new("cell1"));
-        assert_eq!(cells.find(cell2_path)?, &CellName::unchecked_new("cell2"));
-        assert_eq!(cells.find(cell3_path)?, &CellName::unchecked_new("cell3"));
+        assert_eq!(cells.find(cell1_path)?, CellName::unchecked_new("cell1"));
+        assert_eq!(cells.find(cell2_path)?, CellName::unchecked_new("cell2"));
+        assert_eq!(cells.find(cell3_path)?, CellName::unchecked_new("cell3"));
         assert_eq!(
             cells.find(
                 &cell2_path
                     .as_project_relative_path()
                     .join(ForwardRelativePath::new("fake/cell3")?)
             )?,
-            &CellName::unchecked_new("cell2")
+            CellName::unchecked_new("cell2")
         );
         assert_eq!(
             cells.find(
@@ -825,7 +829,7 @@ mod tests {
                     .as_project_relative_path()
                     .join(ForwardRelativePath::new("more/foo")?)
             )?,
-            &CellName::unchecked_new("cell3")
+            CellName::unchecked_new("cell3")
         );
         assert!(cells.find(ProjectRelativePath::new("blah")?).is_err());
 
@@ -888,11 +892,11 @@ mod tests {
         // We want the first alias to win (hello), rather than the lexiographically first (cruel)
         assert!(
             agg.make_cell_resolver()?
-                .contains(&CellName::unchecked_new("hello"))
+                .contains(CellName::unchecked_new("hello"))
         );
         assert!(
             !agg.make_cell_resolver()?
-                .contains(&CellName::unchecked_new("cruel"))
+                .contains(CellName::unchecked_new("cruel"))
         );
         Ok(())
     }

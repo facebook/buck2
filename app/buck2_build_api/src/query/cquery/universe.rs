@@ -81,7 +81,10 @@ impl CqueryUniverse {
     ) -> TargetSet<ConfiguredTargetNode> {
         let mut targets = TargetSet::new();
         for (package, spec) in &resolved_pattern.specs {
-            targets.extend(self.get_from_package(package, spec).map(|(node, ())| node));
+            targets.extend(
+                self.get_from_package(package.dupe(), spec)
+                    .map(|(node, ())| node),
+            );
         }
         targets
     }
@@ -93,7 +96,7 @@ impl CqueryUniverse {
         let mut targets = Vec::new();
         for (package, spec) in &resolved_pattern.specs {
             targets.extend(
-                self.get_from_package(package, spec)
+                self.get_from_package(package.dupe(), spec)
                     .map(|(node, providers)| {
                         ConfiguredProvidersLabel::new(node.label().dupe(), providers)
                     }),
@@ -104,11 +107,11 @@ impl CqueryUniverse {
 
     fn get_from_package<'a, P: PatternType>(
         &'a self,
-        package: &PackageLabel,
+        package: PackageLabel,
         spec: &'a PackageSpec<P>,
     ) -> impl Iterator<Item = (&'a ConfiguredTargetNode, P::ExtraParts)> + 'a {
         self.targets
-            .get(package)
+            .get(&package)
             .into_iter()
             .flat_map(move |package_universe| match spec {
                 PackageSpec::Targets(names) => Either::Left(names.iter().flat_map(|name| {

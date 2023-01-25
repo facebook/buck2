@@ -62,10 +62,10 @@ struct TargetInfo<'a> {
 trait TargetPrinter: Send {
     fn begin(&mut self) {}
     fn end(&mut self) -> String;
-    fn package(&mut self, _package: &PackageLabel) {}
+    fn package(&mut self, _package: PackageLabel) {}
     fn package_end(&mut self) {}
-    fn target(&mut self, _package: &PackageLabel, _target_info: TargetInfo<'_>) {}
-    fn err(&mut self, package: &PackageLabel, e: &anyhow::Error) {
+    fn target(&mut self, _package: PackageLabel, _target_info: TargetInfo<'_>) {}
+    fn err(&mut self, package: PackageLabel, e: &anyhow::Error) {
         eprintln!("Error parsing {}", package);
         eprintln!("{:?}", e);
     }
@@ -92,11 +92,11 @@ impl TargetPrinter for JsonPrinter {
         // ignored
     }
 
-    fn package(&mut self, _package: &PackageLabel) {
+    fn package(&mut self, _package: PackageLabel) {
         // ignored
     }
 
-    fn target(&mut self, package: &PackageLabel, target_info: TargetInfo<'_>) {
+    fn target(&mut self, package: PackageLabel, target_info: TargetInfo<'_>) {
         if self.target_idx != 0 {
             writeln!(self.json_string, ",").unwrap();
         }
@@ -182,15 +182,15 @@ impl TargetPrinter for StatsPrinter {
         format!("{:?}", self)
     }
 
-    fn package(&mut self, _package: &PackageLabel) {
+    fn package(&mut self, _package: PackageLabel) {
         self.success += 1;
     }
 
-    fn target(&mut self, _package: &PackageLabel, _target_info: TargetInfo<'_>) {
+    fn target(&mut self, _package: PackageLabel, _target_info: TargetInfo<'_>) {
         self.targets += 1;
     }
 
-    fn err(&mut self, package: &PackageLabel, e: &anyhow::Error) {
+    fn err(&mut self, package: PackageLabel, e: &anyhow::Error) {
         self.errors += 1;
         eprintln!("Error parsing {}", package);
         eprintln!("{:?}", e);
@@ -207,7 +207,7 @@ impl TargetPrinter for TargetNamePrinter {
         std::mem::take(&mut self.display_string)
     }
 
-    fn target(&mut self, package: &PackageLabel, target_info: TargetInfo<'_>) {
+    fn target(&mut self, package: PackageLabel, target_info: TargetInfo<'_>) {
         if self.target_hash_graph_type != TargetHashGraphType::None {
             match target_info.target_hash {
                 Some(BuckTargetHash(hash)) => writeln!(
@@ -351,14 +351,19 @@ async fn targets(
 
         let packages = parsed_target_patterns
             .iter()
-            .map(|(package, _name)| package)
+            .map(|(package, _name)| package.dupe())
             .collect::<HashSet<_>>();
 
         let packages = packages
             .into_iter()
             .map(|package| {
                 let ctx = &ctx;
-                async move { (package, ctx.get_interpreter_results(package).await) }
+                async move {
+                    (
+                        package.dupe(),
+                        ctx.get_interpreter_results(package.dupe()).await,
+                    )
+                }
             })
             .collect::<FuturesUnordered<_>>()
             .collect::<HashMap<_, _>>()
@@ -466,18 +471,18 @@ async fn parse_and_get_results(
     for (package, result) in results.iter() {
         match result {
             Ok(res) => {
-                printer.package(package);
+                printer.package(package.dupe());
                 for (_, node) in res.iter() {
                     let target_hash = target_hashes
                         .as_ref()
                         .and_then(|hashes| hashes.get(node.label()))
                         .transpose()?;
-                    printer.target(package, TargetInfo { node, target_hash })
+                    printer.target(package.dupe(), TargetInfo { node, target_hash })
                 }
                 printer.package_end();
             }
             Err(e) => {
-                printer.err(package, e.inner());
+                printer.err(package.dupe(), e.inner());
                 error_count += 1;
             }
         }

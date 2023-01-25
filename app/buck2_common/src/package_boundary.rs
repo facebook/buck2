@@ -107,7 +107,7 @@ impl PackageBoundaryExceptions {
                             let e = CellPackageBoundaryExceptions::new(v).with_context(
                                 || format!("When parsing `project.package_boundary_exceptions` key from cell `{}`", name)
                             )?;
-                            Ok((name.clone(), e))
+                            Ok((name, e))
                         })
                 })
                 .collect::<anyhow::Result<_>>()?,

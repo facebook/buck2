@@ -88,19 +88,19 @@ impl LegacyBuckConfigs {
         }
     }
 
-    pub fn get<'a>(&'a self, cell_name: &'_ CellName) -> anyhow::Result<&'a LegacyBuckConfig> {
+    pub fn get<'a>(&'a self, cell_name: CellName) -> anyhow::Result<&'a LegacyBuckConfig> {
         self.data
-            .get(cell_name)
-            .ok_or_else(|| ConfigError::UnknownCell(cell_name.clone()).into())
+            .get(&cell_name)
+            .ok_or_else(|| ConfigError::UnknownCell(cell_name).into())
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (&CellName, &LegacyBuckConfig)> {
-        self.data.iter()
+    pub fn iter(&self) -> impl Iterator<Item = (CellName, &LegacyBuckConfig)> {
+        self.data.iter().map(|(name, config)| (*name, config))
     }
 
     pub fn target_alias_resolver(
         &self,
-        cell_name: &CellName,
+        cell_name: CellName,
     ) -> anyhow::Result<BuckConfigTargetAliasResolver> {
         Ok(self.get(cell_name)?.target_alias_resolver())
     }
@@ -171,13 +171,13 @@ impl LegacyBuckConfigView for LegacyBuckConfig {
 }
 
 impl LegacyBuckConfigsView for LegacyBuckConfigs {
-    fn get(&self, cell_name: &CellName) -> anyhow::Result<&dyn LegacyBuckConfigView> {
+    fn get(&self, cell_name: CellName) -> anyhow::Result<&dyn LegacyBuckConfigView> {
         Ok(self.get(cell_name)?)
     }
 
     fn iter<'a>(
         &'a self,
-    ) -> Box<dyn Iterator<Item = (&'a CellName, &'a dyn LegacyBuckConfigView)> + 'a> {
+    ) -> Box<dyn Iterator<Item = (CellName, &'a dyn LegacyBuckConfigView)> + 'a> {
         box self
             .iter()
             .map(|(cell, config)| (cell, config as &dyn LegacyBuckConfigView))

@@ -52,8 +52,8 @@ pub trait HasCalculationDelegate<'c> {
     /// per evaluated file (build file or `.bzl`).
     async fn get_interpreter_calculator(
         &'c self,
-        cell: &CellName,
-        build_file_cell: &BuildFileCell,
+        cell: CellName,
+        build_file_cell: BuildFileCell,
     ) -> anyhow::Result<DiceCalculationDelegate<'c>>;
 }
 

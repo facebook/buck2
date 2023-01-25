@@ -54,7 +54,7 @@ static INTERNER: StaticInterner<CellNameData, FnvHasher> = StaticInterner::new()
 /// contain any special characters like `/`), so `foo/bar//some:target` has an
 /// invalid cell name of `foo/bar`.
 #[derive(
-    Clone, Dupe, Debug, Display, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative
+    Clone, Dupe, Copy, Debug, Display, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative
 )]
 pub struct CellName(Intern<CellNameData>);
 

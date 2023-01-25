@@ -646,15 +646,21 @@ mod tests {
         let invalid_label_value3 =
             label_coercer.coerce(AttrIsConfigurable::Yes, &coercer_ctx, heap.alloc("1"));
 
-        assert_eq!("root//foo:bar", value_to_string(&label_value1, &package)?);
         assert_eq!(
-            "root//foo:bar[baz]",
-            value_to_string(&label_value2, &package)?
+            "root//foo:bar",
+            value_to_string(&label_value1, package.dupe())?
         );
-        assert_eq!("root//foo:bar", value_to_string(&label_value3, &package)?);
         assert_eq!(
             "root//foo:bar[baz]",
-            value_to_string(&label_value4, &package)?
+            value_to_string(&label_value2, package.dupe())?
+        );
+        assert_eq!(
+            "root//foo:bar",
+            value_to_string(&label_value3, package.dupe())?
+        );
+        assert_eq!(
+            "root//foo:bar[baz]",
+            value_to_string(&label_value4, package.dupe())?
         );
         assert!(invalid_label_value1.is_err());
         assert!(invalid_label_value2.is_err());
@@ -662,7 +668,7 @@ mod tests {
 
         let string_value1 =
             string_coercer.coerce(AttrIsConfigurable::Yes, &coercer_ctx, heap.alloc("str"))?;
-        assert_eq!("str", value_to_string(&string_value1, &package)?);
+        assert_eq!("str", value_to_string(&string_value1, package.dupe())?);
 
         let enum_valid1 =
             enum_coercer.coerce(AttrIsConfigurable::Yes, &coercer_ctx, heap.alloc("red"))?;
@@ -674,9 +680,9 @@ mod tests {
             enum_coercer.coerce(AttrIsConfigurable::Yes, &coercer_ctx, heap.alloc("orange"));
         let enum_invalid2 =
             enum_coercer.coerce(AttrIsConfigurable::Yes, &coercer_ctx, heap.alloc(false));
-        assert_eq!("red", value_to_string(&enum_valid1, &package)?);
-        assert_eq!("green", value_to_string(&enum_valid2, &package)?);
-        assert_eq!("red", value_to_string(&enum_valid3, &package)?);
+        assert_eq!("red", value_to_string(&enum_valid1, package.dupe())?);
+        assert_eq!("green", value_to_string(&enum_valid2, package.dupe())?);
+        assert_eq!("red", value_to_string(&enum_valid3, package.dupe())?);
         assert!(enum_invalid1.is_err());
         assert!(enum_invalid2.is_err());
 

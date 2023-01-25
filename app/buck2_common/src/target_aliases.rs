@@ -131,7 +131,7 @@ impl BuckConfigTargetAliasResolver {
 pub trait HasTargetAliasResolver {
     async fn target_alias_resolver_for_cell(
         &self,
-        cell_name: &CellName,
+        cell_name: CellName,
     ) -> anyhow::Result<BuckConfigTargetAliasResolver>;
 
     async fn target_alias_resolver_for_working_dir(
@@ -150,7 +150,7 @@ impl Key for TargetAliasResolverKey {
     type Value = SharedResult<BuckConfigTargetAliasResolver>;
 
     async fn compute(&self, ctx: &DiceComputations) -> SharedResult<BuckConfigTargetAliasResolver> {
-        let legacy_configs = ctx.get_legacy_config_for_cell(&self.cell_name).await?;
+        let legacy_configs = ctx.get_legacy_config_for_cell(self.cell_name).await?;
         Ok(legacy_configs.target_alias_resolver())
     }
 
@@ -166,12 +166,10 @@ impl Key for TargetAliasResolverKey {
 impl HasTargetAliasResolver for DiceComputations {
     async fn target_alias_resolver_for_cell(
         &self,
-        cell_name: &CellName,
+        cell_name: CellName,
     ) -> anyhow::Result<BuckConfigTargetAliasResolver> {
         Ok(self
-            .compute(&TargetAliasResolverKey {
-                cell_name: cell_name.clone(),
-            })
+            .compute(&TargetAliasResolverKey { cell_name })
             .await??)
     }
 
@@ -183,7 +181,7 @@ impl HasTargetAliasResolver for DiceComputations {
         let working_dir =
             PackageLabel::from_cell_path(cell_resolver.get_cell_path(&working_dir)?.as_ref());
         let cell_name = working_dir.as_cell_path().cell();
-        self.target_alias_resolver_for_cell(&cell_name).await
+        self.target_alias_resolver_for_cell(cell_name).await
     }
 }
 

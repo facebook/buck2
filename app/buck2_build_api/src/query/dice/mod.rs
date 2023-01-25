@@ -98,7 +98,7 @@ impl LiteralParser {
         ParsedPattern::parse_relative(
             &self.target_alias_resolver,
             &self.cell_alias_resolver,
-            &self.working_dir,
+            self.working_dir.dupe(),
             value,
         )
     }
@@ -124,8 +124,9 @@ impl LiteralParser {
                 }
             }
             false => {
-                let project_relative_working_dir =
-                    self.cell_resolver.resolve_package(&self.working_dir)?;
+                let project_relative_working_dir = self
+                    .cell_resolver
+                    .resolve_package(self.working_dir.dupe())?;
                 let relative_path = RelativePath::from_path(&path)?;
                 project_relative_working_dir.join_normalized(relative_path)?
             }
@@ -157,7 +158,7 @@ impl<'c> DiceQueryDelegate<'c> {
         let cell_path = cell_resolver.get_cell_path(working_dir)?;
         let package = PackageLabel::from_cell_path(cell_path.as_ref());
         let cell_name = package.as_cell_path().cell();
-        let cell_alias_resolver = cell_resolver.get(&cell_name)?.cell_alias_resolver().dupe();
+        let cell_alias_resolver = cell_resolver.get(cell_name)?.cell_alias_resolver().dupe();
 
         Ok(Self {
             ctx,
@@ -189,7 +190,7 @@ impl<'c> DiceQueryDelegate<'c> {
 
 #[async_trait]
 impl<'c> UqueryDelegate for DiceQueryDelegate<'c> {
-    async fn eval_build_file(&self, package: &PackageLabel) -> SharedResult<Arc<EvaluationResult>> {
+    async fn eval_build_file(&self, package: PackageLabel) -> SharedResult<Arc<EvaluationResult>> {
         self.ctx.get_interpreter_results(package).await
     }
 
@@ -204,8 +205,7 @@ impl<'c> UqueryDelegate for DiceQueryDelegate<'c> {
         let resolver = &self.cell_resolver;
         let mut buildfile_names_by_cell = HashMap::<CellName, &[FileNameBuf]>::new();
         for (cell, _) in resolver.cells() {
-            let prev =
-                buildfile_names_by_cell.insert(cell.clone(), resolver.get(cell)?.buildfiles());
+            let prev = buildfile_names_by_cell.insert(cell, resolver.get(cell)?.buildfiles());
             assert!(prev.is_none());
         }
         Ok(buildfile_names_by_cell)
@@ -290,7 +290,7 @@ impl<'c> CqueryDelegate for DiceQueryDelegate<'c> {
 /// Converts target nodes to a set of compatible configured target nodes.
 pub async fn get_compatible_targets(
     ctx: &DiceComputations,
-    loaded_targets: impl Iterator<Item = (&PackageLabel, SharedResult<Vec<TargetNode>>)>,
+    loaded_targets: impl Iterator<Item = (PackageLabel, SharedResult<Vec<TargetNode>>)>,
     global_target_platform: Option<TargetLabel>,
 ) -> anyhow::Result<TargetSet<ConfiguredTargetNode>> {
     let mut by_package_futs: Vec<_> = Vec::new();

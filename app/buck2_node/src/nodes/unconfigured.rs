@@ -493,7 +493,7 @@ pub mod testing {
     /// away eventually.
     pub fn targets_to_json(
         target: &TargetsMap,
-        pkg: &PackageLabel,
+        pkg: PackageLabel,
         opts: AttrInspectOptions,
     ) -> anyhow::Result<Value> {
         let map: Map<String, Value> = target

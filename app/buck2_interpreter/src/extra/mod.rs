@@ -141,7 +141,7 @@ impl<'a> BuildContext<'a> {
         self.cell_info
     }
 
-    pub fn require_package(&self) -> anyhow::Result<&PackageLabel> {
+    pub fn require_package(&self) -> anyhow::Result<PackageLabel> {
         match self.starlark_path {
             StarlarkPath::BuildFile(b) => Ok(b.package()),
             _ => Err(anyhow::anyhow!(

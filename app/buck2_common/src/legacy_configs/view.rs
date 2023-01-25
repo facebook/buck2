@@ -37,8 +37,8 @@ impl<'a> dyn LegacyBuckConfigView + 'a {
 
 /// All cell buckconfigs traits.
 pub trait LegacyBuckConfigsView {
-    fn get<'a>(&'a self, cell_name: &CellName) -> anyhow::Result<&'a dyn LegacyBuckConfigView>;
+    fn get<'a>(&'a self, cell_name: CellName) -> anyhow::Result<&'a dyn LegacyBuckConfigView>;
     fn iter<'a>(
         &'a self,
-    ) -> Box<dyn Iterator<Item = (&'a CellName, &'a dyn LegacyBuckConfigView)> + 'a>;
+    ) -> Box<dyn Iterator<Item = (CellName, &'a dyn LegacyBuckConfigView)> + 'a>;
 }

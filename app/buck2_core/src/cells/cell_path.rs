@@ -47,7 +47,7 @@ impl CellPath {
 
     #[inline]
     pub fn cell(&self) -> CellName {
-        self.cell.dupe()
+        self.cell
     }
 
     #[inline]
@@ -217,10 +217,7 @@ impl CellPath {
     /// # anyhow::Ok(())
     /// ```
     pub fn join_normalized<P: AsRef<RelativePath>>(&self, path: P) -> anyhow::Result<CellPath> {
-        Ok(CellPath::new(
-            self.cell.clone(),
-            self.path.join_normalized(path)?,
-        ))
+        Ok(CellPath::new(self.cell, self.path.join_normalized(path)?))
     }
 
     /// Checks that cell matches and `self` path starts with `base` path
@@ -264,13 +261,13 @@ impl CellPath {
     #[inline]
     pub fn as_ref(&self) -> CellPathRef {
         CellPathRef {
-            cell: self.cell.dupe(),
+            cell: self.cell,
             path: &self.path,
         }
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Dupe, derive_more::Display)]
+#[derive(Debug, Clone, Dupe, Copy, Eq, PartialEq, Hash, derive_more::Display)]
 #[display(fmt = "{}//{}", cell, path)]
 pub struct CellPathRef<'a> {
     cell: CellName,
@@ -281,7 +278,7 @@ impl<'a> CellPathRef<'a> {
     #[inline]
     pub fn parent(&self) -> Option<CellPathRef<'a>> {
         Some(CellPathRef {
-            cell: self.cell.dupe(),
+            cell: self.cell,
             path: self.path.parent()?,
         })
     }
@@ -289,14 +286,14 @@ impl<'a> CellPathRef<'a> {
     #[inline]
     pub fn to_owned(&self) -> CellPath {
         CellPath {
-            cell: self.cell.dupe(),
+            cell: self.cell,
             path: self.path.to_owned(),
         }
     }
 
     #[inline]
     pub fn cell(&self) -> CellName {
-        self.cell.dupe()
+        self.cell
     }
 
     #[inline]
@@ -327,7 +324,7 @@ impl<'a> CellPathRef<'a> {
     #[inline]
     pub fn join(&self, path: &ForwardRelativePath) -> CellPath {
         CellPath {
-            cell: self.cell.dupe(),
+            cell: self.cell,
             path: self.path.join(path),
         }
     }
@@ -340,7 +337,7 @@ impl<'a> CellPathRef<'a> {
     #[inline]
     pub fn strip_prefix(&self, base: CellPathRef) -> anyhow::Result<&'a ForwardRelativePath> {
         if self.cell != base.cell {
-            return Err(StripPrefixError(self.cell.dupe(), base.cell.dupe()).into());
+            return Err(StripPrefixError(self.cell, base.cell).into());
         }
         self.path.strip_prefix(&base.path)
     }

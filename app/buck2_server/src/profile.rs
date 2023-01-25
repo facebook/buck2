@@ -93,17 +93,14 @@ async fn generate_profile_loading(
     }
 
     let calculation = ctx
-        .get_interpreter_calculator(
-            &package.cell_name(),
-            &BuildFileCell::new(package.cell_name().clone()),
-        )
+        .get_interpreter_calculator(package.cell_name(), BuildFileCell::new(package.cell_name()))
         .await?;
 
     let mut profiler = StarlarkProfiler::new(profile_mode.profile_last_loading()?.dupe(), false);
 
     calculation
         .eval_build_file::<ModuleInternals>(
-            &package,
+            package,
             &mut StarlarkProfilerOrInstrumentation::for_profiler(&mut profiler),
         )
         .await?;

@@ -62,12 +62,9 @@ use crate::fs::project::ProjectRelativePathBuf;
 
 /// A 'Package' as defined above.
 #[derive(
-    Clone, Debug, Display, Eq, PartialEq, Hash, Ord, PartialOrd, Allocative
+    Clone, Dupe, Debug, Display, Eq, PartialEq, Hash, Ord, PartialOrd, Allocative
 )]
 pub struct PackageLabel(Intern<PackageLabelData>);
-
-/// Intern is Copy, so Clone is super cheap
-impl Dupe for PackageLabel {}
 
 #[derive(Debug, Display, Eq, PartialEq, Ord, PartialOrd, Allocative)]
 struct PackageLabelData(CellPath);
@@ -80,17 +77,14 @@ struct PackageLabelDataRef<'a> {
 
 impl<'a> From<PackageLabelDataRef<'a>> for PackageLabelData {
     fn from(package_data: PackageLabelDataRef<'a>) -> Self {
-        PackageLabelData(CellPath::new(
-            package_data.cell.clone(),
-            package_data.path.to_buf(),
-        ))
+        PackageLabelData(CellPath::new(package_data.cell, package_data.path.to_buf()))
     }
 }
 
 impl PackageLabelData {
     fn as_ref(&self) -> PackageLabelDataRef {
         PackageLabelDataRef {
-            cell: self.0.cell().dupe(),
+            cell: self.0.cell(),
             path: self.0.path(),
         }
     }
@@ -114,10 +108,7 @@ static INTERNER: StaticInterner<PackageLabelData, FnvHasher> = StaticInterner::n
 impl PackageLabel {
     #[inline]
     pub fn new(cell: CellName, path: &CellRelativePath) -> Self {
-        Self(INTERNER.intern(PackageLabelDataRef {
-            cell: cell.dupe(),
-            path,
-        }))
+        Self(INTERNER.intern(PackageLabelDataRef { cell, path }))
     }
 
     #[inline]
@@ -131,8 +122,8 @@ impl PackageLabel {
     }
 
     #[inline]
-    pub fn cell_relative_path(&self) -> &CellRelativePath {
-        self.0.0.path()
+    pub fn cell_relative_path(&self) -> &'static CellRelativePath {
+        self.0.deref_static().0.path()
     }
 
     #[inline]
@@ -195,13 +186,13 @@ impl CellResolver {
     /// );
     ///
     /// assert_eq!(
-    ///     cells.resolve_package(&pkg)?,
+    ///     cells.resolve_package(pkg)?,
     ///     ProjectRelativePathBuf::unchecked_new("my/cell/somepkg".into()),
     /// );
     ///
     /// # anyhow::Ok(())
     /// ```
-    pub fn resolve_package(&self, pkg: &PackageLabel) -> anyhow::Result<ProjectRelativePathBuf> {
+    pub fn resolve_package(&self, pkg: PackageLabel) -> anyhow::Result<ProjectRelativePathBuf> {
         self.resolve_path(pkg.0.0.as_ref())
     }
 }

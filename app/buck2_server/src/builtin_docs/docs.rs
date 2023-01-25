@@ -58,7 +58,7 @@ use super::bxl_docs::get_builtin_bxl_docs;
 fn parse_import_paths(
     cell_resolver: &CellAliasResolver,
     current_dir: &CellPath,
-    current_cell: &BuildFileCell,
+    current_cell: BuildFileCell,
     symbol_patterns: &[String],
 ) -> anyhow::Result<HashSet<ImportPath>> {
     const PARSE_OPTIONS: ParseImportOptions = ParseImportOptions {
@@ -75,7 +75,7 @@ fn parse_import_paths(
                 symbol_pattern,
                 &PARSE_OPTIONS,
             )?;
-            ImportPath::new(path, current_cell.clone())
+            ImportPath::new(path, current_cell)
         })
         .collect()
 }
@@ -197,7 +197,7 @@ pub async fn get_prelude_docs(
     let cell_alias_resolver = cell_resolver.root_cell_instance().cell_alias_resolver();
     let prelude_path = prelude_path(cell_alias_resolver)?;
     let interpreter_calculation = ctx
-        .get_interpreter_calculator(&prelude_path.cell(), &prelude_path.build_file_cell())
+        .get_interpreter_calculator(prelude_path.cell(), prelude_path.build_file_cell())
         .await?;
     let mut prelude_docs = get_docs_from_module(&interpreter_calculation, prelude_path).await?;
 
@@ -332,13 +332,13 @@ async fn docs(
     let current_cell = BuildFileCell::new(current_cell_path.cell());
 
     let cell_alias_resolver = cell_resolver
-        .get(&current_cell_path.cell())?
+        .get(current_cell_path.cell())?
         .cell_alias_resolver();
 
     let lookups = parse_import_paths(
         cell_alias_resolver,
         &current_cell_path,
-        &current_cell,
+        current_cell,
         &request.symbol_patterns,
     )?;
 
@@ -361,7 +361,7 @@ async fn docs(
         .into_iter()
         .map(|import_path| async {
             let interpreter_calc = dice_ctx
-                .get_interpreter_calculator(&import_path.cell(), &import_path.build_file_cell())
+                .get_interpreter_calculator(import_path.cell(), import_path.build_file_cell())
                 .await?;
             get_docs_from_module(&interpreter_calc, import_path).await
         })

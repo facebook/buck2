@@ -8,6 +8,7 @@
  */
 
 use allocative::Allocative;
+use dupe::Dupe;
 
 use crate::bzl::ModuleID;
 use crate::cells::build_file_cell::BuildFileCell;
@@ -53,8 +54,8 @@ impl BuildFilePath {
         self.package.cell_name()
     }
 
-    pub fn package(&self) -> &PackageLabel {
-        &self.package
+    pub fn package(&self) -> PackageLabel {
+        self.package.dupe()
     }
 
     pub fn path(&self) -> CellPath {

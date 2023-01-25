@@ -262,9 +262,9 @@ impl GlobalInterpreterState {
         for (cell_name, config) in legacy_configs.iter() {
             let cell_instance = cell_resolver.get(cell_name).expect("Should have cell.");
             cell_configs.insert(
-                BuildFileCell::new(cell_name.clone()),
+                BuildFileCell::new(cell_name),
                 InterpreterCellInfo::new(
-                    BuildFileCell::new(cell_name.clone()),
+                    BuildFileCell::new(cell_name),
                     config,
                     cell_instance.cell_alias_resolver().dupe(),
                 )?,
@@ -379,7 +379,7 @@ impl LoadResolver for InterpreterLoadResolver {
 
         Ok(OwnedStarlarkModulePath::LoadFile(ImportPath::new(
             path,
-            self.build_file_cell.clone(),
+            self.build_file_cell,
         )?))
     }
 }
@@ -513,7 +513,7 @@ impl InterpreterForCell {
         loaded_modules: &LoadedModules,
     ) -> anyhow::Result<(Module, Box<dyn ExtraContextDyn>)> {
         let internals = self.config.global_state.configuror.new_extra_context(
-            self.get_cell_config(&build_file.build_file_cell()),
+            self.get_cell_config(build_file.build_file_cell()),
             build_file.clone(),
             package_listing.dupe(),
             package_boundary_exception,
@@ -539,11 +539,11 @@ impl InterpreterForCell {
         Ok((env, internals))
     }
 
-    fn get_cell_config(&self, build_file_cell: &BuildFileCell) -> &InterpreterCellInfo {
+    fn get_cell_config(&self, build_file_cell: BuildFileCell) -> &InterpreterCellInfo {
         self.config
             .global_state
             .cell_configs
-            .get(build_file_cell)
+            .get(&build_file_cell)
             .unwrap_or_else(|| panic!("Should've had cell config for {}", build_file_cell))
     }
 
@@ -643,7 +643,7 @@ impl InterpreterForCell {
         let globals = self.config.starlark_path_global_env(&import);
         let file_loader =
             InterpreterFileLoader::new(loaded_modules, Arc::new(self.load_resolver(import)));
-        let cell_info = self.get_cell_config(&import.build_file_cell());
+        let cell_info = self.get_cell_config(import.build_file_cell());
         let host_platform = self.config.global_state.configuror.host_platform();
         let host_architecture = self.config.global_state.configuror.host_architecture();
         let extra = BuildContext::new_for_module(
@@ -822,7 +822,7 @@ mod tests {
         )?;
         Ok((
             cell_resolver
-                .get(&CellName::unchecked_new("root"))?
+                .get(CellName::unchecked_new("root"))?
                 .cell_alias_resolver()
                 .dupe(),
             cell_resolver,
@@ -847,8 +847,8 @@ mod tests {
         fn interpreter(&self) -> anyhow::Result<InterpreterForCell> {
             let root_cell = BuildFileCell::new(CellName::unchecked_new("root"));
             let import_paths = ImportPaths::parse(
-                self.configs.get(&root_cell.name()).unwrap(),
-                &root_cell,
+                self.configs.get(root_cell.name()).unwrap(),
+                root_cell,
                 &self.cell_alias_resolver,
             )?;
             Ok(InterpreterForCell::new(
@@ -1023,7 +1023,7 @@ mod tests {
             false,
         )?;
 
-        assert_eq!(build_path.package(), &eval_result.package);
+        assert_eq!(build_path.package(), eval_result.package);
         assert_eq!(
             json!({
                     "invoke_some-exported": {
@@ -1130,7 +1130,7 @@ mod tests {
             false,
         )?;
 
-        assert_eq!(build_path.package(), &eval_result.package);
+        assert_eq!(build_path.package(), eval_result.package);
         assert_eq!(
             json!({
                     "hello": {

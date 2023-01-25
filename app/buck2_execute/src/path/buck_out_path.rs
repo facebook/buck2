@@ -18,6 +18,7 @@ use anyhow::Context;
 use buck2_core::buck_path::BuckPathRef;
 use buck2_core::category::Category;
 use buck2_core::cells::cell_path::CellPath;
+use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::cells::CellError;
@@ -223,8 +224,8 @@ impl BuckPathResolver {
         Ok(self.0.resolve_package(path.package())?.join(path.path()))
     }
 
-    pub fn resolve_cell_path(&self, path: &CellPath) -> anyhow::Result<ProjectRelativePathBuf> {
-        Ok(self.0.get(&path.cell())?.path().join(path.path()))
+    pub fn resolve_cell_path(&self, path: CellPathRef) -> anyhow::Result<ProjectRelativePathBuf> {
+        Ok(self.0.get(path.cell())?.path().join(path.path()))
     }
 }
 
@@ -523,14 +524,10 @@ fn get_cell_path<'v>(
         Some(cell_name) => {
             let cell_name = CellName::unchecked_new(cell_name.as_str());
 
-            if !cell_resolver.contains(&cell_name) {
+            if !cell_resolver.contains(cell_name) {
                 return Err(anyhow::Error::new(CellError::UnknownCellName(
                     cell_name,
-                    cell_resolver
-                        .cells()
-                        .map(|(name, _)| name)
-                        .cloned()
-                        .collect(),
+                    cell_resolver.cells().map(|(name, _)| name).collect(),
                 )));
             }
 

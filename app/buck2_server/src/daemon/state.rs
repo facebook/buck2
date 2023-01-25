@@ -201,7 +201,7 @@ impl DaemonState {
             .iter()
             .map(|(cell, config)| {
                 Ok((
-                    cell.clone(),
+                    cell,
                     IgnoreSet::from_ignore_spec(config.get("project", "ignore").unwrap_or(""))?,
                 ))
             })

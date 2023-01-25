@@ -127,7 +127,7 @@ async fn get_default_file_ops(dice: &DiceComputations) -> SharedResult<Arc<dyn F
                 .check(path.path()))
         }
 
-        fn resolve_cell_root(&self, cell: &CellName) -> anyhow::Result<CellRootPathBuf> {
+        fn resolve_cell_root(&self, cell: CellName) -> anyhow::Result<CellRootPathBuf> {
             Ok(self.cells.get(cell).unwrap().path().to_buf())
         }
 
@@ -159,7 +159,7 @@ async fn get_default_file_ops(dice: &DiceComputations) -> SharedResult<Arc<dyn F
 
                 let cell_ignores =
                     FileIgnores::new_for_interpreter(ignore_spec, &cell_paths, this_path)?;
-                ignores.insert(cell_name.clone(), cell_ignores);
+                ignores.insert(cell_name, cell_ignores);
             }
 
             Ok(FileOpsValue(Arc::new(DiceFileOpsDelegate {

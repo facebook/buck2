@@ -196,7 +196,7 @@ mod tests {
 
         Ok((
             resolver
-                .get(&CellName::unchecked_new("root"))?
+                .get(CellName::unchecked_new("root"))?
                 .cell_alias_resolver()
                 .dupe(),
             resolver,
@@ -208,8 +208,8 @@ mod tests {
         let root_cell = BuildFileCell::new(CellName::unchecked_new("root"));
         let (cell_alias_resolver, resolver, configs) = cells()?;
         let import_paths = ImportPaths::parse(
-            configs.get(&root_cell.name()).unwrap(),
-            &root_cell,
+            configs.get(root_cell.name()).unwrap(),
+            root_cell,
             &cell_alias_resolver,
         )?;
         Ok(InterpreterForCell::new(

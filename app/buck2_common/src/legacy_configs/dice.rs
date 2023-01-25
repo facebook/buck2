@@ -63,30 +63,30 @@ pub struct LegacyBuckConfigsOnDice<'a> {
 }
 
 impl<'a> LegacyBuckConfigsOnDice<'a> {
-    pub fn get(&self, cell_name: &CellName) -> anyhow::Result<LegacyBuckConfigOnDice<'a>> {
+    pub fn get(&self, cell_name: CellName) -> anyhow::Result<LegacyBuckConfigOnDice<'a>> {
         self.configs
-            .get(cell_name)
+            .get(&cell_name)
             .duped()
             .ok_or_else(|| ConfigError::UnknownCell(cell_name.to_owned()).into())
     }
 }
 
 impl<'a> LegacyBuckConfigsView for LegacyBuckConfigsOnDice<'a> {
-    fn get<'x>(&'x self, cell_name: &CellName) -> anyhow::Result<&'x dyn LegacyBuckConfigView> {
+    fn get<'x>(&'x self, cell_name: CellName) -> anyhow::Result<&'x dyn LegacyBuckConfigView> {
         let config = self
             .configs
-            .get(cell_name)
+            .get(&cell_name)
             .ok_or_else(|| anyhow::Error::new(ConfigError::UnknownCell(cell_name.to_owned())))?;
         Ok(config)
     }
 
     fn iter<'x>(
         &'x self,
-    ) -> Box<dyn Iterator<Item = (&'x CellName, &'x dyn LegacyBuckConfigView)> + 'x> {
+    ) -> Box<dyn Iterator<Item = (CellName, &'x dyn LegacyBuckConfigView)> + 'x> {
         box self
             .configs
             .iter()
-            .map(|(cell_name, config)| (cell_name, config as &dyn LegacyBuckConfigView))
+            .map(|(cell_name, config)| (*cell_name, config as &dyn LegacyBuckConfigView))
     }
 }
 
@@ -113,19 +113,19 @@ pub trait HasLegacyConfigs {
     /// Consider using `get_legacy_config_property` instead.
     async fn get_legacy_config_for_cell(
         &self,
-        cell_name: &CellName,
+        cell_name: CellName,
     ) -> SharedResult<LegacyBuckConfig>;
 
     async fn get_legacy_config_property(
         &self,
-        cell_name: &CellName,
+        cell_name: CellName,
         section: &str,
         property: &str,
     ) -> anyhow::Result<Option<Arc<str>>>;
 
     async fn parse_legacy_config_property<T: FromStr>(
         &self,
-        cell_name: &CellName,
+        cell_name: CellName,
         section: &str,
         key: &str,
     ) -> anyhow::Result<Option<T>>
@@ -167,7 +167,7 @@ impl Key for LegacyBuckConfigForCellKey {
     async fn compute(&self, ctx: &DiceComputations) -> SharedResult<LegacyBuckConfig> {
         let legacy_configs = ctx.get_legacy_configs().await?;
         legacy_configs
-            .get(&self.cell_name)
+            .get(self.cell_name)
             .map(|x| x.dupe())
             .shared_error()
     }
@@ -193,7 +193,7 @@ impl Key for LegacyBuckConfigPropertyKey {
     type Value = SharedResult<Option<Arc<str>>>;
 
     async fn compute(&self, ctx: &DiceComputations) -> SharedResult<Option<Arc<str>>> {
-        let legacy_config = ctx.get_legacy_config_for_cell(&self.cell_name).await?;
+        let legacy_config = ctx.get_legacy_config_for_cell(self.cell_name).await?;
         Ok(legacy_config
             .get(&self.section, &self.property)
             .map(|s| s.to_owned().into()))
@@ -257,7 +257,7 @@ impl ProjectionKey for LegacyBuckConfigCellNamesKey {
                 )
             })
             .iter()
-            .map(|(k, _)| k.clone())
+            .map(|(k, _)| k)
             .collect();
         assert!(
             cell_names.is_sorted(),
@@ -280,11 +280,11 @@ impl HasLegacyConfigs for DiceComputations {
         for cell_name in &*cell_names {
             let config = self
                 .compute_opaque(&LegacyBuckConfigForCellKey {
-                    cell_name: cell_name.clone(),
+                    cell_name: *cell_name,
                 })
                 .await?;
             configs_on_dice.push((
-                cell_name.clone(),
+                *cell_name,
                 LegacyBuckConfigOnDice {
                     config: Arc::new(config),
                 },
@@ -307,23 +307,21 @@ impl HasLegacyConfigs for DiceComputations {
 
     async fn get_legacy_config_for_cell(
         &self,
-        cell_name: &CellName,
+        cell_name: CellName,
     ) -> SharedResult<LegacyBuckConfig> {
-        self.compute(&LegacyBuckConfigForCellKey {
-            cell_name: cell_name.clone(),
-        })
-        .await?
+        self.compute(&LegacyBuckConfigForCellKey { cell_name })
+            .await?
     }
 
     async fn get_legacy_config_property(
         &self,
-        cell_name: &CellName,
+        cell_name: CellName,
         section: &str,
         property: &str,
     ) -> anyhow::Result<Option<Arc<str>>> {
         Ok(self
             .compute(&LegacyBuckConfigPropertyKey {
-                cell_name: cell_name.clone(),
+                cell_name,
                 section: section.to_owned(),
                 property: property.to_owned(),
             })
@@ -332,7 +330,7 @@ impl HasLegacyConfigs for DiceComputations {
 
     async fn parse_legacy_config_property<T: FromStr>(
         &self,
-        cell_name: &CellName,
+        cell_name: CellName,
         section: &str,
         key: &str,
     ) -> anyhow::Result<Option<T>>

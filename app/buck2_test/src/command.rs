@@ -558,7 +558,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
 
         self.work.push(
             async move {
-                let res = state.ctx.get_interpreter_results(&package).await?;
+                let res = state.ctx.get_interpreter_results(package.dupe()).await?;
                 let SpecTargets { labels, skippable } = spec_to_targets(spec, res)?;
 
                 let labels =

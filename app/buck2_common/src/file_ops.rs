@@ -367,9 +367,9 @@ impl PartialEq for dyn FileOps {
 
 pub trait DefaultFileOpsDelegate: Allocative + PartialEq + Send + Sync + 'static {
     fn check_ignored(&self, path: CellPathRef) -> anyhow::Result<FileIgnoreResult>;
-    fn resolve_cell_root(&self, cell: &CellName) -> anyhow::Result<CellRootPathBuf>;
+    fn resolve_cell_root(&self, cell: CellName) -> anyhow::Result<CellRootPathBuf>;
     fn resolve(&self, path: CellPathRef) -> anyhow::Result<ProjectRelativePathBuf> {
-        let cell_root = self.resolve_cell_root(&path.cell())?;
+        let cell_root = self.resolve_cell_root(path.cell())?;
         Ok(cell_root.project_relative_path().join(path.path()))
     }
     fn get_cell_path(&self, path: &ProjectRelativePath) -> anyhow::Result<CellPath>;

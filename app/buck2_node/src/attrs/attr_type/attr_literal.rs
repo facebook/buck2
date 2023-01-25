@@ -243,7 +243,7 @@ impl<C: AttrConfig> AttrLiteral<C> {
 impl AttrLiteral<ConfiguredAttr> {
     pub(crate) fn traverse<'a>(
         &'a self,
-        pkg: &PackageLabel,
+        pkg: PackageLabel,
         traversal: &mut dyn ConfiguredAttrTraversal<'a>,
     ) -> anyhow::Result<()> {
         match self {
@@ -253,14 +253,14 @@ impl AttrLiteral<ConfiguredAttr> {
             AttrLiteral::EnumVariant(_) => Ok(()),
             AttrLiteral::List(list) | AttrLiteral::Tuple(list) => {
                 for v in list.iter() {
-                    v.traverse(pkg, traversal)?;
+                    v.traverse(pkg.dupe(), traversal)?;
                 }
                 Ok(())
             }
             AttrLiteral::Dict(dict) => {
                 for (k, v) in &**dict {
-                    k.traverse(pkg, traversal)?;
-                    v.traverse(pkg, traversal)?;
+                    k.traverse(pkg.dupe(), traversal)?;
+                    v.traverse(pkg.dupe(), traversal)?;
                 }
                 Ok(())
             }
@@ -337,7 +337,7 @@ impl AttrLiteral<CoercedAttr> {
 
     pub(crate) fn traverse<'a>(
         &'a self,
-        pkg: &PackageLabel,
+        pkg: PackageLabel,
         traversal: &mut dyn CoercedAttrTraversal<'a>,
     ) -> anyhow::Result<()> {
         match self {
@@ -347,14 +347,14 @@ impl AttrLiteral<CoercedAttr> {
             AttrLiteral::EnumVariant(_) => Ok(()),
             AttrLiteral::List(list) | AttrLiteral::Tuple(list) => {
                 for v in list.iter() {
-                    v.traverse(pkg, traversal)?;
+                    v.traverse(pkg.dupe(), traversal)?;
                 }
                 Ok(())
             }
             AttrLiteral::Dict(dict) => {
                 for (k, v) in &**dict {
-                    k.traverse(pkg, traversal)?;
-                    v.traverse(pkg, traversal)?;
+                    k.traverse(pkg.dupe(), traversal)?;
+                    v.traverse(pkg.dupe(), traversal)?;
                 }
                 Ok(())
             }
