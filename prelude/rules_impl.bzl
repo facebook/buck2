@@ -355,7 +355,7 @@ inlined_extra_attributes = {
         "configured_actual": attrs.option(attrs.configured_dep(), default = None),
         # If `configured_actual` is `None`, fallback to this unconfigured dep.
         "fallback_actual": attrs.option(attrs.dep(), default = None),
-        "platform": attrs.option(attrs.configuration_label()),
+        "platform": attrs.option(attrs.configuration_label(), default = None),
     },
     "cxx_binary": _cxx_binary_and_test_attrs(),
 
