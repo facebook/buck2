@@ -642,7 +642,11 @@ async fn compute_configured_target_node_no_transition(
                 }))))
             }
             Ok(MaybeCompatible::Compatible(dep)) => {
-                if !dep.is_visible_to(target_label.unconfigured()) {
+                let visible = match dep.is_visible_to(target_label.unconfigured()) {
+                    Ok(visible) => visible,
+                    Err(e) => return ControlFlow::Break(Err(e).shared_error()),
+                };
+                if !visible {
                     ControlFlow::Break(
                         Err(anyhow::anyhow!(VisibilityError::NotVisibleTo(
                             dep.label().unconfigured().dupe(),

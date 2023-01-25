@@ -94,7 +94,7 @@ impl AuditVisibilityCommand {
             for dep in target.deps() {
                 match delegate.targets.get(dep) {
                     Some(val) => {
-                        if !val.is_visible_to(target.label()) {
+                        if !val.is_visible_to(target.label())? {
                             visibility_errors.push(VisibilityError::NotVisibleTo(
                                 dep.dupe(),
                                 target.label().dupe(),

@@ -121,7 +121,7 @@ impl TargetNodeOrForward {
         }
     }
 
-    fn is_visible_to(&self, target: &TargetLabel) -> bool {
+    fn is_visible_to(&self, target: &TargetLabel) -> anyhow::Result<bool> {
         match self {
             TargetNodeOrForward::TargetNode(node) => node.is_visible_to(target),
             TargetNodeOrForward::Forward(_, forward) => forward.is_visible_to(target),
@@ -436,7 +436,7 @@ impl ConfiguredTargetNode {
         self.0.target_node.buildfile_path()
     }
 
-    pub fn is_visible_to(&self, target: &TargetLabel) -> bool {
+    pub fn is_visible_to(&self, target: &TargetLabel) -> anyhow::Result<bool> {
         self.0.target_node.is_visible_to(target)
     }
 

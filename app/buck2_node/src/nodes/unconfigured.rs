@@ -223,11 +223,15 @@ impl TargetNode {
         self.0.package.oncall.as_ref().map(|x| x.as_str())
     }
 
-    pub fn is_visible_to(&self, target: &TargetLabel) -> bool {
+    fn visibility(&self) -> anyhow::Result<&VisibilitySpecification> {
+        Ok(&self.0.visibility)
+    }
+
+    pub fn is_visible_to(&self, target: &TargetLabel) -> anyhow::Result<bool> {
         if self.label().pkg() == target.pkg() {
-            return true;
+            return Ok(true);
         }
-        self.0.visibility.is_visible_to(target)
+        Ok(self.visibility()?.is_visible_to(target))
     }
 
     pub fn attrs(&self, opts: AttrInspectOptions) -> impl Iterator<Item = CoercedAttrFull> {
