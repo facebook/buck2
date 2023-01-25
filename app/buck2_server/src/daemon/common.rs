@@ -297,11 +297,8 @@ pub fn get_executor_config_for_strategy(
 
 fn get_re_execution_platform(host_platform: HostPlatformOverride) -> ReExecutionPlatform {
     let linux = ReExecutionPlatform::Linux;
-    // TODO(T110757645): The Xcode version should come from the execution platform.
-    // The version specified here is used for isolated tests which lack explicit
-    // execution platform definitions.
     let mac = ReExecutionPlatform::MacOS {
-        subplatform: "xcode-14.2".to_owned(),
+        subplatform: "any".to_owned(),
     };
 
     let windows = ReExecutionPlatform::Windows;
