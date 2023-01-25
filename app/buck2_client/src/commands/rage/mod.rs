@@ -20,10 +20,12 @@ use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::manifold;
 use buck2_client_ctx::manifold::UploadError;
+use buck2_client_ctx::stdin::Stdin;
 use buck2_client_ctx::stream_value::StreamValue;
 use buck2_client_ctx::subscribers::event_log::file_names::get_local_logs;
 use buck2_client_ctx::subscribers::event_log::EventLogPathBuf;
 use buck2_client_ctx::subscribers::event_log::EventLogSummary;
+use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_data::RageInvoked;
 use buck2_events::dispatch::EventDispatcher;
@@ -156,49 +158,41 @@ impl RageCommand {
             let timeout = Duration::from_secs(self.timeout);
             let paths = ctx.paths.as_ref().map_err(|e| e.dupe())?;
             let stderr_path = paths.daemon_dir()?.buckd_stderr();
-            let logs = get_local_logs(&paths.log_dir())?
-                .into_iter()
-                .rev() // newest first
-                .map(|log_path| EventLogPathBuf::infer(log_path.into_abs_path_buf()))
-                .collect::<anyhow::Result<Vec<_>>>()?;
+            let logdir = paths.log_dir();
 
-            if logs.is_empty() {
-                buck2_client_ctx::eprintln!("No recent buck invocation to report")?;
-                return ExitResult::failure();
-            }
-
-            // TODO iguridi: this fails when run right after `buck2 clean`
-            let selected_log = match self.invocation {
-                Some(i) => logs.get(i).ok_or_else(|| RageError::LogNotFoundError.into()),
-                None => {
-                    let mut stdin = BufReader::new(ctx.stdin());
-                    user_prompt_select_log(&mut stdin, &logs).await
-                },
-            }?;
-
-            let log_summary = selected_log.get_summary().await?;
-            let command_id = log_summary.trace_id;
             let rage_id = TraceId::new();
-            let manifold_id = format!("{}_{}", command_id, rage_id);
-
-            dispatch_event_to_scribe(&ctx, &rage_id, &command_id)?;
+            let mut manifold_id = format!("{}", rage_id);
 
             buck2_client_ctx::eprintln!("Collection will terminate after {} seconds (override with --timeout param)", self.timeout)?;
             buck2_client_ctx::eprintln!("Collecting debug info...\n\n")?;
 
-            let sections = vec![
+            let selected_invocation =
+                maybe_select_invocation(ctx.stdin(), logdir, self.invocation).await?;
+            if let Some(ref invocation) = selected_invocation {
+                let trace_id = invocation.get_summary().await?.trace_id;
+                manifold_id = format!("{}_{}", trace_id, manifold_id);
+                // TODO iguridi: this event shouldn't rely on trace_id
+                dispatch_event_to_scribe(&ctx, &rage_id, &trace_id)?;
+            }
+
+            let mut sections = vec![
                 RageSection::get("System info".to_owned(), timeout, get_system_info),
                 RageSection::get("Daemon stderr".to_owned(), timeout, || {
                     upload_daemon_stderr(stderr_path, &manifold_id)
                 }),
                 RageSection::get("Hg snapshot ID".to_owned(), timeout, get_hg_snapshot),
-                RageSection::get("Build info".to_owned(), timeout, || {
-                    get_build_info(selected_log)
-                }),
                 RageSection::get("Dice Dump".to_owned(), timeout, || {
                     rage_dumps::upload_dice_dump(&ctx, &manifold_id)
                 }),
             ];
+
+            if let Some(invocation) = selected_invocation.as_ref() {
+                sections.push(RageSection::get(
+                    "Associated invocation info".to_owned(),
+                    timeout,
+                    || get_build_info(invocation),
+                ));
+            }
 
             let sections = futures::future::join_all(sections).await;
             let output: Vec<String> = sections.iter().map(|i| i.to_string()).collect();
@@ -396,10 +390,39 @@ fn create_scribe_event_dispatcher(
     Ok(sink.map(|sink| EventDispatcher::new(trace_id, sink)))
 }
 
+async fn maybe_select_invocation(
+    stdin: &mut Stdin,
+    logdir: AbsNormPathBuf,
+    invocation: Option<usize>,
+) -> anyhow::Result<Option<EventLogPathBuf>> {
+    let mut logs = match fs_util::try_exists(&logdir)? {
+        false => return Ok(None),
+        true => get_local_logs(&logdir)?
+            .into_iter()
+            .rev() // newest first
+            .map(|log_path| EventLogPathBuf::infer(log_path.into_abs_path_buf()))
+            .collect::<anyhow::Result<Vec<_>>>()?,
+    };
+    if logs.is_empty() {
+        return Ok(None);
+    }
+    let index = match invocation {
+        Some(i) => i,
+        None => {
+            let mut stdin = BufReader::new(stdin);
+            user_prompt_select_log(&mut stdin, &logs).await?
+        }
+    };
+    if index >= logs.len() {
+        return Err(RageError::LogNotFoundError.into());
+    }
+    Ok(Some(logs.swap_remove(index)))
+}
+
 async fn user_prompt_select_log<'a>(
     stdin: impl AsyncBufRead + Unpin,
     logs: &'a [EventLogPathBuf],
-) -> anyhow::Result<&EventLogPathBuf> {
+) -> anyhow::Result<usize> {
     buck2_client_ctx::eprintln!("Which buck invocation would you like to report?\n")?;
     let logs_summary =
         futures::future::try_join_all(logs.iter().map(|log_path| log_path.get_summary())).await?;
@@ -417,8 +440,7 @@ async fn user_prompt_select_log<'a>(
 
     let timestamp: DateTime<Local> = chosen_log.timestamp.into();
     buck2_client_ctx::eprintln!("Selected invocation at {}\n", timestamp.format("%c %Z"))?;
-    logs.get(selection)
-        .ok_or_else(|| RageError::LogNotFoundError.into())
+    Ok(selection)
 }
 
 async fn get_user_selection<P>(
