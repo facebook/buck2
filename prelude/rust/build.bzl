@@ -270,6 +270,7 @@ def generate_rustdoc_test(
         cmd_args(toolchain_info.rustdoc_test_with_resources, format = "--runtool-arg={}"),
         cmd_args("--runtool-arg=--resources=", resources, delimiter = ""),
         "--color=always",
+        "--test-args=--color=always",
     )
 
     rustdoc_cmd.hidden(compile_ctx.symlinked_srcs, hidden, runtime_files)
