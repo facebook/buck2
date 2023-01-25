@@ -205,7 +205,6 @@ impl<'b> BcPtrAddr<'b> {
 
 /// Difference between addresses.
 #[derive(Eq, PartialEq, Copy, Clone, Dupe, Debug, PartialOrd, Ord, Display)]
-#[display(fmt = "{}", _0)]
 pub(crate) struct BcAddrOffset(pub(crate) u32);
 
 impl BcAddrOffset {

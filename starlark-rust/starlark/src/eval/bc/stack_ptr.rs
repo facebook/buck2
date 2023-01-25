@@ -110,7 +110,6 @@ pub(crate) struct BcSlotRangeFrom(pub(crate) BcSlot);
 ///
 /// The slot may be a local variable, so this slot cannot be used to store a temporary value.
 #[derive(Debug, Copy, Clone, Dupe, derive_more::Display, PartialEq, Eq)]
-#[display(fmt = "{}", _0)]
 pub(crate) struct BcSlotIn(BcSlot);
 
 impl Add<u32> for BcSlotIn {
@@ -196,7 +195,6 @@ impl BcSlotInRangeFrom {
 ///
 /// The slot may be a local variable, so this slot cannot be used to store a temporary value.
 #[derive(Debug, Copy, Clone, Dupe, derive_more::Display)]
-#[display(fmt = "{}", _0)]
 pub(crate) struct BcSlotOut(BcSlot);
 
 impl BcSlotOut {

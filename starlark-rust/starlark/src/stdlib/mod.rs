@@ -168,7 +168,6 @@ mod tests {
             NoSerialize,
             Allocative
         )]
-        #[display(fmt = "{}", _0)]
         struct Bool2(bool);
         starlark_simple_value!(Bool2);
 
