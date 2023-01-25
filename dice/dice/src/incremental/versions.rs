@@ -501,7 +501,7 @@ impl VersionForWrites {
 
         Self {
             v: OnceCell::from(VersionWriteGuard { lock, v }),
-            version_tracker: VersionTracker::new(box |_| {}),
+            version_tracker: VersionTracker::new(box |_, _| {}),
         }
     }
 }
@@ -534,9 +534,10 @@ impl Drop for VersionForWrites {
 /// values are up to date.
 #[derive(Allocative)]
 pub(crate) struct VersionTracker {
-    // ran when cleaning up the active version
+    /// Ran when versions update. If the version number is present, that was a version that was
+    /// just deleted.
     #[allocative(skip)]
-    on_cleanup: Box<dyn Fn(VersionNumber)>,
+    on_update: Box<dyn Fn(Option<VersionNumber>, ActiveVersionsView<'_>)>,
     current: RwLock<VersionToMinor>,
     /// Tracks the currently active versions and how many contexts are holding each of them.
     active_versions: Mutex<HashMap<VersionNumber, usize>>,
@@ -548,6 +549,16 @@ pub(crate) struct VersionTracker {
     /// locked by write_lock above
     #[allocative(skip)]
     write_version: UnsafeCell<VersionNumber>,
+}
+
+pub(crate) struct ActiveVersionsView<'a> {
+    versions: &'a HashMap<VersionNumber, usize>,
+}
+
+impl ActiveVersionsView<'_> {
+    pub(crate) fn count(&self) -> usize {
+        self.versions.len()
+    }
 }
 
 unsafe impl Send for VersionTracker {}
@@ -583,17 +594,28 @@ impl Drop for VersionGuard {
         let mut active_versions = self.tracker.active_versions.lock();
         let entry = active_versions.entry(self.version);
 
-        match entry {
+        let cleanup = match entry {
             Entry::Occupied(mut entry) => {
                 *entry.get_mut() -= 1;
                 if *entry.get() == 0 {
                     entry.remove();
-                    (self.tracker.on_cleanup)(self.version);
+                    true
+                } else {
+                    false
                 }
             }
             Entry::Vacant(_) => {
                 unreachable!("this version is active so it should exist in the map");
             }
+        };
+
+        if cleanup {
+            (self.tracker.on_update)(
+                Some(self.version),
+                ActiveVersionsView {
+                    versions: &active_versions,
+                },
+            );
         }
     }
 }
@@ -606,9 +628,11 @@ struct VersionToMinor {
 }
 
 impl VersionTracker {
-    pub(crate) fn new(on_cleanup: Box<dyn Fn(VersionNumber)>) -> Arc<Self> {
+    pub(crate) fn new(
+        on_update: Box<dyn Fn(Option<VersionNumber>, ActiveVersionsView<'_>)>,
+    ) -> Arc<Self> {
         Arc::new(VersionTracker {
-            on_cleanup,
+            on_update,
             current: RwLock::new(VersionToMinor {
                 version: VersionNumber::ZERO,
                 minor_version_tracker: vec![MinorVersionTracker::new()],
@@ -654,7 +678,15 @@ impl VersionTracker {
         let v = cur.version;
         let m = cur.minor_version_tracker[v.0].acquire();
 
-        *self.active_versions.lock().entry(v).or_default() += 1;
+        let mut active_versions = self.active_versions.lock();
+        *active_versions.entry(v).or_default() += 1;
+
+        (self.on_update)(
+            None,
+            ActiveVersionsView {
+                versions: &active_versions,
+            },
+        );
 
         VersionGuard {
             tracker: self.dupe(),
@@ -761,7 +793,7 @@ mod tests {
 
     #[test]
     fn simple_version_increases() {
-        let vt = VersionTracker::new(box |_| {});
+        let vt = VersionTracker::new(box |_, _| {});
         let vg = vt.current();
         assert_eq!(
             (vg.version, *vg.minor_version_guard),
@@ -783,8 +815,8 @@ mod tests {
 
         let vt = VersionTracker::new({
             let c = cleaned.dupe();
-            box move |v| {
-                *c.lock().unwrap() = Some(v);
+            box move |v, _| {
+                *c.lock().unwrap() = v;
             }
         });
         let vg1 = vt.current();
@@ -836,7 +868,7 @@ mod tests {
 
     #[test]
     fn write_version_commits_on_drop() {
-        let vt = VersionTracker::new(box |_| {});
+        let vt = VersionTracker::new(box |_, _| {});
         {
             let vg = vt.current();
             assert_eq!(
@@ -890,7 +922,7 @@ mod tests {
 
     #[test]
     fn write_version_is_lazy() {
-        let vt = VersionTracker::new(box |_| {});
+        let vt = VersionTracker::new(box |_, _| {});
 
         let write1 = vt.write();
         let write2 = vt.write();
@@ -907,7 +939,7 @@ mod tests {
 
     #[test]
     fn write_version_rollbacks() {
-        let vt = VersionTracker::new(box |_| {});
+        let vt = VersionTracker::new(box |_, _| {});
 
         let write1 = vt.write();
         let write2 = vt.write();
@@ -1275,7 +1307,7 @@ mod tests {
 
     #[test]
     fn version_write_is_exclusive() {
-        let tracker = VersionTracker::new(box |_| {});
+        let tracker = VersionTracker::new(box |_, _| {});
         let write_v = tracker.write();
         assert_eq!(write_v.get(), VersionNumber::new(1));
 

@@ -19,6 +19,7 @@ once_cell = "1.3"
 sorted_vector_map.version = "0.1"
 # @oss-disable: sorted_vector_map.path = "../../../common/rust/shed/sorted_vector_map"
 tokio = { version = "1.5", features = ["full"]}
+tokio-stream = { workspace = true }
 dupe = { workspace = true }
 gazebo = { workspace = true }
 gazebo_lint.version = "0.1"

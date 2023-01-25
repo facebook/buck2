@@ -12,10 +12,16 @@ mod demo;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 use std::sync::Barrier;
+use std::time::Duration;
 
 use assert_matches::assert_matches;
 use derivative::Derivative;
 use derive_more::Display;
+use futures::future::FutureExt;
+use futures::future::Shared;
+use more_futures::spawn::dropcancel_critical_section;
+use tokio::sync::oneshot;
+use tokio::time::timeout;
 
 use super::*;
 use crate::ctx::testing::DiceCtxExt;
@@ -653,6 +659,68 @@ async fn demo_with_transient() -> anyhow::Result<()> {
         ctx.compute(&MaybeTransient(10, validity.dupe())).await?,
         Ok(512)
     );
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_wait_for_idle() -> anyhow::Result<()> {
+    #[derive(Clone, Debug, Display, Derivative, Allocative)]
+    #[derivative(Hash, PartialEq, Eq)]
+    #[display(fmt = "{:?}", self)]
+    struct TestKey {
+        id: usize,
+
+        #[allocative(skip)]
+        #[derivative(PartialEq = "ignore", Hash = "ignore")]
+        channel: Shared<oneshot::Receiver<()>>,
+    }
+
+    impl Dupe for TestKey {}
+
+    #[async_trait]
+    impl Key for TestKey {
+        type Value = ();
+
+        async fn compute(&self, _ctx: &DiceComputations) -> Self::Value {
+            dropcancel_critical_section(self.channel.clone())
+                .await
+                .unwrap()
+        }
+
+        fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
+            false
+        }
+    }
+
+    let dice = Dice::builder().build(DetectCycles::Enabled);
+
+    let ctx = dice.ctx();
+
+    let (tx, rx) = oneshot::channel();
+    let rx = rx.shared();
+
+    let key = TestKey { id: 1, channel: rx };
+    let handle = ctx.temporary_spawn(move |ctx| async move { ctx.compute(&key).await });
+
+    let idle = dice.wait_for_idle();
+    futures::pin_mut!(idle);
+
+    assert_matches!(timeout(Duration::from_secs(1), &mut idle).await, Err(..));
+
+    drop(handle);
+    drop(ctx);
+    assert_matches!(timeout(Duration::from_secs(1), &mut idle).await, Err(..));
+
+    tx.send(()).unwrap();
+    assert_matches!(timeout(Duration::from_secs(1), &mut idle).await, Ok(..));
+
+    // Still idle.
+    let stays_idle = async {
+        dice.wait_for_idle().await;
+        dice.wait_for_idle().await;
+    };
+    assert_matches!(timeout(Duration::from_secs(1), stays_idle).await, Ok(..));
 
     Ok(())
 }

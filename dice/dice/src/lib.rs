@@ -237,12 +237,15 @@ use async_trait::async_trait;
 use dupe::Dupe;
 pub use fnv::FnvHashMap as HashMap;
 pub use fnv::FnvHashSet as HashSet;
+use futures::future::Future;
+use futures::StreamExt;
 use gazebo::prelude::*;
 use indexmap::IndexSet;
 use itertools::Itertools;
 use parking_lot::RwLock;
 use serde::Serializer;
 use thiserror::Error;
+use tokio::sync::watch;
 
 use crate::ctx::ComputationData;
 use crate::ctx::DiceComputationImpl;
@@ -320,6 +323,8 @@ pub struct Dice {
     /// Number of active transactions.
     /// Or more precisely, the number of alive transaction context objects.
     active_transaction_count: AtomicU32,
+    #[allocative(skip)]
+    active_versions_observer: watch::Receiver<usize>,
 }
 
 impl Debug for Dice {
@@ -338,16 +343,27 @@ impl Dice {
     fn new(data: DiceData, detect_cycles: DetectCycles) -> Arc<Self> {
         let map = Arc::new(RwLock::new(DiceMap::new()));
         let weak_map = Arc::downgrade(&map);
+        let (active_versions_sender, active_versions_observer) = watch::channel(0);
+
         Arc::new(Dice {
             data,
             map,
-            global_versions: VersionTracker::new(box move |v| {
-                if let Some(engines) = weak_map.upgrade() {
-                    engines.read().engines().map(|engine| engine.gc_version(v));
+            global_versions: VersionTracker::new(box move |v, versions| {
+                if let Some(dropped) = v {
+                    if let Some(engines) = weak_map.upgrade() {
+                        engines
+                            .read()
+                            .engines()
+                            .map(|engine| engine.gc_version(dropped));
+                    }
                 }
+
+                // If the corresponding Dice has been dropped, then so be it, ignore the error.
+                active_versions_sender.send_replace(versions.count());
             }),
             detect_cycles,
             active_transaction_count: AtomicU32::new(0),
+            active_versions_observer,
         })
     }
 
@@ -441,6 +457,20 @@ impl Dice {
 
     pub fn metrics(&self) -> Metrics {
         Metrics::collect(self)
+    }
+
+    /// Wait until all active versions have exited.
+    pub fn wait_for_idle(&self) -> impl Future<Output = ()> + 'static {
+        let obs = self.active_versions_observer.clone();
+        let mut obs = tokio_stream::wrappers::WatchStream::new(obs);
+
+        async move {
+            while let Some(v) = obs.next().await {
+                if v == 0 {
+                    break;
+                }
+            }
+        }
     }
 }
 
