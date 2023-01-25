@@ -269,6 +269,7 @@ def generate_rustdoc_test(
         "--runtool=/usr/bin/env",
         cmd_args(toolchain_info.rustdoc_test_with_resources, format = "--runtool-arg={}"),
         cmd_args("--runtool-arg=--resources=", resources, delimiter = ""),
+        "--color=always",
     )
 
     rustdoc_cmd.hidden(compile_ctx.symlinked_srcs, hidden, runtime_files)
@@ -614,8 +615,7 @@ def _compute_common_args(
         "--edition={}".format(edition),
         "-Cmetadata={}".format(_metadata(ctx.label)[0]),
         # Make diagnostics json with the option to extract rendered text
-        "--error-format=json",
-        "--json=diagnostic-rendered-ansi",
+        ["--error-format=json", "--json=diagnostic-rendered-ansi"] if not is_rustdoc_test else [],
         ["-Cprefer-dynamic=yes"] if crate_type == CrateType("dylib") else [],
         ["--target={}".format(toolchain_info.rustc_target_triple)] if toolchain_info.rustc_target_triple else [],
         _rustc_flags(toolchain_info.rustc_flags),
