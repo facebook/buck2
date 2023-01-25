@@ -45,6 +45,7 @@ use buck2_server_ctx::command_end::command_end;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use dice::DiceTransaction;
+use dice::VersionNumber;
 use dupe::Dupe;
 use futures::channel::mpsc::UnboundedSender;
 use futures::FutureExt;
@@ -91,7 +92,7 @@ struct DocsCacheManager {
     fs: ProjectRoot,
     /// Used for checking if the DocsCache need refreshing. We need to refresh the DocsCache
     /// if the previous dice version does not match the current one.
-    dice_ctx: DiceTransaction,
+    valid_at: VersionNumber,
 }
 
 impl DocsCacheManager {
@@ -99,7 +100,7 @@ impl DocsCacheManager {
         Ok(Self {
             docs_cache: Mutex::new(Self::new_docs_cache(&fs, &dice_ctx).await?),
             fs,
-            dice_ctx,
+            valid_at: dice_ctx.version(),
         })
     }
 
@@ -122,7 +123,7 @@ impl DocsCacheManager {
     }
 
     fn is_reusable(&self, dice_ctx: &DiceTransaction) -> bool {
-        self.dice_ctx.equivalent(dice_ctx)
+        dice_ctx.equivalent(&self.valid_at)
     }
 
     async fn new_docs_cache<'v>(
