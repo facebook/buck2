@@ -15,6 +15,7 @@ use starlark_map::small_set::SmallSet;
 use starlark_map::Equivalent;
 
 use crate::collections::ordered_set::OrderedSet;
+use crate::collections::sorted_vec::SortedVec;
 
 /// An immutable IndexSet with values guaranteed to be sorted.
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd, Allocative)]
@@ -81,6 +82,18 @@ where
 {
     fn from(inner: SmallSet<T>) -> SortedSet<T> {
         SortedSet::from(OrderedSet::from(inner))
+    }
+}
+
+impl<T> From<SortedVec<T>> for SortedSet<T>
+where
+    T: Eq + Ord + Hash,
+{
+    #[inline]
+    fn from(inner: SortedVec<T>) -> SortedSet<T> {
+        SortedSet {
+            inner: OrderedSet::from_iter(inner),
+        }
     }
 }
 
