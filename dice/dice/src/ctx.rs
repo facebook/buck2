@@ -159,12 +159,41 @@ impl DiceTransaction {
     /// two Transactions are based off the same underlying set of key states. That is, all
     /// injected keys are the same, and the same compute keys are dirtied, and that any computations
     /// that occur between the two transactions can be shared.
-    pub fn equivalent(&self, other: &DiceTransaction) -> bool {
-        self.0.0.transaction_ctx.get_version() == other.0.0.transaction_ctx.get_version()
+    pub fn equivalent<E>(&self, other: &E) -> bool
+    where
+        E: DiceEquivalent,
+    {
+        self.version_for_equivalence() == other.version_for_equivalence()
     }
 
     pub fn version(&self) -> VersionNumber {
         self.0.0.transaction_ctx.get_version()
+    }
+}
+
+mod private {
+    use super::*;
+
+    pub trait Sealed {}
+
+    impl Sealed for DiceTransaction {}
+
+    impl Sealed for VersionNumber {}
+}
+
+pub trait DiceEquivalent: private::Sealed {
+    fn version_for_equivalence(&self) -> VersionNumber;
+}
+
+impl DiceEquivalent for DiceTransaction {
+    fn version_for_equivalence(&self) -> VersionNumber {
+        self.version()
+    }
+}
+
+impl DiceEquivalent for VersionNumber {
+    fn version_for_equivalence(&self) -> VersionNumber {
+        *self
     }
 }
 

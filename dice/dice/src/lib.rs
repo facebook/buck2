@@ -262,6 +262,7 @@ use crate::incremental::evaluator::Evaluator;
 use crate::incremental::graph::storage_properties::StorageProperties;
 use crate::incremental::graph::GraphNode;
 use crate::incremental::transaction_ctx::TransactionCtx;
+pub use crate::incremental::versions::VersionNumber;
 use crate::incremental::versions::VersionTracker;
 use crate::incremental::IncrementalComputeProperties;
 use crate::incremental::IncrementalEngine;
