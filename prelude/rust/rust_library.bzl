@@ -406,6 +406,7 @@ def _default_providers(
             type = "rustdoc",
             command = [rustdoc_test],
             run_from_project_root = True,
+            env = {"RUSTC_BOOTSTRAP": "1"},  # for `-Zunstable-options`
         ))
 
     return [DefaultInfo(

@@ -257,6 +257,7 @@ def generate_rustdoc_test(
     rustdoc_cmd = cmd_args(
         toolchain_info.rustdoc,
         "--test",
+        "-Zunstable-options",
         toolchain_info.rustdoc_flags,
         ctx.attrs.rustdoc_flags,
         common_args.args,
