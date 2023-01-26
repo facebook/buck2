@@ -117,6 +117,11 @@ impl PackageRelativePath {
         }
     }
 
+    #[inline]
+    pub fn empty() -> &'static PackageRelativePath {
+        PackageRelativePath::unchecked_new("")
+    }
+
     /// Creates an 'PackageRelativePath' if the given path represents a forward,
     /// normalized relative path, otherwise error.
     ///
@@ -146,6 +151,11 @@ impl PackageRelativePath {
     #[inline]
     pub fn as_str(&self) -> &str {
         self.0.as_str()
+    }
+
+    #[inline]
+    pub fn as_forward_rel_path(&self) -> &ForwardRelativePath {
+        &self.0
     }
 
     #[inline]

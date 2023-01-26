@@ -117,9 +117,9 @@ impl<'c> InterpreterPackageListingResolver<'c> {
         let cell_instance = self.cell_resolver.get(root.cell_name())?;
         let buildfile_candidates = cell_instance.buildfiles();
 
-        let mut files: Vec<CellPath> = Vec::new();
-        let mut dirs: Vec<CellPath> = Vec::new();
-        let mut subpackages: Vec<CellPath> = Vec::new();
+        let mut files: Vec<Box<PackageRelativePath>> = Vec::new();
+        let mut dirs: Vec<Box<PackageRelativePath>> = Vec::new();
+        let mut subpackages: Vec<Box<PackageRelativePath>> = Vec::new();
 
         let root_entries = self
             .fs
@@ -137,16 +137,24 @@ impl<'c> InterpreterPackageListingResolver<'c> {
 
         let mut work = FuturesUnordered::new();
 
+        let root = &root;
         let process_entries = |work: &mut FuturesUnordered<_>,
-                               files: &mut Vec<CellPath>,
-                               path: CellPathRef,
+                               files: &mut Vec<Box<PackageRelativePath>>,
+                               path: &PackageRelativePath,
                                entries: &[SimpleDirEntry]|
          -> anyhow::Result<()> {
             for d in entries {
-                let child_path = path.join(&d.file_name);
+                let child_path = path.join(&d.file_name).into_box();
                 if d.file_type.is_dir() {
                     work.push(async move {
-                        let entries = self.fs.read_dir(child_path.as_ref()).await;
+                        let entries = self
+                            .fs
+                            .read_dir(
+                                root.as_cell_path()
+                                    .join(child_path.as_forward_rel_path())
+                                    .as_ref(),
+                            )
+                            .await;
                         (child_path, entries)
                     });
                 } else {
@@ -156,7 +164,12 @@ impl<'c> InterpreterPackageListingResolver<'c> {
             Ok(())
         };
 
-        process_entries(&mut work, &mut files, root.as_cell_path(), &root_entries)?;
+        process_entries(
+            &mut work,
+            &mut files,
+            PackageRelativePath::empty(),
+            &root_entries,
+        )?;
 
         while let Some((path, entries_result)) = work.next().await {
             let entries = entries_result?;
@@ -169,29 +182,15 @@ impl<'c> InterpreterPackageListingResolver<'c> {
         }
 
         // The files are discovered in a non-deterministic order so we need to fix
-        // that here. Sorting files here is easier than after converting them to package relative.
-        files.sort();
-        dirs.sort();
-        subpackages.sort();
-
-        fn strip_prefixes<T>(root: PackageLabel, xs: &[CellPath]) -> anyhow::Result<T>
-        where
-            T: FromIterator<Box<PackageRelativePath>>,
-        {
-            xs.iter()
-                .map(|cell_path| {
-                    anyhow::Ok(
-                        <&PackageRelativePath>::from(cell_path.strip_prefix(root.as_cell_path())?)
-                            .to_box(),
-                    )
-                })
-                .collect::<anyhow::Result<T>>()
-        }
+        // that here.
+        let files = SortedVec::from(files);
+        let dirs = SortedVec::from(dirs);
+        let subpackages = SortedVec::from(subpackages);
 
         Ok(PackageListing::new(
-            SortedSet::new_unchecked(strip_prefixes(root.dupe(), &files)?),
-            SortedSet::new_unchecked(strip_prefixes(root.dupe(), &dirs)?),
-            SortedVec::new_unchecked(strip_prefixes(root.dupe(), &subpackages)?),
+            SortedSet::from(files),
+            SortedSet::from(dirs),
+            subpackages,
             buildfile.to_owned(),
         ))
     }
