@@ -118,9 +118,9 @@ fn fs_operations(builder: &mut MethodsBuilder) {
         let path = expr.get(this.dice);
 
         match path {
-            Ok(p) => this
-                .dice
-                .via_dice(async move |ctx| ctx.file_ops().try_exists(p.as_ref()).await),
+            Ok(p) => this.dice.via_dice(async move |ctx| {
+                <dyn FileOps>::try_exists(&ctx.file_ops(), p.as_ref()).await
+            }),
             Err(e) => Err(e),
         }
     }

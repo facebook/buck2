@@ -321,13 +321,6 @@ impl<T> From<PathMetadata> for PathMetadataOrRedirection<T> {
 pub trait FileOps: Allocative + Send + Sync {
     async fn read_file(&self, path: CellPathRef<'async_trait>) -> anyhow::Result<String>;
 
-    async fn read_dir(
-        &self,
-        path: CellPathRef<'async_trait>,
-    ) -> SharedResult<Arc<[SimpleDirEntry]>> {
-        Ok(self.read_dir_with_ignores(path).await?.included)
-    }
-
     async fn read_dir_with_ignores(
         &self,
         path: CellPathRef<'async_trait>,
@@ -335,25 +328,28 @@ pub trait FileOps: Allocative + Send + Sync {
 
     async fn is_ignored(&self, path: CellPathRef<'async_trait>) -> anyhow::Result<bool>;
 
-    async fn try_exists(&self, path: CellPathRef<'async_trait>) -> anyhow::Result<bool> {
-        Ok(self.read_path_metadata_if_exists(path).await?.is_some())
-    }
-
-    async fn read_path_metadata(
-        &self,
-        path: CellPathRef<'async_trait>,
-    ) -> SharedResult<RawPathMetadata> {
-        self.read_path_metadata_if_exists(path.dupe())
-            .await?
-            .ok_or_else(|| anyhow::anyhow!("file `{}` not found", path.to_owned()).into())
-    }
-
     async fn read_path_metadata_if_exists(
         &self,
         path: CellPathRef<'async_trait>,
     ) -> SharedResult<Option<RawPathMetadata>>;
 
     fn eq_token(&self) -> PartialEqAny;
+}
+
+impl dyn FileOps + '_ {
+    pub async fn read_dir(&self, path: CellPathRef<'_>) -> SharedResult<Arc<[SimpleDirEntry]>> {
+        Ok(self.read_dir_with_ignores(path).await?.included)
+    }
+
+    pub async fn try_exists(&self, path: CellPathRef<'_>) -> anyhow::Result<bool> {
+        Ok(self.read_path_metadata_if_exists(path).await?.is_some())
+    }
+
+    pub async fn read_path_metadata(&self, path: CellPathRef<'_>) -> SharedResult<RawPathMetadata> {
+        self.read_path_metadata_if_exists(path)
+            .await?
+            .ok_or_else(|| anyhow::anyhow!("file `{}` not found", path.to_owned()).into())
+    }
 }
 
 impl PartialEq for dyn FileOps {
