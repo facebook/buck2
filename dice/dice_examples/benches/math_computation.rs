@@ -19,6 +19,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use common::BenchmarkComputationsPrerequisites;
 use dice::DiceTransaction;
+use dice::DiceTransactionUpdater;
 use dice_examples::math_computation::parse_math_equations;
 use dice_examples::math_computation::Equation;
 use dice_examples::math_computation::Math;
@@ -58,11 +59,12 @@ impl BenchmarkComputationsPrerequisites for MathBenchmark {
     type Key = Var;
     type Value = Result<i64, Arc<anyhow::Error>>;
 
-    async fn fresh(ctx: DiceTransaction) -> DiceTransaction {
-        Self::update(ctx, fib(SIZE, None, false)).await
+    async fn fresh(ctx: DiceTransactionUpdater) -> DiceTransactionUpdater {
+        ctx.set_equations(fib(SIZE, None, false)).unwrap();
+        ctx
     }
 
-    async fn update<I>(ctx: DiceTransaction, keys: I) -> DiceTransaction
+    async fn update<I>(ctx: DiceTransactionUpdater, keys: I) -> DiceTransaction
     where
         I: IntoIterator<Item = Self::Updater> + Send + Sync,
     {

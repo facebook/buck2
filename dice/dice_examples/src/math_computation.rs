@@ -20,6 +20,7 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use derive_more::Display;
 use dice::DiceComputations;
+use dice::DiceTransactionUpdater;
 use dice::InjectedKey;
 use dice::Key;
 use dupe::Dupe;
@@ -104,7 +105,7 @@ pub trait Math {
     async fn eval(&self, var: Var) -> Result<i64, Arc<anyhow::Error>>;
 }
 
-impl MathEquations for DiceComputations {
+impl MathEquations for DiceTransactionUpdater {
     fn set_equation(&self, var: Var, equation: Equation) -> anyhow::Result<()> {
         Ok(self.changed_to(vec![(LookupVar(var), Arc::new(equation))])?)
     }

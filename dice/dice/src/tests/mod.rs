@@ -51,7 +51,7 @@ async fn set_injected_multiple_times_per_commit() -> anyhow::Result<()> {
     let dice = Dice::builder().build(DetectCycles::Enabled);
 
     {
-        let ctx = dice.ctx();
+        let ctx = dice.updater();
         ctx.changed_to(vec![(Foo(0), 0)])?;
         ctx.changed_to(vec![(Foo(1), 1)])?;
 
@@ -61,7 +61,7 @@ async fn set_injected_multiple_times_per_commit() -> anyhow::Result<()> {
     }
 
     {
-        let ctx = dice.ctx();
+        let ctx = dice.updater();
         ctx.changed_to(vec![(Foo(0), 0)])?;
 
         assert_matches!(
@@ -78,7 +78,7 @@ async fn set_injected_with_no_change_no_new_ctx() -> anyhow::Result<()> {
     let dice = Dice::builder().build(DetectCycles::Enabled);
 
     {
-        let ctx = dice.ctx();
+        let ctx = dice.updater();
         ctx.changed_to(vec![(Foo(0), 0)])?;
 
         let ctx = ctx.commit();
@@ -87,7 +87,7 @@ async fn set_injected_with_no_change_no_new_ctx() -> anyhow::Result<()> {
     }
 
     {
-        let ctx = dice.ctx();
+        let ctx = dice.updater();
         ctx.changed_to(vec![(Foo(0), 0)])?;
 
         let ctx = ctx.commit();
@@ -102,32 +102,42 @@ fn compute_and_update_uses_proper_version_numbers() -> anyhow::Result<()> {
     let dice = Dice::builder().build(DetectCycles::Enabled);
 
     {
-        let ctx = dice.ctx();
+        let ctx = dice.updater().commit();
         assert_eq!(ctx.0.get_version(), VersionNumber::new(0));
         assert_eq!(ctx.0.get_minor_version(), MinorVersion::testing_new(0));
     }
 
     {
         // second context that didn't have any writes should still be the same version
-        let ctx = dice.ctx();
+        let ctx = dice.updater().commit();
         assert_eq!(ctx.0.get_version(), VersionNumber::new(0));
         assert_eq!(ctx.0.get_minor_version(), MinorVersion::testing_new(1));
 
         // now we write something and commit
+        let ctx = dice.updater();
         ctx.changed_to(vec![(Foo(1), 1)])?;
         // current version shouldn't be updated
-        assert_eq!(ctx.0.get_version(), VersionNumber::new(0));
-        assert_eq!(ctx.0.get_minor_version(), MinorVersion::testing_new(1));
+        assert_eq!(ctx.existing_state.get_version(), VersionNumber::new(0));
+        assert_eq!(
+            ctx.existing_state.get_minor_version(),
+            MinorVersion::testing_new(1)
+        );
 
-        let ctx1 = dice.ctx();
+        let ctx1 = dice.updater();
         // previous ctx isn't dropped, so versions shouldn't be committed yet.
-        assert_eq!(ctx1.0.get_version(), VersionNumber::new(0));
-        assert_eq!(ctx1.0.get_minor_version(), MinorVersion::testing_new(1));
+        assert_eq!(ctx1.existing_state.get_version(), VersionNumber::new(0));
+        assert_eq!(
+            ctx1.existing_state.get_minor_version(),
+            MinorVersion::testing_new(1)
+        );
 
         // if we update on the new context, nothing committed
         ctx1.changed_to(vec![(Foo(2), 2)])?;
-        assert_eq!(ctx1.0.get_version(), VersionNumber::new(0));
-        assert_eq!(ctx1.0.get_minor_version(), MinorVersion::testing_new(1));
+        assert_eq!(ctx1.existing_state.get_version(), VersionNumber::new(0));
+        assert_eq!(
+            ctx1.existing_state.get_minor_version(),
+            MinorVersion::testing_new(1)
+        );
 
         // drop a context
         ctx1.commit();
@@ -155,13 +165,19 @@ fn compute_and_update_uses_proper_version_numbers() -> anyhow::Result<()> {
     }
 
     {
-        let ctx = dice.ctx();
-        assert_eq!(ctx.0.get_version(), VersionNumber::new(2));
-        assert_eq!(ctx.0.get_minor_version(), MinorVersion::testing_new(2));
+        let ctx = dice.updater();
+        assert_eq!(ctx.existing_state.get_version(), VersionNumber::new(2));
+        assert_eq!(
+            ctx.existing_state.get_minor_version(),
+            MinorVersion::testing_new(2)
+        );
 
         ctx.changed_to(vec![(Foo(3), 3)])?;
-        assert_eq!(ctx.0.get_version(), VersionNumber::new(2));
-        assert_eq!(ctx.0.get_minor_version(), MinorVersion::testing_new(2));
+        assert_eq!(ctx.existing_state.get_version(), VersionNumber::new(2));
+        assert_eq!(
+            ctx.existing_state.get_minor_version(),
+            MinorVersion::testing_new(2)
+        );
 
         ctx.commit();
         let vg = dice.global_versions.current();
@@ -186,7 +202,7 @@ async fn updates_caches_only_on_ctx_finalize_in_order() -> anyhow::Result<()> {
     let dice = Dice::builder().build(DetectCycles::Enabled);
 
     {
-        let ctx = dice.ctx();
+        let ctx = dice.updater();
 
         // now we write something and commit
         ctx.changed_to(vec![(Foo(1), 1)])?;
@@ -210,8 +226,8 @@ async fn updates_caches_only_on_ctx_finalize_in_order() -> anyhow::Result<()> {
     }
 
     {
-        let ctx = dice.ctx();
-        let ctx1 = dice.ctx();
+        let ctx = dice.updater();
+        let ctx1 = dice.updater();
         // even if we do a change on this ctx first.
         ctx.changed_to(vec![(Foo(2), 2)])?;
         ctx1.changed_to(vec![(Foo(3), 3)])?;
@@ -285,7 +301,7 @@ fn ctx_tracks_deps_properly() -> anyhow::Result<()> {
 
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {
-        let ctx = dice.ctx();
+        let ctx = dice.updater().commit();
         let res = ctx
             .compute(&K(5))
             .await?
@@ -339,7 +355,7 @@ fn ctx_tracks_rdeps_properly() -> anyhow::Result<()> {
         .build()
         .unwrap();
     rt.block_on(async {
-        let ctx = dice.ctx();
+        let ctx = dice.updater().commit();
         let res = ctx
             .compute(&K(5))
             .await?
@@ -463,7 +479,8 @@ fn dice_computations_are_parallel() {
 
         let futs = (0..n_thread)
             .map(|i| async move {
-                dice.ctx()
+                dice.updater()
+                    .commit()
                     .compute(&Blocking {
                         index: i,
                         barrier: barrier.dupe(),
@@ -553,7 +570,7 @@ async fn invalid_results_are_not_cached() -> anyhow::Result<()> {
     let dice = Dice::new(DiceData::new(), DetectCycles::Enabled);
     let is_ran = Arc::new(AtomicBool::new(false));
     {
-        let ctx = dice.ctx();
+        let ctx = dice.updater().commit();
         ctx.compute(&AlwaysTransient(is_ran.dupe())).await?;
         assert!(is_ran.load(Ordering::SeqCst));
 
@@ -563,7 +580,7 @@ async fn invalid_results_are_not_cached() -> anyhow::Result<()> {
         assert!(!is_ran.load(Ordering::SeqCst));
 
         // simultaneously ctx should also re-use the result
-        let ctx1 = dice.ctx();
+        let ctx1 = dice.updater().commit();
         is_ran.store(false, Ordering::SeqCst);
         ctx1.compute(&AlwaysTransient(is_ran.dupe())).await?;
         assert!(!is_ran.load(Ordering::SeqCst));
@@ -571,7 +588,7 @@ async fn invalid_results_are_not_cached() -> anyhow::Result<()> {
 
     {
         // new context should re-run
-        let ctx = dice.ctx();
+        let ctx = dice.updater().commit();
         is_ran.store(false, Ordering::SeqCst);
         ctx.compute(&AlwaysTransient(is_ran.dupe())).await?;
         assert!(is_ran.load(Ordering::SeqCst));
@@ -636,7 +653,7 @@ async fn demo_with_transient() -> anyhow::Result<()> {
 
     let dice = Dice::builder().build(DetectCycles::Enabled);
 
-    let ctx = dice.ctx();
+    let ctx = dice.updater().commit();
     let validity = Arc::new(AtomicBool::new(false));
 
     assert!(
@@ -654,7 +671,7 @@ async fn demo_with_transient() -> anyhow::Result<()> {
 
     drop(ctx);
 
-    let ctx = dice.ctx();
+    let ctx = dice.updater().commit();
     assert_eq!(
         ctx.compute(&MaybeTransient(10, validity.dupe())).await?,
         Ok(512)
@@ -695,7 +712,7 @@ async fn test_wait_for_idle() -> anyhow::Result<()> {
 
     let dice = Dice::builder().build(DetectCycles::Enabled);
 
-    let ctx = dice.ctx();
+    let ctx = dice.updater().commit();
 
     let (tx, rx) = oneshot::channel();
     let rx = rx.shared();

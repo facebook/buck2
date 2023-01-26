@@ -25,6 +25,7 @@ use tempfile::NamedTempFile;
 use crate::DetectCycles;
 use crate::Dice;
 use crate::DiceComputations;
+use crate::DiceTransactionUpdater;
 use crate::InjectedKey;
 use crate::Key;
 
@@ -55,10 +56,6 @@ impl<'c> Encodings<'c> {
             .await
             .map_err(|e| Arc::new(anyhow::anyhow!(e)))
     }
-
-    fn set(&self, enc: Encoding) -> anyhow::Result<()> {
-        Ok(self.0.changed_to(vec![(EncodingConfig(), enc)])?)
-    }
 }
 
 trait HasEncodings {
@@ -68,6 +65,16 @@ trait HasEncodings {
 impl HasEncodings for DiceComputations {
     fn encodings(&self) -> Encodings {
         Encodings(self)
+    }
+}
+
+trait SetEncodings {
+    fn set_encodings(&self, enc: Encoding) -> anyhow::Result<()>;
+}
+
+impl SetEncodings for DiceTransactionUpdater {
+    fn set_encodings(&self, enc: Encoding) -> anyhow::Result<()> {
+        Ok(self.changed_to(vec![(EncodingConfig(), enc)])?)
     }
 }
 
@@ -106,10 +113,6 @@ impl<'c> Filesystem<'c> {
             .await
             .map_err(|e| Arc::new(anyhow::anyhow!(e)))?
     }
-
-    fn changed(&self, file: &Path) -> anyhow::Result<()> {
-        Ok(self.0.changed(vec![File(file.to_path_buf())])?)
-    }
 }
 
 trait HasFilesystem<'c> {
@@ -122,6 +125,16 @@ impl<'c> HasFilesystem<'c> for DiceComputations {
     }
 }
 
+trait SetFilesystem {
+    fn filesystem_changed(&self, file: &Path) -> anyhow::Result<()>;
+}
+
+impl SetFilesystem for DiceTransactionUpdater {
+    fn filesystem_changed(&self, file: &Path) -> anyhow::Result<()> {
+        Ok(self.changed(vec![File(file.to_path_buf())])?)
+    }
+}
+
 #[test]
 fn demo() -> anyhow::Result<()> {
     let temp = NamedTempFile::new().unwrap();
@@ -130,15 +143,21 @@ fn demo() -> anyhow::Result<()> {
     let rt = tokio::runtime::Runtime::new().unwrap();
     let dice = Dice::builder().build(DetectCycles::Enabled);
 
-    let ctx = dice.ctx();
-    ctx.encodings().set(Encoding::Utf8)?;
+    let ctx = dice.updater();
+    ctx.set_encodings(Encoding::Utf8)?;
     ctx.commit();
 
     let set = |x: &str| fs::write(&f, x).unwrap();
 
     let get = |x: &str| {
         rt.block_on(async {
-            let contents = dice.ctx().filesystem().read_file(&f).await.unwrap();
+            let contents = dice
+                .updater()
+                .commit()
+                .filesystem()
+                .read_file(&f)
+                .await
+                .unwrap();
             assert_eq!(*contents, x)
         })
     };
@@ -152,13 +171,13 @@ fn demo() -> anyhow::Result<()> {
 
     get(":-)");
 
-    let ctx = dice.ctx();
-    ctx.filesystem().changed(&f)?;
+    let ctx = dice.updater();
+    ctx.filesystem_changed(&f)?;
     ctx.commit();
     get("hello :-)");
 
-    let ctx = dice.ctx();
-    ctx.encodings().set(Encoding::Ascii)?;
+    let ctx = dice.updater();
+    ctx.set_encodings(Encoding::Ascii)?;
     ctx.commit();
     get("hello smile");
 

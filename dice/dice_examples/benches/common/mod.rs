@@ -39,6 +39,7 @@ use criterion::Criterion;
 use dice::cycles::DetectCycles;
 use dice::Dice;
 use dice::DiceTransaction;
+use dice::DiceTransactionUpdater;
 use dupe::Dupe;
 use futures::stream;
 use futures::stream::StreamExt;
@@ -56,13 +57,13 @@ pub trait BenchmarkComputationsPrerequisites {
     type Value;
 
     /// Generate a fresh computation state
-    async fn fresh(ctx: DiceTransaction) -> DiceTransaction;
+    async fn fresh(ctx: DiceTransactionUpdater) -> DiceTransactionUpdater;
 
     /// Compute the value of the given key on the DICE state
     async fn compute(ctx: &DiceTransaction, key: Self::Key) -> Self::Value;
 
     /// Update the DICE state with the given set of changes
-    async fn update<I>(ctx: DiceTransaction, keys: I) -> DiceTransaction
+    async fn update<I>(ctx: DiceTransactionUpdater, keys: I) -> DiceTransaction
     where
         I::IntoIter: Send,
         I: IntoIterator<Item = Self::Updater> + Send + Sync;
@@ -94,7 +95,7 @@ pub(crate) trait Benchmarker: BenchmarkComputationsPrerequisites {
     fn benchmark_helper<InFut, OutFut, X, Input>(
         name: &str,
         c: &mut Criterion,
-        before: impl Fn(Arc<Dice>, DiceTransaction) -> InFut + Copy,
+        before: impl Fn(Arc<Dice>, DiceTransactionUpdater) -> InFut + Copy,
         action: impl Fn(Input) -> OutFut + Copy,
     ) where
         InFut: Future<Output = Input>,
@@ -105,7 +106,7 @@ pub(crate) trait Benchmarker: BenchmarkComputationsPrerequisites {
             bencher.to_async(&rt).iter_custom(|iters| {
                 let futs = (0..iters).map(|_| async move {
                     let dice = Dice::builder().build(DetectCycles::Disabled);
-                    let ctx = Self::fresh(dice.ctx()).await;
+                    let ctx = Self::fresh(dice.updater()).await;
                     let input = before(dice.dupe(), ctx).await;
                     let start = Instant::now();
                     black_box(action(input).await);
@@ -120,14 +121,15 @@ pub(crate) trait Benchmarker: BenchmarkComputationsPrerequisites {
 
     /// Compute from scratch
     fn benchmark_fresh(c: &mut Criterion) {
-        let before = |_dice, ctx| async { ctx };
+        let before = |_dice, ctx: DiceTransactionUpdater| async { ctx.commit() };
         let action = |ctx| async move { Self::compute(&ctx, Self::get_sample_key()).await };
         Self::benchmark_helper("fresh", c, before, action);
     }
 
     /// Only recalculate one dependency for computation
     fn benchmark_cached(c: &mut Criterion) {
-        let before = |_dice, ctx| async {
+        let before = |_dice, ctx: DiceTransactionUpdater| async {
+            let ctx = ctx.commit();
             let key = Self::get_sample_key();
             Self::compute(&ctx, key.clone()).await;
 
@@ -141,11 +143,11 @@ pub(crate) trait Benchmarker: BenchmarkComputationsPrerequisites {
 
     /// Require recomputation of children.
     fn benchmark_invalidated_recompute(c: &mut Criterion) {
-        let before = |dice: Arc<Dice>, ctx| {
+        let before = |dice: Arc<Dice>, ctx: DiceTransactionUpdater| {
             let (to_dirty, key) = Self::invalidated_recompute();
             async move {
-                Self::compute(&ctx, key.clone()).await;
-                (Self::update(dice.ctx(), to_dirty).await, key)
+                Self::compute(&ctx.commit(), key.clone()).await;
+                (Self::update(dice.updater(), to_dirty).await, key)
             }
         };
         let action = |(ctx, key)| async move { Self::compute(&ctx, key).await };
@@ -155,11 +157,11 @@ pub(crate) trait Benchmarker: BenchmarkComputationsPrerequisites {
 
     /// Do not require recomputation of children.
     fn benchmark_early_cutoff_recompute(c: &mut Criterion) {
-        let before = |dice: Arc<Dice>, ctx| {
+        let before = |dice: Arc<Dice>, ctx: DiceTransactionUpdater| {
             let (to_dirty, key) = Self::early_cutoff_recompute();
             async move {
-                Self::compute(&ctx, key.clone()).await;
-                (Self::update(dice.ctx(), to_dirty).await, key)
+                Self::compute(&ctx.commit(), key.clone()).await;
+                (Self::update(dice.updater(), to_dirty).await, key)
             }
         };
         let action = |(ctx, key)| async move { Self::compute(&ctx, key).await };

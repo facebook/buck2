@@ -18,8 +18,10 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use common::BenchmarkComputationsPrerequisites;
 use dice::DiceTransaction;
+use dice::DiceTransactionUpdater;
 use dice_examples::supply_chain::Company;
 use dice_examples::supply_chain::Cost;
+use dice_examples::supply_chain::CostUpdater;
 use dice_examples::supply_chain::Resource;
 use dice_examples::supply_chain::Setup;
 use futures::stream;
@@ -33,8 +35,8 @@ impl BenchmarkComputationsPrerequisites for SupplyChainBenchmark {
     type Updater = (&'static str, Resource, u16);
     type Value = Result<Option<u16>, Arc<anyhow::Error>>;
 
-    async fn fresh(ctx: DiceTransaction) -> DiceTransaction {
-        let ctx = ctx.init_state().unwrap();
+    async fn fresh(ctx: DiceTransactionUpdater) -> DiceTransactionUpdater {
+        ctx.init_state().unwrap();
         ctx.add_companies(vec![
             Company {
                 name: Arc::new("Steve".to_owned()),
@@ -72,10 +74,12 @@ impl BenchmarkComputationsPrerequisites for SupplyChainBenchmark {
             },
         ])
         .await
-        .unwrap()
+        .unwrap();
+
+        ctx
     }
 
-    async fn update<I>(ctx: DiceTransaction, keys: I) -> DiceTransaction
+    async fn update<I>(ctx: DiceTransactionUpdater, keys: I) -> DiceTransaction
     where
         I::IntoIter: Send,
         I: IntoIterator<Item = Self::Updater> + Send + Sync,

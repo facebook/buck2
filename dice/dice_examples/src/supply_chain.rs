@@ -26,7 +26,7 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use derive_more::Display;
 use dice::DiceComputations;
-use dice::DiceTransaction;
+use dice::DiceTransactionUpdater;
 use dice::InjectedKey;
 use dice::Key;
 use dupe::Dupe;
@@ -112,23 +112,24 @@ pub struct Company {
 pub trait Setup {
     /// Must be called before any companies are added.
     /// Sets the state of the resource map.
-    fn init_state(self) -> anyhow::Result<DiceTransaction>;
+    fn init_state(&self) -> anyhow::Result<()>;
     /// Adds a list of companies and maps them to their resources.
-    async fn add_companies(self, companies: Vec<Company>) -> anyhow::Result<DiceTransaction>;
+    async fn add_companies(&self, companies: Vec<Company>) -> anyhow::Result<()>;
 }
 
 #[async_trait]
-impl Setup for DiceTransaction {
-    fn init_state(self) -> anyhow::Result<DiceTransaction> {
+impl Setup for DiceTransactionUpdater {
+    fn init_state(&self) -> anyhow::Result<()> {
         self.changed_to(
             Resource::RESOURCES
                 .iter()
                 .map(|resource| (LookupResource(resource.dupe()), Arc::new(vec![]))),
         )?;
-        Ok(self.commit())
+
+        Ok(())
     }
 
-    async fn add_companies(self, companies: Vec<Company>) -> anyhow::Result<DiceTransaction> {
+    async fn add_companies(&self, companies: Vec<Company>) -> anyhow::Result<()> {
         let mut resource_to_company_local = HashMap::new();
 
         // convert company to insertion ready format
@@ -155,8 +156,11 @@ impl Setup for DiceTransaction {
             .unzip();
 
         // get the remote resources => company mapping
-        let remote_resources =
-            join_all(self.compute_many(&resources.iter().collect::<Vec<_>>())).await;
+        let remote_resources = join_all(
+            self.existing_state()
+                .compute_many(&resources.iter().collect::<Vec<_>>()),
+        )
+        .await;
 
         // combine remote company list with local company list for reach resource
         let joined: Vec<_> = resources
@@ -172,7 +176,7 @@ impl Setup for DiceTransaction {
 
         self.changed_to(joined)?;
 
-        Ok(self.commit())
+        Ok(())
     }
 }
 
@@ -180,6 +184,10 @@ impl Setup for DiceTransaction {
 pub trait Cost {
     /// Find the cheapest manufacturing cost for a resource
     async fn resource_cost(&self, resource: &Resource) -> Result<Option<u16>, Arc<anyhow::Error>>;
+}
+
+#[async_trait]
+pub trait CostUpdater {
     /// Change the upcharge of a company for a resource.
     async fn change_company_resource_cost(
         &self,
@@ -292,7 +300,10 @@ impl Cost for DiceComputations {
             .await
             .map_err(|e| Arc::new(anyhow::anyhow!(e)))?
     }
+}
 
+#[async_trait]
+impl CostUpdater for DiceTransactionUpdater {
     async fn change_company_resource_cost(
         &self,
         company: &str,
@@ -300,7 +311,7 @@ impl Cost for DiceComputations {
         new_price: u16,
     ) -> anyhow::Result<()> {
         let company_lookup = LookupCompany(Arc::new(company.to_owned()));
-        let old_company = self.compute(&company_lookup).await?;
+        let old_company = self.existing_state().compute(&company_lookup).await?;
         let mut new_company = (*old_company).clone();
         let old_price = new_company.makes.get_mut(resource).ok_or_else(|| {
             anyhow::anyhow!("Tried to update cost for a resource company does not make")

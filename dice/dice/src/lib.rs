@@ -21,7 +21,7 @@
 //!     /// declaring computations:
 //!     use async_trait::async_trait;
 //!     use derive_more::Display;
-//!     use dice::{Key, InjectedKey, DiceComputations, DiceDataBuilder, data::DiceData };
+//!     use dice::{Key, InjectedKey, DiceComputations, DiceDataBuilder, data::DiceData, DiceTransactionUpdater};
 //!     use std::sync::Arc;
 //!     use allocative::Allocative;
 //!
@@ -29,11 +29,6 @@
 //!     pub struct InjectConfigs<'compute>(&'compute DiceComputations);
 //!
 //!     impl<'compute> InjectConfigs<'compute> {
-//!         /// ways to inject the precomputed values to dice
-//!         pub fn inject(&self, i: usize) {
-//!             self.0.changed_to(vec![(ConfigKey, i)]).unwrap()
-//!         }
-//!
 //!         pub async fn get_config(&self) -> usize {
 //!             self.0.compute(&ConfigKey).await.unwrap()
 //!         }
@@ -83,12 +78,6 @@
 //!         pub async fn compute_b(&self, a: usize) -> usize {
 //!                 self.0.compute(&ComputeB(a)).await.unwrap()
 //!         }
-//!
-//!         // computations can choose to expose specific compute functions as invalidatable,
-//!         // while leaving others (e.g. compute_a) not invalidatable from a user perspective
-//!         pub fn changed_b(&self, a: usize) {
-//!             self.0.changed(vec![ComputeB(a)]).unwrap()
-//!         }
 //!     }
 //!
 //!     #[derive(Clone, Display, Debug, Eq, Hash, PartialEq, Allocative)]
@@ -131,6 +120,17 @@
 //!         }
 //!     }
 //!
+//!     pub trait SetInjectedConfig {
+//!         fn inject_config(&self, i: usize);
+//!     }
+//!
+//!     impl SetInjectedConfig for DiceTransactionUpdater {
+//!         /// ways to inject the precomputed values to dice
+//!         fn inject_config(&self, i: usize) {
+//!             self.changed_to(vec![(ConfigKey, i)]).unwrap()
+//!         }
+//!     }
+//!
 //!     pub trait StaticData {
 //!         fn static_data(&self) -> &String;
 //!     }
@@ -163,8 +163,8 @@
 //! let engine = builder.build(DetectCycles::Disabled);
 //!
 //! // inject config
-//! let ctx = engine.ctx();
-//! ctx.injected_configs().inject(0);
+//! let ctx = engine.updater();
+//! ctx.inject_config(0);
 //!
 //! let ctx = ctx.commit();
 //!
@@ -173,8 +173,8 @@
 //!     assert_eq!("aaaaaaaa", &*ctx.my_computation().compute_a(4, "a".into()).await);
 //! });
 //!
-//! let ctx = engine.ctx();
-//! ctx.injected_configs().inject(2);
+//! let ctx = engine.updater();
+//! ctx.inject_config(2);
 //!
 //! let ctx = ctx.commit();
 //!
@@ -280,7 +280,7 @@ pub use crate::projection::DiceProjectionComputations;
 pub use crate::projection::ProjectionKey;
 use crate::projection::ProjectionKeyProperties;
 pub use crate::transaction::DiceTransaction;
-use crate::transaction::DiceTransactionUpdater;
+pub use crate::transaction::DiceTransactionUpdater;
 pub use crate::user_data::UserComputationData;
 
 #[derive(Clone, Dupe, Debug, Error, Allocative)]

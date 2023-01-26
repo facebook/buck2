@@ -21,7 +21,6 @@ use crate::VersionNumber;
 /// The struct for which we build transactions. This is where changes are recorded, and committed
 /// to DICE, which returns the Transaction where we spawn computations.
 #[derive(Allocative)]
-#[allow(unused)] // TODO(bobyf) temporary
 pub struct DiceTransactionUpdater {
     pub(crate) existing_state: DiceComputations,
 }

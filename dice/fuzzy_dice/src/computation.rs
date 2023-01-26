@@ -16,6 +16,7 @@ use crossbeam::queue::SegQueue;
 use derivative::Derivative;
 use derive_more::Display;
 use dice::DiceComputations;
+use dice::DiceTransactionUpdater;
 use dice::InjectedKey;
 use dice::Key;
 use dupe::Dupe;
@@ -80,7 +81,7 @@ pub trait FuzzEquations {
     fn set_equations(&self, expr: impl IntoIterator<Item = (Var, Expr)>) -> anyhow::Result<()>;
 }
 
-impl FuzzEquations for DiceComputations {
+impl FuzzEquations for DiceTransactionUpdater {
     fn set_equation(&self, var: Var, expr: Expr) -> anyhow::Result<()> {
         Ok(self.changed_to(vec![(LookupVar(var), Arc::new(expr))])?)
     }
@@ -247,7 +248,7 @@ mod tests {
         let empty_state = Arc::new(FuzzState::new());
         let dice = Dice::builder().build(DetectCycles::Disabled);
         let ctx = {
-            let ctx = dice.ctx();
+            let ctx = dice.updater();
             // let x1 = true
             ctx.set_equation(Var(1), Expr::Unit(Unit::Literal(true)))?;
             // let x2 = x1
