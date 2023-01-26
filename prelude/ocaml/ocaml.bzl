@@ -95,7 +95,7 @@ load(
     "@prelude//python:python.bzl",
     "PythonLibraryInfo",
 )
-load("@prelude//utils:graph_utils.bzl", "breadth_first_traversal", "topo_sort")
+load("@prelude//utils:graph_utils.bzl", "breadth_first_traversal", "post_order_traversal")
 load("@prelude//utils:platform_flavors_util.bzl", "by_platform")
 load("@prelude//utils:utils.bzl", "filter_and_map_idx", "flatten")
 load(":makefile.bzl", "parse_makefile")
@@ -457,7 +457,7 @@ def _compile(ctx: "context", compiler: "cmd_args", build_mode: BuildMode.type) -
         makefile, makefile2 = parse_makefile(artifacts[depends_output].read_string(), srcs, opaque_enabled)
 
         # Ensure all '.ml' files are in the makefile, with zero dependencies if
-        # necessary (so 'topo_sort' finds them).
+        # necessary (so 'post_order_traversal' finds them).
         for x in srcs:
             if x.short_path.endswith(".ml"):
                 if x not in makefile:
@@ -475,7 +475,7 @@ def _compile(ctx: "context", compiler: "cmd_args", build_mode: BuildMode.type) -
         cm_kind_index = 1 if is_bytecode else 2
         ctx.actions.write(
             mk_out(cmxs_order),  # write the ordered list
-            [produces[x][cm_kind_index] for x in topo_sort(makefile) if x.short_path.endswith(".ml")],
+            [produces[x][cm_kind_index] for x in post_order_traversal(makefile) if x.short_path.endswith(".ml")],
         )
 
         # Compile

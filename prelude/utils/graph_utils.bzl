@@ -13,11 +13,9 @@ def topo_sort(graph: {"_a": ["_a"]}) -> ["_a"]:
     """
 
     in_degrees = {node: 0 for node in graph}
-    rdeps = {node: [] for node in graph}
     for node, deps in graph.items():
         for dep in dedupe(deps):
-            in_degrees[node] += 1
-            rdeps[dep].append(node)
+            in_degrees[dep] += 1
 
     queue = []
 
@@ -28,15 +26,51 @@ def topo_sort(graph: {"_a": ["_a"]}) -> ["_a"]:
     ordered = []
 
     for _ in range(len(in_degrees)):
-        expect(len(queue) != 0, "cycle in graph detected in `topo_sort`")
+        expect(len(queue) != 0, "cycle in graph detected")
 
         node = queue.pop()
         ordered.append(node)
 
-        for rdep in rdeps[node]:
-            in_degrees[rdep] -= 1
-            if in_degrees[rdep] == 0:
-                queue.append(rdep)
+        for dep in graph[node]:
+            in_degrees[dep] -= 1
+            if in_degrees[dep] == 0:
+                queue.append(dep)
+
+    expect(not queue, "finished before processing nodes: {}".format(queue))
+    expect(len(ordered) == len(graph), "missing or duplicate nodes in sort")
+
+    return ordered
+
+def post_order_traversal(graph: {"_a": ["_a"]}) -> ["_a"]:
+    """
+    Performs a post-order traversal of `graph`.
+    """
+
+    out_degrees = {node: 0 for node in graph}
+    rdeps = {node: [] for node in graph}
+    for node, deps in graph.items():
+        for dep in dedupe(deps):
+            out_degrees[node] += 1
+            rdeps[dep].append(node)
+
+    queue = []
+
+    for node, out_degree in out_degrees.items():
+        if out_degree == 0:
+            queue.append(node)
+
+    ordered = []
+
+    for _ in range(len(out_degrees)):
+        expect(len(queue) != 0, "cycle in graph detected")
+
+        node = queue.pop()
+        ordered.append(node)
+
+        for dep in rdeps[node]:
+            out_degrees[dep] -= 1
+            if out_degrees[dep] == 0:
+                queue.append(dep)
 
     expect(not queue, "finished before processing nodes: {}".format(queue))
     expect(len(ordered) == len(graph), "missing or duplicate nodes in sort")

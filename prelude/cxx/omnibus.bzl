@@ -39,7 +39,7 @@ load(
 load(
     "@prelude//utils:graph_utils.bzl",
     "breadth_first_traversal_by",
-    "topo_sort",
+    "post_order_traversal",
 )
 load("@prelude//utils:utils.bzl", "expect", "flatten", "value_or")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
@@ -829,7 +829,7 @@ def _implicit_exclusion_roots(ctx: "context", graph: OmnibusGraph.type) -> ["lab
 def _ordered_roots(
         spec: OmnibusSpec.type) -> [("label", AnnotatedLinkableRoot.type, ["label"])]:
     """
-    Return information needed to link the roots nodes in topo-sorted order.
+    Return information needed to link the roots nodes.
     """
 
     # Calculate all deps each root node needs to link against.
@@ -845,9 +845,9 @@ def _ordered_roots(
 
     ordered_roots = []
 
-    # Emit the root link info as a topo-sorted list, so that we generate root link
-    # rules for dependencies before their dependents.
-    for label in topo_sort(root_graph):
+    # Emit the root link info in post-order, so that we generate root link rules
+    # for dependencies before their dependents.
+    for label in post_order_traversal(root_graph):
         root = spec.roots[label]
         deps = link_deps[label]
         ordered_roots.append((label, root, deps))
