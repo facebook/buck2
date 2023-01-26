@@ -715,7 +715,7 @@ async fn compute_configured_target_node_with_transition(
 }
 
 async fn compute_configured_target_node(
-    key: &ConfiguredNodeKey,
+    key: &ConfiguredTargetNodeKey,
     ctx: &DiceComputations,
 ) -> SharedResult<MaybeCompatible<ConfiguredTargetNode>> {
     let target_node = ctx
@@ -787,9 +787,9 @@ async fn compute_configured_target_node(
 
 #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
 #[display(fmt = "{}", _0)]
-pub struct ConfiguredNodeKey(pub ConfiguredTargetLabel);
+pub struct ConfiguredTargetNodeKey(pub ConfiguredTargetLabel);
 
-/// Similar to [`ConfiguredNodeKey`], but used when the target
+/// Similar to [`ConfiguredTargetNodeKey`], but used when the target
 /// is transitioned to different configuration because rule definition requires it.
 #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
 #[display(fmt = "ConfiguredTransitionedNodeKey({}, {})", forward, transitioned)]
@@ -829,7 +829,7 @@ impl NodeCalculation for DiceComputations {
         target: &ConfiguredTargetLabel,
     ) -> SharedResult<MaybeCompatible<ConfiguredTargetNode>> {
         #[async_trait]
-        impl Key for ConfiguredNodeKey {
+        impl Key for ConfiguredTargetNodeKey {
             type Value = SharedResult<MaybeCompatible<ConfiguredTargetNode>>;
             async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
                 let res = compute_configured_target_node(self, ctx).await;
@@ -844,7 +844,8 @@ impl NodeCalculation for DiceComputations {
             }
         }
 
-        self.compute(&ConfiguredNodeKey(target.dupe())).await?
+        self.compute(&ConfiguredTargetNodeKey(target.dupe()))
+            .await?
     }
 }
 
