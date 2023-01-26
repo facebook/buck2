@@ -20,6 +20,11 @@ use either::Either;
 
 use crate::values::none::NoneType;
 use crate::values::type_repr::StarlarkTypeRepr;
+use crate::values::AllocFrozenValue;
+use crate::values::AllocValue;
+use crate::values::FrozenHeap;
+use crate::values::FrozenValue;
+use crate::values::Heap;
 use crate::values::UnpackValue;
 use crate::values::Value;
 
@@ -49,7 +54,7 @@ impl<T> NoneOr<T> {
     }
 }
 
-impl<'v, T: UnpackValue<'v>> StarlarkTypeRepr for NoneOr<T> {
+impl<T: StarlarkTypeRepr> StarlarkTypeRepr for NoneOr<T> {
     fn starlark_type_repr() -> String {
         Either::<NoneType, T>::starlark_type_repr()
     }
@@ -65,6 +70,24 @@ impl<'v, T: UnpackValue<'v>> UnpackValue<'v> for NoneOr<T> {
             Some(NoneOr::None)
         } else {
             T::unpack_value(value).map(NoneOr::Other)
+        }
+    }
+}
+
+impl<'v, T: AllocValue<'v>> AllocValue<'v> for NoneOr<T> {
+    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+        match self {
+            NoneOr::None => Value::new_none(),
+            NoneOr::Other(x) => x.alloc_value(heap),
+        }
+    }
+}
+
+impl<T: AllocFrozenValue> AllocFrozenValue for NoneOr<T> {
+    fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
+        match self {
+            NoneOr::None => FrozenValue::new_none(),
+            NoneOr::Other(x) => x.alloc_frozen_value(heap),
         }
     }
 }
