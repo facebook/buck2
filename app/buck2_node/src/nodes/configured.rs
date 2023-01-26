@@ -70,8 +70,23 @@ use crate::rule_type::RuleType;
 /// in the node, instead the node just stores the base TargetNode and a configuration for
 /// resolving the attributes. This saves memory, but users should try avoid repeatedly
 /// requesting the same information.
-#[derive(Debug, Clone, Dupe, Eq, PartialEq, Hash, Allocative)]
+#[derive(Debug, Clone, Dupe, Eq, Hash, Allocative)]
+#[allow(clippy::derive_hash_xor_eq)]
 pub struct ConfiguredTargetNode(Arc<Hashed<ConfiguredTargetNodeData>>);
+
+#[allow(clippy::derive_hash_xor_eq)]
+impl PartialEq for ConfiguredTargetNode {
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+        if Arc::ptr_eq(&self.0, &other.0) {
+            return true;
+        }
+        // DICE guarantees that there's only once instance of a node in the graph.
+        // Note if nodes are not equal, this fails fast because hashes are not equal.
+        assert_ne!(self.0, other.0);
+        false
+    }
+}
 
 #[derive(Debug, Eq, PartialEq, Hash, Allocative)]
 enum TargetNodeOrForward {
@@ -232,6 +247,14 @@ impl ConfiguredTargetNode {
             exec_deps: ConfiguredTargetNodeDeps(exec_deps.into_boxed_slice()),
             platform_cfgs,
         })))
+    }
+
+    /// Regular `Eq` panics if there are two equal instances of a node.
+    /// This version is used by DICE key implementation to check if freshly computed node
+    /// is equal to previously computed node.
+    #[inline]
+    pub fn eq_for_dice(&self, other: &ConfiguredTargetNode) -> bool {
+        self.0 == other.0
     }
 
     /// New `ConfiguredTargetNode` for a forward node for transitioned target.
@@ -543,6 +566,7 @@ impl ConfiguredTargetNodeDeps {
 /// We only do Arc comparisons here. The rationale is that each ConfiguredTargetNode should only
 /// ever exist in one instance in the graph, so if the ptr eq doesn't match, then we don't do a
 /// deep comparison.
+// TODO(nga): enforce there are no two equal instances and do proper deep comparison.
 impl PartialEq for ConfiguredTargetNodeDeps {
     fn eq(&self, other: &Self) -> bool {
         let it1 = self.iter();
