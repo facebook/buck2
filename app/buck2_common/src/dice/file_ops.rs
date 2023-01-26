@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt::Debug;
 use std::hash::Hash;
@@ -29,7 +28,6 @@ use dice::DiceTransaction;
 use dice::Key;
 use dupe::Dupe;
 use gazebo::cmp::PartialEqAny;
-use itertools::Itertools;
 
 use crate::dice::cells::HasCellResolver;
 use crate::dice::data::HasIoProvider;
@@ -39,10 +37,9 @@ use crate::file_ops::FileOps;
 use crate::file_ops::RawPathMetadata;
 use crate::file_ops::ReadDirOutput;
 use crate::file_ops::SimpleDirEntry;
-use crate::ignores::FileIgnoreResult;
-use crate::ignores::FileIgnores;
+use crate::ignores::AllCellIgnores;
+use crate::ignores::HasAllCellIgnores;
 use crate::io::IoProvider;
-use crate::legacy_configs::dice::HasLegacyConfigs;
 use crate::result::SharedResult;
 
 pub trait HasFileOps<'c> {
@@ -95,7 +92,7 @@ async fn get_default_file_ops(dice: &DiceComputations) -> SharedResult<Arc<dyn F
     struct DiceFileOpsDelegate {
         io: PartialEqWrapper<Arc<dyn IoProvider>>,
         cells: CellResolver,
-        ignores: Arc<HashMap<CellName, FileIgnores>>,
+        ignores: Arc<AllCellIgnores>,
     }
 
     // NOTE: We need this because derive(PartialEq) fails to compile otherwise on
@@ -113,20 +110,6 @@ async fn get_default_file_ops(dice: &DiceComputations) -> SharedResult<Arc<dyn F
     }
 
     impl DiceFileOpsDelegate {
-        fn check_ignored(&self, path: CellPathRef) -> anyhow::Result<FileIgnoreResult> {
-            Ok(self
-                .ignores
-                .get(&path.cell())
-                .unwrap_or_else(|| {
-                    panic!(
-                        "Should've had an ignore spec for `{}`. Had `{}`",
-                        path.cell(),
-                        self.ignores.keys().join(", ")
-                    )
-                })
-                .check(path.path()))
-        }
-
         fn resolve(&self, path: CellPathRef) -> anyhow::Result<ProjectRelativePathBuf> {
             let cell_root = self.resolve_cell_root(path.cell())?;
             Ok(cell_root.project_relative_path().join(path.path()))
@@ -158,7 +141,8 @@ async fn get_default_file_ops(dice: &DiceComputations) -> SharedResult<Arc<dyn F
             path: CellPathRef<'async_trait>,
         ) -> SharedResult<ReadDirOutput> {
             // TODO(cjhopman): This should also probably verify that the parent chain is not ignored.
-            self.check_ignored(path)?
+            self.ignores
+                .check_ignored(path)?
                 .into_result()
                 .with_context(|| format!("Error checking whether dir `{}` is ignored", path))?;
 
@@ -174,7 +158,10 @@ async fn get_default_file_ops(dice: &DiceComputations) -> SharedResult<Arc<dyn F
 
             let is_ignored = |entry: &SimpleDirEntry| {
                 let entry_path = path.join(&entry.file_name);
-                let is_ignored = self.check_ignored(entry_path.as_ref())?.is_ignored();
+                let is_ignored = self
+                    .ignores
+                    .check_ignored(entry_path.as_ref())?
+                    .is_ignored();
                 anyhow::Ok(is_ignored)
             };
 
@@ -219,7 +206,7 @@ async fn get_default_file_ops(dice: &DiceComputations) -> SharedResult<Arc<dyn F
         }
 
         async fn is_ignored(&self, path: CellPathRef<'async_trait>) -> anyhow::Result<bool> {
-            Ok(self.check_ignored(path)?.is_ignored())
+            Ok(self.ignores.check_ignored(path)?.is_ignored())
         }
 
         fn eq_token(&self) -> PartialEqAny {
@@ -232,27 +219,14 @@ async fn get_default_file_ops(dice: &DiceComputations) -> SharedResult<Arc<dyn F
         type Value = SharedResult<FileOpsValue>;
         async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
             let cells = ctx.get_cell_resolver().await?;
-            let configs = ctx.get_legacy_configs_on_dice().await?;
             let io = ctx.global_data().get_io_provider();
 
-            let cell_paths: Vec<_> = cells.cells().map(|e| (e.1.name(), e.1.path())).collect();
-            let mut ignores = HashMap::new();
-
-            for (cell_name, instance) in cells.cells() {
-                let this_path = instance.path();
-                let config = configs.get(cell_name).unwrap();
-                let ignore_spec = config.get("project", "ignore")?;
-                let ignore_spec = ignore_spec.as_ref().map_or("", |s| &**s);
-
-                let cell_ignores =
-                    FileIgnores::new_for_interpreter(ignore_spec, &cell_paths, this_path)?;
-                ignores.insert(cell_name, cell_ignores);
-            }
+            let ignores = ctx.new_all_cell_ignores().await?;
 
             Ok(FileOpsValue(Arc::new(DiceFileOpsDelegate {
                 io: PartialEqWrapper(io),
                 cells,
-                ignores: Arc::new(ignores),
+                ignores,
             })))
         }
 

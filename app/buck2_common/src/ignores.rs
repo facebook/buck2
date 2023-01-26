@@ -7,15 +7,25 @@
  * of this source tree.
  */
 
+use std::collections::HashMap;
+use std::sync::Arc;
+
 use allocative::Allocative;
+use async_trait::async_trait;
+use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::cell_root_path::CellRootPath;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::cells::paths::CellRelativePathBuf;
+use dice::DiceComputations;
 use globset::Candidate;
 use globset::GlobSetBuilder;
+use itertools::Itertools;
 use once_cell::sync::Lazy;
 use regex::Regex;
+
+use crate::dice::cells::HasCellResolver;
+use crate::legacy_configs::dice::HasLegacyConfigs;
 
 #[derive(Debug, thiserror::Error)]
 enum FileOpsError {
@@ -57,7 +67,7 @@ impl FileIgnoreResult {
     }
 }
 
-#[derive(Allocative)]
+#[derive(Debug, Allocative)]
 pub struct IgnoreSet {
     #[allocative(skip)]
     globset: globset::GlobSet,
@@ -72,6 +82,8 @@ impl PartialEq for IgnoreSet {
         self.patterns == other.patterns
     }
 }
+
+impl Eq for IgnoreSet {}
 
 impl IgnoreSet {
     /// Creates an IgnoreSet from an "ignore spec".
@@ -172,7 +184,7 @@ impl IgnoreSet {
 }
 
 /// Ignores files based on configured ignore patterns and cell paths.
-#[derive(PartialEq, Allocative)]
+#[derive(PartialEq, Eq, Allocative, Debug)]
 pub struct FileIgnores {
     ignores: IgnoreSet,
     cell_ignores: IgnoreSet,
@@ -205,6 +217,57 @@ impl FileIgnores {
         }
 
         FileIgnoreResult::Ok
+    }
+}
+
+/// Ignored path configurations for all cells.
+#[derive(Allocative, Debug, Eq, PartialEq)]
+pub(crate) struct AllCellIgnores {
+    ignores: HashMap<CellName, FileIgnores>,
+}
+
+impl AllCellIgnores {
+    pub(crate) fn check_ignored(&self, path: CellPathRef) -> anyhow::Result<FileIgnoreResult> {
+        Ok(self
+            .ignores
+            .get(&path.cell())
+            .unwrap_or_else(|| {
+                panic!(
+                    "Should've had an ignore spec for `{}`. Had `{}`",
+                    path.cell(),
+                    self.ignores.keys().join(", ")
+                )
+            })
+            .check(path.path()))
+    }
+}
+
+#[async_trait]
+pub(crate) trait HasAllCellIgnores {
+    async fn new_all_cell_ignores(&self) -> anyhow::Result<Arc<AllCellIgnores>>;
+}
+
+#[async_trait]
+impl HasAllCellIgnores for DiceComputations {
+    async fn new_all_cell_ignores(&self) -> anyhow::Result<Arc<AllCellIgnores>> {
+        let cells = self.get_cell_resolver().await?;
+        let configs = self.get_legacy_configs_on_dice().await?;
+
+        let cell_paths: Vec<_> = cells.cells().map(|e| (e.1.name(), e.1.path())).collect();
+        let mut ignores = HashMap::new();
+
+        for (cell_name, instance) in cells.cells() {
+            let this_path = instance.path();
+            let config = configs.get(cell_name).unwrap();
+            let ignore_spec = config.get("project", "ignore")?;
+            let ignore_spec = ignore_spec.as_ref().map_or("", |s| &**s);
+
+            let cell_ignores =
+                FileIgnores::new_for_interpreter(ignore_spec, &cell_paths, this_path)?;
+            ignores.insert(cell_name, cell_ignores);
+        }
+
+        Ok(Arc::new(AllCellIgnores { ignores }))
     }
 }
 
