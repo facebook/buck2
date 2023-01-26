@@ -73,11 +73,7 @@ impl StarlarkTypeRepr for &str {
 
 impl<T: StarlarkTypeRepr> StarlarkTypeRepr for Option<T> {
     fn starlark_type_repr() -> String {
-        format!(
-            "[{}, {}]",
-            NoneType::starlark_type_repr(),
-            T::starlark_type_repr()
-        )
+        Either::<NoneType, T>::starlark_type_repr()
     }
 }
 

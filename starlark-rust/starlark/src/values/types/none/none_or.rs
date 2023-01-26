@@ -16,7 +16,9 @@
  */
 
 use dupe::Dupe;
+use either::Either;
 
+use crate::values::none::NoneType;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::UnpackValue;
 use crate::values::Value;
@@ -49,7 +51,7 @@ impl<T> NoneOr<T> {
 
 impl<'v, T: UnpackValue<'v>> StarlarkTypeRepr for NoneOr<T> {
     fn starlark_type_repr() -> String {
-        Option::<T>::starlark_type_repr()
+        Either::<NoneType, T>::starlark_type_repr()
     }
 }
 
