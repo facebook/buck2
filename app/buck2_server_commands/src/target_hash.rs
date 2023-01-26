@@ -183,8 +183,7 @@ pub trait TargetHashingTargetNode: QueryTarget {
     // Target Nodes based on type of hashing specified.
     async fn get_target_nodes(
         ctx: &DiceComputations,
-        loaded_targets: impl Iterator<Item = (PackageLabel, SharedResult<Vec<TargetNode>>)>
-        + std::marker::Send,
+        loaded_targets: Vec<(PackageLabel, SharedResult<Vec<TargetNode>>)>,
         global_target_platform: Option<TargetLabel>,
     ) -> anyhow::Result<TargetSet<Self>>;
 }
@@ -204,11 +203,10 @@ impl TargetHashingTargetNode for ConfiguredTargetNode {
 
     async fn get_target_nodes(
         ctx: &DiceComputations,
-        loaded_targets: impl Iterator<Item = (PackageLabel, SharedResult<Vec<TargetNode>>)>
-        + std::marker::Send,
+        loaded_targets: Vec<(PackageLabel, SharedResult<Vec<TargetNode>>)>,
         global_target_platform: Option<TargetLabel>,
     ) -> anyhow::Result<TargetSet<Self>> {
-        get_compatible_targets(ctx, loaded_targets, global_target_platform).await
+        get_compatible_targets(ctx, loaded_targets.into_iter(), global_target_platform).await
     }
 }
 
@@ -227,8 +225,7 @@ impl TargetHashingTargetNode for TargetNode {
 
     async fn get_target_nodes(
         _ctx: &DiceComputations,
-        loaded_targets: impl Iterator<Item = (PackageLabel, SharedResult<Vec<TargetNode>>)>
-        + std::marker::Send,
+        loaded_targets: Vec<(PackageLabel, SharedResult<Vec<TargetNode>>)>,
         _global_target_platform: Option<TargetLabel>,
     ) -> anyhow::Result<TargetSet<Self>> {
         let mut target_set = TargetSet::new();
@@ -344,8 +341,7 @@ impl TargetHashes {
             }
         }
 
-        let targets =
-            T::get_target_nodes(&ctx, targets.into_iter(), global_target_platform).await?;
+        let targets = T::get_target_nodes(&ctx, targets, global_target_platform).await?;
 
         let file_hasher: Arc<dyn FileHasher> = match file_hash_mode {
             TargetHashFileMode::PathsOnly => Arc::new(PathsOnlyFileHasher {
