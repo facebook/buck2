@@ -63,6 +63,13 @@ impl<K, V> OrderedMap<K, V> {
         self.0.get(k)
     }
 
+    pub fn get_mut<Q>(&mut self, k: &Q) -> Option<&mut V>
+    where
+        Q: Hash + Equivalent<K> + ?Sized,
+    {
+        self.0.get_mut(k)
+    }
+
     /// Find an entry by an index.
     #[inline]
     pub fn get_index(&self, index: usize) -> Option<(&K, &V)> {
