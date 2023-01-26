@@ -14,6 +14,8 @@ use futures::stream::BoxStream;
 use futures::task::Poll;
 use futures::Future;
 use futures::Stream;
+use futures::StreamExt;
+use futures::TryStreamExt;
 use pin_project::pin_project;
 use tokio::time::Instant;
 use tokio::time::Sleep;
@@ -43,8 +45,18 @@ impl Replayer {
     pub async fn new(
         log_path: EventLogPathBuf,
         speed: Option<f64>,
+        preload: bool,
     ) -> anyhow::Result<(Self, Invocation)> {
         let (invocation, events) = log_path.unpack_stream().await?;
+
+        let events = if preload {
+            let events = events.try_collect::<Vec<_>>().await?;
+            futures::stream::iter(events.into_iter())
+                .map(Ok)
+                .left_stream()
+        } else {
+            events.right_stream()
+        };
 
         let syncher = Syncher::new(speed);
 

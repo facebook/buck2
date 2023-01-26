@@ -34,6 +34,11 @@ pub struct ReplayCommand {
         value_name = "NUMBER"
     )]
     pub speed: Option<f64>,
+
+    /// Preload the event log. This is typically only useful for benchmarking.
+    #[clap(long)]
+    preload: bool,
+
     #[clap(help = "Override the arguments")]
     pub override_args: Vec<String>,
 }
@@ -48,12 +53,13 @@ impl ReplayCommand {
         let Self {
             event_log,
             speed,
+            preload,
             mut override_args,
         } = self;
 
         let runtime = Runtime::new().expect("Should be able to start a runtime");
         let (replayer, invocation) =
-            runtime.block_on(Replayer::new(event_log.get(&ctx)?, speed))?;
+            runtime.block_on(Replayer::new(event_log.get(&ctx)?, speed, preload))?;
 
         let (args, working_dir) = if override_args.is_empty() {
             (
