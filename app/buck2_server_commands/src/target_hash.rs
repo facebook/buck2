@@ -26,6 +26,7 @@ use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::package::PackageLabel;
 use buck2_core::target::TargetLabel;
+use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_query::query::environment::ConfiguredOrUnconfiguredTargetLabel;
@@ -169,8 +170,15 @@ impl FileHasher for PathsAndContentsHasher {
     }
 }
 
+/// Types of node that can be target hashed (just configured and unconfigured).
+/// This trait is purposely defined here instead of in buck2_node crate
+/// so that we can only access the public fields of these nodes.
 #[async_trait]
-pub trait TargetHashingTargetNode: QueryTarget + Hash {
+pub trait TargetHashingTargetNode: QueryTarget {
+    /// We only hash this node, not its dependencies.
+    /// Importantly, we look at the nodes after configuration (for the configured case).
+    fn target_hash<H: Hasher>(&self, state: &mut H);
+
     // Takes in Target Nodes and returns a new set of (un)Configured
     // Target Nodes based on type of hashing specified.
     async fn get_target_nodes(
@@ -183,6 +191,17 @@ pub trait TargetHashingTargetNode: QueryTarget + Hash {
 
 #[async_trait]
 impl TargetHashingTargetNode for ConfiguredTargetNode {
+    fn target_hash<H: Hasher>(&self, state: &mut H) {
+        self.label().hash(state);
+        self.rule_type().hash(state);
+        self.attrs(AttrInspectOptions::All).for_each(|x| {
+            // We deliberately don't hash the attribute, as if the value being passed to analysis
+            // stays the same, we don't care if the attribute that generated it changed.
+            x.name.hash(state);
+            x.value.hash(state);
+        });
+    }
+
     async fn get_target_nodes(
         ctx: &DiceComputations,
         loaded_targets: impl Iterator<Item = (PackageLabel, SharedResult<Vec<TargetNode>>)>
@@ -195,6 +214,17 @@ impl TargetHashingTargetNode for ConfiguredTargetNode {
 
 #[async_trait]
 impl TargetHashingTargetNode for TargetNode {
+    fn target_hash<H: Hasher>(&self, state: &mut H) {
+        self.label().hash(state);
+        self.rule_type().hash(state);
+        self.attrs(AttrInspectOptions::All).for_each(|x| {
+            // We deliberately don't hash the attribute, as if the value being passed to analysis
+            // stays the same, we don't care if the attribute that generated it changed.
+            x.name.hash(state);
+            x.value.hash(state);
+        });
+    }
+
     async fn get_target_nodes(
         _ctx: &DiceComputations,
         loaded_targets: impl Iterator<Item = (PackageLabel, SharedResult<Vec<TargetNode>>)>
@@ -246,7 +276,7 @@ impl TargetHashes {
         }
 
         #[async_trait]
-        impl<T: Hash + QueryTarget> AsyncTraversalDelegate<T> for Delegate<T> {
+        impl<T: TargetHashingTargetNode> AsyncTraversalDelegate<T> for Delegate<T> {
             fn visit(&mut self, target: T) -> anyhow::Result<()> {
                 // this is postorder, so guaranteed that all deps have futures already.
                 let dep_futures: Vec<_> = target
@@ -272,7 +302,7 @@ impl TargetHashes {
                     async move {
                         ctx.temporary_spawn(move |_| async move {
                             let mut hasher = TargetHashes::new_hasher(use_fast_hash);
-                            TargetHashes::hash_node(&target, &mut *hasher)?;
+                            TargetHashes::hash_node(&target, &mut *hasher);
 
                             let mut input_futs = Vec::new();
                             target.inputs_for_each(|cell_path| {
@@ -369,12 +399,8 @@ impl TargetHashes {
         }
     }
 
-    fn hash_node<T: Hash + QueryTarget>(
-        node: &T,
-        mut hasher: &mut dyn BuckTargetHasher,
-    ) -> SharedResult<()> {
-        node.hash(&mut hasher);
-        Ok(())
+    fn hash_node<T: TargetHashingTargetNode>(node: &T, mut hasher: &mut dyn BuckTargetHasher) {
+        node.target_hash(&mut hasher);
     }
 
     fn hash_deps(
