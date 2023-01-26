@@ -27,7 +27,6 @@ use crate::target::TargetLabel;
 #[derive(
     Display, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative
 )]
-#[display(fmt = "{}", _0)]
 pub struct ProviderName(String);
 
 #[derive(Error, Debug)]

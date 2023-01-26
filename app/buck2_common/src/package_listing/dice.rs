@@ -52,7 +52,6 @@ impl<'c> PackageListingResolver for DicePackageListingResolver<'c> {
             PartialEq,
             Allocative
         )]
-        #[display(fmt = "{}", _0)]
         struct PackageListingKey(PackageLabel);
 
         #[async_trait]

@@ -115,7 +115,6 @@ mod keys {
 
     // Key for 'InterpreterCalculation::get_interpreter_results'
     #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
-    #[display(fmt = "{}", _0)]
     pub struct InterpreterResultsKey(pub PackageLabel);
 }
 

@@ -31,12 +31,7 @@ use crate::bxl::types::BxlKey;
     Allocative
 )]
 pub enum BaseDeferredKey {
-    #[display(fmt = "{}", _0)]
     TargetLabel(ConfiguredTargetLabel),
-
-    #[display(fmt = "{}", _0)]
     AnonTarget(Arc<AnonTarget>),
-
-    #[display(fmt = "{}", _0)]
     BxlLabel(BxlKey),
 }

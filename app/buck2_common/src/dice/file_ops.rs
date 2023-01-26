@@ -354,7 +354,6 @@ impl FileChangeTracker {
 }
 
 #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
-#[display(fmt = "{}", _0)]
 struct ReadFileKey(Arc<CellPath>);
 
 #[async_trait]
@@ -370,7 +369,6 @@ impl Key for ReadFileKey {
 }
 
 #[derive(Clone, Display, Debug, Eq, Hash, PartialEq, Allocative)]
-#[display(fmt = "{}", _0)]
 struct ReadDirKey(CellPath);
 
 #[async_trait]
@@ -396,7 +394,6 @@ impl Key for ReadDirKey {
 }
 
 #[derive(Clone, Display, Debug, Eq, Hash, PartialEq, Allocative)]
-#[display(fmt = "{}", _0)]
 struct PathMetadataKey(CellPath);
 
 #[async_trait]

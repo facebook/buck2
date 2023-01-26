@@ -34,7 +34,6 @@ pub struct StarlarkRuleType {
     Allocative
 )]
 pub enum RuleType {
-    #[display(fmt = "{}", _0)]
     Starlark(Arc<StarlarkRuleType>),
     #[display(fmt = "forward")]
     Forward,

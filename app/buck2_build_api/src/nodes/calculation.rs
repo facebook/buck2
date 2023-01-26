@@ -786,7 +786,6 @@ async fn compute_configured_target_node(
 }
 
 #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
-#[display(fmt = "{}", _0)]
 pub struct ConfiguredTargetNodeKey(pub ConfiguredTargetLabel);
 
 /// Similar to [`ConfiguredTargetNodeKey`], but used when the target
