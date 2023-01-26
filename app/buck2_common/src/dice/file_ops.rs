@@ -21,6 +21,7 @@ use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::project::ProjectRelativePath;
+use buck2_core::fs::project::ProjectRelativePathBuf;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::DiceTransaction;
@@ -125,6 +126,11 @@ async fn get_default_file_ops(dice: &DiceComputations) -> SharedResult<Arc<dyn F
                     )
                 })
                 .check(path.path()))
+        }
+
+        fn resolve(&self, path: CellPathRef) -> anyhow::Result<ProjectRelativePathBuf> {
+            let cell_root = self.resolve_cell_root(path.cell())?;
+            Ok(cell_root.project_relative_path().join(path.path()))
         }
 
         fn resolve_cell_root(&self, cell: CellName) -> anyhow::Result<CellRootPathBuf> {
