@@ -165,7 +165,10 @@ impl RageCommand {
             let mut manifold_id = format!("{}", rage_id);
             let sink = create_scribe_sink(&ctx)?;
 
-            buck2_client_ctx::eprintln!("Collection will terminate after {} seconds (override with --timeout param)", self.timeout)?;
+            buck2_client_ctx::eprintln!(
+                "Collection will terminate after {} seconds (override with --timeout param)",
+                self.timeout
+            )?;
             buck2_client_ctx::eprintln!("Collecting debug info...\n\n")?;
 
             let selected_invocation =
@@ -200,18 +203,7 @@ impl RageCommand {
 
             let sections = futures::future::join_all(sections).await;
             let output: Vec<String> = sections.iter().map(|i| i.to_string()).collect();
-            let output = output.join("");
-
-            if self.no_paste {
-                buck2_client_ctx::println!("{}", output)?;
-            } else {
-                let paste = generate_paste("Buck2 Rage", &output).await?;
-                buck2_client_ctx::eprintln!(
-                    "\nPlease post in https://fb.workplace.com/groups/buck2users with the following link:\n\n{}\n",
-                    paste
-                )?;
-            };
-
+            output_rage(self.no_paste, &output.join("")).await?;
             ExitResult::success()
         })
     }
@@ -490,6 +482,19 @@ fn format_cmd(cmd_args: &[String]) -> String {
         }
         format!("{} {}", program_name, program_args.join(" "))
     }
+}
+
+async fn output_rage(no_paste: bool, output: &str) -> anyhow::Result<()> {
+    if no_paste {
+        buck2_client_ctx::println!("{}", output)?;
+    } else {
+        let paste = generate_paste("Buck2 Rage", output).await?;
+        buck2_client_ctx::eprintln!(
+            "\nPlease post in https://fb.workplace.com/groups/buck2users with the following link:\n\n{}\n",
+            paste
+        )?;
+    };
+    Ok(())
 }
 
 async fn generate_paste(title: &str, content: &str) -> anyhow::Result<String> {
