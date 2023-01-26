@@ -13,14 +13,16 @@ use std::ops::Deref;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use buck2_common::file_ops::RawDirEntry;
 use buck2_common::file_ops::SimpleDirEntry;
 use buck2_core::cells::cell_path::CellPath;
+use buck2_core::fs::paths::file_name::FileName;
 use buck2_query::query::environment::QueryEnvironment;
 use buck2_query::query::syntax::simple::eval::file_set::FileSet;
 use derive_more::Display;
 use either::Either;
 use gazebo::display::display_container;
-use gazebo::prelude::*;
+use gazebo::prelude::VecExt;
 use indexmap::IndexSet;
 use starlark::any::ProvidesStaticType;
 use starlark::starlark_simple_value;
@@ -175,28 +177,36 @@ pub struct StarlarkReadDirSet {
     /// Files that are not ignored within the buckconfig.
     pub included: Arc<[SimpleDirEntry]>,
     /// Files that are ignored within the buckconfig.
-    pub ignored: Option<Arc<[SimpleDirEntry]>>,
+    pub ignored: Option<Arc<[RawDirEntry]>>,
 }
 
 starlark_simple_value!(StarlarkReadDirSet);
 
 impl StarlarkReadDirSet {
-    fn iter(&self) -> impl Iterator<Item = CellPath> + '_ {
-        itertools::merge(
-            self.included.iter().map(|e| &e.file_name),
-            self.ignored
-                .as_ref()
-                .map(|i| i.map(|e| &e.file_name))
-                .into_iter()
-                .flatten(),
-        )
-        .map(|file_name| self.cell_path.join(file_name))
+    fn children(&self) -> anyhow::Result<Vec<CellPath>> {
+        let mut result: Vec<CellPath> =
+            Vec::with_capacity(self.included.len() + self.ignored.as_ref().map_or(0, |v| v.len()));
+        result.extend(
+            self.included
+                .iter()
+                .map(|e| self.cell_path.join(&e.file_name)),
+        );
+        if let Some(ignored) = &self.ignored {
+            for e in &**ignored {
+                result.push(self.cell_path.join(FileName::new(&e.file_name)?));
+            }
+        }
+        result.sort();
+        Ok(result)
     }
 }
 
 impl fmt::Display for StarlarkReadDirSet {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        display_container(f, "[", "]", self.iter())
+        match self.children() {
+            Ok(children) => display_container(f, "[", "]", children),
+            Err(e) => write!(f, "<Error: {}>", e),
+        }
     }
 }
 
@@ -211,9 +221,9 @@ impl<'v> StarlarkValue<'v> for StarlarkReadDirSet {
         'v: 'a,
     {
         let iter = self
-            .iter()
-            .map(|cell_path| heap.alloc(StarlarkFileNode(cell_path)));
+            .children()?
+            .into_map(|cell_path| heap.alloc(StarlarkFileNode(cell_path)));
 
-        Ok(box iter)
+        Ok(box iter.into_iter())
     }
 }

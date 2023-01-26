@@ -18,6 +18,7 @@ use async_trait::async_trait;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::fs::paths::file_name::FileNameBuf;
+use compact_str::CompactString;
 use derive_more::Display;
 use dupe::Dupe;
 use gazebo::cmp::PartialEqAny;
@@ -77,10 +78,18 @@ pub struct SimpleDirEntry {
     pub file_name: FileNameBuf,
 }
 
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Allocative)]
+pub struct RawDirEntry {
+    pub file_type: FileType,
+    /// Not all file names are accepted as file names in Buck. Such files are automatically ignored.
+    /// This should probably be something like `CompactOsString`.
+    pub file_name: CompactString,
+}
+
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Dupe, Allocative)]
 pub struct ReadDirOutput {
     pub included: Arc<[SimpleDirEntry]>,
-    pub ignored: Arc<[SimpleDirEntry]>,
+    pub ignored: Arc<[RawDirEntry]>,
 }
 
 #[derive(Allocative)]

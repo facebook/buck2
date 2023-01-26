@@ -18,11 +18,11 @@ use async_trait::async_trait;
 use buck2_core;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
-use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
+use compact_str::CompactString;
 use dupe::Dupe;
 use gazebo::cmp::PartialEqAny;
 use once_cell::sync::Lazy;
@@ -32,9 +32,9 @@ use tokio::sync::Semaphore;
 use crate::external_symlink::ExternalSymlink;
 use crate::file_ops::FileDigest;
 use crate::file_ops::FileMetadata;
+use crate::file_ops::RawDirEntry;
 use crate::file_ops::RawPathMetadata;
 use crate::file_ops::RawSymlink;
-use crate::file_ops::SimpleDirEntry;
 use crate::file_ops::TrackedFileDigest;
 use crate::io::IoProvider;
 
@@ -74,7 +74,7 @@ impl IoProvider for FsIoProvider {
             .unwrap()
     }
 
-    async fn read_dir(&self, path: ProjectRelativePathBuf) -> anyhow::Result<Vec<SimpleDirEntry>> {
+    async fn read_dir(&self, path: ProjectRelativePathBuf) -> anyhow::Result<Vec<RawDirEntry>> {
         // Don't want to totally saturate the executor with these so that some other work can progress.
         // For normal fs (or warm eden), something smaller would probably be fine, for eden couple hundred is probably
         // good (current plan in that impl is to allow multiple batches of 128 dirs at a time).
@@ -94,9 +94,9 @@ impl IoProvider for FsIoProvider {
                 let file_name = file_name
                     .to_str()
                     .ok_or_else(|| ReadDirError::NotUtf8(file_name.clone()))?;
-                entries.push(SimpleDirEntry {
+                entries.push(RawDirEntry {
                     file_type: e.file_type()?.into(),
-                    file_name: FileNameBuf::unchecked_new(file_name),
+                    file_name: CompactString::from(file_name),
                 });
             }
 

@@ -304,3 +304,13 @@ impl TryFrom<String> for FileNameBuf {
         Ok(FileNameBuf(value.into()))
     }
 }
+
+impl TryFrom<CompactString> for FileNameBuf {
+    type Error = anyhow::Error;
+
+    #[inline]
+    fn try_from(value: CompactString) -> anyhow::Result<FileNameBuf> {
+        verify_file_name(value.as_str())?;
+        Ok(FileNameBuf(value))
+    }
+}

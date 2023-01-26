@@ -18,6 +18,7 @@ use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::io_counters::IoCounterKey;
+use compact_str::CompactString;
 use derivative::Derivative;
 use dupe::Dupe;
 use edenfs::types::FileAttributes;
@@ -32,8 +33,8 @@ use tokio::sync::Semaphore;
 use crate::eden::EdenConnectionManager;
 use crate::eden::EdenDataIntoResult;
 use crate::file_ops::FileType;
+use crate::file_ops::RawDirEntry;
 use crate::file_ops::RawPathMetadata;
-use crate::file_ops::SimpleDirEntry;
 use crate::io::fs::FsIoProvider;
 use crate::io::IoProvider;
 
@@ -96,7 +97,7 @@ impl IoProvider for EdenIoProvider {
         self.fs.read_file(path).await
     }
 
-    async fn read_dir(&self, path: ProjectRelativePathBuf) -> anyhow::Result<Vec<SimpleDirEntry>> {
+    async fn read_dir(&self, path: ProjectRelativePathBuf) -> anyhow::Result<Vec<RawDirEntry>> {
         let _guard = IoCounterKey::ReadDirEden.guard();
 
         let requested_attributes = i64::from(i32::from(FileAttributes::SOURCE_CONTROL_TYPE));
@@ -129,10 +130,8 @@ impl IoProvider for EdenIoProvider {
         let entries = data
             .into_iter()
             .map(|(file_name, attrs)| {
-                let file_name = String::from_utf8(file_name)
-                    .context("Filename is not UTF-8")
-                    .and_then(TryInto::try_into)
-                    .context("Filename is invalid")?;
+                let file_name =
+                    CompactString::from_utf8(file_name).context("Filename is not UTF-8")?;
 
                 let source_control_type = attrs
                     .into_result()?
@@ -149,7 +148,7 @@ impl IoProvider for EdenIoProvider {
                     _ => FileType::Unknown,
                 };
 
-                anyhow::Ok(SimpleDirEntry {
+                anyhow::Ok(RawDirEntry {
                     file_type,
                     file_name,
                 })

@@ -19,6 +19,7 @@ use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::CellResolver;
+use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_core::package::PackageLabel;
 use buck2_interpreter::common::BxlFilePath;
@@ -70,8 +71,14 @@ async fn starlark_file(
     match typ {
         FileType::Directory => {
             for x in io.read_dir(proj_path.clone()).await? {
+                let Ok(file_name) = FileName::new(&x.file_name) else {
+                    // Skip files which buck does not like:
+                    // this function works with `CellPath` values,
+                    // which cannot be constructed from paths not acceptable by buck.
+                    continue;
+                };
                 let mut child_path = proj_path.clone();
-                child_path.push(x.file_name);
+                child_path.push(file_name);
                 starlark_file(child_path, Some(x.file_type), cell_resolver, fs, io, files).await?;
             }
         }

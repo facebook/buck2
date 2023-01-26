@@ -20,15 +20,15 @@ use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use gazebo::cmp::PartialEqAny;
 
+use crate::file_ops::RawDirEntry;
 use crate::file_ops::RawPathMetadata;
-use crate::file_ops::SimpleDirEntry;
 use crate::legacy_configs::LegacyBuckConfig;
 
 #[async_trait]
 pub trait IoProvider: Allocative + Send + Sync {
     async fn read_file(&self, path: ProjectRelativePathBuf) -> anyhow::Result<String>;
 
-    async fn read_dir(&self, path: ProjectRelativePathBuf) -> anyhow::Result<Vec<SimpleDirEntry>>;
+    async fn read_dir(&self, path: ProjectRelativePathBuf) -> anyhow::Result<Vec<RawDirEntry>>;
 
     async fn read_path_metadata_if_exists(
         &self,

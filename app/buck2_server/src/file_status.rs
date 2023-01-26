@@ -10,6 +10,7 @@
 use std::io::Write;
 use std::path::PathBuf;
 
+use anyhow::Context;
 use async_recursion::async_recursion;
 use async_trait::async_trait;
 use buck2_common::dice::cells::HasCellResolver;
@@ -18,10 +19,11 @@ use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::FileOps;
 use buck2_common::file_ops::RawPathMetadata;
 use buck2_common::file_ops::RawSymlink;
+use buck2_common::file_ops::SimpleDirEntry;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
-use buck2_core::fs::paths::file_name::FileNameBuf;
+use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
@@ -118,15 +120,15 @@ enum Mismatch {
     #[error("Entry {0} disagrees on the type, dice={1}")]
     FileType(ProjectRelativePathBuf, &'static str),
     #[error("Directory {0} disagrees on the contents, fs={}, dice={}", display_filenames(.1), display_filenames(.2))]
-    DirContents(ProjectRelativePathBuf, Vec<FileNameBuf>, Vec<FileNameBuf>),
+    DirContents(ProjectRelativePathBuf, Vec<String>, Vec<String>),
     #[error("File {0} disagrees on file size, fs={1}, dice={2}")]
     FileSize(ProjectRelativePathBuf, u64, u64),
     #[error("File {0} disagrees on file digest, fs={1}, dice={2}")]
     FileDigest(ProjectRelativePathBuf, FileDigest, FileDigest),
 }
 
-fn display_filenames(files: &[FileNameBuf]) -> String {
-    files.iter().map(|x| x.as_str()).join(",")
+fn display_filenames(files: &[impl AsRef<str>]) -> String {
+    files.iter().map(|x| x.as_ref()).join(",")
 }
 
 #[async_recursion]
@@ -207,18 +209,21 @@ async fn check_file_status(
                 if !fs_metadata.is_dir() {
                     result.mismatch(Mismatch::FileType(path.to_owned(), "directory"))?;
                 } else {
-                    let mut fs_list = Vec::new();
+                    let mut fs_list: Vec<String> = Vec::new();
                     for entry in fs_util::read_dir(&abs_path)? {
-                        fs_list.push(FileNameBuf::try_from(
-                            entry?.file_name().into_string().unwrap(),
-                        )?);
+                        fs_list.push(entry?.file_name().into_string().ok().context("not UTF-8")?);
                     }
                     let dice_read_dir = file_ops.read_dir_with_ignores(cell_path.as_ref()).await?;
-                    let mut dice_list: Vec<_> = dice_read_dir
+                    let mut dice_list: Vec<String> = dice_read_dir
                         .included
                         .iter()
-                        .chain(dice_read_dir.ignored.iter())
-                        .map(|x| x.file_name.clone())
+                        .map(|SimpleDirEntry { file_name, .. }| file_name.as_str().to_owned())
+                        .chain(
+                            dice_read_dir
+                                .ignored
+                                .iter()
+                                .map(|e| e.file_name.as_str().to_owned()),
+                        )
                         .collect();
                     fs_list.sort();
                     dice_list.sort();
@@ -230,6 +235,13 @@ async fn check_file_status(
                         ))?;
                     } else {
                         for file in dice_list {
+                            let Ok(file) = FileName::new(&file) else {
+                                // Skip files which are not valid buck2 file names,
+                                // because we cannot construct `CellRelativePath` for them.
+                                // They are ignored anyway.
+                                // Perhaps this function should only check non-ignored directories.
+                                continue;
+                            };
                             let mut path = path.to_owned();
                             path.push(file);
                             check_file_status(file_ops, cell_resolver, project_root, &path, result)
