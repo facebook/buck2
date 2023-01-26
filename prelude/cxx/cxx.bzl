@@ -351,7 +351,7 @@ def prebuilt_cxx_library_impl(ctx: "context") -> ["provider"]:
     sub_targets = {}
     for link_style in get_link_styles_for_linkage(preferred_linkage):
         args = []
-        outs = []
+        out = None
 
         # Add exported linker flags first.
         args.extend(cxx_attr_exported_linker_flags(ctx))
@@ -370,12 +370,12 @@ def prebuilt_cxx_library_impl(ctx: "context") -> ["provider"]:
 
             if link_style == LinkStyle("static"):
                 if static_lib:
-                    outs.append(static_lib)
+                    out = static_lib
                     linkable = archive_linkable(static_lib)
             elif link_style == LinkStyle("static_pic"):
                 lib = static_pic_lib or static_lib
                 if lib:
-                    outs.append(lib)
+                    out = lib
                     linkable = archive_linkable(lib)
             else:  # shared
                 # If no shared library was provided, link one from the static libraries.
@@ -401,7 +401,7 @@ def prebuilt_cxx_library_impl(ctx: "context") -> ["provider"]:
                         )
 
                 if shared_lib:
-                    outs.append(shared_lib.output)
+                    out = shared_lib.output
 
                     # Some prebuilt shared libs don't set a SONAME (e.g.
                     # IntelComposerXE), so we can't link them via just the shared
@@ -436,7 +436,7 @@ def prebuilt_cxx_library_impl(ctx: "context") -> ["provider"]:
                     sub_targets["soname-lib"] = [DefaultInfo(default_output = soname_lib)]
 
         # TODO(cjhopman): is it okay that we sometimes don't have a linkable?
-        outputs[link_style] = outs
+        outputs[link_style] = out
         libraries[link_style] = LinkInfos(
             default = LinkInfo(
                 name = ctx.attrs.name,
@@ -447,7 +447,7 @@ def prebuilt_cxx_library_impl(ctx: "context") -> ["provider"]:
         )
 
         sub_targets[link_style.value.replace("_", "-")] = [DefaultInfo(
-            default_outputs = outputs[link_style],
+            default_output = outputs[link_style],
         )]
 
     # Create the default ouput for the library rule given it's link style and preferred linkage
@@ -455,7 +455,7 @@ def prebuilt_cxx_library_impl(ctx: "context") -> ["provider"]:
     actual_link_style = get_actual_link_style(link_style, preferred_linkage)
     output = outputs[actual_link_style]
     providers.append(DefaultInfo(
-        default_outputs = output,
+        default_output = output,
         sub_targets = sub_targets,
     ))
 
