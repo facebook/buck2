@@ -298,13 +298,7 @@ pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<AttributeAsStarlarkValue> {
         let coercer = AttrType::option(inner.coercer_for_inner()?);
-        let attr = Attribute::attr(
-            eval,
-            Some(default.unwrap_or_else(Value::new_none)),
-            default.is_none(),
-            doc,
-            coercer,
-        )?;
+        let attr = Attribute::attr(eval, default, false, doc, coercer)?;
 
         match attr.default() {
             Some(default) if !default.may_return_none() => {
