@@ -375,7 +375,6 @@ impl TargetHashes {
         Ok(Self { target_mapping })
     }
 
-    #[allow(dead_code)]
     async fn compute_immediate_target_hashes<T: TargetHashingTargetNode>(
         targets: TargetSet<T>,
         file_hasher: Arc<dyn FileHasher>,
@@ -431,14 +430,19 @@ impl TargetHashes {
         file_hash_mode: TargetHashFileMode,
         modified_paths: HashSet<CellPath>,
         use_fast_hash: bool,
+        target_hash_recursive: bool,
     ) -> anyhow::Result<Self>
     where
         T::NodeRef: ConfiguredOrUnconfiguredTargetLabel,
     {
         let targets = T::get_target_nodes(&ctx, targets, global_target_platform).await?;
         let file_hasher = Self::new_file_hasher(ctx.dupe(), file_hash_mode, modified_paths);
-        Self::compute_recursive_target_hashes(ctx, lookup, targets, file_hasher, use_fast_hash)
-            .await
+        if target_hash_recursive {
+            Self::compute_recursive_target_hashes(ctx, lookup, targets, file_hasher, use_fast_hash)
+                .await
+        } else {
+            Self::compute_immediate_target_hashes(targets, file_hasher, use_fast_hash).await
+        }
     }
 
     fn new_file_hasher(

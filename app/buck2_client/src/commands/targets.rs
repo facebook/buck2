@@ -111,6 +111,11 @@ pub struct TargetsCommand {
     #[clap(long, ignore_case = true, default_value = "fast", arg_enum)]
     target_hash_function: TargetHashFunction,
 
+    /// When true, emit the hash or target node and all dependencies recursively.
+    //// When false, hash only the target node.
+    #[clap(long, action = clap::ArgAction::Set, default_value = "true")]
+    target_hash_recursive: bool,
+
     #[clap(flatten)]
     attributes: CommonAttributeArgs,
 
@@ -206,6 +211,7 @@ impl StreamingCommand for TargetsCommand {
             target_call_stacks: self.target_call_stacks,
             target_hash_graph_type,
             include_default_attributes: self.include_defaults,
+            target_hash_recursive: self.target_hash_recursive,
         };
 
         if self.show_output {

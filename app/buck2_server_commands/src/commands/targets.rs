@@ -260,6 +260,7 @@ struct TargetsOptions {
     target_hash_modified_paths: HashSet<CellPath>,
     use_fast_hash: bool,
     target_hash_graph_type: TargetHashGraphType,
+    target_hash_recursive: bool,
 }
 
 pub async fn targets_command(
@@ -433,6 +434,7 @@ async fn targets(
             use_fast_hash: request.target_hash_use_fast_hash,
             target_hash_graph_type: TargetHashGraphType::from_i32(request.target_hash_graph_type)
                 .expect("buck cli should send valid target hash graph type"),
+            target_hash_recursive: request.target_hash_recursive,
         },
     )
     .await?;
@@ -461,6 +463,7 @@ async fn parse_and_get_results(
                 options.target_hash_mode,
                 options.target_hash_modified_paths,
                 options.use_fast_hash,
+                options.target_hash_recursive,
             )
             .await?,
         ),
@@ -473,6 +476,7 @@ async fn parse_and_get_results(
                 options.target_hash_mode,
                 options.target_hash_modified_paths,
                 options.use_fast_hash,
+                options.target_hash_recursive,
             )
             .await?,
         ),
