@@ -23,7 +23,6 @@ use buck2_common::file_ops::SimpleDirEntry;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
-use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
@@ -234,16 +233,9 @@ async fn check_file_status(
                             dice_list,
                         ))?;
                     } else {
-                        for file in dice_list {
-                            let Ok(file) = FileName::new(&file) else {
-                                // Skip files which are not valid buck2 file names,
-                                // because we cannot construct `CellRelativePath` for them.
-                                // They are ignored anyway.
-                                // Perhaps this function should only check non-ignored directories.
-                                continue;
-                            };
+                        for file in &*dice_read_dir.included {
                             let mut path = path.to_owned();
-                            path.push(file);
+                            path.push(&file.file_name);
                             check_file_status(file_ops, cell_resolver, project_root, &path, result)
                                 .await?;
                         }
