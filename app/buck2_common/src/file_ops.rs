@@ -14,18 +14,14 @@ use std::path::Path;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use anyhow::Context;
 use async_trait::async_trait;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::cell_root_path::CellRootPath;
-use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::cells::paths::CellRelativePathBuf;
 use buck2_core::fs::paths::file_name::FileNameBuf;
-use buck2_core::fs::project::ProjectRelativePath;
-use buck2_core::fs::project::ProjectRelativePathBuf;
 use derive_more::Display;
 use dupe::Dupe;
 use gazebo::cmp::PartialEqAny;
@@ -42,7 +38,6 @@ use crate::cas_digest::CasDigest;
 use crate::cas_digest::TrackedCasDigest;
 use crate::cas_digest::TrackedCasDigestKind;
 use crate::external_symlink::ExternalSymlink;
-use crate::io::IoProvider;
 use crate::result::SharedResult;
 
 #[derive(Debug, Error)]
@@ -362,104 +357,6 @@ pub trait FileOps: Allocative + Send + Sync {
 impl PartialEq for dyn FileOps {
     fn eq(&self, other: &dyn FileOps) -> bool {
         self.eq_token() == other.eq_token()
-    }
-}
-
-pub trait DefaultFileOpsDelegate: Allocative + PartialEq + Send + Sync + 'static {
-    fn check_ignored(&self, path: CellPathRef) -> anyhow::Result<FileIgnoreResult>;
-    fn resolve_cell_root(&self, cell: CellName) -> anyhow::Result<CellRootPathBuf>;
-    fn resolve(&self, path: CellPathRef) -> anyhow::Result<ProjectRelativePathBuf>;
-    fn get_cell_path(&self, path: &ProjectRelativePath) -> anyhow::Result<CellPath>;
-    fn io_provider(&self) -> &dyn IoProvider;
-}
-
-#[async_trait]
-impl<T: DefaultFileOpsDelegate> FileOps for T {
-    async fn read_file(&self, path: CellPathRef<'async_trait>) -> anyhow::Result<String> {
-        // TODO(cjhopman): error on ignored paths, maybe.
-        let project_path = self.resolve(path)?;
-        self.io_provider().read_file(project_path).await
-    }
-
-    async fn read_dir(
-        &self,
-        path: CellPathRef<'async_trait>,
-    ) -> SharedResult<Arc<[SimpleDirEntry]>> {
-        Ok(self.read_dir_with_ignores(path).await?.included)
-    }
-
-    async fn read_dir_with_ignores(
-        &self,
-        path: CellPathRef<'async_trait>,
-    ) -> SharedResult<ReadDirOutput> {
-        // TODO(cjhopman): This should also probably verify that the parent chain is not ignored.
-        self.check_ignored(path.dupe())?
-            .into_result()
-            .with_context(|| format!("Error checking whether dir `{}` is ignored", path))?;
-
-        let project_path = self.resolve(path.dupe())?;
-        let mut entries = self
-            .io_provider()
-            .read_dir(project_path)
-            .await
-            .with_context(|| format!("Error listing dir `{}`", path))?;
-
-        // Make sure entries are deterministic, since read_dir isn't.
-        entries.sort_by(|a, b| a.file_name.cmp(&b.file_name));
-
-        let is_ignored = |entry: &SimpleDirEntry| {
-            let entry_path = path.join(&entry.file_name);
-            let is_ignored =
-                DefaultFileOpsDelegate::check_ignored(self, entry_path.as_ref())?.is_ignored();
-            anyhow::Ok(is_ignored)
-        };
-
-        let mut ignored_entries = Vec::new();
-
-        // Filter out any entries that are ignored.
-        let mut filtering_error = None;
-        let (included_entries, ignored_entries): (Vec<_>, Vec<_>) =
-            entries.into_iter().partition(|e| match is_ignored(e) {
-                Ok(ignored) => {
-                    ignored_entries.push(e.clone());
-                    !ignored
-                }
-                Err(e) => {
-                    filtering_error = Some(e);
-                    true
-                }
-            });
-
-        if let Some(err) = filtering_error {
-            return Err(err.into());
-        }
-        Ok(ReadDirOutput {
-            included: included_entries.into(),
-            ignored: ignored_entries.into(),
-        })
-    }
-
-    async fn read_path_metadata_if_exists(
-        &self,
-        path: CellPathRef<'async_trait>,
-    ) -> SharedResult<Option<RawPathMetadata>> {
-        let project_path = self.resolve(path.dupe())?;
-
-        let res = self
-            .io_provider()
-            .read_path_metadata_if_exists(project_path)
-            .await
-            .with_context(|| format!("Error accessing metadata for path `{}`", path))?;
-        res.map(|meta| meta.try_map(|path| Ok(Arc::new(self.get_cell_path(&path)?))))
-            .transpose()
-    }
-
-    async fn is_ignored(&self, path: CellPathRef<'async_trait>) -> anyhow::Result<bool> {
-        Ok(self.check_ignored(path)?.is_ignored())
-    }
-
-    fn eq_token(&self) -> PartialEqAny {
-        PartialEqAny::new(self)
     }
 }
 
@@ -931,6 +828,7 @@ mod tests {
     mod unix {
         use std::os::unix::fs::symlink;
 
+        use anyhow::Context;
         use buck2_core::fs::fs_util;
 
         use super::*;
