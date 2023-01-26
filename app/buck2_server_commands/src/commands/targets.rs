@@ -459,6 +459,7 @@ async fn parse_and_get_results(
             TargetHashesFileMode::PathsOnly(options.target_hash_modified_paths)
         }
         TargetHashFileMode::PathsAndContents => TargetHashesFileMode::PathsAndContents,
+        TargetHashFileMode::NoFiles => TargetHashesFileMode::None,
     };
     let target_hashes = match options.target_hash_graph_type {
         TargetHashGraphType::Configured => Some(

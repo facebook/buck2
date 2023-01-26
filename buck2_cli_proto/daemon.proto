@@ -81,6 +81,7 @@ message TargetsRequest {
   enum TargetHashFileMode {
     PATHS_ONLY = 0;
     PATHS_AND_CONTENTS = 1;
+    NO_FILES = 2; // Would like this to be named NONE, but not allowable
   }
 
   enum TargetHashGraphType {

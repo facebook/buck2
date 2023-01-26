@@ -94,6 +94,8 @@ pub enum TargetHashesFileMode {
     PathsOnly(HashSet<CellPath>),
     /// Use IO operations to find the paths and their contents
     PathsAndContents,
+    /// Don't hash any files
+    None,
 }
 
 #[async_trait]
@@ -264,7 +266,7 @@ impl TargetHashes {
         dice: DiceTransaction,
         lookup: L,
         targets: TargetSet<T>,
-        file_hasher: Arc<dyn FileHasher>,
+        file_hasher: Option<Arc<dyn FileHasher>>,
         use_fast_hash: bool,
     ) -> anyhow::Result<Self>
     where
@@ -272,7 +274,7 @@ impl TargetHashes {
     {
         struct Delegate<T: QueryTarget> {
             hashes: HashMap<T::NodeRef, Shared<BoxFuture<'static, SharedResult<BuckTargetHash>>>>,
-            file_hasher: Arc<dyn FileHasher>,
+            file_hasher: Option<Arc<dyn FileHasher>>,
             use_fast_hash: bool,
             dice: DiceTransaction,
         }
@@ -307,14 +309,16 @@ impl TargetHashes {
                             TargetHashes::hash_node(&target, &mut *hasher);
 
                             let mut input_futs = Vec::new();
-                            target.inputs_for_each(|cell_path| {
-                                let file_hasher = file_hasher.dupe();
-                                input_futs.push(async move {
-                                    let file_hash = file_hasher.hash_path(&cell_path).await;
-                                    (cell_path, file_hash)
-                                });
-                                anyhow::Ok(())
-                            })?;
+                            if let Some(file_hasher) = file_hasher {
+                                target.inputs_for_each(|cell_path| {
+                                    let file_hasher = file_hasher.dupe();
+                                    input_futs.push(async move {
+                                        let file_hash = file_hasher.hash_path(&cell_path).await;
+                                        (cell_path, file_hash)
+                                    });
+                                    anyhow::Ok(())
+                                })?;
+                            }
 
                             let (dep_hashes, input_hashes) =
                                 join!(join_all(dep_futures), join_all(input_futs));
@@ -383,7 +387,7 @@ impl TargetHashes {
 
     async fn compute_immediate_target_hashes<T: TargetHashingTargetNode>(
         targets: TargetSet<T>,
-        file_hasher: Arc<dyn FileHasher>,
+        file_hasher: Option<Arc<dyn FileHasher>>,
         use_fast_hash: bool,
     ) -> anyhow::Result<Self>
     where
@@ -398,18 +402,20 @@ impl TargetHashes {
                         let mut hasher = TargetHashes::new_hasher(use_fast_hash);
                         TargetHashes::hash_node(&target, &mut *hasher);
 
-                        let mut input_futs = Vec::new();
-                        target.inputs_for_each(|cell_path| {
-                            let file_hasher = file_hasher.dupe();
-                            input_futs.push(async move {
-                                let file_hash = file_hasher.hash_path(&cell_path).await;
-                                (cell_path, file_hash)
-                            });
-                            anyhow::Ok(())
-                        })?;
+                        if let Some(file_hasher) = file_hasher {
+                            let mut input_futs = Vec::new();
+                            target.inputs_for_each(|cell_path| {
+                                let file_hasher = file_hasher.dupe();
+                                input_futs.push(async move {
+                                    let file_hash = file_hasher.hash_path(&cell_path).await;
+                                    (cell_path, file_hash)
+                                });
+                                anyhow::Ok(())
+                            })?;
 
-                        let input_hashes = join_all(input_futs).await;
-                        TargetHashes::hash_files(input_hashes, &mut *hasher)?;
+                            let input_hashes = join_all(input_futs).await;
+                            TargetHashes::hash_files(input_hashes, &mut *hasher)?;
+                        }
 
                         hasher.finish_u128()
                     };
@@ -453,14 +459,17 @@ impl TargetHashes {
     fn new_file_hasher(
         dice: DiceTransaction,
         file_hash_mode: TargetHashesFileMode,
-    ) -> Arc<dyn FileHasher> {
+    ) -> Option<Arc<dyn FileHasher>> {
         match file_hash_mode {
-            TargetHashesFileMode::PathsOnly(modified_paths) => Arc::new(PathsOnlyFileHasher {
-                pseudo_changed_paths: modified_paths,
-            }),
-            TargetHashesFileMode::PathsAndContents => {
-                Arc::new(PathsAndContentsHasher { dice: dice.dupe() })
+            TargetHashesFileMode::PathsOnly(modified_paths) => {
+                Some(Arc::new(PathsOnlyFileHasher {
+                    pseudo_changed_paths: modified_paths,
+                }))
             }
+            TargetHashesFileMode::PathsAndContents => {
+                Some(Arc::new(PathsAndContentsHasher { dice: dice.dupe() }))
+            }
+            TargetHashesFileMode::None => None,
         }
     }
 

@@ -30,6 +30,7 @@ use gazebo::prelude::*;
 enum TargetHashFileMode {
     PathsOnly,
     PathsAndContents,
+    None,
 }
 
 #[derive(Debug, clap::ArgEnum, Clone, Dupe)]
@@ -88,7 +89,8 @@ pub struct TargetsCommand {
 
     /// Modifies computation of target hashes. If set to `PATHS_AND_CONTENTS` (the default), the contents
     /// of all files referenced from the targets will be used to compute the target hash. If set to
-    /// `PATHS_ONLY`, only files' paths contribute to the hash. See also --target-hash-modified-paths.
+    /// `PATHS_ONLY`, only files' paths contribute to the hash. If set to `NONE` no files will be used.
+    /// See also --target-hash-modified-paths.
     #[clap(
         long,
         arg_enum,
@@ -204,6 +206,7 @@ impl StreamingCommand for TargetsCommand {
                 TargetHashFileMode::PathsAndContents => {
                     targets_request::TargetHashFileMode::PathsAndContents as i32
                 }
+                TargetHashFileMode::None => targets_request::TargetHashFileMode::NoFiles as i32,
             },
             target_hash_modified_paths: self.target_hash_modified_paths,
             target_hash_use_fast_hash,
