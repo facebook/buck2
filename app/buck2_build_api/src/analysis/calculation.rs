@@ -480,12 +480,12 @@ mod tests {
         let bzlfile = ImportPath::unchecked_new("cell", "pkg", "foo.bzl");
         let resolver = {
             let mut cells = CellsAggregator::new();
-            cells.add_cell_alias_entry(
+            cells.add_cell_entry(
                 CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("cell".to_owned())),
                 CellAlias::new("".to_owned()),
                 CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("".to_owned())),
             )?;
-            cells.add_cell_alias_entry(
+            cells.add_cell_entry(
                 CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("cell".to_owned())),
                 CellAlias::new("cell".to_owned()),
                 CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("cell".to_owned())),

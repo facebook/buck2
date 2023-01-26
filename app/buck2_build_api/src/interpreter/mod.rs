@@ -137,7 +137,7 @@ pub(crate) mod testing {
 
     pub(crate) fn cells(extra_root_config: Option<&str>) -> anyhow::Result<CellsData> {
         let mut agg = CellsAggregator::new();
-        agg.add_cell_alias_entry(
+        agg.add_cell_entry(
             CellRootPathBuf::new(ProjectRelativePathBuf::try_from("".to_owned())?),
             CellAlias::new("root".to_owned()),
             CellRootPathBuf::new(ProjectRelativePathBuf::try_from("".to_owned())?),

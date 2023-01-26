@@ -134,7 +134,7 @@ mod tests {
 
                 for (_, path) in cells {
                     for (alias, alias_path) in &cell_paths {
-                        agg.add_cell_alias_entry(
+                        agg.add_cell_entry(
                             CellRootPathBuf::new(ProjectRelativePathBuf::try_from(
                                 (*path).to_owned(),
                             )?),

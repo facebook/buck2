@@ -515,7 +515,7 @@ impl CellsAggregator {
     }
 
     /// Adds a cell alias configuration entry
-    pub fn add_cell_alias_entry(
+    pub fn add_cell_entry(
         &mut self,
         cell_root: CellRootPathBuf,
         parsed_alias: CellAlias,
@@ -872,22 +872,22 @@ mod tests {
         let alias_path =
             CellRootPathBuf::new(ProjectRelativePathBuf::try_from("random/path".to_owned())?);
 
-        agg.add_cell_alias_entry(
+        agg.add_cell_entry(
             cell_root.clone(),
             CellAlias::new("root".to_owned()),
             cell_root.clone(),
         )?;
-        agg.add_cell_alias_entry(
+        agg.add_cell_entry(
             cell_root.clone(),
             CellAlias::new("hello".to_owned()),
             alias_path.clone(),
         )?;
-        agg.add_cell_alias_entry(
+        agg.add_cell_entry(
             cell_root.clone(),
             CellAlias::new("cruel".to_owned()),
             alias_path.clone(),
         )?;
-        agg.add_cell_alias_entry(cell_root, CellAlias::new("world".to_owned()), alias_path)?;
+        agg.add_cell_entry(cell_root, CellAlias::new("world".to_owned()), alias_path)?;
 
         // We want the first alias to win (hello), rather than the lexiographically first (cruel)
         assert!(

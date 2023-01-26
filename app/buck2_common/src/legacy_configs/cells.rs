@@ -257,11 +257,7 @@ impl BuckConfigBasedCells {
                     if path.as_str() == "" {
                         root_aliases.insert(alias.clone(), alias_path.clone());
                     }
-                    cells_aggregator.add_cell_alias_entry(
-                        path.clone(),
-                        alias,
-                        alias_path.clone(),
-                    )?;
+                    cells_aggregator.add_cell_entry(path.clone(), alias, alias_path.clone())?;
                     if options.parse_cells {
                         work.push(alias_path);
                     }
@@ -277,7 +273,7 @@ impl BuckConfigBasedCells {
 
         for cell_path in buckconfigs.keys() {
             for (alias, alias_path) in &root_aliases {
-                cells_aggregator.add_cell_alias_entry(
+                cells_aggregator.add_cell_entry(
                     cell_path.clone(),
                     alias.clone(),
                     alias_path.clone(),
