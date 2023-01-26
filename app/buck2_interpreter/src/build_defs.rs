@@ -251,9 +251,11 @@ mod tests {
                 + content,
         )?;
         let buckconfig = LegacyBuckConfig::empty();
+        let root_buckconfig = LegacyBuckConfig::empty();
         let env = interpreter.eval_module(
             StarlarkModulePath::LoadFile(&import_path),
             &buckconfig,
+            &root_buckconfig,
             ast,
             LoadedModules::default(),
             None,
@@ -283,9 +285,11 @@ mod tests {
             .to_owned(),
         )?;
         let buckconfig = LegacyBuckConfig::empty();
+        let root_buckconfig = LegacyBuckConfig::empty();
         interpreter.eval_build_file::<TesterExtraContext>(
             &buildfile_path,
             &buckconfig,
+            &root_buckconfig,
             PackageListing::empty(FileNameBuf::unchecked_new("BUCK")),
             false,
             ast,

@@ -9,6 +9,7 @@
 
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
+use starlark::values::none::NoneOr;
 use starlark::values::StringValue;
 use starlark::values::Value;
 
@@ -27,6 +28,23 @@ pub fn register_read_config(globals: &mut GlobalsBuilder) {
         match buckconfig.get(section, key)? {
             Some(v) => Ok(v.to_value()),
             None => Ok(default.unwrap_or_else(Value::new_none)),
+        }
+    }
+
+    #[starlark(speculative_exec_safe)]
+    fn read_root_config<'v>(
+        #[starlark(require = pos)] section: StringValue,
+        #[starlark(require = pos)] key: StringValue,
+        // Unlike `read_config` we only allow string or `None` as default.
+        #[starlark(require = pos, default = NoneOr::None)] default: NoneOr<StringValue<'v>>,
+        eval: &mut Evaluator<'v, '_>,
+    ) -> anyhow::Result<Value<'v>> {
+        let buckconfig = &BuildContext::from_context(eval)?.root_buckconfig;
+        match buckconfig.get(section, key)? {
+            Some(v) => Ok(v.to_value()),
+            None => Ok(default
+                .into_option()
+                .map_or(Value::new_none(), |s| s.to_value())),
         }
     }
 }

@@ -118,10 +118,12 @@ pub fn to_value<'v>(env: &'v Module, globals: &Globals, content: &str) -> Value<
     )
     .unwrap();
     let buckconfig = LegacyBuckConfig::empty();
+    let root_buckconfig = LegacyBuckConfig::empty();
     let build_ctx = BuildContext::new_for_module(
         env,
         &cell_info,
         &buckconfig,
+        &root_buckconfig,
         StarlarkPath::LoadFile(&import_path),
         None,
         InterpreterHostPlatform::Linux,

@@ -82,7 +82,10 @@ pub struct BuildContext<'a> {
     /// `load()` statements.
     cell_info: &'a InterpreterCellInfo,
 
+    /// Current cell file buckconfig.
     pub(crate) buckconfig: LegacyBuckConfigForStarlark<'a>,
+    /// Buckconfig of the root cell.
+    pub(crate) root_buckconfig: LegacyBuckConfigForStarlark<'a>,
 
     /// The import path that is being evaluated
     pub starlark_path: StarlarkPath<'a>,
@@ -108,6 +111,7 @@ impl<'a> BuildContext<'a> {
         module: &'a Module,
         cell_info: &'a InterpreterCellInfo,
         buckconfig: &'a (dyn LegacyBuckConfigView + 'a),
+        root_buckconfig: &'a (dyn LegacyBuckConfigView + 'a),
         starlark_path: StarlarkPath<'a>,
         listing: Option<PackageListing>,
         host_platform: InterpreterHostPlatform,
@@ -116,9 +120,11 @@ impl<'a> BuildContext<'a> {
         ignore_attrs_for_profiling: bool,
     ) -> BuildContext<'a> {
         let buckconfig = LegacyBuckConfigForStarlark::new(module, buckconfig);
+        let root_buckconfig = LegacyBuckConfigForStarlark::new(module, root_buckconfig);
         BuildContext {
             cell_info,
             buckconfig,
+            root_buckconfig,
             starlark_path,
             listing,
             host_platform,

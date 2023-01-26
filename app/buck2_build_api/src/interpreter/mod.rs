@@ -310,9 +310,11 @@ pub(crate) mod testing {
                 .configs
                 .get(self.cell_alias_resolver.resolve_self())
                 .unwrap();
+            let root_buckconfig = self.configs.get(self.cell_resolver.root_cell()).unwrap();
             let env = interpreter.eval_module(
                 StarlarkModulePath::LoadFile(path),
                 buckconfig,
+                root_buckconfig,
                 ast,
                 loaded_modules.clone(),
                 None,
@@ -356,9 +358,11 @@ pub(crate) mod testing {
                 .configs
                 .get(self.cell_alias_resolver.resolve_self())
                 .unwrap();
+            let root_buckconfig = self.configs.get(self.cell_resolver.root_cell()).unwrap();
             let eval_result = interpreter.eval_build_file::<ModuleInternals>(
                 path,
                 buckconfig,
+                root_buckconfig,
                 package_listing,
                 false,
                 ast,

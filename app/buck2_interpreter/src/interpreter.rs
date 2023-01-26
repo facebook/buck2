@@ -637,6 +637,7 @@ impl InterpreterForCell {
         ast: AstModule,
         import: StarlarkPath<'_>,
         buckconfig: &dyn LegacyBuckConfigView,
+        root_buckconfig: &dyn LegacyBuckConfigView,
         loaded_modules: LoadedModules,
         listing: Option<PackageListing>,
         extra_context: Option<Box<dyn ExtraContextDyn>>,
@@ -652,6 +653,7 @@ impl InterpreterForCell {
             env,
             cell_info,
             buckconfig,
+            root_buckconfig,
             import,
             listing,
             host_platform,
@@ -689,6 +691,7 @@ impl InterpreterForCell {
         &self,
         starlark_path: StarlarkModulePath<'_>,
         buckconfig: &dyn LegacyBuckConfigView,
+        root_buckconfig: &dyn LegacyBuckConfigView,
         ast: AstModule,
         loaded_modules: LoadedModules,
         starlark_profiler_instrumentation: Option<StarlarkProfilerInstrumentation>,
@@ -699,6 +702,7 @@ impl InterpreterForCell {
             ast,
             StarlarkPath::from(starlark_path),
             buckconfig,
+            root_buckconfig,
             loaded_modules,
             None,
             None,
@@ -716,6 +720,7 @@ impl InterpreterForCell {
         &self,
         build_file: &BuildFilePath,
         buckconfig: &dyn LegacyBuckConfigView,
+        root_buckconfig: &dyn LegacyBuckConfigView,
         listing: PackageListing,
         package_boundary_exception: bool,
         ast: AstModule,
@@ -734,6 +739,7 @@ impl InterpreterForCell {
                 ast,
                 StarlarkPath::BuildFile(build_file),
                 buckconfig,
+                root_buckconfig,
                 loaded_modules,
                 Some(listing),
                 Some(internals),
@@ -879,8 +885,15 @@ mod tests {
             let interpreter = self.interpreter()?;
             let ParseResult(ast, _) = interpreter.parse(path.into(), content.to_owned())?;
             let buckconfig = LegacyBuckConfig::empty();
-            let env =
-                interpreter.eval_module(path, &buckconfig, ast, loaded_modules.clone(), None)?;
+            let root_buckconfig = LegacyBuckConfig::empty();
+            let env = interpreter.eval_module(
+                path,
+                &buckconfig,
+                &root_buckconfig,
+                ast,
+                loaded_modules.clone(),
+                None,
+            )?;
             Ok(LoadedModule::new(
                 OwnedStarlarkModulePath::new(path),
                 loaded_modules,
@@ -900,9 +913,11 @@ mod tests {
             let ParseResult(ast, _) =
                 interpreter.parse(StarlarkPath::BuildFile(path), content.to_owned())?;
             let buckconfig = LegacyBuckConfig::empty();
+            let root_buckconfig = LegacyBuckConfig::empty();
             let eval_result = interpreter.eval_build_file::<TesterExtraContext>(
                 path,
                 &buckconfig,
+                &root_buckconfig,
                 package_listing,
                 package_boundary_exception,
                 ast,

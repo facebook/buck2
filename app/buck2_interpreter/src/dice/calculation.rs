@@ -253,6 +253,16 @@ impl<'c> DiceCalculationDelegate<'c> {
             .get(self.build_file_cell.name())
     }
 
+    async fn get_legacy_root_buck_config_for_starlark(
+        &self,
+    ) -> anyhow::Result<LegacyBuckConfigOnDice<'c>> {
+        let resolver = self.ctx.get_cell_resolver().await?;
+        self.ctx
+            .get_legacy_configs_on_dice()
+            .await?
+            .get(resolver.root_cell())
+    }
+
     async fn get_package_boundary_exception(&self, path: CellPathRef<'_>) -> SharedResult<bool> {
         self.ctx.get_package_boundary_exception(path).await
     }
@@ -331,6 +341,7 @@ impl<'c> DiceCalculationDelegate<'c> {
         let (ast, deps) = self.prepare_eval(starlark_file.into()).await?;
         let loaded_modules = deps.get_loaded_modules();
         let buckconfig = self.get_legacy_buck_config_for_starlark().await?;
+        let root_buckconfig = self.get_legacy_root_buck_config_for_starlark().await?;
 
         let evaluation = self
             .get_interpreter_for_cell()
@@ -338,6 +349,7 @@ impl<'c> DiceCalculationDelegate<'c> {
             .eval_module(
                 starlark_file,
                 &buckconfig,
+                &root_buckconfig,
                 ast,
                 loaded_modules.clone(),
                 starlark_profiler_instrumentation,
@@ -388,11 +400,13 @@ impl<'c> DiceCalculationDelegate<'c> {
             .await?;
         let interpreter = self.get_interpreter_for_cell().await?;
         let buckconfig = self.get_legacy_buck_config_for_starlark().await?;
+        let root_buckconfig = self.get_legacy_root_buck_config_for_starlark().await?;
         span(start_event, move || {
             let result = interpreter
                 .eval_build_file::<T>(
                     &build_file_path,
                     &buckconfig,
+                    &root_buckconfig,
                     listing,
                     package_boundary_exception,
                     ast,
