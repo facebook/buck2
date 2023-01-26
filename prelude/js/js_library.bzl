@@ -182,7 +182,7 @@ def js_library_impl(ctx: "context") -> ["provider"]:
             ]
 
         return [
-            DefaultInfo(default_outputs = None, sub_targets = sub_targets),
+            DefaultInfo(default_output = None, sub_targets = sub_targets),
         ]
 
     grouped_srcs = _get_grouped_srcs(ctx)

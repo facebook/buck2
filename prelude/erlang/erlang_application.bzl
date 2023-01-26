@@ -394,7 +394,7 @@ def _build_default_info(dependencies: ErlAppDependencies, app_dir: "artifact") -
            not dep[ErlangAppInfo].virtual
     ]
 
-    return DefaultInfo(default_outputs = [app_dir], other_outputs = outputs)
+    return DefaultInfo(default_output = app_dir, other_outputs = outputs)
 
 def build_app_info(
         ctx: "context",

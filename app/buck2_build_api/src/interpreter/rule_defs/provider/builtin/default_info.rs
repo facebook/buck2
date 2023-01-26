@@ -72,7 +72,7 @@ use crate::interpreter::rule_defs::provider::ProviderCollection;
 ///                     DefaultInfo(default_outputs = [ctx.attrs.stripped, ctx.attrs.debug_info]),
 ///                 ],
 ///             },
-///             default_outputs = [ctx.attrs.out],
+///             default_output = ctx.attrs.out,
 ///     ]
 ///
 /// foo_binary = rule(

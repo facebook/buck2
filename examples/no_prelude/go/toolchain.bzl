@@ -53,4 +53,4 @@ def http_archive_impl(ctx: "context", url, sha1) -> ["provider"]:
     ctx.actions.run(cmd_args(["/bin/sh", script])
         .hidden([archive, output.as_output()]), category = "http_archive")
 
-    return [DefaultInfo(default_outputs = [output])]
+    return [DefaultInfo(default_output = output)]

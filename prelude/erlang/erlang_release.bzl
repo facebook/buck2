@@ -46,7 +46,7 @@ def _build_multi_toolchain_releases(
     for toolchain in toolchains.values():
         outputs[toolchain.name] = _build_release(ctx, toolchain, apps)
     releases_dir = _symlink_multi_toolchain_output(ctx, outputs)
-    return [DefaultInfo(default_outputs = [releases_dir]), ErlangReleaseInfo(name = _relname(ctx))]
+    return [DefaultInfo(default_output = releases_dir), ErlangReleaseInfo(name = _relname(ctx))]
 
 def _get_configured_toolchains(
         toolchains: {"string": "Toolchain"},
@@ -66,7 +66,7 @@ def _build_primary_release(ctx: "context", apps: ErlAppDependencies) -> ["provid
     primary_toolchain = toolchains[get_primary(ctx)]
     all_outputs = _build_release(ctx, primary_toolchain, apps)
     release_dir = _symlink_primary_toolchain_output(ctx, all_outputs)
-    return [DefaultInfo(default_outputs = [release_dir]), ErlangReleaseInfo(name = _relname(ctx))]
+    return [DefaultInfo(default_output = release_dir), ErlangReleaseInfo(name = _relname(ctx))]
 
 def _build_release(ctx: "context", toolchain: "Toolchain", apps: ErlAppDependencies) -> {"string": "artifact"}:
     # OTP base structure

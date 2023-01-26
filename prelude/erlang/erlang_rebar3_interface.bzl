@@ -89,6 +89,6 @@ def erlang_rebar3_interface_impl(ctx: "context") -> ["provider"]:
     run_info = build_run_info(ctx, build_env_file, outputs)
 
     return [
-        DefaultInfo(default_outputs = [build_env_file]),
+        DefaultInfo(default_output = build_env_file),
         run_info,
     ]

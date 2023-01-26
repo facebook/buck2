@@ -933,20 +933,20 @@ def ocaml_shared_impl(ctx: "context") -> ["provider"]:
 
     info_ide = [
         DefaultInfo(
-            default_outputs = [binary_nat],
+            default_output = binary_nat,
             other_outputs = [cmd_args(other_outputs_info.info.project_as_args("ide"))],
         ),
     ]
     info_expand = [
         DefaultInfo(
-            default_outputs = [binary_nat],
+            default_output = binary_nat,
             other_outputs = [cmd_args(other_outputs_info.info.project_as_args("expand"))],
         ),
     ]
     sub_targets = {"expand": info_expand, "ide": info_ide}
 
     return [
-        DefaultInfo(default_outputs = [binary_nat], sub_targets = sub_targets),
+        DefaultInfo(default_output = binary_nat, sub_targets = sub_targets),
     ]
 
 def prebuilt_ocaml_library_impl(ctx: "context") -> ["provider"]:

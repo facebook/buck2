@@ -16,7 +16,7 @@ def _go_binary_impl(ctx: "context") -> ["provider"]:
     ctx.actions.run(cmd, category = "compile")
 
     return [
-        DefaultInfo(default_outputs = [out]),
+        DefaultInfo(default_output = out),
         RunInfo(args = cmd_args(out)),
     ]
 

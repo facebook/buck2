@@ -55,4 +55,4 @@ def python_bootstrap_binary_impl(ctx: "context") -> ["provider"]:
         run_args.add(cmd_args(run_tree, format = "PYTHONPATH={}"))
         run_args.add(interpreter)
         run_args.add(output)
-    return [DefaultInfo(default_outputs = [output]), RunInfo(args = run_args)]
+    return [DefaultInfo(default_output = output), RunInfo(args = run_args)]

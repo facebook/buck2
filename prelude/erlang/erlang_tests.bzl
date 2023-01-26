@@ -262,7 +262,7 @@ def _build_default_info(dependencies: ErlAppDependencies, output_dir: "artifact"
             outputs.append(dep[ErlangAppInfo].app_folder)
         if ErlangTestInfo in dep:
             outputs += dep[DefaultInfo].default_outputs
-    return DefaultInfo(default_outputs = [output_dir], other_outputs = outputs)
+    return DefaultInfo(default_output = output_dir, other_outputs = outputs)
 
 def _write_test_info_file(
         ctx: "context",

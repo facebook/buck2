@@ -199,13 +199,11 @@ def _configured_otp_binaries_impl(ctx: "context") -> ["provider"]:
     )
     return [
         DefaultInfo(
-            default_outputs = [
-                bin_dir,
-            ],
+            default_output = bin_dir,
             sub_targets = {
-                "erl": [DefaultInfo(default_outputs = [tools._tools_binaries.erl]), RunInfo(tools.erl)],
-                "erlc": [DefaultInfo(default_outputs = [tools._tools_binaries.erlc]), RunInfo(tools.erlc)],
-                "escript": [DefaultInfo(default_outputs = [tools._tools_binaries.escript]), RunInfo(tools.escript)],
+                "erl": [DefaultInfo(default_output = tools._tools_binaries.erl), RunInfo(tools.erl)],
+                "erlc": [DefaultInfo(default_output = tools._tools_binaries.erlc), RunInfo(tools.erlc)],
+                "escript": [DefaultInfo(default_output = tools._tools_binaries.escript), RunInfo(tools.escript)],
             },
         ),
     ]

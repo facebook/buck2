@@ -18,7 +18,7 @@ def _cpp_binary_impl(ctx: "context") -> ["provider"]:
     ctx.actions.run(cmd, category = "compile")
 
     return [
-        DefaultInfo(default_outputs = [out]),
+        DefaultInfo(default_output = out),
         RunInfo(args = cmd_args(out)),
     ]
 
@@ -41,7 +41,7 @@ def _cpp_library_impl(ctx: "context") -> ["provider"]:
 
     ctx.actions.run(cmd, category = "compile")
 
-    return [DefaultInfo(default_outputs = [out]), CxxLibraryInfo(objects = [out], headers = headers)]
+    return [DefaultInfo(default_output = out), CxxLibraryInfo(objects = [out], headers = headers)]
 
 cpp_library = rule(
     impl = _cpp_library_impl,

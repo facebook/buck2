@@ -104,7 +104,7 @@ def erlang_escript_impl(ctx: "context") -> ["provider"]:
     )
 
     return [
-        DefaultInfo(default_outputs = [output]),
+        DefaultInfo(default_output = output),
         RunInfo(escript_cmd),
     ]
 
