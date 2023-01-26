@@ -342,15 +342,7 @@ impl TargetHashes {
         }
 
         let targets = T::get_target_nodes(&ctx, targets, global_target_platform).await?;
-
-        let file_hasher: Arc<dyn FileHasher> = match file_hash_mode {
-            TargetHashFileMode::PathsOnly => Arc::new(PathsOnlyFileHasher {
-                pseudo_changed_paths: modified_paths,
-            }),
-            TargetHashFileMode::PathsAndContents => {
-                Arc::new(PathsAndContentsHasher { ctx: ctx.dupe() })
-            }
-        };
+        let file_hasher = Self::new_file_hasher(ctx.dupe(), file_hash_mode, modified_paths);
 
         let mut delegate = Delegate::<T> {
             hashes: HashMap::new(),
@@ -385,6 +377,21 @@ impl TargetHashes {
             }
         }
         Ok(Self { target_mapping })
+    }
+
+    fn new_file_hasher(
+        ctx: DiceTransaction,
+        file_hash_mode: TargetHashFileMode,
+        modified_paths: HashSet<CellPath>,
+    ) -> Arc<dyn FileHasher> {
+        match file_hash_mode {
+            TargetHashFileMode::PathsOnly => Arc::new(PathsOnlyFileHasher {
+                pseudo_changed_paths: modified_paths,
+            }),
+            TargetHashFileMode::PathsAndContents => {
+                Arc::new(PathsAndContentsHasher { ctx: ctx.dupe() })
+            }
+        }
     }
 
     fn new_hasher(use_fast_hash: bool) -> Box<dyn BuckTargetHasher> {
