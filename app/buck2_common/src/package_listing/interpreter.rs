@@ -17,7 +17,6 @@ use buck2_core::cells::CellResolver;
 use buck2_core::collections::sorted_set::SortedSet;
 use buck2_core::collections::sorted_vec::SortedVec;
 use buck2_core::fs::paths::file_name::FileNameBuf;
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::package::package_relative_path::PackageRelativePath;
 use buck2_core::package::PackageLabel;
 use dupe::Dupe;
@@ -144,7 +143,7 @@ impl<'c> InterpreterPackageListingResolver<'c> {
                                entries: &[SimpleDirEntry]|
          -> anyhow::Result<()> {
             for d in entries {
-                let child_path = path.join(ForwardRelativePath::new(&d.file_name)?);
+                let child_path = path.join(&d.file_name);
                 if d.file_type.is_dir() {
                     work.push(async move {
                         let entries = self.fs.read_dir(child_path.as_ref()).await;
