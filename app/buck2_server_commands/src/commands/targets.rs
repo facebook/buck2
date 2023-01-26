@@ -45,6 +45,7 @@ use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
 use dice::DiceTransaction;
 use dupe::Dupe;
+use dupe::OptionDupedExt;
 use futures::stream::FuturesUnordered;
 use futures::stream::StreamExt;
 use itertools::Itertools;
@@ -488,6 +489,7 @@ async fn parse_and_get_results(
                     let target_hash = target_hashes
                         .as_ref()
                         .and_then(|hashes| hashes.get(node.label()))
+                        .duped()
                         .transpose()?;
                     printer.target(package.dupe(), TargetInfo { node, target_hash })
                 }

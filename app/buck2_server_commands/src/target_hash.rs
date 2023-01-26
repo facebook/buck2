@@ -249,8 +249,8 @@ enum TargetHashError {
 }
 
 impl TargetHashes {
-    pub fn get(&self, label: &TargetLabel) -> Option<SharedResult<BuckTargetHash>> {
-        return self.target_mapping.get(label).cloned();
+    pub fn get(&self, label: &TargetLabel) -> Option<&SharedResult<BuckTargetHash>> {
+        self.target_mapping.get(label)
     }
 
     pub async fn compute<T: TargetHashingTargetNode, L: AsyncNodeLookup<T>>(
