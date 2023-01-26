@@ -837,14 +837,8 @@ impl NodeCalculation for DiceComputations {
 
             fn equality(x: &Self::Value, y: &Self::Value) -> bool {
                 match (x, y) {
-                    (Ok(MaybeCompatible::Compatible(x)), Ok(MaybeCompatible::Compatible(y))) => {
-                        // Regular `Eq` assumes the same instance, but we need
-                        // to actually check for data equality to see if newly produced node
-                        // is equal to an existing.
-                        x.eq_for_dice(y)
-                    }
                     (Ok(x), Ok(y)) => x == y,
-                    (Err(_), _) | (_, Err(_)) => false,
+                    _ => false,
                 }
             }
         }
