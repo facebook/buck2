@@ -23,7 +23,6 @@ use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::cells::CellError;
 use buck2_core::cells::CellResolver;
-use buck2_core::configuration::Configuration;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
@@ -533,21 +532,7 @@ fn get_cell_path<'v>(
 
             // Advance iterator to the config hash
             let config_hash = match iter.next() {
-                Some(config_hash) => {
-                    let mut is_valid = false;
-                    for cfg in Configuration::iter_existing()?.filter(|c| c.is_bound()) {
-                        if config_hash.eq(cfg.output_hash()) {
-                            is_valid = true;
-                            break;
-                        }
-                    }
-
-                    if is_valid {
-                        config_hash.to_owned()
-                    } else {
-                        return Err(anyhow::anyhow!("Config hash is invalid {}", config_hash));
-                    }
-                }
+                Some(config_hash) => config_hash,
                 None => {
                     return Err(anyhow::anyhow!(
                         "Path does not have a platform configuration"
