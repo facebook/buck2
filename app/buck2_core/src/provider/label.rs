@@ -128,7 +128,7 @@ pub struct ProvidersLabel {
     name: ProvidersName,
 }
 
-assert_eq_size!(ProvidersLabel, [usize; 4]);
+assert_eq_size!(ProvidersLabel, [usize; 3]);
 
 impl ProvidersLabel {
     pub fn new(target: TargetLabel, name: ProvidersName) -> Self {

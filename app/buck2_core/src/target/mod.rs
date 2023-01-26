@@ -39,7 +39,7 @@ use std::fmt;
 use std::fmt::Display;
 
 use allocative::Allocative;
-use buck2_util::arc_str::ArcStr;
+use buck2_util::arc_str::ThinArcStr;
 use derive_more::Display;
 use dupe::Dupe;
 use serde::ser::Serialize;
@@ -56,7 +56,7 @@ use crate::package::PackageLabel;
     Clone, Debug, Dupe, Display, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative
 )]
 // TODO intern this?
-pub struct TargetName(ArcStr);
+pub struct TargetName(ThinArcStr);
 
 #[derive(Error, Debug)]
 enum InvalidTarget {
@@ -76,7 +76,7 @@ enum InvalidTarget {
 impl TargetName {
     pub fn new(name: &str) -> anyhow::Result<Self> {
         if Self::verify(name) {
-            Ok(Self(ArcStr::from(name)))
+            Ok(Self(ThinArcStr::from(name)))
         } else {
             if let Some((_, p)) = name.split_once('[') {
                 if p.contains(']') {
@@ -90,7 +90,7 @@ impl TargetName {
     }
 
     pub fn unchecked_new(name: &str) -> Self {
-        Self(ArcStr::from(name))
+        Self(ThinArcStr::from(name))
     }
 
     fn verify(name: &str) -> bool {
@@ -297,7 +297,7 @@ pub mod testing {
 #[cfg(test)]
 mod tests {
 
-    use buck2_util::arc_str::ArcStr;
+    use buck2_util::arc_str::ThinArcStr;
 
     use crate::target::TargetName;
 
@@ -305,13 +305,13 @@ mod tests {
     fn target_name_validation() {
         assert_eq!(
             TargetName::new("foo").unwrap(),
-            TargetName(ArcStr::from("foo"))
+            TargetName(ThinArcStr::from("foo"))
         );
         assert_eq!(
             // Copied allowed symbols from above.
             // `,`, `.`, `=`, `-`, `/`, `~`, `@`, `!`, `+` and `_`
             TargetName::new("foo,.=-/~@$!+_1").unwrap(),
-            TargetName(ArcStr::from("foo,.=-/~@$!+_1"))
+            TargetName(ThinArcStr::from("foo,.=-/~@$!+_1"))
         );
         assert!(TargetName::new("foo bar").is_err());
         assert!(TargetName::new("foo?bar").is_err());
