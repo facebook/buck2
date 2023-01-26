@@ -529,7 +529,7 @@ def python_binary_impl(ctx: "context") -> ["provider"]:
     )
     return [
         DefaultInfo(
-            default_outputs = pex.default_outputs,
+            default_output = pex.default_output,
             other_outputs = pex.other_outputs,
             sub_targets = pex.sub_targets,
         ),

@@ -77,7 +77,7 @@ def python_test_impl(ctx: "context") -> ["provider"]:
             use_project_relative_paths = re_executor != None,
         ),
     ) + [DefaultInfo(
-        default_outputs = pex.default_outputs,
+        default_output = pex.default_output,
         other_outputs = pex.other_outputs,
         sub_targets = pex.sub_targets,
     )]

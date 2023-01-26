@@ -34,7 +34,7 @@ PexModules = record(
 # The output of pex creation. It's everything needed to make the DefaultInfo and RunInfo
 # providers.
 PexProviders = record(
-    default_outputs = ["artifact"],
+    default_output = field("artifact"),
     other_outputs = ["artifact", "_arglike"],
     sub_targets = {str.type: ["provider"]},
     run_cmd = cmd_args.type,
@@ -166,7 +166,7 @@ def make_pex(
     run_args.append(output)
 
     return PexProviders(
-        default_outputs = [output],
+        default_output = output,
         other_outputs = runtime_files,
         sub_targets = {},
         run_cmd = cmd_args(run_args).hidden(runtime_files),
