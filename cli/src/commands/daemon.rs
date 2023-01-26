@@ -482,9 +482,10 @@ impl DaemonCommand {
                             "daemon verification failed, forcing shutdown: {:#}",
                             e
                         );
-                        hard_shutdown_sender
-                            .unbounded_send("Daemon verfication failed".to_owned())
-                            .unwrap();
+
+                        // If this is already shutting down, we don't need to do it again.
+                        let _ignored = hard_shutdown_sender
+                            .unbounded_send("Daemon verfication failed".to_owned());
                     }
                 };
             }
