@@ -204,7 +204,7 @@ pub trait UnconfiguredMacroExt {
     }
 
     fn new_unrecognized(macro_type: String, args: Vec<String>) -> UnconfiguredMacro {
-        UnconfiguredMacro::UnrecognizedMacro(macro_type, args)
+        UnconfiguredMacro::UnrecognizedMacro(macro_type.into_boxed_str(), args.into_boxed_slice())
     }
 }
 

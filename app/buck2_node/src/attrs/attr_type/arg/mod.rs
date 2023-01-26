@@ -121,8 +121,8 @@ pub enum StringWithMacrosPart<C: AttrConfig> {
     Macro(/* write_to_file */ bool, MacroBase<C>),
 }
 
-assert_eq_size!(MacroBase<CoercedAttr>, [usize; 7]);
-assert_eq_size!(StringWithMacrosPart<CoercedAttr>, [usize; 8]);
+assert_eq_size!(MacroBase<CoercedAttr>, [usize; 5]);
+assert_eq_size!(StringWithMacrosPart<CoercedAttr>, [usize; 6]);
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative)]
 pub enum MacroBase<C: AttrConfig> {
@@ -143,7 +143,7 @@ pub enum MacroBase<C: AttrConfig> {
     /// Right now, we defer error for unrecognized macros to the place where they are used. This just allows
     /// us to progress further into a build and detect more issues. Once we have all (or most) of the buckv1 macros
     /// recognized we'll remove this and make it an early error.
-    UnrecognizedMacro(String, Vec<String>),
+    UnrecognizedMacro(Box<str>, Box<[String]>),
 }
 
 impl MacroBase<ConfiguredAttr> {

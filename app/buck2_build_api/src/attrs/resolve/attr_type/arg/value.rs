@@ -195,7 +195,7 @@ impl ResolvedMacro {
             }
             ConfiguredMacro::Query(query) => Ok(ResolvedMacro::Query(query.resolve(ctx)?)),
             ConfiguredMacro::UnrecognizedMacro(name, _args) => Err(anyhow::anyhow!(
-                ResolvedMacroError::UnrecognizedMacroUnimplemented(name.clone())
+                ResolvedMacroError::UnrecognizedMacroUnimplemented((**name).to_owned())
             )),
         }
     }
