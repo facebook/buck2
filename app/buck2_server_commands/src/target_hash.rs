@@ -253,13 +253,11 @@ impl TargetHashes {
         self.target_mapping.get(label)
     }
 
-    pub async fn compute<T: TargetHashingTargetNode, L: AsyncNodeLookup<T>>(
+    async fn compute_recursive_target_hashes<T: TargetHashingTargetNode, L: AsyncNodeLookup<T>>(
         ctx: DiceTransaction,
         lookup: L,
-        targets: Vec<(PackageLabel, SharedResult<Vec<TargetNode>>)>,
-        global_target_platform: Option<TargetLabel>,
-        file_hash_mode: TargetHashFileMode,
-        modified_paths: HashSet<CellPath>,
+        targets: TargetSet<T>,
+        file_hasher: Arc<dyn FileHasher>,
         use_fast_hash: bool,
     ) -> anyhow::Result<Self>
     where
@@ -341,9 +339,6 @@ impl TargetHashes {
             }
         }
 
-        let targets = T::get_target_nodes(&ctx, targets, global_target_platform).await?;
-        let file_hasher = Self::new_file_hasher(ctx.dupe(), file_hash_mode, modified_paths);
-
         let mut delegate = Delegate::<T> {
             hashes: HashMap::new(),
             file_hasher,
@@ -377,6 +372,24 @@ impl TargetHashes {
             }
         }
         Ok(Self { target_mapping })
+    }
+
+    pub async fn compute<T: TargetHashingTargetNode, L: AsyncNodeLookup<T>>(
+        ctx: DiceTransaction,
+        lookup: L,
+        targets: Vec<(PackageLabel, SharedResult<Vec<TargetNode>>)>,
+        global_target_platform: Option<TargetLabel>,
+        file_hash_mode: TargetHashFileMode,
+        modified_paths: HashSet<CellPath>,
+        use_fast_hash: bool,
+    ) -> anyhow::Result<Self>
+    where
+        T::NodeRef: ConfiguredOrUnconfiguredTargetLabel,
+    {
+        let targets = T::get_target_nodes(&ctx, targets, global_target_platform).await?;
+        let file_hasher = Self::new_file_hasher(ctx.dupe(), file_hash_mode, modified_paths);
+        Self::compute_recursive_target_hashes(ctx, lookup, targets, file_hasher, use_fast_hash)
+            .await
     }
 
     fn new_file_hasher(
