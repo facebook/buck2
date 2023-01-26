@@ -16,6 +16,7 @@ use async_trait::async_trait;
 use dupe::Dupe;
 use parking_lot::Mutex;
 
+use crate::user_data::UserComputationData;
 use crate::DetectCycles;
 use crate::Dice;
 use crate::DiceComputations;
@@ -24,7 +25,6 @@ use crate::DiceProjectionComputations;
 use crate::HashMap;
 use crate::Key;
 use crate::ProjectionKey;
-use crate::UserComputationData;
 
 /// We have three keys in this test:
 /// * key for a global "configuration"

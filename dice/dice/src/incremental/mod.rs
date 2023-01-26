@@ -71,6 +71,7 @@ use crate::introspection::graph::EngineForIntrospection;
 use crate::projection::ProjectionKeyAsKey;
 use crate::projection::ProjectionKeyProperties;
 use crate::sync_handle::SyncDiceTaskHandle;
+use crate::user_data::UserComputationData;
 use crate::DiceProjectionComputations;
 use crate::DiceResult;
 use crate::HashMap;
@@ -80,7 +81,6 @@ use crate::OpaqueValue;
 use crate::ProjectionKey;
 use crate::StorageProperties;
 use crate::StoragePropertiesForKey;
-use crate::UserComputationData;
 
 /// Result of evaluation computation.
 pub(crate) struct ValueWithDeps<T> {

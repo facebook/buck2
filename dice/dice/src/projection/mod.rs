@@ -21,10 +21,10 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use dupe::Dupe;
 
-use crate::ctx::UserComputationData;
 use crate::incremental::IncrementalComputeProperties;
 use crate::introspection::graph::short_type_name;
 use crate::sync_handle::SyncDiceTaskHandle;
+use crate::user_data::UserComputationData;
 use crate::ComputationData;
 use crate::Dice;
 use crate::DiceData;

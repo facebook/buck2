@@ -218,6 +218,7 @@ pub(crate) mod metrics;
 pub(crate) mod opaque;
 pub(crate) mod projection;
 mod sync_handle;
+mod user_data;
 
 #[cfg(test)]
 mod tests;
@@ -253,7 +254,6 @@ pub use crate::ctx::DiceComputations;
 pub use crate::ctx::DiceEvent;
 pub use crate::ctx::DiceEventListener;
 pub use crate::ctx::DiceTransaction;
-pub use crate::ctx::UserComputationData;
 use crate::cycles::DetectCycles;
 use crate::cycles::RequestedKey;
 use crate::data::DiceData;
@@ -279,6 +279,7 @@ pub use crate::opaque::OpaqueValue;
 pub use crate::projection::DiceProjectionComputations;
 pub use crate::projection::ProjectionKey;
 use crate::projection::ProjectionKeyProperties;
+pub use crate::user_data::UserComputationData;
 
 #[derive(Clone, Dupe, Debug, Error, Allocative)]
 #[error(transparent)]
@@ -538,8 +539,8 @@ impl<K: Key> Evaluator for StoragePropertiesForKey<K> {
 
 pub mod testing {
     use crate::ctx::DiceTransaction;
-    use crate::ctx::UserComputationData;
     use crate::cycles::DetectCycles;
+    use crate::user_data::UserComputationData;
     use crate::Dice;
     use crate::DiceDataBuilder;
     use crate::Key;

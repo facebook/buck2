@@ -20,8 +20,6 @@ use dupe::Dupe;
 use futures::FutureExt;
 use gazebo::prelude::*;
 use more_futures::spawn::spawn_dropcancel;
-use more_futures::spawner::Spawner;
-use more_futures::spawner::TokioSpawner;
 
 use crate::cycles::CycleDetector;
 use crate::cycles::DetectCycles;
@@ -37,46 +35,11 @@ use crate::incremental::versions::VersionNumber;
 use crate::map::DiceMap;
 use crate::opaque::OpaqueValue;
 use crate::projection::ProjectionKeyAsKey;
+use crate::user_data::UserComputationData;
 use crate::Dice;
 use crate::DiceResult;
 use crate::Key;
 use crate::ProjectionKey;
-
-/// Includes all user related computation-specific data.
-#[derive(Allocative)]
-pub struct UserComputationData {
-    /// The DiceData provides a spot for users to attach whatever extra things they want.
-    ///
-    /// This can contain arbitrary data from users that will not be part of the dice graph.
-    /// As an example, users may want to inject some form of event dispatcher to send events from their computations.
-    pub data: DiceData,
-    pub tracker: Arc<dyn DiceEventListener>,
-    #[allocative(skip)]
-    pub spawner: Arc<dyn Spawner<Self>>,
-
-    /// We require that UserComputationData always be constructed with `..Default::default()`
-    pub _requires_default: RequireDefault,
-}
-
-#[derive(Allocative)]
-pub struct RequireDefault(());
-
-impl UserComputationData {
-    pub fn new() -> Self {
-        Self::default()
-    }
-}
-
-impl Default for UserComputationData {
-    fn default() -> Self {
-        Self {
-            data: DiceData::new(),
-            tracker: Arc::new(NoOpTracker),
-            spawner: Arc::new(TokioSpawner::default()),
-            _requires_default: RequireDefault(()),
-        }
-    }
-}
 
 /// A context for the duration of a top-level compute request.
 ///
@@ -98,7 +61,7 @@ pub trait DiceEventListener: Allocative + Send + Sync + 'static {
 }
 
 #[derive(Allocative)]
-struct NoOpTracker;
+pub(crate) struct NoOpTracker;
 
 impl DiceEventListener for NoOpTracker {
     fn event(&self, _ev: DiceEvent) {}
@@ -504,8 +467,8 @@ pub(crate) mod testing {
     use crate::cycles::DetectCycles;
     use crate::incremental::versions::MinorVersion;
     use crate::incremental::versions::VersionNumber;
+    use crate::user_data::UserComputationData;
     use crate::DiceComputations;
-    use crate::UserComputationData;
 
     pub(crate) trait DiceCtxExt {
         fn get_version(&self) -> VersionNumber;
@@ -544,9 +507,9 @@ mod tests {
 
     use crate::ctx::ComputationData;
     use crate::cycles::DetectCycles;
+    use crate::user_data::UserComputationData;
     use crate::DiceErrorImpl;
     use crate::RequestedKey;
-    use crate::UserComputationData;
 
     #[derive(Clone, Dupe, Display, Debug, PartialEq, Eq, Hash, Allocative)]
     struct K(usize);
