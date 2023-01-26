@@ -104,7 +104,12 @@ impl TargetPrinter for JsonPrinter {
         writeln!(self.json_string, "    {{",).unwrap();
         let mut first = true;
 
-        fn print_attr(this: &mut JsonPrinter, first: &mut bool, k: &str, v: &str) {
+        fn print_attr(
+            this: &mut JsonPrinter,
+            first: &mut bool,
+            k: &str,
+            v: impl FnOnce() -> String,
+        ) {
             if let Some(filter) = &this.attributes {
                 if !filter.is_match(k) {
                     return;
@@ -116,43 +121,42 @@ impl TargetPrinter for JsonPrinter {
                 writeln!(this.json_string, ",").unwrap();
             }
             *first = false;
-            write!(this.json_string, "      \"{}\": {}", k, v).unwrap();
+            write!(this.json_string, "      \"{}\": {}", k, v()).unwrap();
         }
 
-        let typ = target_info.node.rule_type().to_string();
-        print_attr(self, &mut first, TYPE, &quote_json_string(&typ));
-        let deps = target_info
-            .node
-            .deps()
-            .map(|d| quote_json_string(&d.to_string()))
-            .join(", ");
-        print_attr(self, &mut first, DEPS, &format!("[{}]", deps));
+        print_attr(self, &mut first, TYPE, || {
+            quote_json_string(&target_info.node.rule_type().to_string())
+        });
+        print_attr(self, &mut first, DEPS, || {
+            format!(
+                "[{}]",
+                target_info
+                    .node
+                    .deps()
+                    .map(|d| quote_json_string(&d.to_string()))
+                    .join(", ")
+            )
+        });
 
         if let Some(BuckTargetHash(hash)) = target_info.target_hash {
-            print_attr(self, &mut first, TARGET_HASH, &format!("\"{hash:032x}\""));
+            print_attr(self, &mut first, TARGET_HASH, || format!("\"{hash:032x}\""));
         }
-        print_attr(self, &mut first, PACKAGE, &format!("\"{}\"", package));
+        print_attr(self, &mut first, PACKAGE, || format!("\"{}\"", package));
 
         for a in target_info.node.attrs(self.attr_inspect_opts) {
-            print_attr(
-                self,
-                &mut first,
-                a.name,
-                &value_to_json(a.value, target_info.node.label().pkg())
+            print_attr(self, &mut first, a.name, || {
+                value_to_json(a.value, target_info.node.label().pkg())
                     .unwrap()
-                    .to_string(),
-            );
+                    .to_string()
+            });
         }
 
         if self.target_call_stacks {
             match target_info.node.call_stack() {
                 Some(call_stack) => {
-                    print_attr(
-                        self,
-                        &mut first,
-                        TARGET_CALL_STACK,
-                        &quote_json_string(&call_stack),
-                    );
+                    print_attr(self, &mut first, TARGET_CALL_STACK, || {
+                        quote_json_string(&call_stack)
+                    });
                 }
                 None => {
                     // Should not happen.
