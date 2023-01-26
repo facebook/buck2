@@ -288,13 +288,7 @@ pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<AttributeAsStarlarkValue> {
-        Attribute::attr(
-            eval,
-            Some(default.unwrap_or_else(|| Value::new_bool(false))),
-            default.is_none(),
-            doc,
-            AttrType::bool(),
-        )
+        Attribute::attr(eval, default, false, doc, AttrType::bool())
     }
 
     fn option<'v>(
