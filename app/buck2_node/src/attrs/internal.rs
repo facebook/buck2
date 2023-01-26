@@ -23,6 +23,7 @@ use crate::attrs::attr_type::AttrType;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::configurable::AttrIsConfigurable;
 use crate::provider_id_set::ProviderIdSet;
+use crate::visibility::VisibilitySpecification;
 
 // TODO(cjhopman): figure out something better for these default attributes that we need to interpret
 // internally. There's currently a lot of awkwardness involved: accessing the value, needing to create
@@ -89,12 +90,12 @@ fn exec_compatible_with_attribute() -> Attribute {
 }
 
 fn visibility_attribute() -> Attribute {
-    // TODO(cjhopman): We currently just use strings here and then do custom validation and conversion. Maybe we should have an attribute type for this.
-    let entry_type = AttrType::string();
     Attribute::new_simple(
-        Some(Arc::new(AnyAttrType::empty_list())),
+        Some(Arc::new(CoercedAttr::Literal(AttrLiteral::Visibility(
+            VisibilitySpecification::Default,
+        )))),
         "a list of visibility patterns restricting what targets can depend on this one",
-        AttrType::list(entry_type),
+        AttrType::visibility(),
     )
 }
 

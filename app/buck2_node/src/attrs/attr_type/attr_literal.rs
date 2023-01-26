@@ -40,6 +40,7 @@ use crate::attrs::display::AttrDisplayWithContext;
 use crate::attrs::display::AttrDisplayWithContextExt;
 use crate::attrs::fmt_context::AttrFmtContext;
 use crate::attrs::traversal::CoercedAttrTraversal;
+use crate::visibility::VisibilitySpecification;
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative)]
 pub enum AttrLiteral<C: AttrConfig> {
@@ -77,6 +78,7 @@ pub enum AttrLiteral<C: AttrConfig> {
         // Index of matched oneof attr type variant.
         u32,
     ),
+    Visibility(VisibilitySpecification),
 }
 
 // Prevent size regression.
@@ -144,6 +146,7 @@ impl<C: AttrConfig> AttrDisplayWithContext for AttrLiteral<C> {
             AttrLiteral::SplitTransitionDep(d) => Display::fmt(d, f),
             AttrLiteral::Label(l) => write!(f, "\"{}\"", l),
             AttrLiteral::OneOf(box l, _) => AttrDisplayWithContext::fmt(l, ctx, f),
+            AttrLiteral::Visibility(v) => Display::fmt(v, f),
         }
     }
 }
@@ -196,6 +199,7 @@ impl<C: AttrConfig> AttrLiteral<C> {
             AttrLiteral::SplitTransitionDep(l) => l.to_json(),
             AttrLiteral::Label(l) => Ok(to_value(l.to_string())?),
             AttrLiteral::OneOf(box l, _) => l.to_json(ctx),
+            AttrLiteral::Visibility(v) => Ok(v.to_json()),
         }
     }
 
@@ -236,6 +240,18 @@ impl<C: AttrConfig> AttrLiteral<C> {
             AttrLiteral::SplitTransitionDep(d) => d.any_matches(filter),
             AttrLiteral::Label(l) => filter(&l.to_string()),
             AttrLiteral::OneOf(l, _) => l.any_matches(filter),
+            AttrLiteral::Visibility(v) => match v {
+                VisibilitySpecification::Public => filter("PUBLIC"),
+                VisibilitySpecification::Default => filter(":"),
+                VisibilitySpecification::VisibleTo(patterns) => {
+                    for p in &***patterns {
+                        if filter(&p.to_string())? {
+                            return Ok(true);
+                        }
+                    }
+                    Ok(false)
+                }
+            },
         }
     }
 }
@@ -286,6 +302,7 @@ impl AttrLiteral<ConfiguredAttr> {
             AttrLiteral::Arg(arg) => arg.traverse(traversal),
             AttrLiteral::Label(label) => traversal.label(label),
             AttrLiteral::OneOf(l, _) => l.traverse(pkg, traversal),
+            AttrLiteral::Visibility(..) => Ok(()),
         }
     }
 }
@@ -332,6 +349,7 @@ impl AttrLiteral<CoercedAttr> {
                 let ConfiguredAttr(configured) = l.configure(ctx)?;
                 AttrLiteral::OneOf(box configured, *i)
             }
+            AttrLiteral::Visibility(v) => AttrLiteral::Visibility(v.clone()),
         }))
     }
 
@@ -377,6 +395,7 @@ impl AttrLiteral<CoercedAttr> {
             AttrLiteral::Arg(arg) => arg.traverse(traversal),
             AttrLiteral::Label(label) => traversal.label(label),
             AttrLiteral::OneOf(box l, _) => l.traverse(pkg, traversal),
+            AttrLiteral::Visibility(..) => Ok(()),
         }
     }
 }

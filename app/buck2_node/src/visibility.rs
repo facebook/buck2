@@ -14,6 +14,7 @@ use allocative::Allocative;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::TargetPattern;
 use buck2_core::target::TargetLabel;
+use gazebo::prelude::SliceExt;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -34,7 +35,7 @@ pub enum VisibilitySpecification {
     Public,
     // Default is used when a target doesn't specify any visibility.
     Default,
-    VisibleTo(Box<[VisibilityPattern]>),
+    VisibleTo(Box<Box<[VisibilityPattern]>>),
 }
 
 impl VisibilitySpecification {
@@ -43,7 +44,7 @@ impl VisibilitySpecification {
             VisibilitySpecification::Public => true,
             VisibilitySpecification::Default => false,
             VisibilitySpecification::VisibleTo(patterns) => {
-                for pattern in &**patterns {
+                for pattern in &***patterns {
                     if pattern.0.matches(target) {
                         return true;
                     }
@@ -51,6 +52,17 @@ impl VisibilitySpecification {
                 false
             }
         }
+    }
+
+    pub(crate) fn to_json(&self) -> serde_json::Value {
+        let list = match self {
+            VisibilitySpecification::Public => vec![serde_json::Value::String("PUBLIC".to_owned())],
+            VisibilitySpecification::Default => Vec::new(),
+            VisibilitySpecification::VisibleTo(patterns) => {
+                patterns.map(|p| serde_json::Value::String(p.to_string()))
+            }
+        };
+        serde_json::Value::Array(list)
     }
 }
 

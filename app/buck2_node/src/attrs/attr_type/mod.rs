@@ -35,6 +35,7 @@ use crate::attrs::attr_type::source::SourceAttrType;
 use crate::attrs::attr_type::split_transition_dep::SplitTransitionDepAttrType;
 use crate::attrs::attr_type::string::StringAttrType;
 use crate::attrs::attr_type::tuple::TupleAttrType;
+use crate::attrs::attr_type::visibility::VisibilityAttrType;
 use crate::provider_id_set::ProviderIdSet;
 
 pub mod any;
@@ -59,6 +60,7 @@ pub mod source;
 pub mod split_transition_dep;
 pub mod string;
 pub mod tuple;
+pub mod visibility;
 
 #[derive(Clone, Dupe, Debug, Hash, Eq, PartialEq, Allocative)]
 pub struct AttrType(pub Arc<AttrTypeInner>);
@@ -84,6 +86,7 @@ pub enum AttrTypeInner {
     DefaultOnly(DefaultOnlyAttrType),
     Enum(EnumAttrType),
     Label(LabelAttrType),
+    Visibility(VisibilityAttrType),
 }
 
 impl AttrType {
@@ -121,6 +124,9 @@ impl AttrType {
             AttrTypeInner::String(_) => attr("string"),
             AttrTypeInner::DefaultOnly(_) => attr("default_only"),
             AttrTypeInner::Label(_) => attr("label"),
+            AttrTypeInner::Visibility(_) => {
+                VisibilityAttrType::pretend_attr_type().fmt_with_default(f, None)
+            }
         }
     }
 
@@ -269,6 +275,10 @@ impl AttrType {
         Self(Arc::new(AttrTypeInner::Label(LabelAttrType)))
     }
 
+    pub(crate) fn visibility() -> Self {
+        Self(Arc::new(AttrTypeInner::Visibility(VisibilityAttrType)))
+    }
+
     /// Used when we first detect that concatenation is going to happen for an attr
     /// while loading a build file. Returning false here will make us provide an error
     /// during the loading phase at the point that the concatenation happens.
@@ -288,7 +298,8 @@ impl AttrType {
             | AttrTypeInner::Tuple(_)
             | AttrTypeInner::SplitTransitionDep(_)
             | AttrTypeInner::Label(_)
-            | AttrTypeInner::Enum(_) => false,
+            | AttrTypeInner::Enum(_)
+            | AttrTypeInner::Visibility(_) => false,
             AttrTypeInner::Any(_)
             | AttrTypeInner::Arg(_)
             | AttrTypeInner::Dict(_)

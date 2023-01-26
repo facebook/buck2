@@ -26,9 +26,11 @@ use crate::attrs::attr_type::attr_literal::AttrLiteral;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::coerced_attr_full::CoercedAttrFull;
 use crate::attrs::coerced_deps_collector::CoercedDeps;
+use crate::attrs::display::AttrDisplayWithContextExt;
 use crate::attrs::inspect_options::AttrInspectOptions;
 use crate::attrs::internal::DEFAULT_TARGET_PLATFORM_ATTRIBUTE_FIELD;
 use crate::attrs::internal::TESTS_ATTRIBUTE_FIELD;
+use crate::attrs::spec::AttributeSpec;
 use crate::attrs::traversal::CoercedAttrTraversal;
 use crate::attrs::values::AttrValues;
 use crate::call_stack::StarlarkCallStack;
@@ -41,6 +43,12 @@ use crate::package::Package;
 use crate::rule::Rule;
 use crate::rule_type::RuleType;
 use crate::visibility::VisibilitySpecification;
+
+#[derive(Debug, thiserror::Error)]
+enum TargetNodeError {
+    #[error("`visibility` attribute coerced incorrectly (`{0}`) (internal error)")]
+    IncorrectVisibilityAttribute(String),
+}
 
 /// Map of target -> details of those targets within a build file.
 pub type TargetsMap = OrderedMap<TargetName, TargetNode>;
@@ -85,9 +93,6 @@ pub struct TargetNodeData {
     // cached, but for builds it's potentially unimportant.
     deps_cache: CoercedDeps,
 
-    /// Visibility specification restricts what targets can depend on this one.
-    visibility: VisibilitySpecification,
-
     /// Call stack for the target.
     call_stack: Option<StarlarkCallStack>,
 }
@@ -99,7 +104,6 @@ impl TargetNode {
         label: TargetLabel,
         attributes: AttrValues,
         deps_cache: CoercedDeps,
-        visibility: VisibilitySpecification,
         call_stack: Option<StarlarkCallStack>,
     ) -> TargetNode {
         TargetNode(Arc::new(TargetNodeData {
@@ -108,7 +112,6 @@ impl TargetNode {
             label,
             attributes,
             deps_cache,
-            visibility,
             call_stack,
         }))
     }
@@ -224,7 +227,24 @@ impl TargetNode {
     }
 
     fn visibility(&self) -> anyhow::Result<&VisibilitySpecification> {
-        Ok(&self.0.visibility)
+        let Some(attr) = self.0.attributes.get(AttributeSpec::visibility_attr_id()) else {
+            return match self.0.package.default_visibility_to_public {
+                true => Ok(&VisibilitySpecification::Public),
+                false => Ok(&VisibilitySpecification::Default),
+            }
+        };
+        match attr {
+            CoercedAttr::Literal(AttrLiteral::Visibility(v)) => Ok(v),
+            a => {
+                // This code is unreachable: visibility attributes are validated
+                // at the coercion stage. But if we did it wrong,
+                // better error with all the context than panic.
+                Err(TargetNodeError::IncorrectVisibilityAttribute(
+                    a.as_display_no_ctx().to_string(),
+                )
+                .into())
+            }
+        }
     }
 
     pub fn is_visible_to(&self, target: &TargetLabel) -> anyhow::Result<bool> {
@@ -426,7 +446,6 @@ pub mod testing {
     use crate::attrs::values::AttrValues;
     use crate::nodes::unconfigured::TargetsMap;
     use crate::rule_type::RuleType;
-    use crate::visibility::VisibilitySpecification;
 
     pub trait TargetNodeExt {
         fn testing_new(
@@ -483,7 +502,6 @@ pub mod testing {
                 label,
                 attributes,
                 CoercedDeps::from(deps_cache),
-                VisibilitySpecification::Public,
                 None,
             )
         }

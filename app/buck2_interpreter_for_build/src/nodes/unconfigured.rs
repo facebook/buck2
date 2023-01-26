@@ -9,7 +9,6 @@
 
 use std::sync::Arc;
 
-use anyhow::Context;
 use buck2_core::target::TargetLabel;
 use buck2_core::target::TargetName;
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
@@ -19,7 +18,6 @@ use buck2_node::attrs::coerced_deps_collector::CoercedDepsCollector;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::attrs::internal::NAME_ATTRIBUTE_FIELD;
-use buck2_node::attrs::internal::VISIBILITY_ATTRIBUTE_FIELD;
 use buck2_node::attrs::values::AttrValues;
 use buck2_node::call_stack::StarlarkCallStack;
 use buck2_node::nodes::unconfigured::TargetNode;
@@ -75,7 +73,6 @@ impl TargetNodeExt for TargetNode {
                     label,
                     AttrValues::with_capacity(0),
                     CoercedDeps::default(),
-                    VisibilitySpecification::Public,
                     None,
                 ));
             }
@@ -108,24 +105,6 @@ impl TargetNodeExt for TargetNode {
                 .parse_params(param_parser, arg_count, internals)?;
         let package_name = internals.buildfile_path().package();
 
-        let mut visibility = match rule.attributes.attr_or_none(
-            &attr_values,
-            VISIBILITY_ATTRIBUTE_FIELD,
-            AttrInspectOptions::All,
-        ) {
-            Some(visibility) => {
-                parse_visibility(internals.attr_coercion_context(), visibility.value)
-                    .context("When parsing `visibility` attribute")?
-            }
-            None => VisibilitySpecification::Default,
-        };
-
-        if internals.default_visibility_to_public()
-            && visibility == VisibilitySpecification::Default
-        {
-            visibility = VisibilitySpecification::Public;
-        }
-
         let label = TargetLabel::new(package_name.dupe(), target_name);
         let mut deps_cache = CoercedDepsCollector::new();
 
@@ -139,13 +118,12 @@ impl TargetNodeExt for TargetNode {
             label,
             attr_values,
             CoercedDeps::from(deps_cache),
-            visibility,
             call_stack.map(StarlarkCallStack::new),
         ))
     }
 }
 
-fn parse_visibility(
+pub(crate) fn parse_visibility(
     ctx: &dyn AttrCoercionContext,
     attr: &CoercedAttr,
 ) -> anyhow::Result<VisibilitySpecification> {
@@ -182,6 +160,8 @@ fn parse_visibility(
     }
     match specs {
         None => Ok(VisibilitySpecification::Default),
-        Some(specs) => Ok(VisibilitySpecification::VisibleTo(specs.into_boxed_slice())),
+        Some(specs) => Ok(VisibilitySpecification::VisibleTo(
+            box specs.into_boxed_slice(),
+        )),
     }
 }

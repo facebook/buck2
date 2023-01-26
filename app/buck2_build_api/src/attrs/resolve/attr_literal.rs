@@ -22,11 +22,13 @@ use buck2_node::attrs::attr_type::source::SourceAttrType;
 use buck2_node::attrs::attr_type::split_transition_dep::SplitTransitionDepAttrType;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_node::attrs::display::AttrDisplayWithContextExt;
+use buck2_node::visibility::VisibilitySpecification;
 use dupe::Dupe;
 use gazebo::prelude::*;
 use starlark::collections::SmallMap;
 use starlark::values::dict::Dict;
 use starlark::values::list::AllocList;
+use starlark::values::list::ListRef;
 use starlark::values::none::NoneType;
 use starlark::values::tuple::AllocTuple;
 use starlark::values::FrozenValue;
@@ -181,6 +183,11 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
                 Ok(ctx.heap().alloc(label))
             }
             AttrLiteral::OneOf(box l, _) => l.resolve_single(pkg, ctx),
+            a @ AttrLiteral::Visibility(_) => {
+                // TODO(nga): rule implementations should not need visibility attribute.
+                //   But adding it here to preserve exising behavior.
+                a.to_value(pkg, ctx.heap())
+            }
         }
     }
 
@@ -220,6 +227,7 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
             AttrLiteral::Arg(_) => Ok(starlark::values::string::STRING_TYPE),
             AttrLiteral::Label(_) => Ok(Label::get_type_value_static().as_str()),
             AttrLiteral::OneOf(box l, _) => l.starlark_type(),
+            AttrLiteral::Visibility(..) => Ok(ListRef::TYPE),
         }
     }
 
@@ -269,6 +277,13 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
             AttrLiteral::Arg(arg) => heap.alloc(arg.to_string()),
             AttrLiteral::Label(l) => heap.alloc(Label::new(*l.clone())),
             AttrLiteral::OneOf(box l, _) => l.to_value(pkg, heap)?,
+            AttrLiteral::Visibility(specs) => match specs {
+                VisibilitySpecification::Public => heap.alloc(AllocList(["PUBLIC"])),
+                VisibilitySpecification::Default => heap.alloc(AllocList::EMPTY),
+                VisibilitySpecification::VisibleTo(specs) => {
+                    heap.alloc(AllocList(specs.iter().map(|s| s.to_string())))
+                }
+            },
         })
     }
 }

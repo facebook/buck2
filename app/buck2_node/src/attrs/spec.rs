@@ -19,6 +19,7 @@ use crate::attrs::id::AttributeId;
 use crate::attrs::inspect_options::AttrInspectOptions;
 use crate::attrs::internal::internal_attrs;
 use crate::attrs::internal::NAME_ATTRIBUTE_FIELD;
+use crate::attrs::internal::VISIBILITY_ATTRIBUTE_FIELD;
 use crate::attrs::values::AttrValues;
 
 /// AttributeSpec holds the specification for a rules attributes as defined in the rule() call. This
@@ -51,6 +52,22 @@ impl AttributeSpec {
                 internal_attrs()
                     .keys()
                     .position(|name| *name == NAME_ATTRIBUTE_FIELD)
+                    .unwrap(),
+            )
+            .unwrap();
+            AttributeId {
+                index_in_attribute_spec,
+            }
+        });
+        *ID
+    }
+
+    pub(crate) fn visibility_attr_id() -> AttributeId {
+        static ID: Lazy<AttributeId> = Lazy::new(|| {
+            let index_in_attribute_spec = u16::try_from(
+                internal_attrs()
+                    .keys()
+                    .position(|name| *name == VISIBILITY_ATTRIBUTE_FIELD)
                     .unwrap(),
             )
             .unwrap();

@@ -189,10 +189,6 @@ impl ModuleInternals {
             .and_then(|implicits| implicits.lookup(name))
     }
 
-    pub(crate) fn default_visibility_to_public(&self) -> bool {
-        self.default_visibility_to_public
-    }
-
     pub fn record_target_call_stacks(&self) -> bool {
         self.record_target_call_stacks
     }
