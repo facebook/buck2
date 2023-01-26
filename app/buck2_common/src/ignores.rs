@@ -12,11 +12,9 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
-use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::cell_root_path::CellRootPath;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePath;
-use buck2_core::cells::paths::CellRelativePathBuf;
 use dice::DiceComputations;
 use globset::Candidate;
 use globset::GlobSetBuilder;
@@ -30,13 +28,13 @@ use crate::legacy_configs::dice::HasLegacyConfigs;
 #[derive(Debug, thiserror::Error)]
 enum FileOpsError {
     #[error("Tried to read ignored dir `{0}` (reason: {1}).")]
-    ReadIgnoredDir(CellRelativePathBuf, String),
+    ReadIgnoredDir(String, String),
 }
 
 pub enum FileIgnoreResult {
     Ok,
-    IgnoredByPattern(CellRelativePathBuf, String),
-    IgnoredByCell(CellRelativePathBuf, String),
+    IgnoredByPattern(String, String),
+    IgnoredByCell(String, String),
 }
 
 impl FileIgnoreResult {
@@ -190,6 +188,25 @@ pub struct FileIgnores {
     cell_ignores: IgnoreSet,
 }
 
+/// This is `CellRelativePath` which may contain incorrect path elements.
+#[repr(transparent)]
+pub(crate) struct MaybeIgnoredCellRelativePath(str);
+
+impl MaybeIgnoredCellRelativePath {
+    #[inline]
+    pub(crate) fn new(path: &CellRelativePath) -> &MaybeIgnoredCellRelativePath {
+        Self::unchecked_new(path.as_str())
+    }
+
+    #[inline]
+    pub(crate) fn unchecked_new(path: &str) -> &MaybeIgnoredCellRelativePath {
+        unsafe {
+            // SAFETY: `repr(transparent)`.
+            &*(path as *const str as *const MaybeIgnoredCellRelativePath)
+        }
+    }
+}
+
 impl FileIgnores {
     /// Creates a new FileIgnores intended for use by the interpreter.
     ///
@@ -205,15 +222,15 @@ impl FileIgnores {
         })
     }
 
-    pub fn check(&self, path: &CellRelativePath) -> FileIgnoreResult {
-        let candidate = globset::Candidate::new(path.as_str());
+    pub(crate) fn check(&self, path: &MaybeIgnoredCellRelativePath) -> FileIgnoreResult {
+        let candidate = globset::Candidate::new(&path.0);
 
         if let Some(pattern) = self.ignores.matches_candidate(&candidate) {
-            return FileIgnoreResult::IgnoredByPattern(path.to_owned(), pattern.to_owned());
+            return FileIgnoreResult::IgnoredByPattern(path.0.to_owned(), pattern.to_owned());
         }
 
         if let Some(pattern) = self.cell_ignores.matches_candidate(&candidate) {
-            return FileIgnoreResult::IgnoredByCell(path.to_owned(), pattern.to_owned());
+            return FileIgnoreResult::IgnoredByCell(path.0.to_owned(), pattern.to_owned());
         }
 
         FileIgnoreResult::Ok
@@ -227,18 +244,22 @@ pub(crate) struct AllCellIgnores {
 }
 
 impl AllCellIgnores {
-    pub(crate) fn check_ignored(&self, path: CellPathRef) -> anyhow::Result<FileIgnoreResult> {
+    pub(crate) fn check_ignored(
+        &self,
+        cell: CellName,
+        path: &MaybeIgnoredCellRelativePath,
+    ) -> anyhow::Result<FileIgnoreResult> {
         Ok(self
             .ignores
-            .get(&path.cell())
+            .get(&cell)
             .unwrap_or_else(|| {
                 panic!(
                     "Should've had an ignore spec for `{}`. Had `{}`",
-                    path.cell(),
+                    cell,
                     self.ignores.keys().join(", ")
                 )
             })
-            .check(path.path()))
+            .check(path))
     }
 }
 
@@ -275,10 +296,10 @@ impl HasAllCellIgnores for DiceComputations {
 mod tests {
     use buck2_core::cells::cell_root_path::CellRootPath;
     use buck2_core::cells::name::CellName;
-    use buck2_core::cells::paths::CellRelativePath;
     use buck2_core::fs::project::ProjectRelativePath;
 
     use crate::ignores::FileIgnores;
+    use crate::ignores::MaybeIgnoredCellRelativePath;
 
     #[test]
     fn file_ignores() -> anyhow::Result<()> {
@@ -305,49 +326,57 @@ mod tests {
         assert_eq!(
             true,
             ignores
-                .check(CellRelativePath::unchecked_new("some/long/path/Class.java"))
+                .check(MaybeIgnoredCellRelativePath::unchecked_new(
+                    "some/long/path/Class.java"
+                ))
                 .is_ignored()
         );
 
         assert_eq!(
             true,
             ignores
-                .check(CellRelativePath::unchecked_new("other_cell"))
+                .check(MaybeIgnoredCellRelativePath::unchecked_new("other_cell"))
                 .is_ignored()
         );
 
         assert_eq!(
             true,
             ignores
-                .check(CellRelativePath::unchecked_new("other_cell/some/lib"))
+                .check(MaybeIgnoredCellRelativePath::unchecked_new(
+                    "other_cell/some/lib"
+                ))
                 .is_ignored()
         );
 
         assert_eq!(
             false,
             ignores
-                .check(CellRelativePath::unchecked_new("third"))
+                .check(MaybeIgnoredCellRelativePath::unchecked_new("third"))
                 .is_ignored()
         );
 
         assert_eq!(
             false,
             ignores
-                .check(CellRelativePath::unchecked_new("one/two/three"))
+                .check(MaybeIgnoredCellRelativePath::unchecked_new("one/two/three"))
                 .is_ignored()
         );
 
         assert_eq!(
             true,
             ignores
-                .check(CellRelativePath::unchecked_new("recursive/two/three"))
+                .check(MaybeIgnoredCellRelativePath::unchecked_new(
+                    "recursive/two/three"
+                ))
                 .is_ignored()
         );
 
         assert_eq!(
             true,
             ignores
-                .check(CellRelativePath::unchecked_new("trailing_slash/BUCK"))
+                .check(MaybeIgnoredCellRelativePath::unchecked_new(
+                    "trailing_slash/BUCK"
+                ))
                 .is_ignored()
         );
 

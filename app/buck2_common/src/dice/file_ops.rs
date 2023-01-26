@@ -39,6 +39,7 @@ use crate::file_ops::ReadDirOutput;
 use crate::file_ops::SimpleDirEntry;
 use crate::ignores::AllCellIgnores;
 use crate::ignores::HasAllCellIgnores;
+use crate::ignores::MaybeIgnoredCellRelativePath;
 use crate::io::IoProvider;
 use crate::result::SharedResult;
 
@@ -142,7 +143,7 @@ async fn get_default_file_ops(dice: &DiceComputations) -> SharedResult<Arc<dyn F
         ) -> SharedResult<ReadDirOutput> {
             // TODO(cjhopman): This should also probably verify that the parent chain is not ignored.
             self.ignores
-                .check_ignored(path)?
+                .check_ignored(path.cell(), MaybeIgnoredCellRelativePath::new(path.path()))?
                 .into_result()
                 .with_context(|| format!("Error checking whether dir `{}` is ignored", path))?;
 
@@ -157,10 +158,24 @@ async fn get_default_file_ops(dice: &DiceComputations) -> SharedResult<Arc<dyn F
             entries.sort_by(|a, b| a.file_name.cmp(&b.file_name));
 
             let is_ignored = |entry: &SimpleDirEntry| {
-                let entry_path = path.join(&entry.file_name);
+                let mut cell_relative_path_buf;
+                let cell_relative_path: &str = if path.path().is_empty() {
+                    entry.file_name.as_str()
+                } else {
+                    cell_relative_path_buf = String::with_capacity(
+                        path.path().as_str().len() + 1 + entry.file_name.as_str().len(),
+                    );
+                    cell_relative_path_buf.push_str(path.path().as_str());
+                    cell_relative_path_buf.push('/');
+                    cell_relative_path_buf.push_str(entry.file_name.as_str());
+                    &cell_relative_path_buf
+                };
+
+                let cell_relative_path =
+                    MaybeIgnoredCellRelativePath::unchecked_new(cell_relative_path);
                 let is_ignored = self
                     .ignores
-                    .check_ignored(entry_path.as_ref())?
+                    .check_ignored(path.cell(), cell_relative_path)?
                     .is_ignored();
                 anyhow::Ok(is_ignored)
             };
@@ -206,7 +221,10 @@ async fn get_default_file_ops(dice: &DiceComputations) -> SharedResult<Arc<dyn F
         }
 
         async fn is_ignored(&self, path: CellPathRef<'async_trait>) -> anyhow::Result<bool> {
-            Ok(self.ignores.check_ignored(path)?.is_ignored())
+            Ok(self
+                .ignores
+                .check_ignored(path.cell(), MaybeIgnoredCellRelativePath::new(path.path()))?
+                .is_ignored())
         }
 
         fn eq_token(&self) -> PartialEqAny {
