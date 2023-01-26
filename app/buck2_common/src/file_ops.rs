@@ -686,7 +686,15 @@ pub mod testing {
             &self,
             path: CellPathRef<'async_trait>,
         ) -> SharedResult<Arc<[SimpleDirEntry]>> {
-            self.entries
+            Ok(self.read_dir_with_ignores(path).await?.included)
+        }
+
+        async fn read_dir_with_ignores(
+            &self,
+            path: CellPathRef<'async_trait>,
+        ) -> SharedResult<ReadDirOutput> {
+            let included = self
+                .entries
                 .get(&path.to_owned())
                 .and_then(|e| match e {
                     TestFileOpsEntry::Directory(listing) => {
@@ -694,16 +702,9 @@ pub mod testing {
                     }
                     _ => None,
                 })
-                .ok_or_else(|| anyhow::anyhow!("couldn't find dir {:?}", path))
-                .shared_error()
-        }
-
-        async fn read_dir_with_ignores(
-            &self,
-            path: CellPathRef<'async_trait>,
-        ) -> SharedResult<ReadDirOutput> {
+                .ok_or_else(|| anyhow::anyhow!("couldn't find dir {:?}", path))?;
             Ok(ReadDirOutput {
-                included: self.read_dir(path).await?,
+                included,
                 ignored: Vec::new().into(),
             })
         }
