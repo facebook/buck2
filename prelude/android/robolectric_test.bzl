@@ -15,6 +15,9 @@ load("@prelude//utils:utils.bzl", "expect")
 load("@prelude//test/inject_test_run_info.bzl", "inject_test_run_info")
 
 def robolectric_test_impl(ctx: "context") -> ["provider"]:
+    if ctx.attrs._build_only_native_code:
+        return [DefaultInfo()]
+
     _verify_attributes(ctx)
 
     extra_cmds = []

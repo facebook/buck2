@@ -13,6 +13,9 @@ load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo", "merge_share
 load("@prelude//test/inject_test_run_info.bzl", "inject_test_run_info")
 
 def java_test_impl(ctx: "context") -> ["provider"]:
+    if ctx.attrs._build_only_native_code:
+        return [DefaultInfo()]
+
     java_providers = build_java_library(ctx, ctx.attrs.srcs)
     external_runner_test_info = build_junit_test(ctx, java_providers.java_library_info, java_providers.java_packaging_info)
 

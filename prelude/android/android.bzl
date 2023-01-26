@@ -195,6 +195,7 @@ extra_attributes = {
         "resources_root": attrs.option(attrs.string(), default = None),
         "robolectric_runtime_dependencies": attrs.list(attrs.source(), default = []),
         "_android_toolchain": android_toolchain(),
+        "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
         "_is_building_android_binary": attrs.default_only(attrs.bool(default = False)),
         "_java_test_toolchain": attrs.default_only(attrs.exec_dep(
             default = select_java_test_toolchain(),
