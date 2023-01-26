@@ -5,13 +5,20 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//:attributes.bzl", "Platform")
+load("@prelude//:attributes.bzl", "Platform", "TargetCpuType")
 
-OsLookup = provider(fields = ["platform"])
+OsLookup = provider(fields = ["cpu", "platform"])
 
 def _os_lookup_impl(ctx: "context"):
-    return [DefaultInfo(), OsLookup(platform = ctx.attrs.platform)]
+    return [
+        DefaultInfo(),
+        OsLookup(
+            cpu = ctx.attrs.cpu,
+            platform = ctx.attrs.platform,
+        ),
+    ]
 
 os_lookup = rule(impl = _os_lookup_impl, attrs = {
+    "cpu": attrs.option(attrs.enum(TargetCpuType), default = None),
     "platform": attrs.enum(Platform),
 })
