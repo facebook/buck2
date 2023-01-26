@@ -324,7 +324,9 @@ pub trait FileOps: Allocative + Send + Sync {
     async fn read_dir(
         &self,
         path: CellPathRef<'async_trait>,
-    ) -> SharedResult<Arc<[SimpleDirEntry]>>;
+    ) -> SharedResult<Arc<[SimpleDirEntry]>> {
+        Ok(self.read_dir_with_ignores(path).await?.included)
+    }
 
     async fn read_dir_with_ignores(
         &self,
@@ -680,13 +682,6 @@ pub mod testing {
                     _ => None,
                 })
                 .ok_or_else(|| anyhow::anyhow!("couldn't find file {:?}", path))
-        }
-
-        async fn read_dir(
-            &self,
-            path: CellPathRef<'async_trait>,
-        ) -> SharedResult<Arc<[SimpleDirEntry]>> {
-            Ok(self.read_dir_with_ignores(path).await?.included)
         }
 
         async fn read_dir_with_ignores(

@@ -453,18 +453,18 @@ impl<'c> FileOps for DiceFileOps<'c> {
             .await
     }
 
-    async fn read_dir(
-        &self,
-        path: CellPathRef<'async_trait>,
-    ) -> SharedResult<Arc<[SimpleDirEntry]>> {
-        Ok(self.read_dir_with_ignores(path).await?.included)
-    }
-
     async fn read_dir_with_ignores(
         &self,
         path: CellPathRef<'async_trait>,
     ) -> SharedResult<ReadDirOutput> {
         self.0.compute(&ReadDirKey(path.to_owned())).await?
+    }
+
+    async fn read_dir(
+        &self,
+        path: CellPathRef<'async_trait>,
+    ) -> SharedResult<Arc<[SimpleDirEntry]>> {
+        Ok(self.read_dir_with_ignores(path).await?.included)
     }
 
     async fn read_path_metadata_if_exists(
