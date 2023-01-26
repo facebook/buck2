@@ -165,10 +165,25 @@ where
             }
         }
 
-        let previous = CURRENT.with(|g| g.replace(Some(self.execution.take().unwrap())));
-        let res = self.future.as_mut().poll(cx).map(Some);
-        // TODO: Drop guard to deal with panics?
-        *self.execution = CURRENT.with(|g| g.replace(previous));
+        struct ReplaceOnDrop<'a> {
+            me: &'a mut Option<Box<ExecutionContext>>,
+            previous: Option<Box<ExecutionContext>>,
+        }
+
+        impl Drop for ReplaceOnDrop<'_> {
+            fn drop(&mut self) {
+                *self.me = CURRENT.with(|g| g.replace(self.previous.take()))
+            }
+        }
+
+        let res = {
+            let previous = CURRENT.with(|g| g.replace(Some(self.execution.take().unwrap())));
+            let _replace = ReplaceOnDrop {
+                previous,
+                me: self.execution,
+            };
+            self.future.as_mut().poll(cx).map(Some)
+        };
 
         // If we were using structured cancellation but just exited the critical section, then we
         // should exit now.
