@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-//! The `None` type.
 use std::hash::Hasher;
 
 use allocative::Allocative;
@@ -30,14 +29,12 @@ use crate::collections::StarlarkHashValue;
 use crate::collections::StarlarkHasher;
 use crate::private::Private;
 use crate::values::basic::StarlarkValueBasic;
-use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::FrozenHeap;
 use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
-use crate::values::UnpackValue;
 use crate::values::Value;
 
 /// Define the None type, use [`NoneType`] in Rust.
@@ -116,49 +113,5 @@ impl Serialize for NoneType {
 impl AllocFrozenValue for NoneType {
     fn alloc_frozen_value(self, _heap: &FrozenHeap) -> FrozenValue {
         FrozenValue::new_none()
-    }
-}
-
-/// Equivalent of a Rust [`Option`], where [`None`] is encoded as [`NoneType`]. Useful for its [`UnpackValue`] instance.
-#[derive(Debug, Eq, PartialEq, Copy, Clone, Dupe)]
-pub enum NoneOr<T> {
-    /// Starlark `None`.
-    None,
-    /// Not `None`.
-    Other(T),
-}
-
-impl<T> NoneOr<T> {
-    /// Convert the [`NoneOr`] to a real Rust [`Option`].
-    pub fn into_option(self) -> Option<T> {
-        match self {
-            Self::None => None,
-            Self::Other(x) => Some(x),
-        }
-    }
-
-    /// Is the value a [`NoneOr::None`].
-    pub fn is_none(&self) -> bool {
-        matches!(self, NoneOr::None)
-    }
-}
-
-impl<'v, T: UnpackValue<'v>> StarlarkTypeRepr for NoneOr<T> {
-    fn starlark_type_repr() -> String {
-        Option::<T>::starlark_type_repr()
-    }
-}
-
-impl<'v, T: UnpackValue<'v>> UnpackValue<'v> for NoneOr<T> {
-    fn expected() -> String {
-        format!("None or {}", T::expected())
-    }
-
-    fn unpack_value(value: Value<'v>) -> Option<Self> {
-        if value.is_none() {
-            Some(NoneOr::None)
-        } else {
-            T::unpack_value(value).map(NoneOr::Other)
-        }
     }
 }
