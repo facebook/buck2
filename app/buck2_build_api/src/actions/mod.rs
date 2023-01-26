@@ -28,7 +28,7 @@ pub mod build_listener;
 pub mod calculation;
 pub mod execute;
 pub mod impls;
-pub(crate) mod key;
+pub mod key;
 pub(crate) mod registry;
 
 use std::borrow::Cow;

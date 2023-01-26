@@ -8,6 +8,7 @@ version = "0.1.0"
 anyhow = { workspace = true }
 clap = { workspace = true }
 dupe = { workspace = true }
+serde = { workspace = true }
 thiserror = {workspace = true }
 
 # Please do not add dependency on `buck2_build_api`.

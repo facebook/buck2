@@ -108,6 +108,10 @@ impl AnalysisResult {
     pub fn lookup_deferred(&self, id: DeferredId) -> anyhow::Result<DeferredLookup<'_>> {
         self.deferred.lookup_deferred(id)
     }
+
+    pub fn iter_deferreds(&self) -> impl Iterator<Item = DeferredLookup<'_>> {
+        self.deferred.iter()
+    }
 }
 
 // Contains a `module` that things must live on, and various `FrozenProviderCollectionValue`s

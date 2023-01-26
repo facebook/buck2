@@ -12,7 +12,14 @@ use buck2_core::soft_error;
 use dupe::Dupe;
 use thiserror::Error;
 
-#[derive(Debug, Clone, Dupe, clap::ArgEnum)]
+#[derive(
+    Debug,
+    Clone,
+    Dupe,
+    clap::ArgEnum,
+    serde::Serialize,
+    serde::Deserialize
+)]
 #[clap(rename_all = "snake_case")]
 enum QueryOutputFormatArg {
     Dot,
@@ -20,7 +27,7 @@ enum QueryOutputFormatArg {
     DotCompact,
 }
 
-#[derive(Debug, clap::Parser)]
+#[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
 pub struct CommonAttributeArgs {
     #[clap(
         short = 'A',
@@ -89,7 +96,7 @@ impl CommonAttributeArgs {
 }
 
 /// Args common to all the query commands
-#[derive(Debug, clap::Parser)]
+#[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
 #[clap(group = clap::ArgGroup::new("output_attribute_flags").multiple(false))]
 pub struct CommonQueryArgs {
     #[clap(name = "QUERY", help = "the query to evaluate")]

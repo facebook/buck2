@@ -9,6 +9,7 @@ rust_library(
     deps = [
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:clap",
+        "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:thiserror",
         "//buck2/app/buck2_core:buck2_core",
         "//buck2/buck2_cli_proto:buck2_cli_proto",

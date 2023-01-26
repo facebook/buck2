@@ -55,11 +55,22 @@ pub async fn get_aquery_evaluator<'a, 'c: 'a>(
     global_target_platform: Option<TargetLabel>,
 ) -> anyhow::Result<AqueryEvaluator<'c>> {
     let dice_query_delegate =
-        get_dice_query_delegate(ctx, working_dir, global_target_platform).await?;
-    let dice_query_delegate = Arc::new(DiceAqueryDelegate::new(dice_query_delegate).await?);
+        get_dice_aquery_delegate(ctx, working_dir, global_target_platform).await?;
     let functions = DefaultQueryFunctionsModule::new();
     Ok(AqueryEvaluator {
         dice_query_delegate,
         functions,
     })
+}
+
+// Provides the dice query delgate for aquery evaluator
+pub async fn get_dice_aquery_delegate<'a, 'c: 'a>(
+    ctx: &'c DiceComputations,
+    working_dir: &'a ProjectRelativePath,
+    global_target_platform: Option<TargetLabel>,
+) -> anyhow::Result<Arc<DiceAqueryDelegate<'c>>> {
+    let dice_query_delegate =
+        get_dice_query_delegate(ctx, working_dir, global_target_platform).await?;
+    let dice_query_delegate = Arc::new(DiceAqueryDelegate::new(dice_query_delegate).await?);
+    Ok(dice_query_delegate)
 }

@@ -102,7 +102,7 @@ impl DiceAqueryNodesCache {
     }
 }
 
-pub(crate) struct DiceAqueryDelegate<'c> {
+pub struct DiceAqueryDelegate<'c> {
     base_delegate: DiceQueryDelegate<'c>,
     nodes_cache: DiceAqueryNodesCache,
     artifact_fs: Arc<ArtifactFs>,
@@ -224,7 +224,7 @@ impl<'c> DiceAqueryDelegate<'c> {
         })
     }
 
-    async fn get_action_node(&self, key: &ActionKey) -> anyhow::Result<ActionQueryNode> {
+    pub async fn get_action_node(&self, key: &ActionKey) -> anyhow::Result<ActionQueryNode> {
         get_action_node(
             self.nodes_cache.dupe(),
             self.base_delegate.ctx(),
