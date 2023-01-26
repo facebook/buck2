@@ -35,6 +35,7 @@ use crate::values::FrozenHeap;
 use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
+use crate::values::UnpackValue;
 use crate::values::Value;
 
 /// Define the None type, use [`NoneType`] in Rust.
@@ -113,5 +114,15 @@ impl Serialize for NoneType {
 impl AllocFrozenValue for NoneType {
     fn alloc_frozen_value(self, _heap: &FrozenHeap) -> FrozenValue {
         FrozenValue::new_none()
+    }
+}
+
+impl<'v> UnpackValue<'v> for NoneType {
+    fn unpack_value(value: Value<'v>) -> Option<Self> {
+        if value.is_none() {
+            Some(NoneType)
+        } else {
+            None
+        }
     }
 }
