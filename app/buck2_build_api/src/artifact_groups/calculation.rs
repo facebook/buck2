@@ -322,6 +322,7 @@ mod tests {
     use crate::context::SetBuildContextData;
     use crate::deferred::calculation::testing::DeferredResolve;
     use crate::deferred::types::AnyValue;
+    use crate::deferred::types::DeferredValueAnyReady;
     use crate::interpreter::rule_defs::transitive_set::testing;
     use crate::interpreter::rule_defs::transitive_set::TransitiveSet;
     use crate::interpreter::rule_defs::transitive_set::TransitiveSetOrdering;
@@ -331,7 +332,8 @@ mod tests {
         let resolve = DeferredResolve(tset.key().deferred_key().dupe());
 
         let data: Arc<dyn AnyValue + 'static> = Arc::new(DeferredTransitiveSetData(value));
-        dice_builder.mock_and_return(resolve, anyhow::Ok(data).shared_error())
+        let any = DeferredValueAnyReady::AnyValue(data);
+        dice_builder.mock_and_return(resolve, anyhow::Ok(any).shared_error())
     }
 
     #[tokio::test]

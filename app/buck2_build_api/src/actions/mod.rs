@@ -34,6 +34,7 @@ pub(crate) mod registry;
 use std::borrow::Cow;
 use std::fmt::Debug;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
@@ -67,6 +68,8 @@ use crate::actions::execute::action_executor::ActionExecutionMetadata;
 use crate::actions::execute::action_executor::ActionOutputs;
 use crate::artifact_groups::ArtifactGroup;
 use crate::artifact_groups::ArtifactGroupValues;
+use crate::deferred::types::AnyValue;
+use crate::deferred::types::TrivialDeferred;
 
 /// Represents an unregistered 'Action' that will be registered into the 'Actions' module.
 /// The 'UnregisteredAction' is not executable until it is registered, upon which it becomes an
@@ -241,6 +244,16 @@ pub struct RegisteredAction {
     action: Box<dyn Action>,
     #[derivative(Hash = "ignore", PartialEq = "ignore")]
     executor_config: CommandExecutorConfig,
+}
+
+impl TrivialDeferred for Arc<RegisteredAction> {
+    fn as_any_value(&self) -> &dyn AnyValue {
+        self
+    }
+
+    fn debug_artifact_outputs(&self) -> anyhow::Result<Option<Vec<BuildArtifact>>> {
+        Ok(Some(self.action.outputs()?.iter().cloned().collect()))
+    }
 }
 
 impl RegisteredAction {

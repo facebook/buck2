@@ -43,7 +43,7 @@ use crate::actions::artifact::build_artifact::BuildArtifact;
 use crate::actions::artifact::projected_artifact::ProjectedArtifact;
 use crate::actions::key::ActionKey;
 
-pub(crate) mod build_artifact;
+pub mod build_artifact;
 use allocative::Allocative;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::path::artifact_path::ArtifactPath;

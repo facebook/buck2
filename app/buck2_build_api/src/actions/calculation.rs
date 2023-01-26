@@ -240,7 +240,7 @@ impl ActionCalculation for DiceComputations {
         // TODO add async/deferred stuff
         self.compute_deferred_data(action_key.deferred_data())
             .await
-            .map(|a| a.dupe())
+            .map(|a| (*a).dupe())
             .with_context(|| format!("for action key `{}`", action_key))
             .shared_error()
     }
@@ -475,6 +475,7 @@ mod tests {
     use crate::deferred::types::testing::DeferredIdExt;
     use crate::deferred::types::AnyValue;
     use crate::deferred::types::DeferredId;
+    use crate::deferred::types::DeferredValueAnyReady;
     use crate::spawner::BuckSpawner;
 
     fn create_test_build_artifact(
@@ -524,7 +525,8 @@ mod tests {
         deferred_resolve: DeferredResolve,
         registered_action_arc: Arc<RegisteredAction>,
     ) -> DiceBuilder {
-        let an_any: Arc<dyn AnyValue + 'static> = Arc::new(registered_action_arc);
+        let arc_any: Arc<dyn AnyValue + 'static> = Arc::new(registered_action_arc);
+        let an_any = DeferredValueAnyReady::AnyValue(arc_any);
         dice_builder.mock_and_return(deferred_resolve, anyhow::Ok(an_any).shared_error())
     }
 

@@ -13,13 +13,26 @@ use dupe::Dupe;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::Value;
 
+use crate::actions::artifact::build_artifact::BuildArtifact;
+use crate::deferred::types::AnyValue;
 use crate::deferred::types::DeferredData;
+use crate::deferred::types::TrivialDeferred;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSet;
 
 pub type TransitiveSetKey = DeferredData<DeferredTransitiveSetData>;
 
 #[derive(Clone, Dupe, Debug, Allocative)]
 pub struct DeferredTransitiveSetData(pub(super) OwnedFrozenValue);
+
+impl TrivialDeferred for DeferredTransitiveSetData {
+    fn as_any_value(&self) -> &dyn AnyValue {
+        self
+    }
+
+    fn debug_artifact_outputs(&self) -> anyhow::Result<Option<Vec<BuildArtifact>>> {
+        Ok(None)
+    }
+}
 
 impl DeferredTransitiveSetData {
     pub fn as_transitive_set(&self) -> anyhow::Result<&TransitiveSet> {

@@ -27,7 +27,6 @@ use futures::stream::FuturesUnordered;
 use futures::Future;
 use futures::StreamExt;
 use gazebo::prelude::*;
-use owning_ref::ArcRef;
 
 use crate::analysis::anon_targets::eval_anon_target;
 use crate::analysis::calculation::RuleAnalysisCalculation;
@@ -36,7 +35,6 @@ use crate::artifact_groups::ArtifactGroup;
 use crate::bxl::calculation::BxlCalculation;
 use crate::bxl::result::BxlResult;
 use crate::deferred::calculation::keys::DeferredResolve;
-use crate::deferred::types::AnyValue;
 use crate::deferred::types::BaseKey;
 use crate::deferred::types::DeferredData;
 use crate::deferred::types::DeferredId;
@@ -46,6 +44,8 @@ use crate::deferred::types::DeferredLookup;
 use crate::deferred::types::DeferredRegistry;
 use crate::deferred::types::DeferredResult;
 use crate::deferred::types::DeferredValueAny;
+use crate::deferred::types::DeferredValueAnyReady;
+use crate::deferred::types::DeferredValueReady;
 use crate::deferred::types::ResolveDeferredCtx;
 
 #[async_trait]
@@ -54,7 +54,7 @@ pub(crate) trait DeferredCalculation {
     async fn compute_deferred_data<T: Send + Sync + 'static>(
         &self,
         data: &DeferredData<T>,
-    ) -> SharedResult<ArcRef<dyn AnyValue, T>>;
+    ) -> SharedResult<DeferredValueReady<T>>;
 }
 
 #[async_trait]
@@ -62,7 +62,7 @@ impl DeferredCalculation for DiceComputations {
     async fn compute_deferred_data<T: Send + Sync + 'static>(
         &self,
         data: &DeferredData<T>,
-    ) -> SharedResult<ArcRef<dyn AnyValue, T>> {
+    ) -> SharedResult<DeferredValueReady<T>> {
         if data.deferred_key().id().is_trivial() {
             let deferred = lookup_deferred(self, data.deferred_key()).await?;
             let deferred = deferred
@@ -70,7 +70,7 @@ impl DeferredCalculation for DiceComputations {
                 .as_trivial()
                 .context("Invalid deferred")?
                 .dupe();
-            return Ok(data.resolve(deferred)?);
+            return Ok(data.resolve(DeferredValueAnyReady::TrivialDeferred(deferred))?);
         }
 
         let deferred = resolve_deferred(self, data.deferred_key()).await?;
@@ -138,10 +138,10 @@ async fn lookup_deferred(
 async fn resolve_deferred(
     dice: &DiceComputations,
     deferred: &DeferredKey,
-) -> SharedResult<Arc<dyn AnyValue>> {
+) -> SharedResult<DeferredValueAnyReady> {
     #[async_trait]
     impl Key for DeferredResolve {
-        type Value = SharedResult<Arc<dyn AnyValue>>;
+        type Value = SharedResult<DeferredValueAnyReady>;
 
         async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
             let result = compute_deferred(ctx, &self.0).await?;
@@ -369,6 +369,7 @@ mod tests {
     use indexmap::IndexSet;
     use indoc::indoc;
 
+    use crate::actions::artifact::build_artifact::BuildArtifact;
     use crate::analysis::calculation::testing::AnalysisKey;
     use crate::analysis::AnalysisResult;
     use crate::deferred::calculation::DeferredCalculation;
@@ -398,6 +399,10 @@ mod tests {
         ) -> anyhow::Result<DeferredValue<Self::Output>> {
             self.2.store(true, Ordering::SeqCst);
             Ok(DeferredValue::Ready(self.0))
+        }
+
+        fn debug_artifact_outputs(&self) -> anyhow::Result<Option<Vec<BuildArtifact>>> {
+            Ok(None)
         }
     }
 
@@ -495,6 +500,10 @@ mod tests {
                     ctx.registry()
                         .defer(FakeDeferred(self.0, self.1.clone(), self.2.dupe()));
                 Ok(DeferredValue::Deferred(data))
+            }
+
+            fn debug_artifact_outputs(&self) -> anyhow::Result<Option<Vec<BuildArtifact>>> {
+                Ok(None)
             }
         }
 

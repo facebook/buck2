@@ -34,9 +34,9 @@ use indexmap::indexset;
 use indexmap::IndexSet;
 use itertools::Itertools;
 use once_cell::sync::Lazy;
-use owning_ref::ArcRef;
 use thiserror::Error;
 
+use crate::actions::artifact::build_artifact::BuildArtifact;
 use crate::actions::artifact::Artifact;
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 
@@ -53,6 +53,9 @@ pub trait Deferred: Allocative {
 
     /// executes this 'Deferred', assuming all inputs and input artifacts are already computed
     fn execute(&self, ctx: &mut dyn DeferredCtx) -> anyhow::Result<DeferredValue<Self::Output>>;
+
+    /// returns a vec of output artifacts if the object has them.
+    fn debug_artifact_outputs(&self) -> anyhow::Result<Option<Vec<BuildArtifact>>>;
 }
 
 /// The context for executing a 'Deferred'.
@@ -67,7 +70,7 @@ pub trait DeferredCtx {
         label: &ConfiguredProvidersLabel,
     ) -> Option<&FrozenProviderCollectionValue>;
 
-    fn get_deferred_data(&self, key: &DeferredKey) -> Option<Arc<dyn AnyValue>>;
+    fn get_deferred_data(&self, key: &DeferredKey) -> Option<DeferredValueAnyReady>;
 
     fn get_artifact(&self, artifact: &Artifact) -> Option<&ArtifactValue>;
 
@@ -83,7 +86,7 @@ pub struct ResolveDeferredCtx<'a> {
     key: DeferredKey,
     configured_targets: HashMap<ConfiguredTargetLabel, ConfiguredTargetNode>,
     providers: HashMap<ConfiguredProvidersLabel, FrozenProviderCollectionValue>,
-    deferreds: HashMap<DeferredKey, Arc<dyn AnyValue>>,
+    deferreds: HashMap<DeferredKey, DeferredValueAnyReady>,
     artifacts: HashMap<Artifact, ArtifactValue>,
     materialized_artifacts: HashMap<Artifact, ProjectRelativePathBuf>,
     registry: &'a mut DeferredRegistry,
@@ -95,7 +98,7 @@ impl<'a> ResolveDeferredCtx<'a> {
         key: DeferredKey,
         configured_targets: HashMap<ConfiguredTargetLabel, ConfiguredTargetNode>,
         providers: HashMap<ConfiguredProvidersLabel, FrozenProviderCollectionValue>,
-        deferreds: HashMap<DeferredKey, Arc<dyn AnyValue>>,
+        deferreds: HashMap<DeferredKey, DeferredValueAnyReady>,
         artifacts: HashMap<Artifact, ArtifactValue>,
         materialized_artifacts: HashMap<Artifact, ProjectRelativePathBuf>,
         registry: &'a mut DeferredRegistry,
@@ -133,7 +136,7 @@ impl<'a> DeferredCtx for ResolveDeferredCtx<'a> {
         self.providers.get(label)
     }
 
-    fn get_deferred_data(&self, key: &DeferredKey) -> Option<Arc<dyn AnyValue>> {
+    fn get_deferred_data(&self, key: &DeferredKey) -> Option<DeferredValueAnyReady> {
         self.deferreds.get(key).map(|b| b.dupe())
     }
 
@@ -190,15 +193,15 @@ impl<T: Send + Sync + 'static> DeferredData<T> {
         &self.key
     }
 
-    pub fn resolve(&self, val: Arc<dyn AnyValue>) -> anyhow::Result<ArcRef<dyn AnyValue, T>> {
-        ArcRef::new(val).try_map(|v| v.downcast::<T>())
+    pub fn resolve(&self, val: DeferredValueAnyReady) -> anyhow::Result<DeferredValueReady<T>> {
+        val.downcast_into()
     }
 
     /// zip/merges two 'DeferredData' into one deferred returning a tuple of their results
     pub fn zip<V: Send + 'static>(
         data1: &DeferredData<T>,
         data2: &DeferredData<V>,
-    ) -> impl Deferred<Output = (ArcRef<dyn AnyValue, T>, ArcRef<dyn AnyValue, V>)> {
+    ) -> impl Deferred<Output = (DeferredValueReady<T>, DeferredValueReady<V>)> {
         #[derive(Allocative)]
         #[allocative(bound = "")]
         struct Combined<U, V> {
@@ -209,7 +212,7 @@ impl<T: Send + Sync + 'static> DeferredData<T> {
         }
 
         impl<U: Send + 'static, V: Send + 'static> Deferred for Combined<U, V> {
-            type Output = (ArcRef<dyn AnyValue, U>, ArcRef<dyn AnyValue, V>);
+            type Output = (DeferredValueReady<U>, DeferredValueReady<V>);
 
             fn inputs(&self) -> &IndexSet<DeferredInput> {
                 &self.inputs
@@ -219,12 +222,19 @@ impl<T: Send + Sync + 'static> DeferredData<T> {
                 &self,
                 ctx: &mut dyn DeferredCtx,
             ) -> anyhow::Result<DeferredValue<Self::Output>> {
-                Ok(DeferredValue::Ready((
-                    ArcRef::new(ctx.get_deferred_data(&self.u).unwrap())
-                        .map(|u| u.downcast().unwrap()),
-                    ArcRef::new(ctx.get_deferred_data(&self.v).unwrap())
-                        .map(|v| v.downcast().unwrap()),
-                )))
+                let u = ctx
+                    .get_deferred_data(&self.u)
+                    .unwrap()
+                    .downcast_into::<U>()?;
+                let v = ctx
+                    .get_deferred_data(&self.v)
+                    .unwrap()
+                    .downcast_into::<V>()?;
+                Ok(DeferredValue::Ready((u, v)))
+            }
+
+            fn debug_artifact_outputs(&self) -> anyhow::Result<Option<Vec<BuildArtifact>>> {
+                Ok(None)
             }
         }
 
@@ -318,8 +328,17 @@ impl BaseKey {
     }
 }
 
+/// Implemented by all trivial deferreds.
+pub trait TrivialDeferred: Allocative + AnyValue + Debug + Send + Sync {
+    /// Convert the object to an AnyValue object
+    fn as_any_value(&self) -> &dyn AnyValue;
+
+    /// Returns a vec of `BuildArtifact`s, if exists.
+    fn debug_artifact_outputs(&self) -> anyhow::Result<Option<Vec<BuildArtifact>>>;
+}
+
 #[derive(Allocative)]
-pub struct TrivialDeferredValue(Arc<dyn AnyValue>);
+pub struct TrivialDeferredValue(pub Arc<dyn TrivialDeferred>);
 
 impl DeferredAny for TrivialDeferredValue {
     fn inputs(&self) -> &IndexSet<DeferredInput> {
@@ -328,7 +347,9 @@ impl DeferredAny for TrivialDeferredValue {
     }
 
     fn execute(&self, _ctx: &mut dyn DeferredCtx) -> anyhow::Result<DeferredValueAny> {
-        Ok(DeferredValueAny::Ready(self.0.dupe()))
+        Ok(DeferredValueAny::Ready(
+            DeferredValueAnyReady::TrivialDeferred(self.0.dupe()),
+        ))
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -337,6 +358,10 @@ impl DeferredAny for TrivialDeferredValue {
 
     fn type_name(&self) -> &str {
         self.0.type_name()
+    }
+
+    fn debug_artifact_outputs(&self) -> anyhow::Result<Option<Vec<BuildArtifact>>> {
+        self.0.debug_artifact_outputs()
     }
 }
 
@@ -372,6 +397,13 @@ impl DeferredAny for DeferredTableEntry {
         match self {
             Self::Trivial(v) => v.type_name(),
             Self::Complex(v) => v.type_name(),
+        }
+    }
+
+    fn debug_artifact_outputs(&self) -> anyhow::Result<Option<Vec<BuildArtifact>>> {
+        match self {
+            Self::Trivial(v) => v.debug_artifact_outputs(),
+            Self::Complex(v) => v.debug_artifact_outputs(),
         }
     }
 }
@@ -486,7 +518,7 @@ impl DeferredRegistry {
         d: D,
     ) -> DeferredData<D>
     where
-        D: AnyValue + Allocative + Clone + Debug + Send + Sync + 'static,
+        D: TrivialDeferred + Clone + 'static,
     {
         let id = reserved.0.key.id().as_usize();
 
@@ -526,7 +558,7 @@ impl DeferredRegistry {
     /// creates a new 'DeferredData'
     pub fn defer_trivial<D>(&mut self, d: D) -> DeferredData<D>
     where
-        D: AnyValue + Allocative + Clone + Debug + Send + Sync + 'static,
+        D: TrivialDeferred + Clone + 'static,
     {
         let id = DeferredId {
             id: self.registry.len().try_into().unwrap(),
@@ -583,6 +615,10 @@ impl DeferredRegistry {
                     ctx,
                 ))
             }
+
+            fn debug_artifact_outputs(&self) -> anyhow::Result<Option<Vec<BuildArtifact>>> {
+                Ok(None)
+            }
         }
 
         self.defer(Map {
@@ -627,7 +663,7 @@ impl<'a> DeferredLookup<'a> {
         }
     }
 
-    pub fn as_trivial(&self) -> Option<&'a Arc<dyn AnyValue>> {
+    pub fn as_trivial(&self) -> Option<&'a Arc<dyn TrivialDeferred>> {
         match self {
             Self::Trivial(v) => Some(&v.0),
             Self::Complex(..) => None,
@@ -715,17 +751,62 @@ pub enum DeferredValue<T> {
     Deferred(DeferredData<T>),
 }
 
+/// Enum of AnyValue or TrivialDeferreds.
+#[derive(Allocative, Debug, Dupe, Clone)]
+pub enum DeferredValueAnyReady {
+    AnyValue(Arc<dyn AnyValue>),
+    TrivialDeferred(Arc<dyn TrivialDeferred>),
+}
+
+impl DeferredValueAnyReady {
+    pub fn downcast<T: Send + 'static>(&self) -> anyhow::Result<&T> {
+        match self {
+            Self::AnyValue(v) => v.downcast(),
+            Self::TrivialDeferred(v) => v.as_any_value().downcast(),
+        }
+    }
+
+    pub fn downcast_into<T: Send + 'static>(self) -> anyhow::Result<DeferredValueReady<T>> {
+        // Check if it can downcast to T
+        self.downcast::<T>()?;
+
+        Ok(DeferredValueReady {
+            inner: self,
+            _type: PhantomData,
+        })
+    }
+}
+
+/// This is a `Any` that has been checked to contain a T and can therefore provide &T infallibly
+#[derive(Allocative, Debug, Dupe, Clone)]
+pub struct DeferredValueReady<T> {
+    inner: DeferredValueAnyReady,
+    _type: PhantomData<T>,
+}
+
+impl<T> std::ops::Deref for DeferredValueReady<T>
+where
+    T: Send + 'static,
+{
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        // This was checked earlier
+        self.inner.downcast::<T>().unwrap()
+    }
+}
+
 /// untyped value computed by the deferred. This is same as 'DeferredValue', but with 'T' as an
 /// 'ValueAny'
 #[derive(Debug, VariantName, Clone, Dupe, Allocative)]
 pub enum DeferredValueAny {
-    Ready(Arc<dyn AnyValue>),
+    Ready(DeferredValueAnyReady),
     Deferred(DeferredKey),
 }
 
 impl DeferredValueAny {
     fn ready<T: Allocative + Clone + Debug + Send + Sync + 'static>(t: T) -> Self {
-        Self::Ready(Arc::new(t))
+        Self::Ready(DeferredValueAnyReady::AnyValue(Arc::new(t)))
     }
 
     fn defer<T>(k: DeferredData<T>) -> Self {
@@ -770,6 +851,8 @@ impl dyn AnyValue {
 pub trait DeferredAny: Allocative + Send + Sync {
     /// the set of 'Deferred's that should be computed first before executing this 'Deferred'
     fn inputs(&self) -> &IndexSet<DeferredInput>;
+
+    fn debug_artifact_outputs(&self) -> anyhow::Result<Option<Vec<BuildArtifact>>>;
 
     /// executes this 'Deferred', assuming all inputs and input artifacts are already computed
     fn execute(&self, ctx: &mut dyn DeferredCtx) -> anyhow::Result<DeferredValueAny>;
@@ -822,6 +905,10 @@ where
         self.inputs()
     }
 
+    fn debug_artifact_outputs(&self) -> anyhow::Result<Option<Vec<BuildArtifact>>> {
+        D::debug_artifact_outputs(self)
+    }
+
     fn execute(&self, ctx: &mut dyn DeferredCtx) -> anyhow::Result<DeferredValueAny> {
         match self.execute(ctx)? {
             DeferredValue::Ready(t) => Ok(DeferredValueAny::ready(t)),
@@ -839,8 +926,6 @@ where
 }
 
 pub mod testing {
-    use std::sync::Arc;
-
     use gazebo::variants::VariantName;
 
     use crate::deferred::types::AnyValue;
@@ -851,6 +936,7 @@ pub mod testing {
     use crate::deferred::types::DeferredTable;
     use crate::deferred::types::DeferredTableEntry;
     use crate::deferred::types::DeferredValueAny;
+    use crate::deferred::types::DeferredValueAnyReady;
 
     pub trait DeferredDataExt<T> {
         fn testing_new(key: DeferredKey) -> DeferredData<T>;
@@ -873,12 +959,12 @@ pub mod testing {
     }
 
     pub trait DeferredValueAnyExt {
-        fn assert_ready(self) -> Arc<dyn AnyValue>;
+        fn assert_ready(self) -> DeferredValueAnyReady;
         fn assert_deferred(self) -> DeferredKey;
     }
 
     impl DeferredValueAnyExt for DeferredValueAny {
-        fn assert_ready(self) -> Arc<dyn AnyValue> {
+        fn assert_ready(self) -> DeferredValueAnyReady {
             match self {
                 DeferredValueAny::Ready(v) => v,
                 x => panic!("Expected deferred to be Ready but was {}", x.variant_name()),
@@ -947,8 +1033,10 @@ mod tests {
     use indexmap::indexset;
     use indexmap::IndexSet;
 
+    use super::AnyValue;
+    use super::TrivialDeferred;
+    use crate::actions::artifact::build_artifact::BuildArtifact;
     use crate::deferred::types::testing::DeferredValueAnyExt;
-    use crate::deferred::types::AnyValue;
     use crate::deferred::types::BaseKey;
     use crate::deferred::types::Deferred;
     use crate::deferred::types::DeferredAny;
@@ -961,6 +1049,7 @@ mod tests {
     use crate::deferred::types::DeferredTable;
     use crate::deferred::types::DeferredValue;
     use crate::deferred::types::DeferredValueAny;
+    use crate::deferred::types::DeferredValueAnyReady;
     use crate::deferred::types::ResolveDeferredCtx;
 
     #[derive(Clone, PartialEq, Eq, Allocative)]
@@ -987,6 +1076,20 @@ mod tests {
         fn execute(&self, _ctx: &mut dyn DeferredCtx) -> anyhow::Result<DeferredValue<T>> {
             Ok(DeferredValue::Ready(self.val.clone()))
         }
+
+        fn debug_artifact_outputs(&self) -> anyhow::Result<Option<Vec<BuildArtifact>>> {
+            Ok(None)
+        }
+    }
+
+    impl TrivialDeferred for FakeDeferred<i32> {
+        fn as_any_value(&self) -> &dyn AnyValue {
+            self
+        }
+
+        fn debug_artifact_outputs(&self) -> anyhow::Result<Option<Vec<BuildArtifact>>> {
+            Ok(None)
+        }
     }
 
     #[derive(Clone, Debug, PartialEq, Eq, Allocative)]
@@ -1009,13 +1112,20 @@ mod tests {
                 ctx.registry().defer(self.defer.clone()),
             ))
         }
+
+        fn debug_artifact_outputs(&self) -> anyhow::Result<Option<Vec<BuildArtifact>>> {
+            Ok(None)
+        }
     }
 
     fn make_resolved<T: Clone + Debug + Allocative + Send + Sync + 'static>(
         data: &DeferredData<T>,
         deferred: &FakeDeferred<T>,
-    ) -> (DeferredKey, Arc<dyn AnyValue>) {
-        (data.key.dupe(), Arc::new(deferred.val.clone()))
+    ) -> (DeferredKey, DeferredValueAnyReady) {
+        (
+            data.key.dupe(),
+            DeferredValueAnyReady::AnyValue(Arc::new(deferred.val.clone())),
+        )
     }
 
     fn dummy_base() -> BaseDeferredKey {
@@ -1346,32 +1456,41 @@ mod tests {
         ));
         let mut registry = DeferredRegistry::new(BaseKey::Base(base));
 
-        let deferred_data0 = registry.defer_trivial(123);
+        let deferred0 = FakeDeferred {
+            inputs: IndexSet::new(),
+            val: 123,
+        };
+
+        let deferred1 = FakeDeferred {
+            inputs: IndexSet::new(),
+            val: 456,
+        };
+        let deferred_data0 = registry.defer_trivial(deferred0.clone());
         let deferred_data1 = registry.reserve_trivial();
-        let deferred_data1 = registry.bind_trivial(deferred_data1, 456);
+        let deferred_data1 = registry.bind_trivial(deferred_data1, deferred1.clone());
 
         let result = DeferredTable::new(registry.take_result()?);
 
         assert_eq!(
-            *deferred_data0.resolve(
+            *deferred_data0.resolve(DeferredValueAnyReady::TrivialDeferred(
                 result
                     .lookup_deferred(deferred_data0.deferred_key().id())?
                     .as_trivial()
                     .unwrap()
                     .dupe()
-            )?,
-            123
+            ))?,
+            deferred0
         );
 
         assert_eq!(
-            *deferred_data1.resolve(
+            *deferred_data1.resolve(DeferredValueAnyReady::TrivialDeferred(
                 result
                     .lookup_deferred(deferred_data1.deferred_key().id())?
                     .as_trivial()
                     .unwrap()
                     .dupe()
-            )?,
-            456
+            ))?,
+            deferred1
         );
 
         Ok(())

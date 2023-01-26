@@ -20,13 +20,12 @@ use buck2_node::nodes::configured::ConfiguredTargetNode;
 use dice::DiceComputations;
 use dupe::Dupe;
 use dupe::OptionDupedExt;
-use owning_ref::ArcRef;
 
 use crate::artifact_groups::deferred::DeferredTransitiveSetData;
 use crate::artifact_groups::deferred::TransitiveSetKey;
 use crate::artifact_groups::ArtifactGroup;
 use crate::calculation::Calculation;
-use crate::deferred::types::AnyValue;
+use crate::deferred::types::DeferredValueReady;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::provider::builtin::template_placeholder_info::TemplatePlaceholderInfo;
@@ -59,7 +58,7 @@ impl<'a> ConfiguredGraphQueryEnvironmentDelegate for AnalysisConfiguredGraphQuer
     async fn dice_lookup_transitive_set(
         &self,
         key: TransitiveSetKey,
-    ) -> SharedResult<ArcRef<dyn AnyValue, DeferredTransitiveSetData>> {
+    ) -> SharedResult<DeferredValueReady<DeferredTransitiveSetData>> {
         self.dice_query_delegate
             .ctx
             .compute_deferred_data(&key)

@@ -8,6 +8,7 @@
  */
 
 #![feature(async_closure)]
+#![feature(downcast_unchecked)]
 #![feature(box_patterns)]
 #![feature(box_syntax)]
 #![feature(iter_order_by)]

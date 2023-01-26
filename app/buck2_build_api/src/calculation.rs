@@ -43,7 +43,6 @@ use futures::FutureExt;
 use futures::Stream;
 use futures::StreamExt;
 use itertools::Itertools;
-use owning_ref::ArcRef;
 use thiserror::Error;
 
 use crate::actions::artifact::build_artifact::BuildArtifact;
@@ -57,8 +56,8 @@ use crate::artifact_groups::ArtifactGroupValues;
 use crate::configuration::ConfigurationCalculation;
 use crate::context::HasBuildContextData;
 use crate::deferred::calculation as deferred_calculation;
-use crate::deferred::types::AnyValue;
 use crate::deferred::types::DeferredData;
+use crate::deferred::types::DeferredValueReady;
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use crate::nodes::calculation as node_calculation;
 use crate::nodes::calculation::get_execution_platform_toolchain_dep;
@@ -174,7 +173,7 @@ pub trait Calculation<'c> {
     async fn compute_deferred_data<T: Send + Sync + 'static>(
         &self,
         data: &DeferredData<T>,
-    ) -> SharedResult<ArcRef<dyn AnyValue, T>>;
+    ) -> SharedResult<DeferredValueReady<T>>;
 }
 
 #[async_trait]
@@ -267,7 +266,7 @@ impl<'c> Calculation<'c> for DiceComputations {
     async fn compute_deferred_data<T: Send + Sync + 'static>(
         &self,
         data: &DeferredData<T>,
-    ) -> SharedResult<ArcRef<dyn AnyValue, T>> {
+    ) -> SharedResult<DeferredValueReady<T>> {
         deferred_calculation::DeferredCalculation::compute_deferred_data(self, data).await
     }
 }

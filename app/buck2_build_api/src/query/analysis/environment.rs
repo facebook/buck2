@@ -39,7 +39,6 @@ use buck2_query_parser::BinaryOp;
 use dupe::Dupe;
 use futures::Future;
 use indexmap::IndexSet;
-use owning_ref::ArcRef;
 use thiserror::Error;
 
 use crate::actions::artifact::Artifact;
@@ -47,7 +46,7 @@ use crate::actions::artifact::OutputArtifact;
 use crate::artifact_groups::deferred::DeferredTransitiveSetData;
 use crate::artifact_groups::deferred::TransitiveSetKey;
 use crate::artifact_groups::ArtifactGroup;
-use crate::deferred::types::AnyValue;
+use crate::deferred::types::DeferredValueReady;
 use crate::interpreter::rule_defs::artifact_tagging::ArtifactTag;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
@@ -88,7 +87,7 @@ pub trait ConfiguredGraphQueryEnvironmentDelegate: Send + Sync {
     async fn dice_lookup_transitive_set(
         &self,
         key: TransitiveSetKey,
-    ) -> SharedResult<ArcRef<dyn AnyValue, DeferredTransitiveSetData>>;
+    ) -> SharedResult<DeferredValueReady<DeferredTransitiveSetData>>;
 }
 
 pub struct ConfiguredGraphQueryEnvironment<'a> {

@@ -14,6 +14,7 @@ mod tests {
     use std::sync::Arc;
 
     use allocative::Allocative;
+    use buck2_build_api::actions::artifact::build_artifact::BuildArtifact;
     use buck2_build_api::bxl::calculation::BxlCalculationDyn;
     use buck2_build_api::bxl::result::BxlResult;
     use buck2_build_api::calculation::Calculation;
@@ -60,6 +61,10 @@ mod tests {
         ) -> anyhow::Result<DeferredValue<Self::Output>> {
             self.2.store(true, Ordering::SeqCst);
             Ok(DeferredValue::Ready(self.0))
+        }
+
+        fn debug_artifact_outputs(&self) -> anyhow::Result<Option<Vec<BuildArtifact>>> {
+            Ok(None)
         }
     }
 

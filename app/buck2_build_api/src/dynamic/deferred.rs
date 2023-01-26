@@ -148,6 +148,10 @@ impl Deferred for DynamicAction {
             )?;
         Ok(DeferredValue::Deferred(key.deferred_data().dupe()))
     }
+
+    fn debug_artifact_outputs(&self) -> anyhow::Result<Option<Vec<BuildArtifact>>> {
+        Ok(None)
+    }
 }
 
 #[derive(Debug, Error)]
@@ -281,5 +285,9 @@ impl Deferred for DynamicLambda {
         Ok(DeferredValue::Ready(DynamicLambdaOutput {
             output: output?,
         }))
+    }
+
+    fn debug_artifact_outputs(&self) -> anyhow::Result<Option<Vec<BuildArtifact>>> {
+        Ok(Some(self.outputs.clone()))
     }
 }
