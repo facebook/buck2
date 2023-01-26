@@ -653,7 +653,7 @@ impl RemoteExecutionClientImpl {
             re_client_config.features_config_path = static_metadata
                 .features_config_path
                 .as_deref()
-                .unwrap_or("remote_execution/features/re_client_buck2")
+                .unwrap_or("remote_execution/features/client_buck2")
                 .to_owned();
 
             // TODO(ndmitchell): For now, we just drop RE log messages, but ideally we'd put them in our log stream.
