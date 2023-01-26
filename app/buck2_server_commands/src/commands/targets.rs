@@ -54,6 +54,7 @@ use regex::RegexSet;
 use crate::json::quote_json_string;
 use crate::target_hash::BuckTargetHash;
 use crate::target_hash::TargetHashes;
+use crate::target_hash::TargetHashesFileMode;
 
 struct TargetInfo<'a> {
     node: &'a TargetNode,
@@ -453,6 +454,12 @@ async fn parse_and_get_results(
     let results = load_patterns(&ctx, parsed_patterns).await?;
     let vec_results: Vec<_> = results.iter_loaded_targets_by_package().collect();
 
+    let file_hash_mode = match options.target_hash_mode {
+        TargetHashFileMode::PathsOnly => {
+            TargetHashesFileMode::PathsOnly(options.target_hash_modified_paths)
+        }
+        TargetHashFileMode::PathsAndContents => TargetHashesFileMode::PathsAndContents,
+    };
     let target_hashes = match options.target_hash_graph_type {
         TargetHashGraphType::Configured => Some(
             TargetHashes::compute::<ConfiguredTargetNode, _>(
@@ -460,8 +467,7 @@ async fn parse_and_get_results(
                 ConfiguredTargetNodeLookup(&ctx),
                 vec_results,
                 target_platform,
-                options.target_hash_mode,
-                options.target_hash_modified_paths,
+                file_hash_mode,
                 options.use_fast_hash,
                 options.target_hash_recursive,
             )
@@ -473,8 +479,7 @@ async fn parse_and_get_results(
                 TargetNodeLookup(&ctx),
                 vec_results,
                 target_platform,
-                options.target_hash_mode,
-                options.target_hash_modified_paths,
+                file_hash_mode,
                 options.use_fast_hash,
                 options.target_hash_recursive,
             )

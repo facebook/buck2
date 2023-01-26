@@ -16,7 +16,6 @@ use std::sync::Arc;
 use async_recursion::async_recursion;
 use async_trait::async_trait;
 use buck2_build_api::query::dice::get_compatible_targets;
-use buck2_cli_proto::targets_request::TargetHashFileMode;
 use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::file_ops::FileOps;
 use buck2_common::file_ops::PathMetadata;
@@ -88,6 +87,13 @@ impl BuckTargetHasher for Blake3Adapter {
         let bytes = hash.as_bytes();
         BuckTargetHash(u128::from_le_bytes(bytes[16..].try_into().unwrap()))
     }
+}
+
+pub enum TargetHashesFileMode {
+    /// The following files have changed in some way (don't do any IO)
+    PathsOnly(HashSet<CellPath>),
+    /// Use IO operations to find the paths and their contents
+    PathsAndContents,
 }
 
 #[async_trait]
@@ -427,8 +433,7 @@ impl TargetHashes {
         lookup: L,
         targets: Vec<(PackageLabel, SharedResult<Vec<TargetNode>>)>,
         global_target_platform: Option<TargetLabel>,
-        file_hash_mode: TargetHashFileMode,
-        modified_paths: HashSet<CellPath>,
+        file_hash_mode: TargetHashesFileMode,
         use_fast_hash: bool,
         target_hash_recursive: bool,
     ) -> anyhow::Result<Self>
@@ -436,7 +441,7 @@ impl TargetHashes {
         T::NodeRef: ConfiguredOrUnconfiguredTargetLabel,
     {
         let targets = T::get_target_nodes(&ctx, targets, global_target_platform).await?;
-        let file_hasher = Self::new_file_hasher(ctx.dupe(), file_hash_mode, modified_paths);
+        let file_hasher = Self::new_file_hasher(ctx.dupe(), file_hash_mode);
         if target_hash_recursive {
             Self::compute_recursive_target_hashes(ctx, lookup, targets, file_hasher, use_fast_hash)
                 .await
@@ -447,14 +452,13 @@ impl TargetHashes {
 
     fn new_file_hasher(
         ctx: DiceTransaction,
-        file_hash_mode: TargetHashFileMode,
-        modified_paths: HashSet<CellPath>,
+        file_hash_mode: TargetHashesFileMode,
     ) -> Arc<dyn FileHasher> {
         match file_hash_mode {
-            TargetHashFileMode::PathsOnly => Arc::new(PathsOnlyFileHasher {
+            TargetHashesFileMode::PathsOnly(modified_paths) => Arc::new(PathsOnlyFileHasher {
                 pseudo_changed_paths: modified_paths,
             }),
-            TargetHashFileMode::PathsAndContents => {
+            TargetHashesFileMode::PathsAndContents => {
                 Arc::new(PathsAndContentsHasher { ctx: ctx.dupe() })
             }
         }
