@@ -118,7 +118,7 @@ impl FileHasher for PathsOnlyFileHasher {
 }
 
 struct PathsAndContentsHasher {
-    ctx: DiceTransaction,
+    dice: DiceTransaction,
 }
 
 #[async_trait]
@@ -170,7 +170,7 @@ impl FileHasher for PathsAndContentsHasher {
             Ok(())
         }
 
-        let file_ops = self.ctx.file_ops();
+        let file_ops = self.dice.file_ops();
         let mut res = Vec::new();
         hash_item(&file_ops, cell_path.as_ref(), &mut res).await?;
         Ok(res)
@@ -189,7 +189,7 @@ pub trait TargetHashingTargetNode: QueryTarget {
     // Takes in Target Nodes and returns a new set of (un)Configured
     // Target Nodes based on type of hashing specified.
     async fn get_target_nodes(
-        ctx: &DiceComputations,
+        dice: &DiceComputations,
         loaded_targets: Vec<(PackageLabel, SharedResult<Vec<TargetNode>>)>,
         global_target_platform: Option<TargetLabel>,
     ) -> anyhow::Result<TargetSet<Self>>;
@@ -209,11 +209,11 @@ impl TargetHashingTargetNode for ConfiguredTargetNode {
     }
 
     async fn get_target_nodes(
-        ctx: &DiceComputations,
+        dice: &DiceComputations,
         loaded_targets: Vec<(PackageLabel, SharedResult<Vec<TargetNode>>)>,
         global_target_platform: Option<TargetLabel>,
     ) -> anyhow::Result<TargetSet<Self>> {
-        get_compatible_targets(ctx, loaded_targets.into_iter(), global_target_platform).await
+        get_compatible_targets(dice, loaded_targets.into_iter(), global_target_platform).await
     }
 }
 
@@ -231,7 +231,7 @@ impl TargetHashingTargetNode for TargetNode {
     }
 
     async fn get_target_nodes(
-        _ctx: &DiceComputations,
+        _dice: &DiceComputations,
         loaded_targets: Vec<(PackageLabel, SharedResult<Vec<TargetNode>>)>,
         _global_target_platform: Option<TargetLabel>,
     ) -> anyhow::Result<TargetSet<Self>> {
@@ -261,7 +261,7 @@ impl TargetHashes {
     }
 
     async fn compute_recursive_target_hashes<T: TargetHashingTargetNode, L: AsyncNodeLookup<T>>(
-        ctx: DiceTransaction,
+        dice: DiceTransaction,
         lookup: L,
         targets: TargetSet<T>,
         file_hasher: Arc<dyn FileHasher>,
@@ -274,7 +274,7 @@ impl TargetHashes {
             hashes: HashMap<T::NodeRef, Shared<BoxFuture<'static, SharedResult<BuckTargetHash>>>>,
             file_hasher: Arc<dyn FileHasher>,
             use_fast_hash: bool,
-            ctx: DiceTransaction,
+            dice: DiceTransaction,
         }
 
         #[async_trait]
@@ -294,7 +294,7 @@ impl TargetHashes {
                     .collect::<Result<Vec<_>, TargetHashError>>()?;
 
                 let file_hasher = self.file_hasher.dupe();
-                let ctx = self.ctx.dupe();
+                let dice = self.dice.dupe();
 
                 let use_fast_hash = self.use_fast_hash;
                 // we spawn off the hash computation since it can't be done in visit directly. Even if it could,
@@ -302,7 +302,7 @@ impl TargetHashes {
                 self.hashes.insert(
                     target.node_ref().clone(),
                     async move {
-                        ctx.temporary_spawn(move |_| async move {
+                        dice.temporary_spawn(move |_| async move {
                             let mut hasher = TargetHashes::new_hasher(use_fast_hash);
                             TargetHashes::hash_node(&target, &mut *hasher);
 
@@ -350,7 +350,7 @@ impl TargetHashes {
             hashes: HashMap::new(),
             file_hasher,
             use_fast_hash,
-            ctx,
+            dice,
         };
 
         async_depth_first_postorder_traversal(&lookup, targets.iter_names(), &mut delegate).await?;
@@ -429,7 +429,7 @@ impl TargetHashes {
     }
 
     pub async fn compute<T: TargetHashingTargetNode, L: AsyncNodeLookup<T>>(
-        ctx: DiceTransaction,
+        dice: DiceTransaction,
         lookup: L,
         targets: Vec<(PackageLabel, SharedResult<Vec<TargetNode>>)>,
         global_target_platform: Option<TargetLabel>,
@@ -440,10 +440,10 @@ impl TargetHashes {
     where
         T::NodeRef: ConfiguredOrUnconfiguredTargetLabel,
     {
-        let targets = T::get_target_nodes(&ctx, targets, global_target_platform).await?;
-        let file_hasher = Self::new_file_hasher(ctx.dupe(), file_hash_mode);
+        let targets = T::get_target_nodes(&dice, targets, global_target_platform).await?;
+        let file_hasher = Self::new_file_hasher(dice.dupe(), file_hash_mode);
         if target_hash_recursive {
-            Self::compute_recursive_target_hashes(ctx, lookup, targets, file_hasher, use_fast_hash)
+            Self::compute_recursive_target_hashes(dice, lookup, targets, file_hasher, use_fast_hash)
                 .await
         } else {
             Self::compute_immediate_target_hashes(targets, file_hasher, use_fast_hash).await
@@ -451,7 +451,7 @@ impl TargetHashes {
     }
 
     fn new_file_hasher(
-        ctx: DiceTransaction,
+        dice: DiceTransaction,
         file_hash_mode: TargetHashesFileMode,
     ) -> Arc<dyn FileHasher> {
         match file_hash_mode {
@@ -459,7 +459,7 @@ impl TargetHashes {
                 pseudo_changed_paths: modified_paths,
             }),
             TargetHashesFileMode::PathsAndContents => {
-                Arc::new(PathsAndContentsHasher { ctx: ctx.dupe() })
+                Arc::new(PathsAndContentsHasher { dice: dice.dupe() })
             }
         }
     }
