@@ -1206,11 +1206,13 @@ mod tests {
     use gazebo::cmp::PartialEqAny;
     use gazebo::prelude::*;
     use indexmap::indexset;
+    use more_futures::cancellable_future::with_structured_cancellation;
     use parking_lot::Mutex;
     use parking_lot::RwLock;
     use sorted_vector_map::sorted_vector_set;
     use tokio::sync::Barrier as AsyncBarrier;
     use tokio::sync::Mutex as AsyncMutex;
+    use tokio::sync::Notify;
     use tokio::sync::RwLock as AsyncRwLock;
 
     use crate::ctx::testing::ComputationDataExt;
@@ -2367,5 +2369,74 @@ mod tests {
             first_instance.instance_count,
             second_node.val().instance_count
         );
+    }
+
+    #[tokio::test]
+    async fn test_async_cancellation() {
+        // Does a double-duty of keeping track of how many executions we did + whether they happen
+        // concurrently.
+        let exclusive = Arc::new(Mutex::new(false));
+        let notify = Arc::new(Notify::new());
+
+        let engine = IncrementalEngine::new({
+            let notify = notify.dupe();
+            EvaluatorFn::new(move |_k| async move {
+                let mut guard = exclusive
+                    .try_lock()
+                    .expect("Can only have one concurrent execution");
+
+                if *guard {
+                    // Last attempt, return.
+                    ValueWithDeps {
+                        value: (),
+                        both_deps: BothDeps {
+                            deps: HashSet::default(),
+                            rdeps: Vec::new(),
+                        },
+                    }
+                } else {
+                    // Note that we did our first execution. Keep the lock held. The point of the
+                    // test is to prove that nobody will get to run before we exit and drop it.
+                    *guard = true;
+
+                    with_structured_cancellation(|obs| async move {
+                        // Resume the rest of the code.
+                        notify.notify_one();
+                        // Wait for our cancellation.
+                        obs.await;
+                        // Yield. If the final evaluation is ready (that would be a bug!), it will
+                        // run now.
+                        tokio::task::yield_now().await;
+                    })
+                    .await;
+
+                    // Never return, but this bit will be the one that's cancelled.
+                    futures::future::pending().await
+                }
+            })
+        });
+
+        let ctx = Arc::new(TransactionCtx::testing_new(VersionNumber::new(0)));
+
+        // Start & cancel once we enter the structured cancellation section.
+        let fut = engine.eval_entry_versioned(&1, &ctx, ComputationData::testing_new());
+        notify.notified().await;
+        drop(fut);
+
+        // Spawn a future and immediately cancel it. That future will not actually run, because we
+        // are on a single-threaded runtime. However, it will take the place of the cancelled task
+        // in the currently_running map.
+        let fut = engine.eval_entry_versioned(&1, &ctx, ComputationData::testing_new());
+        drop(fut);
+
+        // This time, wait until execution finishes. The mutex within the evaluation proves that we
+        // don't execute concurrently.
+        tokio::time::timeout(
+            Duration::from_secs(1),
+            engine.eval_entry_versioned(&1, &ctx, ComputationData::testing_new()),
+        )
+        .await
+        .unwrap()
+        .unwrap();
     }
 }
