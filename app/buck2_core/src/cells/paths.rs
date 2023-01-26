@@ -21,6 +21,7 @@ use std::path::PathBuf;
 use allocative::Allocative;
 use derivative::Derivative;
 use derive_more::Display;
+use gazebo::transmute;
 use ref_cast::RefCast;
 use relative_path::RelativePath;
 use serde::Serialize;
@@ -33,7 +34,9 @@ use crate::fs::paths::forward_rel_path::ForwardRelativePathIter;
 use crate::fs::paths::RelativePathBuf;
 
 /// A un-owned forward pointing, fully normalized path that is relative to the cell
-#[derive(Display, Derivative, Hash, PartialEq, Eq, RefCast, PartialOrd, Ord)]
+#[derive(
+    Display, Derivative, Hash, PartialEq, Eq, RefCast, PartialOrd, Ord, Allocative
+)]
 #[derivative(Debug)]
 #[repr(transparent)]
 pub struct CellRelativePath(
@@ -48,6 +51,12 @@ pub struct CellRelativePath(
 pub struct CellRelativePathBuf(
     #[derivative(Debug(format_with = "quoted_display"))] ForwardRelativePathBuf,
 );
+
+impl Clone for Box<CellRelativePath> {
+    fn clone(&self) -> Self {
+        self.to_box()
+    }
+}
 
 impl AsRef<ForwardRelativePath> for CellRelativePath {
     fn as_ref(&self) -> &ForwardRelativePath {
@@ -82,6 +91,13 @@ impl AsRef<ForwardRelativePathBuf> for CellRelativePathBuf {
 impl CellRelativePath {
     pub fn unchecked_new<S: ?Sized + AsRef<str>>(s: &S) -> &Self {
         CellRelativePath::ref_cast(ForwardRelativePath::unchecked_new(s))
+    }
+
+    pub fn unchecked_new_box(p: Box<ForwardRelativePath>) -> Box<CellRelativePath> {
+        unsafe {
+            // SAFETY: `CellRelativePath` is a transparent wrapper around `ForwardRelativePath`.
+            transmute!(Box<ForwardRelativePath>, Box<CellRelativePath>, p)
+        }
     }
 
     pub fn empty() -> &'static Self {
@@ -340,6 +356,10 @@ impl CellRelativePath {
     pub fn to_buf(&self) -> CellRelativePathBuf {
         self.to_owned()
     }
+
+    pub fn to_box(&self) -> Box<CellRelativePath> {
+        self.to_buf().into_box()
+    }
 }
 
 impl<'a> From<&'a ForwardRelativePath> for &'a CellRelativePath {
@@ -400,6 +420,10 @@ impl CellRelativePathBuf {
     /// Pushes a `RelativePath` to the existing buffer, normalizing it
     pub fn push_normalized<P: AsRef<RelativePath>>(&mut self, path: P) -> anyhow::Result<()> {
         self.0.push_normalized(path)
+    }
+
+    pub fn into_box(self) -> Box<CellRelativePath> {
+        CellRelativePath::unchecked_new_box(self.0.into_box())
     }
 }
 

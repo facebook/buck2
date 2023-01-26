@@ -594,6 +594,10 @@ impl ForwardRelativePath {
         self.to_owned()
     }
 
+    pub fn to_box(&self) -> Box<ForwardRelativePath> {
+        self.to_buf().into_box()
+    }
+
     /// Return a RelativePath represenation of this ForwardRelativePath.
     #[inline]
     pub fn as_relative_path(&self) -> &RelativePath {
@@ -818,6 +822,11 @@ impl ForwardRelativePathBuf {
     #[inline]
     pub fn into_string(self) -> String {
         self.0
+    }
+
+    pub fn into_box(self) -> Box<ForwardRelativePath> {
+        let s: Box<str> = self.0.into_boxed_str();
+        ForwardRelativePath::unchecked_new_box(s)
     }
 }
 

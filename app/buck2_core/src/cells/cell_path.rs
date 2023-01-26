@@ -36,13 +36,16 @@ struct StripPrefixError(CellName, CellName);
 #[display(fmt = "{}", "self.as_ref()")]
 pub struct CellPath {
     cell: CellName,
-    path: CellRelativePathBuf,
+    path: Box<CellRelativePath>,
 }
 
 impl CellPath {
     #[inline]
     pub fn new(cell: CellName, path: CellRelativePathBuf) -> Self {
-        CellPath { cell, path }
+        CellPath {
+            cell,
+            path: path.into_box(),
+        }
     }
 
     #[inline]
@@ -247,7 +250,7 @@ impl CellPath {
     }
 
     #[inline]
-    pub fn into_parts(self) -> (CellName, CellRelativePathBuf) {
+    pub fn into_parts(self) -> (CellName, Box<CellRelativePath>) {
         (self.cell, self.path)
     }
 
@@ -287,7 +290,7 @@ impl<'a> CellPathRef<'a> {
     pub fn to_owned(&self) -> CellPath {
         CellPath {
             cell: self.cell,
-            path: self.path.to_owned(),
+            path: self.path.to_box(),
         }
     }
 
@@ -325,7 +328,7 @@ impl<'a> CellPathRef<'a> {
     pub fn join<P: AsRef<ForwardRelativePath>>(&self, path: P) -> CellPath {
         CellPath {
             cell: self.cell,
-            path: self.path.join(path),
+            path: self.path.join(path).into_box(),
         }
     }
 
