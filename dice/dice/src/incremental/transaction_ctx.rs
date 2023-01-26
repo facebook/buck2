@@ -114,7 +114,7 @@ impl TransactionCtx {
         }
     }
 
-    pub(crate) fn commit(self) {
+    pub(crate) fn commit(self) -> VersionGuard {
         let is_changed = {
             let mut changed = self.changes();
             let version_for_writes = self.get_version_for_writes();
@@ -141,6 +141,8 @@ impl TransactionCtx {
             debug!(version = %self.version_guard.version, msg = "no changes to commit");
             self.version_for_writes.rollback()
         }
+
+        self.version_guard
     }
 }
 

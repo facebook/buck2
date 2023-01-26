@@ -368,7 +368,9 @@ impl DiceComputationImpl {
             .map_err(|_| "Error: tried to commit when there are more references")
             .unwrap();
 
-        eval.commit();
+        // hold onto the prev version until we get the new one below so we don't increment minor
+        // version needlessly.
+        let _prev_v = eval.commit();
 
         this.dice.make_ctx(this.extra)
     }

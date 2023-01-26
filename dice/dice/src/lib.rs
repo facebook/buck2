@@ -280,6 +280,7 @@ pub use crate::projection::DiceProjectionComputations;
 pub use crate::projection::ProjectionKey;
 use crate::projection::ProjectionKeyProperties;
 pub use crate::transaction::DiceTransaction;
+use crate::transaction::DiceTransactionUpdater;
 pub use crate::user_data::UserComputationData;
 
 #[derive(Clone, Dupe, Debug, Error, Allocative)]
@@ -370,11 +371,24 @@ impl Dice {
         })
     }
 
+    pub fn updater(self: &Arc<Dice>) -> DiceTransactionUpdater {
+        self.updater_with_data(UserComputationData::new())
+    }
+
+    pub fn updater_with_data(
+        self: &Arc<Dice>,
+        extra: UserComputationData,
+    ) -> DiceTransactionUpdater {
+        DiceTransactionUpdater::new(self.make_ctx(ComputationData::new(extra, self.detect_cycles)))
+    }
+
+    // TODO(bobyf) deprecate
     /// returns a new context for starting computations
     pub fn ctx(self: &Arc<Dice>) -> DiceTransaction {
         self.with_ctx_data(UserComputationData::new())
     }
 
+    // TODO(bobyf) deprecate
     pub fn with_ctx_data(self: &Arc<Dice>, extra: UserComputationData) -> DiceTransaction {
         DiceTransaction(self.make_ctx(ComputationData::new(extra, self.detect_cycles)))
     }

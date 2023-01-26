@@ -14,7 +14,59 @@ use allocative::Allocative;
 use dupe::Dupe;
 
 use crate::DiceComputations;
+use crate::DiceResult;
+use crate::Key;
 use crate::VersionNumber;
+
+/// The struct for which we build transactions. This is where changes are recorded, and committed
+/// to DICE, which returns the Transaction where we spawn computations.
+#[derive(Allocative)]
+#[allow(unused)] // TODO(bobyf) temporary
+pub struct DiceTransactionUpdater {
+    pub(crate) existing_state: DiceComputations,
+}
+
+impl DiceTransactionUpdater {
+    pub(crate) fn new(ctx: DiceComputations) -> Self {
+        Self {
+            existing_state: ctx,
+        }
+    }
+
+    pub fn existing_state(&self) -> &DiceComputations {
+        &self.existing_state
+    }
+
+    /// Records a set of `Key`s as changed so that they, and any dependents will
+    /// be recomputed on the next set of requests at the next version.
+    pub fn changed<K, I>(&self, changed: I) -> DiceResult<()>
+    where
+        K: Key,
+        I: IntoIterator<Item = K> + Send + Sync + 'static,
+    {
+        self.existing_state.0.changed(changed)
+    }
+
+    /// Records a set of `Key`s as changed to a particular value so that any
+    /// dependents will be recomputed on the next set of requests. The
+    /// `Key`s themselves will be update to the new value such that they
+    /// will not need to be recomputed as long as they aren't recorded to be
+    /// `changed` again (or invalidated by other means). Calling this method
+    /// does not in anyway alter the types of the key such that they
+    /// permanently becomes a special "inject value only" key.
+    pub fn changed_to<K, I>(&self, changed: I) -> DiceResult<()>
+    where
+        K: Key,
+        I: IntoIterator<Item = (K, K::Value)> + Send + Sync + 'static,
+    {
+        self.existing_state.0.changed_to(changed)
+    }
+
+    /// Commit the changes registered via 'changed' and 'changed_to' to the current newest version.
+    pub fn commit(self) -> DiceTransaction {
+        DiceTransaction(self.existing_state.0.commit())
+    }
+}
 
 /// The base struct for which all computations start. This is clonable, and dupe, and can be
 /// moved to different runtimes to start computations.
