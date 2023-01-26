@@ -1,6 +1,6 @@
 ---
-id: visibility
-title: Visibility
+id: concept_map
+title: Concept Map
 ---
 
 :::note

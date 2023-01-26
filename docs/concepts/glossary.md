@@ -1,6 +1,6 @@
 ---
-id: build_target
-title: Build Target
+id: glossary
+title: Glossary
 ---
 
 :::note

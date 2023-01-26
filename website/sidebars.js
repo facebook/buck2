@@ -56,13 +56,8 @@ const manualSidebar = [
     type: 'category',
     label: 'Concepts',
     items: [
-      'concepts/build_rule',
-      'concepts/build_file',
-      'concepts/build_target',
-      'concepts/build_target_pattern',
-      'concepts/build_target_universe',
-      'concepts/buck_daemon',
-      'concepts/visibility',
+      'concepts/concept_map',
+      'concepts/glossary',
     ],
   },
   {
