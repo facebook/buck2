@@ -22,6 +22,7 @@ use buck2_common::file_ops::FileOps;
 use buck2_common::file_ops::PathMetadata;
 use buck2_common::file_ops::PathMetadataOrRedirection;
 use buck2_common::result::SharedResult;
+use buck2_common::result::ToSharedResultExt;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::package::PackageLabel;
@@ -371,6 +372,54 @@ impl TargetHashes {
                 );
             }
         }
+        Ok(Self { target_mapping })
+    }
+
+    #[allow(dead_code)]
+    async fn compute_immediate_target_hashes<T: TargetHashingTargetNode>(
+        targets: TargetSet<T>,
+        file_hasher: Arc<dyn FileHasher>,
+        use_fast_hash: bool,
+    ) -> anyhow::Result<Self>
+    where
+        T::NodeRef: ConfiguredOrUnconfiguredTargetLabel,
+    {
+        let hashing_futures: Vec<_> = targets
+            .into_iter()
+            .map(|target| {
+                let file_hasher = file_hasher.dupe();
+                async move {
+                    let hash_result: anyhow::Result<BuckTargetHash> = try {
+                        let mut hasher = TargetHashes::new_hasher(use_fast_hash);
+                        TargetHashes::hash_node(&target, &mut *hasher);
+
+                        let mut input_futs = Vec::new();
+                        target.inputs_for_each(|cell_path| {
+                            let file_hasher = file_hasher.dupe();
+                            input_futs.push(async move {
+                                let file_hash = file_hasher.hash_path(&cell_path).await;
+                                (cell_path, file_hash)
+                            });
+                            anyhow::Ok(())
+                        })?;
+
+                        let input_hashes = join_all(input_futs).await;
+                        TargetHashes::hash_files(input_hashes, &mut *hasher)?;
+
+                        hasher.finish_u128()
+                    };
+                    (
+                        target.node_ref().unconfigured_label().dupe(),
+                        hash_result.shared_error(),
+                    )
+                }
+                .boxed()
+                .shared()
+            })
+            .collect();
+
+        let target_mapping: HashMap<TargetLabel, SharedResult<BuckTargetHash>> =
+            join_all(hashing_futures).await.into_iter().collect();
         Ok(Self { target_mapping })
     }
 
