@@ -21,6 +21,7 @@ use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
+use output::AuditOutputCommand;
 
 use crate::analysis_queries::AuditAnalysisQueriesCommand;
 use crate::cell::AuditCellCommand;
@@ -66,6 +67,7 @@ pub enum AuditCommand {
     Starlark(StarlarkCommand),
     DepFiles(AuditDepFilesCommand),
     DeferredMaterializer(DeferredMaterializerCommand),
+    Output(AuditOutputCommand),
 }
 
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize, Default)]
@@ -123,6 +125,7 @@ impl AuditCommand {
             AuditCommand::DepFiles(cmd) => cmd,
             AuditCommand::DeferredMaterializer(cmd) => cmd,
             AuditCommand::Visibility(cmd) => cmd,
+            AuditCommand::Output(cmd) => cmd,
         }
     }
 }
