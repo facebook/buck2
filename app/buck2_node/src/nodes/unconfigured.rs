@@ -227,24 +227,25 @@ impl TargetNode {
     }
 
     fn visibility(&self) -> anyhow::Result<&VisibilitySpecification> {
-        let Some(attr) = self.0.attributes.get(AttributeSpec::visibility_attr_id()) else {
-            return match self.0.package.default_visibility_to_public {
-                true => Ok(&VisibilitySpecification::Public),
-                false => Ok(&VisibilitySpecification::Default),
-            }
-        };
-        match attr {
-            CoercedAttr::Literal(AttrLiteral::Visibility(v)) => Ok(v),
-            a => {
+        let mut visibility = match self.0.attributes.get(AttributeSpec::visibility_attr_id()) {
+            Some(CoercedAttr::Literal(AttrLiteral::Visibility(v))) => v,
+            Some(a) => {
                 // This code is unreachable: visibility attributes are validated
                 // at the coercion stage. But if we did it wrong,
                 // better error with all the context than panic.
-                Err(TargetNodeError::IncorrectVisibilityAttribute(
+                return Err(TargetNodeError::IncorrectVisibilityAttribute(
                     a.as_display_no_ctx().to_string(),
                 )
-                .into())
+                .into());
             }
+            None => &VisibilitySpecification::Default,
+        };
+        if self.0.package.default_visibility_to_public
+            && visibility == &VisibilitySpecification::Default
+        {
+            visibility = &VisibilitySpecification::Public;
         }
+        Ok(visibility)
     }
 
     pub fn is_visible_to(&self, target: &TargetLabel) -> anyhow::Result<bool> {
