@@ -135,6 +135,9 @@ pub trait UnpackingEventSubscriber: Send {
                 dice_block_concurrent_command,
             ) => self
                 .handle_dice_block_concurrent_command_start(dice_block_concurrent_command, event),
+            buck2_data::span_start_event::Data::DiceSynchronizeSection(
+                dice_synchronize_section,
+            ) => self.handle_dice_synchronize_section_start(dice_synchronize_section, event),
             buck2_data::span_start_event::Data::Fake(fake) => self.handle_fake_start(fake, event),
         }
         .await
@@ -215,6 +218,9 @@ pub trait UnpackingEventSubscriber: Send {
                 dice_block_concurrent_command,
             ) => {
                 self.handle_dice_block_concurrent_command_end(dice_block_concurrent_command, event)
+            }
+            buck2_data::span_end_event::Data::DiceSynchronizeSection(dice_synchronize_section) => {
+                self.handle_dice_synchronize_section_end(dice_synchronize_section, event)
             }
             buck2_data::span_end_event::Data::Fake(fake) => self.handle_fake_end(fake, event),
         }
@@ -634,6 +640,20 @@ pub trait UnpackingEventSubscriber: Send {
     async fn handle_dice_block_concurrent_command_end(
         &mut self,
         _dice_block_concurrent_command: &buck2_data::DiceBlockConcurrentCommandEnd,
+        _event: &BuckEvent,
+    ) -> anyhow::Result<()> {
+        Ok(())
+    }
+    async fn handle_dice_synchronize_section_start(
+        &mut self,
+        _dice_block_concurrent_command: &buck2_data::DiceSynchronizeSectionStart,
+        _event: &BuckEvent,
+    ) -> anyhow::Result<()> {
+        Ok(())
+    }
+    async fn handle_dice_synchronize_section_end(
+        &mut self,
+        _dice_block_concurrent_command: &buck2_data::DiceSynchronizeSectionEnd,
         _event: &BuckEvent,
     ) -> anyhow::Result<()> {
         Ok(())

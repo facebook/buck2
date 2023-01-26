@@ -382,8 +382,7 @@ impl SpanTrackable for Arc<BuckEvent> {
                 Data::Command(..)
                 | Data::CommandCritical(..)
                 | Data::Materialization(..)
-                | Data::DiceCriticalSection(..)
-                | Data::DiceBlockConcurrentCommand(..),
+                | Data::DiceCriticalSection(..),
             ) => false,
             Some(
                 Data::ActionExecution(..)
@@ -402,7 +401,9 @@ impl SpanTrackable for Arc<BuckEvent> {
                 | Data::AnalysisStage(..)
                 | Data::ExecutorStage(..)
                 | Data::MatchDepFiles(..)
-                | Data::CacheUpload(..),
+                | Data::CacheUpload(..)
+                | Data::DiceBlockConcurrentCommand(..)
+                | Data::DiceSynchronizeSection(..),
             ) => true,
             None => false,
         }

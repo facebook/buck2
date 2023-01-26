@@ -68,6 +68,7 @@ message SpanStartEvent {
     MaterializationStart materialization = 68;
     DiceCriticalSectionStart dice_critical_section = 69;
     DiceBlockConcurrentCommandStart dice_block_concurrent_command = 70;
+    DiceSynchronizeSectionStart dice_synchronize_section = 71;
     // Used in Buck unit tests.
     FakeStart fake = 999;
   }
@@ -102,6 +103,7 @@ message SpanEndEvent {
     MaterializationEnd materialization = 69;
     DiceCriticalSectionEnd dice_critical_section = 70;
     DiceBlockConcurrentCommandEnd dice_block_concurrent_command = 71;
+    DiceSynchronizeSectionEnd dice_synchronize_section = 72;
     // Used in Buck unit tests.
     FakeEnd fake = 999;
   }
@@ -1368,6 +1370,10 @@ message MaterializationEnd {
 message DiceCriticalSectionStart {}
 
 message DiceCriticalSectionEnd {}
+
+message DiceSynchronizeSectionStart {}
+
+message DiceSynchronizeSectionEnd {}
 
 message DiceBlockConcurrentCommandStart {
   string current_active_trace_id = 1;

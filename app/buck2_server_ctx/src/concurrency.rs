@@ -26,6 +26,8 @@ use buck2_core::truncate::truncate_container;
 use buck2_data::DiceBlockConcurrentCommandEnd;
 use buck2_data::DiceBlockConcurrentCommandStart;
 use buck2_data::DiceEqualityCheck;
+use buck2_data::DiceSynchronizeSectionEnd;
+use buck2_data::DiceSynchronizeSectionStart;
 use buck2_data::NoActiveDiceState;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::trace::TraceId;
@@ -194,14 +196,22 @@ impl ConcurrencyHandler {
         F: FnOnce(DiceTransaction) -> Fut,
         Fut: Future<Output = R> + Send,
     {
-        let (_guard, transaction) = self
-            .wait_for_others(
-                data,
-                updates,
-                event_dispatcher,
-                is_nested_invocation,
-                sanitized_argv,
-            )
+        let events = event_dispatcher.dupe();
+
+        let (_guard, transaction) = event_dispatcher
+            .span_async(DiceSynchronizeSectionStart {}, async move {
+                (
+                    self.wait_for_others(
+                        data,
+                        updates,
+                        events,
+                        is_nested_invocation,
+                        sanitized_argv,
+                    )
+                    .await,
+                    DiceSynchronizeSectionEnd {},
+                )
+            })
             .await?;
 
         Ok(exec(transaction).await)

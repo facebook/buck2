@@ -251,7 +251,11 @@ pub(crate) fn display_event(
             Data::DiceStateUpdate(..) => Ok("Syncing changes to graph".to_owned()),
             Data::Materialization(..) => Ok("materializing".to_owned()),
             Data::DiceCriticalSection(..) => Err(ParseEventError::UnexpectedEvent.into()),
-            Data::DiceBlockConcurrentCommand(..) => Err(ParseEventError::UnexpectedEvent.into()),
+            Data::DiceBlockConcurrentCommand(cmd) => Ok(format!(
+                "Waiting for command with ID {} to finish",
+                cmd.current_active_trace_id
+            )),
+            Data::DiceSynchronizeSection(..) => Ok("Synchronizing buck2 internal state".to_owned()),
             Data::Fake(fake) => Ok(format!("{} -- speak of the devil", fake.caramba)),
         };
 
