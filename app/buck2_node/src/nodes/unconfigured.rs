@@ -478,6 +478,7 @@ pub mod testing {
                 Arc::new(Package {
                     buildfile_path,
                     oncall: None,
+                    default_visibility_to_public: false,
                 }),
                 label,
                 attributes,

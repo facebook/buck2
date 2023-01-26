@@ -159,6 +159,7 @@ impl ModuleInternals {
                             package: Arc::new(Package {
                                 buildfile_path: self.buildfile_path.dupe(),
                                 oncall,
+                                default_visibility_to_public: self.default_visibility_to_public,
                             }),
                             recorder: TargetsRecorder::new(),
                         });
