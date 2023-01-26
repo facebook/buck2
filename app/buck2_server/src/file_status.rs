@@ -28,7 +28,7 @@ use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
-use buck2_server_ctx::raw_output::RawOuputGuard;
+use buck2_server_ctx::raw_output::RawOutputGuard;
 use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
 use dice::DiceTransaction;
@@ -53,7 +53,7 @@ struct FileStatusResult<'a> {
     /// Number of ones that were bad
     bad: usize,
     /// Handle for writing output
-    stderr: RawOuputGuard<'a>,
+    stderr: RawOutputGuard<'a>,
 }
 
 impl FileStatusResult<'_> {

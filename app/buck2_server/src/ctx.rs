@@ -83,7 +83,7 @@ use buck2_server_ctx::concurrency::DiceUpdater;
 use buck2_server_ctx::ctx::DiceAccessor;
 use buck2_server_ctx::ctx::PrivateStruct;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
-use buck2_server_ctx::raw_output::RawOuputGuard;
+use buck2_server_ctx::raw_output::RawOutputGuard;
 use buck2_server_ctx::raw_output::RawOutputWriter;
 use buck2_server_ctx::raw_output::StdoutOrStderr;
 use dice::data::DiceData;
@@ -614,9 +614,9 @@ impl ServerCommandContextTrait for ServerCommandContext {
         &self.base_context.events
     }
 
-    fn stdout(&self) -> anyhow::Result<RawOuputGuard<'_>> {
+    fn stdout(&self) -> anyhow::Result<RawOutputGuard<'_>> {
         // Buffer until MESSAGE_BUFFER_SIZE bytes get written to save gRPC communication overheads
-        Ok(RawOuputGuard {
+        Ok(RawOutputGuard {
             _phantom: PhantomData,
             inner: BufWriter::with_capacity(
                 4096,
@@ -625,8 +625,8 @@ impl ServerCommandContextTrait for ServerCommandContext {
         })
     }
 
-    fn stderr(&self) -> anyhow::Result<RawOuputGuard<'_>> {
-        Ok(RawOuputGuard {
+    fn stderr(&self) -> anyhow::Result<RawOutputGuard<'_>> {
+        Ok(RawOutputGuard {
             _phantom: PhantomData,
             inner: BufWriter::with_capacity(
                 // TODO(nga): no need to buffer here.

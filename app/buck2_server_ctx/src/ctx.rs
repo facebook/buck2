@@ -28,7 +28,7 @@ use dupe::Dupe;
 use crate::concurrency::ConcurrencyHandler;
 use crate::concurrency::DiceDataProvider;
 use crate::concurrency::DiceUpdater;
-use crate::raw_output::RawOuputGuard;
+use crate::raw_output::RawOutputGuard;
 
 #[async_trait]
 pub trait ServerCommandContextTrait: Send + Sync + 'static {
@@ -41,9 +41,9 @@ pub trait ServerCommandContextTrait: Send + Sync + 'static {
 
     fn events(&self) -> &EventDispatcher;
 
-    fn stdout(&self) -> anyhow::Result<RawOuputGuard<'_>>;
+    fn stdout(&self) -> anyhow::Result<RawOutputGuard<'_>>;
 
-    fn stderr(&self) -> anyhow::Result<RawOuputGuard<'_>>;
+    fn stderr(&self) -> anyhow::Result<RawOutputGuard<'_>>;
 
     async fn request_metadata(&self) -> anyhow::Result<HashMap<String, String>>;
 

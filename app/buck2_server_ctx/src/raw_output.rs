@@ -24,7 +24,7 @@ pub enum StdoutOrStderr {
     Stderr,
 }
 
-pub struct RawOuputGuard<'a> {
+pub struct RawOutputGuard<'a> {
     pub _phantom: PhantomData<&'a mut dyn ServerCommandContextTrait>,
 
     // `RawOutputWriter` expects arguments to `write` to be complete UTF-8 strings.
@@ -46,7 +46,7 @@ pub struct RawOutputWriter {
     stdout_or_stderr: StdoutOrStderr,
 }
 
-impl<'a> Write for RawOuputGuard<'a> {
+impl<'a> Write for RawOutputGuard<'a> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         self.inner.write(buf)
     }
@@ -56,7 +56,7 @@ impl<'a> Write for RawOuputGuard<'a> {
     }
 }
 
-impl<'a> Drop for RawOuputGuard<'a> {
+impl<'a> Drop for RawOutputGuard<'a> {
     fn drop(&mut self) {
         // This would only happen if we had output that isn't utf-8 and got flushed. For now we live with ignoring
         // this.
