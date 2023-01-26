@@ -65,10 +65,10 @@ pub struct TargetsCommand {
     #[clap(flatten)]
     event_log_opts: CommonDaemonCommandOptions,
 
-    #[clap(long = "json", help = "print targets json")]
+    #[clap(long, help = "print targets json")]
     json: bool,
 
-    #[clap(long = "stats", help = "print stats")]
+    #[clap(long, help = "print stats")]
     stats: bool,
 
     #[clap(
@@ -123,13 +123,13 @@ pub struct TargetsCommand {
     patterns: Vec<String>,
 
     #[clap(
-        long = "show-output",
+        long,
         help = "Print the path to the output for each of the rules relative to the cell"
     )]
     show_output: bool,
 
     #[clap(
-        long = "show-full-output",
+        long,
         help = "Print the absolute path to the output for each of the rules relative to the cell"
     )]
     show_full_output: bool,
