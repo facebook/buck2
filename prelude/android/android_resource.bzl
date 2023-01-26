@@ -28,7 +28,7 @@ def android_resource_impl(ctx: "context") -> ["provider"]:
     # TODO(T100007184) filter res/assets by ignored filenames
     sub_targets = {}
     providers = []
-    default_outputs = []
+    default_output = None
 
     res = _convert_to_artifact_dir(ctx, ctx.attrs.res, "res")
     assets = _convert_to_artifact_dir(ctx, ctx.attrs.assets, "assets")
@@ -39,7 +39,7 @@ def android_resource_impl(ctx: "context") -> ["provider"]:
         sub_targets["aapt2_compile"] = [DefaultInfo(default_output = aapt2_compile_output)]
 
         r_dot_txt_output = get_text_symbols(ctx, res, ctx.attrs.deps)
-        default_outputs.append(r_dot_txt_output)
+        default_output = r_dot_txt_output
 
         r_dot_java_package = _get_package(ctx, ctx.attrs.package, ctx.attrs.manifest)
         resource_info = AndroidResourceInfo(
@@ -64,7 +64,7 @@ def android_resource_impl(ctx: "context") -> ["provider"]:
     providers.append(resource_info)
     providers.append(merge_android_packageable_info(ctx.label, ctx.actions, ctx.attrs.deps, manifest = ctx.attrs.manifest, resource_info = resource_info))
     providers.append(get_java_packaging_info(ctx, ctx.attrs.deps))
-    providers.append(DefaultInfo(default_outputs = default_outputs, sub_targets = sub_targets))
+    providers.append(DefaultInfo(default_output = default_output, sub_targets = sub_targets))
 
     return providers
 
