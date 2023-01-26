@@ -12,7 +12,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
-use buck2_common::file_ops::IgnoreSet;
+use buck2_common::ignores::IgnoreSet;
 use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellResolver;

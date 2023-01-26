@@ -38,6 +38,7 @@ pub mod external_symlink;
 pub mod file_ops;
 pub mod find_buildfile;
 pub mod home_buck_tmp;
+pub mod ignores;
 pub mod invocation_paths;
 pub mod invocation_roots;
 pub mod io;
