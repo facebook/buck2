@@ -70,7 +70,7 @@ pub(crate) struct ArcStrBaseInnerConst<P: ArcStrLenStrategy> {
 
 impl<P: ArcStrLenStrategy> ArcStrBaseInner<P> {
     const OFFSET_OF_DATA: usize = mem::size_of::<Self>();
-    const _ASSERT: () = {
+    const ASSERT: () = {
         assert!(Layout::new::<Self>().size() == Layout::new::<ArcStrBaseInnerConst<P>>().size());
         assert!(Layout::new::<Self>().align() == Layout::new::<ArcStrBaseInnerConst<P>>().align());
     };
@@ -81,6 +81,9 @@ impl<P: ArcStrLenStrategy> ArcStrBaseInner<P> {
     };
 
     fn layout_for_len(len: usize) -> Layout {
+        #[allow(clippy::let_unit_value)]
+        let () = Self::ASSERT;
+
         let size = Self::OFFSET_OF_DATA.checked_add(len).unwrap();
         let align = mem::align_of::<Self>();
         Layout::from_size_align(size, align).unwrap()
