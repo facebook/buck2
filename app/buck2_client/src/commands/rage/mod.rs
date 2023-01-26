@@ -27,10 +27,11 @@ use buck2_client_ctx::subscribers::event_log::EventLogPathBuf;
 use buck2_client_ctx::subscribers::event_log::EventLogSummary;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_data::InstantEvent;
 use buck2_data::RageInvoked;
-use buck2_events::dispatch::EventDispatcher;
 use buck2_events::metadata;
 use buck2_events::sink::scribe::new_thrift_scribe_sink_if_enabled;
+use buck2_events::sink::scribe::ThriftScribeSink;
 use buck2_events::trace::TraceId;
 use buck2_events::BuckEvent;
 use chrono::offset::Local;
@@ -162,6 +163,7 @@ impl RageCommand {
 
             let rage_id = TraceId::new();
             let mut manifold_id = format!("{}", rage_id);
+            let sink = create_scribe_sink(&ctx)?;
 
             buck2_client_ctx::eprintln!("Collection will terminate after {} seconds (override with --timeout param)", self.timeout)?;
             buck2_client_ctx::eprintln!("Collecting debug info...\n\n")?;
@@ -171,8 +173,10 @@ impl RageCommand {
             if let Some(ref invocation) = selected_invocation {
                 let trace_id = invocation.get_summary().await?.trace_id;
                 manifold_id = format!("{}_{}", trace_id, manifold_id);
-                // TODO iguridi: this event shouldn't rely on trace_id
-                dispatch_event_to_scribe(&ctx, &rage_id, &trace_id)?;
+                if let Some(sink) = &sink {
+                    // TODO iguridi: this event shouldn't rely on trace_id
+                    dispatch_event_to_scribe(sink, &rage_id, &trace_id).await?;
+                }
             }
 
             let mut sections = vec![
@@ -352,42 +356,43 @@ daemon uptime: {}
     Ok(output)
 }
 
-fn dispatch_event_to_scribe(
-    ctx: &ClientCommandContext,
+async fn dispatch_event_to_scribe(
+    sink: &ThriftScribeSink,
     rage_id: &TraceId,
     trace_id: &TraceId,
 ) -> anyhow::Result<()> {
-    // dispatch event to scribe if possible
-    match create_scribe_event_dispatcher(ctx, rage_id.to_owned())? {
-        Some(dispatcher) => {
-            let recent_command_trace_id = trace_id.to_string();
-            let metadata = metadata::collect();
-            let rage_invoked = RageInvoked {
-                metadata,
-                recent_command_trace_id,
-            };
-            dispatcher.instant_event(rage_invoked);
-        }
-        None => {}
+    let recent_command_trace_id = trace_id.to_string();
+    let metadata = metadata::collect();
+    let rage_invoked = RageInvoked {
+        metadata,
+        recent_command_trace_id,
     };
+    // Send this event now, bypassing internal message queue.
+    sink.send_now(BuckEvent::new(
+        SystemTime::now(),
+        rage_id.to_owned(),
+        None,
+        None,
+        InstantEvent {
+            data: Some(buck2_data::instant_event::Data::RageInvoked(rage_invoked)),
+        }
+        .into(),
+    ))
+    .await;
     Ok(())
 }
 
 #[allow(unused_variables)] // Conditional compilation
-fn create_scribe_event_dispatcher(
-    ctx: &ClientCommandContext,
-    trace_id: TraceId,
-) -> anyhow::Result<Option<EventDispatcher>> {
+fn create_scribe_sink(ctx: &ClientCommandContext) -> anyhow::Result<Option<ThriftScribeSink>> {
     // TODO(swgiillespie) scribe_logging is likely the right feature for this, but we should be able to inject a sink
     // without using configurations at the call site
-    let sink = new_thrift_scribe_sink_if_enabled(
+    new_thrift_scribe_sink_if_enabled(
         ctx.fbinit(),
         /* buffer size */ 100,
         /* retry_backoff */ Duration::from_millis(500),
         /* retry_attempts */ 5,
         /* message_batch_size */ None,
-    )?;
-    Ok(sink.map(|sink| EventDispatcher::new(trace_id, sink)))
+    )
 }
 
 async fn maybe_select_invocation(
