@@ -211,7 +211,6 @@ def _cxx_python_extension_attrs():
         "link_whole": attrs.default_only(attrs.bool(default = True)),
         "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
         "preferred_linkage": attrs.default_only(attrs.string(default = "any")),
-        "use_link_groups": attrs.bool(default = False),
         "_cxx_hacks": attrs.default_only(attrs.dep(default = "prelude//cxx/tools:cxx_hacks")),
         "_cxx_toolchain": _cxx_toolchain(),
         "_omnibus_environment": omnibus_environment_attr(),
@@ -261,7 +260,6 @@ def _cxx_binary_and_test_attrs():
         "link_whole": attrs.default_only(attrs.bool(default = False)),
         "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
         "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source(allow_directory = True)), sorted = True, default = []),
-        "use_link_groups": attrs.bool(default = False),
         "_cxx_hacks": attrs.dep(default = "prelude//cxx/tools:cxx_hacks"),
         "_cxx_toolchain": _cxx_toolchain(),
     }
@@ -293,7 +291,6 @@ def _python_binary_attrs():
         "par_style": attrs.option(attrs.string(), default = None),
         "static_extension_finder": attrs.source(default = "prelude//python/tools:static_extension_finder.py"),
         "static_extension_utils": attrs.source(default = "prelude//python/tools:static_extension_utils.cpp"),
-        "use_link_groups": attrs.bool(default = False),
         "_package_remotely": attrs.bool(default = _package_python_binary_remotely()),
         "_python_toolchain": _python_toolchain(),
     })
@@ -377,7 +374,6 @@ inlined_extra_attributes = {
         "preferred_linkage": attrs.enum(Linkage, default = "any"),
         "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source(allow_directory = True)), sorted = True, default = []),
         "supports_python_dlopen": attrs.option(attrs.bool(), default = None),
-        "use_link_groups": attrs.bool(default = False),
         "_cxx_hacks": attrs.default_only(attrs.dep(default = "prelude//cxx/tools:cxx_hacks")),
         "_cxx_toolchain": _cxx_toolchain(),
         "_is_building_android_binary": is_building_android_binary_attr(),
