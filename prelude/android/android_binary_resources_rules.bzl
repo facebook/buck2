@@ -272,6 +272,7 @@ def _maybe_filter_resources(
             identifier = "filtered_res_{}".format(i),
         )
         filtered_resource = AndroidResourceInfo(
+            raw_target = resource.raw_target,
             aapt2_compile_output = filtered_aapt2_compile_output,
             assets = resource.assets,
             manifest_file = resource.manifest_file,

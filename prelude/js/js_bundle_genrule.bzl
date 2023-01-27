@@ -81,6 +81,7 @@ def _get_extra_providers(
     android_resource_info = initial_target[AndroidResourceInfo]
     if android_resource_info:
         new_android_resource_info = AndroidResourceInfo(
+            raw_target = ctx.label.raw_target(),
             aapt2_compile_output = None if skip_resources else android_resource_info.aapt2_compile_output,
             allow_strings_as_assets_resource_filtering = True,
             assets = js_bundle_out.built_js,

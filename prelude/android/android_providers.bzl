@@ -134,6 +134,8 @@ AndroidPackageableInfo = provider(
 # Information about an `android_resource`
 AndroidResourceInfo = provider(
     fields = [
+        # Target that produced this provider
+        "raw_target",  # "target_label",
         # output of running `aapt2_compile` on the resources, if resources are present
         "aapt2_compile_output",  # ["artifact", None]
         #  if False, then the "res" are not affected by the strings-as-assets resource filter

@@ -55,6 +55,7 @@ def android_prebuilt_aar_impl(ctx: "context") -> ["provider"]:
     ctx.actions.run(unpack_aar_cmd, category = "android_unpack_aar")
 
     resource_info = AndroidResourceInfo(
+        raw_target = ctx.label.raw_target(),
         aapt2_compile_output = aapt2_compile(ctx, res, android_toolchain),
         allow_strings_as_assets_resource_filtering = True,
         assets = assets,
