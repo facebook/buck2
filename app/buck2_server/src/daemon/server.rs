@@ -235,6 +235,16 @@ impl Interceptor for BuckCheckAuthTokenInterceptor {
         ) {
             return Err(Status::unauthenticated("invalid auth token"));
         }
+
+        static FAIL_AUTH: EnvHelper<bool> = EnvHelper::new("BUCK2_TEST_FAIL_BUCKD_AUTH");
+        if FAIL_AUTH
+            .get_copied()
+            .unwrap_or_default()
+            .unwrap_or_default()
+        {
+            return Err(Status::unauthenticated("injected auth error"));
+        }
+
         Ok(request)
     }
 }

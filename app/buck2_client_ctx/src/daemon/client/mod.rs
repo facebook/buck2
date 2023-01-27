@@ -209,6 +209,11 @@ fn grpc_to_stream(
     .right_stream()
 }
 
+enum KillBehavior {
+    WaitForExit,
+    TerminateFirst,
+}
+
 impl BuckdClient {
     fn open_tailers(&mut self) -> anyhow::Result<()> {
         match &self.client {
@@ -282,20 +287,32 @@ impl BuckdClient {
         let time_to_kill = GRACEFUL_SHUTDOWN_TIMEOUT + FORCE_SHUTDOWN_TIMEOUT;
         let time_req_sent = Instant::now();
         // First we send a Kill request
-        match tokio::time::timeout(time_to_kill, request_fut).await {
+        let kill_behavior = match tokio::time::timeout(time_to_kill, request_fut).await {
             Ok(inner_result) => {
-                inner_result?;
+                match inner_result {
+                    Ok(_) => KillBehavior::WaitForExit,
+                    Err(e) => {
+                        // The kill request can fail if the server is in a bad state and we cannot
+                        // authenticate to it.
+                        crate::eprintln!("Error requesting graceful shutdown: {}", e)?;
+                        // Try an OS-level terminate next.
+                        KillBehavior::TerminateFirst
+                    }
+                }
             }
-            Err(_) => {
-                // ignore the timeout, we'll just send a harder kill.
-            }
-        }
+            Err(_) => KillBehavior::WaitForExit,
+        };
         // Then we do a wait_for on the pid, and if that times out, we kill it harder
-        Self::kill_impl(pid, time_to_kill.saturating_sub(time_req_sent.elapsed())).await
+        Self::kill_impl(
+            pid,
+            kill_behavior,
+            time_to_kill.saturating_sub(time_req_sent.elapsed()),
+        )
+        .await
     }
 
     #[cfg(unix)]
-    async fn kill_impl(pid: i64, timeout: Duration) -> anyhow::Result<()> {
+    async fn kill_impl(pid: i64, behavior: KillBehavior, timeout: Duration) -> anyhow::Result<()> {
         use nix::sys::signal::Signal;
 
         let daemon_pid = nix::unistd::Pid::from_raw(pid as i32);
@@ -323,6 +340,15 @@ impl BuckdClient {
             }
             WaitFor::WaitTimedOut
         }
+
+        match behavior {
+            KillBehavior::TerminateFirst => {
+                crate::eprintln!("Sending SIGTERM.")?;
+                // We send SIGKILL below even if this fails.
+                let _ignored = nix::sys::signal::kill(daemon_pid, Signal::SIGTERM);
+            }
+            KillBehavior::WaitForExit => {}
+        };
 
         match wait_for(daemon_pid, timeout).await {
             WaitFor::Exited => Ok(()),
@@ -356,7 +382,7 @@ impl BuckdClient {
     }
 
     #[cfg(windows)]
-    async fn kill_impl(pid: i64, timeout: Duration) -> anyhow::Result<()> {
+    async fn kill_impl(pid: i64, behavior: KillBehavior, timeout: Duration) -> anyhow::Result<()> {
         use winapi::shared::winerror::WAIT_TIMEOUT;
         use winapi::um::handleapi::CloseHandle;
         use winapi::um::processthreadsapi::OpenProcess;
@@ -378,24 +404,34 @@ impl BuckdClient {
 
         let daemon_pid = pid as u32;
         let proc_handle = unsafe { OpenProcess(SYNCHRONIZE | PROCESS_TERMINATE, 0, daemon_pid) };
-        // If proc_handle is null, proccess died already.
+        // If proc_handle is null, process died already.
         if proc_handle.is_null() {
             return Ok(());
         }
         let proc_handle = HandleWrapper {
             handle: proc_handle,
         };
-        match unsafe { WaitForSingleObject(proc_handle.handle, timeout.as_millis().try_into()?) } {
+        let wait_result = match behavior {
+            KillBehavior::WaitForExit => unsafe {
+                WaitForSingleObject(proc_handle.handle, timeout.as_millis().try_into()?)
+            },
+            KillBehavior::TerminateFirst => {
+                // Don't wait for the process to die first if we were asked to just terminate it,
+                // fall through directly to TerminateProcess instead.
+                WAIT_TIMEOUT
+            }
+        };
+        match wait_result {
             WAIT_OBJECT_0 => Ok(()), // process exited successfully
             WAIT_TIMEOUT => {
-                // If proccess isn't signalled, terminate it forcefully.
+                // If process isn't signalled, terminate it forcefully.
                 match unsafe { TerminateProcess(proc_handle.handle, 1) } {
                     0 => Err(anyhow::anyhow!("Failed to kill daemon ({})", daemon_pid)),
                     _ => Ok(()),
                 }
             }
             error_code => Err(anyhow::anyhow!(
-                "Waiting for daemon proccess failed. Error code: {:#x}",
+                "Waiting for daemon process failed. Error code: {:#x}",
                 error_code
             )),
         }
