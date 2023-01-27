@@ -46,9 +46,7 @@ set_record = record(
 # encouraged to avoid leaking the underlying implementation.
 set_type = set_record.type
 
-def set() -> set_type:
-    self = None
-
+def set(initial_entries: [""] = []) -> set_type:
     def set_list():
         return self._entries.keys()
 
@@ -82,5 +80,7 @@ def set() -> set_type:
         contains = set_contains,
         size = set_size,
     )
+
+    self.update(initial_entries)
 
     return self
