@@ -22,10 +22,9 @@ use buck2_client_ctx::manifold;
 use buck2_client_ctx::manifold::UploadError;
 use buck2_client_ctx::stdin::Stdin;
 use buck2_client_ctx::stream_value::StreamValue;
-use buck2_client_ctx::subscribers::event_log::file_names::get_local_logs;
+use buck2_client_ctx::subscribers::event_log::file_names::get_local_logs_if_exist;
 use buck2_client_ctx::subscribers::event_log::EventLogPathBuf;
 use buck2_client_ctx::subscribers::event_log::EventLogSummary;
-use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_data::InstantEvent;
 use buck2_data::RageInvoked;
@@ -396,9 +395,9 @@ async fn maybe_select_invocation(
     logdir: AbsNormPathBuf,
     invocation: Option<usize>,
 ) -> anyhow::Result<Option<EventLogPathBuf>> {
-    let mut logs = match fs_util::try_exists(&logdir)? {
-        false => return Ok(None),
-        true => get_local_logs(&logdir)?
+    let mut logs = match get_local_logs_if_exist(&logdir)? {
+        None => return Ok(None),
+        Some(logs) => logs
             .into_iter()
             .rev() // newest first
             .map(|log_path| EventLogPathBuf::infer(log_path.into_abs_path_buf()))
