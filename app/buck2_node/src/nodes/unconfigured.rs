@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::hash::Hash;
+use std::hash::Hasher;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -423,6 +425,19 @@ impl TargetNode {
 
     pub fn call_stack(&self) -> Option<String> {
         self.0.call_stack.as_ref().map(|s| s.to_string())
+    }
+
+    /// Hash the fields that impact how this target is built.
+    /// Don't do any recursive hashing of the dependencies.
+    pub fn target_hash<H: Hasher>(&self, state: &mut H) {
+        self.label().hash(state);
+        self.rule_type().hash(state);
+        self.attrs(AttrInspectOptions::All).for_each(|x| {
+            // We deliberately don't hash the attribute, as if the value being passed to analysis
+            // stays the same, we don't care if the attribute that generated it changed.
+            x.name.hash(state);
+            x.value.hash(state);
+        });
     }
 }
 

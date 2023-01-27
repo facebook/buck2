@@ -26,7 +26,6 @@ use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::package::PackageLabel;
 use buck2_core::target::TargetLabel;
-use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_query::query::environment::ConfiguredOrUnconfiguredTargetLabel;
@@ -200,14 +199,7 @@ pub trait TargetHashingTargetNode: QueryTarget {
 #[async_trait]
 impl TargetHashingTargetNode for ConfiguredTargetNode {
     fn target_hash<H: Hasher>(&self, state: &mut H) {
-        self.label().hash(state);
-        self.rule_type().hash(state);
-        self.attrs(AttrInspectOptions::All).for_each(|x| {
-            // We deliberately don't hash the attribute, as if the value being passed to analysis
-            // stays the same, we don't care if the attribute that generated it changed.
-            x.name.hash(state);
-            x.value.hash(state);
-        });
+        self.target_hash(state)
     }
 
     async fn get_target_nodes(
@@ -222,14 +214,7 @@ impl TargetHashingTargetNode for ConfiguredTargetNode {
 #[async_trait]
 impl TargetHashingTargetNode for TargetNode {
     fn target_hash<H: Hasher>(&self, state: &mut H) {
-        self.label().hash(state);
-        self.rule_type().hash(state);
-        self.attrs(AttrInspectOptions::All).for_each(|x| {
-            // We deliberately don't hash the attribute, as if the value being passed to analysis
-            // stays the same, we don't care if the attribute that generated it changed.
-            x.name.hash(state);
-            x.value.hash(state);
-        });
+        self.target_hash(state)
     }
 
     async fn get_target_nodes(
