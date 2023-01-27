@@ -197,6 +197,20 @@ pub fn read_dir<P: AsRef<AbsNormPath>>(path: P) -> anyhow::Result<ReadDir> {
         .map(|read_dir| ReadDir { read_dir, _guard })
 }
 
+pub fn read_dir_if_exists<P: AsRef<AbsNormPath>>(path: P) -> anyhow::Result<Option<ReadDir>> {
+    let _guard = IoCounterKey::ReadDir.guard();
+    let read_dir = fs::read_dir(path.as_ref());
+    let read_dir = match read_dir {
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(e) => {
+            return Err(e)
+                .with_context(|| format!("read_dir_if_exists({})", P::as_ref(&path).display()));
+        }
+        Ok(x) => x,
+    };
+    Ok(Some(ReadDir { read_dir, _guard }))
+}
+
 pub fn try_exists<P: AsRef<Path>>(path: P) -> anyhow::Result<bool> {
     let _guard = IoCounterKey::Stat.guard();
     fs::try_exists(&path).with_context(|| format!("try_exists({})", P::as_ref(&path).display()))
@@ -406,6 +420,7 @@ mod tests {
     use crate::fs::fs_util;
     use crate::fs::fs_util::create_dir_all;
     use crate::fs::fs_util::metadata;
+    use crate::fs::fs_util::read_dir_if_exists;
     use crate::fs::fs_util::read_to_string;
     use crate::fs::fs_util::remove_all;
     use crate::fs::fs_util::remove_dir_all;
@@ -413,6 +428,20 @@ mod tests {
     use crate::fs::fs_util::symlink;
     use crate::fs::fs_util::symlink_metadata;
     use crate::fs::fs_util::write;
+    use crate::fs::paths::abs_norm_path::AbsNormPath;
+    use crate::fs::paths::forward_rel_path::ForwardRelativePath;
+
+    #[test]
+    fn if_exists_read_dir() -> anyhow::Result<()> {
+        let binding = std::env::temp_dir();
+        let existing_path = AbsNormPath::new(&binding)?;
+        let res = read_dir_if_exists(existing_path)?;
+        assert!(res.is_some());
+        let not_existing_dir = existing_path.join(ForwardRelativePath::unchecked_new("dir"));
+        let res = read_dir_if_exists(&not_existing_dir)?;
+        assert!(res.is_none());
+        Ok(())
+    }
 
     #[test]
     fn create_and_remove_symlink_dir() -> anyhow::Result<()> {

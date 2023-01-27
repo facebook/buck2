@@ -57,7 +57,16 @@ pub(crate) async fn remove_old_logs(logdir: &AbsNormPath) {
 
 /// List logs in logdir, ordered from oldest to newest.
 pub fn get_local_logs(logdir: &AbsNormPath) -> anyhow::Result<Vec<AbsNormPathBuf>> {
-    let dir = fs_util::read_dir(logdir)?;
+    Ok(sort_logs(fs_util::read_dir(logdir)?))
+}
+
+pub fn get_local_logs_if_exist(
+    logdir: &AbsNormPath,
+) -> anyhow::Result<Option<Vec<AbsNormPathBuf>>> {
+    Ok(fs_util::read_dir_if_exists(logdir)?.map(sort_logs))
+}
+
+fn sort_logs(dir: fs_util::ReadDir) -> Vec<AbsNormPathBuf> {
     let mut logfiles = dir.filter_map(Result::ok).collect::<Vec<_>>();
     logfiles.sort_by_cached_key(|file| {
         // Return Unix epoch if unable to get creation time.
@@ -68,7 +77,7 @@ pub fn get_local_logs(logdir: &AbsNormPath) -> anyhow::Result<Vec<AbsNormPathBuf
         }
         std::time::UNIX_EPOCH
     });
-    Ok(logfiles.into_map(|entry| entry.path()))
+    logfiles.into_map(|entry| entry.path())
 }
 
 pub fn retrieve_nth_recent_log(
