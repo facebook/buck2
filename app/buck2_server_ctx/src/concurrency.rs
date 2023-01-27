@@ -22,7 +22,7 @@ use allocative::Allocative;
 use async_condvar_fair::Condvar;
 use async_trait::async_trait;
 use buck2_core::soft_error;
-use buck2_core::truncate::truncate_container;
+use buck2_core::truncate::truncate;
 use buck2_data::DiceBlockConcurrentCommandEnd;
 use buck2_data::DiceBlockConcurrentCommandStart;
 use buck2_data::DiceEqualityCheck;
@@ -37,7 +37,6 @@ use dice::DiceTransaction;
 use dice::DiceTransactionUpdater;
 use dice::UserComputationData;
 use dupe::Dupe;
-use gazebo::prelude::*;
 use itertools::Itertools;
 use parking_lot::lock_api::MutexGuard;
 use parking_lot::FairMutex;
@@ -48,11 +47,11 @@ use thiserror::Error;
 #[derive(Error, Debug)]
 enum ConcurrencyHandlerError {
     #[error(
-        "Recursive invocation of Buck, which is discouraged, but will probably work (using the same state). Trace Ids: {0}. Recursive invocation CLI args: [{1}]"
+        "Recursive invocation of Buck, which is discouraged, but will probably work (using the same state). Trace Ids: {0}. Recursive invocation command: `{1}`"
     )]
     NestedInvocationWithSameStates(String, String),
     #[error(
-        "Recursive invocation of Buck, with a different state - computation will continue but may produce incorrect results. Trace Ids: {0}. Recursive invocation CLI args: [{1}]"
+        "Recursive invocation of Buck, with a different state - computation will continue but may produce incorrect results. Trace Ids: {0}. Recursive invocation command: `{1}`"
     )]
     NestedInvocationWithDifferentStates(String, String),
     #[error(
@@ -268,7 +267,7 @@ impl ConcurrencyHandler {
                         return Err(anyhow::Error::new(
                             ConcurrencyHandlerError::NestedInvocationWithDifferentStates(
                                 format_traces(&data.active_traces, trace.dupe()),
-                                truncate_container(sanitized_argv.map(|e| &**e), 500),
+                                format_argv(&sanitized_argv),
                             ),
                         ));
                     }
@@ -277,7 +276,7 @@ impl ConcurrencyHandler {
                             state,
                             &data.active_traces,
                             trace.dupe(),
-                            truncate_container(sanitized_argv.map(|e| &**e), 500),
+                            format_argv(&sanitized_argv),
                         )?;
 
                         break;
@@ -286,20 +285,18 @@ impl ConcurrencyHandler {
                         let active_trace = data.active_trace.as_ref().unwrap().to_string();
 
                         tracing::warn!(
-                            "Running parallel invocation with different states with blocking: \nWaiting trace ID: {} \nCli args: [{:?}] \nExecuting trace ID: {} \nCLI args: [{:?}]",
+                            "Running parallel invocation with different states with blocking: \nWaiting trace ID: {} \nCommand: `{}` \nExecuting trace ID: {} \nCommand: `{}`",
                             &trace,
-                            truncate_container(sanitized_argv.map(|e| &**e), 500),
+                            format_argv(&sanitized_argv),
                             active_trace,
-                            truncate_container(
-                                data.active_trace_argv.as_ref().unwrap().map(|e| &**e),
-                                500
-                            ),
+                            format_argv(data.active_trace_argv.as_ref().unwrap()),
                         );
 
                         data = event_dispatcher
                             .span_async(
                                 DiceBlockConcurrentCommandStart {
                                     current_active_trace_id: active_trace.clone(),
+                                    cmd_args: format_argv(data.active_trace_argv.as_ref().unwrap()),
                                 },
                                 async {
                                     (
@@ -418,6 +415,15 @@ fn format_traces(active_traces: &SmallMap<TraceId, usize>, current_trace: TraceI
     }
 
     traces
+}
+
+fn format_argv(arg: &[String]) -> String {
+    let mut iter = arg.iter();
+    // Skip the "/path/to/buck2" part so we can just emit "buck2" for the start of the cmd
+    iter.next();
+
+    let cmd = format!("buck2 {}", iter.join(" "));
+    truncate(&cmd, 500)
 }
 
 /// Held to execute a command so that when the command is canceled, we properly remove its state

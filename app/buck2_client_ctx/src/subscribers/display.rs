@@ -17,6 +17,7 @@ use std::time::Duration;
 use anyhow::Context as _;
 use buck2_common::convert::ProstDurationExt;
 use buck2_core::collections::ordered_set::OrderedSet;
+use buck2_core::truncate::truncate;
 use buck2_data::action_key;
 use buck2_data::span_start_event::Data;
 use buck2_data::ActionKey;
@@ -252,8 +253,8 @@ pub(crate) fn display_event(
             Data::Materialization(..) => Ok("materializing".to_owned()),
             Data::DiceCriticalSection(..) => Err(ParseEventError::UnexpectedEvent.into()),
             Data::DiceBlockConcurrentCommand(cmd) => Ok(format!(
-                "Waiting for command with ID {} to finish",
-                cmd.current_active_trace_id
+                "Waiting for command [{}] to finish",
+                truncate(&cmd.cmd_args, 200),
             )),
             Data::DiceSynchronizeSection(..) => Ok("Synchronizing buck2 internal state".to_owned()),
             Data::Fake(fake) => Ok(format!("{} -- speak of the devil", fake.caramba)),

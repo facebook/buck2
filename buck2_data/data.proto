@@ -1377,6 +1377,7 @@ message DiceSynchronizeSectionEnd {}
 
 message DiceBlockConcurrentCommandStart {
   string current_active_trace_id = 1;
+  string cmd_args = 2;
 }
 
 message DiceBlockConcurrentCommandEnd {
