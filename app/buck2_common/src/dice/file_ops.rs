@@ -25,7 +25,7 @@ use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use derive_more::Display;
 use dice::DiceComputations;
-use dice::DiceTransaction;
+use dice::DiceTransactionUpdater;
 use dice::Key;
 use dupe::Dupe;
 use gazebo::cmp::PartialEqAny;
@@ -284,7 +284,7 @@ impl FileChangeTracker {
         }
     }
 
-    pub fn write_to_dice(self, ctx: &DiceTransaction) -> anyhow::Result<()> {
+    pub fn write_to_dice(self, ctx: &DiceTransactionUpdater) -> anyhow::Result<()> {
         ctx.changed(self.files_to_dirty)?;
         ctx.changed(self.dirs_to_dirty)?;
         ctx.changed(self.paths_to_dirty)?;

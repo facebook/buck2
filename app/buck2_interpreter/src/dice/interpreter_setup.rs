@@ -9,21 +9,21 @@
 
 use std::sync::Arc;
 
-use buck2_common::dice::cells::HasCellResolver;
-use buck2_common::legacy_configs::dice::HasLegacyConfigs;
+use buck2_common::dice::cells::SetCellResolver;
+use buck2_common::legacy_configs::dice::SetLegacyConfigs;
 use buck2_common::legacy_configs::LegacyBuckConfigs;
 use buck2_core::cells::CellResolver;
-use dice::DiceTransaction;
+use dice::DiceTransactionUpdater;
 
 use crate::dice::starlark_profiler::SetStarlarkProfilerInstrumentation;
 use crate::dice::starlark_profiler::StarlarkProfilerConfiguration;
 use crate::dice::starlark_types::SetDisableStarlarkTypes;
-use crate::dice::HasInterpreterContext;
+use crate::dice::SetInterpreterContext;
 use crate::extra::InterpreterConfiguror;
 
 /// Common code to initialize Starlark interpreter globals.
 pub fn setup_interpreter(
-    dice: &DiceTransaction,
+    dice: &DiceTransactionUpdater,
     cell_resolver: CellResolver,
     configuror: Arc<dyn InterpreterConfiguror>,
     legacy_configs: LegacyBuckConfigs,
@@ -42,7 +42,7 @@ pub fn setup_interpreter(
 }
 
 pub fn setup_interpreter_basic(
-    dice: &DiceTransaction,
+    dice: &DiceTransactionUpdater,
     cell_resolver: CellResolver,
     configuror: Arc<dyn InterpreterConfiguror>,
     legacy_configs: LegacyBuckConfigs,

@@ -18,6 +18,7 @@ use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use derive_more::Display;
 use dice::DiceComputations;
+use dice::DiceTransactionUpdater;
 use dice::InjectedKey;
 use dupe::Dupe;
 use owning_ref::ArcRef;
@@ -56,7 +57,7 @@ impl HasBuildContextData for DiceComputations {
     }
 }
 
-impl SetBuildContextData for DiceComputations {
+impl SetBuildContextData for DiceTransactionUpdater {
     fn set_buck_out_path(&self, path: Option<ProjectRelativePathBuf>) -> anyhow::Result<()> {
         Ok(self.changed_to(vec![(
             BuildDataKey,

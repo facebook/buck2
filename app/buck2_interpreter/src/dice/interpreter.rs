@@ -12,10 +12,12 @@ use std::sync::Arc;
 use allocative::Allocative;
 use derive_more::Display;
 use dice::DiceComputations;
+use dice::DiceTransactionUpdater;
 use dice::InjectedKey;
 use dupe::Dupe;
 
 use crate::dice::HasInterpreterContext;
+use crate::dice::SetInterpreterContext;
 use crate::extra::InterpreterConfiguror;
 
 #[derive(Clone, Dupe)]
@@ -40,7 +42,9 @@ impl HasInterpreterContext for DiceComputations {
     async fn get_interpreter_configuror(&self) -> anyhow::Result<Arc<dyn InterpreterConfiguror>> {
         Ok(self.compute(&BuildContextKey()).await?.dupe())
     }
+}
 
+impl SetInterpreterContext for DiceTransactionUpdater {
     fn set_interpreter_context(
         &self,
         interpreter_configuror: Arc<dyn InterpreterConfiguror>,

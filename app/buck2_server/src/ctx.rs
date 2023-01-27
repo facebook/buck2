@@ -88,7 +88,7 @@ use buck2_server_ctx::raw_output::RawOutputWriter;
 use buck2_server_ctx::raw_output::StdoutOrStderr;
 use dice::data::DiceData;
 use dice::DiceComputations;
-use dice::DiceTransaction;
+use dice::DiceTransactionUpdater;
 use dice::UserComputationData;
 use dupe::Dupe;
 use gazebo::prelude::SliceExt;
@@ -539,9 +539,11 @@ struct DiceCommandUpdater {
 
 #[async_trait]
 impl DiceUpdater for DiceCommandUpdater {
-    async fn update(&self, ctx: DiceTransaction) -> anyhow::Result<DiceTransaction> {
-        let (cell_resolver, legacy_configs) =
-            self.cell_config_loader.cells_and_configs(&ctx).await?;
+    async fn update(&self, ctx: DiceTransactionUpdater) -> anyhow::Result<DiceTransactionUpdater> {
+        let (cell_resolver, legacy_configs) = self
+            .cell_config_loader
+            .cells_and_configs(ctx.existing_state())
+            .await?;
         // TODO(cjhopman): The CellResolver and the legacy configs shouldn't be leaves on the graph. This should
         // just be setting the config overrides and host platform override as leaves on the graph.
 

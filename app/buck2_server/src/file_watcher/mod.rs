@@ -18,7 +18,7 @@ use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::is_open_source;
-use dice::DiceTransaction;
+use dice::DiceTransactionUpdater;
 
 use crate::file_watcher::notify::NotifyFileWatcher;
 use crate::file_watcher::watchman::interface::WatchmanFileWatcher;
@@ -29,7 +29,7 @@ mod watchman;
 
 #[async_trait]
 pub trait FileWatcher: Allocative + Send + Sync + 'static {
-    async fn sync(&self, dice: DiceTransaction) -> anyhow::Result<DiceTransaction>;
+    async fn sync(&self, dice: DiceTransactionUpdater) -> anyhow::Result<DiceTransactionUpdater>;
 }
 
 impl dyn FileWatcher {

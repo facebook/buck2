@@ -396,7 +396,7 @@ mod tests {
     use std::sync::Mutex;
 
     use assert_matches::assert_matches;
-    use buck2_common::dice::cells::HasCellResolver;
+    use buck2_common::dice::cells::SetCellResolver;
     use buck2_common::dice::data::testing::SetTestingIoProvider;
     use buck2_common::dice::file_ops::keys::FileOpsValue;
     use buck2_common::dice::file_ops::testing::FileOpsKey;
@@ -604,7 +604,7 @@ mod tests {
             deferred_resolve,
             registered_action.dupe(),
         );
-        let dice_computations = dice_builder.build(UserComputationData::new())?;
+        let dice_computations = dice_builder.build(UserComputationData::new())?.commit();
 
         let result = with_dispatcher_async(
             EventDispatcher::null(),
@@ -778,7 +778,8 @@ mod tests {
                     TestFileOps::new_with_files_metadata(btreemap![path => metadata.dupe()]),
                 ))),
             )
-            .build(UserComputationData::new())?;
+            .build(UserComputationData::new())?
+            .commit();
 
         let source_artifact = Artifact::from(source_artifact);
         let input = ArtifactGroup::Artifact(source_artifact.dupe());
@@ -827,7 +828,8 @@ mod tests {
                     btreemap![path => symlink.dupe()],
                 )))),
             )
-            .build(UserComputationData::new())?;
+            .build(UserComputationData::new())?
+            .commit();
 
         let source_artifact = Artifact::from(source_artifact);
         let input = ArtifactGroup::Artifact(source_artifact.dupe());

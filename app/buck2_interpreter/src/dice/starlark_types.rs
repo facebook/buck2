@@ -10,7 +10,7 @@
 use allocative::Allocative;
 use async_trait::async_trait;
 use dice::DiceComputations;
-use dice::DiceTransaction;
+use dice::DiceTransactionUpdater;
 use dice::InjectedKey;
 use dupe::Dupe;
 
@@ -40,7 +40,7 @@ pub trait SetDisableStarlarkTypes {
     fn set_disable_starlark_types(&self, disable_starlark_types: bool) -> anyhow::Result<()>;
 }
 
-impl SetDisableStarlarkTypes for DiceTransaction {
+impl SetDisableStarlarkTypes for DiceTransactionUpdater {
     fn set_disable_starlark_types(&self, disable_starlark_types: bool) -> anyhow::Result<()> {
         Ok(self.changed_to([(DisableStarlarkTypesKey, disable_starlark_types)])?)
     }

@@ -108,7 +108,7 @@ mod tests {
         let mut dice_data = UserComputationData::new();
         set_fallback_executor_config(&mut dice_data.data, CommandExecutorConfig::testing_local());
 
-        let dice = dice.build(dice_data)?;
+        let dice = dice.build(dice_data)?.commit();
         let deferred_result = dice.compute_deferred_data(&data0).await?;
         assert_eq!(*deferred_result, 1);
         assert!(executed0.load(Ordering::SeqCst));

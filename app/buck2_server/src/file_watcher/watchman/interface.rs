@@ -22,7 +22,7 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::rollout_percentage::RolloutPercentage;
 use buck2_events::dispatch::span_async;
-use dice::DiceTransaction;
+use dice::DiceTransactionUpdater;
 use tracing::info;
 use tracing::warn;
 use watchman_client::expr::Expr;
@@ -53,10 +53,10 @@ enum ChangeEvent<'a> {
 impl WatchmanQueryProcessor {
     async fn process_events_impl(
         &self,
-        ctx: DiceTransaction,
+        ctx: DiceTransactionUpdater,
         events: Vec<WatchmanEvent>,
         mergebase: &Option<String>,
-    ) -> anyhow::Result<(buck2_data::FileWatcherStats, DiceTransaction)> {
+    ) -> anyhow::Result<(buck2_data::FileWatcherStats, DiceTransactionUpdater)> {
         let mut handler = FileChangeTracker::new();
         let mut stats = FileWatcherStats::new(events.len(), mergebase.as_deref());
 
@@ -203,22 +203,22 @@ fn find_first_valid_parent(mut path: &Path) -> Option<&ProjectRelativePath> {
 #[async_trait]
 impl SyncableQueryProcessor for WatchmanQueryProcessor {
     type Output = buck2_data::FileWatcherStats;
-    type Payload = DiceTransaction;
+    type Payload = DiceTransactionUpdater;
 
     async fn process_events(
         &self,
-        dice: DiceTransaction,
+        dice: DiceTransactionUpdater,
         events: Vec<WatchmanEvent>,
         mergebase: &Option<String>,
-    ) -> anyhow::Result<(Self::Output, DiceTransaction)> {
+    ) -> anyhow::Result<(Self::Output, DiceTransactionUpdater)> {
         self.process_events_impl(dice, events, mergebase).await
     }
 
     async fn on_fresh_instance(
         &self,
-        ctx: DiceTransaction,
+        ctx: DiceTransactionUpdater,
         mergebase: &Option<String>,
-    ) -> anyhow::Result<(Self::Output, DiceTransaction)> {
+    ) -> anyhow::Result<(Self::Output, DiceTransactionUpdater)> {
         eprintln!("watchman fresh instance event, clearing cache");
 
         if !self.retain_dep_files_on_watchman_fresh_instance {
@@ -229,7 +229,7 @@ impl SyncableQueryProcessor for WatchmanQueryProcessor {
         // Dropping the entire DICE map can be somewhat computationally expensive as there
         // are a lot of destructors to run. On the other hand, we don't have to wait for
         // it. So, we just send it off to its own thread.
-        let ctx = ctx.unstable_take();
+        let ctx = ctx.commit().unstable_take().into_updater();
 
         Ok((
             buck2_data::FileWatcherStats {
@@ -246,7 +246,7 @@ impl SyncableQueryProcessor for WatchmanQueryProcessor {
 #[derive(Allocative)]
 pub(crate) struct WatchmanFileWatcher {
     #[allocative(skip)]
-    query: SyncableQuery<buck2_data::FileWatcherStats, DiceTransaction>,
+    query: SyncableQuery<buck2_data::FileWatcherStats, DiceTransactionUpdater>,
 }
 
 /// The watchman query is constructed once on daemon startup. It is an unfiltered watchman query
@@ -291,7 +291,7 @@ impl WatchmanFileWatcher {
 
 #[async_trait]
 impl FileWatcher for WatchmanFileWatcher {
-    async fn sync(&self, dice: DiceTransaction) -> anyhow::Result<DiceTransaction> {
+    async fn sync(&self, dice: DiceTransactionUpdater) -> anyhow::Result<DiceTransactionUpdater> {
         span_async(
             buck2_data::FileWatcherStart {
                 provider: buck2_data::FileWatcherProvider::Watchman as i32,

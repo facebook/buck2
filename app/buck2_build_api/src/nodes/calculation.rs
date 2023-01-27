@@ -969,11 +969,11 @@ mod tests {
 
         let mut data = UserComputationData::new();
         set_fallback_executor_config(&mut data.data, CommandExecutorConfig::testing_local());
-        let mut computations = DiceBuilder::new()
+        let computations = DiceBuilder::new()
             .mock_and_return(InterpreterResultsKey(pkg), Ok(Arc::new(eval_result)))
             .mock_and_return(ExecutionPlatformsKey, Ok(None))
             .build(data)?;
-        computations = computations.commit();
+        let computations = computations.commit();
 
         let node = computations.get_target_node(&label1).await?;
         assert_eq!(node.0, node1.0);

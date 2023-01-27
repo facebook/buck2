@@ -7,9 +7,9 @@
  * of this source tree.
  */
 
-use buck2_common::dice::cells::HasCellResolver;
+use buck2_common::dice::cells::SetCellResolver;
 use buck2_common::dice::data::testing::SetTestingIoProvider;
-use buck2_common::legacy_configs::dice::HasLegacyConfigs;
+use buck2_common::legacy_configs::dice::SetLegacyConfigs;
 use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::LegacyBuckConfigs;
 use buck2_core::bzl::ImportPath;
@@ -41,7 +41,7 @@ use crate::dice::starlark_profiler::SetStarlarkProfilerInstrumentation;
 use crate::dice::starlark_profiler::StarlarkProfilerConfiguration;
 use crate::dice::starlark_types::SetDisableStarlarkTypes;
 use crate::dice::HasCalculationDelegate;
-use crate::dice::HasInterpreterContext;
+use crate::dice::SetInterpreterContext;
 use crate::extra::testing::TesterConfiguror;
 use crate::extra::testing::TesterExtraContext;
 use crate::starlark_profiler::StarlarkProfilerOrInstrumentation;
@@ -79,7 +79,7 @@ fn calculation(fs: &ProjectRootTemp) -> anyhow::Result<DiceTransaction> {
 
     let mut per_transaction_data = UserComputationData::new();
     per_transaction_data.data.set(EventDispatcher::null());
-    let ctx = dice.with_ctx_data(per_transaction_data);
+    let ctx = dice.updater_with_data(per_transaction_data);
 
     let resolver = CellResolver::with_names_and_paths_with_alias(&[(
         CellName::unchecked_new(""),

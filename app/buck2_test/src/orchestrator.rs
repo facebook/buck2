@@ -975,7 +975,7 @@ impl<'a> ToProtoMessage for TestActionKey<'a> {
 #[cfg(test)]
 mod tests {
     use buck2_build_api::context::SetBuildContextData;
-    use buck2_common::dice::cells::HasCellResolver;
+    use buck2_common::dice::cells::SetCellResolver;
     use buck2_common::dice::data::testing::SetTestingIoProvider;
     use buck2_common::liveliness_observer::NoopLivelinessObserver;
     use buck2_core::cells::name::CellName;

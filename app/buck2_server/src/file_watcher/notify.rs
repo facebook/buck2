@@ -24,7 +24,7 @@ use buck2_core::collections::ordered_set::OrderedSet;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_events::dispatch::span_async;
-use dice::DiceTransaction;
+use dice::DiceTransactionUpdater;
 use dupe::Dupe;
 use notify::event::CreateKind;
 use notify::event::MetadataKind;
@@ -205,8 +205,8 @@ impl NotifyFileWatcher {
 
     fn sync2(
         &self,
-        dice: DiceTransaction,
-    ) -> anyhow::Result<(buck2_data::FileWatcherStats, DiceTransaction)> {
+        dice: DiceTransactionUpdater,
+    ) -> anyhow::Result<(buck2_data::FileWatcherStats, DiceTransactionUpdater)> {
         let mut guard = self.data.lock().unwrap();
         let old = mem::replace(&mut *guard, Ok(NotifyFileData::new()));
         let (stats, changes) = old?.sync();
@@ -217,7 +217,7 @@ impl NotifyFileWatcher {
 
 #[async_trait]
 impl FileWatcher for NotifyFileWatcher {
-    async fn sync(&self, dice: DiceTransaction) -> anyhow::Result<DiceTransaction> {
+    async fn sync(&self, dice: DiceTransactionUpdater) -> anyhow::Result<DiceTransactionUpdater> {
         span_async(
             buck2_data::FileWatcherStart {
                 provider: buck2_data::FileWatcherProvider::RustNotify as i32,

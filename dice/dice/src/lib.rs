@@ -557,7 +557,6 @@ pub mod testing {
     use crate::user_data::UserComputationData;
     use crate::Dice;
     use crate::DiceDataBuilder;
-    use crate::DiceTransaction;
     use crate::DiceTransactionUpdater;
     use crate::Key;
 
@@ -596,12 +595,12 @@ pub mod testing {
             self
         }
 
-        pub fn build(self, extra: UserComputationData) -> anyhow::Result<DiceTransaction> {
+        pub fn build(self, extra: UserComputationData) -> anyhow::Result<DiceTransactionUpdater> {
             let dice = self.builder.build(DetectCycles::Enabled);
             let ctx = dice.updater_with_data(extra);
 
             self.mocked.into_iter().try_for_each(|f| f(&ctx))?;
-            Ok(ctx.commit())
+            Ok(ctx)
         }
     }
 }

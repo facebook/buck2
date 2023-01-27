@@ -19,6 +19,7 @@ use buck2_core::collections::sorted_map::SortedMap;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::DiceProjectionComputations;
+use dice::DiceTransactionUpdater;
 use dice::InjectedKey;
 use dice::Key;
 use dice::OpaqueValue;
@@ -132,7 +133,9 @@ pub trait HasLegacyConfigs {
     where
         anyhow::Error: From<<T as FromStr>::Err>,
         T: Send + Sync + 'static;
+}
 
+pub trait SetLegacyConfigs {
     fn set_legacy_configs(&self, legacy_configs: LegacyBuckConfigs) -> anyhow::Result<()>;
 
     fn set_none_legacy_configs(&self) -> anyhow::Result<()>;
@@ -346,7 +349,9 @@ impl HasLegacyConfigs for DiceComputations {
             Some(v) => Ok(Some(LegacyBuckConfig::parse_impl(section, key, &v)?)),
         }
     }
+}
 
+impl SetLegacyConfigs for DiceTransactionUpdater {
     fn set_legacy_configs(&self, legacy_configs: LegacyBuckConfigs) -> anyhow::Result<()> {
         Ok(self.changed_to(vec![(LegacyBuckConfigKey, Some(legacy_configs))])?)
     }

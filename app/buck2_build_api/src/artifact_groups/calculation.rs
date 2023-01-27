@@ -287,7 +287,7 @@ impl Key for EnsureTransitiveSetProjectionKey {
 mod tests {
     use std::sync::Arc;
 
-    use buck2_common::dice::cells::HasCellResolver;
+    use buck2_common::dice::cells::SetCellResolver;
     use buck2_common::dice::data::testing::SetTestingIoProvider;
     use buck2_common::dice::file_ops::keys::FileOpsValue;
     use buck2_common::dice::file_ops::testing::FileOpsKey;

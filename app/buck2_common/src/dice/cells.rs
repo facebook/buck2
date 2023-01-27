@@ -14,6 +14,7 @@ use async_trait::async_trait;
 use buck2_core::cells::CellResolver;
 use derive_more::Display;
 use dice::DiceComputations;
+use dice::DiceTransactionUpdater;
 use dice::InjectedKey;
 use dupe::Dupe;
 
@@ -22,7 +23,9 @@ pub trait HasCellResolver {
     async fn get_cell_resolver(&self) -> anyhow::Result<CellResolver>;
 
     async fn is_cell_resolver_key_set(&self) -> anyhow::Result<bool>;
+}
 
+pub trait SetCellResolver {
     fn set_cell_resolver(&self, cell_resolver: CellResolver) -> anyhow::Result<()>;
 
     fn set_none_cell_resolver(&self) -> anyhow::Result<()>;
@@ -55,7 +58,9 @@ impl HasCellResolver for DiceComputations {
     async fn is_cell_resolver_key_set(&self) -> anyhow::Result<bool> {
         Ok(self.compute(&CellResolverKey).await?.is_some())
     }
+}
 
+impl SetCellResolver for DiceTransactionUpdater {
     fn set_cell_resolver(&self, cell_resolver: CellResolver) -> anyhow::Result<()> {
         Ok(self.changed_to(vec![(CellResolverKey, Some(cell_resolver))])?)
     }

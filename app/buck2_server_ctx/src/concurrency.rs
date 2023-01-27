@@ -34,6 +34,7 @@ use buck2_events::trace::TraceId;
 use dice::Dice;
 use dice::DiceComputations;
 use dice::DiceTransaction;
+use dice::DiceTransactionUpdater;
 use dice::UserComputationData;
 use dupe::Dupe;
 use gazebo::prelude::*;
@@ -150,7 +151,7 @@ struct ConcurrencyHandlerData {
 
 #[async_trait]
 pub trait DiceUpdater: Send + Sync {
-    async fn update(&self, ctx: DiceTransaction) -> anyhow::Result<DiceTransaction>;
+    async fn update(&self, ctx: DiceTransactionUpdater) -> anyhow::Result<DiceTransactionUpdater>;
 }
 
 #[async_trait]
@@ -235,7 +236,8 @@ impl ConcurrencyHandler {
 
         let mut transaction = self
             .dice
-            .with_ctx_data(user_data.provide(&self.dice.ctx()).await?);
+            .updater_with_data(user_data.provide(&self.dice.ctx()).await?)
+            .commit();
 
         loop {
             // we rerun the updates in case that files on disk have changed between commands.
@@ -243,7 +245,10 @@ impl ConcurrencyHandler {
             // isn't a big perf bottleneck. Dice should be able to resurrect nodes properly.
             transaction = event_dispatcher
                 .span_async(buck2_data::DiceStateUpdateStart {}, async move {
-                    let transaction = updates.update(transaction).await.map(|t| t.commit());
+                    let transaction = updates
+                        .update(transaction.into_updater())
+                        .await
+                        .map(|t| t.commit());
                     (transaction, buck2_data::DiceStateUpdateEnd {})
                 })
                 .await?;
@@ -474,7 +479,7 @@ mod tests {
     use dice::cycles::DetectCycles;
     use dice::Dice;
     use dice::DiceComputations;
-    use dice::DiceTransaction;
+    use dice::DiceTransactionUpdater;
     use dice::InjectedKey;
     use dice::UserComputationData;
     use dupe::Dupe;
@@ -491,7 +496,10 @@ mod tests {
 
     #[async_trait]
     impl DiceUpdater for NoChanges {
-        async fn update(&self, ctx: DiceTransaction) -> anyhow::Result<DiceTransaction> {
+        async fn update(
+            &self,
+            ctx: DiceTransactionUpdater,
+        ) -> anyhow::Result<DiceTransactionUpdater> {
             Ok(ctx)
         }
     }
@@ -500,7 +508,10 @@ mod tests {
 
     #[async_trait]
     impl DiceUpdater for CtxDifferent {
-        async fn update(&self, ctx: DiceTransaction) -> anyhow::Result<DiceTransaction> {
+        async fn update(
+            &self,
+            ctx: DiceTransactionUpdater,
+        ) -> anyhow::Result<DiceTransactionUpdater> {
             ctx.changed(vec![K])?;
             Ok(ctx)
         }

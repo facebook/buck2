@@ -13,7 +13,7 @@ use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::result::SharedResult;
 use dice::DiceComputations;
-use dice::DiceTransaction;
+use dice::DiceTransactionUpdater;
 use dice::InjectedKey;
 use dice::Key;
 use dupe::Dupe;
@@ -298,7 +298,7 @@ pub trait GetStarlarkProfilerInstrumentation {
 }
 
 #[async_trait]
-impl SetStarlarkProfilerInstrumentation for DiceTransaction {
+impl SetStarlarkProfilerInstrumentation for DiceTransactionUpdater {
     fn set_starlark_profiler_instrumentation_override(
         &self,
         instrumentation: StarlarkProfilerConfiguration,

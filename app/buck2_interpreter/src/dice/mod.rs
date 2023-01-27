@@ -65,7 +65,9 @@ pub trait HasGlobalInterpreterState {
 #[async_trait]
 pub trait HasInterpreterContext {
     async fn get_interpreter_configuror(&self) -> anyhow::Result<Arc<dyn InterpreterConfiguror>>;
+}
 
+pub trait SetInterpreterContext {
     fn set_interpreter_context(
         &self,
         interpreter_configuror: Arc<dyn InterpreterConfiguror>,
