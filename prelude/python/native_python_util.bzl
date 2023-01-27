@@ -136,13 +136,14 @@ def write_syms_file(
     # --no-sort tells nm not to sort the output because we are sorting it to dedupe anyway
     # --defined-only prints only the symbols defined by this extension this way we won't rename symbols defined externally e.g. PyList_GetItem, etc...
     # -j print only the symbol name
+    # sed removes filenames generated from objcopy (lines ending with ":") and empty lines
     # sort -u sorts the combined list of symbols and removes any duplicate entries
     # using awk we format the symbol names 'PyInit_hello' followed by the symbol name with the suffix appended to create the input file for objcopy
     # objcopy uses a list of symbol name followed by updated name e.g. 'PyInit_hello PyInit_hello_package_module'
     script = (
         "set -euo pipefail; " +  # fail if any command in the script fails
-        '"$NM" --no-sort --defined-only -j $OBJECTS | sort -u |' +
-        ' awk \'{{print $1" "$1"_{suffix}"}}\' > '.format(suffix = suffix) +
+        '"$NM" --no-sort --defined-only -j $OBJECTS | sed "/:$/d;/^$/d" | sort -u |  ' +
+        'awk \'{{print $1" "$1"_{suffix}"}}\' > '.format(suffix = suffix) +
         '"$SYMSFILE";'
     )
     ctx.actions.run(
