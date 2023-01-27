@@ -174,8 +174,8 @@ impl<'c> InterpreterPackageListingResolver<'c> {
         while let Some((path, entries_result)) = work.next().await {
             let entries = entries_result?;
             if find_buildfile(buildfile_candidates, &entries).is_none() {
-                dirs.push(path.clone());
                 process_entries(&mut work, &mut files, path.as_ref(), &entries)?;
+                dirs.push(path);
             } else {
                 subpackages.push(path);
             }
