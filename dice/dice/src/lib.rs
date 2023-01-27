@@ -558,6 +558,7 @@ pub mod testing {
     use crate::user_data::UserComputationData;
     use crate::Dice;
     use crate::DiceDataBuilder;
+    use crate::DiceTransactionUpdater;
     use crate::Key;
 
     /// Testing utility that can be used to build a specific `DiceComputation` where certain keys
@@ -567,7 +568,7 @@ pub mod testing {
     /// but rather the computation function, like `mock.expect(|c| c.other_compute(4), "4 res")`
     pub struct DiceBuilder {
         builder: DiceDataBuilder,
-        mocked: Vec<Box<dyn FnOnce(&DiceTransaction) -> anyhow::Result<()>>>,
+        mocked: Vec<Box<dyn FnOnce(&DiceTransactionUpdater) -> anyhow::Result<()>>>,
     }
 
     impl DiceBuilder {
@@ -597,7 +598,7 @@ pub mod testing {
 
         pub fn build(self, extra: UserComputationData) -> anyhow::Result<DiceTransaction> {
             let dice = self.builder.build(DetectCycles::Enabled);
-            let ctx = dice.with_ctx_data(extra);
+            let ctx = dice.updater_with_data(extra);
 
             self.mocked.into_iter().try_for_each(|f| f(&ctx))?;
             Ok(ctx.commit())
