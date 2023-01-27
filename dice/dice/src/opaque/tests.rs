@@ -118,13 +118,16 @@ async fn key_does_not_read_opaque() -> anyhow::Result<()> {
 
     let mut dice_data = DiceData::new();
     dice_data.set(17);
-    let ctx = dice.with_ctx_data(UserComputationData {
+    let ctx = dice.updater_with_data(UserComputationData {
         data: dice_data,
         ..Default::default()
     });
 
     // Both keys are computed.
-    assert_eq!("Aaa", &*ctx.compute(&DoesNotReadOpaque).await?);
+    assert_eq!(
+        "Aaa",
+        &*ctx.existing_state().compute(&DoesNotReadOpaque).await?
+    );
     assert_eq!(
         vec![KeyType::DoesNotReadOpaque, KeyType::IsOpaque],
         tracker.lock().computations

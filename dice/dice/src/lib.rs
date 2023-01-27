@@ -554,10 +554,10 @@ impl<K: Key> Evaluator for StoragePropertiesForKey<K> {
 
 pub mod testing {
     use crate::cycles::DetectCycles;
-    use crate::transaction::DiceTransaction;
     use crate::user_data::UserComputationData;
     use crate::Dice;
     use crate::DiceDataBuilder;
+    use crate::DiceTransaction;
     use crate::DiceTransactionUpdater;
     use crate::Key;
 

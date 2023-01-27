@@ -187,7 +187,7 @@ async fn smoke() -> anyhow::Result<()> {
     data.set(GlobalConfig {
         config: HashMap::from_iter([("x".to_owned(), "X".to_owned())]),
     });
-    let ctx = dice.with_ctx_data(UserComputationData {
+    let ctx = dice.updater_with_data(UserComputationData {
         data,
         ..Default::default()
     });
@@ -212,6 +212,7 @@ async fn smoke() -> anyhow::Result<()> {
         tracker.lock().computations.as_slice()
     );
 
+    let ctx = ctx.into_updater();
     ctx.changed([ConfigKey])?;
     ctx.commit();
     tracker.lock().computations.clear();
@@ -224,7 +225,7 @@ async fn smoke() -> anyhow::Result<()> {
     data.data.set(GlobalConfig {
         config: HashMap::from_iter([("x".to_owned(), "X".to_owned())]),
     });
-    let ctx = dice.with_ctx_data(data);
+    let ctx = dice.updater_with_data(data).commit();
 
     let file = ctx
         .compute(&FileKey {
@@ -239,6 +240,7 @@ async fn smoke() -> anyhow::Result<()> {
         tracker.lock().computations.as_slice()
     );
 
+    let ctx = ctx.into_updater();
     ctx.changed([ConfigKey])?;
     ctx.commit();
     tracker.lock().computations.clear();
@@ -255,7 +257,7 @@ async fn smoke() -> anyhow::Result<()> {
             ("y".to_owned(), "Y".to_owned()),
         ]),
     });
-    let ctx = dice.with_ctx_data(data);
+    let ctx = dice.updater_with_data(data).commit();
 
     let file = ctx
         .compute(&FileKey {

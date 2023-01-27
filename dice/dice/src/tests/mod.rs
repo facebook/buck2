@@ -531,9 +531,9 @@ async fn different_data_per_compute_ctx() {
         d
     };
 
-    let ctx0 = dice.with_ctx_data(per_cmd_data0);
+    let ctx0 = dice.updater_with_data(per_cmd_data0).commit();
 
-    let ctx1 = dice.with_ctx_data(per_cmd_data1);
+    let ctx1 = dice.updater_with_data(per_cmd_data1).commit();
 
     let request0 = ctx0.compute(&DataRequest(0));
     let request1 = ctx1.compute(&DataRequest(1));
