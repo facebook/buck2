@@ -98,7 +98,10 @@ def link(ctx: "context", main: "artifact", pkgs: {str.type: "artifact"} = {}, de
     ext_link_args.add(cmd_args(extra_link_args, quote = "shell"))
 
     if not link_mode:
-        link_mode = "external"
+        if go_toolchain.cxx_toolchain_for_linking != None:
+            link_mode = "external"
+        else:
+            link_mode = "internal"
     cmd.add("-linkmode", link_mode)
 
     if link_mode == "external":
