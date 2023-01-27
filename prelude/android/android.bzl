@@ -90,7 +90,7 @@ implemented_rules = {
 }
 
 # Can't load `read_bool` here because it will cause circular load.
-DISABLE_SPLIT_TRANSITIONS = read_config("buck2", "android_td_disable_transitions_hack") in ("True", "true")
+DISABLE_SPLIT_TRANSITIONS = read_config("buck2", "android_force_single_cpu") in ("True", "true")
 
 def _transition_dep_wrapper(split_transition_dep, transition_dep):
     if DISABLE_SPLIT_TRANSITIONS:
