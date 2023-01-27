@@ -31,17 +31,34 @@ def _cpu_split_transition_instrumentation_test_apk_impl(
         refs: struct.type,
         attrs: struct.type) -> {str.type: PlatformInfo.type}:
     cpu_filters = attrs.cpu_filters or CPU_FILTER_TO_ABI_DIRECTORY.keys()
+    if attrs._is_force_single_cpu:
+        cpu_filters = cpu_filters[0:1]
 
-    return _cpu_split_transition(platform, refs, cpu_filters, attrs.min_sdk_version, build_only_native_code_on_secondary_platforms = False)
+    return _cpu_split_transition(
+        platform,
+        refs,
+        cpu_filters,
+        attrs.min_sdk_version,
+        build_only_native_code_on_secondary_platforms = False,
+    )
 
 def _cpu_split_transition_impl(
         platform: PlatformInfo.type,
         refs: struct.type,
         attrs: struct.type) -> {str.type: PlatformInfo.type}:
     cpu_filters = attrs.cpu_filters or CPU_FILTER_TO_ABI_DIRECTORY.keys()
+    if attrs._is_force_single_cpu:
+        cpu_filters = cpu_filters[0:1]
+
     do_not_build_only_native_code = refs.do_not_build_only_native_code[ConstraintValueInfo].label in [constraint.label for constraint in platform.configuration.constraints.values()]
 
-    return _cpu_split_transition(platform, refs, cpu_filters, attrs.min_sdk_version, build_only_native_code_on_secondary_platforms = not do_not_build_only_native_code)
+    return _cpu_split_transition(
+        platform,
+        refs,
+        cpu_filters,
+        attrs.min_sdk_version,
+        build_only_native_code_on_secondary_platforms = not do_not_build_only_native_code,
+    )
 
 def _cpu_split_transition(
         platform: PlatformInfo.type,
@@ -108,6 +125,7 @@ cpu_split_transition = transition(
     attrs = [
         "cpu_filters",
         "min_sdk_version",
+        "_is_force_single_cpu",
     ],
     split = True,
 )
@@ -118,6 +136,7 @@ cpu_split_transition_instrumentation_test_apk = transition(
     attrs = [
         "cpu_filters",
         "min_sdk_version",
+        "_is_force_single_cpu",
     ],
     split = True,
 )
@@ -135,6 +154,7 @@ cpu_transition = transition(
     attrs = [
         "cpu_filters",
         "min_sdk_version",
+        "_is_force_single_cpu",
     ],
 )
 

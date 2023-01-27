@@ -90,12 +90,7 @@ implemented_rules = {
 }
 
 # Can't load `read_bool` here because it will cause circular load.
-DISABLE_SPLIT_TRANSITIONS = read_config("buck2", "android_force_single_cpu") in ("True", "true")
-
-def _transition_dep_wrapper(split_transition_dep, transition_dep):
-    if DISABLE_SPLIT_TRANSITIONS:
-        return transition_dep
-    return split_transition_dep
+FORCE_SINGLE_CPU = read_config("buck2", "android_force_single_cpu") in ("True", "true")
 
 extra_attributes = {
     "android_aar": {
@@ -108,7 +103,7 @@ extra_attributes = {
         "aapt_mode": attrs.enum(AaptMode, default = "aapt1"),  # Match default in V1
         "application_module_configs": attrs.dict(key = attrs.string(), value = attrs.list(attrs.transition_dep(cfg = cpu_transition)), sorted = False, default = {}),
         "build_config_values_file": attrs.option(attrs.one_of(attrs.transition_dep(cfg = cpu_transition), attrs.source()), default = None),
-        "deps": attrs.list(_transition_dep_wrapper(split_transition_dep = attrs.split_transition_dep(cfg = cpu_split_transition), transition_dep = attrs.transition_dep(cfg = cpu_transition)), default = []),
+        "deps": attrs.list(attrs.split_transition_dep(cfg = cpu_split_transition), default = []),
         "dex_tool": attrs.string(default = "d8"),  # Match default in V1
         "duplicate_resource_behavior": attrs.enum(DuplicateResourceBehaviour, default = "allow_by_default"),  # Match default in V1
         "manifest": attrs.option(attrs.one_of(attrs.transition_dep(cfg = cpu_transition), attrs.source()), default = None),
@@ -122,6 +117,7 @@ extra_attributes = {
         "_android_toolchain": android_toolchain(),
         "_dex_toolchain": _dex_toolchain(),
         "_is_building_android_binary": attrs.default_only(attrs.bool(default = True)),
+        "_is_force_single_cpu": attrs.default_only(attrs.bool(default = FORCE_SINGLE_CPU)),
         "_java_toolchain": java_toolchain_for_android(),
     },
     "android_build_config": {
@@ -134,7 +130,7 @@ extra_attributes = {
         "aapt_mode": attrs.enum(AaptMode, default = "aapt1"),  # Match default in V1
         "apk": attrs.transition_dep(cfg = do_not_build_only_native_code_transition),
         "cpu_filters": attrs.list(attrs.enum(TargetCpuType), default = []),
-        "deps": attrs.list(_transition_dep_wrapper(split_transition_dep = attrs.split_transition_dep(cfg = cpu_split_transition_instrumentation_test_apk), transition_dep = attrs.transition_dep(cfg = cpu_transition)), default = []),
+        "deps": attrs.list(attrs.split_transition_dep(cfg = cpu_split_transition_instrumentation_test_apk), default = []),
         "dex_tool": attrs.string(default = "d8"),  # Match default in V1
         "manifest": attrs.option(attrs.one_of(attrs.transition_dep(cfg = cpu_transition), attrs.source()), default = None),
         "manifest_skeleton": attrs.option(attrs.one_of(attrs.transition_dep(cfg = cpu_transition), attrs.source()), default = None),
@@ -142,6 +138,7 @@ extra_attributes = {
         "_android_toolchain": android_toolchain(),
         "_dex_toolchain": _dex_toolchain(),
         "_is_building_android_binary": attrs.default_only(attrs.bool(default = True)),
+        "_is_force_single_cpu": attrs.default_only(attrs.bool(default = FORCE_SINGLE_CPU)),
         "_java_toolchain": java_toolchain_for_android(),
     },
     "android_instrumentation_test": {
