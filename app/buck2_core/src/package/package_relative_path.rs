@@ -13,6 +13,8 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use allocative::Allocative;
+use buck2_util::arc_str::ArcS;
+use buck2_util::arc_str::StringInside;
 use gazebo::transmute;
 use ref_cast::RefCast;
 use relative_path::RelativePath;
@@ -60,6 +62,18 @@ pub struct PackageRelativePath(
 pub struct PackageRelativePathBuf(
     #[derivative(Debug(format_with = "quoted_display"))] ForwardRelativePathBuf,
 );
+
+impl StringInside for PackageRelativePath {
+    #[inline]
+    fn as_str(wrapper: &PackageRelativePath) -> &str {
+        wrapper.as_str()
+    }
+
+    #[inline]
+    fn from_str(s: &str) -> &PackageRelativePath {
+        PackageRelativePath::unchecked_new(s)
+    }
+}
 
 impl AsRef<ForwardRelativePath> for PackageRelativePath {
     #[inline]
@@ -361,6 +375,11 @@ impl PackageRelativePath {
     #[inline]
     pub fn to_box(&self) -> Box<PackageRelativePath> {
         self.to_buf().into_box()
+    }
+
+    #[inline]
+    pub fn to_arc(&self) -> ArcS<PackageRelativePath> {
+        ArcS::from(self)
     }
 }
 
