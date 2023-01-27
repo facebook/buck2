@@ -180,6 +180,10 @@ pub enum CellError {
     UnknownCellAlias(CellAlias, Vec<CellAlias>),
     #[error("unknown cell name: `{0}`. known cell names are `{}`", .1.iter().join(", "))]
     UnknownCellName(CellName, Vec<CellName>),
+    #[error(
+        "Cell name `{0}` should be an alias for an existing cell, but `{1}` isn't a known alias"
+    )]
+    AliasOnlyCell(CellAlias, CellAlias),
 }
 
 /// A 'CellInstance', contains a 'CellName' and a path for that cell.
@@ -499,6 +503,18 @@ struct CellAggregatorInfo {
     buildfiles: Option<Vec<FileNameBuf>>,
 }
 
+impl CellAggregatorInfo {
+    fn add_alias_mapping(&mut self, from: CellAlias, to: CellRootPathBuf) -> anyhow::Result<()> {
+        let old = self.alias_mapping.insert(from.clone(), to.clone());
+        if let Some(old) = old {
+            if old != to {
+                return Err(CellError::DuplicateAliases(from, old, to).into());
+            }
+        }
+        Ok(())
+    }
+}
+
 impl CellsAggregator {
     pub fn new() -> Self {
         Self {
@@ -512,7 +528,7 @@ impl CellsAggregator {
             .or_insert_with(CellAggregatorInfo::default)
     }
 
-    /// Adds a cell alias configuration entry
+    /// Adds a cell configuration entry
     pub fn add_cell_entry(
         &mut self,
         cell_root: CellRootPathBuf,
@@ -522,22 +538,24 @@ impl CellsAggregator {
         self.cell_info(alias_path.clone())
             .name
             .get_or_insert_with(|| CellName::unchecked_new(&parsed_alias.0));
+        self.cell_info(cell_root)
+            .add_alias_mapping(parsed_alias, alias_path)
+    }
 
-        let root_info = self.cell_info(cell_root);
-
-        let old = root_info
-            .alias_mapping
-            .insert(parsed_alias.clone(), alias_path.clone());
-        if let Some(old) = old {
-            if old != alias_path {
-                return Err(anyhow::anyhow!(CellError::DuplicateAliases(
-                    parsed_alias,
-                    old,
-                    alias_path
-                )));
-            }
-        }
-        Ok(())
+    /// Adds a cell alias configuration entry
+    pub fn add_cell_alias(
+        &mut self,
+        cell_root: CellRootPathBuf,
+        parsed_alias: CellAlias,
+        alias_destination: CellAlias,
+    ) -> anyhow::Result<CellRootPathBuf> {
+        let cell_info = self.cell_info(cell_root);
+        let alias_path = match cell_info.alias_mapping.get(&alias_destination) {
+            None => return Err(CellError::AliasOnlyCell(parsed_alias, alias_destination).into()),
+            Some(alias_path) => alias_path.clone(),
+        };
+        cell_info.add_alias_mapping(parsed_alias, alias_path.clone())?;
+        Ok(alias_path)
     }
 
     pub fn set_buildfiles(&mut self, cell_root: CellRootPathBuf, buildfiles: Vec<FileNameBuf>) {
@@ -895,6 +913,22 @@ mod tests {
         assert!(
             !agg.make_cell_resolver()?
                 .contains(CellName::unchecked_new("cruel"))
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_alias_only_error() -> anyhow::Result<()> {
+        let mut agg = CellsAggregator::new();
+
+        let cell_root = CellRootPathBuf::new(ProjectRelativePathBuf::try_from("".to_owned())?);
+        assert!(
+            agg.add_cell_alias(
+                cell_root,
+                CellAlias::new("root".to_owned()),
+                CellAlias::new("does_not_exist".to_owned()),
+            )
+            .is_err()
         );
         Ok(())
     }

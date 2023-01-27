@@ -241,18 +241,16 @@ impl BuckConfigBasedCells {
 
             if let Some(repositories) = config.get_section("repositories") {
                 for (alias, alias_path) in repositories.iter() {
-                    let alias_path = alias_path.as_str();
-                    let alias_path = path
-                        .join_normalized(RelativePath::new(alias_path))
+                    let alias_path = CellRootPathBuf::new(path
+                        .join_normalized(RelativePath::new(alias_path.as_str()))
                         .with_context(|| {
                             format!(
                                 "expected alias path to be a relative path, but found `{}` for `{}` in buckconfig `{}`",
-                                alias_path,
+                                alias_path.as_str(),
                                 alias,
                                 path
                             )
-                        })?;
-                    let alias_path = CellRootPathBuf::new(alias_path);
+                        })?);
                     let alias = CellAlias::new(alias.to_owned());
                     if path.as_str() == "" {
                         root_aliases.insert(alias.clone(), alias_path.clone());
@@ -260,6 +258,21 @@ impl BuckConfigBasedCells {
                     cells_aggregator.add_cell_entry(path.clone(), alias, alias_path.clone())?;
                     if options.parse_cells {
                         work.push(alias_path);
+                    }
+                }
+            }
+
+            if let Some(aliases) = config.get_section("repository_aliases") {
+                for (alias, destination) in aliases.iter() {
+                    let alias = CellAlias::new(alias.to_owned());
+                    let destination = CellAlias::new(destination.as_str().to_owned());
+                    let alias_path = cells_aggregator.add_cell_alias(
+                        path.clone(),
+                        alias.clone(),
+                        destination,
+                    )?;
+                    if path.as_str() == "" {
+                        root_aliases.insert(alias, alias_path.clone());
                     }
                 }
             }
