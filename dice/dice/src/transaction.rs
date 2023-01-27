@@ -104,6 +104,15 @@ impl DiceTransaction {
     pub fn version(&self) -> VersionNumber {
         self.0.0.transaction_ctx.get_version()
     }
+
+    /// Creates an Updater to record changes to DICE that upon committing, creates a new transaction
+    /// that keeps the same set of user data. This is equivalent to `Dice::updater_with_user_data(data)`
+    /// where the `data` is taken from the current Transaction.
+    pub fn into_updater(self) -> DiceTransactionUpdater {
+        DiceTransactionUpdater {
+            existing_state: self.0,
+        }
+    }
 }
 
 mod private {
