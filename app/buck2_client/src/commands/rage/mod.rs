@@ -109,6 +109,14 @@ impl RageSection {
         .boxed_local()
     }
 
+    fn output(&self) -> &str {
+        match &self.status {
+            CommandStatus::Success { output } => output,
+            CommandStatus::Failure { error } => error,
+            CommandStatus::Timeout {} => "Timeout",
+        }
+    }
+
     fn pretty_print_section(
         &self,
         f: &mut fmt::Formatter,
@@ -125,11 +133,7 @@ impl RageSection {
 
 impl fmt::Display for RageSection {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match &self.status {
-            CommandStatus::Success { output } => self.pretty_print_section(f, output),
-            CommandStatus::Failure { error } => self.pretty_print_section(f, error),
-            CommandStatus::Timeout {} => self.pretty_print_section(f, "Timeout"),
-        }
+        self.pretty_print_section(f, self.output())
     }
 }
 
@@ -202,8 +206,8 @@ impl RageCommand {
             }
 
             let sections = futures::future::join_all(sections).await;
-            let output: Vec<String> = sections.iter().map(|i| i.to_string()).collect();
-            output_rage(self.no_paste, &output.join("")).await?;
+            let sections: Vec<String> = sections.iter().map(|i| i.to_string()).collect();
+            output_rage(self.no_paste, &sections.join("")).await?;
             ExitResult::success()
         })
     }
