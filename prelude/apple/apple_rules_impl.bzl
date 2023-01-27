@@ -146,6 +146,10 @@ extra_attributes = {
         "min_version": attrs.option(attrs.string(), default = None),
         "momc": attrs.dep(providers = [RunInfo]),
         "platform_path": attrs.option(attrs.source(), default = None),  # Mark as optional until we remove `_internal_platform_path`
+        # Defines whether the Xcode project generator needs to check
+        # that the selected Xcode version matches the one defined
+        # by the `xcode_build_version` fields.
+        "requires_xcode_version_match": attrs.bool(default = False),
         "sdk_path": attrs.option(attrs.source(), default = None),  # Mark as optional until we remove `_internal_sdk_path`
         "version": attrs.option(attrs.string(), default = None),
         "xcode_build_version": attrs.option(attrs.string(), default = None),
