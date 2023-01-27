@@ -137,7 +137,7 @@ pub struct FrozenHeap {
 #[allow(clippy::non_send_fields_in_send_ty)]
 struct FrozenFrozenHeap {
     arena: Arena,
-    refs: SmallSet<FrozenHeapRef>,
+    refs: Box<[FrozenHeapRef]>,
 }
 
 // Safe because we never mutate the Arena other than with &mut
@@ -242,7 +242,10 @@ impl FrozenHeap {
         if arena.is_empty() && refs.is_empty() {
             FrozenHeapRef::default()
         } else {
-            FrozenHeapRef(Arc::new(FrozenFrozenHeap { arena, refs }))
+            FrozenHeapRef(Arc::new(FrozenFrozenHeap {
+                arena,
+                refs: refs.into_iter().collect(),
+            }))
         }
     }
 
