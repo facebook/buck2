@@ -25,8 +25,7 @@ use starlark::values::Value;
 use starlark::values::ValueLike;
 use thiserror::Error;
 
-use crate::interpreter::rule_defs::command_executor_config::FrozenStarlarkCommandExecutorConfig;
-use crate::interpreter::rule_defs::command_executor_config::StarlarkCommandExecutorConfigLike;
+use crate::interpreter::rule_defs::command_executor_config::StarlarkCommandExecutorConfig;
 use crate::interpreter::rule_defs::provider::builtin::configuration_info::ConfigurationInfo;
 
 #[derive(Debug, Error)]
@@ -51,7 +50,7 @@ pub(crate) struct ExecutionPlatformInfoGen<V> {
     #[provider(field_type = "ConfigurationInfo")]
     configuration: V,
     /// The executor config
-    #[provider(field_type = "FrozenStarlarkCommandExecutorConfig")]
+    #[provider(field_type = "StarlarkCommandExecutorConfig")]
     executor_config: V,
 }
 
@@ -76,18 +75,18 @@ impl<'v, V: ValueLike<'v>> ExecutionPlatformInfoGen<V> {
             .to_configuration_data();
         let cfg = Configuration::from_platform(TargetLabel::to_string(&target), cfg)?;
         let executor_config =
-            <dyn StarlarkCommandExecutorConfigLike>::from_value(self.executor_config.to_value())
+            &StarlarkCommandExecutorConfig::from_value(self.executor_config.to_value())
                 .ok_or_else(|| {
                     ExecutionPlatformProviderErrors::ExpectedCommandExecutorConfig(
                         self.configuration.to_value().to_repr(),
                         self.configuration.to_value().get_type().to_owned(),
                     )
                 })?
-                .command_executor_config()?;
+                .0;
         Ok(ExecutionPlatform::platform(
             target,
             cfg,
-            executor_config.into_owned(),
+            executor_config.clone(),
         ))
     }
 }

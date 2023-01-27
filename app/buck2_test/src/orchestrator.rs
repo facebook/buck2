@@ -592,30 +592,21 @@ impl BuckTestOrchestrator {
 
         let resolved_executor_override = match executor_override.as_ref() {
             Some(executor_override) => Some(
-                test_info
+                &test_info
                     .executor_override(&executor_override.name)
                     .context("The `executor_override` provided does not exist")
-                    .and_then(|o| {
-                        o.command_executor_config()
-                            .context("The `executor_override` is invalid")
-                    })
                     .with_context(|| {
                         format!(
                             "Error processing `executor_override`: `{}`",
                             executor_override.name
                         )
-                    })?,
+                    })?
+                    .0,
             ),
-            None => test_info
-                .default_executor()
-                .map(|o| {
-                    o.command_executor_config()
-                        .context("The `default_executor` is invalid")
-                })
-                .transpose()?,
+            None => test_info.default_executor().map(|o| &o.0),
         };
 
-        self.get_command_executor(fs, &node, resolved_executor_override.as_deref())
+        self.get_command_executor(fs, &node, resolved_executor_override)
             .context("Error constructing CommandExecutor")
     }
 

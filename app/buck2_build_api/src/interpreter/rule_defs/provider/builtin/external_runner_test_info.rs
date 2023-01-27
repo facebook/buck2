@@ -36,8 +36,7 @@ use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 use crate::interpreter::rule_defs::cmd_args::CommandLineContext;
 use crate::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
-use crate::interpreter::rule_defs::command_executor_config::FrozenStarlarkCommandExecutorConfig;
-use crate::interpreter::rule_defs::command_executor_config::StarlarkCommandExecutorConfigLike;
+use crate::interpreter::rule_defs::command_executor_config::StarlarkCommandExecutorConfig;
 
 /// Provider that signals that a rule can be tested using an external runner. This is the
 /// Buck1-compatible API for tests.
@@ -87,12 +86,12 @@ pub struct ExternalRunnerTestInfoGen<V> {
 
     /// Defaul executor to use to run tests.  This is of type CommandExecutorConfig. If none is
     /// passed we will default to the execution platform.
-    #[provider(field_type = "FrozenStarlarkCommandExecutorConfig")]
+    #[provider(field_type = "StarlarkCommandExecutorConfig")]
     default_executor: V,
 
     /// Executors that Tpx can use to override the default executor.
     /// This is of type {str.type: CommandExecutorConfig}
-    #[provider(field_type = "DictType<String, FrozenStarlarkCommandExecutorConfig>")]
+    #[provider(field_type = "DictType<String, StarlarkCommandExecutorConfig>")]
     executor_overrides: V,
 }
 
@@ -132,16 +131,16 @@ impl FrozenExternalRunnerTestInfo {
             .unwrap_or_default()
     }
 
-    pub fn default_executor(&self) -> Option<&dyn StarlarkCommandExecutorConfigLike> {
+    pub fn default_executor(&self) -> Option<&StarlarkCommandExecutorConfig> {
         unpack_opt_executor(self.default_executor.to_value()).unwrap()
     }
 
     /// Access a specific executor override.
-    pub fn executor_override(&self, key: &str) -> Option<&dyn StarlarkCommandExecutorConfigLike> {
+    pub fn executor_override(&self, key: &str) -> Option<&StarlarkCommandExecutorConfig> {
         let executor_overrides = DictRef::from_value(self.executor_overrides.to_value()).unwrap();
         executor_overrides
             .get_str(key)
-            .map(|v| <dyn StarlarkCommandExecutorConfigLike>::from_value(v.to_value()).unwrap())
+            .map(|v| StarlarkCommandExecutorConfig::from_value(v.to_value()).unwrap())
     }
 
     pub fn visit_artifacts(
@@ -290,8 +289,7 @@ fn iter_opt_str_list<'v>(
 
 fn iter_executor_overrides<'v>(
     executor_overrides: Value<'v>,
-) -> impl Iterator<Item = anyhow::Result<(&'v str, &'v dyn StarlarkCommandExecutorConfigLike<'v>)>>
-{
+) -> impl Iterator<Item = anyhow::Result<(&'v str, &'v StarlarkCommandExecutorConfig)>> {
     if executor_overrides.is_none() {
         return Either::Left(Either::Left(empty()));
     }
@@ -319,7 +317,7 @@ fn iter_executor_overrides<'v>(
             )
         })?;
 
-        let config = <dyn StarlarkCommandExecutorConfigLike>::from_value(value)
+        let config = StarlarkCommandExecutorConfig::from_value(value)
             .with_context(|| format!("Invalid value in `executor_overrides` for key `{}`", key))?;
 
         Ok((key, config))
@@ -328,12 +326,12 @@ fn iter_executor_overrides<'v>(
 
 fn unpack_opt_executor<'v>(
     executor: Value<'v>,
-) -> anyhow::Result<Option<&'v dyn StarlarkCommandExecutorConfigLike>> {
+) -> anyhow::Result<Option<&'v StarlarkCommandExecutorConfig>> {
     if executor.is_none() {
         return Ok(None);
     }
 
-    let executor = <dyn StarlarkCommandExecutorConfigLike>::from_value(executor)
+    let executor = StarlarkCommandExecutorConfig::from_value(executor)
         .with_context(|| format!("Value is not an executor config: `{}`", executor))?;
 
     Ok(Some(executor))
