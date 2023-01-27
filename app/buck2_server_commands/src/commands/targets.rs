@@ -452,7 +452,6 @@ async fn parse_and_get_results(
     options: TargetsOptions,
 ) -> anyhow::Result<String> {
     let results = load_patterns(&ctx, parsed_patterns).await?;
-    let vec_results: Vec<_> = results.iter_loaded_targets_by_package().collect();
 
     let file_hash_mode = match options.target_hash_mode {
         TargetHashFileMode::PathsOnly => {
@@ -466,7 +465,7 @@ async fn parse_and_get_results(
             TargetHashes::compute::<ConfiguredTargetNode, _>(
                 ctx.dupe(),
                 ConfiguredTargetNodeLookup(&ctx),
-                vec_results,
+                results.iter_loaded_targets_by_package().collect(),
                 target_platform,
                 file_hash_mode,
                 options.use_fast_hash,
@@ -478,7 +477,7 @@ async fn parse_and_get_results(
             TargetHashes::compute::<TargetNode, _>(
                 ctx.dupe(),
                 TargetNodeLookup(&ctx),
-                vec_results,
+                results.iter_loaded_targets_by_package().collect(),
                 target_platform,
                 file_hash_mode,
                 options.use_fast_hash,
