@@ -15,6 +15,7 @@ use buck2_core::collections::sorted_vec::SortedVec;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::package::package_relative_path::PackageRelativePath;
+use buck2_util::arc_str::ArcS;
 use dupe::Dupe;
 
 use crate::package_listing::file_listing::PackageFileListing;
@@ -27,16 +28,16 @@ pub struct PackageListing {
 #[derive(Eq, PartialEq, Debug, Allocative)]
 struct PackageListingData {
     files: PackageFileListing,
-    directories: SortedSet<Box<PackageRelativePath>>,
-    subpackages: SortedVec<Box<PackageRelativePath>>,
+    directories: SortedSet<ArcS<PackageRelativePath>>,
+    subpackages: SortedVec<ArcS<PackageRelativePath>>,
     buildfile: FileNameBuf,
 }
 
 impl PackageListing {
     pub(crate) fn new(
-        files: SortedSet<Box<PackageRelativePath>>,
-        directories: SortedSet<Box<PackageRelativePath>>,
-        subpackages: SortedVec<Box<PackageRelativePath>>,
+        files: SortedSet<ArcS<PackageRelativePath>>,
+        directories: SortedSet<ArcS<PackageRelativePath>>,
+        subpackages: SortedVec<ArcS<PackageRelativePath>>,
         buildfile: FileNameBuf,
     ) -> Self {
         Self {
@@ -62,21 +63,25 @@ impl PackageListing {
         &self.listing.files
     }
 
-    pub fn contains_file(&self, file: &PackageRelativePath) -> bool {
-        self.listing.files.contains_file(file)
+    pub fn get_file(&self, file: &PackageRelativePath) -> Option<ArcS<PackageRelativePath>> {
+        self.listing.files.get_file(file)
     }
 
-    pub fn contains_dir(&self, dir: &PackageRelativePath) -> bool {
+    pub fn get_dir(&self, dir: &PackageRelativePath) -> Option<ArcS<PackageRelativePath>> {
         // Empty paths must refer to a directory, since the whole thing is rooted
         // at a directory. But empty paths are not explicitly added to the `directories` variable,
         // so handle them specially.
-        dir.as_str().is_empty() || self.listing.directories.contains(dir)
+        if dir.is_empty() {
+            Some(ArcS::from(PackageRelativePath::empty()))
+        } else {
+            self.listing.directories.get(dir).map(|x| x.dupe())
+        }
     }
 
     pub fn files_within<'a>(
         &'a self,
         dir: &PackageRelativePath,
-    ) -> impl Iterator<Item = &'a PackageRelativePath> {
+    ) -> impl Iterator<Item = &'a ArcS<PackageRelativePath>> {
         self.listing.files.files_within(dir)
     }
 
@@ -124,7 +129,7 @@ pub mod testing {
             let files = files.iter().map(|f| {
                 PackageRelativePathBuf::try_from((*f).to_owned())
                     .unwrap()
-                    .into_box()
+                    .to_arc()
             });
             PackageListing::new(
                 SortedSet::from_iter(files),

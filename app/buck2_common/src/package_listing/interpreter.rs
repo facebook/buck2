@@ -19,6 +19,7 @@ use buck2_core::collections::sorted_vec::SortedVec;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::package::package_relative_path::PackageRelativePath;
 use buck2_core::package::PackageLabel;
+use buck2_util::arc_str::ArcS;
 use dupe::Dupe;
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
@@ -117,9 +118,9 @@ impl<'c> InterpreterPackageListingResolver<'c> {
         let cell_instance = self.cell_resolver.get(root.cell_name())?;
         let buildfile_candidates = cell_instance.buildfiles();
 
-        let mut files: Vec<Box<PackageRelativePath>> = Vec::new();
-        let mut dirs: Vec<Box<PackageRelativePath>> = Vec::new();
-        let mut subpackages: Vec<Box<PackageRelativePath>> = Vec::new();
+        let mut files: Vec<ArcS<PackageRelativePath>> = Vec::new();
+        let mut dirs: Vec<ArcS<PackageRelativePath>> = Vec::new();
+        let mut subpackages: Vec<ArcS<PackageRelativePath>> = Vec::new();
 
         let root_entries = self
             .fs
@@ -139,12 +140,12 @@ impl<'c> InterpreterPackageListingResolver<'c> {
 
         let root = &root;
         let process_entries = |work: &mut FuturesUnordered<_>,
-                               files: &mut Vec<Box<PackageRelativePath>>,
+                               files: &mut Vec<ArcS<PackageRelativePath>>,
                                path: &PackageRelativePath,
                                entries: &[SimpleDirEntry]|
          -> anyhow::Result<()> {
             for d in entries {
-                let child_path = path.join(&d.file_name).into_box();
+                let child_path = path.join(&d.file_name).to_arc();
                 if d.file_type.is_dir() {
                     work.push(async move {
                         let entries = self

@@ -126,7 +126,8 @@ impl GlobSpec {
         if spec.files().len() >= Self::BINARY_SEARCH_CUTOFF && !self.common_prefix.is_empty() {
             return box spec
                 .files_with_prefix(&self.common_prefix)
-                .filter(move |v| self.matches(v.as_str()));
+                .filter(move |v| self.matches(v.as_str()))
+                .map(|p| &**p);
         }
         box spec.files().filter(move |v| self.matches(v.as_str()))
     }

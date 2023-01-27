@@ -32,6 +32,7 @@ use buck2_query_parser::Expr;
 use buck2_util::arc_str::ArcStr;
 use bumpalo::Bump;
 use dupe::Dupe;
+use dupe::IterDupedExt;
 use hashbrown::raw::RawTable;
 use tracing::info;
 use twox_hash::xxh3;
@@ -174,52 +175,49 @@ impl AttrCoercionContext for BuildAttrCoercionContext {
     }
 
     fn coerce_path(&self, value: &str, allow_directory: bool) -> anyhow::Result<CoercedPath> {
-        let path = PackageRelativePathBuf::try_from(value.to_owned())?;
+        let path = <&PackageRelativePath>::try_from(value)?;
         let (package, listing) = self.require_enclosing_package(value)?;
 
+        if let Some(path) = listing.get_file(path) {
+            return Ok(CoercedPath::File(path));
+        }
+
         // TODO: Make the warnings below into errors
-        if !listing.contains_file(&path) {
-            if listing.contains_dir(&path) {
-                if !allow_directory {
-                    return Err(BuildAttrCoercionContextError::SourceFileIsDirectory(
-                        package.dupe(),
-                        value.to_owned(),
-                    )
-                    .into());
-                } else if let Some(subpackage) = listing.subpackages_within(&path).next() {
-                    let e = BuildAttrCoercionContextError::SourceDirectoryIncludesSubPackage(
-                        package.dupe(),
-                        value.to_owned(),
-                        subpackage.to_owned(),
-                    );
-                    if self.package_boundary_exception {
-                        info!("{} (could be due to a package boundary violation)", e);
-                    } else {
-                        soft_error!("source_directory_includes_subpackage", e.into())?;
-                    }
-                }
-                let files = listing
-                    .files_within(&path)
-                    .map(Box::<PackageRelativePath>::from)
-                    .collect();
-                return Ok(CoercedPath::Directory(box CoercedDirectory {
-                    dir: path.into_box(),
-                    files,
-                }));
-            } else {
-                let e = BuildAttrCoercionContextError::SourceFileMissing(
+        if let Some(path) = listing.get_dir(path) {
+            if !allow_directory {
+                return Err(BuildAttrCoercionContextError::SourceFileIsDirectory(
                     package.dupe(),
                     value.to_owned(),
+                )
+                .into());
+            } else if let Some(subpackage) = listing.subpackages_within(&path).next() {
+                let e = BuildAttrCoercionContextError::SourceDirectoryIncludesSubPackage(
+                    package.dupe(),
+                    value.to_owned(),
+                    subpackage.to_owned(),
                 );
                 if self.package_boundary_exception {
                     info!("{} (could be due to a package boundary violation)", e);
                 } else {
-                    soft_error!("source_file_missing", e.into())?;
+                    soft_error!("source_directory_includes_subpackage", e.into())?;
                 }
             }
-        }
+            let files = listing.files_within(&path).duped().collect();
+            Ok(CoercedPath::Directory(box CoercedDirectory {
+                dir: path,
+                files,
+            }))
+        } else {
+            let e =
+                BuildAttrCoercionContextError::SourceFileMissing(package.dupe(), value.to_owned());
+            if self.package_boundary_exception {
+                info!("{} (could be due to a package boundary violation)", e);
+            } else {
+                soft_error!("source_file_missing", e.into())?;
+            }
 
-        Ok(CoercedPath::File(path.into_box()))
+            Ok(CoercedPath::File(path.to_arc()))
+        }
     }
 
     fn coerce_target_pattern(&self, pattern: &str) -> anyhow::Result<ParsedPattern<TargetPattern>> {

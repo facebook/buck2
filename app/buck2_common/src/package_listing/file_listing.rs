@@ -10,13 +10,15 @@
 use allocative::Allocative;
 use buck2_core::collections::sorted_set::SortedSet;
 use buck2_core::package::package_relative_path::PackageRelativePath;
+use buck2_util::arc_str::ArcS;
+use dupe::Dupe;
 
 use crate::package_listing::binary_search::binary_search_by;
 
 #[derive(Eq, PartialEq, Debug, Allocative)]
 pub struct PackageFileListing {
     /// This is kept sorted for efficient prefix matching.
-    pub(crate) files: SortedSet<Box<PackageRelativePath>>,
+    pub(crate) files: SortedSet<ArcS<PackageRelativePath>>,
 }
 
 impl PackageFileListing {
@@ -27,7 +29,7 @@ impl PackageFileListing {
     pub(crate) fn files_within(
         &self,
         prefix: &PackageRelativePath,
-    ) -> impl Iterator<Item = &PackageRelativePath> {
+    ) -> impl Iterator<Item = &ArcS<PackageRelativePath>> {
         let len = prefix.as_str().len();
         self.files_with_prefix(prefix.as_str()).filter(move |x| {
             // Same logic as PackageRelativePath.starts_with,
@@ -36,7 +38,10 @@ impl PackageFileListing {
         })
     }
 
-    pub fn files_with_prefix(&self, prefix: &str) -> impl Iterator<Item = &PackageRelativePath> {
+    pub fn files_with_prefix(
+        &self,
+        prefix: &str,
+    ) -> impl Iterator<Item = &ArcS<PackageRelativePath>> {
         use std::cmp::Ordering;
         let files = &self.files;
         let len = files.len();
@@ -57,24 +62,26 @@ impl PackageFileListing {
             }
         });
 
-        (lower..upper).map(|idx: usize| files.get_index(idx).unwrap().as_ref())
+        (lower..upper).map(|idx: usize| files.get_index(idx).unwrap())
     }
 
-    pub fn contains_file(&self, mut file: &PackageRelativePath) -> bool {
-        if self.files.get(file).is_some() {
-            return true;
+    pub fn get_file(&self, file: &PackageRelativePath) -> Option<ArcS<PackageRelativePath>> {
+        if let Some(file) = self.files.get(file) {
+            return Some(file.dupe());
         }
+
         // We don't have the file directly, but we might have a symlink file that covers this file
         // so check for that. Would be much nicer if we didn't have random symlinks.
         // These random symlinks are NOT checked for changes etc, so are pretty dangerous.
         // The config `project.read_only_paths` is the allow-list of where such symlinks can exist in v1.
-        while let Some(x) = file.parent() {
-            file = x;
-            if self.files.get(file).is_some() {
-                return true;
+        let mut current = file;
+        while let Some(x) = current.parent() {
+            current = x;
+            if self.files.get(current).is_some() {
+                return Some(file.to_arc());
             }
         }
-        false
+        None
     }
 }
 
@@ -89,7 +96,7 @@ pub mod testing {
         pub fn testing_new(files: &[&str]) -> PackageFileListing {
             let files = files
                 .iter()
-                .map(|f| PackageRelativePath::new(*f).unwrap().to_owned().into_box());
+                .map(|f| PackageRelativePath::new(*f).unwrap().to_arc());
             PackageFileListing {
                 files: SortedSet::from_iter(files),
             }
@@ -105,26 +112,41 @@ mod test {
     fn test_listing_with_prefix() {
         let listing = PackageFileListing::testing_new(&["a/1", "a/2", "b/1", "b/2", "c/1", "c/2"]);
         assert_eq!(
-            listing.files_with_prefix("a").collect::<Vec<_>>(),
+            listing
+                .files_with_prefix("a")
+                .map(|p| p.as_str())
+                .collect::<Vec<_>>(),
             vec!["a/1", "a/2"]
         );
         assert_eq!(
-            listing.files_with_prefix("b").collect::<Vec<_>>(),
+            listing
+                .files_with_prefix("b")
+                .map(|p| p.as_str())
+                .collect::<Vec<_>>(),
             vec!["b/1", "b/2"]
         );
         assert_eq!(
-            listing.files_with_prefix("c").collect::<Vec<_>>(),
+            listing
+                .files_with_prefix("c")
+                .map(|p| p.as_str())
+                .collect::<Vec<_>>(),
             vec!["c/1", "c/2"]
         );
 
         let listing = PackageFileListing::testing_new(&["a/1", "a/2", "a/3"]);
         assert_eq!(
-            listing.files_with_prefix("a").collect::<Vec<_>>(),
+            listing
+                .files_with_prefix("a")
+                .map(|p| p.as_str())
+                .collect::<Vec<_>>(),
             vec!["a/1", "a/2", "a/3"]
         );
 
         assert_eq!(
-            listing.files_with_prefix("a/1").collect::<Vec<_>>(),
+            listing
+                .files_with_prefix("a/1")
+                .map(|p| p.as_str())
+                .collect::<Vec<_>>(),
             vec!["a/1"],
         );
 
@@ -137,30 +159,35 @@ mod test {
         assert_eq!(
             listing
                 .files_within(PackageRelativePath::new("aa").unwrap())
+                .map(|p| p.as_str())
                 .collect::<Vec<_>>(),
             vec!["aa/2"]
         );
         assert_eq!(
             listing
                 .files_within(PackageRelativePath::new("a").unwrap())
+                .map(|p| p.as_str())
                 .collect::<Vec<_>>(),
             vec!["a/1", "a/1/2"]
         );
         assert_eq!(
             listing
                 .files_within(PackageRelativePath::new("a/1").unwrap())
+                .map(|p| p.as_str())
                 .collect::<Vec<_>>(),
             vec!["a/1", "a/1/2"]
         );
         assert_eq!(
             listing
                 .files_within(PackageRelativePath::new("b/1").unwrap())
+                .map(|p| p.as_str())
                 .collect::<Vec<_>>(),
             vec!["b/1"]
         );
         assert_eq!(
             listing
                 .files_within(PackageRelativePath::new("").unwrap())
+                .map(|p| p.as_str())
                 .collect::<Vec<_>>(),
             vec!["a/1", "a/1/2", "aa/2", "b/1"]
         );
