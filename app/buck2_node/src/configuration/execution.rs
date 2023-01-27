@@ -38,12 +38,12 @@ pub enum ExecutionPlatformData {
     Platform {
         target: TargetLabel,
         cfg: Configuration,
-        executor_config: CommandExecutorConfig,
+        executor_config: Arc<CommandExecutorConfig>,
     },
     /// When users haven't configured execution platforms, we will use old legacy behavior where
     /// execution deps inherit the target platform configuration.
     LegacyExecutionPlatform {
-        executor_config: CommandExecutorConfig,
+        executor_config: Arc<CommandExecutorConfig>,
         cfg: Configuration,
     },
 }
@@ -52,7 +52,7 @@ impl ExecutionPlatform {
     pub fn platform(
         target: TargetLabel,
         cfg: Configuration,
-        executor_config: CommandExecutorConfig,
+        executor_config: Arc<CommandExecutorConfig>,
     ) -> Self {
         Self(Arc::new(ExecutionPlatformData::Platform {
             target,
@@ -62,7 +62,7 @@ impl ExecutionPlatform {
     }
 
     pub fn legacy_execution_platform(
-        executor_config: CommandExecutorConfig,
+        executor_config: Arc<CommandExecutorConfig>,
         cfg: Configuration,
     ) -> Self {
         Self(Arc::new(ExecutionPlatformData::LegacyExecutionPlatform {
@@ -87,7 +87,7 @@ impl ExecutionPlatform {
         }
     }
 
-    pub fn executor_config(&self) -> &CommandExecutorConfig {
+    pub fn executor_config(&self) -> &Arc<CommandExecutorConfig> {
         match &*self.0 {
             ExecutionPlatformData::Platform {
                 executor_config, ..
@@ -194,7 +194,7 @@ impl ExecutionPlatformResolution {
         &self.skipped_platforms
     }
 
-    pub fn executor_config(&self) -> anyhow::Result<&CommandExecutorConfig> {
+    pub fn executor_config(&self) -> anyhow::Result<&Arc<CommandExecutorConfig>> {
         Ok(self.platform()?.executor_config())
     }
 }

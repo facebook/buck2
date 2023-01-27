@@ -9,6 +9,7 @@
 
 use std::hash::Hash;
 use std::hash::Hasher;
+use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_core::collections::sorted_map::SortedMap;
@@ -115,7 +116,7 @@ impl Default for CacheUploadBehavior {
     }
 }
 
-#[derive(Debug, Eq, PartialEq, Clone, Hash, Allocative)]
+#[derive(Debug, Eq, PartialEq, Hash, Allocative)]
 pub struct CommandExecutorConfig {
     pub executor_kind: CommandExecutorKind,
     pub path_separator: PathSeparatorKind,
@@ -158,11 +159,11 @@ impl CommandExecutorKind {
 }
 
 impl CommandExecutorConfig {
-    pub fn testing_local() -> Self {
-        Self {
+    pub fn testing_local() -> Arc<CommandExecutorConfig> {
+        Arc::new(CommandExecutorConfig {
             executor_kind: CommandExecutorKind::Local(LocalExecutorOptions {}),
             path_separator: PathSeparatorKind::system_default(),
             cache_upload_behavior: CacheUploadBehavior::Disabled,
-        }
+        })
     }
 }

@@ -243,7 +243,7 @@ pub struct RegisteredAction {
     #[derivative(Hash = "ignore", PartialEq = "ignore")]
     action: Box<dyn Action>,
     #[derivative(Hash = "ignore", PartialEq = "ignore")]
-    executor_config: CommandExecutorConfig,
+    executor_config: Arc<CommandExecutorConfig>,
 }
 
 impl TrivialDeferred for Arc<RegisteredAction> {
@@ -260,7 +260,7 @@ impl RegisteredAction {
     pub fn new(
         key: ActionKey,
         action: Box<dyn Action>,
-        executor_config: CommandExecutorConfig,
+        executor_config: Arc<CommandExecutorConfig>,
     ) -> Self {
         Self {
             key,

@@ -62,19 +62,19 @@ struct HasCommandExecutorHolder {
 }
 
 pub trait HasFallbackExecutorConfig {
-    fn get_fallback_executor_config(&self) -> &CommandExecutorConfig;
+    fn get_fallback_executor_config(&self) -> &Arc<CommandExecutorConfig>;
 }
 
 impl HasFallbackExecutorConfig for DiceComputations {
-    fn get_fallback_executor_config(&self) -> &CommandExecutorConfig {
+    fn get_fallback_executor_config(&self) -> &Arc<CommandExecutorConfig> {
         self.per_transaction_data()
             .data
-            .get::<CommandExecutorConfig>()
+            .get::<Arc<CommandExecutorConfig>>()
             .expect("CommandExecutorConfig should be set")
     }
 }
 
-pub fn set_fallback_executor_config(data: &mut DiceData, config: CommandExecutorConfig) {
+pub fn set_fallback_executor_config(data: &mut DiceData, config: Arc<CommandExecutorConfig>) {
     data.set(config)
 }
 

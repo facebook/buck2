@@ -606,8 +606,12 @@ impl BuckTestOrchestrator {
             None => test_info.default_executor().map(|o| &o.0),
         };
 
-        self.get_command_executor(fs, &node, resolved_executor_override)
-            .context("Error constructing CommandExecutor")
+        self.get_command_executor(
+            fs,
+            &node,
+            resolved_executor_override.as_ref().map(|a| &***a),
+        )
+        .context("Error constructing CommandExecutor")
     }
 
     async fn expand_test_executable(

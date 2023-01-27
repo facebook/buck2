@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::sync::Arc;
+
 use allocative::Allocative;
 use anyhow::Context as _;
 use buck2_common::executor_config::CacheUploadBehavior;
@@ -38,7 +40,7 @@ enum CommandExecutorConfigErrors {
 
 #[derive(Debug, Display, NoSerialize, ProvidesStaticType, Allocative)]
 #[display(fmt = "{:?}", _0)]
-pub struct StarlarkCommandExecutorConfig(pub CommandExecutorConfig);
+pub struct StarlarkCommandExecutorConfig(pub Arc<CommandExecutorConfig>);
 
 starlark_simple_value!(StarlarkCommandExecutorConfig);
 
@@ -177,6 +179,8 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
             }
         };
 
-        Ok(heap.alloc_simple(StarlarkCommandExecutorConfig(command_executor_config)))
+        Ok(heap.alloc_simple(StarlarkCommandExecutorConfig(Arc::new(
+            command_executor_config,
+        ))))
     }
 }

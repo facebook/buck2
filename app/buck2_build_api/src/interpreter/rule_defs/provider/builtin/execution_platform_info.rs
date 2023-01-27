@@ -75,19 +75,16 @@ impl<'v, V: ValueLike<'v>> ExecutionPlatformInfoGen<V> {
             .to_configuration_data();
         let cfg = Configuration::from_platform(TargetLabel::to_string(&target), cfg)?;
         let executor_config =
-            &StarlarkCommandExecutorConfig::from_value(self.executor_config.to_value())
+            StarlarkCommandExecutorConfig::from_value(self.executor_config.to_value())
                 .ok_or_else(|| {
                     ExecutionPlatformProviderErrors::ExpectedCommandExecutorConfig(
                         self.configuration.to_value().to_repr(),
                         self.configuration.to_value().get_type().to_owned(),
                     )
                 })?
-                .0;
-        Ok(ExecutionPlatform::platform(
-            target,
-            cfg,
-            executor_config.clone(),
-        ))
+                .0
+                .dupe();
+        Ok(ExecutionPlatform::platform(target, cfg, executor_config))
     }
 }
 

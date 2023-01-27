@@ -484,11 +484,11 @@ impl DiceDataProvider for DiceCommandDataProvider {
         // For commands that don't set a fallback executor config, set a local one.
         set_fallback_executor_config(
             &mut data,
-            CommandExecutorConfig {
+            Arc::new(CommandExecutorConfig {
                 executor_kind: CommandExecutorKind::Local(LocalExecutorOptions {}),
                 path_separator: PathSeparatorKind::system_default(),
                 cache_upload_behavior: CacheUploadBehavior::Disabled,
-            },
+            }),
         );
 
         let mut data = UserComputationData {
@@ -497,7 +497,7 @@ impl DiceDataProvider for DiceCommandDataProvider {
             ..Default::default()
         };
 
-        set_fallback_executor_config(&mut data.data, self.executor_config);
+        set_fallback_executor_config(&mut data.data, Arc::new(self.executor_config));
         data.set_re_client(self.re_connection.get_client());
         data.set_command_executor(box CommandExecutorFactory::new(
             self.re_connection,

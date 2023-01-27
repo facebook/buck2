@@ -241,7 +241,7 @@ impl ActionsRegistry {
                 Arc::new(RegisteredAction::new(
                     action_key,
                     action,
-                    self.execution_platform.executor_config()?.clone(),
+                    (*self.execution_platform.executor_config()?).dupe(),
                 )),
             );
         }
