@@ -39,6 +39,15 @@ pub struct CommonAttributeArgs {
     output_all_attributes: bool,
 
     #[clap(
+        short = 'B',
+        long,
+        group = "output_attribute_flags",
+        name = "output_basic_attributes",
+        help = "Output basic attributes, namely those the user can supply, plus rule type and package name"
+    )]
+    output_basic_attributes: bool,
+
+    #[clap(
          short = 'a',
          long,
          group = "output_attribute_flags",
@@ -51,6 +60,7 @@ pub struct CommonAttributeArgs {
          number_of_values = 1,
          // If the output_all_attributes flag (-A) is set, use "" to select all
          default_value_if("output_all_attributes", None, Some("")),
+         default_value_if("output_basic_attributes", None, Some("^(buck\\.package|buck\\.type|[^\\.]*)$")),
      )]
     output_attribute: Vec<String>,
 
