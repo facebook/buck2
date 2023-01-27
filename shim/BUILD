@@ -1,15 +1,9 @@
 load("@prelude//toolchains:cxx.bzl", "system_cxx_toolchain")
-load("@prelude//toolchains:genrule.bzl", "system_genrule_toolchain")
 load("@prelude//toolchains:python.bzl", "system_python_bootstrap_toolchain", "system_python_toolchain")
 load("@prelude//toolchains:rust.bzl", "system_rust_toolchain")
 
 system_cxx_toolchain(
     name = "cxx",
-    visibility = ["PUBLIC"],
-)
-
-system_genrule_toolchain(
-    name = "genrule",
     visibility = ["PUBLIC"],
 )
 

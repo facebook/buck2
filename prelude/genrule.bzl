@@ -9,7 +9,6 @@
 
 load("@prelude//:cache_mode.bzl", "CacheModeInfo")
 load("@prelude//:genrule_local_labels.bzl", "genrule_labels_require_local")
-load("@prelude//:genrule_toolchain.bzl", "GenruleToolchainInfo")
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
 load("@prelude//utils:utils.bzl", "value_or")
 
@@ -77,15 +76,11 @@ _USE_CACHE_MODE = False # @oss-enable
 
 # Extra attributes required by every genrule based on genrule_impl
 def genrule_attributes() -> {str.type: "attribute"}:
-    attributes = {
-        "_genrule_toolchain": attrs.default_only(attrs.toolchain_dep(default = "toolchains//:genrule", providers = [GenruleToolchainInfo])),
-    }
-
     if _USE_CACHE_MODE:
         # FIXME: prelude// should be standalone (not refer to fbsource//)
-        attributes["_cache_mode"] = attrs.dep(default = "fbsource//xplat/buck2/platform/cache_mode:cache_mode")
-
-    return attributes
+        return {"_cache_mode": attrs.dep(default = "fbsource//xplat/buck2/platform/cache_mode:cache_mode")}
+    else:
+        return {}
 
 def _get_cache_mode(ctx: "context") -> CacheModeInfo.type:
     if _USE_CACHE_MODE:
@@ -262,11 +257,6 @@ def process_genrule(
     # Actually define the operation, relative to where we changed to
     script.append(cmd)
 
-    zip_scrubber = ctx.attrs._genrule_toolchain[GenruleToolchainInfo].zip_scrubber
-    if zip_scrubber != None:
-        # Any outputs that are .zip files need to be "scrubbed" to ensure that they are deterministic.
-        script.extend([cmd_args(zip_scrubber, output, delimiter = " ") for output in all_outputs if output.extension == ".zip"])
-
     # Some rules need to run from the build root, but for everything else, `cd`
     # into the sandboxed source dir and relative all paths to that.
     if not _requires_build_root(ctx):
@@ -300,7 +290,7 @@ def process_genrule(
         # As of 09/2021, all genrule types were legal snake case if their dashes and periods were replaced with underscores.
         category += "_" + ctx.attrs.type.replace("-", "_").replace(".", "_")
     ctx.actions.run(
-        cmd_args(script_args).hidden([cmd, srcs_artifact] + [a.as_output() for a in all_outputs] + ([zip_scrubber] if zip_scrubber else [])),
+        cmd_args(script_args).hidden([cmd, srcs_artifact] + [a.as_output() for a in all_outputs]),
         env = env_vars,
         local_only = local_only,
         allow_cache_upload = cacheable,
