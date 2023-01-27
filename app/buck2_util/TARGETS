@@ -20,6 +20,7 @@ rust_library(
         "fbsource//third-party/rust:serde_json",
     ],
     deps = [
+        "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:libc",
         "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:static_assertions",
