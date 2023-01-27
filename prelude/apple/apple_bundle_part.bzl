@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@prelude//:paths.bzl", "paths")
+load("@prelude//utils:utils.bzl", "expect")
 load(":apple_bundle_destination.bzl", "AppleBundleDestination", "bundle_relative_path_for_destination")
 load(":apple_bundle_utility.bzl", "get_extension_attr", "get_product_name")
 load(":apple_code_signing_types.bzl", "AppleEntitlementsInfo", "CodeSignType")
@@ -57,6 +58,10 @@ def assemble_bundle(ctx: "context", bundle: "artifact", parts: [AppleBundlePart.
 
         if codesign_type.value != "adhoc":
             provisioning_profiles = ctx.attrs._provisioning_profiles[DefaultInfo]
+            expect(
+                len(provisioning_profiles.default_outputs) == 1,
+                "expected exactly one default output from provisioning profile",
+            )
             provisioning_profiles_args = ["--profiles-dir"] + provisioning_profiles.default_outputs
             codesign_args.extend(provisioning_profiles_args)
 
