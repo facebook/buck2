@@ -477,6 +477,10 @@ message CommandProgress {
   }
 }
 
+message MultiCommandProgress {
+  repeated CommandProgress messages = 1;
+}
+
 // Mirror of `CommandProgress` where some fields are already serialized.
 message CommandProgressForWrite {
   oneof progress {
@@ -639,22 +643,22 @@ service DaemonApi {
   rpc FlushDepFiles(FlushDepFilesRequest) returns (CommandResult);
 
   // All streaming request types should have a ClientContext.
-  rpc Build(BuildRequest) returns (stream CommandProgress);
-  rpc Bxl(BxlRequest) returns (stream CommandProgress);
-  rpc Test(TestRequest) returns (stream CommandProgress);
-  rpc Targets(TargetsRequest) returns (stream CommandProgress);
-  rpc TargetsShowOutputs(TargetsRequest) returns (stream CommandProgress);
-  rpc Aquery(AqueryRequest) returns (stream CommandProgress);
-  rpc Cquery(CqueryRequest) returns (stream CommandProgress);
-  rpc Uquery(UqueryRequest) returns (stream CommandProgress);
-  rpc Audit(GenericRequest) returns (stream CommandProgress);
-  rpc Starlark(GenericRequest) returns (stream CommandProgress);
-  rpc UnstableDocs(UnstableDocsRequest) returns (stream CommandProgress);
-  rpc Install(InstallRequest) returns (stream CommandProgress);
-  rpc Materialize(MaterializeRequest) returns (stream CommandProgress);
-  rpc CleanStale(CleanStaleRequest) returns (stream CommandProgress);
-  rpc FileStatus(FileStatusRequest) returns (stream CommandProgress);
-  rpc Profile2(ProfileRequest) returns (stream CommandProgress);
+  rpc Build(BuildRequest) returns (stream MultiCommandProgress);
+  rpc Bxl(BxlRequest) returns (stream MultiCommandProgress);
+  rpc Test(TestRequest) returns (stream MultiCommandProgress);
+  rpc Targets(TargetsRequest) returns (stream MultiCommandProgress);
+  rpc TargetsShowOutputs(TargetsRequest) returns (stream MultiCommandProgress);
+  rpc Aquery(AqueryRequest) returns (stream MultiCommandProgress);
+  rpc Cquery(CqueryRequest) returns (stream MultiCommandProgress);
+  rpc Uquery(UqueryRequest) returns (stream MultiCommandProgress);
+  rpc Audit(GenericRequest) returns (stream MultiCommandProgress);
+  rpc Starlark(GenericRequest) returns (stream MultiCommandProgress);
+  rpc UnstableDocs(UnstableDocsRequest) returns (stream MultiCommandProgress);
+  rpc Install(InstallRequest) returns (stream MultiCommandProgress);
+  rpc Materialize(MaterializeRequest) returns (stream MultiCommandProgress);
+  rpc CleanStale(CleanStaleRequest) returns (stream MultiCommandProgress);
+  rpc FileStatus(FileStatusRequest) returns (stream MultiCommandProgress);
+  rpc Profile2(ProfileRequest) returns (stream MultiCommandProgress);
 
   // Crashes the Buck daemon. Unless you are writing tests or checking Buck2's
   // panic behavior, you probably don't want this.
@@ -676,10 +680,10 @@ service DaemonApi {
   rpc Unstable_DiceDump(UnstableDiceDumpRequest)
       returns (UnstableDiceDumpResponse);
 
-  rpc Allocative(AllocativeRequest) returns (stream CommandProgress);
+  rpc Allocative(AllocativeRequest) returns (stream MultiCommandProgress);
 
   // Starts a starlark LSP server.
-  rpc Lsp(stream StreamingRequest) returns (stream CommandProgress);
+  rpc Lsp(stream StreamingRequest) returns (stream MultiCommandProgress);
 
   // Update the daemon's log filter.
   rpc SetLogFilter(SetLogFilterRequest) returns (SetLogFilterResponse);

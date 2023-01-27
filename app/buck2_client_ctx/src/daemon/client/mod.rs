@@ -25,6 +25,7 @@ use futures::pin_mut;
 use futures::stream;
 use futures::Stream;
 use futures::StreamExt;
+use futures::TryStreamExt;
 use sysinfo::Pid;
 use sysinfo::PidExt;
 use sysinfo::ProcessExt;
@@ -185,15 +186,19 @@ enum GrpcToStreamError {
 /// Translates a tonic streaming response into a stream of StreamValues, the set of things that can flow across the gRPC
 /// event stream.
 fn grpc_to_stream(
-    response: anyhow::Result<tonic::Response<tonic::Streaming<CommandProgress>>>,
+    response: anyhow::Result<tonic::Response<tonic::Streaming<MultiCommandProgress>>>,
 ) -> impl Stream<Item = anyhow::Result<StreamValue>> {
     let stream = match response {
         Ok(response) => response.into_inner(),
         Err(e) => return futures::stream::once(futures::future::ready(Err(e))).left_stream(),
     };
 
+    let stream = stream
+        .map_ok(|e| stream::iter(e.messages.into_iter().map(anyhow::Ok)))
+        .try_flatten();
+
     stream::unfold(stream, |mut stream| async {
-        let msg = match stream.message().await {
+        let msg = match stream.try_next().await {
             Ok(Some(msg)) => msg,
             Ok(None) => return None,
             Err(e) => return Some((Err(e.into()), stream)),
@@ -240,7 +245,7 @@ impl BuckdClient {
             Request<T>,
         ) -> BoxFuture<
             'a,
-            Result<tonic::Response<tonic::Streaming<CommandProgress>>, Status>,
+            Result<tonic::Response<tonic::Streaming<MultiCommandProgress>>, Status>,
         >,
         request: T,
         console_interaction: Option<ConsoleInteractionStream<'i>>,

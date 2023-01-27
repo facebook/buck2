@@ -75,6 +75,7 @@ use tracing::debug_span;
 use crate::active_commands::ActiveCommand;
 use crate::clean_stale::clean_stale_command;
 use crate::ctx::ServerCommandContext;
+use crate::daemon::multi_event_stream::MultiEventStream;
 use crate::daemon::server_allocative::spawn_allocative;
 use crate::daemon::state::DaemonState;
 use crate::daemon::state::DaemonStateDiceConstructor;
@@ -538,14 +539,16 @@ fn error_to_command_progress(e: anyhow::Error) -> CommandProgress {
 
 fn error_to_response_stream(e: anyhow::Error) -> Response<ResponseStream> {
     tonic::Response::new(Box::pin(stream::once(future::ready(Ok(
-        error_to_command_progress(e),
+        buck2_cli_proto::MultiCommandProgress {
+            messages: vec![error_to_command_progress(e)],
+        },
     )))))
 }
 
 /// tonic requires the response for a streaming api to be a Sync Stream. With async/await, that requirement is really difficult
 /// to meet. This simple wrapper allows us to wrap a non-Sync stream into a Sync one (the inner stream is never accessed in a
 /// non-exclusive manner).
-struct SyncStream<T: Stream<Item = Result<CommandProgress, Status>> + Send> {
+struct SyncStream<T: Stream + Send> {
     // SyncWrapper provides a Sync type that only allows (statically checked) exclusive access to
     // the underlying object, this allows using a non-Sync object where a Sync one is required
     // but is never accessed from multiple threads.
@@ -554,7 +557,7 @@ struct SyncStream<T: Stream<Item = Result<CommandProgress, Status>> + Send> {
     wrapped: sync_wrapper::SyncWrapper<T>,
 }
 
-impl<T: Stream<Item = Result<CommandProgress, Status>> + Send> Stream for SyncStream<T> {
+impl<T: Stream + Send> Stream for SyncStream<T> {
     type Item = <T as Stream>::Item;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
@@ -706,12 +709,15 @@ where
         daemon_shutdown_stream,
     );
 
+    let events = MultiEventStream::new(events);
+
     Response::new(Box::pin(SyncStream {
         wrapped: sync_wrapper::SyncWrapper::new(DropTogether::new(events, cancellable)),
     }))
 }
 
-type ResponseStream = Pin<Box<dyn Stream<Item = Result<CommandProgress, Status>> + Send + Sync>>;
+type ResponseStream =
+    Pin<Box<dyn Stream<Item = Result<MultiCommandProgress, Status>> + Send + Sync>>;
 #[async_trait]
 impl DaemonApi for BuckdServer {
     async fn kill(&self, req: Request<KillRequest>) -> Result<Response<CommandResult>, Status> {

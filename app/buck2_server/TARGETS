@@ -30,6 +30,8 @@ rust_library(
         "fbsource//third-party/rust:notify",
         "fbsource//third-party/rust:num_cpus",
         "fbsource//third-party/rust:once_cell",
+        "fbsource//third-party/rust:pin-project",
+        "fbsource//third-party/rust:prost",
         "fbsource//third-party/rust:prost-types",
         "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:serde_json",
