@@ -1,8 +1,10 @@
 [repositories]
 root = .
 prelude = prelude
-ovr_config = prelude
 shim = shim
+
+[repository_aliases]
+ovr_config = prelude
 toolchains = shim
 fbcode = shim
 fbcode_macros = shim
