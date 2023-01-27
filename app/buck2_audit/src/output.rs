@@ -36,7 +36,7 @@ use buck2_server_commands::commands::query::printer::ShouldPrintProviders;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::pattern::target_platform_from_client_context;
-use buck2_server_ctx::raw_output::RawOuputGuard;
+use buck2_server_ctx::raw_output::RawOutputGuard;
 use dice::DiceTransaction;
 use thiserror::Error;
 use tracing::debug;
@@ -97,7 +97,7 @@ fn check_output_path<'v>(
 }
 
 async fn write_output<'v>(
-    stdout: &'v mut RawOuputGuard<'_>,
+    stdout: &'v mut RawOutputGuard<'_>,
     action: ActionQueryNode,
     json: bool,
     output_attributes: &[String],
