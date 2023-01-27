@@ -137,7 +137,7 @@ impl WhatRanCommand {
 trait WhatRanComandImplementation: Default {
     fn event(
         &mut self,
-        event: buck2_data::BuckEvent,
+        event: Box<buck2_data::BuckEvent>,
         output: &mut impl WhatRanOutputWriter,
         options: &WhatRanOptions,
     ) -> anyhow::Result<()>;
@@ -165,7 +165,7 @@ trait WhatRanComandImplementation: Default {
 #[derive(Default)]
 pub struct WhatRanImpl {
     /// Maps action spans to their details.
-    known_actions: HashMap<u64, buck2_data::BuckEvent>,
+    known_actions: HashMap<u64, Box<buck2_data::BuckEvent>>,
 }
 
 impl WhatRanState<u64> for WhatRanImpl {
@@ -184,7 +184,7 @@ impl WhatRanComandImplementation for WhatRanImpl {
     /// WhatRanRelevantAction, but it doesn't hurt to always check both.
     fn event(
         &mut self,
-        event: buck2_data::BuckEvent,
+        event: Box<buck2_data::BuckEvent>,
         output: &mut impl WhatRanOutputWriter,
         options: &WhatRanOptions,
     ) -> anyhow::Result<()> {
@@ -208,12 +208,13 @@ pub struct WhatFailedImpl {
     known_actions: HashMap<u64, WhatFailedEntry>,
 }
 
+#[allow(clippy::vec_box)]
 struct WhatFailedEntry {
     /// Knwon to be a WhatRanRelevantAction.
-    event: buck2_data::BuckEvent,
+    event: Box<buck2_data::BuckEvent>,
 
     /// Known to be a CommandReproducer.
-    reproducers: Vec<buck2_data::BuckEvent>,
+    reproducers: Vec<Box<buck2_data::BuckEvent>>,
 }
 
 impl WhatRanState<u64> for WhatFailedImpl {
@@ -232,7 +233,7 @@ impl WhatRanComandImplementation for WhatFailedImpl {
     /// WhatRanRelevantAction, but it doesn't hurt to always check both.
     fn event(
         &mut self,
-        event: buck2_data::BuckEvent,
+        event: Box<buck2_data::BuckEvent>,
         output: &mut impl WhatRanOutputWriter,
         options: &WhatRanOptions,
     ) -> anyhow::Result<()> {

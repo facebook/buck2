@@ -102,7 +102,7 @@ impl EventsCtx {
         &mut self,
         next: Option<Vec<anyhow::Result<StreamValue>>>,
         shutdown: &mut Option<buck2_data::DaemonShutdown>,
-    ) -> anyhow::Result<ControlFlow<CommandResult, ()>> {
+    ) -> anyhow::Result<ControlFlow<Box<CommandResult>, ()>> {
         let next = next.context(BuckdCommunicationError::MissingCommandResult)?;
         let mut events = Vec::with_capacity(next.len());
         for next in next {
@@ -171,7 +171,7 @@ impl EventsCtx {
                         // Make sure we still flush if next produces an error is accurate
                         match self.handle_stream_next(next, &mut shutdown).await? {
                             ControlFlow::Continue(()) => {}
-                            ControlFlow::Break(res) => break res,
+                            ControlFlow::Break(res) => break *res,
                         }
                     }
                     Some(event) = tailers.stream.recv() => {

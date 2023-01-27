@@ -48,7 +48,7 @@ impl HeartbeatGuard {
                 loop {
                     let snapshot = collector.create_snapshot();
                     match events.lock().expect("Poisoned lock").as_ref() {
-                        Some(events) => events.instant_event(snapshot),
+                        Some(events) => events.instant_event(box snapshot),
                         None => break,
                     }
                     interval.tick().await;
@@ -70,7 +70,7 @@ impl Drop for HeartbeatGuard {
         // Synchronously remove access for sending new heartbeats.
         if let Some(events) = maybe_events.take() {
             // Send one last snapshot.
-            events.instant_event(self.collector.create_snapshot());
+            events.instant_event(box self.collector.create_snapshot());
         }
         // Cancel the task as well.
         self.handle.abort();

@@ -1062,9 +1062,7 @@ mod tests {
             .serialize_to_protobuf_length_delimited(&mut actual)
             .unwrap();
         let expected = buck2_cli_proto::CommandProgress {
-            progress: Some(command_progress::Progress::Event(
-                buck2_data::BuckEvent::from(event),
-            )),
+            progress: Some(command_progress::Progress::Event(event.into())),
         }
         .encode_length_delimited_to_vec();
         assert_eq!(expected, actual);

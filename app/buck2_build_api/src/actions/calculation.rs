@@ -205,7 +205,7 @@ async fn build_action_no_redirect(
 
         (
             action_result,
-            buck2_data::ActionExecutionEnd {
+            box buck2_data::ActionExecutionEnd {
                 key: Some(action.key().as_proto()),
                 kind: action.kind().into(),
                 name: Some(buck2_data::ActionName {

@@ -15,8 +15,8 @@ use serde::Serialize;
 #[derive(Allocative, Deserialize)]
 #[allow(clippy::large_enum_variant)]
 pub enum StreamValue {
-    Result(CommandResult),
-    Event(buck2_data::BuckEvent),
+    Result(Box<CommandResult>),
+    Event(Box<buck2_data::BuckEvent>),
 }
 
 impl StreamValue {

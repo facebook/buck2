@@ -95,7 +95,7 @@ mod fbcode {
         // Encodes message into something scribe understands.
         fn encode_message(mut event: BuckEvent, is_truncated: bool) -> Option<Vec<u8>> {
             Self::smart_truncate_event(event.data_mut());
-            let proto: buck2_data::BuckEvent = event.into();
+            let proto: Box<buck2_data::BuckEvent> = event.into();
 
             let mut buf = Vec::with_capacity(proto.encoded_len());
             proto

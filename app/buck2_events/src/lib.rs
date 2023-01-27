@@ -60,7 +60,7 @@ use crate::trace::TraceId;
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct BuckEvent {
     /// Full event, the rest of the fields are caches.
-    event: buck2_data::BuckEvent,
+    event: Box<buck2_data::BuckEvent>,
 
     /// A timestamp for when this event was emitted.
     timestamp: SystemTime,
@@ -90,7 +90,7 @@ impl BuckEvent {
             data: Some(data),
         };
         BuckEvent {
-            event,
+            event: box event,
             timestamp,
             span_id,
             parent_id,
@@ -191,16 +191,16 @@ impl BuckEvent {
     }
 }
 
-impl From<BuckEvent> for buck2_data::BuckEvent {
+impl From<BuckEvent> for Box<buck2_data::BuckEvent> {
     fn from(e: BuckEvent) -> Self {
         e.event
     }
 }
 
-impl TryFrom<buck2_data::BuckEvent> for BuckEvent {
+impl TryFrom<Box<buck2_data::BuckEvent>> for BuckEvent {
     type Error = anyhow::Error;
 
-    fn try_from(event: buck2_data::BuckEvent) -> anyhow::Result<BuckEvent> {
+    fn try_from(event: Box<buck2_data::BuckEvent>) -> anyhow::Result<BuckEvent> {
         event.data.as_ref().ok_or(BuckEventError::MissingData)?;
         fn new_span_id(num: u64) -> Option<SpanId> {
             NonZeroU64::new(num).map(SpanId)
@@ -348,7 +348,7 @@ mod tests {
         );
         assert_eq!(
             test,
-            BuckEvent::try_from(buck2_data::BuckEvent::from(test.clone())).unwrap()
+            BuckEvent::try_from(Box::<buck2_data::BuckEvent>::from(test.clone())).unwrap()
         );
     }
 

@@ -244,7 +244,7 @@ impl CachingExecutor {
 
                 (
                     res,
-                    buck2_data::CacheUploadEnd {
+                    box buck2_data::CacheUploadEnd {
                         key: Some(target.action_key.as_proto()),
                         name: Some(name),
                         action_digest: digest.to_string(),

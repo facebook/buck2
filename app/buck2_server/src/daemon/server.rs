@@ -405,9 +405,9 @@ impl BuckdServer {
         } = ActiveCommand::new(&dispatch);
         let data = daemon_state.data()?;
 
-        dispatch.instant_event(snapshot::SnapshotCollector::pre_initialization_snapshot(
-            data.start_time,
-        ));
+        dispatch.instant_event(
+            box snapshot::SnapshotCollector::pre_initialization_snapshot(data.start_time),
+        );
 
         let configure_bxl_file_globals = self.0.callbacks.configure_bxl_file_globals();
 
@@ -530,9 +530,9 @@ fn result_to_command_result<R: Into<command_result::Result>>(
 
 fn error_to_command_progress(e: anyhow::Error) -> CommandProgress {
     CommandProgress {
-        progress: Some(command_progress::Progress::Result(error_to_command_result(
-            e,
-        ))),
+        progress: Some(command_progress::Progress::Result(
+            box error_to_command_result(e),
+        )),
     }
 }
 
@@ -588,7 +588,7 @@ fn pump_events<E: EventSource>(
                 match control_event {
                     ControlEvent::CommandResult(result) => {
                         let _ignore = output_send.send(Ok(CommandProgress {
-                            progress: Some(command_progress::Progress::Result(result)),
+                            progress: Some(command_progress::Progress::Result(box result)),
                         }));
                     }
                 }
@@ -677,18 +677,20 @@ where
 
     let daemon_shutdown_stream = daemon_shutdown_channel
         .map_ok(move |shutdown| CommandProgress {
-            progress: Some(command_progress::Progress::Event(buck2_data::BuckEvent {
-                timestamp: Some(SystemTime::now().into()),
-                trace_id: trace_id.to_string(),
-                span_id: 0,
-                parent_id: 0,
-                data: Some(
-                    buck2_data::InstantEvent {
-                        data: Some(shutdown.into()),
-                    }
-                    .into(),
-                ),
-            })),
+            progress: Some(command_progress::Progress::Event(
+                box buck2_data::BuckEvent {
+                    timestamp: Some(SystemTime::now().into()),
+                    trace_id: trace_id.to_string(),
+                    span_id: 0,
+                    parent_id: 0,
+                    data: Some(
+                        buck2_data::InstantEvent {
+                            data: Some(shutdown.into()),
+                        }
+                        .into(),
+                    ),
+                },
+            )),
         })
         .into_stream()
         .filter_map(|e| {

@@ -28,7 +28,7 @@ use crate::subscribers::event_log::Invocation;
 struct Pending {
     #[pin]
     delay: Sleep,
-    event: Option<buck2_data::BuckEvent>,
+    event: Option<Box<buck2_data::BuckEvent>>,
 }
 
 #[pin_project]

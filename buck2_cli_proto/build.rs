@@ -30,6 +30,8 @@ fn main() -> io::Result<()> {
         .field_attribute("delay", "#[serde(with = \"serialize_duration\")]")
         .field_attribute("ProfileResponse.elapsed", "#[serde(with = \"serialize_duration\")]")
 
+        .boxed("CommandProgress.progress.event")
+        .boxed("CommandProgress.progress.result")
         .extern_path(".buck.data", "::buck2_data")
         .compile(proto_files, &[".", &events_include])
 }

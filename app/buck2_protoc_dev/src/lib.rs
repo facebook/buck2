@@ -98,6 +98,12 @@ impl Builder {
         }
     }
 
+    pub fn boxed<P: AsRef<str>>(self, path: P) -> Self {
+        Self {
+            tonic: self.tonic.boxed(path),
+        }
+    }
+
     pub fn setup_protoc(self) -> Self {
         // It would be great if there were on the config rather than an env variables...
         maybe_set_protoc();

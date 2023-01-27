@@ -141,5 +141,9 @@ fn main() -> io::Result<()> {
             "RemoteCommand.queue_time",
             "#[serde(with = \"crate::serialize_duration\")]",
         )
+        .boxed("RecordEvent.data.invocation_record")
+        .boxed("SpanEndEvent.data.action_execution")
+        .boxed("SpanEndEvent.data.cache_upload")
+        .boxed("InstantEvent.data.snapshot")
         .compile(proto_files, &["."])
 }
