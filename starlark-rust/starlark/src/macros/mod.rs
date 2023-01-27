@@ -22,6 +22,7 @@
 macro_rules! starlark_type {
     ($typ:expr) => {
         const TYPE: &'static str = $typ;
+        #[inline]
         fn get_type_value_static() -> $crate::values::FrozenStringValue {
             $crate::const_frozen_string!($typ)
         }
@@ -37,12 +38,14 @@ macro_rules! starlark_complex_value {
     (impl $x:ident) => {
         $crate::__macro_refs::item! {
             impl<'v> $crate::values::AllocValue<'v> for $x<'v> {
+                #[inline]
                 fn alloc_value(self, heap: &'v $crate::values::Heap) -> $crate::values::Value<'v> {
                     heap.alloc_complex(self)
                 }
             }
 
             impl $crate::values::AllocFrozenValue for [< Frozen $x >] {
+                #[inline]
                 fn alloc_frozen_value(self, heap: &$crate::values::FrozenHeap) -> $crate::values::FrozenValue {
                     heap.alloc_simple(self)
                 }
@@ -50,6 +53,7 @@ macro_rules! starlark_complex_value {
 
             impl<'v> $x<'v> {
                 /// Downcast the value.
+                #[inline]
                 pub fn from_value(x: $crate::values::Value<'v>) -> Option<&'v Self> {
                     if let Some(x) = x.unpack_frozen() {
                         $crate::values::ValueLike::downcast_ref::< [< Frozen $x >] >(x).map($crate::__macro_refs::coerce)
@@ -60,12 +64,14 @@ macro_rules! starlark_complex_value {
             }
 
             impl<'v> $crate::values::type_repr::StarlarkTypeRepr for &'v $x<'v> {
+                #[inline]
                 fn starlark_type_repr() -> String {
                     <$x as $crate::values::StarlarkValue>::get_type_starlark_repr()
                 }
             }
 
             impl<'v> $crate::values::UnpackValue<'v> for &'v $x<'v> {
+                #[inline]
                 fn unpack_value(x: $crate::values::Value<'v>) -> Option<&'v $x<'v>> {
                     $x::from_value(x)
                 }
@@ -101,12 +107,14 @@ macro_rules! starlark_complex_values {
     ($x:ident) => {
         $crate::__macro_refs::item! {
             impl<'v> $crate::values::AllocValue<'v> for $x<'v> {
+                #[inline]
                 fn alloc_value(self, heap: &'v $crate::values::Heap) -> $crate::values::Value<'v> {
                     heap.alloc_complex(self)
                 }
             }
 
             impl $crate::values::AllocFrozenValue for [< Frozen $x >] {
+                #[inline]
                 fn alloc_frozen_value(self, heap: &$crate::values::FrozenHeap) -> $crate::values::FrozenValue {
                     heap.alloc_simple(self)
                 }
@@ -114,6 +122,7 @@ macro_rules! starlark_complex_values {
 
             impl<'v> $x<'v> {
                 #[allow(dead_code)]
+                #[inline]
                 fn from_value(
                     x: $crate::values::Value<'v>,
                 ) -> Option<$crate::__macro_refs::Either<&'v Self, &'v [< Frozen $x >]>> {
@@ -176,12 +185,14 @@ macro_rules! starlark_simple_value {
     ($x:ident) => {
         $crate::__macro_refs::item! {
             impl<'v> $crate::values::AllocValue<'v> for $x {
+                #[inline]
                 fn alloc_value(self, heap: &'v $crate::values::Heap) -> $crate::values::Value<'v> {
                     heap.alloc_simple(self)
                 }
             }
 
             impl $crate::values::AllocFrozenValue for $x {
+                #[inline]
                 fn alloc_frozen_value(self, heap: &$crate::values::FrozenHeap) -> $crate::values::FrozenValue {
                     heap.alloc_simple(self)
                 }
@@ -189,6 +200,7 @@ macro_rules! starlark_simple_value {
 
             impl $x {
                 /// Downcast a value to self type.
+                #[inline]
                 pub fn from_value<'v>(x: $crate::values::Value<'v>) -> Option<&'v Self> {
                     $crate::values::ValueLike::downcast_ref::< $x >(x)
                 }
@@ -205,6 +217,7 @@ macro_rules! starlark_simple_value {
                     <$x as $crate::values::StarlarkValue>::get_type_value_static().as_str().to_owned()
                 }
 
+                #[inline]
                 fn unpack_value(x: $crate::values::Value<'v>) -> Option<&'v $x> {
                     $x::from_value(x)
                 }
