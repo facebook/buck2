@@ -17,6 +17,7 @@ load("@prelude//android:preprocess_java_classes.bzl", "get_preprocessed_java_cla
 load("@prelude//android:proguard.bzl", "get_proguard_output")
 load("@prelude//android:voltron.bzl", "get_target_to_module_mapping")
 load("@prelude//java:java_providers.bzl", "KeystoreInfo", "create_java_packaging_dep", "get_all_java_packaging_deps", "get_all_java_packaging_deps_from_packaging_infos")
+load("@prelude//utils:set.bzl", "set")
 load("@prelude//utils:utils.bzl", "expect")
 
 def android_apk_impl(ctx: "context") -> ["provider"]:
@@ -146,14 +147,14 @@ def android_apk_impl(ctx: "context") -> ["provider"]:
     return [
         AndroidApkInfo(apk = output_apk, manifest = resources_info.manifest),
         AndroidApkUnderTestInfo(
-            java_packaging_deps = java_packaging_deps,
+            java_packaging_deps = set([dep.label.raw_target() for dep in java_packaging_deps]),
             keystore = keystore,
             manifest_entries = ctx.attrs.manifest_entries,
-            prebuilt_native_library_dirs = native_library_info.apk_under_test_prebuilt_native_library_dirs,
+            prebuilt_native_library_dirs = set([native_lib.raw_target for native_lib in native_library_info.apk_under_test_prebuilt_native_library_dirs]),
             platforms = deps_by_platform.keys(),
             primary_platform = primary_platform,
-            resource_infos = resources_info.unfiltered_resource_infos,
-            shared_libraries = native_library_info.apk_under_test_shared_libraries,
+            resource_infos = set([info.raw_target for info in resources_info.unfiltered_resource_infos]),
+            shared_libraries = set([shared_lib.label.raw_target() for shared_lib in native_library_info.apk_under_test_shared_libraries]),
         ),
         DefaultInfo(default_output = output_apk, other_outputs = _get_exopackage_outputs(exopackage_info), sub_targets = sub_targets),
         _get_install_info(ctx, output_apk = output_apk, manifest = resources_info.manifest, exopackage_info = exopackage_info),

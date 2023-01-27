@@ -10,6 +10,7 @@ load("@prelude//android:android_providers.bzl", "AndroidBinaryNativeLibsInfo", "
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//android:voltron.bzl", "ROOT_MODULE", "all_targets_in_root_module", "get_apk_module_graph_info", "is_root_module")
 load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo", "merge_shared_libraries", "traverse_shared_library_info")
+load("@prelude//utils:set.bzl", "set_type")  # @unused Used as a type
 load("@prelude//utils:utils.bzl", "expect")
 
 # Native libraries on Android are built for a particular Application Binary Interface (ABI). We
@@ -43,10 +44,14 @@ def get_android_binary_native_library_info(
         android_packageable_info: "AndroidPackageableInfo",
         deps_by_platform: {str.type: ["dependency"]},
         apk_module_graph_file: ["artifact", None] = None,
-        prebuilt_native_library_dirs_to_exclude: ["PrebuiltNativeLibraryDir"] = [],
-        shared_libraries_to_exclude: ["SharedLibrary"] = []) -> AndroidBinaryNativeLibsInfo.type:
+        prebuilt_native_library_dirs_to_exclude: [set_type, None] = None,
+        shared_libraries_to_exclude: [set_type, None] = None) -> AndroidBinaryNativeLibsInfo.type:
     traversed_prebuilt_native_library_dirs = android_packageable_info.prebuilt_native_library_dirs.traverse() if android_packageable_info.prebuilt_native_library_dirs else []
-    all_prebuilt_native_library_dirs = [native_lib for native_lib in traversed_prebuilt_native_library_dirs if native_lib not in prebuilt_native_library_dirs_to_exclude]
+    all_prebuilt_native_library_dirs = [
+        native_lib
+        for native_lib in traversed_prebuilt_native_library_dirs
+        if not (prebuilt_native_library_dirs_to_exclude and prebuilt_native_library_dirs_to_exclude.contains(native_lib.raw_target))
+    ]
 
     unstripped_libs = []
     all_shared_libraries = []
@@ -56,7 +61,11 @@ def get_android_binary_native_library_info(
             ctx.actions,
             deps = filter(None, [x.get(SharedLibraryInfo) for x in deps]),
         )
-        native_linkables = {so_name: shared_lib for so_name, shared_lib in traverse_shared_library_info(shared_library_info).items() if shared_lib not in shared_libraries_to_exclude}
+        native_linkables = {
+            so_name: shared_lib
+            for so_name, shared_lib in traverse_shared_library_info(shared_library_info).items()
+            if not (shared_libraries_to_exclude and shared_libraries_to_exclude.contains(shared_lib.label.raw_target()))
+        }
         all_shared_libraries.extend(native_linkables.values())
         unstripped_libs += [shared_lib.lib.output for shared_lib in native_linkables.values()]
         platform_to_native_linkables[platform] = native_linkables

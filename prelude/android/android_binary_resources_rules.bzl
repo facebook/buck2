@@ -14,6 +14,7 @@ load("@prelude//android:android_resource.bzl", "aapt2_compile")
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//android:r_dot_java.bzl", "generate_r_dot_javas")
 load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
+load("@prelude//utils:set.bzl", "set_type")  # @unused Used as a type
 load("@prelude//utils:utils.bzl", "expect")
 
 def get_android_binary_resources_info(
@@ -24,9 +25,13 @@ def get_android_binary_resources_info(
         use_proto_format: bool.type,
         referenced_resources_lists: ["artifact"],
         manifest_entries: dict.type = {},
-        resource_infos_to_exclude: [AndroidResourceInfo.type] = []) -> "AndroidBinaryResourcesInfo":
+        resource_infos_to_exclude: [set_type, None] = None) -> "AndroidBinaryResourcesInfo":
     android_toolchain = ctx.attrs._android_toolchain[AndroidToolchainInfo]
-    unfiltered_resource_infos = [resource_info for resource_info in list(android_packageable_info.resource_infos.traverse() if android_packageable_info.resource_infos else []) if resource_info not in resource_infos_to_exclude]
+    unfiltered_resource_infos = [
+        resource_info
+        for resource_info in list(android_packageable_info.resource_infos.traverse() if android_packageable_info.resource_infos else [])
+        if not (resource_infos_to_exclude and resource_infos_to_exclude.contains(resource_info.raw_target))
+    ]
     resource_infos, override_symbols, string_files_list, string_files_res_dirs = _maybe_filter_resources(
         ctx,
         unfiltered_resource_infos,

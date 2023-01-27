@@ -75,14 +75,14 @@ AndroidApkInfo = provider(
 
 AndroidApkUnderTestInfo = provider(
     fields = [
-        "java_packaging_deps",  # ["JavaPackagingDep"]
+        "java_packaging_deps",  # set_type("JavaPackagingDep")
         "keystore",  # "KeystoreInfo"
         "manifest_entries",  # dict.type
-        "prebuilt_native_library_dirs",  # ["PrebuiltNativeLibraryDir"]
+        "prebuilt_native_library_dirs",  # set_type("PrebuiltNativeLibraryDir")
         "platforms",  # [str.type]
         "primary_platform",  # str.type
-        "resource_infos",  # ["ResourceInfos"]
-        "shared_libraries",  # ["SharedLibrary"]
+        "resource_infos",  # set_type("ResourceInfos")
+        "shared_libraries",  # set_type("SharedLibrary")
     ],
 )
 
