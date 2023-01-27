@@ -41,6 +41,7 @@ use futures::stream;
 use futures::stream::BoxStream;
 use futures::stream::StreamExt;
 use gazebo::prelude::*;
+use more_futures::spawn::dropcancel_critical_section;
 use remote_execution::NamedDigest;
 use remote_execution::NamedDigestWithPermissions;
 
@@ -162,9 +163,10 @@ impl Materializer for ImmediateMaterializer {
                 }
             }
         }
+
         let re_conn = self.re_client_manager.get_re_connection();
         let re_client = re_conn.get_client();
-        re_client.materialize_files(files, info.re_use_case).await?;
+        dropcancel_critical_section(re_client.materialize_files(files, info.re_use_case)).await?;
         Ok(())
     }
 
