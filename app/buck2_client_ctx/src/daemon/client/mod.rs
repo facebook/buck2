@@ -201,7 +201,7 @@ fn grpc_to_stream(
         let msg = match stream.try_next().await {
             Ok(Some(msg)) => msg,
             Ok(None) => return None,
-            Err(e) => return Some((Err(e.into()), stream)),
+            Err(e) => return Some((Err(e), stream)),
         };
         let value = match msg.progress {
             Some(command_progress::Progress::Event(e)) => Some(Ok(StreamValue::Event(e))),
