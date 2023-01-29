@@ -213,6 +213,8 @@ async def main() -> int:
             "DOTSLASH_CACHE",
             # Required to run Python on Windows (for linker wrapper).
             "SYSTEMROOT",
+            # Our rustc wrapper. https://fburl.com/code/qcos5aho
+            "SYSROOT_MULTIPLEXER_DEBUG",
         ]
         if k in os.environ
     }
