@@ -85,7 +85,7 @@ pub struct ParsedMacro {
 
 #[derive(Debug, PartialEq)]
 pub enum ArgItem {
-    String(String),
+    String(Box<str>),
     Macro(ParsedMacro),
 }
 
@@ -334,7 +334,7 @@ fn read_macro(input: &str) -> Result<ParsedMacro> {
     Err((input, ArgParseError::UnfinishedMacroInvocation))
 }
 
-fn read_literal_opt(input: &str) -> Result<Option<String>> {
+fn read_literal_opt(input: &str) -> Result<Option<Box<str>>> {
     // To match v1's approach to this is non-trivial. To start a macro requires a `$(` with an
     // even number of preceding `\` (as the first of each pair escapes the second). If there's
     // an odd number of preceding `\`, one of them should be removed.
@@ -402,7 +402,7 @@ fn read_literal_opt(input: &str) -> Result<Option<String>> {
             literal.push_str(&input[(indices_to_drop.last().unwrap() + 1)..literal_end]);
             literal
         };
-        Ok((&input[literal_end..], Some(literal)))
+        Ok((&input[literal_end..], Some(literal.into_boxed_str())))
     } else {
         Ok((input, None))
     }
@@ -415,9 +415,7 @@ fn read(input: &str) -> Result<ParsedArg> {
     if working.is_empty() {
         return Ok((
             "",
-            ParsedArg(vec![ArgItem::String(
-                literal.unwrap_or_else(|| "".to_owned()),
-            )]),
+            ParsedArg(vec![ArgItem::String(literal.unwrap_or_else(|| "".into()))]),
         ));
     }
 
@@ -508,7 +506,7 @@ mod tests {
     #[test]
     fn test_parse_macros() -> anyhow::Result<()> {
         assert_eq!(
-            ParsedArg(vec![ArgItem::String("contains no $(macros)".to_owned())]),
+            ParsedArg(vec![ArgItem::String("contains no $(macros)".into())]),
             parse_macros(r#"contains no \$(macros)"#)?
         );
 
@@ -528,11 +526,7 @@ mod tests {
         };
 
         assert_eq!(
-            ParsedArg(vec![
-                macro1(),
-                ArgItem::String(" and ".to_owned()),
-                macro2()
-            ]),
+            ParsedArg(vec![macro1(), ArgItem::String(" and ".into()), macro2()]),
             parse_macros(r#"$(exe) and $(@location //some:target)"#)?
         );
 
@@ -554,7 +548,7 @@ mod tests {
         );
 
         assert_eq!(
-            ParsedArg(vec![ArgItem::String(r#"$(echo -n "$NEW" | sed -e :a -e "s|^.\{1,$(expr "$(echo -n "$OLD" | wc -c)" - 1)\}$|&/|;ta")"#.to_owned())]),
+            ParsedArg(vec![ArgItem::String(r#"$(echo -n "$NEW" | sed -e :a -e "s|^.\{1,$(expr "$(echo -n "$OLD" | wc -c)" - 1)\}$|&/|;ta")"#.into())]),
             parse_macros(r#"\$(echo -n "$NEW" | sed -e :a -e "s|^.\{1,$(expr "$(echo -n "$OLD" | wc -c)" - 1)\}$|&/|;ta")"#)?
         );
 

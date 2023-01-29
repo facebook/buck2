@@ -68,7 +68,7 @@ impl AttrTypeCoerce for ArgAttrType {
         if let [parser::ArgItem::String(val)] = items.as_mut_slice() {
             // Specialize single-item StringWithMacros, which are in fact the common case.
             return Ok(AttrLiteral::Arg(UnconfiguredStringWithMacros::StringPart(
-                mem::take(val).into_boxed_str(),
+                mem::take(val),
             )));
         }
 

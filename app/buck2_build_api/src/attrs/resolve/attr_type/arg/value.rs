@@ -244,7 +244,7 @@ impl ResolvedMacro {
 
 #[derive(Debug, PartialEq, Allocative)]
 pub(crate) enum ResolvedStringWithMacrosPart {
-    String(String),
+    String(Box<str>),
     Macro(/* write_to_file */ bool, ResolvedMacro),
 }
 
@@ -290,9 +290,7 @@ impl ResolvedStringWithMacros {
     ) -> anyhow::Result<Value<'v>> {
         let resolved_parts = match configured_macros {
             ConfiguredStringWithMacros::StringPart(s) => {
-                vec![ResolvedStringWithMacrosPart::String(
-                    s.clone().into_string(),
-                )]
+                vec![ResolvedStringWithMacrosPart::String(s.clone())]
             }
             ConfiguredStringWithMacros::ManyParts(ref parts) => {
                 let mut resolved_parts = Vec::with_capacity(parts.len());

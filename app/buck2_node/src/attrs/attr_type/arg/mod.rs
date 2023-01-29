@@ -50,7 +50,7 @@ impl StringWithMacros<ConfiguredAttr> {
         let mut parts = Vec::new();
         for x in std::iter::once(Ok(self)).chain(items) {
             match x? {
-                Self::StringPart(x) => parts.push(StringWithMacrosPart::String(x.into_string())),
+                Self::StringPart(x) => parts.push(StringWithMacrosPart::String(x)),
                 Self::ManyParts(xs) => parts.extend(xs.into_vec().into_iter()),
             }
         }
@@ -117,7 +117,7 @@ impl StringWithMacros<CoercedAttr> {
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative)]
 pub enum StringWithMacrosPart<C: AttrConfig> {
-    String(String),
+    String(Box<str>),
     Macro(/* write_to_file */ bool, MacroBase<C>),
 }
 
