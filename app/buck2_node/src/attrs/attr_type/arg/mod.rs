@@ -139,7 +139,7 @@ pub enum MacroBase<C: AttrConfig> {
         exec_dep: bool,
     },
     /// A user-defined make variable (like `$(CXX)`). This will be resolved based on the propagated TemplateVariableInfos.
-    UserUnkeyedPlaceholder(String),
+    UserUnkeyedPlaceholder(Box<str>),
 
     /// A user-defined macro (like `$(cxxppflags //some:target)`). This will be resolved based on the propagated TemplateVariableInfos.
     UserKeyedPlaceholder(Box<(Box<str>, C::ProvidersType, Option<Box<str>>)>),

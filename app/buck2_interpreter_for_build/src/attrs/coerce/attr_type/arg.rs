@@ -201,7 +201,7 @@ pub trait UnconfiguredMacroExt {
     }
 
     fn new_user_unkeyed_placeholder(var_name: String) -> UnconfiguredMacro {
-        UnconfiguredMacro::UserUnkeyedPlaceholder(var_name)
+        UnconfiguredMacro::UserUnkeyedPlaceholder(var_name.into_boxed_str())
     }
 
     fn new_unrecognized(macro_type: String, args: Vec<String>) -> UnconfiguredMacro {
