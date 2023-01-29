@@ -63,6 +63,7 @@ impl TargetName {
         }
     }
 
+    #[inline]
     pub fn unchecked_new(name: &str) -> Self {
         Self(ThinArcStr::from(name))
     }
@@ -75,30 +76,35 @@ impl TargetName {
         !name.is_empty() && name.as_bytes().iter().all(|&b| SET.contains(b))
     }
 
+    #[inline]
     pub fn value(&self) -> &str {
         &self.0
     }
 }
 
 impl AsRef<str> for TargetName {
+    #[inline]
     fn as_ref(&self) -> &str {
         &self.0
     }
 }
 
 impl Borrow<str> for TargetName {
+    #[inline]
     fn borrow(&self) -> &str {
         &self.0
     }
 }
 
 impl PartialEq<String> for TargetName {
+    #[inline]
     fn eq(&self, other: &String) -> bool {
         *self.0 == *other
     }
 }
 
 impl PartialEq<str> for TargetName {
+    #[inline]
     fn eq(&self, other: &str) -> bool {
         *self.0 == *other
     }
