@@ -316,17 +316,7 @@ def starlark_linter() -> None:
     with tempfile.NamedTemporaryFile(mode="w+t") as fp:
         fp.writelines([x + "\n" for x in starlark_files])
         fp.flush()
-        output = run(
-            ["cargo", "run", "--bin=starlark", "--", "--check", "@" + fp.name],
-            capture_output=True,
-        ).stdout
-
-    # Starlark linter prints each lint on a different line, then 1 summary line,
-    # so 1 line long means no lint warnings
-    if len(output.splitlines()) != 1:
-        print(output, file=sys.stderr)
-        print_error("Starlark lint errors were detected")
-        sys.exit(1)
+        run(["buck2", "starlark", "lint", "@" + fp.name])
 
 
 def _lookup(d, *keys):
