@@ -22,12 +22,6 @@ use crate::attrs::display::AttrDisplayWithContextExt;
 pub struct Attribute {
     /// The default value. If None, the value is not optional and must be provided by the user
     default: Option<Arc<CoercedAttr>>,
-    /// If this field is true, it means `default` field contains `None` for `attrs.option()`
-    /// and `False` for `attrs.bool()`, and these default values were not
-    /// explicitly specified by users. This is a deprecated behavior:
-    /// using unspecified default value should be an error.
-    /// Currently this is `soft_error` and will be changed to hard error in the future.
-    deprecated_default: bool,
     /// Documentation for what the attribute actually means
     doc: String,
     /// The coercer to take this parameter's value from Starlark value -> an
@@ -39,7 +33,6 @@ impl Attribute {
     pub fn new(default: Option<Arc<CoercedAttr>>, doc: &str, coercer: AttrType) -> Self {
         Attribute {
             default,
-            deprecated_default: false,
             doc: doc.to_owned(),
             coercer,
         }
@@ -51,10 +44,6 @@ impl Attribute {
 
     pub fn default(&self) -> Option<&Arc<CoercedAttr>> {
         self.default.as_ref()
-    }
-
-    pub fn deprecated_default(&self) -> bool {
-        self.deprecated_default
     }
 
     pub fn doc(&self) -> &str {
@@ -96,7 +85,6 @@ pub mod testing {
         fn testing_new(default: Option<Arc<CoercedAttr>>, coercer: AttrType) -> Attribute {
             Attribute {
                 default,
-                deprecated_default: false,
                 doc: String::new(),
                 coercer,
             }
