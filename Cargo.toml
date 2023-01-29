@@ -199,6 +199,7 @@ tower-layer = "0.3.1"
 tower-service = "0.3.2"
 tracing = "0.1.22"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+triomphe = "0.1.8"
 trybuild = "1.0.56"
 twox-hash = "1.6.1"
 uuid = { version = "0.8", features = ["v4"] }
@@ -215,7 +216,7 @@ sorted_vector_map.version = "0.1"
 
 allocative.version = "0.2"
 allocative.path = "allocative/allocative"
-allocative.features = ["anyhow", "bumpalo", "dashmap", "either", "futures", "hashbrown", "indexmap", "num-bigint", "once_cell", "owning_ref", "parking_lot", "prost-types", "relative-path", "smallvec", "compact_str", "sorted_vector_map"]
+allocative.features = ["anyhow", "bumpalo", "dashmap", "either", "futures", "hashbrown", "indexmap", "num-bigint", "once_cell", "owning_ref", "parking_lot", "prost-types", "relative-path", "smallvec", "compact_str", "sorted_vector_map", "triomphe"]
 gazebo.version = "0.8.1"
 gazebo.features = ["str_pattern_extensions"]
 gazebo.path = "gazebo/gazebo"
