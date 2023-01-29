@@ -644,8 +644,12 @@ def _compute_common_args(
 # (small - ~15ms per invocation) perf hit but only applies when generating
 # specifically requested clippy diagnostics.
 def _clippy_wrapper(ctx: "context") -> "cmd_args":
-    clippy_driver = cmd_args(ctx_toolchain_info(ctx).clippy_driver)
-    rustc = cmd_args(ctx_toolchain_info(ctx).compiler)
+    toolchain_info = ctx_toolchain_info(ctx)
+
+    clippy_driver = cmd_args(toolchain_info.clippy_driver)
+    rustc_print_sysroot = cmd_args(toolchain_info.compiler, "--print=sysroot", delimiter = " ")
+    if toolchain_info.rustc_target_triple:
+        rustc_print_sysroot.add("--target={}".format(toolchain_info.rustc_target_triple))
 
     if ctx.attrs._exec_os_type[OsLookup].platform == "windows":
         wrapper_file, _ = ctx.actions.write(
@@ -653,7 +657,7 @@ def _clippy_wrapper(ctx: "context") -> "cmd_args":
             [
                 "@echo off",
                 "set __CLIPPY_INTERNAL_TESTS=true",
-                cmd_args(rustc, format = 'FOR /F "tokens=* USEBACKQ" %%F IN (`{} --print=sysroot`) DO ('),
+                cmd_args(rustc_print_sysroot, format = 'FOR /F "tokens=* USEBACKQ" %%F IN (`{}`) DO ('),
                 "set SYSROOT=%%F",
                 ")",
                 cmd_args(clippy_driver, format = "{} %*"),
@@ -667,14 +671,14 @@ def _clippy_wrapper(ctx: "context") -> "cmd_args":
                 "#!/bin/bash",
                 # Force clippy to be clippy: https://github.com/rust-lang/rust-clippy/blob/e405c68b3c1265daa9a091ed9b4b5c5a38c0c0ba/src/driver.rs#L334
                 "export __CLIPPY_INTERNAL_TESTS=true",
-                cmd_args(rustc, format = "export SYSROOT=$({} --print=sysroot)"),
+                cmd_args(rustc_print_sysroot, format = "export SYSROOT=$({})"),
                 cmd_args(clippy_driver, format = "{} \"$@\"\n"),
             ],
             is_executable = True,
             allow_args = True,
         )
 
-    return cmd_args(wrapper_file).hidden(clippy_driver, rustc)
+    return cmd_args(wrapper_file).hidden(clippy_driver, rustc_print_sysroot)
 
 # This is a hack because we need to pass the linker to rustc
 # using -Clinker=path and there is currently no way of doing this
