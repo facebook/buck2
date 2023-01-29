@@ -17,7 +17,7 @@ use buck2_core::pattern::PackageSpec;
 use buck2_core::pattern::PatternType;
 use buck2_core::pattern::ProvidersPattern;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
-use buck2_core::target::TargetName;
+use buck2_core::target::name::TargetName;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::configured_node_visit_all_deps::configured_node_visit_all_deps;
 use buck2_query::query::syntax::simple::eval::label_indexed::LabelIndexed;

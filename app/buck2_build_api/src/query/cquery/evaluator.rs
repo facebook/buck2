@@ -13,7 +13,7 @@ use std::sync::Arc;
 
 use buck2_common::result::ToSharedResultExt;
 use buck2_core::fs::project::ProjectRelativePath;
-use buck2_core::target::TargetLabel;
+use buck2_core::target::label::TargetLabel;
 use buck2_events::dispatch::console_message;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;

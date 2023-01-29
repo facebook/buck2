@@ -21,8 +21,8 @@ use thiserror::Error;
 
 use crate::ascii_char_set::AsciiCharSet;
 use crate::configuration::Configuration;
-use crate::target::ConfiguredTargetLabel;
-use crate::target::TargetLabel;
+use crate::target::label::ConfiguredTargetLabel;
+use crate::target::label::TargetLabel;
 
 #[derive(
     Display, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative
@@ -242,8 +242,8 @@ pub mod testing {
     use super::*;
     use crate::package::testing::*;
     use crate::package::PackageLabel;
-    use crate::target::TargetLabel;
-    use crate::target::TargetName;
+    use crate::target::label::TargetLabel;
+    use crate::target::name::TargetName;
 
     pub trait ProvidersLabelTestExt {
         fn testing_new(

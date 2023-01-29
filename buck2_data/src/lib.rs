@@ -128,7 +128,7 @@ pub trait ToProtoMessage {
     fn as_proto(&self) -> Self::Message;
 }
 
-impl ToProtoMessage for buck2_core::target::TargetLabel {
+impl ToProtoMessage for buck2_core::target::label::TargetLabel {
     type Message = crate::TargetLabel;
 
     fn as_proto(&self) -> Self::Message {
@@ -139,7 +139,7 @@ impl ToProtoMessage for buck2_core::target::TargetLabel {
     }
 }
 
-impl ToProtoMessage for buck2_core::target::ConfiguredTargetLabel {
+impl ToProtoMessage for buck2_core::target::label::ConfiguredTargetLabel {
     type Message = crate::ConfiguredTargetLabel;
 
     fn as_proto(&self) -> Self::Message {

@@ -10,7 +10,7 @@
 use std::sync::Arc;
 
 use allocative::Allocative;
-use buck2_core::target::ConfiguredTargetLabel;
+use buck2_core::target::label::ConfiguredTargetLabel;
 use derive_more::Display;
 use dupe::Dupe;
 use gazebo::variants::UnpackVariants;

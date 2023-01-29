@@ -12,7 +12,7 @@ use std::fmt::Debug;
 use allocative::Allocative;
 use buck2_core::collections::ordered_map::OrderedMap;
 use buck2_core::package::PackageLabel;
-use buck2_core::target::TargetLabel;
+use buck2_core::target::label::TargetLabel;
 use buck2_util::arc_str::ArcStr;
 use serde::Serialize;
 use serde::Serializer;

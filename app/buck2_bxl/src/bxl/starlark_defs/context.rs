@@ -28,7 +28,7 @@ use buck2_common::target_aliases::HasTargetAliasResolver;
 use buck2_core::cells::CellInstance;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::project::ProjectRoot;
-use buck2_core::target::TargetLabel;
+use buck2_core::target::label::TargetLabel;
 use buck2_execute::artifact::fs::ArtifactFs;
 use buck2_execute::bxl::types::BxlKey;
 use buck2_interpreter::types::label::Label;

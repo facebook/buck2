@@ -9,8 +9,8 @@
 
 use std::sync::Arc;
 
-use buck2_core::target::TargetLabel;
-use buck2_core::target::TargetName;
+use buck2_core::target::label::TargetLabel;
+use buck2_core::target::name::TargetName;
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coerced_deps_collector::CoercedDeps;

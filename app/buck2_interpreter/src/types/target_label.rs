@@ -10,8 +10,8 @@
 use std::hash::Hash;
 
 use allocative::Allocative;
-use buck2_core::target::ConfiguredTargetLabel;
-use buck2_core::target::TargetLabel;
+use buck2_core::target::label::ConfiguredTargetLabel;
+use buck2_core::target::label::TargetLabel;
 use derive_more::Display;
 use derive_more::From;
 use dupe::Dupe;

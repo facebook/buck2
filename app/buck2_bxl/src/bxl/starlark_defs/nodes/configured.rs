@@ -30,7 +30,7 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::package::PackageLabel;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
-use buck2_core::target::ConfiguredTargetLabel;
+use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_execute::artifact::source_artifact::SourceArtifact;
 use buck2_interpreter::types::target_label::StarlarkConfiguredTargetLabel;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;

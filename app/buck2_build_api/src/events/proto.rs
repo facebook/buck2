@@ -10,8 +10,8 @@
 //! Utilities and traits for converting certain key Buck2 to objects to protobuf messages, suitable for transmission
 //! in events.
 use buck2_core::configuration::Configuration;
-use buck2_core::target::ConfiguredTargetLabel;
-use buck2_core::target::TargetLabel;
+use buck2_core::target::label::ConfiguredTargetLabel;
+use buck2_core::target::label::TargetLabel;
 use buck2_data::ToProtoMessage;
 use buck2_execute::bxl::types::BxlFunctionLabel;
 use buck2_execute::bxl::types::BxlKey;

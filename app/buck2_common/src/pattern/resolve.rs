@@ -107,7 +107,7 @@ mod tests {
     use buck2_core::provider::label::NonDefaultProvidersName;
     use buck2_core::provider::label::ProviderName;
     use buck2_core::provider::label::ProvidersName;
-    use buck2_core::target::TargetName;
+    use buck2_core::target::name::TargetName;
     use dupe::Dupe;
     use gazebo::prelude::*;
     use test_case::test_case;

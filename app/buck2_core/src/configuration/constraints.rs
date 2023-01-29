@@ -19,7 +19,7 @@ use allocative::Allocative;
 use derive_more::Display;
 use dupe::Dupe;
 
-use crate::target::TargetLabel;
+use crate::target::label::TargetLabel;
 
 /// A ConstraintKey is a label for a `constraint_setting()` target.
 #[derive(

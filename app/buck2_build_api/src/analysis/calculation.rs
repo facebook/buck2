@@ -17,8 +17,8 @@ use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
 use buck2_core::configuration::Configuration;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
-use buck2_core::target::ConfiguredTargetLabel;
-use buck2_core::target::TargetLabel;
+use buck2_core::target::label::ConfiguredTargetLabel;
+use buck2_core::target::label::TargetLabel;
 use buck2_data::ToProtoMessage;
 use buck2_events::dispatch::span_async;
 use buck2_interpreter::common::StarlarkModulePath;
@@ -402,7 +402,7 @@ pub async fn profile_analysis_recursively(
 
 mod keys {
     use allocative::Allocative;
-    use buck2_core::target::ConfiguredTargetLabel;
+    use buck2_core::target::label::ConfiguredTargetLabel;
     use derive_more::Display;
     use dupe::Dupe;
 
@@ -446,8 +446,8 @@ mod tests {
     use buck2_core::package::PackageLabel;
     use buck2_core::provider::id::testing::ProviderIdExt;
     use buck2_core::provider::id::ProviderId;
-    use buck2_core::target::testing::TargetLabelExt;
-    use buck2_core::target::TargetLabel;
+    use buck2_core::target::label::testing::TargetLabelExt;
+    use buck2_core::target::label::TargetLabel;
     use buck2_events::dispatch::EventDispatcher;
     use buck2_execute::execute::dice_data::set_fallback_executor_config;
     use buck2_interpreter::common::OwnedStarlarkModulePath;

@@ -8,8 +8,8 @@
  */
 
 use async_trait::async_trait;
-use buck2_core::target::ConfiguredTargetLabel;
-use buck2_core::target::TargetLabel;
+use buck2_core::target::label::ConfiguredTargetLabel;
+use buck2_core::target::label::TargetLabel;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_query::query::traversal::AsyncNodeLookup;

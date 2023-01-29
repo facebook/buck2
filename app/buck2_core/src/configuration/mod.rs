@@ -474,8 +474,8 @@ mod tests {
     use crate::configuration::constraints::ConstraintKey;
     use crate::configuration::constraints::ConstraintValue;
     use crate::configuration::ConfigurationData;
-    use crate::target::testing::TargetLabelExt;
-    use crate::target::TargetLabel;
+    use crate::target::label::testing::TargetLabelExt;
+    use crate::target::label::TargetLabel;
 
     #[test]
     fn is_subset() {

@@ -737,9 +737,9 @@ mod test {
     use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
     use buck2_core::package::testing::PackageExt;
     use buck2_core::package::PackageLabel;
-    use buck2_core::target::testing::ConfiguredTargetLabelExt;
-    use buck2_core::target::ConfiguredTargetLabel;
-    use buck2_core::target::TargetName;
+    use buck2_core::target::label::testing::ConfiguredTargetLabelExt;
+    use buck2_core::target::label::ConfiguredTargetLabel;
+    use buck2_core::target::name::TargetName;
     use maplit::hashmap;
 
     use super::*;

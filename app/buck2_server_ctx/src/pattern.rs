@@ -20,7 +20,7 @@ use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::PatternType;
-use buck2_core::target::TargetLabel;
+use buck2_core::target::label::TargetLabel;
 use dupe::Dupe;
 use gazebo::prelude::*;
 

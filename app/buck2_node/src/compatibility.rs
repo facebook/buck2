@@ -15,8 +15,8 @@ use std::hash::Hash;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use buck2_core::target::ConfiguredTargetLabel;
-use buck2_core::target::TargetLabel;
+use buck2_core::target::label::ConfiguredTargetLabel;
+use buck2_core::target::label::TargetLabel;
 use dupe::Dupe;
 use thiserror::Error;
 
@@ -144,8 +144,8 @@ impl Display for IncompatiblePlatformReason {
 #[cfg(test)]
 mod tests {
     use buck2_core::configuration::Configuration;
-    use buck2_core::target::testing::TargetLabelExt;
-    use buck2_core::target::TargetLabel;
+    use buck2_core::target::label::testing::TargetLabelExt;
+    use buck2_core::target::label::TargetLabel;
 
     use crate::compatibility::IncompatiblePlatformReason;
 

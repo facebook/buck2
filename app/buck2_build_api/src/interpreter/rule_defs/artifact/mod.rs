@@ -62,8 +62,8 @@ pub mod testing {
     use buck2_core::package::PackageLabel;
     use buck2_core::pattern::ParsedPattern;
     use buck2_core::pattern::TargetPattern;
-    use buck2_core::target::ConfiguredTargetLabel;
-    use buck2_core::target::TargetLabel;
+    use buck2_core::target::label::ConfiguredTargetLabel;
+    use buck2_core::target::label::TargetLabel;
     use buck2_execute::artifact::fs::ArtifactFs;
     use buck2_execute::artifact::fs::ExecutorFs;
     use buck2_execute::artifact::source_artifact::SourceArtifact;

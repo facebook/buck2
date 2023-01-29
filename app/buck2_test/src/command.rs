@@ -34,7 +34,7 @@ use buck2_core::pattern::ProvidersPattern;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
-use buck2_core::target::TargetLabel;
+use buck2_core::target::label::TargetLabel;
 use buck2_execute::materialize::materializer::HasMaterializer;
 use buck2_interpreter::dice::HasEvents;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;

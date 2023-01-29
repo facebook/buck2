@@ -19,8 +19,8 @@ use buck2_core::cells::cell_path::CellPath;
 use buck2_core::collections::ordered_map::OrderedMap;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::provider::label::ProvidersLabel;
-use buck2_core::target::TargetLabel;
-use buck2_core::target::TargetName;
+use buck2_core::target::label::TargetLabel;
+use buck2_core::target::name::TargetName;
 use buck2_util::arc_str::ArcStr;
 use dupe::Dupe;
 
@@ -447,7 +447,7 @@ pub mod testing {
     use buck2_core::build_file_path::BuildFilePath;
     use buck2_core::fs::paths::file_name::FileNameBuf;
     use buck2_core::package::PackageLabel;
-    use buck2_core::target::TargetLabel;
+    use buck2_core::target::label::TargetLabel;
     use dupe::Dupe;
     use serde_json::map::Map;
     use serde_json::value::Value;

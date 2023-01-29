@@ -29,7 +29,7 @@ use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::TargetPattern;
-use buck2_core::target::TargetLabel;
+use buck2_core::target::label::TargetLabel;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -122,7 +122,7 @@ mod tests {
 
     use buck2_core::cells::name::CellName;
     use buck2_core::cells::CellAlias;
-    use buck2_core::target::testing::TargetLabelExt;
+    use buck2_core::target::label::testing::TargetLabelExt;
     use maplit::hashmap;
 
     use super::*;

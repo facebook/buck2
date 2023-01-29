@@ -12,7 +12,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use buck2_core::collections::ordered_map::OrderedMap;
 use buck2_core::provider::label::ProvidersLabel;
-use buck2_core::target::TargetLabel;
+use buck2_core::target::label::TargetLabel;
 use buck2_data::ToProtoMessage;
 use buck2_interpreter::common::BxlFilePath;
 use derive_more::Display;

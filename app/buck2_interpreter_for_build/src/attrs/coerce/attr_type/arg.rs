@@ -216,7 +216,7 @@ impl UnconfiguredMacroExt for UnconfiguredMacro {}
 
 #[cfg(test)]
 mod tests {
-    use buck2_core::target::TargetLabel;
+    use buck2_core::target::label::TargetLabel;
     use buck2_node::attrs::attr_type::AttrType;
     use buck2_node::attrs::coerced_deps_collector::CoercedDepsCollector;
     use buck2_node::attrs::configurable::AttrIsConfigurable;

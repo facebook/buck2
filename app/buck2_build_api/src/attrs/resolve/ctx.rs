@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 use buck2_common::result::SharedResult;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
-use buck2_core::target::ConfiguredTargetLabel;
+use buck2_core::target::label::ConfiguredTargetLabel;
 use starlark::environment::Module;
 use starlark::values::FrozenRef;
 use starlark::values::Heap;

@@ -10,9 +10,9 @@
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersLabelMaybeConfigured;
-use buck2_core::target::ConfiguredTargetLabel;
-use buck2_core::target::TargetLabel;
-use buck2_core::target::TargetLabelMaybeConfigured;
+use buck2_core::target::label::ConfiguredTargetLabel;
+use buck2_core::target::label::TargetLabel;
+use buck2_core::target::label::TargetLabelMaybeConfigured;
 
 use crate::attrs::attr_type::attr_like::AttrLike;
 use crate::attrs::attr_type::configured_dep::ConfiguredExplicitConfiguredDep;

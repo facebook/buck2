@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use buck2_core::target::TargetLabel;
+use buck2_core::target::label::TargetLabel;
 use buck2_node::attrs::attr_type::configuration_dep::ConfigurationDepAttrType;
 use starlark::values::Value;
 

@@ -15,7 +15,7 @@ use buck2_core::configuration::transition::applied::TransitionApplied;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::configuration::Configuration;
 use buck2_core::configuration::ConfigurationData;
-use buck2_core::target::TargetLabel;
+use buck2_core::target::label::TargetLabel;
 
 use crate::attrs::configuration_context::AttrConfigurationContext;
 

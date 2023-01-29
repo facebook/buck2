@@ -40,8 +40,8 @@ use crate::provider::label::NonDefaultProvidersName;
 use crate::provider::label::ProviderName;
 use crate::provider::label::ProvidersLabel;
 use crate::provider::label::ProvidersName;
-use crate::target::TargetLabel;
-use crate::target::TargetName;
+use crate::target::label::TargetLabel;
+use crate::target::name::TargetName;
 use crate::target_aliases::TargetAliasResolver;
 
 #[derive(thiserror::Error, Debug)]
@@ -770,7 +770,7 @@ mod tests {
     use crate::cells::paths::CellRelativePathBuf;
     use crate::cells::CellAlias;
     use crate::package::testing::PackageExt;
-    use crate::target::TargetLabel;
+    use crate::target::label::TargetLabel;
 
     fn mk_package<P>(cell: &str, path: &str) -> ParsedPattern<P> {
         ParsedPattern::Package(PackageLabel::testing_new(cell, path))

@@ -12,7 +12,7 @@ use std::fmt::Debug;
 use allocative::Allocative;
 use buck2_build_api_derive::internal_provider;
 use buck2_core::configuration::Configuration;
-use buck2_core::target::TargetLabel;
+use buck2_core::target::label::TargetLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use buck2_node::configuration::execution::ExecutionPlatform;
 use dupe::Dupe;

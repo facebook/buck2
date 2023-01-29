@@ -23,7 +23,7 @@ use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProvide
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
-use buck2_core::target::ConfiguredTargetLabel;
+use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use once_cell::sync::OnceCell;
 use starlark::environment::Module;

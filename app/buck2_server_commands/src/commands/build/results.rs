@@ -187,7 +187,7 @@ pub mod build_report {
     use buck2_core::fs::project::ProjectRoot;
     use buck2_core::provider::label::NonDefaultProvidersName;
     use buck2_core::provider::label::ProvidersName;
-    use buck2_core::target::TargetLabel;
+    use buck2_core::target::label::TargetLabel;
     use buck2_events::trace::TraceId;
     use buck2_execute::artifact::fs::ArtifactFs;
     use buck2_execute::bxl::types::BxlFunctionLabel;

@@ -1054,8 +1054,8 @@ mod tests {
     use buck2_core::configuration::Configuration;
     use buck2_core::provider::label::ConfiguredProvidersLabel;
     use buck2_core::provider::label::ProvidersName;
-    use buck2_core::target::testing::TargetLabelExt;
-    use buck2_core::target::TargetLabel;
+    use buck2_core::target::label::testing::TargetLabelExt;
+    use buck2_core::target::label::TargetLabel;
     use buck2_execute::base_deferred_key::BaseDeferredKey;
     use buck2_interpreter::types::label::Label;
     use buck2_node::configuration::execution::ExecutionPlatformResolution;

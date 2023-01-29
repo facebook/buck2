@@ -14,7 +14,7 @@ use std::marker::PhantomData;
 use anyhow::Context;
 use async_trait::async_trait;
 use buck2_common::result::SharedResult;
-use buck2_core::target::ConfiguredTargetLabel;
+use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::configured_ref::ConfiguredGraphNodeRef;
 use buck2_node::nodes::configured_ref::ConfiguredGraphNodeRefLookup;

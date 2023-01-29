@@ -12,7 +12,7 @@ use std::sync::Arc;
 use buck2_core::buck_path::BuckPathRef;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::provider::label::ProvidersLabel;
-use buck2_core::target::TargetLabel;
+use buck2_core::target::label::TargetLabel;
 
 pub trait CoercedAttrTraversal<'a> {
     fn dep(&mut self, dep: &'a TargetLabel) -> anyhow::Result<()>;

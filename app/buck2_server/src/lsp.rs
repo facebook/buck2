@@ -31,7 +31,7 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::ProvidersPattern;
-use buck2_core::target::TargetName;
+use buck2_core::target::name::TargetName;
 use buck2_events::dispatch::instant_event;
 use buck2_events::dispatch::span_async;
 use buck2_events::dispatch::with_dispatcher;

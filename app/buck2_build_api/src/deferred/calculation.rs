@@ -354,8 +354,8 @@ mod tests {
     use buck2_core::bzl::ImportPath;
     use buck2_core::configuration::Configuration;
     use buck2_core::fs::project::ProjectRootTemp;
-    use buck2_core::target::testing::TargetLabelExt;
-    use buck2_core::target::TargetLabel;
+    use buck2_core::target::label::testing::TargetLabelExt;
+    use buck2_core::target::label::TargetLabel;
     use buck2_execute::base_deferred_key::BaseDeferredKey;
     use buck2_execute::execute::dice_data::set_fallback_executor_config;
     use buck2_node::compatibility::MaybeCompatible;

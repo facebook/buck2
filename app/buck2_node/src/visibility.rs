@@ -13,7 +13,7 @@ use std::fmt::Display;
 use allocative::Allocative;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::TargetPattern;
-use buck2_core::target::TargetLabel;
+use buck2_core::target::label::TargetLabel;
 use gazebo::prelude::SliceExt;
 use thiserror::Error;
 
