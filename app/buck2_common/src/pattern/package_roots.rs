@@ -32,7 +32,7 @@ use crate::find_buildfile::find_buildfile;
 /// packages recursively contained in the paths (used for resolving patterns
 /// like `//module/...`). There's no guarantees about the order that results
 /// are returned, if ordering is important the caller needs to handle it.
-pub async fn find_package_roots_stream(
+pub fn find_package_roots_stream(
     ctx: &DiceComputations,
     paths: Vec<CellPath>,
 ) -> impl Stream<Item = anyhow::Result<PackageLabel>> {

@@ -310,7 +310,7 @@ async fn resolve_patterns_and_load_buildfiles<'c, T: PatternType>(
         }
     }
 
-    let mut recursive_pattern_packages = find_package_roots_stream(ctx, recursive_packages).await;
+    let mut recursive_pattern_packages = find_package_roots_stream(ctx, recursive_packages);
     while let Some(res) = recursive_pattern_packages.next().await {
         let package = res?;
         spec.add_package(package.dupe());
