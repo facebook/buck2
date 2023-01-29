@@ -74,8 +74,7 @@ impl FileTailer {
                 .unwrap();
             runtime.block_on(async move {
                 let mut interval = tokio::time::interval(Duration::from_millis(200));
-                let rx = rx.fuse();
-                tokio::pin!(rx);
+                let mut rx = rx.fuse();
 
                 let mut completing = false;
                 while !completing {
