@@ -283,9 +283,8 @@ impl ConfiguredTargetNode {
     }
 
     pub(crate) fn actual_attribute() -> &'static Attribute {
-        static ATTRIBUTE: Lazy<Attribute> = Lazy::new(|| {
-            Attribute::new_simple(None, "", AttrType::configured_dep(ProviderIdSet::EMPTY))
-        });
+        static ATTRIBUTE: Lazy<Attribute> =
+            Lazy::new(|| Attribute::new(None, "", AttrType::configured_dep(ProviderIdSet::EMPTY)));
         &ATTRIBUTE
     }
 

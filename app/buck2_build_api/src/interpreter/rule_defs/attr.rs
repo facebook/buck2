@@ -79,7 +79,7 @@ impl AttributeExt for Attribute {
                     .context("When coercing attribute default")?,
             )),
         };
-        Ok(AttributeAsStarlarkValue::new(Attribute::new_simple(
+        Ok(AttributeAsStarlarkValue::new(Attribute::new(
             default, doc, coercer,
         )))
     }
@@ -206,7 +206,7 @@ pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
             }
         };
 
-        Ok(AttributeAsStarlarkValue::new(Attribute::new_simple(
+        Ok(AttributeAsStarlarkValue::new(Attribute::new(
             coerced_default.map(Arc::new),
             doc,
             coercer,
@@ -251,7 +251,7 @@ pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
             }
         };
 
-        Ok(AttributeAsStarlarkValue::new(Attribute::new_simple(
+        Ok(AttributeAsStarlarkValue::new(Attribute::new(
             coerced_default.map(Arc::new),
             doc,
             coercer,
@@ -307,7 +307,7 @@ pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
         inner: &AttributeAsStarlarkValue,
         #[starlark(require = named, default = "")] doc: &str,
     ) -> anyhow::Result<AttributeAsStarlarkValue> {
-        Ok(AttributeAsStarlarkValue::new(Attribute::new_simple(
+        Ok(AttributeAsStarlarkValue::new(Attribute::new(
             inner.default().duped(),
             doc,
             AttrType::default_only(),
@@ -449,7 +449,7 @@ pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
         ]);
         let coercer = AttrType::list(element_type.dupe());
 
-        Ok(AttributeAsStarlarkValue::new(Attribute::new_simple(
+        Ok(AttributeAsStarlarkValue::new(Attribute::new(
             Some(Arc::new(AnyAttrType::empty_list())),
             doc,
             coercer,

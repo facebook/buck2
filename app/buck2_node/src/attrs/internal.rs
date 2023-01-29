@@ -47,7 +47,7 @@ pub const VISIBILITY_ATTRIBUTE_FIELD: &str = "visibility";
 pub const TESTS_ATTRIBUTE_FIELD: &str = "tests";
 
 fn name_attribute() -> Attribute {
-    Attribute::new_simple(None, "name of the target", AttrType::string())
+    Attribute::new(None, "name of the target", AttrType::string())
 }
 
 pub fn internal_attrs_platform_info_provider_id() -> &'static Arc<ProviderId> {
@@ -62,7 +62,7 @@ pub fn internal_attrs_platform_info_provider_id() -> &'static Arc<ProviderId> {
 }
 
 fn default_target_platform_attribute() -> Attribute {
-    Attribute::new_simple(
+    Attribute::new(
         Some(Arc::new(CoercedAttr::Literal(AttrLiteral::None))),
         "specifies the default target platform, used when no platforms are specified on the command line",
         AttrType::option(AttrType::dep(ProviderIdSet::from(vec![
@@ -73,7 +73,7 @@ fn default_target_platform_attribute() -> Attribute {
 
 fn target_compatible_with_attribute() -> Attribute {
     let entry_type = AttrType::configuration_dep();
-    Attribute::new_simple(
+    Attribute::new(
         Some(Arc::new(AnyAttrType::empty_list())),
         "a list of constraints that are required to be satisfied for this target to be compatible with a configuration",
         AttrType::list(entry_type),
@@ -82,7 +82,7 @@ fn target_compatible_with_attribute() -> Attribute {
 
 fn exec_compatible_with_attribute() -> Attribute {
     let entry_type = AttrType::configuration_dep();
-    Attribute::new_simple(
+    Attribute::new(
         Some(Arc::new(AnyAttrType::empty_list())),
         "a list of constraints that are required to be satisfied for this target to be compatible with an execution platform",
         AttrType::list(entry_type),
@@ -90,7 +90,7 @@ fn exec_compatible_with_attribute() -> Attribute {
 }
 
 fn visibility_attribute() -> Attribute {
-    Attribute::new_simple(
+    Attribute::new(
         Some(Arc::new(CoercedAttr::Literal(AttrLiteral::Visibility(
             VisibilitySpecification::Default,
         )))),
@@ -101,7 +101,7 @@ fn visibility_attribute() -> Attribute {
 
 fn tests_attribute() -> Attribute {
     let entry_type = AttrType::label();
-    Attribute::new_simple(
+    Attribute::new(
         Some(Arc::new(AnyAttrType::empty_list())),
         "a list of targets that provide tests for this one",
         AttrType::list(entry_type),

@@ -17,12 +17,6 @@ use crate::attrs::attr_type::AttrType;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::display::AttrDisplayWithContextExt;
 
-#[derive(Debug, thiserror::Error)]
-enum AttributeError {
-    #[error("`default` must be set when `deprecated_default = true` (internal error)")]
-    DeprecatedDefaultWithoutDefault,
-}
-
 /// Starlark compatible container for results from e.g. `attrs.string()`
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Allocative)]
 pub struct Attribute {
@@ -42,31 +36,13 @@ pub struct Attribute {
 }
 
 impl Attribute {
-    pub fn new_simple(default: Option<Arc<CoercedAttr>>, doc: &str, coercer: AttrType) -> Self {
+    pub fn new(default: Option<Arc<CoercedAttr>>, doc: &str, coercer: AttrType) -> Self {
         Attribute {
             default,
             deprecated_default: false,
             doc: doc.to_owned(),
             coercer,
         }
-    }
-
-    pub fn new(
-        default: Option<Arc<CoercedAttr>>,
-        deprecated_default: bool,
-        doc: &str,
-        coercer: AttrType,
-    ) -> anyhow::Result<Self> {
-        if deprecated_default && default.is_none() {
-            return Err(AttributeError::DeprecatedDefaultWithoutDefault.into());
-        }
-
-        Ok(Attribute {
-            default,
-            deprecated_default,
-            doc: doc.to_owned(),
-            coercer,
-        })
     }
 
     pub fn coercer(&self) -> &AttrType {
