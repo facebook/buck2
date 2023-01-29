@@ -110,11 +110,11 @@ impl SuggestedSimilarTargets {
         const MAX_RESULTS: usize = 10;
         const MAX_LEVENSHTEIN_DISTANCE: usize = 5;
         let targets: Vec<TargetName> = available_targets
-            .map(|t| (t, strsim::levenshtein(target.value(), t.value())))
+            .map(|t| (t, strsim::levenshtein(target.as_str(), t.as_str())))
             .filter(|(t, lev)| {
                 lev <= &MAX_LEVENSHTEIN_DISTANCE
-                    || target.value().starts_with(t.value())
-                    || t.value().starts_with(target.value())
+                    || target.as_str().starts_with(t.as_str())
+                    || t.as_str().starts_with(target.as_str())
             })
             .sorted_by_key(|(_, lev)| *lev)
             .take(MAX_RESULTS)

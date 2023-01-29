@@ -549,7 +549,7 @@ impl BuckLspContext {
     }
 
     fn find_target(ast: &AstModule, target: TargetName) -> Option<Range> {
-        ast.find_function_call_with_name(target.value())
+        ast.find_function_call_with_name(target.as_str())
             .map(Range::from)
     }
 }

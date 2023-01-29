@@ -363,7 +363,7 @@ impl TargetHashes {
                 assert!(
                     overwrite.is_none(),
                     "Target {} was computed multiple times.",
-                    target.unconfigured_label().name().value()
+                    target.unconfigured_label().name().as_str()
                 );
             }
         }

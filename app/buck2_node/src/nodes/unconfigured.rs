@@ -488,7 +488,7 @@ pub mod testing {
 
             attributes.push_sorted(
                 AttributeSpec::name_attr_id(),
-                CoercedAttr::Literal(AttrLiteral::String(label.name().value().into())),
+                CoercedAttr::Literal(AttrLiteral::String(label.name().as_str().into())),
             );
 
             let mut deps_cache = CoercedDepsCollector::new();

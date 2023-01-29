@@ -101,7 +101,7 @@ fn label_methods(builder: &mut MethodsBuilder) {
 
     #[starlark(attribute)]
     fn name<'v>(this: &StarlarkTargetLabel) -> anyhow::Result<&'v str> {
-        Ok(this.label.name().value())
+        Ok(this.label.name().as_str())
     }
 
     #[starlark(attribute)]
@@ -179,7 +179,7 @@ fn configured_label_methods(builder: &mut MethodsBuilder) {
 
     #[starlark(attribute)]
     fn name<'v>(this: &StarlarkConfiguredTargetLabel) -> anyhow::Result<&'v str> {
-        Ok(this.label.name().value())
+        Ok(this.label.name().as_str())
     }
 
     #[starlark(attribute)]

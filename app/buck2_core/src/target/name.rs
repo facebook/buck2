@@ -77,7 +77,7 @@ impl TargetName {
     }
 
     #[inline]
-    pub fn value(&self) -> &str {
+    pub fn as_str(&self) -> &str {
         &self.0
     }
 }
