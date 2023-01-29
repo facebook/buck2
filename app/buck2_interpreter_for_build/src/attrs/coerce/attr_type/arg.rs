@@ -21,6 +21,7 @@ use buck2_node::attrs::attr_type::arg::QueryExpansion;
 use buck2_node::attrs::attr_type::arg::StringWithMacrosPart;
 use buck2_node::attrs::attr_type::arg::UnconfiguredMacro;
 use buck2_node::attrs::attr_type::arg::UnconfiguredStringWithMacros;
+use buck2_node::attrs::attr_type::arg::UnrecognizedMacro;
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::query::QueryAttrType;
 use buck2_node::attrs::attr_type::query::QueryMacroBase;
@@ -204,7 +205,10 @@ pub trait UnconfiguredMacroExt {
     }
 
     fn new_unrecognized(macro_type: String, args: Vec<String>) -> UnconfiguredMacro {
-        UnconfiguredMacro::UnrecognizedMacro(macro_type.into_boxed_str(), args.into_boxed_slice())
+        UnconfiguredMacro::UnrecognizedMacro(box UnrecognizedMacro {
+            macro_type: macro_type.into_boxed_str(),
+            args: args.into_boxed_slice(),
+        })
     }
 }
 

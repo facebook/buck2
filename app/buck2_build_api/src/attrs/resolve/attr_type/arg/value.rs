@@ -19,6 +19,7 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_node::attrs::attr_type::arg::ConfiguredMacro;
 use buck2_node::attrs::attr_type::arg::ConfiguredStringWithMacros;
 use buck2_node::attrs::attr_type::arg::ConfiguredStringWithMacrosPart;
+use buck2_node::attrs::attr_type::arg::UnrecognizedMacro;
 use either::Either;
 use starlark::any::ProvidesStaticType;
 use starlark::starlark_type;
@@ -194,8 +195,11 @@ impl ResolvedMacro {
                 Ok(ResolvedMacro::ArgLike(*value))
             }
             ConfiguredMacro::Query(query) => Ok(ResolvedMacro::Query(query.resolve(ctx)?)),
-            ConfiguredMacro::UnrecognizedMacro(name, _args) => Err(anyhow::anyhow!(
-                ResolvedMacroError::UnrecognizedMacroUnimplemented((**name).to_owned())
+            ConfiguredMacro::UnrecognizedMacro(box UnrecognizedMacro {
+                macro_type,
+                args: _,
+            }) => Err(anyhow::anyhow!(
+                ResolvedMacroError::UnrecognizedMacroUnimplemented((**macro_type).to_owned())
             )),
         }
     }

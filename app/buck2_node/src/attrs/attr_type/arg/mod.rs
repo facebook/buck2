@@ -121,8 +121,14 @@ pub enum StringWithMacrosPart<C: AttrConfig> {
     Macro(/* write_to_file */ bool, MacroBase<C>),
 }
 
-assert_eq_size!(MacroBase<CoercedAttr>, [usize; 5]);
-assert_eq_size!(StringWithMacrosPart<CoercedAttr>, [usize; 6]);
+assert_eq_size!(MacroBase<CoercedAttr>, [usize; 4]);
+assert_eq_size!(StringWithMacrosPart<CoercedAttr>, [usize; 5]);
+
+#[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative)]
+pub struct UnrecognizedMacro {
+    pub macro_type: Box<str>,
+    pub args: Box<[String]>,
+}
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative)]
 pub enum MacroBase<C: AttrConfig> {
@@ -143,7 +149,7 @@ pub enum MacroBase<C: AttrConfig> {
     /// Right now, we defer error for unrecognized macros to the place where they are used. This just allows
     /// us to progress further into a build and detect more issues. Once we have all (or most) of the buckv1 macros
     /// recognized we'll remove this and make it an early error.
-    UnrecognizedMacro(Box<str>, Box<[String]>),
+    UnrecognizedMacro(Box<UnrecognizedMacro>),
 }
 
 impl MacroBase<ConfiguredAttr> {
@@ -195,8 +201,8 @@ impl MacroBase<CoercedAttr> {
                 ))
             }
             UnconfiguredMacro::Query(query) => ConfiguredMacro::Query(box query.configure(ctx)?),
-            UnconfiguredMacro::UnrecognizedMacro(macro_type, args) => {
-                ConfiguredMacro::UnrecognizedMacro(macro_type.clone(), args.clone())
+            UnconfiguredMacro::UnrecognizedMacro(macr) => {
+                ConfiguredMacro::UnrecognizedMacro(macr.clone())
             }
         })
     }
@@ -262,7 +268,7 @@ impl<C: AttrConfig> Display for MacroBase<C> {
                     "".to_owned()
                 }
             ),
-            MacroBase::UnrecognizedMacro(macro_type, args) => {
+            MacroBase::UnrecognizedMacro(box UnrecognizedMacro { macro_type, args }) => {
                 write!(f, "<unknown>({}) {}", macro_type, args.join(" "))
             }
         }
