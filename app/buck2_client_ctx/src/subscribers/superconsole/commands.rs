@@ -7,10 +7,9 @@
  * of this source tree.
  */
 
+use buck2_event_observer::action_stats::ActionStats;
 use superconsole::Component;
 use superconsole::Line;
-
-use crate::subscribers::simpleconsole::ActionStats;
 
 pub(crate) struct CommandsComponentState {
     pub(crate) enabled: bool,

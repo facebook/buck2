@@ -520,8 +520,6 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
         action: &buck2_data::ActionExecutionEnd,
         event: &BuckEvent,
     ) -> anyhow::Result<()> {
-        self.state.simple_console.action_stats_mut().update(action);
-
         let super_console = match &mut self.super_console {
             Some(super_console) => super_console,
             None => {

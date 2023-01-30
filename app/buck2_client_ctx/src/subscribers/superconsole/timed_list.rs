@@ -10,6 +10,7 @@
 use std::fmt::Write;
 use std::time::Duration;
 
+use buck2_event_observer::action_stats::ActionStats;
 use buck2_event_observer::display;
 use buck2_event_observer::display::TargetDisplayOptions;
 use buck2_event_observer::span_tracker::BuckEventSpanHandle;
@@ -31,7 +32,6 @@ use superconsole::Span;
 use superconsole::State;
 
 use self::table_builder::Table;
-use crate::subscribers::simpleconsole::ActionStats;
 use crate::subscribers::subscriber::Tick;
 use crate::subscribers::superconsole::common::HeaderLineComponent;
 use crate::subscribers::superconsole::common::StaticStringComponent;

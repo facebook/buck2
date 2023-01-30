@@ -8,7 +8,6 @@
  */
 
 use std::borrow::Cow;
-use std::fmt;
 use std::fmt::Display;
 use std::io::Write;
 use std::process::Stdio;
@@ -20,12 +19,11 @@ use anyhow::Context;
 use async_trait::async_trait;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_data::CommandExecutionDetails;
+use buck2_event_observer::action_stats::ActionStats;
 use buck2_event_observer::display;
 use buck2_event_observer::display::display_file_watcher_end;
 use buck2_event_observer::display::TargetDisplayOptions;
 use buck2_event_observer::event_observer::EventObserver;
-use buck2_event_observer::last_command_execution_kind::get_last_command_execution_kind;
-use buck2_event_observer::last_command_execution_kind::LastCommandExecutionKind;
 use buck2_event_observer::span_tracker::BuckEventSpanTracker;
 use buck2_event_observer::verbosity::Verbosity;
 use buck2_event_observer::what_ran;
@@ -147,80 +145,6 @@ fn eprint_command_details(
     Ok(())
 }
 
-/// Records the number of actions depending on how they executed.
-/// There's no overlap between the actions - summing them all up
-/// gives the total number of actions. `local_actions` + `remote_actions`
-/// provides the total number of actually executed actions while
-/// `cached_actions` provides number of actions which we found
-/// in the action cache.
-///
-/// These stats only track executions/commands.
-#[derive(Default)]
-pub(crate) struct ActionStats {
-    pub(crate) local_actions: u64,
-    pub(crate) remote_actions: u64,
-    pub(crate) cached_actions: u64,
-}
-
-impl ActionStats {
-    pub(crate) fn action_cache_hit_percentage(&self) -> u8 {
-        // We want special semantics for the return value: the terminal values (0% and 100%)
-        // should _only_ be used when there are exactly no cache hits and full cache hits.
-        // So, even if we have 99.6% cache hits, we want to display 99% and conversely,
-        // if the value is 0.1% cache hits, we want to display 1%.
-        //
-        // This allows us to have special meaning for 0% and 100%: complete cache-divergence
-        // and fully cacheable builds.
-        let total_actions = self.total_executed_and_cached_actions();
-        if total_actions == 0 || self.cached_actions == total_actions {
-            100
-        } else if self.cached_actions == 0 {
-            0
-        } else {
-            let hit_percent = ((self.cached_actions as f64) / (total_actions as f64)) * 100f64;
-            let integral_percent = (hit_percent.round()) as u8;
-            std::cmp::max(1, std::cmp::min(integral_percent, 99))
-        }
-    }
-
-    pub(crate) fn total_executed_and_cached_actions(&self) -> u64 {
-        self.local_actions + self.remote_actions + self.cached_actions
-    }
-
-    pub(crate) fn update(&mut self, action: &buck2_data::ActionExecutionEnd) {
-        match get_last_command_execution_kind(action) {
-            LastCommandExecutionKind::Local => {
-                self.local_actions += 1;
-            }
-            LastCommandExecutionKind::Cached => {
-                self.cached_actions += 1;
-            }
-            LastCommandExecutionKind::Remote => {
-                self.remote_actions += 1;
-            }
-            LastCommandExecutionKind::NoCommand => {}
-        }
-    }
-
-    pub(crate) fn log_stats(&self) -> bool {
-        self.total_executed_and_cached_actions() > 0
-    }
-}
-
-impl fmt::Display for ActionStats {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "Cache hits: {}%. Commands: {} (cached: {}, remote: {}, local: {})",
-            self.action_cache_hit_percentage(),
-            self.total_executed_and_cached_actions(),
-            self.cached_actions,
-            self.remote_actions,
-            self.local_actions
-        )
-    }
-}
-
 /// Just repeats stdout and stderr to client process.
 pub(crate) struct SimpleConsole {
     tty_mode: TtyMode,
@@ -231,7 +155,6 @@ pub(crate) struct SimpleConsole {
     action_errors: Vec<ActionError>,
     last_print_time: Instant,
     test_session: Option<String>,
-    action_stats: ActionStats,
     re_panel: RePanel,
     pub(crate) io_state: IoState,
     two_snapshots: TwoSnapshots,
@@ -254,7 +177,6 @@ impl SimpleConsole {
             action_errors: Vec::new(),
             last_print_time: Instant::now(),
             test_session: None,
-            action_stats: ActionStats::default(),
             re_panel: RePanel::new(),
             io_state: IoState::default(),
             two_snapshots: TwoSnapshots::default(),
@@ -277,7 +199,6 @@ impl SimpleConsole {
             action_errors: Vec::new(),
             last_print_time: Instant::now(),
             test_session: None,
-            action_stats: ActionStats::default(),
             re_panel: RePanel::new(),
             io_state: IoState::default(),
             two_snapshots: TwoSnapshots::default(),
@@ -304,11 +225,7 @@ impl SimpleConsole {
     }
 
     pub(crate) fn action_stats(&self) -> &ActionStats {
-        &self.action_stats
-    }
-
-    pub(crate) fn action_stats_mut(&mut self) -> &mut ActionStats {
-        &mut self.action_stats
+        self.observer.action_stats()
     }
 
     pub(crate) fn re_panel(&self) -> &RePanel {
@@ -489,15 +406,15 @@ impl UnpackingEventSubscriber for SimpleConsole {
         _command: &buck2_data::CommandEnd,
         _event: &BuckEvent,
     ) -> anyhow::Result<()> {
-        if self.verbosity.print_status() && self.action_stats.log_stats() {
-            let cache_hit_percentage = self.action_stats.action_cache_hit_percentage();
+        if self.verbosity.print_status() && self.action_stats().log_stats() {
+            let cache_hit_percentage = self.action_stats().action_cache_hit_percentage();
             echo!("Cache hits: {}%", cache_hit_percentage)?;
             echo!(
                 "Commands: {} (cached: {}, remote: {}, local: {})",
-                self.action_stats.total_executed_and_cached_actions(),
-                self.action_stats.cached_actions,
-                self.action_stats.remote_actions,
-                self.action_stats.local_actions
+                self.action_stats().total_executed_and_cached_actions(),
+                self.action_stats().cached_actions,
+                self.action_stats().remote_actions,
+                self.action_stats().local_actions
             )?;
         }
 
@@ -535,8 +452,6 @@ impl UnpackingEventSubscriber for SimpleConsole {
         action: &buck2_data::ActionExecutionEnd,
         _event: &BuckEvent,
     ) -> anyhow::Result<()> {
-        self.action_stats.update(action);
-
         let action_id = display::display_action_identity(
             action.key.as_ref(),
             action.name.as_ref(),

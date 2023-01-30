@@ -9,6 +9,7 @@
 
 #![feature(try_blocks)]
 
+pub mod action_stats;
 pub mod display;
 pub mod event_observer;
 pub mod last_command_execution_kind;
