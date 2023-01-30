@@ -13,6 +13,7 @@ use anyhow::Context;
 use buck2_events::BuckEvent;
 
 use crate::action_stats::ActionStats;
+use crate::io_state::IoState;
 use crate::re_state::ReState;
 use crate::session_info::SessionInfo;
 use crate::span_tracker::BuckEventSpanTracker;
@@ -24,6 +25,7 @@ pub struct EventObserver {
     re_state: ReState,
     two_snapshots: TwoSnapshots, // NOTE: We got many more copies of this than we should.
     session_info: SessionInfo,
+    io_state: IoState,
 }
 
 impl EventObserver {
@@ -34,6 +36,7 @@ impl EventObserver {
             re_state: ReState::new(),
             two_snapshots: TwoSnapshots::default(),
             session_info: SessionInfo::default(),
+            io_state: IoState::default(),
         }
     }
 
@@ -78,6 +81,7 @@ impl EventObserver {
                         Snapshot(snapshot) => {
                             self.re_state.update(event.timestamp(), snapshot);
                             self.two_snapshots.update(event.timestamp(), snapshot);
+                            self.io_state.update(event.timestamp(), snapshot);
                         }
                         TestDiscovery(discovery) => {
                             use buck2_data::test_discovery::Data::*;
@@ -121,5 +125,9 @@ impl EventObserver {
 
     pub fn session_info(&self) -> &SessionInfo {
         &self.session_info
+    }
+
+    pub fn io_state(&self) -> &IoState {
+        &self.io_state
     }
 }

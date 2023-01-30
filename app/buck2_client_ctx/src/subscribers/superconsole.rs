@@ -265,7 +265,7 @@ impl SuperConsoleState {
             &self.time_speed,
             &self.dice_state,
             self.simple_console.re_state(),
-            &self.simple_console.io_state,
+            self.simple_console.io_state(),
             &self.debug_events,
         ]
     }

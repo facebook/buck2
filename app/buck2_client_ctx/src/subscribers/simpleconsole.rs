@@ -155,7 +155,6 @@ pub(crate) struct SimpleConsole {
     observer: EventObserver,
     action_errors: Vec<ActionError>,
     last_print_time: Instant,
-    pub(crate) io_state: IoState,
     last_had_open_spans: Instant, // Used to detect hangs
     already_raged: bool,
     isolation_dir: FileNameBuf,
@@ -174,7 +173,6 @@ impl SimpleConsole {
             observer: EventObserver::new(),
             action_errors: Vec::new(),
             last_print_time: Instant::now(),
-            io_state: IoState::default(),
             last_had_open_spans: Instant::now(),
             already_raged: false,
             isolation_dir,
@@ -193,7 +191,6 @@ impl SimpleConsole {
             observer: EventObserver::new(),
             action_errors: Vec::new(),
             last_print_time: Instant::now(),
-            io_state: IoState::default(),
             last_had_open_spans: Instant::now(),
             already_raged: false,
             isolation_dir,
@@ -230,6 +227,10 @@ impl SimpleConsole {
 
     pub fn session_info(&self) -> &SessionInfo {
         self.observer.session_info()
+    }
+
+    pub fn io_state(&self) -> &IoState {
+        self.observer.io_state()
     }
 
     pub(crate) fn update_event_observer(&mut self, event: &Arc<BuckEvent>) -> anyhow::Result<()> {
@@ -591,15 +592,6 @@ impl UnpackingEventSubscriber for SimpleConsole {
         let mut stdout = stdout.lock();
         lsp_message.write(&mut stdout)?;
         stdout.flush()?;
-        Ok(())
-    }
-
-    async fn handle_snapshot(
-        &mut self,
-        update: &buck2_data::Snapshot,
-        event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        self.io_state.update(event.timestamp(), update);
         Ok(())
     }
 }
