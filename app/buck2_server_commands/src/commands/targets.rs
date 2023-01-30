@@ -210,7 +210,7 @@ impl StatsPrinter {
 
 impl TargetPrinter for StatsPrinter {
     fn end(&mut self) -> String {
-        format!("{:?}", self)
+        format!("{:?}\n", self)
     }
 
     fn package(&mut self, _package: PackageLabel) {
