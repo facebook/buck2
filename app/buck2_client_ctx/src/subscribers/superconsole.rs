@@ -247,18 +247,20 @@ impl SuperConsoleState {
     // Collect all state to send to super console. Note that the SpanTracker state is held in the
     // SimpleConsole so that if we downgrade to the SimpleConsole, we don't lose tracked spans.
     pub(crate) fn state(&self) -> superconsole::State {
+        let observer = self.simple_console.observer();
+
         superconsole::state![
             &self.config,
-            self.simple_console.spans(),
-            self.simple_console.action_stats(),
-            self.simple_console.test_state(),
-            self.simple_console.session_info(),
             &self.current_tick,
             &self.time_speed,
-            self.simple_console.re_state(),
-            self.simple_console.io_state(),
-            self.simple_console.observer().extra().dice_state(),
-            self.simple_console.observer().extra().debug_events(),
+            observer.spans(),
+            observer.action_stats(),
+            observer.test_state(),
+            observer.session_info(),
+            observer.re_state(),
+            observer.io_state(),
+            observer.extra().dice_state(),
+            observer.extra().debug_events(),
         ]
     }
 }
@@ -308,7 +310,7 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
                 what_ran::emit_event_if_relevant(
                     event.parent_id().into(),
                     event.data(),
-                    self.state.simple_console.spans(),
+                    self.state.simple_console.observer().spans(),
                     console,
                     &WhatRanOptions::default(),
                 )?;

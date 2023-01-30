@@ -19,7 +19,6 @@ use anyhow::Context;
 use async_trait::async_trait;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_data::CommandExecutionDetails;
-use buck2_event_observer::action_stats::ActionStats;
 use buck2_event_observer::display;
 use buck2_event_observer::display::display_file_watcher_end;
 use buck2_event_observer::display::TargetDisplayOptions;
@@ -27,12 +26,6 @@ use buck2_event_observer::event_observer::EventObserver;
 use buck2_event_observer::event_observer::EventObserverExtra;
 use buck2_event_observer::humanized_bytes::HumanizedBytes;
 use buck2_event_observer::io_state::io_in_flight_non_zero_counters;
-use buck2_event_observer::io_state::IoState;
-use buck2_event_observer::re_state::ReState;
-use buck2_event_observer::session_info::SessionInfo;
-use buck2_event_observer::span_tracker::BuckEventSpanTracker;
-use buck2_event_observer::test_state::TestState;
-use buck2_event_observer::two_snapshots::TwoSnapshots;
 use buck2_event_observer::verbosity::Verbosity;
 use buck2_event_observer::what_ran;
 use buck2_event_observer::what_ran::local_command_to_string;
@@ -218,34 +211,6 @@ where
         &self.observer
     }
 
-    pub(crate) fn spans(&self) -> &BuckEventSpanTracker {
-        self.observer.spans()
-    }
-
-    pub(crate) fn action_stats(&self) -> &ActionStats {
-        self.observer.action_stats()
-    }
-
-    pub(crate) fn re_state(&self) -> &ReState {
-        self.observer.re_state()
-    }
-
-    pub(crate) fn two_snapshots(&self) -> &TwoSnapshots {
-        self.observer.two_snapshots()
-    }
-
-    pub fn session_info(&self) -> &SessionInfo {
-        self.observer.session_info()
-    }
-
-    pub fn io_state(&self) -> &IoState {
-        self.observer.io_state()
-    }
-
-    pub fn test_state(&self) -> &TestState {
-        self.observer.test_state()
-    }
-
     pub(crate) fn update_event_observer(
         &mut self,
         receive_time: Instant,
@@ -261,18 +226,18 @@ where
     }
 
     fn print_stats_while_waiting(&mut self) -> anyhow::Result<()> {
-        if let Some(h) = self.re_state().render_header(DrawMode::Normal) {
+        if let Some(h) = self.observer().re_state().render_header(DrawMode::Normal) {
             echo!("{}", h)?;
         }
 
         {
             let mut parts = Vec::with_capacity(2);
-            if let Some((_, snapshot)) = &self.two_snapshots().last {
+            if let Some((_, snapshot)) = &self.observer().two_snapshots().last {
                 if let Some(buck2_rss) = snapshot.buck2_rss {
                     parts.push(format!("RSS: {}", HumanizedBytes::new(buck2_rss)));
                 }
             }
-            if let Some(cpu) = self.two_snapshots().cpu_percents() {
+            if let Some(cpu) = self.observer().two_snapshots().cpu_percents() {
                 parts.push(format!("CPU: {}%", cpu));
             }
             if !parts.is_empty() {
@@ -281,7 +246,7 @@ where
         }
 
         {
-            if let Some((_, snapshot)) = &self.two_snapshots().last {
+            if let Some((_, snapshot)) = &self.observer().two_snapshots().last {
                 let mut parts = Vec::new();
                 for (key, value) in io_in_flight_non_zero_counters(snapshot) {
                     parts.push(format!("{:?}: {}", key, value));
@@ -298,7 +263,7 @@ where
     }
 
     pub(crate) async fn detect_hangs(&mut self) -> anyhow::Result<()> {
-        if self.spans().iter_roots().len() > 0 {
+        if self.observer().spans().iter_roots().len() > 0 {
             self.last_had_open_spans = Instant::now();
             return Ok(());
         }
@@ -354,7 +319,7 @@ where
             what_ran::emit_event_if_relevant(
                 event.parent_id().into(),
                 event.data(),
-                self.spans(),
+                self.observer().spans(),
                 &mut PrintDebugCommandToStderr,
                 &WhatRanOptions::default(),
             )?;
@@ -409,23 +374,25 @@ where
         _command: &buck2_data::CommandEnd,
         _event: &BuckEvent,
     ) -> anyhow::Result<()> {
-        if self.verbosity.print_status() && self.action_stats().log_stats() {
-            let cache_hit_percentage = self.action_stats().action_cache_hit_percentage();
+        if self.verbosity.print_status() && self.observer().action_stats().log_stats() {
+            let cache_hit_percentage = self.observer().action_stats().action_cache_hit_percentage();
             echo!("Cache hits: {}%", cache_hit_percentage)?;
             echo!(
                 "Commands: {} (cached: {}, remote: {}, local: {})",
-                self.action_stats().total_executed_and_cached_actions(),
-                self.action_stats().cached_actions,
-                self.action_stats().remote_actions,
-                self.action_stats().local_actions
+                self.observer()
+                    .action_stats()
+                    .total_executed_and_cached_actions(),
+                self.observer().action_stats().cached_actions,
+                self.observer().action_stats().remote_actions,
+                self.observer().action_stats().local_actions
             )?;
         }
 
-        if let Some(re) = &self.re_state().render_header(DrawMode::Final) {
+        if let Some(re) = &self.observer().re_state().render_header(DrawMode::Final) {
             echo!("{}", re)?;
         }
 
-        if let Some(test_session) = &self.session_info().test_session {
+        if let Some(test_session) = &self.observer().session_info().test_session {
             echo!("Test session: {}", test_session.info)?;
         }
 
@@ -463,8 +430,8 @@ where
         let stderr = display::success_stderr(action, self.verbosity)?;
 
         if self.verbosity.print_all_actions() || stderr.is_some() {
-            let complete = self.spans().roots_completed();
-            let incomplete = self.spans().roots_ongoing();
+            let complete = self.observer().spans().roots_completed();
+            let incomplete = self.observer().spans().roots_ongoing();
             echo!("{} / {}: {}", complete, complete + incomplete, action_id)?;
             if let Some(stderr) = stderr {
                 // TODO(nmj): Factor out behavior here so that handling ttymode isn't ad hoc.  i.e. write a method that formats text based on tty mode
@@ -541,7 +508,7 @@ where
         if self.verbosity.print_status() && self.last_print_time.elapsed() > KEEPALIVE_TIME_LIMIT {
             let mut show_stats = self.show_waiting_message;
 
-            let mut roots = self.spans().iter_roots();
+            let mut roots = self.observer().spans().iter_roots();
             let sample_event = roots.next();
             match sample_event {
                 Some(sample_event) => {
