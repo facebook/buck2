@@ -366,72 +366,8 @@ async fn targets(
         cwd,
     )?;
 
-    // If we are only asked to resolve aliases, then don't expand any of the patterns, and just
-    // print them out. This expects the aliases to resolve to individual targets.
     if request.unstable_resolve_aliases {
-        let parsed_target_patterns =
-            std::iter::zip(&request.target_patterns, parsed_target_patterns)
-                .map(|(alias, pattern)| match pattern {
-                    ParsedPattern::Target(package, target_name) => Ok((package, target_name)),
-                    _ => Err(anyhow::anyhow!(
-                        "Invalid alias (does not expand to a single target): `{}`",
-                        alias.value
-                    )),
-                })
-                .collect::<Result<Vec<_>, _>>()?;
-
-        let packages = parsed_target_patterns
-            .iter()
-            .map(|(package, _name)| package.dupe())
-            .collect::<HashSet<_>>();
-
-        let packages = packages
-            .into_iter()
-            .map(|package| {
-                let ctx = &ctx;
-                async move {
-                    (
-                        package.dupe(),
-                        ctx.get_interpreter_results(package.dupe()).await,
-                    )
-                }
-            })
-            .collect::<FuturesUnordered<_>>()
-            .collect::<HashMap<_, _>>()
-            .await;
-
-        let mut output = String::new();
-
-        for (alias, (package, target_name)) in
-            std::iter::zip(&request.target_patterns, &parsed_target_patterns)
-        {
-            // NOTE: We don't technically need the node to get the label, but we need the node to
-            // validate it exists.
-            let node = packages
-                .get(package)
-                .with_context(|| format!("Package does not exist: `{}`", package))
-                .and_then(|package_data| {
-                    package_data
-                        .as_ref()
-                        .map_err(|e| e.dupe())
-                        .with_context(|| format!("Package cannot be evaluated: `{}`", package))?
-                        .resolve_target(target_name)
-                        .with_context(|| {
-                            format!(
-                                "Target does not exist in package `{}`: `{}`",
-                                package, target_name,
-                            )
-                        })
-                })
-                .with_context(|| format!("Invalid alias: `{}`", alias.value))?;
-
-            writeln!(output, "{}", node.label())?;
-        }
-
-        return Ok(TargetsResponse {
-            error_count: 0,
-            serialized_targets_output: output,
-        });
+        return targets_resolve_aliases(ctx, request, parsed_target_patterns).await;
     }
 
     let target_hash_modified_paths = request
@@ -461,6 +397,77 @@ async fn targets(
     Ok(TargetsResponse {
         error_count,
         serialized_targets_output: results_to_print,
+    })
+}
+
+async fn targets_resolve_aliases(
+    ctx: DiceTransaction,
+    request: &TargetsRequest,
+    parsed_target_patterns: Vec<ParsedPattern<TargetPattern>>,
+) -> anyhow::Result<TargetsResponse> {
+    // If we are only asked to resolve aliases, then don't expand any of the patterns, and just
+    // print them out. This expects the aliases to resolve to individual targets.
+    let parsed_target_patterns = std::iter::zip(&request.target_patterns, parsed_target_patterns)
+        .map(|(alias, pattern)| match pattern {
+            ParsedPattern::Target(package, target_name) => Ok((package, target_name)),
+            _ => Err(anyhow::anyhow!(
+                "Invalid alias (does not expand to a single target): `{}`",
+                alias.value
+            )),
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+
+    let packages = parsed_target_patterns
+        .iter()
+        .map(|(package, _name)| package.dupe())
+        .collect::<HashSet<_>>();
+
+    let packages = packages
+        .into_iter()
+        .map(|package| {
+            let ctx = &ctx;
+            async move {
+                (
+                    package.dupe(),
+                    ctx.get_interpreter_results(package.dupe()).await,
+                )
+            }
+        })
+        .collect::<FuturesUnordered<_>>()
+        .collect::<HashMap<_, _>>()
+        .await;
+
+    let mut output = String::new();
+
+    for (alias, (package, target_name)) in
+        std::iter::zip(&request.target_patterns, &parsed_target_patterns)
+    {
+        // NOTE: We don't technically need the node to get the label, but we need the node to
+        // validate it exists.
+        let node = packages
+            .get(package)
+            .with_context(|| format!("Package does not exist: `{}`", package))
+            .and_then(|package_data| {
+                package_data
+                    .as_ref()
+                    .map_err(|e| e.dupe())
+                    .with_context(|| format!("Package cannot be evaluated: `{}`", package))?
+                    .resolve_target(target_name)
+                    .with_context(|| {
+                        format!(
+                            "Target does not exist in package `{}`: `{}`",
+                            package, target_name,
+                        )
+                    })
+            })
+            .with_context(|| format!("Invalid alias: `{}`", alias.value))?;
+
+        writeln!(output, "{}", node.label())?;
+    }
+
+    Ok(TargetsResponse {
+        error_count: 0,
+        serialized_targets_output: output,
     })
 }
 
