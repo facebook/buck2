@@ -26,6 +26,7 @@ use buck2_event_observer::display::TargetDisplayOptions;
 use buck2_event_observer::event_observer::EventObserver;
 use buck2_event_observer::humanized_bytes::HumanizedBytes;
 use buck2_event_observer::re_state::ReState;
+use buck2_event_observer::session_info::SessionInfo;
 use buck2_event_observer::span_tracker::BuckEventSpanTracker;
 use buck2_event_observer::two_snapshots::TwoSnapshots;
 use buck2_event_observer::verbosity::Verbosity;
@@ -154,7 +155,6 @@ pub(crate) struct SimpleConsole {
     observer: EventObserver,
     action_errors: Vec<ActionError>,
     last_print_time: Instant,
-    test_session: Option<String>,
     pub(crate) io_state: IoState,
     last_had_open_spans: Instant, // Used to detect hangs
     already_raged: bool,
@@ -174,7 +174,6 @@ impl SimpleConsole {
             observer: EventObserver::new(),
             action_errors: Vec::new(),
             last_print_time: Instant::now(),
-            test_session: None,
             io_state: IoState::default(),
             last_had_open_spans: Instant::now(),
             already_raged: false,
@@ -194,7 +193,6 @@ impl SimpleConsole {
             observer: EventObserver::new(),
             action_errors: Vec::new(),
             last_print_time: Instant::now(),
-            test_session: None,
             io_state: IoState::default(),
             last_had_open_spans: Instant::now(),
             already_raged: false,
@@ -228,6 +226,10 @@ impl SimpleConsole {
 
     pub(crate) fn two_snapshots(&self) -> &TwoSnapshots {
         self.observer.two_snapshots()
+    }
+
+    pub fn session_info(&self) -> &SessionInfo {
+        self.observer.session_info()
     }
 
     pub(crate) fn update_event_observer(&mut self, event: &Arc<BuckEvent>) -> anyhow::Result<()> {
@@ -416,8 +418,8 @@ impl UnpackingEventSubscriber for SimpleConsole {
             echo!("{}", re)?;
         }
 
-        if let Some(info) = &self.test_session {
-            echo!("Test session: {}", info)?;
+        if let Some(test_session) = &self.session_info().test_session {
+            echo!("Test session: {}", test_session.info)?;
         }
 
         Ok(())
@@ -503,7 +505,6 @@ impl UnpackingEventSubscriber for SimpleConsole {
             match data {
                 buck2_data::test_discovery::Data::Session(buck2_data::TestSessionInfo { info }) => {
                     echo!("Test session: {}", info)?;
-                    self.test_session = Some(info.clone());
                     self.notify_printed();
                 }
                 buck2_data::test_discovery::Data::Tests(..) => {}

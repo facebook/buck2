@@ -20,11 +20,11 @@ use buck2_data::CommandExecutionDetails;
 use buck2_event_observer::display;
 use buck2_event_observer::display::display_file_watcher_end;
 use buck2_event_observer::display::TargetDisplayOptions;
+use buck2_event_observer::session_info::SessionInfo;
 use buck2_event_observer::verbosity::Verbosity;
 use buck2_event_observer::what_ran;
 use buck2_event_observer::what_ran::local_command_to_string;
 use buck2_event_observer::what_ran::WhatRanOptions;
-use buck2_events::trace::TraceId;
 use buck2_events::BuckEvent;
 use dupe::Dupe;
 use gazebo::prelude::*;
@@ -73,13 +73,6 @@ pub mod timed_list;
 
 pub const SUPERCONSOLE_WIDTH: usize = 150;
 
-/// Information about the current command, such as session or build ids.
-#[derive(Default)]
-pub(crate) struct SessionInfo {
-    trace_id: Option<TraceId>,
-    test_session: Option<buck2_data::TestSessionInfo>,
-}
-
 pub const CUTOFFS: Cutoffs = Cutoffs {
     inform: Duration::from_secs(4),
     warn: Duration::from_secs(8),
@@ -118,7 +111,6 @@ impl TimeSpeed {
 pub(crate) struct SuperConsoleState {
     test_state: TestState,
     current_tick: Tick,
-    session_info: SessionInfo,
     time_speed: TimeSpeed,
     dice_state: DiceState,
     debug_events: DebugEventsState,
@@ -218,7 +210,6 @@ impl StatefulSuperConsole {
             state: SuperConsoleState {
                 test_state: TestState::default(),
                 current_tick: Tick::now(),
-                session_info: SessionInfo::default(),
                 time_speed: TimeSpeed::new(replay_speed)?,
                 simple_console: SimpleConsole::with_tty(
                     isolation_dir,
@@ -264,11 +255,11 @@ impl SuperConsoleState {
     // SimpleConsole so that if we downgrade to the SimpleConsole, we don't lose tracked spans.
     pub(crate) fn state(&self) -> superconsole::State {
         superconsole::state![
+            &self.config,
             self.simple_console.spans(),
             self.simple_console.action_stats(),
             &self.test_state,
-            &self.session_info,
-            &self.config,
+            self.simple_console.session_info(),
             &self.current_tick,
             &self.time_speed,
             &self.dice_state,
@@ -410,15 +401,6 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
             .await?;
         }
 
-        Ok(())
-    }
-
-    async fn handle_command_start(
-        &mut self,
-        _command: &buck2_data::CommandStart,
-        event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        self.state.session_info.trace_id = Some(event.trace_id()?);
         Ok(())
     }
 
@@ -578,8 +560,8 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
     ) -> anyhow::Result<()> {
         if let Some(data) = &test_info.data {
             match data {
-                buck2_data::test_discovery::Data::Session(session_info) => {
-                    self.state.session_info.test_session = Some(session_info.clone());
+                buck2_data::test_discovery::Data::Session(..) => {
+                    // Noop
                 }
                 buck2_data::test_discovery::Data::Tests(tests) => {
                     self.state.test_state.discovered += tests.test_names.len() as u64
@@ -789,6 +771,7 @@ mod tests {
     use buck2_data::SpanEndEvent;
     use buck2_data::SpanStartEvent;
     use buck2_events::span::SpanId;
+    use buck2_events::trace::TraceId;
     use superconsole::testing::frame_contains;
     use superconsole::testing::test_console;
     use superconsole::testing::SuperConsoleTestingExt;

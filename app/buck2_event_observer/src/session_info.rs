@@ -7,16 +7,11 @@
  * of this source tree.
  */
 
-#![feature(try_blocks)]
+use buck2_events::trace::TraceId;
 
-pub mod action_stats;
-pub mod display;
-pub mod event_observer;
-pub mod humanized_bytes;
-pub mod last_command_execution_kind;
-pub mod re_state;
-pub mod session_info;
-pub mod span_tracker;
-pub mod two_snapshots;
-pub mod verbosity;
-pub mod what_ran;
+/// Information about the current command, such as session or build ids.
+#[derive(Default)]
+pub struct SessionInfo {
+    pub trace_id: Option<TraceId>,
+    pub test_session: Option<buck2_data::TestSessionInfo>,
+}

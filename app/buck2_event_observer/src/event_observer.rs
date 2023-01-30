@@ -14,6 +14,7 @@ use buck2_events::BuckEvent;
 
 use crate::action_stats::ActionStats;
 use crate::re_state::ReState;
+use crate::session_info::SessionInfo;
 use crate::span_tracker::BuckEventSpanTracker;
 use crate::two_snapshots::TwoSnapshots;
 
@@ -22,6 +23,7 @@ pub struct EventObserver {
     action_stats: ActionStats,
     re_state: ReState,
     two_snapshots: TwoSnapshots, // NOTE: We got many more copies of this than we should.
+    session_info: SessionInfo,
 }
 
 impl EventObserver {
@@ -31,6 +33,7 @@ impl EventObserver {
             action_stats: ActionStats::default(),
             re_state: ReState::new(),
             two_snapshots: TwoSnapshots::default(),
+            session_info: SessionInfo::default(),
         }
     }
 
@@ -41,6 +44,16 @@ impl EventObserver {
             use buck2_data::buck_event::Data::*;
 
             match event.data() {
+                SpanStart(start) => {
+                    use buck2_data::span_start_event::Data::*;
+
+                    match start.data.as_ref().context("Missing `data` in SpanStart")? {
+                        Command(_command_start) => {
+                            self.session_info.trace_id = Some(event.trace_id()?);
+                        }
+                        _ => {}
+                    }
+                }
                 SpanEnd(end) => {
                     use buck2_data::span_end_event::Data::*;
 
@@ -66,6 +79,20 @@ impl EventObserver {
                             self.re_state.update(event.timestamp(), snapshot);
                             self.two_snapshots.update(event.timestamp(), snapshot);
                         }
+                        TestDiscovery(discovery) => {
+                            use buck2_data::test_discovery::Data::*;
+
+                            match discovery
+                                .data
+                                .as_ref()
+                                .context("Missing `data` in `TestDiscovery`")?
+                            {
+                                Session(session) => {
+                                    self.session_info.test_session = Some(session.clone());
+                                }
+                                _ => {}
+                            }
+                        }
                         _ => {}
                     }
                 }
@@ -90,5 +117,9 @@ impl EventObserver {
 
     pub fn two_snapshots(&self) -> &TwoSnapshots {
         &self.two_snapshots
+    }
+
+    pub fn session_info(&self) -> &SessionInfo {
+        &self.session_info
     }
 }
