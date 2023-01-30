@@ -496,21 +496,21 @@ async fn targets_batch(
     printer: &mut dyn TargetPrinter,
     parsed_patterns: Vec<ParsedPattern<TargetPattern>>,
     target_platform: Option<TargetLabel>,
-    options: TargetHashOptions,
+    hash_options: TargetHashOptions,
     keep_going: bool,
 ) -> anyhow::Result<(u64, String)> {
     let results = load_patterns(&ctx, parsed_patterns).await?;
 
-    let target_hashes = match options.graph_type {
+    let target_hashes = match hash_options.graph_type {
         TargetHashGraphType::Configured => Some(
             TargetHashes::compute::<ConfiguredTargetNode, _>(
                 ctx.dupe(),
                 ConfiguredTargetNodeLookup(&ctx),
                 results.iter_loaded_targets_by_package().collect(),
                 target_platform,
-                options.file_mode,
-                options.fast_hash,
-                options.recursive,
+                hash_options.file_mode,
+                hash_options.fast_hash,
+                hash_options.recursive,
             )
             .await?,
         ),
@@ -520,9 +520,9 @@ async fn targets_batch(
                 TargetNodeLookup(&ctx),
                 results.iter_loaded_targets_by_package().collect(),
                 target_platform,
-                options.file_mode,
-                options.fast_hash,
-                options.recursive,
+                hash_options.file_mode,
+                hash_options.fast_hash,
+                hash_options.recursive,
             )
             .await?,
         ),
