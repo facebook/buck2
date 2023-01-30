@@ -246,8 +246,14 @@ where
         self.observer.test_state()
     }
 
-    pub(crate) fn update_event_observer(&mut self, event: &Arc<BuckEvent>) -> anyhow::Result<()> {
-        self.observer.observe(event).context("Error tracking event")
+    pub(crate) fn update_event_observer(
+        &mut self,
+        receive_time: Instant,
+        event: &Arc<BuckEvent>,
+    ) -> anyhow::Result<()> {
+        self.observer
+            .observe(receive_time, event)
+            .context("Error tracking event")
     }
 
     fn notify_printed(&mut self) {
@@ -339,7 +345,7 @@ where
     }
 
     async fn handle_event(&mut self, event: &Arc<BuckEvent>) -> anyhow::Result<()> {
-        self.update_event_observer(event)?;
+        self.update_event_observer(Instant::now(), event)?;
         self.handle_inner_event(event)
             .await
             .with_context(|| display::InvalidBuckEvent(event.dupe()))?;

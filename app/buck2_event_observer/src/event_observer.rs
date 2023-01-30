@@ -8,11 +8,13 @@
  */
 
 use std::sync::Arc;
+use std::time::Instant;
 
 use anyhow::Context;
 use buck2_events::BuckEvent;
 
 use crate::action_stats::ActionStats;
+use crate::debug_events::DebugEventsState;
 use crate::dice_state::DiceState;
 use crate::io_state::IoState;
 use crate::re_state::ReState;
@@ -51,7 +53,7 @@ where
         }
     }
 
-    pub fn observe(&mut self, event: &Arc<BuckEvent>) -> anyhow::Result<()> {
+    pub fn observe(&mut self, receive_time: Instant, event: &Arc<BuckEvent>) -> anyhow::Result<()> {
         self.span_tracker.handle_event(event)?;
 
         {
@@ -120,7 +122,7 @@ where
             }
         }
 
-        self.extra.observe(event)?;
+        self.extra.observe(receive_time, event)?;
 
         Ok(())
     }
@@ -161,22 +163,26 @@ where
 pub trait EventObserverExtra: Send {
     fn new() -> Self;
 
-    fn observe(&mut self, event: &Arc<BuckEvent>) -> anyhow::Result<()>;
+    fn observe(&mut self, receive_time: Instant, event: &Arc<BuckEvent>) -> anyhow::Result<()>;
 }
 
 /// This has more fields for debug info. We don't always capture those.
 pub struct DebugEventObserverExtra {
     dice_state: DiceState,
+    debug_events: DebugEventsState,
 }
 
 impl EventObserverExtra for DebugEventObserverExtra {
     fn new() -> Self {
         Self {
             dice_state: DiceState::new(),
+            debug_events: DebugEventsState::new(),
         }
     }
 
-    fn observe(&mut self, event: &Arc<BuckEvent>) -> anyhow::Result<()> {
+    fn observe(&mut self, receive_time: Instant, event: &Arc<BuckEvent>) -> anyhow::Result<()> {
+        self.debug_events.handle_event(receive_time, event)?;
+
         {
             use buck2_data::buck_event::Data::*;
 
@@ -207,6 +213,10 @@ impl DebugEventObserverExtra {
     pub fn dice_state(&self) -> &DiceState {
         &self.dice_state
     }
+
+    pub fn debug_events(&self) -> &DebugEventsState {
+        &self.debug_events
+    }
 }
 
 pub struct NoopEventObserverExtra;
@@ -216,7 +226,7 @@ impl EventObserverExtra for NoopEventObserverExtra {
         Self
     }
 
-    fn observe(&mut self, _event: &Arc<BuckEvent>) -> anyhow::Result<()> {
+    fn observe(&mut self, _receive_time: Instant, _event: &Arc<BuckEvent>) -> anyhow::Result<()> {
         // Noop
         Ok(())
     }

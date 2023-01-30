@@ -17,7 +17,6 @@ use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_data::CommandExecutionDetails;
-use buck2_event_observer::debug_events::DebugEventsState;
 use buck2_event_observer::display;
 use buck2_event_observer::display::display_file_watcher_end;
 use buck2_event_observer::display::TargetDisplayOptions;
@@ -111,7 +110,6 @@ impl TimeSpeed {
 pub(crate) struct SuperConsoleState {
     current_tick: Tick,
     time_speed: TimeSpeed,
-    debug_events: DebugEventsState,
     /// This contains the SpanTracker, which is why it's part of the SuperConsoleState.
     simple_console: SimpleConsole<DebugEventObserverExtra>,
     config: SuperConsoleConfig,
@@ -213,7 +211,6 @@ impl StatefulSuperConsole {
                     verbosity,
                     show_waiting_message,
                 ),
-                debug_events: DebugEventsState::new(),
                 config,
             },
             super_console: Some(super_console),
@@ -260,8 +257,8 @@ impl SuperConsoleState {
             &self.time_speed,
             self.simple_console.re_state(),
             self.simple_console.io_state(),
-            &self.debug_events,
             self.simple_console.observer().extra().dice_state(),
+            self.simple_console.observer().extra().debug_events(),
         ]
     }
 }
@@ -293,16 +290,14 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
                 self.handle_inner_event(event)
                     .await
                     .with_context(|| display::InvalidBuckEvent(event.clone()))?;
-                self.state.simple_console.update_event_observer(event)?;
+                self.state
+                    .simple_console
+                    .update_event_observer(self.state.current_tick.start_time, event)?;
             }
             None => {
                 self.state.simple_console.handle_event(event).await?;
             }
         }
-
-        self.state
-            .debug_events
-            .handle_event(self.state.current_tick.start_time, event)?;
 
         if self.verbosity.print_all_commands() {
             // This is a bit messy. It would be better for this to go in the branch above, but we
