@@ -269,12 +269,12 @@ impl TargetPrinter for TargetNamePrinter {
     }
 }
 
-struct TargetsOptions {
-    target_hash_mode: TargetHashFileMode,
-    target_hash_modified_paths: HashSet<CellPath>,
-    use_fast_hash: bool,
-    target_hash_graph_type: TargetHashGraphType,
-    target_hash_recursive: bool,
+struct TargetHashOptions {
+    file_mode: TargetHashFileMode,
+    modified_paths: HashSet<CellPath>,
+    fast_hash: bool,
+    graph_type: TargetHashGraphType,
+    recursive: bool,
 }
 
 pub async fn targets_command(
@@ -379,14 +379,14 @@ async fn targets(
         &mut *printer,
         parsed_target_patterns,
         target_platform,
-        TargetsOptions {
-            target_hash_mode: TargetHashFileMode::from_i32(request.target_hash_file_mode)
+        TargetHashOptions {
+            file_mode: TargetHashFileMode::from_i32(request.target_hash_file_mode)
                 .expect("buck cli should send valid target hash file mode"),
-            target_hash_modified_paths,
-            use_fast_hash: request.target_hash_use_fast_hash,
-            target_hash_graph_type: TargetHashGraphType::from_i32(request.target_hash_graph_type)
+            modified_paths: target_hash_modified_paths,
+            fast_hash: request.target_hash_use_fast_hash,
+            graph_type: TargetHashGraphType::from_i32(request.target_hash_graph_type)
                 .expect("buck cli should send valid target hash graph type"),
-            target_hash_recursive: request.target_hash_recursive,
+            recursive: request.target_hash_recursive,
         },
         request.keep_going,
     )
@@ -474,19 +474,17 @@ async fn targets_batch(
     printer: &mut dyn TargetPrinter,
     parsed_patterns: Vec<ParsedPattern<TargetPattern>>,
     target_platform: Option<TargetLabel>,
-    options: TargetsOptions,
+    options: TargetHashOptions,
     keep_going: bool,
 ) -> anyhow::Result<(u64, String)> {
     let results = load_patterns(&ctx, parsed_patterns).await?;
 
-    let file_hash_mode = match options.target_hash_mode {
-        TargetHashFileMode::PathsOnly => {
-            TargetHashesFileMode::PathsOnly(options.target_hash_modified_paths)
-        }
+    let file_hash_mode = match options.file_mode {
+        TargetHashFileMode::PathsOnly => TargetHashesFileMode::PathsOnly(options.modified_paths),
         TargetHashFileMode::PathsAndContents => TargetHashesFileMode::PathsAndContents,
         TargetHashFileMode::NoFiles => TargetHashesFileMode::None,
     };
-    let target_hashes = match options.target_hash_graph_type {
+    let target_hashes = match options.graph_type {
         TargetHashGraphType::Configured => Some(
             TargetHashes::compute::<ConfiguredTargetNode, _>(
                 ctx.dupe(),
@@ -494,8 +492,8 @@ async fn targets_batch(
                 results.iter_loaded_targets_by_package().collect(),
                 target_platform,
                 file_hash_mode,
-                options.use_fast_hash,
-                options.target_hash_recursive,
+                options.fast_hash,
+                options.recursive,
             )
             .await?,
         ),
@@ -506,8 +504,8 @@ async fn targets_batch(
                 results.iter_loaded_targets_by_package().collect(),
                 target_platform,
                 file_hash_mode,
-                options.use_fast_hash,
-                options.target_hash_recursive,
+                options.fast_hash,
+                options.recursive,
             )
             .await?,
         ),
