@@ -11,6 +11,7 @@
 # This is buck2's shim import. Any public symbols here will be available within
 # **all** interpreted files.
 
+load("@prelude//android:cpu_filters.bzl", "ALL_CPU_FILTERS")
 load("@prelude//apple:apple_bundle_macro_layer.bzl", "apple_bundle_macro_impl")
 load("@prelude//apple:apple_macro_layer.bzl", "apple_binary_macro_impl", "apple_library_macro_impl")
 load("@prelude//apple:apple_test_macro_layer.bzl", "apple_test_macro_impl")
@@ -155,19 +156,17 @@ def _at_most_one(*items):
 
     return res
 
-_DEFAULT_CPU_ABIS = ["armv7", "arm64", "x86", "x86_64"]
-
 def _get_valid_cpu_filters(cpu_filters: [[str.type], None]) -> [str.type]:
     cpu_abis_config_string = read_config("ndk", "cpu_abis")
     if cpu_abis_config_string:
         cpu_abis = [v.strip() for v in cpu_abis_config_string.split(",")]
         for cpu_abi in cpu_abis:
-            if cpu_abi not in _DEFAULT_CPU_ABIS:
-                fail("Entries in ndk.cpu_abis must be one of {}, but {} is not".format(_DEFAULT_CPU_ABIS, cpu_abi))
+            if cpu_abi not in ALL_CPU_FILTERS:
+                fail("Entries in ndk.cpu_abis must be one of {}, but {} is not".format(ALL_CPU_FILTERS, cpu_abi))
     else:
-        cpu_abis = _DEFAULT_CPU_ABIS
+        cpu_abis = ALL_CPU_FILTERS
 
-    cpu_filters = cpu_filters or _DEFAULT_CPU_ABIS
+    cpu_filters = cpu_filters or ALL_CPU_FILTERS
 
     return [cpu_filter for cpu_filter in cpu_filters if cpu_filter in cpu_abis]
 
