@@ -29,7 +29,8 @@ def _parse_re_opts(labels: [str.type]) -> [{str.type: str.type}, None]:
 # TODO(agallagher): Parsing RE options via JSON embedded in labels isn't a great
 # UI, and we just do it here to support existing use cases.  Ideally, though, we'd
 # present a better UI (e.g. an `re_opts` param for tests) and use that instead.
-def get_re_executor_from_labels(labels: [str.type]) -> ["command_executor_config_builder", None]:
+# TODO(nga): remove "command_executor_config_builder", this is dead code after the version bump.
+def get_re_executor_from_labels(labels: [str.type]) -> ["command_executor_config_builder", "command_executor_config", None]:
     """
     Parse legacy RE-enablement test labels and use them to configure a test RE
     executor to run the test with.

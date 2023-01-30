@@ -5,7 +5,8 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-def get_re_executor_from_props(re_props: [{str.type: str.type}, None]) -> ["command_executor_config_builder", None]:
+# TODO(nga): remove "command_executor_config_builder", this is dead code after the version bump.
+def get_re_executor_from_props(re_props: [{str.type: str.type}, None]) -> ["command_executor_config_builder", "command_executor_config", None]:
     """
     Convert the `remote_execution` properties param into a `CommandExecutorConfig`
     to use with test providers.
