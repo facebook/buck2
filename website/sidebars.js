@@ -157,14 +157,14 @@ const manualSidebar = [
       },
     ] : [],
   },
-  {
+  isInternal() ? {
     type: 'category',
     label: 'Build Observability',
     items: [
       isInternal() ? 'developers/observability' : [],
       isInternal() ? 'build_observability/datasets' : [],
     ],
-  },
+  } :{},
   {
     type: 'category',
     label: 'Buck2 Developers',
