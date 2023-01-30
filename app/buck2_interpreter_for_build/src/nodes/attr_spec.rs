@@ -84,7 +84,7 @@ impl AttributeSpecExt for AttributeSpec {
                         attr_name,
                         configurable,
                         internals.attr_coercion_context(),
-                        Some(v),
+                        v,
                     )
                     .with_context(|| {
                         format!(

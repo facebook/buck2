@@ -33,7 +33,7 @@ pub trait AttributeCoerceExt {
         param_name: &str,
         configurable: AttrIsConfigurable,
         coercer_ctx: &dyn AttrCoercionContext,
-        value: Option<Value<'v>>,
+        value: Value<'v>,
     ) -> anyhow::Result<CoercedValue>;
 
     fn docstring(&self) -> Option<DocString>;
@@ -49,18 +49,16 @@ impl AttributeCoerceExt for Attribute {
         param_name: &str,
         configurable: AttrIsConfigurable,
         coercer_ctx: &dyn AttrCoercionContext,
-        value: Option<Value<'v>>,
+        value: Value<'v>,
     ) -> anyhow::Result<CoercedValue> {
-        match (self.default(), value) {
-            (default, Some(value)) if !value.is_none() => self
+        match self.default() {
+            default if !value.is_none() => self
                 .coercer()
                 .coerce_with_default(configurable, coercer_ctx, value, default.map(|x| &**x))
                 .map(CoercedValue::Custom)
                 .with_context(|| format!("when coercing attribute `{}`", param_name)),
-            (Some(_), _) => Ok(CoercedValue::Default),
-            (None, _) => {
-                Err(AttrCoerceError::MissingMandatoryParameter(param_name.to_owned()).into())
-            }
+            Some(_) => Ok(CoercedValue::Default),
+            None => Err(AttrCoerceError::MissingMandatoryParameter(param_name.to_owned()).into()),
         }
     }
 
