@@ -26,6 +26,9 @@ use buck2_cli_proto::TargetsResponse;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_core::cells::cell_path::CellPath;
+use buck2_core::cells::CellResolver;
+use buck2_core::fs::project::ProjectRelativePath;
+use buck2_core::fs::project::ProjectRoot;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::TargetPattern;
@@ -277,6 +280,31 @@ struct TargetHashOptions {
     recursive: bool,
 }
 
+impl TargetHashOptions {
+    fn new(
+        request: &TargetsRequest,
+        cell_resolver: &CellResolver,
+        fs: &ProjectRoot,
+        cwd: &ProjectRelativePath,
+    ) -> anyhow::Result<Self> {
+        let target_hash_modified_paths = request
+            .target_hash_modified_paths
+            .iter()
+            .map(|path| cell_resolver.get_cell_path_from_abs_or_rel_path(Path::new(path), fs, cwd))
+            .collect::<anyhow::Result<_>>()?;
+
+        Ok(Self {
+            file_mode: TargetHashFileMode::from_i32(request.target_hash_file_mode)
+                .expect("buck cli should send valid target hash file mode"),
+            modified_paths: target_hash_modified_paths,
+            fast_hash: request.target_hash_use_fast_hash,
+            graph_type: TargetHashGraphType::from_i32(request.target_hash_graph_type)
+                .expect("buck cli should send valid target hash graph type"),
+            recursive: request.target_hash_recursive,
+        })
+    }
+}
+
 pub async fn targets_command(
     ctx: Box<dyn ServerCommandContextTrait>,
     req: TargetsRequest,
@@ -366,11 +394,6 @@ async fn targets(
         target_platform_from_client_context(request.context.as_ref(), &cell_resolver, cwd).await?;
 
     let fs = server_ctx.project_root();
-    let target_hash_modified_paths = request
-        .target_hash_modified_paths
-        .iter()
-        .map(|path| cell_resolver.get_cell_path_from_abs_or_rel_path(Path::new(path), fs, cwd))
-        .collect::<anyhow::Result<_>>()?;
 
     let mut printer = create_printer(request)?;
     let (error_count, results_to_print) = targets_batch(
@@ -379,15 +402,7 @@ async fn targets(
         &mut *printer,
         parsed_target_patterns,
         target_platform,
-        TargetHashOptions {
-            file_mode: TargetHashFileMode::from_i32(request.target_hash_file_mode)
-                .expect("buck cli should send valid target hash file mode"),
-            modified_paths: target_hash_modified_paths,
-            fast_hash: request.target_hash_use_fast_hash,
-            graph_type: TargetHashGraphType::from_i32(request.target_hash_graph_type)
-                .expect("buck cli should send valid target hash graph type"),
-            recursive: request.target_hash_recursive,
-        },
+        TargetHashOptions::new(request, &cell_resolver, fs, cwd)?,
         request.keep_going,
     )
     .await?;
