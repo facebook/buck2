@@ -64,13 +64,14 @@ struct TargetInfo<'a> {
     target_hash: Option<BuckTargetHash>,
 }
 
+#[allow(unused_variables)]
 trait TargetPrinter: Send {
     fn begin(&mut self) {}
     fn end(&mut self) -> String;
-    fn package(&mut self, _package: PackageLabel) {}
+    fn package(&mut self, package: PackageLabel) {}
     fn package_end(&mut self) {}
-    fn target(&mut self, _package: PackageLabel, _target_info: TargetInfo<'_>) {}
-    fn err(&mut self, _package: PackageLabel, _e: &anyhow::Error) {}
+    fn target(&mut self, package: PackageLabel, target_info: TargetInfo<'_>) {}
+    fn err(&mut self, package: PackageLabel, err: &anyhow::Error) {}
 }
 
 struct JsonPrinter {
