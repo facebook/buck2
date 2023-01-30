@@ -72,6 +72,7 @@ rust_library(
         "//buck2/app/buck2_server_ctx:buck2_server_ctx",
         "//buck2/app/buck2_starlark:buck2_starlark",
         "//buck2/app/buck2_test:buck2_test",
+        "//buck2/app/buck2_util:buck2_util",
         "//buck2/buck2_cli_proto:buck2_cli_proto",
         "//buck2/buck2_data:buck2_data",
         "//buck2/dice/dice:dice",
