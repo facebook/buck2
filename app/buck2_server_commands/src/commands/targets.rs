@@ -77,6 +77,7 @@ struct JsonPrinter {
     target_idx: u32,
     json_string: String,
     target_call_stacks: bool,
+    keep_going: bool,
 }
 
 impl TargetPrinter for JsonPrinter {
@@ -167,6 +168,24 @@ impl TargetPrinter for JsonPrinter {
         }
 
         write!(self.json_string, "  }}").unwrap();
+    }
+
+    fn err(&mut self, package: PackageLabel, e: &anyhow::Error) {
+        if self.keep_going {
+            if self.target_idx != 0 {
+                writeln!(self.json_string, ",").unwrap();
+            }
+            self.target_idx += 1;
+            writeln!(self.json_string, "  {{",).unwrap();
+            writeln!(self.json_string, "    \"{}\": \"{}\",", PACKAGE, package).unwrap();
+            writeln!(
+                self.json_string,
+                "    \"buck.error\": {}",
+                quote_json_string(&format!("{:?}", e))
+            )
+            .unwrap();
+            write!(self.json_string, "    }}").unwrap();
+        }
     }
 }
 
@@ -317,6 +336,7 @@ async fn targets(
             target_idx: 0,
             json_string: String::new(),
             target_call_stacks: request.target_call_stacks,
+            keep_going: request.keep_going,
         }
     } else if request.stats {
         box StatsPrinter::new()
@@ -407,6 +427,7 @@ async fn targets(
         }
 
         return Ok(TargetsResponse {
+            error_count: 0,
             serialized_targets_output: output,
         });
     }
@@ -417,7 +438,7 @@ async fn targets(
         .map(|path| cell_resolver.get_cell_path_from_abs_or_rel_path(Path::new(path), fs, cwd))
         .collect::<anyhow::Result<_>>()?;
 
-    let results_to_print = parse_and_get_results(
+    let (error_count, results_to_print) = parse_and_get_results(
         server_ctx,
         ctx,
         &mut *printer,
@@ -432,9 +453,11 @@ async fn targets(
                 .expect("buck cli should send valid target hash graph type"),
             target_hash_recursive: request.target_hash_recursive,
         },
+        request.keep_going,
     )
     .await?;
     Ok(TargetsResponse {
+        error_count,
         serialized_targets_output: results_to_print,
     })
 }
@@ -446,7 +469,8 @@ async fn parse_and_get_results(
     parsed_patterns: Vec<ParsedPattern<TargetPattern>>,
     target_platform: Option<TargetLabel>,
     options: TargetsOptions,
-) -> anyhow::Result<String> {
+    keep_going: bool,
+) -> anyhow::Result<(u64, String)> {
     let results = load_patterns(&ctx, parsed_patterns).await?;
 
     let file_hash_mode = match options.target_hash_mode {
@@ -502,18 +526,20 @@ async fn parse_and_get_results(
             }
             Err(e) => {
                 printer.err(package.dupe(), e.inner());
-                writeln!(
-                    server_ctx.stderr()?,
-                    "Error parsing {}\n{:?}",
-                    package,
-                    e.inner()
-                )?;
+                if !keep_going {
+                    writeln!(
+                        server_ctx.stderr()?,
+                        "Error parsing {}\n{:?}",
+                        package,
+                        e.inner()
+                    )?;
+                }
                 error_count += 1;
             }
         }
     }
     let stdout = printer.end();
-    if error_count != 0 {
+    if !keep_going && error_count != 0 {
         // Simpler error so that we don't print long errors twice (when exiting buck2)
         let package_str = if error_count == 1 {
             "package"
@@ -526,6 +552,6 @@ async fn parse_and_get_results(
             package_str
         ))
     } else {
-        Ok(stdout)
+        Ok((error_count, stdout))
     }
 }

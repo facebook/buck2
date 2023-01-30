@@ -143,6 +143,12 @@ pub struct TargetsCommand {
 
     #[clap(long, help = "Show target call stacks")]
     target_call_stacks: bool,
+
+    #[clap(
+        long,
+        help = "On loading errors, put buck.error in the output stream and continue"
+    )]
+    keep_going: bool,
 }
 
 #[async_trait]
@@ -215,6 +221,7 @@ impl StreamingCommand for TargetsCommand {
             target_hash_graph_type,
             include_default_attributes: self.include_defaults,
             target_hash_recursive: self.target_hash_recursive,
+            keep_going: self.keep_going,
         };
 
         if self.show_output {
@@ -299,5 +306,9 @@ async fn targets(
     if !response.serialized_targets_output.is_empty() {
         buck2_client_ctx::print!("{}", response.serialized_targets_output)?;
     }
-    ExitResult::success()
+    if response.error_count == 0 {
+        ExitResult::success()
+    } else {
+        ExitResult::failure()
+    }
 }

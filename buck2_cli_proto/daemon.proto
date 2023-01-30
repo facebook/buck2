@@ -106,6 +106,7 @@ message TargetsRequest {
 
   bool include_default_attributes = 11;
   bool target_hash_recursive = 12;
+  bool keep_going = 13;
 
   /// These options may be removed at any time.
   bool unstable_resolve_aliases = 4242000;
@@ -116,6 +117,7 @@ message TargetsResponse {
   //            the target printing logic lives in the cli,
   //            not in the daemon
   string serialized_targets_output = 100;
+  uint64 error_count = 101;
 }
 
 message TargetsShowOutputsResponse {
