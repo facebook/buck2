@@ -44,6 +44,8 @@ enum AttrError {
         OPTION_NONE_EXPLANATION
     )]
     OptionDefaultNone(String),
+    #[error("`attrs.default_only` argument must have a default")]
+    DefaultOnlyMustHaveDefault,
 }
 
 pub(crate) trait AttributeExt {
@@ -307,8 +309,11 @@ pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
         inner: &AttributeAsStarlarkValue,
         #[starlark(require = named, default = "")] doc: &str,
     ) -> anyhow::Result<AttributeAsStarlarkValue> {
+        let Some(default) = inner.default().duped() else {
+            return Err(AttrError::DefaultOnlyMustHaveDefault.into());
+        };
         Ok(AttributeAsStarlarkValue::new(Attribute::new(
-            inner.default().duped(),
+            Some(default),
             doc,
             AttrType::default_only(),
         )))
