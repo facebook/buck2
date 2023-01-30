@@ -137,8 +137,6 @@ pub(crate) struct SuperConsoleState {
 
 #[derive(Default)]
 pub struct SuperConsoleConfig {
-    // Offer a spot to put components between the banner and the timed list using `sandwiched`.
-    pub(crate) sandwiched: Option<Box<dyn Component>>,
     pub(crate) enable_dice: bool,
     pub(crate) enable_debug_events: bool,
 }
@@ -146,12 +144,12 @@ pub struct SuperConsoleConfig {
 impl StatefulSuperConsole {
     pub(crate) fn default_layout(
         command_name: &str,
-        config: SuperConsoleConfig,
+        sandwiched: Option<Box<dyn Component>>,
     ) -> Box<dyn Component> {
         let header = format!("Command: `{}`.", command_name);
         let mut components: Vec<Box<dyn Component>> =
             vec![box SessionInfoComponent, ReHeader::boxed(), box IoHeader];
-        if let Some(sandwiched) = config.sandwiched {
+        if let Some(sandwiched) = sandwiched {
             components.push(sandwiched);
         }
         components.push(box DebugEventsComponent);
@@ -819,7 +817,7 @@ mod tests {
     #[tokio::test]
     async fn test_transfer_state_to_simpleconsole() {
         let mut console = StatefulSuperConsole::new_with_root_forced(
-            StatefulSuperConsole::default_layout("test", SuperConsoleConfig::default()),
+            StatefulSuperConsole::default_layout("test", None),
             Verbosity::Default,
             true,
             None,
@@ -884,10 +882,7 @@ mod tests {
         let tick = Tick::now();
 
         let mut console = StatefulSuperConsole::new(
-            test_console(StatefulSuperConsole::default_layout(
-                "build",
-                Default::default(),
-            )),
+            test_console(StatefulSuperConsole::default_layout("build", None)),
             Verbosity::Default,
             true,
             Default::default(),

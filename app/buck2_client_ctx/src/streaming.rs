@@ -27,7 +27,6 @@ use crate::subscribers::get::try_get_re_log_subscriber;
 use crate::subscribers::recorder::try_get_invocation_recorder;
 use crate::subscribers::subscriber::EventSubscriber;
 use crate::subscribers::superconsole::StatefulSuperConsole;
-use crate::subscribers::superconsole::SuperConsoleConfig;
 use crate::LSP_COMMAND_NAME;
 
 fn default_subscribers<T: StreamingCommand>(
@@ -36,13 +35,8 @@ fn default_subscribers<T: StreamingCommand>(
 ) -> anyhow::Result<Vec<Box<dyn EventSubscriber>>> {
     let console_opts = cmd.console_opts();
     let mut subscribers = vec![];
-    let root = StatefulSuperConsole::default_layout(
-        T::COMMAND_NAME,
-        SuperConsoleConfig {
-            sandwiched: cmd.extra_superconsole_component(),
-            ..console_opts.superconsole_config()
-        },
-    );
+    let root =
+        StatefulSuperConsole::default_layout(T::COMMAND_NAME, cmd.extra_superconsole_component());
 
     // If we're running the LSP, do not show "Waiting for daemon..." if we do not get any spans.
     let show_waiting_message = T::COMMAND_NAME != LSP_COMMAND_NAME;
