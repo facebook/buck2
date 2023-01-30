@@ -313,10 +313,10 @@ impl TargetHashOptions {
 }
 
 pub async fn targets_command(
-    ctx: Box<dyn ServerCommandContextTrait>,
+    server_ctx: Box<dyn ServerCommandContextTrait>,
     req: TargetsRequest,
 ) -> anyhow::Result<TargetsResponse> {
-    run_server_command(TargetsServerCommand { req }, ctx).await
+    run_server_command(TargetsServerCommand { req }, server_ctx).await
 }
 
 struct TargetsServerCommand {
@@ -332,9 +332,9 @@ impl ServerCommandTemplate for TargetsServerCommand {
     async fn command<'v>(
         &self,
         server_ctx: &'v dyn ServerCommandContextTrait,
-        ctx: DiceTransaction,
+        dice: DiceTransaction,
     ) -> anyhow::Result<Self::Response> {
-        targets(server_ctx, ctx, &self.req).await
+        targets(server_ctx, dice, &self.req).await
     }
 
     fn is_success(&self, _response: &Self::Response) -> bool {
@@ -376,7 +376,7 @@ fn create_printer(request: &TargetsRequest) -> anyhow::Result<Box<dyn TargetPrin
 
 async fn targets(
     server_ctx: &dyn ServerCommandContextTrait,
-    ctx: DiceTransaction,
+    dice: DiceTransaction,
     request: &TargetsRequest,
 ) -> anyhow::Result<TargetsResponse> {
     // TODO(nmj): Rather than returning fully formatted data in the TargetsResponse, we should
@@ -385,16 +385,16 @@ async fn targets(
     //            issues with printing to stdout.
 
     let cwd = server_ctx.working_dir();
-    let cell_resolver = ctx.get_cell_resolver().await?;
+    let cell_resolver = dice.get_cell_resolver().await?;
     let parsed_target_patterns = parse_patterns_from_cli_args::<TargetPattern>(
         &request.target_patterns,
         &cell_resolver,
-        &ctx.get_legacy_configs().await?,
+        &dice.get_legacy_configs().await?,
         cwd,
     )?;
 
     if request.unstable_resolve_aliases {
-        return targets_resolve_aliases(ctx, request, parsed_target_patterns).await;
+        return targets_resolve_aliases(dice, request, parsed_target_patterns).await;
     }
 
     let target_platform =
@@ -405,7 +405,7 @@ async fn targets(
     let mut printer = create_printer(request)?;
     let (error_count, results_to_print) = targets_batch(
         server_ctx,
-        ctx,
+        dice,
         &mut *printer,
         parsed_target_patterns,
         target_platform,
@@ -420,7 +420,7 @@ async fn targets(
 }
 
 async fn targets_resolve_aliases(
-    ctx: DiceTransaction,
+    dice: DiceTransaction,
     request: &TargetsRequest,
     parsed_target_patterns: Vec<ParsedPattern<TargetPattern>>,
 ) -> anyhow::Result<TargetsResponse> {
@@ -444,11 +444,11 @@ async fn targets_resolve_aliases(
     let packages = packages
         .into_iter()
         .map(|package| {
-            let ctx = &ctx;
+            let dice = &dice;
             async move {
                 (
                     package.dupe(),
-                    ctx.get_interpreter_results(package.dupe()).await,
+                    dice.get_interpreter_results(package.dupe()).await,
                 )
             }
         })
@@ -492,20 +492,20 @@ async fn targets_resolve_aliases(
 
 async fn targets_batch(
     server_ctx: &dyn ServerCommandContextTrait,
-    ctx: DiceTransaction,
+    dice: DiceTransaction,
     printer: &mut dyn TargetPrinter,
     parsed_patterns: Vec<ParsedPattern<TargetPattern>>,
     target_platform: Option<TargetLabel>,
     hash_options: TargetHashOptions,
     keep_going: bool,
 ) -> anyhow::Result<(u64, String)> {
-    let results = load_patterns(&ctx, parsed_patterns).await?;
+    let results = load_patterns(&dice, parsed_patterns).await?;
 
     let target_hashes = match hash_options.graph_type {
         TargetHashGraphType::Configured => Some(
             TargetHashes::compute::<ConfiguredTargetNode, _>(
-                ctx.dupe(),
-                ConfiguredTargetNodeLookup(&ctx),
+                dice.dupe(),
+                ConfiguredTargetNodeLookup(&dice),
                 results.iter_loaded_targets_by_package().collect(),
                 target_platform,
                 hash_options.file_mode,
@@ -516,8 +516,8 @@ async fn targets_batch(
         ),
         TargetHashGraphType::Unconfigured => Some(
             TargetHashes::compute::<TargetNode, _>(
-                ctx.dupe(),
-                TargetNodeLookup(&ctx),
+                dice.dupe(),
+                TargetNodeLookup(&dice),
                 results.iter_loaded_targets_by_package().collect(),
                 target_platform,
                 hash_options.file_mode,
