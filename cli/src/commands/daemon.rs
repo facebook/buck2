@@ -62,6 +62,8 @@ use starlark::environment::GlobalsBuilder;
 use thiserror::Error;
 use tokio::runtime::Builder;
 
+use crate::commands::schedule_termination::maybe_schedule_termination;
+
 #[derive(Debug, Error)]
 enum DaemonError {
     #[error("The buckd pid file at `{0}` had a mismatched pid, expected `{1}`, got `{2}`")]
@@ -240,23 +242,6 @@ fn verify_current_daemon(daemon_dir: &DaemonDir) -> anyhow::Result<()> {
         return Err(
             DaemonError::PidFileMismatch(file.into_path_buf(), my_pid, recorded_pid).into(),
         );
-    }
-
-    Ok(())
-}
-
-/// Our tests sometimes don't exit Buck 2 cleanly, and they might not get an oppportunity to do so
-/// if they are terminated. This allows the daemon to self-destruct.
-fn maybe_schedule_termination() -> anyhow::Result<()> {
-    static TERMINATE_AFTER: EnvHelper<u64> = EnvHelper::new("BUCK2_TERMINATE_AFTER");
-
-    if let Some(duration) = TERMINATE_AFTER.get_copied()? {
-        thread::Builder::new()
-            .name("buck2-terminate-after".to_owned())
-            .spawn(move || {
-                thread::sleep(Duration::from_secs(duration));
-                panic!("Buck is exiting after {}s elapsed", duration);
-            })?;
     }
 
     Ok(())
