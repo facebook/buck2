@@ -32,6 +32,8 @@ mod imp {
     use async_trait::async_trait;
     use buck2_common::convert::ProstDurationExt;
     use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+    use buck2_event_observer::last_command_execution_kind;
+    use buck2_event_observer::last_command_execution_kind::LastCommandExecutionKind;
     use buck2_events::sink::scribe::ThriftScribeSink;
     use buck2_events::trace::TraceId;
     use buck2_events::BuckEvent;
@@ -41,8 +43,6 @@ mod imp {
 
     use crate::build_count::BuildCountManager;
     use crate::cleanup_ctx::AsyncCleanupContext;
-    use crate::subscribers::last_command_execution_kind;
-    use crate::subscribers::last_command_execution_kind::LastCommandExecutionKind;
     use crate::subscribers::recorder::is_eden_dir;
     use crate::subscribers::recorder::system_memory_stats;
     use crate::subscribers::subscriber_unpack::UnpackingEventSubscriber;

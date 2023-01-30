@@ -14,7 +14,6 @@ pub mod event_log;
 pub(crate) mod get;
 pub(crate) mod humanized_bytes;
 pub(crate) mod io;
-pub(crate) mod last_command_execution_kind;
 pub mod re_log;
 pub(crate) mod re_panel;
 pub(crate) mod recorder;
