@@ -31,6 +31,7 @@
 create_dir_summary(ExecDir) ->
     TempDir = create_temp_directory(),
     Funcs = [
+        fun add_test_log/2,
         fun add_test_log_json/2,
         fun add_suite_html/2,
         fun add_log_private/2,
@@ -67,6 +68,16 @@ add_ct_stdout(TempDir, ExecDir) ->
         TestLogJson ->
             file:make_symlink(TestLogJson, filename:join(TempDir, "ct.stdout")),
             {ct_stdout, filename:join(TempDir, "ct.stdout")}
+    end.
+
+-spec add_test_log(file:filename(), file:filename()) -> key_entry().
+add_test_log(TempDir, ExecDir) ->
+    case find_pattern(ExecDir, "**/test.log", file) of
+        {error, _} ->
+            not_found;
+        TestLogJson ->
+            file:make_symlink(TestLogJson, filename:join(TempDir, "test.log")),
+            {test_log, filename:join(TempDir, "test.log")}
     end.
 
 -spec add_test_log_json(file:filename(), file:filename()) -> key_entry().
