@@ -12,13 +12,13 @@ use std::time::Duration;
 use std::time::SystemTime;
 
 #[derive(Default)]
-pub(crate) struct TwoSnapshots {
-    pub(crate) penultimate: Option<(SystemTime, buck2_data::Snapshot)>,
-    pub(crate) last: Option<(SystemTime, buck2_data::Snapshot)>,
+pub struct TwoSnapshots {
+    pub penultimate: Option<(SystemTime, buck2_data::Snapshot)>,
+    pub last: Option<(SystemTime, buck2_data::Snapshot)>,
 }
 
 impl TwoSnapshots {
-    pub(crate) fn update(&mut self, timestamp: SystemTime, snapshot: &buck2_data::Snapshot) {
+    pub fn update(&mut self, timestamp: SystemTime, snapshot: &buck2_data::Snapshot) {
         self.penultimate = mem::replace(&mut self.last, Some((timestamp, snapshot.clone())));
     }
 
@@ -33,7 +33,7 @@ impl TwoSnapshots {
     }
 
     /// User + system CPU time between two snapshots in percents.
-    pub(crate) fn cpu_percents(&self) -> Option<u32> {
+    pub fn cpu_percents(&self) -> Option<u32> {
         let (_, penultimate_snapshot) = self.penultimate.as_ref()?;
         let (_, last_snapshot) = self.last.as_ref()?;
         let duration = self.non_zero_duration()?;
@@ -61,11 +61,11 @@ impl TwoSnapshots {
         Some(bytes * 1_000_000 / duration.as_micros() as u64)
     }
 
-    pub(crate) fn re_download_bytes_per_second(&self) -> Option<u64> {
+    pub fn re_download_bytes_per_second(&self) -> Option<u64> {
         self.re_upload_download_rate_bytes_per_second(|snapshot| snapshot.re_download_bytes)
     }
 
-    pub(crate) fn re_upload_bytes_per_second(&self) -> Option<u64> {
+    pub fn re_upload_bytes_per_second(&self) -> Option<u64> {
         self.re_upload_download_rate_bytes_per_second(|snapshot| snapshot.re_upload_bytes)
     }
 }
@@ -76,7 +76,7 @@ mod tests {
     use std::time::Duration;
     use std::time::SystemTime;
 
-    use crate::subscribers::two_snapshots::TwoSnapshots;
+    use super::TwoSnapshots;
 
     #[test]
     fn test_cpu_percents() {

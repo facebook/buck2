@@ -9,12 +9,12 @@
 
 use std::time::SystemTime;
 
+use buck2_event_observer::two_snapshots::TwoSnapshots;
 use superconsole::DrawMode;
 use superconsole::Line;
 
 use crate::subscribers::humanized_bytes::HumanizedBytes;
 use crate::subscribers::humanized_bytes::HumanizedBytesPerSecond;
-use crate::subscribers::two_snapshots::TwoSnapshots;
 
 pub(crate) struct RePanel {
     session_id: Option<String>,

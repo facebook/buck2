@@ -25,6 +25,7 @@ use buck2_event_observer::display::display_file_watcher_end;
 use buck2_event_observer::display::TargetDisplayOptions;
 use buck2_event_observer::event_observer::EventObserver;
 use buck2_event_observer::span_tracker::BuckEventSpanTracker;
+use buck2_event_observer::two_snapshots::TwoSnapshots;
 use buck2_event_observer::verbosity::Verbosity;
 use buck2_event_observer::what_ran;
 use buck2_event_observer::what_ran::local_command_to_string;
@@ -46,7 +47,6 @@ use crate::subscribers::io::IoState;
 use crate::subscribers::re_panel::RePanel;
 use crate::subscribers::subscriber::Tick;
 use crate::subscribers::subscriber_unpack::UnpackingEventSubscriber;
-use crate::subscribers::two_snapshots::TwoSnapshots;
 
 /// buck2 daemon info is printed to stderr if there are no other updates available
 /// within this duration.

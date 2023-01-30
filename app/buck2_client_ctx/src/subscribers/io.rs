@@ -10,6 +10,7 @@
 use std::time::SystemTime;
 
 use buck2_core::io_counters::IoCounterKey;
+use buck2_event_observer::two_snapshots::TwoSnapshots;
 use gazebo::prelude::VecExt;
 use superconsole::Component;
 use superconsole::Dimensions;
@@ -19,7 +20,6 @@ use superconsole::Lines;
 use superconsole::State;
 
 use crate::subscribers::humanized_bytes::HumanizedBytes;
-use crate::subscribers::two_snapshots::TwoSnapshots;
 
 #[derive(Default)]
 pub(crate) struct IoState {

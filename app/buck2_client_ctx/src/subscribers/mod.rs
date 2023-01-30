@@ -22,7 +22,6 @@ pub(crate) mod stdout_stderr_forwarder;
 pub mod subscriber;
 pub mod subscriber_unpack;
 pub mod superconsole;
-pub(crate) mod two_snapshots;
 
 pub fn disable_log_upload() -> anyhow::Result<bool> {
     static DISABLE_LOG_UPLOAD: EnvHelper<bool> = EnvHelper::new("BUCK2_TEST_DISABLE_LOG_UPLOAD");

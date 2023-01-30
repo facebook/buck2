@@ -14,5 +14,6 @@ pub mod display;
 pub mod event_observer;
 pub mod last_command_execution_kind;
 pub mod span_tracker;
+pub mod two_snapshots;
 pub mod verbosity;
 pub mod what_ran;
