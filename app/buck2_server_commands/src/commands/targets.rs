@@ -67,10 +67,7 @@ trait TargetPrinter: Send {
     fn package(&mut self, _package: PackageLabel) {}
     fn package_end(&mut self) {}
     fn target(&mut self, _package: PackageLabel, _target_info: TargetInfo<'_>) {}
-    fn err(&mut self, package: PackageLabel, e: &anyhow::Error) {
-        eprintln!("Error parsing {}", package);
-        eprintln!("{:?}", e);
-    }
+    fn err(&mut self, _package: PackageLabel, _e: &anyhow::Error) {}
 }
 
 struct JsonPrinter {
@@ -204,10 +201,8 @@ impl TargetPrinter for StatsPrinter {
         self.targets += 1;
     }
 
-    fn err(&mut self, package: PackageLabel, e: &anyhow::Error) {
+    fn err(&mut self, _package: PackageLabel, _e: &anyhow::Error) {
         self.errors += 1;
-        eprintln!("Error parsing {}", package);
-        eprintln!("{:?}", e);
     }
 }
 
@@ -506,6 +501,8 @@ async fn parse_and_get_results(
             }
             Err(e) => {
                 printer.err(package.dupe(), e.inner());
+                eprintln!("Error parsing {}", package);
+                eprintln!("{:?}", e.inner());
                 error_count += 1;
             }
         }
