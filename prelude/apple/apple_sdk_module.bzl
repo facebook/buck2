@@ -6,8 +6,8 @@
 # of this source tree.
 
 load(":apple_sdk_modules_utility.bzl", "SDKDepTSet")
-load(":apple_sdk_swift_module.bzl", "compile_sdk_swiftinterface")
 load(":swift_pcm_compilation.bzl", "compile_swift_sdk_pcm")
+load(":swift_sdk_swiftinterface_compilation.bzl", "compile_sdk_swiftinterface")
 
 # Starting from a root node, this helper function traverses a graph of uncompiled SDK modules
 # to create a graph of compiled ones.
