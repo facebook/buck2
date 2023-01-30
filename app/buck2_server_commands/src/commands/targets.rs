@@ -349,16 +349,8 @@ async fn targets(
     //            then handle printing. The current approach is just a temporary hack to fix some
     //            issues with printing to stdout.
 
-    let mut printer = create_printer(request)?;
-
-    let fs = server_ctx.project_root();
     let cwd = server_ctx.working_dir();
-
     let cell_resolver = ctx.get_cell_resolver().await?;
-
-    let target_platform =
-        target_platform_from_client_context(request.context.as_ref(), &cell_resolver, cwd).await?;
-
     let parsed_target_patterns = parse_patterns_from_cli_args::<TargetPattern>(
         &request.target_patterns,
         &cell_resolver,
@@ -370,12 +362,17 @@ async fn targets(
         return targets_resolve_aliases(ctx, request, parsed_target_patterns).await;
     }
 
+    let target_platform =
+        target_platform_from_client_context(request.context.as_ref(), &cell_resolver, cwd).await?;
+
+    let fs = server_ctx.project_root();
     let target_hash_modified_paths = request
         .target_hash_modified_paths
         .iter()
         .map(|path| cell_resolver.get_cell_path_from_abs_or_rel_path(Path::new(path), fs, cwd))
         .collect::<anyhow::Result<_>>()?;
 
+    let mut printer = create_printer(request)?;
     let (error_count, results_to_print) = parse_and_get_results(
         server_ctx,
         ctx,
