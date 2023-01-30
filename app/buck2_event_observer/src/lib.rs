@@ -14,6 +14,7 @@ pub mod display;
 pub mod event_observer;
 pub mod humanized_bytes;
 pub mod last_command_execution_kind;
+pub mod re_state;
 pub mod span_tracker;
 pub mod two_snapshots;
 pub mod verbosity;

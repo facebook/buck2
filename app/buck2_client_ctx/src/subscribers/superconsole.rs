@@ -470,18 +470,6 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
         }
     }
 
-    async fn handle_re_session_created(
-        &mut self,
-        session: &buck2_data::RemoteExecutionSessionCreated,
-        _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        self.state
-            .simple_console
-            .re_state_mut()
-            .add_re_session(session);
-        Ok(())
-    }
-
     async fn handle_console_message(
         &mut self,
         message: &buck2_data::ConsoleMessage,

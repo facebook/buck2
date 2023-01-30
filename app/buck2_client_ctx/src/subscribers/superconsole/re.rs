@@ -7,9 +7,9 @@
  * of this source tree.
  */
 
+use buck2_event_observer::re_state::ReState;
 use superconsole::Component;
 
-use crate::subscribers::re_state::ReState;
 use crate::subscribers::superconsole::SuperConsoleConfig;
 
 /// Draw the test summary line above the `timed_list`

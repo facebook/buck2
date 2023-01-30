@@ -9,34 +9,35 @@
 
 use std::time::SystemTime;
 
-use buck2_event_observer::humanized_bytes::HumanizedBytes;
-use buck2_event_observer::humanized_bytes::HumanizedBytesPerSecond;
-use buck2_event_observer::two_snapshots::TwoSnapshots;
 use superconsole::DrawMode;
 use superconsole::Line;
 
-pub(crate) struct ReState {
+use crate::humanized_bytes::HumanizedBytes;
+use crate::humanized_bytes::HumanizedBytesPerSecond;
+use crate::two_snapshots::TwoSnapshots;
+
+pub struct ReState {
     session_id: Option<String>,
     two_snapshots: TwoSnapshots,
 }
 
 impl ReState {
-    pub(crate) fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             session_id: None,
             two_snapshots: TwoSnapshots::default(),
         }
     }
 
-    pub(crate) fn add_re_session(&mut self, session: &buck2_data::RemoteExecutionSessionCreated) {
+    pub fn add_re_session(&mut self, session: &buck2_data::RemoteExecutionSessionCreated) {
         self.session_id = Some(session.session_id.clone());
     }
 
-    pub(crate) fn update(&mut self, timestamp: SystemTime, snapshot: &buck2_data::Snapshot) {
+    pub fn update(&mut self, timestamp: SystemTime, snapshot: &buck2_data::Snapshot) {
         self.two_snapshots.update(timestamp, snapshot);
     }
 
-    pub(crate) fn render_header(&self, draw_mode: DrawMode) -> Option<String> {
+    pub fn render_header(&self, draw_mode: DrawMode) -> Option<String> {
         let mut parts = Vec::new();
 
         if let Some(session_id) = self.session_id.as_ref() {
@@ -161,7 +162,7 @@ impl ReState {
         Ok(r)
     }
 
-    pub(crate) fn render(&self, detailed: bool, draw_mode: DrawMode) -> anyhow::Result<Vec<Line>> {
+    pub fn render(&self, detailed: bool, draw_mode: DrawMode) -> anyhow::Result<Vec<Line>> {
         let header = match self.render_header(draw_mode) {
             Some(header) => header,
             None => return Ok(Vec::new()),
