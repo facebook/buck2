@@ -20,10 +20,11 @@ use superconsole::Line;
 use superconsole::Lines;
 use superconsole::State;
 
+use crate::subscribers::superconsole::SuperConsoleConfig;
+
 #[derive(Default)]
 pub(crate) struct IoState {
     two_snapshots: TwoSnapshots,
-    pub(crate) enabled: bool,
 }
 
 /// Place space-separated words on lines.
@@ -126,8 +127,13 @@ impl IoState {
         Ok(lines)
     }
 
-    pub(crate) fn render(&self, draw_mode: DrawMode, width: usize) -> anyhow::Result<Vec<Line>> {
-        if !self.enabled {
+    pub(crate) fn render(
+        &self,
+        draw_mode: DrawMode,
+        width: usize,
+        enabled: bool,
+    ) -> anyhow::Result<Vec<Line>> {
+        if !enabled {
             return Ok(Vec::new());
         }
         if let DrawMode::Final = draw_mode {
@@ -151,8 +157,9 @@ impl Component for IoHeader {
         dimensions: Dimensions,
         mode: DrawMode,
     ) -> anyhow::Result<Lines> {
+        let config = state.get::<SuperConsoleConfig>()?;
         let io = state.get::<IoState>()?;
-        io.render(mode, dimensions.width)
+        io.render(mode, dimensions.width, config.enable_io)
     }
 }
 

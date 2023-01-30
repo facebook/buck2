@@ -54,7 +54,6 @@ use crate::subscribers::simpleconsole::SimpleConsole;
 use crate::subscribers::subscriber::Tick;
 use crate::subscribers::subscriber_unpack::UnpackingEventSubscriber;
 use crate::subscribers::superconsole::commands::CommandsComponent;
-use crate::subscribers::superconsole::commands::CommandsComponentState;
 use crate::subscribers::superconsole::debug_events::DebugEventsComponent;
 use crate::subscribers::superconsole::debug_events::DebugEventsState;
 use crate::subscribers::superconsole::dice::DiceComponent;
@@ -116,12 +115,6 @@ impl TimeSpeed {
     }
 }
 
-#[derive(Default)]
-pub(crate) struct TimedListState {
-    /// Two lines for root events with single child event.
-    pub(crate) two_lines: bool,
-}
-
 pub(crate) struct SuperConsoleState {
     test_state: TestState,
     current_tick: Tick,
@@ -129,16 +122,20 @@ pub(crate) struct SuperConsoleState {
     time_speed: TimeSpeed,
     dice_state: DiceState,
     debug_events: DebugEventsState,
-    commands_state: CommandsComponentState,
     /// This contains the SpanTracker, which is why it's part of the SuperConsoleState.
     simple_console: SimpleConsole,
-    timed_list: TimedListState,
+    config: SuperConsoleConfig,
 }
 
 #[derive(Default)]
 pub struct SuperConsoleConfig {
     pub(crate) enable_dice: bool,
     pub(crate) enable_debug_events: bool,
+    pub(crate) enable_detailed_re: bool,
+    pub(crate) enable_io: bool,
+    pub(crate) enable_commands: bool,
+    /// Two lines for root events with single child event.
+    pub(crate) two_lines: bool,
 }
 
 impl StatefulSuperConsole {
@@ -228,10 +225,9 @@ impl StatefulSuperConsole {
                     verbosity,
                     show_waiting_message,
                 ),
-                dice_state: DiceState::new(config.enable_dice),
-                debug_events: DebugEventsState::new(config.enable_debug_events),
-                commands_state: CommandsComponentState { enabled: false },
-                timed_list: TimedListState::default(),
+                dice_state: DiceState::new(),
+                debug_events: DebugEventsState::new(),
+                config,
             },
             super_console: Some(super_console),
             verbosity,
@@ -272,14 +268,13 @@ impl SuperConsoleState {
             self.simple_console.action_stats(),
             &self.test_state,
             &self.session_info,
+            &self.config,
             &self.current_tick,
             &self.time_speed,
             &self.dice_state,
             self.simple_console.re_panel(),
             &self.simple_console.io_state,
             &self.debug_events,
-            &self.commands_state,
-            &self.timed_list,
         ]
     }
 }
@@ -381,28 +376,26 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
 
     async fn handle_console_interaction(&mut self, c: char) -> anyhow::Result<()> {
         if c == 'd' {
-            self.toggle("DICE component", 'd', |s| &mut s.state.dice_state.enabled)
+            self.toggle("DICE component", 'd', |s| &mut s.state.config.enable_dice)
                 .await?;
         } else if c == 'e' {
             self.toggle("Debug events component", 'e', |s| {
-                &mut s.state.debug_events.enabled
+                &mut s.state.config.enable_debug_events
             })
             .await?;
         } else if c == '2' {
-            self.toggle("Two lines mode", '2', |s| &mut s.state.timed_list.two_lines)
+            self.toggle("Two lines mode", '2', |s| &mut s.state.config.two_lines)
                 .await?;
         } else if c == 'r' {
             self.toggle("Detailed RE", 'r', |s| {
-                &mut s.state.simple_console.re_panel_mut().detailed
+                &mut s.state.config.enable_detailed_re
             })
             .await?;
         } else if c == 'i' {
-            self.toggle("I/O counters", 'i', |s| {
-                &mut s.state.simple_console.io_state.enabled
-            })
-            .await?;
+            self.toggle("I/O counters", 'i', |s| &mut s.state.config.enable_io)
+                .await?;
         } else if c == 'c' {
-            self.toggle("Commands", 'c', |s| &mut s.state.commands_state.enabled)
+            self.toggle("Commands", 'c', |s| &mut s.state.config.enable_commands)
                 .await?;
         } else if c == '?' || c == 'h' {
             self.handle_stderr(

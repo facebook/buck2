@@ -11,9 +11,7 @@ use buck2_event_observer::action_stats::ActionStats;
 use superconsole::Component;
 use superconsole::Line;
 
-pub(crate) struct CommandsComponentState {
-    pub(crate) enabled: bool,
-}
+use crate::subscribers::superconsole::SuperConsoleConfig;
 
 #[derive(Debug)]
 pub(crate) struct CommandsComponent;
@@ -25,8 +23,8 @@ impl Component for CommandsComponent {
         _dimensions: superconsole::Dimensions,
         _mode: superconsole::DrawMode,
     ) -> anyhow::Result<superconsole::Lines> {
-        let component_state = state.get::<CommandsComponentState>()?;
-        if !component_state.enabled {
+        let config = state.get::<SuperConsoleConfig>()?;
+        if !config.enable_commands {
             return Ok(vec![]);
         }
 

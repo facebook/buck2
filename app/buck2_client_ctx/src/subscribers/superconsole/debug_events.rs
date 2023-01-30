@@ -20,6 +20,7 @@ use superconsole::Component;
 
 use crate::subscribers::subscriber::unpack_event;
 use crate::subscribers::subscriber::UnpackedBuckEvent;
+use crate::subscribers::superconsole::SuperConsoleConfig;
 
 static NUM_DELAYS_FOR_AVERAGE: usize = 10;
 
@@ -39,7 +40,6 @@ struct InstantData {
 }
 
 pub(crate) struct DebugEventsState {
-    pub enabled: bool,
     event_count: u64,
     spans: BTreeMap<String, SpanData>,
     instants: BTreeMap<String, InstantData>,
@@ -51,9 +51,8 @@ pub(crate) struct DebugEventsState {
 }
 
 impl DebugEventsState {
-    pub(crate) fn new(enabled: bool) -> Self {
+    pub(crate) fn new() -> Self {
         Self {
-            enabled,
             event_count: 0,
             spans: BTreeMap::new(),
             instants: BTreeMap::new(),
@@ -159,9 +158,10 @@ impl Component for DebugEventsComponent {
         _dimensions: superconsole::Dimensions,
         _mode: superconsole::DrawMode,
     ) -> anyhow::Result<superconsole::Lines> {
+        let config = state.get::<SuperConsoleConfig>()?;
         let state = state.get::<DebugEventsState>()?;
 
-        if !state.enabled {
+        if !config.enable_debug_events {
             return Ok(vec![]);
         }
 

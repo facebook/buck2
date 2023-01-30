@@ -14,15 +14,15 @@ use buck2_data::DiceStateSnapshot;
 use gazebo::prelude::*;
 use superconsole::Component;
 
+use crate::subscribers::superconsole::SuperConsoleConfig;
+
 pub(crate) struct DiceState {
-    pub(crate) enabled: bool,
     key_states: BTreeMap<String, DiceKeyState>,
 }
 
 impl DiceState {
-    pub(crate) fn new(enabled: bool) -> Self {
+    pub(crate) fn new() -> Self {
         Self {
-            enabled,
             key_states: BTreeMap::new(),
         }
     }
@@ -44,9 +44,10 @@ impl Component for DiceComponent {
         _dimensions: superconsole::Dimensions,
         mode: superconsole::DrawMode,
     ) -> anyhow::Result<superconsole::Lines> {
+        let config = state.get::<SuperConsoleConfig>()?;
         let state = state.get::<DiceState>()?;
 
-        if !state.enabled {
+        if !config.enable_dice {
             return Ok(vec![]);
         }
 

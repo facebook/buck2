@@ -18,15 +18,12 @@ use superconsole::Line;
 pub(crate) struct RePanel {
     session_id: Option<String>,
     two_snapshots: TwoSnapshots,
-    /// Detailed RE stats.
-    pub(crate) detailed: bool,
 }
 
 impl RePanel {
     pub(crate) fn new() -> Self {
         Self {
             session_id: None,
-            detailed: false,
             two_snapshots: TwoSnapshots::default(),
         }
     }
@@ -164,13 +161,13 @@ impl RePanel {
         Ok(r)
     }
 
-    pub(crate) fn render(&self, draw_mode: DrawMode) -> anyhow::Result<Vec<Line>> {
+    pub(crate) fn render(&self, detailed: bool, draw_mode: DrawMode) -> anyhow::Result<Vec<Line>> {
         let header = match self.render_header(draw_mode) {
             Some(header) => header,
             None => return Ok(Vec::new()),
         };
         let mut lines = vec![Line::unstyled(&header)?];
-        if self.detailed {
+        if detailed {
             lines.extend(self.render_detailed()?);
         }
         Ok(lines)
