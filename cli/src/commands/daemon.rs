@@ -255,7 +255,7 @@ fn maybe_schedule_termination() -> anyhow::Result<()> {
             .name("buck2-terminate-after".to_owned())
             .spawn(move || {
                 thread::sleep(Duration::from_secs(duration));
-                panic!("Buck is exiting after {} elapsed", duration);
+                panic!("Buck is exiting after {}s elapsed", duration);
             })?;
     }
 
