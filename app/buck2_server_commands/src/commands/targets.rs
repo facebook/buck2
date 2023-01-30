@@ -9,7 +9,8 @@
 
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::fmt::Write;
+use std::fmt::Write as _;
+use std::io::Write as _;
 use std::path::Path;
 
 use anyhow::Context as _;
@@ -419,6 +420,7 @@ async fn targets(
         .collect::<anyhow::Result<_>>()?;
 
     let results_to_print = parse_and_get_results(
+        server_ctx,
         ctx,
         &mut *printer,
         parsed_target_patterns,
@@ -440,6 +442,7 @@ async fn targets(
 }
 
 async fn parse_and_get_results(
+    server_ctx: &dyn ServerCommandContextTrait,
     ctx: DiceTransaction,
     printer: &mut dyn TargetPrinter,
     parsed_patterns: Vec<ParsedPattern<TargetPattern>>,
@@ -501,8 +504,12 @@ async fn parse_and_get_results(
             }
             Err(e) => {
                 printer.err(package.dupe(), e.inner());
-                eprintln!("Error parsing {}", package);
-                eprintln!("{:?}", e.inner());
+                writeln!(
+                    server_ctx.stderr()?,
+                    "Error parsing {}\n{:?}",
+                    package,
+                    e.inner()
+                )?;
                 error_count += 1;
             }
         }
