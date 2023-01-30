@@ -1050,17 +1050,6 @@ message FileWatcherEvent {
   string path = 3;
 }
 
-message FileWatcherEvents {
-  repeated FileWatcherEvent events = 1;
-}
-
-message FileChanges {
-  oneof data {
-    string no_record_reason = 1;
-    FileWatcherEvents records = 2;
-  }
-}
-
 // Stats for a file watching (e.g. Watchman) update. We ignore events that are
 // outside of the cells we care about, which is why events_total and
 // events_processed might differ.
@@ -1206,6 +1195,8 @@ message TypedMetadata {
 }
 
 message InvocationRecord {
+  reserved 22, 36;
+
   // Optional - present if ever sent to client.
   CommandStart command_start = 1;
   // Optional - present if ever sent to client.
@@ -1237,8 +1228,6 @@ message InvocationRecord {
   Snapshot first_snapshot = 20;
   // Optional - the last snapshot sent.
   Snapshot last_snapshot = 21;
-  // Optional - the merge base revision that the build ran on
-  string branched_from_revision = 22;
   // If any, the name of the RE experiment config that was used by the RE
   // client in this build.
   string re_experiment_name = 23;
@@ -1268,8 +1257,6 @@ message InvocationRecord {
   optional uint64 max_malloc_bytes_active = 34;
   // Stateful max for malloc_bytes_allocated over the lifetime of invocation.
   optional uint64 max_malloc_bytes_allocated = 35;
-  // Information of file changes provided by Watchman
-  FileChanges file_changes_since_last_build = 36;
   optional uint64 run_command_failure_count = 37;
   optional uint64 event_count = 38;
   // Time elapsed from a build's start until the first action begins execution.

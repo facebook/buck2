@@ -69,7 +69,6 @@ mod imp {
         run_skipped_count: u64,
         first_snapshot: Option<buck2_data::Snapshot>,
         last_snapshot: Option<buck2_data::Snapshot>,
-        branched_from_revision: Option<String>,
         min_build_count_since_rebase: u64,
         cache_upload_count: u64,
         cache_upload_attempt_count: u64,
@@ -81,7 +80,6 @@ mod imp {
         max_event_client_delay: Option<Duration>,
         max_malloc_bytes_active: Option<u64>,
         max_malloc_bytes_allocated: Option<u64>,
-        file_changes_since_last_build: Option<buck2_data::FileChanges>,
         run_command_failure_count: u64,
         event_count: u64,
         time_to_first_action_execution: Option<Duration>,
@@ -125,7 +123,6 @@ mod imp {
                 run_skipped_count: 0,
                 first_snapshot: None,
                 last_snapshot: None,
-                branched_from_revision: None,
                 min_build_count_since_rebase: 0,
                 cache_upload_count: 0,
                 cache_upload_attempt_count: 0,
@@ -137,7 +134,6 @@ mod imp {
                 max_event_client_delay: None,
                 max_malloc_bytes_active: None,
                 max_malloc_bytes_allocated: None,
-                file_changes_since_last_build: None,
                 run_command_failure_count: 0,
                 event_count: 0,
                 time_to_first_action_execution: None,
@@ -156,19 +152,22 @@ mod imp {
             &mut self,
             target_patterns: &[buck2_data::TargetPattern],
         ) -> anyhow::Result<u64> {
-            if let Some(merge_base) = &self.branched_from_revision {
-                self.build_count_manager
-                    .min_build_count(
-                        merge_base,
-                        self.resolved_target_patterns
-                            .as_ref()
-                            .map_or(target_patterns, |d| &d.target_patterns[..]),
-                    )
-                    .await
-                    .context("Error recording build count")
-            } else {
-                Ok(0)
+            if let Some(stats) = &self.file_watcher_stats {
+                if let Some(merge_base) = &stats.branched_from_revision {
+                    return self
+                        .build_count_manager
+                        .min_build_count(
+                            merge_base,
+                            self.resolved_target_patterns
+                                .as_ref()
+                                .map_or(target_patterns, |d| &d.target_patterns[..]),
+                        )
+                        .await
+                        .context("Error recording build count");
+                }
             }
+
+            Ok(0)
         }
 
         fn exit(&mut self) -> Option<impl Future<Output = ()> + 'static + Send> {
@@ -194,7 +193,6 @@ mod imp {
                     run_skipped_count: self.run_skipped_count,
                     first_snapshot: self.first_snapshot.take(),
                     last_snapshot: self.last_snapshot.take(),
-                    branched_from_revision: self.branched_from_revision.take().unwrap_or_default(),
                     min_build_count_since_rebase: self.min_build_count_since_rebase,
                     cache_upload_count: self.cache_upload_count,
                     cache_upload_attempt_count: self.cache_upload_attempt_count,
@@ -207,7 +205,6 @@ mod imp {
                         .and_then(|d| u64::try_from(d.as_millis()).ok()),
                     max_malloc_bytes_active: self.max_malloc_bytes_active.take(),
                     max_malloc_bytes_allocated: self.max_malloc_bytes_allocated.take(),
-                    file_changes_since_last_build: self.file_changes_since_last_build.take(),
                     run_command_failure_count: Some(self.run_command_failure_count),
                     event_count: Some(self.event_count),
                     time_to_first_action_execution_ms: self
@@ -526,24 +523,6 @@ mod imp {
             file_watcher: &buck2_data::FileWatcherEnd,
             _event: &BuckEvent,
         ) -> anyhow::Result<()> {
-            if let Some(stats) = &file_watcher.stats {
-                self.branched_from_revision = stats.branched_from_revision.clone();
-                if let Some(reason) = &stats.incomplete_events_reason {
-                    self.file_changes_since_last_build = Some(buck2_data::FileChanges {
-                        data: Some(buck2_data::file_changes::Data::NoRecordReason(
-                            reason.clone(),
-                        )),
-                    })
-                } else {
-                    self.file_changes_since_last_build = Some(buck2_data::FileChanges {
-                        data: Some(buck2_data::file_changes::Data::Records(
-                            buck2_data::FileWatcherEvents {
-                                events: stats.events.clone(),
-                            },
-                        )),
-                    })
-                }
-            }
             self.file_watcher_stats = file_watcher.stats.clone();
             Ok(())
         }
