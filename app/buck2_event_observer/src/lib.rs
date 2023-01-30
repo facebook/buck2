@@ -21,5 +21,6 @@ pub mod session_info;
 pub mod span_tracker;
 pub mod test_state;
 pub mod two_snapshots;
+pub mod unpack_event;
 pub mod verbosity;
 pub mod what_ran;

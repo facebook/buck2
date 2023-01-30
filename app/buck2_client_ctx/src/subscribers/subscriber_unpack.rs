@@ -20,11 +20,11 @@ use buck2_data::TestDiscoveryEnd;
 use buck2_data::TestDiscoveryStart;
 use buck2_data::TestRunEnd;
 use buck2_data::TestRunStart;
+use buck2_event_observer::unpack_event::VisitorError;
 use buck2_events::BuckEvent;
 
 use crate::subscribers::subscriber::EventSubscriber;
 use crate::subscribers::subscriber::Tick;
-use crate::subscribers::subscriber::VisitorError;
 
 /// Wrap an `UnpackingEventSubscriber` instance to provide an `EventSubscriber`.
 pub(crate) struct UnpackingEventSubscriberAsEventSubscriber<U: UnpackingEventSubscriber>(

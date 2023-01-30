@@ -13,13 +13,13 @@ use std::time::Duration;
 use std::time::Instant;
 use std::time::SystemTime;
 
+use buck2_event_observer::unpack_event::unpack_event;
+use buck2_event_observer::unpack_event::UnpackedBuckEvent;
 use buck2_events::BuckEvent;
 use gazebo::prelude::*;
 use gazebo::variants::VariantName;
 use superconsole::Component;
 
-use crate::subscribers::subscriber::unpack_event;
-use crate::subscribers::subscriber::UnpackedBuckEvent;
 use crate::subscribers::superconsole::SuperConsoleConfig;
 
 static NUM_DELAYS_FOR_AVERAGE: usize = 10;
