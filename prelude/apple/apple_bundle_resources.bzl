@@ -226,9 +226,9 @@ def _run_ibtool(
 
     # Equivalent of `AppleProcessResources::BASE_IBTOOL_FLAGS` from v1
     base_flags = ["--output-format", "human-readable-text", "--notices", "--warnings", "--errors"]
-
     ibtool = ctx.attrs._apple_toolchain[AppleToolchainInfo].ibtool
-    ibtool_command = [ibtool] + base_flags + (ctx.attrs.ibtool_flags or [])
+    ibtool_flags = getattr(ctx.attrs, "ibtool_flags", None) or []
+    ibtool_command = [ibtool] + base_flags + ibtool_flags
     if target_device != None:
         ibtool_command.extend(["--target-device", target_device])
     ibtool_command.extend(action_flags)
