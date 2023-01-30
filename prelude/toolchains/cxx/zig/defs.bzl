@@ -159,6 +159,7 @@ def _zig_distribution_impl(ctx: "context") -> ["provider"]:
 
     compiler = cmd_args([dst])
     compiler.hidden(ctx.attrs.dist[DefaultInfo].default_outputs)
+    compiler.hidden(ctx.attrs.dist[DefaultInfo].other_outputs)
 
     return [
         ctx.attrs.dist[DefaultInfo],
