@@ -332,7 +332,7 @@ impl BuckdConnectOptions {
         let client = self
             .establish_connection(paths)
             .await
-            .context("When establishing connection to buckd")?;
+            .with_context(|| daemon_connect_error(paths))?;
 
         // after startup is complete, replace the basic readers with our own.
         Ok(client.with_subscribers(self.subscribers))
@@ -531,4 +531,18 @@ enum BuckdConnectError {
     },
     #[error("during buck daemon startup, the started process had the wrong version.")]
     BuckDaemonVersionWrongAfterStart { expected: String, actual: String },
+    #[error("Error connecting to the daemon, daemon stderr follows:\n{stderr}")]
+    ConnectError { stderr: String },
+}
+
+fn daemon_connect_error(paths: &InvocationPaths) -> BuckdConnectError {
+    let stderr = paths
+        .daemon_dir()
+        .and_then(|dir| {
+            let stderr = std::fs::read(dir.buckd_stderr())?;
+            Ok(String::from_utf8_lossy(&stderr).into_owned())
+        })
+        .unwrap_or_else(|_| "<none>".to_owned());
+
+    BuckdConnectError::ConnectError { stderr }
 }
