@@ -35,8 +35,6 @@ pub mod stream_value;
 pub mod streaming;
 pub mod subscribers;
 pub mod ticker;
-pub mod verbosity;
 pub mod version;
-pub mod what_ran;
 
 pub const LSP_COMMAND_NAME: &str = "lsp";

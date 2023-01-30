@@ -16,6 +16,7 @@ members = [
     "app/buck2_core",
     "app/buck2_downward_api",
     "app/buck2_downward_api_proto",
+    "app/buck2_event_observer",
     "app/buck2_events",
     "app/buck2_execute",
     "app/buck2_execute_impl",
@@ -251,6 +252,7 @@ buck2_starlark = { path = "app/buck2_starlark" }
 buck2_audit = { path = "app/buck2_audit" }
 buck2_cli_proto = { path = "buck2_cli_proto" }
 buck2_data = { path = "buck2_data" }
+buck2_event_observer = { path = "app/buck2_event_observer" }
 buck2_events = { path = "app/buck2_events" }
 buck2_query = { path = "app/buck2_query" }
 buck2_tpx = { path = "buck2_tpx" }

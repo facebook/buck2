@@ -10,6 +10,10 @@
 use std::fmt::Write;
 use std::time::Duration;
 
+use buck2_event_observer::display;
+use buck2_event_observer::display::TargetDisplayOptions;
+use buck2_event_observer::span_tracker::BuckEventSpanHandle;
+use buck2_event_observer::span_tracker::BuckEventSpanTracker;
 use superconsole::components::bordering::BorderedSpec;
 use superconsole::components::splitting::SplitKind;
 use superconsole::components::Bordered;
@@ -27,11 +31,7 @@ use superconsole::Span;
 use superconsole::State;
 
 use self::table_builder::Table;
-use crate::subscribers::display;
-use crate::subscribers::display::TargetDisplayOptions;
 use crate::subscribers::simpleconsole::ActionStats;
-use crate::subscribers::span_tracker::BuckEventSpanHandle;
-use crate::subscribers::span_tracker::BuckEventSpanTracker;
 use crate::subscribers::subscriber::Tick;
 use crate::subscribers::superconsole::common::HeaderLineComponent;
 use crate::subscribers::superconsole::common::StaticStringComponent;

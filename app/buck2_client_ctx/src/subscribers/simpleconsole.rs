@@ -20,6 +20,17 @@ use anyhow::Context;
 use async_trait::async_trait;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_data::CommandExecutionDetails;
+use buck2_event_observer::display;
+use buck2_event_observer::display::display_file_watcher_end;
+use buck2_event_observer::display::TargetDisplayOptions;
+use buck2_event_observer::span_tracker::BuckEventSpanTracker;
+use buck2_event_observer::verbosity::Verbosity;
+use buck2_event_observer::what_ran;
+use buck2_event_observer::what_ran::local_command_to_string;
+use buck2_event_observer::what_ran::WhatRanCommandConsoleFormat;
+use buck2_event_observer::what_ran::WhatRanOptions;
+use buck2_event_observer::what_ran::WhatRanOutputCommand;
+use buck2_event_observer::what_ran::WhatRanOutputWriter;
 use buck2_events::BuckEvent;
 use dupe::Dupe;
 use lsp_server::Message;
@@ -28,26 +39,15 @@ use superconsole::SuperConsole;
 use termwiz::escape::Action;
 use termwiz::escape::ControlCode;
 
-use crate::subscribers::display;
-use crate::subscribers::display::display_file_watcher_end;
-use crate::subscribers::display::TargetDisplayOptions;
 use crate::subscribers::humanized_bytes::HumanizedBytes;
 use crate::subscribers::io::io_in_flight_non_zero_counters;
 use crate::subscribers::io::IoState;
 use crate::subscribers::last_command_execution_kind::get_last_command_execution_kind;
 use crate::subscribers::last_command_execution_kind::LastCommandExecutionKind;
 use crate::subscribers::re_panel::RePanel;
-use crate::subscribers::span_tracker::BuckEventSpanTracker;
 use crate::subscribers::subscriber::Tick;
 use crate::subscribers::subscriber_unpack::UnpackingEventSubscriber;
 use crate::subscribers::two_snapshots::TwoSnapshots;
-use crate::verbosity::Verbosity;
-use crate::what_ran;
-use crate::what_ran::local_command_to_string;
-use crate::what_ran::WhatRanCommandConsoleFormat;
-use crate::what_ran::WhatRanOptions;
-use crate::what_ran::WhatRanOutputCommand;
-use crate::what_ran::WhatRanOutputWriter;
 
 /// buck2 daemon info is printed to stderr if there are no other updates available
 /// within this duration.

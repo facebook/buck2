@@ -46,7 +46,7 @@ pub struct TargetDisplayOptions {
 }
 
 impl TargetDisplayOptions {
-    pub(crate) fn for_log() -> Self {
+    pub fn for_log() -> Self {
         Self {
             with_configuration: true,
         }
@@ -94,7 +94,7 @@ pub fn display_anon_target(ctl: &AnonTarget) -> anyhow::Result<String> {
     }
 }
 
-pub(crate) fn display_bxl_key(ctl: &BxlFunctionKey) -> anyhow::Result<String> {
+pub fn display_bxl_key(ctl: &BxlFunctionKey) -> anyhow::Result<String> {
     if let BxlFunctionKey {
         label: Some(BxlFunctionLabel { bxl_path, name }),
         args,
@@ -106,7 +106,7 @@ pub(crate) fn display_bxl_key(ctl: &BxlFunctionKey) -> anyhow::Result<String> {
     }
 }
 
-pub(crate) fn display_action_owner(
+pub fn display_action_owner(
     owner: &action_key::Owner,
     opts: TargetDisplayOptions,
 ) -> anyhow::Result<String> {
@@ -120,7 +120,7 @@ pub(crate) fn display_action_owner(
     }
 }
 
-pub(crate) fn display_action_key(
+pub fn display_action_key(
     action_key: &ActionKey,
     opts: TargetDisplayOptions,
 ) -> anyhow::Result<String> {
@@ -164,10 +164,7 @@ pub fn display_action_identity(
 }
 
 /// Formats event payloads for display.
-pub(crate) fn display_event(
-    event: &BuckEvent,
-    opts: TargetDisplayOptions,
-) -> anyhow::Result<String> {
+pub fn display_event(event: &BuckEvent, opts: TargetDisplayOptions) -> anyhow::Result<String> {
     let res: anyhow::Result<_> = try {
         let data = match event.data() {
             buck2_data::buck_event::Data::SpanStart(ref start) => start.data.as_ref().unwrap(),
@@ -275,9 +272,7 @@ fn display_file_watcher(provider: i32) -> &'static str {
     }
 }
 
-pub(crate) fn display_analysis_stage(
-    stage: &buck2_data::analysis_stage_start::Stage,
-) -> &'static str {
+pub fn display_analysis_stage(stage: &buck2_data::analysis_stage_start::Stage) -> &'static str {
     use buck2_data::analysis_stage_start::Stage;
 
     match stage {
@@ -286,9 +281,7 @@ pub(crate) fn display_analysis_stage(
     }
 }
 
-pub(crate) fn display_file_watcher_end(
-    file_watcher_end: &buck2_data::FileWatcherEnd,
-) -> Vec<String> {
+pub fn display_file_watcher_end(file_watcher_end: &buck2_data::FileWatcherEnd) -> Vec<String> {
     const MAX_PRINT_MESSAGES: usize = 3;
     let mut res = Vec::new();
 
@@ -387,13 +380,11 @@ enum ParseEventError {
 #[error("Invalid buck event: `{0:?}`")]
 pub struct InvalidBuckEvent(pub Arc<BuckEvent>);
 
-pub(crate) fn duration_as_secs_elapsed(elapsed: Duration, time_speed: f64) -> String {
+pub fn duration_as_secs_elapsed(elapsed: Duration, time_speed: f64) -> String {
     format!("{:.1}s", elapsed.mul_f64(time_speed).as_secs_f64())
 }
 
-pub(crate) fn format_test_result(
-    test_result: &buck2_data::TestResult,
-) -> anyhow::Result<Option<Lines>> {
+pub fn format_test_result(test_result: &buck2_data::TestResult) -> anyhow::Result<Option<Lines>> {
     let buck2_data::TestResult {
         name,
         status,
@@ -447,14 +438,14 @@ pub(crate) fn format_test_result(
     Ok(Some(lines))
 }
 
-pub(crate) struct ActionErrorDisplay<'a> {
-    pub(crate) action_id: String,
-    pub(crate) reason: String,
-    pub(crate) command: Option<Cow<'a, buck2_data::CommandExecutionDetails>>,
+pub struct ActionErrorDisplay<'a> {
+    pub action_id: String,
+    pub reason: String,
+    pub command: Option<Cow<'a, buck2_data::CommandExecutionDetails>>,
 }
 
 impl<'a> ActionErrorDisplay<'a> {
-    pub(crate) fn to_static(self) -> ActionErrorDisplay<'static> {
+    pub fn to_static(self) -> ActionErrorDisplay<'static> {
         ActionErrorDisplay {
             action_id: self.action_id,
             reason: self.reason,
@@ -463,7 +454,7 @@ impl<'a> ActionErrorDisplay<'a> {
     }
 }
 
-pub(crate) fn display_action_error<'a>(
+pub fn display_action_error<'a>(
     action: &'a buck2_data::ActionExecutionEnd,
     error: &'a buck2_data::action_execution_end::Error,
     opts: TargetDisplayOptions,
@@ -563,7 +554,7 @@ fn failure_reason_for_command_execution(
     })
 }
 
-pub(crate) fn success_stderr<'a>(
+pub fn success_stderr<'a>(
     action: &'a buck2_data::ActionExecutionEnd,
     verbosity: Verbosity,
 ) -> anyhow::Result<Option<&'a str>> {

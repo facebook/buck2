@@ -14,8 +14,8 @@ use dupe::Dupe;
 use superconsole::Line;
 use superconsole::SuperConsole;
 
-use crate::subscribers::display;
-use crate::subscribers::display::TargetDisplayOptions;
+use crate::display;
+use crate::display::TargetDisplayOptions;
 
 /// Options controlling what WhatRan produces.
 #[derive(Debug, Default, clap::Parser)]
@@ -291,6 +291,7 @@ pub fn local_command_to_string(command: &buck2_data::LocalCommand) -> String {
 
 impl WhatRanOutputWriter for SuperConsole {
     fn emit_command(&mut self, command: WhatRanOutputCommand<'_>) -> anyhow::Result<()> {
+        // TODO: Change this API to just produce a String.
         let msg = WhatRanCommandConsoleFormat {
             reason: command.reason(),
             identity: command.identity(),

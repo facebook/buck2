@@ -9,6 +9,7 @@
 
 use ::superconsole::Component;
 use buck2_core::fs::paths::file_name::FileNameBuf;
+use buck2_event_observer::verbosity::Verbosity;
 use dupe::Dupe;
 
 use crate::client_ctx::ClientCommandContext;
@@ -22,7 +23,6 @@ use crate::subscribers::subscriber::EventSubscriber;
 use crate::subscribers::subscriber_unpack::UnpackingEventSubscriberAsEventSubscriber;
 use crate::subscribers::superconsole::StatefulSuperConsole;
 use crate::subscribers::superconsole::SuperConsoleConfig;
-use crate::verbosity::Verbosity;
 
 /// Given a command name and the command arguments, create a default console / superconsole.
 pub(crate) fn get_console_with_root(

@@ -46,6 +46,7 @@ buck2_common = { workspace = true }
 buck2_core = { workspace = true }
 buck2_data = { workspace = true }
 buck2_execute = { workspace = true }
+buck2_event_observer = { workspace = true }
 buck2_events = { workspace = true }
 buck2_cli_proto = { workspace = true }
 buck2_query_common = { workspace = true }

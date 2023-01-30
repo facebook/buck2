@@ -34,9 +34,9 @@ enum SpanTrackerError<T: SpanTrackable> {
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct SpanInfo<T: SpanTrackable> {
-    pub(crate) event: T,
-    pub(crate) start: Instant,
+pub struct SpanInfo<T: SpanTrackable> {
+    pub event: T,
+    pub start: Instant,
 }
 
 #[derive(Debug)]
@@ -88,18 +88,18 @@ impl<T: SpanTrackable> Span<T> {
 
 #[derive(Derivative)]
 #[derivative(Debug)]
-pub(crate) struct SpanHandle<'a, T: SpanTrackable> {
+pub struct SpanHandle<'a, T: SpanTrackable> {
     #[derivative(Debug = "ignore")]
     tracker: &'a SpanTracker<T>,
     span: &'a Span<T>,
 }
 
 impl<'a, T: SpanTrackable> SpanHandle<'a, T> {
-    pub(crate) fn info(&self) -> &SpanInfo<T> {
+    pub fn info(&self) -> &SpanInfo<T> {
         &self.span.info
     }
 
-    pub(crate) fn children<'b>(&'b self) -> impl ExactSizeIterator<Item = SpanHandle<'b, T>> + 'b
+    pub fn children<'b>(&'b self) -> impl ExactSizeIterator<Item = SpanHandle<'b, T>> + 'b
     where
         'a: 'b,
     {
@@ -233,14 +233,14 @@ impl<T> ExactSizeIterator for ExactSizeIteratorWrapper<T> where T: Iterator {}
 /// child, it'll be found in the `all` map.
 ///
 /// We also keep track of how many roots have ended.
-pub(crate) struct SpanTracker<T: SpanTrackable> {
+pub struct SpanTracker<T: SpanTrackable> {
     roots: Roots<T>,
     all: HashMap<<T as SpanTrackable>::Id, Span<T>>,
     roots_completed: usize,
 }
 
 impl<T: SpanTrackable> SpanTracker<T> {
-    pub(crate) fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             roots: Default::default(),
             all: Default::default(),
@@ -248,7 +248,7 @@ impl<T: SpanTrackable> SpanTracker<T> {
         }
     }
 
-    pub(crate) fn start_at(&mut self, event: &T, at: Instant) -> anyhow::Result<()> {
+    pub fn start_at(&mut self, event: &T, at: Instant) -> anyhow::Result<()> {
         if !event.is_shown() {
             return Ok(());
         }
@@ -335,21 +335,21 @@ impl<T: SpanTrackable> SpanTracker<T> {
         })
     }
 
-    pub(crate) fn roots_completed(&self) -> usize {
+    pub fn roots_completed(&self) -> usize {
         self.roots_completed
     }
 
     /// Return if span_tracker has been used.
-    pub(crate) fn is_unused(&self) -> bool {
+    pub fn is_unused(&self) -> bool {
         self.roots.is_empty() && self.roots_completed == 0
     }
 
-    pub(crate) fn roots_ongoing(&self) -> usize {
+    pub fn roots_ongoing(&self) -> usize {
         self.roots.len()
     }
 }
 
-pub(crate) trait SpanTrackable: Dupe + std::fmt::Debug + Send + Sync + 'static {
+pub trait SpanTrackable: Dupe + std::fmt::Debug + Send + Sync + 'static {
     type Id: std::fmt::Display + std::fmt::Debug + std::hash::Hash + Eq + PartialEq + Copy;
 
     fn span_id(&self) -> Option<Self::Id>;
@@ -433,12 +433,12 @@ impl SpanTrackable for Arc<BuckEvent> {
     }
 }
 
-pub(crate) type BuckEventSpanTracker = SpanTracker<Arc<BuckEvent>>;
-pub(crate) type BuckEventSpanHandle<'a> = SpanHandle<'a, Arc<BuckEvent>>;
-pub(crate) type BuckEventSpanInfo = SpanInfo<Arc<BuckEvent>>;
+pub type BuckEventSpanTracker = SpanTracker<Arc<BuckEvent>>;
+pub type BuckEventSpanHandle<'a> = SpanHandle<'a, Arc<BuckEvent>>;
+pub type BuckEventSpanInfo = SpanInfo<Arc<BuckEvent>>;
 
 impl BuckEventSpanTracker {
-    pub(crate) fn handle_event(&mut self, event: &Arc<BuckEvent>) -> anyhow::Result<()> {
+    pub fn handle_event(&mut self, event: &Arc<BuckEvent>) -> anyhow::Result<()> {
         if let Some(_start) = event.span_start_event() {
             self.start_at(event, Instant::now())?;
         } else if let Some(_end) = event.span_end_event() {
@@ -462,7 +462,7 @@ impl WhatRanState<OptionalSpanId> for SpanTracker<Arc<BuckEvent>> {
 /// A wrapper type to make calls to emit_event_if_relevant more convenient, since parent_id is
 /// Option<SpanId> on BuckEvent.
 #[derive(From, Copy, Clone, Dupe)]
-pub(crate) struct OptionalSpanId(Option<SpanId>);
+pub struct OptionalSpanId(Option<SpanId>);
 
 impl fmt::Display for OptionalSpanId {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {

@@ -17,6 +17,7 @@ use buck2_cli_proto::ClientContext;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::result::SharedResult;
 use buck2_core::fs::working_dir::WorkingDir;
+use buck2_event_observer::verbosity::Verbosity;
 use buck2_events::trace::TraceId;
 use dupe::Dupe;
 use tokio::runtime::Builder;
@@ -30,7 +31,6 @@ use crate::daemon::client::connect::BuckdConnectOptions;
 use crate::daemon::client::BuckdClientConnector;
 use crate::replayer::Replayer;
 use crate::stdin::Stdin;
-use crate::verbosity::Verbosity;
 
 /// Contains fields that should only created once per proess and not once per command. We don't put
 /// them directly in ClientCommandContext to support Replay.

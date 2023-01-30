@@ -9,6 +9,9 @@
 
 use std::time::Duration;
 
+use buck2_event_observer::display;
+use buck2_event_observer::display::TargetDisplayOptions;
+use buck2_event_observer::span_tracker::BuckEventSpanInfo;
 use superconsole::style::style;
 use superconsole::style::StyledContent;
 use superconsole::style::Stylize;
@@ -20,9 +23,6 @@ use superconsole::Lines;
 use superconsole::Span;
 use superconsole::State;
 
-use crate::subscribers::display;
-use crate::subscribers::display::TargetDisplayOptions;
-use crate::subscribers::span_tracker::BuckEventSpanInfo;
 use crate::subscribers::superconsole::timed_list::Cutoffs;
 
 #[derive(Debug)]

@@ -63,6 +63,7 @@ rust_library(
         "//buck2/app/buck2_client_ctx:buck2_client_ctx",
         "//buck2/app/buck2_common:buck2_common",
         "//buck2/app/buck2_core:buck2_core",
+        "//buck2/app/buck2_event_observer:buck2_event_observer",
         "//buck2/app/buck2_events:buck2_events",
         "//buck2/app/buck2_forkserver:buck2_forkserver",
         "//buck2/app/buck2_query:buck2_query",
