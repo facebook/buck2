@@ -15,12 +15,12 @@ use buck2_event_observer::two_snapshots::TwoSnapshots;
 use superconsole::DrawMode;
 use superconsole::Line;
 
-pub(crate) struct RePanel {
+pub(crate) struct ReState {
     session_id: Option<String>,
     two_snapshots: TwoSnapshots,
 }
 
-impl RePanel {
+impl ReState {
     pub(crate) fn new() -> Self {
         Self {
             session_id: None,

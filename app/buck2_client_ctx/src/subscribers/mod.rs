@@ -14,7 +14,7 @@ pub mod event_log;
 pub(crate) mod get;
 pub(crate) mod io;
 pub mod re_log;
-pub(crate) mod re_panel;
+pub(crate) mod re_state;
 pub(crate) mod recorder;
 pub(crate) mod simpleconsole;
 pub(crate) mod stdout_stderr_forwarder;

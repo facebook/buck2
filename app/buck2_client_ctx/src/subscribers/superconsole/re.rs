@@ -9,7 +9,7 @@
 
 use superconsole::Component;
 
-use crate::subscribers::re_panel::RePanel;
+use crate::subscribers::re_state::ReState;
 use crate::subscribers::superconsole::SuperConsoleConfig;
 
 /// Draw the test summary line above the `timed_list`
@@ -30,7 +30,7 @@ impl Component for ReHeader {
         mode: superconsole::DrawMode,
     ) -> anyhow::Result<superconsole::Lines> {
         let config = state.get::<SuperConsoleConfig>()?;
-        let re = state.get::<RePanel>()?;
+        let re = state.get::<ReState>()?;
         re.render(config.enable_detailed_re, mode)
     }
 }

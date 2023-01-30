@@ -272,7 +272,7 @@ impl SuperConsoleState {
             &self.current_tick,
             &self.time_speed,
             &self.dice_state,
-            self.simple_console.re_panel(),
+            self.simple_console.re_state(),
             &self.simple_console.io_state,
             &self.debug_events,
         ]
@@ -477,7 +477,7 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
     ) -> anyhow::Result<()> {
         self.state
             .simple_console
-            .re_panel_mut()
+            .re_state_mut()
             .add_re_session(session);
         Ok(())
     }

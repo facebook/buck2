@@ -44,7 +44,7 @@ use termwiz::escape::ControlCode;
 
 use crate::subscribers::io::io_in_flight_non_zero_counters;
 use crate::subscribers::io::IoState;
-use crate::subscribers::re_panel::RePanel;
+use crate::subscribers::re_state::ReState;
 use crate::subscribers::subscriber::Tick;
 use crate::subscribers::subscriber_unpack::UnpackingEventSubscriber;
 
@@ -155,7 +155,7 @@ pub(crate) struct SimpleConsole {
     action_errors: Vec<ActionError>,
     last_print_time: Instant,
     test_session: Option<String>,
-    re_panel: RePanel,
+    re_state: ReState,
     pub(crate) io_state: IoState,
     two_snapshots: TwoSnapshots,
     last_had_open_spans: Instant, // Used to detect hangs
@@ -177,7 +177,7 @@ impl SimpleConsole {
             action_errors: Vec::new(),
             last_print_time: Instant::now(),
             test_session: None,
-            re_panel: RePanel::new(),
+            re_state: ReState::new(),
             io_state: IoState::default(),
             two_snapshots: TwoSnapshots::default(),
             last_had_open_spans: Instant::now(),
@@ -199,7 +199,7 @@ impl SimpleConsole {
             action_errors: Vec::new(),
             last_print_time: Instant::now(),
             test_session: None,
-            re_panel: RePanel::new(),
+            re_state: ReState::new(),
             io_state: IoState::default(),
             two_snapshots: TwoSnapshots::default(),
             last_had_open_spans: Instant::now(),
@@ -228,12 +228,12 @@ impl SimpleConsole {
         self.observer.action_stats()
     }
 
-    pub(crate) fn re_panel(&self) -> &RePanel {
-        &self.re_panel
+    pub(crate) fn re_state(&self) -> &ReState {
+        &self.re_state
     }
 
-    pub(crate) fn re_panel_mut(&mut self) -> &mut RePanel {
-        &mut self.re_panel
+    pub(crate) fn re_state_mut(&mut self) -> &mut ReState {
+        &mut self.re_state
     }
 
     pub(crate) fn update_event_observer(&mut self, event: &Arc<BuckEvent>) -> anyhow::Result<()> {
@@ -261,7 +261,7 @@ impl SimpleConsole {
     }
 
     fn print_stats_while_waiting(&mut self) -> anyhow::Result<()> {
-        if let Some(h) = self.re_panel.render_header(DrawMode::Normal) {
+        if let Some(h) = self.re_state.render_header(DrawMode::Normal) {
             echo!("{}", h)?;
         }
 
@@ -418,7 +418,7 @@ impl UnpackingEventSubscriber for SimpleConsole {
             )?;
         }
 
-        if let Some(re) = &self.re_panel.render_header(DrawMode::Final) {
+        if let Some(re) = &self.re_state.render_header(DrawMode::Final) {
             echo!("{}", re)?;
         }
 
@@ -442,7 +442,7 @@ impl UnpackingEventSubscriber for SimpleConsole {
         session: &buck2_data::RemoteExecutionSessionCreated,
         _event: &BuckEvent,
     ) -> anyhow::Result<()> {
-        self.re_panel_mut().add_re_session(session);
+        self.re_state_mut().add_re_session(session);
         let message = format!("RE Session: {}", session.session_id);
         self.handle_stderr(&message).await
     }
@@ -605,7 +605,7 @@ impl UnpackingEventSubscriber for SimpleConsole {
         update: &buck2_data::Snapshot,
         event: &BuckEvent,
     ) -> anyhow::Result<()> {
-        self.re_panel_mut().update(event.timestamp(), update);
+        self.re_state_mut().update(event.timestamp(), update);
         self.io_state.update(event.timestamp(), update);
         self.two_snapshots.update(event.timestamp(), update);
         Ok(())
