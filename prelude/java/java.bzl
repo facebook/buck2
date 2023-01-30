@@ -25,7 +25,7 @@ load(":java_test.bzl", "java_test_impl")
 load(":keystore.bzl", "keystore_impl")
 load(":prebuilt_jar.bzl", "prebuilt_jar_impl")
 
-def _select_java_toolchain():
+def select_java_toolchain():
     # FIXME: prelude// should be standalone (not refer to fbcode//, buck// or ovr_config//)
     return select(
         {
@@ -89,7 +89,7 @@ extra_attributes = {
     "jar_genrule": genrule_attributes() | {
         # FIXME: prelude// should be standalone (not refer to fbsource//)
         "_java_toolchain": attrs.exec_dep(
-            default = _select_java_toolchain(),
+            default = select_java_toolchain(),
             providers = [
                 JavaToolchainInfo,
             ],
@@ -103,7 +103,7 @@ extra_attributes = {
         "meta_inf_directory": attrs.option(attrs.source(allow_directory = True), default = None),
         "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
         "_java_toolchain": attrs.exec_dep(
-            default = _select_java_toolchain(),
+            default = select_java_toolchain(),
             providers = [
                 JavaPlatformInfo,
                 JavaToolchainInfo,
@@ -122,7 +122,7 @@ extra_attributes = {
         ), default = select_dex_toolchain()),
         "_is_building_android_binary": is_building_android_binary_attr(),
         "_java_toolchain": attrs.exec_dep(
-            default = _select_java_toolchain(),
+            default = select_java_toolchain(),
             providers = [
                 JavaPlatformInfo,
                 JavaToolchainInfo,
@@ -144,7 +144,7 @@ extra_attributes = {
             ],
         ),
         "_java_toolchain": attrs.exec_dep(
-            default = _select_java_toolchain(),
+            default = select_java_toolchain(),
             providers = [
                 JavaPlatformInfo,
                 JavaToolchainInfo,

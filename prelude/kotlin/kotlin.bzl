@@ -7,7 +7,7 @@
 
 load("@prelude//android:configuration.bzl", "is_building_android_binary_attr")
 load("@prelude//java:dex_toolchain.bzl", "DexToolchainInfo")
-load("@prelude//java:java.bzl", "dex_min_sdk_version", "is_build_only_native_code", "select_dex_toolchain", "select_java_test_toolchain")
+load("@prelude//java:java.bzl", "dex_min_sdk_version", "is_build_only_native_code", "select_dex_toolchain", "select_java_test_toolchain", "select_java_toolchain")
 load(
     "@prelude//java:java_toolchain.bzl",
     "JavaPlatformInfo",
@@ -20,10 +20,6 @@ load(
 )
 load(":kotlin_library.bzl", "kotlin_library_impl")
 load(":kotlin_test.bzl", "kotlin_test_impl")
-
-def _select_java_toolchain():
-    # FIXME: prelude// should be standalone (not refer to fbsource//)
-    return "fbsource//xplat/buck2/platform/java:java"
 
 def _select_kotlin_toolchain():
     # FIXME: prelude// should be standalone (not refer to fbsource//)
@@ -47,7 +43,7 @@ extra_attributes = {
         ), default = select_dex_toolchain()),
         "_is_building_android_binary": is_building_android_binary_attr(),
         "_java_toolchain": attrs.exec_dep(
-            default = _select_java_toolchain(),
+            default = select_java_toolchain(),
             providers = [
                 JavaPlatformInfo,
                 JavaToolchainInfo,
@@ -72,7 +68,7 @@ extra_attributes = {
             ],
         ),
         "_java_toolchain": attrs.exec_dep(
-            default = _select_java_toolchain(),
+            default = select_java_toolchain(),
             providers = [
                 JavaPlatformInfo,
                 JavaToolchainInfo,
