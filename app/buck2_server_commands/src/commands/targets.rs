@@ -72,7 +72,7 @@ trait TargetPrinter: Send {
     fn package(&mut self, package: PackageLabel) {}
     fn package_end(&mut self) {}
     fn target(&mut self, package: PackageLabel, target_info: TargetInfo<'_>) {}
-    fn err(&mut self, package: PackageLabel, err: &anyhow::Error) {}
+    fn package_error(&mut self, package: PackageLabel, error: &anyhow::Error) {}
 }
 
 struct JsonPrinter {
@@ -166,7 +166,7 @@ impl TargetPrinter for JsonPrinter {
         write!(self.json_string, "  }}").unwrap();
     }
 
-    fn err(&mut self, package: PackageLabel, e: &anyhow::Error) {
+    fn package_error(&mut self, package: PackageLabel, error: &anyhow::Error) {
         if self.keep_going {
             if self.target_idx != 0 {
                 writeln!(self.json_string, ",").unwrap();
@@ -177,7 +177,7 @@ impl TargetPrinter for JsonPrinter {
             writeln!(
                 self.json_string,
                 "    \"buck.error\": {}",
-                quote_json_string(&format!("{:?}", e))
+                quote_json_string(&format!("{:?}", error))
             )
             .unwrap();
             write!(self.json_string, "    }}").unwrap();
@@ -215,7 +215,7 @@ impl TargetPrinter for StatsPrinter {
         self.targets += 1;
     }
 
-    fn err(&mut self, _package: PackageLabel, _e: &anyhow::Error) {
+    fn package_error(&mut self, _package: PackageLabel, _error: &anyhow::Error) {
         self.errors += 1;
     }
 }
@@ -540,7 +540,7 @@ async fn targets_batch(
                 printer.package_end();
             }
             Err(e) => {
-                printer.err(package.dupe(), e.inner());
+                printer.package_error(package.dupe(), e.inner());
                 if !keep_going {
                     writeln!(
                         server_ctx.stderr()?,
