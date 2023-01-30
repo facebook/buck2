@@ -12,7 +12,6 @@ use buck2_core::env_helper::EnvHelper;
 pub(crate) mod build_id_writer;
 pub mod event_log;
 pub(crate) mod get;
-pub(crate) mod humanized_bytes;
 pub(crate) mod io;
 pub mod re_log;
 pub(crate) mod re_panel;

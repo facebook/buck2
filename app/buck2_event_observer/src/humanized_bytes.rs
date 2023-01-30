@@ -10,22 +10,22 @@
 use std::fmt;
 
 /// Write out a u64 as something more readable
-pub(crate) struct HumanizedBytes {
+pub struct HumanizedBytes {
     bytes: u64,
     fixed_width: bool,
 }
 
 impl HumanizedBytes {
-    pub(crate) fn new(bytes: u64) -> Self {
+    pub fn new(bytes: u64) -> Self {
         HumanizedBytes {
             bytes,
             fixed_width: false,
         }
     }
 
-    pub(crate) const FIXED_WIDTH_WIDTH: usize = 7;
+    pub const FIXED_WIDTH_WIDTH: usize = 7;
 
-    pub(crate) fn fixed_width(bytes: u64) -> Self {
+    pub fn fixed_width(bytes: u64) -> Self {
         HumanizedBytes {
             bytes,
             fixed_width: true,
@@ -33,22 +33,22 @@ impl HumanizedBytes {
     }
 }
 
-pub(crate) struct HumanizedBytesPerSecond {
+pub struct HumanizedBytesPerSecond {
     bytes_per_second: u64,
     fixed_width: bool,
 }
 
 impl HumanizedBytesPerSecond {
-    pub(crate) fn _new(bytes_per_second: u64) -> Self {
+    pub fn _new(bytes_per_second: u64) -> Self {
         HumanizedBytesPerSecond {
             bytes_per_second,
             fixed_width: false,
         }
     }
 
-    pub(crate) const FIXED_WIDTH_WIDTH: usize = HumanizedBytes::FIXED_WIDTH_WIDTH + "/s".len();
+    pub const FIXED_WIDTH_WIDTH: usize = HumanizedBytes::FIXED_WIDTH_WIDTH + "/s".len();
 
-    pub(crate) fn fixed_width(bytes_per_second: u64) -> Self {
+    pub fn fixed_width(bytes_per_second: u64) -> Self {
         HumanizedBytesPerSecond {
             bytes_per_second,
             fixed_width: true,
@@ -127,8 +127,8 @@ impl fmt::Display for HumanizedBytesPerSecond {
 
 #[cfg(test)]
 mod test {
-    use crate::subscribers::humanized_bytes::HumanizedBytes;
-    use crate::subscribers::humanized_bytes::HumanizedBytesPerSecond;
+    use super::HumanizedBytes;
+    use super::HumanizedBytesPerSecond;
 
     #[allow(clippy::identity_op)]
     #[test]
