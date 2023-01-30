@@ -59,7 +59,6 @@ use crate::subscribers::superconsole::debug_events::DebugEventsState;
 use crate::subscribers::superconsole::dice::DiceComponent;
 use crate::subscribers::superconsole::io::IoHeader;
 use crate::subscribers::superconsole::re::ReHeader;
-use crate::subscribers::superconsole::test::TestState;
 use crate::subscribers::superconsole::timed_list::Cutoffs;
 use crate::subscribers::superconsole::timed_list::TimedList;
 
@@ -110,7 +109,6 @@ impl TimeSpeed {
 }
 
 pub(crate) struct SuperConsoleState {
-    test_state: TestState,
     current_tick: Tick,
     time_speed: TimeSpeed,
     debug_events: DebugEventsState,
@@ -208,7 +206,6 @@ impl StatefulSuperConsole {
     ) -> anyhow::Result<Self> {
         Ok(Self {
             state: SuperConsoleState {
-                test_state: TestState::default(),
                 current_tick: Tick::now(),
                 time_speed: TimeSpeed::new(replay_speed)?,
                 simple_console: SimpleConsole::with_tty(
@@ -257,7 +254,7 @@ impl SuperConsoleState {
             &self.config,
             self.simple_console.spans(),
             self.simple_console.action_stats(),
-            &self.test_state,
+            self.simple_console.test_state(),
             self.simple_console.session_info(),
             &self.current_tick,
             &self.time_speed,
@@ -552,31 +549,11 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
         Ok(())
     }
 
-    async fn handle_test_discovery(
-        &mut self,
-        test_info: &buck2_data::TestDiscovery,
-        _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        if let Some(data) = &test_info.data {
-            match data {
-                buck2_data::test_discovery::Data::Session(..) => {
-                    // Noop
-                }
-                buck2_data::test_discovery::Data::Tests(tests) => {
-                    self.state.test_state.discovered += tests.test_names.len() as u64
-                }
-            }
-        }
-
-        Ok(())
-    }
-
     async fn handle_test_result(
         &mut self,
         result: &buck2_data::TestResult,
         _event: &BuckEvent,
     ) -> anyhow::Result<()> {
-        self.state.test_state.update(result)?;
         if let Some(super_console) = &mut self.super_console {
             if let Some(msg) = display::format_test_result(result)? {
                 super_console.emit(msg);

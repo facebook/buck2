@@ -31,6 +31,7 @@ use buck2_event_observer::io_state::IoState;
 use buck2_event_observer::re_state::ReState;
 use buck2_event_observer::session_info::SessionInfo;
 use buck2_event_observer::span_tracker::BuckEventSpanTracker;
+use buck2_event_observer::test_state::TestState;
 use buck2_event_observer::two_snapshots::TwoSnapshots;
 use buck2_event_observer::verbosity::Verbosity;
 use buck2_event_observer::what_ran;
@@ -239,6 +240,10 @@ where
 
     pub fn io_state(&self) -> &IoState {
         self.observer.io_state()
+    }
+
+    pub fn test_state(&self) -> &TestState {
+        self.observer.test_state()
     }
 
     pub(crate) fn update_event_observer(&mut self, event: &Arc<BuckEvent>) -> anyhow::Result<()> {

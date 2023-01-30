@@ -18,6 +18,7 @@ use crate::io_state::IoState;
 use crate::re_state::ReState;
 use crate::session_info::SessionInfo;
 use crate::span_tracker::BuckEventSpanTracker;
+use crate::test_state::TestState;
 use crate::two_snapshots::TwoSnapshots;
 
 pub struct EventObserver<E> {
@@ -27,6 +28,7 @@ pub struct EventObserver<E> {
     two_snapshots: TwoSnapshots, // NOTE: We got many more copies of this than we should.
     session_info: SessionInfo,
     io_state: IoState,
+    test_state: TestState,
     /// When running without the Superconsole, we skip some state that we don't need. This might be
     /// premature optimization.
     extra: E,
@@ -44,6 +46,7 @@ where
             two_snapshots: TwoSnapshots::default(),
             session_info: SessionInfo::default(),
             io_state: IoState::default(),
+            test_state: TestState::default(),
             extra: E::new(),
         }
     }
@@ -102,8 +105,13 @@ where
                                 Session(session) => {
                                     self.session_info.test_session = Some(session.clone());
                                 }
-                                _ => {}
+                                Tests(tests) => {
+                                    self.test_state.discovered += tests.test_names.len() as u64
+                                }
                             }
+                        }
+                        TestResult(result) => {
+                            self.test_state.update(result)?;
                         }
                         _ => {}
                     }
@@ -139,6 +147,10 @@ where
 
     pub fn io_state(&self) -> &IoState {
         &self.io_state
+    }
+
+    pub fn test_state(&self) -> &TestState {
+        &self.test_state
     }
 
     pub fn extra(&self) -> &E {
