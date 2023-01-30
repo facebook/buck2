@@ -92,14 +92,6 @@ impl TargetPrinter for JsonPrinter {
         std::mem::take(&mut self.json_string)
     }
 
-    fn package_end(&mut self) {
-        // ignored
-    }
-
-    fn package(&mut self, _package: PackageLabel) {
-        // ignored
-    }
-
     fn target(&mut self, package: PackageLabel, target_info: TargetInfo<'_>) {
         if self.target_idx != 0 {
             writeln!(self.json_string, ",").unwrap();
