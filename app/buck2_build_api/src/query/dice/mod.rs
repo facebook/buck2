@@ -287,6 +287,29 @@ impl<'c> CqueryDelegate for DiceQueryDelegate<'c> {
     }
 }
 
+// Returns a tuple of compatible and incompatible targets.
+fn split_compatible_incompatible(
+    targets: impl Iterator<Item = anyhow::Result<MaybeCompatible<ConfiguredTargetNode>>>,
+) -> anyhow::Result<(
+    TargetSet<ConfiguredTargetNode>,
+    SmallSet<ConfiguredTargetLabel>,
+)> {
+    let mut target_set = TargetSet::new();
+    let mut incompatible_targets = SmallSet::new();
+
+    for res in targets {
+        match res? {
+            MaybeCompatible::Incompatible(reason) => {
+                incompatible_targets.insert(reason.target.dupe());
+            }
+            MaybeCompatible::Compatible(target) => {
+                target_set.insert(target);
+            }
+        }
+    }
+    Ok((target_set, incompatible_targets))
+}
+
 /// Converts target nodes to a set of compatible configured target nodes.
 pub async fn get_compatible_targets(
     ctx: &DiceComputations,
@@ -305,36 +328,26 @@ pub async fn get_compatible_targets(
                 let target = ctx
                     .get_configured_target(target.label(), global_target_platform)
                     .await?;
-                anyhow::Ok((
-                    target.dupe(),
-                    ctx.get_configured_target_node(&target).await?,
-                ))
+                anyhow::Ok(ctx.get_configured_target_node(&target).await?)
             });
             futures::future::join_all(target_futs).await
         }));
     }
 
-    let mut target_set = TargetSet::new();
-    let mut incompatible_targets = SmallSet::new();
-    for targets in futures::future::join_all(by_package_futs).await {
-        for target_and_node in targets {
-            let (target, target_node) = target_and_node?;
-            match target_node {
-                MaybeCompatible::Incompatible(..) => {
-                    incompatible_targets.insert(target);
-                }
-                MaybeCompatible::Compatible(target) => {
-                    target_set.insert(target);
-                }
-            }
-        }
-    }
+    let (compatible_targets, incompatible_targets) = split_compatible_incompatible(
+        futures::future::join_all(by_package_futs)
+            .await
+            .into_iter()
+            .flatten(),
+    )?;
+
     if !incompatible_targets.is_empty() {
         console_message(IncompatiblePlatformReason::skipping_message_for_multiple(
             incompatible_targets.iter(),
         ));
     }
-    Ok(target_set)
+
+    Ok(compatible_targets)
 }
 
 #[async_trait]
