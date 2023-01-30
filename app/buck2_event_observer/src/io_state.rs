@@ -10,20 +10,15 @@
 use std::time::SystemTime;
 
 use buck2_core::io_counters::IoCounterKey;
-use buck2_event_observer::humanized_bytes::HumanizedBytes;
-use buck2_event_observer::two_snapshots::TwoSnapshots;
 use gazebo::prelude::VecExt;
-use superconsole::Component;
-use superconsole::Dimensions;
 use superconsole::DrawMode;
 use superconsole::Line;
-use superconsole::Lines;
-use superconsole::State;
 
-use crate::subscribers::superconsole::SuperConsoleConfig;
+use crate::humanized_bytes::HumanizedBytes;
+use crate::two_snapshots::TwoSnapshots;
 
 #[derive(Default)]
-pub(crate) struct IoState {
+pub struct IoState {
     two_snapshots: TwoSnapshots,
 }
 
@@ -51,7 +46,7 @@ fn words_to_lines(words: Vec<String>, width: usize) -> Vec<String> {
     lines
 }
 
-pub(crate) fn io_in_flight_non_zero_counters(
+pub fn io_in_flight_non_zero_counters(
     snapshot: &buck2_data::Snapshot,
 ) -> impl Iterator<Item = (IoCounterKey, u32)> + '_ {
     IoCounterKey::ALL
@@ -83,7 +78,7 @@ pub(crate) fn io_in_flight_non_zero_counters(
 }
 
 impl IoState {
-    pub(crate) fn update(&mut self, timestamp: SystemTime, snapshot: &buck2_data::Snapshot) {
+    pub fn update(&mut self, timestamp: SystemTime, snapshot: &buck2_data::Snapshot) {
         self.two_snapshots.update(timestamp, snapshot);
     }
 
@@ -127,7 +122,7 @@ impl IoState {
         Ok(lines)
     }
 
-    pub(crate) fn render(
+    pub fn render(
         &self,
         draw_mode: DrawMode,
         width: usize,
@@ -147,25 +142,9 @@ impl IoState {
     }
 }
 
-#[derive(Debug)]
-pub(crate) struct IoHeader;
-
-impl Component for IoHeader {
-    fn draw_unchecked(
-        &self,
-        state: &State,
-        dimensions: Dimensions,
-        mode: DrawMode,
-    ) -> anyhow::Result<Lines> {
-        let config = state.get::<SuperConsoleConfig>()?;
-        let io = state.get::<IoState>()?;
-        io.render(mode, dimensions.width, config.enable_io)
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use crate::subscribers::io::words_to_lines;
+    use super::words_to_lines;
 
     #[test]
     fn test_words_to_lines() {

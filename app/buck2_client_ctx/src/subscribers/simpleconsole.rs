@@ -25,6 +25,8 @@ use buck2_event_observer::display::display_file_watcher_end;
 use buck2_event_observer::display::TargetDisplayOptions;
 use buck2_event_observer::event_observer::EventObserver;
 use buck2_event_observer::humanized_bytes::HumanizedBytes;
+use buck2_event_observer::io_state::io_in_flight_non_zero_counters;
+use buck2_event_observer::io_state::IoState;
 use buck2_event_observer::re_state::ReState;
 use buck2_event_observer::session_info::SessionInfo;
 use buck2_event_observer::span_tracker::BuckEventSpanTracker;
@@ -44,8 +46,6 @@ use superconsole::SuperConsole;
 use termwiz::escape::Action;
 use termwiz::escape::ControlCode;
 
-use crate::subscribers::io::io_in_flight_non_zero_counters;
-use crate::subscribers::io::IoState;
 use crate::subscribers::subscriber::Tick;
 use crate::subscribers::subscriber_unpack::UnpackingEventSubscriber;
 

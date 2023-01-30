@@ -15,6 +15,7 @@ clap = { workspace = true }
 derivative = { workspace = true }
 derive_more = { workspace = true }
 dupe = { workspace = true }
+gazebo = { workspace = true }
 itertools = { workspace = true }
 linked-hash-map = { workspace = true }
 shlex = { workspace = true }
