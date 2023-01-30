@@ -15,11 +15,13 @@ use buck2_events::BuckEvent;
 use crate::action_stats::ActionStats;
 use crate::re_state::ReState;
 use crate::span_tracker::BuckEventSpanTracker;
+use crate::two_snapshots::TwoSnapshots;
 
 pub struct EventObserver {
     span_tracker: BuckEventSpanTracker,
     action_stats: ActionStats,
     re_state: ReState,
+    two_snapshots: TwoSnapshots, // NOTE: We got many more copies of this than we should.
 }
 
 impl EventObserver {
@@ -28,6 +30,7 @@ impl EventObserver {
             span_tracker: BuckEventSpanTracker::new(),
             action_stats: ActionStats::default(),
             re_state: ReState::new(),
+            two_snapshots: TwoSnapshots::default(),
         }
     }
 
@@ -61,6 +64,7 @@ impl EventObserver {
                         }
                         Snapshot(snapshot) => {
                             self.re_state.update(event.timestamp(), snapshot);
+                            self.two_snapshots.update(event.timestamp(), snapshot);
                         }
                         _ => {}
                     }
@@ -82,5 +86,9 @@ impl EventObserver {
 
     pub fn re_state(&self) -> &ReState {
         &self.re_state
+    }
+
+    pub fn two_snapshots(&self) -> &TwoSnapshots {
+        &self.two_snapshots
     }
 }

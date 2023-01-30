@@ -156,7 +156,6 @@ pub(crate) struct SimpleConsole {
     last_print_time: Instant,
     test_session: Option<String>,
     pub(crate) io_state: IoState,
-    two_snapshots: TwoSnapshots,
     last_had_open_spans: Instant, // Used to detect hangs
     already_raged: bool,
     isolation_dir: FileNameBuf,
@@ -177,7 +176,6 @@ impl SimpleConsole {
             last_print_time: Instant::now(),
             test_session: None,
             io_state: IoState::default(),
-            two_snapshots: TwoSnapshots::default(),
             last_had_open_spans: Instant::now(),
             already_raged: false,
             isolation_dir,
@@ -198,7 +196,6 @@ impl SimpleConsole {
             last_print_time: Instant::now(),
             test_session: None,
             io_state: IoState::default(),
-            two_snapshots: TwoSnapshots::default(),
             last_had_open_spans: Instant::now(),
             already_raged: false,
             isolation_dir,
@@ -227,6 +224,10 @@ impl SimpleConsole {
 
     pub(crate) fn re_state(&self) -> &ReState {
         self.observer.re_state()
+    }
+
+    pub(crate) fn two_snapshots(&self) -> &TwoSnapshots {
+        self.observer.two_snapshots()
     }
 
     pub(crate) fn update_event_observer(&mut self, event: &Arc<BuckEvent>) -> anyhow::Result<()> {
@@ -260,12 +261,12 @@ impl SimpleConsole {
 
         {
             let mut parts = Vec::with_capacity(2);
-            if let Some((_, snapshot)) = &self.two_snapshots.last {
+            if let Some((_, snapshot)) = &self.two_snapshots().last {
                 if let Some(buck2_rss) = snapshot.buck2_rss {
                     parts.push(format!("RSS: {}", HumanizedBytes::new(buck2_rss)));
                 }
             }
-            if let Some(cpu) = self.two_snapshots.cpu_percents() {
+            if let Some(cpu) = self.two_snapshots().cpu_percents() {
                 parts.push(format!("CPU: {}%", cpu));
             }
             if !parts.is_empty() {
@@ -274,7 +275,7 @@ impl SimpleConsole {
         }
 
         {
-            if let Some((_, snapshot)) = &self.two_snapshots.last {
+            if let Some((_, snapshot)) = &self.two_snapshots().last {
                 let mut parts = Vec::new();
                 for (key, value) in io_in_flight_non_zero_counters(snapshot) {
                     parts.push(format!("{:?}: {}", key, value));
@@ -598,7 +599,6 @@ impl UnpackingEventSubscriber for SimpleConsole {
         event: &BuckEvent,
     ) -> anyhow::Result<()> {
         self.io_state.update(event.timestamp(), update);
-        self.two_snapshots.update(event.timestamp(), update);
         Ok(())
     }
 }
