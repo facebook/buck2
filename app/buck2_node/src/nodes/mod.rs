@@ -21,7 +21,8 @@ pub mod attributes {
     /// The oncall for this node.
     pub static ONCALL: &str = "buck.oncall";
 
-    /// The package that this node belongs to.
+    /// The package or the buildfile path.
+    /// The package in `targets` command, but the buildfile path in `*query` commands.
     pub static PACKAGE: &str = "buck.package";
 
     /// A string representation of the target's rule type.
