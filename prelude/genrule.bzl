@@ -28,6 +28,7 @@ _BUILD_ROOT_LABELS = {label: True for label in [
     "lpm_package",
     "haskell_dll",
     "fnlc_build",
+    "udf_sql",
 ]}
 
 # In Buck1 the SRCS environment variable is only set if the substring SRCS is on the command line.
