@@ -7,32 +7,11 @@
  * of this source tree.
  */
 
-use std::collections::BTreeMap;
-
-use buck2_data::DiceKeyState;
-use buck2_data::DiceStateSnapshot;
+use buck2_event_observer::dice_state::DiceState;
 use gazebo::prelude::*;
 use superconsole::Component;
 
 use crate::subscribers::superconsole::SuperConsoleConfig;
-
-pub(crate) struct DiceState {
-    key_states: BTreeMap<String, DiceKeyState>,
-}
-
-impl DiceState {
-    pub(crate) fn new() -> Self {
-        Self {
-            key_states: BTreeMap::new(),
-        }
-    }
-
-    pub(crate) fn update(&mut self, update: &DiceStateSnapshot) {
-        for (k, v) in &update.key_states {
-            self.key_states.insert(k.clone(), v.clone());
-        }
-    }
-}
 
 #[derive(Debug)]
 pub(crate) struct DiceComponent;
@@ -57,7 +36,7 @@ impl Component for DiceComponent {
         let header_len = header.len();
         lines.push(header);
         lines.push("-".repeat(header_len));
-        for (k, v) in &state.key_states {
+        for (k, v) in state.key_states() {
             // We aren't guaranteed to get a final DiceStateUpdate and so we just assume all dice nodes that we
             // know about finished so that the final rendering doesn't look silly.
             let (pending, finished) = match mode {

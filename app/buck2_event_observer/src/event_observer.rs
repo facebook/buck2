@@ -13,22 +13,29 @@ use anyhow::Context;
 use buck2_events::BuckEvent;
 
 use crate::action_stats::ActionStats;
+use crate::dice_state::DiceState;
 use crate::io_state::IoState;
 use crate::re_state::ReState;
 use crate::session_info::SessionInfo;
 use crate::span_tracker::BuckEventSpanTracker;
 use crate::two_snapshots::TwoSnapshots;
 
-pub struct EventObserver {
+pub struct EventObserver<E> {
     span_tracker: BuckEventSpanTracker,
     action_stats: ActionStats,
     re_state: ReState,
     two_snapshots: TwoSnapshots, // NOTE: We got many more copies of this than we should.
     session_info: SessionInfo,
     io_state: IoState,
+    /// When running without the Superconsole, we skip some state that we don't need. This might be
+    /// premature optimization.
+    extra: E,
 }
 
-impl EventObserver {
+impl<E> EventObserver<E>
+where
+    E: EventObserverExtra,
+{
     pub fn new() -> Self {
         Self {
             span_tracker: BuckEventSpanTracker::new(),
@@ -37,6 +44,7 @@ impl EventObserver {
             two_snapshots: TwoSnapshots::default(),
             session_info: SessionInfo::default(),
             io_state: IoState::default(),
+            extra: E::new(),
         }
     }
 
@@ -104,6 +112,8 @@ impl EventObserver {
             }
         }
 
+        self.extra.observe(event)?;
+
         Ok(())
     }
 
@@ -129,5 +139,73 @@ impl EventObserver {
 
     pub fn io_state(&self) -> &IoState {
         &self.io_state
+    }
+
+    pub fn extra(&self) -> &E {
+        &self.extra
+    }
+}
+
+pub trait EventObserverExtra: Send {
+    fn new() -> Self;
+
+    fn observe(&mut self, event: &Arc<BuckEvent>) -> anyhow::Result<()>;
+}
+
+/// This has more fields for debug info. We don't always capture those.
+pub struct DebugEventObserverExtra {
+    dice_state: DiceState,
+}
+
+impl EventObserverExtra for DebugEventObserverExtra {
+    fn new() -> Self {
+        Self {
+            dice_state: DiceState::new(),
+        }
+    }
+
+    fn observe(&mut self, event: &Arc<BuckEvent>) -> anyhow::Result<()> {
+        {
+            use buck2_data::buck_event::Data::*;
+
+            match event.data() {
+                Instant(instant) => {
+                    use buck2_data::instant_event::Data::*;
+
+                    match instant
+                        .data
+                        .as_ref()
+                        .context("Missing `data` in `Instant`")?
+                    {
+                        DiceStateSnapshot(dice) => {
+                            self.dice_state.update(dice);
+                        }
+                        _ => {}
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        Ok(())
+    }
+}
+
+impl DebugEventObserverExtra {
+    pub fn dice_state(&self) -> &DiceState {
+        &self.dice_state
+    }
+}
+
+pub struct NoopEventObserverExtra;
+
+impl EventObserverExtra for NoopEventObserverExtra {
+    fn new() -> Self {
+        Self
+    }
+
+    fn observe(&mut self, _event: &Arc<BuckEvent>) -> anyhow::Result<()> {
+        // Noop
+        Ok(())
     }
 }

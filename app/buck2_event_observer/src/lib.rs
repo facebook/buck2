@@ -10,6 +10,7 @@
 #![feature(try_blocks)]
 
 pub mod action_stats;
+pub mod dice_state;
 pub mod display;
 pub mod event_observer;
 pub mod humanized_bytes;

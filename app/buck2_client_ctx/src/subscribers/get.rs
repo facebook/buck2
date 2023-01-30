@@ -9,6 +9,7 @@
 
 use ::superconsole::Component;
 use buck2_core::fs::paths::file_name::FileNameBuf;
+use buck2_event_observer::event_observer::NoopEventObserverExtra;
 use buck2_event_observer::verbosity::Verbosity;
 use dupe::Dupe;
 
@@ -36,13 +37,25 @@ pub(crate) fn get_console_with_root(
 ) -> anyhow::Result<Option<Box<dyn EventSubscriber>>> {
     match console_type {
         ConsoleType::Simple => Ok(Some(box UnpackingEventSubscriberAsEventSubscriber(
-            SimpleConsole::autodetect(isolation_dir, verbosity, show_waiting_message),
+            SimpleConsole::<NoopEventObserverExtra>::autodetect(
+                isolation_dir,
+                verbosity,
+                show_waiting_message,
+            ),
         ))),
         ConsoleType::SimpleNoTty => Ok(Some(box UnpackingEventSubscriberAsEventSubscriber(
-            SimpleConsole::without_tty(isolation_dir, verbosity, show_waiting_message),
+            SimpleConsole::<NoopEventObserverExtra>::without_tty(
+                isolation_dir,
+                verbosity,
+                show_waiting_message,
+            ),
         ))),
         ConsoleType::SimpleTty => Ok(Some(box UnpackingEventSubscriberAsEventSubscriber(
-            SimpleConsole::with_tty(isolation_dir, verbosity, show_waiting_message),
+            SimpleConsole::<NoopEventObserverExtra>::with_tty(
+                isolation_dir,
+                verbosity,
+                show_waiting_message,
+            ),
         ))),
         ConsoleType::Super => Ok(Some(box UnpackingEventSubscriberAsEventSubscriber(
             StatefulSuperConsole::new_with_root_forced(
@@ -68,7 +81,11 @@ pub(crate) fn get_console_with_root(
                     super_console,
                 ))),
                 None => Ok(Some(box UnpackingEventSubscriberAsEventSubscriber(
-                    SimpleConsole::autodetect(isolation_dir, verbosity, show_waiting_message),
+                    SimpleConsole::<NoopEventObserverExtra>::autodetect(
+                        isolation_dir,
+                        verbosity,
+                        show_waiting_message,
+                    ),
                 ))),
             }
         }

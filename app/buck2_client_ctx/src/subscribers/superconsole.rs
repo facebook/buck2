@@ -20,6 +20,7 @@ use buck2_data::CommandExecutionDetails;
 use buck2_event_observer::display;
 use buck2_event_observer::display::display_file_watcher_end;
 use buck2_event_observer::display::TargetDisplayOptions;
+use buck2_event_observer::event_observer::DebugEventObserverExtra;
 use buck2_event_observer::session_info::SessionInfo;
 use buck2_event_observer::verbosity::Verbosity;
 use buck2_event_observer::what_ran;
@@ -56,7 +57,6 @@ use crate::subscribers::superconsole::commands::CommandsComponent;
 use crate::subscribers::superconsole::debug_events::DebugEventsComponent;
 use crate::subscribers::superconsole::debug_events::DebugEventsState;
 use crate::subscribers::superconsole::dice::DiceComponent;
-use crate::subscribers::superconsole::dice::DiceState;
 use crate::subscribers::superconsole::io::IoHeader;
 use crate::subscribers::superconsole::re::ReHeader;
 use crate::subscribers::superconsole::test::TestState;
@@ -113,10 +113,9 @@ pub(crate) struct SuperConsoleState {
     test_state: TestState,
     current_tick: Tick,
     time_speed: TimeSpeed,
-    dice_state: DiceState,
     debug_events: DebugEventsState,
     /// This contains the SpanTracker, which is why it's part of the SuperConsoleState.
-    simple_console: SimpleConsole,
+    simple_console: SimpleConsole<DebugEventObserverExtra>,
     config: SuperConsoleConfig,
 }
 
@@ -217,7 +216,6 @@ impl StatefulSuperConsole {
                     verbosity,
                     show_waiting_message,
                 ),
-                dice_state: DiceState::new(),
                 debug_events: DebugEventsState::new(),
                 config,
             },
@@ -263,10 +261,10 @@ impl SuperConsoleState {
             self.simple_console.session_info(),
             &self.current_tick,
             &self.time_speed,
-            &self.dice_state,
             self.simple_console.re_state(),
             self.simple_console.io_state(),
             &self.debug_events,
+            self.simple_console.observer().extra().dice_state(),
         ]
     }
 }
@@ -585,14 +583,6 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
             }
         }
 
-        Ok(())
-    }
-
-    async fn handle_dice_snapshot(
-        &mut self,
-        update: &buck2_data::DiceStateSnapshot,
-    ) -> anyhow::Result<()> {
-        self.state.dice_state.update(update);
         Ok(())
     }
 

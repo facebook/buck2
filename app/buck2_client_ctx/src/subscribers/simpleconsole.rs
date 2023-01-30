@@ -24,6 +24,7 @@ use buck2_event_observer::display;
 use buck2_event_observer::display::display_file_watcher_end;
 use buck2_event_observer::display::TargetDisplayOptions;
 use buck2_event_observer::event_observer::EventObserver;
+use buck2_event_observer::event_observer::EventObserverExtra;
 use buck2_event_observer::humanized_bytes::HumanizedBytes;
 use buck2_event_observer::io_state::io_in_flight_non_zero_counters;
 use buck2_event_observer::io_state::IoState;
@@ -147,12 +148,12 @@ fn eprint_command_details(
 }
 
 /// Just repeats stdout and stderr to client process.
-pub(crate) struct SimpleConsole {
+pub(crate) struct SimpleConsole<E> {
     tty_mode: TtyMode,
     verbosity: Verbosity,
     // Whether to show "Waiting for daemon..." when no root spans are received
     show_waiting_message: bool,
-    observer: EventObserver,
+    observer: EventObserver<E>,
     action_errors: Vec<ActionError>,
     last_print_time: Instant,
     last_had_open_spans: Instant, // Used to detect hangs
@@ -160,7 +161,10 @@ pub(crate) struct SimpleConsole {
     isolation_dir: FileNameBuf,
 }
 
-impl SimpleConsole {
+impl<E> SimpleConsole<E>
+where
+    E: EventObserverExtra,
+{
     pub(crate) fn with_tty(
         isolation_dir: FileNameBuf,
         verbosity: Verbosity,
@@ -207,6 +211,10 @@ impl SimpleConsole {
             true => Self::with_tty(isolation_dir, verbosity, show_waiting_message),
             false => Self::without_tty(isolation_dir, verbosity, show_waiting_message),
         }
+    }
+
+    pub(crate) fn observer(&self) -> &EventObserver<E> {
+        &self.observer
     }
 
     pub(crate) fn spans(&self) -> &BuckEventSpanTracker {
@@ -297,7 +305,10 @@ impl SimpleConsole {
 }
 
 #[async_trait]
-impl UnpackingEventSubscriber for SimpleConsole {
+impl<E> UnpackingEventSubscriber for SimpleConsole<E>
+where
+    E: EventObserverExtra,
+{
     async fn handle_output(&mut self, raw_output: &str) -> anyhow::Result<()> {
         crate::print!("{}", raw_output)?;
         self.notify_printed();
