@@ -29,32 +29,32 @@ enum QueryOutputFormatArg {
 
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
 pub struct CommonAttributeArgs {
+    /// Output all attributes, equivalent of --output-attribute ''.
     #[clap(
         short = 'A',
         long,
         group = "output_attribute_flags",
-        name = "output_all_attributes",
-        help = "Output all attributes, equivalent of --output-attribute ''"
+        name = "output_all_attributes"
     )]
     output_all_attributes: bool,
 
+    /// Output basic attributes, namely those the user can supply, plus rule type and package name.
     #[clap(
         short = 'B',
         long,
         group = "output_attribute_flags",
-        name = "output_basic_attributes",
-        help = "Output basic attributes, namely those the user can supply, plus rule type and package name"
+        name = "output_basic_attributes"
     )]
     output_basic_attributes: bool,
 
+    /// List of attributes to output, --output-attribute attr1. Attributes can be
+    /// regular expressions. Multiple attributes may be selected by specifying this option
+    /// multiple times.
     #[clap(
          short = 'a',
          long,
          group = "output_attribute_flags",
          value_name = "ATTRIBUTE",
-         help = "List of attributes to output, --output-attribute attr1. Attributes can be \
-         regular expressions. Multiple attributes may be selected by specifying this option \
-         multiple times.",
          // without limiting number_of_values, clap will read all space-separated values
          // after the flag, we want to require that each value be preceded individually by the flag.
          number_of_values = 1,
