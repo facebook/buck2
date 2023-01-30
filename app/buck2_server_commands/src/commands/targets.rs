@@ -101,7 +101,7 @@ impl TargetPrinter for JsonPrinter {
             writeln!(self.json_string, ",").unwrap();
         }
         self.target_idx += 1;
-        writeln!(self.json_string, "    {{",).unwrap();
+        writeln!(self.json_string, "  {{",).unwrap();
         let mut first = true;
 
         fn print_attr(
@@ -121,7 +121,7 @@ impl TargetPrinter for JsonPrinter {
                 writeln!(this.json_string, ",").unwrap();
             }
             *first = false;
-            write!(this.json_string, "      \"{}\": {}", k, v()).unwrap();
+            write!(this.json_string, "    \"{}\": {}", k, v()).unwrap();
         }
 
         print_attr(self, &mut first, TYPE, || {
@@ -168,7 +168,7 @@ impl TargetPrinter for JsonPrinter {
             writeln!(self.json_string).unwrap();
         }
 
-        write!(self.json_string, "    }}").unwrap();
+        write!(self.json_string, "  }}").unwrap();
     }
 }
 
