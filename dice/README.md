@@ -1,4 +1,4 @@
-# Distributed Incremental Computation Engine, aka. DICE
+# Dynamic Incremental Computation Engine, aka. DICE
 
 [![Support Ukraine](https://img.shields.io/badge/Support-Ukraine-FFD500?style=flat&labelColor=005BBB)](https://opensource.fb.com/support-ukraine)
 [![GitHub link](https://img.shields.io/badge/GitHub-facebookincubator%2Fdice-blue.svg)](https://github.com/facebookincubator/dice)
@@ -6,8 +6,8 @@
 [![docs.rs availability](https://img.shields.io/docsrs/dice?label=docs.rs)](https://docs.rs/dice/)
 [![Build status](https://img.shields.io/github/workflow/status/facebookincubator/dice/ci.svg)](https://github.com/facebookincubator/dice/actions)
 
-DICE is a distributed incremental computation engine. The distributed part is TODO, but it is an implemented
-incremental computation engine that supports parallel computation, and multi-tenancy.
+DICE is a dynamic incremental computation engine. It is an implemented
+incremental computation engine that supports parallel computation.
 
 # Documentation
 For detailed documentation, see the docs in [dice/docs/index.md](dice/docs/index.md)

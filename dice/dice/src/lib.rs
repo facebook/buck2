@@ -8,7 +8,7 @@
  */
 
 //!
-//! The distributed incremental caching computation engine that powers buckv2.
+//! The dynamic incremental caching computation engine that powers buckv2.
 //!
 //! The computation engine will output values corresponding to given `Key`s,
 //! reusing previously computed values when possible. `Key`s computations are

@@ -1,10 +1,8 @@
 # DICE
 
-DICE is a distributed incremental computation engine. The distributed part is TODO, but it is an implemented
-incremental computation engine that supports parallel computation, and multi-tenancy.
+DICE is a dynamic incremental computation engine that supports parallel computation.
 
 ## Features
-- Multi-tenancy // TODO
 - Incrementality // TODO
 - [Cancellations](cancellations.md) - Cancelling of a currently running computation
 - Transient Errors // TODO
