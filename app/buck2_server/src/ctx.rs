@@ -35,11 +35,7 @@ use buck2_cli_proto::CommonBuildOptions;
 use buck2_cli_proto::ConfigOverride;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::data::HasIoProvider;
-use buck2_common::executor_config::CacheUploadBehavior;
 use buck2_common::executor_config::CommandExecutorConfig;
-use buck2_common::executor_config::CommandExecutorKind;
-use buck2_common::executor_config::LocalExecutorOptions;
-use buck2_common::executor_config::PathSeparatorKind;
 use buck2_common::io::IoProvider;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::LegacyBuckConfig;
@@ -480,16 +476,6 @@ impl DiceDataProvider for DiceCommandDataProvider {
 
         let mut data = DiceData::new();
         data.set(self.events.dupe());
-
-        // For commands that don't set a fallback executor config, set a local one.
-        set_fallback_executor_config(
-            &mut data,
-            Arc::new(CommandExecutorConfig {
-                executor_kind: CommandExecutorKind::Local(LocalExecutorOptions {}),
-                path_separator: PathSeparatorKind::system_default(),
-                cache_upload_behavior: CacheUploadBehavior::Disabled,
-            }),
-        );
 
         let mut data = UserComputationData {
             data,
