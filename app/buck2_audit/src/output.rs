@@ -25,6 +25,8 @@ use buck2_cli_proto::QueryOutputFormat;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_core::cells::CellResolver;
 use buck2_core::configuration::Configuration;
+use buck2_core::fs::project::ProjectRelativePath;
+use buck2_core::target::label::TargetLabel;
 use buck2_execute::path::buck_out_path::BuckOutPathParser;
 use buck2_execute::path::buck_out_path::BuckOutPathResolver;
 use buck2_execute::path::buck_out_path::BuckOutPathType;
@@ -37,7 +39,7 @@ use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::pattern::target_platform_from_client_context;
 use buck2_server_ctx::raw_output::RawOutputGuard;
-use dice::DiceTransaction;
+use dice::DiceComputations;
 use thiserror::Error;
 use tracing::debug;
 
@@ -131,7 +133,7 @@ async fn write_output<'v>(
 
 async fn find_matching_action<'v>(
     dice_aquery_delegate: Arc<DiceAqueryDelegate<'v>>,
-    dice_ctx: &'v DiceTransaction,
+    dice_ctx: &'v DiceComputations,
     analysis: &AnalysisResult,
     path_after_isolation_prefix: &'v str,
 ) -> anyhow::Result<Option<ActionQueryNode>> {
@@ -162,6 +164,61 @@ async fn find_matching_action<'v>(
     Ok(None)
 }
 
+async fn audit_output<'v>(
+    output_path: &'v str,
+    working_dir: &'v ProjectRelativePath,
+    cell_resolver: &'v CellResolver,
+    dice_ctx: &'v DiceComputations,
+    global_target_platform: Option<TargetLabel>,
+) -> anyhow::Result<Option<ActionQueryNode>> {
+    let buck_out_parser = BuckOutPathParser::new(cell_resolver);
+    let parsed = buck_out_parser.parse(output_path)?;
+
+    let (target_label, config_hash, path_after_isolation_prefix) = match parsed {
+        BuckOutPathType::RuleOutput {
+            target_label,
+            config_hash,
+            path_after_isolation_prefix,
+            ..
+        } => (target_label, config_hash, path_after_isolation_prefix),
+        _ => {
+            return Err(anyhow::anyhow!(AuditOutputError::UnsupportedPathType(
+                output_path.to_owned()
+            )));
+        }
+    };
+
+    let configured_target_label = dice_ctx
+        .get_configured_target(&target_label, global_target_platform.as_ref())
+        .await?;
+
+    let command_config = configured_target_label.cfg();
+    let command_config_hash = command_config.output_hash().to_owned();
+    if !command_config_hash.eq(&config_hash) {
+        return Err(anyhow::anyhow!(AuditOutputError::PlatformMismatch(
+            command_config.clone(),
+            command_config_hash,
+            config_hash,
+        )));
+    }
+
+    let dice_aquery_delegate =
+        get_dice_aquery_delegate(dice_ctx, working_dir, global_target_platform.clone()).await?;
+
+    let analysis = dice_ctx
+        .get_analysis_result(&configured_target_label)
+        .await?
+        .require_compatible()?;
+
+    find_matching_action(
+        dice_aquery_delegate,
+        dice_ctx,
+        &analysis,
+        &path_after_isolation_prefix,
+    )
+    .await
+}
+
 #[async_trait]
 impl AuditSubcommand for AuditOutputCommand {
     async fn server_execute(
@@ -180,7 +237,6 @@ impl AuditSubcommand for AuditOutputCommand {
 
                 let working_dir = server_ctx.working_dir();
                 let cell_resolver = dice_ctx.get_cell_resolver().await?;
-                let buck_out_parser = BuckOutPathParser::new(&cell_resolver);
 
                 let global_target_platform = target_platform_from_client_context(
                     Some(&client_ctx),
@@ -189,40 +245,11 @@ impl AuditSubcommand for AuditOutputCommand {
                 )
                 .await?;
 
-                let parsed = buck_out_parser.parse(&self.output_path)?;
-
-                let (target_label, config_hash, path_after_isolation_prefix, ) = match parsed {
-                    BuckOutPathType::RuleOutput { target_label, config_hash, path_after_isolation_prefix, .. } => (target_label, config_hash, path_after_isolation_prefix),
-                    _  => return Err(anyhow::anyhow!(AuditOutputError::UnsupportedPathType(
-                        self.output_path.to_owned()
-                    ))),
-                };
-
-                let configured_target_label = dice_ctx
-                    .get_configured_target(&target_label, global_target_platform.as_ref())
-                    .await?;
-
-                let command_config = configured_target_label.cfg();
-                let command_config_hash = command_config.output_hash().to_owned();
-                if !command_config_hash.eq(&config_hash) {
-                    return Err(anyhow::anyhow!(AuditOutputError::PlatformMismatch(
-                        command_config.clone(),
-                        command_config_hash,
-                        config_hash,
-                    )));
-                }
-
-                let analysis = dice_ctx
-                    .get_analysis_result(&configured_target_label)
-                    .await?
-                    .require_compatible()?;
-
-                let dice_aquery_delegate =
-                    get_dice_aquery_delegate(&dice_ctx, working_dir, global_target_platform).await?;
+                let action = audit_output(&self.output_path, working_dir, &cell_resolver, &dice_ctx, global_target_platform).await?;
 
                 let mut stdout = server_ctx.stdout()?;
 
-                match find_matching_action(dice_aquery_delegate, &dice_ctx, &analysis, &path_after_isolation_prefix).await? {
+                match action {
                     Some(action) => {
                         write_output(&mut stdout, action, self.json, &self.query_attributes.get()?, &cell_resolver).await?
                     },
