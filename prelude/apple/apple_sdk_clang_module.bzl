@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load(":swift_pcm_compilation.bzl", "get_shared_pcm_compilation_args")
+load(":swift_sdk_pcm_compilation.bzl", "get_shared_pcm_compilation_args")
 load(":swift_toolchain_types.bzl", "SdkUncompiledModuleInfo")
 
 def apple_sdk_clang_module_impl(ctx: "context") -> ["provider"]:
