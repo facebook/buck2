@@ -135,8 +135,8 @@ fn eprint_command_details(
     };
     let (stdout, stderr) = if tty_mode == TtyMode::Disabled {
         (
-            SimpleConsole::sanitize_output_colors(command_failed.stdout.as_bytes()),
-            SimpleConsole::sanitize_output_colors(command_failed.stderr.as_bytes()),
+            sanitize_output_colors(command_failed.stdout.as_bytes()),
+            sanitize_output_colors(command_failed.stderr.as_bytes()),
         )
     } else {
         (command_failed.stdout.clone(), command_failed.stderr.clone())
@@ -235,22 +235,6 @@ impl SimpleConsole {
 
     pub(crate) fn update_event_observer(&mut self, event: &Arc<BuckEvent>) -> anyhow::Result<()> {
         self.observer.observe(event).context("Error tracking event")
-    }
-
-    fn sanitize_output_colors(stderr: &[u8]) -> String {
-        let mut sanitized = String::with_capacity(stderr.len());
-        let mut parser = termwiz::escape::parser::Parser::new();
-        parser.parse(stderr, |a| match a {
-            Action::Print(c) => sanitized.push(c),
-            Action::Control(cc) => match cc {
-                ControlCode::CarriageReturn => sanitized.push('\r'),
-                ControlCode::LineFeed => sanitized.push('\n'),
-                ControlCode::HorizontalTab => sanitized.push('\t'),
-                _ => {}
-            },
-            _ => {}
-        });
-        sanitized
     }
 
     fn notify_printed(&mut self) {
@@ -469,10 +453,7 @@ impl UnpackingEventSubscriber for SimpleConsole {
                         echo!("stderr:{}\x1b[0m", stderr)?;
                     }
                     TtyMode::Disabled => {
-                        echo!(
-                            "stderr:\n{}",
-                            Self::sanitize_output_colors(stderr.as_bytes())
-                        )?;
+                        echo!("stderr:\n{}", sanitize_output_colors(stderr.as_bytes()))?;
                     }
                 }
             }
@@ -527,7 +508,7 @@ impl UnpackingEventSubscriber for SimpleConsole {
                 line.render(&mut buffer)?;
             }
             //Printing the test output in multiple lines. It makes easier for the user to read.
-            echo!("{}", Self::sanitize_output_colors(&buffer))?;
+            echo!("{}", sanitize_output_colors(&buffer))?;
         }
 
         Ok(())
@@ -612,15 +593,31 @@ impl WhatRanOutputWriter for PrintDebugCommandToStderr {
     }
 }
 
+fn sanitize_output_colors(stderr: &[u8]) -> String {
+    let mut sanitized = String::with_capacity(stderr.len());
+    let mut parser = termwiz::escape::parser::Parser::new();
+    parser.parse(stderr, |a| match a {
+        Action::Print(c) => sanitized.push(c),
+        Action::Control(cc) => match cc {
+            ControlCode::CarriageReturn => sanitized.push('\r'),
+            ControlCode::LineFeed => sanitized.push('\n'),
+            ControlCode::HorizontalTab => sanitized.push('\t'),
+            _ => {}
+        },
+        _ => {}
+    });
+    sanitized
+}
+
 #[cfg(test)]
 mod tests {
-    use super::SimpleConsole;
+    use super::*;
 
     #[test]
     fn removes_color_characters() {
         let message = "\x1b[0mFoo\t\x1b[34mBar\n\x1b[DBaz\r\nQuz";
 
-        let sanitized = SimpleConsole::sanitize_output_colors(message.as_bytes());
+        let sanitized = sanitize_output_colors(message.as_bytes());
 
         assert_eq!("Foo\tBar\nBaz\r\nQuz", sanitized);
     }
