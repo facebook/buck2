@@ -70,7 +70,6 @@ trait TargetPrinter: Send {
     fn begin(&mut self) {}
     fn end(&mut self) -> String;
     fn package(&mut self, package: PackageLabel) {}
-    fn package_end(&mut self) {}
     fn target(&mut self, package: PackageLabel, target_info: TargetInfo<'_>) {}
     fn package_error(&mut self, package: PackageLabel, error: &anyhow::Error) {}
 }
@@ -537,7 +536,6 @@ async fn targets_batch(
                         .transpose()?;
                     printer.target(package.dupe(), TargetInfo { node, target_hash })
                 }
-                printer.package_end();
             }
             Err(e) => {
                 printer.package_error(package.dupe(), e.inner());
