@@ -17,6 +17,10 @@ load(
     "@prelude//cxx:linker.bzl",
     "SharedLibraryFlagOverrides",
 )
+load(
+    "@prelude//utils:dicts.bzl",
+    "flatten_x",
+)
 load(":apple_bundle.bzl", "AppleBundlePartListConstructorParams", "get_apple_bundle_part_list")
 load(":apple_bundle_destination.bzl", "AppleBundleDestination")
 load(":apple_bundle_part.bzl", "AppleBundlePart", "assemble_bundle", "bundle_output", "get_bundle_dir_name")
@@ -130,7 +134,7 @@ def _get_test_info(ctx: "context", xctest_bundle: "artifact", test_host_app_bund
     return ExternalRunnerTestInfo(
         type = "custom",  # We inherit a label via the macro layer that overrides this.
         command = ["false"],  # Tpx makes up its own args, we just pass params via the env.
-        env = env,
+        env = flatten_x([ctx.attrs.env or {}, env]),
         labels = labels,
         use_project_relative_paths = True,
         run_from_project_root = True,
