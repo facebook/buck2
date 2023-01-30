@@ -37,6 +37,7 @@ use starlark::values::OwnedFrozenValue;
 use thiserror::Error;
 
 use crate::actions::artifact::build_artifact::BuildArtifact;
+use crate::actions::box_slice_set::BoxSliceSet;
 use crate::actions::execute::action_executor::ActionExecutionKind;
 use crate::actions::execute::action_executor::ActionExecutionMetadata;
 use crate::actions::execute::action_executor::ActionOutputs;
@@ -141,7 +142,7 @@ impl UnregisteredAction for UnregisteredRunAction {
 pub(crate) struct RunAction {
     inner: UnregisteredRunAction,
     starlark_cli: OwnedFrozenValue, // StarlarkCommandLine
-    outputs: IndexSet<BuildArtifact>,
+    outputs: BoxSliceSet<BuildArtifact>,
 }
 
 impl RunAction {
@@ -214,7 +215,7 @@ impl RunAction {
             Ok(RunAction {
                 inner,
                 starlark_cli,
-                outputs,
+                outputs: BoxSliceSet::from(outputs),
             })
         }
     }
@@ -226,18 +227,18 @@ impl Action for RunAction {
         buck2_data::ActionKind::Run
     }
 
-    fn inputs(&self) -> anyhow::Result<Cow<'_, IndexSet<ArtifactGroup>>> {
+    fn inputs(&self) -> anyhow::Result<Cow<'_, [ArtifactGroup]>> {
         let (cli, env) = Self::unpack(&self.starlark_cli).unwrap();
         let mut artifact_visitor = SimpleCommandLineArtifactVisitor::new();
         cli.visit_artifacts(&mut artifact_visitor)?;
         for (_, v) in env.iter() {
             v.visit_artifacts(&mut artifact_visitor)?;
         }
-        Ok(Cow::Owned(artifact_visitor.inputs))
+        Ok(Cow::Owned(artifact_visitor.inputs.into_iter().collect()))
     }
 
-    fn outputs(&self) -> anyhow::Result<Cow<'_, IndexSet<BuildArtifact>>> {
-        Ok(Cow::Borrowed(&self.outputs))
+    fn outputs(&self) -> anyhow::Result<Cow<'_, [BuildArtifact]>> {
+        Ok(Cow::Borrowed(self.outputs.as_slice()))
     }
 
     fn as_executable(&self) -> ActionExecutable<'_> {

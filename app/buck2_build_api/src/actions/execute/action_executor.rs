@@ -49,7 +49,6 @@ use dice::DiceComputations;
 use dupe::Dupe;
 use indexmap::indexmap;
 use indexmap::IndexMap;
-use indexmap::IndexSet;
 use itertools::Itertools;
 
 use crate::actions::artifact::build_artifact::BuildArtifact;
@@ -267,7 +266,7 @@ struct BuckActionExecutionContext<'a> {
     executor: &'a BuckActionExecutor,
     action: &'a RegisteredAction,
     inputs: IndexMap<ArtifactGroup, ArtifactGroupValues>,
-    outputs: &'a IndexSet<BuildArtifact>,
+    outputs: &'a [BuildArtifact],
     command_reports: &'a mut Vec<CommandExecutionReport>,
 }
 
@@ -548,12 +547,12 @@ mod tests {
     use buck2_execute::re::manager::ManagedRemoteExecutionClient;
     use dupe::Dupe;
     use indexmap::indexset;
-    use indexmap::IndexSet;
     use once_cell::sync::Lazy;
 
     use crate::actions::artifact::build_artifact::BuildArtifact;
     use crate::actions::artifact::testing::BuildArtifactTestingExt;
     use crate::actions::artifact::Artifact;
+    use crate::actions::box_slice_set::BoxSliceSet;
     use crate::actions::execute::action_executor::ActionExecutionKind;
     use crate::actions::execute::action_executor::ActionExecutionMetadata;
     use crate::actions::execute::action_executor::ActionExecutor;
@@ -608,8 +607,8 @@ mod tests {
 
         #[derive(Debug, Allocative)]
         struct TestingAction {
-            inputs: IndexSet<ArtifactGroup>,
-            outputs: IndexSet<BuildArtifact>,
+            inputs: BoxSliceSet<ArtifactGroup>,
+            outputs: BoxSliceSet<BuildArtifact>,
             ran: AtomicBool,
         }
 
@@ -619,12 +618,12 @@ mod tests {
                 buck2_data::ActionKind::NotSet
             }
 
-            fn inputs(&self) -> anyhow::Result<Cow<'_, IndexSet<ArtifactGroup>>> {
-                Ok(Cow::Borrowed(&self.inputs))
+            fn inputs(&self) -> anyhow::Result<Cow<'_, [ArtifactGroup]>> {
+                Ok(Cow::Borrowed(self.inputs.as_slice()))
             }
 
-            fn outputs(&self) -> anyhow::Result<Cow<'_, IndexSet<BuildArtifact>>> {
-                Ok(Cow::Borrowed(&self.outputs))
+            fn outputs(&self) -> anyhow::Result<Cow<'_, [BuildArtifact]>> {
+                Ok(Cow::Borrowed(self.outputs.as_slice()))
             }
 
             fn as_executable(&self) -> ActionExecutable<'_> {
@@ -717,8 +716,8 @@ mod tests {
                 DeferredId::testing_new(0),
             ))),
             box TestingAction {
-                inputs,
-                outputs: outputs.clone(),
+                inputs: BoxSliceSet::from(inputs),
+                outputs: BoxSliceSet::from(outputs.clone()),
                 ran: Default::default(),
             },
             CommandExecutorConfig::testing_local(),

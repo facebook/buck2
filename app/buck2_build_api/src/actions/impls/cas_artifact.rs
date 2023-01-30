@@ -8,6 +8,7 @@
  */
 
 use std::borrow::Cow;
+use std::slice;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -30,7 +31,6 @@ use chrono::DateTime;
 use chrono::TimeZone;
 use chrono::Utc;
 use dupe::Dupe;
-use indexmap::indexset;
 use indexmap::IndexSet;
 use once_cell::sync::Lazy;
 use remote_execution as RE;
@@ -151,12 +151,12 @@ impl Action for CasArtifactAction {
         buck2_data::ActionKind::CasArtifact
     }
 
-    fn inputs(&self) -> anyhow::Result<Cow<'_, IndexSet<ArtifactGroup>>> {
-        Ok(Cow::Owned(IndexSet::new()))
+    fn inputs(&self) -> anyhow::Result<Cow<'_, [ArtifactGroup]>> {
+        Ok(Cow::Borrowed(&[]))
     }
 
-    fn outputs(&self) -> anyhow::Result<Cow<'_, IndexSet<BuildArtifact>>> {
-        Ok(Cow::Owned(indexset![self.output.dupe()]))
+    fn outputs(&self) -> anyhow::Result<Cow<'_, [BuildArtifact]>> {
+        Ok(Cow::Borrowed(slice::from_ref(&self.output)))
     }
 
     fn as_executable(&self) -> ActionExecutable<'_> {

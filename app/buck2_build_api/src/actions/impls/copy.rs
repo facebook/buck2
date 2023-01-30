@@ -24,6 +24,7 @@ use starlark::values::OwnedFrozenValue;
 use thiserror::Error;
 
 use crate::actions::artifact::build_artifact::BuildArtifact;
+use crate::actions::box_slice_set::BoxSliceSet;
 use crate::actions::execute::action_executor::ActionExecutionKind;
 use crate::actions::execute::action_executor::ActionExecutionMetadata;
 use crate::actions::execute::action_executor::ActionOutputs;
@@ -75,8 +76,8 @@ impl UnregisteredAction for UnregisteredCopyAction {
 #[derive(Debug, Allocative)]
 struct CopyAction {
     copy: CopyMode,
-    inputs: IndexSet<ArtifactGroup>,
-    outputs: IndexSet<BuildArtifact>,
+    inputs: BoxSliceSet<ArtifactGroup>,
+    outputs: BoxSliceSet<BuildArtifact>,
 }
 
 impl CopyAction {
@@ -101,8 +102,8 @@ impl CopyAction {
         } else {
             Ok(CopyAction {
                 copy,
-                inputs,
-                outputs,
+                inputs: BoxSliceSet::from(inputs),
+                outputs: BoxSliceSet::from(outputs),
             })
         }
     }
@@ -128,12 +129,12 @@ impl Action for CopyAction {
         buck2_data::ActionKind::Copy
     }
 
-    fn inputs(&self) -> anyhow::Result<Cow<'_, IndexSet<ArtifactGroup>>> {
-        Ok(Cow::Borrowed(&self.inputs))
+    fn inputs(&self) -> anyhow::Result<Cow<'_, [ArtifactGroup]>> {
+        Ok(Cow::Borrowed(self.inputs.as_slice()))
     }
 
-    fn outputs(&self) -> anyhow::Result<Cow<'_, IndexSet<BuildArtifact>>> {
-        Ok(Cow::Borrowed(&self.outputs))
+    fn outputs(&self) -> anyhow::Result<Cow<'_, [BuildArtifact]>> {
+        Ok(Cow::Borrowed(self.outputs.as_slice()))
     }
 
     fn as_executable(&self) -> ActionExecutable<'_> {

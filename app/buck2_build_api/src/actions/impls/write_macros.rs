@@ -82,8 +82,8 @@ enum WriteMacrosActionValidationError {
 #[derive(Debug, Allocative)]
 struct WriteMacrosToFileAction {
     contents: OwnedFrozenValue, // StarlarkCommandLine
-    inputs: IndexSet<ArtifactGroup>,
-    outputs: IndexSet<BuildArtifact>,
+    inputs: Box<[ArtifactGroup]>,
+    outputs: Box<[BuildArtifact]>,
 }
 
 impl WriteMacrosToFileAction {
@@ -105,8 +105,8 @@ impl WriteMacrosToFileAction {
         } else {
             Ok(Self {
                 contents,
-                inputs,
-                outputs,
+                inputs: inputs.into_iter().collect(),
+                outputs: outputs.into_iter().collect(),
             })
         }
     }
@@ -118,11 +118,11 @@ impl Action for WriteMacrosToFileAction {
         buck2_data::ActionKind::WriteMacrosToFile
     }
 
-    fn inputs(&self) -> anyhow::Result<Cow<'_, IndexSet<ArtifactGroup>>> {
+    fn inputs(&self) -> anyhow::Result<Cow<'_, [ArtifactGroup]>> {
         Ok(Cow::Borrowed(&self.inputs))
     }
 
-    fn outputs(&self) -> anyhow::Result<Cow<'_, IndexSet<BuildArtifact>>> {
+    fn outputs(&self) -> anyhow::Result<Cow<'_, [BuildArtifact]>> {
         Ok(Cow::Borrowed(&self.outputs))
     }
 

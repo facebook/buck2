@@ -12,6 +12,7 @@ use std::convert::TryFrom;
 use std::fmt;
 use std::io::sink;
 use std::io::Write;
+use std::slice;
 use std::time::Instant;
 
 use allocative::Allocative;
@@ -26,7 +27,6 @@ use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use dupe::Dupe;
 use gazebo::coerce::Coerce;
 use indexmap::indexmap;
-use indexmap::indexset;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
 use once_cell::sync::Lazy;
@@ -363,12 +363,12 @@ impl Action for WriteJsonAction {
         buck2_data::ActionKind::Write
     }
 
-    fn inputs(&self) -> anyhow::Result<Cow<'_, IndexSet<ArtifactGroup>>> {
-        Ok(Cow::Owned(IndexSet::new()))
+    fn inputs(&self) -> anyhow::Result<Cow<'_, [ArtifactGroup]>> {
+        Ok(Cow::Borrowed(&[]))
     }
 
-    fn outputs(&self) -> anyhow::Result<Cow<'_, IndexSet<BuildArtifact>>> {
-        Ok(Cow::Owned(indexset![self.output.dupe()]))
+    fn outputs(&self) -> anyhow::Result<Cow<'_, [BuildArtifact]>> {
+        Ok(Cow::Borrowed(slice::from_ref(&self.output)))
     }
 
     fn as_executable(&self) -> ActionExecutable<'_> {

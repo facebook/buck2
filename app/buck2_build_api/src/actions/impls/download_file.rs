@@ -89,8 +89,8 @@ impl UnregisteredAction for UnregisteredDownloadFileAction {
 
 #[derive(Debug, Allocative)]
 struct DownloadFileAction {
-    inputs: IndexSet<ArtifactGroup>,
-    outputs: IndexSet<BuildArtifact>,
+    inputs: Box<[ArtifactGroup]>,
+    outputs: Box<[BuildArtifact]>,
     inner: UnregisteredDownloadFileAction,
 }
 
@@ -110,8 +110,8 @@ impl DownloadFileAction {
             ))
         } else {
             Ok(Self {
-                inputs,
-                outputs,
+                inputs: inputs.into_iter().collect(),
+                outputs: outputs.into_iter().collect(),
                 inner,
             })
         }
@@ -189,11 +189,11 @@ impl Action for DownloadFileAction {
         buck2_data::ActionKind::DownloadFile
     }
 
-    fn inputs(&self) -> anyhow::Result<Cow<'_, IndexSet<ArtifactGroup>>> {
+    fn inputs(&self) -> anyhow::Result<Cow<'_, [ArtifactGroup]>> {
         Ok(Cow::Borrowed(&self.inputs))
     }
 
-    fn outputs(&self) -> anyhow::Result<Cow<'_, IndexSet<BuildArtifact>>> {
+    fn outputs(&self) -> anyhow::Result<Cow<'_, [BuildArtifact]>> {
         Ok(Cow::Borrowed(&self.outputs))
     }
 

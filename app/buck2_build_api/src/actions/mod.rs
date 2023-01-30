@@ -24,6 +24,7 @@
 //! bound to a particular 'Action'.
 
 pub mod artifact;
+pub mod box_slice_set;
 pub mod build_listener;
 pub mod calculation;
 pub mod execute;
@@ -97,11 +98,11 @@ pub trait Action: Allocative + Debug + Send + Sync + 'static {
 
     /// All the input 'Artifact's, both sources and built artifacts, that are required for
     /// executing this artifact. While nothing enforces it, this should be a pure function.
-    fn inputs(&self) -> anyhow::Result<Cow<'_, IndexSet<ArtifactGroup>>>;
+    fn inputs(&self) -> anyhow::Result<Cow<'_, [ArtifactGroup]>>;
 
     /// All the outputs this 'Artifact' will generate. Just like inputs, this should be a pure
     /// function.
-    fn outputs(&self) -> anyhow::Result<Cow<'_, IndexSet<BuildArtifact>>>;
+    fn outputs(&self) -> anyhow::Result<Cow<'_, [BuildArtifact]>>;
 
     /// Obtains an executable for this action.
     fn as_executable(&self) -> ActionExecutable<'_>;
@@ -347,6 +348,7 @@ pub(crate) mod testings {
     use starlark::values::OwnedFrozenValue;
 
     use crate::actions::artifact::build_artifact::BuildArtifact;
+    use crate::actions::box_slice_set::BoxSliceSet;
     use crate::actions::execute::action_executor::ActionExecutionMetadata;
     use crate::actions::execute::action_executor::ActionOutputs;
     use crate::actions::Action;
@@ -382,8 +384,8 @@ pub(crate) mod testings {
     #[derive(Derivative, Allocative)]
     #[derivative(Debug)]
     pub struct SimpleAction {
-        inputs: IndexSet<ArtifactGroup>,
-        outputs: IndexSet<BuildArtifact>,
+        inputs: BoxSliceSet<ArtifactGroup>,
+        outputs: BoxSliceSet<BuildArtifact>,
         cmd: Vec<String>,
         category: Category,
         identifier: Option<String>,
@@ -398,8 +400,8 @@ pub(crate) mod testings {
             identifier: Option<String>,
         ) -> Self {
             Self {
-                inputs,
-                outputs,
+                inputs: BoxSliceSet::from(inputs),
+                outputs: BoxSliceSet::from(outputs),
                 cmd,
                 category,
                 identifier,
@@ -415,8 +417,8 @@ pub(crate) mod testings {
             _starlark_data: Option<OwnedFrozenValue>,
         ) -> anyhow::Result<Box<dyn Action>> {
             Ok(box SimpleAction {
-                inputs,
-                outputs,
+                inputs: BoxSliceSet::from(inputs),
+                outputs: BoxSliceSet::from(outputs),
                 cmd: self.cmd,
                 category: self.category,
                 identifier: self.identifier,
@@ -430,12 +432,12 @@ pub(crate) mod testings {
             buck2_data::ActionKind::NotSet
         }
 
-        fn inputs(&self) -> anyhow::Result<Cow<'_, IndexSet<ArtifactGroup>>> {
-            Ok(Cow::Borrowed(&self.inputs))
+        fn inputs(&self) -> anyhow::Result<Cow<'_, [ArtifactGroup]>> {
+            Ok(Cow::Borrowed(self.inputs.as_slice()))
         }
 
-        fn outputs(&self) -> anyhow::Result<Cow<'_, IndexSet<BuildArtifact>>> {
-            Ok(Cow::Borrowed(&self.outputs))
+        fn outputs(&self) -> anyhow::Result<Cow<'_, [BuildArtifact]>> {
+            Ok(Cow::Borrowed(self.outputs.as_slice()))
         }
 
         fn as_executable(&self) -> ActionExecutable<'_> {
