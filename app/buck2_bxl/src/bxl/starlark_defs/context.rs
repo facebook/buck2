@@ -309,7 +309,7 @@ fn register_context(builder: &mut MethodsBuilder) {
 
                     TargetExpr::Node(node) => node.alloc(eval.heap()),
                     multi => eval.heap().alloc(StarlarkTargetSet::from(
-                        multi.get(&query_env).await?.into_owned(),
+                        multi.get(&query_env, this.async_ctx.0).await?.into_owned(),
                     )),
                 },
             )

@@ -55,6 +55,7 @@ use buck2_query::query::syntax::simple::eval::file_set::FileSet;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use dice::DiceComputations;
 use dupe::Dupe;
+use futures::TryFutureExt;
 use gazebo::prelude::*;
 use indexmap::indexset;
 use ref_cast::RefCast;
@@ -288,7 +289,7 @@ impl<'c> CqueryDelegate for DiceQueryDelegate<'c> {
 }
 
 // Returns a tuple of compatible and incompatible targets.
-fn split_compatible_incompatible(
+pub fn split_compatible_incompatible(
     targets: impl Iterator<Item = anyhow::Result<MaybeCompatible<ConfiguredTargetNode>>>,
 ) -> anyhow::Result<(
     TargetSet<ConfiguredTargetNode>,
@@ -308,6 +309,17 @@ fn split_compatible_incompatible(
         }
     }
     Ok((target_set, incompatible_targets))
+}
+
+pub async fn get_maybe_compatible_targets_from_set(
+    ctx: &DiceComputations,
+    target_set: TargetSet<ConfiguredTargetNode>,
+) -> Vec<anyhow::Result<MaybeCompatible<ConfiguredTargetNode>>> {
+    futures::future::join_all(target_set.iter().map(|node| {
+        ctx.get_configured_target_node(node.label())
+            .map_err(anyhow::Error::from)
+    }))
+    .await
 }
 
 /// Converts target nodes to a set of compatible configured target nodes.

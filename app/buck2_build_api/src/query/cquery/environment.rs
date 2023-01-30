@@ -113,6 +113,16 @@ impl<'c> CqueryEnvironment<'c> {
         Ok(self.delegate.get_node_for_configured_target(label).await?)
     }
 
+    pub async fn get_node_maybe_compatible(
+        &self,
+        node_ref: &ConfiguredTargetLabel,
+    ) -> anyhow::Result<MaybeCompatible<ConfiguredTargetNode>> {
+        Ok(self
+            .delegate
+            .get_node_for_target(node_ref.unconfigured())
+            .await?)
+    }
+
     /// Deprecated `owner` function implementation.
     /// See [this post](https://fburl.com/0xv7u4bz) for details.
     async fn owner_deprecated(&self, path: &CellPath) -> anyhow::Result<Vec<ConfiguredTargetNode>> {
