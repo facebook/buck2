@@ -10,6 +10,7 @@
 #![feature(try_blocks)]
 
 pub mod display;
+pub mod event_observer;
 pub mod span_tracker;
 pub mod verbosity;
 pub mod what_ran;

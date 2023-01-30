@@ -23,6 +23,7 @@ use buck2_data::CommandExecutionDetails;
 use buck2_event_observer::display;
 use buck2_event_observer::display::display_file_watcher_end;
 use buck2_event_observer::display::TargetDisplayOptions;
+use buck2_event_observer::event_observer::EventObserver;
 use buck2_event_observer::span_tracker::BuckEventSpanTracker;
 use buck2_event_observer::verbosity::Verbosity;
 use buck2_event_observer::what_ran;
@@ -226,7 +227,7 @@ pub(crate) struct SimpleConsole {
     verbosity: Verbosity,
     // Whether to show "Waiting for daemon..." when no root spans are received
     show_waiting_message: bool,
-    span_tracker: BuckEventSpanTracker,
+    observer: EventObserver,
     action_errors: Vec<ActionError>,
     last_print_time: Instant,
     test_session: Option<String>,
@@ -249,7 +250,7 @@ impl SimpleConsole {
             tty_mode: TtyMode::Enabled,
             verbosity,
             show_waiting_message,
-            span_tracker: BuckEventSpanTracker::new(),
+            observer: EventObserver::new(),
             action_errors: Vec::new(),
             last_print_time: Instant::now(),
             test_session: None,
@@ -272,7 +273,7 @@ impl SimpleConsole {
             tty_mode: TtyMode::Disabled,
             verbosity,
             show_waiting_message,
-            span_tracker: BuckEventSpanTracker::new(),
+            observer: EventObserver::new(),
             action_errors: Vec::new(),
             last_print_time: Instant::now(),
             test_session: None,
@@ -299,7 +300,7 @@ impl SimpleConsole {
     }
 
     pub(crate) fn spans(&self) -> &BuckEventSpanTracker {
-        &self.span_tracker
+        self.observer.spans()
     }
 
     pub(crate) fn action_stats(&self) -> &ActionStats {
@@ -318,10 +319,8 @@ impl SimpleConsole {
         &mut self.re_panel
     }
 
-    pub(crate) fn update_span_tracker(&mut self, event: &Arc<BuckEvent>) -> anyhow::Result<()> {
-        self.span_tracker
-            .handle_event(event)
-            .context("Error tracking event")
+    pub(crate) fn update_event_observer(&mut self, event: &Arc<BuckEvent>) -> anyhow::Result<()> {
+        self.observer.observe(event).context("Error tracking event")
     }
 
     fn sanitize_output_colors(stderr: &[u8]) -> String {
@@ -426,7 +425,7 @@ impl UnpackingEventSubscriber for SimpleConsole {
     }
 
     async fn handle_event(&mut self, event: &Arc<BuckEvent>) -> anyhow::Result<()> {
-        self.update_span_tracker(event)?;
+        self.update_event_observer(event)?;
         self.handle_inner_event(event)
             .await
             .with_context(|| display::InvalidBuckEvent(event.dupe()))?;
@@ -547,8 +546,8 @@ impl UnpackingEventSubscriber for SimpleConsole {
         let stderr = display::success_stderr(action, self.verbosity)?;
 
         if self.verbosity.print_all_actions() || stderr.is_some() {
-            let complete = self.span_tracker.roots_completed();
-            let incomplete = self.span_tracker.roots_ongoing();
+            let complete = self.spans().roots_completed();
+            let incomplete = self.spans().roots_ongoing();
             echo!("{} / {}: {}", complete, complete + incomplete, action_id)?;
             if let Some(stderr) = stderr {
                 // TODO(nmj): Factor out behavior here so that handling ttymode isn't ad hoc.  i.e. write a method that formats text based on tty mode
@@ -629,7 +628,7 @@ impl UnpackingEventSubscriber for SimpleConsole {
         if self.verbosity.print_status() && self.last_print_time.elapsed() > KEEPALIVE_TIME_LIMIT {
             let mut show_stats = self.show_waiting_message;
 
-            let mut roots = self.span_tracker.iter_roots();
+            let mut roots = self.spans().iter_roots();
             let sample_event = roots.next();
             match sample_event {
                 Some(sample_event) => {

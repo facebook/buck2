@@ -313,7 +313,7 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
                 self.handle_inner_event(event)
                     .await
                     .with_context(|| display::InvalidBuckEvent(event.clone()))?;
-                self.state.simple_console.update_span_tracker(event)?;
+                self.state.simple_console.update_event_observer(event)?;
             }
             None => {
                 self.state.simple_console.handle_event(event).await?;
