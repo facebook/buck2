@@ -308,26 +308,15 @@ impl ServerCommandTemplate for TargetsServerCommand {
     }
 }
 
-async fn targets(
-    server_ctx: &dyn ServerCommandContextTrait,
-    ctx: DiceTransaction,
-    request: &TargetsRequest,
-) -> anyhow::Result<TargetsResponse> {
-    // TODO(nmj): Rather than returning fully formatted data in the TargetsResponse, we should
-    //            instead return structured data, and return *that* to the CLI. The CLI should
-    //            then handle printing. The current approach is just a temporary hack to fix some
-    //            issues with printing to stdout.
+fn create_printer(request: &TargetsRequest) -> anyhow::Result<Box<dyn TargetPrinter>> {
     let is_json = request.json || !request.output_attributes.is_empty();
-
-    let attributes = if request.output_attributes.is_empty() {
-        None
-    } else {
-        Some(RegexSet::new(&request.output_attributes)?)
-    };
-
-    let mut printer: Box<dyn TargetPrinter> = if is_json {
-        box JsonPrinter {
-            attributes,
+    if is_json {
+        Ok(box JsonPrinter {
+            attributes: if request.output_attributes.is_empty() {
+                None
+            } else {
+                Some(RegexSet::new(&request.output_attributes)?)
+            },
             attr_inspect_opts: if request.include_default_attributes {
                 AttrInspectOptions::All
             } else {
@@ -337,17 +326,30 @@ async fn targets(
             json_string: String::new(),
             target_call_stacks: request.target_call_stacks,
             keep_going: request.keep_going,
-        }
+        })
     } else if request.stats {
-        box StatsPrinter::new()
+        Ok(box StatsPrinter::new())
     } else {
-        box TargetNamePrinter {
+        Ok(box TargetNamePrinter {
             display_string: String::new(),
             target_call_stacks: request.target_call_stacks,
             target_hash_graph_type: TargetHashGraphType::from_i32(request.target_hash_graph_type)
                 .expect("buck cli should send valid target hash graph type"),
-        }
-    };
+        })
+    }
+}
+
+async fn targets(
+    server_ctx: &dyn ServerCommandContextTrait,
+    ctx: DiceTransaction,
+    request: &TargetsRequest,
+) -> anyhow::Result<TargetsResponse> {
+    // TODO(nmj): Rather than returning fully formatted data in the TargetsResponse, we should
+    //            instead return structured data, and return *that* to the CLI. The CLI should
+    //            then handle printing. The current approach is just a temporary hack to fix some
+    //            issues with printing to stdout.
+
+    let mut printer = create_printer(request)?;
 
     let fs = server_ctx.project_root();
     let cwd = server_ctx.working_dir();
