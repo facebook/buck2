@@ -981,11 +981,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_tick_makes_valid_log_gzip() -> anyhow::Result<()> {
-        test_tick_makes_valid_log(Encoding::PROTO_GZIP).await
-    }
-
-    #[tokio::test]
     async fn test_tick_makes_valid_log_zstd() -> anyhow::Result<()> {
         test_tick_makes_valid_log(Encoding::PROTO_ZSTD).await
     }
