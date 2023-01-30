@@ -115,9 +115,7 @@ impl TargetPrinter for JsonPrinter {
                     return;
                 }
             }
-            if *first {
-                writeln!(this.json_string).unwrap();
-            } else {
+            if !*first {
                 writeln!(this.json_string, ",").unwrap();
             }
             *first = false;
