@@ -373,7 +373,7 @@ async fn targets(
         .collect::<anyhow::Result<_>>()?;
 
     let mut printer = create_printer(request)?;
-    let (error_count, results_to_print) = parse_and_get_results(
+    let (error_count, results_to_print) = targets_batch(
         server_ctx,
         ctx,
         &mut *printer,
@@ -468,7 +468,7 @@ async fn targets_resolve_aliases(
     })
 }
 
-async fn parse_and_get_results(
+async fn targets_batch(
     server_ctx: &dyn ServerCommandContextTrait,
     ctx: DiceTransaction,
     printer: &mut dyn TargetPrinter,
