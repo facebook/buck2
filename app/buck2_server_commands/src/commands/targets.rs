@@ -25,7 +25,6 @@ use buck2_cli_proto::TargetsRequest;
 use buck2_cli_proto::TargetsResponse;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
-use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRoot;
@@ -273,8 +272,7 @@ impl TargetPrinter for TargetNamePrinter {
 }
 
 struct TargetHashOptions {
-    file_mode: TargetHashFileMode,
-    modified_paths: HashSet<CellPath>,
+    file_mode: TargetHashesFileMode,
     fast_hash: bool,
     graph_type: TargetHashGraphType,
     recursive: bool,
@@ -287,16 +285,25 @@ impl TargetHashOptions {
         fs: &ProjectRoot,
         cwd: &ProjectRelativePath,
     ) -> anyhow::Result<Self> {
-        let target_hash_modified_paths = request
-            .target_hash_modified_paths
-            .iter()
-            .map(|path| cell_resolver.get_cell_path_from_abs_or_rel_path(Path::new(path), fs, cwd))
-            .collect::<anyhow::Result<_>>()?;
+        let file_mode = TargetHashFileMode::from_i32(request.target_hash_file_mode)
+            .expect("buck cli should send valid target hash file mode");
+        let file_mode = match file_mode {
+            TargetHashFileMode::PathsOnly => {
+                let modified_paths = request
+                    .target_hash_modified_paths
+                    .iter()
+                    .map(|path| {
+                        cell_resolver.get_cell_path_from_abs_or_rel_path(Path::new(path), fs, cwd)
+                    })
+                    .collect::<anyhow::Result<_>>()?;
+                TargetHashesFileMode::PathsOnly(modified_paths)
+            }
+            TargetHashFileMode::PathsAndContents => TargetHashesFileMode::PathsAndContents,
+            TargetHashFileMode::NoFiles => TargetHashesFileMode::None,
+        };
 
         Ok(Self {
-            file_mode: TargetHashFileMode::from_i32(request.target_hash_file_mode)
-                .expect("buck cli should send valid target hash file mode"),
-            modified_paths: target_hash_modified_paths,
+            file_mode,
             fast_hash: request.target_hash_use_fast_hash,
             graph_type: TargetHashGraphType::from_i32(request.target_hash_graph_type)
                 .expect("buck cli should send valid target hash graph type"),
@@ -494,11 +501,6 @@ async fn targets_batch(
 ) -> anyhow::Result<(u64, String)> {
     let results = load_patterns(&ctx, parsed_patterns).await?;
 
-    let file_hash_mode = match options.file_mode {
-        TargetHashFileMode::PathsOnly => TargetHashesFileMode::PathsOnly(options.modified_paths),
-        TargetHashFileMode::PathsAndContents => TargetHashesFileMode::PathsAndContents,
-        TargetHashFileMode::NoFiles => TargetHashesFileMode::None,
-    };
     let target_hashes = match options.graph_type {
         TargetHashGraphType::Configured => Some(
             TargetHashes::compute::<ConfiguredTargetNode, _>(
@@ -506,7 +508,7 @@ async fn targets_batch(
                 ConfiguredTargetNodeLookup(&ctx),
                 results.iter_loaded_targets_by_package().collect(),
                 target_platform,
-                file_hash_mode,
+                options.file_mode,
                 options.fast_hash,
                 options.recursive,
             )
@@ -518,7 +520,7 @@ async fn targets_batch(
                 TargetNodeLookup(&ctx),
                 results.iter_loaded_targets_by_package().collect(),
                 target_platform,
-                file_hash_mode,
+                options.file_mode,
                 options.fast_hash,
                 options.recursive,
             )
