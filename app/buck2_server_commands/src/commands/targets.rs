@@ -11,6 +11,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt::Write as _;
 use std::io::Write as _;
+use std::mem;
 use std::path::Path;
 
 use anyhow::Context as _;
@@ -89,7 +90,7 @@ impl TargetPrinter for JsonPrinter {
     }
     fn end(&mut self) -> String {
         writeln!(self.json_string, "\n]").unwrap();
-        std::mem::take(&mut self.json_string)
+        mem::take(&mut self.json_string)
     }
 
     fn target(&mut self, package: PackageLabel, target_info: TargetInfo<'_>) {
@@ -226,7 +227,7 @@ struct TargetNamePrinter {
 }
 impl TargetPrinter for TargetNamePrinter {
     fn end(&mut self) -> String {
-        std::mem::take(&mut self.display_string)
+        mem::take(&mut self.display_string)
     }
 
     fn target(&mut self, package: PackageLabel, target_info: TargetInfo<'_>) {
