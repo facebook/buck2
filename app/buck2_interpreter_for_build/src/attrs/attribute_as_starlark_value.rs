@@ -12,7 +12,6 @@ use std::sync::Arc;
 use allocative::Allocative;
 use buck2_node::attrs::attr::Attribute;
 use buck2_node::attrs::attr_type::AttrType;
-use buck2_node::attrs::attr_type::AttrTypeInner;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
@@ -53,11 +52,10 @@ impl AttributeAsStarlarkValue {
 
     /// Coercer to put into higher lever coercer (e. g. for `attrs.list(xxx)`).
     pub fn coercer_for_inner(&self) -> anyhow::Result<AttrType> {
-        let coercer = self.0.coercer();
-        if let AttrTypeInner::DefaultOnly(_) = &*coercer.0 {
+        if self.0.is_default_only() {
             return Err(AttributeAsStarlarkValueError::DefaultOnlyInNested.into());
         }
-        Ok(coercer.dupe())
+        Ok(self.0.coercer().dupe())
     }
 
     pub fn default(&self) -> Option<&Arc<CoercedAttr>> {

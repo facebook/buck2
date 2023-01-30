@@ -14,6 +14,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 
 use crate::attrs::attr_type::AttrType;
+use crate::attrs::attr_type::AttrTypeInner;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::display::AttrDisplayWithContextExt;
 
@@ -40,6 +41,10 @@ impl Attribute {
 
     pub fn coercer(&self) -> &AttrType {
         &self.coercer
+    }
+
+    pub fn is_default_only(&self) -> bool {
+        matches!(&*self.coercer.0, AttrTypeInner::DefaultOnly(_))
     }
 
     pub fn default(&self) -> Option<&Arc<CoercedAttr>> {
