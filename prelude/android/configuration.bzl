@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//android:android_providers.bzl", "CPU_FILTER_TO_ABI_DIRECTORY")
+load("@prelude//android:cpu_filters.bzl", "ALL_CPU_FILTERS")
 load("@prelude//android:min_sdk_version.bzl", "get_min_sdk_version_constraint_value_name", "get_min_sdk_version_range")
 
 # FIXME: prelude// should be standalone (not refer to ovr_config//)
@@ -30,7 +30,7 @@ def _cpu_split_transition_instrumentation_test_apk_impl(
         platform: PlatformInfo.type,
         refs: struct.type,
         attrs: struct.type) -> {str.type: PlatformInfo.type}:
-    cpu_filters = attrs.cpu_filters or CPU_FILTER_TO_ABI_DIRECTORY.keys()
+    cpu_filters = attrs.cpu_filters or ALL_CPU_FILTERS
     if attrs._is_force_single_cpu:
         cpu_filters = cpu_filters[0:1]
 
@@ -46,7 +46,7 @@ def _cpu_split_transition_impl(
         platform: PlatformInfo.type,
         refs: struct.type,
         attrs: struct.type) -> {str.type: PlatformInfo.type}:
-    cpu_filters = attrs.cpu_filters or CPU_FILTER_TO_ABI_DIRECTORY.keys()
+    cpu_filters = attrs.cpu_filters or ALL_CPU_FILTERS
     if attrs._is_force_single_cpu:
         cpu_filters = cpu_filters[0:1]
 
