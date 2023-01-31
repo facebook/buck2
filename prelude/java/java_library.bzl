@@ -20,7 +20,7 @@ load(
     "to_list",
 )
 load("@prelude//java:java_resources.bzl", "get_resources_map")
-load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
+load("@prelude//java:java_toolchain.bzl", "AbiGenerationMode", "JavaToolchainInfo")
 load("@prelude//java:javacd_jar_creator.bzl", "create_jar_artifact_javacd")
 load("@prelude//java/plugins:java_annotation_processor.bzl", "create_ap_params")
 load("@prelude//java/plugins:java_plugin.bzl", "PluginParams", "create_plugin_params")
@@ -343,7 +343,7 @@ def compile_to_jar(
 def _create_jar_artifact(
         actions: "actions",
         actions_identifier: [str.type, None],
-        _abi_generation_mode: ["AbiGenerationMode", None],
+        abi_generation_mode: ["AbiGenerationMode", None],
         java_toolchain: JavaToolchainInfo.type,
         label: "label",
         output: ["artifact", None],
@@ -422,7 +422,7 @@ def _create_jar_artifact(
 
     actions.run(compile_and_package_cmd, category = "javac_and_jar", identifier = actions_identifier)
 
-    abi = None if (not srcs and not additional_compiled_srcs) or java_toolchain.is_bootstrap_toolchain else create_abi(actions, java_toolchain.class_abi_generator, jar_out)
+    abi = None if (not srcs and not additional_compiled_srcs) or abi_generation_mode == AbiGenerationMode("none") or java_toolchain.is_bootstrap_toolchain else create_abi(actions, java_toolchain.class_abi_generator, jar_out)
 
     return make_compile_outputs(
         full_library = jar_out,

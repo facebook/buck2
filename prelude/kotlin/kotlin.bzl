@@ -7,7 +7,7 @@
 
 load("@prelude//android:configuration.bzl", "is_building_android_binary_attr")
 load("@prelude//java:dex_toolchain.bzl", "DexToolchainInfo")
-load("@prelude//java:java.bzl", "dex_min_sdk_version", "is_build_only_native_code", "select_dex_toolchain", "select_java_test_toolchain", "select_java_toolchain")
+load("@prelude//java:java.bzl", "AbiGenerationMode", "dex_min_sdk_version", "is_build_only_native_code", "select_dex_toolchain", "select_java_test_toolchain", "select_java_toolchain")
 load(
     "@prelude//java:java_toolchain.bzl",
     "JavaPlatformInfo",
@@ -32,6 +32,7 @@ implemented_rules = {
 
 extra_attributes = {
     "kotlin_library": {
+        "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
         "javac": attrs.option(attrs.one_of(attrs.dep(), attrs.source()), default = None),
         "resources_root": attrs.option(attrs.string(), default = None),
         "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
@@ -57,6 +58,7 @@ extra_attributes = {
         ),
     },
     "kotlin_test": {
+        "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
         "javac": attrs.option(attrs.one_of(attrs.dep(), attrs.source()), default = None),
         "resources_root": attrs.option(attrs.string(), default = None),
         "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),

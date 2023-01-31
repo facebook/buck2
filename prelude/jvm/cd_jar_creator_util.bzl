@@ -33,7 +33,7 @@ def declare_prefixed_output(actions: "actions", prefix: [str.type, None], output
 def _resolve_abi_generation_mode(abi_generation_mode: [AbiGenerationMode.type, None], java_toolchain: "JavaToolchainInfo") -> "AbiGenerationMode":
     if abi_generation_mode == None:
         return java_toolchain.abi_generation_mode
-    for mode in [AbiGenerationMode("class"), AbiGenerationMode("source"), AbiGenerationMode("source_only")]:
+    for mode in [AbiGenerationMode("none"), AbiGenerationMode("class"), AbiGenerationMode("source"), AbiGenerationMode("source_only")]:
         if mode in (java_toolchain.abi_generation_mode, abi_generation_mode):
             return mode
     fail("resolving abi generation mode failed. had `{}` and `{}`".format(java_toolchain.abi_generation_mode, abi_generation_mode))

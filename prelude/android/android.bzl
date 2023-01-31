@@ -7,7 +7,7 @@
 
 load("@prelude//:attributes.bzl", "AaptMode", "DuplicateResourceBehaviour", "TargetCpuType")
 load("@prelude//java:dex_toolchain.bzl", "DexToolchainInfo")
-load("@prelude//java:java.bzl", "dex_min_sdk_version", "select_java_test_toolchain")
+load("@prelude//java:java.bzl", "AbiGenerationMode", "dex_min_sdk_version", "select_java_test_toolchain")
 load("@prelude//java:java_toolchain.bzl", "JavaPlatformInfo", "JavaTestToolchainInfo", "JavaToolchainInfo")
 load("@prelude//kotlin:kotlin_toolchain.bzl", "KotlinToolchainInfo")
 load("@prelude//genrule.bzl", "genrule_attributes")
@@ -94,6 +94,7 @@ FORCE_SINGLE_CPU = read_config("buck2", "android_force_single_cpu") in ("True", 
 
 extra_attributes = {
     "android_aar": {
+        "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
         "resources_root": attrs.option(attrs.string(), default = None),
     },
     "android_app_modularity": {
@@ -142,6 +143,7 @@ extra_attributes = {
         "_java_toolchain": java_toolchain_for_android(),
     },
     "android_library": {
+        "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
         "resources_root": attrs.option(attrs.string(), default = None),
         "_android_toolchain": android_toolchain(),
         "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
@@ -185,6 +187,7 @@ extra_attributes = {
         "native_libs": attrs.source(allow_directory = True),
     },
     "robolectric_test": {
+        "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
         "resources_root": attrs.option(attrs.string(), default = None),
         "robolectric_runtime_dependencies": attrs.list(attrs.source(), default = []),
         "_android_toolchain": android_toolchain(),

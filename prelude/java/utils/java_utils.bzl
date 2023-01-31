@@ -69,6 +69,7 @@ def get_abi_generation_mode(abi_generation_mode):
         None: None,
         "class": AbiGenerationMode("class"),
         "migrating_to_source_only": AbiGenerationMode("source"),
+        "none": AbiGenerationMode("none"),
         "source": AbiGenerationMode("source"),
         "source_only": AbiGenerationMode("source_only"),
     }[abi_generation_mode]
