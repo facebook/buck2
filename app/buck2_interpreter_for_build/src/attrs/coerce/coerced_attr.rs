@@ -229,15 +229,15 @@ mod tests {
                 self.settings.get(label)
             }
 
-            fn cfg(&self) -> &Configuration {
+            fn cfg(&self) -> Configuration {
                 panic!()
             }
 
-            fn exec_cfg(&self) -> &Configuration {
+            fn exec_cfg(&self) -> Configuration {
                 unimplemented!()
             }
 
-            fn platform_cfg(&self, _label: &TargetLabel) -> anyhow::Result<&Configuration> {
+            fn platform_cfg(&self, _label: &TargetLabel) -> anyhow::Result<Configuration> {
                 panic!("not used in test")
             }
 

@@ -496,7 +496,7 @@ impl ConfiguredTargetNode {
         self.0.target_node.attrs(opts).map(move |a| {
             a.configure(&AttrConfigurationContextImpl {
                 resolved_cfg: &self.0.resolved_configuration,
-                exec_cfg: &self.0.execution_platform_resolution.cfg(),
+                exec_cfg: self.0.execution_platform_resolution.cfg(),
                 resolved_transitions: &self.0.resolved_transition_configurations,
                 platform_cfgs: &self.0.platform_cfgs,
             })
@@ -512,7 +512,7 @@ impl ConfiguredTargetNode {
         self.0.target_node.attr_or_none(attr, opts).map(|v| {
             v.configure(&AttrConfigurationContextImpl {
                 resolved_cfg: &self.0.resolved_configuration,
-                exec_cfg: &self.0.execution_platform_resolution.cfg(),
+                exec_cfg: self.0.execution_platform_resolution.cfg(),
                 resolved_transitions: &self.0.resolved_transition_configurations,
                 platform_cfgs: &self.0.platform_cfgs,
             })

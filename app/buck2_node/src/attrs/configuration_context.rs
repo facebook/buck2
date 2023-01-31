@@ -36,29 +36,29 @@ pub trait AttrConfigurationContext {
     /// Return the content of the resolved `config_setting` on match.
     fn matches<'a>(&'a self, label: &TargetLabel) -> Option<&'a ConfigurationData>;
 
-    fn cfg(&self) -> &Configuration;
+    fn cfg(&self) -> Configuration;
 
-    fn exec_cfg(&self) -> &Configuration;
+    fn exec_cfg(&self) -> Configuration;
 
-    fn platform_cfg(&self, label: &TargetLabel) -> anyhow::Result<&Configuration>;
+    fn platform_cfg(&self, label: &TargetLabel) -> anyhow::Result<Configuration>;
 
     /// Map of transition ids resolved to configurations
     /// using current node configuration as input.
     fn resolved_transitions(&self) -> &OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>;
 
     fn configure_target(&self, label: &ProvidersLabel) -> ConfiguredProvidersLabel {
-        label.configure(self.cfg().dupe())
+        label.configure(self.cfg())
     }
 
     fn configure_exec_target(&self, label: &ProvidersLabel) -> ConfiguredProvidersLabel {
-        label.configure(self.exec_cfg().dupe())
+        label.configure(self.exec_cfg())
     }
 
     fn configure_toolchain_target(&self, label: &ProvidersLabel) -> ConfiguredProvidersLabel {
         // The toolchain dependency itself is always configured in the target configuration,
         // but its exec_deps are considered when picking an execution platform, and MUST
         // use the execution dependency of its parent.
-        label.configure_with_exec(self.cfg().dupe(), self.exec_cfg().dupe())
+        label.configure_with_exec(self.cfg(), self.exec_cfg())
     }
 
     /// Configure a transition target.
@@ -93,7 +93,7 @@ pub trait AttrConfigurationContext {
 
 pub struct AttrConfigurationContextImpl<'b> {
     pub resolved_cfg: &'b ResolvedConfiguration,
-    pub exec_cfg: &'b Configuration,
+    pub exec_cfg: Configuration,
     pub resolved_transitions: &'b OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>,
     pub platform_cfgs: &'b OrderedMap<TargetLabel, Configuration>,
 }
@@ -104,17 +104,17 @@ impl<'b> AttrConfigurationContext for AttrConfigurationContextImpl<'b> {
             .setting_matches(ConfigurationSettingKeyRef(label))
     }
 
-    fn cfg(&self) -> &Configuration {
-        self.resolved_cfg.cfg()
+    fn cfg(&self) -> Configuration {
+        self.resolved_cfg.cfg().dupe()
     }
 
-    fn exec_cfg(&self) -> &Configuration {
-        self.exec_cfg
+    fn exec_cfg(&self) -> Configuration {
+        self.exec_cfg.dupe()
     }
 
-    fn platform_cfg(&self, label: &TargetLabel) -> anyhow::Result<&Configuration> {
+    fn platform_cfg(&self, label: &TargetLabel) -> anyhow::Result<Configuration> {
         match self.platform_cfgs.get(label) {
-            Some(configuration) => Ok(configuration),
+            Some(configuration) => Ok(configuration.dupe()),
             None => Err(anyhow::anyhow!(
                 PlatformConfigurationError::UnknownPlatformTarget(label.dupe())
             )),

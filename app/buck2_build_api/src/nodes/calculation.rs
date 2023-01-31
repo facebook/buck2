@@ -181,7 +181,7 @@ impl ExecutionPlatformConstraints {
 
         let cfg_ctx = AttrConfigurationContextImpl {
             resolved_cfg: resolved_configuration,
-            exec_cfg: &Configuration::unbound_exec(),
+            exec_cfg: Configuration::unbound_exec(),
             // We don't really need `resolved_transitions` here:
             // `Traversal` declared above ignores transitioned dependencies.
             // But we pass `resolved_transitions` here to prevent breakages in the future
@@ -378,11 +378,11 @@ fn unpack_target_compatible_with_attr(
                 .setting_matches(ConfigurationSettingKeyRef(label))
         }
 
-        fn cfg(&self) -> &Configuration {
-            self.resolved_cfg.cfg()
+        fn cfg(&self) -> Configuration {
+            self.resolved_cfg.cfg().dupe()
         }
 
-        fn platform_cfg(&self, _label: &TargetLabel) -> anyhow::Result<&Configuration> {
+        fn platform_cfg(&self, _label: &TargetLabel) -> anyhow::Result<Configuration> {
             unreachable!(
                 "platform_cfg() is not needed to resolve `{}` or `{}`",
                 TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD,
@@ -390,7 +390,7 @@ fn unpack_target_compatible_with_attr(
             )
         }
 
-        fn exec_cfg(&self) -> &Configuration {
+        fn exec_cfg(&self) -> Configuration {
             unreachable!(
                 "exec_cfg() is not needed to resolve `{}` or `{}`",
                 TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD,
@@ -603,7 +603,7 @@ async fn compute_configured_target_node_no_transition(
         };
         let attr_cfg_ctx = AttrConfigurationContextImpl {
             resolved_cfg: &resolved_configuration,
-            exec_cfg: &execution_platform_resolution.cfg(),
+            exec_cfg: execution_platform_resolution.cfg(),
             resolved_transitions: &resolved_transitions,
             platform_cfgs: &platform_cfgs,
         };

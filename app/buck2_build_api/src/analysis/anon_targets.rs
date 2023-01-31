@@ -450,16 +450,16 @@ impl AttrConfigurationContext for AnonAttrCtx {
         None
     }
 
-    fn cfg(&self) -> &Configuration {
-        &self.cfg
+    fn cfg(&self) -> Configuration {
+        self.cfg.dupe()
     }
 
-    fn exec_cfg(&self) -> &Configuration {
-        &self.cfg
+    fn exec_cfg(&self) -> Configuration {
+        self.cfg.dupe()
     }
 
-    fn platform_cfg(&self, _label: &TargetLabel) -> anyhow::Result<&Configuration> {
-        Ok(&self.cfg)
+    fn platform_cfg(&self, _label: &TargetLabel) -> anyhow::Result<Configuration> {
+        Ok(self.cfg.dupe())
     }
 
     fn resolved_transitions(&self) -> &OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>> {
