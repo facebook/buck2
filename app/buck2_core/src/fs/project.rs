@@ -503,11 +503,7 @@ impl ProjectRoot {
         let mut target = fs_util::read_link(src)?;
         if target.is_relative() {
             // Grab the absolute path, then re-relativize the path to the destination
-            let relative_target = if cfg!(windows) {
-                Cow::Owned(RelativePathBuf::from_path(target.as_path())?)
-            } else {
-                Cow::Borrowed(RelativePath::from_path(target.as_path())?)
-            };
+            let relative_target = fs_util::relative_path_from_system(target.as_path())?;
             let absolute_target = relative_target.normalize().to_path(
                 src.parent()
                     .expect("a path with a parent in symlink target"),

@@ -9,6 +9,7 @@
 
 // We'd love to use fs-err instead, but that code gives bad error messages and doesn't wrap all functions.
 // Various bugs have been raised - if they all get fixed we can migrate.
+use std::borrow::Cow;
 use std::fs;
 use std::fs::File;
 use std::io;
@@ -18,6 +19,8 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use anyhow::Context;
+use relative_path::RelativePath;
+use relative_path::RelativePathBuf;
 
 use crate::fs::paths::abs_norm_path::AbsNormPath;
 use crate::fs::paths::abs_norm_path::AbsNormPathBuf;
@@ -47,7 +50,6 @@ fn symlink_impl(original: &Path, link: &Path) -> anyhow::Result<()> {
 /// Create symlink on Windows.
 #[cfg(windows)]
 fn symlink_impl(original: &Path, link: &Path) -> anyhow::Result<()> {
-    use std::borrow::Cow;
     use std::io::ErrorKind;
 
     let target_abspath = if original.is_absolute() {
@@ -409,6 +411,19 @@ pub fn create_file<P: AsRef<Path>>(path: P) -> anyhow::Result<FileGuard> {
     })
 }
 
+// Create a relative path in a cross-patform way, we need this since RelativePath fails when
+// converting backslashes which means windows paths end up failing. RelativePathBuf doesn't have
+// this problem and we can easily coerce it into a RelativePath.
+// TODO(T143971518) Avoid RelativePath usage in buck2
+pub fn relative_path_from_system(path: &Path) -> anyhow::Result<Cow<'_, RelativePath>> {
+    let res = if cfg!(windows) {
+        Cow::Owned(RelativePathBuf::from_path(path)?)
+    } else {
+        Cow::Borrowed(RelativePath::from_path(path)?)
+    };
+    Ok(res)
+}
+
 #[cfg(test)]
 mod tests {
     use std::fs;
@@ -418,6 +433,7 @@ mod tests {
     use std::path::PathBuf;
 
     use assert_matches::assert_matches;
+    use relative_path::RelativePath;
 
     use crate::fs::fs_util;
     use crate::fs::fs_util::create_dir_all;
@@ -667,6 +683,26 @@ mod tests {
         assert_eq!(fs_util::read_to_string_opt(&f1)?.as_deref(), Some("data"));
         assert_eq!(fs_util::read_to_string_opt(&f2)?, None);
 
+        Ok(())
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn test_windows_relative_path() -> anyhow::Result<()> {
+        assert_eq!(
+            fs_util::relative_path_from_system(Path::new("foo\\bar"))?,
+            RelativePath::new("foo/bar")
+        );
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_relative_path() -> anyhow::Result<()> {
+        assert_eq!(
+            fs_util::relative_path_from_system(Path::new("foo/bar"))?,
+            RelativePath::new("foo/bar")
+        );
         Ok(())
     }
 }

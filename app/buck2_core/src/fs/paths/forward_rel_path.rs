@@ -23,6 +23,7 @@ use relative_path::RelativePathBuf;
 use serde::Serialize;
 use thiserror::Error;
 
+use crate::fs::fs_util;
 use crate::fs::paths::abs_norm_path::AbsNormPath;
 use crate::fs::paths::abs_norm_path::AbsNormPathBuf;
 use crate::fs::paths::file_name::FileName;
@@ -507,11 +508,7 @@ impl ForwardRelativePath {
     ///
     /// The path will be converted to an internal path (i.e. forward slashes) before joining.
     pub fn join_system(&self, path: &Path) -> anyhow::Result<ForwardRelativePathBuf> {
-        let path = if cfg!(windows) {
-            Cow::Owned(RelativePathBuf::from_path(path)?)
-        } else {
-            Cow::Borrowed(RelativePath::from_path(path)?)
-        };
+        let path = fs_util::relative_path_from_system(path)?;
         self.join_normalized(&path)
     }
 

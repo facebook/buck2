@@ -7,13 +7,11 @@
  * of this source tree.
  */
 
-use std::borrow::Cow;
 use std::sync::Arc;
 
 use anyhow::Context;
 use buck2_core::directory::DirectoryEntry;
-use buck2_core::fs::paths::RelativePath;
-use buck2_core::fs::paths::RelativePathBuf;
+use buck2_core::fs::fs_util;
 use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRoot;
 use dupe::Dupe;
@@ -101,11 +99,7 @@ impl<'a> ArtifactValueBuilder<'a> {
                     .project_fs
                     .relative_path(src.parent().context("Symlink has no dir parent")?, dest);
                 // RelativePathBuf converts platform specific path separators.
-                let reldest = if cfg!(windows) {
-                    Cow::Owned(RelativePathBuf::from_path(&reldest)?)
-                } else {
-                    Cow::Borrowed(RelativePath::from_path(&reldest)?)
-                };
+                let reldest = fs_util::relative_path_from_system(&reldest)?;
                 let s = s.relativized(reldest);
                 DirectoryEntry::Leaf(ActionDirectoryMember::Symlink(Arc::new(s)))
             }
