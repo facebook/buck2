@@ -13,6 +13,8 @@ load(":cxx_context.bzl", "get_cxx_toolchain_info")
 
 def cxx_use_bolt(ctx: "context") -> bool.type:
     cxx_toolchain_info = get_cxx_toolchain_info(ctx)
+    if not hasattr(ctx.attrs, "bolt_profile"):
+        return False
     return cxx_toolchain_info.bolt_enabled and ctx.attrs.bolt_profile != None
 
 def bolt_gdb_index(ctx: "context", bolt_output: "artifact", identifier: [str.type, None]) -> "artifact":
