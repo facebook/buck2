@@ -419,6 +419,14 @@ impl AttrCoercionContext for AnonAttrCtx {
         value.into()
     }
 
+    fn intern_select(
+        &self,
+        value: Vec<(TargetLabel, CoercedAttr)>,
+    ) -> Arc<[(TargetLabel, CoercedAttr)]> {
+        // TODO(scottcao): do intern.
+        value.into()
+    }
+
     fn coerce_path(&self, value: &str, _allow_directory: bool) -> anyhow::Result<CoercedPath> {
         Err(AnonTargetsError::CantParseDuringCoerce(value.to_owned()).into())
     }

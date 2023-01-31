@@ -21,6 +21,7 @@ use buck2_core::pattern::ProvidersPattern;
 use buck2_core::pattern::TargetPattern;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::soft_error;
+use buck2_core::target::label::TargetLabel;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coerced_path::CoercedDirectory;
 use buck2_node::attrs::coerced_path::CoercedPath;
@@ -76,7 +77,13 @@ pub struct BuildAttrCoercionContext {
     label_cache: RefCell<RawTable<(u64, *const str, ProvidersLabel)>>,
     str_interner: AttrCoercionInterner<ArcStr>,
     list_interner: AttrCoercionInterner<Arc<[CoercedAttr]>>,
+    // TODO(scottcao): Dict and selects need separate interners right now because
+    // they have different key types. We can optimize this by interning keys and values
+    // separately and use the same interner for dict and select values. This will also
+    // reduce key duplication in selects since select keys are more likely to be deduplicated
+    // than select values
     dict_interner: AttrCoercionInterner<Arc<[(CoercedAttr, CoercedAttr)]>>,
+    select_interner: AttrCoercionInterner<Arc<[(TargetLabel, CoercedAttr)]>>,
     /// `ConfiguredGraphQueryEnvironment::functions()`.
     query_functions: Arc<dyn QueryFunctionsVisitLiterals>,
 }
@@ -97,6 +104,7 @@ impl BuildAttrCoercionContext {
             str_interner: AttrCoercionInterner::new(),
             list_interner: AttrCoercionInterner::new(),
             dict_interner: AttrCoercionInterner::new(),
+            select_interner: AttrCoercionInterner::new(),
             query_functions,
         }
     }
@@ -188,6 +196,13 @@ impl AttrCoercionContext for BuildAttrCoercionContext {
         value: Vec<(CoercedAttr, CoercedAttr)>,
     ) -> Arc<[(CoercedAttr, CoercedAttr)]> {
         self.dict_interner.intern(value)
+    }
+
+    fn intern_select(
+        &self,
+        value: Vec<(TargetLabel, CoercedAttr)>,
+    ) -> Arc<[(TargetLabel, CoercedAttr)]> {
+        self.select_interner.intern(value)
     }
 
     fn coerce_path(&self, value: &str, allow_directory: bool) -> anyhow::Result<CoercedPath> {

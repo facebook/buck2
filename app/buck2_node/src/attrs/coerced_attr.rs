@@ -9,6 +9,7 @@
 
 use std::collections::HashSet;
 use std::hash::Hash;
+use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_core::configuration::Configuration;
@@ -57,13 +58,13 @@ enum CoercedSelectorKeyRef<'a> {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Allocative)]
 pub struct CoercedSelector {
-    pub(crate) entries: Box<[(TargetLabel, CoercedAttr)]>,
+    pub(crate) entries: Arc<[(TargetLabel, CoercedAttr)]>,
     pub(crate) default: Option<CoercedAttr>,
 }
 
 impl CoercedSelector {
     pub fn new(
-        entries: Box<[(TargetLabel, CoercedAttr)]>,
+        entries: Arc<[(TargetLabel, CoercedAttr)]>,
         default: Option<CoercedAttr>,
     ) -> anyhow::Result<CoercedSelector> {
         Self::check_all_keys_unique(&entries)?;

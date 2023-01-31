@@ -101,7 +101,7 @@ impl CoercedAttrExr for CoercedAttr {
                         assert_eq!(entries.capacity(), entries.len());
 
                         Ok(CoercedAttr::Selector(box CoercedSelector::new(
-                            entries.into_boxed_slice(),
+                            ctx.intern_select(entries),
                             default,
                         )?))
                     } else {
@@ -165,7 +165,7 @@ mod tests {
     fn selector_equals_accounts_for_ordering() {
         let s1 = CoercedAttr::Selector(
             box CoercedSelector::new(
-                box [
+                Arc::new([
                     (
                         TargetLabel::testing_parse("cell1//pkg1:target1"),
                         CoercedAttr::Literal(AttrLiteral::Bool(true)),
@@ -174,14 +174,14 @@ mod tests {
                         TargetLabel::testing_parse("cell2//pkg2:target2"),
                         CoercedAttr::Literal(AttrLiteral::Bool(false)),
                     ),
-                ],
+                ]),
                 None,
             )
             .unwrap(),
         );
         let s2 = CoercedAttr::Selector(
             box CoercedSelector::new(
-                box [
+                Arc::new([
                     (
                         TargetLabel::testing_parse("cell1//pkg1:target1"),
                         CoercedAttr::Literal(AttrLiteral::Bool(true)),
@@ -190,7 +190,7 @@ mod tests {
                         TargetLabel::testing_parse("cell2//pkg2:target2"),
                         CoercedAttr::Literal(AttrLiteral::Bool(false)),
                     ),
-                ],
+                ]),
                 None,
             )
             .unwrap(),
@@ -200,7 +200,7 @@ mod tests {
 
         let s2 = CoercedAttr::Selector(
             box CoercedSelector::new(
-                box [
+                Arc::new([
                     (
                         TargetLabel::testing_parse("cell2//pkg2:target2"),
                         CoercedAttr::Literal(AttrLiteral::Bool(false)),
@@ -209,7 +209,7 @@ mod tests {
                         TargetLabel::testing_parse("cell1//pkg1:target1"),
                         CoercedAttr::Literal(AttrLiteral::Bool(true)),
                     ),
-                ],
+                ]),
                 None,
             )
             .unwrap(),
@@ -361,7 +361,7 @@ mod tests {
             r#"{"__type":"selector","entries":{"//:a":true,"//:b":10,"DEFAULT":"ddd"}}"#,
             CoercedAttr::Selector(
                 box CoercedSelector::new(
-                    box [
+                    Arc::new([
                         (
                             TargetLabel::testing_parse("//:a"),
                             CoercedAttr::Literal(AttrLiteral::Bool(true))
@@ -370,7 +370,7 @@ mod tests {
                             TargetLabel::testing_parse("//:b"),
                             CoercedAttr::Literal(AttrLiteral::Int(10))
                         ),
-                    ],
+                    ]),
                     Some(CoercedAttr::Literal(AttrLiteral::String(ArcStr::from(
                         "ddd"
                     )))),

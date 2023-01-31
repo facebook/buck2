@@ -49,6 +49,12 @@ pub trait AttrCoercionContext {
     // Reuse previously allocated slices if possible.
     fn intern_list(&self, value: Vec<CoercedAttr>) -> Arc<[CoercedAttr]>;
 
+    // Reuse previously allocated selects if possible.
+    fn intern_select(
+        &self,
+        value: Vec<(TargetLabel, CoercedAttr)>,
+    ) -> Arc<[(TargetLabel, CoercedAttr)]>;
+
     // Reuse previously allocated dicts if possible.
     fn intern_dict(
         &self,
