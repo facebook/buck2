@@ -70,6 +70,8 @@ struct TargetInfo<'a> {
 trait TargetPrinter: Send {
     fn begin(&mut self) {}
     fn end(&mut self, stats: &Stats) -> String;
+    /// Called between each target/package_error
+    fn separator(&mut self) {}
     fn target(&mut self, package: PackageLabel, target_info: TargetInfo<'_>) {}
     fn package_error(&mut self, package: PackageLabel, error: &anyhow::Error) {}
 }
@@ -77,7 +79,6 @@ trait TargetPrinter: Send {
 struct JsonPrinter {
     attributes: Option<RegexSet>,
     attr_inspect_opts: AttrInspectOptions,
-    target_idx: u32,
     output: String,
     target_call_stacks: bool,
 }
@@ -90,12 +91,11 @@ impl TargetPrinter for JsonPrinter {
         self.output.push_str("\n]\n");
         mem::take(&mut self.output)
     }
+    fn separator(&mut self) {
+        self.output.push_str(",\n");
+    }
 
     fn target(&mut self, package: PackageLabel, target_info: TargetInfo<'_>) {
-        if self.target_idx != 0 {
-            self.output.push_str(",\n");
-        }
-        self.target_idx += 1;
         self.output.push_str("  {\n");
         let mut first = true;
 
@@ -175,10 +175,6 @@ impl TargetPrinter for JsonPrinter {
     }
 
     fn package_error(&mut self, package: PackageLabel, error: &anyhow::Error) {
-        if self.target_idx != 0 {
-            self.output.push_str(",\n");
-        }
-        self.target_idx += 1;
         self.output.push_str("  {\n");
         writeln!(self.output, "    \"{}\": \"{}\",", PACKAGE, package).unwrap();
         writeln!(
@@ -337,7 +333,6 @@ fn create_printer(request: &TargetsRequest) -> anyhow::Result<Box<dyn TargetPrin
             } else {
                 AttrInspectOptions::DefinedOnly
             },
-            target_idx: 0,
             output: String::new(),
             target_call_stacks: request.target_call_stacks,
         })
@@ -510,6 +505,7 @@ async fn targets_batch(
 
     printer.begin();
     let mut stats = Stats::default();
+    let mut needs_separator = false;
     for (package, result) in results.iter() {
         match result {
             Ok(res) => {
@@ -521,12 +517,20 @@ async fn targets_batch(
                         .and_then(|hashes| hashes.get(node.label()))
                         .duped()
                         .transpose()?;
+                    if needs_separator {
+                        printer.separator();
+                    }
+                    needs_separator = true;
                     printer.target(package.dupe(), TargetInfo { node, target_hash })
                 }
             }
             Err(e) => {
                 stats.errors += 1;
                 if keep_going {
+                    if needs_separator {
+                        printer.separator();
+                    }
+                    needs_separator = true;
                     printer.package_error(package.dupe(), e.inner());
                 } else {
                     writeln!(
