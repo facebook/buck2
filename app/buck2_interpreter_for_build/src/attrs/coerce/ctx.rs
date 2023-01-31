@@ -91,7 +91,7 @@ impl BuildAttrCoercionContext {
             package_boundary_exception,
             alloc: Bump::new(),
             label_cache: RefCell::new(RawTable::new()),
-            str_interner: AttrCoercionInterner::<ArcStr, _>::new(),
+            str_interner: AttrCoercionInterner::new(),
             query_functions,
         }
     }
