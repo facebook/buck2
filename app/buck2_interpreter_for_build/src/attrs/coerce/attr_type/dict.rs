@@ -51,7 +51,7 @@ impl AttrTypeCoerce for DictAttrType {
                     ));
                 }
             }
-            Ok(AttrLiteral::Dict(res.into_boxed_slice()))
+            Ok(AttrLiteral::Dict(ctx.intern_dict(res)))
         } else {
             Err(anyhow::anyhow!(CoercionError::type_error(
                 Dict::TYPE,

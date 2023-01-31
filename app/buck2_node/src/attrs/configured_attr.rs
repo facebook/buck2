@@ -130,13 +130,13 @@ impl ConfiguredAttr {
             }
             AttrLiteral::Dict(left) => {
                 let mut res = OrderedMap::new();
-                for (k, v) in left.into_vec() {
+                for (k, v) in left.iter().cloned() {
                     res.insert(k, v);
                 }
                 for x in items {
                     match x?.0 {
                         AttrLiteral::Dict(right) => {
-                            for (k, v) in right.into_vec() {
+                            for (k, v) in right.iter().cloned() {
                                 match res.entry(k) {
                                     small_map::Entry::Vacant(e) => {
                                         e.insert(v);

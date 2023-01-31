@@ -60,7 +60,7 @@ pub enum AttrLiteral<C: AttrConfig> {
     EnumVariant(ArcStr),
     List(Arc<[C]>),
     Tuple(Arc<[C]>),
-    Dict(Box<[(C, C)]>),
+    Dict(Arc<[(C, C)]>),
     None,
     Dep(Box<DepAttr<C::ProvidersType>>),
     ConfiguredDep(Box<DepAttr<ConfiguredProvidersLabel>>),
@@ -327,7 +327,7 @@ impl AttrLiteral<CoercedAttr> {
                     let v2 = v.configure(ctx)?;
                     anyhow::Ok((k2, v2))
                 })?
-                .into_boxed_slice(),
+                .into(),
             ),
             AttrLiteral::None => AttrLiteral::None,
             AttrLiteral::Dep(dep) => DepAttrType::configure(ctx, dep)?,

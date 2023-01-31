@@ -76,6 +76,7 @@ pub struct BuildAttrCoercionContext {
     label_cache: RefCell<RawTable<(u64, *const str, ProvidersLabel)>>,
     str_interner: AttrCoercionInterner<ArcStr>,
     list_interner: AttrCoercionInterner<Arc<[CoercedAttr]>>,
+    dict_interner: AttrCoercionInterner<Arc<[(CoercedAttr, CoercedAttr)]>>,
     /// `ConfiguredGraphQueryEnvironment::functions()`.
     query_functions: Arc<dyn QueryFunctionsVisitLiterals>,
 }
@@ -95,6 +96,7 @@ impl BuildAttrCoercionContext {
             label_cache: RefCell::new(RawTable::new()),
             str_interner: AttrCoercionInterner::new(),
             list_interner: AttrCoercionInterner::new(),
+            dict_interner: AttrCoercionInterner::new(),
             query_functions,
         }
     }
@@ -179,6 +181,13 @@ impl AttrCoercionContext for BuildAttrCoercionContext {
 
     fn intern_list(&self, value: Vec<CoercedAttr>) -> Arc<[CoercedAttr]> {
         self.list_interner.intern(value)
+    }
+
+    fn intern_dict(
+        &self,
+        value: Vec<(CoercedAttr, CoercedAttr)>,
+    ) -> Arc<[(CoercedAttr, CoercedAttr)]> {
+        self.dict_interner.intern(value)
     }
 
     fn coerce_path(&self, value: &str, allow_directory: bool) -> anyhow::Result<CoercedPath> {

@@ -49,6 +49,12 @@ pub trait AttrCoercionContext {
     // Reuse previously allocated slices if possible.
     fn intern_list(&self, value: Vec<CoercedAttr>) -> Arc<[CoercedAttr]>;
 
+    // Reuse previously allocated dicts if possible.
+    fn intern_dict(
+        &self,
+        value: Vec<(CoercedAttr, CoercedAttr)>,
+    ) -> Arc<[(CoercedAttr, CoercedAttr)]>;
+
     /// Attempt to convert a string into a BuckPath
     fn coerce_path(&self, value: &str, allow_directory: bool) -> anyhow::Result<CoercedPath>;
 
