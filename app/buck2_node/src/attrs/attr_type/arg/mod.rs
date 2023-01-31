@@ -122,8 +122,8 @@ pub enum StringWithMacrosPart<C: AttrConfig> {
     Macro(/* write_to_file */ bool, MacroBase<C>),
 }
 
-assert_eq_size!(MacroBase<CoercedAttr>, [usize; 4]);
-assert_eq_size!(StringWithMacrosPart<CoercedAttr>, [usize; 5]);
+assert_eq_size!(MacroBase<CoercedAttr>, [usize; 3]);
+assert_eq_size!(StringWithMacrosPart<CoercedAttr>, [usize; 4]);
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative)]
 pub struct UnrecognizedMacro {
