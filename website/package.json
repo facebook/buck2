@@ -7,6 +7,7 @@
     "start": "docusaurus start",
     "build": "../docs.sh --prod && docusaurus build",
     "build_local": "../docs.sh && docusaurus build",
+    "build_cargo": "../docs.sh --cargo && docusaurus build",
     "swizzle": "docusaurus swizzle",
     "deploy": "docusaurus deploy",
     "clear": "docusaurus clear",

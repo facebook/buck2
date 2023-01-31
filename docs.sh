@@ -17,12 +17,19 @@ print_help() {
   exit 1
 }
 
+cd "$( dirname "${BASH_SOURCE[0]}" )"
+
 BUCK2_COMMAND="./buck2.sh"
 for arg in "$@"; do
   case "$arg" in
     --help) print_help ;;
     --prod)
       BUCK2_COMMAND="buck2"
+      shift
+      ;;
+    --cargo)
+      cargo install --path=cli --root=/tmp
+      BUCK2_COMMAND="/tmp/bin/buck2"
       shift
       ;;
   esac
@@ -38,7 +45,7 @@ set -e
 #       https://www.internalfb.com/intern/configerator/edit/?path=static_docs%2Fwebsite_config.cconf
 #       needs to be updated in order for the docs sandcastle job to
 #       know that it needs to regenerate documentation.
-cd "$( dirname "${BASH_SOURCE[0]}" )"
+
 # Clear the docs folder first so that if we change the names of any
 # objects, we'll remove old docs
 rm -rf docs/generated
