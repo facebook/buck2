@@ -114,9 +114,8 @@ def _silly_binary_impl(ctx):
         [(_silly_compilation, {
             "src": src,
             "toolchain": ctx.attrs._silly_toolchain
-        }) for src in ctx.attrs.srcs],
-        k
-    )
+        }) for src in ctx.attrs.srcs]
+    ).map(k)
 
 silly_binary = rule(
     impl = _silly_binary_impl,
