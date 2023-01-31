@@ -66,14 +66,13 @@ struct TargetInfo<'a> {
 }
 
 #[allow(unused_variables)]
-trait TargetPrinter: Send {
-    fn begin(&mut self, output: &mut String) {}
-    fn end(&mut self, stats: &Stats, output: &mut String) {}
+trait TargetPrinter: Send + Sync {
+    fn begin(&self, output: &mut String) {}
+    fn end(&self, stats: &Stats, output: &mut String) {}
     /// Called between each target/package_error
-    fn separator(&mut self, output: &mut String) {}
-    fn target(&mut self, package: PackageLabel, target_info: TargetInfo<'_>, output: &mut String) {}
-    fn package_error(&mut self, package: PackageLabel, error: &anyhow::Error, output: &mut String) {
-    }
+    fn separator(&self, output: &mut String) {}
+    fn target(&self, package: PackageLabel, target_info: TargetInfo<'_>, output: &mut String) {}
+    fn package_error(&self, package: PackageLabel, error: &anyhow::Error, output: &mut String) {}
 }
 
 struct JsonPrinter {
@@ -83,22 +82,22 @@ struct JsonPrinter {
 }
 
 impl TargetPrinter for JsonPrinter {
-    fn begin(&mut self, output: &mut String) {
+    fn begin(&self, output: &mut String) {
         output.push_str("[\n");
     }
-    fn end(&mut self, _stats: &Stats, output: &mut String) {
+    fn end(&self, _stats: &Stats, output: &mut String) {
         output.push_str("\n]\n");
     }
-    fn separator(&mut self, output: &mut String) {
+    fn separator(&self, output: &mut String) {
         output.push_str(",\n");
     }
 
-    fn target(&mut self, package: PackageLabel, target_info: TargetInfo<'_>, output: &mut String) {
+    fn target(&self, package: PackageLabel, target_info: TargetInfo<'_>, output: &mut String) {
         output.push_str("  {\n");
         let mut first = true;
 
         fn print_attr(
-            this: &mut JsonPrinter,
+            this: &JsonPrinter,
             output: &mut String,
             first: &mut bool,
             k: &str,
@@ -177,7 +176,7 @@ impl TargetPrinter for JsonPrinter {
         output.push_str("  }");
     }
 
-    fn package_error(&mut self, package: PackageLabel, error: &anyhow::Error, output: &mut String) {
+    fn package_error(&self, package: PackageLabel, error: &anyhow::Error, output: &mut String) {
         output.push_str("  {\n");
         writeln!(output, "    \"{}\": \"{}\",", PACKAGE, package).unwrap();
         writeln!(
@@ -200,7 +199,7 @@ struct Stats {
 struct StatsPrinter;
 
 impl TargetPrinter for StatsPrinter {
-    fn end(&mut self, stats: &Stats, output: &mut String) {
+    fn end(&self, stats: &Stats, output: &mut String) {
         writeln!(output, "{:?}", stats).unwrap()
     }
 }
@@ -210,7 +209,7 @@ struct TargetNamePrinter {
     target_hash_graph_type: TargetHashGraphType,
 }
 impl TargetPrinter for TargetNamePrinter {
-    fn target(&mut self, package: PackageLabel, target_info: TargetInfo<'_>, output: &mut String) {
+    fn target(&self, package: PackageLabel, target_info: TargetInfo<'_>, output: &mut String) {
         if self.target_hash_graph_type != TargetHashGraphType::None {
             match target_info.target_hash {
                 Some(BuckTargetHash(hash)) => writeln!(
@@ -366,11 +365,11 @@ async fn targets(
 
     let fs = server_ctx.project_root();
 
-    let mut printer = create_printer(request)?;
+    let printer = create_printer(request)?;
     let (error_count, results_to_print) = targets_batch(
         server_ctx,
         dice,
-        &mut *printer,
+        &*printer,
         parsed_target_patterns,
         target_platform,
         TargetHashOptions::new(request, &cell_resolver, fs, cwd)?,
@@ -457,7 +456,7 @@ async fn targets_resolve_aliases(
 async fn targets_batch(
     server_ctx: &dyn ServerCommandContextTrait,
     dice: DiceTransaction,
-    printer: &mut dyn TargetPrinter,
+    printer: &dyn TargetPrinter,
     parsed_patterns: Vec<ParsedPattern<TargetName>>,
     target_platform: Option<TargetLabel>,
     hash_options: TargetHashOptions,
