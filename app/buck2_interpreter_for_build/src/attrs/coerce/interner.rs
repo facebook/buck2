@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::borrow::Borrow;
 use std::cell::RefCell;
 use std::hash::Hash;
 use std::hash::Hasher;
@@ -38,7 +39,7 @@ impl<T: Dupe + Hash + Eq, H: Hasher + Default> AttrCoercionInterner<T, H> {
         }
     }
 
-    pub(crate) fn intern<S: Internable<T>>(&self, internable: S) -> T {
+    pub(crate) fn intern<S: Hash + Equiv<T> + Into<T>>(&self, internable: S) -> T {
         fn compute_hash<T: Hash, H: Hasher + Default>(t: T, mut hasher: H) -> u64 {
             t.hash(&mut hasher);
             hasher.finish()
@@ -51,38 +52,31 @@ impl<T: Dupe + Hash + Eq, H: Hasher + Default> AttrCoercionInterner<T, H> {
             return v.dupe();
         }
 
-        let value: T = internable.convert();
+        let value: T = internable.into();
         cache.insert(hash, (hash, value.dupe()), |(h, _v)| *h);
         value
     }
 }
 
-pub(crate) trait Internable<T>: Hash {
-    /// This and the target must produce idencial hashes.
+pub(crate) trait Equiv<T> {
     fn equivalent(&self, value: &T) -> bool;
-
-    fn convert(self) -> T;
 }
 
-// TODO(scottcao): add a blanket implementation for anything Dupe
+impl<T: Eq> Equiv<T> for T {
+    fn equivalent(&self, value: &T) -> bool {
+        self == value
+    }
+}
 
-impl Internable<ArcStr> for &str {
+impl Equiv<ArcStr> for &str {
     fn equivalent(&self, value: &ArcStr) -> bool {
         *self == &**value
     }
-
-    fn convert(self) -> ArcStr {
-        ArcStr::from(self)
-    }
 }
 
-impl<T: Hash + Eq> Internable<Arc<T>> for T {
+impl<T: Eq> Equiv<Arc<T>> for T {
     fn equivalent(&self, value: &Arc<T>) -> bool {
-        self == &**value
-    }
-
-    fn convert(self) -> Arc<T> {
-        Arc::from(self)
+        self == value.borrow()
     }
 }
 
