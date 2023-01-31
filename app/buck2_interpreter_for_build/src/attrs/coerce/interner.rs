@@ -80,6 +80,12 @@ impl<T: Eq> Equiv<Arc<T>> for T {
     }
 }
 
+impl<T: Eq> Equiv<Arc<[T]>> for Vec<T> {
+    fn equivalent(&self, value: &Arc<[T]>) -> bool {
+        self == &**value
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
