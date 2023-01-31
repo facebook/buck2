@@ -11,6 +11,7 @@ use std::env;
 use std::path::Path;
 use std::path::PathBuf;
 
+use crate::fs::fs_util;
 use crate::fs::paths::abs_norm_path::AbsNormPath;
 use crate::fs::paths::abs_norm_path::AbsNormPathBuf;
 use crate::fs::paths::abs_path::AbsPathBuf;
@@ -42,11 +43,13 @@ impl WorkingDir {
         // Skip the check on Windows as `current_dir` does not return the canonicalized path prefixed with \\?\
         if !cfg!(windows) {
             // `current_dir` seems to return canonical path.
-            let current_dir_canonical = current_dir.canonicalize()?;
-            if current_dir != current_dir_canonical {
-                return Err(
-                    CurrentDirError::NotCanonical(current_dir, current_dir_canonical).into(),
-                );
+            let current_dir_canonical = fs_util::canonicalize(&current_dir)?;
+            if current_dir != current_dir_canonical.as_path() {
+                return Err(CurrentDirError::NotCanonical(
+                    current_dir,
+                    current_dir_canonical.into_path_buf(),
+                )
+                .into());
             }
         }
 
