@@ -801,7 +801,8 @@ mod tests {
 
     fn cells(extra_root_config: Option<&str>) -> anyhow::Result<CellsData> {
         let repo_root = if cfg!(windows) { "C:/" } else { "/" };
-        let project_fs = ProjectRoot::new(AbsNormPathBuf::try_from(repo_root.to_owned()).unwrap());
+        let project_fs =
+            ProjectRoot::new_unchecked(AbsNormPathBuf::try_from(repo_root.to_owned()).unwrap());
         let BuckConfigBasedCells {
             cell_resolver,
             configs_by_name,

@@ -148,11 +148,11 @@ impl<'v> BxlContext<'v> {
     ) -> anyhow::Result<DiceQueryDelegate<'_>> {
         let cwd = AbsNormPathBuf::try_from(std::env::current_dir()?)?;
         let working_dir = {
-            let fs = ProjectRoot::new(cwd.clone());
+            let fs = ProjectRoot::new(cwd.clone())?;
             fs.relativize(&cwd)?.as_ref().to_owned()
         };
         let cell_resolver = ctx.get_cell_resolver().await?;
-        let project_root = ProjectRoot::new(cwd);
+        let project_root = ProjectRoot::new(cwd)?;
         let package_boundary_exceptions = ctx.get_package_boundary_exceptions().await?;
         let target_alias_resolver = ctx
             .target_alias_resolver_for_working_dir(&working_dir)

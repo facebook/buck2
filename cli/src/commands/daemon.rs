@@ -597,7 +597,8 @@ mod tests {
                 cell_root: AbsNormPathBuf::new(tempdir.path().to_path_buf()).unwrap(),
                 project_root: ProjectRoot::new(
                     AbsNormPathBuf::new(tempdir.path().to_path_buf()).unwrap(),
-                ),
+                )
+                .unwrap(),
             },
             isolation: FileNameBuf::try_from("v2".to_owned()).unwrap(),
         };

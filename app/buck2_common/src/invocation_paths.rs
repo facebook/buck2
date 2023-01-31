@@ -221,7 +221,7 @@ mod tests {
         let paths = InvocationPaths {
             roots: InvocationRoots {
                 cell_root: AbsNormPathBuf::try_from(cell_root.to_owned()).unwrap(),
-                project_root: ProjectRoot::new(
+                project_root: ProjectRoot::new_unchecked(
                     AbsNormPathBuf::try_from(project_root.to_owned()).unwrap(),
                 ),
             },

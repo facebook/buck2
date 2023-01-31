@@ -39,7 +39,7 @@
 //!     AbsNormPath::new("c:/open/fbsource/buck/BUCK")?
 //! };
 //!
-//! let fs = ProjectRoot::new(root);
+//! let fs = ProjectRoot::new_unchecked(root);
 //! let project_rel = fs.relativize(some_path)?;
 //!
 //! assert_eq!(Cow::Borrowed(ProjectRelativePath::new("buck/BUCK")?), project_rel);
@@ -118,7 +118,7 @@ impl ProjectRootTemp {
     /// same root
     pub fn new() -> anyhow::Result<Self> {
         let temp = tempfile::tempdir()?;
-        let path = ProjectRoot::new(AbsNormPathBuf::try_from(temp.path().to_owned())?);
+        let path = ProjectRoot::new(AbsNormPathBuf::try_from(temp.path().to_owned())?)?;
         Ok(Self { path, _temp: temp })
     }
 
@@ -128,7 +128,13 @@ impl ProjectRootTemp {
 }
 
 impl ProjectRoot {
-    pub fn new(root: AbsNormPathBuf) -> Self {
+    pub fn new(root: AbsNormPathBuf) -> anyhow::Result<Self> {
+        Ok(ProjectRoot {
+            root: Arc::new(root),
+        })
+    }
+
+    pub fn new_unchecked(root: AbsNormPathBuf) -> ProjectRoot {
         ProjectRoot {
             root: Arc::new(root),
         }
@@ -143,13 +149,12 @@ impl ProjectRoot {
     /// `project root`, yielding a 'AbsPathBuf'
     ///
     /// ```
-    ///
     /// use buck2_core::fs::project::{ProjectRoot, ProjectRelativePath};
     /// use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
     ///
     /// if cfg!(not(windows)) {
     ///     let root = AbsNormPathBuf::from("/usr/local/fbsource/".into())?;
-    ///     let fs = ProjectRoot::new(root);
+    ///     let fs = ProjectRoot::new_unchecked(root);
     ///
     ///     assert_eq!(
     ///         AbsNormPathBuf::from("/usr/local/fbsource/buck/BUCK".into())?,
@@ -157,7 +162,7 @@ impl ProjectRoot {
     ///     );
     /// } else {
     ///     let root = AbsNormPathBuf::from("c:/open/fbsource/".into())?;
-    ///     let fs = ProjectRoot::new(root);
+    ///     let fs = ProjectRoot::new_unchecked(root);
     ///
     ///     assert_eq!(
     ///         AbsNormPathBuf::from("c:/open/fbsource/buck/BUCK".into())?,
@@ -175,7 +180,6 @@ impl ProjectRoot {
     /// Takes a 'ProjectRelativePath' and converts it to a 'Path' that is relative to the project root.
     ///
     /// ```
-    ///
     /// use buck2_core::fs::project::{ProjectRoot, ProjectRelativePath};
     /// use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
     /// use std::path::PathBuf;
@@ -185,7 +189,7 @@ impl ProjectRoot {
     /// } else {
     ///     AbsNormPathBuf::from("c:/open/fbsource/".into())?
     /// };
-    /// let fs = ProjectRoot::new(root);
+    /// let fs = ProjectRoot::new_unchecked(root);
     ///
     /// assert_eq!(
     ///     PathBuf::from("buck/BUCK"),
@@ -212,7 +216,7 @@ impl ProjectRoot {
     ///
     /// if cfg!(not(windows)) {
     ///     let root = AbsNormPathBuf::from("/usr/local/fbsource/".into())?;
-    ///     let fs = ProjectRoot::new(root);
+    ///     let fs = ProjectRoot::new_unchecked(root);
     ///
     ///     assert_eq!(
     ///         Cow::Borrowed(ProjectRelativePath::new("src/buck.java")?),
@@ -221,7 +225,7 @@ impl ProjectRoot {
     ///     assert!(fs.relativize(AbsNormPath::new("/other/path")?).is_err());
     /// } else {
     ///     let root = AbsNormPathBuf::from("c:/open/fbsource/".into())?;
-    ///     let fs = ProjectRoot::new(root);
+    ///     let fs = ProjectRoot::new_unchecked(root);
     ///
     ///     assert_eq!(
     ///         Cow::Borrowed(ProjectRelativePath::new("src/buck.java")?),

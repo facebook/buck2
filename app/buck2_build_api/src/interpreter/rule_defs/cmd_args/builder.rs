@@ -153,7 +153,8 @@ mod tests {
     #[test]
     fn adds_args_and_builds() -> anyhow::Result<()> {
         let project_fs =
-            ProjectRoot::new(AbsNormPathBuf::try_from(std::env::current_dir().unwrap()).unwrap());
+            ProjectRoot::new(AbsNormPathBuf::try_from(std::env::current_dir().unwrap()).unwrap())
+                .unwrap();
         let fs = ArtifactFs::new(
             BuckPathResolver::new(CellResolver::of_names_and_paths(&[(
                 CellName::unchecked_new("cell"),

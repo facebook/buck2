@@ -954,7 +954,7 @@ mod tests {
     fn test_executor() -> anyhow::Result<(LocalExecutor, AbsNormPathBuf, impl Drop)> {
         let dir = tempfile::tempdir()?;
         let root = AbsNormPathBuf::try_from(dir.path().canonicalize()?)?;
-        let project_fs = ProjectRoot::new(root.clone());
+        let project_fs = ProjectRoot::new(root.clone()).unwrap();
         let artifact_fs = artifact_fs(project_fs.dupe());
 
         let executor = LocalExecutor::new(

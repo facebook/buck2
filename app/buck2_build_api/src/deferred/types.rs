@@ -1088,7 +1088,7 @@ mod tests {
         } else {
             AbsNormPath::new("/dev/null").unwrap().to_owned()
         };
-        ProjectRoot::new(cwd)
+        ProjectRoot::new_unchecked(cwd)
     }
 
     #[test]

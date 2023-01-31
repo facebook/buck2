@@ -75,7 +75,7 @@ pub fn find_invocation_roots(from: &Path) -> anyhow::Result<InvocationRoots> {
     match (project_root, cell_root) {
         (Some(project_root), Some(cell_root)) => Ok(InvocationRoots {
             cell_root: AbsNormPathBuf::try_from(cell_root)?,
-            project_root: ProjectRoot::new(AbsNormPathBuf::try_from(project_root)?),
+            project_root: ProjectRoot::new(AbsNormPathBuf::try_from(project_root)?)?,
         }),
         _ => Err(BuckCliError::NoBuckRoot(from.to_owned()).into()),
     }

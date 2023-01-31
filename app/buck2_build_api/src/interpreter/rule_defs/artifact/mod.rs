@@ -206,7 +206,8 @@ pub mod testing {
             let cell_info = cells(None).unwrap();
             let project_fs = ProjectRoot::new(
                 AbsNormPathBuf::try_from(std::env::current_dir().unwrap()).unwrap(),
-            );
+            )
+            .unwrap();
             let fs = ArtifactFs::new(
                 BuckPathResolver::new(cell_info.1),
                 BuckOutPathResolver::new(ProjectRelativePathBuf::unchecked_new(

@@ -176,7 +176,8 @@ pub mod tester {
             BuckOutPathResolver::new(ProjectRelativePathBuf::unchecked_new(
                 "buck-out/v2".to_owned(),
             )),
-            ProjectRoot::new(AbsNormPathBuf::try_from(std::env::current_dir().unwrap()).unwrap()),
+            ProjectRoot::new(AbsNormPathBuf::try_from(std::env::current_dir().unwrap()).unwrap())
+                .unwrap(),
         )
     }
 

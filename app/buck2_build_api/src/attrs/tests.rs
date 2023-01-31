@@ -857,7 +857,8 @@ fn test_user_placeholders() -> anyhow::Result<()> {
                 // TODO: this is way too unnecessarily verbose for a test.
                 let project_fs = ProjectRoot::new(
                     AbsNormPathBuf::try_from(std::env::current_dir().unwrap()).unwrap(),
-                );
+                )
+                .unwrap();
                 let fs = ArtifactFs::new(
                     BuckPathResolver::new(CellResolver::of_names_and_paths(&[(
                         CellName::unchecked_new("cell"),
