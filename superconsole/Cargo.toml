@@ -22,5 +22,5 @@ crossbeam-epoch = "0.9.7"
 
 [dev-dependencies]
 tokio = { version = "1.5", features = ["macros", "rt-multi-thread", "time"]}
-lipsum = "0.8"
+lipsum = "0.7"
 derive_more = "0.99"
