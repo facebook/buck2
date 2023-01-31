@@ -152,6 +152,9 @@ _GENRULE_LOCAL_LABELS = {label: True for label in [
 
     # Uses R (which is feature gated) pending RE support
     "uses_rlang",
+
+    # Uses watchman which is not in RE
+    "uses_watchman",
 ]}
 
 def genrule_labels_require_local(labels):
