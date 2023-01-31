@@ -13,7 +13,7 @@ load(
 )
 load("@prelude//utils:utils.bzl", "expect", "flatten")
 load(":apple_bundle_destination.bzl", "AppleBundleDestination")
-load(":apple_bundle_part.bzl", "AppleBundlePart", "assemble_bundle", "bundle_output")
+load(":apple_bundle_part.bzl", "AppleBundlePart", "assemble_bundle", "bundle_output", "get_apple_bundle_part_relative_destination_path")
 load(":apple_bundle_resources.bzl", "get_apple_bundle_resource_part_list", "get_is_watch_bundle")
 load(":apple_bundle_types.bzl", "AppleBundleInfo", "AppleBundleResourceInfo")
 load(":apple_bundle_utility.bzl", "get_bundle_min_target_version", "get_product_name")
@@ -59,14 +59,16 @@ def _get_binary(ctx: "context") -> AppleBundleBinaryOutput.type:
         fail("Expected single output artifact. Make sure the implementation of rule from `binary` attribute is correct.")
     return AppleBundleBinaryOutput(binary = binary_info[0])
 
-def _get_binary_bundle_parts(ctx: "context", binary_output: AppleBundleBinaryOutput.type) -> [AppleBundlePart.type]:
+def _get_binary_bundle_parts(ctx: "context", binary_output: AppleBundleBinaryOutput.type) -> ([AppleBundlePart.type], AppleBundlePart.type):
+    """Returns a tuple of all binary bundle parts and the primary bundle binary."""
     result = []
 
     if binary_output.is_watchkit_stub_binary:
         # If we're using a stub binary from watchkit, we also need to add extra part for stub.
         result.append(AppleBundlePart(source = binary_output.binary, destination = AppleBundleDestination("watchkitstub"), new_name = "WK"))
-    result.append(AppleBundlePart(source = binary_output.binary, destination = AppleBundleDestination("executables"), new_name = get_product_name(ctx)))
-    return result
+    primary_binary_part = AppleBundlePart(source = binary_output.binary, destination = AppleBundleDestination("executables"), new_name = get_product_name(ctx))
+    result.append(primary_binary_part)
+    return result, primary_binary_part
 
 def _get_watch_kit_stub_artifact(ctx: "context") -> "artifact":
     expect(ctx.attrs.binary == None, "Stub is useful only when binary is not set which means watchOS bundle is built.")
@@ -110,7 +112,8 @@ def apple_bundle_impl(ctx: "context") -> ["provider"]:
     _apple_bundle_run_validity_checks(ctx)
 
     binary_outputs = _get_binary(ctx)
-    apple_bundle_part_list_output = get_apple_bundle_part_list(ctx, AppleBundlePartListConstructorParams(binaries = _get_binary_bundle_parts(ctx, binary_outputs)))
+    all_binary_parts, primary_binary_part = _get_binary_bundle_parts(ctx, binary_outputs)
+    apple_bundle_part_list_output = get_apple_bundle_part_list(ctx, AppleBundlePartListConstructorParams(binaries = all_binary_parts))
 
     sub_targets = {}
 
@@ -136,6 +139,10 @@ def apple_bundle_impl(ctx: "context") -> ["provider"]:
     sub_targets[XCODE_DATA_SUB_TARGET] = xcode_data_default_info
     install_data = generate_install_data(ctx)
 
+    primary_binary_rel_path = get_apple_bundle_part_relative_destination_path(ctx, primary_binary_part)
+    primary_binary_path = cmd_args([bundle, primary_binary_rel_path], delimiter = "/")
+    run_cmd = cmd_args(primary_binary_path).hidden(bundle)
+
     return [
         DefaultInfo(default_output = bundle, sub_targets = sub_targets),
         AppleBundleInfo(bundle = bundle, binary_name = get_product_name(ctx), is_watchos = get_is_watch_bundle(ctx)),
@@ -147,6 +154,7 @@ def apple_bundle_impl(ctx: "context") -> ["provider"]:
                 "options": install_data,
             },
         ),
+        RunInfo(args = run_cmd),
         xcode_data_info,
     ]
 
