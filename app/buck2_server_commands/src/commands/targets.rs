@@ -11,7 +11,6 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt::Write as _;
 use std::io::Write as _;
-use std::mem;
 use std::path::Path;
 
 use anyhow::Context as _;
@@ -68,39 +67,39 @@ struct TargetInfo<'a> {
 
 #[allow(unused_variables)]
 trait TargetPrinter: Send {
-    fn begin(&mut self) {}
-    fn end(&mut self, stats: &Stats) -> String;
+    fn begin(&mut self, output: &mut String) {}
+    fn end(&mut self, stats: &Stats, output: &mut String) {}
     /// Called between each target/package_error
-    fn separator(&mut self) {}
-    fn target(&mut self, package: PackageLabel, target_info: TargetInfo<'_>) {}
-    fn package_error(&mut self, package: PackageLabel, error: &anyhow::Error) {}
+    fn separator(&mut self, output: &mut String) {}
+    fn target(&mut self, package: PackageLabel, target_info: TargetInfo<'_>, output: &mut String) {}
+    fn package_error(&mut self, package: PackageLabel, error: &anyhow::Error, output: &mut String) {
+    }
 }
 
 struct JsonPrinter {
     attributes: Option<RegexSet>,
     attr_inspect_opts: AttrInspectOptions,
-    output: String,
     target_call_stacks: bool,
 }
 
 impl TargetPrinter for JsonPrinter {
-    fn begin(&mut self) {
-        self.output.push_str("[\n");
+    fn begin(&mut self, output: &mut String) {
+        output.push_str("[\n");
     }
-    fn end(&mut self, _stats: &Stats) -> String {
-        self.output.push_str("\n]\n");
-        mem::take(&mut self.output)
+    fn end(&mut self, _stats: &Stats, output: &mut String) {
+        output.push_str("\n]\n");
     }
-    fn separator(&mut self) {
-        self.output.push_str(",\n");
+    fn separator(&mut self, output: &mut String) {
+        output.push_str(",\n");
     }
 
-    fn target(&mut self, package: PackageLabel, target_info: TargetInfo<'_>) {
-        self.output.push_str("  {\n");
+    fn target(&mut self, package: PackageLabel, target_info: TargetInfo<'_>, output: &mut String) {
+        output.push_str("  {\n");
         let mut first = true;
 
         fn print_attr(
             this: &mut JsonPrinter,
+            output: &mut String,
             first: &mut bool,
             k: &str,
             v: impl FnOnce() -> String,
@@ -111,16 +110,16 @@ impl TargetPrinter for JsonPrinter {
                 }
             }
             if !*first {
-                this.output.push_str(",\n");
+                output.push_str(",\n");
             }
             *first = false;
-            write!(this.output, "    \"{}\": {}", k, v()).unwrap();
+            write!(output, "    \"{}\": {}", k, v()).unwrap();
         }
 
-        print_attr(self, &mut first, TYPE, || {
+        print_attr(self, output, &mut first, TYPE, || {
             quote_json_string(&target_info.node.rule_type().to_string())
         });
-        print_attr(self, &mut first, DEPS, || {
+        print_attr(self, output, &mut first, DEPS, || {
             format!(
                 "[{}]",
                 target_info
@@ -131,7 +130,7 @@ impl TargetPrinter for JsonPrinter {
             )
         });
 
-        print_attr(self, &mut first, INPUTS, || {
+        print_attr(self, output, &mut first, INPUTS, || {
             format!(
                 "[{}]",
                 target_info
@@ -143,12 +142,16 @@ impl TargetPrinter for JsonPrinter {
         });
 
         if let Some(BuckTargetHash(hash)) = target_info.target_hash {
-            print_attr(self, &mut first, TARGET_HASH, || format!("\"{hash:032x}\""));
+            print_attr(self, output, &mut first, TARGET_HASH, || {
+                format!("\"{hash:032x}\"")
+            });
         }
-        print_attr(self, &mut first, PACKAGE, || format!("\"{}\"", package));
+        print_attr(self, output, &mut first, PACKAGE, || {
+            format!("\"{}\"", package)
+        });
 
         for a in target_info.node.attrs(self.attr_inspect_opts) {
-            print_attr(self, &mut first, a.name, || {
+            print_attr(self, output, &mut first, a.name, || {
                 value_to_json(a.value, target_info.node.label().pkg())
                     .unwrap()
                     .to_string()
@@ -158,7 +161,7 @@ impl TargetPrinter for JsonPrinter {
         if self.target_call_stacks {
             match target_info.node.call_stack() {
                 Some(call_stack) => {
-                    print_attr(self, &mut first, TARGET_CALL_STACK, || {
+                    print_attr(self, output, &mut first, TARGET_CALL_STACK, || {
                         quote_json_string(&call_stack)
                     });
                 }
@@ -169,21 +172,21 @@ impl TargetPrinter for JsonPrinter {
         }
 
         if !first {
-            self.output.push('\n');
+            output.push('\n');
         }
-        self.output.push_str("  }");
+        output.push_str("  }");
     }
 
-    fn package_error(&mut self, package: PackageLabel, error: &anyhow::Error) {
-        self.output.push_str("  {\n");
-        writeln!(self.output, "    \"{}\": \"{}\",", PACKAGE, package).unwrap();
+    fn package_error(&mut self, package: PackageLabel, error: &anyhow::Error, output: &mut String) {
+        output.push_str("  {\n");
+        writeln!(output, "    \"{}\": \"{}\",", PACKAGE, package).unwrap();
         writeln!(
-            self.output,
+            output,
             "    \"buck.error\": {}",
             quote_json_string(&format!("{:?}", error))
         )
         .unwrap();
-        self.output.push_str("    }");
+        output.push_str("    }");
     }
 }
 
@@ -197,26 +200,21 @@ struct Stats {
 struct StatsPrinter;
 
 impl TargetPrinter for StatsPrinter {
-    fn end(&mut self, stats: &Stats) -> String {
-        format!("{:?}\n", stats)
+    fn end(&mut self, stats: &Stats, output: &mut String) {
+        writeln!(output, "{:?}", stats).unwrap()
     }
 }
 
 struct TargetNamePrinter {
-    output: String,
     target_call_stacks: bool,
     target_hash_graph_type: TargetHashGraphType,
 }
 impl TargetPrinter for TargetNamePrinter {
-    fn end(&mut self, _stats: &Stats) -> String {
-        mem::take(&mut self.output)
-    }
-
-    fn target(&mut self, package: PackageLabel, target_info: TargetInfo<'_>) {
+    fn target(&mut self, package: PackageLabel, target_info: TargetInfo<'_>, output: &mut String) {
         if self.target_hash_graph_type != TargetHashGraphType::None {
             match target_info.target_hash {
                 Some(BuckTargetHash(hash)) => writeln!(
-                    self.output,
+                    output,
                     "{package}:{name} {hash:032x}",
                     name = target_info.node.label().name(),
                 )
@@ -224,19 +222,13 @@ impl TargetPrinter for TargetNamePrinter {
                 None => {} // print nothing if there is no hash and show_target_hash is specified.
             };
         } else {
-            writeln!(
-                self.output,
-                "{}:{}",
-                package,
-                target_info.node.label().name()
-            )
-            .unwrap();
+            writeln!(output, "{}:{}", package, target_info.node.label().name()).unwrap();
         }
         if self.target_call_stacks {
             match target_info.node.call_stack() {
                 Some(call_stack) => {
                     for line in call_stack.lines() {
-                        writeln!(self.output, "  {}", line).unwrap();
+                        writeln!(output, "  {}", line).unwrap();
                     }
                 }
                 None => {
@@ -333,14 +325,12 @@ fn create_printer(request: &TargetsRequest) -> anyhow::Result<Box<dyn TargetPrin
             } else {
                 AttrInspectOptions::DefinedOnly
             },
-            output: String::new(),
             target_call_stacks: request.target_call_stacks,
         })
     } else if request.stats {
         Ok(box StatsPrinter)
     } else {
         Ok(box TargetNamePrinter {
-            output: String::new(),
             target_call_stacks: request.target_call_stacks,
             target_hash_graph_type: TargetHashGraphType::from_i32(request.target_hash_graph_type)
                 .expect("buck cli should send valid target hash graph type"),
@@ -503,7 +493,8 @@ async fn targets_batch(
         _ => None,
     };
 
-    printer.begin();
+    let mut output = String::new();
+    printer.begin(&mut output);
     let mut stats = Stats::default();
     let mut needs_separator = false;
     for (package, result) in results.iter() {
@@ -518,20 +509,24 @@ async fn targets_batch(
                         .duped()
                         .transpose()?;
                     if needs_separator {
-                        printer.separator();
+                        printer.separator(&mut output);
                     }
                     needs_separator = true;
-                    printer.target(package.dupe(), TargetInfo { node, target_hash })
+                    printer.target(
+                        package.dupe(),
+                        TargetInfo { node, target_hash },
+                        &mut output,
+                    )
                 }
             }
             Err(e) => {
                 stats.errors += 1;
                 if keep_going {
                     if needs_separator {
-                        printer.separator();
+                        printer.separator(&mut output);
                     }
                     needs_separator = true;
-                    printer.package_error(package.dupe(), e.inner());
+                    printer.package_error(package.dupe(), e.inner(), &mut output);
                 } else {
                     writeln!(
                         server_ctx.stderr()?,
@@ -543,7 +538,7 @@ async fn targets_batch(
             }
         }
     }
-    let stdout = printer.end(&stats);
+    printer.end(&stats, &mut output);
     if !keep_going && stats.errors != 0 {
         // Simpler error so that we don't print long errors twice (when exiting buck2)
         let package_str = if stats.errors == 1 {
@@ -557,6 +552,6 @@ async fn targets_batch(
             package_str
         ))
     } else {
-        Ok((stats.errors, stdout))
+        Ok((stats.errors, output))
     }
 }
