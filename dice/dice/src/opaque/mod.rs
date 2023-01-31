@@ -19,9 +19,9 @@ use dupe::Dupe;
 
 use crate::incremental::dep_trackers::BothDeps;
 use crate::incremental::graph::GraphNode;
+use crate::incremental::IncrementalEngine;
 use crate::DiceComputationImpl;
 use crate::DiceResult;
-use crate::IncrementalEngine;
 use crate::Key;
 use crate::ProjectionKey;
 use crate::StoragePropertiesForKey;

@@ -17,7 +17,7 @@ use dupe::OptionDupedExt;
 
 use crate::incremental::ErasedEngine;
 use crate::incremental::IncrementalComputeProperties;
-use crate::IncrementalEngine;
+use crate::incremental::IncrementalEngine;
 
 /// A dynamically typed Map for DICE to map computations to their key, value
 /// cache maps.

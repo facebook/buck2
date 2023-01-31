@@ -42,12 +42,12 @@ pub(crate) mod testing {
     use async_trait::async_trait;
     use dupe::Dupe;
 
+    use crate::ctx::ComputationData;
     use crate::incremental::Computable;
     use crate::incremental::IncrementalComputeProperties;
-    use crate::ComputationData;
+    use crate::incremental::IncrementalEngine;
     use crate::DiceResult;
     use crate::GraphNode;
-    use crate::IncrementalEngine;
     use crate::StorageProperties;
     use crate::StorageType;
     use crate::TransactionCtx;

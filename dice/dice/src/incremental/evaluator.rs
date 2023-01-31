@@ -11,11 +11,11 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 
+use crate::ctx::ComputationData;
 use crate::dice_task::DiceTask;
 use crate::incremental::graph::GraphNode;
-use crate::ComputationData;
+use crate::incremental::IncrementalEngine;
 use crate::IncrementalComputeProperties;
-use crate::IncrementalEngine;
 use crate::TransactionCtx;
 use crate::ValueWithDeps;
 use crate::WeakDiceFutureHandle;
