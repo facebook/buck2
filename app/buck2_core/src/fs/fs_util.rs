@@ -374,7 +374,8 @@ pub fn read_to_string_opt<P: AsRef<Path>>(path: P) -> anyhow::Result<Option<Stri
 
 pub fn canonicalize<P: AsRef<Path>>(path: P) -> anyhow::Result<PathBuf> {
     let _guard = IoCounterKey::Canonicalize.guard();
-    fs::canonicalize(&path).with_context(|| format!("canonicalize({})", P::as_ref(&path).display()))
+    dunce::canonicalize(&path)
+        .with_context(|| format!("canonicalize({})", P::as_ref(&path).display()))
 }
 
 pub fn remove_dir<P: AsRef<Path>>(path: P) -> anyhow::Result<()> {
