@@ -12,6 +12,7 @@ pub mod parser;
 use std::fmt::Display;
 
 use allocative::Allocative;
+use buck2_util::arc_str::ArcStr;
 use gazebo::prelude::SliceExt;
 use static_assertions::assert_eq_size;
 
@@ -35,7 +36,7 @@ pub enum StringWithMacros<C: AttrConfig> {
     /// StringWithMacros::ManyParts(vec![StringWithMacrosPart::String(s)]). We special-case this
     /// for memory efficiency to avoid allocating unnecessary vectors, since lone string parts are
     /// very frequent.
-    StringPart(Box<str>),
+    StringPart(ArcStr),
     // For resolution, we defer all work and simply alloc a ConfiguredStringWithMacros into the starlark
     // context. This allows us to defer resolution work to the point that it is being added to a command
     // line, but it requires that we can cheaply copy ConfiguredStringWithMacros.
@@ -117,7 +118,7 @@ impl StringWithMacros<CoercedAttr> {
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative)]
 pub enum StringWithMacrosPart<C: AttrConfig> {
-    String(Box<str>),
+    String(ArcStr),
     Macro(/* write_to_file */ bool, MacroBase<C>),
 }
 

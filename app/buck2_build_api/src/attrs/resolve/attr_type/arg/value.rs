@@ -20,6 +20,8 @@ use buck2_node::attrs::attr_type::arg::ConfiguredMacro;
 use buck2_node::attrs::attr_type::arg::ConfiguredStringWithMacros;
 use buck2_node::attrs::attr_type::arg::ConfiguredStringWithMacrosPart;
 use buck2_node::attrs::attr_type::arg::UnrecognizedMacro;
+use buck2_util::arc_str::ArcStr;
+use dupe::Dupe;
 use either::Either;
 use starlark::any::ProvidesStaticType;
 use starlark::starlark_type;
@@ -244,7 +246,7 @@ impl ResolvedMacro {
 
 #[derive(Debug, PartialEq, Allocative)]
 pub(crate) enum ResolvedStringWithMacrosPart {
-    String(Box<str>),
+    String(ArcStr),
     Macro(/* write_to_file */ bool, ResolvedMacro),
 }
 
@@ -290,14 +292,14 @@ impl ResolvedStringWithMacros {
     ) -> anyhow::Result<Value<'v>> {
         let resolved_parts = match configured_macros {
             ConfiguredStringWithMacros::StringPart(s) => {
-                vec![ResolvedStringWithMacrosPart::String(s.clone())]
+                vec![ResolvedStringWithMacrosPart::String(s.dupe())]
             }
             ConfiguredStringWithMacros::ManyParts(ref parts) => {
                 let mut resolved_parts = Vec::with_capacity(parts.len());
                 for part in parts.iter() {
                     match part {
                         ConfiguredStringWithMacrosPart::String(s) => {
-                            resolved_parts.push(ResolvedStringWithMacrosPart::String(s.clone()));
+                            resolved_parts.push(ResolvedStringWithMacrosPart::String(s.dupe()));
                         }
                         ConfiguredStringWithMacrosPart::Macro(write_to_file, m) => {
                             resolved_parts.push(ResolvedStringWithMacrosPart::Macro(
