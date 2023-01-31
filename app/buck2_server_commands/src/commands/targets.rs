@@ -36,6 +36,7 @@ use buck2_core::target::label::TargetLabel;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::nodes::attributes::DEPS;
+use buck2_node::nodes::attributes::INPUTS;
 use buck2_node::nodes::attributes::PACKAGE;
 use buck2_node::nodes::attributes::TARGET_CALL_STACK;
 use buck2_node::nodes::attributes::TARGET_HASH;
@@ -128,6 +129,17 @@ impl TargetPrinter for JsonPrinter {
                     .node
                     .deps()
                     .map(|d| quote_json_string(&d.to_string()))
+                    .join(", ")
+            )
+        });
+
+        print_attr(self, &mut first, INPUTS, || {
+            format!(
+                "[{}]",
+                target_info
+                    .node
+                    .inputs()
+                    .map(|x| quote_json_string(&x.to_string()))
                     .join(", ")
             )
         });

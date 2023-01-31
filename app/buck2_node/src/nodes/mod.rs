@@ -42,4 +42,7 @@ pub mod attributes {
 
     /// The resolved target configuration for this node.
     pub static TARGET_CONFIGURATION: &str = "buck.target_configuration";
+
+    /// The input source files/directories that this node uses.
+    pub static INPUTS: &str = "buck.inputs";
 }
