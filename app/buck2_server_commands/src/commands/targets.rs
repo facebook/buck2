@@ -80,7 +80,6 @@ struct JsonPrinter {
     target_idx: u32,
     output: String,
     target_call_stacks: bool,
-    keep_going: bool,
 }
 
 impl TargetPrinter for JsonPrinter {
@@ -176,21 +175,19 @@ impl TargetPrinter for JsonPrinter {
     }
 
     fn package_error(&mut self, package: PackageLabel, error: &anyhow::Error) {
-        if self.keep_going {
-            if self.target_idx != 0 {
-                self.output.push_str(",\n");
-            }
-            self.target_idx += 1;
-            self.output.push_str("  {\n");
-            writeln!(self.output, "    \"{}\": \"{}\",", PACKAGE, package).unwrap();
-            writeln!(
-                self.output,
-                "    \"buck.error\": {}",
-                quote_json_string(&format!("{:?}", error))
-            )
-            .unwrap();
-            self.output.push_str("    }");
+        if self.target_idx != 0 {
+            self.output.push_str(",\n");
         }
+        self.target_idx += 1;
+        self.output.push_str("  {\n");
+        writeln!(self.output, "    \"{}\": \"{}\",", PACKAGE, package).unwrap();
+        writeln!(
+            self.output,
+            "    \"buck.error\": {}",
+            quote_json_string(&format!("{:?}", error))
+        )
+        .unwrap();
+        self.output.push_str("    }");
     }
 }
 
@@ -343,7 +340,6 @@ fn create_printer(request: &TargetsRequest) -> anyhow::Result<Box<dyn TargetPrin
             target_idx: 0,
             output: String::new(),
             target_call_stacks: request.target_call_stacks,
-            keep_going: request.keep_going,
         })
     } else if request.stats {
         Ok(box StatsPrinter)
@@ -530,8 +526,9 @@ async fn targets_batch(
             }
             Err(e) => {
                 stats.errors += 1;
-                printer.package_error(package.dupe(), e.inner());
-                if !keep_going {
+                if keep_going {
+                    printer.package_error(package.dupe(), e.inner());
+                } else {
                     writeln!(
                         server_ctx.stderr()?,
                         "Error parsing {}\n{:?}",
