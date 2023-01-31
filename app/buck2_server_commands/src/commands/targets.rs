@@ -69,7 +69,7 @@ struct TargetInfo<'a> {
 #[allow(unused_variables)]
 trait TargetPrinter: Send {
     fn begin(&mut self) {}
-    fn end(&mut self) -> String;
+    fn end(&mut self, stats: &Stats) -> String;
     fn package(&mut self, package: PackageLabel) {}
     fn target(&mut self, package: PackageLabel, target_info: TargetInfo<'_>) {}
     fn package_error(&mut self, package: PackageLabel, error: &anyhow::Error) {}
@@ -88,7 +88,7 @@ impl TargetPrinter for JsonPrinter {
     fn begin(&mut self) {
         self.output.push_str("[\n");
     }
-    fn end(&mut self) -> String {
+    fn end(&mut self, _stats: &Stats) -> String {
         self.output.push_str("\n]\n");
         mem::take(&mut self.output)
     }
@@ -202,21 +202,11 @@ struct Stats {
     targets: u64,
 }
 
-impl TargetPrinter for Stats {
-    fn end(&mut self) -> String {
-        format!("{:?}\n", self)
-    }
+struct StatsPrinter;
 
-    fn package(&mut self, _package: PackageLabel) {
-        self.success += 1;
-    }
-
-    fn target(&mut self, _package: PackageLabel, _target_info: TargetInfo<'_>) {
-        self.targets += 1;
-    }
-
-    fn package_error(&mut self, _package: PackageLabel, _error: &anyhow::Error) {
-        self.errors += 1;
+impl TargetPrinter for StatsPrinter {
+    fn end(&mut self, stats: &Stats) -> String {
+        format!("{:?}\n", stats)
     }
 }
 
@@ -226,7 +216,7 @@ struct TargetNamePrinter {
     target_hash_graph_type: TargetHashGraphType,
 }
 impl TargetPrinter for TargetNamePrinter {
-    fn end(&mut self) -> String {
+    fn end(&mut self, _stats: &Stats) -> String {
         mem::take(&mut self.output)
     }
 
@@ -357,7 +347,7 @@ fn create_printer(request: &TargetsRequest) -> anyhow::Result<Box<dyn TargetPrin
             keep_going: request.keep_going,
         })
     } else if request.stats {
-        Ok(box Stats::default())
+        Ok(box StatsPrinter)
     } else {
         Ok(box TargetNamePrinter {
             output: String::new(),
@@ -524,12 +514,14 @@ async fn targets_batch(
     };
 
     printer.begin();
-    let mut error_count = 0;
+    let mut stats = Stats::default();
     for (package, result) in results.iter() {
         match result {
             Ok(res) => {
+                stats.success += 1;
                 printer.package(package.dupe());
                 for (_, node) in res.iter() {
+                    stats.targets += 1;
                     let target_hash = target_hashes
                         .as_ref()
                         .and_then(|hashes| hashes.get(node.label()))
@@ -539,6 +531,7 @@ async fn targets_batch(
                 }
             }
             Err(e) => {
+                stats.errors += 1;
                 printer.package_error(package.dupe(), e.inner());
                 if !keep_going {
                     writeln!(
@@ -548,24 +541,23 @@ async fn targets_batch(
                         e.inner()
                     )?;
                 }
-                error_count += 1;
             }
         }
     }
-    let stdout = printer.end();
-    if !keep_going && error_count != 0 {
+    let stdout = printer.end(&stats);
+    if !keep_going && stats.errors != 0 {
         // Simpler error so that we don't print long errors twice (when exiting buck2)
-        let package_str = if error_count == 1 {
+        let package_str = if stats.errors == 1 {
             "package"
         } else {
             "packages"
         };
         Err(anyhow::anyhow!(
             "Failed to parse {} {}",
-            error_count,
+            stats.errors,
             package_str
         ))
     } else {
-        Ok((error_count, stdout))
+        Ok((stats.errors, stdout))
     }
 }
