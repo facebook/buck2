@@ -86,19 +86,19 @@ struct JsonPrinter {
 
 impl TargetPrinter for JsonPrinter {
     fn begin(&mut self) {
-        writeln!(self.output, "[").unwrap();
+        self.output.push_str("[\n");
     }
     fn end(&mut self) -> String {
-        writeln!(self.output, "\n]").unwrap();
+        self.output.push_str("\n]\n");
         mem::take(&mut self.output)
     }
 
     fn target(&mut self, package: PackageLabel, target_info: TargetInfo<'_>) {
         if self.target_idx != 0 {
-            writeln!(self.output, ",").unwrap();
+            self.output.push_str(",\n");
         }
         self.target_idx += 1;
-        writeln!(self.output, "  {{",).unwrap();
+        self.output.push_str("  {\n");
         let mut first = true;
 
         fn print_attr(
@@ -113,7 +113,7 @@ impl TargetPrinter for JsonPrinter {
                 }
             }
             if !*first {
-                writeln!(this.output, ",").unwrap();
+                this.output.push_str(",\n");
             }
             *first = false;
             write!(this.output, "    \"{}\": {}", k, v()).unwrap();
@@ -171,19 +171,18 @@ impl TargetPrinter for JsonPrinter {
         }
 
         if !first {
-            writeln!(self.output).unwrap();
+            self.output.push('\n');
         }
-
-        write!(self.output, "  }}").unwrap();
+        self.output.push_str("  }");
     }
 
     fn package_error(&mut self, package: PackageLabel, error: &anyhow::Error) {
         if self.keep_going {
             if self.target_idx != 0 {
-                writeln!(self.output, ",").unwrap();
+                self.output.push_str(",\n");
             }
             self.target_idx += 1;
-            writeln!(self.output, "  {{",).unwrap();
+            self.output.push_str("  {\n");
             writeln!(self.output, "    \"{}\": \"{}\",", PACKAGE, package).unwrap();
             writeln!(
                 self.output,
@@ -191,7 +190,7 @@ impl TargetPrinter for JsonPrinter {
                 quote_json_string(&format!("{:?}", error))
             )
             .unwrap();
-            write!(self.output, "    }}").unwrap();
+            self.output.push_str("    }");
         }
     }
 }
