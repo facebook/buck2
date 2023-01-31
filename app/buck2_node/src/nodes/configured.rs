@@ -489,18 +489,22 @@ impl ConfiguredTargetNode {
         self.0.target_node.oncall()
     }
 
+    fn attr_configuration_context(&self) -> AttrConfigurationContextImpl {
+        AttrConfigurationContextImpl {
+            resolved_cfg: &self.0.resolved_configuration,
+            exec_cfg: self.0.execution_platform_resolution.cfg(),
+            resolved_transitions: &self.0.resolved_transition_configurations,
+            platform_cfgs: &self.0.platform_cfgs,
+        }
+    }
+
     pub fn attrs<'a>(
         &'a self,
         opts: AttrInspectOptions,
     ) -> impl Iterator<Item = ConfiguredAttrFull<'a>> + 'a {
         self.0.target_node.attrs(opts).map(move |a| {
-            a.configure(&AttrConfigurationContextImpl {
-                resolved_cfg: &self.0.resolved_configuration,
-                exec_cfg: self.0.execution_platform_resolution.cfg(),
-                resolved_transitions: &self.0.resolved_transition_configurations,
-                platform_cfgs: &self.0.platform_cfgs,
-            })
-            .expect("checked attr configuration in constructor")
+            a.configure(&self.attr_configuration_context())
+                .expect("checked attr configuration in constructor")
         })
     }
 
@@ -510,13 +514,8 @@ impl ConfiguredTargetNode {
         opts: AttrInspectOptions,
     ) -> Option<ConfiguredAttrFull<'a>> {
         self.0.target_node.attr_or_none(attr, opts).map(|v| {
-            v.configure(&AttrConfigurationContextImpl {
-                resolved_cfg: &self.0.resolved_configuration,
-                exec_cfg: self.0.execution_platform_resolution.cfg(),
-                resolved_transitions: &self.0.resolved_transition_configurations,
-                platform_cfgs: &self.0.platform_cfgs,
-            })
-            .expect("checked attr configuration in constructor")
+            v.configure(&self.attr_configuration_context())
+                .expect("checked attr configuration in constructor")
         })
     }
 
