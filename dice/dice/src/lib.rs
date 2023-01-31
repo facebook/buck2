@@ -228,6 +228,8 @@ mod tests;
 // data we want to expose
 mod ctx;
 
+mod api;
+
 use std::fmt::Debug;
 use std::io::Write;
 use std::sync::atomic::AtomicU32;
