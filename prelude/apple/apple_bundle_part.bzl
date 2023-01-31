@@ -80,7 +80,7 @@ def assemble_bundle(ctx: "context", bundle: "artifact", parts: [AppleBundlePart.
             "--info-plist-source",
             info_plist_part.source,
             "--info-plist-destination",
-            _bundle_relative_destination_path(ctx, info_plist_part),
+            get_apple_bundle_part_relative_destination_path(ctx, info_plist_part),
         ] if info_plist_part else []
         codesign_args.extend(info_plist_args)
     elif codesign_type.value == "skip":
@@ -133,7 +133,7 @@ def assemble_bundle(ctx: "context", bundle: "artifact", parts: [AppleBundlePart.
 def get_bundle_dir_name(ctx: "context") -> str.type:
     return paths.replace_extension(get_product_name(ctx), "." + get_extension_attr(ctx))
 
-def _bundle_relative_destination_path(ctx: "context", part: AppleBundlePart.type) -> str.type:
+def get_apple_bundle_part_relative_destination_path(ctx: "context", part: AppleBundlePart.type) -> str.type:
     bundle_relative_path = bundle_relative_path_for_destination(part.destination, get_apple_sdk_name(ctx), ctx.attrs.extension)
     destination_file_or_directory_name = part.new_name if part.new_name != None else paths.basename(part.source.short_path)
     return paths.join(bundle_relative_path, destination_file_or_directory_name)
@@ -144,7 +144,7 @@ def _bundle_spec_json(ctx: "context", parts: [AppleBundlePart.type]) -> "artifac
 
     for part in parts:
         part_spec = {
-            "dst": _bundle_relative_destination_path(ctx, part),
+            "dst": get_apple_bundle_part_relative_destination_path(ctx, part),
             "src": part.source,
         }
         if part.codesign_on_copy:
