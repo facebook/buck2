@@ -344,5 +344,17 @@ mod tests {
             // This is use after free.
             *ss = &".".repeat(40);
         }
+
+        fn extend_lifetime<'a>(s: &'a str) -> &'static str {
+            // All three of these are the exact same pointer
+            let r: &'_ &'a str = &s;
+            let r2: &'_ dyn AnyLifetime<'a> = r;
+            let r3: &'_ &'static str = r2.downcast_ref().unwrap();
+            #[allow(clippy::explicit_auto_deref)]
+            *r3
+        }
+
+        let s = ".".repeat(40);
+        assert!(std::ptr::eq(&s[..], extend_lifetime(&s)));
     }
 }
