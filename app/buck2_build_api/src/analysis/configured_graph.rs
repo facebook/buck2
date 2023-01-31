@@ -11,7 +11,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use buck2_common::result::SharedResult;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::label::ConfiguredTargetLabel;
@@ -58,7 +57,7 @@ impl<'a> ConfiguredGraphQueryEnvironmentDelegate for AnalysisConfiguredGraphQuer
     async fn dice_lookup_transitive_set(
         &self,
         key: TransitiveSetKey,
-    ) -> SharedResult<DeferredValueReady<DeferredTransitiveSetData>> {
+    ) -> anyhow::Result<DeferredValueReady<DeferredTransitiveSetData>> {
         self.dice_query_delegate
             .ctx
             .compute_deferred_data(&key)

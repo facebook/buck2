@@ -14,7 +14,7 @@ use std::sync::Arc;
 use anyhow::Context;
 use async_trait::async_trait;
 use buck2_common::result::SharedResult;
-use buck2_common::result::ToSharedResultExt;
+use buck2_common::result::ToUnsharedResultExt;
 use buck2_core::configuration::Configuration;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::label::ConfiguredTargetLabel;
@@ -63,21 +63,21 @@ pub trait RuleAnalysisCalculation {
     async fn get_analysis_result(
         &self,
         target: &ConfiguredTargetLabel,
-    ) -> SharedResult<MaybeCompatible<AnalysisResult>>;
+    ) -> anyhow::Result<MaybeCompatible<AnalysisResult>>;
 
     /// Return the analysis result for a configuration rule `TargetLabel`
     /// (e. g. `constraint_value`).
     async fn get_configuration_analysis_result(
         &self,
         target: &TargetLabel,
-    ) -> SharedResult<AnalysisResult>;
+    ) -> anyhow::Result<AnalysisResult>;
 
     /// Returns the provider collection for a ConfiguredProvidersLabel. This is the full set of Providers
     /// returned by the target's rule implementation function.
     async fn get_providers(
         &self,
         target: &ConfiguredProvidersLabel,
-    ) -> SharedResult<MaybeCompatible<FrozenProviderCollectionValue>>;
+    ) -> anyhow::Result<MaybeCompatible<FrozenProviderCollectionValue>>;
 }
 
 #[async_trait]
@@ -85,7 +85,7 @@ impl RuleAnalysisCalculation for DiceComputations {
     async fn get_analysis_result(
         &self,
         target: &ConfiguredTargetLabel,
-    ) -> SharedResult<MaybeCompatible<AnalysisResult>> {
+    ) -> anyhow::Result<MaybeCompatible<AnalysisResult>> {
         #[async_trait]
         impl Key for AnalysisKey {
             type Value = SharedResult<MaybeCompatible<AnalysisResult>>;
@@ -103,13 +103,15 @@ impl RuleAnalysisCalculation for DiceComputations {
             }
         }
 
-        self.compute(&AnalysisKey(target.dupe())).await?
+        self.compute(&AnalysisKey(target.dupe()))
+            .await?
+            .unshared_error()
     }
 
     async fn get_configuration_analysis_result(
         &self,
         target: &TargetLabel,
-    ) -> SharedResult<AnalysisResult> {
+    ) -> anyhow::Result<AnalysisResult> {
         // Analysis for configuration nodes is always done with the unbound configuration.
         let target = target.configure(Configuration::unbound());
         Ok(self
@@ -121,12 +123,10 @@ impl RuleAnalysisCalculation for DiceComputations {
     async fn get_providers(
         &self,
         target: &ConfiguredProvidersLabel,
-    ) -> SharedResult<MaybeCompatible<FrozenProviderCollectionValue>> {
+    ) -> anyhow::Result<MaybeCompatible<FrozenProviderCollectionValue>> {
         let analysis = self.get_analysis_result(target.target()).await?;
 
-        analysis
-            .try_map(|analysis| analysis.lookup_inner(target))
-            .shared_error()
+        analysis.try_map(|analysis| analysis.lookup_inner(target))
     }
 }
 
@@ -215,19 +215,19 @@ pub async fn get_dep_analysis<'v>(
     configured_node: &'v ConfiguredTargetNode,
     ctx: &DiceComputations,
 ) -> anyhow::Result<Vec<(&'v ConfiguredTargetLabel, AnalysisResult)>> {
-    Ok(keep_going::try_join_all(
+    keep_going::try_join_all(
         configured_node
             .deps()
             .map(async move |dep| {
                 let res = ctx
                     .get_analysis_result(dep.label())
                     .await
-                    .and_then(|v| v.require_compatible().shared_error());
+                    .and_then(|v| v.require_compatible());
                 res.map(|x| (dep.label(), x))
             })
             .collect::<FuturesUnordered<_>>(),
     )
-    .await?)
+    .await
 }
 
 pub(crate) async fn get_rule_impl(

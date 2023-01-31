@@ -11,7 +11,6 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use async_trait::async_trait;
-use buck2_common::result::SharedResult;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_core::target::label::TargetLabel;
@@ -51,17 +50,17 @@ pub trait CqueryDelegate: Send + Sync {
     async fn get_node_for_target(
         &self,
         target: &TargetLabel,
-    ) -> SharedResult<MaybeCompatible<ConfiguredTargetNode>>;
+    ) -> anyhow::Result<MaybeCompatible<ConfiguredTargetNode>>;
 
     async fn get_node_for_configured_target(
         &self,
         target: &ConfiguredTargetLabel,
-    ) -> SharedResult<ConfiguredTargetNode>;
+    ) -> anyhow::Result<ConfiguredTargetNode>;
 
     async fn get_configured_target(
         &self,
         target: &TargetLabel,
-    ) -> SharedResult<ConfiguredTargetLabel>;
+    ) -> anyhow::Result<ConfiguredTargetLabel>;
 }
 
 /// [Context](https://fburl.com/adiagq2f).
@@ -110,17 +109,16 @@ impl<'c> CqueryEnvironment<'c> {
         &self,
         label: &ConfiguredTargetLabel,
     ) -> anyhow::Result<ConfiguredTargetNode> {
-        Ok(self.delegate.get_node_for_configured_target(label).await?)
+        self.delegate.get_node_for_configured_target(label).await
     }
 
     pub async fn get_node_maybe_compatible(
         &self,
         node_ref: &ConfiguredTargetLabel,
     ) -> anyhow::Result<MaybeCompatible<ConfiguredTargetNode>> {
-        Ok(self
-            .delegate
+        self.delegate
             .get_node_for_target(node_ref.unconfigured())
-            .await?)
+            .await
     }
 
     /// Deprecated `owner` function implementation.

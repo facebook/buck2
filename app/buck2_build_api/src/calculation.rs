@@ -120,7 +120,7 @@ impl ConfigurableTarget for ProvidersLabel {
 #[async_trait]
 pub trait Calculation<'c> {
     /// Get the configured ArtifactFs
-    async fn get_artifact_fs(&self) -> SharedResult<ArtifactFs>;
+    async fn get_artifact_fs(&self) -> anyhow::Result<ArtifactFs>;
 
     /// Returns the Configuration for an unconfigured TargetLabel or ProvidersLabel.
     ///
@@ -137,31 +137,31 @@ pub trait Calculation<'c> {
         &self,
         target: &T,
         global_target_platform: Option<&TargetLabel>,
-    ) -> SharedResult<T::Configured>;
+    ) -> anyhow::Result<T::Configured>;
 
     /// For a TargetLabel, returns the TargetNode. This is really just part of the the interpreter
     /// results for the the label's package, and so this is just a utility for accessing that, it
     /// isn't separately cached.
-    async fn get_target_node(&self, target: &TargetLabel) -> SharedResult<TargetNode>;
+    async fn get_target_node(&self, target: &TargetLabel) -> anyhow::Result<TargetNode>;
 
     /// Returns the ConfiguredTargetNode corresponding to a ConfiguredTargetLabel.
     async fn get_configured_target_node(
         &self,
         target: &ConfiguredTargetLabel,
-    ) -> SharedResult<MaybeCompatible<ConfiguredTargetNode>>;
+    ) -> anyhow::Result<MaybeCompatible<ConfiguredTargetNode>>;
 
     /// Returns the provider collection for a ConfiguredProvidersLabel. This is the full set of Providers
     /// returned by the target's rule implementation function.
     async fn get_providers(
         &self,
         target: &ConfiguredProvidersLabel,
-    ) -> SharedResult<MaybeCompatible<FrozenProviderCollectionValue>>;
+    ) -> anyhow::Result<MaybeCompatible<FrozenProviderCollectionValue>>;
 
     /// Builds a specific 'Action' given the 'Action' itself
-    async fn build_action(&self, action_key: &ActionKey) -> SharedResult<ActionOutputs>;
+    async fn build_action(&self, action_key: &ActionKey) -> anyhow::Result<ActionOutputs>;
 
     /// Builds and materializes the given 'BuildArtifact'
-    async fn build_artifact(&self, artifact: &BuildArtifact) -> SharedResult<ActionOutputs>;
+    async fn build_artifact(&self, artifact: &BuildArtifact) -> anyhow::Result<ActionOutputs>;
 
     /// Makes an 'Artifact' available to be accessed
     async fn ensure_artifact_group(
@@ -173,12 +173,12 @@ pub trait Calculation<'c> {
     async fn compute_deferred_data<T: Send + Sync + 'static>(
         &self,
         data: &DeferredData<T>,
-    ) -> SharedResult<DeferredValueReady<T>>;
+    ) -> anyhow::Result<DeferredValueReady<T>>;
 }
 
 #[async_trait]
 impl<'c> Calculation<'c> for DiceComputations {
-    async fn get_artifact_fs(&self) -> SharedResult<ArtifactFs> {
+    async fn get_artifact_fs(&self) -> anyhow::Result<ArtifactFs> {
         let buck_out_path_resolver =
             BuckOutPathResolver::new((*self.get_buck_out_path().await?).to_buf());
         let project_filesystem = self.global_data().get_io_provider().project_root().dupe();
@@ -194,7 +194,7 @@ impl<'c> Calculation<'c> for DiceComputations {
         &self,
         target: &T,
         global_target_platform: Option<&TargetLabel>,
-    ) -> SharedResult<T::Configured> {
+    ) -> anyhow::Result<T::Configured> {
         let node = self.get_target_node(target.target()).await?;
 
         let get_platform_configuration = async || -> SharedResult<Configuration> {
@@ -227,29 +227,29 @@ impl<'c> Calculation<'c> for DiceComputations {
         }
     }
 
-    async fn get_target_node(&self, target: &TargetLabel) -> SharedResult<TargetNode> {
+    async fn get_target_node(&self, target: &TargetLabel) -> anyhow::Result<TargetNode> {
         node_calculation::NodeCalculation::get_target_node(self, target).await
     }
 
     async fn get_configured_target_node(
         &self,
         target: &ConfiguredTargetLabel,
-    ) -> SharedResult<MaybeCompatible<ConfiguredTargetNode>> {
+    ) -> anyhow::Result<MaybeCompatible<ConfiguredTargetNode>> {
         node_calculation::NodeCalculation::get_configured_target_node(self, target).await
     }
 
     async fn get_providers(
         &self,
         target: &ConfiguredProvidersLabel,
-    ) -> SharedResult<MaybeCompatible<FrozenProviderCollectionValue>> {
+    ) -> anyhow::Result<MaybeCompatible<FrozenProviderCollectionValue>> {
         analysis_calculation::RuleAnalysisCalculation::get_providers(self, target).await
     }
 
-    async fn build_action(&self, action_key: &ActionKey) -> SharedResult<ActionOutputs> {
+    async fn build_action(&self, action_key: &ActionKey) -> anyhow::Result<ActionOutputs> {
         action_calculation::ActionCalculation::build_action(self, action_key).await
     }
 
-    async fn build_artifact(&self, artifact: &BuildArtifact) -> SharedResult<ActionOutputs> {
+    async fn build_artifact(&self, artifact: &BuildArtifact) -> anyhow::Result<ActionOutputs> {
         action_calculation::ActionCalculation::build_artifact(self, artifact).await
     }
 
@@ -266,7 +266,7 @@ impl<'c> Calculation<'c> for DiceComputations {
     async fn compute_deferred_data<T: Send + Sync + 'static>(
         &self,
         data: &DeferredData<T>,
-    ) -> SharedResult<DeferredValueReady<T>> {
+    ) -> anyhow::Result<DeferredValueReady<T>> {
         deferred_calculation::DeferredCalculation::compute_deferred_data(self, data).await
     }
 }

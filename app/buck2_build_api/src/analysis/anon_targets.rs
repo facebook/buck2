@@ -16,7 +16,6 @@ use allocative::Allocative;
 use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_common::result::SharedResult;
-use buck2_common::result::ToSharedResultExt;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::collections::ordered_map::OrderedMap;
@@ -309,7 +308,7 @@ impl AnonTargetKey {
                     let res = dice
                         .get_analysis_result(dep)
                         .await
-                        .and_then(|v| v.require_compatible().shared_error());
+                        .and_then(|v| v.require_compatible());
                     res.map(|x| (dep, x.providers().dupe()))
                 })
                 .collect::<FuturesUnordered<_>>(),

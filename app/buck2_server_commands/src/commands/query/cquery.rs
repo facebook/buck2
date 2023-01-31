@@ -15,7 +15,6 @@ use buck2_build_api::query::cquery::evaluator::get_cquery_evaluator;
 use buck2_cli_proto::CqueryRequest;
 use buck2_cli_proto::CqueryResponse;
 use buck2_common::dice::cells::HasCellResolver;
-use buck2_common::result::ToUnsharedResultExt;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::truncate::truncate;
@@ -176,6 +175,5 @@ impl ProviderLookUp<ConfiguredTargetNode> for DiceComputations {
             ProvidersName::Default,
         ))
         .await
-        .unshared_error()
     }
 }

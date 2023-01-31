@@ -18,6 +18,8 @@ use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_common::result::SharedResult;
+use buck2_common::result::ToSharedResultExt;
+use buck2_common::result::ToUnsharedResultExt;
 use buck2_execute::base_deferred_key::BaseDeferredKey;
 use derive_more::Display;
 use dice::DiceComputations;
@@ -54,7 +56,7 @@ pub(crate) trait DeferredCalculation {
     async fn compute_deferred_data<T: Send + Sync + 'static>(
         &self,
         data: &DeferredData<T>,
-    ) -> SharedResult<DeferredValueReady<T>>;
+    ) -> anyhow::Result<DeferredValueReady<T>>;
 }
 
 #[async_trait]
@@ -62,7 +64,7 @@ impl DeferredCalculation for DiceComputations {
     async fn compute_deferred_data<T: Send + Sync + 'static>(
         &self,
         data: &DeferredData<T>,
-    ) -> SharedResult<DeferredValueReady<T>> {
+    ) -> anyhow::Result<DeferredValueReady<T>> {
         if data.deferred_key().id().is_trivial() {
             let deferred = lookup_deferred(self, data.deferred_key()).await?;
             let deferred = deferred
@@ -70,7 +72,7 @@ impl DeferredCalculation for DiceComputations {
                 .as_trivial()
                 .context("Invalid deferred")?
                 .dupe();
-            return Ok(data.resolve(DeferredValueAnyReady::TrivialDeferred(deferred))?);
+            return data.resolve(DeferredValueAnyReady::TrivialDeferred(deferred));
         }
 
         let deferred = resolve_deferred(self, data.deferred_key()).await?;
@@ -81,7 +83,7 @@ impl DeferredCalculation for DiceComputations {
 async fn lookup_deferred_inner(
     key: &BaseDeferredKey,
     dice: &DiceComputations,
-) -> SharedResult<DeferredHolder> {
+) -> anyhow::Result<DeferredHolder> {
     match key {
         BaseDeferredKey::TargetLabel(target) => {
             let analysis = dice
@@ -117,7 +119,7 @@ impl PartialLookup {
 async fn lookup_deferred(
     dice: &DiceComputations,
     key: &DeferredKey,
-) -> SharedResult<PartialLookup> {
+) -> anyhow::Result<PartialLookup> {
     Ok(match key {
         DeferredKey::Base(target, id) => {
             let holder = lookup_deferred_inner(target, dice).await?;
@@ -138,7 +140,7 @@ async fn lookup_deferred(
 async fn resolve_deferred(
     dice: &DiceComputations,
     deferred: &DeferredKey,
-) -> SharedResult<DeferredValueAnyReady> {
+) -> anyhow::Result<DeferredValueAnyReady> {
     #[async_trait]
     impl Key for DeferredResolve {
         type Value = SharedResult<DeferredValueAnyReady>;
@@ -147,7 +149,7 @@ async fn resolve_deferred(
             let result = compute_deferred(ctx, &self.0).await?;
             match result.value() {
                 DeferredValueAny::Ready(value) => Ok(value.dupe()),
-                DeferredValueAny::Deferred(key) => resolve_deferred(ctx, key).await,
+                DeferredValueAny::Deferred(key) => resolve_deferred(ctx, key).await.shared_error(),
             }
         }
 
@@ -157,7 +159,9 @@ async fn resolve_deferred(
         }
     }
 
-    dice.compute(&DeferredResolve(deferred.dupe())).await?
+    dice.compute(&DeferredResolve(deferred.dupe()))
+        .await?
+        .unshared_error()
 }
 
 /// Computes and returns the untyped deferred at the given key. This does not fully resolve
@@ -165,7 +169,7 @@ async fn resolve_deferred(
 async fn compute_deferred(
     dice: &DiceComputations,
     deferred: &DeferredKey,
-) -> SharedResult<DeferredResult> {
+) -> anyhow::Result<DeferredResult> {
     #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
     #[display(fmt = "ComputeDeferred({})", _0)]
     struct DeferredCompute(DeferredKey);
@@ -288,7 +292,7 @@ async fn compute_deferred(
         }
     }
 
-    dice.compute(&DeferredCompute(deferred.dupe())).await?
+    Ok(dice.compute(&DeferredCompute(deferred.dupe())).await??)
 }
 
 async fn futures_pair_to_map<K: Eq + Hash, V>(

@@ -13,7 +13,6 @@ use std::marker::PhantomData;
 
 use anyhow::Context;
 use async_trait::async_trait;
-use buck2_common::result::SharedResult;
 use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::configured_ref::ConfiguredGraphNodeRef;
@@ -87,7 +86,7 @@ pub trait ConfiguredGraphQueryEnvironmentDelegate: Send + Sync {
     async fn dice_lookup_transitive_set(
         &self,
         key: TransitiveSetKey,
-    ) -> SharedResult<DeferredValueReady<DeferredTransitiveSetData>>;
+    ) -> anyhow::Result<DeferredValueReady<DeferredTransitiveSetData>>;
 }
 
 pub struct ConfiguredGraphQueryEnvironment<'a> {

@@ -14,6 +14,7 @@ use anyhow::Context;
 use async_trait::async_trait;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
+use buck2_common::result::ToUnsharedResultExt;
 use buck2_data::ToProtoMessage;
 use buck2_events::dispatch::span_async;
 use buck2_execute::execute::kind::CommandExecutionKind;
@@ -43,16 +44,19 @@ use crate::keep_going;
 #[async_trait]
 pub(crate) trait ActionCalculation {
     /// Returns the 'Action' corresponding to a particular 'ActionKey'.
-    async fn get_action(&self, artifact: &ActionKey) -> SharedResult<Arc<RegisteredAction>>;
+    async fn get_action(&self, artifact: &ActionKey) -> anyhow::Result<Arc<RegisteredAction>>;
 
     /// Builds a specific 'Action' given the 'ActionKey'
-    async fn build_action(&self, action_key: &ActionKey) -> SharedResult<ActionOutputs>;
+    async fn build_action(&self, action_key: &ActionKey) -> anyhow::Result<ActionOutputs>;
 
     /// Builds and materializes the given 'BuildArtifact'
-    async fn build_artifact(&self, artifact: &BuildArtifact) -> SharedResult<ActionOutputs>;
+    async fn build_artifact(&self, artifact: &BuildArtifact) -> anyhow::Result<ActionOutputs>;
 }
 
-async fn build_action_impl(ctx: &DiceComputations, key: &ActionKey) -> SharedResult<ActionOutputs> {
+async fn build_action_impl(
+    ctx: &DiceComputations,
+    key: &ActionKey,
+) -> anyhow::Result<ActionOutputs> {
     // Compute is only called if we have cache miss
     debug!("compute {}", key);
 
@@ -85,7 +89,7 @@ async fn build_action_impl(ctx: &DiceComputations, key: &ActionKey) -> SharedRes
 async fn build_action_no_redirect(
     ctx: &DiceComputations,
     action: Arc<RegisteredAction>,
-) -> SharedResult<ActionOutputs> {
+) -> anyhow::Result<ActionOutputs> {
     let materialized_inputs = tokio::task::unconstrained(keep_going::try_join_all(
         action
             .inputs()?
@@ -173,7 +177,7 @@ async fn build_action_no_redirect(
                 // We can then unconditionally print the error message for compute(),
                 // including ones near the beginning of this method, and also not
                 // duplicate any error messages.
-                action_result = Err(anyhow::anyhow!("Failed to build '{}'", action.owner()).into());
+                action_result = Err(anyhow::anyhow!("Failed to build '{}'", action.owner()));
                 // TODO (torozco): Remove (see protobuf file)?
                 execution_kind = command_reports
                     .last()
@@ -236,16 +240,15 @@ async fn build_action_no_redirect(
 
 #[async_trait]
 impl ActionCalculation for DiceComputations {
-    async fn get_action(&self, action_key: &ActionKey) -> SharedResult<Arc<RegisteredAction>> {
+    async fn get_action(&self, action_key: &ActionKey) -> anyhow::Result<Arc<RegisteredAction>> {
         // TODO add async/deferred stuff
         self.compute_deferred_data(action_key.deferred_data())
             .await
             .map(|a| (*a).dupe())
             .with_context(|| format!("for action key `{}`", action_key))
-            .shared_error()
     }
 
-    async fn build_action(&self, action_key: &ActionKey) -> SharedResult<ActionOutputs> {
+    async fn build_action(&self, action_key: &ActionKey) -> anyhow::Result<ActionOutputs> {
         // build_action is called for every action key.
         // We don't currently consume this in buck_e2e but it's good to log for debugging purposes.
         debug!("build_action {}", action_key);
@@ -258,7 +261,7 @@ impl ActionCalculation for DiceComputations {
             type Value = SharedResult<ActionOutputs>;
 
             async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
-                build_action_impl(ctx, &self.0).await
+                build_action_impl(ctx, &self.0).await.shared_error()
             }
 
             fn equality(x: &Self::Value, y: &Self::Value) -> bool {
@@ -277,10 +280,12 @@ impl ActionCalculation for DiceComputations {
             }
         }
 
-        self.compute(&BuildKey(action_key.dupe())).await?
+        self.compute(&BuildKey(action_key.dupe()))
+            .await?
+            .unshared_error()
     }
 
-    async fn build_artifact(&self, artifact: &BuildArtifact) -> SharedResult<ActionOutputs> {
+    async fn build_artifact(&self, artifact: &BuildArtifact) -> anyhow::Result<ActionOutputs> {
         self.build_action(artifact.key()).await
     }
 }

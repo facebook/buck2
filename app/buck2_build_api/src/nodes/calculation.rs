@@ -18,6 +18,7 @@ use async_trait::async_trait;
 use buck2_common::result::SharedError;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
+use buck2_common::result::ToUnsharedResultExt;
 use buck2_core::collections::ordered_map::OrderedMap;
 use buck2_core::configuration::transition::applied::TransitionApplied;
 use buck2_core::configuration::transition::id::TransitionId;
@@ -77,13 +78,13 @@ pub(crate) trait NodeCalculation {
     /// For a TargetLabel, returns the TargetNode. This is really just part of the the interpreter
     /// results for the the label's package, and so this is just a utility for accessing that, it
     /// isn't separately cached.
-    async fn get_target_node(&self, target: &TargetLabel) -> SharedResult<TargetNode>;
+    async fn get_target_node(&self, target: &TargetLabel) -> anyhow::Result<TargetNode>;
 
     /// Returns the ConfiguredTargetNode corresponding to a ConfiguredTargetLabel.
     async fn get_configured_target_node(
         &self,
         target: &ConfiguredTargetLabel,
-    ) -> SharedResult<MaybeCompatible<ConfiguredTargetNode>>;
+    ) -> anyhow::Result<MaybeCompatible<ConfiguredTargetNode>>;
 }
 
 enum CompatibilityConstraints {
@@ -518,7 +519,7 @@ async fn compute_configured_target_node_no_transition(
     target_label: &ConfiguredTargetLabel,
     target_node: TargetNode,
     ctx: &DiceComputations,
-) -> SharedResult<MaybeCompatible<ConfiguredTargetNode>> {
+) -> anyhow::Result<MaybeCompatible<ConfiguredTargetNode>> {
     let target_cfg = target_label.cfg();
     let target_cell = target_node.label().pkg().cell_name();
     let resolved_configuration = ctx
@@ -632,7 +633,7 @@ async fn compute_configured_target_node_no_transition(
     let mut exec_deps = Vec::with_capacity(exec_deps.len());
 
     let unpack_dep = |
-        result: SharedResult<MaybeCompatible<ConfiguredTargetNode>>| -> ControlFlow<_, ConfiguredTargetNode>
+        result: anyhow::Result<MaybeCompatible<ConfiguredTargetNode>>| -> ControlFlow<_, ConfiguredTargetNode>
     {
         match result {
             Err(e) => ControlFlow::Break(Err(e)),
@@ -645,15 +646,14 @@ async fn compute_configured_target_node_no_transition(
             Ok(MaybeCompatible::Compatible(dep)) => {
                 let visible = match dep.is_visible_to(target_label.unconfigured()) {
                     Ok(visible) => visible,
-                    Err(e) => return ControlFlow::Break(Err(e).shared_error()),
+                    Err(e) => return ControlFlow::Break(Err(e)),
                 };
                 if !visible {
                     ControlFlow::Break(
                         Err(anyhow::anyhow!(VisibilityError::NotVisibleTo(
                             dep.label().unconfigured().dupe(),
                             target_label.unconfigured().dupe(),
-                        )))
-                        .shared_error(),
+                        ))),
                     )
                 } else {
                     ControlFlow::Continue(dep)
@@ -694,7 +694,7 @@ async fn compute_configured_target_node_no_transition(
 async fn compute_configured_target_node_with_transition(
     key: &ConfiguredTransitionedNodeKey,
     ctx: &DiceComputations,
-) -> SharedResult<MaybeCompatible<ConfiguredTargetNode>> {
+) -> anyhow::Result<MaybeCompatible<ConfiguredTargetNode>> {
     assert_eq!(
         key.forward.unconfigured(),
         key.transitioned.unconfigured(),
@@ -718,7 +718,7 @@ async fn compute_configured_target_node_with_transition(
 async fn compute_configured_target_node(
     key: &ConfiguredTargetNodeKey,
     ctx: &DiceComputations,
-) -> SharedResult<MaybeCompatible<ConfiguredTargetNode>> {
+) -> anyhow::Result<MaybeCompatible<ConfiguredTargetNode>> {
     let target_node = ctx
         .get_target_node(key.0.unconfigured())
         .await
@@ -731,14 +731,16 @@ async fn compute_configured_target_node(
 
     match key.0.exec_cfg() {
         None if target_node.is_toolchain_rule() => {
-            return Err(SharedError::new(
-                ToolchainDepError::ToolchainRuleUsedAsNormalDep(key.0.unconfigured().dupe()),
-            ));
+            return Err(ToolchainDepError::ToolchainRuleUsedAsNormalDep(
+                key.0.unconfigured().dupe(),
+            )
+            .into());
         }
         Some(_) if !target_node.is_toolchain_rule() => {
-            return Err(SharedError::new(
-                ToolchainDepError::NonToolchainRuleUsedAsToolchainDep(key.0.unconfigured().dupe()),
-            ));
+            return Err(ToolchainDepError::NonToolchainRuleUsedAsToolchainDep(
+                key.0.unconfigured().dupe(),
+            )
+            .into());
         }
         _ => {}
     }
@@ -752,7 +754,9 @@ async fn compute_configured_target_node(
                 &self,
                 ctx: &DiceComputations,
             ) -> SharedResult<MaybeCompatible<ConfiguredTargetNode>> {
-                compute_configured_target_node_with_transition(self, ctx).await
+                compute_configured_target_node_with_transition(self, ctx)
+                    .await
+                    .shared_error()
             }
 
             fn equality(x: &Self::Value, y: &Self::Value) -> bool {
@@ -773,11 +777,12 @@ async fn compute_configured_target_node(
             // Transitioned to identical configured target, no need to create a forward node.
             compute_configured_target_node_no_transition(&key.0, target_node.dupe(), ctx).await
         } else {
-            ctx.compute(&ConfiguredTransitionedNodeKey {
-                forward: key.0.dupe(),
-                transitioned: configured_target_label,
-            })
-            .await?
+            Ok(ctx
+                .compute(&ConfiguredTransitionedNodeKey {
+                    forward: key.0.dupe(),
+                    transitioned: configured_target_label,
+                })
+                .await??)
         }
     } else {
         // We are not caching `ConfiguredTransitionedNodeKey` because this is cheap,
@@ -802,7 +807,7 @@ pub struct ConfiguredTransitionedNodeKey {
 
 #[async_trait]
 impl NodeCalculation for DiceComputations {
-    async fn get_target_node(&self, target: &TargetLabel) -> SharedResult<TargetNode> {
+    async fn get_target_node(&self, target: &TargetLabel) -> anyhow::Result<TargetNode> {
         Ok(self
             .get_interpreter_results(target.pkg())
             .await
@@ -827,7 +832,7 @@ impl NodeCalculation for DiceComputations {
     async fn get_configured_target_node(
         &self,
         target: &ConfiguredTargetLabel,
-    ) -> SharedResult<MaybeCompatible<ConfiguredTargetNode>> {
+    ) -> anyhow::Result<MaybeCompatible<ConfiguredTargetNode>> {
         #[async_trait]
         impl Key for ConfiguredTargetNodeKey {
             type Value = SharedResult<MaybeCompatible<ConfiguredTargetNode>>;
@@ -846,6 +851,7 @@ impl NodeCalculation for DiceComputations {
 
         self.compute(&ConfiguredTargetNodeKey(target.dupe()))
             .await?
+            .unshared_error()
     }
 }
 

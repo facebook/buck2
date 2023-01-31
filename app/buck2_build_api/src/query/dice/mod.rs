@@ -259,7 +259,7 @@ impl<'c> CqueryDelegate for DiceQueryDelegate<'c> {
     async fn get_node_for_target(
         &self,
         target: &TargetLabel,
-    ) -> SharedResult<MaybeCompatible<ConfiguredTargetNode>> {
+    ) -> anyhow::Result<MaybeCompatible<ConfiguredTargetNode>> {
         let target = self
             .ctx
             .get_configured_target(target, self.global_target_platform.as_ref())
@@ -270,7 +270,7 @@ impl<'c> CqueryDelegate for DiceQueryDelegate<'c> {
     async fn get_node_for_configured_target(
         &self,
         target: &ConfiguredTargetLabel,
-    ) -> SharedResult<ConfiguredTargetNode> {
+    ) -> anyhow::Result<ConfiguredTargetNode> {
         Ok(self
             .ctx
             .get_configured_target_node(target)
@@ -281,7 +281,7 @@ impl<'c> CqueryDelegate for DiceQueryDelegate<'c> {
     async fn get_configured_target(
         &self,
         target: &TargetLabel,
-    ) -> SharedResult<ConfiguredTargetLabel> {
+    ) -> anyhow::Result<ConfiguredTargetLabel> {
         self.ctx
             .get_configured_target(target, self.global_target_platform.as_ref())
             .await
