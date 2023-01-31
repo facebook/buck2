@@ -40,16 +40,19 @@ impl WorkingDir {
             NotCanonical(PathBuf, PathBuf),
         }
 
-        // Skip the check on Windows as `current_dir` does not return the canonicalized path prefixed with \\?\
-        if !cfg!(windows) {
-            // `current_dir` seems to return canonical path.
-            let current_dir_canonical = fs_util::canonicalize(&current_dir)?;
-            if current_dir != current_dir_canonical.as_path() {
-                return Err(CurrentDirError::NotCanonical(
-                    current_dir,
-                    current_dir_canonical.into_path_buf(),
-                )
-                .into());
+        // `current_dir` seems to return canonical path.
+        let current_dir_canonical = fs_util::canonicalize(&current_dir)?;
+        if current_dir != current_dir_canonical.as_path() {
+            let error: anyhow::Error = CurrentDirError::NotCanonical(
+                current_dir.clone(),
+                current_dir_canonical.into_path_buf(),
+            )
+            .into();
+
+            if cfg!(windows) {
+                soft_error!("current_dir_not_canonical_on_windows", error)?;
+            } else {
+                return Err(error);
             }
         }
 
