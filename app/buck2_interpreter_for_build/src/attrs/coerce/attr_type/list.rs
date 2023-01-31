@@ -29,17 +29,13 @@ impl AttrTypeCoerce for ListAttrType {
         value: Value,
     ) -> anyhow::Result<AttrLiteral<CoercedAttr>> {
         if let Some(list) = ListRef::from_value(value) {
-            Ok(AttrLiteral::List(
-                list.content()
-                    .try_map(|v| (self.inner).coerce(configurable, ctx, *v))?
-                    .into_boxed_slice(),
-            ))
+            Ok(AttrLiteral::List(ctx.intern_list(list.content().try_map(
+                |v| (self.inner).coerce(configurable, ctx, *v),
+            )?)))
         } else if let Some(list) = TupleRef::from_value(value) {
-            Ok(AttrLiteral::List(
-                list.content()
-                    .try_map(|v| (self.inner).coerce(configurable, ctx, *v))?
-                    .into_boxed_slice(),
-            ))
+            Ok(AttrLiteral::List(ctx.intern_list(list.content().try_map(
+                |v| (self.inner).coerce(configurable, ctx, *v),
+            )?)))
         } else {
             Err(anyhow::anyhow!(CoercionError::type_error(
                 ListRef::TYPE,

@@ -924,15 +924,15 @@ mod tests {
             (
                 "some_deps",
                 Attribute::testing_new(None, AttrType::list(AttrType::dep(ProviderIdSet::EMPTY))),
-                CoercedAttr::from_literal(AttrLiteral::List(box [CoercedAttr::from_literal(
-                    AttrLiteral::Dep(box DepAttr {
+                CoercedAttr::from_literal(AttrLiteral::List(Arc::new([
+                    CoercedAttr::from_literal(AttrLiteral::Dep(box DepAttr {
                         attr_type: DepAttrType::new(
                             ProviderIdSet::EMPTY,
                             DepAttrTransition::Identity,
                         ),
                         label: ProvidersLabel::new(label2.dupe(), ProvidersName::Default),
-                    }),
-                )])),
+                    })),
+                ]))),
             ),
         ];
 
@@ -986,13 +986,13 @@ mod tests {
             "another_field" =>
              ConfiguredAttr::from_literal(AttrLiteral::String("some_string".into())),
             "some_deps" =>
-             ConfiguredAttr::from_literal(AttrLiteral::List(box [
+             ConfiguredAttr::from_literal(AttrLiteral::List(Arc::new([
                 ConfiguredAttr::from_literal(AttrLiteral::Dep(box DepAttr {
                     attr_type: DepAttrType::new(ProviderIdSet::EMPTY, DepAttrTransition::Identity),
                     label: ProvidersLabel::new(label2.dupe(), ProvidersName::Default)
                         .configure(cfg.dupe()),
                 })),
-            ])),
+            ]))),
         ];
 
         let conf_attrs2 = smallmap![
@@ -1000,7 +1000,7 @@ mod tests {
             "another_field" =>
              ConfiguredAttr::from_literal(AttrLiteral::String("another_string".into())),
             "some_deps" => ConfiguredAttr::from_literal(AttrLiteral::List(
-                box []
+                Arc::new([])
             )),
         ];
 

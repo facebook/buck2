@@ -117,16 +117,16 @@ impl ConfiguredAttr {
                 }))
             }
             AttrLiteral::List(list) => {
-                let mut res = list.into_vec();
+                let mut res = list.to_vec();
                 for x in items {
                     match x?.0 {
                         AttrLiteral::List(list2) => {
-                            res.extend(list2.into_vec());
+                            res.extend(list2.iter().cloned());
                         }
                         attr => return mismatch("list", attr),
                     }
                 }
-                Ok(Self(AttrLiteral::List(res.into_boxed_slice())))
+                Ok(Self(AttrLiteral::List(res.into())))
             }
             AttrLiteral::Dict(left) => {
                 let mut res = OrderedMap::new();
@@ -209,7 +209,7 @@ impl ConfiguredAttr {
 
     pub(crate) fn try_into_list(self) -> anyhow::Result<Vec<ConfiguredAttr>> {
         match self.0 {
-            AttrLiteral::List(list) => Ok(list.into_vec()),
+            AttrLiteral::List(list) => Ok(list.to_vec()),
             a => Err(ConfiguredAttrError::ExpectingList(a.as_display_no_ctx().to_string()).into()),
         }
     }

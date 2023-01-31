@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::sync::Arc;
+
 use allocative::Allocative;
 use buck2_util::arc_str::ArcStr;
 
@@ -22,6 +24,6 @@ impl AnyAttrType {
     }
 
     pub fn empty_list() -> CoercedAttr {
-        CoercedAttr::new_literal(AttrLiteral::List(box []))
+        CoercedAttr::new_literal(AttrLiteral::List(Arc::new([])))
     }
 }

@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::sync::Arc;
+
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::TargetPattern;
 use buck2_core::provider::label::NonDefaultProvidersName;
@@ -18,6 +20,7 @@ use buck2_query_parser::spanned::Spanned;
 use buck2_query_parser::Expr;
 use buck2_util::arc_str::ArcStr;
 
+use super::coerced_attr::CoercedAttr;
 use crate::attrs::coerced_path::CoercedPath;
 
 #[derive(thiserror::Error, Debug)]
@@ -42,6 +45,9 @@ pub trait AttrCoercionContext {
 
     /// Reuse previously allocated string if possible.
     fn intern_str(&self, value: &str) -> ArcStr;
+
+    // Reuse previously allocated slices if possible.
+    fn intern_list(&self, value: Vec<CoercedAttr>) -> Arc<[CoercedAttr]>;
 
     /// Attempt to convert a string into a BuckPath
     fn coerce_path(&self, value: &str, allow_directory: bool) -> anyhow::Result<CoercedPath>;

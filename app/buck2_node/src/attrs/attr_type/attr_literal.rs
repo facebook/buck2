@@ -8,6 +8,7 @@
  */
 
 use std::fmt::Display;
+use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_core::buck_path::BuckPathRef;
@@ -57,7 +58,7 @@ pub enum AttrLiteral<C: AttrConfig> {
     String(ArcStr),
     // Like String, but drawn from a set of variants, so doesn't support concat
     EnumVariant(ArcStr),
-    List(Box<[C]>),
+    List(Arc<[C]>),
     Tuple(Box<[C]>),
     Dict(Box<[(C, C)]>),
     None,
@@ -171,9 +172,8 @@ impl<C: AttrConfig> AttrLiteral<C> {
             AttrLiteral::Bool(v) => Ok(to_value(v)?),
             AttrLiteral::Int(v) => Ok(to_value(v)?),
             AttrLiteral::String(v) | AttrLiteral::EnumVariant(v) => Ok(to_value(v)?),
-            AttrLiteral::List(list) | AttrLiteral::Tuple(list) => {
-                Ok(to_value(list.try_map(|c| c.to_json(ctx))?)?)
-            }
+            AttrLiteral::List(list) => Ok(to_value(list.try_map(|c| c.to_json(ctx))?)?),
+            AttrLiteral::Tuple(list) => Ok(to_value(list.try_map(|c| c.to_json(ctx))?)?),
             AttrLiteral::Dict(dict) => {
                 let mut res: serde_json::Map<String, serde_json::Value> =
                     serde_json::Map::with_capacity(dict.len());
@@ -210,7 +210,15 @@ impl<C: AttrConfig> AttrLiteral<C> {
     ) -> anyhow::Result<bool> {
         match self {
             AttrLiteral::String(v) | AttrLiteral::EnumVariant(v) => filter(v),
-            AttrLiteral::List(vals) | AttrLiteral::Tuple(vals) => {
+            AttrLiteral::List(vals) => {
+                for v in vals.iter() {
+                    if v.any_matches(filter)? {
+                        return Ok(true);
+                    }
+                }
+                Ok(false)
+            }
+            AttrLiteral::Tuple(vals) => {
                 for v in vals.iter() {
                     if v.any_matches(filter)? {
                         return Ok(true);
@@ -267,7 +275,13 @@ impl AttrLiteral<ConfiguredAttr> {
             AttrLiteral::Int(_) => Ok(()),
             AttrLiteral::String(_) => Ok(()),
             AttrLiteral::EnumVariant(_) => Ok(()),
-            AttrLiteral::List(list) | AttrLiteral::Tuple(list) => {
+            AttrLiteral::List(list) => {
+                for v in list.iter() {
+                    v.traverse(pkg.dupe(), traversal)?;
+                }
+                Ok(())
+            }
+            AttrLiteral::Tuple(list) => {
                 for v in list.iter() {
                     v.traverse(pkg.dupe(), traversal)?;
                 }
@@ -315,7 +329,7 @@ impl AttrLiteral<CoercedAttr> {
             AttrLiteral::String(v) => AttrLiteral::String(v.dupe()),
             AttrLiteral::EnumVariant(v) => AttrLiteral::EnumVariant(v.dupe()),
             AttrLiteral::List(list) => {
-                AttrLiteral::List(list.try_map(|v| v.configure(ctx))?.into_boxed_slice())
+                AttrLiteral::List(list.try_map(|v| v.configure(ctx))?.into())
             }
             AttrLiteral::Tuple(list) => {
                 AttrLiteral::Tuple(list.try_map(|v| v.configure(ctx))?.into_boxed_slice())
@@ -363,7 +377,13 @@ impl AttrLiteral<CoercedAttr> {
             AttrLiteral::Int(_) => Ok(()),
             AttrLiteral::String(_) => Ok(()),
             AttrLiteral::EnumVariant(_) => Ok(()),
-            AttrLiteral::List(list) | AttrLiteral::Tuple(list) => {
+            AttrLiteral::List(list) => {
+                for v in list.iter() {
+                    v.traverse(pkg.dupe(), traversal)?;
+                }
+                Ok(())
+            }
+            AttrLiteral::Tuple(list) => {
                 for v in list.iter() {
                     v.traverse(pkg.dupe(), traversal)?;
                 }
