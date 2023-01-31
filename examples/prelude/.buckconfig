@@ -7,7 +7,6 @@ prelude = prelude
 ovr_config = prelude
 toolchains = toolchains
 fbcode = none
-fbcode_macros = none
 fbsource = none
 buck = none
 
