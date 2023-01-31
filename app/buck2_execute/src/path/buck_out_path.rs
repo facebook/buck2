@@ -356,7 +356,7 @@ impl BaseDeferredKey {
                         "/"
                     },
                     "__",
-                    target.name().as_ref(),
+                    target.name().as_str(),
                     "__",
                     "/",
                     if action_key.is_none() {
@@ -433,7 +433,7 @@ impl BaseDeferredKey {
                     },
                     target.rule_type_attrs_hash(),
                     "/__",
-                    target.name().name().as_ref(),
+                    target.name().name().as_str(),
                     "__",
                     action_key.unwrap_or_default(),
                     if action_key.is_none() { "" } else { "__" },

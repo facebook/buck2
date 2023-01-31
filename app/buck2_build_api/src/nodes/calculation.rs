@@ -817,7 +817,7 @@ impl NodeCalculation for DiceComputations {
             .ok_or_else(|| {
                 anyhow::anyhow!(BuildErrors::MissingTarget(
                     target.pkg().dupe(),
-                    target.name().dupe()
+                    target.name().to_owned()
                 ))
             })?
             .dupe())

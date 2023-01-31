@@ -213,7 +213,7 @@ impl TargetsRecorder {
     }
 
     fn record(&mut self, target_node: TargetNode) -> anyhow::Result<()> {
-        match self.targets.entry(target_node.label().name().dupe()) {
+        match self.targets.entry(target_node.label().name().to_owned()) {
             small_map::Entry::Vacant(o) => {
                 o.insert(target_node);
                 Ok(())

@@ -117,7 +117,7 @@ fn configured_label_methods(builder: &mut MethodsBuilder) {
 
     #[starlark(attribute)]
     fn name<'v>(this: &'v Label) -> anyhow::Result<&'v str> {
-        Ok(this.label.target().name().as_ref())
+        Ok(this.label.target().name().as_str())
     }
 
     #[starlark(attribute)]
@@ -231,7 +231,7 @@ where
 fn label_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn name<'v>(this: &'v StarlarkProvidersLabel) -> anyhow::Result<&'v str> {
-        Ok(this.label.target().name().as_ref())
+        Ok(this.label.target().name().as_str())
     }
 
     #[starlark(attribute)]

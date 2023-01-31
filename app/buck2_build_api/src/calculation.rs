@@ -395,7 +395,7 @@ fn apply_spec<T: PatternType>(
                     PackageSpec::All => {
                         for target_info in res.targets().values() {
                             let key = T::from_parts(
-                                target_info.label().name().dupe(),
+                                target_info.label().name().to_owned(),
                                 Default::default(),
                             );
                             label_to_node.insert(key, target_info.dupe());

@@ -242,7 +242,7 @@ async fn install(
                 }
                 None => {
                     return Err(InstallError::NoInstallProvider(
-                        label.target().name().dupe(),
+                        label.target().name().to_owned(),
                         package.dupe(),
                     )
                     .into());

@@ -18,6 +18,7 @@ use serde::Serializer;
 use crate::configuration::Configuration;
 use crate::package::PackageLabel;
 use crate::target::name::TargetName;
+use crate::target::name::TargetNameRef;
 
 /// 'TargetLabel' that uniquely maps to a 'target'
 /// It contains a 'Package' which is the 'Package' defined by the build fine
@@ -53,8 +54,8 @@ impl TargetLabel {
     }
 
     #[inline]
-    pub fn name(&self) -> &TargetName {
-        &self.name
+    pub fn name(&self) -> &TargetNameRef {
+        self.name.as_ref()
     }
 
     /// Creates a 'ConfiguredTargetLabel' from ['Self'] based on the provided
@@ -120,8 +121,8 @@ impl ConfiguredTargetLabel {
     }
 
     #[inline]
-    pub fn name(&self) -> &TargetName {
-        &self.target.name
+    pub fn name(&self) -> &TargetNameRef {
+        self.target.name()
     }
 
     #[inline]

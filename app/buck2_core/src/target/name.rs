@@ -8,6 +8,7 @@
  */
 
 use std::borrow::Borrow;
+use std::ops::Deref;
 
 use allocative::Allocative;
 use buck2_util::arc_str::ThinArcStr;
@@ -48,19 +49,10 @@ enum InvalidTarget {
 }
 
 impl TargetName {
+    #[inline]
     pub fn new(name: &str) -> anyhow::Result<Self> {
-        if Self::verify(name) {
-            Ok(Self(ThinArcStr::from(name)))
-        } else {
-            if let Some((_, p)) = name.split_once('[') {
-                if p.contains(']') {
-                    return Err(anyhow::anyhow!(InvalidTarget::FoundProvidersLabel(
-                        name.to_owned()
-                    )));
-                }
-            }
-            Err(anyhow::anyhow!(InvalidTarget::InvalidName(name.to_owned())))
-        }
+        TargetNameRef::new(name)?;
+        Ok(Self(ThinArcStr::from(name)))
     }
 
     #[inline]
@@ -76,9 +68,11 @@ impl TargetName {
         !name.is_empty() && name.as_bytes().iter().all(|&b| SET.contains(b))
     }
 
+    // Generic `as_ref` confuses typechecker because of overloads.
+    #[allow(clippy::should_implement_trait)]
     #[inline]
-    pub fn as_str(&self) -> &str {
-        &self.0
+    pub fn as_ref(&self) -> &TargetNameRef {
+        TargetNameRef::unchecked_new(&self.0)
     }
 }
 
@@ -110,12 +104,69 @@ impl PartialEq<str> for TargetName {
     }
 }
 
+impl Deref for TargetName {
+    type Target = TargetNameRef;
+
+    #[inline]
+    fn deref(&self) -> &TargetNameRef {
+        self.as_ref()
+    }
+}
+
+#[derive(Debug, derive_more::Display, Hash, Eq, PartialEq, Ord, PartialOrd)]
+#[repr(transparent)]
+pub struct TargetNameRef(str);
+
+impl TargetNameRef {
+    pub fn new(name: &str) -> anyhow::Result<&TargetNameRef> {
+        if TargetName::verify(name) {
+            Ok(TargetNameRef::unchecked_new(name))
+        } else {
+            if let Some((_, p)) = name.split_once('[') {
+                if p.contains(']') {
+                    return Err(anyhow::anyhow!(InvalidTarget::FoundProvidersLabel(
+                        name.to_owned()
+                    )));
+                }
+            }
+            Err(anyhow::anyhow!(InvalidTarget::InvalidName(name.to_owned())))
+        }
+    }
+
+    #[inline]
+    pub fn unchecked_new(name: &str) -> &TargetNameRef {
+        unsafe {
+            // SAFETY: `repr(transparent)`.
+            &*(name as *const str as *const TargetNameRef)
+        }
+    }
+
+    #[inline]
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    #[inline]
+    pub fn to_owned(&self) -> TargetName {
+        TargetName::unchecked_new(&self.0)
+    }
+}
+
+impl Borrow<TargetNameRef> for TargetName {
+    #[inline]
+    fn borrow(&self) -> &TargetNameRef {
+        self.as_ref()
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use std::hash::Hasher;
 
     use buck2_util::arc_str::ThinArcStr;
 
     use crate::target::name::TargetName;
+    use crate::target::name::TargetNameRef;
 
     #[test]
     fn target_name_validation() {
@@ -138,5 +189,19 @@ mod tests {
         } else {
             panic!("should have gotten an error")
         }
+    }
+
+    #[test]
+    fn test_value_and_ref_hashes_equal() {
+        fn hash<T: std::hash::Hash>(t: &T) -> u64 {
+            let mut hasher = std::collections::hash_map::DefaultHasher::new();
+            t.hash(&mut hasher);
+            hasher.finish()
+        }
+
+        assert_eq!(
+            hash(&TargetNameRef::unchecked_new("foo")),
+            hash(&TargetName::unchecked_new("foo"))
+        );
     }
 }

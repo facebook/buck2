@@ -62,7 +62,7 @@ impl CqueryUniverse {
             let nodes: &mut _ = match package_targets.get_mut(label.name()) {
                 Some(v) => v,
                 None => package_targets
-                    .entry(label.name().dupe())
+                    .entry(label.name().to_owned())
                     .or_insert_with(BTreeSet::new),
             };
 

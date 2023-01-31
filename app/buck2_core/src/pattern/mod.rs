@@ -223,7 +223,7 @@ impl ParsedPattern<TargetName> {
     pub fn matches(&self, target: &TargetLabel) -> bool {
         let target_pkg = target.pkg();
         match self {
-            ParsedPattern::Target(pkg, t) => *pkg == target_pkg && t == target.name(),
+            ParsedPattern::Target(pkg, t) => *pkg == target_pkg && t.as_ref() == target.name(),
             ParsedPattern::Package(pkg) => target_pkg.as_cell_path() == pkg.as_cell_path(),
             ParsedPattern::Recursive(cell_path) => {
                 target_pkg.as_cell_path().starts_with(cell_path.as_ref())
