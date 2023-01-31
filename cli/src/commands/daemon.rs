@@ -569,13 +569,13 @@ mod tests {
     use buck2_client_ctx::daemon::client::connect::new_daemon_api_client;
     use buck2_common::invocation_paths::InvocationPaths;
     use buck2_common::invocation_roots::InvocationRoots;
-    use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
     use buck2_core::fs::paths::file_name::FileNameBuf;
-    use buck2_core::fs::project::ProjectRoot;
+    use buck2_core::fs::project::ProjectRootTemp;
     use buck2_core::logging::LogConfigurationReloadHandle;
     use buck2_server::daemon::daemon_tcp::create_listener;
     use buck2_server::daemon::server::BuckdServer;
     use buck2_server::daemon::server::BuckdServerDelegate;
+    use dupe::Dupe;
 
     use crate::commands::daemon::BuckdServerDependenciesImpl;
 
@@ -585,7 +585,7 @@ mod tests {
         // TODO(nga): this should be `fbinit::perform_init`, but it is not on crates yet.
         let fbinit = unsafe { fbinit::assume_init() };
 
-        let tempdir = tempfile::tempdir().unwrap();
+        let project_root = ProjectRootTemp::new().unwrap();
 
         let (endpoint, listener) = create_listener().unwrap();
         listener.set_nonblocking(true).unwrap();
@@ -594,11 +594,8 @@ mod tests {
 
         let invocation_paths = InvocationPaths {
             roots: InvocationRoots {
-                cell_root: AbsNormPathBuf::new(tempdir.path().to_path_buf()).unwrap(),
-                project_root: ProjectRoot::new(
-                    AbsNormPathBuf::new(tempdir.path().to_path_buf()).unwrap(),
-                )
-                .unwrap(),
+                cell_root: project_root.path().root().to_buf(),
+                project_root: project_root.path().dupe(),
             },
             isolation: FileNameBuf::try_from("v2".to_owned()).unwrap(),
         };
