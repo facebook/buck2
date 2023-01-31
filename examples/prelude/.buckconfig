@@ -4,8 +4,11 @@ name=BUILD
 [repositories]
 root = .
 prelude = prelude
-ovr_config = prelude
 toolchains = toolchains
+none = none
+
+[repository_aliases]
+ovr_config = prelude
 fbcode = none
 fbsource = none
 buck = none
