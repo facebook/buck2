@@ -179,16 +179,17 @@ impl ExecutionPlatformConstraints {
     ) -> SharedResult<Self> {
         let mut me = Self::default();
 
-        let cfg_ctx = AttrConfigurationContextImpl {
-            resolved_cfg: resolved_configuration,
-            exec_cfg: Configuration::unbound_exec(),
+        let platform_cfgs = compute_platform_cfgs(ctx, node).await?;
+        let cfg_ctx = AttrConfigurationContextImpl::new(
+            resolved_configuration,
+            Configuration::unbound_exec(),
             // We don't really need `resolved_transitions` here:
             // `Traversal` declared above ignores transitioned dependencies.
             // But we pass `resolved_transitions` here to prevent breakages in the future
             // if something here changes.
             resolved_transitions,
-            platform_cfgs: &compute_platform_cfgs(ctx, node).await?,
-        };
+            &platform_cfgs,
+        );
 
         for a in node.attrs(AttrInspectOptions::All) {
             let configured_attr = a.configure(&cfg_ctx).with_context(|| {
@@ -601,12 +602,12 @@ async fn compute_configured_target_node_no_transition(
             deps: &mut deps,
             exec_deps: &mut exec_deps,
         };
-        let attr_cfg_ctx = AttrConfigurationContextImpl {
-            resolved_cfg: &resolved_configuration,
-            exec_cfg: execution_platform_resolution.cfg(),
-            resolved_transitions: &resolved_transitions,
-            platform_cfgs: &platform_cfgs,
-        };
+        let attr_cfg_ctx = AttrConfigurationContextImpl::new(
+            &resolved_configuration,
+            execution_platform_resolution.cfg(),
+            &resolved_transitions,
+            &platform_cfgs,
+        );
 
         let configured_attr = a.configure(&attr_cfg_ctx)?;
         configured_attr.traverse(target_node.label().pkg(), &mut traversal)?;

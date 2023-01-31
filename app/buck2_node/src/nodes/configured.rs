@@ -490,12 +490,12 @@ impl ConfiguredTargetNode {
     }
 
     fn attr_configuration_context(&self) -> AttrConfigurationContextImpl {
-        AttrConfigurationContextImpl {
-            resolved_cfg: &self.0.resolved_configuration,
-            exec_cfg: self.0.execution_platform_resolution.cfg(),
-            resolved_transitions: &self.0.resolved_transition_configurations,
-            platform_cfgs: &self.0.platform_cfgs,
-        }
+        AttrConfigurationContextImpl::new(
+            &self.0.resolved_configuration,
+            self.0.execution_platform_resolution.cfg(),
+            &self.0.resolved_transition_configurations,
+            &self.0.platform_cfgs,
+        )
     }
 
     pub fn attrs<'a>(

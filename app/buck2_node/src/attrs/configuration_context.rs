@@ -92,10 +92,26 @@ pub trait AttrConfigurationContext {
 }
 
 pub struct AttrConfigurationContextImpl<'b> {
-    pub resolved_cfg: &'b ResolvedConfiguration,
-    pub exec_cfg: Configuration,
-    pub resolved_transitions: &'b OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>,
-    pub platform_cfgs: &'b OrderedMap<TargetLabel, Configuration>,
+    resolved_cfg: &'b ResolvedConfiguration,
+    exec_cfg: Configuration,
+    resolved_transitions: &'b OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>,
+    platform_cfgs: &'b OrderedMap<TargetLabel, Configuration>,
+}
+
+impl<'b> AttrConfigurationContextImpl<'b> {
+    pub fn new(
+        resolved_cfg: &'b ResolvedConfiguration,
+        exec_cfg: Configuration,
+        resolved_transitions: &'b OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>,
+        platform_cfgs: &'b OrderedMap<TargetLabel, Configuration>,
+    ) -> AttrConfigurationContextImpl<'b> {
+        AttrConfigurationContextImpl {
+            resolved_cfg,
+            exec_cfg,
+            resolved_transitions,
+            platform_cfgs,
+        }
+    }
 }
 
 impl<'b> AttrConfigurationContext for AttrConfigurationContextImpl<'b> {
