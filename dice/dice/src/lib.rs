@@ -382,17 +382,6 @@ impl Dice {
         DiceTransactionUpdater::new(self.make_ctx(ComputationData::new(extra, self.detect_cycles)))
     }
 
-    // TODO(bobyf) deprecate
-    /// returns a new context for starting computations
-    pub fn ctx(self: &Arc<Dice>) -> DiceTransaction {
-        self.with_ctx_data(UserComputationData::new())
-    }
-
-    // TODO(bobyf) deprecate
-    pub fn with_ctx_data(self: &Arc<Dice>, extra: UserComputationData) -> DiceTransaction {
-        DiceTransaction(self.make_ctx(ComputationData::new(extra, self.detect_cycles)))
-    }
-
     fn make_ctx(self: &Arc<Dice>, extra: ComputationData) -> DiceComputations {
         DiceComputations(Arc::new(DiceComputationImpl::new_transaction(
             self.dupe(),
