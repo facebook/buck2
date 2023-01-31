@@ -47,6 +47,7 @@ use parking_lot::RwLockReadGuard;
 use parking_lot::RwLockWriteGuard;
 use tracing::Span;
 
+use crate::api::error::DiceResult;
 use crate::ctx::ComputationData;
 use crate::ctx::DiceEvent;
 use crate::dice_future::DiceFuture;
@@ -73,7 +74,6 @@ use crate::projection::ProjectionKeyProperties;
 use crate::sync_handle::SyncDiceTaskHandle;
 use crate::user_data::UserComputationData;
 use crate::DiceProjectionComputations;
-use crate::DiceResult;
 use crate::HashMap;
 use crate::HashSet;
 use crate::Key;
@@ -1215,6 +1215,8 @@ mod tests {
     use tokio::sync::Notify;
     use tokio::sync::RwLock as AsyncRwLock;
 
+    use crate::api::error::DiceError;
+    use crate::api::error::DiceResult;
     use crate::ctx::testing::ComputationDataExt;
     use crate::ctx::ComputationData;
     use crate::incremental::dep_trackers::testing::ComputedDep;
@@ -1256,8 +1258,6 @@ mod tests {
     use crate::incremental::TransactionCtx;
     use crate::incremental::VersionedGraphResultMismatch;
     use crate::introspection::graph::AnyKey;
-    use crate::DiceError;
-    use crate::DiceResult;
     use crate::HashSet;
     use crate::StorageProperties;
     use crate::StorageType;

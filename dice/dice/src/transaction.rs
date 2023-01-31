@@ -13,8 +13,8 @@ use std::thread;
 use allocative::Allocative;
 use dupe::Dupe;
 
+use crate::api::error::DiceResult;
 use crate::DiceComputations;
-use crate::DiceResult;
 use crate::Key;
 use crate::UserComputationData;
 use crate::VersionNumber;

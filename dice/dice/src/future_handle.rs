@@ -15,10 +15,10 @@ use more_futures::spawn::CompletionObserver;
 use more_futures::spawn::WeakFutureError;
 use more_futures::spawn::WeakJoinHandle;
 
+use crate::api::error::DiceResult;
 use crate::dice_future::DiceFuture;
 use crate::dice_task::DiceTask;
 use crate::dice_task::DiceTaskStateForDebugging;
-use crate::DiceResult;
 use crate::GraphNode;
 use crate::StorageProperties;
 

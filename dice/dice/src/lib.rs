@@ -244,20 +244,18 @@ pub use fnv::FnvHashSet as HashSet;
 use futures::future::Future;
 use futures::StreamExt;
 use gazebo::prelude::*;
-use indexmap::IndexSet;
-use itertools::Itertools;
 use parking_lot::RwLock;
 use serde::Serializer;
-use thiserror::Error;
 use tokio::sync::watch;
 
+pub use crate::api::error::DiceError;
+pub use crate::api::error::DiceResult;
 use crate::ctx::ComputationData;
 use crate::ctx::DiceComputationImpl;
 pub use crate::ctx::DiceComputations;
 pub use crate::ctx::DiceEvent;
 pub use crate::ctx::DiceEventListener;
 use crate::cycles::DetectCycles;
-use crate::cycles::RequestedKey;
 use crate::data::DiceData;
 use crate::future_handle::WeakDiceFutureHandle;
 use crate::incremental::evaluator::Evaluator;
@@ -284,39 +282,6 @@ use crate::projection::ProjectionKeyProperties;
 pub use crate::transaction::DiceTransaction;
 pub use crate::transaction::DiceTransactionUpdater;
 pub use crate::user_data::UserComputationData;
-
-#[derive(Clone, Dupe, Debug, Error, Allocative)]
-#[error(transparent)]
-pub struct DiceError(Arc<DiceErrorImpl>);
-
-impl DiceError {
-    pub fn cycle(
-        trigger: Arc<dyn RequestedKey>,
-        cyclic_keys: IndexSet<Arc<dyn RequestedKey>>,
-    ) -> Self {
-        DiceError(Arc::new(DiceErrorImpl::Cycle {
-            trigger,
-            cyclic_keys,
-        }))
-    }
-
-    pub fn duplicate(key: Arc<dyn RequestedKey>) -> Self {
-        DiceError(Arc::new(DiceErrorImpl::DuplicateChange(key)))
-    }
-}
-
-#[derive(Debug, Error, Allocative)]
-enum DiceErrorImpl {
-    #[error("Cyclic computation detect when computing key `{}`, which forms a cycle in computation chain: `{}`", trigger, cyclic_keys.iter().join(","))]
-    Cycle {
-        trigger: Arc<dyn RequestedKey>,
-        cyclic_keys: IndexSet<Arc<dyn RequestedKey>>,
-    },
-    #[error("Key `{0}` was marked as changed multiple times on the same transaction.")]
-    DuplicateChange(Arc<dyn RequestedKey>),
-}
-
-pub type DiceResult<T> = Result<T, DiceError>;
 
 /// An incremental computation engine that executes arbitrary computations that
 /// maps `Key`s to values.

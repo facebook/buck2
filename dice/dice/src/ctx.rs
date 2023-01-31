@@ -19,6 +19,7 @@ use futures::FutureExt;
 use gazebo::prelude::*;
 use more_futures::spawn::spawn_dropcancel;
 
+use crate::api::error::DiceResult;
 use crate::cycles::CycleDetector;
 use crate::cycles::DetectCycles;
 use crate::data::DiceData;
@@ -34,7 +35,6 @@ use crate::opaque::OpaqueValue;
 use crate::projection::ProjectionKeyAsKey;
 use crate::user_data::UserComputationData;
 use crate::Dice;
-use crate::DiceResult;
 use crate::DiceTransaction;
 use crate::Key;
 use crate::ProjectionKey;
@@ -447,11 +447,11 @@ mod tests {
     use dupe::Dupe;
     use indexmap::indexset;
 
+    use crate::api::error::DiceErrorImpl;
     use crate::ctx::ComputationData;
     use crate::cycles::DetectCycles;
+    use crate::cycles::RequestedKey;
     use crate::user_data::UserComputationData;
-    use crate::DiceErrorImpl;
-    use crate::RequestedKey;
 
     #[derive(Clone, Dupe, Display, Debug, PartialEq, Eq, Hash, Allocative)]
     struct K(usize);

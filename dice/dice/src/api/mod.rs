@@ -8,3 +8,5 @@
  */
 
 //! Public DICE API
+
+pub mod error;

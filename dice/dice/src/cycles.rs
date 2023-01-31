@@ -25,8 +25,8 @@ use gazebo::variants::VariantName;
 use indexmap::set::IndexSet;
 use thiserror::Error;
 
-use crate::DiceError;
-use crate::DiceResult;
+use crate::api::error::DiceError;
+use crate::api::error::DiceResult;
 use crate::Key;
 
 #[derive(Clone, Dupe, Copy, Debug, VariantName, Allocative)]
@@ -134,9 +134,9 @@ mod tests {
     use dupe::Dupe;
     use indexmap::indexset;
 
+    use crate::api::error::DiceErrorImpl;
     use crate::cycles::CycleDetector;
-    use crate::DiceErrorImpl;
-    use crate::RequestedKey;
+    use crate::cycles::RequestedKey;
 
     #[derive(Clone, Dupe, Display, Debug, PartialEq, Eq, Hash, Allocative)]
     struct K(usize);

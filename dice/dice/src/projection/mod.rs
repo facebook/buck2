@@ -21,6 +21,7 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use dupe::Dupe;
 
+use crate::api::error::DiceResult;
 use crate::ctx::ComputationData;
 use crate::incremental::IncrementalComputeProperties;
 use crate::incremental::IncrementalEngine;
@@ -29,7 +30,6 @@ use crate::sync_handle::SyncDiceTaskHandle;
 use crate::user_data::UserComputationData;
 use crate::Dice;
 use crate::DiceData;
-use crate::DiceResult;
 use crate::GraphNode;
 use crate::Key;
 use crate::StorageProperties;

@@ -16,7 +16,7 @@ use more_futures::instrumented_shared::SharedEventsFuture;
 use more_futures::spawn::StrongJoinHandle;
 use more_futures::spawn::WeakFutureError;
 
-use crate::DiceResult;
+use crate::api::error::DiceResult;
 use crate::GraphNode;
 use crate::StorageProperties;
 

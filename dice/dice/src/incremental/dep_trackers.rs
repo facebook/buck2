@@ -180,6 +180,7 @@ mod internals {
     use dupe::Dupe;
     use gazebo::cmp::PartialEqAny;
 
+    use crate::api::error::DiceResult;
     use crate::ctx::ComputationData;
     use crate::incremental::graph::GraphNode;
     use crate::incremental::graph::GraphNodeDyn;
@@ -193,7 +194,6 @@ mod internals {
     use crate::incremental::IncrementalComputeProperties;
     use crate::incremental::IncrementalEngine;
     use crate::introspection::graph::AnyKey;
-    use crate::DiceResult;
 
     #[derive(Allocative)]
     pub(crate) struct ComputedDep<K: IncrementalComputeProperties> {

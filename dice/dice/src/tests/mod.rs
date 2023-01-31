@@ -24,6 +24,7 @@ use tokio::sync::oneshot;
 use tokio::time::timeout;
 
 use super::*;
+use crate::api::error::DiceErrorImpl;
 use crate::ctx::testing::DiceCtxExt;
 use crate::incremental::evaluator::testing::EvaluatorUnreachable;
 use crate::incremental::testing::DependencyExt;

@@ -60,11 +60,11 @@ pub(crate) mod testing {
     use dupe::Dupe;
     use gazebo::prelude::*;
 
+    use crate::api::error::DiceResult;
     use crate::incremental::evaluator::Evaluator;
     use crate::incremental::graph::GraphNode;
     use crate::incremental::IncrementalComputeProperties;
     use crate::ComputationData;
-    use crate::DiceResult;
     use crate::IncrementalEngine;
     use crate::StorageProperties;
     use crate::StorageType;

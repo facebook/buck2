@@ -16,13 +16,13 @@ use anymap::Map;
 use parking_lot::Mutex;
 use parking_lot::MutexGuard;
 
+use crate::api::error::DiceError;
+use crate::api::error::DiceResult;
 use crate::incremental::versions::MinorVersion;
 use crate::incremental::versions::VersionForWrites;
 use crate::incremental::versions::VersionGuard;
 use crate::incremental::versions::VersionNumber;
 use crate::Dice;
-use crate::DiceError;
-use crate::DiceResult;
 use crate::HashSet;
 use crate::Key;
 
