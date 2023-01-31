@@ -166,7 +166,7 @@ tracing = "0.1.22"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 trybuild = "1.0.56"
 twox-hash = "1.6.1"
-uuid = { version = "0.8", features = ["v4"] }
+uuid = { version = "1.2", features = ["v4"] }
 walkdir = "2.3.2"
 which = "4.3.0"
 winapi = { version = "0.3", features = ["everything"] }

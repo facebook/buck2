@@ -203,7 +203,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 triomphe = "0.1.8"
 trybuild = "1.0.56"
 twox-hash = "1.6.1"
-uuid = { version = "0.8", features = ["v4"] }
+uuid = { version = "1.2", features = ["v4"] }
 walkdir = "2.3.2"
 winapi = { version = "0.3", features = ["everything"] }
 xattr = "0.2.2"

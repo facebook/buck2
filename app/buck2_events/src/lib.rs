@@ -84,7 +84,7 @@ impl BuckEvent {
     ) -> BuckEvent {
         let event = buck2_data::BuckEvent {
             timestamp: Some(timestamp.into()),
-            trace_id: trace_id.0.to_hyphenated().to_string(),
+            trace_id: trace_id.0.hyphenated().to_string(),
             span_id: span_id.map_or(0, |s| s.0.into()),
             parent_id: parent_id.map_or(0, |s| s.0.into()),
             data: Some(data),

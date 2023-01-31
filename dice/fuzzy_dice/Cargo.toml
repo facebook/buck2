@@ -23,7 +23,7 @@ serde_json = "1.0.48"
 thiserror = "1.0.36"
 tokio = { version = "1.5", features = ["full"]}
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-uuid = { version = "0.8", features = ["v4"] }
+uuid = { version = "1.2", features = ["v4"] }
 
 dupe = { workspace = true }
 gazebo = { workspace = true }

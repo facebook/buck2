@@ -44,7 +44,7 @@ impl serde::ser::Serialize for TraceId {
 impl Display for TraceId {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let mut buf = Uuid::encode_buffer();
-        f.write_str(self.0.to_hyphenated().encode_lower(&mut buf))
+        f.write_str(self.0.hyphenated().encode_lower(&mut buf))
     }
 }
 
