@@ -43,7 +43,7 @@ impl AttrTypeCoerce for TupleAttrType {
                 {
                     res.push(c.coerce(configurable, ctx, v)?);
                 }
-                Ok(AttrLiteral::Tuple(res.into_boxed_slice()))
+                Ok(AttrLiteral::Tuple(ctx.intern_list(res)))
             } else {
                 Err(anyhow::anyhow!(CoercionError::type_error(
                     &format!("Tuple of at most length {}", self.xs.len()),

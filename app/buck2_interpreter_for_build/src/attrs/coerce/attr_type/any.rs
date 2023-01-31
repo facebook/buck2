@@ -37,7 +37,7 @@ fn to_literal(value: Value, ctx: &dyn AttrCoercionContext) -> AttrLiteral<Coerce
                 .collect(),
         )
     } else if let Some(x) = TupleRef::from_value(value) {
-        AttrLiteral::Tuple(x.iter().map(|v| to_coerced_literal(v, ctx)).collect())
+        AttrLiteral::Tuple(ctx.intern_list(x.iter().map(|v| to_coerced_literal(v, ctx)).collect()))
     } else if let Some(x) = ListRef::from_value(value) {
         AttrLiteral::List(
             ctx.intern_list(

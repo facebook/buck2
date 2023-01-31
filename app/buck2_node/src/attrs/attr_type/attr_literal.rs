@@ -59,7 +59,7 @@ pub enum AttrLiteral<C: AttrConfig> {
     // Like String, but drawn from a set of variants, so doesn't support concat
     EnumVariant(ArcStr),
     List(Arc<[C]>),
-    Tuple(Box<[C]>),
+    Tuple(Arc<[C]>),
     Dict(Box<[(C, C)]>),
     None,
     Dep(Box<DepAttr<C::ProvidersType>>),
@@ -332,7 +332,7 @@ impl AttrLiteral<CoercedAttr> {
                 AttrLiteral::List(list.try_map(|v| v.configure(ctx))?.into())
             }
             AttrLiteral::Tuple(list) => {
-                AttrLiteral::Tuple(list.try_map(|v| v.configure(ctx))?.into_boxed_slice())
+                AttrLiteral::Tuple(list.try_map(|v| v.configure(ctx))?.into())
             }
             AttrLiteral::Dict(dict) => AttrLiteral::Dict(
                 dict.try_map(|(k, v)| {
