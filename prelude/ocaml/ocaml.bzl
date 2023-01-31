@@ -722,7 +722,7 @@ def ocaml_binary_impl(ctx: "context") -> ["provider"]:
         ctx,
         _attr_deps_merged_link_infos(ctx) + filter(None, [ocaml_toolchain.libc]),
     )
-    ld_args, _, _ = make_link_args(ctx, [get_link_args(link_infos, LinkStyle("static"))])
+    ld_args, linker_deps, _ = make_link_args(ctx, [get_link_args(link_infos, LinkStyle("static"))])
     ld_nat = _mk_ld(ctx, [ld_args], "ld_native.sh")
     ld_byt = _mk_ld(ctx, [ld_args], "ld_bytecode.sh")
 
@@ -744,7 +744,7 @@ def ocaml_binary_impl(ctx: "context") -> ["provider"]:
 
     # These were produced by the compile step and are therefore hidden
     # dependencies of the link step.
-    cmd_nat.hidden(cmxs, cmis_nat, cmts_nat, cmtis_nat, objs)
+    cmd_nat.hidden(cmxs, cmis_nat, cmts_nat, cmtis_nat, objs, linker_deps)
     binary_nat = ctx.actions.declare_output(ctx.attrs.name + ".opt")
     cmd_nat.add("-o", binary_nat.as_output())
     local_only = link_cxx_binary_locally(ctx)
@@ -755,7 +755,7 @@ def ocaml_binary_impl(ctx: "context") -> ["provider"]:
 
     # These were produced by the compile step and are therefore hidden
     # dependencies of the link step.
-    cmd_byt.hidden(cmos, cmis_byt, cmts_byt, cmtis_byt)
+    cmd_byt.hidden(cmos, cmis_byt, cmts_byt, cmtis_byt, linker_deps)
     binary_byt = ctx.actions.declare_output(ctx.attrs.name)
     cmd_byt.add("-custom")
     cmd_byt.add("-o", binary_byt.as_output())
@@ -804,7 +804,7 @@ def ocaml_object_impl(ctx: "context") -> ["provider"]:
     env = _mk_env(ctx)
     ocamlopt = _mk_ocaml_compiler(ctx, env, BuildMode("native"))
     deps_link_info = merge_link_infos(ctx, _attr_deps_merged_link_infos(ctx))
-    ld_args, _, _ = make_link_args(ctx, [get_link_args(deps_link_info, LinkStyle("static"))])
+    ld_args, linker_deps, _ = make_link_args(ctx, [get_link_args(deps_link_info, LinkStyle("static"))])
     ld = _mk_ld(ctx, [ld_args], "ld.sh")
 
     cmxs_order, stbs, objs, cmis, _cmos, cmxs, cmts, cmtis, _, _ = _compile_result_to_tuple(_compile(ctx, ocamlopt, BuildMode("native")))
@@ -821,7 +821,7 @@ def ocaml_object_impl(ctx: "context") -> ["provider"]:
         cmd.hidden(lib.cmxs, lib.cmis_nat, lib.cmts_nat)
 
     cmd.add(stbs, "-args", cmxs_order)
-    cmd.hidden(cmxs, cmis, cmts, objs, cmtis)
+    cmd.hidden(cmxs, cmis, cmts, objs, cmtis, linker_deps)
 
     obj = ctx.actions.declare_output(ctx.attrs.name + ".o")
     cmd.add("-output-complete-obj")
@@ -896,7 +896,7 @@ def ocaml_shared_impl(ctx: "context") -> ["provider"]:
         ctx,
         _attr_deps_merged_link_infos(ctx) + filter(None, [ocaml_toolchain.libc]),
     )
-    ld_args, _, _ = make_link_args(ctx, [get_link_args(link_infos, LinkStyle("static"))])
+    ld_args, linker_deps, _ = make_link_args(ctx, [get_link_args(link_infos, LinkStyle("static"))])
 
     # 'ocamlopt.opt' with '-cc' fails to propagate '-shared' (and potentially
     # other required flags - see the darwin "dylib" specific block below) to the
@@ -917,7 +917,7 @@ def ocaml_shared_impl(ctx: "context") -> ["provider"]:
 
     # These were produced by the compile step and are therefore hidden
     # dependencies of the link step.
-    cmd_nat.hidden(cmxs, cmis_nat, cmts_nat, cmtis_nat, objs)
+    cmd_nat.hidden(cmxs, cmis_nat, cmts_nat, cmtis_nat, objs, linker_deps)
     binary_nat = ctx.actions.declare_output(ctx.attrs.name + ".cmxs")
     cmd_nat.add("-shared")
     cmd_nat.add("-o", binary_nat.as_output())

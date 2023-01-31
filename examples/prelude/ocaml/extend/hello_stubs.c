@@ -12,6 +12,6 @@
 
 CAMLprim value caml_print_hello(value unit) {
   (void)unit;
-  printf("Hello\n");
+  printf("Hello C!\n");
   return Val_unit;
 }

@@ -1,23 +1,23 @@
 load("//test_utils.bzl", "assert_output")
 
 ocaml_binary(
-    name = "hello",
+    name = "hello-c",
     srcs = [
         "hello.ml",
     ],
-    deps = [":hello-stubs"],
-) if host_info().os.is_linux else None
+    deps = [":hello-stubs-c"],
+) if not host_info().os.is_windows else None
 
 cxx_library(
-    name = "hello-stubs",
+    name = "hello-stubs-c",
     srcs = [
         "hello_stubs.c",
     ],
     deps = ["//third-party/ocaml:ocaml-dev"],
-) if host_info().os.is_linux else None
+) if not host_info().os.is_windows else None
 
 assert_output(
-    name = "check-hello",
-    command = "$(exe_target :hello)",
-    output = "Hello",
-) if host_info().os.is_linux else None
+    name = "check-hello-c",
+    command = "$(exe_target :hello-c)",
+    output = "Hello C",
+) if not host_info().os.is_windows else None
