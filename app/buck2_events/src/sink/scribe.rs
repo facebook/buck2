@@ -44,6 +44,7 @@ mod fbcode {
     pub struct ThriftScribeSink {
         category: String,
         client: scribe_client::ScribeClient,
+        use_binary_serialization: bool,
     }
 
     impl ThriftScribeSink {
@@ -55,6 +56,7 @@ mod fbcode {
             retry_backoff: Duration,
             retry_attempts: usize,
             message_batch_size: Option<usize>,
+            use_binary_serialization: bool,
         ) -> anyhow::Result<ThriftScribeSink> {
             let client = scribe_client::ScribeClient::new(
                 fb,
@@ -63,13 +65,17 @@ mod fbcode {
                 retry_attempts,
                 message_batch_size,
             )?;
-            Ok(ThriftScribeSink { category, client })
+            Ok(ThriftScribeSink {
+                category,
+                client,
+                use_binary_serialization,
+            })
         }
 
         // Send this event now, bypassing internal message queue.
         pub async fn send_now(&self, event: BuckEvent) {
             let message_key = event.trace_id().unwrap().hash();
-            if let Some(bytes) = Self::encode_message(event, false) {
+            if let Some(bytes) = self.encode_message(event, false) {
                 self.client
                     .send_now(scribe_client::Message {
                         category: self.category.clone(),
@@ -83,7 +89,7 @@ mod fbcode {
         // Send this event by placing it on the internal message queue.
         pub fn offer(&self, event: BuckEvent) {
             let message_key = event.trace_id().unwrap().hash();
-            if let Some(bytes) = Self::encode_message(event, false) {
+            if let Some(bytes) = self.encode_message(event, false) {
                 self.client.offer(scribe_client::Message {
                     category: self.category.clone(),
                     message: bytes,
@@ -93,28 +99,33 @@ mod fbcode {
         }
 
         // Encodes message into something scribe understands.
-        fn encode_message(mut event: BuckEvent, is_truncated: bool) -> Option<Vec<u8>> {
+        fn encode_message(&self, mut event: BuckEvent, is_truncated: bool) -> Option<Vec<u8>> {
             Self::smart_truncate_event(event.data_mut());
             let proto: Box<buck2_data::BuckEvent> = event.into();
 
-            let mut buf = Vec::with_capacity(proto.encoded_len());
-            proto
-                .encode(&mut buf)
-                .expect("failed to encode protobuf message");
+            let mut serialized_protobuf = Vec::with_capacity(proto.encoded_len() + 1);
+            let buf = if self.use_binary_serialization {
+                // Add a header byte to indicate this is _not_ base64 encoding.
+                serialized_protobuf.push(b'!');
+                let mut proto_bytes = proto.encode_to_vec();
+                serialized_protobuf.append(&mut proto_bytes);
+                serialized_protobuf
+            } else {
+                proto
+                    .encode(&mut serialized_protobuf)
+                    .expect("failed to encode protobuf message");
+                base64::encode(&serialized_protobuf).as_bytes().to_vec()
+            };
 
-            // Scribe requires that payloads sent through it be valid strings. Since protobuf serializes to bytes, we
-            // re-encode them as base64 here. This is not super ideal, but it does work.
-            let b64 = base64::encode(&buf);
-
-            if b64.len() > SCRIBE_MESSAGE_SIZE_LIMIT {
-                // if this BuckEvent is already a truncated one but the b64 byte size exceeds the limit,
+            if buf.len() > SCRIBE_MESSAGE_SIZE_LIMIT {
+                // if this BuckEvent is already a truncated one but the buffer byte size exceeds the limit,
                 // do not send Scribe another truncated version
                 if is_truncated {
                     return None;
                 }
                 let json = serde_json::to_string(&proto).unwrap();
 
-                Self::encode_message(
+                self.encode_message(
                     BuckEvent::new(
                         SystemTime::now(),
                         TraceId::new(),
@@ -129,7 +140,7 @@ mod fbcode {
                                         column: column!(),
                                     }),
                                     payload: format!("Soft Error: oversized_scribe: Message is oversized. Event data: {}. Original message size: {}", truncate(&json, TRUNCATED_SCRIBE_MESSAGE_SIZE),
-                                    b64.len()),
+                                    buf.len()),
                                     metadata: metadata::collect(),
                                     backtrace: Vec::new(),
                                 }
@@ -140,7 +151,7 @@ mod fbcode {
                     true,
                 )
             } else {
-                Some(b64.as_bytes().to_vec())
+                Some(buf)
             }
         }
 
@@ -362,6 +373,7 @@ fn new_thrift_scribe_sink_if_fbcode(
     retry_backoff: Duration,
     retry_attempts: usize,
     message_batch_size: Option<usize>,
+    use_binary_serialization: bool,
 ) -> anyhow::Result<Option<ThriftScribeSink>> {
     #[cfg(fbcode_build)]
     {
@@ -372,6 +384,7 @@ fn new_thrift_scribe_sink_if_fbcode(
             retry_backoff,
             retry_attempts,
             message_batch_size,
+            use_binary_serialization,
         )?))
     }
     #[cfg(not(fbcode_build))]
@@ -382,6 +395,7 @@ fn new_thrift_scribe_sink_if_fbcode(
             retry_backoff,
             retry_attempts,
             message_batch_size,
+            use_binary_serialization,
         );
         Ok(None)
     }
@@ -393,6 +407,7 @@ pub fn new_thrift_scribe_sink_if_enabled(
     retry_backoff: Duration,
     retry_attempts: usize,
     message_batch_size: Option<usize>,
+    use_binary_serialization: bool,
 ) -> anyhow::Result<Option<ThriftScribeSink>> {
     if is_enabled() {
         new_thrift_scribe_sink_if_fbcode(
@@ -401,6 +416,7 @@ pub fn new_thrift_scribe_sink_if_enabled(
             retry_backoff,
             retry_attempts,
             message_batch_size,
+            use_binary_serialization,
         )
     } else {
         Ok(None)
