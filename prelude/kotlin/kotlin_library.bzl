@@ -367,6 +367,7 @@ def build_kotlin_library(
                 runtime_deps = ctx.attrs.runtime_deps,
                 needs_desugar = source_level > 7 or target_level > 7,
                 generated_sources = [outputs.annotation_processor_output] if outputs and outputs.annotation_processor_output else [],
+                has_srcs = bool(srcs),
             )
 
             default_info = get_default_info(outputs)

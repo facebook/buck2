@@ -285,9 +285,10 @@ def create_java_packaging_dep(
         needs_desugar: bool.type = False,
         desugar_deps: ["artifact"] = [],
         is_prebuilt_jar: bool.type = False,
+        has_srcs: bool.type = True,
         dex_weight_factor: int.type = 1) -> "JavaPackagingDep":
     dex_toolchain = getattr(ctx.attrs, "_dex_toolchain", None)
-    if library_jar != None and dex_toolchain != None and ctx.attrs._dex_toolchain[DexToolchainInfo].d8_command != None:
+    if library_jar != None and has_srcs and dex_toolchain != None and ctx.attrs._dex_toolchain[DexToolchainInfo].d8_command != None:
         dex = get_dex_produced_from_java_library(
             ctx,
             ctx.attrs._dex_toolchain[DexToolchainInfo],
@@ -365,7 +366,8 @@ def _create_non_template_providers(
         runtime_deps: ["dependency"] = [],
         needs_desugar: bool.type = False,
         desugar_classpath: ["artifact"] = [],
-        is_prebuilt_jar: bool.type = False) -> (JavaLibraryInfo.type, JavaPackagingInfo.type, SharedLibraryInfo.type, ResourceInfo.type):
+        is_prebuilt_jar: bool.type = False,
+        has_srcs: bool.type = True) -> (JavaLibraryInfo.type, JavaPackagingInfo.type, SharedLibraryInfo.type, ResourceInfo.type):
     """Creates java library providers of type `JavaLibraryInfo` and `JavaPackagingInfo`.
 
     Args:
@@ -379,7 +381,7 @@ def _create_non_template_providers(
     shared_library_info, cxx_resource_info = create_native_providers(ctx.actions, ctx.label, packaging_deps)
 
     output_for_classpath_macro = library_output.abi if (library_output and library_output.abi.owner != None) else ctx.actions.write("dummy_output_for_classpath_macro.txt", "Unused")
-    java_packaging_dep = create_java_packaging_dep(ctx, library_output.full_library if library_output else None, output_for_classpath_macro, needs_desugar, desugar_classpath, is_prebuilt_jar)
+    java_packaging_dep = create_java_packaging_dep(ctx, library_output.full_library if library_output else None, output_for_classpath_macro, needs_desugar, desugar_classpath, is_prebuilt_jar, has_srcs)
 
     java_packaging_info = get_java_packaging_info(
         ctx,
@@ -415,6 +417,7 @@ def create_java_library_providers(
         runtime_deps: ["dependency"] = [],
         needs_desugar: bool.type = False,
         is_prebuilt_jar: bool.type = False,
+        has_srcs: bool.type = True,
         generated_sources: ["artifact"] = [],
         annotation_jars_dir: ["artifact", None] = None) -> (JavaLibraryInfo.type, JavaPackagingInfo.type, SharedLibraryInfo.type, ResourceInfo.type, TemplatePlaceholderInfo.type, JavaLibraryIntellijInfo.type):
     first_order_classpath_deps = filter(None, [x.get(JavaLibraryInfo) for x in declared_deps + exported_deps + runtime_deps])
@@ -434,6 +437,7 @@ def create_java_library_providers(
         needs_desugar = needs_desugar,
         desugar_classpath = desugar_classpath,
         is_prebuilt_jar = is_prebuilt_jar,
+        has_srcs = has_srcs,
     )
 
     first_order_libs = first_order_classpath_libs + [library_info.library_output.full_library] if library_info.library_output else first_order_classpath_libs
