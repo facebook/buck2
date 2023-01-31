@@ -283,6 +283,9 @@ pub trait UnpackingEventSubscriber: Send {
             buck2_data::instant_event::Data::DaemonShutdown(daemon_shutdown) => {
                 self.handle_daemon_shutdown(daemon_shutdown)
             }
+            buck2_data::instant_event::Data::RageResult(result) => {
+                self.handle_rage_result(result, event)
+            }
         }
         .await
     }
@@ -706,6 +709,13 @@ pub trait UnpackingEventSubscriber: Send {
     async fn handle_daemon_shutdown(
         &mut self,
         _daemon_shtudown: &buck2_data::DaemonShutdown,
+    ) -> anyhow::Result<()> {
+        Ok(())
+    }
+    async fn handle_rage_result(
+        &mut self,
+        _command: &buck2_data::RageResult,
+        _event: &BuckEvent,
     ) -> anyhow::Result<()> {
         Ok(())
     }

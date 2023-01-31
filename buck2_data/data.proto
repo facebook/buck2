@@ -158,6 +158,9 @@ message InstantEvent {
 
     // Notify the client that the daemon is shutting down.
     DaemonShutdown daemon_shutdown = 19;
+
+    // TODO iguridi: consolidate with RageInvoked
+    RageResult rage_result = 20;
   }
 
   reserved 12; // Log
@@ -278,6 +281,16 @@ message RageInvoked {
   map<string, string> metadata = 1;
   // the trace id of the command that rage was invoked upon.
   string recent_command_trace_id = 2;
+}
+
+// Result of invoking buck2 rage
+message RageResult {
+  string dice_dump = 1;
+  string daemon_stderr_dump = 2;
+  string system_info = 3;
+  string hg_snapshot_id = 4;
+  // Rage can be associated with an invocation
+  optional string invocation_id = 6;
 }
 
 // A snapshot of current system state, with useful info.
