@@ -103,7 +103,6 @@ mod tests {
     use buck2_core::pattern::ParsedPattern;
     use buck2_core::pattern::PatternType;
     use buck2_core::pattern::ProvidersPattern;
-    use buck2_core::pattern::TargetPattern;
     use buck2_core::provider::label::NonDefaultProvidersName;
     use buck2_core::provider::label::ProviderName;
     use buck2_core::provider::label::ProvidersName;
@@ -219,13 +218,9 @@ mod tests {
     #[tokio::test]
     async fn test_simple_specs_targets() -> anyhow::Result<()> {
         let tester = TestPatternResolver::new(&[("root", ""), ("child", "child/cell")], &[])?;
-        tester.resolve::<TargetPattern>(&[]).await?.assert_eq(&[]);
+        tester.resolve::<TargetName>(&[]).await?.assert_eq(&[]);
         tester
-            .resolve::<TargetPattern>(&[
-                "//some:target",
-                "//some:other_target",
-                "child//a/package:",
-            ])
+            .resolve::<TargetName>(&["//some:target", "//some:other_target", "child//a/package:"])
             .await?
             .assert_eq(&[
                 (
@@ -284,7 +279,7 @@ mod tests {
         Ok(())
     }
 
-    #[test_case(PhantomData::< TargetPattern >; "parsing TargetPattern")]
+    #[test_case(PhantomData::< TargetName >; "parsing TargetPattern")]
     #[test_case(PhantomData::< ProvidersPattern >; "parsing ProvidersPattern")]
     fn test_recursive_specs<T: PatternType>(_: PhantomData<T>) {
         let rt = tokio::runtime::Runtime::new().unwrap();

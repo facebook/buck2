@@ -28,8 +28,8 @@ use anyhow::Context;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::pattern::ParsedPattern;
-use buck2_core::pattern::TargetPattern;
 use buck2_core::target::label::TargetLabel;
+use buck2_core::target::name::TargetName;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -65,7 +65,7 @@ impl TargetPlatformDetector {
             match value.split_once(':') {
                 Some(("target", value)) => match value.split_once("->") {
                     Some((matcher, target)) => {
-                        let matcher_package = match ParsedPattern::<TargetPattern>::parse_precise(
+                        let matcher_package = match ParsedPattern::<TargetName>::parse_precise(
                             cell_alias_resolver,
                             matcher,
                         )? {
@@ -79,12 +79,10 @@ impl TargetPlatformDetector {
                                 );
                             }
                         };
-                        let target = ParsedPattern::<TargetPattern>::parse_precise(
-                            cell_alias_resolver,
-                            target,
-                        )
-                        .and_then(|x| x.as_target_label(target))
-                        .context("when parsing target platform detector spec")?;
+                        let target =
+                            ParsedPattern::<TargetName>::parse_precise(cell_alias_resolver, target)
+                                .and_then(|x| x.as_target_label(target))
+                                .context("when parsing target platform detector spec")?;
                         detectors.push((matcher_package, target))
                     }
                     None => {

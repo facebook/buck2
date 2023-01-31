@@ -18,9 +18,9 @@ use buck2_build_api::query::dice::split_compatible_incompatible;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::ParsedPattern;
-use buck2_core::pattern::TargetPattern;
 use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_core::target::label::TargetLabel;
+use buck2_core::target::name::TargetName;
 use buck2_core::truncate::truncate;
 use buck2_events::dispatch::console_message;
 use buck2_interpreter::types::target_label::StarlarkConfiguredTargetLabel;
@@ -234,7 +234,7 @@ impl<'v> TargetExpr<'v, ConfiguredTargetNode> {
         {
             Ok(Some(Self::Label(Cow::Borrowed(configured_target.label()))))
         } else if let Some(s) = value.unpack_str() {
-            match ParsedPattern::<TargetPattern>::parse_relaxed(
+            match ParsedPattern::<TargetName>::parse_relaxed(
                 &ctx.target_alias_resolver,
                 ctx.cell.cell_alias_resolver(),
                 PackageLabel::new(ctx.cell.name(), CellRelativePath::empty()),
@@ -359,7 +359,7 @@ impl<'v> TargetExpr<'v, TargetNode> {
         } else if let Some(label) = value.downcast_ref::<StarlarkTargetLabel>() {
             Ok(Some(Self::Label(Cow::Borrowed(label.label()))))
         } else if let Some(s) = value.unpack_str() {
-            match ParsedPattern::<TargetPattern>::parse_relaxed(
+            match ParsedPattern::<TargetName>::parse_relaxed(
                 &ctx.target_alias_resolver,
                 ctx.cell.cell_alias_resolver(),
                 PackageLabel::new(ctx.cell.name(), CellRelativePath::empty()),

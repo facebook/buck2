@@ -16,8 +16,8 @@ use buck2_cli_proto::ClientContext;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
-use buck2_core::pattern::TargetPattern;
 use buck2_core::target::label::TargetLabel;
+use buck2_core::target::name::TargetName;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
@@ -69,7 +69,7 @@ impl AuditSubcommand for AuditAnalysisQueriesCommand {
                 )
                 .await?;
 
-                let parsed_patterns = parse_patterns_from_cli_args::<TargetPattern>(
+                let parsed_patterns = parse_patterns_from_cli_args::<TargetName>(
                     &self
                         .patterns
                         .map(|pat| buck2_data::TargetPattern { value: pat.clone() }),

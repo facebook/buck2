@@ -25,8 +25,8 @@ use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::PackageSpec;
-use buck2_core::pattern::TargetPattern;
 use buck2_core::target::label::TargetLabel;
+use buck2_core::target::name::TargetName;
 use buck2_interpreter::dice::starlark_profiler::StarlarkProfilerConfiguration;
 use buck2_interpreter::dice::HasCalculationDelegate;
 use buck2_interpreter::starlark_profiler::StarlarkProfileDataAndStats;
@@ -47,7 +47,7 @@ use dupe::Dupe;
 async fn generate_profile_analysis(
     ctx: DiceTransaction,
     package: PackageLabel,
-    spec: PackageSpec<TargetPattern>,
+    spec: PackageSpec<TargetName>,
     global_target_platform: Option<TargetLabel>,
     profile_mode: &StarlarkProfilerConfiguration,
 ) -> anyhow::Result<Arc<StarlarkProfileDataAndStats>> {
@@ -82,7 +82,7 @@ async fn generate_profile_analysis(
 async fn generate_profile_loading(
     ctx: DiceTransaction,
     package: PackageLabel,
-    spec: PackageSpec<TargetPattern>,
+    spec: PackageSpec<TargetName>,
     profile_mode: &StarlarkProfilerConfiguration,
 ) -> anyhow::Result<Arc<StarlarkProfileDataAndStats>> {
     match spec {
@@ -194,7 +194,7 @@ async fn generate_profile(
         target_platform_from_client_context(Some(client_ctx), &cells, server_ctx.working_dir())
             .await?;
 
-    let parsed_patterns = parse_patterns_from_cli_args::<TargetPattern>(
+    let parsed_patterns = parse_patterns_from_cli_args::<TargetName>(
         slice::from_ref(pattern),
         &cells,
         &ctx.get_legacy_configs().await?,

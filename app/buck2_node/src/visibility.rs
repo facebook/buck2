@@ -12,8 +12,8 @@ use std::fmt::Display;
 
 use allocative::Allocative;
 use buck2_core::pattern::ParsedPattern;
-use buck2_core::pattern::TargetPattern;
 use buck2_core::target::label::TargetLabel;
+use buck2_core::target::name::TargetName;
 use gazebo::prelude::SliceExt;
 use thiserror::Error;
 
@@ -26,7 +26,7 @@ pub enum VisibilityError {
 }
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative, derive_more::Display)]
-pub struct VisibilityPattern(pub ParsedPattern<TargetPattern>);
+pub struct VisibilityPattern(pub ParsedPattern<TargetName>);
 
 /// Represents the visibility spec of a target. Note that targets in the same package will ignore the
 /// visibility spec of each other.

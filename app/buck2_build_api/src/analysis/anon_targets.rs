@@ -28,7 +28,6 @@ use buck2_core::package::PackageLabel;
 use buck2_core::pattern::lex_target_pattern;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::PatternData;
-use buck2_core::pattern::TargetPattern;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
@@ -192,7 +191,7 @@ impl AnonTargetKey {
     /// just that it is syntactically valid.
     fn parse_target_label(x: &str) -> anyhow::Result<TargetLabel> {
         let err = || AnonTargetsError::NotTargetLabel(x.to_owned());
-        let lex = lex_target_pattern::<TargetPattern>(x, false).with_context(err)?;
+        let lex = lex_target_pattern::<TargetName>(x, false).with_context(err)?;
         let cell = CellName::unchecked_new(lex.cell_alias.unwrap_or_default());
         match lex.pattern.reject_ambiguity()? {
             PatternData::TargetInPackage { package, target } => Ok(TargetLabel::new(
@@ -431,7 +430,7 @@ impl AttrCoercionContext for AnonAttrCtx {
         Err(AnonTargetsError::CantParseDuringCoerce(value.to_owned()).into())
     }
 
-    fn coerce_target_pattern(&self, pattern: &str) -> anyhow::Result<ParsedPattern<TargetPattern>> {
+    fn coerce_target_pattern(&self, pattern: &str) -> anyhow::Result<ParsedPattern<TargetName>> {
         Err(AnonTargetsError::CantParseDuringCoerce(pattern.to_owned()).into())
     }
 

@@ -18,10 +18,10 @@ use buck2_core::package::PackageLabel;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::PatternType;
 use buck2_core::pattern::ProvidersPattern;
-use buck2_core::pattern::TargetPattern;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::soft_error;
 use buck2_core::target::label::TargetLabel;
+use buck2_core::target::name::TargetName;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coerced_path::CoercedDirectory;
 use buck2_node::attrs::coerced_path::CoercedPath;
@@ -251,7 +251,7 @@ impl AttrCoercionContext for BuildAttrCoercionContext {
         }
     }
 
-    fn coerce_target_pattern(&self, pattern: &str) -> anyhow::Result<ParsedPattern<TargetPattern>> {
+    fn coerce_target_pattern(&self, pattern: &str) -> anyhow::Result<ParsedPattern<TargetName>> {
         self.parse_pattern(pattern)
     }
 

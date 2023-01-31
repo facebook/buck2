@@ -68,7 +68,7 @@ enum TargetPatternParseError {
 ///
 /// This is either 'TargetLabel', 'ConfiguredTargetLabel', or
 /// 'ConfiguredProvidersLabel'
-pub trait PatternType: Sized + Clone + Debug + PartialEq + Eq + Ord + Allocative {
+pub trait PatternType: Sized + Clone + Display + Debug + PartialEq + Eq + Ord + Allocative {
     type ExtraParts: Default + Clone;
 
     /// Split the given str into the part that should become the TargetName, and the ExtraParts.
@@ -93,9 +93,7 @@ pub trait PatternType: Sized + Clone + Debug + PartialEq + Eq + Ord + Allocative
 /// This is useful for 'query's where we do not expect any provider specifiers.
 ///
 /// Ex. `//some/package:target`
-pub type TargetPattern = TargetName;
-
-impl PatternType for TargetPattern {
+impl PatternType for TargetName {
     type ExtraParts = ();
 
     fn split(s: &str) -> anyhow::Result<(&str, Self::ExtraParts)> {
@@ -201,7 +199,7 @@ impl PatternType for ProvidersPattern {
 
 /// A parsed target pattern.
 #[derive(Clone, Debug, Hash, Eq, PartialEq, Allocative)]
-pub enum ParsedPattern<T> {
+pub enum ParsedPattern<T: PatternType> {
     /// A target pattern that matches a explicit target pattern type T. See
     /// `PatternType` for pattern
     Target(PackageLabel, T),
@@ -214,7 +212,7 @@ pub enum ParsedPattern<T> {
     Recursive(CellPath),
 }
 
-impl ParsedPattern<TargetPattern> {
+impl ParsedPattern<TargetName> {
     /// Extract [`TargetLabel`] from a [`ParsedPattern`].
     pub fn as_target_label(self, original: &str) -> anyhow::Result<TargetLabel> {
         let (package, target_name) = self.as_literal(original)?;
@@ -355,7 +353,7 @@ impl<T: PatternType> ParsedPattern<T> {
     }
 }
 
-impl<T: Display> Display for ParsedPattern<T> {
+impl<T: PatternType> Display for ParsedPattern<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             ParsedPattern::Target(package, pattern) => {
@@ -719,7 +717,7 @@ where
     }
 
     // We found a matching alias. Parse the alias as a target.
-    let res = parse_target_pattern::<TargetPattern>(
+    let res = parse_target_pattern::<TargetName>(
         cell_resolver,
         None,
         TargetParsingOptions::precise(),
@@ -772,18 +770,18 @@ mod tests {
     use crate::package::testing::PackageExt;
     use crate::target::label::TargetLabel;
 
-    fn mk_package<P>(cell: &str, path: &str) -> ParsedPattern<P> {
+    fn mk_package<P: PatternType>(cell: &str, path: &str) -> ParsedPattern<P> {
         ParsedPattern::Package(PackageLabel::testing_new(cell, path))
     }
 
-    fn mk_recursive<P>(cell: &str, path: &str) -> ParsedPattern<P> {
+    fn mk_recursive<P: PatternType>(cell: &str, path: &str) -> ParsedPattern<P> {
         ParsedPattern::Recursive(CellPath::new(
             CellName::unchecked_new(cell),
             CellRelativePathBuf::unchecked_new(path.to_owned()),
         ))
     }
 
-    fn mk_target(cell: &str, path: &str, target: &str) -> ParsedPattern<TargetPattern> {
+    fn mk_target(cell: &str, path: &str, target: &str) -> ParsedPattern<TargetName> {
         ParsedPattern::Target(
             PackageLabel::testing_new(cell, path),
             TargetName::unchecked_new(target),
@@ -862,7 +860,7 @@ mod tests {
         CellAliasResolver::new(Arc::new(m)).expect("valid resolver")
     }
 
-    #[test_case(PhantomData::< TargetPattern >; "parsing TargetPattern")]
+    #[test_case(PhantomData::< TargetName >; "parsing TargetPattern")]
     #[test_case(PhantomData::< ProvidersPattern >; "parsing ProvidersPattern")]
     fn parse_absolute_pattern<T: PatternType>(_: PhantomData<T>) {
         let package = PackageLabel::new(
@@ -941,7 +939,7 @@ mod tests {
         );
 
         assert_matches!(
-            ParsedPattern::<TargetPattern>::parse_relative(
+            ParsedPattern::<TargetName>::parse_relative(
                 &NoAliases,
                 &resolver(),
                 package.dupe(),
@@ -1022,7 +1020,7 @@ mod tests {
 
         // There's no target here so this is invalid.
         assert_matches!(
-            ParsedPattern::<TargetPattern>::parse_relaxed(
+            ParsedPattern::<TargetName>::parse_relaxed(
                 &NoAliases,
                 &resolver(),
                 package,
@@ -1060,7 +1058,7 @@ mod tests {
         );
 
         assert_matches!(
-            ParsedPattern::<TargetPattern>::parsed_opt_absolute(
+            ParsedPattern::<TargetName>::parsed_opt_absolute(
                 &resolver(),
                 Some(package.dupe()),
                 "foo/bar"
@@ -1074,7 +1072,7 @@ mod tests {
         );
 
         assert_matches!(
-            ParsedPattern::<TargetPattern>::parsed_opt_absolute(
+            ParsedPattern::<TargetName>::parsed_opt_absolute(
                 &resolver(),
                 Some(package.dupe()),
                 "foo/bar:bar"
@@ -1109,7 +1107,7 @@ mod tests {
         );
 
         assert_matches!(
-            ParsedPattern::<TargetPattern>::parse_relaxed(
+            ParsedPattern::<TargetName>::parse_relaxed(
                 &config,
                 &resolver(),
                 package.dupe(),
@@ -1124,7 +1122,7 @@ mod tests {
         );
 
         assert_matches!(
-            ParsedPattern::<TargetPattern>::parse_relaxed(
+            ParsedPattern::<TargetName>::parse_relaxed(
                 &config,
                 &resolver(),
                 package,
@@ -1191,7 +1189,7 @@ mod tests {
         Ok(())
     }
 
-    #[test_case(PhantomData::< TargetPattern >; "parsing TargetPattern")]
+    #[test_case(PhantomData::< TargetName >; "parsing TargetPattern")]
     #[test_case(PhantomData::< ProvidersPattern >; "parsing ProvidersPattern")]
     fn parse_pattern_failure<T: PatternType>(_: PhantomData<T>) {
         fails(ParsedPattern::<T>::parse_precise(&resolver(), ""), &[]);

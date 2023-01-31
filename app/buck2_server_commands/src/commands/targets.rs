@@ -31,8 +31,8 @@ use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::ParsedPattern;
-use buck2_core::pattern::TargetPattern;
 use buck2_core::target::label::TargetLabel;
+use buck2_core::target::name::TargetName;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::nodes::attributes::DEPS;
@@ -380,7 +380,7 @@ async fn targets(
 
     let cwd = server_ctx.working_dir();
     let cell_resolver = dice.get_cell_resolver().await?;
-    let parsed_target_patterns = parse_patterns_from_cli_args::<TargetPattern>(
+    let parsed_target_patterns = parse_patterns_from_cli_args::<TargetName>(
         &request.target_patterns,
         &cell_resolver,
         &dice.get_legacy_configs().await?,
@@ -416,7 +416,7 @@ async fn targets(
 async fn targets_resolve_aliases(
     dice: DiceTransaction,
     request: &TargetsRequest,
-    parsed_target_patterns: Vec<ParsedPattern<TargetPattern>>,
+    parsed_target_patterns: Vec<ParsedPattern<TargetName>>,
 ) -> anyhow::Result<TargetsResponse> {
     // If we are only asked to resolve aliases, then don't expand any of the patterns, and just
     // print them out. This expects the aliases to resolve to individual targets.
@@ -488,7 +488,7 @@ async fn targets_batch(
     server_ctx: &dyn ServerCommandContextTrait,
     dice: DiceTransaction,
     printer: &mut dyn TargetPrinter,
-    parsed_patterns: Vec<ParsedPattern<TargetPattern>>,
+    parsed_patterns: Vec<ParsedPattern<TargetName>>,
     target_platform: Option<TargetLabel>,
     hash_options: TargetHashOptions,
     keep_going: bool,
