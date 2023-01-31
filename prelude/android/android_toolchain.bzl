@@ -24,6 +24,7 @@ AndroidToolchainInfo = provider(fields = [
     "exopackage_agent_apk",
     "filter_dex_class_names",
     "filter_prebuilt_native_library_dir",
+    "installer",
     "multi_dex_command",
     "copy_string_resources",
     "filter_resources",

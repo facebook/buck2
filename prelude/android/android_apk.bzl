@@ -249,7 +249,7 @@ def _get_install_info(ctx: "context", output_apk: "artifact", manifest: "artifac
         files["exopackage_agent_apk"] = ctx.attrs._android_toolchain[AndroidToolchainInfo].exopackage_agent_apk
 
     return InstallInfo(
-        installer = ctx.attrs._android_installer,
+        installer = ctx.attrs._android_toolchain[AndroidToolchainInfo].installer,
         files = files,
     )
 

@@ -110,10 +110,6 @@ extra_attributes = {
         "manifest_skeleton": attrs.option(attrs.one_of(attrs.transition_dep(cfg = cpu_transition), attrs.source()), default = None),
         "min_sdk_version": attrs.option(attrs.int(), default = None),
         "module_manifest_skeleton": attrs.option(attrs.one_of(attrs.transition_dep(cfg = cpu_transition), attrs.source()), default = None),
-        "_android_installer": attrs.default_only(attrs.label(
-            # FIXME: prelude// should be standalone (not refer to buck//)
-            default = "buck//src/com/facebook/buck/installer/android:android_installer",
-        )),
         "_android_toolchain": android_toolchain(),
         "_dex_toolchain": _dex_toolchain(),
         "_is_building_android_binary": attrs.default_only(attrs.bool(default = True)),
