@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-mod print_hello;
 fn main() {
     print_hello::print_hello();
 }
