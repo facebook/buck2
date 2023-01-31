@@ -30,6 +30,10 @@ enum QueryOutputFormatArg {
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
 pub struct CommonAttributeArgs {
     /// Output all attributes, equivalent of --output-attribute ''.
+    ///
+    /// Avoid using this flag in automation because it may be expensive
+    /// to produce certain attributes, and because it makes harder to track
+    /// which special attributes are used.
     #[clap(
         short = 'A',
         long,
@@ -47,9 +51,12 @@ pub struct CommonAttributeArgs {
     )]
     output_basic_attributes: bool,
 
-    /// List of attributes to output, --output-attribute attr1. Attributes can be
-    /// regular expressions. Multiple attributes may be selected by specifying this option
-    /// multiple times.
+    /// Regular expressions to match attributes. Regular expressions are used in "search" mode,
+    /// so for example empty string matches all attributes including special attributes.
+    ///
+    /// When using in automation, please specify the regular expression to match the attribute
+    /// precisely, for example `--output-attribute '^headers$'` to make it easier to track
+    /// which special attributes are used.
     #[clap(
          short = 'a',
          long,
