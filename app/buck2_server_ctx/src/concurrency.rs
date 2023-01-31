@@ -233,10 +233,11 @@ impl ConcurrencyHandler {
         let trace = event_dispatcher.trace_id().dupe();
         let mut data = self.data.lock();
 
-        let mut transaction = self
-            .dice
-            .updater_with_data(user_data.provide(&self.dice.ctx()).await?)
-            .commit();
+        let transaction_update = self.dice.updater();
+        let new_user_data = user_data
+            .provide(transaction_update.existing_state())
+            .await?;
+        let mut transaction = transaction_update.commit_with_data(new_user_data);
 
         loop {
             // we rerun the updates in case that files on disk have changed between commands.
