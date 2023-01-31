@@ -196,60 +196,6 @@ impl<T: Send + Sync + 'static> DeferredData<T> {
     pub fn resolve(&self, val: DeferredValueAnyReady) -> anyhow::Result<DeferredValueReady<T>> {
         val.downcast_into()
     }
-
-    /// zip/merges two 'DeferredData' into one deferred returning a tuple of their results
-    pub fn zip<V: Send + 'static>(
-        data1: &DeferredData<T>,
-        data2: &DeferredData<V>,
-    ) -> impl Deferred<Output = (DeferredValueReady<T>, DeferredValueReady<V>)> {
-        #[derive(Allocative)]
-        #[allocative(bound = "")]
-        struct Combined<U, V> {
-            inputs: IndexSet<DeferredInput>,
-            u: DeferredKey,
-            v: DeferredKey,
-            p: PhantomData<(U, V)>,
-        }
-
-        impl<U: Send + 'static, V: Send + 'static> Deferred for Combined<U, V> {
-            type Output = (DeferredValueReady<U>, DeferredValueReady<V>);
-
-            fn inputs(&self) -> &IndexSet<DeferredInput> {
-                &self.inputs
-            }
-
-            fn execute(
-                &self,
-                ctx: &mut dyn DeferredCtx,
-            ) -> anyhow::Result<DeferredValue<Self::Output>> {
-                let u = ctx
-                    .get_deferred_data(&self.u)
-                    .unwrap()
-                    .downcast_into::<U>()?;
-                let v = ctx
-                    .get_deferred_data(&self.v)
-                    .unwrap()
-                    .downcast_into::<V>()?;
-                Ok(DeferredValue::Ready((u, v)))
-            }
-
-            fn debug_artifact_outputs(&self) -> anyhow::Result<Option<Vec<BuildArtifact>>> {
-                Ok(None)
-            }
-        }
-
-        let inputs = indexset![
-            DeferredInput::Deferred(data1.key.dupe()),
-            DeferredInput::Deferred(data2.key.dupe()),
-        ];
-
-        Combined {
-            inputs,
-            u: data1.key.dupe(),
-            v: data2.key.dupe(),
-            p: PhantomData,
-        }
-    }
 }
 
 /// A key to lookup a 'Deferred' of any result type
@@ -1233,63 +1179,6 @@ mod tests {
                 .downcast::<i32>()?,
             1
         );
-
-        Ok(())
-    }
-
-    #[test]
-    fn combined_asyncs() -> anyhow::Result<()> {
-        let base = BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_new(
-            PackageLabel::testing_new("cell", "pkg"),
-            TargetName::unchecked_new("foo"),
-            Configuration::testing_new(),
-        ));
-        let mut registry = DeferredRegistry::new(BaseKey::Base(base));
-
-        let deferred0 = FakeDeferred {
-            inputs: IndexSet::new(),
-            val: 4,
-        };
-
-        let deferred_data0 = registry.defer(deferred0.clone());
-
-        let deferred1 = FakeDeferred {
-            inputs: IndexSet::new(),
-            val: "foo".to_owned(),
-        };
-
-        let deferred_data1 = registry.defer(deferred1.clone());
-
-        let combined_data = registry.defer(DeferredData::zip(&deferred_data0, &deferred_data1));
-
-        let result = registry.take_result()?;
-
-        let mut registry =
-            DeferredRegistry::new(BaseKey::Deferred(Arc::new(combined_data.key.dupe())));
-        let mut resolved = ResolveDeferredCtx::new(
-            combined_data.key.dupe(),
-            Default::default(),
-            Default::default(),
-            vec![
-                make_resolved(&deferred_data0, &deferred0),
-                make_resolved(&deferred_data1, &deferred1),
-            ]
-            .into_iter()
-            .collect(),
-            Default::default(),
-            Default::default(),
-            &mut registry,
-            dummy_project_filesystem(),
-        );
-
-        let combined_deferred = result.get(combined_data.key.id().as_usize()).unwrap();
-        let (u, v) = &*combined_data.resolve(
-            combined_deferred
-                .execute(&mut resolved)
-                .unwrap()
-                .assert_ready(),
-        )?;
-        assert_eq!((&**u, &**v), (&4, &"foo".to_owned()));
 
         Ok(())
     }
