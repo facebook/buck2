@@ -84,12 +84,6 @@ impl DiceTransactionUpdater {
 pub struct DiceTransaction(pub(super) DiceComputations);
 
 impl DiceTransaction {
-    /// Commit the changes registered via 'changed' and 'changed_to' to the current newest version.
-    /// This can only be called when the this is the only node remaining in the computation graph
-    pub fn commit(self) -> DiceTransaction {
-        DiceTransaction(self.0.0.commit())
-    }
-
     pub fn unstable_take(self) -> Self {
         let map = self.0.0.unstable_take();
         // Destructors can be slow, so we do this in a separate thread.
