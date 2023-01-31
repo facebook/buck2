@@ -79,26 +79,26 @@ struct JsonPrinter {
     attributes: Option<RegexSet>,
     attr_inspect_opts: AttrInspectOptions,
     target_idx: u32,
-    json_string: String,
+    output: String,
     target_call_stacks: bool,
     keep_going: bool,
 }
 
 impl TargetPrinter for JsonPrinter {
     fn begin(&mut self) {
-        writeln!(self.json_string, "[").unwrap();
+        writeln!(self.output, "[").unwrap();
     }
     fn end(&mut self) -> String {
-        writeln!(self.json_string, "\n]").unwrap();
-        mem::take(&mut self.json_string)
+        writeln!(self.output, "\n]").unwrap();
+        mem::take(&mut self.output)
     }
 
     fn target(&mut self, package: PackageLabel, target_info: TargetInfo<'_>) {
         if self.target_idx != 0 {
-            writeln!(self.json_string, ",").unwrap();
+            writeln!(self.output, ",").unwrap();
         }
         self.target_idx += 1;
-        writeln!(self.json_string, "  {{",).unwrap();
+        writeln!(self.output, "  {{",).unwrap();
         let mut first = true;
 
         fn print_attr(
@@ -113,10 +113,10 @@ impl TargetPrinter for JsonPrinter {
                 }
             }
             if !*first {
-                writeln!(this.json_string, ",").unwrap();
+                writeln!(this.output, ",").unwrap();
             }
             *first = false;
-            write!(this.json_string, "    \"{}\": {}", k, v()).unwrap();
+            write!(this.output, "    \"{}\": {}", k, v()).unwrap();
         }
 
         print_attr(self, &mut first, TYPE, || {
@@ -171,27 +171,27 @@ impl TargetPrinter for JsonPrinter {
         }
 
         if !first {
-            writeln!(self.json_string).unwrap();
+            writeln!(self.output).unwrap();
         }
 
-        write!(self.json_string, "  }}").unwrap();
+        write!(self.output, "  }}").unwrap();
     }
 
     fn package_error(&mut self, package: PackageLabel, error: &anyhow::Error) {
         if self.keep_going {
             if self.target_idx != 0 {
-                writeln!(self.json_string, ",").unwrap();
+                writeln!(self.output, ",").unwrap();
             }
             self.target_idx += 1;
-            writeln!(self.json_string, "  {{",).unwrap();
-            writeln!(self.json_string, "    \"{}\": \"{}\",", PACKAGE, package).unwrap();
+            writeln!(self.output, "  {{",).unwrap();
+            writeln!(self.output, "    \"{}\": \"{}\",", PACKAGE, package).unwrap();
             writeln!(
-                self.json_string,
+                self.output,
                 "    \"buck.error\": {}",
                 quote_json_string(&format!("{:?}", error))
             )
             .unwrap();
-            write!(self.json_string, "    }}").unwrap();
+            write!(self.output, "    }}").unwrap();
         }
     }
 }
@@ -222,20 +222,20 @@ impl TargetPrinter for Stats {
 }
 
 struct TargetNamePrinter {
-    display_string: String,
+    output: String,
     target_call_stacks: bool,
     target_hash_graph_type: TargetHashGraphType,
 }
 impl TargetPrinter for TargetNamePrinter {
     fn end(&mut self) -> String {
-        mem::take(&mut self.display_string)
+        mem::take(&mut self.output)
     }
 
     fn target(&mut self, package: PackageLabel, target_info: TargetInfo<'_>) {
         if self.target_hash_graph_type != TargetHashGraphType::None {
             match target_info.target_hash {
                 Some(BuckTargetHash(hash)) => writeln!(
-                    self.display_string,
+                    self.output,
                     "{package}:{name} {hash:032x}",
                     name = target_info.node.label().name(),
                 )
@@ -244,7 +244,7 @@ impl TargetPrinter for TargetNamePrinter {
             };
         } else {
             writeln!(
-                self.display_string,
+                self.output,
                 "{}:{}",
                 package,
                 target_info.node.label().name()
@@ -255,7 +255,7 @@ impl TargetPrinter for TargetNamePrinter {
             match target_info.node.call_stack() {
                 Some(call_stack) => {
                     for line in call_stack.lines() {
-                        writeln!(self.display_string, "  {}", line).unwrap();
+                        writeln!(self.output, "  {}", line).unwrap();
                     }
                 }
                 None => {
@@ -353,7 +353,7 @@ fn create_printer(request: &TargetsRequest) -> anyhow::Result<Box<dyn TargetPrin
                 AttrInspectOptions::DefinedOnly
             },
             target_idx: 0,
-            json_string: String::new(),
+            output: String::new(),
             target_call_stacks: request.target_call_stacks,
             keep_going: request.keep_going,
         })
@@ -361,7 +361,7 @@ fn create_printer(request: &TargetsRequest) -> anyhow::Result<Box<dyn TargetPrin
         Ok(box Stats::default())
     } else {
         Ok(box TargetNamePrinter {
-            display_string: String::new(),
+            output: String::new(),
             target_call_stacks: request.target_call_stacks,
             target_hash_graph_type: TargetHashGraphType::from_i32(request.target_hash_graph_type)
                 .expect("buck cli should send valid target hash graph type"),
