@@ -375,6 +375,29 @@ impl DiceComputationImpl {
         this.dice.make_ctx(this.extra)
     }
 
+    /// Same as `commit`, but replacing the user data with the given
+    pub(super) fn commit_with_data(
+        self: Arc<Self>,
+        extra: UserComputationData,
+    ) -> DiceComputations {
+        // TODO need to clean up these ctxs so we have less runtime errors from Arc references
+        let this = Arc::try_unwrap(self)
+            .map_err(|_| "Error: tried to commit when there are more references")
+            .unwrap();
+        let eval = Arc::try_unwrap(this.transaction_ctx)
+            .map_err(|_| "Error: tried to commit when there are more references")
+            .unwrap();
+
+        // hold onto the prev version until we get the new one below so we don't increment minor
+        // version needlessly.
+        let _prev_v = eval.commit();
+
+        this.dice.make_ctx(ComputationData {
+            user_data: Arc::new(extra),
+            cycle_detector: this.extra.cycle_detector,
+        })
+    }
+
     pub(super) fn unstable_take(self: &Arc<Self>) -> DiceMap {
         self.dice.unstable_take()
     }

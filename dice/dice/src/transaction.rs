@@ -16,6 +16,7 @@ use dupe::Dupe;
 use crate::DiceComputations;
 use crate::DiceResult;
 use crate::Key;
+use crate::UserComputationData;
 use crate::VersionNumber;
 
 /// The struct for which we build transactions. This is where changes are recorded, and committed
@@ -64,6 +65,12 @@ impl DiceTransactionUpdater {
     /// Commit the changes registered via 'changed' and 'changed_to' to the current newest version.
     pub fn commit(self) -> DiceTransaction {
         DiceTransaction(self.existing_state.0.commit())
+    }
+
+    /// Commit the changes registered via 'changed' and 'changed_to' to the current newest version,
+    /// replacing the user data with the given set
+    pub fn commit_with_data(self, extra: UserComputationData) -> DiceTransaction {
+        DiceTransaction(self.existing_state.0.commit_with_data(extra))
     }
 }
 
