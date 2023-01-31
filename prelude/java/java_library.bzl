@@ -544,7 +544,8 @@ def build_java_library(
     outputs = None
     common_compile_kwargs = None
     sub_targets = {}
-    if srcs or additional_compiled_srcs or resources or ap_params or plugin_params or manifest_file:
+    has_srcs = bool(srcs) or bool(additional_compiled_srcs)
+    if has_srcs or resources or manifest_file:
         abi_generation_mode = override_abi_generation_mode or get_abi_generation_mode(ctx.attrs.abi_generation_mode)
 
         common_compile_kwargs = {
