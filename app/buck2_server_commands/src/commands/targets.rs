@@ -70,7 +70,6 @@ struct TargetInfo<'a> {
 trait TargetPrinter: Send {
     fn begin(&mut self) {}
     fn end(&mut self, stats: &Stats) -> String;
-    fn package(&mut self, package: PackageLabel) {}
     fn target(&mut self, package: PackageLabel, target_info: TargetInfo<'_>) {}
     fn package_error(&mut self, package: PackageLabel, error: &anyhow::Error) {}
 }
@@ -519,7 +518,6 @@ async fn targets_batch(
         match result {
             Ok(res) => {
                 stats.success += 1;
-                printer.package(package.dupe());
                 for (_, node) in res.iter() {
                     stats.targets += 1;
                     let target_hash = target_hashes
