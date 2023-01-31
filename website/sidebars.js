@@ -191,6 +191,7 @@ const manualSidebar = [
           'developers/starlark_rust',
         ],
       },
+      'developers/request_for_comments',
       'developers/windows_cheat_sheet',
     ],
   },
