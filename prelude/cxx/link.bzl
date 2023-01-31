@@ -160,11 +160,7 @@ def cxx_link(
     if link_postprocessor:
         output = postprocess(ctx, output, link_postprocessor)
 
-    if cxx_use_bolt(ctx) and (executable_link or is_shared):
-        final_output = bolt(ctx, output, identifier)
-    else:
-        final_output = output
-
+    final_output = output if not (executable_link and cxx_use_bolt(ctx)) else bolt(ctx, output, identifier)
     dwp_artifact = None
     if should_generate_dwp:
         # TODO(T110378144): Once we track split dwarf from compiles, we should
