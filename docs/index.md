@@ -3,18 +3,51 @@ id: index
 title: Introduction
 ---
 
-Welcome to Buck2, a successor to [Buck](https://buck.build)!
+Welcome to Buck2, a large scale, fast, reliable, and extensible build tool developed and used by Meta, which supports a variety of languages on many platforms.
 
-Buck2 is largely compatible with Buck, so you can start building with `buck2` today.
+Buck2's core is written in [Rust](https://www.rust-lang.org/). [Starlark](https://github.com/bazelbuild/starlark), which is a deterministic, immutable dialect of Python, is used to extend the Buck2 build system, enabling Buck2 to be language-agnostic. With Starlark, users can define their own custom rules.
+
+Buck2 leverages the Bazel spec of [Remote Build Execution](https://bazel.build/remote/rbe) as the primary means of parallelization and caching, which increases the importance of idempotency (no matter how many times an operation is performed, it yields the same result) and hermeticity (code is sealed off from the world), giving the right results, reliably.
+
+Buck2 multi-language support includes C++, Python, Java, Go, Rust, Erlang, OCaml, and more.
+
+The following sub-sections contain a list of links to key points in the Buck2 Documentation website that explain the advantages of using Buck2 for you and your team.
+
+## Buck2 Documentation Website Links
+
+### For end users
+
+* [Benefits](benefits.md) - the benefits of using Buck2.
 
 <FbInternalOnly>
 
-## Communication channels
+* [Migration Guide](migration_guide.fb.md) - how to port projects from Buck to Buck2, including the issues you might face and notable differences.
+* [Buck2 and Build Observability](developers/observability.fb.md) - how to use Buck2's datasets to analyze specific invocations or classes of invocations.
 
-* [Buck2 Engineering](https://fb.workplace.com/groups/buck2prototyping) - Workplace group for discussions about what features Buck2 should have, how it's going, status updates, and much more.
-* [Buck2 Users](https://fb.workplace.com/groups/buck2users) - Workplace group featuring questions from users and reports of bugs.
-[Buck2 Rule Authors](https://fb.workplace.com/groups/347532827186692) - Workplace group for discussions about language-specific rules.
-* [Buck2 Oncall Hub](https://www.internalfb.com/intern/monitor/oncall_profile?oncall=buck2) - urgent tasks and escalation.
+</FbInternalOnly>
+
+### For people writing rules
+
+* [Writing Rules](rule_authors/writing_rules.md) - how to write rules to support new languages.
+* [Rule APIs](rule_authors/rule_api.md) - gives the API available when writing rules.
+* [Starlark Types](https://github.com/facebookexperimental/starlark-rust/blob/main/docs/types.md) - rules are written in Starlark (which is approximately Python), but our version adds types.
+
+<FbInternalOnly>
+
+* [Rule Writing Tips](rule_authors/rule_writing_tips.fb.md) - tips for migrating rules from Buck1 to Buck2.
+
+</FbInternalOnly>
+
+### For people integrating with Buck2
+
+* [Extending Buck via BXL](developers/bxl.md) - powerful Starlark scripts for introspection of buck2's graphs
+
+<FbInternalOnly>
+
+### For people developing Buck2
+
+* [Basic README](https://www.internalfb.com/code/fbsource/fbcode/buck2/README.md) - how to get started, compile Buck2 and the basic workflows.
+* [Notes for Developers](developers/developers.fb.md) - more advanced workflows and notes around debugging, profiling etc.
 
 ## Specialised groups
 
@@ -49,56 +82,3 @@ We have Workplace groups and task tags for various projects. Most task folders a
 * [Unicorn on Buck V2](https://www.internalfb.com/tasks?q=262220628906648)
 
 </FbInternalOnly>
-
-## For end users
-
-* [Benefits](benefits.md) - the benefits of using Buck2.
-
-<FbInternalOnly>
-
-* [Migration Guide](migration_guide.fb.md) - how to port projects from Buck to Buck2, including the issues you might face and notable differences.
-* [Buck2 and Build Observability](developers/observability.fb.md) - how to use Buck2's datasets to analyze specific invocations or classes of invocations.
-
-</FbInternalOnly>
-
-## For people writing rules
-
-* [Writing Rules](rule_authors/writing_rules.md) - how to write rules to support new languages.
-* [Rule APIs](rule_authors/rule_api.md) - gives the API available when writing rules.
-* [Starlark Types](https://github.com/facebookexperimental/starlark-rust/blob/main/docs/types.md) - rules are written in Starlark (which is approximately Python), but our version adds types.
-
-<FbInternalOnly>
-
-* [Rule Writing Tips](rule_authors/rule_writing_tips.fb.md) - tips for migrating rules from Buck1 to Buck2.
-
-</FbInternalOnly>
-
-## For people integrating with Buck2
-
-* [Extending Buck via BXL](developers/bxl.md) - powerful Starlark scripts for introspection of buck2's graphs
-
-<FbInternalOnly>
-
-## For people developing Buck2
-
-* [Basic README](https://www.internalfb.com/code/fbsource/fbcode/buck2/README.md) - how to get started, compile Buck2 and the basic workflows.
-* [Notes for Developers](developers/developers.fb.md) - more advanced workflows and notes around debugging, profiling etc.
-
-</FbInternalOnly>
-
-## RFCs
-
-### Accepted
-
-* [configured_alias](rfcs/configured-alias.md)
-* [Buck Extension Language (BXL)](rfcs/bxl.md)
-* [Bxl Support for performing analysis on targets](rfcs/bxl-analysis.md)
-
-### Drafts
-
-* [@configuration syntax](rfcs/drafts/configuration-at-syntax.md)
-* [bxl actions and Build API](rfcs/drafts/bxl-actions.md)
-
-### Implemented
-
-* [ProviderCollection[]](rfcs/implemented/provider-collection-at.md)
