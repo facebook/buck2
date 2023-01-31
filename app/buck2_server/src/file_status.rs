@@ -170,10 +170,10 @@ async fn check_file_status(
                                 .to_owned(),
                             RawSymlink::External(x) => x.to_path_buf(),
                         };
-                        if fs_to != dice_to.as_path() {
+                        if fs_to.as_path() != dice_to.as_path() {
                             result.mismatch(Mismatch::SymlinkTarget(
                                 path.to_owned(),
-                                fs_to,
+                                fs_to.into_path_buf(),
                                 dice_to,
                             ))?;
                         }

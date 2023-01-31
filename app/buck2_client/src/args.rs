@@ -314,7 +314,7 @@ fn resolve_flagfile(path: &str, context: &ArgExpansionContext) -> anyhow::Result
         } else {
             let p = Path::new(path_part);
             if !p.is_absolute() {
-                let abs_path = match fs_util::canonicalize(p) {
+                match fs_util::canonicalize(p) {
                     Ok(abs_path) => Ok(abs_path),
                     Err(original_error) => {
                         let cell_relative_path =
@@ -335,8 +335,7 @@ fn resolve_flagfile(path: &str, context: &ArgExpansionContext) -> anyhow::Result
                             }),
                         }
                     }
-                }?;
-                AbsNormPathBuf::try_from(abs_path)?
+                }?
             } else {
                 AbsNormPathBuf::try_from(p.to_owned())?
             }

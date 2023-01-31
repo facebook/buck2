@@ -55,7 +55,7 @@ impl XcodeVersionInfo {
             .context("resolve selected xcode link")?;
         let plist_path = resolved_xcode_path
             .parent()
-            .map(|base| base.join("version.plist"))
+            .map(|base| base.as_path().join("version.plist"))
             .ok_or(XcodeVersionError::UnableToConstructVersionInfoPath)?;
         Self::from_plist(&plist_path)
     }
