@@ -244,7 +244,7 @@ impl<'v> TargetExpr<'v, ConfiguredTargetNode> {
                     ctx.async_ctx
                         .0
                         .get_configured_target(
-                            &TargetLabel::new(pkg, name),
+                            &TargetLabel::new(pkg, name.as_ref()),
                             target_platform.as_ref(),
                         )
                         .await?,
@@ -365,9 +365,9 @@ impl<'v> TargetExpr<'v, TargetNode> {
                 PackageLabel::new(ctx.cell.name(), CellRelativePath::empty()),
                 s,
             )? {
-                ParsedPattern::Target(pkg, name) => {
-                    Ok(Some(Self::Label(Cow::Owned(TargetLabel::new(pkg, name)))))
-                }
+                ParsedPattern::Target(pkg, name) => Ok(Some(Self::Label(Cow::Owned(
+                    TargetLabel::new(pkg, name.as_ref()),
+                )))),
                 pattern => {
                     let loaded_patterns = load_patterns(ctx.async_ctx.0, vec![pattern]).await?;
                     let mut target_set = TargetSet::new();

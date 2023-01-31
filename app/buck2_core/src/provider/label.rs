@@ -243,7 +243,7 @@ pub mod testing {
     use crate::package::testing::*;
     use crate::package::PackageLabel;
     use crate::target::label::TargetLabel;
-    use crate::target::name::TargetName;
+    use crate::target::name::TargetNameRef;
 
     pub trait ProvidersLabelTestExt {
         fn testing_new(
@@ -264,7 +264,7 @@ pub mod testing {
             ProvidersLabel::new(
                 TargetLabel::new(
                     PackageLabel::testing_new(cell, package),
-                    TargetName::new(target).unwrap(),
+                    TargetNameRef::new(target).unwrap(),
                 ),
                 match name {
                     Some(n) => ProvidersName::NonDefault(box NonDefaultProvidersName::Named(

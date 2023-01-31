@@ -86,7 +86,7 @@ impl AuditSubcommand for AuditAnalysisQueriesCommand {
                     match spec {
                         buck2_core::pattern::PackageSpec::Targets(targets) => {
                             for target in targets {
-                                let label = TargetLabel::new(package.dupe(), target);
+                                let label = TargetLabel::new(package.dupe(), target.as_ref());
                                 let configured_target = ctx
                                     .get_configured_target(&label, global_target_platform.as_ref())
                                     .await?;

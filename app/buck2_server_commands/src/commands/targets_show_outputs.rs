@@ -179,7 +179,7 @@ async fn retrieve_artifacts_for_spec(
             .duped()
             .map(|t| {
                 (
-                    ProvidersLabel::default_for(TargetLabel::new(package.dupe(), t)),
+                    ProvidersLabel::default_for(TargetLabel::new(package.dupe(), t.as_ref())),
                     global_target_platform.dupe(),
                 )
             })

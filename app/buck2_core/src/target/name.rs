@@ -107,7 +107,6 @@ impl PartialEq<str> for TargetName {
 impl Deref for TargetName {
     type Target = TargetNameRef;
 
-    #[inline]
     fn deref(&self) -> &TargetNameRef {
         self.as_ref()
     }
@@ -161,6 +160,7 @@ impl Borrow<TargetNameRef> for TargetName {
 
 #[cfg(test)]
 mod tests {
+    use std::hash::Hash;
     use std::hash::Hasher;
 
     use buck2_util::arc_str::ThinArcStr;
@@ -193,14 +193,14 @@ mod tests {
 
     #[test]
     fn test_value_and_ref_hashes_equal() {
-        fn hash<T: std::hash::Hash>(t: &T) -> u64 {
+        fn hash<T: Hash + ?Sized>(t: &T) -> u64 {
             let mut hasher = std::collections::hash_map::DefaultHasher::new();
             t.hash(&mut hasher);
             hasher.finish()
         }
 
         assert_eq!(
-            hash(&TargetNameRef::unchecked_new("foo")),
+            hash(TargetNameRef::unchecked_new("foo")),
             hash(&TargetName::unchecked_new("foo"))
         );
     }

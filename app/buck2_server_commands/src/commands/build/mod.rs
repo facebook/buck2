@@ -441,7 +441,7 @@ async fn build_targets_for_spec(
             .keys()
             .duped()
             .map(|t| TargetBuildSpec {
-                target: ProvidersLabel::default_for(TargetLabel::new(package.dupe(), t)),
+                target: ProvidersLabel::default_for(TargetLabel::new(package.dupe(), t.as_ref())),
                 global_target_platform: global_target_platform.dupe(),
                 skippable: true,
             })

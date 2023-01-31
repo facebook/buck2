@@ -901,10 +901,10 @@ mod tests {
         let pkg = PackageLabel::testing_new("cell", "foo/bar");
 
         let name1 = TargetName::unchecked_new("t1");
-        let label1 = TargetLabel::new(pkg.dupe(), name1.dupe());
+        let label1 = TargetLabel::new(pkg.dupe(), name1.as_ref());
 
         let name2 = TargetName::unchecked_new("t2");
-        let label2 = TargetLabel::new(pkg.dupe(), name2.dupe());
+        let label2 = TargetLabel::new(pkg.dupe(), name2.as_ref());
 
         let rule_type = RuleType::Starlark(Arc::new(StarlarkRuleType {
             import_path: ImportPath::unchecked_new("cell", "foo/bar", "def.bzl"),

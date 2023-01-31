@@ -44,8 +44,11 @@ pub struct TargetLabel {
 
 impl TargetLabel {
     #[inline]
-    pub fn new(pkg: PackageLabel, name: TargetName) -> Self {
-        TargetLabel { pkg, name }
+    pub fn new(pkg: PackageLabel, name: &TargetNameRef) -> Self {
+        TargetLabel {
+            pkg,
+            name: name.to_owned(),
+        }
     }
 
     #[inline]

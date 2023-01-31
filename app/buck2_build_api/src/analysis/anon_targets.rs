@@ -34,6 +34,7 @@ use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_core::target::name::TargetName;
+use buck2_core::target::name::TargetNameRef;
 use buck2_core::unsafe_send_future::UnsafeSendFuture;
 use buck2_execute::anon_target::AnonTarget;
 use buck2_execute::base_deferred_key::BaseDeferredKey;
@@ -196,7 +197,7 @@ impl AnonTargetKey {
         match lex.pattern.reject_ambiguity()? {
             PatternData::TargetInPackage { package, target } => Ok(TargetLabel::new(
                 PackageLabel::new(cell, CellRelativePath::new(package)),
-                target,
+                target.as_ref(),
             )),
             _ => Err(err().into()),
         }
@@ -204,7 +205,7 @@ impl AnonTargetKey {
 
     fn create_name(rule_name: &str) -> anyhow::Result<TargetLabel> {
         let pkg = PackageLabel::new(CellName::unchecked_new("anon"), CellRelativePath::empty());
-        Ok(TargetLabel::new(pkg, TargetName::new(rule_name)?))
+        Ok(TargetLabel::new(pkg, TargetNameRef::new(rule_name)?))
     }
 
     fn coerce_name(x: Value) -> anyhow::Result<TargetLabel> {

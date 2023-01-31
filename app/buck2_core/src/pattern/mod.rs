@@ -137,7 +137,10 @@ pub struct ProvidersPattern {
 
 impl ProvidersPattern {
     pub fn into_providers_label(self, package: PackageLabel) -> ProvidersLabel {
-        ProvidersLabel::new(TargetLabel::new(package, self.target), self.providers)
+        ProvidersLabel::new(
+            TargetLabel::new(package, self.target.as_ref()),
+            self.providers,
+        )
     }
 }
 
@@ -216,7 +219,7 @@ impl ParsedPattern<TargetName> {
     /// Extract [`TargetLabel`] from a [`ParsedPattern`].
     pub fn as_target_label(self, original: &str) -> anyhow::Result<TargetLabel> {
         let (package, target_name) = self.as_literal(original)?;
-        Ok(TargetLabel::new(package, target_name))
+        Ok(TargetLabel::new(package, target_name.as_ref()))
     }
 
     /// Check if a [`ParsedPattern`] matches a [`TargetLabel`]
@@ -769,6 +772,7 @@ mod tests {
     use crate::cells::CellAlias;
     use crate::package::testing::PackageExt;
     use crate::target::label::TargetLabel;
+    use crate::target::name::TargetNameRef;
 
     fn mk_package<P: PatternType>(cell: &str, path: &str) -> ParsedPattern<P> {
         ParsedPattern::Package(PackageLabel::testing_new(cell, path))
@@ -1281,12 +1285,12 @@ mod tests {
             CellRelativePath::unchecked_new("package/path"),
         );
 
-        let target_in_pkg1 = TargetLabel::new(pkg1.dupe(), TargetName::new("target")?);
-        let another_target_in_pkg1 = TargetLabel::new(pkg1, TargetName::new("target2")?);
-        let target_in_pkg2 = TargetLabel::new(pkg2, TargetName::new("target")?);
-        let target_in_pkg3 = TargetLabel::new(pkg3, TargetName::new("target")?);
+        let target_in_pkg1 = TargetLabel::new(pkg1.dupe(), TargetNameRef::new("target")?);
+        let another_target_in_pkg1 = TargetLabel::new(pkg1, TargetNameRef::new("target2")?);
+        let target_in_pkg2 = TargetLabel::new(pkg2, TargetNameRef::new("target")?);
+        let target_in_pkg3 = TargetLabel::new(pkg3, TargetNameRef::new("target")?);
         let target_in_different_cell =
-            TargetLabel::new(pkg_in_different_cell, TargetName::new("target")?);
+            TargetLabel::new(pkg_in_different_cell, TargetNameRef::new("target")?);
 
         // Testing ParsedPattern::Target
 

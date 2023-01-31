@@ -30,7 +30,7 @@ use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_core::package::PackageLabel;
 use buck2_core::target::label::TargetLabel;
-use buck2_core::target::name::TargetName;
+use buck2_core::target::name::TargetNameRef;
 use buck2_interpreter::common::BxlFilePath;
 use derivative::Derivative;
 use derive_more::Display;
@@ -621,7 +621,7 @@ fn get_target_label<'v>(
 ) -> anyhow::Result<TargetLabel> {
     let target_name = get_target_name(iter)?;
     let package = PackageLabel::new(path.cell(), path.path());
-    let target = TargetName::new(target_name)?;
+    let target = TargetNameRef::new(target_name)?;
     let target_label = TargetLabel::new(package.dupe(), target);
     Ok(target_label)
 }
@@ -757,7 +757,7 @@ mod tests {
     use buck2_core::package::package_relative_path::PackageRelativePathBuf;
     use buck2_core::package::PackageLabel;
     use buck2_core::target::label::TargetLabel;
-    use buck2_core::target::name::TargetName;
+    use buck2_core::target::name::TargetNameRef;
     use buck2_interpreter::common::BxlFilePath;
     use dupe::Dupe;
     use regex::Regex;
@@ -824,7 +824,7 @@ mod tests {
             CellName::unchecked_new("foo"),
             CellRelativePath::unchecked_new("baz-package"),
         );
-        let target = TargetLabel::new(pkg, TargetName::unchecked_new("target-name"));
+        let target = TargetLabel::new(pkg, TargetNameRef::unchecked_new("target-name"));
         let cfg_target = target.configure(Configuration::testing_new());
 
         let resolved = path_resolver.resolve_gen(&BuckOutPath::new(
@@ -852,7 +852,7 @@ mod tests {
             CellName::unchecked_new("foo"),
             CellRelativePath::unchecked_new("baz-package"),
         );
-        let target = TargetLabel::new(pkg, TargetName::unchecked_new("target-name"));
+        let target = TargetLabel::new(pkg, TargetNameRef::unchecked_new("target-name"));
         let cfg_target = target.configure(Configuration::testing_new());
 
         let resolved = path_resolver.resolve_gen(&BuckOutPath::new(
@@ -895,7 +895,7 @@ mod tests {
             CellName::unchecked_new("foo"),
             CellRelativePath::unchecked_new("baz-package"),
         );
-        let target = TargetLabel::new(pkg, TargetName::unchecked_new("target-name"));
+        let target = TargetLabel::new(pkg, TargetNameRef::unchecked_new("target-name"));
         let cfg_target = target.configure(Configuration::testing_new());
 
         let full = BuckOutPath::new(
@@ -921,7 +921,7 @@ mod tests {
             CellName::unchecked_new("foo"),
             CellRelativePath::unchecked_new("baz-package"),
         );
-        let target = TargetLabel::new(pkg, TargetName::unchecked_new("target-name"));
+        let target = TargetLabel::new(pkg, TargetNameRef::unchecked_new("target-name"));
         let cfg_target = target.configure(Configuration::testing_new());
         let category = Category::try_from("category").unwrap();
 
@@ -1044,7 +1044,7 @@ mod tests {
             CellRelativePath::unchecked_new("path/to/target"),
         );
 
-        let expected_target_label = TargetLabel::new(pkg, TargetName::new("target_name")?);
+        let expected_target_label = TargetLabel::new(pkg, TargetNameRef::new("target_name")?);
 
         let expected_cell_path = CellPath::new(
             CellName::unchecked_new("bar"),

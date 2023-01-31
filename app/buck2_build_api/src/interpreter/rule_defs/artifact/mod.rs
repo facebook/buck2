@@ -104,7 +104,8 @@ pub mod testing {
             target,
         ) {
             Ok(ParsedPattern::Target(package, target_name)) => {
-                Ok(TargetLabel::new(package, target_name).configure(Configuration::testing_new()))
+                Ok(TargetLabel::new(package, target_name.as_ref())
+                    .configure(Configuration::testing_new()))
             }
             _ => panic!("expected a valid target"),
         }

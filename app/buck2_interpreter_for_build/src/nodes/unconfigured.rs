@@ -10,7 +10,7 @@
 use std::sync::Arc;
 
 use buck2_core::target::label::TargetLabel;
-use buck2_core::target::name::TargetName;
+use buck2_core::target::name::TargetNameRef;
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coerced_deps_collector::CoercedDeps;
@@ -65,7 +65,7 @@ impl TargetNodeExt for TargetNode {
             if attr_name == NAME_ATTRIBUTE_FIELD {
                 let label = TargetLabel::new(
                     internals.buildfile_path().package().dupe(),
-                    TargetName::new(value.unpack_str().unwrap()).unwrap(),
+                    TargetNameRef::new(value.unpack_str().unwrap()).unwrap(),
                 );
                 return Ok(TargetNode::new(
                     rule.dupe(),
@@ -105,7 +105,7 @@ impl TargetNodeExt for TargetNode {
                 .parse_params(param_parser, arg_count, internals)?;
         let package_name = internals.buildfile_path().package();
 
-        let label = TargetLabel::new(package_name.dupe(), target_name);
+        let label = TargetLabel::new(package_name.dupe(), target_name.as_ref());
         let mut deps_cache = CoercedDepsCollector::new();
 
         for a in rule.attributes.attrs(&attr_values, AttrInspectOptions::All) {

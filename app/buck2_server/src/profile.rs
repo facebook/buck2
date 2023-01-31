@@ -57,7 +57,7 @@ async fn generate_profile_analysis(
     }
     .context("Did not find exactly one target")?;
 
-    let label = TargetLabel::new(package.dupe(), target);
+    let label = TargetLabel::new(package.dupe(), target.as_ref());
 
     let configured_target = ctx
         .get_configured_target(&label, global_target_platform.as_ref())
