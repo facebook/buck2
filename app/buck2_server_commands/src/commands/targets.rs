@@ -197,13 +197,13 @@ impl TargetPrinter for JsonPrinter {
 }
 
 #[derive(Debug)]
-struct StatsPrinter {
+struct Stats {
     errors: u64,
     success: u64,
     targets: u64,
 }
 
-impl StatsPrinter {
+impl Stats {
     fn new() -> Self {
         Self {
             errors: 0,
@@ -213,7 +213,7 @@ impl StatsPrinter {
     }
 }
 
-impl TargetPrinter for StatsPrinter {
+impl TargetPrinter for Stats {
     fn end(&mut self) -> String {
         format!("{:?}\n", self)
     }
@@ -368,7 +368,7 @@ fn create_printer(request: &TargetsRequest) -> anyhow::Result<Box<dyn TargetPrin
             keep_going: request.keep_going,
         })
     } else if request.stats {
-        Ok(box StatsPrinter::new())
+        Ok(box Stats::new())
     } else {
         Ok(box TargetNamePrinter {
             display_string: String::new(),
