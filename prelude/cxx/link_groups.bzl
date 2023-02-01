@@ -190,6 +190,9 @@ def get_filtered_labels_to_links_map(
         link_group_preferred_linkage: {"label": Linkage.type},
         link_style: LinkStyle.type,
         deps: ["label"],
+        # Additional roots to search for nodes in the target link group (e.g.
+        # dlopen-enabled libs or outlined native Python extensions).
+        other_roots: ["label"] = [],
         link_group_libs: {str.type: (["label", None], LinkInfos.type)} = {},
         prefer_stripped: bool.type = False,
         is_executable_link: bool.type = False) -> {"label": LinkGroupLinkInfo.type}:
@@ -219,10 +222,28 @@ def get_filtered_labels_to_links_map(
 
         return node_linkables
 
+    # Walk through roots looking for the first node which maps to the current
+    # link group.
+    def collect_and_traverse_roots(roots, node_target):
+        node_link_group = link_group_mappings.get(node_target)
+        if node_link_group == MATCH_ALL_LABEL:
+            roots.append(node_target)
+            return []
+        if node_link_group == link_group:
+            roots.append(node_target)
+            return []
+        return get_traversed_deps(node_target)
+
     # Get all potential linkable targets
+    other_deps = []
+    breadth_first_traversal_by(
+        linkable_graph_node_map,
+        other_roots,
+        partial(collect_and_traverse_roots, other_deps),
+    )
     linkables = breadth_first_traversal_by(
         linkable_graph_node_map,
-        deps,
+        deps + other_deps,
         get_traversed_deps,
     )
 
@@ -412,6 +433,8 @@ def create_link_group(
         spec: LinkGroupLibSpec.type,
         # The deps of the top-level executable.
         executable_deps: ["label"] = [],
+        # Additional roots involved in the link.
+        other_roots: ["label"] = [],
         root_link_group = [str.type, None],
         linkable_graph_node_map: {"label": LinkableNode.type} = {},
         linker_flags: [""] = [],
@@ -452,13 +475,14 @@ def create_link_group(
         link_group_libs = link_group_libs,
         link_style = link_style,
         deps = roots,
+        other_roots = other_roots,
         is_executable_link = False,
         prefer_stripped = prefer_stripped_objects,
     )
     public_nodes = get_public_link_group_nodes(
         linkable_graph_node_map,
         link_group_mappings,
-        executable_deps,
+        executable_deps + other_roots,
         root_link_group,
     )
     inputs.extend(get_filtered_links(filtered_labels_to_links_map, public_nodes))

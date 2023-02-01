@@ -37,6 +37,7 @@ load(
     "LinkInfo",
     "LinkInfos",
     "LinkStyle",
+    "Linkage",
     "LinkedObject",  # @unused Used as a type
     "ObjectsLinkable",
     "SharedLibLinkable",
@@ -300,13 +301,10 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
     else:
         linkable_graph_node_map = get_linkable_graph_node_map_func(linkable_graph)()
 
-        link_group_link_deps = (
-            [d.linkable_graph.nodes.value.label for d in link_deps] +
-            # Although these aren't really deps, we need to search from the
-            # extra link group roots to make sure we find additional libs
-            # that should be linked into the main link group.
-            [d.linkable_graph.nodes.value.label for d in impl_params.extra_link_roots]
-        )
+        # Although these aren't really deps, we need to search from the
+        # extra link group roots to make sure we find additional libs
+        # that should be linked into the main link group.
+        link_group_other_roots = [d.linkable_graph.nodes.value.label for d in impl_params.extra_link_roots]
 
         # If we're using auto-link-groups, where we generate the link group links
         # in the prelude, the link group map will give us the link group libs.
@@ -329,7 +327,8 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
                 link_group_lib = create_link_group(
                     ctx = ctx,
                     spec = link_group_spec,
-                    executable_deps = link_group_link_deps,
+                    executable_deps = [d.linkable_graph.nodes.value.label for d in link_deps],
+                    other_roots = link_group_other_roots,
                     root_link_group = link_group,
                     linkable_graph_node_map = linkable_graph_node_map,
                     linker_flags = own_link_flags,
@@ -383,7 +382,8 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
                 for name, lib in link_group_libs.items()
             },
             link_style = link_style,
-            deps = link_group_link_deps,
+            deps = [d.linkable_graph.nodes.value.label for d in link_deps],
+            other_roots = link_group_other_roots,
             is_executable_link = True,
             prefer_stripped = ctx.attrs.prefer_stripped_objects,
         )
@@ -397,7 +397,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
                 link_group_mappings,
                 link_group_preferred_linkage,
                 link_style,
-                deps = link_group_link_deps,
+                deps = [d.linkable_graph.nodes.value.label for d in link_deps],
                 is_executable_link = True,
                 prefer_stripped = ctx.attrs.prefer_stripped_objects,
             )
@@ -436,8 +436,17 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
             if label in link_group_mappings and link_group_mappings[label] in link_group_libs:
                 return False
 
+            # buildifier: disable=uninitialized
+            if link_group_preferred_linkage.get(label, Linkage("any")) == Linkage("shared"):
+                return True
+
             # if using link_groups, only materialize the link_group shlibs
-            return label in labels_to_links_map and labels_to_links_map[label].link_style == LinkStyle("shared")  # buildifier: disable=uninitialized
+            # buildifier: disable=uninitialized
+            node_link = labels_to_links_map.get(label)
+            if node_link != None and node_link.link_style == LinkStyle("shared"):
+                return True
+
+            return False
 
         for name, shared_lib in traverse_shared_library_info(shlib_info).items():
             label = shared_lib.label

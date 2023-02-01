@@ -419,8 +419,7 @@ def convert_python_library_to_executable(
         # All deps inolved in the link.
         link_deps = (
             linkables(executable_deps) +
-            list(extension_info.linkable_providers.traverse()) +
-            extension_info.dlopen_deps.values()
+            list(extension_info.linkable_providers.traverse())
         )
 
         link_group_info, auto_link_group_specs = _get_link_group_info(
@@ -442,7 +441,10 @@ def convert_python_library_to_executable(
             force_full_hybrid_if_capable = True,
             link_group_info = link_group_info,
             auto_link_group_specs = auto_link_group_specs,
-            extra_link_roots = extension_info.unembeddable_extensions.values(),
+            extra_link_roots = (
+                extension_info.unembeddable_extensions.values() +
+                extension_info.dlopen_deps.values()
+            ),
         )
 
         executable_info, _, _ = cxx_executable(ctx, impl_params)
