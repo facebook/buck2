@@ -223,7 +223,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
                     linkable_graph_node_map = linkable_graph_node_map,
                     linker_flags = own_link_flags,
                     link_group_mappings = link_group_mappings,
-                    link_group_preferred_linkage = {},
+                    link_group_preferred_linkage = link_group_preferred_linkage,
                     #link_style = LinkStyle("static_pic"),
                     # TODO(agallagher): We should generate link groups via post-order
                     # traversal to get inter-group deps correct.

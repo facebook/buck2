@@ -281,7 +281,6 @@ def _python_binary_attrs():
     # allow non-default value for the args below
     updated_attrs.update(_python_executable_attrs())
     updated_attrs.update({
-        "auto_link_groups": attrs.bool(default = False),
         "cxx_main": attrs.source(default = "prelude//python/tools:embedded_main.cpp"),
         "executable_deps": attrs.list(attrs.dep(), default = []),
         "executable_name": attrs.option(attrs.string(), default = None),
