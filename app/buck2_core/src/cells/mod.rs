@@ -162,6 +162,7 @@ use crate::cells::cell_root_path::CellRootPathBuf;
 use crate::cells::name::CellName;
 use crate::fs::paths::abs_norm_path::AbsNormPath;
 use crate::fs::paths::abs_norm_path::AbsNormPathBuf;
+use crate::fs::paths::abs_path::AbsPath;
 use crate::fs::paths::file_name::FileNameBuf;
 use crate::fs::project::ProjectRoot;
 use crate::fs::project_rel_path::ProjectRelativePath;
@@ -406,8 +407,8 @@ impl CellResolver {
         cwd: &ProjectRelativePath,
     ) -> anyhow::Result<CellPath> {
         if path.is_absolute() {
-            let abs_path = AbsNormPath::new(path)?;
-            self.get_cell_path(&fs.relativize(abs_path)?)
+            let abs_path = AbsPath::new(path)?;
+            self.get_cell_path(&fs.relativize_any(abs_path)?)
         } else {
             let project_path = cwd.as_forward_relative_path().join_system(path)?;
             self.get_cell_path(&ProjectRelativePathBuf::from(project_path))
