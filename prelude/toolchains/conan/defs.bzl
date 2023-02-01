@@ -313,10 +313,15 @@ def conan_component(
         directories = include_paths,
     )
 
+    # [Note: Conan exported_deps] We cannot distinguish private and public
+    # dependencies based on the information exposed by Conan. We default to
+    # public dependencies, to avoid having to manually specify public
+    # dependencies when headers need to be reexported.
+
     if len(libs) == 0:
         native.prebuilt_cxx_library(
             name = name,
-            deps = deps,  # TODO[AH] Do we need exported_deps?
+            exported_deps = deps,  # See [Note: Conan exported_deps]
             header_dirs = extract_include_paths,
             exported_preprocessor_flags = ["-D" + d for d in defines],
             exported_lang_preprocessor_flags = {
@@ -337,7 +342,7 @@ def conan_component(
             static_lib = None
         native.prebuilt_cxx_library(
             name = name,
-            deps = deps,  # TODO[AH] Do we need exported_deps?
+            exported_deps = deps,  # See [Note: Conan exported_deps]
             header_dirs = extract_include_paths,
             exported_preprocessor_flags = ["-D" + d for d in defines],
             exported_lang_preprocessor_flags = {
