@@ -119,8 +119,9 @@ impl ProvidersExpr {
             }
             .map_or(Ok(None), |label| {
                 let result: anyhow::Result<_> = try {
-                    Self::Literal(ctx.async_ctx.via_dice(|ctx| {
+                    Self::Literal(ctx.async_ctx.via_dice(|ctx| async {
                         ctx.get_configured_target(&label, target_platform.as_ref())
+                            .await
                     })?)
                 };
                 result.map(Some)

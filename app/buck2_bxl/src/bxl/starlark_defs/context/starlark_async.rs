@@ -29,18 +29,18 @@ impl<'a> BxlSafeDiceComputations<'a> {
     }
 
     /// runs the async computation over dice as sync
-    pub fn via_dice<Fut, R>(&self, f: impl FnOnce(&'a DiceComputations) -> Fut) -> R
+    pub fn via_dice<Fut, T>(&self, f: impl FnOnce(&'a DiceComputations) -> Fut) -> anyhow::Result<T>
     where
-        Fut: Future<Output = R>,
+        Fut: Future<Output = anyhow::Result<T>>,
     {
         let dispatcher = self.0.per_transaction_data().get_dispatcher().dupe();
         tokio::runtime::Handle::current().block_on(with_dispatcher_async(dispatcher, f(self.0)))
     }
 
     /// runs any async computation
-    pub fn via<Fut, R>(&self, f: impl FnOnce() -> Fut) -> R
+    pub fn via<Fut, T>(&self, f: impl FnOnce() -> Fut) -> anyhow::Result<T>
     where
-        Fut: Future<Output = R>,
+        Fut: Future<Output = anyhow::Result<T>>,
     {
         let dispatcher = self.0.per_transaction_data().get_dispatcher().dupe();
         tokio::runtime::Handle::current().block_on(with_dispatcher_async(dispatcher, f()))

@@ -17,7 +17,6 @@ use buck2_build_api::build::MaterializationContext;
 use buck2_build_api::build::ProvidersToBuild;
 use buck2_build_api::bxl::build_result::BxlBuildResult;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
-use buck2_common::result::ToSharedResultExt;
 use buck2_interpreter::types::label::Label;
 use derive_more::Display;
 use dupe::Dupe;
@@ -148,7 +147,7 @@ pub(crate) fn build<'v>(
             force: false,
         };
 
-        futures::future::join_all(build_spec.labels().map(|target| {
+        Ok(futures::future::join_all(build_spec.labels().map(|target| {
             async {
                 (
                     target.clone(),
@@ -164,13 +163,12 @@ pub(crate) fn build<'v>(
                         }, // TODO support skipping/configuring?
                         false,
                     )
-                    .await
-                    .shared_error(),
+                    .await,
                 )
             }
         }))
-        .await
-    });
+        .await)
+    })?;
 
     build_result
         .into_iter()

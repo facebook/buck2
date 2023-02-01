@@ -152,8 +152,9 @@ fn register_cquery(builder: &mut MethodsBuilder) {
         to: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
-        Ok(this.ctx.async_ctx.via(|| async {
-            this.functions
+        this.ctx.async_ctx.via(|| async {
+            Ok(this
+                .functions
                 .allpaths(
                     &this.env,
                     &*TargetExpr::<'v, ConfiguredTargetNode>::unpack(
@@ -176,8 +177,8 @@ fn register_cquery(builder: &mut MethodsBuilder) {
                     .await?,
                 )
                 .await
-                .map(StarlarkTargetSet::from)
-        })?)
+                .map(StarlarkTargetSet::from)?)
+        })
     }
 
     // The somepaths query.
@@ -187,8 +188,9 @@ fn register_cquery(builder: &mut MethodsBuilder) {
         to: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
-        Ok(this.ctx.async_ctx.via(|| async {
-            this.functions
+        this.ctx.async_ctx.via(|| async {
+            Ok(this
+                .functions
                 .somepath(
                     &this.env,
                     &*TargetExpr::<'v, ConfiguredTargetNode>::unpack(
@@ -211,8 +213,8 @@ fn register_cquery(builder: &mut MethodsBuilder) {
                     .await?,
                 )
                 .await
-                .map(StarlarkTargetSet::from)
-        })?)
+                .map(StarlarkTargetSet::from)?)
+        })
     }
 
     /// The attrfilter query for rule attribute filtering.
