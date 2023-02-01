@@ -53,6 +53,8 @@ commands:
           command: |
             opam init --disable-sandboxing -y
             opam install menhir ppxlib -y
+            opam update
+            opam upgrade
       - print_versions
       - print_ocaml_config
 

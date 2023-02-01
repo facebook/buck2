@@ -16,8 +16,30 @@ cxx_library(
     deps = ["//third-party/ocaml:ocaml-dev"],
 ) if not host_info().os.is_windows else None
 
+ocaml_binary(
+    name = "hello-rs",
+    srcs = [
+        "hello.ml",
+    ],
+    deps = [":hello-stubs-rs"],
+) if not host_info().os.is_windows else None
+
+rust_library(
+    name = "hello-stubs-rs",
+    srcs = [
+        "hello_stubs.rs",
+    ],
+    crate_root = "hello_stubs.rs",
+) if not host_info().os.is_windows else None
+
 assert_output(
     name = "check-hello-c",
     command = "$(exe_target :hello-c)",
     output = "Hello C",
+) if not host_info().os.is_windows else None
+
+assert_output(
+    name = "check-hello-rs",
+    command = "$(exe_target :hello-rs)",
+    output = "Hello Rust",
 ) if not host_info().os.is_windows else None
