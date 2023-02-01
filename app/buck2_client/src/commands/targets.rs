@@ -66,17 +66,16 @@ pub struct TargetsCommand {
     #[clap(flatten)]
     event_log_opts: CommonDaemonCommandOptions,
 
-    #[clap(long, help = "print targets json")]
+    /// Print targets as JSON
+    #[clap(long)]
     json: bool,
 
-    #[clap(long, help = "print stats")]
+    /// Print statistics of how many entries were processed
+    #[clap(long)]
     stats: bool,
 
-    #[clap(
-        long,
-        alias = "resolvealias",
-        help = "Print the fully-qualified build target for the specified alias[es]"
-    )]
+    /// Print the fully-qualified build target for the specified aliases
+    #[clap(long, alias = "resolvealias")]
     resolve_alias: bool,
 
     /// Print a stable hash of each target after the target name. Incompatible with '--show-rulekey'.
@@ -126,28 +125,24 @@ pub struct TargetsCommand {
     #[clap(long)]
     include_defaults: bool,
 
-    #[clap(name = "TARGET_PATTERNS", help = "Patterns to interpret")]
+    /// Patterns to interpret
+    #[clap(name = "TARGET_PATTERNS")]
     patterns: Vec<String>,
 
-    #[clap(
-        long,
-        help = "Print the path to the output for each of the rules relative to the cell"
-    )]
+    /// Print the path to the output for each of the rules relative to the cell
+    #[clap(long)]
     show_output: bool,
 
-    #[clap(
-        long,
-        help = "Print the absolute path to the output for each of the rules relative to the cell"
-    )]
+    /// Print the absolute path to the output for each of the rules relative to the cell
+    #[clap(long)]
     show_full_output: bool,
 
-    #[clap(long, help = "Show target call stacks")]
+    /// Show target call stacks
+    #[clap(long)]
     target_call_stacks: bool,
 
-    #[clap(
-        long,
-        help = "On loading errors, put buck.error in the output stream and continue"
-    )]
+    /// On loading errors, put buck.error in the output stream and continue
+    #[clap(long)]
     keep_going: bool,
 }
 
