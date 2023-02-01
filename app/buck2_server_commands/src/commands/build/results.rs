@@ -183,8 +183,8 @@ pub mod build_report {
     use buck2_build_api::build::BuildProviderType;
     use buck2_core::configuration::Configuration;
     use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
-    use buck2_core::fs::project::ProjectRelativePathBuf;
     use buck2_core::fs::project::ProjectRoot;
+    use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
     use buck2_core::provider::label::NonDefaultProvidersName;
     use buck2_core::provider::label::ProvidersName;
     use buck2_core::target::label::TargetLabel;

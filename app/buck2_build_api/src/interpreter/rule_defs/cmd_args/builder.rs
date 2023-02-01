@@ -10,7 +10,7 @@
 use std::fmt::Debug;
 
 use buck2_core::fs::paths::RelativePathBuf;
-use buck2_core::fs::project::ProjectRelativePathBuf;
+use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_execute::artifact::fs::ExecutorFs;
 use indexmap::IndexSet;
 use thiserror::Error;
@@ -140,8 +140,8 @@ mod tests {
     use buck2_core::cells::testing::CellResolverExt;
     use buck2_core::cells::CellResolver;
     use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
-    use buck2_core::fs::project::ProjectRelativePathBuf;
     use buck2_core::fs::project::ProjectRoot;
+    use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
     use buck2_execute::artifact::fs::ArtifactFs;
     use buck2_execute::path::buck_out_path::BuckOutPathResolver;
     use buck2_execute::path::buck_out_path::BuckPathResolver;

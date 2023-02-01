@@ -58,7 +58,7 @@ use crate::cells::paths::CellRelativePath;
 use crate::cells::CellResolver;
 use crate::fs::paths::fmt::quoted_display;
 use crate::fs::paths::forward_rel_path::ForwardRelativePath;
-use crate::fs::project::ProjectRelativePathBuf;
+use crate::fs::project_rel_path::ProjectRelativePathBuf;
 
 /// A 'Package' as defined above.
 #[derive(
@@ -165,7 +165,7 @@ impl CellResolver {
     ///
     /// ```
     /// use buck2_core::cells::CellResolver;
-    /// use buck2_core::fs::project::{ProjectRelativePath, ProjectRelativePathBuf};
+    /// use buck2_core::fs::project_rel_path::{ProjectRelativePath, ProjectRelativePathBuf};
     /// use buck2_core::fs::paths::forward_rel_path::{ForwardRelativePathBuf, ForwardRelativePath};
     /// use buck2_core::package::PackageLabel;
     /// use std::convert::TryFrom;

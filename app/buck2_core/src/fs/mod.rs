@@ -11,4 +11,5 @@ pub mod async_fs_util;
 pub mod fs_util;
 pub mod paths;
 pub mod project;
+pub mod project_rel_path;
 pub mod working_dir;

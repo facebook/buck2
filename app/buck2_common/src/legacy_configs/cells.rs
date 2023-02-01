@@ -20,9 +20,9 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::RelativePath;
-use buck2_core::fs::project::ProjectRelativePath;
-use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
+use buck2_core::fs::project_rel_path::ProjectRelativePath;
+use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use once_cell::unsync::OnceCell;
 
 use crate::legacy_configs::path::BuckConfigFile;
@@ -344,8 +344,8 @@ mod tests {
     use buck2_core::cells::name::CellName;
     use buck2_core::cells::CellAlias;
     use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
-    use buck2_core::fs::project::ProjectRelativePath;
     use buck2_core::fs::project::ProjectRoot;
+    use buck2_core::fs::project_rel_path::ProjectRelativePath;
     use gazebo::prelude::*;
     use indoc::indoc;
 

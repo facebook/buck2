@@ -19,7 +19,7 @@ use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
-use buck2_core::fs::project::ProjectRelativePath;
+use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::rollout_percentage::RolloutPercentage;
 use buck2_events::dispatch::span_async;
 use dice::DiceTransactionUpdater;

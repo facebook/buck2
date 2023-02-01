@@ -156,8 +156,8 @@ impl_cmp_str!(PackageRelativePath, String, PackageRelativePath);
 impl_cmp_str!(&'_ PackageRelativePath, str, PackageRelativePath);
 impl_cmp_str!(&'_ PackageRelativePath, String, PackageRelativePath);
 
-use crate::fs::project::ProjectRelativePath;
-use crate::fs::project::ProjectRelativePathBuf;
+use crate::fs::project_rel_path::ProjectRelativePath;
+use crate::fs::project_rel_path::ProjectRelativePathBuf;
 
 impl_cmp!(
     ProjectRelativePathBuf,

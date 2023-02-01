@@ -19,7 +19,7 @@ use buck2_core::directory::DirectoryEntry;
 use buck2_core::directory::DirectoryIterator;
 use buck2_core::directory::FingerprintedDirectory;
 use buck2_core::env_helper::EnvHelper;
-use buck2_core::fs::project::ProjectRelativePath;
+use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::soft_error;
 use chrono::Duration;
 use chrono::Utc;

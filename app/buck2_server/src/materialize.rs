@@ -8,7 +8,7 @@
  */
 
 use anyhow::Context;
-use buck2_core::fs::project::ProjectRelativePath;
+use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_events::dispatch::span_async;
 use buck2_server_ctx::command_end::command_end;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;

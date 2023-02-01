@@ -19,7 +19,7 @@ use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::fs_util;
-use buck2_core::fs::project::ProjectRelativePath;
+use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use chrono::DateTime;
 use chrono::Utc;
 use dupe::Dupe;

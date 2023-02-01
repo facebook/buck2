@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
-use buck2_core::fs::project::ProjectRelativePathBuf;
+use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use futures::stream;
 use futures::stream::BoxStream;
 use futures::stream::StreamExt;

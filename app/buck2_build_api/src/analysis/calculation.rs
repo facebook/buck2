@@ -440,8 +440,8 @@ mod tests {
     use buck2_core::cells::CellsAggregator;
     use buck2_core::collections::ordered_map::OrderedMap;
     use buck2_core::configuration::Configuration;
-    use buck2_core::fs::project::ProjectRelativePathBuf;
     use buck2_core::fs::project::ProjectRootTemp;
+    use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
     use buck2_core::package::testing::PackageExt;
     use buck2_core::package::PackageLabel;
     use buck2_core::provider::id::testing::ProviderIdExt;

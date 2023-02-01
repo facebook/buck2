@@ -8,9 +8,9 @@
  */
 
 use anyhow::Context;
-use buck2_core::fs::project::ProjectRelativePath;
-use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
+use buck2_core::fs::project_rel_path::ProjectRelativePath;
+use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 
 use crate::execute::blocking::IoRequest;
 

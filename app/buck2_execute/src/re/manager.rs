@@ -21,7 +21,7 @@ use async_trait::async_trait;
 use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_common::result::SharedResult;
 use buck2_core::async_once_cell::AsyncOnceCell;
-use buck2_core::fs::project::ProjectRelativePath;
+use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use chrono::DateTime;
 use chrono::Utc;
 use dupe::Dupe;

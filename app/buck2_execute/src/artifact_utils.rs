@@ -12,8 +12,8 @@ use std::sync::Arc;
 use anyhow::Context;
 use buck2_core::directory::DirectoryEntry;
 use buck2_core::fs::fs_util;
-use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRoot;
+use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use dupe::Dupe;
 
 use crate::artifact_value::ArtifactValue;

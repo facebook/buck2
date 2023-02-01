@@ -28,7 +28,7 @@ pub(crate) mod testing {
     use buck2_core::cells::name::CellName;
     use buck2_core::cells::*;
     use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
-    use buck2_core::fs::project::ProjectRelativePathBuf;
+    use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
     use buck2_interpreter::common::OwnedStarlarkModulePath;
     use buck2_interpreter::common::StarlarkModulePath;
     use buck2_interpreter::common::StarlarkPath;

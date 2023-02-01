@@ -21,7 +21,7 @@ use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::file_name::FileName;
-use buck2_core::fs::project::ProjectRelativePathBuf;
+use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_execute::directory::ActionDirectoryMember;
 use buck2_execute::directory::Symlink;
 use buck2_execute::execute::blocking::BlockingExecutor;
@@ -583,9 +583,9 @@ mod tests {
     use buck2_common::file_ops::FileMetadata;
     use buck2_common::file_ops::TrackedFileDigest;
     use buck2_core::directory::DirectoryEntry;
-    use buck2_core::fs::project::ProjectRelativePath;
     use buck2_core::fs::project::ProjectRoot;
     use buck2_core::fs::project::ProjectRootTemp;
+    use buck2_core::fs::project_rel_path::ProjectRelativePath;
     use buck2_execute::directory::new_symlink;
     use buck2_execute::directory::ActionDirectoryMember;
 

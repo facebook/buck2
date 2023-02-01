@@ -20,9 +20,9 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
-use buck2_core::fs::project::ProjectRelativePath;
-use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
+use buck2_core::fs::project_rel_path::ProjectRelativePath;
+use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use once_cell::sync::Lazy;
 
 use crate::daemon_dir::DaemonDir;
@@ -200,8 +200,8 @@ mod tests {
     use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
     use buck2_core::fs::paths::file_name::FileNameBuf;
     use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
-    use buck2_core::fs::project::ProjectRelativePathBuf;
     use buck2_core::fs::project::ProjectRoot;
+    use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 
     use crate::invocation_paths::InvocationPaths;
     use crate::invocation_roots::InvocationRoots;

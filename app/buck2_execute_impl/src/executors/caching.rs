@@ -17,7 +17,7 @@ use buck2_common::executor_config::CacheUploadBehavior;
 use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_core::directory::DirectoryEntry;
 use buck2_core::env_helper::EnvHelper;
-use buck2_core::fs::project::ProjectRelativePath;
+use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_events::dispatch::span_async;
 use buck2_execute::artifact::fs::ArtifactFs;
 use buck2_execute::digest::CasDigestToReExt;

@@ -25,7 +25,7 @@ use buck2_cli_proto::QueryOutputFormat;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_core::cells::CellResolver;
 use buck2_core::configuration::Configuration;
-use buck2_core::fs::project::ProjectRelativePath;
+use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::target::label::TargetLabel;
 use buck2_execute::path::buck_out_path::BuckOutPathParser;
 use buck2_execute::path::buck_out_path::BuckOutPathResolver;

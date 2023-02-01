@@ -10,7 +10,7 @@
 use std::fmt::Display;
 use std::fmt::Write;
 
-use buck2_core::fs::project::ProjectRelativePathBuf;
+use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_execute::execute::request::OutputType;
 use thiserror::Error;
 

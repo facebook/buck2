@@ -15,7 +15,7 @@ use anyhow::Context;
 use async_trait::async_trait;
 use buck2_core::category::Category;
 use buck2_core::fs::paths::RelativePathBuf;
-use buck2_core::fs::project::ProjectRelativePathBuf;
+use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
 use buck2_execute::materialize::materializer::WriteRequest;

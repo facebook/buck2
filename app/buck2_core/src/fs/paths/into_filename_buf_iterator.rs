@@ -13,8 +13,8 @@ use crate::fs::paths::file_name::FileName;
 use crate::fs::paths::file_name::FileNameBuf;
 use crate::fs::paths::forward_rel_path::ForwardRelativePath;
 use crate::fs::paths::forward_rel_path::ForwardRelativePathBuf;
-use crate::fs::project::ProjectRelativePath;
-use crate::fs::project::ProjectRelativePathBuf;
+use crate::fs::project_rel_path::ProjectRelativePath;
+use crate::fs::project_rel_path::ProjectRelativePathBuf;
 
 /// Provide an iterator of FileNameBuf from inputs that can produce one. This is useful for methods
 /// that insert into directory mappings.

@@ -156,8 +156,8 @@ pub fn register_args_function(builder: &mut GlobalsBuilder) {
 pub mod tester {
     use buck2_common::executor_config::PathSeparatorKind;
     use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
-    use buck2_core::fs::project::ProjectRelativePathBuf;
     use buck2_core::fs::project::ProjectRoot;
+    use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
     use buck2_execute::artifact::fs::ArtifactFs;
     use buck2_execute::artifact::fs::ExecutorFs;
     use buck2_execute::path::buck_out_path::BuckOutPathResolver;

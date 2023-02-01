@@ -10,7 +10,7 @@
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_core::cells::name::CellName;
-use buck2_core::fs::project::ProjectRelativePath;
+use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::package::PackageLabel;
 use buck2_core::target_aliases::TargetAliasResolver;
 use derive_more::Display;

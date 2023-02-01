@@ -165,8 +165,8 @@ pub(crate) fn delete_unknown_disk_state(
 #[cfg(test)]
 mod tests {
     use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
-    use buck2_core::fs::project::ProjectRelativePath;
     use buck2_core::fs::project::ProjectRootTemp;
+    use buck2_core::fs::project_rel_path::ProjectRelativePath;
     use dupe::Dupe;
 
     use super::*;

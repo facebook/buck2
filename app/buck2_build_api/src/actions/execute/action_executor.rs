@@ -519,9 +519,9 @@ mod tests {
     use buck2_core::configuration::Configuration;
     use buck2_core::fs::fs_util;
     use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
-    use buck2_core::fs::project::ProjectRelativePath;
-    use buck2_core::fs::project::ProjectRelativePathBuf;
     use buck2_core::fs::project::ProjectRootTemp;
+    use buck2_core::fs::project_rel_path::ProjectRelativePath;
+    use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
     use buck2_core::package::package_relative_path::PackageRelativePathBuf;
     use buck2_core::package::PackageLabel;
     use buck2_core::target::label::testing::ConfiguredTargetLabelExt;

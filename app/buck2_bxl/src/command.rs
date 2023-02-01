@@ -30,7 +30,7 @@ use buck2_common::dice::data::HasIoProvider;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::result::SharedError;
 use buck2_core::cells::CellResolver;
-use buck2_core::fs::project::ProjectRelativePath;
+use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::package::PackageLabel;
 use buck2_execute::bxl::types::BxlFunctionLabel;
 use buck2_execute::bxl::types::BxlKey;

@@ -13,8 +13,8 @@ use std::time::Duration;
 
 use allocative::Allocative;
 use buck2_common::file_ops::TrackedFileDigest;
-use buck2_core::fs::project::ProjectRelativePath;
-use buck2_core::fs::project::ProjectRelativePathBuf;
+use buck2_core::fs::project_rel_path::ProjectRelativePath;
+use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::quiet_soft_error;
 use derive_more::Display;
 use dupe::Dupe;

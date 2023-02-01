@@ -27,7 +27,7 @@ use buck2_common::dice::data::HasIoProvider;
 use buck2_core::buck_path::BuckPathRef;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
-use buck2_core::fs::project::ProjectRelativePath;
+use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::package::PackageLabel;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::label::ConfiguredTargetLabel;

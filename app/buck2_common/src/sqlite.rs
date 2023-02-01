@@ -82,8 +82,8 @@ impl KeyValueSqliteTable {
 mod tests {
     use std::collections::HashMap;
 
-    use buck2_core::fs::project::ProjectRelativePath;
     use buck2_core::fs::project::ProjectRootTemp;
+    use buck2_core::fs::project_rel_path::ProjectRelativePath;
 
     use super::*;
 

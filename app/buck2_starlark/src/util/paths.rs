@@ -20,7 +20,7 @@ use buck2_core::bzl::ImportPath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::file_name::FileName;
-use buck2_core::fs::project::ProjectRelativePathBuf;
+use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::package::PackageLabel;
 use buck2_interpreter::common::BxlFilePath;
 use buck2_interpreter::common::OwnedStarlarkPath;

@@ -296,7 +296,7 @@ impl HasAllCellIgnores for DiceComputations {
 mod tests {
     use buck2_core::cells::cell_root_path::CellRootPath;
     use buck2_core::cells::name::CellName;
-    use buck2_core::fs::project::ProjectRelativePath;
+    use buck2_core::fs::project_rel_path::ProjectRelativePath;
 
     use crate::ignores::FileIgnores;
     use crate::ignores::MaybeIgnoredCellRelativePath;

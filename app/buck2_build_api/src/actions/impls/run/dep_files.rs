@@ -21,7 +21,7 @@ use buck2_core::directory::DirectorySelector;
 use buck2_core::directory::FingerprintedDirectory;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::fs_util;
-use buck2_core::fs::project::ProjectRelativePath;
+use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::soft_error;
 use buck2_execute::artifact::fs::ArtifactFs;
 use buck2_execute::base_deferred_key::BaseDeferredKey;

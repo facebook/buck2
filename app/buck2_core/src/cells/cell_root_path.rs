@@ -14,8 +14,8 @@ use allocative::Allocative;
 use ref_cast::RefCast;
 
 use crate::cells::paths::CellRelativePath;
-use crate::fs::project::ProjectRelativePath;
-use crate::fs::project::ProjectRelativePathBuf;
+use crate::fs::project_rel_path::ProjectRelativePath;
+use crate::fs::project_rel_path::ProjectRelativePathBuf;
 
 /// Path to the cell root.
 #[derive(RefCast, Debug, Hash, Eq, PartialEq, PartialOrd, Ord)]

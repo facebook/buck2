@@ -12,7 +12,7 @@ use std::sync::Arc;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
-use buck2_core::fs::project::ProjectRelativePathBuf;
+use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_execute::materialize::materializer::DeferredMaterializerEntry;
 use buck2_execute::materialize::materializer::DeferredMaterializerExtensions;
 use chrono::DateTime;

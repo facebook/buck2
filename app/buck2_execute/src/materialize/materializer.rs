@@ -17,7 +17,7 @@ use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_common::file_ops::FileMetadata;
 use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_core::directory::DirectoryEntry;
-use buck2_core::fs::project::ProjectRelativePathBuf;
+use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_events::dispatch::EventDispatcher;
 use chrono::DateTime;
 use chrono::Utc;

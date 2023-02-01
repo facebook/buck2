@@ -32,8 +32,8 @@ use crate::fs::paths::file_name::FileNameBuf;
 use crate::fs::paths::forward_rel_path::ForwardRelativePath;
 use crate::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use crate::fs::paths::IntoFileNameBufIterator;
-use crate::fs::project::ProjectRelativePath;
-use crate::fs::project::ProjectRelativePathBuf;
+use crate::fs::project_rel_path::ProjectRelativePath;
+use crate::fs::project_rel_path::ProjectRelativePathBuf;
 
 #[derive(Debug, Error)]
 pub enum DirectoryInsertError {

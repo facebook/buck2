@@ -144,7 +144,7 @@ mod tests {
     use buck2_core::cells::CellsAggregator;
     use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
     use buck2_core::fs::paths::file_name::FileNameBuf;
-    use buck2_core::fs::project::ProjectRelativePathBuf;
+    use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
     use dupe::Dupe;
     use indoc::indoc;
 

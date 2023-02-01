@@ -16,7 +16,7 @@ use std::marker::PhantomData;
 use allocative::Allocative;
 use buck2_core::fs::paths::RelativePath;
 use buck2_core::fs::paths::RelativePathBuf;
-use buck2_core::fs::project::ProjectRelativePathBuf;
+use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_interpreter::types::cell_root::CellRoot;
 use derive_more::Display;

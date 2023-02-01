@@ -12,8 +12,8 @@ use std::future::Future;
 
 use async_trait::async_trait;
 use buck2_common::result::SharedResult;
-use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRoot;
+use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::ProvidersPattern;
 use buck2_data::CommandCriticalEnd;

@@ -44,7 +44,7 @@ mod tests {
     use crate::fs::paths::abs_norm_path::AbsNormPathBuf;
     use crate::fs::paths::forward_rel_path::ForwardRelativePath;
     use crate::fs::paths::forward_rel_path::ForwardRelativePathBuf;
-    use crate::fs::project::ProjectRelativePath;
+    use crate::fs::project_rel_path::ProjectRelativePath;
 
     #[test]
     fn wrapped_paths_work_in_maps() -> anyhow::Result<()> {

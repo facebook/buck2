@@ -8,7 +8,7 @@
  */
 
 use async_trait::async_trait;
-use buck2_core::fs::project::ProjectRelativePathBuf;
+use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_data::ToProtoMessage;
 use buck2_events::dispatch::span_async;
 use buck2_execute::materialize::materializer::HasMaterializer;

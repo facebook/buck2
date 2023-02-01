@@ -77,7 +77,7 @@
 //!
 //! e.g.
 //! ```
-//! use buck2_core::fs::project::{ProjectRelativePath, ProjectRelativePathBuf};
+//! use buck2_core::fs::project_rel_path::{ProjectRelativePath, ProjectRelativePathBuf};
 //! use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 //! use buck2_core::cells::{CellResolver, CellAlias};
 //! use std::convert::TryFrom;
@@ -163,9 +163,9 @@ use crate::cells::name::CellName;
 use crate::fs::paths::abs_norm_path::AbsNormPath;
 use crate::fs::paths::abs_norm_path::AbsNormPathBuf;
 use crate::fs::paths::file_name::FileNameBuf;
-use crate::fs::project::ProjectRelativePath;
-use crate::fs::project::ProjectRelativePathBuf;
 use crate::fs::project::ProjectRoot;
+use crate::fs::project_rel_path::ProjectRelativePath;
+use crate::fs::project_rel_path::ProjectRelativePathBuf;
 
 /// Errors from cell creation
 #[derive(Error, Debug)]
@@ -450,7 +450,7 @@ impl CellResolver {
     ///
     /// ```
     /// use buck2_core::cells::{CellResolver };
-    /// use buck2_core::fs::project::{ProjectRelativePath, ProjectRelativePathBuf};
+    /// use buck2_core::fs::project_rel_path::{ProjectRelativePath, ProjectRelativePathBuf};
     /// use std::convert::TryFrom;
     /// use buck2_core::cells::cell_path::CellPath;
     /// use buck2_core::cells::cell_root_path::CellRootPathBuf;
@@ -697,7 +697,7 @@ pub mod testing {
     #[cfg(test)]
     #[test]
     fn test_of_names_and_paths() -> anyhow::Result<()> {
-        use crate::fs::project::ProjectRelativePathBuf;
+        use crate::fs::project_rel_path::ProjectRelativePathBuf;
 
         let cell_resolver = CellResolver::of_names_and_paths(&[(
             CellName::unchecked_new("foo"),
