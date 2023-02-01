@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load(":swift_pcm_compilation_types.bzl", "SwiftPCMCompilationInfo")
+load(":swift_toolchain_types.bzl", "WrappedSdkCompiledModuleInfo")
 
 def project_as_hidden(module_info: "SdkCompiledModuleInfo"):
     # NOTE(cjhopman): This would probably be better done by projecting as normal args and the caller putting it in hidden.
@@ -30,38 +30,41 @@ SDKDepTSet = transitive_set(args_projections = {
 })
 
 def is_sdk_modules_provided(toolchain: "SwiftToolchainInfo") -> bool.type:
-    no_swift_modules = toolchain.compiled_sdk_swift_modules == None or len(toolchain.compiled_sdk_swift_modules) == 0
-    no_clang_modules = toolchain.compiled_sdk_clang_modules == None or len(toolchain.compiled_sdk_clang_modules) == 0
+    no_swift_modules = toolchain.uncompiled_swift_sdk_modules_deps == None or len(toolchain.uncompiled_swift_sdk_modules_deps) == 0
+    no_clang_modules = toolchain.uncompiled_clang_sdk_modules_deps == None or len(toolchain.uncompiled_clang_sdk_modules_deps) == 0
     if no_swift_modules and no_clang_modules:
         return False
     return True
 
-def get_sdk_deps_tset(
-        ctx: "context",
+def get_sdk_deps_tset(**kwargs) -> "SDKDepTSet":
+    fail("UNIMPLEMENTED WILL BE REMOVED IN THE FOLLOWING DIFFS", kwargs)
+
+def get_compiled_sdk_deps_tset(ctx: "context", deps_providers: list.type) -> "SDKDepTSet":
+    sdk_deps = [
+        deps_provider[WrappedSdkCompiledModuleInfo].tset
+        for deps_provider in deps_providers
+        if WrappedSdkCompiledModuleInfo in deps_provider
+    ]
+    return ctx.actions.tset(SDKDepTSet, children = sdk_deps)
+
+def get_uncompiled_sdk_deps(
+        sdk_modules: [str.type],
         module_name: str.type,
-        deps: ["dependency"],
         required_modules: [str.type],
-        toolchain: "SwiftToolchainInfo") -> "SDKDepTSet":
+        toolchain: "SwiftToolchainInfo") -> ["dependency"]:
     if not is_sdk_modules_provided(toolchain):
         fail("SDK deps are not set for swift_toolchain")
 
-    all_sdk_deps = [
-        d[SwiftPCMCompilationInfo].sdk_deps_set
-        for d in deps
-        if SwiftPCMCompilationInfo in d
-    ]
+    all_sdk_modules = sdk_modules + required_modules
+    all_sdk_modules = dedupe(all_sdk_modules)
 
-    # Adding all direct and transitive SDK dependencies.
-    for sdk_module_dep_name in ctx.attrs.sdk_modules + required_modules:
-        if sdk_module_dep_name not in toolchain.compiled_sdk_swift_modules and sdk_module_dep_name not in toolchain.compiled_sdk_clang_modules:
+    sdk_deps = []
+
+    for sdk_module_dep_name in all_sdk_modules:
+        if sdk_module_dep_name not in toolchain.uncompiled_swift_sdk_modules_deps and sdk_module_dep_name not in toolchain.uncompiled_clang_sdk_modules_deps:
             fail("{} depends on a non-existing SDK module: {}".format(module_name, sdk_module_dep_name))
 
-        sdk_compiled_module_info = toolchain.compiled_sdk_swift_modules.get(sdk_module_dep_name) or toolchain.compiled_sdk_clang_modules.get(sdk_module_dep_name)
-        sdk_module_with_transitive_deps_tset = ctx.actions.tset(
-            SDKDepTSet,
-            value = sdk_compiled_module_info,
-            children = [sdk_compiled_module_info.deps],
-        )
-        all_sdk_deps.append(sdk_module_with_transitive_deps_tset)
+        sdk_uncompiled_module_dep = toolchain.uncompiled_swift_sdk_modules_deps.get(sdk_module_dep_name) or toolchain.uncompiled_clang_sdk_modules_deps.get(sdk_module_dep_name)
+        sdk_deps.append(sdk_uncompiled_module_dep)
 
-    return ctx.actions.tset(SDKDepTSet, children = all_sdk_deps)
+    return sdk_deps

@@ -11,8 +11,8 @@
 SwiftToolchainInfo = provider(fields = [
     "architecture",
     "can_toolchain_emit_obj_c_header_textually",  # bool
-    "compiled_sdk_clang_modules",  # {str.type: SdkCompiledModuleInfo} Expose providers of compiled Clang SDK modules.
-    "compiled_sdk_swift_modules",  # {str.type: SdkCompiledModuleInfo} Expose providers of compiled Swift SDK modules.
+    "uncompiled_swift_sdk_modules_deps",  # {str.type: dependency} Expose deps of uncompiled Swift SDK modules.
+    "uncompiled_clang_sdk_modules_deps",  # {str.type: dependency} Expose deps of uncompiled Clang SDK modules.
     "compiler_flags",
     "compiler",
     "prefix_serialized_debugging_options",  # bool
@@ -31,7 +31,11 @@ SdkUncompiledModuleInfo = provider(fields = [
     "is_swiftmodule",  # If True then represents a swiftinterface, otherwise Clang's modulemap.
     "partial_cmd",  # Partial arguments, required to compile a particular SDK module.
     "input_relative_path",  # A relative prefixed path to a textual swiftinterface/modulemap file within an SDK.
-    "deps",  # [SdkUncompiledModuleInfo]
+    "deps",  # ["dependency"]
+])
+
+WrappedSdkCompiledModuleInfo = provider(fields = [
+    "tset",  # A tset that contains SdkCompiledModuleInfo itself and its transitive deps
 ])
 
 # A provider that represents an already-compiled SDK (Swift or Clang) module.
@@ -42,5 +46,4 @@ SdkCompiledModuleInfo = provider(fields = [
     "is_framework",
     "output_artifact",  # Compiled artifact either swiftmodule or pcm.
     "input_relative_path",
-    "deps",  # A TSet of [SdkCompiledModuleInfo]
 ])
