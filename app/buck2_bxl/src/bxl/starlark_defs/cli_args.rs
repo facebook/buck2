@@ -303,11 +303,7 @@ impl CliArgType {
     #[allow(deprecated)] // TODO(nga): fix.
     pub fn to_clap<'a>(&'a self, clap: clap::Arg<'a>) -> clap::Arg<'a> {
         match self {
-            CliArgType::Bool => clap
-                .takes_value(true)
-                .required(false)
-                .default_missing_value("false")
-                .validator(|x| x.parse::<bool>()),
+            CliArgType::Bool => clap.takes_value(true).validator(|x| x.parse::<bool>()),
             CliArgType::Int => clap.takes_value(true).validator(|x| x.parse::<i32>()),
             CliArgType::Float => clap.takes_value(true).validator(|x| x.parse::<f64>()),
             CliArgType::String => clap.takes_value(true),
@@ -347,9 +343,10 @@ impl CliArgType {
     ) -> BoxFuture<'a, anyhow::Result<Option<CliArgValue>>> {
         async move {
             Ok(match self {
-                CliArgType::Bool => Some(CliArgValue::Bool(
-                    clap.value_of().unwrap_or("false").parse::<bool>()?,
-                )),
+                CliArgType::Bool => clap.value_of().map_or(Ok(None), |x| {
+                    let r: anyhow::Result<_> = try { CliArgValue::Bool(x.parse::<bool>()?) };
+                    r.map(Some)
+                })?,
                 CliArgType::Int => clap.value_of().map_or(Ok(None), |x| {
                     let r: anyhow::Result<_> = try { CliArgValue::Int(x.parse::<i32>()?) };
                     r.map(Some)
