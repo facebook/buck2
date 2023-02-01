@@ -163,7 +163,7 @@ fn register_cquery(builder: &mut MethodsBuilder) {
                         eval,
                     )
                     .await?
-                    .get(&this.env, this.ctx.async_ctx.0)
+                    .get(&this.env)
                     .await?,
                     &*TargetExpr::<'v, ConfiguredTargetNode>::unpack(
                         to,
@@ -172,7 +172,7 @@ fn register_cquery(builder: &mut MethodsBuilder) {
                         eval,
                     )
                     .await?
-                    .get(&this.env, this.ctx.async_ctx.0)
+                    .get(&this.env)
                     .await?,
                 )
                 .await
@@ -198,7 +198,7 @@ fn register_cquery(builder: &mut MethodsBuilder) {
                         eval,
                     )
                     .await?
-                    .get(&this.env, this.ctx.async_ctx.0)
+                    .get(&this.env)
                     .await?,
                     &*TargetExpr::<'v, ConfiguredTargetNode>::unpack(
                         to,
@@ -207,7 +207,7 @@ fn register_cquery(builder: &mut MethodsBuilder) {
                         eval,
                     )
                     .await?
-                    .get(&this.env, this.ctx.async_ctx.0)
+                    .get(&this.env)
                     .await?,
                 )
                 .await
@@ -235,7 +235,7 @@ fn register_cquery(builder: &mut MethodsBuilder) {
                         eval,
                     )
                     .await?
-                    .get(&this.env, this.ctx.async_ctx.0)
+                    .get(&this.env)
                     .await?,
                 )
                 .map(StarlarkTargetSet::from)
@@ -267,7 +267,7 @@ fn register_cquery(builder: &mut MethodsBuilder) {
                         eval,
                     )
                     .await?
-                    .get(&this.env, this.ctx.async_ctx.0)
+                    .get(&this.env)
                     .await?,
                 )
                 .map(StarlarkTargetSet::from)
@@ -301,7 +301,7 @@ fn register_cquery(builder: &mut MethodsBuilder) {
                         eval,
                     )
                     .await?
-                    .get(&this.env, this.ctx.async_ctx.0)
+                    .get(&this.env)
                     .await?,
                 )
                 .map(StarlarkTargetSet::from)
@@ -363,7 +363,7 @@ fn register_cquery(builder: &mut MethodsBuilder) {
                             eval,
                         )
                         .await?
-                        .get(&this.env, this.ctx.async_ctx.0)
+                        .get(&this.env)
                         .await?,
                         depth.into_option(),
                         filter
@@ -402,7 +402,7 @@ fn register_cquery(builder: &mut MethodsBuilder) {
                         eval,
                     )
                     .await?
-                    .get(&this.env, this.ctx.async_ctx.0)
+                    .get(&this.env)
                     .await?,
                 )
             })
@@ -433,7 +433,7 @@ fn register_cquery(builder: &mut MethodsBuilder) {
                         eval,
                     )
                     .await?
-                    .get(&this.env, this.ctx.async_ctx.0)
+                    .get(&this.env)
                     .await?,
                 )
             })
@@ -459,7 +459,7 @@ fn register_cquery(builder: &mut MethodsBuilder) {
                             eval,
                         )
                         .await?
-                        .get(&this.env, this.ctx.async_ctx.0)
+                        .get(&this.env)
                         .await?,
                     )
                     .await
@@ -495,7 +495,7 @@ fn register_cquery(builder: &mut MethodsBuilder) {
                             eval,
                         )
                         .await?
-                        .get(&this.env, this.ctx.async_ctx.0)
+                        .get(&this.env)
                         .await?,
                         &*TargetExpr::<'v, ConfiguredTargetNode>::unpack(
                             from,
@@ -504,7 +504,7 @@ fn register_cquery(builder: &mut MethodsBuilder) {
                             eval,
                         )
                         .await?
-                        .get(&this.env, this.ctx.async_ctx.0)
+                        .get(&this.env)
                         .await?,
                         depth,
                     )
@@ -579,7 +579,7 @@ fn register_cquery(builder: &mut MethodsBuilder) {
                     eval,
                 )
                 .await?
-                .get(&this.env, this.ctx.async_ctx.0)
+                .get(&this.env)
                 .await?;
 
                 Ok(this.functions.buildfile(targets))

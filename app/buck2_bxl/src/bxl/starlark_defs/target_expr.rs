@@ -11,32 +11,22 @@ use std::borrow::Cow;
 
 use buck2_build_api::calculation::load_patterns;
 use buck2_build_api::calculation::Calculation;
-use buck2_build_api::query::cquery::environment::CqueryEnvironment;
 use buck2_build_api::query::dice::get_compatible_targets;
-use buck2_build_api::query::dice::get_maybe_compatible_targets_from_set;
-use buck2_build_api::query::dice::split_compatible_incompatible;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::ParsedPattern;
-use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_core::target::name::TargetName;
 use buck2_core::truncate::truncate;
-use buck2_events::dispatch::console_message;
 use buck2_interpreter::types::target_label::StarlarkConfiguredTargetLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
-use buck2_node::compatibility::IncompatiblePlatformReason;
-use buck2_node::compatibility::MaybeCompatible;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_query::query::environment::QueryEnvironment;
 use buck2_query::query::environment::QueryTarget;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
-use dice::DiceComputations;
-use dupe::Dupe;
 use dupe::IterDupedExt;
 use either::Either;
-use starlark::collections::SmallSet;
 use starlark::eval::Evaluator;
 use starlark::values::list::ListRef;
 use starlark::values::StarlarkValue;
@@ -62,104 +52,11 @@ pub enum TargetExpr<'v, Node: QueryTarget> {
     TargetSet(Cow<'v, TargetSet<Node>>),
 }
 
-enum MaybeCompatibleUnpackResult {
-    Compatible(ConfiguredTargetNode),
-    Incompatible(ConfiguredTargetLabel),
-}
-
-impl<'v> TargetExpr<'v, ConfiguredTargetNode> {
-    /// Get a `TargetSet<ConfiguredTargetNode>` from the `TargetExpr`
-    pub async fn get(
-        self,
-        env: &'v CqueryEnvironment<'v>,
-        dice: &'v DiceComputations,
-    ) -> anyhow::Result<Cow<'v, TargetSet<ConfiguredTargetNode>>> {
-        let mut incompatible_from_matching = SmallSet::new();
-        let set = match self {
-            TargetExpr::Node(val) => {
-                let mut set = TargetSet::new();
-                set.insert(val);
-                set
-            }
-            TargetExpr::Label(label) => {
-                match env.get_node_maybe_compatible(label.as_ref()).await? {
-                    MaybeCompatible::Compatible(node) => {
-                        let mut set = TargetSet::new();
-                        set.insert(node);
-                        set
-                    }
-                    MaybeCompatible::Incompatible(_) => {
-                        incompatible_from_matching.insert(label.as_ref().to_owned());
-                        TargetSet::new()
-                    }
-                }
-            }
-            TargetExpr::Iterable(val) => {
-                let mut set = TargetSet::new();
-
-                let futs = val.into_iter().map(|node_or_ref| async {
-                    match node_or_ref {
-                        Either::Left(node) => {
-                            Ok::<_, anyhow::Error>(MaybeCompatibleUnpackResult::Compatible(node))
-                        }
-                        Either::Right(label) => {
-                            match env.get_node_maybe_compatible(label.as_ref()).await? {
-                                MaybeCompatible::Compatible(node) => {
-                                    Ok(MaybeCompatibleUnpackResult::Compatible(node))
-                                }
-                                MaybeCompatible::Incompatible(_) => {
-                                    Ok(MaybeCompatibleUnpackResult::Incompatible(
-                                        label.as_ref().clone(),
-                                    ))
-                                }
-                            }
-                        }
-                    }
-                });
-
-                for res in futures::future::join_all(futs).await {
-                    match res? {
-                        MaybeCompatibleUnpackResult::Incompatible(label) => {
-                            incompatible_from_matching.insert(label);
-                        }
-                        MaybeCompatibleUnpackResult::Compatible(node) => {
-                            set.insert(node);
-                        }
-                    }
-                }
-
-                set
-            }
-            TargetExpr::TargetSet(val) => val.into_owned(),
-        };
-
-        let maybe_compatible_targets =
-            get_maybe_compatible_targets_from_set(dice, set.clone()).await;
-
-        let (compatible, mut incompatible) =
-            split_compatible_incompatible(maybe_compatible_targets.into_iter())?;
-
-        if !incompatible_from_matching.is_empty() {
-            incompatible.extend(incompatible_from_matching);
-        }
-
-        // Print out all the incompatible targets, including the ones we tried to get using `get_node_maybe_compatible()`.
-        if !incompatible.is_empty() {
-            console_message(IncompatiblePlatformReason::skipping_message_for_multiple(
-                incompatible.iter(),
-            ));
-        };
-
-        Ok(Cow::Owned(compatible))
-    }
-}
-
-impl<'v> TargetExpr<'v, TargetNode> {
-    /// Get a `TargetSet<TargetNode>` from the `TargetExpr`
-    pub async fn get<QueryEnv: QueryEnvironment<Target = TargetNode>>(
+impl<'v, Node: NodeLike> TargetExpr<'v, Node> {
+    pub async fn get<QueryEnv: QueryEnvironment<Target = Node>>(
         self,
         env: &QueryEnv,
-    ) -> anyhow::Result<Cow<'v, TargetSet<TargetNode>>> {
+    ) -> anyhow::Result<Cow<'v, TargetSet<Node>>> {
         match self {
             TargetExpr::Node(val) => {
                 let mut set = TargetSet::new();
