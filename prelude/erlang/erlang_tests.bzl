@@ -276,6 +276,7 @@ def _write_test_info_file(
         "ct_opts": ctx.attrs._ct_opts,
         "dependencies": _list_code_paths(dependencies),
         "erl_cmd": cmd_args(['"', cmd_args(erl_cmd, delimiter = " "), '"'], delimiter = ""),
+        "extra_ct_hooks": ctx.attrs.extra_ct_hooks,
         "providers": ctx.attrs._providers,
         "test_dir": test_dir,
         "test_suite": test_suite,

@@ -80,11 +80,15 @@ load_test_info(TestInfoFile) ->
             "config_files" := ConfigFiles,
             "providers" := Providers,
             "ct_opts" := CtOpts,
+            "extra_ct_hooks" := ExtraCtHooks,
             "erl_cmd" := ErlCmd
         }
     ]} = file:consult(TestInfoFile),
     Providers1 = buck_ct_parser:parse_str(Providers),
-    CtOpts1 = buck_ct_parser:parse_str(CtOpts),
+    CtOpts1 = make_ct_opts(
+        buck_ct_parser:parse_str(CtOpts),
+        [buck_ct_parser:parse_str(CTH) || CTH <- ExtraCtHooks]
+    ),
     #test_info{
         dependencies = [filename:absname(Dep) || Dep <- Dependencies],
         test_suite = filename:join(filename:absname(TestDir), [SuiteName, ".beam"]),
@@ -93,6 +97,18 @@ load_test_info(TestInfoFile) ->
         ct_opts = CtOpts1,
         erl_cmd = ErlCmd
     }.
+
+-type ctopt() :: term().
+-type cth() :: module() | {module(), term()}.
+
+-spec make_ct_opts([ctopt()], [cth()]) -> [ctopt()].
+make_ct_opts(CtOpts, []) -> CtOpts;
+make_ct_opts(CtOpts, ExtraCtHooks) ->
+    NewCtHooks = case proplists:get_all_values(ct_hooks, CtOpts) of
+        [] -> ExtraCtHooks;
+        [GivenCtHooks |_] -> GivenCtHooks ++ ExtraCtHooks
+    end,
+    [{ct_hooks, NewCtHooks} | CtOpts].
 
 -spec load_suite(string()) -> [{atom(), string()}].
 load_suite(SuitePath) ->

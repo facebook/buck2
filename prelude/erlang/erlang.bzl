@@ -80,6 +80,7 @@ rules_attributes = {
         "config_files": attrs.list(attrs.dep(), default = []),
         "deps": attrs.list(attrs.dep(), default = []),
         "env": attrs.dict(key = attrs.string(), value = attrs.string(), default = {}),
+        "extra_ct_hooks": attrs.list(attrs.string(), default = []),
         "property_tests": attrs.list(attrs.dep(), default = []),
         "resources": attrs.list(attrs.dep(), default = []),
         "suite": attrs.source(),
