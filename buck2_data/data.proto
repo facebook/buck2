@@ -280,7 +280,7 @@ message TestDiscovery {
 message RageInvoked {
   map<string, string> metadata = 1;
   // the trace id of the command that rage was invoked upon.
-  string recent_command_trace_id = 2;
+  optional string recent_command_trace_id = 2;
 }
 
 // Result of invoking buck2 rage

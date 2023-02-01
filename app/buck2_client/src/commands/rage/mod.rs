@@ -186,9 +186,9 @@ impl RageCommand {
             let selected_invocation =
                 maybe_select_invocation(ctx.stdin(), logdir, self.invocation).await?;
             let invocation_id = get_trace_id(&selected_invocation).await?;
+            dispatch_invoked_event(sink.as_ref(), &rage_id, invocation_id.as_ref()).await?;
             if let Some(ref invocation_id) = invocation_id {
                 manifold_id = format!("{}_{}", invocation_id, manifold_id);
-                dispatch_invoked_event(sink.as_ref(), &rage_id, invocation_id).await?;
             }
 
             let system_info_command =
@@ -383,9 +383,9 @@ daemon uptime: {}
 async fn dispatch_invoked_event(
     sink: Option<&ThriftScribeSink>,
     rage_id: &TraceId,
-    trace_id: &TraceId,
+    trace_id: Option<&TraceId>,
 ) -> anyhow::Result<()> {
-    let recent_command_trace_id = trace_id.to_string();
+    let recent_command_trace_id = trace_id.map(|x| x.to_string());
     let metadata = metadata::collect();
     let data = Some(Data::RageInvoked(RageInvoked {
         metadata,
