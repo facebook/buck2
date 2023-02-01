@@ -369,11 +369,14 @@ where
     fut.await
 }
 
+#[derive(Clone)]
 #[pin_project]
 pub struct CancellationObserver {
     #[pin]
     rx: Option<Shared<oneshot::Receiver<()>>>,
 }
+
+impl Dupe for CancellationObserver {}
 
 impl Future for CancellationObserver {
     type Output = ();
