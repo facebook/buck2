@@ -39,6 +39,7 @@ use dupe::Dupe;
 use futures::stream::FuturesUnordered;
 use futures::FutureExt;
 use futures::StreamExt;
+use more_futures::cancellable_future::try_to_disable_cancellation;
 use more_futures::spawn::spawn_task;
 use more_futures::spawn::CompletionObserver;
 use parking_lot::MappedRwLockReadGuard;
@@ -73,6 +74,7 @@ use crate::projection::ProjectionKeyAsKey;
 use crate::projection::ProjectionKeyProperties;
 use crate::sync_handle::SyncDiceTaskHandle;
 use crate::user_data::UserComputationData;
+use crate::DiceError;
 use crate::DiceProjectionComputations;
 use crate::HashMap;
 use crate::HashSet;
@@ -430,46 +432,42 @@ where
         let future = async move {
             // check again since another thread could have inserted into the versioned
             // cache before we entered the index.
-            let res = Ok(
-                match ev.engine.versioned_cache.get(
-                    VersionedGraphKeyRef::new(eval_ctx.get_version(), &ev.k),
-                    eval_ctx.get_minor_version(),
-                ) {
-                    VersionedGraphResult::Match(entry) => {
-                        debug!(
-                            "found existing entry with matching version in cache. reusing result."
-                        );
-                        entry
-                    }
-                    VersionedGraphResult::Mismatch(mismatch) => {
-                        debug!("no matching entry in cache. checking for dependency changes");
+            let res = match ev.engine.versioned_cache.get(
+                VersionedGraphKeyRef::new(eval_ctx.get_version(), &ev.k),
+                eval_ctx.get_minor_version(),
+            ) {
+                VersionedGraphResult::Match(entry) => {
+                    debug!("found existing entry with matching version in cache. reusing result.");
+                    Ok(entry)
+                }
+                VersionedGraphResult::Mismatch(mismatch) => {
+                    debug!("no matching entry in cache. checking for dependency changes");
 
-                        match Self::compute_whether_versioned_dependencies_changed(
-                            &eval_ctx, &extra, &mismatch,
-                        )
-                        .await
-                        {
-                            DidDepsChange::Changed | DidDepsChange::NoDeps => {
-                                debug!("dependencies changed. recomputing...");
-                                ev.engine.compute(&ev.k, eval_ctx, extra).await
-                            }
-                            DidDepsChange::NoChange(unchanged_both_deps) => {
-                                debug!("dependencies are unchanged, reusing entry");
-                                ev.engine.reuse(
-                                    ev.k.clone(),
-                                    &eval_ctx,
-                                    mismatch.entry,
-                                    unchanged_both_deps,
-                                )
-                            }
+                    match Self::compute_whether_versioned_dependencies_changed(
+                        &eval_ctx, &extra, &mismatch,
+                    )
+                    .await
+                    {
+                        DidDepsChange::Changed | DidDepsChange::NoDeps => {
+                            debug!("dependencies changed. recomputing...");
+                            ev.engine.compute(&ev.k, eval_ctx, extra).await
+                        }
+                        DidDepsChange::NoChange(unchanged_both_deps) => {
+                            debug!("dependencies are unchanged, reusing entry");
+                            Ok(ev.engine.reuse(
+                                ev.k.clone(),
+                                &eval_ctx,
+                                mismatch.entry,
+                                unchanged_both_deps,
+                            ))
                         }
                     }
-                    VersionedGraphResult::Dirty | VersionedGraphResult::None => {
-                        debug!("dirtied. recomputing...");
-                        ev.engine.compute(&ev.k, eval_ctx, extra).await
-                    }
-                },
-            );
+                }
+                VersionedGraphResult::Dirty | VersionedGraphResult::None => {
+                    debug!("dirtied. recomputing...");
+                    ev.engine.compute(&ev.k, eval_ctx, extra).await
+                }
+            };
 
             debug!("finished. returning result");
 
@@ -532,7 +530,7 @@ where
         k: &K::Key,
         transaction_ctx: Arc<TransactionCtx>,
         extra: ComputationData,
-    ) -> GraphNode<K> {
+    ) -> DiceResult<GraphNode<K>> {
         let desc = K::key_type_name();
         extra
             .user_data
@@ -552,6 +550,14 @@ where
             .eval(k, transaction_ctx, extra)
             .await;
 
+        let _guard = match try_to_disable_cancellation() {
+            Some(g) => g,
+            None => {
+                debug!("evaluation cancelled, skipping cache updates");
+                return Err(DiceError::cancelled());
+            }
+        };
+
         debug!(msg = "evaluation finished. updating caches");
         let (entry, _old) = self.versioned_cache.update_computed_value(
             VersionedGraphKey::new(v, k.clone()),
@@ -563,7 +569,7 @@ where
         debug!(msg = "cache updates completed");
         tracker.event(DiceEvent::Finished { key_type: desc });
 
-        entry
+        Ok(entry)
     }
 }
 
@@ -1206,6 +1212,7 @@ mod tests {
     use gazebo::cmp::PartialEqAny;
     use gazebo::prelude::*;
     use indexmap::indexset;
+    use more_futures::cancellable_future::critical_section;
     use more_futures::cancellable_future::with_structured_cancellation;
     use parking_lot::Mutex;
     use parking_lot::RwLock;
@@ -2438,5 +2445,79 @@ mod tests {
         .await
         .unwrap()
         .unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_cancelled_tasks_do_not_write_to_cache() {
+        let entered_critical_section = Arc::new(Notify::new());
+        let external_guard_dropped = Arc::new(Notify::new());
+
+        let first_call = Arc::new(Mutex::new(true));
+
+        let engine = IncrementalEngine::new({
+            let entered_critical_section = entered_critical_section.dupe();
+            let external_guard_dropped = external_guard_dropped.dupe();
+
+            EvaluatorFn::new(move |_k| {
+                let was_first_call;
+
+                {
+                    let mut first_call = first_call.lock();
+                    was_first_call = *first_call;
+                    *first_call = false;
+                }
+
+                async move {
+                    if was_first_call {
+                        critical_section(async move {
+                            entered_critical_section.notify_one();
+                            tokio::time::timeout(
+                                Duration::from_secs(1),
+                                external_guard_dropped.notified(),
+                            )
+                            .await
+                            .unwrap();
+                        })
+                        .await;
+                    }
+
+                    ValueWithDeps {
+                        value: was_first_call,
+                        both_deps: BothDeps {
+                            deps: HashSet::default(),
+                            rdeps: Vec::new(),
+                        },
+                    }
+                }
+            })
+        });
+
+        let ctx = Arc::new(TransactionCtx::testing_new(VersionNumber::new(0)));
+
+        // Start & cancel once we enter the critical section.
+        let fut = engine.eval_entry_versioned(&1, &ctx, ComputationData::testing_new());
+        tokio::time::timeout(Duration::from_secs(1), entered_critical_section.notified())
+            .await
+            .unwrap();
+        drop(fut);
+
+        // Notify the future that we've now dropped our guard. The future is in a critical section
+        // so it does own a guard.
+        external_guard_dropped.notify_one();
+
+        // Now, give the future we spawned a chance to run.
+        tokio::task::yield_now().await;
+
+        let val = tokio::time::timeout(
+            Duration::from_secs(1),
+            engine.eval_entry_versioned(&1, &ctx, ComputationData::testing_new()),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+
+        // Expect to get the output of the second call, sicne the first one was not allowed to
+        // populate the cache.
+        assert!(!val.val(), "got the value from the first call");
     }
 }
