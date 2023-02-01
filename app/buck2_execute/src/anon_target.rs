@@ -8,6 +8,7 @@
  */
 
 use std::collections::hash_map::DefaultHasher;
+use std::fmt;
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::sync::Arc;
@@ -20,10 +21,8 @@ use buck2_core::target::label::TargetLabel;
 use buck2_data::ToProtoMessage;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_node::rule_type::StarlarkRuleType;
-use derive_more::Display;
 
-#[derive(Hash, Eq, PartialEq, Clone, Debug, Display, Allocative)]
-#[display(fmt = "{:?}", self)]
+#[derive(Hash, Eq, PartialEq, Clone, Debug, Allocative)]
 pub struct AnonTarget {
     /// Not necessarily a "real" target label that actually exists, but could be.
     name: TargetLabel,
@@ -36,6 +35,12 @@ pub struct AnonTarget {
     hash: String,
     /// The execution configuration - same as the parent.
     exec_cfg: Configuration,
+}
+
+impl fmt::Display for AnonTarget {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{} (anon: {}) ({})", self.name, self.hash, self.exec_cfg)
+    }
 }
 
 impl ToProtoMessage for AnonTarget {

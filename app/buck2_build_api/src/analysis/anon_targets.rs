@@ -130,7 +130,6 @@ enum AnonTargetsError {
 #[derive(
     Hash, Eq, PartialEq, Clone, Dupe, Debug, Display, Trace, Allocative, RefCast
 )]
-#[display(fmt = "{:?}", self)]
 struct AnonTargetKey(Arc<AnonTarget>);
 
 impl AnonTargetKey {
