@@ -302,9 +302,19 @@ impl<F> CancellableFuture<F> {
     }
 }
 
+/// Enter a critical section during which the current future (if any) should not be
+/// dropped.
+pub async fn critical_section<F>(fut: F) -> <F as Future>::Output
+where
+    F: Future,
+{
+    let _guard = current_task_guard();
+    fut.await
+}
+
 /// Obtain a StrongRefCount for the current task (to potentially prevent it from being droped in a
 /// critical section).
-pub fn current_task_guard() -> Option<StrongRefCount> {
+fn current_task_guard() -> Option<StrongRefCount> {
     CURRENT.with(|g| g.borrow().as_ref().and_then(|g| g.ref_count.upgrade()))
 }
 
@@ -447,6 +457,30 @@ mod tests {
 
         // We reach the first yield. At this point there are 2 guards: ours and the one held via
         // current_task_guard().
+        assert_matches!(futures::poll!(&mut fut), Poll::Pending);
+
+        // Drop our guard, then poll again. Cancellation is checked, *then* the guard in the future
+        // is dropped, so at this point we proceed to the pending() step after havin cancelled the
+        // future (we would get notified for wakeup if we weren't manually polling).
+        drop(guard);
+        assert_matches!(futures::poll!(&mut fut), Poll::Pending);
+
+        // Poll again, this time we don't enter the future's poll because it is cancelled.
+        assert_matches!(futures::poll!(&mut fut), Poll::Ready(None));
+    }
+
+    #[tokio::test]
+    async fn test_critical_section() {
+        let (fut, guard) = CancellableFuture::new_refcounted(async {
+            {
+                critical_section(tokio::task::yield_now()).await;
+            }
+            futures::future::pending::<()>().await
+        });
+        futures::pin_mut!(fut);
+
+        // We reach the first yield. At this point there are 2 guards: ours and the one held via
+        // critical_section().
         assert_matches!(futures::poll!(&mut fut), Poll::Pending);
 
         // Drop our guard, then poll again. Cancellation is checked, *then* the guard in the future

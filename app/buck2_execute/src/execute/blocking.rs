@@ -20,7 +20,7 @@ use dice::UserComputationData;
 use dupe::Dupe;
 use futures::future::BoxFuture;
 use futures::future::FutureExt;
-use more_futures::spawn::dropcancel_critical_section;
+use more_futures::cancellable_future::critical_section;
 use tokio::sync::oneshot;
 use tokio::sync::Semaphore;
 
@@ -142,8 +142,7 @@ impl BlockingExecutor for BuckBlockingExecutor {
         // sender.
         let _ignored = self.command_sender.send(ThreadPoolIoRequest { io, sender });
 
-        dropcancel_critical_section(async move { receiver.await.context("Pool shut down")? })
-            .boxed()
+        critical_section(async move { receiver.await.context("Pool shut down")? }).boxed()
     }
 
     fn queue_size(&self) -> usize {

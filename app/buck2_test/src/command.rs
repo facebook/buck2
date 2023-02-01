@@ -64,7 +64,7 @@ use gazebo::prelude::*;
 use indexmap::indexset;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
-use more_futures::spawn::dropcancel_critical_section;
+use more_futures::cancellable_future::critical_section;
 use serde::Serialize;
 
 use crate::downward_api::BuckTestDownwardApi;
@@ -378,7 +378,7 @@ async fn test_targets(
         move |ctx| {
             // NOTE: This is made a critical section so that we shut down gracefully. We'll cancel
             // if the liveliness guard indicates we should.
-            dropcancel_critical_section(async move {
+            critical_section(async move {
                 // Spawn our server to listen to the test runner's requests for execution.
                 let orchestrator = BuckTestOrchestrator::new(
                     ctx.dupe(),

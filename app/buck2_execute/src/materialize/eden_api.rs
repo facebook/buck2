@@ -28,7 +28,7 @@ use edenfs::ObjectType;
 use edenfs::RemoveRecursivelyParams;
 use edenfs::SetPathObjectIdParams;
 use fbinit::FacebookInit;
-use more_futures::spawn::dropcancel_critical_section;
+use more_futures::cancellable_future::critical_section;
 use serde::Deserialize;
 use thiserror::Error;
 use tokio::sync::Semaphore;
@@ -293,7 +293,7 @@ impl EdenBuckOut {
             )
         })?;
 
-        dropcancel_critical_section(async move {
+        critical_section(async move {
             let params = RemoveRecursivelyParams {
                 mountPoint: self.connection_manager.get_mount_point(),
                 path: relpath_to_buck_out.as_str().as_bytes().to_vec(),

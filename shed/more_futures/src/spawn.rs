@@ -25,7 +25,6 @@ use thiserror::Error;
 use tracing::Instrument;
 use tracing::Span;
 
-use crate::cancellable_future::current_task_guard;
 use crate::cancellable_future::CancellableFuture;
 use crate::cancellable_future::StrongRefCount;
 use crate::cancellable_future::WeakRefCount;
@@ -197,16 +196,6 @@ where
     spawn_inner(future, futures::future::ready(()), spawner, ctx, span)
 }
 
-/// Enter a critical section during which the current DropCancel future (if any) should not be
-/// dropped.
-pub async fn dropcancel_critical_section<F>(fut: F) -> <F as Future>::Output
-where
-    F: Future,
-{
-    let _guard = current_task_guard();
-    fut.await
-}
-
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
@@ -246,44 +235,6 @@ mod tests {
         // The task should never get to sending in notify_success since all its referenced had been
         // dropped at that point, but it *should* drop the channel itself.
         recv_success.await.unwrap_err();
-    }
-
-    #[tokio::test]
-    async fn test_critical_section() {
-        let (release_task, recv_release_task) = oneshot::channel();
-        let (task_ready, recv_task_ready) = oneshot::channel();
-        let (notify_success, recv_success) = oneshot::channel();
-
-        let sp = Arc::new(TokioSpawner::default());
-
-        let (_task, poll) = spawn_task(
-            async move {
-                dropcancel_critical_section(async {
-                    task_ready.send(current_task_guard()).ok().unwrap();
-                    recv_release_task.await.unwrap();
-                    notify_success.send(()).unwrap();
-                })
-                .await;
-            },
-            futures::future::ready(()),
-            sp.as_ref(),
-            &MockCtx::default(),
-            tracing::debug_span!("test"),
-        );
-
-        // Wait until the task entered the critical section.
-        recv_task_ready.await.unwrap();
-
-        // Throw away the strong handle.
-        drop(poll);
-
-        // Now, release the task. This will cause it to get polled. Two things can happen:
-        // - The critical section works, the task hasn't been dropped, so it'll proceed to notify_success().
-        // - The critical section does not work, the task has been dropped, so it'll close notify_success.
-        release_task.send(()).unwrap();
-
-        // If this fails, that means the task died.
-        recv_success.await.unwrap();
     }
 
     #[tokio::test]

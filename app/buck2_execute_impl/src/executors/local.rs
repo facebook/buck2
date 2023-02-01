@@ -70,7 +70,7 @@ use futures::future::FutureExt;
 use gazebo::prelude::*;
 use host_sharing::HostSharingBroker;
 use indexmap::IndexMap;
-use more_futures::spawn::dropcancel_critical_section;
+use more_futures::cancellable_future::critical_section;
 use remote_execution as RE;
 use thiserror::Error;
 use tracing::info;
@@ -546,7 +546,7 @@ impl PreparedCommandExecutor for LocalExecutor {
 
         // If we start running something, we don't want this task to get dropped, because if we do
         // we might interfere with e.g. clean up.
-        dropcancel_critical_section(Self::exec_request(
+        critical_section(Self::exec_request(
             self,
             &prepared_action.action,
             *target,
