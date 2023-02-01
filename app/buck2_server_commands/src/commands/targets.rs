@@ -26,6 +26,7 @@ use buck2_cli_proto::TargetsResponse;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_core::cells::CellResolver;
+use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::package::PackageLabel;
@@ -260,7 +261,8 @@ impl TargetHashOptions {
                     .target_hash_modified_paths
                     .iter()
                     .map(|path| {
-                        cell_resolver.get_cell_path_from_abs_or_rel_path(Path::new(path), fs, cwd)
+                        let path = AbsPath::new(Path::new(&path))?;
+                        cell_resolver.get_cell_path_from_abs_or_rel_path(path, fs, cwd)
                     })
                     .collect::<anyhow::Result<_>>()?;
                 TargetHashesFileMode::PathsOnly(modified_paths)

@@ -16,6 +16,7 @@ use buck2_client_ctx::common::CommonConsoleOptions;
 use buck2_client_ctx::common::CommonDaemonCommandOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::exit_result::ExitResult;
+use buck2_client_ctx::path_arg::PathArg;
 use buck2_client_ctx::stdin::Stdin;
 use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
@@ -103,7 +104,7 @@ pub struct TargetsCommand {
     /// will be different than if this option was omitted. Otherwise, the target's hash will be the same
     /// as if this option was omitted.
     #[clap(long, multiple_values = true)]
-    target_hash_modified_paths: Vec<String>,
+    target_hash_modified_paths: Vec<PathArg>,
 
     /// Selects either the "fast" or the "strong" target hash function to be used for computing target hashes.
     /// While we don't specify the exact algorithm, the "strong" algorithm should be a reasonable cryptographic
@@ -192,8 +193,15 @@ impl StreamingCommand for TargetsCommand {
                 (false, false) => targets_request::TargetHashGraphType::None as i32,
             };
 
+        let context =
+            Some(ctx.client_context(&self.config_opts, matches, self.sanitized_argv())?);
+
+        let target_hash_modified_paths = self
+            .target_hash_modified_paths
+            .into_try_map(|path| path.resolve(&ctx.working_dir).into_string())?;
+
         let target_request = TargetsRequest {
-            context: Some(ctx.client_context(&self.config_opts, matches, self.sanitized_argv())?),
+            context,
             target_patterns: self.patterns.map(|pat| buck2_data::TargetPattern {
                 value: pat.to_owned(),
             }),
@@ -209,7 +217,7 @@ impl StreamingCommand for TargetsCommand {
                 }
                 TargetHashFileMode::None => targets_request::TargetHashFileMode::NoFiles as i32,
             },
-            target_hash_modified_paths: self.target_hash_modified_paths,
+            target_hash_modified_paths,
             target_hash_use_fast_hash,
             unstable_resolve_aliases: self.resolve_alias,
             target_call_stacks: self.target_call_stacks,
