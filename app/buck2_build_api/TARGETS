@@ -10,7 +10,6 @@ rust_library(
         "fbsource//third-party/rust:assert_matches",
         "fbsource//third-party/rust:indoc",
         "fbsource//third-party/rust:maplit",
-        "fbsource//third-party/rust:tempfile",
     ],
     deps = [
         "fbsource//third-party/blake3:blake3-rust",
