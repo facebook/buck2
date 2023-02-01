@@ -33,8 +33,6 @@ APPLE_ARCHIVE_OBJECTS_LOCALLY_OVERRIDE_ATTR_NAME = "_archive_objects_locally_ove
 def apple_bundle_extra_attrs():
     return {
         "resource_group_map": resource_group_map_attr(),
-        # FIXME: prelude// should be standalone (not refer to buck//)
-        "_apple_installer": attrs.label(default = "buck//src/com/facebook/buck/installer/apple:apple_installer"),
         "_apple_toolchain": _get_apple_bundle_toolchain_attr(),
         # FIXME: prelude// should be standalone (not refer to fbsource//)
         "_apple_tools": attrs.exec_dep(default = "fbsource//xplat/buck2/platform/apple:apple-tools", providers = [AppleToolsInfo]),

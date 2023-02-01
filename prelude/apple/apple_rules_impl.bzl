@@ -141,6 +141,7 @@ extra_attributes = {
         "dsymutil": attrs.dep(providers = [RunInfo]),
         "dwarfdump": attrs.option(attrs.dep(providers = [RunInfo]), default = None),
         "ibtool": attrs.dep(providers = [RunInfo]),
+        "installer": attrs.default_only(attrs.label(default = "buck//src/com/facebook/buck/installer/apple:apple_installer")),
         "libtool": attrs.dep(providers = [RunInfo]),
         "lipo": attrs.dep(providers = [RunInfo]),
         "min_version": attrs.option(attrs.string(), default = None),

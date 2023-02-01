@@ -26,6 +26,7 @@ def apple_toolchain_impl(ctx: "context") -> ["provider"]:
             codesign_allocate = ctx.attrs.codesign_allocate[RunInfo],
             codesign_identities_command = ctx.attrs.codesign_identities_command[RunInfo] if ctx.attrs.codesign_identities_command else None,
             compile_resources_locally = ctx.attrs.compile_resources_locally,
+            installer = ctx.attrs.installer,
             libtool = ctx.attrs.libtool[RunInfo],
             momc = ctx.attrs.momc[RunInfo],
             min_version = ctx.attrs.min_version,

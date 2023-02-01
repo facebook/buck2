@@ -25,6 +25,7 @@ def _impl(ctx: "context") -> ["provider"]:
             codesign = base.codesign,
             codesign_allocate = base.codesign_allocate,
             compile_resources_locally = base.compile_resources_locally,
+            installer = base.installer,
             libtool = base.libtool,
             momc = base.momc,
             min_version = base.min_version,

@@ -17,6 +17,7 @@ AppleToolchainInfo = provider(fields = [
     "codesign_allocate",  # "RunInfo"
     "codesign_identities_command",  # ["RunInfo", None]
     "compile_resources_locally",  # bool.type
+    "installer",  # label
     "libtool",  # "RunInfo"
     "momc",  # "RunInfo"
     "min_version",  # [None, str.type]

@@ -148,7 +148,7 @@ def apple_bundle_impl(ctx: "context") -> ["provider"]:
         AppleBundleInfo(bundle = bundle, binary_name = get_product_name(ctx), is_watchos = get_is_watch_bundle(ctx)),
         AppleDebuggableInfo(dsyms = dsym_artifacts, external_debug_info = external_debug_info),
         InstallInfo(
-            installer = ctx.attrs._apple_installer,
+            installer = ctx.attrs._apple_toolchain[AppleToolchainInfo].installer,
             files = {
                 "app_bundle": bundle,
                 "options": install_data,
