@@ -18,7 +18,6 @@ load(
     "LinkableProviders",  # @unused Used as type
     "linkable",
 )
-load("@prelude//linking:shared_libraries.bzl", "SharedLibrariesTSet")
 load("@prelude//linking:strip.bzl", "strip_debug_info")
 
 LinkableProvidersTSet = transitive_set()
@@ -27,10 +26,11 @@ LinkableProvidersTSet = transitive_set()
 CxxExtensionLinkInfo = provider(
     fields = [
         "linkable_providers",  # LinkableProvidersTSet.type
-        "shared_libraries",  # SharedLibrariesTSet.type
         "artifacts",  # {str.type: "_a"}
         "python_module_names",  # {str.type: str.type}
         "dlopen_deps",  # {"label": LinkableProviders.type}
+        # Native python extensions that can't be linked into the main executable.
+        "unembeddable_extensions",  # {str.type: LinkableProviders.type}
     ],
 )
 
@@ -38,23 +38,23 @@ def merge_cxx_extension_info(
         actions: "actions",
         deps: ["dependency"],
         linkable_providers: [LinkableProviders.type, None] = None,
-        shared_libraries: [SharedLibrariesTSet.type] = [],
         artifacts: {str.type: "_a"} = {},
         python_module_names: {str.type: str.type} = {},
+        unembeddable_extensions: {str.type: LinkableProviders.type} = {},
         dlopen_deps: ["dependency"] = []) -> CxxExtensionLinkInfo.type:
     linkable_provider_children = []
-    shared_libraries = list(shared_libraries)
     artifacts = dict(artifacts)
     python_module_names = dict(python_module_names)
+    unembeddable_extensions = dict(unembeddable_extensions)
     dlopen_deps = {d.label: linkable(d) for d in dlopen_deps}
     for dep in deps:
         cxx_extension_info = dep.get(CxxExtensionLinkInfo)
         if cxx_extension_info == None:
             continue
         linkable_provider_children.append(cxx_extension_info.linkable_providers)
-        shared_libraries.append(cxx_extension_info.shared_libraries)
         artifacts.update(cxx_extension_info.artifacts)
         python_module_names.update(cxx_extension_info.python_module_names)
+        unembeddable_extensions.update(cxx_extension_info.unembeddable_extensions)
         dlopen_deps.update(cxx_extension_info.dlopen_deps)
     linkable_providers_kwargs = {}
     if linkable_providers != None:
@@ -62,9 +62,9 @@ def merge_cxx_extension_info(
     linkable_providers_kwargs["children"] = linkable_provider_children
     return CxxExtensionLinkInfo(
         linkable_providers = actions.tset(LinkableProvidersTSet, **linkable_providers_kwargs),
-        shared_libraries = actions.tset(SharedLibrariesTSet, children = shared_libraries),
         artifacts = artifacts,
         python_module_names = python_module_names,
+        unembeddable_extensions = unembeddable_extensions,
         dlopen_deps = dlopen_deps,
     )
 

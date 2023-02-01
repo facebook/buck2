@@ -109,6 +109,13 @@ load(
     "cxx_inherited_preprocessor_infos",
     "cxx_private_preprocessor_info",
 )
+load(
+    ":symbols.bzl",
+    "create_dynamic_list_version_script",
+    "create_undefined_symbols_argsfile",
+    "extract_global_syms",
+    "extract_undefined_syms",
+)
 
 _CxxExecutableOutput = record(
     binary = "artifact",
@@ -124,6 +131,52 @@ _CxxExecutableOutput = record(
     # All link group links that were generated in the executable.
     auto_link_groups = field({str.type: LinkedObject.type}, {}),
 )
+
+def _symbol_flags_for_link_group(ctx: "context", lib: LinkedObject.type) -> ["_arglike"]:
+    """
+    Analyze symbols in the given shared library and generate linker flags which,
+    when applied to the main executable, make sure required symbols are included
+    in the link *and* exported to the dynamic symbol table.
+    """
+
+    sym_linker_flags = []
+
+    # Extract undefined symbols, format into an argsfile with `-u`s, and add to
+    # linker flags.
+    undefined_symfile = extract_undefined_syms(
+        ctx = ctx,
+        output = lib.output,
+        prefer_local = True,
+    )
+    undefined_argsfile = create_undefined_symbols_argsfile(
+        actions = ctx.actions,
+        name = "{}.undefined_symbols.argsfile".format(lib.output.short_path),
+        symbol_files = [undefined_symfile],
+        category = "link_groups_undefined_syms",
+        identifier = lib.output.short_path,
+    )
+    sym_linker_flags.append(cmd_args(undefined_argsfile, format = "@{}"))
+
+    # Extract global symbols, format into a dynamic list version file, and add
+    # to linker flags.
+    global_symfile = extract_global_syms(
+        ctx = ctx,
+        output = lib.output,
+        prefer_local = True,
+    )
+    dynamic_list_vers = create_dynamic_list_version_script(
+        actions = ctx.actions,
+        name = "{}.dynamic_list.vers".format(lib.output.short_path),
+        symbol_files = [global_symfile],
+        category = "link_groups_dynamic_list",
+        identifier = lib.output.short_path,
+    )
+    sym_linker_flags.extend([
+        "-Wl,--dynamic-list",
+        dynamic_list_vers,
+    ])
+
+    return sym_linker_flags
 
 # returns a tuple of the runnable binary as an artifact, a list of its runtime files as artifacts and a sub targets map, and the CxxCompilationDbInfo provider
 def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, is_cxx_test: bool.type = False) -> (_CxxExecutableOutput.type, CxxCompilationDbInfo.type, "XcodeDataInfo"):
@@ -179,7 +232,16 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
     # Create the linkable graph with the binary's deps and any link group deps.
     linkable_graph = create_linkable_graph(
         ctx,
-        children = [d.linkable_graph for d in link_deps] + link_group_deps,
+        children = (
+            [d.linkable_graph for d in link_deps] +
+            # We also need to include additional link roots, so that we find
+            # deps that might need to be linked into the main executable.
+            [d.linkable_graph for d in impl_params.extra_link_roots] +
+            # For non-auto-link-group cases, also search the targets specified
+            # in the link group mappings, as they won't be available in other
+            # ways.
+            link_group_deps
+        ),
     )
 
     # Gather link inputs.
@@ -204,6 +266,14 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
     else:
         linkable_graph_node_map = get_linkable_graph_node_map_func(linkable_graph)()
 
+        link_group_link_deps = (
+            [d.linkable_graph.nodes.value.label for d in link_deps] +
+            # Although these aren't really deps, we need to search from the
+            # extra link group roots to make sure we find additional libs
+            # that should be linked into the main link group.
+            [d.linkable_graph.nodes.value.label for d in impl_params.extra_link_roots]
+        )
+
         # If we're using auto-link-groups, where we generate the link group links
         # in the prelude, the link group map will give us the link group libs.
         # Otherwise, pull them from the `LinkGroupLibInfo` provider from out deps.
@@ -215,10 +285,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
                 link_group_lib = create_link_group(
                     ctx = ctx,
                     spec = link_group_spec,
-                    executable_deps = [
-                        dep.linkable_graph.nodes.value.label
-                        for dep in link_deps
-                    ],
+                    executable_deps = link_group_link_deps,
                     root_link_group = link_group,
                     linkable_graph_node_map = linkable_graph_node_map,
                     linker_flags = own_link_flags,
@@ -243,7 +310,16 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
                             ),
                         ),
                     )
+
+                # Add linker flags to make sure any symbols from the main
+                # executable needed by these link groups are pulled in and
+                # exported to the dynamic symbol table.
+                own_binary_link_flags += _symbol_flags_for_link_group(ctx, link_group_lib)
+
         else:
+            # NOTE(agallagher): We don't use version scripts and linker scripts
+            # for non-auto-link-group flow, as it's note clear it's useful (e.g.
+            # it's mainly for supporting dlopen-enabled libs and extensions).
             link_group_libs = gather_link_group_libs(
                 children = [d.link_group_lib_info for d in link_deps],
             )
@@ -258,7 +334,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
             link_group_preferred_linkage,
             link_group_libs = link_group_libs,
             link_style = link_style,
-            deps = [d.linkable_graph.nodes.value.label for d in link_deps],
+            deps = link_group_link_deps,
             is_executable_link = True,
             prefer_stripped = ctx.attrs.prefer_stripped_objects,
         )
@@ -272,7 +348,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
                 link_group_mappings,
                 link_group_preferred_linkage,
                 link_style,
-                deps = [d.linkable_graph.nodes.value.label for d in link_deps],
+                deps = link_group_link_deps,
                 is_executable_link = True,
                 prefer_stripped = ctx.attrs.prefer_stripped_objects,
             )
@@ -298,7 +374,10 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
     if link_style == LinkStyle("shared") or gnu_use_link_groups:
         shlib_info = merge_shared_libraries(
             ctx.actions,
-            deps = [d.shared_library_info for d in link_deps],
+            deps = (
+                [d.shared_library_info for d in link_deps] +
+                [d.shared_library_info for d in impl_params.extra_link_roots]
+            ),
         )
 
         def is_link_group_shlib(label: "label"):

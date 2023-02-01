@@ -337,7 +337,6 @@ def python_library_impl(ctx: "context") -> ["provider"]:
         merge_cxx_extension_info(
             ctx.actions,
             deps,
-            shared_libraries = [lib_info.set for lib_info in shared_libraries if lib_info.set != None],
             dlopen_deps = [d for d in deps if DlopenableLibraryInfo in d],
         ),
     )

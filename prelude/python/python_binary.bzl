@@ -124,7 +124,9 @@ def _merge_extensions(
             )
         extensions[extension_name] = (incoming_artifact, incoming_label)
 
-def _get_root_link_group_specs(link_deps: [LinkableProviders.type]) -> [LinkGroupLibSpec.type]:
+def _get_root_link_group_specs(
+        libs: [LinkableProviders.type],
+        extensions: {str.type: LinkableProviders.type}) -> [LinkGroupLibSpec.type]:
     """
     Walk the linkable graph finding dlopen-able C++ libs.
     """
@@ -134,8 +136,8 @@ def _get_root_link_group_specs(link_deps: [LinkableProviders.type]) -> [LinkGrou
 
     specs = []
 
-    # Extract graph providers from `deps` and record potential roots.
-    for dep in link_deps:
+    # Add link group specs for dlopen-able libs.
+    for dep in libs:
         specs.append(
             LinkGroupLibSpec(
                 name = dep.linkable_root_info.name,
@@ -155,9 +157,34 @@ def _get_root_link_group_specs(link_deps: [LinkableProviders.type]) -> [LinkGrou
             ),
         )
 
+    # Add link group specs for extensions.
+    for name, extension in extensions.items():
+        specs.append(
+            LinkGroupLibSpec(
+                name = name,
+                is_shared_lib = False,
+                group = Group(
+                    name = name,
+                    mappings = [
+                        GroupMapping(
+                            root = GroupRoot(
+                                label = extension.linkable_graph.nodes.value.label,
+                                node = extension,
+                            ),
+                            traversal = Traversal("node"),
+                        ),
+                    ],
+                ),
+            ),
+        )
+
     return specs
 
-def _get_link_group_info(ctx: "context", link_deps: [LinkableProviders.type], dlopen_deps: [LinkableProviders.type]) -> (LinkGroupInfo.type, [LinkGroupLibSpec.type]):
+def _get_link_group_info(
+        ctx: "context",
+        link_deps: [LinkableProviders.type],
+        libs: [LinkableProviders.type],
+        extensions: {str.type: LinkableProviders.type}) -> (LinkGroupInfo.type, [LinkGroupLibSpec.type]):
     """
     Return the `LinkGroupInfo` and link group lib specs to use for this binary.
     This will handle parsing the various user-specific parameters and automatic
@@ -173,7 +200,7 @@ def _get_link_group_info(ctx: "context", link_deps: [LinkableProviders.type], dl
         link_group_specs.extend(create_shared_lib_link_group_specs(ctx, link_group_info))
 
     # Add link group specs from dlopenable C++ libraries.
-    root_specs = _get_root_link_group_specs(dlopen_deps)
+    root_specs = _get_root_link_group_specs(libs, extensions)
 
     # (Re-)build the link group info
     if root_specs or link_group_info == None:
@@ -400,6 +427,7 @@ def convert_python_library_to_executable(
             ctx,
             link_deps,
             extension_info.dlopen_deps.values(),
+            extension_info.unembeddable_extensions,
         )
 
         impl_params = CxxRuleConstructorParams(
@@ -414,6 +442,7 @@ def convert_python_library_to_executable(
             force_full_hybrid_if_capable = True,
             link_group_info = link_group_info,
             auto_link_group_specs = auto_link_group_specs,
+            extra_link_roots = extension_info.unembeddable_extensions.values(),
         )
 
         executable_info, _, _ = cxx_executable(ctx, impl_params)
@@ -425,12 +454,24 @@ def convert_python_library_to_executable(
         for name, lib in native_libs.items():
             extra[name] = [DefaultInfo(default_output = lib.output)]
 
+        for name, group in executable_info.auto_link_groups.items():
+            extra[name] = [DefaultInfo(default_output = group.output)]
+
+        # Unembeddable extensions.
+        extensions = {
+            name: (
+                executable_info.auto_link_groups[name],
+                link.linkable_graph.nodes.value.label,
+            )
+            for name, link in extension_info.unembeddable_extensions.items()
+        }
+
         # TODO expect(len(executable_info.runtime_files) == 0, "OH NO THERE ARE RUNTIME FILES")
         artifacts = dict(extension_info.artifacts)
         artifacts["runtime/bin/{}".format(ctx.attrs.executable_name)] = executable_info.binary
         artifacts["static_extension_finder.py"] = ctx.attrs.static_extension_finder
         extra_manifests = create_manifest_for_source_map(ctx, "extension_stubs", artifacts)
-        extensions = {}
+
     else:
         native_libs = {name: shared_lib.lib for name, shared_lib in library.shared_libraries().items()}
 

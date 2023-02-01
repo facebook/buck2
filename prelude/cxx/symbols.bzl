@@ -104,7 +104,8 @@ def _create_symbols_file_from_script(
         symbol_files: ["artifact"],
         category: str.type,
         prefer_local: bool.type,
-        weight_percentage: int.type) -> "artifact":
+        weight_percentage: int.type,
+        identifier: [str.type, None] = None) -> "artifact":
     """
     Generate a version script exporting symbols from from the given objects and
     link args.
@@ -126,6 +127,7 @@ def _create_symbols_file_from_script(
         category = category,
         prefer_local = prefer_local,
         weight_percentage = weight_percentage,
+        identifier = identifier,
     )
     return output
 
@@ -134,6 +136,7 @@ def create_undefined_symbols_argsfile(
         name: str.type,
         symbol_files: ["artifact"],
         category: [str.type, None] = None,
+        identifier: [str.type, None] = None,
         prefer_local: bool.type = False) -> "artifact":
     """
     Combine files with sorted lists of symbols names into an argsfile to pass
@@ -148,6 +151,7 @@ def create_undefined_symbols_argsfile(
         ),
         symbol_files = symbol_files,
         category = category,
+        identifier = identifier,
         prefer_local = prefer_local,
         weight_percentage = 15,  # 10% + a little padding
     )
@@ -156,6 +160,7 @@ def create_global_symbols_version_script(
         actions: "actions",
         name: str.type,
         symbol_files: ["artifact"],
+        identifier: [str.type, None] = None,
         category: [str.type, None] = None,
         prefer_local: bool.type = False) -> "artifact":
     """
@@ -175,6 +180,34 @@ echo "};" >> "$2"
 """,
         symbol_files = symbol_files,
         category = category,
+        identifier = identifier,
+        prefer_local = prefer_local,
+        weight_percentage = 15,  # 10% + a little padding
+    )
+
+def create_dynamic_list_version_script(
+        actions: "actions",
+        name: str.type,
+        symbol_files: ["artifact"],
+        identifier: [str.type, None] = None,
+        category: [str.type, None] = None,
+        prefer_local: bool.type = False) -> "artifact":
+    """
+    Combine files with sorted lists of symbols names into a dynamic list version
+    file that can be passed to the linked (e.g. via `--dynamic-list=<file>`).
+    """
+    return _create_symbols_file_from_script(
+        actions = actions,
+        name = name,
+        script = """\
+set -euo pipefail
+echo "{" > "$2"
+xargs cat < "$1" | LC_ALL=C sort -S 10% -u -m | awk '{print "    \\""$1"\\";"}' >> "$2"
+echo "};" >> "$2"
+""",
+        symbol_files = symbol_files,
+        category = category,
+        identifier = identifier,
         prefer_local = prefer_local,
         weight_percentage = 15,  # 10% + a little padding
     )

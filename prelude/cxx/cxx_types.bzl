@@ -157,6 +157,11 @@ CxxRuleConstructorParams = record(
     # Whether shared libs for executables should generate a shared lib link tree.
     exe_shared_libs_link_tree = field(bool.type, True),
     extra_link_deps = field([LinkableProviders.type], []),
+    # Additional link roots (e.g. dlopen-able libs in a native python link),
+    # other than the main executable, which can influence the C++ executable
+    # result (e.g. added to link group linking or needs to be searched for
+    # shared libs to include in the symlink tree).
+    extra_link_roots = field([LinkableProviders.type], []),
     auto_link_group_specs = field([[LinkGroupLibSpec.type], None], None),
     link_group_info = field([LinkGroupInfo.type, None], None),
 )
