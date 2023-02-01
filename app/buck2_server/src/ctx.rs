@@ -212,9 +212,9 @@ impl ServerCommandContext {
         record_target_call_stacks: bool,
         configure_bxl_file_globals: fn(&mut GlobalsBuilder),
     ) -> anyhow::Result<Self> {
-        let abs_path = AbsNormPath::new(&client_context.working_dir)?;
+        let working_dir = AbsNormPath::new(&client_context.working_dir)?;
 
-        let project_path = abs_path
+        let working_dir_project_relative = working_dir
             .strip_prefix(base_context.project_root.root())
             .map_err(|_| {
                 Into::<anyhow::Error>::into(DaemonCommunicationError::InvalidWorkingDirectory(
@@ -263,7 +263,7 @@ impl ServerCommandContext {
 
         let cell_configs_loader = Arc::new(CellConfigLoader {
             project_root: base_context.project_root.clone(),
-            working_dir: project_path.to_buf().into(),
+            working_dir: working_dir_project_relative.to_buf().into(),
             reuse_current_config: client_context.reuse_current_config,
             config_overrides: client_context.config_overrides.clone(),
             loaded_cell_configs: AsyncOnceCell::new(),
@@ -271,7 +271,7 @@ impl ServerCommandContext {
 
         Ok(ServerCommandContext {
             base_context,
-            working_dir: project_path.to_buf().into(),
+            working_dir: working_dir_project_relative.to_buf().into(),
             host_platform_override: client_context.host_platform(),
             host_arch_override: client_context.host_arch(),
             oncall,
