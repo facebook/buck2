@@ -22,7 +22,7 @@ ocaml_binary(
         "hello.ml",
     ],
     deps = [":hello-stubs-rs"],
-) if host_info().os.is_macos else None
+) if not host_info().os.is_windows else None
 
 rust_library(
     name = "hello-stubs-rs",
@@ -42,4 +42,4 @@ assert_output(
     name = "check-hello-rs",
     command = "$(exe_target :hello-rs)",
     output = "Hello Rust",
-) if host_info().os.is_macos else None
+) if not host_info().os.is_windows else None
