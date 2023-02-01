@@ -537,7 +537,7 @@ pub(crate) struct VersionTracker {
     /// Ran when versions update. If the version number is present, that was a version that was
     /// just deleted.
     #[allocative(skip)]
-    on_update: Box<dyn Fn(VersionTrackerUpdate<'_>)>,
+    on_update: Box<dyn Fn(VersionTrackerUpdateNotification<'_>)>,
     current: RwLock<VersionToMinor>,
     /// Tracks the currently active versions and how many contexts are holding each of them.
     active_versions: Mutex<HashMap<VersionNumber, usize>>,
@@ -551,15 +551,36 @@ pub(crate) struct VersionTracker {
     write_version: UnsafeCell<VersionNumber>,
 }
 
-pub(crate) struct VersionTrackerUpdate<'a> {
-    deleted_version: Option<VersionNumber>,
+enum VersionTrackerUpdate {
+    Added(VersionNumber),
+    Deleted(VersionNumber),
+}
+
+pub(crate) struct VersionTrackerUpdateNotification<'a> {
+    update: VersionTrackerUpdate,
     active_versions: &'a HashMap<VersionNumber, usize>,
 }
 
-impl VersionTrackerUpdate<'_> {
+impl fmt::Debug for VersionTrackerUpdateNotification<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
+        write!(f, "VersionTrackerUpdateNotification {{ ")?;
+        match self.update {
+            VersionTrackerUpdate::Added(v) => write!(f, "added = {}, ", v)?,
+            VersionTrackerUpdate::Deleted(v) => write!(f, "deleted = {}, ", v)?,
+        };
+        write!(f, "active = {:?}, ", self.active_versions)?;
+        write!(f, "}}")?;
+        Ok(())
+    }
+}
+
+impl VersionTrackerUpdateNotification<'_> {
     /// If any version was just deleted, which version that is.
     pub(crate) fn deleted_version(&self) -> Option<VersionNumber> {
-        self.deleted_version
+        match self.update {
+            VersionTrackerUpdate::Added(..) => None,
+            VersionTrackerUpdate::Deleted(v) => Some(v),
+        }
     }
 
     /// The number of active versions
@@ -617,8 +638,8 @@ impl Drop for VersionGuard {
         };
 
         if cleanup {
-            (self.tracker.on_update)(VersionTrackerUpdate {
-                deleted_version: Some(self.version),
+            (self.tracker.on_update)(VersionTrackerUpdateNotification {
+                update: VersionTrackerUpdate::Deleted(self.version),
                 active_versions: &active_versions,
             });
         }
@@ -633,7 +654,7 @@ struct VersionToMinor {
 }
 
 impl VersionTracker {
-    pub(crate) fn new(on_update: Box<dyn Fn(VersionTrackerUpdate<'_>)>) -> Arc<Self> {
+    pub(crate) fn new(on_update: Box<dyn Fn(VersionTrackerUpdateNotification<'_>)>) -> Arc<Self> {
         Arc::new(VersionTracker {
             on_update,
             current: RwLock::new(VersionToMinor {
@@ -684,8 +705,8 @@ impl VersionTracker {
         let mut active_versions = self.active_versions.lock();
         *active_versions.entry(v).or_default() += 1;
 
-        (self.on_update)(VersionTrackerUpdate {
-            deleted_version: None,
+        (self.on_update)(VersionTrackerUpdateNotification {
+            update: VersionTrackerUpdate::Added(v),
             active_versions: &active_versions,
         });
 

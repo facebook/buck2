@@ -320,6 +320,8 @@ impl Dice {
             data,
             map,
             global_versions: VersionTracker::new(box move |update| {
+                tracing::info!("VersionTracker update: {:?}", update);
+
                 if let Some(deleted) = update.deleted_version() {
                     if let Some(engines) = weak_map.upgrade() {
                         engines
