@@ -719,8 +719,12 @@ where
     T::Params: DeserializeOwned,
 {
     if x.method == T::METHOD {
-        let params = serde_json::from_value(x.params.clone())
-            .unwrap_or_else(|err| panic!("Invalid request\nMethod: {}\n error: {}", x.method, err));
+        let params = serde_json::from_value(x.params.clone()).unwrap_or_else(|err| {
+            panic!(
+                "Invalid request\n  method: {}\n  error: {}\n  request: {:?}\n",
+                x.method, err, x
+            )
+        });
         Some(params)
     } else {
         None
