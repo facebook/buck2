@@ -271,11 +271,16 @@ impl ConcurrencyHandler {
         sanitized_argv: Vec<String>,
     ) -> anyhow::Result<(OnExecExit, DiceTransaction)> {
         let trace = event_dispatcher.trace_id().dupe();
+
+        let span = tracing::span!(tracing::Level::DEBUG, "wait_for_others", trace = %trace);
+        let _enter = span.enter();
+
         let mut data = self.data.lock();
 
         let transaction = loop {
             match &data.dice_status {
                 DiceStatus::Cleanup { future, epoch } => {
+                    tracing::debug!("ActiveDice is in cleanup");
                     let future = future.clone();
                     let epoch = *epoch;
 
@@ -291,6 +296,7 @@ impl ConcurrencyHandler {
                     }
                 }
                 DiceStatus::Available { active } => {
+                    tracing::debug!("ActiveDice is available");
                     // we rerun the updates in case that files on disk have changed between commands.
                     // this might cause some churn, but concurrent commands don't happen much and
                     // isn't a big perf bottleneck. Dice should be able to resurrect nodes properly.
@@ -317,6 +323,7 @@ impl ConcurrencyHandler {
 
                     if let Some(active) = active {
                         let is_same_state = active.transaction.equivalent(&transaction);
+                        tracing::debug!("ActiveDice has an active_transaction");
 
                         event_dispatcher.instant_event(DiceEqualityCheck {
                             is_equal: is_same_state,
@@ -376,6 +383,7 @@ impl ConcurrencyHandler {
                             }
                         }
                     } else {
+                        tracing::debug!("ActiveDice has no active_transaction");
                         event_dispatcher.instant_event(NoActiveDiceState {});
                         data.dice_status = DiceStatus::active(transaction.dupe());
                         break transaction;
@@ -383,6 +391,8 @@ impl ConcurrencyHandler {
                 }
             }
         };
+
+        tracing::info!("Acquired access to DICE");
 
         data.active_trace = Some(trace.dupe());
         data.active_trace_argv = Some(sanitized_argv);
@@ -508,6 +518,8 @@ impl OnExecExit {
 
 impl Drop for OnExecExit {
     fn drop(&mut self) {
+        tracing::info!("Command has exited: {}", self.1);
+
         let mut data = self.0.data.lock();
         let refs = {
             let refs = data
@@ -523,6 +535,8 @@ impl Drop for OnExecExit {
         }
 
         if data.active_traces.is_empty() {
+            tracing::info!("Transitioning ActiveDice to cleanup for: {}", self.1);
+
             data.dice_status
                 .as_active_mut()
                 .expect("should have an active dice");
