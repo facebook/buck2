@@ -743,13 +743,17 @@ def _form_library_outputs(
             # We still generate a shared library with no source objects because it can still point to dependencies.
             # i.e. a rust_python_extension is an empty .so depending on a rust shared object
             if compiled_srcs.pic_objects or impl_params.build_empty_so:
+                external_debug_info = compiled_srcs.pic_external_debug_info + impl_params.additional.external_debug_info
+                if compiled_srcs.pic_objects_have_external_debug_info:
+                    external_debug_info.extend(compiled_srcs.pic_objects)
+                if impl_params.extra_link_input_has_external_debug_info:
+                    external_debug_info.extend(impl_params.extra_link_input)
+
                 soname, shlib, info = _shared_library(
                     ctx,
                     impl_params,
                     compiled_srcs.pic_objects,
-                    (compiled_srcs.pic_external_debug_info +
-                     (compiled_srcs.pic_objects if compiled_srcs.pic_objects_have_external_debug_info else []) +
-                     impl_params.additional.external_debug_info),
+                    external_debug_info,
                     shared_links,
                     gnu_use_link_groups,
                 )

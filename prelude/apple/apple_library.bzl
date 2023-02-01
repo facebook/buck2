@@ -129,6 +129,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: "context", pa
         extra_exported_link_flags = params.extra_exported_link_flags,
         extra_link_flags = [_get_linker_flags(ctx, swift_providers)],
         extra_link_input = swift_object_files,
+        extra_link_input_has_external_debug_info = True,
         extra_preprocessors = get_min_deployment_version_target_preprocessor_flags(ctx) + [swift_pre, modular_pre],
         extra_exported_preprocessors = filter(None, [framework_search_path_pre, exported_pre]),
         srcs = cxx_srcs,

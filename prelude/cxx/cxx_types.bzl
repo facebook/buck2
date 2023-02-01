@@ -114,6 +114,8 @@ CxxRuleConstructorParams = record(
     extra_link_flags = field([""], []),
     # Additional artifacts to be linked together with the cxx compilation output
     extra_link_input = field(["artifact"], []),
+    # If True the extra_link_input should be considered as external debug info
+    extra_link_input_has_external_debug_info = field(bool.type, False),
     # Additional args to be used to link the target
     extra_link_args = field([LinkArgs.type], []),
     # The source files to compile as part of this rule. This list can be generated
