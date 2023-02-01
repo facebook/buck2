@@ -261,6 +261,14 @@ _INPUTS = {
     ("library", False, "static", "static", "c++"): _NATIVE_LINKABLE_STATIC_NON_PIC,
 }
 
+def _get_flags(build_kind_key: int.type, target_os_type: OsLookup.type) -> (RustcFlags.type, RelocModel.type):
+    flags = _BUILD_PARAMS[build_kind_key]
+
+    # On Windows we should always use pic reloc model.
+    if target_os_type.platform == "windows":
+        return flags, RelocModel("pic")
+    return flags, flags.reloc_model
+
 # Compute crate type, relocation model and name mapping given what rule we're building,
 # whether its a proc-macro, linkage information and language.
 def build_params(
@@ -284,12 +292,12 @@ def build_params(
     )
 
     build_kind_key = _INPUTS[input]
-    flags = _BUILD_PARAMS[build_kind_key]
+    flags, reloc_model = _get_flags(build_kind_key, target_os_type)
     prefix, suffix = flags.platform_to_affix(linker_type, target_os_type)
 
     return BuildParams(
         crate_type = flags.crate_type,
-        reloc_model = flags.reloc_model,
+        reloc_model = reloc_model,
         dep_link_style = flags.dep_link_style,
         prefix = prefix,
         suffix = suffix,
@@ -323,12 +331,12 @@ def preferred_rust_binary_build_params(
         "static": _BINARY_NON_PIE,
     }[preferred_linkage.value]
 
-    flags = _BUILD_PARAMS[build_kind_key]
+    flags, reloc_model = _get_flags(build_kind_key, target_os_type)
     prefix, suffix = flags.platform_to_affix(linker_type, target_os_type)
 
     return BuildParams(
         crate_type = flags.crate_type,
-        reloc_model = flags.reloc_model,
+        reloc_model = reloc_model,
         dep_link_style = flags.dep_link_style,
         prefix = prefix,
         suffix = suffix,
