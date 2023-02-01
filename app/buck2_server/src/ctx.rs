@@ -50,6 +50,7 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_core::fs::working_dir::WorkingDir;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::ProvidersPattern;
 use buck2_core::truncate::truncate_container;
@@ -157,6 +158,8 @@ pub struct ServerCommandContext {
     /// the working directory and resolving cell aliases there. This should generally only be used
     /// to interpret values that are in the request. We should convert to client-agnostic things early.
     pub working_dir: ProjectRelativePathBuf,
+
+    working_dir_abs: WorkingDir,
 
     /// The oncall specified by the client, if any. This gets injected into request metadata.
     pub oncall: Option<String>,
@@ -272,6 +275,7 @@ impl ServerCommandContext {
         Ok(ServerCommandContext {
             base_context,
             working_dir: working_dir_project_relative.to_buf().into(),
+            working_dir_abs: WorkingDir::unchecked_new(working_dir.to_buf()),
             host_platform_override: client_context.host_platform(),
             host_arch_override: client_context.host_arch(),
             oncall,
@@ -575,6 +579,10 @@ impl Drop for ServerCommandContext {
 impl ServerCommandContextTrait for ServerCommandContext {
     fn working_dir(&self) -> &ProjectRelativePath {
         &self.working_dir
+    }
+
+    fn working_dir_abs(&self) -> &WorkingDir {
+        &self.working_dir_abs
     }
 
     fn project_root(&self) -> &ProjectRoot {

@@ -14,6 +14,7 @@ use async_trait::async_trait;
 use buck2_common::result::SharedResult;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
+use buck2_core::fs::working_dir::WorkingDir;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::ProvidersPattern;
 use buck2_data::CommandCriticalEnd;
@@ -33,6 +34,8 @@ use crate::raw_output::RawOutputGuard;
 #[async_trait]
 pub trait ServerCommandContextTrait: Send + Sync + 'static {
     fn working_dir(&self) -> &ProjectRelativePath;
+
+    fn working_dir_abs(&self) -> &WorkingDir;
 
     fn project_root(&self) -> &ProjectRoot;
 
