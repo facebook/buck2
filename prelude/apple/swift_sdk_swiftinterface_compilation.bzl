@@ -5,59 +5,111 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
+load("@prelude//utils:anon_targets.bzl", "anon_targets")
+load(":apple_sdk_modules_utility.bzl", "SDKDepTSet", "get_compiled_sdk_deps_tset")
 load(":apple_utility.bzl", "expand_relative_prefixed_sdk_path")
 load(":swift_module_map.bzl", "write_swift_module_map")
-load(":swift_toolchain_types.bzl", "SdkCompiledModuleInfo")
+load(":swift_sdk_pcm_compilation.bzl", "get_swift_sdk_pcm_anon_targets")
+load(":swift_toolchain_types.bzl", "SdkCompiledModuleInfo", "SdkUncompiledModuleInfo", "WrappedSdkCompiledModuleInfo")
 
-def compile_sdk_swiftinterface(
+def get_swift_interface_anon_targets(
         ctx: "context",
-        toolchain_context: struct.type,
-        sdk_deps_set: "SDKDepTSet",
-        uncompiled_sdk_module_info: "SdkUncompiledModuleInfo",
-        sdk_module_providers: {str.type: "SdkCompiledModuleInfo"}):
-    uncompiled_module_info_name = uncompiled_sdk_module_info.module_name
+        uncompiled_sdk_deps: ["dependency"]):
+    deps = [
+        {
+            "dep": uncompiled_sdk_dep,
+            "sdk_swiftinterface_name": uncompiled_sdk_dep[SdkUncompiledModuleInfo].module_name,
+            "_apple_toolchain": ctx.attrs._apple_toolchain,
+        }
+        for uncompiled_sdk_dep in uncompiled_sdk_deps
+        if SdkUncompiledModuleInfo in uncompiled_sdk_dep and uncompiled_sdk_dep[SdkUncompiledModuleInfo].is_swiftmodule
+    ]
+    return [(_swift_interface_compilation, d) for d in deps]
 
-    cmd = cmd_args(toolchain_context.compiler)
-    cmd.add(uncompiled_sdk_module_info.partial_cmd)
-    cmd.add(["-sdk", toolchain_context.sdk_path])
-    cmd.add(toolchain_context.compiler_flags)
+def _swift_interface_compilation_impl(ctx: "context") -> ["promise", ["provider"]]:
+    def k(sdk_deps_providers) -> ["provider"]:
+        uncompiled_sdk_module_info = ctx.attrs.dep[SdkUncompiledModuleInfo]
+        uncompiled_module_info_name = uncompiled_sdk_module_info.module_name
 
-    if toolchain_context.swift_resource_dir:
+        swift_toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
+        cmd = cmd_args(swift_toolchain.compiler)
+        cmd.add(uncompiled_sdk_module_info.partial_cmd)
+        cmd.add(["-sdk", swift_toolchain.sdk_path])
+
+        if swift_toolchain.resource_dir:
+            cmd.add([
+                "-resource-dir",
+                swift_toolchain.resource_dir,
+            ])
+
+        # `sdk_deps_providers` contains providers of direct SDK deps,
+        # as well as a provider that aggregates SDK deps coming from all transitive pcm deps.
+        sdk_deps_tset = get_compiled_sdk_deps_tset(ctx, sdk_deps_providers)
+
+        # FIXME: - Get rid of slow traversal here, and unify with two projections below.
+        swift_module_map_artifact = write_swift_module_map(ctx, uncompiled_module_info_name, list(sdk_deps_tset.traverse()))
         cmd.add([
-            "-resource-dir",
-            toolchain_context.swift_resource_dir,
+            "-explicit-swift-module-map-file",
+            swift_module_map_artifact,
         ])
 
-    swift_module_map_artifact = write_swift_module_map(ctx, uncompiled_module_info_name, list(sdk_deps_set.traverse()))
-    cmd.add([
-        "-explicit-swift-module-map-file",
-        swift_module_map_artifact,
-    ])
+        # sdk_swiftinterface_compile should explicitly depend on its deps that go to swift_modulemap
+        cmd.hidden(sdk_deps_tset.project_as_args("hidden"))
+        cmd.add(sdk_deps_tset.project_as_args("clang_deps"))
 
-    # sdk_swiftinterface_compile should explicitly depend on its deps that go to swift_modulemap
-    cmd.hidden(sdk_deps_set.project_as_args("hidden"))
-    cmd.add(sdk_deps_set.project_as_args("clang_deps"))
+        swiftmodule_output = ctx.actions.declare_output(uncompiled_module_info_name + ".swiftmodule")
+        expanded_swiftinterface_cmd = expand_relative_prefixed_sdk_path(
+            cmd_args(swift_toolchain.sdk_path),
+            cmd_args(swift_toolchain.resource_dir),
+            uncompiled_sdk_module_info.input_relative_path,
+        )
+        cmd.add([
+            "-o",
+            swiftmodule_output.as_output(),
+            expanded_swiftinterface_cmd,
+        ])
 
-    swiftmodule_output = ctx.actions.declare_output(uncompiled_module_info_name + ".swiftmodule")
-    expanded_swiftinterface_cmd = expand_relative_prefixed_sdk_path(
-        cmd_args(toolchain_context.sdk_path),
-        cmd_args(toolchain_context.swift_resource_dir),
-        uncompiled_sdk_module_info.input_relative_path,
+        ctx.actions.run(cmd, category = "sdk_swiftinterface_compile", identifier = uncompiled_module_info_name)
+
+        compiled_sdk = SdkCompiledModuleInfo(
+            name = uncompiled_sdk_module_info.name,
+            module_name = uncompiled_module_info_name,
+            is_framework = uncompiled_sdk_module_info.is_framework,
+            is_swiftmodule = True,
+            output_artifact = swiftmodule_output,
+            input_relative_path = expanded_swiftinterface_cmd,
+        )
+
+        return [
+            DefaultInfo(),
+            WrappedSdkCompiledModuleInfo(
+                tset = ctx.actions.tset(SDKDepTSet, value = compiled_sdk, children = [sdk_deps_tset]),
+            ),
+        ]
+
+    # Skip deps compilations if run not on SdkUncompiledModuleInfo
+    if SdkUncompiledModuleInfo not in ctx.attrs.dep:
+        return []
+
+    sdk_pcm_deps_anon_targets = get_swift_sdk_pcm_anon_targets(
+        ctx,
+        ctx.attrs.dep[SdkUncompiledModuleInfo].deps,
     )
-    cmd.add([
-        "-o",
-        swiftmodule_output.as_output(),
-        expanded_swiftinterface_cmd,
-    ])
 
-    sdk_module_providers[uncompiled_sdk_module_info.name] = SdkCompiledModuleInfo(
-        name = uncompiled_sdk_module_info.name,
-        module_name = uncompiled_module_info_name,
-        is_framework = uncompiled_sdk_module_info.is_framework,
-        is_swiftmodule = True,
-        output_artifact = swiftmodule_output,
-        deps = sdk_deps_set,
-        input_relative_path = expanded_swiftinterface_cmd,
+    # Recursively compile swiftinterface of any other exported_deps
+    sdk_swift_interface_anon_targets = get_swift_interface_anon_targets(
+        ctx,
+        ctx.attrs.dep[SdkUncompiledModuleInfo].deps,
     )
 
-    ctx.actions.run(cmd, category = "sdk_swiftinterface_compile", identifier = uncompiled_module_info_name)
+    return anon_targets(ctx, sdk_pcm_deps_anon_targets + sdk_swift_interface_anon_targets, k)
+
+_swift_interface_compilation = rule(
+    impl = _swift_interface_compilation_impl,
+    attrs = {
+        "dep": attrs.dep(),
+        "sdk_swiftinterface_name": attrs.string(),
+        "_apple_toolchain": attrs.dep(),
+    },
+)
