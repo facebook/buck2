@@ -152,6 +152,9 @@ def conan_env(
     #env["CONAN_REVISIONS_ENABLED"] = "1"
 
     # Prevent over-allocation.
+    # TODO[AH] Support parallized package builds and set an appropriate action
+    #   weight using the `weight` parameter to `ctx.actions.run`.
+    #   Note that not all Conan packages respect the `CONAN_CPU_COUNT` setting.
     env["CONAN_CPU_COUNT"] = "1"
 
     # Prevent interactive prompts.
