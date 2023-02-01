@@ -53,7 +53,7 @@ pub fn parse_concurrency(requested: u32) -> anyhow::Result<usize> {
 /// For each buck invocations, we'll have a single CommandExecutorFactory. This contains shared
 /// state used by all command executor strategies.
 pub struct CommandExecutorFactory {
-    pub re_connection: ReConnectionHandle,
+    pub re_connection: Arc<ReConnectionHandle>,
     // TODO(cjhopman): This should probably be a global limit, otherwise simultaneous commands may
     // use more resources than intended (this might no longer be accurate since only instances
     // sharing the same DICE context should be allowed to proceed concurrently, and we only have
@@ -72,7 +72,7 @@ pub struct CommandExecutorFactory {
 
 impl CommandExecutorFactory {
     pub fn new(
-        re_connection: ReConnectionHandle,
+        re_connection: Arc<ReConnectionHandle>,
         host_sharing_broker: HostSharingBroker,
         low_pass_filter: LowPassFilter,
         materializer: Arc<dyn Materializer>,

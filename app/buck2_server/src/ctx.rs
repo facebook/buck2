@@ -40,6 +40,7 @@ use buck2_common::io::IoProvider;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::LegacyBuckConfigs;
+use buck2_common::result::SharedError;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
 use buck2_core::async_once_cell::AsyncOnceCell;
@@ -317,13 +318,14 @@ impl ServerCommandContext {
             .build_options
             .as_ref()
             .and_then(|opts| opts.concurrency.as_ref())
-            .map(|obj| parse_concurrency(obj.concurrency));
+            .map(|obj| parse_concurrency(obj.concurrency))
+            .map(|v| v.map_err(SharedError::from));
 
         let executor_config =
             get_executor_config_for_strategy(execution_strategy, self.host_platform_override);
         let blocking_executor: Arc<_> = self.base_context.blocking_executor.dupe();
         let materializer = self.base_context.materializer.dupe();
-        let re_connection = self.get_re_connection();
+        let re_connection = Arc::new(self.get_re_connection());
         let build_signals = self.build_signals.dupe();
 
         let forkserver = self.base_context.forkserver.dupe();
@@ -341,7 +343,7 @@ impl ServerCommandContext {
             execution_strategy,
             run_action_knobs,
             concurrency,
-            executor_config,
+            executor_config: Arc::new(executor_config),
             blocking_executor,
             materializer,
             re_connection,
@@ -427,11 +429,11 @@ struct DiceCommandDataProvider {
     cell_configs_loader: Arc<CellConfigLoader>,
     execution_strategy: ExecutionStrategy,
     events: EventDispatcher,
-    concurrency: Option<anyhow::Result<usize>>,
-    executor_config: CommandExecutorConfig,
+    concurrency: Option<Result<usize, SharedError>>,
+    executor_config: Arc<CommandExecutorConfig>,
     blocking_executor: Arc<dyn BlockingExecutor>,
     materializer: Arc<dyn Materializer>,
-    re_connection: ReConnectionHandle,
+    re_connection: Arc<ReConnectionHandle>,
     build_signals: BuildSignalSender,
     forkserver: Option<ForkserverClient>,
     upload_all_actions: bool,
@@ -442,10 +444,7 @@ struct DiceCommandDataProvider {
 
 #[async_trait]
 impl DiceDataProvider for DiceCommandDataProvider {
-    async fn provide(
-        self: Box<Self>,
-        ctx: &DiceComputations,
-    ) -> anyhow::Result<UserComputationData> {
+    async fn provide(&self, ctx: &DiceComputations) -> anyhow::Result<UserComputationData> {
         let (cell_resolver, legacy_configs) =
             self.cell_configs_loader.cells_and_configs(ctx).await?;
 
@@ -458,9 +457,10 @@ impl DiceDataProvider for DiceCommandDataProvider {
 
         let config_threads = root_config.parse("build", "threads")?.unwrap_or(0);
 
-        let concurrency = self
-            .concurrency
-            .unwrap_or_else(|| parse_concurrency(config_threads))?;
+        let concurrency = match self.concurrency.as_ref() {
+            Some(v) => v.dupe()?,
+            None => parse_concurrency(config_threads)?,
+        };
 
         let executor_global_knobs = ExecutorGlobalKnobs {};
 
@@ -479,14 +479,14 @@ impl DiceDataProvider for DiceCommandDataProvider {
 
         let mut data = UserComputationData {
             data,
-            tracker: Arc::new(BuckDiceTracker::new(self.events)),
+            tracker: Arc::new(BuckDiceTracker::new(self.events.dupe())),
             ..Default::default()
         };
 
-        set_fallback_executor_config(&mut data.data, Arc::new(self.executor_config));
+        set_fallback_executor_config(&mut data.data, self.executor_config.dupe());
         data.set_re_client(self.re_connection.get_client());
         data.set_command_executor(box CommandExecutorFactory::new(
-            self.re_connection,
+            self.re_connection.dupe(),
             host_sharing_broker,
             low_pass_filter,
             self.materializer.dupe(),
@@ -494,18 +494,18 @@ impl DiceDataProvider for DiceCommandDataProvider {
             self.execution_strategy,
             executor_global_knobs,
             self.upload_all_actions,
-            self.forkserver,
+            self.forkserver.dupe(),
             self.no_remote_cache,
             ctx.global_data()
                 .get_io_provider()
                 .project_root()
                 .to_owned(),
         ));
-        data.set_blocking_executor(self.blocking_executor);
-        data.set_materializer(self.materializer);
-        data.set_build_signals(self.build_signals);
-        data.set_run_action_knobs(self.run_action_knobs);
-        data.set_create_unhashed_symlink_lock(self.create_unhashed_symlink_lock);
+        data.set_blocking_executor(self.blocking_executor.dupe());
+        data.set_materializer(self.materializer.dupe());
+        data.set_build_signals(self.build_signals.dupe());
+        data.set_run_action_knobs(self.run_action_knobs.dupe());
+        data.set_create_unhashed_symlink_lock(self.create_unhashed_symlink_lock.dupe());
         data.spawner = Arc::new(BuckSpawner::default());
         Ok(data)
     }

@@ -155,10 +155,7 @@ pub trait DiceUpdater: Send + Sync {
 
 #[async_trait]
 pub trait DiceDataProvider: Send + Sync + 'static {
-    async fn provide(
-        self: Box<Self>,
-        ctx: &DiceComputations,
-    ) -> anyhow::Result<UserComputationData>;
+    async fn provide(&self, ctx: &DiceComputations) -> anyhow::Result<UserComputationData>;
 }
 
 impl ConcurrencyHandler {
@@ -186,7 +183,7 @@ impl ConcurrencyHandler {
     pub async fn enter<F, Fut, R>(
         &self,
         event_dispatcher: EventDispatcher,
-        data: Box<dyn DiceDataProvider>,
+        data: &dyn DiceDataProvider,
         updates: &dyn DiceUpdater,
         exec: F,
         is_nested_invocation: bool,
@@ -224,7 +221,7 @@ impl ConcurrencyHandler {
     // starvation.
     async fn wait_for_others(
         &self,
-        user_data: Box<dyn DiceDataProvider>,
+        user_data: &dyn DiceDataProvider,
         updates: &dyn DiceUpdater,
         event_dispatcher: EventDispatcher,
         is_nested_invocation: bool,
@@ -540,10 +537,7 @@ mod tests {
 
     #[async_trait]
     impl DiceDataProvider for TestDiceDataProvider {
-        async fn provide(
-            self: Box<Self>,
-            _ctx: &DiceComputations,
-        ) -> anyhow::Result<UserComputationData> {
+        async fn provide(&self, _ctx: &DiceComputations) -> anyhow::Result<UserComputationData> {
             Ok(Default::default())
         }
     }
@@ -563,7 +557,7 @@ mod tests {
 
         let fut1 = concurrency.enter(
             EventDispatcher::null_sink_with_trace(traces1),
-            box TestDiceDataProvider,
+            &TestDiceDataProvider,
             &NoChanges,
             |_| {
                 let b = barrier.dupe();
@@ -576,7 +570,7 @@ mod tests {
         );
         let fut2 = concurrency.enter(
             EventDispatcher::null_sink_with_trace(traces2),
-            box TestDiceDataProvider,
+            &TestDiceDataProvider,
             &NoChanges,
             |_| {
                 let b = barrier.dupe();
@@ -589,7 +583,7 @@ mod tests {
         );
         let fut3 = concurrency.enter(
             EventDispatcher::null_sink_with_trace(traces3),
-            box TestDiceDataProvider,
+            &TestDiceDataProvider,
             &NoChanges,
             |_| {
                 let b = barrier.dupe();
@@ -621,7 +615,7 @@ mod tests {
 
         let fut1 = concurrency.enter(
             EventDispatcher::null_sink_with_trace(traces1),
-            box TestDiceDataProvider,
+            &TestDiceDataProvider,
             &NoChanges,
             |_| {
                 let b = barrier.dupe();
@@ -635,7 +629,7 @@ mod tests {
 
         let fut2 = concurrency.enter(
             EventDispatcher::null_sink_with_trace(traces2),
-            box TestDiceDataProvider,
+            &TestDiceDataProvider,
             &CtxDifferent,
             |_| {
                 let b = barrier.dupe();
@@ -670,7 +664,7 @@ mod tests {
 
         let fut1 = concurrency.enter(
             EventDispatcher::null_sink_with_trace(traces1),
-            box TestDiceDataProvider,
+            &TestDiceDataProvider,
             &NoChanges,
             |_| {
                 let b = barrier.dupe();
@@ -683,7 +677,7 @@ mod tests {
         );
         let fut2 = concurrency.enter(
             EventDispatcher::null_sink_with_trace(traces2),
-            box TestDiceDataProvider,
+            &TestDiceDataProvider,
             &NoChanges,
             |_| {
                 let b = barrier.dupe();
@@ -696,7 +690,7 @@ mod tests {
         );
         let fut3 = concurrency.enter(
             EventDispatcher::null_sink_with_trace(traces3),
-            box TestDiceDataProvider,
+            &TestDiceDataProvider,
             &NoChanges,
             |_| {
                 let b = barrier.dupe();
@@ -748,7 +742,7 @@ mod tests {
                 concurrency
                     .enter(
                         EventDispatcher::null_sink_with_trace(traces1),
-                        box TestDiceDataProvider,
+                        &TestDiceDataProvider,
                         &NoChanges,
                         |_| async move {
                             barrier.wait().await;
@@ -770,7 +764,7 @@ mod tests {
                 concurrency
                     .enter(
                         EventDispatcher::null_sink_with_trace(traces2),
-                        box TestDiceDataProvider,
+                        &TestDiceDataProvider,
                         &NoChanges,
                         |_| async move {
                             barrier.wait().await;
@@ -795,7 +789,7 @@ mod tests {
                 concurrency
                     .enter(
                         EventDispatcher::null_sink_with_trace(traces_different),
-                        box TestDiceDataProvider,
+                        &TestDiceDataProvider,
                         &CtxDifferent,
                         |_| async move {
                             arrived.store(true, Ordering::Relaxed);
@@ -847,7 +841,7 @@ mod tests {
                 concurrency
                     .enter(
                         EventDispatcher::null_sink_with_trace(traces1),
-                        box TestDiceDataProvider,
+                        &TestDiceDataProvider,
                         &NoChanges,
                         |_| async move {
                             barrier.wait().await;
@@ -867,7 +861,7 @@ mod tests {
                 concurrency
                     .enter(
                         EventDispatcher::null_sink_with_trace(traces2),
-                        box TestDiceDataProvider,
+                        &TestDiceDataProvider,
                         &NoChanges,
                         |_| async move {
                             barrier.wait().await;
@@ -887,7 +881,7 @@ mod tests {
                 concurrency
                     .enter(
                         EventDispatcher::null_sink_with_trace(traces_different),
-                        box TestDiceDataProvider,
+                        &TestDiceDataProvider,
                         &CtxDifferent,
                         |_| async move {
                             barrier.wait().await;

@@ -91,7 +91,7 @@ impl ServerCommandDiceContext for Box<dyn ServerCommandContextTrait> {
                         .dice_handler
                         .enter(
                             self.events().dupe(),
-                            dice_accessor.data,
+                            &*dice_accessor.data,
                             &*dice_accessor.setup,
                             |dice| async move {
                                 let events = self.events().dupe();
