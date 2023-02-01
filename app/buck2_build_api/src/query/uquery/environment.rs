@@ -306,7 +306,7 @@ pub(crate) async fn allbuildfiles<'c, T: QueryTarget>(
             .eval_build_file(target.buildfile_path().package())
             .await?; // TODO: no longer use eval_build_file, just parse imports directly (will solve async issue too)
 
-        top_level_imports.extend(eval_result.imports().cloned());
+        top_level_imports.extend(eval_result.imports().iter().cloned());
     }
 
     let loads = get_transitive_loads(top_level_imports, delegate).await?;
@@ -532,8 +532,7 @@ async fn top_level_imports_by_build_file<'c>(
         .collect();
 
     while let Some((file, eval_result)) = tokio::task::unconstrained(buildfile_futs.next()).await {
-        top_level_import_by_build_file
-            .insert(file.dupe(), eval_result?.imports().cloned().collect());
+        top_level_import_by_build_file.insert(file.dupe(), eval_result?.imports().to_owned());
     }
 
     Ok(top_level_import_by_build_file)

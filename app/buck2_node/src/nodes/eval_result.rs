@@ -73,8 +73,8 @@ impl EvaluationResult {
         &self.targets
     }
 
-    pub fn imports(&self) -> impl Iterator<Item = &ImportPath> + Clone {
-        self.imports.iter()
+    pub fn imports(&self) -> &[ImportPath] {
+        &self.imports
     }
 
     pub fn resolve_target<'a>(&'a self, path: &TargetName) -> anyhow::Result<&'a TargetNode> {
