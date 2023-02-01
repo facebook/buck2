@@ -192,17 +192,18 @@ impl RageCommand {
                 }
             }
 
-            let mut sections = vec![
-                RageSection::get("System info".to_owned(), timeout, get_system_info),
+            let system_info_command =
+                RageSection::get("System info".to_owned(), timeout, get_system_info);
+            let daemon_stderr_command =
                 RageSection::get("Daemon stderr".to_owned(), timeout, || {
                     upload_daemon_stderr(stderr_path, &manifold_id)
-                }),
-                RageSection::get("Hg snapshot ID".to_owned(), timeout, get_hg_snapshot),
-                RageSection::get("Dice Dump".to_owned(), timeout, || {
-                    rage_dumps::upload_dice_dump(&ctx, &manifold_id)
-                }),
-            ];
-            sections.push({
+                });
+            let hg_snapshot_id_command =
+                RageSection::get("Hg snapshot ID".to_owned(), timeout, get_hg_snapshot);
+            let dice_dump_command = RageSection::get("Dice Dump".to_owned(), timeout, || {
+                rage_dumps::upload_dice_dump(&ctx, &manifold_id)
+            });
+            let build_info_command = {
                 let title = "Associated invocation info".to_owned();
                 match selected_invocation.as_ref() {
                     None => RageSection::get_skipped(title),
@@ -210,9 +211,22 @@ impl RageCommand {
                         RageSection::get(title, timeout, || get_build_info(invocation))
                     }
                 }
-            });
+            };
 
-            let sections = futures::future::join_all(sections).await;
+            let (system_info, daemon_stderr_dump, hg_snapshot_id, dice_dump, build_info) = tokio::join!(
+                system_info_command,
+                daemon_stderr_command,
+                hg_snapshot_id_command,
+                dice_dump_command,
+                build_info_command
+            );
+            let sections = vec![
+                &system_info,
+                &daemon_stderr_dump,
+                &hg_snapshot_id,
+                &dice_dump,
+                &build_info,
+            ];
             let sections: Vec<String> = sections.iter().map(|i| i.to_string()).collect();
             output_rage(self.no_paste, &sections.join("")).await?;
             ExitResult::success()
