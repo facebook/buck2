@@ -850,6 +850,7 @@ mod tests {
     use buck2_core::cells::CellResolver;
     use buck2_core::fs::project::ProjectRelativePathBuf;
     use buck2_core::fs::project::ProjectRoot;
+    use buck2_core::fs::project::ProjectRootTemp;
     use buck2_execute::artifact::fs::ArtifactFs;
     use buck2_execute::execute::blocking::testing::DummyBlockingExecutor;
     use buck2_execute::materialize::nodisk::NoDiskMaterializer;
@@ -951,26 +952,27 @@ mod tests {
         )
     }
 
-    fn test_executor() -> anyhow::Result<(LocalExecutor, AbsNormPathBuf, impl Drop)> {
-        let dir = tempfile::tempdir()?;
-        let root = AbsNormPathBuf::try_from(dir.path().canonicalize()?)?;
-        let project_fs = ProjectRoot::new(root.clone()).unwrap();
+    fn test_executor() -> anyhow::Result<(LocalExecutor, AbsNormPathBuf, ProjectRootTemp)> {
+        let temp = ProjectRootTemp::new().unwrap();
+        let project_fs = temp.path();
         let artifact_fs = artifact_fs(project_fs.dupe());
 
         let executor = LocalExecutor::new(
             artifact_fs,
             Arc::new(NoDiskMaterializer),
-            Arc::new(DummyBlockingExecutor { fs: project_fs }),
+            Arc::new(DummyBlockingExecutor {
+                fs: project_fs.dupe(),
+            }),
             Arc::new(HostSharingBroker::new(
                 HostSharingStrategy::SmallerTasksFirst,
                 1,
             )),
-            root.clone(),
+            temp.path().root().to_buf(),
             None,
             ExecutorGlobalKnobs::default(),
         );
 
-        Ok((executor, root, dir))
+        Ok((executor, temp.path().root().to_buf(), temp))
     }
 
     #[tokio::test]
@@ -995,7 +997,7 @@ mod tests {
 
         if cfg!(windows) {
             let lines: Vec<&str> = stdout.split("\r\n").collect();
-            let expected_path = format!("Microsoft.PowerShell.Core\\FileSystem::{}", root);
+            let expected_path = format!("{}", root);
 
             assert_eq!(lines[3], expected_path);
             assert_eq!(lines[4], expected_path);
