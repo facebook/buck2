@@ -23,6 +23,7 @@ use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_common::liveliness_observer::LivelinessObserver;
+use buck2_common::liveliness_observer::LivelinessObserverExt;
 use buck2_core::directory::DirectoryEntry;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
@@ -70,7 +71,8 @@ use futures::future::FutureExt;
 use gazebo::prelude::*;
 use host_sharing::HostSharingBroker;
 use indexmap::IndexMap;
-use more_futures::cancellable_future::critical_section;
+use more_futures::cancellable_future::with_structured_cancellation;
+use more_futures::cancellable_future::CancellationObserver;
 use remote_execution as RE;
 use thiserror::Error;
 use tracing::info;
@@ -123,14 +125,16 @@ impl LocalExecutor {
     fn exec<'a>(
         &'a self,
         exe: &'a str,
-        args: impl IntoIterator<Item = impl AsRef<OsStr>> + 'a,
-        env: impl IntoIterator<Item = (impl AsRef<OsStr>, impl AsRef<OsStr>)> + 'a,
+        args: impl IntoIterator<Item = impl AsRef<OsStr> + Send> + Send + 'a,
+        env: impl IntoIterator<Item = (impl AsRef<OsStr> + Send, impl AsRef<OsStr> + Send)> + Send + 'a,
         working_directory: Option<&'a ProjectRelativePath>,
         timeout: Option<Duration>,
         env_inheritance: Option<&'a EnvironmentInheritance>,
-        liveliness_observer: Arc<dyn LivelinessObserver>,
-    ) -> impl futures::future::Future<Output = anyhow::Result<(GatherOutputStatus, Vec<u8>, Vec<u8>)>> + 'a
-    {
+        liveliness_observer: impl LivelinessObserver + 'static,
+    ) -> impl futures::future::Future<
+        Output = anyhow::Result<(GatherOutputStatus, Vec<u8>, Vec<u8>)>,
+    > + Send
+    + 'a {
         async move {
             let working_directory = match working_directory {
                 Some(d) => Cow::Owned(self.root.join(d)),
@@ -174,11 +178,14 @@ impl LocalExecutor {
                         env_inheritance,
                     );
                     let timeout = timeout_into_cancellation(timeout);
+
                     let alive = liveliness_observer
                         .while_alive()
                         .map(|()| anyhow::Ok(GatherOutputStatus::Cancelled));
+
                     let cancellation =
                         select(timeout.boxed(), alive.boxed()).map(|r| r.factor_first().0);
+
                     gather_output(cmd, cancellation).await
                 }
                 .with_context(|| format!("Failed to gather output from command: {}", exe)),
@@ -192,6 +199,7 @@ impl LocalExecutor {
         action: CommandExecutionTarget<'_>,
         request: &CommandExecutionRequest,
         mut manager: CommandExecutionManager,
+        cancellation: CancellationObserver,
     ) -> CommandExecutionResult {
         let args = request.args();
         if args.is_empty() {
@@ -300,7 +308,7 @@ impl LocalExecutor {
                 )))
         };
 
-        let liveliness_observer = manager.liveliness_observer.dupe();
+        let liveliness_observer = manager.liveliness_observer.dupe().and(cancellation);
 
         let (timing, res) = manager
             .stage_async(
@@ -546,13 +554,16 @@ impl PreparedCommandExecutor for LocalExecutor {
 
         // If we start running something, we don't want this task to get dropped, because if we do
         // we might interfere with e.g. clean up.
-        critical_section(Self::exec_request(
-            self,
-            &prepared_action.action,
-            *target,
-            request,
-            manager,
-        ))
+        with_structured_cancellation(|cancellation| {
+            Self::exec_request(
+                self,
+                &prepared_action.action,
+                *target,
+                request,
+                manager,
+                cancellation,
+            )
+        })
         .await
     }
 
@@ -770,7 +781,7 @@ mod unix {
         working_directory: &Path,
         comand_timeout: Option<Duration>,
         env_inheritance: Option<&EnvironmentInheritance>,
-        liveliness_observer: Arc<dyn LivelinessObserver>,
+        liveliness_observer: impl LivelinessObserver + 'static,
     ) -> anyhow::Result<(GatherOutputStatus, Vec<u8>, Vec<u8>)> {
         let exe = exe.as_ref();
 
@@ -788,7 +799,7 @@ mod unix {
         };
         apply_local_execution_environment(&mut req, working_directory, env, env_inheritance);
         forkserver
-            .execute(req, liveliness_observer.while_alive_owned())
+            .execute(req, async move { liveliness_observer.while_alive().await })
             .await
     }
 

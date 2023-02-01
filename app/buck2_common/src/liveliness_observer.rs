@@ -26,10 +26,6 @@ pub trait LivelinessObserver: Send + Sync {
 }
 
 impl dyn LivelinessObserver {
-    pub async fn while_alive_owned(self: Arc<Self>) {
-        self.while_alive().await
-    }
-
     pub async fn is_alive(&self) -> bool {
         futures::poll!(self.while_alive()).is_pending()
     }
@@ -180,6 +176,13 @@ where
 {
     fn and<B>(self, b: B) -> LivelinessAnd<Self, B> {
         LivelinessAnd { a: self, b }
+    }
+}
+
+#[async_trait]
+impl LivelinessObserver for more_futures::cancellable_future::CancellationObserver {
+    async fn while_alive(&self) {
+        self.dupe().await
     }
 }
 
