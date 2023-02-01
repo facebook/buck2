@@ -26,8 +26,10 @@ use buck2_client_ctx::subscribers::event_log::file_names::get_local_logs_if_exis
 use buck2_client_ctx::subscribers::event_log::EventLogPathBuf;
 use buck2_client_ctx::subscribers::event_log::EventLogSummary;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_data::instant_event::Data;
 use buck2_data::InstantEvent;
 use buck2_data::RageInvoked;
+use buck2_data::RageResult;
 use buck2_events::metadata;
 use buck2_events::sink::scribe::new_thrift_scribe_sink_if_enabled;
 use buck2_events::sink::scribe::ThriftScribeSink;
@@ -183,13 +185,10 @@ impl RageCommand {
 
             let selected_invocation =
                 maybe_select_invocation(ctx.stdin(), logdir, self.invocation).await?;
-            if let Some(ref invocation) = selected_invocation {
-                let trace_id = invocation.get_summary().await?.trace_id;
-                manifold_id = format!("{}_{}", trace_id, manifold_id);
-                if let Some(sink) = &sink {
-                    // TODO iguridi: this event shouldn't rely on trace_id
-                    dispatch_event_to_scribe(sink, &rage_id, &trace_id).await?;
-                }
+            let invocation_id = get_trace_id(&selected_invocation).await?;
+            if let Some(ref invocation_id) = invocation_id {
+                manifold_id = format!("{}_{}", invocation_id, manifold_id);
+                dispatch_invoked_event(sink.as_ref(), &rage_id, invocation_id).await?;
             }
 
             let system_info_command =
@@ -229,6 +228,14 @@ impl RageCommand {
             ];
             let sections: Vec<String> = sections.iter().map(|i| i.to_string()).collect();
             output_rage(self.no_paste, &sections.join("")).await?;
+
+            dispatch_result_event(sink.as_ref(), &rage_id, RageResult {
+                dice_dump: dice_dump.output().to_owned(),
+                daemon_stderr_dump: daemon_stderr_dump.output().to_owned(),
+                system_info: system_info.output().to_owned(),
+                hg_snapshot_id: hg_snapshot_id.output().to_owned(),
+                invocation_id: invocation_id.map(|inv| inv.to_string()),
+            }).await?;
             ExitResult::success()
         })
     }
@@ -373,29 +380,51 @@ daemon uptime: {}
     Ok(output)
 }
 
-async fn dispatch_event_to_scribe(
-    sink: &ThriftScribeSink,
+async fn dispatch_invoked_event(
+    sink: Option<&ThriftScribeSink>,
     rage_id: &TraceId,
     trace_id: &TraceId,
 ) -> anyhow::Result<()> {
     let recent_command_trace_id = trace_id.to_string();
     let metadata = metadata::collect();
-    let rage_invoked = RageInvoked {
+    let data = Some(Data::RageInvoked(RageInvoked {
         metadata,
         recent_command_trace_id,
+    }));
+    dispatch_event_to_scribe(sink, rage_id, InstantEvent { data }).await?;
+    Ok(())
+}
+
+async fn dispatch_result_event(
+    sink: Option<&ThriftScribeSink>,
+    rage_id: &TraceId,
+    result: RageResult,
+) -> anyhow::Result<()> {
+    let data = Some(Data::RageResult(result));
+    dispatch_event_to_scribe(sink, rage_id, InstantEvent { data }).await?;
+    Ok(())
+}
+
+async fn dispatch_event_to_scribe(
+    sink: Option<&ThriftScribeSink>,
+    trace_id: &TraceId,
+    event: InstantEvent,
+) -> anyhow::Result<()> {
+    if let Some(sink) = sink {
+        sink.send_now(BuckEvent::new(
+            SystemTime::now(),
+            trace_id.to_owned(),
+            None,
+            None,
+            event.into(),
+        ))
+        .await;
+    } else {
+        tracing::warn!(
+            "Couldn't send rage results to scribe, rage ID `{}`",
+            trace_id
+        )
     };
-    // Send this event now, bypassing internal message queue.
-    sink.send_now(BuckEvent::new(
-        SystemTime::now(),
-        rage_id.to_owned(),
-        None,
-        None,
-        InstantEvent {
-            data: Some(buck2_data::instant_event::Data::RageInvoked(rage_invoked)),
-        }
-        .into(),
-    ))
-    .await;
     Ok(())
 }
 
@@ -570,4 +599,12 @@ fn seconds_to_string(seconds: Option<u64>) -> String {
     } else {
         "".to_owned()
     }
+}
+
+async fn get_trace_id(invocation: &Option<EventLogPathBuf>) -> anyhow::Result<Option<TraceId>> {
+    let invocation_id = match invocation {
+        None => None,
+        Some(invocation) => Some(invocation.get_summary().await?.trace_id),
+    };
+    Ok(invocation_id)
 }
