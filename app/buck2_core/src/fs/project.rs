@@ -79,6 +79,12 @@ use crate::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use crate::fs::paths::RelativePath;
 use crate::fs::paths::RelativePathBuf;
 
+#[derive(Debug, thiserror::Error)]
+enum ProjectRootError {
+    #[error("Provided project root `{0}` is not equal to the canonicalized path `{1}`")]
+    NotCanonical(AbsNormPathBuf, AbsNormPathBuf),
+}
+
 /// A un-owned forward pointing, fully normalized path that is relative to the
 /// project root.
 #[derive(Display, Derivative, Hash, PartialEq, Eq, PartialOrd, Ord, RefCast)]
@@ -118,7 +124,8 @@ impl ProjectRootTemp {
     /// same root
     pub fn new() -> anyhow::Result<Self> {
         let temp = tempfile::tempdir()?;
-        let path = ProjectRoot::new(AbsNormPathBuf::try_from(temp.path().to_owned())?)?;
+        let path = fs_util::canonicalize(temp.path())?;
+        let path = ProjectRoot::new(path)?;
         Ok(Self { path, _temp: temp })
     }
 
@@ -129,8 +136,14 @@ impl ProjectRootTemp {
 
 impl ProjectRoot {
     pub fn new(root: AbsNormPathBuf) -> anyhow::Result<Self> {
+        let canon = fs_util::canonicalize(&root).context("canonicalize project root")?;
+        if canon != root {
+            return Err(ProjectRootError::NotCanonical(root, canon).into());
+        }
         Ok(ProjectRoot {
-            root: Arc::new(root),
+            // We store the canonicalized path here because even if path
+            // is equal to the canonicalized path, it may differ in the slashes or the case.
+            root: Arc::new(canon),
         })
     }
 
