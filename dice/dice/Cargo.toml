@@ -38,9 +38,6 @@ take_mut = { workspace = true }
 # @oss-disable: default = ["gazebo_lint"]
 
 [dev-dependencies]
-# Newer cast pull in semver 1.0, which fails with
-# https://github.com/dtolnay/semver/issues/251
-criterion = { version = "0.3.4", features = ["async", "async_tokio"] }
 cast = "=0.2.6"
 derivative = "2.1.1"
 tempfile = "3.1"

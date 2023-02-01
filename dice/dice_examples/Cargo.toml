@@ -19,9 +19,6 @@ allocative = { workspace = true }
 dice = { path = "../dice" }
 
 [dev-dependencies]
-# Newer cast pull in semver 1.0, which fails with
-# https://github.com/dtolnay/semver/issues/251
-criterion = { version = "0.3.4", features = ["async", "async_tokio"] }
 cast = "=0.2.6"
 futures = "0.3"
 anyhow = "1.0.65"
@@ -30,11 +27,3 @@ tokio = { version = "1.5", features = ["full"]}
 
 [features]
 # @oss-disable: default = ["gazebo_lint"]
-
-[[bench]]
-name = "math_computation"
-harness = false
-
-[[bench]]
-name = "supply_chain"
-harness = false
