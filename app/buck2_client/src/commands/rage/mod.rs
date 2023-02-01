@@ -83,6 +83,7 @@ enum CommandStatus {
     Success { output: String },
     Failure { error: String },
     Timeout,
+    Skipped,
 }
 
 impl RageSection {
@@ -108,11 +109,17 @@ impl RageSection {
         .boxed_local()
     }
 
+    fn get_skipped<'a>(title: String) -> LocalBoxFuture<'a, Self> {
+        let status = CommandStatus::Skipped;
+        async { RageSection { title, status } }.boxed_local()
+    }
+
     fn output(&self) -> &str {
         match &self.status {
             CommandStatus::Success { output } => output,
             CommandStatus::Failure { error } => error,
             CommandStatus::Timeout {} => "Timeout",
+            CommandStatus::Skipped {} => "Skipped",
         }
     }
 
@@ -195,14 +202,15 @@ impl RageCommand {
                     rage_dumps::upload_dice_dump(&ctx, &manifold_id)
                 }),
             ];
-
-            if let Some(invocation) = selected_invocation.as_ref() {
-                sections.push(RageSection::get(
-                    "Associated invocation info".to_owned(),
-                    timeout,
-                    || get_build_info(invocation),
-                ));
-            }
+            sections.push({
+                let title = "Associated invocation info".to_owned();
+                match selected_invocation.as_ref() {
+                    None => RageSection::get_skipped(title),
+                    Some(invocation) => {
+                        RageSection::get(title, timeout, || get_build_info(invocation))
+                    }
+                }
+            });
 
             let sections = futures::future::join_all(sections).await;
             let sections: Vec<String> = sections.iter().map(|i| i.to_string()).collect();
