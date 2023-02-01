@@ -180,7 +180,47 @@ get_result(TreeResult, RequestedResults) ->
 -spec collect_result(tree(), list(string()), string()) -> case_result().
 collect_result(TreeResult, Groups, TestCase) ->
     QualifiedName = qualifiedName(lists:reverse(Groups), TestCase),
-    collect_result(TreeResult, [], [], Groups, TestCase, QualifiedName).
+    LeafResult = collect_result(TreeResult, [], [], Groups, TestCase, QualifiedName),
+    case os:getenv("BUCK2_ERLANG_REPORT_END_FAILURES") of
+        Val when Val == false orelse Val == "" orelse Val == "0" ->
+            LeafResult;
+        _ ->
+            #{ends := EndsResults, main := MainResult} = LeafResult,
+            MainResultWithEndFailure = report_end_failure(EndsResults, MainResult),
+            LeafResult#{main => MainResultWithEndFailure}
+    end.
+
+report_end_failure([], ResultAcc) ->
+    ResultAcc;
+report_end_failure([#{outcome := passed} | Rest], ResultAcc) ->
+    report_end_failure(Rest, ResultAcc);
+report_end_failure([#{outcome := skipped} | Rest], ResultAcc) ->
+    report_end_failure(Rest, ResultAcc);
+report_end_failure(
+    [#{outcome := EndOutcome, details := EndDetails, name := EndName} | Rest],
+    #{name := TestName, outcome := ResultOutcome, details := ResultDetails} = ResultAcc
+) ->
+    MergedOutcome = merge_outcome(EndOutcome, ResultOutcome),
+    EndFailedDetails =
+        [io_lib:format("~p ~p because ~p failed with ~n", [TestName, MergedOutcome, EndName]), EndDetails],
+    MergedDetails =
+        case ResultOutcome of
+            passed ->
+                EndFailedDetails;
+            _ ->
+                lists:flatten(
+                    io_lib:format("~s~n~n~s", [ResultDetails, EndFailedDetails])
+                )
+        end,
+    report_end_failure(Rest, ResultAcc#{outcome => MergedOutcome, details => MergedDetails}).
+
+merge_outcome(failed, _) -> failed;
+merge_outcome(_, failed) -> failed;
+merge_outcome(timeout, _) -> timeout;
+merge_outcome(_, timeout) -> timeout;
+merge_outcome(skipped, _) -> skipped;
+merge_outcome(_, skipped) -> skipped;
+merge_outcome(passed, Other) -> Other.
 
 %% @doc Collects all the inits / ends methods results linked to a requested_result.
 -spec collect_result(
@@ -218,11 +258,22 @@ collect_node(
     QualifiedName
 ) ->
     {NewInits, NewEnds} = update_inits_ends(Inits, Ends, OptMethodInit, OptMethodEnd),
+    InitsPassed = lists:all(
+        fun
+            (#{outcome := failed}) -> false;
+            (#{outcome := timeout}) -> false;
+            (_) -> true
+        end,
+        NewInits
+    ),
+    %% Do NOT try to collect a result when one of the inits failed
     MainResult =
-        case TestLeaf#test_leaf.main_method of
-            none ->
+        case {InitsPassed, TestLeaf#test_leaf.main_method} of
+            {false, _} ->
                 get_missing_result(NewInits, QualifiedName);
-            Result ->
+            {true, none} ->
+                get_missing_result(NewInits, QualifiedName);
+            {true, Result} ->
                 case maps:get(outcome, Result) of
                     skipped -> handle_skipped_result(NewInits, Result);
                     _ -> Result#{std_out => merge_std_out(TestLeaf)}
@@ -325,7 +376,7 @@ handle_missing_results([Init | Inits], MainResult) ->
                 std_out => InitStdOut
             };
         skipped ->
-            handle_skipped_result([Init, Inits], MainResult);
+            handle_skipped_result([Init | Inits], MainResult);
         omitted ->
             MainResult#{
                 details => unicode:characters_to_list(
@@ -424,6 +475,10 @@ fmt_skip(Suite, CasePat, CaseArgs, Reason) ->
 fmt_fail(Suite, CasePat, CaseArgs, Reason) ->
     fmt_stack(Suite, CasePat, CaseArgs, Reason, "FAILED").
 
+fmt_stack(Suite, CasePat, CaseArgs, {_Outcome, {_Suite, end_per_testcase, {'EXIT', {Reason, ST}}}}, Label) ->
+    fmt_stack(Suite, CasePat, CaseArgs, {Reason, ST}, Label);
+fmt_stack(Suite, CasePat, CaseArgs, {_Class, {Reason, ST}}, Label) ->
+    fmt_stack(Suite, CasePat, CaseArgs, {Reason, ST}, Label);
 fmt_stack(_Suite, _CasePat, _CaseArgs, Reason, _Label) ->
     Output = ct_error_printer:format_error(Reason, true),
     unicode:characters_to_list(io_lib:format("~s", [Output])).
