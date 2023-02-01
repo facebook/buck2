@@ -31,6 +31,12 @@ use crate::interpreter::module_internals::ModuleInternals;
 
 #[async_trait]
 pub trait InterpreterCalculation<'c> {
+    /// Like `get_interpreter_results` but doesn't cache the result on the DICE graph.
+    async fn get_interpreter_results_uncached(
+        &self,
+        package: PackageLabel,
+    ) -> SharedResult<Arc<EvaluationResult>>;
+
     /// Returns the full interpreter evaluation result for a Package. This consists of the full set
     /// of `TargetNode`s of interpreting that build file.
     async fn get_interpreter_results(
@@ -49,6 +55,31 @@ pub trait InterpreterCalculation<'c> {
 
 #[async_trait]
 impl<'c> InterpreterCalculation<'c> for DiceComputations {
+    /// Like `get_interpreter_results` but don't go through the DICE graph
+    async fn get_interpreter_results_uncached(
+        &self,
+        package: PackageLabel,
+    ) -> SharedResult<Arc<EvaluationResult>> {
+        let starlark_profiler_instrumentation =
+            self.get_starlark_profiler_instrumentation().await?;
+        let interpreter = self
+            .get_interpreter_calculator(
+                package.cell_name(),
+                BuildFileCell::new(package.cell_name()),
+            )
+            .await?;
+        Ok(Arc::new(
+            interpreter
+                .eval_build_file::<ModuleInternals>(
+                    package.dupe(),
+                    &mut StarlarkProfilerOrInstrumentation::maybe_instrumentation(
+                        starlark_profiler_instrumentation,
+                    ),
+                )
+                .await?,
+        ))
+    }
+
     async fn get_interpreter_results(
         &self,
         package: PackageLabel,
@@ -57,24 +88,7 @@ impl<'c> InterpreterCalculation<'c> for DiceComputations {
         impl Key for InterpreterResultsKey {
             type Value = SharedResult<Arc<EvaluationResult>>;
             async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
-                let starlark_profiler_instrumentation =
-                    ctx.get_starlark_profiler_instrumentation().await?;
-                let interpreter = ctx
-                    .get_interpreter_calculator(
-                        self.0.cell_name(),
-                        BuildFileCell::new(self.0.cell_name()),
-                    )
-                    .await?;
-                Ok(Arc::new(
-                    interpreter
-                        .eval_build_file::<ModuleInternals>(
-                            self.0.dupe(),
-                            &mut StarlarkProfilerOrInstrumentation::maybe_instrumentation(
-                                starlark_profiler_instrumentation,
-                            ),
-                        )
-                        .await?,
-                ))
+                ctx.get_interpreter_results_uncached(self.0.dupe()).await
             }
 
             fn equality(_: &Self::Value, _: &Self::Value) -> bool {
