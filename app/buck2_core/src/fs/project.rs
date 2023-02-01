@@ -204,6 +204,16 @@ impl ProjectRoot {
         }
     }
 
+    /// Relativize an absolute path which may be not normalized or not canonicalize.
+    /// This operation may involve disk access.
+    pub fn relativize_any<P: AsRef<AbsPath>>(
+        &self,
+        path: P,
+    ) -> anyhow::Result<ProjectRelativePathBuf> {
+        let path = fs_util::canonicalize_as_much_as_possible(path.as_ref())?;
+        Ok(self.relativize(AbsNormPath::new(&path)?)?.into_owned())
+    }
+
     // TODO(nga): refactor this to global function.
     pub fn write_file(
         &self,
@@ -486,6 +496,7 @@ impl ProjectRoot {
 use allocative::Allocative;
 pub use internals::PathLike;
 
+use crate::fs::paths::abs_path::AbsPath;
 use crate::fs::project_rel_path::ProjectRelativePath;
 use crate::fs::project_rel_path::ProjectRelativePathBuf;
 

@@ -10,6 +10,7 @@
 // We'd love to use fs-err instead, but that code gives bad error messages and doesn't wrap all functions.
 // Various bugs have been raised - if they all get fixed we can migrate.
 use std::borrow::Cow;
+use std::ffi::OsStr;
 use std::fs;
 use std::fs::File;
 use std::io;
@@ -24,6 +25,7 @@ use relative_path::RelativePathBuf;
 
 use crate::fs::paths::abs_norm_path::AbsNormPath;
 use crate::fs::paths::abs_norm_path::AbsNormPathBuf;
+use crate::fs::paths::abs_path::AbsPathBuf;
 use crate::io_counters::IoCounterGuard;
 use crate::io_counters::IoCounterKey;
 
@@ -381,6 +383,49 @@ pub fn canonicalize<P: AsRef<Path>>(path: P) -> anyhow::Result<AbsNormPathBuf> {
     AbsNormPathBuf::new(path)
 }
 
+/// `canonicalize` fails if path does not exist. This function does not fail in this case:
+/// it returns canonicalized prefix followed by non-canonicalizable suffix.
+pub fn canonicalize_as_much_as_possible<P: AsRef<Path>>(path: P) -> anyhow::Result<AbsPathBuf> {
+    #[derive(Debug, thiserror::Error)]
+    enum CanonicalizeError {
+        #[error("path does not have a fiel name or a parent, `{0}`")]
+        NoFileNameOrParent(PathBuf),
+    }
+
+    fn imp(mut path: &Path) -> anyhow::Result<AbsPathBuf> {
+        let mut saved_filenames: Vec<&OsStr> = Vec::new();
+        loop {
+            if try_exists(path)? {
+                let mut canon = canonicalize(path)?.into_abs_path_buf();
+                canon.reserve(
+                    saved_filenames
+                        .iter()
+                        .map(|p| p.len() + 1)
+                        .sum::<usize>()
+                        .saturating_sub(1),
+                );
+                for part in saved_filenames.into_iter().rev() {
+                    canon.push(part);
+                }
+                return Ok(canon);
+            }
+
+            let (Some(parent), Some(file_name)) = (path.parent(), path.file_name()) else {
+                return Err(CanonicalizeError::NoFileNameOrParent(path.to_path_buf()).into());
+            };
+            saved_filenames.push(file_name);
+            path = parent;
+        }
+    }
+
+    imp(path.as_ref()).with_context(|| {
+        format!(
+            "canonicalize_as_much_as_possible({})",
+            path.as_ref().display()
+        )
+    })
+}
+
 pub fn remove_dir<P: AsRef<Path>>(path: P) -> anyhow::Result<()> {
     let _guard = IoCounterKey::RmDir.guard();
     fs::remove_dir(&path).with_context(|| format!("remove_dir({})", P::as_ref(&path).display()))
@@ -704,5 +749,20 @@ mod tests {
             RelativePath::new("foo/bar")
         );
         Ok(())
+    }
+
+    #[test]
+    fn test_canonicalize_as_much_as_possible() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let path = tempdir.path();
+        let path = fs_util::canonicalize(path).unwrap();
+
+        let test = path.as_path().join("test").join("test2");
+        assert_eq!(
+            test,
+            fs_util::canonicalize_as_much_as_possible(&test)
+                .unwrap()
+                .as_path()
+        );
     }
 }
