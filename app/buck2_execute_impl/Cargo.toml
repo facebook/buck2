@@ -43,5 +43,4 @@ buck2_forkserver_proto = { workspace = true }
 buck2_util = { workspace = true }
 
 [dev-dependencies]
-tempfile = { workspace = true }
 assert_matches = { workspace = true }

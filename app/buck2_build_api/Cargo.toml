@@ -30,7 +30,6 @@ shlex = { workspace = true }
 static_assertions = { workspace = true }
 structopt = { workspace = true }
 take_mut = { workspace = true }
-tempfile = { workspace = true }
 thiserror = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
