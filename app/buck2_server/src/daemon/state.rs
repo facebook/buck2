@@ -48,6 +48,7 @@ use buck2_execute_impl::materializers::sqlite::MaterializerState;
 use buck2_execute_impl::materializers::sqlite::MaterializerStateSqliteDb;
 use buck2_forkserver::client::ForkserverClient;
 use buck2_server_ctx::concurrency::ConcurrencyHandler;
+use buck2_server_ctx::concurrency::DiceCleanup;
 use buck2_server_ctx::concurrency::NestedInvocation;
 use buck2_server_ctx::concurrency::ParallelInvocation;
 use dice::Dice;
@@ -322,6 +323,10 @@ impl DaemonState {
             .parse::<ParallelInvocation>("buck2", "parallel_invocation")?
             .unwrap_or(ParallelInvocation::Run);
 
+        let cleanup_config = root_config
+            .parse::<DiceCleanup>("buck2", "dice_cleanup")?
+            .unwrap_or(DiceCleanup::Run);
+
         let create_unhashed_outputs_lock = Arc::new(Mutex::new(()));
 
         let buffer_size = root_config
@@ -359,6 +364,7 @@ impl DaemonState {
                 dice,
                 nested_invocation_config,
                 parallel_invocation_config,
+                cleanup_config,
             ),
             file_watcher,
             io,
