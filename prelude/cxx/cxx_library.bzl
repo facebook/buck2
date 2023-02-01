@@ -850,7 +850,10 @@ def _get_shared_library_links(
         link_group,
         link_group_mappings,
         link_group_preferred_linkage,
-        link_group_libs = link_group_libs,
+        link_group_libs = {
+            name: (lib.label, lib.shared_link_infos)
+            for name, lib in link_group_libs.items()
+        },
         link_style = link_style,
         deps = linkable_deps(non_exported_deps + exported_deps),
         prefer_stripped = prefer_stripped,

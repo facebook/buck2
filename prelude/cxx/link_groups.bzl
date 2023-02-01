@@ -14,6 +14,7 @@ load(
     "@prelude//linking:link_info.bzl",
     "LinkArgs",
     "LinkInfo",  # @unused Used as a type
+    "LinkInfos",  # @unused Used as a type
     "LinkStyle",
     "Linkage",
     "LinkedObject",  # @unused Used as a type
@@ -189,7 +190,7 @@ def get_filtered_labels_to_links_map(
         link_group_preferred_linkage: {"label": Linkage.type},
         link_style: LinkStyle.type,
         deps: ["label"],
-        link_group_libs: {str.type: LinkGroupLib.type} = {},
+        link_group_libs: {str.type: (["label", None], LinkInfos.type)} = {},
         prefer_stripped: bool.type = False,
         is_executable_link: bool.type = False) -> {"label": LinkGroupLinkInfo.type}:
     """
@@ -228,9 +229,9 @@ def get_filtered_labels_to_links_map(
     # An index of target to link group names, for all link group library nodes.
     # Provides fast lookup of a link group root lib via it's label.
     link_group_roots = {
-        lib.label: name
-        for name, lib in link_group_libs.items()
-        if lib.label != None
+        label: name
+        for name, (label, _) in link_group_libs.items()
+        if label != None
     }
 
     # Transitively update preferred linkage to avoid runtime issues from
@@ -269,11 +270,12 @@ def get_filtered_labels_to_links_map(
         link_group_lib = link_group_libs.get(target_group)
         if link_group_lib == None:
             return
+        _, shared_link_infos = link_group_lib
 
         expect(target_group != link_group)
         link_group_added[target_group] = None
         linkable_map[target] = LinkGroupLinkInfo(
-            link_info = get_link_info_from_link_infos(link_group_lib.shared_link_infos),
+            link_info = get_link_info_from_link_infos(shared_link_infos),
             link_style = LinkStyle("shared"),
         )  # buildifier: disable=uninitialized
 
@@ -416,7 +418,7 @@ def create_link_group(
         link_group_mappings: {"label": str.type} = {},
         link_group_preferred_linkage: {"label": Linkage.type} = {},
         link_style: LinkStyle.type = LinkStyle("static_pic"),
-        link_group_libs: {str.type: LinkGroupLib.type} = {},
+        link_group_libs: {str.type: (["label", None], LinkInfos.type)} = {},
         prefer_stripped_objects: bool.type = False,
         prefer_local: bool.type = False,
         category_suffix: [str.type, None] = None) -> LinkedObject.type:
