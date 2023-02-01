@@ -536,6 +536,7 @@ inlined_extra_attributes = {
         "_cxx_toolchain": _cxx_toolchain(),
         "_exec_os_type": _exec_os_type(),
         "_rust_toolchain": _rust_toolchain(),
+        "_target_os_type": _target_os_type(),
     },
     "rust_library": {
         # linker_flags weren't supported for rust_library in Buck v1 but the
@@ -560,6 +561,7 @@ inlined_extra_attributes = {
         "_exec_os_type": _exec_os_type(),
         "_omnibus_environment": omnibus_environment_attr(),
         "_rust_toolchain": _rust_toolchain(),
+        "_target_os_type": _target_os_type(),
     },
     "rust_test": {
         "framework": attrs.bool(default = True),
@@ -570,6 +572,7 @@ inlined_extra_attributes = {
         "_cxx_toolchain": _cxx_toolchain(),
         "_exec_os_type": _exec_os_type(),
         "_rust_toolchain": _rust_toolchain(),
+        "_target_os_type": _target_os_type(),
     },
 
     # scala

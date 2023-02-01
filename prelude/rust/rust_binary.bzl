@@ -23,6 +23,7 @@ load(
     "merge_shared_libraries",
     "traverse_shared_library_info",
 )
+load("@prelude//os_lookup:defs.bzl", "OsLookup")
 load(
     "@prelude//tests:re_utils.bzl",
     "get_re_executor_from_props",
@@ -66,6 +67,7 @@ def _rust_binary_common(
     specified_link_style = LinkStyle(ctx.attrs.link_style or "static_pic")
     compile_ctx = compile_context(ctx)
 
+    target_os_type = ctx.attrs._target_os_type[OsLookup]
     linker_type = ctx.attrs._cxx_toolchain[CxxToolchainInfo].linker_info.type
 
     resources = flatten_dict(gather_resources(
@@ -82,6 +84,7 @@ def _rust_binary_common(
             preferred_linkage = Linkage("any"),
             lang = LinkageLang("rust"),
             linker_type = linker_type,
+            target_os_type = target_os_type,
         )
         style_param[link_style] = params
         name = link_style.value + "/" + output_filename(crate, Emit("link"), params)

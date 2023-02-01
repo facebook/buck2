@@ -49,6 +49,7 @@ load(
     "create_shared_libraries",
     "merge_shared_libraries",
 )
+load("@prelude//os_lookup:defs.bzl", "OsLookup")
 load(
     ":build.bzl",
     "CompileContext",  # @unused Used as a type
@@ -204,6 +205,7 @@ def rust_library_impl(ctx: "context") -> ["provider"]:
         rustdoc_test_params = preferred_rust_binary_build_params(
             preferred_linkage = Linkage(ctx.attrs.preferred_linkage),
             linker_type = ctx.attrs._cxx_toolchain[CxxToolchainInfo].linker_info.type,
+            target_os_type = ctx.attrs._target_os_type[OsLookup],
         )
         rustdoc_test = generate_rustdoc_test(
             ctx = ctx,
@@ -285,13 +287,14 @@ def _build_params_for_styles(ctx: "context") -> (
     param_lang = {}  # param -> linkage_lang
     style_param = {}  # (linkage_lang, link_style) -> param
 
+    target_os_type = ctx.attrs._target_os_type[OsLookup]
+    linker_type = ctx.attrs._cxx_toolchain[CxxToolchainInfo].linker_info.type
+
     # Styles+lang linkage to params
     for linkage_lang in LinkageLang:
         # Skip proc_macro + c++ combination
         if ctx.attrs.proc_macro and linkage_lang == LinkageLang("c++"):
             continue
-
-        linker_type = ctx.attrs._cxx_toolchain[CxxToolchainInfo].linker_info.type
 
         for link_style in LinkStyle:
             params = build_params(
@@ -301,6 +304,7 @@ def _build_params_for_styles(ctx: "context") -> (
                 preferred_linkage = Linkage(ctx.attrs.preferred_linkage),
                 lang = linkage_lang,
                 linker_type = linker_type,
+                target_os_type = target_os_type,
             )
             if params not in param_lang:
                 param_lang[params] = []

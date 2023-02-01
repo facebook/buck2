@@ -12,6 +12,7 @@ load(
     "LinkStyle",
     "Linkage",  # @unused Used as a type
 )
+load("@prelude//os_lookup:defs.bzl", "OsLookup")
 load("@prelude//utils:utils.bzl", "expect")
 
 # --crate-type=
@@ -134,26 +135,19 @@ _RUST_STATIC_NON_PIC_LIBRARY = 7
 _NATIVE_LINKABLE_STATIC_PIC = 8
 _NATIVE_LINKABLE_STATIC_NON_PIC = 9
 
-# FIXME: This isn't right! We should be using the target platform, rather than host_info.
-# On Windows the GNU linker emits .exe/.dll, while on Linux it emits nothing/.so, use this variable to switch.
-#
-# At the moment we don't have anything working on Windows, so trying to get cross-compiling working is a step
-# further than we want to take. But this will need cleaning up for Windows hosts to be able to cross-compile.
-_FIXME_IS_WINDOWS = host_info().os.is_windows
-
-def _executable_prefix_suffix(platform):
+def _executable_prefix_suffix(linker_type: str.type, target_os_type: OsLookup.type) -> (str.type, str.type):
     return {
         "darwin": ("", ""),
-        "gnu": ("", ".exe") if _FIXME_IS_WINDOWS else ("", ""),
+        "gnu": ("", ".exe") if target_os_type.platform == "windows" else ("", ""),
         "windows": ("", ".exe"),
-    }[platform]
+    }[linker_type]
 
-def _library_prefix_suffix(platform):
+def _library_prefix_suffix(linker_type: str.type, target_os_type: OsLookup.type) -> (str.type, str.type):
     return {
         "darwin": ("lib", ".dylib"),
-        "gnu": ("", ".dll") if _FIXME_IS_WINDOWS else ("lib", ".so"),
+        "gnu": ("", ".dll") if target_os_type.platform == "windows" else ("lib", ".so"),
         "windows": ("", ".dll"),
-    }[platform]
+    }[linker_type]
 
 _BUILD_PARAMS = {
     _BINARY_SHARED: RustcFlags(
@@ -196,25 +190,25 @@ _BUILD_PARAMS = {
         crate_type = CrateType("rlib"),
         reloc_model = RelocModel("pic"),
         dep_link_style = LinkStyle("static_pic"),
-        platform_to_affix = lambda _: ("lib", ".rlib"),
+        platform_to_affix = lambda _l, _t: ("lib", ".rlib"),
     ),
     _RUST_STATIC_NON_PIC_LIBRARY: RustcFlags(
         crate_type = CrateType("rlib"),
         reloc_model = RelocModel("static"),
         dep_link_style = LinkStyle("static"),
-        platform_to_affix = lambda _: ("lib", ".rlib"),
+        platform_to_affix = lambda _l, _t: ("lib", ".rlib"),
     ),
     _NATIVE_LINKABLE_STATIC_PIC: RustcFlags(
         crate_type = CrateType("staticlib"),
         reloc_model = RelocModel("pic"),
         dep_link_style = LinkStyle("static_pic"),
-        platform_to_affix = lambda _: ("lib", "_pic.a"),
+        platform_to_affix = lambda _l, _t: ("lib", "_pic.a"),
     ),
     _NATIVE_LINKABLE_STATIC_NON_PIC: RustcFlags(
         crate_type = CrateType("staticlib"),
         reloc_model = RelocModel("static"),
         dep_link_style = LinkStyle("static"),
-        platform_to_affix = lambda _: ("lib", ".a"),
+        platform_to_affix = lambda _l, _t: ("lib", ".a"),
     ),
 }
 
@@ -275,7 +269,8 @@ def build_params(
         link_style: LinkStyle.type,
         preferred_linkage: Linkage.type,
         lang: LinkageLang.type,
-        linker_type: str.type) -> BuildParams.type:
+        linker_type: str.type,
+        target_os_type: OsLookup.type) -> BuildParams.type:
     input = (rule.value, proc_macro, link_style.value, preferred_linkage.value, lang.value)
 
     expect(
@@ -290,7 +285,7 @@ def build_params(
 
     build_kind_key = _INPUTS[input]
     flags = _BUILD_PARAMS[build_kind_key]
-    prefix, suffix = flags.platform_to_affix(linker_type)
+    prefix, suffix = flags.platform_to_affix(linker_type, target_os_type)
 
     return BuildParams(
         crate_type = flags.crate_type,
@@ -320,7 +315,8 @@ def build_params(
 # mode's preferred linkage.
 def preferred_rust_binary_build_params(
         preferred_linkage: Linkage.type,
-        linker_type: str.type) -> BuildParams.type:
+        linker_type: str.type,
+        target_os_type: OsLookup.type) -> BuildParams.type:
     build_kind_key = {
         "any": _BINARY_SHARED,
         "shared": _BINARY_SHARED,
@@ -328,7 +324,7 @@ def preferred_rust_binary_build_params(
     }[preferred_linkage.value]
 
     flags = _BUILD_PARAMS[build_kind_key]
-    prefix, suffix = flags.platform_to_affix(linker_type)
+    prefix, suffix = flags.platform_to_affix(linker_type, target_os_type)
 
     return BuildParams(
         crate_type = flags.crate_type,
