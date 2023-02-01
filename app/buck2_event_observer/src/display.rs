@@ -254,6 +254,7 @@ pub fn display_event(event: &BuckEvent, opts: TargetDisplayOptions) -> anyhow::R
                 truncate(&cmd.cmd_args, 200),
             )),
             Data::DiceSynchronizeSection(..) => Ok("Synchronizing buck2 internal state".to_owned()),
+            Data::DiceCleanup(..) => Ok("Cleaning up graph state".to_owned()),
             Data::Fake(fake) => Ok(format!("{} -- speak of the devil", fake.caramba)),
         };
 

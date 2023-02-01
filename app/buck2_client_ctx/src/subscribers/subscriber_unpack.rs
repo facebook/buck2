@@ -138,6 +138,9 @@ pub trait UnpackingEventSubscriber: Send {
             buck2_data::span_start_event::Data::DiceSynchronizeSection(
                 dice_synchronize_section,
             ) => self.handle_dice_synchronize_section_start(dice_synchronize_section, event),
+            buck2_data::span_start_event::Data::DiceCleanup(dice_cleanup) => {
+                self.handle_dice_cleanup_start(dice_cleanup, event)
+            }
             buck2_data::span_start_event::Data::Fake(fake) => self.handle_fake_start(fake, event),
         }
         .await
@@ -221,6 +224,9 @@ pub trait UnpackingEventSubscriber: Send {
             }
             buck2_data::span_end_event::Data::DiceSynchronizeSection(dice_synchronize_section) => {
                 self.handle_dice_synchronize_section_end(dice_synchronize_section, event)
+            }
+            buck2_data::span_end_event::Data::DiceCleanup(dice_cleanup) => {
+                self.handle_dice_cleanup_end(dice_cleanup, event)
             }
             buck2_data::span_end_event::Data::Fake(fake) => self.handle_fake_end(fake, event),
         }
@@ -720,6 +726,20 @@ pub trait UnpackingEventSubscriber: Send {
         Ok(())
     }
     async fn handle_tag(&mut self, _tag: &buck2_data::TagEvent) -> anyhow::Result<()> {
+        Ok(())
+    }
+    async fn handle_dice_cleanup_start(
+        &mut self,
+        _dice_cleanup: &buck2_data::DiceCleanupStart,
+        _event: &BuckEvent,
+    ) -> anyhow::Result<()> {
+        Ok(())
+    }
+    async fn handle_dice_cleanup_end(
+        &mut self,
+        _dice_cleanup: &buck2_data::DiceCleanupEnd,
+        _event: &BuckEvent,
+    ) -> anyhow::Result<()> {
         Ok(())
     }
 

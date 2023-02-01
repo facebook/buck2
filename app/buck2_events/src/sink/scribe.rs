@@ -287,6 +287,7 @@ mod fbcode {
                     Some(Data::DiceCriticalSection(_)) => false,
                     Some(Data::DiceBlockConcurrentCommand(_)) => false,
                     Some(Data::DiceSynchronizeSection(_)) => false,
+                    Some(Data::DiceCleanup(_)) => false,
                     Some(Data::Fake(..)) => false,
                     None => false,
                 }
@@ -318,6 +319,7 @@ mod fbcode {
                     Some(Data::DiceCriticalSection(_)) => false,
                     Some(Data::DiceBlockConcurrentCommand(_)) => false,
                     Some(Data::DiceSynchronizeSection(_)) => false,
+                    Some(Data::DiceCleanup(_)) => false,
                     Some(Data::Fake(..)) => true,
                     None => false,
                 }

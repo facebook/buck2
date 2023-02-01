@@ -69,6 +69,7 @@ message SpanStartEvent {
     DiceCriticalSectionStart dice_critical_section = 69;
     DiceBlockConcurrentCommandStart dice_block_concurrent_command = 70;
     DiceSynchronizeSectionStart dice_synchronize_section = 71;
+    DiceCleanupStart dice_cleanup = 72;
     // Used in Buck unit tests.
     FakeStart fake = 999;
   }
@@ -104,6 +105,7 @@ message SpanEndEvent {
     DiceCriticalSectionEnd dice_critical_section = 70;
     DiceBlockConcurrentCommandEnd dice_block_concurrent_command = 71;
     DiceSynchronizeSectionEnd dice_synchronize_section = 72;
+    DiceCleanupEnd dice_cleanup = 73;
     // Used in Buck unit tests.
     FakeEnd fake = 999;
   }
@@ -1383,6 +1385,12 @@ message DiceBlockConcurrentCommandStart {
 message DiceBlockConcurrentCommandEnd {
   string ending_active_trace_id = 1;
 }
+
+message DiceCleanupStart {
+  uint64 epoch = 1;
+}
+
+message DiceCleanupEnd {}
 
 message DiceEqualityCheck {
   bool is_equal = 1;

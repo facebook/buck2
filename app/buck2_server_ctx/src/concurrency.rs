@@ -285,7 +285,12 @@ impl ConcurrencyHandler {
                     let epoch = *epoch;
 
                     drop(data);
-                    future.await;
+                    event_dispatcher
+                        .span_async(
+                            buck2_data::DiceCleanupStart { epoch: epoch as _ },
+                            async move { (future.await, buck2_data::DiceCleanupEnd {}) },
+                        )
+                        .await;
                     data = self.data.lock();
 
                     // Once the cleanup future resolves, check that we haven't completely skipped
