@@ -13,6 +13,7 @@ use buck2_events::dispatch::with_dispatcher_async;
 use buck2_interpreter::dice::HasEvents;
 use dice::DiceComputations;
 use dupe::Dupe;
+use more_futures::cancellable_future::CancellationObserver;
 
 /// Provides a safe blocking calls to async functions for starlark that requires operations to
 /// be not async.
@@ -20,11 +21,11 @@ use dupe::Dupe;
 /// This is not exposed to starlark but rather, used by operations exposed to starlark to run
 /// code.
 /// This also provides a handle for dice.
-pub struct BxlSafeDiceComputations<'a>(pub(crate) &'a DiceComputations);
+pub struct BxlSafeDiceComputations<'a>(pub(crate) &'a DiceComputations, &'a CancellationObserver);
 
 impl<'a> BxlSafeDiceComputations<'a> {
-    pub fn new(dice: &'a DiceComputations) -> Self {
-        Self(dice)
+    pub fn new(dice: &'a DiceComputations, cancellation: &'a CancellationObserver) -> Self {
+        Self(dice, cancellation)
     }
 
     /// runs the async computation over dice as sync

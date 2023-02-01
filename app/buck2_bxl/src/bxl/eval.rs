@@ -38,6 +38,7 @@ use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculatio
 use dice::DiceComputations;
 use dice::DiceTransaction;
 use dupe::Dupe;
+use more_futures::cancellable_future::with_structured_cancellation;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::values::structs::AllocStruct;
@@ -88,106 +89,110 @@ pub async fn eval(
     // will be blocking calls so that starlark can remain synchronous.
     // To avoid blocking a tokio thread, we spawn bxl as a blocking tokio task
     let dispatcher = ctx.per_transaction_data().get_dispatcher().dupe();
-    tokio::task::spawn_blocking(with_dispatcher(dispatcher, || {
-        move || {
-            let env = Module::new();
 
-            let resolved_args = env.heap().alloc(AllocStruct(
-                key.cli_args()
-                    .iter()
-                    .map(|(k, v)| (k, v.as_starlark(env.heap()))),
-            ));
+    with_structured_cancellation(|cancellation| async move {
+        tokio::task::spawn_blocking(with_dispatcher(dispatcher, || {
+            move || {
+                let env = Module::new();
 
-            // we put a file as our output stream cache. The file is associated with the `BxlKey`, which
-            // is super important, as it HAS to be the SAME as the DiceKey so that DICE is keeping
-            // the output file cache up to date.
-            let output_stream = BuckOutPath::new(
-                BaseDeferredKey::BxlLabel(key.clone()),
-                ForwardRelativePathBuf::unchecked_new(
-                    "__bxl_internal__/outputstream_cache".to_owned(),
-                ),
-            );
-            let file_path = artifact_fs
-                .buck_out_path_resolver()
-                .resolve_gen(&output_stream);
+                let resolved_args = env.heap().alloc(AllocStruct(
+                    key.cli_args()
+                        .iter()
+                        .map(|(k, v)| (k, v.as_starlark(env.heap()))),
+                ));
 
-            let file = RefCell::new(box project_fs.create_file(&file_path, false)?);
+                // we put a file as our output stream cache. The file is associated with the `BxlKey`, which
+                // is super important, as it HAS to be the SAME as the DiceKey so that DICE is keeping
+                // the output file cache up to date.
+                let output_stream = BuckOutPath::new(
+                    BaseDeferredKey::BxlLabel(key.clone()),
+                    ForwardRelativePathBuf::unchecked_new(
+                        "__bxl_internal__/outputstream_cache".to_owned(),
+                    ),
+                );
+                let file_path = artifact_fs
+                    .buck_out_path_resolver()
+                    .resolve_gen(&output_stream);
 
-            let mut eval = Evaluator::new(&env);
+                let file = RefCell::new(box project_fs.create_file(&file_path, false)?);
 
-            let mut profiler_opt = profile_mode_or_instrumentation
-                .profile_mode()
-                .map(|profile_mode| StarlarkProfiler::new(profile_mode.dupe(), true));
+                let mut eval = Evaluator::new(&env);
 
-            let mut profiler = match &mut profiler_opt {
-                None => StarlarkProfilerOrInstrumentation::maybe_instrumentation(
-                    profile_mode_or_instrumentation.instrumentation(),
-                ),
-                Some(profiler) => StarlarkProfilerOrInstrumentation::for_profiler(profiler),
-            };
+                let mut profiler_opt = profile_mode_or_instrumentation
+                    .profile_mode()
+                    .map(|profile_mode| StarlarkProfiler::new(profile_mode.dupe(), true));
 
-            let bxl_ctx = BxlContext::new(
-                eval.heap(),
-                key,
-                resolved_args,
-                target_alias_resolver,
-                project_fs,
-                artifact_fs,
-                bxl_cell,
-                BxlSafeDiceComputations::new(&ctx),
-                file,
-            );
-            let bxl_ctx = ValueTyped::<BxlContext>::new(env.heap().alloc(bxl_ctx)).unwrap();
+                let mut profiler = match &mut profiler_opt {
+                    None => StarlarkProfilerOrInstrumentation::maybe_instrumentation(
+                        profile_mode_or_instrumentation.instrumentation(),
+                    ),
+                    Some(profiler) => StarlarkProfilerOrInstrumentation::for_profiler(profiler),
+                };
 
-            let result = eval_bxl(
-                &mut eval,
-                &frozen_callable,
-                bxl_ctx.to_value(),
-                &mut profiler,
-            )?;
+                let bxl_ctx = BxlContext::new(
+                    eval.heap(),
+                    key,
+                    resolved_args,
+                    target_alias_resolver,
+                    project_fs,
+                    artifact_fs,
+                    bxl_cell,
+                    BxlSafeDiceComputations::new(&ctx, &cancellation),
+                    file,
+                );
+                let bxl_ctx = ValueTyped::<BxlContext>::new(env.heap().alloc(bxl_ctx)).unwrap();
 
-            if !result.is_none() {
-                return Err(anyhow::anyhow!(NotAValidReturnType(result.get_type())));
+                let result = eval_bxl(
+                    &mut eval,
+                    &frozen_callable,
+                    bxl_ctx.to_value(),
+                    &mut profiler,
+                )?;
+
+                if !result.is_none() {
+                    return Err(anyhow::anyhow!(NotAValidReturnType(result.get_type())));
+                }
+
+                let (actions, ensured_artifacts) = BxlContext::take_state(bxl_ctx)?;
+
+                let (frozen_module, bxl_result) = match actions {
+                    Some(registry) => {
+                        // this bxl registered actions, so extract the deferreds from it
+                        let (frozen_module, deferred) = registry.finalize(&env)(env)?;
+
+                        let deferred_table = DeferredTable::new(deferred.take_result()?);
+
+                        (
+                            frozen_module,
+                            BxlResult::new(output_stream, ensured_artifacts, deferred_table),
+                        )
+                    }
+                    None => {
+                        let frozen_module = env.freeze()?;
+
+                        // this bxl did not try to build anything, so we don't have any deferreds
+                        (
+                            frozen_module,
+                            BxlResult::new(
+                                output_stream,
+                                ensured_artifacts,
+                                DeferredTable::new(Vec::new()),
+                            ),
+                        )
+                    }
+                };
+
+                profiler
+                    .visit_frozen_module(Some(&frozen_module))
+                    .context("Profiler heap visitation failed")?;
+
+                let profile_data = profiler_opt.map(|p| p.finish()).transpose()?;
+
+                anyhow::Ok((bxl_result, profile_data))
             }
-
-            let (actions, ensured_artifacts) = BxlContext::take_state(bxl_ctx)?;
-
-            let (frozen_module, bxl_result) = match actions {
-                Some(registry) => {
-                    // this bxl registered actions, so extract the deferreds from it
-                    let (frozen_module, deferred) = registry.finalize(&env)(env)?;
-
-                    let deferred_table = DeferredTable::new(deferred.take_result()?);
-
-                    (
-                        frozen_module,
-                        BxlResult::new(output_stream, ensured_artifacts, deferred_table),
-                    )
-                }
-                None => {
-                    let frozen_module = env.freeze()?;
-
-                    // this bxl did not try to build anything, so we don't have any deferreds
-                    (
-                        frozen_module,
-                        BxlResult::new(
-                            output_stream,
-                            ensured_artifacts,
-                            DeferredTable::new(Vec::new()),
-                        ),
-                    )
-                }
-            };
-
-            profiler
-                .visit_frozen_module(Some(&frozen_module))
-                .context("Profiler heap visitation failed")?;
-
-            let profile_data = profiler_opt.map(|p| p.finish()).transpose()?;
-
-            anyhow::Ok((bxl_result, profile_data))
-        }
-    }))
+        }))
+        .await
+    })
     .await?
 }
 

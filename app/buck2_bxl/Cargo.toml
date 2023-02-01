@@ -30,6 +30,7 @@ dice = { path = "../../dice/dice" }
 buck2_events = { workspace = true }
 starlark = { workspace = true }
 starlark_map = { workspace = true }
+more_futures = { workspace = true }
 
 buck2_build_api = { workspace = true }
 buck2_common = { workspace = true }
