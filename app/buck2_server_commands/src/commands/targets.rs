@@ -185,7 +185,7 @@ impl TargetPrinter for JsonPrinter {
             quote_json_string(&format!("{:?}", error))
         )
         .unwrap();
-        output.push_str("    }");
+        output.push_str("  }");
     }
 }
 
