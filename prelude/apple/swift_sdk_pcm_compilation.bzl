@@ -5,67 +5,11 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
+load("@prelude//utils:anon_targets.bzl", "anon_targets")
+load(":apple_sdk_modules_utility.bzl", "SDKDepTSet", "get_compiled_sdk_deps_tset")
 load(":apple_utility.bzl", "expand_relative_prefixed_sdk_path", "get_disable_pch_validation_flags")
-load(":swift_toolchain_types.bzl", "SdkCompiledModuleInfo")
-
-def compile_swift_sdk_pcm(
-        ctx: "context",
-        toolchain_context: struct.type,
-        sdk_deps_set: "SDKDepTSet",
-        uncompiled_sdk_module_info: "SdkUncompiledModuleInfo",
-        sdk_module_providers: {str.type: "SdkCompiledModuleInfo"}):
-    module_name = uncompiled_sdk_module_info.module_name
-
-    cmd = cmd_args(toolchain_context.compiler)
-    cmd.add(uncompiled_sdk_module_info.partial_cmd)
-    cmd.add(["-sdk", toolchain_context.sdk_path])
-    cmd.add(toolchain_context.compiler_flags)
-
-    if toolchain_context.swift_resource_dir:
-        cmd.add([
-            "-resource-dir",
-            toolchain_context.swift_resource_dir,
-        ])
-
-    cmd.add(sdk_deps_set.project_as_args("clang_deps"))
-
-    expanded_modulemap_path_cmd = expand_relative_prefixed_sdk_path(
-        cmd_args(toolchain_context.sdk_path),
-        cmd_args(toolchain_context.swift_resource_dir),
-        uncompiled_sdk_module_info.input_relative_path,
-    )
-    pcm_output = ctx.actions.declare_output(module_name + ".pcm")
-    cmd.add([
-        "-o",
-        pcm_output.as_output(),
-        expanded_modulemap_path_cmd,
-    ])
-
-    # For SDK modules we need to set a few more args
-    cmd.add([
-        "-Xcc",
-        "-Xclang",
-        "-Xcc",
-        "-emit-module",
-        "-Xcc",
-        "-Xclang",
-        "-Xcc",
-        "-fsystem-module",
-    ])
-
-    _add_sdk_module_search_path(cmd, uncompiled_sdk_module_info, toolchain_context)
-
-    sdk_module_providers[uncompiled_sdk_module_info.name] = SdkCompiledModuleInfo(
-        name = uncompiled_sdk_module_info.name,
-        module_name = module_name,
-        is_framework = uncompiled_sdk_module_info.is_framework,
-        output_artifact = pcm_output,
-        is_swiftmodule = False,
-        deps = sdk_deps_set,
-        input_relative_path = expanded_modulemap_path_cmd,
-    )
-
-    ctx.actions.run(cmd, category = "sdk_swift_pcm_compile", identifier = module_name)
+load(":swift_toolchain_types.bzl", "SdkCompiledModuleInfo", "SdkUncompiledModuleInfo", "WrappedSdkCompiledModuleInfo")
 
 def get_shared_pcm_compilation_args(target: str.type, module_name: str.type) -> "cmd_args":
     cmd = cmd_args()
@@ -114,7 +58,7 @@ def _remove_path_components_from_right(path: str.type, count: int.type):
     removed_path = "/".join(path_components[0:-count])
     return removed_path
 
-def _add_sdk_module_search_path(cmd, uncompiled_sdk_module_info, toolchain_context):
+def _add_sdk_module_search_path(cmd, uncompiled_sdk_module_info, swift_toolchain):
     modulemap_path = uncompiled_sdk_module_info.input_relative_path
 
     # If this input is a framework we need to search above the
@@ -123,15 +67,15 @@ def _add_sdk_module_search_path(cmd, uncompiled_sdk_module_info, toolchain_conte
     if uncompiled_sdk_module_info.is_framework:
         frameworks_dir_path = _remove_path_components_from_right(modulemap_path, 3)
         expanded_path = expand_relative_prefixed_sdk_path(
-            cmd_args(toolchain_context.sdk_path),
-            cmd_args(toolchain_context.swift_resource_dir),
+            cmd_args(swift_toolchain.sdk_path),
+            cmd_args(swift_toolchain.resource_dir),
             frameworks_dir_path,
         )
     else:
         module_root_path = _remove_path_components_from_right(modulemap_path, 1)
         expanded_path = expand_relative_prefixed_sdk_path(
-            cmd_args(toolchain_context.sdk_path),
-            cmd_args(toolchain_context.swift_resource_dir),
+            cmd_args(swift_toolchain.sdk_path),
+            cmd_args(swift_toolchain.resource_dir),
             module_root_path,
         )
 
@@ -141,3 +85,98 @@ def _add_sdk_module_search_path(cmd, uncompiled_sdk_module_info, toolchain_conte
         "-Xcc",
         cmd_args(expanded_path),
     ])
+
+def get_swift_sdk_pcm_anon_targets(ctx: "context", uncompiled_sdk_deps: ["dependency"]):
+    deps = [
+        {
+            "dep": uncompiled_sdk_dep,
+            "sdk_pcm_name": uncompiled_sdk_dep[SdkUncompiledModuleInfo].name,
+            "_apple_toolchain": ctx.attrs._apple_toolchain,
+        }
+        for uncompiled_sdk_dep in uncompiled_sdk_deps
+        if SdkUncompiledModuleInfo in uncompiled_sdk_dep and not uncompiled_sdk_dep[SdkUncompiledModuleInfo].is_swiftmodule
+    ]
+    return [(_swift_sdk_pcm_compilation, d) for d in deps]
+
+def _swift_sdk_pcm_compilation_impl(ctx: "context") -> ["promise", ["provider"]]:
+    def k(sdk_pcm_deps_providers) -> ["provider"]:
+        uncompiled_sdk_module_info = ctx.attrs.dep[SdkUncompiledModuleInfo]
+        module_name = uncompiled_sdk_module_info.module_name
+        swift_toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
+        cmd = cmd_args(swift_toolchain.compiler)
+        cmd.add(uncompiled_sdk_module_info.partial_cmd)
+        cmd.add(["-sdk", swift_toolchain.sdk_path])
+        cmd.add(swift_toolchain.compiler_flags)
+
+        if swift_toolchain.resource_dir:
+            cmd.add([
+                "-resource-dir",
+                swift_toolchain.resource_dir,
+            ])
+
+        sdk_deps_tset = get_compiled_sdk_deps_tset(ctx, sdk_pcm_deps_providers)
+        cmd.add(sdk_deps_tset.project_as_args("clang_deps"))
+
+        expanded_modulemap_path_cmd = expand_relative_prefixed_sdk_path(
+            cmd_args(swift_toolchain.sdk_path),
+            cmd_args(swift_toolchain.resource_dir),
+            uncompiled_sdk_module_info.input_relative_path,
+        )
+        pcm_output = ctx.actions.declare_output(module_name + ".pcm")
+        cmd.add([
+            "-o",
+            pcm_output.as_output(),
+            expanded_modulemap_path_cmd,
+        ])
+
+        # For SDK modules we need to set a few more args
+        cmd.add([
+            "-Xcc",
+            "-Xclang",
+            "-Xcc",
+            "-emit-module",
+            "-Xcc",
+            "-Xclang",
+            "-Xcc",
+            "-fsystem-module",
+        ])
+
+        _add_sdk_module_search_path(cmd, uncompiled_sdk_module_info, swift_toolchain)
+        ctx.actions.run(cmd, category = "sdk_swift_pcm_compile", identifier = module_name)
+
+        compiled_sdk = SdkCompiledModuleInfo(
+            name = uncompiled_sdk_module_info.name,
+            module_name = module_name,
+            is_framework = uncompiled_sdk_module_info.is_framework,
+            output_artifact = pcm_output,
+            is_swiftmodule = False,
+            input_relative_path = expanded_modulemap_path_cmd,
+        )
+
+        return [
+            DefaultInfo(),
+            WrappedSdkCompiledModuleInfo(
+                tset = ctx.actions.tset(SDKDepTSet, value = compiled_sdk, children = [sdk_deps_tset]),
+            ),
+        ]
+
+    # Skip deps compilations if run not on SdkUncompiledModuleInfo
+    if SdkUncompiledModuleInfo not in ctx.attrs.dep:
+        return []
+
+    # Recursively compile PCMs of any other exported_deps
+    sdk_pcm_anon_targets = get_swift_sdk_pcm_anon_targets(
+        ctx,
+        ctx.attrs.dep[SdkUncompiledModuleInfo].deps,
+    )
+
+    return anon_targets(ctx, sdk_pcm_anon_targets, k)
+
+_swift_sdk_pcm_compilation = rule(
+    impl = _swift_sdk_pcm_compilation_impl,
+    attrs = {
+        "dep": attrs.dep(),
+        "sdk_pcm_name": attrs.string(),
+        "_apple_toolchain": attrs.dep(),
+    },
+)
