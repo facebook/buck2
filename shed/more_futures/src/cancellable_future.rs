@@ -87,6 +87,11 @@ struct ExecutionContext {
 }
 
 impl ExecutionContext {
+    /// Does this future not currently prevent its cancellation?
+    fn can_exit(&self) -> bool {
+        self.structured_cancellation.is_none()
+    }
+
     fn enter_structured_cancellation(&mut self) -> CancellationObserver {
         let cancellation = self.structured_cancellation.get_or_insert_with(|| {
             let (tx, rx) = oneshot::channel();
@@ -187,15 +192,7 @@ where
 
         // If we were using structured cancellation but just exited the critical section, then we
         // should exit now.
-        if res.is_pending()
-            && is_cancelled
-            && self
-                .execution
-                .as_ref()
-                .unwrap()
-                .structured_cancellation
-                .is_none()
-        {
+        if res.is_pending() && is_cancelled && self.execution.as_ref().unwrap().can_exit() {
             return Poll::Ready(None);
         }
 
