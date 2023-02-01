@@ -8,6 +8,7 @@ description = "Common parts of Buck commands"
 anyhow = { workspace = true }
 async-condvar-fair = { workspace = true }
 async-trait = { workspace = true }
+futures = { workspace = true }
 itertools = { workspace = true }
 parking_lot = { workspace = true }
 thiserror = { workspace = true }
@@ -29,5 +30,4 @@ starlark_map = { workspace = true }
 
 [dev-dependencies]
 derive_more = { workspace = true }
-futures = { workspace = true }
 tokio = { workspace = true }

@@ -14,7 +14,6 @@
 //! concurrently. Otherwise, `buck2` will block waiting for other commands to finish.
 
 use std::fmt::Debug;
-use std::future::Future;
 use std::str::FromStr;
 use std::sync::Arc;
 
@@ -37,6 +36,10 @@ use dice::DiceTransaction;
 use dice::DiceTransactionUpdater;
 use dice::UserComputationData;
 use dupe::Dupe;
+use futures::future::BoxFuture;
+use futures::future::Future;
+use futures::future::FutureExt;
+use futures::future::Shared;
 use itertools::Itertools;
 use parking_lot::lock_api::MutexGuard;
 use parking_lot::FairMutex;
@@ -137,7 +140,7 @@ pub struct ConcurrencyHandler {
 struct ConcurrencyHandlerData {
     // the currently active `Dice` being used. Commands can only run concurrently if these are
     // "equivalent".
-    active_dice: Option<DiceTransaction>,
+    dice_status: DiceStatus,
     // A list of the currently running traces. It's theoretically possible that we use the same
     // trace twice if we support user supplied `TraceId` and have nested invocations, so we keep
     // a map of number of occurrences.
@@ -146,6 +149,45 @@ struct ConcurrencyHandlerData {
     active_trace: Option<TraceId>,
     // The current active trace's argv.
     active_trace_argv: Option<Vec<String>>,
+    // The epoch of the last ActiveDice we assigned.
+    cleanup_epoch: usize,
+}
+
+#[derive(Allocative)]
+enum DiceStatus {
+    Available {
+        active: Option<ActiveDice>,
+    },
+    Cleanup {
+        future: Shared<BoxFuture<'static, ()>>,
+        epoch: usize,
+    },
+}
+
+#[derive(Allocative)]
+struct ActiveDice {
+    transaction: DiceTransaction,
+}
+
+impl DiceStatus {
+    fn idle() -> Self {
+        Self::Available { active: None }
+    }
+
+    fn active(transaction: DiceTransaction) -> Self {
+        Self::Available {
+            active: Some(ActiveDice { transaction }),
+        }
+    }
+
+    fn as_active_mut(&mut self) -> Option<&mut ActiveDice> {
+        match self {
+            Self::Available {
+                active: Some(ref mut active),
+            } => Some(active),
+            _ => None,
+        }
+    }
 }
 
 #[async_trait]
@@ -166,10 +208,11 @@ impl ConcurrencyHandler {
     ) -> Self {
         ConcurrencyHandler {
             data: Arc::new(FairMutex::new(ConcurrencyHandlerData {
-                active_dice: None,
+                dice_status: DiceStatus::idle(),
                 active_traces: SmallMap::<TraceId, usize>::new(),
                 active_trace: None,
                 active_trace_argv: None,
+                cleanup_epoch: 0,
             })),
             cond: Default::default(),
             dice,
@@ -230,92 +273,116 @@ impl ConcurrencyHandler {
         let trace = event_dispatcher.trace_id().dupe();
         let mut data = self.data.lock();
 
-        let transaction_update = self.dice.updater();
-        let new_user_data = user_data
-            .provide(transaction_update.existing_state())
-            .await?;
-        let mut transaction = transaction_update.commit_with_data(new_user_data);
+        let transaction = loop {
+            match &data.dice_status {
+                DiceStatus::Cleanup { future, epoch } => {
+                    let future = future.clone();
+                    let epoch = *epoch;
 
-        loop {
-            // we rerun the updates in case that files on disk have changed between commands.
-            // this might cause some churn, but concurrent commands don't happen much and
-            // isn't a big perf bottleneck. Dice should be able to resurrect nodes properly.
-            transaction = event_dispatcher
-                .span_async(buck2_data::DiceStateUpdateStart {}, async move {
-                    let transaction = updates
-                        .update(transaction.into_updater())
-                        .await
-                        .map(|t| t.commit());
-                    (transaction, buck2_data::DiceStateUpdateEnd {})
-                })
-                .await?;
+                    drop(data);
+                    future.await;
+                    data = self.data.lock();
 
-            if let Some(active_dice) = &data.active_dice {
-                let is_same_state = active_dice.equivalent(&transaction);
-
-                event_dispatcher.instant_event(DiceEqualityCheck {
-                    is_equal: is_same_state,
-                });
-
-                let bypass_semaphore =
-                    self.determine_bypass_semaphore(is_same_state, is_nested_invocation);
-
-                match bypass_semaphore {
-                    BypassSemaphore::Error => {
-                        return Err(anyhow::Error::new(
-                            ConcurrencyHandlerError::NestedInvocationWithDifferentStates(
-                                format_traces(&data.active_traces, trace.dupe()),
-                                format_argv(&sanitized_argv),
-                            ),
-                        ));
-                    }
-                    BypassSemaphore::Run(state) => {
-                        self.emit_logs(
-                            state,
-                            &data.active_traces,
-                            trace.dupe(),
-                            format_argv(&sanitized_argv),
-                        )?;
-
-                        break;
-                    }
-                    BypassSemaphore::Block => {
-                        let active_trace = data.active_trace.as_ref().unwrap().to_string();
-
-                        tracing::warn!(
-                            "Running parallel invocation with different states with blocking: \nWaiting trace ID: {} \nCommand: `{}` \nExecuting trace ID: {} \nCommand: `{}`",
-                            &trace,
-                            format_argv(&sanitized_argv),
-                            active_trace,
-                            format_argv(data.active_trace_argv.as_ref().unwrap()),
-                        );
-
-                        data = event_dispatcher
-                            .span_async(
-                                DiceBlockConcurrentCommandStart {
-                                    current_active_trace_id: active_trace.clone(),
-                                    cmd_args: format_argv(data.active_trace_argv.as_ref().unwrap()),
-                                },
-                                async {
-                                    (
-                                        self.cond.wait(data).await,
-                                        DiceBlockConcurrentCommandEnd {
-                                            ending_active_trace_id: active_trace,
-                                        },
-                                    )
-                                },
-                            )
-                            .await;
+                    // Once the cleanup future resolves, check that we haven't completely skipped
+                    // an epoch (in which case we need to cleanup again), and proceed to report
+                    // DICE is available again.
+                    if data.cleanup_epoch == epoch {
+                        data.dice_status = DiceStatus::idle();
                     }
                 }
-            } else {
-                event_dispatcher.instant_event(NoActiveDiceState {});
+                DiceStatus::Available { active } => {
+                    // we rerun the updates in case that files on disk have changed between commands.
+                    // this might cause some churn, but concurrent commands don't happen much and
+                    // isn't a big perf bottleneck. Dice should be able to resurrect nodes properly.
+                    let transaction = event_dispatcher
+                        .span_async(buck2_data::DiceStateUpdateStart {}, async {
+                            (
+                                async {
+                                    let transaction_update = self.dice.updater();
+                                    let new_user_data = user_data
+                                        .provide(transaction_update.existing_state())
+                                        .await?;
+                                    let transaction =
+                                        transaction_update.commit_with_data(new_user_data);
+                                    let transaction =
+                                        updates.update(transaction.into_updater()).await?.commit();
 
-                data.active_dice = Some(transaction.dupe());
+                                    anyhow::Ok(transaction)
+                                }
+                                .await,
+                                buck2_data::DiceStateUpdateEnd {},
+                            )
+                        })
+                        .await?;
 
-                break;
+                    if let Some(active) = active {
+                        let is_same_state = active.transaction.equivalent(&transaction);
+
+                        event_dispatcher.instant_event(DiceEqualityCheck {
+                            is_equal: is_same_state,
+                        });
+
+                        let bypass_semaphore =
+                            self.determine_bypass_semaphore(is_same_state, is_nested_invocation);
+
+                        match bypass_semaphore {
+                            BypassSemaphore::Error => {
+                                return Err(anyhow::Error::new(
+                                    ConcurrencyHandlerError::NestedInvocationWithDifferentStates(
+                                        format_traces(&data.active_traces, trace.dupe()),
+                                        format_argv(&sanitized_argv),
+                                    ),
+                                ));
+                            }
+                            BypassSemaphore::Run(state) => {
+                                self.emit_logs(
+                                    state,
+                                    &data.active_traces,
+                                    trace.dupe(),
+                                    format_argv(&sanitized_argv),
+                                )?;
+
+                                break transaction;
+                            }
+                            BypassSemaphore::Block => {
+                                let active_trace = data.active_trace.as_ref().unwrap().to_string();
+
+                                tracing::warn!(
+                                    "Running parallel invocation with different states with blocking: \nWaiting trace ID: {} \nCommand: `{}`\nExecuting trace ID: {} \nCommand: `{}`",
+                                    &trace,
+                                    format_argv(&sanitized_argv),
+                                    active_trace,
+                                    format_argv(data.active_trace_argv.as_ref().unwrap()),
+                                );
+
+                                data = event_dispatcher
+                                    .span_async(
+                                        DiceBlockConcurrentCommandStart {
+                                            current_active_trace_id: active_trace.clone(),
+                                            cmd_args: format_argv(
+                                                data.active_trace_argv.as_ref().unwrap(),
+                                            ),
+                                        },
+                                        async {
+                                            (
+                                                self.cond.wait(data).await,
+                                                DiceBlockConcurrentCommandEnd {
+                                                    ending_active_trace_id: active_trace,
+                                                },
+                                            )
+                                        },
+                                    )
+                                    .await;
+                            }
+                        }
+                    } else {
+                        event_dispatcher.instant_event(NoActiveDiceState {});
+                        data.dice_status = DiceStatus::active(transaction.dupe());
+                        break transaction;
+                    }
+                }
             }
-        }
+        };
 
         data.active_trace = Some(trace.dupe());
         data.active_trace_argv = Some(sanitized_argv);
@@ -456,7 +523,18 @@ impl Drop for OnExecExit {
         }
 
         if data.active_traces.is_empty() {
-            data.active_dice.take().expect("should have an active dice");
+            data.dice_status
+                .as_active_mut()
+                .expect("should have an active dice");
+
+            // When releasing the active DICE, place it in a clean up state. Callers will wait
+            // until it goes idle.
+            data.cleanup_epoch += 1;
+
+            data.dice_status = DiceStatus::Cleanup {
+                future: self.0.dice.wait_for_idle().boxed().shared(),
+                epoch: data.cleanup_epoch,
+            };
 
             // we notify all commands since we don't know how many can actually wake up and run
             // concurrently as several of the currently waiting commands could be "equivalent".
