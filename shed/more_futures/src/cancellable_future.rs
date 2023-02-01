@@ -339,8 +339,11 @@ impl<F> CancellableFuture<F> {
     }
 }
 
-/// Enter a critical section during which the current future (if any) should not be
-/// dropped.
+/// Enter a critical section during which the current future (if any) should not be dropped. If the
+/// future was not cancelled before entering the critical section, it becomes non-cancellable
+/// during the critical section. If it *was* cancelled before entering the critical section (i.e.
+/// the last ref was dropped during `poll`), then the future is allowed to continue executing until
+/// this future resolves.
 pub async fn critical_section<F>(fut: F) -> <F as Future>::Output
 where
     F: Future,
