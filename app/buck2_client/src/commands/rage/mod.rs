@@ -8,6 +8,7 @@
  */
 
 mod rage_dumps;
+mod source_control;
 
 use std::fmt;
 use std::future::Future;
@@ -66,8 +67,6 @@ enum RageError {
     PastryOutputError,
     #[error("Pastry command failed with code '{0}' and error '{1}' ")]
     PastryCommandError(i32, String),
-    #[error("HG snapshot command failed with code '{0}' and error '{1}' ")]
-    SnapshotCommandError(i32, String),
     #[error("Failed to read event log")]
     EventLogReadError,
     #[error("Failed to open file `{0}`")]
@@ -197,8 +196,11 @@ impl RageCommand {
                 RageSection::get("Daemon stderr".to_owned(), timeout, || {
                     upload_daemon_stderr(stderr_path, &manifold_id)
                 });
-            let hg_snapshot_id_command =
-                RageSection::get("Hg snapshot ID".to_owned(), timeout, get_hg_snapshot);
+            let hg_snapshot_id_command = RageSection::get(
+                "Source control".to_owned(),
+                timeout,
+                source_control::get_info,
+            );
             let dice_dump_command = RageSection::get("Dice Dump".to_owned(), timeout, || {
                 rage_dumps::upload_dice_dump(&ctx, &manifold_id)
             });
@@ -282,26 +284,6 @@ async fn upload_daemon_stderr(
         e => Err(UploadError::ExitCodeError(path.display().to_string(), e).into()),
     }?;
     Ok(format!("buck2_rage_dumps/flat/{}", filename))
-}
-
-async fn get_hg_snapshot() -> anyhow::Result<String> {
-    let result = Command::new("hg")
-        .args(["snapshot", "create"])
-        .env("HGPLAIN", "1")
-        .output()
-        .await?;
-
-    if !result.status.success() {
-        let error = String::from_utf8(result.stderr).context("hg snapshot stderr was not UTF-8")?;
-        let code = result
-            .status
-            .code()
-            .ok_or_else(|| RageError::SnapshotCommandError(1, error.clone()))?;
-        return Err(RageError::SnapshotCommandError(code, error).into());
-    }
-
-    let output = String::from_utf8(result.stdout).context("hg snapshot stdout was not UTF-8")?;
-    Ok(output)
 }
 
 async fn get_build_info(log: &EventLogPathBuf) -> anyhow::Result<String> {
