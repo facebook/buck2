@@ -23,8 +23,8 @@ use dupe::Dupe;
 use tempfile::NamedTempFile;
 
 use crate::DetectCycles;
-use crate::Dice;
 use crate::DiceComputations;
+use crate::DiceLegacy;
 use crate::DiceTransactionUpdater;
 use crate::InjectedKey;
 use crate::Key;
@@ -141,7 +141,7 @@ fn demo() -> anyhow::Result<()> {
     let f = PathBuf::from(temp.path());
 
     let rt = tokio::runtime::Runtime::new().unwrap();
-    let dice = Dice::builder().build(DetectCycles::Enabled);
+    let dice = DiceLegacy::builder().build(DetectCycles::Enabled);
 
     let ctx = dice.updater();
     ctx.set_encodings(Encoding::Utf8)?;

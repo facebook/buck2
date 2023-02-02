@@ -9,4 +9,5 @@
 
 //! Public DICE API
 
+pub mod dice;
 pub mod error;

@@ -22,18 +22,18 @@ use crate::incremental::versions::MinorVersion;
 use crate::incremental::versions::VersionForWrites;
 use crate::incremental::versions::VersionGuard;
 use crate::incremental::versions::VersionNumber;
-use crate::Dice;
+use crate::DiceLegacy;
 use crate::HashSet;
 use crate::Key;
 
 /// Increment/decrement the number of active transactions.
 #[derive(Allocative)]
 pub(crate) struct ActiveTransactionCountGuard {
-    dice: Weak<Dice>,
+    dice: Weak<DiceLegacy>,
 }
 
 impl ActiveTransactionCountGuard {
-    pub(crate) fn new(dice: &Arc<Dice>) -> ActiveTransactionCountGuard {
+    pub(crate) fn new(dice: &Arc<DiceLegacy>) -> ActiveTransactionCountGuard {
         dice.active_transaction_count
             .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         ActiveTransactionCountGuard {

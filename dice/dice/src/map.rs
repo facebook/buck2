@@ -93,8 +93,8 @@ mod tests {
     use crate::incremental::versions::VersionNumber;
     use crate::map::DiceMap;
     use crate::DetectCycles;
-    use crate::Dice;
     use crate::DiceComputations;
+    use crate::DiceLegacy;
     use crate::IncrementalEngine;
     use crate::Key;
     use crate::StoragePropertiesForKey;
@@ -122,7 +122,7 @@ mod tests {
         }
 
         let mut map = DiceMap::new();
-        let dice = Dice::builder().build(DetectCycles::Enabled);
+        let dice = DiceLegacy::builder().build(DetectCycles::Enabled);
         let cache = map.find_cache(|| IncrementalEngine::new(StoragePropertiesForKey::new(&dice)));
         {
             cache.update_injected_value(MyKey, VersionNumber::new(0), Bar);

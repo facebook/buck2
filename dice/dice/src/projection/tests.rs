@@ -18,9 +18,9 @@ use parking_lot::Mutex;
 
 use crate::user_data::UserComputationData;
 use crate::DetectCycles;
-use crate::Dice;
 use crate::DiceComputations;
 use crate::DiceData;
+use crate::DiceLegacy;
 use crate::DiceProjectionComputations;
 use crate::HashMap;
 use crate::Key;
@@ -176,7 +176,7 @@ async fn smoke() -> anyhow::Result<()> {
         computations: Vec::new(),
     }));
 
-    let mut dice = Dice::builder();
+    let mut dice = DiceLegacy::builder();
     dice.set(tracker.dupe());
     let dice = dice.build(DetectCycles::Enabled);
 

@@ -34,7 +34,7 @@ use crate::map::DiceMap;
 use crate::opaque::OpaqueValue;
 use crate::projection::ProjectionKeyAsKey;
 use crate::user_data::UserComputationData;
-use crate::Dice;
+use crate::DiceLegacy;
 use crate::DiceTransaction;
 use crate::Key;
 use crate::ProjectionKey;
@@ -224,14 +224,14 @@ impl DiceComputations {
 #[derive(Allocative)]
 pub(crate) struct DiceComputationImpl {
     pub(crate) transaction_ctx: Arc<TransactionCtx>,
-    pub(crate) dice: Arc<Dice>,
+    pub(crate) dice: Arc<DiceLegacy>,
     pub(crate) dep_trackers: BothDepTrackers,
     pub(crate) extra: ComputationData,
 }
 
 impl DiceComputationImpl {
     pub(super) fn new_transaction(
-        dice: Arc<Dice>,
+        dice: Arc<DiceLegacy>,
         version: VersionGuard,
         version_for_writes: VersionForWrites,
         extra: ComputationData,
@@ -250,7 +250,7 @@ impl DiceComputationImpl {
     }
 
     pub(super) fn new_for_key_evaluation(
-        dice: Arc<Dice>,
+        dice: Arc<DiceLegacy>,
         transaction_ctx: Arc<TransactionCtx>,
         extra: ComputationData,
     ) -> Arc<Self> {

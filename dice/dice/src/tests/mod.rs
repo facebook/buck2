@@ -49,7 +49,7 @@ impl InjectedKey for Foo {
 
 #[tokio::test]
 async fn set_injected_multiple_times_per_commit() -> anyhow::Result<()> {
-    let dice = Dice::builder().build(DetectCycles::Enabled);
+    let dice = DiceLegacy::builder().build(DetectCycles::Enabled);
 
     {
         let ctx = dice.updater();
@@ -76,7 +76,7 @@ async fn set_injected_multiple_times_per_commit() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn set_injected_with_no_change_no_new_ctx() -> anyhow::Result<()> {
-    let dice = Dice::builder().build(DetectCycles::Enabled);
+    let dice = DiceLegacy::builder().build(DetectCycles::Enabled);
 
     {
         let ctx = dice.updater();
@@ -100,7 +100,7 @@ async fn set_injected_with_no_change_no_new_ctx() -> anyhow::Result<()> {
 
 #[test]
 fn compute_and_update_uses_proper_version_numbers() -> anyhow::Result<()> {
-    let dice = Dice::builder().build(DetectCycles::Enabled);
+    let dice = DiceLegacy::builder().build(DetectCycles::Enabled);
 
     {
         let ctx = dice.updater().commit();
@@ -200,7 +200,7 @@ fn compute_and_update_uses_proper_version_numbers() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn updates_caches_only_on_ctx_finalize_in_order() -> anyhow::Result<()> {
-    let dice = Dice::builder().build(DetectCycles::Enabled);
+    let dice = DiceLegacy::builder().build(DetectCycles::Enabled);
 
     {
         let ctx = dice.updater();
@@ -298,7 +298,7 @@ impl Key for K {
 
 #[test]
 fn ctx_tracks_deps_properly() -> anyhow::Result<()> {
-    let dice = Dice::builder().build(DetectCycles::Enabled);
+    let dice = DiceLegacy::builder().build(DetectCycles::Enabled);
 
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {
@@ -310,7 +310,7 @@ fn ctx_tracks_deps_properly() -> anyhow::Result<()> {
         assert_eq!(res, K(31));
 
         // introspect the caches for dependency info
-        fn assert_cached_deps(dice: &Arc<Dice>, k: i32) {
+        fn assert_cached_deps(dice: &Arc<DiceLegacy>, k: i32) {
             let vg = dice.global_versions.current();
             let cached = dice
                 .find_cache::<K>()
@@ -348,7 +348,7 @@ fn ctx_tracks_deps_properly() -> anyhow::Result<()> {
 
 #[test]
 fn ctx_tracks_rdeps_properly() -> anyhow::Result<()> {
-    let dice = Dice::builder().build(DetectCycles::Enabled);
+    let dice = DiceLegacy::builder().build(DetectCycles::Enabled);
 
     let rt = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(1)
@@ -364,7 +364,7 @@ fn ctx_tracks_rdeps_properly() -> anyhow::Result<()> {
         assert_eq!(res, K(31));
 
         // introspect the caches for dependency info
-        fn assert_cached_rdeps(dice: &Arc<Dice>, k: i32) {
+        fn assert_cached_rdeps(dice: &Arc<DiceLegacy>, k: i32) {
             let vg = dice.global_versions.current();
 
             let cached = dice
@@ -568,7 +568,7 @@ async fn invalid_results_are_not_cached() -> anyhow::Result<()> {
         }
     }
 
-    let dice = Dice::new(DiceData::new(), DetectCycles::Enabled);
+    let dice = Dice::builder().build(DetectCycles::Enabled);
     let is_ran = Arc::new(AtomicBool::new(false));
     {
         let ctx = dice.updater().commit();

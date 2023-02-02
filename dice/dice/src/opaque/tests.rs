@@ -16,9 +16,9 @@ use parking_lot::Mutex;
 
 use crate::user_data::UserComputationData;
 use crate::DetectCycles;
-use crate::Dice;
 use crate::DiceComputations;
 use crate::DiceData;
+use crate::DiceLegacy;
 use crate::Key;
 
 #[derive(Debug, PartialEq)]
@@ -112,7 +112,7 @@ async fn key_does_not_read_opaque() -> anyhow::Result<()> {
 
     let mut dice_data = DiceData::new();
     dice_data.set(tracker.dupe());
-    let dice = Dice::new(dice_data, DetectCycles::Enabled);
+    let dice = DiceLegacy::new(dice_data, DetectCycles::Enabled);
 
     // Part 1: compute key which requests on opaque key, but does not use it.
 

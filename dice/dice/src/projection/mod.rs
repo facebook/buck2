@@ -28,8 +28,8 @@ use crate::incremental::IncrementalEngine;
 use crate::introspection::graph::short_type_name;
 use crate::sync_handle::SyncDiceTaskHandle;
 use crate::user_data::UserComputationData;
-use crate::Dice;
 use crate::DiceData;
+use crate::DiceLegacy;
 use crate::GraphNode;
 use crate::Key;
 use crate::StorageProperties;
@@ -90,11 +90,11 @@ pub(crate) struct ProjectionKeyAsKey<P: ProjectionKey> {
 #[allocative(bound = "")]
 pub(crate) struct ProjectionKeyProperties<P: ProjectionKey> {
     _marker: std::marker::PhantomData<P>,
-    pub(crate) dice: Weak<Dice>,
+    pub(crate) dice: Weak<DiceLegacy>,
 }
 
 impl<P: ProjectionKey> ProjectionKeyProperties<P> {
-    pub(crate) fn new(dice: &Arc<Dice>) -> Self {
+    pub(crate) fn new(dice: &Arc<DiceLegacy>) -> Self {
         ProjectionKeyProperties {
             _marker: std::marker::PhantomData,
             dice: Arc::downgrade(dice),
@@ -144,7 +144,7 @@ impl<P: ProjectionKey> IncrementalComputeProperties for ProjectionKeyProperties<
 ///
 /// Only provide access to globals.
 pub struct DiceProjectionComputations<'a> {
-    pub(crate) dice: &'a Arc<Dice>,
+    pub(crate) dice: &'a Arc<DiceLegacy>,
     pub(crate) extra: ComputationData,
 }
 

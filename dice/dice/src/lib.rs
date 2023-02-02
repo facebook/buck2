@@ -248,6 +248,8 @@ use parking_lot::RwLock;
 use serde::Serializer;
 use tokio::sync::watch;
 
+pub use crate::api::dice::Dice;
+pub use crate::api::dice::DiceDataBuilder;
 pub use crate::api::error::DiceError;
 pub use crate::api::error::DiceResult;
 use crate::ctx::ComputationData;
@@ -283,10 +285,70 @@ pub use crate::transaction::DiceTransaction;
 pub use crate::transaction::DiceTransactionUpdater;
 pub use crate::user_data::UserComputationData;
 
+#[derive(Allocative, Debug)]
+pub(crate) enum DiceImplementation {
+    Legacy(Arc<DiceLegacy>),
+}
+
+impl DiceImplementation {
+    pub fn updater(&self) -> DiceTransactionUpdater {
+        match self {
+            DiceImplementation::Legacy(dice) => dice.updater(),
+        }
+    }
+
+    pub fn updater_with_data(&self, extra: UserComputationData) -> DiceTransactionUpdater {
+        match self {
+            DiceImplementation::Legacy(dice) => dice.updater_with_data(extra),
+        }
+    }
+
+    pub fn serialize_tsv(
+        &self,
+        nodes: impl Write,
+        edges: impl Write,
+        nodes_currently_running: impl Write,
+    ) -> anyhow::Result<()> {
+        match self {
+            DiceImplementation::Legacy(dice) => {
+                dice.serialize_tsv(nodes, edges, nodes_currently_running)
+            }
+        }
+    }
+
+    pub fn serialize_serde<S>(&self, serializer: S) -> Result<(), S::Error>
+    where
+        S: Serializer,
+    {
+        match self {
+            DiceImplementation::Legacy(dice) => dice.serialize_serde(serializer),
+        }
+    }
+
+    pub fn detect_cycles(&self) -> &DetectCycles {
+        match self {
+            DiceImplementation::Legacy(dice) => dice.detect_cycles(),
+        }
+    }
+
+    pub fn metrics(&self) -> Metrics {
+        match self {
+            DiceImplementation::Legacy(dice) => dice.metrics(),
+        }
+    }
+
+    /// Wait until all active versions have exited.
+    pub fn wait_for_idle(&self) -> impl Future<Output = ()> + 'static {
+        match self {
+            DiceImplementation::Legacy(dice) => dice.wait_for_idle(),
+        }
+    }
+}
+
 /// An incremental computation engine that executes arbitrary computations that
 /// maps `Key`s to values.
 #[derive(Allocative)]
-pub struct Dice {
+pub(crate) struct DiceLegacy {
     data: DiceData,
     pub(crate) map: Arc<RwLock<DiceMap>>,
     global_versions: Arc<VersionTracker>,
@@ -298,7 +360,7 @@ pub struct Dice {
     active_versions_observer: watch::Receiver<usize>,
 }
 
-impl Debug for Dice {
+impl Debug for DiceLegacy {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Dice")
             .field("detect_cycles", &self.detect_cycles)
@@ -306,9 +368,26 @@ impl Debug for Dice {
     }
 }
 
-impl Dice {
-    pub fn builder() -> DiceDataBuilder {
-        DiceDataBuilder::new()
+pub(crate) struct DiceLegacyDataBuilder(DiceData);
+
+impl DiceLegacyDataBuilder {
+    pub(crate) fn new() -> Self {
+        Self(DiceData::new())
+    }
+
+    pub fn set<K: Send + Sync + 'static>(&mut self, val: K) {
+        self.0.set(val);
+    }
+
+    pub fn build(self, detect_cycles: DetectCycles) -> Arc<DiceLegacy> {
+        DiceLegacy::new(self.0, detect_cycles)
+    }
+}
+
+impl DiceLegacy {
+    #[cfg(test)]
+    pub(crate) fn builder() -> DiceLegacyDataBuilder {
+        DiceLegacyDataBuilder::new()
     }
 
     fn new(data: DiceData, detect_cycles: DetectCycles) -> Arc<Self> {
@@ -316,7 +395,7 @@ impl Dice {
         let weak_map = Arc::downgrade(&map);
         let (active_versions_sender, active_versions_observer) = watch::channel(0);
 
-        Arc::new(Dice {
+        Arc::new(DiceLegacy {
             data,
             map,
             global_versions: VersionTracker::new(box move |update| {
@@ -340,18 +419,18 @@ impl Dice {
         })
     }
 
-    pub fn updater(self: &Arc<Dice>) -> DiceTransactionUpdater {
+    pub fn updater(self: &Arc<DiceLegacy>) -> DiceTransactionUpdater {
         self.updater_with_data(UserComputationData::new())
     }
 
     pub fn updater_with_data(
-        self: &Arc<Dice>,
+        self: &Arc<DiceLegacy>,
         extra: UserComputationData,
     ) -> DiceTransactionUpdater {
         DiceTransactionUpdater::new(self.make_ctx(ComputationData::new(extra, self.detect_cycles)))
     }
 
-    fn make_ctx(self: &Arc<Dice>, extra: ComputationData) -> DiceComputations {
+    fn make_ctx(self: &Arc<DiceLegacy>, extra: ComputationData) -> DiceComputations {
         DiceComputations(Arc::new(DiceComputationImpl::new_transaction(
             self.dupe(),
             self.global_versions.current(),
@@ -361,7 +440,7 @@ impl Dice {
     }
 
     /// finds the computation index for the given key
-    fn find_cache<K>(self: &Arc<Dice>) -> Arc<IncrementalEngine<StoragePropertiesForKey<K>>>
+    fn find_cache<K>(self: &Arc<DiceLegacy>) -> Arc<IncrementalEngine<StoragePropertiesForKey<K>>>
     where
         K: Key,
     {
@@ -379,7 +458,7 @@ impl Dice {
     }
 
     fn find_projection_cache<P: ProjectionKey>(
-        self: &Arc<Dice>,
+        self: &Arc<DiceLegacy>,
     ) -> Arc<IncrementalEngine<ProjectionKeyProperties<P>>>
     where
         P: ProjectionKey,
@@ -397,7 +476,7 @@ impl Dice {
             .find_cache(|| IncrementalEngine::new(ProjectionKeyProperties::<P>::new(self)))
     }
 
-    fn unstable_take(self: &Arc<Dice>) -> DiceMap {
+    fn unstable_take(self: &Arc<DiceLegacy>) -> DiceMap {
         debug!(msg = "clearing all Dice state");
         let mut map = self.map.write();
         std::mem::replace(&mut map, DiceMap::new())
@@ -449,24 +528,8 @@ impl Dice {
     }
 }
 
-pub struct DiceDataBuilder(DiceData);
-
-impl DiceDataBuilder {
-    fn new() -> Self {
-        Self(DiceData::new())
-    }
-
-    pub fn set<K: Send + Sync + 'static>(&mut self, val: K) {
-        self.0.set(val);
-    }
-
-    pub fn build(self, detect_cycles: DetectCycles) -> Arc<Dice> {
-        Dice::new(self.0, detect_cycles)
-    }
-}
-
 #[derive(Clone, Dupe)]
-struct Eval(Weak<Dice>);
+struct Eval(Weak<DiceLegacy>);
 
 #[async_trait]
 impl<K: Key> IncrementalComputeProperties for StoragePropertiesForKey<K> {
@@ -511,54 +574,5 @@ impl<K: Key> Evaluator for StoragePropertiesForKey<K> {
 }
 
 pub mod testing {
-    use crate::cycles::DetectCycles;
-    use crate::user_data::UserComputationData;
-    use crate::Dice;
-    use crate::DiceDataBuilder;
-    use crate::DiceTransactionUpdater;
-    use crate::Key;
-
-    /// Testing utility that can be used to build a specific `DiceComputation` where certain keys
-    /// of computation mocked to return a specific result.
-    ///
-    /// TODO(bobyf): ideally, we want something where we don't have to use the specific keys
-    /// but rather the computation function, like `mock.expect(|c| c.other_compute(4), "4 res")`
-    pub struct DiceBuilder {
-        builder: DiceDataBuilder,
-        mocked: Vec<Box<dyn FnOnce(&DiceTransactionUpdater) -> anyhow::Result<()>>>,
-    }
-
-    impl DiceBuilder {
-        pub fn new() -> Self {
-            let builder = Dice::builder();
-
-            Self {
-                builder,
-                mocked: Vec::new(),
-            }
-        }
-
-        pub fn set_data(mut self, setter: impl FnOnce(&mut DiceDataBuilder)) -> Self {
-            setter(&mut self.builder);
-            self
-        }
-
-        /// mocks the call of compute for the key `expected_k` so that it returns `expected_res`
-        pub fn mock_and_return<K>(mut self, expected_k: K, expected_res: K::Value) -> Self
-        where
-            K: Key,
-        {
-            self.mocked
-                .push(box move |ctx| Ok(ctx.changed_to(vec![(expected_k, expected_res)])?));
-            self
-        }
-
-        pub fn build(self, extra: UserComputationData) -> anyhow::Result<DiceTransactionUpdater> {
-            let dice = self.builder.build(DetectCycles::Enabled);
-            let ctx = dice.updater_with_data(extra);
-
-            self.mocked.into_iter().try_for_each(|f| f(&ctx))?;
-            Ok(ctx)
-        }
-    }
+    pub use crate::api::dice::testing::DiceBuilder;
 }

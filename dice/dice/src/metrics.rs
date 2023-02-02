@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use crate::Dice;
+use crate::DiceLegacy;
 
 /// Dice metrics.
 #[derive(Debug)]
@@ -18,7 +18,7 @@ pub struct Metrics {
 }
 
 impl Metrics {
-    pub fn collect(dice: &Dice) -> Metrics {
+    pub(crate) fn collect(dice: &DiceLegacy) -> Metrics {
         let dice_map = dice.map.read();
         Metrics {
             key_count: dice_map.key_count(),
@@ -35,12 +35,12 @@ mod tests {
     use std::sync::Arc;
 
     use crate::DetectCycles;
-    use crate::Dice;
     use crate::DiceData;
+    use crate::DiceLegacy;
 
     #[test]
     fn test_active_transaction_count() {
-        let dice = Arc::new(Dice::new(DiceData::new(), DetectCycles::Enabled));
+        let dice = Arc::new(DiceLegacy::new(DiceData::new(), DetectCycles::Enabled));
         assert_eq!(0, dice.metrics().active_transaction_count);
         let ctx = dice.updater().commit();
         assert_eq!(1, dice.metrics().active_transaction_count);

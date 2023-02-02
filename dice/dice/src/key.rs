@@ -18,8 +18,8 @@ use async_trait::async_trait;
 use dupe::Dupe;
 
 use crate::introspection::graph::short_type_name;
-use crate::Dice;
 use crate::DiceComputations;
+use crate::DiceLegacy;
 use crate::StorageProperties;
 use crate::StorageType;
 
@@ -70,11 +70,11 @@ pub trait Key: Allocative + Debug + Display + Clone + Eq + Hash + Send + Sync + 
 #[allocative(bound = "")]
 pub(crate) struct StoragePropertiesForKey<K: Key> {
     _k: std::marker::PhantomData<K>,
-    pub(crate) dice: Weak<Dice>,
+    pub(crate) dice: Weak<DiceLegacy>,
 }
 
 impl<K: Key> StoragePropertiesForKey<K> {
-    pub(crate) fn new(dice: &Arc<Dice>) -> StoragePropertiesForKey<K> {
+    pub(crate) fn new(dice: &Arc<DiceLegacy>) -> StoragePropertiesForKey<K> {
         StoragePropertiesForKey {
             _k: std::marker::PhantomData,
             dice: Arc::downgrade(dice),
