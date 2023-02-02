@@ -198,7 +198,7 @@ def create_jar_artifact_javacd(
                 "JAVACD_ABSOLUTE_PATHS_ARE_RELATIVE_TO_CWD": "1",
             },
             category = "{}javacd_jar".format(category_prefix),
-            identifier = actions_identifier,
+            identifier = actions_identifier or "",
             dep_files = dep_files,
         )
 
