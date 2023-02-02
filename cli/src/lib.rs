@@ -122,6 +122,11 @@ pub(crate) struct CommonOptions {
     /// This is an unsupported option used only for development work.
     #[clap(long, global(true))]
     no_buckd: bool,
+
+    /// Print buck wrapper help.
+    #[clap(skip)] // @oss-enable
+    // @oss-disable: #[clap(long)]
+    help_wrapper: bool,
 }
 
 #[derive(Debug, clap::Parser)]
@@ -181,6 +186,12 @@ pub fn exec(
     let clap = Opt::clap();
     let matches = clap.get_matches_from(expanded_args);
     let opt: Opt = Opt::from_clap(&matches);
+
+    if opt.common_opts.help_wrapper {
+        return ExitResult::Err(anyhow::anyhow!(
+            "`--help-wrapper` should have been handled by the wrapper"
+        ));
+    }
 
     match &opt.cmd {
         CommandKind::Clean(..) | CommandKind::Daemon(..) | CommandKind::Forkserver(..) => {}
