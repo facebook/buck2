@@ -150,31 +150,6 @@ impl DiceComputations {
         self.0.compute_opaque(key)
     }
 
-    /// Records a set of `Key`s as changed so that they, and any dependents will
-    /// be recomputed on the next set of requests at the next version.
-    pub fn changed<K, I>(&self, changed: I) -> DiceResult<()>
-    where
-        K: Key,
-        I: IntoIterator<Item = K> + Send + Sync + 'static,
-    {
-        self.0.changed(changed)
-    }
-
-    /// Records a set of `Key`s as changed to a particular value so that any
-    /// dependents will be recomputed on the next set of requests. The
-    /// `Key`s themselves will be update to the new value such that they
-    /// will not need to be recomputed as long as they aren't recorded to be
-    /// `changed` again (or invalidated by other means). Calling this method
-    /// does not in anyway alter the types of the key such that they
-    /// permanently becomes a special "inject value only" key.
-    pub fn changed_to<K, I>(&self, changed: I) -> DiceResult<()>
-    where
-        K: Key,
-        I: IntoIterator<Item = (K, K::Value)> + Send + Sync + 'static,
-    {
-        self.0.changed_to(changed)
-    }
-
     /// temporarily here while we figure out why dice isn't paralleling computations so that we can
     /// use this in tokio spawn. otherwise, this shouldn't be here so that we don't need to clone
     /// the Arc, which makes lifetimes weird.
