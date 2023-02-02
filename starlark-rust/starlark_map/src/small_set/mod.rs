@@ -312,6 +312,16 @@ impl<T> SmallSet<T> {
         self.0.contains_key(key)
     }
 
+    /// Check if the set contains an element.
+    #[inline]
+    pub fn contains_hashed<Q>(&self, key: Hashed<&Q>) -> bool
+    where
+        Q: Equivalent<T> + ?Sized,
+        T: Eq,
+    {
+        self.0.contains_key_hashed(key)
+    }
+
     /// Remove all elements from the set.
     ///
     /// Retain the capacity.
