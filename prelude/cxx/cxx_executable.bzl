@@ -28,19 +28,16 @@ load(
 )
 load(
     "@prelude//linking:link_groups.bzl",
-    "LinkGroupLib",
     "gather_link_group_libs",
 )
 load(
     "@prelude//linking:link_info.bzl",
     "LinkArgs",
     "LinkInfo",
-    "LinkInfos",
     "LinkStyle",
     "Linkage",
     "LinkedObject",  # @unused Used as a type
     "ObjectsLinkable",
-    "SharedLibLinkable",
     "merge_link_infos",
 )
 load(
@@ -93,12 +90,11 @@ load(
 load(
     ":link.bzl",
     "cxx_link",
-    "cxx_link_shared_library",
 )
 load(
     ":link_groups.bzl",
     "LINK_GROUP_MAP_DATABASE_SUB_TARGET",
-    "create_link_group",
+    "create_link_groups",
     "get_filtered_labels_to_links_map",
     "get_filtered_links",
     "get_filtered_targets",
@@ -107,20 +103,9 @@ load(
     "get_link_group_preferred_linkage",
 )
 load(
-    ":linker.bzl",
-    "get_no_as_needed_shared_libs_flags",
-)
-load(
     ":preprocessor.bzl",
     "cxx_inherited_preprocessor_infos",
     "cxx_private_preprocessor_info",
-)
-load(
-    ":symbols.bzl",
-    "create_dynamic_list_version_script",
-    "create_undefined_symbols_argsfile",
-    "extract_global_syms",
-    "extract_undefined_syms",
 )
 
 _CxxExecutableOutput = record(
@@ -137,81 +122,6 @@ _CxxExecutableOutput = record(
     # All link group links that were generated in the executable.
     auto_link_groups = field({str.type: LinkedObject.type}, {}),
 )
-
-def _symbol_flags_for_link_group(ctx: "context", lib: LinkedObject.type) -> ["_arglike"]:
-    """
-    Analyze symbols in the given shared library and generate linker flags which,
-    when applied to the main executable, make sure required symbols are included
-    in the link *and* exported to the dynamic symbol table.
-    """
-
-    sym_linker_flags = []
-
-    # Extract undefined symbols, format into an argsfile with `-u`s, and add to
-    # linker flags.
-    undefined_symfile = extract_undefined_syms(
-        ctx = ctx,
-        output = lib.output,
-        prefer_local = True,
-    )
-    undefined_argsfile = create_undefined_symbols_argsfile(
-        actions = ctx.actions,
-        name = "{}.undefined_symbols.argsfile".format(lib.output.short_path),
-        symbol_files = [undefined_symfile],
-        category = "link_groups_undefined_syms",
-        identifier = lib.output.short_path,
-    )
-    sym_linker_flags.append(cmd_args(undefined_argsfile, format = "@{}"))
-
-    # Extract global symbols, format into a dynamic list version file, and add
-    # to linker flags.
-    global_symfile = extract_global_syms(
-        ctx = ctx,
-        output = lib.output,
-        prefer_local = True,
-    )
-    dynamic_list_vers = create_dynamic_list_version_script(
-        actions = ctx.actions,
-        name = "{}.dynamic_list.vers".format(lib.output.short_path),
-        symbol_files = [global_symfile],
-        category = "link_groups_dynamic_list",
-        identifier = lib.output.short_path,
-    )
-    sym_linker_flags.extend([
-        "-Wl,--dynamic-list",
-        dynamic_list_vers,
-    ])
-
-    return sym_linker_flags
-
-def _stub_library(ctx: "context", name: str.type, extra_ldflags: [""] = []) -> LinkInfos.type:
-    output = ctx.actions.declare_output(name + ".stub")
-    cxx_link_shared_library(
-        ctx,
-        output,
-        name = name,
-        links = [LinkArgs(flags = extra_ldflags)],
-        identifier = name,
-        category_suffix = "stub_library",
-    )
-    toolchain_info = get_cxx_toolchain_info(ctx)
-    linker_info = toolchain_info.linker_info
-    return LinkInfos(
-        default = LinkInfo(
-            # Since we link against empty stub libraries, `--as-needed`
-            # will end up removing `DT_NEEDED` tags that we actually
-            # need at runtime, so pass in `--no-as-needed` last to
-            # make sure this is overridden.
-            # TODO(agallagher): It'd be nice to at least support a
-            # mode where we don't need to use empty stub libs.
-            pre_flags = (
-                ["-Wl,--push-state"] +
-                get_no_as_needed_shared_libs_flags(linker_info.type)
-            ),
-            linkables = [SharedLibLinkable(lib = output)],
-            post_flags = ["-Wl,--pop-state"],
-        ),
-    )
 
 # returns a tuple of the runnable binary as an artifact, a list of its runtime files as artifacts and a sub targets map, and the CxxCompilationDbInfo provider
 def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, is_cxx_test: bool.type = False) -> (_CxxExecutableOutput.type, CxxCompilationDbInfo.type, "XcodeDataInfo"):
@@ -310,56 +220,23 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
         # in the prelude, the link group map will give us the link group libs.
         # Otherwise, pull them from the `LinkGroupLibInfo` provider from out deps.
         if impl_params.auto_link_group_specs != None:
-            # Generate stubs first, so that subsequent links can link against them.
-            link_group_shared_links = {}
-            for link_group_spec in impl_params.auto_link_group_specs:
-                if link_group_spec.is_shared_lib:
-                    link_group_shared_links[link_group_spec.group.name] = _stub_library(
-                        ctx = ctx,
-                        name = link_group_spec.name,
-                        extra_ldflags = own_link_flags,
-                    )
-
-            for link_group_spec in impl_params.auto_link_group_specs:
-                # NOTE(agallagher): It might make sense to move this down to be
-                # done when we generated the links for the executable, so we can
-                # handle the case when a link group can depend on the executable.
-                link_group_lib = create_link_group(
-                    ctx = ctx,
-                    spec = link_group_spec,
-                    executable_deps = [d.linkable_graph.nodes.value.label for d in link_deps],
-                    other_roots = link_group_other_roots,
-                    root_link_group = link_group,
-                    linkable_graph_node_map = linkable_graph_node_map,
-                    linker_flags = own_link_flags,
-                    link_group_mappings = link_group_mappings,
-                    link_group_preferred_linkage = link_group_preferred_linkage,
-                    # TODO(agallagher): Should we support alternate link strategies
-                    # (e.g. bottom-up with symbol errors)?
-                    link_group_libs = {
-                        name: (None, lib)
-                        for name, lib in link_group_shared_links.items()
-                    },
-                    prefer_stripped_objects = ctx.attrs.prefer_stripped_objects,
-                    category_suffix = "link_group",
-                )
-                auto_link_groups[link_group_spec.group.name] = link_group_lib
-                if link_group_spec.is_shared_lib:
-                    link_group_libs[link_group_spec.group.name] = LinkGroupLib(
-                        shared_libs = {link_group_spec.name: link_group_lib},
-                        shared_link_infos = LinkInfos(
-                            default = LinkInfo(
-                                linkables = [
-                                    SharedLibLinkable(lib = link_group_lib.output),
-                                ],
-                            ),
-                        ),
-                    )
-
-                # Add linker flags to make sure any symbols from the main
-                # executable needed by these link groups are pulled in and
-                # exported to the dynamic symbol table.
-                own_binary_link_flags += _symbol_flags_for_link_group(ctx, link_group_lib)
+            linked_link_groups = create_link_groups(
+                ctx = ctx,
+                link_group_mappings = link_group_mappings,
+                link_group_preferred_linkage = link_group_preferred_linkage,
+                executable_deps = [d.linkable_graph.nodes.value.label for d in link_deps],
+                linker_flags = own_link_flags,
+                link_group_specs = impl_params.auto_link_group_specs,
+                root_link_group = link_group,
+                linkable_graph_node_map = linkable_graph_node_map,
+                other_roots = link_group_other_roots,
+                prefer_stripped_objects = ctx.attrs.prefer_stripped_objects,
+            )
+            for name, linked_link_group in linked_link_groups.items():
+                auto_link_groups[name] = linked_link_group.artifact
+                if linked_link_group.library != None:
+                    link_group_libs[name] = linked_link_group.library
+                own_binary_link_flags += linked_link_group.symbol_ldflags
 
         else:
             # NOTE(agallagher): We don't use version scripts and linker scripts
