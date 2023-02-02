@@ -74,13 +74,13 @@ use crate::incremental::transaction_ctx::TransactionCtx;
 use crate::incremental::versions::VersionNumber;
 use crate::incremental::versions::VersionRanges;
 use crate::introspection::graph::EngineForIntrospection;
+use crate::opaque::OpaqueValueImpl;
 use crate::projection::ProjectionKeyAsKey;
 use crate::projection::ProjectionKeyProperties;
 use crate::sync_handle::SyncDiceTaskHandle;
 use crate::DiceProjectionComputations;
 use crate::HashMap;
 use crate::HashSet;
-use crate::OpaqueValue;
 use crate::ProjectionKey;
 use crate::StoragePropertiesForKey;
 
@@ -578,7 +578,7 @@ impl<P: ProjectionKey> IncrementalEngine<ProjectionKeyProperties<P>> {
     pub(crate) fn eval_projection(
         self: &Arc<Self>,
         k: &ProjectionKeyAsKey<P>,
-        derive_from: &OpaqueValue<P::DeriveFromKey>,
+        derive_from: &OpaqueValueImpl<P::DeriveFromKey>,
         transaction_ctx: &Arc<TransactionCtx>,
         extra: ComputationData,
     ) -> P::Value {
@@ -604,7 +604,7 @@ impl<P: ProjectionKey> IncrementalEngine<ProjectionKeyProperties<P>> {
     fn eval_projection_versioned(
         self: &Arc<Self>,
         k: &ProjectionKeyAsKey<P>,
-        derive_from: &OpaqueValue<P::DeriveFromKey>,
+        derive_from: &OpaqueValueImpl<P::DeriveFromKey>,
         transaction_ctx: &Arc<TransactionCtx>,
         extra: ComputationData,
     ) -> GraphNode<ProjectionKeyProperties<P>> {

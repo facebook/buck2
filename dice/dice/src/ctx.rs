@@ -34,7 +34,7 @@ use crate::incremental::versions::VersionForWrites;
 use crate::incremental::versions::VersionGuard;
 use crate::legacy::DiceLegacy;
 use crate::map::DiceMap;
-use crate::opaque::OpaqueValue;
+use crate::opaque::OpaqueValueImpl;
 use crate::projection::ProjectionKeyAsKey;
 use crate::ProjectionKey;
 
@@ -146,7 +146,7 @@ impl DiceComputationImpl {
     pub(super) fn compute_opaque<'b, 'a: 'b, K>(
         self: &'a Arc<Self>,
         key: &'b K,
-    ) -> impl Future<Output = DiceResult<OpaqueValue<'a, K>>> + 'b
+    ) -> impl Future<Output = DiceResult<OpaqueValueImpl<'a, K>>> + 'b
     where
         K: Key,
     {
@@ -156,14 +156,14 @@ impl DiceComputationImpl {
             let value = cache
                 .eval_for_opaque(key, &self.transaction_ctx, extra)
                 .await?;
-            Ok(OpaqueValue::new(value, self, cache))
+            Ok(OpaqueValueImpl::new(value, self, cache))
         }
         .boxed()
     }
 
     pub(super) fn compute_projection_sync<P>(
         self: &Arc<Self>,
-        derive_from: &OpaqueValue<P::DeriveFromKey>,
+        derive_from: &OpaqueValueImpl<P::DeriveFromKey>,
         projection_key: &P,
     ) -> DiceResult<P::Value>
     where

@@ -19,10 +19,11 @@ use more_futures::spawn::spawn_dropcancel;
 use crate::api::data::DiceData;
 use crate::api::error::DiceResult;
 use crate::api::key::Key;
+use crate::api::opaque::OpaqueValue;
 use crate::api::transaction::DiceTransaction;
 use crate::api::user_data::UserComputationData;
 use crate::ctx::DiceComputationImpl;
-use crate::opaque::OpaqueValue;
+use crate::opaque::OpaqueValueImpl;
 
 /// The context for computations to register themselves, and request for additional dependencies.
 /// The dependencies accessed are tracked for caching via the `DiceCtx`.
@@ -51,8 +52,9 @@ impl DiceComputations {
     where
         K: Key,
     {
-        self.compute_opaque(key)
-            .map(|r| r.map(OpaqueValue::into_value))
+        self.0
+            .compute_opaque(key)
+            .map(|r| r.map(OpaqueValueImpl::into_value))
     }
 
     /// same as `compute` but for a multiple keys. The returned results will be in order of the
@@ -78,7 +80,7 @@ impl DiceComputations {
     where
         K: Key,
     {
-        self.0.compute_opaque(key)
+        self.0.compute_opaque(key).map(|r| r.map(OpaqueValue::new))
     }
 
     /// temporarily here while we figure out why dice isn't paralleling computations so that we can

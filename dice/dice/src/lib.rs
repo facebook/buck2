@@ -214,7 +214,7 @@ mod key;
 mod legacy;
 mod map;
 pub(crate) mod metrics;
-pub(crate) mod opaque;
+mod opaque;
 pub(crate) mod projection;
 mod sync_handle;
 
@@ -248,6 +248,7 @@ pub use crate::api::events::DiceEvent;
 pub use crate::api::events::DiceEventListener;
 pub use crate::api::injected::InjectedKey;
 pub use crate::api::key::Key;
+pub use crate::api::opaque::OpaqueValue;
 pub use crate::api::transaction::DiceTransaction;
 pub use crate::api::transaction::DiceTransactionUpdater;
 pub use crate::api::user_data::UserComputationData;
@@ -259,7 +260,6 @@ use crate::incremental::ValueWithDeps;
 use crate::key::StoragePropertiesForKey;
 use crate::legacy::DiceLegacy;
 use crate::metrics::Metrics;
-pub use crate::opaque::OpaqueValue;
 pub use crate::projection::DiceProjectionComputations;
 pub use crate::projection::ProjectionKey;
 

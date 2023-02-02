@@ -32,7 +32,7 @@ use crate::StoragePropertiesForKey;
 /// so projection result is recorded as a dependency
 /// of a computation which requested the opaqued value,
 /// but the opaque value key is not.
-pub struct OpaqueValue<'a, K: Key> {
+pub(crate) struct OpaqueValueImpl<'a, K: Key> {
     /// Computed value.
     pub(crate) value: GraphNode<StoragePropertiesForKey<K>>,
     /// Computations which requested this value, parent of K.
@@ -40,7 +40,7 @@ pub struct OpaqueValue<'a, K: Key> {
     incremental_engine: Arc<IncrementalEngine<StoragePropertiesForKey<K>>>,
 }
 
-impl<'a, K> Debug for OpaqueValue<'a, K>
+impl<'a, K> Debug for OpaqueValueImpl<'a, K>
 where
     K: Key,
     K::Value: Debug,
@@ -53,13 +53,13 @@ where
     }
 }
 
-impl<'a, K: Key> OpaqueValue<'a, K> {
+impl<'a, K: Key> OpaqueValueImpl<'a, K> {
     pub(crate) fn new(
         value: GraphNode<StoragePropertiesForKey<K>>,
         parent_computations: &'a Arc<DiceComputationImpl>,
         incremental_engine: Arc<IncrementalEngine<StoragePropertiesForKey<K>>>,
-    ) -> OpaqueValue<'a, K> {
-        OpaqueValue {
+    ) -> OpaqueValueImpl<'a, K> {
+        OpaqueValueImpl {
             value,
             parent_computations,
             incremental_engine,
@@ -92,7 +92,7 @@ impl<'a, K: Key> OpaqueValue<'a, K> {
         value
     }
 
-    pub fn projection<P>(&self, projection_key: &P) -> DiceResult<P::Value>
+    pub(crate) fn projection<P>(&self, projection_key: &P) -> DiceResult<P::Value>
     where
         P: ProjectionKey<DeriveFromKey = K>,
     {
