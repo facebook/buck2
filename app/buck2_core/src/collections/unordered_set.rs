@@ -20,18 +20,21 @@ pub struct UnorderedSet<T> {
 }
 
 impl<T> UnorderedSet<T> {
+    #[inline]
     pub fn new() -> UnorderedSet<T> {
         UnorderedSet {
             map: UnorderedMap::new(),
         }
     }
 
+    #[inline]
     pub fn with_capacity(n: usize) -> UnorderedSet<T> {
         UnorderedSet {
             map: UnorderedMap::with_capacity(n),
         }
     }
 
+    #[inline]
     pub fn insert(&mut self, k: T) -> bool
     where
         T: Hash + Eq,

@@ -23,34 +23,41 @@ use starlark_map::StarlarkHasher;
 pub struct UnorderedMap<K, V>(RawTable<(K, V)>);
 
 impl<K, V> Default for UnorderedMap<K, V> {
+    #[inline]
     fn default() -> UnorderedMap<K, V> {
         UnorderedMap::new()
     }
 }
 
 impl<K, V> UnorderedMap<K, V> {
+    #[inline]
     pub fn new() -> UnorderedMap<K, V> {
         UnorderedMap(RawTable::new())
     }
 
+    #[inline]
     pub fn with_capacity(n: usize) -> UnorderedMap<K, V> {
         UnorderedMap(RawTable::with_capacity(n))
     }
 
+    #[inline]
     pub fn len(&self) -> usize {
         self.0.len()
     }
 
+    #[inline]
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
 
+    #[inline]
     fn hash<Q: Hash + ?Sized>(k: &Q) -> u64 {
         let mut hasher = StarlarkHasher::new();
         k.hash(&mut hasher);
         hasher.finish()
     }
 
+    #[inline]
     pub fn get<Q>(&self, k: &Q) -> Option<&V>
     where
         Q: Hash + Equivalent<K> + ?Sized,
@@ -61,6 +68,7 @@ impl<K, V> UnorderedMap<K, V> {
             .map(|(_, v)| v)
     }
 
+    #[inline]
     pub fn get_mut<Q>(&mut self, k: &Q) -> Option<&mut V>
     where
         Q: Hash + Equivalent<K> + ?Sized,
@@ -71,6 +79,7 @@ impl<K, V> UnorderedMap<K, V> {
             .map(|(_, v)| v)
     }
 
+    #[inline]
     pub fn contains_key<Q>(&self, k: &Q) -> bool
     where
         Q: Hash + Equivalent<K> + ?Sized,
@@ -78,6 +87,7 @@ impl<K, V> UnorderedMap<K, V> {
         self.get(k).is_some()
     }
 
+    #[inline]
     pub fn insert(&mut self, k: K, v: V) -> Option<V>
     where
         K: Hash + Eq,
@@ -93,6 +103,7 @@ impl<K, V> UnorderedMap<K, V> {
         }
     }
 
+    #[inline]
     pub fn remove<Q>(&mut self, k: &Q) -> Option<V>
     where
         Q: Hash + Equivalent<K> + ?Sized,
@@ -104,6 +115,7 @@ impl<K, V> UnorderedMap<K, V> {
     }
 
     /// This function is private.
+    #[inline]
     fn iter(&self) -> impl Iterator<Item = (&K, &V)> {
         unsafe { self.0.iter().map(|e| (&e.as_ref().0, &e.as_ref().1)) }
     }
