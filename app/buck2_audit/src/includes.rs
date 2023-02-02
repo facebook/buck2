@@ -16,9 +16,9 @@ use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::cell_path::CellPath;
-use buck2_core::cells::CellInstance;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::fs_util;
+use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::project::ProjectRoot;
@@ -191,7 +191,7 @@ async fn load_and_collect_includes(
 fn resolve_path(
     cells: &CellResolver,
     fs: &ProjectRoot,
-    current_cell: &CellInstance,
+    current_cell_abs_path: &AbsNormPath,
     path: &str,
 ) -> anyhow::Result<CellPath> {
     // To match buck1, if the path is absolute we use it as-is, but if not it is treated
@@ -200,10 +200,7 @@ fn resolve_path(
     // is to just resolve to absolute here, and then relativize.
     //
     // Note if the path is already absolute, this operation is a no-op.
-    let path = fs
-        .resolve(current_cell.path().as_project_relative_path())
-        .as_abs_path()
-        .join(path);
+    let path = current_cell_abs_path.as_abs_path().join(path);
 
     let abs_path = fs_util::canonicalize(&path)?;
 
@@ -224,6 +221,8 @@ impl AuditSubcommand for AuditIncludesCommand {
                 let cwd = server_ctx.working_dir();
                 let current_cell = cells.get(cells.find(cwd)?)?;
                 let fs = server_ctx.project_root();
+                let current_cell_abs_path =
+                    fs.resolve(current_cell.path().as_project_relative_path());
 
                 let futures: FuturesOrdered<_> = self
                     .patterns
@@ -232,7 +231,7 @@ impl AuditSubcommand for AuditIncludesCommand {
                     .map(|path| {
                         let path = path.to_owned();
                         let ctx = ctx.dupe();
-                        let cell_path = resolve_path(&cells, fs, current_cell, &path);
+                        let cell_path = resolve_path(&cells, fs, &current_cell_abs_path, &path);
                         async move {
                             let load_result = try {
                                 let cell_path = cell_path?;
