@@ -14,10 +14,16 @@ use allocative::Allocative;
 use starlark_map::small_set;
 use starlark_map::small_set::SmallSet;
 use starlark_map::Equivalent;
+use starlark_map::Hashed;
 
 /// `SmallSet` wrapper, but equality and hash of self depends on iteration order.
 #[derive(Debug, Clone, Allocative)]
 pub struct OrderedSet<T>(SmallSet<T>);
+
+#[derive(Debug)]
+pub struct OccupiedError<T> {
+    pub value: T,
+}
 
 impl<T> OrderedSet<T> {
     #[inline]
@@ -102,6 +108,24 @@ impl<T> OrderedSet<T> {
         T: Hash + Eq,
     {
         self.0.insert(value)
+    }
+
+    /// Insert an element if element is not present in the set,
+    /// otherwise return the element.
+    #[inline]
+    pub fn try_insert(&mut self, value: T) -> Result<(), OccupiedError<T>>
+    where
+        T: Hash + Eq,
+    {
+        let value = Hashed::new(value);
+        if self.0.contains_hashed(value.as_ref()) {
+            Err(OccupiedError {
+                value: value.into_key(),
+            })
+        } else {
+            self.0.insert_hashed(value);
+            Ok(())
+        }
     }
 
     #[inline]
@@ -200,6 +224,9 @@ mod tests {
     use std::cell::Cell;
     use std::collections::hash_map::DefaultHasher;
     use std::hash::Hash;
+    use std::sync::Arc;
+
+    use dupe::Dupe;
 
     use crate::collections::ordered_set::OrderedSet;
 
@@ -239,5 +266,16 @@ mod tests {
 
         set.hash(&mut hasher);
         assert_eq!(1, set.iter().next().unwrap().hash_count.get());
+    }
+
+    #[test]
+    fn test_insert_unique() {
+        let mut set: OrderedSet<Arc<u32>> = OrderedSet::new();
+        let inserted = set.try_insert(Arc::new(1));
+        assert!(inserted.is_ok());
+
+        let one = Arc::new(1);
+        let inserted = set.try_insert(one.dupe());
+        assert!(Arc::ptr_eq(&inserted.unwrap_err().value, &one));
     }
 }
