@@ -462,6 +462,7 @@ def _create_link_group(
         # Additional roots involved in the link.
         other_roots: ["label"] = [],
         root_link_group = [str.type, None],
+        public_nodes: set_record.type = set(),
         linkable_graph_node_map: {"label": LinkableNode.type} = {},
         linker_flags: [""] = [],
         link_group_mappings: {"label": str.type} = {},
@@ -504,12 +505,6 @@ def _create_link_group(
         other_roots = other_roots,
         is_executable_link = False,
         prefer_stripped = prefer_stripped_objects,
-    )
-    public_nodes = get_public_link_group_nodes(
-        linkable_graph_node_map,
-        link_group_mappings,
-        executable_deps + other_roots,
-        root_link_group,
     )
     inputs.extend(get_filtered_links(filtered_labels_to_links_map, public_nodes))
 
@@ -622,6 +617,13 @@ def create_link_groups(
 
     linked_link_groups = {}
 
+    public_nodes = get_public_link_group_nodes(
+        linkable_graph_node_map,
+        link_group_mappings,
+        executable_deps + other_roots,
+        root_link_group,
+    )
+
     for link_group_spec in link_group_specs:
         # NOTE(agallagher): It might make sense to move this down to be
         # done when we generated the links for the executable, so we can
@@ -633,6 +635,7 @@ def create_link_groups(
             other_roots = other_roots,
             root_link_group = root_link_group,
             linkable_graph_node_map = linkable_graph_node_map,
+            public_nodes = public_nodes,
             linker_flags = linker_flags,
             link_group_mappings = link_group_mappings,
             link_group_preferred_linkage = link_group_preferred_linkage,
