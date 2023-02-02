@@ -276,10 +276,10 @@ impl DiceDataBuilder {
 }
 
 pub mod testing {
+    use crate::api::key::Key;
     use crate::api::transaction::DiceTransactionUpdater;
     use crate::api::user_data::UserComputationData;
     use crate::cycles::DetectCycles;
-    use crate::key::Key;
     use crate::Dice;
     use crate::DiceDataBuilder;
 

@@ -1407,6 +1407,7 @@ mod tests {
     use sorted_vector_map::sorted_vector_set;
 
     use crate::api::computations::DiceComputations;
+    use crate::api::key::Key;
     use crate::incremental::dep_trackers::BothDeps;
     use crate::incremental::evaluator::testing::EvaluatorUnreachable;
     use crate::incremental::graph::dependencies::Dependency;
@@ -1430,7 +1431,6 @@ mod tests {
     use crate::incremental::versions::VersionRanges;
     use crate::incremental::Computable;
     use crate::incremental::StorageType;
-    use crate::key::Key;
     use crate::HashSet;
     use crate::InjectedKey;
 

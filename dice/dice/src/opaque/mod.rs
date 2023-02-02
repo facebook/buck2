@@ -18,11 +18,11 @@ use std::sync::Arc;
 use dupe::Dupe;
 
 use crate::api::error::DiceResult;
+use crate::api::key::Key;
 use crate::ctx::DiceComputationImpl;
 use crate::incremental::dep_trackers::BothDeps;
 use crate::incremental::graph::GraphNode;
 use crate::incremental::IncrementalEngine;
-use crate::key::Key;
 use crate::ProjectionKey;
 use crate::StoragePropertiesForKey;
 

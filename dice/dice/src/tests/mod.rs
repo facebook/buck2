@@ -29,6 +29,7 @@ use super::*;
 use crate::api::computations::testing::DiceCtxExt;
 use crate::api::computations::DiceComputations;
 use crate::api::error::DiceErrorImpl;
+use crate::api::key::Key;
 use crate::api::user_data::UserComputationData;
 use crate::incremental::evaluator::testing::EvaluatorUnreachable;
 use crate::incremental::testing::DependencyExt;
@@ -36,7 +37,6 @@ use crate::incremental::testing::IncrementalEngineExt;
 use crate::incremental::testing::VersionedCacheResultAssertsExt;
 use crate::incremental::versions::MinorVersion;
 use crate::incremental::versions::VersionNumber;
-use crate::key::Key;
 use crate::HashSet;
 
 #[derive(Clone, Dupe, Debug, Display, Eq, Hash, PartialEq, Allocative)]

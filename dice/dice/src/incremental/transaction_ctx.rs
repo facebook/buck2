@@ -18,11 +18,11 @@ use parking_lot::MutexGuard;
 
 use crate::api::error::DiceError;
 use crate::api::error::DiceResult;
+use crate::api::key::Key;
 use crate::incremental::versions::MinorVersion;
 use crate::incremental::versions::VersionForWrites;
 use crate::incremental::versions::VersionGuard;
 use crate::incremental::versions::VersionNumber;
-use crate::key::Key;
 use crate::legacy::DiceLegacy;
 use crate::HashSet;
 

@@ -16,8 +16,8 @@ use parking_lot::Mutex;
 
 use crate::api::computations::DiceComputations;
 use crate::api::data::DiceData;
+use crate::api::key::Key;
 use crate::api::user_data::UserComputationData;
-use crate::key::Key;
 use crate::legacy::DiceLegacy;
 use crate::DetectCycles;
 

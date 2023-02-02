@@ -23,8 +23,8 @@ use dupe::Dupe;
 use tempfile::NamedTempFile;
 
 use crate::api::computations::DiceComputations;
+use crate::api::key::Key;
 use crate::api::transaction::DiceTransactionUpdater;
-use crate::key::Key;
 use crate::legacy::DiceLegacy;
 use crate::DetectCycles;
 use crate::InjectedKey;

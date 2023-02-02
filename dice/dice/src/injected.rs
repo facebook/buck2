@@ -16,8 +16,8 @@ use async_trait::async_trait;
 use dupe::Dupe;
 
 use crate::api::computations::DiceComputations;
+use crate::api::key::Key;
 use crate::incremental::StorageType;
-use crate::key::Key;
 
 /// Specialized version of `Key` above. This type of Key is never computed. It
 /// should always be injected onto the graph before being requested via

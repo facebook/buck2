@@ -15,8 +15,8 @@ use dupe::Dupe;
 
 use crate::api::computations::DiceComputations;
 use crate::api::error::DiceResult;
+use crate::api::key::Key;
 use crate::api::user_data::UserComputationData;
-use crate::key::Key;
 use crate::VersionNumber;
 
 /// The struct for which we build transactions. This is where changes are recorded, and committed
