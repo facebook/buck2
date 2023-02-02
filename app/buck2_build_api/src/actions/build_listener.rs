@@ -99,6 +99,8 @@ enum NodeKey {
 pub struct BuildSignalReceiver {
     receiver: UnboundedReceiverStream<BuildSignal>,
     predecessors: HashMap<NodeKey, CriticalPathNode<NodeKey, Arc<RegisteredAction>>>,
+    num_nodes: u64,
+    num_edges: u64,
 }
 
 fn extract_critical_path<TKey: Hash + Eq, TValue>(
@@ -132,6 +134,8 @@ impl BuildSignalReceiver {
         Self {
             receiver: UnboundedReceiverStream::new(receiver),
             predecessors: HashMap::new(),
+            num_nodes: 0,
+            num_edges: 0,
         }
     }
 
@@ -166,6 +170,8 @@ impl BuildSignalReceiver {
                 },
             )?,
             metadata: metadata::collect(),
+            num_nodes: self.num_nodes,
+            num_edges: self.num_edges,
         });
         Ok(())
     }
@@ -236,6 +242,7 @@ impl BuildSignalReceiver {
     ) {
         let longest_ancestor = dep_keys
             .filter_map(|node_key| {
+                self.num_edges += 1;
                 let node_data = self.predecessors.get(&node_key)?;
                 Some((node_key, node_data))
             })
@@ -254,6 +261,7 @@ impl BuildSignalReceiver {
             },
         };
 
+        self.num_nodes += 1;
         self.predecessors.insert(key, node.dupe());
     }
 

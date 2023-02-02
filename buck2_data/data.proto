@@ -266,6 +266,10 @@ message BuildGraphExecutionInfo {
   // Metadata associated with this build. Values in this map have no particular
   // semantics and are useful for logging and telemetry only.
   map<string, string> metadata = 2;
+  // Number of nodes in the action graph.
+  uint64 num_nodes = 3;
+  // Number of directed edges in the action graph (directed acyclic graph).
+  uint64 num_edges = 4;
 }
 
 // An event capturing information from the test discovery phase.
