@@ -360,22 +360,32 @@ async fn targets(
         return targets_resolve_aliases(dice, request, parsed_target_patterns).await;
     }
 
-    let target_platform =
-        target_platform_from_client_context(request.context.as_ref(), &cell_resolver, cwd).await?;
-
-    let fs = server_ctx.project_root();
-
     let printer = create_printer(request)?;
-    let (error_count, results_to_print) = targets_batch(
-        server_ctx,
-        dice,
-        &*printer,
-        parsed_target_patterns,
-        target_platform,
-        TargetHashOptions::new(request, &cell_resolver, fs)?,
-        request.keep_going,
-    )
-    .await?;
+    let (error_count, results_to_print) = if request.streaming {
+        targets_streaming(
+            server_ctx,
+            dice,
+            &*printer,
+            parsed_target_patterns,
+            request.keep_going,
+        )
+        .await?
+    } else {
+        let target_platform =
+            target_platform_from_client_context(request.context.as_ref(), &cell_resolver, cwd)
+                .await?;
+        let fs = server_ctx.project_root();
+        targets_batch(
+            server_ctx,
+            dice,
+            &*printer,
+            parsed_target_patterns,
+            target_platform,
+            TargetHashOptions::new(request, &cell_resolver, fs)?,
+            request.keep_going,
+        )
+        .await?
+    };
     Ok(TargetsResponse {
         error_count,
         serialized_targets_output: results_to_print,
@@ -549,4 +559,65 @@ async fn targets_batch(
     } else {
         Ok((stats.errors, output))
     }
+}
+
+async fn targets_streaming(
+    server_ctx: &dyn ServerCommandContextTrait,
+    dice: DiceTransaction,
+    printer: &dyn TargetPrinter,
+    parsed_patterns: Vec<ParsedPattern<TargetName>>,
+    keep_going: bool,
+) -> anyhow::Result<(u64, String)> {
+    let results = load_patterns(&dice, parsed_patterns).await?;
+
+    let mut output = String::new();
+    printer.begin(&mut output);
+    let mut stats = Stats::default();
+    let mut needs_separator = false;
+    for (package, result) in results.iter() {
+        match result {
+            Ok(res) => {
+                stats.success += 1;
+                for (_, node) in res.iter() {
+                    stats.targets += 1;
+                    if needs_separator {
+                        printer.separator(&mut output);
+                    }
+                    needs_separator = true;
+                    printer.target(
+                        package.dupe(),
+                        TargetInfo {
+                            node,
+                            target_hash: None,
+                        },
+                        &mut output,
+                    )
+                }
+            }
+            Err(e) => {
+                stats.errors += 1;
+                if keep_going {
+                    if needs_separator {
+                        printer.separator(&mut output);
+                    }
+                    needs_separator = true;
+                    printer.package_error(package.dupe(), e.inner(), &mut output);
+                } else {
+                    writeln!(
+                        server_ctx.stderr()?,
+                        "Error parsing {}\n{:?}",
+                        package,
+                        e.inner()
+                    )?;
+                    return Err(mk_error(stats.errors));
+                }
+            }
+        }
+        if !output.is_empty() {
+            write!(server_ctx.stdout()?, "{}", output)?;
+            output.clear();
+        }
+    }
+    printer.end(&stats, &mut output);
+    Ok((stats.errors, output))
 }

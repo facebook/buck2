@@ -145,6 +145,12 @@ pub struct TargetsCommand {
     /// On loading errors, put buck.error in the output stream and continue
     #[clap(long)]
     keep_going: bool,
+
+    /// Write output as soon as it is available. The order of the output items
+    /// is non-deterministic and if multiple patterns cover the same target, may
+    /// have duplicates.
+    #[clap(long)]
+    streaming: bool,
 }
 
 #[async_trait]
@@ -225,6 +231,7 @@ impl StreamingCommand for TargetsCommand {
             include_default_attributes: self.include_defaults,
             target_hash_recursive: self.target_hash_recursive,
             keep_going: self.keep_going,
+            streaming: self.streaming,
         };
 
         if self.show_output {
