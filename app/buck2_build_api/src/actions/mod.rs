@@ -229,7 +229,7 @@ pub(crate) enum ActionErrors {
     )]
     ActionCategoryIdentifierNotUnique(Category, String),
     #[error(
-        "Analysis produced multiple actions with category `{0}` and no identifier. Add an identifier to these actions to disambiguate them"
+        "Analysis produced multiple actions with category `{0}` and at least one of them had no identifier. Add an identifier to these actions to disambiguate them"
     )]
     ActionCategoryDuplicateSingleton(Category),
 }
