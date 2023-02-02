@@ -12,6 +12,7 @@ use std::alloc::Layout;
 use std::cmp::Ordering;
 use std::hash::Hash;
 use std::hash::Hasher;
+use std::marker::PhantomData;
 use std::mem;
 use std::ptr;
 use std::ptr::NonNull;
@@ -35,7 +36,7 @@ use crate::rtabort;
 /// - `inner_empty()` must return `&ArcStrBaseInner::EMPTY`.
 pub(crate) unsafe trait ArcStrLenStrategy: Sized + 'static {
     /// Payload allocated with the string data.
-    type AllocatedPayload: Copy;
+    type AllocatedPayload: Copy + Allocative;
     /// Payload stored in the string value.
     type ValuePayload: Copy;
     /// Payload for an empty string.
@@ -52,6 +53,8 @@ pub(crate) unsafe trait ArcStrLenStrategy: Sized + 'static {
 }
 
 #[repr(C)]
+#[derive(Allocative)]
+#[allocative(bound = "")]
 pub(crate) struct ArcStrBaseInner<P: ArcStrLenStrategy> {
     pub(crate) refcount: AtomicU32,
     pub(crate) allocated_payload: P::AllocatedPayload,
@@ -264,11 +267,17 @@ impl<P: ArcStrLenStrategy> Allocative for ArcStrBase<P> {
                 mem::size_of::<*const u8>(),
                 self.data.as_ptr() as *const (),
             ) {
-                visitor.visit_simple(
-                    allocative::Key::new("ArcStrBaseInner"),
-                    mem::size_of::<ArcStrBaseInner<P>>(),
-                );
-                visitor.visit_simple(allocative::Key::new("str"), self.len());
+                {
+                    struct ArcStrInner<P>(PhantomData<P>);
+
+                    let mut visitor = visitor.enter(
+                        allocative::Key::for_type_name::<ArcStrInner<P>>(),
+                        ArcStrBaseInner::<P>::layout_for_len(self.len()).size(),
+                    );
+                    visitor.visit_field(allocative::Key::new("header"), self.inner());
+                    visitor.visit_field(allocative::Key::new("str"), self.as_str());
+                    visitor.exit();
+                }
                 visitor.exit();
             }
         }
