@@ -218,7 +218,6 @@ pub(crate) mod metrics;
 pub(crate) mod opaque;
 pub(crate) mod projection;
 mod sync_handle;
-mod transaction;
 
 #[cfg(test)]
 mod tests;
@@ -247,6 +246,8 @@ pub use crate::api::error::DiceError;
 pub use crate::api::error::DiceResult;
 pub use crate::api::events::DiceEvent;
 pub use crate::api::events::DiceEventListener;
+pub use crate::api::transaction::DiceTransaction;
+pub use crate::api::transaction::DiceTransactionUpdater;
 pub use crate::api::user_data::UserComputationData;
 use crate::cycles::DetectCycles;
 use crate::future_handle::WeakDiceFutureHandle;
@@ -262,8 +263,6 @@ use crate::metrics::Metrics;
 pub use crate::opaque::OpaqueValue;
 pub use crate::projection::DiceProjectionComputations;
 pub use crate::projection::ProjectionKey;
-pub use crate::transaction::DiceTransaction;
-pub use crate::transaction::DiceTransactionUpdater;
 
 #[derive(Allocative, Debug)]
 pub(crate) enum DiceImplementation {

@@ -81,7 +81,7 @@ impl DiceTransactionUpdater {
 ///
 /// This SHOULD NOT be ever stored by computations, or any results of computations.
 #[derive(Allocative)]
-pub struct DiceTransaction(pub(super) DiceComputations);
+pub struct DiceTransaction(pub(crate) DiceComputations);
 
 impl DiceTransaction {
     pub fn unstable_take(self) -> Self {

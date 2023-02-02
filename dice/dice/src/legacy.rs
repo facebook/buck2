@@ -26,6 +26,7 @@ use tokio::sync::watch;
 use crate::api::computations::DiceComputations;
 use crate::api::data::DiceData;
 use crate::api::error::DiceResult;
+use crate::api::transaction::DiceTransactionUpdater;
 use crate::api::user_data::UserComputationData;
 use crate::ctx::ComputationData;
 use crate::ctx::DiceComputationImpl;
@@ -46,7 +47,6 @@ use crate::map::DiceMap;
 use crate::metrics::Metrics;
 use crate::projection::ProjectionKey;
 use crate::projection::ProjectionKeyProperties;
-use crate::transaction::DiceTransactionUpdater;
 
 /// An incremental computation engine that executes arbitrary computations that
 /// maps `Key`s to values.

@@ -14,4 +14,5 @@ pub mod data;
 pub mod dice;
 pub mod error;
 pub mod events;
+pub mod transaction;
 pub mod user_data;
