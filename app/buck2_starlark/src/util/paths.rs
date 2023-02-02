@@ -130,8 +130,9 @@ pub(crate) async fn starlark_files(
     let mut files = Vec::new();
 
     for path in paths {
+        let path = path.resolve(context.working_dir_abs());
         let cell_path = cell_resolver.get_cell_path_from_abs_or_rel_path(
-            path.path(),
+            &path,
             context.project_root(),
             context.working_dir(),
         )?;
