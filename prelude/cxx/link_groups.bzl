@@ -461,7 +461,6 @@ def _create_link_group(
         executable_deps: ["label"] = [],
         # Additional roots involved in the link.
         other_roots: ["label"] = [],
-        _root_link_group = [str.type, None],
         public_nodes: set_record.type = set(),
         linkable_graph_node_map: {"label": LinkableNode.type} = {},
         linker_flags: [""] = [],
@@ -640,7 +639,6 @@ def create_link_groups(
             spec = link_group_spec,
             executable_deps = executable_deps,
             other_roots = other_roots,
-            root_link_group = root_link_group,
             linkable_graph_node_map = linkable_graph_node_map,
             public_nodes = public_nodes,
             linker_flags = linker_flags,
