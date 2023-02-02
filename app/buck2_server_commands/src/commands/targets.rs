@@ -28,7 +28,6 @@ use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::project::ProjectRoot;
-use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::target::label::TargetLabel;
@@ -251,7 +250,6 @@ impl TargetHashOptions {
         request: &TargetsRequest,
         cell_resolver: &CellResolver,
         fs: &ProjectRoot,
-        cwd: &ProjectRelativePath,
     ) -> anyhow::Result<Self> {
         let file_mode = TargetHashFileMode::from_i32(request.target_hash_file_mode)
             .expect("buck cli should send valid target hash file mode");
@@ -262,7 +260,7 @@ impl TargetHashOptions {
                     .iter()
                     .map(|path| {
                         let path = AbsPath::new(Path::new(&path))?;
-                        cell_resolver.get_cell_path_from_abs_or_rel_path(path, fs, cwd)
+                        cell_resolver.get_cell_path_from_abs_path(path, fs)
                     })
                     .collect::<anyhow::Result<_>>()?;
                 TargetHashesFileMode::PathsOnly(modified_paths)
@@ -374,7 +372,7 @@ async fn targets(
         &*printer,
         parsed_target_patterns,
         target_platform,
-        TargetHashOptions::new(request, &cell_resolver, fs, cwd)?,
+        TargetHashOptions::new(request, &cell_resolver, fs)?,
         request.keep_going,
     )
     .await?;

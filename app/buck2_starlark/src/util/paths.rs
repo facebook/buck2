@@ -131,11 +131,7 @@ pub(crate) async fn starlark_files(
 
     for path in paths {
         let path = path.resolve(context.working_dir_abs());
-        let cell_path = cell_resolver.get_cell_path_from_abs_or_rel_path(
-            &path,
-            context.project_root(),
-            context.working_dir(),
-        )?;
+        let cell_path = cell_resolver.get_cell_path_from_abs_path(&path, context.project_root())?;
         let proj_path = cell_resolver.resolve_path(cell_path.as_ref())?;
         starlark_file(proj_path, None, cell_resolver, fs, io, &mut files).await?;
     }

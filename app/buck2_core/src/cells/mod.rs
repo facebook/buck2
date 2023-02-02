@@ -141,7 +141,6 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::fmt::Display;
 use std::hash::Hash;
-use std::path::Path;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -400,19 +399,13 @@ impl CellResolver {
         Ok(CellPath::new(cell, relative.to_owned().into()))
     }
 
-    pub fn get_cell_path_from_abs_or_rel_path(
+    pub fn get_cell_path_from_abs_path(
         &self,
-        path: &Path,
+        path: &AbsPath,
         fs: &ProjectRoot,
-        cwd: &ProjectRelativePath,
     ) -> anyhow::Result<CellPath> {
-        if path.is_absolute() {
-            let abs_path = AbsPath::new(path)?;
-            self.get_cell_path(&fs.relativize_any(abs_path)?)
-        } else {
-            let project_path = cwd.as_forward_relative_path().join_system(path)?;
-            self.get_cell_path(&ProjectRelativePathBuf::from(project_path))
-        }
+        let abs_path = AbsPath::new(path)?;
+        self.get_cell_path(&fs.relativize_any(abs_path)?)
     }
 
     pub fn cells(&self) -> impl Iterator<Item = (CellName, &CellInstance)> {
