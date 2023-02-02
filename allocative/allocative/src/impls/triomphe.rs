@@ -13,6 +13,7 @@ use std::alloc::Layout;
 use std::mem;
 use std::sync::atomic::AtomicUsize;
 
+use triomphe::Arc;
 use triomphe::HeaderSlice;
 use triomphe::HeaderWithLength;
 use triomphe::ThinArc;
@@ -67,6 +68,41 @@ impl<H: Allocative, T: Allocative> Allocative for ThinArc<H, T> {
                         Key::new("data"),
                         self,
                     );
+                }
+                visitor.exit();
+            }
+        }
+        visitor.exit();
+    }
+}
+
+impl<T: Allocative + ?Sized> Allocative for Arc<T> {
+    fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {
+        let mut visitor = visitor.enter_self_sized::<Self>();
+        {
+            if let Some(mut visitor) = visitor.enter_shared(
+                PTR_NAME,
+                mem::size_of::<*mut T>(),
+                Arc::heap_ptr(self) as *const (),
+            ) {
+                struct ArcInnerRepr {
+                    _counter: AtomicUsize,
+                }
+                let size = Layout::new::<ArcInnerRepr>()
+                    .extend(
+                        Layout::from_size_align(
+                            mem::size_of_val::<T>(self),
+                            mem::align_of_val::<T>(self),
+                        )
+                        .unwrap(),
+                    )
+                    .unwrap()
+                    .0
+                    .size();
+                {
+                    let mut visitor = visitor.enter(Key::for_type_name::<ArcInnerRepr>(), size);
+                    visitor.visit_field::<T>(Key::new("data"), self);
+                    visitor.exit();
                 }
                 visitor.exit();
             }
