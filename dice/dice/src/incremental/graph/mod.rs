@@ -1407,6 +1407,7 @@ mod tests {
     use sorted_vector_map::sorted_vector_set;
 
     use crate::api::computations::DiceComputations;
+    use crate::api::injected::InjectedKey;
     use crate::api::key::Key;
     use crate::incremental::dep_trackers::BothDeps;
     use crate::incremental::evaluator::testing::EvaluatorUnreachable;
@@ -1432,7 +1433,6 @@ mod tests {
     use crate::incremental::Computable;
     use crate::incremental::StorageType;
     use crate::HashSet;
-    use crate::InjectedKey;
 
     #[derive(Clone, Dupe, Display, Debug, Eq, PartialEq, Hash, Allocative)]
     #[display(fmt = "{:?}", self)]

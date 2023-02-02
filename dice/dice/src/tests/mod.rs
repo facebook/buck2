@@ -29,6 +29,7 @@ use super::*;
 use crate::api::computations::testing::DiceCtxExt;
 use crate::api::computations::DiceComputations;
 use crate::api::error::DiceErrorImpl;
+use crate::api::injected::InjectedKey;
 use crate::api::key::Key;
 use crate::api::user_data::UserComputationData;
 use crate::incremental::evaluator::testing::EvaluatorUnreachable;
