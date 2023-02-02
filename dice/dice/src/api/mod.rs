@@ -18,5 +18,6 @@ pub mod events;
 pub mod injected;
 pub mod key;
 pub mod opaque;
+pub mod projection;
 pub mod transaction;
 pub mod user_data;

@@ -20,11 +20,11 @@ use crate::api::computations::DiceComputations;
 use crate::api::cycles::DetectCycles;
 use crate::api::data::DiceData;
 use crate::api::key::Key;
+use crate::api::projection::DiceProjectionComputations;
+use crate::api::projection::ProjectionKey;
 use crate::api::user_data::UserComputationData;
 use crate::legacy::DiceLegacy;
-use crate::DiceProjectionComputations;
 use crate::HashMap;
-use crate::ProjectionKey;
 
 /// We have three keys in this test:
 /// * key for a global "configuration"

@@ -52,6 +52,8 @@ use crate::api::error::DiceError;
 use crate::api::error::DiceResult;
 use crate::api::events::DiceEvent;
 use crate::api::key::Key;
+use crate::api::projection::DiceProjectionComputations;
+use crate::api::projection::ProjectionKey;
 use crate::api::user_data::UserComputationData;
 use crate::ctx::ComputationData;
 use crate::dice_future::DiceFuture;
@@ -78,10 +80,8 @@ use crate::opaque::OpaqueValueImpl;
 use crate::projection::ProjectionKeyAsKey;
 use crate::projection::ProjectionKeyProperties;
 use crate::sync_handle::SyncDiceTaskHandle;
-use crate::DiceProjectionComputations;
 use crate::HashMap;
 use crate::HashSet;
-use crate::ProjectionKey;
 use crate::StoragePropertiesForKey;
 
 /// Result of evaluation computation.

@@ -23,6 +23,7 @@ use crate::api::error::DiceResult;
 use crate::api::events::DiceEvent;
 use crate::api::events::DiceEventListener;
 use crate::api::key::Key;
+use crate::api::projection::ProjectionKey;
 use crate::api::user_data::UserComputationData;
 use crate::cycles::CycleDetector;
 use crate::incremental::dep_trackers::BothDepTrackers;
@@ -36,7 +37,6 @@ use crate::legacy::DiceLegacy;
 use crate::map::DiceMap;
 use crate::opaque::OpaqueValueImpl;
 use crate::projection::ProjectionKeyAsKey;
-use crate::ProjectionKey;
 
 /// A context for the duration of a top-level compute request.
 ///

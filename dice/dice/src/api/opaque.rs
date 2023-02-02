@@ -13,8 +13,8 @@ use std::fmt::Formatter;
 
 use crate::api::error::DiceResult;
 use crate::api::key::Key;
+use crate::api::projection::ProjectionKey;
 use crate::opaque::OpaqueValueImpl;
-use crate::ProjectionKey;
 
 /// Computed value which is not directly visible to user.
 ///

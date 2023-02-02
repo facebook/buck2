@@ -28,6 +28,7 @@ use crate::api::cycles::DetectCycles;
 use crate::api::data::DiceData;
 use crate::api::error::DiceResult;
 use crate::api::key::Key;
+use crate::api::projection::ProjectionKey;
 use crate::api::transaction::DiceTransactionUpdater;
 use crate::api::user_data::UserComputationData;
 use crate::ctx::ComputationData;
@@ -45,7 +46,6 @@ use crate::introspection::serialize_graph;
 use crate::key::StoragePropertiesForKey;
 use crate::map::DiceMap;
 use crate::metrics::Metrics;
-use crate::projection::ProjectionKey;
 use crate::projection::ProjectionKeyProperties;
 
 /// An incremental computation engine that executes arbitrary computations that

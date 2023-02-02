@@ -19,11 +19,11 @@ use dupe::Dupe;
 
 use crate::api::error::DiceResult;
 use crate::api::key::Key;
+use crate::api::projection::ProjectionKey;
 use crate::ctx::DiceComputationImpl;
 use crate::incremental::dep_trackers::BothDeps;
 use crate::incremental::graph::GraphNode;
 use crate::incremental::IncrementalEngine;
-use crate::ProjectionKey;
 use crate::StoragePropertiesForKey;
 
 /// Computed value which is not directly visible to user.
