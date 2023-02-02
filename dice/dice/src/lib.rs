@@ -213,7 +213,7 @@ pub mod introspection;
 mod key;
 mod legacy;
 mod map;
-pub(crate) mod metrics;
+mod metrics;
 mod opaque;
 mod projection;
 mod sync_handle;
