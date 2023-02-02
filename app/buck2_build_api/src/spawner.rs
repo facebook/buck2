@@ -43,7 +43,7 @@ mod tests {
     use buck2_events::trace::TraceId;
     use buck2_events::BuckEvent;
     use buck2_events::EventSource;
-    use dice::data::DiceData;
+    use dice::DiceData;
     use dice::UserComputationData;
     use futures::future::FutureExt;
     use more_futures::spawn::spawn_task;

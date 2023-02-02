@@ -21,7 +21,7 @@
 //!     /// declaring computations:
 //!     use async_trait::async_trait;
 //!     use derive_more::Display;
-//!     use dice::{Key, InjectedKey, DiceComputations, DiceDataBuilder, data::DiceData, DiceTransactionUpdater};
+//!     use dice::{Key, InjectedKey, DiceComputations, DiceDataBuilder, DiceData, DiceTransactionUpdater};
 //!     use std::sync::Arc;
 //!     use allocative::Allocative;
 //!
@@ -205,7 +205,7 @@ extern crate gazebo;
 extern crate tracing;
 
 pub mod cycles;
-pub mod data;
+mod data;
 mod dice_future;
 mod dice_task;
 mod future_handle;
@@ -249,7 +249,7 @@ pub use crate::api::error::DiceResult;
 pub use crate::ctx::DiceEvent;
 pub use crate::ctx::DiceEventListener;
 use crate::cycles::DetectCycles;
-use crate::data::DiceData;
+pub use crate::data::DiceData;
 use crate::future_handle::WeakDiceFutureHandle;
 use crate::incremental::graph::GraphNode;
 use crate::incremental::transaction_ctx::TransactionCtx;

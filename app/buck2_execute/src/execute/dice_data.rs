@@ -12,8 +12,8 @@
 use std::sync::Arc;
 
 use buck2_common::executor_config::CommandExecutorConfig;
-use dice::data::DiceData;
 use dice::DiceComputations;
+use dice::DiceData;
 use dice::UserComputationData;
 use dupe::Dupe;
 

@@ -11,7 +11,7 @@
 
 use std::sync::Arc;
 
-use dice::data::DiceData;
+use dice::DiceData;
 use dice::DiceDataBuilder;
 use dupe::Dupe;
 

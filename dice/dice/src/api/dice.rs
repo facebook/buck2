@@ -21,7 +21,7 @@
 //!     /// declaring computations:
 //!     use async_trait::async_trait;
 //!     use derive_more::Display;
-//!     use dice::{Key, InjectedKey, DiceComputations, DiceDataBuilder, data::DiceData, DiceTransactionUpdater};
+//!     use dice::{Key, InjectedKey, DiceComputations, DiceDataBuilder, DiceData, DiceTransactionUpdater};
 //!     use std::sync::Arc;
 //!     use allocative::Allocative;
 //!

@@ -16,7 +16,7 @@
 //! values itself as the key for setting values.
 //! e.g.
 //! ```
-//! use crate::dice::data::DiceData;
+//! use crate::dice::DiceData;
 //!
 //! pub trait HasData {
 //!    fn my_data(&self) -> usize;
