@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use anyhow::Context;
 use async_trait::async_trait;
 use buck2_cli_proto::unstable_dice_dump_request::DiceDumpFormat;
 use buck2_cli_proto::UnstableDiceDumpRequest;
@@ -55,12 +54,7 @@ impl StreamingCommand for DiceDumpCommand {
         buckd
             .with_flushing()
             .unstable_dice_dump(UnstableDiceDumpRequest {
-                destination_path: self
-                    .path
-                    .resolve(&ctx.working_dir)
-                    .to_str()
-                    .context("path is not UTF-8")?
-                    .to_owned(),
+                destination_path: self.path.resolve(&ctx.working_dir).into_string()?,
                 format: format.into(),
             })
             .await?;

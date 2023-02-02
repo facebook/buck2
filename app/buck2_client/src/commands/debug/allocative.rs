@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use anyhow::Context;
 use async_trait::async_trait;
 use buck2_cli_proto::AllocativeRequest;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
@@ -54,12 +53,7 @@ impl StreamingCommand for AllocativeCommand {
             .allocative(
                 AllocativeRequest {
                     context: Some(context),
-                    output_path: self
-                        .output
-                        .resolve(&ctx.working_dir)
-                        .to_str()
-                        .context("not utf-8")?
-                        .to_owned(),
+                    output_path: self.output.resolve(&ctx.working_dir).into_string()?,
                 },
                 ctx.stdin().console_interaction_stream(self.console_opts()),
             )
