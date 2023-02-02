@@ -28,7 +28,7 @@ load(":prebuilt_jar.bzl", "prebuilt_jar_impl")
 AbiGenerationMode = ["class", "source", "source_only", "none"]
 
 def select_java_toolchain():
-    # FIXME: prelude// should be standalone (not refer to fbcode//, buck// or ovr_config//)
+    # FIXME: prelude// should be standalone (not refer to fbcode//, fbsource// or ovr_config//)
     return select(
         {
             # By default use the fbsource toolchain
