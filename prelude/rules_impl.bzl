@@ -338,6 +338,7 @@ inlined_extra_attributes = {
 
     # go
     "cgo_library": {
+        "embedcfg": attrs.option(attrs.source(allow_directory = False), default = None),
         "_cxx_toolchain": _cxx_toolchain(),
         "_go_toolchain": _go_toolchain(),
     },
@@ -436,14 +437,17 @@ inlined_extra_attributes = {
         "_exec_os_type": _exec_os_type(),
     },
     "go_binary": {
+        "embedcfg": attrs.option(attrs.source(allow_directory = False), default = None),
         "resources": attrs.list(attrs.one_of(attrs.dep(), attrs.source(allow_directory = True)), default = []),
         "_go_toolchain": _go_toolchain(),
     },
     "go_library": {
+        "embedcfg": attrs.option(attrs.source(allow_directory = False), default = None),
         "_go_toolchain": _go_toolchain(),
     },
     "go_test": {
         "coverage_mode": attrs.option(attrs.enum(GoCoverageMode.values()), default = None),
+        "embedcfg": attrs.option(attrs.source(allow_directory = False), default = None),
         "resources": attrs.list(attrs.source(allow_directory = True), default = []),
         "_go_toolchain": _go_toolchain(),
         "_testmaingen": attrs.default_only(attrs.exec_dep(default = "prelude//go/tools:testmaingen")),

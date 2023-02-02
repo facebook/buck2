@@ -128,6 +128,8 @@ def compile(
     cmd.add(cmd_args(_compile_cmd(ctx, pkg_name, pkgs, deps, compile_flags), format = "--compiler={}"))
     cmd.add(cmd_args(_assemble_cmd(ctx, assemble_flags), format = "--assembler={}"))
     cmd.add(cmd_args(go_toolchain.packer, format = "--packer={}"))
+    if ctx.attrs.embedcfg:
+        cmd.add(cmd_args(ctx.attrs.embedcfg, format = "--embedcfg={}"))
     cmd.add(srcs)
     ctx.actions.run(cmd, category = "go_compile", identifier = paths.basename(pkg_name))
 

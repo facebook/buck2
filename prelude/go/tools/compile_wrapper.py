@@ -58,6 +58,7 @@ def main(argv):
     parser.add_argument("--compiler", action="append", default=[])
     parser.add_argument("--assembler", action="append", default=[])
     parser.add_argument("--packer", action="append", default=[])
+    parser.add_argument("--embedcfg", type=Path, default=None)
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("srcs", type=Path, nargs="*")
     args = parser.parse_args(argv[1:])
@@ -80,6 +81,14 @@ def main(argv):
             symabis = args.output.with_suffix(".symabis")
             _compile(args.assembler + ["-gensymabis"], symabis, s_files)
             compile_prefix.extend(["-symabis", symabis])
+
+        if args.embedcfg is not None:
+            compile_prefix.extend(
+                [
+                    "-embedcfg",
+                    args.embedcfg,
+                ]
+            )
 
         _compile(compile_prefix, args.output, go_files)
 

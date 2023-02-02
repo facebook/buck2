@@ -36,9 +36,15 @@ def main(argv):
     args = parser.parse_args(argv[1:])
 
     # Find all source sub-dirs, which we'll need to run `go list` from.
+    # go:embed does not parse symlinks, so following the links to the real paths
     roots = set()
     for root, _dirs, _files in os.walk(args.srcdir):
-        roots.add(root)
+        for f in _files:
+            path = os.path.join(root, f)
+            if os.path.islink(os.path.join(root, f)):
+                roots.add(os.path.dirname(os.path.realpath(path)))
+            else:
+                roots.add(root)
 
     # Run `go list` on all source dirs to filter input sources by build pragmas.
     for root in roots:
@@ -73,10 +79,11 @@ def main(argv):
                 continue
 
             obj, idx = decoder.raw_decode(out, idx)
+            types = ["GoFiles", "EmbedFiles"]
             if args.tests:
-                types = ["GoFiles", "TestGoFiles", "XTestGoFiles"]
+                types.extend(["TestGoFiles", "XTestGoFiles"])
             else:
-                types = ["GoFiles", "SFiles"]
+                types.extend(["SFiles"])
             for typ in types:
                 for src in obj.get(typ, []):
                     src = Path(obj["Dir"]) / src
