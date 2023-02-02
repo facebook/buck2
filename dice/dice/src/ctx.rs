@@ -30,13 +30,13 @@ use crate::incremental::transaction_ctx::Changes;
 use crate::incremental::transaction_ctx::TransactionCtx;
 use crate::incremental::versions::VersionForWrites;
 use crate::incremental::versions::VersionGuard;
+use crate::key::Key;
+use crate::legacy::DiceLegacy;
 use crate::map::DiceMap;
 use crate::opaque::OpaqueValue;
 use crate::projection::ProjectionKeyAsKey;
+use crate::transaction::DiceTransaction;
 use crate::user_data::UserComputationData;
-use crate::DiceLegacy;
-use crate::DiceTransaction;
-use crate::Key;
 use crate::ProjectionKey;
 
 /// A context for the duration of a top-level compute request.

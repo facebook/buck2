@@ -1329,9 +1329,9 @@ impl<'a, K: StorageProperties> EntryUpdater<'a, K> {
 }
 
 mod introspection {
+    use crate::incremental::graph::storage_properties::StorageProperties;
     use crate::incremental::graph::VersionedGraphNodeInternal;
     use crate::introspection::graph::GraphNodeKind;
-    use crate::StorageProperties;
 
     impl<K: StorageProperties> From<&VersionedGraphNodeInternal<K>> for GraphNodeKind {
         fn from(n: &VersionedGraphNodeInternal<K>) -> Self {
@@ -1350,10 +1350,10 @@ pub(crate) mod testing {
     use dupe::Dupe;
     use gazebo::variants::VariantName;
 
+    use crate::incremental::graph::storage_properties::StorageProperties;
     use crate::incremental::graph::GraphNode;
     use crate::incremental::graph::VersionedGraphResult;
     use crate::incremental::graph::VersionedGraphResultMismatch;
-    use crate::StorageProperties;
 
     pub(crate) trait VersionedCacheResultAssertsExt<K: StorageProperties> {
         fn assert_none(&self);
@@ -1410,6 +1410,7 @@ mod tests {
     use crate::incremental::evaluator::testing::EvaluatorUnreachable;
     use crate::incremental::graph::dependencies::Dependency;
     use crate::incremental::graph::storage_properties::testing::StoragePropertiesLastN;
+    use crate::incremental::graph::storage_properties::StorageProperties;
     use crate::incremental::graph::testing::VersionedCacheResultAssertsExt;
     use crate::incremental::graph::GraphNodeDyn;
     use crate::incremental::graph::OccupiedGraphNode;
@@ -1427,12 +1428,11 @@ mod tests {
     use crate::incremental::versions::VersionRange;
     use crate::incremental::versions::VersionRanges;
     use crate::incremental::Computable;
+    use crate::incremental::StorageType;
+    use crate::key::Key;
     use crate::DiceComputations;
     use crate::HashSet;
     use crate::InjectedKey;
-    use crate::Key;
-    use crate::StorageProperties;
-    use crate::StorageType;
 
     #[derive(Clone, Dupe, Display, Debug, Eq, PartialEq, Hash, Allocative)]
     #[display(fmt = "{:?}", self)]

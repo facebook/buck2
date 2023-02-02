@@ -14,8 +14,8 @@ use futures::future::Shared;
 
 use crate::dice_task::DiceTask;
 use crate::dice_task::DiceTaskStateForDebugging;
+use crate::incremental::graph::storage_properties::StorageProperties;
 use crate::GraphNode;
-use crate::StorageProperties;
 
 /// `IncrementalEngine` task type for projection key.
 #[derive(Clone_, Allocative)]

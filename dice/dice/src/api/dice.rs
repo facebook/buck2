@@ -194,11 +194,11 @@ pub use fnv::FnvHashSet as HashSet;
 use futures::future::Future;
 use serde::Serializer;
 
+use crate::legacy::DiceLegacyDataBuilder;
+use crate::metrics::Metrics;
 use crate::DetectCycles;
 use crate::DiceImplementation;
-use crate::DiceLegacyDataBuilder;
 use crate::DiceTransactionUpdater;
-use crate::Metrics;
 use crate::UserComputationData;
 
 /// An incremental computation engine that executes arbitrary computations that
@@ -277,11 +277,11 @@ impl DiceDataBuilder {
 
 pub mod testing {
     use crate::cycles::DetectCycles;
+    use crate::key::Key;
     use crate::user_data::UserComputationData;
     use crate::Dice;
     use crate::DiceDataBuilder;
     use crate::DiceTransactionUpdater;
-    use crate::Key;
 
     /// Testing utility that can be used to build a specific `DiceComputation` where certain keys
     /// of computation mocked to return a specific result.

@@ -58,6 +58,7 @@ use crate::incremental::dep_trackers::BothDeps;
 use crate::incremental::evaluator::Evaluator;
 pub(crate) use crate::incremental::graph::dependencies::ComputedDependency;
 pub(crate) use crate::incremental::graph::dependencies::Dependency;
+use crate::incremental::graph::storage_properties::StorageProperties;
 use crate::incremental::graph::GraphNode;
 pub(crate) use crate::incremental::graph::StorageType;
 use crate::incremental::graph::VersionedGraph;
@@ -70,6 +71,7 @@ use crate::incremental::transaction_ctx::TransactionCtx;
 use crate::incremental::versions::VersionNumber;
 use crate::incremental::versions::VersionRanges;
 use crate::introspection::graph::EngineForIntrospection;
+use crate::key::Key;
 use crate::projection::ProjectionKeyAsKey;
 use crate::projection::ProjectionKeyProperties;
 use crate::sync_handle::SyncDiceTaskHandle;
@@ -78,10 +80,8 @@ use crate::DiceError;
 use crate::DiceProjectionComputations;
 use crate::HashMap;
 use crate::HashSet;
-use crate::Key;
 use crate::OpaqueValue;
 use crate::ProjectionKey;
-use crate::StorageProperties;
 use crate::StoragePropertiesForKey;
 
 /// Result of evaluation computation.
@@ -1036,6 +1036,7 @@ pub(crate) mod testing {
 
     use crate::incremental::dep_trackers::testing::Dep;
     use crate::incremental::dep_trackers::testing::DepExt;
+    use crate::incremental::graph::storage_properties::StorageProperties;
     // re-export the cache assertion utility
     pub(crate) use crate::incremental::graph::testing::VersionedCacheResultAssertsExt;
     use crate::incremental::graph::GraphNode;
@@ -1051,7 +1052,6 @@ pub(crate) mod testing {
     use crate::incremental::IncrementalComputeProperties;
     use crate::incremental::IncrementalEngine;
     use crate::incremental::VersionNumber;
-    use crate::StorageProperties;
 
     pub(crate) struct DependencyExt<K>(PhantomData<K>);
 
@@ -1234,6 +1234,7 @@ mod tests {
     use crate::incremental::graph::dependencies::VersionedDependencies;
     use crate::incremental::graph::dependencies::VersionedRevDependencies;
     use crate::incremental::graph::storage_properties::testing::StoragePropertiesLastN;
+    use crate::incremental::graph::storage_properties::StorageProperties;
     use crate::incremental::graph::GraphNode;
     use crate::incremental::graph::GraphNodeDyn;
     use crate::incremental::graph::NodeMetadata;
@@ -1256,20 +1257,19 @@ mod tests {
     use crate::incremental::versions::VersionNumber;
     use crate::incremental::versions::VersionRange;
     use crate::incremental::versions::VersionRanges;
+    use crate::incremental::versions::VersionTracker;
     use crate::incremental::CellHistory;
     use crate::incremental::ComputedDependency;
     use crate::incremental::Dependency;
     use crate::incremental::Evaluator;
     use crate::incremental::IncrementalComputeProperties;
     use crate::incremental::IncrementalEngine;
+    use crate::incremental::StorageType;
     use crate::incremental::TransactionCtx;
     use crate::incremental::VersionedGraphResultMismatch;
     use crate::introspection::graph::AnyKey;
     use crate::HashSet;
-    use crate::StorageProperties;
-    use crate::StorageType;
     use crate::ValueWithDeps;
-    use crate::VersionTracker;
     use crate::WeakDiceFutureHandle;
 
     #[tokio::test]

@@ -91,12 +91,12 @@ mod tests {
     use crate::incremental::testing::IncrementalEngineExt;
     use crate::incremental::versions::MinorVersion;
     use crate::incremental::versions::VersionNumber;
+    use crate::incremental::IncrementalEngine;
+    use crate::key::Key;
+    use crate::legacy::DiceLegacy;
     use crate::map::DiceMap;
     use crate::DetectCycles;
     use crate::DiceComputations;
-    use crate::DiceLegacy;
-    use crate::IncrementalEngine;
-    use crate::Key;
     use crate::StoragePropertiesForKey;
 
     #[tokio::test]

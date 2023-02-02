@@ -19,8 +19,8 @@ use crate::api::error::DiceResult;
 use crate::dice_future::DiceFuture;
 use crate::dice_task::DiceTask;
 use crate::dice_task::DiceTaskStateForDebugging;
+use crate::incremental::graph::storage_properties::StorageProperties;
 use crate::GraphNode;
-use crate::StorageProperties;
 
 #[derive(Allocative)]
 pub(crate) struct WeakDiceFutureHandle<S: StorageProperties> {

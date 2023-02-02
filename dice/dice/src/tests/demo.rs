@@ -22,12 +22,12 @@ use derive_more::Display;
 use dupe::Dupe;
 use tempfile::NamedTempFile;
 
+use crate::key::Key;
+use crate::legacy::DiceLegacy;
 use crate::DetectCycles;
 use crate::DiceComputations;
-use crate::DiceLegacy;
 use crate::DiceTransactionUpdater;
 use crate::InjectedKey;
-use crate::Key;
 
 #[derive(Debug, Clone, Dupe, PartialEq, Allocative)]
 enum Encoding {

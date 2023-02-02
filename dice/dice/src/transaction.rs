@@ -14,8 +14,8 @@ use allocative::Allocative;
 use dupe::Dupe;
 
 use crate::api::error::DiceResult;
+use crate::key::Key;
 use crate::DiceComputations;
-use crate::Key;
 use crate::UserComputationData;
 use crate::VersionNumber;
 

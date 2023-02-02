@@ -14,13 +14,13 @@ use crate::introspection::graph::AnyKey;
 use crate::introspection::graph::GraphIntrospectable;
 use crate::Dice;
 use crate::DiceImplementation;
-use crate::DiceLegacy;
 
 pub mod graph;
 pub(crate) mod introspect;
 
 pub use crate::introspection::introspect::serialize_dense_graph;
 pub use crate::introspection::introspect::serialize_graph;
+use crate::legacy::DiceLegacy;
 
 impl Dice {
     pub fn to_introspectable(&self) -> GraphIntrospectable {
@@ -48,11 +48,11 @@ mod tests {
 
     use crate::cycles::DetectCycles;
     use crate::introspection::graph::SerializedGraphNodesForKey;
-    use crate::serialize_graph;
+    use crate::introspection::serialize_graph;
+    use crate::key::Key;
     use crate::DiceComputations;
     use crate::DiceLegacy;
     use crate::HashMap;
-    use crate::Key;
 
     #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
     #[display(fmt = "{:?}", self)]

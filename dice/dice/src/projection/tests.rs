@@ -16,14 +16,14 @@ use async_trait::async_trait;
 use dupe::Dupe;
 use parking_lot::Mutex;
 
+use crate::key::Key;
+use crate::legacy::DiceLegacy;
 use crate::user_data::UserComputationData;
 use crate::DetectCycles;
 use crate::DiceComputations;
 use crate::DiceData;
-use crate::DiceLegacy;
 use crate::DiceProjectionComputations;
 use crate::HashMap;
-use crate::Key;
 use crate::ProjectionKey;
 
 /// We have three keys in this test:

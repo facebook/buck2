@@ -23,17 +23,17 @@ use dupe::Dupe;
 
 use crate::api::error::DiceResult;
 use crate::ctx::ComputationData;
+use crate::incremental::graph::storage_properties::StorageProperties;
 use crate::incremental::IncrementalComputeProperties;
 use crate::incremental::IncrementalEngine;
+use crate::incremental::StorageType;
 use crate::introspection::graph::short_type_name;
+use crate::key::Key;
+use crate::legacy::DiceLegacy;
 use crate::sync_handle::SyncDiceTaskHandle;
 use crate::user_data::UserComputationData;
 use crate::DiceData;
-use crate::DiceLegacy;
 use crate::GraphNode;
-use crate::Key;
-use crate::StorageProperties;
-use crate::StorageType;
 use crate::TransactionCtx;
 
 /// Synchronously computed key from an "opaque" value.

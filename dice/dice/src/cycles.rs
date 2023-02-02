@@ -27,7 +27,7 @@ use thiserror::Error;
 
 use crate::api::error::DiceError;
 use crate::api::error::DiceResult;
-use crate::Key;
+use crate::key::Key;
 
 #[derive(Clone, Dupe, Copy, Debug, VariantName, Allocative)]
 pub enum DetectCycles {

@@ -15,8 +15,10 @@ use std::sync::Barrier;
 use std::time::Duration;
 
 use assert_matches::assert_matches;
+use async_trait::async_trait;
 use derivative::Derivative;
 use derive_more::Display;
+use dupe::Dupe;
 use futures::future::FutureExt;
 use futures::future::Shared;
 use more_futures::cancellable_future::critical_section;
@@ -32,6 +34,7 @@ use crate::incremental::testing::IncrementalEngineExt;
 use crate::incremental::testing::VersionedCacheResultAssertsExt;
 use crate::incremental::versions::MinorVersion;
 use crate::incremental::versions::VersionNumber;
+use crate::key::Key;
 use crate::HashSet;
 
 #[derive(Clone, Dupe, Debug, Display, Eq, Hash, PartialEq, Allocative)]

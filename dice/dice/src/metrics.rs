@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use crate::DiceLegacy;
+use crate::legacy::DiceLegacy;
 
 /// Dice metrics.
 #[derive(Debug)]
@@ -34,9 +34,9 @@ impl Metrics {
 mod tests {
     use std::sync::Arc;
 
+    use crate::legacy::DiceLegacy;
     use crate::DetectCycles;
     use crate::DiceData;
-    use crate::DiceLegacy;
 
     #[test]
     fn test_active_transaction_count() {
