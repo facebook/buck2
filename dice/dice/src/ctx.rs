@@ -19,6 +19,7 @@ use futures::FutureExt;
 
 use crate::api::computations::DiceComputations;
 use crate::api::error::DiceResult;
+use crate::api::user_data::UserComputationData;
 use crate::cycles::CycleDetector;
 use crate::cycles::DetectCycles;
 use crate::incremental::dep_trackers::BothDepTrackers;
@@ -33,7 +34,6 @@ use crate::legacy::DiceLegacy;
 use crate::map::DiceMap;
 use crate::opaque::OpaqueValue;
 use crate::projection::ProjectionKeyAsKey;
-use crate::user_data::UserComputationData;
 use crate::ProjectionKey;
 
 /// A context for the duration of a top-level compute request.
@@ -285,9 +285,9 @@ impl DiceComputationImpl {
 
 #[cfg(test)]
 pub(crate) mod testing {
+    use crate::api::user_data::UserComputationData;
     use crate::ctx::ComputationData;
     use crate::cycles::DetectCycles;
-    use crate::user_data::UserComputationData;
 
     pub(crate) trait ComputationDataExt {
         fn testing_new() -> Self;

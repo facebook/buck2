@@ -13,8 +13,8 @@ use allocative::Allocative;
 use more_futures::spawner::Spawner;
 use more_futures::spawner::TokioSpawner;
 
+use crate::api::data::DiceData;
 use crate::ctx::NoOpTracker;
-use crate::data::DiceData;
 use crate::DiceEventListener;
 
 /// Includes all user related computation-specific data.

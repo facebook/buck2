@@ -10,5 +10,7 @@
 //! Public DICE API
 
 pub mod computations;
+pub mod data;
 pub mod dice;
 pub mod error;
+pub mod user_data;

@@ -24,11 +24,12 @@ use serde::Serializer;
 use tokio::sync::watch;
 
 use crate::api::computations::DiceComputations;
+use crate::api::data::DiceData;
 use crate::api::error::DiceResult;
+use crate::api::user_data::UserComputationData;
 use crate::ctx::ComputationData;
 use crate::ctx::DiceComputationImpl;
 use crate::cycles::DetectCycles;
-use crate::data::DiceData;
 use crate::future_handle::WeakDiceFutureHandle;
 use crate::incremental::evaluator::Evaluator;
 use crate::incremental::graph::GraphNode;
@@ -46,7 +47,6 @@ use crate::metrics::Metrics;
 use crate::projection::ProjectionKey;
 use crate::projection::ProjectionKeyProperties;
 use crate::transaction::DiceTransactionUpdater;
-use crate::user_data::UserComputationData;
 
 /// An incremental computation engine that executes arbitrary computations that
 /// maps `Key`s to values.

@@ -16,13 +16,13 @@ use futures::FutureExt;
 use gazebo::prelude::*;
 use more_futures::spawn::spawn_dropcancel;
 
+use crate::api::data::DiceData;
 use crate::api::error::DiceResult;
+use crate::api::user_data::UserComputationData;
 use crate::ctx::DiceComputationImpl;
-use crate::data::DiceData;
 use crate::key::Key;
 use crate::opaque::OpaqueValue;
 use crate::transaction::DiceTransaction;
-use crate::user_data::UserComputationData;
 
 /// The context for computations to register themselves, and request for additional dependencies.
 /// The dependencies accessed are tracked for caching via the `DiceCtx`.
@@ -148,10 +148,10 @@ mod tests {
     use indexmap::indexset;
 
     use crate::api::error::DiceErrorImpl;
+    use crate::api::user_data::UserComputationData;
     use crate::ctx::ComputationData;
     use crate::cycles::DetectCycles;
     use crate::cycles::RequestedKey;
-    use crate::user_data::UserComputationData;
 
     #[derive(Clone, Dupe, Display, Debug, PartialEq, Eq, Hash, Allocative)]
     struct K(usize);

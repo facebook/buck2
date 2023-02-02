@@ -205,7 +205,6 @@ extern crate gazebo;
 extern crate tracing;
 
 pub mod cycles;
-mod data;
 mod dice_future;
 mod dice_task;
 mod future_handle;
@@ -220,7 +219,6 @@ pub(crate) mod opaque;
 pub(crate) mod projection;
 mod sync_handle;
 mod transaction;
-mod user_data;
 
 #[cfg(test)]
 mod tests;
@@ -242,14 +240,15 @@ use futures::future::Future;
 use serde::Serializer;
 
 pub use crate::api::computations::DiceComputations;
+pub use crate::api::data::DiceData;
 pub use crate::api::dice::Dice;
 pub use crate::api::dice::DiceDataBuilder;
 pub use crate::api::error::DiceError;
 pub use crate::api::error::DiceResult;
+pub use crate::api::user_data::UserComputationData;
 pub use crate::ctx::DiceEvent;
 pub use crate::ctx::DiceEventListener;
 use crate::cycles::DetectCycles;
-pub use crate::data::DiceData;
 use crate::future_handle::WeakDiceFutureHandle;
 use crate::incremental::graph::GraphNode;
 use crate::incremental::transaction_ctx::TransactionCtx;
@@ -265,7 +264,6 @@ pub use crate::projection::DiceProjectionComputations;
 pub use crate::projection::ProjectionKey;
 pub use crate::transaction::DiceTransaction;
 pub use crate::transaction::DiceTransactionUpdater;
-pub use crate::user_data::UserComputationData;
 
 #[derive(Allocative, Debug)]
 pub(crate) enum DiceImplementation {

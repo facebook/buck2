@@ -48,7 +48,9 @@ use parking_lot::RwLockReadGuard;
 use parking_lot::RwLockWriteGuard;
 use tracing::Span;
 
+use crate::api::error::DiceError;
 use crate::api::error::DiceResult;
+use crate::api::user_data::UserComputationData;
 use crate::ctx::ComputationData;
 use crate::ctx::DiceEvent;
 use crate::dice_future::DiceFuture;
@@ -75,8 +77,6 @@ use crate::key::Key;
 use crate::projection::ProjectionKeyAsKey;
 use crate::projection::ProjectionKeyProperties;
 use crate::sync_handle::SyncDiceTaskHandle;
-use crate::user_data::UserComputationData;
-use crate::DiceError;
 use crate::DiceProjectionComputations;
 use crate::HashMap;
 use crate::HashSet;
