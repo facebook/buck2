@@ -340,7 +340,7 @@ impl<F> CancellableFuture<F> {
 }
 
 struct WithExecutionContext<F: FnOnce(&mut ExecutionContext)> {
-    exit: Option<F>,
+    exit: Option<(F, usize)>,
 }
 
 impl<F> WithExecutionContext<F>
@@ -352,12 +352,18 @@ where
         Enter: FnOnce(&mut ExecutionContext) -> T,
         T: Default,
     {
-        let t = CURRENT.with(|g| match g.borrow_mut().as_mut() {
-            Some(context) => enter(context),
-            None => T::default(),
+        let (t, exit) = CURRENT.with(|g| match g.borrow_mut().as_mut() {
+            Some(context) => {
+                let addr = {
+                    let addr: &ExecutionContext = &*context;
+                    addr as *const _ as usize
+                };
+                (enter(context), Some((exit, addr)))
+            }
+            None => (T::default(), None),
         });
 
-        (t, Self { exit: Some(exit) })
+        (t, Self { exit })
     }
 }
 
@@ -366,14 +372,39 @@ where
     F: for<'a> FnOnce(&'a mut ExecutionContext),
 {
     fn drop(&mut self) {
-        let exit = self
-            .exit
-            .take()
-            .expect("WithExecutionContext can only be dropped once");
+        let (exit, this_addr) = match self.exit.take() {
+            Some(v) => v,
+            None => return,
+        };
 
         CURRENT.with(|g| match g.borrow_mut().as_mut() {
-            Some(context) => exit(context),
-            None => {}
+            Some(context) => {
+                let addr = {
+                    let addr: &ExecutionContext = &*context;
+                    addr as *const _ as usize
+                };
+
+                if this_addr == addr {
+                    // Fine
+                } else {
+                    panic!(
+                        "An instance of WithExecutionContext \
+                                (instantiated by {}) \
+                                was dropped by a different CancellableFuture instance ({})",
+                        this_addr, addr
+                    );
+                }
+
+                exit(context)
+            }
+            None => {
+                panic!(
+                    "An instance of WithExecutionContext \
+                    (instantiated by {})
+                    was dropped outside of a CancellableFuture instance",
+                    this_addr
+                )
+            }
         });
     }
 }
@@ -734,5 +765,17 @@ mod tests {
 
         drop(guard);
         assert_matches!(futures::poll!(&mut fut), Poll::Ready(..));
+    }
+
+    #[tokio::test]
+    async fn noop_drop_is_allowed() {
+        let mut section = critical_section(futures::future::pending::<()>()).boxed();
+        assert_matches!(futures::poll!(&mut section), Poll::Pending); // Have it capture no ExecutionContext
+
+        let (fut, _guard) = CancellableFuture::new_refcounted(async {
+            drop(section); // Drop it within an ExecutionContext
+        });
+
+        fut.await;
     }
 }
