@@ -89,6 +89,7 @@ mod tests {
     use dupe::Dupe;
 
     use crate::api::computations::DiceComputations;
+    use crate::api::cycles::DetectCycles;
     use crate::api::key::Key;
     use crate::incremental::testing::IncrementalEngineExt;
     use crate::incremental::versions::MinorVersion;
@@ -96,7 +97,6 @@ mod tests {
     use crate::incremental::IncrementalEngine;
     use crate::legacy::DiceLegacy;
     use crate::map::DiceMap;
-    use crate::DetectCycles;
     use crate::StoragePropertiesForKey;
 
     #[tokio::test]

@@ -23,11 +23,11 @@ use dupe::Dupe;
 use tempfile::NamedTempFile;
 
 use crate::api::computations::DiceComputations;
+use crate::api::cycles::DetectCycles;
 use crate::api::injected::InjectedKey;
 use crate::api::key::Key;
 use crate::api::transaction::DiceTransactionUpdater;
 use crate::legacy::DiceLegacy;
-use crate::DetectCycles;
 
 #[derive(Debug, Clone, Dupe, PartialEq, Allocative)]
 enum Encoding {

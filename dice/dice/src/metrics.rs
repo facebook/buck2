@@ -34,9 +34,9 @@ impl Metrics {
 mod tests {
     use std::sync::Arc;
 
+    use crate::api::cycles::DetectCycles;
     use crate::api::data::DiceData;
     use crate::legacy::DiceLegacy;
-    use crate::DetectCycles;
 
     #[test]
     fn test_active_transaction_count() {

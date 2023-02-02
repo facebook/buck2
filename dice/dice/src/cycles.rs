@@ -14,42 +14,16 @@ use std::fmt::Debug;
 use std::fmt::Display;
 use std::hash::Hash;
 use std::hash::Hasher;
-use std::str::FromStr;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use dupe::Dupe;
 use dupe::IterDupedExt;
 use gazebo::cmp::PartialEqAny;
-use gazebo::variants::VariantName;
 use indexmap::set::IndexSet;
-use thiserror::Error;
 
 use crate::api::error::DiceError;
 use crate::api::error::DiceResult;
 use crate::api::key::Key;
-
-#[derive(Clone, Dupe, Copy, Debug, VariantName, Allocative)]
-pub enum DetectCycles {
-    Enabled,
-    Disabled,
-}
-
-#[derive(Error, Debug)]
-#[error("Invalid type of DetectCycles: `{0}`")]
-pub struct InvalidType(String);
-
-impl FromStr for DetectCycles {
-    type Err = InvalidType;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_uppercase().as_str() {
-            "ENABLED" => Ok(DetectCycles::Enabled),
-            "DISABLED" => Ok(DetectCycles::Disabled),
-            _ => Err(InvalidType(s.to_owned())),
-        }
-    }
-}
 
 /// A `Key` that has been requested within Dice.
 pub trait RequestedKey: Allocative + Display + Debug + Send + Sync {

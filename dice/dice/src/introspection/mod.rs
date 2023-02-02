@@ -47,8 +47,8 @@ mod tests {
     use dupe::Dupe;
 
     use crate::api::computations::DiceComputations;
+    use crate::api::cycles::DetectCycles;
     use crate::api::key::Key;
-    use crate::cycles::DetectCycles;
     use crate::introspection::graph::SerializedGraphNodesForKey;
     use crate::introspection::serialize_graph;
     use crate::DiceLegacy;

@@ -147,10 +147,10 @@ mod tests {
     use dupe::Dupe;
     use indexmap::indexset;
 
+    use crate::api::cycles::DetectCycles;
     use crate::api::error::DiceErrorImpl;
     use crate::api::user_data::UserComputationData;
     use crate::ctx::ComputationData;
-    use crate::cycles::DetectCycles;
     use crate::cycles::RequestedKey;
 
     #[derive(Clone, Dupe, Display, Debug, PartialEq, Eq, Hash, Allocative)]

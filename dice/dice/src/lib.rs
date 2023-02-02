@@ -238,6 +238,7 @@ use futures::future::Future;
 use serde::Serializer;
 
 pub use crate::api::computations::DiceComputations;
+pub use crate::api::cycles::DetectCycles;
 pub use crate::api::data::DiceData;
 pub use crate::api::dice::Dice;
 pub use crate::api::dice::DiceDataBuilder;
@@ -250,7 +251,6 @@ pub use crate::api::key::Key;
 pub use crate::api::transaction::DiceTransaction;
 pub use crate::api::transaction::DiceTransactionUpdater;
 pub use crate::api::user_data::UserComputationData;
-pub use crate::cycles::DetectCycles;
 use crate::future_handle::WeakDiceFutureHandle;
 use crate::incremental::graph::GraphNode;
 use crate::incremental::transaction_ctx::TransactionCtx;

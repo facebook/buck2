@@ -18,13 +18,13 @@ use dupe::Dupe;
 use futures::FutureExt;
 
 use crate::api::computations::DiceComputations;
+use crate::api::cycles::DetectCycles;
 use crate::api::error::DiceResult;
 use crate::api::events::DiceEvent;
 use crate::api::events::DiceEventListener;
 use crate::api::key::Key;
 use crate::api::user_data::UserComputationData;
 use crate::cycles::CycleDetector;
-use crate::cycles::DetectCycles;
 use crate::incremental::dep_trackers::BothDepTrackers;
 use crate::incremental::dep_trackers::BothDeps;
 use crate::incremental::transaction_ctx::ActiveTransactionCountGuard;
@@ -278,9 +278,9 @@ impl DiceComputationImpl {
 
 #[cfg(test)]
 pub(crate) mod testing {
+    use crate::api::cycles::DetectCycles;
     use crate::api::user_data::UserComputationData;
     use crate::ctx::ComputationData;
-    use crate::cycles::DetectCycles;
 
     pub(crate) trait ComputationDataExt {
         fn testing_new() -> Self;

@@ -24,6 +24,7 @@ use serde::Serializer;
 use tokio::sync::watch;
 
 use crate::api::computations::DiceComputations;
+use crate::api::cycles::DetectCycles;
 use crate::api::data::DiceData;
 use crate::api::error::DiceResult;
 use crate::api::key::Key;
@@ -31,7 +32,6 @@ use crate::api::transaction::DiceTransactionUpdater;
 use crate::api::user_data::UserComputationData;
 use crate::ctx::ComputationData;
 use crate::ctx::DiceComputationImpl;
-use crate::cycles::DetectCycles;
 use crate::future_handle::WeakDiceFutureHandle;
 use crate::incremental::evaluator::Evaluator;
 use crate::incremental::graph::GraphNode;
