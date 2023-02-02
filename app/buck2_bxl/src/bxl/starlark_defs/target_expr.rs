@@ -18,15 +18,22 @@ use buck2_core::pattern::ParsedPattern;
 use buck2_core::target::label::TargetLabel;
 use buck2_core::target::name::TargetName;
 use buck2_core::truncate::truncate;
+use buck2_events::dispatch::console_message;
 use buck2_interpreter::types::target_label::StarlarkConfiguredTargetLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
+use buck2_node::compatibility::IncompatiblePlatformReason;
+use buck2_node::compatibility::MaybeCompatible;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_query::query::environment::QueryEnvironment;
 use buck2_query::query::environment::QueryTarget;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
+use dice::DiceComputations;
+use dupe::Dupe;
 use dupe::IterDupedExt;
 use either::Either;
+use futures::TryFutureExt;
+use starlark::collections::SmallSet;
 use starlark::eval::Evaluator;
 use starlark::values::list::ListRef;
 use starlark::values::StarlarkValue;
@@ -37,7 +44,6 @@ use thiserror::Error;
 use crate::bxl::starlark_defs::context::BxlContext;
 use crate::bxl::starlark_defs::nodes::configured::StarlarkConfiguredTargetNode;
 use crate::bxl::starlark_defs::nodes::unconfigured::StarlarkTargetNode;
-use crate::bxl::starlark_defs::targetset::NodeLike;
 use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
 
 /// TargetExpr is just a simple type that can be used in starlark_module
@@ -52,11 +58,75 @@ pub enum TargetExpr<'v, Node: QueryTarget> {
     TargetSet(Cow<'v, TargetSet<Node>>),
 }
 
-impl<'v, Node: NodeLike> TargetExpr<'v, Node> {
-    pub async fn get<QueryEnv: QueryEnvironment<Target = Node>>(
+impl<'v> TargetExpr<'v, ConfiguredTargetNode> {
+    /// Get a vector of maybe compatible `ConfiguredTargetNode`s from the `TargetExpr`.
+    /// Any callers of this function will need to call `filter_incompatible()` on the result
+    /// in order to get the `TargetSet<ConfiguredTargetNode>`.
+    pub async fn get(
+        self,
+        dice: &'v DiceComputations,
+    ) -> anyhow::Result<Vec<MaybeCompatible<ConfiguredTargetNode>>> {
+        match self {
+            TargetExpr::Node(val) => Ok(vec![dice.get_configured_target_node(val.label()).await?]),
+            TargetExpr::Label(label) => {
+                Ok(vec![dice.get_configured_target_node(label.as_ref()).await?])
+            }
+            TargetExpr::Iterable(val) => {
+                let futs = val.into_iter().map(|node_or_ref| async {
+                    match node_or_ref {
+                        Either::Left(node) => dice.get_configured_target_node(node.label()).await,
+                        Either::Right(label) => {
+                            dice.get_configured_target_node(label.as_ref()).await
+                        }
+                    }
+                });
+
+                futures::future::join_all(futs).await.into_iter().collect()
+            }
+            TargetExpr::TargetSet(val) => futures::future::join_all(val.iter().map(|node| {
+                dice.get_configured_target_node(node.label())
+                    .map_err(anyhow::Error::from)
+            }))
+            .await
+            .into_iter()
+            .collect(),
+        }
+    }
+}
+
+// Filters out incompatible targets and emits the error message
+pub(crate) fn filter_incompatible(
+    targets: impl Iterator<Item = MaybeCompatible<ConfiguredTargetNode>>,
+) -> anyhow::Result<TargetSet<ConfiguredTargetNode>> {
+    let mut target_set = TargetSet::new();
+    let mut incompatible_targets = SmallSet::new();
+
+    for res in targets {
+        match res {
+            MaybeCompatible::Incompatible(reason) => {
+                incompatible_targets.insert(reason.target.dupe());
+            }
+            MaybeCompatible::Compatible(target) => {
+                target_set.insert(target);
+            }
+        }
+    }
+
+    if !incompatible_targets.is_empty() {
+        console_message(IncompatiblePlatformReason::skipping_message_for_multiple(
+            incompatible_targets.iter(),
+        ));
+    }
+
+    Ok(target_set)
+}
+
+impl<'v> TargetExpr<'v, TargetNode> {
+    /// Get a `TargetSet<TargetNode>` from the `TargetExpr`
+    pub async fn get<QueryEnv: QueryEnvironment<Target = TargetNode>>(
         self,
         env: &QueryEnv,
-    ) -> anyhow::Result<Cow<'v, TargetSet<Node>>> {
+    ) -> anyhow::Result<Cow<'v, TargetSet<TargetNode>>> {
         match self {
             TargetExpr::Node(val) => {
                 let mut set = TargetSet::new();
@@ -333,7 +403,6 @@ impl<'v> TargetExpr<'v, TargetNode> {
                 }
             }
         }
-
         Ok(Some(Self::Iterable(resolved)))
     }
 }

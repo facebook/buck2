@@ -69,9 +69,9 @@ use crate::bxl::starlark_defs::context::actions::BxlActionsCtx;
 use crate::bxl::starlark_defs::context::fs::BxlFilesystem;
 use crate::bxl::starlark_defs::context::output::OutputStream;
 use crate::bxl::starlark_defs::context::starlark_async::BxlSafeDiceComputations;
-use crate::bxl::starlark_defs::cquery::get_cquery_env;
 use crate::bxl::starlark_defs::cquery::StarlarkCQueryCtx;
 use crate::bxl::starlark_defs::providers_expr::ProvidersExpr;
+use crate::bxl::starlark_defs::target_expr::filter_incompatible;
 use crate::bxl::starlark_defs::target_expr::TargetExpr;
 use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
 use crate::bxl::starlark_defs::uquery::get_uquery_env;
@@ -288,7 +288,6 @@ fn register_context(builder: &mut MethodsBuilder) {
             target_platform.parse_target_platforms(&this.target_alias_resolver, &this.cell)?;
 
         let res: anyhow::Result<Value<'v>> = this.async_ctx.via_dice(|ctx| async move {
-            let query_env = get_cquery_env(ctx, target_platform.dupe()).await?;
             Ok(
                 match TargetExpr::<'v, ConfiguredTargetNode>::unpack(
                     labels,
@@ -308,9 +307,11 @@ fn register_context(builder: &mut MethodsBuilder) {
                     }
 
                     TargetExpr::Node(node) => node.alloc(eval.heap()),
-                    multi => eval.heap().alloc(StarlarkTargetSet::from(
-                        multi.get(&query_env).await?.into_owned(),
-                    )),
+                    multi => eval
+                        .heap()
+                        .alloc(StarlarkTargetSet::from(filter_incompatible(
+                            multi.get(this.async_ctx.0).await?.into_iter(),
+                        )?)),
                 },
             )
         });

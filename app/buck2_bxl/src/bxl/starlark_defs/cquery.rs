@@ -47,6 +47,7 @@ use crate::bxl::starlark_defs::context::BxlContext;
 use crate::bxl::starlark_defs::file_set::FileSetExpr;
 use crate::bxl::starlark_defs::file_set::StarlarkFileSet;
 use crate::bxl::starlark_defs::query_util::parse_query_evaluation_result;
+use crate::bxl::starlark_defs::target_expr::filter_incompatible;
 use crate::bxl::starlark_defs::target_expr::TargetExpr;
 use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
 use crate::bxl::value_as_starlark_target_label::ValueAsStarlarkTargetLabel;
@@ -157,24 +158,30 @@ fn register_cquery(builder: &mut MethodsBuilder) {
                 .functions
                 .allpaths(
                     &this.env,
-                    &*TargetExpr::<'v, ConfiguredTargetNode>::unpack(
-                        from,
-                        &this.target_platform,
-                        this.ctx,
-                        eval,
-                    )
-                    .await?
-                    .get(&this.env)
-                    .await?,
-                    &*TargetExpr::<'v, ConfiguredTargetNode>::unpack(
-                        to,
-                        &this.target_platform,
-                        this.ctx,
-                        eval,
-                    )
-                    .await?
-                    .get(&this.env)
-                    .await?,
+                    &filter_incompatible(
+                        TargetExpr::<'v, ConfiguredTargetNode>::unpack(
+                            from,
+                            &this.target_platform,
+                            this.ctx,
+                            eval,
+                        )
+                        .await?
+                        .get(this.ctx.async_ctx.0)
+                        .await?
+                        .into_iter(),
+                    )?,
+                    &filter_incompatible(
+                        TargetExpr::<'v, ConfiguredTargetNode>::unpack(
+                            to,
+                            &this.target_platform,
+                            this.ctx,
+                            eval,
+                        )
+                        .await?
+                        .get(this.ctx.async_ctx.0)
+                        .await?
+                        .into_iter(),
+                    )?,
                 )
                 .await
                 .map(StarlarkTargetSet::from)?)
@@ -193,24 +200,30 @@ fn register_cquery(builder: &mut MethodsBuilder) {
                 .functions
                 .somepath(
                     &this.env,
-                    &*TargetExpr::<'v, ConfiguredTargetNode>::unpack(
-                        from,
-                        &this.target_platform,
-                        this.ctx,
-                        eval,
-                    )
-                    .await?
-                    .get(&this.env)
-                    .await?,
-                    &*TargetExpr::<'v, ConfiguredTargetNode>::unpack(
-                        to,
-                        &this.target_platform,
-                        this.ctx,
-                        eval,
-                    )
-                    .await?
-                    .get(&this.env)
-                    .await?,
+                    &filter_incompatible(
+                        TargetExpr::<'v, ConfiguredTargetNode>::unpack(
+                            from,
+                            &this.target_platform,
+                            this.ctx,
+                            eval,
+                        )
+                        .await?
+                        .get(this.ctx.async_ctx.0)
+                        .await?
+                        .into_iter(),
+                    )?,
+                    &filter_incompatible(
+                        TargetExpr::<'v, ConfiguredTargetNode>::unpack(
+                            to,
+                            &this.target_platform,
+                            this.ctx,
+                            eval,
+                        )
+                        .await?
+                        .get(this.ctx.async_ctx.0)
+                        .await?
+                        .into_iter(),
+                    )?,
                 )
                 .await
                 .map(StarlarkTargetSet::from)?)
@@ -230,15 +243,18 @@ fn register_cquery(builder: &mut MethodsBuilder) {
                 .attrfilter(
                     attr,
                     value,
-                    &*TargetExpr::<'v, ConfiguredTargetNode>::unpack(
-                        targets,
-                        &this.target_platform,
-                        this.ctx,
-                        eval,
-                    )
-                    .await?
-                    .get(&this.env)
-                    .await?,
+                    &filter_incompatible(
+                        TargetExpr::<'v, ConfiguredTargetNode>::unpack(
+                            targets,
+                            &this.target_platform,
+                            this.ctx,
+                            eval,
+                        )
+                        .await?
+                        .get(this.ctx.async_ctx.0)
+                        .await?
+                        .into_iter(),
+                    )?,
                 )
                 .map(StarlarkTargetSet::from)
         })
@@ -262,15 +278,18 @@ fn register_cquery(builder: &mut MethodsBuilder) {
             this.functions
                 .kind(
                     regex,
-                    &*TargetExpr::<'v, ConfiguredTargetNode>::unpack(
-                        targets,
-                        &this.target_platform,
-                        this.ctx,
-                        eval,
-                    )
-                    .await?
-                    .get(&this.env)
-                    .await?,
+                    &filter_incompatible(
+                        TargetExpr::<'v, ConfiguredTargetNode>::unpack(
+                            targets,
+                            &this.target_platform,
+                            this.ctx,
+                            eval,
+                        )
+                        .await?
+                        .get(this.ctx.async_ctx.0)
+                        .await?
+                        .into_iter(),
+                    )?,
                 )
                 .map(StarlarkTargetSet::from)
         })
@@ -296,15 +315,18 @@ fn register_cquery(builder: &mut MethodsBuilder) {
                 .attrregexfilter(
                     attribute,
                     value,
-                    &*TargetExpr::<'v, ConfiguredTargetNode>::unpack(
-                        targets,
-                        &this.target_platform,
-                        this.ctx,
-                        eval,
-                    )
-                    .await?
-                    .get(&this.env)
-                    .await?,
+                    &filter_incompatible(
+                        TargetExpr::<'v, ConfiguredTargetNode>::unpack(
+                            targets,
+                            &this.target_platform,
+                            this.ctx,
+                            eval,
+                        )
+                        .await?
+                        .get(this.ctx.async_ctx.0)
+                        .await?
+                        .into_iter(),
+                    )?,
                 )
                 .map(StarlarkTargetSet::from)
         })
@@ -358,15 +380,18 @@ fn register_cquery(builder: &mut MethodsBuilder) {
                     .deps(
                         &this.env,
                         &DefaultQueryFunctionsModule::new(),
-                        &*TargetExpr::<'v, ConfiguredTargetNode>::unpack(
-                            universe,
-                            &this.target_platform,
-                            this.ctx,
-                            eval,
-                        )
-                        .await?
-                        .get(&this.env)
-                        .await?,
+                        &filter_incompatible(
+                            TargetExpr::<'v, ConfiguredTargetNode>::unpack(
+                                universe,
+                                &this.target_platform,
+                                this.ctx,
+                                eval,
+                            )
+                            .await?
+                            .get(this.ctx.async_ctx.0)
+                            .await?
+                            .into_iter(),
+                        )?,
                         depth.into_option(),
                         filter
                             .as_ref()
@@ -397,15 +422,18 @@ fn register_cquery(builder: &mut MethodsBuilder) {
             .via(|| async {
                 this.functions.filter_target_set(
                     regex,
-                    &*TargetExpr::<'v, ConfiguredTargetNode>::unpack(
-                        targets,
-                        &this.target_platform,
-                        this.ctx,
-                        eval,
-                    )
-                    .await?
-                    .get(&this.env)
-                    .await?,
+                    &filter_incompatible(
+                        TargetExpr::<'v, ConfiguredTargetNode>::unpack(
+                            targets,
+                            &this.target_platform,
+                            this.ctx,
+                            eval,
+                        )
+                        .await?
+                        .get(this.ctx.async_ctx.0)
+                        .await?
+                        .into_iter(),
+                    )?,
                 )
             })
             .map(StarlarkTargetSet::from)
@@ -427,17 +455,18 @@ fn register_cquery(builder: &mut MethodsBuilder) {
         this.ctx
             .async_ctx
             .via(|| async {
-                this.functions.inputs(
-                    &*TargetExpr::<'v, ConfiguredTargetNode>::unpack(
+                this.functions.inputs(&filter_incompatible(
+                    TargetExpr::<'v, ConfiguredTargetNode>::unpack(
                         targets,
                         &this.target_platform,
                         this.ctx,
                         eval,
                     )
                     .await?
-                    .get(&this.env)
-                    .await?,
-                )
+                    .get(this.ctx.async_ctx.0)
+                    .await?
+                    .into_iter(),
+                )?)
             })
             .map(StarlarkFileSet::from)
     }
@@ -454,15 +483,18 @@ fn register_cquery(builder: &mut MethodsBuilder) {
                 this.functions
                     .testsof(
                         &this.env,
-                        &*TargetExpr::<'v, ConfiguredTargetNode>::unpack(
-                            targets,
-                            &this.target_platform,
-                            this.ctx,
-                            eval,
-                        )
-                        .await?
-                        .get(&this.env)
-                        .await?,
+                        &filter_incompatible(
+                            TargetExpr::<'v, ConfiguredTargetNode>::unpack(
+                                targets,
+                                &this.target_platform,
+                                this.ctx,
+                                eval,
+                            )
+                            .await?
+                            .get(this.ctx.async_ctx.0)
+                            .await?
+                            .into_iter(),
+                        )?,
                     )
                     .await
             })
@@ -490,24 +522,30 @@ fn register_cquery(builder: &mut MethodsBuilder) {
                 this.functions
                     .rdeps(
                         &this.env,
-                        &*TargetExpr::<'v, ConfiguredTargetNode>::unpack(
-                            universe,
-                            &this.target_platform,
-                            this.ctx,
-                            eval,
-                        )
-                        .await?
-                        .get(&this.env)
-                        .await?,
-                        &*TargetExpr::<'v, ConfiguredTargetNode>::unpack(
-                            from,
-                            &this.target_platform,
-                            this.ctx,
-                            eval,
-                        )
-                        .await?
-                        .get(&this.env)
-                        .await?,
+                        &filter_incompatible(
+                            TargetExpr::<'v, ConfiguredTargetNode>::unpack(
+                                universe,
+                                &this.target_platform,
+                                this.ctx,
+                                eval,
+                            )
+                            .await?
+                            .get(this.ctx.async_ctx.0)
+                            .await?
+                            .into_iter(),
+                        )?,
+                        &filter_incompatible(
+                            TargetExpr::<'v, ConfiguredTargetNode>::unpack(
+                                from,
+                                &this.target_platform,
+                                this.ctx,
+                                eval,
+                            )
+                            .await?
+                            .get(this.ctx.async_ctx.0)
+                            .await?
+                            .into_iter(),
+                        )?,
                         depth,
                     )
                     .await
@@ -574,15 +612,18 @@ fn register_cquery(builder: &mut MethodsBuilder) {
         this.ctx
             .async_ctx
             .via(|| async {
-                let targets = &*TargetExpr::<'v, ConfiguredTargetNode>::unpack(
-                    targets,
-                    &this.target_platform,
-                    this.ctx,
-                    eval,
-                )
-                .await?
-                .get(&this.env)
-                .await?;
+                let targets = &filter_incompatible(
+                    TargetExpr::<'v, ConfiguredTargetNode>::unpack(
+                        targets,
+                        &this.target_platform,
+                        this.ctx,
+                        eval,
+                    )
+                    .await?
+                    .get(this.ctx.async_ctx.0)
+                    .await?
+                    .into_iter(),
+                )?;
 
                 Ok(this.functions.buildfile(targets))
             })
