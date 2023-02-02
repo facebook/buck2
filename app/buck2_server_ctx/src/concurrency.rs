@@ -601,7 +601,7 @@ mod tests {
     use buck2_events::dispatch::EventDispatcher;
     use buck2_events::trace::TraceId;
     use derive_more::Display;
-    use dice::cycles::DetectCycles;
+    use dice::DetectCycles;
     use dice::Dice;
     use dice::DiceComputations;
     use dice::DiceTransactionUpdater;

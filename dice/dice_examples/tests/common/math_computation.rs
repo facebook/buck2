@@ -9,7 +9,7 @@
 
 use std::sync::Arc;
 
-use dice::cycles::DetectCycles;
+use dice::DetectCycles;
 use dice::Dice;
 use dice_examples::math_computation::parse_math_equation;
 use dice_examples::math_computation::parse_math_equations;

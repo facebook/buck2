@@ -19,8 +19,8 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use crossbeam::queue::SegQueue;
-use dice::cycles::DetectCycles;
 use dice::introspection::serialize_dense_graph;
+use dice::DetectCycles;
 use dice::Dice;
 use dice::DiceTransaction;
 use dupe::Dupe;

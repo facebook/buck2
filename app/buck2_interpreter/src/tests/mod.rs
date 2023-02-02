@@ -27,7 +27,7 @@ use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::package::PackageLabel;
 use buck2_events::dispatch::with_dispatcher_async;
 use buck2_events::dispatch::EventDispatcher;
-use dice::cycles::DetectCycles;
+use dice::DetectCycles;
 use dice::Dice;
 use dice::DiceTransaction;
 use dice::UserComputationData;

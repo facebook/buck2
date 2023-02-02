@@ -14,7 +14,7 @@ use buck2_common::dice::data::SetIoProvider;
 use buck2_common::io::IoProvider;
 use buck2_common::legacy_configs::dice::SetLegacyConfigs;
 use buck2_common::legacy_configs::LegacyBuckConfig;
-use dice::cycles::DetectCycles;
+use dice::DetectCycles;
 use dice::Dice;
 
 use crate::bxl::calculation::BxlCalculationDyn;

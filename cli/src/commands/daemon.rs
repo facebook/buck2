@@ -50,7 +50,7 @@ use buck2_server_commands::commands::targets_show_outputs::targets_show_outputs_
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_starlark::server::server_starlark_command;
 use buck2_test::command::test_command;
-use dice::cycles::DetectCycles;
+use dice::DetectCycles;
 use futures::channel::mpsc;
 use futures::channel::mpsc::UnboundedSender;
 use futures::pin_mut;

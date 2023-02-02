@@ -47,7 +47,7 @@ use buck2_interpreter::dice::starlark_profiler::StarlarkProfilerConfiguration;
 use buck2_interpreter::dice::HasEvents;
 use buck2_profile::starlark_profiler_configuration_from_request;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
-use dice::cycles::DetectCycles;
+use dice::DetectCycles;
 use dice::Dice;
 use dupe::Dupe;
 use futures::channel::mpsc;

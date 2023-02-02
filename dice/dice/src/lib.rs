@@ -153,7 +153,7 @@
 //! }
 //!
 //! /// how to use computations
-//! use dice::{Dice, cycles::DetectCycles};
+//! use dice::{Dice, DetectCycles};
 //! use std::sync::Arc;
 //! use c::*;
 //!
@@ -204,7 +204,7 @@ extern crate gazebo;
 #[macro_use]
 extern crate tracing;
 
-pub mod cycles;
+mod cycles;
 mod dice_future;
 mod dice_task;
 mod future_handle;
@@ -250,7 +250,7 @@ pub use crate::api::key::Key;
 pub use crate::api::transaction::DiceTransaction;
 pub use crate::api::transaction::DiceTransactionUpdater;
 pub use crate::api::user_data::UserComputationData;
-use crate::cycles::DetectCycles;
+pub use crate::cycles::DetectCycles;
 use crate::future_handle::WeakDiceFutureHandle;
 use crate::incremental::graph::GraphNode;
 use crate::incremental::transaction_ctx::TransactionCtx;

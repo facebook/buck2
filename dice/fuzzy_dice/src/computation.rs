@@ -238,7 +238,7 @@ impl Key for EvalVar {
 
 #[cfg(test)]
 mod tests {
-    use dice::cycles::DetectCycles;
+    use dice::DetectCycles;
     use dice::Dice;
 
     use super::*;

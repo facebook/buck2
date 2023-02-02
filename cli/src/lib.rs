@@ -65,7 +65,7 @@ use buck2_event_observer::verbosity::Verbosity;
 use buck2_starlark::StarlarkCommand;
 use clap::AppSettings;
 use clap::Parser;
-use dice::cycles::DetectCycles;
+use dice::DetectCycles;
 use gazebo::variants::VariantName;
 
 use crate::check_user_allowed::check_user_allowed;

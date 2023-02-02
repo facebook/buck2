@@ -153,7 +153,7 @@
 //! }
 //!
 //! /// how to use computations
-//! use dice::{Dice, cycles::DetectCycles};
+//! use dice::{Dice, DetectCycles};
 //! use std::sync::Arc;
 //! use c::*;
 //!

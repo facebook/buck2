@@ -10,7 +10,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use dice::cycles::DetectCycles;
+use dice::DetectCycles;
 use dice::Dice;
 use dice::DiceTransaction;
 use dice_examples::supply_chain::Company;
