@@ -104,7 +104,8 @@ impl AuditSubcommand for AuditExecutionPlatformResolutionCommand {
                     let resolution = configured_node.execution_platform_resolution();
                     match resolution.platform() {
                         Ok(platform) => {
-                            writeln!(stdout, "  Execution platform: {}", platform.cfg())?;
+                            writeln!(stdout, "  Execution platform: {}", platform.id())?;
+                            writeln!(stdout, "    Execution platform configuration: {}", platform.cfg())?;
                             writeln!(stdout, "    Execution deps:")?;
                             for execution_dep in configured_node.exec_deps() {
                                 writeln!(stdout, "      {}", execution_dep.label())?;
