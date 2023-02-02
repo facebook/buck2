@@ -144,7 +144,7 @@ impl<P: ProjectionKey> IncrementalComputeProperties for ProjectionKeyProperties<
 ///
 /// Only provide access to globals.
 pub struct DiceProjectionComputations<'a> {
-    pub(crate) dice: &'a Arc<DiceLegacy>,
+    pub(crate) data: &'a DiceData,
     pub(crate) extra: ComputationData,
 }
 
@@ -152,7 +152,7 @@ impl<'a> DiceProjectionComputations<'a> {
     /// Data that is static per the entire lifetime of Dice. These data are initialized at the
     /// time that Dice is initialized via the constructor.
     pub fn global_data(&self) -> &DiceData {
-        &self.dice.data
+        self.data
     }
 
     /// Data that is static for the lifetime of the current request context. This lifetime is
