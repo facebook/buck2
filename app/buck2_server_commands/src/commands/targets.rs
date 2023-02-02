@@ -453,6 +453,12 @@ async fn targets_resolve_aliases(
     })
 }
 
+fn mk_error(errors: u64) -> anyhow::Error {
+    // Simpler error so that we don't print long errors twice (when exiting buck2)
+    let package_str = if errors == 1 { "package" } else { "packages" };
+    anyhow::anyhow!("Failed to parse {} {}", errors, package_str)
+}
+
 async fn targets_batch(
     server_ctx: &dyn ServerCommandContextTrait,
     dice: DiceTransaction,
@@ -539,17 +545,7 @@ async fn targets_batch(
     }
     printer.end(&stats, &mut output);
     if !keep_going && stats.errors != 0 {
-        // Simpler error so that we don't print long errors twice (when exiting buck2)
-        let package_str = if stats.errors == 1 {
-            "package"
-        } else {
-            "packages"
-        };
-        Err(anyhow::anyhow!(
-            "Failed to parse {} {}",
-            stats.errors,
-            package_str
-        ))
+        Err(mk_error(stats.errors))
     } else {
         Ok((stats.errors, output))
     }
