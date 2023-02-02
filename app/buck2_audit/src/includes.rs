@@ -8,7 +8,6 @@
  */
 
 use std::io::Write;
-use std::path::Path;
 
 use async_trait::async_trait;
 use buck2_cli_proto::ClientContext;
@@ -19,10 +18,9 @@ use buck2_core::bzl::ImportPath;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::CellInstance;
 use buck2_core::cells::CellResolver;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
+use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::file_name::FileNameBuf;
-use buck2_core::fs::paths::RelativePath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::package::PackageLabel;
 use buck2_interpreter::common::StarlarkModulePath;
@@ -196,15 +194,18 @@ fn resolve_path(
     current_cell: &CellInstance,
     path: &str,
 ) -> anyhow::Result<CellPath> {
-    let as_path = Path::new(&path);
-    let abs_path: AbsNormPathBuf = if as_path.is_absolute() {
-        AbsNormPath::new(as_path)?.to_buf()
-    } else {
-        // otherwise, to match buck1 it is treated as relative to the working dir cell root (not the working dir).
-        // the easiest way to consistently handle non-forward relative paths is to just resolve to absolute here.
-        fs.resolve(current_cell.path().as_project_relative_path())
-            .join_normalized(RelativePath::from_path(as_path)?)?
-    };
+    // To match buck1, if the path is absolute we use it as-is, but if not it is treated
+    // as relative to the working dir cell root (not the working dir).
+    // The easiest way to consistently handle non-canonical paths
+    // is to just resolve to absolute here, and then relativize.
+    //
+    // Note if the path is already absolute, this operation is a no-op.
+    let path = fs
+        .resolve(current_cell.path().as_project_relative_path())
+        .as_abs_path()
+        .join(path);
+
+    let abs_path = fs_util::canonicalize(&path)?;
 
     let project_path = fs.relativize(&abs_path)?;
     cells.get_cell_path(&project_path)
