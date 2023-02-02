@@ -25,7 +25,6 @@ use derive_more::Display;
 use dupe::Clone_;
 use dupe::Dupe;
 use dupe::Dupe_;
-use gazebo::coerce::Coerce;
 use once_cell::sync::OnceCell;
 use sha1::Digest;
 use sha1::Sha1;
@@ -70,7 +69,7 @@ struct CasDigestData {
 }
 
 /// The bytes that make up a file digest.
-#[derive(Display, Derivative, Coerce, Allocative, Clone_, Dupe_)]
+#[derive(Display, Derivative, Allocative, Clone_, Dupe_)]
 #[allocative(bound = "")]
 #[derivative(PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[display(fmt = "{}", data)]
@@ -166,6 +165,13 @@ impl<Kind> CasDigest<Kind> {
     pub fn from_bytes_sha1(bytes: &[u8]) -> Self {
         let sha1 = Sha1::digest(bytes).into();
         Self::new_sha1(sha1, bytes.len() as u64)
+    }
+
+    pub fn coerce<NewKind>(self) -> CasDigest<NewKind> {
+        CasDigest {
+            data: self.data,
+            kind: PhantomData,
+        }
     }
 }
 

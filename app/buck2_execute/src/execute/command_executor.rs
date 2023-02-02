@@ -20,7 +20,6 @@ use buck2_core::directory::DirectoryIterator;
 use buck2_core::directory::FingerprintedDirectory;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use dupe::Dupe;
-use gazebo::coerce::coerce;
 use gazebo::prelude::*;
 use remote_execution as RE;
 
@@ -266,7 +265,7 @@ fn re_create_action(
 
     let action = prepared_blobs.add_protobuf_message(&action);
     PreparedAction {
-        action: coerce(action.data().dupe()),
+        action: action.data().dupe().coerce(),
         blobs: prepared_blobs,
     }
 }
