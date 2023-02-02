@@ -23,7 +23,7 @@ use buck2_common::result::SharedResult;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::CellResolver;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
+use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
@@ -391,8 +391,8 @@ impl BuckLspContext {
     }
 
     async fn import_path(&self, path: &Path) -> anyhow::Result<OwnedStarlarkModulePath> {
-        let abs_path = AbsNormPath::new(path)?;
-        let relative_path = self.fs.relativize(abs_path)?;
+        let abs_path = AbsPath::new(path)?;
+        let relative_path = self.fs.relativize_any(abs_path)?;
         let cell_resolver = self
             .with_dice_ctx(|dice_ctx| async move { dice_ctx.get_cell_resolver().await })
             .await?;
