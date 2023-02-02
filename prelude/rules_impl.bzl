@@ -221,12 +221,33 @@ def _cxx_python_extension_attrs():
 
 # Attrs common between python binary/test
 def _python_executable_attrs():
-    return {
+    cxx_binary_attrs = {k: v for k, v in attributes["cxx_binary"].items()}
+    cxx_binary_attrs.update(_cxx_binary_and_test_attrs())
+    python_executable_attrs = {}
+    python_executable_attrs["srcs"] = None
+    python_executable_attrs.update(attributes["python_binary"])
+    updated_attrs = {
+        key: attrs.default_only(cxx_binary_attrs[key])
+        for key in cxx_binary_attrs
+        if key not in python_executable_attrs
+    }
+
+    # allow non-default value for the args below
+    updated_attrs.update({
         "allow_huge_dwp": attrs.bool(default = False),
+        "cxx_main": attrs.source(default = "prelude//python/tools:embedded_main.cpp"),
         "enable_distributed_thinlto": attrs.bool(default = False),
+        "executable_deps": attrs.list(attrs.dep(), default = []),
+        "executable_name": attrs.option(attrs.string(), default = None),
+        "link_group": attrs.option(attrs.string(), default = None),
+        "link_group_map": link_group_map_attr(),
         "make_pex": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
+        "native_link_strategy": attrs.option(attrs.enum(NativeLinkStrategy), default = None),
         "package_split_dwarf_dwp": attrs.bool(default = False),
+        "par_style": attrs.option(attrs.string(), default = None),
         "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source(allow_directory = True)), sorted = True, default = []),
+        "static_extension_finder": attrs.source(default = "prelude//python/tools:static_extension_finder.py"),
+        "static_extension_utils": attrs.source(default = "prelude//python/tools:static_extension_utils.cpp"),
         "_create_manifest_for_source_dir": _create_manifest_for_source_dir(),
         "_cxx_hacks": attrs.default_only(attrs.dep(default = "prelude//cxx/tools:cxx_hacks")),
         "_cxx_toolchain": _cxx_toolchain(),
@@ -234,7 +255,9 @@ def _python_executable_attrs():
         "_omnibus_environment": omnibus_environment_attr(),
         "_python_toolchain": _python_toolchain(),
         "_target_os_type": _target_os_type(),
-    }
+    })
+
+    return updated_attrs
 
 def _python_test_attrs():
     test_attrs = _python_executable_attrs()
@@ -273,27 +296,13 @@ def _package_python_binary_remotely():
     })
 
 def _python_binary_attrs():
-    cxx_binary_attrs = {k: v for k, v in attributes["cxx_binary"].items()}
-    cxx_binary_attrs.update(_cxx_binary_and_test_attrs())
-    python_binary_attrs = attributes["python_binary"]
-    updated_attrs = {k: attrs.default_only(cxx_binary_attrs[k]) for k in cxx_binary_attrs if k not in python_binary_attrs}
-
-    # allow non-default value for the args below
-    updated_attrs.update(_python_executable_attrs())
-    updated_attrs.update({
-        "cxx_main": attrs.source(default = "prelude//python/tools:embedded_main.cpp"),
-        "executable_deps": attrs.list(attrs.dep(), default = []),
-        "executable_name": attrs.option(attrs.string(), default = None),
-        "link_group_map": link_group_map_attr(),
+    binary_attrs = _python_executable_attrs()
+    binary_attrs.update({
         "link_style": attrs.enum(LinkableDepType, default = "static"),
-        "native_link_strategy": attrs.option(attrs.enum(NativeLinkStrategy), default = None),
-        "par_style": attrs.option(attrs.string(), default = None),
-        "static_extension_finder": attrs.source(default = "prelude//python/tools:static_extension_finder.py"),
-        "static_extension_utils": attrs.source(default = "prelude//python/tools:static_extension_utils.cpp"),
         "_package_remotely": attrs.bool(default = _package_python_binary_remotely()),
         "_python_toolchain": _python_toolchain(),
     })
-    return updated_attrs
+    return binary_attrs
 
 def _toolchain(lang: str.type, providers: [""]) -> "attribute":
     return attrs.default_only(attrs.toolchain_dep(default = "toolchains//:" + lang, providers = providers))
