@@ -7,13 +7,16 @@
  * of this source tree.
  */
 
+use std::borrow::Borrow;
+use std::hash::Hash;
+use std::hash::Hasher;
+
 use allocative::Allocative;
-use buck2_core::collections::ordered_map::OrderedMap;
+use buck2_core::collections::ordered_set;
+use buck2_core::collections::ordered_set::OrderedSet;
 use buck2_core::target::label::TargetLabel;
-use buck2_core::target::name::TargetName;
 use buck2_core::target::name::TargetNameRef;
 use dupe::Dupe;
-use starlark_map::small_map;
 
 use crate::nodes::unconfigured::TargetNode;
 
@@ -23,28 +26,51 @@ enum TargetsError {
     RegisteredTargetTwice(TargetLabel),
 }
 
+#[derive(Debug, Clone, Dupe, Allocative)]
+struct NameIndexed(TargetNode);
+
+impl PartialEq for NameIndexed {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.label().name() == other.0.label().name()
+    }
+}
+
+impl Eq for NameIndexed {}
+
+impl Hash for NameIndexed {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.0.label().name().hash(state);
+    }
+}
+
+impl Borrow<TargetNameRef> for NameIndexed {
+    fn borrow(&self) -> &TargetNameRef {
+        self.0.label().name()
+    }
+}
+
 /// Map of target -> details of those targets within a build file.
 #[derive(Debug, Clone, Allocative)]
 pub struct TargetsMap {
-    map: OrderedMap<TargetName, TargetNode>,
+    map: OrderedSet<NameIndexed>,
 }
 
 impl TargetsMap {
     #[inline]
     pub fn new() -> TargetsMap {
         TargetsMap {
-            map: OrderedMap::new(),
+            map: OrderedSet::new(),
         }
     }
 
     #[inline]
     pub fn get(&self, name: &TargetNameRef) -> Option<&TargetNode> {
-        self.map.get(name)
+        self.map.get(name).map(|NameIndexed(n)| n)
     }
 
     #[inline]
     pub fn contains_key(&self, name: &TargetNameRef) -> bool {
-        self.map.contains_key(name)
+        self.map.contains(name)
     }
 
     #[inline]
@@ -54,7 +80,7 @@ impl TargetsMap {
 
     #[inline]
     pub fn iter(&self) -> impl ExactSizeIterator<Item = (&TargetNameRef, &TargetNode)> {
-        self.map.iter().map(|(k, v)| (k.as_ref(), v))
+        self.map.iter().map(|NameIndexed(n)| (n.label().name(), n))
     }
 
     #[inline]
@@ -69,14 +95,11 @@ impl TargetsMap {
 
     #[inline]
     pub fn record(&mut self, target_node: TargetNode) -> anyhow::Result<()> {
-        match self.map.entry(target_node.label().name().to_owned()) {
-            small_map::Entry::Vacant(o) => {
-                o.insert(target_node);
-                Ok(())
-            }
-            small_map::Entry::Occupied(_) => {
-                Err(TargetsError::RegisteredTargetTwice(target_node.label().dupe()).into())
-            }
+        match self.map.try_insert(NameIndexed(target_node)) {
+            Err(ordered_set::OccupiedError {
+                value: NameIndexed(target_node),
+            }) => Err(TargetsError::RegisteredTargetTwice(target_node.label().dupe()).into()),
+            Ok(()) => Ok(()),
         }
     }
 }
