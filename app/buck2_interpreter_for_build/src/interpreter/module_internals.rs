@@ -14,7 +14,7 @@ use std::sync::Arc;
 
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bzl::ImportPath;
-use buck2_core::target::label::TargetLabel;
+use buck2_core::target::name::TargetNameRef;
 use buck2_interpreter::extra::ExtraContext;
 use buck2_interpreter::package_imports::ImplicitImport;
 use buck2_node::nodes::eval_result::EvaluationResult;
@@ -24,7 +24,6 @@ use buck2_node::package::Package;
 use dupe::Dupe;
 use starlark::environment::FrozenModule;
 use starlark::values::OwnedFrozenValue;
-use starlark_map::small_map;
 
 use crate::attrs::coerce::ctx::BuildAttrCoercionContext;
 
@@ -172,7 +171,10 @@ impl ModuleInternals {
     }
 
     pub(crate) fn target_exists(&self, name: &str) -> bool {
-        self.recording_targets().recorder.targets.contains_key(name)
+        self.recording_targets()
+            .recorder
+            .targets
+            .contains_key(TargetNameRef::unchecked_new(name))
     }
 
     pub fn buildfile_path(&self) -> &Arc<BuildFilePath> {
@@ -199,12 +201,6 @@ struct TargetsRecorder {
     targets: TargetsMap,
 }
 
-#[derive(Debug, thiserror::Error)]
-enum TargetsError {
-    #[error("Attempted to register target {0} twice")]
-    RegisteredTargetTwice(TargetLabel),
-}
-
 impl TargetsRecorder {
     fn new() -> Self {
         Self {
@@ -213,15 +209,7 @@ impl TargetsRecorder {
     }
 
     fn record(&mut self, target_node: TargetNode) -> anyhow::Result<()> {
-        match self.targets.entry(target_node.label().name().to_owned()) {
-            small_map::Entry::Vacant(o) => {
-                o.insert(target_node);
-                Ok(())
-            }
-            small_map::Entry::Occupied(_) => {
-                Err(TargetsError::RegisteredTargetTwice(target_node.label().dupe()).into())
-            }
-        }
+        self.targets.record(target_node)
     }
 
     fn take(self) -> TargetsMap {

@@ -38,7 +38,6 @@ use buck2_server_ctx::template::ServerCommandTemplate;
 use dice::DiceComputations;
 use dice::DiceTransaction;
 use dupe::Dupe;
-use dupe::IterDupedExt;
 use futures::stream::FuturesUnordered;
 use gazebo::prelude::VecExt;
 use tokio_stream::StreamExt;
@@ -176,10 +175,9 @@ async fn retrieve_artifacts_for_spec(
     let todo_targets: Vec<(ProvidersLabel, Option<TargetLabel>)> = match spec {
         PackageSpec::All => available_targets
             .keys()
-            .duped()
             .map(|t| {
                 (
-                    ProvidersLabel::default_for(TargetLabel::new(package.dupe(), t.as_ref())),
+                    ProvidersLabel::default_for(TargetLabel::new(package.dupe(), t)),
                     global_target_platform.dupe(),
                 )
             })

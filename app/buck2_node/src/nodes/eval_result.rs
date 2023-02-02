@@ -15,6 +15,7 @@ use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bzl::ImportPath;
 use buck2_core::package::PackageLabel;
 use buck2_core::target::name::TargetName;
+use buck2_core::target::name::TargetNameRef;
 use dupe::Dupe;
 use gazebo::prelude::*;
 use itertools::Itertools;
@@ -105,7 +106,7 @@ impl SuggestedSimilarTargets {
     pub fn suggest<'a>(
         target: &TargetName,
         package: PackageLabel,
-        available_targets: impl Iterator<Item = &'a TargetName>,
+        available_targets: impl Iterator<Item = &'a TargetNameRef>,
     ) -> Self {
         const MAX_RESULTS: usize = 10;
         const MAX_LEVENSHTEIN_DISTANCE: usize = 5;
@@ -118,7 +119,7 @@ impl SuggestedSimilarTargets {
             })
             .sorted_by_key(|(_, lev)| *lev)
             .take(MAX_RESULTS)
-            .map(|(v, _lev)| v.dupe())
+            .map(|(v, _lev)| v.to_owned())
             .collect();
         Self { package, targets }
     }

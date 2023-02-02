@@ -53,7 +53,6 @@ use buck2_server_ctx::template::ServerCommandTemplate;
 use dice::DiceComputations;
 use dice::DiceTransaction;
 use dupe::Dupe;
-use dupe::IterDupedExt;
 use futures::stream::futures_unordered::FuturesUnordered;
 use futures::stream::TryStreamExt;
 use gazebo::prelude::*;
@@ -439,9 +438,8 @@ async fn build_targets_for_spec(
     let todo_targets: Vec<TargetBuildSpec> = match spec {
         PackageSpec::All => available_targets
             .keys()
-            .duped()
             .map(|t| TargetBuildSpec {
-                target: ProvidersLabel::default_for(TargetLabel::new(package.dupe(), t.as_ref())),
+                target: ProvidersLabel::default_for(TargetLabel::new(package.dupe(), t)),
                 global_target_platform: global_target_platform.dupe(),
                 skippable: true,
             })

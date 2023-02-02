@@ -158,6 +158,13 @@ impl Borrow<TargetNameRef> for TargetName {
     }
 }
 
+impl AsRef<str> for TargetNameRef {
+    #[inline]
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::hash::Hash;

@@ -971,7 +971,7 @@ mod tests {
                 FileNameBuf::unchecked_new("BUCK"),
             )),
             Vec::new(),
-            TargetsMap::from_iter([(name1, node1.dupe()), (name2, node2.dupe())]),
+            TargetsMap::from_iter([node1.dupe(), node2.dupe()]),
         );
 
         let mut data = UserComputationData::new();

@@ -69,7 +69,6 @@ use chrono::Utc;
 use dice::DiceComputations;
 use dice::DiceTransaction;
 use dupe::Dupe;
-use dupe::IterDupedExt;
 use futures::future::try_join;
 use futures::future::try_join_all;
 use futures::stream::StreamExt;
@@ -211,9 +210,8 @@ async fn install(
                 let targets = interpreter_results
                     .targets()
                     .keys()
-                    .duped()
                     .map(|target| ProvidersPattern {
-                        target,
+                        target: target.to_owned(),
                         providers: ProvidersName::Default,
                     })
                     .collect();

@@ -26,7 +26,6 @@ use buck2_server_ctx::pattern::resolve_patterns;
 use buck2_server_ctx::pattern::target_platform_from_client_context;
 use dice::DiceTransaction;
 use dupe::Dupe;
-use dupe::IterDupedExt;
 use futures::stream::FuturesOrdered;
 use futures::StreamExt;
 use gazebo::prelude::*;
@@ -124,9 +123,8 @@ impl AuditProvidersCommand {
                     interpreter_results
                         .targets()
                         .keys()
-                        .duped()
                         .map(|target| ProvidersPattern {
-                            target,
+                            target: target.to_owned(),
                             providers: ProvidersName::Default,
                         })
                         .collect()

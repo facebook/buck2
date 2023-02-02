@@ -52,7 +52,6 @@ use buck2_test_api::protocol::TestExecutor;
 use dice::DiceComputations;
 use dice::DiceTransaction;
 use dupe::Dupe;
-use dupe::IterDupedExt;
 use futures::channel::mpsc;
 use futures::future;
 use futures::future::BoxFuture;
@@ -653,9 +652,8 @@ fn spec_to_targets(
         PackageSpec::All => {
             let labels = available_targets
                 .keys()
-                .duped()
                 .map(|target| ProvidersPattern {
-                    target,
+                    target: target.to_owned(),
                     providers: ProvidersName::Default,
                 })
                 .collect();
