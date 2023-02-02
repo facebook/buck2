@@ -241,11 +241,11 @@ pub use fnv::FnvHashSet as HashSet;
 use futures::future::Future;
 use serde::Serializer;
 
+pub use crate::api::computations::DiceComputations;
 pub use crate::api::dice::Dice;
 pub use crate::api::dice::DiceDataBuilder;
 pub use crate::api::error::DiceError;
 pub use crate::api::error::DiceResult;
-pub use crate::ctx::DiceComputations;
 pub use crate::ctx::DiceEvent;
 pub use crate::ctx::DiceEventListener;
 use crate::cycles::DetectCycles;

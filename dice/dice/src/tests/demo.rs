@@ -22,10 +22,10 @@ use derive_more::Display;
 use dupe::Dupe;
 use tempfile::NamedTempFile;
 
+use crate::api::computations::DiceComputations;
 use crate::key::Key;
 use crate::legacy::DiceLegacy;
 use crate::DetectCycles;
-use crate::DiceComputations;
 use crate::DiceTransactionUpdater;
 use crate::InjectedKey;
 

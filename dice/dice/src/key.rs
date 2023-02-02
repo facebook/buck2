@@ -17,11 +17,11 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use dupe::Dupe;
 
+use crate::api::computations::DiceComputations;
 use crate::incremental::graph::storage_properties::StorageProperties;
 use crate::incremental::StorageType;
 use crate::introspection::graph::short_type_name;
 use crate::legacy::DiceLegacy;
-use crate::DiceComputations;
 
 /// The computation Key that maps to a value. The key will be used as an index
 /// for caching the computed values.

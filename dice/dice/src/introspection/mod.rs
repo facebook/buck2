@@ -46,11 +46,11 @@ mod tests {
     use derive_more::Display;
     use dupe::Dupe;
 
+    use crate::api::computations::DiceComputations;
     use crate::cycles::DetectCycles;
     use crate::introspection::graph::SerializedGraphNodesForKey;
     use crate::introspection::serialize_graph;
     use crate::key::Key;
-    use crate::DiceComputations;
     use crate::DiceLegacy;
     use crate::HashMap;
 

@@ -13,9 +13,9 @@ use std::thread;
 use allocative::Allocative;
 use dupe::Dupe;
 
+use crate::api::computations::DiceComputations;
 use crate::api::error::DiceResult;
 use crate::key::Key;
-use crate::DiceComputations;
 use crate::UserComputationData;
 use crate::VersionNumber;
 

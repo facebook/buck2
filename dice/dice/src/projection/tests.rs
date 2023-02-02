@@ -16,11 +16,11 @@ use async_trait::async_trait;
 use dupe::Dupe;
 use parking_lot::Mutex;
 
+use crate::api::computations::DiceComputations;
 use crate::key::Key;
 use crate::legacy::DiceLegacy;
 use crate::user_data::UserComputationData;
 use crate::DetectCycles;
-use crate::DiceComputations;
 use crate::DiceData;
 use crate::DiceProjectionComputations;
 use crate::HashMap;

@@ -9,5 +9,6 @@
 
 //! Public DICE API
 
+pub mod computations;
 pub mod dice;
 pub mod error;
