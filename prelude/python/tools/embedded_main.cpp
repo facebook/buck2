@@ -48,15 +48,15 @@ int main(int argc, char* argv[]) {
     }
   }
 
-  // Read all configuration at once.
-  status = PyConfig_Read(&config);
+  status = PyConfig_SetBytesArgv(&config, argc, argv);
   if (PyStatus_Exception(status)) {
     if (auto exit_code = MaybeGetExitCode(&status, &config)) {
       return *exit_code;
     }
   }
 
-  status = PyConfig_SetBytesArgv(&config, argc, argv);
+  // Read all configuration at once.
+  status = PyConfig_Read(&config);
   if (PyStatus_Exception(status)) {
     if (auto exit_code = MaybeGetExitCode(&status, &config)) {
       return *exit_code;
