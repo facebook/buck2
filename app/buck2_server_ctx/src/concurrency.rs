@@ -383,14 +383,6 @@ impl ConcurrencyHandler {
                             BypassSemaphore::Block => {
                                 let active_trace = data.active_trace.as_ref().unwrap().to_string();
 
-                                tracing::warn!(
-                                    "Running parallel invocation with different states with blocking: \nWaiting trace ID: {} \nCommand: `{}`\nExecuting trace ID: {} \nCommand: `{}`",
-                                    &trace,
-                                    format_argv(&sanitized_argv),
-                                    active_trace,
-                                    format_argv(data.active_trace_argv.as_ref().unwrap()),
-                                );
-
                                 data = event_dispatcher
                                     .span_async(
                                         DiceBlockConcurrentCommandStart {
