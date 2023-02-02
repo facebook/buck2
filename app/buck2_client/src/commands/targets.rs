@@ -80,7 +80,7 @@ pub struct TargetsCommand {
     resolve_alias: bool,
 
     /// Print a stable hash of each target after the target name. Incompatible with '--show-rulekey'.
-    #[clap(long, conflicts_with = "show-unconfigured-target-hash")]
+    #[clap(long)]
     show_target_hash: bool,
 
     /// Print a stable unconfigured hash of each target after the target name.
