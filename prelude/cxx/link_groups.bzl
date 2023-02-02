@@ -486,12 +486,16 @@ def _create_link_group(
     # Get roots to begin the linkable search.
     # TODO(agallagher): We should use the groups "public" nodes as the roots.
     roots = []
+    has_empty_root = False
     for mapping in spec.group.mappings:
-        # If there's no explicit root, this means use the executable deps.
+        # If there's no explicit root, this means we need to search the entire
+        # graph to find candidate nodes.
         if mapping.root == None:
-            roots.extend(executable_deps)
+            has_empty_root = True
         else:
             roots.append(mapping.root.label)
+    if has_empty_root:
+        roots.extend(executable_deps)
 
     # Add roots...
     filtered_labels_to_links_map = get_filtered_labels_to_links_map(
@@ -501,8 +505,11 @@ def _create_link_group(
         link_group_preferred_linkage,
         link_group_libs = link_group_libs,
         link_style = link_style,
+        # If this link group has an empty mapping, we need to search everything
+        # -- even the additional roots -- to find potential nodes in the link
+        # group.
+        other_roots = other_roots if has_empty_root else [],
         deps = roots,
-        other_roots = other_roots,
         is_executable_link = False,
         prefer_stripped = prefer_stripped_objects,
     )
