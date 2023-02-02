@@ -214,14 +214,18 @@ def _get_link_group_info(
             #label = ctx.label,
             nodes = ctx.actions.tset(
                 LinkableGraphTSet,
-                children = [d.linkable_graph.nodes for d in link_deps],
+                children = (
+                    [d.linkable_graph.nodes for d in link_deps] +
+                    [d.linkable_graph.nodes for d in libs] +
+                    [d.linkable_graph.nodes for d in extensions.values()]
+                ),
             ),
         )
         linkable_graph_node_map = get_linkable_graph_node_map_func(linkable_graph)()
 
         # We add user-defined mappings last, so that our auto-generated
         # ones get precedence (as we rely on this for things to work).
-        link_groups = [s.group for s in link_group_specs]
+        link_groups = [s.group for s in root_specs]
         if link_group_info != None:
             link_groups += link_group_info.groups
 
