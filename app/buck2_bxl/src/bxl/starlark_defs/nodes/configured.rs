@@ -26,7 +26,7 @@ use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_core::buck_path::BuckPathRef;
 use buck2_core::cells::cell_path::CellPath;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
+use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::package::PackageLabel;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
@@ -330,8 +330,10 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
             .project_root()
             .dupe();
         let path = if path.is_absolute() {
-            fs.relativize(AbsNormPath::new(path)?)
-                .context("Given path does not belong to the project root")?
+            Cow::Owned(
+                fs.relativize_any(AbsPath::new(path)?)
+                    .context("Given path does not belong to the project root")?,
+            )
         } else {
             Cow::Borrowed(ProjectRelativePath::new(path).context(
                 "Given path should either be absolute or a forward pointing project relative path",
