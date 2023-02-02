@@ -122,7 +122,7 @@ impl DiceComputations {
 pub(crate) mod testing {
     use crate::api::computations::DiceComputations;
     use crate::incremental::versions::MinorVersion;
-    use crate::VersionNumber;
+    use crate::incremental::versions::VersionNumber;
 
     pub(crate) trait DiceCtxExt {
         fn get_version(&self) -> VersionNumber;

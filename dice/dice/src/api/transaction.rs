@@ -17,7 +17,7 @@ use crate::api::computations::DiceComputations;
 use crate::api::error::DiceResult;
 use crate::api::key::Key;
 use crate::api::user_data::UserComputationData;
-use crate::VersionNumber;
+use crate::incremental::versions::VersionNumber;
 
 /// The struct for which we build transactions. This is where changes are recorded, and committed
 /// to DICE, which returns the Transaction where we spawn computations.
@@ -102,8 +102,8 @@ impl DiceTransaction {
         self.version_for_equivalence() == other.version_for_equivalence()
     }
 
-    pub fn version(&self) -> VersionNumber {
-        self.0.0.transaction_ctx.get_version()
+    pub fn equality_token(&self) -> DiceEquality {
+        DiceEquality(self.0.0.transaction_ctx.get_version())
     }
 
     /// Creates an Updater to record changes to DICE that upon committing, creates a new transaction
@@ -116,6 +116,10 @@ impl DiceTransaction {
     }
 }
 
+#[derive(Eq, PartialEq, Copy, Clone, derive_more::Display)]
+#[repr(transparent)]
+pub struct DiceEquality(VersionNumber);
+
 mod private {
     use super::*;
 
@@ -123,21 +127,21 @@ mod private {
 
     impl Sealed for DiceTransaction {}
 
-    impl Sealed for VersionNumber {}
+    impl Sealed for DiceEquality {}
 }
 
 pub trait DiceEquivalent: private::Sealed {
-    fn version_for_equivalence(&self) -> VersionNumber;
+    fn version_for_equivalence(&self) -> DiceEquality;
 }
 
 impl DiceEquivalent for DiceTransaction {
-    fn version_for_equivalence(&self) -> VersionNumber {
-        self.version()
+    fn version_for_equivalence(&self) -> DiceEquality {
+        self.equality_token()
     }
 }
 
-impl DiceEquivalent for VersionNumber {
-    fn version_for_equivalence(&self) -> VersionNumber {
+impl DiceEquivalent for DiceEquality {
+    fn version_for_equivalence(&self) -> DiceEquality {
         *self
     }
 }
