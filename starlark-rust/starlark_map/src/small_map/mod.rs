@@ -477,6 +477,15 @@ impl<K, V> SmallMap<K, V> {
         self.insert_hashed(Hashed::new(key), val)
     }
 
+    /// Insert a key-value pair into the map without checking for a duplicate key.
+    #[inline]
+    pub fn insert_unique_unchecked(&mut self, key: K, val: V) -> (&K, &mut V)
+    where
+        K: Hash,
+    {
+        self.insert_hashed_unique_unchecked(Hashed::new(key), val)
+    }
+
     /// Remove the entry for the key.
     ///
     /// Time complexity of this operation is *O(N)* where *N* is the number of entries in the map.

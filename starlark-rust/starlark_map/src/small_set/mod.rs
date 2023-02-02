@@ -134,6 +134,15 @@ impl<T> SmallSet<T> {
         self.0.insert(key, ()).is_none()
     }
 
+    /// Insert the element into the set without checking for a duplicate entry.
+    #[inline]
+    pub fn insert_unique_unchecked(&mut self, key: T)
+    where
+        T: Hash + Eq,
+    {
+        self.0.insert_unique_unchecked(key, ());
+    }
+
     /// Insert the element into the set.
     ///
     /// Return `true` iff the element was inserted.
