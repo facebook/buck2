@@ -16,11 +16,9 @@ use anyhow::Context;
 use buck2_core::buck_path::BuckPathRef;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::cell_path::CellPath;
-use buck2_core::collections::ordered_map::OrderedMap;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::TargetLabel;
-use buck2_core::target::name::TargetName;
 use buck2_util::arc_str::ArcStr;
 use dupe::Dupe;
 
@@ -51,9 +49,6 @@ enum TargetNodeError {
     #[error("`visibility` attribute coerced incorrectly (`{0}`) (internal error)")]
     IncorrectVisibilityAttribute(String),
 }
-
-/// Map of target -> details of those targets within a build file.
-pub type TargetsMap = OrderedMap<TargetName, TargetNode>;
 
 /// Describes a target including its name, type, and the values that the user provided.
 /// Some information (e.g. deps) is extracted eagerly, most is in the attrs map and needs to be
@@ -460,7 +455,7 @@ pub mod testing {
     use crate::attrs::inspect_options::AttrInspectOptions;
     use crate::attrs::spec::AttributeSpec;
     use crate::attrs::values::AttrValues;
-    use crate::nodes::unconfigured::TargetsMap;
+    use crate::nodes::targets_map::TargetsMap;
     use crate::rule_type::RuleType;
 
     pub trait TargetNodeExt {

@@ -19,8 +19,8 @@ use dupe::Dupe;
 use gazebo::prelude::*;
 use itertools::Itertools;
 
+use crate::nodes::targets_map::TargetsMap;
 use crate::nodes::unconfigured::TargetNode;
-use crate::nodes::unconfigured::TargetsMap;
 
 #[derive(Debug, thiserror::Error)]
 enum EvalulationResultError {

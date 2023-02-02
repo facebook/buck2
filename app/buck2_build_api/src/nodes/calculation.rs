@@ -887,9 +887,9 @@ mod tests {
     use buck2_node::attrs::inspect_options::AttrInspectOptions;
     use buck2_node::attrs::internal::internal_attrs;
     use buck2_node::nodes::eval_result::EvaluationResult;
+    use buck2_node::nodes::targets_map::TargetsMap;
     use buck2_node::nodes::unconfigured::testing::TargetNodeExt;
     use buck2_node::nodes::unconfigured::TargetNode;
-    use buck2_node::nodes::unconfigured::TargetsMap;
     use buck2_node::provider_id_set::ProviderIdSet;
     use buck2_node::rule_type::RuleType;
     use buck2_node::rule_type::StarlarkRuleType;

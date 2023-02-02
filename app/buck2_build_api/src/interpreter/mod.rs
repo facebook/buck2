@@ -46,7 +46,7 @@ pub(crate) mod testing {
     use buck2_interpreter_for_build::interpreter::configuror::BuildInterpreterConfiguror;
     use buck2_interpreter_for_build::interpreter::module_internals::ModuleInternals;
     use buck2_node::nodes::eval_result::EvaluationResult;
-    use buck2_node::nodes::unconfigured::TargetsMap;
+    use buck2_node::nodes::targets_map::TargetsMap;
     use buck2_query::query::syntax::simple::functions::testing::QueryFunctionsPanic;
     use dupe::Dupe;
     use indoc::indoc;
