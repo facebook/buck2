@@ -114,7 +114,7 @@ pub struct TargetsCommand {
     target_hash_function: TargetHashFunction,
 
     /// When true, emit the hash or target node and all dependencies recursively.
-    //// When false, hash only the target node.
+    /// When false, hash only the target node.
     #[clap(long, action = clap::ArgAction::Set, default_value = "true")]
     target_hash_recursive: bool,
 
