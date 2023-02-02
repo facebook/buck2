@@ -339,6 +339,45 @@ impl<F> CancellableFuture<F> {
     }
 }
 
+struct WithExecutionContext<F: FnOnce(&mut ExecutionContext)> {
+    exit: Option<F>,
+}
+
+impl<F> WithExecutionContext<F>
+where
+    F: FnOnce(&mut ExecutionContext),
+{
+    fn enter<Enter, T>(enter: Enter, exit: F) -> (T, Self)
+    where
+        Enter: FnOnce(&mut ExecutionContext) -> T,
+        T: Default,
+    {
+        let t = CURRENT.with(|g| match g.borrow_mut().as_mut() {
+            Some(context) => enter(context),
+            None => T::default(),
+        });
+
+        (t, Self { exit: Some(exit) })
+    }
+}
+
+impl<F> Drop for WithExecutionContext<F>
+where
+    F: for<'a> FnOnce(&'a mut ExecutionContext),
+{
+    fn drop(&mut self) {
+        let exit = self
+            .exit
+            .take()
+            .expect("WithExecutionContext can only be dropped once");
+
+        CURRENT.with(|g| match g.borrow_mut().as_mut() {
+            Some(context) => exit(context),
+            None => {}
+        });
+    }
+}
+
 /// Enter a critical section during which the current future (if any) should not be dropped. If the
 /// future was not cancelled before entering the critical section, it becomes non-cancellable
 /// during the critical section. If it *was* cancelled before entering the critical section (i.e.
@@ -348,28 +387,15 @@ pub async fn critical_section<F>(fut: F) -> <F as Future>::Output
 where
     F: Future,
 {
-    CURRENT.with(|g| match g.borrow_mut().as_mut() {
-        Some(context) => context.enter_critical_section(),
-        None => (),
-    });
-
-    struct ExitOnDrop;
-
-    impl Drop for ExitOnDrop {
-        fn drop(&mut self) {
-            CURRENT.with(|g| match g.borrow_mut().as_mut() {
-                Some(context) => context.exit_critical_section(),
-                None => {}
-            });
-        }
-    }
-
-    let _guard = ExitOnDrop;
+    let ((), _guard) = WithExecutionContext::enter(
+        ExecutionContext::enter_critical_section,
+        ExecutionContext::exit_critical_section,
+    );
 
     fut.await
 }
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 #[pin_project]
 pub struct CancellationObserver {
     #[pin]
@@ -398,23 +424,10 @@ where
     Fut: Future,
     F: FnOnce(CancellationObserver) -> Fut,
 {
-    let obs = CURRENT.with(|g| match g.borrow_mut().as_mut() {
-        Some(context) => context.enter_structured_cancellation(),
-        None => CancellationObserver { rx: None },
-    });
-
-    struct ExitOnDrop;
-
-    impl Drop for ExitOnDrop {
-        fn drop(&mut self) {
-            CURRENT.with(|g| match g.borrow_mut().as_mut() {
-                Some(context) => context.exit_structured_cancellation(),
-                None => {}
-            });
-        }
-    }
-
-    let _guard = ExitOnDrop;
+    let (obs, _guard) = WithExecutionContext::enter(
+        ExecutionContext::enter_structured_cancellation,
+        ExecutionContext::exit_structured_cancellation,
+    );
 
     // TODO: we should check at this point if we have been definitely cancelled, and we have we
     // should yield to exit as soon as possible.
