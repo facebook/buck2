@@ -9,6 +9,7 @@
 
 use std::io;
 use std::io::ErrorKind;
+use std::process::ExitStatus;
 use std::process::Stdio;
 use std::time::Duration;
 
@@ -24,6 +25,8 @@ use crate::subscribers::event_log::EventLogPathBuf;
 pub(crate) enum LogUploadError {
     #[error("Log file deleted before upload")]
     LogWasDeleted,
+    #[error("Log upload exited with {0}. Stderr: `{1}`")]
+    NonZeroExitStatus(ExitStatus, String),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
@@ -83,11 +86,10 @@ pub(crate) async fn log_upload(
 
                 if !res.status.success() {
                     let stderr = String::from_utf8_lossy(&res.stderr);
-                    return Err(LogUploadError::Other(anyhow::anyhow!(
-                        "Log upload exited with {}. Stderr: `{}`",
+                    return Err(LogUploadError::NonZeroExitStatus(
                         res.status,
-                        stderr.trim(),
-                    )));
+                        stderr.trim().to_owned(),
+                    ));
                 }
             } else {
                 upload.stdout(Stdio::null()).stderr(Stdio::null()).spawn()?;

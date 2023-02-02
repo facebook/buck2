@@ -650,6 +650,9 @@ impl EventLog {
                     e @ LogUploadError::LogWasDeleted => {
                         tracing::debug!("{}", e);
                     }
+                    LogUploadError::NonZeroExitStatus(_, _) => {
+                        tracing::warn!("{}", e);
+                    }
                     LogUploadError::Other(e) => {
                         tracing::warn!("Error uploading logs: {:#}", e);
                     }
