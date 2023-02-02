@@ -14,8 +14,8 @@ use more_futures::spawner::Spawner;
 use more_futures::spawner::TokioSpawner;
 
 use crate::api::data::DiceData;
+use crate::api::events::DiceEventListener;
 use crate::ctx::NoOpTracker;
-use crate::DiceEventListener;
 
 /// Includes all user related computation-specific data.
 #[derive(Allocative)]

@@ -7,11 +7,13 @@
  * of this source tree.
  */
 
-//! Public DICE API
+use allocative::Allocative;
 
-pub mod computations;
-pub mod data;
-pub mod dice;
-pub mod error;
-pub mod events;
-pub mod user_data;
+pub enum DiceEvent {
+    Started { key_type: &'static str },
+    Finished { key_type: &'static str },
+}
+
+pub trait DiceEventListener: Allocative + Send + Sync + 'static {
+    fn event(&self, ev: DiceEvent);
+}

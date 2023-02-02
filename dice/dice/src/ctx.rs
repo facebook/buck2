@@ -19,6 +19,8 @@ use futures::FutureExt;
 
 use crate::api::computations::DiceComputations;
 use crate::api::error::DiceResult;
+use crate::api::events::DiceEvent;
+use crate::api::events::DiceEventListener;
 use crate::api::user_data::UserComputationData;
 use crate::cycles::CycleDetector;
 use crate::cycles::DetectCycles;
@@ -44,15 +46,6 @@ pub(crate) struct ComputationData {
     pub(crate) user_data: Arc<UserComputationData>,
     cycle_detector: Option<Box<CycleDetector>>,
     // TODO(bobyf): this seems a natural place to gather some stats about the compute too
-}
-
-pub enum DiceEvent {
-    Started { key_type: &'static str },
-    Finished { key_type: &'static str },
-}
-
-pub trait DiceEventListener: Allocative + Send + Sync + 'static {
-    fn event(&self, ev: DiceEvent);
 }
 
 #[derive(Allocative)]
