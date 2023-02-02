@@ -7,9 +7,8 @@
  * of this source tree.
  */
 
-use std::borrow::Cow;
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::Path;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -30,12 +29,10 @@ use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
+use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::file_name::FileNameBuf;
-use buck2_core::fs::paths::RelativePath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
-use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::ProvidersPattern;
@@ -49,7 +46,6 @@ use buck2_node::compatibility::MaybeCompatible;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::unconfigured::TargetNode;
-use buck2_query::query::syntax::simple::eval::error::QueryError;
 use buck2_query::query::syntax::simple::eval::file_set::FileNode;
 use buck2_query::query::syntax::simple::eval::file_set::FileSet;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
@@ -57,7 +53,6 @@ use dice::DiceComputations;
 use dupe::Dupe;
 use gazebo::prelude::*;
 use indexmap::indexset;
-use ref_cast::RefCast;
 use starlark::collections::SmallSet;
 
 use crate::calculation::load_patterns;
@@ -71,6 +66,7 @@ pub mod aquery;
 pub(crate) struct LiteralParser {
     // file and target literals are resolved relative to the working dir.
     working_dir: PackageLabel,
+    working_dir_abs: AbsNormPathBuf,
     project_root: ProjectRoot,
     cell_resolver: CellResolver,
     cell_alias_resolver: CellAliasResolver,
@@ -104,33 +100,10 @@ impl LiteralParser {
     }
 
     fn parse_file_literal(&self, literal: &str) -> anyhow::Result<CellPath> {
-        let path = PathBuf::from(literal);
-        let project_path = match path.is_absolute() {
-            true => {
-                // TODO(cjhopman): This doesn't properly handle normalization.
-                let abs_path = AbsNormPath::new(&path)?;
-                let relative_path =
-                    abs_path
-                        .strip_prefix(self.project_root.root())
-                        .map_err(|_| {
-                            QueryError::FileLiteralNotInProject(
-                                self.project_root.dupe(),
-                                literal.to_owned(),
-                            )
-                        })?;
-                match relative_path {
-                    Cow::Borrowed(p) => ProjectRelativePath::ref_cast(p).to_owned(),
-                    Cow::Owned(p) => ProjectRelativePathBuf::from(p),
-                }
-            }
-            false => {
-                let project_relative_working_dir = self
-                    .cell_resolver
-                    .resolve_package(self.working_dir.dupe())?;
-                let relative_path = RelativePath::from_path(&path)?;
-                project_relative_working_dir.join_normalized(relative_path)?
-            }
-        };
+        let path = Path::new(literal);
+        // Note if the path is absolute, this `join` is a no-op.
+        let path_abs = self.working_dir_abs.as_abs_path().join(path);
+        let project_path = self.project_root.relativize_any(&path_abs)?;
         self.cell_resolver.get_cell_path(&project_path)
     }
 }
@@ -159,12 +132,14 @@ impl<'c> DiceQueryDelegate<'c> {
         let package = PackageLabel::from_cell_path(cell_path.as_ref());
         let cell_name = package.as_cell_path().cell();
         let cell_alias_resolver = cell_resolver.get(cell_name)?.cell_alias_resolver().dupe();
+        let working_dir_abs = project_root.resolve(working_dir);
 
         Ok(Self {
             ctx,
             global_target_platform,
             cell_resolver: cell_resolver.dupe(),
             literal_parser: Arc::new(LiteralParser {
+                working_dir_abs,
                 working_dir: package,
                 project_root,
                 cell_resolver,
