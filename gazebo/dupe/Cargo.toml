@@ -9,8 +9,5 @@ repository = "https://github.com/facebookincubator/gazebo"
 documentation = "https://docs.rs/dupe"
 categories = ["rust-patterns"]
 
-[features]
-str_pattern_extensions = []
-
 [dependencies]
 dupe_derive = { version = "0.8.0", path = "../dupe_derive" }
