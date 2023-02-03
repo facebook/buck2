@@ -46,6 +46,7 @@ PythonToolchainInfo = provider(fields = [
     "make_source_db_no_deps",
     "make_pex_inplace",
     "make_pex_standalone",
+    "make_pex_manifest_module",
     "make_pex_modules",
     "pex_executor",
     "pex_extension",

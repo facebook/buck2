@@ -90,3 +90,9 @@ prelude.export_file(
     src = "static_extension_finder.py",
     visibility = ["PUBLIC"],
 )
+
+prelude.python_bootstrap_binary(
+    name = "make_pex_manifest_module",
+    main = "make_pex_manifest_module.py",
+    visibility = ["PUBLIC"],
+)

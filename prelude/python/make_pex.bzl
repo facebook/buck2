@@ -95,8 +95,11 @@ def make_pex(
         fail("unsupported package style: {}".format(package_style))
 
     symlink_tree_path = None
+    manifest_module = None
     if not standalone:
         symlink_tree_path = ctx.actions.declare_output("{}#link-tree".format(ctx.attrs.name), dir = True)
+        if make_pex_cmd == None:
+            manifest_module = generate_manifest_module(ctx, python_toolchain, pex_modules.manifests.src_manifests())
 
     common_modules_args, dep_artifacts = _pex_modules_common_args(
         ctx,
@@ -108,6 +111,7 @@ def make_pex(
         common_modules_args,
         dep_artifacts,
         symlink_tree_path,
+        manifest_module,
     )
 
     preload_libraries = _preload_libraries_args(ctx, shared_libraries)
@@ -293,7 +297,8 @@ def _pex_modules_common_args(
 def _pex_modules_args(
         common_args: "cmd_args",
         dep_artifacts: ["_arglike"],
-        symlink_tree_path: [None, "artifact"]) -> "cmd_args":
+        symlink_tree_path: [None, "artifact"],
+        manifest_module: ["_arglike", None]) -> "cmd_args":
     """
     Produces args to deal with a PEX's modules. Returns args to pass to the
     modules builder, and artifacts the resulting modules would require at
@@ -302,6 +307,9 @@ def _pex_modules_args(
 
     cmd = cmd_args()
     cmd.add(common_args)
+
+    if manifest_module != None:
+        cmd.add(cmd_args(manifest_module, format = "--module-manifest={}"))
 
     if symlink_tree_path != None:
         cmd.add(["--modules-dir", symlink_tree_path.as_output()])
@@ -343,3 +351,33 @@ def _hidden_resources_error_message(current_target: "label", hidden_resources) -
         for resource in sorted(resources):
             msg += "  {}\n".format(resource)
     return msg
+
+def generate_manifest_module(
+        ctx: "context",
+        python_toolchain: PythonToolchainInfo.type,
+        src_manifests: ["_arglike"]) -> ["_arglike", None]:
+    """
+    Generates a __manifest__.py module, and an extra entry to add to source manifests.
+
+    The contents of the manifest are taken from an attribute if it exists. If the
+    attribute is None, this function does nothing.
+    """
+
+    if ctx.attrs.manifest_module_entries == None:
+        return None
+    module = ctx.actions.declare_output("manifest/__manifest__.py")
+    entries_json = ctx.actions.write_json("manifest/entries.json", ctx.attrs.manifest_module_entries)
+    src_manifests_path = ctx.actions.write(
+        "__module_manifests.txt",
+        _srcs(src_manifests, format = "--module-manifest={}"),
+    )
+    cmd = cmd_args(python_toolchain.make_pex_manifest_module)
+    cmd.add(["--manifest-entries", entries_json])
+    cmd.add(cmd_args(src_manifests_path, format = "@{}"))
+    cmd.hidden(src_manifests)
+    cmd.add(["--output", module.as_output()])
+    ctx.actions.run(cmd, category = "par", identifier = "manifest-module")
+
+    src_manifest = ctx.actions.write_json("manifest/module_manifest.json", [["__manifest__.py", module, "foo"]], with_inputs = True)
+
+    return src_manifest
