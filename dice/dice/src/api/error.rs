@@ -15,7 +15,7 @@ use indexmap::IndexSet;
 use itertools::Itertools;
 use thiserror::Error;
 
-use crate::cycles::RequestedKey;
+use crate::legacy::cycles::RequestedKey;
 
 #[derive(Clone, Dupe, Debug, Error, Allocative)]
 #[error(transparent)]

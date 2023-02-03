@@ -204,7 +204,6 @@ extern crate gazebo;
 #[macro_use]
 extern crate tracing;
 
-mod cycles;
 mod dice_future;
 mod dice_task;
 mod future_handle;

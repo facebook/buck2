@@ -50,6 +50,7 @@ use crate::map::DiceMap;
 use crate::metrics::Metrics;
 
 pub(crate) mod ctx;
+pub(crate) mod cycles;
 pub(crate) mod opaque;
 pub(crate) mod projection;
 

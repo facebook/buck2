@@ -109,8 +109,8 @@ mod tests {
     use indexmap::indexset;
 
     use crate::api::error::DiceErrorImpl;
-    use crate::cycles::CycleDetector;
-    use crate::cycles::RequestedKey;
+    use crate::legacy::cycles::CycleDetector;
+    use crate::legacy::cycles::RequestedKey;
 
     #[derive(Clone, Dupe, Display, Debug, PartialEq, Eq, Hash, Allocative)]
     struct K(usize);
