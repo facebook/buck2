@@ -7,8 +7,10 @@ rust_library(
     name = "buck2_server_ctx",
     srcs = glob(["src/**/*.rs"]),
     test_deps = [
+        "fbsource//third-party/rust:derivative",
         "fbsource//third-party/rust:derive_more",
         "fbsource//third-party/rust:tokio",
+        "//buck2/shed/more_futures:more_futures",
     ],
     deps = [
         "fbsource//third-party/rust:anyhow",

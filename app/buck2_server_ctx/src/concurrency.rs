@@ -200,14 +200,31 @@ impl DiceStatus {
             active: Some(ActiveDice { version }),
         }
     }
+}
 
-    fn as_active_mut(&mut self) -> Option<&mut ActiveDice> {
-        match self {
-            Self::Available {
-                active: Some(ref mut active),
-            } => Some(active),
-            _ => None,
+impl ConcurrencyHandlerData {
+    fn has_no_active_traces(&self) -> bool {
+        self.active_traces.is_empty()
+    }
+
+    /// Attempt a transition to cleanup, or straight to idle if cleanup can be skipped. Returns
+    /// whether the transition was done.
+    fn transition_to_cleanup(&mut self, dice: &Dice) -> bool {
+        if !self.has_no_active_traces() {
+            return false;
         }
+
+        tracing::info!("Transitioning ActiveDice to cleanup");
+
+        // When releasing the active DICE, if any work is ongoing, place it in a clean up
+        // state. Callers will wait until it goes idle.
+        self.cleanup_epoch += 1;
+        self.dice_status = DiceStatus::Cleanup {
+            future: dice.wait_for_idle().boxed().shared(),
+            epoch: self.cleanup_epoch,
+        };
+
+        true
     }
 }
 
@@ -353,6 +370,15 @@ impl ConcurrencyHandler {
 
                     if let Some(active) = active {
                         let is_same_state = transaction.equivalent(&active.version);
+
+                        // If we have a different state, attempt to transition to cleanup. This will
+                        // succeed only if the current state is not in use.
+                        if !is_same_state {
+                            if data.transition_to_cleanup(&self.dice) {
+                                continue;
+                            }
+                        }
+
                         tracing::debug!("ActiveDice has an active_transaction");
 
                         event_dispatcher.instant_event(DiceEqualityCheck {
@@ -556,22 +582,7 @@ impl Drop for OnExecExit {
             data.active_traces.remove(&self.1);
         }
 
-        if data.active_traces.is_empty() {
-            tracing::info!("Transitioning ActiveDice to cleanup for: {}", self.1);
-
-            data.dice_status
-                .as_active_mut()
-                .expect("should have an active dice");
-
-            // When releasing the active DICE, place it in a clean up state. Callers will wait
-            // until it goes idle.
-            data.cleanup_epoch += 1;
-
-            data.dice_status = DiceStatus::Cleanup {
-                future: self.0.dice.wait_for_idle().boxed().shared(),
-                epoch: data.cleanup_epoch,
-            };
-
+        if data.has_no_active_traces() {
             // we notify all commands since we don't know how many can actually wake up and run
             // concurrently as several of the currently waiting commands could be "equivalent".
             // This could cause commands to wake up out of order and race, such that the longest
@@ -588,19 +599,24 @@ mod tests {
     use std::sync::atomic::AtomicBool;
     use std::sync::atomic::Ordering;
     use std::sync::Arc;
+    use std::time::Duration;
 
     use allocative::Allocative;
     use async_trait::async_trait;
     use buck2_events::dispatch::EventDispatcher;
     use buck2_events::trace::TraceId;
+    use derivative::Derivative;
     use derive_more::Display;
     use dice::DetectCycles;
     use dice::Dice;
     use dice::DiceComputations;
     use dice::DiceTransactionUpdater;
     use dice::InjectedKey;
+    use dice::Key;
     use dice::UserComputationData;
     use dupe::Dupe;
+    use more_futures::cancellable_future::with_structured_cancellation;
+    use parking_lot::Mutex;
     use tokio::sync::Barrier;
     use tokio::sync::RwLock;
 
@@ -1024,6 +1040,117 @@ mod tests {
         r1??;
         r2??;
         r3??;
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_cleanup_stage() -> anyhow::Result<()> {
+        #[derive(Clone, Dupe, Derivative, Allocative, Display)]
+        #[derivative(Hash, Eq, PartialEq, Debug)]
+        #[display(fmt = "TestKey")]
+        struct TestKey {
+            #[derivative(Debug = "ignore", Hash = "ignore", PartialEq = "ignore")]
+            is_executing: Arc<Mutex<()>>,
+        }
+
+        #[async_trait::async_trait]
+        impl Key for TestKey {
+            type Value = ();
+
+            #[allow(clippy::await_holding_lock)]
+            async fn compute(&self, _ctx: &DiceComputations) -> Self::Value {
+                let _guard = self.is_executing.lock();
+
+                // TODO: use critical_section as it's simpler, but this stack doesn't have it and
+                // this works equally well here :)
+                with_structured_cancellation(|_obs| tokio::time::sleep(Duration::from_secs(1)))
+                    .await;
+            }
+
+            fn equality(_me: &Self::Value, _other: &Self::Value) -> bool {
+                true
+            }
+        }
+
+        let key = TestKey {
+            is_executing: Arc::new(Mutex::new(())),
+        };
+
+        let key = &key;
+
+        let dice = Dice::builder().build(DetectCycles::Enabled);
+
+        let concurrency = ConcurrencyHandler::new(
+            dice.dupe(),
+            NestedInvocation::Error,
+            ParallelInvocation::Block,
+            DiceCleanup::Block,
+        );
+
+        // Kick off our computation and wait until it's running.
+
+        concurrency
+            .enter(
+                EventDispatcher::null(),
+                &TestDiceDataProvider,
+                &NoChanges,
+                |dice| async move {
+                    let compute = dice.compute(key).fuse();
+
+                    let started = async {
+                        while !key.is_executing.is_locked() {
+                            tokio::task::yield_now().await;
+                        }
+                    }
+                    .fuse();
+
+                    // NOTE: We still need to poll `compute` for it to actually spawn, hence the
+                    // select below.
+
+                    futures::pin_mut!(compute);
+                    futures::pin_mut!(started);
+
+                    futures::select! {
+                        _ = compute => panic!("compute finished before started?"),
+                        _ = started => {}
+                    }
+                },
+                false,
+                Vec::new(),
+            )
+            .await?;
+
+        // Now, re-enter. We expect to reuse and therefore to not wait.
+
+        concurrency
+            .enter(
+                EventDispatcher::null(),
+                &TestDiceDataProvider,
+                &NoChanges,
+                |_dice| async move {
+                    // The key should still be evaluating by now.
+                    assert!(key.is_executing.is_locked());
+                },
+                false,
+                Vec::new(),
+            )
+            .await?;
+
+        // Now, enter with a different context. This time, we expect to not reuse.
+
+        concurrency
+            .enter(
+                EventDispatcher::null(),
+                &TestDiceDataProvider,
+                &CtxDifferent,
+                |_dice| async move {
+                    assert!(!key.is_executing.is_locked());
+                },
+                false,
+                Vec::new(),
+            )
+            .await?;
 
         Ok(())
     }

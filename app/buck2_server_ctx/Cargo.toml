@@ -29,5 +29,7 @@ buck2_cli_proto = { workspace = true }
 starlark_map = { workspace = true }
 
 [dev-dependencies]
+derivative = { workspace = true }
 derive_more = { workspace = true }
+more_futures = { workspace = true }
 tokio = { workspace = true }
