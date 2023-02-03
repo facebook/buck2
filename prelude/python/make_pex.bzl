@@ -40,11 +40,52 @@ PexProviders = record(
     run_cmd = cmd_args.type,
 )
 
+def make_pex_providers(pex: PexProviders.type) -> ["provider"]:
+    return [
+        DefaultInfo(
+            default_output = pex.default_output,
+            other_outputs = pex.other_outputs,
+            sub_targets = pex.sub_targets,
+        ),
+        RunInfo(pex.run_cmd),
+    ]
+
 def _srcs(srcs: [""], format = "{}") -> "cmd_args":
     args = cmd_args()
     for src in srcs:
         args.add(cmd_args(src, format = format))
     return args
+
+def _fail_at_build_time(
+        ctx: "context",
+        python_toolchain: "PythonToolchainInfo",
+        msg: str.type) -> PexProviders.type:
+    error_message = ctx.actions.write("__error_message", msg)
+    dummy_output = ctx.actions.declare_output("__dummy_output")
+    cmd = cmd_args([
+        python_toolchain.fail_with_message,
+        error_message,
+        dummy_output.as_output(),
+    ])
+    ctx.actions.run(cmd, category = "par", identifier = "failure")
+    return PexProviders(
+        default_output = dummy_output,
+        other_outputs = [],
+        sub_targets = {},
+        run_cmd = cmd_args(),
+    )
+
+def _fail(
+        ctx: "context",
+        python_toolchain: "PythonToolchainInfo",
+        suffix: str.type,
+        msg: str.type) -> PexProviders.type:
+    if suffix:
+        return _fail_at_build_time(ctx, python_toolchain, msg)
+
+    # suffix is empty, which means this is the default subtarget. All failures must
+    # occur at analysis time
+    fail(msg)
 
 # TODO(nmj): Resources
 # TODO(nmj): Figure out how to harmonize these flags w/ existing make_xar
@@ -78,14 +119,69 @@ def make_pex(
         - hidden_resources: extra resources the binary depends on.
     """
 
-    output = ctx.actions.declare_output("{}{}".format(ctx.attrs.name, python_toolchain.pex_extension))
+    preload_libraries = _preload_libraries_args(ctx, shared_libraries)
+    manifest_module = generate_manifest_module(ctx, python_toolchain, pex_modules.manifests.src_manifests())
+    common_modules_args, dep_artifacts = _pex_modules_common_args(
+        ctx,
+        pex_modules,
+        {name: lib for name, (lib, _) in shared_libraries.items()},
+    )
 
+    default = _make_pex_impl(
+        ctx,
+        python_toolchain,
+        make_pex_cmd,
+        package_style,
+        build_args,
+        shared_libraries,
+        preload_libraries,
+        common_modules_args,
+        dep_artifacts,
+        main_module,
+        hidden_resources,
+        manifest_module,
+        output_suffix = "",
+    )
+    for style in PackageStyle.values():
+        pex_providers = default if style == package_style.value else _make_pex_impl(
+            ctx,
+            python_toolchain,
+            make_pex_cmd,
+            PackageStyle(style),
+            build_args,
+            shared_libraries,
+            preload_libraries,
+            common_modules_args,
+            dep_artifacts,
+            main_module,
+            hidden_resources,
+            manifest_module,
+            output_suffix = "-{}".format(style),
+        )
+        default.sub_targets[style] = make_pex_providers(pex_providers)
+    return default
+
+def _make_pex_impl(
+        ctx: "context",
+        python_toolchain: "PythonToolchainInfo",
+        make_pex_cmd: [RunInfo.type, None],
+        package_style: PackageStyle.type,
+        build_args: ["_arglike"],
+        shared_libraries: {str.type: (LinkedObject.type, bool.type)},
+        preload_libraries: "cmd_args",
+        common_modules_args: "cmd_args",
+        dep_artifacts: ["_arglike"],
+        main_module: str.type,
+        hidden_resources: [None, "_arglike"],
+        manifest_module: [None, "_arglike"],
+        output_suffix: str.type) -> PexProviders.type:
+    name = "{}{}".format(ctx.attrs.name, output_suffix)
     standalone = package_style == PackageStyle("standalone")
 
     runtime_files = []
     if standalone and hidden_resources != None:
         error_msg = _hidden_resources_error_message(ctx.label, hidden_resources)
-        fail(error_msg)
+        return _fail(ctx, python_toolchain, output_suffix, error_msg)
     if hidden_resources != None:
         runtime_files.extend(hidden_resources)
 
@@ -95,17 +191,19 @@ def make_pex(
         fail("unsupported package style: {}".format(package_style))
 
     symlink_tree_path = None
-    manifest_module = None
-    if not standalone:
-        symlink_tree_path = ctx.actions.declare_output("{}#link-tree".format(ctx.attrs.name), dir = True)
-        if make_pex_cmd == None:
-            manifest_module = generate_manifest_module(ctx, python_toolchain, pex_modules.manifests.src_manifests())
-
-    common_modules_args, dep_artifacts = _pex_modules_common_args(
-        ctx,
-        pex_modules,
-        {name: lib for name, (lib, _) in shared_libraries.items()},
-    )
+    if standalone:
+        if python_toolchain.make_pex_standalone == None:
+            return _fail(
+                ctx,
+                python_toolchain,
+                output_suffix,
+                "Python toolchain does not provide make_pex_standalone",
+            )
+        manifest_module = None  # manifest generation is handled by make_pex_standalone
+    else:
+        symlink_tree_path = ctx.actions.declare_output("{}#link-tree".format(name), dir = True)
+    if make_pex_cmd != None:
+        manifest_module = None  # manifest generation is handled by make_pex_cmd
 
     modules_args = _pex_modules_args(
         common_modules_args,
@@ -114,7 +212,7 @@ def make_pex(
         manifest_module,
     )
 
-    preload_libraries = _preload_libraries_args(ctx, shared_libraries)
+    output = ctx.actions.declare_output("{}{}".format(name, python_toolchain.pex_extension))
 
     bootstrap_args = _pex_bootstrap_args(
         python_toolchain.interpreter,
@@ -130,9 +228,6 @@ def make_pex(
     bootstrap_args.add(build_args)
 
     if standalone:
-        if python_toolchain.make_pex_standalone == None:
-            fail("Python toolchain does not provide make_pex_standalone")
-
         # We support building _standalone_ packages locally to e.g. support fbcode's
         # current style of build info stamping (e.g. T10696178).
         prefer_local = package_python_locally(ctx, python_toolchain)
@@ -142,25 +237,24 @@ def make_pex(
         )
         cmd.add(modules_args)
         cmd.add(bootstrap_args)
-        ctx.actions.run(cmd, prefer_local = prefer_local, category = "par", identifier = "standalone")
+        ctx.actions.run(cmd, prefer_local = prefer_local, category = "par", identifier = "standalone{}".format(output_suffix))
 
     else:
         runtime_files.extend(dep_artifacts)
         runtime_files.append(symlink_tree_path)
-
         if make_pex_cmd != None:
             cmd = cmd_args(make_pex_cmd)
             cmd.add(modules_args)
             cmd.add(bootstrap_args)
-            ctx.actions.run(cmd, category = "par", identifier = "inplace")
+            ctx.actions.run(cmd, category = "par", identifier = "inplace{}".format(output_suffix))
         else:
             modules = cmd_args(python_toolchain.make_pex_modules)
             modules.add(modules_args)
-            ctx.actions.run(modules, category = "par", identifier = "modules")
+            ctx.actions.run(modules, category = "par", identifier = "modules{}".format(output_suffix))
 
             bootstrap = cmd_args(python_toolchain.make_pex_inplace)
             bootstrap.add(bootstrap_args)
-            ctx.actions.run(bootstrap, category = "par", identifier = "bootstrap")
+            ctx.actions.run(bootstrap, category = "par", identifier = "bootstrap{}".format(output_suffix))
 
     run_args = []
 
@@ -329,7 +423,8 @@ def _hidden_resources_error_message(current_target: "label", hidden_resources) -
     for resource_set in hidden_resources:
         for resources in resource_set.traverse():
             for r in resources:
-                if r.is_source:
+                # TODO: `r` is sometimes a tset projection, but it shouldn't be
+                if getattr(r, "is_source", True):
                     # Source files; do a string repr so that we get the
                     # package path in there too
                     owner_to_artifacts.setdefault("", []).append(str(r))

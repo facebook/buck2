@@ -96,3 +96,9 @@ prelude.python_bootstrap_binary(
     main = "make_pex_manifest_module.py",
     visibility = ["PUBLIC"],
 )
+
+prelude.python_bootstrap_binary(
+    name = "fail_with_message",
+    main = "fail_with_message.py",
+    visibility = ["PUBLIC"],
+)

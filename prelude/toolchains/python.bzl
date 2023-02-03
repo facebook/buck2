@@ -54,6 +54,7 @@ def _system_python_toolchain_impl(ctx):
     return [
         DefaultInfo(),
         PythonToolchainInfo(
+            fail_with_message = ctx.attrs.fail_with_message[RunInfo],
             make_source_db = ctx.attrs.make_source_db[RunInfo],
             make_source_db_no_deps = ctx.attrs.make_source_db_no_deps[RunInfo],
             host_interpreter = RunInfo(args = [ctx.attrs.interpreter]),
@@ -70,6 +71,7 @@ def _system_python_toolchain_impl(ctx):
 system_python_toolchain = rule(
     impl = _system_python_toolchain_impl,
     attrs = {
+        "fail_with_message": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//python/tools:fail_with_message")),
         "interpreter": attrs.string(default = _INTERPRETER),
         "make_pex_inplace": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//python/tools:make_pex_inplace")),
         "make_pex_modules": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//python/tools:make_pex_modules")),

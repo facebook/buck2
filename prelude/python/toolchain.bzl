@@ -51,6 +51,7 @@ PythonToolchainInfo = provider(fields = [
     "pex_executor",
     "pex_extension",
     "emit_omnibus_metadata",
+    "fail_with_message",
 ])
 
 # Stores "platform"/flavor name used to resolve *platform_* arguments
