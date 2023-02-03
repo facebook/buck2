@@ -8,6 +8,7 @@
  */
 
 mod demo;
+mod projection;
 
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;

@@ -9,8 +9,6 @@
 
 //! "Projection" keys: synchronously computed keys from "opaque" values.
 
-mod tests;
-
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::sync::Arc;
