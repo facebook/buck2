@@ -34,7 +34,7 @@ def compile_apple_asset_catalog(ctx: "context", specs: [AppleAssetCatalogSpec.ty
     if len(single_spec.dirs) == 0:
         return None
     plist = ctx.actions.declare_output("AssetCatalog.plist")
-    catalog = ctx.actions.declare_output("AssetCatalogCompiled", dir = True)
+    catalog = ctx.actions.declare_output("AssetCatalogCompiled")
     processing_options = get_bundle_resource_processing_options(ctx)
     compilation_options = get_apple_asset_catalogs_compilation_options(ctx)
     command = _get_actool_command(ctx, single_spec, catalog.as_output(), plist.as_output(), compilation_options)

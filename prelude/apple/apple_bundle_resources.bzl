@@ -302,7 +302,7 @@ def _process_apple_resource_file_if_needed(
     basename = paths.basename(file.short_path)
     output_is_contents_dir = False
     if basename.endswith(".plist") or basename.endswith(".stringsdict"):
-        processed = ctx.actions.declare_output(paths.join(output_dir, file.short_path), dir = True)
+        processed = ctx.actions.declare_output(paths.join(output_dir, file.short_path))
         process_plist(
             ctx = ctx,
             input = file,
@@ -310,7 +310,7 @@ def _process_apple_resource_file_if_needed(
             action_id = destination_relative_path,
         )
     elif basename.endswith(".storyboard"):
-        compiled = ctx.actions.declare_output(paths.join(output_dir, paths.replace_extension(file.short_path, ".storyboardc")), dir = True)
+        compiled = ctx.actions.declare_output(paths.join(output_dir, paths.replace_extension(file.short_path, ".storyboardc")))
         if get_is_watch_bundle(ctx):
             output_is_contents_dir = True
             _compile_ui_resource(ctx = ctx, raw_file = file, output = compiled.as_output(), target_device = "watch")
