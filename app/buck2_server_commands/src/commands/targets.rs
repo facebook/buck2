@@ -481,15 +481,10 @@ async fn targets(
 
     let mut outputter = Outputter::new(request)?;
 
-    if request.unstable_resolve_aliases {
-        let mut res = targets_resolve_aliases(dice, request, parsed_target_patterns).await?;
-        outputter.write_to_file(&mut res.serialized_targets_output)?;
-        outputter.flush()?;
-        return Ok(res);
-    }
-
-    let formatter = crate_formatter(request)?;
-    let mut response = if request.streaming {
+    let mut response = if request.unstable_resolve_aliases {
+        targets_resolve_aliases(dice, request, parsed_target_patterns).await?
+    } else if request.streaming {
+        let formatter = crate_formatter(request)?;
         let hashing = match TargetHashGraphType::from_i32(request.target_hash_graph_type)
             .expect("buck cli should send valid target hash graph type")
         {
@@ -513,6 +508,7 @@ async fn targets(
         outputter.flush()?;
         res?
     } else {
+        let formatter = crate_formatter(request)?;
         let target_platform =
             target_platform_from_client_context(request.context.as_ref(), &cell_resolver, cwd)
                 .await?;
