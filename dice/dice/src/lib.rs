@@ -210,7 +210,6 @@ mod future_handle;
 mod incremental;
 pub mod introspection;
 mod legacy;
-mod metrics;
 mod opaque;
 mod sync_handle;
 
@@ -232,6 +231,7 @@ pub use fnv::FnvHashMap as HashMap;
 pub use fnv::FnvHashSet as HashSet;
 use futures::future::Future;
 use legacy::key::StoragePropertiesForKey;
+use legacy::metrics::Metrics;
 use serde::Serializer;
 
 pub use crate::api::computations::DiceComputations;
@@ -257,7 +257,6 @@ use crate::incremental::graph::GraphNode;
 use crate::incremental::transaction_ctx::TransactionCtx;
 use crate::incremental::ValueWithDeps;
 use crate::legacy::DiceLegacy;
-use crate::metrics::Metrics;
 
 #[derive(Allocative, Debug)]
 pub(crate) enum DiceImplementation {

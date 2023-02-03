@@ -197,8 +197,8 @@ use serde::Serializer;
 use crate::api::cycles::DetectCycles;
 use crate::api::transaction::DiceTransactionUpdater;
 use crate::api::user_data::UserComputationData;
+use crate::legacy::metrics::Metrics;
 use crate::legacy::DiceLegacyDataBuilder;
-use crate::metrics::Metrics;
 use crate::DiceImplementation;
 
 /// An incremental computation engine that executes arbitrary computations that
