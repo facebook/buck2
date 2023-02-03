@@ -778,7 +778,7 @@ mod tests {
         let expected = PackageRelativePathBuf::unchecked_new("baz/quz.cpp".to_owned());
         assert_eq!(
             expected.as_path(),
-            package_ctx
+            &**package_ctx
                 .coerce_path("baz/quz.cpp", false)
                 .unwrap()
                 .path()

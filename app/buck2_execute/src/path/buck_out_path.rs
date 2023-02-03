@@ -780,7 +780,7 @@ mod tests {
         let path_resolver = BuckPathResolver::new(cell_resolver);
 
         let resolved = path_resolver.resolve(
-            BuckPath::new(
+            BuckPath::testing_new(
                 PackageLabel::new(
                     CellName::unchecked_new("foo"),
                     CellRelativePath::unchecked_new("baz-package"),
@@ -798,7 +798,7 @@ mod tests {
         assert_eq!(
             path_resolver
                 .resolve(
-                    BuckPath::new(
+                    BuckPath::testing_new(
                         PackageLabel::new(
                             CellName::unchecked_new("none_existant"),
                             CellRelativePath::unchecked_new("baz")

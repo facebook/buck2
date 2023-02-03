@@ -367,7 +367,7 @@ mod tests {
             CellRelativePathBuf::unchecked_new("foo/foo".to_owned()),
         );
 
-        let foo_artifact = Artifact::from(SourceArtifact::new(BuckPath::new(
+        let foo_artifact = Artifact::from(SourceArtifact::new(BuckPath::testing_new(
             PackageLabel::testing_new("", "foo"),
             PackageRelativePathBuf::unchecked_new("foo".to_owned()),
         )));
@@ -377,7 +377,7 @@ mod tests {
             is_executable: true,
         };
 
-        let bar_artifact = Artifact::from(SourceArtifact::new(BuckPath::new(
+        let bar_artifact = Artifact::from(SourceArtifact::new(BuckPath::testing_new(
             PackageLabel::testing_new("", "bar"),
             PackageRelativePathBuf::unchecked_new("bar".to_owned()),
         )));

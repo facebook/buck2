@@ -507,7 +507,7 @@ mod tests {
         package_path: &str,
         target_name: &str,
     ) -> SourceArtifact {
-        SourceArtifact::new(BuckPath::new(
+        SourceArtifact::new(BuckPath::testing_new(
             PackageLabel::testing_new(package_cell, package_path),
             PackageRelativePathBuf::unchecked_new(target_name.into()),
         ))

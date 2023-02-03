@@ -137,10 +137,11 @@ fn get_artifact_docs() -> Option<Doc> {
     );
 
     // Artifact isn't really exported into globals anywhere, so instantiate it.
-    let artifact = StarlarkArtifact::new(Artifact::from(SourceArtifact::new(BuckPath::new(
-        pkg,
-        PackageRelativePathBuf::unchecked_new("__fake_path__".to_owned()),
-    ))));
+    let artifact =
+        StarlarkArtifact::new(Artifact::from(SourceArtifact::new(BuckPath::testing_new(
+            pkg,
+            PackageRelativePathBuf::unchecked_new("__fake_path__".to_owned()),
+        ))));
     artifact
         .documentation()
         .map(|artifact_docs| builtin_doc("Artifact", "", artifact_docs))

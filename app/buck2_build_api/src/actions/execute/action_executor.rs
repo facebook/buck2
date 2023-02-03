@@ -694,7 +694,7 @@ mod tests {
         );
 
         let inputs = indexset![ArtifactGroup::Artifact(Artifact::from(
-            SourceArtifact::new(BuckPath::new(
+            SourceArtifact::new(BuckPath::testing_new(
                 pkg.dupe(),
                 PackageRelativePathBuf::unchecked_new("source".into()),
             ))

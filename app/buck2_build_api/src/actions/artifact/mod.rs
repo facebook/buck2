@@ -574,7 +574,7 @@ mod tests {
 
     #[test]
     fn resolve_artifact() -> anyhow::Result<()> {
-        let source = SourceArtifact::new(BuckPath::new(
+        let source = SourceArtifact::new(BuckPath::testing_new(
             PackageLabel::testing_new("cell", "pkg"),
             PackageRelativePathBuf::unchecked_new("src.cpp".into()),
         ));

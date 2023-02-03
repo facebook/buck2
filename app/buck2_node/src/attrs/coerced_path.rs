@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::iter;
+
 use allocative::Allocative;
 use buck2_core::package::package_relative_path::PackageRelativePath;
 use buck2_util::arc_str::ArcS;
@@ -32,17 +34,17 @@ pub enum CoercedPath {
 assert_eq_size!(CoercedPath, [usize; 2]);
 
 impl CoercedPath {
-    pub fn path(&self) -> &PackageRelativePath {
+    pub fn path(&self) -> &ArcS<PackageRelativePath> {
         match self {
             CoercedPath::File(x) => x,
             CoercedPath::Directory(x) => &x.dir,
         }
     }
 
-    pub fn inputs(&self) -> impl Iterator<Item = &'_ PackageRelativePath> {
+    pub fn inputs(&self) -> impl Iterator<Item = &'_ ArcS<PackageRelativePath>> {
         match self {
-            CoercedPath::File(x) => Either::Left(std::iter::once(x.as_ref())),
-            CoercedPath::Directory(x) => Either::Right(x.files.iter().map(|x| x.as_ref())),
+            CoercedPath::File(x) => Either::Left(iter::once(x)),
+            CoercedPath::Directory(x) => Either::Right(x.files.iter()),
         }
     }
 }

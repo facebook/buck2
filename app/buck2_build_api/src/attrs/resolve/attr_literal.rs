@@ -174,7 +174,7 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
             AttrLiteral::Query(query) => query.resolve(ctx),
             AttrLiteral::SourceFile(s) => Ok(SourceAttrType::resolve_single_file(
                 ctx,
-                BuckPath::new(pkg.dupe(), s.path().to_buf()),
+                BuckPath::new(pkg.dupe(), s.path().dupe()),
             )),
             AttrLiteral::SourceLabel(s) => SourceAttrType::resolve_single_label(ctx, s),
             AttrLiteral::Arg(arg) => arg.resolve(ctx),
@@ -272,7 +272,7 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
             AttrLiteral::Query(q) => heap.alloc(q.query.query()),
             AttrLiteral::SourceLabel(s) => heap.alloc(Label::new(*s.clone())),
             AttrLiteral::SourceFile(f) => heap.alloc(StarlarkArtifact::new(Artifact::from(
-                SourceArtifact::new(BuckPath::new(pkg.to_owned(), f.path().to_buf())),
+                SourceArtifact::new(BuckPath::new(pkg.to_owned(), f.path().dupe())),
             ))),
             AttrLiteral::Arg(arg) => heap.alloc(arg.to_string()),
             AttrLiteral::Label(l) => heap.alloc(Label::new(*l.clone())),

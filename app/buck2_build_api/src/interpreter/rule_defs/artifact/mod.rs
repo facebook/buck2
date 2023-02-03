@@ -123,7 +123,7 @@ pub mod testing {
                 ctx.cell_info().name().name(),
                 CellRelativePath::from_path(package).unwrap(),
             );
-            let path = BuckPath::new(
+            let path = BuckPath::testing_new(
                 package,
                 PackageRelativePathBuf::try_from(path.to_owned()).unwrap(),
             );

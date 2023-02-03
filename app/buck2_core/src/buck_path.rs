@@ -8,12 +8,12 @@
  */
 
 use allocative::Allocative;
+use buck2_util::arc_str::ArcS;
 use derive_more::Display;
 use dupe::Dupe;
 
 use crate::cells::cell_path::CellPath;
 use crate::package::package_relative_path::PackageRelativePath;
-use crate::package::package_relative_path::PackageRelativePathBuf;
 use crate::package::PackageLabel;
 
 /// Represents a resolvable path corresponding to some path that is part of a
@@ -33,13 +33,18 @@ use crate::package::PackageLabel;
 #[display(fmt = "{}", "self.as_ref()")]
 pub struct BuckPath {
     pkg: PackageLabel,
-    path: PackageRelativePathBuf,
+    path: ArcS<PackageRelativePath>,
 }
 
 impl BuckPath {
     #[inline]
-    pub fn new(pkg: PackageLabel, path: PackageRelativePathBuf) -> Self {
+    pub fn new(pkg: PackageLabel, path: ArcS<PackageRelativePath>) -> Self {
         BuckPath { pkg, path }
+    }
+
+    /// This is slow, but OK to use in tests.
+    pub fn testing_new(pkg: PackageLabel, path: impl AsRef<PackageRelativePath>) -> Self {
+        BuckPath::new(pkg, ArcS::from(path.as_ref()))
     }
 
     #[inline]
@@ -70,12 +75,12 @@ impl BuckPath {
 #[display(fmt = "{}/{}", pkg, "path.as_str()")]
 pub struct BuckPathRef<'a> {
     pkg: PackageLabel,
-    path: &'a PackageRelativePath,
+    path: &'a ArcS<PackageRelativePath>,
 }
 
 impl<'a> BuckPathRef<'a> {
     #[inline]
-    pub fn new(pkg: PackageLabel, path: &'a PackageRelativePath) -> BuckPathRef<'a> {
+    pub fn new(pkg: PackageLabel, path: &'a ArcS<PackageRelativePath>) -> BuckPathRef<'a> {
         BuckPathRef { pkg, path }
     }
 
@@ -91,14 +96,16 @@ impl<'a> BuckPathRef<'a> {
 
     #[inline]
     pub fn to_cell_path(&self) -> CellPath {
-        self.pkg.as_cell_path().join(self.path)
+        self.pkg
+            .as_cell_path()
+            .join(self.path.as_forward_rel_path())
     }
 
     #[inline]
     pub fn to_buck_path(&self) -> BuckPath {
         BuckPath {
             pkg: self.pkg.dupe(),
-            path: self.path.to_buf(),
+            path: self.path.dupe(),
         }
     }
 }
