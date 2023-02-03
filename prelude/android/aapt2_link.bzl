@@ -41,7 +41,7 @@ def get_aapt2_link(
     aapt2_command.add(["--proguard", proguard_config.as_output()])
 
     # We don't need the R.java output, but aapt2 won't output R.txt unless we also request R.java.
-    r_dot_java = ctx.actions.declare_output("initial-rdotjava")
+    r_dot_java = ctx.actions.declare_output("initial-rdotjava", dir = True)
     aapt2_command.add(["--java", r_dot_java.as_output()])
     r_dot_txt = ctx.actions.declare_output("R.txt")
     aapt2_command.add(["--output-text-symbols", r_dot_txt.as_output()])

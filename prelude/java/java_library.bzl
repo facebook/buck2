@@ -401,7 +401,7 @@ def _create_jar_artifact(
 
     generated_sources_dir = None
     if not skip_javac:
-        generated_sources_dir = actions.declare_output(declare_prefixed_name("generated_sources", actions_identifier))
+        generated_sources_dir = actions.declare_output(declare_prefixed_name("generated_sources", actions_identifier), dir = True)
         _append_javac_params(
             actions,
             actions_identifier,

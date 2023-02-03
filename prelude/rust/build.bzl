@@ -819,7 +819,7 @@ def _rustc_emits(
         # Strip file extension from directory name.
         base, _ext = paths.split_extension(output_filename(crate, emit, params))
         extra_dir = subdir + "/extras/" + base
-        extra_out = ctx.actions.declare_output(extra_dir)
+        extra_out = ctx.actions.declare_output(extra_dir, dir = True)
         emit_args.add(cmd_args(extra_out.as_output(), format = "--out-dir={}"))
 
         if ctx.attrs.incremental_enabled:
