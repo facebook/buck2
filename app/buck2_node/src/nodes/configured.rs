@@ -24,7 +24,7 @@ use buck2_core::collections::unordered_map::UnorderedMap;
 use buck2_core::configuration::pair::ConfigurationPairNoExec;
 use buck2_core::configuration::transition::applied::TransitionApplied;
 use buck2_core::configuration::transition::id::TransitionId;
-use buck2_core::configuration::Configuration;
+use buck2_core::configuration::ConfigurationData;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
@@ -174,7 +174,7 @@ struct ConfiguredTargetNodeData {
     // TODO(cjhopman): Should this be a diff against the node's deps?
     deps: ConfiguredTargetNodeDeps,
     exec_deps: ConfiguredTargetNodeDeps,
-    platform_cfgs: OrderedMap<TargetLabel, Configuration>,
+    platform_cfgs: OrderedMap<TargetLabel, ConfigurationData>,
 }
 
 impl Debug for ConfiguredTargetNodeData {
@@ -224,7 +224,7 @@ impl ConfiguredTargetNode {
         execution_platform_resolution: ExecutionPlatformResolution,
         deps: Vec<ConfiguredTargetNode>,
         exec_deps: Vec<ConfiguredTargetNode>,
-        platform_cfgs: OrderedMap<TargetLabel, Configuration>,
+        platform_cfgs: OrderedMap<TargetLabel, ConfigurationData>,
     ) -> Self {
         Self(Arc::new(Hashed::new(ConfiguredTargetNodeData {
             label: name,

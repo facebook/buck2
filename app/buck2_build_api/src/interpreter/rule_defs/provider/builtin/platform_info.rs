@@ -11,7 +11,7 @@ use std::fmt::Debug;
 
 use allocative::Allocative;
 use buck2_build_api_derive::internal_provider;
-use buck2_core::configuration::Configuration;
+use buck2_core::configuration::ConfigurationData;
 use gazebo::coerce::Coerce;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
@@ -35,8 +35,8 @@ pub(crate) struct PlatformInfoGen<V> {
 }
 
 impl<'v, V: ValueLike<'v>> PlatformInfoGen<V> {
-    pub fn to_configuration(&self) -> anyhow::Result<Configuration> {
-        Configuration::from_platform(
+    pub fn to_configuration(&self) -> anyhow::Result<ConfigurationData> {
+        ConfigurationData::from_platform(
             self.label
                 .to_value()
                 .unpack_str()
@@ -51,7 +51,7 @@ impl<'v, V: ValueLike<'v>> PlatformInfoGen<V> {
 
 impl<'v> PlatformInfo<'v> {
     pub(crate) fn from_configuration(
-        cfg: &Configuration,
+        cfg: &ConfigurationData,
         heap: &'v Heap,
     ) -> anyhow::Result<PlatformInfo<'v>> {
         let label = heap.alloc_str(cfg.label()?).to_value();

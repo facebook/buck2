@@ -749,8 +749,8 @@ mod tests {
     use buck2_core::cells::testing::CellResolverExt;
     use buck2_core::cells::CellAlias;
     use buck2_core::cells::CellResolver;
-    use buck2_core::configuration::Configuration;
     use buck2_core::configuration::ConfigurationData;
+    use buck2_core::configuration::ConfigurationDataData;
     use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
     use buck2_core::fs::project_rel_path::ProjectRelativePath;
     use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
@@ -825,7 +825,7 @@ mod tests {
             CellRelativePath::unchecked_new("baz-package"),
         );
         let target = TargetLabel::new(pkg, TargetNameRef::unchecked_new("target-name"));
-        let cfg_target = target.configure(Configuration::testing_new());
+        let cfg_target = target.configure(ConfigurationData::testing_new());
 
         let resolved = path_resolver.resolve_gen(&BuckOutPath::new(
             BaseDeferredKey::TargetLabel(cfg_target),
@@ -853,7 +853,7 @@ mod tests {
             CellRelativePath::unchecked_new("baz-package"),
         );
         let target = TargetLabel::new(pkg, TargetNameRef::unchecked_new("target-name"));
-        let cfg_target = target.configure(Configuration::testing_new());
+        let cfg_target = target.configure(ConfigurationData::testing_new());
 
         let resolved = path_resolver.resolve_gen(&BuckOutPath::new(
             BaseDeferredKey::TargetLabel(cfg_target.dupe()),
@@ -896,7 +896,7 @@ mod tests {
             CellRelativePath::unchecked_new("baz-package"),
         );
         let target = TargetLabel::new(pkg, TargetNameRef::unchecked_new("target-name"));
-        let cfg_target = target.configure(Configuration::testing_new());
+        let cfg_target = target.configure(ConfigurationData::testing_new());
 
         let full = BuckOutPath::new(
             BaseDeferredKey::TargetLabel(cfg_target.dupe()),
@@ -922,7 +922,7 @@ mod tests {
             CellRelativePath::unchecked_new("baz-package"),
         );
         let target = TargetLabel::new(pkg, TargetNameRef::unchecked_new("target-name"));
-        let cfg_target = target.configure(Configuration::testing_new());
+        let cfg_target = target.configure(ConfigurationData::testing_new());
         let category = Category::try_from("category").unwrap();
 
         // We expect these all to be valid paths, avoiding weird things we throw in
@@ -981,9 +981,9 @@ mod tests {
 
     #[test]
     fn test_buck_path_parser_validation() -> anyhow::Result<()> {
-        let configuration = Configuration::from_platform(
+        let configuration = ConfigurationData::from_platform(
             "cfg_for//:testing_exec".to_owned(),
-            ConfigurationData {
+            ConfigurationDataData {
                 constraints: BTreeMap::new(),
                 buckconfigs: BTreeMap::new(),
             },
@@ -1028,9 +1028,9 @@ mod tests {
 
     #[test]
     fn test_buck_path_parser() -> anyhow::Result<()> {
-        let configuration = Configuration::from_platform(
+        let configuration = ConfigurationData::from_platform(
             "cfg_for//:testing_exec".to_owned(),
-            ConfigurationData {
+            ConfigurationDataData {
                 constraints: BTreeMap::new(),
                 buckconfigs: BTreeMap::new(),
             },

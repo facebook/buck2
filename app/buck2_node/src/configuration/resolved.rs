@@ -14,8 +14,8 @@ use std::sync::Arc;
 use allocative::Allocative;
 use buck2_core::collections::unordered_map::UnorderedMap;
 use buck2_core::configuration::pair::ConfigurationPairNoExec;
-use buck2_core::configuration::Configuration;
 use buck2_core::configuration::ConfigurationData;
+use buck2_core::configuration::ConfigurationDataData;
 use buck2_core::target::label::TargetLabel;
 use dupe::Dupe;
 use starlark_map::Equivalent;
@@ -77,7 +77,10 @@ impl ResolvedConfiguration {
         &self.0.cfg
     }
 
-    pub fn setting_matches(&self, key: ConfigurationSettingKeyRef) -> Option<&ConfigurationData> {
+    pub fn setting_matches(
+        &self,
+        key: ConfigurationSettingKeyRef,
+    ) -> Option<&ConfigurationDataData> {
         let configuration_node = self.0.settings.get(&key).expect(
             "framework should've ensured all necessary configuration setting keys are present",
         );
@@ -88,7 +91,7 @@ impl ResolvedConfiguration {
         }
     }
 
-    pub fn matches(&self, label: &TargetLabel) -> Option<&ConfigurationData> {
+    pub fn matches(&self, label: &TargetLabel) -> Option<&ConfigurationDataData> {
         self.setting_matches(ConfigurationSettingKeyRef(label))
     }
 }
@@ -103,11 +106,11 @@ struct ConfigurationNodeData {
     // quite the same as what you would think of a ConfiguredTargetLabel. Importantly, we don't do analysis of the
     // target with this configuration, instead we interpret the results of the analysis of the target in the "unbound"
     // configuration within the context of this configuration.
-    cfg: Configuration,
+    cfg: ConfigurationData,
 
     label: TargetLabel,
 
-    configuration_data: ConfigurationData,
+    configuration_data: ConfigurationDataData,
 
     /// Indicates whether this node "matches" the configuration.
     ///
@@ -117,9 +120,9 @@ struct ConfigurationNodeData {
 
 impl ConfigurationNode {
     pub fn new(
-        cfg: Configuration,
+        cfg: ConfigurationData,
         label: TargetLabel,
-        configuration_data: ConfigurationData,
+        configuration_data: ConfigurationDataData,
         matches: bool,
     ) -> Self {
         Self(Arc::new(ConfigurationNodeData {
@@ -138,7 +141,7 @@ impl ConfigurationNode {
         &self.0.label
     }
 
-    pub fn configuration_data(&self) -> &ConfigurationData {
+    pub fn configuration_data(&self) -> &ConfigurationDataData {
         &self.0.configuration_data
     }
 }

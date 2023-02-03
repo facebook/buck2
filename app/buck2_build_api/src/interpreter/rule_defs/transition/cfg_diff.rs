@@ -13,11 +13,11 @@ use std::fmt::Write;
 
 use buck2_core::configuration::constraints::ConstraintKey;
 use buck2_core::configuration::constraints::ConstraintValue;
-use buck2_core::configuration::Configuration;
 use buck2_core::configuration::ConfigurationData;
+use buck2_core::configuration::ConfigurationDataData;
 
 /// If configurations are not equal, return difference.
-pub(crate) fn cfg_diff(a: &Configuration, b: &Configuration) -> Result<(), String> {
+pub(crate) fn cfg_diff(a: &ConfigurationData, b: &ConfigurationData) -> Result<(), String> {
     if a == b {
         return Ok(());
     }
@@ -46,7 +46,7 @@ pub(crate) fn cfg_diff(a: &Configuration, b: &Configuration) -> Result<(), Strin
         fn print_cfg_data_result_line(
             &mut self,
             sign: char,
-            data: anyhow::Result<&ConfigurationData>,
+            data: anyhow::Result<&ConfigurationDataData>,
         ) {
             match data {
                 Ok(_) => self.print_diff_line(sign, "data"),
@@ -123,15 +123,15 @@ pub(crate) fn cfg_diff(a: &Configuration, b: &Configuration) -> Result<(), Strin
             self.diff_btree_map(a, b, |k, v| format!("buckconfig: {} -> {}", k, v))
         }
 
-        fn diff_cfg_data(&mut self, a: &ConfigurationData, b: &ConfigurationData) {
+        fn diff_cfg_data(&mut self, a: &ConfigurationDataData, b: &ConfigurationDataData) {
             self.diff_constraints(&a.constraints, &b.constraints);
             self.diff_buckconfig(&a.buckconfigs, &b.buckconfigs);
         }
 
         fn diff_cfg_data_result(
             &mut self,
-            a: anyhow::Result<&ConfigurationData>,
-            b: anyhow::Result<&ConfigurationData>,
+            a: anyhow::Result<&ConfigurationDataData>,
+            b: anyhow::Result<&ConfigurationDataData>,
         ) {
             match (a, b) {
                 (Ok(a), Ok(b)) => self.diff_cfg_data(a, b),
@@ -156,8 +156,8 @@ mod tests {
 
     use buck2_core::configuration::constraints::ConstraintKey;
     use buck2_core::configuration::constraints::ConstraintValue;
-    use buck2_core::configuration::Configuration;
     use buck2_core::configuration::ConfigurationData;
+    use buck2_core::configuration::ConfigurationDataData;
     use buck2_core::target::label::testing::TargetLabelExt;
     use buck2_core::target::label::TargetLabel;
 
@@ -165,9 +165,9 @@ mod tests {
 
     #[test]
     fn test_diff() {
-        let x = Configuration::from_platform(
+        let x = ConfigurationData::from_platform(
             "xx".to_owned(),
-            ConfigurationData::new(
+            ConfigurationDataData::new(
                 BTreeMap::from_iter([
                     (
                         ConstraintKey(TargetLabel::testing_parse("foo//bar:c")),
@@ -182,9 +182,9 @@ mod tests {
             ),
         )
         .unwrap();
-        let y = Configuration::from_platform(
+        let y = ConfigurationData::from_platform(
             "yy".to_owned(),
-            ConfigurationData::new(
+            ConfigurationDataData::new(
                 BTreeMap::from_iter([
                     (
                         ConstraintKey(TargetLabel::testing_parse("foo//bar:c")),

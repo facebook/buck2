@@ -19,7 +19,7 @@ use buck2_core::collections::ordered_map::OrderedMap;
 use buck2_core::collections::sorted_map::SortedMap;
 use buck2_core::configuration::transition::applied::TransitionApplied;
 use buck2_core::configuration::transition::id::TransitionId;
-use buck2_core::configuration::Configuration;
+use buck2_core::configuration::ConfigurationData;
 use buck2_core::target::label::TargetLabel;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::display::AttrDisplayWithContextExt;
@@ -68,7 +68,7 @@ enum ApplyTransitionError {
 
 fn call_transition_function<'v>(
     transition: &FrozenTransition,
-    conf: &Configuration,
+    conf: &ConfigurationData,
     refs: Value<'v>,
     attrs: Option<Value<'v>>,
     eval: &mut Evaluator<'v, '_>,
@@ -108,7 +108,7 @@ fn call_transition_function<'v>(
 async fn do_apply_transition(
     ctx: &DiceComputations,
     attrs: Option<&[Option<CoercedAttr>]>,
-    conf: &Configuration,
+    conf: &ConfigurationData,
     transition_id: &TransitionId,
 ) -> SharedResult<TransitionApplied> {
     let transition = ctx.fetch_transition(transition_id).await?;
@@ -195,7 +195,7 @@ pub(crate) trait ApplyTransition {
     async fn apply_transition(
         &self,
         target_node: &TargetNode,
-        conf: &Configuration,
+        conf: &ConfigurationData,
         transition_id: &TransitionId,
     ) -> SharedResult<Arc<TransitionApplied>>;
 }
@@ -216,13 +216,13 @@ impl ApplyTransition for DiceComputations {
     async fn apply_transition(
         &self,
         target_node: &TargetNode,
-        cfg: &Configuration,
+        cfg: &ConfigurationData,
         transition_id: &TransitionId,
     ) -> SharedResult<Arc<TransitionApplied>> {
         #[derive(Debug, Eq, PartialEq, Hash, Clone, Display, Allocative)]
         #[display(fmt = "{} ({}){}", transition_id, cfg, "self.fmt_attrs()")]
         struct TransitionKey {
-            cfg: Configuration,
+            cfg: ConfigurationData,
             transition_id: TransitionId,
             /// Attributes which requested by transition function, not all attributes.
             /// The attr value index is the index of attribute in transition object.

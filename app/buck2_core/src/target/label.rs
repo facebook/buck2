@@ -24,7 +24,7 @@ use triomphe::ThinArc;
 
 use crate::configuration::pair::ConfigurationPair;
 use crate::configuration::pair::ConfigurationPairNoExec;
-use crate::configuration::Configuration;
+use crate::configuration::ConfigurationData;
 use crate::package::PackageLabel;
 use crate::target::name::TargetNameRef;
 
@@ -108,7 +108,7 @@ impl TargetLabel {
     /// Creates a 'ConfiguredTargetLabel' from ['Self'] based on the provided
     /// configuration.
     #[inline]
-    pub fn configure(&self, cfg: Configuration) -> ConfiguredTargetLabel {
+    pub fn configure(&self, cfg: ConfigurationData) -> ConfiguredTargetLabel {
         self.configure_pair(ConfigurationPair::new(cfg, None))
     }
 
@@ -116,8 +116,8 @@ impl TargetLabel {
     #[inline]
     pub fn configure_with_exec(
         &self,
-        cfg: Configuration,
-        exec_cfg: Configuration,
+        cfg: ConfigurationData,
+        exec_cfg: ConfigurationData,
     ) -> ConfiguredTargetLabel {
         self.configure_pair(ConfigurationPair::new(cfg, Some(exec_cfg)))
     }
@@ -186,12 +186,12 @@ impl ConfiguredTargetLabel {
     }
 
     #[inline]
-    pub fn cfg(&self) -> &Configuration {
+    pub fn cfg(&self) -> &ConfigurationData {
         self.cfg_pair.cfg()
     }
 
     #[inline]
-    pub fn exec_cfg(&self) -> Option<&Configuration> {
+    pub fn exec_cfg(&self) -> Option<&ConfigurationData> {
         self.cfg_pair.exec_cfg()
     }
 }
@@ -213,7 +213,7 @@ impl TargetLabelMaybeConfigured for ConfiguredTargetLabel {}
 
 pub mod testing {
     use crate::configuration::pair::ConfigurationPair;
-    use crate::configuration::Configuration;
+    use crate::configuration::ConfigurationData;
     use crate::package::testing::PackageExt;
     use crate::package::PackageLabel;
     use crate::target::label::ConfiguredTargetLabel;
@@ -226,7 +226,7 @@ pub mod testing {
         fn testing_new(
             pkg: PackageLabel,
             label: TargetName,
-            cfg: Configuration,
+            cfg: ConfigurationData,
         ) -> ConfiguredTargetLabel {
             ConfiguredTargetLabel {
                 target: TargetLabel::new(pkg, label.as_ref()),

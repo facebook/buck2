@@ -23,8 +23,8 @@ use buck2_core::configuration::pair::ConfigurationPairNoExec;
 use buck2_core::configuration::pair::ConfigurationPairWithExec;
 use buck2_core::configuration::transition::applied::TransitionApplied;
 use buck2_core::configuration::transition::id::TransitionId;
-use buck2_core::configuration::Configuration;
 use buck2_core::configuration::ConfigurationData;
+use buck2_core::configuration::ConfigurationDataData;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::lex_target_pattern;
 use buck2_core::pattern::ParsedPattern;
@@ -383,14 +383,14 @@ impl AnonTargetKey {
 
 /// Several attribute functions need a context, make one that is mostly useless.
 struct AnonAttrCtx {
-    cfg: Configuration,
+    cfg: ConfigurationData,
     transitions: OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>,
 }
 
 impl AnonAttrCtx {
     fn new() -> Self {
         Self {
-            cfg: Configuration::unspecified(),
+            cfg: ConfigurationData::unspecified(),
             transitions: OrderedMap::new(),
         }
     }
@@ -446,7 +446,7 @@ impl AttrCoercionContext for AnonAttrCtx {
 }
 
 impl AttrConfigurationContext for AnonAttrCtx {
-    fn matches<'a>(&'a self, _label: &TargetLabel) -> Option<&'a ConfigurationData> {
+    fn matches<'a>(&'a self, _label: &TargetLabel) -> Option<&'a ConfigurationDataData> {
         None
     }
 
@@ -462,7 +462,7 @@ impl AttrConfigurationContext for AnonAttrCtx {
         ConfigurationPairWithExec::new(self.cfg.dupe(), self.cfg.dupe())
     }
 
-    fn platform_cfg(&self, _label: &TargetLabel) -> anyhow::Result<Configuration> {
+    fn platform_cfg(&self, _label: &TargetLabel) -> anyhow::Result<ConfigurationData> {
         Ok(self.cfg.dupe())
     }
 

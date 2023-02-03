@@ -516,7 +516,7 @@ mod tests {
     use buck2_core::cells::paths::CellRelativePath;
     use buck2_core::cells::testing::CellResolverExt;
     use buck2_core::cells::CellResolver;
-    use buck2_core::configuration::Configuration;
+    use buck2_core::configuration::ConfigurationData;
     use buck2_core::fs::fs_util;
     use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
     use buck2_core::fs::project::ProjectRootTemp;
@@ -702,7 +702,7 @@ mod tests {
         let label = ConfiguredTargetLabel::testing_new(
             pkg,
             TargetName::unchecked_new("foo"),
-            Configuration::testing_new(),
+            ConfigurationData::testing_new(),
         );
         let outputs = indexset![BuildArtifact::testing_new(
             label.dupe(),

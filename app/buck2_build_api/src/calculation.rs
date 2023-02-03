@@ -16,7 +16,7 @@ use buck2_common::dice::data::HasIoProvider;
 use buck2_common::pattern::package_roots::find_package_roots_stream;
 use buck2_common::pattern::resolve::ResolvedPattern;
 use buck2_common::result::SharedResult;
-use buck2_core::configuration::Configuration;
+use buck2_core::configuration::ConfigurationData;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::PackageSpec;
 use buck2_core::pattern::ParsedPattern;
@@ -76,9 +76,13 @@ pub trait ConfigurableTarget: Send + Sync {
 
     fn target(&self) -> &TargetLabel;
 
-    fn configure(&self, cfg: Configuration) -> Self::Configured;
+    fn configure(&self, cfg: ConfigurationData) -> Self::Configured;
 
-    fn configure_with_exec(&self, cfg: Configuration, exec_cfg: Configuration) -> Self::Configured;
+    fn configure_with_exec(
+        &self,
+        cfg: ConfigurationData,
+        exec_cfg: ConfigurationData,
+    ) -> Self::Configured;
 }
 
 impl ConfigurableTarget for TargetLabel {
@@ -88,11 +92,15 @@ impl ConfigurableTarget for TargetLabel {
         self
     }
 
-    fn configure(&self, cfg: Configuration) -> Self::Configured {
+    fn configure(&self, cfg: ConfigurationData) -> Self::Configured {
         self.configure(cfg)
     }
 
-    fn configure_with_exec(&self, cfg: Configuration, exec_cfg: Configuration) -> Self::Configured {
+    fn configure_with_exec(
+        &self,
+        cfg: ConfigurationData,
+        exec_cfg: ConfigurationData,
+    ) -> Self::Configured {
         self.configure_with_exec(cfg, exec_cfg)
     }
 }
@@ -104,11 +112,15 @@ impl ConfigurableTarget for ProvidersLabel {
         self.target()
     }
 
-    fn configure(&self, cfg: Configuration) -> Self::Configured {
+    fn configure(&self, cfg: ConfigurationData) -> Self::Configured {
         self.configure(cfg)
     }
 
-    fn configure_with_exec(&self, cfg: Configuration, exec_cfg: Configuration) -> Self::Configured {
+    fn configure_with_exec(
+        &self,
+        cfg: ConfigurationData,
+        exec_cfg: ConfigurationData,
+    ) -> Self::Configured {
         self.configure_with_exec(cfg, exec_cfg)
     }
 }
@@ -197,7 +209,7 @@ impl<'c> Calculation<'c> for DiceComputations {
     ) -> anyhow::Result<T::Configured> {
         let node = self.get_target_node(target.target()).await?;
 
-        let get_platform_configuration = async || -> SharedResult<Configuration> {
+        let get_platform_configuration = async || -> SharedResult<ConfigurationData> {
             Ok(match global_target_platform {
                 Some(global_target_platform) => {
                     self.get_platform_configuration(global_target_platform)
@@ -211,7 +223,7 @@ impl<'c> Calculation<'c> for DiceComputations {
         };
 
         match node.rule_kind() {
-            RuleKind::Configuration => Ok(target.configure(Configuration::unbound())),
+            RuleKind::Configuration => Ok(target.configure(ConfigurationData::unbound())),
             RuleKind::Normal => Ok(target.configure(get_platform_configuration().await?)),
             RuleKind::Toolchain => {
                 let cfg = get_platform_configuration().await?;

@@ -15,7 +15,7 @@ use buck2_build_api::calculation::Calculation;
 use buck2_cli_proto::ClientContext;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
-use buck2_core::configuration::Configuration;
+use buck2_core::configuration::ConfigurationData;
 use buck2_core::target::name::TargetName;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
@@ -68,7 +68,7 @@ impl AuditSubcommand for AuditExecutionPlatformResolutionCommand {
                                 ));
                             }
                         };
-                        let cfg = Configuration::lookup_from_string(cfg_str)?;
+                        let cfg = ConfigurationData::lookup_from_string(cfg_str)?;
                         let target = pattern_parser
                             .parse_pattern::<TargetName>(target)?
                             .as_target_label(target)?;

@@ -966,7 +966,7 @@ mod tests {
     use std::sync::Arc;
 
     use allocative::Allocative;
-    use buck2_core::configuration::Configuration;
+    use buck2_core::configuration::ConfigurationData;
     use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
     use buck2_core::fs::project::ProjectRoot;
     use buck2_core::package::testing::PackageExt;
@@ -1078,7 +1078,7 @@ mod tests {
         BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_new(
             PackageLabel::testing_new("cell", "pkg"),
             TargetName::unchecked_new("foo"),
-            Configuration::testing_new(),
+            ConfigurationData::testing_new(),
         ))
     }
 
@@ -1136,7 +1136,7 @@ mod tests {
         let base = BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_new(
             PackageLabel::testing_new("cell", "pkg"),
             TargetName::unchecked_new("foo"),
-            Configuration::testing_new(),
+            ConfigurationData::testing_new(),
         ));
         let mut registry = DeferredRegistry::new(BaseKey::Base(base.dupe()));
 
@@ -1188,7 +1188,7 @@ mod tests {
         let target = ConfiguredTargetLabel::testing_new(
             PackageLabel::testing_new("cell", "pkg"),
             TargetName::unchecked_new("foo"),
-            Configuration::testing_new(),
+            ConfigurationData::testing_new(),
         );
         let id = DeferredId {
             id: 1,
@@ -1275,7 +1275,7 @@ mod tests {
         let base = BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_new(
             PackageLabel::testing_new("cell", "pkg"),
             TargetName::unchecked_new("foo"),
-            Configuration::testing_new(),
+            ConfigurationData::testing_new(),
         ));
         let mut registry = DeferredRegistry::new(BaseKey::Base(base));
 
@@ -1326,7 +1326,7 @@ mod tests {
         let base = BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_new(
             PackageLabel::testing_new("cell", "pkg"),
             TargetName::unchecked_new("foo"),
-            Configuration::testing_new(),
+            ConfigurationData::testing_new(),
         ));
         let mut registry = DeferredRegistry::new(BaseKey::Base(base));
 
@@ -1341,7 +1341,7 @@ mod tests {
         let base = BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_new(
             PackageLabel::testing_new("cell", "pkg"),
             TargetName::unchecked_new("foo"),
-            Configuration::testing_new(),
+            ConfigurationData::testing_new(),
         ));
         let mut registry = DeferredRegistry::new(BaseKey::Base(base));
 

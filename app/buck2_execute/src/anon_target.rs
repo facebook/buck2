@@ -15,7 +15,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_core::collections::sorted_map::SortedMap;
-use buck2_core::configuration::Configuration;
+use buck2_core::configuration::ConfigurationData;
 use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_data::ToProtoMessage;
@@ -34,7 +34,7 @@ pub struct AnonTarget {
     /// The hash of the `rule_type` and `attrs`
     hash: String,
     /// The execution configuration - same as the parent.
-    exec_cfg: Configuration,
+    exec_cfg: ConfigurationData,
 }
 
 impl fmt::Display for AnonTarget {
@@ -69,7 +69,7 @@ impl AnonTarget {
         rule_type: Arc<StarlarkRuleType>,
         name: TargetLabel,
         attrs: SortedMap<String, ConfiguredAttr>,
-        exec_cfg: Configuration,
+        exec_cfg: ConfigurationData,
     ) -> Self {
         let hash = Self::mk_hash(&rule_type, &attrs);
         Self {
@@ -97,13 +97,13 @@ impl AnonTarget {
         &self.hash
     }
 
-    pub fn exec_cfg(&self) -> &Configuration {
+    pub fn exec_cfg(&self) -> &ConfigurationData {
         &self.exec_cfg
     }
 
     pub fn configured_label(&self) -> ConfiguredTargetLabel {
         // We need a configured label, but we don't have a real configuration (because it doesn't make sense),
         // so create a dummy version
-        self.name().configure(Configuration::unspecified())
+        self.name().configure(ConfigurationData::unspecified())
     }
 }

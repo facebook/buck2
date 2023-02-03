@@ -16,8 +16,8 @@ use buck2_core::configuration::pair::ConfigurationPairNoExec;
 use buck2_core::configuration::pair::ConfigurationPairWithExec;
 use buck2_core::configuration::transition::applied::TransitionApplied;
 use buck2_core::configuration::transition::id::TransitionId;
-use buck2_core::configuration::Configuration;
 use buck2_core::configuration::ConfigurationData;
+use buck2_core::configuration::ConfigurationDataData;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::TargetLabel;
@@ -36,7 +36,7 @@ pub enum PlatformConfigurationError {
 /// configuration.
 pub trait AttrConfigurationContext {
     /// Return the content of the resolved `config_setting` on match.
-    fn matches<'a>(&'a self, label: &TargetLabel) -> Option<&'a ConfigurationData>;
+    fn matches<'a>(&'a self, label: &TargetLabel) -> Option<&'a ConfigurationDataData>;
 
     fn cfg(&self) -> ConfigurationPairNoExec;
 
@@ -45,7 +45,7 @@ pub trait AttrConfigurationContext {
     /// Must be equal to `(cfg, Some(exec_cfg))`.
     fn toolchain_cfg(&self) -> ConfigurationPairWithExec;
 
-    fn platform_cfg(&self, label: &TargetLabel) -> anyhow::Result<Configuration>;
+    fn platform_cfg(&self, label: &TargetLabel) -> anyhow::Result<ConfigurationData>;
 
     /// Map of transition ids resolved to configurations
     /// using current node configuration as input.
@@ -102,7 +102,7 @@ pub struct AttrConfigurationContextImpl<'b> {
     /// Must be equal to `(cfg, Some(exec_cfg))`.
     toolchain_cfg: ConfigurationPairWithExec,
     resolved_transitions: &'b OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>,
-    platform_cfgs: &'b OrderedMap<TargetLabel, Configuration>,
+    platform_cfgs: &'b OrderedMap<TargetLabel, ConfigurationData>,
 }
 
 impl<'b> AttrConfigurationContextImpl<'b> {
@@ -110,7 +110,7 @@ impl<'b> AttrConfigurationContextImpl<'b> {
         resolved_cfg: &'b ResolvedConfiguration,
         exec_cfg: ConfigurationPairNoExec,
         resolved_transitions: &'b OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>,
-        platform_cfgs: &'b OrderedMap<TargetLabel, Configuration>,
+        platform_cfgs: &'b OrderedMap<TargetLabel, ConfigurationData>,
     ) -> AttrConfigurationContextImpl<'b> {
         AttrConfigurationContextImpl {
             resolved_cfg,
@@ -123,7 +123,7 @@ impl<'b> AttrConfigurationContextImpl<'b> {
 }
 
 impl<'b> AttrConfigurationContext for AttrConfigurationContextImpl<'b> {
-    fn matches<'a>(&'a self, label: &TargetLabel) -> Option<&'a ConfigurationData> {
+    fn matches<'a>(&'a self, label: &TargetLabel) -> Option<&'a ConfigurationDataData> {
         self.resolved_cfg
             .setting_matches(ConfigurationSettingKeyRef(label))
     }
@@ -140,7 +140,7 @@ impl<'b> AttrConfigurationContext for AttrConfigurationContextImpl<'b> {
         self.toolchain_cfg.dupe()
     }
 
-    fn platform_cfg(&self, label: &TargetLabel) -> anyhow::Result<Configuration> {
+    fn platform_cfg(&self, label: &TargetLabel) -> anyhow::Result<ConfigurationData> {
         match self.platform_cfgs.get(label) {
             Some(configuration) => Ok(configuration.dupe()),
             None => Err(anyhow::anyhow!(

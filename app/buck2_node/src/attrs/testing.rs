@@ -15,15 +15,19 @@ use buck2_core::configuration::pair::ConfigurationPairNoExec;
 use buck2_core::configuration::pair::ConfigurationPairWithExec;
 use buck2_core::configuration::transition::applied::TransitionApplied;
 use buck2_core::configuration::transition::id::TransitionId;
-use buck2_core::configuration::Configuration;
 use buck2_core::configuration::ConfigurationData;
+use buck2_core::configuration::ConfigurationDataData;
 use buck2_core::target::label::TargetLabel;
 use dupe::Dupe;
 
 use crate::attrs::configuration_context::AttrConfigurationContext;
 
 pub fn configuration_ctx() -> impl AttrConfigurationContext {
-    struct TestAttrConfigurationContext(Configuration, Configuration, ConfigurationData);
+    struct TestAttrConfigurationContext(
+        ConfigurationData,
+        ConfigurationData,
+        ConfigurationDataData,
+    );
     impl AttrConfigurationContext for TestAttrConfigurationContext {
         fn cfg(&self) -> ConfigurationPairNoExec {
             ConfigurationPairNoExec::new(self.0.dupe())
@@ -33,7 +37,7 @@ pub fn configuration_ctx() -> impl AttrConfigurationContext {
             ConfigurationPairNoExec::new(self.1.dupe())
         }
 
-        fn matches<'a>(&'a self, label: &TargetLabel) -> Option<&'a ConfigurationData> {
+        fn matches<'a>(&'a self, label: &TargetLabel) -> Option<&'a ConfigurationDataData> {
             match label.to_string().as_ref() {
                 "root//other:config" => Some(&self.2),
                 _ => None,
@@ -44,7 +48,7 @@ pub fn configuration_ctx() -> impl AttrConfigurationContext {
             ConfigurationPairWithExec::new(self.0.dupe(), self.1.dupe())
         }
 
-        fn platform_cfg(&self, _label: &TargetLabel) -> anyhow::Result<Configuration> {
+        fn platform_cfg(&self, _label: &TargetLabel) -> anyhow::Result<ConfigurationData> {
             panic!("not used in tests")
         }
 
@@ -54,16 +58,16 @@ pub fn configuration_ctx() -> impl AttrConfigurationContext {
     }
 
     TestAttrConfigurationContext(
-        Configuration::testing_new(),
-        Configuration::from_platform(
+        ConfigurationData::testing_new(),
+        ConfigurationData::from_platform(
             "cfg_for//:testing_exec".to_owned(),
-            ConfigurationData {
+            ConfigurationDataData {
                 constraints: BTreeMap::new(),
                 buckconfigs: BTreeMap::new(),
             },
         )
         .unwrap(),
-        ConfigurationData {
+        ConfigurationDataData {
             constraints: BTreeMap::new(),
             buckconfigs: BTreeMap::new(),
         },

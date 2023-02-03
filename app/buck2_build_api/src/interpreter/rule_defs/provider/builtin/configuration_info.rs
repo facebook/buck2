@@ -15,7 +15,7 @@ use buck2_build_api_derive::internal_provider;
 use buck2_common::legacy_configs::parse_config_section_and_key;
 use buck2_core::configuration::constraints::ConstraintKey;
 use buck2_core::configuration::constraints::ConstraintValue;
-use buck2_core::configuration::ConfigurationData;
+use buck2_core::configuration::ConfigurationDataData;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use dupe::Dupe;
 use gazebo::coerce::coerce;
@@ -52,7 +52,7 @@ pub(crate) struct ConfigurationInfoGen<V> {
 }
 
 impl<'v, V: ValueLike<'v>> ConfigurationInfoGen<V> {
-    pub fn to_configuration_data(&self) -> ConfigurationData {
+    pub fn to_configuration_data(&self) -> ConfigurationDataData {
         let constraints =
             DictRef::from_value(self.constraints.to_value()).expect("type checked on construction");
         let mut converted_constraints = BTreeMap::new();
@@ -76,13 +76,13 @@ impl<'v, V: ValueLike<'v>> ConfigurationInfoGen<V> {
             converted_values.insert(key_config, value_config);
         }
 
-        ConfigurationData::new(converted_constraints, converted_values)
+        ConfigurationDataData::new(converted_constraints, converted_values)
     }
 }
 
 impl<'v> ConfigurationInfo<'v> {
     /// Create a provider from configuration data.
-    pub fn from_configuration_data(conf: &ConfigurationData, heap: &'v Heap) -> Self {
+    pub fn from_configuration_data(conf: &ConfigurationDataData, heap: &'v Heap) -> Self {
         let mut constraints = SmallMap::new();
         for (k, v) in &conf.constraints {
             let constraint_setting_label =

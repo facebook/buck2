@@ -21,7 +21,7 @@ use thiserror::Error;
 
 use crate::ascii_char_set::AsciiCharSet;
 use crate::configuration::pair::ConfigurationPair;
-use crate::configuration::Configuration;
+use crate::configuration::ConfigurationData;
 use crate::target::label::ConfiguredTargetLabel;
 use crate::target::label::TargetLabel;
 
@@ -153,7 +153,7 @@ impl ProvidersLabel {
 
     /// Creates a 'ConfiguredProvidersLabel' from ['Self'] based on the provided
     /// configuration.
-    pub fn configure(&self, cfg: Configuration) -> ConfiguredProvidersLabel {
+    pub fn configure(&self, cfg: ConfigurationData) -> ConfiguredProvidersLabel {
         ConfiguredProvidersLabel {
             target: self.target.configure(cfg),
             name: self.name.clone(),
@@ -163,8 +163,8 @@ impl ProvidersLabel {
     /// Like `configure`, but forces the execution configuration too.
     pub fn configure_with_exec(
         &self,
-        cfg: Configuration,
-        exec_cfg: Configuration,
+        cfg: ConfigurationData,
+        exec_cfg: ConfigurationData,
     ) -> ConfiguredProvidersLabel {
         ConfiguredProvidersLabel {
             target: self.target.configure_with_exec(cfg, exec_cfg),
@@ -218,7 +218,7 @@ impl ConfiguredProvidersLabel {
     }
 
     #[inline]
-    pub fn cfg(&self) -> &Configuration {
+    pub fn cfg(&self) -> &ConfigurationData {
         self.target.cfg()
     }
 

@@ -236,7 +236,7 @@ impl ArtifactGroupValuesDyn for ArtifactGroupValues {
 
 #[cfg(test)]
 mod tests {
-    use buck2_core::configuration::Configuration;
+    use buck2_core::configuration::ConfigurationData;
     use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
     use buck2_core::package::testing::PackageExt;
     use buck2_core::package::PackageLabel;
@@ -255,7 +255,7 @@ mod tests {
         let target = ConfiguredTargetLabel::testing_new(
             PackageLabel::testing_new("cell", "pkg"),
             TargetName::unchecked_new("foo"),
-            Configuration::testing_new(),
+            ConfigurationData::testing_new(),
         );
 
         let artifact = BuildArtifact::testing_new(

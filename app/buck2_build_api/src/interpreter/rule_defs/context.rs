@@ -1051,7 +1051,7 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
 
 #[cfg(test)]
 mod tests {
-    use buck2_core::configuration::Configuration;
+    use buck2_core::configuration::ConfigurationData;
     use buck2_core::provider::label::ConfiguredProvidersLabel;
     use buck2_core::provider::label::ProvidersName;
     use buck2_core::target::label::testing::TargetLabelExt;
@@ -1106,7 +1106,7 @@ mod tests {
         let mut eval = Evaluator::new(&env);
         eval.set_loader(&file_loader);
         let label = TargetLabel::testing_parse("root//foo/bar:some_name")
-            .configure(Configuration::testing_new());
+            .configure(ConfigurationData::testing_new());
         let registry = AnalysisRegistry::new_from_owner(
             BaseDeferredKey::TargetLabel(label.dupe()),
             ExecutionPlatformResolution::unspecified(),

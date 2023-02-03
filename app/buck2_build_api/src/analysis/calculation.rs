@@ -439,7 +439,7 @@ mod tests {
     use buck2_core::cells::CellAliasResolver;
     use buck2_core::cells::CellsAggregator;
     use buck2_core::collections::ordered_map::OrderedMap;
-    use buck2_core::configuration::Configuration;
+    use buck2_core::configuration::ConfigurationData;
     use buck2_core::fs::project::ProjectRootTemp;
     use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
     use buck2_core::package::testing::PackageExt;
@@ -595,7 +595,7 @@ mod tests {
         let analysis = dice
             .get_analysis_result(
                 &TargetLabel::testing_parse("cell//pkg:rule1")
-                    .configure(Configuration::testing_new()),
+                    .configure(ConfigurationData::testing_new()),
             )
             .await?
             .require_compatible()?;

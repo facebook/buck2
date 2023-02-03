@@ -9,7 +9,7 @@
 
 #[cfg(test)]
 pub mod testing {
-    use buck2_core::configuration::Configuration;
+    use buck2_core::configuration::ConfigurationData;
     use buck2_core::pattern::ParsedPattern;
     use buck2_core::pattern::ProvidersPattern;
     use buck2_interpreter::extra::BuildContext;
@@ -33,7 +33,9 @@ pub mod testing {
                     panic!();
                 }
             };
-            Ok(Label::new(target.configure(Configuration::testing_new())))
+            Ok(Label::new(
+                target.configure(ConfigurationData::testing_new()),
+            ))
         }
     }
 }

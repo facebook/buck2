@@ -11,7 +11,7 @@ use std::io::Write;
 
 use async_trait::async_trait;
 use buck2_cli_proto::ClientContext;
-use buck2_core::configuration::Configuration;
+use buck2_core::configuration::ConfigurationData;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use itertools::Itertools;
 
@@ -45,7 +45,7 @@ impl AuditSubcommand for AuditConfigurationsCommand {
         let mut stdout = server_ctx.stdout()?;
 
         if self.configs.is_empty() {
-            for cfg in Configuration::iter_existing()?
+            for cfg in ConfigurationData::iter_existing()?
                 .filter(|c| c.is_bound())
                 .sorted_by_cached_key(|c| c.full_name().to_owned())
             {
@@ -53,7 +53,7 @@ impl AuditSubcommand for AuditConfigurationsCommand {
             }
         } else {
             for cfg in &self.configs {
-                let cfg = Configuration::lookup_from_string(cfg)?;
+                let cfg = ConfigurationData::lookup_from_string(cfg)?;
                 print_cfg(&mut stdout, &cfg)?;
             }
         }
@@ -66,7 +66,7 @@ impl AuditSubcommand for AuditConfigurationsCommand {
     }
 }
 
-fn print_cfg(stdout: &mut impl Write, cfg: &Configuration) -> anyhow::Result<()> {
+fn print_cfg(stdout: &mut impl Write, cfg: &ConfigurationData) -> anyhow::Result<()> {
     writeln!(stdout, "{}:", cfg.full_name())?;
     let data = cfg.data()?;
     for (constraint_key, constraint_value) in data

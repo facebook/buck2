@@ -13,7 +13,7 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_common::result::SharedResult;
 use buck2_core::cells::name::CellName;
-use buck2_core::configuration::Configuration;
+use buck2_core::configuration::ConfigurationData;
 use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_node::configuration::execution::ExecutionPlatform;
@@ -59,23 +59,23 @@ impl ExecutionPlatformsData {
 
 #[async_trait]
 pub trait ConfigurationCalculation {
-    async fn get_default_platform(&self, target: &TargetLabel) -> SharedResult<Configuration>;
+    async fn get_default_platform(&self, target: &TargetLabel) -> SharedResult<ConfigurationData>;
 
     async fn get_platform_configuration(
         &self,
         target: &TargetLabel,
-    ) -> anyhow::Result<Configuration>;
+    ) -> anyhow::Result<ConfigurationData>;
 
     async fn get_resolved_configuration<'a, T: Iterator<Item = &'a TargetLabel> + Send>(
         &self,
-        target_cfg: &Configuration,
+        target_cfg: &ConfigurationData,
         target_node_cell: CellName,
         configuration_deps: T,
     ) -> SharedResult<ResolvedConfiguration>;
 
     async fn get_configuration_node(
         &self,
-        target_cfg: &Configuration,
+        target_cfg: &ConfigurationData,
         target_cell: CellName,
         cfg_target: &TargetLabel,
     ) -> SharedResult<ConfigurationNode>;

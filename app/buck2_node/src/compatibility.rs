@@ -143,7 +143,7 @@ impl Display for IncompatiblePlatformReason {
 
 #[cfg(test)]
 mod tests {
-    use buck2_core::configuration::Configuration;
+    use buck2_core::configuration::ConfigurationData;
     use buck2_core::target::label::testing::TargetLabelExt;
     use buck2_core::target::label::TargetLabel;
 
@@ -151,8 +151,9 @@ mod tests {
 
     #[test]
     fn test_skipping_message_for_multiple() {
-        let set =
-            vec![TargetLabel::testing_parse("//foo:bar").configure(Configuration::testing_new())];
+        let set = vec![
+            TargetLabel::testing_parse("//foo:bar").configure(ConfigurationData::testing_new()),
+        ];
         assert_eq!(
             "Skipped 1 incompatible targets:\n  //foo:bar (<testing>)\n",
             &IncompatiblePlatformReason::skipping_message_for_multiple(&set)
@@ -165,7 +166,7 @@ mod tests {
 
             set.push(
                 TargetLabel::testing_parse(&format!("//foo:bar{}", i))
-                    .configure(Configuration::testing_new()),
+                    .configure(ConfigurationData::testing_new()),
             );
         }
         assert_eq!(

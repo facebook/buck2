@@ -8,7 +8,7 @@
  */
 
 use allocative::Allocative;
-use buck2_core::configuration::Configuration;
+use buck2_core::configuration::ConfigurationData;
 use derive_more::Display;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::Methods;
@@ -18,7 +18,7 @@ use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 
 #[derive(Debug, PartialEq, Display, ProvidesStaticType, NoSerialize, Allocative)]
-pub struct StarlarkConfiguration(pub Configuration);
+pub struct StarlarkConfiguration(pub ConfigurationData);
 
 starlark_simple_value!(StarlarkConfiguration);
 

@@ -125,7 +125,7 @@ fn dependency_functions(builder: &mut MethodsBuilder) {
 #[cfg(test)]
 mod tests {
     use buck2_common::result::SharedResult;
-    use buck2_core::configuration::Configuration;
+    use buck2_core::configuration::ConfigurationData;
     use buck2_core::pattern::ParsedPattern;
     use buck2_core::pattern::ProvidersPattern;
     use buck2_interpreter::extra::BuildContext;
@@ -152,7 +152,7 @@ mod tests {
             ) {
                 Ok(ParsedPattern::Target(package, pattern)) => pattern
                     .into_providers_label(package)
-                    .configure(Configuration::testing_new()),
+                    .configure(ConfigurationData::testing_new()),
                 _ => {
                     eprintln!("Expected a target, not {}", s);
                     panic!();

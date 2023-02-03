@@ -258,7 +258,7 @@ mod tests {
     use buck2_common::executor_config::CommandExecutorConfig;
     use buck2_core::category::Category;
     use buck2_core::configuration::pair::ConfigurationPairNoExec;
-    use buck2_core::configuration::Configuration;
+    use buck2_core::configuration::ConfigurationData;
     use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
     use buck2_core::package::testing::PackageExt;
     use buck2_core::package::PackageLabel;
@@ -291,7 +291,7 @@ mod tests {
         let base = BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_new(
             PackageLabel::testing_new("cell", "pkg"),
             TargetName::unchecked_new("foo"),
-            Configuration::testing_new(),
+            ConfigurationData::testing_new(),
         ));
         let mut actions =
             ActionsRegistry::new(base.dupe(), ExecutionPlatformResolution::unspecified());
@@ -327,7 +327,7 @@ mod tests {
         let target = ConfiguredTargetLabel::testing_new(
             PackageLabel::testing_new("cell", "pkg"),
             TargetName::unchecked_new("my_target"),
-            Configuration::testing_new(),
+            ConfigurationData::testing_new(),
         );
         let mut actions = ActionsRegistry::new(
             BaseDeferredKey::TargetLabel(target.dupe()),
@@ -390,7 +390,7 @@ mod tests {
         let base = BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_new(
             PackageLabel::testing_new("cell", "pkg"),
             TargetName::unchecked_new("foo"),
-            Configuration::testing_new(),
+            ConfigurationData::testing_new(),
         ));
         let mut deferreds = DeferredRegistry::new(BaseKey::Base(base.dupe()));
         let mut actions =
@@ -433,7 +433,7 @@ mod tests {
         let base = BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_new(
             PackageLabel::testing_new("cell", "pkg"),
             TargetName::unchecked_new("foo"),
-            Configuration::testing_new(),
+            ConfigurationData::testing_new(),
         ));
         let mut deferreds = DeferredRegistry::new(BaseKey::Base(base.dupe()));
         let mut actions = ActionsRegistry::new(
@@ -523,7 +523,7 @@ mod tests {
         let base = BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_new(
             PackageLabel::testing_new("cell", "pkg"),
             TargetName::unchecked_new("foo"),
-            Configuration::testing_new(),
+            ConfigurationData::testing_new(),
         ));
         let mut deferreds = DeferredRegistry::new(BaseKey::Base(base.dupe()));
         let mut actions = ActionsRegistry::new(

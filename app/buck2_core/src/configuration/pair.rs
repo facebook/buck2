@@ -14,7 +14,7 @@ use internment_tweaks::Intern;
 use internment_tweaks::StaticInterner;
 use once_cell::sync::Lazy;
 
-use crate::configuration::Configuration;
+use crate::configuration::ConfigurationData;
 
 #[derive(Debug, thiserror::Error)]
 enum ConfigurationPairError {
@@ -24,9 +24,9 @@ enum ConfigurationPairError {
 
 #[derive(Debug, Allocative, Hash, Eq, PartialEq, Ord, PartialOrd)]
 struct ConfigurationPairData {
-    cfg: Configuration,
+    cfg: ConfigurationData,
     /// Usually this is None, but for toolchain deps where the exec_cfg isn't picked it is set
-    exec_cfg: Option<Configuration>,
+    exec_cfg: Option<ConfigurationData>,
 }
 
 /// Pair of `cfg` and `exec_cfg`.
@@ -38,17 +38,17 @@ static INTERNER: StaticInterner<ConfigurationPairData, FnvHasher> = StaticIntern
 
 impl ConfigurationPair {
     #[inline]
-    pub fn new(cfg: Configuration, exec_cfg: Option<Configuration>) -> ConfigurationPair {
+    pub fn new(cfg: ConfigurationData, exec_cfg: Option<ConfigurationData>) -> ConfigurationPair {
         ConfigurationPair(INTERNER.intern(ConfigurationPairData { cfg, exec_cfg }))
     }
 
     #[inline]
-    pub fn cfg(&self) -> &Configuration {
+    pub fn cfg(&self) -> &ConfigurationData {
         &self.0.cfg
     }
 
     #[inline]
-    pub fn exec_cfg(&self) -> Option<&Configuration> {
+    pub fn exec_cfg(&self) -> Option<&ConfigurationData> {
         self.0.exec_cfg.as_ref()
     }
 
@@ -67,42 +67,42 @@ pub struct ConfigurationPairNoExec(ConfigurationPair);
 
 impl ConfigurationPairNoExec {
     #[inline]
-    pub fn new(cfg: Configuration) -> ConfigurationPairNoExec {
+    pub fn new(cfg: ConfigurationData) -> ConfigurationPairNoExec {
         ConfigurationPairNoExec(ConfigurationPair::new(cfg, None))
     }
 
     #[inline]
     pub fn unbound() -> ConfigurationPairNoExec {
         static UNBOUND: Lazy<ConfigurationPairNoExec> =
-            Lazy::new(|| ConfigurationPairNoExec::new(Configuration::unbound()));
+            Lazy::new(|| ConfigurationPairNoExec::new(ConfigurationData::unbound()));
         UNBOUND.dupe()
     }
 
     #[inline]
     pub fn unspecified_exec() -> Self {
         static UNSPECIFIED_EXEC: Lazy<ConfigurationPairNoExec> =
-            Lazy::new(|| ConfigurationPairNoExec::new(Configuration::unspecified_exec()));
+            Lazy::new(|| ConfigurationPairNoExec::new(ConfigurationData::unspecified_exec()));
         UNSPECIFIED_EXEC.dupe()
     }
 
     #[inline]
     pub fn unbound_exec() -> Self {
         static UNBOUND_EXEC: Lazy<ConfigurationPairNoExec> =
-            Lazy::new(|| ConfigurationPairNoExec::new(Configuration::unbound_exec()));
+            Lazy::new(|| ConfigurationPairNoExec::new(ConfigurationData::unbound_exec()));
         UNBOUND_EXEC.dupe()
     }
 
     #[inline]
     pub fn unspecified() -> Self {
         static UNSPECIFIED: Lazy<ConfigurationPairNoExec> =
-            Lazy::new(|| ConfigurationPairNoExec::new(Configuration::unspecified()));
+            Lazy::new(|| ConfigurationPairNoExec::new(ConfigurationData::unspecified()));
         UNSPECIFIED.dupe()
     }
 
     #[inline]
     pub fn testing_new() -> Self {
         static TESTING_NEW: Lazy<ConfigurationPairNoExec> =
-            Lazy::new(|| ConfigurationPairNoExec::new(Configuration::testing_new()));
+            Lazy::new(|| ConfigurationPairNoExec::new(ConfigurationData::testing_new()));
         TESTING_NEW.dupe()
     }
 
@@ -112,7 +112,7 @@ impl ConfigurationPairNoExec {
     }
 
     #[inline]
-    pub fn cfg(&self) -> &Configuration {
+    pub fn cfg(&self) -> &ConfigurationData {
         self.cfg_pair().cfg()
     }
 
@@ -128,17 +128,17 @@ pub struct ConfigurationPairWithExec(ConfigurationPair);
 
 impl ConfigurationPairWithExec {
     #[inline]
-    pub fn new(cfg: Configuration, exec_cfg: Configuration) -> ConfigurationPairWithExec {
+    pub fn new(cfg: ConfigurationData, exec_cfg: ConfigurationData) -> ConfigurationPairWithExec {
         ConfigurationPairWithExec(ConfigurationPair::new(cfg, Some(exec_cfg)))
     }
 
     #[inline]
-    pub fn cfg(&self) -> &Configuration {
+    pub fn cfg(&self) -> &ConfigurationData {
         self.cfg_pair().cfg()
     }
 
     #[inline]
-    pub fn exec_cfg(&self) -> &Configuration {
+    pub fn exec_cfg(&self) -> &ConfigurationData {
         self.cfg_pair()
             .exec_cfg()
             .expect("`exec_cfg` is always `Some`")

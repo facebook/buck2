@@ -420,7 +420,7 @@ mod tests {
     use buck2_core::cells::paths::CellRelativePathBuf;
     use buck2_core::cells::testing::CellResolverExt;
     use buck2_core::cells::CellResolver;
-    use buck2_core::configuration::Configuration;
+    use buck2_core::configuration::ConfigurationData;
     use buck2_core::directory::DirectoryEntry;
     use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
     use buck2_core::fs::project::ProjectRootTemp;
@@ -491,7 +491,7 @@ mod tests {
         let configured_target_label = ConfiguredTargetLabel::testing_new(
             PackageLabel::testing_new(package_cell, package_path),
             TargetName::unchecked_new(target_name),
-            Configuration::testing_new(),
+            ConfigurationData::testing_new(),
         );
         let forward_relative_path_buf = ForwardRelativePathBuf::unchecked_new("bar.out".into());
         let deferred_id = DeferredId::testing_new(0);

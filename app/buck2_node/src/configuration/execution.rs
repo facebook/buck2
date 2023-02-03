@@ -12,7 +12,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use buck2_common::executor_config::CommandExecutorConfig;
 use buck2_core::configuration::pair::ConfigurationPairNoExec;
-use buck2_core::configuration::Configuration;
+use buck2_core::configuration::ConfigurationData;
 use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_core::target::label::TargetLabel;
 use dupe::Dupe;
@@ -52,7 +52,7 @@ pub enum ExecutionPlatformData {
 impl ExecutionPlatform {
     pub fn platform(
         target: TargetLabel,
-        cfg: Configuration,
+        cfg: ConfigurationData,
         executor_config: Arc<CommandExecutorConfig>,
     ) -> Self {
         Self(Arc::new(ExecutionPlatformData::Platform {
@@ -81,7 +81,7 @@ impl ExecutionPlatform {
     }
 
     #[inline]
-    pub fn cfg(&self) -> &Configuration {
+    pub fn cfg(&self) -> &ConfigurationData {
         self.cfg_pair_no_exec().cfg()
     }
 

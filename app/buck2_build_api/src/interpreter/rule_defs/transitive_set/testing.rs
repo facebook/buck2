@@ -11,7 +11,7 @@ use std::sync::atomic::AtomicU32;
 use std::sync::atomic::Ordering;
 
 use anyhow::Context as _;
-use buck2_core::configuration::Configuration;
+use buck2_core::configuration::ConfigurationData;
 use buck2_core::package::testing::PackageExt;
 use buck2_core::package::PackageLabel;
 use buck2_core::target::label::testing::ConfiguredTargetLabelExt;
@@ -48,7 +48,7 @@ pub fn tset_factory(builder: &mut GlobalsBuilder) {
         let target = ConfiguredTargetLabel::testing_new(
             PackageLabel::testing_new("cell", "path"),
             TargetName::unchecked_new("target"),
-            Configuration::testing_new(),
+            ConfigurationData::testing_new(),
         );
         let deferred_id = DeferredId::testing_new(LAST_ID.fetch_add(1, Ordering::Relaxed));
         let deferred_key = DeferredKey::Base(BaseDeferredKey::TargetLabel(target), deferred_id);

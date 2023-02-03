@@ -39,7 +39,7 @@ pub mod result_report {
     use buck2_cli_proto::build_target::BuildOutput;
     use buck2_cli_proto::BuildTarget;
     use buck2_common::result::SharedError;
-    use buck2_core::configuration::Configuration;
+    use buck2_core::configuration::ConfigurationData;
     use buck2_execute::artifact::fs::ArtifactFs;
     use dupe::Dupe;
     use starlark_map::small_map::SmallMap;
@@ -162,7 +162,7 @@ pub mod result_report {
                     BuildOwner::Target(t) => (t.unconfigured().to_string(), t.cfg().to_string()),
                     BuildOwner::_Bxl(l) => {
                         // for bxl, there's no configurations so we use the unspecified configuration
-                        (l.to_string(), Configuration::unspecified().to_string())
+                        (l.to_string(), ConfigurationData::unspecified().to_string())
                     }
                 };
 
@@ -181,7 +181,7 @@ pub mod build_report {
     use std::collections::HashMap;
 
     use buck2_build_api::build::BuildProviderType;
-    use buck2_core::configuration::Configuration;
+    use buck2_core::configuration::ConfigurationData;
     use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
     use buck2_core::fs::project::ProjectRoot;
     use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
@@ -246,7 +246,7 @@ pub mod build_report {
         compatible: Option<BuildReportEntry>,
 
         /// the configured entry
-        configured: HashMap<Configuration, BuildReportEntry>,
+        configured: HashMap<ConfigurationData, BuildReportEntry>,
     }
 
     #[derive(Derivative, Serialize, Eq, PartialEq, Hash)]
@@ -374,7 +374,7 @@ pub mod build_report {
                 .configured
                 .entry(match label {
                     BuildOwner::Target(t) => t.cfg().dupe(),
-                    BuildOwner::_Bxl(_) => Configuration::unspecified(),
+                    BuildOwner::_Bxl(_) => ConfigurationData::unspecified(),
                 })
                 .or_insert_with(BuildReportEntry::default);
             if !default_outs.is_empty() {

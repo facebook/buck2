@@ -20,8 +20,8 @@ use buck2_common::result::ToSharedResultExt;
 use buck2_core::cells::name::CellName;
 use buck2_core::collections::unordered_map::UnorderedMap;
 use buck2_core::configuration::pair::ConfigurationPairNoExec;
-use buck2_core::configuration::Configuration;
 use buck2_core::configuration::ConfigurationData;
+use buck2_core::configuration::ConfigurationDataData;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_core::target::label::TargetLabel;
@@ -310,9 +310,9 @@ async fn resolve_execution_platform_from_constraints(
 
 async fn configuration_matches(
     ctx: &DiceComputations,
-    cfg: &Configuration,
+    cfg: &ConfigurationData,
     target_node_cell: CellName,
-    constraints_and_configs: &ConfigurationData,
+    constraints_and_configs: &ConfigurationDataData,
 ) -> SharedResult<bool> {
     for (key, value) in &constraints_and_configs.constraints {
         match cfg.get_constraint_value(key)? {
@@ -348,7 +348,7 @@ pub struct ExecutionPlatformsKey;
 #[derive(Clone, Display, Debug, Eq, Hash, PartialEq, Allocative)]
 #[display(fmt = "ConfigurationNode({}, {})", cfg_target, target_cfg)]
 struct ConfigurationNodeKey {
-    target_cfg: Configuration,
+    target_cfg: ConfigurationData,
     target_cell: CellName,
     cfg_target: TargetLabel,
 }
@@ -361,7 +361,7 @@ struct ConfigurationNodeKey {
     "configuration_deps.len()"
 )]
 struct ResolvedConfigurationKey {
-    target_cfg: Configuration,
+    target_cfg: ConfigurationData,
     target_cell: CellName,
     configuration_deps: Vec<TargetLabel>,
 }
@@ -371,25 +371,25 @@ impl ConfigurationCalculation for DiceComputations {
     async fn get_platform_configuration(
         &self,
         target: &TargetLabel,
-    ) -> anyhow::Result<Configuration> {
+    ) -> anyhow::Result<ConfigurationData> {
         let result = self.get_configuration_analysis_result(target).await?;
         let platform_info = PlatformInfo::from_providers(result.providers().provider_collection())
             .ok_or_else(|| ConfigurationError::MissingPlatformInfo(target.dupe()))?;
         platform_info.to_configuration()
     }
 
-    async fn get_default_platform(&self, target: &TargetLabel) -> SharedResult<Configuration> {
+    async fn get_default_platform(&self, target: &TargetLabel) -> SharedResult<ConfigurationData> {
         let detector = get_target_platform_detector(self).await?;
         if let Some(target) = detector.detect(target) {
             return self.get_platform_configuration(target).await.shared_error();
         }
         // TODO(cjhopman): This needs to implement buck1's approach to determining target platform, it's currently missing the fallback to buckconfig parser.target_platform.
-        Ok(Configuration::unspecified())
+        Ok(ConfigurationData::unspecified())
     }
 
     async fn get_resolved_configuration<'a, T: Iterator<Item = &'a TargetLabel> + Send>(
         &self,
-        target_cfg: &Configuration,
+        target_cfg: &ConfigurationData,
         target_cell: CellName,
         configuration_deps: T,
     ) -> SharedResult<ResolvedConfiguration> {
@@ -431,7 +431,7 @@ impl ConfigurationCalculation for DiceComputations {
 
     async fn get_configuration_node(
         &self,
-        target_cfg: &Configuration,
+        target_cfg: &ConfigurationData,
         target_cell: CellName,
         cfg_target: &TargetLabel,
     ) -> SharedResult<ConfigurationNode> {

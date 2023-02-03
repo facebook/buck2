@@ -151,7 +151,7 @@ impl ToProtoMessage for buck2_core::target::label::ConfiguredTargetLabel {
     }
 }
 
-impl ToProtoMessage for buck2_core::configuration::Configuration {
+impl ToProtoMessage for buck2_core::configuration::ConfigurationData {
     type Message = crate::Configuration;
 
     fn as_proto(&self) -> Self::Message {

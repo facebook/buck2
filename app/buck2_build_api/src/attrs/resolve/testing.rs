@@ -10,7 +10,7 @@
 use std::sync::Arc;
 
 use buck2_common::result::SharedResult;
-use buck2_core::configuration::Configuration;
+use buck2_core::configuration::ConfigurationData;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_interpreter_for_build::attrs::coerce;
 use buck2_interpreter_for_build::attrs::coerce::testing;
@@ -146,7 +146,7 @@ pub(crate) fn resolution_ctx_with_providers<'v>(
                 let configured_label = coerce::testing::coercion_ctx()
                     .coerce_label(label)
                     .unwrap()
-                    .configure(Configuration::testing_new());
+                    .configure(ConfigurationData::testing_new());
                 let val = FrozenProviderCollectionValue::try_from_value(
                     frozen.get("ret").unwrap().map(|x| {
                         FrozenDictRef::from_frozen_value(x)

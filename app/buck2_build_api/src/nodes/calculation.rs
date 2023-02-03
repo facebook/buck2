@@ -24,8 +24,8 @@ use buck2_core::configuration::pair::ConfigurationPairNoExec;
 use buck2_core::configuration::pair::ConfigurationPairWithExec;
 use buck2_core::configuration::transition::applied::TransitionApplied;
 use buck2_core::configuration::transition::id::TransitionId;
-use buck2_core::configuration::Configuration;
 use buck2_core::configuration::ConfigurationData;
+use buck2_core::configuration::ConfigurationDataData;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_core::target::label::TargetLabel;
@@ -97,7 +97,7 @@ enum CompatibilityConstraints {
 async fn compute_platform_cfgs(
     ctx: &DiceComputations,
     node: &TargetNode,
-) -> anyhow::Result<OrderedMap<TargetLabel, Configuration>> {
+) -> anyhow::Result<OrderedMap<TargetLabel, ConfigurationData>> {
     let mut platform_map = OrderedMap::new();
     for platform_target in node.platform_deps() {
         let config = ctx.get_platform_configuration(platform_target).await?;
@@ -120,7 +120,7 @@ async fn legacy_execution_platform(
 #[derive(Debug, Error)]
 enum ToolchainDepError {
     #[error("Can't find toolchain_dep execution platform using configuration `{0}`")]
-    ToolchainDepMissingPlatform(Configuration),
+    ToolchainDepMissingPlatform(ConfigurationData),
     #[error("Target `{0}` was used as a toolchain_dep, but is not a toolchain rule")]
     NonToolchainRuleUsedAsToolchainDep(TargetLabel),
     #[error("Target `{0}` was used not as a toolchain_dep, but is a toolchain rule")]
@@ -131,11 +131,11 @@ enum ToolchainDepError {
 
 pub(crate) async fn find_execution_platform_by_configuration(
     ctx: &DiceComputations,
-    exec_cfg: &Configuration,
-    cfg: &Configuration,
+    exec_cfg: &ConfigurationData,
+    cfg: &ConfigurationData,
 ) -> SharedResult<ExecutionPlatform> {
     match ctx.get_execution_platforms().await? {
-        Some(platforms) if exec_cfg != &Configuration::unbound_exec() => {
+        Some(platforms) if exec_cfg != &ConfigurationData::unbound_exec() => {
             for c in platforms.candidates() {
                 if c.cfg() == exec_cfg {
                     return Ok(c.dupe());
@@ -377,7 +377,7 @@ fn unpack_target_compatible_with_attr(
     }
 
     impl<'c> AttrConfigurationContext for AttrConfigurationContextToResolveCompatibleWith<'c> {
-        fn matches<'a>(&'a self, label: &TargetLabel) -> Option<&'a ConfigurationData> {
+        fn matches<'a>(&'a self, label: &TargetLabel) -> Option<&'a ConfigurationDataData> {
             self.resolved_cfg
                 .setting_matches(ConfigurationSettingKeyRef(label))
         }
@@ -398,7 +398,7 @@ fn unpack_target_compatible_with_attr(
             unreachable!()
         }
 
-        fn platform_cfg(&self, _label: &TargetLabel) -> anyhow::Result<Configuration> {
+        fn platform_cfg(&self, _label: &TargetLabel) -> anyhow::Result<ConfigurationData> {
             unreachable!(
                 "platform_cfg() is not needed to resolve `{}` or `{}`",
                 TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD,
@@ -868,7 +868,7 @@ mod tests {
     use buck2_common::executor_config::CommandExecutorConfig;
     use buck2_core::build_file_path::BuildFilePath;
     use buck2_core::bzl::ImportPath;
-    use buck2_core::configuration::Configuration;
+    use buck2_core::configuration::ConfigurationData;
     use buck2_core::fs::paths::file_name::FileNameBuf;
     use buck2_core::package::testing::PackageExt;
     use buck2_core::package::PackageLabel;
@@ -910,7 +910,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_node() -> anyhow::Result<()> {
-        let cfg = Configuration::testing_new();
+        let cfg = ConfigurationData::testing_new();
         let pkg = PackageLabel::testing_new("cell", "foo/bar");
 
         let name1 = TargetName::unchecked_new("t1");

@@ -493,7 +493,7 @@ mod tests {
     use buck2_core::cells::name::CellName;
     use buck2_core::cells::testing::CellResolverExt;
     use buck2_core::cells::CellResolver;
-    use buck2_core::configuration::Configuration;
+    use buck2_core::configuration::ConfigurationData;
     use buck2_core::fs::fs_util;
     use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
     use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
@@ -531,7 +531,7 @@ mod tests {
         let target = ConfiguredTargetLabel::testing_new(
             PackageLabel::testing_new("cell", "pkg"),
             TargetName::unchecked_new("foo"),
-            Configuration::testing_new(),
+            ConfigurationData::testing_new(),
         );
         let declared = DeclaredArtifact::new(
             BuckOutPath::new(
@@ -607,7 +607,7 @@ mod tests {
         let target = ConfiguredTargetLabel::testing_new(
             PackageLabel::testing_new("cell", "pkg"),
             TargetName::unchecked_new("foo"),
-            Configuration::testing_new(),
+            ConfigurationData::testing_new(),
         );
 
         let artifact1 = BuildArtifact::testing_new(

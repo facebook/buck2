@@ -85,17 +85,17 @@ enum ConfigurationLookupError {
 /// The inner PlatformConfigurationData is interned as the same configuration could be formed through
 /// paths (as many transitions are associative).
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Allocative)]
-pub struct Configuration(Intern<HashedPlatformConfigurationData>);
+pub struct ConfigurationData(Intern<HashedPlatformConfigurationData>);
 
 /// Intern doesn't implement Hash.
 #[allow(clippy::derive_hash_xor_eq)] // The derived PartialEq (that uses pointer equality) is still correct.
-impl Hash for Configuration {
+impl Hash for ConfigurationData {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.0.hash(state);
     }
 }
 
-impl Dupe for Configuration {}
+impl Dupe for ConfigurationData {}
 
 impl Borrow<str> for HashedPlatformConfigurationData {
     fn borrow(&self) -> &str {
@@ -105,9 +105,9 @@ impl Borrow<str> for HashedPlatformConfigurationData {
 
 static INTERNER: StaticInterner<HashedPlatformConfigurationData> = StaticInterner::new();
 
-impl Configuration {
+impl ConfigurationData {
     /// Produces a "bound" configuration for a platform. The label should be a unique identifier for the data.
-    pub fn from_platform(label: String, data: ConfigurationData) -> anyhow::Result<Self> {
+    pub fn from_platform(label: String, data: ConfigurationDataData) -> anyhow::Result<Self> {
         if label.is_empty() {
             return Err(ConfigurationError::LabelIsEmpty.into());
         }
@@ -127,11 +127,11 @@ impl Configuration {
     }
 
     pub fn unspecified() -> Self {
-        static CONFIG: Lazy<Configuration> = Lazy::new(|| {
-            Configuration::from_data(HashedPlatformConfigurationData::new(
+        static CONFIG: Lazy<ConfigurationData> = Lazy::new(|| {
+            ConfigurationData::from_data(HashedPlatformConfigurationData::new(
                 PlatformConfigurationData {
                     platform: ConfigurationPlatform::Unspecified,
-                    data: ConfigurationData::empty(),
+                    data: ConfigurationDataData::empty(),
                 },
             ))
         });
@@ -139,11 +139,11 @@ impl Configuration {
     }
 
     pub fn unspecified_exec() -> Self {
-        static CONFIG: Lazy<Configuration> = Lazy::new(|| {
-            Configuration::from_data(HashedPlatformConfigurationData::new(
+        static CONFIG: Lazy<ConfigurationData> = Lazy::new(|| {
+            ConfigurationData::from_data(HashedPlatformConfigurationData::new(
                 PlatformConfigurationData {
                     platform: ConfigurationPlatform::UnspecifiedExec,
-                    data: ConfigurationData::empty(),
+                    data: ConfigurationDataData::empty(),
                 },
             ))
         });
@@ -153,11 +153,11 @@ impl Configuration {
     /// Produces the "unbound" configuration. This is used only when performing analysis of platform() targets and
     /// their dependencies (which is done to form the initial "bound" configurations).
     pub fn unbound() -> Self {
-        static CONFIG: Lazy<Configuration> = Lazy::new(|| {
-            Configuration::from_data(HashedPlatformConfigurationData::new(
+        static CONFIG: Lazy<ConfigurationData> = Lazy::new(|| {
+            ConfigurationData::from_data(HashedPlatformConfigurationData::new(
                 PlatformConfigurationData {
                     platform: ConfigurationPlatform::Unbound,
-                    data: ConfigurationData::empty(),
+                    data: ConfigurationDataData::empty(),
                 },
             ))
         });
@@ -167,11 +167,11 @@ impl Configuration {
     /// Produces the "unbound_exec" configuration. This is used only when getting the exec_deps for a configured node
     /// before we've determined the execution configuration for the node.
     pub fn unbound_exec() -> Self {
-        static CONFIG: Lazy<Configuration> = Lazy::new(|| {
-            Configuration::from_data(HashedPlatformConfigurationData::new(
+        static CONFIG: Lazy<ConfigurationData> = Lazy::new(|| {
+            ConfigurationData::from_data(HashedPlatformConfigurationData::new(
                 PlatformConfigurationData {
                     platform: ConfigurationPlatform::Unbound,
-                    data: ConfigurationData::empty(),
+                    data: ConfigurationDataData::empty(),
                 },
             ))
         });
@@ -180,11 +180,11 @@ impl Configuration {
 
     /// Produces an "invalid" configuration for testing.
     pub fn testing_new() -> Self {
-        static CONFIG: Lazy<Configuration> = Lazy::new(|| {
-            Configuration::from_data(HashedPlatformConfigurationData::new(
+        static CONFIG: Lazy<ConfigurationData> = Lazy::new(|| {
+            ConfigurationData::from_data(HashedPlatformConfigurationData::new(
                 PlatformConfigurationData {
                     platform: ConfigurationPlatform::Testing,
-                    data: ConfigurationData::empty(),
+                    data: ConfigurationDataData::empty(),
                 },
             ))
         });
@@ -237,7 +237,7 @@ impl Configuration {
         }
     }
 
-    pub fn data(&self) -> anyhow::Result<&ConfigurationData> {
+    pub fn data(&self) -> anyhow::Result<&ConfigurationDataData> {
         match &self.0.platform_configuration_data.platform {
             ConfigurationPlatform::Unbound => Err(ConfigurationError::Unbound.into()),
             ConfigurationPlatform::Unspecified => Err(ConfigurationError::Unspecified.into()),
@@ -276,13 +276,13 @@ impl Configuration {
     }
 }
 
-impl Display for Configuration {
+impl Display for ConfigurationData {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(self.full_name())
     }
 }
 
-impl Serialize for Configuration {
+impl Serialize for ConfigurationData {
     fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -338,7 +338,7 @@ impl Display for ConfigurationPlatform {
 
 /// A set of values used in configuration-related contexts.
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Allocative)]
-pub struct ConfigurationData {
+pub struct ConfigurationDataData {
     // contains the full specification of the platform configuration
     pub constraints: BTreeMap<ConstraintKey, ConstraintValue>,
     // contains mappings of `section.key` to `value` for buckconfigs
@@ -352,7 +352,7 @@ pub struct ConfigurationData {
 /// the moment, and their hashing disagrees <https://github.com/rust-lang/rust/pull/89443>. In any
 /// case, we should control what goes into our hash here.
 #[allow(clippy::derive_hash_xor_eq)]
-impl Hash for ConfigurationData {
+impl Hash for ConfigurationDataData {
     fn hash<H: Hasher>(&self, state: &mut H) {
         for elt in self.constraints.iter() {
             elt.hash(state);
@@ -363,7 +363,7 @@ impl Hash for ConfigurationData {
     }
 }
 
-impl ConfigurationData {
+impl ConfigurationDataData {
     pub fn empty() -> Self {
         Self {
             constraints: Default::default(),
@@ -386,7 +386,7 @@ impl ConfigurationData {
     }
 
     /// merges this into other, with values in other taking precedence
-    pub fn merge(&self, mut other: ConfigurationData) -> Self {
+    pub fn merge(&self, mut other: ConfigurationDataData) -> Self {
         for (k, v) in &self.constraints {
             other
                 .constraints
@@ -409,7 +409,7 @@ impl ConfigurationData {
         self.constraints.len() + self.buckconfigs.len()
     }
 
-    pub fn refines(&self, that: &ConfigurationData) -> bool {
+    pub fn refines(&self, that: &ConfigurationDataData) -> bool {
         self.len_sum() > that.len_sum()
             && Self::is_subset(&that.constraints, &self.constraints)
             && Self::is_subset(&that.buckconfigs, &self.buckconfigs)
@@ -424,7 +424,7 @@ struct PlatformConfigurationData {
     /// doesn't fully specify the configuration as transitions could add, change, or remove values.
     platform: ConfigurationPlatform,
     /// data contains the fully specified "configuration"
-    data: ConfigurationData,
+    data: ConfigurationDataData,
 }
 
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Allocative)]
@@ -474,7 +474,7 @@ mod tests {
 
     use crate::configuration::constraints::ConstraintKey;
     use crate::configuration::constraints::ConstraintValue;
-    use crate::configuration::ConfigurationData;
+    use crate::configuration::ConfigurationDataData;
     use crate::target::label::testing::TargetLabelExt;
     use crate::target::label::TargetLabel;
 
@@ -486,14 +486,14 @@ mod tests {
         let empty = BTreeMap::<u32, u32>::new();
 
         // A set is a subset of itself
-        assert!(ConfigurationData::is_subset(&m_12_34, &m_12_34));
-        assert!(ConfigurationData::is_subset(&m_12, &m_12));
-        assert!(ConfigurationData::is_subset(&empty, &empty));
+        assert!(ConfigurationDataData::is_subset(&m_12_34, &m_12_34));
+        assert!(ConfigurationDataData::is_subset(&m_12, &m_12));
+        assert!(ConfigurationDataData::is_subset(&empty, &empty));
 
-        assert!(ConfigurationData::is_subset(&m_12, &m_12_34));
-        assert!(!ConfigurationData::is_subset(&m_12_34, &m_12));
+        assert!(ConfigurationDataData::is_subset(&m_12, &m_12_34));
+        assert!(!ConfigurationDataData::is_subset(&m_12_34, &m_12));
 
-        assert!(!ConfigurationData::is_subset(&m_12_34, &m_12_35));
+        assert!(!ConfigurationDataData::is_subset(&m_12_34, &m_12_35));
     }
 
     #[test]
@@ -512,22 +512,22 @@ mod tests {
         let arm64 = constraint_value("//:arm64");
         let x86_64 = constraint_value("//:x86_64");
 
-        let c_linux = ConfigurationData {
+        let c_linux = ConfigurationDataData {
             constraints: BTreeMap::from_iter([(os.dupe(), linux.dupe())]),
             buckconfigs: BTreeMap::new(),
         };
-        let c_arm64 = ConfigurationData {
+        let c_arm64 = ConfigurationDataData {
             constraints: BTreeMap::from_iter([(cpu.dupe(), arm64.dupe())]),
             buckconfigs: BTreeMap::new(),
         };
-        let c_linux_arm64 = ConfigurationData {
+        let c_linux_arm64 = ConfigurationDataData {
             constraints: BTreeMap::from_iter([
                 (os.dupe(), linux.dupe()),
                 (cpu.dupe(), arm64.dupe()),
             ]),
             buckconfigs: BTreeMap::new(),
         };
-        let c_linux_x86_64 = ConfigurationData {
+        let c_linux_x86_64 = ConfigurationDataData {
             constraints: BTreeMap::from_iter([
                 (os.dupe(), linux.dupe()),
                 (cpu.dupe(), x86_64.dupe()),
@@ -549,11 +549,11 @@ mod tests {
 
     #[test]
     fn buckconfig_refines() {
-        let c1 = ConfigurationData {
+        let c1 = ConfigurationDataData {
             constraints: BTreeMap::new(),
             buckconfigs: BTreeMap::from_iter([("foo.bar".to_owned(), "baz".to_owned())]),
         };
-        let c11 = ConfigurationData {
+        let c11 = ConfigurationDataData {
             constraints: BTreeMap::new(),
             buckconfigs: BTreeMap::from_iter([
                 ("foo.bar".to_owned(), "baz".to_owned()),

@@ -151,8 +151,8 @@ mod tests {
     use buck2_core::configuration::pair::ConfigurationPairWithExec;
     use buck2_core::configuration::transition::applied::TransitionApplied;
     use buck2_core::configuration::transition::id::TransitionId;
-    use buck2_core::configuration::Configuration;
     use buck2_core::configuration::ConfigurationData;
+    use buck2_core::configuration::ConfigurationDataData;
     use buck2_core::target::label::testing::TargetLabelExt;
     use buck2_core::target::label::TargetLabel;
     use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
@@ -223,11 +223,11 @@ mod tests {
     #[test]
     fn select_the_most_specific() {
         struct SelectTestConfigurationContext {
-            settings: BTreeMap<TargetLabel, ConfigurationData>,
+            settings: BTreeMap<TargetLabel, ConfigurationDataData>,
         }
 
         impl AttrConfigurationContext for SelectTestConfigurationContext {
-            fn matches<'a>(&'a self, label: &TargetLabel) -> Option<&'a ConfigurationData> {
+            fn matches<'a>(&'a self, label: &TargetLabel) -> Option<&'a ConfigurationDataData> {
                 self.settings.get(label)
             }
 
@@ -243,7 +243,7 @@ mod tests {
                 panic!("not used in test")
             }
 
-            fn platform_cfg(&self, _label: &TargetLabel) -> anyhow::Result<Configuration> {
+            fn platform_cfg(&self, _label: &TargetLabel) -> anyhow::Result<ConfigurationData> {
                 panic!("not used in test")
             }
 
@@ -276,14 +276,14 @@ mod tests {
             settings: BTreeMap::from_iter([
                 (
                     linux.dupe(),
-                    ConfigurationData {
+                    ConfigurationDataData {
                         constraints: BTreeMap::from_iter([(c_os.dupe(), c_linux.dupe())]),
                         buckconfigs: BTreeMap::new(),
                     },
                 ),
                 (
                     linux_arm64.dupe(),
-                    ConfigurationData {
+                    ConfigurationDataData {
                         constraints: BTreeMap::from_iter([
                             (c_os.dupe(), c_linux.dupe()),
                             (c_cpu.dupe(), c_arm64.dupe()),
@@ -293,7 +293,7 @@ mod tests {
                 ),
                 (
                     linux_x86_64.dupe(),
-                    ConfigurationData {
+                    ConfigurationDataData {
                         constraints: BTreeMap::from_iter([
                             (c_os.dupe(), c_linux.dupe()),
                             (c_cpu.dupe(), c_x86_64.dupe()),

@@ -53,7 +53,7 @@ pub mod testing {
     use buck2_core::category::Category;
     use buck2_core::cells::paths::CellRelativePath;
     use buck2_core::collections::ordered_set::OrderedSet;
-    use buck2_core::configuration::Configuration;
+    use buck2_core::configuration::ConfigurationData;
     use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
     use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
     use buck2_core::fs::project::ProjectRoot;
@@ -105,7 +105,7 @@ pub mod testing {
         ) {
             Ok(ParsedPattern::Target(package, target_name)) => {
                 Ok(TargetLabel::new(package, target_name.as_ref())
-                    .configure(Configuration::testing_new()))
+                    .configure(ConfigurationData::testing_new()))
             }
             _ => panic!("expected a valid target"),
         }

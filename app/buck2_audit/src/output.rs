@@ -24,7 +24,7 @@ use buck2_cli_proto::ClientContext;
 use buck2_cli_proto::QueryOutputFormat;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_core::cells::CellResolver;
-use buck2_core::configuration::Configuration;
+use buck2_core::configuration::ConfigurationData;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::target::label::TargetLabel;
 use buck2_execute::path::buck_out_path::BuckOutPathParser;
@@ -55,7 +55,7 @@ pub(crate) enum AuditOutputError {
     #[error(
         "Current platform does not match the configuration of the artifact path. Current platform: `{0}` with hash: `{1}`. Artifact platform hash: `{2}`"
     )]
-    PlatformMismatch(Configuration, String, String),
+    PlatformMismatch(ConfigurationData, String, String),
 }
 
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]

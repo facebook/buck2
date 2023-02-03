@@ -10,7 +10,7 @@
 use allocative::Allocative;
 
 use crate::collections::sorted_map::SortedMap;
-use crate::configuration::Configuration;
+use crate::configuration::ConfigurationData;
 
 #[derive(thiserror::Error, Debug)]
 enum TransitionAppliedError {
@@ -28,20 +28,20 @@ enum TransitionAppliedError {
 #[derive(PartialEq, Eq, Hash, Debug, Allocative)]
 pub enum TransitionApplied {
     /// Transition to single configuration.
-    Single(Configuration),
+    Single(ConfigurationData),
     /// Split transition.
-    Split(SortedMap<String, Configuration>),
+    Split(SortedMap<String, ConfigurationData>),
 }
 
 impl TransitionApplied {
-    pub fn single(&self) -> anyhow::Result<&Configuration> {
+    pub fn single(&self) -> anyhow::Result<&ConfigurationData> {
         match self {
             TransitionApplied::Single(configuration) => Ok(configuration),
             _ => Err(TransitionAppliedError::SplitWhereSingleExpected.into()),
         }
     }
 
-    pub fn split(&self) -> anyhow::Result<&SortedMap<String, Configuration>> {
+    pub fn split(&self) -> anyhow::Result<&SortedMap<String, ConfigurationData>> {
         match self {
             TransitionApplied::Split(configurations) => Ok(configurations),
             _ => Err(TransitionAppliedError::SingleWhereSplitExpected.into()),

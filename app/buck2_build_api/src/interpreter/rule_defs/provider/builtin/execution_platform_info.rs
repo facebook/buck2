@@ -11,7 +11,7 @@ use std::fmt::Debug;
 
 use allocative::Allocative;
 use buck2_build_api_derive::internal_provider;
-use buck2_core::configuration::Configuration;
+use buck2_core::configuration::ConfigurationData;
 use buck2_core::target::label::TargetLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use buck2_node::configuration::execution::ExecutionPlatform;
@@ -73,7 +73,7 @@ impl<'v, V: ValueLike<'v>> ExecutionPlatformInfoGen<V> {
                 )
             })?
             .to_configuration_data();
-        let cfg = Configuration::from_platform(TargetLabel::to_string(&target), cfg)?;
+        let cfg = ConfigurationData::from_platform(TargetLabel::to_string(&target), cfg)?;
         let executor_config =
             StarlarkCommandExecutorConfig::from_value(self.executor_config.to_value())
                 .ok_or_else(|| {

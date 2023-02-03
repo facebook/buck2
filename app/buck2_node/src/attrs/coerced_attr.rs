@@ -12,8 +12,8 @@ use std::hash::Hash;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use buck2_core::configuration::Configuration;
 use buck2_core::configuration::ConfigurationData;
+use buck2_core::configuration::ConfigurationDataData;
 use buck2_core::package::PackageLabel;
 use buck2_core::target::label::TargetLabel;
 use dupe::Dupe;
@@ -40,7 +40,7 @@ enum SelectError {
         .0,
         .1.iter().map(| s | format ! ("  {}", s)).join("\n"),
     )]
-    MissingDefault(Configuration, Vec<TargetLabel>),
+    MissingDefault(ConfigurationData, Vec<TargetLabel>),
     #[error(
         "Both select keys `{0}` and `{1}` match the configuration, but neither is more specific"
     )]
@@ -281,7 +281,7 @@ impl CoercedAttr {
         ctx: &dyn AttrConfigurationContext,
         select_entries: &'a [(TargetLabel, CoercedAttr)],
     ) -> anyhow::Result<Option<&'a CoercedAttr>> {
-        let mut matching: Option<(&TargetLabel, &ConfigurationData, &CoercedAttr)> = None;
+        let mut matching: Option<(&TargetLabel, &ConfigurationDataData, &CoercedAttr)> = None;
         for (k, v) in select_entries {
             matching = match (ctx.matches(k), matching) {
                 (None, matching) => matching,
