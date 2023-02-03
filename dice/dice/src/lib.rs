@@ -215,7 +215,6 @@ mod legacy;
 mod map;
 mod metrics;
 mod opaque;
-mod projection;
 mod sync_handle;
 
 #[cfg(test)]

@@ -20,6 +20,7 @@ use futures::future::Future;
 use futures::StreamExt;
 use gazebo::prelude::*;
 use parking_lot::RwLock;
+use projection::ProjectionKeyProperties;
 use serde::Serializer;
 use tokio::sync::watch;
 
@@ -47,10 +48,10 @@ use crate::legacy::ctx::ComputationData;
 use crate::legacy::ctx::DiceComputationsImplLegacy;
 use crate::map::DiceMap;
 use crate::metrics::Metrics;
-use crate::projection::ProjectionKeyProperties;
 
 pub(crate) mod ctx;
 pub(crate) mod opaque;
+pub(crate) mod projection;
 
 #[cfg(test)]
 mod tests;
