@@ -119,7 +119,7 @@ impl DiceTransaction {
     }
 }
 
-#[derive(Eq, PartialEq, Copy, Clone, derive_more::Display)]
+#[derive(Allocative, Eq, PartialEq, Copy, Clone, derive_more::Display)]
 #[repr(transparent)]
 pub struct DiceEquality(VersionNumber);
 
