@@ -48,15 +48,24 @@ int main(int argc, char* argv[]) {
     }
   }
 
+#if PY_MINOR_VERSION >= 10
   status = PyConfig_SetBytesArgv(&config, argc, argv);
+#else
+  // Read all configuration at once.
+  status = PyConfig_Read(&config);
+#endif
   if (PyStatus_Exception(status)) {
     if (auto exit_code = MaybeGetExitCode(&status, &config)) {
       return *exit_code;
     }
   }
 
+#if PY_MINOR_VERSION >= 10
   // Read all configuration at once.
   status = PyConfig_Read(&config);
+#else
+  status = PyConfig_SetBytesArgv(&config, argc, argv);
+#endif
   if (PyStatus_Exception(status)) {
     if (auto exit_code = MaybeGetExitCode(&status, &config)) {
       return *exit_code;
