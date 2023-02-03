@@ -11,8 +11,10 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt::Write as _;
 use std::io::Write as _;
+use std::mem;
 use std::path::Path;
 use std::sync::Arc;
+use std::sync::Mutex;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
@@ -67,6 +69,7 @@ use futures::Stream;
 use gazebo::prelude::*;
 use itertools::Itertools;
 use regex::RegexSet;
+use starlark_map::small_set::SmallSet;
 
 use crate::json::quote_json_string;
 use crate::target_hash::BuckTargetHash;
@@ -89,7 +92,7 @@ trait TargetPrinter: Send + Sync {
         &self,
         source: &CellPath,
         imports: &[ImportPath],
-        package: PackageLabel,
+        package: Option<PackageLabel>,
         output: &mut String,
     ) {
     }
@@ -201,11 +204,13 @@ impl TargetPrinter for JsonPrinter {
         &self,
         source: &CellPath,
         imports: &[ImportPath],
-        package: PackageLabel,
+        package: Option<PackageLabel>,
         output: &mut String,
     ) {
         output.push_str("  {\n");
-        writeln!(output, "    \"{}\": \"{}\",", PACKAGE, package).unwrap();
+        if let Some(package) = package {
+            writeln!(output, "    \"{}\": \"{}\",", PACKAGE, package).unwrap();
+        }
         writeln!(output, "    \"buck.file\": \"{}\",", source).unwrap();
         writeln!(
             output,
@@ -629,9 +634,12 @@ async fn targets_streaming(
         stdout: String,         // Print to stdout
     }
 
+    let imported = Arc::new(Mutex::new(SmallSet::new()));
+
     let mut packages = stream_packages(&dice, parsed_patterns)
         .map(|x| {
             let printer = printer.dupe();
+            let imported = imported.dupe();
 
             dice.temporary_spawn(move |dice| async move {
                 let mut res = Res::default();
@@ -640,12 +648,17 @@ async fn targets_streaming(
                     Ok((eval_result, targets)) => {
                         res.stats.success += 1;
                         if imports {
+                            let eval_imports = eval_result.imports();
                             printer.imports(
                                 &eval_result.buildfile_path().path(),
-                                eval_result.imports(),
-                                package.dupe(),
+                                eval_imports,
+                                Some(package.dupe()),
                                 &mut res.stdout,
-                            )
+                            );
+                            imported
+                                .lock()
+                                .unwrap()
+                                .extend(eval_imports.iter().cloned());
                         }
                         for (i, node) in targets.iter().enumerate() {
                             res.stats.targets += 1;
@@ -696,6 +709,28 @@ async fn targets_streaming(
             output.clear();
         }
     }
+
+    // Recursively chase down all imported paths
+    let mut todo = mem::take(&mut *imported.lock().unwrap());
+    let mut seen_imported = HashSet::new();
+    while let Some(path) = todo.pop() {
+        if seen_imported.insert(path.path().clone()) {
+            // If these lead to an error, that's surpsing (we had a working module with it loaded)
+            // so we should always propagate the error here (even with keep_going)
+            if needs_separator {
+                printer.separator(&mut output);
+            }
+            needs_separator = true;
+            // No need to parallelise these this step because it will already be on the DICE graph
+            let loaded = dice.get_loaded_module_from_import_path(&path).await?;
+            let imports = loaded.imports().cloned().collect::<Vec<_>>();
+            printer.imports(path.path(), &imports, None, &mut output);
+            todo.extend(imports);
+            write!(server_ctx.stdout()?, "{}", output)?;
+            output.clear();
+        }
+    }
+
     printer.end(&stats, &mut output);
     Ok((stats.errors, output))
 }
