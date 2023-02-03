@@ -8,6 +8,8 @@
  */
 
 use std::borrow::Borrow;
+use std::fmt;
+use std::fmt::Display;
 use std::marker::PhantomData;
 use std::ops::Deref;
 
@@ -75,8 +77,17 @@ impl<S: StringInside + ?Sized> Borrow<S> for ArcS<S> {
     }
 }
 
+impl<S: StringInside + Display + ?Sized> Display for ArcS<S> {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        Display::fmt(&**self, f)
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use std::fmt;
+    use std::fmt::Display;
     use std::hash::Hash;
     use std::hash::Hasher;
 
@@ -85,6 +96,12 @@ mod tests {
 
     #[derive(Hash)]
     struct MyStringWrapper(str);
+
+    impl Display for MyStringWrapper {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            write!(f, "<{}>", &self.0)
+        }
+    }
 
     impl StringInside for MyStringWrapper {
         #[inline]
@@ -123,5 +140,11 @@ mod tests {
             hash("hello"),
             hash(&ArcS::from(MyStringWrapper::new("hello")))
         );
+    }
+
+    #[test]
+    fn test_display() {
+        let s = ArcS::<MyStringWrapper>::from(MyStringWrapper::new("hello"));
+        assert_eq!("<hello>", format!("{}", s));
     }
 }
