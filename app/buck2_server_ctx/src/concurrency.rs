@@ -351,15 +351,11 @@ impl ConcurrencyHandler {
                         .span_async(buck2_data::DiceStateUpdateStart {}, async {
                             (
                                 async {
-                                    let transaction_update = self.dice.updater();
-                                    let new_user_data = user_data
-                                        .provide(transaction_update.existing_state())
-                                        .await?;
+                                    let updater = self.dice.updater();
+                                    let user_data =
+                                        user_data.provide(updater.existing_state()).await?;
                                     let transaction =
-                                        transaction_update.commit_with_data(new_user_data);
-                                    let transaction =
-                                        updates.update(transaction.into_updater()).await?.commit();
-
+                                        updates.update(updater).await?.commit_with_data(user_data);
                                     anyhow::Ok(transaction)
                                 }
                                 .await,
