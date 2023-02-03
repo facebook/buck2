@@ -15,7 +15,7 @@ def compile_manifests(
         ctx: "context",
         manifests: [ManifestInfo.type],
         ignore_errors: bool.type = False) -> "artifact":
-    output = ctx.actions.declare_output("bytecode")
+    output = ctx.actions.declare_output("bytecode", dir = True)
     cmd = cmd_args(ctx.attrs._python_toolchain[PythonToolchainInfo].host_interpreter)
     cmd.add(ctx.attrs._python_toolchain[PythonToolchainInfo].compile)
     cmd.add(cmd_args(output.as_output(), format = "--output={}"))
