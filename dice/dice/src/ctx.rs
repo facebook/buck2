@@ -21,7 +21,7 @@ use crate::api::opaque::OpaqueValue;
 use crate::api::user_data::UserComputationData;
 use crate::incremental::versions::VersionNumber;
 use crate::legacy::ctx::DiceComputationsImplLegacy;
-use crate::map::DiceMap;
+use crate::legacy::map::DiceMap;
 use crate::opaque::OpaqueValueImpl;
 
 #[derive(Allocative, Dupe, Clone)]

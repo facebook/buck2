@@ -210,7 +210,6 @@ mod future_handle;
 mod incremental;
 pub mod introspection;
 mod legacy;
-mod map;
 mod metrics;
 mod opaque;
 mod sync_handle;
