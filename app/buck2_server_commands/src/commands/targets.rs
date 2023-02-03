@@ -489,7 +489,7 @@ async fn targets(
     }
 
     let formatter = crate_formatter(request)?;
-    let (error_count, mut results_to_print) = if request.streaming {
+    let mut response = if request.streaming {
         let hashing = match TargetHashGraphType::from_i32(request.target_hash_graph_type)
             .expect("buck cli should send valid target hash graph type")
         {
@@ -528,12 +528,9 @@ async fn targets(
         )
         .await?
     };
-    outputter.write_to_file(&mut results_to_print)?;
+    outputter.write_to_file(&mut response.serialized_targets_output)?;
     outputter.flush()?;
-    Ok(TargetsResponse {
-        error_count,
-        serialized_targets_output: results_to_print,
-    })
+    Ok(response)
 }
 
 async fn targets_resolve_aliases(
@@ -621,7 +618,7 @@ async fn targets_batch(
     target_platform: Option<TargetLabel>,
     hash_options: TargetHashOptions,
     keep_going: bool,
-) -> anyhow::Result<(u64, String)> {
+) -> anyhow::Result<TargetsResponse> {
     let results = load_patterns(&dice, parsed_patterns).await?;
 
     let target_hashes = match hash_options.graph_type {
@@ -701,7 +698,10 @@ async fn targets_batch(
     if !keep_going && stats.errors != 0 {
         Err(mk_error(stats.errors))
     } else {
-        Ok((stats.errors, buffer))
+        Ok(TargetsResponse {
+            error_count: stats.errors,
+            serialized_targets_output: buffer,
+        })
     }
 }
 
@@ -715,7 +715,7 @@ async fn targets_streaming(
     cached: bool,
     imports: bool,
     fast_hash: Option<bool>, // None = no hashing
-) -> anyhow::Result<(u64, String)> {
+) -> anyhow::Result<TargetsResponse> {
     #[derive(Default)]
     struct Res {
         stats: Stats,           // Stats to merge in
@@ -823,7 +823,10 @@ async fn targets_streaming(
     }
 
     formatter.end(&stats, &mut buffer);
-    Ok((stats.errors, buffer))
+    Ok(TargetsResponse {
+        error_count: stats.errors,
+        serialized_targets_output: buffer,
+    })
 }
 
 /// Given the patterns, separate into those which have an explicit package, and those which are recursive
