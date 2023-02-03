@@ -12,6 +12,7 @@ use std::collections::HashSet;
 use std::fmt::Write as _;
 use std::io::Write as _;
 use std::path::Path;
+use std::sync::Arc;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
@@ -205,6 +206,14 @@ struct Stats {
     targets: u64,
 }
 
+impl Stats {
+    fn merge(&mut self, stats: &Stats) {
+        self.errors += stats.errors;
+        self.success += stats.success;
+        self.targets += stats.targets;
+    }
+}
+
 struct StatsPrinter;
 
 impl TargetPrinter for StatsPrinter {
@@ -319,10 +328,10 @@ impl ServerCommandTemplate for TargetsServerCommand {
     }
 }
 
-fn create_printer(request: &TargetsRequest) -> anyhow::Result<Box<dyn TargetPrinter>> {
+fn create_printer(request: &TargetsRequest) -> anyhow::Result<Arc<dyn TargetPrinter>> {
     let is_json = request.json || !request.output_attributes.is_empty();
     if is_json {
-        Ok(box JsonPrinter {
+        Ok(Arc::new(JsonPrinter {
             attributes: if request.output_attributes.is_empty() {
                 None
             } else {
@@ -334,15 +343,15 @@ fn create_printer(request: &TargetsRequest) -> anyhow::Result<Box<dyn TargetPrin
                 AttrInspectOptions::DefinedOnly
             },
             target_call_stacks: request.target_call_stacks,
-        })
+        }))
     } else if request.stats {
-        Ok(box StatsPrinter)
+        Ok(Arc::new(StatsPrinter))
     } else {
-        Ok(box TargetNamePrinter {
+        Ok(Arc::new(TargetNamePrinter {
             target_call_stacks: request.target_call_stacks,
             target_hash_graph_type: TargetHashGraphType::from_i32(request.target_hash_graph_type)
                 .expect("buck cli should send valid target hash graph type"),
-        })
+        }))
     }
 }
 
@@ -374,7 +383,7 @@ async fn targets(
         targets_streaming(
             server_ctx,
             dice,
-            &*printer,
+            printer,
             parsed_target_patterns,
             request.keep_going,
         )
@@ -573,15 +582,52 @@ async fn targets_batch(
 async fn targets_streaming(
     server_ctx: &dyn ServerCommandContextTrait,
     dice: DiceTransaction,
-    printer: &dyn TargetPrinter,
+    printer: Arc<dyn TargetPrinter>,
     parsed_patterns: Vec<ParsedPattern<TargetName>>,
     keep_going: bool,
 ) -> anyhow::Result<(u64, String)> {
+    #[derive(Default)]
+    struct Res {
+        stats: Stats,           // Stats to merge in
+        stderr: Option<String>, // Print to stderr (and break)
+        stdout: String,         // Print to stdout
+    }
+
     let mut packages = stream_packages(&dice, parsed_patterns)
         .map(|x| {
-            dice.temporary_spawn(|dice| async move {
+            let printer = printer.dupe();
+
+            dice.temporary_spawn(move |dice| async move {
+                let mut res = Res::default();
+
                 let (package, spec) = x?;
-                anyhow::Ok((package.dupe(), load_package(&dice, package, spec).await))
+                match load_package(&dice, package.dupe(), spec).await {
+                    Ok(targets) => {
+                        res.stats.success += 1;
+                        for (i, node) in targets.iter().enumerate() {
+                            res.stats.targets += 1;
+                            if i != 0 {
+                                printer.separator(&mut res.stdout);
+                            }
+                            printer.target(
+                                package.dupe(),
+                                TargetInfo {
+                                    node,
+                                    target_hash: None,
+                                },
+                                &mut res.stdout,
+                            )
+                        }
+                    }
+                    Err(e) => {
+                        res.stats.errors += 1;
+                        printer.package_error(package.dupe(), &e, &mut res.stdout);
+                        if !keep_going {
+                            res.stderr = Some(format!("Error parsing {}\n{:?}", package, e));
+                        }
+                    }
+                }
+                anyhow::Ok(res)
             })
         })
         // Use unlimited parallelism - tokio will restrict us anyway
@@ -592,41 +638,18 @@ async fn targets_streaming(
     let mut stats = Stats::default();
     let mut needs_separator = false;
     while let Some(res) = packages.next().await {
-        let (package, res) = res?;
-        match res {
-            Ok(res) => {
-                stats.success += 1;
-                for node in res.iter() {
-                    stats.targets += 1;
-                    if needs_separator {
-                        printer.separator(&mut output);
-                    }
-                    needs_separator = true;
-                    printer.target(
-                        package.dupe(),
-                        TargetInfo {
-                            node,
-                            target_hash: None,
-                        },
-                        &mut output,
-                    )
-                }
-            }
-            Err(e) => {
-                stats.errors += 1;
-                if needs_separator {
-                    printer.separator(&mut output);
-                }
-                needs_separator = true;
-                printer.package_error(package.dupe(), &e, &mut output);
-                if !keep_going {
-                    writeln!(server_ctx.stderr()?, "Error parsing {}\n{:?}", package, e)?;
-                    return Err(mk_error(stats.errors));
-                }
-            }
+        let res = res?;
+        stats.merge(&res.stats);
+        if let Some(stderr) = res.stderr {
+            writeln!(server_ctx.stderr()?, "{}", stderr)?;
+            return Err(mk_error(stats.errors));
         }
-        if !output.is_empty() {
-            write!(server_ctx.stdout()?, "{}", output)?;
+        if !res.stdout.is_empty() {
+            if needs_separator {
+                printer.separator(&mut output);
+            }
+            needs_separator = true;
+            write!(server_ctx.stdout()?, "{}{}", output, res.stdout)?;
             output.clear();
         }
     }
