@@ -474,6 +474,7 @@ mod tests {
 
     use crate::configuration::constraints::ConstraintKey;
     use crate::configuration::constraints::ConstraintValue;
+    use crate::configuration::ConfigurationData;
     use crate::configuration::ConfigurationDataData;
     use crate::target::label::testing::TargetLabelExt;
     use crate::target::label::TargetLabel;
@@ -565,5 +566,33 @@ mod tests {
         assert!(!c11.refines(&c11));
         assert!(!c1.refines(&c1));
         assert!(!c1.refines(&c11));
+    }
+
+    /// We don't want the output hash to change by accident. This test is here to assert that it
+    /// doesn't. If we have a legit reason to update the config hash, we can update the hash here,
+    /// but this will ensure we a) know and b) don't do it by accident.
+    #[test]
+    fn test_stable_output_hash() -> anyhow::Result<()> {
+        let configuration = ConfigurationData::from_platform(
+            "cfg_for//:testing_exec".to_owned(),
+            ConfigurationDataData {
+                constraints: BTreeMap::from_iter([
+                    (
+                        ConstraintKey(TargetLabel::testing_parse("foo//bar:c")),
+                        ConstraintValue(TargetLabel::testing_parse("foo//bar:v")),
+                    ),
+                    (
+                        ConstraintKey(TargetLabel::testing_parse("foo//qux:c")),
+                        ConstraintValue(TargetLabel::testing_parse("foo//qux:vx")),
+                    ),
+                ]),
+                buckconfigs: BTreeMap::new(),
+            },
+        )
+        .unwrap();
+
+        assert_eq!(configuration.output_hash(), "fd698fb05d52efbc");
+
+        Ok(())
     }
 }
