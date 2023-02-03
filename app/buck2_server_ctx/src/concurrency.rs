@@ -32,6 +32,7 @@ use buck2_events::dispatch::EventDispatcher;
 use buck2_events::trace::TraceId;
 use dice::Dice;
 use dice::DiceComputations;
+use dice::DiceEquality;
 use dice::DiceTransaction;
 use dice::DiceTransactionUpdater;
 use dice::UserComputationData;
@@ -186,7 +187,7 @@ enum DiceStatus {
 
 #[derive(Allocative)]
 struct ActiveDice {
-    transaction: DiceTransaction,
+    version: DiceEquality,
 }
 
 impl DiceStatus {
@@ -194,9 +195,9 @@ impl DiceStatus {
         Self::Available { active: None }
     }
 
-    fn active(transaction: DiceTransaction) -> Self {
+    fn active(version: DiceEquality) -> Self {
         Self::Available {
-            active: Some(ActiveDice { transaction }),
+            active: Some(ActiveDice { version }),
         }
     }
 
@@ -351,7 +352,7 @@ impl ConcurrencyHandler {
                         .await?;
 
                     if let Some(active) = active {
-                        let is_same_state = active.transaction.equivalent(&transaction);
+                        let is_same_state = transaction.equivalent(&active.version);
                         tracing::debug!("ActiveDice has an active_transaction");
 
                         event_dispatcher.instant_event(DiceEqualityCheck {
@@ -406,7 +407,7 @@ impl ConcurrencyHandler {
                     } else {
                         tracing::debug!("ActiveDice has no active_transaction");
                         event_dispatcher.instant_event(NoActiveDiceState {});
-                        data.dice_status = DiceStatus::active(transaction.dupe());
+                        data.dice_status = DiceStatus::active(transaction.equality_token());
                         break transaction;
                     }
                 }
