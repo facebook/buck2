@@ -162,6 +162,12 @@ pub struct TargetsCommand {
     /// dependencies (not the transitive closure).
     #[clap(long, requires = "streaming")]
     imports: bool,
+
+    /// File to put the output in, rather than sending to stdout.
+    ///
+    /// File will be created if it does not exist, and overwritten if it does.
+    #[clap(long, short = 'o', value_name = "PATH")]
+    output: Option<PathArg>,
 }
 
 #[async_trait]
@@ -245,6 +251,9 @@ impl StreamingCommand for TargetsCommand {
             streaming: self.streaming,
             cached: !self.no_cache,
             imports: self.imports,
+            output: self
+                .output
+                .try_map(|x| x.resolve(&ctx.working_dir).into_string())?,
         };
 
         if self.show_output {

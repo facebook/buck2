@@ -10,6 +10,8 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt::Write as _;
+use std::fs::File;
+use std::io::BufWriter;
 use std::io::Write as _;
 use std::mem;
 use std::path::Path;
@@ -334,6 +336,72 @@ impl TargetHashOptions {
     }
 }
 
+enum Outputter {
+    Stdout,
+    File(BufWriter<File>),
+}
+
+impl Outputter {
+    fn new(request: &TargetsRequest) -> anyhow::Result<Self> {
+        match &request.output {
+            None => Ok(Self::Stdout),
+            Some(file) => Ok(Self::File(BufWriter::new(
+                File::create(file).with_context(|| {
+                    format!("Failed to open file `{}` for `targets` output ", file)
+                })?,
+            ))),
+        }
+    }
+
+    fn write1(
+        &mut self,
+        server_ctx: &dyn ServerCommandContextTrait,
+        x: &str,
+    ) -> anyhow::Result<()> {
+        match self {
+            Self::Stdout => server_ctx.stdout()?.write_all(x.as_bytes())?,
+            Self::File(f) => f.write_all(x.as_bytes())?,
+        }
+        Ok(())
+    }
+
+    fn write2(
+        &mut self,
+        server_ctx: &dyn ServerCommandContextTrait,
+        x: &str,
+        y: &str,
+    ) -> anyhow::Result<()> {
+        match self {
+            Self::Stdout => {
+                let mut stdout = server_ctx.stdout()?;
+                stdout.write_all(x.as_bytes())?;
+                stdout.write_all(y.as_bytes())?;
+            }
+            Self::File(f) => {
+                f.write_all(x.as_bytes())?;
+                f.write_all(y.as_bytes())?;
+            }
+        }
+        Ok(())
+    }
+
+    /// If this outputter writes to file, do so and clear the buffer, otherwise leave it
+    fn write_to_file(&mut self, buffer: &mut String) -> anyhow::Result<()> {
+        if let Self::File(f) = self {
+            f.write_all(buffer.as_bytes())?;
+            buffer.clear();
+        }
+        Ok(())
+    }
+
+    fn flush(&mut self) -> anyhow::Result<()> {
+        match self {
+            Self::Stdout => Ok(()),
+            Self::File(f) => Ok(f.flush()?),
+        }
+    }
+}
+
 pub async fn targets_command(
     server_ctx: Box<dyn ServerCommandContextTrait>,
     req: TargetsRequest,
@@ -411,12 +479,17 @@ async fn targets(
         cwd,
     )?;
 
+    let mut outputter = Outputter::new(request)?;
+
     if request.unstable_resolve_aliases {
-        return targets_resolve_aliases(dice, request, parsed_target_patterns).await;
+        let mut res = targets_resolve_aliases(dice, request, parsed_target_patterns).await?;
+        outputter.write_to_file(&mut res.serialized_targets_output)?;
+        outputter.flush()?;
+        return Ok(res);
     }
 
     let formatter = crate_formatter(request)?;
-    let (error_count, results_to_print) = if request.streaming {
+    let (error_count, mut results_to_print) = if request.streaming {
         let hashing = match TargetHashGraphType::from_i32(request.target_hash_graph_type)
             .expect("buck cli should send valid target hash graph type")
         {
@@ -424,17 +497,21 @@ async fn targets(
             _ => Some(request.target_hash_use_fast_hash),
         };
 
-        targets_streaming(
+        let res = targets_streaming(
             server_ctx,
             dice,
             formatter,
+            &mut outputter,
             parsed_target_patterns,
             request.keep_going,
             request.cached,
             request.imports,
             hashing,
         )
-        .await?
+        .await;
+        // Make sure we always flush the outputter, even on failure, as we may have partially written to it
+        outputter.flush()?;
+        res?
     } else {
         let target_platform =
             target_platform_from_client_context(request.context.as_ref(), &cell_resolver, cwd)
@@ -451,6 +528,8 @@ async fn targets(
         )
         .await?
     };
+    outputter.write_to_file(&mut results_to_print)?;
+    outputter.flush()?;
     Ok(TargetsResponse {
         error_count,
         serialized_targets_output: results_to_print,
@@ -630,6 +709,7 @@ async fn targets_streaming(
     server_ctx: &dyn ServerCommandContextTrait,
     dice: DiceTransaction,
     formatter: Arc<dyn TargetFormatter>,
+    outputter: &mut Outputter,
     parsed_patterns: Vec<ParsedPattern<TargetName>>,
     keep_going: bool,
     cached: bool,
@@ -716,7 +796,7 @@ async fn targets_streaming(
                 formatter.separator(&mut output);
             }
             needs_separator = true;
-            write!(server_ctx.stdout()?, "{}{}", output, res.stdout)?;
+            outputter.write2(server_ctx, &output, &res.stdout)?;
             output.clear();
         }
     }
@@ -737,7 +817,7 @@ async fn targets_streaming(
             let imports = loaded.imports().cloned().collect::<Vec<_>>();
             formatter.imports(path.path(), &imports, None, &mut output);
             todo.extend(imports);
-            write!(server_ctx.stdout()?, "{}", output)?;
+            outputter.write1(server_ctx, &output)?;
             output.clear();
         }
     }
