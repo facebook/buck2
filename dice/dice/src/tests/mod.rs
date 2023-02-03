@@ -26,7 +26,6 @@ use tokio::sync::oneshot;
 use tokio::time::timeout;
 
 use super::*;
-use crate::api::computations::testing::DiceCtxExt;
 use crate::api::computations::DiceComputations;
 use crate::api::cycles::DetectCycles;
 use crate::api::error::DiceErrorImpl;
@@ -37,7 +36,6 @@ use crate::incremental::evaluator::testing::EvaluatorUnreachable;
 use crate::incremental::testing::DependencyExt;
 use crate::incremental::testing::IncrementalEngineExt;
 use crate::incremental::testing::VersionedCacheResultAssertsExt;
-use crate::incremental::versions::MinorVersion;
 use crate::incremental::versions::VersionNumber;
 use crate::HashSet;
 
@@ -91,7 +89,7 @@ async fn set_injected_with_no_change_no_new_ctx() -> anyhow::Result<()> {
 
         let ctx = ctx.commit();
 
-        assert_eq!(ctx.0.get_version(), VersionNumber::new(1));
+        assert_eq!(ctx.0.0.get_version(), VersionNumber::new(1));
     }
 
     {
@@ -99,107 +97,7 @@ async fn set_injected_with_no_change_no_new_ctx() -> anyhow::Result<()> {
         ctx.changed_to(vec![(Foo(0), 0)])?;
 
         let ctx = ctx.commit();
-        assert_eq!(ctx.0.get_version(), VersionNumber::new(1));
-    }
-
-    Ok(())
-}
-
-#[test]
-fn compute_and_update_uses_proper_version_numbers() -> anyhow::Result<()> {
-    let dice = DiceLegacy::builder().build(DetectCycles::Enabled);
-
-    {
-        let ctx = dice.updater().commit();
-        assert_eq!(ctx.0.get_version(), VersionNumber::new(0));
-        assert_eq!(ctx.0.get_minor_version(), MinorVersion::testing_new(0));
-    }
-
-    {
-        // second context that didn't have any writes should still be the same version
-        let ctx = dice.updater().commit();
-        assert_eq!(ctx.0.get_version(), VersionNumber::new(0));
-        assert_eq!(ctx.0.get_minor_version(), MinorVersion::testing_new(1));
-
-        // now we write something and commit
-        let ctx = dice.updater();
-        ctx.changed_to(vec![(Foo(1), 1)])?;
-        // current version shouldn't be updated
-        assert_eq!(ctx.existing_state.get_version(), VersionNumber::new(0));
-        assert_eq!(
-            ctx.existing_state.get_minor_version(),
-            MinorVersion::testing_new(1)
-        );
-
-        let ctx1 = dice.updater();
-        // previous ctx isn't dropped, so versions shouldn't be committed yet.
-        assert_eq!(ctx1.existing_state.get_version(), VersionNumber::new(0));
-        assert_eq!(
-            ctx1.existing_state.get_minor_version(),
-            MinorVersion::testing_new(1)
-        );
-
-        // if we update on the new context, nothing committed
-        ctx1.changed_to(vec![(Foo(2), 2)])?;
-        assert_eq!(ctx1.existing_state.get_version(), VersionNumber::new(0));
-        assert_eq!(
-            ctx1.existing_state.get_minor_version(),
-            MinorVersion::testing_new(1)
-        );
-
-        // drop a context
-        ctx1.commit();
-        // we should only have committed once, and in increasing order
-        let vg = dice.global_versions.current();
-        assert_eq!(
-            (vg.version, *vg.minor_version_guard),
-            (VersionNumber::new(1), MinorVersion::testing_new(1))
-        );
-
-        ctx.commit();
-        // both versions finalized.
-        let vg = dice.global_versions.current();
-        assert_eq!(
-            (vg.version, *vg.minor_version_guard),
-            (VersionNumber::new(2), MinorVersion::testing_new(1))
-        );
-        assert!(dice.map.read().engines().iter().all(|engine| {
-            engine
-                .introspect()
-                .versions_currently_running()
-                .first()
-                .is_none()
-        }));
-    }
-
-    {
-        let ctx = dice.updater();
-        assert_eq!(ctx.existing_state.get_version(), VersionNumber::new(2));
-        assert_eq!(
-            ctx.existing_state.get_minor_version(),
-            MinorVersion::testing_new(2)
-        );
-
-        ctx.changed_to(vec![(Foo(3), 3)])?;
-        assert_eq!(ctx.existing_state.get_version(), VersionNumber::new(2));
-        assert_eq!(
-            ctx.existing_state.get_minor_version(),
-            MinorVersion::testing_new(2)
-        );
-
-        ctx.commit();
-        let vg = dice.global_versions.current();
-        assert_eq!(
-            (vg.version, *vg.minor_version_guard),
-            (VersionNumber::new(3), MinorVersion::testing_new(1))
-        );
-        assert!(dice.map.read().engines().iter().all(|engine| {
-            engine
-                .introspect()
-                .versions_currently_running()
-                .first()
-                .is_none()
-        }));
+        assert_eq!(ctx.0.0.get_version(), VersionNumber::new(1));
     }
 
     Ok(())

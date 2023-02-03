@@ -8,13 +8,10 @@
  */
 
 use std::future::Future;
-use std::sync::Arc;
 
 use allocative::Allocative;
 use dupe::Dupe;
-use futures::FutureExt;
 use gazebo::prelude::*;
-use more_futures::spawn::spawn_dropcancel;
 
 use crate::api::data::DiceData;
 use crate::api::error::DiceResult;
@@ -22,8 +19,7 @@ use crate::api::key::Key;
 use crate::api::opaque::OpaqueValue;
 use crate::api::transaction::DiceTransaction;
 use crate::api::user_data::UserComputationData;
-use crate::ctx::DiceComputationImpl;
-use crate::opaque::OpaqueValueImpl;
+use crate::ctx::DiceComputationsImpl;
 
 /// The context for computations to register themselves, and request for additional dependencies.
 /// The dependencies accessed are tracked for caching via the `DiceCtx`.
@@ -33,8 +29,18 @@ use crate::opaque::OpaqueValueImpl;
 ///
 /// The context is valid only for the duration of the computation of a single key, and cannot be
 /// owned.
-#[derive(Allocative)]
-pub struct DiceComputations(pub(crate) Arc<DiceComputationImpl>);
+#[derive(Allocative, Dupe, Clone)]
+#[repr(transparent)]
+pub struct DiceComputations(pub(crate) DiceComputationsImpl);
+
+impl DiceComputations {
+    pub(crate) fn ref_cast(ctx: &DiceComputationsImpl) -> &DiceComputations {
+        unsafe {
+            // SAFETY:: repr(transparent)
+            &*(ctx as *const DiceComputationsImpl as *const Self)
+        }
+    }
+}
 
 fn _test_computations_sync_send() {
     fn _assert_sync_send<T: Sync + Send>() {}
@@ -52,9 +58,7 @@ impl DiceComputations {
     where
         K: Key,
     {
-        self.0
-            .compute_opaque(key)
-            .map(|r| r.map(OpaqueValueImpl::into_value))
+        self.0.compute(key)
     }
 
     /// same as `compute` but for a multiple keys. The returned results will be in order of the
@@ -80,7 +84,7 @@ impl DiceComputations {
     where
         K: Key,
     {
-        self.0.compute_opaque(key).map(|r| r.map(OpaqueValue::new))
+        self.0.compute_opaque(key)
     }
 
     /// temporarily here while we figure out why dice isn't paralleling computations so that we can
@@ -92,21 +96,14 @@ impl DiceComputations {
         FUT: Future<Output = R> + Send,
         R: Send + 'static,
     {
-        // Don't make this function async. It should perform the spawn without needing to poll the returned future.
-        let duped = DiceTransaction(DiceComputations(self.0.dupe()));
-
-        spawn_dropcancel(
-            async move { f(duped).await },
-            self.0.extra.user_data.spawner.as_ref(),
-            &self.0.extra.user_data,
-            debug_span!(parent: None, "spawned_task",),
-        )
+        self.0
+            .temporary_spawn(async move |ctx| f(DiceTransaction(DiceComputations(ctx))).await)
     }
 
     /// Data that is static per the entire lifetime of Dice. These data are initialized at the
     /// time that Dice is initialized via the constructor.
     pub fn global_data(&self) -> &DiceData {
-        &self.0.dice.data
+        self.0.global_data()
     }
 
     /// Data that is static for the lifetime of the current request context. This lifetime is
@@ -114,29 +111,7 @@ impl DiceComputations {
     /// The data is also specific to each request context, so multiple concurrent requests can
     /// each have their own individual data.
     pub fn per_transaction_data(&self) -> &UserComputationData {
-        &self.0.extra.user_data
-    }
-}
-
-#[cfg(test)]
-pub(crate) mod testing {
-    use crate::api::computations::DiceComputations;
-    use crate::incremental::versions::MinorVersion;
-    use crate::incremental::versions::VersionNumber;
-
-    pub(crate) trait DiceCtxExt {
-        fn get_version(&self) -> VersionNumber;
-        fn get_minor_version(&self) -> MinorVersion;
-    }
-
-    impl DiceCtxExt for DiceComputations {
-        fn get_version(&self) -> VersionNumber {
-            self.0.transaction_ctx.get_version()
-        }
-
-        fn get_minor_version(&self) -> MinorVersion {
-            self.0.transaction_ctx.get_minor_version()
-        }
+        self.0.per_transaction_data()
     }
 }
 

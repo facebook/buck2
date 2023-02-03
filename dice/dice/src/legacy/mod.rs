@@ -32,7 +32,8 @@ use crate::api::projection::ProjectionKey;
 use crate::api::transaction::DiceTransactionUpdater;
 use crate::api::user_data::UserComputationData;
 use crate::ctx::ComputationData;
-use crate::ctx::DiceComputationImpl;
+use crate::ctx::DiceComputationsImpl;
+use crate::ctx::DiceComputationsImplLegacy;
 use crate::future_handle::WeakDiceFutureHandle;
 use crate::incremental::evaluator::Evaluator;
 use crate::incremental::graph::GraphNode;
@@ -47,6 +48,9 @@ use crate::key::StoragePropertiesForKey;
 use crate::map::DiceMap;
 use crate::metrics::Metrics;
 use crate::projection::ProjectionKeyProperties;
+
+#[cfg(test)]
+mod tests;
 
 /// An incremental computation engine that executes arbitrary computations that
 /// maps `Key`s to values.
@@ -130,16 +134,21 @@ impl DiceLegacy {
         self: &Arc<DiceLegacy>,
         extra: UserComputationData,
     ) -> DiceTransactionUpdater {
-        DiceTransactionUpdater::new(self.make_ctx(ComputationData::new(extra, self.detect_cycles)))
+        DiceTransactionUpdater::new(DiceComputationsImpl::Legacy(
+            self.make_ctx(ComputationData::new(extra, self.detect_cycles)),
+        ))
     }
 
-    pub(crate) fn make_ctx(self: &Arc<DiceLegacy>, extra: ComputationData) -> DiceComputations {
-        DiceComputations(Arc::new(DiceComputationImpl::new_transaction(
+    pub(crate) fn make_ctx(
+        self: &Arc<DiceLegacy>,
+        extra: ComputationData,
+    ) -> Arc<DiceComputationsImplLegacy> {
+        Arc::new(DiceComputationsImplLegacy::new_transaction(
             self.dupe(),
             self.global_versions.current(),
             self.global_versions.write(),
             extra,
-        )))
+        ))
     }
 
     /// finds the computation index for the given key
@@ -260,7 +269,7 @@ impl<K: Key> Evaluator for StoragePropertiesForKey<K> {
         transaction_ctx: Arc<TransactionCtx>,
         extra: ComputationData,
     ) -> ValueWithDeps<K::Value> {
-        let ctx = DiceComputationImpl::new_for_key_evaluation(
+        let ctx = DiceComputationsImplLegacy::new_for_key_evaluation(
             self.dice
                 .upgrade()
                 .expect("Dice holds DiceMap so it should still be alive here"),
@@ -268,11 +277,11 @@ impl<K: Key> Evaluator for StoragePropertiesForKey<K> {
             extra,
         );
 
-        let ctx = DiceComputations(ctx);
+        let value = k
+            .compute(&DiceComputations(DiceComputationsImpl::Legacy(ctx.dupe())))
+            .await;
 
-        let value = k.compute(&ctx).await;
-
-        let both_deps = ctx.0.finalize();
+        let both_deps = ctx.finalize();
 
         ValueWithDeps { value, both_deps }
     }

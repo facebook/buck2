@@ -20,7 +20,7 @@ use dupe::Dupe;
 use crate::api::error::DiceResult;
 use crate::api::key::Key;
 use crate::api::projection::ProjectionKey;
-use crate::ctx::DiceComputationImpl;
+use crate::ctx::DiceComputationsImplLegacy;
 use crate::incremental::dep_trackers::BothDeps;
 use crate::incremental::graph::GraphNode;
 use crate::incremental::IncrementalEngine;
@@ -36,7 +36,7 @@ pub(crate) struct OpaqueValueImpl<'a, K: Key> {
     /// Computed value.
     pub(crate) value: GraphNode<StoragePropertiesForKey<K>>,
     /// Computations which requested this value, parent of K.
-    pub(crate) parent_computations: &'a Arc<DiceComputationImpl>,
+    pub(crate) parent_computations: &'a Arc<DiceComputationsImplLegacy>,
     incremental_engine: Arc<IncrementalEngine<StoragePropertiesForKey<K>>>,
 }
 
@@ -56,7 +56,7 @@ where
 impl<'a, K: Key> OpaqueValueImpl<'a, K> {
     pub(crate) fn new(
         value: GraphNode<StoragePropertiesForKey<K>>,
-        parent_computations: &'a Arc<DiceComputationImpl>,
+        parent_computations: &'a Arc<DiceComputationsImplLegacy>,
         incremental_engine: Arc<IncrementalEngine<StoragePropertiesForKey<K>>>,
     ) -> OpaqueValueImpl<'a, K> {
         OpaqueValueImpl {
