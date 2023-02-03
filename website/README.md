@@ -25,7 +25,12 @@ To build a copy of the static content using `../.buck2.sh` (which builds buck2 f
 $ yarn build_local
 ```
 
-Both of these commands generate static content into the `build` directory and can be served using any static contents hosting service.
+To build a copy of the static content using Cargo to build buck2:
+```shell
+$ yarn build_cargo
+```
+
+All of these commands generate static content into the `build` directory and can be served using any static contents hosting service.
 
 ## Local Development
 

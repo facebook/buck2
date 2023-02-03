@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+name: Publish buck2.build
 on:
   push:
     branches:
@@ -20,15 +21,13 @@ jobs:
       uses: actions/checkout@v2
     - name: Dependencies
       run: |
-        cargo build --bin=buck2
-        sudo cp target/debug/buck2 /usr/bin
         sudo apt-get install -y yarn
       id: build
     - name: Build the Website
       run: |
         cd website
         yarn
-        yarn build
+        yarn build_cargo
     - name: Deploy
       uses: JamesIves/github-pages-deploy-action@releases/v3
       with:
