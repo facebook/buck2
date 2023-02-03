@@ -155,6 +155,12 @@ pub struct TargetsCommand {
     /// Don't cache the target information on the build graph
     #[clap(long, requires = "streaming")]
     no_cache: bool,
+
+    /// Show the imports of each package/import. Shows an additional output per package/import
+    /// (not per target), including implicit dependencies (e.g. the prelude) but only direct
+    /// dependencies (not the transitive closure).
+    #[clap(long, requires = "streaming")]
+    imports: bool,
 }
 
 #[async_trait]
@@ -237,6 +243,7 @@ impl StreamingCommand for TargetsCommand {
             keep_going: self.keep_going,
             streaming: self.streaming,
             cached: !self.no_cache,
+            imports: self.imports,
         };
 
         if self.show_output {

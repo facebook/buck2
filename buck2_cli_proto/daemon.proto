@@ -109,6 +109,7 @@ message TargetsRequest {
   bool keep_going = 13;
   bool streaming = 14;
   bool cached = 15;
+  bool imports = 16;
 
   /// These options may be removed at any time.
   bool unstable_resolve_aliases = 4242000;

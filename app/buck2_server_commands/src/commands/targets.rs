@@ -29,6 +29,8 @@ use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::pattern::package_roots::find_package_roots_stream;
 use buck2_common::pattern::resolve::ResolvedPattern;
+use buck2_core::bzl::ImportPath;
+use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::project::ProjectRoot;
@@ -47,6 +49,7 @@ use buck2_node::nodes::attributes::TARGET_CALL_STACK;
 use buck2_node::nodes::attributes::TARGET_HASH;
 use buck2_node::nodes::attributes::TYPE;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
+use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
@@ -79,9 +82,17 @@ struct TargetInfo<'a> {
 trait TargetPrinter: Send + Sync {
     fn begin(&self, output: &mut String) {}
     fn end(&self, stats: &Stats, output: &mut String) {}
-    /// Called between each target/package_error
+    /// Called between each target/imports/package_error
     fn separator(&self, output: &mut String) {}
     fn target(&self, package: PackageLabel, target_info: TargetInfo<'_>, output: &mut String) {}
+    fn imports(
+        &self,
+        source: &CellPath,
+        imports: &[ImportPath],
+        package: PackageLabel,
+        output: &mut String,
+    ) {
+    }
     fn package_error(&self, package: PackageLabel, error: &anyhow::Error, output: &mut String) {}
 }
 
@@ -183,6 +194,27 @@ impl TargetPrinter for JsonPrinter {
         if !first {
             output.push('\n');
         }
+        output.push_str("  }");
+    }
+
+    fn imports(
+        &self,
+        source: &CellPath,
+        imports: &[ImportPath],
+        package: PackageLabel,
+        output: &mut String,
+    ) {
+        output.push_str("  {\n");
+        writeln!(output, "    \"{}\": \"{}\",", PACKAGE, package).unwrap();
+        writeln!(output, "    \"buck.file\": \"{}\",", source).unwrap();
+        writeln!(
+            output,
+            "    \"buck.imports\": [{}]",
+            imports
+                .map(|d| quote_json_string(&d.path().to_string()))
+                .join(", ")
+        )
+        .unwrap();
         output.push_str("  }");
     }
 
@@ -387,6 +419,7 @@ async fn targets(
             parsed_target_patterns,
             request.keep_going,
             request.cached,
+            request.imports,
         )
         .await?
     } else {
@@ -587,6 +620,7 @@ async fn targets_streaming(
     parsed_patterns: Vec<ParsedPattern<TargetName>>,
     keep_going: bool,
     cached: bool,
+    imports: bool,
 ) -> anyhow::Result<(u64, String)> {
     #[derive(Default)]
     struct Res {
@@ -603,11 +637,19 @@ async fn targets_streaming(
                 let mut res = Res::default();
                 let (package, spec) = x?;
                 match load_package(&dice, package.dupe(), spec, cached).await {
-                    Ok(targets) => {
+                    Ok((eval_result, targets)) => {
                         res.stats.success += 1;
+                        if imports {
+                            printer.imports(
+                                &eval_result.buildfile_path().path(),
+                                eval_result.imports(),
+                                package.dupe(),
+                                &mut res.stdout,
+                            )
+                        }
                         for (i, node) in targets.iter().enumerate() {
                             res.stats.targets += 1;
-                            if i != 0 {
+                            if imports || i != 0 {
                                 printer.separator(&mut res.stdout);
                             }
                             printer.target(
@@ -689,20 +731,22 @@ async fn load_package(
     package: PackageLabel,
     spec: PackageSpec<TargetName>,
     cached: bool,
-) -> anyhow::Result<Vec<TargetNode>> {
+) -> anyhow::Result<(Arc<EvaluationResult>, Vec<TargetNode>)> {
     let result = if cached {
         dice.get_interpreter_results(package.dupe()).await?
     } else {
         dice.get_interpreter_results_uncached(package.dupe())
             .await?
     };
-    match spec {
+
+    let targets = match spec {
         PackageSpec::Targets(targets) => {
             targets.into_try_map(|target| match result.targets().get(&target) {
                 None => Err(BuildErrors::MissingTarget(package.dupe(), target).into()),
-                Some(x) => Ok(x.dupe()),
-            })
+                Some(x) => anyhow::Ok(x.dupe()),
+            })?
         }
-        PackageSpec::All => Ok(result.targets().values().duped().collect()),
-    }
+        PackageSpec::All => result.targets().values().duped().collect(),
+    };
+    Ok((result, targets))
 }
