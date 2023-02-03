@@ -60,7 +60,7 @@ fn symlink_impl(original: &Path, link: &Path) -> anyhow::Result<()> {
         Cow::Owned(
             link.parent()
                 .ok_or_else(|| anyhow::anyhow!("Expected path with a parent in symlink target"))?
-                .join(&original),
+                .join(original),
         )
     };
     let target_abspath = std::path::absolute(&target_abspath)?;
@@ -238,9 +238,9 @@ fn remove_file_impl(path: &Path) -> anyhow::Result<()> {
 
     let file_type = path.symlink_metadata()?.file_type();
     if !file_type.is_symlink() || file_type.is_symlink_file() {
-        fs::remove_file(&path)?;
+        fs::remove_file(path)?;
     } else {
-        fs::remove_dir(&path)?;
+        fs::remove_dir(path)?;
     }
     Ok(())
 }
