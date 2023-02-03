@@ -80,7 +80,7 @@ pub struct TargetsCommand {
     resolve_alias: bool,
 
     /// Print a stable hash of each target after the target name. Incompatible with '--show-rulekey'.
-    #[clap(long)]
+    #[clap(long, conflicts_with = "streaming")]
     show_target_hash: bool,
 
     /// Print a stable unconfigured hash of each target after the target name.
@@ -95,7 +95,8 @@ pub struct TargetsCommand {
         long,
         arg_enum,
         ignore_case = true,
-        default_value = "paths_and_contents"
+        default_value = "paths_and_contents",
+        conflicts_with = "streaming"
     )]
     target_hash_file_mode: TargetHashFileMode,
 
@@ -103,7 +104,7 @@ pub struct TargetsCommand {
     /// `PATHS_ONLY`. If a target or its dependencies reference a file from this set, the target's hash
     /// will be different than if this option was omitted. Otherwise, the target's hash will be the same
     /// as if this option was omitted.
-    #[clap(long, multiple_values = true)]
+    #[clap(long, multiple_values = true, conflicts_with = "streaming")]
     target_hash_modified_paths: Vec<PathArg>,
 
     /// Selects either the "fast" or the "strong" target hash function to be used for computing target hashes.
@@ -115,7 +116,7 @@ pub struct TargetsCommand {
 
     /// When true, emit the hash or target node and all dependencies recursively.
     /// When false, hash only the target node.
-    #[clap(long, action = clap::ArgAction::Set, default_value = "true")]
+    #[clap(long, action = clap::ArgAction::Set, default_value = "true", conflicts_with = "streaming")]
     target_hash_recursive: bool,
 
     #[clap(flatten)]

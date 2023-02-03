@@ -417,6 +417,13 @@ async fn targets(
 
     let formatter = crate_formatter(request)?;
     let (error_count, results_to_print) = if request.streaming {
+        let hashing = match TargetHashGraphType::from_i32(request.target_hash_graph_type)
+            .expect("buck cli should send valid target hash graph type")
+        {
+            TargetHashGraphType::None => None,
+            _ => Some(request.target_hash_use_fast_hash),
+        };
+
         targets_streaming(
             server_ctx,
             dice,
@@ -425,6 +432,7 @@ async fn targets(
             request.keep_going,
             request.cached,
             request.imports,
+            hashing,
         )
         .await?
     } else {
@@ -626,6 +634,7 @@ async fn targets_streaming(
     keep_going: bool,
     cached: bool,
     imports: bool,
+    fast_hash: Option<bool>, // None = no hashing
 ) -> anyhow::Result<(u64, String)> {
     #[derive(Default)]
     struct Res {
@@ -669,7 +678,9 @@ async fn targets_streaming(
                                 package.dupe(),
                                 TargetInfo {
                                     node,
-                                    target_hash: None,
+                                    target_hash: fast_hash.map(|fast| {
+                                        TargetHashes::compute_immediate_one(node, fast)
+                                    }),
                                 },
                                 &mut res.stdout,
                             )

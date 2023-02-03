@@ -419,6 +419,12 @@ impl TargetHashes {
         Ok(Self { target_mapping })
     }
 
+    pub fn compute_immediate_one(node: &TargetNode, use_fast_hash: bool) -> BuckTargetHash {
+        let mut hasher = TargetHashes::new_hasher(use_fast_hash);
+        TargetHashes::hash_node(node, &mut *hasher);
+        hasher.finish_u128()
+    }
+
     pub async fn compute<T: TargetHashingTargetNode, L: AsyncNodeLookup<T>>(
         dice: DiceTransaction,
         lookup: L,
