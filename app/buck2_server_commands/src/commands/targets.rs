@@ -16,6 +16,7 @@ use std::path::Path;
 use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_build_api::calculation::load_patterns;
+use buck2_build_api::calculation::BuildErrors;
 use buck2_build_api::nodes::hacks::value_to_json;
 use buck2_build_api::nodes::lookup::ConfiguredTargetNodeLookup;
 use buck2_build_api::nodes::lookup::TargetNodeLookup;
@@ -25,11 +26,15 @@ use buck2_cli_proto::TargetsRequest;
 use buck2_cli_proto::TargetsResponse;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
+use buck2_common::pattern::package_roots::find_package_roots_stream;
+use buck2_common::pattern::resolve::ResolvedPattern;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::package::PackageLabel;
+use buck2_core::pattern::PackageSpec;
 use buck2_core::pattern::ParsedPattern;
+use buck2_core::pattern::PatternType;
 use buck2_core::target::label::TargetLabel;
 use buck2_core::target::name::TargetName;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
@@ -47,11 +52,15 @@ use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
 use buck2_server_ctx::pattern::target_platform_from_client_context;
 use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
+use dice::DiceComputations;
 use dice::DiceTransaction;
 use dupe::Dupe;
+use dupe::IterDupedExt;
 use dupe::OptionDupedExt;
 use futures::stream::FuturesUnordered;
 use futures::stream::StreamExt;
+use futures::Stream;
+use gazebo::prelude::*;
 use itertools::Itertools;
 use regex::RegexSet;
 
@@ -568,17 +577,26 @@ async fn targets_streaming(
     parsed_patterns: Vec<ParsedPattern<TargetName>>,
     keep_going: bool,
 ) -> anyhow::Result<(u64, String)> {
-    let results = load_patterns(&dice, parsed_patterns).await?;
+    let mut packages = stream_packages(&dice, parsed_patterns)
+        .map(|x| {
+            dice.temporary_spawn(|dice| async move {
+                let (package, spec) = x?;
+                anyhow::Ok((package.dupe(), load_package(&dice, package, spec).await))
+            })
+        })
+        // Use unlimited parallelism - tokio will restrict us anyway
+        .buffer_unordered(1000000);
 
     let mut output = String::new();
     printer.begin(&mut output);
     let mut stats = Stats::default();
     let mut needs_separator = false;
-    for (package, result) in results.iter() {
-        match result {
+    while let Some(res) = packages.next().await {
+        let (package, res) = res?;
+        match res {
             Ok(res) => {
                 stats.success += 1;
-                for (_, node) in res.iter() {
+                for node in res.iter() {
                     stats.targets += 1;
                     if needs_separator {
                         printer.separator(&mut output);
@@ -596,19 +614,13 @@ async fn targets_streaming(
             }
             Err(e) => {
                 stats.errors += 1;
-                if keep_going {
-                    if needs_separator {
-                        printer.separator(&mut output);
-                    }
-                    needs_separator = true;
-                    printer.package_error(package.dupe(), e.inner(), &mut output);
-                } else {
-                    writeln!(
-                        server_ctx.stderr()?,
-                        "Error parsing {}\n{:?}",
-                        package,
-                        e.inner()
-                    )?;
+                if needs_separator {
+                    printer.separator(&mut output);
+                }
+                needs_separator = true;
+                printer.package_error(package.dupe(), &e, &mut output);
+                if !keep_going {
+                    writeln!(server_ctx.stderr()?, "Error parsing {}\n{:?}", package, e)?;
                     return Err(mk_error(stats.errors));
                 }
             }
@@ -620,4 +632,47 @@ async fn targets_streaming(
     }
     printer.end(&stats, &mut output);
     Ok((stats.errors, output))
+}
+
+/// Given the patterns, separate into those which have an explicit package, and those which are recursive
+fn stream_packages<T: PatternType>(
+    dice: &DiceComputations,
+    patterns: Vec<ParsedPattern<T>>,
+) -> impl Stream<Item = anyhow::Result<(PackageLabel, PackageSpec<T>)>> {
+    let mut spec = ResolvedPattern::<T>::new();
+    let mut recursive_paths = Vec::new();
+
+    for pattern in patterns {
+        match pattern {
+            ParsedPattern::Target(package, target) => {
+                spec.add_target(package.dupe(), &target);
+            }
+            ParsedPattern::Package(package) => {
+                spec.add_package(package.dupe());
+            }
+            ParsedPattern::Recursive(package) => {
+                recursive_paths.push(package);
+            }
+        }
+    }
+
+    futures::stream::iter(spec.specs.into_iter().map(Ok))
+        .chain(find_package_roots_stream(dice, recursive_paths).map(|x| Ok((x?, PackageSpec::All))))
+}
+
+async fn load_package(
+    dice: &DiceComputations,
+    package: PackageLabel,
+    spec: PackageSpec<TargetName>,
+) -> anyhow::Result<Vec<TargetNode>> {
+    let result = dice.get_interpreter_results(package.dupe()).await?;
+    match spec {
+        PackageSpec::Targets(targets) => {
+            targets.into_try_map(|target| match result.targets().get(&target) {
+                None => Err(BuildErrors::MissingTarget(package.dupe(), target).into()),
+                Some(x) => Ok(x.dupe()),
+            })
+        }
+        PackageSpec::All => Ok(result.targets().values().duped().collect()),
+    }
 }
