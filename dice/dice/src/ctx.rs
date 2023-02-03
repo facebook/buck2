@@ -41,9 +41,10 @@ impl DiceComputationsImpl {
         K: Key,
     {
         match self {
-            DiceComputationsImpl::Legacy(delegate) => delegate.compute_opaque(key),
+            DiceComputationsImpl::Legacy(delegate) => delegate
+                .compute_opaque(key)
+                .map(|r| r.map(|x| x.into_value())),
         }
-        .map(|r| r.map(OpaqueValueImpl::into_value))
     }
 
     /// Compute "opaque" value where the value is only accessible via projections.
@@ -58,9 +59,10 @@ impl DiceComputationsImpl {
         K: Key,
     {
         match self {
-            DiceComputationsImpl::Legacy(delegate) => delegate.compute_opaque(key),
+            DiceComputationsImpl::Legacy(delegate) => delegate
+                .compute_opaque(key)
+                .map(|r| r.map(|x| OpaqueValue::new(OpaqueValueImpl::Legacy(x)))),
         }
-        .map(|r| r.map(OpaqueValue::new))
     }
 
     /// temporarily here while we figure out why dice isn't paralleling computations so that we can

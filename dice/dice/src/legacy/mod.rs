@@ -50,6 +50,7 @@ use crate::metrics::Metrics;
 use crate::projection::ProjectionKeyProperties;
 
 pub(crate) mod ctx;
+pub(crate) mod opaque;
 
 #[cfg(test)]
 mod tests;

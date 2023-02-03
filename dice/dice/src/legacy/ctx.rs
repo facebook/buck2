@@ -33,9 +33,9 @@ use crate::incremental::transaction_ctx::TransactionCtx;
 use crate::incremental::versions::VersionForWrites;
 use crate::incremental::versions::VersionGuard;
 use crate::incremental::versions::VersionNumber;
+use crate::legacy::opaque::OpaqueValueImplLegacy;
 use crate::legacy::DiceLegacy;
 use crate::map::DiceMap;
-use crate::opaque::OpaqueValueImpl;
 use crate::projection::ProjectionKeyAsKey;
 
 /// A context for the duration of a top-level compute request.
@@ -139,7 +139,7 @@ impl DiceComputationsImplLegacy {
     pub(crate) fn compute_opaque<'b, 'a: 'b, K>(
         self: &'a Arc<Self>,
         key: &'b K,
-    ) -> impl Future<Output = DiceResult<OpaqueValueImpl<'a, K>>> + 'b
+    ) -> impl Future<Output = DiceResult<OpaqueValueImplLegacy<'a, K>>> + 'b
     where
         K: Key,
     {
@@ -149,14 +149,14 @@ impl DiceComputationsImplLegacy {
             let value = cache
                 .eval_for_opaque(key, &self.transaction_ctx, extra)
                 .await?;
-            Ok(OpaqueValueImpl::new(value, self, cache))
+            Ok(OpaqueValueImplLegacy::new(value, self, cache))
         }
         .boxed()
     }
 
     pub(crate) fn compute_projection_sync<P>(
         self: &Arc<Self>,
-        derive_from: &OpaqueValueImpl<P::DeriveFromKey>,
+        derive_from: &OpaqueValueImplLegacy<P::DeriveFromKey>,
         projection_key: &P,
     ) -> DiceResult<P::Value>
     where
