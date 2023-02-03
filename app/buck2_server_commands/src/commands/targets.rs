@@ -82,7 +82,7 @@ struct TargetInfo<'a> {
 }
 
 #[allow(unused_variables)]
-trait TargetPrinter: Send + Sync {
+trait TargetFormatter: Send + Sync {
     fn begin(&self, output: &mut String) {}
     fn end(&self, stats: &Stats, output: &mut String) {}
     /// Called between each target/imports/package_error
@@ -99,13 +99,13 @@ trait TargetPrinter: Send + Sync {
     fn package_error(&self, package: PackageLabel, error: &anyhow::Error, output: &mut String) {}
 }
 
-struct JsonPrinter {
+struct JsonFormat {
     attributes: Option<RegexSet>,
     attr_inspect_opts: AttrInspectOptions,
     target_call_stacks: bool,
 }
 
-impl TargetPrinter for JsonPrinter {
+impl TargetFormatter for JsonFormat {
     fn begin(&self, output: &mut String) {
         output.push_str("[\n");
     }
@@ -121,7 +121,7 @@ impl TargetPrinter for JsonPrinter {
         let mut first = true;
 
         fn print_attr(
-            this: &JsonPrinter,
+            this: &JsonFormat,
             output: &mut String,
             first: &mut bool,
             k: &str,
@@ -251,19 +251,19 @@ impl Stats {
     }
 }
 
-struct StatsPrinter;
+struct StatsFormat;
 
-impl TargetPrinter for StatsPrinter {
+impl TargetFormatter for StatsFormat {
     fn end(&self, stats: &Stats, output: &mut String) {
         writeln!(output, "{:?}", stats).unwrap()
     }
 }
 
-struct TargetNamePrinter {
+struct TargetNameFormat {
     target_call_stacks: bool,
     target_hash_graph_type: TargetHashGraphType,
 }
-impl TargetPrinter for TargetNamePrinter {
+impl TargetFormatter for TargetNameFormat {
     fn target(&self, package: PackageLabel, target_info: TargetInfo<'_>, output: &mut String) {
         if self.target_hash_graph_type != TargetHashGraphType::None {
             match target_info.target_hash {
@@ -365,10 +365,10 @@ impl ServerCommandTemplate for TargetsServerCommand {
     }
 }
 
-fn create_printer(request: &TargetsRequest) -> anyhow::Result<Arc<dyn TargetPrinter>> {
+fn crate_formatter(request: &TargetsRequest) -> anyhow::Result<Arc<dyn TargetFormatter>> {
     let is_json = request.json || !request.output_attributes.is_empty();
     if is_json {
-        Ok(Arc::new(JsonPrinter {
+        Ok(Arc::new(JsonFormat {
             attributes: if request.output_attributes.is_empty() {
                 None
             } else {
@@ -382,9 +382,9 @@ fn create_printer(request: &TargetsRequest) -> anyhow::Result<Arc<dyn TargetPrin
             target_call_stacks: request.target_call_stacks,
         }))
     } else if request.stats {
-        Ok(Arc::new(StatsPrinter))
+        Ok(Arc::new(StatsFormat))
     } else {
-        Ok(Arc::new(TargetNamePrinter {
+        Ok(Arc::new(TargetNameFormat {
             target_call_stacks: request.target_call_stacks,
             target_hash_graph_type: TargetHashGraphType::from_i32(request.target_hash_graph_type)
                 .expect("buck cli should send valid target hash graph type"),
@@ -415,12 +415,12 @@ async fn targets(
         return targets_resolve_aliases(dice, request, parsed_target_patterns).await;
     }
 
-    let printer = create_printer(request)?;
+    let formatter = crate_formatter(request)?;
     let (error_count, results_to_print) = if request.streaming {
         targets_streaming(
             server_ctx,
             dice,
-            printer,
+            formatter,
             parsed_target_patterns,
             request.keep_going,
             request.cached,
@@ -435,7 +435,7 @@ async fn targets(
         targets_batch(
             server_ctx,
             dice,
-            &*printer,
+            &*formatter,
             parsed_target_patterns,
             target_platform,
             TargetHashOptions::new(request, &cell_resolver, fs)?,
@@ -529,7 +529,7 @@ fn mk_error(errors: u64) -> anyhow::Error {
 async fn targets_batch(
     server_ctx: &dyn ServerCommandContextTrait,
     dice: DiceTransaction,
-    printer: &dyn TargetPrinter,
+    formatter: &dyn TargetFormatter,
     parsed_patterns: Vec<ParsedPattern<TargetName>>,
     target_platform: Option<TargetLabel>,
     hash_options: TargetHashOptions,
@@ -566,7 +566,7 @@ async fn targets_batch(
     };
 
     let mut output = String::new();
-    printer.begin(&mut output);
+    formatter.begin(&mut output);
     let mut stats = Stats::default();
     let mut needs_separator = false;
     for (package, result) in results.iter() {
@@ -581,10 +581,10 @@ async fn targets_batch(
                         .duped()
                         .transpose()?;
                     if needs_separator {
-                        printer.separator(&mut output);
+                        formatter.separator(&mut output);
                     }
                     needs_separator = true;
-                    printer.target(
+                    formatter.target(
                         package.dupe(),
                         TargetInfo { node, target_hash },
                         &mut output,
@@ -595,10 +595,10 @@ async fn targets_batch(
                 stats.errors += 1;
                 if keep_going {
                     if needs_separator {
-                        printer.separator(&mut output);
+                        formatter.separator(&mut output);
                     }
                     needs_separator = true;
-                    printer.package_error(package.dupe(), e.inner(), &mut output);
+                    formatter.package_error(package.dupe(), e.inner(), &mut output);
                 } else {
                     writeln!(
                         server_ctx.stderr()?,
@@ -610,7 +610,7 @@ async fn targets_batch(
             }
         }
     }
-    printer.end(&stats, &mut output);
+    formatter.end(&stats, &mut output);
     if !keep_going && stats.errors != 0 {
         Err(mk_error(stats.errors))
     } else {
@@ -621,7 +621,7 @@ async fn targets_batch(
 async fn targets_streaming(
     server_ctx: &dyn ServerCommandContextTrait,
     dice: DiceTransaction,
-    printer: Arc<dyn TargetPrinter>,
+    formatter: Arc<dyn TargetFormatter>,
     parsed_patterns: Vec<ParsedPattern<TargetName>>,
     keep_going: bool,
     cached: bool,
@@ -638,7 +638,7 @@ async fn targets_streaming(
 
     let mut packages = stream_packages(&dice, parsed_patterns)
         .map(|x| {
-            let printer = printer.dupe();
+            let formatter = formatter.dupe();
             let imported = imported.dupe();
 
             dice.temporary_spawn(move |dice| async move {
@@ -649,7 +649,7 @@ async fn targets_streaming(
                         res.stats.success += 1;
                         if imports {
                             let eval_imports = eval_result.imports();
-                            printer.imports(
+                            formatter.imports(
                                 &eval_result.buildfile_path().path(),
                                 eval_imports,
                                 Some(package.dupe()),
@@ -663,9 +663,9 @@ async fn targets_streaming(
                         for (i, node) in targets.iter().enumerate() {
                             res.stats.targets += 1;
                             if imports || i != 0 {
-                                printer.separator(&mut res.stdout);
+                                formatter.separator(&mut res.stdout);
                             }
-                            printer.target(
+                            formatter.target(
                                 package.dupe(),
                                 TargetInfo {
                                     node,
@@ -677,7 +677,7 @@ async fn targets_streaming(
                     }
                     Err(e) => {
                         res.stats.errors += 1;
-                        printer.package_error(package.dupe(), &e, &mut res.stdout);
+                        formatter.package_error(package.dupe(), &e, &mut res.stdout);
                         if !keep_going {
                             res.stderr = Some(format!("Error parsing {}\n{:?}", package, e));
                         }
@@ -690,7 +690,7 @@ async fn targets_streaming(
         .buffer_unordered(1000000);
 
     let mut output = String::new();
-    printer.begin(&mut output);
+    formatter.begin(&mut output);
     let mut stats = Stats::default();
     let mut needs_separator = false;
     while let Some(res) = packages.next().await {
@@ -702,7 +702,7 @@ async fn targets_streaming(
         }
         if !res.stdout.is_empty() {
             if needs_separator {
-                printer.separator(&mut output);
+                formatter.separator(&mut output);
             }
             needs_separator = true;
             write!(server_ctx.stdout()?, "{}{}", output, res.stdout)?;
@@ -718,20 +718,20 @@ async fn targets_streaming(
             // If these lead to an error, that's surpsing (we had a working module with it loaded)
             // so we should always propagate the error here (even with keep_going)
             if needs_separator {
-                printer.separator(&mut output);
+                formatter.separator(&mut output);
             }
             needs_separator = true;
             // No need to parallelise these this step because it will already be on the DICE graph
             let loaded = dice.get_loaded_module_from_import_path(&path).await?;
             let imports = loaded.imports().cloned().collect::<Vec<_>>();
-            printer.imports(path.path(), &imports, None, &mut output);
+            formatter.imports(path.path(), &imports, None, &mut output);
             todo.extend(imports);
             write!(server_ctx.stdout()?, "{}", output)?;
             output.clear();
         }
     }
 
-    printer.end(&stats, &mut output);
+    formatter.end(&stats, &mut output);
     Ok((stats.errors, output))
 }
 
