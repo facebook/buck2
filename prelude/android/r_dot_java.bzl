@@ -10,25 +10,22 @@ load("@prelude//java:java_providers.bzl", "JavaClasspathEntry", "JavaLibraryInfo
 
 RDotJavaSourceCode = record(
     r_dot_java_source_code_dir = "artifact",
-    r_dot_java_source_code_dir_listing = "artifact",
+    r_dot_java_source_code_zipped = "artifact",
     strings_source_code_dir = ["artifact", None],
-    strings_source_code_dir_listing = ["artifact", None],
+    strings_source_code_zipped = ["artifact", None],
     ids_source_code_dir = ["artifact", None],
-    ids_source_code_dir_listing = ["artifact", None],
+    ids_source_code_zipped = ["artifact", None],
 )
 
 def get_dummy_r_dot_java(
         ctx: "context",
         merge_android_resources_tool: RunInfo.type,
-        java_toolchain: "JavaToolchainInfo",
         android_resources: ["AndroidResourceInfo"],
         union_package: [str.type, None]) -> "JavaLibraryInfo":
     r_dot_java_source_code = _generate_r_dot_java_source_code(ctx, merge_android_resources_tool, android_resources, "dummy_r_dot_java", union_package = union_package)
     library_output = _generate_and_compile_r_dot_java(
         ctx,
-        r_dot_java_source_code.r_dot_java_source_code_dir,
-        r_dot_java_source_code.r_dot_java_source_code_dir_listing,
-        java_toolchain,
+        r_dot_java_source_code.r_dot_java_source_code_zipped,
         "dummy_r_dot_java",
     )
     return JavaLibraryInfo(
@@ -40,7 +37,6 @@ def get_dummy_r_dot_java(
 def generate_r_dot_javas(
         ctx: "context",
         merge_android_resources_tool: RunInfo.type,
-        java_toolchain: "JavaToolchainInfo",
         android_resources: ["AndroidResourceInfo"],
         banned_duplicate_resource_types: [str.type],
         uber_r_dot_txt_files: ["artifact"],
@@ -65,24 +61,18 @@ def generate_r_dot_javas(
 
     main_library_output = _generate_and_compile_r_dot_java(
         ctx,
-        r_dot_java_source_code.r_dot_java_source_code_dir,
-        r_dot_java_source_code.r_dot_java_source_code_dir_listing,
-        java_toolchain,
+        r_dot_java_source_code.r_dot_java_source_code_zipped,
         "main_r_dot_java",
     )
     strings_library_output = _generate_and_compile_r_dot_java(
         ctx,
-        r_dot_java_source_code.strings_source_code_dir,
-        r_dot_java_source_code.strings_source_code_dir_listing,
-        java_toolchain,
+        r_dot_java_source_code.strings_source_code_zipped,
         "strings_r_dot_java",
         remove_classes = [".R$"],
     )
     ids_library_output = _generate_and_compile_r_dot_java(
         ctx,
-        r_dot_java_source_code.ids_source_code_dir,
-        r_dot_java_source_code.ids_source_code_dir_listing,
-        java_toolchain,
+        r_dot_java_source_code.ids_source_code_zipped,
         "ids_r_dot_java",
         remove_classes = [".R$"],
     )
@@ -119,23 +109,23 @@ def _generate_r_dot_java_source_code(
 
     output_dir = ctx.actions.declare_output("{}_source_code".format(identifier))
     merge_resources_cmd.add(["--output-dir", output_dir.as_output()])
-    output_dir_listing = ctx.actions.declare_output("{}_source_code_listing".format(identifier))
-    merge_resources_cmd.add(["--output-dir-listing", output_dir_listing.as_output()])
+    output_dir_zipped = ctx.actions.declare_output("{}.src.zip".format(identifier))
+    merge_resources_cmd.add(["--output-dir-zipped", output_dir_zipped.as_output()])
 
     if generate_strings_and_ids_separately:
         strings_output_dir = ctx.actions.declare_output("strings_source_code")
         merge_resources_cmd.add(["--strings-output-dir", strings_output_dir.as_output()])
-        strings_output_dir_listing = ctx.actions.declare_output("strings_source_code_listing")
-        merge_resources_cmd.add(["--strings-output-dir-listing", strings_output_dir_listing.as_output()])
+        strings_output_dir_zipped = ctx.actions.declare_output("strings.src.zip")
+        merge_resources_cmd.add(["--strings-output-dir-zipped", strings_output_dir_zipped.as_output()])
         ids_output_dir = ctx.actions.declare_output("ids_source_code")
         merge_resources_cmd.add(["--ids-output-dir", ids_output_dir.as_output()])
-        ids_output_dir_listing = ctx.actions.declare_output("ids_source_code_listing")
-        merge_resources_cmd.add(["--ids-output-dir-listing", ids_output_dir_listing.as_output()])
+        ids_output_dir_zipped = ctx.actions.declare_output("ids.src.zip")
+        merge_resources_cmd.add(["--ids-output-dir-zipped", ids_output_dir_zipped.as_output()])
     else:
         strings_output_dir = None
-        strings_output_dir_listing = None
+        strings_output_dir_zipped = None
         ids_output_dir = None
-        ids_output_dir_listing = None
+        ids_output_dir_zipped = None
 
     if force_final_resources_ids:
         merge_resources_cmd.add("--force-final-resource-ids")
@@ -169,53 +159,28 @@ def _generate_r_dot_java_source_code(
 
     return RDotJavaSourceCode(
         r_dot_java_source_code_dir = output_dir,
-        r_dot_java_source_code_dir_listing = output_dir_listing,
+        r_dot_java_source_code_zipped = output_dir_zipped,
         strings_source_code_dir = strings_output_dir,
-        strings_source_code_dir_listing = strings_output_dir_listing,
+        strings_source_code_zipped = strings_output_dir_zipped,
         ids_source_code_dir = ids_output_dir,
-        ids_source_code_dir_listing = ids_output_dir_listing,
+        ids_source_code_zipped = ids_output_dir_zipped,
     )
 
 def _generate_and_compile_r_dot_java(
         ctx: "context",
-        r_dot_java_source_code_dir: "artifact",
-        r_dot_java_src_listing: "artifact",
-        java_toolchain: "JavaToolchainInfo",
+        r_dot_java_source_code_zipped: "artifact",
         identifier: str.type,
         remove_classes: [str.type] = []) -> JavaClasspathEntry.type:
     r_dot_java_out = ctx.actions.declare_output("{}.jar".format(identifier))
 
-    # @lint-ignore-every BUILDIFIERLINT
-    def compile_r_dot_java_srcs(ctx, artifacts, outputs):
-        src_listing_string = artifacts[r_dot_java_src_listing].read_string()
-        src_listing = src_listing_string.split("\n")[:-1] if src_listing_string else []
-        r_dot_java_srcs = []
-        copied_root = ctx.actions.declare_output("copied_{}".format(identifier))
-        for path in src_listing:
-            r_dot_java_srcs.append(copied_root.project(path))
-
-        cmd = cmd_args([
-            java_toolchain.src_dir_helper[RunInfo],
-            "copy",
-            "--src-dir",
-            r_dot_java_source_code_dir,
-            "--dest-dir",
-            copied_root.as_output(),
-        ] + src_listing)
-        ctx.actions.run(
-            cmd,
-            category = "copy_r_dot_java_sources",
-            identifier = identifier,
-        )
-
-        compile_to_jar(
-            ctx,
-            output = outputs[r_dot_java_out],
-            actions_identifier = identifier,
-            javac_tool = None,
-            srcs = r_dot_java_srcs,
-            remove_classes = remove_classes,
-        )
+    compile_to_jar(
+        ctx,
+        output = r_dot_java_out,
+        actions_identifier = identifier,
+        javac_tool = None,
+        srcs = [r_dot_java_source_code_zipped],
+        remove_classes = remove_classes,
+    )
 
     # Extracting an abi is unnecessary as there's not really anything to strip.
     outputs = JavaClasspathEntry(
@@ -224,6 +189,4 @@ def _generate_and_compile_r_dot_java(
         required_for_source_only_abi = False,
     )
 
-    todo_inputs = []
-    ctx.actions.dynamic_output(dynamic = [r_dot_java_src_listing], inputs = todo_inputs, outputs = [r_dot_java_out], f = compile_r_dot_java_srcs)
     return outputs

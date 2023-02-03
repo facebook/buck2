@@ -13,7 +13,6 @@ load("@prelude//android:android_providers.bzl", "AndroidBinaryResourcesInfo", "A
 load("@prelude//android:android_resource.bzl", "aapt2_compile")
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//android:r_dot_java.bzl", "generate_r_dot_javas")
-load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
 load("@prelude//utils:set.bzl", "set_type")  # @unused Used as a type
 load("@prelude//utils:utils.bzl", "expect")
 
@@ -128,7 +127,6 @@ def get_android_binary_resources_info(
     r_dot_javas = [] if len(resources) == 0 else generate_r_dot_javas(
         ctx,
         ctx.attrs._android_toolchain[AndroidToolchainInfo].merge_android_resources[RunInfo],
-        ctx.attrs._java_toolchain[JavaToolchainInfo],
         resources,
         get_effective_banned_duplicate_resource_types(
             getattr(ctx.attrs, "duplicate_resource_behavior", "allow_by_default"),

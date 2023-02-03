@@ -16,7 +16,6 @@ load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//android:r_dot_java.bzl", "get_dummy_r_dot_java")
 load("@prelude//java:java_library.bzl", "build_java_library")
 load("@prelude//java:java_providers.bzl", "create_native_providers", "to_list")
-load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
 load("@prelude//kotlin:kotlin_library.bzl", "build_kotlin_library")
 
 def android_library_impl(ctx: "context") -> ["provider"]:
@@ -45,11 +44,10 @@ def android_library_impl(ctx: "context") -> ["provider"]:
 
 def build_android_library(
         ctx: "context") -> ("JavaProviders", [AndroidLibraryIntellijInfo.type, None]):
-    java_toolchain = ctx.attrs._java_toolchain[JavaToolchainInfo]
     bootclasspath_entries = [] + ctx.attrs._android_toolchain[AndroidToolchainInfo].android_bootclasspath
     additional_classpath_entries = []
 
-    dummy_r_dot_java, android_library_intellij_info = _get_dummy_r_dot_java(ctx, java_toolchain)
+    dummy_r_dot_java, android_library_intellij_info = _get_dummy_r_dot_java(ctx)
     if dummy_r_dot_java:
         additional_classpath_entries.append(dummy_r_dot_java)
 
@@ -68,8 +66,7 @@ def build_android_library(
         ), android_library_intellij_info
 
 def _get_dummy_r_dot_java(
-        ctx: "context",
-        java_toolchain: "JavaToolchainInfo") -> (["artifact", None], [AndroidLibraryIntellijInfo.type, None]):
+        ctx: "context") -> (["artifact", None], [AndroidLibraryIntellijInfo.type, None]):
     android_resources = dedupe([resource for resource in filter(None, [
         x.get(AndroidResourceInfo)
         for x in ctx.attrs.deps + (ctx.attrs.deps_query or []) + ctx.attrs.provided_deps + (getattr(ctx.attrs, "provided_deps_query", []) or [])
@@ -80,7 +77,6 @@ def _get_dummy_r_dot_java(
     dummy_r_dot_java_library_info = get_dummy_r_dot_java(
         ctx,
         ctx.attrs._android_toolchain[AndroidToolchainInfo].merge_android_resources[RunInfo],
-        java_toolchain,
         android_resources,
         ctx.attrs.resource_union_package,
     )
