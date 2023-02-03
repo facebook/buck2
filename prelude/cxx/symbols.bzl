@@ -69,6 +69,7 @@ def extract_symbol_names(
         identifier = identifier,
         prefer_local = prefer_local,
         local_only = local_only,
+        weight_percentage = 15,  # 10% + a little padding
     )
     return output
 
