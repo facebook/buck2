@@ -385,13 +385,15 @@ impl Outputter {
         Ok(())
     }
 
-    /// If this outputter writes to file, do so and clear the buffer, otherwise leave it
-    fn write_to_file(&mut self, buffer: &mut String) -> anyhow::Result<()> {
-        if let Self::File(f) = self {
-            f.write_all(buffer.as_bytes())?;
-            buffer.clear();
+    /// If this outputter should write anything to a file, do so, and return whatever buffer is left over.
+    fn write_to_file(&mut self, buffer: String) -> anyhow::Result<String> {
+        match self {
+            Self::Stdout => Ok(buffer),
+            Self::File(f) => {
+                f.write_all(buffer.as_bytes())?;
+                Ok(String::new())
+            }
         }
-        Ok(())
     }
 
     fn flush(&mut self) -> anyhow::Result<()> {
@@ -481,7 +483,7 @@ async fn targets(
 
     let mut outputter = Outputter::new(request)?;
 
-    let mut response = if request.unstable_resolve_aliases {
+    let response = if request.unstable_resolve_aliases {
         targets_resolve_aliases(dice, request, parsed_target_patterns).await?
     } else if request.streaming {
         let formatter = crate_formatter(request)?;
@@ -524,7 +526,10 @@ async fn targets(
         )
         .await?
     };
-    outputter.write_to_file(&mut response.serialized_targets_output)?;
+    let response = TargetsResponse {
+        error_count: response.error_count,
+        serialized_targets_output: outputter.write_to_file(response.serialized_targets_output)?,
+    };
     outputter.flush()?;
     Ok(response)
 }
