@@ -386,6 +386,7 @@ async fn targets(
             printer,
             parsed_target_patterns,
             request.keep_going,
+            request.cached,
         )
         .await?
     } else {
@@ -585,6 +586,7 @@ async fn targets_streaming(
     printer: Arc<dyn TargetPrinter>,
     parsed_patterns: Vec<ParsedPattern<TargetName>>,
     keep_going: bool,
+    cached: bool,
 ) -> anyhow::Result<(u64, String)> {
     #[derive(Default)]
     struct Res {
@@ -599,9 +601,8 @@ async fn targets_streaming(
 
             dice.temporary_spawn(move |dice| async move {
                 let mut res = Res::default();
-
                 let (package, spec) = x?;
-                match load_package(&dice, package.dupe(), spec).await {
+                match load_package(&dice, package.dupe(), spec, cached).await {
                     Ok(targets) => {
                         res.stats.success += 1;
                         for (i, node) in targets.iter().enumerate() {
@@ -687,8 +688,14 @@ async fn load_package(
     dice: &DiceComputations,
     package: PackageLabel,
     spec: PackageSpec<TargetName>,
+    cached: bool,
 ) -> anyhow::Result<Vec<TargetNode>> {
-    let result = dice.get_interpreter_results(package.dupe()).await?;
+    let result = if cached {
+        dice.get_interpreter_results(package.dupe()).await?
+    } else {
+        dice.get_interpreter_results_uncached(package.dupe())
+            .await?
+    };
     match spec {
         PackageSpec::Targets(targets) => {
             targets.into_try_map(|target| match result.targets().get(&target) {

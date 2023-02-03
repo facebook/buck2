@@ -151,6 +151,10 @@ pub struct TargetsCommand {
     /// have duplicates.
     #[clap(long)]
     streaming: bool,
+
+    /// Don't cache the target information on the build graph
+    #[clap(long, requires = "streaming")]
+    no_cache: bool,
 }
 
 #[async_trait]
@@ -232,6 +236,7 @@ impl StreamingCommand for TargetsCommand {
             target_hash_recursive: self.target_hash_recursive,
             keep_going: self.keep_going,
             streaming: self.streaming,
+            cached: !self.no_cache,
         };
 
         if self.show_output {

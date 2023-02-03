@@ -108,6 +108,7 @@ message TargetsRequest {
   bool target_hash_recursive = 12;
   bool keep_going = 13;
   bool streaming = 14;
+  bool cached = 15;
 
   /// These options may be removed at any time.
   bool unstable_resolve_aliases = 4242000;
