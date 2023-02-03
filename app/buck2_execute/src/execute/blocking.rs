@@ -142,7 +142,7 @@ impl BlockingExecutor for BuckBlockingExecutor {
         // sender.
         let _ignored = self.command_sender.send(ThreadPoolIoRequest { io, sender });
 
-        critical_section(async move { receiver.await.context("Pool shut down")? }).boxed()
+        critical_section(|| async move { receiver.await.context("Pool shut down")? }).boxed()
     }
 
     fn queue_size(&self) -> usize {

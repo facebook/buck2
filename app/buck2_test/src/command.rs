@@ -377,7 +377,7 @@ async fn test_targets(
         move |ctx| {
             // NOTE: This is made a critical section so that we shut down gracefully. We'll cancel
             // if the liveliness guard indicates we should.
-            critical_section(async move {
+            critical_section(|| async move {
                 // Spawn our server to listen to the test runner's requests for execution.
                 let orchestrator = BuckTestOrchestrator::new(
                     ctx.dupe(),

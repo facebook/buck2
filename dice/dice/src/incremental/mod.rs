@@ -2472,7 +2472,7 @@ mod tests {
 
                 async move {
                     if was_first_call {
-                        critical_section(async move {
+                        critical_section(|| async move {
                             entered_critical_section.notify_one();
                             tokio::time::timeout(
                                 Duration::from_secs(1),

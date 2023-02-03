@@ -293,7 +293,7 @@ impl EdenBuckOut {
             )
         })?;
 
-        critical_section(async move {
+        critical_section(|| async move {
             let params = RemoveRecursivelyParams {
                 mountPoint: self.connection_manager.get_mount_point(),
                 path: relpath_to_buck_out.as_str().as_bytes().to_vec(),

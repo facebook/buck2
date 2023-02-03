@@ -414,16 +414,22 @@ where
 /// during the critical section. If it *was* cancelled before entering the critical section (i.e.
 /// the last ref was dropped during `poll`), then the future is allowed to continue executing until
 /// this future resolves.
-pub async fn critical_section<F>(fut: F) -> <F as Future>::Output
+pub fn critical_section<F, Fut>(make: F) -> impl Future<Output = <Fut as Future>::Output>
 where
-    F: Future,
+    F: FnOnce() -> Fut,
+    Fut: Future,
 {
     let ((), _guard) = WithExecutionContext::enter(
         ExecutionContext::enter_critical_section,
         ExecutionContext::exit_critical_section,
     );
 
-    fut.await
+    let fut = make();
+
+    async move {
+        let _guard = _guard;
+        fut.await
+    }
 }
 
 #[derive(Clone, Default)]
@@ -450,7 +456,9 @@ impl Future for CancellationObserver {
 /// Enter a structured cancellation section. The caller receives a CancellationObserver. The
 /// CancellationObserver is a future that resolves when cancellation is requested (or when this
 /// section exits).
-pub async fn with_structured_cancellation<F, Fut>(make: F) -> <Fut as Future>::Output
+pub fn with_structured_cancellation<F, Fut>(
+    make: F,
+) -> impl Future<Output = <Fut as Future>::Output>
 where
     Fut: Future,
     F: FnOnce(CancellationObserver) -> Fut,
@@ -460,10 +468,15 @@ where
         ExecutionContext::exit_structured_cancellation,
     );
 
-    // TODO: we should check at this point if we have been definitely cancelled, and we have we
-    // should yield to exit as soon as possible.
+    let fut = make(obs);
 
-    make(obs).await
+    async move {
+        let _guard = _guard;
+
+        // TODO: we should check at this point if we have been definitely cancelled, and we have we
+        // should yield to exit as soon as possible.
+        fut.await
+    }
 }
 
 pub struct DisableCancellationGuard {
@@ -575,7 +588,7 @@ mod tests {
     async fn test_critical_section() {
         let (fut, guard) = CancellableFuture::new_refcounted(async {
             {
-                critical_section(tokio::task::yield_now()).await;
+                critical_section(tokio::task::yield_now).await;
             }
             futures::future::pending::<()>().await
         });
@@ -599,7 +612,7 @@ mod tests {
     async fn test_nested_critical_section() {
         let (fut, guard) = CancellableFuture::new_refcounted(async {
             {
-                critical_section(async move { tokio::task::yield_now().await }).await;
+                critical_section(|| async move { tokio::task::yield_now().await }).await;
             }
             futures::future::pending::<()>().await
         });
@@ -623,7 +636,7 @@ mod tests {
                     .take()
                     .expect("Expected the guard to be here by now");
 
-                critical_section(async {
+                critical_section(|| async {
                     let mut panic = MaybePanicOnDrop { panic: true };
                     tokio::task::yield_now().await;
                     panic.panic = false;
@@ -769,8 +782,7 @@ mod tests {
 
     #[tokio::test]
     async fn noop_drop_is_allowed() {
-        let mut section = critical_section(futures::future::pending::<()>()).boxed();
-        assert_matches!(futures::poll!(&mut section), Poll::Pending); // Have it capture no ExecutionContext
+        let section = critical_section(futures::future::pending::<()>).boxed();
 
         let (fut, _guard) = CancellableFuture::new_refcounted(async {
             drop(section); // Drop it within an ExecutionContext

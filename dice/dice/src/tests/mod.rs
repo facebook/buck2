@@ -606,7 +606,7 @@ async fn test_wait_for_idle() -> anyhow::Result<()> {
         type Value = ();
 
         async fn compute(&self, _ctx: &DiceComputations) -> Self::Value {
-            critical_section(self.channel.clone()).await.unwrap()
+            critical_section(|| self.channel.clone()).await.unwrap()
         }
 
         fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
