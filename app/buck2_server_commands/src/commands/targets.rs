@@ -85,20 +85,20 @@ struct TargetInfo<'a> {
 
 #[allow(unused_variables)]
 trait TargetFormatter: Send + Sync {
-    fn begin(&self, output: &mut String) {}
-    fn end(&self, stats: &Stats, output: &mut String) {}
+    fn begin(&self, buffer: &mut String) {}
+    fn end(&self, stats: &Stats, buffer: &mut String) {}
     /// Called between each target/imports/package_error
-    fn separator(&self, output: &mut String) {}
-    fn target(&self, package: PackageLabel, target_info: TargetInfo<'_>, output: &mut String) {}
+    fn separator(&self, buffer: &mut String) {}
+    fn target(&self, package: PackageLabel, target_info: TargetInfo<'_>, buffer: &mut String) {}
     fn imports(
         &self,
         source: &CellPath,
         imports: &[ImportPath],
         package: Option<PackageLabel>,
-        output: &mut String,
+        buffer: &mut String,
     ) {
     }
-    fn package_error(&self, package: PackageLabel, error: &anyhow::Error, output: &mut String) {}
+    fn package_error(&self, package: PackageLabel, error: &anyhow::Error, buffer: &mut String) {}
 }
 
 struct JsonFormat {
@@ -108,23 +108,23 @@ struct JsonFormat {
 }
 
 impl TargetFormatter for JsonFormat {
-    fn begin(&self, output: &mut String) {
-        output.push_str("[\n");
+    fn begin(&self, buffer: &mut String) {
+        buffer.push_str("[\n");
     }
-    fn end(&self, _stats: &Stats, output: &mut String) {
-        output.push_str("\n]\n");
+    fn end(&self, _stats: &Stats, buffer: &mut String) {
+        buffer.push_str("\n]\n");
     }
-    fn separator(&self, output: &mut String) {
-        output.push_str(",\n");
+    fn separator(&self, buffer: &mut String) {
+        buffer.push_str(",\n");
     }
 
-    fn target(&self, package: PackageLabel, target_info: TargetInfo<'_>, output: &mut String) {
-        output.push_str("  {\n");
+    fn target(&self, package: PackageLabel, target_info: TargetInfo<'_>, buffer: &mut String) {
+        buffer.push_str("  {\n");
         let mut first = true;
 
         fn print_attr(
             this: &JsonFormat,
-            output: &mut String,
+            buffer: &mut String,
             first: &mut bool,
             k: &str,
             v: impl FnOnce() -> String,
@@ -135,16 +135,16 @@ impl TargetFormatter for JsonFormat {
                 }
             }
             if !*first {
-                output.push_str(",\n");
+                buffer.push_str(",\n");
             }
             *first = false;
-            write!(output, "    \"{}\": {}", k, v()).unwrap();
+            write!(buffer, "    \"{}\": {}", k, v()).unwrap();
         }
 
-        print_attr(self, output, &mut first, TYPE, || {
+        print_attr(self, buffer, &mut first, TYPE, || {
             quote_json_string(&target_info.node.rule_type().to_string())
         });
-        print_attr(self, output, &mut first, DEPS, || {
+        print_attr(self, buffer, &mut first, DEPS, || {
             format!(
                 "[{}]",
                 target_info
@@ -155,7 +155,7 @@ impl TargetFormatter for JsonFormat {
             )
         });
 
-        print_attr(self, output, &mut first, INPUTS, || {
+        print_attr(self, buffer, &mut first, INPUTS, || {
             format!(
                 "[{}]",
                 target_info
@@ -167,16 +167,16 @@ impl TargetFormatter for JsonFormat {
         });
 
         if let Some(BuckTargetHash(hash)) = target_info.target_hash {
-            print_attr(self, output, &mut first, TARGET_HASH, || {
+            print_attr(self, buffer, &mut first, TARGET_HASH, || {
                 format!("\"{hash:032x}\"")
             });
         }
-        print_attr(self, output, &mut first, PACKAGE, || {
+        print_attr(self, buffer, &mut first, PACKAGE, || {
             format!("\"{}\"", package)
         });
 
         for a in target_info.node.attrs(self.attr_inspect_opts) {
-            print_attr(self, output, &mut first, a.name, || {
+            print_attr(self, buffer, &mut first, a.name, || {
                 value_to_json(a.value, target_info.node.label().pkg())
                     .unwrap()
                     .to_string()
@@ -186,7 +186,7 @@ impl TargetFormatter for JsonFormat {
         if self.target_call_stacks {
             match target_info.node.call_stack() {
                 Some(call_stack) => {
-                    print_attr(self, output, &mut first, TARGET_CALL_STACK, || {
+                    print_attr(self, buffer, &mut first, TARGET_CALL_STACK, || {
                         quote_json_string(&call_stack)
                     });
                 }
@@ -197,9 +197,9 @@ impl TargetFormatter for JsonFormat {
         }
 
         if !first {
-            output.push('\n');
+            buffer.push('\n');
         }
-        output.push_str("  }");
+        buffer.push_str("  }");
     }
 
     fn imports(
@@ -207,34 +207,34 @@ impl TargetFormatter for JsonFormat {
         source: &CellPath,
         imports: &[ImportPath],
         package: Option<PackageLabel>,
-        output: &mut String,
+        buffer: &mut String,
     ) {
-        output.push_str("  {\n");
+        buffer.push_str("  {\n");
         if let Some(package) = package {
-            writeln!(output, "    \"{}\": \"{}\",", PACKAGE, package).unwrap();
+            writeln!(buffer, "    \"{}\": \"{}\",", PACKAGE, package).unwrap();
         }
-        writeln!(output, "    \"buck.file\": \"{}\",", source).unwrap();
+        writeln!(buffer, "    \"buck.file\": \"{}\",", source).unwrap();
         writeln!(
-            output,
+            buffer,
             "    \"buck.imports\": [{}]",
             imports
                 .map(|d| quote_json_string(&d.path().to_string()))
                 .join(", ")
         )
         .unwrap();
-        output.push_str("  }");
+        buffer.push_str("  }");
     }
 
-    fn package_error(&self, package: PackageLabel, error: &anyhow::Error, output: &mut String) {
-        output.push_str("  {\n");
-        writeln!(output, "    \"{}\": \"{}\",", PACKAGE, package).unwrap();
+    fn package_error(&self, package: PackageLabel, error: &anyhow::Error, buffer: &mut String) {
+        buffer.push_str("  {\n");
+        writeln!(buffer, "    \"{}\": \"{}\",", PACKAGE, package).unwrap();
         writeln!(
-            output,
+            buffer,
             "    \"buck.error\": {}",
             quote_json_string(&format!("{:?}", error))
         )
         .unwrap();
-        output.push_str("  }");
+        buffer.push_str("  }");
     }
 }
 
@@ -256,8 +256,8 @@ impl Stats {
 struct StatsFormat;
 
 impl TargetFormatter for StatsFormat {
-    fn end(&self, stats: &Stats, output: &mut String) {
-        writeln!(output, "{:?}", stats).unwrap()
+    fn end(&self, stats: &Stats, buffer: &mut String) {
+        writeln!(buffer, "{:?}", stats).unwrap()
     }
 }
 
@@ -266,11 +266,11 @@ struct TargetNameFormat {
     target_hash_graph_type: TargetHashGraphType,
 }
 impl TargetFormatter for TargetNameFormat {
-    fn target(&self, package: PackageLabel, target_info: TargetInfo<'_>, output: &mut String) {
+    fn target(&self, package: PackageLabel, target_info: TargetInfo<'_>, buffer: &mut String) {
         if self.target_hash_graph_type != TargetHashGraphType::None {
             match target_info.target_hash {
                 Some(BuckTargetHash(hash)) => writeln!(
-                    output,
+                    buffer,
                     "{package}:{name} {hash:032x}",
                     name = target_info.node.label().name(),
                 )
@@ -278,13 +278,13 @@ impl TargetFormatter for TargetNameFormat {
                 None => {} // print nothing if there is no hash and show_target_hash is specified.
             };
         } else {
-            writeln!(output, "{}:{}", package, target_info.node.label().name()).unwrap();
+            writeln!(buffer, "{}:{}", package, target_info.node.label().name()).unwrap();
         }
         if self.target_call_stacks {
             match target_info.node.call_stack() {
                 Some(call_stack) => {
                     for line in call_stack.lines() {
-                        writeln!(output, "  {}", line).unwrap();
+                        writeln!(buffer, "  {}", line).unwrap();
                     }
                 }
                 None => {
@@ -573,7 +573,7 @@ async fn targets_resolve_aliases(
         .collect::<HashMap<_, _>>()
         .await;
 
-    let mut output = String::new();
+    let mut buffer = String::new();
 
     for (alias, (package, target_name)) in
         std::iter::zip(&request.target_patterns, &parsed_target_patterns)
@@ -598,12 +598,12 @@ async fn targets_resolve_aliases(
             })
             .with_context(|| format!("Invalid alias: `{}`", alias.value))?;
 
-        writeln!(output, "{}", node.label())?;
+        writeln!(buffer, "{}", node.label())?;
     }
 
     Ok(TargetsResponse {
         error_count: 0,
-        serialized_targets_output: output,
+        serialized_targets_output: buffer,
     })
 }
 
@@ -652,8 +652,8 @@ async fn targets_batch(
         _ => None,
     };
 
-    let mut output = String::new();
-    formatter.begin(&mut output);
+    let mut buffer = String::new();
+    formatter.begin(&mut buffer);
     let mut stats = Stats::default();
     let mut needs_separator = false;
     for (package, result) in results.iter() {
@@ -668,13 +668,13 @@ async fn targets_batch(
                         .duped()
                         .transpose()?;
                     if needs_separator {
-                        formatter.separator(&mut output);
+                        formatter.separator(&mut buffer);
                     }
                     needs_separator = true;
                     formatter.target(
                         package.dupe(),
                         TargetInfo { node, target_hash },
-                        &mut output,
+                        &mut buffer,
                     )
                 }
             }
@@ -682,10 +682,10 @@ async fn targets_batch(
                 stats.errors += 1;
                 if keep_going {
                     if needs_separator {
-                        formatter.separator(&mut output);
+                        formatter.separator(&mut buffer);
                     }
                     needs_separator = true;
-                    formatter.package_error(package.dupe(), e.inner(), &mut output);
+                    formatter.package_error(package.dupe(), e.inner(), &mut buffer);
                 } else {
                     writeln!(
                         server_ctx.stderr()?,
@@ -697,11 +697,11 @@ async fn targets_batch(
             }
         }
     }
-    formatter.end(&stats, &mut output);
+    formatter.end(&stats, &mut buffer);
     if !keep_going && stats.errors != 0 {
         Err(mk_error(stats.errors))
     } else {
-        Ok((stats.errors, output))
+        Ok((stats.errors, buffer))
     }
 }
 
@@ -780,8 +780,8 @@ async fn targets_streaming(
         // Use unlimited parallelism - tokio will restrict us anyway
         .buffer_unordered(1000000);
 
-    let mut output = String::new();
-    formatter.begin(&mut output);
+    let mut buffer = String::new();
+    formatter.begin(&mut buffer);
     let mut stats = Stats::default();
     let mut needs_separator = false;
     while let Some(res) = packages.next().await {
@@ -793,11 +793,11 @@ async fn targets_streaming(
         }
         if !res.stdout.is_empty() {
             if needs_separator {
-                formatter.separator(&mut output);
+                formatter.separator(&mut buffer);
             }
             needs_separator = true;
-            outputter.write2(server_ctx, &output, &res.stdout)?;
-            output.clear();
+            outputter.write2(server_ctx, &buffer, &res.stdout)?;
+            buffer.clear();
         }
     }
 
@@ -809,21 +809,21 @@ async fn targets_streaming(
             // If these lead to an error, that's surpsing (we had a working module with it loaded)
             // so we should always propagate the error here (even with keep_going)
             if needs_separator {
-                formatter.separator(&mut output);
+                formatter.separator(&mut buffer);
             }
             needs_separator = true;
             // No need to parallelise these this step because it will already be on the DICE graph
             let loaded = dice.get_loaded_module_from_import_path(&path).await?;
             let imports = loaded.imports().cloned().collect::<Vec<_>>();
-            formatter.imports(path.path(), &imports, None, &mut output);
+            formatter.imports(path.path(), &imports, None, &mut buffer);
             todo.extend(imports);
-            outputter.write1(server_ctx, &output)?;
-            output.clear();
+            outputter.write1(server_ctx, &buffer)?;
+            buffer.clear();
         }
     }
 
-    formatter.end(&stats, &mut output);
-    Ok((stats.errors, output))
+    formatter.end(&stats, &mut buffer);
+    Ok((stats.errors, buffer))
 }
 
 /// Given the patterns, separate into those which have an explicit package, and those which are recursive
