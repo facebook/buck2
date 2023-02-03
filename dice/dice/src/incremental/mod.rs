@@ -55,7 +55,6 @@ use crate::api::key::Key;
 use crate::api::projection::DiceProjectionComputations;
 use crate::api::projection::ProjectionKey;
 use crate::api::user_data::UserComputationData;
-use crate::ctx::ComputationData;
 use crate::dice_future::DiceFuture;
 use crate::dice_task::DiceTask;
 use crate::future_handle::WeakDiceFutureHandle;
@@ -76,6 +75,7 @@ use crate::incremental::transaction_ctx::TransactionCtx;
 use crate::incremental::versions::VersionNumber;
 use crate::incremental::versions::VersionRanges;
 use crate::introspection::graph::EngineForIntrospection;
+use crate::legacy::ctx::ComputationData;
 use crate::opaque::OpaqueValueImpl;
 use crate::projection::ProjectionKeyAsKey;
 use crate::projection::ProjectionKeyProperties;
@@ -1227,8 +1227,6 @@ mod tests {
 
     use crate::api::error::DiceError;
     use crate::api::error::DiceResult;
-    use crate::ctx::testing::ComputationDataExt;
-    use crate::ctx::ComputationData;
     use crate::incremental::dep_trackers::testing::ComputedDep;
     use crate::incremental::dep_trackers::testing::ComputedDepExt;
     use crate::incremental::dep_trackers::BothDeps;
@@ -1271,6 +1269,8 @@ mod tests {
     use crate::incremental::TransactionCtx;
     use crate::incremental::VersionedGraphResultMismatch;
     use crate::introspection::graph::AnyKey;
+    use crate::legacy::ctx::testing::ComputationDataExt;
+    use crate::legacy::ctx::ComputationData;
     use crate::HashSet;
     use crate::ValueWithDeps;
     use crate::WeakDiceFutureHandle;

@@ -43,12 +43,12 @@ pub(crate) mod testing {
     use dupe::Dupe;
 
     use crate::api::error::DiceResult;
-    use crate::ctx::ComputationData;
     use crate::incremental::graph::storage_properties::StorageProperties;
     use crate::incremental::Computable;
     use crate::incremental::IncrementalComputeProperties;
     use crate::incremental::IncrementalEngine;
     use crate::incremental::StorageType;
+    use crate::legacy::ctx::ComputationData;
     use crate::GraphNode;
     use crate::TransactionCtx;
     use crate::WeakDiceFutureHandle;

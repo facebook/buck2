@@ -14,8 +14,8 @@ use more_futures::spawner::Spawner;
 use more_futures::spawner::TokioSpawner;
 
 use crate::api::data::DiceData;
+use crate::api::events::DiceEvent;
 use crate::api::events::DiceEventListener;
-use crate::ctx::NoOpTracker;
 
 /// Includes all user related computation-specific data.
 #[derive(Allocative)]
@@ -51,4 +51,11 @@ impl Default for UserComputationData {
             _requires_default: RequireDefault(()),
         }
     }
+}
+
+#[derive(Allocative)]
+pub(crate) struct NoOpTracker;
+
+impl DiceEventListener for NoOpTracker {
+    fn event(&self, _ev: DiceEvent) {}
 }

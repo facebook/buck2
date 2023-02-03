@@ -21,12 +21,12 @@ use async_trait::async_trait;
 
 use crate::api::error::DiceResult;
 use crate::api::projection::ProjectionKey;
-use crate::ctx::ComputationData;
 use crate::incremental::graph::storage_properties::StorageProperties;
 use crate::incremental::IncrementalComputeProperties;
 use crate::incremental::IncrementalEngine;
 use crate::incremental::StorageType;
 use crate::introspection::graph::short_type_name;
+use crate::legacy::ctx::ComputationData;
 use crate::legacy::DiceLegacy;
 use crate::sync_handle::SyncDiceTaskHandle;
 use crate::GraphNode;

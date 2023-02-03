@@ -31,9 +31,7 @@ use crate::api::key::Key;
 use crate::api::projection::ProjectionKey;
 use crate::api::transaction::DiceTransactionUpdater;
 use crate::api::user_data::UserComputationData;
-use crate::ctx::ComputationData;
 use crate::ctx::DiceComputationsImpl;
-use crate::ctx::DiceComputationsImplLegacy;
 use crate::future_handle::WeakDiceFutureHandle;
 use crate::incremental::evaluator::Evaluator;
 use crate::incremental::graph::GraphNode;
@@ -45,9 +43,13 @@ use crate::incremental::ValueWithDeps;
 use crate::introspection::serialize_dense_graph;
 use crate::introspection::serialize_graph;
 use crate::key::StoragePropertiesForKey;
+use crate::legacy::ctx::ComputationData;
+use crate::legacy::ctx::DiceComputationsImplLegacy;
 use crate::map::DiceMap;
 use crate::metrics::Metrics;
 use crate::projection::ProjectionKeyProperties;
+
+pub(crate) mod ctx;
 
 #[cfg(test)]
 mod tests;

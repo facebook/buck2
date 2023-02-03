@@ -14,9 +14,9 @@ use dupe::Dupe;
 
 use crate::api::cycles::DetectCycles;
 use crate::api::injected::InjectedKey;
-use crate::ctx::testing::DiceCtxExt;
 use crate::incremental::versions::MinorVersion;
 use crate::incremental::versions::VersionNumber;
+use crate::legacy::ctx::testing::DiceCtxExt;
 use crate::legacy::DiceLegacy;
 
 #[derive(Clone, Dupe, Debug, Display, Eq, Hash, PartialEq, Allocative)]

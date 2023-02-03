@@ -25,13 +25,13 @@ use parking_lot::RwLock;
 use parking_lot::RwLockReadGuard;
 
 use crate::api::error::DiceResult;
-use crate::ctx::ComputationData;
 use crate::incremental::graph::GraphNodeDyn;
 use crate::incremental::graph::ReadOnlyHistory;
 use crate::incremental::transaction_ctx::TransactionCtx;
 use crate::incremental::versions::MinorVersion;
 use crate::incremental::versions::VersionNumber;
 use crate::introspection::graph::AnyKey;
+use crate::legacy::ctx::ComputationData;
 use crate::HashMap;
 
 /// The dependency information stored by the core engine

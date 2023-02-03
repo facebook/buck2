@@ -127,8 +127,8 @@ mod tests {
     use crate::api::cycles::DetectCycles;
     use crate::api::error::DiceErrorImpl;
     use crate::api::user_data::UserComputationData;
-    use crate::ctx::ComputationData;
     use crate::cycles::RequestedKey;
+    use crate::legacy::ctx::ComputationData;
 
     #[derive(Clone, Dupe, Display, Debug, PartialEq, Eq, Hash, Allocative)]
     struct K(usize);

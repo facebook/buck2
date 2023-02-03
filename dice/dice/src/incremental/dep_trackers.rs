@@ -181,7 +181,6 @@ mod internals {
     use gazebo::cmp::PartialEqAny;
 
     use crate::api::error::DiceResult;
-    use crate::ctx::ComputationData;
     use crate::incremental::graph::GraphNode;
     use crate::incremental::graph::GraphNodeDyn;
     use crate::incremental::graph::ReadOnlyHistory;
@@ -194,6 +193,7 @@ mod internals {
     use crate::incremental::IncrementalComputeProperties;
     use crate::incremental::IncrementalEngine;
     use crate::introspection::graph::AnyKey;
+    use crate::legacy::ctx::ComputationData;
 
     #[derive(Allocative)]
     pub(crate) struct ComputedDep<K: IncrementalComputeProperties> {
@@ -403,8 +403,6 @@ mod tests {
 
     use dupe::Dupe;
 
-    use crate::ctx::testing::ComputationDataExt;
-    use crate::ctx::ComputationData;
     use crate::incremental::dep_trackers::BothDeps;
     use crate::incremental::dep_trackers::RecordingDepsTracker;
     use crate::incremental::dep_trackers::RecordingRdepsTracker;
@@ -416,6 +414,8 @@ mod tests {
     use crate::incremental::versions::VersionNumber;
     use crate::incremental::IncrementalEngine;
     use crate::incremental::TransactionCtx;
+    use crate::legacy::ctx::testing::ComputationDataExt;
+    use crate::legacy::ctx::ComputationData;
     use crate::HashSet;
     use crate::ValueWithDeps;
 

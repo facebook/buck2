@@ -11,11 +11,11 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 
-use crate::ctx::ComputationData;
 use crate::dice_task::DiceTask;
 use crate::incremental::graph::GraphNode;
 use crate::incremental::IncrementalComputeProperties;
 use crate::incremental::IncrementalEngine;
+use crate::legacy::ctx::ComputationData;
 use crate::TransactionCtx;
 use crate::ValueWithDeps;
 use crate::WeakDiceFutureHandle;
@@ -61,13 +61,13 @@ pub(crate) mod testing {
     use gazebo::prelude::*;
 
     use crate::api::error::DiceResult;
-    use crate::ctx::ComputationData;
     use crate::incremental::evaluator::Evaluator;
     use crate::incremental::graph::storage_properties::StorageProperties;
     use crate::incremental::graph::GraphNode;
     use crate::incremental::IncrementalComputeProperties;
     use crate::incremental::IncrementalEngine;
     use crate::incremental::StorageType;
+    use crate::legacy::ctx::ComputationData;
     use crate::TransactionCtx;
     use crate::ValueWithDeps;
     use crate::WeakDiceFutureHandle;
