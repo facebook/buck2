@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_common::executor_config::CommandExecutorConfig;
-use buck2_core::configuration::pair::ConfigurationPairNoExec;
+use buck2_core::configuration::pair::ConfigurationNoExec;
 use buck2_core::configuration::ConfigurationData;
 use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_core::target::label::TargetLabel;
@@ -38,14 +38,14 @@ pub enum ExecutionPlatformData {
     /// A user-defined platform.
     Platform {
         target: TargetLabel,
-        cfg: ConfigurationPairNoExec,
+        cfg: ConfigurationNoExec,
         executor_config: Arc<CommandExecutorConfig>,
     },
     /// When users haven't configured execution platforms, we will use old legacy behavior where
     /// execution deps inherit the target platform configuration.
     LegacyExecutionPlatform {
         executor_config: Arc<CommandExecutorConfig>,
-        cfg: ConfigurationPairNoExec,
+        cfg: ConfigurationNoExec,
     },
 }
 
@@ -57,14 +57,14 @@ impl ExecutionPlatform {
     ) -> Self {
         Self(Arc::new(ExecutionPlatformData::Platform {
             target,
-            cfg: ConfigurationPairNoExec::new(cfg),
+            cfg: ConfigurationNoExec::new(cfg),
             executor_config,
         }))
     }
 
     pub fn legacy_execution_platform(
         executor_config: Arc<CommandExecutorConfig>,
-        cfg: ConfigurationPairNoExec,
+        cfg: ConfigurationNoExec,
     ) -> Self {
         Self(Arc::new(ExecutionPlatformData::LegacyExecutionPlatform {
             executor_config,
@@ -73,7 +73,7 @@ impl ExecutionPlatform {
     }
 
     #[inline]
-    pub fn cfg_pair_no_exec(&self) -> &ConfigurationPairNoExec {
+    pub fn cfg_pair_no_exec(&self) -> &ConfigurationNoExec {
         match &*self.0 {
             ExecutionPlatformData::Platform { cfg, .. } => cfg,
             ExecutionPlatformData::LegacyExecutionPlatform { cfg, .. } => cfg,
@@ -181,10 +181,10 @@ impl ExecutionPlatformResolution {
 
     // TODO(cjhopman): Should this be an anyhow::Result and never return an invalid configuration?
     #[inline]
-    pub fn cfg(&self) -> ConfigurationPairNoExec {
+    pub fn cfg(&self) -> ConfigurationNoExec {
         match &self.platform {
             Some(v) => v.cfg_pair_no_exec().dupe(),
-            None => ConfigurationPairNoExec::unspecified_exec().dupe(),
+            None => ConfigurationNoExec::unspecified_exec().dupe(),
         }
     }
 

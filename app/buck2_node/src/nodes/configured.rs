@@ -21,7 +21,7 @@ use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::collections::ordered_map::OrderedMap;
 use buck2_core::collections::unordered_map::UnorderedMap;
-use buck2_core::configuration::pair::ConfigurationPairNoExec;
+use buck2_core::configuration::pair::ConfigurationNoExec;
 use buck2_core::configuration::transition::applied::TransitionApplied;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::configuration::ConfigurationData;
@@ -205,7 +205,7 @@ impl ConfiguredTargetNode {
             name.dupe(),
             TargetNode::testing_new(name.unconfigured().dupe(), rule_type, attrs),
             ResolvedConfiguration::new(
-                ConfigurationPairNoExec::new(name.cfg().dupe()),
+                ConfigurationNoExec::new(name.cfg().dupe()),
                 UnorderedMap::new(),
             ),
             OrderedMap::new(),

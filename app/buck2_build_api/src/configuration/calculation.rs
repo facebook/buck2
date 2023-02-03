@@ -19,7 +19,7 @@ use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
 use buck2_core::cells::name::CellName;
 use buck2_core::collections::unordered_map::UnorderedMap;
-use buck2_core::configuration::pair::ConfigurationPairNoExec;
+use buck2_core::configuration::pair::ConfigurationNoExec;
 use buck2_core::configuration::ConfigurationData;
 use buck2_core::configuration::ConfigurationDataData;
 use buck2_core::pattern::ParsedPattern;
@@ -410,7 +410,7 @@ impl ConfigurationCalculation for DiceComputations {
                     resolved_settings.insert(ConfigurationSettingKey(node.label().dupe()), node);
                 }
                 Ok(ResolvedConfiguration::new(
-                    ConfigurationPairNoExec::new(self.target_cfg.dupe()),
+                    ConfigurationNoExec::new(self.target_cfg.dupe()),
                     resolved_settings,
                 ))
             }

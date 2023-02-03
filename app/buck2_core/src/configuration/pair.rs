@@ -17,7 +17,7 @@ use once_cell::sync::Lazy;
 use crate::configuration::ConfigurationData;
 
 #[derive(Debug, thiserror::Error)]
-enum ConfigurationPairError {
+enum ConfigurationError {
     #[error("`ConfigurationPair` has unexpected `exec_cfg`")]
     HasExecCfg,
 }
@@ -32,14 +32,14 @@ struct ConfigurationPairData {
 /// Pair of `cfg` and `exec_cfg`.
 /// These two are added to `TargetLabel` to make `ConfiguredTargetLabel`.
 #[derive(Debug, Clone, Dupe, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative)]
-pub struct ConfigurationPair(Intern<ConfigurationPairData>);
+pub struct Configuration(Intern<ConfigurationPairData>);
 
 static INTERNER: StaticInterner<ConfigurationPairData, FnvHasher> = StaticInterner::new();
 
-impl ConfigurationPair {
+impl Configuration {
     #[inline]
-    pub fn new(cfg: ConfigurationData, exec_cfg: Option<ConfigurationData>) -> ConfigurationPair {
-        ConfigurationPair(INTERNER.intern(ConfigurationPairData { cfg, exec_cfg }))
+    pub fn new(cfg: ConfigurationData, exec_cfg: Option<ConfigurationData>) -> Configuration {
+        Configuration(INTERNER.intern(ConfigurationPairData { cfg, exec_cfg }))
     }
 
     #[inline]
@@ -53,61 +53,61 @@ impl ConfigurationPair {
     }
 
     #[inline]
-    pub fn check_no_exec_cfg(&self) -> anyhow::Result<ConfigurationPairNoExec> {
+    pub fn check_no_exec_cfg(&self) -> anyhow::Result<ConfigurationNoExec> {
         if self.exec_cfg().is_some() {
-            return Err(ConfigurationPairError::HasExecCfg.into());
+            return Err(ConfigurationError::HasExecCfg.into());
         }
-        Ok(ConfigurationPairNoExec(self.dupe()))
+        Ok(ConfigurationNoExec(self.dupe()))
     }
 }
 
 /// `ConfigurationPair` where `exec_cfg` is always `None`.
 #[derive(Debug, Clone, Dupe, Eq, PartialEq, Hash, Ord, PartialOrd, Allocative)]
-pub struct ConfigurationPairNoExec(ConfigurationPair);
+pub struct ConfigurationNoExec(Configuration);
 
-impl ConfigurationPairNoExec {
+impl ConfigurationNoExec {
     #[inline]
-    pub fn new(cfg: ConfigurationData) -> ConfigurationPairNoExec {
-        ConfigurationPairNoExec(ConfigurationPair::new(cfg, None))
+    pub fn new(cfg: ConfigurationData) -> ConfigurationNoExec {
+        ConfigurationNoExec(Configuration::new(cfg, None))
     }
 
     #[inline]
-    pub fn unbound() -> ConfigurationPairNoExec {
-        static UNBOUND: Lazy<ConfigurationPairNoExec> =
-            Lazy::new(|| ConfigurationPairNoExec::new(ConfigurationData::unbound()));
+    pub fn unbound() -> ConfigurationNoExec {
+        static UNBOUND: Lazy<ConfigurationNoExec> =
+            Lazy::new(|| ConfigurationNoExec::new(ConfigurationData::unbound()));
         UNBOUND.dupe()
     }
 
     #[inline]
     pub fn unspecified_exec() -> Self {
-        static UNSPECIFIED_EXEC: Lazy<ConfigurationPairNoExec> =
-            Lazy::new(|| ConfigurationPairNoExec::new(ConfigurationData::unspecified_exec()));
+        static UNSPECIFIED_EXEC: Lazy<ConfigurationNoExec> =
+            Lazy::new(|| ConfigurationNoExec::new(ConfigurationData::unspecified_exec()));
         UNSPECIFIED_EXEC.dupe()
     }
 
     #[inline]
     pub fn unbound_exec() -> Self {
-        static UNBOUND_EXEC: Lazy<ConfigurationPairNoExec> =
-            Lazy::new(|| ConfigurationPairNoExec::new(ConfigurationData::unbound_exec()));
+        static UNBOUND_EXEC: Lazy<ConfigurationNoExec> =
+            Lazy::new(|| ConfigurationNoExec::new(ConfigurationData::unbound_exec()));
         UNBOUND_EXEC.dupe()
     }
 
     #[inline]
     pub fn unspecified() -> Self {
-        static UNSPECIFIED: Lazy<ConfigurationPairNoExec> =
-            Lazy::new(|| ConfigurationPairNoExec::new(ConfigurationData::unspecified()));
+        static UNSPECIFIED: Lazy<ConfigurationNoExec> =
+            Lazy::new(|| ConfigurationNoExec::new(ConfigurationData::unspecified()));
         UNSPECIFIED.dupe()
     }
 
     #[inline]
     pub fn testing_new() -> Self {
-        static TESTING_NEW: Lazy<ConfigurationPairNoExec> =
-            Lazy::new(|| ConfigurationPairNoExec::new(ConfigurationData::testing_new()));
+        static TESTING_NEW: Lazy<ConfigurationNoExec> =
+            Lazy::new(|| ConfigurationNoExec::new(ConfigurationData::testing_new()));
         TESTING_NEW.dupe()
     }
 
     #[inline]
-    pub fn cfg_pair(&self) -> &ConfigurationPair {
+    pub fn cfg_pair(&self) -> &Configuration {
         &self.0
     }
 
@@ -117,19 +117,19 @@ impl ConfigurationPairNoExec {
     }
 
     #[inline]
-    pub fn make_toolchain(&self, exec_cfg: &ConfigurationPairNoExec) -> ConfigurationPairWithExec {
-        ConfigurationPairWithExec::new(self.cfg().dupe(), exec_cfg.cfg().dupe())
+    pub fn make_toolchain(&self, exec_cfg: &ConfigurationNoExec) -> ConfigurationWithExec {
+        ConfigurationWithExec::new(self.cfg().dupe(), exec_cfg.cfg().dupe())
     }
 }
 
 /// `ConfigurationPair` where `exec_cfg` is always `Some`.
 #[derive(Debug, Clone, Dupe, Eq, PartialEq, Hash, Ord, PartialOrd, Allocative)]
-pub struct ConfigurationPairWithExec(ConfigurationPair);
+pub struct ConfigurationWithExec(Configuration);
 
-impl ConfigurationPairWithExec {
+impl ConfigurationWithExec {
     #[inline]
-    pub fn new(cfg: ConfigurationData, exec_cfg: ConfigurationData) -> ConfigurationPairWithExec {
-        ConfigurationPairWithExec(ConfigurationPair::new(cfg, Some(exec_cfg)))
+    pub fn new(cfg: ConfigurationData, exec_cfg: ConfigurationData) -> ConfigurationWithExec {
+        ConfigurationWithExec(Configuration::new(cfg, Some(exec_cfg)))
     }
 
     #[inline]
@@ -145,7 +145,7 @@ impl ConfigurationPairWithExec {
     }
 
     #[inline]
-    pub fn cfg_pair(&self) -> &ConfigurationPair {
+    pub fn cfg_pair(&self) -> &Configuration {
         &self.0
     }
 }

@@ -12,8 +12,8 @@ use std::sync::Arc;
 use anyhow::Context;
 use buck2_core::collections::ordered_map::OrderedMap;
 use buck2_core::collections::sorted_map::SortedMap;
-use buck2_core::configuration::pair::ConfigurationPairNoExec;
-use buck2_core::configuration::pair::ConfigurationPairWithExec;
+use buck2_core::configuration::pair::ConfigurationNoExec;
+use buck2_core::configuration::pair::ConfigurationWithExec;
 use buck2_core::configuration::transition::applied::TransitionApplied;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::configuration::ConfigurationData;
@@ -38,12 +38,12 @@ pub trait AttrConfigurationContext {
     /// Return the content of the resolved `config_setting` on match.
     fn matches<'a>(&'a self, label: &TargetLabel) -> Option<&'a ConfigurationDataData>;
 
-    fn cfg(&self) -> ConfigurationPairNoExec;
+    fn cfg(&self) -> ConfigurationNoExec;
 
-    fn exec_cfg(&self) -> ConfigurationPairNoExec;
+    fn exec_cfg(&self) -> ConfigurationNoExec;
 
     /// Must be equal to `(cfg, Some(exec_cfg))`.
-    fn toolchain_cfg(&self) -> ConfigurationPairWithExec;
+    fn toolchain_cfg(&self) -> ConfigurationWithExec;
 
     fn platform_cfg(&self, label: &TargetLabel) -> anyhow::Result<ConfigurationData>;
 
@@ -98,9 +98,9 @@ pub trait AttrConfigurationContext {
 
 pub struct AttrConfigurationContextImpl<'b> {
     resolved_cfg: &'b ResolvedConfiguration,
-    exec_cfg: ConfigurationPairNoExec,
+    exec_cfg: ConfigurationNoExec,
     /// Must be equal to `(cfg, Some(exec_cfg))`.
-    toolchain_cfg: ConfigurationPairWithExec,
+    toolchain_cfg: ConfigurationWithExec,
     resolved_transitions: &'b OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>,
     platform_cfgs: &'b OrderedMap<TargetLabel, ConfigurationData>,
 }
@@ -108,7 +108,7 @@ pub struct AttrConfigurationContextImpl<'b> {
 impl<'b> AttrConfigurationContextImpl<'b> {
     pub fn new(
         resolved_cfg: &'b ResolvedConfiguration,
-        exec_cfg: ConfigurationPairNoExec,
+        exec_cfg: ConfigurationNoExec,
         resolved_transitions: &'b OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>,
         platform_cfgs: &'b OrderedMap<TargetLabel, ConfigurationData>,
     ) -> AttrConfigurationContextImpl<'b> {
@@ -128,15 +128,15 @@ impl<'b> AttrConfigurationContext for AttrConfigurationContextImpl<'b> {
             .setting_matches(ConfigurationSettingKeyRef(label))
     }
 
-    fn cfg(&self) -> ConfigurationPairNoExec {
+    fn cfg(&self) -> ConfigurationNoExec {
         self.resolved_cfg.cfg().dupe()
     }
 
-    fn exec_cfg(&self) -> ConfigurationPairNoExec {
+    fn exec_cfg(&self) -> ConfigurationNoExec {
         self.exec_cfg.dupe()
     }
 
-    fn toolchain_cfg(&self) -> ConfigurationPairWithExec {
+    fn toolchain_cfg(&self) -> ConfigurationWithExec {
         self.toolchain_cfg.dupe()
     }
 

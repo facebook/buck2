@@ -13,7 +13,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_core::collections::unordered_map::UnorderedMap;
-use buck2_core::configuration::pair::ConfigurationPairNoExec;
+use buck2_core::configuration::pair::ConfigurationNoExec;
 use buck2_core::configuration::ConfigurationData;
 use buck2_core::configuration::ConfigurationDataData;
 use buck2_core::target::label::TargetLabel;
@@ -61,19 +61,19 @@ pub struct ResolvedConfiguration(Arc<ResolvedConfigurationData>);
 
 #[derive(Debug, Eq, PartialEq, Hash, Allocative)]
 struct ResolvedConfigurationData {
-    cfg: ConfigurationPairNoExec,
+    cfg: ConfigurationNoExec,
     settings: UnorderedMap<ConfigurationSettingKey, ConfigurationNode>,
 }
 
 impl ResolvedConfiguration {
     pub fn new(
-        cfg: ConfigurationPairNoExec,
+        cfg: ConfigurationNoExec,
         settings: UnorderedMap<ConfigurationSettingKey, ConfigurationNode>,
     ) -> Self {
         Self(Arc::new(ResolvedConfigurationData { cfg, settings }))
     }
 
-    pub fn cfg(&self) -> &ConfigurationPairNoExec {
+    pub fn cfg(&self) -> &ConfigurationNoExec {
         &self.0.cfg
     }
 

@@ -20,8 +20,8 @@ use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
 use buck2_common::result::ToUnsharedResultExt;
 use buck2_core::collections::ordered_map::OrderedMap;
-use buck2_core::configuration::pair::ConfigurationPairNoExec;
-use buck2_core::configuration::pair::ConfigurationPairWithExec;
+use buck2_core::configuration::pair::ConfigurationNoExec;
+use buck2_core::configuration::pair::ConfigurationWithExec;
 use buck2_core::configuration::transition::applied::TransitionApplied;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::configuration::ConfigurationData;
@@ -109,7 +109,7 @@ async fn compute_platform_cfgs(
 
 async fn legacy_execution_platform(
     ctx: &DiceComputations,
-    cfg: &ConfigurationPairNoExec,
+    cfg: &ConfigurationNoExec,
 ) -> ExecutionPlatform {
     ExecutionPlatform::legacy_execution_platform(
         ctx.get_fallback_executor_config().clone(),
@@ -145,7 +145,7 @@ pub(crate) async fn find_execution_platform_by_configuration(
                 ToolchainDepError::ToolchainDepMissingPlatform(exec_cfg.dupe()),
             ))
         }
-        _ => Ok(legacy_execution_platform(ctx, &ConfigurationPairNoExec::new(cfg.dupe())).await),
+        _ => Ok(legacy_execution_platform(ctx, &ConfigurationNoExec::new(cfg.dupe())).await),
     }
 }
 
@@ -185,7 +185,7 @@ impl ExecutionPlatformConstraints {
         let platform_cfgs = compute_platform_cfgs(ctx, node).await?;
         let cfg_ctx = AttrConfigurationContextImpl::new(
             resolved_configuration,
-            ConfigurationPairNoExec::unbound_exec(),
+            ConfigurationNoExec::unbound_exec(),
             // We don't really need `resolved_transitions` here:
             // `Traversal` declared above ignores transitioned dependencies.
             // But we pass `resolved_transitions` here to prevent breakages in the future
@@ -382,11 +382,11 @@ fn unpack_target_compatible_with_attr(
                 .setting_matches(ConfigurationSettingKeyRef(label))
         }
 
-        fn cfg(&self) -> ConfigurationPairNoExec {
+        fn cfg(&self) -> ConfigurationNoExec {
             self.resolved_cfg.cfg().dupe()
         }
 
-        fn exec_cfg(&self) -> ConfigurationPairNoExec {
+        fn exec_cfg(&self) -> ConfigurationNoExec {
             unreachable!(
                 "exec_cfg() is not needed to resolve `{}` or `{}`",
                 TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD,
@@ -394,7 +394,7 @@ fn unpack_target_compatible_with_attr(
             )
         }
 
-        fn toolchain_cfg(&self) -> ConfigurationPairWithExec {
+        fn toolchain_cfg(&self) -> ConfigurationWithExec {
             unreachable!()
         }
 

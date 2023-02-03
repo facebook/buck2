@@ -11,8 +11,8 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use buck2_core::collections::ordered_map::OrderedMap;
-use buck2_core::configuration::pair::ConfigurationPairNoExec;
-use buck2_core::configuration::pair::ConfigurationPairWithExec;
+use buck2_core::configuration::pair::ConfigurationNoExec;
+use buck2_core::configuration::pair::ConfigurationWithExec;
 use buck2_core::configuration::transition::applied::TransitionApplied;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::configuration::ConfigurationData;
@@ -29,12 +29,12 @@ pub fn configuration_ctx() -> impl AttrConfigurationContext {
         ConfigurationDataData,
     );
     impl AttrConfigurationContext for TestAttrConfigurationContext {
-        fn cfg(&self) -> ConfigurationPairNoExec {
-            ConfigurationPairNoExec::new(self.0.dupe())
+        fn cfg(&self) -> ConfigurationNoExec {
+            ConfigurationNoExec::new(self.0.dupe())
         }
 
-        fn exec_cfg(&self) -> ConfigurationPairNoExec {
-            ConfigurationPairNoExec::new(self.1.dupe())
+        fn exec_cfg(&self) -> ConfigurationNoExec {
+            ConfigurationNoExec::new(self.1.dupe())
         }
 
         fn matches<'a>(&'a self, label: &TargetLabel) -> Option<&'a ConfigurationDataData> {
@@ -44,8 +44,8 @@ pub fn configuration_ctx() -> impl AttrConfigurationContext {
             }
         }
 
-        fn toolchain_cfg(&self) -> ConfigurationPairWithExec {
-            ConfigurationPairWithExec::new(self.0.dupe(), self.1.dupe())
+        fn toolchain_cfg(&self) -> ConfigurationWithExec {
+            ConfigurationWithExec::new(self.0.dupe(), self.1.dupe())
         }
 
         fn platform_cfg(&self, _label: &TargetLabel) -> anyhow::Result<ConfigurationData> {

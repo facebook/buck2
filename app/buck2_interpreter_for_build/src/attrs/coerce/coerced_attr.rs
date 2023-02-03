@@ -147,8 +147,8 @@ mod tests {
     use buck2_core::collections::ordered_map::OrderedMap;
     use buck2_core::configuration::constraints::ConstraintKey;
     use buck2_core::configuration::constraints::ConstraintValue;
-    use buck2_core::configuration::pair::ConfigurationPairNoExec;
-    use buck2_core::configuration::pair::ConfigurationPairWithExec;
+    use buck2_core::configuration::pair::ConfigurationNoExec;
+    use buck2_core::configuration::pair::ConfigurationWithExec;
     use buck2_core::configuration::transition::applied::TransitionApplied;
     use buck2_core::configuration::transition::id::TransitionId;
     use buck2_core::configuration::ConfigurationData;
@@ -231,15 +231,15 @@ mod tests {
                 self.settings.get(label)
             }
 
-            fn cfg(&self) -> ConfigurationPairNoExec {
+            fn cfg(&self) -> ConfigurationNoExec {
                 panic!()
             }
 
-            fn exec_cfg(&self) -> ConfigurationPairNoExec {
+            fn exec_cfg(&self) -> ConfigurationNoExec {
                 unimplemented!()
             }
 
-            fn toolchain_cfg(&self) -> ConfigurationPairWithExec {
+            fn toolchain_cfg(&self) -> ConfigurationWithExec {
                 panic!("not used in test")
             }
 

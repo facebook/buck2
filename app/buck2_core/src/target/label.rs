@@ -22,8 +22,8 @@ use serde::Serializer;
 use starlark_map::StarlarkHashValue;
 use triomphe::ThinArc;
 
-use crate::configuration::pair::ConfigurationPair;
-use crate::configuration::pair::ConfigurationPairNoExec;
+use crate::configuration::pair::Configuration;
+use crate::configuration::pair::ConfigurationNoExec;
 use crate::configuration::ConfigurationData;
 use crate::package::PackageLabel;
 use crate::target::name::TargetNameRef;
@@ -109,7 +109,7 @@ impl TargetLabel {
     /// configuration.
     #[inline]
     pub fn configure(&self, cfg: ConfigurationData) -> ConfiguredTargetLabel {
-        self.configure_pair(ConfigurationPair::new(cfg, None))
+        self.configure_pair(Configuration::new(cfg, None))
     }
 
     /// Like `configure`, but forces the execution configuration too.
@@ -119,11 +119,11 @@ impl TargetLabel {
         cfg: ConfigurationData,
         exec_cfg: ConfigurationData,
     ) -> ConfiguredTargetLabel {
-        self.configure_pair(ConfigurationPair::new(cfg, Some(exec_cfg)))
+        self.configure_pair(Configuration::new(cfg, Some(exec_cfg)))
     }
 
     #[inline]
-    pub fn configure_pair(&self, cfg_pair: ConfigurationPair) -> ConfiguredTargetLabel {
+    pub fn configure_pair(&self, cfg_pair: Configuration) -> ConfiguredTargetLabel {
         ConfiguredTargetLabel {
             target: self.dupe(),
             cfg_pair,
@@ -131,7 +131,7 @@ impl TargetLabel {
     }
 
     #[inline]
-    pub fn configure_pair_no_exec(&self, cfg: ConfigurationPairNoExec) -> ConfiguredTargetLabel {
+    pub fn configure_pair_no_exec(&self, cfg: ConfigurationNoExec) -> ConfiguredTargetLabel {
         self.configure_pair(cfg.cfg_pair().dupe())
     }
 }
@@ -151,7 +151,7 @@ impl Serialize for TargetLabel {
 #[derive(Clone, Dupe, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative)]
 pub struct ConfiguredTargetLabel {
     target: TargetLabel,
-    cfg_pair: ConfigurationPair,
+    cfg_pair: Configuration,
 }
 
 impl Display for ConfiguredTargetLabel {
@@ -181,7 +181,7 @@ impl ConfiguredTargetLabel {
     }
 
     #[inline]
-    pub fn cfg_pair(&self) -> &ConfigurationPair {
+    pub fn cfg_pair(&self) -> &Configuration {
         &self.cfg_pair
     }
 
@@ -212,7 +212,7 @@ impl TargetLabelMaybeConfigured for TargetLabel {}
 impl TargetLabelMaybeConfigured for ConfiguredTargetLabel {}
 
 pub mod testing {
-    use crate::configuration::pair::ConfigurationPair;
+    use crate::configuration::pair::Configuration;
     use crate::configuration::ConfigurationData;
     use crate::package::testing::PackageExt;
     use crate::package::PackageLabel;
@@ -230,7 +230,7 @@ pub mod testing {
         ) -> ConfiguredTargetLabel {
             ConfiguredTargetLabel {
                 target: TargetLabel::new(pkg, label.as_ref()),
-                cfg_pair: ConfigurationPair::new(cfg, None),
+                cfg_pair: Configuration::new(cfg, None),
             }
         }
     }

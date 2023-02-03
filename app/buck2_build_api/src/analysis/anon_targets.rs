@@ -19,8 +19,8 @@ use buck2_common::result::SharedResult;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::collections::ordered_map::OrderedMap;
-use buck2_core::configuration::pair::ConfigurationPairNoExec;
-use buck2_core::configuration::pair::ConfigurationPairWithExec;
+use buck2_core::configuration::pair::ConfigurationNoExec;
+use buck2_core::configuration::pair::ConfigurationWithExec;
 use buck2_core::configuration::transition::applied::TransitionApplied;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::configuration::ConfigurationData;
@@ -450,16 +450,16 @@ impl AttrConfigurationContext for AnonAttrCtx {
         None
     }
 
-    fn cfg(&self) -> ConfigurationPairNoExec {
-        ConfigurationPairNoExec::new(self.cfg.dupe())
+    fn cfg(&self) -> ConfigurationNoExec {
+        ConfigurationNoExec::new(self.cfg.dupe())
     }
 
-    fn exec_cfg(&self) -> ConfigurationPairNoExec {
-        ConfigurationPairNoExec::new(self.cfg.dupe())
+    fn exec_cfg(&self) -> ConfigurationNoExec {
+        ConfigurationNoExec::new(self.cfg.dupe())
     }
 
-    fn toolchain_cfg(&self) -> ConfigurationPairWithExec {
-        ConfigurationPairWithExec::new(self.cfg.dupe(), self.cfg.dupe())
+    fn toolchain_cfg(&self) -> ConfigurationWithExec {
+        ConfigurationWithExec::new(self.cfg.dupe(), self.cfg.dupe())
     }
 
     fn platform_cfg(&self, _label: &TargetLabel) -> anyhow::Result<ConfigurationData> {

@@ -20,7 +20,7 @@ use static_assertions::assert_eq_size;
 use thiserror::Error;
 
 use crate::ascii_char_set::AsciiCharSet;
-use crate::configuration::pair::ConfigurationPair;
+use crate::configuration::pair::Configuration;
 use crate::configuration::ConfigurationData;
 use crate::target::label::ConfiguredTargetLabel;
 use crate::target::label::TargetLabel;
@@ -173,7 +173,7 @@ impl ProvidersLabel {
     }
 
     #[inline]
-    pub fn configure_pair(&self, cfg_pair: ConfigurationPair) -> ConfiguredProvidersLabel {
+    pub fn configure_pair(&self, cfg_pair: Configuration) -> ConfiguredProvidersLabel {
         ConfiguredProvidersLabel {
             target: self.target.configure_pair(cfg_pair),
             name: self.name.clone(),
