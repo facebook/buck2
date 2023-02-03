@@ -12,6 +12,8 @@ use std::sync::Arc;
 use anyhow::Context;
 use buck2_core::collections::ordered_map::OrderedMap;
 use buck2_core::collections::sorted_map::SortedMap;
+use buck2_core::configuration::pair::ConfigurationPairNoExec;
+use buck2_core::configuration::pair::ConfigurationPairWithExec;
 use buck2_core::configuration::transition::applied::TransitionApplied;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::configuration::Configuration;
@@ -36,9 +38,12 @@ pub trait AttrConfigurationContext {
     /// Return the content of the resolved `config_setting` on match.
     fn matches<'a>(&'a self, label: &TargetLabel) -> Option<&'a ConfigurationData>;
 
-    fn cfg(&self) -> Configuration;
+    fn cfg(&self) -> ConfigurationPairNoExec;
 
-    fn exec_cfg(&self) -> Configuration;
+    fn exec_cfg(&self) -> ConfigurationPairNoExec;
+
+    /// Must be equal to `(cfg, Some(exec_cfg))`.
+    fn toolchain_cfg(&self) -> ConfigurationPairWithExec;
 
     fn platform_cfg(&self, label: &TargetLabel) -> anyhow::Result<Configuration>;
 
@@ -47,18 +52,18 @@ pub trait AttrConfigurationContext {
     fn resolved_transitions(&self) -> &OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>;
 
     fn configure_target(&self, label: &ProvidersLabel) -> ConfiguredProvidersLabel {
-        label.configure(self.cfg())
+        label.configure_pair(self.cfg().cfg_pair().dupe())
     }
 
     fn configure_exec_target(&self, label: &ProvidersLabel) -> ConfiguredProvidersLabel {
-        label.configure(self.exec_cfg())
+        label.configure_pair(self.exec_cfg().cfg_pair().dupe())
     }
 
     fn configure_toolchain_target(&self, label: &ProvidersLabel) -> ConfiguredProvidersLabel {
         // The toolchain dependency itself is always configured in the target configuration,
         // but its exec_deps are considered when picking an execution platform, and MUST
         // use the execution dependency of its parent.
-        label.configure_with_exec(self.cfg(), self.exec_cfg())
+        label.configure_pair(self.toolchain_cfg().cfg_pair().dupe())
     }
 
     /// Configure a transition target.
@@ -93,7 +98,9 @@ pub trait AttrConfigurationContext {
 
 pub struct AttrConfigurationContextImpl<'b> {
     resolved_cfg: &'b ResolvedConfiguration,
-    exec_cfg: Configuration,
+    exec_cfg: ConfigurationPairNoExec,
+    /// Must be equal to `(cfg, Some(exec_cfg))`.
+    toolchain_cfg: ConfigurationPairWithExec,
     resolved_transitions: &'b OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>,
     platform_cfgs: &'b OrderedMap<TargetLabel, Configuration>,
 }
@@ -101,12 +108,13 @@ pub struct AttrConfigurationContextImpl<'b> {
 impl<'b> AttrConfigurationContextImpl<'b> {
     pub fn new(
         resolved_cfg: &'b ResolvedConfiguration,
-        exec_cfg: Configuration,
+        exec_cfg: ConfigurationPairNoExec,
         resolved_transitions: &'b OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>,
         platform_cfgs: &'b OrderedMap<TargetLabel, Configuration>,
     ) -> AttrConfigurationContextImpl<'b> {
         AttrConfigurationContextImpl {
             resolved_cfg,
+            toolchain_cfg: resolved_cfg.cfg().make_toolchain(&exec_cfg),
             exec_cfg,
             resolved_transitions,
             platform_cfgs,
@@ -120,12 +128,16 @@ impl<'b> AttrConfigurationContext for AttrConfigurationContextImpl<'b> {
             .setting_matches(ConfigurationSettingKeyRef(label))
     }
 
-    fn cfg(&self) -> Configuration {
+    fn cfg(&self) -> ConfigurationPairNoExec {
         self.resolved_cfg.cfg().dupe()
     }
 
-    fn exec_cfg(&self) -> Configuration {
+    fn exec_cfg(&self) -> ConfigurationPairNoExec {
         self.exec_cfg.dupe()
+    }
+
+    fn toolchain_cfg(&self) -> ConfigurationPairWithExec {
+        self.toolchain_cfg.dupe()
     }
 
     fn platform_cfg(&self, label: &TargetLabel) -> anyhow::Result<Configuration> {

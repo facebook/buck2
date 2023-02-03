@@ -20,6 +20,7 @@ use static_assertions::assert_eq_size;
 use thiserror::Error;
 
 use crate::ascii_char_set::AsciiCharSet;
+use crate::configuration::pair::ConfigurationPair;
 use crate::configuration::Configuration;
 use crate::target::label::ConfiguredTargetLabel;
 use crate::target::label::TargetLabel;
@@ -171,6 +172,14 @@ impl ProvidersLabel {
         }
     }
 
+    #[inline]
+    pub fn configure_pair(&self, cfg_pair: ConfigurationPair) -> ConfiguredProvidersLabel {
+        ConfiguredProvidersLabel {
+            target: self.target.configure_pair(cfg_pair),
+            name: self.name.clone(),
+        }
+    }
+
     /// Determines whether a string, **IF IT IS LATER COERCED** would be a relative label.
     ///
     /// This function **DOES NOT** validate the entire label string.
@@ -208,6 +217,7 @@ impl ConfiguredProvidersLabel {
         &self.target
     }
 
+    #[inline]
     pub fn cfg(&self) -> &Configuration {
         self.target.cfg()
     }

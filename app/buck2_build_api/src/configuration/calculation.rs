@@ -19,6 +19,7 @@ use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
 use buck2_core::cells::name::CellName;
 use buck2_core::collections::unordered_map::UnorderedMap;
+use buck2_core::configuration::pair::ConfigurationPairNoExec;
 use buck2_core::configuration::Configuration;
 use buck2_core::configuration::ConfigurationData;
 use buck2_core::pattern::ParsedPattern;
@@ -182,7 +183,7 @@ async fn check_execution_platform(
 
     let resolved_platform_configuration = ctx
         .get_resolved_configuration(
-            &exec_platform.cfg(),
+            exec_platform.cfg(),
             target_node_cell,
             exec_compatible_with.iter(),
         )
@@ -203,7 +204,9 @@ async fn check_execution_platform(
     // Then check that all exec_deps are compatible with the platform
     for dep in exec_deps {
         let dep_node = ctx
-            .get_configured_target_node(&dep.configure(exec_platform.cfg().dupe()))
+            .get_configured_target_node(
+                &dep.configure_pair_no_exec(exec_platform.cfg_pair_no_exec().dupe()),
+            )
             .await
             .with_context(|| {
                 format!(
@@ -407,7 +410,7 @@ impl ConfigurationCalculation for DiceComputations {
                     resolved_settings.insert(ConfigurationSettingKey(node.label().dupe()), node);
                 }
                 Ok(ResolvedConfiguration::new(
-                    self.target_cfg.dupe(),
+                    ConfigurationPairNoExec::new(self.target_cfg.dupe()),
                     resolved_settings,
                 ))
             }

@@ -257,6 +257,7 @@ mod tests {
     use assert_matches::assert_matches;
     use buck2_common::executor_config::CommandExecutorConfig;
     use buck2_core::category::Category;
+    use buck2_core::configuration::pair::ConfigurationPairNoExec;
     use buck2_core::configuration::Configuration;
     use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
     use buck2_core::package::testing::PackageExt;
@@ -440,7 +441,7 @@ mod tests {
             ExecutionPlatformResolution::new(
                 Some(ExecutionPlatform::legacy_execution_platform(
                     CommandExecutorConfig::testing_local(),
-                    Configuration::testing_new(),
+                    ConfigurationPairNoExec::testing_new(),
                 )),
                 Vec::new(),
             ),
@@ -530,7 +531,7 @@ mod tests {
             ExecutionPlatformResolution::new(
                 Some(ExecutionPlatform::legacy_execution_platform(
                     CommandExecutorConfig::testing_local(),
-                    Configuration::testing_new(),
+                    ConfigurationPairNoExec::testing_new(),
                 )),
                 Vec::new(),
             ),

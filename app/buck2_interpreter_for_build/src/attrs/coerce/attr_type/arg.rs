@@ -310,7 +310,7 @@ mod tests {
         if let MacroBase::Exe { label, .. } = &configured {
             let mut info = ConfiguredAttrInfo::new();
             configured.traverse(&mut info)?;
-            assert_eq!(label.cfg(), &config_ctx.exec_cfg());
+            assert_eq!(label.cfg(), config_ctx.exec_cfg().cfg());
             assert_eq!(smallset![label.clone()], info.execution_deps);
             assert_eq!(smallset![], info.deps);
         } else {
@@ -334,7 +334,7 @@ mod tests {
         if let MacroBase::Exe { label, .. } = &configured {
             let mut info = ConfiguredAttrInfo::new();
             configured.traverse(&mut info)?;
-            assert_eq!(label.cfg(), &config_ctx.cfg());
+            assert_eq!(label.cfg(), config_ctx.cfg().cfg());
             assert_eq!(smallset![], info.execution_deps);
             assert_eq!(smallset![label.clone()], info.deps);
         } else {

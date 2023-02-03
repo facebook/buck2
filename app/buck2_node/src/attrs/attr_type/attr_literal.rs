@@ -342,7 +342,7 @@ impl AttrLiteral<CoercedAttr> {
             AttrLiteral::Query(query) => AttrLiteral::Query(box query.configure(ctx)?),
             AttrLiteral::SourceFile(s) => AttrLiteral::SourceFile(s.clone()),
             AttrLiteral::SourceLabel(box source) => {
-                AttrLiteral::SourceLabel(box source.configure(ctx.cfg().dupe()))
+                AttrLiteral::SourceLabel(box source.configure_pair(ctx.cfg().cfg_pair().dupe()))
             }
             AttrLiteral::Arg(arg) => AttrLiteral::Arg(arg.configure(ctx)?),
             AttrLiteral::Label(label) => LabelAttrType::configure(ctx, label)?,

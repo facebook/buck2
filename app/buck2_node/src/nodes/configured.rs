@@ -21,6 +21,7 @@ use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::collections::ordered_map::OrderedMap;
 use buck2_core::collections::unordered_map::UnorderedMap;
+use buck2_core::configuration::pair::ConfigurationPairNoExec;
 use buck2_core::configuration::transition::applied::TransitionApplied;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::configuration::Configuration;
@@ -203,7 +204,10 @@ impl ConfiguredTargetNode {
         Self::new(
             name.dupe(),
             TargetNode::testing_new(name.unconfigured().dupe(), rule_type, attrs),
-            ResolvedConfiguration::new(name.cfg().dupe(), UnorderedMap::new()),
+            ResolvedConfiguration::new(
+                ConfigurationPairNoExec::new(name.cfg().dupe()),
+                UnorderedMap::new(),
+            ),
             OrderedMap::new(),
             execution_platform_resolution,
             Vec::new(),
@@ -240,7 +244,7 @@ impl ConfiguredTargetNode {
         name: ConfiguredTargetLabel,
         // The transitioned target node.
         transitioned_node: ConfiguredTargetNode,
-    ) -> Self {
+    ) -> anyhow::Result<Self> {
         assert_eq!(
             name.unconfigured(),
             transitioned_node.label().unconfigured(),
@@ -258,28 +262,33 @@ impl ConfiguredTargetNode {
 
         let configured_providers_label =
             providers_label.configure(transitioned_node.label().cfg().dupe());
-        Self(Arc::new(Hashed::new(ConfiguredTargetNodeData {
-            label: name.dupe(),
-            target_node: TargetNodeOrForward::Forward(
-                CoercedAttr::Literal(AttrLiteral::ConfiguredDep(box DepAttr {
-                    attr_type: DepAttrType::new(ProviderIdSet::EMPTY, DepAttrTransition::Identity),
-                    label: configured_providers_label,
-                })),
-                transitioned_node.dupe(),
-            ),
-            // We have no attributes with selects, so resolved configurations is empty.
-            resolved_configuration: ResolvedConfiguration::new(
-                name.cfg().dupe(),
-                UnorderedMap::new(),
-            ),
-            // We have no attributes to transition, so empty map is fine.
-            resolved_transition_configurations: OrderedMap::new(),
-            // Nothing to execute for a forward node.
-            execution_platform_resolution: ExecutionPlatformResolution::unspecified(),
-            deps: ConfiguredTargetNodeDeps(box [transitioned_node]),
-            exec_deps: ConfiguredTargetNodeDeps(box []),
-            platform_cfgs: OrderedMap::new(),
-        })))
+        Ok(ConfiguredTargetNode(Arc::new(Hashed::new(
+            ConfiguredTargetNodeData {
+                label: name.dupe(),
+                target_node: TargetNodeOrForward::Forward(
+                    CoercedAttr::Literal(AttrLiteral::ConfiguredDep(box DepAttr {
+                        attr_type: DepAttrType::new(
+                            ProviderIdSet::EMPTY,
+                            DepAttrTransition::Identity,
+                        ),
+                        label: configured_providers_label,
+                    })),
+                    transitioned_node.dupe(),
+                ),
+                // We have no attributes with selects, so resolved configurations is empty.
+                resolved_configuration: ResolvedConfiguration::new(
+                    name.cfg_pair().check_no_exec_cfg()?,
+                    UnorderedMap::new(),
+                ),
+                // We have no attributes to transition, so empty map is fine.
+                resolved_transition_configurations: OrderedMap::new(),
+                // Nothing to execute for a forward node.
+                execution_platform_resolution: ExecutionPlatformResolution::unspecified(),
+                deps: ConfiguredTargetNodeDeps(box [transitioned_node]),
+                exec_deps: ConfiguredTargetNodeDeps(box []),
+                platform_cfgs: OrderedMap::new(),
+            },
+        ))))
     }
 
     pub(crate) fn actual_attribute() -> &'static Attribute {

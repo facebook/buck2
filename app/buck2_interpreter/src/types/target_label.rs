@@ -194,7 +194,7 @@ fn configured_label_methods(builder: &mut MethodsBuilder) {
     }
 
     fn config<'v>(this: &StarlarkConfiguredTargetLabel) -> anyhow::Result<StarlarkConfiguration> {
-        Ok(StarlarkConfiguration((*this.label.cfg()).dupe()))
+        Ok(StarlarkConfiguration((this.label.cfg()).dupe()))
     }
 
     /// Returns the unconfigured underlying target label.

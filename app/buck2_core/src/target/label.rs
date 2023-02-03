@@ -22,6 +22,8 @@ use serde::Serializer;
 use starlark_map::StarlarkHashValue;
 use triomphe::ThinArc;
 
+use crate::configuration::pair::ConfigurationPair;
+use crate::configuration::pair::ConfigurationPairNoExec;
 use crate::configuration::Configuration;
 use crate::package::PackageLabel;
 use crate::target::name::TargetNameRef;
@@ -107,11 +109,7 @@ impl TargetLabel {
     /// configuration.
     #[inline]
     pub fn configure(&self, cfg: Configuration) -> ConfiguredTargetLabel {
-        ConfiguredTargetLabel {
-            target: self.dupe(),
-            cfg,
-            exec_cfg: None,
-        }
+        self.configure_pair(ConfigurationPair::new(cfg, None))
     }
 
     /// Like `configure`, but forces the execution configuration too.
@@ -121,11 +119,20 @@ impl TargetLabel {
         cfg: Configuration,
         exec_cfg: Configuration,
     ) -> ConfiguredTargetLabel {
+        self.configure_pair(ConfigurationPair::new(cfg, Some(exec_cfg)))
+    }
+
+    #[inline]
+    pub fn configure_pair(&self, cfg_pair: ConfigurationPair) -> ConfiguredTargetLabel {
         ConfiguredTargetLabel {
             target: self.dupe(),
-            cfg,
-            exec_cfg: Some(exec_cfg),
+            cfg_pair,
         }
+    }
+
+    #[inline]
+    pub fn configure_pair_no_exec(&self, cfg: ConfigurationPairNoExec) -> ConfiguredTargetLabel {
+        self.configure_pair(cfg.cfg_pair().dupe())
     }
 }
 
@@ -144,15 +151,13 @@ impl Serialize for TargetLabel {
 #[derive(Clone, Dupe, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative)]
 pub struct ConfiguredTargetLabel {
     target: TargetLabel,
-    cfg: Configuration,
-    /// Usually this is None, but for toolchain deps where the exec_cfg isn't picked it is set
-    exec_cfg: Option<Configuration>,
+    cfg_pair: ConfigurationPair,
 }
 
 impl Display for ConfiguredTargetLabel {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{} ({})", self.target, self.cfg)?;
-        if let Some(exec_cfg) = &self.exec_cfg {
+        write!(f, "{} ({})", self.target, self.cfg())?;
+        if let Some(exec_cfg) = self.exec_cfg() {
             write!(f, " ({})", exec_cfg)?;
         }
         Ok(())
@@ -176,13 +181,18 @@ impl ConfiguredTargetLabel {
     }
 
     #[inline]
+    pub fn cfg_pair(&self) -> &ConfigurationPair {
+        &self.cfg_pair
+    }
+
+    #[inline]
     pub fn cfg(&self) -> &Configuration {
-        &self.cfg
+        self.cfg_pair.cfg()
     }
 
     #[inline]
     pub fn exec_cfg(&self) -> Option<&Configuration> {
-        self.exec_cfg.as_ref()
+        self.cfg_pair.exec_cfg()
     }
 }
 
@@ -202,6 +212,7 @@ impl TargetLabelMaybeConfigured for TargetLabel {}
 impl TargetLabelMaybeConfigured for ConfiguredTargetLabel {}
 
 pub mod testing {
+    use crate::configuration::pair::ConfigurationPair;
     use crate::configuration::Configuration;
     use crate::package::testing::PackageExt;
     use crate::package::PackageLabel;
@@ -219,8 +230,7 @@ pub mod testing {
         ) -> ConfiguredTargetLabel {
             ConfiguredTargetLabel {
                 target: TargetLabel::new(pkg, label.as_ref()),
-                cfg,
-                exec_cfg: None,
+                cfg_pair: ConfigurationPair::new(cfg, None),
             }
         }
     }

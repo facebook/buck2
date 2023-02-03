@@ -15,7 +15,7 @@ use anyhow::Context;
 use async_trait::async_trait;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToUnsharedResultExt;
-use buck2_core::configuration::Configuration;
+use buck2_core::configuration::pair::ConfigurationPairNoExec;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_core::target::label::TargetLabel;
@@ -113,7 +113,7 @@ impl RuleAnalysisCalculation for DiceComputations {
         target: &TargetLabel,
     ) -> anyhow::Result<AnalysisResult> {
         // Analysis for configuration nodes is always done with the unbound configuration.
-        let target = target.configure(Configuration::unbound());
+        let target = target.configure_pair(ConfigurationPairNoExec::unbound().cfg_pair().dupe());
         Ok(self
             .get_analysis_result(&target)
             .await?

@@ -19,6 +19,8 @@ use buck2_common::result::SharedResult;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::collections::ordered_map::OrderedMap;
+use buck2_core::configuration::pair::ConfigurationPairNoExec;
+use buck2_core::configuration::pair::ConfigurationPairWithExec;
 use buck2_core::configuration::transition::applied::TransitionApplied;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::configuration::Configuration;
@@ -181,7 +183,7 @@ impl AnonTargetKey {
             rule.rule_type().dupe(),
             name,
             attrs.into(),
-            execution_platform.cfg(),
+            execution_platform.cfg().cfg().dupe(),
         ))))
     }
 
@@ -448,12 +450,16 @@ impl AttrConfigurationContext for AnonAttrCtx {
         None
     }
 
-    fn cfg(&self) -> Configuration {
-        self.cfg.dupe()
+    fn cfg(&self) -> ConfigurationPairNoExec {
+        ConfigurationPairNoExec::new(self.cfg.dupe())
     }
 
-    fn exec_cfg(&self) -> Configuration {
-        self.cfg.dupe()
+    fn exec_cfg(&self) -> ConfigurationPairNoExec {
+        ConfigurationPairNoExec::new(self.cfg.dupe())
+    }
+
+    fn toolchain_cfg(&self) -> ConfigurationPairWithExec {
+        ConfigurationPairWithExec::new(self.cfg.dupe(), self.cfg.dupe())
     }
 
     fn platform_cfg(&self, _label: &TargetLabel) -> anyhow::Result<Configuration> {

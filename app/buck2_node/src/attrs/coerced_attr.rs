@@ -319,7 +319,7 @@ impl CoercedAttr {
                     .as_ref()
                     .ok_or_else(|| {
                         SelectError::MissingDefault(
-                            ctx.cfg().dupe(),
+                            ctx.cfg().cfg().dupe(),
                             entries.iter().map(|(k, _)| k).duped().collect(),
                         )
                     })?

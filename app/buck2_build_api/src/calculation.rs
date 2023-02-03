@@ -222,7 +222,7 @@ impl<'c> Calculation<'c> for DiceComputations {
                 )
                 .await?
                 .cfg();
-                Ok(target.configure_with_exec(cfg, exec_cfg))
+                Ok(target.configure_with_exec(cfg, exec_cfg.cfg().dupe()))
             }
         }
     }

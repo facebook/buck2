@@ -38,6 +38,7 @@ use crate::configuration::constraints::ConstraintKey;
 use crate::configuration::constraints::ConstraintValue;
 
 pub mod constraints;
+pub mod pair;
 pub mod transition;
 
 #[derive(Debug, Error)]

@@ -20,6 +20,8 @@ use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
 use buck2_common::result::ToUnsharedResultExt;
 use buck2_core::collections::ordered_map::OrderedMap;
+use buck2_core::configuration::pair::ConfigurationPairNoExec;
+use buck2_core::configuration::pair::ConfigurationPairWithExec;
 use buck2_core::configuration::transition::applied::TransitionApplied;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::configuration::Configuration;
@@ -107,7 +109,7 @@ async fn compute_platform_cfgs(
 
 async fn legacy_execution_platform(
     ctx: &DiceComputations,
-    cfg: &Configuration,
+    cfg: &ConfigurationPairNoExec,
 ) -> ExecutionPlatform {
     ExecutionPlatform::legacy_execution_platform(
         ctx.get_fallback_executor_config().clone(),
@@ -135,7 +137,7 @@ pub(crate) async fn find_execution_platform_by_configuration(
     match ctx.get_execution_platforms().await? {
         Some(platforms) if exec_cfg != &Configuration::unbound_exec() => {
             for c in platforms.candidates() {
-                if &c.cfg() == exec_cfg {
+                if c.cfg() == exec_cfg {
                     return Ok(c.dupe());
                 }
             }
@@ -143,7 +145,7 @@ pub(crate) async fn find_execution_platform_by_configuration(
                 ToolchainDepError::ToolchainDepMissingPlatform(exec_cfg.dupe()),
             ))
         }
-        _ => Ok(legacy_execution_platform(ctx, cfg).await),
+        _ => Ok(legacy_execution_platform(ctx, &ConfigurationPairNoExec::new(cfg.dupe())).await),
     }
 }
 
@@ -183,7 +185,7 @@ impl ExecutionPlatformConstraints {
         let platform_cfgs = compute_platform_cfgs(ctx, node).await?;
         let cfg_ctx = AttrConfigurationContextImpl::new(
             resolved_configuration,
-            Configuration::unbound_exec(),
+            ConfigurationPairNoExec::unbound_exec(),
             // We don't really need `resolved_transitions` here:
             // `Traversal` declared above ignores transitioned dependencies.
             // But we pass `resolved_transitions` here to prevent breakages in the future
@@ -380,21 +382,25 @@ fn unpack_target_compatible_with_attr(
                 .setting_matches(ConfigurationSettingKeyRef(label))
         }
 
-        fn cfg(&self) -> Configuration {
+        fn cfg(&self) -> ConfigurationPairNoExec {
             self.resolved_cfg.cfg().dupe()
         }
 
-        fn platform_cfg(&self, _label: &TargetLabel) -> anyhow::Result<Configuration> {
+        fn exec_cfg(&self) -> ConfigurationPairNoExec {
             unreachable!(
-                "platform_cfg() is not needed to resolve `{}` or `{}`",
+                "exec_cfg() is not needed to resolve `{}` or `{}`",
                 TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD,
                 LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD
             )
         }
 
-        fn exec_cfg(&self) -> Configuration {
+        fn toolchain_cfg(&self) -> ConfigurationPairWithExec {
+            unreachable!()
+        }
+
+        fn platform_cfg(&self, _label: &TargetLabel) -> anyhow::Result<Configuration> {
             unreachable!(
-                "exec_cfg() is not needed to resolve `{}` or `{}`",
+                "platform_cfg() is not needed to resolve `{}` or `{}`",
                 TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD,
                 LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD
             )
@@ -575,7 +581,7 @@ async fn compute_configured_target_node_no_transition(
                 find_execution_platform_by_configuration(
                     ctx,
                     exec_cfg,
-                    resolved_configuration.cfg(),
+                    resolved_configuration.cfg().cfg(),
                 )
                 .await?,
             ),
@@ -710,9 +716,9 @@ async fn compute_configured_target_node_with_transition(
     let transitioned_node =
         compute_configured_target_node_no_transition(&key.transitioned, target_node.dupe(), ctx)
             .await?;
-    Ok(transitioned_node.map(|transitioned_node| {
+    transitioned_node.try_map(|transitioned_node| {
         ConfiguredTargetNode::new_forward(key.forward.dupe(), transitioned_node)
-    }))
+    })
 }
 
 async fn compute_configured_target_node(
