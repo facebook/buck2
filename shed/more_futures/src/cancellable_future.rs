@@ -83,11 +83,61 @@ impl SharedState {
 
 struct ExecutionContext {
     ref_count: WeakRefCount,
+    shared: Arc<Mutex<ExecutionContextShared>>,
+}
+
+impl ExecutionContext {
+    fn new(ref_count: WeakRefCount) -> Self {
+        Self {
+            ref_count,
+            shared: Arc::new(Mutex::new(ExecutionContextShared {
+                critical_section: None,
+                structured_cancellation: None,
+            })),
+        }
+    }
+
+    fn enter_critical_section(&mut self) {
+        let mut shared = self.shared.lock();
+
+        let critical_section = shared
+            .critical_section
+            .get_or_insert_with(|| CriticalSection {
+                observers: 0,
+                _guard: self.ref_count.upgrade(),
+            });
+
+        critical_section.observers += 1;
+    }
+
+    fn enter_structured_cancellation(&mut self) -> CancellationObserver {
+        let mut shared = self.shared.lock();
+
+        let cancellation = shared.structured_cancellation.get_or_insert_with(|| {
+            let (tx, rx) = oneshot::channel();
+            StructuredCancellation {
+                observers: 0,
+                tx: Some(tx),
+                rx: rx.shared(),
+            }
+        });
+
+        cancellation.observers += 1;
+        CancellationObserver {
+            rx: Some(cancellation.rx.clone()),
+        }
+    }
+}
+
+/// In theory, this is not shared, but we can't *prevent* it statically, so we slap this behind an
+/// Arc<Mutex<..>>. We only lock this on poll() if we've been cancelled, so in practice it's not
+/// all that expensive.
+struct ExecutionContextShared {
     critical_section: Option<CriticalSection>,
     structured_cancellation: Option<StructuredCancellation>,
 }
 
-impl ExecutionContext {
+impl ExecutionContextShared {
     /// Does this future not currently prevent its cancellation?
     fn can_exit(&self) -> bool {
         self.critical_section.is_none() && self.structured_cancellation.is_none()
@@ -99,17 +149,6 @@ impl ExecutionContext {
                 let _ignored = tx.send(());
             }
         }
-    }
-
-    fn enter_critical_section(&mut self) {
-        let critical_section = self
-            .critical_section
-            .get_or_insert_with(|| CriticalSection {
-                observers: 0,
-                _guard: self.ref_count.upgrade(),
-            });
-
-        critical_section.observers += 1;
     }
 
     fn exit_critical_section(&mut self) {
@@ -124,22 +163,6 @@ impl ExecutionContext {
 
         if observers == 0 {
             self.critical_section.take();
-        }
-    }
-
-    fn enter_structured_cancellation(&mut self) -> CancellationObserver {
-        let cancellation = self.structured_cancellation.get_or_insert_with(|| {
-            let (tx, rx) = oneshot::channel();
-            StructuredCancellation {
-                observers: 0,
-                tx: Some(tx),
-                rx: rx.shared(),
-            }
-        });
-
-        cancellation.observers += 1;
-        CancellationObserver {
-            rx: Some(cancellation.rx.clone()),
         }
     }
 
@@ -202,7 +225,7 @@ where
         let is_cancelled = self.shared.inner.cancelled.load(Ordering::SeqCst);
 
         if is_cancelled {
-            let execution = self.execution.as_mut().unwrap();
+            let mut execution = self.execution.as_mut().unwrap().shared.lock();
             execution.notify_cancelled();
             if execution.can_exit() {
                 return Poll::Ready(None);
@@ -231,7 +254,10 @@ where
 
         // If we were using structured cancellation but just exited the critical section, then we
         // should exit now.
-        if res.is_pending() && is_cancelled && self.execution.as_ref().unwrap().can_exit() {
+        if res.is_pending()
+            && is_cancelled
+            && self.execution.as_ref().unwrap().shared.lock().can_exit()
+        {
             return Poll::Ready(None);
         }
 
@@ -326,11 +352,7 @@ impl<F> CancellableFuture<F> {
         (
             CancellableFuture {
                 shared,
-                execution: Some(box ExecutionContext {
-                    ref_count: ref_count.downgrade(),
-                    critical_section: None,
-                    structured_cancellation: None,
-                }),
+                execution: Some(box ExecutionContext::new(ref_count.downgrade())),
                 started: false,
                 future,
             },
@@ -339,13 +361,13 @@ impl<F> CancellableFuture<F> {
     }
 }
 
-struct WithExecutionContext<F: FnOnce(&mut ExecutionContext)> {
-    exit: Option<(F, usize)>,
+struct WithExecutionContext<F: FnOnce(&mut ExecutionContextShared)> {
+    exit: Option<(F, Arc<Mutex<ExecutionContextShared>>)>,
 }
 
 impl<F> WithExecutionContext<F>
 where
-    F: FnOnce(&mut ExecutionContext),
+    F: FnOnce(&mut ExecutionContextShared),
 {
     fn enter<Enter, T>(enter: Enter, exit: F) -> (T, Self)
     where
@@ -353,12 +375,9 @@ where
         T: Default,
     {
         let (t, exit) = CURRENT.with(|g| match g.borrow_mut().as_mut() {
-            Some(context) => {
-                let addr = {
-                    let addr: &ExecutionContext = &*context;
-                    addr as *const _ as usize
-                };
-                (enter(context), Some((exit, addr)))
+            Some(ctx) => {
+                let t = enter(ctx);
+                (t, Some((exit, ctx.shared.dupe())))
             }
             None => (T::default(), None),
         });
@@ -369,43 +388,15 @@ where
 
 impl<F> Drop for WithExecutionContext<F>
 where
-    F: for<'a> FnOnce(&'a mut ExecutionContext),
+    F: for<'a> FnOnce(&'a mut ExecutionContextShared),
 {
     fn drop(&mut self) {
-        let (exit, this_addr) = match self.exit.take() {
-            Some(v) => v,
-            None => return,
-        };
+        if let Some((exit, ctx)) = self.exit.take() {
+            exit(&mut ctx.lock())
+        }
 
-        CURRENT.with(|g| match g.borrow_mut().as_mut() {
-            Some(context) => {
-                let addr = {
-                    let addr: &ExecutionContext = &*context;
-                    addr as *const _ as usize
-                };
-
-                if this_addr == addr {
-                    // Fine
-                } else {
-                    panic!(
-                        "An instance of WithExecutionContext \
-                                (instantiated by {}) \
-                                was dropped by a different CancellableFuture instance ({})",
-                        this_addr, addr
-                    );
-                }
-
-                exit(context)
-            }
-            None => {
-                panic!(
-                    "An instance of WithExecutionContext \
-                    (instantiated by {})
-                    was dropped outside of a CancellableFuture instance",
-                    this_addr
-                )
-            }
-        });
+        // TODO: make it a soft_error if the current future isn't the one that entered the critical
+        // section
     }
 }
 
@@ -421,7 +412,7 @@ where
 {
     let ((), _guard) = WithExecutionContext::enter(
         ExecutionContext::enter_critical_section,
-        ExecutionContext::exit_critical_section,
+        ExecutionContextShared::exit_critical_section,
     );
 
     let fut = make();
@@ -465,7 +456,7 @@ where
 {
     let (obs, _guard) = WithExecutionContext::enter(
         ExecutionContext::enter_structured_cancellation,
-        ExecutionContext::exit_structured_cancellation,
+        ExecutionContextShared::exit_structured_cancellation,
     );
 
     let fut = make(obs);
@@ -782,12 +773,45 @@ mod tests {
 
     #[tokio::test]
     async fn noop_drop_is_allowed() {
-        let section = critical_section(futures::future::pending::<()>).boxed();
+        let section = critical_section(futures::future::pending::<()>);
 
         let (fut, _guard) = CancellableFuture::new_refcounted(async {
             drop(section); // Drop it within an ExecutionContext
         });
 
         fut.await;
+    }
+
+    #[allow(clippy::async_yields_async)]
+    #[tokio::test]
+    async fn drop_outside_of_task_is_allowed() {
+        let (fut, _guard) = CancellableFuture::new_refcounted(async {
+            critical_section(futures::future::pending::<()>)
+        });
+
+        let section = fut.await;
+
+        drop(section)
+    }
+
+    #[tokio::test]
+    async fn drop_outside_of_task_takes_effect() {
+        let (fut, guard) = CancellableFuture::new_refcounted(async {
+            let section = critical_section(futures::future::pending::<()>);
+            std::thread::spawn(move || drop(section));
+            loop {
+                tokio::task::yield_now().await;
+            }
+        });
+        futures::pin_mut!(fut);
+
+        // Advance to the yield then cance.
+        assert_matches!(futures::poll!(&mut fut), Poll::Pending);
+        drop(guard);
+
+        assert_matches!(
+            tokio::time::timeout(Duration::from_millis(1000), fut).await,
+            Ok(None)
+        );
     }
 }
