@@ -19,6 +19,7 @@ use dupe::Dupe;
 use futures::future::Future;
 use futures::StreamExt;
 use gazebo::prelude::*;
+use key::StoragePropertiesForKey;
 use parking_lot::RwLock;
 use projection::ProjectionKeyProperties;
 use serde::Serializer;
@@ -43,7 +44,6 @@ use crate::incremental::IncrementalEngine;
 use crate::incremental::ValueWithDeps;
 use crate::introspection::serialize_dense_graph;
 use crate::introspection::serialize_graph;
-use crate::key::StoragePropertiesForKey;
 use crate::legacy::ctx::ComputationData;
 use crate::legacy::ctx::DiceComputationsImplLegacy;
 use crate::map::DiceMap;
@@ -51,6 +51,7 @@ use crate::metrics::Metrics;
 
 pub(crate) mod ctx;
 pub(crate) mod cycles;
+pub(crate) mod key;
 pub(crate) mod opaque;
 pub(crate) mod projection;
 
