@@ -12,9 +12,9 @@ use dupe::Clone_;
 use dupe::Dupe;
 use futures::future::Shared;
 
-use crate::dice_task::DiceTask;
-use crate::dice_task::DiceTaskStateForDebugging;
 use crate::incremental::graph::storage_properties::StorageProperties;
+use crate::legacy::dice_futures::dice_task::DiceTask;
+use crate::legacy::dice_futures::dice_task::DiceTaskStateForDebugging;
 use crate::GraphNode;
 
 /// `IncrementalEngine` task type for projection key.

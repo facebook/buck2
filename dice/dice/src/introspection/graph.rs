@@ -26,9 +26,9 @@ use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
 
-use crate::dice_task::DiceTaskStateForDebugging;
 use crate::incremental::ErasedEngine;
 use crate::introspection::serialize_dense_graph;
+use crate::legacy::dice_futures::dice_task::DiceTaskStateForDebugging;
 use crate::HashMap;
 use crate::HashSet;
 

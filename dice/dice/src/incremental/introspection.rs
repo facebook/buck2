@@ -13,8 +13,6 @@ use std::sync::Arc;
 use dupe::Dupe;
 use sorted_vector_map::SortedVectorMap;
 
-use crate::dice_task::DiceTask;
-use crate::dice_task::DiceTaskStateForDebugging;
 use crate::incremental::graph::dependencies::VersionedDependencies;
 use crate::incremental::graph::dependencies::VersionedRevDependencies;
 use crate::incremental::graph::storage_properties::StorageProperties;
@@ -31,6 +29,8 @@ use crate::introspection::graph::KeyID;
 use crate::introspection::graph::NodeID;
 use crate::introspection::graph::SerializedGraphNode;
 use crate::introspection::graph::SerializedGraphNodesForKey;
+use crate::legacy::dice_futures::dice_task::DiceTask;
+use crate::legacy::dice_futures::dice_task::DiceTaskStateForDebugging;
 use crate::HashMap;
 use crate::HashSet;
 

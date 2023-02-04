@@ -16,10 +16,10 @@ use more_futures::spawn::WeakFutureError;
 use more_futures::spawn::WeakJoinHandle;
 
 use crate::api::error::DiceResult;
-use crate::dice_future::DiceFuture;
-use crate::dice_task::DiceTask;
-use crate::dice_task::DiceTaskStateForDebugging;
 use crate::incremental::graph::storage_properties::StorageProperties;
+use crate::legacy::dice_futures::dice_future::DiceFuture;
+use crate::legacy::dice_futures::dice_task::DiceTask;
+use crate::legacy::dice_futures::dice_task::DiceTaskStateForDebugging;
 use crate::GraphNode;
 
 #[derive(Allocative)]

@@ -15,6 +15,7 @@ use std::sync::Weak;
 
 use allocative::Allocative;
 use async_trait::async_trait;
+use dice_futures::future_handle::WeakDiceFutureHandle;
 use dupe::Dupe;
 use futures::future::Future;
 use futures::StreamExt;
@@ -36,7 +37,6 @@ use crate::api::projection::ProjectionKey;
 use crate::api::transaction::DiceTransactionUpdater;
 use crate::api::user_data::UserComputationData;
 use crate::ctx::DiceComputationsImpl;
-use crate::future_handle::WeakDiceFutureHandle;
 use crate::incremental::evaluator::Evaluator;
 use crate::incremental::graph::GraphNode;
 use crate::incremental::transaction_ctx::TransactionCtx;
@@ -51,6 +51,7 @@ use crate::legacy::ctx::DiceComputationsImplLegacy;
 
 pub(crate) mod ctx;
 pub(crate) mod cycles;
+pub(crate) mod dice_futures;
 pub(crate) mod key;
 pub(crate) mod map;
 pub(crate) mod metrics;

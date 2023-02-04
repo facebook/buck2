@@ -25,8 +25,8 @@ use crate::incremental::IncrementalEngine;
 use crate::incremental::StorageType;
 use crate::introspection::graph::short_type_name;
 use crate::legacy::ctx::ComputationData;
+use crate::legacy::dice_futures::sync_handle::SyncDiceTaskHandle;
 use crate::legacy::DiceLegacy;
-use crate::sync_handle::SyncDiceTaskHandle;
 use crate::GraphNode;
 use crate::TransactionCtx;
 

@@ -204,14 +204,10 @@ extern crate gazebo;
 #[macro_use]
 extern crate tracing;
 
-mod dice_future;
-mod dice_task;
-mod future_handle;
 mod incremental;
 pub mod introspection;
 mod legacy;
 mod opaque;
-mod sync_handle;
 
 #[cfg(test)]
 mod tests;
@@ -230,6 +226,7 @@ use allocative::Allocative;
 pub use fnv::FnvHashMap as HashMap;
 pub use fnv::FnvHashSet as HashSet;
 use futures::future::Future;
+use legacy::dice_futures::future_handle::WeakDiceFutureHandle;
 use legacy::key::StoragePropertiesForKey;
 use legacy::metrics::Metrics;
 use serde::Serializer;
@@ -252,7 +249,6 @@ pub use crate::api::transaction::DiceEquality;
 pub use crate::api::transaction::DiceTransaction;
 pub use crate::api::transaction::DiceTransactionUpdater;
 pub use crate::api::user_data::UserComputationData;
-use crate::future_handle::WeakDiceFutureHandle;
 use crate::incremental::graph::GraphNode;
 use crate::incremental::transaction_ctx::TransactionCtx;
 use crate::incremental::ValueWithDeps;
