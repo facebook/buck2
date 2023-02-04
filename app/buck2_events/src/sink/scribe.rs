@@ -259,14 +259,22 @@ mod fbcode {
 
     fn should_send_event(d: &buck2_data::buck_event::Data) -> bool {
         use buck2_data::buck_event::Data;
+        use buck2_data::ActionKind;
 
         match d {
             Data::SpanStart(s) => {
                 use buck2_data::span_start_event::Data;
 
-                match s.data {
+                match &s.data {
                     Some(Data::Command(..)) => true, // used in CommandReporterProcessor
-                    Some(Data::ActionExecution(..)) => true, // used in ActionCounterProcessor
+                    Some(Data::ActionExecution(a)) => match ActionKind::from_i32(a.kind) {
+                        // Simple actions are not useful for most log analysis cases
+                        Some(ActionKind::Copy)
+                        | Some(ActionKind::SymlinkedDir)
+                        | Some(ActionKind::Write)
+                        | Some(ActionKind::WriteMacrosToFile) => false,
+                        _ => true,
+                    },
                     Some(Data::Analysis(..)) => false,
                     Some(Data::AnalysisStage(..)) => false,
                     Some(Data::FinalMaterialization(..)) => false,
@@ -294,10 +302,17 @@ mod fbcode {
             }
             Data::SpanEnd(s) => {
                 use buck2_data::span_end_event::Data;
+                use buck2_data::ActionExecutionKind;
 
-                match s.data {
+                match &s.data {
                     Some(Data::Command(..)) => true,
-                    Some(Data::ActionExecution(..)) => true,
+                    Some(Data::ActionExecution(a)) => {
+                        match ActionExecutionKind::from_i32(a.execution_kind) {
+                            // Not useful for most log analysis cases
+                            Some(ActionExecutionKind::Simple) => false,
+                            _ => true,
+                        }
+                    }
                     Some(Data::Analysis(..)) => true,
                     Some(Data::AnalysisStage(..)) => false,
                     Some(Data::FinalMaterialization(..)) => true,
