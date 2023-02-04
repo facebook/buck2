@@ -48,6 +48,7 @@ use crate::introspection::serialize_dense_graph;
 use crate::introspection::serialize_graph;
 use crate::legacy::ctx::ComputationData;
 use crate::legacy::ctx::DiceComputationsImplLegacy;
+use crate::transaction_update::DiceTransactionUpdaterImpl;
 
 pub(crate) mod ctx;
 pub(crate) mod cycles;
@@ -144,9 +145,8 @@ impl DiceLegacy {
         self: &Arc<DiceLegacy>,
         extra: UserComputationData,
     ) -> DiceTransactionUpdater {
-        DiceTransactionUpdater::new(DiceComputationsImpl::Legacy(
-            self.make_ctx(ComputationData::new(extra, self.detect_cycles)),
-        ))
+        let ctx = self.make_ctx(ComputationData::new(extra, self.detect_cycles));
+        DiceTransactionUpdater(DiceTransactionUpdaterImpl::Legacy(ctx))
     }
 
     pub(crate) fn make_ctx(

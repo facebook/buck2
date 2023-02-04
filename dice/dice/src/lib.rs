@@ -209,6 +209,7 @@ mod ctx;
 pub mod introspection;
 mod legacy;
 mod opaque;
+mod transaction_update;
 mod versions;
 
 #[cfg(test)]

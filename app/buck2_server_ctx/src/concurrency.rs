@@ -353,7 +353,7 @@ impl ConcurrencyHandler {
                                 async {
                                     let updater = self.dice.updater();
                                     let user_data =
-                                        user_data.provide(updater.existing_state()).await?;
+                                        user_data.provide(&updater.existing_state()).await?;
                                     let transaction =
                                         updates.update(updater).await?.commit_with_data(user_data);
                                     anyhow::Ok(transaction)

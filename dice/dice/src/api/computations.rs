@@ -33,15 +33,6 @@ use crate::ctx::DiceComputationsImpl;
 #[repr(transparent)]
 pub struct DiceComputations(pub(crate) DiceComputationsImpl);
 
-impl DiceComputations {
-    pub(crate) fn ref_cast(ctx: &DiceComputationsImpl) -> &DiceComputations {
-        unsafe {
-            // SAFETY:: repr(transparent)
-            &*(ctx as *const DiceComputationsImpl as *const Self)
-        }
-    }
-}
-
 fn _test_computations_sync_send() {
     fn _assert_sync_send<T: Sync + Send>() {}
     _assert_sync_send::<DiceComputations>();

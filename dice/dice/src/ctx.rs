@@ -22,7 +22,9 @@ use crate::api::user_data::UserComputationData;
 use crate::legacy::ctx::DiceComputationsImplLegacy;
 use crate::legacy::map::DiceMap;
 use crate::opaque::OpaqueValueImpl;
+use crate::transaction_update::DiceTransactionUpdaterImpl;
 use crate::versions::VersionNumber;
+use crate::DiceTransactionUpdater;
 
 #[derive(Allocative, Dupe, Clone)]
 pub(crate) enum DiceComputationsImpl {
@@ -101,48 +103,9 @@ impl DiceComputationsImpl {
         }
     }
 
-    pub(crate) fn changed<K, I>(&self, changed: I) -> DiceResult<()>
-    where
-        K: Key,
-        I: IntoIterator<Item = K> + Send + Sync + 'static,
-    {
-        match self {
-            DiceComputationsImpl::Legacy(delegate) => delegate.changed(changed),
-        }
-    }
-
-    pub(crate) fn changed_to<K, I>(&self, changed: I) -> DiceResult<()>
-    where
-        K: Key,
-        I: IntoIterator<Item = (K, K::Value)> + Send + Sync + 'static,
-    {
-        match self {
-            DiceComputationsImpl::Legacy(delegate) => delegate.changed_to(changed),
-        }
-    }
-
     pub(crate) fn unstable_take(&self) -> DiceMap {
         match self {
             DiceComputationsImpl::Legacy(delegate) => delegate.unstable_take(),
-        }
-    }
-
-    /// Commit the changes registered via 'changed' and 'changed_to' to the current newest version.
-    /// This can only be called when the this is the only node remaining in the computation graph
-    pub(super) fn commit(self) -> DiceComputationsImpl {
-        match self {
-            DiceComputationsImpl::Legacy(delegate) => {
-                DiceComputationsImpl::Legacy(delegate.commit())
-            }
-        }
-    }
-
-    /// Same as `commit`, but replacing the user data with the given
-    pub(super) fn commit_with_data(self, extra: UserComputationData) -> DiceComputationsImpl {
-        match self {
-            DiceComputationsImpl::Legacy(delegate) => {
-                DiceComputationsImpl::Legacy(delegate.commit_with_data(extra))
-            }
         }
     }
 
@@ -150,5 +113,11 @@ impl DiceComputationsImpl {
         match self {
             DiceComputationsImpl::Legacy(delegate) => delegate.get_version(),
         }
+    }
+
+    pub(crate) fn into_updater(self) -> DiceTransactionUpdater {
+        DiceTransactionUpdater(match self {
+            DiceComputationsImpl::Legacy(delegate) => DiceTransactionUpdaterImpl::Legacy(delegate),
+        })
     }
 }

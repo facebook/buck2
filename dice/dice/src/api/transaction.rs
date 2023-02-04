@@ -17,25 +17,18 @@ use crate::api::computations::DiceComputations;
 use crate::api::error::DiceResult;
 use crate::api::key::Key;
 use crate::api::user_data::UserComputationData;
-use crate::ctx::DiceComputationsImpl;
+use crate::transaction_update::DiceTransactionUpdaterImpl;
 use crate::versions::VersionNumber;
 
 /// The struct for which we build transactions. This is where changes are recorded, and committed
 /// to DICE, which returns the Transaction where we spawn computations.
 #[derive(Allocative)]
-pub struct DiceTransactionUpdater {
-    pub(crate) existing_state: DiceComputationsImpl,
-}
+#[repr(transparent)]
+pub struct DiceTransactionUpdater(pub(crate) DiceTransactionUpdaterImpl);
 
 impl DiceTransactionUpdater {
-    pub(crate) fn new(ctx: DiceComputationsImpl) -> Self {
-        Self {
-            existing_state: ctx,
-        }
-    }
-
-    pub fn existing_state(&self) -> &DiceComputations {
-        DiceComputations::ref_cast(&self.existing_state)
+    pub fn existing_state(&self) -> DiceComputations {
+        self.0.existing_state()
     }
 
     /// Records a set of `Key`s as changed so that they, and any dependents will
@@ -45,7 +38,7 @@ impl DiceTransactionUpdater {
         K: Key,
         I: IntoIterator<Item = K> + Send + Sync + 'static,
     {
-        self.existing_state.changed(changed)
+        self.0.changed(changed)
     }
 
     /// Records a set of `Key`s as changed to a particular value so that any
@@ -60,20 +53,18 @@ impl DiceTransactionUpdater {
         K: Key,
         I: IntoIterator<Item = (K, K::Value)> + Send + Sync + 'static,
     {
-        self.existing_state.changed_to(changed)
+        self.0.changed_to(changed)
     }
 
     /// Commit the changes registered via 'changed' and 'changed_to' to the current newest version.
     pub fn commit(self) -> DiceTransaction {
-        DiceTransaction(DiceComputations(self.existing_state.commit()))
+        self.0.commit()
     }
 
     /// Commit the changes registered via 'changed' and 'changed_to' to the current newest version,
     /// replacing the user data with the given set
     pub fn commit_with_data(self, extra: UserComputationData) -> DiceTransaction {
-        DiceTransaction(DiceComputations(
-            self.existing_state.commit_with_data(extra),
-        ))
+        self.0.commit_with_data(extra)
     }
 }
 
@@ -113,9 +104,7 @@ impl DiceTransaction {
     /// that keeps the same set of user data. This is equivalent to `Dice::updater_with_user_data(data)`
     /// where the `data` is taken from the current Transaction.
     pub fn into_updater(self) -> DiceTransactionUpdater {
-        DiceTransactionUpdater {
-            existing_state: self.0.0,
-        }
+        self.0.0.into_updater()
     }
 }
 
