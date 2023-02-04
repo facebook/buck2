@@ -554,7 +554,10 @@ def _stub_library(ctx: "context", name: str.type, extra_ldflags: [""] = []) -> L
         ),
     )
 
-def _symbol_flags_for_link_group(ctx: "context", lib: LinkedObject.type) -> ["_arglike"]:
+def _symbol_flags_for_link_group(
+        ctx: "context",
+        lib: LinkedObject.type,
+        prefer_local: bool.type = False) -> ["_arglike"]:
     """
     Analyze symbols in the given shared library and generate linker flags which,
     when applied to the main executable, make sure required symbols are included
@@ -568,7 +571,7 @@ def _symbol_flags_for_link_group(ctx: "context", lib: LinkedObject.type) -> ["_a
     undefined_symfile = extract_undefined_syms(
         ctx = ctx,
         output = lib.output,
-        prefer_local = True,
+        prefer_local = prefer_local,
     )
     undefined_argsfile = create_undefined_symbols_argsfile(
         actions = ctx.actions,
@@ -584,7 +587,7 @@ def _symbol_flags_for_link_group(ctx: "context", lib: LinkedObject.type) -> ["_a
     global_symfile = extract_global_syms(
         ctx = ctx,
         output = lib.output,
-        prefer_local = True,
+        prefer_local = prefer_local,
     )
     dynamic_list_vers = create_dynamic_list_version_script(
         actions = ctx.actions,
