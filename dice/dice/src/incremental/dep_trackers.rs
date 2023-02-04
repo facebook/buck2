@@ -19,9 +19,9 @@ use crate::incremental::dep_trackers::internals::ComputedDep;
 use crate::incremental::graph::dependencies::ComputedDependency;
 use crate::incremental::graph::GraphNode;
 use crate::incremental::graph::GraphNodeDyn;
-use crate::incremental::versions::VersionNumber;
 use crate::incremental::IncrementalComputeProperties;
 use crate::incremental::IncrementalEngine;
+use crate::versions::VersionNumber;
 use crate::HashSet;
 
 /// The 'DepsTracker' is used to record dependencies of a particular compute node by calling
@@ -187,13 +187,13 @@ mod internals {
     use crate::incremental::graph::VersionedGraphKeyRef;
     use crate::incremental::transaction_ctx::TransactionCtx;
     use crate::incremental::versions::MinorVersion;
-    use crate::incremental::versions::VersionNumber;
     use crate::incremental::ComputedDependency;
     use crate::incremental::Dependency;
     use crate::incremental::IncrementalComputeProperties;
     use crate::incremental::IncrementalEngine;
     use crate::introspection::graph::AnyKey;
     use crate::legacy::ctx::ComputationData;
+    use crate::versions::VersionNumber;
 
     #[derive(Allocative)]
     pub(crate) struct ComputedDep<K: IncrementalComputeProperties> {
@@ -354,9 +354,9 @@ pub(crate) mod testing {
     pub(crate) use crate::incremental::dep_trackers::internals::Dep;
     use crate::incremental::graph::GraphNode;
     use crate::incremental::graph::OccupiedGraphNode;
-    use crate::incremental::versions::VersionNumber;
     use crate::incremental::IncrementalComputeProperties;
     use crate::incremental::IncrementalEngine;
+    use crate::versions::VersionNumber;
 
     pub(crate) trait DepExt<K: IncrementalComputeProperties> {
         fn testing_new(engine: Weak<IncrementalEngine<K>>, k: K::Key) -> Self;
@@ -411,11 +411,11 @@ mod tests {
     use crate::incremental::graph::OccupiedGraphNode;
     use crate::incremental::history::CellHistory;
     use crate::incremental::testing::ComputedDependencyExt;
-    use crate::incremental::versions::VersionNumber;
     use crate::incremental::IncrementalEngine;
     use crate::incremental::TransactionCtx;
     use crate::legacy::ctx::testing::ComputationDataExt;
     use crate::legacy::ctx::ComputationData;
+    use crate::versions::VersionNumber;
     use crate::HashSet;
     use crate::ValueWithDeps;
 

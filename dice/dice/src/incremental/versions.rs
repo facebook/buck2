@@ -7,12 +7,6 @@
  * of this source tree.
  */
 
-//!
-//! This library contains utilities for tracking a global version number. The
-//! global version number is used for tagging computed values so that we can
-//! track when a value needs to be updated because its version number is out of
-//! date.
-
 use std::cell::UnsafeCell;
 use std::cmp;
 use std::collections::hash_map::Entry;
@@ -24,7 +18,6 @@ use std::fmt::Display;
 use std::fmt::Formatter;
 use std::ops::Deref;
 use std::ops::RangeBounds;
-use std::ops::Sub;
 use std::sync::Arc;
 use std::sync::Weak;
 
@@ -38,37 +31,7 @@ use parking_lot::RawMutex;
 use parking_lot::RwLock;
 use sorted_vector_map::SortedVectorSet;
 
-/// The incrementing Version number associated with all the cache entries
-#[derive(Copy, Eq, Debug, Display, Dupe)]
-// split this due to formatters not agreeing
-#[derive(PartialEq, Hash, Clone, Ord, PartialOrd, Allocative)]
-#[display(fmt = "v{}", "_0")]
-pub struct VersionNumber(pub(crate) usize);
-
-impl VersionNumber {
-    /// First transaction has version number zero.
-    const ZERO: VersionNumber = VersionNumber(0);
-
-    pub(crate) fn new(num: usize) -> Self {
-        VersionNumber(num)
-    }
-
-    fn inc(&mut self) {
-        self.0 += 1;
-    }
-
-    fn dec(&mut self) {
-        self.0 = self.0.checked_sub(1).expect("shouldn't underflow");
-    }
-}
-
-impl Sub for VersionNumber {
-    type Output = isize;
-
-    fn sub(self, rhs: Self) -> Self::Output {
-        self.0 as isize - rhs.0 as isize
-    }
-}
+use crate::versions::VersionNumber;
 
 /// The minor version associated with the major `VersionNumber`. The minor version an identifier to
 /// all currently active computations of a particular `VersionNumber`.
@@ -760,16 +723,6 @@ impl MinorVersionTracker {
             let new_v = v.1.next();
             *v = (new_mv.downgrade(), new_v);
             new_mv
-        }
-    }
-}
-
-mod introspection {
-    use crate::incremental::versions::VersionNumber;
-
-    impl VersionNumber {
-        pub fn to_introspectable(&self) -> crate::introspection::graph::VersionNumber {
-            crate::introspection::graph::VersionNumber(self.0)
         }
     }
 }

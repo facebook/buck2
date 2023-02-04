@@ -55,8 +55,8 @@ use crate::incremental::versions::MinorVersion;
 use crate::incremental::versions::VersionRanges;
 use crate::incremental::CellHistory;
 use crate::incremental::Dependency;
-use crate::incremental::VersionNumber;
 use crate::introspection::graph::AnyKey;
+use crate::versions::VersionNumber;
 use crate::HashSet;
 
 /// The Key for a Versioned, incremental computation
@@ -1427,11 +1427,11 @@ mod tests {
     use crate::incremental::testing::DependencyExt;
     use crate::incremental::versions::testing::VersionRangesExt;
     use crate::incremental::versions::MinorVersion;
-    use crate::incremental::versions::VersionNumber;
     use crate::incremental::versions::VersionRange;
     use crate::incremental::versions::VersionRanges;
     use crate::incremental::Computable;
     use crate::incremental::StorageType;
+    use crate::versions::VersionNumber;
     use crate::HashSet;
 
     #[derive(Clone, Dupe, Display, Debug, Eq, PartialEq, Hash, Allocative)]

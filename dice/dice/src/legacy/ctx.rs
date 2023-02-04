@@ -31,12 +31,12 @@ use crate::incremental::transaction_ctx::Changes;
 use crate::incremental::transaction_ctx::TransactionCtx;
 use crate::incremental::versions::VersionForWrites;
 use crate::incremental::versions::VersionGuard;
-use crate::incremental::versions::VersionNumber;
 use crate::legacy::cycles::CycleDetector;
 use crate::legacy::map::DiceMap;
 use crate::legacy::opaque::OpaqueValueImplLegacy;
 use crate::legacy::projection::ProjectionKeyAsKey;
 use crate::legacy::DiceLegacy;
+use crate::versions::VersionNumber;
 
 /// A context for the duration of a top-level compute request.
 ///

@@ -204,19 +204,16 @@ extern crate gazebo;
 #[macro_use]
 extern crate tracing;
 
+mod api;
+mod ctx;
 mod incremental;
 pub mod introspection;
 mod legacy;
 mod opaque;
+mod versions;
 
 #[cfg(test)]
 mod tests;
-
-// ctx contains pub data that we don't want to expose, so we hide the whole mod but expose just the
-// data we want to expose
-mod ctx;
-
-mod api;
 
 use std::fmt::Debug;
 use std::io::Write;

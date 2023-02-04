@@ -18,7 +18,7 @@ use crate::api::error::DiceResult;
 use crate::api::key::Key;
 use crate::api::user_data::UserComputationData;
 use crate::ctx::DiceComputationsImpl;
-use crate::incremental::versions::VersionNumber;
+use crate::versions::VersionNumber;
 
 /// The struct for which we build transactions. This is where changes are recorded, and committed
 /// to DICE, which returns the Transaction where we spawn computations.

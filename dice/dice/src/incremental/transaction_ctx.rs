@@ -22,8 +22,8 @@ use crate::api::key::Key;
 use crate::incremental::versions::MinorVersion;
 use crate::incremental::versions::VersionForWrites;
 use crate::incremental::versions::VersionGuard;
-use crate::incremental::versions::VersionNumber;
 use crate::legacy::DiceLegacy;
+use crate::versions::VersionNumber;
 use crate::HashSet;
 
 /// Increment/decrement the number of active transactions.

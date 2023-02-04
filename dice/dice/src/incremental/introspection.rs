@@ -18,7 +18,6 @@ use crate::incremental::graph::dependencies::VersionedRevDependencies;
 use crate::incremental::graph::storage_properties::StorageProperties;
 use crate::incremental::graph::GraphNodeDyn;
 use crate::incremental::graph::VersionedGraphNodeInternal;
-use crate::incremental::versions::VersionNumber;
 use crate::incremental::Dependency;
 use crate::incremental::IncrementalComputeProperties;
 use crate::incremental::IncrementalEngine;
@@ -31,6 +30,7 @@ use crate::introspection::graph::SerializedGraphNode;
 use crate::introspection::graph::SerializedGraphNodesForKey;
 use crate::legacy::dice_futures::dice_task::DiceTask;
 use crate::legacy::dice_futures::dice_task::DiceTaskStateForDebugging;
+use crate::versions::VersionNumber;
 use crate::HashMap;
 use crate::HashSet;
 

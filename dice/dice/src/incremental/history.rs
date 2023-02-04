@@ -20,9 +20,9 @@ use sorted_vector_map::SortedVectorMap;
 use sorted_vector_map::SortedVectorSet;
 
 use crate::incremental::graph::ReadOnlyHistory;
-use crate::incremental::versions::VersionNumber;
 use crate::incremental::versions::VersionRange;
 use crate::incremental::versions::VersionRanges;
+use crate::versions::VersionNumber;
 
 /// The history of one computation unit.
 /// The history is one of the `HistoryState`s.
@@ -472,7 +472,7 @@ pub(crate) mod testing {
 
 mod introspection {
     use crate::incremental::history::CellHistory;
-    use crate::incremental::versions::VersionNumber;
+    use crate::versions::VersionNumber;
 
     impl CellHistory {
         pub fn to_introspectable(&self) -> crate::introspection::graph::CellHistory {

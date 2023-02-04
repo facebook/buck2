@@ -37,7 +37,7 @@ use crate::incremental::evaluator::testing::EvaluatorUnreachable;
 use crate::incremental::testing::DependencyExt;
 use crate::incremental::testing::IncrementalEngineExt;
 use crate::incremental::testing::VersionedCacheResultAssertsExt;
-use crate::incremental::versions::VersionNumber;
+use crate::versions::VersionNumber;
 use crate::HashSet;
 
 #[derive(Clone, Dupe, Debug, Display, Eq, Hash, PartialEq, Allocative)]

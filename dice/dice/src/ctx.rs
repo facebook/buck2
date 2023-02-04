@@ -19,10 +19,10 @@ use crate::api::error::DiceResult;
 use crate::api::key::Key;
 use crate::api::opaque::OpaqueValue;
 use crate::api::user_data::UserComputationData;
-use crate::incremental::versions::VersionNumber;
 use crate::legacy::ctx::DiceComputationsImplLegacy;
 use crate::legacy::map::DiceMap;
 use crate::opaque::OpaqueValueImpl;
+use crate::versions::VersionNumber;
 
 #[derive(Allocative, Dupe, Clone)]
 pub(crate) enum DiceComputationsImpl {

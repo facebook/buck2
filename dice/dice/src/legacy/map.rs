@@ -93,10 +93,10 @@ mod tests {
     use crate::api::key::Key;
     use crate::incremental::testing::IncrementalEngineExt;
     use crate::incremental::versions::MinorVersion;
-    use crate::incremental::versions::VersionNumber;
     use crate::incremental::IncrementalEngine;
     use crate::legacy::map::DiceMap;
     use crate::legacy::DiceLegacy;
+    use crate::versions::VersionNumber;
     use crate::StoragePropertiesForKey;
 
     #[tokio::test]
