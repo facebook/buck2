@@ -19,6 +19,7 @@ use crate::api::error::DiceResult;
 use crate::api::key::Key;
 use crate::api::opaque::OpaqueValue;
 use crate::api::user_data::UserComputationData;
+use crate::impls::ctx::ComputationCtx;
 use crate::legacy::ctx::DiceComputationsImplLegacy;
 use crate::legacy::map::DiceMap;
 use crate::opaque::OpaqueValueImpl;
@@ -29,6 +30,7 @@ use crate::DiceTransactionUpdater;
 #[derive(Allocative, Dupe, Clone)]
 pub(crate) enum DiceComputationsImpl {
     Legacy(Arc<DiceComputationsImplLegacy>),
+    Modern(ComputationCtx),
 }
 
 impl DiceComputationsImpl {
@@ -45,7 +47,12 @@ impl DiceComputationsImpl {
         match self {
             DiceComputationsImpl::Legacy(delegate) => delegate
                 .compute_opaque(key)
-                .map(|r| r.map(|x| x.into_value())),
+                .map(|r| r.map(|x| x.into_value()))
+                .left_future(),
+            DiceComputationsImpl::Modern(delegate) => delegate
+                .compute_opaque(key)
+                .map(|r| r.map(|x| x.into_value()))
+                .right_future(),
         }
     }
 
@@ -63,7 +70,12 @@ impl DiceComputationsImpl {
         match self {
             DiceComputationsImpl::Legacy(delegate) => delegate
                 .compute_opaque(key)
-                .map(|r| r.map(|x| OpaqueValue::new(OpaqueValueImpl::Legacy(x)))),
+                .map(|r| r.map(|x| OpaqueValue::new(OpaqueValueImpl::Legacy(x))))
+                .left_future(),
+            DiceComputationsImpl::Modern(delegate) => delegate
+                .compute_opaque(key)
+                .map(|r| r.map(|x| OpaqueValue::new(OpaqueValueImpl::Modern(x))))
+                .right_future(),
         }
     }
 
@@ -81,7 +93,11 @@ impl DiceComputationsImpl {
     {
         match self {
             DiceComputationsImpl::Legacy(delegate) => delegate
-                .temporary_spawn(async move |ctx| f(DiceComputationsImpl::Legacy(ctx)).await),
+                .temporary_spawn(async move |ctx| f(DiceComputationsImpl::Legacy(ctx)).await)
+                .left_future(),
+            DiceComputationsImpl::Modern(delegate) => delegate
+                .temporary_spawn(async move |ctx| f(DiceComputationsImpl::Modern(ctx)).await)
+                .right_future(),
         }
     }
 
@@ -90,6 +106,7 @@ impl DiceComputationsImpl {
     pub(crate) fn global_data(&self) -> &DiceData {
         match self {
             DiceComputationsImpl::Legacy(delegate) => delegate.global_data(),
+            DiceComputationsImpl::Modern(delegate) => delegate.global_data(),
         }
     }
 
@@ -100,24 +117,30 @@ impl DiceComputationsImpl {
     pub(crate) fn per_transaction_data(&self) -> &UserComputationData {
         match self {
             DiceComputationsImpl::Legacy(delegate) => delegate.per_transaction_data(),
+            DiceComputationsImpl::Modern(delegate) => delegate.per_transaction_data(),
         }
     }
 
     pub(crate) fn unstable_take(&self) -> DiceMap {
         match self {
             DiceComputationsImpl::Legacy(delegate) => delegate.unstable_take(),
+            DiceComputationsImpl::Modern(_delegate) => unimplemented!("todo"),
         }
     }
 
     pub(crate) fn get_version(&self) -> VersionNumber {
         match self {
             DiceComputationsImpl::Legacy(delegate) => delegate.get_version(),
+            DiceComputationsImpl::Modern(delegate) => delegate.get_version(),
         }
     }
 
     pub(crate) fn into_updater(self) -> DiceTransactionUpdater {
         DiceTransactionUpdater(match self {
             DiceComputationsImpl::Legacy(delegate) => DiceTransactionUpdaterImpl::Legacy(delegate),
+            DiceComputationsImpl::Modern(_delegate) => {
+                unimplemented!("todo")
+            }
         })
     }
 }

@@ -17,6 +17,7 @@ use crate::api::error::DiceResult;
 use crate::api::key::Key;
 use crate::api::user_data::UserComputationData;
 use crate::ctx::DiceComputationsImpl;
+use crate::impls::transaction::TransactionUpdater;
 use crate::legacy::ctx::DiceComputationsImplLegacy;
 use crate::DiceTransaction;
 
@@ -25,6 +26,8 @@ use crate::DiceTransaction;
 #[derive(Allocative)]
 pub(crate) enum DiceTransactionUpdaterImpl {
     Legacy(Arc<DiceComputationsImplLegacy>),
+    #[allow(unused)]
+    Modern(TransactionUpdater),
 }
 
 impl DiceTransactionUpdaterImpl {
@@ -32,6 +35,9 @@ impl DiceTransactionUpdaterImpl {
         match self {
             DiceTransactionUpdaterImpl::Legacy(ctx) => {
                 DiceComputations(DiceComputationsImpl::Legacy(ctx.dupe()))
+            }
+            DiceTransactionUpdaterImpl::Modern(delegate) => {
+                DiceComputations(DiceComputationsImpl::Modern(delegate.existing_state()))
             }
         }
     }
@@ -45,6 +51,7 @@ impl DiceTransactionUpdaterImpl {
     {
         match self {
             DiceTransactionUpdaterImpl::Legacy(ctx) => ctx.changed(changed),
+            DiceTransactionUpdaterImpl::Modern(delegate) => delegate.changed(changed),
         }
     }
 
@@ -62,6 +69,7 @@ impl DiceTransactionUpdaterImpl {
     {
         match self {
             DiceTransactionUpdaterImpl::Legacy(ctx) => ctx.changed_to(changed),
+            DiceTransactionUpdaterImpl::Modern(delegate) => delegate.changed_to(changed),
         }
     }
 
@@ -71,6 +79,9 @@ impl DiceTransactionUpdaterImpl {
             DiceTransactionUpdaterImpl::Legacy(ctx) => {
                 DiceTransaction(DiceComputations(DiceComputationsImpl::Legacy(ctx.commit())))
             }
+            DiceTransactionUpdaterImpl::Modern(delegate) => DiceTransaction(DiceComputations(
+                DiceComputationsImpl::Modern(delegate.commit()),
+            )),
         }
     }
 
@@ -80,6 +91,9 @@ impl DiceTransactionUpdaterImpl {
         match self {
             DiceTransactionUpdaterImpl::Legacy(ctx) => DiceTransaction(DiceComputations(
                 DiceComputationsImpl::Legacy(ctx.commit_with_data(extra)),
+            )),
+            DiceTransactionUpdaterImpl::Modern(delegate) => DiceTransaction(DiceComputations(
+                DiceComputationsImpl::Modern(delegate.commit_with_data(extra)),
             )),
         }
     }

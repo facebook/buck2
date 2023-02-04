@@ -321,6 +321,9 @@ pub(crate) mod testing {
                 DiceComputationsImpl::Legacy(delegate) => {
                     delegate.transaction_ctx.get_minor_version()
                 }
+                DiceComputationsImpl::Modern(_delegate) => {
+                    unimplemented!("todo")
+                }
             }
         }
     }

@@ -17,6 +17,7 @@ use std::fmt::Formatter;
 use crate::api::error::DiceResult;
 use crate::api::key::Key;
 use crate::api::projection::ProjectionKey;
+use crate::impls::opaque::OpaqueValueModern;
 use crate::legacy::opaque::OpaqueValueImplLegacy;
 
 /// Computed value which is not directly visible to user.
@@ -27,6 +28,7 @@ use crate::legacy::opaque::OpaqueValueImplLegacy;
 /// but the opaque value key is not.
 pub(crate) enum OpaqueValueImpl<'a, K: Key> {
     Legacy(OpaqueValueImplLegacy<'a, K>),
+    Modern(OpaqueValueModern<K>),
 }
 
 impl<'a, K> Debug for OpaqueValueImpl<'a, K>
@@ -37,6 +39,7 @@ where
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             OpaqueValueImpl::Legacy(delegate) => delegate.fmt(f),
+            OpaqueValueImpl::Modern(delegate) => delegate.fmt(f),
         }
     }
 }
@@ -48,6 +51,7 @@ impl<'a, K: Key> OpaqueValueImpl<'a, K> {
     {
         match self {
             OpaqueValueImpl::Legacy(delegate) => delegate.projection(projection_key),
+            OpaqueValueImpl::Modern(delegate) => delegate.projection(projection_key),
         }
     }
 }
