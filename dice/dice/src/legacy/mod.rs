@@ -20,6 +20,13 @@ use dupe::Dupe;
 use futures::future::Future;
 use futures::StreamExt;
 use gazebo::prelude::*;
+use incremental::evaluator::Evaluator;
+use incremental::graph::GraphNode;
+use incremental::transaction_ctx::TransactionCtx;
+use incremental::versions::VersionTracker;
+use incremental::IncrementalComputeProperties;
+use incremental::IncrementalEngine;
+use incremental::ValueWithDeps;
 use key::StoragePropertiesForKey;
 use map::DiceMap;
 use metrics::Metrics;
@@ -37,13 +44,6 @@ use crate::api::projection::ProjectionKey;
 use crate::api::transaction::DiceTransactionUpdater;
 use crate::api::user_data::UserComputationData;
 use crate::ctx::DiceComputationsImpl;
-use crate::incremental::evaluator::Evaluator;
-use crate::incremental::graph::GraphNode;
-use crate::incremental::transaction_ctx::TransactionCtx;
-use crate::incremental::versions::VersionTracker;
-use crate::incremental::IncrementalComputeProperties;
-use crate::incremental::IncrementalEngine;
-use crate::incremental::ValueWithDeps;
 use crate::introspection::serialize_dense_graph;
 use crate::introspection::serialize_graph;
 use crate::legacy::ctx::ComputationData;
@@ -58,6 +58,7 @@ pub(crate) mod metrics;
 pub(crate) mod opaque;
 pub(crate) mod projection;
 
+pub mod incremental;
 #[cfg(test)]
 mod tests;
 

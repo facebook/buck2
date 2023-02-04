@@ -731,8 +731,8 @@ impl MinorVersionTracker {
 pub(crate) mod testing {
     use sorted_vector_map::SortedVectorSet;
 
-    use crate::incremental::versions::VersionRange;
-    use crate::incremental::versions::VersionRanges;
+    use crate::legacy::incremental::versions::VersionRange;
+    use crate::legacy::incremental::versions::VersionRanges;
 
     pub(crate) trait VersionRangesExt {
         fn testing_new(ranges: SortedVectorSet<VersionRange>) -> Self;
@@ -759,12 +759,12 @@ mod tests {
     use dupe::Dupe;
     use sorted_vector_map::sorted_vector_set;
 
-    use crate::incremental::versions::MinorVersion;
-    use crate::incremental::versions::MinorVersionTracker;
-    use crate::incremental::versions::VersionNumber;
-    use crate::incremental::versions::VersionRange;
-    use crate::incremental::versions::VersionRanges;
-    use crate::incremental::versions::VersionTracker;
+    use crate::legacy::incremental::versions::MinorVersion;
+    use crate::legacy::incremental::versions::MinorVersionTracker;
+    use crate::legacy::incremental::versions::VersionNumber;
+    use crate::legacy::incremental::versions::VersionRange;
+    use crate::legacy::incremental::versions::VersionRanges;
+    use crate::legacy::incremental::versions::VersionTracker;
 
     #[test]
     fn simple_version_increases() {

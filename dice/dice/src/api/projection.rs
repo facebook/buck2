@@ -19,8 +19,8 @@ use dupe::Dupe;
 use crate::api::data::DiceData;
 use crate::api::key::Key;
 use crate::api::user_data::UserComputationData;
-use crate::incremental::StorageType;
 use crate::legacy::ctx::ComputationData;
+use crate::legacy::incremental::StorageType;
 
 /// Synchronously computed key from an "opaque" value.
 pub trait ProjectionKey:

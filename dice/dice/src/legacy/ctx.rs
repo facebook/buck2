@@ -24,14 +24,14 @@ use crate::api::error::DiceResult;
 use crate::api::key::Key;
 use crate::api::projection::ProjectionKey;
 use crate::api::user_data::UserComputationData;
-use crate::incremental::dep_trackers::BothDepTrackers;
-use crate::incremental::dep_trackers::BothDeps;
-use crate::incremental::transaction_ctx::ActiveTransactionCountGuard;
-use crate::incremental::transaction_ctx::Changes;
-use crate::incremental::transaction_ctx::TransactionCtx;
-use crate::incremental::versions::VersionForWrites;
-use crate::incremental::versions::VersionGuard;
 use crate::legacy::cycles::CycleDetector;
+use crate::legacy::incremental::dep_trackers::BothDepTrackers;
+use crate::legacy::incremental::dep_trackers::BothDeps;
+use crate::legacy::incremental::transaction_ctx::ActiveTransactionCountGuard;
+use crate::legacy::incremental::transaction_ctx::Changes;
+use crate::legacy::incremental::transaction_ctx::TransactionCtx;
+use crate::legacy::incremental::versions::VersionForWrites;
+use crate::legacy::incremental::versions::VersionGuard;
 use crate::legacy::map::DiceMap;
 use crate::legacy::opaque::OpaqueValueImplLegacy;
 use crate::legacy::projection::ProjectionKeyAsKey;
@@ -308,8 +308,8 @@ pub(crate) mod testing {
     use crate::api::cycles::DetectCycles;
     use crate::api::user_data::UserComputationData;
     use crate::ctx::DiceComputationsImpl;
-    use crate::incremental::versions::MinorVersion;
     use crate::legacy::ctx::ComputationData;
+    use crate::legacy::incremental::versions::MinorVersion;
 
     pub(crate) trait DiceCtxExt {
         fn get_minor_version(&self) -> MinorVersion;

@@ -14,8 +14,8 @@ use std::sync::Weak;
 use allocative::Allocative;
 
 use crate::api::key::Key;
-use crate::incremental::graph::storage_properties::StorageProperties;
-use crate::incremental::StorageType;
+use crate::legacy::incremental::graph::storage_properties::StorageProperties;
+use crate::legacy::incremental::StorageType;
 use crate::legacy::DiceLegacy;
 
 #[derive(Debug, Allocative)]

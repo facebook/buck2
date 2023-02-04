@@ -206,7 +206,6 @@ extern crate tracing;
 
 mod api;
 mod ctx;
-mod incremental;
 pub mod introspection;
 mod legacy;
 mod opaque;
@@ -224,6 +223,9 @@ pub use fnv::FnvHashMap as HashMap;
 pub use fnv::FnvHashSet as HashSet;
 use futures::future::Future;
 use legacy::dice_futures::future_handle::WeakDiceFutureHandle;
+use legacy::incremental::graph::GraphNode;
+use legacy::incremental::transaction_ctx::TransactionCtx;
+use legacy::incremental::ValueWithDeps;
 use legacy::key::StoragePropertiesForKey;
 use legacy::metrics::Metrics;
 use serde::Serializer;
@@ -246,9 +248,6 @@ pub use crate::api::transaction::DiceEquality;
 pub use crate::api::transaction::DiceTransaction;
 pub use crate::api::transaction::DiceTransactionUpdater;
 pub use crate::api::user_data::UserComputationData;
-use crate::incremental::graph::GraphNode;
-use crate::incremental::transaction_ctx::TransactionCtx;
-use crate::incremental::ValueWithDeps;
 use crate::legacy::DiceLegacy;
 
 #[derive(Allocative, Debug)]

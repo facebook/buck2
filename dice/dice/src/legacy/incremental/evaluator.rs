@@ -11,11 +11,11 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 
-use crate::incremental::graph::GraphNode;
-use crate::incremental::IncrementalComputeProperties;
-use crate::incremental::IncrementalEngine;
 use crate::legacy::ctx::ComputationData;
 use crate::legacy::dice_futures::dice_task::DiceTask;
+use crate::legacy::incremental::graph::GraphNode;
+use crate::legacy::incremental::IncrementalComputeProperties;
+use crate::legacy::incremental::IncrementalEngine;
 use crate::TransactionCtx;
 use crate::ValueWithDeps;
 use crate::WeakDiceFutureHandle;
@@ -61,13 +61,13 @@ pub(crate) mod testing {
     use gazebo::prelude::*;
 
     use crate::api::error::DiceResult;
-    use crate::incremental::evaluator::Evaluator;
-    use crate::incremental::graph::storage_properties::StorageProperties;
-    use crate::incremental::graph::GraphNode;
-    use crate::incremental::IncrementalComputeProperties;
-    use crate::incremental::IncrementalEngine;
-    use crate::incremental::StorageType;
     use crate::legacy::ctx::ComputationData;
+    use crate::legacy::incremental::evaluator::Evaluator;
+    use crate::legacy::incremental::graph::storage_properties::StorageProperties;
+    use crate::legacy::incremental::graph::GraphNode;
+    use crate::legacy::incremental::IncrementalComputeProperties;
+    use crate::legacy::incremental::IncrementalEngine;
+    use crate::legacy::incremental::StorageType;
     use crate::TransactionCtx;
     use crate::ValueWithDeps;
     use crate::WeakDiceFutureHandle;

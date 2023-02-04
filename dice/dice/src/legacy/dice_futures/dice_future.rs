@@ -17,7 +17,7 @@ use more_futures::spawn::StrongJoinHandle;
 use more_futures::spawn::WeakFutureError;
 
 use crate::api::error::DiceResult;
-use crate::incremental::graph::storage_properties::StorageProperties;
+use crate::legacy::incremental::graph::storage_properties::StorageProperties;
 use crate::GraphNode;
 
 type DiceJoinHandle<S> = StrongJoinHandle<

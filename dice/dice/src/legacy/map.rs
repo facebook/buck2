@@ -15,9 +15,9 @@ use anymap::Map;
 use dupe::Dupe;
 use dupe::OptionDupedExt;
 
-use crate::incremental::ErasedEngine;
-use crate::incremental::IncrementalComputeProperties;
-use crate::incremental::IncrementalEngine;
+use crate::legacy::incremental::ErasedEngine;
+use crate::legacy::incremental::IncrementalComputeProperties;
+use crate::legacy::incremental::IncrementalEngine;
 
 /// A dynamically typed Map for DICE to map computations to their key, value
 /// cache maps.
@@ -91,9 +91,9 @@ mod tests {
     use crate::api::computations::DiceComputations;
     use crate::api::cycles::DetectCycles;
     use crate::api::key::Key;
-    use crate::incremental::testing::IncrementalEngineExt;
-    use crate::incremental::versions::MinorVersion;
-    use crate::incremental::IncrementalEngine;
+    use crate::legacy::incremental::testing::IncrementalEngineExt;
+    use crate::legacy::incremental::versions::MinorVersion;
+    use crate::legacy::incremental::IncrementalEngine;
     use crate::legacy::map::DiceMap;
     use crate::legacy::DiceLegacy;
     use crate::versions::VersionNumber;

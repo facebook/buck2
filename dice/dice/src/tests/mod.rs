@@ -33,10 +33,10 @@ use crate::api::error::DiceErrorImpl;
 use crate::api::injected::InjectedKey;
 use crate::api::key::Key;
 use crate::api::user_data::UserComputationData;
-use crate::incremental::evaluator::testing::EvaluatorUnreachable;
-use crate::incremental::testing::DependencyExt;
-use crate::incremental::testing::IncrementalEngineExt;
-use crate::incremental::testing::VersionedCacheResultAssertsExt;
+use crate::legacy::incremental::evaluator::testing::EvaluatorUnreachable;
+use crate::legacy::incremental::testing::DependencyExt;
+use crate::legacy::incremental::testing::IncrementalEngineExt;
+use crate::legacy::incremental::testing::VersionedCacheResultAssertsExt;
 use crate::versions::VersionNumber;
 use crate::HashSet;
 

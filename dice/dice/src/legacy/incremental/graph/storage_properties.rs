@@ -12,8 +12,8 @@ use std::fmt::Debug;
 use allocative::Allocative;
 use dupe::Dupe;
 
-use crate::incremental::Computable;
-use crate::incremental::StorageType;
+use crate::legacy::incremental::Computable;
+use crate::legacy::incremental::StorageType;
 
 /// Defines key/value operations in the versioned graph storage.
 pub(crate) trait StorageProperties:
@@ -43,12 +43,12 @@ pub(crate) mod testing {
     use dupe::Dupe;
 
     use crate::api::error::DiceResult;
-    use crate::incremental::graph::storage_properties::StorageProperties;
-    use crate::incremental::Computable;
-    use crate::incremental::IncrementalComputeProperties;
-    use crate::incremental::IncrementalEngine;
-    use crate::incremental::StorageType;
     use crate::legacy::ctx::ComputationData;
+    use crate::legacy::incremental::graph::storage_properties::StorageProperties;
+    use crate::legacy::incremental::Computable;
+    use crate::legacy::incremental::IncrementalComputeProperties;
+    use crate::legacy::incremental::IncrementalEngine;
+    use crate::legacy::incremental::StorageType;
     use crate::GraphNode;
     use crate::TransactionCtx;
     use crate::WeakDiceFutureHandle;

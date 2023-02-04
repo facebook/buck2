@@ -19,9 +19,9 @@ use sorted_vector_map::sorted_vector_set;
 use sorted_vector_map::SortedVectorMap;
 use sorted_vector_map::SortedVectorSet;
 
-use crate::incremental::graph::ReadOnlyHistory;
-use crate::incremental::versions::VersionRange;
-use crate::incremental::versions::VersionRanges;
+use crate::legacy::incremental::graph::ReadOnlyHistory;
+use crate::legacy::incremental::versions::VersionRange;
+use crate::legacy::incremental::versions::VersionRanges;
 use crate::versions::VersionNumber;
 
 /// The history of one computation unit.
@@ -414,10 +414,10 @@ pub(crate) enum HistoryState {
 pub(crate) mod testing {
     use gazebo::variants::VariantName;
 
-    use crate::incremental::history::CellHistory;
-    use crate::incremental::history::HistoryState;
-    use crate::incremental::VersionNumber;
-    use crate::incremental::VersionRanges;
+    use crate::legacy::incremental::history::CellHistory;
+    use crate::legacy::incremental::history::HistoryState;
+    use crate::legacy::incremental::VersionNumber;
+    use crate::legacy::incremental::VersionRanges;
 
     pub(crate) trait CellHistoryExt {
         fn testing_new(verified: &[VersionNumber], dirtied: &[VersionNumber]) -> Self;
@@ -471,7 +471,7 @@ pub(crate) mod testing {
 }
 
 mod introspection {
-    use crate::incremental::history::CellHistory;
+    use crate::legacy::incremental::history::CellHistory;
     use crate::versions::VersionNumber;
 
     impl CellHistory {
@@ -496,14 +496,14 @@ mod tests {
     use sorted_vector_map::sorted_vector_set;
     use sorted_vector_map::SortedVectorSet;
 
-    use crate::incremental::graph::ReadOnlyHistory;
-    use crate::incremental::history::testing::CellHistoryExt;
-    use crate::incremental::history::testing::HistoryExt;
-    use crate::incremental::history::CellHistory;
-    use crate::incremental::versions::testing::VersionRangesExt;
-    use crate::incremental::versions::VersionRange;
-    use crate::incremental::versions::VersionRanges;
-    use crate::incremental::VersionNumber;
+    use crate::legacy::incremental::graph::ReadOnlyHistory;
+    use crate::legacy::incremental::history::testing::CellHistoryExt;
+    use crate::legacy::incremental::history::testing::HistoryExt;
+    use crate::legacy::incremental::history::CellHistory;
+    use crate::legacy::incremental::versions::testing::VersionRangesExt;
+    use crate::legacy::incremental::versions::VersionRange;
+    use crate::legacy::incremental::versions::VersionRanges;
+    use crate::legacy::incremental::VersionNumber;
 
     #[test]
     fn cell_history_propagates() {

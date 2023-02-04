@@ -19,9 +19,9 @@ use parking_lot::MutexGuard;
 use crate::api::error::DiceError;
 use crate::api::error::DiceResult;
 use crate::api::key::Key;
-use crate::incremental::versions::MinorVersion;
-use crate::incremental::versions::VersionForWrites;
-use crate::incremental::versions::VersionGuard;
+use crate::legacy::incremental::versions::MinorVersion;
+use crate::legacy::incremental::versions::VersionForWrites;
+use crate::legacy::incremental::versions::VersionGuard;
 use crate::legacy::DiceLegacy;
 use crate::versions::VersionNumber;
 use crate::HashSet;
@@ -104,9 +104,9 @@ impl TransactionCtx {
     pub(crate) fn testing_new(v: VersionNumber) -> Self {
         Self {
             version_guard: VersionGuard::testing_new(
-                crate::incremental::versions::VersionTracker::new(box |_| {}),
+                crate::legacy::incremental::versions::VersionTracker::new(box |_| {}),
                 v,
-                crate::incremental::versions::MinorVersionGuard::testing_new(0),
+                crate::legacy::incremental::versions::MinorVersionGuard::testing_new(0),
             ),
             version_for_writes: VersionForWrites::testing_new(v),
             changes: Mutex::new(Changes::new()),

@@ -17,10 +17,10 @@ use dupe::Dupe;
 use crate::api::error::DiceResult;
 use crate::api::key::Key;
 use crate::api::projection::ProjectionKey;
-use crate::incremental::dep_trackers::BothDeps;
-use crate::incremental::graph::GraphNode;
-use crate::incremental::IncrementalEngine;
 use crate::legacy::ctx::DiceComputationsImplLegacy;
+use crate::legacy::incremental::dep_trackers::BothDeps;
+use crate::legacy::incremental::graph::GraphNode;
+use crate::legacy::incremental::IncrementalEngine;
 use crate::StoragePropertiesForKey;
 
 /// Computed value which is not directly visible to user.

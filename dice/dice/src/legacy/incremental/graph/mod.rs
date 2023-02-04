@@ -45,17 +45,17 @@ use parking_lot::RwLockReadGuard;
 use parking_lot::RwLockWriteGuard;
 use sorted_vector_map::SortedVectorMap;
 
-use crate::incremental::dep_trackers::BothDeps;
-use crate::incremental::graph::dependencies::ComputedDependency;
-use crate::incremental::graph::dependencies::VersionedDependencies;
-use crate::incremental::graph::dependencies::VersionedRevDependencies;
-use crate::incremental::graph::storage_properties::StorageProperties;
-use crate::incremental::history::HistoryState;
-use crate::incremental::versions::MinorVersion;
-use crate::incremental::versions::VersionRanges;
-use crate::incremental::CellHistory;
-use crate::incremental::Dependency;
 use crate::introspection::graph::AnyKey;
+use crate::legacy::incremental::dep_trackers::BothDeps;
+use crate::legacy::incremental::graph::dependencies::ComputedDependency;
+use crate::legacy::incremental::graph::dependencies::VersionedDependencies;
+use crate::legacy::incremental::graph::dependencies::VersionedRevDependencies;
+use crate::legacy::incremental::graph::storage_properties::StorageProperties;
+use crate::legacy::incremental::history::HistoryState;
+use crate::legacy::incremental::versions::MinorVersion;
+use crate::legacy::incremental::versions::VersionRanges;
+use crate::legacy::incremental::CellHistory;
+use crate::legacy::incremental::Dependency;
 use crate::versions::VersionNumber;
 use crate::HashSet;
 
@@ -142,7 +142,7 @@ where
 }
 
 impl<K: StorageProperties> VersionedGraphNodeInternal<K> {
-    pub(super) fn force_dirty(&self, v: VersionNumber) -> bool {
+    pub(crate) fn force_dirty(&self, v: VersionNumber) -> bool {
         match self {
             VersionedGraphNodeInternal::Occupied(e) => e.metadata.write().hist.force_dirty(v),
             VersionedGraphNodeInternal::Vacant(e) => e.hist.write().force_dirty(v),
@@ -156,7 +156,7 @@ impl<K: StorageProperties> VersionedGraphNodeInternal<K> {
         }
     }
 
-    pub(super) fn mark_invalidated(&self, v: VersionNumber) -> bool {
+    pub(crate) fn mark_invalidated(&self, v: VersionNumber) -> bool {
         match self {
             VersionedGraphNodeInternal::Occupied(e) => e.metadata.write().hist.mark_invalidated(v),
             VersionedGraphNodeInternal::Vacant(e) => e.hist.write().mark_invalidated(v),
@@ -698,7 +698,7 @@ where
     }
 
     /// Marks an existing entry as reusable at the given key version.
-    pub(super) fn mark_unchanged(
+    pub(crate) fn mark_unchanged(
         &self,
         key: VersionedGraphKey<K::Key>,
         m_v: MinorVersion,
@@ -736,7 +736,7 @@ where
         }
     }
 
-    pub(super) fn update_computed_value(
+    pub(crate) fn update_computed_value(
         &self,
         key: VersionedGraphKey<K::Key>,
         m_v: MinorVersion,
@@ -1329,9 +1329,9 @@ impl<'a, K: StorageProperties> EntryUpdater<'a, K> {
 }
 
 mod introspection {
-    use crate::incremental::graph::storage_properties::StorageProperties;
-    use crate::incremental::graph::VersionedGraphNodeInternal;
     use crate::introspection::graph::GraphNodeKind;
+    use crate::legacy::incremental::graph::storage_properties::StorageProperties;
+    use crate::legacy::incremental::graph::VersionedGraphNodeInternal;
 
     impl<K: StorageProperties> From<&VersionedGraphNodeInternal<K>> for GraphNodeKind {
         fn from(n: &VersionedGraphNodeInternal<K>) -> Self {
@@ -1350,10 +1350,10 @@ pub(crate) mod testing {
     use dupe::Dupe;
     use gazebo::variants::VariantName;
 
-    use crate::incremental::graph::storage_properties::StorageProperties;
-    use crate::incremental::graph::GraphNode;
-    use crate::incremental::graph::VersionedGraphResult;
-    use crate::incremental::graph::VersionedGraphResultMismatch;
+    use crate::legacy::incremental::graph::storage_properties::StorageProperties;
+    use crate::legacy::incremental::graph::GraphNode;
+    use crate::legacy::incremental::graph::VersionedGraphResult;
+    use crate::legacy::incremental::graph::VersionedGraphResultMismatch;
 
     pub(crate) trait VersionedCacheResultAssertsExt<K: StorageProperties> {
         fn assert_none(&self);
@@ -1409,28 +1409,28 @@ mod tests {
     use crate::api::computations::DiceComputations;
     use crate::api::injected::InjectedKey;
     use crate::api::key::Key;
-    use crate::incremental::dep_trackers::BothDeps;
-    use crate::incremental::evaluator::testing::EvaluatorUnreachable;
-    use crate::incremental::graph::dependencies::Dependency;
-    use crate::incremental::graph::storage_properties::testing::StoragePropertiesLastN;
-    use crate::incremental::graph::storage_properties::StorageProperties;
-    use crate::incremental::graph::testing::VersionedCacheResultAssertsExt;
-    use crate::incremental::graph::GraphNodeDyn;
-    use crate::incremental::graph::OccupiedGraphNode;
-    use crate::incremental::graph::VersionedGraph;
-    use crate::incremental::graph::VersionedGraphKey;
-    use crate::incremental::graph::VersionedGraphKeyRef;
-    use crate::incremental::history::testing::CellHistoryExt;
-    use crate::incremental::history::testing::HistoryExt;
-    use crate::incremental::history::CellHistory;
-    use crate::incremental::testing::ComputedDependencyExt;
-    use crate::incremental::testing::DependencyExt;
-    use crate::incremental::versions::testing::VersionRangesExt;
-    use crate::incremental::versions::MinorVersion;
-    use crate::incremental::versions::VersionRange;
-    use crate::incremental::versions::VersionRanges;
-    use crate::incremental::Computable;
-    use crate::incremental::StorageType;
+    use crate::legacy::incremental::dep_trackers::BothDeps;
+    use crate::legacy::incremental::evaluator::testing::EvaluatorUnreachable;
+    use crate::legacy::incremental::graph::dependencies::Dependency;
+    use crate::legacy::incremental::graph::storage_properties::testing::StoragePropertiesLastN;
+    use crate::legacy::incremental::graph::storage_properties::StorageProperties;
+    use crate::legacy::incremental::graph::testing::VersionedCacheResultAssertsExt;
+    use crate::legacy::incremental::graph::GraphNodeDyn;
+    use crate::legacy::incremental::graph::OccupiedGraphNode;
+    use crate::legacy::incremental::graph::VersionedGraph;
+    use crate::legacy::incremental::graph::VersionedGraphKey;
+    use crate::legacy::incremental::graph::VersionedGraphKeyRef;
+    use crate::legacy::incremental::history::testing::CellHistoryExt;
+    use crate::legacy::incremental::history::testing::HistoryExt;
+    use crate::legacy::incremental::history::CellHistory;
+    use crate::legacy::incremental::testing::ComputedDependencyExt;
+    use crate::legacy::incremental::testing::DependencyExt;
+    use crate::legacy::incremental::versions::testing::VersionRangesExt;
+    use crate::legacy::incremental::versions::MinorVersion;
+    use crate::legacy::incremental::versions::VersionRange;
+    use crate::legacy::incremental::versions::VersionRanges;
+    use crate::legacy::incremental::Computable;
+    use crate::legacy::incremental::StorageType;
     use crate::versions::VersionNumber;
     use crate::HashSet;
 

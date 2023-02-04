@@ -15,12 +15,12 @@ use allocative::Allocative;
 use dupe::Dupe;
 use parking_lot::Mutex;
 
-use crate::incremental::dep_trackers::internals::ComputedDep;
-use crate::incremental::graph::dependencies::ComputedDependency;
-use crate::incremental::graph::GraphNode;
-use crate::incremental::graph::GraphNodeDyn;
-use crate::incremental::IncrementalComputeProperties;
-use crate::incremental::IncrementalEngine;
+use crate::legacy::incremental::dep_trackers::internals::ComputedDep;
+use crate::legacy::incremental::graph::dependencies::ComputedDependency;
+use crate::legacy::incremental::graph::GraphNode;
+use crate::legacy::incremental::graph::GraphNodeDyn;
+use crate::legacy::incremental::IncrementalComputeProperties;
+use crate::legacy::incremental::IncrementalEngine;
 use crate::versions::VersionNumber;
 use crate::HashSet;
 
@@ -181,18 +181,18 @@ mod internals {
     use gazebo::cmp::PartialEqAny;
 
     use crate::api::error::DiceResult;
-    use crate::incremental::graph::GraphNode;
-    use crate::incremental::graph::GraphNodeDyn;
-    use crate::incremental::graph::ReadOnlyHistory;
-    use crate::incremental::graph::VersionedGraphKeyRef;
-    use crate::incremental::transaction_ctx::TransactionCtx;
-    use crate::incremental::versions::MinorVersion;
-    use crate::incremental::ComputedDependency;
-    use crate::incremental::Dependency;
-    use crate::incremental::IncrementalComputeProperties;
-    use crate::incremental::IncrementalEngine;
     use crate::introspection::graph::AnyKey;
     use crate::legacy::ctx::ComputationData;
+    use crate::legacy::incremental::graph::GraphNode;
+    use crate::legacy::incremental::graph::GraphNodeDyn;
+    use crate::legacy::incremental::graph::ReadOnlyHistory;
+    use crate::legacy::incremental::graph::VersionedGraphKeyRef;
+    use crate::legacy::incremental::transaction_ctx::TransactionCtx;
+    use crate::legacy::incremental::versions::MinorVersion;
+    use crate::legacy::incremental::ComputedDependency;
+    use crate::legacy::incremental::Dependency;
+    use crate::legacy::incremental::IncrementalComputeProperties;
+    use crate::legacy::incremental::IncrementalEngine;
     use crate::versions::VersionNumber;
 
     #[derive(Allocative)]
@@ -350,12 +350,12 @@ pub(crate) mod testing {
     use std::sync::Arc;
     use std::sync::Weak;
 
-    pub(crate) use crate::incremental::dep_trackers::internals::ComputedDep;
-    pub(crate) use crate::incremental::dep_trackers::internals::Dep;
-    use crate::incremental::graph::GraphNode;
-    use crate::incremental::graph::OccupiedGraphNode;
-    use crate::incremental::IncrementalComputeProperties;
-    use crate::incremental::IncrementalEngine;
+    pub(crate) use crate::legacy::incremental::dep_trackers::internals::ComputedDep;
+    pub(crate) use crate::legacy::incremental::dep_trackers::internals::Dep;
+    use crate::legacy::incremental::graph::GraphNode;
+    use crate::legacy::incremental::graph::OccupiedGraphNode;
+    use crate::legacy::incremental::IncrementalComputeProperties;
+    use crate::legacy::incremental::IncrementalEngine;
     use crate::versions::VersionNumber;
 
     pub(crate) trait DepExt<K: IncrementalComputeProperties> {
@@ -403,18 +403,18 @@ mod tests {
 
     use dupe::Dupe;
 
-    use crate::incremental::dep_trackers::BothDeps;
-    use crate::incremental::dep_trackers::RecordingDepsTracker;
-    use crate::incremental::dep_trackers::RecordingRdepsTracker;
-    use crate::incremental::evaluator::testing::EvaluatorFn;
-    use crate::incremental::evaluator::testing::EvaluatorUnreachable;
-    use crate::incremental::graph::OccupiedGraphNode;
-    use crate::incremental::history::CellHistory;
-    use crate::incremental::testing::ComputedDependencyExt;
-    use crate::incremental::IncrementalEngine;
-    use crate::incremental::TransactionCtx;
     use crate::legacy::ctx::testing::ComputationDataExt;
     use crate::legacy::ctx::ComputationData;
+    use crate::legacy::incremental::dep_trackers::BothDeps;
+    use crate::legacy::incremental::dep_trackers::RecordingDepsTracker;
+    use crate::legacy::incremental::dep_trackers::RecordingRdepsTracker;
+    use crate::legacy::incremental::evaluator::testing::EvaluatorFn;
+    use crate::legacy::incremental::evaluator::testing::EvaluatorUnreachable;
+    use crate::legacy::incremental::graph::OccupiedGraphNode;
+    use crate::legacy::incremental::history::CellHistory;
+    use crate::legacy::incremental::testing::ComputedDependencyExt;
+    use crate::legacy::incremental::IncrementalEngine;
+    use crate::legacy::incremental::TransactionCtx;
     use crate::versions::VersionNumber;
     use crate::HashSet;
     use crate::ValueWithDeps;

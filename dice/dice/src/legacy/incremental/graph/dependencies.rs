@@ -25,12 +25,12 @@ use parking_lot::RwLock;
 use parking_lot::RwLockReadGuard;
 
 use crate::api::error::DiceResult;
-use crate::incremental::graph::GraphNodeDyn;
-use crate::incremental::graph::ReadOnlyHistory;
-use crate::incremental::transaction_ctx::TransactionCtx;
-use crate::incremental::versions::MinorVersion;
 use crate::introspection::graph::AnyKey;
 use crate::legacy::ctx::ComputationData;
+use crate::legacy::incremental::graph::GraphNodeDyn;
+use crate::legacy::incremental::graph::ReadOnlyHistory;
+use crate::legacy::incremental::transaction_ctx::TransactionCtx;
+use crate::legacy::incremental::versions::MinorVersion;
 use crate::versions::VersionNumber;
 use crate::HashMap;
 
