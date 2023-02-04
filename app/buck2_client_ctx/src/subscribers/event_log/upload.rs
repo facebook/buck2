@@ -15,6 +15,7 @@ use std::time::Duration;
 
 use anyhow::Context;
 use buck2_events::trace::TraceId;
+use tokio::process::Command;
 
 use crate::manifold;
 use crate::subscribers::disable_log_upload;
@@ -60,41 +61,40 @@ pub(crate) async fn log_upload(
 
     let manifold_path = &format!("{}{}", trace_id, path.encoding.extensions[0]);
     let upload = manifold::upload_command("buck2_logs", manifold_path, "buck2_logs-key")?;
-    match upload {
-        None => Ok(()),
-        Some(mut upload) => {
-            upload.stdin(upload_log_file);
-            // On Sandcastle we'd like to block for the sake of higher reliability uploads at the expense
-            // of a bit of delay.
-            let block_on_upload = std::env::var_os("SANDCASTLE").is_some();
-
-            if block_on_upload {
-                let res = upload
-                    .stdout(Stdio::null())
-                    .stderr(Stdio::piped())
-                    .spawn()?
-                    .wait_with_output();
-
-                // This branch is executed only on Sandcastle.
-                // Network on Sandcastle is fast, so this is a reasonable timeout.
-                // And if it fails to upload in that time, it is better to fail explicitly
-                // and show the error in Sandcastle logs instead of job timeout with no diagnostics.
-                let res = tokio::time::timeout(Duration::from_secs(20), res)
-                    .await
-                    .context("Timed out waiting for log upload to manifold")
-                    .map_err(LogUploadError::Other)??;
-
-                if !res.status.success() {
-                    let stderr = String::from_utf8_lossy(&res.stderr);
-                    return Err(LogUploadError::NonZeroExitStatus(
-                        res.status,
-                        stderr.trim().to_owned(),
-                    ));
-                }
-            } else {
+    if let Some(mut upload) = upload {
+        upload.stdin(upload_log_file);
+        match std::env::var_os("SANDCASTLE").is_some() {
+            // On Sandcastle we'd like to block for the sake of higher reliability
+            // uploads at the expense of a bit of delay.
+            true => wait_for_command(upload).await?,
+            false => {
                 upload.stdout(Stdio::null()).stderr(Stdio::null()).spawn()?;
             }
-            Ok(())
         }
+    };
+    Ok(())
+}
+
+async fn wait_for_command(mut upload: Command) -> anyhow::Result<(), LogUploadError> {
+    let res = upload
+        .stdout(Stdio::null())
+        .stderr(Stdio::piped())
+        .spawn()?
+        .wait_with_output();
+    // This branch is executed only on Sandcastle.
+    // Network on Sandcastle is fast, so this is a reasonable timeout.
+    // And if it fails to upload in that time, it is better to fail explicitly
+    // and show the error in Sandcastle logs instead of job timeout with no diagnostics.
+    let res = tokio::time::timeout(Duration::from_secs(20), res)
+        .await
+        .context("Timed out waiting for log upload to manifold")
+        .map_err(LogUploadError::Other)??;
+    if !res.status.success() {
+        let stderr = String::from_utf8_lossy(&res.stderr);
+        return Err(LogUploadError::NonZeroExitStatus(
+            res.status,
+            stderr.trim().to_owned(),
+        ));
     }
+    Ok(())
 }
