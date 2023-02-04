@@ -224,6 +224,7 @@ use allocative::Allocative;
 pub use fnv::FnvHashMap as HashMap;
 pub use fnv::FnvHashSet as HashSet;
 use futures::future::Future;
+use futures::FutureExt;
 use legacy::dice_futures::future_handle::WeakDiceFutureHandle;
 use legacy::incremental::graph::GraphNode;
 use legacy::incremental::transaction_ctx::TransactionCtx;
@@ -250,23 +251,28 @@ pub use crate::api::transaction::DiceEquality;
 pub use crate::api::transaction::DiceTransaction;
 pub use crate::api::transaction::DiceTransactionUpdater;
 pub use crate::api::user_data::UserComputationData;
+use crate::impls::dice::DiceModern;
 use crate::legacy::DiceLegacy;
 
 #[derive(Allocative, Debug)]
 pub(crate) enum DiceImplementation {
     Legacy(Arc<DiceLegacy>),
+    #[allow(unused)]
+    Modern(DiceModern),
 }
 
 impl DiceImplementation {
     pub fn updater(&self) -> DiceTransactionUpdater {
         match self {
             DiceImplementation::Legacy(dice) => dice.updater(),
+            DiceImplementation::Modern(dice) => dice.updater(),
         }
     }
 
     pub fn updater_with_data(&self, extra: UserComputationData) -> DiceTransactionUpdater {
         match self {
             DiceImplementation::Legacy(dice) => dice.updater_with_data(extra),
+            DiceImplementation::Modern(dice) => dice.updater_with_data(extra),
         }
     }
 
@@ -280,6 +286,9 @@ impl DiceImplementation {
             DiceImplementation::Legacy(dice) => {
                 dice.serialize_tsv(nodes, edges, nodes_currently_running)
             }
+            DiceImplementation::Modern(dice) => {
+                dice.serialize_tsv(nodes, edges, nodes_currently_running)
+            }
         }
     }
 
@@ -289,25 +298,29 @@ impl DiceImplementation {
     {
         match self {
             DiceImplementation::Legacy(dice) => dice.serialize_serde(serializer),
+            DiceImplementation::Modern(dice) => dice.serialize_serde(serializer),
         }
     }
 
     pub fn detect_cycles(&self) -> &DetectCycles {
         match self {
             DiceImplementation::Legacy(dice) => dice.detect_cycles(),
+            DiceImplementation::Modern(dice) => dice.detect_cycles(),
         }
     }
 
     pub fn metrics(&self) -> Metrics {
         match self {
             DiceImplementation::Legacy(dice) => dice.metrics(),
+            DiceImplementation::Modern(_dice) => unimplemented!("todo"),
         }
     }
 
     /// Wait until all active versions have exited.
     pub fn wait_for_idle(&self) -> impl Future<Output = ()> + 'static {
         match self {
-            DiceImplementation::Legacy(dice) => dice.wait_for_idle(),
+            DiceImplementation::Legacy(dice) => dice.wait_for_idle().left_future(),
+            DiceImplementation::Modern(dice) => dice.wait_for_idle().right_future(),
         }
     }
 }

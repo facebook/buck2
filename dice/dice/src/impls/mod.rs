@@ -11,5 +11,6 @@
 pub(crate) mod core;
 #[allow(unused)]
 pub(crate) mod ctx;
+pub(crate) mod dice;
 pub(crate) mod opaque;
 pub(crate) mod transaction;

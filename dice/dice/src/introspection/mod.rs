@@ -26,6 +26,9 @@ impl Dice {
     pub fn to_introspectable(&self) -> GraphIntrospectable {
         match &self.implementation {
             DiceImplementation::Legacy(dice) => dice.to_introspectable(),
+            DiceImplementation::Modern(_) => {
+                unimplemented!("todo")
+            }
         }
     }
 }
