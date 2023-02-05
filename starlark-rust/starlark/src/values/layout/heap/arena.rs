@@ -26,8 +26,6 @@
 //! to tag it as being a usize, and the word after is the size of the
 //! item it replaced.
 
-use std::alloc::Layout;
-use std::cmp;
 use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::mem;
@@ -44,6 +42,7 @@ use either::Either;
 use starlark_map::small_map::SmallMap;
 
 use crate::collections::StarlarkHashValue;
+use crate::values::layout::aligned_size::AlignedSize;
 use crate::values::layout::avalue::starlark_str;
 use crate::values::layout::avalue::AValue;
 use crate::values::layout::avalue::BlackHole;
@@ -65,14 +64,14 @@ use crate::values::ValueLike;
 
 /// Min size of allocated object including header.
 /// Should be able to fit `BlackHole` or forward.
-pub(crate) const MIN_ALLOC: usize = {
-    const fn max(a: usize, b: usize) -> usize {
-        if a > b { a } else { b }
+pub(crate) const MIN_ALLOC: AlignedSize = {
+    const fn max(a: AlignedSize, b: AlignedSize) -> AlignedSize {
+        if a.bytes() > b.bytes() { a } else { b }
     }
 
     max(
-        mem::size_of::<AValueForward>(),
-        mem::size_of::<AValueRepr<BlackHole>>(),
+        AlignedSize::of::<AValueForward>(),
+        AlignedSize::of::<AValueRepr<BlackHole>>(),
     )
 };
 
@@ -131,8 +130,8 @@ impl<'c> Iterator for ChunkIter<'c> {
             } else {
                 let or_forward = &*(self.chunk.as_ptr() as *const AValueOrForward);
                 let n = or_forward.alloc_size();
-                debug_assert!(n <= self.chunk.len());
-                self.chunk = self.chunk.split_at(n).1;
+                debug_assert!(n.bytes() as usize <= self.chunk.len());
+                self.chunk = self.chunk.split_at(n.bytes() as usize).1;
                 Some(or_forward)
             }
         }
@@ -171,13 +170,8 @@ impl Arena {
             mem::align_of::<AValueHeader>()
         );
 
-        // We require at least usize space available for overwrite/blackhole
-        let size = cmp::max(
-            mem::size_of::<AValueHeader>() + T::memory_size_for_extra_len(extra_len),
-            MIN_ALLOC,
-        );
-        debug_assert!(size % AValueHeader::ALIGN == 0);
-        let layout = Layout::from_size_align(size, mem::align_of::<AValueHeader>()).unwrap();
+        let size = T::memory_size_for_extra_len(extra_len).add_header();
+        let layout = size.layout();
         let p = bump.alloc_layout(layout).as_ptr();
         unsafe {
             let repr = &mut *(p as *mut MaybeUninit<AValueRepr<T>>);
@@ -451,7 +445,7 @@ impl Allocative for Arena {
             Arena::for_each_unordered_in_bump(bump, |x| {
                 let key = x.unpack().type_as_allocative_key();
                 let size = x.alloc_size();
-                let mut object_visitor = allocated_visitor.enter(key, size);
+                let mut object_visitor = allocated_visitor.enter(key, size.bytes() as usize);
                 // We visit both drop and non-drop bumps, because although
                 // non-drop `Bump` cannot contain malloc pointers, it can still provide
                 // useful information about headers/payload/padding.

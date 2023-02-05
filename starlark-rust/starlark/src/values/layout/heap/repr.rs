@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-use std::cmp;
 use std::hash::Hash;
 use std::mem;
 use std::mem::ManuallyDrop;
@@ -27,8 +26,9 @@ use gazebo::cast;
 
 use crate::any::AnyLifetime;
 use crate::values::layout::avalue::AValue;
-use crate::values::layout::heap::arena::MIN_ALLOC;
 use crate::values::layout::heap::heap_type::HeapKind;
+use crate::values::layout::value_alloc_size::ValueAllocSize;
+use crate::values::layout::value_size::ValueSize;
 use crate::values::layout::vtable::AValueDyn;
 use crate::values::layout::vtable::AValueVTable;
 use crate::values::FrozenValue;
@@ -103,11 +103,11 @@ pub(crate) struct AValueForward {
     /// Moved object pointer with lowest bit set.
     forward_ptr: usize,
     /// Size of `<T>`. Does not include [`AValueHeader`].
-    object_size: usize,
+    object_size: ValueSize,
 }
 
 impl AValueForward {
-    pub(crate) fn new(forward_ptr: ForwardPtr, object_size: usize) -> AValueForward {
+    pub(crate) fn new(forward_ptr: ForwardPtr, object_size: ValueSize) -> AValueForward {
         AValueForward {
             forward_ptr: forward_ptr.0 | 1,
             object_size,
@@ -170,7 +170,7 @@ impl AValueOrForward {
 
     /// Size of allocation for this object:
     /// following object is allocated at `self + alloc_size + align up`.
-    pub(crate) fn alloc_size(&self) -> usize {
+    pub(crate) fn alloc_size(&self) -> ValueAllocSize {
         let n = match self.unpack() {
             Either::Left(ptr) => ptr.unpack().memory_size(),
             Either::Right(forward) => {
@@ -178,10 +178,7 @@ impl AValueOrForward {
                 forward.object_size
             }
         };
-        let n = mem::size_of::<AValueHeader>() + n;
-        let size = cmp::max(n, MIN_ALLOC);
-        debug_assert!(size % AValueHeader::ALIGN == 0);
-        size
+        n.add_header()
     }
 }
 
@@ -194,11 +191,6 @@ impl AValueForward {
 impl AValueHeader {
     /// Alignment of values in Starlark heap.
     pub(crate) const ALIGN: usize = mem::align_of::<AValueHeader>();
-
-    /// Align value size to the allocation alignment.
-    pub(crate) fn align_up(size: usize) -> usize {
-        (size + AValueHeader::ALIGN - 1) & !(AValueHeader::ALIGN - 1)
-    }
 
     pub(crate) fn new<'v, T: AValue<'v>>() -> AValueHeader {
         let header = AValueHeader::new_const::<T>();
@@ -283,7 +275,7 @@ impl AValueHeader {
     }
 
     /// Size of allocation for this object: following object is allocated at `self + alloc_size`.
-    pub(crate) fn alloc_size(&self) -> usize {
+    pub(crate) fn alloc_size(&self) -> ValueAllocSize {
         self.as_avalue_or_header().alloc_size()
     }
 }

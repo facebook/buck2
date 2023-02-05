@@ -45,6 +45,7 @@ use crate::values::layout::heap::repr::AValueForward;
 use crate::values::layout::heap::repr::AValueHeader;
 use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::layout::heap::repr::ForwardPtr;
+use crate::values::layout::value_size::ValueSize;
 use crate::values::layout::vtable::AValueDyn;
 use crate::values::layout::vtable::AValueVTable;
 use crate::values::list::value::ListGen;
@@ -150,17 +151,19 @@ pub(crate) trait AValue<'v>: StarlarkValueDyn<'v> + Sized {
     /// Type is `StarlarkStr`.
     const IS_STR: bool = false;
 
-    fn memory_size_for_extra_len(extra_len: usize) -> usize {
+    /// Memory size of starlark value without vtable (`AValueHeader`).
+    fn memory_size_for_extra_len(extra_len: usize) -> ValueSize {
         assert!(
             Self::offset_of_extra() % mem::align_of::<Self::ExtraElem>() == 0,
             "extra must be aligned"
         );
-        let size = cmp::max(
-            mem::size_of::<Self::StarlarkValue>(),
+        cmp::max(
+            ValueSize::of_align_up::<Self::StarlarkValue>(),
             // Content is not necessarily aligned to end of `A`.
-            Self::offset_of_extra() + (mem::size_of::<Self::ExtraElem>() * extra_len),
-        );
-        AValueHeader::align_up(size)
+            ValueSize::align_up(
+                Self::offset_of_extra() + (mem::size_of::<Self::ExtraElem>() * extra_len),
+            ),
+        )
     }
 
     unsafe fn heap_freeze(
@@ -768,7 +771,7 @@ where
 
 #[derive(Debug, Display, ProvidesStaticType, Allocative)]
 #[display(fmt = "BlackHole")]
-pub(crate) struct BlackHole(pub(crate) usize);
+pub(crate) struct BlackHole(pub(crate) ValueSize);
 
 impl Serialize for BlackHole {
     fn serialize<S>(&self, _s: S) -> Result<S::Ok, S::Error>
