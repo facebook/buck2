@@ -182,7 +182,10 @@ def transitively_update_shared_linkage(
     # dependencies. Implicitly created root libraries are skipped.
     shared_lib_roots = []
     for target in link_group_preferred_linkage:
-        node = linkable_graph_node_map[target]
+        # This preferred-linkage mapping may not actually be in the link graph.
+        node = linkable_graph_node_map.get(target)
+        if node == None:
+            continue
         actual_link_style = get_actual_link_style(link_style, link_group_preferred_linkage.get(target, node.preferred_linkage))
         if actual_link_style == LinkStyle("shared"):
             target_link_group = link_group_roots.get(target)

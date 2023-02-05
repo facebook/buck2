@@ -167,7 +167,15 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
     if link_group_info:
         link_groups = link_group_info.groups
         link_group_mappings = link_group_info.mappings
-        link_group_deps = [mapping.root.node.linkable_graph for group in link_group_info.groups for mapping in group.mappings if mapping.root != None]
+        link_group_deps = [
+            mapping.root.node.linkable_graph
+            for group in link_group_info.groups
+            for mapping in group.mappings
+            # Preferred-linkage mappings are just used to override the linkage
+            # of existing nodes in the graph, so don't "add" in the root node
+            # (in case it wasn't actually in the graph to begin with).
+            if mapping.root != None and mapping.preferred_linkage == None
+        ]
     else:
         link_groups = []
         link_group_mappings = {}
