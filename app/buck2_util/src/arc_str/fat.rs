@@ -44,7 +44,7 @@ unsafe impl ArcStrLenStrategy for ArcStrProperties {
 
     #[inline]
     fn pack_len(len: u32) -> (Self::AllocatedPayload, Self::ValuePayload) {
-        ((), len as u32)
+        ((), len)
     }
 }
 

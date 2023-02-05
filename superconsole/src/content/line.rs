@@ -98,7 +98,7 @@ impl Line {
             if word_len + cur_width > max_width {
                 let word = word
                     // cut off the extra graphemes
-                    .take(max_width.saturating_sub(cur_width) as usize)
+                    .take(max_width.saturating_sub(cur_width))
                     .collect();
 
                 // overwrite the current word

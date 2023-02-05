@@ -199,7 +199,7 @@ impl SuperConsole {
         // Does not buffer if there is a ridiculous amount of data.
         let limit = match mode {
             DrawMode::Normal if !is_big(&self.to_emit) => {
-                let limit = (size.height as usize).saturating_sub(frame.len());
+                let limit = size.height.saturating_sub(frame.len());
                 // arbitrary value picked so we don't starve `emit` on small terminal sizes.
                 Some(cmp::max(limit, MINIMUM_EMIT))
             }

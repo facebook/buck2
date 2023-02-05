@@ -262,8 +262,8 @@ impl LinesExt for Vec<Line> {
 
     fn shrink_lines_to_dimensions(&mut self, dimensions: Dimensions) {
         self.iter_mut()
-            .for_each(|line| line.truncate_line(dimensions.width as usize));
-        self.truncate(dimensions.height as usize);
+            .for_each(|line| line.truncate_line(dimensions.width));
+        self.truncate(dimensions.height);
     }
 
     fn render(&mut self, writer: &mut Vec<u8>, limit: Option<usize>) -> anyhow::Result<()> {

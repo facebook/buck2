@@ -73,12 +73,12 @@ impl Component for Padded {
         // the top and bottom lines need to be padded horizontally too.
         output.pad_lines_top(self.top);
         // cut off enough space at the bottom for the bottom padding
-        output.truncate((dimensions.height as usize).saturating_sub(self.bottom));
+        output.truncate(dimensions.height.saturating_sub(self.bottom));
         output.pad_lines_bottom(self.bottom);
 
         output.pad_lines_left(self.left);
         // cut off enough space on the right for the right padding
-        output.truncate_lines((dimensions.width as usize).saturating_sub(self.right));
+        output.truncate_lines(dimensions.width.saturating_sub(self.right));
         output.pad_lines_right(self.right);
 
         Ok(output)

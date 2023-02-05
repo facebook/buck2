@@ -89,7 +89,7 @@ impl Component for Aligned {
         let mut output = self.child.draw(state, dimensions, mode)?;
 
         let number_of_lines = output.len();
-        let padding_needed = (height as usize).saturating_sub(number_of_lines);
+        let padding_needed = height.saturating_sub(number_of_lines);
         match self.vertical {
             VerticalAlignmentKind::Top => {}
             VerticalAlignmentKind::Center => {
@@ -111,7 +111,7 @@ impl Component for Aligned {
             HorizontalAlignmentKind::Center => {
                 for line in output.iter_mut() {
                     let output_len = line.len();
-                    let padding_needed = (width as usize).saturating_sub(output_len);
+                    let padding_needed = width.saturating_sub(output_len);
                     let left_pad = padding_needed / 2;
                     line.pad_left(left_pad);
                     // handles any rounding issues
@@ -120,7 +120,7 @@ impl Component for Aligned {
             }
             HorizontalAlignmentKind::Right => {
                 for line in output.iter_mut() {
-                    line.pad_left((width as usize).saturating_sub(line.len()));
+                    line.pad_left(width.saturating_sub(line.len()));
                 }
             }
         }
