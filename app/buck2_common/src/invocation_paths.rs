@@ -164,7 +164,7 @@ impl InvocationPaths {
     }
 
     pub fn buck_out_path(&self) -> AbsNormPathBuf {
-        self.roots.project_root.root().join(&self.buck_out_dir())
+        self.roots.project_root.root().join(self.buck_out_dir())
     }
 
     /// Directory containing on-disk cache
@@ -174,7 +174,7 @@ impl InvocationPaths {
     }
 
     pub fn cache_dir_path(&self) -> AbsNormPathBuf {
-        self.roots.project_root.root().join(&self.cache_dir())
+        self.roots.project_root.root().join(self.cache_dir())
     }
 
     /// Subdirectory of `cache_dir` responsible for storing materializer state

@@ -237,7 +237,7 @@ impl FrozenModule {
 
     /// The documentation for the module, and all of its top level values
     ///
-    /// Returns (<module documentation>, { <symbol> : <that symbol's documentation> })
+    /// Returns `(<module documentation>, { <symbol> : <that symbol's documentation> })`
     pub fn module_documentation(&self) -> ModuleDocs {
         let members = self
             .names()

@@ -29,7 +29,7 @@
 //! of opened parens and closing parens and the escaped macro ends when that reaches 0).
 //!
 //! Once within a macro, an `@` can appear just before the type to indicate that the value of the macro should
-//! be written to a file and the command should be passed `@<filename>` where <filename> is the file where the
+//! be written to a file and the command should be passed `@<filename>` where `<filename>` is the file where the
 //! macro value has been written.
 //!
 //! A macro consists of that optional write-to-file signifier followed by a type and then zero or more
@@ -75,7 +75,7 @@ use thiserror::Error;
 #[derive(Debug, PartialEq)]
 pub struct ParsedMacro {
     /// Indicates that the value of the macro should be written to a file and the command should be passed `@<filename>` where
-    /// <filename> is the file where the macro value has been written.
+    /// `<filename>` is the file where the macro value has been written.
     pub write_to_file: bool,
     /// "type" of the macro. Ex. "location", "exe".
     pub macro_type: String,

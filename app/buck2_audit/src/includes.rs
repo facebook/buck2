@@ -202,7 +202,7 @@ fn resolve_path(
     // Note if the path is already absolute, this operation is a no-op.
     let path = current_cell_abs_path.as_abs_path().join(path);
 
-    let abs_path = fs_util::canonicalize(&path)?;
+    let abs_path = fs_util::canonicalize(path)?;
 
     let project_path = fs.relativize(&abs_path)?;
     cells.get_cell_path(&project_path)

@@ -309,7 +309,7 @@ impl DiceExecutionOrder {
 
             if let Some(dump_loc) = self.get_dump_dir(options) {
                 // we don't keep dump of any runs that are not a failure
-                fs::remove_dir_all(dump_loc.join(&format!("run-{}", run_count)))
+                fs::remove_dir_all(dump_loc.join(format!("run-{}", run_count)))
                     .expect("failed to remove dump");
             }
         }
@@ -490,8 +490,8 @@ impl DiceExecutionOrder {
     ) -> anyhow::Result<()> {
         if let Some(loc) = self.get_dump_dir(options) {
             let dump_path = loc
-                .join(&format!("run-{}", run_count))
-                .join(&format!("step-{}", step_count));
+                .join(format!("run-{}", run_count))
+                .join(format!("step-{}", step_count));
 
             fs::create_dir_all(dump_path.parent().unwrap())?;
             let mut dump_loc = File::create(&dump_path)?;

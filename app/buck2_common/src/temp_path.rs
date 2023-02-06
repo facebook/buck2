@@ -46,7 +46,7 @@ impl TempPath {
     /// and `drop` can only panic or ignore error.
     pub fn close(mut self) -> anyhow::Result<()> {
         let path = mem::take(&mut self.path).unwrap();
-        fs_util::remove_all(&path)?;
+        fs_util::remove_all(path)?;
         Ok(())
     }
 }
@@ -55,7 +55,7 @@ impl Drop for TempPath {
     fn drop(&mut self) {
         if let Some(path) = mem::take(&mut self.path) {
             // Ignore error.
-            drop(fs_util::remove_all(&path));
+            drop(fs_util::remove_all(path));
         }
     }
 }

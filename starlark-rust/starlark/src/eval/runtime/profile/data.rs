@@ -92,7 +92,7 @@ impl ProfileData {
 
     /// Write to a file.
     pub fn write(&self, path: &Path) -> anyhow::Result<()> {
-        fs::write(path, &self.gen()?).with_context(|| {
+        fs::write(path, self.gen()?).with_context(|| {
             format!(
                 "write profile `{}` data to `{}`",
                 self.profile_mode,
@@ -168,18 +168,16 @@ mod tests {
     use dupe::Dupe;
 
     use crate::eval::runtime::profile::bc::BcPairsProfileData;
-    use crate::eval::runtime::profile::bc::BcProfileData;
     use crate::eval::runtime::profile::data::ProfileDataImpl;
     use crate::eval::runtime::profile::flamegraph::FlameGraphData;
     use crate::eval::ProfileData;
     use crate::eval::ProfileMode;
-    use crate::values::AggregateHeapProfileInfo;
 
     #[test]
     fn merge_bc() {
         let profile = ProfileData {
             profile_mode: ProfileMode::Bytecode,
-            profile: ProfileDataImpl::Bc(Box::new(BcProfileData::default())),
+            profile: ProfileDataImpl::Bc(Box::default()),
         };
         // Smoke.
         ProfileData::merge([&profile, &profile]).unwrap();
@@ -205,9 +203,7 @@ mod tests {
         ] {
             let profile = ProfileData {
                 profile_mode: profile_mode.dupe(),
-                profile: ProfileDataImpl::AggregateHeapProfileInfo(Box::new(
-                    AggregateHeapProfileInfo::default(),
-                )),
+                profile: ProfileDataImpl::AggregateHeapProfileInfo(Box::default()),
             };
             // Smoke.
             ProfileData::merge([&profile, &profile]).unwrap();

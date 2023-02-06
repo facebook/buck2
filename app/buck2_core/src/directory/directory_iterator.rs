@@ -90,9 +90,7 @@ where
         self.for_each_path(|name| size += name.as_str().len() + 1);
 
         // Remove extra "/" we accounted for.
-        if size > 0 {
-            size -= 1;
-        }
+        size = size.saturating_sub(1);
 
         // Produce it.
         let mut first = true;

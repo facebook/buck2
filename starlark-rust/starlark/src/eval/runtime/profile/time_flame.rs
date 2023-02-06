@@ -148,7 +148,7 @@ impl<'v> FlameProfile<'v> {
     }
 
     pub(crate) fn enable(&mut self) {
-        self.0 = Some(Box::new(FlameData::default()));
+        self.0 = Some(Box::default());
     }
 
     #[cold]

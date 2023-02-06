@@ -577,11 +577,11 @@ mod tests {
             symlink("recurse_link", tempdir.path().join("recurse_recurse_link"))?;
 
             let d1 = FileDigest::from_file(&file).context("file")?;
-            let d2 = FileDigest::from_file(&tempdir.path().join("link")).context("file")?;
-            let d3 = FileDigest::from_file(&tempdir.path().join("abs_link")).context("abs_link")?;
-            let d4 = FileDigest::from_file(&tempdir.path().join("recurse_link"))
+            let d2 = FileDigest::from_file(tempdir.path().join("link")).context("file")?;
+            let d3 = FileDigest::from_file(tempdir.path().join("abs_link")).context("abs_link")?;
+            let d4 = FileDigest::from_file(tempdir.path().join("recurse_link"))
                 .context("recurse_link")?;
-            let d5 = FileDigest::from_file(&tempdir.path().join("recurse_recurse_link"))
+            let d5 = FileDigest::from_file(tempdir.path().join("recurse_recurse_link"))
                 .context("recurse_recurse_link")?;
 
             assert_eq!(d1.sha1(), &[0; SHA1_SIZE]);

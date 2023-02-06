@@ -509,7 +509,7 @@ impl ForwardRelativePath {
     /// The path will be converted to an internal path (i.e. forward slashes) before joining.
     pub fn join_system(&self, path: &Path) -> anyhow::Result<ForwardRelativePathBuf> {
         let path = fs_util::relative_path_from_system(path)?;
-        self.join_normalized(&path)
+        self.join_normalized(path)
     }
 
     /// Iterator over the components of this path
@@ -773,7 +773,7 @@ impl ForwardRelativePathBuf {
                 while buf_i > 0 {
                     buf_i -= 1;
 
-                    if buf_bytes[buf_i as usize] == b'/' {
+                    if buf_bytes[buf_i] == b'/' {
                         break;
                     }
                 }

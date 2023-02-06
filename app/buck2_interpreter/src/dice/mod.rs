@@ -8,8 +8,8 @@
  */
 
 //! The dice module contains the interpreter's integration with dice. This
-//! module contains the extension traits that we implement for Arc<DiceCtx> (the
-//! implementations of the traits are in the submodules).
+//! module contains the extension traits that we implement for `Arc<DiceCtx>`
+//! (the implementations of the traits are in the submodules).
 //!
 //! Several of these extension traits provide implementations of our delegate/DI
 //! traits that are themselves build on dice (ex DiceInterpreterFileOps

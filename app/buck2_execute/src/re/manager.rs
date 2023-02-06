@@ -244,8 +244,8 @@ impl ReGetSessionId for ReConnectionManager {
 /// The guard that holds the RE connection open. This can outlive the main manager
 /// The client obtained from this handle will only be valid while this handle is held.
 pub struct ReConnectionHandle {
-    /// here we hold an Arc<Arc> so that we can hand out a Weak<Arc> so that upon the handle being
-    /// dropped, the clients will lose the ability to access connection
+    /// here we hold an `Arc<Arc>` so that we can hand out a `Weak<Arc>` so that upon the handle
+    /// being dropped, the clients will lose the ability to access connection
     // TODO(cjhopman): While we vend out Weak<Arc> with this, due to the way this is stored/used on
     // the dice graph we are guaranteed that there's an Arc that outlives all the Weak from it. That
     // kind of defeats the purpose of this.

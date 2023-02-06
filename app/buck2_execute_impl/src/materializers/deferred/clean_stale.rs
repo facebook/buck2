@@ -93,7 +93,7 @@ fn gather_clean_futures_for_stale_artifacts(
 ) -> anyhow::Result<(Vec<CleaningFuture>, String)> {
     let gen_path = &io
         .buck_out_path
-        .join(&ProjectRelativePathBuf::unchecked_new("gen".to_owned()));
+        .join(ProjectRelativePathBuf::unchecked_new("gen".to_owned()));
     let gen_dir = io.fs.resolve(gen_path);
     if !fs_util::try_exists(&gen_dir)? {
         return Ok((vec![], "Nothing to clean".to_owned()));

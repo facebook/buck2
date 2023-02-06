@@ -331,7 +331,7 @@ impl<V> ParametersSpec<V> {
 
     pub(crate) fn resolve_name(&self, name: Hashed<&str>) -> ResolvedArgName {
         let hash = name.hash();
-        let param_index = self.names.get_hashed_str(name).map(|index| *index as u32);
+        let param_index = self.names.get_hashed_str(name).copied();
         ResolvedArgName { hash, param_index }
     }
 

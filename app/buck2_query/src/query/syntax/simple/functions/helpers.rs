@@ -276,7 +276,7 @@ impl<'a, Env: QueryEnvironment> QueryFunctionArg<'a, Env> for u64 {
     }
 }
 
-/// Option<T> is used for optional args and so this is the (only?) implementation that supports a "none" arg.
+/// `Option<T>` is used for optional args and so this is the (only?) implementation that supports a "none" arg.
 #[async_trait]
 impl<'a, Env: QueryEnvironment, A: QueryFunctionArg<'a, Env>> QueryFunctionArg<'a, Env>
     for Option<A>

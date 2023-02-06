@@ -29,7 +29,7 @@
 //! Currently, `+` is allow for backwards compatibility but may be removed.
 //!
 //! 'TargetLabel's are labels/keys that uniquely map to a 'target' in the static
-//! graph. These are of the form "<cell>//<path to build file>:<target name>".
+//! graph. These are of the form `<cell>//<path to build file>:<target name>`.
 //! e.g. `mycell//my/package/path:my_target`, where `mycell` is the cell,
 //! `my/package/path` is the package, and `my_target` is the target name
 //! belonging to the package.

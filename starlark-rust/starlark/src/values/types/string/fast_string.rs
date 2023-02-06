@@ -97,15 +97,15 @@ fn skip_at_most_1byte(x: &str, n: usize) -> usize {
 
 /// Find the character at position `i`.
 pub(crate) fn at(x: &str, i: CharIndex) -> Option<char> {
-    if i.0 as usize >= x.len() {
+    if i.0 >= x.len() {
         // Important that skip_at_most_1byte gets called with all valid character.
         // If the index is outside the length even under the best assumptions,
         // can immediately return None.
         return None;
     }
-    let n = skip_at_most_1byte(x, i.0 as usize);
+    let n = skip_at_most_1byte(x, i.0);
     let s = unsafe { x.get_unchecked(n..) };
-    s.chars().nth(i.0 as usize - n)
+    s.chars().nth(i.0 - n)
 }
 
 /// Find the length of the string in characters.

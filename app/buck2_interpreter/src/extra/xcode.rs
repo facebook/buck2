@@ -51,7 +51,7 @@ pub struct XcodeVersionInfo {
 impl XcodeVersionInfo {
     // Construct from version.plist in root of Xcode install dir.
     pub fn new() -> anyhow::Result<Self> {
-        let resolved_xcode_path = fs_util::canonicalize(&PathBuf::from(XCODE_SELECT_SYMLINK))
+        let resolved_xcode_path = fs_util::canonicalize(PathBuf::from(XCODE_SELECT_SYMLINK))
             .context("resolve selected xcode link")?;
         let plist_path = resolved_xcode_path
             .parent()

@@ -103,7 +103,7 @@ impl LiteralParser {
         let path = Path::new(literal);
         // Note if the path is absolute, this `join` is a no-op.
         let path_abs = self.working_dir_abs.as_abs_path().join(path);
-        let project_path = self.project_root.relativize_any(&path_abs)?;
+        let project_path = self.project_root.relativize_any(path_abs)?;
         self.cell_resolver.get_cell_path(&project_path)
     }
 }

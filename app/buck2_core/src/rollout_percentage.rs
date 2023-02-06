@@ -18,7 +18,7 @@ use rand::Rng;
 /// Configurations supported today are random and hostname.
 /// - Random: Enabled by directly setting a decimal value.
 ///     Checks whether to enable feature based on a random roll
-/// - Hostname: Set by "hostname=<value>", ex. "hostname=0.5". Checks whether to roll out feature
+/// - Hostname: Set by `hostname=<value>`, ex. `hostname=0.5`. Checks whether to roll out feature
 ///     based on hash of hostname. Useful when you want the same host to consistently get the
 ///     same feature enabled/disabled.
 /// It's possible to extend this system to support per-username rollout as well in addition to

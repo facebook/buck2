@@ -150,7 +150,7 @@ impl fmt::Display for RageSection {
     about = "Record information about the previous failed buck2 command"
 )]
 pub struct RageCommand {
-    /// Stop collecting information after <timeout> seconds
+    /// Stop collecting information after `<timeout>` seconds
     #[clap(long, default_value = "60")]
     timeout: u64,
     /// Use value 0 to select last invocation, 1 to select second to last and so on

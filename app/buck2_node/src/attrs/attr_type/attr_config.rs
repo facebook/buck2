@@ -28,7 +28,7 @@ use crate::attrs::fmt_context::AttrFmtContext;
 
 /// AttrConfig is used to implement things just once to cover both the configured and
 /// unconfigured case. For example, a Vec<C::TargetType> where C: AttrConfig, would be
-/// a Vec<TargetLabel> in the unconfigured case and a Vec<ConfiguredTargetLabel> in the
+/// a `Vec<TargetLabel>` in the unconfigured case and a `Vec<ConfiguredTargetLabel>` in the
 /// configured case.
 ///
 /// For attributes, the difference between the coerced value and the configured value is

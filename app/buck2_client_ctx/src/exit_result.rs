@@ -258,7 +258,7 @@ fn execv(args: ExecArgs) -> anyhow::Result<ExitResult> {
     if let Some(dir) = args.chdir {
         // This is OK because we immediately call execv after this
         // (otherwise this would be a really bad idea)
-        std::env::set_current_dir(&dir)?;
+        std::env::set_current_dir(dir)?;
     }
 
     if cfg!(windows) {

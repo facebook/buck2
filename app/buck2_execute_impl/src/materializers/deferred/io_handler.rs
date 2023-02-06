@@ -233,7 +233,7 @@ impl DefaultIoHandler {
                             zstd::bulk::decompress(&write.compressed_data, write.decompressed_size)
                                 .context("Error decompressing data")?;
                         stat.total_bytes = write.decompressed_size as u64;
-                        self.fs.write_file(&path, &data, write.is_executable)
+                        self.fs.write_file(&path, data, write.is_executable)
                     })
                     .await?;
             }
@@ -443,7 +443,7 @@ impl WriteIoRequest {
         let data =
             zstd::bulk::decompress(&self.write.compressed_data, self.write.decompressed_size)
                 .context("Error decompressing data")?;
-        project_fs.write_file(&self.path, &data, self.write.is_executable)?;
+        project_fs.write_file(&self.path, data, self.write.is_executable)?;
         Ok(())
     }
 }

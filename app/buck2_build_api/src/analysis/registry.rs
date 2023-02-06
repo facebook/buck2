@@ -132,7 +132,7 @@ impl<'v> AnalysisRegistry<'v> {
         // things like `..` and the empty path `.` can be bad ideas. The `::new` method checks for those
         // things and fails if they are present.
 
-        if filename == "." || filename == "" {
+        if filename == "." || filename.is_empty() {
             return Err(DeclaredArtifactError::DeclaredEmptyFileName.into());
         }
 

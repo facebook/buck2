@@ -95,7 +95,7 @@ impl ExplicitConfiguredDepMaybeConfigured for ConfiguredExplicitConfiguredDep {
 
 impl ExplicitConfiguredDepMaybeConfigured for UnconfiguredExplicitConfiguredDep {
     fn to_json(&self) -> anyhow::Result<serde_json::Value> {
-        Ok(serde_json::to_value(&[
+        Ok(serde_json::to_value([
             self.label.to_string(),
             self.platform.to_string(),
         ])?)

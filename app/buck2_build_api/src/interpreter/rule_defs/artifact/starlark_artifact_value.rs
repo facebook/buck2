@@ -100,7 +100,7 @@ fn json_convert<'v>(v: serde_json::Value, heap: &'v Heap) -> anyhow::Result<Valu
 fn artifact_value_methods(builder: &mut MethodsBuilder) {
     fn read_string(this: &StarlarkArtifactValue) -> anyhow::Result<String> {
         let path = this.fs.resolve(&this.path);
-        fs_util::read_to_string(&path)
+        fs_util::read_to_string(path)
     }
 
     fn read_json<'v>(this: &StarlarkArtifactValue, heap: &'v Heap) -> anyhow::Result<Value<'v>> {

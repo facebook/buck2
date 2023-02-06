@@ -66,7 +66,7 @@ impl ProviderCodegen {
                 if provider_attr.len() > 1 {
                     return Err(syn::Error::new_spanned(
                         field.to_token_stream(),
-                        &format!("{} attribute can only be specified once", PROVIDER_IDENT),
+                        format!("{} attribute can only be specified once", PROVIDER_IDENT),
                     ));
                 } else if !provider_attr.is_empty() {
                     provider_attrs.insert(

@@ -285,6 +285,7 @@ impl CommonBuildConfigurationOptions {
 }
 
 /// Defines common options for build-like commands (build, test, install).
+#[allow(rustdoc::invalid_html_tags)]
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
 pub struct CommonBuildOptions {
     /// Print a build report

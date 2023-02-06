@@ -56,7 +56,7 @@ pub enum QueryError {
     UnionIncompatibleTypes(&'static str, &'static str),
     /// Used to propagate up an inner error. The inner span will mark where the inner error was (which itself may be the
     /// propagation of another error). This error will end up in a Spanned that indicates where this error (the propagation) occurs.
-    /// Since QueryError has an impl for From<Spanned<QueryError>>, just propagating inner eval errors via `?` will hit this case (and
+    /// Since QueryError has an impl for `From<Spanned<QueryError>>`, just propagating inner eval errors via `?` will hit this case (and
     /// so will actually end up not just propagating the inner error but wrapping it in this and adding an additional Spanned to it).
     #[error("{0}")]
     Inner(Box<Spanned<QueryError>>),

@@ -1854,7 +1854,7 @@ mod tests {
         fn dir_in_dir() -> anyhow::Result<()> {
             let mut v = vec![];
             let dir = tempfile::tempdir()?;
-            fs_util::create_dir_all(&dir.path().join("bad"))?;
+            fs_util::create_dir_all(dir.path().join("bad"))?;
             let dir = AbsNormPath::new(&dir)?;
 
             push_all_files_from_a_directory(&mut v, dir, false)?;

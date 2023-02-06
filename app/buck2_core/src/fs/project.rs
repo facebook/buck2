@@ -568,20 +568,20 @@ mod tests {
         let file4 = ProjectRelativePath::new("dir1/dir2/dir3/file4")?;
         let out_dir = ProjectRelativePath::new("out")?;
 
-        fs_util::create_dir_all(&fs.path.resolve(dir1))?;
-        fs_util::create_dir_all(&fs.path.resolve(dir2))?;
-        fs_util::create_dir_all(&fs.path.resolve(dir3))?;
-        fs_util::create_dir_all(&fs.path.resolve(out_dir))?;
+        fs_util::create_dir_all(fs.path.resolve(dir1))?;
+        fs_util::create_dir_all(fs.path.resolve(dir2))?;
+        fs_util::create_dir_all(fs.path.resolve(dir3))?;
+        fs_util::create_dir_all(fs.path.resolve(out_dir))?;
 
-        fs_util::write(&fs.path.resolve(file1), "file1 contents")?;
-        fs_util::write(&fs.path.resolve(file2), "file2 contents")?;
-        fs_util::write(&fs.path.resolve(file3), "file3 contents")?;
-        fs_util::write(&fs.path.resolve(file4), "file4 contents")?;
+        fs_util::write(fs.path.resolve(file1), "file1 contents")?;
+        fs_util::write(fs.path.resolve(file2), "file2 contents")?;
+        fs_util::write(fs.path.resolve(file3), "file3 contents")?;
+        fs_util::write(fs.path.resolve(file4), "file4 contents")?;
         // Absolute path
-        fs_util::symlink(&fs.path.resolve(dir2), &fs.path.resolve(link_dir2))?;
+        fs_util::symlink(fs.path.resolve(dir2), fs.path.resolve(link_dir2))?;
         // Relative path
-        fs_util::symlink(Path::new("dir2/dir3"), &fs.path.resolve(link_dir3))?;
-        fs_util::symlink(Path::new("dir2/dir3/file3"), &fs.path.resolve(link_file3))?;
+        fs_util::symlink(Path::new("dir2/dir3"), fs.path.resolve(link_dir3))?;
+        fs_util::symlink(Path::new("dir2/dir3/file3"), fs.path.resolve(link_file3))?;
 
         fs.path
             .copy(
@@ -629,7 +629,7 @@ mod tests {
         );
 
         // Make sure we can read through; that the relative path actually works
-        fs_util::write(&fs.path.resolve(file3), "file3 new contents")?;
+        fs_util::write(fs.path.resolve(file3), "file3 new contents")?;
         let link_file3_target = fs_util::read_link(fs.path.resolve(expected_link_file3))?;
         assert_eq!(
             Path::new("../../dir1/dir2/dir3/file3"),
@@ -637,25 +637,25 @@ mod tests {
         );
         assert_eq!(
             "file3 new contents",
-            fs_util::read_to_string(&fs.path.resolve(expected_link_file3))?
+            fs_util::read_to_string(fs.path.resolve(expected_link_file3))?
         );
 
         assert_eq!(
             "file1 contents",
-            fs_util::read_to_string(&fs.path.resolve(expected_file1))?
+            fs_util::read_to_string(fs.path.resolve(expected_file1))?
         );
         assert_eq!(
             "file2 contents",
-            fs_util::read_to_string(&fs.path.resolve(expected_file2))?
+            fs_util::read_to_string(fs.path.resolve(expected_file2))?
         );
         // Independent copy; no hard links made (previous behavior)
         assert_eq!(
             "file3 contents",
-            fs_util::read_to_string(&fs.path.resolve(expected_file3))?
+            fs_util::read_to_string(fs.path.resolve(expected_file3))?
         );
         assert_eq!(
             "file4 contents",
-            fs_util::read_to_string(&fs.path.resolve(expected_file4))?
+            fs_util::read_to_string(fs.path.resolve(expected_file4))?
         );
         Ok(())
     }
@@ -670,14 +670,8 @@ mod tests {
         fs.path.soft_link_raw(fs.path.resolve(file), symlink1)?;
         fs.path.copy(symlink1, symlink2)?;
 
-        assert_eq!(
-            "hello",
-            fs_util::read_to_string(&fs.path.resolve(symlink1))?
-        );
-        assert_eq!(
-            "hello",
-            fs_util::read_to_string(&fs.path.resolve(symlink2))?
-        );
+        assert_eq!("hello", fs_util::read_to_string(fs.path.resolve(symlink1))?);
+        assert_eq!("hello", fs_util::read_to_string(fs.path.resolve(symlink2))?);
         Ok(())
     }
 
@@ -719,16 +713,16 @@ mod tests {
         let dest4_value = fs_util::read_link(fs.path.resolve(dest4))?;
         let dest5_value = fs_util::read_link(fs.path.resolve(dest5))?;
 
-        let contents1 = fs_util::read_to_string(&fs.path.resolve(dest1))?;
-        let contents2 = fs_util::read_to_string(&fs.path.resolve(dest2))?;
-        let contents3 = fs_util::read_to_string(&fs.path.resolve(dest3))?;
+        let contents1 = fs_util::read_to_string(fs.path.resolve(dest1))?;
+        let contents2 = fs_util::read_to_string(fs.path.resolve(dest2))?;
+        let contents3 = fs_util::read_to_string(fs.path.resolve(dest3))?;
         let contents4 = fs_util::read_to_string(
-            &fs.path
+            fs.path
                 .resolve(dest4)
                 .join(ForwardRelativePath::new("file")?),
         )?;
         let contents5 = fs_util::read_to_string(
-            &fs.path
+            fs.path
                 .resolve(dest5)
                 .join(ForwardRelativePath::new("file")?),
         )?;
@@ -762,8 +756,8 @@ mod tests {
         fs.path.soft_link_relativized(source_dir, dest_dir)?;
         fs.path.write_file(new_file1, "new file content", false)?;
 
-        let content = fs_util::read_to_string(&fs.path.resolve(dest_file))?;
-        let new_content = fs_util::read_to_string(&fs.path.resolve(new_file2))?;
+        let content = fs_util::read_to_string(fs.path.resolve(dest_file))?;
+        let new_content = fs_util::read_to_string(fs.path.resolve(new_file2))?;
 
         assert_eq!("file content", content);
         assert_eq!("new file content", new_content);

@@ -678,7 +678,7 @@ pub fn server_with_connection<T: LspContext>(
         .and_then(|opts| serde_json::from_value(opts.clone()).ok())
         .unwrap_or_default();
     let capabilities_payload = Backend::<T>::server_capabilities(server_settings);
-    let server_capabilities = serde_json::to_value(&capabilities_payload).unwrap();
+    let server_capabilities = serde_json::to_value(capabilities_payload).unwrap();
 
     let initialize_data = serde_json::json!({
             "capabilities": server_capabilities,
@@ -868,7 +868,7 @@ mod test {
 
     #[cfg(not(windows))]
     fn temp_file_uri(rel_path: &str) -> Url {
-        Url::from_file_path(&PathBuf::from("/tmp").join(rel_path)).unwrap()
+        Url::from_file_path(PathBuf::from("/tmp").join(rel_path)).unwrap()
     }
 
     #[test]

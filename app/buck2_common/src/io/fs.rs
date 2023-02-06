@@ -69,7 +69,7 @@ impl IoProvider for FsIoProvider {
         static SEMAPHORE: Lazy<Semaphore> = Lazy::new(|| Semaphore::new(100));
         let _permit = SEMAPHORE.acquire().await.unwrap();
 
-        tokio::task::spawn_blocking(move || fs_util::read_to_string(&path))
+        tokio::task::spawn_blocking(move || fs_util::read_to_string(path))
             .await
             .unwrap()
     }
@@ -84,7 +84,7 @@ impl IoProvider for FsIoProvider {
         let path = self.fs.resolve(&path);
 
         tokio::task::spawn_blocking(move || {
-            let dir_entries = fs_util::read_dir(&path)?;
+            let dir_entries = fs_util::read_dir(path)?;
 
             let mut entries = Vec::new();
 

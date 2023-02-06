@@ -1192,7 +1192,7 @@ mod test {
         let row = TableRow(vec![
             Box::new("h1".to_owned()),
             Box::new(Code(Box::new("h2".to_owned()))),
-            Box::new(String::new()),
+            Box::<String>::default(),
         ]);
 
         assert_eq!(expected, render(&row));

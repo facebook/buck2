@@ -501,7 +501,7 @@ mod tests {
         let res = read_dir_if_exists(existing_path)?;
         assert!(res.is_some());
         let not_existing_dir = existing_path.join(ForwardRelativePath::unchecked_new("dir"));
-        let res = read_dir_if_exists(&not_existing_dir)?;
+        let res = read_dir_if_exists(not_existing_dir)?;
         assert!(res.is_none());
         Ok(())
     }
@@ -571,7 +571,7 @@ mod tests {
         let dir_path = tempdir.path().join("dir");
         let file_path = dir_path.join("file");
         create_dir_all(&dir_path)?;
-        write(&file_path, b"Content")?;
+        write(file_path, b"Content")?;
         let symlink1_path = tempdir.path().join("symlink1");
         let symlink2_path = tempdir.path().join("symlink2");
         symlink(&dir_path, &symlink1_path)?;
@@ -589,10 +589,10 @@ mod tests {
         let dir_path = tempdir.path().join("dir");
         let file_path = dir_path.join("file");
         create_dir_all(&dir_path)?;
-        write(&file_path, b"File content")?;
+        write(file_path, b"File content")?;
         symlink(&dir_path, &symlink_path)?;
         let symlinked_path = symlink_path.join("file");
-        assert_eq!(read_to_string(&symlinked_path)?, "File content");
+        assert_eq!(read_to_string(symlinked_path)?, "File content");
         remove_file(&symlink_path)?;
         assert_eq!(
             io::ErrorKind::NotFound,
@@ -628,7 +628,7 @@ mod tests {
     fn remove_file_non_existing_file() -> anyhow::Result<()> {
         let tempdir = tempfile::tempdir()?;
         let file_path = tempdir.path().join("file_doesnt_exist");
-        assert_matches!(remove_file(&file_path), Err(..));
+        assert_matches!(remove_file(file_path), Err(..));
         Ok(())
     }
 
@@ -673,7 +673,7 @@ mod tests {
         let tempdir = tempfile::tempdir()?;
         let target = tempdir.path().join("non-existent-target");
         let path = tempdir.path().join("symlink");
-        symlink(&target, &path)?;
+        symlink(target, &path)?;
 
         assert_eq!(vec![path.clone()], ls(tempdir.path())?, "Sanity check");
 
@@ -726,7 +726,7 @@ mod tests {
 
         fs_util::write(&f1, b"data")?;
         assert_eq!(fs_util::read_to_string_opt(&f1)?.as_deref(), Some("data"));
-        assert_eq!(fs_util::read_to_string_opt(&f2)?, None);
+        assert_eq!(fs_util::read_to_string_opt(f2)?, None);
 
         Ok(())
     }

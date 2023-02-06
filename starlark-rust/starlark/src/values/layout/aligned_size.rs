@@ -36,7 +36,7 @@ pub(crate) struct AlignedSize {
 
 impl AlignedSize {
     const MAX_SIZE: AlignedSize =
-        AlignedSize::new_bytes((u32::MAX as usize - AValueHeader::ALIGN + 1) as usize);
+        AlignedSize::new_bytes(u32::MAX as usize - AValueHeader::ALIGN + 1);
 
     #[inline]
     pub(crate) const fn new_bytes(bytes: usize) -> AlignedSize {

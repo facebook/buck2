@@ -44,7 +44,7 @@ impl ActionStats {
         } else {
             let hit_percent = ((self.cached_actions as f64) / (total_actions as f64)) * 100f64;
             let integral_percent = (hit_percent.round()) as u8;
-            std::cmp::max(1, std::cmp::min(integral_percent, 99))
+            integral_percent.clamp(1, 99)
         }
     }
 
