@@ -18,6 +18,7 @@ use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::label::TargetLabel;
 use buck2_interpreter::types::label::Label;
 use buck2_interpreter::types::label::StarlarkProvidersLabel;
+use buck2_interpreter::types::target_label::StarlarkConfiguredTargetLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::unconfigured::TargetNode;
@@ -87,9 +88,15 @@ impl ProvidersExpr {
                 configured_target.0.label().dupe(),
                 ProvidersName::Default,
             ))))
+        } else if let Some(configured_target) =
+            value.downcast_ref::<StarlarkConfiguredTargetLabel>()
+        {
+            Ok(Some(Self::Literal(ConfiguredProvidersLabel::new(
+                configured_target.label().dupe(),
+                ProvidersName::Default,
+            ))))
         } else if let Some(configured_target) = value.downcast_ref::<Label>() {
             Ok(Some(Self::Literal(configured_target.label().clone())))
-            // TODO one more case here to handle configured target label
         } else {
             #[allow(clippy::manual_map)] // `if else if` looks better here
             if let Some(s) = value.unpack_str() {
