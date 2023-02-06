@@ -27,6 +27,7 @@ use crate::fs::fs_util;
 use crate::fs::paths::abs_norm_path::AbsNormPath;
 use crate::fs::paths::abs_norm_path::AbsNormPathBuf;
 use crate::fs::paths::file_name::FileName;
+use crate::fs::paths::file_name::FileNameBuf;
 
 /// A forward pointing, fully normalized relative path and owned pathbuf.
 /// This means that there is no '.' or '..' in this path, and does not begin
@@ -610,6 +611,11 @@ impl ForwardRelativePathBuf {
     }
 
     #[inline]
+    pub fn empty() -> Self {
+        Self("".to_owned())
+    }
+
+    #[inline]
     pub fn unchecked_new(s: String) -> Self {
         Self(s)
     }
@@ -1172,6 +1178,17 @@ impl<'a> FromIterator<&'a FileName> for Option<ForwardRelativePathBuf> {
         } else {
             Some(ForwardRelativePathBuf(ret))
         }
+    }
+}
+
+impl<'a> FromIterator<&'a FileNameBuf> for Option<ForwardRelativePathBuf> {
+    fn from_iter<I>(iter: I) -> Self
+    where
+        I: IntoIterator<Item = &'a FileNameBuf>,
+    {
+        iter.into_iter()
+            .map(<FileNameBuf as AsRef<FileName>>::as_ref)
+            .collect()
     }
 }
 

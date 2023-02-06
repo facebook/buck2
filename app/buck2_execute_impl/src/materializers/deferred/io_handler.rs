@@ -368,7 +368,7 @@ pub(super) fn create_ttl_refresh(
 
     let ttl_deadline = Utc::now() + min_ttl;
 
-    for (_, data) in tree.iter() {
+    for data in tree.iter_without_paths() {
         match &data.stage {
             ArtifactMaterializationStage::Declared { method, .. } => match method.as_ref() {
                 ArtifactMaterializationMethod::CasDownload { info } => {

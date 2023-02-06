@@ -33,9 +33,6 @@ use buck2_common::result::ToUnsharedResultExt;
 use buck2_core::directory::unordered_entry_walk;
 use buck2_core::directory::DirectoryEntry;
 use buck2_core::env_helper::EnvHelper;
-use buck2_core::fs::paths::file_name::FileName;
-use buck2_core::fs::paths::file_name::FileNameBuf;
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::paths::RelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
@@ -91,8 +88,6 @@ use tokio_stream::wrappers::UnboundedReceiverStream;
 use tracing::instrument;
 
 use crate::materializers::deferred::extension::ExtensionCommand;
-use crate::materializers::deferred::file_tree::DataTreeIntoIterator;
-use crate::materializers::deferred::file_tree::DataTreeIterator;
 use crate::materializers::deferred::file_tree::FileTree;
 use crate::materializers::deferred::io_handler::DefaultIoHandler;
 use crate::materializers::deferred::io_handler::IoHandler;
@@ -1699,41 +1694,12 @@ impl<V: 'static> FileTree<V> {
 
         match removed {
             Some(tree) => box tree
-                .into_iter()
-                .with_paths()
+                .into_iter_with_paths()
                 .map(move |(k, v)| ((path).join(k), v)),
             None => box std::iter::empty(),
         }
     }
 }
-
-trait WithPathsIterator<K, V>: Iterator<Item = (Vec<K>, V)>
-where
-    K: AsRef<FileName>,
-{
-    fn with_paths<'a>(self) -> Box<dyn Iterator<Item = (ProjectRelativePathBuf, V)> + 'a>
-    where
-        Self: Sized + 'a,
-    {
-        box self
-            .into_iter()
-            .map(|(k, v)| -> (ProjectRelativePathBuf, V) {
-                let path = k
-                    .iter()
-                    .map(|f| f.as_ref())
-                    .collect::<Option<ForwardRelativePathBuf>>()
-                    .unwrap_or_else(|| ForwardRelativePathBuf::unchecked_new("".to_owned()));
-                (path.into(), v)
-            })
-    }
-}
-
-pub type FileTreeIterator<'a, V> = DataTreeIterator<'a, FileNameBuf, V>;
-pub type FileTreeIntoIterator<V> = DataTreeIntoIterator<FileNameBuf, V>;
-
-impl<'a, V: 'static> WithPathsIterator<&'a FileNameBuf, &'a V> for FileTreeIterator<'a, V> {}
-
-impl<V: 'static> WithPathsIterator<FileNameBuf, V> for FileTreeIntoIterator<V> {}
 
 /// Wait on all futures in `futs` to finish. Return Error for first future that failed
 /// in the Vec.

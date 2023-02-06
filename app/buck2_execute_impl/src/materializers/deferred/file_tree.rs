@@ -25,8 +25,10 @@ use std::collections::hash_map::IntoIter;
 use std::collections::hash_map::Iter;
 use std::collections::HashMap;
 use std::hash::Hash;
+use std::marker::PhantomData;
 
 use buck2_core::fs::paths::file_name::FileNameBuf;
+use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 
 pub type FileTree<V> = DataTree<FileNameBuf, V>;
 
@@ -195,27 +197,73 @@ impl<K: 'static + Eq + Hash + Clone, V: 'static> DataTree<K, V> {
         }
     }
 
-    /// Returns an iterator over DataTree<K, V>, where each element is a tuple consisting of iterator
-    /// of K (as a VecDeque) and V.
-    pub fn iter(&self) -> DataTreeIterator<'_, K, V> {
+    /// Returns an iterator over DataTree<K, V>.
+    pub fn iter<T>(&self) -> DataTreeIterator<'_, K, V, T> {
         match self {
-            Self::Tree(t) => DataTreeIterator::Stack(vec![(None, t.iter())]),
+            Self::Tree(t) => DataTreeIterator::Stack(vec![(None, t.iter())], PhantomData),
             Self::Data(v) => DataTreeIterator::Entry(Some(v)),
+        }
+    }
+
+    /// Take ownership of the values in DataTree<K, V> and iterate.
+    pub fn into_iter<T>(self) -> DataTreeIntoIterator<K, V, T> {
+        match self {
+            Self::Tree(t) => DataTreeIntoIterator::Stack(vec![(None, t.into_iter())], PhantomData),
+            Self::Data(v) => DataTreeIntoIterator::Entry(Some(v)),
         }
     }
 }
 
-pub enum DataTreeIterator<'a, K, V> {
-    Stack(Vec<(Option<&'a K>, Iter<'a, K, DataTree<K, V>>)>),
+struct NoopCollector;
+
+impl<'a> FromIterator<&'a FileNameBuf> for NoopCollector {
+    fn from_iter<I>(_iter: I) -> Self
+    where
+        I: IntoIterator<Item = &'a FileNameBuf>,
+    {
+        NoopCollector
+    }
+}
+
+impl<V: 'static> FileTree<V> {
+    pub fn iter_with_paths(&self) -> impl Iterator<Item = (ForwardRelativePathBuf, &V)> {
+        self.iter::<Option<ForwardRelativePathBuf>>()
+            .map(|(k, v)| (k.unwrap_or_else(ForwardRelativePathBuf::empty), v))
+    }
+
+    pub fn iter_without_paths(&self) -> impl Iterator<Item = &V> {
+        self.iter::<NoopCollector>().map(|(NoopCollector, v)| v)
+    }
+
+    pub fn into_iter_with_paths(self) -> impl Iterator<Item = (ForwardRelativePathBuf, V)> {
+        self.into_iter::<Option<ForwardRelativePathBuf>>()
+            .map(|(k, v)| (k.unwrap_or_else(ForwardRelativePathBuf::empty), v))
+    }
+
+    #[allow(unused)]
+    pub fn into_iter_without_paths(self) -> impl Iterator<Item = V> {
+        self.into_iter::<NoopCollector>()
+            .map(|(NoopCollector, v)| v)
+    }
+}
+
+pub enum DataTreeIterator<'a, K, V, T> {
+    Stack(
+        Vec<(Option<&'a K>, Iter<'a, K, DataTree<K, V>>)>,
+        PhantomData<T>,
+    ),
     Entry(Option<&'a V>),
 }
 
-impl<'a, K, V> Iterator for DataTreeIterator<'a, K, V> {
-    type Item = (Vec<&'a K>, &'a V);
+impl<'a, K, V, T> Iterator for DataTreeIterator<'a, K, V, T>
+where
+    T: for<'x> FromIterator<&'x K>,
+{
+    type Item = (T, &'a V);
 
     fn next(&mut self) -> Option<Self::Item> {
         match self {
-            Self::Stack(ref mut stack) => loop {
+            Self::Stack(ref mut stack, _) => loop {
                 let (_, ref mut last) = stack.last_mut()?;
 
                 match last.next() {
@@ -223,36 +271,39 @@ impl<'a, K, V> Iterator for DataTreeIterator<'a, K, V> {
                         stack.push((Some(k), t.iter()));
                     }
                     Some((k, DataTree::Data(v))) => {
-                        let mut path = Vec::with_capacity(stack.len());
-                        path.extend(stack.iter().filter_map(|(k, _)| k.as_ref()));
-                        path.push(k);
-                        return Some((path, v));
+                        let it = stack
+                            .iter()
+                            .filter_map(|(k, _)| k.as_deref())
+                            .chain(std::iter::once(k));
+                        return Some((it.collect(), v));
                     }
                     None => {
                         stack.pop();
                     }
                 }
             },
-            Self::Entry(v) => v.take().map(|v| (Vec::new(), v)),
+            Self::Entry(v) => v.take().map(|v| (std::iter::empty().collect(), v)),
         }
     }
 }
 
-pub enum DataTreeIntoIterator<K, V> {
-    Stack(Vec<(Option<K>, IntoIter<K, DataTree<K, V>>)>),
+pub enum DataTreeIntoIterator<K, V, T> {
+    Stack(
+        Vec<(Option<K>, IntoIter<K, DataTree<K, V>>)>,
+        PhantomData<T>,
+    ),
     Entry(Option<V>),
 }
 
-impl<K, V> Iterator for DataTreeIntoIterator<K, V>
+impl<K, V, T> Iterator for DataTreeIntoIterator<K, V, T>
 where
-    K: Clone + 'static,
-    V: 'static,
+    T: for<'x> FromIterator<&'x K>,
 {
-    type Item = (Vec<K>, V);
+    type Item = (T, V);
 
     fn next(&mut self) -> Option<Self::Item> {
         match self {
-            Self::Stack(ref mut stack) => loop {
+            Self::Stack(ref mut stack, _) => loop {
                 let (_, ref mut last) = stack.last_mut()?;
 
                 match last.next() {
@@ -260,29 +311,18 @@ where
                         stack.push((Some(k), t.into_iter()));
                     }
                     Some((k, DataTree::Data(v))) => {
-                        let mut path = Vec::with_capacity(stack.len());
-                        path.extend(stack.iter().filter_map(|(k, _)| k.clone()));
-                        path.push(k);
-                        return Some((path, v));
+                        let it = stack
+                            .iter()
+                            .filter_map(|(k, _)| k.as_ref())
+                            .chain(std::iter::once(&k));
+                        return Some((it.collect(), v));
                     }
                     None => {
                         stack.pop();
                     }
                 }
             },
-            Self::Entry(v) => v.take().map(|v| (Vec::new(), v)),
-        }
-    }
-}
-
-impl<K: 'static + Eq + Hash + Clone, V: 'static> IntoIterator for DataTree<K, V> {
-    type Item = (Vec<K>, V);
-    type IntoIter = DataTreeIntoIterator<K, V>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        match self {
-            Self::Tree(t) => DataTreeIntoIterator::Stack(vec![(None, t.into_iter())]),
-            Self::Data(v) => DataTreeIntoIterator::Entry(Some(v)),
+            Self::Entry(v) => v.take().map(|v| (std::iter::empty().collect(), v)),
         }
     }
 }
@@ -292,9 +332,23 @@ mod tests {
     use std::collections::BTreeMap;
 
     use assert_matches::assert_matches;
-    use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 
     use super::*;
+
+    #[derive(Debug)]
+    struct CopyCollector<T>(Vec<T>);
+
+    impl<'a, T> FromIterator<&'a T> for CopyCollector<T>
+    where
+        T: Copy + 'static,
+    {
+        fn from_iter<I>(iter: I) -> Self
+        where
+            I: IntoIterator<Item = &'a T>,
+        {
+            Self(iter.into_iter().copied().collect())
+        }
+    }
 
     #[test]
     fn test_iter() {
@@ -313,9 +367,8 @@ mod tests {
             tree.insert(k.clone().into_iter(), v.clone());
         }
         let actual = tree
-            .iter()
-            .into_iter()
-            .map(|(k, v)| (k.into_iter().copied().collect::<Vec<_>>(), v.to_owned()))
+            .iter::<CopyCollector<_>>()
+            .map(|(k, v)| (k.0.into_iter().collect::<Vec<_>>(), v.to_owned()))
             .collect::<BTreeMap<_, _>>();
 
         assert_eq!(expected, actual);
@@ -338,8 +391,8 @@ mod tests {
             tree.insert(k.clone().into_iter(), v.clone());
         }
         let actual = tree
-            .into_iter()
-            .map(|(k, v)| (k.into_iter().collect::<Vec<_>>(), v))
+            .into_iter::<CopyCollector<_>>()
+            .map(|(k, v)| (k.0.into_iter().collect::<Vec<_>>(), v))
             .collect::<BTreeMap<_, _>>();
 
         assert_eq!(expected, actual);
@@ -376,7 +429,7 @@ mod tests {
         assert_eq!(key_iter.next(), None);
 
         // Check tree is empty
-        assert_eq!(tree.iter().next(), None);
+        assert_matches!(tree.iter::<CopyCollector<_>>().next(), None);
     }
 
     #[test]
@@ -385,6 +438,6 @@ mod tests {
         tree.insert(vec![1, 2, 3].into_iter(), "123".to_owned());
         tree.remove(vec![1, 2].iter());
 
-        assert_eq!(tree.iter().next(), None);
+        assert_matches!(tree.iter::<CopyCollector<_>>().next(), None);
     }
 }

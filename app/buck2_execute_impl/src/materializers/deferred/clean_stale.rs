@@ -15,7 +15,6 @@ use buck2_common::file_ops::FileType;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::file_name::FileName;
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use chrono::DateTime;
@@ -294,18 +293,13 @@ fn find_stale_tracked_only(
     stats: &mut StaleFinderStats,
 ) -> anyhow::Result<StaleFinderResult> {
     let mut paths_to_clean = Vec::new();
-    for (k, v) in tree.iter() {
+    for (f_path, v) in tree.iter_with_paths() {
         if let ArtifactMaterializationStage::Materialized {
             last_access_time,
             active,
             ..
         } = &v.stage
         {
-            let f_path = k
-                .iter()
-                .map(|f| f.as_ref())
-                .collect::<Option<ForwardRelativePathBuf>>()
-                .context("Invalid path key.")?;
             let path = ProjectRelativePathBuf::from(f_path);
             if *last_access_time < keep_since_time && !active {
                 tracing::trace!(path = %path, "stale artifact");

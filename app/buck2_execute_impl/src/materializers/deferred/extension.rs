@@ -41,7 +41,6 @@ use crate::materializers::deferred::DefaultIoHandler;
 use crate::materializers::deferred::DeferredMaterializer;
 use crate::materializers::deferred::DeferredMaterializerCommandProcessor;
 use crate::materializers::deferred::MaterializerCommand;
-use crate::materializers::deferred::WithPathsIterator;
 
 pub(super) trait ExtensionCommand<T>: Debug + Sync + Send + 'static {
     fn execute(
@@ -77,7 +76,7 @@ impl ExtensionCommand<DefaultIoHandler> for Iterate {
         tree: &mut ArtifactTree,
         _processor: &mut DeferredMaterializerCommandProcessor<DefaultIoHandler>,
     ) {
-        for (path, data) in tree.iter().with_paths() {
+        for (path, data) in tree.iter_with_paths() {
             let path_data = match &data.stage {
                 ArtifactMaterializationStage::Declared { method, .. } => {
                     PathData::Declared(method.dupe())
@@ -93,6 +92,8 @@ impl ExtensionCommand<DefaultIoHandler> for Iterate {
                     PathData::Materialized(timestamp)
                 }
             };
+
+            let path = ProjectRelativePathBuf::from(path);
 
             match self.sender.send((path, box path_data as _)) {
                 Ok(..) => {}
@@ -143,7 +144,7 @@ impl ExtensionCommand<DefaultIoHandler> for TestIter {
         let now = std::time::Instant::now();
 
         for _i in 0..self.count {
-            let it = tree.iter();
+            let it = tree.iter_without_paths();
 
             for e in it {
                 let _e = e;
@@ -161,7 +162,7 @@ impl ExtensionCommand<DefaultIoHandler> for TestIter {
         let now = std::time::Instant::now();
 
         for _i in 0..self.count {
-            let it = tree.iter().with_paths();
+            let it = tree.iter_with_paths();
 
             for e in it {
                 let _e = e;
