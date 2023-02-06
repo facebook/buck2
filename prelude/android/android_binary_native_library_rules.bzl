@@ -300,7 +300,7 @@ def _filter_prebuilt_native_library_dir(
     filter_tool = ctx.attrs._android_toolchain[AndroidToolchainInfo].filter_prebuilt_native_library_dir[RunInfo]
     native_libs_dirs = [native_lib.dir for native_lib in native_libs]
     native_libs_dirs_file = ctx.actions.write("{}_list.txt".format(identifier), native_libs_dirs)
-    base_output_dir = ctx.actions.declare_output(identifier)
+    base_output_dir = ctx.actions.declare_output(identifier, dir = True)
     output_dir = base_output_dir.project(_get_native_libs_as_assets_dir(module)) if package_as_assets else base_output_dir
     ctx.actions.run(
         cmd_args([filter_tool, native_libs_dirs_file, output_dir.as_output(), "--abis"] + abis).hidden(native_libs_dirs),

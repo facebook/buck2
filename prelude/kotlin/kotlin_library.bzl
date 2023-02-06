@@ -53,7 +53,7 @@ def _create_kotlin_sources(
     kotlin_toolchain = ctx.attrs._kotlin_toolchain[KotlinToolchainInfo]
     compile_kotlin_tool = kotlin_toolchain.compile_kotlin[RunInfo]
     kotlinc = kotlin_toolchain.kotlinc[RunInfo]
-    kotlinc_output = ctx.actions.declare_output("kotlinc_classes_output")
+    kotlinc_output = ctx.actions.declare_output("kotlinc_classes_output", dir = True)
 
     compile_kotlin_cmd = cmd_args([
         compile_kotlin_tool,

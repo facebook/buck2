@@ -317,7 +317,7 @@ def _maybe_generate_string_source_map(
         return None
 
     res_dirs = [resource_info.res for resource_info in resource_infos]
-    output = actions.declare_output("string_source_map")
+    output = actions.declare_output("string_source_map", dir = True)
     res_dirs_file = actions.write("resource_dirs_for_string_source_map", res_dirs)
     generate_string_source_map_cmd = cmd_args([
         android_toolchain.copy_string_resources[RunInfo],
