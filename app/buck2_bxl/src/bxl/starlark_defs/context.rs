@@ -65,6 +65,7 @@ use starlark::values::ValueTyped;
 use starlark::StarlarkDocs;
 
 use crate::bxl::starlark_defs::alloc_node::AllocNode;
+use crate::bxl::starlark_defs::audit::StarlarkAuditCtx;
 use crate::bxl::starlark_defs::context::actions::BxlActionsCtx;
 use crate::bxl::starlark_defs::context::fs::BxlFilesystem;
 use crate::bxl::starlark_defs::context::output::OutputStream;
@@ -462,5 +463,15 @@ fn register_context(builder: &mut MethodsBuilder) {
             &this.output_stream.project_fs,
             &this.output_stream.artifact_fs,
         ))
+    }
+
+    /// Returns the [`StarlarkAuditCtx`] that holds all the audit functions.
+    fn audit<'v>(this: &'v BxlContext<'v>) -> anyhow::Result<StarlarkAuditCtx<'v>> {
+        this.async_ctx.via_dice(|ctx| async move {
+            let working_dir = this.cell.path().as_project_relative_path();
+            let cell_resolver = ctx.get_cell_resolver().await?;
+
+            StarlarkAuditCtx::new(this, working_dir.to_buf(), cell_resolver)
+        })
     }
 }
