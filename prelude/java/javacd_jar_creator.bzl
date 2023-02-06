@@ -185,8 +185,11 @@ def create_jar_artifact_javacd(
 
             cmd = cmd_args([
                 java_toolchain.used_classes_to_dep_file[RunInfo],
+                "--always-used-files",
                 srcs_and_resources,
+                "--used-classes",
                 used_classes_json.as_output(),
+                "--output",
                 classpath_jars_tag.tag_artifacts(dep_file.as_output()),
                 cmd,
             ])
