@@ -1707,7 +1707,7 @@ impl<V: 'static> FileTree<V> {
     }
 }
 
-trait WithPathsIterator<K, V>: Iterator<Item = (VecDeque<K>, V)>
+trait WithPathsIterator<K, V>: Iterator<Item = (Vec<K>, V)>
 where
     K: AsRef<FileName>,
 {

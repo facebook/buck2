@@ -21,8 +21,9 @@
 
 use std::borrow::Borrow;
 use std::collections::hash_map::Entry;
+use std::collections::hash_map::IntoIter;
+use std::collections::hash_map::Iter;
 use std::collections::HashMap;
-use std::collections::VecDeque;
 use std::hash::Hash;
 
 use buck2_core::fs::paths::file_name::FileNameBuf;
@@ -196,59 +197,93 @@ impl<K: 'static + Eq + Hash + Clone, V: 'static> DataTree<K, V> {
 
     /// Returns an iterator over DataTree<K, V>, where each element is a tuple consisting of iterator
     /// of K (as a VecDeque) and V.
-    #[allow(dead_code)]
     pub fn iter(&self) -> DataTreeIterator<'_, K, V> {
-        fn iter_helper<K, V>(
-            tree: &DataTree<K, V>,
-            depth: usize, // Used to allocate VecDeque capacity
-        ) -> Box<dyn Iterator<Item = (VecDeque<&K>, &V)> + '_> {
-            match tree {
-                DataTree::Tree(children) => box children.iter().flat_map(move |(k, data_tree)| {
-                    iter_helper(data_tree, depth + 1)
-                        .into_iter()
-                        .map(move |(mut key_iter, v)| {
-                            // Need to return a VecDeque and not Vec because keys are pushed from the front
-                            key_iter.push_front(k);
-                            (key_iter, v)
-                        })
-                }),
-                DataTree::Data(v) => box std::iter::once((VecDeque::with_capacity(depth), v)),
-            }
+        match self {
+            Self::Tree(t) => DataTreeIterator::Stack(vec![(None, t.iter())]),
+            Self::Data(v) => DataTreeIterator::Entry(Some(v)),
         }
-
-        iter_helper(self, 0)
     }
 }
 
-pub type DataTreeIterator<'a, K, V> = Box<dyn Iterator<Item = (VecDeque<&'a K>, &'a V)> + 'a>;
-pub type DataTreeIntoIterator<K, V> = Box<dyn Iterator<Item = (VecDeque<K>, V)>>;
+pub enum DataTreeIterator<'a, K, V> {
+    Stack(Vec<(Option<&'a K>, Iter<'a, K, DataTree<K, V>>)>),
+    Entry(Option<&'a V>),
+}
+
+impl<'a, K, V> Iterator for DataTreeIterator<'a, K, V> {
+    type Item = (Vec<&'a K>, &'a V);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            Self::Stack(ref mut stack) => loop {
+                let (_, ref mut last) = stack.last_mut()?;
+
+                match last.next() {
+                    Some((k, DataTree::Tree(t))) => {
+                        stack.push((Some(k), t.iter()));
+                    }
+                    Some((k, DataTree::Data(v))) => {
+                        let mut path = Vec::with_capacity(stack.len());
+                        path.extend(stack.iter().filter_map(|(k, _)| k.as_ref()));
+                        path.push(k);
+                        return Some((path, v));
+                    }
+                    None => {
+                        stack.pop();
+                    }
+                }
+            },
+            Self::Entry(v) => v.take().map(|v| (Vec::new(), v)),
+        }
+    }
+}
+
+pub enum DataTreeIntoIterator<K, V> {
+    Stack(Vec<(Option<K>, IntoIter<K, DataTree<K, V>>)>),
+    Entry(Option<V>),
+}
+
+impl<K, V> Iterator for DataTreeIntoIterator<K, V>
+where
+    K: Clone + 'static,
+    V: 'static,
+{
+    type Item = (Vec<K>, V);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            Self::Stack(ref mut stack) => loop {
+                let (_, ref mut last) = stack.last_mut()?;
+
+                match last.next() {
+                    Some((k, DataTree::Tree(t))) => {
+                        stack.push((Some(k), t.into_iter()));
+                    }
+                    Some((k, DataTree::Data(v))) => {
+                        let mut path = Vec::with_capacity(stack.len());
+                        path.extend(stack.iter().filter_map(|(k, _)| k.clone()));
+                        path.push(k);
+                        return Some((path, v));
+                    }
+                    None => {
+                        stack.pop();
+                    }
+                }
+            },
+            Self::Entry(v) => v.take().map(|v| (Vec::new(), v)),
+        }
+    }
+}
 
 impl<K: 'static + Eq + Hash + Clone, V: 'static> IntoIterator for DataTree<K, V> {
-    type Item = (VecDeque<K>, V);
+    type Item = (Vec<K>, V);
     type IntoIter = DataTreeIntoIterator<K, V>;
 
     fn into_iter(self) -> Self::IntoIter {
-        fn iter_helper<K: 'static + Clone, V: 'static>(
-            tree: DataTree<K, V>,
-            depth: usize, // Used to allocate VecDeque capacity
-        ) -> Box<dyn Iterator<Item = (VecDeque<K>, V)> + 'static> {
-            match tree {
-                DataTree::Tree(children) => {
-                    box children.into_iter().flat_map(move |(k, data_tree)| {
-                        iter_helper(data_tree, depth + 1).into_iter().map(
-                            move |(mut key_iter, v)| {
-                                // Need to return a VecDeque and not Vec because keys are pushed from the front
-                                key_iter.push_front(k.clone());
-                                (key_iter, v)
-                            },
-                        )
-                    })
-                }
-                DataTree::Data(v) => box std::iter::once((VecDeque::with_capacity(depth), v)),
-            }
+        match self {
+            Self::Tree(t) => DataTreeIntoIterator::Stack(vec![(None, t.into_iter())]),
+            Self::Data(v) => DataTreeIntoIterator::Entry(Some(v)),
         }
-
-        iter_helper(self, 0)
     }
 }
 
