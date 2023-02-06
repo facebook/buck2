@@ -24,7 +24,6 @@ use buck2_cli_proto::ClientContext;
 use buck2_cli_proto::QueryOutputFormat;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_core::cells::CellResolver;
-use buck2_core::configuration::ConfigurationData;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::target::label::TargetLabel;
 use buck2_execute::path::buck_out_path::BuckOutPathParser;
@@ -52,16 +51,12 @@ pub(crate) enum AuditOutputError {
         "BXL, anonymous target, test, and tmp artifacts are not supported for audit output. Only rule output artifacts are supported. Path: `{0}`"
     )]
     UnsupportedPathType(String),
-    #[error(
-        "Current platform does not match the configuration of the artifact path. Current platform: `{0}` with hash: `{1}`. Artifact platform hash: `{2}`"
-    )]
-    PlatformMismatch(ConfigurationData, String, String),
 }
 
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
 #[clap(
     name = "audit-output",
-    about = "Query the action that produced the output artifact. Does not support BXL, test, scratch, or anon artifacts."
+    about = "Query the action that produced the output artifact. Does not support BXL, test, scratch, or anon artifacts. If the configuration hash of the output path does not match the current platform configuration, the unconfigured target label will be returned."
 )]
 pub struct AuditOutputCommand {
     #[clap(flatten)]
@@ -164,13 +159,22 @@ async fn find_matching_action<'v>(
     Ok(None)
 }
 
+/// The result of audit output.
+pub enum AuditOutputResult {
+    /// The exact action that matched the buck-out path.
+    Match(ActionQueryNode),
+    /// If the platform configuration of the buck-out path doesn't match the platform used when calling
+    /// audit output, then we return the unconfigured target label.
+    MaybeRelevant(TargetLabel),
+}
+
 async fn audit_output<'v>(
     output_path: &'v str,
     working_dir: &'v ProjectRelativePath,
     cell_resolver: &'v CellResolver,
     dice_ctx: &'v DiceComputations,
     global_target_platform: Option<TargetLabel>,
-) -> anyhow::Result<Option<ActionQueryNode>> {
+) -> anyhow::Result<Option<AuditOutputResult>> {
     let buck_out_parser = BuckOutPathParser::new(cell_resolver);
     let parsed = buck_out_parser.parse(output_path)?;
 
@@ -195,11 +199,7 @@ async fn audit_output<'v>(
     let command_config = configured_target_label.cfg();
     let command_config_hash = command_config.output_hash().to_owned();
     if !command_config_hash.eq(&config_hash) {
-        return Err(anyhow::anyhow!(AuditOutputError::PlatformMismatch(
-            command_config.clone(),
-            command_config_hash,
-            config_hash,
-        )));
+        return Ok(Some(AuditOutputResult::MaybeRelevant(target_label)));
     }
 
     let dice_aquery_delegate =
@@ -210,13 +210,14 @@ async fn audit_output<'v>(
         .await?
         .require_compatible()?;
 
-    find_matching_action(
+    Ok(find_matching_action(
         dice_aquery_delegate,
         dice_ctx,
         &analysis,
         &path_after_isolation_prefix,
     )
-    .await
+    .await?
+    .map(AuditOutputResult::Match))
 }
 
 #[async_trait]
@@ -245,13 +246,24 @@ impl AuditSubcommand for AuditOutputCommand {
                 )
                 .await?;
 
-                let action = audit_output(&self.output_path, working_dir, &cell_resolver, &dice_ctx, global_target_platform).await?;
+                let result = audit_output(&self.output_path, working_dir, &cell_resolver, &dice_ctx, global_target_platform).await?;
 
                 let mut stdout = server_ctx.stdout()?;
 
-                match action {
-                    Some(action) => {
-                        write_output(&mut stdout, action, self.json, &self.query_attributes.get()?, &cell_resolver).await?
+                match result {
+                    Some(result) => {
+                        match result {
+                            AuditOutputResult::Match(action) => {
+                                write_output(&mut stdout, action, self.json, &self.query_attributes.get()?, &cell_resolver).await?
+                            },
+                            AuditOutputResult::MaybeRelevant(label) => {
+                                writeln!(
+                                    stdout,
+                                    "Platform configuration of the buck-out path did not match the one used to invoke this command. Returning the most relevant unconfigured target label for the buck-out path: {}",
+                                    label
+                                )?;
+                            }
+                        }
                     },
                     None => {
                         // If we get here, that means we failed to find any matching actions
