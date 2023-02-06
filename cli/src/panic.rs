@@ -198,7 +198,6 @@ mod imp {
             /* retry_backoff */ Duration::from_millis(500),
             /* retry_attempts */ 5,
             /* message_batch_size */ None,
-            /* use_binary_serialization */ false,
         ) {
             Ok(Some(sink)) => sink,
             _ => {

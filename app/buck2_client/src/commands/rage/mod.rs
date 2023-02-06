@@ -420,7 +420,6 @@ fn create_scribe_sink(ctx: &ClientCommandContext) -> anyhow::Result<Option<Thrif
         /* retry_backoff */ Duration::from_millis(500),
         /* retry_attempts */ 5,
         /* message_batch_size */ None,
-        /* use_binary_serialization */ false,
     )
 }
 

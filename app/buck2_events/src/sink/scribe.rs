@@ -44,7 +44,6 @@ mod fbcode {
     pub struct ThriftScribeSink {
         category: String,
         client: scribe_client::ScribeClient,
-        use_binary_serialization: bool,
     }
 
     impl ThriftScribeSink {
@@ -56,7 +55,6 @@ mod fbcode {
             retry_backoff: Duration,
             retry_attempts: usize,
             message_batch_size: Option<usize>,
-            use_binary_serialization: bool,
         ) -> anyhow::Result<ThriftScribeSink> {
             let client = scribe_client::ScribeClient::new(
                 fb,
@@ -65,11 +63,7 @@ mod fbcode {
                 retry_attempts,
                 message_batch_size,
             )?;
-            Ok(ThriftScribeSink {
-                category,
-                client,
-                use_binary_serialization,
-            })
+            Ok(ThriftScribeSink { category, client })
         }
 
         // Send this event now, bypassing internal message queue.
@@ -103,19 +97,11 @@ mod fbcode {
             Self::smart_truncate_event(event.data_mut());
             let proto: Box<buck2_data::BuckEvent> = event.into();
 
-            let mut serialized_protobuf = Vec::with_capacity(proto.encoded_len() + 1);
-            let buf = if self.use_binary_serialization {
-                // Add a header byte to indicate this is _not_ base64 encoding.
-                serialized_protobuf.push(b'!');
-                let mut proto_bytes = proto.encode_to_vec();
-                serialized_protobuf.append(&mut proto_bytes);
-                serialized_protobuf
-            } else {
-                proto
-                    .encode(&mut serialized_protobuf)
-                    .expect("failed to encode protobuf message");
-                base64::encode(&serialized_protobuf).as_bytes().to_vec()
-            };
+            // Add a header byte to indicate this is _not_ base64 encoding.
+            let mut buf = Vec::with_capacity(proto.encoded_len() + 1);
+            buf.push(b'!');
+            let mut proto_bytes = proto.encode_to_vec();
+            buf.append(&mut proto_bytes);
 
             if buf.len() > SCRIBE_MESSAGE_SIZE_LIMIT {
                 // if this BuckEvent is already a truncated one but the buffer byte size exceeds the limit,
@@ -390,7 +376,6 @@ fn new_thrift_scribe_sink_if_fbcode(
     retry_backoff: Duration,
     retry_attempts: usize,
     message_batch_size: Option<usize>,
-    use_binary_serialization: bool,
 ) -> anyhow::Result<Option<ThriftScribeSink>> {
     #[cfg(fbcode_build)]
     {
@@ -401,7 +386,6 @@ fn new_thrift_scribe_sink_if_fbcode(
             retry_backoff,
             retry_attempts,
             message_batch_size,
-            use_binary_serialization,
         )?))
     }
     #[cfg(not(fbcode_build))]
@@ -412,7 +396,6 @@ fn new_thrift_scribe_sink_if_fbcode(
             retry_backoff,
             retry_attempts,
             message_batch_size,
-            use_binary_serialization,
         );
         Ok(None)
     }
@@ -424,7 +407,6 @@ pub fn new_thrift_scribe_sink_if_enabled(
     retry_backoff: Duration,
     retry_attempts: usize,
     message_batch_size: Option<usize>,
-    use_binary_serialization: bool,
 ) -> anyhow::Result<Option<ThriftScribeSink>> {
     if is_enabled() {
         new_thrift_scribe_sink_if_fbcode(
@@ -433,7 +415,6 @@ pub fn new_thrift_scribe_sink_if_enabled(
             retry_backoff,
             retry_attempts,
             message_batch_size,
-            use_binary_serialization,
         )
     } else {
         Ok(None)

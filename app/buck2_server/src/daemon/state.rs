@@ -341,16 +341,12 @@ impl DaemonState {
             .parse("buck2", "event_log_retry_attempts")?
             .unwrap_or(5);
         let message_batch_size = root_config.parse("buck2", "event_log_message_batch_size")?;
-        let use_binary_serialization = root_config
-            .parse("buck2", "event_log_use_binary_serialization")?
-            .unwrap_or(false);
         let scribe_sink = Self::init_scribe_sink(
             fb,
             buffer_size,
             retry_backoff,
             retry_attempts,
             message_batch_size,
-            use_binary_serialization,
         )
         .context("failed to init scribe sink")?;
 
@@ -457,7 +453,6 @@ impl DaemonState {
         retry_backoff: Duration,
         retry_attempts: usize,
         message_batch_size: Option<usize>,
-        use_binary_serialization: bool,
     ) -> anyhow::Result<Option<Arc<dyn EventSink>>> {
         facebook_only();
         scribe::new_thrift_scribe_sink_if_enabled(
@@ -466,7 +461,6 @@ impl DaemonState {
             retry_backoff,
             retry_attempts,
             message_batch_size,
-            use_binary_serialization,
         )
         .map(|maybe_scribe| maybe_scribe.map(|scribe| Arc::new(scribe) as _))
     }
