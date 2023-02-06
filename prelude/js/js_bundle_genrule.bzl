@@ -78,7 +78,7 @@ def _get_extra_providers(
         initial_target: ["provider_collection", "dependency"],
         js_bundle_out: JsBundleInfo.type) -> ["provider"]:
     providers = []
-    android_resource_info = initial_target[AndroidResourceInfo]
+    android_resource_info = initial_target.get(AndroidResourceInfo)
     if android_resource_info:
         new_android_resource_info = AndroidResourceInfo(
             raw_target = ctx.label.raw_target(),
