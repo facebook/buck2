@@ -21,6 +21,7 @@ use ref_cast::RefCast;
 use relative_path::RelativePath;
 use relative_path::RelativePathBuf;
 use serde::Serialize;
+use smallvec::SmallVec;
 use thiserror::Error;
 
 use crate::fs::fs_util;
@@ -1165,19 +1166,7 @@ impl<'a> FromIterator<&'a FileName> for Option<ForwardRelativePathBuf> {
     where
         I: IntoIterator<Item = &'a FileName>,
     {
-        let mut ret = String::new();
-        for part in iter {
-            if !ret.is_empty() {
-                ret.push('/');
-            }
-            ret.push_str(part.as_ref());
-        }
-
-        if ret.is_empty() {
-            None
-        } else {
-            Some(ForwardRelativePathBuf(ret))
-        }
+        from_iter::<20, _>(iter)
     }
 }
 
@@ -1192,8 +1181,43 @@ impl<'a> FromIterator<&'a FileNameBuf> for Option<ForwardRelativePathBuf> {
     }
 }
 
+fn from_iter<'a, const N: usize, I>(iter: I) -> Option<ForwardRelativePathBuf>
+where
+    I: IntoIterator<Item = &'a FileName>,
+{
+    // Collect up to 20 pointers to the stack. This avoids a reallocation when joining paths of up
+    // to 20 components.
+    let parts = iter.into_iter().collect::<SmallVec<[_; 20]>>();
+
+    let mut first = true;
+    let mut size = 0;
+    for part in &parts {
+        if !first {
+            size += 1; // For `/`
+        }
+        size += part.as_str().len();
+        first = false;
+    }
+
+    let mut ret = String::with_capacity(size);
+    for part in &parts {
+        if !ret.is_empty() {
+            ret.push('/');
+        }
+        ret.push_str(part.as_ref());
+    }
+
+    if ret.is_empty() {
+        None
+    } else {
+        Some(ForwardRelativePathBuf(ret))
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use crate::fs::paths::forward_rel_path::from_iter;
+    use crate::fs::paths::forward_rel_path::FileName;
     use crate::fs::paths::forward_rel_path::ForwardRelativePath;
     use crate::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 
@@ -1264,5 +1288,20 @@ mod tests {
                 ForwardRelativePath::new("bar/baz").unwrap(),
             ]))
         );
+    }
+
+    #[test]
+    fn test_from_iter() {
+        let parts = &["foo", "bar", "baz"]
+            .into_iter()
+            .map(FileName::unchecked_new)
+            .collect::<Vec<_>>();
+
+        let expected = Some(ForwardRelativePath::unchecked_new("foo/bar/baz").to_buf());
+
+        assert_eq!(from_iter::<1, _>(parts.iter().copied()), expected);
+        assert_eq!(from_iter::<2, _>(parts.iter().copied()), expected);
+        assert_eq!(from_iter::<3, _>(parts.iter().copied()), expected);
+        assert_eq!(from_iter::<4, _>(parts.iter().copied()), expected);
     }
 }

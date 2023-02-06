@@ -37,6 +37,7 @@ tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 triomphe = { workspace = true }
 rand = { workspace = true }
+smallvec = { workspace = true }
 starlark_map = { workspace = true }
 
 gazebo = { workspace = true }
