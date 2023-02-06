@@ -10,12 +10,11 @@ version = "0.4.1"
 proc-macro = true
 
 [dependencies]
-# TODO(nga): use `= { workspace = true }` here.
-itertools = "0.10.0"
-proc-macro2 = "1.0"
-syn = {version = "1.0.27", features = ["extra-traits", "full"]}
-quote = "1.0.3"
-textwrap = "0.15"
+itertools = { workspace = true }
+proc-macro2 = { workspace = true }
+syn = { workspace = true }
+quote = { workspace = true }
+textwrap = { workspace = true }
 
 gazebo_lint.version = "0.1"
 gazebo_lint.optional = true
