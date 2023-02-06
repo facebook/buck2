@@ -899,6 +899,7 @@ mod tests {
     use buck2_node::provider_id_set::ProviderIdSet;
     use buck2_node::rule_type::RuleType;
     use buck2_node::rule_type::StarlarkRuleType;
+    use buck2_util::arc_str::ArcSlice;
     use dice::testing::DiceBuilder;
     use dice::UserComputationData;
     use dupe::Dupe;
@@ -937,7 +938,7 @@ mod tests {
             (
                 "some_deps",
                 Attribute::testing_new(None, AttrType::list(AttrType::dep(ProviderIdSet::EMPTY))),
-                CoercedAttr::from_literal(AttrLiteral::List(Arc::new([
+                CoercedAttr::from_literal(AttrLiteral::List(ArcSlice::new([
                     CoercedAttr::from_literal(AttrLiteral::Dep(box DepAttr {
                         attr_type: DepAttrType::new(
                             ProviderIdSet::EMPTY,
@@ -999,7 +1000,7 @@ mod tests {
             "another_field" =>
              ConfiguredAttr::from_literal(AttrLiteral::String("some_string".into())),
             "some_deps" =>
-             ConfiguredAttr::from_literal(AttrLiteral::List(Arc::new([
+             ConfiguredAttr::from_literal(AttrLiteral::List(ArcSlice::new([
                 ConfiguredAttr::from_literal(AttrLiteral::Dep(box DepAttr {
                     attr_type: DepAttrType::new(ProviderIdSet::EMPTY, DepAttrTransition::Identity),
                     label: ProvidersLabel::new(label2.dupe(), ProvidersName::Default)
@@ -1013,7 +1014,7 @@ mod tests {
             "another_field" =>
              ConfiguredAttr::from_literal(AttrLiteral::String("another_string".into())),
             "some_deps" => ConfiguredAttr::from_literal(AttrLiteral::List(
-                Arc::new([])
+                ArcSlice::new([])
             )),
         ];
 

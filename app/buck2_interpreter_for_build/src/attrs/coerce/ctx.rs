@@ -31,6 +31,7 @@ use buck2_query::query::syntax::simple::functions::QueryFunctionsVisitLiterals;
 use buck2_query::query::syntax::simple::functions::QueryLiteralVisitor;
 use buck2_query_parser::spanned::Spanned;
 use buck2_query_parser::Expr;
+use buck2_util::arc_str::ArcSlice;
 use buck2_util::arc_str::ArcStr;
 use bumpalo::Bump;
 use dupe::Dupe;
@@ -76,14 +77,14 @@ pub struct BuildAttrCoercionContext {
     /// Strings are owned by `alloc`, using bump allocator makes evaluation 0.5% faster.
     label_cache: RefCell<RawTable<(u64, *const str, ProvidersLabel)>>,
     str_interner: AttrCoercionInterner<ArcStr>,
-    list_interner: AttrCoercionInterner<Arc<[CoercedAttr]>>,
+    list_interner: AttrCoercionInterner<ArcSlice<CoercedAttr>>,
     // TODO(scottcao): Dict and selects need separate interners right now because
     // they have different key types. We can optimize this by interning keys and values
     // separately and use the same interner for dict and select values. This will also
     // reduce key duplication in selects since select keys are more likely to be deduplicated
     // than select values
-    dict_interner: AttrCoercionInterner<Arc<[(CoercedAttr, CoercedAttr)]>>,
-    select_interner: AttrCoercionInterner<Arc<[(TargetLabel, CoercedAttr)]>>,
+    dict_interner: AttrCoercionInterner<ArcSlice<(CoercedAttr, CoercedAttr)>>,
+    select_interner: AttrCoercionInterner<ArcSlice<(TargetLabel, CoercedAttr)>>,
     /// `ConfiguredGraphQueryEnvironment::functions()`.
     query_functions: Arc<dyn QueryFunctionsVisitLiterals>,
 }
@@ -187,21 +188,21 @@ impl AttrCoercionContext for BuildAttrCoercionContext {
         self.str_interner.intern(value)
     }
 
-    fn intern_list(&self, value: Vec<CoercedAttr>) -> Arc<[CoercedAttr]> {
+    fn intern_list(&self, value: Vec<CoercedAttr>) -> ArcSlice<CoercedAttr> {
         self.list_interner.intern(value)
     }
 
     fn intern_dict(
         &self,
         value: Vec<(CoercedAttr, CoercedAttr)>,
-    ) -> Arc<[(CoercedAttr, CoercedAttr)]> {
+    ) -> ArcSlice<(CoercedAttr, CoercedAttr)> {
         self.dict_interner.intern(value)
     }
 
     fn intern_select(
         &self,
         value: Vec<(TargetLabel, CoercedAttr)>,
-    ) -> Arc<[(TargetLabel, CoercedAttr)]> {
+    ) -> ArcSlice<(TargetLabel, CoercedAttr)> {
         self.select_interner.intern(value)
     }
 

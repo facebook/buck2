@@ -57,6 +57,7 @@ use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_node::attrs::configured_traversal::ConfiguredAttrTraversal;
 use buck2_node::attrs::internal::internal_attrs;
 use buck2_node::configuration::execution::ExecutionPlatformResolution;
+use buck2_util::arc_str::ArcSlice;
 use buck2_util::arc_str::ArcStr;
 use derive_more::Display;
 use dice::DiceComputations;
@@ -406,7 +407,7 @@ impl AttrCoercionContext for AnonAttrCtx {
         ArcStr::from(value)
     }
 
-    fn intern_list(&self, value: Vec<CoercedAttr>) -> Arc<[CoercedAttr]> {
+    fn intern_list(&self, value: Vec<CoercedAttr>) -> ArcSlice<CoercedAttr> {
         // TODO(scottcao): do intern.
         value.into()
     }
@@ -414,7 +415,7 @@ impl AttrCoercionContext for AnonAttrCtx {
     fn intern_dict(
         &self,
         value: Vec<(CoercedAttr, CoercedAttr)>,
-    ) -> Arc<[(CoercedAttr, CoercedAttr)]> {
+    ) -> ArcSlice<(CoercedAttr, CoercedAttr)> {
         // TODO(scottcao): do intern.
         value.into()
     }
@@ -422,7 +423,7 @@ impl AttrCoercionContext for AnonAttrCtx {
     fn intern_select(
         &self,
         value: Vec<(TargetLabel, CoercedAttr)>,
-    ) -> Arc<[(TargetLabel, CoercedAttr)]> {
+    ) -> ArcSlice<(TargetLabel, CoercedAttr)> {
         // TODO(scottcao): do intern.
         value.into()
     }

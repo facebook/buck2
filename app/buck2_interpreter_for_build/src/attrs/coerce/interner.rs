@@ -14,6 +14,7 @@ use std::hash::Hasher;
 use std::marker;
 use std::sync::Arc;
 
+use buck2_util::arc_str::ArcSlice;
 use buck2_util::arc_str::ArcStr;
 use dupe::Dupe;
 use hashbrown::raw::RawTable;
@@ -80,8 +81,8 @@ impl<T: Eq> Equiv<Arc<T>> for T {
     }
 }
 
-impl<T: Eq> Equiv<Arc<[T]>> for Vec<T> {
-    fn equivalent(&self, value: &Arc<[T]>) -> bool {
+impl<T: Eq> Equiv<ArcSlice<T>> for Vec<T> {
+    fn equivalent(&self, value: &ArcSlice<T>) -> bool {
         self == &**value
     }
 }

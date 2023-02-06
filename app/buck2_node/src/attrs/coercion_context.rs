@@ -7,8 +7,6 @@
  * of this source tree.
  */
 
-use std::sync::Arc;
-
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::provider::label::NonDefaultProvidersName;
 use buck2_core::provider::label::ProvidersLabel;
@@ -18,6 +16,7 @@ use buck2_core::target::name::TargetName;
 use buck2_query::query::syntax::simple::functions::QueryLiteralVisitor;
 use buck2_query_parser::spanned::Spanned;
 use buck2_query_parser::Expr;
+use buck2_util::arc_str::ArcSlice;
 use buck2_util::arc_str::ArcStr;
 
 use super::coerced_attr::CoercedAttr;
@@ -47,19 +46,19 @@ pub trait AttrCoercionContext {
     fn intern_str(&self, value: &str) -> ArcStr;
 
     // Reuse previously allocated slices if possible.
-    fn intern_list(&self, value: Vec<CoercedAttr>) -> Arc<[CoercedAttr]>;
+    fn intern_list(&self, value: Vec<CoercedAttr>) -> ArcSlice<CoercedAttr>;
 
     // Reuse previously allocated selects if possible.
     fn intern_select(
         &self,
         value: Vec<(TargetLabel, CoercedAttr)>,
-    ) -> Arc<[(TargetLabel, CoercedAttr)]>;
+    ) -> ArcSlice<(TargetLabel, CoercedAttr)>;
 
     // Reuse previously allocated dicts if possible.
     fn intern_dict(
         &self,
         value: Vec<(CoercedAttr, CoercedAttr)>,
-    ) -> Arc<[(CoercedAttr, CoercedAttr)]>;
+    ) -> ArcSlice<(CoercedAttr, CoercedAttr)>;
 
     /// Attempt to convert a string into a BuckPath
     fn coerce_path(&self, value: &str, allow_directory: bool) -> anyhow::Result<CoercedPath>;

@@ -8,13 +8,13 @@
  */
 
 use std::fmt::Display;
-use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_core::buck_path::BuckPathRef;
 use buck2_core::package::PackageLabel;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::label::TargetLabel;
+use buck2_util::arc_str::ArcSlice;
 use buck2_util::arc_str::ArcStr;
 use dupe::Dupe;
 use either::Either;
@@ -58,9 +58,9 @@ pub enum AttrLiteral<C: AttrConfig> {
     String(ArcStr),
     // Like String, but drawn from a set of variants, so doesn't support concat
     EnumVariant(ArcStr),
-    List(Arc<[C]>),
-    Tuple(Arc<[C]>),
-    Dict(Arc<[(C, C)]>),
+    List(ArcSlice<C>),
+    Tuple(ArcSlice<C>),
+    Dict(ArcSlice<(C, C)>),
     None,
     Dep(Box<DepAttr<C::ProvidersType>>),
     ConfiguredDep(Box<DepAttr<ConfiguredProvidersLabel>>),

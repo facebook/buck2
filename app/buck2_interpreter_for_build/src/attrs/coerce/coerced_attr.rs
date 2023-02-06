@@ -160,6 +160,7 @@ mod tests {
     use buck2_node::attrs::coerced_attr::CoercedSelector;
     use buck2_node::attrs::configuration_context::AttrConfigurationContext;
     use buck2_node::attrs::fmt_context::AttrFmtContext;
+    use buck2_util::arc_str::ArcSlice;
     use buck2_util::arc_str::ArcStr;
     use dupe::Dupe;
 
@@ -167,7 +168,7 @@ mod tests {
     fn selector_equals_accounts_for_ordering() {
         let s1 = CoercedAttr::Selector(
             box CoercedSelector::new(
-                Arc::new([
+                ArcSlice::new([
                     (
                         TargetLabel::testing_parse("cell1//pkg1:target1"),
                         CoercedAttr::Literal(AttrLiteral::Bool(true)),
@@ -183,7 +184,7 @@ mod tests {
         );
         let s2 = CoercedAttr::Selector(
             box CoercedSelector::new(
-                Arc::new([
+                ArcSlice::new([
                     (
                         TargetLabel::testing_parse("cell1//pkg1:target1"),
                         CoercedAttr::Literal(AttrLiteral::Bool(true)),
@@ -202,7 +203,7 @@ mod tests {
 
         let s2 = CoercedAttr::Selector(
             box CoercedSelector::new(
-                Arc::new([
+                ArcSlice::new([
                     (
                         TargetLabel::testing_parse("cell2//pkg2:target2"),
                         CoercedAttr::Literal(AttrLiteral::Bool(false)),
@@ -367,7 +368,7 @@ mod tests {
             r#"{"__type":"selector","entries":{"//:a":true,"//:b":10,"DEFAULT":"ddd"}}"#,
             CoercedAttr::Selector(
                 box CoercedSelector::new(
-                    Arc::new([
+                    ArcSlice::new([
                         (
                             TargetLabel::testing_parse("//:a"),
                             CoercedAttr::Literal(AttrLiteral::Bool(true))

@@ -9,13 +9,13 @@
 
 use std::collections::HashSet;
 use std::hash::Hash;
-use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_core::configuration::ConfigurationData;
 use buck2_core::configuration::ConfigurationDataData;
 use buck2_core::package::PackageLabel;
 use buck2_core::target::label::TargetLabel;
+use buck2_util::arc_str::ArcSlice;
 use dupe::Dupe;
 use dupe::IterDupedExt;
 use gazebo::prelude::SliceExt;
@@ -58,13 +58,13 @@ enum CoercedSelectorKeyRef<'a> {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Allocative)]
 pub struct CoercedSelector {
-    pub(crate) entries: Arc<[(TargetLabel, CoercedAttr)]>,
+    pub(crate) entries: ArcSlice<(TargetLabel, CoercedAttr)>,
     pub(crate) default: Option<CoercedAttr>,
 }
 
 impl CoercedSelector {
     pub fn new(
-        entries: Arc<[(TargetLabel, CoercedAttr)]>,
+        entries: ArcSlice<(TargetLabel, CoercedAttr)>,
         default: Option<CoercedAttr>,
     ) -> anyhow::Result<CoercedSelector> {
         Self::check_all_keys_unique(&entries)?;
