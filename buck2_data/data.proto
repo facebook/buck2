@@ -1296,6 +1296,8 @@ message InvocationRecord {
   optional uint64 system_total_memory_bytes = 46;
   // Information of file changes provided by file watcher
   FileWatcherStats file_watcher_stats = 47;
+  // Time elapsed from a build's start until the last action ends execution.
+  optional uint64 time_to_last_action_execution_end_ms = 48;
 }
 
 message CacheUploadStart {

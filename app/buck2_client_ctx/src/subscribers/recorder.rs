@@ -91,6 +91,7 @@ mod imp {
         time_to_first_command_execution_start: Option<Duration>,
         system_total_memory_bytes: Option<u64>,
         file_watcher_stats: Option<buck2_data::FileWatcherStats>,
+        time_to_last_action_execution_end: Option<Duration>,
     }
 
     impl InvocationRecorder {
@@ -145,6 +146,7 @@ mod imp {
                 time_to_first_command_execution_start: None,
                 system_total_memory_bytes: Some(system_memory_stats()),
                 file_watcher_stats: None,
+                time_to_last_action_execution_end: None,
             }
         }
 
@@ -228,6 +230,9 @@ mod imp {
                         .and_then(|d| u64::try_from(d.as_millis()).ok()),
                     system_total_memory_bytes: self.system_total_memory_bytes,
                     file_watcher_stats: self.file_watcher_stats.take(),
+                    time_to_last_action_execution_end_ms: self
+                        .time_to_last_action_execution_end
+                        .and_then(|d| u64::try_from(d.as_millis()).ok()),
                 };
                 let event = BuckEvent::new(
                     SystemTime::now(),
@@ -380,6 +385,8 @@ mod imp {
             }) {
                 self.run_command_failure_count += 1;
             }
+
+            self.time_to_last_action_execution_end = Some(self.start_time.elapsed());
 
             Ok(())
         }
