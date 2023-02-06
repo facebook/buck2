@@ -8,6 +8,7 @@
  */
 
 use std::fmt::Debug;
+use std::fmt::Write;
 use std::sync::Arc;
 
 use anyhow::Context as _;
@@ -124,6 +125,61 @@ impl ExtensionCommand<DefaultIoHandler> for RefreshTtls {
     }
 }
 
+#[derive(Derivative)]
+#[derivative(Debug)]
+struct TestIter {
+    sender: Sender<String>,
+    count: usize,
+}
+
+impl ExtensionCommand<DefaultIoHandler> for TestIter {
+    fn execute(
+        self: Box<Self>,
+        tree: &mut ArtifactTree,
+        _processor: &mut DeferredMaterializerCommandProcessor<DefaultIoHandler>,
+    ) {
+        let mut out = String::new();
+
+        let now = std::time::Instant::now();
+
+        for _i in 0..self.count {
+            let it = tree.iter();
+
+            for e in it {
+                let _e = e;
+            }
+        }
+
+        writeln!(
+            &mut out,
+            "Elapsed for iter() ({} times): {:?}",
+            self.count,
+            now.elapsed()
+        )
+        .unwrap();
+
+        let now = std::time::Instant::now();
+
+        for _i in 0..self.count {
+            let it = tree.iter().with_paths();
+
+            for e in it {
+                let _e = e;
+            }
+        }
+
+        writeln!(
+            &mut out,
+            "Elapsed for iter().with_paths() ({} times): {:?}",
+            self.count,
+            now.elapsed()
+        )
+        .unwrap();
+
+        let _ignored = self.sender.send(out);
+    }
+}
+
 #[async_trait]
 impl DeferredMaterializerExtensions for DeferredMaterializer {
     fn iterate(
@@ -167,6 +223,14 @@ impl DeferredMaterializerExtensions for DeferredMaterializer {
                 sender,
             }))?;
         recv.await?.await
+    }
+
+    async fn test_iter(&self, count: usize) -> anyhow::Result<String> {
+        let (sender, receiver) = oneshot::channel();
+        self.command_sender.send(MaterializerCommand::Extension(
+            box TestIter { sender, count } as _,
+        ))?;
+        receiver.await.context("No response from materializer")
     }
 
     fn queue_size(&self) -> usize {

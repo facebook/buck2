@@ -41,6 +41,10 @@ enum DeferredMaterializerSubcommand {
         #[clap()]
         min_ttl: i64,
     },
+    TestIter {
+        #[clap(long, default_value = "1")]
+        count: usize,
+    },
 }
 
 #[async_trait]
@@ -75,6 +79,15 @@ impl AuditSubcommand for DeferredMaterializerCommand {
                             .refresh_ttls(min_ttl)
                             .await
                             .context("Failed to refresh")?;
+                    }
+                    DeferredMaterializerSubcommand::TestIter { count } => {
+                        let text = deferred_materializer
+                            .test_iter(count)
+                            .await
+                            .context("Failed to test_iter")?;
+
+                        let mut stdout = server_ctx.stdout()?;
+                        write!(stdout, "{}", text)?;
                     }
                 }
 

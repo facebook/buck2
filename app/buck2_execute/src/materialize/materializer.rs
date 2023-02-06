@@ -578,5 +578,7 @@ pub trait DeferredMaterializerExtensions: Send + Sync {
         tracked_only: bool,
     ) -> anyhow::Result<String>;
 
+    async fn test_iter(&self, count: usize) -> anyhow::Result<String>;
+
     fn queue_size(&self) -> usize;
 }
