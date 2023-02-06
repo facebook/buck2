@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::fmt;
 use std::sync::Arc;
 use std::time::Duration;
 use std::time::Instant;
@@ -363,15 +364,9 @@ impl CopiedArtifact {
     }
 }
 
-#[derive(Debug, Display)]
+#[derive(Debug)]
 enum CasDownloadInfoOrigin {
     /// Declared by an action that executed on RE.
-    #[display(
-        fmt = "{} retrieved {:.3} seconds ago with ttl = {:.3} seconds",
-        "action_digest",
-        "action_instant.elapsed().as_secs_f64()",
-        "ttl.as_secs_f64()"
-    )]
     Execution {
         /// Digest of the action that led us to discover this CAS object.
         action_digest: TrackedActionDigest,
@@ -386,8 +381,36 @@ enum CasDownloadInfoOrigin {
     },
 
     /// Simply declared by an action.
-    #[display(fmt = "declared")]
     Declared,
+}
+
+impl fmt::Display for CasDownloadInfoOrigin {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Execution {
+                action_digest,
+                action_instant,
+                ttl,
+            } => {
+                write!(
+                    f,
+                    "{} retrieved {:.3} seconds ago with ttl = {:.3} seconds",
+                    action_digest,
+                    action_instant.elapsed().as_secs_f64(),
+                    ttl.as_secs_f64()
+                )?;
+
+                if action_instant.elapsed() < *ttl {
+                    write!(f, " (not expired: action cache corruption)")?;
+                }
+            }
+            Self::Declared => {
+                write!(f, "declared")?;
+            }
+        }
+
+        Ok(())
+    }
 }
 
 /// Information about a CAS download we might require when an artifact is not materialized.
