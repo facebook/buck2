@@ -28,7 +28,7 @@ example = bxl(
 
 On the command line, you can invoke the arguments as follows:
 
-```
+```sh
 buck2 bxl //myscript.bxl:example -- --bool_arg true --list_type 1 --list_type 2 --target //foo:bar
 ```
 

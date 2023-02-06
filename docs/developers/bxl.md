@@ -4,7 +4,7 @@ title: Why BXL
 ---
 
 :::note
-Currently, BXL is under active development and should be considered a soft launch, slightly stable, with some missing APIs, subject to changes.
+Currently, BXL is under active development and should be considered a soft launch, slightly stable, with some missing APIs, and subject to changes.
 :::
 
 ## Buck2 Extension Language (BXL)

@@ -10,16 +10,16 @@ There are many overlaps between BXL and Buck2 (for example, both can run cquery 
 Following are some specific recommendations to help decide when to use BXL over regular Buck2:
 
 * **Use/inspect resolved attributes that are not exposed/accessible to users via normal Buck2 operations.**
-    * This includes introspecting the Starlark object of providers, analyzing the Starlark object of a rule’s attr before and after coercing and resolution, and introspecting intermediate query results.
+  * This includes introspecting the Starlark object of providers, analyzing the Starlark object of a rule’s attr before and after coercing and resolution, and introspecting intermediate query results.
 * **Reduce/eliminate the need to make several Buck2 calls within your program, such as running several subprocesses to call `cquery` several times.**
-    * With BXL, you can just call the BXL script once in a subprocess, potentially reducing the amount of code you need to write in your program.
+  * With BXL, you can just call the BXL script once in a subprocess, potentially reducing the amount of code you need to write in your program.
 * **Reduce/eliminate the need to manually parse Buck2 output format within your program, and any bugs that may come with manual parsing**.
-    * Some languages are more verbose than others when it comes to string parsing.
-    * BXL scripts are written in Starlark, which is basically a deterministic, immutable Python, and are able to directly introspect Starlark objects (such as rules and target nodes, and so on) and call methods on these objects instead of parsing them over Buck2’s output.
+  * Some languages are more verbose than others when it comes to string parsing.
+  * BXL scripts are written in Starlark, which is basically a deterministic, immutable Python, and are able to directly introspect Starlark objects (such as rules and target nodes, and so on) and call methods on these objects instead of parsing them over Buck2’s output.
 
 ## When is my BXL script cached?
 
-The entire BXL script is represented as a single node on the DICE graph (Buck2’s internal dependency graph). When the script’s input changes, the entire node is invalidated and needs to be recomputed. For example, if a BXL function calls uquery, then uses the result to do a cquery and then a build, if Buck2 detects that any of the recorded calls to uquery, cquery, and build changes, then the entire BXL script will be reran. The computations themselves (i.e. uquery, cquery, and build) will still be incrementally evaluated via DICE, so we are not rerunning _every_ computation entirely within the BXL.
+The entire BXL script is represented as a single node on the DICE graph (Buck2’s internal dependency graph). When the script’s input changes, the entire node is invalidated and needs to be recomputed. For example, if a BXL function calls uquery, then uses the result to do a cquery and then a build, if Buck2 detects that any of the recorded calls to uquery, cquery, and build changes, then the entire BXL script will be reran. The computations themselves (uquery, cquery, and build) will still be incrementally evaluated via DICE, so we are not rerunning _every_ computation entirely within the BXL.
 
 When the BXL script creates artifacts and ensures them, those artifacts are cached separately in an action outside of
 of the BXL execution. This means that the artifacts produced by BXL are cached separately from the BXL script itself, much like the computations within a BXL.
