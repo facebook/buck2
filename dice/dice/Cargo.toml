@@ -38,7 +38,7 @@ take_mut = { workspace = true }
 # @oss-disable: default = ["gazebo_lint"]
 
 [dev-dependencies]
-cast = "=0.2.6"
+cast = "0.2.3"
 derivative = "2.1.1"
 tempfile = "3.1"
 anyhow = "1.0.65"
