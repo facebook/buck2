@@ -19,12 +19,12 @@ categories = ["parser-implementations", "development-tools"]
 lalrpop = "0.19.7"
 
 [dependencies]
-annotate-snippets = { version = "0.9.0", features = ["color"] }
+annotate-snippets = { version = "0.9.0", features = [] }
 anyhow = "1.0.65"
 derivative = "2.2"
 derive_more = "0.99"
 dupe = { workspace = true }
-erased-serde = "0.3.20"
+erased-serde = "0.3.12"
 lalrpop-util = "0.19.7"
 itertools = "0.10"
 once_cell = "1.8"
@@ -44,21 +44,21 @@ walkdir = "2.3"
 serde = { version = "1.0", features = ["derive"] }
 logos = "0.12"
 serde_json = "1.0"
-rustyline = "9.1"
+rustyline = "7.1"
 maplit = "1.0.2"
 lsp-server = "0.5"
 lsp-types = "0.93.0"
 memchr = "2.4.1"
 debugserver-types = "0.5.0"
 hashbrown = { version = "0.12.3", features = ["raw"] }
-textwrap = "0.15"
+textwrap = "0.11"
 fancy-regex = "0.10.0"
 regex = "1.5.4"
 strsim = "0.10.0"
 argfile = "0.1.0"
 num-bigint = "0.4.3"
 num-traits = "0.2"
-inventory = "0.1.10"
+inventory = "0.1.9"
 clap = { version = "4.0.7", features = ["derive", "wrap_help"] }
 
 allocative = { workspace = true, features = ["bumpalo", "hashbrown", "num-bigint"] }
