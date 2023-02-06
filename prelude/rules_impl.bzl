@@ -328,10 +328,10 @@ def _python_bootstrap_toolchain():
     return _toolchain("python_bootstrap", [PythonBootstrapToolchainInfo])
 
 def _target_os_type() -> "attribute":
-    return attrs.default_only(attrs.dep(default = "prelude//os_lookup:os_lookup"))
+    return attrs.default_only(attrs.dep(default = "prelude//os_lookup/targets:os_lookup"))
 
 def _exec_os_type() -> "attribute":
-    return attrs.default_only(attrs.exec_dep(default = "prelude//os_lookup:os_lookup"))
+    return attrs.default_only(attrs.exec_dep(default = "prelude//os_lookup/targets:os_lookup"))
 
 def _create_manifest_for_source_dir():
     return attrs.exec_dep(default = "prelude//python/tools:create_manifest_for_source_dir")

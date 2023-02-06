@@ -1,4 +1,4 @@
-load(":defs.bzl", "os_lookup")
+load("//os_lookup:defs.bzl", "os_lookup")
 
 os_lookup(
     name = "os_lookup",
@@ -13,13 +13,5 @@ os_lookup(
         "ovr_config//os:macos": "macos",
         "ovr_config//os:windows": "windows",
     }),
-    visibility = ["PUBLIC"],
-)
-
-native.filegroup(
-    name = "files",
-    srcs = glob(
-        ["**"],
-    ),
     visibility = ["PUBLIC"],
 )
