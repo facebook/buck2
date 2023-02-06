@@ -25,6 +25,7 @@ rust_library(
         "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:static_assertions",
         "fbsource//third-party/rust:tokio",
+        "fbsource//third-party/rust:triomphe",
         "//buck2/allocative/allocative:allocative",
         "//buck2/gazebo/dupe:dupe",
     ],

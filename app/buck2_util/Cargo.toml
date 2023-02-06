@@ -11,6 +11,7 @@ but not generic or stable enough to be published on crates.io as standalone crat
 allocative = { workspace = true }
 anyhow = { workspace = true }
 dupe = { workspace = true }
+triomphe = { workspace = true }
 
 libc = { workspace = true }
 serde = { workspace = true }

@@ -9,10 +9,12 @@
 
 pub(crate) mod base;
 mod fat;
+mod slice;
 mod string_like;
 mod thin;
 
 pub use crate::arc_str::fat::ArcStr;
+pub use crate::arc_str::slice::ArcSlice;
 pub use crate::arc_str::string_like::ArcS;
 pub use crate::arc_str::string_like::StringInside;
 pub use crate::arc_str::thin::ThinArcStr;
