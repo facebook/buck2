@@ -119,6 +119,10 @@ impl ActionQueryNode {
             self.action.execution_config().path_separator,
         ))
     }
+
+    pub fn action(&self) -> Arc<RegisteredAction> {
+        self.action.dupe()
+    }
 }
 
 impl LabeledNode for ActionQueryNode {
