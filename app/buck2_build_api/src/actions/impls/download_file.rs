@@ -207,6 +207,13 @@ impl Action for DownloadFileAction {
 
         &DOWNLOAD_FILE_CATEGORY
     }
+
+    fn identifier(&self) -> Option<&str> {
+        self.outputs
+            .iter()
+            .next()
+            .map(|o| o.get_path().short_path().as_str())
+    }
 }
 
 #[async_trait]
