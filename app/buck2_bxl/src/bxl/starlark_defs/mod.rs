@@ -54,6 +54,7 @@ use crate::bxl::starlark_defs::functions::register_target_function;
 pub mod alloc_node;
 pub mod analysis_result;
 pub mod artifacts;
+pub mod audit;
 pub mod build_result;
 pub mod cli_args;
 pub mod context;

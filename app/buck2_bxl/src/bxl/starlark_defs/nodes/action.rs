@@ -32,7 +32,7 @@ use starlark::StarlarkDocs;
 #[derive(NoSerialize)]
 #[display(fmt = "{}", "self.0")]
 #[starlark_docs(directory = "bxl")]
-pub struct StarlarkAction(Arc<RegisteredAction>);
+pub struct StarlarkAction(pub Arc<RegisteredAction>);
 
 starlark_simple_value!(StarlarkAction);
 

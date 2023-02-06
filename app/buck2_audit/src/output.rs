@@ -168,7 +168,7 @@ pub enum AuditOutputResult {
     MaybeRelevant(TargetLabel),
 }
 
-async fn audit_output<'v>(
+pub async fn audit_output<'v>(
     output_path: &'v str,
     working_dir: &'v ProjectRelativePath,
     cell_resolver: &'v CellResolver,
