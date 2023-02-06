@@ -26,9 +26,9 @@ pub trait HasCellResolver {
 }
 
 pub trait SetCellResolver {
-    fn set_cell_resolver(&self, cell_resolver: CellResolver) -> anyhow::Result<()>;
+    fn set_cell_resolver(&mut self, cell_resolver: CellResolver) -> anyhow::Result<()>;
 
-    fn set_none_cell_resolver(&self) -> anyhow::Result<()>;
+    fn set_none_cell_resolver(&mut self) -> anyhow::Result<()>;
 }
 
 #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
@@ -61,11 +61,11 @@ impl HasCellResolver for DiceComputations {
 }
 
 impl SetCellResolver for DiceTransactionUpdater {
-    fn set_cell_resolver(&self, cell_resolver: CellResolver) -> anyhow::Result<()> {
+    fn set_cell_resolver(&mut self, cell_resolver: CellResolver) -> anyhow::Result<()> {
         Ok(self.changed_to(vec![(CellResolverKey, Some(cell_resolver))])?)
     }
 
-    fn set_none_cell_resolver(&self) -> anyhow::Result<()> {
+    fn set_none_cell_resolver(&mut self) -> anyhow::Result<()> {
         Ok(self.changed_to(vec![(CellResolverKey, None)])?)
     }
 }

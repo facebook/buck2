@@ -284,7 +284,7 @@ impl FileChangeTracker {
         }
     }
 
-    pub fn write_to_dice(self, ctx: &DiceTransactionUpdater) -> anyhow::Result<()> {
+    pub fn write_to_dice(self, ctx: &mut DiceTransactionUpdater) -> anyhow::Result<()> {
         ctx.changed(self.files_to_dirty)?;
         ctx.changed(self.dirs_to_dirty)?;
         ctx.changed(self.paths_to_dirty)?;

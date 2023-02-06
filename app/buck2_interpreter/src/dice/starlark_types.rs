@@ -37,11 +37,11 @@ impl InjectedKey for DisableStarlarkTypesKey {
 }
 
 pub trait SetDisableStarlarkTypes {
-    fn set_disable_starlark_types(&self, disable_starlark_types: bool) -> anyhow::Result<()>;
+    fn set_disable_starlark_types(&mut self, disable_starlark_types: bool) -> anyhow::Result<()>;
 }
 
 impl SetDisableStarlarkTypes for DiceTransactionUpdater {
-    fn set_disable_starlark_types(&self, disable_starlark_types: bool) -> anyhow::Result<()> {
+    fn set_disable_starlark_types(&mut self, disable_starlark_types: bool) -> anyhow::Result<()> {
         Ok(self.changed_to([(DisableStarlarkTypesKey, disable_starlark_types)])?)
     }
 }

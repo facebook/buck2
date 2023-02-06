@@ -69,7 +69,7 @@ pub trait HasInterpreterContext {
 
 pub trait SetInterpreterContext {
     fn set_interpreter_context(
-        &self,
+        &mut self,
         interpreter_configuror: Arc<dyn InterpreterConfiguror>,
     ) -> anyhow::Result<()>;
 }

@@ -49,7 +49,7 @@ fn compute_and_update_uses_proper_version_numbers() -> anyhow::Result<()> {
         assert_eq!(ctx.0.0.get_minor_version(), MinorVersion::testing_new(1));
 
         // now we write something and commit
-        let ctx = dice.updater();
+        let mut ctx = dice.updater();
         ctx.changed_to(vec![(Foo(1), 1)])?;
         // current version shouldn't be updated
         assert_eq!(ctx.existing_state().0.get_version(), VersionNumber::new(0));
@@ -58,7 +58,7 @@ fn compute_and_update_uses_proper_version_numbers() -> anyhow::Result<()> {
             MinorVersion::testing_new(1)
         );
 
-        let ctx1 = dice.updater();
+        let mut ctx1 = dice.updater();
         // previous ctx isn't dropped, so versions shouldn't be committed yet.
         assert_eq!(ctx1.existing_state().0.get_version(), VersionNumber::new(0));
         assert_eq!(
@@ -100,7 +100,7 @@ fn compute_and_update_uses_proper_version_numbers() -> anyhow::Result<()> {
     }
 
     {
-        let ctx = dice.updater();
+        let mut ctx = dice.updater();
         assert_eq!(ctx.existing_state().0.get_version(), VersionNumber::new(2));
         assert_eq!(
             ctx.existing_state().0.get_minor_version(),

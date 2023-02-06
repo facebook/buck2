@@ -77,15 +77,18 @@ impl InjectedKey for LookupVar {
 }
 
 pub trait FuzzEquations {
-    fn set_equation(&self, var: Var, expr: Expr) -> anyhow::Result<()>;
-    fn set_equations(&self, expr: impl IntoIterator<Item = (Var, Expr)>) -> anyhow::Result<()>;
+    fn set_equation(&mut self, var: Var, expr: Expr) -> anyhow::Result<()>;
+    fn set_equations(&mut self, expr: impl IntoIterator<Item = (Var, Expr)>) -> anyhow::Result<()>;
 }
 
 impl FuzzEquations for DiceTransactionUpdater {
-    fn set_equation(&self, var: Var, expr: Expr) -> anyhow::Result<()> {
+    fn set_equation(&mut self, var: Var, expr: Expr) -> anyhow::Result<()> {
         Ok(self.changed_to(vec![(LookupVar(var), Arc::new(expr))])?)
     }
-    fn set_equations(&self, exprs: impl IntoIterator<Item = (Var, Expr)>) -> anyhow::Result<()> {
+    fn set_equations(
+        &mut self,
+        exprs: impl IntoIterator<Item = (Var, Expr)>,
+    ) -> anyhow::Result<()> {
         Ok(self.changed_to(
             exprs
                 .into_iter()
@@ -248,7 +251,7 @@ mod tests {
         let empty_state = Arc::new(FuzzState::new());
         let dice = Dice::builder().build(DetectCycles::Disabled);
         let ctx = {
-            let ctx = dice.updater();
+            let mut ctx = dice.updater();
             // let x1 = true
             ctx.set_equation(Var(1), Expr::Unit(Unit::Literal(true)))?;
             // let x2 = x1

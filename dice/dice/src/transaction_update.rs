@@ -44,7 +44,7 @@ impl DiceTransactionUpdaterImpl {
 
     /// Records a set of `Key`s as changed so that they, and any dependents will
     /// be recomputed on the next set of requests at the next version.
-    pub(crate) fn changed<K, I>(&self, changed: I) -> DiceResult<()>
+    pub(crate) fn changed<K, I>(&mut self, changed: I) -> DiceResult<()>
     where
         K: Key,
         I: IntoIterator<Item = K> + Send + Sync + 'static,
@@ -62,7 +62,7 @@ impl DiceTransactionUpdaterImpl {
     /// `changed` again (or invalidated by other means). Calling this method
     /// does not in anyway alter the types of the key such that they
     /// permanently becomes a special "inject value only" key.
-    pub(crate) fn changed_to<K, I>(&self, changed: I) -> DiceResult<()>
+    pub(crate) fn changed_to<K, I>(&mut self, changed: I) -> DiceResult<()>
     where
         K: Key,
         I: IntoIterator<Item = (K, K::Value)> + Send + Sync + 'static,

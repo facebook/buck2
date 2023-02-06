@@ -205,12 +205,12 @@ impl NotifyFileWatcher {
 
     fn sync2(
         &self,
-        dice: DiceTransactionUpdater,
+        mut dice: DiceTransactionUpdater,
     ) -> anyhow::Result<(buck2_data::FileWatcherStats, DiceTransactionUpdater)> {
         let mut guard = self.data.lock().unwrap();
         let old = mem::replace(&mut *guard, Ok(NotifyFileData::new()));
         let (stats, changes) = old?.sync();
-        changes.write_to_dice(&dice)?;
+        changes.write_to_dice(&mut dice)?;
         Ok((stats, dice))
     }
 }

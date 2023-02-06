@@ -29,7 +29,7 @@ pub trait HasBuildContextData {
 }
 
 pub trait SetBuildContextData {
-    fn set_buck_out_path(&self, path: Option<ProjectRelativePathBuf>) -> anyhow::Result<()>;
+    fn set_buck_out_path(&mut self, path: Option<ProjectRelativePathBuf>) -> anyhow::Result<()>;
 }
 
 #[derive(PartialEq, Eq, Allocative)]
@@ -58,7 +58,7 @@ impl HasBuildContextData for DiceComputations {
 }
 
 impl SetBuildContextData for DiceTransactionUpdater {
-    fn set_buck_out_path(&self, path: Option<ProjectRelativePathBuf>) -> anyhow::Result<()> {
+    fn set_buck_out_path(&mut self, path: Option<ProjectRelativePathBuf>) -> anyhow::Result<()> {
         Ok(self.changed_to(vec![(
             BuildDataKey,
             Arc::new(BuildData {

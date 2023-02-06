@@ -121,12 +121,12 @@
 //!     }
 //!
 //!     pub trait SetInjectedConfig {
-//!         fn inject_config(&self, i: usize);
+//!         fn inject_config(&mut self, i: usize);
 //!     }
 //!
 //!     impl SetInjectedConfig for DiceTransactionUpdater {
 //!         /// ways to inject the precomputed values to dice
-//!         fn inject_config(&self, i: usize) {
+//!         fn inject_config(&mut self, i: usize) {
 //!             self.changed_to(vec![(ConfigKey, i)]).unwrap()
 //!         }
 //!     }
@@ -163,7 +163,7 @@
 //! let engine = builder.build(DetectCycles::Disabled);
 //!
 //! // inject config
-//! let ctx = engine.updater();
+//! let mut ctx = engine.updater();
 //! ctx.inject_config(0);
 //!
 //! let ctx = ctx.commit();
@@ -173,7 +173,7 @@
 //!     assert_eq!("aaaaaaaa", &*ctx.my_computation().compute_a(4, "a".into()).await);
 //! });
 //!
-//! let ctx = engine.updater();
+//! let mut ctx = engine.updater();
 //! ctx.inject_config(2);
 //!
 //! let ctx = ctx.commit();

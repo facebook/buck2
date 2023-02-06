@@ -112,14 +112,14 @@ pub struct Company {
 pub trait Setup {
     /// Must be called before any companies are added.
     /// Sets the state of the resource map.
-    fn init_state(&self) -> anyhow::Result<()>;
+    fn init_state(&mut self) -> anyhow::Result<()>;
     /// Adds a list of companies and maps them to their resources.
-    async fn add_companies(&self, companies: Vec<Company>) -> anyhow::Result<()>;
+    async fn add_companies(&mut self, companies: Vec<Company>) -> anyhow::Result<()>;
 }
 
 #[async_trait]
 impl Setup for DiceTransactionUpdater {
-    fn init_state(&self) -> anyhow::Result<()> {
+    fn init_state(&mut self) -> anyhow::Result<()> {
         self.changed_to(
             Resource::RESOURCES
                 .iter()
@@ -129,7 +129,7 @@ impl Setup for DiceTransactionUpdater {
         Ok(())
     }
 
-    async fn add_companies(&self, companies: Vec<Company>) -> anyhow::Result<()> {
+    async fn add_companies(&mut self, companies: Vec<Company>) -> anyhow::Result<()> {
         let mut resource_to_company_local = HashMap::new();
 
         // convert company to insertion ready format
@@ -190,7 +190,7 @@ pub trait Cost {
 pub trait CostUpdater {
     /// Change the upcharge of a company for a resource.
     async fn change_company_resource_cost(
-        &self,
+        &mut self,
         company: &str,
         resource: &Resource,
         new_price: u16,
@@ -305,7 +305,7 @@ impl Cost for DiceComputations {
 #[async_trait]
 impl CostUpdater for DiceTransactionUpdater {
     async fn change_company_resource_cost(
-        &self,
+        &mut self,
         company: &str,
         resource: &Resource,
         new_price: u16,

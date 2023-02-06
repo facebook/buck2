@@ -455,7 +455,7 @@ impl DiceExecutionOrder {
                     var,
                     expr,
                 } => {
-                    let ctx = dice.updater();
+                    let mut ctx = dice.updater();
                     ctx.set_equation(*var, expr.clone()).unwrap();
                     dice_ctxs.insert(*new_ctx_id, ctx.commit());
                 }

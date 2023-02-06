@@ -553,7 +553,7 @@ mod tests {
         )?;
 
         let fs = ProjectRootTemp::new()?;
-        let dice = DiceBuilder::new()
+        let mut dice = DiceBuilder::new()
             .mock_and_return(
                 EvalImportKey(OwnedStarlarkModulePath::LoadFile(bzlfile.clone())),
                 Ok(module),
@@ -575,7 +575,7 @@ mod tests {
                 data
             })?;
         setup_interpreter_basic(
-            &dice,
+            &mut dice,
             resolver,
             BuildInterpreterConfiguror::new(
                 None,

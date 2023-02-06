@@ -93,9 +93,9 @@ pub fn parse_math_equation(math: &str) -> anyhow::Result<(Var, Equation)> {
 }
 
 pub trait MathEquations {
-    fn set_equation(&self, var: Var, equation: Equation) -> anyhow::Result<()>;
+    fn set_equation(&mut self, var: Var, equation: Equation) -> anyhow::Result<()>;
     fn set_equations(
-        &self,
+        &mut self,
         equations: impl IntoIterator<Item = (Var, Equation)>,
     ) -> anyhow::Result<()>;
 }
@@ -106,11 +106,11 @@ pub trait Math {
 }
 
 impl MathEquations for DiceTransactionUpdater {
-    fn set_equation(&self, var: Var, equation: Equation) -> anyhow::Result<()> {
+    fn set_equation(&mut self, var: Var, equation: Equation) -> anyhow::Result<()> {
         Ok(self.changed_to(vec![(LookupVar(var), Arc::new(equation))])?)
     }
     fn set_equations(
-        &self,
+        &mut self,
         equations: impl IntoIterator<Item = (Var, Equation)>,
     ) -> anyhow::Result<()> {
         Ok(self.changed_to(

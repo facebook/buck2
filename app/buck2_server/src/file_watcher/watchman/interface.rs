@@ -53,7 +53,7 @@ enum ChangeEvent<'a> {
 impl WatchmanQueryProcessor {
     async fn process_events_impl(
         &self,
-        ctx: DiceTransactionUpdater,
+        mut ctx: DiceTransactionUpdater,
         events: Vec<WatchmanEvent>,
         mergebase: &Option<String>,
     ) -> anyhow::Result<(buck2_data::FileWatcherStats, DiceTransactionUpdater)> {
@@ -84,7 +84,7 @@ impl WatchmanQueryProcessor {
         }
 
         let stats = stats.finish();
-        handler.write_to_dice(&ctx)?;
+        handler.write_to_dice(&mut ctx)?;
 
         Ok((stats, ctx))
     }

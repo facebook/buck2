@@ -136,9 +136,9 @@ pub trait HasLegacyConfigs {
 }
 
 pub trait SetLegacyConfigs {
-    fn set_legacy_configs(&self, legacy_configs: LegacyBuckConfigs) -> anyhow::Result<()>;
+    fn set_legacy_configs(&mut self, legacy_configs: LegacyBuckConfigs) -> anyhow::Result<()>;
 
-    fn set_none_legacy_configs(&self) -> anyhow::Result<()>;
+    fn set_none_legacy_configs(&mut self) -> anyhow::Result<()>;
 }
 
 #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
@@ -352,11 +352,11 @@ impl HasLegacyConfigs for DiceComputations {
 }
 
 impl SetLegacyConfigs for DiceTransactionUpdater {
-    fn set_legacy_configs(&self, legacy_configs: LegacyBuckConfigs) -> anyhow::Result<()> {
+    fn set_legacy_configs(&mut self, legacy_configs: LegacyBuckConfigs) -> anyhow::Result<()> {
         Ok(self.changed_to(vec![(LegacyBuckConfigKey, Some(legacy_configs))])?)
     }
 
-    fn set_none_legacy_configs(&self) -> anyhow::Result<()> {
+    fn set_none_legacy_configs(&mut self) -> anyhow::Result<()> {
         Ok(self.changed_to(vec![(LegacyBuckConfigKey, None)])?)
     }
 }

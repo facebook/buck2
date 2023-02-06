@@ -581,7 +581,7 @@ mod tests {
         extra.data.set(RunActionKnobs::default());
         extra.spawner = Arc::new(BuckSpawner::default());
 
-        let computations = dice_builder.build(extra)?;
+        let mut computations = dice_builder.build(extra)?;
         computations.set_buck_out_path(Some(output_path))?;
         computations.set_cell_resolver(cell_resolver)?;
 

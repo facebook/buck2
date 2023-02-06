@@ -120,7 +120,7 @@ async fn key_does_not_read_opaque() -> anyhow::Result<()> {
 
     let mut dice_data = DiceData::new();
     dice_data.set(17);
-    let ctx = dice.updater_with_data(UserComputationData {
+    let mut ctx = dice.updater_with_data(UserComputationData {
         data: dice_data,
         ..Default::default()
     });

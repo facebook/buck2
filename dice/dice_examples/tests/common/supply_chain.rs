@@ -21,11 +21,11 @@ use dice_examples::supply_chain::Setup;
 
 async fn setup(companies: Vec<Company>) -> anyhow::Result<(Arc<Dice>, DiceTransaction)> {
     let dice = Dice::builder().build(DetectCycles::Enabled);
-    let ctx = dice.updater();
+    let mut ctx = dice.updater();
     ctx.init_state()?;
     ctx.commit();
 
-    let ctx = dice.updater();
+    let mut ctx = dice.updater();
     ctx.add_companies(companies).await?;
 
     Ok((dice, ctx.commit()))
@@ -40,7 +40,7 @@ async fn test_no_resources() -> Result<(), Arc<anyhow::Error>> {
     .await?;
 
     assert_eq!(None, ctx.resource_cost(&Resource::Wood).await?);
-    let ctx = dice.updater();
+    let mut ctx = dice.updater();
     let success = ctx
         .change_company_resource_cost("hello world", &Resource::Stick, 5)
         .await;
@@ -191,7 +191,7 @@ async fn test_change_cost() -> Result<(), Arc<anyhow::Error>> {
     ])
     .await?;
 
-    let ctx = dice.updater();
+    let mut ctx = dice.updater();
     ctx.change_company_resource_cost("Steve", &Resource::Stick, 2)
         .await
         .map_err(|e| Arc::new(anyhow::anyhow!(e)))?;
@@ -203,7 +203,7 @@ async fn test_change_cost() -> Result<(), Arc<anyhow::Error>> {
         ctx.resource_cost(&Resource::Pickaxe).await?
     );
 
-    let ctx = dice.updater();
+    let mut ctx = dice.updater();
     let update_success = ctx
         .change_company_resource_cost("Steve", &Resource::Pickaxe, 5)
         .await;

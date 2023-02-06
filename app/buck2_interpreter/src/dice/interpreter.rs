@@ -46,7 +46,7 @@ impl HasInterpreterContext for DiceComputations {
 
 impl SetInterpreterContext for DiceTransactionUpdater {
     fn set_interpreter_context(
-        &self,
+        &mut self,
         interpreter_configuror: Arc<dyn InterpreterConfiguror>,
     ) -> anyhow::Result<()> {
         Ok(self.changed_to(vec![(BuildContextKey(), interpreter_configuror)])?)

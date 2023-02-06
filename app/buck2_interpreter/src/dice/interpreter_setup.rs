@@ -23,26 +23,26 @@ use crate::extra::InterpreterConfiguror;
 
 /// Common code to initialize Starlark interpreter globals.
 pub fn setup_interpreter(
-    dice: &DiceTransactionUpdater,
+    updater: &mut DiceTransactionUpdater,
     cell_resolver: CellResolver,
     configuror: Arc<dyn InterpreterConfiguror>,
     legacy_configs: LegacyBuckConfigs,
     starlark_profiler_instrumentation_override: StarlarkProfilerConfiguration,
     disable_starlark_types: bool,
 ) -> anyhow::Result<()> {
-    dice.set_cell_resolver(cell_resolver)?;
-    dice.set_interpreter_context(configuror)?;
-    dice.set_legacy_configs(legacy_configs)?;
-    dice.set_starlark_profiler_instrumentation_override(
+    updater.set_cell_resolver(cell_resolver)?;
+    updater.set_interpreter_context(configuror)?;
+    updater.set_legacy_configs(legacy_configs)?;
+    updater.set_starlark_profiler_instrumentation_override(
         starlark_profiler_instrumentation_override,
     )?;
-    dice.set_disable_starlark_types(disable_starlark_types)?;
+    updater.set_disable_starlark_types(disable_starlark_types)?;
 
     Ok(())
 }
 
 pub fn setup_interpreter_basic(
-    dice: &DiceTransactionUpdater,
+    dice: &mut DiceTransactionUpdater,
     cell_resolver: CellResolver,
     configuror: Arc<dyn InterpreterConfiguror>,
     legacy_configs: LegacyBuckConfigs,

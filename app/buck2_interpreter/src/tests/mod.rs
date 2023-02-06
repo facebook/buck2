@@ -79,7 +79,7 @@ fn calculation(fs: &ProjectRootTemp) -> anyhow::Result<DiceTransaction> {
 
     let mut per_transaction_data = UserComputationData::new();
     per_transaction_data.data.set(EventDispatcher::null());
-    let ctx = dice.updater_with_data(per_transaction_data);
+    let mut ctx = dice.updater_with_data(per_transaction_data);
 
     let resolver = CellResolver::with_names_and_paths_with_alias(&[(
         CellName::unchecked_new(""),

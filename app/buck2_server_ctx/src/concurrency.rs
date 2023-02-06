@@ -230,7 +230,10 @@ impl ConcurrencyHandlerData {
 
 #[async_trait]
 pub trait DiceUpdater: Send + Sync {
-    async fn update(&self, ctx: DiceTransactionUpdater) -> anyhow::Result<DiceTransactionUpdater>;
+    async fn update(
+        &self,
+        mut ctx: DiceTransactionUpdater,
+    ) -> anyhow::Result<DiceTransactionUpdater>;
 }
 
 #[async_trait]
@@ -636,7 +639,7 @@ mod tests {
     impl DiceUpdater for CtxDifferent {
         async fn update(
             &self,
-            ctx: DiceTransactionUpdater,
+            mut ctx: DiceTransactionUpdater,
         ) -> anyhow::Result<DiceTransactionUpdater> {
             ctx.changed(vec![K])?;
             Ok(ctx)

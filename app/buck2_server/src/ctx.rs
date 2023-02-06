@@ -551,12 +551,12 @@ impl DiceUpdater for DiceCommandUpdater {
             Arc::new(ConfiguredGraphQueryEnvironment::functions()),
         );
 
-        let ctx = self.file_watcher.sync(ctx).await?;
+        let mut ctx = self.file_watcher.sync(ctx).await?;
 
         ctx.set_buck_out_path(Some(self.buck_out_dir.clone()))?;
 
         setup_interpreter(
-            &ctx,
+            &mut ctx,
             cell_resolver,
             configuror,
             legacy_configs,

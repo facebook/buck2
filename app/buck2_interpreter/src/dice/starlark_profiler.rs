@@ -280,7 +280,7 @@ impl InjectedKey for StarlarkProfilerInstrumentationOverrideKey {
 #[async_trait]
 pub trait SetStarlarkProfilerInstrumentation {
     fn set_starlark_profiler_instrumentation_override(
-        &self,
+        &mut self,
         instrumentation: StarlarkProfilerConfiguration,
     ) -> anyhow::Result<()>;
 }
@@ -300,7 +300,7 @@ pub trait GetStarlarkProfilerInstrumentation {
 #[async_trait]
 impl SetStarlarkProfilerInstrumentation for DiceTransactionUpdater {
     fn set_starlark_profiler_instrumentation_override(
-        &self,
+        &mut self,
         instrumentation: StarlarkProfilerConfiguration,
     ) -> anyhow::Result<()> {
         Ok(self.changed_to([(StarlarkProfilerInstrumentationOverrideKey, instrumentation)])?)

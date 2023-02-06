@@ -58,7 +58,7 @@ async fn set_injected_multiple_times_per_commit() -> anyhow::Result<()> {
     let dice = DiceLegacy::builder().build(DetectCycles::Enabled);
 
     {
-        let ctx = dice.updater();
+        let mut ctx = dice.updater();
         ctx.changed_to(vec![(Foo(0), 0)])?;
         ctx.changed_to(vec![(Foo(1), 1)])?;
 
@@ -68,7 +68,7 @@ async fn set_injected_multiple_times_per_commit() -> anyhow::Result<()> {
     }
 
     {
-        let ctx = dice.updater();
+        let mut ctx = dice.updater();
         ctx.changed_to(vec![(Foo(0), 0)])?;
 
         assert_matches!(
@@ -85,7 +85,7 @@ async fn set_injected_with_no_change_no_new_ctx() -> anyhow::Result<()> {
     let dice = DiceLegacy::builder().build(DetectCycles::Enabled);
 
     {
-        let ctx = dice.updater();
+        let mut ctx = dice.updater();
         ctx.changed_to(vec![(Foo(0), 0)])?;
 
         let ctx = ctx.commit();
@@ -94,7 +94,7 @@ async fn set_injected_with_no_change_no_new_ctx() -> anyhow::Result<()> {
     }
 
     {
-        let ctx = dice.updater();
+        let mut ctx = dice.updater();
         ctx.changed_to(vec![(Foo(0), 0)])?;
 
         let ctx = ctx.commit();
@@ -109,7 +109,7 @@ async fn updates_caches_only_on_ctx_finalize_in_order() -> anyhow::Result<()> {
     let dice = DiceLegacy::builder().build(DetectCycles::Enabled);
 
     {
-        let ctx = dice.updater();
+        let mut ctx = dice.updater();
 
         // now we write something and commit
         ctx.changed_to(vec![(Foo(1), 1)])?;
@@ -133,8 +133,8 @@ async fn updates_caches_only_on_ctx_finalize_in_order() -> anyhow::Result<()> {
     }
 
     {
-        let ctx = dice.updater();
-        let ctx1 = dice.updater();
+        let mut ctx = dice.updater();
+        let mut ctx1 = dice.updater();
         // even if we do a change on this ctx first.
         ctx.changed_to(vec![(Foo(2), 2)])?;
         ctx1.changed_to(vec![(Foo(3), 3)])?;
