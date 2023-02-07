@@ -50,7 +50,7 @@ pub(crate) fn derive_allocative(input: TokenStream) -> TokenStream {
 
 fn impl_generics(
     generics: &Generics,
-    attrs: &MeasureAttrs,
+    attrs: &AllocativeAttrs,
 ) -> syn::Result<proc_macro2::TokenStream> {
     if let Some(bound) = &attrs.bound {
         if !bound.is_empty() {
@@ -138,7 +138,7 @@ fn gen_visit_enum(input: &DataEnum) -> syn::Result<proc_macro2::TokenStream> {
     })
 }
 
-fn measure_key(s: &str) -> proc_macro2::TokenStream {
+fn allocative_key(s: &str) -> proc_macro2::TokenStream {
     // Compile hash at proc macro time, otherwise it will have to be computed by MIRI.
     let hash = hash(s);
     quote_spanned! {proc_macro2::Span::call_site()=>
@@ -152,7 +152,7 @@ fn gen_visit_enum_variant(input: &Variant) -> syn::Result<proc_macro2::TokenStre
 
     let variant_attrs = extract_attrs(&input.attrs)?;
 
-    let variant_key = measure_key(&name_str);
+    let variant_key = allocative_key(&name_str);
 
     // TODO: enter variant.
     match &input.fields {
@@ -266,7 +266,7 @@ fn gen_visit_field(
     field: &Field,
 ) -> syn::Result<proc_macro2::TokenStream> {
     let attrs = extract_attrs(&field.attrs)?;
-    let field_key = measure_key(label);
+    let field_key = allocative_key(label);
     if attrs.skip {
         Ok(quote_spanned! {field.span()=>})
     } else if let Some(visit) = attrs.visit {
@@ -289,7 +289,7 @@ fn gen_visit_field(
 }
 
 #[derive(Default)]
-struct MeasureAttrs {
+struct AllocativeAttrs {
     skip: bool,
     bound: Option<String>,
     visit: Option<Path>,
@@ -297,12 +297,12 @@ struct MeasureAttrs {
 
 /// Parse an `#[allocative(...)]` annotation.
 #[cfg_attr(feature = "gazebo_lint", allow(gazebo_lint_impl_dupe))] // The custom_keyword macro
-fn extract_attrs(attrs: &[Attribute]) -> syn::Result<MeasureAttrs> {
+fn extract_attrs(attrs: &[Attribute]) -> syn::Result<AllocativeAttrs> {
     syn::custom_keyword!(skip);
     syn::custom_keyword!(bound);
     syn::custom_keyword!(visit);
 
-    let mut opts = MeasureAttrs::default();
+    let mut opts = AllocativeAttrs::default();
 
     for attr in attrs.iter() {
         if !attr.path.is_ident("allocative") {

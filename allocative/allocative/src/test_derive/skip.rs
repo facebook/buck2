@@ -34,7 +34,7 @@ enum TestSkipOnEnum {
 struct TestIgnoreInTupleStruct(#[allocative(skip)] Unsupported);
 
 #[derive(Allocative)]
-enum TestMeasureIgnoreEnumVariant {
+enum TestAllocativeIgnoreEnumVariant {
     String(String),
     #[allocative(skip)]
     Unsupported(Unsupported),

@@ -75,8 +75,8 @@ impl Key {
         // Compute hash at compile time.
         #[cfg(rust_nightly)]
         return Key {
-            hash: MeasureKeyForType::<T>::KEY.hash,
-            s: MeasureKeyForType::<T>::KEY.s,
+            hash: AllocativeKeyForType::<T>::KEY.hash,
+            s: AllocativeKeyForType::<T>::KEY.s,
         };
         // Hope optimizer folds this to constant (it doesn't for long type names).
         #[cfg(not(rust_nightly))]
@@ -85,10 +85,10 @@ impl Key {
 }
 
 #[cfg(rust_nightly)]
-struct MeasureKeyForType<T: ?Sized>(std::marker::PhantomData<fn(&T)>);
+struct AllocativeKeyForType<T: ?Sized>(std::marker::PhantomData<fn(&T)>);
 
 #[cfg(rust_nightly)]
-impl<T: ?Sized> MeasureKeyForType<T> {
+impl<T: ?Sized> AllocativeKeyForType<T> {
     /// Force compute it at compile time. Const fn does not guarantee that.
     pub const KEY: Key = Key::new(any::type_name::<T>());
 }

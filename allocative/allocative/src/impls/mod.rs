@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-//! Manual implementations of `Measure` for various types.
+//! Manual implementations of `Allocative` for various types.
 
 mod anyhow;
 mod bumpalo;
