@@ -60,7 +60,7 @@ pub(crate) async fn log_upload(
     };
 
     let manifold_path = &format!("{}{}", trace_id, path.encoding.extensions[0]);
-    let upload = manifold::upload_command("buck2_logs", manifold_path, "buck2_logs-key")?;
+    let upload = manifold::upload_command(manifold::Bucket::EventLogs, manifold_path)?;
     if let Some(mut upload) = upload {
         upload.stdin(upload_log_file);
         match std::env::var_os("SANDCASTLE").is_some() {

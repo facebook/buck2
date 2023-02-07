@@ -49,7 +49,7 @@ impl UploadReLogsCommand {
     {
         let bucket_path = &format!("{}.log.zst", self.session_id);
 
-        let upload = manifold::upload_command("buck2_re_logs", bucket_path, "buck2_re_logs-key")?;
+        let upload = manifold::upload_command(manifold::Bucket::ReLogs, bucket_path)?;
 
         // Do nothing if upload command could not be found
         match upload {

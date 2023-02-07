@@ -25,29 +25,53 @@ pub enum UploadError {
     CommandNotFound,
 }
 
-pub fn upload_command(
-    manifold_bucket_name: &str,
-    manifold_filename: &str,
-    bucket_key: &str,
-) -> anyhow::Result<Option<Command>> {
+pub enum Bucket {
+    EventLogs,
+    RageDumps,
+    ReLogs,
+}
+
+struct BucketInfo<'a> {
+    name: &'a str,
+    key: &'a str,
+}
+
+fn get_info(bucket: Bucket) -> BucketInfo<'static> {
+    match bucket {
+        Bucket::EventLogs => BucketInfo {
+            name: "buck2_logs",
+            key: "buck2_logs-key",
+        },
+        Bucket::RageDumps => BucketInfo {
+            name: "buck2_rage_dumps",
+            key: "buck2_rage_dumps-key",
+        },
+        Bucket::ReLogs => BucketInfo {
+            name: "buck2_re_logs",
+            key: "buck2_re_logs-key",
+        },
+    }
+}
+
+pub fn upload_command(bucket: Bucket, manifold_filename: &str) -> anyhow::Result<Option<Command>> {
+    let bucket = get_info(bucket);
     // we use manifold CLI as it works cross-platform
     let manifold_cli_path = get_cli_path();
     let bucket_path = &format!("flat/{}", manifold_filename);
 
     match manifold_cli_path {
-        None => curl_upload_command(manifold_bucket_name, bucket_path, bucket_key),
+        None => curl_upload_command(bucket, bucket_path),
         Some(cli_path) => Ok(Some(cli_upload_command(
             cli_path,
-            &format!("{}/{}", manifold_bucket_name, bucket_path),
-            bucket_key,
+            &format!("{}/{}", bucket.name, bucket_path),
+            bucket.key,
         ))),
     }
 }
 
 fn curl_upload_command(
-    manifold_bucket_name: &str,
+    bucket: BucketInfo,
     manifold_bucket_path: &str,
-    bucket_key: &str,
 ) -> anyhow::Result<Option<Command>> {
     if cfg!(windows) {
         // We do not have `curl` on Windows.
@@ -62,7 +86,7 @@ fn curl_upload_command(
 
     let url = format!(
         "{}/v0/write/{}?bucketName={}&apiKey={}&timeoutMsec=20000",
-        manifold_url, manifold_bucket_path, manifold_bucket_name, bucket_key
+        manifold_url, manifold_bucket_path, bucket.name, bucket.key
     );
 
     tracing::debug!(

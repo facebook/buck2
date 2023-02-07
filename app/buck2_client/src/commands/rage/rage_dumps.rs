@@ -109,12 +109,8 @@ async fn upload_to_manifold(dump_folder: &Path, manifold_filename: &str) -> anyh
             .stderr(std::process::Stdio::null())
             .spawn()?;
 
-        let mut upload = manifold::upload_command(
-            "buck2_rage_dumps",
-            manifold_filename,
-            "buck2_rage_dumps-key",
-        )?
-        .context(UploadError::CommandNotFound)?;
+        let mut upload = manifold::upload_command(manifold::Bucket::RageDumps, manifold_filename)?
+            .context(UploadError::CommandNotFound)?;
         upload.stdin(tar_gzip.stdout.unwrap());
         let exit_code_result = upload.spawn()?.wait().await?.code();
 

@@ -269,9 +269,8 @@ async fn upload_daemon_stderr(
         .context(RageError::OpenFileError(path.display().to_string()))?
         .into();
     let filename = format!("{}.stderr", manifold_id);
-    let mut upload =
-        manifold::upload_command("buck2_rage_dumps", &filename, "buck2_rage_dumps-key")?
-            .context(UploadError::CommandNotFound)?;
+    let mut upload = manifold::upload_command(manifold::Bucket::RageDumps, &filename)?
+        .context(UploadError::CommandNotFound)?;
     upload.stdin(upload_log_file);
     match upload
         .spawn()?
