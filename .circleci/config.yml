@@ -133,7 +133,7 @@ jobs:
       Build the example project and upload buck2 binary for macOS
     macos:
       xcode: 13.4.1
-    resource_class: large
+    resource_class: macos.x86.metal.gen1
     steps:
       - checkout
       - setup_macos_env
