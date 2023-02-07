@@ -8,7 +8,6 @@
  */
 
 use std::borrow::Cow;
-use std::collections::HashMap;
 use std::fmt::Display;
 
 use allocative::Allocative;
@@ -31,6 +30,7 @@ use indexmap::indexmap;
 use indexmap::IndexSet;
 use itertools::Itertools;
 use serde_json::json;
+use sorted_vector_map::SortedVectorMap;
 use starlark::values::dict::DictRef;
 use starlark::values::tuple::TupleRef;
 use starlark::values::OwnedFrozenValue;
@@ -184,19 +184,21 @@ impl RunAction {
         cli.add_to_command_line(&mut cli_rendered, &mut ctx)?;
         cli.visit_artifacts(artifact_visitor)?;
 
-        let mut cli_env = HashMap::with_capacity(env.len());
-        for (k, v) in env.into_iter() {
-            let mut env = Vec::<String>::new(); // TODO (torozco): Use a String.
-            let mut ctx = DefaultCommandLineContext::new(fs);
-            v.add_to_command_line(&mut env, &mut ctx)?;
-            v.visit_artifacts(artifact_visitor)?;
-            let var = env.join(" ");
-            cli_env.insert(k.to_owned(), var);
-        }
+        let cli_env: anyhow::Result<SortedVectorMap<_, _>> = env
+            .into_iter()
+            .map(|(k, v)| {
+                let mut env = Vec::<String>::new(); // TODO (torozco): Use a String.
+                let mut ctx = DefaultCommandLineContext::new(fs);
+                v.add_to_command_line(&mut env, &mut ctx)?;
+                v.visit_artifacts(artifact_visitor)?;
+                let var = env.join(" ");
+                Ok((k.to_owned(), var))
+            })
+            .collect();
 
         Ok(ExpandedCommandLine {
             cli: cli_rendered,
-            env: cli_env,
+            env: cli_env?,
         })
     }
 

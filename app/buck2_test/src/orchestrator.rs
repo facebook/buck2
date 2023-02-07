@@ -100,6 +100,7 @@ use host_sharing::HostSharingRequirements;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
 use once_cell::sync::Lazy;
+use sorted_vector_map::SortedVectorMap;
 use starlark::values::FrozenRef;
 use uuid::Uuid;
 
@@ -189,7 +190,7 @@ impl TestOrchestrator for BuckTestOrchestrator {
         metadata: DisplayMetadata,
         test_target: ConfiguredTargetHandle,
         cmd: Vec<ArgValue>,
-        env: HashMap<String, ArgValue>,
+        env: SortedVectorMap<String, ArgValue>,
         timeout: Duration,
         host_sharing_requirements: HostSharingRequirements,
         pre_create_dirs: Vec<DeclaredOutput>,
@@ -345,7 +346,7 @@ impl TestOrchestrator for BuckTestOrchestrator {
         _metadata: DisplayMetadata,
         test_target: ConfiguredTargetHandle,
         cmd: Vec<ArgValue>,
-        env: HashMap<String, ArgValue>,
+        env: SortedVectorMap<String, ArgValue>,
         pre_create_dirs: Vec<DeclaredOutput>,
     ) -> anyhow::Result<PrepareForLocalExecutionResult> {
         let test_target = self.session.get(test_target)?;
@@ -619,7 +620,7 @@ impl BuckTestOrchestrator {
         test_target: &ConfiguredProvidersLabel,
         test_info: &FrozenExternalRunnerTestInfo,
         cmd: Vec<ArgValue>,
-        env: HashMap<String, ArgValue>,
+        env: SortedVectorMap<String, ArgValue>,
         pre_create_dirs: Vec<DeclaredOutput>,
         executor_fs: &ExecutorFs<'_>,
     ) -> anyhow::Result<ExpandedTestExecutable> {
@@ -690,7 +691,7 @@ impl BuckTestOrchestrator {
         &self,
         cwd: ProjectRelativePathBuf,
         cmd: Vec<String>,
-        env: HashMap<String, String>,
+        env: SortedVectorMap<String, String>,
         cmd_inputs: IndexSet<ArtifactGroup>,
         declared_outputs: IndexMap<BuckOutTestPath, OutputCreationBehavior>,
     ) -> anyhow::Result<CommandExecutionRequest> {
@@ -731,7 +732,7 @@ struct Execute2RequestExpander<'a> {
     declared_outputs: &'a mut IndexMap<BuckOutTestPath, OutputCreationBehavior>,
     fs: &'a ExecutorFs<'a>,
     cmd: Vec<ArgValue>,
-    env: HashMap<String, ArgValue>,
+    env: SortedVectorMap<String, ArgValue>,
 }
 
 impl<'a> Execute2RequestExpander<'a> {
@@ -740,7 +741,7 @@ impl<'a> Execute2RequestExpander<'a> {
         self,
     ) -> anyhow::Result<(
         Vec<String>,
-        HashMap<String, String>,
+        SortedVectorMap<String, String>,
         IndexSet<ArtifactGroup>,
     )>
     where
@@ -834,7 +835,7 @@ impl<'a> Execute2RequestExpander<'a> {
                 // TODO (torozco): Just use a String directly
                 anyhow::Ok((k, env.join(" ")))
             })
-            .collect::<Result<HashMap<_, _>, _>>()?;
+            .collect::<Result<SortedVectorMap<_, _>, _>>()?;
 
         let inputs = artifact_visitor.inputs;
 
@@ -878,7 +879,7 @@ impl<'a> CommandLineBuilder for CommandLineBuilderFormatWrapper<'a> {
 struct ExpandedTestExecutable {
     cwd: ProjectRelativePathBuf,
     cmd: Vec<String>,
-    env: HashMap<String, String>,
+    env: SortedVectorMap<String, String>,
     inputs: IndexSet<ArtifactGroup>,
     supports_re: bool,
     declared_outputs: IndexMap<BuckOutTestPath, OutputCreationBehavior>,
@@ -910,17 +911,17 @@ fn create_prepare_for_local_execution_result(
 }
 
 struct LossyEnvironment {
-    inner: HashMap<String, String>,
+    inner: SortedVectorMap<String, String>,
 }
 
 impl LossyEnvironment {
     fn new() -> Self {
         Self {
-            inner: HashMap::new(),
+            inner: SortedVectorMap::new(),
         }
     }
 
-    fn into_inner(self) -> HashMap<String, String> {
+    fn into_inner(self) -> SortedVectorMap<String, String> {
         self.inner
     }
 }

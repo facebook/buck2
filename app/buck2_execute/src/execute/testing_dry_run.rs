@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::Mutex;
 
@@ -15,6 +14,7 @@ use async_trait::async_trait;
 use buck2_common::executor_config::RemoteExecutorUseCase;
 use indexmap::IndexMap;
 use remote_execution as RE;
+use sorted_vector_map::SortedVectorMap;
 
 use crate::artifact::fs::ArtifactFs;
 use crate::artifact_value::ArtifactValue;
@@ -32,7 +32,7 @@ use crate::execute::result::CommandExecutionTimingData;
 pub struct DryRunEntry {
     pub args: Vec<String>,
     pub outputs: Vec<CommandExecutionOutput>,
-    pub env: HashMap<String, String>,
+    pub env: SortedVectorMap<String, String>,
 }
 
 /// Records executed commands into the provided tracker and returns a successful result for all commands.

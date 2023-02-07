@@ -14,11 +14,11 @@
 
 pub mod convert;
 
-use std::collections::HashMap;
 use std::time::Duration;
 
 use dupe::Dupe;
 use host_sharing::HostSharingRequirements;
+use sorted_vector_map::SortedVectorMap;
 
 use crate::data::ArgValue;
 use crate::data::ConfiguredTargetHandle;
@@ -53,7 +53,7 @@ pub trait TestOrchestrator: Send + Sync {
         // the command to run
         cmd: Vec<ArgValue>,
         // environment variables to set at runtime
-        env: HashMap<String, ArgValue>,
+        env: SortedVectorMap<String, ArgValue>,
         // timeout for command
         timeout: Duration,
         // parameters used to effectively share the executor host for this command.
@@ -89,7 +89,7 @@ pub trait TestOrchestrator: Send + Sync {
         ui_prints: DisplayMetadata,
         target: ConfiguredTargetHandle,
         cmd: Vec<ArgValue>,
-        env: HashMap<String, ArgValue>,
+        env: SortedVectorMap<String, ArgValue>,
         pre_create_dirs: Vec<DeclaredOutput>,
     ) -> anyhow::Result<PrepareForLocalExecutionResult>;
 }

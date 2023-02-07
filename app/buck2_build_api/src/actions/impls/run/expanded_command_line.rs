@@ -7,14 +7,13 @@
  * of this source tree.
  */
 
-use std::collections::HashMap;
-
 use allocative::Allocative;
+use sorted_vector_map::SortedVectorMap;
 
 /// A command line's expansion, suitable to actually run it.
 pub(crate) struct ExpandedCommandLine {
     pub(crate) cli: Vec<String>,
-    pub(crate) env: HashMap<String, String>,
+    pub(crate) env: SortedVectorMap<String, String>,
 }
 
 /// The digest of an ExpandedCommandLine.
@@ -38,11 +37,8 @@ impl ExpandedCommandLine {
             digest.update(bytes);
         }
 
-        let mut env = self.env.iter().collect::<Vec<_>>();
-        env.sort();
-
-        digest.update(env.len().to_le_bytes().as_slice());
-        for (k, v) in env.iter() {
+        digest.update(self.env.len().to_le_bytes().as_slice());
+        for (k, v) in self.env.iter() {
             let k_bytes = k.as_bytes();
             digest.update(k_bytes.len().to_le_bytes().as_slice());
             digest.update(k_bytes);
@@ -58,9 +54,8 @@ impl ExpandedCommandLine {
 
 #[cfg(test)]
 mod test {
-    use std::collections::hash_map::RandomState;
-
-    use maplit::hashmap;
+    use sorted_vector_map::sorted_vector_map;
+    use sorted_vector_map::SortedVectorMap;
 
     use super::*;
 
@@ -90,17 +85,17 @@ mod test {
     fn test_env() {
         let cmd1 = ExpandedCommandLine {
             cli: Default::default(),
-            env: hashmap! { "FOO".to_owned() => "BAR".to_owned() },
+            env: sorted_vector_map! { "FOO".to_owned() => "BAR".to_owned() },
         };
 
         let cmd2 = ExpandedCommandLine {
             cli: Default::default(),
-            env: hashmap! { "FOO2".to_owned()=> "BAR".to_owned() },
+            env: sorted_vector_map! { "FOO2".to_owned()=> "BAR".to_owned() },
         };
 
         let cmd3 = ExpandedCommandLine {
             cli: Default::default(),
-            env: hashmap! { "FOO".to_owned()=> "BAR2".to_owned() },
+            env: sorted_vector_map! { "FOO".to_owned()=> "BAR2".to_owned() },
         };
 
         assert_ne!(cmd1.fingerprint(), cmd2.fingerprint());
@@ -110,12 +105,8 @@ mod test {
 
     #[test]
     fn test_hash_stability() {
-        fn env() -> HashMap<String, String> {
-            // Creating a new RandomState means ordering in this HashMap might be different.
-            let mut map = HashMap::with_hasher(RandomState::new());
-            map.insert("FOO1".to_owned(), "BAR1".to_owned());
-            map.insert("FOO2".to_owned(), "BAR2".to_owned());
-            map
+        fn env() -> SortedVectorMap<String, String> {
+            sorted_vector_map! { "FOO1".to_owned() => "BAR1".to_owned(), "FOO2".to_owned() => "BAR2".to_owned() }
         }
 
         let mut cmd = ExpandedCommandLine {

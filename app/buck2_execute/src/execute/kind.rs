@@ -7,9 +7,8 @@
  * of this source tree.
  */
 
-use std::collections::HashMap;
-
 use derive_more::Display;
+use sorted_vector_map::SortedVectorMap;
 
 use crate::execute::action_digest::ActionDigest;
 
@@ -22,7 +21,7 @@ pub enum CommandExecutionKind {
         // it.
         digest: ActionDigest,
         command: Vec<String>,
-        env: HashMap<String, String>,
+        env: SortedVectorMap<String, String>,
     },
     /// This action was executed via a remote executor.
     #[display(fmt = "remote")]

@@ -499,7 +499,6 @@ impl ActionExecutor for BuckActionExecutor {
 #[cfg(test)]
 mod tests {
     use std::borrow::Cow;
-    use std::collections::HashMap;
     use std::sync::atomic::AtomicBool;
     use std::sync::atomic::Ordering;
     use std::sync::Arc;
@@ -548,6 +547,7 @@ mod tests {
     use dupe::Dupe;
     use indexmap::indexset;
     use once_cell::sync::Lazy;
+    use sorted_vector_map::SortedVectorMap;
 
     use crate::actions::artifact::build_artifact::BuildArtifact;
     use crate::actions::artifact::testing::BuildArtifactTestingExt;
@@ -661,7 +661,7 @@ mod tests {
                         .iter()
                         .map(|b| (b.get_path().dupe(), OutputType::FileOrDirectory))
                         .collect(),
-                    HashMap::new(),
+                    SortedVectorMap::new(),
                 );
 
                 // on fake executor, this does nothing

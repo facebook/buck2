@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::collections::HashMap;
 use std::fmt::Display;
 use std::time::Duration;
 
@@ -21,6 +20,7 @@ use dupe::Dupe;
 use gazebo::variants::UnpackVariants;
 use host_sharing::host_sharing::HostSharingRequirements;
 use indexmap::IndexMap;
+use sorted_vector_map::SortedVectorMap;
 use thiserror::Error;
 
 use crate::artifact::fs::ArtifactFs;
@@ -123,7 +123,7 @@ pub struct CommandExecutionRequest {
     inputs: Vec<CommandExecutionInput>,
     artifact_outputs: IndexMap<BuckOutPath, OutputType>,
     test_outputs: Option<IndexMap<BuckOutTestPath, OutputCreationBehavior>>,
-    env: HashMap<String, String>,
+    env: SortedVectorMap<String, String>,
     timeout: Option<Duration>,
     executor_preference: ExecutorPreference,
     // Run with a custom $TMPDIR, or just the standard system one
@@ -151,7 +151,7 @@ impl CommandExecutionRequest {
         args: Vec<String>,
         inputs: Vec<CommandExecutionInput>,
         artifact_outputs: IndexMap<BuckOutPath, OutputType>,
-        env: HashMap<String, String>,
+        env: SortedVectorMap<String, String>,
     ) -> Self {
         Self {
             args,
@@ -254,7 +254,7 @@ impl CommandExecutionRequest {
         artifact_outputs.chain(test_outputs)
     }
 
-    pub fn env(&self) -> &HashMap<String, String> {
+    pub fn env(&self) -> &SortedVectorMap<String, String> {
         &self.env
     }
 

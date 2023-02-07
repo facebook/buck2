@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::collections::HashMap;
 use std::ops::ControlFlow;
 use std::sync::Arc;
 use std::time::Duration;
@@ -20,8 +19,8 @@ use buck2_core::directory::DirectoryIterator;
 use buck2_core::directory::FingerprintedDirectory;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use dupe::Dupe;
-use gazebo::prelude::*;
 use remote_execution as RE;
+use sorted_vector_map::SortedVectorMap;
 
 use crate::artifact::fs::ArtifactFs;
 use crate::artifact::fs::ExecutorFs;
@@ -224,27 +223,26 @@ fn re_create_action(
     output_files: Vec<String>,
     output_directories: Vec<String>,
     workdir: Option<String>,
-    environment: &HashMap<String, String>,
+    environment: &SortedVectorMap<String, String>,
     input_digest: &TrackedFileDigest,
     blobs: impl Iterator<Item = (Vec<u8>, TrackedFileDigest)>,
     timeout: Option<&Duration>,
     platform: Option<RE::Platform>,
     do_not_cache: bool,
 ) -> PreparedAction {
-    // A rust HashMap is in an arbitrary order, so sort first to get a better cache hit rate
-    let mut environment = environment.iter().collect::<Vec<_>>();
-    environment.sort_by_key(|(k, _)| *k);
-
     let command = RE::Command {
         arguments: args,
         output_files,
         output_directories,
         platform,
         working_directory: workdir.unwrap_or_default(),
-        environment_variables: environment.map(|(k, v)| RE::EnvironmentVariable {
-            name: (*k).clone(),
-            value: (*v).clone(),
-        }),
+        environment_variables: environment
+            .iter()
+            .map(|(k, v)| RE::EnvironmentVariable {
+                name: (*k).clone(),
+                value: (*v).clone(),
+            })
+            .collect(),
     };
 
     let timeout = timeout.map(|t| prost_types::Duration {

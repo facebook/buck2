@@ -823,11 +823,11 @@ impl TryFrom<buck2_test_proto::PrepareForLocalExecutionResult> for PrepareForLoc
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
     use std::fmt::Debug;
     use std::time::Duration;
 
     use host_sharing::HostSharingRequirements;
+    use sorted_vector_map::sorted_vector_map;
 
     use super::*;
 
@@ -964,7 +964,7 @@ mod tests {
             "c:/some/path"
         };
         let cwd = String::from(local_path).try_into().expect("valid abs path");
-        let env = HashMap::from([("some_env".to_owned(), "some_env_val".to_owned())]);
+        let env = sorted_vector_map! { "some_env".to_owned() => "some_env_val".to_owned() };
 
         let result = PrepareForLocalExecutionResult { cmd, env, cwd };
 

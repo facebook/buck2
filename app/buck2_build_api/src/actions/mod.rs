@@ -344,7 +344,7 @@ pub(crate) mod testings {
     use derivative::Derivative;
     use dupe::Dupe;
     use indexmap::IndexSet;
-    use maplit::hashmap;
+    use sorted_vector_map::sorted_vector_map;
     use starlark::values::OwnedFrozenValue;
 
     use crate::actions::artifact::build_artifact::BuildArtifact;
@@ -466,7 +466,7 @@ pub(crate) mod testings {
                     .iter()
                     .map(|b| (b.get_path().dupe(), OutputType::File))
                     .collect(),
-                hashmap![],
+                sorted_vector_map![],
             );
 
             let (outputs, meta) = ctx.exec_cmd(&req).await?;

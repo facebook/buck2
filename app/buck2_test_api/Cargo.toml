@@ -21,6 +21,7 @@ gazebo_lint.version = "0.1"
 gazebo_lint.optional = true
 # @oss-disable: gazebo_lint.path = "../../gazebo_lint/gazebo_lint"
 host_sharing = { workspace = true }
+sorted_vector_map = { workspace = true }
 
 buck2_core = { workspace = true }
 buck2_events = { workspace = true }

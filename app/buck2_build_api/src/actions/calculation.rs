@@ -461,7 +461,7 @@ mod tests {
     use dupe::Dupe;
     use indexmap::indexset;
     use maplit::btreemap;
-    use maplit::hashmap;
+    use sorted_vector_map::sorted_vector_map;
 
     use crate::actions::artifact::build_artifact::BuildArtifact;
     use crate::actions::artifact::testing::BuildArtifactTestingExt;
@@ -662,7 +662,7 @@ mod tests {
                     path: build_artifact.get_path().dupe(),
                     output_type: OutputType::File,
                 }],
-                env: hashmap![]
+                env: sorted_vector_map![]
             }
         );
 
@@ -709,7 +709,7 @@ mod tests {
                     path: build_artifact.get_path().dupe(),
                     output_type: OutputType::File,
                 }],
-                env: hashmap![]
+                env: sorted_vector_map![]
             }
         );
         Ok(())
@@ -756,7 +756,7 @@ mod tests {
                     path: build_artifact.get_path().dupe(),
                     output_type: OutputType::File,
                 }],
-                env: hashmap![]
+                env: sorted_vector_map![]
             }
         );
 
@@ -870,7 +870,7 @@ mod tests {
                 execution_kind: CommandExecutionKind::Local {
                     digest: ActionDigest::empty_sha1(),
                     command: vec![],
-                    env: hashmap![],
+                    env: sorted_vector_map![],
                 },
             },
             timing: Default::default(),
@@ -895,7 +895,7 @@ mod tests {
             execution_kind: CommandExecutionKind::Local {
                 digest: ActionDigest::empty_sha1(),
                 command: vec![],
-                env: hashmap![],
+                env: sorted_vector_map![],
             },
         };
         let proto = command_details(&report, true).await;

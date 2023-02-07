@@ -39,6 +39,7 @@ use dupe::Dupe;
 use futures::future::BoxFuture;
 use futures::future::FutureExt;
 use host_sharing::HostSharingRequirements;
+use sorted_vector_map::SortedVectorMap;
 use tokio::io::AsyncRead;
 use tokio::io::AsyncWrite;
 use tonic::transport::Channel;
@@ -127,7 +128,7 @@ impl TestOrchestrator for TestOrchestratorClient {
         ui_prints: DisplayMetadata,
         target: ConfiguredTargetHandle,
         cmd: Vec<ArgValue>,
-        env: HashMap<String, ArgValue>,
+        env: SortedVectorMap<String, ArgValue>,
         timeout: Duration,
         host_sharing_requirements: HostSharingRequirements,
         pre_create_dirs: Vec<DeclaredOutput>,
@@ -224,7 +225,7 @@ impl TestOrchestrator for TestOrchestratorClient {
         ui_prints: DisplayMetadata,
         target: ConfiguredTargetHandle,
         cmd: Vec<ArgValue>,
-        env: HashMap<String, ArgValue>,
+        env: SortedVectorMap<String, ArgValue>,
         pre_create_dirs: Vec<DeclaredOutput>,
     ) -> anyhow::Result<PrepareForLocalExecutionResult> {
         let executable = TestExecutable {
