@@ -58,6 +58,7 @@ use crate::materializers::deferred::MaterializationMethodToProto;
 use crate::materializers::deferred::MaterializeEntryError;
 use crate::materializers::deferred::MaterializerSender;
 use crate::materializers::deferred::SharedMaterializingError;
+use crate::materializers::deferred::Version;
 use crate::materializers::deferred::WriteFile;
 use crate::materializers::io::materialize_files;
 use crate::materializers::io::MaterializeTreeStructure;
@@ -81,7 +82,7 @@ pub(super) trait IoHandler: Sync + Send + 'static {
         self: &Arc<Self>,
         path: ProjectRelativePathBuf,
         write: Arc<WriteFile>,
-        version: u64,
+        version: Version,
         command_sender: MaterializerSender<Self>,
     ) -> BoxFuture<'static, Result<(), SharedMaterializingError>>;
 
@@ -250,7 +251,7 @@ impl IoHandler for DefaultIoHandler {
         self: &Arc<Self>,
         path: ProjectRelativePathBuf,
         write: Arc<WriteFile>,
-        version: u64,
+        version: Version,
         command_sender: MaterializerSender<Self>,
     ) -> BoxFuture<'static, Result<(), SharedMaterializingError>> {
         self.io_executor
@@ -433,7 +434,7 @@ pub(super) fn create_ttl_refresh(
 struct WriteIoRequest {
     path: ProjectRelativePathBuf,
     write: Arc<WriteFile>,
-    version: u64,
+    version: Version,
     command_sender: MaterializerSender<DefaultIoHandler>,
 }
 
