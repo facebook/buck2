@@ -212,7 +212,7 @@ def process_genrule(
     # Setup environment variables.
     srcs = cmd_args()
     for symlink in symlinks:
-        srcs.add(cmd_args(srcs_artifact, format = path_sep.join([".", "{}", symlink])))
+        srcs.add(cmd_args(srcs_artifact, format = path_sep.join([".", "{}", symlink.replace("/", path_sep)])))
     env_vars = {
         "ASAN_OPTIONS": cmd_args("detect_leaks=0,detect_odr_violation=0"),
         "GEN_DIR": cmd_args("GEN_DIR_DEPRECATED"),  # ctx.relpath(ctx.output_root_dir(), srcs_path)
