@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::collections::HashMap;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -60,12 +59,6 @@ use crate::starlark_profiler::StarlarkProfilerInstrumentation;
 use crate::starlark_profiler::StarlarkProfilerOrInstrumentation;
 
 #[derive(Debug, Error)]
-enum ConfigError {
-    #[error("Couldn't find .buckconfig associated with the cell `{0}`")]
-    UnknownCell(CellName),
-}
-
-#[derive(Debug, Error)]
 #[error("Error evaluating build file: `{0}`")]
 pub struct EvalBuildFileError(BuildFilePath);
 
@@ -80,32 +73,22 @@ impl<'c> HasCalculationDelegate<'c> for DiceComputations {
         cell: CellName,
         build_file_cell: BuildFileCell,
     ) -> anyhow::Result<DiceCalculationDelegate<'c>> {
-        #[derive(Clone, Dupe, Allocative)]
-        struct ConfigsValue(Arc<HashMap<CellName, Arc<InterpreterConfigForCell>>>);
-
         #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
-        #[display(fmt = "{:?}", self)]
-        struct ConfigsKey();
+        struct InterpreterConfigForCellKey(CellName);
 
         #[async_trait]
-        impl Key for ConfigsKey {
-            type Value = SharedResult<ConfigsValue>;
+        impl Key for InterpreterConfigForCellKey {
+            type Value = SharedResult<Arc<InterpreterConfigForCell>>;
             async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
                 let cell_resolver = ctx.get_cell_resolver().await?;
                 let global_state = ctx.get_global_interpreter_state().await?;
 
-                let mut configs = HashMap::new();
-                for (name, cell) in cell_resolver.cells() {
-                    configs.insert(
-                        name,
-                        Arc::new(InterpreterConfigForCell::new(
-                            cell.cell_alias_resolver().dupe(),
-                            global_state.dupe(),
-                        )?),
-                    );
-                }
+                let cell = cell_resolver.get(self.0)?;
 
-                Ok(ConfigsValue(Arc::new(configs)))
+                Ok(Arc::new(InterpreterConfigForCell::new(
+                    cell.cell_alias_resolver().dupe(),
+                    global_state.dupe(),
+                )?))
             }
 
             fn equality(_: &Self::Value, _: &Self::Value) -> bool {
@@ -114,17 +97,13 @@ impl<'c> HasCalculationDelegate<'c> for DiceComputations {
         }
 
         let file_ops = self.file_ops();
-        let configs = self.compute(&ConfigsKey()).await??;
+        let configs = self.compute(&InterpreterConfigForCellKey(cell)).await??;
 
         Ok(DiceCalculationDelegate {
             build_file_cell,
             ctx: self,
             fs: file_ops,
-            configs: configs
-                .0
-                .get(&cell)
-                .ok_or(ConfigError::UnknownCell(cell))?
-                .dupe(),
+            configs,
         })
     }
 }
