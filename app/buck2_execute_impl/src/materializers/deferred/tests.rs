@@ -16,6 +16,7 @@ use buck2_execute::directory::ActionDirectoryBuilder;
 use dupe::Dupe;
 
 use super::Version;
+use super::VersionTracker;
 use super::*;
 
 #[test]
@@ -181,13 +182,14 @@ mod state_machine {
         let path = make_path("foo/bar");
         let value = ArtifactValue::empty_file();
         let method = ArtifactMaterializationMethod::Test;
+        let mut version_tracker = VersionTracker::new();
 
         dm.declare(
             &mut tree,
             path.clone(),
             value,
             box method,
-            Version(0),
+            &mut version_tracker,
             &command_sender(),
         );
         assert_eq!(dm.io.take_log(), &[(Op::Clean, path.clone())]);
@@ -202,10 +204,10 @@ mod state_machine {
         tree.materialization_finished(
             path.clone(),
             Utc::now(),
-            Version(0),
+            version_tracker.current(),
             res,
             &dm.io,
-            Version(1),
+            &mut version_tracker,
             dm.sqlite_db.as_mut(),
             &dm.rt,
         );
