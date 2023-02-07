@@ -107,7 +107,7 @@ impl<'f> BcWriter<'f> {
     }
 
     /// Finish writing the bytecode.
-    #[allow(clippy::let_underscore_drop)]
+    #[allow(let_underscore_drop)]
     pub(crate) fn finish(self) -> Bc {
         let BcWriter {
             profile: has_before_instr,

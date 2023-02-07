@@ -167,6 +167,7 @@ CLIPPY_ALLOW = [
     "clippy::non-send-fields-in-send-ty",  # This got unlanded in 1.58.1 (https://github.com/rust-lang/rust-clippy/issues/8045)
     "clippy::unwrap-or-else-default",  # Defaults aren't always more clear as it removes the type information when reading code
     "clippy::enum-variant-names",  # Sometimes you do want the same prefixes
+    "clippy::uninlined_format_args",  # From Rust 1.67.0 (made pedantic in 1.67.1 https://github.com/rust-lang/rust-clippy/pull/10265)
 ]
 
 CLIPPY_DENY = [
@@ -180,7 +181,6 @@ CLIPPY_DENY = [
     "clippy::flat_map_option",
     "clippy::from_iter_instead_of_collect",
     "clippy::large_stack_arrays",
-    "clippy::let_underscore_drop",
     "clippy::linkedlist",
     "clippy::macro_use_imports",
     "clippy::maybe_infinite_iter",
@@ -199,6 +199,7 @@ CLIPPY_DENY = [
     "clippy::useless_transmute",
     "clippy::verbose_file_reads",
     "clippy::wildcard_dependencies",
+    "let_underscore_drop",
     "unused_extern_crates",
 ]
 

@@ -403,10 +403,16 @@ mod tests {
 
         let mut state = BuckEventSpanTracker::new();
         state
-            .start_at(&label, tick.start_time - Duration::from_secs(3))
+            .start_at(
+                &label,
+                tick.start_time.checked_sub(Duration::from_secs(3)).unwrap(),
+            )
             .unwrap();
         state
-            .start_at(&module, tick.start_time - Duration::from_secs(1))
+            .start_at(
+                &module,
+                tick.start_time.checked_sub(Duration::from_secs(1)).unwrap(),
+            )
             .unwrap();
 
         let time_speed = TimeSpeed::new(Some(1.0)).unwrap();
@@ -493,7 +499,7 @@ mod tests {
             state
                 .start_at(
                     &Arc::new(e.clone()),
-                    tick.start_time - Duration::from_secs(1),
+                    tick.start_time.checked_sub(Duration::from_secs(1)).unwrap(),
                 )
                 .unwrap();
         }
@@ -599,10 +605,18 @@ mod tests {
 
         let mut state = BuckEventSpanTracker::new();
         state
-            .start_at(&action, tick.start_time - Duration::from_secs(10))
+            .start_at(
+                &action,
+                tick.start_time
+                    .checked_sub(Duration::from_secs(10))
+                    .unwrap(),
+            )
             .unwrap();
         state
-            .start_at(&prepare, tick.start_time - Duration::from_secs(5))
+            .start_at(
+                &prepare,
+                tick.start_time.checked_sub(Duration::from_secs(5)).unwrap(),
+            )
             .unwrap();
 
         let time_speed = TimeSpeed::new(Some(1.0)).unwrap();
@@ -669,7 +683,10 @@ mod tests {
         ));
 
         state
-            .start_at(&re_download, tick.start_time - Duration::from_secs(2))
+            .start_at(
+                &re_download,
+                tick.start_time.checked_sub(Duration::from_secs(2)).unwrap(),
+            )
             .unwrap();
 
         let output = timed_list.draw(
