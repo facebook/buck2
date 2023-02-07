@@ -54,13 +54,14 @@ main(Args) ->
                 true ->
                     erlang:halt(1);
                 false ->
-                    case verify_files_exist(Opts) of
-                        true -> ok;
-                        false -> erlang:halt(1)
-                    end
+                    ok
             end;
         _ ->
             ok
+    end,
+    case verify_files_exist(Opts) of
+        true -> ok;
+        false -> erlang:halt(1)
     end.
 
 remove_loggers() ->
@@ -73,7 +74,19 @@ generate_empty_chunk(File, OutputDir) ->
     ).
 
 verify_files_exist(#{files := Files, out_dir := OutputDir}) ->
-    lists:all(fun(File) -> filelib:is_regular(chunk_path(File, OutputDir)) end, Files).
+    lists:all(
+        fun(File) ->
+            ChunkPath = chunk_path(File, OutputDir),
+            case filelib:is_regular(ChunkPath) of
+                true ->
+                    true;
+                false ->
+                    io:format(standard_error, "error: coudn't generate ~s~n", [ChunkPath]),
+                    false
+            end
+        end,
+        Files
+    ).
 
 chunk_path(File, OutputDir) ->
     ModuleName = filename:basename(File, ".erl"),
