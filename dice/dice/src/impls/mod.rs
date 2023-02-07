@@ -15,3 +15,5 @@ pub(crate) mod dice;
 pub(crate) mod key;
 pub(crate) mod opaque;
 pub(crate) mod transaction;
+#[allow(unused)]
+pub(crate) mod value;
