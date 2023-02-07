@@ -22,6 +22,7 @@ rust_library(
         "fbsource//third-party/rust:faccess",
         "fbsource//third-party/rust:futures",
         "fbsource//third-party/rust:indexmap",
+        "fbsource//third-party/rust:pin-project",
         "fbsource//third-party/rust:itertools",
         "fbsource//third-party/rust:hostname",
         "fbsource//third-party/rust:once_cell",

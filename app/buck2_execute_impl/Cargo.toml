@@ -15,6 +15,7 @@ derive_more = { workspace = true }
 faccess = { workspace = true }
 futures = { workspace = true }
 indexmap = { workspace = true }
+pin-project = { workspace = true }
 itertools = { workspace = true }
 once_cell = { workspace = true }
 parking_lot = { workspace = true }
