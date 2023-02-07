@@ -667,8 +667,9 @@ impl TryFrom<buck2_test_proto::TestExecutable> for TestExecutable {
             ui_prints,
             target,
             cmd,
-            env,
+            deprecated_env,
             pre_create_dirs,
+            env,
         } = s;
         let ui_prints = ui_prints
             .context("Missing `ui_prints`")?
@@ -684,14 +685,27 @@ impl TryFrom<buck2_test_proto::TestExecutable> for TestExecutable {
             .into_try_map(|c| c.try_into())
             .context("Invalid `cmd`")?;
 
-        let env = env
-            .into_iter()
-            .map(|(k, v)| {
-                v.try_into()
-                    .context("Invalid `env`")
-                    .map(|v: ArgValue| (k, v))
-            })
-            .collect::<anyhow::Result<_>>()?;
+        let env = if env.is_empty() {
+            deprecated_env
+                .into_iter()
+                .map(|(k, v)| {
+                    v.try_into()
+                        .context("Invalid `deprecated_env`")
+                        .map(|v: ArgValue| (k, v))
+                })
+                .collect::<anyhow::Result<_>>()?
+        } else {
+            env.into_iter()
+                .map(|env_var| {
+                    let buck2_test_proto::EnvironmentVariable { key, value } = env_var;
+                    value
+                        .context("Missing `value`")?
+                        .try_into()
+                        .context("Invalid `env`")
+                        .map(|v: ArgValue| (key, v))
+                })
+                .collect::<anyhow::Result<_>>()?
+        };
 
         let pre_create_dirs = pre_create_dirs
             .into_try_map(|c| c.try_into())
@@ -718,13 +732,29 @@ impl TryInto<buck2_test_proto::TestExecutable> for TestExecutable {
             .into_try_map(|i| i.try_into())
             .context("Invalid `cmd`")?;
 
+        let deprecated_env = self
+            .env
+            .iter()
+            .map(|(k, v)| {
+                v.clone()
+                    .try_into()
+                    .context("Invalid `env`")
+                    .map(|v: buck2_test_proto::ArgValue| (k.clone(), v))
+            })
+            .collect::<anyhow::Result<_>>()?;
+
         let env = self
             .env
             .into_iter()
             .map(|(k, v)| {
                 v.try_into()
                     .context("Invalid `env`")
-                    .map(|v: buck2_test_proto::ArgValue| (k, v))
+                    .map(
+                        |v: buck2_test_proto::ArgValue| buck2_test_proto::EnvironmentVariable {
+                            key: k,
+                            value: Some(v),
+                        },
+                    )
             })
             .collect::<anyhow::Result<_>>()?;
 
@@ -737,8 +767,9 @@ impl TryInto<buck2_test_proto::TestExecutable> for TestExecutable {
             ui_prints,
             target,
             cmd,
-            env,
+            deprecated_env,
             pre_create_dirs,
+            env,
         })
     }
 }
@@ -751,8 +782,17 @@ impl TryInto<buck2_test_proto::PrepareForLocalExecutionResult> for PrepareForLoc
 
         Ok(buck2_test_proto::PrepareForLocalExecutionResult {
             cmd: self.cmd,
-            env: self.env,
+            deprecated_env: self
+                .env
+                .iter()
+                .map(|(k, v)| (k.clone(), v.clone()))
+                .collect(),
             cwd,
+            env: self
+                .env
+                .into_iter()
+                .map(|(key, value)| buck2_test_proto::VerbatimEnvironmentVariable { key, value })
+                .collect(),
         })
     }
 }
@@ -761,8 +801,21 @@ impl TryFrom<buck2_test_proto::PrepareForLocalExecutionResult> for PrepareForLoc
     type Error = anyhow::Error;
 
     fn try_from(s: buck2_test_proto::PrepareForLocalExecutionResult) -> Result<Self, Self::Error> {
-        let buck2_test_proto::PrepareForLocalExecutionResult { cmd, env, cwd } = s;
+        let buck2_test_proto::PrepareForLocalExecutionResult {
+            cmd,
+            deprecated_env,
+            cwd,
+            env,
+        } = s;
         let cwd = cwd.try_into().context("Invalid cwd value.")?;
+
+        let env = if env.is_empty() {
+            deprecated_env.into_iter().collect()
+        } else {
+            env.into_iter()
+                .map(|env_var| (env_var.key, env_var.value))
+                .collect()
+        };
 
         Ok(PrepareForLocalExecutionResult { cmd, env, cwd })
     }

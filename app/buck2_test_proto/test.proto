@@ -180,8 +180,10 @@ message TestExecutable {
   DisplayMetadata ui_prints = 1;
   ConfiguredTargetHandle target = 2;
   repeated ArgValue cmd = 3;
-  map<string, ArgValue> env = 4;
+  // TODO(T144767335) cleanup deprecated env fields
+  map<string, ArgValue> DEPRECATED_env = 4;
   repeated DeclaredOutput pre_create_dirs = 5;
+  repeated EnvironmentVariable env = 6;
 }
 
 message ExecutorConfigOverride {
@@ -204,6 +206,11 @@ message ArgValue {
   ArgValueContent content = 1;
   // Optional format string for the value
   ArgFormat format = 2;
+}
+
+message EnvironmentVariable {
+  string key = 1;
+  ArgValue value = 2;
 }
 
 message ArgFormat {
@@ -247,8 +254,15 @@ message ExecuteResponse2 {
 
 message PrepareForLocalExecutionResult {
   repeated string cmd = 1;
-  map<string, string> env = 2;
+  // TODO(T144767335) cleanup deprecated env fields
+  map<string, string> DEPRECATED_env = 2;
   string cwd = 3;
+  repeated VerbatimEnvironmentVariable env = 4;
+}
+
+message VerbatimEnvironmentVariable {
+  string key = 1;
+  string value = 2;
 }
 
 message PrepareForLocalExecutionResponse {
