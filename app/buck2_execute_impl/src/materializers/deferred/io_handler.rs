@@ -53,9 +53,9 @@ use tracing::instrument;
 use crate::materializers::deferred::ArtifactMaterializationMethod;
 use crate::materializers::deferred::ArtifactMaterializationStage;
 use crate::materializers::deferred::ArtifactTree;
+use crate::materializers::deferred::LowPriorityMaterializerCommand;
 use crate::materializers::deferred::MaterializationMethodToProto;
 use crate::materializers::deferred::MaterializeEntryError;
-use crate::materializers::deferred::MaterializerCommand;
 use crate::materializers::deferred::MaterializerSender;
 use crate::materializers::deferred::SharedMaterializingError;
 use crate::materializers::deferred::WriteFile;
@@ -455,14 +455,14 @@ impl IoRequest for WriteIoRequest {
         let res = self.execute_inner(project_fs).shared_error();
 
         // If the materializer has shut down, we ignore this.
-        let _ignored = self
-            .command_sender
-            .send(MaterializerCommand::MaterializationFinished {
+        let _ignored = self.command_sender.send_low_priority(
+            LowPriorityMaterializerCommand::MaterializationFinished {
                 path: self.path,
                 timestamp: Utc::now(),
                 version: self.version,
                 result: res.dupe().map_err(SharedMaterializingError::Error),
-            });
+            },
+        );
 
         Ok(res?)
     }

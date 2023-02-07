@@ -155,6 +155,7 @@ mod state_machine {
     fn command_sender() -> MaterializerSender<StubIoHandler> {
         static SENDER: Lazy<MaterializerSender<StubIoHandler>> = Lazy::new(|| MaterializerSender {
             high_priority: Box::leak(box mpsc::unbounded_channel().0),
+            low_priority: Box::leak(box mpsc::unbounded_channel().0),
             counters: MaterializerCounters::leak_new(),
         });
 
