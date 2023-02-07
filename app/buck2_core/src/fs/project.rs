@@ -17,6 +17,7 @@ use std::sync::Arc;
 use anyhow::Context;
 use dupe::Dupe;
 use ref_cast::RefCast;
+use relative_path::RelativePathBuf;
 
 use crate::fs::fs_util;
 use crate::fs::paths::abs_norm_path::AbsNormPath;
@@ -28,6 +29,8 @@ use crate::fs::paths::RelativePath;
 enum ProjectRootError {
     #[error("Provided project root `{0}` is not equal to the canonicalized path `{1}`")]
     NotCanonical(AbsNormPathBuf, AbsNormPathBuf),
+    #[error("Project root `{0}` not found in path `{1}`")]
+    ProjectRootNotFound(ProjectRoot, AbsPathBuf),
 }
 
 /// The 'ProjectFilesystem' that contains the root path and the current working
@@ -204,14 +207,68 @@ impl ProjectRoot {
         }
     }
 
+    /// Remove project root prefix from path (even if path is not canonical)
+    /// and return the remaining path.
+    ///
+    /// Fail if canonicalized path does not start with project root.
+    fn strip_project_root<'a>(&'a self, path: &'a AbsPath) -> anyhow::Result<PathBuf> {
+        let path = fs_util::simplified(path)?;
+
+        if let Ok(rem) = Path::strip_prefix(path, &*self.root) {
+            // Fast code path.
+            return Ok(rem.to_path_buf());
+        }
+
+        // Now try to canonicalize the path. We cannot call `canonicalize` on the full path
+        // because we should only resolve symlinks found in the past that point into the project,
+        // but
+        // * not symlink found inside the project that point outside of it
+        // * not even symlinks found in the project unless we need to to resolve ".."
+
+        let mut current_prefix = PathBuf::new();
+
+        let mut components = path.components();
+        while let Some(comp) = components.next() {
+            current_prefix.push(comp);
+
+            // This is not very efficient, but efficient cross-platform implementation is not easy.
+            let canonicalized_current_prefix = fs_util::canonicalize(&current_prefix)?;
+
+            if let Ok(rem) = canonicalized_current_prefix
+                .as_path()
+                .strip_prefix(self.root.as_path())
+            {
+                // We found the project root.
+                return Ok(rem.join(components.as_path()));
+            }
+        }
+
+        Err(ProjectRootError::ProjectRootNotFound(self.dupe(), path.to_owned()).into())
+    }
+
+    fn relativize_any_impl(&self, path: &AbsPath) -> anyhow::Result<ProjectRelativePathBuf> {
+        let project_relative = self.strip_project_root(path)?;
+        // TODO(nga): this does not treat `..` correctly.
+        //   See the test below for an example.
+        // This must use `RelativePathBuf`, not `RelativePath`,
+        // because `RelativePathBuf` handles backslashes on Windows, and `RelativePath` does not.
+        ProjectRelativePath::empty().join_normalized(RelativePathBuf::from_path(project_relative)?)
+    }
+
     /// Relativize an absolute path which may be not normalized or not canonicalize.
     /// This operation may involve disk access.
     pub fn relativize_any<P: AsRef<AbsPath>>(
         &self,
         path: P,
     ) -> anyhow::Result<ProjectRelativePathBuf> {
-        let path = fs_util::canonicalize_as_much_as_possible(path.as_ref())?;
-        Ok(self.relativize(AbsNormPath::new(&path)?)?.into_owned())
+        let path = path.as_ref();
+        self.relativize_any_impl(path.as_ref()).with_context(|| {
+            format!(
+                "relativize path `{}` against project root `{}`",
+                path.display(),
+                self
+            )
+        })
     }
 
     // TODO(nga): refactor this to global function.
@@ -497,6 +554,7 @@ use allocative::Allocative;
 pub use internals::PathLike;
 
 use crate::fs::paths::abs_path::AbsPath;
+use crate::fs::paths::abs_path::AbsPathBuf;
 use crate::fs::project_rel_path::ProjectRelativePath;
 use crate::fs::project_rel_path::ProjectRelativePathBuf;
 
@@ -548,6 +606,7 @@ mod tests {
     use std::path::PathBuf;
 
     use crate::fs::fs_util;
+    use crate::fs::paths::abs_path::AbsPath;
     use crate::fs::paths::forward_rel_path::ForwardRelativePath;
     use crate::fs::project::ProjectRoot;
     use crate::fs::project::ProjectRootTemp;
@@ -843,5 +902,102 @@ mod tests {
         assert_eq!(perm.mode() & 0o111, 0o111);
 
         Ok(())
+    }
+
+    #[test]
+    fn test_strip_project_root_simple() {
+        let project_root = ProjectRootTemp::new().unwrap();
+        assert_eq!(
+            Path::new(""),
+            project_root
+                .path()
+                .strip_project_root(project_root.path.root().as_abs_path())
+                .unwrap()
+        );
+        assert_eq!(
+            Path::new("foo"),
+            project_root
+                .path()
+                .strip_project_root(&project_root.path.root().as_abs_path().join("foo"))
+                .unwrap()
+        );
+        assert_eq!(
+            Path::new("foo/bar"),
+            project_root
+                .path()
+                .strip_project_root(&project_root.path.root().as_abs_path().join("foo/bar"))
+                .unwrap()
+        );
+    }
+
+    #[test]
+    fn test_strip_project_root_complex() {
+        if cfg!(windows) {
+            return;
+        }
+
+        let project_root = ProjectRootTemp::new().unwrap();
+        let temp_dir = tempfile::tempdir().unwrap();
+        let temp_dir = AbsPath::new(temp_dir.path()).unwrap();
+
+        fs_util::symlink(project_root.path.root(), temp_dir.join("foo")).unwrap();
+        assert_eq!(
+            Path::new(""),
+            project_root
+                .path()
+                .strip_project_root(&temp_dir.join("foo"))
+                .unwrap()
+        );
+        assert_eq!(
+            Path::new("bar"),
+            project_root
+                .path()
+                .strip_project_root(&temp_dir.join("foo/bar"))
+                .unwrap()
+        );
+    }
+
+    #[test]
+    fn test_relativize_any_bug() {
+        if cfg!(windows) {
+            return;
+        }
+
+        let project_root = ProjectRootTemp::new().unwrap();
+        let project_root = project_root.path();
+
+        fs_util::create_dir(project_root.root().as_path().join("foo")).unwrap();
+        fs_util::create_dir(project_root.root().as_path().join("foo/bar")).unwrap();
+        fs_util::create_dir(project_root.root().as_path().join("link-target")).unwrap();
+        fs_util::write(
+            project_root.root().as_path().join("link-target/fff"),
+            "hello",
+        )
+        .unwrap();
+        fs_util::symlink(
+            Path::new("../../link-target"),
+            project_root.root().as_path().join("foo/bar/baz"),
+        )
+        .unwrap();
+
+        // Now explaining why the assertion in the end of the test is incorrect:
+        // Existing path is resolved to non-existing path.
+
+        let existing_path = "foo/bar/baz/../link-target/fff";
+        let non_exist_path = "foo/bar/link-target/fff";
+        assert!(fs_util::try_exists(project_root.root().as_path().join(existing_path)).unwrap());
+        assert!(!fs_util::try_exists(project_root.root().as_path().join(non_exist_path)).unwrap());
+
+        assert_eq!(
+            ProjectRelativePath::new(non_exist_path).unwrap(),
+            project_root
+                .relativize_any(
+                    project_root
+                        .root()
+                        .as_abs_path()
+                        .join(Path::new(existing_path))
+                )
+                .unwrap()
+        );
     }
 }
