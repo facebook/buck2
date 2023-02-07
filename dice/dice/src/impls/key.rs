@@ -7,11 +7,14 @@
  * of this source tree.
  */
 
-#[allow(unused)]
-pub(crate) mod core;
-#[allow(unused)]
-pub(crate) mod ctx;
-pub(crate) mod dice;
-pub(crate) mod key;
-pub(crate) mod opaque;
-pub(crate) mod transaction;
+use allocative::Allocative;
+use dupe::Dupe;
+
+/// Type erased internal dice key
+#[derive(
+    Allocative, Eq, PartialEq, Clone, Copy, Dupe, Hash, Debug, Ord, PartialOrd
+)]
+pub(crate) struct DiceKey {
+    /// represented as indexes into an internal index based map
+    pub(crate) index: u32,
+}
