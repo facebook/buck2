@@ -3,3 +3,14 @@
 # The flag enables features not available in opensource version,
 # in particular, dependencies on libraries not available in open source.
 # @oss-disable: rustflags = ["--cfg", "cargo_internal_build"]
+
+# @oss-disable: [source.crates-io]
+# @oss-disable: replace-with = "vendored-sources"
+
+# @oss-disable: [source.vendored-sources]
+# @oss-disable: directory = "../../third-party/rust/vendor"
+
+[net]
+# TODO(nga): online is required because of git repo versions.
+#   Need to patch that because these version are already imported in "third-party/rust".
+# offline = true
