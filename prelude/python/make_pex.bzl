@@ -180,7 +180,9 @@ def _make_pex_impl(
 
     runtime_files = []
     if standalone and hidden_resources != None:
-        error_msg = _hidden_resources_error_message(ctx.label, hidden_resources)
+        # constructing this error message is expensive, only do it when we abort analysis
+        error_msg = "standalone builds don't support hidden resources" if output_suffix else _hidden_resources_error_message(ctx.label, hidden_resources)
+
         return _fail(ctx, python_toolchain, output_suffix, error_msg)
     if hidden_resources != None:
         runtime_files.extend(hidden_resources)
