@@ -25,6 +25,7 @@ load(
     "generate_abi_jars",
     "get_abi_generation_mode",
     "prepare_final_jar",
+    "setup_dep_files",
 )
 
 base_command_params = struct(
@@ -171,28 +172,19 @@ def create_jar_artifact_javacd(
 
         dep_files = {}
         if srcs and java_toolchain.dep_files == "simple":
-            dep_files["classpath_jars"] = classpath_jars_tag
-            used_classes_json = output_paths.jar_parent.project("used-classes.json")
-            dep_file = declare_prefixed_output(actions, actions_identifier, "dep_file.txt")
-
-            # TODO(T134944772) We won't need this once we can do tag_artifacts on a JSON projection,
-            # but for now we have to tag all the inputs on the .proto definition, and so we need to
-            # tell the dep file to include all the inputs that the compiler won't report.
-            srcs_and_resources = actions.write(
-                declare_prefixed_output(actions, actions_identifier, "srcs_and_resources"),
-                srcs + resources_map.values(),
+            used_classes_json_outputs = [output_paths.jar_parent.project("used-classes.json")]
+            cmd = setup_dep_files(
+                actions,
+                actions_identifier,
+                cmd,
+                classpath_jars_tag,
+                java_toolchain,
+                srcs,
+                resources_map.values(),
+                used_classes_json_outputs,
             )
 
-            cmd = cmd_args([
-                java_toolchain.used_classes_to_dep_file[RunInfo],
-                "--always-used-files",
-                srcs_and_resources,
-                "--used-classes",
-                used_classes_json.as_output(),
-                "--output",
-                classpath_jars_tag.tag_artifacts(dep_file.as_output()),
-                cmd,
-            ])
+            dep_files["classpath_jars"] = classpath_jars_tag
 
         actions.run(
             cmd,

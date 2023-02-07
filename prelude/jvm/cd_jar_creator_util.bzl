@@ -320,6 +320,41 @@ def encode_base_jar_command(
         libraryJarParameters = library_jar_params,
     )
 
+def setup_dep_files(
+        actions: "actions",
+        actions_identifier: [str.type, None],
+        cmd: "cmd_args",
+        classpath_jars_tag: "artifact_tag",
+        java_toolchain: "JavaToolchainInfo",
+        srcs: ["artifact"],
+        resources: ["artifact"],
+        used_classes_json_outputs: ["artifact"]) -> "cmd_args":
+    dep_file = declare_prefixed_output(actions, actions_identifier, "dep_file.txt")
+
+    # TODO(T134944772) We won't need this once we can do tag_artifacts on a JSON projection,
+    # but for now we have to tag all the inputs on the .proto definition, and so we need to
+    # tell the dep file to include all the inputs that the compiler won't report.
+    srcs_and_resources = actions.write(
+        declare_prefixed_output(actions, actions_identifier, "srcs_and_resources"),
+        srcs + resources,
+    )
+
+    new_cmd = cmd_args([
+        java_toolchain.used_classes_to_dep_file[RunInfo],
+        "--always-used-files",
+        srcs_and_resources,
+        "--used-classes",
+    ] + [
+        used_classes_json.as_output()
+        for used_classes_json in used_classes_json_outputs
+    ] + [
+        "--output",
+        classpath_jars_tag.tag_artifacts(dep_file.as_output()),
+        cmd,
+    ])
+
+    return new_cmd
+
 # If there's additional compiled srcs, we need to merge them in and if the
 # caller specified an output artifact we need to make sure the jar is in that
 # location.
