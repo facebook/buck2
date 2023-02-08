@@ -14,17 +14,21 @@ load("@prelude//linking:lto.bzl", "LtoMode")
 load("@prelude//utils:utils.bzl", "value_or")
 
 def cxx_toolchain_impl(ctx):
+    c_compiler = _get_maybe_wrapped_msvc(ctx.attrs.c_compiler[RunInfo], ctx.attrs.c_compiler_type or ctx.attrs.compiler_type, ctx.attrs._msvc_hermetic_exec[RunInfo])
     c_info = CCompilerInfo(
-        compiler = _get_maybe_wrapped_msvc(ctx.attrs.c_compiler[RunInfo], ctx.attrs.c_compiler_type or ctx.attrs.compiler_type, ctx.attrs._msvc_hermetic_exec[RunInfo]),
+        compiler = c_compiler,
         compiler_type = ctx.attrs.c_compiler_type or ctx.attrs.compiler_type,
         compiler_flags = cmd_args(ctx.attrs.c_compiler_flags),
+        preprocessor = c_compiler,
         preprocessor_flags = cmd_args(ctx.attrs.c_preprocessor_flags),
         dep_files_processor = ctx.attrs._dep_files_processor[RunInfo],
     )
+    cxx_compiler = _get_maybe_wrapped_msvc(ctx.attrs.cxx_compiler[RunInfo], ctx.attrs.cxx_compiler_type or ctx.attrs.compiler_type, ctx.attrs._msvc_hermetic_exec[RunInfo])
     cxx_info = CxxCompilerInfo(
-        compiler = _get_maybe_wrapped_msvc(ctx.attrs.cxx_compiler[RunInfo], ctx.attrs.cxx_compiler_type or ctx.attrs.compiler_type, ctx.attrs._msvc_hermetic_exec[RunInfo]),
+        compiler = cxx_compiler,
         compiler_type = ctx.attrs.cxx_compiler_type or ctx.attrs.compiler_type,
         compiler_flags = cmd_args(ctx.attrs.cxx_compiler_flags),
+        preprocessor = cxx_compiler,
         preprocessor_flags = cmd_args(ctx.attrs.cxx_preprocessor_flags),
         dep_files_processor = ctx.attrs._dep_files_processor[RunInfo],
     )
