@@ -155,7 +155,7 @@ mod tests {
     use crate::extra::testing::TesterExtraContext;
     use crate::file_loader::LoadedModule;
     use crate::file_loader::LoadedModules;
-    use crate::import_paths::ImportPaths;
+    use crate::import_paths::ImplicitImportPaths;
     use crate::interpreter::GlobalInterpreterState;
     use crate::interpreter::InterpreterConfigForCell;
     use crate::interpreter::InterpreterForCell;
@@ -207,7 +207,7 @@ mod tests {
     fn interpreter() -> anyhow::Result<InterpreterForCell> {
         let root_cell = BuildFileCell::new(CellName::unchecked_new("root"));
         let (cell_alias_resolver, resolver, configs) = cells()?;
-        let import_paths = ImportPaths::parse(
+        let import_paths = ImplicitImportPaths::parse(
             configs.get(root_cell.name()).unwrap(),
             root_cell,
             &cell_alias_resolver,

@@ -27,17 +27,17 @@ use dupe::Dupe;
 use crate::package_imports::PackageImplicitImports;
 
 #[derive(PartialEq, Allocative)]
-pub struct ImportPaths {
+pub struct ImplicitImportPaths {
     pub(crate) root_import: Option<ImportPath>,
     pub(crate) package_imports: PackageImplicitImports,
 }
 
-impl ImportPaths {
+impl ImplicitImportPaths {
     pub fn parse(
         config: &LegacyBuckConfig,
         cell_name: BuildFileCell,
         cell_alias_resolver: &CellAliasResolver,
-    ) -> anyhow::Result<ImportPaths> {
+    ) -> anyhow::Result<ImplicitImportPaths> {
         // Oddly, the root import is defined to use a more path-like representation than
         // normal imports. e.g. it uses `cell//path/to/file.bzl` instead of
         // `cell//path/to:file.bzl`.
@@ -58,7 +58,7 @@ impl ImportPaths {
             cell_alias_resolver.dupe(),
             config.get("buildfile", "package_includes"),
         )?;
-        Ok(ImportPaths {
+        Ok(ImplicitImportPaths {
             root_import,
             package_imports,
         })
@@ -74,7 +74,7 @@ pub trait HasImportPaths {
     async fn import_paths_for_cell(
         &self,
         cell_name: BuildFileCell,
-    ) -> SharedResult<Arc<ImportPaths>>;
+    ) -> SharedResult<Arc<ImplicitImportPaths>>;
 }
 
 #[async_trait]
@@ -82,7 +82,7 @@ impl HasImportPaths for DiceComputations {
     async fn import_paths_for_cell(
         &self,
         cell_name: BuildFileCell,
-    ) -> SharedResult<Arc<ImportPaths>> {
+    ) -> SharedResult<Arc<ImplicitImportPaths>> {
         #[derive(Debug, Eq, PartialEq, Hash, Clone, derive_more::Display, Allocative)]
         #[display(fmt = "{}", cell_name)]
         struct ImportPathsKey {
@@ -91,7 +91,7 @@ impl HasImportPaths for DiceComputations {
 
         #[async_trait]
         impl Key for ImportPathsKey {
-            type Value = SharedResult<Arc<ImportPaths>>;
+            type Value = SharedResult<Arc<ImplicitImportPaths>>;
 
             async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
                 let config = ctx
@@ -101,7 +101,7 @@ impl HasImportPaths for DiceComputations {
                 let cell_alias_resolver = cell_resolver
                     .get(self.cell_name.name())?
                     .cell_alias_resolver();
-                Ok(Arc::new(ImportPaths::parse(
+                Ok(Arc::new(ImplicitImportPaths::parse(
                     &config,
                     self.cell_name,
                     cell_alias_resolver,

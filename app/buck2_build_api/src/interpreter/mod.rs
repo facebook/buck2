@@ -36,7 +36,7 @@ pub(crate) mod testing {
     use buck2_interpreter::extra::InterpreterHostPlatform;
     use buck2_interpreter::file_loader::LoadedModule;
     use buck2_interpreter::file_loader::LoadedModules;
-    use buck2_interpreter::import_paths::ImportPaths;
+    use buck2_interpreter::import_paths::ImplicitImportPaths;
     use buck2_interpreter::interpreter::GlobalInterpreterState;
     use buck2_interpreter::interpreter::InterpreterConfigForCell;
     use buck2_interpreter::interpreter::InterpreterForCell;
@@ -245,7 +245,7 @@ pub(crate) mod testing {
         }
 
         fn interpreter(&self) -> anyhow::Result<InterpreterForCell> {
-            let import_paths = ImportPaths::parse(
+            let import_paths = ImplicitImportPaths::parse(
                 self.configs
                     .get(self.cell_alias_resolver.resolve_self())
                     .unwrap(),

@@ -54,7 +54,7 @@ use crate::file_loader::InterpreterFileLoader;
 use crate::file_loader::LoadResolver;
 use crate::file_loader::LoadedModules;
 use crate::functions::dedupe::dedupe;
-use crate::import_paths::ImportPaths;
+use crate::import_paths::ImplicitImportPaths;
 use crate::package_imports::ImplicitImport;
 use crate::parse_import::parse_import;
 use crate::starlark_profiler::StarlarkProfilerInstrumentation;
@@ -160,7 +160,9 @@ impl ParseResult {
 /// of parsing or loading imports.
 pub struct InterpreterForCell {
     config: Arc<InterpreterConfigForCell>,
-    import_paths: Arc<ImportPaths>,
+    /// Implicit imports. These are only used for build files (e.g. `BUCK`),
+    /// not for `bzl` or other files, because we only have implicit imports for build files.
+    implicit_import_paths: Arc<ImplicitImportPaths>,
 }
 
 /// InterpreterConfig contains all the information necessary to interpret build
@@ -455,11 +457,11 @@ impl InterpreterConfigForCell {
 impl InterpreterForCell {
     pub fn new(
         config: Arc<InterpreterConfigForCell>,
-        import_paths: Arc<ImportPaths>,
+        import_paths: Arc<ImplicitImportPaths>,
     ) -> InterpreterForCell {
         InterpreterForCell {
             config,
-            import_paths,
+            implicit_import_paths: import_paths,
         }
     }
 
@@ -564,13 +566,13 @@ impl InterpreterForCell {
     }
 
     fn package_import(&self, build_file_import: &BuildFilePath) -> Option<&Arc<ImplicitImport>> {
-        self.import_paths
+        self.implicit_import_paths
             .package_imports
             .get(build_file_import.package())
     }
 
     fn root_import(&self) -> Option<ImportPath> {
-        self.import_paths.root_import.clone()
+        self.implicit_import_paths.root_import.clone()
     }
 
     fn prelude_import(&self, import: StarlarkPath) -> Option<&ImportPath> {
@@ -852,7 +854,7 @@ mod tests {
 
         fn interpreter(&self) -> anyhow::Result<InterpreterForCell> {
             let root_cell = BuildFileCell::new(CellName::unchecked_new("root"));
-            let import_paths = ImportPaths::parse(
+            let import_paths = ImplicitImportPaths::parse(
                 self.configs.get(root_cell.name()).unwrap(),
                 root_cell,
                 &self.cell_alias_resolver,
