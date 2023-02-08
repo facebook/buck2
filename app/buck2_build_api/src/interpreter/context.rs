@@ -33,7 +33,6 @@ pub fn configure_build_file_globals(globals_builder: &mut GlobalsBuilder) {
     // TODO(cjhopman): This unconditionally adds the native symbols to the global
     // env, but that needs to be a cell-based config.
     register_build_bzl_natives(globals_builder);
-    register_cmd_args(globals_builder);
 }
 
 pub fn configure_extension_file_globals(globals_builder: &mut GlobalsBuilder) {
