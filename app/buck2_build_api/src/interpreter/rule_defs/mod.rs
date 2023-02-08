@@ -66,12 +66,15 @@ pub fn register_rule_defs(globals: &mut GlobalsBuilder) {
 
 #[cfg(test)]
 mod tests {
+
+    use crate::interpreter::rule_defs::register_rule_defs;
     use crate::interpreter::testing::import;
     use crate::interpreter::testing::Tester;
 
     #[test]
     fn test_load_symbols() -> anyhow::Result<()> {
         let mut t = Tester::new()?;
+        t.set_additional_globals(register_rule_defs);
         let defines = import("root", "pkg", "test.bzl");
         t.add_import(
             &defines,
@@ -92,6 +95,7 @@ def test():
     #[test]
     fn test_regex() -> anyhow::Result<()> {
         let mut t = Tester::new()?;
+        t.set_additional_globals(register_rule_defs);
         t.run_starlark_test(
             r#"
 def test():

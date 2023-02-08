@@ -128,16 +128,22 @@ mod tests {
     use crate::interpreter::rule_defs::artifact::testing::artifactory;
     use crate::interpreter::rule_defs::label::testing::label_creator;
     use crate::interpreter::rule_defs::provider::collection::tester::collection_creator;
+    use crate::interpreter::rule_defs::register_rule_defs;
     use crate::interpreter::testing::Tester;
+
+    fn tester() -> Tester {
+        let mut tester = Tester::new().unwrap();
+        tester.set_additional_globals(|builder| {
+            collection_creator(builder);
+            artifactory(builder);
+            label_creator(builder);
+            register_rule_defs(builder);
+        });
+        tester
+    }
 
     #[test]
     fn install_info_works_as_provider_key() -> SharedResult<()> {
-        let mut tester = Tester::new()?;
-        tester.set_additional_globals(|builder| {
-            collection_creator(builder);
-            label_creator(builder);
-        });
-
         let content = indoc!(
             r#"
              installer_app = label("//foo:bar[quz]")
@@ -146,19 +152,12 @@ mod tests {
                  assert_eq(True, contains_provider(c, InstallInfo))
              "#
         );
-
+        let mut tester = tester();
         tester.run_starlark_bzl_test(content)
     }
 
     #[test]
     fn info_validator_succeeds_for_artifacts_without_additional_artifacts() -> SharedResult<()> {
-        let mut tester = Tester::new()?;
-        tester.set_additional_globals(|builder| {
-            collection_creator(builder);
-            artifactory(builder);
-            label_creator(builder);
-        });
-
         let content = indoc!(
             r#"
              a1 = source_artifact("foo/bar", "baz.h")
@@ -169,7 +168,7 @@ mod tests {
                  assert_eq(True, contains_provider(c, InstallInfo))
              "#
         );
-
+        let mut tester = tester();
         tester.run_starlark_bzl_test(content)
     }
 }

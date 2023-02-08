@@ -101,16 +101,23 @@ mod tests {
     use crate::interpreter::rule_defs::artifact::testing::artifactory;
     use crate::interpreter::rule_defs::cmd_args::tester::command_line_stringifier;
     use crate::interpreter::rule_defs::provider::collection::tester::collection_creator;
-    use crate::interpreter::testing::run_starlark_bzl_test_expecting_error;
+    use crate::interpreter::rule_defs::register_rule_defs;
     use crate::interpreter::testing::Tester;
 
-    #[test]
-    fn run_info_stringifies() -> SharedResult<()> {
-        let mut tester = Tester::new()?;
+    fn run_info_tester() -> Tester {
+        let mut tester = Tester::new().unwrap();
         tester.set_additional_globals(|globals| {
             command_line_stringifier(globals);
             artifactory(globals);
+            register_rule_defs(globals);
+            collection_creator(globals);
         });
+        tester
+    }
+
+    #[test]
+    fn run_info_stringifies() -> SharedResult<()> {
+        let mut tester = run_info_tester();
         let content = indoc!(
             r#"
             a = source_artifact("foo/bar", "baz.h")
@@ -183,7 +190,9 @@ mod tests {
                 RunInfo(args=False)
             "#
         );
-        run_starlark_bzl_test_expecting_error(content_bad_args1, "expected command line item");
+        let mut tester = run_info_tester();
+        tester
+            .run_starlark_bzl_test_expecting_error(content_bad_args1, "expected command line item");
 
         let content_bad_args2 = indoc!(
             r#"
@@ -191,13 +200,14 @@ mod tests {
                 RunInfo(args={})
             "#
         );
-        run_starlark_bzl_test_expecting_error(content_bad_args2, "expected command line item");
+        let mut tester = run_info_tester();
+        tester
+            .run_starlark_bzl_test_expecting_error(content_bad_args2, "expected command line item");
     }
 
     #[test]
     fn run_info_works_as_provider_key() -> SharedResult<()> {
-        let mut tester = Tester::new()?;
-        tester.set_additional_globals(collection_creator);
+        let mut tester = run_info_tester();
 
         let content = indoc!(
             r#"

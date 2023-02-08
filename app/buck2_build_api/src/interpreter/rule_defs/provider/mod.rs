@@ -162,6 +162,7 @@ mod tests {
     use starlark::values::Trace;
     use starlark::values::Value;
 
+    use crate::interpreter::rule_defs::register_rule_defs;
     use crate::interpreter::testing::import;
     use crate::interpreter::testing::run_starlark_test_expecting_error;
     use crate::interpreter::testing::Tester;
@@ -192,6 +193,7 @@ mod tests {
         let mut tester = Tester::new()?;
         tester.set_additional_globals(|builder| {
             simple_info_creator(builder);
+            register_rule_defs(builder);
         });
 
         tester.run_starlark_test(indoc!(

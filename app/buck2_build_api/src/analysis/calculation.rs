@@ -471,6 +471,7 @@ mod tests {
     use crate::interpreter::context::configure_build_file_globals;
     use crate::interpreter::context::configure_extension_file_globals;
     use crate::interpreter::rule_defs::provider::builtin::default_info::DefaultInfoCallable;
+    use crate::interpreter::rule_defs::register_rule_defs;
     use crate::interpreter::testing::Tester;
     use crate::query::analysis::environment::ConfiguredGraphQueryEnvironment;
     use crate::spawner::BuckSpawner;
@@ -498,7 +499,7 @@ mod tests {
             CellName::unchecked_new("cell") =>
             LegacyBuckConfig::empty(),
         ]);
-        let interpreter = Tester::with_cells((
+        let mut interpreter = Tester::with_cells((
             CellAliasResolver::new(Arc::new(hashmap![
                 CellAlias::new("".to_owned()) =>
                 CellName::unchecked_new("cell"),
@@ -506,6 +507,7 @@ mod tests {
             resolver.dupe(),
             configs.dupe(),
         ))?;
+        interpreter.set_additional_globals(register_rule_defs);
         let module = interpreter
             .eval_import(
                 &bzlfile,

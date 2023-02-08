@@ -329,15 +329,22 @@ mod tests {
     use starlark::docs::DocString;
     use starlark::docs::DocStringKind;
 
+    use crate::interpreter::build_defs::register_transitive_set;
+    use crate::interpreter::rule_defs::register_rule_defs;
     use crate::interpreter::testing::import;
-    use crate::interpreter::testing::run_simple_starlark_test;
-    use crate::interpreter::testing::run_starlark_bzl_test_expecting_error;
-    use crate::interpreter::testing::run_starlark_test_expecting_error;
     use crate::interpreter::testing::Tester;
+
+    fn rule_tester() -> Tester {
+        let mut tester = Tester::new().unwrap();
+        tester.set_additional_globals(register_transitive_set);
+        tester.set_additional_globals(register_rule_defs);
+        tester
+    }
 
     #[test]
     fn rule_creates_callable() -> anyhow::Result<()> {
-        run_simple_starlark_test(indoc!(
+        let mut tester = rule_tester();
+        tester.run_starlark_test(indoc!(
             r#"
             def impl(ctx):
                 pass
@@ -355,12 +362,14 @@ mod tests {
                 assert_eq(None, frozen_rule(name="target_name"))
                 assert_eq("frozen_rule()", repr(frozen_rule))
             "#
-        ))
+        ))?;
+        Ok(())
     }
 
     #[test]
     fn freeze_fails_if_not_assigned() {
-        run_starlark_bzl_test_expecting_error(
+        let mut tester = rule_tester();
+        tester.run_starlark_bzl_test_expecting_error(
             indoc!(
                 r#"
             def impl(ctx):
@@ -383,7 +392,8 @@ mod tests {
 
     #[test]
     fn rule_disallows_reserved_names() {
-        run_starlark_bzl_test_expecting_error(
+        let mut tester = rule_tester();
+        tester.run_starlark_bzl_test_expecting_error(
             indoc!(
                 r#"
             def impl(ctx):
@@ -407,7 +417,8 @@ mod tests {
 
     #[test]
     fn rule_unbound() {
-        run_starlark_bzl_test_expecting_error(
+        let mut tester = rule_tester();
+        tester.run_starlark_bzl_test_expecting_error(
             indoc!(
                 r#"
             def impl(ctx):
@@ -452,7 +463,7 @@ mod tests {
                 foo_binary(name="target2", mandatory="m2", other_optional="o1")
             "#
         );
-        let mut tester = Tester::new()?;
+        let mut tester = rule_tester();
         let result = tester.run_starlark_test(content)?;
 
         let expected = json!({
@@ -525,7 +536,8 @@ mod tests {
         );
 
         let run = |content: &str, msg: &str| {
-            run_starlark_test_expecting_error(&format!("{}\n{}", prefix, content), msg);
+            let mut tester = rule_tester();
+            tester.run_starlark_test_expecting_error(&format!("{}\n{}", prefix, content), msg);
         };
 
         run(
@@ -544,19 +556,21 @@ mod tests {
 
     #[test]
     fn option_allows_none() -> anyhow::Result<()> {
-        run_starlark_test_expecting_error(
+        let mut tester = rule_tester();
+        tester.run_starlark_test_expecting_error(
             "def test():\n attrs.option(attrs.string(), default = 'test')",
             "parameter must be `None` or absent",
         );
-        let mut tester = Tester::new()?;
+        let mut tester = rule_tester();
         tester.run_starlark_test("def test():\n attrs.option(attrs.string(), default = None)")?;
-        let mut tester = Tester::new()?;
+        let mut tester = rule_tester();
         tester.run_starlark_test("def test():\n attrs.option(attrs.string())")?;
-        run_starlark_test_expecting_error(
+        let mut tester = rule_tester();
+        tester.run_starlark_test_expecting_error(
             "def test():\n attrs.option(attrs.string(), default = select({'DEFAULT': 'test'}))",
             "parameter must be `None` or absent",
         );
-        let mut tester = Tester::new()?;
+        let mut tester = rule_tester();
         tester.run_starlark_test(
             "def test():\n attrs.option(attrs.string(), default = select({'DEFAULT': None}))",
         )?;
@@ -662,7 +676,7 @@ mod tests {
             },
         });
 
-        let tester = Tester::new()?;
+        let tester = rule_tester();
         let res = tester.eval_import(
             &import("root", "", "defs.bzl"),
             bzl,

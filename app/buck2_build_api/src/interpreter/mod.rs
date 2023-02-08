@@ -55,7 +55,6 @@ pub(crate) mod testing {
 
     use crate::interpreter::build_defs::register_provider;
     use crate::interpreter::context::configure_build_file_globals;
-    use crate::interpreter::rule_defs::register_rule_defs;
 
     /// Simple container that allows us to instrument things like imports
     pub(crate) struct Tester {
@@ -87,30 +86,6 @@ pub(crate) mod testing {
             Ok(_) => Ok(()),
             Err(e) => Err(anyhow::Error::from(e)),
         }
-    }
-
-    /// Run a test within a starlark extension file. Useful for functions that
-    /// only exist in .bzl files
-    ///
-    /// Is written into a .bzl file, and its test() function is called.
-    /// This test function has an 'assert_eq(a: Any, b: Any)' function available
-    /// to do eq checks
-    ///
-    /// Returns `()` if the file could be evaluated.
-    ///
-    /// ```ignore
-    /// run_starlark_test(indoc!(r#"
-    ///     def add(a, b):
-    ///         return a + b
-    ///
-    ///     def test():
-    ///         assert_eq(add(2, 2), 4) # Success
-    ///         assert_eq(add(2, 2), 5) # Fails
-    ///     "#)
-    /// ```
-    pub(crate) fn run_starlark_bzl_test(content: &str) -> SharedResult<()> {
-        let mut tester = Tester::with_cells(cells(None)?)?;
-        tester.run_starlark_bzl_test(content)
     }
 
     pub(crate) fn cells(extra_root_config: Option<&str>) -> anyhow::Result<CellsData> {
@@ -167,10 +142,6 @@ pub(crate) mod testing {
     pub(crate) fn run_starlark_test_expecting_error(content: &str, expected: &str) {
         let mut tester = Tester::new().unwrap();
         tester.run_starlark_test_expecting_error(content, expected);
-    }
-
-    pub(crate) fn run_starlark_bzl_test_expecting_error(content: &str, expected: &str) {
-        expect_error(run_starlark_bzl_test(content), content, expected);
     }
 
     pub(crate) fn expect_error<T>(result: SharedResult<T>, content: &str, expected: &str) {
@@ -245,7 +216,6 @@ pub(crate) mod testing {
                         configure_build_file_globals,
                         |g| {
                             register_provider(g);
-                            register_rule_defs(g);
                         },
                         |_| {},
                         Some(AdditionalGlobalsFn(Arc::new(move |globals_builder| {
@@ -445,6 +415,14 @@ pub(crate) mod testing {
             self.add_import(&test_path, test_content)
                 .map_err(|e| e.into())
         }
+
+        pub(crate) fn run_starlark_bzl_test_expecting_error(
+            &mut self,
+            content: &str,
+            expected: &str,
+        ) {
+            expect_error(self.run_starlark_bzl_test(content), content, expected);
+        }
     }
 
     pub(crate) fn import(cell: &str, package: &str, filename: &str) -> ImportPath {
@@ -462,6 +440,7 @@ mod tests {
     use indoc::indoc;
     use starlark::environment::GlobalsBuilder;
 
+    use crate::interpreter::rule_defs::register_rule_defs;
     use crate::interpreter::testing::import;
     use crate::interpreter::testing::Tester;
 
@@ -478,6 +457,7 @@ mod tests {
         "#
         );
         let mut tester = Tester::new().unwrap();
+        tester.set_additional_globals(register_rule_defs);
         let err = tester.run_starlark_test(content).expect_err("should fail");
         assert!(
             err.to_string()

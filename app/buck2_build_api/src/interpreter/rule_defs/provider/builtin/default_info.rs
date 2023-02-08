@@ -472,15 +472,17 @@ mod tests {
     use indoc::indoc;
 
     use crate::interpreter::rule_defs::artifact::testing::artifactory;
+    use crate::interpreter::rule_defs::register_rule_defs;
     use crate::interpreter::testing::import;
-    use crate::interpreter::testing::run_starlark_bzl_test;
-    use crate::interpreter::testing::run_starlark_bzl_test_expecting_error;
     use crate::interpreter::testing::Tester;
 
     #[test]
     fn default_info_is_available() -> SharedResult<()> {
         let mut tester = Tester::new()?;
-        tester.set_additional_globals(artifactory);
+        tester.set_additional_globals(|g| {
+            artifactory(g);
+            register_rule_defs(g);
+        });
         tester.add_import(
             &import("root", "foo", "defs.bzl"),
             r#"BarInfo = provider(fields=["bar"])"#,
@@ -525,7 +527,9 @@ mod tests {
     #[test]
     fn default_info_validates_types() -> SharedResult<()> {
         // TODO(nmj): More complex types
-        run_starlark_bzl_test_expecting_error(
+        let mut tester = Tester::new().unwrap();
+        tester.set_additional_globals(register_rule_defs);
+        tester.run_starlark_bzl_test_expecting_error(
             indoc!(
                 r#"
             def test():
@@ -536,7 +540,7 @@ mod tests {
             "Type of parameter",
         );
 
-        run_starlark_bzl_test_expecting_error(
+        tester.run_starlark_bzl_test_expecting_error(
             indoc!(
                 r#"
             def test():
@@ -547,7 +551,7 @@ mod tests {
             "Type of parameter",
         );
 
-        run_starlark_bzl_test(indoc!(
+        tester.run_starlark_bzl_test(indoc!(
             r#"
             def test():
                 assert_eq(DefaultInfo.type, "DefaultInfo")

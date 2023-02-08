@@ -411,10 +411,15 @@ fn external_runner_test_info_creator(globals: &mut GlobalsBuilder) {
 mod tests {
     use indoc::indoc;
 
+    use crate::interpreter::rule_defs::register_rule_defs;
     use crate::interpreter::testing::import;
-    use crate::interpreter::testing::run_starlark_bzl_test;
-    use crate::interpreter::testing::run_starlark_bzl_test_expecting_error;
     use crate::interpreter::testing::Tester;
+
+    fn tester() -> Tester {
+        let mut tester = Tester::new().unwrap();
+        tester.set_additional_globals(register_rule_defs);
+        tester
+    }
 
     #[test]
     fn test_construction() -> anyhow::Result<()> {
@@ -434,13 +439,15 @@ mod tests {
                 ExternalRunnerTestInfo(type = "foo", run_from_project_root = True)
             "#
         );
-        run_starlark_bzl_test(test)?;
+        let mut tester = tester();
+        tester.run_starlark_bzl_test(test)?;
         Ok(())
     }
 
     #[test]
     fn test_validation() -> anyhow::Result<()> {
-        run_starlark_bzl_test_expecting_error(
+        let mut tester = tester();
+        tester.run_starlark_bzl_test_expecting_error(
             indoc!(
                 r#"
             def test():
@@ -450,7 +457,7 @@ mod tests {
             "`type`",
         );
 
-        run_starlark_bzl_test_expecting_error(
+        tester.run_starlark_bzl_test_expecting_error(
             indoc!(
                 r#"
             def test():
@@ -460,7 +467,7 @@ mod tests {
             "`type`",
         );
 
-        run_starlark_bzl_test_expecting_error(
+        tester.run_starlark_bzl_test_expecting_error(
             indoc!(
                 r#"
             def test():
@@ -470,7 +477,7 @@ mod tests {
             "`command`",
         );
 
-        run_starlark_bzl_test_expecting_error(
+        tester.run_starlark_bzl_test_expecting_error(
             indoc!(
                 r#"
             def test():
@@ -480,7 +487,7 @@ mod tests {
             "`command`",
         );
 
-        run_starlark_bzl_test_expecting_error(
+        tester.run_starlark_bzl_test_expecting_error(
             indoc!(
                 r#"
             def test():
@@ -490,7 +497,7 @@ mod tests {
             "`env`",
         );
 
-        run_starlark_bzl_test_expecting_error(
+        tester.run_starlark_bzl_test_expecting_error(
             indoc!(
                 r#"
             def test():
@@ -500,7 +507,7 @@ mod tests {
             "`env`",
         );
 
-        run_starlark_bzl_test_expecting_error(
+        tester.run_starlark_bzl_test_expecting_error(
             indoc!(
                 r#"
             def test():
@@ -510,7 +517,7 @@ mod tests {
             "`labels`",
         );
 
-        run_starlark_bzl_test_expecting_error(
+        tester.run_starlark_bzl_test_expecting_error(
             indoc!(
                 r#"
             def test():
@@ -520,7 +527,7 @@ mod tests {
             "`labels`",
         );
 
-        run_starlark_bzl_test_expecting_error(
+        tester.run_starlark_bzl_test_expecting_error(
             indoc!(
                 r#"
             def test():
@@ -530,7 +537,7 @@ mod tests {
             "`contacts`",
         );
 
-        run_starlark_bzl_test_expecting_error(
+        tester.run_starlark_bzl_test_expecting_error(
             indoc!(
                 r#"
             def test():
@@ -540,7 +547,7 @@ mod tests {
             "`contacts`",
         );
 
-        run_starlark_bzl_test_expecting_error(
+        tester.run_starlark_bzl_test_expecting_error(
             indoc!(
                 r#"
             def test():
@@ -550,7 +557,7 @@ mod tests {
             "`use_project_relative_paths`",
         );
 
-        run_starlark_bzl_test_expecting_error(
+        tester.run_starlark_bzl_test_expecting_error(
             indoc!(
                 r#"
             def test():
@@ -560,7 +567,7 @@ mod tests {
             "`run_from_project_root`",
         );
 
-        run_starlark_bzl_test_expecting_error(
+        tester.run_starlark_bzl_test_expecting_error(
             indoc!(
                 r#"
             def test():
@@ -570,7 +577,7 @@ mod tests {
             "`default_executor`",
         );
 
-        run_starlark_bzl_test_expecting_error(
+        tester.run_starlark_bzl_test_expecting_error(
             indoc!(
                 r#"
             def test():
@@ -585,7 +592,7 @@ mod tests {
 
     #[test]
     fn test_validation_at_freeze() -> anyhow::Result<()> {
-        let mut tester = Tester::new()?;
+        let mut tester = tester();
 
         let res = tester.add_import(
             &import("root", "test", "def1.bzl"),

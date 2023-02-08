@@ -496,15 +496,22 @@ mod tests {
     use indoc::indoc;
     use starlark::values::Heap;
 
+    use crate::interpreter::rule_defs::register_rule_defs;
     use crate::interpreter::testing::cells;
-    use crate::interpreter::testing::run_starlark_bzl_test;
-    use crate::interpreter::testing::run_starlark_bzl_test_expecting_error;
+    use crate::interpreter::testing::Tester;
     use crate::nodes::hacks::value_to_string;
     use crate::query::analysis::environment::ConfiguredGraphQueryEnvironment;
 
+    fn tester() -> Tester {
+        let mut tester = Tester::new().unwrap();
+        tester.set_additional_globals(register_rule_defs);
+        tester
+    }
+
     #[test]
     fn string_works() -> SharedResult<()> {
-        run_starlark_bzl_test(indoc!(
+        let mut tester = tester();
+        tester.run_starlark_bzl_test(indoc!(
             r#"
             frozen = attrs.string(default="something", doc = "foo")
             def test():
@@ -516,7 +523,8 @@ mod tests {
 
     #[test]
     fn boolean_works() -> SharedResult<()> {
-        run_starlark_bzl_test(indoc!(
+        let mut tester = tester();
+        tester.run_starlark_bzl_test(indoc!(
             r#"
             frozen = attrs.bool(default=False)
             def test():
@@ -528,7 +536,8 @@ mod tests {
 
     #[test]
     fn test_attr_module_registered() -> SharedResult<()> {
-        run_starlark_bzl_test(indoc!(
+        let mut tester = tester();
+        tester.run_starlark_bzl_test(indoc!(
             r#"
             def test():
                 assert_eq(True, attrs.string != None)
@@ -538,7 +547,8 @@ mod tests {
 
     #[test]
     fn list_works() -> SharedResult<()> {
-        run_starlark_bzl_test(indoc!(
+        let mut tester = tester();
+        tester.run_starlark_bzl_test(indoc!(
             r#"
             frozen = attrs.list(
                 attrs.string(default = "something", doc = "foo"),
@@ -560,7 +570,8 @@ mod tests {
 
     #[test]
     fn enum_works() -> SharedResult<()> {
-        run_starlark_bzl_test(indoc!(
+        let mut tester = tester();
+        tester.run_starlark_bzl_test(indoc!(
             r#"
             frozen = attrs.enum(["red", "green", "blue"])
             def test():
@@ -679,7 +690,8 @@ mod tests {
 
     #[test]
     fn dep_works() -> SharedResult<()> {
-        run_starlark_bzl_test(indoc!(
+        let mut t = tester();
+        t.run_starlark_bzl_test(indoc!(
             r#"
             frozen1 = attrs.dep(default="root//foo:bar")
             frozen2 = attrs.dep(default="//foo:bar")
@@ -690,7 +702,8 @@ mod tests {
             "#
         ))?;
 
-        run_starlark_bzl_test_expecting_error(
+        let mut t = tester();
+        t.run_starlark_bzl_test_expecting_error(
             indoc!(
                 r#"
             def test():
@@ -701,7 +714,8 @@ mod tests {
         );
 
         // Relative targets are disallowed; there is no build file for them to be relative to
-        run_starlark_bzl_test_expecting_error(
+        let mut t = tester();
+        t.run_starlark_bzl_test_expecting_error(
             indoc!(
                 r#"
             def test():
@@ -715,7 +729,8 @@ mod tests {
 
     #[test]
     fn source_works() -> SharedResult<()> {
-        run_starlark_bzl_test(indoc!(
+        let mut t = tester();
+        t.run_starlark_bzl_test(indoc!(
             r#"
             frozen1 = attrs.source(default="root//foo:bar")
             frozen2 = attrs.source(default="//foo:bar")
@@ -727,7 +742,8 @@ mod tests {
         ))?;
 
         // Relative targets are disallowed; there is no build file for them to be relative to
-        run_starlark_bzl_test_expecting_error(
+        let mut t = tester();
+        t.run_starlark_bzl_test_expecting_error(
             indoc!(
                 r#"
             def test():

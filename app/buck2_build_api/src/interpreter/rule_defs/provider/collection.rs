@@ -531,6 +531,7 @@ mod tests {
 
     use crate::interpreter::rule_defs::artifact::testing::artifactory;
     use crate::interpreter::rule_defs::provider::collection::tester::collection_creator;
+    use crate::interpreter::rule_defs::register_rule_defs;
     use crate::interpreter::testing::expect_error;
     use crate::interpreter::testing::import;
     use crate::interpreter::testing::Tester;
@@ -540,6 +541,7 @@ mod tests {
         tester.set_additional_globals(|builder| {
             collection_creator(builder);
             artifactory(builder);
+            register_rule_defs(builder);
         });
         tester.add_import(
             &import("root", "provider", "defs1.bzl"),
@@ -668,8 +670,7 @@ mod tests {
 
     #[test]
     fn provider_collection_contains_methods_and_in_operator() -> SharedResult<()> {
-        let mut tester = Tester::new()?;
-        tester.set_additional_globals(collection_creator);
+        let mut tester = provider_collection_tester()?;
         tester.add_import(
             &import("root", "providers", "defs.bzl"),
             indoc!(
@@ -696,8 +697,7 @@ mod tests {
 
     #[test]
     fn provider_collection_get() -> SharedResult<()> {
-        let mut tester = Tester::new()?;
-        tester.set_additional_globals(collection_creator);
+        let mut tester = provider_collection_tester()?;
         tester.add_import(
             &import("root", "providers", "defs.bzl"),
             indoc!(

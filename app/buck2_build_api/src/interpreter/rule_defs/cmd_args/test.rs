@@ -18,6 +18,7 @@ use crate::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::StarlarkCommandLineInputs;
 use crate::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
 use crate::interpreter::rule_defs::label::testing::label_creator;
+use crate::interpreter::rule_defs::register_rule_defs;
 use crate::interpreter::testing::expect_error;
 use crate::interpreter::testing::import;
 use crate::interpreter::testing::Tester;
@@ -44,6 +45,7 @@ fn tester() -> anyhow::Result<Tester> {
         inputs_helper(builder);
         artifactory(builder);
         label_creator(builder);
+        register_rule_defs(builder);
     });
     Ok(tester)
 }

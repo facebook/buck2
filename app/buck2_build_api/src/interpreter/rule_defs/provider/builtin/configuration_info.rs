@@ -166,12 +166,14 @@ mod tests {
     use buck2_common::result::SharedResult;
     use indoc::indoc;
 
-    use crate::interpreter::testing::run_starlark_bzl_test;
-    use crate::interpreter::testing::run_starlark_bzl_test_expecting_error;
+    use crate::interpreter::rule_defs::register_rule_defs;
+    use crate::interpreter::testing::Tester;
 
     #[test]
     fn configuration_info_validates_buckconfigs() -> SharedResult<()> {
-        run_starlark_bzl_test_expecting_error(
+        let mut tester = Tester::new().unwrap();
+        tester.set_additional_globals(register_rule_defs);
+        tester.run_starlark_bzl_test_expecting_error(
             indoc!(
                 r#"
             def test():
@@ -186,7 +188,7 @@ mod tests {
             "Could not find section separator (`.`) in pair `applekey`",
         );
 
-        run_starlark_bzl_test(indoc!(
+        tester.run_starlark_bzl_test(indoc!(
             r#"
             def test():
                 ConfigurationInfo(

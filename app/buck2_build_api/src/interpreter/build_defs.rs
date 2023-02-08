@@ -160,6 +160,7 @@ mod tests {
     use indoc::indoc;
     use serde_json::json;
 
+    use crate::interpreter::rule_defs::register_rule_defs;
     use crate::interpreter::testing::buildfile;
     use crate::interpreter::testing::cells;
     use crate::interpreter::testing::import;
@@ -221,6 +222,7 @@ mod tests {
                 package_includes = src=>//include.bzl::func_alias=some_func
         "#
         )))?)?;
+        tester.set_additional_globals(register_rule_defs);
 
         let import_path = import("root", "", "include.bzl");
         tester.add_import(
@@ -360,7 +362,10 @@ mod tests {
     #[test]
     fn eval() -> anyhow::Result<()> {
         let mut tester = Tester::new()?;
-        tester.set_additional_globals(register_module_natives);
+        tester.set_additional_globals(|g| {
+            register_module_natives(g);
+            register_rule_defs(g);
+        });
         let content = indoc!(
             r#"
             def _impl(ctx):
@@ -391,12 +396,10 @@ mod tests {
     #[test]
     fn test_internal() -> anyhow::Result<()> {
         // Test that most things end up on __internal__
+        let mut tester = Tester::new().unwrap();
+        tester.set_additional_globals(register_rule_defs);
         run_simple_starlark_test(indoc!(
             r#"
-            def _impl(ctx):
-                pass
-            export_file = __internal__.rule(impl=_impl, attrs = {})
-
             def test():
                 assert_eq(__internal__.json.encode({}), "{}")
             "#
@@ -406,7 +409,10 @@ mod tests {
     #[test]
     fn test_oncall() -> anyhow::Result<()> {
         let mut tester = Tester::new().unwrap();
-        tester.set_additional_globals(register_module_natives);
+        tester.set_additional_globals(|g| {
+            register_module_natives(g);
+            register_rule_defs(g);
+        });
         tester.run_starlark_test(indoc!(
             r#"
             def _impl(ctx):
