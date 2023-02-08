@@ -34,7 +34,7 @@ def prebuilt_python_library_impl(ctx: "context") -> ["provider"]:
 
     # Extract prebuilt wheel and wrap in python library provider.
     # TODO(nmj): Make sure all attrs are used if necessary, esp compile
-    extracted_src = ctx.actions.declare_output("{}_extracted".format(ctx.label.name))
+    extracted_src = ctx.actions.declare_output("{}_extracted".format(ctx.label.name), dir = True)
     ctx.actions.run([ctx.attrs._extract[RunInfo], ctx.attrs.binary_src, "--output", extracted_src.as_output()], category = "py_extract_prebuilt_library")
     deps, shared_deps = gather_dep_libraries([ctx.attrs.deps])
     src_manifest = create_manifest_for_source_dir(ctx, "binary_src", extracted_src)
