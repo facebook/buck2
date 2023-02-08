@@ -164,7 +164,6 @@ mod tests {
 
     use crate::interpreter::rule_defs::register_rule_defs;
     use crate::interpreter::testing::import;
-    use crate::interpreter::testing::run_starlark_test_expecting_error;
     use crate::interpreter::testing::Tester;
 
     #[internal_provider(simple_info_creator)]
@@ -185,16 +184,22 @@ mod tests {
         }
     }
 
+    fn provider_tester() -> Tester {
+        let mut tester = Tester::new().unwrap();
+        tester.set_additional_globals(|builder| {
+            simple_info_creator(builder);
+            register_rule_defs(builder);
+            crate::interpreter::build_defs::register_provider(builder);
+        });
+        tester
+    }
+
     #[test]
     fn creates_providers() -> anyhow::Result<()> {
         // TODO(nmj): Starlark doesn't let you call 'new_invoker()' on is_mutable types.
         //                 Once that's fixed, make sure we can call 'FooInfo' before the module is
         //                 frozen.
-        let mut tester = Tester::new()?;
-        tester.set_additional_globals(|builder| {
-            simple_info_creator(builder);
-            register_rule_defs(builder);
-        });
+        let mut tester = provider_tester();
 
         tester.run_starlark_test(indoc!(
             r#"
@@ -238,7 +243,7 @@ mod tests {
         "#
         ))?;
 
-        run_starlark_test_expecting_error(
+        tester.run_starlark_test_expecting_error(
             indoc!(
                 r#"
         FooInfo = provider(fields=["bar", "baz"])
@@ -251,7 +256,7 @@ mod tests {
             "Object of type `provider` has no attribute `quz`",
         );
 
-        run_starlark_test_expecting_error(
+        tester.run_starlark_test_expecting_error(
             indoc!(
                 r#"
         list = []
@@ -262,7 +267,7 @@ mod tests {
         );
 
         // Make sure that frozen UserProvider instances work
-        let mut tester = Tester::new()?;
+        let mut tester = provider_tester();
         tester.add_import(
             &import("root", "provider", "def1.bzl"),
             indoc!(

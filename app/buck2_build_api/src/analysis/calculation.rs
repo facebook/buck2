@@ -468,6 +468,7 @@ mod tests {
     use crate::analysis::calculation::RuleAnalysisCalculation;
     use crate::configuration::calculation::ExecutionPlatformsKey;
     use crate::deferred::types::testing::DeferredAnalysisResultExt;
+    use crate::interpreter::build_defs::register_provider;
     use crate::interpreter::context::configure_build_file_globals;
     use crate::interpreter::context::configure_extension_file_globals;
     use crate::interpreter::rule_defs::provider::builtin::default_info::DefaultInfoCallable;
@@ -507,7 +508,10 @@ mod tests {
             resolver.dupe(),
             configs.dupe(),
         ))?;
-        interpreter.set_additional_globals(register_rule_defs);
+        interpreter.set_additional_globals(|g| {
+            register_rule_defs(g);
+            register_provider(g);
+        });
         let module = interpreter
             .eval_import(
                 &bzlfile,

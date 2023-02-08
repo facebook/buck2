@@ -471,6 +471,7 @@ mod tests {
     use buck2_common::result::SharedResult;
     use indoc::indoc;
 
+    use crate::interpreter::build_defs::register_provider;
     use crate::interpreter::rule_defs::artifact::testing::artifactory;
     use crate::interpreter::rule_defs::register_rule_defs;
     use crate::interpreter::testing::import;
@@ -482,6 +483,7 @@ mod tests {
         tester.set_additional_globals(|g| {
             artifactory(g);
             register_rule_defs(g);
+            register_provider(g);
         });
         tester.add_import(
             &import("root", "foo", "defs.bzl"),

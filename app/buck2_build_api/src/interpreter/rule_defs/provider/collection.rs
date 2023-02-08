@@ -529,6 +529,7 @@ mod tests {
     use buck2_common::result::SharedResult;
     use indoc::indoc;
 
+    use crate::interpreter::build_defs::register_provider;
     use crate::interpreter::rule_defs::artifact::testing::artifactory;
     use crate::interpreter::rule_defs::provider::collection::tester::collection_creator;
     use crate::interpreter::rule_defs::register_rule_defs;
@@ -542,6 +543,7 @@ mod tests {
             collection_creator(builder);
             artifactory(builder);
             register_rule_defs(builder);
+            register_provider(builder);
         });
         tester.add_import(
             &import("root", "provider", "defs1.bzl"),

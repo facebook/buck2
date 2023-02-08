@@ -53,8 +53,6 @@ pub(crate) mod testing {
     use starlark::environment::GlobalsBuilder;
     use starlark::values::Value;
 
-    use crate::interpreter::build_defs::register_provider;
-
     /// Simple container that allows us to instrument things like imports
     pub(crate) struct Tester {
         cell_alias_resolver: CellAliasResolver,
@@ -138,11 +136,6 @@ pub(crate) mod testing {
         ))
     }
 
-    pub(crate) fn run_starlark_test_expecting_error(content: &str, expected: &str) {
-        let mut tester = Tester::new().unwrap();
-        tester.run_starlark_test_expecting_error(content, expected);
-    }
-
     pub(crate) fn expect_error<T>(result: SharedResult<T>, content: &str, expected: &str) {
         match result {
             Ok(_) => {
@@ -213,9 +206,7 @@ pub(crate) mod testing {
                         InterpreterHostArchitecture::X86_64,
                         false,
                         |_| {},
-                        |g| {
-                            register_provider(g);
-                        },
+                        |_| {},
                         |_| {},
                         Some(AdditionalGlobalsFn(Arc::new(move |globals_builder| {
                             common_helpers(globals_builder);

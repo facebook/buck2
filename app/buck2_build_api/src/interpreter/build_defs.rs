@@ -160,6 +160,7 @@ mod tests {
     use indoc::indoc;
     use serde_json::json;
 
+    use crate::interpreter::build_defs::register_provider;
     use crate::interpreter::rule_defs::register_rule_defs;
     use crate::interpreter::testing::buildfile;
     use crate::interpreter::testing::cells;
@@ -280,7 +281,9 @@ mod tests {
     #[test]
     fn test_provider() -> anyhow::Result<()> {
         // TODO: test restricting field names
-        run_simple_starlark_test(indoc!(
+        let mut tester = Tester::new().unwrap();
+        tester.set_additional_globals(register_provider);
+        tester.run_starlark_test(indoc!(
             r#"
             SomeInfo = provider(fields=["x", "y"])
             SomeOtherInfo = provider(fields={"x": "docs for x", "y": "docs for y"})
@@ -302,7 +305,8 @@ mod tests {
                 assert_eq(True, instance.y)
                 assert_eq(DocInfo(x = 2, y = True), instance)
             "#
-        ))
+        ))?;
+        Ok(())
     }
 
     #[test]
