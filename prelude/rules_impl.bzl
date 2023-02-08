@@ -51,6 +51,9 @@ load("@prelude//java:java.bzl", _java_extra_attributes = "extra_attributes", _ja
 # JavaScript
 load("@prelude//js:js.bzl", _js_extra_attributes = "extra_attributes", _js_implemented_rules = "implemented_rules")
 
+# Julia
+load("@prelude//julia:julia.bzl", _julia_extra_attributes = "extra_attributes", _julia_implemented_rules = "implemented_rules")
+
 # Kotlin
 load("@prelude//kotlin:kotlin.bzl", _kotlin_extra_attributes = "extra_attributes", _kotlin_implemented_rules = "implemented_rules")
 load("@prelude//linking:link_info.bzl", "LinkOrdering")
@@ -189,6 +192,7 @@ implemented_rules = struct(
         _erlang_implemented_rules,
         _java_implemented_rules,
         _js_implemented_rules,
+        _julia_implemented_rules,
         _kotlin_implemented_rules,
         _zip_file_implemented_rules,
     ])
@@ -633,6 +637,7 @@ all_extra_attributes = _merge_dictionaries([
     _erlang_extra_attributes,
     _java_extra_attributes,
     _js_extra_attributes,
+    _julia_extra_attributes,
     _kotlin_extra_attributes,
     _ocaml_extra_attributes,
     _zip_file_extra_attributes,
