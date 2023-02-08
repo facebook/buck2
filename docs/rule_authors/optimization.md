@@ -9,7 +9,7 @@ Optimization involves the use of techniques for determining and improving the pe
 
 `buck2` supports profiling of the evaluation of specific `BUCK` files and profiling of the analysis of specific targets.
 
-There are two `buck2` profiling commands:
+There are three `buck2` profiling commands:
 
 * `buck2 profile loading`
 * `buck2 profile analysis`

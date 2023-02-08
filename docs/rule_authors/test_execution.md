@@ -5,12 +5,12 @@ title: Test Execution
 
 Test execution in Buck2 is a collaboration with [Tpx](https://www.internalfb.com/intern/wiki/TAE/tpx/), Meta's internal test runner.
 
-Tpx has a large number of responsibilities when used with Buck2, which can be grouped as follow:
+Tpx has a large number of responsibilities when used with Buck2, which can be grouped as follows:
 
-* Translation:
+* **Translation**:
   * Understands the output formats of various supported test frameworks. This is used to identify test cases and collect test results.
   * Understands, to an extent, the input formats. For example, given a test case, Tpx can identify what command needs to run to execute just that test.
-* Orchestration:
+* **Orchestration**:
   * Interacts with Test Infra to discover what tests should run, under a number of configurations.
   * Coordinates the execution of tests. For example, it may request retries, or choose to bundle multiple tests in a single execution (or not).
   * Reports test results to Test Infra as well.
@@ -19,11 +19,11 @@ In Buck2, rules interact with Tpx via a provider called `ExternalRunnerTestInfo`
 
 ## Anatomy of a test run
 
-When a user runs `buck2 test $targets`, Buck2 will:
+When a user runs `buck2 test $targets`:
 
-* Identify all matching targets that have an `ExternalRunnerTestInfo`.
-* Build all the artifacts referenced by those targets (this will likely change eventually to build them only if they are used).
-* Notify Tpx that those tests exist. Currently, Tpx receives a subset of `ExternalRunnerTestInfo`.
+* Buck2 identifies all matching targets that have an `ExternalRunnerTestInfo`.
+* Buck2 builds all the artifacts referenced by those targets (this will likely change eventually to build them only if they are used).
+* Buck2 then notifies Tpx that those tests exist. Currently, Tpx receives a subset of `ExternalRunnerTestInfo`.
 * Tpx requests command execution from Buck2 to list and execute tests.
 * When it receives command results from Buck2, Tpx may fire off events that the end-user will see (such as test results), log to Test Infra, request further executions, and so on.
 
@@ -63,7 +63,7 @@ As noted above, Tpx only interacts with a subset of arguments provided by rules 
 
 Consider the following example:
 
-```
+```python
 binary = ctx.attrs.dep[RunInfo]
 test_info = ExternalRunnerTestInfo(command = [binary, "run-tests"], ...)
 ```
@@ -74,7 +74,7 @@ To that end, all non-trivial arguments present in `command` (and in the values o
 
 This means that Tpx would see the command described above as:
 
-```
+```python
 [ArgHandle(index = 0), Verbatim("foobar")]
 ```
 
@@ -86,7 +86,9 @@ This allows Tpx to introspect and modify parts of the command lines it receives,
 
 By default, tests execute using the execution configuration of the associated target. This is the execution configuration that would be used for run actions (`ctx.actions.run`) declared in the same target. This is a default that actually makes little sense but works out as long as cross-compiling is not the norm.
 
-That said, it's easy to see where this breaks down. For example:
+That said, it's easy to see where this breaks down.
+
+For example:
 
 * For iOS tests, the execution platform for builds needs to be XCode (local or RE Mac).
 * For test listing, XCode is not needed (it's preferable to do it on RE Linux where capacity is cheaper).
@@ -94,7 +96,7 @@ That said, it's easy to see where this breaks down. For example:
 
 To support this, `ExternalRunnerTestInfo` allows specifying override platforms, which are given a name. Tpx can request execution on them by passing their name when it sends execution requests to Buck2, as shown in the following code:
 
-```
+```python
 ExternalRunnerTestInfo(
   executor_overrides = {
       "ios-simulator": CommandExecutorConfig(
@@ -115,7 +117,7 @@ ExternalRunnerTestInfo(
 
 The default execution platform can also be overridden:
 
-```
+```python
 ExternalRunnerTestInfo(
   default_executor = CommandExecutorConfig(
     local_enabled = False,

@@ -12,7 +12,7 @@ Examples of where transitive sets are useful include:
 
 ## Rule API
 
-First, you need to declare your transitive set type, then you can use it as follows:
+First, you need to declare your transitive set type, then you can use it, as follows:
 
 ```starlark
 # This is the type
@@ -31,7 +31,7 @@ Sets aren't useful unless you can use their contents!
 
 To use a set in a command line, you use a concept called a 'projection', which defines how to turn individual values found in the set into command line arguments.
 
-To define a projection, you write a function that takes a value of your set and returns a command-line like object (`cmd_args`, `string`, `attr.arg()` attributes, `artifact`, etc) or a list of them in whichever way makes sense for your use case.
+To define a projection, you write a function that takes a value of your set and returns a command-line like object (`cmd_args`, `string`, `attr.arg()` attributes, `artifact`, ad so on) or a list of them in whichever way makes sense for your use case.
 
 Then, you call `project_as_args` to turn a set into a value suitable for inclusion in a command line. When expanded, this projection will expand like a list of all the node's individual projected values.
 
@@ -87,7 +87,7 @@ Note that if your projected values include (or may include) artifacts, you will 
 
 ### Traversals in depth
 
-Transitive sets form DAGs. Notably, this means individual nodes can exist more than 1 time in a given transitive set.
+Transitive sets form DAGs. Notably, this means individual nodes can exist more than once in a given transitive set.
 
 When a transitive set is traversed, nodes that have already been visited are skipped. This means their arguments will only be emitted once.
 
@@ -173,6 +173,7 @@ A few different traversal orders are supported with the `ordering` attribute:
 | `bfs` | Breadth-first-search (BFS) traversal, traverses nodes left-to-right before traversing children. |
 
 For example:
+
 ```starlark src=fbcode/buck2/buck2_build_api/src/interpreter/rule_defs/transitive_set/tests.rs
 set1 = ctx.actions.tset(MySet, value = "foo")
 set2 = ctx.actions.tset(MySet, value = "bar", children = [set1])

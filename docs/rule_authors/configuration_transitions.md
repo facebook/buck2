@@ -3,7 +3,9 @@ id: configuration_transitions
 title: Configuration Transitions
 ---
 
-Configuration transition is a mechanism for changing the configuration when depending on a target. Currently we have incoming and outgoing transitions:
+Configuration transition is a mechanism for changing the configuration when depending on a target.
+
+Currently, Buck2 has incoming and outgoing transitions:
 
 * **Incoming** - (or per-rule transitions) declared on the rule.
 * **Outgoing** - (or per-attribute transitions) declared on the attribute.
@@ -78,7 +80,7 @@ The `rule` function has an optional `cfg` attribute, which takes a reference to 
 
 When such a rule is called, it is instantiated, not with the requested configuration, but with the requested configuration transformed with a given rule transition.
 
-For example, the transition for watchos when the ios target depends on watchos resource:
+For example, the transition for watchos when the iOS target depends on watchos resource:
 
 ```python
 watchos_resource = rule(
@@ -142,10 +144,10 @@ It is an error to pass a split transition object to `attrs.transition_dep` and a
 
 ## Per target transition
 
-The Buck2 team are considering implementing per target transitions (that is, transitions referenced at a rule instantiation site as opposed to rule declaration site).
+The Buck2 team is considering the implementation of per target transitions (that is, transitions referenced at a rule instantiation site as opposed to rule declaration site).
 No specific plans or APIs exists at the moment.
 
-It *could* be something like:
+It *could* be something like the following:
 
 ```python
 cxx_binary(
@@ -165,7 +167,7 @@ It might be useful for the transition function to be able to query rule attribut
 
 Both incoming (per rule) and outgoing (per dependency) transitions can access rule attributes. For outgoing transitions, transition rule implementation accesses the attributes of the target that has dependencies with transitions, not attributes of dependency targets.
 
-```
+```python
 def _tr(platform, refs, attrs):
     # NB: There are some restrictions on what attrs can be made accessible:
     # - Only primitive values for now (providers are not resolved)
@@ -180,9 +182,7 @@ tr = transition(
   },
 )
 
-
 my_rule = rule(..., cfg=tr)
-
 
 my_rule(
   ...,
