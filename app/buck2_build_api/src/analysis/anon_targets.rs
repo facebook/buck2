@@ -42,11 +42,11 @@ use buck2_execute::base_deferred_key::BaseDeferredKey;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
 use buck2_interpreter::types::label::Label;
 use buck2_interpreter_for_build::attrs::coerce::attr_type::AttrTypeInnerExt;
-use buck2_node::attrs::attr::Attribute;
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::dep::DepAttr;
 use buck2_node::attrs::attr_type::dep::DepAttrTransition;
 use buck2_node::attrs::attr_type::dep::DepAttrType;
+use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::attr_type::AttrTypeInner;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coerced_path::CoercedPath;
@@ -158,7 +158,7 @@ impl AnonTargetKey {
                     .ok_or_else(|| AnonTargetsError::UnknownAttribute(k.to_owned()))?;
                 attrs.insert(
                     k.to_owned(),
-                    Self::coerce_attr(attr, v)
+                    Self::coerce_attr(attr.coercer(), v)
                         .with_context(|| format!("when coercing attribute `{}`", k))?,
                 );
             }
@@ -223,7 +223,7 @@ impl AnonTargetKey {
         }
     }
 
-    fn coerce_attr(attr: &Attribute, x: Value) -> anyhow::Result<ConfiguredAttr> {
+    fn coerce_attr(attr: &AttrType, x: Value) -> anyhow::Result<ConfiguredAttr> {
         fn unpack_dep(x: &AttrTypeInner) -> Option<DepAttrType> {
             match x {
                 AttrTypeInner::Dep(d) => Some(d.dupe()),
@@ -236,7 +236,7 @@ impl AnonTargetKey {
         }
 
         let ctx = AnonAttrCtx::new();
-        let a = match unpack_dep(&attr.coercer().0) {
+        let a = match unpack_dep(&attr.0) {
             Some(attr_type) => match Dependency::from_value(x) {
                 Some(dep) => {
                     let label = dep.label().inner().clone();
@@ -244,10 +244,7 @@ impl AnonTargetKey {
                 }
                 _ => return Err(AnonTargetsError::InvalidDep(x.get_type().to_owned()).into()),
             },
-            _ => attr
-                .coercer()
-                .0
-                .coerce_item(AttrIsConfigurable::No, &ctx, x)?,
+            _ => attr.0.coerce_item(AttrIsConfigurable::No, &ctx, x)?,
         };
         a.configure(&ctx)
     }
