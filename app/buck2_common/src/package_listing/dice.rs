@@ -23,16 +23,33 @@ use crate::package_listing::interpreter::InterpreterPackageListingResolver;
 use crate::package_listing::listing::PackageListing;
 use crate::package_listing::resolver::PackageListingResolver;
 use crate::result::SharedResult;
+use crate::result::ToUnsharedResultExt;
 
+#[async_trait]
 pub trait HasPackageListingResolver<'c> {
     type PL: PackageListingResolver + 'c;
     fn get_package_listing_resolver(&'c self) -> Self::PL;
+    async fn resolve_package_listing(
+        &self,
+        package: PackageLabel,
+    ) -> anyhow::Result<PackageListing>;
 }
 
+#[async_trait]
 impl<'c> HasPackageListingResolver<'c> for DiceComputations {
     type PL = DicePackageListingResolver<'c>;
     fn get_package_listing_resolver(&'c self) -> Self::PL {
         DicePackageListingResolver(self)
+    }
+
+    async fn resolve_package_listing(
+        &self,
+        package: PackageLabel,
+    ) -> anyhow::Result<PackageListing> {
+        self.get_package_listing_resolver()
+            .resolve(package)
+            .await
+            .unshared_error()
     }
 }
 

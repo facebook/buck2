@@ -19,8 +19,6 @@ use buck2_common::file_ops::FileOps;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::dice::LegacyBuckConfigOnDice;
 use buck2_common::package_boundary::HasPackageBoundaryExceptions;
-use buck2_common::package_listing::listing::PackageListing;
-use buck2_common::package_listing::resolver::PackageListingResolver;
 use buck2_common::result::SharedResult;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
@@ -212,13 +210,6 @@ impl<'c> DiceCalculationDelegate<'c> {
         &self.fs
     }
 
-    async fn resolve_package_listing(&self, package: PackageLabel) -> SharedResult<PackageListing> {
-        self.ctx
-            .get_package_listing_resolver()
-            .resolve(package)
-            .await
-    }
-
     async fn get_legacy_buck_config_for_starlark(
         &self,
     ) -> anyhow::Result<LegacyBuckConfigOnDice<'c>> {
@@ -332,7 +323,7 @@ impl<'c> DiceCalculationDelegate<'c> {
                 path: package.as_cell_path().to_string(),
             },
             async {
-                let result = self.resolve_package_listing(package.dupe()).await;
+                let result = self.ctx.resolve_package_listing(package.dupe()).await;
                 let error = result.create_error_report();
                 (
                     result,

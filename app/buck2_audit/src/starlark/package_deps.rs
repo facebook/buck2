@@ -13,7 +13,6 @@ use std::io::Write;
 use buck2_cli_proto::ClientContext;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::package_listing::dice::HasPackageListingResolver;
-use buck2_common::package_listing::resolver::PackageListingResolver;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
@@ -64,8 +63,7 @@ impl StarlarkPackageDepsCommand {
                     .await?;
 
                 let build_file_name = dice_ctx
-                    .get_package_listing_resolver()
-                    .resolve(package.dupe())
+                    .resolve_package_listing(package.dupe())
                     .await?
                     .buildfile()
                     .to_owned();

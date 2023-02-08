@@ -18,7 +18,6 @@ use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::file_ops::FileOps;
 use buck2_common::package_listing::dice::HasPackageListingResolver;
-use buck2_common::package_listing::resolver::PackageListingResolver;
 use buck2_common::result::SharedResult;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
@@ -516,8 +515,7 @@ impl BuckLspContext {
                 let res = self
                     .with_dice_ctx(async move |dice_ctx| {
                         Ok(dice_ctx
-                            .get_package_listing_resolver()
-                            .resolve(package.dupe())
+                            .resolve_package_listing(package.dupe())
                             .await
                             .and_then(|listing| {
                                 let relative_path = cell_resolver
@@ -534,7 +532,7 @@ impl BuckLspContext {
                                         };
                                         Ok(Some(string_literal))
                                     }
-                                    Err(e) => Err(anyhow::Error::from(e).into()),
+                                    Err(e) => Err(e.into()),
                                 }
                             }))
                     })
