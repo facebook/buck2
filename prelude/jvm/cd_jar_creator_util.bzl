@@ -398,6 +398,7 @@ def generate_abi_jars(
         is_building_android_binary: bool.type,
         class_abi_generator: "dependency",
         final_jar: "artifact",
+        class_abi_jar: ["artifact", None],
         encode_abi_command: "function",
         define_action: "function") -> tuple.type:
     class_abi = None
@@ -437,7 +438,7 @@ def generate_abi_jars(
             classpath_abi = final_jar
 
     if classpath_abi == None or not is_building_android_binary:
-        class_abi = create_abi(actions, class_abi_generator, final_jar)
+        class_abi = class_abi_jar or create_abi(actions, class_abi_generator, final_jar)
         if classpath_abi == None:
             classpath_abi = class_abi
     return class_abi, source_abi, source_only_abi, classpath_abi

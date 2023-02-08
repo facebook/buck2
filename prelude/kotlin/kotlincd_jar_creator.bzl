@@ -70,6 +70,9 @@ def create_jar_artifact_kotlincd(
     output_paths = define_output_paths(actions, actions_identifier)
     path_to_class_hashes_out = declare_prefixed_output(actions, actions_identifier, "classes.txt")
 
+    should_create_class_abi = actual_abi_generation_mode == AbiGenerationMode("class") or not is_building_android_binary
+    class_abi_jar = declare_prefixed_output(actions, actions_identifier, "class-abi.jar") if should_create_class_abi else None
+
     def encode_kotlin_extra_params(kotlin_compiler_plugins):
         return struct(
             extraClassPaths = bootclasspath_entries,
@@ -178,7 +181,8 @@ def create_jar_artifact_kotlincd(
             encoded_command: struct.type,
             qualified_name: str.type,
             output_paths: OutputPaths.type,
-            path_to_class_hashes: ["artifact", None]):
+            path_to_class_hashes: ["artifact", None],
+            is_full_library: bool.type = False):
         proto = declare_prefixed_output(actions, actions_identifier, "jar_command.proto.json")
         classpath_jars_tag = actions.artifact_tag()
         proto_with_inputs = classpath_jars_tag.tag_inputs(actions.write_json(proto, encoded_command, with_inputs = True))
@@ -190,6 +194,15 @@ def create_jar_artifact_kotlincd(
             "--command-file",
             proto_with_inputs,
         ])
+
+        if is_full_library and should_create_class_abi:
+            cmd.add(
+                "--full-library",
+                output_paths.jar.as_output(),
+                "--class-abi-output",
+                class_abi_jar.as_output(),
+            )
+
         cmd = add_output_paths_to_cmd_args(cmd, output_paths, path_to_class_hashes)
 
         event_pipe_out = declare_prefixed_output(actions, actions_identifier, "events.data")
@@ -211,6 +224,7 @@ def create_jar_artifact_kotlincd(
         qualified_name = base_qualified_name(label),
         output_paths = output_paths,
         path_to_class_hashes = path_to_class_hashes_out,
+        is_full_library = True,
     )
 
     final_jar = prepare_final_jar(
@@ -232,6 +246,7 @@ def create_jar_artifact_kotlincd(
         is_building_android_binary = is_building_android_binary,
         class_abi_generator = java_toolchain.class_abi_generator,
         final_jar = final_jar,
+        class_abi_jar = class_abi_jar,
         encode_abi_command = encode_abi_command,
         define_action = define_kotlincd_action,
     )
