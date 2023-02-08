@@ -467,6 +467,9 @@ inlined_extra_attributes = {
         "_cxx_toolchain": _cxx_toolchain(),
         "_haskell_toolchain": _haskell_toolchain(),
     },
+    "haskell_ide": {
+        "_haskell_toolchain": _haskell_toolchain(),
+    },
     "haskell_library": {
         "preferred_linkage": attrs.enum(Linkage, default = "any"),
         "template_deps": attrs.list(attrs.exec_dep(providers = [HaskellLibraryProvider]), default = []),
