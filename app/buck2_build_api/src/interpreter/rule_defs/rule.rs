@@ -332,7 +332,6 @@ mod tests {
     use crate::interpreter::testing::import;
     use crate::interpreter::testing::run_simple_starlark_test;
     use crate::interpreter::testing::run_starlark_bzl_test_expecting_error;
-    use crate::interpreter::testing::run_starlark_test;
     use crate::interpreter::testing::run_starlark_test_expecting_error;
     use crate::interpreter::testing::Tester;
 
@@ -428,7 +427,7 @@ mod tests {
 
     #[test]
     fn udr_is_recorded() -> SharedResult<()> {
-        let result = run_starlark_test(indoc!(
+        let content = indoc!(
             r#"
             def impl(ctx):
                 pass
@@ -452,7 +451,9 @@ mod tests {
                 foo_binary(name="target1", mandatory="m1", optional="o1", dep=":bar", other_optional=None, src="file1.java")
                 foo_binary(name="target2", mandatory="m2", other_optional="o1")
             "#
-        ))?;
+        );
+        let mut tester = Tester::new()?;
+        let result = tester.run_starlark_test(content)?;
 
         let expected = json!({
             "target1": {
@@ -547,13 +548,16 @@ mod tests {
             "def test():\n attrs.option(attrs.string(), default = 'test')",
             "parameter must be `None` or absent",
         );
-        run_starlark_test("def test():\n attrs.option(attrs.string(), default = None)")?;
-        run_starlark_test("def test():\n attrs.option(attrs.string())")?;
+        let mut tester = Tester::new()?;
+        tester.run_starlark_test("def test():\n attrs.option(attrs.string(), default = None)")?;
+        let mut tester = Tester::new()?;
+        tester.run_starlark_test("def test():\n attrs.option(attrs.string())")?;
         run_starlark_test_expecting_error(
             "def test():\n attrs.option(attrs.string(), default = select({'DEFAULT': 'test'}))",
             "parameter must be `None` or absent",
         );
-        run_starlark_test(
+        let mut tester = Tester::new()?;
+        tester.run_starlark_test(
             "def test():\n attrs.option(attrs.string(), default = select({'DEFAULT': None}))",
         )?;
         Ok(())

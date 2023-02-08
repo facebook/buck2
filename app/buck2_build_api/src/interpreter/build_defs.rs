@@ -154,6 +154,7 @@ mod tests {
     use buck2_interpreter::file_loader::LoadedModules;
     use buck2_interpreter::functions::host_info::register_host_info;
     use buck2_interpreter::functions::read_config::register_read_config;
+    use buck2_interpreter_for_build::interpreter::natives::register_module_natives;
     use buck2_node::attrs::inspect_options::AttrInspectOptions;
     use buck2_node::nodes::unconfigured::testing::targets_to_json;
     use indoc::indoc;
@@ -163,7 +164,6 @@ mod tests {
     use crate::interpreter::testing::cells;
     use crate::interpreter::testing::import;
     use crate::interpreter::testing::run_simple_starlark_test;
-    use crate::interpreter::testing::run_starlark_test_expecting_error;
     use crate::interpreter::testing::Tester;
 
     #[test]
@@ -359,7 +359,9 @@ mod tests {
 
     #[test]
     fn eval() -> anyhow::Result<()> {
-        run_simple_starlark_test(indoc!(
+        let mut tester = Tester::new()?;
+        tester.set_additional_globals(register_module_natives);
+        let content = indoc!(
             r#"
             def _impl(ctx):
                 pass
@@ -381,7 +383,9 @@ mod tests {
                 print("some message")
                 print("multiple", "strings")
             "#
-        ))
+        );
+        tester.run_starlark_test(content)?;
+        Ok(())
     }
 
     #[test]
@@ -401,7 +405,9 @@ mod tests {
 
     #[test]
     fn test_oncall() -> anyhow::Result<()> {
-        run_simple_starlark_test(indoc!(
+        let mut tester = Tester::new().unwrap();
+        tester.set_additional_globals(register_module_natives);
+        tester.run_starlark_test(indoc!(
             r#"
             def _impl(ctx):
                 pass
@@ -412,7 +418,7 @@ mod tests {
                 export_file(name = "rule_name")
             "#
         ))?;
-        run_starlark_test_expecting_error(
+        tester.run_starlark_test_expecting_error(
             indoc!(
                 r#"
             def test():
@@ -422,7 +428,7 @@ mod tests {
             ),
             "more than once",
         );
-        run_starlark_test_expecting_error(
+        tester.run_starlark_test_expecting_error(
             indoc!(
                 r#"
             def _impl(ctx):

@@ -44,7 +44,6 @@ pub(crate) mod testing {
     use buck2_interpreter_for_build::interpreter::configuror::AdditionalGlobalsFn;
     use buck2_interpreter_for_build::interpreter::configuror::BuildInterpreterConfiguror;
     use buck2_interpreter_for_build::interpreter::module_internals::ModuleInternals;
-    use buck2_interpreter_for_build::interpreter::natives::register_module_natives;
     use buck2_node::nodes::eval_result::EvaluationResult;
     use buck2_node::nodes::targets_map::TargetsMap;
     use buck2_query::query::syntax::simple::functions::testing::QueryFunctionsPanic;
@@ -83,33 +82,11 @@ pub(crate) mod testing {
     /// The same as `run_starlark_test`, but just make sure the parse succeds;
     /// ignore the targets
     pub(crate) fn run_simple_starlark_test(content: &str) -> anyhow::Result<()> {
-        match run_starlark_test(content) {
+        let mut tester = Tester::new()?;
+        match tester.run_starlark_test(content) {
             Ok(_) => Ok(()),
             Err(e) => Err(anyhow::Error::from(e)),
         }
-    }
-
-    /// Run a test within a starlark build file
-    ///
-    /// Is written into a .bzl file, loaded, and its test() function is called.
-    /// This test function has an 'assert_eq(a: Any, b: Any)' function available
-    /// to do eq checks
-    ///
-    /// Returns the targets that were registered
-    ///
-    /// ```ignore
-    /// run_starlark_test(indoc!(r#"
-    ///     def add(a, b):
-    ///         return a + b
-    ///
-    ///     def test():
-    ///         assert_eq(add(2, 2), 4) # Success
-    ///         assert_eq(add(2, 2), 5) # Fails
-    ///     "#)
-    /// ```
-    pub(crate) fn run_starlark_test(content: &str) -> SharedResult<TargetsMap> {
-        let mut tester = Tester::new()?;
-        tester.run_starlark_test(content)
     }
 
     /// Run a test within a starlark extension file. Useful for functions that
@@ -188,7 +165,8 @@ pub(crate) mod testing {
     }
 
     pub(crate) fn run_starlark_test_expecting_error(content: &str, expected: &str) {
-        expect_error(run_starlark_test(content), content, expected);
+        let mut tester = Tester::new().unwrap();
+        tester.run_starlark_test_expecting_error(content, expected);
     }
 
     pub(crate) fn run_starlark_bzl_test_expecting_error(content: &str, expected: &str) {
@@ -267,7 +245,6 @@ pub(crate) mod testing {
                         configure_build_file_globals,
                         |g| {
                             register_provider(g);
-                            register_module_natives(g);
                             register_rule_defs(g);
                         },
                         |_| {},
@@ -411,6 +388,10 @@ pub(crate) mod testing {
             Ok(res.targets().clone())
         }
 
+        pub(crate) fn run_starlark_test_expecting_error(&mut self, content: &str, expected: &str) {
+            expect_error(self.run_starlark_test(content), content, expected);
+        }
+
         /// Try to evaluate some content in a .bzl file. Returns `()` if
         /// evaluation was successful. This can be handy if the .bzl
         /// evaluation environment is different from the build file
@@ -482,12 +463,11 @@ mod tests {
     use starlark::environment::GlobalsBuilder;
 
     use crate::interpreter::testing::import;
-    use crate::interpreter::testing::run_starlark_test;
     use crate::interpreter::testing::Tester;
 
     #[test]
     fn cannot_register_target_twice() {
-        let err = run_starlark_test(indoc!(
+        let content = indoc!(
             r#"
             def _impl(ctx):
                 pass
@@ -496,8 +476,9 @@ mod tests {
                 export_file(name="foo")
                 export_file(name="foo")
         "#
-        ))
-        .expect_err("should fail");
+        );
+        let mut tester = Tester::new().unwrap();
+        let err = tester.run_starlark_test(content).expect_err("should fail");
         assert!(
             err.to_string()
                 .contains("Attempted to register target root//some/package:foo twice"),
