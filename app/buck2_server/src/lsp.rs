@@ -132,10 +132,7 @@ impl DocsCacheManager {
     ) -> anyhow::Result<DocsCache> {
         let cell_resolver = dice_ctx.get_cell_resolver().await?;
         let global_interpreter_state = dice_ctx.get_global_interpreter_state().await?;
-        let mut builtin_docs = get_builtin_docs(
-            cell_resolver.root_cell_cell_alias_resolver().dupe(),
-            global_interpreter_state,
-        )?;
+        let mut builtin_docs = get_builtin_docs(global_interpreter_state)?;
         let builtin_names = builtin_docs.iter().map(|d| d.id.name.as_str()).collect();
         let prelude_docs = get_prelude_docs(dice_ctx, &builtin_names).await?;
         builtin_docs.extend(prelude_docs);

@@ -10,9 +10,7 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use buck2_core::cells::CellAliasResolver;
 use buck2_interpreter::interpreter::GlobalInterpreterState;
-use buck2_interpreter::interpreter::InterpreterConfigForCell;
 use maplit::hashset;
 use once_cell::sync::Lazy;
 use starlark::docs::Doc;
@@ -38,11 +36,9 @@ static BXL_GLOBAL_METHOD_NAME_SET: Lazy<HashSet<&str>> = Lazy::new(|| {
 // Globals that are in BXL. For BXL, we will probably only have global functions (as opposed
 // to objects and properties).
 pub(crate) fn get_builtin_bxl_docs(
-    cell_alias_resolver: CellAliasResolver,
     interpreter_state: Arc<GlobalInterpreterState>,
 ) -> anyhow::Result<Vec<Doc>> {
-    let interpreter_config = InterpreterConfigForCell::new(cell_alias_resolver, interpreter_state)?;
-    match interpreter_config.bxl_file_global_env().documentation() {
+    match interpreter_state.bxl_file_global_env.documentation() {
         DocItem::Object(b_o) => {
             let mut docs = vec![];
             for member in b_o.members {

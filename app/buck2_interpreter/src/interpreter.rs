@@ -196,12 +196,12 @@ pub struct GlobalInterpreterState {
     /// The GlobalEnvironment contains all the globally available symbols
     /// (primarily starlark stdlib and Buck-provided functions) that should
     /// be available in an extension file.
-    extension_file_global_env: Globals,
+    pub extension_file_global_env: Globals,
 
     /// The GlobalEnvironment contains all the globally available symbols
     /// (primarily starlark stdlib and Buck-provided functions) that should
     /// be available in a bxl file.
-    bxl_file_global_env: Globals,
+    pub bxl_file_global_env: Globals,
 
     /// Interpreter Configurer
     configuror: Arc<dyn InterpreterConfiguror>,

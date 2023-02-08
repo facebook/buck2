@@ -36,7 +36,6 @@ use buck2_interpreter::dice::calculation::DiceCalculationDelegate;
 use buck2_interpreter::dice::HasCalculationDelegate;
 use buck2_interpreter::dice::HasGlobalInterpreterState;
 use buck2_interpreter::interpreter::GlobalInterpreterState;
-use buck2_interpreter::interpreter::InterpreterConfigForCell;
 use buck2_interpreter::parse_import::parse_import_with_config;
 use buck2_interpreter::parse_import::ParseImportOptions;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
@@ -109,16 +108,9 @@ fn get_builtin_provider_docs() -> Vec<Doc> {
 }
 
 /// Globals that are in the interpreter, but none of the starlark global symbols.
-fn get_builtin_build_docs(
-    cell_alias_resolver: CellAliasResolver,
-    interpreter_state: Arc<GlobalInterpreterState>,
-) -> anyhow::Result<Doc> {
+fn get_builtin_build_docs(interpreter_state: Arc<GlobalInterpreterState>) -> anyhow::Result<Doc> {
     let globals = Globals::extended();
-    let interpreter_config = InterpreterConfigForCell::new(cell_alias_resolver, interpreter_state)?;
-    let cleaned_build = match interpreter_config
-        .extension_file_global_env()
-        .documentation()
-    {
+    let cleaned_build = match interpreter_state.extension_file_global_env.documentation() {
         DocItem::Object(mut b_o) => {
             let global_symbols: HashSet<_> = globals.names().map(|s| s.as_str()).collect();
             b_o.members
@@ -161,18 +153,14 @@ fn get_ctx_docs() -> Vec<Doc> {
 }
 
 pub fn get_builtin_docs(
-    cell_alias_resolver: CellAliasResolver,
     interpreter_state: Arc<GlobalInterpreterState>,
 ) -> anyhow::Result<Vec<Doc>> {
     let mut all_builtins = vec![
         get_builtin_global_starlark_docs(),
-        get_builtin_build_docs(cell_alias_resolver.dupe(), interpreter_state.dupe())?,
+        get_builtin_build_docs(interpreter_state.dupe())?,
     ];
 
-    all_builtins.extend(get_builtin_bxl_docs(
-        cell_alias_resolver,
-        interpreter_state,
-    )?);
+    all_builtins.extend(get_builtin_bxl_docs(interpreter_state)?);
 
     all_builtins.extend(get_builtin_provider_docs());
     if let Some(artifact) = get_artifact_docs() {
@@ -344,10 +332,7 @@ async fn docs(
     )?;
 
     let mut docs = if request.retrieve_builtins {
-        get_builtin_docs(
-            cell_alias_resolver.dupe(),
-            dice_ctx.get_global_interpreter_state().await?.dupe(),
-        )?
+        get_builtin_docs(dice_ctx.get_global_interpreter_state().await?.dupe())?
     } else {
         vec![]
     };
