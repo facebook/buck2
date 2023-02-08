@@ -54,7 +54,6 @@ pub(crate) mod testing {
     use starlark::values::Value;
 
     use crate::interpreter::build_defs::register_provider;
-    use crate::interpreter::context::configure_build_file_globals;
 
     /// Simple container that allows us to instrument things like imports
     pub(crate) struct Tester {
@@ -213,7 +212,7 @@ pub(crate) mod testing {
                         InterpreterHostPlatform::Linux,
                         InterpreterHostArchitecture::X86_64,
                         false,
-                        configure_build_file_globals,
+                        |_| {},
                         |g| {
                             register_provider(g);
                         },

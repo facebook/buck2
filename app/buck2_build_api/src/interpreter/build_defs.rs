@@ -222,7 +222,10 @@ mod tests {
                 package_includes = src=>//include.bzl::func_alias=some_func
         "#
         )))?)?;
-        tester.set_additional_globals(register_rule_defs);
+        tester.set_additional_globals(|g| {
+            register_rule_defs(g);
+            register_module_natives(g);
+        });
 
         let import_path = import("root", "", "include.bzl");
         tester.add_import(
