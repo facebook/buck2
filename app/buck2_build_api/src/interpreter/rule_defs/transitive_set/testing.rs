@@ -30,6 +30,7 @@ use crate::deferred::types::testing::DeferredIdExt;
 use crate::deferred::types::DeferredData;
 use crate::deferred::types::DeferredId;
 use crate::deferred::types::DeferredKey;
+use crate::interpreter::build_defs::register_transitive_set;
 use crate::interpreter::rule_defs::artifact::testing::artifactory;
 use crate::interpreter::rule_defs::transitive_set::traversal::TransitiveSetOrdering;
 use crate::interpreter::rule_defs::transitive_set::FrozenTransitiveSet;
@@ -65,13 +66,13 @@ pub fn tset_factory(builder: &mut GlobalsBuilder) {
     }
 }
 
-pub fn new_transitive_set(
+pub(crate) fn new_transitive_set(
     code: &str,
 ) -> anyhow::Result<OwnedFrozenValueTyped<FrozenTransitiveSet>> {
     let env = Module::new();
 
     let globals = GlobalsBuilder::extended()
-        .with(crate::interpreter::build_defs::register_natives)
+        .with(register_transitive_set)
         .with(tset_factory)
         .with(artifactory)
         .build();

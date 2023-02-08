@@ -35,7 +35,7 @@ enum NativesError {
 }
 
 #[starlark_module]
-fn natives(builder: &mut GlobalsBuilder) {
+pub(crate) fn register_provider(builder: &mut GlobalsBuilder) {
     fn provider(
         #[starlark(default = "")] doc: &str,
         fields: Either<Vec<String>, SmallMap<&str, &str>>,
@@ -71,7 +71,10 @@ fn natives(builder: &mut GlobalsBuilder) {
             field_names,
         ))
     }
+}
 
+#[starlark_module]
+pub(crate) fn register_transitive_set(builder: &mut GlobalsBuilder) {
     fn transitive_set<'v>(
         args_projections: Option<SmallMap<String, Value<'v>>>,
         json_projections: Option<SmallMap<String, Value<'v>>>,
@@ -134,7 +137,8 @@ fn natives(builder: &mut GlobalsBuilder) {
 }
 
 pub(crate) fn register_natives(builder: &mut GlobalsBuilder) {
-    natives(builder);
+    register_provider(builder);
+    register_transitive_set(builder);
     register_module_natives(builder);
     register_host_info(builder);
     register_read_config(builder);

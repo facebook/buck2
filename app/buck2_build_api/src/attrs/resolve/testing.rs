@@ -31,6 +31,7 @@ use starlark_map::smallmap;
 
 use crate::attrs::resolve::ctx::AnalysisQueryResult;
 use crate::attrs::resolve::ctx::AttrResolutionContext;
+use crate::interpreter::build_defs::register_provider;
 use crate::interpreter::rule_defs::artifact::testing::artifactory;
 use crate::interpreter::rule_defs::cmd_args::FrozenCommandLineArgLike;
 use crate::interpreter::rule_defs::provider::builtin::template_placeholder_info::FrozenTemplatePlaceholderInfo;
@@ -112,9 +113,8 @@ pub(crate) fn resolution_ctx_with_providers<'v>(
             ProviderIdSet,
         ) {
             let globals = GlobalsBuilder::extended()
-                .with(buck2_interpreter::build_defs::register_natives)
                 .with(register_builtin_providers)
-                .with(crate::interpreter::build_defs::register_natives)
+                .with(register_provider)
                 .with(artifactory)
                 .build();
 

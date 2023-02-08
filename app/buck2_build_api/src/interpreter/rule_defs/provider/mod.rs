@@ -115,7 +115,7 @@ pub mod testing {
     use starlark::environment::GlobalsBuilder;
     use starlark::environment::Module;
 
-    use crate::interpreter::rule_defs::artifact::testing::artifactory;
+    use crate::interpreter::build_defs::register_provider;
     use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
     use crate::interpreter::rule_defs::provider::registration::register_builtin_providers;
 
@@ -129,10 +129,8 @@ pub mod testing {
         fn testing_new(providers: &str) -> Self {
             let env = Module::new();
             let globals = GlobalsBuilder::extended()
-                .with(buck2_interpreter::build_defs::register_natives)
                 .with(register_builtin_providers)
-                .with(crate::interpreter::build_defs::register_natives)
-                .with(artifactory)
+                .with(register_provider)
                 .build();
             let value = coerce::testing::to_value(&env, &globals, providers);
             let res_typed =
