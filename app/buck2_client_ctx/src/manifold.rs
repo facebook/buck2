@@ -8,7 +8,11 @@
  */
 
 use std::ffi::OsString;
+use std::io;
+use std::process::Stdio;
 
+use buck2_core::fs::paths::abs_path::AbsPath;
+use tokio::process::Child;
 use tokio::process::Command;
 
 use crate::find_certs::find_tls_cert;
@@ -23,6 +27,23 @@ pub enum UploadError {
     NoResultCodeError(String),
     #[error("Failed to find suitable Manifold upload command")]
     CommandNotFound,
+    // TODO iguridi: consolidate with ExitCodeError
+    #[error(
+        "Failed to upload path `{path}` to Manifold with exit code `{code}`, stderr: `{stderr}`"
+    )]
+    ChildExitCode {
+        path: String,
+        code: i32,
+        stderr: String,
+    },
+    #[error(transparent)]
+    Other(#[from] anyhow::Error),
+}
+
+impl From<io::Error> for UploadError {
+    fn from(err: io::Error) -> Self {
+        UploadError::Other(err.into())
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -53,6 +74,56 @@ impl Bucket {
                 key: "buck2_re_logs-key",
             },
         }
+    }
+}
+
+pub struct Upload<'a> {
+    upload: Command,
+    filepath: &'a AbsPath,
+}
+
+impl<'a> Upload<'a> {
+    pub fn new(bucket: Bucket, filepath: &'a AbsPath, filename: &'a str) -> anyhow::Result<Self> {
+        let upload = upload_command(bucket, filename)?.ok_or(UploadError::CommandNotFound)?;
+        Ok(Upload { upload, filepath })
+    }
+
+    pub fn spawn(&mut self, stderr: Stdio) -> Result<UploadChild, UploadError> {
+        let file: Stdio = std::fs::File::open(self.filepath)?.into();
+        self.upload.stdin(file);
+        let child = self
+            .upload
+            .stdout(Stdio::null())
+            .stderr(stderr)
+            .spawn()
+            .map_err(|e| UploadError::Other(e.into()))?;
+        Ok(UploadChild {
+            child,
+            filepath: self.filepath,
+        })
+    }
+}
+
+pub struct UploadChild<'a> {
+    child: Child,
+    filepath: &'a AbsPath,
+}
+
+impl<'a> UploadChild<'a> {
+    pub async fn wait(self) -> anyhow::Result<()> {
+        let Self { child, filepath } = self;
+        let output = child.wait_with_output().await?;
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+            let code = output.status.code().unwrap_or(1);
+            return Err(UploadError::ChildExitCode {
+                path: filepath.to_string_lossy().to_string(),
+                code,
+                stderr,
+            }
+            .into());
+        }
+        Ok(())
     }
 }
 
