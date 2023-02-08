@@ -133,7 +133,7 @@ impl ValueAsFrozenCommandLineLike for FrozenValue {
 }
 
 #[starlark_module]
-pub fn register_args_function(builder: &mut GlobalsBuilder) {
+pub fn register_cmd_args(builder: &mut GlobalsBuilder) {
     #[starlark(type = "cmd_args")]
     fn cmd_args<'v>(
         #[starlark(args)] args: Vec<Value<'v>>,

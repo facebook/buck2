@@ -59,7 +59,7 @@ fn extra_functions(builder: &mut GlobalsBuilder) {
 pub fn register_rule_defs(globals: &mut GlobalsBuilder) {
     globals.struct_("attrs", attr::register_attr_module);
     rule::register_rule_function(globals);
-    cmd_args::register_args_function(globals);
+    cmd_args::register_cmd_args(globals);
     register_builtin_providers(globals);
     extra_functions(globals);
 }

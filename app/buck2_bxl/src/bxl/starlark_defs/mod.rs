@@ -16,7 +16,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use anyhow::Context;
-use buck2_build_api::interpreter::rule_defs::cmd_args::register_args_function;
+use buck2_build_api::interpreter::rule_defs::cmd_args::register_cmd_args;
 use buck2_build_api::interpreter::rule_defs::provider::registration::register_builtin_providers;
 use buck2_core::collections::ordered_map::OrderedMap;
 use buck2_execute::bxl::types::BxlFunctionLabel;
@@ -118,7 +118,7 @@ fn register_bxl_defs(globals: &mut GlobalsBuilder) {
 
 pub fn configure_bxl_file_globals(globals_builder: &mut GlobalsBuilder) {
     register_base_natives(globals_builder);
-    register_args_function(globals_builder);
+    register_cmd_args(globals_builder);
     register_bxl_defs(globals_builder);
     register_builtin_providers(globals_builder);
 }
