@@ -58,7 +58,7 @@ def http_archive_impl(ctx: "context") -> ["provider"]:
         exclude_flags.append(cmd_args(exclusions, format = "--exclude-from={}"))
         exclude_hidden.append(exclusions)
 
-    output = ctx.actions.declare_output(value_or(ctx.attrs.out, ctx.label.name))
+    output = ctx.actions.declare_output(value_or(ctx.attrs.out, ctx.label.name), dir = True)
     script, _ = ctx.actions.write(
         "unpack.sh",
         [
