@@ -157,7 +157,6 @@ mod tests {
     use crate::file_loader::LoadedModules;
     use crate::import_paths::ImplicitImportPaths;
     use crate::interpreter::GlobalInterpreterState;
-    use crate::interpreter::InterpreterConfigForCell;
     use crate::interpreter::InterpreterForCell;
     use crate::interpreter::ParseResult;
     use crate::starlark_profiler::StarlarkProfilerOrInstrumentation;
@@ -204,7 +203,7 @@ mod tests {
         ))
     }
 
-    fn interpreter() -> anyhow::Result<InterpreterForCell> {
+    fn interpreter() -> anyhow::Result<Arc<InterpreterForCell>> {
         let root_cell = BuildFileCell::new(CellName::unchecked_new("root"));
         let (cell_alias_resolver, resolver, configs) = cells()?;
         let import_paths = ImplicitImportPaths::parse(
@@ -212,18 +211,16 @@ mod tests {
             root_cell,
             &cell_alias_resolver,
         )?;
-        Ok(InterpreterForCell::new(Arc::new(
-            InterpreterConfigForCell::new(
-                cell_alias_resolver,
-                Arc::new(GlobalInterpreterState::new(
-                    &configs,
-                    resolver,
-                    TesterConfiguror::new(vec!["export_file".to_owned()]),
-                    false,
-                )?),
-                Arc::new(import_paths),
-            )?,
-        )))
+        Ok(Arc::new(InterpreterForCell::new(
+            cell_alias_resolver,
+            Arc::new(GlobalInterpreterState::new(
+                &configs,
+                resolver,
+                TesterConfiguror::new(vec!["export_file".to_owned()]),
+                false,
+            )?),
+            Arc::new(import_paths),
+        )?))
     }
 
     fn import() -> ImportPath {

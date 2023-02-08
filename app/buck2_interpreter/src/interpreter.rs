@@ -158,14 +158,8 @@ impl ParseResult {
 /// The Interpreter is responsible for parsing files to an AST and then
 /// evaluating that AST. The Interpreter doesn't maintain state or cache results
 /// of parsing or loading imports.
-pub struct InterpreterForCell {
-    config: Arc<InterpreterConfigForCell>,
-}
-
-/// InterpreterConfig contains all the information necessary to interpret build
-/// files.
 #[derive(Allocative)]
-pub struct InterpreterConfigForCell {
+pub struct InterpreterForCell {
     /// Non-cell-specific information.
     global_state: Arc<GlobalInterpreterState>,
     /// Cell-specific alias resolver.
@@ -288,7 +282,7 @@ impl GlobalInterpreterState {
 }
 
 struct InterpreterLoadResolver {
-    config: Arc<InterpreterConfigForCell>,
+    config: Arc<InterpreterForCell>,
     loader_path: CellPath,
     loader_file_type: StarlarkFileType,
     build_file_cell: BuildFileCell,
@@ -395,7 +389,7 @@ fn is_prelude_path(import_path: &CellPath, prelude_import: &CellPath) -> bool {
         )
 }
 
-impl InterpreterConfigForCell {
+impl InterpreterForCell {
     fn verbose_gc() -> anyhow::Result<bool> {
         match std::env::var_os("BUCK2_STARLARK_VERBOSE_GC") {
             Some(val) => Ok(!val.is_empty()),
@@ -453,13 +447,6 @@ impl InterpreterConfigForCell {
     pub fn bxl_file_global_env(&self) -> &Globals {
         &self.global_state.bxl_file_global_env
     }
-}
-
-/// A starlark interpreter.
-impl InterpreterForCell {
-    pub fn new(config: Arc<InterpreterConfigForCell>) -> InterpreterForCell {
-        InterpreterForCell { config }
-    }
 
     fn create_env(
         &self,
@@ -509,7 +496,7 @@ impl InterpreterForCell {
         package_boundary_exception: bool,
         loaded_modules: &LoadedModules,
     ) -> anyhow::Result<(Module, Box<dyn ExtraContextDyn>)> {
-        let internals = self.config.global_state.configuror.new_extra_context(
+        let internals = self.global_state.configuror.new_extra_context(
             self.get_cell_config(build_file.build_file_cell()),
             build_file.clone(),
             package_listing.dupe(),
@@ -537,16 +524,18 @@ impl InterpreterForCell {
     }
 
     fn get_cell_config(&self, build_file_cell: BuildFileCell) -> &InterpreterCellInfo {
-        self.config
-            .global_state
+        self.global_state
             .cell_configs
             .get(&build_file_cell)
             .unwrap_or_else(|| panic!("Should've had cell config for {}", build_file_cell))
     }
 
-    fn load_resolver(&self, current_file_path: StarlarkPath<'_>) -> InterpreterLoadResolver {
+    fn load_resolver(
+        self: &Arc<Self>,
+        current_file_path: StarlarkPath<'_>,
+    ) -> InterpreterLoadResolver {
         InterpreterLoadResolver {
-            config: self.config.dupe(),
+            config: self.dupe(),
             loader_path: current_file_path
                 .path()
                 .parent()
@@ -562,18 +551,17 @@ impl InterpreterForCell {
     }
 
     fn package_import(&self, build_file_import: &BuildFilePath) -> Option<&Arc<ImplicitImport>> {
-        self.config
-            .implicit_import_paths
+        self.implicit_import_paths
             .package_imports
             .get(build_file_import.package())
     }
 
     fn root_import(&self) -> Option<ImportPath> {
-        self.config.implicit_import_paths.root_import.clone()
+        self.implicit_import_paths.root_import.clone()
     }
 
     fn prelude_import(&self, import: StarlarkPath) -> Option<&ImportPath> {
-        let prelude_import = self.config.global_state.configuror.prelude_import();
+        let prelude_import = self.global_state.configuror.prelude_import();
         if let Some(prelude_import) = prelude_import {
             let import_path = import.path();
             let prelude_path = prelude_import.path();
@@ -589,14 +577,17 @@ impl InterpreterForCell {
     }
 
     /// Parses skylark code to an AST.
-    pub fn parse(&self, import: StarlarkPath, content: String) -> anyhow::Result<ParseResult> {
+    pub fn parse(
+        self: &Arc<Self>,
+        import: StarlarkPath,
+        content: String,
+    ) -> anyhow::Result<ParseResult> {
         let project_relative_path = self
-            .config
             .global_state
             .cell_resolver
             .resolve_path(import.path().as_ref().as_ref())?;
         let result: anyhow::Result<_> = try {
-            let disable_starlark_types = self.config.global_state.disable_starlark_types;
+            let disable_starlark_types = self.global_state.disable_starlark_types;
             let ast = AstModule::parse(
                 project_relative_path.as_str(),
                 content,
@@ -620,7 +611,7 @@ impl InterpreterForCell {
     }
 
     pub fn resolve_path(
-        &self,
+        self: &Arc<Self>,
         import: StarlarkPath<'_>,
         import_string: &str,
     ) -> anyhow::Result<OwnedStarlarkModulePath> {
@@ -628,7 +619,7 @@ impl InterpreterForCell {
     }
 
     fn eval(
-        &self,
+        self: &Arc<Self>,
         env: &Module,
         ast: AstModule,
         import: StarlarkPath<'_>,
@@ -639,12 +630,12 @@ impl InterpreterForCell {
         extra_context: Option<Box<dyn ExtraContextDyn>>,
         profiler: &mut StarlarkProfilerOrInstrumentation,
     ) -> anyhow::Result<Option<Box<dyn ExtraContextDyn>>> {
-        let globals = self.config.starlark_path_global_env(&import);
+        let globals = self.starlark_path_global_env(&import);
         let file_loader =
             InterpreterFileLoader::new(loaded_modules, Arc::new(self.load_resolver(import)));
         let cell_info = self.get_cell_config(import.build_file_cell());
-        let host_platform = self.config.global_state.configuror.host_platform();
-        let host_architecture = self.config.global_state.configuror.host_architecture();
+        let host_platform = self.global_state.configuror.host_platform();
+        let host_architecture = self.global_state.configuror.host_architecture();
         let extra = BuildContext::new_for_module(
             env,
             cell_info,
@@ -655,13 +646,13 @@ impl InterpreterForCell {
             host_platform,
             host_architecture,
             extra_context,
-            self.config.ignore_attrs_for_profiling,
+            self.ignore_attrs_for_profiling,
         );
         let mut eval = Evaluator::new(env);
         eval.set_loader(&file_loader);
         eval.extra = Some(&extra);
         profiler.initialize(&mut eval)?;
-        if self.config.verbose_gc {
+        if self.verbose_gc {
             eval.verbose_gc();
         }
         match eval.eval_module(ast, globals) {
@@ -684,7 +675,7 @@ impl InterpreterForCell {
     /// environment for all (transitive) required imports.
     /// Returns the FrozenModule for the module.
     pub fn eval_module(
-        &self,
+        self: &Arc<Self>,
         starlark_path: StarlarkModulePath<'_>,
         buckconfig: &dyn LegacyBuckConfigView,
         root_buckconfig: &dyn LegacyBuckConfigView,
@@ -713,7 +704,7 @@ impl InterpreterForCell {
     /// loaded environment for all (transitive) required imports.
     /// Returns the result of evaluation.
     pub fn eval_build_file<T: ExtraContext + Sized + 'static>(
-        &self,
+        self: &Arc<Self>,
         build_file: &BuildFilePath,
         buckconfig: &dyn LegacyBuckConfigView,
         root_buckconfig: &dyn LegacyBuckConfigView,
@@ -849,28 +840,26 @@ mod tests {
             })
         }
 
-        fn interpreter(&self) -> anyhow::Result<InterpreterForCell> {
+        fn interpreter(&self) -> anyhow::Result<Arc<InterpreterForCell>> {
             let root_cell = BuildFileCell::new(CellName::unchecked_new("root"));
             let import_paths = ImplicitImportPaths::parse(
                 self.configs.get(root_cell.name()).unwrap(),
                 root_cell,
                 &self.cell_alias_resolver,
             )?;
-            Ok(InterpreterForCell::new(Arc::new(
-                InterpreterConfigForCell::new(
-                    self.cell_alias_resolver.dupe(),
-                    Arc::new(GlobalInterpreterState::new(
-                        &self.configs,
-                        self.cell_resolver.dupe(),
-                        TesterConfiguror::new(vec![
-                            "export_file".to_owned(),
-                            "java_library".to_owned(),
-                        ]),
-                        false,
-                    )?),
-                    Arc::new(import_paths),
-                )?,
-            )))
+            Ok(Arc::new(InterpreterForCell::new(
+                self.cell_alias_resolver.dupe(),
+                Arc::new(GlobalInterpreterState::new(
+                    &self.configs,
+                    self.cell_resolver.dupe(),
+                    TesterConfiguror::new(vec![
+                        "export_file".to_owned(),
+                        "java_library".to_owned(),
+                    ]),
+                    false,
+                )?),
+                Arc::new(import_paths),
+            )?))
         }
 
         fn eval_module(

@@ -52,7 +52,6 @@ use crate::file_loader::LoadedModule;
 use crate::file_loader::ModuleDeps;
 use crate::import_paths::HasImportPaths;
 use crate::interpreter::GlobalInterpreterState;
-use crate::interpreter::InterpreterConfigForCell;
 use crate::interpreter::InterpreterForCell;
 use crate::interpreter::ParseResult;
 use crate::starlark_profiler::StarlarkProfilerInstrumentation;
@@ -79,7 +78,7 @@ impl<'c> HasCalculationDelegate<'c> for DiceComputations {
 
         #[async_trait]
         impl Key for InterpreterConfigForCellKey {
-            type Value = SharedResult<Arc<InterpreterConfigForCell>>;
+            type Value = SharedResult<Arc<InterpreterForCell>>;
             async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
                 let cell_resolver = ctx.get_cell_resolver().await?;
                 let global_state = ctx.get_global_interpreter_state().await?;
@@ -88,7 +87,7 @@ impl<'c> HasCalculationDelegate<'c> for DiceComputations {
 
                 let implicit_import_paths = ctx.import_paths_for_cell(self.1).await?;
 
-                Ok(Arc::new(InterpreterConfigForCell::new(
+                Ok(Arc::new(InterpreterForCell::new(
                     cell.cell_alias_resolver().dupe(),
                     global_state.dupe(),
                     implicit_import_paths,
@@ -155,7 +154,7 @@ pub struct DiceCalculationDelegate<'c> {
     build_file_cell: BuildFileCell,
     ctx: &'c DiceComputations,
     fs: DiceFileOps<'c>,
-    configs: Arc<InterpreterConfigForCell>,
+    configs: Arc<InterpreterForCell>,
 }
 
 impl<'c> DiceCalculationDelegate<'c> {
@@ -220,12 +219,6 @@ impl<'c> DiceCalculationDelegate<'c> {
             .await
     }
 
-    async fn get_interpreter_for_cell(
-        &self,
-    ) -> anyhow::Result<crate::interpreter::InterpreterForCell> {
-        Ok(InterpreterForCell::new(self.configs.dupe()))
-    }
-
     async fn get_legacy_buck_config_for_starlark(
         &self,
     ) -> anyhow::Result<LegacyBuckConfigOnDice<'c>> {
@@ -262,9 +255,7 @@ impl<'c> DiceCalculationDelegate<'c> {
         starlark_path: StarlarkPath<'_>,
         content: String,
     ) -> anyhow::Result<ParseResult> {
-        self.get_interpreter_for_cell()
-            .await?
-            .parse(starlark_path, content)
+        self.configs.parse(starlark_path, content)
     }
 
     async fn eval_deps(
@@ -310,9 +301,7 @@ impl<'c> DiceCalculationDelegate<'c> {
         starlark_file: StarlarkPath<'_>,
         load_string: &str,
     ) -> anyhow::Result<OwnedStarlarkModulePath> {
-        self.get_interpreter_for_cell()
-            .await?
-            .resolve_path(starlark_file, load_string)
+        self.configs.resolve_path(starlark_file, load_string)
     }
 
     pub(crate) async fn eval_module_uncached(
@@ -326,8 +315,7 @@ impl<'c> DiceCalculationDelegate<'c> {
         let root_buckconfig = self.get_legacy_root_buck_config_for_starlark().await?;
 
         let evaluation = self
-            .get_interpreter_for_cell()
-            .await?
+            .configs
             .eval_module(
                 starlark_file,
                 &buckconfig,
@@ -380,11 +368,11 @@ impl<'c> DiceCalculationDelegate<'c> {
         let (ast, deps) = self
             .prepare_eval(StarlarkPath::BuildFile(&build_file_path))
             .await?;
-        let interpreter = self.get_interpreter_for_cell().await?;
         let buckconfig = self.get_legacy_buck_config_for_starlark().await?;
         let root_buckconfig = self.get_legacy_root_buck_config_for_starlark().await?;
         span(start_event, move || {
-            let result = interpreter
+            let result = self
+                .configs
                 .eval_build_file::<T>(
                     &build_file_path,
                     &buckconfig,

@@ -38,7 +38,6 @@ pub(crate) mod testing {
     use buck2_interpreter::file_loader::LoadedModules;
     use buck2_interpreter::import_paths::ImplicitImportPaths;
     use buck2_interpreter::interpreter::GlobalInterpreterState;
-    use buck2_interpreter::interpreter::InterpreterConfigForCell;
     use buck2_interpreter::interpreter::InterpreterForCell;
     use buck2_interpreter::interpreter::ParseResult;
     use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
@@ -244,7 +243,7 @@ pub(crate) mod testing {
             self.prelude_path = Some(prelude_import);
         }
 
-        fn interpreter(&self) -> anyhow::Result<InterpreterForCell> {
+        fn interpreter(&self) -> anyhow::Result<Arc<InterpreterForCell>> {
             let import_paths = ImplicitImportPaths::parse(
                 self.configs
                     .get(self.cell_alias_resolver.resolve_self())
@@ -253,33 +252,31 @@ pub(crate) mod testing {
                 &self.cell_alias_resolver,
             )?;
             let additional_globals = self.additional_globals.dupe();
-            Ok(InterpreterForCell::new(Arc::new(
-                InterpreterConfigForCell::new(
-                    self.cell_alias_resolver.dupe(),
-                    Arc::new(GlobalInterpreterState::new(
-                        &self.configs,
-                        self.cell_resolver.dupe(),
-                        BuildInterpreterConfiguror::new(
-                            self.prelude_path.clone(),
-                            InterpreterHostPlatform::Linux,
-                            InterpreterHostArchitecture::X86_64,
-                            false,
-                            configure_build_file_globals,
-                            configure_extension_file_globals,
-                            |_| {},
-                            Some(AdditionalGlobalsFn(Arc::new(move |globals_builder| {
-                                common_helpers(globals_builder);
-                                if let Some(additional_globals) = &additional_globals {
-                                    (additional_globals.0)(globals_builder)
-                                }
-                            }))),
-                            Arc::new(QueryFunctionsPanic),
-                        ),
+            Ok(Arc::new(InterpreterForCell::new(
+                self.cell_alias_resolver.dupe(),
+                Arc::new(GlobalInterpreterState::new(
+                    &self.configs,
+                    self.cell_resolver.dupe(),
+                    BuildInterpreterConfiguror::new(
+                        self.prelude_path.clone(),
+                        InterpreterHostPlatform::Linux,
+                        InterpreterHostArchitecture::X86_64,
                         false,
-                    )?),
-                    Arc::new(import_paths),
-                )?,
-            )))
+                        configure_build_file_globals,
+                        configure_extension_file_globals,
+                        |_| {},
+                        Some(AdditionalGlobalsFn(Arc::new(move |globals_builder| {
+                            common_helpers(globals_builder);
+                            if let Some(additional_globals) = &additional_globals {
+                                (additional_globals.0)(globals_builder)
+                            }
+                        }))),
+                        Arc::new(QueryFunctionsPanic),
+                    ),
+                    false,
+                )?),
+                Arc::new(import_paths),
+            )?))
         }
 
         /// Evaluate an import, and add it to the existing loaded_modules() map to be
