@@ -1535,22 +1535,31 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                     for t in deps_tasks {
                         t.await?;
                     }
-
                     if let Some((entry, method)) = entry_and_method {
-                        // All potential deps are materialized. Now materialize the entry.
-                        io.materialize_entry(
-                            path_buf.clone(),
-                            method,
-                            entry.dupe(),
-                            event_dispatcher.dupe(),
-                        )
-                        .await?;
-                    };
+                        let materialize = || {
+                            io.materialize_entry(
+                                path_buf.clone(),
+                                method,
+                                entry.dupe(),
+                                event_dispatcher.dupe(),
+                            )
+                        };
 
-                    // Wait for the deps (targets) of the entry's symlinks to be materialized
-                    for t in link_deps_tasks {
-                        t.await?;
-                    }
+                        // Windows symlinks need to be specified whether it is to a file or target. We rely on the
+                        // target file existing to determine this. Ensure symlink targets exist before the entry
+                        // is materialized for Windows. For non-Windows, do everything concurrently.
+                        if cfg!(windows) {
+                            for t in link_deps_tasks {
+                                t.await?;
+                            }
+                            materialize().await?;
+                        } else {
+                            materialize().await?;
+                            for t in link_deps_tasks {
+                                t.await?;
+                            }
+                        }
+                    };
                 };
 
                 // Materialization finished, notify the command thread

@@ -88,6 +88,10 @@ fn test_remove_path() {
 }
 
 mod state_machine {
+    use std::path::Path;
+
+    use buck2_execute::directory::Symlink;
+    use buck2_execute::directory::INTERNER;
     use once_cell::sync::Lazy;
     use parking_lot::Mutex;
 
@@ -220,6 +224,75 @@ mod state_machine {
         );
         assert_eq!(dm.io.take_log(), &[]);
 
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_symlink_materialization() -> anyhow::Result<()> {
+        let mut version_tracker = VersionTracker::new();
+        let mut dm = DeferredMaterializerCommandProcessor {
+            io: Arc::new(StubIoHandler::default()),
+            sqlite_db: None,
+            rt: Handle::current(),
+            defer_write_actions: true,
+            log_buffer: LogBuffer::new(1),
+        };
+
+        let mut tree = ArtifactTree::new();
+        let symlink_path = make_path("foo/bar_symlink");
+        let target_path = make_path("foo/bar_target");
+
+        // Add symlink target
+        dm.declare(
+            &mut tree,
+            target_path.clone(),
+            ArtifactValue::empty_file(),
+            box ArtifactMaterializationMethod::Test,
+            &mut version_tracker,
+            &command_sender(),
+        );
+        assert_eq!(dm.io.take_log(), &[(Op::Clean, target_path.clone())]);
+
+        // Create symlink
+        let mut deps = ActionDirectoryBuilder::empty();
+        let target = ActionDirectoryEntry::Leaf(ActionDirectoryMember::File(FileMetadata::empty()));
+        deps.insert(target_path.as_forward_relative_path(), target)?;
+        let symlink_value = ArtifactValue::new(
+            ActionDirectoryEntry::Leaf(ActionDirectoryMember::Symlink(Arc::new(Symlink::new(
+                RelativePathBuf::from_path(Path::new("bar_target"))?,
+            )))),
+            Some(deps.fingerprint().shared(&*INTERNER)),
+        );
+
+        dm.declare(
+            &mut tree,
+            symlink_path.clone(),
+            symlink_value,
+            box ArtifactMaterializationMethod::Test,
+            &mut version_tracker,
+            &command_sender(),
+        );
+        assert_eq!(dm.io.take_log(), &[(Op::Clean, symlink_path.clone())]);
+
+        dm.materialize_artifact(
+            &mut tree,
+            &symlink_path,
+            EventDispatcher::null(),
+            &command_sender(),
+            &mut version_tracker,
+        )
+        .context("Expected a future")?
+        .await
+        .map_err(|_| anyhow::anyhow!("error materializing"))?;
+
+        let logs = dm.io.take_log();
+        assert_eq!(
+            logs,
+            &[
+                (Op::Materialize, target_path.clone()),
+                (Op::Materialize, symlink_path.clone())
+            ]
+        );
         Ok(())
     }
 }
