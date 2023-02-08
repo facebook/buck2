@@ -36,7 +36,7 @@ use starlark::syntax::Dialect;
 use starlark::syntax::DialectTypes;
 use thiserror::Error;
 
-use crate::build_defs::register_natives;
+use crate::build_defs::register_base_natives;
 use crate::common::BxlFilePath;
 use crate::common::OwnedStarlarkModulePath;
 use crate::common::StarlarkModulePath;
@@ -190,10 +190,10 @@ pub fn configure_base_globals(
         LibraryExtension::StructType,
     ];
     let mut global_env = GlobalsBuilder::extended_by(&starlark_extensions)
-        .with(register_natives)
+        .with(register_base_natives)
         .with(dedupe);
     global_env.struct_("__internal__", |x| {
-        register_natives(x);
+        register_base_natives(x);
         // If `native.` symbols need to be added to the global env, they should be done
         // in `configure_build_file_globals()` or
         // `configure_extension_file_globals()`

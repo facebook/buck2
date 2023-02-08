@@ -113,7 +113,8 @@ pub fn stdlib(builder: &mut GlobalsBuilder) {
     }
 }
 
-pub fn register_natives(registry: &mut GlobalsBuilder) {
+/// Native functions included in all contexts (`BUCK`, `bzl`, `bxl`).
+pub fn register_base_natives(registry: &mut GlobalsBuilder) {
     native_module(registry);
     stdlib(registry);
 }

@@ -136,7 +136,8 @@ pub(crate) fn register_transitive_set(builder: &mut GlobalsBuilder) {
     }
 }
 
-pub(crate) fn register_natives(builder: &mut GlobalsBuilder) {
+/// Natives for `BUCK` and `bzl` files.
+pub(crate) fn register_build_bzl_natives(builder: &mut GlobalsBuilder) {
     register_provider(builder);
     register_transitive_set(builder);
     register_module_natives(builder);
