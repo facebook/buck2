@@ -15,6 +15,7 @@ Following are Request for Comments (RFCs) at specific stages of the lifecycle.
 * [configured_alias](rfcs/configured-alias.md)
 * [Buck Extension Language (BXL)](rfcs/bxl.md)
 * [Bxl Support for performing analysis on targets](rfcs/bxl-analysis.md)
+* [Package-local values](rfcs/package-local-values.md)
 
 ### Implemented
 
