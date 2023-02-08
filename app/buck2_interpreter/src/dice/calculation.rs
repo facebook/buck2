@@ -22,7 +22,6 @@ use buck2_common::package_boundary::HasPackageBoundaryExceptions;
 use buck2_common::result::SharedResult;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
-use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::name::CellName;
 use buck2_core::package::PackageLabel;
 use buck2_events::dispatch::span;
@@ -206,10 +205,6 @@ impl<'c> DiceCalculationDelegate<'c> {
             .await?
     }
 
-    fn get_file_ops(&self) -> &dyn FileOps {
-        &self.fs
-    }
-
     async fn get_legacy_buck_config_for_starlark(
         &self,
     ) -> anyhow::Result<LegacyBuckConfigOnDice<'c>> {
@@ -218,23 +213,11 @@ impl<'c> DiceCalculationDelegate<'c> {
             .await
     }
 
-    async fn get_package_boundary_exception(&self, path: CellPathRef<'_>) -> SharedResult<bool> {
-        self.ctx.get_package_boundary_exception(path).await
-    }
-
     async fn parse_file(&self, starlark_path: StarlarkPath<'_>) -> anyhow::Result<ParseResult> {
         let content = self
-            .get_file_ops()
+            .fs
             .read_file(starlark_path.path().as_ref().as_ref())
             .await?;
-        self.parse_file_with_content(starlark_path, content).await
-    }
-
-    async fn parse_file_with_content(
-        &self,
-        starlark_path: StarlarkPath<'_>,
-        content: String,
-    ) -> anyhow::Result<ParseResult> {
         self.configs.parse(starlark_path, content)
     }
 
@@ -267,12 +250,12 @@ impl<'c> DiceCalculationDelegate<'c> {
         Ok((ast, deps))
     }
 
-    pub async fn prepare_eval_with_content<'a>(
+    pub fn prepare_eval_with_content<'a>(
         &'a self,
         starlark_file: StarlarkPath<'_>,
         content: String,
     ) -> anyhow::Result<AstModule> {
-        let ParseResult(ast, _) = self.parse_file_with_content(starlark_file, content).await?;
+        let ParseResult(ast, _) = self.configs.parse(starlark_file, content)?;
         Ok(ast)
     }
 
@@ -336,6 +319,7 @@ impl<'c> DiceCalculationDelegate<'c> {
         )
         .await?;
         let package_boundary_exception = self
+            .ctx
             .get_package_boundary_exception(package.as_cell_path())
             .await?;
         let build_file_path = BuildFilePath::new(package.dupe(), listing.buildfile().to_owned());

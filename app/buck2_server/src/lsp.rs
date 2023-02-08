@@ -463,7 +463,7 @@ impl BuckLspContext {
 
                 let module_path = import_path.borrow();
                 let path = module_path.starlark_path();
-                let ast = calculator.prepare_eval_with_content(path, content).await?;
+                let ast = calculator.prepare_eval_with_content(path, content)?;
                 Ok(LspEvalResult {
                     diagnostics: vec![],
                     ast: Some(ast),
