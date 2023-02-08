@@ -212,8 +212,8 @@ mod tests {
             root_cell,
             &cell_alias_resolver,
         )?;
-        Ok(InterpreterForCell::new(
-            Arc::new(InterpreterConfigForCell::new(
+        Ok(InterpreterForCell::new(Arc::new(
+            InterpreterConfigForCell::new(
                 cell_alias_resolver,
                 Arc::new(GlobalInterpreterState::new(
                     &configs,
@@ -221,9 +221,9 @@ mod tests {
                     TesterConfiguror::new(vec!["export_file".to_owned()]),
                     false,
                 )?),
-            )?),
-            Arc::new(import_paths),
-        ))
+                Arc::new(import_paths),
+            )?,
+        )))
     }
 
     fn import() -> ImportPath {

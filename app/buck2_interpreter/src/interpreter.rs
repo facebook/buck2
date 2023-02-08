@@ -160,9 +160,6 @@ impl ParseResult {
 /// of parsing or loading imports.
 pub struct InterpreterForCell {
     config: Arc<InterpreterConfigForCell>,
-    /// Implicit imports. These are only used for build files (e.g. `BUCK`),
-    /// not for `bzl` or other files, because we only have implicit imports for build files.
-    implicit_import_paths: Arc<ImplicitImportPaths>,
 }
 
 /// InterpreterConfig contains all the information necessary to interpret build
@@ -178,6 +175,9 @@ pub struct InterpreterConfigForCell {
     /// When true, rule function creates a node with no attributes.
     /// (Which won't work correctly, but useful for profiling of starlark).
     ignore_attrs_for_profiling: bool,
+    /// Implicit imports. These are only used for build files (e.g. `BUCK`),
+    /// not for `bzl` or other files, because we only have implicit imports for build files.
+    implicit_import_paths: Arc<ImplicitImportPaths>,
 }
 
 /// Information shared across interpreters. Contains no cell-specific
@@ -423,12 +423,14 @@ impl InterpreterConfigForCell {
     pub fn new(
         cell_names: CellAliasResolver,
         global_state: Arc<GlobalInterpreterState>,
+        implicit_import_paths: Arc<ImplicitImportPaths>,
     ) -> anyhow::Result<Self> {
         Ok(Self {
             global_state,
             cell_names,
             verbose_gc: Self::verbose_gc()?,
             ignore_attrs_for_profiling: Self::is_ignore_attrs_for_profiling()?,
+            implicit_import_paths,
         })
     }
 
@@ -455,14 +457,8 @@ impl InterpreterConfigForCell {
 
 /// A starlark interpreter.
 impl InterpreterForCell {
-    pub fn new(
-        config: Arc<InterpreterConfigForCell>,
-        import_paths: Arc<ImplicitImportPaths>,
-    ) -> InterpreterForCell {
-        InterpreterForCell {
-            config,
-            implicit_import_paths: import_paths,
-        }
+    pub fn new(config: Arc<InterpreterConfigForCell>) -> InterpreterForCell {
+        InterpreterForCell { config }
     }
 
     fn create_env(
@@ -566,13 +562,14 @@ impl InterpreterForCell {
     }
 
     fn package_import(&self, build_file_import: &BuildFilePath) -> Option<&Arc<ImplicitImport>> {
-        self.implicit_import_paths
+        self.config
+            .implicit_import_paths
             .package_imports
             .get(build_file_import.package())
     }
 
     fn root_import(&self) -> Option<ImportPath> {
-        self.implicit_import_paths.root_import.clone()
+        self.config.implicit_import_paths.root_import.clone()
     }
 
     fn prelude_import(&self, import: StarlarkPath) -> Option<&ImportPath> {
@@ -859,8 +856,8 @@ mod tests {
                 root_cell,
                 &self.cell_alias_resolver,
             )?;
-            Ok(InterpreterForCell::new(
-                Arc::new(InterpreterConfigForCell::new(
+            Ok(InterpreterForCell::new(Arc::new(
+                InterpreterConfigForCell::new(
                     self.cell_alias_resolver.dupe(),
                     Arc::new(GlobalInterpreterState::new(
                         &self.configs,
@@ -871,9 +868,9 @@ mod tests {
                         ]),
                         false,
                     )?),
-                )?),
-                Arc::new(import_paths),
-            ))
+                    Arc::new(import_paths),
+                )?,
+            )))
         }
 
         fn eval_module(

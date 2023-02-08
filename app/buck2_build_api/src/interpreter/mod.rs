@@ -253,8 +253,8 @@ pub(crate) mod testing {
                 &self.cell_alias_resolver,
             )?;
             let additional_globals = self.additional_globals.dupe();
-            Ok(InterpreterForCell::new(
-                Arc::new(InterpreterConfigForCell::new(
+            Ok(InterpreterForCell::new(Arc::new(
+                InterpreterConfigForCell::new(
                     self.cell_alias_resolver.dupe(),
                     Arc::new(GlobalInterpreterState::new(
                         &self.configs,
@@ -277,9 +277,9 @@ pub(crate) mod testing {
                         ),
                         false,
                     )?),
-                )?),
-                Arc::new(import_paths),
-            ))
+                    Arc::new(import_paths),
+                )?,
+            )))
         }
 
         /// Evaluate an import, and add it to the existing loaded_modules() map to be

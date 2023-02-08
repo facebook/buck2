@@ -74,7 +74,8 @@ impl<'c> HasCalculationDelegate<'c> for DiceComputations {
         build_file_cell: BuildFileCell,
     ) -> anyhow::Result<DiceCalculationDelegate<'c>> {
         #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
-        struct InterpreterConfigForCellKey(CellName);
+        #[display(fmt = "{}@{}", _0, _1)]
+        struct InterpreterConfigForCellKey(CellName, BuildFileCell);
 
         #[async_trait]
         impl Key for InterpreterConfigForCellKey {
@@ -85,9 +86,12 @@ impl<'c> HasCalculationDelegate<'c> for DiceComputations {
 
                 let cell = cell_resolver.get(self.0)?;
 
+                let implicit_import_paths = ctx.import_paths_for_cell(self.1).await?;
+
                 Ok(Arc::new(InterpreterConfigForCell::new(
                     cell.cell_alias_resolver().dupe(),
                     global_state.dupe(),
+                    implicit_import_paths,
                 )?))
             }
 
@@ -97,7 +101,9 @@ impl<'c> HasCalculationDelegate<'c> for DiceComputations {
         }
 
         let file_ops = self.file_ops();
-        let configs = self.compute(&InterpreterConfigForCellKey(cell)).await??;
+        let configs = self
+            .compute(&InterpreterConfigForCellKey(cell, build_file_cell))
+            .await??;
 
         Ok(DiceCalculationDelegate {
             build_file_cell,
@@ -217,10 +223,7 @@ impl<'c> DiceCalculationDelegate<'c> {
     async fn get_interpreter_for_cell(
         &self,
     ) -> anyhow::Result<crate::interpreter::InterpreterForCell> {
-        // NOTE(nga): this takes build file cell, not cell.
-        //   Not sure this is correct, but this is how it worked before D34278161.
-        let import_paths = self.ctx.import_paths_for_cell(self.build_file_cell).await?;
-        Ok(InterpreterForCell::new(self.configs.dupe(), import_paths))
+        Ok(InterpreterForCell::new(self.configs.dupe()))
     }
 
     async fn get_legacy_buck_config_for_starlark(
