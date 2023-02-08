@@ -240,6 +240,7 @@ impl LocalExecutor {
             Err(e) => return manager.error("materialize_inputs_failed", e),
         };
 
+        // TODO: Release here.
         let mut manager = manager.claim().await;
 
         let scratch_dir = self

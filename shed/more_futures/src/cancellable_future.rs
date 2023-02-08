@@ -384,6 +384,22 @@ where
 
         (t, Self { exit })
     }
+
+    async fn exit(mut self) {
+        let mut should_yield = false;
+
+        if let Some((exit, ctx)) = self.exit.take() {
+            let mut ctx = ctx.lock();
+            exit(&mut ctx);
+            should_yield = ctx.can_exit();
+        }
+
+        // If the current future should actually be cancelled now, we try to return control to it
+        // immediately to allow cancellation to kick in faster.
+        if should_yield {
+            tokio::task::yield_now().await;
+        }
+    }
 }
 
 impl<F> Drop for WithExecutionContext<F>
@@ -410,7 +426,7 @@ where
     F: FnOnce() -> Fut,
     Fut: Future,
 {
-    let ((), _guard) = WithExecutionContext::enter(
+    let ((), guard) = WithExecutionContext::enter(
         ExecutionContext::enter_critical_section,
         ExecutionContextShared::exit_critical_section,
     );
@@ -418,8 +434,9 @@ where
     let fut = make();
 
     async move {
-        let _guard = _guard;
-        fut.await
+        let res = fut.await;
+        guard.exit().await;
+        res
     }
 }
 
@@ -454,7 +471,7 @@ where
     Fut: Future,
     F: FnOnce(CancellationObserver) -> Fut,
 {
-    let (obs, _guard) = WithExecutionContext::enter(
+    let (obs, guard) = WithExecutionContext::enter(
         ExecutionContext::enter_structured_cancellation,
         ExecutionContextShared::exit_structured_cancellation,
     );
@@ -462,11 +479,9 @@ where
     let fut = make(obs);
 
     async move {
-        let _guard = _guard;
-
-        // TODO: we should check at this point if we have been definitely cancelled, and we have we
-        // should yield to exit as soon as possible.
-        fut.await
+        let res = fut.await;
+        guard.exit().await;
+        res
     }
 }
 
@@ -701,7 +716,7 @@ mod tests {
 
     // This is a bit of an implementation detail.
     #[tokio::test]
-    async fn test_structured_cancellation_returns_output_if_ready() {
+    async fn test_structured_cancellation_returns_to_executor() {
         let (fut, guard) = CancellableFuture::new_refcounted(async {
             with_structured_cancellation(|observer| observer).await
         });
@@ -710,7 +725,7 @@ mod tests {
         assert_matches!(futures::poll!(&mut fut), Poll::Pending);
 
         drop(guard);
-        assert_matches!(futures::poll!(&mut fut), Poll::Ready(Some(())));
+        assert_matches!(futures::poll!(&mut fut), Poll::Ready(None));
     }
 
     #[tokio::test]
