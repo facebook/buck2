@@ -99,6 +99,11 @@ pub trait HasLegacyConfigs {
     /// Accessing specific buckconfig property, records that key as dependency.
     async fn get_legacy_configs_on_dice(&self) -> anyhow::Result<LegacyBuckConfigsOnDice>;
 
+    async fn get_legacy_config_on_dice(
+        &self,
+        cell_name: CellName,
+    ) -> anyhow::Result<LegacyBuckConfigOnDice>;
+
     /// Use this function carefully: a computation which fetches this key will be recomputed
     /// if any buckconfig property changes.
     ///
@@ -296,6 +301,13 @@ impl HasLegacyConfigs for DiceComputations {
         Ok(LegacyBuckConfigsOnDice {
             configs: SortedMap::from_iter(configs_on_dice),
         })
+    }
+
+    async fn get_legacy_config_on_dice(
+        &self,
+        cell_name: CellName,
+    ) -> anyhow::Result<LegacyBuckConfigOnDice> {
+        self.get_legacy_configs_on_dice().await?.get(cell_name)
     }
 
     async fn get_legacy_configs(&self) -> anyhow::Result<LegacyBuckConfigs> {

@@ -223,9 +223,8 @@ impl<'c> DiceCalculationDelegate<'c> {
         &self,
     ) -> anyhow::Result<LegacyBuckConfigOnDice<'c>> {
         self.ctx
-            .get_legacy_configs_on_dice()
-            .await?
-            .get(self.build_file_cell.name())
+            .get_legacy_config_on_dice(self.build_file_cell.name())
+            .await
     }
 
     async fn get_legacy_root_buck_config_for_starlark(
@@ -233,9 +232,8 @@ impl<'c> DiceCalculationDelegate<'c> {
     ) -> anyhow::Result<LegacyBuckConfigOnDice<'c>> {
         let resolver = self.ctx.get_cell_resolver().await?;
         self.ctx
-            .get_legacy_configs_on_dice()
-            .await?
-            .get(resolver.root_cell())
+            .get_legacy_config_on_dice(resolver.root_cell())
+            .await
     }
 
     async fn get_package_boundary_exception(&self, path: CellPathRef<'_>) -> SharedResult<bool> {
