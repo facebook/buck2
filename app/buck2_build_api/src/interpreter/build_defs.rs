@@ -152,6 +152,8 @@ mod tests {
     use buck2_core::build_file_path::BuildFilePath;
     use buck2_core::bzl::ImportPath;
     use buck2_interpreter::file_loader::LoadedModules;
+    use buck2_interpreter::functions::host_info::register_host_info;
+    use buck2_interpreter::functions::read_config::register_read_config;
     use buck2_node::attrs::inspect_options::AttrInspectOptions;
     use buck2_node::nodes::unconfigured::testing::targets_to_json;
     use indoc::indoc;
@@ -300,7 +302,9 @@ mod tests {
 
     #[test]
     fn test_read_config() -> anyhow::Result<()> {
-        run_simple_starlark_test(indoc!(
+        let mut tester = Tester::new().unwrap();
+        tester.set_additional_globals(register_read_config);
+        tester.run_starlark_test(indoc!(
             r#"
             def test():
                 assert_eq("default", read_config("missing_section", "key", "default"))
@@ -321,7 +325,9 @@ mod tests {
 
     #[test]
     fn test_host_info() -> anyhow::Result<()> {
-        run_simple_starlark_test(indoc!(
+        let mut tester = Tester::new().unwrap();
+        tester.set_additional_globals(register_host_info);
+        tester.run_starlark_test(indoc!(
             r#"
             def test():
                 assert_eq(True, host_info().os.is_linux)
@@ -339,13 +345,16 @@ mod tests {
 
     #[test]
     fn test_buck_v2() -> anyhow::Result<()> {
-        run_simple_starlark_test(indoc!(
+        let mut tester = Tester::new().unwrap();
+        tester.set_additional_globals(register_host_info);
+        tester.run_starlark_test(indoc!(
             r#"
             def test():
                 assert_eq(True, hasattr(host_info(), "buck2"))
                 assert_eq(False, hasattr(host_info(), "buck1"))
         "#
-        ))
+        ))?;
+        Ok(())
     }
 
     #[test]

@@ -36,8 +36,6 @@ pub(crate) mod testing {
     use buck2_interpreter::extra::InterpreterHostPlatform;
     use buck2_interpreter::file_loader::LoadedModule;
     use buck2_interpreter::file_loader::LoadedModules;
-    use buck2_interpreter::functions::host_info::register_host_info;
-    use buck2_interpreter::functions::read_config::register_read_config;
     use buck2_interpreter::global_interpreter_state::GlobalInterpreterState;
     use buck2_interpreter::import_paths::ImplicitImportPaths;
     use buck2_interpreter::interpreter::InterpreterForCell;
@@ -270,8 +268,6 @@ pub(crate) mod testing {
                         |g| {
                             register_provider(g);
                             register_module_natives(g);
-                            register_host_info(g);
-                            register_read_config(g);
                             register_rule_defs(g);
                         },
                         |_| {},
