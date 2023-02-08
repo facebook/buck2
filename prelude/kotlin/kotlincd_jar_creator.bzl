@@ -71,7 +71,14 @@ def create_jar_artifact_kotlincd(
     path_to_class_hashes_out = declare_prefixed_output(actions, actions_identifier, "classes.txt")
 
     should_create_class_abi = actual_abi_generation_mode == AbiGenerationMode("class") or not is_building_android_binary
-    class_abi_jar = declare_prefixed_output(actions, actions_identifier, "class-abi.jar") if should_create_class_abi else None
+    if should_create_class_abi:
+        class_abi_jar = declare_prefixed_output(actions, actions_identifier, "class-abi.jar")
+        jvm_abi_gen = output_paths.jar_parent.project("jvm-abi-gen.jar")
+        should_use_jvm_abi_gen = True
+    else:
+        class_abi_jar = None
+        jvm_abi_gen = None
+        should_use_jvm_abi_gen = False
 
     def encode_kotlin_extra_params(kotlin_compiler_plugins):
         return struct(
@@ -88,7 +95,7 @@ def create_jar_artifact_kotlincd(
             kotlinHomeLibraries = kotlin_toolchain.kotlin_home_libraries,
             jvmTarget = "1.8",
             kosabiJvmAbiGenEarlyTerminationMessagePrefix = "exception: java.lang.RuntimeException: Terminating compilation. We're done with ABI.",
-            shouldUseJvmAbiGen = True,
+            shouldUseJvmAbiGen = should_use_jvm_abi_gen,
             shouldVerifySourceOnlyAbiConstraints = actual_abi_generation_mode == AbiGenerationMode("source_only"),
             shouldGenerateAnnotationProcessingStats = True,
             extraKotlincArguments = extra_kotlinc_arguments,
@@ -201,6 +208,8 @@ def create_jar_artifact_kotlincd(
                 output_paths.jar.as_output(),
                 "--class-abi-output",
                 class_abi_jar.as_output(),
+                "--jvm-abi-gen-output",
+                jvm_abi_gen.as_output(),
             )
 
         cmd = add_output_paths_to_cmd_args(cmd, output_paths, path_to_class_hashes)
