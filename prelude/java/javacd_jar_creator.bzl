@@ -10,7 +10,7 @@ load(
     "make_compile_outputs",
 )
 load("@prelude//java:java_resources.bzl", "get_resources_map")
-load("@prelude//java:java_toolchain.bzl", "AbiGenerationMode")
+load("@prelude//java:java_toolchain.bzl", "AbiGenerationMode", "DepFiles")
 load(
     "@prelude//jvm:cd_jar_creator_util.bzl",
     "OutputPaths",
@@ -171,7 +171,7 @@ def create_jar_artifact_javacd(
         event_pipe_out = declare_prefixed_output(actions, actions_identifier, "events.data")
 
         dep_files = {}
-        if srcs and java_toolchain.dep_files == "simple":
+        if srcs and java_toolchain.dep_files == DepFiles("per_jar"):
             used_classes_json_outputs = [output_paths.jar_parent.project("used-classes.json")]
             cmd = setup_dep_files(
                 actions,

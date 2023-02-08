@@ -7,6 +7,8 @@
 
 AbiGenerationMode = enum("class", "none", "source", "source_only")
 
+DepFiles = enum("none", "per_jar")
+
 JavacProtocol = enum("classic", "javacd")
 
 JavaPlatformInfo = provider(
