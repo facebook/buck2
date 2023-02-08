@@ -73,6 +73,7 @@ use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::values::dict::DictOf;
 use starlark::values::list::AllocList;
+use starlark::values::list::ListRef;
 use starlark::values::structs::AllocStruct;
 use starlark::values::Trace;
 use starlark::values::Value;
@@ -127,6 +128,8 @@ enum AnonTargetsError {
     MissingAttribute(String),
     #[error("Invalid `attr.dep` value, expected `dependency`, got `{0}`")]
     InvalidDep(String),
+    #[error("Invalid `attr.list` value, expected `list`, got `{0}`")]
+    InvalidList(String),
 }
 
 #[repr(transparent)]
@@ -236,15 +239,28 @@ impl AnonTargetKey {
         }
 
         let ctx = AnonAttrCtx::new();
-        let a = match unpack_dep(&attr.0) {
-            Some(attr_type) => match Dependency::from_value(x) {
+        let a = if let Some(attr_type) = unpack_dep(&attr.0) {
+            match Dependency::from_value(x) {
                 Some(dep) => {
                     let label = dep.label().inner().clone();
                     AttrLiteral::ConfiguredDep(box DepAttr { attr_type, label })
                 }
                 _ => return Err(AnonTargetsError::InvalidDep(x.get_type().to_owned()).into()),
-            },
-            _ => attr.0.coerce_item(AttrIsConfigurable::No, &ctx, x)?,
+            }
+        } else if let AttrTypeInner::List(inner) = &*attr.0 {
+            match ListRef::from_value(x) {
+                // We don't do anything special for list, but we want to make sure that dependencies inside lists are looked up properly
+                Some(list) => {
+                    return Ok(ConfiguredAttr(AttrLiteral::List(
+                        list.content()
+                            .try_map(|v| Self::coerce_attr(&inner.inner, *v))?
+                            .into(),
+                    )));
+                }
+                None => return Err(AnonTargetsError::InvalidList(x.to_string()).into()),
+            }
+        } else {
+            attr.0.coerce_item(AttrIsConfigurable::No, &ctx, x)?
         };
         a.configure(&ctx)
     }
