@@ -25,6 +25,7 @@ pub enum UploadError {
     CommandNotFound,
 }
 
+#[derive(Clone, Copy)]
 pub enum Bucket {
     EventLogs,
     RageDumps,
@@ -36,25 +37,27 @@ struct BucketInfo<'a> {
     key: &'a str,
 }
 
-fn get_info(bucket: Bucket) -> BucketInfo<'static> {
-    match bucket {
-        Bucket::EventLogs => BucketInfo {
-            name: "buck2_logs",
-            key: "buck2_logs-key",
-        },
-        Bucket::RageDumps => BucketInfo {
-            name: "buck2_rage_dumps",
-            key: "buck2_rage_dumps-key",
-        },
-        Bucket::ReLogs => BucketInfo {
-            name: "buck2_re_logs",
-            key: "buck2_re_logs-key",
-        },
+impl Bucket {
+    fn info(self) -> BucketInfo<'static> {
+        match self {
+            Bucket::EventLogs => BucketInfo {
+                name: "buck2_logs",
+                key: "buck2_logs-key",
+            },
+            Bucket::RageDumps => BucketInfo {
+                name: "buck2_rage_dumps",
+                key: "buck2_rage_dumps-key",
+            },
+            Bucket::ReLogs => BucketInfo {
+                name: "buck2_re_logs",
+                key: "buck2_re_logs-key",
+            },
+        }
     }
 }
 
 pub fn upload_command(bucket: Bucket, manifold_filename: &str) -> anyhow::Result<Option<Command>> {
-    let bucket = get_info(bucket);
+    let bucket = bucket.info();
     // we use manifold CLI as it works cross-platform
     let manifold_cli_path = get_cli_path();
     let bucket_path = &format!("flat/{}", manifold_filename);
