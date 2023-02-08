@@ -360,21 +360,27 @@ def _validate_target_headers(ctx: "context", preprocessor: [CPreprocessor.type])
             path_to_artifact[header_path] = header.artifact
 
 def _get_compiler_info(toolchain: "CxxToolchainInfo", ext: CxxExtension.type) -> "_compiler_info":
+    compiler_info = None
     if ext.value in (".cpp", ".cc", ".mm", ".cxx", ".c++", ".h", ".hpp"):
-        return toolchain.cxx_compiler_info
+        compiler_info = toolchain.cxx_compiler_info
     elif ext.value in (".c", ".m"):
-        return toolchain.c_compiler_info
+        compiler_info = toolchain.c_compiler_info
     elif ext.value in (".s", ".S"):
-        return toolchain.as_compiler_info
+        compiler_info = toolchain.as_compiler_info
     elif ext.value == ".cu":
-        return toolchain.cuda_compiler_info
+        compiler_info = toolchain.cuda_compiler_info
     elif ext.value == ".hip":
-        return toolchain.hip_compiler_info
+        compiler_info = toolchain.hip_compiler_info
     elif ext.value in (".asm", ".asmpp"):
-        return toolchain.asm_compiler_info
+        compiler_info = toolchain.asm_compiler_info
     else:
         # This should be unreachable as long as we handle all enum values
         fail("Unknown C++ extension: " + ext.value)
+
+    if not compiler_info:
+        fail("Could not find compiler for extension `{ext}`".format(ext = ext.value))
+
+    return compiler_info
 
 def _get_compile_base(compiler_info: "_compiler_info") -> "cmd_args":
     """
