@@ -183,7 +183,7 @@ impl RageCommand {
             buck2_client_ctx::eprintln!("Collecting debug info...\n\n")?;
 
             let selected_invocation =
-                maybe_select_invocation(ctx.stdin(), logdir, self.invocation).await?;
+                maybe_select_invocation(ctx.stdin(), &logdir, self.invocation).await?;
             let invocation_id = get_trace_id(&selected_invocation).await?;
             dispatch_invoked_event(sink.as_ref(), &rage_id, invocation_id.as_ref()).await?;
             if let Some(ref invocation_id) = invocation_id {
@@ -214,12 +214,30 @@ impl RageCommand {
                 }
             };
 
-            let (system_info, daemon_stderr_dump, hg_snapshot_id, dice_dump, build_info) = tokio::join!(
+            let event_log_command = {
+                let title = "Event log upload".to_owned();
+                match selected_invocation.as_ref() {
+                    None => RageSection::get_skipped(title),
+                    Some(path) => {
+                        RageSection::get(title, timeout, || upload_event_logs(path, &manifold_id))
+                    }
+                }
+            };
+
+            let (
+                system_info,
+                daemon_stderr_dump,
+                hg_snapshot_id,
+                dice_dump,
+                build_info,
+                event_log_dump,
+            ) = tokio::join!(
                 system_info_command,
                 daemon_stderr_command,
                 hg_snapshot_id_command,
                 dice_dump_command,
-                build_info_command
+                build_info_command,
+                event_log_command,
             );
             let sections = vec![
                 &system_info,
@@ -227,17 +245,23 @@ impl RageCommand {
                 &hg_snapshot_id,
                 &dice_dump,
                 &build_info,
+                &event_log_dump,
             ];
             let sections: Vec<String> = sections.iter().map(|i| i.to_string()).collect();
             output_rage(self.no_paste, &sections.join("")).await?;
 
-            dispatch_result_event(sink.as_ref(), &rage_id, RageResult {
-                dice_dump: dice_dump.output().to_owned(),
-                daemon_stderr_dump: daemon_stderr_dump.output().to_owned(),
-                system_info: system_info.output().to_owned(),
-                hg_snapshot_id: hg_snapshot_id.output().to_owned(),
-                invocation_id: invocation_id.map(|inv| inv.to_string()),
-            }).await?;
+            dispatch_result_event(
+                sink.as_ref(),
+                &rage_id,
+                RageResult {
+                    dice_dump: dice_dump.output().to_owned(),
+                    daemon_stderr_dump: daemon_stderr_dump.output().to_owned(),
+                    system_info: system_info.output().to_owned(),
+                    hg_snapshot_id: hg_snapshot_id.output().to_owned(),
+                    invocation_id: invocation_id.map(|inv| inv.to_string()),
+                },
+            )
+            .await?;
             ExitResult::success()
         })
     }
@@ -361,6 +385,16 @@ daemon uptime: {}
     Ok(output)
 }
 
+async fn upload_event_logs(path: &EventLogPathBuf, manifold_id: &str) -> anyhow::Result<String> {
+    let filename = format!("{}-event_log{}", manifold_id, path.extension());
+    let bucket = manifold::Bucket::RageDumps;
+    manifold::Upload::new(bucket, path.path(), &filename)?
+        .spawn(Stdio::piped())?
+        .wait()
+        .await?;
+    Ok(format!("{}/flat/{}", bucket.info().name, filename))
+}
+
 async fn dispatch_invoked_event(
     sink: Option<&ThriftScribeSink>,
     rage_id: &TraceId,
@@ -424,10 +458,10 @@ fn create_scribe_sink(ctx: &ClientCommandContext) -> anyhow::Result<Option<Thrif
 
 async fn maybe_select_invocation(
     stdin: &mut Stdin,
-    logdir: AbsNormPathBuf,
+    logdir: &AbsNormPathBuf,
     invocation: Option<usize>,
 ) -> anyhow::Result<Option<EventLogPathBuf>> {
-    let mut logs = match get_local_logs_if_exist(&logdir)? {
+    let mut logs = match get_local_logs_if_exist(logdir)? {
         None => return Ok(None),
         Some(logs) => logs
             .into_iter()

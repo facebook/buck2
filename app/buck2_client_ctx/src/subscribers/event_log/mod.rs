@@ -438,6 +438,10 @@ impl EventLogPathBuf {
             invocation,
         })
     }
+
+    pub fn extension(&self) -> &str {
+        self.encoding.extensions[0]
+    }
 }
 
 struct NoInference(AbsPathBuf);

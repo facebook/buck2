@@ -53,13 +53,13 @@ pub enum Bucket {
     ReLogs,
 }
 
-struct BucketInfo<'a> {
-    name: &'a str,
+pub struct BucketInfo<'a> {
+    pub name: &'a str,
     key: &'a str,
 }
 
 impl Bucket {
-    fn info(self) -> BucketInfo<'static> {
+    pub fn info(self) -> BucketInfo<'static> {
         match self {
             Bucket::EventLogs => BucketInfo {
                 name: "buck2_logs",
