@@ -36,7 +36,7 @@ def gen_aidl_impl(ctx: "context") -> ["provider"]:
 
     aidl_cmd.hidden(dep_srcs)
 
-    aidl_out = ctx.actions.declare_output("aidl_output")
+    aidl_out = ctx.actions.declare_output("aidl_output", dir = True)
     aidl_cmd.add("-o", aidl_out.as_output())
     aidl_cmd.add(ctx.attrs.aidl)
     ctx.actions.run(aidl_cmd, category = "aidl")
