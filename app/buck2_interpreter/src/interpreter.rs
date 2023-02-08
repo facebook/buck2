@@ -191,7 +191,7 @@ pub struct GlobalInterpreterState {
     /// The GlobalEnvironment contains all the globally available symbols
     /// (primarily starlark stdlib and Buck-provided functions) that should
     /// be available in a build file.
-    build_file_global_env: Globals,
+    pub build_file_global_env: Globals,
 
     /// The GlobalEnvironment contains all the globally available symbols
     /// (primarily starlark stdlib and Buck-provided functions) that should

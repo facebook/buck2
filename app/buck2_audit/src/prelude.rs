@@ -8,21 +8,16 @@
  */
 
 use std::io::Write;
-use std::sync::Arc;
 
 use async_trait::async_trait;
 use buck2_build_api::interpreter::context::prelude_path;
 use buck2_cli_proto::ClientContext;
 use buck2_common::dice::cells::HasCellResolver;
-use buck2_core::cells::name::CellName;
-use buck2_core::cells::*;
 use buck2_interpreter::common::StarlarkModulePath;
 use buck2_interpreter::dice::HasCalculationDelegate;
 use buck2_interpreter::dice::HasGlobalInterpreterState;
-use buck2_interpreter::interpreter::InterpreterConfigForCell;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
-use maplit::hashmap;
 
 use crate::AuditCommandCommonOptions;
 use crate::AuditSubcommand;
@@ -55,20 +50,10 @@ impl AuditSubcommand for AuditPreludeCommand {
                 let interpreter_calculation = ctx
                     .get_interpreter_calculator(prelude_path.cell(), prelude_path.build_file_cell())
                     .await?;
-                // Slightly odd that to get the build_file_global_env out of global_interpreter_state
-                // we first have to wrap it in an InterpreterConfig with a fake CellAliasResolver
-                let aliases = hashmap![
-                    CellAlias::new("".to_owned()) =>
-                    CellName::unchecked_new(""),
-                ];
-                let interpreter_config = InterpreterConfigForCell::new(
-                    CellAliasResolver::new(Arc::new(aliases))?,
-                    global_interpreter_state,
-                )?;
                 writeln!(
                     stdout,
                     "{}",
-                    interpreter_config.build_file_global_env().describe()
+                    global_interpreter_state.build_file_global_env.describe()
                 )?;
                 writeln!(
                     stdout,
