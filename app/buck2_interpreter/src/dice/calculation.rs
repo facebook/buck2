@@ -39,15 +39,12 @@ use crate::common::StarlarkModulePath;
 use crate::common::StarlarkPath;
 use crate::dice::calculation::keys::EvalImportKey;
 use crate::dice::starlark_profiler::GetStarlarkProfilerInstrumentation;
-use crate::dice::starlark_types::GetDisableStarlarkTypes;
 use crate::dice::HasCalculationDelegate;
-use crate::dice::HasGlobalInterpreterState;
-use crate::dice::HasInterpreterContext;
 use crate::dice::HasPackageListingResolver;
 use crate::extra::ExtraContext;
 use crate::file_loader::LoadedModule;
 use crate::file_loader::ModuleDeps;
-use crate::global_interpreter_state::GlobalInterpreterState;
+use crate::global_interpreter_state::HasGlobalInterpreterState;
 use crate::import_paths::HasImportPaths;
 use crate::interpreter::InterpreterForCell;
 use crate::interpreter::ParseResult;
@@ -107,42 +104,6 @@ impl<'c> HasCalculationDelegate<'c> for DiceComputations {
             fs: file_ops,
             configs,
         })
-    }
-}
-
-#[async_trait]
-impl HasGlobalInterpreterState for DiceComputations {
-    async fn get_global_interpreter_state(&self) -> SharedResult<Arc<GlobalInterpreterState>> {
-        #[derive(Clone, Dupe, Allocative)]
-        struct GisValue(Arc<GlobalInterpreterState>);
-
-        #[derive(Clone, Display, Dupe, Debug, Eq, Hash, PartialEq, Allocative)]
-        #[display(fmt = "{:?}", self)]
-        struct GisKey();
-
-        #[async_trait]
-        impl Key for GisKey {
-            type Value = SharedResult<GisValue>;
-            async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
-                let interpreter_configuror = ctx.get_interpreter_configuror().await?;
-                let legacy_configs = ctx.get_legacy_configs_on_dice().await?;
-                let cell_resolver = ctx.get_cell_resolver().await?;
-                let disable_starlark_types = ctx.get_disable_starlark_types().await?;
-
-                Ok(GisValue(Arc::new(GlobalInterpreterState::new(
-                    &legacy_configs,
-                    cell_resolver,
-                    interpreter_configuror,
-                    disable_starlark_types,
-                )?)))
-            }
-
-            fn equality(_: &Self::Value, _: &Self::Value) -> bool {
-                false
-            }
-        }
-
-        Ok(self.compute(&GisKey()).await??.0)
     }
 }
 

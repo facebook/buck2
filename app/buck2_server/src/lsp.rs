@@ -39,7 +39,7 @@ use buck2_interpreter::common::BxlFilePath;
 use buck2_interpreter::common::OwnedStarlarkModulePath;
 use buck2_interpreter::common::StarlarkPath;
 use buck2_interpreter::dice::HasCalculationDelegate;
-use buck2_interpreter::dice::HasGlobalInterpreterState;
+use buck2_interpreter::global_interpreter_state::HasGlobalInterpreterState;
 use buck2_server_ctx::command_end::command_end;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;

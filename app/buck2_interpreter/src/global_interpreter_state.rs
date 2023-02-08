@@ -11,12 +11,19 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use buck2_common::dice::cells::HasCellResolver;
+use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::view::LegacyBuckConfigsView;
+use buck2_common::result::SharedResult;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::CellResolver;
+use dice::DiceComputations;
+use dice::Key;
 use dupe::Dupe;
 use starlark::environment::Globals;
 
+use crate::dice::starlark_types::GetDisableStarlarkTypes;
+use crate::dice::HasInterpreterContext;
 use crate::extra::cell_info::InterpreterCellInfo;
 use crate::extra::InterpreterConfiguror;
 
@@ -88,5 +95,55 @@ impl GlobalInterpreterState {
 
     pub fn configuror(&self) -> &Arc<dyn InterpreterConfiguror> {
         &self.configuror
+    }
+}
+
+#[async_trait]
+pub trait HasGlobalInterpreterState {
+    async fn get_global_interpreter_state(&self) -> SharedResult<Arc<GlobalInterpreterState>>;
+}
+
+#[async_trait]
+impl HasGlobalInterpreterState for DiceComputations {
+    async fn get_global_interpreter_state(&self) -> SharedResult<Arc<GlobalInterpreterState>> {
+        #[derive(Clone, Dupe, Allocative)]
+        struct GisValue(Arc<GlobalInterpreterState>);
+
+        #[derive(
+            Clone,
+            derive_more::Display,
+            Dupe,
+            Debug,
+            Eq,
+            Hash,
+            PartialEq,
+            Allocative
+        )]
+        #[display(fmt = "{:?}", self)]
+        struct GisKey();
+
+        #[async_trait]
+        impl Key for GisKey {
+            type Value = SharedResult<GisValue>;
+            async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
+                let interpreter_configuror = ctx.get_interpreter_configuror().await?;
+                let legacy_configs = ctx.get_legacy_configs_on_dice().await?;
+                let cell_resolver = ctx.get_cell_resolver().await?;
+                let disable_starlark_types = ctx.get_disable_starlark_types().await?;
+
+                Ok(GisValue(Arc::new(GlobalInterpreterState::new(
+                    &legacy_configs,
+                    cell_resolver,
+                    interpreter_configuror,
+                    disable_starlark_types,
+                )?)))
+            }
+
+            fn equality(_: &Self::Value, _: &Self::Value) -> bool {
+                false
+            }
+        }
+
+        Ok(self.compute(&GisKey()).await??.0)
     }
 }

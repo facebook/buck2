@@ -15,7 +15,7 @@ use buck2_cli_proto::ClientContext;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_interpreter::common::StarlarkModulePath;
 use buck2_interpreter::dice::HasCalculationDelegate;
-use buck2_interpreter::dice::HasGlobalInterpreterState;
+use buck2_interpreter::global_interpreter_state::HasGlobalInterpreterState;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 
