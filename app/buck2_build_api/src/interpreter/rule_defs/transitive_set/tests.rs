@@ -14,12 +14,22 @@ use crate::interpreter::rule_defs::cmd_args::tester::command_line_stringifier;
 use crate::interpreter::rule_defs::transitive_set::testing::tset_factory;
 use crate::interpreter::testing::expect_error;
 use crate::interpreter::testing::import;
-use crate::interpreter::testing::run_simple_starlark_test;
 use crate::interpreter::testing::Tester;
+
+fn tester() -> Tester {
+    let mut tester = Tester::new().unwrap();
+    tester.set_additional_globals(|builder| {
+        tset_factory(builder);
+        artifactory(builder);
+        command_line_stringifier(builder);
+    });
+    tester
+}
 
 #[test]
 fn test_define_transitive_set() -> anyhow::Result<()> {
-    run_simple_starlark_test(indoc!(
+    let mut tester = tester();
+    tester.run_starlark_bzl_test(indoc!(
         r#"
         FooSet = transitive_set()
         FooSet2 = FooSet
@@ -37,8 +47,7 @@ fn test_define_transitive_set() -> anyhow::Result<()> {
 
 #[test]
 fn test_hash_transitive_set() -> anyhow::Result<()> {
-    let mut tester = Tester::new()?;
-    tester.set_additional_globals(tset_factory);
+    let mut tester = tester();
 
     tester.add_import(
         &import("root", "test", "def1.bzl"),
@@ -64,7 +73,8 @@ fn test_hash_transitive_set() -> anyhow::Result<()> {
 
 #[test]
 fn test_define_transitive_set_projections() -> anyhow::Result<()> {
-    run_simple_starlark_test(indoc!(
+    let mut tester = tester();
+    tester.run_starlark_test(indoc!(
         r#"
         def project1(_value):
             pass
@@ -81,8 +91,7 @@ fn test_define_transitive_set_projections() -> anyhow::Result<()> {
 
 #[test]
 fn test_create_transitive_set() -> anyhow::Result<()> {
-    let mut tester = Tester::new()?;
-    tester.set_additional_globals(tset_factory);
+    let mut tester = tester();
 
     tester.run_starlark_bzl_test(indoc!(
         r#"
@@ -119,8 +128,7 @@ fn test_create_transitive_set() -> anyhow::Result<()> {
 
 #[test]
 fn test_frozen_transitive_sets() -> anyhow::Result<()> {
-    let mut tester = Tester::new()?;
-    tester.set_additional_globals(tset_factory);
+    let mut tester = tester();
 
     tester.add_import(
         &import("root", "test", "def1.bzl"),
@@ -154,8 +162,7 @@ fn test_frozen_transitive_sets() -> anyhow::Result<()> {
 
 #[test]
 fn test_transitive_set_display() -> anyhow::Result<()> {
-    let mut tester = Tester::new()?;
-    tester.set_additional_globals(tset_factory);
+    let mut tester = tester();
 
     tester.run_starlark_bzl_test(indoc!(
         r#"
@@ -180,8 +187,7 @@ fn test_transitive_set_display() -> anyhow::Result<()> {
 
 #[test]
 fn test_transitive_sets_validation() -> anyhow::Result<()> {
-    let mut tester = Tester::new()?;
-    tester.set_additional_globals(tset_factory);
+    let mut tester = tester();
 
     let contents = indoc!(
         r#"
@@ -215,8 +221,7 @@ fn test_transitive_sets_validation() -> anyhow::Result<()> {
 
 #[test]
 fn test_transitive_sets_projection() -> anyhow::Result<()> {
-    let mut tester = Tester::new()?;
-    tester.set_additional_globals(tset_factory);
+    let mut tester = tester();
 
     tester.run_starlark_bzl_test(indoc!(
         r#"
@@ -254,8 +259,7 @@ fn test_transitive_sets_projection() -> anyhow::Result<()> {
 
 #[test]
 fn test_transitive_sets_iteration() -> anyhow::Result<()> {
-    let mut tester = Tester::new()?;
-    tester.set_additional_globals(tset_factory);
+    let mut tester = tester();
 
     /* Validate on a simple tree which validates transitive links:
      *
@@ -326,8 +330,7 @@ fn test_transitive_sets_iteration() -> anyhow::Result<()> {
 
 #[test]
 fn test_frozen_transitive_sets_iteration() -> anyhow::Result<()> {
-    let mut tester = Tester::new()?;
-    tester.set_additional_globals(tset_factory);
+    let mut tester = tester();
 
     tester.add_import(
         &import("root", "test", "def1.bzl"),
@@ -363,11 +366,7 @@ fn test_frozen_transitive_sets_iteration() -> anyhow::Result<()> {
 
 #[test]
 fn test_projection_args() -> anyhow::Result<()> {
-    let mut tester = Tester::new()?;
-    tester.set_additional_globals(|builder| {
-        tset_factory(builder);
-        command_line_stringifier(builder);
-    });
+    let mut tester = tester();
 
     tester.add_import(
         &import("root", "test", "decl.bzl"),
@@ -406,12 +405,7 @@ fn test_projection_args() -> anyhow::Result<()> {
 
 #[test]
 fn test_projection_inputs() -> anyhow::Result<()> {
-    let mut tester = Tester::new()?;
-    tester.set_additional_globals(|builder| {
-        tset_factory(builder);
-        artifactory(builder);
-        command_line_stringifier(builder);
-    });
+    let mut tester = tester();
 
     tester.run_starlark_bzl_test(indoc!(
         r#"
@@ -444,11 +438,7 @@ fn test_projection_inputs() -> anyhow::Result<()> {
 
 #[test]
 fn test_projection_iteration() -> anyhow::Result<()> {
-    let mut tester = Tester::new()?;
-    tester.set_additional_globals(|builder| {
-        tset_factory(builder);
-        command_line_stringifier(builder);
-    });
+    let mut tester = tester();
 
     /*
      *  1 -> 2 -> 3
@@ -491,11 +481,7 @@ fn test_projection_iteration() -> anyhow::Result<()> {
 
 #[test]
 fn test_json_projection() -> anyhow::Result<()> {
-    let mut tester = Tester::new()?;
-    tester.set_additional_globals(|builder| {
-        tset_factory(builder);
-        command_line_stringifier(builder);
-    });
+    let mut tester = tester();
 
     /*
      *  1 -> 2 -> 3
@@ -538,10 +524,7 @@ fn test_json_projection() -> anyhow::Result<()> {
 
 #[test]
 fn test_reduction() -> anyhow::Result<()> {
-    let mut tester = Tester::new()?;
-    tester.set_additional_globals(|builder| {
-        tset_factory(builder);
-    });
+    let mut tester = tester();
 
     tester.run_starlark_bzl_test(indoc!(
         r#"
@@ -582,10 +565,7 @@ fn test_reduction() -> anyhow::Result<()> {
 
 #[test]
 fn test_definition_type() -> anyhow::Result<()> {
-    let mut tester = Tester::new()?;
-    tester.set_additional_globals(|builder| {
-        tset_factory(builder);
-    });
+    let mut tester = tester();
 
     tester.add_import(
         &import("root", "test", "def.bzl"),
@@ -611,10 +591,7 @@ fn test_definition_type() -> anyhow::Result<()> {
 
 #[test]
 fn test_type() -> anyhow::Result<()> {
-    let mut tester = Tester::new()?;
-    tester.set_additional_globals(|builder| {
-        tset_factory(builder);
-    });
+    let mut tester = tester();
 
     tester.run_starlark_bzl_test(indoc!(
         r#"
@@ -657,11 +634,7 @@ fn test_type() -> anyhow::Result<()> {
 
 #[test]
 fn test_transitive_set_ordering_docs() -> anyhow::Result<()> {
-    let mut tester = Tester::new()?;
-    tester.set_additional_globals(|builder| {
-        tset_factory(builder);
-        command_line_stringifier(builder);
-    });
+    let mut tester = tester();
 
     /*
      *  qux -> bar -> foo
@@ -709,10 +682,7 @@ fn test_transitive_set_ordering_docs() -> anyhow::Result<()> {
 
 #[test]
 fn test_accessors() -> anyhow::Result<()> {
-    let mut tester = Tester::new()?;
-    tester.set_additional_globals(|builder| {
-        tset_factory(builder);
-    });
+    let mut tester = tester();
 
     tester.run_starlark_bzl_test(indoc!(
         r#"
