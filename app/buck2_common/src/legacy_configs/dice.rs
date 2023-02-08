@@ -27,6 +27,7 @@ use dice::ProjectionKey;
 use dupe::Dupe;
 use dupe::OptionDupedExt;
 
+use crate::dice::cells::HasCellResolver;
 use crate::legacy_configs::view::LegacyBuckConfigView;
 use crate::legacy_configs::view::LegacyBuckConfigsView;
 use crate::legacy_configs::ConfigError;
@@ -103,6 +104,8 @@ pub trait HasLegacyConfigs {
         &self,
         cell_name: CellName,
     ) -> anyhow::Result<LegacyBuckConfigOnDice>;
+
+    async fn get_legacy_root_config_on_dice(&self) -> anyhow::Result<LegacyBuckConfigOnDice>;
 
     /// Use this function carefully: a computation which fetches this key will be recomputed
     /// if any buckconfig property changes.
@@ -308,6 +311,12 @@ impl HasLegacyConfigs for DiceComputations {
         cell_name: CellName,
     ) -> anyhow::Result<LegacyBuckConfigOnDice> {
         self.get_legacy_configs_on_dice().await?.get(cell_name)
+    }
+
+    async fn get_legacy_root_config_on_dice(&self) -> anyhow::Result<LegacyBuckConfigOnDice> {
+        let cell_resolver = self.get_cell_resolver().await?;
+        self.get_legacy_config_on_dice(cell_resolver.root_cell())
+            .await
     }
 
     async fn get_legacy_configs(&self) -> anyhow::Result<LegacyBuckConfigs> {
