@@ -85,6 +85,7 @@ bytes = "1.0"
 bytesize = "1.1.0"
 chrono = "0.4.19"
 clap = { version = "3.1.18", features = ["derive", "env"] }
+common-path = "1.0.0"
 constant_time_eq = "0.2.4"
 convert_case = "0.4.0"
 criterion = { version = "0.3.1", features = [] }

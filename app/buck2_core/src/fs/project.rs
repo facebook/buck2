@@ -682,18 +682,31 @@ mod tests {
         );
         // Make sure out/dir1/link_dir3 links to the relative path to dir1/dir2/dir3
         let link_dir3_target = fs_util::read_link(fs.path.resolve(expected_link_dir3))?;
-        assert_eq!(
-            Path::new("../../dir1/dir2/dir3"),
-            link_dir3_target.as_path(),
-        );
+        if cfg!(unix) {
+            assert_eq!(
+                Path::new("../../dir1/dir2/dir3"),
+                link_dir3_target.as_path(),
+            );
+        } else {
+            // In Windows we use absolute path
+            assert_eq!(fs.path.resolve(dir3).as_path(), link_dir3_target.as_path());
+        }
 
         // Make sure we can read through; that the relative path actually works
         fs_util::write(fs.path.resolve(file3), "file3 new contents")?;
         let link_file3_target = fs_util::read_link(fs.path.resolve(expected_link_file3))?;
-        assert_eq!(
-            Path::new("../../dir1/dir2/dir3/file3"),
-            link_file3_target.as_path(),
-        );
+        if cfg!(unix) {
+            assert_eq!(
+                Path::new("../../dir1/dir2/dir3/file3"),
+                link_file3_target.as_path(),
+            );
+        } else {
+            // In Windows we use absolute path
+            assert_eq!(
+                fs.path.resolve(file3).as_path(),
+                link_file3_target.as_path()
+            );
+        }
         assert_eq!(
             "file3 new contents",
             fs_util::read_to_string(fs.path.resolve(expected_link_file3))?
@@ -786,11 +799,20 @@ mod tests {
                 .join(ForwardRelativePath::new("file")?),
         )?;
 
-        assert_eq!(dest1_expected, dest1_value);
-        assert_eq!(dest2_expected, dest2_value);
-        assert_eq!(dest3_expected, dest3_value);
-        assert_eq!(dest4_expected, dest4_value);
-        assert_eq!(dest5_expected, dest5_value);
+        if cfg!(unix) {
+            assert_eq!(dest1_expected, dest1_value);
+            assert_eq!(dest2_expected, dest2_value);
+            assert_eq!(dest3_expected, dest3_value);
+            assert_eq!(dest4_expected, dest4_value);
+            assert_eq!(dest5_expected, dest5_value);
+        } else {
+            // In Windows we use absolute path
+            assert_eq!(fs.path.resolve(target1).as_path(), dest1_value);
+            assert_eq!(fs.path.resolve(target1).as_path(), dest2_value);
+            assert_eq!(fs.path.resolve(target1).as_path(), dest3_value);
+            assert_eq!(fs.path.resolve(target2).as_path(), dest4_value);
+            assert_eq!(fs.path.resolve(target2).as_path(), dest5_value);
+        }
 
         assert_eq!("new foo1 contents", contents1);
         assert_eq!("new foo1 contents", contents2);
