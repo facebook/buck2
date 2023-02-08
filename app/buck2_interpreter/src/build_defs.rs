@@ -118,13 +118,6 @@ pub fn register_natives(registry: &mut GlobalsBuilder) {
     stdlib(registry);
 }
 
-pub fn register_globals(_env: &mut GlobalsBuilder) {
-    // There are currently no globals. Everything is available on the native module.
-    // TODO: once we support configuration of whether to include the native module
-    // in the global scope, we will likely need to identify some functions to be
-    // moved to the global module.
-}
-
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
