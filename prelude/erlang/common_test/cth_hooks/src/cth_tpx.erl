@@ -388,15 +388,7 @@ handle_missing_results([Init | Inits], MainResult) ->
                 std_out => InitStdOut
             };
         passed ->
-            MainResult#{
-                outcome => omitted,
-                details => unicode:characters_to_list(
-                    io_lib:format("Intentionally omitted by init ~ts with reason: \n ~s ", [
-                        maps:get(name, Init), maps:get(details, Init)
-                    ])
-                ),
-                std_out => InitStdOut
-            }
+            handle_skipped_result([Init | Inits], MainResult)
     end.
 
 %% A result can be erlang skipped if it is either user skipped or skipped because of an init failure.
@@ -436,16 +428,7 @@ handle_skipped_result([Init | Inits], MainResult) ->
                 std_out => InitStdOut
             };
         passed ->
-            MainResult#{
-                outcome => omitted,
-                details => unicode:characters_to_list(
-                    io_lib:format(
-                        "Intentionally omitted by init ~s with reason : \n ~s",
-                        [maps:get(name, Init), maps:get(details, Init)]
-                    )
-                ),
-                std_out => InitStdOut
-            };
+            handle_skipped_result(Inits, MainResult);
         skipped ->
             handle_skipped_result(Inits, MainResult);
         omitted ->
