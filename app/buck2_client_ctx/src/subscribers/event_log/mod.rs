@@ -35,6 +35,7 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::fs::working_dir::WorkingDir;
+use buck2_core::soft_error;
 use buck2_data::buck_event;
 use buck2_data::instant_event;
 use buck2_events::trace::TraceId;
@@ -646,16 +647,12 @@ impl EventLog {
             // file while we were about to upload it.
             if let Err(e) = log_upload(&log_file_to_upload.path, &log_file_to_upload.trace_id).await
             {
-                match e {
-                    e @ LogUploadError::LogWasDeleted => {
-                        tracing::debug!("{}", e);
-                    }
-                    LogUploadError::NonZeroExitStatus(_, _) => {
-                        tracing::warn!("{}", e);
-                    }
-                    LogUploadError::Other(e) => {
-                        tracing::warn!("Error uploading logs: {:#}", e);
-                    }
+                if matches!(e, LogUploadError::LogWasDeleted) {
+                    // This is expected to happen if more than 10 commands are run in parallel,
+                    // since we only keep the 10 most recent logs
+                    tracing::debug!("{}", e);
+                } else {
+                    soft_error!("event_log_upload_failed", anyhow::Error::new(e))?;
                 }
             }
 

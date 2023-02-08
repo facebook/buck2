@@ -24,7 +24,7 @@ use crate::subscribers::event_log::EventLogPathBuf;
 #[derive(thiserror::Error, Debug)]
 
 pub(crate) enum LogUploadError {
-    #[error("Log file deleted before upload")]
+    #[error("Log file deleted before upload. We only keep the 10 most recent logs")]
     LogWasDeleted,
     #[error("Log upload exited with {0}. Stderr: `{1}`")]
     NonZeroExitStatus(ExitStatus, String),
