@@ -64,7 +64,7 @@ In the above snippet:
 * **Attributes** are the fields on the target (for example, you might have `out`, which can be accessed via `ctx.attrs.out`).
 * **Actions** are declared by the rule with things like `ctx.actions.run`, which takes a command line. Note that the actions are not run by the rule, but declared, so that Buck2 can run them later.
 * **Artifacts** represent files on disk, which could be source or build outputs (`binary` in the above example).
-    * For build outputs, the artifact is produced by an action, and the existence of the artifact does not imply the build has been run: the artifact 'remembers' what should be run if it is required.
+  * For build outputs, the artifact is produced by an action, and the existence of the artifact does not imply the build has been run: the artifact 'remembers' what should be run if it is required.
 * **Providers** are returned, which is information that other rules get to use. These will often contain artifacts.
 
 The rule implementation takes in a `ctx`, which is the rule context. The two most important fields are `ctx.attrs`, which picks up the attributes declared by the rule, and `ctx.actions`, which lets you create new actions to actually do something.
@@ -173,7 +173,7 @@ The functions `fail` and `print` are your friends. To get started, a `buck2 buil
 
 ## Testing Rules
 
-A common way to tests is to use `genrule` to cause the produced binary to run and assert some properties from it. If your rule is in Buck1 and Buck2, use a `TARGETS` file so you can test with both. If your tests are incompatible with Buck1 (such as if it is a new rule), use `TARGETS.v2`, which will only be seen by Buck2 and won't cause errors with Buck1.
+A common way to test is to use `genrule` to cause the produced binary to run and assert some properties from it. If your rule is in Buck1 and Buck2, use a `TARGETS` file so you can test with both. If your tests are incompatible with Buck1 (such as if it is a new rule), use `TARGETS.v2`, which will only be seen by Buck2 and won't cause errors with Buck1.
 
 ## New rules
 
