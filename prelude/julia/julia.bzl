@@ -65,8 +65,8 @@ def build_julia_command(ctx):
 
     return cmd.hidden(srcs)
 
-def julia_binary_impl(_ctx: "context") -> ["provider"]:
-    cmd = build_julia_command(_ctx)
+def julia_binary_impl(ctx: "context") -> ["provider"]:
+    cmd = build_julia_command(ctx)
     return [DefaultInfo(), RunInfo(cmd)]
 
 def julia_library_impl(_ctx: "context") -> ["provider"]:
