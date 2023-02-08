@@ -36,6 +36,8 @@ pub(crate) mod testing {
     use buck2_interpreter::extra::InterpreterHostPlatform;
     use buck2_interpreter::file_loader::LoadedModule;
     use buck2_interpreter::file_loader::LoadedModules;
+    use buck2_interpreter::functions::host_info::register_host_info;
+    use buck2_interpreter::functions::read_config::register_read_config;
     use buck2_interpreter::global_interpreter_state::GlobalInterpreterState;
     use buck2_interpreter::import_paths::ImplicitImportPaths;
     use buck2_interpreter::interpreter::InterpreterForCell;
@@ -44,6 +46,7 @@ pub(crate) mod testing {
     use buck2_interpreter_for_build::interpreter::configuror::AdditionalGlobalsFn;
     use buck2_interpreter_for_build::interpreter::configuror::BuildInterpreterConfiguror;
     use buck2_interpreter_for_build::interpreter::module_internals::ModuleInternals;
+    use buck2_interpreter_for_build::interpreter::natives::register_module_natives;
     use buck2_node::nodes::eval_result::EvaluationResult;
     use buck2_node::nodes::targets_map::TargetsMap;
     use buck2_query::query::syntax::simple::functions::testing::QueryFunctionsPanic;
@@ -53,8 +56,9 @@ pub(crate) mod testing {
     use starlark::environment::GlobalsBuilder;
     use starlark::values::Value;
 
+    use crate::interpreter::build_defs::register_provider;
     use crate::interpreter::context::configure_build_file_globals;
-    use crate::interpreter::context::configure_extension_file_globals;
+    use crate::interpreter::rule_defs::register_rule_defs;
 
     /// Simple container that allows us to instrument things like imports
     pub(crate) struct Tester {
@@ -263,7 +267,13 @@ pub(crate) mod testing {
                         InterpreterHostArchitecture::X86_64,
                         false,
                         configure_build_file_globals,
-                        configure_extension_file_globals,
+                        |g| {
+                            register_provider(g);
+                            register_module_natives(g);
+                            register_host_info(g);
+                            register_read_config(g);
+                            register_rule_defs(g);
+                        },
                         |_| {},
                         Some(AdditionalGlobalsFn(Arc::new(move |globals_builder| {
                             common_helpers(globals_builder);

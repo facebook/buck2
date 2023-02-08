@@ -9,6 +9,7 @@
 
 use indoc::indoc;
 
+use crate::interpreter::build_defs::register_transitive_set;
 use crate::interpreter::rule_defs::artifact::testing::artifactory;
 use crate::interpreter::rule_defs::cmd_args::tester::command_line_stringifier;
 use crate::interpreter::rule_defs::transitive_set::testing::tset_factory;
@@ -19,6 +20,7 @@ use crate::interpreter::testing::Tester;
 fn tester() -> Tester {
     let mut tester = Tester::new().unwrap();
     tester.set_additional_globals(|builder| {
+        register_transitive_set(builder);
         tset_factory(builder);
         artifactory(builder);
         command_line_stringifier(builder);
