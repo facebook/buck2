@@ -36,8 +36,8 @@ pub(crate) mod testing {
     use buck2_interpreter::extra::InterpreterHostPlatform;
     use buck2_interpreter::file_loader::LoadedModule;
     use buck2_interpreter::file_loader::LoadedModules;
+    use buck2_interpreter::global_interpreter_state::GlobalInterpreterState;
     use buck2_interpreter::import_paths::ImplicitImportPaths;
-    use buck2_interpreter::interpreter::GlobalInterpreterState;
     use buck2_interpreter::interpreter::InterpreterForCell;
     use buck2_interpreter::interpreter::ParseResult;
     use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;

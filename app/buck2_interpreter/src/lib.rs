@@ -33,6 +33,7 @@ pub mod dice;
 pub mod extra;
 pub mod file_loader;
 pub mod functions;
+pub mod global_interpreter_state;
 pub mod globspec;
 pub mod import_paths;
 pub mod interpreter;

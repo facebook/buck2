@@ -11,20 +11,17 @@
 //! operations of converting file content to ASTs and evaluating import and
 //! build files.
 
-use std::collections::HashMap;
 use std::sync::Arc;
 
 use allocative::Allocative;
 use anyhow::Context;
 use buck2_common::legacy_configs::view::LegacyBuckConfigView;
-use buck2_common::legacy_configs::view::LegacyBuckConfigsView;
 use buck2_common::package_listing::listing::PackageListing;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::CellAliasResolver;
-use buck2_core::cells::CellResolver;
 use dupe::Dupe;
 use gazebo::prelude::*;
 use starlark::codemap::FileSpan;
@@ -49,11 +46,11 @@ use crate::extra::cell_info::InterpreterCellInfo;
 use crate::extra::BuildContext;
 use crate::extra::ExtraContext;
 use crate::extra::ExtraContextDyn;
-use crate::extra::InterpreterConfiguror;
 use crate::file_loader::InterpreterFileLoader;
 use crate::file_loader::LoadResolver;
 use crate::file_loader::LoadedModules;
 use crate::functions::dedupe::dedupe;
+use crate::global_interpreter_state::GlobalInterpreterState;
 use crate::import_paths::ImplicitImportPaths;
 use crate::package_imports::ImplicitImport;
 use crate::parse_import::parse_import;
@@ -174,36 +171,6 @@ pub struct InterpreterForCell {
     implicit_import_paths: Arc<ImplicitImportPaths>,
 }
 
-/// Information shared across interpreters. Contains no cell-specific
-/// information.
-#[derive(Allocative)]
-pub struct GlobalInterpreterState {
-    cell_resolver: CellResolver,
-
-    cell_configs: HashMap<BuildFileCell, InterpreterCellInfo>,
-
-    /// The GlobalEnvironment contains all the globally available symbols
-    /// (primarily starlark stdlib and Buck-provided functions) that should
-    /// be available in a build file.
-    pub build_file_global_env: Globals,
-
-    /// The GlobalEnvironment contains all the globally available symbols
-    /// (primarily starlark stdlib and Buck-provided functions) that should
-    /// be available in an extension file.
-    pub extension_file_global_env: Globals,
-
-    /// The GlobalEnvironment contains all the globally available symbols
-    /// (primarily starlark stdlib and Buck-provided functions) that should
-    /// be available in a bxl file.
-    pub bxl_file_global_env: Globals,
-
-    /// Interpreter Configurer
-    configuror: Arc<dyn InterpreterConfiguror>,
-
-    /// Check types in Starlark (or just parse and ignore).
-    disable_starlark_types: bool,
-}
-
 /// Configure globals for all three possible environments: `BUCK`, `bzl` and `bxl`.
 pub fn configure_base_globals(
     configure_native_struct: impl FnOnce(&mut GlobalsBuilder),
@@ -238,47 +205,6 @@ pub fn configure_base_globals(
         configure_native_struct(x);
     });
     global_env
-}
-
-impl GlobalInterpreterState {
-    pub fn new(
-        legacy_configs: &dyn LegacyBuckConfigsView,
-        cell_resolver: CellResolver,
-        interpreter_configuror: Arc<dyn InterpreterConfiguror>,
-        disable_starlark_types: bool,
-    ) -> anyhow::Result<Self> {
-        // TODO: There should be one of these that also does not have native functions
-        // in the global       namespace so that it can be configured per-cell
-        let build_file_global_env = interpreter_configuror.build_file_globals();
-        let extension_file_global_env = interpreter_configuror.extension_file_globals();
-        let bxl_file_global_env = interpreter_configuror.bxl_file_globals();
-
-        let mut cell_configs = HashMap::new();
-        for (cell_name, config) in legacy_configs.iter() {
-            let cell_instance = cell_resolver.get(cell_name).expect("Should have cell.");
-            cell_configs.insert(
-                BuildFileCell::new(cell_name),
-                InterpreterCellInfo::new(
-                    BuildFileCell::new(cell_name),
-                    config,
-                    cell_instance.cell_alias_resolver().dupe(),
-                )?,
-            );
-        }
-        Ok(Self {
-            cell_resolver,
-            cell_configs,
-            build_file_global_env,
-            extension_file_global_env,
-            bxl_file_global_env,
-            configuror: interpreter_configuror,
-            disable_starlark_types,
-        })
-    }
-
-    pub fn configuror(&self) -> &Arc<dyn InterpreterConfiguror> {
-        &self.configuror
-    }
 }
 
 struct InterpreterLoadResolver {
@@ -746,6 +672,7 @@ mod tests {
     use buck2_common::legacy_configs::LegacyBuckConfigs;
     use buck2_common::package_listing::listing::testing::PackageListingExt;
     use buck2_core::cells::name::CellName;
+    use buck2_core::cells::CellResolver;
     use buck2_core::collections::ordered_map::OrderedMap;
     use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
     use buck2_core::fs::project::ProjectRoot;

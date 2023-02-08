@@ -10,7 +10,7 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use buck2_interpreter::interpreter::GlobalInterpreterState;
+use buck2_interpreter::global_interpreter_state::GlobalInterpreterState;
 use maplit::hashset;
 use once_cell::sync::Lazy;
 use starlark::docs::Doc;

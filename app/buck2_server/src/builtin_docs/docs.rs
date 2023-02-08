@@ -35,7 +35,7 @@ use buck2_interpreter::common::StarlarkModulePath;
 use buck2_interpreter::dice::calculation::DiceCalculationDelegate;
 use buck2_interpreter::dice::HasCalculationDelegate;
 use buck2_interpreter::dice::HasGlobalInterpreterState;
-use buck2_interpreter::interpreter::GlobalInterpreterState;
+use buck2_interpreter::global_interpreter_state::GlobalInterpreterState;
 use buck2_interpreter::parse_import::parse_import_with_config;
 use buck2_interpreter::parse_import::ParseImportOptions;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;

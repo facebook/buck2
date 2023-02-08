@@ -28,7 +28,7 @@ use dice::UserComputationData;
 
 use crate::dice::calculation::DiceCalculationDelegate;
 use crate::extra::InterpreterConfiguror;
-use crate::interpreter::GlobalInterpreterState;
+use crate::global_interpreter_state::GlobalInterpreterState;
 
 pub mod calculation;
 mod interpreter;

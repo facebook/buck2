@@ -155,8 +155,8 @@ mod tests {
     use crate::extra::testing::TesterExtraContext;
     use crate::file_loader::LoadedModule;
     use crate::file_loader::LoadedModules;
+    use crate::global_interpreter_state::GlobalInterpreterState;
     use crate::import_paths::ImplicitImportPaths;
-    use crate::interpreter::GlobalInterpreterState;
     use crate::interpreter::InterpreterForCell;
     use crate::interpreter::ParseResult;
     use crate::starlark_profiler::StarlarkProfilerOrInstrumentation;
