@@ -13,7 +13,7 @@ This will output a table showing all the commands that were executed, and how th
 
 The structure is as follows:
 
-```
+```sh
 REASON  <TAB> TARGET <TAB> IDENTIFIER <TAB> EXECUTOR <TAB> REPRODUCER
 ```
 
@@ -29,37 +29,36 @@ Which should be used as follows:
 
 Use What Ran as follows:
 
-- Start by identifying the command you're looking for:
-  - You can grep the output for a given target.
-  - You can then grep by identifier if necessary. For example, if you're after C++ compilation, try grepping for the basename of your file (for example, for `fbcode/my/stuff.cpp`, grep for `stuff.cpp`).
-- Once you found it, reproduce as follows:
-  - If the executor was `local`, the command is in the output, so just run it. It's expected that you'll do this from the root of your project (use `buck2 root --kind project` to find where that is).
-  - If the executor was `re` or `cache`, you're provided a RE digest of the form `HASH:SIZE`. Run `frecli cas download-action HASH:SIZE` to retrieve the action, then follow the instructions to run it.
-
+* Start by identifying the command you're looking for:
+  * You can grep the output for a given target.
+  * You can then grep by identifier if necessary. For example, if you're after C++ compilation, try grepping for the basename of your file (for example, for `fbcode/my/stuff.cpp`, grep for `stuff.cpp`).
+* Once you found it, reproduce as follows:
+  * If the executor was `local`, the command is in the output, so just run it. It's expected that you'll do this from the root of your project (use `buck2 root --kind project` to find where that is).
+  * If the executor was `re` or `cache`, you're provided a RE digest of the form `HASH:SIZE`. Run `frecli cas download-action HASH:SIZE` to retrieve the action, then follow the instructions to run it.
 
 ## Examples
 
 The following ran locally:
 
-```
+```bash
 build  fbcode//scripts/torozco/getenv:getenv-san-conf-__generated-lib__ (archive_thin libgetenv-san-conf-__generated-lib__.pic.a)  local  fbcode/third-party-buck/platform010/build/llvm-fb/bin/llvm-ar qcsTD buck-out/v2/gen/fbcode/d839c731f5505c62/scripts/torozco/getenv/__getenv-san-conf-__generated-lib____/libgetenv-san-conf-__generated-lib__.pic.a buck-out/v2/gen/fbcode/d839c731f5505c62/scripts/torozco/getenv/__getenv-san-conf-__generated-lib____/__objects__/san-conf.c.pic.o
 ```
 
 To repro, you'd run:
 
-```
+```bash
 fbcode/third-party-buck/platform010/build/llvm-fb/bin/llvm-ar qcsTD buck-out/v2/gen/fbcode/d839c731f5505c62/scripts/torozco/getenv/__getenv-san-conf-__generated-lib____/libgetenv-san-conf-__generated-lib__.pic.a buck-out/v2/gen/fbcode/d839c731f5505c62/scripts/torozco/getenv/__getenv-san-conf-__generated-lib____/__objects__/san-conf.c.pic.
 ```
 
 The following ran on RE:
 
-```
+```bash
 build  fbcode//common/init:kill (cxx_compile Kill.cpp (pic))  re  97feca9d014155a80ec55fe27e6bb17f9d2f8574:94
 ```
 
 To repro, you'd run:
 
-```
+```bash
 frecli cas download-action 97feca9d014155a80ec55fe27e6bb17f9d2f8574:94
 ```
 
