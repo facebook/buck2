@@ -65,11 +65,6 @@ pub trait DeferredCtx {
 
     fn get_action_key(&self) -> String;
 
-    fn get_provider(
-        &self,
-        label: &ConfiguredProvidersLabel,
-    ) -> Option<&FrozenProviderCollectionValue>;
-
     fn get_deferred_data(&self, key: &DeferredKey) -> Option<DeferredValueAnyReady>;
 
     fn get_artifact(&self, artifact: &Artifact) -> Option<&ArtifactValue>;
@@ -85,7 +80,7 @@ pub trait DeferredCtx {
 pub struct ResolveDeferredCtx<'a> {
     key: DeferredKey,
     configured_targets: HashMap<ConfiguredTargetLabel, ConfiguredTargetNode>,
-    providers: HashMap<ConfiguredProvidersLabel, FrozenProviderCollectionValue>,
+    _providers: HashMap<ConfiguredProvidersLabel, FrozenProviderCollectionValue>,
     deferreds: HashMap<DeferredKey, DeferredValueAnyReady>,
     artifacts: HashMap<Artifact, ArtifactValue>,
     materialized_artifacts: HashMap<Artifact, ProjectRelativePathBuf>,
@@ -107,7 +102,7 @@ impl<'a> ResolveDeferredCtx<'a> {
         Self {
             key,
             configured_targets,
-            providers,
+            _providers: providers,
             deferreds,
             artifacts,
             materialized_artifacts,
@@ -127,13 +122,6 @@ impl<'a> DeferredCtx for ResolveDeferredCtx<'a> {
 
     fn get_action_key(&self) -> String {
         self.key.action_key()
-    }
-
-    fn get_provider(
-        &self,
-        label: &ConfiguredProvidersLabel,
-    ) -> Option<&FrozenProviderCollectionValue> {
-        self.providers.get(label)
     }
 
     fn get_deferred_data(&self, key: &DeferredKey) -> Option<DeferredValueAnyReady> {
