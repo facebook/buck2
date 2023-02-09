@@ -1535,6 +1535,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                     for t in deps_tasks {
                         t.await?;
                     }
+
                     if let Some((entry, method)) = entry_and_method {
                         let materialize = || {
                             io.materialize_entry(
@@ -1559,7 +1560,11 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                                 t.await?;
                             }
                         }
-                    };
+                    } else {
+                        for t in link_deps_tasks {
+                            t.await?;
+                        }
+                    }
                 };
 
                 // Materialization finished, notify the command thread
