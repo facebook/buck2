@@ -93,7 +93,7 @@ extra_attributes = {
         "julia_args": attrs.list(attrs.string(), default = []),
         "julia_flags": attrs.list(attrs.string(), default = []),
         "main": attrs.string(),
-        "srcs": attrs.named_set(attrs.source(), default = []),
+        "srcs": attrs.list(attrs.source(), default = []),
         "_julia_toolchain": _julia_toolchain(),
     },
     "julia_library": {
