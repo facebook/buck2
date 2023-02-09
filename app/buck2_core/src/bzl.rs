@@ -60,8 +60,6 @@ pub struct ImportPath {
     /// The cell of the top-level build module that this is being loaded
     /// (perhaps transitively) into.
     build_file_cell: BuildFileCell,
-    /// A ModuleID for the import.
-    id: ModuleID,
 }
 
 impl ImportPath {
@@ -70,15 +68,9 @@ impl ImportPath {
             return Err(ImportPathError::Invalid(path).into());
         }
 
-        let id = ModuleID(if build_file_cell.name() == path.cell() {
-            format!("{}", path)
-        } else {
-            format!("{}@{}", path, build_file_cell.name())
-        });
         Ok(Self {
             path,
             build_file_cell,
-            id,
         })
     }
 
@@ -116,14 +108,14 @@ impl ImportPath {
     pub fn path(&self) -> &CellPath {
         &self.path
     }
-
-    pub fn id(&self) -> &ModuleID {
-        &self.id
-    }
 }
 
 impl Display for ImportPath {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.id)
+        if self.build_file_cell.name() == self.path.cell() {
+            write!(f, "{}", self.path)
+        } else {
+            write!(f, "{}@{}", self.path, self.build_file_cell.name())
+        }
     }
 }

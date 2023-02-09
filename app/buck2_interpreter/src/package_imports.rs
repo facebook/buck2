@@ -172,18 +172,18 @@ mod tests {
         };
 
         let import = expect_import("root", "src/java/com");
-        assert_eq!("root//src.bzl", import.import().id().as_str());
+        assert_eq!("root//src.bzl", import.import().to_string());
         assert_eq!("symbols", import.lookup_alias("symbols"));
         assert_eq!("other", import.lookup_alias("other"));
 
         let import = expect_import("root", "src");
-        assert_eq!("root//src.bzl", import.import().id().as_str());
+        assert_eq!("root//src.bzl", import.import().to_string());
 
         let import = expect_import("root", "src/bin");
-        assert_eq!("root//bin.bzl", import.import().id().as_str());
+        assert_eq!("root//bin.bzl", import.import().to_string());
 
         let import = expect_import("root", "other/bin");
-        assert_eq!("cell1//other.bzl@root", import.import().id().as_str());
+        assert_eq!("cell1//other.bzl@root", import.import().to_string());
         assert_eq!("symbol1", import.lookup_alias("alias1"));
         assert_eq!("symbol2", import.lookup_alias("alias2"));
         assert_eq!("symbol3", import.lookup_alias("symbol3"));
