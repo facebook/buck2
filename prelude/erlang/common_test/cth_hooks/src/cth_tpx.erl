@@ -181,14 +181,9 @@ get_result(TreeResult, RequestedResults) ->
 collect_result(TreeResult, Groups, TestCase) ->
     QualifiedName = qualifiedName(lists:reverse(Groups), TestCase),
     LeafResult = collect_result(TreeResult, [], [], Groups, TestCase, QualifiedName),
-    case os:getenv("BUCK2_ERLANG_REPORT_END_FAILURES") of
-        Val when Val == false orelse Val == "" orelse Val == "0" ->
-            LeafResult;
-        _ ->
-            #{ends := EndsResults, main := MainResult} = LeafResult,
-            MainResultWithEndFailure = report_end_failure(EndsResults, MainResult),
-            LeafResult#{main => MainResultWithEndFailure}
-    end.
+    #{ends := EndsResults, main := MainResult} = LeafResult,
+    MainResultWithEndFailure = report_end_failure(EndsResults, MainResult),
+    LeafResult#{main => MainResultWithEndFailure}.
 
 report_end_failure([], ResultAcc) ->
     ResultAcc;
