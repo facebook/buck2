@@ -32,6 +32,7 @@ def _filter_flags(clang_flags: List[str]) -> List[str]:  # noqa: C901
         "-Wl,-plugin-opt,-function-sections",
         "-Wl,--lto-whole-program-visibility",
         "-Wl,--no-lto-whole-program-visibility",
+        "-flto=thin",
     ]
     # Conservatively, we only translate llvms flags in our known list
     KNOWN_LLVM_SHARED_LIBRARY_FLAGS = ["-shared"]
@@ -106,7 +107,9 @@ def _filter_flags(clang_flags: List[str]) -> List[str]:  # noqa: C901
         elif flag in KNOWN_LLVM_SHARED_LIBRARY_FLAGS:
             # The target is a shared library, `-fPIC` is needed in opt phase to correctly generate PIC ELF.
             opt_flags.append("-fPIC")
-
+        elif flag.startswith("-f"):
+            # Always pass in -f flags which are presumed to be Clang flags.
+            opt_flags.append(flag)
     return opt_flags
 
 
