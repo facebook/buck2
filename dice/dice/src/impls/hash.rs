@@ -7,14 +7,13 @@
  * of this source tree.
  */
 
-#[allow(unused)]
-pub(crate) mod core;
-#[allow(unused)]
-pub(crate) mod ctx;
-pub(crate) mod dice;
-mod hash;
-pub(crate) mod key;
-pub(crate) mod opaque;
-pub(crate) mod transaction;
-#[allow(unused)]
-pub(crate) mod value;
+use std::hash::Hash;
+use std::hash::Hasher;
+
+use fnv::FnvHasher;
+
+pub(crate) fn key_hash<K: Hash>(key: &K) -> u64 {
+    let mut hasher = FnvHasher::default();
+    key.hash(&mut hasher);
+    hasher.finish()
+}
