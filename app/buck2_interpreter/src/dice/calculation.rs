@@ -286,7 +286,7 @@ impl<'c> DiceCalculationDelegate<'c> {
             .get_package_boundary_exception(package.as_cell_path())
             .await?;
         let build_file_path = BuildFilePath::new(package.dupe(), listing.buildfile().to_owned());
-        let module_id = build_file_path.id().as_str().to_owned();
+        let module_id = build_file_path.to_string();
         let cell_str = build_file_path.cell().as_str().to_owned();
         let start_event = buck2_data::LoadBuildFileStart {
             cell: cell_str.clone(),

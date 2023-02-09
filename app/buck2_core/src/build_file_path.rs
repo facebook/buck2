@@ -10,7 +10,6 @@
 use allocative::Allocative;
 use dupe::Dupe;
 
-use crate::bzl::ModuleID;
 use crate::cells::build_file_cell::BuildFileCell;
 use crate::cells::cell_path::CellPath;
 use crate::cells::name::CellName;
@@ -21,24 +20,17 @@ use crate::package::PackageLabel;
 
 /// Path of a build file (e.g. `BUCK`) only. (`bzl` files are not included).
 #[derive(Clone, Hash, Eq, PartialEq, Debug, derive_more::Display, Allocative)]
-#[display(fmt = "{}", id)]
+#[display(fmt = "{}:{}", package, filename)]
 pub struct BuildFilePath {
     /// The package of this build file
     package: PackageLabel,
     /// The build file's filename (which can be configured). i.e. `BUCK`
     filename: FileNameBuf,
-    /// A ModuleID for the import.
-    id: ModuleID,
 }
 
 impl BuildFilePath {
     pub fn new(package: PackageLabel, filename: FileNameBuf) -> Self {
-        let id = ModuleID(format!("{}:{}", package, filename));
-        Self {
-            package,
-            filename,
-            id,
-        }
+        Self { package, filename }
     }
 
     pub fn unchecked_new(cell: &str, package: &str, filename: &str) -> Self {
@@ -68,9 +60,5 @@ impl BuildFilePath {
 
     pub fn filename(&self) -> &FileName {
         &self.filename
-    }
-
-    pub fn id(&self) -> &ModuleID {
-        &self.id
     }
 }
