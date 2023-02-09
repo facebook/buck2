@@ -258,7 +258,7 @@ pub(crate) struct BuckdServerData {
     process_info: DaemonProcessInfo,
     start_time: prost_types::Timestamp,
     start_instant: Instant,
-    daemon_shutdown: Arc<DaemonShutdown>,
+    daemon_shutdown: DaemonShutdown,
     daemon_state: Arc<DaemonState>,
     #[allocative(skip)]
     command_channel: UnboundedSender<()>,
@@ -304,10 +304,10 @@ impl BuckdServer {
                 nanos: now.subsec_nanos() as i32,
             },
             start_instant: Instant::now(),
-            daemon_shutdown: Arc::new(DaemonShutdown {
+            daemon_shutdown: DaemonShutdown {
                 delegate,
                 shutdown_channel,
-            }),
+            },
             daemon_state: Arc::new(
                 DaemonState::new(
                     fb,
