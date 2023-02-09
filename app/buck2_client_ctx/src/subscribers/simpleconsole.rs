@@ -386,6 +386,13 @@ where
                 self.observer().action_stats().remote_actions,
                 self.observer().action_stats().local_actions
             )?;
+            if self.observer().action_stats().fallback_actions > 0 {
+                echo!(
+                    "Fallback: {}/{}",
+                    self.observer().action_stats().fallback_actions,
+                    self.observer().action_stats().total_executed_actions()
+                )?;
+            }
         }
 
         if let Some(re) = &self.observer().re_state().render_header(DrawMode::Final) {

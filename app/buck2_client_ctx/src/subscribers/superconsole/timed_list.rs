@@ -416,6 +416,7 @@ mod tests {
             local_actions: 0,
             remote_actions: 0,
             cached_actions: 1,
+            fallback_actions: 0,
         };
 
         let timed_list_state = SuperConsoleConfig {
@@ -509,6 +510,7 @@ mod tests {
             local_actions: 0,
             remote_actions: 0,
             cached_actions: 1,
+            fallback_actions: 0,
         };
 
         let timed_list_state = SuperConsoleConfig {
@@ -627,6 +629,7 @@ mod tests {
             local_actions: 0,
             remote_actions: 0,
             cached_actions: 1,
+            fallback_actions: 0,
         };
 
         let timed_list_state = SuperConsoleConfig {

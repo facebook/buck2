@@ -17,7 +17,8 @@ use crate::last_command_execution_kind::LastCommandExecutionKind;
 /// gives the total number of actions. `local_actions` + `remote_actions`
 /// provides the total number of actually executed actions while
 /// `cached_actions` provides number of actions which we found
-/// in the action cache.
+/// in the action cache.  `fallback_actions` provides the number of actions
+/// that had its command run more than once (hence, using fallback to run).
 ///
 /// These stats only track executions/commands.
 #[derive(Default)]
@@ -25,6 +26,7 @@ pub struct ActionStats {
     pub local_actions: u64,
     pub remote_actions: u64,
     pub cached_actions: u64,
+    pub fallback_actions: u64,
 }
 
 impl ActionStats {
@@ -48,11 +50,22 @@ impl ActionStats {
         }
     }
 
+    pub fn total_executed_actions(&self) -> u64 {
+        self.local_actions + self.remote_actions
+    }
+
     pub fn total_executed_and_cached_actions(&self) -> u64 {
         self.local_actions + self.remote_actions + self.cached_actions
     }
 
+    pub fn was_fallback_action(&mut self, action: &buck2_data::ActionExecutionEnd) -> bool {
+        action.commands.len() > 1
+    }
+
     pub fn update(&mut self, action: &buck2_data::ActionExecutionEnd) {
+        if self.was_fallback_action(action) {
+            self.fallback_actions += 1;
+        }
         match get_last_command_execution_kind(action) {
             LastCommandExecutionKind::Local => {
                 self.local_actions += 1;
@@ -74,14 +87,22 @@ impl ActionStats {
 
 impl fmt::Display for ActionStats {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
+        let mut action_stats_message = format!(
             "Cache hits: {}%. Commands: {} (cached: {}, remote: {}, local: {})",
             self.action_cache_hit_percentage(),
             self.total_executed_and_cached_actions(),
             self.cached_actions,
             self.remote_actions,
             self.local_actions
-        )
+        );
+        if self.fallback_actions > 0 {
+            action_stats_message += format!(
+                ". Fallback: {}/{}",
+                self.fallback_actions,
+                self.total_executed_actions()
+            )
+            .as_str();
+        }
+        write!(f, "{}", action_stats_message)
     }
 }
