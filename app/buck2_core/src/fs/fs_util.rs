@@ -19,6 +19,8 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use anyhow::Context;
+#[allow(unused)] // Keep the unused deps linter happy even though we only use on Windows.
+use common_path::common_path;
 use relative_path::RelativePath;
 use relative_path::RelativePathBuf;
 
@@ -52,8 +54,6 @@ fn symlink_impl(original: &Path, link: &Path) -> anyhow::Result<()> {
 #[cfg(windows)]
 fn symlink_impl(original: &Path, link: &Path) -> anyhow::Result<()> {
     use std::io::ErrorKind;
-
-    use common_path::common_path;
 
     // If original is a relative path, fix it up to be absolute
     let target_abspath = if original.is_absolute() {
