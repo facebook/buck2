@@ -454,8 +454,14 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
             name = soname,
             link_infos = LinkInfos(
                 default = LinkInfo(
-                    pre_flags = cxx_attr_exported_linker_flags(ctx),
-                    post_flags = cxx_attr_exported_post_linker_flags(ctx),
+                    pre_flags = (
+                        cxx_attr_exported_linker_flags(ctx) +
+                        ctx.attrs.linker_flags
+                    ),
+                    post_flags = (
+                        ctx.attrs.post_linker_flags +
+                        cxx_attr_exported_post_linker_flags(ctx)
+                    ),
                     linkables = [ObjectsLinkable(
                         objects = compiled_srcs.pic_objects,
                         linker_type = linker_type,
