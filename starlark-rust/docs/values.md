@@ -36,7 +36,7 @@ There are some data types (such as functions and tuples) that are themselves imm
 
 ## Implementation in Rust
 
-Putting all these above concepts together, results in the following:
+Putting all these above concepts together results in the following:
 
 ```rust
 enum FrozenValue {

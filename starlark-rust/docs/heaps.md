@@ -21,7 +21,7 @@ Heaps are included in other data types:
 
 ## Heap References
 
-It is important that when a `FrozenValue` X is referenced by a `Value` or `FrozenValue` (for example, included in a list) that the heap where X originates is added as a reference to the heap where the new value is being created.
+It is important that when a `FrozenValue` X is referenced by a `Value` or `FrozenValue` (for example, included in a list), the heap where X originates is added as a reference to the heap where the new value is being created.
 
 As a concrete example in pseudo-code:
 

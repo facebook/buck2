@@ -73,7 +73,7 @@ struct FrozenSlots(Arc<Vec<Option<FrozenValue>>>);
 As featured in the above code:
 
 * A set of slots are either `Frozen`, which came from another module behind `Arc` or just normal `Slots`, which can be manipulated by the current scope (behind a `Rc`/`RefCell` for single-threaded use and mutation).
-* `Vec` is accessed by the slot index
+* `Vec` is accessed by the slot index.
 * `Option` refers to whether the slot has been assigned yet (to detect variables referenced before assignment).
 
 ## Module Environment
