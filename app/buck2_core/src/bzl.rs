@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::borrow::Borrow;
 use std::fmt::Display;
 use std::fmt::Formatter;
 
@@ -18,32 +17,6 @@ use crate::cells::cell_path::CellPath;
 use crate::cells::name::CellName;
 use crate::cells::paths::CellRelativePath;
 use crate::fs::paths::file_name::FileName;
-
-/// The starlark interpreter expects imports
-/// to be identified by a String and requires using this id in some cases.
-/// The id will contain both the package and filename. For a cross-cell load,
-/// it will include an `@cell_name` suffix to indicate the top-level cell
-/// being loaded into.
-#[derive(Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative)]
-pub struct ModuleID(pub String);
-
-impl Display for ModuleID {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        Display::fmt(&self.0, f)
-    }
-}
-
-impl Borrow<str> for ModuleID {
-    fn borrow(&self) -> &str {
-        &self.0
-    }
-}
-
-impl ModuleID {
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-}
 
 #[derive(Debug, thiserror::Error)]
 enum ImportPathError {
