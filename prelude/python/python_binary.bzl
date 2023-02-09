@@ -143,6 +143,7 @@ def _get_root_link_group_specs(
             LinkGroupLibSpec(
                 name = dep.linkable_root_info.name,
                 is_shared_lib = True,
+                root = dep.linkable_root_info,
                 group = Group(
                     name = dep.linkable_root_info.name,
                     mappings = [

@@ -27,6 +27,7 @@ load(
     "@prelude//linking:linkable_graph.bzl",
     "LinkableGraph",  # @unused Used as a type
     "LinkableNode",  # @unused Used as a type
+    "LinkableRootInfo",  # @unused Used as a type
     "create_linkable_graph",
     "get_deps_for_link",
     "get_link_info",
@@ -95,6 +96,11 @@ LinkGroupLibSpec = record(
     # extensions (which are techncially shared libs, but don't set a SONAME
     # and aren't managed by `SharedLibraryInfo`s).
     is_shared_lib = field(bool.type, True),
+    # Optional linkable root info that should be used to "guide" the link of
+    # this link group.  This is useful for linking e.g. standalone shared libs
+    # which may require special private linker flags (like version scripts) to
+    # link.
+    root = field([LinkableRootInfo.type, None], None),
     # The link group to link.
     group = field(Group.type),
 )
@@ -487,17 +493,27 @@ def _create_link_group(
 
     # Get roots to begin the linkable search.
     # TODO(agallagher): We should use the groups "public" nodes as the roots.
-    roots = []
+    deps = []
     has_empty_root = False
-    for mapping in spec.group.mappings:
-        # If there's no explicit root, this means we need to search the entire
-        # graph to find candidate nodes.
-        if mapping.root == None:
-            has_empty_root = True
-        else:
-            roots.append(mapping.root.label)
-    if has_empty_root:
-        roots.extend(executable_deps)
+    if spec.root != None:
+        # If there's a linkable root attached to the spec, use that to guide
+        # linking, as that will contain things like private linker flags that
+        # might be required to link the given link group.
+        inputs.append(get_link_info_from_link_infos(
+            spec.root.link_infos,
+            prefer_stripped = prefer_stripped_objects,
+        ))
+        deps.extend(spec.root.deps)
+    else:
+        for mapping in spec.group.mappings:
+            # If there's no explicit root, this means we need to search the entire
+            # graph to find candidate nodes.
+            if mapping.root == None:
+                has_empty_root = True
+            else:
+                deps.append(mapping.root.label)
+        if has_empty_root:
+            deps.extend(executable_deps)
 
     # Add roots...
     filtered_labels_to_links_map = get_filtered_labels_to_links_map(
@@ -511,7 +527,7 @@ def _create_link_group(
         # -- even the additional roots -- to find potential nodes in the link
         # group.
         other_roots = other_roots if has_empty_root else [],
-        deps = roots,
+        deps = deps,
         is_executable_link = False,
         prefer_stripped = prefer_stripped_objects,
     )
