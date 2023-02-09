@@ -11,7 +11,6 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_core::bzl::ImportPath;
-use buck2_core::bzl::ModuleID;
 use buck2_core::collections::ordered_map::OrderedMap;
 use derivative::Derivative;
 use dupe::Dupe;
@@ -24,7 +23,7 @@ use crate::common::StarlarkModulePath;
 
 #[derive(Default, Clone, Allocative)]
 pub struct LoadedModules {
-    pub map: OrderedMap<ModuleID, LoadedModule>,
+    pub map: OrderedMap<OwnedStarlarkModulePath, LoadedModule>,
 }
 
 impl LoadedModules {
@@ -52,7 +51,7 @@ impl ModuleDeps {
     pub fn get_loaded_modules(&self) -> LoadedModules {
         let mut map = OrderedMap::with_capacity(self.0.len());
         for dep in &*self.0 {
-            map.insert(dep.path().id().to_owned(), dep.dupe());
+            map.insert(dep.path().to_owned(), dep.dupe());
         }
         LoadedModules { map }
     }
@@ -121,8 +120,8 @@ fn to_diagnostic(err: &anyhow::Error, id: &str) -> anyhow::Error {
 
 impl InterpreterFileLoader {
     /// Used for looking up modules by id.
-    fn find_module(&self, id: &ModuleID) -> anyhow::Result<&FrozenModule> {
-        match self.loaded_modules.map.get(id) {
+    fn find_module(&self, id: StarlarkModulePath) -> anyhow::Result<&FrozenModule> {
+        match self.loaded_modules.map.get(&id) {
             Some(v) => Ok(&v.0.env),
             None => Err(to_diagnostic(
                 &anyhow::anyhow!(
@@ -130,7 +129,7 @@ impl InterpreterFileLoader {
                     id,
                     self.loaded_modules.map.keys().collect::<Vec<_>>()
                 ),
-                id.as_str(),
+                &id.to_string(),
             )),
         }
     }
@@ -141,7 +140,7 @@ impl FileLoader for InterpreterFileLoader {
     /// statements.
     fn load(&self, path: &str) -> anyhow::Result<FrozenModule> {
         match self.info.resolve_load(path, None) {
-            Ok(import) => Ok(self.find_module(import.borrow().id())?.dupe()),
+            Ok(import) => Ok(self.find_module(import.borrow())?.dupe()),
             Err(e) => Err(to_diagnostic(&e, path)),
         }
     }
@@ -149,6 +148,7 @@ impl FileLoader for InterpreterFileLoader {
 
 #[cfg(test)]
 mod tests {
+    use buck2_core::bzl::ModuleID;
     use starlark::environment::Module;
 
     use super::*;
@@ -199,8 +199,8 @@ mod tests {
         let mut insert = |path| {
             let import_path = resolver.resolve_load(path, None).unwrap();
             let id = import_path.borrow().id().clone();
-            let module = LoadedModule::new(import_path, LoadedModules::default(), env(&id));
-            loaded_modules.map.insert(id, module);
+            let module = LoadedModule::new(import_path.clone(), LoadedModules::default(), env(&id));
+            loaded_modules.map.insert(import_path, module);
         };
 
         // Insert the same things that the TestLoadResolver supports.
@@ -232,7 +232,7 @@ mod tests {
     fn missing_in_loaded_modules() -> anyhow::Result<()> {
         let path = "cell1//next/package:import.bzl".to_owned();
         let resolver = resolver();
-        let id = resolver.resolve_load(&path, None)?.borrow().id().to_owned();
+        let id = resolver.resolve_load(&path, None)?;
 
         let mut loaded_modules = loaded_modules();
         loaded_modules.map.remove(&id);
@@ -267,13 +267,12 @@ mod tests {
         let resolver = resolver();
         let resolved = resolver.resolve_load(&path, None)?;
         let borrow = resolved.borrow();
-        let id = borrow.id();
 
         let loader = InterpreterFileLoader::new(loaded_modules(), resolver);
-        let found = loader.find_module(id)?;
+        let found = loader.find_module(borrow)?;
 
         let v = found.get("name").unwrap();
-        assert_eq!(v.value().unpack_str(), Some(id.as_str()));
+        assert_eq!(v.value().unpack_str(), Some(borrow.to_string().as_str()));
 
         Ok(())
     }

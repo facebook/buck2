@@ -382,7 +382,7 @@ impl InterpreterForCell {
         if let Some(prelude_import) = self.prelude_import(starlark_path) {
             let prelude_env = loaded_modules
                 .map
-                .get(prelude_import.id())
+                .get(&StarlarkModulePath::LoadFile(prelude_import))
                 .unwrap_or_else(|| {
                     panic!(
                         "Should've had an env for the root import (`{}`).",
@@ -433,7 +433,7 @@ impl InterpreterForCell {
         if let Some(root_import) = self.root_import() {
             let root_env = loaded_modules
                 .map
-                .get(root_import.id())
+                .get(&StarlarkModulePath::LoadFile(&root_import))
                 .unwrap_or_else(|| {
                     panic!(
                         "Should've had an env for the root import (`{}`).",
@@ -882,7 +882,10 @@ mod tests {
             ),
             LoadedModules::default(),
         )?;
-        let loaded_modules = OrderedMap::from_iter([(import_path.id().to_owned(), import_result)]);
+        let loaded_modules = OrderedMap::from_iter([(
+            OwnedStarlarkModulePath::LoadFile(import_path),
+            import_result,
+        )]);
         let loaded_modules = LoadedModules {
             map: loaded_modules,
         };
@@ -927,7 +930,10 @@ mod tests {
             LoadedModules::default(),
         )?;
         let build_path = build("root", "some/package", "BUILD");
-        let loaded_modules = OrderedMap::from_iter([(import_path.id().to_owned(), import_result)]);
+        let loaded_modules = OrderedMap::from_iter([(
+            OwnedStarlarkModulePath::LoadFile(import_path),
+            import_result,
+        )]);
         let loaded_modules = LoadedModules {
             map: loaded_modules,
         };
@@ -1037,7 +1043,10 @@ mod tests {
             LoadedModules::default(),
         )?;
         let mut loaded_modules = OrderedMap::new();
-        loaded_modules.insert(import_path.id().to_owned(), import_result);
+        loaded_modules.insert(
+            OwnedStarlarkModulePath::LoadFile(import_path),
+            import_result,
+        );
         let loaded_modules = LoadedModules {
             map: loaded_modules,
         };

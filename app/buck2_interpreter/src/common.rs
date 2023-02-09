@@ -9,6 +9,7 @@
 
 use std::borrow::Cow;
 use std::hash::Hash;
+use std::hash::Hasher;
 
 use allocative::Allocative;
 use buck2_core::build_file_path::BuildFilePath;
@@ -21,6 +22,7 @@ use buck2_core::cells::paths::CellRelativePathBuf;
 use derive_more::Display;
 use dupe::Dupe;
 use gazebo::variants::UnpackVariants;
+use starlark::collections::Equivalent;
 use thiserror::Error;
 
 /// Path of a `bxl` file for `bxl` commands
@@ -173,13 +175,19 @@ impl<'a> From<StarlarkModulePath<'a>> for StarlarkPath<'a> {
 }
 
 /// Path to file containing starlark that can be evaluated as a loaded module by the interpreter.
-#[derive(Display, Clone, Copy, Dupe, Debug, UnpackVariants)]
+#[derive(Display, Clone, Copy, Dupe, Debug, UnpackVariants, Hash, Eq, PartialEq)]
 #[display(fmt = "{}", self.id())]
 pub enum StarlarkModulePath<'a> {
     /// a file to be imported
     LoadFile(&'a ImportPath),
     /// a bxl file to be evaluated
     BxlFile(&'a BxlFilePath),
+}
+
+impl Equivalent<OwnedStarlarkModulePath> for StarlarkModulePath<'_> {
+    fn equivalent(&self, key: &OwnedStarlarkModulePath) -> bool {
+        *self == key.borrow()
+    }
 }
 
 impl<'a> StarlarkModulePath<'a> {
@@ -217,13 +225,24 @@ impl<'a> StarlarkModulePath<'a> {
             StarlarkModulePath::BxlFile(b) => StarlarkPath::BxlFile(b),
         }
     }
+
+    pub fn to_owned(&self) -> OwnedStarlarkModulePath {
+        OwnedStarlarkModulePath::new(*self)
+    }
 }
 
-#[derive(Clone, Display, Debug, Eq, Hash, PartialEq, Allocative)]
+#[derive(Clone, Display, Debug, Eq, PartialEq, Allocative)]
 #[display(fmt = "{}", self.borrow())]
 pub enum OwnedStarlarkModulePath {
     LoadFile(ImportPath),
     BxlFile(BxlFilePath),
+}
+
+#[allow(clippy::derive_hash_xor_eq)]
+impl Hash for OwnedStarlarkModulePath {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.borrow().hash(state)
+    }
 }
 
 impl OwnedStarlarkModulePath {

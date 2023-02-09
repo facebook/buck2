@@ -553,7 +553,10 @@ mod tests {
                 "#
             ),
             LoadedModules {
-                map: OrderedMap::from_iter([(bzlfile.id().clone(), module.dupe())]),
+                map: OrderedMap::from_iter([(
+                    OwnedStarlarkModulePath::LoadFile(bzlfile.clone()),
+                    module.dupe(),
+                )]),
             },
             PackageListing::testing_new(&[], "BUCK"),
         )?;

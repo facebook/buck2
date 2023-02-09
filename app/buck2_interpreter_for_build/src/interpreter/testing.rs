@@ -222,7 +222,9 @@ impl Tester {
     /// used with `eval_build_file`
     pub fn add_import(&mut self, path: &ImportPath, content: &str) -> anyhow::Result<()> {
         let loaded = self.eval_import(path, content, self.loaded_modules.clone())?;
-        self.loaded_modules.map.insert(path.id().to_owned(), loaded);
+        self.loaded_modules
+            .map
+            .insert(StarlarkModulePath::LoadFile(path).to_owned(), loaded);
         Ok(())
     }
 

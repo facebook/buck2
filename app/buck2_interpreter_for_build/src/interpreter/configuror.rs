@@ -15,6 +15,7 @@ use allocative::Allocative;
 use buck2_common::package_listing::listing::PackageListing;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bzl::ImportPath;
+use buck2_interpreter::common::StarlarkModulePath;
 use buck2_interpreter::extra::cell_info::InterpreterCellInfo;
 use buck2_interpreter::extra::ExtraContextDyn;
 use buck2_interpreter::extra::InterpreterConfiguror;
@@ -191,7 +192,7 @@ impl InterpreterConfiguror for BuildInterpreterConfiguror {
                 spec.dupe(),
                 loaded_modules
                     .map
-                    .get(spec.import().id().as_str())
+                    .get(&StarlarkModulePath::LoadFile(spec.import()))
                     .unwrap_or_else(|| {
                         panic!(
                             "Should've had an env for the package implicit import (`{}`).",

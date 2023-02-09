@@ -259,9 +259,10 @@ mod tests {
 
         let buildfile_path = buildfile();
         let mut loaded_modules = LoadedModules::default();
-        loaded_modules
-            .map
-            .insert(import_path.id().to_owned(), import_result);
+        loaded_modules.map.insert(
+            OwnedStarlarkModulePath::LoadFile(import_path),
+            import_result,
+        );
         let ParseResult(ast, _) = interpreter.parse(
             StarlarkPath::BuildFile(&buildfile_path),
             indoc!(

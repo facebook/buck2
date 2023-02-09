@@ -151,6 +151,7 @@ mod tests {
     use buck2_common::package_listing::listing::PackageListing;
     use buck2_core::build_file_path::BuildFilePath;
     use buck2_core::bzl::ImportPath;
+    use buck2_interpreter::common::OwnedStarlarkModulePath;
     use buck2_interpreter::file_loader::LoadedModules;
     use buck2_interpreter::functions::host_info::register_host_info;
     use buck2_interpreter::functions::read_config::register_read_config;
@@ -179,7 +180,7 @@ mod tests {
         let mut loaded_modules = LoadedModules::default();
         loaded_modules
             .map
-            .insert(prelude_path.id().clone(), prelude);
+            .insert(OwnedStarlarkModulePath::LoadFile(prelude_path), prelude);
 
         // The prelude should be included in build files, and in .bzl files that are not in the
         // prelude's package
