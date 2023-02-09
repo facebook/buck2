@@ -243,13 +243,22 @@ impl Component for CountComponent {
         let contents = match mode {
             DrawMode::Normal => {
                 if action_stats.log_stats() {
-                    format!(
-                        "Jobs: In progress: {}. Finished: {}. Cache hits: {}%. Time elapsed: {}",
+                    let mut actions_summary = format!(
+                        "Jobs: In progress: {}. Finished: {}. Cache hits: {}%. ",
                         progress,
                         finished,
-                        action_stats.action_cache_hit_percentage(),
-                        elapsed
-                    )
+                        action_stats.action_cache_hit_percentage()
+                    );
+                    if action_stats.fallback_actions > 0 {
+                        actions_summary += format!(
+                            "Fallback: {}/{}. ",
+                            action_stats.fallback_actions,
+                            action_stats.total_executed_actions()
+                        )
+                        .as_str();
+                    }
+                    actions_summary += format!("Time elapsed: {}", elapsed).as_str();
+                    actions_summary
                 } else {
                     format!(
                         "Jobs: In progress: {}. Finished: {}. Time elapsed: {}",
