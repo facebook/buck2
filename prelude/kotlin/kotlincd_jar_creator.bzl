@@ -188,8 +188,8 @@ def create_jar_artifact_kotlincd(
             encoded_command: struct.type,
             qualified_name: str.type,
             output_paths: OutputPaths.type,
-            path_to_class_hashes: ["artifact", None],
-            is_full_library: bool.type = False):
+            target_type: TargetType.type,
+            path_to_class_hashes: ["artifact", None]):
         proto = declare_prefixed_output(actions, actions_identifier, "jar_command.proto.json")
         classpath_jars_tag = actions.artifact_tag()
         proto_with_inputs = classpath_jars_tag.tag_inputs(actions.write_json(proto, encoded_command, with_inputs = True))
@@ -202,7 +202,7 @@ def create_jar_artifact_kotlincd(
             proto_with_inputs,
         ])
 
-        if is_full_library and should_create_class_abi:
+        if target_type == TargetType("library") and should_create_class_abi:
             cmd.add(
                 "--full-library",
                 output_paths.jar.as_output(),
@@ -217,7 +217,7 @@ def create_jar_artifact_kotlincd(
         event_pipe_out = declare_prefixed_output(actions, actions_identifier, "events.data")
 
         dep_files = {}
-        if srcs and kotlin_toolchain.dep_files == DepFiles("per_jar") and is_full_library:
+        if srcs and kotlin_toolchain.dep_files == DepFiles("per_jar") and target_type == TargetType("library"):
             used_classes_json_outputs = [
                 output_paths.jar_parent.project("used-classes.json"),
                 output_paths.jar_parent.project("kotlin-used-classes.json"),
@@ -253,8 +253,8 @@ def create_jar_artifact_kotlincd(
         encoded_command = command,
         qualified_name = base_qualified_name(label),
         output_paths = output_paths,
+        target_type = TargetType("library"),
         path_to_class_hashes = path_to_class_hashes_out,
-        is_full_library = True,
     )
 
     final_jar = prepare_final_jar(

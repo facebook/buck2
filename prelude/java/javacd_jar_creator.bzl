@@ -150,6 +150,7 @@ def create_jar_artifact_javacd(
             encoded_command: struct.type,
             qualified_name: str.type,
             output_paths: OutputPaths.type,
+            _target_type: TargetType.type,
             path_to_class_hashes: ["artifact", None]):
         proto = declare_prefixed_output(actions, actions_identifier, "jar_command.proto.json")
 
@@ -203,6 +204,7 @@ def create_jar_artifact_javacd(
         command,
         base_qualified_name(label),
         output_paths,
+        TargetType("library"),
         path_to_class_hashes_out,
     )
     final_jar = prepare_final_jar(actions, actions_identifier, output, output_paths, additional_compiled_srcs, java_toolchain.jar_builder)
