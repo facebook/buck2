@@ -155,6 +155,9 @@ _GENRULE_LOCAL_LABELS = {label: True for label in [
 
     # Uses watchman which is not in RE
     "uses_watchman",
+
+    # Uses yumdownloader which is not in RE
+    "yumdownloader",
 ]}
 
 def genrule_labels_require_local(labels):
