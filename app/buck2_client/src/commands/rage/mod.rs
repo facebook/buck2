@@ -389,8 +389,7 @@ async fn upload_event_logs(path: &EventLogPathBuf, manifold_id: &str) -> anyhow:
     let filename = format!("{}-event_log{}", manifold_id, path.extension());
     let bucket = manifold::Bucket::RageDumps;
     manifold::Upload::new(bucket, path.path(), &filename)?
-        .spawn(Stdio::piped())?
-        .wait()
+        .spawn(None)
         .await?;
     Ok(format!("{}/flat/{}", bucket.info().name, filename))
 }

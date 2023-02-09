@@ -9,8 +9,11 @@
 
 use std::ffi::OsString;
 use std::io;
+use std::io::ErrorKind;
 use std::process::Stdio;
+use std::time::Duration;
 
+use anyhow::Context;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use tokio::process::Child;
 use tokio::process::Command;
@@ -36,6 +39,8 @@ pub enum UploadError {
         code: i32,
         stderr: String,
     },
+    #[error("File not found")]
+    FileNotFound,
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
@@ -88,42 +93,49 @@ impl<'a> Upload<'a> {
         Ok(Upload { upload, filepath })
     }
 
-    pub fn spawn(&mut self, stderr: Stdio) -> Result<UploadChild, UploadError> {
-        let file: Stdio = std::fs::File::open(self.filepath)?.into();
-        self.upload.stdin(file);
-        let child = self
-            .upload
-            .stdout(Stdio::null())
-            .stderr(stderr)
-            .spawn()
-            .map_err(|e| UploadError::Other(e.into()))?;
-        Ok(UploadChild {
-            child,
-            filepath: self.filepath,
-        })
-    }
-}
-
-pub struct UploadChild<'a> {
-    child: Child,
-    filepath: &'a AbsPath,
-}
-
-impl<'a> UploadChild<'a> {
-    pub async fn wait(self) -> anyhow::Result<()> {
-        let Self { child, filepath } = self;
-        let output = child.wait_with_output().await?;
+    pub async fn spawn(&mut self, timeout: Option<u64>) -> Result<(), UploadError> {
+        let child = self.spawn_child()?.wait_with_output();
+        let output = match timeout {
+            None => child.await?,
+            Some(x) => tokio::time::timeout(Duration::from_secs(x), child)
+                .await
+                .context("Timed out waiting for file upload to Manifold")??,
+        };
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr).to_string();
             let code = output.status.code().unwrap_or(1);
             return Err(UploadError::ChildExitCode {
-                path: filepath.to_string_lossy().to_string(),
+                path: self.filepath.to_string_lossy().to_string(),
                 code,
                 stderr,
-            }
-            .into());
+            });
         }
         Ok(())
+    }
+
+    pub async fn spawn_and_forget(&mut self) -> Result<(), UploadError> {
+        self.spawn_child()?;
+        Ok(())
+    }
+
+    fn spawn_child(&mut self) -> Result<Child, UploadError> {
+        let file: Stdio = match std::fs::File::open(self.filepath) {
+            Ok(file) => file,
+            Err(err) => {
+                return match err.kind() {
+                    ErrorKind::NotFound => Err(UploadError::FileNotFound),
+                    _ => Err(UploadError::Other(err.into())),
+                };
+            }
+        }
+        .into();
+        self.upload.stdin(file);
+        let child = self
+            .upload
+            .stdout(Stdio::null())
+            .stderr(Stdio::piped())
+            .spawn()?;
+        Ok(child)
     }
 }
 
