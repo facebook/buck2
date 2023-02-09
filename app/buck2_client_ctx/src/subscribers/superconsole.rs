@@ -589,6 +589,16 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
             .handle_snapshot(update, event)
             .await
     }
+
+    async fn handle_console_preferences(
+        &mut self,
+        prefs: &buck2_data::ConsolePreferences,
+        _event: &BuckEvent,
+    ) -> anyhow::Result<()> {
+        self.state.config.max_lines = prefs.max_lines.try_into()?;
+
+        Ok(())
+    }
 }
 
 fn lines_for_command_details(

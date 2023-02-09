@@ -292,6 +292,9 @@ pub trait UnpackingEventSubscriber: Send {
             buck2_data::instant_event::Data::RageResult(result) => {
                 self.handle_rage_result(result, event)
             }
+            buck2_data::instant_event::Data::ConsolePreferences(preferences) => {
+                self.handle_console_preferences(preferences, event)
+            }
         }
         .await
     }
@@ -746,6 +749,14 @@ pub trait UnpackingEventSubscriber: Send {
     async fn handle_resolved_target_patterns(
         &mut self,
         _pattern: &buck2_data::ResolvedTargetPatterns,
+    ) -> anyhow::Result<()> {
+        Ok(())
+    }
+
+    async fn handle_console_preferences(
+        &mut self,
+        _prefs: &buck2_data::ConsolePreferences,
+        _event: &BuckEvent,
     ) -> anyhow::Result<()> {
         Ok(())
     }

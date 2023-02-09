@@ -466,6 +466,11 @@ impl DiceDataProvider for DiceCommandDataProvider {
             None => parse_concurrency(config_threads)?,
         };
 
+        if let Some(max_lines) = root_config.parse("ui", "thread_line_limit")? {
+            self.events
+                .instant_event(buck2_data::ConsolePreferences { max_lines });
+        }
+
         let executor_global_knobs = ExecutorGlobalKnobs {};
 
         let host_sharing_broker =

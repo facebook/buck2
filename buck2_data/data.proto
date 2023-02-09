@@ -163,6 +163,9 @@ message InstantEvent {
 
     // TODO iguridi: consolidate with RageInvoked
     RageResult rage_result = 20;
+
+    // Notify the client that the daemon would like to update the rendering.
+    ConsolePreferences console_preferences = 21;
   }
 
   reserved 12; // Log
@@ -1431,4 +1434,8 @@ message DaemonShutdown {
   string reason = 1;
   optional string caller = 3; // TODO: Deprecate (Jan 2023)
   repeated string callers = 4;
+}
+
+message ConsolePreferences {
+  uint64 max_lines = 1;
 }
