@@ -133,7 +133,7 @@ jobs:
       Build the example project and upload buck2 binary for macOS
     macos:
       xcode: 13.4.1
-    resource_class: macos.x86.metal.gen1
+    resource_class: large 
     steps:
       - checkout
       - setup_macos_env
@@ -141,7 +141,7 @@ jobs:
           name: Build buck2 binary
           command: |
             mkdir /tmp/artifacts
-            cargo build --bin=buck2 --release -Z unstable-options --out-dir=/tmp/artifacts
+            cargo build -j 6 --bin=buck2 --release -Z unstable-options --out-dir=/tmp/artifacts
       - run:
           name: Setup and build example/prelude directory
           command: |
