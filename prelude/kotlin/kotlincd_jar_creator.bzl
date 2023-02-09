@@ -11,7 +11,7 @@ load(
     "make_compile_outputs",
 )
 load("@prelude//java:java_resources.bzl", "get_resources_map")
-load("@prelude//java:java_toolchain.bzl", "AbiGenerationMode")
+load("@prelude//java:java_toolchain.bzl", "AbiGenerationMode", "DepFiles")
 load(
     "@prelude//jvm:cd_jar_creator_util.bzl",
     "OutputPaths",
@@ -24,6 +24,7 @@ load(
     "encode_jar_params",
     "generate_abi_jars",
     "prepare_final_jar",
+    "setup_dep_files",
 )
 load("@prelude//utils:utils.bzl", "expect", "map_idx")
 
@@ -215,6 +216,26 @@ def create_jar_artifact_kotlincd(
         cmd = add_output_paths_to_cmd_args(cmd, output_paths, path_to_class_hashes)
 
         event_pipe_out = declare_prefixed_output(actions, actions_identifier, "events.data")
+
+        dep_files = {}
+        if srcs and kotlin_toolchain.dep_files == DepFiles("per_jar") and is_full_library:
+            used_classes_json_outputs = [
+                output_paths.jar_parent.project("used-classes.json"),
+                output_paths.jar_parent.project("kotlin-used-classes.json"),
+            ]
+            cmd = setup_dep_files(
+                actions,
+                actions_identifier,
+                cmd,
+                classpath_jars_tag,
+                java_toolchain,
+                srcs,
+                resources_map.values(),
+                used_classes_json_outputs,
+            )
+
+            dep_files["classpath_jars"] = classpath_jars_tag
+
         actions.run(
             cmd,
             env = {
@@ -223,6 +244,7 @@ def create_jar_artifact_kotlincd(
             },
             category = "{}kotlincd_jar".format(category_prefix),
             identifier = actions_identifier,
+            dep_files = dep_files,
         )
 
     command = encode_library_command(output_paths, path_to_class_hashes_out)

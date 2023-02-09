@@ -12,6 +12,7 @@ KotlinToolchainInfo = provider(
     fields = [
         "annotation_processing_jar",
         "compile_kotlin",
+        "dep_files",
         "kapt_base64_encoder",
         "kotlinc",
         "kotlinc_classpath",
