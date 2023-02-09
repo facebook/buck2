@@ -16,15 +16,12 @@ mod io_handler;
 mod tests;
 
 use std::collections::VecDeque;
-use std::pin::Pin;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
-use std::task::Context;
-use std::task::Poll;
 
 use allocative::Allocative;
-use anyhow::Context as _;
+use anyhow::Context;
 use async_trait::async_trait;
 use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::FileMetadata;
@@ -78,18 +75,16 @@ use futures::future::Shared;
 use futures::future::TryFutureExt;
 use futures::stream::BoxStream;
 use futures::stream::FuturesOrdered;
-use futures::stream::Stream;
 use futures::stream::StreamExt;
 use gazebo::prelude::*;
 use itertools::Itertools;
-use pin_project::pin_project;
 use thiserror::Error;
 use tokio::runtime::Handle;
 use tokio::sync::mpsc;
-use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
-use tokio::time::Interval;
+use tokio_stream::wrappers::IntervalStream;
+use tokio_stream::wrappers::UnboundedReceiverStream;
 use tracing::instrument;
 
 use crate::materializers::deferred::extension::ExtensionCommand;
@@ -194,11 +189,7 @@ impl MaterializerCounters {
 // refcounting any of this (though we make many copies of it).
 #[derive(Copy_, Dupe_, Clone_)]
 struct MaterializerSender<T: ?Sized + 'static> {
-    /// High priority commands are processed in order.
-    high_priority: &'static mpsc::UnboundedSender<MaterializerCommand<T>>,
-    /// Low priority commands are processed in order relative to each other, but high priority
-    /// commands can be reordered ahead of them.
-    low_priority: &'static mpsc::UnboundedSender<LowPriorityMaterializerCommand>,
+    sender: &'static mpsc::UnboundedSender<MaterializerCommand<T>>,
     counters: MaterializerCounters,
 }
 
@@ -207,24 +198,14 @@ impl<T> MaterializerSender<T> {
         &self,
         command: MaterializerCommand<T>,
     ) -> Result<(), mpsc::error::SendError<MaterializerCommand<T>>> {
-        let res = self.high_priority.send(command);
-        self.counters.sent.fetch_add(1, Ordering::Relaxed);
-        res
-    }
-
-    fn send_low_priority(
-        &self,
-        command: LowPriorityMaterializerCommand,
-    ) -> Result<(), mpsc::error::SendError<LowPriorityMaterializerCommand>> {
-        let res = self.low_priority.send(command);
+        let res = self.sender.send(command);
         self.counters.sent.fetch_add(1, Ordering::Relaxed);
         res
     }
 }
 
 struct MaterializerReceiver<T> {
-    high_priority: mpsc::UnboundedReceiver<MaterializerCommand<T>>,
-    low_priority: mpsc::UnboundedReceiver<LowPriorityMaterializerCommand>,
+    receiver: mpsc::UnboundedReceiver<MaterializerCommand<T>>,
     counters: MaterializerCounters,
 }
 
@@ -328,6 +309,18 @@ enum MaterializerCommand<T: ?Sized> {
         oneshot::Sender<BoxStream<'static, Result<(), MaterializationError>>>,
     ),
 
+    /// [Materialization task -> Command thread]
+    /// Notifies the command thread that an artifact was materialized. It takes
+    /// the artifact path and the version that was materialized, such that if
+    /// a newer version was declared during materialization - which should not
+    /// happen under normal conditions - we can react accordingly.
+    MaterializationFinished {
+        path: ProjectRelativePathBuf,
+        timestamp: DateTime<Utc>,
+        version: u64,
+        result: Result<(), SharedMaterializingError>,
+    },
+
     Extension(Box<dyn ExtensionCommand<T>>),
 }
 
@@ -354,31 +347,21 @@ impl<T> std::fmt::Debug for MaterializerCommand<T> {
                 write!(f, "InvalidateFilePaths({:?})", paths)
             }
             MaterializerCommand::Ensure(paths, _, _) => write!(f, "Ensure({:?}, _)", paths,),
+            MaterializerCommand::MaterializationFinished {
+                path,
+                timestamp,
+                version,
+                result,
+            } => f
+                .debug_struct("MaterializationFinished")
+                .field("path", path)
+                .field("timestamp", timestamp)
+                .field("version", version)
+                .field("result", result)
+                .finish(),
             MaterializerCommand::Extension(ext) => write!(f, "Extension({:?})", ext),
         }
     }
-}
-
-/// Materializer commands that can be reordered with regard to other commands.
-#[derive(Debug)]
-enum LowPriorityMaterializerCommand {
-    /// [Materialization task -> Command thread]
-    /// Notifies the command thread that an artifact was materialized. It takes
-    /// the artifact path and the version that was materialized, such that if
-    /// a newer version was declared during materialization - which should not
-    /// happen under normal conditions - we can react accordingly.
-    MaterializationFinished {
-        path: ProjectRelativePathBuf,
-        timestamp: DateTime<Utc>,
-        version: Version,
-        result: Result<(), SharedMaterializingError>,
-    },
-
-    CleanupFinished {
-        path: ProjectRelativePathBuf,
-        version: Version,
-        result: Result<(), SharedMaterializingError>,
-    },
 }
 
 /// Tree that stores materialization data for each artifact. Used internally by
@@ -386,75 +369,18 @@ enum LowPriorityMaterializerCommand {
 /// materialize them.
 type ArtifactTree = FileTree<Box<ArtifactMaterializationData>>;
 
-/// The Version of a processing future associated with an artifact. We use this to know if we can
-/// clear the processing field when a callback is received, or if more work is expected.
-#[derive(Eq, PartialEq, Copy, Clone, Dupe, Debug, Ord, PartialOrd, Display)]
-struct Version(u64);
-
-#[derive(Debug)]
-struct VersionTracker(Version);
-
-impl VersionTracker {
-    fn new() -> Self {
-        // Each Declare bumps the version, so that if an artifact is declared
-        // a second time mid materialization of its previous version, we don't
-        // incorrectly assume we materialized the latest version. We start with
-        // 1 with because any disk state restored will start with version 0.
-        Self(Version(1))
-    }
-
-    fn current(&self) -> Version {
-        self.0
-    }
-
-    /// Increment the current version, return the previous  vlaue
-    fn next(&mut self) -> Version {
-        let ret = self.current();
-        self.0.0 += 1;
-        ret
-    }
-}
-
 pub(crate) struct ArtifactMaterializationData {
     /// Taken from `deps` of `ArtifactValue`. Used to materialize deps of the artifact.
     deps: Option<ActionSharedDirectory>,
     stage: ArtifactMaterializationStage,
+    /// The version is just an internal counter that increases every time an
+    /// artifact is declared (i.e. it tells us in which order they were declared).
+    version: u64,
     /// An optional future that may be processing something at the current path
     /// (for example, materializing or deleting). Any other future that needs to process
     /// this path would need to wait on the existing future to finish.
     /// TODO(scottcao): Turn this into a queue of pending futures.
-    processing: Processing,
-}
-
-/// Represents a processing future + the version at which it was issued. When receiving
-/// notifications about processing futures that finish, their changes are only applied if their
-/// version is greater than the current version.
-///
-/// The version is an internal counter that is shared between the current processing_fut and
-/// this data. When multiple operations are queued on a ArtifactMaterializationData, this
-/// allows us to identify which one is current.
-enum Processing {
-    Done(Version),
-    Active {
-        future: ProcessingFuture,
-        version: Version,
-    },
-}
-
-impl Processing {
-    fn current_version(&self) -> Version {
-        match self {
-            Self::Done(version) => *version,
-            Self::Active { version, .. } => *version,
-        }
-    }
-
-    fn into_future(self) -> Option<ProcessingFuture> {
-        match self {
-            Self::Done(..) => None,
-            Self::Active { future, .. } => Some(future),
-        }
-    }
+    processing_fut: Option<ProcessingFuture>,
 }
 
 /// Fingerprint used to identify `ActionSharedDirectory`. We give it an explicit
@@ -795,20 +721,17 @@ impl DeferredMaterializer {
         sqlite_db: Option<MaterializerStateSqliteDb>,
         sqlite_state: Option<MaterializerState>,
     ) -> anyhow::Result<Self> {
-        let (high_priority_sender, high_priority_receiver) = mpsc::unbounded_channel();
-        let (low_priority_sender, low_priority_receiver) = mpsc::unbounded_channel();
+        let (command_sender, command_receiver) = mpsc::unbounded_channel();
 
         let counters = MaterializerCounters::leak_new();
 
         let command_sender = MaterializerSender {
-            high_priority: Box::leak(box high_priority_sender),
-            low_priority: Box::leak(box low_priority_sender),
+            sender: Box::leak(box command_sender),
             counters,
         };
 
         let command_receiver = MaterializerReceiver {
-            high_priority: high_priority_receiver,
-            low_priority: low_priority_receiver,
+            receiver: command_receiver,
             counters,
         };
 
@@ -842,7 +765,8 @@ impl DeferredMaterializer {
                             last_access_time,
                             active: false,
                         },
-                        processing: Processing::Done(Version(0)),
+                        version: 0u64, // Any state restored from disk always gets set to version 0
+                        processing_fut: None,
                     },
                 );
             }
@@ -908,45 +832,6 @@ impl std::fmt::Display for LogBuffer {
     }
 }
 
-#[pin_project]
-struct CommandStream<T> {
-    high_priority: UnboundedReceiver<MaterializerCommand<T>>,
-    low_priority: UnboundedReceiver<LowPriorityMaterializerCommand>,
-    refresh_ttl_ticker: Option<Interval>,
-}
-
-enum Op<T> {
-    Command(MaterializerCommand<T>),
-    LowPriorityCommand(LowPriorityMaterializerCommand),
-    RefreshTtls,
-}
-
-impl<T> Stream for CommandStream<T> {
-    type Item = Op<T>;
-
-    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        let this = self.project();
-
-        if let Poll::Ready(Some(e)) = this.high_priority.poll_recv(cx) {
-            return Poll::Ready(Some(Op::Command(e)));
-        }
-
-        if let Poll::Ready(Some(e)) = this.low_priority.poll_recv(cx) {
-            return Poll::Ready(Some(Op::LowPriorityCommand(e)));
-        }
-
-        if let Some(ticker) = this.refresh_ttl_ticker.as_mut() {
-            if let Poll::Ready(..) = ticker.poll_tick(cx) {
-                return Poll::Ready(Some(Op::RefreshTtls));
-            }
-        }
-
-        // We can never be done because we never drop the senders, so let's not bother.
-
-        Poll::Pending
-    }
-}
-
 impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
     /// Loop that runs for as long as the materializer is alive.
     ///
@@ -958,28 +843,33 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         mut tree: ArtifactTree,
         ttl_refresh: TtlRefreshConfiguration,
     ) {
-        let MaterializerReceiver {
-            high_priority,
-            low_priority,
-            counters,
-        } = commands;
+        enum Op<T> {
+            Command(MaterializerCommand<T>),
+            RefreshTtls,
+        }
 
-        let mut version_tracker = VersionTracker::new();
+        let MaterializerReceiver { receiver, counters } = commands;
 
-        let refresh_ttl_ticker = if ttl_refresh.enabled {
-            Some(tokio::time::interval_at(
+        // Each Declare bumps the version, so that if an artifact is declared
+        // a second time mid materialization of its previous version, we don't
+        // incorrectly assume we materialized the latest version. We start with
+        // 1 with because any disk state restored will start with version 0.
+        let mut next_version = 1u64;
+
+        let refresh_stream = if ttl_refresh.enabled {
+            IntervalStream::new(tokio::time::interval_at(
                 tokio::time::Instant::now() + ttl_refresh.frequency,
                 ttl_refresh.frequency,
             ))
+            .left_stream()
         } else {
-            None
+            futures::stream::empty().right_stream()
         };
 
-        let mut stream = CommandStream {
-            high_priority,
-            low_priority,
-            refresh_ttl_ticker,
-        };
+        let mut stream = futures::stream::select(
+            UnboundedReceiverStream::new(receiver).map(Op::Command),
+            refresh_stream.map(|_instant| Op::RefreshTtls),
+        );
 
         let mut current_ttl_refresh: Option<JoinHandle<()>> = None;
 
@@ -995,12 +885,8 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                         }
                         MaterializerCommand::DeclareExisting(artifacts, ..) => {
                             for (path, artifact) in artifacts {
-                                self.declare_existing(
-                                    &mut tree,
-                                    path,
-                                    artifact,
-                                    &mut version_tracker,
-                                );
+                                self.declare_existing(&mut tree, path, artifact, next_version);
+                                next_version += 1;
                             }
                         }
                         // Entry point for `declare_{copy|cas}` calls
@@ -1010,9 +896,10 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                                 path,
                                 value,
                                 method,
-                                &mut version_tracker,
+                                next_version,
                                 &command_sender,
                             );
+                            next_version += 1;
                         }
                         MaterializerCommand::MatchArtifacts(paths, sender) => {
                             let all_matches = paths
@@ -1050,20 +937,11 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                                     paths,
                                     event_dispatcher,
                                     &command_sender,
-                                    &mut version_tracker,
                                 ))
                                 .ok();
                         }
-                        MaterializerCommand::Extension(ext) => ext.execute(&mut tree, &mut self),
-                    }
-
-                    counters.ack_received();
-                }
-                Op::LowPriorityCommand(command) => {
-                    self.log_buffer.push(format!("{:?}", command));
-                    match command {
                         // Materialization of artifact succeeded
-                        LowPriorityMaterializerCommand::MaterializationFinished {
+                        MaterializerCommand::MaterializationFinished {
                             path,
                             timestamp,
                             version,
@@ -1079,19 +957,13 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                                 // in which case the version of the newly declared artifact should be bumped.
                                 // Let materialization_finished always consume a version in case the entry
                                 // gets redeclared.
-                                &mut version_tracker,
+                                next_version,
                                 self.sqlite_db.as_mut(),
-                                &command_sender,
                                 &self.rt,
                             );
+                            next_version += 1;
                         }
-                        LowPriorityMaterializerCommand::CleanupFinished {
-                            path,
-                            version,
-                            result,
-                        } => {
-                            tree.cleanup_finished(path, version, result);
-                        }
+                        MaterializerCommand::Extension(ext) => ext.execute(&mut tree, &mut self),
                     }
 
                     counters.ack_received();
@@ -1140,27 +1012,20 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         paths: Vec<ProjectRelativePathBuf>,
         event_dispatcher: EventDispatcher,
         command_sender: &MaterializerSender<T>,
-        version_tracker: &mut VersionTracker,
     ) -> BoxStream<'static, Result<(), MaterializationError>> {
         let tasks = paths.into_iter().filter_map(|path| {
-            self.materialize_artifact(
-                tree,
-                path.as_ref(),
-                event_dispatcher.dupe(),
-                command_sender,
-                version_tracker,
-            )
-            .map(move |fut| {
-                fut.map_err(move |e| match e {
-                    SharedMaterializingError::Error(source) => MaterializationError::Error {
-                        path,
-                        source: source.into(),
-                    },
-                    SharedMaterializingError::NotFound { info, debug } => {
-                        MaterializationError::NotFound { path, info, debug }
-                    }
+            self.materialize_artifact(tree, path.as_ref(), event_dispatcher.dupe(), command_sender)
+                .map(move |fut| {
+                    fut.map_err(move |e| match e {
+                        SharedMaterializingError::Error(source) => MaterializationError::Error {
+                            path,
+                            source: source.into(),
+                        },
+                        SharedMaterializingError::NotFound { info, debug } => {
+                            MaterializationError::NotFound { path, info, debug }
+                        }
+                    })
                 })
-            })
         });
 
         tasks.collect::<FuturesOrdered<_>>().boxed()
@@ -1171,7 +1036,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         tree: &'a mut ArtifactTree,
         path: ProjectRelativePathBuf,
         value: ArtifactValue,
-        version_tracker: &mut VersionTracker,
+        version: u64,
     ) {
         let metadata = ArtifactMetadata::from(value.entry().dupe());
 
@@ -1184,7 +1049,8 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                     last_access_time: Utc::now(),
                     active: true,
                 },
-                processing: Processing::Done(version_tracker.next()),
+                version,
+                processing_fut: None,
             },
         );
 
@@ -1208,7 +1074,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         path: ProjectRelativePathBuf,
         value: ArtifactValue,
         method: Box<ArtifactMaterializationMethod>,
-        version_tracker: &mut VersionTracker,
+        version: u64,
         command_sender: &MaterializerSender<T>,
     ) {
         // Check if artifact to be declared is same as artifact that's already materialized.
@@ -1258,13 +1124,11 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         }
 
         // We don't have a matching artifact. Declare it.
-        let version = version_tracker.next();
-
         tracing::trace!(
             path = %path,
             method = %method,
             value = %value.entry(),
-            version = %version,
+            version = version,
             "declare artifact",
         );
 
@@ -1281,18 +1145,16 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
 
         let can_use_write_fast_path = existing_futs.is_empty() && value.deps().is_none();
 
-        let future = match &*method {
+        let processing_fut = match &*method {
             ArtifactMaterializationMethod::Write(write) if can_use_write_fast_path => {
                 let materialize =
                     self.io
                         .write(path.clone(), write.dupe(), version, *command_sender);
                 ProcessingFuture::Materializing(materialize.shared())
             }
-            _ => ProcessingFuture::Cleaning(clean_path(
+            _ => ProcessingFuture::Cleaning(clean_output_paths(
                 &self.io,
                 path.clone(),
-                version,
-                *command_sender,
                 existing_futs,
                 &self.rt,
             )),
@@ -1304,7 +1166,8 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 entry: value.entry().dupe(),
                 method,
             },
-            processing: Processing::Active { future, version },
+            version,
+            processing_fut: Some(processing_fut),
         };
         tree.insert(path.iter().map(|f| f.to_owned()), data);
     }
@@ -1370,7 +1233,6 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         mut path: &ProjectRelativePath,
         event_dispatcher: EventDispatcher,
         command_sender: &MaterializerSender<T>,
-        version_tracker: &mut VersionTracker,
     ) -> Option<MaterializingFuture> {
         // Get the data about the artifact, or return early if materializing/materialized
         let mut path_iter = path.iter();
@@ -1390,19 +1252,13 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 .expect("Path iterator cannot cause us to rewind past the last parent");
         }
 
-        let cleaning_fut = match &data.processing {
-            Processing::Active {
-                future: ProcessingFuture::Cleaning(f),
-                ..
-            } => Some(f.clone()),
-            Processing::Active {
-                future: ProcessingFuture::Materializing(f),
-                ..
-            } => {
+        let cleaning_fut = match &data.processing_fut {
+            Some(ProcessingFuture::Cleaning(f)) => Some(f.clone()),
+            Some(ProcessingFuture::Materializing(f)) => {
                 tracing::debug!("join existing future");
                 return Some(f.clone());
             }
-            Processing::Done(..) => None,
+            None => None,
         };
 
         let deps = data.deps.dupe();
@@ -1451,13 +1307,13 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
             },
         };
 
-        let version = version_tracker.next();
+        let version = data.version;
 
         tracing::debug!(
             has_entry_and_method = entry_and_method.is_some(),
             method = ?entry_and_method.as_ref().map(|(_, m)| m),
             has_deps = deps.is_some(),
-            version = %version,
+            version = version,
             cleaning = cleaning_fut.is_some(),
             "materialize artifact"
         );
@@ -1476,7 +1332,6 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                             a.src.as_ref(),
                             event_dispatcher.dupe(),
                             command_sender,
-                            version_tracker,
                         )
                     })
                     .collect::<Vec<_>>(),
@@ -1499,7 +1354,6 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                         p.as_ref(),
                         event_dispatcher.dupe(),
                         command_sender,
-                        version_tracker,
                     )
                 })
                 .collect::<Vec<_>>(),
@@ -1568,14 +1422,12 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 };
 
                 // Materialization finished, notify the command thread
-                let _ignored = command_sender.send_low_priority(
-                    LowPriorityMaterializerCommand::MaterializationFinished {
-                        path: path_buf_dup,
-                        timestamp,
-                        version,
-                        result: res.dupe(),
-                    },
-                );
+                let _ignored = command_sender.send(MaterializerCommand::MaterializationFinished {
+                    path: path_buf_dup,
+                    timestamp,
+                    version,
+                    result: res.dupe(),
+                });
 
                 res
             })
@@ -1587,10 +1439,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
             .shared();
 
         let data = tree.prefix_get_mut(&mut path.iter()).unwrap();
-        data.processing = Processing::Active {
-            future: ProcessingFuture::Materializing(task.clone()),
-            version,
-        };
+        data.processing_fut = Some(ProcessingFuture::Materializing(task.clone()));
 
         Some(task)
     }
@@ -1680,44 +1529,43 @@ impl ArtifactTree {
         }
     }
 
-    #[instrument(level = "debug", skip(self, result, io, sqlite_db, command_sender), fields(path = %artifact_path))]
+    #[instrument(level = "debug", skip(self, result, io, sqlite_db), fields(path = %artifact_path, version = %version))]
     fn materialization_finished<T: IoHandler>(
         &mut self,
         artifact_path: ProjectRelativePathBuf,
         timestamp: DateTime<Utc>,
-        version: Version,
+        version: u64,
         result: Result<(), SharedMaterializingError>,
         io: &Arc<T>,
-        version_tracker: &mut VersionTracker,
+        next_version: u64,
         sqlite_db: Option<&mut MaterializerStateSqliteDb>,
-        command_sender: &MaterializerSender<T>,
         rt: &Handle,
     ) {
         match self.prefix_get_mut(&mut artifact_path.iter()) {
             Some(mut info) => {
-                if info.processing.current_version() > version {
-                    // We can only unset the future if version matches.
-                    // Otherwise, we may be unsetting a different future from a newer version.
+                if info.version > version {
                     tracing::debug!("version conflict");
                     return;
                 }
 
+                // We can only unset the future if version matches.
+                // Otherwise, we may be unsetting a different future from a newer version.
+                info.processing_fut = None;
+
                 if result.is_err() {
                     tracing::debug!("materialization failed, redeclaring artifact");
+                    // Bump the version here because the artifact is redeclared.
+                    info.version = next_version;
                     // Even though materialization failed, something may have still materialized at artifact_path,
                     // so we need to delete anything at artifact_path before we ever retry materializing it.
                     // TODO(scottcao): Once command processor accepts an ArtifactTree instead of initializing one,
                     // add a test case to ensure this behavior.
-                    let version = version_tracker.next();
-                    let future = ProcessingFuture::Cleaning(clean_path(
+                    info.processing_fut = Some(ProcessingFuture::Cleaning(clean_output_paths(
                         io,
                         artifact_path.clone(),
-                        version,
-                        *command_sender,
                         Vec::new(),
                         rt,
-                    ));
-                    info.processing = Processing::Active { future, version };
+                    )));
                 } else {
                     tracing::debug!(has_deps = info.deps.is_some(), "transition to Materialized");
                     let entry = match &info.stage {
@@ -1752,45 +1600,11 @@ impl ArtifactTree {
                         last_access_time: timestamp,
                         active: true,
                     };
-
-                    info.processing = Processing::Done(version);
                 }
             }
             None => {
                 // NOTE: This can happen if a path got invalidted while it was being materialized.
                 tracing::debug!("materialization_finished but path is vacant!")
-            }
-        }
-    }
-
-    #[instrument(level = "debug", skip(self, result), fields(path = %artifact_path))]
-    fn cleanup_finished(
-        &mut self,
-        artifact_path: ProjectRelativePathBuf,
-        version: Version,
-        result: Result<(), SharedMaterializingError>,
-    ) {
-        match self
-            .prefix_get_mut(&mut artifact_path.iter())
-            .with_context(|| format!("Path is vacant: `{}`", artifact_path))
-        {
-            Ok(mut info) => {
-                if info.processing.current_version() > version {
-                    // We can only unset the future if version matches.
-                    // Otherwise, we may be unsetting a different future from a newer version.
-                    tracing::debug!("version conflict");
-                    return;
-                }
-
-                if result.is_err() {
-                    // Leave it alone, don't keep retrying.
-                } else {
-                    info.processing = Processing::Done(version);
-                }
-            }
-            Err(e) => {
-                // NOTE: This shouldn't normally happen?
-                quiet_soft_error!("cleanup_finished_vacant", e).unwrap();
             }
         }
     }
@@ -1808,7 +1622,7 @@ impl ArtifactTree {
 
         for path in paths {
             for (path, data) in self.remove_path(&path) {
-                if let Some(processing_fut) = data.processing.into_future() {
+                if let Some(processing_fut) = data.processing_fut {
                     futs.push((path.clone(), processing_fut));
                 }
                 invalidated_paths.push(path);
@@ -1931,23 +1745,21 @@ async fn join_all_existing_futs(
 
 /// Spawns a future to clean output paths while waiting for any
 /// pending future to finish.
-fn clean_path<T: IoHandler>(
+fn clean_output_paths<T: IoHandler>(
     io: &Arc<T>,
     path: ProjectRelativePathBuf,
-    version: Version,
-    command_sender: MaterializerSender<T>,
     existing_futs: Vec<(ProjectRelativePathBuf, ProcessingFuture)>,
     rt: &Handle,
 ) -> CleaningFuture {
     if existing_futs.is_empty() {
-        return io.clean_path(path, version, command_sender).shared();
+        return io.clean_output_paths(vec![path]).shared();
     }
 
     rt.spawn({
         let io = io.dupe();
         async move {
             join_all_existing_futs(existing_futs).await?;
-            io.clean_path(path, version, command_sender).await
+            io.clean_output_paths(vec![path]).await
         }
     })
     .map(|r| match r {

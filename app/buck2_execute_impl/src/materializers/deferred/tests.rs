@@ -15,8 +15,6 @@ use buck2_execute::directory::insert_file;
 use buck2_execute::directory::ActionDirectoryBuilder;
 use dupe::Dupe;
 
-use super::Version;
-use super::VersionTracker;
 use super::*;
 
 #[test]
@@ -120,20 +118,20 @@ mod state_machine {
             self: &Arc<Self>,
             path: ProjectRelativePathBuf,
             _write: Arc<WriteFile>,
-            _version: Version,
+            _version: u64,
             _command_sender: MaterializerSender<Self>,
         ) -> BoxFuture<'static, Result<(), SharedMaterializingError>> {
             self.log.lock().push((Op::Materialize, path));
             futures::future::ready(Ok(())).boxed()
         }
 
-        fn clean_path(
+        fn clean_output_paths(
             self: &Arc<Self>,
-            path: ProjectRelativePathBuf,
-            _version: Version,
-            _command_sender: MaterializerSender<Self>,
+            paths: Vec<ProjectRelativePathBuf>,
         ) -> BoxFuture<'static, Result<(), SharedError>> {
-            self.log.lock().push((Op::Clean, path));
+            for path in paths {
+                self.log.lock().push((Op::Clean, path));
+            }
             futures::future::ready(Ok(())).boxed()
         }
 
@@ -159,10 +157,12 @@ mod state_machine {
 
     /// A stub command sender. We are calling materializer methods directly so that's all we need.
     fn command_sender() -> MaterializerSender<StubIoHandler> {
-        static SENDER: Lazy<MaterializerSender<StubIoHandler>> = Lazy::new(|| MaterializerSender {
-            high_priority: Box::leak(box mpsc::unbounded_channel().0),
-            low_priority: Box::leak(box mpsc::unbounded_channel().0),
-            counters: MaterializerCounters::leak_new(),
+        static SENDER: Lazy<MaterializerSender<StubIoHandler>> = Lazy::new(|| {
+            let (tx, _rx) = mpsc::unbounded_channel();
+            MaterializerSender {
+                sender: Box::leak(box tx),
+                counters: MaterializerCounters::leak_new(),
+            }
         });
 
         *SENDER
@@ -186,26 +186,19 @@ mod state_machine {
         let path = make_path("foo/bar");
         let value = ArtifactValue::empty_file();
         let method = ArtifactMaterializationMethod::Test;
-        let mut version_tracker = VersionTracker::new();
 
         dm.declare(
             &mut tree,
             path.clone(),
             value,
             box method,
-            &mut version_tracker,
+            0,
             &command_sender(),
         );
         assert_eq!(dm.io.take_log(), &[(Op::Clean, path.clone())]);
 
         let res = dm
-            .materialize_artifact(
-                &mut tree,
-                &path,
-                EventDispatcher::null(),
-                &command_sender(),
-                &mut version_tracker,
-            )
+            .materialize_artifact(&mut tree, &path, EventDispatcher::null(), &command_sender())
             .context("Expected a future")?
             .await;
         assert_eq!(dm.io.take_log(), &[(Op::Materialize, path.clone())]);
@@ -214,12 +207,11 @@ mod state_machine {
         tree.materialization_finished(
             path.clone(),
             Utc::now(),
-            version_tracker.current(),
+            0,
             res,
             &dm.io,
-            &mut version_tracker,
+            1,
             dm.sqlite_db.as_mut(),
-            &command_sender(),
             &dm.rt,
         );
         assert_eq!(dm.io.take_log(), &[]);
@@ -229,7 +221,6 @@ mod state_machine {
 
     #[tokio::test]
     async fn test_symlink_materialization() -> anyhow::Result<()> {
-        let mut version_tracker = VersionTracker::new();
         let mut dm = DeferredMaterializerCommandProcessor {
             io: Arc::new(StubIoHandler::default()),
             sqlite_db: None,
@@ -248,7 +239,7 @@ mod state_machine {
             target_path.clone(),
             ArtifactValue::empty_file(),
             box ArtifactMaterializationMethod::Test,
-            &mut version_tracker,
+            0,
             &command_sender(),
         );
         assert_eq!(dm.io.take_log(), &[(Op::Clean, target_path.clone())]);
@@ -269,7 +260,7 @@ mod state_machine {
             symlink_path.clone(),
             symlink_value,
             box ArtifactMaterializationMethod::Test,
-            &mut version_tracker,
+            0,
             &command_sender(),
         );
         assert_eq!(dm.io.take_log(), &[(Op::Clean, symlink_path.clone())]);
@@ -279,7 +270,6 @@ mod state_machine {
             &symlink_path,
             EventDispatcher::null(),
             &command_sender(),
-            &mut version_tracker,
         )
         .context("Expected a future")?
         .await

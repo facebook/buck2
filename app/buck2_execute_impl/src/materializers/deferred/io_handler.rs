@@ -30,6 +30,7 @@ use buck2_execute::directory::ActionSharedDirectory;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::execute::blocking::IoRequest;
 use buck2_execute::execute::clean_output_paths::cleanup_path;
+use buck2_execute::execute::clean_output_paths::CleanOutputPaths;
 use buck2_execute::materialize::http::http_client;
 use buck2_execute::materialize::http::http_download;
 use buck2_execute::output_size::OutputSize;
@@ -52,12 +53,11 @@ use tracing::instrument;
 use crate::materializers::deferred::ArtifactMaterializationMethod;
 use crate::materializers::deferred::ArtifactMaterializationStage;
 use crate::materializers::deferred::ArtifactTree;
-use crate::materializers::deferred::LowPriorityMaterializerCommand;
 use crate::materializers::deferred::MaterializationMethodToProto;
 use crate::materializers::deferred::MaterializeEntryError;
+use crate::materializers::deferred::MaterializerCommand;
 use crate::materializers::deferred::MaterializerSender;
 use crate::materializers::deferred::SharedMaterializingError;
-use crate::materializers::deferred::Version;
 use crate::materializers::deferred::WriteFile;
 use crate::materializers::io::materialize_files;
 use crate::materializers::io::MaterializeTreeStructure;
@@ -81,15 +81,13 @@ pub(super) trait IoHandler: Sync + Send + 'static {
         self: &Arc<Self>,
         path: ProjectRelativePathBuf,
         write: Arc<WriteFile>,
-        version: Version,
+        version: u64,
         command_sender: MaterializerSender<Self>,
     ) -> BoxFuture<'static, Result<(), SharedMaterializingError>>;
 
-    fn clean_path(
+    fn clean_output_paths(
         self: &Arc<Self>,
-        path: ProjectRelativePathBuf,
-        version: Version,
-        command_sender: MaterializerSender<Self>,
+        paths: Vec<ProjectRelativePathBuf>,
     ) -> BoxFuture<'static, Result<(), SharedError>>;
 
     async fn materialize_entry(
@@ -252,7 +250,7 @@ impl IoHandler for DefaultIoHandler {
         self: &Arc<Self>,
         path: ProjectRelativePathBuf,
         write: Arc<WriteFile>,
-        version: Version,
+        version: u64,
         command_sender: MaterializerSender<Self>,
     ) -> BoxFuture<'static, Result<(), SharedMaterializingError>> {
         self.io_executor
@@ -266,18 +264,12 @@ impl IoHandler for DefaultIoHandler {
             .boxed()
     }
 
-    fn clean_path(
+    fn clean_output_paths(
         self: &Arc<Self>,
-        path: ProjectRelativePathBuf,
-        version: Version,
-        command_sender: MaterializerSender<Self>,
+        paths: Vec<ProjectRelativePathBuf>,
     ) -> BoxFuture<'static, Result<(), SharedError>> {
         self.io_executor
-            .execute_io(box CleanIoRequest {
-                path,
-                version,
-                command_sender,
-            })
+            .execute_io(box CleanOutputPaths { paths })
             .map(|r| r.shared_error())
             .boxed()
     }
@@ -441,7 +433,7 @@ pub(super) fn create_ttl_refresh(
 struct WriteIoRequest {
     path: ProjectRelativePathBuf,
     write: Arc<WriteFile>,
-    version: Version,
+    version: u64,
     command_sender: MaterializerSender<DefaultIoHandler>,
 }
 
@@ -463,39 +455,14 @@ impl IoRequest for WriteIoRequest {
         let res = self.execute_inner(project_fs).shared_error();
 
         // If the materializer has shut down, we ignore this.
-        let _ignored = self.command_sender.send_low_priority(
-            LowPriorityMaterializerCommand::MaterializationFinished {
+        let _ignored = self
+            .command_sender
+            .send(MaterializerCommand::MaterializationFinished {
                 path: self.path,
                 timestamp: Utc::now(),
                 version: self.version,
                 result: res.dupe().map_err(SharedMaterializingError::Error),
-            },
-        );
-
-        Ok(res?)
-    }
-}
-
-struct CleanIoRequest {
-    path: ProjectRelativePathBuf,
-    version: Version,
-    command_sender: MaterializerSender<DefaultIoHandler>,
-}
-
-impl IoRequest for CleanIoRequest {
-    fn execute(self: Box<Self>, project_fs: &ProjectRoot) -> anyhow::Result<()> {
-        // NOTE: No spans here! We should perhaps add one, but this needs to be considered
-        // carefully as it's a lot of spans, and we haven't historically emitted those for writes.
-        let res = cleanup_path(project_fs, &self.path).shared_error();
-
-        // If the materializer has shut down, we ignore this.
-        let _ignored = self.command_sender.send_low_priority(
-            LowPriorityMaterializerCommand::CleanupFinished {
-                path: self.path,
-                version: self.version,
-                result: res.dupe().map_err(SharedMaterializingError::Error),
-            },
-        );
+            });
 
         Ok(res?)
     }
