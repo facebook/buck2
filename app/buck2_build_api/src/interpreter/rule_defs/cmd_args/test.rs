@@ -11,6 +11,7 @@ use buck2_common::result::SharedResult;
 use buck2_interpreter_for_build::interpreter::testing::expect_error;
 use buck2_interpreter_for_build::interpreter::testing::import;
 use buck2_interpreter_for_build::interpreter::testing::Tester;
+use buck2_interpreter_for_build::label::testing::label_creator;
 use indoc::indoc;
 use starlark::environment::GlobalsBuilder;
 use starlark::values::Value;
@@ -20,7 +21,6 @@ use crate::interpreter::rule_defs::artifact::testing::artifactory;
 use crate::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::StarlarkCommandLineInputs;
 use crate::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
-use crate::interpreter::rule_defs::label::testing::label_creator;
 use crate::interpreter::rule_defs::register_rule_defs;
 
 #[starlark_module]

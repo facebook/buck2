@@ -124,10 +124,10 @@ where
 mod tests {
     use buck2_common::result::SharedResult;
     use buck2_interpreter_for_build::interpreter::testing::Tester;
+    use buck2_interpreter_for_build::label::testing::label_creator;
     use indoc::indoc;
 
     use crate::interpreter::rule_defs::artifact::testing::artifactory;
-    use crate::interpreter::rule_defs::label::testing::label_creator;
     use crate::interpreter::rule_defs::provider::collection::tester::collection_creator;
     use crate::interpreter::rule_defs::register_rule_defs;
 

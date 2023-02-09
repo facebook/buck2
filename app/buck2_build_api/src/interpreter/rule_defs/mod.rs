@@ -22,7 +22,6 @@ pub mod attr;
 pub mod cmd_args;
 pub mod command_executor_config;
 pub mod context;
-pub mod label;
 pub mod label_relative_path;
 pub mod provider;
 pub mod rule;

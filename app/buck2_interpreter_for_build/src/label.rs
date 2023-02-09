@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-#[cfg(test)]
 pub mod testing {
     use buck2_core::configuration::ConfigurationData;
     use buck2_core::pattern::ParsedPattern;
@@ -16,6 +15,7 @@ pub mod testing {
     use buck2_interpreter::types::label::Label;
     use starlark::environment::GlobalsBuilder;
     use starlark::eval::Evaluator;
+    use starlark::starlark_module;
 
     #[starlark_module]
     pub fn label_creator(builder: &mut GlobalsBuilder) {
@@ -42,11 +42,11 @@ pub mod testing {
 
 #[cfg(test)]
 mod tests {
-    use buck2_interpreter_for_build::interpreter::testing::expect_error;
-    use buck2_interpreter_for_build::interpreter::testing::Tester;
     use indoc::indoc;
 
     use super::testing::label_creator;
+    use crate::interpreter::testing::expect_error;
+    use crate::interpreter::testing::Tester;
 
     #[test]
     fn labels_are_usable() -> anyhow::Result<()> {
