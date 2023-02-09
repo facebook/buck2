@@ -1,8 +1,9 @@
 ---
 id: getting_started
+title: Getting Started
 ---
 
-# Getting Started
+# Getting Started <FbInternalOnly> - Open Source </FbInternalOnly>
 
 * Download the binary
 * Create a git repo

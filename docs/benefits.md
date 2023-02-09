@@ -27,7 +27,7 @@ For people who use Buck on a daily basis (such as using Buck build as part of th
 * **Rule features** - the rules in Buck2, especially for less commonly used languages (such as Haskell, OCaml, and Rust) support features above and beyond those in Buck1.
   * Examples: dependencies can be given as arguments to `prebuilt_ocaml_library`, Haskell enables the use of stub headers from C++, and Rust has experimental pipelining support.
 * **Actively developed** - the Meta build team is putting all its efforts behind Buck2; it's vastly easier to develop than Buck1. While Buck2 is already ahead of Buck1 in many important aspects, the difference is only going to grow with several improvements in the pipeline.
-* **Support** - Meta can provide much better support to those having difficulties with Buck2 than using Buck1.
+* **Support** - Meta can provide much better support to those having difficulties with Buck2 than to those using Buck1.
 
 ## Benefits for Rule Authors
 
@@ -39,7 +39,7 @@ If you write language-specific rules, then Buck2 is in a different league to Buc
 There are a number of reasons why Buck2 excels for Rule Authors:
 
 * **Faster developer cycle** - in Buck1, the time from changing a rule to seeing the impact is many minutes: you first have to compile Buck1, invalidate the dependency cache (and so on), and perhaps work between multiple OSs. With Buck2, it takes seconds, you don’t even need to restart the daemon.
-* **Simple API**. Buck2 rules use a small and documented Starlark API, which is dependency-correct by construction. In Buck1, the rules must obey a lot of subtle side conditions with a much larger API.
+* **Simple API** - Buck2 rules use a small and documented Starlark API, which is dependency-correct by construction. In Buck1, the rules must obey a lot of subtle side conditions with a much larger API.
 * **Easier deployment** - for Buck2, deployment is just checking the rules in, with an atomic commit changing associated macros (when required). For Buck1, you have to make the repo work with the old and new rules and wait for a Buck version bump to ship your changes, perhaps a few days later.
 * **Low barrier to entry** - writing rules in Buck2 is vastly easier than Buck1, significantly increasing the developer pool. This means that writing rules is now accessible to language experts, not just Buck experts.
 
@@ -61,7 +61,7 @@ For those people who integrate Buck2 into larger systems, in addition to many of
 
 ## The downside
 
-While there are many benefits, it'd be remiss not to include a small list of temporary issues:
+While there are many benefits, it would be remiss not to include a small list of temporary issues:
 
 * **Stability** - Buck2 is under active development, which means the risk of regression is correspondingly higher. There may be issues, but they will be fixed as quickly as possible (and lessons learned) through the through Meta's SEV-review process.
 * **Corner cases** - Buck1 has been battle-tested for nearly a decade, which has included attention to events such as error messages in unlikely corner cases. Only time and user feedback will enable Meta to bring Buck2 to the same level. Please share all such feedback!
