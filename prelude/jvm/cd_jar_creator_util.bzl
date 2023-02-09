@@ -187,6 +187,7 @@ def get_compiling_deps_tset(
             children.append(actions.tset(JavaCompilingDepsTSet, value = JavaClasspathEntry(
                 full_library = entry,
                 abi = entry,
+                abi_as_dir = None,
                 required_for_source_only_abi = True,
             )))
         compiling_deps_tset = actions.tset(JavaCompilingDepsTSet, children = children)

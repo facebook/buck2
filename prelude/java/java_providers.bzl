@@ -86,6 +86,9 @@ load("@prelude//utils:utils.bzl", "expect")
 JavaClasspathEntry = record(
     full_library = field("artifact"),
     abi = field("artifact"),
+    # abi_as_dir is the abi .jar unzipped into a directory. If available, it is used to provide
+    # .class level granularity for javacd and kotlincd dep-files.
+    abi_as_dir = field(["artifact", None]),
     required_for_source_only_abi = field(bool.type),
 )
 
@@ -236,6 +239,7 @@ def make_compile_outputs(
         classpath_entry = JavaClasspathEntry(
             full_library = full_library,
             abi = classpath_abi or class_abi or full_library,
+            abi_as_dir = None,
             required_for_source_only_abi = required_for_source_only_abi,
         ),
         annotation_processor_output = annotation_processor_output,
