@@ -18,7 +18,6 @@ use buck2_event_observer::span_tracker::BuckEventSpanTracker;
 use superconsole::components::bordering::BorderedSpec;
 use superconsole::components::splitting::SplitKind;
 use superconsole::components::Bordered;
-use superconsole::components::Bounded;
 use superconsole::components::Expanding;
 use superconsole::components::Split;
 use superconsole::style::Stylize;
@@ -59,21 +58,16 @@ pub struct Cutoffs {
 
 /// This component renders each event and a timer indicating for how long the event has been ongoing.
 #[derive(Debug)]
-pub(crate) struct TimedListBody(Bounded);
+pub(crate) struct TimedListBody(Box<dyn Component>);
 
 impl TimedListBody {
-    pub(crate) fn new(max_size: usize, cutoffs: Cutoffs) -> Self {
-        Self(Bounded::new(
-            box Expanding::new(box TimedListBodyInner { max_size, cutoffs }),
-            None,
-            Some(max_size),
-        ))
+    pub(crate) fn new(cutoffs: Cutoffs) -> Self {
+        Self(box Expanding::new(box TimedListBodyInner { cutoffs }))
     }
 }
 
 #[derive(Debug)]
 struct TimedListBodyInner {
-    max_size: usize,
     cutoffs: Cutoffs,
 }
 
@@ -179,6 +173,9 @@ impl Component for TimedListBodyInner {
         dimensions: Dimensions,
         mode: DrawMode,
     ) -> anyhow::Result<Lines> {
+        let config = state.get::<SuperConsoleConfig>()?;
+        let max_lines = config.max_lines;
+
         let spans = state.get::<BuckEventSpanTracker>()?;
 
         let time_speed = state.get::<TimeSpeed>()?;
@@ -192,7 +189,7 @@ impl Component for TimedListBodyInner {
         for root in &mut roots {
             let rows = self.draw_root(&root, state)?;
 
-            if builder.len() + rows.len() >= self.max_size {
+            if builder.len() + rows.len() >= max_lines {
                 first_not_rendered = Some(root);
                 break;
             }
@@ -316,13 +313,12 @@ pub struct TimedList {
 }
 
 impl TimedList {
-    /// * `max_events` is the maximum number of events displayed
     /// * `cutoffs` determines durations for warnings, time-outs, and baseline notability.
     /// * `header` is the string displayed at the top of the list.
-    pub fn new(max_events: usize, cutoffs: Cutoffs, header: String) -> Self {
+    pub fn new(cutoffs: Cutoffs, header: String) -> Self {
         let head = box TimedListHeader::new(header);
         // Subtract for the header and the padding row above and beneath
-        let body = box TimedListBody::new(max_events, cutoffs);
+        let body = box TimedListBody::new(cutoffs);
 
         Self {
             child: Split::new(vec![head, body], Direction::Vertical, SplitKind::Adaptive),
@@ -376,7 +372,7 @@ mod tests {
         let tick = Tick::now();
         let now = SystemTime::now();
 
-        let timed_list = TimedList::new(5, CUTOFFS, "test".to_owned());
+        let timed_list = TimedList::new(CUTOFFS, "test".to_owned());
         let label = Arc::new(BuckEvent::new(
             now,
             TraceId::new(),
@@ -422,7 +418,10 @@ mod tests {
             cached_actions: 1,
         };
 
-        let timed_list_state = SuperConsoleConfig::default();
+        let timed_list_state = SuperConsoleConfig {
+            max_lines: 5,
+            ..Default::default()
+        };
 
         let output = timed_list.draw(
             &superconsole::state!(&state, &tick, &time_speed, &action_stats, &timed_list_state),
@@ -505,14 +504,17 @@ mod tests {
         }
 
         let time_speed = TimeSpeed::new(Some(1.0)).unwrap();
-        let timed_list = TimedList::new(2, CUTOFFS, "test".to_owned());
+        let timed_list = TimedList::new(CUTOFFS, "test".to_owned());
         let action_stats = ActionStats {
             local_actions: 0,
             remote_actions: 0,
             cached_actions: 1,
         };
 
-        let timed_list_state = SuperConsoleConfig::default();
+        let timed_list_state = SuperConsoleConfig {
+            max_lines: 2,
+            ..Default::default()
+        };
 
         let output = timed_list.draw(
             &superconsole::state!(&state, &tick, &time_speed, &action_stats, &timed_list_state),
@@ -549,7 +551,7 @@ mod tests {
 
         let parent = SpanId::new();
 
-        let timed_list = TimedList::new(5, CUTOFFS, "test".to_owned());
+        let timed_list = TimedList::new(CUTOFFS, "test".to_owned());
 
         let action = Arc::new(BuckEvent::new(
             now,
@@ -627,7 +629,10 @@ mod tests {
             cached_actions: 1,
         };
 
-        let timed_list_state = SuperConsoleConfig::default();
+        let timed_list_state = SuperConsoleConfig {
+            max_lines: 5,
+            ..Default::default()
+        };
 
         let output = timed_list.draw(
             &superconsole::state!(&state, &tick, &time_speed, &action_stats, &timed_list_state),

@@ -21,6 +21,7 @@ use buck2_client_ctx::subscribers::subscriber_unpack::UnpackingEventSubscriber;
 use buck2_client_ctx::subscribers::superconsole::timed_list::TimedList;
 use buck2_client_ctx::subscribers::superconsole::SessionInfoComponent;
 use buck2_client_ctx::subscribers::superconsole::StatefulSuperConsole;
+use buck2_client_ctx::subscribers::superconsole::SuperConsoleConfig;
 use buck2_client_ctx::subscribers::superconsole::CUTOFFS;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_event_observer::verbosity::Verbosity;
@@ -56,7 +57,7 @@ impl WhatUpCommand {
 
         // Create space for a very big console
         let mut components: Vec<Box<dyn Component>> = vec![box SessionInfoComponent];
-        components.push(box TimedList::new(1000000, CUTOFFS, String::new()));
+        components.push(box TimedList::new(CUTOFFS, String::new()));
         let console_root = box Split::new(components, Direction::Vertical, SplitKind::Adaptive);
 
         let rt = runtime::Builder::new_current_thread()
@@ -74,7 +75,10 @@ impl WhatUpCommand {
                 true,
                 None,
                 Some(Box::new(io::stdout())),
-                Default::default(),
+                SuperConsoleConfig {
+                    max_lines: 1000000,
+                    ..Default::default()
+                },
                 FileNameBuf::unchecked_new("placeholder"),
             )?;
             let mut first_timestamp = None;

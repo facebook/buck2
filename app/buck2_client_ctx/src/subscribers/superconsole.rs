@@ -77,7 +77,6 @@ pub const CUTOFFS: Cutoffs = Cutoffs {
     warn: Duration::from_secs(8),
     _notable: Duration::from_millis(200),
 };
-const MAX_EVENTS: usize = 10;
 
 pub struct StatefulSuperConsole {
     state: SuperConsoleState,
@@ -115,15 +114,29 @@ pub(crate) struct SuperConsoleState {
     config: SuperConsoleConfig,
 }
 
-#[derive(Default)]
 pub struct SuperConsoleConfig {
-    pub(crate) enable_dice: bool,
-    pub(crate) enable_debug_events: bool,
-    pub(crate) enable_detailed_re: bool,
-    pub(crate) enable_io: bool,
-    pub(crate) enable_commands: bool,
+    pub enable_dice: bool,
+    pub enable_debug_events: bool,
+    pub enable_detailed_re: bool,
+    pub enable_io: bool,
+    pub enable_commands: bool,
     /// Two lines for root events with single child event.
-    pub(crate) two_lines: bool,
+    pub two_lines: bool,
+    pub max_lines: usize,
+}
+
+impl Default for SuperConsoleConfig {
+    fn default() -> Self {
+        Self {
+            enable_dice: false,
+            enable_debug_events: false,
+            enable_detailed_re: false,
+            enable_io: false,
+            enable_commands: false,
+            two_lines: false,
+            max_lines: 10,
+        }
+    }
 }
 
 impl StatefulSuperConsole {
@@ -140,7 +153,7 @@ impl StatefulSuperConsole {
         components.push(box DebugEventsComponent);
         components.push(box DiceComponent);
         components.push(box CommandsComponent);
-        components.push(box TimedList::new(MAX_EVENTS, CUTOFFS, header));
+        components.push(box TimedList::new(CUTOFFS, header));
         let root = box Split::new(components, Direction::Vertical, SplitKind::Adaptive);
         // bound all components to our recommended grapheme-width
         box Bounded::new(root, Some(SUPERCONSOLE_WIDTH), None)
@@ -381,6 +394,10 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
         } else if c == 'c' {
             self.toggle("Commands", 'c', |s| &mut s.state.config.enable_commands)
                 .await?;
+        } else if c == '+' {
+            self.state.config.max_lines = self.state.config.max_lines.saturating_add(1);
+        } else if c == '-' {
+            self.state.config.max_lines = self.state.config.max_lines.saturating_sub(1);
         } else if c == '?' || c == 'h' {
             self.handle_stderr(
                 "Help:\n\
@@ -389,6 +406,8 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
                 `2` = toggle two lines mode\n\
                 `r` = toggle detailed RE\n\
                 `i` = toggle I/O counters\n\
+                `+` = show more lines\n\
+                `-` = show fewer lines\n\
                 `h` = show this help",
             )
             .await?;
