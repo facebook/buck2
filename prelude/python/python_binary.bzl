@@ -428,7 +428,7 @@ def convert_python_library_to_executable(
 
         # All deps inolved in the link.
         link_deps = (
-            linkables(executable_deps) +
+            linkables(executable_deps + ctx.attrs.preload_deps) +
             list(extension_info.linkable_providers.traverse())
         )
 
