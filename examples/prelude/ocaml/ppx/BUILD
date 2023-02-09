@@ -29,6 +29,23 @@ ocaml_binary(
     ]
 ) if not host_info().os.is_windows else None
 
+# [Note: Use the 'expand' sub-target to see the effects of
+#  preprocessor expansion]
+# ========================================================
+#
+# (1) Generate elaborated source files (suffix: .pp.ml)
+#
+# ```
+# loc=$("$BUCK2" build //ocaml/ppx:ppx-record-selectors-test --show-output | awk '{ print $2; }')
+# $BUCK2 build //ocaml/ppx:'ppx-record-selectors-test[expand]'
+# ```
+
+# (2) Print the elaborated version of 'ppx_record_selectors_test.ml'.
+#
+# ```
+# cat $(dirname "$loc")/_expandobj_/ppx_record_selectors_test.pp.ml
+# ```
+
 assert_output(
     name = "ppx-record-selectors-test-check",
     command = "$(exe_target :ppx-record-selectors-test)",
