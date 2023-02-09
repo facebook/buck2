@@ -43,6 +43,7 @@ load(
 )
 load(
     "@prelude//linking:linkable_graph.bzl",
+    "DlopenableLibraryInfo",
     "LinkableGraph",
     "LinkableGraphTSet",
     "create_linkable_graph",
@@ -397,7 +398,12 @@ def convert_python_library_to_executable(
             extra["linkable-graph"] = [DefaultInfo(default_output = omnibus_graph_json)]
     elif _link_strategy(ctx) == NativeLinkStrategy("native"):
         executable_deps = ctx.attrs.executable_deps
-        extension_info = merge_cxx_extension_info(ctx.actions, deps + executable_deps)
+        extension_info = merge_cxx_extension_info(
+            ctx.actions,
+            deps + executable_deps,
+            # Add in dlopen-enabled libs from first-order deps.
+            dlopen_deps = [d for d in ctx.attrs.deps if DlopenableLibraryInfo in d],
+        )
         inherited_preprocessor_info = cxx_inherited_preprocessor_infos(executable_deps)
 
         # Generate an additional C file as input
