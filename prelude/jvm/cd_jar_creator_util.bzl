@@ -176,7 +176,10 @@ filesystem_params = struct(
     globIgnorePaths = [],
 )
 
-def get_compiling_classpath(actions: "actions", deps: ["dependency"], additional_classpath_entries: ["artifact"], target_type: TargetType.type, source_only_abi_deps: ["dependency"]):
+def get_compiling_deps_tset(
+        actions: "actions",
+        deps: ["dependency"],
+        additional_classpath_entries: ["artifact"]) -> [JavaCompilingDepsTSet.type, None]:
     compiling_deps_tset = derive_compiling_deps(actions, None, deps)
     if additional_classpath_entries:
         children = [compiling_deps_tset] if compiling_deps_tset else []
@@ -188,6 +191,9 @@ def get_compiling_classpath(actions: "actions", deps: ["dependency"], additional
             )))
         compiling_deps_tset = actions.tset(JavaCompilingDepsTSet, children = children)
 
+    return compiling_deps_tset
+
+def get_compiling_classpath(compiling_deps_tset: [JavaCompilingDepsTSet.type, None], target_type: TargetType.type, source_only_abi_deps: ["dependency"]):
     compiling_classpath = []
     if compiling_deps_tset:
         if target_type == TargetType("source_only_abi"):
@@ -259,9 +265,7 @@ def encode_base_jar_command(
         output_paths: OutputPaths.type,
         remove_classes: [str.type],
         label: "label",
-        actions: "actions",
-        deps: ["dependency"],
-        additional_classpath_entries: ["artifact"],
+        compiling_deps_tset: [JavaCompilingDepsTSet.type, None],
         source_only_abi_deps: ["dependency"],
         bootclasspath_entries: ["artifact"],
         source_level: int.type,
@@ -275,7 +279,7 @@ def encode_base_jar_command(
         track_class_usage: bool.type) -> struct.type:
     library_jar_params = encode_jar_params(remove_classes, output_paths)
     qualified_name = get_qualified_name(label, target_type)
-    compiling_classpath = get_compiling_classpath(actions, deps, additional_classpath_entries, target_type, source_only_abi_deps)
+    compiling_classpath = get_compiling_classpath(compiling_deps_tset, target_type, source_only_abi_deps)
 
     build_target_value = struct(
         fullyQualifiedName = qualified_name,

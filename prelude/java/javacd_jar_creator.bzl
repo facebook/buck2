@@ -24,6 +24,7 @@ load(
     "encode_jar_params",
     "generate_abi_jars",
     "get_abi_generation_mode",
+    "get_compiling_deps_tset",
     "prepare_final_jar",
     "setup_dep_files",
 )
@@ -74,6 +75,8 @@ def create_jar_artifact_javacd(
     output_paths = define_output_paths(actions, actions_identifier)
     path_to_class_hashes_out = declare_prefixed_output(actions, actions_identifier, "classes.txt")
 
+    compiling_deps_tset = get_compiling_deps_tset(actions, deps, additional_classpath_entries)
+
     def encode_library_command(output_paths: OutputPaths.type, path_to_class_hashes: "artifact") -> struct.type:
         target_type = TargetType("library")
 
@@ -82,9 +85,7 @@ def create_jar_artifact_javacd(
             output_paths,
             remove_classes,
             label,
-            actions,
-            deps,
-            additional_classpath_entries,
+            compiling_deps_tset,
             source_only_abi_deps,
             bootclasspath_entries,
             source_level,
@@ -117,9 +118,7 @@ def create_jar_artifact_javacd(
             output_paths,
             remove_classes,
             label,
-            actions,
-            deps,
-            additional_classpath_entries,
+            compiling_deps_tset,
             source_only_abi_deps,
             bootclasspath_entries,
             source_level,

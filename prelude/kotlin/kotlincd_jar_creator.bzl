@@ -23,6 +23,7 @@ load(
     "encode_base_jar_command",
     "encode_jar_params",
     "generate_abi_jars",
+    "get_compiling_deps_tset",
     "prepare_final_jar",
     "setup_dep_files",
 )
@@ -105,6 +106,8 @@ def create_jar_artifact_kotlincd(
 
     kotlin_extra_params = encode_kotlin_extra_params(kotlin_compiler_plugins)
 
+    compiling_deps_tset = get_compiling_deps_tset(actions, deps, additional_classpath_entries)
+
     def encode_library_command(
             output_paths: OutputPaths.type,
             path_to_class_hashes: "artifact") -> struct.type:
@@ -114,9 +117,7 @@ def create_jar_artifact_kotlincd(
             output_paths,
             remove_classes,
             label,
-            actions,
-            deps,
-            additional_classpath_entries,
+            compiling_deps_tset,
             source_only_abi_deps,
             bootclasspath_entries,
             source_level,
@@ -153,9 +154,7 @@ def create_jar_artifact_kotlincd(
             output_paths,
             remove_classes,
             label,
-            actions,
-            deps,
-            additional_classpath_entries,
+            compiling_deps_tset,
             source_only_abi_deps,
             bootclasspath_entries,
             source_level,
