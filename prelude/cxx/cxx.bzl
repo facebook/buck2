@@ -343,6 +343,7 @@ def prebuilt_cxx_library_impl(ctx: "context") -> ["provider"]:
     inherited_link = cxx_inherited_link_info(ctx, first_order_deps)
     inherited_exported_link = cxx_inherited_link_info(ctx, exported_first_order_deps)
     exported_linker_flags = cxx_attr_exported_linker_flags(ctx)
+    non_exported_linker_flags = ctx.attrs.linker_flags
 
     # Gather link infos, outputs, and shared libs for effective link style.
     outputs = {}
@@ -388,6 +389,7 @@ def prebuilt_cxx_library_impl(ctx: "context") -> ["provider"]:
 
                         # TODO(T110378143): Support post link flags properly.
                         shlink_args.extend(exported_linker_flags)
+                        shlink_args.extend(non_exported_linker_flags)
                         shlink_args.extend(get_link_whole_args(linker_type, [lib]))
                         shared_lib = cxx_link_into_shared_library(
                             ctx,
@@ -494,7 +496,10 @@ def prebuilt_cxx_library_impl(ctx: "context") -> ["provider"]:
             name = soname,
             link_infos = LinkInfos(default = LinkInfo(
                 name = soname,
-                pre_flags = cxx_attr_exported_linker_flags(ctx),
+                pre_flags = (
+                    cxx_attr_exported_linker_flags(ctx) +
+                    non_exported_linker_flags
+                ),
                 linkables = [ArchiveLinkable(
                     archive = Archive(
                         artifact = static_pic_lib or static_lib,
