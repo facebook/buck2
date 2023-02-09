@@ -203,10 +203,10 @@ def get_compiling_classpath(compiling_deps_tset: [JavaCompilingDepsTSet.type, No
                 if not info:
                     fail("source_only_abi_deps must produce a JavaLibraryInfo but {} does not, please remove it".format(d))
                 if info.library_output:
-                    source_only_abi_deps_filter[info.library_output] = True
+                    source_only_abi_deps_filter[info.library_output.abi] = True
 
             def filter_compiling_deps(dep):
-                return dep in source_only_abi_deps_filter or dep.required_for_source_only_abi
+                return dep.abi in source_only_abi_deps_filter or dep.required_for_source_only_abi
 
             compiling_classpath = [compiling_dep.abi for compiling_dep in list(compiling_deps_tset.traverse()) if filter_compiling_deps(compiling_dep)]
         else:
