@@ -7,21 +7,38 @@
  * of this source tree.
  */
 
+use std::fmt::Debug;
 use std::future::Future;
 use std::io::Write;
+use std::sync::Arc;
 
 use allocative::Allocative;
-use dupe::Dupe;
 use serde::Serializer;
 
 use crate::api::transaction::DiceTransactionUpdater;
 use crate::api::user_data::UserComputationData;
+use crate::impls::key_index::DiceKeyIndex;
 use crate::DetectCycles;
 
-#[derive(Allocative, Debug, Dupe, Clone)]
-pub(crate) struct DiceModern;
+#[derive(Allocative)]
+pub(crate) struct DiceModern {
+    pub(crate) key_index: DiceKeyIndex,
+}
+
+impl Debug for DiceModern {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DiceModern").finish_non_exhaustive()
+    }
+}
 
 impl DiceModern {
+    #[allow(unused)]
+    pub(crate) fn new() -> Arc<Self> {
+        Arc::new(DiceModern {
+            key_index: Default::default(),
+        })
+    }
+
     pub fn updater(&self) -> DiceTransactionUpdater {
         unimplemented!("todo")
     }

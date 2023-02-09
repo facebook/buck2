@@ -258,7 +258,7 @@ use crate::legacy::DiceLegacy;
 pub(crate) enum DiceImplementation {
     Legacy(Arc<DiceLegacy>),
     #[allow(unused)]
-    Modern(DiceModern),
+    Modern(Arc<DiceModern>),
 }
 
 impl DiceImplementation {
