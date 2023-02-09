@@ -20,7 +20,6 @@ use allocative::Allocative;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
-use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::base_deferred_key::BaseDeferredKey;
@@ -38,7 +37,6 @@ use thiserror::Error;
 
 use crate::actions::artifact::build_artifact::BuildArtifact;
 use crate::actions::artifact::Artifact;
-use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 
 /// An asynchronous chunk of work that will be executed when requested.
 /// The 'Deferred' can have "inputs" which are values that will be guaranteed to be ready to use
@@ -80,7 +78,6 @@ pub trait DeferredCtx {
 pub struct ResolveDeferredCtx<'a> {
     key: DeferredKey,
     configured_targets: HashMap<ConfiguredTargetLabel, ConfiguredTargetNode>,
-    _providers: HashMap<ConfiguredProvidersLabel, FrozenProviderCollectionValue>,
     deferreds: HashMap<DeferredKey, DeferredValueAnyReady>,
     artifacts: HashMap<Artifact, ArtifactValue>,
     materialized_artifacts: HashMap<Artifact, ProjectRelativePathBuf>,
@@ -92,7 +89,6 @@ impl<'a> ResolveDeferredCtx<'a> {
     pub fn new(
         key: DeferredKey,
         configured_targets: HashMap<ConfiguredTargetLabel, ConfiguredTargetNode>,
-        providers: HashMap<ConfiguredProvidersLabel, FrozenProviderCollectionValue>,
         deferreds: HashMap<DeferredKey, DeferredValueAnyReady>,
         artifacts: HashMap<Artifact, ArtifactValue>,
         materialized_artifacts: HashMap<Artifact, ProjectRelativePathBuf>,
@@ -102,7 +98,6 @@ impl<'a> ResolveDeferredCtx<'a> {
         Self {
             key,
             configured_targets,
-            _providers: providers,
             deferreds,
             artifacts,
             materialized_artifacts,
@@ -151,7 +146,6 @@ impl<'a> DeferredCtx for ResolveDeferredCtx<'a> {
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Allocative)]
 pub enum DeferredInput {
     ConfiguredTarget(ConfiguredTargetLabel),
-    Provider(ConfiguredProvidersLabel),
     Deferred(DeferredKey),
     Artifact(Artifact),
     MaterializedArtifact(Artifact),
@@ -1106,7 +1100,6 @@ mod tests {
                         Default::default(),
                         Default::default(),
                         Default::default(),
-                        Default::default(),
                         &mut ctx,
                         dummy_project_filesystem()
                     ))
@@ -1148,7 +1141,6 @@ mod tests {
             DeferredRegistry::new(BaseKey::Deferred(Arc::new(deferred_data.key.dupe())));
         let mut resolved = ResolveDeferredCtx::new(
             deferred_data.key.dupe(),
-            Default::default(),
             Default::default(),
             vec![make_resolved(&deferred_data, &deferred)]
                 .into_iter()
@@ -1211,7 +1203,6 @@ mod tests {
                 Default::default(),
                 Default::default(),
                 Default::default(),
-                Default::default(),
                 &mut registry,
                 dummy_project_filesystem(),
             ))
@@ -1241,7 +1232,6 @@ mod tests {
             *deferred
                 .execute(&mut ResolveDeferredCtx::new(
                     deferred_key,
-                    Default::default(),
                     Default::default(),
                     Default::default(),
                     Default::default(),
@@ -1292,7 +1282,6 @@ mod tests {
                     .unwrap()
                     .execute(&mut ResolveDeferredCtx::new(
                         key,
-                        Default::default(),
                         Default::default(),
                         Default::default(),
                         Default::default(),

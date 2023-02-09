@@ -183,7 +183,6 @@ async fn compute_deferred(
             let deferred = deferred.get()?.as_complex();
 
             let target_node_futs = FuturesUnordered::new();
-            let providers_futs = FuturesUnordered::new();
             let deferreds_futs = FuturesUnordered::new();
             let artifacts_futs = FuturesUnordered::new();
             let materialized_artifacts_futs = FuturesUnordered::new();
@@ -197,18 +196,6 @@ async fn compute_deferred(
                             .require_compatible()?,
                     ))
                 }),
-                DeferredInput::Provider(provider_label) => {
-                    let provider_label = provider_label.clone();
-                    providers_futs.push(async move {
-                        let res = ctx
-                            .get_analysis_result(provider_label.target())
-                            .await?
-                            .require_compatible()?;
-                        // TODO: This module needs to be passed into `deferred.execute()`
-                        let inner = res.lookup_inner(&provider_label)?;
-                        Ok((provider_label.clone(), inner))
-                    })
-                }
                 DeferredInput::Deferred(deferred_key) => {
                     let deferred_key = deferred_key.dupe();
                     deferreds_futs.push(async move {
@@ -255,21 +242,18 @@ async fn compute_deferred(
                 }
             });
 
-            let (targets, providers, deferreds, artifacts, materialized_artifacts) =
-                futures::future::join5(
-                    futures_pair_to_map(target_node_futs),
-                    futures_pair_to_map(providers_futs),
-                    futures_pair_to_map(deferreds_futs),
-                    futures_pair_to_map(artifacts_futs),
-                    futures_pair_to_map(materialized_artifacts_futs),
-                )
-                .await;
+            let (targets, deferreds, artifacts, materialized_artifacts) = futures::future::join4(
+                futures_pair_to_map(target_node_futs),
+                futures_pair_to_map(deferreds_futs),
+                futures_pair_to_map(artifacts_futs),
+                futures_pair_to_map(materialized_artifacts_futs),
+            )
+            .await;
 
             let mut registry = DeferredRegistry::new(BaseKey::Deferred(Arc::new(self.0.dupe())));
             let mut ctx = ResolveDeferredCtx::new(
                 self.0.dupe(),
                 targets?,
-                providers?,
                 deferreds?,
                 artifacts?,
                 materialized_artifacts?,
