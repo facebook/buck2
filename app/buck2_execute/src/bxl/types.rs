@@ -14,7 +14,7 @@ use buck2_core::collections::ordered_map::OrderedMap;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_data::ToProtoMessage;
-use buck2_interpreter::common::BxlFilePath;
+use buck2_interpreter::path::BxlFilePath;
 use derive_more::Display;
 use dupe::Dupe;
 use itertools::Itertools;

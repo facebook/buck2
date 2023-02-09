@@ -28,7 +28,6 @@ extern crate starlark;
 mod tests;
 
 pub mod build_defs;
-pub mod common;
 pub mod dice;
 pub mod extra;
 pub mod file_loader;
@@ -39,6 +38,7 @@ pub mod import_paths;
 pub mod interpreter;
 pub mod package_imports;
 pub mod parse_import;
+pub mod path;
 pub mod selector;
 pub mod starlark_profiler;
 pub mod starlark_promise;

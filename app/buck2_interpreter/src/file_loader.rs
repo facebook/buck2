@@ -18,8 +18,8 @@ use starlark::codemap::FileSpan;
 use starlark::environment::FrozenModule;
 use starlark::eval::FileLoader;
 
-use crate::common::OwnedStarlarkModulePath;
-use crate::common::StarlarkModulePath;
+use crate::path::OwnedStarlarkModulePath;
+use crate::path::StarlarkModulePath;
 
 #[derive(Default, Clone, Allocative)]
 pub struct LoadedModules {

@@ -17,7 +17,7 @@ use buck2_common::dice::data::HasIoProvider;
 use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::io::IoProvider;
 use buck2_core::cells::CellResolver;
-use buck2_interpreter::common::StarlarkPath;
+use buck2_interpreter::path::StarlarkPath;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use starlark::codemap::FileSpan;

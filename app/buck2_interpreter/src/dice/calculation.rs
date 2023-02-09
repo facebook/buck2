@@ -35,9 +35,6 @@ use starlark::codemap::FileSpan;
 use starlark::syntax::AstModule;
 use thiserror::Error;
 
-use crate::common::OwnedStarlarkModulePath;
-use crate::common::StarlarkModulePath;
-use crate::common::StarlarkPath;
 use crate::dice::calculation::keys::EvalImportKey;
 use crate::dice::starlark_profiler::GetStarlarkProfilerInstrumentation;
 use crate::dice::HasCalculationDelegate;
@@ -49,6 +46,9 @@ use crate::global_interpreter_state::HasGlobalInterpreterState;
 use crate::import_paths::HasImportPaths;
 use crate::interpreter::InterpreterForCell;
 use crate::interpreter::ParseResult;
+use crate::path::OwnedStarlarkModulePath;
+use crate::path::StarlarkModulePath;
+use crate::path::StarlarkPath;
 use crate::starlark_profiler::StarlarkProfilerInstrumentation;
 use crate::starlark_profiler::StarlarkProfilerOrInstrumentation;
 
@@ -329,7 +329,7 @@ mod keys {
     use allocative::Allocative;
     use derive_more::Display;
 
-    use crate::common::OwnedStarlarkModulePath;
+    use crate::path::OwnedStarlarkModulePath;
 
     #[derive(Clone, Display, Debug, Eq, Hash, PartialEq, Allocative)]
     pub struct EvalImportKey(pub OwnedStarlarkModulePath);

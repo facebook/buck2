@@ -36,7 +36,7 @@ mod tests {
     use buck2_execute::bxl::types::BxlKey;
     use buck2_execute::execute::dice_data::set_fallback_executor_config;
     use buck2_execute::path::buck_out_path::BuckOutPath;
-    use buck2_interpreter::common::BxlFilePath;
+    use buck2_interpreter::path::BxlFilePath;
     use dice::testing::DiceBuilder;
     use dice::UserComputationData;
     use dupe::Dupe;

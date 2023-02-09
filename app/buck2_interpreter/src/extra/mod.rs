@@ -27,12 +27,12 @@ use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use thiserror::Error;
 
-use crate::common::StarlarkPath;
 use crate::extra::buckconfig::LegacyBuckConfigForStarlark;
 use crate::extra::cell_info::InterpreterCellInfo;
 use crate::file_loader::LoadedModules;
 use crate::globspec::GlobSpec;
 use crate::package_imports::ImplicitImport;
+use crate::path::StarlarkPath;
 
 pub mod buckconfig;
 pub mod cell_info;

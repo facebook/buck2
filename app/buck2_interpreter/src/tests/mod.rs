@@ -36,7 +36,6 @@ use indoc::indoc;
 use maplit::hashmap;
 use serde_json::json;
 
-use crate::common::StarlarkModulePath;
 use crate::dice::starlark_profiler::SetStarlarkProfilerInstrumentation;
 use crate::dice::starlark_profiler::StarlarkProfilerConfiguration;
 use crate::dice::starlark_types::SetDisableStarlarkTypes;
@@ -44,6 +43,7 @@ use crate::dice::HasCalculationDelegate;
 use crate::dice::SetInterpreterContext;
 use crate::extra::testing::TesterConfiguror;
 use crate::extra::testing::TesterExtraContext;
+use crate::path::StarlarkModulePath;
 use crate::starlark_profiler::StarlarkProfilerOrInstrumentation;
 
 fn rules() -> Vec<String> {

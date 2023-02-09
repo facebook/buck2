@@ -142,9 +142,6 @@ mod tests {
     use dupe::Dupe;
     use indoc::indoc;
 
-    use crate::common::OwnedStarlarkModulePath;
-    use crate::common::StarlarkModulePath;
-    use crate::common::StarlarkPath;
     use crate::extra::testing::TesterConfiguror;
     use crate::extra::testing::TesterExtraContext;
     use crate::file_loader::LoadedModule;
@@ -153,6 +150,9 @@ mod tests {
     use crate::import_paths::ImplicitImportPaths;
     use crate::interpreter::InterpreterForCell;
     use crate::interpreter::ParseResult;
+    use crate::path::OwnedStarlarkModulePath;
+    use crate::path::StarlarkModulePath;
+    use crate::path::StarlarkPath;
     use crate::starlark_profiler::StarlarkProfilerOrInstrumentation;
 
     fn cells() -> anyhow::Result<(CellAliasResolver, CellResolver, LegacyBuckConfigs)> {

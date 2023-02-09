@@ -37,10 +37,6 @@ use starlark::syntax::DialectTypes;
 use thiserror::Error;
 
 use crate::build_defs::register_base_natives;
-use crate::common::BxlFilePath;
-use crate::common::OwnedStarlarkModulePath;
-use crate::common::StarlarkModulePath;
-use crate::common::StarlarkPath;
 use crate::extra::cell_info::InterpreterCellInfo;
 use crate::extra::BuildContext;
 use crate::extra::ExtraContext;
@@ -53,6 +49,10 @@ use crate::global_interpreter_state::GlobalInterpreterState;
 use crate::import_paths::ImplicitImportPaths;
 use crate::package_imports::ImplicitImport;
 use crate::parse_import::parse_import;
+use crate::path::BxlFilePath;
+use crate::path::OwnedStarlarkModulePath;
+use crate::path::StarlarkModulePath;
+use crate::path::StarlarkPath;
 use crate::starlark_profiler::StarlarkProfilerInstrumentation;
 use crate::starlark_profiler::StarlarkProfilerOrInstrumentation;
 
@@ -679,12 +679,12 @@ mod tests {
     use serde_json::json;
 
     use super::*;
-    use crate::common::OwnedStarlarkModulePath;
-    use crate::common::StarlarkModulePath;
     use crate::extra::testing::TesterConfiguror;
     use crate::extra::testing::TesterEvalResult;
     use crate::extra::testing::TesterExtraContext;
     use crate::file_loader::LoadedModule;
+    use crate::path::OwnedStarlarkModulePath;
+    use crate::path::StarlarkModulePath;
 
     fn cross_cell_import(
         cell: &str,
