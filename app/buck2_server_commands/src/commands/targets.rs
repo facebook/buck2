@@ -33,6 +33,7 @@ use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::pattern::package_roots::find_package_roots_stream;
 use buck2_common::pattern::resolve::ResolvedPattern;
+use buck2_common::result::ToSharedResultExt;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::CellResolver;
@@ -563,7 +564,9 @@ async fn targets_resolve_aliases(
             async move {
                 (
                     package.dupe(),
-                    dice.get_interpreter_results(package.dupe()).await,
+                    dice.get_interpreter_results(package.dupe())
+                        .await
+                        .shared_error(),
                 )
             }
         })

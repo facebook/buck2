@@ -15,6 +15,7 @@ use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_common::result::SharedResult;
+use buck2_common::result::ToUnsharedResultExt;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_path::CellPath;
@@ -74,7 +75,7 @@ pub trait HasImportPaths {
     async fn import_paths_for_cell(
         &self,
         cell_name: BuildFileCell,
-    ) -> SharedResult<Arc<ImplicitImportPaths>>;
+    ) -> anyhow::Result<Arc<ImplicitImportPaths>>;
 }
 
 #[async_trait]
@@ -82,7 +83,7 @@ impl HasImportPaths for DiceComputations {
     async fn import_paths_for_cell(
         &self,
         cell_name: BuildFileCell,
-    ) -> SharedResult<Arc<ImplicitImportPaths>> {
+    ) -> anyhow::Result<Arc<ImplicitImportPaths>> {
         #[derive(Debug, Eq, PartialEq, Hash, Clone, derive_more::Display, Allocative)]
         #[display(fmt = "{}", cell_name)]
         struct ImportPathsKey {
@@ -116,6 +117,8 @@ impl HasImportPaths for DiceComputations {
             }
         }
 
-        self.compute(&ImportPathsKey { cell_name }).await?
+        self.compute(&ImportPathsKey { cell_name })
+            .await?
+            .unshared_error()
     }
 }

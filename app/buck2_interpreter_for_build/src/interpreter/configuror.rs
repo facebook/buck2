@@ -13,7 +13,6 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_common::package_listing::listing::PackageListing;
-use buck2_common::result::SharedResult;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bzl::ImportPath;
 use buck2_interpreter::extra::cell_info::InterpreterCellInfo;
@@ -185,7 +184,7 @@ impl InterpreterConfiguror for BuildInterpreterConfiguror {
         package_boundary_exception: bool,
         loaded_modules: &LoadedModules,
         implicit_import: Option<&Arc<ImplicitImport>>,
-    ) -> SharedResult<Box<dyn ExtraContextDyn>> {
+    ) -> anyhow::Result<Box<dyn ExtraContextDyn>> {
         let record_target_call_stack = self.record_target_call_stack;
         let package_implicits = implicit_import.map(|spec| {
             PackageImplicits::new(

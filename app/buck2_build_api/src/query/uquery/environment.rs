@@ -13,7 +13,6 @@ use std::sync::Arc;
 use anyhow::Context;
 use async_trait::async_trait;
 use buck2_common::pattern::resolve::ResolvedPattern;
-use buck2_common::result::SharedError;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
 use buck2_core::bzl::ImportPath;
@@ -78,10 +77,13 @@ pub enum SpecialAttr {
 #[async_trait]
 pub trait UqueryDelegate: Send + Sync {
     /// Returns the EvaluationResult for evaluation of the buildfile.
-    async fn eval_build_file(&self, packages: PackageLabel) -> SharedResult<Arc<EvaluationResult>>;
+    async fn eval_build_file(
+        &self,
+        packages: PackageLabel,
+    ) -> anyhow::Result<Arc<EvaluationResult>>;
 
     /// Get the imports from a LoadedModule corresponding to some path.
-    async fn eval_module_imports(&self, path: &ImportPath) -> SharedResult<Vec<ImportPath>>;
+    async fn eval_module_imports(&self, path: &ImportPath) -> anyhow::Result<Vec<ImportPath>>;
 
     fn get_buildfile_names_by_cell(&self) -> anyhow::Result<HashMap<CellName, &[FileNameBuf]>>;
 
@@ -523,9 +525,7 @@ async fn top_level_imports_by_build_file<'c>(
             } else {
                 (
                     file.dupe(),
-                    Err(SharedError::new(RBuildFilesError::ParentDoesNotExist(
-                        file.dupe(),
-                    ))),
+                    Err(RBuildFilesError::ParentDoesNotExist(file.dupe()).into()),
                 )
             }
         })

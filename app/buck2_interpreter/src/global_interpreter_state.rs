@@ -100,12 +100,12 @@ impl GlobalInterpreterState {
 
 #[async_trait]
 pub trait HasGlobalInterpreterState {
-    async fn get_global_interpreter_state(&self) -> SharedResult<Arc<GlobalInterpreterState>>;
+    async fn get_global_interpreter_state(&self) -> anyhow::Result<Arc<GlobalInterpreterState>>;
 }
 
 #[async_trait]
 impl HasGlobalInterpreterState for DiceComputations {
-    async fn get_global_interpreter_state(&self) -> SharedResult<Arc<GlobalInterpreterState>> {
+    async fn get_global_interpreter_state(&self) -> anyhow::Result<Arc<GlobalInterpreterState>> {
         #[derive(Clone, Dupe, Allocative)]
         struct GisValue(Arc<GlobalInterpreterState>);
 

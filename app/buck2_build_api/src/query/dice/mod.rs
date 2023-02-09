@@ -21,7 +21,6 @@ use buck2_common::package_listing::dice::HasPackageListingResolver;
 use buck2_common::package_listing::resolver::PackageListingResolver;
 use buck2_common::pattern::resolve::resolve_target_patterns;
 use buck2_common::pattern::resolve::ResolvedPattern;
-use buck2_common::result::SharedResult;
 use buck2_common::target_aliases::BuckConfigTargetAliasResolver;
 use buck2_common::target_aliases::HasTargetAliasResolver;
 use buck2_core::bzl::ImportPath;
@@ -165,11 +164,14 @@ impl<'c> DiceQueryDelegate<'c> {
 
 #[async_trait]
 impl<'c> UqueryDelegate for DiceQueryDelegate<'c> {
-    async fn eval_build_file(&self, package: PackageLabel) -> SharedResult<Arc<EvaluationResult>> {
+    async fn eval_build_file(
+        &self,
+        package: PackageLabel,
+    ) -> anyhow::Result<Arc<EvaluationResult>> {
         self.ctx.get_interpreter_results(package).await
     }
 
-    async fn eval_module_imports(&self, path: &ImportPath) -> SharedResult<Vec<ImportPath>> {
+    async fn eval_module_imports(&self, path: &ImportPath) -> anyhow::Result<Vec<ImportPath>> {
         //TODO(benfoxman): Don't need to get the whole module, just parse the imports.
         let module = self.ctx.get_loaded_module_from_import_path(path).await?;
         Ok(module.imports().cloned().collect())
@@ -288,7 +290,7 @@ fn split_compatible_incompatible(
 /// Converts target nodes to a set of compatible configured target nodes.
 pub async fn get_compatible_targets(
     ctx: &DiceComputations,
-    loaded_targets: impl Iterator<Item = (PackageLabel, SharedResult<Vec<TargetNode>>)>,
+    loaded_targets: impl Iterator<Item = (PackageLabel, anyhow::Result<Vec<TargetNode>>)>,
     global_target_platform: Option<TargetLabel>,
 ) -> anyhow::Result<TargetSet<ConfiguredTargetNode>> {
     let mut by_package_futs: Vec<_> = Vec::new();

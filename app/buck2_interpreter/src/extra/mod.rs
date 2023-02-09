@@ -15,7 +15,6 @@ use std::sync::Arc;
 use allocative::Allocative;
 use buck2_common::legacy_configs::view::LegacyBuckConfigView;
 use buck2_common::package_listing::listing::PackageListing;
-use buck2_common::result::SharedResult;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bzl::ImportPath;
 use buck2_core::package::package_relative_path::PackageRelativePath;
@@ -249,7 +248,7 @@ pub trait InterpreterConfiguror: Allocative + Sync + Send {
         package_boundary_exception: bool,
         loaded_modules: &LoadedModules,
         implicit_import: Option<&Arc<ImplicitImport>>,
-    ) -> SharedResult<Box<dyn ExtraContextDyn>>;
+    ) -> anyhow::Result<Box<dyn ExtraContextDyn>>;
 
     /// Path to prelude import (typically `prelude//:prelude.bzl`).
     ///
@@ -277,7 +276,6 @@ pub mod testing {
 
     use allocative::Allocative;
     use buck2_common::package_listing::listing::PackageListing;
-    use buck2_common::result::SharedResult;
     use buck2_core::build_file_path::BuildFilePath;
     use buck2_core::bzl::ImportPath;
     use buck2_core::package::PackageLabel;
@@ -434,7 +432,7 @@ pub mod testing {
             _package_boundary_exception: bool,
             _loaded_modules: &LoadedModules,
             _implicit_import: Option<&Arc<ImplicitImport>>,
-        ) -> SharedResult<Box<dyn ExtraContextDyn>> {
+        ) -> anyhow::Result<Box<dyn ExtraContextDyn>> {
             Ok(box TesterExtraContext {
                 package: buildfile_path.package().dupe(),
                 recorder: Arc::new(Mutex::new(HashMap::new())),

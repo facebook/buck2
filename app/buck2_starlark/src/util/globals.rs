@@ -68,7 +68,7 @@ impl<'a> CachedGlobals<'a> {
             .dice
             .get_interpreter_calculator(cell, BuildFileCell::new(cell))
             .await?;
-        Ok(calc.eval_module(StarlarkModulePath::LoadFile(path)).await?)
+        calc.eval_module(StarlarkModulePath::LoadFile(path)).await
     }
 
     async fn compute_names(

@@ -16,6 +16,7 @@ use buck2_common::dice::data::HasIoProvider;
 use buck2_common::pattern::package_roots::find_package_roots_stream;
 use buck2_common::pattern::resolve::ResolvedPattern;
 use buck2_common::result::SharedResult;
+use buck2_common::result::ToSharedResultExt;
 use buck2_core::configuration::ConfigurationData;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::PackageSpec;
@@ -288,7 +289,7 @@ async fn resolve_patterns_and_load_buildfiles<'c, T: PatternType>(
     parsed_patterns: Vec<ParsedPattern<T>>,
 ) -> anyhow::Result<(
     ResolvedPattern<T>,
-    impl Stream<Item = (PackageLabel, SharedResult<Arc<EvaluationResult>>)> + 'c,
+    impl Stream<Item = (PackageLabel, anyhow::Result<Arc<EvaluationResult>>)> + 'c,
 )> {
     let mut spec = ResolvedPattern::<T>::new();
     let load_package_futs = FuturesUnordered::new();
@@ -297,7 +298,7 @@ async fn resolve_patterns_and_load_buildfiles<'c, T: PatternType>(
     fn load_package<'a>(
         ctx: &'a DiceComputations,
         package: PackageLabel,
-    ) -> BoxFuture<'a, (PackageLabel, SharedResult<Arc<EvaluationResult>>)> {
+    ) -> BoxFuture<'a, (PackageLabel, anyhow::Result<Arc<EvaluationResult>>)> {
         // it's important that this is not async and the temporary spawn happens when the function is called as we don't immediately start polling these.
         ctx.temporary_spawn(async move |ctx| {
             let res = ctx.get_interpreter_results(package.dupe()).await;
@@ -363,12 +364,12 @@ impl<T> LoadedPatterns<T> {
 
     pub fn iter_loaded_targets_by_package(
         &self,
-    ) -> impl Iterator<Item = (PackageLabel, SharedResult<Vec<TargetNode>>)> + '_ {
+    ) -> impl Iterator<Item = (PackageLabel, anyhow::Result<Vec<TargetNode>>)> + '_ {
         self.results.iter().map(|(package, result)| {
             let targets = result
                 .as_ref()
                 .map(|label_to_node| label_to_node.values().map(|t| t.dupe()).collect::<Vec<_>>())
-                .map_err(|e| e.dupe());
+                .map_err(|e| anyhow::Error::new(e.dupe()));
             (package.dupe(), targets)
         })
     }
@@ -379,7 +380,7 @@ fn apply_spec<T: PatternType>(
     spec: ResolvedPattern<T>,
     load_results: BTreeMap<PackageLabel, SharedResult<Arc<EvaluationResult>>>,
 ) -> anyhow::Result<LoadedPatterns<T>> {
-    let mut all_targets = BTreeMap::new();
+    let mut all_targets: BTreeMap<_, SharedResult<_>> = BTreeMap::new();
     for (pkg, pkg_spec) in spec.specs.into_iter() {
         let result = match load_results.get(&pkg) {
             Some(r) => r,
@@ -435,7 +436,7 @@ pub async fn load_patterns<T: PatternType>(
 
     let mut results: BTreeMap<PackageLabel, SharedResult<Arc<EvaluationResult>>> = BTreeMap::new();
     while let Some((pkg, load_res)) = load_package_futs.next().await {
-        results.insert(pkg, load_res);
+        results.insert(pkg, load_res.shared_error());
     }
 
     apply_spec(spec, results)

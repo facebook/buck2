@@ -20,6 +20,7 @@ use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::dice::LegacyBuckConfigOnDice;
 use buck2_common::package_boundary::HasPackageBoundaryExceptions;
 use buck2_common::result::SharedResult;
+use buck2_common::result::ToUnsharedResultExt;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::name::CellName;
@@ -129,7 +130,7 @@ impl<'c> DiceCalculationDelegate<'c> {
     pub async fn eval_module(
         &self,
         starlark_path: StarlarkModulePath<'_>,
-    ) -> SharedResult<LoadedModule> {
+    ) -> anyhow::Result<LoadedModule> {
         #[async_trait]
         impl Key for EvalImportKey {
             type Value = SharedResult<LoadedModule>;
@@ -164,6 +165,7 @@ impl<'c> DiceCalculationDelegate<'c> {
         self.ctx
             .compute(&EvalImportKey(OwnedStarlarkModulePath::new(starlark_path)))
             .await?
+            .unshared_error()
     }
 
     async fn get_legacy_buck_config_for_starlark(

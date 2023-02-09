@@ -13,6 +13,8 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use buck2_common::result::SharedResult;
+use buck2_common::result::ToSharedResultExt;
+use buck2_common::result::ToUnsharedResultExt;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::package::PackageLabel;
@@ -35,22 +37,23 @@ pub trait InterpreterCalculation<'c> {
     async fn get_interpreter_results_uncached(
         &self,
         package: PackageLabel,
-    ) -> SharedResult<Arc<EvaluationResult>>;
+    ) -> anyhow::Result<Arc<EvaluationResult>>;
 
     /// Returns the full interpreter evaluation result for a Package. This consists of the full set
     /// of `TargetNode`s of interpreting that build file.
     async fn get_interpreter_results(
         &self,
         package: PackageLabel,
-    ) -> SharedResult<Arc<EvaluationResult>>;
+    ) -> anyhow::Result<Arc<EvaluationResult>>;
 
     /// Returns the LoadedModule for a given starlark file. This is cached on the dice graph.
-    async fn get_loaded_module(&self, path: StarlarkModulePath<'_>) -> SharedResult<LoadedModule>;
+    async fn get_loaded_module(&self, path: StarlarkModulePath<'_>)
+    -> anyhow::Result<LoadedModule>;
 
     async fn get_loaded_module_from_import_path(
         &self,
         path: &ImportPath,
-    ) -> SharedResult<LoadedModule>;
+    ) -> anyhow::Result<LoadedModule>;
 }
 
 #[async_trait]
@@ -59,7 +62,7 @@ impl<'c> InterpreterCalculation<'c> for DiceComputations {
     async fn get_interpreter_results_uncached(
         &self,
         package: PackageLabel,
-    ) -> SharedResult<Arc<EvaluationResult>> {
+    ) -> anyhow::Result<Arc<EvaluationResult>> {
         let starlark_profiler_instrumentation =
             self.get_starlark_profiler_instrumentation().await?;
         let interpreter = self
@@ -83,12 +86,14 @@ impl<'c> InterpreterCalculation<'c> for DiceComputations {
     async fn get_interpreter_results(
         &self,
         package: PackageLabel,
-    ) -> SharedResult<Arc<EvaluationResult>> {
+    ) -> anyhow::Result<Arc<EvaluationResult>> {
         #[async_trait]
         impl Key for InterpreterResultsKey {
             type Value = SharedResult<Arc<EvaluationResult>>;
             async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
-                ctx.get_interpreter_results_uncached(self.0.dupe()).await
+                ctx.get_interpreter_results_uncached(self.0.dupe())
+                    .await
+                    .shared_error()
             }
 
             fn equality(_: &Self::Value, _: &Self::Value) -> bool {
@@ -101,10 +106,15 @@ impl<'c> InterpreterCalculation<'c> for DiceComputations {
             }
         }
 
-        self.compute(&InterpreterResultsKey(package.dupe())).await?
+        self.compute(&InterpreterResultsKey(package.dupe()))
+            .await?
+            .unshared_error()
     }
 
-    async fn get_loaded_module(&self, path: StarlarkModulePath<'_>) -> SharedResult<LoadedModule> {
+    async fn get_loaded_module(
+        &self,
+        path: StarlarkModulePath<'_>,
+    ) -> anyhow::Result<LoadedModule> {
         // this is already cached on the delegate.
         self.get_interpreter_calculator(path.cell(), path.build_file_cell())
             .await?
@@ -115,7 +125,7 @@ impl<'c> InterpreterCalculation<'c> for DiceComputations {
     async fn get_loaded_module_from_import_path(
         &self,
         path: &ImportPath,
-    ) -> SharedResult<LoadedModule> {
+    ) -> anyhow::Result<LoadedModule> {
         let module_path = StarlarkModulePath::LoadFile(path);
         self.get_loaded_module(module_path).await
     }

@@ -191,7 +191,7 @@ pub trait TargetHashingTargetNode: QueryTarget {
     // Target Nodes based on type of hashing specified.
     async fn get_target_nodes(
         dice: &DiceComputations,
-        loaded_targets: Vec<(PackageLabel, SharedResult<Vec<TargetNode>>)>,
+        loaded_targets: Vec<(PackageLabel, anyhow::Result<Vec<TargetNode>>)>,
         global_target_platform: Option<TargetLabel>,
     ) -> anyhow::Result<TargetSet<Self>>;
 }
@@ -204,7 +204,7 @@ impl TargetHashingTargetNode for ConfiguredTargetNode {
 
     async fn get_target_nodes(
         dice: &DiceComputations,
-        loaded_targets: Vec<(PackageLabel, SharedResult<Vec<TargetNode>>)>,
+        loaded_targets: Vec<(PackageLabel, anyhow::Result<Vec<TargetNode>>)>,
         global_target_platform: Option<TargetLabel>,
     ) -> anyhow::Result<TargetSet<Self>> {
         get_compatible_targets(dice, loaded_targets.into_iter(), global_target_platform).await
@@ -219,7 +219,7 @@ impl TargetHashingTargetNode for TargetNode {
 
     async fn get_target_nodes(
         _dice: &DiceComputations,
-        loaded_targets: Vec<(PackageLabel, SharedResult<Vec<TargetNode>>)>,
+        loaded_targets: Vec<(PackageLabel, anyhow::Result<Vec<TargetNode>>)>,
         _global_target_platform: Option<TargetLabel>,
     ) -> anyhow::Result<TargetSet<Self>> {
         let mut target_set = TargetSet::new();
@@ -428,7 +428,7 @@ impl TargetHashes {
     pub async fn compute<T: TargetHashingTargetNode, L: AsyncNodeLookup<T>>(
         dice: DiceTransaction,
         lookup: L,
-        targets: Vec<(PackageLabel, SharedResult<Vec<TargetNode>>)>,
+        targets: Vec<(PackageLabel, anyhow::Result<Vec<TargetNode>>)>,
         global_target_platform: Option<TargetLabel>,
         file_hash_mode: TargetHashesFileMode,
         use_fast_hash: bool,
