@@ -88,7 +88,11 @@ pub struct Upload<'a> {
 }
 
 impl<'a> Upload<'a> {
-    pub fn new(bucket: Bucket, filepath: &'a AbsPath, filename: &'a str) -> anyhow::Result<Self> {
+    pub fn new(
+        bucket: Bucket,
+        filepath: &'a AbsPath,
+        filename: &'a str,
+    ) -> Result<Self, UploadError> {
         let upload = upload_command(bucket, filename)?.ok_or(UploadError::CommandNotFound)?;
         Ok(Upload { upload, filepath })
     }
