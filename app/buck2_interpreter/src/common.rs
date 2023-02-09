@@ -14,7 +14,6 @@ use std::hash::Hasher;
 use allocative::Allocative;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bzl::ImportPath;
-use buck2_core::bzl::ModuleID;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::name::CellName;
@@ -37,12 +36,10 @@ use thiserror::Error;
     PartialOrd,
     Allocative
 )]
-#[display(fmt = "{}", id)]
+#[display(fmt = "{}", path)]
 pub struct BxlFilePath {
     /// The path of this bxl file, including the `bxl` extension
     path: CellPath,
-    /// A ModuleID for the import.
-    id: ModuleID,
 }
 
 #[derive(Debug, Error)]
@@ -61,8 +58,7 @@ impl BxlFilePath {
     }
 
     pub fn unverified_new(path: CellPath) -> Self {
-        let id = ModuleID(format!("{}", path));
-        Self { path, id }
+        BxlFilePath { path }
     }
 
     pub fn unchecked_new(cell: &str, cell_relative_path: &str) -> Self {
