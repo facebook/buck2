@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use buck2_interpreter::common::StarlarkPath;
 use buck2_interpreter::extra::BuildContext;
 use buck2_interpreter::functions::host_info::register_host_info;
 use buck2_interpreter::functions::read_config::register_read_config;
@@ -32,6 +33,8 @@ use crate::interpreter::rule_defs::transitive_set::TransitiveSetProjectionSpec;
 enum NativesError {
     #[error("non-unique field names: [{}]", .0.iter().map(|s| format!("`{}`", s)).join(", "))]
     NonUniqueFields(Vec<String>),
+    #[error("`transitive_set()` can only be used in `bzl` files")]
+    TransitiveSetOnlyInBzl,
 }
 
 #[starlark_module]
@@ -127,7 +130,10 @@ pub(crate) fn register_transitive_set(builder: &mut GlobalsBuilder) {
         }
 
         Ok(TransitiveSetDefinition::new(
-            build_context.starlark_path.id().clone(),
+            match build_context.starlark_path {
+                StarlarkPath::LoadFile(import_path) => import_path.clone(),
+                _ => return Err(NativesError::TransitiveSetOnlyInBzl.into()),
+            },
             TransitiveSetOperations {
                 projections,
                 reductions: reductions.unwrap_or_default(),

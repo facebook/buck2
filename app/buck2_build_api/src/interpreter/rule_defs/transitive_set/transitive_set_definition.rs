@@ -15,7 +15,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use anyhow::Context;
-use buck2_core::bzl::ModuleID;
+use buck2_core::bzl::ImportPath;
 use derive_more::Display;
 use dupe::Dupe;
 use gazebo::coerce::coerce;
@@ -73,7 +73,7 @@ pub struct TransitiveSetProjectionSpec<V> {
 #[derive(Debug, Clone, Display, Allocative, Hash)]
 #[display(fmt = "{}", "name")]
 struct TransitiveSetId {
-    module_id: ModuleID,
+    module_id: ImportPath,
     name: String,
 }
 
@@ -84,7 +84,7 @@ pub struct TransitiveSetDefinition<'v> {
     id: RefCell<Option<Arc<TransitiveSetId>>>,
 
     /// The module id where this `TransitiveSetDefinition` is created and assigned
-    module_id: ModuleID,
+    module_id: ImportPath,
 
     operations: TransitiveSetOperationsGen<Value<'v>>,
 }
@@ -175,7 +175,7 @@ impl<'v> Serialize for TransitiveSetDefinition<'v> {
 }
 
 impl<'v> TransitiveSetDefinition<'v> {
-    pub fn new(module_id: ModuleID, operations: TransitiveSetOperations<'v>) -> Self {
+    pub fn new(module_id: ImportPath, operations: TransitiveSetOperations<'v>) -> Self {
         Self {
             id: RefCell::new(None),
             module_id,
