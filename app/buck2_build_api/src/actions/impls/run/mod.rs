@@ -315,6 +315,7 @@ impl IncrementalActionExecutable for RunAction {
                             &dep_files_key,
                             &cli_digest,
                             &declared_inputs,
+                            self.outputs.as_slice(),
                             &declared_dep_files,
                             ctx,
                         )

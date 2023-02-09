@@ -49,6 +49,7 @@ use crate::actions::artifact::OutputArtifact;
 use crate::actions::execute::action_executor::ActionOutputs;
 use crate::actions::impls::run::expanded_command_line::ExpandedCommandLineDigest;
 use crate::actions::ActionExecutionCtx;
+use crate::actions::BuildArtifact;
 use crate::artifact_groups::ArtifactGroup;
 use crate::interpreter::rule_defs::artifact_tagging::ArtifactTag;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
@@ -252,6 +253,7 @@ pub async fn match_or_clear_dep_file(
     key: &DepFilesKey,
     cli_digest: &ExpandedCommandLineDigest,
     declared_inputs: &PartitionedInputs<Vec<ArtifactGroup>>,
+    declared_outputs: &[BuildArtifact],
     declared_dep_files: &DeclaredDepFiles,
     ctx: &dyn ActionExecutionCtx,
 ) -> anyhow::Result<Option<ActionOutputs>> {
@@ -263,6 +265,7 @@ pub async fn match_or_clear_dep_file(
     // We first need to check if the same dep files existed before or not. If not, then we
     // can't assume they'll still be on disk, and we have to bail.
     if declared_dep_files.declares_same_dep_files(&previous_state.declared_dep_files)
+        && outputs_are_reusable(declared_outputs, &previous_state.result)
         && *cli_digest == previous_state.cli_digest
     {
         // First, we need to ensure we have the dep files. If we've materialized them before, this
@@ -336,6 +339,19 @@ pub async fn match_or_clear_dep_file(
     DEP_FILES.remove(key);
 
     Ok(None)
+}
+
+/// If an action is unchanged but now requires a different set of outputs, that's not a cache hit
+/// because we need to rehash the outputs. Having to re-run the action isn't the best, but it's
+/// probably infrequent enough that we seem unlikely to care.
+fn outputs_are_reusable(declared_outputs: &[BuildArtifact], outputs: &ActionOutputs) -> bool {
+    for out in declared_outputs {
+        if outputs.get(out.get_path()).is_none() {
+            return false;
+        }
+    }
+
+    true
 }
 
 /// Post-process the dep files produced by an action.
