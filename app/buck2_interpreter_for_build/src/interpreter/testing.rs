@@ -35,9 +35,6 @@ use buck2_interpreter::import_paths::ImplicitImportPaths;
 use buck2_interpreter::interpreter::InterpreterForCell;
 use buck2_interpreter::interpreter::ParseResult;
 use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
-use buck2_interpreter_for_build::interpreter::configuror::AdditionalGlobalsFn;
-use buck2_interpreter_for_build::interpreter::configuror::BuildInterpreterConfiguror;
-use buck2_interpreter_for_build::interpreter::module_internals::ModuleInternals;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::targets_map::TargetsMap;
 use buck2_query::query::syntax::simple::functions::testing::QueryFunctionsPanic;
@@ -45,10 +42,15 @@ use dupe::Dupe;
 use indoc::indoc;
 use maplit::hashmap;
 use starlark::environment::GlobalsBuilder;
+use starlark::starlark_module;
 use starlark::values::Value;
 
+use crate::interpreter::configuror::AdditionalGlobalsFn;
+use crate::interpreter::configuror::BuildInterpreterConfiguror;
+use crate::interpreter::module_internals::ModuleInternals;
+
 /// Simple container that allows us to instrument things like imports
-pub(crate) struct Tester {
+pub struct Tester {
     cell_alias_resolver: CellAliasResolver,
     cell_resolver: CellResolver,
     configs: LegacyBuckConfigs,
@@ -59,7 +61,7 @@ pub(crate) struct Tester {
 
 /// These functions will be available in the starlark environment for all code running through a Tester.
 #[starlark_module]
-pub(crate) fn common_helpers(builder: &mut GlobalsBuilder) {
+pub fn common_helpers(builder: &mut GlobalsBuilder) {
     /// Returns the string that pprint() will produce
     fn pprint_str<'v>(value: Value<'v>) -> anyhow::Result<String> {
         Ok(format!("{:#}", value))
@@ -67,11 +69,11 @@ pub(crate) fn common_helpers(builder: &mut GlobalsBuilder) {
 }
 
 /// Helpers required to help drive the interpreter
-pub(crate) type CellsData = (CellAliasResolver, CellResolver, LegacyBuckConfigs);
+pub type CellsData = (CellAliasResolver, CellResolver, LegacyBuckConfigs);
 
 /// The same as `run_starlark_test`, but just make sure the parse succeds;
 /// ignore the targets
-pub(crate) fn run_simple_starlark_test(content: &str) -> anyhow::Result<()> {
+pub fn run_simple_starlark_test(content: &str) -> anyhow::Result<()> {
     let mut tester = Tester::new()?;
     match tester.run_starlark_test(content) {
         Ok(_) => Ok(()),
@@ -79,7 +81,7 @@ pub(crate) fn run_simple_starlark_test(content: &str) -> anyhow::Result<()> {
     }
 }
 
-pub(crate) fn cells(extra_root_config: Option<&str>) -> anyhow::Result<CellsData> {
+pub fn cells(extra_root_config: Option<&str>) -> anyhow::Result<CellsData> {
     let mut agg = CellsAggregator::new();
     agg.add_cell_entry(
         CellRootPathBuf::new(ProjectRelativePathBuf::try_from("".to_owned())?),
@@ -130,7 +132,7 @@ pub(crate) fn cells(extra_root_config: Option<&str>) -> anyhow::Result<CellsData
     ))
 }
 
-pub(crate) fn expect_error<T>(result: SharedResult<T>, content: &str, expected: &str) {
+pub fn expect_error<T>(result: SharedResult<T>, content: &str, expected: &str) {
     match result {
         Ok(_) => {
             eprintln!(
@@ -153,11 +155,11 @@ pub(crate) fn expect_error<T>(result: SharedResult<T>, content: &str, expected: 
 }
 
 impl Tester {
-    pub(crate) fn new() -> anyhow::Result<Self> {
+    pub fn new() -> anyhow::Result<Self> {
         Self::with_cells(cells(None)?)
     }
 
-    pub(crate) fn with_cells(cells_data: CellsData) -> anyhow::Result<Self> {
+    pub fn with_cells(cells_data: CellsData) -> anyhow::Result<Self> {
         let (cell_alias_resolver, cell_resolver, configs) = cells_data;
         Ok(Self {
             cell_alias_resolver,
@@ -169,14 +171,14 @@ impl Tester {
         })
     }
 
-    pub(crate) fn set_additional_globals(
+    pub fn set_additional_globals(
         &mut self,
         additional_globals: impl Fn(&mut GlobalsBuilder) + Sync + Send + 'static,
     ) {
         self.additional_globals = Some(AdditionalGlobalsFn(Arc::new(additional_globals)));
     }
 
-    pub(crate) fn set_prelude(&mut self, prelude_import: ImportPath) {
+    pub fn set_prelude(&mut self, prelude_import: ImportPath) {
         self.prelude_path = Some(prelude_import);
     }
 
@@ -218,7 +220,7 @@ impl Tester {
 
     /// Evaluate an import, and add it to the existing loaded_modules() map to be
     /// used with `eval_build_file`
-    pub(crate) fn add_import(&mut self, path: &ImportPath, content: &str) -> anyhow::Result<()> {
+    pub fn add_import(&mut self, path: &ImportPath, content: &str) -> anyhow::Result<()> {
         let loaded = self.eval_import(path, content, self.loaded_modules.clone())?;
         self.loaded_modules.map.insert(path.id().to_owned(), loaded);
         Ok(())
@@ -227,7 +229,7 @@ impl Tester {
     /// Evaluate an import without adding it to the accumulated `Tester`
     /// state, and with a specified set of modules loaded into the
     /// environment
-    pub(crate) fn eval_import(
+    pub fn eval_import(
         &self,
         path: &ImportPath,
         content: &str,
@@ -258,7 +260,7 @@ impl Tester {
 
     /// Evaluate a build file, adding anything from `add_import` to the
     /// environment
-    pub(crate) fn eval_build_file(
+    pub fn eval_build_file(
         &self,
         path: &BuildFilePath,
         content: &str,
@@ -274,7 +276,7 @@ impl Tester {
 
     /// Evaluate a build file, but only add a specific set of loaded modules to
     /// the environment
-    pub(crate) fn eval_build_file_with_loaded_modules(
+    pub fn eval_build_file_with_loaded_modules(
         &self,
         path: &BuildFilePath,
         content: &str,
@@ -302,13 +304,13 @@ impl Tester {
         Ok(eval_result)
     }
 
-    pub(crate) fn build_file_path() -> BuildFilePath {
+    pub fn build_file_path() -> BuildFilePath {
         buildfile("root", "some/package")
     }
 
     /// Run a starlark test with a basic environment. See
     /// `run_starlark_test()` above.
-    pub(crate) fn run_starlark_test(&mut self, content: &str) -> SharedResult<TargetsMap> {
+    pub fn run_starlark_test(&mut self, content: &str) -> SharedResult<TargetsMap> {
         let import_path = import("root", "some/package", "defs.bzl");
         self.add_import(
             &import_path,
@@ -338,7 +340,7 @@ impl Tester {
         Ok(res.targets().clone())
     }
 
-    pub(crate) fn run_starlark_test_expecting_error(&mut self, content: &str, expected: &str) {
+    pub fn run_starlark_test_expecting_error(&mut self, content: &str, expected: &str) {
         expect_error(self.run_starlark_test(content), content, expected);
     }
 
@@ -346,7 +348,7 @@ impl Tester {
     /// evaluation was successful. This can be handy if the .bzl
     /// evaluation environment is different from the build file
     /// environment.
-    pub(crate) fn run_starlark_bzl_test(&mut self, content: &str) -> SharedResult<()> {
+    pub fn run_starlark_bzl_test(&mut self, content: &str) -> SharedResult<()> {
         let import_path = import("root", "some/package", "defs.bzl");
         let template = indoc!(
             r#"
@@ -396,15 +398,15 @@ impl Tester {
             .map_err(|e| e.into())
     }
 
-    pub(crate) fn run_starlark_bzl_test_expecting_error(&mut self, content: &str, expected: &str) {
+    pub fn run_starlark_bzl_test_expecting_error(&mut self, content: &str, expected: &str) {
         expect_error(self.run_starlark_bzl_test(content), content, expected);
     }
 }
 
-pub(crate) fn import(cell: &str, package: &str, filename: &str) -> ImportPath {
+pub fn import(cell: &str, package: &str, filename: &str) -> ImportPath {
     ImportPath::unchecked_new(cell, package, filename)
 }
 
-pub(crate) fn buildfile(cell: &str, package: &str) -> BuildFilePath {
+pub fn buildfile(cell: &str, package: &str) -> BuildFilePath {
     BuildFilePath::unchecked_new(cell, package, "BUCK")
 }

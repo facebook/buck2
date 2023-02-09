@@ -72,6 +72,7 @@ pub mod testing {
     use buck2_execute::path::buck_out_path::BuckOutPathResolver;
     use buck2_execute::path::buck_out_path::BuckPathResolver;
     use buck2_interpreter::extra::BuildContext;
+    use buck2_interpreter_for_build::interpreter::testing::cells;
     use buck2_node::configuration::execution::ExecutionPlatformResolution;
     use dupe::Dupe;
     use indexmap::indexset;
@@ -95,7 +96,6 @@ pub mod testing {
     use crate::interpreter::rule_defs::artifact::StarlarkDeclaredArtifact;
     use crate::interpreter::rule_defs::artifact::ValueAsArtifactLike;
     use crate::interpreter::rule_defs::cmd_args::DefaultCommandLineContext;
-    use crate::interpreter::testing::cells;
 
     fn get_label(eval: &Evaluator, target: &str) -> anyhow::Result<ConfiguredTargetLabel> {
         let ctx = BuildContext::from_context(eval)?;
@@ -289,11 +289,11 @@ pub mod testing {
 #[cfg(test)]
 mod tests {
     use buck2_common::result::SharedResult;
+    use buck2_interpreter_for_build::interpreter::testing::expect_error;
+    use buck2_interpreter_for_build::interpreter::testing::Tester;
     use indoc::indoc;
 
     use crate::interpreter::rule_defs::artifact::testing::artifactory;
-    use crate::interpreter::testing::expect_error;
-    use crate::interpreter::testing::Tester;
 
     #[test]
     fn source_artifact() -> SharedResult<()> {

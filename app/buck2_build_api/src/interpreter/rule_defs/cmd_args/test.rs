@@ -8,6 +8,9 @@
  */
 
 use buck2_common::result::SharedResult;
+use buck2_interpreter_for_build::interpreter::testing::expect_error;
+use buck2_interpreter_for_build::interpreter::testing::import;
+use buck2_interpreter_for_build::interpreter::testing::Tester;
 use indoc::indoc;
 use starlark::environment::GlobalsBuilder;
 use starlark::values::Value;
@@ -19,9 +22,6 @@ use crate::interpreter::rule_defs::cmd_args::StarlarkCommandLineInputs;
 use crate::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
 use crate::interpreter::rule_defs::label::testing::label_creator;
 use crate::interpreter::rule_defs::register_rule_defs;
-use crate::interpreter::testing::expect_error;
-use crate::interpreter::testing::import;
-use crate::interpreter::testing::Tester;
 
 #[starlark_module]
 pub fn inputs_helper(builder: &mut GlobalsBuilder) {

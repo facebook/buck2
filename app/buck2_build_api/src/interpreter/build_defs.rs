@@ -155,6 +155,11 @@ mod tests {
     use buck2_interpreter::functions::host_info::register_host_info;
     use buck2_interpreter::functions::read_config::register_read_config;
     use buck2_interpreter_for_build::interpreter::natives::register_module_natives;
+    use buck2_interpreter_for_build::interpreter::testing::buildfile;
+    use buck2_interpreter_for_build::interpreter::testing::cells;
+    use buck2_interpreter_for_build::interpreter::testing::import;
+    use buck2_interpreter_for_build::interpreter::testing::run_simple_starlark_test;
+    use buck2_interpreter_for_build::interpreter::testing::Tester;
     use buck2_node::attrs::inspect_options::AttrInspectOptions;
     use buck2_node::nodes::unconfigured::testing::targets_to_json;
     use indoc::indoc;
@@ -162,11 +167,6 @@ mod tests {
 
     use crate::interpreter::build_defs::register_provider;
     use crate::interpreter::rule_defs::register_rule_defs;
-    use crate::interpreter::testing::buildfile;
-    use crate::interpreter::testing::cells;
-    use crate::interpreter::testing::import;
-    use crate::interpreter::testing::run_simple_starlark_test;
-    use crate::interpreter::testing::Tester;
 
     #[test]
     fn prelude_is_included() -> anyhow::Result<()> {

@@ -7,6 +7,9 @@
  * of this source tree.
  */
 
+use buck2_interpreter_for_build::interpreter::testing::expect_error;
+use buck2_interpreter_for_build::interpreter::testing::import;
+use buck2_interpreter_for_build::interpreter::testing::Tester;
 use indoc::indoc;
 
 use crate::interpreter::build_defs::register_transitive_set;
@@ -14,9 +17,6 @@ use crate::interpreter::rule_defs::artifact::testing::artifactory;
 use crate::interpreter::rule_defs::cmd_args::tester::command_line_stringifier;
 use crate::interpreter::rule_defs::register_rule_defs;
 use crate::interpreter::rule_defs::transitive_set::testing::tset_factory;
-use crate::interpreter::testing::expect_error;
-use crate::interpreter::testing::import;
-use crate::interpreter::testing::Tester;
 
 fn transitive_set_tester() -> Tester {
     let mut tester = Tester::new().unwrap();

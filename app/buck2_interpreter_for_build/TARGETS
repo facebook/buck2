@@ -16,6 +16,7 @@ rust_library(
         "fbsource//third-party/rust:bumpalo",
         "fbsource//third-party/rust:derive_more",
         "fbsource//third-party/rust:hashbrown",
+        "fbsource//third-party/rust:indoc",
         "fbsource//third-party/rust:itertools",
         "fbsource//third-party/rust:maplit",
         "fbsource//third-party/rust:once_cell",

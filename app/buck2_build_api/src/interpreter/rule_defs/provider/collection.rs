@@ -527,15 +527,15 @@ pub(crate) mod tester {
 #[cfg(test)]
 mod tests {
     use buck2_common::result::SharedResult;
+    use buck2_interpreter_for_build::interpreter::testing::expect_error;
+    use buck2_interpreter_for_build::interpreter::testing::import;
+    use buck2_interpreter_for_build::interpreter::testing::Tester;
     use indoc::indoc;
 
     use crate::interpreter::build_defs::register_provider;
     use crate::interpreter::rule_defs::artifact::testing::artifactory;
     use crate::interpreter::rule_defs::provider::collection::tester::collection_creator;
     use crate::interpreter::rule_defs::register_rule_defs;
-    use crate::interpreter::testing::expect_error;
-    use crate::interpreter::testing::import;
-    use crate::interpreter::testing::Tester;
 
     fn provider_collection_tester() -> SharedResult<Tester> {
         let mut tester = Tester::new()?;

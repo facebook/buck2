@@ -47,6 +47,7 @@ mod tests {
     use buck2_core::package::PackageLabel;
     use buck2_interpreter_for_build::attrs::coerce::attr_type::AttrTypeExt;
     use buck2_interpreter_for_build::attrs::coerce::ctx::BuildAttrCoercionContext;
+    use buck2_interpreter_for_build::interpreter::testing::cells;
     use buck2_node::attrs::attr_type::AttrType;
     use buck2_node::attrs::configurable::AttrIsConfigurable;
     use buck2_node::rule_type::StarlarkRuleType;
@@ -54,7 +55,6 @@ mod tests {
     use starlark::values::Heap;
 
     use super::*;
-    use crate::interpreter::testing::cells;
     use crate::query::analysis::environment::ConfiguredGraphQueryEnvironment;
 
     #[test]

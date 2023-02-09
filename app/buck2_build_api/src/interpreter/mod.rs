@@ -12,17 +12,14 @@ pub mod context;
 pub mod rule_defs;
 
 #[cfg(test)]
-pub(crate) mod testing;
-
-#[cfg(test)]
 mod tests {
     use buck2_common::result::SharedResult;
+    use buck2_interpreter_for_build::interpreter::testing::import;
+    use buck2_interpreter_for_build::interpreter::testing::Tester;
     use indoc::indoc;
     use starlark::environment::GlobalsBuilder;
 
     use crate::interpreter::rule_defs::register_rule_defs;
-    use crate::interpreter::testing::import;
-    use crate::interpreter::testing::Tester;
 
     #[test]
     fn cannot_register_target_twice() {

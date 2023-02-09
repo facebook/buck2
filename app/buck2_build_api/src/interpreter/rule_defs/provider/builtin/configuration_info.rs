@@ -164,10 +164,10 @@ fn configuration_info_creator(globals: &mut GlobalsBuilder) {
 #[cfg(test)]
 mod tests {
     use buck2_common::result::SharedResult;
+    use buck2_interpreter_for_build::interpreter::testing::Tester;
     use indoc::indoc;
 
     use crate::interpreter::rule_defs::register_rule_defs;
-    use crate::interpreter::testing::Tester;
 
     #[test]
     fn configuration_info_validates_buckconfigs() -> SharedResult<()> {

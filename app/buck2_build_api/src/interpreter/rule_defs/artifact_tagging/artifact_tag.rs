@@ -129,11 +129,11 @@ fn input_tag_methods(_: &mut MethodsBuilder) {
 
 #[cfg(test)]
 mod test {
+    use buck2_interpreter_for_build::interpreter::testing::Tester;
     use indoc::indoc;
     use starlark::environment::GlobalsBuilder;
 
     use super::*;
-    use crate::interpreter::testing::Tester;
 
     #[starlark_module]
     pub fn artifact_tag_factory(builder: &mut GlobalsBuilder) {

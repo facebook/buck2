@@ -154,6 +154,8 @@ pub mod testing {
 mod tests {
     use allocative::Allocative;
     use buck2_build_api_derive::internal_provider;
+    use buck2_interpreter_for_build::interpreter::testing::import;
+    use buck2_interpreter_for_build::interpreter::testing::Tester;
     use gazebo::coerce::Coerce;
     use indoc::indoc;
     use starlark::any::ProvidesStaticType;
@@ -163,8 +165,6 @@ mod tests {
     use starlark::values::Value;
 
     use crate::interpreter::rule_defs::register_rule_defs;
-    use crate::interpreter::testing::import;
-    use crate::interpreter::testing::Tester;
 
     #[internal_provider(simple_info_creator)]
     #[derive(Clone, Debug, Trace, Coerce, Freeze, ProvidesStaticType, Allocative)]

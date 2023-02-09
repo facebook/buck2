@@ -458,6 +458,7 @@ mod tests {
     use buck2_interpreter::file_loader::LoadedModules;
     use buck2_interpreter_for_build::interpreter::calculation::testing::InterpreterResultsKey;
     use buck2_interpreter_for_build::interpreter::configuror::BuildInterpreterConfiguror;
+    use buck2_interpreter_for_build::interpreter::testing::Tester;
     use dice::testing::DiceBuilder;
     use dice::UserComputationData;
     use dupe::Dupe;
@@ -473,7 +474,6 @@ mod tests {
     use crate::interpreter::context::configure_extension_file_globals;
     use crate::interpreter::rule_defs::provider::builtin::default_info::DefaultInfoCallable;
     use crate::interpreter::rule_defs::register_rule_defs;
-    use crate::interpreter::testing::Tester;
     use crate::query::analysis::environment::ConfiguredGraphQueryEnvironment;
     use crate::spawner::BuckSpawner;
 

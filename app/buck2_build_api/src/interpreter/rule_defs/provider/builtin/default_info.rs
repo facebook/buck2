@@ -469,13 +469,13 @@ fn default_info_creator(builder: &mut GlobalsBuilder) {
 #[cfg(test)]
 mod tests {
     use buck2_common::result::SharedResult;
+    use buck2_interpreter_for_build::interpreter::testing::import;
+    use buck2_interpreter_for_build::interpreter::testing::Tester;
     use indoc::indoc;
 
     use crate::interpreter::build_defs::register_provider;
     use crate::interpreter::rule_defs::artifact::testing::artifactory;
     use crate::interpreter::rule_defs::register_rule_defs;
-    use crate::interpreter::testing::import;
-    use crate::interpreter::testing::Tester;
 
     #[test]
     fn default_info_is_available() -> SharedResult<()> {

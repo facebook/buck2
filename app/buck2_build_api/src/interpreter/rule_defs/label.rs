@@ -42,11 +42,11 @@ pub mod testing {
 
 #[cfg(test)]
 mod tests {
+    use buck2_interpreter_for_build::interpreter::testing::expect_error;
+    use buck2_interpreter_for_build::interpreter::testing::Tester;
     use indoc::indoc;
 
     use super::testing::label_creator;
-    use crate::interpreter::testing::expect_error;
-    use crate::interpreter::testing::Tester;
 
     #[test]
     fn labels_are_usable() -> anyhow::Result<()> {

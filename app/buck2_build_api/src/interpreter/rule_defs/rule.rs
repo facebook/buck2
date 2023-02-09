@@ -318,6 +318,8 @@ pub fn register_rule_function(builder: &mut GlobalsBuilder) {
 mod tests {
     use buck2_common::result::SharedResult;
     use buck2_interpreter::file_loader::LoadedModules;
+    use buck2_interpreter_for_build::interpreter::testing::import;
+    use buck2_interpreter_for_build::interpreter::testing::Tester;
     use buck2_interpreter_for_build::nodes::attr_spec::AttributeSpecExt;
     use buck2_node::attrs::inspect_options::AttrInspectOptions;
     use buck2_node::attrs::spec::AttributeSpec;
@@ -331,8 +333,6 @@ mod tests {
 
     use crate::interpreter::build_defs::register_transitive_set;
     use crate::interpreter::rule_defs::register_rule_defs;
-    use crate::interpreter::testing::import;
-    use crate::interpreter::testing::Tester;
 
     fn rule_tester() -> Tester {
         let mut tester = Tester::new().unwrap();
