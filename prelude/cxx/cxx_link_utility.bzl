@@ -180,13 +180,15 @@ def executable_shared_lib_arguments(
     for shlib in shared_libs.values():
         runtime_files.extend(shlib.external_debug_info)
 
-    if len(shared_libs) > 0:
+    linker_type = cxx_toolchain.linker_info.type
+
+    # Windows doesn't support rpath.
+    if len(shared_libs) > 0 and linker_type != "windows":
         shared_libs_symlink_tree = actions.symlinked_dir(
             shared_libs_symlink_tree_name(output),
             {name: shlib.output for name, shlib in shared_libs.items()},
         )
         runtime_files.append(shared_libs_symlink_tree)
-        linker_type = cxx_toolchain.linker_info.type
         if linker_type == "gnu":
             rpath_reference = "$ORIGIN"
         elif linker_type == "darwin":
