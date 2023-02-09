@@ -84,10 +84,6 @@ impl BxlFilePath {
     pub fn build_file_cell(&self) -> BuildFileCell {
         BuildFileCell::new(self.cell())
     }
-
-    pub fn id(&self) -> &ModuleID {
-        &self.id
-    }
 }
 
 /// Path to file containing starlark that can be evaluated by the interpreter.
@@ -124,14 +120,6 @@ impl<'a> StarlarkPath<'a> {
             StarlarkPath::BuildFile(b) => Cow::Owned(b.path()),
             StarlarkPath::LoadFile(l) => Cow::Borrowed(l.path()),
             StarlarkPath::BxlFile(b) => Cow::Borrowed(b.path()),
-        }
-    }
-
-    pub fn id(&self) -> &ModuleID {
-        match self {
-            StarlarkPath::BuildFile(b) => b.id(),
-            StarlarkPath::LoadFile(l) => l.id(),
-            StarlarkPath::BxlFile(b) => b.id(),
         }
     }
 }
@@ -209,13 +197,6 @@ impl<'a> StarlarkModulePath<'a> {
         match self {
             StarlarkModulePath::LoadFile(l) => l.path(),
             StarlarkModulePath::BxlFile(b) => b.path(),
-        }
-    }
-
-    pub fn id(&self) -> &ModuleID {
-        match self {
-            StarlarkModulePath::LoadFile(l) => l.id(),
-            StarlarkModulePath::BxlFile(b) => b.id(),
         }
     }
 

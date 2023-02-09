@@ -179,7 +179,7 @@ impl<'v> Freeze for BxlFunction<'v> {
         let docs = self.docs;
         let id = match self.id.into_inner() {
             Some(x) => x,
-            None => return Err(BxlError::BxlNotAssigned(self.bxl_path.id().to_string()).into()),
+            None => return Err(BxlError::BxlNotAssigned(self.bxl_path.to_string()).into()),
         };
         let bxl_id = Arc::new(id);
 

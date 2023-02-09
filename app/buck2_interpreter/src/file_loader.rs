@@ -148,7 +148,6 @@ impl FileLoader for InterpreterFileLoader {
 
 #[cfg(test)]
 mod tests {
-    use buck2_core::bzl::ModuleID;
     use starlark::environment::Module;
 
     use super::*;
@@ -186,9 +185,9 @@ mod tests {
         Arc::new(TestLoadResolver {})
     }
 
-    fn env(name: &ModuleID) -> FrozenModule {
+    fn env(name: StarlarkModulePath) -> FrozenModule {
         let m = Module::new();
-        m.set("name", m.heap().alloc(name.as_str()));
+        m.set("name", m.heap().alloc(name.to_string()));
         m.freeze().unwrap()
     }
 
@@ -198,8 +197,11 @@ mod tests {
 
         let mut insert = |path| {
             let import_path = resolver.resolve_load(path, None).unwrap();
-            let id = import_path.borrow().id().clone();
-            let module = LoadedModule::new(import_path.clone(), LoadedModules::default(), env(&id));
+            let module = LoadedModule::new(
+                import_path.clone(),
+                LoadedModules::default(),
+                env(import_path.borrow()),
+            );
             loaded_modules.map.insert(import_path, module);
         };
 
@@ -250,7 +252,7 @@ mod tests {
     fn valid_load() -> anyhow::Result<()> {
         let path = "cell1//next/package:import.bzl".to_owned();
         let resolver = resolver();
-        let id = resolver.resolve_load(&path, None)?.borrow().id().to_owned();
+        let id = resolver.resolve_load(&path, None)?.to_string();
 
         let loader = InterpreterFileLoader::new(loaded_modules(), resolver);
         let loaded = loader.load(&path)?;
