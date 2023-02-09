@@ -33,6 +33,7 @@ load(
     "append_linkable_args",
     "map_to_link_infos",
 )
+load("@prelude//utils:utils.bzl", "is_all")
 
 def cxx_dist_link(
         ctx: "context",
@@ -470,7 +471,7 @@ def cxx_dist_link(
     def dynamic_optimize_archive(archive: ArchiveLinkData.type):
         def optimize_archive(ctx, artifacts, outputs):
             plan_json = artifacts[archive.plan].read_json()
-            if "objects" not in plan_json or not plan_json["objects"] or all([not entry["is_bc"] for entry in plan_json["objects"]]):
+            if "objects" not in plan_json or not plan_json["objects"] or is_all(lambda e: not e["is_bc"], plan_json["objects"]):
                 # Nothing in this directory was lto-able; let's just copy the archive.
                 ctx.actions.copy_file(outputs[archive.opt_objects_dir], archive.objects_dir)
                 ctx.actions.write(outputs[archive.opt_manifest], "")

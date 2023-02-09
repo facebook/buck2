@@ -35,7 +35,7 @@ load(
     "KotlinToolchainInfo",
 )
 load("@prelude//kotlin:kotlincd_jar_creator.bzl", "create_jar_artifact_kotlincd")
-load("@prelude//utils:utils.bzl", "map_idx")
+load("@prelude//utils:utils.bzl", "is_any", "map_idx")
 
 _JAVA_OR_KOTLIN_FILE_EXTENSION = [".java", ".kt"]
 
@@ -270,7 +270,7 @@ def build_kotlin_library(
         additional_classpath_entries: ["artifact"] = [],
         bootclasspath_entries: ["artifact"] = []) -> "JavaProviders":
     srcs = ctx.attrs.srcs
-    has_kotlin_srcs = any([src.extension == ".kt" or src.basename.endswith(".src.zip") or src.basename.endswith("-sources.jar") for src in srcs])
+    has_kotlin_srcs = is_any(lambda src: src.extension == ".kt" or src.basename.endswith(".src.zip") or src.basename.endswith("-sources.jar"), srcs)
 
     if not has_kotlin_srcs:
         return build_java_library(

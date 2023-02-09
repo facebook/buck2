@@ -6,7 +6,7 @@
 # of this source tree.
 
 load("@prelude//:paths.bzl", "paths")
-load("@prelude//utils:utils.bzl", "expect", "from_named_set", "value_or")
+load("@prelude//utils:utils.bzl", "expect", "from_named_set", "is_any", "value_or")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 load(":platform.bzl", "cxx_by_platform")
 
@@ -180,7 +180,7 @@ def prepare_headers(ctx: "context", srcs: {str.type: "artifact"}, name: str.type
     # by https://reviews.llvm.org/D103930 so, until it lands, disable header
     # maps when we see a module map.
     if (header_mode == HeaderMode("symlink_tree_with_header_map") and
-        any([paths.basename(n) == "module.modulemap" for n in srcs.keys()])):
+        is_any(lambda n: paths.basename(n) == "module.modulemap", srcs.keys())):
         header_mode = HeaderMode("symlink_tree_only")
     if header_mode == HeaderMode("header_map_only"):
         hmap = _mk_hmap(ctx, name, {h: (a, "{}") for h, a in srcs.items()})

@@ -72,6 +72,7 @@ load(
     "@prelude//utils:utils.bzl",
     "expect",
     "flatten",
+    "is_any",
     "value_or",
 )
 load(":archive.bzl", "make_archive")
@@ -656,13 +657,13 @@ def cxx_compile_srcs(
     stripped_objects = []
     pic_cxx_outs = compile_cxx(ctx, compile_cmd_output.source_commands.src_compile_cmds, pic = True)
     pic_objects = [out.object for out in pic_cxx_outs]
-    pic_objects_have_external_debug_info = any([out.object_has_external_debug_info for out in pic_cxx_outs])
+    pic_objects_have_external_debug_info = is_any(lambda out: out.object_has_external_debug_info, pic_cxx_outs)
     pic_external_debug_info = [out.external_debug_info for out in pic_cxx_outs if out.external_debug_info != None]
     stripped_pic_objects = _strip_objects(ctx, pic_objects)
     if preferred_linkage != Linkage("shared"):
         cxx_outs = compile_cxx(ctx, compile_cmd_output.source_commands.src_compile_cmds, pic = False)
         objects = [out.object for out in cxx_outs]
-        objects_have_external_debug_info = any([out.object_has_external_debug_info for out in cxx_outs])
+        objects_have_external_debug_info = is_any(lambda out: out.object_has_external_debug_info, cxx_outs)
         external_debug_info = [out.external_debug_info for out in cxx_outs if out.external_debug_info != None]
         stripped_objects = _strip_objects(ctx, objects)
 
