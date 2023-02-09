@@ -15,6 +15,8 @@ use std::sync::Arc;
 use allocative::Allocative;
 use dupe::Dupe;
 
+use crate::Key;
+
 /// Type erased value associated for each Key in Dice
 #[derive(Allocative, Clone, Dupe)]
 pub(crate) struct DiceValue(Arc<dyn DiceValueDyn>);
@@ -41,7 +43,7 @@ impl DiceValue {
 }
 
 trait DiceValueDyn: Allocative + Any + Send + Sync + 'static {
-    fn as_any(&self) -> &dyn Any;
+    fn value_as_any(&self) -> &dyn Any;
     /// Panics if called with incompatible values.
     fn equality(&self, other: &dyn DiceValueDyn) -> bool;
     fn validity(&self) -> bool;
@@ -49,6 +51,37 @@ trait DiceValueDyn: Allocative + Any + Send + Sync + 'static {
 
 impl dyn DiceValueDyn {
     pub(crate) fn downcast_ref<V: Any>(&self) -> Option<&V> {
-        self.as_any().downcast_ref()
+        self.value_as_any().downcast_ref()
+    }
+}
+
+#[derive(Allocative)]
+pub(crate) struct DiceComputedValue<K: Key> {
+    value: K::Value,
+}
+
+impl<K> DiceComputedValue<K>
+where
+    K: Key,
+{
+    pub(crate) fn new(value: K::Value) -> Self {
+        Self { value }
+    }
+}
+
+impl<K> DiceValueDyn for DiceComputedValue<K>
+where
+    K: Key,
+{
+    fn value_as_any(&self) -> &dyn Any {
+        &self.value
+    }
+
+    fn equality(&self, other: &dyn DiceValueDyn) -> bool {
+        K::equality(&self.value, other.downcast_ref().unwrap())
+    }
+
+    fn validity(&self) -> bool {
+        K::validity(&self.value)
     }
 }
