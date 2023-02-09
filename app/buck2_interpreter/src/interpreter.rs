@@ -51,14 +51,17 @@ use crate::package_imports::ImplicitImport;
 use crate::parse_import::parse_import;
 use crate::path::BxlFilePath;
 use crate::path::OwnedStarlarkModulePath;
+use crate::path::OwnedStarlarkPath;
 use crate::path::StarlarkModulePath;
 use crate::path::StarlarkPath;
 use crate::starlark_profiler::StarlarkProfilerInstrumentation;
 use crate::starlark_profiler::StarlarkProfilerOrInstrumentation;
 
 #[derive(Debug, Error)]
-#[error("Error parsing: `{0}`")]
-pub struct StarlarkParseError(String);
+enum StarlarkParseError {
+    #[error("Error parsing: `{0}`")]
+    InFile(OwnedStarlarkPath),
+}
 
 /// What type of file are we parsing - a `.bzl` file, `.bxl` file, or a `BUCK`/`TARGETS` file.
 impl<'a> StarlarkPath<'a> {
@@ -531,7 +534,7 @@ impl InterpreterForCell {
             }
             ParseResult::new(ast, implicit_imports, &self.load_resolver(import))?
         };
-        result.with_context(|| StarlarkParseError(import.to_string()))
+        result.with_context(|| StarlarkParseError::InFile(OwnedStarlarkPath::new(import)))
     }
 
     pub fn resolve_path(
