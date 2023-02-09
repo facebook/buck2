@@ -410,6 +410,7 @@ def generate_abi_jars(
     source_abi = None
     source_only_abi = None
     classpath_abi = None
+    classpath_abi_dir = None
 
     # If we are merging additional compiled_srcs, we can't produce source/source-only abis. Otherwise we
     # always generation the source/source-only abis and setup the classpath entry to use the appropriate
@@ -446,4 +447,5 @@ def generate_abi_jars(
         class_abi = class_abi_jar or create_abi(actions, class_abi_generator, final_jar)
         if classpath_abi == None:
             classpath_abi = class_abi
-    return class_abi, source_abi, source_only_abi, classpath_abi
+
+    return class_abi, source_abi, source_only_abi, classpath_abi, classpath_abi_dir

@@ -208,7 +208,7 @@ def create_jar_artifact_javacd(
         path_to_class_hashes_out,
     )
     final_jar = prepare_final_jar(actions, actions_identifier, output, output_paths, additional_compiled_srcs, java_toolchain.jar_builder)
-    class_abi, source_abi, source_only_abi, classpath_abi = generate_abi_jars(
+    class_abi, source_abi, source_only_abi, classpath_abi, classpath_abi_dir = generate_abi_jars(
         actions,
         actions_identifier,
         label,
@@ -228,6 +228,7 @@ def create_jar_artifact_javacd(
         source_abi = source_abi,
         source_only_abi = source_only_abi,
         classpath_abi = classpath_abi,
+        classpath_abi_dir = classpath_abi_dir,
         required_for_source_only_abi = required_for_source_only_abi,
         annotation_processor_output = output_paths.annotations,
     )

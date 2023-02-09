@@ -267,7 +267,7 @@ def create_jar_artifact_kotlincd(
     )
 
     # kotlincd does not support source abi
-    class_abi, _, source_only_abi, classpath_abi = generate_abi_jars(
+    class_abi, _, source_only_abi, classpath_abi, classpath_abi_dir = generate_abi_jars(
         actions = actions,
         actions_identifier = actions_identifier,
         label = label,
@@ -285,6 +285,7 @@ def create_jar_artifact_kotlincd(
         class_abi = class_abi,
         source_only_abi = source_only_abi,
         classpath_abi = classpath_abi,
+        classpath_abi_dir = classpath_abi_dir,
         required_for_source_only_abi = required_for_source_only_abi,
         annotation_processor_output = output_paths.annotations,
     )

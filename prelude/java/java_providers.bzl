@@ -229,8 +229,10 @@ def make_compile_outputs(
         source_abi: ["artifact", None] = None,
         source_only_abi: ["artifact", None] = None,
         classpath_abi: ["artifact", None] = None,
+        classpath_abi_dir: ["artifact", None] = None,
         required_for_source_only_abi: bool.type = False,
         annotation_processor_output: ["artifact", None] = None) -> JavaCompileOutputs.type:
+    expect(classpath_abi != None or classpath_abi_dir == None, "A classpath_abi_dir should only be provided if a classpath_abi is provided!")
     return JavaCompileOutputs(
         full_library = full_library,
         class_abi = class_abi,
@@ -239,7 +241,7 @@ def make_compile_outputs(
         classpath_entry = JavaClasspathEntry(
             full_library = full_library,
             abi = classpath_abi or class_abi or full_library,
-            abi_as_dir = None,
+            abi_as_dir = classpath_abi_dir,
             required_for_source_only_abi = required_for_source_only_abi,
         ),
         annotation_processor_output = annotation_processor_output,
