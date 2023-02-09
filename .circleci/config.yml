@@ -141,7 +141,8 @@ jobs:
           name: Build buck2 binary
           command: |
             mkdir /tmp/artifacts
-            cargo build --bin=buck2 --release -Z unstable-options --out-dir=/tmp/artifacts
+            # the large resource class has 8 CPUs, limit the number of jobs to 6 to avoid running out of resources
+            cargo build -j 6 --bin=buck2 --release -Z unstable-options --out-dir=/tmp/artifacts
       - run:
           name: Setup and build example/prelude directory
           command: |
