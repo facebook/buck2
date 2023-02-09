@@ -1767,7 +1767,7 @@ impl ArtifactTree {
     ) {
         match self
             .prefix_get_mut(&mut artifact_path.iter())
-            .context("Path is vacant")
+            .with_context(|| format!("Path is vacant: `{}`", artifact_path))
         {
             Ok(mut info) => {
                 if info.processing.current_version() > version {
