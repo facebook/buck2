@@ -33,11 +33,11 @@ use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
-use dupe::OptionDupedExt;
 use futures::future;
 use futures::stream::FuturesOrdered;
 use futures::Future;
 use futures::FutureExt;
+use itertools::zip;
 use ref_cast::RefCast;
 use smallvec::SmallVec;
 use thiserror::Error;
@@ -327,67 +327,81 @@ impl Key for EnsureTransitiveSetProjectionKey {
             .await
             .context("Failed to compute deferred")?;
 
+        let artifact_fs = crate::calculation::Calculation::get_artifact_fs(ctx).await?;
+
         let sub_inputs = set
             .as_transitive_set()?
             .get_projection_sub_inputs(self.0.projection)?;
 
-        // Partition our inputs in artifacts and projections.
-        let mut artifacts = Vec::new();
-        let mut projections = Vec::new();
+        let (values, children) = {
+            // Compute the new inputs. Note that ordering here (and below) is important to ensure
+            // stability of the ArtifactGroupValues we produce across executions, so we use
+            // FuturesOrdered.
 
-        for input in sub_inputs {
-            match input {
-                ArtifactGroup::Artifact(a) => artifacts.push(a),
-                ArtifactGroup::TransitiveSetProjection(key) => {
-                    projections.push(EnsureTransitiveSetProjectionKey(key))
+            let ensure_futs: FuturesOrdered<_> = sub_inputs
+                .iter()
+                .map(|v| ensure_artifact_group_staged(ctx, v))
+                .collect();
+
+            let ready_inputs: Vec<_> =
+                tokio::task::unconstrained(keep_going::try_join_all(ensure_futs)).await?;
+
+            // Partition our inputs in artifacts and projections.
+            let mut values_count = 0;
+            for input in sub_inputs.iter() {
+                if let ArtifactGroup::Artifact(..) = input {
+                    values_count += 1;
                 }
-            };
-        }
+            }
 
-        // Compute the new inputs. Note that ordering here (and below) is important to ensure
-        // stability of the ArtifactGroupValues we produce across executions, so we use
-        // FuturesOrdered.
+            let mut values = SmallVec::<[_; 1]>::with_capacity(values_count);
+            let mut children = Vec::with_capacity(sub_inputs.len() - values_count);
 
-        let values = keep_going::try_join_all(
-            artifacts
-                .into_iter()
-                .map(|a| async move {
-                    let value = ensure_artifact_staged(ctx, &a).await?.unpack_single()?;
-                    anyhow::Ok((a, value))
-                })
-                .collect::<FuturesOrdered<_>>(),
-        );
+            for (group, ready) in zip(sub_inputs.iter(), ready_inputs.into_iter()) {
+                match group {
+                    ArtifactGroup::Artifact(artifact) => {
+                        values.push((artifact.dupe(), ready.unpack_single()?))
+                    }
+                    ArtifactGroup::TransitiveSetProjection(..) => {
+                        children.push(ready.to_group_values(group)?)
+                    }
+                }
+            }
+            (values, children)
+        };
 
-        let children = keep_going::try_join_all(
-            projections
-                .iter()
-                .map(|key| async move { Ok(ctx.compute(key).await??) })
-                .collect::<FuturesOrdered<_>>(),
-        );
+        // At this point we're holding a lot of data and want to ensure that we don't hold that across any
+        // .await, so move into a little sync closure and call that
+        (move || {
+            if let Some(build_signals) = ctx.per_transaction_data().get_build_signals() {
+                let mut artifacts = HashSet::new();
+                let mut set_deps = HashSet::new();
 
-        let (values, children): (SmallVec<[_; 1]>, Vec<_>) =
-            keep_going::try_join(values, children).await?;
+                for input in sub_inputs.iter() {
+                    match input {
+                        ArtifactGroup::Artifact(artifact) => {
+                            if let Some(key) = artifact.action_key() {
+                                artifacts.insert(key.clone());
+                            }
+                        }
+                        ArtifactGroup::TransitiveSetProjection(tset) => {
+                            set_deps.insert(tset.clone());
+                        }
+                    }
+                }
 
-        if let Some(build_signals) = ctx.per_transaction_data().get_build_signals() {
-            let artifacts = values
-                .iter()
-                .filter_map(|(artifact, _value)| artifact.action_key().duped())
-                .collect::<HashSet<_>>();
+                build_signals.signal(TransitiveSetComputationSignal {
+                    key: self.0.dupe(),
+                    artifacts,
+                    set_deps,
+                });
+            }
 
-            let set_deps = projections.into_iter().map(|p| p.0).collect::<HashSet<_>>();
+            let values = ArtifactGroupValues::new(values, children, &artifact_fs)
+                .context("Failed to construct ArtifactGroupValues")?;
 
-            build_signals.signal(TransitiveSetComputationSignal {
-                key: self.0.dupe(),
-                artifacts,
-                set_deps,
-            });
-        }
-
-        let artifact_fs = crate::calculation::Calculation::get_artifact_fs(ctx).await?;
-        let values = ArtifactGroupValues::new(values, children, &artifact_fs)
-            .context("Failed to construct ArtifactGroupValues")?;
-
-        Ok(values)
+            Ok(values)
+        })()
     }
 
     fn equality(x: &Self::Value, y: &Self::Value) -> bool {

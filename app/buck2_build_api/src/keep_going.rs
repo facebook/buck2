@@ -115,6 +115,7 @@ where
 
 /// Similar to try_join_all, but this is meant to combine the outcomes of try_join_all, so it
 /// doesn't do any recording on its own.
+#[allow(unused)]
 pub async fn try_join<A, B, E>(
     a: impl Future<Output = Result<A, E>>,
     b: impl Future<Output = Result<B, E>>,
