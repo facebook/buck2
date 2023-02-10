@@ -907,6 +907,9 @@ impl<K: IncrementalComputeProperties> IncrementalEngine<K> {
             (versions, Some(deps)) => {
                 // TODO(bobyf) spawn everything for now, but we really should be smarter here
                 Self::compute_whether_dependencies_changed(transaction_ctx, extra, versions, &deps)
+                    // boxed to segment this more expensive bit out of the main new_dice_task future (held
+                    // by all active computations).
+                    .boxed()
                     .await
             }
             _ => DidDepsChange::Changed,
