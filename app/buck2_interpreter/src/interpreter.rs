@@ -359,24 +359,12 @@ impl InterpreterForCell {
         })
     }
 
-    pub fn starlark_path_global_env(&self, path: &StarlarkPath) -> &Globals {
+    fn starlark_path_global_env(&self, path: &StarlarkPath) -> &Globals {
         match path {
-            StarlarkPath::BuildFile(_) => self.build_file_global_env(),
-            StarlarkPath::LoadFile(_) => self.extension_file_global_env(),
-            StarlarkPath::BxlFile(_) => self.bxl_file_global_env(),
+            StarlarkPath::BuildFile(_) => &self.global_state.build_file_global_env,
+            StarlarkPath::LoadFile(_) => &self.global_state.extension_file_global_env,
+            StarlarkPath::BxlFile(_) => &self.global_state.bxl_file_global_env,
         }
-    }
-
-    pub fn build_file_global_env(&self) -> &Globals {
-        &self.global_state.build_file_global_env
-    }
-
-    pub fn extension_file_global_env(&self) -> &Globals {
-        &self.global_state.extension_file_global_env
-    }
-
-    pub fn bxl_file_global_env(&self) -> &Globals {
-        &self.global_state.bxl_file_global_env
     }
 
     fn create_env(
