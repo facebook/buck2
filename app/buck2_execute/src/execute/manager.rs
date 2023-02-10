@@ -15,6 +15,7 @@ use buck2_common::liveliness_observer::LivelinessObserver;
 use buck2_events::dispatch::span;
 use buck2_events::dispatch::span_async;
 use buck2_events::dispatch::EventDispatcher;
+use futures::FutureExt;
 use indexmap::IndexMap;
 
 use crate::artifact_value::ArtifactValue;
@@ -83,19 +84,15 @@ impl CommandExecutionManager {
         span(event, || (f(), buck2_data::ExecutorStageEnd {}))
     }
 
-    pub async fn stage_async<F: Future>(
+    pub fn stage_async<F: Future>(
         &mut self,
         stage: impl Into<buck2_data::executor_stage_start::Stage>,
         f: F,
-    ) -> <F as Future>::Output {
+    ) -> impl Future<Output = <F as Future>::Output> {
         let event = buck2_data::ExecutorStageStart {
             stage: Some(stage.into()),
         };
-        span_async(
-            event,
-            async move { (f.await, buck2_data::ExecutorStageEnd {}) },
-        )
-        .await
+        span_async(event, f.map(|v| (v, buck2_data::ExecutorStageEnd {})))
     }
 }
 
@@ -172,11 +169,11 @@ impl CommandExecutionManagerWithClaim {
         span(event, || (f(), buck2_data::ExecutorStageEnd {}))
     }
 
-    pub async fn stage_async<F: Future>(
+    pub fn stage_async<F: Future>(
         &mut self,
         stage: impl Into<buck2_data::executor_stage_start::Stage>,
         f: F,
-    ) -> <F as Future>::Output {
+    ) -> impl Future<Output = <F as Future>::Output> {
         let event = buck2_data::ExecutorStageStart {
             stage: Some(stage.into()),
         };
@@ -184,7 +181,6 @@ impl CommandExecutionManagerWithClaim {
             event,
             async move { (f.await, buck2_data::ExecutorStageEnd {}) },
         )
-        .await
     }
 }
 
