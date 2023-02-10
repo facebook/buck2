@@ -17,11 +17,9 @@
 //! onto the dice graph).
 use std::sync::Arc;
 
-use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::package_listing::dice::HasPackageListingResolver;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::name::CellName;
-use dice::DiceComputations;
 
 use crate::dice::calculation::DiceCalculationDelegate;
 use crate::extra::InterpreterConfiguror;
@@ -31,14 +29,6 @@ mod interpreter;
 pub mod interpreter_setup;
 pub mod starlark_profiler;
 pub mod starlark_types;
-
-#[async_trait]
-pub(crate) trait HasInterpreterCalculations<'c>:
-    HasFileOps<'c> + HasCalculationDelegate<'c> + HasPackageListingResolver<'c> + Send
-{
-}
-
-impl<'c> HasInterpreterCalculations<'c> for DiceComputations {}
 
 #[async_trait]
 pub trait HasCalculationDelegate<'c> {
