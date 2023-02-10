@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 use anyhow::Context as _;
 use buck2_core::provider::label::ProvidersLabel;
-use buck2_interpreter::extra::BuildContext;
+use buck2_interpreter::extra::build_context::BuildContext;
 use buck2_interpreter_for_build::attrs::attribute_as_starlark_value::AttributeAsStarlarkValue;
 use buck2_interpreter_for_build::attrs::coerce::attr_type::AttrTypeExt;
 use buck2_interpreter_for_build::attrs::coerce::ctx::BuildAttrCoercionContext;

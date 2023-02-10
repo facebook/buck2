@@ -15,7 +15,7 @@ use std::sync::Arc;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bzl::ImportPath;
 use buck2_core::target::name::TargetNameRef;
-use buck2_interpreter::extra::ExtraContext;
+use buck2_interpreter::extra::build_context::ExtraContext;
 use buck2_interpreter::package_imports::ImplicitImport;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::targets_map::TargetsMap;

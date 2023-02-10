@@ -15,7 +15,7 @@ use starlark::eval::Evaluator;
 use starlark::values::list::AllocList;
 use starlark::values::Value;
 
-use crate::extra::BuildContext;
+use crate::extra::build_context::BuildContext;
 use crate::functions::dedupe::dedupe;
 use crate::globspec::GlobSpec;
 use crate::selector::StarlarkSelector;

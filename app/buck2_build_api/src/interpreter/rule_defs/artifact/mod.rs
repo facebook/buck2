@@ -71,7 +71,7 @@ pub mod testing {
     use buck2_execute::execute::request::OutputType;
     use buck2_execute::path::buck_out_path::BuckOutPathResolver;
     use buck2_execute::path::buck_out_path::BuckPathResolver;
-    use buck2_interpreter::extra::BuildContext;
+    use buck2_interpreter::extra::build_context::BuildContext;
     use buck2_interpreter_for_build::interpreter::testing::cells;
     use buck2_node::configuration::execution::ExecutionPlatformResolution;
     use dupe::Dupe;

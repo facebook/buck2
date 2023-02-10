@@ -14,7 +14,7 @@ use starlark::values::StringValue;
 use starlark::values::StringValueLike;
 use starlark::values::Value;
 
-use crate::extra::BuildContext;
+use crate::extra::build_context::BuildContext;
 
 #[starlark_module]
 pub fn register_read_config(globals: &mut GlobalsBuilder) {

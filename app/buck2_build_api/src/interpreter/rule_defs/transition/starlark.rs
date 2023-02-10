@@ -14,7 +14,7 @@ use allocative::Allocative;
 use buck2_core::bzl::ImportPath;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::target::label::TargetLabel;
-use buck2_interpreter::extra::BuildContext;
+use buck2_interpreter::extra::build_context::BuildContext;
 use buck2_interpreter_for_build::transition::TransitionValue;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use derive_more::Display;

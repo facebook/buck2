@@ -128,7 +128,7 @@ mod tests {
     use buck2_core::configuration::ConfigurationData;
     use buck2_core::pattern::ParsedPattern;
     use buck2_core::pattern::ProvidersPattern;
-    use buck2_interpreter::extra::BuildContext;
+    use buck2_interpreter::extra::build_context::BuildContext;
     use buck2_interpreter_for_build::interpreter::testing::Tester;
     use indoc::indoc;
     use starlark::environment::GlobalsBuilder;

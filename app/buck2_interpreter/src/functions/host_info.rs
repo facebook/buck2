@@ -17,7 +17,7 @@ use starlark::values::FrozenValue;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::Value;
 
-use crate::extra::BuildContext;
+use crate::extra::build_context::BuildContext;
 use crate::extra::InterpreterHostArchitecture;
 use crate::extra::InterpreterHostPlatform;
 use crate::extra::XcodeVersionInfo;

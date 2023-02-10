@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use buck2_interpreter::extra::ExtraContext;
+use buck2_interpreter::extra::build_context::ExtraContext;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;

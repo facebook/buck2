@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use buck2_interpreter::extra::BuildContext;
+use buck2_interpreter::extra::build_context::BuildContext;
 use buck2_interpreter::functions::host_info::register_host_info;
 use buck2_interpreter::functions::read_config::register_read_config;
 use buck2_interpreter::path::StarlarkPath;
