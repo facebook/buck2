@@ -105,7 +105,7 @@ pub fn native_module(builder: &mut GlobalsBuilder) {
 
 /// Contains functions that we include in all contexts.
 #[starlark_module]
-pub fn stdlib(builder: &mut GlobalsBuilder) {
+fn register_sha256(builder: &mut GlobalsBuilder) {
     /// Computes a sha256 digest for a string. Returns the hex representation of the digest.
     fn sha256(val: &str) -> anyhow::Result<String> {
         let hash = Sha256::digest(val.as_bytes());
@@ -116,5 +116,5 @@ pub fn stdlib(builder: &mut GlobalsBuilder) {
 /// Native functions included in all contexts (`BUCK`, `bzl`, `bxl`).
 pub fn register_base_natives(registry: &mut GlobalsBuilder) {
     native_module(registry);
-    stdlib(registry);
+    register_sha256(registry);
 }
