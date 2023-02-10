@@ -629,13 +629,16 @@ async fn test_wait_for_idle() -> anyhow::Result<()> {
     futures::pin_mut!(idle);
 
     assert_matches!(timeout(Duration::from_secs(1), &mut idle).await, Err(..));
+    assert!(!dice.is_idle());
 
     drop(handle);
     drop(ctx);
     assert_matches!(timeout(Duration::from_secs(1), &mut idle).await, Err(..));
+    assert!(!dice.is_idle());
 
     tx.send(()).unwrap();
     assert_matches!(timeout(Duration::from_secs(1), &mut idle).await, Ok(..));
+    assert!(dice.is_idle());
 
     // Still idle.
     let stays_idle = async {

@@ -323,6 +323,13 @@ impl DiceImplementation {
             DiceImplementation::Modern(dice) => dice.wait_for_idle().right_future(),
         }
     }
+
+    pub fn is_idle(&self) -> bool {
+        match self {
+            DiceImplementation::Legacy(dice) => dice.is_idle(),
+            DiceImplementation::Modern(dice) => dice.is_idle(),
+        }
+    }
 }
 
 pub mod testing {

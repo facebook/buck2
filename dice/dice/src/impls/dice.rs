@@ -76,4 +76,8 @@ impl DiceModern {
     pub fn wait_for_idle(&self) -> impl Future<Output = ()> + 'static {
         async move { unimplemented!("todo") }
     }
+
+    pub fn is_idle(&self) -> bool {
+        unimplemented!("todo")
+    }
 }

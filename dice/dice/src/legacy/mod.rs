@@ -250,6 +250,10 @@ impl DiceLegacy {
             }
         }
     }
+
+    pub fn is_idle(&self) -> bool {
+        *self.active_versions_observer.borrow() == 0
+    }
 }
 
 #[derive(Clone, Dupe)]

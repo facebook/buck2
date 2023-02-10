@@ -257,6 +257,10 @@ impl Dice {
     pub fn wait_for_idle(&self) -> impl Future<Output = ()> + 'static {
         self.implementation.wait_for_idle()
     }
+
+    pub fn is_idle(&self) -> bool {
+        self.implementation.is_idle()
+    }
 }
 
 pub struct DiceDataBuilder(DiceLegacyDataBuilder);
