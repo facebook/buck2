@@ -26,7 +26,7 @@ use crate::dice::interpreter::HasInterpreterContext;
 use crate::dice::starlark_types::GetDisableStarlarkTypes;
 use crate::extra::cell_info::InterpreterCellInfo;
 use crate::extra::InterpreterConfiguror;
-use crate::interpreter::StarlarkFileType;
+use crate::file_type::StarlarkFileType;
 
 /// Information shared across interpreters. Contains no cell-specific
 /// information.

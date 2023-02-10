@@ -44,6 +44,7 @@ use crate::extra::ExtraContextDyn;
 use crate::file_loader::InterpreterFileLoader;
 use crate::file_loader::LoadResolver;
 use crate::file_loader::LoadedModules;
+use crate::file_type::StarlarkFileType;
 use crate::functions::dedupe::dedupe;
 use crate::global_interpreter_state::GlobalInterpreterState;
 use crate::import_paths::ImplicitImportPaths;
@@ -215,13 +216,6 @@ struct InterpreterLoadResolver {
     loader_path: CellPath,
     loader_file_type: StarlarkFileType,
     build_file_cell: BuildFileCell,
-}
-
-#[derive(Copy, Clone, Dupe, Debug, Eq, PartialEq, Hash)]
-pub enum StarlarkFileType {
-    Bzl,
-    Bxl,
-    Buck,
 }
 
 #[derive(Debug, Error)]

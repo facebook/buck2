@@ -24,7 +24,7 @@ use gazebo::variants::UnpackVariants;
 use starlark::collections::Equivalent;
 use thiserror::Error;
 
-use crate::interpreter::StarlarkFileType;
+use crate::file_type::StarlarkFileType;
 
 /// Path of a `bxl` file for `bxl` commands
 #[derive(

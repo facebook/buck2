@@ -28,6 +28,7 @@ pub mod build_defs;
 pub mod dice;
 pub mod extra;
 pub mod file_loader;
+pub mod file_type;
 pub mod functions;
 pub mod global_interpreter_state;
 pub mod globspec;
