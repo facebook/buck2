@@ -21,7 +21,6 @@ use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePath;
-use buck2_core::cells::CellError;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
@@ -523,12 +522,7 @@ fn get_cell_path<'v>(
         Some(cell_name) => {
             let cell_name = CellName::unchecked_new(cell_name.as_str());
 
-            if !cell_resolver.contains(cell_name) {
-                return Err(anyhow::Error::new(CellError::UnknownCellName(
-                    cell_name,
-                    cell_resolver.cells().map(|(name, _)| name).collect(),
-                )));
-            }
+            cell_resolver.get(cell_name)?;
 
             // Advance iterator to the config hash
             let config_hash = match iter.next() {
