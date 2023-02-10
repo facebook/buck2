@@ -14,6 +14,7 @@ use allocative::Allocative;
 
 use crate::cells::build_file_cell::BuildFileCell;
 use crate::cells::cell_path::CellPath;
+use crate::cells::cell_path::CellPathRef;
 use crate::cells::name::CellName;
 use crate::cells::paths::CellRelativePath;
 use crate::fs::paths::file_name::FileName;
@@ -84,6 +85,13 @@ impl ImportPath {
 
     pub fn path(&self) -> &CellPath {
         &self.path
+    }
+
+    /// Parent directory of the import path.
+    pub fn path_parent(&self) -> CellPathRef {
+        self.path
+            .parent()
+            .expect("constructor verified path has parent")
     }
 }
 

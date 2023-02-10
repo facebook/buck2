@@ -293,7 +293,7 @@ impl LoadResolver for InterpreterLoadResolver {
         // as using the exported rules from the prelude would. This matters notably for identity
         // checks in t-sets, which would fail if we had > 1 copy of the prelude.
         if let Some(prelude_import) = self.config.global_state.configuror.prelude_import() {
-            if is_prelude_path(&path, prelude_import.path()) {
+            if is_prelude_path(&path, prelude_import) {
                 let cell = path.cell();
                 return Ok(OwnedStarlarkModulePath::LoadFile(ImportPath::new(
                     path,
@@ -309,14 +309,8 @@ impl LoadResolver for InterpreterLoadResolver {
     }
 }
 
-fn is_prelude_path(import_path: &CellPath, prelude_import: &CellPath) -> bool {
-    import_path.cell() == prelude_import.cell()
-        && import_path.path().starts_with(
-            prelude_import
-                .path()
-                .parent()
-                .expect("prelude should have a dir"),
-        )
+fn is_prelude_path(import_path: &CellPath, prelude_import: &ImportPath) -> bool {
+    import_path.starts_with(prelude_import.path_parent())
 }
 
 impl InterpreterForCell {
@@ -470,10 +464,10 @@ impl InterpreterForCell {
         let prelude_import = self.global_state.configuror.prelude_import();
         if let Some(prelude_import) = prelude_import {
             let import_path = import.path();
-            let prelude_path = prelude_import.path();
 
             // Only return the prelude for things outside the prelude directory.
-            if import.unpack_build_file().is_some() || !is_prelude_path(&import_path, prelude_path)
+            if import.unpack_build_file().is_some()
+                || !is_prelude_path(&import_path, prelude_import)
             {
                 return Some(prelude_import);
             }
