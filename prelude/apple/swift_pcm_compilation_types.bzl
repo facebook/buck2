@@ -5,20 +5,12 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-SwiftPCMCompilationInfo = provider(fields = [
-    "name",
-    "pcm_output",
-    "exported_pre",
-    "deps_set",
-    "sdk_deps_set",  # A TSet of direct and transitive SDK deps.
-])
-
 SwiftPCMUncompiledInfo = provider(fields = [
     "name",
     "exported_preprocessor",
     "exported_deps",
     "propagated_preprocessor_args_cmd",
-    "sdk_modules",  # a list of required sdk modules
+    "uncompiled_sdk_modules",  # a list of required sdk modules
 ])
 
 WrappedSwiftPCMCompiledInfo = provider(fields = [
@@ -29,5 +21,4 @@ SwiftPCMCompiledInfo = provider(fields = [
     "name",
     "pcm_output",
     "exported_preprocessor",
-    "sdk_modules",
 ])

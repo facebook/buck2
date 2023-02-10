@@ -19,11 +19,13 @@ load(
     "cxx_inherited_preprocessor_infos",
     "cxx_merge_cpreprocessors",
 )
-load(":apple_sdk_modules_utility.bzl", "get_sdk_deps_tset", "is_sdk_modules_provided")
+load(":apple_sdk_modules_utility.bzl", "get_compiled_sdk_deps_tset", "is_sdk_modules_provided")
 load(":apple_toolchain_types.bzl", "AppleToolchainInfo")
 load(":apple_utility.bzl", "get_disable_pch_validation_flags", "get_module_name", "get_versioned_target_triple")
 load(":modulemap.bzl", "preprocessor_info_for_modulemap")
 load(":swift_module_map.bzl", "write_swift_module_map_with_swift_deps")
+load(":swift_pcm_compilation.bzl", "get_compiled_pcm_deps_tset")
+load(":swift_pcm_compilation_types.bzl", "SwiftPCMUncompiledInfo")
 
 def _add_swiftmodule_search_path(swiftmodule_path: "artifact"):
     # Value will contain a path to the artifact,
@@ -57,7 +59,7 @@ SwiftCompilationOutput = record(
     swiftmodule = field("artifact"),
     # The dependency info provider that provides the swiftmodule
     # search paths required for compilation.
-    providers = field([["SwiftPCMCompilationInfo", "SwiftDependencyInfo"]]),
+    providers = field(["SwiftDependencyInfo"]),
     # Preprocessor info required for ObjC compilation of this library.
     pre = field(CPreprocessor.type),
     # Exported preprocessor info required for ObjC compilation of rdeps.
@@ -66,11 +68,10 @@ SwiftCompilationOutput = record(
     swift_argsfile = field("CxxAdditionalArgsfileParams"),
 )
 
-_REQUIRED_SDK_MODULES = ["Swift", "SwiftOnoneSupport", "Darwin", "_Concurrency"]
-
 def compile_swift(
         ctx: "context",
         srcs: [CxxSrcWithFlags.type],
+        deps_providers: list.type,
         exported_headers: [CHeader.type],
         objc_modulemap_pp_info: ["CPreprocessor", None],
         extra_search_paths_flags: ["_arglike"] = []) -> ["SwiftCompilationOutput", None]:
@@ -86,6 +87,7 @@ def compile_swift(
 
     shared_flags = _get_shared_flags(
         ctx,
+        deps_providers,
         module_name,
         exported_headers,
         objc_modulemap_pp_info,
@@ -230,6 +232,7 @@ def _compile_with_argsfile(
 
 def _get_shared_flags(
         ctx: "context",
+        deps_providers: list.type,
         module_name: str.type,
         objc_headers: [CHeader.type],
         objc_modulemap_pp_info: ["CPreprocessor", None],
@@ -301,9 +304,12 @@ def _get_shared_flags(
             "-emit-clang-header-nonmodular-includes",
         ])
 
+    pcm_deps_tset = get_compiled_pcm_deps_tset(ctx, deps_providers)
+    sdk_deps_tset = get_compiled_sdk_deps_tset(ctx, deps_providers)
+
     # Add flags required to import ObjC module dependencies
-    _add_clang_deps_flags(ctx, cmd)
-    _add_swift_deps_flags(ctx, cmd)
+    _add_clang_deps_flags(ctx, pcm_deps_tset, sdk_deps_tset, cmd)
+    _add_swift_deps_flags(ctx, sdk_deps_tset, cmd)
 
     # Add flags for importing the ObjC part of this library
     _add_mixed_library_flags_to_cmd(cmd, objc_headers, objc_modulemap_pp_info)
@@ -315,7 +321,10 @@ def _get_shared_flags(
 
     return cmd
 
-def _add_swift_deps_flags(ctx: "context", cmd: "cmd_args"):
+def _add_swift_deps_flags(
+        ctx: "context",
+        sdk_deps_tset: "SDKDepTSet",
+        cmd: "cmd_args"):
     # If Explicit Modules are enabled, a few things must be provided to a compilation job:
     # 1. Direct and transitive SDK deps from `sdk_modules` attribute.
     # 2. Direct and transitive user-defined deps.
@@ -323,15 +332,7 @@ def _add_swift_deps_flags(ctx: "context", cmd: "cmd_args"):
     # (This is the case, when a user-defined dep exports a type from SDK module,
     # thus such SDK module should be implicitly visible to consumers of that custom dep)
     if _uses_explicit_modules(ctx):
-        toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
         module_name = get_module_name(ctx)
-        sdk_deps_tset = get_sdk_deps_tset(
-            ctx,
-            module_name,
-            ctx.attrs.deps + ctx.attrs.exported_deps,
-            _REQUIRED_SDK_MODULES,
-            toolchain,
-        )
         swift_deps_tset = ctx.actions.tset(
             SwiftmodulePathsTSet,
             children = _get_swift_paths_tsets(ctx.attrs.deps + ctx.attrs.exported_deps),
@@ -351,9 +352,6 @@ def _add_swift_deps_flags(ctx: "context", cmd: "cmd_args"):
             swift_module_map_artifact,
         ])
 
-        # Add Clang sdk modules which do not go to swift modulemap
-        cmd.add(sdk_deps_tset.project_as_args("clang_deps"))
-
         # Swift compilation should depend on transitive Swift modules from swift-module-map.
         cmd.hidden(sdk_deps_tset.project_as_args("hidden"))
         cmd.hidden(swift_deps_tset.project_as_args("hidden"))
@@ -361,14 +359,18 @@ def _add_swift_deps_flags(ctx: "context", cmd: "cmd_args"):
         depset = ctx.actions.tset(SwiftmodulePathsTSet, children = _get_swift_paths_tsets(ctx.attrs.deps + ctx.attrs.exported_deps))
         cmd.add(depset.project_as_args("module_search_path"))
 
-def _add_clang_deps_flags(ctx: "context", cmd: "cmd_args") -> None:
+def _add_clang_deps_flags(
+        ctx: "context",
+        pcm_deps_tset: "PcmDepTSet",
+        sdk_deps_tset: "SDKDepTSet",
+        cmd: "cmd_args") -> None:
     # If a module uses Explicit Modules, all direct and
     # transitive Clang deps have to be explicitly added.
     if _uses_explicit_modules(ctx):
-        pass
-        # pcm_deps_tset = get_pcm_deps_tset(ctx, ctx.attrs.deps + ctx.attrs.exported_deps)
-        # cmd.add(pcm_deps_tset.project_as_args("clang_deps"))
+        cmd.add(pcm_deps_tset.project_as_args("clang_deps"))
 
+        # Add Clang sdk modules which do not go to swift modulemap
+        cmd.add(sdk_deps_tset.project_as_args("clang_deps"))
     else:
         inherited_preprocessor_infos = cxx_inherited_preprocessor_infos(ctx.attrs.deps + ctx.attrs.exported_deps)
         preprocessors = cxx_merge_cpreprocessors(ctx, [], inherited_preprocessor_infos)
@@ -421,6 +423,25 @@ def _get_exported_headers_tset(ctx: "context", exported_headers: [["string"], No
             if dep and dep.exported_headers
         ],
     )
+
+def get_swift_pcm_uncompile_info(
+        ctx: "context",
+        propagated_exported_preprocessor_info: ["CPreprocessorInfo", None],
+        exported_pre: ["CPreprocessor", None]) -> ["SwiftPCMUncompiledInfo", None]:
+    swift_toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
+
+    # If a toolchain supports explicit modules, exported PP exists and a target is modular,
+    # let's precompile a modulemap in order to enable consumptions by Swift.
+    if is_sdk_modules_provided(swift_toolchain) and exported_pre and exported_pre.modulemap_path and ctx.attrs.modular:
+        propagated_pp_args_cmd = cmd_args(propagated_exported_preprocessor_info.set.project_as_args("args"), prepend = "-Xcc") if propagated_exported_preprocessor_info else None
+        return SwiftPCMUncompiledInfo(
+            name = get_module_name(ctx),
+            exported_preprocessor = exported_pre,
+            exported_deps = ctx.attrs.exported_deps,
+            propagated_preprocessor_args_cmd = propagated_pp_args_cmd,
+            uncompiled_sdk_modules = ctx.attrs.sdk_modules,
+        )
+    return None
 
 def get_swift_dependency_info(
         ctx: "context",
