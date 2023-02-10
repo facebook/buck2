@@ -15,8 +15,10 @@
 use std::cell::Cell;
 use std::fmt::Debug;
 use std::fmt::Formatter;
+use std::pin::Pin;
 use std::process::Stdio;
 use std::sync::Arc;
+use std::task;
 use std::time::Duration;
 use std::time::Instant;
 use std::time::SystemTime;
@@ -31,8 +33,8 @@ use buck2_data::SpanEndEvent;
 use buck2_data::SpanStartEvent;
 use buck2_util::process::background_command;
 use dupe::Dupe;
-use futures::future;
 use futures::Future;
+use pin_project::pin_project;
 
 use crate::sink::null::NullEventSink;
 use crate::span::SpanId;
@@ -177,19 +179,14 @@ impl EventDispatcher {
     /// the future itself is suspended and resumed, respectively.
     ///
     /// TODO(swgillespie) actually implement suspend/resume
-    pub async fn span_async<Start, End, Fut, R>(&self, start: Start, fut: Fut) -> R
+    pub fn span_async<Start, End, Fut, R>(&self, start: Start, fut: Fut) -> impl Future<Output = R>
     where
         Start: Into<span_start_event::Data>,
         End: Into<span_end_event::Data>,
         Fut: Future<Output = (R, End)>,
     {
-        let mut span = Span::start(self.dupe(), start);
-
-        futures::pin_mut!(fut);
-        let (result, end) = future::poll_fn(|cx| span.call_in_span(|| fut.as_mut().poll(cx))).await;
-
-        span.end(end);
-        result
+        let span = Span::start(self.dupe(), start);
+        SpanAsync { fut, span }
     }
 
     /// Returns the traceid for this event dispatcher.
@@ -200,6 +197,39 @@ impl EventDispatcher {
     /// Collect stats for the underlying sink.
     pub fn stats(&self) -> Option<EventSinkStats> {
         self.sink.stats()
+    }
+}
+
+// While this may be simpler to implement via futures::poll_fn or some kind of async fn/block or similar, we need
+// to ensure that we don't explode the size of our futures and so we implement the future explicitly.
+#[pin_project]
+struct SpanAsync<End, Fut, R>
+where
+    End: Into<span_end_event::Data>,
+    Fut: Future<Output = (R, End)>,
+{
+    #[pin]
+    fut: Fut,
+    span: Span,
+}
+
+impl<End, Fut, R> Future for SpanAsync<End, Fut, R>
+where
+    End: Into<span_end_event::Data>,
+    Fut: Future<Output = (R, End)>,
+{
+    type Output = R;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut task::Context<'_>) -> task::Poll<Self::Output> {
+        let this = self.project();
+        let span: &mut _ = this.span;
+        match span.call_in_span(|| this.fut.poll(cx)) {
+            task::Poll::Ready((v, end)) => {
+                span.send(end.into());
+                task::Poll::Ready(v)
+            }
+            task::Poll::Pending => task::Poll::Pending,
+        }
     }
 }
 
@@ -410,13 +440,13 @@ pub async fn instant_hg() {
 /// the future itself is suspended and resumed, respectively.
 ///
 /// TODO(swgillespie) actually implement suspend/resume
-pub async fn span_async<Start, End, Fut, R>(start: Start, fut: Fut) -> R
+pub fn span_async<Start, End, Fut, R>(start: Start, fut: Fut) -> impl Future<Output = R>
 where
     Start: Into<span_start_event::Data>,
     End: Into<span_end_event::Data>,
     Fut: Future<Output = (R, End)>,
 {
-    get_dispatcher().span_async(start, fut).await
+    get_dispatcher().span_async(start, fut)
 }
 
 #[cfg(test)]

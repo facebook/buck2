@@ -21,6 +21,7 @@ tracing = { workspace = true }
 uuid = { workspace = true }
 crossbeam-channel = { workspace = true }
 crossbeam-epoch = { workspace = true }
+pin-project = { workspace = true }
 
 fbinit = { workspace = true }
 gazebo = { workspace = true }
