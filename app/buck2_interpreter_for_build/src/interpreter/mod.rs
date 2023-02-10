@@ -9,6 +9,7 @@
 
 pub mod calculation;
 pub mod configuror;
+pub mod dice_calculation_delegate;
 pub mod interpreter_setup;
 pub mod module_internals;
 pub mod natives;

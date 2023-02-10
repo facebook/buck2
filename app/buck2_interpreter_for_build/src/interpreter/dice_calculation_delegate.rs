@@ -11,6 +11,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use anyhow::Context;
+use async_trait::async_trait;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::DiceFileOps;
 use buck2_common::dice::file_ops::HasFileOps;
@@ -28,6 +29,19 @@ use buck2_core::cells::name::CellName;
 use buck2_core::package::PackageLabel;
 use buck2_events::dispatch::span;
 use buck2_events::dispatch::span_async;
+use buck2_interpreter::dice::starlark_profiler::GetStarlarkProfilerInstrumentation;
+use buck2_interpreter::extra::ExtraContext;
+use buck2_interpreter::file_loader::LoadedModule;
+use buck2_interpreter::file_loader::ModuleDeps;
+use buck2_interpreter::global_interpreter_state::HasGlobalInterpreterState;
+use buck2_interpreter::import_paths::HasImportPaths;
+use buck2_interpreter::interpreter::InterpreterForCell;
+use buck2_interpreter::interpreter::ParseResult;
+use buck2_interpreter::path::OwnedStarlarkModulePath;
+use buck2_interpreter::path::StarlarkModulePath;
+use buck2_interpreter::path::StarlarkPath;
+use buck2_interpreter::starlark_profiler::StarlarkProfilerInstrumentation;
+use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
@@ -36,20 +50,7 @@ use starlark::codemap::FileSpan;
 use starlark::syntax::AstModule;
 use thiserror::Error;
 
-use crate::dice::calculation::keys::EvalImportKey;
-use crate::dice::starlark_profiler::GetStarlarkProfilerInstrumentation;
-use crate::extra::ExtraContext;
-use crate::file_loader::LoadedModule;
-use crate::file_loader::ModuleDeps;
-use crate::global_interpreter_state::HasGlobalInterpreterState;
-use crate::import_paths::HasImportPaths;
-use crate::interpreter::InterpreterForCell;
-use crate::interpreter::ParseResult;
-use crate::path::OwnedStarlarkModulePath;
-use crate::path::StarlarkModulePath;
-use crate::path::StarlarkPath;
-use crate::starlark_profiler::StarlarkProfilerInstrumentation;
-use crate::starlark_profiler::StarlarkProfilerOrInstrumentation;
+use crate::interpreter::dice_calculation_delegate::keys::EvalImportKey;
 
 #[derive(Debug, Error)]
 #[error("Error evaluating build file: `{0}`")]
@@ -242,7 +243,7 @@ impl<'c> DiceCalculationDelegate<'c> {
         self.configs.resolve_path(starlark_file, load_string)
     }
 
-    pub(crate) async fn eval_module_uncached(
+    pub async fn eval_module_uncached(
         &self,
         starlark_file: StarlarkModulePath<'_>,
         starlark_profiler_instrumentation: Option<StarlarkProfilerInstrumentation>,
@@ -339,9 +340,8 @@ impl<'c> DiceCalculationDelegate<'c> {
 
 mod keys {
     use allocative::Allocative;
+    use buck2_interpreter::path::OwnedStarlarkModulePath;
     use derive_more::Display;
-
-    use crate::path::OwnedStarlarkModulePath;
 
     #[derive(Clone, Display, Debug, Eq, Hash, PartialEq, Allocative)]
     pub struct EvalImportKey(pub OwnedStarlarkModulePath);

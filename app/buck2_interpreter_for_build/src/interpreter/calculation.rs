@@ -18,7 +18,6 @@ use buck2_common::result::ToUnsharedResultExt;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::package::PackageLabel;
-use buck2_interpreter::dice::calculation::HasCalculationDelegate;
 use buck2_interpreter::dice::starlark_profiler::GetStarlarkProfilerInstrumentation;
 use buck2_interpreter::file_loader::LoadedModule;
 use buck2_interpreter::path::StarlarkModulePath;
@@ -29,6 +28,7 @@ use dice::Key;
 use dupe::Dupe;
 
 use crate::interpreter::calculation::keys::InterpreterResultsKey;
+use crate::interpreter::dice_calculation_delegate::HasCalculationDelegate;
 use crate::interpreter::module_internals::ModuleInternals;
 
 #[async_trait]

@@ -9,6 +9,7 @@ anyhow = { workspace = true }
 async-trait = { workspace = true }
 bumpalo = { workspace = true }
 derive_more = { workspace = true }
+futures = { workspace = true }
 hashbrown = { workspace = true }
 indoc = { workspace = true }
 itertools = { workspace = true }
@@ -27,6 +28,8 @@ starlark_map = { workspace = true }
 
 buck2_common = { workspace = true }
 buck2_core = { workspace = true }
+buck2_data = { workspace = true }
+buck2_events = { workspace = true }
 buck2_node = { workspace = true }
 buck2_interpreter = { workspace = true }
 buck2_query = { workspace = true }
