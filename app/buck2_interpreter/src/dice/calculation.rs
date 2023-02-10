@@ -37,7 +37,6 @@ use thiserror::Error;
 
 use crate::dice::calculation::keys::EvalImportKey;
 use crate::dice::starlark_profiler::GetStarlarkProfilerInstrumentation;
-use crate::dice::HasCalculationDelegate;
 use crate::dice::HasPackageListingResolver;
 use crate::extra::ExtraContext;
 use crate::file_loader::LoadedModule;
@@ -59,6 +58,19 @@ pub struct EvalBuildFileError(BuildFilePath);
 #[derive(Debug, Error)]
 #[error("Error evaluating module: `{0}`")]
 pub struct EvalModuleError(String);
+
+#[async_trait]
+pub trait HasCalculationDelegate<'c> {
+    /// Get calculator for a file evaluation.
+    ///
+    /// This function only accepts cell names, but it is created
+    /// per evaluated file (build file or `.bzl`).
+    async fn get_interpreter_calculator(
+        &'c self,
+        cell: CellName,
+        build_file_cell: BuildFileCell,
+    ) -> anyhow::Result<DiceCalculationDelegate<'c>>;
+}
 
 #[async_trait]
 impl<'c> HasCalculationDelegate<'c> for DiceComputations {

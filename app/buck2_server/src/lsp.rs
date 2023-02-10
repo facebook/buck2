@@ -35,7 +35,7 @@ use buck2_events::dispatch::instant_event;
 use buck2_events::dispatch::span_async;
 use buck2_events::dispatch::with_dispatcher;
 use buck2_events::dispatch::with_dispatcher_async;
-use buck2_interpreter::dice::HasCalculationDelegate;
+use buck2_interpreter::dice::calculation::HasCalculationDelegate;
 use buck2_interpreter::global_interpreter_state::HasGlobalInterpreterState;
 use buck2_interpreter::path::BxlFilePath;
 use buck2_interpreter::path::OwnedStarlarkModulePath;

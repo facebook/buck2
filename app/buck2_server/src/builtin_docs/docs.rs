@@ -32,7 +32,7 @@ use buck2_core::package::package_relative_path::PackageRelativePathBuf;
 use buck2_core::package::PackageLabel;
 use buck2_execute::artifact::source_artifact::SourceArtifact;
 use buck2_interpreter::dice::calculation::DiceCalculationDelegate;
-use buck2_interpreter::dice::HasCalculationDelegate;
+use buck2_interpreter::dice::calculation::HasCalculationDelegate;
 use buck2_interpreter::global_interpreter_state::GlobalInterpreterState;
 use buck2_interpreter::global_interpreter_state::HasGlobalInterpreterState;
 use buck2_interpreter::parse_import::parse_import_with_config;

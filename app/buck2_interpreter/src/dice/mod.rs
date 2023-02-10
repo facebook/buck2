@@ -18,10 +18,7 @@
 use std::sync::Arc;
 
 use buck2_common::package_listing::dice::HasPackageListingResolver;
-use buck2_core::cells::build_file_cell::BuildFileCell;
-use buck2_core::cells::name::CellName;
 
-use crate::dice::calculation::DiceCalculationDelegate;
 use crate::extra::InterpreterConfiguror;
 
 pub mod calculation;
@@ -29,19 +26,6 @@ mod interpreter;
 pub mod interpreter_setup;
 pub mod starlark_profiler;
 pub mod starlark_types;
-
-#[async_trait]
-pub trait HasCalculationDelegate<'c> {
-    /// Get calculator for a file evaluation.
-    ///
-    /// This function only accepts cell names, but it is created
-    /// per evaluated file (build file or `.bzl`).
-    async fn get_interpreter_calculator(
-        &'c self,
-        cell: CellName,
-        build_file_cell: BuildFileCell,
-    ) -> anyhow::Result<DiceCalculationDelegate<'c>>;
-}
 
 #[async_trait]
 pub trait HasInterpreterContext {

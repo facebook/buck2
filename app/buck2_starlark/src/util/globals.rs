@@ -16,7 +16,7 @@ use buck2_common::result::SharedResult;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::name::CellName;
-use buck2_interpreter::dice::HasCalculationDelegate;
+use buck2_interpreter::dice::calculation::HasCalculationDelegate;
 use buck2_interpreter::file_loader::LoadedModule;
 use buck2_interpreter::global_interpreter_state::HasGlobalInterpreterState;
 use buck2_interpreter::import_paths::HasImportPaths;
