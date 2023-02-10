@@ -11,6 +11,7 @@ load("@prelude//java:java.bzl", "AbiGenerationMode", "dex_min_sdk_version", "sel
 load("@prelude//java:java_toolchain.bzl", "JavaPlatformInfo", "JavaTestToolchainInfo", "JavaToolchainInfo")
 load("@prelude//kotlin:kotlin_toolchain.bzl", "KotlinToolchainInfo")
 load("@prelude//genrule.bzl", "genrule_attributes")
+load(":android_aar.bzl", "android_aar_impl")
 load(":android_apk.bzl", "android_apk_impl")
 load(":android_build_config.bzl", "android_build_config_impl")
 load(":android_instrumentation_apk.bzl", "android_instrumentation_apk_impl")
@@ -74,6 +75,7 @@ def is_build_only_native_code():
     )
 
 implemented_rules = {
+    "android_aar": android_aar_impl,
     "android_app_modularity": android_app_modularity_impl,
     "android_binary": android_apk_impl,
     "android_build_config": android_build_config_impl,
