@@ -470,8 +470,6 @@ mod tests {
     use crate::configuration::calculation::ExecutionPlatformsKey;
     use crate::deferred::types::testing::DeferredAnalysisResultExt;
     use crate::interpreter::build_defs::register_provider;
-    use crate::interpreter::context::configure_build_file_globals;
-    use crate::interpreter::context::configure_extension_file_globals;
     use crate::interpreter::rule_defs::provider::builtin::default_info::DefaultInfoCallable;
     use crate::interpreter::rule_defs::register_rule_defs;
     use crate::query::analysis::environment::ConfiguredGraphQueryEnvironment;
@@ -591,8 +589,8 @@ mod tests {
                 InterpreterHostPlatform::Linux,
                 InterpreterHostArchitecture::X86_64,
                 false,
-                configure_build_file_globals,
-                configure_extension_file_globals,
+                |_| {},
+                register_rule_defs,
                 |_| {},
                 None,
                 Arc::new(ConfiguredGraphQueryEnvironment::functions()),
