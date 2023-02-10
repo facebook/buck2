@@ -143,15 +143,17 @@ impl DiceComputationsImplLegacy {
     where
         K: Key,
     {
-        async move {
-            let cache = self.dice.find_cache::<K>();
-            let extra = self.extra.subrequest(key)?;
-            let value = cache
+        // This would be simpler with an `async fn/async move {}`, but we create these for every edge in the computation
+        // and many of those may be live at a time, and so we need to take more care and ensure this is fairly small.
+        let cache = self.dice.find_cache::<K>();
+        let extra = self.extra.subrequest(key);
+        match extra {
+            Ok(extra) => cache
                 .eval_for_opaque(key, &self.transaction_ctx, extra)
-                .await?;
-            Ok(OpaqueValueImplLegacy::new(value, self, cache))
+                .map(move |value| Ok(OpaqueValueImplLegacy::new(value?, self, cache)))
+                .left_future(),
+            Err(e) => futures::future::ready(Err(e)).right_future(),
         }
-        .boxed()
     }
 
     pub(crate) fn compute_projection_sync<P>(

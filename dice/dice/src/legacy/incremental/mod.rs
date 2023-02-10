@@ -265,13 +265,13 @@ where
     K: IncrementalComputeProperties + Evaluator + 'static,
 {
     /// Like `eval` but without recording dependencies.
-    pub(crate) async fn eval_for_opaque(
+    pub(crate) fn eval_for_opaque(
         self: &Arc<Self>,
         k: &K::Key,
         transaction_ctx: &Arc<TransactionCtx>,
         extra: ComputationData,
-    ) -> DiceResult<GraphNode<K>> {
-        self.eval_entry_versioned(k, transaction_ctx, extra).await
+    ) -> DiceFuture<K> {
+        self.eval_entry_versioned(k, transaction_ctx, extra)
     }
 
     /// Updates the value at K. Returns whether this injected value actually causes a change
