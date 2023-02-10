@@ -583,10 +583,13 @@ mod tests {
             ProjectRoot::new(AbsNormPathBuf::try_from(std::env::current_dir().unwrap()).unwrap())
                 .unwrap();
         let fs = ArtifactFs::new(
-            BuckPathResolver::new(CellResolver::of_names_and_paths(&[(
-                CellName::unchecked_new("cell"),
-                CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("cell_path".into())),
-            )])),
+            BuckPathResolver::new(CellResolver::of_names_and_paths(
+                CellName::unchecked_new("root"),
+                &[(
+                    CellName::unchecked_new("cell"),
+                    CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("cell_path".into())),
+                )],
+            )),
             BuckOutPathResolver::new(ProjectRelativePathBuf::unchecked_new("buck_out".into())),
             project_fs,
         );
@@ -627,10 +630,13 @@ mod tests {
         );
 
         let fs = ArtifactFs::new(
-            BuckPathResolver::new(CellResolver::of_names_and_paths(&[(
-                CellName::unchecked_new("cell"),
-                CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("cell_path".into())),
-            )])),
+            BuckPathResolver::new(CellResolver::of_names_and_paths(
+                CellName::unchecked_new("root"),
+                &[(
+                    CellName::unchecked_new("cell"),
+                    CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("cell_path".into())),
+                )],
+            )),
             BuckOutPathResolver::new(ProjectRelativePathBuf::unchecked_new("buck_out".into())),
             project_fs.dupe(),
         );

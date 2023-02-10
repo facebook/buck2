@@ -574,10 +574,13 @@ mod tests {
 
     #[tokio::test]
     async fn can_execute_some_action() {
-        let cells = CellResolver::of_names_and_paths(&[(
-            CellName::unchecked_new("cell"),
-            CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("cell_path".into())),
-        )]);
+        let cells = CellResolver::of_names_and_paths(
+            CellName::unchecked_new("root"),
+            &[(
+                CellName::unchecked_new("cell"),
+                CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("cell_path".into())),
+            )],
+        );
 
         let temp_fs = ProjectRootTemp::new().unwrap();
 

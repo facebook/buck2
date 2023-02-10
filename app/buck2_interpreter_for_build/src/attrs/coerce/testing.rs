@@ -70,7 +70,6 @@ pub fn coercion_ctx() -> impl AttrCoercionContext {
 pub fn coercion_ctx_listing(package_listing: PackageListing) -> impl AttrCoercionContext {
     let package = PackageLabel::testing();
     let aliases = hashmap![
-        CellAlias::new("".to_owned()) => package.cell_name(),
         CellAlias::new("cell1".to_owned()) => CellName::unchecked_new("cell1"),
     ];
 
@@ -86,7 +85,7 @@ pub fn coercion_ctx_listing(package_listing: PackageListing) -> impl AttrCoercio
     }
 
     BuildAttrCoercionContext::new_with_package(
-        CellAliasResolver::new(Arc::new(aliases)).unwrap(),
+        CellAliasResolver::new(package.cell_name(), Arc::new(aliases)).unwrap(),
         (package, package_listing),
         false,
         Arc::new(NoFunctions),
@@ -94,11 +93,7 @@ pub fn coercion_ctx_listing(package_listing: PackageListing) -> impl AttrCoercio
 }
 
 fn cell_alias_resolver() -> CellAliasResolver {
-    CellAliasResolver::new(Arc::new(HashMap::from_iter([(
-        CellAlias::new("".to_owned()),
-        CellName::unchecked_new("root"),
-    )])))
-    .unwrap()
+    CellAliasResolver::new(CellName::unchecked_new("root"), Arc::new(HashMap::new())).unwrap()
 }
 
 pub fn to_value<'v>(env: &'v Module, globals: &Globals, content: &str) -> Value<'v> {
@@ -112,7 +107,7 @@ pub fn to_value<'v>(env: &'v Module, globals: &Globals, content: &str) -> Value<
     let mut eval = Evaluator::new(env);
 
     let cell_info = InterpreterCellInfo::new(
-        BuildFileCell::new(CellName::unchecked_new("")),
+        BuildFileCell::new(CellName::unchecked_new("root")),
         &LegacyBuckConfig::empty(),
         cell_alias_resolver(),
     )

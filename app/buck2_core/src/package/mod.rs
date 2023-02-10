@@ -176,9 +176,11 @@ impl CellResolver {
     ///
     /// let cell_path = ProjectRelativePath::new("my/cell")?;
     ///
-    /// let cells = CellResolver::of_names_and_paths(&[
-    ///     (CellName::unchecked_new("mycell"), CellRootPathBuf::new(cell_path.to_buf()))
-    /// ]);
+    /// let cells = CellResolver::of_names_and_paths(
+    ///     CellName::unchecked_new("mycell"),
+    ///     &[
+    ///         (CellName::unchecked_new("mycell"), CellRootPathBuf::new(cell_path.to_buf()))
+    ///     ]);
     ///
     /// let pkg = PackageLabel::new(
     ///     CellName::unchecked_new("mycell"),

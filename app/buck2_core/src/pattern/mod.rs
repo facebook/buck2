@@ -857,11 +857,11 @@ mod tests {
 
     fn resolver() -> CellAliasResolver {
         let m = hashmap![
-            CellAlias::new("".to_owned()) => CellName::unchecked_new("root"),
             CellAlias::new("cell1".to_owned()) => CellName::unchecked_new("cell1"),
             CellAlias::new("alias2".to_owned()) => CellName::unchecked_new("cell2"),
         ];
-        CellAliasResolver::new(Arc::new(m)).expect("valid resolver")
+        CellAliasResolver::new(CellName::unchecked_new("root"), Arc::new(m))
+            .expect("valid resolver")
     }
 
     #[test_case(PhantomData::< TargetName >; "parsing TargetPattern")]

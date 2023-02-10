@@ -997,10 +997,13 @@ mod tests {
     )> {
         let fs = ProjectRootTemp::new().unwrap();
 
-        let cell_resolver = CellResolver::of_names_and_paths(&[(
-            CellName::unchecked_new("cell"),
-            CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("cell".to_owned())),
-        )]);
+        let cell_resolver = CellResolver::of_names_and_paths(
+            CellName::unchecked_new("root"),
+            &[(
+                CellName::unchecked_new("cell"),
+                CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("cell".to_owned())),
+            )],
+        );
         let buckout_path = ProjectRelativePathBuf::unchecked_new("buck_out/v2".into());
         let mut dice = DiceBuilder::new()
             .set_data(|d| d.set_testing_io_provider(&fs))

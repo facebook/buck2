@@ -423,6 +423,7 @@ pub mod testing {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
     use std::sync::Arc;
 
     use buck2_common::dice::data::testing::SetTestingIoProvider;
@@ -482,7 +483,7 @@ mod tests {
             let mut cells = CellsAggregator::new();
             cells.add_cell_entry(
                 CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("cell".to_owned())),
-                CellAlias::new("".to_owned()),
+                CellAlias::new("root".to_owned()),
                 CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("".to_owned())),
             )?;
             cells.add_cell_entry(
@@ -493,16 +494,13 @@ mod tests {
             cells.make_cell_resolver()?
         };
         let configs = LegacyBuckConfigs::new(hashmap![
-            CellName::unchecked_new("") =>
+            CellName::unchecked_new("root") =>
             LegacyBuckConfig::empty(),
             CellName::unchecked_new("cell") =>
             LegacyBuckConfig::empty(),
         ]);
         let mut interpreter = Tester::with_cells((
-            CellAliasResolver::new(Arc::new(hashmap![
-                CellAlias::new("".to_owned()) =>
-                CellName::unchecked_new("cell"),
-            ]))?,
+            CellAliasResolver::new(CellName::unchecked_new("cell"), Arc::new(HashMap::new()))?,
             resolver.dupe(),
             configs.dupe(),
         ))?;

@@ -955,10 +955,13 @@ mod tests {
 
     fn artifact_fs(project_fs: ProjectRoot) -> ArtifactFs {
         ArtifactFs::new(
-            BuckPathResolver::new(CellResolver::of_names_and_paths(&[(
-                CellName::unchecked_new("cell"),
-                CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("cell_path".into())),
-            )])),
+            BuckPathResolver::new(CellResolver::of_names_and_paths(
+                CellName::unchecked_new("root"),
+                &[(
+                    CellName::unchecked_new("cell"),
+                    CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("cell_path".into())),
+                )],
+            )),
             BuckOutPathResolver::new(ProjectRelativePathBuf::unchecked_new("buck_out/v2".into())),
             project_fs,
         )

@@ -178,6 +178,8 @@ enum CellError {
     UnknownCellPath(ProjectRelativePathBuf, Vec<String>),
     #[error("unknown cell alias: `{0}`. known aliases are: `{}`", .1.iter().join(", "))]
     UnknownCellAlias(CellAlias, Vec<CellAlias>),
+    #[error("cell aliases cannot contain empty alias")]
+    EmptyAlias,
     #[error("unknown cell name: `{0}`. known cell names are `{}`", .1.iter().join(", "))]
     UnknownCellName(CellName, Vec<CellName>),
     #[error(
@@ -217,20 +219,22 @@ impl Borrow<str> for CellAlias {
 /// 'CellInstance' into the global canonical 'CellName's
 #[derive(Clone, Dupe, Debug, PartialEq, Eq, Allocative)]
 pub struct CellAliasResolver {
+    /// Current cell name.
+    current: CellName,
     aliases: Arc<HashMap<CellAlias, CellName>>,
 }
 
 impl CellAliasResolver {
     /// Create an instance of `CellAliasResolver`. The special alias `""` must be present, or
     /// this will fail
-    pub fn new(aliases: Arc<HashMap<CellAlias, CellName>>) -> anyhow::Result<CellAliasResolver> {
+    pub fn new(
+        current: CellName,
+        aliases: Arc<HashMap<CellAlias, CellName>>,
+    ) -> anyhow::Result<CellAliasResolver> {
         if aliases.contains_key("") {
-            Ok(CellAliasResolver { aliases })
+            Err(anyhow::Error::new(CellError::EmptyAlias))
         } else {
-            Err(anyhow::Error::new(CellError::UnknownCellAlias(
-                CellAlias::new("".to_owned()),
-                aliases.keys().cloned().collect(),
-            )))
+            Ok(CellAliasResolver { current, aliases })
         }
     }
 
@@ -240,6 +244,9 @@ impl CellAliasResolver {
         CellAlias: Borrow<T>,
         T: Hash + Eq + Display,
     {
+        if alias == CellAlias::new("".to_owned()).borrow() {
+            return Ok(self.current);
+        }
         self.aliases.get(alias).duped().ok_or_else(|| {
             anyhow::Error::new(CellError::UnknownCellAlias(
                 CellAlias::new(alias.to_string()),
@@ -453,9 +460,11 @@ impl CellResolver {
     /// use buck2_core::cells::testing::CellResolverExt;
     ///
     /// let cell_path = ProjectRelativePath::new("my/cell")?;
-    /// let cells = CellResolver::of_names_and_paths(&[
-    ///     (CellName::unchecked_new("mycell"), CellRootPathBuf::new(cell_path.to_buf()))
-    /// ]);
+    /// let cells = CellResolver::of_names_and_paths(
+    ///     CellName::unchecked_new("mycell"),
+    ///     &[
+    ///         (CellName::unchecked_new("mycell"), CellRootPathBuf::new(cell_path.to_buf()))
+    ///     ]);
     ///
     /// let cell_path = CellPath::new(
     ///     CellName::unchecked_new("mycell"),
@@ -580,13 +589,11 @@ impl CellsAggregator {
         for (cell_path, cell_info) in &self.cell_infos {
             let mut aliases_for_cell = HashMap::new();
             let cell_name = self.get_cell_name_from_path(cell_path)?;
-            aliases_for_cell.insert(CellAlias::new("".into()), cell_name);
 
             for (alias, path_for_alias) in &cell_info.alias_mapping {
                 aliases_for_cell
                     .insert(alias.clone(), self.get_cell_name_from_path(path_for_alias)?);
             }
-            aliases_for_cell.insert(CellAlias::new("".into()), cell_name);
 
             let old = cell_mappings.insert(
                 cell_name,
@@ -597,7 +604,7 @@ impl CellsAggregator {
                         .buildfiles
                         .clone()
                         .unwrap_or_else(default_buildfiles),
-                    CellAliasResolver::new(Arc::new(aliases_for_cell))?,
+                    CellAliasResolver::new(cell_name, Arc::new(aliases_for_cell))?,
                 ),
             );
             if let Some(old) = old {
@@ -633,7 +640,10 @@ pub mod testing {
         /// Creates a new 'CellResolver' based on the given iterator of (cell
         /// name, cell path). The 'CellAliasResolver' of each cell is
         /// empty. i.e. no aliases are defined for any of the cells.
-        fn of_names_and_paths(cells: &[(CellName, CellRootPathBuf)]) -> CellResolver;
+        fn of_names_and_paths(
+            current: CellName,
+            cells: &[(CellName, CellRootPathBuf)],
+        ) -> CellResolver;
 
         fn with_names_and_paths_with_alias(
             cells: &[(CellName, CellRootPathBuf, HashMap<CellAlias, CellName>)],
@@ -641,7 +651,10 @@ pub mod testing {
     }
 
     impl CellResolverExt for CellResolver {
-        fn of_names_and_paths(cells: &[(CellName, CellRootPathBuf)]) -> CellResolver {
+        fn of_names_and_paths(
+            current: CellName,
+            cells: &[(CellName, CellRootPathBuf)],
+        ) -> CellResolver {
             let mut cell_mappings = HashMap::new();
             let mut path_mappings = SequenceTrie::new();
 
@@ -653,6 +666,7 @@ pub mod testing {
                         path.clone(),
                         default_buildfiles(),
                         CellAliasResolver {
+                            current,
                             aliases: Arc::new(Default::default()),
                         },
                     ),
@@ -678,6 +692,7 @@ pub mod testing {
                         path.clone(),
                         default_buildfiles(),
                         CellAliasResolver {
+                            current: *name,
                             aliases: Arc::new(alias.clone()),
                         },
                     ),
@@ -697,10 +712,13 @@ pub mod testing {
     fn test_of_names_and_paths() -> anyhow::Result<()> {
         use crate::fs::project_rel_path::ProjectRelativePathBuf;
 
-        let cell_resolver = CellResolver::of_names_and_paths(&[(
-            CellName::unchecked_new("foo"),
-            CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("bar".into())),
-        )]);
+        let cell_resolver = CellResolver::of_names_and_paths(
+            CellName::unchecked_new("root"),
+            &[(
+                CellName::unchecked_new("foo"),
+                CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("bar".into())),
+            )],
+        );
 
         let cell = cell_resolver.get(CellName::unchecked_new("foo"))?;
         assert_eq!(CellName::unchecked_new("foo"), cell.name());

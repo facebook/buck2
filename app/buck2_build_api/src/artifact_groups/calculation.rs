@@ -357,18 +357,21 @@ mod tests {
 
         let heap = set.owner();
 
-        let cell_resolver = CellResolver::of_names_and_paths(&[(
-            CellName::unchecked_new(""),
-            CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("cell-path".into())),
-        )]);
+        let cell_resolver = CellResolver::of_names_and_paths(
+            CellName::unchecked_new("root"),
+            &[(
+                CellName::unchecked_new("root"),
+                CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("cell-path".into())),
+            )],
+        );
 
         let foo = CellPath::new(
-            CellName::unchecked_new(""),
+            CellName::unchecked_new("root"),
             CellRelativePathBuf::unchecked_new("foo/foo".to_owned()),
         );
 
         let foo_artifact = Artifact::from(SourceArtifact::new(BuckPath::testing_new(
-            PackageLabel::testing_new("", "foo"),
+            PackageLabel::testing_new("root", "foo"),
             PackageRelativePathBuf::unchecked_new("foo".to_owned()),
         )));
 
@@ -378,12 +381,12 @@ mod tests {
         };
 
         let bar_artifact = Artifact::from(SourceArtifact::new(BuckPath::testing_new(
-            PackageLabel::testing_new("", "bar"),
+            PackageLabel::testing_new("root", "bar"),
             PackageRelativePathBuf::unchecked_new("bar".to_owned()),
         )));
 
         let bar = CellPath::new(
-            CellName::unchecked_new(""),
+            CellName::unchecked_new("root"),
             CellRelativePathBuf::unchecked_new("bar/bar".to_owned()),
         );
 

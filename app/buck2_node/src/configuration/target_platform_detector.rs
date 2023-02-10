@@ -127,10 +127,12 @@ mod tests {
 
     #[test]
     fn test_parse_errors() -> anyhow::Result<()> {
-        let cell_alias_resolver = CellAliasResolver::new(Arc::new(hashmap! {
-            CellAlias::new("".to_owned()) => CellName::unchecked_new(""),
-            CellAlias::new("alias1".to_owned()) => CellName::unchecked_new("cell1"),
-        }))?;
+        let cell_alias_resolver = CellAliasResolver::new(
+            CellName::unchecked_new("root"),
+            Arc::new(hashmap! {
+                CellAlias::new("alias1".to_owned()) => CellName::unchecked_new("cell1"),
+            }),
+        )?;
 
         let check_fails = |spec| {
             if TargetPlatformDetector::parse_spec(&cell_alias_resolver, spec).is_ok() {
@@ -169,39 +171,44 @@ mod tests {
 
     #[test]
     fn test_detect() -> anyhow::Result<()> {
-        let cell_alias_resolver = CellAliasResolver::new(Arc::new(hashmap! {
-            CellAlias::new("".to_owned()) => CellName::unchecked_new(""),
-            CellAlias::new("alias1".to_owned()) => CellName::unchecked_new("cell1"),
-        }))?;
+        let cell_alias_resolver = CellAliasResolver::new(
+            CellName::unchecked_new("root"),
+            Arc::new(hashmap! {
+                CellAlias::new("alias1".to_owned()) => CellName::unchecked_new("cell1"),
+            }),
+        )?;
 
         let detector = TargetPlatformDetector::parse_spec(
             &cell_alias_resolver,
             "target://lib/...->//:p1 target://lib2/foo/...->//:p2 target:alias1//map/...->alias1//:alias",
         )?;
 
-        let p1 = TargetLabel::testing_parse("//:p1");
-        let p2 = TargetLabel::testing_parse("//:p2");
+        let p1 = TargetLabel::testing_parse("root//:p1");
+        let p2 = TargetLabel::testing_parse("root//:p2");
         let alias = TargetLabel::testing_parse("cell1//:alias");
 
         assert_eq!(
-            detector.detect(&TargetLabel::testing_parse("//lib/bar:xyz")),
+            detector.detect(&TargetLabel::testing_parse("root//lib/bar:xyz")),
             Some(&p1)
         );
         assert_eq!(
-            detector.detect(&TargetLabel::testing_parse("//lib:xyz")),
+            detector.detect(&TargetLabel::testing_parse("root//lib:xyz")),
             Some(&p1)
         );
 
         assert_eq!(
-            detector.detect(&TargetLabel::testing_parse("//lib2/foo:xyz")),
+            detector.detect(&TargetLabel::testing_parse("root//lib2/foo:xyz")),
             Some(&p2)
         );
         assert_eq!(
-            detector.detect(&TargetLabel::testing_parse("//lib2:foo")),
+            detector.detect(&TargetLabel::testing_parse("root//lib2:foo")),
             None
         );
 
-        assert_eq!(detector.detect(&TargetLabel::testing_parse("//:lib")), None);
+        assert_eq!(
+            detector.detect(&TargetLabel::testing_parse("root//:lib")),
+            None
+        );
 
         assert_eq!(
             detector.detect(&TargetLabel::testing_parse("cell1//:xyz")),

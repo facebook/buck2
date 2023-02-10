@@ -51,20 +51,17 @@ mod tests {
     fn test_parse_package() {
         let package = parse_package(
             "foo//bar/baz",
-            &CellAliasResolver::new(Arc::new(
-                [
-                    (
+            &CellAliasResolver::new(
+                CellName::unchecked_new("oof"),
+                Arc::new(
+                    [(
                         CellAlias::new("foo".to_owned()),
                         CellName::unchecked_new("oof"),
-                    ),
-                    (
-                        CellAlias::new("".to_owned()),
-                        CellName::unchecked_new("oof"),
-                    ),
-                ]
-                .into_iter()
-                .collect(),
-            ))
+                    )]
+                    .into_iter()
+                    .collect(),
+                ),
+            )
             .unwrap(),
         )
         .unwrap();

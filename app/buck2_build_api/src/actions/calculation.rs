@@ -542,10 +542,13 @@ mod tests {
     ) -> anyhow::Result<DiceTransaction> {
         let fs = temp_fs.path().dupe();
 
-        let cell_resolver = CellResolver::of_names_and_paths(&[(
-            CellName::unchecked_new("cell"),
-            CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("cell-path".into())),
-        )]);
+        let cell_resolver = CellResolver::of_names_and_paths(
+            CellName::unchecked_new("root"),
+            &[(
+                CellName::unchecked_new("cell"),
+                CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("cell-path".into())),
+            )],
+        );
         let output_path = ProjectRelativePathBuf::unchecked_new("buck-out/v2".into());
 
         let mut dice_builder = DiceBuilder::new();

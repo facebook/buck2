@@ -164,10 +164,6 @@ mod tests {
     fn resolver() -> CellAliasResolver {
         let mut m = HashMap::new();
         m.insert(
-            CellAlias::new("".to_owned()),
-            CellName::unchecked_new("root"),
-        );
-        m.insert(
             CellAlias::new("cell1".to_owned()),
             CellName::unchecked_new("cell1"),
         );
@@ -175,7 +171,8 @@ mod tests {
             CellAlias::new("alias2".to_owned()),
             CellName::unchecked_new("cell2"),
         );
-        CellAliasResolver::new(Arc::new(m)).expect("valid resolver")
+        CellAliasResolver::new(CellName::unchecked_new("root"), Arc::new(m))
+            .expect("valid resolver")
     }
 
     fn dir(cell: &str, path: &str) -> CellPath {
