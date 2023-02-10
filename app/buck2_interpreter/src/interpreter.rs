@@ -32,8 +32,6 @@ use starlark::environment::LibraryExtension;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::syntax::AstModule;
-use starlark::syntax::Dialect;
-use starlark::syntax::DialectTypes;
 use thiserror::Error;
 
 use crate::build_defs::register_base_natives;
@@ -64,58 +62,6 @@ enum StarlarkParseError {
     InFile(OwnedStarlarkPath),
     #[error("Tabs are not allowed in Buck files: `{0}`")]
     Tabs(OwnedStarlarkPath),
-}
-
-/// What type of file are we parsing - a `.bzl` file, `.bxl` file, or a `BUCK`/`TARGETS` file.
-impl<'a> StarlarkPath<'a> {
-    pub fn dialect(&self, disable_starlark_types: bool) -> Dialect {
-        let buck_dialect: Dialect = Dialect {
-            enable_def: false,
-            enable_lambda: true,
-            enable_load: true,
-            enable_keyword_only_arguments: false,
-            enable_types: DialectTypes::Disable,
-            // FIXME: Would like to make this false
-            enable_tabs: true,
-            enable_load_reexport: false,
-            enable_top_level_stmt: false,
-        };
-        let bzl_dialect: Dialect = Dialect {
-            enable_def: true,
-            enable_lambda: true,
-            enable_load: true,
-            enable_keyword_only_arguments: true,
-            enable_types: if disable_starlark_types {
-                DialectTypes::ParseOnly
-            } else {
-                DialectTypes::Enable
-            },
-            // FIXME: Would like to make this false
-            enable_tabs: true,
-            enable_load_reexport: false,
-            enable_top_level_stmt: true,
-        };
-        let bxl_dialect: Dialect = Dialect {
-            enable_def: true,
-            enable_lambda: true,
-            enable_load: true,
-            enable_keyword_only_arguments: true,
-            enable_types: if disable_starlark_types {
-                DialectTypes::ParseOnly
-            } else {
-                DialectTypes::Enable
-            },
-            enable_tabs: false,
-            enable_load_reexport: false,
-            enable_top_level_stmt: true,
-        };
-
-        match self {
-            Self::LoadFile(_) => bzl_dialect,
-            Self::BuildFile(_) => buck_dialect,
-            Self::BxlFile(_) => bxl_dialect,
-        }
-    }
 }
 
 /// A ParseResult includes the parsed AST and a list of the imported files.
@@ -492,7 +438,7 @@ impl InterpreterForCell {
             let ast = AstModule::parse(
                 project_relative_path.as_str(),
                 content,
-                &import.dialect(disable_starlark_types),
+                &import.file_type().dialect(disable_starlark_types),
             )?;
             let mut implicit_imports = Vec::new();
             if let Some(i) = self.prelude_import(import) {
