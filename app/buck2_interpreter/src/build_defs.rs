@@ -7,8 +7,6 @@
  * of this source tree.
  */
 
-use sha2::Digest;
-use sha2::Sha256;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::LibraryExtension;
 use starlark::eval::Evaluator;
@@ -17,6 +15,7 @@ use starlark::values::Value;
 
 use crate::extra::build_context::BuildContext;
 use crate::functions::dedupe::dedupe;
+use crate::functions::sha256::register_sha256;
 use crate::globspec::GlobSpec;
 use crate::selector::register_select;
 
@@ -72,16 +71,6 @@ pub fn native_module(builder: &mut GlobalsBuilder) {
             .cell_info()
             .name()
             .to_string())
-    }
-}
-
-/// Contains functions that we include in all contexts.
-#[starlark_module]
-fn register_sha256(builder: &mut GlobalsBuilder) {
-    /// Computes a sha256 digest for a string. Returns the hex representation of the digest.
-    fn sha256(val: &str) -> anyhow::Result<String> {
-        let hash = Sha256::digest(val.as_bytes());
-        Ok(hex::encode(hash))
     }
 }
 
