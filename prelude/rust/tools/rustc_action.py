@@ -24,6 +24,7 @@ import platform
 import shlex
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from typing import Dict, IO, List, NamedTuple, Optional, Tuple
 
@@ -247,19 +248,27 @@ async def main() -> int:
             "--remap-path-prefix={}={}".format(os.getcwd(), args.remap_cwd_prefix)
         )
 
-    # Kick off the action
-    proc = await asyncio.create_subprocess_exec(
-        *rustc_cmd,
-        env=env,
-        stdin=subprocess.DEVNULL,
-        stdout=None,  # Inherit
-        stderr=subprocess.PIPE,
-        limit=1_000_000,
-    )
+    with tempfile.NamedTemporaryFile(
+        mode="wb",
+        prefix="rustc-args-",
+        suffix=".txt",
+        delete=False,
+    ) as args_file:
+        args_file.write("\n".join(rustc_cmd[1:]).encode() + b"\n")
+        args_file.flush()
+        # Kick off the action
+        proc = await asyncio.create_subprocess_exec(
+            rustc_cmd[0],
+            "@" + args_file.name,
+            env=env,
+            stdin=subprocess.DEVNULL,
+            stdout=None,  # Inherit
+            stderr=subprocess.PIPE,
+            limit=1_000_000,
+        )
+        got_error_diag = await handle_output(proc, args, crate_map)
+        res = await proc.wait()
 
-    got_error_diag = await handle_output(proc, args, crate_map)
-
-    res = await proc.wait()
     if DEBUG:
         print(
             f"res={repr(res)} "
