@@ -11,30 +11,30 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use async_trait::async_trait;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::view::LegacyBuckConfigsView;
 use buck2_common::result::SharedResult;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::CellResolver;
+use buck2_interpreter::dice::interpreter::HasInterpreterContext;
+use buck2_interpreter::dice::starlark_types::GetDisableStarlarkTypes;
+use buck2_interpreter::extra::cell_info::InterpreterCellInfo;
+use buck2_interpreter::extra::InterpreterConfiguror;
+use buck2_interpreter::file_type::StarlarkFileType;
 use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
 use starlark::environment::Globals;
 
-use crate::dice::interpreter::HasInterpreterContext;
-use crate::dice::starlark_types::GetDisableStarlarkTypes;
-use crate::extra::cell_info::InterpreterCellInfo;
-use crate::extra::InterpreterConfiguror;
-use crate::file_type::StarlarkFileType;
-
 /// Information shared across interpreters. Contains no cell-specific
 /// information.
 #[derive(Allocative)]
 pub struct GlobalInterpreterState {
-    pub(crate) cell_resolver: CellResolver,
+    pub cell_resolver: CellResolver,
 
-    pub(crate) cell_configs: HashMap<BuildFileCell, InterpreterCellInfo>,
+    pub cell_configs: HashMap<BuildFileCell, InterpreterCellInfo>,
 
     /// The GlobalEnvironment contains all the globally available symbols
     /// (primarily starlark stdlib and Buck-provided functions) that should
@@ -52,10 +52,10 @@ pub struct GlobalInterpreterState {
     pub bxl_file_global_env: Globals,
 
     /// Interpreter Configurer
-    pub(crate) configuror: Arc<dyn InterpreterConfiguror>,
+    pub configuror: Arc<dyn InterpreterConfiguror>,
 
     /// Check types in Starlark (or just parse and ignore).
-    pub(crate) disable_starlark_types: bool,
+    pub disable_starlark_types: bool,
 }
 
 impl GlobalInterpreterState {

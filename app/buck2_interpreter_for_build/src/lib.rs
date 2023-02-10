@@ -8,6 +8,7 @@
  */
 
 #![feature(box_syntax)]
+#![feature(try_blocks)]
 
 pub mod attrs;
 pub mod interpreter;

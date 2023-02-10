@@ -29,8 +29,8 @@ use crate::package_imports::PackageImplicitImports;
 
 #[derive(PartialEq, Allocative)]
 pub struct ImplicitImportPaths {
-    pub(crate) root_import: Option<ImportPath>,
-    pub(crate) package_imports: PackageImplicitImports,
+    pub root_import: Option<ImportPath>,
+    pub package_imports: PackageImplicitImports,
 }
 
 impl ImplicitImportPaths {

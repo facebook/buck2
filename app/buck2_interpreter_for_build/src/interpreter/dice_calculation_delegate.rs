@@ -33,10 +33,7 @@ use buck2_interpreter::dice::starlark_profiler::GetStarlarkProfilerInstrumentati
 use buck2_interpreter::extra::ExtraContext;
 use buck2_interpreter::file_loader::LoadedModule;
 use buck2_interpreter::file_loader::ModuleDeps;
-use buck2_interpreter::global_interpreter_state::HasGlobalInterpreterState;
 use buck2_interpreter::import_paths::HasImportPaths;
-use buck2_interpreter::interpreter::InterpreterForCell;
-use buck2_interpreter::interpreter::ParseResult;
 use buck2_interpreter::path::OwnedStarlarkModulePath;
 use buck2_interpreter::path::StarlarkModulePath;
 use buck2_interpreter::path::StarlarkPath;
@@ -51,6 +48,9 @@ use starlark::syntax::AstModule;
 use thiserror::Error;
 
 use crate::interpreter::dice_calculation_delegate::keys::EvalImportKey;
+use crate::interpreter::global_interpreter_state::HasGlobalInterpreterState;
+use crate::interpreter::interpreter_for_cell::InterpreterForCell;
+use crate::interpreter::interpreter_for_cell::ParseResult;
 
 #[derive(Debug, Error)]
 #[error("Error evaluating build file: `{0}`")]

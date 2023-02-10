@@ -23,6 +23,7 @@ members = [
     "app/buck2_grpc",
     "app/buck2_interpreter",
     "app/buck2_interpreter_for_build",
+    "app/buck2_interpreter_for_build_tests",
     "app/buck2_interpreter_tests",
     "app/buck2_node",
     "app/buck2_starlark",
@@ -262,6 +263,7 @@ buck2_build_api_derive = { path = "app/buck2_build_api_derive" }
 buck2_client = { path = "app/buck2_client" }
 buck2_interpreter = { path = "app/buck2_interpreter" }
 buck2_interpreter_tests = { path = "app/buck2_interpreter_tests" }
+buck2_interpreter_for_build_tests = { path = "app/buck2_interpreter_for_build_tests" }
 buck2_node = { path = "app/buck2_node" }
 buck2_execute = { path = "app/buck2_execute" }
 buck2_execute_impl = { path = "app/buck2_execute_impl" }

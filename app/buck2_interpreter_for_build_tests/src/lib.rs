@@ -7,12 +7,8 @@
  * of this source tree.
  */
 
-pub mod calculation;
-pub mod configuror;
-pub mod dice_calculation_delegate;
-pub mod global_interpreter_state;
-pub mod interpreter_for_cell;
-pub mod interpreter_setup;
-pub mod module_internals;
-pub mod natives;
-pub mod testing;
+#![cfg(test)]
+
+pub mod interpreter;
+#[cfg(test)]
+mod tests;

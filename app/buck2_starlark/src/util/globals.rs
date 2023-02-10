@@ -18,11 +18,11 @@ use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::name::CellName;
 use buck2_interpreter::file_loader::LoadedModule;
 use buck2_interpreter::file_type::StarlarkFileType;
-use buck2_interpreter::global_interpreter_state::HasGlobalInterpreterState;
 use buck2_interpreter::import_paths::HasImportPaths;
 use buck2_interpreter::path::StarlarkModulePath;
 use buck2_interpreter::path::StarlarkPath;
 use buck2_interpreter_for_build::interpreter::dice_calculation_delegate::HasCalculationDelegate;
+use buck2_interpreter_for_build::interpreter::global_interpreter_state::HasGlobalInterpreterState;
 use dice::DiceTransaction;
 use dupe::Dupe;
 

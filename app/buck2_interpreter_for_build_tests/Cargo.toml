@@ -1,0 +1,21 @@
+[package]
+name = "buck2_interpreter_for_build_tests"
+version = "0.1.0"
+edition = "2021"
+description = "Tests for buck2_intepreter_for_build"
+
+[dev-dependencies]
+indoc = { workspace = true }
+tokio = { workspace = true }
+
+dice = { workspace = true }
+dupe = { workspace = true }
+gazebo = { workspace = true }
+
+buck2_build_api = { workspace = true }
+buck2_common = { workspace = true }
+buck2_core = { workspace = true }
+buck2_events = { workspace = true }
+buck2_interpreter = { workspace = true }
+buck2_interpreter_for_build = { workspace = true }
+buck2_query = { workspace = true }

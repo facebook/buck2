@@ -27,10 +27,7 @@ use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
 use buck2_interpreter::file_loader::LoadedModule;
 use buck2_interpreter::file_loader::LoadedModules;
-use buck2_interpreter::global_interpreter_state::GlobalInterpreterState;
 use buck2_interpreter::import_paths::ImplicitImportPaths;
-use buck2_interpreter::interpreter::InterpreterForCell;
-use buck2_interpreter::interpreter::ParseResult;
 use buck2_interpreter::path::OwnedStarlarkModulePath;
 use buck2_interpreter::path::StarlarkModulePath;
 use buck2_interpreter::path::StarlarkPath;
@@ -47,6 +44,9 @@ use starlark::values::Value;
 
 use crate::interpreter::configuror::AdditionalGlobalsFn;
 use crate::interpreter::configuror::BuildInterpreterConfiguror;
+use crate::interpreter::global_interpreter_state::GlobalInterpreterState;
+use crate::interpreter::interpreter_for_cell::InterpreterForCell;
+use crate::interpreter::interpreter_for_cell::ParseResult;
 use crate::interpreter::module_internals::ModuleInternals;
 
 /// Simple container that allows us to instrument things like imports
