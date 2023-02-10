@@ -12,8 +12,10 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use anyhow::Context;
+use buck2_common::cas_digest::TrackedCasDigest;
 use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_common::file_ops::FileDigest;
+use buck2_common::file_ops::FileDigestKind;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::directory::DirectoryEntry;
 use buck2_core::directory::DirectoryIterator;
@@ -23,6 +25,7 @@ use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::soft_error;
 use chrono::Duration;
 use chrono::Utc;
+use futures::FutureExt;
 use gazebo::prelude::*;
 use remote_execution::GetDigestsTtlRequest;
 use remote_execution::InlinedBlobWithDigest;
@@ -48,14 +51,15 @@ use crate::re::metadata::RemoteExecutionMetadataExt;
 pub struct Uploader {}
 
 impl Uploader {
-    pub async fn upload(
+    async fn find_missing<'a>(
         client: &REClient,
-        materializer: &Arc<dyn Materializer>,
-        dir_path: &ProjectRelativePath,
-        input_dir: &ActionImmutableDirectory,
-        blobs: &ActionBlobs,
-        use_case: RemoteExecutorUseCase,
-    ) -> anyhow::Result<()> {
+        input_dir: &'a ActionImmutableDirectory,
+        blobs: &'a ActionBlobs,
+        use_case: &RemoteExecutorUseCase,
+    ) -> anyhow::Result<(
+        Vec<InlinedBlobWithDigest>,
+        HashSet<&'a TrackedCasDigest<FileDigestKind>>,
+    )> {
         // RE mentions they usually take 5-10 minutes of leeway so we mirror this here.
         let now = Utc::now();
         let ttl_wanted = 600i64;
@@ -89,6 +93,7 @@ impl Uploader {
             };
             client
                 .get_digests_ttl(use_case.metadata(), request)
+                .boxed()
                 .await?
                 .digests_with_ttl
         };
@@ -138,6 +143,19 @@ impl Uploader {
                 digest.update_expires(now + ttl);
             }
         }
+
+        Ok((upload_blobs, missing_digests))
+    }
+    pub async fn upload(
+        client: &REClient,
+        materializer: &Arc<dyn Materializer>,
+        dir_path: &ProjectRelativePath,
+        input_dir: &ActionImmutableDirectory,
+        blobs: &ActionBlobs,
+        use_case: RemoteExecutorUseCase,
+    ) -> anyhow::Result<()> {
+        let (mut upload_blobs, mut missing_digests) =
+            Self::find_missing(client, input_dir, blobs, &use_case).await?;
 
         if upload_blobs.is_empty() && missing_digests.is_empty() {
             return Ok(());
@@ -292,6 +310,7 @@ impl Uploader {
                         ..Default::default()
                     },
                 )
+                .boxed()
                 .await
                 .map(|_| ())
         } else {
