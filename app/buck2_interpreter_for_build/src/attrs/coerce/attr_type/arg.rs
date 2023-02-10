@@ -257,10 +257,7 @@ mod tests {
     #[test]
     fn test_concat() -> anyhow::Result<()> {
         let env = Module::new();
-        let globals = GlobalsBuilder::extended()
-            .with(buck2_interpreter::build_defs::native_module)
-            .with(register_select)
-            .build();
+        let globals = GlobalsBuilder::extended().with(register_select).build();
         let attr = AttrType::arg();
         let value = to_value(
             &env,

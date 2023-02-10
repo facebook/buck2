@@ -22,7 +22,6 @@
 #[macro_use]
 extern crate starlark;
 
-pub mod build_defs;
 pub mod dice;
 pub mod extra;
 pub mod file_loader;

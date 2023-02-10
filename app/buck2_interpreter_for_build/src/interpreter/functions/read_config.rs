@@ -7,14 +7,14 @@
  * of this source tree.
  */
 
+use buck2_interpreter::extra::build_context::BuildContext;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
+use starlark::starlark_module;
 use starlark::values::none::NoneOr;
 use starlark::values::StringValue;
 use starlark::values::StringValueLike;
 use starlark::values::Value;
-
-use crate::extra::build_context::BuildContext;
 
 #[starlark_module]
 pub fn register_read_config(globals: &mut GlobalsBuilder) {

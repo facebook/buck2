@@ -8,9 +8,9 @@
  */
 
 use buck2_interpreter::extra::build_context::BuildContext;
-use buck2_interpreter::functions::host_info::register_host_info;
-use buck2_interpreter::functions::read_config::register_read_config;
 use buck2_interpreter::path::StarlarkPath;
+use buck2_interpreter_for_build::interpreter::functions::host_info::register_host_info;
+use buck2_interpreter_for_build::interpreter::functions::read_config::register_read_config;
 use buck2_interpreter_for_build::interpreter::natives::register_module_natives;
 use either::Either;
 use itertools::Itertools;
@@ -158,9 +158,9 @@ mod tests {
     use buck2_core::build_file_path::BuildFilePath;
     use buck2_core::bzl::ImportPath;
     use buck2_interpreter::file_loader::LoadedModules;
-    use buck2_interpreter::functions::host_info::register_host_info;
-    use buck2_interpreter::functions::read_config::register_read_config;
     use buck2_interpreter::path::OwnedStarlarkModulePath;
+    use buck2_interpreter_for_build::interpreter::functions::host_info::register_host_info;
+    use buck2_interpreter_for_build::interpreter::functions::read_config::register_read_config;
     use buck2_interpreter_for_build::interpreter::natives::register_module_natives;
     use buck2_interpreter_for_build::interpreter::testing::buildfile;
     use buck2_interpreter_for_build::interpreter::testing::cells;

@@ -7,20 +7,20 @@
  * of this source tree.
  */
 
+use buck2_interpreter::extra::build_context::BuildContext;
+use buck2_interpreter::extra::InterpreterHostArchitecture;
+use buck2_interpreter::extra::InterpreterHostPlatform;
+use buck2_interpreter::extra::XcodeVersionInfo;
 use once_cell::sync::Lazy;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
+use starlark::starlark_module;
 use starlark::values::structs::AllocStruct;
 use starlark::values::AllocFrozenValue;
 use starlark::values::FrozenHeap;
 use starlark::values::FrozenValue;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::Value;
-
-use crate::extra::build_context::BuildContext;
-use crate::extra::InterpreterHostArchitecture;
-use crate::extra::InterpreterHostPlatform;
-use crate::extra::XcodeVersionInfo;
 
 fn new_host_info(
     host_platform: InterpreterHostPlatform,

@@ -18,7 +18,6 @@ rust_library(
         "fbsource//third-party/rust:glob",
         "fbsource//third-party/rust:hashbrown",
         "fbsource//third-party/rust:hex",
-        "fbsource//third-party/rust:once_cell",
         "fbsource//third-party/rust:plist",
         "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:sha2",

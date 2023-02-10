@@ -13,7 +13,7 @@ use starlark::environment::GlobalsBuilder;
 
 /// Contains functions that we include in all contexts.
 #[starlark_module]
-pub(crate) fn register_sha256(builder: &mut GlobalsBuilder) {
+pub fn register_sha256(builder: &mut GlobalsBuilder) {
     /// Computes a sha256 digest for a string. Returns the hex representation of the digest.
     fn sha256(val: &str) -> anyhow::Result<String> {
         let hash = Sha256::digest(val.as_bytes());

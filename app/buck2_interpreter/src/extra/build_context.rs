@@ -57,9 +57,9 @@ pub struct BuildContext<'a> {
     cell_info: &'a InterpreterCellInfo,
 
     /// Current cell file buckconfig.
-    pub(crate) buckconfig: LegacyBuckConfigForStarlark<'a>,
+    pub buckconfig: LegacyBuckConfigForStarlark<'a>,
     /// Buckconfig of the root cell.
-    pub(crate) root_buckconfig: LegacyBuckConfigForStarlark<'a>,
+    pub root_buckconfig: LegacyBuckConfigForStarlark<'a>,
 
     /// The import path that is being evaluated
     pub starlark_path: StarlarkPath<'a>,

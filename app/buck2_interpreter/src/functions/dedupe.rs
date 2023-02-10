@@ -15,7 +15,7 @@ use starlark::values::Heap;
 use starlark::values::Value;
 
 #[starlark_module]
-pub(crate) fn dedupe(builder: &mut GlobalsBuilder) {
+pub fn dedupe(builder: &mut GlobalsBuilder) {
     /// Remove duplicates in a list. Uses identity of value (pointer),
     /// rather than by equality.
     fn dedupe<'v>(
