@@ -135,8 +135,9 @@ fn dep_like_attr_handle_providers_arg(providers: Vec<Value>) -> anyhow::Result<P
     )?))
 }
 
+/// Fields of `attrs` struct.
 #[starlark_module]
-pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
+fn attr_module(registry: &mut GlobalsBuilder) {
     fn string<'v>(
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[allow(unused_variables)]
@@ -472,8 +473,8 @@ pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
     }
 }
 
-pub fn register_attr_module(registry: &mut GlobalsBuilder) {
-    attr_module(registry)
+pub(crate) fn register_attrs(globals: &mut GlobalsBuilder) {
+    globals.struct_("attrs", attr_module);
 }
 
 #[cfg(test)]
