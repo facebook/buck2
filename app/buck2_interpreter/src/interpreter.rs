@@ -22,6 +22,7 @@ use buck2_core::bzl::ImportPath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::CellAliasResolver;
+use buck2_core::soft_error;
 use dupe::Dupe;
 use gazebo::prelude::*;
 use starlark::codemap::FileSpan;
@@ -61,6 +62,8 @@ use crate::starlark_profiler::StarlarkProfilerOrInstrumentation;
 enum StarlarkParseError {
     #[error("Error parsing: `{0}`")]
     InFile(OwnedStarlarkPath),
+    #[error("Tabs are not allowed in Buck files: `{0}`")]
+    Tabs(OwnedStarlarkPath),
 }
 
 /// What type of file are we parsing - a `.bzl` file, `.bxl` file, or a `BUCK`/`TARGETS` file.
@@ -509,6 +512,13 @@ impl InterpreterForCell {
         import: StarlarkPath,
         content: String,
     ) -> anyhow::Result<ParseResult> {
+        if content.contains('\t') {
+            soft_error!(
+                "tabs_in_starlark",
+                StarlarkParseError::Tabs(OwnedStarlarkPath::new(import)).into()
+            )?;
+        }
+
         let project_relative_path = self
             .global_state
             .cell_resolver
