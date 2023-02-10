@@ -39,7 +39,7 @@ allocative = { workspace = true }
 fbinit = { workspace = true }
 gazebo = { workspace = true }
 dupe = { workspace = true }
-dice = { path = "../../dice/dice" }
+dice = { workspace = true }
 more_futures = { workspace = true }
 starlark = { workspace = true }
 watchman_client.version = "0.8.0"

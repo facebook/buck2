@@ -49,7 +49,7 @@ parking_lot = { workspace = true }
 fnv = { workspace = true }
 
 allocative = { workspace = true }
-dice = { path = "../../dice/dice" }
+dice = { workspace = true }
 fbinit = { workspace = true }
 gazebo = { workspace = true }
 dupe = { workspace = true }

@@ -19,7 +19,7 @@ tokio = { workspace = true }
 tracing = { workspace = true }
 uuid = { workspace = true }
 
-dice = { path = "../../dice/dice" }
+dice = { workspace = true }
 gazebo = { workspace = true }
 dupe = { workspace = true }
 host_sharing = { workspace = true }

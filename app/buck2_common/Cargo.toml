@@ -33,7 +33,7 @@ derivative = { workspace = true }
 parking_lot = { workspace = true }
 
 allocative = { workspace = true }
-dice = { path = "../../dice/dice" }
+dice = { workspace = true }
 # @oss-disable: edenfs = { package = "thrift", path = "../../../eden/fs/service" }
 fbinit = { workspace = true }
 # @oss-disable: fb303_core = { package = "fb303_core", path = "../../../fb303/thrift" }

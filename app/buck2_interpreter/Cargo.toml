@@ -21,7 +21,7 @@ glob = { workspace = true }
 plist = { workspace = true }
 
 allocative = { workspace = true }
-dice = { path = "../../dice/dice" }
+dice = { workspace = true }
 gazebo = { workspace = true }
 dupe = { workspace = true }
 gazebo_lint.version = "0.1"

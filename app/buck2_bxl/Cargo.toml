@@ -26,7 +26,7 @@ fbinit = { workspace = true }
 allocative = { workspace = true }
 gazebo = { workspace = true }
 dupe = { workspace = true }
-dice = { path = "../../dice/dice" }
+dice = { workspace = true }
 buck2_events = { workspace = true }
 starlark = { workspace = true }
 starlark_map = { workspace = true }
