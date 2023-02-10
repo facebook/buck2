@@ -603,6 +603,10 @@ fn test_replace_regex() -> anyhow::Result<()> {
             args.replace_regex("\\$OUT\\b", "%OUT%")
             args.replace_regex("\\$SRCS\\b", "%SRCS%")
             assert_eq(["$OUT: %OUT%", "$OUT: $OUTPUT", "$OUT: %SRCS%"], get_args(args))
+
+            args = cmd_args("\\n\n")
+            args.replace_regex("\\\\n", "\\\n").replace_regex("\\n", "\\n")
+            assert_eq(["\\\\n\\n"], get_args(args))
         "#
     );
     tester.run_starlark_bzl_test(contents)?;

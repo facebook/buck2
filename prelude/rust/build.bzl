@@ -861,9 +861,7 @@ def _rustc_invoke(
     for k, v in crate_map.items():
         compile_cmd.add(cmd_args("--crate-map=", k, "=", str(v.raw_target()), delimiter = ""))
     for k, v in plain_env.items():
-        # The env variable may have newlines in it (yuk), but when writing them to an @file,
-        # we can't escape the newlines. Therefore leave them on the command line
-        rustc_action.add(cmd_args("--env=", k, "=", v, delimiter = ""))
+        compile_cmd.add(cmd_args("--env=", k, "=", v, delimiter = ""))
     for k, v in path_env.items():
         compile_cmd.add(cmd_args("--path-env=", k, "=", v, delimiter = ""))
 
@@ -913,6 +911,10 @@ def _process_env(
         if len(v.inputs) > 0:
             path_env[k] = v
         else:
-            plain_env[k] = v
+            # Environment variables may have newlines, escape them for now.
+            # Will be unescaped in rustc_action.
+            # Variable may have "\\n" as well.
+            # Example: \\n\n -> \\\n\n -> \\\\n\\n
+            plain_env[k] = v.replace_regex("\\\\n", "\\\n").replace_regex("\\n", "\\n")
 
     return (plain_env, path_env)

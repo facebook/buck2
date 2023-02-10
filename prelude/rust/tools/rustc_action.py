@@ -219,7 +219,11 @@ async def main() -> int:
         if k in os.environ
     }
     if args.env:
-        env.update(dict(args.env))
+        # Unescape previously escaped newlines.
+        # Example: \\\\n\\n -> \\\n\n -> \\n\n
+        env.update(
+            {k: v.replace("\\n", "\n").replace("\\\n", "\\n") for k, v in args.env}
+        )
     if args.path_env:
         env.update({k: str(Path(v).resolve()) for k, v in args.path_env})
 
