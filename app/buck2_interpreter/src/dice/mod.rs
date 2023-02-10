@@ -21,9 +21,7 @@ use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::package_listing::dice::HasPackageListingResolver;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::name::CellName;
-use buck2_events::dispatch::EventDispatcher;
 use dice::DiceComputations;
-use dice::UserComputationData;
 
 use crate::dice::calculation::DiceCalculationDelegate;
 use crate::extra::InterpreterConfiguror;
@@ -65,16 +63,4 @@ pub trait SetInterpreterContext {
         &mut self,
         interpreter_configuror: Arc<dyn InterpreterConfiguror>,
     ) -> anyhow::Result<()>;
-}
-
-pub trait HasEvents {
-    fn get_dispatcher(&self) -> &EventDispatcher;
-}
-
-impl HasEvents for UserComputationData {
-    fn get_dispatcher(&self) -> &EventDispatcher {
-        self.data
-            .get::<EventDispatcher>()
-            .expect("Event dispatcher should be set")
-    }
 }

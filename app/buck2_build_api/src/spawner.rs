@@ -9,8 +9,8 @@
 
 use std::any::Any;
 
+use buck2_common::events::HasEvents;
 use buck2_events::dispatch::with_dispatcher_async;
-use buck2_interpreter::dice::HasEvents;
 use dupe::Dupe;
 use futures::future::BoxFuture;
 use more_futures::spawner::Spawner;

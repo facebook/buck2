@@ -9,8 +9,8 @@
 
 use std::future::Future;
 
+use buck2_common::events::HasEvents;
 use buck2_events::dispatch::with_dispatcher_async;
-use buck2_interpreter::dice::HasEvents;
 use dice::DiceComputations;
 use dupe::Dupe;
 use futures::future::select;

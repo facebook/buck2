@@ -29,6 +29,7 @@ use buck2_build_api::interpreter::rule_defs::provider::builtin::external_runner_
 use buck2_build_api::interpreter::rule_defs::provider::builtin::external_runner_test_info::FrozenExternalRunnerTestInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::external_runner_test_info::TestCommandMember;
 use buck2_common::dice::cells::HasCellResolver;
+use buck2_common::events::HasEvents;
 use buck2_common::executor_config::CommandExecutorConfig;
 use buck2_common::liveliness_observer::LivelinessObserver;
 use buck2_core::category::Category;
@@ -74,7 +75,6 @@ use buck2_execute_impl::executors::local::apply_local_execution_environment;
 use buck2_execute_impl::executors::local::create_output_dirs;
 use buck2_execute_impl::executors::local::materialize_inputs;
 use buck2_execute_impl::executors::local::EnvironmentBuilder;
-use buck2_interpreter::dice::HasEvents;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_test_api::data::ArgValue;
 use buck2_test_api::data::ArgValueContent;
