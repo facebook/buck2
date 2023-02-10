@@ -30,6 +30,7 @@ use buck2_data::DiceSynchronizeSectionStart;
 use buck2_data::NoActiveDiceState;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::trace::TraceId;
+use derive_more::Display;
 use dice::Dice;
 use dice::DiceComputations;
 use dice::DiceEquality;
@@ -46,6 +47,7 @@ use parking_lot::lock_api::MutexGuard;
 use parking_lot::FairMutex;
 use parking_lot::RawFairMutex;
 use starlark_map::small_map::SmallMap;
+use starlark_map::small_set::SmallSet;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -162,16 +164,42 @@ struct ConcurrencyHandlerData {
     // the currently active `Dice` being used. Commands can only run concurrently if these are
     // "equivalent".
     dice_status: DiceStatus,
-    // A list of the currently running traces. It's theoretically possible that we use the same
-    // trace twice if we support user supplied `TraceId` and have nested invocations, so we keep
-    // a map of number of occurrences.
-    active_traces: SmallMap<TraceId, usize>,
-    // The current active trace that is executing.
-    active_trace: Option<TraceId>,
-    // The current active trace's argv.
-    active_trace_argv: Option<Vec<String>>,
+    // A list of the currently running commands.
+    active_commands: SmallMap<CommandId, CommandData>,
+    // When a command enters
+    next_command_id: CommandId,
     // The epoch of the last ActiveDice we assigned.
     cleanup_epoch: usize,
+}
+
+#[derive(Allocative, Display, Copy, Clone, Dupe, PartialEq, Eq, Hash)]
+struct CommandId(usize);
+
+impl CommandId {
+    /// Increment this counter and return the next command.
+    fn increment(&mut self) -> CommandId {
+        let res = CommandId(self.0);
+        self.0 += 1;
+        res
+    }
+}
+
+#[derive(Allocative)]
+struct CommandData {
+    trace_id: TraceId,
+    argv: Vec<String>,
+    dispatcher: EventDispatcher,
+}
+
+impl CommandData {
+    fn format_argv(&self) -> String {
+        let mut iter = self.argv.iter();
+        // Skip the "/path/to/buck2" part so we can just emit "buck2" for the start of the cmd
+        iter.next();
+
+        let cmd = format!("buck2 {}", iter.join(" "));
+        truncate(&cmd, 500)
+    }
 }
 
 #[derive(Allocative)]
@@ -203,14 +231,14 @@ impl DiceStatus {
 }
 
 impl ConcurrencyHandlerData {
-    fn has_no_active_traces(&self) -> bool {
-        self.active_traces.is_empty()
+    fn has_no_active_commands(&self) -> bool {
+        self.active_commands.is_empty()
     }
 
     /// Attempt a transition to cleanup, or straight to idle if cleanup can be skipped. Returns
     /// whether the transition was done.
     fn transition_to_cleanup(&mut self, dice: &Dice) -> bool {
-        if !self.has_no_active_traces() {
+        if !self.has_no_active_commands() {
             return false;
         }
 
@@ -251,9 +279,8 @@ impl ConcurrencyHandler {
         ConcurrencyHandler {
             data: Arc::new(FairMutex::new(ConcurrencyHandlerData {
                 dice_status: DiceStatus::idle(),
-                active_traces: SmallMap::<TraceId, usize>::new(),
-                active_trace: None,
-                active_trace_argv: None,
+                active_commands: SmallMap::new(),
+                next_command_id: CommandId(0),
                 cleanup_epoch: 0,
             })),
             cond: Default::default(),
@@ -319,6 +346,14 @@ impl ConcurrencyHandler {
         let _enter = span.enter();
 
         let mut data = self.data.lock();
+
+        let command_id = data.next_command_id.increment();
+
+        let command_data = CommandData {
+            trace_id: trace.dupe(),
+            argv: sanitized_argv,
+            dispatcher: event_dispatcher.dupe(),
+        };
 
         let transaction = loop {
             match &data.dice_status {
@@ -391,37 +426,38 @@ impl ConcurrencyHandler {
                             BypassSemaphore::Error => {
                                 return Err(anyhow::Error::new(
                                     ConcurrencyHandlerError::NestedInvocationWithDifferentStates(
-                                        format_traces(&data.active_traces, trace.dupe()),
-                                        format_argv(&sanitized_argv),
+                                        format_traces(&data.active_commands, &command_data),
+                                        command_data.format_argv(),
                                     ),
                                 ));
                             }
                             BypassSemaphore::Run(state) => {
-                                self.emit_logs(
-                                    state,
-                                    &data.active_traces,
-                                    trace.dupe(),
-                                    format_argv(&sanitized_argv),
-                                )?;
+                                self.emit_logs(state, &data.active_commands, &command_data)?;
 
                                 break transaction;
                             }
                             BypassSemaphore::Block => {
-                                let active_trace = data.active_trace.as_ref().unwrap().to_string();
+                                // We should probably show more than the first here, but for now
+                                // this is what we have.
+                                //
+                                // Note: unwrap here relies on the fact that transition_to_cleanup
+                                // would have transitioned if we had no active commands.
+
+                                let active_command = data.active_commands.first().unwrap().1;
+                                let trace_id = active_command.trace_id.dupe();
+                                let argv = active_command.format_argv();
 
                                 data = event_dispatcher
                                     .span_async(
                                         DiceBlockConcurrentCommandStart {
-                                            current_active_trace_id: active_trace.clone(),
-                                            cmd_args: format_argv(
-                                                data.active_trace_argv.as_ref().unwrap(),
-                                            ),
+                                            current_active_trace_id: trace_id.to_string(),
+                                            cmd_args: argv,
                                         },
                                         async {
                                             (
                                                 self.cond.wait(data).await,
                                                 DiceBlockConcurrentCommandEnd {
-                                                    ending_active_trace_id: active_trace,
+                                                    ending_active_trace_id: trace_id.to_string(),
                                                 },
                                             )
                                         },
@@ -441,11 +477,8 @@ impl ConcurrencyHandler {
 
         tracing::info!("Acquired access to DICE");
 
-        data.active_trace = Some(trace.dupe());
-        data.active_trace_argv = Some(sanitized_argv);
-
         // create the on exit drop handler, which will take care of notifying tasks.
-        let drop_guard = OnExecExit::new(self.dupe(), trace.dupe(), data);
+        let drop_guard = OnExecExit::new(self.dupe(), command_id, command_data, data);
 
         Ok((drop_guard, transaction))
     }
@@ -482,19 +515,18 @@ impl ConcurrencyHandler {
     fn emit_logs(
         &self,
         state: RunState,
-        active_traces: &SmallMap<TraceId, usize>,
-        current_trace: TraceId,
-        current_trace_args: String,
+        active_commands: &SmallMap<CommandId, CommandData>,
+        current_command: &CommandData,
     ) -> anyhow::Result<()> {
-        let active_traces = format_traces(active_traces, current_trace);
+        let active_commands = format_traces(active_commands, current_command);
 
         match state {
             RunState::NestedSameState => {
                 soft_error!(
                     "nested_invocation_same_dice_state",
                     anyhow::anyhow!(ConcurrencyHandlerError::NestedInvocationWithSameStates(
-                        active_traces,
-                        current_trace_args,
+                        active_commands,
+                        current_command.format_argv(),
                     ))
                 )?;
             }
@@ -503,8 +535,8 @@ impl ConcurrencyHandler {
                     "nested_invocation_different_dice_state",
                     anyhow::anyhow!(
                         ConcurrencyHandlerError::NestedInvocationWithDifferentStates(
-                            active_traces,
-                            current_trace_args
+                            active_commands,
+                            current_command.format_argv()
                         ),
                     )
                 )?;
@@ -514,7 +546,7 @@ impl ConcurrencyHandler {
                     "parallel_invocation_different_dice_state",
                     anyhow::anyhow!(
                         ConcurrencyHandlerError::ParallelInvocationWithDifferentStates(
-                            active_traces,
+                            active_commands,
                         ),
                     )
                 )?;
@@ -526,40 +558,32 @@ impl ConcurrencyHandler {
     }
 }
 
-fn format_traces(active_traces: &SmallMap<TraceId, usize>, current_trace: TraceId) -> String {
-    let mut traces = active_traces
-        .keys()
-        .map(|trace| trace.to_string())
-        .join(", ");
+fn format_traces(
+    active_commands: &SmallMap<CommandId, CommandData>,
+    current: &CommandData,
+) -> String {
+    let trace_ids = active_commands
+        .values()
+        .chain(std::iter::once(current))
+        .map(|cmd| &cmd.trace_id)
+        .collect::<SmallSet<_>>();
 
-    if !active_traces.contains_key(&current_trace) {
-        traces.push_str(&format!(", {}", &current_trace));
-    }
-
-    traces
-}
-
-fn format_argv(arg: &[String]) -> String {
-    let mut iter = arg.iter();
-    // Skip the "/path/to/buck2" part so we can just emit "buck2" for the start of the cmd
-    iter.next();
-
-    let cmd = format!("buck2 {}", iter.join(" "));
-    truncate(&cmd, 500)
+    trace_ids.iter().join(", ")
 }
 
 /// Held to execute a command so that when the command is canceled, we properly remove its state
 /// from the handler so that it's no longer registered as a ongoing command.
-struct OnExecExit(ConcurrencyHandler, TraceId);
+struct OnExecExit(ConcurrencyHandler, CommandId);
 
 impl OnExecExit {
     pub fn new(
         handler: ConcurrencyHandler,
-        trace: TraceId,
+        command: CommandId,
+        data: CommandData,
         mut guard: MutexGuard<'_, RawFairMutex, ConcurrencyHandlerData>,
     ) -> Self {
-        *guard.active_traces.entry(trace.dupe()).or_default() += 1;
-        Self(handler, trace)
+        guard.active_commands.insert(command, data);
+        Self(handler, command)
     }
 }
 
@@ -568,20 +592,11 @@ impl Drop for OnExecExit {
         tracing::info!("Command has exited: {}", self.1);
 
         let mut data = self.0.data.lock();
-        let refs = {
-            let refs = data
-                .active_traces
-                .get_mut(&self.1)
-                .expect("command was active but not in active traces");
-            *refs -= 1;
+        data.active_commands
+            .remove(&self.1)
+            .expect("command was active but not in active_commands");
 
-            *refs
-        };
-        if refs == 0 {
-            data.active_traces.remove(&self.1);
-        }
-
-        if data.has_no_active_traces() {
+        if data.has_no_active_commands() {
             // we notify all commands since we don't know how many can actually wake up and run
             // concurrently as several of the currently waiting commands could be "equivalent".
             // This could cause commands to wake up out of order and race, such that the longest
@@ -605,7 +620,6 @@ mod tests {
     use buck2_events::dispatch::EventDispatcher;
     use buck2_events::trace::TraceId;
     use derivative::Derivative;
-    use derive_more::Display;
     use dice::DetectCycles;
     use dice::Dice;
     use dice::DiceComputations;
