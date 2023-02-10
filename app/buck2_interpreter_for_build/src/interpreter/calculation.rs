@@ -32,7 +32,7 @@ use crate::interpreter::calculation::keys::InterpreterResultsKey;
 use crate::interpreter::module_internals::ModuleInternals;
 
 #[async_trait]
-pub trait InterpreterCalculation<'c> {
+pub trait InterpreterCalculation {
     /// Like `get_interpreter_results` but doesn't cache the result on the DICE graph.
     async fn get_interpreter_results_uncached(
         &self,
@@ -57,7 +57,7 @@ pub trait InterpreterCalculation<'c> {
 }
 
 #[async_trait]
-impl<'c> InterpreterCalculation<'c> for DiceComputations {
+impl InterpreterCalculation for DiceComputations {
     /// Like `get_interpreter_results` but don't go through the DICE graph
     async fn get_interpreter_results_uncached(
         &self,
