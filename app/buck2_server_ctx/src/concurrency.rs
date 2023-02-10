@@ -411,9 +411,13 @@ impl ConcurrencyHandler {
                 }
                 DiceStatus::Available { active } => {
                     tracing::debug!("ActiveDice is available");
+
+                    let dice_was_idle = self.dice.is_idle();
+
                     // we rerun the updates in case that files on disk have changed between commands.
                     // this might cause some churn, but concurrent commands don't happen much and
                     // isn't a big perf bottleneck. Dice should be able to resurrect nodes properly.
+
                     let transaction = event_dispatcher
                         .span_async(buck2_data::DiceStateUpdateStart {}, async {
                             (
@@ -497,7 +501,7 @@ impl ConcurrencyHandler {
                         tracing::debug!("ActiveDice has no active_transaction");
                         event_dispatcher.instant_event(NoActiveDiceState {});
                         data.dice_status = DiceStatus::active(transaction.equality_token());
-                        break (transaction, false);
+                        break (transaction, !dice_was_idle);
                     }
                 }
             }
@@ -1007,6 +1011,24 @@ mod tests {
         Ok(())
     }
 
+    fn has_taint_event(receiver: &mut impl EventSource) -> bool {
+        while let Some(event) = receiver.try_receive() {
+            match event.unpack_buck().unwrap().data() {
+                buck2_data::buck_event::Data::Instant(i) => match &i.data {
+                    Some(buck2_data::instant_event::Data::TagEvent(e)) => {
+                        if e.tags.iter().any(|e| e == "concurrency-tainted") {
+                            return true;
+                        }
+                    }
+                    _ => {}
+                },
+                _ => {}
+            }
+        }
+
+        false
+    }
+
     #[tokio::test]
     async fn parallel_invocation_different_traceid_bypass_semaphore() -> anyhow::Result<()> {
         let dice = Dice::builder().build(DetectCycles::Enabled);
@@ -1094,58 +1116,41 @@ mod tests {
         r3??;
 
         for mut events in [events1, events2, events3] {
-            let mut tag_was_sent = false;
-
-            while let Some(event) = events.try_receive() {
-                match event.unpack_buck().unwrap().data() {
-                    buck2_data::buck_event::Data::Instant(i) => match &i.data {
-                        Some(buck2_data::instant_event::Data::TagEvent(e)) => {
-                            if e.tags.iter().any(|e| e == "concurrency-tainted") {
-                                tag_was_sent = true;
-                            }
-                        }
-                        _ => {}
-                    },
-                    _ => {}
-                }
-            }
-
-            assert!(tag_was_sent);
+            assert!(has_taint_event(&mut events));
         }
 
         Ok(())
     }
 
+    #[derive(Clone, Dupe, Derivative, Allocative, Display)]
+    #[derivative(Hash, Eq, PartialEq, Debug)]
+    #[display(fmt = "CleanupTestKey")]
+    struct CleanupTestKey {
+        #[derivative(Debug = "ignore", Hash = "ignore", PartialEq = "ignore")]
+        is_executing: Arc<Mutex<()>>,
+    }
+
+    #[async_trait::async_trait]
+    impl Key for CleanupTestKey {
+        type Value = ();
+
+        #[allow(clippy::await_holding_lock)]
+        async fn compute(&self, _ctx: &DiceComputations) -> Self::Value {
+            let _guard = self.is_executing.lock();
+
+            // TODO: use critical_section as it's simpler, but this stack doesn't have it and
+            // this works equally well here :)
+            with_structured_cancellation(|_obs| tokio::time::sleep(Duration::from_secs(1))).await;
+        }
+
+        fn equality(_me: &Self::Value, _other: &Self::Value) -> bool {
+            true
+        }
+    }
+
     #[tokio::test]
     async fn test_cleanup_stage() -> anyhow::Result<()> {
-        #[derive(Clone, Dupe, Derivative, Allocative, Display)]
-        #[derivative(Hash, Eq, PartialEq, Debug)]
-        #[display(fmt = "TestKey")]
-        struct TestKey {
-            #[derivative(Debug = "ignore", Hash = "ignore", PartialEq = "ignore")]
-            is_executing: Arc<Mutex<()>>,
-        }
-
-        #[async_trait::async_trait]
-        impl Key for TestKey {
-            type Value = ();
-
-            #[allow(clippy::await_holding_lock)]
-            async fn compute(&self, _ctx: &DiceComputations) -> Self::Value {
-                let _guard = self.is_executing.lock();
-
-                // TODO: use critical_section as it's simpler, but this stack doesn't have it and
-                // this works equally well here :)
-                with_structured_cancellation(|_obs| tokio::time::sleep(Duration::from_secs(1)))
-                    .await;
-            }
-
-            fn equality(_me: &Self::Value, _other: &Self::Value) -> bool {
-                true
-            }
-        }
-
-        let key = TestKey {
+        let key = CleanupTestKey {
             is_executing: Arc::new(Mutex::new(())),
         };
 
@@ -1223,6 +1228,79 @@ mod tests {
                 Vec::new(),
             )
             .await?;
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_cleanup_skipped_reports_tainted() -> anyhow::Result<()> {
+        let key = CleanupTestKey {
+            is_executing: Arc::new(Mutex::new(())),
+        };
+
+        let key = &key;
+
+        let dice = Dice::builder().build(DetectCycles::Enabled);
+
+        let concurrency = ConcurrencyHandler::new(
+            dice.dupe(),
+            NestedInvocation::Error,
+            ParallelInvocation::Block,
+            DiceCleanup::Run,
+        );
+
+        // Kick off our computation and wait until it's running.
+
+        concurrency
+            .enter(
+                EventDispatcher::null(),
+                &TestDiceDataProvider,
+                &NoChanges,
+                |dice| async move {
+                    let compute = dice.compute(key).fuse();
+
+                    let started = async {
+                        while !key.is_executing.is_locked() {
+                            tokio::task::yield_now().await;
+                        }
+                    }
+                    .fuse();
+
+                    // NOTE: We still need to poll `compute` for it to actually spawn, hence the
+                    // select below.
+
+                    futures::pin_mut!(compute);
+                    futures::pin_mut!(started);
+
+                    futures::select! {
+                        _ = compute => panic!("compute finished before started?"),
+                        _ = started => {}
+                    }
+                },
+                false,
+                Vec::new(),
+            )
+            .await?;
+
+        // Now, enter with a different context. We're skipping cleanup.
+
+        let (mut events, sink) = create_source_sink_pair();
+
+        concurrency
+            .enter(
+                EventDispatcher::new(TraceId::new(), sink),
+                &TestDiceDataProvider,
+                &CtxDifferent,
+                |_dice| async move {
+                    // Check that we did in fact re-enter before cleanup was done.
+                    assert!(key.is_executing.is_locked());
+                },
+                false,
+                Vec::new(),
+            )
+            .await?;
+
+        assert!(has_taint_event(&mut events));
 
         Ok(())
     }
