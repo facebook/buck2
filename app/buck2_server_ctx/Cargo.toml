@@ -15,6 +15,7 @@ parking_lot = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
+more_futures = { workspace = true }
 
 allocative = { workspace = true }
 dice = { workspace = true }
@@ -31,5 +32,4 @@ starlark_map = { workspace = true }
 
 [dev-dependencies]
 derivative = { workspace = true }
-more_futures = { workspace = true }
 tokio = { workspace = true }

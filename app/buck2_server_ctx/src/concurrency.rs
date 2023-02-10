@@ -43,6 +43,7 @@ use futures::future::Future;
 use futures::future::FutureExt;
 use futures::future::Shared;
 use itertools::Itertools;
+use more_futures::cancellable_future::critical_section;
 use parking_lot::lock_api::MutexGuard;
 use parking_lot::FairMutex;
 use parking_lot::RawFairMutex;
@@ -340,13 +341,15 @@ impl ConcurrencyHandler {
         let (_guard, transaction) = event_dispatcher
             .span_async(DiceSynchronizeSectionStart {}, async move {
                 (
-                    self.wait_for_others(
-                        data,
-                        updates,
-                        events,
-                        is_nested_invocation,
-                        sanitized_argv,
-                    )
+                    critical_section(|| {
+                        self.wait_for_others(
+                            data,
+                            updates,
+                            events,
+                            is_nested_invocation,
+                            sanitized_argv,
+                        )
+                    })
                     .await,
                     DiceSynchronizeSectionEnd {},
                 )
