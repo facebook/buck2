@@ -199,6 +199,7 @@ impl DefaultIoHandler {
                     stat.total_bytes = info.metadata.digest.size();
                     Ok(())
                 }
+                .boxed()
                 .await
                 .with_context(|| {
                     format!(
@@ -292,7 +293,7 @@ impl IoHandler for DefaultIoHandler {
             },
         };
         event_dispatcher
-            .span_async(materialization_start, async {
+            .span_async(materialization_start, async move {
                 let path_string = path.as_str().to_owned();
                 let mut stat = MaterializationStat {
                     file_count: 0,

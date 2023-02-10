@@ -43,6 +43,7 @@ use chrono::Duration;
 use chrono::Utc;
 use dupe::Dupe;
 use futures::future;
+use futures::FutureExt;
 use gazebo::prelude::*;
 use indexmap::IndexMap;
 use remote_execution as RE;
@@ -79,7 +80,7 @@ pub async fn download_action_results<'a>(
     );
 
     let std_streams = response.std_streams(re_client, re_use_case);
-    let std_streams = async {
+    let std_streams = async move {
         if request.prefetch_lossy_stderr() {
             std_streams.prefetch_lossy_stderr().await
         } else {
@@ -189,6 +190,7 @@ impl CasDownloader<'_> {
                     .map(|x| x.tree_digest.clone()),
                 self.re_use_case,
             )
+            .boxed()
             .await
             .context(DownloadError::DownloadTrees)?;
 
@@ -222,6 +224,7 @@ impl CasDownloader<'_> {
                 )),
                 to_declare,
             )
+            .boxed()
             .await
             .context(DownloadError::Materialization)?;
 

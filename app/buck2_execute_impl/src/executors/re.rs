@@ -35,6 +35,7 @@ use buck2_execute::re::action_identity::ReActionIdentity;
 use buck2_execute::re::manager::ManagedRemoteExecutionClient;
 use buck2_execute::re::remote_action_result::RemoteActionResult;
 use dupe::Dupe;
+use futures::FutureExt;
 use gazebo::prelude::*;
 use indexmap::IndexMap;
 use remote_execution as RE;
@@ -259,6 +260,7 @@ impl PreparedCommandExecutor for ReExecutor {
             action_digest,
             &response,
         )
+        .boxed()
         .await
     }
 
