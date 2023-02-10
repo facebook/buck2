@@ -21,7 +21,7 @@ use starlark::eval::FileLoader;
 use crate::path::OwnedStarlarkModulePath;
 use crate::path::StarlarkModulePath;
 
-#[derive(Default, Clone, Allocative)]
+#[derive(Default, Clone, Allocative, Debug)]
 pub struct LoadedModules {
     pub map: OrderedMap<OwnedStarlarkModulePath, LoadedModule>,
 }

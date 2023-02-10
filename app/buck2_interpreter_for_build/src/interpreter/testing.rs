@@ -50,6 +50,7 @@ use crate::interpreter::configuror::BuildInterpreterConfiguror;
 use crate::interpreter::module_internals::ModuleInternals;
 
 /// Simple container that allows us to instrument things like imports
+#[derive(Debug)]
 pub struct Tester {
     cell_alias_resolver: CellAliasResolver,
     cell_resolver: CellResolver,
@@ -182,7 +183,7 @@ impl Tester {
         self.prelude_path = Some(prelude_import);
     }
 
-    fn interpreter(&self) -> anyhow::Result<Arc<InterpreterForCell>> {
+    pub fn interpreter(&self) -> anyhow::Result<Arc<InterpreterForCell>> {
         let import_paths = ImplicitImportPaths::parse(
             self.configs
                 .get(self.cell_alias_resolver.resolve_self())
@@ -220,12 +221,12 @@ impl Tester {
 
     /// Evaluate an import, and add it to the existing loaded_modules() map to be
     /// used with `eval_build_file`
-    pub fn add_import(&mut self, path: &ImportPath, content: &str) -> anyhow::Result<()> {
+    pub fn add_import(&mut self, path: &ImportPath, content: &str) -> anyhow::Result<LoadedModule> {
         let loaded = self.eval_import(path, content, self.loaded_modules.clone())?;
         self.loaded_modules
             .map
-            .insert(StarlarkModulePath::LoadFile(path).to_owned(), loaded);
-        Ok(())
+            .insert(StarlarkModulePath::LoadFile(path).to_owned(), loaded.dupe());
+        Ok(loaded)
     }
 
     /// Evaluate an import without adding it to the accumulated `Tester`
@@ -397,6 +398,7 @@ impl Tester {
             "#
         );
         self.add_import(&test_path, test_content)
+            .map(|_| ())
             .map_err(|e| e.into())
     }
 
