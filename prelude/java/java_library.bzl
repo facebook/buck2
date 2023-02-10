@@ -451,7 +451,7 @@ def _check_exported_deps(exported_deps: ["dependency"], attr_name: str.type):
             "make sense for a target that emits Java bytecode, {} in {} does not.".format(exported_dep, attr_name),
         )
 
-# TODO(T108258238) remove need for this
+# TODO(T145137403) remove need for this
 def _skip_java_library_dep_checks(ctx: "context") -> bool.type:
     return "skip_buck2_java_library_dep_checks" in ctx.attrs.labels
 
