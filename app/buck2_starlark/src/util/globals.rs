@@ -20,27 +20,11 @@ use buck2_interpreter::dice::HasCalculationDelegate;
 use buck2_interpreter::file_loader::LoadedModule;
 use buck2_interpreter::global_interpreter_state::HasGlobalInterpreterState;
 use buck2_interpreter::import_paths::HasImportPaths;
+use buck2_interpreter::interpreter::StarlarkFileType;
 use buck2_interpreter::path::StarlarkModulePath;
 use buck2_interpreter::path::StarlarkPath;
 use dice::DiceTransaction;
 use dupe::Dupe;
-
-#[derive(Copy, Dupe, Clone, Debug, Hash, PartialEq, Eq)]
-enum PathType {
-    Build,
-    Load,
-    Bxl,
-}
-
-impl PathType {
-    fn from_path(path: &StarlarkPath<'_>) -> Self {
-        match path {
-            StarlarkPath::BuildFile(_) => Self::Build,
-            StarlarkPath::LoadFile(_) => Self::Load,
-            StarlarkPath::BxlFile(_) => Self::Bxl,
-        }
-    }
-}
 
 /// The "globals" for a path are defined by its CellName and its path type.
 ///
@@ -49,7 +33,7 @@ impl PathType {
 /// Starlark code, which might fail.
 pub(crate) struct CachedGlobals<'a> {
     dice: &'a DiceTransaction,
-    cached: HashMap<(CellName, PathType), SharedResult<Arc<HashSet<String>>>>,
+    cached: HashMap<(CellName, StarlarkFileType), SharedResult<Arc<HashSet<String>>>>,
 }
 
 impl<'a> CachedGlobals<'a> {
@@ -74,7 +58,7 @@ impl<'a> CachedGlobals<'a> {
     async fn compute_names(
         &self,
         cell: CellName,
-        path: PathType,
+        path: StarlarkFileType,
     ) -> anyhow::Result<HashSet<String>> {
         let mut res = HashSet::new();
 
@@ -85,9 +69,9 @@ impl<'a> CachedGlobals<'a> {
 
         // Find the information from the globals
         let globals = match path {
-            PathType::Build => config.build_file_globals(),
-            PathType::Load => config.extension_file_globals(),
-            PathType::Bxl => config.bxl_file_globals(),
+            StarlarkFileType::Buck => config.build_file_globals(),
+            StarlarkFileType::Bzl => config.extension_file_globals(),
+            StarlarkFileType::Bxl => config.bxl_file_globals(),
         };
         for x in globals.names() {
             res.insert(x.as_str().to_owned());
@@ -95,12 +79,12 @@ impl<'a> CachedGlobals<'a> {
 
         // Next grab the prelude, unless we are in the prelude cell and not a build file
         if let Some(prelude) = config.prelude_import() {
-            if path == PathType::Build || prelude.cell() != cell {
+            if path == StarlarkFileType::Buck || prelude.cell() != cell {
                 let env = self.load_module(prelude).await?;
                 for x in env.env().names() {
                     res.insert(x.as_str().to_owned());
                 }
-                if path == PathType::Build {
+                if path == StarlarkFileType::Buck {
                     if let Some(native) = env.env().get_option("native")? {
                         let native = native.value();
                         for attr in native.dir_attr() {
@@ -130,7 +114,7 @@ impl<'a> CachedGlobals<'a> {
         &mut self,
         path: &StarlarkPath<'_>,
     ) -> SharedResult<Arc<HashSet<String>>> {
-        let path_type = PathType::from_path(path);
+        let path_type = path.file_type();
         let cell = path.cell();
         if let Some(res) = self.cached.get(&(cell, path_type)) {
             return res.dupe();

@@ -24,6 +24,8 @@ use gazebo::variants::UnpackVariants;
 use starlark::collections::Equivalent;
 use thiserror::Error;
 
+use crate::interpreter::StarlarkFileType;
+
 /// Path of a `bxl` file for `bxl` commands
 #[derive(
     Clone,
@@ -116,6 +118,14 @@ impl<'a> StarlarkPath<'a> {
             StarlarkPath::BuildFile(b) => Cow::Owned(b.path()),
             StarlarkPath::LoadFile(l) => Cow::Borrowed(l.path()),
             StarlarkPath::BxlFile(b) => Cow::Borrowed(b.path()),
+        }
+    }
+
+    pub fn file_type(&self) -> StarlarkFileType {
+        match self {
+            StarlarkPath::BuildFile(_) => StarlarkFileType::Buck,
+            StarlarkPath::LoadFile(_) => StarlarkFileType::Bzl,
+            StarlarkPath::BxlFile(_) => StarlarkFileType::Bxl,
         }
     }
 }

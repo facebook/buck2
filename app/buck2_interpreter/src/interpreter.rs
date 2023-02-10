@@ -218,7 +218,8 @@ struct InterpreterLoadResolver {
     build_file_cell: BuildFileCell,
 }
 
-enum StarlarkFileType {
+#[derive(Copy, Clone, Dupe, Debug, Eq, PartialEq, Hash)]
+pub enum StarlarkFileType {
     Bzl,
     Bxl,
     Buck,
@@ -471,11 +472,7 @@ impl InterpreterForCell {
                 .parent()
                 .expect("loading file should have parent directory")
                 .to_owned(),
-            loader_file_type: match current_file_path {
-                StarlarkPath::BuildFile(_) => StarlarkFileType::Buck,
-                StarlarkPath::LoadFile(_) => StarlarkFileType::Bzl,
-                StarlarkPath::BxlFile(_) => StarlarkFileType::Bxl,
-            },
+            loader_file_type: current_file_path.file_type(),
             build_file_cell: current_file_path.build_file_cell(),
         }
     }
