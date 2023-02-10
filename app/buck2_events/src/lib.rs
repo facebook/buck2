@@ -298,6 +298,8 @@ impl EventSink for Arc<dyn EventSink> {
 #[async_trait]
 pub trait EventSource: Send {
     fn receive(&mut self) -> Option<Event>;
+
+    fn try_receive(&mut self) -> Option<Event>;
 }
 
 /// Creates a pair of an EventSource and an EventSink such that writes to the sink can be read by the event source.

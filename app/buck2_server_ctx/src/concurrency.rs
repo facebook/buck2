@@ -132,6 +132,17 @@ pub enum RunState {
     ParallelDifferentState,
 }
 
+impl RunState {
+    fn will_taint(self) -> bool {
+        match self {
+            Self::NestedSameState => false,
+            Self::NestedDifferentState => true,
+            Self::ParallelSameState => false,
+            Self::ParallelDifferentState => true,
+        }
+    }
+}
+
 #[derive(Clone, Dupe, Copy, Debug)]
 pub enum BypassSemaphore {
     Run(RunState),
@@ -200,6 +211,12 @@ impl CommandData {
         let cmd = format!("buck2 {}", iter.join(" "));
         truncate(&cmd, 500)
     }
+
+    fn notify_tainted(&self) {
+        self.dispatcher.instant_event(buck2_data::TagEvent {
+            tags: vec!["concurrency-tainted".to_owned()],
+        });
+    }
 }
 
 #[derive(Allocative)]
@@ -216,6 +233,9 @@ enum DiceStatus {
 #[derive(Allocative)]
 struct ActiveDice {
     version: DiceEquality,
+
+    /// Whether this DICE version had concurrent commands that executed on it.
+    tainted: bool,
 }
 
 impl DiceStatus {
@@ -225,7 +245,10 @@ impl DiceStatus {
 
     fn active(version: DiceEquality) -> Self {
         Self::Available {
-            active: Some(ActiveDice { version }),
+            active: Some(ActiveDice {
+                version,
+                tainted: false,
+            }),
         }
     }
 }
@@ -253,6 +276,12 @@ impl ConcurrencyHandlerData {
         };
 
         true
+    }
+
+    fn notify_tainted(&self) {
+        for command in self.active_commands.values() {
+            command.notify_tainted()
+        }
     }
 }
 
@@ -355,7 +384,7 @@ impl ConcurrencyHandler {
             dispatcher: event_dispatcher.dupe(),
         };
 
-        let transaction = loop {
+        let (transaction, tainted) = loop {
             match &data.dice_status {
                 DiceStatus::Cleanup { future, epoch } => {
                     tracing::debug!("ActiveDice is in cleanup");
@@ -433,8 +462,7 @@ impl ConcurrencyHandler {
                             }
                             BypassSemaphore::Run(state) => {
                                 self.emit_logs(state, &data.active_commands, &command_data)?;
-
-                                break transaction;
+                                break (transaction, state.will_taint());
                             }
                             BypassSemaphore::Block => {
                                 // We should probably show more than the first here, but for now
@@ -469,13 +497,18 @@ impl ConcurrencyHandler {
                         tracing::debug!("ActiveDice has no active_transaction");
                         event_dispatcher.instant_event(NoActiveDiceState {});
                         data.dice_status = DiceStatus::active(transaction.equality_token());
-                        break transaction;
+                        break (transaction, false);
                     }
                 }
             }
         };
 
         tracing::info!("Acquired access to DICE");
+
+        if tainted {
+            command_data.notify_tainted();
+            data.notify_tainted();
+        }
 
         // create the on exit drop handler, which will take care of notifying tasks.
         let drop_guard = OnExecExit::new(self.dupe(), command_id, command_data, data);
@@ -617,8 +650,10 @@ mod tests {
 
     use allocative::Allocative;
     use async_trait::async_trait;
+    use buck2_events::create_source_sink_pair;
     use buck2_events::dispatch::EventDispatcher;
     use buck2_events::trace::TraceId;
+    use buck2_events::EventSource;
     use derivative::Derivative;
     use dice::DetectCycles;
     use dice::Dice;
@@ -987,6 +1022,10 @@ mod tests {
         let traces2 = traces1.dupe();
         let traces_different = TraceId::new();
 
+        let (events1, sink1) = create_source_sink_pair();
+        let (events2, sink2) = create_source_sink_pair();
+        let (events3, sink3) = create_source_sink_pair();
+
         let barrier = Arc::new(Barrier::new(3));
 
         let fut1 = tokio::spawn({
@@ -996,7 +1035,7 @@ mod tests {
             async move {
                 concurrency
                     .enter(
-                        EventDispatcher::null_sink_with_trace(traces1),
+                        EventDispatcher::new(traces1, sink1),
                         &TestDiceDataProvider,
                         &NoChanges,
                         |_| async move {
@@ -1016,7 +1055,7 @@ mod tests {
             async move {
                 concurrency
                     .enter(
-                        EventDispatcher::null_sink_with_trace(traces2),
+                        EventDispatcher::new(traces2, sink2),
                         &TestDiceDataProvider,
                         &NoChanges,
                         |_| async move {
@@ -1036,7 +1075,7 @@ mod tests {
             async move {
                 concurrency
                     .enter(
-                        EventDispatcher::null_sink_with_trace(traces_different),
+                        EventDispatcher::new(traces_different, sink3),
                         &TestDiceDataProvider,
                         &CtxDifferent,
                         |_| async move {
@@ -1053,6 +1092,26 @@ mod tests {
         r1??;
         r2??;
         r3??;
+
+        for mut events in [events1, events2, events3] {
+            let mut tag_was_sent = false;
+
+            while let Some(event) = events.try_receive() {
+                match event.unpack_buck().unwrap().data() {
+                    buck2_data::buck_event::Data::Instant(i) => match &i.data {
+                        Some(buck2_data::instant_event::Data::TagEvent(e)) => {
+                            if e.tags.iter().any(|e| e == "concurrency-tainted") {
+                                tag_was_sent = true;
+                            }
+                        }
+                        _ => {}
+                    },
+                    _ => {}
+                }
+            }
+
+            assert!(tag_was_sent);
+        }
 
         Ok(())
     }

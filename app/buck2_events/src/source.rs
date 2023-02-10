@@ -26,6 +26,10 @@ impl EventSource for ChannelEventSource {
     fn receive(&mut self) -> Option<Event> {
         self.0.recv().ok()
     }
+
+    fn try_receive(&mut self) -> Option<Event> {
+        self.0.try_recv().ok()
+    }
 }
 
 #[cfg(test)]
