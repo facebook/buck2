@@ -499,13 +499,13 @@ mod tests {
     use indoc::indoc;
     use starlark::values::Heap;
 
-    use crate::interpreter::rule_defs::register_rule_defs;
+    use crate::interpreter::rule_defs::attr::register_attrs;
     use crate::nodes::hacks::value_to_string;
     use crate::query::analysis::environment::ConfiguredGraphQueryEnvironment;
 
     fn tester() -> Tester {
         let mut tester = Tester::new().unwrap();
-        tester.set_additional_globals(register_rule_defs);
+        tester.set_additional_globals(register_attrs);
         tester
     }
 
