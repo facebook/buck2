@@ -20,13 +20,13 @@ use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::CellResolver;
 use buck2_interpreter::dice::starlark_types::GetDisableStarlarkTypes;
 use buck2_interpreter::extra::cell_info::InterpreterCellInfo;
-use buck2_interpreter::extra::InterpreterConfiguror;
 use buck2_interpreter::file_type::StarlarkFileType;
 use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
 use starlark::environment::Globals;
 
+use crate::interpreter::configuror::BuildInterpreterConfiguror;
 use crate::interpreter::context::HasInterpreterContext;
 
 /// Information shared across interpreters. Contains no cell-specific
@@ -53,7 +53,7 @@ pub struct GlobalInterpreterState {
     pub bxl_file_global_env: Globals,
 
     /// Interpreter Configurer
-    pub configuror: Arc<dyn InterpreterConfiguror>,
+    pub configuror: Arc<BuildInterpreterConfiguror>,
 
     /// Check types in Starlark (or just parse and ignore).
     pub disable_starlark_types: bool,
@@ -63,7 +63,7 @@ impl GlobalInterpreterState {
     pub fn new(
         legacy_configs: &dyn LegacyBuckConfigsView,
         cell_resolver: CellResolver,
-        interpreter_configuror: Arc<dyn InterpreterConfiguror>,
+        interpreter_configuror: Arc<BuildInterpreterConfiguror>,
         disable_starlark_types: bool,
     ) -> anyhow::Result<Self> {
         // TODO: There should be one of these that also does not have native functions
@@ -95,7 +95,7 @@ impl GlobalInterpreterState {
         })
     }
 
-    pub fn configuror(&self) -> &Arc<dyn InterpreterConfiguror> {
+    pub fn configuror(&self) -> &Arc<BuildInterpreterConfiguror> {
         &self.configuror
     }
 

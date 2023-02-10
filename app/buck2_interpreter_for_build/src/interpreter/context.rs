@@ -11,16 +11,17 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
-use buck2_interpreter::extra::InterpreterConfiguror;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::DiceTransactionUpdater;
 use dice::InjectedKey;
 use dupe::Dupe;
 
+use crate::interpreter::configuror::BuildInterpreterConfiguror;
+
 #[derive(Clone, Dupe)]
 struct BuildContext {
-    interpreter_configuror: Arc<dyn InterpreterConfiguror>,
+    interpreter_configuror: Arc<BuildInterpreterConfiguror>,
 }
 
 #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
@@ -28,7 +29,7 @@ struct BuildContext {
 struct BuildContextKey();
 
 impl InjectedKey for BuildContextKey {
-    type Value = Arc<dyn InterpreterConfiguror>;
+    type Value = Arc<BuildInterpreterConfiguror>;
 
     fn compare(x: &Self::Value, y: &Self::Value) -> bool {
         x == y
@@ -37,12 +38,12 @@ impl InjectedKey for BuildContextKey {
 
 #[async_trait]
 pub trait HasInterpreterContext {
-    async fn get_interpreter_configuror(&self) -> anyhow::Result<Arc<dyn InterpreterConfiguror>>;
+    async fn get_interpreter_configuror(&self) -> anyhow::Result<Arc<BuildInterpreterConfiguror>>;
 }
 
 #[async_trait]
 impl HasInterpreterContext for DiceComputations {
-    async fn get_interpreter_configuror(&self) -> anyhow::Result<Arc<dyn InterpreterConfiguror>> {
+    async fn get_interpreter_configuror(&self) -> anyhow::Result<Arc<BuildInterpreterConfiguror>> {
         Ok(self.compute(&BuildContextKey()).await?.dupe())
     }
 }
@@ -50,14 +51,14 @@ impl HasInterpreterContext for DiceComputations {
 pub trait SetInterpreterContext {
     fn set_interpreter_context(
         &mut self,
-        interpreter_configuror: Arc<dyn InterpreterConfiguror>,
+        interpreter_configuror: Arc<BuildInterpreterConfiguror>,
     ) -> anyhow::Result<()>;
 }
 
 impl SetInterpreterContext for DiceTransactionUpdater {
     fn set_interpreter_context(
         &mut self,
-        interpreter_configuror: Arc<dyn InterpreterConfiguror>,
+        interpreter_configuror: Arc<BuildInterpreterConfiguror>,
     ) -> anyhow::Result<()> {
         Ok(self.changed_to(vec![(BuildContextKey(), interpreter_configuror)])?)
     }

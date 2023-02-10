@@ -16,16 +16,16 @@ use buck2_core::cells::CellResolver;
 use buck2_interpreter::dice::starlark_profiler::SetStarlarkProfilerInstrumentation;
 use buck2_interpreter::dice::starlark_profiler::StarlarkProfilerConfiguration;
 use buck2_interpreter::dice::starlark_types::SetDisableStarlarkTypes;
-use buck2_interpreter::extra::InterpreterConfiguror;
 use dice::DiceTransactionUpdater;
 
+use crate::interpreter::configuror::BuildInterpreterConfiguror;
 use crate::interpreter::context::SetInterpreterContext;
 
 /// Common code to initialize Starlark interpreter globals.
 pub fn setup_interpreter(
     updater: &mut DiceTransactionUpdater,
     cell_resolver: CellResolver,
-    configuror: Arc<dyn InterpreterConfiguror>,
+    configuror: Arc<BuildInterpreterConfiguror>,
     legacy_configs: LegacyBuckConfigs,
     starlark_profiler_instrumentation_override: StarlarkProfilerConfiguration,
     disable_starlark_types: bool,
@@ -44,7 +44,7 @@ pub fn setup_interpreter(
 pub fn setup_interpreter_basic(
     dice: &mut DiceTransactionUpdater,
     cell_resolver: CellResolver,
-    configuror: Arc<dyn InterpreterConfiguror>,
+    configuror: Arc<BuildInterpreterConfiguror>,
     legacy_configs: LegacyBuckConfigs,
 ) -> anyhow::Result<()> {
     setup_interpreter(

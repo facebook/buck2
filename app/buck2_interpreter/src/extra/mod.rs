@@ -10,28 +10,21 @@
 use std::any::Any;
 use std::fmt;
 use std::fmt::Debug;
-use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_common::legacy_configs::view::LegacyBuckConfigView;
 use buck2_common::package_listing::listing::PackageListing;
-use buck2_core::build_file_path::BuildFilePath;
-use buck2_core::bzl::ImportPath;
 use buck2_core::package::package_relative_path::PackageRelativePath;
 use buck2_core::package::PackageLabel;
 use dupe::Dupe;
-use gazebo::cmp::PartialEqAny;
 use starlark::any::ProvidesStaticType;
-use starlark::environment::Globals;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use thiserror::Error;
 
 use crate::extra::buckconfig::LegacyBuckConfigForStarlark;
 use crate::extra::cell_info::InterpreterCellInfo;
-use crate::file_loader::LoadedModules;
 use crate::globspec::GlobSpec;
-use crate::package_imports::ImplicitImport;
 use crate::path::StarlarkPath;
 
 pub mod buckconfig;
@@ -221,49 +214,5 @@ impl<E: ExtraContext> ExtraContextDyn for E {
 impl Debug for Box<dyn ExtraContextDyn> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         Debug::fmt(self.as_any(), f)
-    }
-}
-
-/// Used to configure the interperter's global functions and state
-pub trait InterpreterConfiguror: Allocative + Sync + Send {
-    /// Add additional global values for build files
-    fn build_file_globals(&self) -> Globals;
-
-    /// Add additional global values for extension files
-    fn extension_file_globals(&self) -> Globals;
-
-    /// Add additional global values for bxl files
-    fn bxl_file_globals(&self) -> Globals;
-
-    fn host_platform(&self) -> InterpreterHostPlatform;
-
-    fn host_architecture(&self) -> InterpreterHostArchitecture;
-
-    /// Creates an 'extra' object that can be used in implementation functions
-    fn new_extra_context(
-        &self,
-        cell_info: &InterpreterCellInfo,
-        buildfile_path: BuildFilePath,
-        package_listing: PackageListing,
-        package_boundary_exception: bool,
-        loaded_modules: &LoadedModules,
-        implicit_import: Option<&Arc<ImplicitImport>>,
-    ) -> anyhow::Result<Box<dyn ExtraContextDyn>>;
-
-    /// Path to prelude import (typically `prelude//:prelude.bzl`).
-    ///
-    /// It serves two purposes:
-    /// * It defines symbols imported into each file (e.g. rule definitions)
-    /// * Parent directory of prelude import (e.g. `prelude//`) is considered special:
-    ///   imports from that directory are evaluated with prelude cell context,
-    ///   not with caller cell context (see the comments in `resolve_load`)
-    fn prelude_import(&self) -> Option<&ImportPath>;
-
-    fn eq_token(&self) -> PartialEqAny;
-}
-
-impl PartialEq for dyn InterpreterConfiguror {
-    fn eq(&self, other: &dyn InterpreterConfiguror) -> bool {
-        self.eq_token() == other.eq_token()
     }
 }

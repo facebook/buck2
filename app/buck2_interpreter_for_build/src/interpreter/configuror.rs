@@ -18,7 +18,6 @@ use buck2_core::bzl::ImportPath;
 use buck2_interpreter::build_defs::configure_base_globals;
 use buck2_interpreter::extra::cell_info::InterpreterCellInfo;
 use buck2_interpreter::extra::ExtraContextDyn;
-use buck2_interpreter::extra::InterpreterConfiguror;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
 use buck2_interpreter::file_loader::LoadedModules;
@@ -26,7 +25,6 @@ use buck2_interpreter::package_imports::ImplicitImport;
 use buck2_interpreter::path::StarlarkModulePath;
 use buck2_query::query::syntax::simple::functions::QueryFunctionsVisitLiterals;
 use dupe::Dupe;
-use gazebo::cmp::PartialEqAny;
 use starlark::environment::Globals;
 use starlark::environment::GlobalsBuilder;
 
@@ -96,6 +94,13 @@ impl Debug for QueryFunctionsHolder {
 
 #[derive(Clone, Debug, PartialEq, Allocative)]
 pub struct BuildInterpreterConfiguror {
+    /// Path to prelude import (typically `prelude//:prelude.bzl`).
+    ///
+    /// It serves two purposes:
+    /// * It defines symbols imported into each file (e.g. rule definitions)
+    /// * Parent directory of prelude import (e.g. `prelude//`) is considered special:
+    ///   imports from that directory are evaluated with prelude cell context,
+    ///   not with caller cell context (see the comments in `resolve_load`)
     prelude_import: Option<ImportPath>,
     host_platform: InterpreterHostPlatform,
     host_architecture: InterpreterHostArchitecture,
@@ -132,10 +137,8 @@ impl BuildInterpreterConfiguror {
             query_functions: QueryFunctionsHolder(query_functions),
         })
     }
-}
 
-impl InterpreterConfiguror for BuildInterpreterConfiguror {
-    fn build_file_globals(&self) -> Globals {
+    pub(crate) fn build_file_globals(&self) -> Globals {
         // We want the `native` module to contain most things, so match what is in extension files
         configure_base_globals(self.configure_extension_file_globals.0)
             .with(|g| {
@@ -147,7 +150,7 @@ impl InterpreterConfiguror for BuildInterpreterConfiguror {
             .build()
     }
 
-    fn extension_file_globals(&self) -> Globals {
+    pub(crate) fn extension_file_globals(&self) -> Globals {
         configure_base_globals(self.configure_extension_file_globals.0)
             .with(|g| {
                 (self.configure_extension_file_globals.0)(g);
@@ -158,7 +161,7 @@ impl InterpreterConfiguror for BuildInterpreterConfiguror {
             .build()
     }
 
-    fn bxl_file_globals(&self) -> Globals {
+    pub(crate) fn bxl_file_globals(&self) -> Globals {
         configure_base_globals(self.configure_extension_file_globals.0)
             .with(|g| {
                 (self.configure_bxl_file_globals.0)(g);
@@ -169,15 +172,15 @@ impl InterpreterConfiguror for BuildInterpreterConfiguror {
             .build()
     }
 
-    fn host_platform(&self) -> InterpreterHostPlatform {
+    pub(crate) fn host_platform(&self) -> InterpreterHostPlatform {
         self.host_platform
     }
 
-    fn host_architecture(&self) -> InterpreterHostArchitecture {
+    pub(crate) fn host_architecture(&self) -> InterpreterHostArchitecture {
         self.host_architecture
     }
 
-    fn new_extra_context(
+    pub(crate) fn new_extra_context(
         &self,
         cell_info: &InterpreterCellInfo,
         buildfile_path: BuildFilePath,
@@ -222,11 +225,7 @@ impl InterpreterConfiguror for BuildInterpreterConfiguror {
         ))
     }
 
-    fn prelude_import(&self) -> Option<&ImportPath> {
+    pub fn prelude_import(&self) -> Option<&ImportPath> {
         self.prelude_import.as_ref()
-    }
-
-    fn eq_token(&self) -> PartialEqAny {
-        PartialEqAny::new(self)
     }
 }
