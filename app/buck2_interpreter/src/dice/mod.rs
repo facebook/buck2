@@ -16,6 +16,5 @@
 //! implements InterpreterFileOps by basically putting DefaultInterpreterFileOps
 //! onto the dice graph).
 
-pub mod interpreter;
 pub mod starlark_profiler;
 pub mod starlark_types;

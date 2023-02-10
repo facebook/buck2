@@ -18,7 +18,6 @@ use buck2_common::legacy_configs::view::LegacyBuckConfigsView;
 use buck2_common::result::SharedResult;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::CellResolver;
-use buck2_interpreter::dice::interpreter::HasInterpreterContext;
 use buck2_interpreter::dice::starlark_types::GetDisableStarlarkTypes;
 use buck2_interpreter::extra::cell_info::InterpreterCellInfo;
 use buck2_interpreter::extra::InterpreterConfiguror;
@@ -27,6 +26,8 @@ use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
 use starlark::environment::Globals;
+
+use crate::interpreter::context::HasInterpreterContext;
 
 /// Information shared across interpreters. Contains no cell-specific
 /// information.

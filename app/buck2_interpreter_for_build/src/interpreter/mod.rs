@@ -9,6 +9,7 @@
 
 pub mod calculation;
 pub mod configuror;
+pub mod context;
 pub mod dice_calculation_delegate;
 pub mod global_interpreter_state;
 pub mod interpreter_for_cell;

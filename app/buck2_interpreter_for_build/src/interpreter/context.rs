@@ -10,13 +10,13 @@
 use std::sync::Arc;
 
 use allocative::Allocative;
+use async_trait::async_trait;
+use buck2_interpreter::extra::InterpreterConfiguror;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::DiceTransactionUpdater;
 use dice::InjectedKey;
 use dupe::Dupe;
-
-use crate::extra::InterpreterConfiguror;
 
 #[derive(Clone, Dupe)]
 struct BuildContext {

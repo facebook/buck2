@@ -20,8 +20,6 @@
 #![cfg_attr(feature = "gazebo_lint", plugin(gazebo_lint))]
 
 #[macro_use]
-extern crate async_trait;
-#[macro_use]
 extern crate starlark;
 
 pub mod build_defs;
