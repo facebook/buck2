@@ -15,26 +15,9 @@
 //! traits that are themselves build on dice (ex DiceInterpreterFileOps
 //! implements InterpreterFileOps by basically putting DefaultInterpreterFileOps
 //! onto the dice graph).
-use std::sync::Arc;
-
-use buck2_common::package_listing::dice::HasPackageListingResolver;
-
-use crate::extra::InterpreterConfiguror;
 
 pub mod calculation;
-mod interpreter;
+pub mod interpreter;
 pub mod interpreter_setup;
 pub mod starlark_profiler;
 pub mod starlark_types;
-
-#[async_trait]
-pub trait HasInterpreterContext {
-    async fn get_interpreter_configuror(&self) -> anyhow::Result<Arc<dyn InterpreterConfiguror>>;
-}
-
-pub trait SetInterpreterContext {
-    fn set_interpreter_context(
-        &mut self,
-        interpreter_configuror: Arc<dyn InterpreterConfiguror>,
-    ) -> anyhow::Result<()>;
-}

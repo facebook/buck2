@@ -15,10 +15,10 @@ use buck2_common::legacy_configs::LegacyBuckConfigs;
 use buck2_core::cells::CellResolver;
 use dice::DiceTransactionUpdater;
 
+use crate::dice::interpreter::SetInterpreterContext;
 use crate::dice::starlark_profiler::SetStarlarkProfilerInstrumentation;
 use crate::dice::starlark_profiler::StarlarkProfilerConfiguration;
 use crate::dice::starlark_types::SetDisableStarlarkTypes;
-use crate::dice::SetInterpreterContext;
 use crate::extra::InterpreterConfiguror;
 
 /// Common code to initialize Starlark interpreter globals.

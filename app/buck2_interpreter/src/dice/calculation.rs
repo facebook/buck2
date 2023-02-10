@@ -19,6 +19,7 @@ use buck2_common::file_ops::FileOps;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::dice::LegacyBuckConfigOnDice;
 use buck2_common::package_boundary::HasPackageBoundaryExceptions;
+use buck2_common::package_listing::dice::HasPackageListingResolver;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToUnsharedResultExt;
 use buck2_core::build_file_path::BuildFilePath;
@@ -37,7 +38,6 @@ use thiserror::Error;
 
 use crate::dice::calculation::keys::EvalImportKey;
 use crate::dice::starlark_profiler::GetStarlarkProfilerInstrumentation;
-use crate::dice::HasPackageListingResolver;
 use crate::extra::ExtraContext;
 use crate::file_loader::LoadedModule;
 use crate::file_loader::ModuleDeps;

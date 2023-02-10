@@ -22,8 +22,8 @@ use dice::Key;
 use dupe::Dupe;
 use starlark::environment::Globals;
 
+use crate::dice::interpreter::HasInterpreterContext;
 use crate::dice::starlark_types::GetDisableStarlarkTypes;
-use crate::dice::HasInterpreterContext;
 use crate::extra::cell_info::InterpreterCellInfo;
 use crate::extra::InterpreterConfiguror;
 use crate::interpreter::StarlarkFileType;

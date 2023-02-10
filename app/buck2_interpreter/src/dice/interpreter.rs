@@ -16,8 +16,6 @@ use dice::DiceTransactionUpdater;
 use dice::InjectedKey;
 use dupe::Dupe;
 
-use crate::dice::HasInterpreterContext;
-use crate::dice::SetInterpreterContext;
 use crate::extra::InterpreterConfiguror;
 
 #[derive(Clone, Dupe)]
@@ -38,10 +36,22 @@ impl InjectedKey for BuildContextKey {
 }
 
 #[async_trait]
+pub trait HasInterpreterContext {
+    async fn get_interpreter_configuror(&self) -> anyhow::Result<Arc<dyn InterpreterConfiguror>>;
+}
+
+#[async_trait]
 impl HasInterpreterContext for DiceComputations {
     async fn get_interpreter_configuror(&self) -> anyhow::Result<Arc<dyn InterpreterConfiguror>> {
         Ok(self.compute(&BuildContextKey()).await?.dupe())
     }
+}
+
+pub trait SetInterpreterContext {
+    fn set_interpreter_context(
+        &mut self,
+        interpreter_configuror: Arc<dyn InterpreterConfiguror>,
+    ) -> anyhow::Result<()>;
 }
 
 impl SetInterpreterContext for DiceTransactionUpdater {
