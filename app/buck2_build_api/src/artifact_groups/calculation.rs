@@ -20,6 +20,7 @@ use buck2_common::file_ops::PathMetadataOrRedirection;
 use buck2_common::result::SharedResult;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::directory::DirectoryData;
+use buck2_execute::artifact::source_artifact::SourceArtifact;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::directory::extract_artifact_value;
 use buck2_execute::directory::insert_artifact;
@@ -35,8 +36,13 @@ use dupe::Dupe;
 use dupe::OptionDupedExt;
 use futures::future;
 use futures::stream::FuturesOrdered;
+use futures::Future;
+use futures::FutureExt;
+use ref_cast::RefCast;
 use smallvec::SmallVec;
+use thiserror::Error;
 
+use crate::actions::artifact::build_artifact::BuildArtifact;
 use crate::actions::artifact::projected_artifact::ProjectedArtifact;
 use crate::actions::artifact::Artifact;
 use crate::actions::artifact::ArtifactKind;
@@ -44,6 +50,7 @@ use crate::actions::artifact::BaseArtifactKind;
 use crate::actions::build_listener::HasBuildSignals;
 use crate::actions::build_listener::TransitiveSetComputationSignal;
 use crate::actions::calculation::ActionCalculation;
+use crate::actions::execute::action_executor::ActionOutputs;
 use crate::artifact_groups::ArtifactGroup;
 use crate::artifact_groups::ArtifactGroupValues;
 use crate::artifact_groups::TransitiveSetProjectionKey;
@@ -66,21 +73,178 @@ impl ArtifactGroupCalculation for DiceComputations {
         &self,
         input: &ArtifactGroup,
     ) -> anyhow::Result<ArtifactGroupValues> {
-        // TODO consider if we need to cache this
-
-        let res = match input {
-            ArtifactGroup::Artifact(artifact) => {
-                let value = ensure_artifact(self, artifact).await?;
-                ArtifactGroupValues::from_artifact(artifact.dupe(), value)
-            }
-            ArtifactGroup::TransitiveSetProjection(key) => {
-                self.compute(&EnsureTransitiveSetProjectionKey(key.dupe()))
-                    .await??
-            }
-        };
-
-        Ok(res)
+        ensure_artifact_group_staged(self, input)
+            .await?
+            .to_group_values(input)
     }
+}
+
+/// A large build may have many artifact dependency edges and so may have many of the
+/// `ensure_build_artifact_*()` futures live at any time. To support this efficiently
+/// we provide these `*_staged()` functions that provide an optimized Future implementation
+/// for waiting on the dependency edge and an optimized form to represent the result (as
+/// we also may have many of those results alive across await points as things need to wait
+/// on all dependencies).
+///
+/// Performance sensitive things should use these staged functions, wait for all their results
+/// and then synchronously process them and drop any intermediate data structures before their
+/// next yield point.
+///
+/// Some of the optimizations this provides:
+///  - The staged future is kept to a minimum size (which we track in an assertion below).
+///  - The result of the staged future is kept to a minimum size (also tracked below).
+///  - For the single Artifact case from ensure_artifact_group_staged, we defer allocation
+///    of the ArtifactGroupValues until `to_group_values()` is called. For callers waiting
+///    on many inputs, this allows them to only allocate those large values only after all
+///    inputs are ready.
+pub(crate) fn ensure_artifact_group_staged<'a>(
+    ctx: &'a DiceComputations,
+    input: &'a ArtifactGroup,
+) -> impl Future<Output = anyhow::Result<EnsureArtifactGroupReady>> + 'a {
+    match input {
+        ArtifactGroup::Artifact(artifact) => ensure_artifact_staged(ctx, artifact).left_future(),
+        ArtifactGroup::TransitiveSetProjection(key) => ctx
+            .compute(EnsureTransitiveSetProjectionKey::ref_cast(key))
+            .map(|v| Ok(EnsureArtifactGroupReady::TransitiveSet(v??)))
+            .right_future(),
+    }
+}
+
+/// See [ensure_artifact_group_staged].
+pub(super) fn ensure_base_artifact_staged<'a>(
+    dice: &'a DiceComputations,
+    artifact: &'a BaseArtifactKind,
+) -> impl Future<Output = anyhow::Result<EnsureArtifactGroupReady>> + 'a {
+    match artifact {
+        BaseArtifactKind::Build(built) => ensure_build_artifact_staged(dice, built).left_future(),
+        BaseArtifactKind::Source(source) => {
+            ensure_source_artifact_staged(dice, source).right_future()
+        }
+    }
+}
+
+/// See [ensure_artifact_group_staged].
+pub(super) fn ensure_artifact_staged<'a>(
+    dice: &'a DiceComputations,
+    artifact: &'a Artifact,
+) -> impl Future<Output = anyhow::Result<EnsureArtifactGroupReady>> + 'a {
+    match artifact.0.key() {
+        ArtifactKind::Base(base) => ensure_base_artifact_staged(dice, base).left_future(),
+        ArtifactKind::Projected(projected) => dice
+            .compute(EnsureProjectedArtifactKey::ref_cast(projected))
+            .map(|v| Ok(EnsureArtifactGroupReady::Single(v??)))
+            .right_future(),
+    }
+}
+
+fn ensure_build_artifact_staged<'a>(
+    dice: &'a DiceComputations,
+    built: &'a BuildArtifact,
+) -> impl Future<Output = anyhow::Result<EnsureArtifactGroupReady>> + 'a {
+    dice.build_action(built.key()).map(move |action_outputs| {
+        let action_outputs = action_outputs?;
+        if let Some(value) = action_outputs.get(built.get_path()) {
+            Ok(EnsureArtifactGroupReady::Single(value.dupe()))
+        } else {
+            Err(
+                EnsureArtifactStagedError::BuildArtifactMissing(built.clone(), action_outputs)
+                    .into(),
+            )
+        }
+    })
+}
+
+fn ensure_source_artifact_staged<'a>(
+    dice: &'a DiceComputations,
+    source: &'a SourceArtifact,
+) -> impl Future<Output = anyhow::Result<EnsureArtifactGroupReady>> + 'a {
+    async move {
+        Ok(EnsureArtifactGroupReady::Single(
+            path_artifact_value(&dice.file_ops(), source.get_path().to_cell_path().as_ref())
+                .await?
+                .into(),
+        ))
+    }
+    .boxed()
+}
+
+// These errors should be unreachable, they indicate misuse of the staged ensure artifact (or other buck
+// invariant violations), but it's still better to propagate them as Error than to panic!().
+#[derive(Debug, Error)]
+pub enum EnsureArtifactStagedError {
+    #[error("Tried to unpack single artifact, but got transitive set")]
+    UnpackSingleTransitiveSet,
+    #[error("Expected a transitive set, got a single artifact")]
+    ExpectedTransitiveSet,
+    // This one could probably be a panic! if DICE didn't eagerly re-evaluate all deps.
+    #[error("Building an artifact didn't produce it. Expected `{0}` but only have `{1:?}`")]
+    BuildArtifactMissing(BuildArtifact, ActionOutputs),
+}
+
+/// Represents the "ready" stage of an ensure_artifact_*() call. At this point the
+/// ArtifactValue/ArtifactGroupValues can be synchronously accessed/constructed.
+pub(crate) enum EnsureArtifactGroupReady {
+    Single(ArtifactValue),
+    TransitiveSet(ArtifactGroupValues),
+}
+
+impl EnsureArtifactGroupReady {
+    /// Converts the ensured artifact to an ArtifactGroupValues. The caller must ensure that the passed in artifact
+    /// is the same one that was used to ensure this.
+    pub(crate) fn to_group_values(
+        self,
+        artifact: &ArtifactGroup,
+    ) -> anyhow::Result<ArtifactGroupValues> {
+        match self {
+            EnsureArtifactGroupReady::TransitiveSet(values) => Ok(values),
+            EnsureArtifactGroupReady::Single(value) => match artifact {
+                ArtifactGroup::Artifact(artifact) => {
+                    Ok(ArtifactGroupValues::from_artifact(artifact.clone(), value))
+                }
+                ArtifactGroup::TransitiveSetProjection(_) => {
+                    Err(EnsureArtifactStagedError::ExpectedTransitiveSet.into())
+                }
+            },
+        }
+    }
+
+    fn unpack_single(self) -> anyhow::Result<ArtifactValue> {
+        match self {
+            EnsureArtifactGroupReady::Single(value) => Ok(value),
+            EnsureArtifactGroupReady::TransitiveSet(..) => {
+                Err(EnsureArtifactStagedError::UnpackSingleTransitiveSet.into())
+            }
+        }
+    }
+}
+
+static_assertions::assert_eq_size!(EnsureArtifactGroupReady, [usize; 3]);
+
+// This assertion assures we don't unknowingly regress the size of this critical future.
+// TODO(cjhopman): We should be able to wrap this in a convenient assertion macro.
+#[allow(unused, clippy::diverging_sub_expression)]
+fn _assert_ensure_artifact_group_future_size() {
+    let v = ensure_artifact_group_staged(panic!(), panic!());
+    let e = [0u8; 704 / 8];
+    static_assertions::assert_eq_size_ptr!(&v, &e);
+}
+
+async fn dir_artifact_value(
+    file_ops: &dyn FileOps,
+    cell_path: CellPathRef<'_>,
+) -> anyhow::Result<ActionDirectoryEntry<ActionSharedDirectory>> {
+    let files = file_ops.read_dir(cell_path.dupe()).await?;
+
+    let entries = files.iter().map(|x| async {
+        let value = path_artifact_value(file_ops, cell_path.join(&x.file_name).as_ref()).await?;
+        anyhow::Ok((x.file_name.clone(), value))
+    });
+
+    let entries = future::try_join_all(entries).await?;
+    let entries = entries.into_iter().collect();
+
+    let d: DirectoryData<_, _, _> = DirectoryData::new(entries);
+    Ok(ActionDirectoryEntry::Dir(INTERNER.intern(d)))
 }
 
 #[async_recursion]
@@ -97,22 +261,7 @@ async fn path_artifact_value(
             PathMetadata::File(metadata) => Ok(ActionDirectoryEntry::Leaf(
                 ActionDirectoryMember::File(metadata),
             )),
-            PathMetadata::Directory => {
-                let files = file_ops.read_dir(cell_path.dupe()).await?;
-
-                let entries = files.iter().map(|x| async {
-                    let value =
-                        path_artifact_value(file_ops, cell_path.join(&x.file_name).as_ref())
-                            .await?;
-                    anyhow::Ok((x.file_name.clone(), value))
-                });
-
-                let entries = future::try_join_all(entries).await?;
-                let entries = entries.into_iter().collect();
-
-                let d: DirectoryData<_, _, _> = DirectoryData::new(entries);
-                Ok(ActionDirectoryEntry::Dir(INTERNER.intern(d)))
-            }
+            PathMetadata::Directory => dir_artifact_value(file_ops, cell_path).await,
         },
         PathMetadataOrRedirection::Redirection(r) => {
             // TODO (T126181780): This should have a limit on recursion.
@@ -121,53 +270,18 @@ async fn path_artifact_value(
     }
 }
 
-async fn ensure_base_artifact(
-    dice: &DiceComputations,
-    artifact: &BaseArtifactKind,
-) -> anyhow::Result<ArtifactValue> {
-    match artifact {
-        BaseArtifactKind::Build(ref built) => {
-            let action_result = dice.build_artifact(built).await?;
-            if let Some(value) = action_result.get(built.get_path()) {
-                Ok(value.dupe())
-            } else {
-                panic!(
-                    "Building an artifact didn't produce it. Expected `{:?}` but only have `{:?}`",
-                    artifact, action_result
-                )
-            }
-        }
-        BaseArtifactKind::Source(ref source) => Ok(path_artifact_value(
-            &dice.file_ops(),
-            source.get_path().to_cell_path().as_ref(),
-        )
-        .await?
-        .into()),
-    }
-}
-
-async fn ensure_artifact(
-    dice: &DiceComputations,
-    artifact: &Artifact,
-) -> anyhow::Result<ArtifactValue> {
-    Ok(match artifact.0.key() {
-        ArtifactKind::Base(ref base) => ensure_base_artifact(dice, base).await?,
-        ArtifactKind::Projected(projected) => {
-            dice.compute(&EnsureProjectedArtifactKey(projected.dupe()))
-                .await??
-        }
-    })
-}
-
-#[derive(Clone, Dupe, Eq, PartialEq, Hash, Display, Debug, Allocative)]
-struct EnsureProjectedArtifactKey(ProjectedArtifact);
+#[derive(Clone, Dupe, Eq, PartialEq, Hash, Display, Debug, Allocative, RefCast)]
+#[repr(transparent)]
+pub(crate) struct EnsureProjectedArtifactKey(ProjectedArtifact);
 
 #[async_trait]
 impl Key for EnsureProjectedArtifactKey {
     type Value = SharedResult<ArtifactValue>;
 
     async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
-        let base_value = ensure_base_artifact(ctx, self.0.base()).await?;
+        let base_value = ensure_base_artifact_staged(ctx, self.0.base())
+            .await?
+            .unpack_single()?;
 
         let artifact_fs = crate::calculation::Calculation::get_artifact_fs(ctx).await?;
 
@@ -199,8 +313,9 @@ impl Key for EnsureProjectedArtifactKey {
     }
 }
 
-#[derive(Clone, Dupe, Eq, PartialEq, Hash, Display, Debug, Allocative)]
-struct EnsureTransitiveSetProjectionKey(TransitiveSetProjectionKey);
+#[derive(Clone, Dupe, Eq, PartialEq, Hash, Display, Debug, Allocative, RefCast)]
+#[repr(transparent)]
+pub(crate) struct EnsureTransitiveSetProjectionKey(TransitiveSetProjectionKey);
 
 #[async_trait]
 impl Key for EnsureTransitiveSetProjectionKey {
@@ -237,7 +352,7 @@ impl Key for EnsureTransitiveSetProjectionKey {
             artifacts
                 .into_iter()
                 .map(|a| async move {
-                    let value = ensure_artifact(ctx, &a).await?;
+                    let value = ensure_artifact_staged(ctx, &a).await?.unpack_single()?;
                     anyhow::Ok((a, value))
                 })
                 .collect::<FuturesOrdered<_>>(),
