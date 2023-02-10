@@ -19,7 +19,7 @@ use crate::Key;
 
 /// Type erased value associated for each Key in Dice
 #[derive(Allocative, Clone, Dupe)]
-pub(crate) struct DiceValue(Arc<dyn DiceValueDyn>);
+pub(crate) struct DiceValue(pub(crate) Arc<dyn DiceValueDyn>);
 
 impl Debug for DiceValue {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -28,7 +28,7 @@ impl Debug for DiceValue {
 }
 
 impl DiceValue {
-    fn new<V: DiceValueDyn>(value: V) -> DiceValue {
+    pub(crate) fn new<V: DiceValueDyn>(value: V) -> DiceValue {
         DiceValue(Arc::new(value))
     }
 
@@ -42,7 +42,7 @@ impl DiceValue {
     }
 }
 
-trait DiceValueDyn: Allocative + Any + Send + Sync + 'static {
+pub(crate) trait DiceValueDyn: Allocative + Any + Send + Sync + 'static {
     fn value_as_any(&self) -> &dyn Any;
     /// Panics if called with incompatible values.
     fn equality(&self, other: &dyn DiceValueDyn) -> bool;

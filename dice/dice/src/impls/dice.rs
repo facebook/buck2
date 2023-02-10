@@ -13,11 +13,14 @@ use std::io::Write;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use dupe::Dupe;
 use serde::Serializer;
 
 use crate::api::transaction::DiceTransactionUpdater;
 use crate::api::user_data::UserComputationData;
 use crate::impls::key_index::DiceKeyIndex;
+use crate::impls::transaction::TransactionUpdater;
+use crate::transaction_update::DiceTransactionUpdaterImpl;
 use crate::DetectCycles;
 
 #[derive(Allocative)]
@@ -39,8 +42,10 @@ impl DiceModern {
         })
     }
 
-    pub fn updater(&self) -> DiceTransactionUpdater {
-        unimplemented!("todo")
+    pub fn updater(self: &Arc<Self>) -> DiceTransactionUpdater {
+        DiceTransactionUpdater(DiceTransactionUpdaterImpl::Modern(TransactionUpdater::new(
+            self.dupe(),
+        )))
     }
 
     pub fn updater_with_data(&self, _extra: UserComputationData) -> DiceTransactionUpdater {
