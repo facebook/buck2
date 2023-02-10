@@ -68,11 +68,7 @@ impl<'a> CachedGlobals<'a> {
         let config = global_state.configuror();
 
         // Find the information from the globals
-        let globals = match path {
-            StarlarkFileType::Buck => config.build_file_globals(),
-            StarlarkFileType::Bzl => config.extension_file_globals(),
-            StarlarkFileType::Bxl => config.bxl_file_globals(),
-        };
+        let globals = global_state.globals_for_file_type(path);
         for x in globals.names() {
             res.insert(x.as_str().to_owned());
         }

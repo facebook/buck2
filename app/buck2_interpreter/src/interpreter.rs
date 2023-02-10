@@ -27,7 +27,6 @@ use dupe::Dupe;
 use gazebo::prelude::*;
 use starlark::codemap::FileSpan;
 use starlark::environment::FrozenModule;
-use starlark::environment::Globals;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::LibraryExtension;
 use starlark::environment::Module;
@@ -359,14 +358,6 @@ impl InterpreterForCell {
         })
     }
 
-    fn starlark_path_global_env(&self, path: &StarlarkPath) -> &Globals {
-        match path {
-            StarlarkPath::BuildFile(_) => &self.global_state.build_file_global_env,
-            StarlarkPath::LoadFile(_) => &self.global_state.extension_file_global_env,
-            StarlarkPath::BxlFile(_) => &self.global_state.bxl_file_global_env,
-        }
-    }
-
     fn create_env(
         &self,
         starlark_path: StarlarkPath<'_>,
@@ -552,7 +543,7 @@ impl InterpreterForCell {
         extra_context: Option<Box<dyn ExtraContextDyn>>,
         profiler: &mut StarlarkProfilerOrInstrumentation,
     ) -> anyhow::Result<Option<Box<dyn ExtraContextDyn>>> {
-        let globals = self.starlark_path_global_env(&import);
+        let globals = self.global_state.globals_for_file_type(import.file_type());
         let file_loader =
             InterpreterFileLoader::new(loaded_modules, Arc::new(self.load_resolver(import)));
         let cell_info = self.get_cell_config(import.build_file_cell());

@@ -26,6 +26,7 @@ use crate::dice::starlark_types::GetDisableStarlarkTypes;
 use crate::dice::HasInterpreterContext;
 use crate::extra::cell_info::InterpreterCellInfo;
 use crate::extra::InterpreterConfiguror;
+use crate::interpreter::StarlarkFileType;
 
 /// Information shared across interpreters. Contains no cell-specific
 /// information.
@@ -95,6 +96,14 @@ impl GlobalInterpreterState {
 
     pub fn configuror(&self) -> &Arc<dyn InterpreterConfiguror> {
         &self.configuror
+    }
+
+    pub fn globals_for_file_type(&self, file_type: StarlarkFileType) -> &Globals {
+        match file_type {
+            StarlarkFileType::Buck => &self.build_file_global_env,
+            StarlarkFileType::Bzl => &self.extension_file_global_env,
+            StarlarkFileType::Bxl => &self.bxl_file_global_env,
+        }
     }
 }
 
