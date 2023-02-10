@@ -34,7 +34,6 @@ def apple_sdk_swift_module_impl(ctx: "context") -> ["provider"]:
             "-parse-stdlib",
         ])
 
-    module_dependency_infos = filter(None, [d.get(SdkUncompiledModuleInfo) for d in ctx.attrs.deps])
     return [
         DefaultInfo(),
         SdkUncompiledModuleInfo(
@@ -44,7 +43,7 @@ def apple_sdk_swift_module_impl(ctx: "context") -> ["provider"]:
             is_swiftmodule = True,
             partial_cmd = cmd,
             input_relative_path = ctx.attrs.swiftinterface_relative_path,
-            deps = module_dependency_infos,
+            deps = ctx.attrs.deps,
         ),
     ]
 
