@@ -10,11 +10,13 @@
 use sha2::Digest;
 use sha2::Sha256;
 use starlark::environment::GlobalsBuilder;
+use starlark::environment::LibraryExtension;
 use starlark::eval::Evaluator;
 use starlark::values::list::AllocList;
 use starlark::values::Value;
 
 use crate::extra::BuildContext;
+use crate::functions::dedupe::dedupe;
 use crate::globspec::GlobSpec;
 use crate::selector::StarlarkSelector;
 
@@ -117,4 +119,39 @@ fn register_sha256(builder: &mut GlobalsBuilder) {
 pub fn register_base_natives(registry: &mut GlobalsBuilder) {
     native_module(registry);
     register_sha256(registry);
+}
+
+/// Configure globals for all three possible environments: `BUCK`, `bzl` and `bxl`.
+pub fn configure_base_globals(
+    configure_native_struct: impl FnOnce(&mut GlobalsBuilder),
+) -> GlobalsBuilder {
+    let starlark_extensions = [
+        LibraryExtension::Abs,
+        LibraryExtension::Breakpoint,
+        LibraryExtension::Debug,
+        LibraryExtension::EnumType,
+        LibraryExtension::Filter,
+        LibraryExtension::Json,
+        LibraryExtension::Map,
+        LibraryExtension::Partial,
+        LibraryExtension::Pprint,
+        LibraryExtension::Print,
+        LibraryExtension::RecordType,
+        LibraryExtension::ExperimentalRegex,
+        LibraryExtension::StructType,
+    ];
+    let mut global_env = GlobalsBuilder::extended_by(&starlark_extensions)
+        .with(register_base_natives)
+        .with(dedupe);
+    global_env.struct_("__internal__", |x| {
+        register_base_natives(x);
+        // If `native.` symbols need to be added to the global env, they should be done
+        // in `configure_build_file_globals()` or
+        // `configure_extension_file_globals()`
+        for ext in starlark_extensions {
+            ext.add(x)
+        }
+        configure_native_struct(x);
+    });
+    global_env
 }

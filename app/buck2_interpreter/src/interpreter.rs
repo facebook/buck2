@@ -27,14 +27,11 @@ use dupe::Dupe;
 use gazebo::prelude::*;
 use starlark::codemap::FileSpan;
 use starlark::environment::FrozenModule;
-use starlark::environment::GlobalsBuilder;
-use starlark::environment::LibraryExtension;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::syntax::AstModule;
 use thiserror::Error;
 
-use crate::build_defs::register_base_natives;
 use crate::extra::cell_info::InterpreterCellInfo;
 use crate::extra::BuildContext;
 use crate::extra::ExtraContext;
@@ -43,7 +40,6 @@ use crate::file_loader::InterpreterFileLoader;
 use crate::file_loader::LoadResolver;
 use crate::file_loader::LoadedModules;
 use crate::file_type::StarlarkFileType;
-use crate::functions::dedupe::dedupe;
 use crate::global_interpreter_state::GlobalInterpreterState;
 use crate::import_paths::ImplicitImportPaths;
 use crate::package_imports::ImplicitImport;
@@ -120,41 +116,6 @@ pub struct InterpreterForCell {
     /// Implicit imports. These are only used for build files (e.g. `BUCK`),
     /// not for `bzl` or other files, because we only have implicit imports for build files.
     implicit_import_paths: Arc<ImplicitImportPaths>,
-}
-
-/// Configure globals for all three possible environments: `BUCK`, `bzl` and `bxl`.
-pub fn configure_base_globals(
-    configure_native_struct: impl FnOnce(&mut GlobalsBuilder),
-) -> GlobalsBuilder {
-    let starlark_extensions = [
-        LibraryExtension::Abs,
-        LibraryExtension::Breakpoint,
-        LibraryExtension::Debug,
-        LibraryExtension::EnumType,
-        LibraryExtension::Filter,
-        LibraryExtension::Json,
-        LibraryExtension::Map,
-        LibraryExtension::Partial,
-        LibraryExtension::Pprint,
-        LibraryExtension::Print,
-        LibraryExtension::RecordType,
-        LibraryExtension::ExperimentalRegex,
-        LibraryExtension::StructType,
-    ];
-    let mut global_env = GlobalsBuilder::extended_by(&starlark_extensions)
-        .with(register_base_natives)
-        .with(dedupe);
-    global_env.struct_("__internal__", |x| {
-        register_base_natives(x);
-        // If `native.` symbols need to be added to the global env, they should be done
-        // in `configure_build_file_globals()` or
-        // `configure_extension_file_globals()`
-        for ext in starlark_extensions {
-            ext.add(x)
-        }
-        configure_native_struct(x);
-    });
-    global_env
 }
 
 struct InterpreterLoadResolver {
