@@ -1,0 +1,35 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
+def do_merge(
+        ctx: "bxl_ctx",
+        actions: "actions",
+        built_sourcedbs: {"target_label": "artifact"},
+        merger_target: str.type,
+        command_category: str.type) -> "ensured_artifact":
+    merger_input = actions.write_json("merge_input.json", built_sourcedbs)
+    merger_output = actions.declare_output("merged_db.json")
+    merger = ctx.analysis(
+        merger_target,
+        target_platform = "prelude//platforms:default",
+    ).providers()[RunInfo]
+
+    # Ensure all artifacts so merger is guaranteed to see them
+    ctx.output.ensure_multiple(built_sourcedbs.values())
+
+    command = cmd_args(merger)
+    command.add(merger_input)
+    command.add("--root")
+    command.add(ctx.root())
+    command.add("--output")
+    command.add(merger_output.as_output())
+
+    # Declare that the merger result depends on all sourcedbs
+    command.hidden(built_sourcedbs.values())
+
+    actions.run(command, category = command_category)
+    return ctx.output.ensure(merger_output)

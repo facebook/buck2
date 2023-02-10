@@ -1,0 +1,41 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
+load(":build.bxl", "do_build")
+load(":merge.bxl", "do_merge")
+load(":query.bxl", "do_query")
+
+def _build_entry_point(ctx: "bxl_ctx") -> None:
+    query = ctx.cquery()
+    actions = ctx.bxl_actions.action_factory()
+    targets = do_query(ctx, query, actions, [query.eval(target) for target in ctx.cli_args.target])
+    built_sourcedbs = do_build(ctx, targets)
+
+    merged_sourcedb = do_merge(
+        ctx,
+        actions,
+        built_sourcedbs,
+        merger_target = "prelude//python/tools/sourcedb_merger:legacy_merge",
+        command_category = "pyre_legacy_merge_sourcedb",
+    )
+    ctx.output.print_json({"db": merged_sourcedb.abs_path()})
+
+build = bxl(
+    doc = """Build Python sourcedb for Pyre classic type checking server.
+
+    It takes a list of target patterns (usually obtained from Pyre local configuration
+    file), and will build source-db for those targets.
+    """,
+    impl = _build_entry_point,
+    cli_args = {
+        "target": cli_args.list(
+            cli_args.string(
+                doc = "Target pattern to build a source db for",
+            ),
+        ),
+    },
+)

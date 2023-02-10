@@ -1,0 +1,100 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
+load("@prelude//python:python.bzl", "PythonLibraryInfo", "PythonLibraryManifestsTSet")
+
+BUCK_PYTHON_RULE_KINDS = [
+    "python_binary",
+    "python_library",
+    "python_test",
+]
+BUCK_PYTHON_RULE_KIND_QUERY = "|".join(BUCK_PYTHON_RULE_KINDS)
+
+def _filter_root_targets(
+        query: "cqueryctx",
+        target_patterns: "_iterable_of_target_pattern") -> "target_set":
+    # Find all Pure-Python targets
+    candidate_targets = target_set()
+    for pattern in target_patterns:
+        candidate_targets += query.kind(
+            BUCK_PYTHON_RULE_KIND_QUERY,
+            pattern,
+        )
+
+    # Don't check generated rules
+    filtered_targets = candidate_targets - query.attrfilter(
+        "labels",
+        "generated",
+        candidate_targets,
+    )
+
+    # Do include unittest sources, which are marked as generated
+    filtered_targets = filtered_targets + query.attrfilter(
+        "labels",
+        "unittest-library",
+        candidate_targets,
+    )
+
+    # Provide an opt-out label
+    filtered_targets = filtered_targets - query.attrfilter(
+        "labels",
+        "no_pyre",
+        candidate_targets,
+    )
+    return filtered_targets
+
+def _get_python_library_manifest(
+        ctx: "bxl_ctx",
+        target: "target_node") -> [PythonLibraryManifestsTSet.type, None]:
+    providers = ctx.analysis(target).providers()
+    sub_target = providers[DefaultInfo].sub_targets.get("source-db-no-deps")
+    if sub_target == None:
+        return None
+    python_library_info = sub_target.get(PythonLibraryInfo)
+    if python_library_info == None:
+        return None
+    return python_library_info.manifests
+
+def _expand_and_filter_dependencies(
+        ctx: "bxl_ctx",
+        actions: "actions",
+        root_targets: "target_set") -> ["configured_target_label"]:
+    manifests_of_transitive_dependencies = actions.tset(
+        PythonLibraryManifestsTSet,
+        children = filter(None, [
+            _get_python_library_manifest(ctx, target)
+            for target in root_targets
+        ]),
+    )
+    return [
+        manifest.label.configured_target()
+        for manifest in manifests_of_transitive_dependencies.traverse()
+        if manifest.src_types != None
+    ]
+
+def do_query(
+        ctx: "bxl_ctx",
+        query: "cqueryctx",
+        actions: "actions",
+        target_patterns: "_iterable_of_target_pattern") -> ["configured_target_label"]:
+    root_targets = _filter_root_targets(query, target_patterns)
+    return _expand_and_filter_dependencies(ctx, actions, root_targets)
+
+def _do_query_entry_point(ctx: "bxl_ctx") -> None:
+    targets = do_query(ctx, ctx.cquery(), ctx.bxl_actions.action_factory(), ctx.cli_args.target)
+    ctx.output.print_json([target.raw_target() for target in targets])
+
+query = bxl(
+    doc = (
+        "Expand target patterns and look for all targets in their transitive" +
+        "dependencies that will be built by Pyre."
+    ),
+    impl = _do_query_entry_point,
+    cli_args = {
+        "target": cli_args.list(cli_args.target_expr()),
+    },
+)
