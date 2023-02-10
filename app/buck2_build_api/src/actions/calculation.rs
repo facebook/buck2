@@ -26,7 +26,10 @@ use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
 use futures::future;
-use futures::stream::FuturesUnordered;
+use futures::stream::FuturesOrdered;
+use futures::FutureExt;
+use indexmap::IndexMap;
+use itertools::zip;
 use tracing::debug;
 
 use crate::actions::artifact::build_artifact::BuildArtifact;
@@ -37,7 +40,7 @@ use crate::actions::execute::action_executor::ActionOutputs;
 use crate::actions::execute::action_executor::HasActionExecutor;
 use crate::actions::key::ActionKey;
 use crate::actions::RegisteredAction;
-use crate::artifact_groups::calculation::ArtifactGroupCalculation;
+use crate::artifact_groups::calculation::ensure_artifact_group_staged;
 use crate::deferred::calculation::DeferredCalculation;
 use crate::keep_going;
 
@@ -90,20 +93,22 @@ async fn build_action_no_redirect(
     ctx: &DiceComputations,
     action: Arc<RegisteredAction>,
 ) -> anyhow::Result<ActionOutputs> {
-    let materialized_inputs = tokio::task::unconstrained(keep_going::try_join_all(
-        action
-            .inputs()?
+    let materialized_inputs = {
+        let inputs = action.inputs()?;
+        let ensure_futs: FuturesOrdered<_> = inputs
             .iter()
-            .map(|a| {
-                let a = a.dupe();
-                async move {
-                    let val = ctx.ensure_artifact_group(&a).await?;
-                    SharedResult::Ok((a, val))
-                }
-            })
-            .collect::<FuturesUnordered<_>>(),
-    ))
-    .await?;
+            .map(|v| ensure_artifact_group_staged(ctx, v))
+            .collect();
+
+        let ready_inputs: Vec<_> =
+            tokio::task::unconstrained(keep_going::try_join_all(ensure_futs)).await?;
+
+        let mut results = IndexMap::with_capacity(inputs.len());
+        for (artifact, ready) in zip(inputs.iter(), ready_inputs.into_iter()) {
+            results.insert(artifact.clone(), ready.to_group_values(artifact)?);
+        }
+        results
+    };
 
     let start_event = buck2_data::ActionExecutionStart {
         key: Some(action.key().as_proto()),
@@ -119,8 +124,7 @@ async fn build_action_no_redirect(
         .await
         .context(format!("for action `{}`", action))?;
 
-    // this can be RE
-    span_async(start_event, async move {
+    let fut = async move {
         let (execute_result, command_reports) =
             executor.execute(materialized_inputs, &action).await;
 
@@ -234,8 +238,9 @@ async fn build_action_no_redirect(
                 buck2_build_time,
             },
         )
-    })
-    .await
+    };
+    // boxed() the future so that we don't need to allocate space for it while waiting on input dependencies.
+    span_async(start_event, fut.boxed()).await
 }
 
 #[async_trait]
