@@ -26,6 +26,7 @@ use chrono::DateTime;
 use chrono::Utc;
 use dupe::Dupe;
 use fbinit::FacebookInit;
+use futures::FutureExt;
 use prost::Message;
 use remote_execution as RE;
 use remote_execution::ActionResultResponse;
@@ -131,11 +132,14 @@ impl LazyRemoteExecutionClient {
     }
 
     async fn get(&self) -> anyhow::Result<&RemoteExecutionClient> {
-        match self
-            .client
-            .get_or_init(async move { self.init().await })
-            .await
-        {
+        // The future from self.init() is large and very rarely required. We want
+        // to ensure that (1) it doesn't contribute to the size of the get() future
+        // (which is used for basically every call) and (2) isn't even allocated on
+        // the fast path.
+        // To do this, we .boxed() it and wrap it in an async block that only needs to
+        // hold the &self (until it's first polled).
+        let init_fut = async move { self.init().boxed().await };
+        match self.client.get_or_init(init_fut).await {
             Ok(v) => Ok(v),
             Err(e) => Err(e.dupe().into()),
         }
