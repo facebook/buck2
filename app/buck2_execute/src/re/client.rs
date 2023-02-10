@@ -26,6 +26,7 @@ use dupe::Dupe;
 use either::Either;
 use fbinit::FacebookInit;
 use futures::stream::BoxStream;
+use futures::FutureExt;
 use futures::StreamExt;
 use futures::TryFutureExt;
 use gazebo::prelude::*;
@@ -195,19 +196,22 @@ struct OpStats {
 }
 
 impl OpStats {
-    async fn op<R, F>(&self, f: F) -> anyhow::Result<R>
+    fn op<'a, R, F>(&'a self, f: F) -> impl Future<Output = anyhow::Result<R>> + 'a
     where
-        F: Future<Output = anyhow::Result<R>>,
+        F: Future<Output = anyhow::Result<R>> + 'a,
     {
+        // We avoid using `async fn` or `async move` here to avoid doubling the
+        // future size. See https://github.com/rust-lang/rust/issues/62958
         self.started.fetch_add(1, Ordering::Relaxed);
-        let result = f.await;
-        (if result.is_ok() {
-            &self.finished_successfully
-        } else {
-            &self.finished_with_error
+        f.map(|result| {
+            (if result.is_ok() {
+                &self.finished_successfully
+            } else {
+                &self.finished_with_error
+            })
+            .fetch_add(1, Ordering::Relaxed);
+            result
         })
-        .fetch_add(1, Ordering::Relaxed);
-        result
     }
 }
 

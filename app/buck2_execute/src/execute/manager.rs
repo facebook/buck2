@@ -89,6 +89,8 @@ impl CommandExecutionManager {
         stage: impl Into<buck2_data::executor_stage_start::Stage>,
         f: F,
     ) -> impl Future<Output = <F as Future>::Output> {
+        // We avoid using `async fn` or `async move` here to avoid doubling the
+        // future size. See https://github.com/rust-lang/rust/issues/62958
         let event = buck2_data::ExecutorStageStart {
             stage: Some(stage.into()),
         };
