@@ -74,13 +74,7 @@ pub fn handle_soft_error(
     // We want to limit each error to appearing at most 10 times in a build (no point spamming people)
     if count.fetch_add(1, Ordering::SeqCst) < 10 {
         if !quiet {
-            tracing::warn!(
-                "Important warning at {}:{}:{} {:#}",
-                loc.0,
-                loc.1,
-                loc.2,
-                err
-            );
+            tracing::warn!("Warning at {}:{}:{} {:#}", loc.0, loc.1, loc.2, err);
         }
         if let Some(handler) = HANDLER.get() {
             handler(category, &err, loc);
