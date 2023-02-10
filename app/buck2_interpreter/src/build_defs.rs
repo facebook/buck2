@@ -18,40 +18,10 @@ use starlark::values::Value;
 use crate::extra::build_context::BuildContext;
 use crate::functions::dedupe::dedupe;
 use crate::globspec::GlobSpec;
-use crate::selector::StarlarkSelector;
+use crate::selector::register_select;
 
 #[starlark_module]
 pub fn native_module(builder: &mut GlobalsBuilder) {
-    fn select<'v>(#[starlark(require = pos)] d: Value<'v>) -> anyhow::Result<StarlarkSelector<'v>> {
-        Ok(StarlarkSelector::new(d))
-    }
-
-    /// Applies a mapping function to a selector. See [StarlarkSelector::select_map].
-    fn select_map<'v>(
-        #[starlark(require = pos)] d: Value<'v>,
-        #[starlark(require = pos)] func: Value<'v>,
-        eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<Value<'v>> {
-        StarlarkSelector::select_map(d, eval, func)
-    }
-
-    /// Applies a test function to a selector. See [StarlarkSelector::select_test].
-    fn select_test<'v>(
-        #[starlark(require = pos)] d: Value<'v>,
-        #[starlark(require = pos)] func: Value<'v>,
-        eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<bool> {
-        StarlarkSelector::select_test(d, eval, func)
-    }
-
-    /// Tests that two selects are equal to each other. For testing use only.
-    fn select_equal_internal<'v>(
-        #[starlark(require = pos)] left: Value<'v>,
-        #[starlark(require = pos)] right: Value<'v>,
-    ) -> anyhow::Result<bool> {
-        StarlarkSelector::select_equal_internal(left, right)
-    }
-
     fn glob<'v>(
         include: Vec<String>,
         #[starlark(require = named)] exclude: Option<Vec<String>>,
@@ -118,6 +88,7 @@ fn register_sha256(builder: &mut GlobalsBuilder) {
 /// Native functions included in all contexts (`BUCK`, `bzl`, `bxl`).
 pub fn register_base_natives(registry: &mut GlobalsBuilder) {
     native_module(registry);
+    register_select(registry);
     register_sha256(registry);
 }
 

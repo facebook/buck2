@@ -14,6 +14,7 @@ use allocative::Allocative;
 use gazebo::coerce::Coerce;
 use starlark::any::ProvidesStaticType;
 use starlark::collections::SmallMap;
+use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_complex_value;
 use starlark::starlark_type;
@@ -60,17 +61,17 @@ unsafe impl<From: Coerce<To>, To> Coerce<StarlarkSelectorGen<To>> for StarlarkSe
 starlark_complex_value!(pub StarlarkSelector);
 
 impl<'v> StarlarkSelector<'v> {
-    pub fn new(d: Value<'v>) -> Self {
+    fn new(d: Value<'v>) -> Self {
         StarlarkSelector::Inner(d)
     }
 
-    pub fn added(left: Value<'v>, right: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    fn added(left: Value<'v>, right: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         Ok(heap.alloc(StarlarkSelector::Added(left, right)))
     }
 
     /// Tests that two selects are equal to each other. For testing use only.
     /// We simply compare their string representations.
-    pub fn select_equal_internal(left: Value, right: Value) -> anyhow::Result<bool> {
+    fn select_equal_internal(left: Value, right: Value) -> anyhow::Result<bool> {
         Ok(left.to_repr() == right.to_repr())
     }
 
@@ -86,7 +87,7 @@ impl<'v> StarlarkSelector<'v> {
     ///
     /// select_map([1, 2] + select({"c": [2]}}, increment_items) == [2, 3] + select({"c": [3]})
     /// ```
-    pub fn select_map<'a>(
+    fn select_map<'a>(
         val: Value<'a>,
         eval: &mut Evaluator<'a, '_>,
         func: Value<'a>,
@@ -134,7 +135,7 @@ impl<'v> StarlarkSelector<'v> {
     /// select_test([1] + select({"c": [1, 2]}), lambda a: len(a) > 1) == True
     /// ```
     ///
-    pub fn select_test<'a>(
+    fn select_test<'a>(
         val: Value<'a>,
         eval: &mut Evaluator<'a, '_>,
         func: Value<'a>,
@@ -242,5 +243,38 @@ where
         };
 
         Some(StarlarkSelector::added(this, other, heap))
+    }
+}
+
+#[starlark_module]
+pub fn register_select(globals: &mut GlobalsBuilder) {
+    fn select<'v>(#[starlark(require = pos)] d: Value<'v>) -> anyhow::Result<StarlarkSelector<'v>> {
+        Ok(StarlarkSelector::new(d))
+    }
+
+    /// Applies a mapping function to a selector. See [StarlarkSelector::select_map].
+    fn select_map<'v>(
+        #[starlark(require = pos)] d: Value<'v>,
+        #[starlark(require = pos)] func: Value<'v>,
+        eval: &mut Evaluator<'v, '_>,
+    ) -> anyhow::Result<Value<'v>> {
+        StarlarkSelector::select_map(d, eval, func)
+    }
+
+    /// Applies a test function to a selector. See [StarlarkSelector::select_test].
+    fn select_test<'v>(
+        #[starlark(require = pos)] d: Value<'v>,
+        #[starlark(require = pos)] func: Value<'v>,
+        eval: &mut Evaluator<'v, '_>,
+    ) -> anyhow::Result<bool> {
+        StarlarkSelector::select_test(d, eval, func)
+    }
+
+    /// Tests that two selects are equal to each other. For testing use only.
+    fn select_equal_internal<'v>(
+        #[starlark(require = pos)] left: Value<'v>,
+        #[starlark(require = pos)] right: Value<'v>,
+    ) -> anyhow::Result<bool> {
+        StarlarkSelector::select_equal_internal(left, right)
     }
 }

@@ -219,6 +219,7 @@ impl UnconfiguredMacroExt for UnconfiguredMacro {}
 #[cfg(test)]
 mod tests {
     use buck2_core::target::label::TargetLabel;
+    use buck2_interpreter::selector::register_select;
     use buck2_node::attrs::attr_type::AttrType;
     use buck2_node::attrs::coerced_deps_collector::CoercedDepsCollector;
     use buck2_node::attrs::configurable::AttrIsConfigurable;
@@ -258,6 +259,7 @@ mod tests {
         let env = Module::new();
         let globals = GlobalsBuilder::extended()
             .with(buck2_interpreter::build_defs::native_module)
+            .with(register_select)
             .build();
         let attr = AttrType::arg();
         let value = to_value(

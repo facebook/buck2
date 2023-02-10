@@ -22,6 +22,7 @@ use buck2_execute::artifact::fs::ArtifactFs;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::path::buck_out_path::BuckOutPathResolver;
 use buck2_execute::path::buck_out_path::BuckPathResolver;
+use buck2_interpreter::selector::register_select;
 use buck2_interpreter_for_build::attrs::coerce::attr_type::AttrTypeExt;
 use buck2_interpreter_for_build::attrs::coerce::testing::coercion_ctx;
 use buck2_interpreter_for_build::attrs::coerce::testing::coercion_ctx_listing;
@@ -51,9 +52,7 @@ use crate::interpreter::rule_defs::provider::registration::register_builtin_prov
 
 #[test]
 fn test() -> anyhow::Result<()> {
-    let globals = GlobalsBuilder::extended()
-        .with(buck2_interpreter::build_defs::native_module)
-        .build();
+    let globals = GlobalsBuilder::extended().with(register_select).build();
 
     let env = Module::new();
     // Check that `x` is captured with the function
@@ -105,9 +104,7 @@ fn test() -> anyhow::Result<()> {
 #[test]
 fn test_string() -> anyhow::Result<()> {
     let env = Module::new();
-    let globals = GlobalsBuilder::extended()
-        .with(buck2_interpreter::build_defs::native_module)
-        .build();
+    let globals = GlobalsBuilder::extended().with(register_select).build();
     let attr = AttrType::string();
     let value = to_value(&env, &globals, r#""a" + select({"DEFAULT": "b"})"#);
 
@@ -120,9 +117,7 @@ fn test_string() -> anyhow::Result<()> {
 
 #[test]
 fn test_invalid_concat_coercion_into_one_of() -> anyhow::Result<()> {
-    let globals = GlobalsBuilder::extended()
-        .with(buck2_interpreter::build_defs::native_module)
-        .build();
+    let globals = GlobalsBuilder::extended().with(register_select).build();
 
     let env = Module::new();
     let value = to_value(
@@ -217,9 +212,7 @@ fn test_option() -> anyhow::Result<()> {
 #[test]
 fn test_dict() -> anyhow::Result<()> {
     let env = Module::new();
-    let globals = GlobalsBuilder::extended()
-        .with(buck2_interpreter::build_defs::native_module)
-        .build();
+    let globals = GlobalsBuilder::extended().with(register_select).build();
     let value = to_value(&env, &globals, r#"{"b":["1"],"a":[]}"#);
 
     let attr = AttrType::dict(AttrType::string(), AttrType::list(AttrType::string()), true);
@@ -319,9 +312,7 @@ fn test_label() -> anyhow::Result<()> {
 
 #[test]
 fn test_coerced_deps() -> anyhow::Result<()> {
-    let globals = GlobalsBuilder::extended()
-        .with(buck2_interpreter::build_defs::native_module)
-        .build();
+    let globals = GlobalsBuilder::extended().with(register_select).build();
 
     let env = Module::new();
     let content = indoc!(
@@ -371,9 +362,7 @@ fn test_coerced_deps() -> anyhow::Result<()> {
 
 #[test]
 fn test_configured_deps() -> anyhow::Result<()> {
-    let globals = GlobalsBuilder::extended()
-        .with(buck2_interpreter::build_defs::native_module)
-        .build();
+    let globals = GlobalsBuilder::extended().with(register_select).build();
 
     let env = Module::new();
     let content = indoc!(
@@ -435,7 +424,7 @@ fn test_configured_deps() -> anyhow::Result<()> {
 #[test]
 fn test_resolved_deps() -> anyhow::Result<()> {
     let globals = GlobalsBuilder::extended()
-        .with(buck2_interpreter::build_defs::native_module)
+        .with(register_select)
         .with(crate::interpreter::rule_defs::register_rule_defs)
         .build();
 
@@ -578,9 +567,7 @@ fn test_source_label() -> anyhow::Result<()> {
 
 #[test]
 fn test_source_label_deps() -> anyhow::Result<()> {
-    let globals = GlobalsBuilder::extended()
-        .with(buck2_interpreter::build_defs::native_module)
-        .build();
+    let globals = GlobalsBuilder::extended().with(register_select).build();
 
     let env = Module::new();
     let content = indoc!(
@@ -645,7 +632,7 @@ fn test_source_label_resolution() -> anyhow::Result<()> {
         let env = Module::new();
 
         let globals = GlobalsBuilder::extended()
-            .with(buck2_interpreter::build_defs::native_module)
+            .with(register_select)
             .with(register_builtin_providers)
             .build();
 
@@ -790,9 +777,7 @@ fn test_arg() -> anyhow::Result<()> {
 
 #[test]
 fn test_bool() -> anyhow::Result<()> {
-    let globals = GlobalsBuilder::extended()
-        .with(buck2_interpreter::build_defs::native_module)
-        .build();
+    let globals = GlobalsBuilder::extended().with(register_select).build();
 
     let env = Module::new();
     let value = to_value(
@@ -838,7 +823,7 @@ fn test_user_placeholders() -> anyhow::Result<()> {
     let env = Module::new();
 
     let globals = GlobalsBuilder::extended()
-        .with(buck2_interpreter::build_defs::native_module)
+        .with(register_select)
         .with(register_builtin_providers)
         .build();
 
