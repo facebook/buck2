@@ -41,7 +41,6 @@ use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
 use buck2_interpreter_for_build::interpreter::configuror::BuildInterpreterConfiguror;
 use buck2_interpreter_for_build::interpreter::context::SetInterpreterContext;
 use buck2_interpreter_for_build::interpreter::dice_calculation_delegate::HasCalculationDelegate;
-use buck2_interpreter_for_build::interpreter::module_internals::ModuleInternals;
 use buck2_query::query::syntax::simple::functions::testing::QueryFunctionsPanic;
 use dice::DetectCycles;
 use dice::Dice;
@@ -286,7 +285,7 @@ async fn test_eval_build_file() {
     );
     let eval_result = with_dispatcher_async(
         EventDispatcher::null(),
-        calculation.eval_build_file::<ModuleInternals>(
+        calculation.eval_build_file(
             package.dupe(),
             &mut StarlarkProfilerOrInstrumentation::disabled(),
         ),

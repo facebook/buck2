@@ -30,7 +30,6 @@ use buck2_core::package::PackageLabel;
 use buck2_events::dispatch::span;
 use buck2_events::dispatch::span_async;
 use buck2_interpreter::dice::starlark_profiler::GetStarlarkProfilerInstrumentation;
-use buck2_interpreter::extra::ExtraContext;
 use buck2_interpreter::file_loader::LoadedModule;
 use buck2_interpreter::file_loader::ModuleDeps;
 use buck2_interpreter::import_paths::HasImportPaths;
@@ -39,6 +38,7 @@ use buck2_interpreter::path::StarlarkModulePath;
 use buck2_interpreter::path::StarlarkPath;
 use buck2_interpreter::starlark_profiler::StarlarkProfilerInstrumentation;
 use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
+use buck2_node::nodes::eval_result::EvaluationResult;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
@@ -272,11 +272,11 @@ impl<'c> DiceCalculationDelegate<'c> {
         ))
     }
 
-    pub async fn eval_build_file<T: ExtraContext>(
+    pub async fn eval_build_file(
         &self,
         package: PackageLabel,
         profiler: &mut StarlarkProfilerOrInstrumentation<'_>,
-    ) -> anyhow::Result<T::EvalResult> {
+    ) -> anyhow::Result<EvaluationResult> {
         let listing = span_async(
             buck2_data::LoadPackageStart {
                 path: package.as_cell_path().to_string(),
@@ -313,7 +313,7 @@ impl<'c> DiceCalculationDelegate<'c> {
         span(start_event, move || {
             let result = self
                 .configs
-                .eval_build_file::<T>(
+                .eval_build_file(
                     &build_file_path,
                     &buckconfig,
                     &root_buckconfig,

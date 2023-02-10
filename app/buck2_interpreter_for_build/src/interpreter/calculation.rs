@@ -29,7 +29,6 @@ use dupe::Dupe;
 
 use crate::interpreter::calculation::keys::InterpreterResultsKey;
 use crate::interpreter::dice_calculation_delegate::HasCalculationDelegate;
-use crate::interpreter::module_internals::ModuleInternals;
 
 #[async_trait]
 pub trait InterpreterCalculation {
@@ -73,7 +72,7 @@ impl InterpreterCalculation for DiceComputations {
             .await?;
         Ok(Arc::new(
             interpreter
-                .eval_build_file::<ModuleInternals>(
+                .eval_build_file(
                     package.dupe(),
                     &mut StarlarkProfilerOrInstrumentation::maybe_instrumentation(
                         starlark_profiler_instrumentation,

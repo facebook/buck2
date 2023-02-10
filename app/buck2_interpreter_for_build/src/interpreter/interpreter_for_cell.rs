@@ -41,6 +41,7 @@ use buck2_interpreter::path::StarlarkModulePath;
 use buck2_interpreter::path::StarlarkPath;
 use buck2_interpreter::starlark_profiler::StarlarkProfilerInstrumentation;
 use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
+use buck2_node::nodes::eval_result::EvaluationResult;
 use dupe::Dupe;
 use gazebo::prelude::*;
 use starlark::codemap::FileSpan;
@@ -51,6 +52,7 @@ use starlark::syntax::AstModule;
 use thiserror::Error;
 
 use crate::interpreter::global_interpreter_state::GlobalInterpreterState;
+use crate::interpreter::module_internals::ModuleInternals;
 
 #[derive(Debug, Error)]
 enum StarlarkParseError {
@@ -511,7 +513,7 @@ impl InterpreterForCell {
     /// Evaluates the AST for a parsed build file. Loaded modules must contain the
     /// loaded environment for all (transitive) required imports.
     /// Returns the result of evaluation.
-    pub fn eval_build_file<T: ExtraContext + Sized + 'static>(
+    pub fn eval_build_file(
         self: &Arc<Self>,
         build_file: &BuildFilePath,
         buckconfig: &dyn LegacyBuckConfigView,
@@ -521,7 +523,7 @@ impl InterpreterForCell {
         ast: AstModule,
         loaded_modules: LoadedModules,
         profiler: &mut StarlarkProfilerOrInstrumentation,
-    ) -> anyhow::Result<T::EvalResult> {
+    ) -> anyhow::Result<EvaluationResult> {
         let (env, internals) = self.create_build_env(
             build_file,
             &listing,
@@ -542,6 +544,7 @@ impl InterpreterForCell {
             )?
             .expect("We sent a context, expect one back");
 
-        Ok(T::into_eval_result(internals).expect("The result to match the context type"))
+        Ok(ModuleInternals::into_eval_result(internals)
+            .expect("The result to match the context type"))
     }
 }

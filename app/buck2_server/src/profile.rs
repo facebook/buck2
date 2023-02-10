@@ -32,7 +32,6 @@ use buck2_interpreter::starlark_profiler::StarlarkProfileDataAndStats;
 use buck2_interpreter::starlark_profiler::StarlarkProfiler;
 use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
 use buck2_interpreter_for_build::interpreter::dice_calculation_delegate::HasCalculationDelegate;
-use buck2_interpreter_for_build::interpreter::module_internals::ModuleInternals;
 use buck2_profile::get_profile_response;
 use buck2_profile::starlark_profiler_configuration_from_request;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
@@ -99,7 +98,7 @@ async fn generate_profile_loading(
     let mut profiler = StarlarkProfiler::new(profile_mode.profile_last_loading()?.dupe(), false);
 
     calculation
-        .eval_build_file::<ModuleInternals>(
+        .eval_build_file(
             package,
             &mut StarlarkProfilerOrInstrumentation::for_profiler(&mut profiler),
         )

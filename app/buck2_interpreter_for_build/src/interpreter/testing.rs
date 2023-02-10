@@ -47,7 +47,6 @@ use crate::interpreter::configuror::BuildInterpreterConfiguror;
 use crate::interpreter::global_interpreter_state::GlobalInterpreterState;
 use crate::interpreter::interpreter_for_cell::InterpreterForCell;
 use crate::interpreter::interpreter_for_cell::ParseResult;
-use crate::interpreter::module_internals::ModuleInternals;
 
 /// Simple container that allows us to instrument things like imports
 #[derive(Debug)]
@@ -294,7 +293,7 @@ impl Tester {
             .get(self.cell_alias_resolver.resolve_self())
             .unwrap();
         let root_buckconfig = self.configs.get(self.cell_resolver.root_cell()).unwrap();
-        let eval_result = interpreter.eval_build_file::<ModuleInternals>(
+        let eval_result = interpreter.eval_build_file(
             path,
             buckconfig,
             root_buckconfig,
