@@ -7,8 +7,8 @@
  * of this source tree.
  */
 
-use buck2_interpreter::extra::build_context::BuildContext;
 use buck2_interpreter::path::StarlarkPath;
+use buck2_interpreter_for_build::interpreter::build_context::BuildContext;
 use buck2_interpreter_for_build::interpreter::functions::host_info::register_host_info;
 use buck2_interpreter_for_build::interpreter::functions::read_config::register_read_config;
 use buck2_interpreter_for_build::interpreter::natives::register_module_natives;

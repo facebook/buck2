@@ -23,9 +23,6 @@ use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::soft_error;
-use buck2_interpreter::extra::build_context::BuildContext;
-use buck2_interpreter::extra::build_context::ExtraContext;
-use buck2_interpreter::extra::build_context::ExtraContextDyn;
 use buck2_interpreter::extra::cell_info::InterpreterCellInfo;
 use buck2_interpreter::file_loader::InterpreterFileLoader;
 use buck2_interpreter::file_loader::LoadResolver;
@@ -51,6 +48,9 @@ use starlark::eval::Evaluator;
 use starlark::syntax::AstModule;
 use thiserror::Error;
 
+use crate::interpreter::build_context::BuildContext;
+use crate::interpreter::build_context::ExtraContext;
+use crate::interpreter::build_context::ExtraContextDyn;
 use crate::interpreter::global_interpreter_state::GlobalInterpreterState;
 use crate::interpreter::module_internals::ModuleInternals;
 

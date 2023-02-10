@@ -119,7 +119,7 @@ impl GlobSpec {
                 .any(|p| p.0.matches_with(path, options))
     }
 
-    pub(crate) fn resolve_glob<'a>(
+    pub fn resolve_glob<'a>(
         &'a self,
         spec: &'a PackageFileListing,
     ) -> Box<dyn Iterator<Item = &'a PackageRelativePath> + 'a> {

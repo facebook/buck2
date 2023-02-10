@@ -19,7 +19,6 @@ use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellAlias;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::package::PackageLabel;
-use buck2_interpreter::extra::build_context::BuildContext;
 use buck2_interpreter::extra::cell_info::InterpreterCellInfo;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
@@ -42,6 +41,7 @@ use starlark::syntax::Dialect;
 use starlark::values::Value;
 
 use crate::attrs::coerce::ctx::BuildAttrCoercionContext;
+use crate::interpreter::build_context::BuildContext;
 
 pub trait CoercedAttrExt {
     fn from_literal(lit: AttrLiteral<CoercedAttr>) -> Self;

@@ -11,11 +11,12 @@ pub mod testing {
     use buck2_core::configuration::ConfigurationData;
     use buck2_core::pattern::ParsedPattern;
     use buck2_core::pattern::ProvidersPattern;
-    use buck2_interpreter::extra::build_context::BuildContext;
     use buck2_interpreter::types::label::Label;
     use starlark::environment::GlobalsBuilder;
     use starlark::eval::Evaluator;
     use starlark::starlark_module;
+
+    use crate::interpreter::build_context::BuildContext;
 
     #[starlark_module]
     pub fn label_creator(builder: &mut GlobalsBuilder) {

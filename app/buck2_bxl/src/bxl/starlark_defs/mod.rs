@@ -21,8 +21,8 @@ use buck2_build_api::interpreter::rule_defs::provider::registration::register_bu
 use buck2_core::collections::ordered_map::OrderedMap;
 use buck2_execute::bxl::types::BxlFunctionLabel;
 use buck2_execute::bxl::types::CliArgValue;
-use buck2_interpreter::extra::build_context::BuildContext;
 use buck2_interpreter::path::BxlFilePath;
+use buck2_interpreter_for_build::interpreter::build_context::BuildContext;
 use buck2_interpreter_for_build::interpreter::build_defs::register_base_natives;
 use buck2_interpreter_for_build::interpreter::functions::host_info::register_host_info;
 use buck2_interpreter_for_build::interpreter::functions::read_config::register_read_config;

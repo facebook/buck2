@@ -7,13 +7,13 @@
  * of this source tree.
  */
 
-use buck2_interpreter::extra::build_context::ExtraContext;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::values::none::NoneType;
 use starlark::values::Value;
 
+use crate::interpreter::build_context::ExtraContext;
 use crate::interpreter::module_internals::ModuleInternals;
 
 #[starlark_module]

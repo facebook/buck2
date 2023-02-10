@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use buck2_interpreter::extra::build_context::BuildContext;
 use buck2_interpreter::functions::dedupe::dedupe;
 use buck2_interpreter::functions::sha256::register_sha256;
 use buck2_interpreter::globspec::GlobSpec;
@@ -18,6 +17,8 @@ use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::values::list::AllocList;
 use starlark::values::Value;
+
+use crate::interpreter::build_context::BuildContext;
 
 #[starlark_module]
 pub fn native_module(builder: &mut GlobalsBuilder) {

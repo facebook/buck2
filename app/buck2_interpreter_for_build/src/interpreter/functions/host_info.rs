@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use buck2_interpreter::extra::build_context::BuildContext;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
 use buck2_interpreter::extra::XcodeVersionInfo;
@@ -21,6 +20,8 @@ use starlark::values::FrozenHeap;
 use starlark::values::FrozenValue;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::Value;
+
+use crate::interpreter::build_context::BuildContext;
 
 fn new_host_info(
     host_platform: InterpreterHostPlatform,

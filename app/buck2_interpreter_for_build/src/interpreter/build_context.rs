@@ -15,17 +15,16 @@ use buck2_common::legacy_configs::view::LegacyBuckConfigView;
 use buck2_common::package_listing::listing::PackageListing;
 use buck2_core::package::package_relative_path::PackageRelativePath;
 use buck2_core::package::PackageLabel;
+use buck2_interpreter::extra::buckconfig::LegacyBuckConfigForStarlark;
+use buck2_interpreter::extra::cell_info::InterpreterCellInfo;
+use buck2_interpreter::extra::InterpreterHostArchitecture;
+use buck2_interpreter::extra::InterpreterHostPlatform;
+use buck2_interpreter::globspec::GlobSpec;
+use buck2_interpreter::path::StarlarkPath;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use thiserror::Error;
-
-use crate::extra::buckconfig::LegacyBuckConfigForStarlark;
-use crate::extra::cell_info::InterpreterCellInfo;
-use crate::extra::InterpreterHostArchitecture;
-use crate::extra::InterpreterHostPlatform;
-use crate::globspec::GlobSpec;
-use crate::path::StarlarkPath;
 
 #[derive(Error, Debug)]
 enum BuildContextError {

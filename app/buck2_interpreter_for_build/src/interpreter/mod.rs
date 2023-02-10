@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+pub mod build_context;
 pub mod build_defs;
 pub mod calculation;
 pub mod configuror;
