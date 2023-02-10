@@ -37,6 +37,10 @@ pub struct ImportPath {
 
 impl ImportPath {
     pub fn new(path: CellPath, build_file_cell: BuildFileCell) -> anyhow::Result<Self> {
+        if path.parent().is_none() {
+            return Err(ImportPathError::Invalid(path).into());
+        }
+
         if path.path().as_str().contains('?') {
             return Err(ImportPathError::Invalid(path).into());
         }
