@@ -18,6 +18,5 @@
 
 pub mod calculation;
 pub mod interpreter;
-pub mod interpreter_setup;
 pub mod starlark_profiler;
 pub mod starlark_types;

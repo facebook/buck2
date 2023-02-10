@@ -9,6 +9,7 @@
 
 pub mod calculation;
 pub mod configuror;
+pub mod interpreter_setup;
 pub mod module_internals;
 pub mod natives;
 pub mod testing;

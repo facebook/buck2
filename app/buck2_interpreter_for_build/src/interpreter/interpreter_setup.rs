@@ -13,13 +13,12 @@ use buck2_common::dice::cells::SetCellResolver;
 use buck2_common::legacy_configs::dice::SetLegacyConfigs;
 use buck2_common::legacy_configs::LegacyBuckConfigs;
 use buck2_core::cells::CellResolver;
+use buck2_interpreter::dice::interpreter::SetInterpreterContext;
+use buck2_interpreter::dice::starlark_profiler::SetStarlarkProfilerInstrumentation;
+use buck2_interpreter::dice::starlark_profiler::StarlarkProfilerConfiguration;
+use buck2_interpreter::dice::starlark_types::SetDisableStarlarkTypes;
+use buck2_interpreter::extra::InterpreterConfiguror;
 use dice::DiceTransactionUpdater;
-
-use crate::dice::interpreter::SetInterpreterContext;
-use crate::dice::starlark_profiler::SetStarlarkProfilerInstrumentation;
-use crate::dice::starlark_profiler::StarlarkProfilerConfiguration;
-use crate::dice::starlark_types::SetDisableStarlarkTypes;
-use crate::extra::InterpreterConfiguror;
 
 /// Common code to initialize Starlark interpreter globals.
 pub fn setup_interpreter(
