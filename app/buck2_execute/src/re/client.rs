@@ -836,7 +836,9 @@ impl RemoteExecutionClientImpl {
         let mut receiver = self
             .client()
             .get_execution_client()
-            .execute_with_progress(metadata.clone(), request.clone())
+            .execute_with_progress(metadata, request)
+            // boxed() to segment the future
+            .boxed()
             .await
             .map_err(anyhow::Error::from)
             .context("Failed to start remote execution")?;
@@ -961,6 +963,8 @@ impl RemoteExecutionClientImpl {
                     ..Default::default()
                 },
             )
+            // boxed() to segment the future
+            .boxed()
             .await
             .with_context(|| format!("Download request failed for digest {}", digest))?;
 
