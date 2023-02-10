@@ -162,12 +162,26 @@ where
     T::Output: Any + Send + 'static,
     P: Future<Output = ()> + Send + 'static,
 {
+    // For Ready<()> and BoxFuture<()> futures we get these sizes:
+    // future alone: 196/320 bits
+    // future + no-op preamble via async block: 448/704 bits
+    // future + no-op preamble via FuturesExt::then: 256/384 bits
+    // future + no-op preamble + instrument: 512/640 bits
+
+    // As the spawner is going to take a boxed future and erase its concrete type,
+    // we can have different future types for different scenarios in order to
+    // minimize the size of them.
+    //
+    // While we could feasibly distinguish the no-op preamble case, one extra pointer
+    // is an okay cost for the simpler api (for now).
     let (future, guard) = CancellableFuture::new_refcounted(future);
-    let future = async move {
-        preamble.await;
-        future.await
+    let future = future.map(|v| box v as _);
+    let future = preamble.then(|_| future);
+    let future = if span.is_disabled() {
+        future.boxed()
+    } else {
+        future.instrument(span).boxed()
     };
-    let future = future.instrument(span).map(|v| box v as _);
 
     let task = spawner.spawn(ctx, future.boxed());
     let task = task
