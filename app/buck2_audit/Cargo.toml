@@ -13,7 +13,6 @@ futures = { workspace = true }
 indent_write = { workspace = true }
 indexmap = { workspace = true }
 itertools = { workspace = true }
-maplit = { workspace = true }
 ref-cast = { workspace = true }
 thiserror = { workspace = true }
 serde = { workspace = true }
