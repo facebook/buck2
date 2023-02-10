@@ -9,6 +9,8 @@
 
 use std::cell::RefCell;
 use std::cell::RefMut;
+use std::fmt;
+use std::fmt::Debug;
 use std::mem;
 use std::sync::Arc;
 
@@ -25,7 +27,6 @@ use starlark::environment::FrozenModule;
 use starlark::values::OwnedFrozenValue;
 
 use crate::attrs::coerce::ctx::BuildAttrCoercionContext;
-use crate::interpreter::build_context::ExtraContext;
 
 impl From<ModuleInternals> for EvaluationResult {
     // TODO(cjhopman): Let's make this an `into_evaluation_result()` on ModuleInternals instead.
@@ -44,13 +45,16 @@ impl From<ModuleInternals> for EvaluationResult {
     }
 }
 
+#[derive(Debug)]
 struct Oncall(Arc<String>);
 
+#[derive(Debug)]
 struct RecordingTargets {
     package: Arc<Package>,
     recorder: TargetsRecorder,
 }
 
+#[derive(Debug)]
 enum State {
     /// No targets recorded yet, `oncall` call is allowed unless it was already called.
     BeforeTargets(Option<Oncall>),
@@ -62,6 +66,7 @@ enum State {
 /// evaluating build files. Built-in functions that need access to
 /// package-specific information or objects can get them by acquiring the
 /// ModuleInternals.
+#[derive(Debug)]
 pub struct ModuleInternals {
     attr_coercion_context: BuildAttrCoercionContext,
     buildfile_path: Arc<BuildFilePath>,
@@ -74,10 +79,7 @@ pub struct ModuleInternals {
     record_target_call_stacks: bool,
 }
 
-impl ExtraContext for ModuleInternals {
-    type EvalResult = EvaluationResult;
-}
-
+#[derive(Debug)]
 pub(crate) struct PackageImplicits {
     import_spec: Arc<ImplicitImport>,
     env: FrozenModule,
@@ -199,6 +201,12 @@ impl ModuleInternals {
 // Records the targets declared when evaluating a build file.
 struct TargetsRecorder {
     targets: TargetsMap,
+}
+
+impl Debug for TargetsRecorder {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("TargetsRecorder").finish_non_exhaustive()
+    }
 }
 
 impl TargetsRecorder {

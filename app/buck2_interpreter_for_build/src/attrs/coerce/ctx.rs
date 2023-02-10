@@ -8,6 +8,8 @@
  */
 
 use std::cell::RefCell;
+use std::fmt;
+use std::fmt::Debug;
 use std::sync::Arc;
 
 use buck2_common::package_listing::listing::PackageListing;
@@ -87,6 +89,13 @@ pub struct BuildAttrCoercionContext {
     select_interner: AttrCoercionInterner<ArcSlice<(TargetLabel, CoercedAttr)>>,
     /// `ConfiguredGraphQueryEnvironment::functions()`.
     query_functions: Arc<dyn QueryFunctionsVisitLiterals>,
+}
+
+impl Debug for BuildAttrCoercionContext {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("BuildAttrCoercionContext")
+            .finish_non_exhaustive()
+    }
 }
 
 impl BuildAttrCoercionContext {

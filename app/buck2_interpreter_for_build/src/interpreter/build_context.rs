@@ -7,8 +7,6 @@
  * of this source tree.
  */
 
-use std::any::Any;
-use std::fmt;
 use std::fmt::Debug;
 
 use buck2_common::legacy_configs::view::LegacyBuckConfigView;
@@ -25,6 +23,8 @@ use starlark::any::ProvidesStaticType;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use thiserror::Error;
+
+use crate::interpreter::module_internals::ModuleInternals;
 
 #[derive(Error, Debug)]
 enum BuildContextError {
@@ -72,7 +72,7 @@ pub struct BuildContext<'a> {
 
     /// Additional dynamic information passed in via the interpreter
     /// configurator
-    pub additional: Option<Box<dyn ExtraContextDyn>>,
+    pub additional: Option<ModuleInternals>,
 
     /// When true, rule function is no-op.
     pub ignore_attrs_for_profiling: bool,
@@ -89,7 +89,7 @@ impl<'a> BuildContext<'a> {
         listing: Option<PackageListing>,
         host_platform: InterpreterHostPlatform,
         host_architecture: InterpreterHostArchitecture,
-        additional: Option<Box<dyn ExtraContextDyn>>,
+        additional: Option<ModuleInternals>,
         ignore_attrs_for_profiling: bool,
     ) -> BuildContext<'a> {
         let buckconfig = LegacyBuckConfigForStarlark::new(module, buckconfig);
@@ -144,56 +144,14 @@ impl<'a> BuildContext<'a> {
 
 /// Arbitrary object made available to the execution context. Converted to
 /// EvalResult at the end of interpeting
-pub trait ExtraContext: Sized
-where
-    Self: 'static,
-{
-    type EvalResult: From<Self>;
-
-    fn get<'a>(untyped: &'a dyn ExtraContextDyn) -> Option<&'a Self> {
-        untyped.as_any().downcast_ref::<Self>()
-    }
-
+impl ModuleInternals {
     /// Try to get this inner context from the `ctx.extra` property.
-    fn from_context<'a>(ctx: &'a starlark::eval::Evaluator) -> anyhow::Result<&'a Self> {
+    pub fn from_context<'a>(ctx: &'a Evaluator) -> anyhow::Result<&'a Self> {
         match &BuildContext::from_context(ctx)?.additional {
             None => Err(anyhow::anyhow!(
                 "Unable to access module internals. This could be due to accessing it in the context of interpreting a .bzl file."
             )),
-            Some(v) => Ok(Self::get(&**v).unwrap()),
+            Some(v) => Ok(v),
         }
-    }
-
-    /// Convert the untyped, boxed version of this context into a final
-    /// interpreter result
-    fn into_eval_result(untyped: Box<dyn ExtraContextDyn>) -> anyhow::Result<Self::EvalResult> {
-        match untyped.into_any().downcast::<Self>() {
-            Ok(inner) => Ok(Self::EvalResult::from(*inner)),
-            Err(_) => Err(anyhow::anyhow!(
-                "Unable to access module internals. This could be due to accessing it in the context of interpreting a .bzl file."
-            )),
-        }
-    }
-}
-
-/// Unsized version of `ExtraContext`.
-pub trait ExtraContextDyn: Any {
-    fn as_any(&self) -> &dyn Any;
-    fn into_any(self: Box<Self>) -> Box<dyn Any>;
-}
-
-impl<E: ExtraContext> ExtraContextDyn for E {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn into_any(self: Box<Self>) -> Box<dyn Any> {
-        self
-    }
-}
-
-impl Debug for Box<dyn ExtraContextDyn> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        Debug::fmt(self.as_any(), f)
     }
 }

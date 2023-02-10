@@ -17,7 +17,6 @@ use buck2_core::bzl::ImportPath;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_interpreter_for_build::attrs::attribute_as_starlark_value::AttributeAsStarlarkValue;
 use buck2_interpreter_for_build::interpreter::build_context::BuildContext;
-use buck2_interpreter_for_build::interpreter::build_context::ExtraContext;
 use buck2_interpreter_for_build::interpreter::module_internals::ModuleInternals;
 use buck2_interpreter_for_build::nodes::attr_spec::AttributeSpecExt;
 use buck2_interpreter_for_build::nodes::unconfigured::TargetNodeExt;

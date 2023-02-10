@@ -27,7 +27,6 @@ use starlark::environment::Globals;
 use starlark::environment::GlobalsBuilder;
 
 use crate::attrs::coerce::ctx::BuildAttrCoercionContext;
-use crate::interpreter::build_context::ExtraContextDyn;
 use crate::interpreter::build_defs::configure_base_globals;
 use crate::interpreter::module_internals::ModuleInternals;
 use crate::interpreter::module_internals::PackageImplicits;
@@ -188,7 +187,7 @@ impl BuildInterpreterConfiguror {
         package_boundary_exception: bool,
         loaded_modules: &LoadedModules,
         implicit_import: Option<&Arc<ImplicitImport>>,
-    ) -> anyhow::Result<Box<dyn ExtraContextDyn>> {
+    ) -> anyhow::Result<ModuleInternals> {
         let record_target_call_stack = self.record_target_call_stack;
         let package_implicits = implicit_import.map(|spec| {
             PackageImplicits::new(
@@ -215,7 +214,7 @@ impl BuildInterpreterConfiguror {
 
         let imports = loaded_modules.imports().cloned().collect();
 
-        Ok(box ModuleInternals::new(
+        Ok(ModuleInternals::new(
             attr_coercer,
             Arc::new(buildfile_path),
             imports,
