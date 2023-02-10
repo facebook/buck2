@@ -24,7 +24,6 @@ load(":apple_toolchain_types.bzl", "AppleToolchainInfo")
 load(":apple_utility.bzl", "get_disable_pch_validation_flags", "get_module_name", "get_versioned_target_triple")
 load(":modulemap.bzl", "preprocessor_info_for_modulemap")
 load(":swift_module_map.bzl", "write_swift_module_map_with_swift_deps")
-load(":swift_pcm_compilation.bzl", "compile_swift_pcm", "get_pcm_deps_tset")
 
 def _add_swiftmodule_search_path(swiftmodule_path: "artifact"):
     # Value will contain a path to the artifact,
@@ -366,8 +365,10 @@ def _add_clang_deps_flags(ctx: "context", cmd: "cmd_args") -> None:
     # If a module uses Explicit Modules, all direct and
     # transitive Clang deps have to be explicitly added.
     if _uses_explicit_modules(ctx):
-        pcm_deps_tset = get_pcm_deps_tset(ctx, ctx.attrs.deps + ctx.attrs.exported_deps)
-        cmd.add(pcm_deps_tset.project_as_args("clang_deps"))
+        pass
+        # pcm_deps_tset = get_pcm_deps_tset(ctx, ctx.attrs.deps + ctx.attrs.exported_deps)
+        # cmd.add(pcm_deps_tset.project_as_args("clang_deps"))
+
     else:
         inherited_preprocessor_infos = cxx_inherited_preprocessor_infos(ctx.attrs.deps + ctx.attrs.exported_deps)
         preprocessors = cxx_merge_cpreprocessors(ctx, [], inherited_preprocessor_infos)
@@ -420,22 +421,6 @@ def _get_exported_headers_tset(ctx: "context", exported_headers: [["string"], No
             if dep and dep.exported_headers
         ],
     )
-
-def get_swift_pcm_compile_info(
-        ctx: "context",
-        propagated_exported_preprocessor_info: ["CPreprocessorInfo", None],
-        exported_pre: ["CPreprocessor", None]) -> ["SwiftPCMCompilationInfo", None]:
-    swift_toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
-
-    # If a toolchain supports explicit modules, exported PP exists and a target is modular,
-    # let's precompile a modulemap in order to enable consumptions by Swift.
-    if is_sdk_modules_provided(swift_toolchain) and exported_pre and exported_pre.modulemap_path and ctx.attrs.modular:
-        return compile_swift_pcm(
-            ctx,
-            exported_pre,
-            propagated_exported_preprocessor_info,
-        )
-    return None
 
 def get_swift_dependency_info(
         ctx: "context",

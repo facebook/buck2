@@ -21,10 +21,13 @@ SwiftPCMUncompiledInfo = provider(fields = [
     "sdk_modules",  # a list of required sdk modules
 ])
 
+WrappedSwiftPCMCompiledInfo = provider(fields = [
+    "tset",
+])
+
 SwiftPCMCompiledInfo = provider(fields = [
     "name",
     "pcm_output",
     "exported_preprocessor",
     "sdk_modules",
-    "exported_deps",
 ])
