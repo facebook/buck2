@@ -78,7 +78,3 @@ impl HasEvents for UserComputationData {
             .expect("Event dispatcher should be set")
     }
 }
-
-pub mod testing {
-    pub use crate::dice::calculation::testing::EvalImportKey;
-}

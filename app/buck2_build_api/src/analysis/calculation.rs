@@ -451,8 +451,8 @@ mod tests {
     use buck2_core::target::label::TargetLabel;
     use buck2_events::dispatch::EventDispatcher;
     use buck2_execute::execute::dice_data::set_fallback_executor_config;
+    use buck2_interpreter::dice::calculation::testing::EvalImportKey;
     use buck2_interpreter::dice::interpreter_setup::setup_interpreter_basic;
-    use buck2_interpreter::dice::testing::EvalImportKey;
     use buck2_interpreter::extra::InterpreterHostArchitecture;
     use buck2_interpreter::extra::InterpreterHostPlatform;
     use buck2_interpreter::file_loader::LoadedModules;
