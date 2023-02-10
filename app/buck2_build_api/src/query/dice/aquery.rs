@@ -190,7 +190,7 @@ fn compute_action_node(
     fs: Arc<ArtifactFs>,
 ) -> BoxFuture<'static, SharedResult<ActionQueryNode>> {
     async move {
-        let action = ctx.get_action(&key).await?;
+        let action = ActionCalculation::get_action(&ctx, &key).await?;
         let deps = convert_inputs(&ctx, node_cache, action.inputs()?.iter()).await?;
         Ok(ActionQueryNode::new(action, deps, fs))
     }

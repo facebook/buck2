@@ -27,9 +27,11 @@ use dice::Key;
 use dupe::Dupe;
 use futures::future;
 use futures::stream::FuturesOrdered;
+use futures::Future;
 use futures::FutureExt;
 use indexmap::IndexMap;
 use itertools::zip;
+use ref_cast::RefCast;
 use tracing::debug;
 
 use crate::actions::artifact::build_artifact::BuildArtifact;
@@ -44,17 +46,7 @@ use crate::artifact_groups::calculation::ensure_artifact_group_staged;
 use crate::deferred::calculation::DeferredCalculation;
 use crate::keep_going;
 
-#[async_trait]
-pub(crate) trait ActionCalculation {
-    /// Returns the 'Action' corresponding to a particular 'ActionKey'.
-    async fn get_action(&self, artifact: &ActionKey) -> anyhow::Result<Arc<RegisteredAction>>;
-
-    /// Builds a specific 'Action' given the 'ActionKey'
-    async fn build_action(&self, action_key: &ActionKey) -> anyhow::Result<ActionOutputs>;
-
-    /// Builds and materializes the given 'BuildArtifact'
-    async fn build_artifact(&self, artifact: &BuildArtifact) -> anyhow::Result<ActionOutputs>;
-}
+pub struct ActionCalculation;
 
 async fn build_action_impl(
     ctx: &DiceComputations,
@@ -63,7 +55,7 @@ async fn build_action_impl(
     // Compute is only called if we have cache miss
     debug!("compute {}", key);
 
-    let action = ctx.get_action(key).await?;
+    let action = ActionCalculation::get_action(ctx, key).await?;
 
     if action.key() != key {
         // The action key we start with is on the DICE graph, and thus cached
@@ -72,7 +64,7 @@ async fn build_action_impl(
         // pointing at the same underlying action. We need to make sure that
         // underlying action only gets called once, so call build_action once
         // again with the new key to get DICE deduplication.
-        let res = ctx.build_action(action.key()).await;
+        let res = ActionCalculation::build_action(ctx, action.key()).await;
 
         if let Some(signals) = ctx.per_transaction_data().get_build_signals() {
             // Notify our critical path tracking that *this action* is secretly that
@@ -243,55 +235,65 @@ async fn build_action_no_redirect(
     span_async(start_event, fut.boxed()).await
 }
 
-#[async_trait]
-impl ActionCalculation for DiceComputations {
-    async fn get_action(&self, action_key: &ActionKey) -> anyhow::Result<Arc<RegisteredAction>> {
+/// The cost of these calls are particularly critical. To control the cost (particularly size) of these calls
+/// we drop the `async_trait` common in other `*Calculation` types and avoid `async fn` (for
+/// build_action/build_artifact at least).
+impl ActionCalculation {
+    pub(crate) async fn get_action(
+        ctx: &DiceComputations,
+        action_key: &ActionKey,
+    ) -> anyhow::Result<Arc<RegisteredAction>> {
         // TODO add async/deferred stuff
-        self.compute_deferred_data(action_key.deferred_data())
+        ctx.compute_deferred_data(action_key.deferred_data())
             .await
             .map(|a| (*a).dupe())
             .with_context(|| format!("for action key `{}`", action_key))
     }
 
-    async fn build_action(&self, action_key: &ActionKey) -> anyhow::Result<ActionOutputs> {
-        // build_action is called for every action key.
+    pub(crate) fn build_action<'a>(
+        ctx: &'a DiceComputations,
+        action_key: &'a ActionKey,
+    ) -> impl Future<Output = anyhow::Result<ActionOutputs>> + 'a {
+        // build_action is called for every action key. We don't use `async fn` to ensure that it has minimal cost.
         // We don't currently consume this in buck_e2e but it's good to log for debugging purposes.
         debug!("build_action {}", action_key);
-
-        #[derive(Clone, Dupe, Display, Debug, Eq, PartialEq, Hash, Allocative)]
-        struct BuildKey(ActionKey);
-
-        #[async_trait]
-        impl Key for BuildKey {
-            type Value = SharedResult<ActionOutputs>;
-
-            async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
-                build_action_impl(ctx, &self.0).await.shared_error()
-            }
-
-            fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-                match (x, y) {
-                    (Ok(x), Ok(y)) => x == y,
-                    _ => false,
-                }
-            }
-
-            fn validity(x: &Self::Value) -> bool {
-                // we don't cache any kind of errors. Ideally, we could try to distinguish different
-                // error types and try to cache non-transient error types, but practically there
-                // are too many unknowns that may cause more harm than good if we cached errors.
-                // So, don't cache it for now, until someday we decide to really need to.
-                x.is_ok()
-            }
-        }
-
-        self.compute(&BuildKey(action_key.dupe()))
-            .await?
-            .unshared_error()
+        ctx.compute(BuildKey::ref_cast(action_key))
+            .map(|v| v?.unshared_error())
     }
 
-    async fn build_artifact(&self, artifact: &BuildArtifact) -> anyhow::Result<ActionOutputs> {
-        self.build_action(artifact.key()).await
+    pub(crate) fn build_artifact<'a>(
+        ctx: &'a DiceComputations,
+        artifact: &'a BuildArtifact,
+    ) -> impl Future<Output = anyhow::Result<ActionOutputs>> + 'a {
+        Self::build_action(ctx, artifact.key())
+    }
+}
+
+#[derive(Clone, Dupe, Display, Debug, Eq, PartialEq, Hash, Allocative, RefCast)]
+#[repr(transparent)]
+struct BuildKey(ActionKey);
+
+#[async_trait]
+impl Key for BuildKey {
+    type Value = SharedResult<ActionOutputs>;
+
+    async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
+        build_action_impl(ctx, &self.0).await.shared_error()
+    }
+
+    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
+        match (x, y) {
+            (Ok(x), Ok(y)) => x == y,
+            _ => false,
+        }
+    }
+
+    fn validity(x: &Self::Value) -> bool {
+        // we don't cache any kind of errors. Ideally, we could try to distinguish different
+        // error types and try to cache non-transient error types, but practically there
+        // are too many unknowns that may cause more harm than good if we cached errors.
+        // So, don't cache it for now, until someday we decide to really need to.
+        x.is_ok()
     }
 }
 
@@ -621,7 +623,7 @@ mod tests {
 
         let result = with_dispatcher_async(
             EventDispatcher::null(),
-            dice_computations.get_action(build_artifact.key()),
+            ActionCalculation::get_action(&dice_computations, build_artifact.key()),
         )
         .await;
         assert_eq!(result?, registered_action);
@@ -656,9 +658,8 @@ mod tests {
             }],
         )?;
 
-        let result = dice_computations
-            .build_action(registered_action.key())
-            .await;
+        let result =
+            ActionCalculation::build_action(&dice_computations, registered_action.key()).await;
 
         assert!(result.is_ok());
 
@@ -703,7 +704,7 @@ mod tests {
 
         let result = with_dispatcher_async(
             EventDispatcher::null(),
-            dice_computations.build_artifact(&build_artifact),
+            ActionCalculation::build_artifact(&dice_computations, &build_artifact),
         )
         .await;
 
