@@ -216,20 +216,20 @@ impl Borrow<str> for CellAlias {
 /// It is responsible for resolving all 'CellAlias' encountered within the
 /// 'CellInstance' into the global canonical 'CellName's
 #[derive(Clone, Dupe, Debug, PartialEq, Eq, Allocative)]
-pub struct CellAliasResolver(Arc<HashMap<CellAlias, CellName>>);
+pub struct CellAliasResolver {
+    aliases: Arc<HashMap<CellAlias, CellName>>,
+}
 
 impl CellAliasResolver {
     /// Create an instance of `CellAliasResolver`. The special alias `""` must be present, or
     /// this will fail
-    pub fn new(
-        alias_mapping: Arc<HashMap<CellAlias, CellName>>,
-    ) -> anyhow::Result<CellAliasResolver> {
-        if alias_mapping.contains_key("") {
-            Ok(CellAliasResolver(alias_mapping))
+    pub fn new(aliases: Arc<HashMap<CellAlias, CellName>>) -> anyhow::Result<CellAliasResolver> {
+        if aliases.contains_key("") {
+            Ok(CellAliasResolver { aliases })
         } else {
             Err(anyhow::Error::new(CellError::UnknownCellAlias(
                 CellAlias::new("".to_owned()),
-                alias_mapping.keys().cloned().collect(),
+                aliases.keys().cloned().collect(),
             )))
         }
     }
@@ -240,10 +240,10 @@ impl CellAliasResolver {
         CellAlias: Borrow<T>,
         T: Hash + Eq + Display,
     {
-        self.0.get(alias).duped().ok_or_else(|| {
+        self.aliases.get(alias).duped().ok_or_else(|| {
             anyhow::Error::new(CellError::UnknownCellAlias(
                 CellAlias::new(alias.to_string()),
-                self.0.keys().cloned().collect(),
+                self.aliases.keys().cloned().collect(),
             ))
         })
     }
@@ -254,7 +254,7 @@ impl CellAliasResolver {
     }
 
     pub fn mappings(&self) -> impl Iterator<Item = (&CellAlias, CellName)> {
-        self.0.iter().map(|(alias, name)| (alias, *name))
+        self.aliases.iter().map(|(alias, name)| (alias, *name))
     }
 }
 
@@ -652,7 +652,9 @@ pub mod testing {
                         *name,
                         path.clone(),
                         default_buildfiles(),
-                        CellAliasResolver(Arc::new(Default::default())),
+                        CellAliasResolver {
+                            aliases: Arc::new(Default::default()),
+                        },
                     ),
                 );
 
@@ -675,7 +677,9 @@ pub mod testing {
                         *name,
                         path.clone(),
                         default_buildfiles(),
-                        CellAliasResolver(Arc::new(alias.clone())),
+                        CellAliasResolver {
+                            aliases: Arc::new(alias.clone()),
+                        },
                     ),
                 );
                 assert!(prev.is_none());
