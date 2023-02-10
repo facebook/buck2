@@ -24,9 +24,6 @@ extern crate async_trait;
 #[macro_use]
 extern crate starlark;
 
-#[cfg(test)]
-mod tests;
-
 pub mod build_defs;
 pub mod dice;
 pub mod extra;

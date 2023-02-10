@@ -8,10 +8,7 @@ rust_library(
     srcs = glob(["src/**/*.rs"]),
     crate_root = "src/lib.rs",
     test_deps = [
-        "fbsource//third-party/rust:indoc",
-        "fbsource//third-party/rust:maplit",
         "fbsource//third-party/rust:tempfile",
-        "fbsource//third-party/rust:tokio",
     ],
     deps = [
         "fbsource//third-party/rust:anyhow",
@@ -25,7 +22,6 @@ rust_library(
         "fbsource//third-party/rust:once_cell",
         "fbsource//third-party/rust:plist",
         "fbsource//third-party/rust:serde",
-        "fbsource//third-party/rust:serde_json",
         "fbsource//third-party/rust:sha2",
         "fbsource//third-party/rust:thiserror",
         "//buck2/allocative/allocative:allocative",

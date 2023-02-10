@@ -11,3 +11,5 @@
 
 pub mod build_defs;
 pub mod interpreter;
+#[cfg(test)]
+mod tests;
