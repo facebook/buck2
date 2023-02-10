@@ -239,12 +239,14 @@ async def main() -> int:
     # Since it's possible that we're on Apple Silicon, force rustc
     # to run under Rosetta so proc-macros are compatible.
     if sys.platform == "darwin" and platform.machine() == "arm64":
-        rustc_cmd = ["arch", "-x86_64"] + args.rustc
+        rustc_cmd = ["arch", "-x86_64", args.rustc[0]]
     else:
-        rustc_cmd = args.rustc
+        rustc_cmd = args.rustc[:1]
+
+    rustc_args = args.rustc[1:]
 
     if args.remap_cwd_prefix is not None:
-        rustc_cmd.append(
+        rustc_args.append(
             "--remap-path-prefix={}={}".format(os.getcwd(), args.remap_cwd_prefix)
         )
 
@@ -254,11 +256,11 @@ async def main() -> int:
         suffix=".txt",
         delete=False,
     ) as args_file:
-        args_file.write("\n".join(rustc_cmd[1:]).encode() + b"\n")
+        args_file.write("\n".join(rustc_args).encode() + b"\n")
         args_file.flush()
         # Kick off the action
         proc = await asyncio.create_subprocess_exec(
-            rustc_cmd[0],
+            *rustc_cmd,
             "@" + args_file.name,
             env=env,
             stdin=subprocess.DEVNULL,
