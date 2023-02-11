@@ -14,9 +14,12 @@ use std::fmt::Debug;
 use std::mem;
 use std::sync::Arc;
 
+use buck2_common::package_listing::listing::PackageListing;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bzl::ImportPath;
+use buck2_core::package::package_relative_path::PackageRelativePath;
 use buck2_core::target::name::TargetNameRef;
+use buck2_interpreter::globspec::GlobSpec;
 use buck2_interpreter::package_imports::ImplicitImport;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::targets_map::TargetsMap;
@@ -77,6 +80,8 @@ pub struct ModuleInternals {
     package_implicits: Option<PackageImplicits>,
     default_visibility_to_public: bool,
     record_target_call_stacks: bool,
+    /// The files owned by this directory. Is `None` for .bzl files.
+    package_listing: PackageListing,
 }
 
 #[derive(Debug)]
@@ -114,6 +119,7 @@ impl ModuleInternals {
         package_implicits: Option<PackageImplicits>,
         default_visibility_to_public: bool,
         record_target_call_stacks: bool,
+        package_listing: PackageListing,
     ) -> Self {
         Self {
             attr_coercion_context,
@@ -123,6 +129,7 @@ impl ModuleInternals {
             package_implicits,
             default_visibility_to_public,
             record_target_call_stacks,
+            package_listing,
         }
     }
 
@@ -195,6 +202,13 @@ impl ModuleInternals {
 
     pub fn record_target_call_stacks(&self) -> bool {
         self.record_target_call_stacks
+    }
+
+    pub(crate) fn resolve_glob<'a>(
+        &'a self,
+        spec: &'a GlobSpec,
+    ) -> impl Iterator<Item = &'a PackageRelativePath> {
+        spec.resolve_glob(self.package_listing.files())
     }
 }
 

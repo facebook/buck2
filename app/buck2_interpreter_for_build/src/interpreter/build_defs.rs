@@ -19,6 +19,7 @@ use starlark::values::list::AllocList;
 use starlark::values::Value;
 
 use crate::interpreter::build_context::BuildContext;
+use crate::interpreter::module_internals::ModuleInternals;
 
 #[starlark_module]
 pub fn native_module(builder: &mut GlobalsBuilder) {
@@ -27,10 +28,10 @@ pub fn native_module(builder: &mut GlobalsBuilder) {
         #[starlark(require = named)] exclude: Option<Vec<String>>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
-        let extra = BuildContext::from_context(eval)?;
+        let extra = ModuleInternals::from_context(eval)?;
         let excludes = exclude.unwrap_or_default();
         let spec = GlobSpec::new(&include, &excludes)?;
-        let res = extra.resolve_glob(&spec)?.map(|path| path.as_str());
+        let res = extra.resolve_glob(&spec).map(|path| path.as_str());
         Ok(eval.heap().alloc(AllocList(res)))
     }
 

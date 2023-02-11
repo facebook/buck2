@@ -434,7 +434,6 @@ impl InterpreterForCell {
         buckconfig: &dyn LegacyBuckConfigView,
         root_buckconfig: &dyn LegacyBuckConfigView,
         loaded_modules: LoadedModules,
-        listing: Option<PackageListing>,
         extra_context: Option<ModuleInternals>,
         profiler: &mut StarlarkProfilerOrInstrumentation,
     ) -> anyhow::Result<Option<ModuleInternals>> {
@@ -450,7 +449,6 @@ impl InterpreterForCell {
             buckconfig,
             root_buckconfig,
             import,
-            listing,
             host_platform,
             host_architecture,
             extra_context,
@@ -500,7 +498,6 @@ impl InterpreterForCell {
             root_buckconfig,
             loaded_modules,
             None,
-            None,
             &mut StarlarkProfilerOrInstrumentation::maybe_instrumentation(
                 starlark_profiler_instrumentation,
             ),
@@ -536,7 +533,6 @@ impl InterpreterForCell {
                 buckconfig,
                 root_buckconfig,
                 loaded_modules,
-                Some(listing),
                 Some(internals),
                 profiler,
             )?

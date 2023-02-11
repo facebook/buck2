@@ -120,7 +120,6 @@ pub fn to_value<'v>(env: &'v Module, globals: &Globals, content: &str) -> Value<
         &buckconfig,
         &root_buckconfig,
         StarlarkPath::LoadFile(&import_path),
-        None,
         InterpreterHostPlatform::Linux,
         InterpreterHostArchitecture::X86_64,
         None,

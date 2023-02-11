@@ -10,14 +10,11 @@
 use std::fmt::Debug;
 
 use buck2_common::legacy_configs::view::LegacyBuckConfigView;
-use buck2_common::package_listing::listing::PackageListing;
-use buck2_core::package::package_relative_path::PackageRelativePath;
 use buck2_core::package::PackageLabel;
 use buck2_interpreter::extra::buckconfig::LegacyBuckConfigForStarlark;
 use buck2_interpreter::extra::cell_info::InterpreterCellInfo;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
-use buck2_interpreter::globspec::GlobSpec;
 use buck2_interpreter::path::StarlarkPath;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::Module;
@@ -63,9 +60,6 @@ pub struct BuildContext<'a> {
     /// The import path that is being evaluated
     pub starlark_path: StarlarkPath<'a>,
 
-    /// The files owned by this directory. Is `None` for .bzl files.
-    pub listing: Option<PackageListing>,
-
     pub host_platform: InterpreterHostPlatform,
 
     pub host_architecture: InterpreterHostArchitecture,
@@ -86,7 +80,6 @@ impl<'a> BuildContext<'a> {
         buckconfig: &'a (dyn LegacyBuckConfigView + 'a),
         root_buckconfig: &'a (dyn LegacyBuckConfigView + 'a),
         starlark_path: StarlarkPath<'a>,
-        listing: Option<PackageListing>,
         host_platform: InterpreterHostPlatform,
         host_architecture: InterpreterHostArchitecture,
         additional: Option<ModuleInternals>,
@@ -99,7 +92,6 @@ impl<'a> BuildContext<'a> {
             buckconfig,
             root_buckconfig,
             starlark_path,
-            listing,
             host_platform,
             host_architecture,
             additional,
@@ -125,18 +117,6 @@ impl<'a> BuildContext<'a> {
             StarlarkPath::BuildFile(b) => Ok(b.package()),
             _ => Err(anyhow::anyhow!(
                 "package can only be fetched from a build file"
-            )),
-        }
-    }
-
-    pub fn resolve_glob(
-        &'a self,
-        spec: &'a GlobSpec,
-    ) -> anyhow::Result<impl Iterator<Item = &'a PackageRelativePath> + 'a> {
-        match &self.listing {
-            Some(listing) => Ok(spec.resolve_glob(listing.files())),
-            None => Err(anyhow::anyhow!(
-                "glob() can only be called from a build file"
             )),
         }
     }

@@ -207,7 +207,7 @@ impl BuildInterpreterConfiguror {
         });
         let attr_coercer = BuildAttrCoercionContext::new_with_package(
             cell_info.cell_alias_resolver().dupe(),
-            (buildfile_path.package().dupe(), package_listing),
+            (buildfile_path.package().dupe(), package_listing.dupe()),
             package_boundary_exception,
             self.query_functions.0.dupe(),
         );
@@ -221,6 +221,7 @@ impl BuildInterpreterConfiguror {
             package_implicits,
             cell_info.default_visibility_to_public(),
             record_target_call_stack,
+            package_listing,
         ))
     }
 
