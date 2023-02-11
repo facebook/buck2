@@ -8,7 +8,10 @@
 import unittest
 from typing import Mapping
 
+# pyre-fixme[21]: Could not find module `sourcedb_merger.inputs`.
 from sourcedb_merger.inputs import PartialBuildMap, Target, TargetEntry
+
+# pyre-fixme[21]: Could not find module `sourcedb_merger.legacy_outputs`.
 from sourcedb_merger.legacy_outputs import (
     ConflictInfo,
     ConflictMap,
@@ -16,6 +19,8 @@ from sourcedb_merger.legacy_outputs import (
     merge_partial_build_maps,
     MergeResult,
 )
+
+# pyre-fixme[21]: Could not find module `sourcedb_merger.outputs`.
 from sourcedb_merger.outputs import SourceInfo
 
 

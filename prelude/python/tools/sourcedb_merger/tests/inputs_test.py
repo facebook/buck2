@@ -11,6 +11,7 @@ import unittest
 from pathlib import Path
 from typing import Mapping
 
+# pyre-fixme[21]: Could not find module `sourcedb_merger.inputs`.
 from sourcedb_merger.inputs import (
     BuildMapLoadError,
     load_targets_and_build_maps_from_json,
