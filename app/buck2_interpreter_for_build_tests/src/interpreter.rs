@@ -98,7 +98,7 @@ fn test_eval_build_file() {
 
     tester
         .add_import(
-            &ImportPath::unchecked_new("root", "", "rules.bzl"),
+            &ImportPath::testing_new("root", "", "rules.bzl"),
             indoc!(
                 r#"
                 def _impl(ctx):
@@ -124,7 +124,7 @@ fn test_eval_build_file() {
 
     tester
         .add_import(
-            &ImportPath::unchecked_new_cross_cell("root", "imports", "one.bzl", "root"),
+            &ImportPath::testing_new_cross_cell("root", "imports", "one.bzl", "root"),
             indoc!(
                 r#"
                     load("@root//:rules.bzl", "export_file")
@@ -276,7 +276,7 @@ fn test_root_import() {
 
     tester.set_additional_globals(register_rule_defs);
 
-    let import_path = ImportPath::unchecked_new("root", "", "include.bzl");
+    let import_path = ImportPath::testing_new("root", "", "include.bzl");
     tester
         .add_import(
             &import_path,

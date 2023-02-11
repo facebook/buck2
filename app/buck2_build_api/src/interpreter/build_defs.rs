@@ -178,7 +178,7 @@ mod tests {
     #[test]
     fn prelude_is_included() -> anyhow::Result<()> {
         let mut tester = Tester::new()?;
-        let prelude_path = ImportPath::unchecked_new("root", "prelude", "prelude.bzl");
+        let prelude_path = ImportPath::testing_new("root", "prelude", "prelude.bzl");
         tester.set_prelude(prelude_path.clone());
 
         let prelude =
@@ -203,7 +203,7 @@ mod tests {
             "build files in the prelude package should have access to the prelude"
         );
 
-        let import = ImportPath::unchecked_new("root", "not_prelude", "sibling.bzl");
+        let import = ImportPath::testing_new("root", "not_prelude", "sibling.bzl");
         assert!(
             tester
                 .eval_import(&import, "other_var = some_var", loaded_modules.clone())
@@ -211,7 +211,7 @@ mod tests {
             ".bzl files not in the prelude package should have access to the prelude"
         );
 
-        let import = ImportPath::unchecked_new("root", "prelude", "defs.bzl");
+        let import = ImportPath::testing_new("root", "prelude", "defs.bzl");
         assert!(
             tester
                 .eval_import(&import, "other_var = some_var", loaded_modules)

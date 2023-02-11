@@ -97,7 +97,7 @@ fn cell_alias_resolver() -> CellAliasResolver {
 }
 
 pub fn to_value<'v>(env: &'v Module, globals: &Globals, content: &str) -> Value<'v> {
-    let import_path = ImportPath::unchecked_new("", "", "defs.bzl");
+    let import_path = ImportPath::testing_new("", "", "defs.bzl");
     let ast = AstModule::parse(
         &import_path.to_string(),
         content.to_owned(),

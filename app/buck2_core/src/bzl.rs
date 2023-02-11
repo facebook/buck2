@@ -52,12 +52,12 @@ impl ImportPath {
         })
     }
 
-    pub fn unchecked_new(cell: &str, cell_relative_path: &str, filename: &str) -> Self {
+    pub fn testing_new(cell: &str, cell_relative_path: &str, filename: &str) -> Self {
         let cell = cell.to_owned();
-        Self::unchecked_new_cross_cell(&cell, cell_relative_path, filename, &cell)
+        Self::testing_new_cross_cell(&cell, cell_relative_path, filename, &cell)
     }
 
-    pub fn unchecked_new_cross_cell(
+    pub fn testing_new_cross_cell(
         cell: &str,
         cell_relative_path: &str,
         filename: &str,

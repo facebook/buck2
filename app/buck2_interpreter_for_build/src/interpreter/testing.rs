@@ -407,7 +407,7 @@ impl Tester {
 }
 
 pub fn import(cell: &str, package: &str, filename: &str) -> ImportPath {
-    ImportPath::unchecked_new(cell, package, filename)
+    ImportPath::testing_new(cell, package, filename)
 }
 
 pub fn buildfile(cell: &str, package: &str) -> BuildFilePath {

@@ -921,7 +921,7 @@ mod tests {
         let label2 = TargetLabel::new(pkg.dupe(), name2.as_ref());
 
         let rule_type = RuleType::Starlark(Arc::new(StarlarkRuleType {
-            import_path: ImportPath::unchecked_new("cell", "foo/bar", "def.bzl"),
+            import_path: ImportPath::testing_new("cell", "foo/bar", "def.bzl"),
             name: "some_rule".to_owned(),
         }));
         let attrs1 = vec![

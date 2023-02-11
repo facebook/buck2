@@ -478,7 +478,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_analysis_calculation() -> anyhow::Result<()> {
-        let bzlfile = ImportPath::unchecked_new("cell", "pkg", "foo.bzl");
+        let bzlfile = ImportPath::testing_new("cell", "pkg", "foo.bzl");
         let resolver = {
             let mut cells = CellsAggregator::new();
             cells.add_cell_entry(

@@ -59,7 +59,7 @@ fn empty_configs(resolver: &CellResolver) -> LegacyBuckConfigs {
 }
 
 fn import(cell: &str, package: &str, filename: &str) -> ImportPath {
-    ImportPath::unchecked_new(cell, package, filename)
+    ImportPath::testing_new(cell, package, filename)
 }
 
 fn root_cell() -> CellName {
