@@ -583,10 +583,10 @@ mod tests {
         //      \ symlink1 to dir1/file1
         let tempdir = tempfile::tempdir()?;
         let dir_path = tempdir.path().join("dir1");
-        create_dir_all(&dir_path)?;
+        create_dir_all(dir_path)?;
         let relative_symlink1_path = tempdir.path().join("relative_symlink1");
         symlink("dir1/file1", &relative_symlink1_path)?;
-        write(&tempdir.path().join("dir1/file1"), b"File content")?;
+        write(tempdir.path().join("dir1/file1"), b"File content")?;
         assert_eq!(read_to_string(&relative_symlink1_path)?, "File content");
         Ok(())
     }
@@ -605,12 +605,12 @@ mod tests {
         // Symlink creation should still work even if dir1 doesn't exist yet
         symlink("../dir1/file1", &relative_symlink1_path)?;
         // Create dir1, test that we can write into file1 and symlink1
-        create_dir_all(&dir1)?;
-        write(&tempdir.path().join("dir1/file1"), b"File content")?;
+        create_dir_all(dir1)?;
+        write(tempdir.path().join("dir1/file1"), b"File content")?;
         assert_eq!(read_to_string(&relative_symlink1_path)?, "File content");
         write(&relative_symlink1_path, b"File content 2")?;
         assert_eq!(
-            read_to_string(&tempdir.path().join("dir1/file1"))?,
+            read_to_string(tempdir.path().join("dir1/file1"))?,
             "File content 2"
         );
         Ok(())
