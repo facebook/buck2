@@ -13,7 +13,6 @@ Fake script that acts as a test
 import argparse
 import json
 import os
-import platform
 import signal
 import subprocess
 import sys
