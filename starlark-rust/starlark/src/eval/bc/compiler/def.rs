@@ -44,6 +44,8 @@ impl DefCompiled {
         } = *self;
         let function_name = function_name.clone();
 
+        let num_positional = params.num_positional;
+
         let how_many_slots_we_need = params.count_exprs() + return_type.as_ref().map_or(0, |_| 1);
 
         bc.alloc_slots(how_many_slots_we_need, |slots, bc| {
@@ -67,7 +69,10 @@ impl DefCompiled {
                 }
             });
 
-            let params = ParametersCompiled { params };
+            let params = ParametersCompiled {
+                params,
+                num_positional,
+            };
             let instr_def_data = InstrDefData {
                 function_name,
                 params,

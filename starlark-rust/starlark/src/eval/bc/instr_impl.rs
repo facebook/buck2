@@ -1348,11 +1348,14 @@ impl InstrNoFlowImpl for InstrDefImpl {
 
         let mut pop_index = 0;
 
-        // count here rather than enumerate because '*' doesn't get a real
-        // index in the parameter mapping, and it messes up the indexes
-        let mut i = 0;
-        for x in &def_data.params.params {
-            if let Some((name, Some(t))) = x.name_ty() {
+        for (i, x) in def_data.params.params.iter().enumerate() {
+            let i = i as u32;
+
+            if i == def_data.params.num_positional && !x.is_star_or_star_star() {
+                parameters.no_more_positional_args();
+            }
+
+            if let (name, Some(t)) = x.name_ty() {
                 assert!(*t == pop_index);
                 let v = pop[pop_index as usize];
                 pop_index += 1;
@@ -1363,6 +1366,7 @@ impl InstrNoFlowImpl for InstrDefImpl {
                     expr_throw(TypeCompiled::new(v, eval.heap()), x.span, eval).map_err(|e| e.0)?,
                 ));
             }
+
             match &x.node {
                 ParameterCompiled::Normal(n, _) => parameters.required(&n.name),
                 ParameterCompiled::WithDefaultValue(n, ty, v) => {
@@ -1382,15 +1386,11 @@ impl InstrNoFlowImpl for InstrDefImpl {
                     }
                     parameters.defaulted(&n.name, value);
                 }
-                ParameterCompiled::NoArgs => parameters.no_more_positional_args(),
                 ParameterCompiled::Args(_, _) => parameters.args(),
                 ParameterCompiled::KwArgs(_, _) => parameters.kwargs(),
             };
             if let Captured::Yes = x.captured() {
                 parameter_captures.push(LocalSlotId(i));
-            }
-            if !matches!(x.node, ParameterCompiled::NoArgs) {
-                i += 1;
             }
         }
         let return_type = match &def_data.return_type {

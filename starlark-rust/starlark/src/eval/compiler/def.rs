@@ -136,7 +136,6 @@ pub(crate) struct ParameterName {
 pub(crate) enum ParameterCompiled<T> {
     Normal(ParameterName, Option<T>),
     WithDefaultValue(ParameterName, Option<T>, T),
-    NoArgs,
     Args(ParameterName, Option<T>),
     KwArgs(ParameterName, Option<T>),
 }
@@ -150,7 +149,6 @@ impl<T> ParameterCompiled<T> {
             ParameterCompiled::WithDefaultValue(n, o, t) => {
                 ParameterCompiled::WithDefaultValue(n.clone(), o.as_ref().map(&mut f), f(t))
             }
-            ParameterCompiled::NoArgs => ParameterCompiled::NoArgs,
             ParameterCompiled::Args(n, o) => ParameterCompiled::Args(n.clone(), o.as_ref().map(f)),
             ParameterCompiled::KwArgs(n, o) => {
                 ParameterCompiled::KwArgs(n.clone(), o.as_ref().map(f))
@@ -167,30 +165,39 @@ impl<T> ParameterCompiled<T> {
     }
 
     pub(crate) fn captured(&self) -> Captured {
-        self.name_ty().map_or(Captured::No, |(n, _t)| n.captured)
+        self.name_ty().0.captured
     }
 
-    pub(crate) fn name_ty(&self) -> Option<(&ParameterName, Option<&T>)> {
+    pub(crate) fn name_ty(&self) -> (&ParameterName, Option<&T>) {
         match self {
-            Self::Normal(n, t) => Some((n, t.as_ref())),
-            Self::WithDefaultValue(n, t, _) => Some((n, t.as_ref())),
-            Self::NoArgs => None,
-            Self::Args(n, t) => Some((n, t.as_ref())),
-            Self::KwArgs(n, t) => Some((n, t.as_ref())),
+            Self::Normal(n, t) => (n, t.as_ref()),
+            Self::WithDefaultValue(n, t, _) => (n, t.as_ref()),
+            Self::Args(n, t) => (n, t.as_ref()),
+            Self::KwArgs(n, t) => (n, t.as_ref()),
         }
     }
 
     pub(crate) fn has_type(&self) -> bool {
         match self.name_ty() {
-            Some((_, Some(_))) => true,
+            (_, Some(_)) => true,
             _ => false,
         }
+    }
+
+    pub(crate) fn is_star_or_star_star(&self) -> bool {
+        matches!(
+            self,
+            ParameterCompiled::Args(_, _) | ParameterCompiled::KwArgs(_, _)
+        )
     }
 }
 
 #[derive(Debug, Clone, VisitSpanMut)]
 pub(crate) struct ParametersCompiled<T> {
     pub(crate) params: Vec<IrSpanned<ParameterCompiled<T>>>,
+    /// Number of parameters which can be filled positionally.
+    /// That is, number of parameters before first `*`, `*args` or `**kwargs`.
+    pub(crate) num_positional: u32,
 }
 
 impl<T> ParametersCompiled<T> {
@@ -204,15 +211,8 @@ impl<T> ParametersCompiled<T> {
     }
 
     /// How many parameter variables?
-    ///
-    /// We have special "parameter" called `NoArgs`, which does not count.
     pub(crate) fn count_param_variables(&self) -> u32 {
-        self.params
-            .iter()
-            .filter_map(|p| p.name_ty())
-            .count()
-            .try_into()
-            .unwrap()
+        self.params.len().try_into().unwrap()
     }
 
     /// Any parameter has type annotation?
@@ -350,12 +350,13 @@ impl Compiler<'_, '_, '_> {
         Some(expr)
     }
 
+    /// Compile a parameter. Return `None` for `*` pseudo parameter.
     fn parameter(
         &mut self,
         x: CstParameter,
-    ) -> IrSpanned<ParameterCompiled<IrSpanned<ExprCompiled>>> {
+    ) -> Option<IrSpanned<ParameterCompiled<IrSpanned<ExprCompiled>>>> {
         let span = FrameSpan::new(FrozenFileSpan::new(self.codemap, x.span));
-        IrSpanned {
+        Some(IrSpanned {
             span,
             node: match x.node {
                 ParameterP::Normal(x, t) => {
@@ -366,7 +367,7 @@ impl Compiler<'_, '_, '_> {
                     self.expr_opt(t),
                     self.expr(*v),
                 ),
-                ParameterP::NoArgs => ParameterCompiled::NoArgs,
+                ParameterP::NoArgs => return None,
                 ParameterP::Args(x, t) => {
                     ParameterCompiled::Args(self.parameter_name(x), self.expr_for_type(t))
                 }
@@ -374,7 +375,7 @@ impl Compiler<'_, '_, '_> {
                     ParameterCompiled::KwArgs(self.parameter_name(x), self.expr_for_type(t))
                 }
             },
-        }
+        })
     }
 
     pub fn function(
@@ -392,8 +393,25 @@ impl Compiler<'_, '_, '_> {
 
         // The parameters run in the scope of the parent, so compile them with the outer
         // scope
-        let params = params.into_map(|x| self.parameter(x));
-        let params = ParametersCompiled { params };
+        let num_positional = params
+            .iter()
+            .position(|x| {
+                matches!(
+                    &x.node,
+                    ParameterP::NoArgs | ParameterP::Args(..) | ParameterP::KwArgs(..)
+                )
+            })
+            .unwrap_or(params.len())
+            .try_into()
+            .unwrap();
+        let params = params
+            .into_iter()
+            .filter_map(|x| self.parameter(x))
+            .collect();
+        let params = ParametersCompiled {
+            params,
+            num_positional,
+        };
         let return_type = self.expr_for_type(return_type).map(Box::new);
 
         self.enter_scope(scope_id);
