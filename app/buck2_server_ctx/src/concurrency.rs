@@ -173,15 +173,17 @@ pub struct ConcurrencyHandler {
 
 #[derive(Allocative)]
 struct ConcurrencyHandlerData {
-    // the currently active `Dice` being used. Commands can only run concurrently if these are
-    // "equivalent".
+    /// the currently active `Dice` being used. Commands can only run concurrently if these are
+    /// "equivalent".
     dice_status: DiceStatus,
-    // A list of the currently running commands.
+    /// A list of the currently running commands.
     active_commands: SmallMap<CommandId, CommandData>,
-    // When a command enters
+    /// When a command enters
     next_command_id: CommandId,
-    // The epoch of the last ActiveDice we assigned.
+    /// The epoch of the last ActiveDice we assigned.
     cleanup_epoch: usize,
+    /// Whether this has been tainted previously.
+    previously_tainted: bool,
 }
 
 #[derive(Allocative, Display, Copy, Clone, Dupe, PartialEq, Eq, Hash)]
@@ -216,6 +218,12 @@ impl CommandData {
     fn notify_tainted(&self) {
         self.dispatcher.instant_event(buck2_data::TagEvent {
             tags: vec!["concurrency-tainted".to_owned()],
+        });
+    }
+
+    fn notify_previously_tainted(&self) {
+        self.dispatcher.instant_event(buck2_data::TagEvent {
+            tags: vec!["concurrency-previously-tainted".to_owned()],
         });
     }
 }
@@ -312,6 +320,7 @@ impl ConcurrencyHandler {
                 active_commands: SmallMap::new(),
                 next_command_id: CommandId(0),
                 cleanup_epoch: 0,
+                previously_tainted: false,
             })),
             cond: Default::default(),
             dice,
@@ -512,9 +521,14 @@ impl ConcurrencyHandler {
 
         tracing::info!("Acquired access to DICE");
 
+        if data.previously_tainted {
+            command_data.notify_previously_tainted();
+        }
+
         if tainted {
             command_data.notify_tainted();
             data.notify_tainted();
+            data.previously_tainted = true;
         }
 
         // create the on exit drop handler, which will take care of notifying tasks.
