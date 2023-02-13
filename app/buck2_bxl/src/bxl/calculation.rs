@@ -14,6 +14,7 @@ use buck2_build_api::bxl::calculation::BxlCalculationDyn;
 use buck2_build_api::bxl::result::BxlResult;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
+use buck2_common::result::ToUnsharedResultExt;
 use buck2_execute::bxl::types::BxlKey;
 use buck2_interpreter::dice::starlark_profiler::GetStarlarkProfilerInstrumentation;
 use dice::DiceComputations;
@@ -26,8 +27,14 @@ pub struct BxlCalculationImpl;
 
 #[async_trait]
 impl BxlCalculationDyn for BxlCalculationImpl {
-    async fn eval_bxl(&self, ctx: &DiceComputations, bxl: BxlKey) -> SharedResult<Arc<BxlResult>> {
-        ctx.compute(&internal::BxlComputeKey(bxl)).await?
+    async fn eval_bxl(
+        &self,
+        ctx: &DiceComputations,
+        bxl: BxlKey,
+    ) -> anyhow::Result<Arc<BxlResult>> {
+        ctx.compute(&internal::BxlComputeKey(bxl))
+            .await?
+            .unshared_error()
     }
 }
 
