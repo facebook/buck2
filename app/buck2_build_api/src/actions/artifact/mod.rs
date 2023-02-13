@@ -257,10 +257,17 @@ impl DeclaredArtifact {
         }
     }
 
-    pub fn project(&self, path: &ForwardRelativePath) -> Self {
+    pub fn project(&self, path: &ForwardRelativePath, hide_prefix: bool) -> Self {
         if path.is_empty() {
             return self.dupe();
         }
+
+        let hidden_components_count = self.hidden_components_count
+            + if hide_prefix {
+                self.get_path().with_short_path(|p| p.iter().count())
+            } else {
+                0
+            };
 
         Self {
             artifact: self.artifact.dupe(),
@@ -268,7 +275,7 @@ impl DeclaredArtifact {
                 Some(existing_path) => existing_path.join(path),
                 None => path.to_owned(),
             })),
-            hidden_components_count: self.hidden_components_count,
+            hidden_components_count,
         }
     }
 

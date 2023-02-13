@@ -540,6 +540,38 @@ mod tests {
     }
 
     #[test]
+    fn test_short_path() -> SharedResult<()> {
+        let mut tester = Tester::new()?;
+        tester.set_additional_globals(artifactory);
+        tester.run_starlark_bzl_test(indoc!(
+            r#"
+            def test():
+                test = declared_artifact("foo/bar/baz")
+                assert_eq("foo/bar/baz", test.short_path)
+
+                test = declared_artifact("foo").project("bar/baz")
+                assert_eq("foo/bar/baz", test.short_path)
+
+                test = declared_artifact("foo").project("bar").project("baz")
+                assert_eq("foo/bar/baz", test.short_path)
+
+                test = declared_artifact("foo").project("bar/baz", hide_prefix=True)
+                assert_eq("bar/baz", test.short_path)
+
+                test = declared_artifact("foo").project("bar").project("baz", hide_prefix=True)
+                assert_eq("baz", test.short_path)
+
+                test = declared_artifact("foo").project("bar", hide_prefix=True).project("baz")
+                assert_eq("bar/baz", test.short_path)
+
+                test = declared_artifact("foo").project("bar", hide_prefix=True).project("baz", hide_prefix=True)
+                assert_eq("baz", test.short_path)
+            "#
+        ))?;
+        Ok(())
+    }
+
+    #[test]
     fn project_source_artifact() -> SharedResult<()> {
         let mut tester = Tester::new()?;
         tester.set_additional_globals(artifactory);

@@ -306,12 +306,13 @@ fn artifact_methods(builder: &mut MethodsBuilder) {
     fn project<'v>(
         this: &'v StarlarkDeclaredArtifact,
         path: &str,
+        #[starlark(require = named, default = false)] hide_prefix: bool,
     ) -> anyhow::Result<StarlarkDeclaredArtifact> {
         let path = ForwardRelativePath::new(path)?;
         // Not sure if this.declaration_location is or the project() call is more appropriate here.
         Ok(StarlarkDeclaredArtifact {
             declaration_location: this.declaration_location.dupe(),
-            artifact: this.artifact.project(path),
+            artifact: this.artifact.project(path, hide_prefix),
             associated_artifacts: this.associated_artifacts.dupe(),
         })
     }

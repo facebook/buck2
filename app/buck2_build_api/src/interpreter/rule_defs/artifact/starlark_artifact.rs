@@ -307,7 +307,10 @@ fn artifact_methods(builder: &mut MethodsBuilder) {
     fn project<'v>(
         this: &'v StarlarkArtifact,
         #[starlark(require = pos)] path: &str,
+        #[starlark(require = named, default = false)] hide_prefix: bool,
     ) -> anyhow::Result<StarlarkArtifact> {
+        let _ignored = hide_prefix;
+
         let err = anyhow::Error::from(match this.artifact.owner() {
             Some(owner) => CannotProject::DeclaredElsewhere(owner.dupe()),
             None => CannotProject::SourceArtifact,
