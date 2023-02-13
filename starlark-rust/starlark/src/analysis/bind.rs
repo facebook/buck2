@@ -328,8 +328,7 @@ mod test {
 
     use gazebo::prelude::*;
 
-    use crate::analysis::bind::scope;
-    use crate::analysis::bind::Bind;
+    use super::*;
     use crate::codemap::Pos;
     use crate::codemap::Span;
     use crate::syntax::AstModule;
