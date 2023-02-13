@@ -450,6 +450,7 @@ def convert_python_library_to_executable(
             extra_link_deps = link_deps,
             exe_shared_libs_link_tree = False,
             force_full_hybrid_if_capable = True,
+            prefer_stripped_objects = ctx.attrs.prefer_stripped_native_objects,
             link_group_info = link_group_info,
             auto_link_group_specs = auto_link_group_specs,
             extra_link_roots = (

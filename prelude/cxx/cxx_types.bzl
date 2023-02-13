@@ -164,4 +164,6 @@ CxxRuleConstructorParams = record(
     extra_link_roots = field([LinkableProviders.type], []),
     auto_link_group_specs = field([[LinkGroupLibSpec.type], None], None),
     link_group_info = field([LinkGroupInfo.type, None], None),
+    # Whether to use pre-stripped objects when linking.
+    prefer_stripped_objects = field(bool.type, False),
 )

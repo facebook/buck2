@@ -214,7 +214,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
             inherited_link,
             frameworks_linkable,
             link_style,
-            prefer_stripped = ctx.attrs.prefer_stripped_objects,
+            prefer_stripped = impl_params.prefer_stripped_objects,
         )
     else:
         linkable_graph_node_map = get_linkable_graph_node_map_func(linkable_graph)()
@@ -238,7 +238,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
                 root_link_group = link_group,
                 linkable_graph_node_map = linkable_graph_node_map,
                 other_roots = link_group_other_roots,
-                prefer_stripped_objects = ctx.attrs.prefer_stripped_objects,
+                prefer_stripped_objects = impl_params.prefer_stripped_objects,
             )
             for name, linked_link_group in linked_link_groups.items():
                 auto_link_groups[name] = linked_link_group.artifact
@@ -270,7 +270,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
             deps = [d.linkable_graph.nodes.value.label for d in link_deps],
             other_roots = link_group_other_roots,
             is_executable_link = True,
-            prefer_stripped = ctx.attrs.prefer_stripped_objects,
+            prefer_stripped = impl_params.prefer_stripped_objects,
         )
 
         if is_cxx_test and link_group != None:
@@ -284,7 +284,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
                 link_style,
                 deps = [d.linkable_graph.nodes.value.label for d in link_deps],
                 is_executable_link = True,
-                prefer_stripped = ctx.attrs.prefer_stripped_objects,
+                prefer_stripped = impl_params.prefer_stripped_objects,
             )
 
         filtered_links = get_filtered_links(labels_to_links_map)

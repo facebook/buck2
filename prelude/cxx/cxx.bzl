@@ -228,6 +228,7 @@ def cxx_binary_impl(ctx: "context") -> ["provider"]:
         srcs = get_srcs_with_flags(ctx),
         link_group_info = link_group_info,
         auto_link_group_specs = get_auto_link_group_specs(ctx, link_group_info),
+        prefer_stripped_objects = ctx.attrs.prefer_stripped_objects,
     )
     output, comp_db_info, xcode_data_info = cxx_executable(ctx, params)
 
@@ -573,6 +574,7 @@ def cxx_test_impl(ctx: "context") -> ["provider"]:
         srcs = get_srcs_with_flags(ctx),
         link_group_info = link_group_info,
         auto_link_group_specs = get_auto_link_group_specs(ctx, link_group_info),
+        prefer_stripped_objects = ctx.attrs.prefer_stripped_objects,
     )
     output, comp_db_info, xcode_data_info = cxx_executable(ctx, params, is_cxx_test = True)
 
