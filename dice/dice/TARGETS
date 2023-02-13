@@ -50,7 +50,7 @@ rust_binary(
     deps = [
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:bincode",
-        "fbsource//third-party/rust:clap",
+        "fbsource//third-party/rust:clap-3",
         "fbsource//third-party/rust:serde_json",
         ":dice",
     ],
