@@ -70,6 +70,10 @@ pub enum ConsoleType {
 pub enum UiOptions {
     Dice,
     DebugEvents,
+    /// I/O panel.
+    Io,
+    /// RE panel.
+    Re,
 }
 
 #[derive(
@@ -482,6 +486,8 @@ impl CommonConsoleOptions {
             match option {
                 UiOptions::Dice => config.enable_dice = true,
                 UiOptions::DebugEvents => config.enable_debug_events = true,
+                UiOptions::Io => config.enable_io = true,
+                UiOptions::Re => config.enable_detailed_re = true,
             }
         }
         config
