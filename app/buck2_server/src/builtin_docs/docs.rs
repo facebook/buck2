@@ -124,7 +124,7 @@ fn get_builtin_build_docs(interpreter_state: Arc<GlobalInterpreterState>) -> any
 
 fn get_artifact_docs() -> Option<Doc> {
     let pkg = PackageLabel::new(
-        CellName::unchecked_new(""),
+        CellName::unchecked_new("fake_cell"),
         CellRelativePath::unchecked_new("__native__"),
     );
 

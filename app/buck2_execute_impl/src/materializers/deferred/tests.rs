@@ -156,7 +156,7 @@ mod state_machine {
             // Simulate a non-immediate materialization if configured
             match self.materialization_config.get(&path) {
                 Some(duration) => {
-                    sleep(duration.clone()).await;
+                    sleep(*duration).await;
                 }
                 None => (),
             }
