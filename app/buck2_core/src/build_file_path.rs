@@ -35,7 +35,7 @@ impl BuildFilePath {
 
     pub fn unchecked_new(cell: &str, package: &str, filename: &str) -> Self {
         let package = PackageLabel::new(
-            CellName::unchecked_new(cell),
+            CellName::unchecked_new(cell).unwrap(),
             &CellRelativePathBuf::unchecked_new(package.to_owned()),
         );
         let filename = FileNameBuf::unchecked_new(filename);

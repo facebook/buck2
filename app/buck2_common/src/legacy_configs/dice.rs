@@ -401,7 +401,7 @@ mod tests {
         #[cfg(windows)]
         let path = &AbsNormPathBuf::from("C:/test".to_owned())?;
         let config1 = Some(LegacyBuckConfigs::new(hashmap![
-            CellName::unchecked_new("cell1")
+            CellName::testing_new("cell1")
             => {
                 let file_ops = TestConfigParserFileOps::new(&[("/test", "[sec1]\na=b\n[sec2]\nx=y")])?;
                 LegacyBuckConfig::parse_with_file_ops(
@@ -410,7 +410,7 @@ mod tests {
                     &[LegacyConfigCmdArg::Flag("sec1.a=c".to_owned())],
                 )?
             },
-            CellName::unchecked_new("cell2")
+            CellName::testing_new("cell2")
             => {
                 let file_ops = TestConfigParserFileOps::new(&[("/test", "[sec1]\nx=y\n[sec2]\na=b")])?;
                 LegacyBuckConfig::parse_with_file_ops(
@@ -422,7 +422,7 @@ mod tests {
         ]));
 
         let config2 = Some(LegacyBuckConfigs::new(hashmap![
-            CellName::unchecked_new("cell1")
+            CellName::testing_new("cell1")
             => {
                 let file_ops = TestConfigParserFileOps::new(&[("/test", "[sec1]\na=b\n[sec2]\nx=y")])?;
                 LegacyBuckConfig::parse_with_file_ops(
@@ -434,7 +434,7 @@ mod tests {
         ]));
 
         let config3 = Some(LegacyBuckConfigs::new(hashmap![
-            CellName::unchecked_new("cell1")
+            CellName::testing_new("cell1")
             => {
                 let file_ops = TestConfigParserFileOps::new(&[("/test", "[sec1]\na=c\n[sec2]\nx=y")])?;
                 LegacyBuckConfig::parse_with_file_ops(
@@ -446,7 +446,7 @@ mod tests {
         ]));
 
         let config4 = Some(LegacyBuckConfigs::new(hashmap![
-            CellName::unchecked_new("cell1")
+            CellName::testing_new("cell1")
             => {
                 let file_ops = TestConfigParserFileOps::new(&[("/test", "[sec1]\na=b\n[sec2]\nx=y")])?;
                 LegacyBuckConfig::parse_with_file_ops(

@@ -96,7 +96,7 @@ pub fn cells(extra_root_config: Option<&str>) -> anyhow::Result<CellsData> {
     };
 
     let configs = hashmap![
-        CellName::unchecked_new("root") =>
+        CellName::testing_new("root") =>
         LegacyBuckConfig::parse_with_file_ops(
             root_path,
             &TestConfigParserFileOps::new(&[
@@ -124,7 +124,7 @@ pub fn cells(extra_root_config: Option<&str>) -> anyhow::Result<CellsData> {
 
     Ok((
         resolver
-            .get(CellName::unchecked_new("root"))?
+            .get(CellName::testing_new("root"))?
             .cell_alias_resolver()
             .dupe(),
         resolver,

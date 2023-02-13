@@ -59,8 +59,17 @@ static INTERNER: StaticInterner<CellNameData, FnvHasher> = StaticInterner::new()
 pub struct CellName(Intern<CellNameData>);
 
 impl CellName {
-    pub fn unchecked_new(name: &str) -> CellName {
-        CellName(INTERNER.intern(CellNameDataRef(name)))
+    /// Construct a cell name.
+    ///
+    /// This function is unchecked because it does not validate that the cell points
+    /// to an existing cell. This function should only be used when creating
+    /// repository cells at startup.
+    pub fn unchecked_new(name: &str) -> anyhow::Result<CellName> {
+        Ok(CellName(INTERNER.intern(CellNameDataRef(name))))
+    }
+
+    pub fn testing_new(name: &str) -> CellName {
+        CellName::unchecked_new(name).unwrap()
     }
 
     pub fn as_str(&self) -> &'static str {

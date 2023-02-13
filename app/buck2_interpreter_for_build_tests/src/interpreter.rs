@@ -199,7 +199,7 @@ fn cells() -> CellsData {
     .unwrap();
     (
         cell_resolver
-            .get(CellName::unchecked_new("root"))
+            .get(CellName::testing_new("root"))
             .unwrap()
             .cell_alias_resolver()
             .dupe(),

@@ -65,7 +65,7 @@ impl BxlFilePath {
 
     pub fn unchecked_new(cell: &str, cell_relative_path: &str) -> Self {
         let path = CellPath::new(
-            CellName::unchecked_new(cell),
+            CellName::testing_new(cell),
             CellRelativePathBuf::unchecked_new(cell_relative_path.to_owned()),
         );
         Self::unverified_new(path)

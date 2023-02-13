@@ -64,13 +64,13 @@ impl ImportPath {
         build_file_cell: &str,
     ) -> Self {
         let cell_path = CellPath::new(
-            CellName::unchecked_new(cell),
+            CellName::testing_new(cell),
             CellRelativePath::unchecked_new(cell_relative_path)
                 .join(FileName::unchecked_new(filename)),
         );
         Self::new(
             cell_path,
-            BuildFileCell::new(CellName::unchecked_new(build_file_cell)),
+            BuildFileCell::new(CellName::testing_new(build_file_cell)),
         )
         .unwrap()
     }

@@ -52,11 +52,11 @@ mod tests {
         let package = parse_package(
             "foo//bar/baz",
             &CellAliasResolver::new(
-                CellName::unchecked_new("oof"),
+                CellName::testing_new("oof"),
                 Arc::new(
                     [(
                         CellAlias::new("foo".to_owned()),
-                        CellName::unchecked_new("oof"),
+                        CellName::testing_new("oof"),
                     )]
                     .into_iter()
                     .collect(),

@@ -128,9 +128,9 @@ mod tests {
     #[test]
     fn test_parse_errors() -> anyhow::Result<()> {
         let cell_alias_resolver = CellAliasResolver::new(
-            CellName::unchecked_new("root"),
+            CellName::testing_new("root"),
             Arc::new(hashmap! {
-                CellAlias::new("alias1".to_owned()) => CellName::unchecked_new("cell1"),
+                CellAlias::new("alias1".to_owned()) => CellName::testing_new("cell1"),
             }),
         )?;
 
@@ -172,9 +172,9 @@ mod tests {
     #[test]
     fn test_detect() -> anyhow::Result<()> {
         let cell_alias_resolver = CellAliasResolver::new(
-            CellName::unchecked_new("root"),
+            CellName::testing_new("root"),
             Arc::new(hashmap! {
-                CellAlias::new("alias1".to_owned()) => CellName::unchecked_new("cell1"),
+                CellAlias::new("alias1".to_owned()) => CellName::testing_new("cell1"),
             }),
         )?;
 

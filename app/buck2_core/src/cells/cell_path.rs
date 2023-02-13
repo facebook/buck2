@@ -67,12 +67,12 @@ impl CellPath {
     /// use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
     ///
     /// let path = CellPath::new(
-    ///     CellName::unchecked_new("cell"),
+    ///     CellName::testing_new("cell"),
     ///     CellRelativePathBuf::unchecked_new("foo/bar".into())
     /// );
     /// let other = ForwardRelativePath::new("baz")?;
     /// assert_eq!(
-    ///     CellPath::new(CellName::unchecked_new("cell"),
+    ///     CellPath::new(CellName::testing_new("cell"),
     ///     CellRelativePathBuf::unchecked_new("foo/bar/baz".into())), path.join(other)
     /// );
     ///
@@ -92,11 +92,11 @@ impl CellPath {
     ///
     /// assert_eq!(
     ///     Some(
-    ///         CellPath::new(CellName::unchecked_new("cell"),
+    ///         CellPath::new(CellName::testing_new("cell"),
     ///         CellRelativePathBuf::unchecked_new("foo".into()))
     ///     ),
     ///     CellPath::new(
-    ///         CellName::unchecked_new("cell"),
+    ///         CellName::testing_new("cell"),
     ///         CellRelativePathBuf::unchecked_new("foo/bar".into())
     ///     ).parent().map(|p| p.to_owned()),
     /// );
@@ -146,14 +146,14 @@ impl CellPath {
     /// use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
     ///
     /// let path = CellPath::new(
-    ///     CellName::unchecked_new("cell"),
+    ///     CellName::testing_new("cell"),
     ///     CellRelativePathBuf::unchecked_new("test/haha/foo.txt".into())
     /// );
     ///
     /// assert_eq!(
     ///     path.strip_prefix(
     ///         CellPath::new(
-    ///             CellName::unchecked_new("cell"),
+    ///             CellName::testing_new("cell"),
     ///             CellRelativePathBuf::unchecked_new("test".into()),
     ///         ).as_ref()
     ///     )?,
@@ -162,7 +162,7 @@ impl CellPath {
     /// assert_eq!(
     ///     path.strip_prefix(
     ///         CellPath::new(
-    ///             CellName::unchecked_new("cell"),
+    ///             CellName::testing_new("cell"),
     ///             CellRelativePathBuf::unchecked_new("asdf".into()),
     ///         ).as_ref()
     ///     ).is_err(),
@@ -171,7 +171,7 @@ impl CellPath {
     /// assert_eq!(
     ///     path.strip_prefix(
     ///         CellPath::new(
-    ///             CellName::unchecked_new("another"),
+    ///             CellName::testing_new("another"),
     ///             CellRelativePathBuf::unchecked_new("test".into()),
     ///         ).as_ref()
     ///     ).is_err(),
@@ -200,18 +200,18 @@ impl CellPath {
     ///
     /// assert_eq!(
     ///     CellPath::new(
-    ///         CellName::unchecked_new("cell"),
+    ///         CellName::testing_new("cell"),
     ///         CellRelativePathBuf::unchecked_new("foo/bar".into())
     ///     ).join_normalized("../baz.txt")?,
     ///     CellPath::new(
-    ///         CellName::unchecked_new("cell"),
+    ///         CellName::testing_new("cell"),
     ///         CellRelativePathBuf::unchecked_new("foo/baz.txt".into())
     ///     ),
     /// );
     ///
     /// assert_eq!(
     ///     CellPath::new(
-    ///         CellName::unchecked_new("cell"),
+    ///         CellName::testing_new("cell"),
     ///         CellRelativePathBuf::unchecked_new("foo".into())
     ///     ).join_normalized("../../baz.txt").is_err(),
     ///     true
@@ -234,10 +234,10 @@ impl CellPath {
     ///
     /// assert!(
     ///     CellPath::new(
-    ///         CellName::unchecked_new("cell"),
+    ///         CellName::testing_new("cell"),
     ///         CellRelativePathBuf::unchecked_new("foo/bar".into())
     ///     ).starts_with(CellPath::new(
-    ///         CellName::unchecked_new("cell"),
+    ///         CellName::testing_new("cell"),
     ///         CellRelativePathBuf::unchecked_new("foo".into())
     ///     ).as_ref()),
     /// );
@@ -256,7 +256,7 @@ impl CellPath {
 
     pub fn testing_new(cell_name: &str, relative_path: &str) -> CellPath {
         CellPath::new(
-            CellName::unchecked_new(cell_name),
+            CellName::testing_new(cell_name),
             CellRelativePathBuf::unchecked_new(relative_path.into()),
         )
     }

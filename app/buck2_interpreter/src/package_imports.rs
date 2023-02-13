@@ -138,21 +138,21 @@ mod tests {
     #[test]
     fn test() -> anyhow::Result<()> {
         let cell_alias_resolver = CellAliasResolver::new(
-            CellName::unchecked_new("root"),
+            CellName::testing_new("root"),
             Arc::new(
                 vec![("root", "root"), ("cell1", "cell1")]
                     .into_iter()
                     .map(|(alias, name)| {
                         (
                             CellAlias::new(alias.to_owned()),
-                            CellName::unchecked_new(name),
+                            CellName::testing_new(name),
                         )
                     })
                     .collect(),
             ),
         )?;
 
-        let root_name = CellName::unchecked_new("root");
+        let root_name = CellName::testing_new("root");
         let imports = PackageImplicitImports::new(
             BuildFileCell::new(root_name),
             cell_alias_resolver,

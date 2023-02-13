@@ -494,13 +494,13 @@ mod tests {
             cells.make_cell_resolver()?
         };
         let configs = LegacyBuckConfigs::new(hashmap![
-            CellName::unchecked_new("root") =>
+            CellName::testing_new("root") =>
             LegacyBuckConfig::empty(),
-            CellName::unchecked_new("cell") =>
+            CellName::testing_new("cell") =>
             LegacyBuckConfig::empty(),
         ]);
         let mut interpreter = Tester::with_cells((
-            CellAliasResolver::new(CellName::unchecked_new("cell"), Arc::new(HashMap::new()))?,
+            CellAliasResolver::new(CellName::testing_new("cell"), Arc::new(HashMap::new()))?,
             resolver.dupe(),
             configs.dupe(),
         ))?;

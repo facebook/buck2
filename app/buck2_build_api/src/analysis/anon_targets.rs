@@ -200,7 +200,7 @@ impl AnonTargetKey {
         // TODO(nga): `CellName` contract requires it refers to declared cell name.
         //   This `unchecked_new` violates it.
         let cell =
-            CellName::unchecked_new(lex.cell_alias.filter(|a| !a.is_empty()).unwrap_or("anon"));
+            CellName::unchecked_new(lex.cell_alias.filter(|a| !a.is_empty()).unwrap_or("anon"))?;
         match lex.pattern.reject_ambiguity()? {
             PatternData::TargetInPackage { package, target } => Ok(TargetLabel::new(
                 PackageLabel::new(cell, CellRelativePath::new(package)),
@@ -211,7 +211,9 @@ impl AnonTargetKey {
     }
 
     fn create_name(rule_name: &str) -> anyhow::Result<TargetLabel> {
-        let pkg = PackageLabel::new(CellName::unchecked_new("anon"), CellRelativePath::empty());
+        // TODO(nga): this creates non-existing cell reference.
+        let cell_name = CellName::unchecked_new("anon")?;
+        let pkg = PackageLabel::new(cell_name, CellRelativePath::empty());
         Ok(TargetLabel::new(pkg, TargetNameRef::new(rule_name)?))
     }
 

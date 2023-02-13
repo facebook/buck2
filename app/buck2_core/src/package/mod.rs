@@ -150,7 +150,7 @@ impl PackageLabel {
     /// Some package name usable in tests.
     pub fn testing() -> PackageLabel {
         PackageLabel::new(
-            CellName::unchecked_new("root"),
+            CellName::testing_new("root"),
             CellRelativePath::new(ForwardRelativePath::new("package/subdir").unwrap()),
         )
     }
@@ -177,13 +177,13 @@ impl CellResolver {
     /// let cell_path = ProjectRelativePath::new("my/cell")?;
     ///
     /// let cells = CellResolver::of_names_and_paths(
-    ///     CellName::unchecked_new("mycell"),
+    ///     CellName::testing_new("mycell"),
     ///     &[
-    ///         (CellName::unchecked_new("mycell"), CellRootPathBuf::new(cell_path.to_buf()))
+    ///         (CellName::testing_new("mycell"), CellRootPathBuf::new(cell_path.to_buf()))
     ///     ]);
     ///
     /// let pkg = PackageLabel::new(
-    ///     CellName::unchecked_new("mycell"),
+    ///     CellName::testing_new("mycell"),
     ///     CellRelativePath::unchecked_new("somepkg"),
     /// );
     ///
@@ -211,7 +211,7 @@ pub mod testing {
     impl PackageExt for PackageLabel {
         fn testing_new(cell: &str, path: &str) -> Self {
             Self::new(
-                CellName::unchecked_new(cell),
+                CellName::testing_new(cell),
                 &CellRelativePathBuf::unchecked_new(path.into()),
             )
         }

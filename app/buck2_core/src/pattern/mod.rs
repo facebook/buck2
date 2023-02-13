@@ -780,7 +780,7 @@ mod tests {
 
     fn mk_recursive<P: PatternType>(cell: &str, path: &str) -> ParsedPattern<P> {
         ParsedPattern::Recursive(CellPath::new(
-            CellName::unchecked_new(cell),
+            CellName::testing_new(cell),
             CellRelativePathBuf::unchecked_new(path.to_owned()),
         ))
     }
@@ -857,11 +857,10 @@ mod tests {
 
     fn resolver() -> CellAliasResolver {
         let m = hashmap![
-            CellAlias::new("cell1".to_owned()) => CellName::unchecked_new("cell1"),
-            CellAlias::new("alias2".to_owned()) => CellName::unchecked_new("cell2"),
+            CellAlias::new("cell1".to_owned()) => CellName::testing_new("cell1"),
+            CellAlias::new("alias2".to_owned()) => CellName::testing_new("cell2"),
         ];
-        CellAliasResolver::new(CellName::unchecked_new("root"), Arc::new(m))
-            .expect("valid resolver")
+        CellAliasResolver::new(CellName::testing_new("root"), Arc::new(m)).expect("valid resolver")
     }
 
     #[test_case(PhantomData::< TargetName >; "parsing TargetPattern")]

@@ -92,36 +92,36 @@
 //! let fbcode = ProjectRelativePath::new("fbcode")?;
 //!
 //! let cells = CellResolver::with_names_and_paths_with_alias(&[
-//!     (CellName::unchecked_new("fbsource"), CellRootPathBuf::new(fbsource.to_buf()), hashmap![
-//!         CellAlias::new("fbsource".to_owned()) => CellName::unchecked_new("fbsource"),
-//!         CellAlias::new("fbcode".to_owned()) => CellName::unchecked_new("fbcode"),
+//!     (CellName::testing_new("fbsource"), CellRootPathBuf::new(fbsource.to_buf()), hashmap![
+//!         CellAlias::new("fbsource".to_owned()) => CellName::testing_new("fbsource"),
+//!         CellAlias::new("fbcode".to_owned()) => CellName::testing_new("fbcode"),
 //!     ]),
-//!     (CellName::unchecked_new("fbcode"), CellRootPathBuf::new(fbcode.to_buf()), hashmap![
-//!         CellAlias::new("fbcode".to_owned()) => CellName::unchecked_new("fbcode"),
-//!         CellAlias::new("fbsource".to_owned()) => CellName::unchecked_new("fbsource"),
+//!     (CellName::testing_new("fbcode"), CellRootPathBuf::new(fbcode.to_buf()), hashmap![
+//!         CellAlias::new("fbcode".to_owned()) => CellName::testing_new("fbcode"),
+//!         CellAlias::new("fbsource".to_owned()) => CellName::testing_new("fbsource"),
 //!     ])
 //! ]);
 //!
 //! let fbsource_cell_name = cells.find(ProjectRelativePath::new("something/in/fbsource")?)?.dupe();
-//! assert_eq!(fbsource_cell_name, CellName::unchecked_new("fbsource"));
+//! assert_eq!(fbsource_cell_name, CellName::testing_new("fbsource"));
 //!
 //! let fbcode_cell_name = cells.find(ProjectRelativePath::new("fbcode/something/in/fbcode")?)?.dupe();
-//! assert_eq!(fbcode_cell_name, CellName::unchecked_new("fbcode"));
+//! assert_eq!(fbcode_cell_name, CellName::testing_new("fbcode"));
 //!
 //! let fbsource_cell = cells.get(fbsource_cell_name)?;
-//! assert_eq!(fbsource_cell.name(), CellName::unchecked_new("fbsource"));
+//! assert_eq!(fbsource_cell.name(), CellName::testing_new("fbsource"));
 //! let fbcode_cell = cells.get(fbcode_cell_name)?;
-//! assert_eq!(fbcode_cell.name(), CellName::unchecked_new("fbcode"));
+//! assert_eq!(fbcode_cell.name(), CellName::testing_new("fbcode"));
 //!
 //! let fbsource_aliases = fbsource_cell.cell_alias_resolver();
-//! assert_eq!(fbsource_aliases.resolve("")?, CellName::unchecked_new("fbsource"));
-//! assert_eq!(fbsource_aliases.resolve("fbsource")?, CellName::unchecked_new("fbsource"));
-//! assert_eq!(fbsource_aliases.resolve("fbcode")?, CellName::unchecked_new("fbcode"));
+//! assert_eq!(fbsource_aliases.resolve("")?, CellName::testing_new("fbsource"));
+//! assert_eq!(fbsource_aliases.resolve("fbsource")?, CellName::testing_new("fbsource"));
+//! assert_eq!(fbsource_aliases.resolve("fbcode")?, CellName::testing_new("fbcode"));
 //!
 //! let fbcode_aliases = fbcode_cell.cell_alias_resolver();
-//! assert_eq!(fbcode_aliases.resolve("")?, CellName::unchecked_new("fbcode"));
-//! assert_eq!(fbcode_aliases.resolve("fbsource")?, CellName::unchecked_new("fbsource"));
-//! assert_eq!(fbcode_aliases.resolve("fbcode")?, CellName::unchecked_new("fbcode"));
+//! assert_eq!(fbcode_aliases.resolve("")?, CellName::testing_new("fbcode"));
+//! assert_eq!(fbcode_aliases.resolve("fbsource")?, CellName::testing_new("fbsource"));
+//! assert_eq!(fbcode_aliases.resolve("fbcode")?, CellName::testing_new("fbcode"));
 //!
 //! # anyhow::Ok(())
 //! ```
@@ -459,13 +459,13 @@ impl CellResolver {
     ///
     /// let cell_path = ProjectRelativePath::new("my/cell")?;
     /// let cells = CellResolver::of_names_and_paths(
-    ///     CellName::unchecked_new("mycell"),
+    ///     CellName::testing_new("mycell"),
     ///     &[
-    ///         (CellName::unchecked_new("mycell"), CellRootPathBuf::new(cell_path.to_buf()))
+    ///         (CellName::testing_new("mycell"), CellRootPathBuf::new(cell_path.to_buf()))
     ///     ]);
     ///
     /// let cell_path = CellPath::new(
-    ///     CellName::unchecked_new("mycell"),
+    ///     CellName::testing_new("mycell"),
     ///     CellRelativePathBuf::unchecked_new("some/path".to_owned()));
     ///
     /// assert_eq!(
@@ -536,9 +536,10 @@ impl CellsAggregator {
         parsed_alias: CellAlias,
         alias_path: CellRootPathBuf,
     ) -> anyhow::Result<()> {
-        self.cell_info(alias_path.clone())
-            .name
-            .get_or_insert_with(|| CellName::unchecked_new(&parsed_alias.0));
+        let name = &mut self.cell_info(alias_path.clone()).name;
+        if name.is_none() {
+            *name = Some(CellName::unchecked_new(&parsed_alias.0)?);
+        }
         self.cell_info(cell_root)
             .add_alias_mapping(parsed_alias, alias_path)
     }
@@ -708,15 +709,15 @@ pub mod testing {
         use crate::fs::project_rel_path::ProjectRelativePathBuf;
 
         let cell_resolver = CellResolver::of_names_and_paths(
-            CellName::unchecked_new("root"),
+            CellName::testing_new("root"),
             &[(
-                CellName::unchecked_new("foo"),
+                CellName::testing_new("foo"),
                 CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("bar".into())),
             )],
         );
 
-        let cell = cell_resolver.get(CellName::unchecked_new("foo"))?;
-        assert_eq!(CellName::unchecked_new("foo"), cell.name());
+        let cell = cell_resolver.get(CellName::testing_new("foo"))?;
+        assert_eq!(CellName::testing_new("foo"), cell.name());
         assert_eq!("bar", cell.path().as_str());
 
         Ok(())
@@ -739,113 +740,104 @@ mod tests {
 
         let cells = CellResolver::with_names_and_paths_with_alias(&[
             (
-                CellName::unchecked_new("cell1"),
+                CellName::testing_new("cell1"),
                 cell1_path.to_buf(),
                 hashmap![
-                    CellAlias::new("cell1".to_owned()) => CellName::unchecked_new("cell1"),
-                    CellAlias::new("cell2".to_owned()) => CellName::unchecked_new("cell2"),
-                    CellAlias::new("cell3".to_owned()) => CellName::unchecked_new("cell3"),
+                    CellAlias::new("cell1".to_owned()) => CellName::testing_new("cell1"),
+                    CellAlias::new("cell2".to_owned()) => CellName::testing_new("cell2"),
+                    CellAlias::new("cell3".to_owned()) => CellName::testing_new("cell3"),
                 ],
             ),
             (
-                CellName::unchecked_new("cell2"),
+                CellName::testing_new("cell2"),
                 cell2_path.to_buf(),
                 hashmap![
-                    CellAlias::new("cell2".to_owned()) => CellName::unchecked_new("cell2"),
-                    CellAlias::new("cell1".to_owned()) => CellName::unchecked_new("cell1"),
-                    CellAlias::new("cell3".to_owned()) => CellName::unchecked_new("cell3"),
+                    CellAlias::new("cell2".to_owned()) => CellName::testing_new("cell2"),
+                    CellAlias::new("cell1".to_owned()) => CellName::testing_new("cell1"),
+                    CellAlias::new("cell3".to_owned()) => CellName::testing_new("cell3"),
                 ],
             ),
             (
-                CellName::unchecked_new("cell3"),
+                CellName::testing_new("cell3"),
                 cell3_path.to_buf(),
                 hashmap![
-                    CellAlias::new("z_cell3".to_owned()) => CellName::unchecked_new("cell3"),
-                    CellAlias::new("z_cell1".to_owned()) => CellName::unchecked_new("cell1"),
-                    CellAlias::new("z_cell2".to_owned()) => CellName::unchecked_new("cell2"),
+                    CellAlias::new("z_cell3".to_owned()) => CellName::testing_new("cell3"),
+                    CellAlias::new("z_cell1".to_owned()) => CellName::testing_new("cell1"),
+                    CellAlias::new("z_cell2".to_owned()) => CellName::testing_new("cell2"),
                 ],
             ),
         ]);
 
         {
-            let cell1 = cells.get(CellName::unchecked_new("cell1")).unwrap();
+            let cell1 = cells.get(CellName::testing_new("cell1")).unwrap();
             assert_eq!(cell1.path(), cell1_path);
 
             let aliases = cell1.cell_alias_resolver();
-            assert_eq!(
-                aliases.resolve("").unwrap(),
-                CellName::unchecked_new("cell1")
-            );
+            assert_eq!(aliases.resolve("").unwrap(), CellName::testing_new("cell1"));
             assert_eq!(
                 aliases.resolve("cell1").unwrap(),
-                CellName::unchecked_new("cell1")
+                CellName::testing_new("cell1")
             );
             assert_eq!(
                 aliases.resolve("cell2").unwrap(),
-                CellName::unchecked_new("cell2")
+                CellName::testing_new("cell2")
             );
             assert_eq!(
                 aliases.resolve("cell3").unwrap(),
-                CellName::unchecked_new("cell3")
+                CellName::testing_new("cell3")
             );
         }
 
         {
-            let cell2 = cells.get(CellName::unchecked_new("cell2")).unwrap();
+            let cell2 = cells.get(CellName::testing_new("cell2")).unwrap();
             assert_eq!(cell2.path(), cell2_path);
 
             let aliases = cell2.cell_alias_resolver();
-            assert_eq!(
-                aliases.resolve("").unwrap(),
-                CellName::unchecked_new("cell2")
-            );
+            assert_eq!(aliases.resolve("").unwrap(), CellName::testing_new("cell2"));
             assert_eq!(
                 aliases.resolve("cell1").unwrap(),
-                CellName::unchecked_new("cell1")
+                CellName::testing_new("cell1")
             );
             assert_eq!(
                 aliases.resolve("cell2").unwrap(),
-                CellName::unchecked_new("cell2")
+                CellName::testing_new("cell2")
             );
             assert_eq!(
                 aliases.resolve("cell3").unwrap(),
-                CellName::unchecked_new("cell3")
+                CellName::testing_new("cell3")
             );
         }
 
         {
-            let cell3 = cells.get(CellName::unchecked_new("cell3")).unwrap();
+            let cell3 = cells.get(CellName::testing_new("cell3")).unwrap();
             assert_eq!(cell3.path(), cell3_path);
 
             let aliases = cell3.cell_alias_resolver();
-            assert_eq!(
-                aliases.resolve("").unwrap(),
-                CellName::unchecked_new("cell3")
-            );
+            assert_eq!(aliases.resolve("").unwrap(), CellName::testing_new("cell3"));
             assert_eq!(
                 aliases.resolve("z_cell1").unwrap(),
-                CellName::unchecked_new("cell1")
+                CellName::testing_new("cell1")
             );
             assert_eq!(
                 aliases.resolve("z_cell2").unwrap(),
-                CellName::unchecked_new("cell2")
+                CellName::testing_new("cell2")
             );
             assert_eq!(
                 aliases.resolve("z_cell3").unwrap(),
-                CellName::unchecked_new("cell3")
+                CellName::testing_new("cell3")
             );
         }
 
-        assert_eq!(cells.find(cell1_path)?, CellName::unchecked_new("cell1"));
-        assert_eq!(cells.find(cell2_path)?, CellName::unchecked_new("cell2"));
-        assert_eq!(cells.find(cell3_path)?, CellName::unchecked_new("cell3"));
+        assert_eq!(cells.find(cell1_path)?, CellName::testing_new("cell1"));
+        assert_eq!(cells.find(cell2_path)?, CellName::testing_new("cell2"));
+        assert_eq!(cells.find(cell3_path)?, CellName::testing_new("cell3"));
         assert_eq!(
             cells.find(
                 &cell2_path
                     .as_project_relative_path()
                     .join(ForwardRelativePath::new("fake/cell3")?)
             )?,
-            CellName::unchecked_new("cell2")
+            CellName::testing_new("cell2")
         );
         assert_eq!(
             cells.find(
@@ -853,14 +845,14 @@ mod tests {
                     .as_project_relative_path()
                     .join(ForwardRelativePath::new("more/foo")?)
             )?,
-            CellName::unchecked_new("cell3")
+            CellName::testing_new("cell3")
         );
         assert!(cells.find(ProjectRelativePath::new("blah")?).is_err());
 
         assert_eq!(
             cells.get_cell_path(cell1_path)?,
             CellPath::new(
-                CellName::unchecked_new("cell1"),
+                CellName::testing_new("cell1"),
                 ForwardRelativePathBuf::unchecked_new("".to_owned()).into()
             )
         );
@@ -868,7 +860,7 @@ mod tests {
         assert_eq!(
             cells.get_cell_path(cell2_path)?,
             CellPath::new(
-                CellName::unchecked_new("cell2"),
+                CellName::testing_new("cell2"),
                 ForwardRelativePathBuf::unchecked_new("".to_owned()).into()
             )
         );
@@ -880,7 +872,7 @@ mod tests {
                     .join(ForwardRelativePath::new("fake/cell3")?)
             )?,
             CellPath::new(
-                CellName::unchecked_new("cell2"),
+                CellName::testing_new("cell2"),
                 ForwardRelativePathBuf::unchecked_new("fake/cell3".to_owned()).into()
             )
         );
@@ -916,11 +908,11 @@ mod tests {
         // We want the first alias to win (hello), rather than the lexiographically first (cruel)
         assert!(
             agg.make_cell_resolver()?
-                .contains(CellName::unchecked_new("hello"))
+                .contains(CellName::testing_new("hello"))
         );
         assert!(
             !agg.make_cell_resolver()?
-                .contains(CellName::unchecked_new("cruel"))
+                .contains(CellName::testing_new("cruel"))
         );
         Ok(())
     }
