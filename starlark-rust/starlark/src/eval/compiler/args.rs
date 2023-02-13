@@ -15,9 +15,9 @@
  * limitations under the License.
  */
 
-use gazebo::coerce::coerce;
 use gazebo::prelude::*;
 
+use crate::coerce::coerce;
 use crate::collections::symbol_map::Symbol;
 use crate::eval::compiler::expr::ExprCompiled;
 use crate::eval::compiler::opt_ctx::OptCtx;

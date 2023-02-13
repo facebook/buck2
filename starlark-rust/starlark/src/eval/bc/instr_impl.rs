@@ -22,8 +22,7 @@ use std::marker;
 use std::ptr;
 use std::time::Instant;
 
-use gazebo::coerce::coerce;
-
+use crate::coerce::coerce;
 use crate::collections::symbol_map::Symbol;
 use crate::collections::Hashed;
 use crate::collections::SmallMap;

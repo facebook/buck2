@@ -17,13 +17,13 @@
 
 use allocative::Allocative;
 use derive_more::Display;
-use gazebo::coerce::Coerce;
 use serde::Serialize;
 use serde::Serializer;
 use starlark_derive::StarlarkDocs;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
+use crate::coerce::Coerce;
 use crate::docs::get_registered_starlark_docs;
 use crate::docs::DocItem;
 use crate::docs::DocString;

@@ -19,8 +19,8 @@ use std::fmt;
 use std::fmt::Display;
 use std::ops::Deref;
 
-use gazebo::coerce::coerce;
-
+use crate as starlark;
+use crate::coerce::coerce;
 use crate::values::list::value::display_list;
 use crate::values::list::value::FrozenListData;
 use crate::values::list::value::ListGen;

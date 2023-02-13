@@ -29,6 +29,7 @@ use proc_macro::TokenStream;
 mod any_lifetime;
 mod attrs;
 mod bc;
+mod coerce;
 mod docs;
 mod for_each_field;
 mod freeze;
@@ -177,4 +178,10 @@ pub fn starlark_attrs(_: proc_macro::TokenStream) -> proc_macro::TokenStream {
 #[proc_macro_derive(ProvidesStaticType)]
 pub fn derive_provides_static_type(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     any_lifetime::derive_provides_static_type(input)
+}
+
+// Derive the `Coerce` trait.
+#[proc_macro_derive(Coerce)]
+pub fn derive_coerce(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    coerce::derive_coerce(input)
 }

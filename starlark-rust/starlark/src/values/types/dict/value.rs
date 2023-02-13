@@ -27,14 +27,14 @@ use std::hash::Hasher;
 
 use allocative::Allocative;
 use gazebo::cell::ARef;
-use gazebo::coerce::coerce;
-use gazebo::coerce::Coerce;
 use gazebo::display::display_keyed_container;
 use serde::Serialize;
 use starlark_map::Equivalent;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
+use crate::coerce::coerce;
+use crate::coerce::Coerce;
 use crate::collections::Hashed;
 use crate::collections::SmallMap;
 use crate::environment::Methods;

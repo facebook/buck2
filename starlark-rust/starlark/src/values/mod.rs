@@ -30,7 +30,6 @@
 //! * All the nested modules represent the built-in Starlark values. These are all defined using [`StarlarkValue`],
 //!   so may serve as interesting inspiration for writing your own values, in addition to occuring in Starlark programs.
 
-pub use gazebo::coerce::Coerce;
 pub use starlark_derive::starlark_attrs;
 pub use starlark_derive::Freeze;
 pub use starlark_derive::NoSerialize;
@@ -39,6 +38,7 @@ pub use starlark_derive::Trace;
 
 pub use crate::any::AnyLifetime;
 pub use crate::any::ProvidesStaticType;
+pub use crate::coerce::Coerce;
 pub use crate::values::alloc_value::AllocFrozenValue;
 pub use crate::values::alloc_value::AllocValue;
 pub use crate::values::demand::Demand;

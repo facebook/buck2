@@ -11,8 +11,8 @@ use std::fmt::Debug;
 
 use allocative::Allocative;
 use buck2_build_api_derive::internal_provider;
-use gazebo::coerce::Coerce;
 use starlark::any::ProvidesStaticType;
+use starlark::coerce::Coerce;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::values::list::AllocList;

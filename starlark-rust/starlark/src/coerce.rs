@@ -1,10 +1,18 @@
 /*
- * Copyright (c) Meta Platforms, Inc. and affiliates.
+ * Copyright 2018 The Starlark in Rust Authors.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
- * This source code is licensed under both the MIT license found in the
- * LICENSE-MIT file in the root directory of this source tree and the Apache
- * License, Version 2.0 found in the LICENSE-APACHE file in the root directory
- * of this source tree.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 //! A trait to represent zero-cost conversions.
@@ -14,9 +22,9 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::marker::PhantomData;
 
-pub use gazebo_derive::Coerce;
-
-use crate::cast::transmute_unchecked;
+use gazebo::cast::transmute_unchecked;
+pub use starlark_derive::Coerce;
+use starlark_map::small_map::SmallMap;
 
 /// A marker trait such that the existence of `From: Coerce<To>` implies
 /// that `From` can be treat as `To` without any data manipulation.
@@ -32,7 +40,7 @@ use crate::cast::transmute_unchecked;
 /// One use of `Coerce` is around newtype wrappers:
 ///
 /// ```
-/// use gazebo::coerce::{Coerce, coerce};
+/// use starlark::coerce::{Coerce, coerce};
 /// #[repr(transparent)]
 /// #[derive(Debug, Coerce)]
 /// struct Wrapper(String);
@@ -49,7 +57,7 @@ use crate::cast::transmute_unchecked;
 /// Another involves containers:
 ///
 /// ```
-/// use gazebo::coerce::{Coerce, coerce};
+/// use starlark::coerce::{Coerce, coerce};
 /// # #[derive(Coerce)]
 /// # #[repr(transparent)]
 /// # struct Wrapper(String);
@@ -127,6 +135,13 @@ unsafe impl CoerceKey<str> for str {}
 unsafe impl Coerce<()> for () {}
 unsafe impl CoerceKey<()> for () {}
 
+unsafe impl<FromK, FromV, ToK, ToV> Coerce<SmallMap<ToK, ToV>> for SmallMap<FromK, FromV>
+where
+    FromK: CoerceKey<ToK>,
+    FromV: Coerce<ToV>,
+{
+}
+
 /// Safely convert between types which have a `Coerce` relationship.
 /// Often the second type argument will need to be given explicitly,
 /// e.g. `coerce::<_, ToType>(x)`.
@@ -144,7 +159,7 @@ mod tests {
     use std::marker;
 
     use super::*;
-    use crate as gazebo;
+    use crate as starlark;
 
     #[test]
     fn test_ptr_coerce() {

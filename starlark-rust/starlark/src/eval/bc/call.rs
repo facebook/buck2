@@ -22,9 +22,9 @@ use std::fmt::Display;
 use std::fmt::Formatter;
 use std::marker::PhantomData;
 
-use gazebo::coerce::coerce;
 use gazebo::prelude::*;
 
+use crate::coerce::coerce;
 use crate::collections::symbol_map::Symbol;
 use crate::eval::bc::frame::BcFramePtr;
 use crate::eval::bc::instr_arg::BcInstrArg;

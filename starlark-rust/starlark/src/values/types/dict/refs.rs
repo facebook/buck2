@@ -21,8 +21,8 @@ use std::ops::Deref;
 use std::ops::DerefMut;
 
 use gazebo::cell::ARef;
-use gazebo::coerce::coerce;
 
+use crate::coerce::coerce;
 use crate::values::dict::value::DictGen;
 use crate::values::dict::value::FrozenDictData;
 use crate::values::dict::Dict;

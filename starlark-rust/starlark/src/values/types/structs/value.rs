@@ -22,8 +22,6 @@ use std::hash::Hash;
 use std::hash::Hasher;
 
 use allocative::Allocative;
-use gazebo::coerce::coerce;
-use gazebo::coerce::Coerce;
 use gazebo::display::display_keyed_container;
 use serde::Serialize;
 use starlark_map::small_map::SmallMap;
@@ -32,6 +30,8 @@ use starlark_map::StarlarkHasher;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
+use crate::coerce::coerce;
+use crate::coerce::Coerce;
 use crate::docs;
 use crate::docs::DocItem;
 use crate::values::comparison::compare_small_map;

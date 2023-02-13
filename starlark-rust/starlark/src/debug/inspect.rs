@@ -74,11 +74,11 @@ fn inspect_module_variables<'v>(eval: &Evaluator<'v, '_>) -> SmallMap<String, Va
 
 #[cfg(test)]
 mod tests {
-    use gazebo::coerce::coerce;
     use gazebo::prelude::*;
 
     use crate as starlark;
     use crate::assert;
+    use crate::coerce::coerce;
     use crate::collections::SmallMap;
     use crate::environment::GlobalsBuilder;
     use crate::eval::Evaluator;

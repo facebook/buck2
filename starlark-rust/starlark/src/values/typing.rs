@@ -19,10 +19,10 @@ use std::fmt;
 use std::fmt::Debug;
 
 use allocative::Allocative;
-use gazebo::coerce::Coerce;
 use gazebo::prelude::*;
 use thiserror::Error;
 
+use crate::coerce::Coerce;
 use crate::values::dict::Dict;
 use crate::values::dict::DictRef;
 use crate::values::list::ListRef;

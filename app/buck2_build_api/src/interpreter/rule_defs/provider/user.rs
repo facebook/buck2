@@ -16,11 +16,11 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_core::provider::id::ProviderId;
-use gazebo::coerce::coerce;
-use gazebo::coerce::Coerce;
 use gazebo::display::display_keyed_container;
 use serde::Serializer;
 use starlark::any::ProvidesStaticType;
+use starlark::coerce::coerce;
+use starlark::coerce::Coerce;
 use starlark::collections::Hashed;
 use starlark::collections::StarlarkHasher;
 use starlark::environment::Methods;

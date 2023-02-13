@@ -486,10 +486,9 @@ fn format_capture<'v, T: Iterator<Item = Value<'v>>>(
 
 #[cfg(test)]
 mod tests {
-    use gazebo::coerce::coerce;
-
     use super::*;
     use crate::assert;
+    use crate::coerce::coerce;
     use crate::collections::SmallMap;
     use crate::values::Heap;
 

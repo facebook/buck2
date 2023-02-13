@@ -27,8 +27,6 @@ use std::hash::Hasher;
 use std::mem;
 
 use allocative::Allocative;
-use gazebo::coerce::Coerce;
-use gazebo::coerce::CoerceKey;
 use gazebo::prelude::*;
 use hashbrown::raw::RawTable;
 
@@ -71,13 +69,6 @@ pub struct SmallMap<K, V> {
     /// Map a key to the index in `entries`.
     /// This field is initialized when the size of the map exceeds `NO_INDEX_THRESHOLD`.
     index: Option<Box<RawTable<usize>>>,
-}
-
-unsafe impl<FromK, FromV, ToK, ToV> Coerce<SmallMap<ToK, ToV>> for SmallMap<FromK, FromV>
-where
-    FromK: CoerceKey<ToK>,
-    FromV: Coerce<ToV>,
-{
 }
 
 impl<K: Debug, V: Debug> Debug for SmallMap<K, V> {

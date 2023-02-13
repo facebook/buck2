@@ -23,12 +23,12 @@ use std::collections::HashMap;
 
 use allocative::Allocative;
 use dupe::Dupe;
-use gazebo::coerce::coerce;
-use gazebo::coerce::Coerce;
 use starlark_map::small_map::SmallMap;
 use starlark_map::Hashed;
 
 use crate as starlark;
+use crate::coerce::coerce;
+use crate::coerce::Coerce;
 use crate::collections::symbol_map::SymbolMap;
 use crate::docs;
 use crate::docs::DocString;

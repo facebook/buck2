@@ -40,10 +40,10 @@ use std::slice;
 use std::str;
 
 use allocative::Allocative;
-use gazebo::coerce::Coerce;
 use hashbrown::raw::RawTable;
 
 use crate as starlark;
+use crate::coerce::Coerce;
 use crate::collections::Hashed;
 use crate::collections::StarlarkHashValue;
 use crate::values::StringValue;

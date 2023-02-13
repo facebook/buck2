@@ -19,13 +19,13 @@ use std::fmt;
 use std::fmt::Display;
 
 use allocative::Allocative;
-use gazebo::coerce::coerce;
-use gazebo::coerce::Coerce;
 use gazebo::prelude::*;
 use itertools::Itertools;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
+use crate::coerce::coerce;
+use crate::coerce::Coerce;
 use crate::collections::symbol_map::Symbol;
 use crate::environment::GlobalsBuilder;
 use crate::eval::runtime::arguments::ArgNames;

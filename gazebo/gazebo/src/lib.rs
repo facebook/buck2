@@ -15,7 +15,6 @@
 pub mod cast;
 pub mod cell;
 pub mod cmp;
-pub mod coerce;
 pub mod display;
 pub(crate) mod ext;
 pub mod file;

@@ -410,6 +410,7 @@ mod stdlib;
 pub mod syntax;
 pub mod values;
 
+pub mod coerce;
 #[cfg(test)]
 mod tests;
 
@@ -419,8 +420,9 @@ mod tests;
 #[doc(hidden)]
 pub mod __macro_refs {
     pub use either::Either;
-    pub use gazebo::coerce::coerce;
     pub use paste::item;
+
+    pub use crate::coerce::coerce;
 }
 
 /// __derive_refs allows us to reference other crates in starlark_derive without users needing to be

@@ -21,11 +21,11 @@ use std::marker::PhantomData;
 use dupe::Clone_;
 use dupe::Dupe_;
 use either::Either;
-use gazebo::coerce::coerce;
-use gazebo::coerce::Coerce;
 use gazebo::prelude::*;
 use thiserror::Error;
 
+use crate::coerce::coerce;
+use crate::coerce::Coerce;
 use crate::collections::symbol_map::Symbol;
 use crate::collections::Hashed;
 use crate::collections::SmallMap;

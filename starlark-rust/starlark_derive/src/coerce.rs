@@ -1,10 +1,18 @@
 /*
- * Copyright (c) Meta Platforms, Inc. and affiliates.
+ * Copyright 2018 The Starlark in Rust Authors.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
- * This source code is licensed under both the MIT license found in the
- * LICENSE-MIT file in the root directory of this source tree and the Apache
- * License, Version 2.0 found in the LICENSE-APACHE file in the root directory
- * of this source tree.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 use std::collections::HashSet;
@@ -66,8 +74,8 @@ fn derive_coerce_inner(input: DeriveInput) -> syn::Result<proc_macro2::TokenStre
     let type1 = input.ident;
     let type2 = &field.ty;
     Ok(quote! {
-        unsafe impl < #(#lifetimes),* > gazebo::coerce::Coerce<#type1< #(#lifetimes),* >> for #type2 {}
-        unsafe impl < #(#lifetimes),* > gazebo::coerce::Coerce<#type2> for #type1< #(#lifetimes),* > {}
+        unsafe impl < #(#lifetimes),* > starlark::coerce::Coerce<#type1< #(#lifetimes),* >> for #type2 {}
+        unsafe impl < #(#lifetimes),* > starlark::coerce::Coerce<#type2> for #type1< #(#lifetimes),* > {}
     })
 }
 
@@ -120,13 +128,13 @@ fn derive_coerce_params(input: DeriveInput) -> syn::Result<proc_macro2::TokenStr
         replace_type(&mut to_ty, &ty_args, ParamNameMapping::To)?;
         replace_type(&mut from_ty, &ty_args, ParamNameMapping::From)?;
         if to_ty != from_ty {
-            constraints.push(quote! { #from_ty : gazebo::coerce::Coerce< #to_ty >});
+            constraints.push(quote! { #from_ty : starlark::coerce::Coerce< #to_ty >});
         }
     }
 
     Ok(quote! {
         unsafe impl < #(#lifetimes,)* #(#ty_args_from1,)* #(#ty_args_to1,)* >
-            gazebo::coerce::Coerce<#name < #(#lifetimes,)* #(#ty_args_to,)* >>
+            starlark::coerce::Coerce<#name < #(#lifetimes,)* #(#ty_args_to,)* >>
             for #name < #(#lifetimes,)* #(#ty_args_from,)* >
             where #(#constraints,)* {}
     })

@@ -156,9 +156,9 @@ mod tests {
     use buck2_build_api_derive::internal_provider;
     use buck2_interpreter_for_build::interpreter::testing::import;
     use buck2_interpreter_for_build::interpreter::testing::Tester;
-    use gazebo::coerce::Coerce;
     use indoc::indoc;
     use starlark::any::ProvidesStaticType;
+    use starlark::coerce::Coerce;
     use starlark::environment::GlobalsBuilder;
     use starlark::values::Freeze;
     use starlark::values::Trace;

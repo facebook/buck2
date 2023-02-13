@@ -13,7 +13,6 @@
 #[allow(unused_extern_crates)] // proc_macro is very special
 extern crate proc_macro;
 
-mod coerce;
 mod default;
 mod variant;
 
@@ -33,10 +32,4 @@ pub fn derive_variant_names(input: proc_macro::TokenStream) -> proc_macro::Token
 #[proc_macro_derive(UnpackVariants)]
 pub fn derive_variants(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     variant::derive_unpack_variants(input)
-}
-
-// Derive the `Coerce` trait.
-#[proc_macro_derive(Coerce)]
-pub fn derive_coerce(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    coerce::derive_coerce(input)
 }

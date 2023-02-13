@@ -15,9 +15,9 @@
  * limitations under the License.
  */
 
-use gazebo::coerce::coerce;
-use gazebo::coerce::Coerce;
-
+use crate as starlark;
+use crate::coerce::coerce;
+use crate::coerce::Coerce;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::types::tuple::value::FrozenTuple;
 use crate::values::types::tuple::value::Tuple;

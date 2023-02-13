@@ -23,14 +23,14 @@ use std::fmt::Formatter;
 use std::slice;
 
 use allocative::Allocative;
-use gazebo::coerce::coerce;
-use gazebo::coerce::Coerce;
 use gazebo::display::display_container;
 use serde::ser::SerializeTuple;
 use serde::Serialize;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
+use crate::coerce::coerce;
+use crate::coerce::Coerce;
 use crate::collections::StarlarkHasher;
 use crate::private::Private;
 use crate::values::comparison::compare_slice;

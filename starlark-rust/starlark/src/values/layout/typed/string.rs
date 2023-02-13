@@ -23,11 +23,11 @@ use std::hash::Hasher;
 
 use allocative::Allocative;
 use dupe::Dupe;
-use gazebo::coerce::Coerce;
-use gazebo::coerce::CoerceKey;
 use serde::Serialize;
 use starlark_map::Equivalent;
 
+use crate::coerce::Coerce;
+use crate::coerce::CoerceKey;
 use crate::collections::Hashed;
 use crate::sealed::Sealed;
 use crate::values::layout::static_string::VALUE_EMPTY_STRING;

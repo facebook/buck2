@@ -43,13 +43,13 @@ use allocative::Allocative;
 use derivative::Derivative;
 use either::Either;
 use gazebo::cell::AsARef;
-use gazebo::coerce::coerce;
-use gazebo::coerce::Coerce;
 use gazebo::display::display_container;
 use serde::Serialize;
 use thiserror::Error;
 
 use crate::any::ProvidesStaticType;
+use crate::coerce::coerce;
+use crate::coerce::Coerce;
 use crate::collections::SmallMap;
 use crate::collections::StarlarkHasher;
 use crate::environment::Methods;

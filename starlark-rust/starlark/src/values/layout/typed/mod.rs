@@ -29,13 +29,13 @@ use dupe::Clone_;
 use dupe::Copy_;
 use dupe::Dupe_;
 use gazebo::cast;
-use gazebo::coerce::Coerce;
-use gazebo::coerce::CoerceKey;
 use serde::Serialize;
 
 use crate as starlark;
 use crate::any::AnyLifetime;
 use crate::any::ProvidesStaticType;
+use crate::coerce::Coerce;
+use crate::coerce::CoerceKey;
 use crate::values::alloc_value::AllocFrozenStringValue;
 use crate::values::alloc_value::AllocStringValue;
 use crate::values::int::PointerI32;
