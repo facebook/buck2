@@ -92,6 +92,8 @@ mod state_machine {
     use buck2_execute::directory::INTERNER;
     use once_cell::sync::Lazy;
     use parking_lot::Mutex;
+    use tokio::time::sleep;
+    use tokio::time::Duration as TokioDuration;
 
     use super::*;
 
@@ -104,11 +106,20 @@ mod state_machine {
     #[derive(Default)]
     struct StubIoHandler {
         log: Mutex<Vec<(Op, ProjectRelativePathBuf)>>,
+        // If set, add a sleep when materializing to simulate a long materialization period
+        materialization_config: HashMap<ProjectRelativePathBuf, TokioDuration>,
     }
 
     impl StubIoHandler {
         fn take_log(&self) -> Vec<(Op, ProjectRelativePathBuf)> {
             std::mem::take(&mut *self.log.lock())
+        }
+
+        pub fn new(materialization_config: HashMap<ProjectRelativePathBuf, TokioDuration>) -> Self {
+            Self {
+                log: Default::default(),
+                materialization_config,
+            }
         }
     }
 
@@ -142,6 +153,13 @@ mod state_machine {
             _entry: ActionDirectoryEntry<ActionSharedDirectory>,
             _event_dispatcher: EventDispatcher,
         ) -> Result<(), MaterializeEntryError> {
+            // Simulate a non-immediate materialization if configured
+            match self.materialization_config.get(&path) {
+                Some(duration) => {
+                    sleep(duration.clone()).await;
+                }
+                None => (),
+            }
             self.log.lock().push((Op::Materialize, path));
             Ok(())
         }
@@ -219,21 +237,44 @@ mod state_machine {
         Ok(())
     }
 
+    fn make_artifact_value_with_symlink_dep(
+        target_path: &ProjectRelativePathBuf,
+        target_from_symlink: &RelativePathBuf,
+    ) -> anyhow::Result<ArtifactValue> {
+        let mut deps = ActionDirectoryBuilder::empty();
+        let target = ActionDirectoryEntry::Leaf(ActionDirectoryMember::File(FileMetadata::empty()));
+        deps.insert(target_path.as_forward_relative_path(), target)?;
+        let symlink_value = ArtifactValue::new(
+            ActionDirectoryEntry::Leaf(ActionDirectoryMember::Symlink(Arc::new(Symlink::new(
+                target_from_symlink.clone(),
+            )))),
+            Some(deps.fingerprint().shared(&*INTERNER)),
+        );
+        Ok(symlink_value)
+    }
+
     #[tokio::test]
-    async fn test_symlink_materialization() -> anyhow::Result<()> {
+    async fn test_materialize_symlink_and_target() -> anyhow::Result<()> {
+        // Construct a tree with a symlink and its target, materialize both at once
+        let mut tree = ArtifactTree::new();
+        let symlink_path = make_path("foo/bar_symlink");
+        let target_path = make_path("foo/bar_target");
+        let target_from_symlink = RelativePathBuf::from_path(Path::new("bar_target"))?;
+
+        let mut materialization_config = HashMap::new();
+        // Materialize the symlink target slowly so that we actually hit the logic point where we
+        // await for symlink targets and the entry materialization
+        materialization_config.insert(target_path.clone(), TokioDuration::from_millis(100));
+
         let mut dm = DeferredMaterializerCommandProcessor {
-            io: Arc::new(StubIoHandler::default()),
+            io: Arc::new(StubIoHandler::new(materialization_config)),
             sqlite_db: None,
             rt: Handle::current(),
             defer_write_actions: true,
             log_buffer: LogBuffer::new(1),
         };
 
-        let mut tree = ArtifactTree::new();
-        let symlink_path = make_path("foo/bar_symlink");
-        let target_path = make_path("foo/bar_target");
-
-        // Add symlink target
+        // Declare symlink target
         dm.declare(
             &mut tree,
             target_path.clone(),
@@ -244,17 +285,9 @@ mod state_machine {
         );
         assert_eq!(dm.io.take_log(), &[(Op::Clean, target_path.clone())]);
 
-        // Create symlink
-        let mut deps = ActionDirectoryBuilder::empty();
-        let target = ActionDirectoryEntry::Leaf(ActionDirectoryMember::File(FileMetadata::empty()));
-        deps.insert(target_path.as_forward_relative_path(), target)?;
-        let symlink_value = ArtifactValue::new(
-            ActionDirectoryEntry::Leaf(ActionDirectoryMember::Symlink(Arc::new(Symlink::new(
-                RelativePathBuf::from_path(Path::new("bar_target"))?,
-            )))),
-            Some(deps.fingerprint().shared(&*INTERNER)),
-        );
-
+        // Declare symlink
+        let symlink_value =
+            make_artifact_value_with_symlink_dep(&target_path, &target_from_symlink)?;
         dm.declare(
             &mut tree,
             symlink_path.clone(),
@@ -276,13 +309,115 @@ mod state_machine {
         .map_err(|_| anyhow::anyhow!("error materializing"))?;
 
         let logs = dm.io.take_log();
-        assert_eq!(
-            logs,
-            &[
-                (Op::Materialize, target_path.clone()),
-                (Op::Materialize, symlink_path.clone())
-            ]
+        if cfg!(unix) {
+            assert_eq!(
+                logs,
+                &[
+                    (Op::Materialize, symlink_path.clone()),
+                    (Op::Materialize, target_path.clone())
+                ]
+            );
+        } else {
+            assert_eq!(
+                logs,
+                &[
+                    (Op::Materialize, target_path.clone()),
+                    (Op::Materialize, symlink_path.clone())
+                ]
+            );
+        }
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_materialize_symlink_first_then_target() -> anyhow::Result<()> {
+        // Materialize a symlink, then materialize the target. Test that we still
+        // materialize deps if the main artifact has already been materialized.
+        let mut tree = ArtifactTree::new();
+        let symlink_path = make_path("foo/bar_symlink");
+        let target_path = make_path("foo/bar_target");
+        let target_from_symlink = RelativePathBuf::from_path(Path::new("bar_target"))?;
+
+        let mut materialization_config = HashMap::new();
+        // Materialize the symlink target slowly so that we actually hit the logic point where we
+        // await for symlink targets and the entry materialization
+        materialization_config.insert(target_path.clone(), TokioDuration::from_millis(100));
+
+        let mut dm = DeferredMaterializerCommandProcessor {
+            io: Arc::new(StubIoHandler::new(materialization_config)),
+            sqlite_db: None,
+            rt: Handle::current(),
+            defer_write_actions: true,
+            log_buffer: LogBuffer::new(1),
+        };
+
+        // Declare symlink
+        let symlink_value =
+            make_artifact_value_with_symlink_dep(&target_path, &target_from_symlink)?;
+        dm.declare(
+            &mut tree,
+            symlink_path.clone(),
+            symlink_value,
+            box ArtifactMaterializationMethod::Test,
+            0,
+            &command_sender(),
         );
+        assert_eq!(dm.io.take_log(), &[(Op::Clean, symlink_path.clone())]);
+
+        // Materialize the symlink, at this point the target is not in the tree so it's ignored
+        let res = dm
+            .materialize_artifact(
+                &mut tree,
+                &symlink_path,
+                EventDispatcher::null(),
+                &command_sender(),
+            )
+            .context("Expected a future")?
+            .await;
+
+        let logs = dm.io.take_log();
+        assert_eq!(logs, &[(Op::Materialize, symlink_path.clone())]);
+
+        // Mark the symlink as materialized
+        tree.materialization_finished(
+            symlink_path.clone(),
+            Utc::now(),
+            0,
+            res,
+            &dm.io,
+            1,
+            dm.sqlite_db.as_mut(),
+            &dm.rt,
+        );
+        assert_eq!(dm.io.take_log(), &[]);
+
+        // Declare symlink target
+        dm.declare(
+            &mut tree,
+            target_path.clone(),
+            ArtifactValue::empty_file(),
+            box ArtifactMaterializationMethod::Test,
+            0,
+            &command_sender(),
+        );
+        assert_eq!(dm.io.take_log(), &[(Op::Clean, target_path.clone())]);
+
+        // Materialize the symlink again.
+        // This time, we don't re-materialize the symlink as that's already been done.
+        // But we still materialize the target as that has not been materialized yet.
+        dm.materialize_artifact(
+            &mut tree,
+            &symlink_path,
+            EventDispatcher::null(),
+            &command_sender(),
+        )
+        .context("Expected a future")?
+        .await
+        .map_err(|_| anyhow::anyhow!("error materializing"))?;
+
+        let logs = dm.io.take_log();
+        assert_eq!(logs, &[(Op::Materialize, target_path.clone())]);
+
         Ok(())
     }
 }
