@@ -54,6 +54,7 @@ use starlark::values::ValueError;
 use starlark::values::ValueLike;
 use starlark::StarlarkDocs;
 
+use super::starlark_async::BxlSafeDiceComputations;
 use crate::bxl::starlark_defs::artifacts::EnsuredArtifact;
 use crate::bxl::starlark_defs::build_result::StarlarkBxlBuildResult;
 use crate::bxl::starlark_defs::context::build::StarlarkProvidersArtifactIterable;
@@ -70,7 +71,7 @@ use crate::bxl::starlark_defs::context::build::StarlarkProvidersArtifactIterable
 #[display(fmt = "{:?}", self)]
 #[starlark_docs(directory = "bxl")]
 #[derivative(Debug)]
-pub struct OutputStream {
+pub struct OutputStream<'v> {
     #[derivative(Debug = "ignore")]
     #[trace(unsafe_ignore)]
     #[allocative(skip)]
@@ -81,19 +82,25 @@ pub struct OutputStream {
     pub(crate) project_fs: ProjectRoot,
     #[derivative(Debug = "ignore")]
     pub(crate) artifact_fs: ArtifactFs,
+    #[trace(unsafe_ignore)]
+    #[derivative(Debug = "ignore")]
+    #[allocative(skip)]
+    pub(crate) async_ctx: BxlSafeDiceComputations<'v>,
 }
 
-impl OutputStream {
+impl<'v> OutputStream<'v> {
     pub fn new(
         project_fs: ProjectRoot,
         artifact_fs: ArtifactFs,
         sink: RefCell<Box<dyn Write>>,
+        async_ctx: BxlSafeDiceComputations<'v>,
     ) -> Self {
         Self {
             sink,
             artifacts_to_ensure: RefCell::new(Some(Default::default())),
             project_fs,
             artifact_fs,
+            async_ctx,
         }
     }
 
@@ -102,19 +109,19 @@ impl OutputStream {
     }
 }
 
-impl<'v> StarlarkTypeRepr for &'v OutputStream {
+impl<'v> StarlarkTypeRepr for &'v OutputStream<'v> {
     fn starlark_type_repr() -> String {
         OutputStream::get_type_starlark_repr()
     }
 }
 
-impl<'v> UnpackValue<'v> for &'v OutputStream {
+impl<'v> UnpackValue<'v> for &'v OutputStream<'v> {
     fn unpack_value(x: Value<'v>) -> Option<&'v OutputStream> {
         x.downcast_ref()
     }
 }
 
-impl<'v> StarlarkValue<'v> for OutputStream {
+impl<'v> StarlarkValue<'v> for OutputStream<'v> {
     starlark_type!("bxl_output_stream");
 
     fn get_methods() -> Option<&'static Methods> {
@@ -123,7 +130,7 @@ impl<'v> StarlarkValue<'v> for OutputStream {
     }
 }
 
-impl<'v> AllocValue<'v> for OutputStream {
+impl<'v> AllocValue<'v> for OutputStream<'v> {
     fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
         heap.alloc_complex_no_freeze(self)
     }
@@ -191,7 +198,7 @@ fn register_output_stream(builder: &mut MethodsBuilder) {
     ///     outputs.update({"foo": bar})
     ///     ctx.output.print_json("test")
     /// ```
-    fn print_json(this: &OutputStream, value: Value) -> anyhow::Result<NoneType> {
+    fn print_json<'v>(this: &'v OutputStream<'v>, value: Value<'v>) -> anyhow::Result<NoneType> {
         /// A wrapper with a Serialize instance so we can pass down the necessary context.
         struct SerializeValue<'a, 'v> {
             value: Value<'v>,

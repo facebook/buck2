@@ -110,7 +110,7 @@ pub struct BxlContext<'v> {
     #[allocative(skip)]
     pub(crate) async_ctx: BxlSafeDiceComputations<'v>,
     pub(crate) state: ValueTyped<'v, AnalysisActions<'v>>,
-    pub(crate) output_stream: ValueTyped<'v, OutputStream>,
+    pub(crate) output_stream: ValueTyped<'v, OutputStream<'v>>,
 }
 
 impl<'v> BxlContext<'v> {
@@ -130,7 +130,7 @@ impl<'v> BxlContext<'v> {
             target_alias_resolver,
             cell,
             cli_args,
-            async_ctx,
+            async_ctx: async_ctx.clone(),
             state: heap.alloc_typed(AnalysisActions {
                 state: RefCell::new(None),
                 attributes: heap.alloc(AllocStruct::EMPTY),
@@ -139,6 +139,7 @@ impl<'v> BxlContext<'v> {
                 project_fs,
                 artifact_fs,
                 output_sink,
+                async_ctx,
             )),
         }
     }

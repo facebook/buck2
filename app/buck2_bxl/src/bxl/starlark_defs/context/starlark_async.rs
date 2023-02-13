@@ -30,6 +30,7 @@ enum ViaError {
 /// This is not exposed to starlark but rather, used by operations exposed to starlark to run
 /// code.
 /// This also provides a handle for dice.
+#[derive(Clone, Dupe)]
 pub struct BxlSafeDiceComputations<'a>(pub(crate) &'a DiceComputations, &'a CancellationObserver);
 
 impl<'a> BxlSafeDiceComputations<'a> {
