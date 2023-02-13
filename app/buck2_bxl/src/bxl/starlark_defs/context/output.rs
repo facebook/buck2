@@ -8,6 +8,7 @@
  */
 
 use std::cell::RefCell;
+use std::fmt::Display;
 use std::io::Write;
 use std::ops::DerefMut;
 
@@ -25,7 +26,7 @@ use derivative::Derivative;
 use derive_more::Display;
 use dupe::Dupe;
 use gazebo::prelude::SliceExt;
-use itertools::Itertools;
+use serde::ser::SerializeSeq;
 use serde::Serialize;
 use serde::Serializer;
 use starlark::any::ProvidesStaticType;
@@ -56,6 +57,7 @@ use starlark::StarlarkDocs;
 
 use super::starlark_async::BxlSafeDiceComputations;
 use crate::bxl::starlark_defs::artifacts::EnsuredArtifact;
+use crate::bxl::starlark_defs::artifacts::EnsuredArtifactGroup;
 use crate::bxl::starlark_defs::build_result::StarlarkBxlBuildResult;
 use crate::bxl::starlark_defs::context::build::StarlarkProvidersArtifactIterable;
 
@@ -77,7 +79,7 @@ pub struct OutputStream<'v> {
     #[allocative(skip)]
     sink: RefCell<Box<dyn Write>>,
     #[trace(unsafe_ignore)]
-    artifacts_to_ensure: RefCell<Option<SmallSet<EnsuredArtifact>>>,
+    artifacts_to_ensure: RefCell<Option<SmallSet<EnsuredArtifactOrGroup>>>,
     #[derivative(Debug = "ignore")]
     pub(crate) project_fs: ProjectRoot,
     #[derivative(Debug = "ignore")]
@@ -86,6 +88,15 @@ pub struct OutputStream<'v> {
     #[derivative(Debug = "ignore")]
     #[allocative(skip)]
     pub(crate) async_ctx: BxlSafeDiceComputations<'v>,
+}
+
+/// We can ensure either an `Artifact` or an `ArtifactGroup`. When we want to ensure a `CommandLineArgLike` object,
+/// the result of visiting its artifacts is a list of `ArtifactGroup`s. It's convenient to preserve the group rather
+/// than extract the individual `Artifact`s from it, for perf/memory optimizations.
+#[derive(Display, Debug, Allocative, Hash, Eq, PartialEq)]
+pub enum EnsuredArtifactOrGroup {
+    Artifact(EnsuredArtifact),
+    ArtifactGroup(ArtifactGroup),
 }
 
 impl<'v> OutputStream<'v> {
@@ -104,7 +115,7 @@ impl<'v> OutputStream<'v> {
         }
     }
 
-    pub fn take_artifacts(&self) -> SmallSet<EnsuredArtifact> {
+    pub fn take_artifacts(&self) -> SmallSet<EnsuredArtifactOrGroup> {
         self.artifacts_to_ensure.borrow_mut().take().unwrap()
     }
 }
@@ -151,35 +162,52 @@ fn register_output_stream(builder: &mut MethodsBuilder) {
     /// def _impl_print(ctx):
     ///     ctx.output.print("test")
     /// ```
-    fn print(
-        this: &OutputStream,
-        #[starlark(args)] args: Vec<Value>,
-        #[starlark(default = " ")] sep: &str,
+    fn print<'v>(
+        this: &'v OutputStream<'v>,
+        #[starlark(args)] args: Vec<Value<'v>>,
+        #[starlark(default = " ")] sep: &'v str,
     ) -> anyhow::Result<NoneType> {
-        writeln!(
-            this.sink.borrow_mut(),
-            "{}",
-            &args
-                .try_map(|x| {
-                    anyhow::Ok(
-                        if let Some(ensured) = <&EnsuredArtifact>::unpack_value(*x) {
-                            let resolved = this
-                                .artifact_fs
-                                .resolve(ensured.as_artifact().get_artifact_path())?;
+        let mut first = true;
+        let mut write = |d: &dyn Display| -> anyhow::Result<()> {
+            if !first {
+                write!(this.sink.borrow_mut(), "{}{}", sep, d)?;
+                first = false;
+            } else {
+                writeln!(this.sink.borrow_mut(), "{}", d)?;
+            }
+            Ok(())
+        };
 
-                            if ensured.abs() {
-                                format!("{}", this.project_fs.resolve(&resolved).display())
+        for arg in args {
+            if let Some(ensured) = <&EnsuredArtifact>::unpack_value(arg) {
+                let resolved = this
+                    .artifact_fs
+                    .resolve(ensured.as_artifact().get_artifact_path())?;
+
+                if ensured.abs() {
+                    write(&this.project_fs.resolve(&resolved).display())?;
+                } else {
+                    write(&resolved)?;
+                }
+            } else if let Some(ensured) = <&EnsuredArtifactGroup>::unpack_value(arg) {
+                this.async_ctx.via_dice(|ctx| {
+                    ensured.visit_artifact_path_without_associated_deduped(
+                        |artifact_path, abs| {
+                            let resolved = this.artifact_fs.resolve(artifact_path)?;
+                            if abs {
+                                write(&this.project_fs.resolve(&resolved).display())?;
                             } else {
-                                resolved.as_str().to_owned()
+                                write(&resolved)?;
                             }
-                        } else {
-                            x.to_str()
+                            Ok(())
                         },
+                        ctx,
                     )
-                })?
-                .into_iter()
-                .join(sep)
-        )?;
+                })?;
+            } else {
+                write(&arg.to_str())?;
+            }
+        }
 
         Ok(NoneType)
     }
@@ -204,6 +232,7 @@ fn register_output_stream(builder: &mut MethodsBuilder) {
             value: Value<'v>,
             artifact_fs: &'a ArtifactFs,
             project_fs: &'a ProjectRoot,
+            async_ctx: &'v BxlSafeDiceComputations<'v>,
         }
 
         impl<'a, 'v> SerializeValue<'a, 'v> {
@@ -212,6 +241,7 @@ fn register_output_stream(builder: &mut MethodsBuilder) {
                     value: x,
                     artifact_fs: self.artifact_fs,
                     project_fs: self.project_fs,
+                    async_ctx: self.async_ctx,
                 }
             }
         }
@@ -235,6 +265,31 @@ fn register_output_stream(builder: &mut MethodsBuilder) {
                     } else {
                         serializer.serialize_str(resolved.as_str())
                     }
+                } else if let Some(ensured) = <&EnsuredArtifactGroup>::unpack_value(self.value) {
+                    let mut seq_ser = serializer.serialize_seq(None)?;
+
+                    self.async_ctx
+                        .via_dice(|ctx| {
+                            ensured.visit_artifact_path_without_associated_deduped(
+                                |artifact_path, abs| {
+                                    let resolved = self.artifact_fs.resolve(artifact_path)?;
+
+                                    let path = if abs {
+                                        format!("{}", self.project_fs.resolve(&resolved).display())
+                                    } else {
+                                        resolved.to_string()
+                                    };
+
+                                    seq_ser
+                                        .serialize_element(&path)
+                                        .map_err(|err| anyhow::anyhow!(format!("{:#}", err)))?;
+                                    Ok(())
+                                },
+                                ctx,
+                            )
+                        })
+                        .map_err(|err| serde::ser::Error::custom(format!("{:#}", err)))?;
+                    seq_ser.end()
                 } else if let Some(x) = ListRef::from_value(self.value) {
                     serializer.collect_seq(x.iter().map(|v| self.with_value(v)))
                 } else if let Some(x) = TupleRef::from_value(self.value) {
@@ -260,6 +315,7 @@ fn register_output_stream(builder: &mut MethodsBuilder) {
                 value,
                 artifact_fs: &this.artifact_fs,
                 project_fs: &this.project_fs,
+                async_ctx: &this.async_ctx,
             },
         )
         .context("When writing to JSON for `write_json`")?;
@@ -285,7 +341,7 @@ fn register_output_stream(builder: &mut MethodsBuilder) {
     /// ```
     fn ensure<'v>(this: &OutputStream, artifact: Value<'v>) -> anyhow::Result<EnsuredArtifact> {
         let artifact = EnsuredArtifact::new(artifact)?;
-        populate_ensured_artifacts(this, &artifact)?;
+        populate_ensured_artifacts(this, EnsuredArtifactOrGroup::Artifact(artifact.clone()))?;
 
         Ok(artifact)
     }
@@ -307,7 +363,7 @@ fn register_output_stream(builder: &mut MethodsBuilder) {
     ///     ctx.output.print_json(outputs)
     /// ```
     fn ensure_multiple<'v>(
-        this: &OutputStream,
+        this: &'v OutputStream<'v>,
         artifacts: Value<'v>,
         heap: &'v Heap,
     ) -> anyhow::Result<Value<'v>> {
@@ -317,7 +373,10 @@ fn register_output_stream(builder: &mut MethodsBuilder) {
             let artifacts: Vec<EnsuredArtifact> = list.content().try_map(|artifact| {
                 let artifact = EnsuredArtifact::new(*artifact)?;
 
-                populate_ensured_artifacts(this, &artifact)?;
+                populate_ensured_artifacts(
+                    this,
+                    EnsuredArtifactOrGroup::Artifact(artifact.clone()),
+                )?;
 
                 Ok::<EnsuredArtifact, anyhow::Error>(artifact)
             })?;
@@ -362,7 +421,18 @@ fn register_output_stream(builder: &mut MethodsBuilder) {
             let inputs = StarlarkCommandLineInputs {
                 inputs: visitor.inputs,
             };
-            Ok(heap.alloc(get_artifacts_from_cmd_line_inputs(&inputs, this)?))
+
+            let mut result = Vec::new();
+
+            for artifact_group in &inputs.inputs {
+                populate_ensured_artifacts(
+                    this,
+                    EnsuredArtifactOrGroup::ArtifactGroup(artifact_group.dupe()),
+                )?;
+                result.push(artifact_group.dupe());
+            }
+
+            Ok(heap.alloc(EnsuredArtifactGroup::new(result, false, heap)))
         } else {
             Err(anyhow::anyhow!(incorrect_parameter_type_error(artifacts)))
         }
@@ -378,42 +448,15 @@ fn incorrect_parameter_type_error(artifacts: Value) -> ValueError {
 
 fn populate_ensured_artifacts(
     output_stream: &OutputStream,
-    ensured: &EnsuredArtifact,
+    ensured: EnsuredArtifactOrGroup,
 ) -> anyhow::Result<()> {
     output_stream
         .artifacts_to_ensure
         .borrow_mut()
         .as_mut()
         .expect("should not have been taken")
-        .insert(ensured.clone());
+        .insert(ensured);
     Ok(())
-}
-
-fn get_artifacts_from_cmd_line_inputs(
-    inputs: &StarlarkCommandLineInputs,
-    output_stream: &OutputStream,
-) -> anyhow::Result<Vec<EnsuredArtifact>> {
-    let mut result = Vec::new();
-
-    for artifact_group in &inputs.inputs {
-        match artifact_group {
-            ArtifactGroup::Artifact(a) => {
-                let artifact = EnsuredArtifact::Artifact {
-                    artifact: StarlarkArtifact::new(a.clone()),
-                    abs: false,
-                };
-                populate_ensured_artifacts(output_stream, &artifact)?;
-                result.push(artifact);
-            }
-            ArtifactGroup::TransitiveSetProjection(_) => {
-                return Err(anyhow::anyhow!(
-                    "Transitive set projections are currently unsupported"
-                ));
-            }
-        }
-    }
-
-    Ok(result)
 }
 
 fn get_artifacts_from_bxl_build_result(
@@ -438,7 +481,10 @@ fn get_artifacts_from_bxl_build_result(
             })
             .flatten()
             .map(|artifact| try {
-                populate_ensured_artifacts(output_stream, &artifact)?;
+                populate_ensured_artifacts(
+                    output_stream,
+                    EnsuredArtifactOrGroup::Artifact(artifact.clone()),
+                )?;
                 artifact
             })
             .collect::<anyhow::Result<_>>(),

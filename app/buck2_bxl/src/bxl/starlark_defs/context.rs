@@ -12,6 +12,7 @@
 
 use std::cell::RefCell;
 use std::io::Write;
+use std::iter;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -37,7 +38,6 @@ use buck2_node::nodes::unconfigured::TargetNode;
 use derivative::Derivative;
 use derive_more::Display;
 use dice::DiceComputations;
-use dupe::Dupe;
 use either::Either;
 use indexmap::IndexSet;
 use itertools::Itertools;
@@ -68,6 +68,7 @@ use crate::bxl::starlark_defs::alloc_node::AllocNode;
 use crate::bxl::starlark_defs::audit::StarlarkAuditCtx;
 use crate::bxl::starlark_defs::context::actions::BxlActionsCtx;
 use crate::bxl::starlark_defs::context::fs::BxlFilesystem;
+use crate::bxl::starlark_defs::context::output::EnsuredArtifactOrGroup;
 use crate::bxl::starlark_defs::context::output::OutputStream;
 use crate::bxl::starlark_defs::context::starlark_async::BxlSafeDiceComputations;
 use crate::bxl::starlark_defs::cquery::StarlarkCQueryCtx;
@@ -190,19 +191,19 @@ impl<'v> BxlContext<'v> {
                 .as_ref()
                 .take_artifacts()
                 .into_iter()
-                .map(|v| {
-                    let artifact_or_err = v
-                        .as_artifact()
-                        .get_bound_artifact_and_associated_artifacts();
-                    match artifact_or_err {
-                        Err(e) => Err(e),
-                        Ok((artifact, associated_artifacts)) => {
-                            let mut artifacts: IndexSet<ArtifactGroup> =
-                                associated_artifacts.iter().map(|ag| ag.dupe()).collect();
-                            artifacts.insert(ArtifactGroup::Artifact(artifact));
-                            Ok(artifacts)
-                        }
+                .map(|ensured_artifact_type| match ensured_artifact_type {
+                    EnsuredArtifactOrGroup::Artifact(artifact) => {
+                        let (bound_artifact, associated_artifacts) = artifact
+                            .as_artifact()
+                            .get_bound_artifact_and_associated_artifacts()?;
+
+                        Ok(associated_artifacts
+                            .iter()
+                            .cloned()
+                            .chain(iter::once(ArtifactGroup::Artifact(bound_artifact)))
+                            .collect::<Vec<_>>())
                     }
+                    EnsuredArtifactOrGroup::ArtifactGroup(ag) => Ok(vec![ag]),
                 })
                 .flatten_ok()
                 .collect::<anyhow::Result<IndexSet<ArtifactGroup>>>()?,
