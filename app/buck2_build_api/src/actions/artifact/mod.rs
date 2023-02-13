@@ -83,25 +83,6 @@ impl Artifact {
         }
     }
 
-    pub fn project(self, path: &ForwardRelativePath) -> Self {
-        if path.is_empty() {
-            return self;
-        }
-
-        match self.data.into_key() {
-            ArtifactKind::Base(a) => Self::new(
-                a,
-                Some(Arc::new(path.to_owned())),
-                self.hidden_components_count,
-            ),
-            ArtifactKind::Projected(a) => Self::new(
-                a.base().dupe(),
-                Some(Arc::new(a.path().join(path))),
-                self.hidden_components_count,
-            ),
-        }
-    }
-
     pub fn is_source(&self) -> bool {
         match self.as_parts().0 {
             BaseArtifactKind::Source(_) => true,
