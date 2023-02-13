@@ -570,14 +570,6 @@ def cxx_dist_link(
                             new_objs.append(obj)
                             opt_objects.append(obj)
                         current_index += 1
-                    linkable = ObjectsLinkable(
-                        objects = new_objs,
-                        linker_type = linkable.linker_type,
-                        link_whole = linkable.link_whole,
-                    )
-
-                    # TODO(T113841827): @christylee enable link_groups for distributed_thinlto
-
                 elif linkable._type == LinkableType("archive"):
                     current_index += 1
             link_args.add(link.post_flags)
