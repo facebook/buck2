@@ -64,8 +64,8 @@ def _cpreprocessor_include_dirs(pres: [CPreprocessor.type]):
     args = cmd_args()
     for pre in pres:
         for d in pre.include_dirs:
-            args.add("-I")
-            args.add(d)
+            args.add(cmd_args(d, format = "-I{}"))
+
         for d in pre.system_include_dirs:
             args.add("-isystem")
             args.add(d)
