@@ -48,14 +48,17 @@ def build_android_library(
     additional_classpath_entries = []
 
     dummy_r_dot_java, android_library_intellij_info = _get_dummy_r_dot_java(ctx)
+    extra_sub_targets = {}
     if dummy_r_dot_java:
         additional_classpath_entries.append(dummy_r_dot_java)
+        extra_sub_targets["dummy_r_dot_java"] = [DefaultInfo(default_output = dummy_r_dot_java)]
 
     if ctx.attrs.language != None and ctx.attrs.language.lower() == "kotlin":
         return build_kotlin_library(
             ctx,
             additional_classpath_entries = additional_classpath_entries,
             bootclasspath_entries = bootclasspath_entries,
+            extra_sub_targets = extra_sub_targets,
         ), android_library_intellij_info
     else:
         return build_java_library(
@@ -63,6 +66,7 @@ def build_android_library(
             ctx.attrs.srcs,
             additional_classpath_entries = additional_classpath_entries,
             bootclasspath_entries = bootclasspath_entries,
+            extra_sub_targets = extra_sub_targets,
         ), android_library_intellij_info
 
 def _get_dummy_r_dot_java(

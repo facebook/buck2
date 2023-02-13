@@ -268,7 +268,8 @@ def kotlin_library_impl(ctx: "context") -> ["provider"]:
 def build_kotlin_library(
         ctx: "context",
         additional_classpath_entries: ["artifact"] = [],
-        bootclasspath_entries: ["artifact"] = []) -> "JavaProviders":
+        bootclasspath_entries: ["artifact"] = [],
+        extra_sub_targets: dict.type = {}) -> "JavaProviders":
     srcs = ctx.attrs.srcs
     has_kotlin_srcs = is_any(lambda src: src.extension == ".kt" or src.basename.endswith(".src.zip") or src.basename.endswith("-sources.jar"), srcs)
 
@@ -280,6 +281,7 @@ def build_kotlin_library(
             additional_classpath_entries = additional_classpath_entries,
             # Match buck1, which always does class ABI generation for Kotlin targets unless explicitly specified.
             override_abi_generation_mode = get_abi_generation_mode(ctx.attrs.abi_generation_mode) or AbiGenerationMode("class"),
+            extra_sub_targets = extra_sub_targets,
         )
 
     else:
@@ -326,6 +328,7 @@ def build_kotlin_library(
                 additional_classpath_entries = [kotlinc_classes] + additional_classpath_entries,
                 additional_compiled_srcs = kotlinc_classes,
                 generated_sources = filter(None, [kapt_generated_sources, ksp_generated_sources]),
+                extra_sub_targets = extra_sub_targets,
             )
             return java_lib
         elif kotlin_toolchain.kotlinc_protocol == "kotlincd":
@@ -370,7 +373,7 @@ def build_kotlin_library(
                 has_srcs = bool(srcs),
             )
 
-            default_info = get_default_info(outputs)
+            default_info = get_default_info(outputs, extra_sub_targets = extra_sub_targets)
             return JavaProviders(
                 java_library_info = java_library_info,
                 java_library_intellij_info = intellij_info,

@@ -503,7 +503,8 @@ def build_java_library(
         bootclasspath_entries: ["artifact"] = [],
         additional_compiled_srcs: ["artifact", None] = None,
         generated_sources: ["artifact"] = [],
-        override_abi_generation_mode: ["AbiGenerationMode", None] = None) -> JavaProviders.type:
+        override_abi_generation_mode: ["AbiGenerationMode", None] = None,
+        extra_sub_targets: dict.type = {}) -> JavaProviders.type:
     expect(
         not getattr(ctx.attrs, "_build_only_native_code", False),
         "Shouldn't call build_java_library if we're only building native code!",
@@ -626,7 +627,7 @@ def build_java_library(
         has_srcs = has_srcs,
     )
 
-    default_info = get_default_info(outputs, sub_targets)
+    default_info = get_default_info(outputs, sub_targets | extra_sub_targets)
     return JavaProviders(
         java_library_info = java_library_info,
         java_library_intellij_info = intellij_info,
