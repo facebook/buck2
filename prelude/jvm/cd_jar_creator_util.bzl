@@ -23,8 +23,8 @@ def add_java_7_8_bootclasspath(target_level: int.type, bootclasspath_entries: ["
         return bootclasspath_entries + java_toolchain.bootclasspath_8
     return bootclasspath_entries
 
-def declare_prefixed_output(actions: "actions", prefix: [str.type, None], output: str.type) -> "artifact":
-    return actions.declare_output(declare_prefixed_name(output, prefix))
+def declare_prefixed_output(actions: "actions", prefix: [str.type, None], output: str.type, dir = False) -> "artifact":
+    return actions.declare_output(declare_prefixed_name(output, prefix), dir = dir)
 
 # The library and the toolchain can both set a specific abi generation
 # mode. The toolchain's setting is effectively the "highest" form of abi
@@ -110,13 +110,13 @@ def define_output_paths(actions: "actions", prefix: [str.type, None]) -> OutputP
     # currently, javacd requires that at least some outputs are in the root
     # output dir. so we put all of them there. If javacd is updated we
     # could consolidate some of these into one subdir.
-    jar_parent = declare_prefixed_output(actions, prefix, "jar")
+    jar_parent = declare_prefixed_output(actions, prefix, "jar", dir = True)
     return OutputPaths(
         jar_parent = jar_parent,
         jar = jar_parent.project("lib.jar"),
-        classes = declare_prefixed_output(actions, prefix, "__classes__"),
-        annotations = declare_prefixed_output(actions, prefix, "__gen__"),
-        scratch = declare_prefixed_output(actions, prefix, "scratch"),
+        classes = declare_prefixed_output(actions, prefix, "__classes__", dir = True),
+        annotations = declare_prefixed_output(actions, prefix, "__gen__", dir = True),
+        scratch = declare_prefixed_output(actions, prefix, "scratch", dir = True),
     )
 
 # buildifier: disable=uninitialized

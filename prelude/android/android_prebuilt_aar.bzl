@@ -20,10 +20,10 @@ def android_prebuilt_aar_impl(ctx: "context") -> ["provider"]:
     manifest = ctx.actions.declare_output("AndroidManifest.xml")
     all_classes_jar = ctx.actions.declare_output("classes.jar")
     r_dot_txt = ctx.actions.declare_output("R.txt")
-    res = ctx.actions.declare_output("res")
-    assets = ctx.actions.declare_output("assets")
-    jni = ctx.actions.declare_output("jni")
-    annotation_jars_dir = ctx.actions.declare_output("annotation_jars")
+    res = ctx.actions.declare_output("res", dir = True)
+    assets = ctx.actions.declare_output("assets", dir = True)
+    jni = ctx.actions.declare_output("jni", dir = True)
+    annotation_jars_dir = ctx.actions.declare_output("annotation_jars", dir = True)
 
     android_toolchain = ctx.attrs._android_toolchain[AndroidToolchainInfo]
     unpack_aar_tool = android_toolchain.unpack_aar[RunInfo]

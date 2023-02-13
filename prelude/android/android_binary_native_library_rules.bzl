@@ -256,7 +256,7 @@ def _get_native_libs_and_assets(
         compressed_lib_dir = _get_compressed_native_libs_as_assets(ctx, native_lib_assets, native_library_paths, module)
         compressed_lib_srcs[_get_native_libs_as_assets_dir(module)] = compressed_lib_dir
 
-    combined_native_libs = ctx.actions.declare_output("combined_native_libs")
+    combined_native_libs = ctx.actions.declare_output("combined_native_libs", dir = True)
     native_libs_metadata = ctx.actions.declare_output("native_libs_metadata.txt")
     ctx.actions.run(cmd_args([
         ctx.attrs._android_toolchain[AndroidToolchainInfo].combine_native_library_dirs[RunInfo],
@@ -269,7 +269,7 @@ def _get_native_libs_and_assets(
         native_libs_metadata.as_output(),
     ]), category = "combine_native_libs")
 
-    combined_native_libs_always_in_primary_apk = ctx.actions.declare_output("combined_native_libs_always_in_primary_apk")
+    combined_native_libs_always_in_primary_apk = ctx.actions.declare_output("combined_native_libs_always_in_primary_apk", dir = True)
     ctx.actions.run(cmd_args([
         ctx.attrs._android_toolchain[AndroidToolchainInfo].combine_native_library_dirs[RunInfo],
         "--output-dir",
