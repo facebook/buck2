@@ -94,12 +94,10 @@
 //! let cells = CellResolver::with_names_and_paths_with_alias(&[
 //!     (CellName::unchecked_new("fbsource"), CellRootPathBuf::new(fbsource.to_buf()), hashmap![
 //!         CellAlias::new("fbsource".to_owned()) => CellName::unchecked_new("fbsource"),
-//!         CellAlias::new("".to_owned()) => CellName::unchecked_new("fbsource"),
 //!         CellAlias::new("fbcode".to_owned()) => CellName::unchecked_new("fbcode"),
 //!     ]),
 //!     (CellName::unchecked_new("fbcode"), CellRootPathBuf::new(fbcode.to_buf()), hashmap![
 //!         CellAlias::new("fbcode".to_owned()) => CellName::unchecked_new("fbcode"),
-//!         CellAlias::new("".to_owned()) => CellName::unchecked_new("fbcode"),
 //!         CellAlias::new("fbsource".to_owned()) => CellName::unchecked_new("fbsource"),
 //!     ])
 //! ]);
@@ -691,10 +689,7 @@ pub mod testing {
                         *name,
                         path.clone(),
                         default_buildfiles(),
-                        CellAliasResolver {
-                            current: *name,
-                            aliases: Arc::new(alias.clone()),
-                        },
+                        CellAliasResolver::new(*name, Arc::new(alias.clone())).unwrap(),
                     ),
                 );
                 assert!(prev.is_none());
@@ -748,7 +743,6 @@ mod tests {
                 cell1_path.to_buf(),
                 hashmap![
                     CellAlias::new("cell1".to_owned()) => CellName::unchecked_new("cell1"),
-                    CellAlias::new("".to_owned()) => CellName::unchecked_new("cell1"),
                     CellAlias::new("cell2".to_owned()) => CellName::unchecked_new("cell2"),
                     CellAlias::new("cell3".to_owned()) => CellName::unchecked_new("cell3"),
                 ],
@@ -758,7 +752,6 @@ mod tests {
                 cell2_path.to_buf(),
                 hashmap![
                     CellAlias::new("cell2".to_owned()) => CellName::unchecked_new("cell2"),
-                    CellAlias::new("".to_owned()) => CellName::unchecked_new("cell2"),
                     CellAlias::new("cell1".to_owned()) => CellName::unchecked_new("cell1"),
                     CellAlias::new("cell3".to_owned()) => CellName::unchecked_new("cell3"),
                 ],
@@ -768,7 +761,6 @@ mod tests {
                 cell3_path.to_buf(),
                 hashmap![
                     CellAlias::new("z_cell3".to_owned()) => CellName::unchecked_new("cell3"),
-                    CellAlias::new("".to_owned()) => CellName::unchecked_new("cell3"),
                     CellAlias::new("z_cell1".to_owned()) => CellName::unchecked_new("cell1"),
                     CellAlias::new("z_cell2".to_owned()) => CellName::unchecked_new("cell2"),
                 ],

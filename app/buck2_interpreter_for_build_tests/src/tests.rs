@@ -22,7 +22,6 @@ use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::cells::testing::CellResolverExt;
-use buck2_core::cells::CellAlias;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::project::ProjectRootTemp;
@@ -79,7 +78,7 @@ fn calculation(fs: &ProjectRootTemp) -> DiceTransaction {
     let resolver = CellResolver::with_names_and_paths_with_alias(&[(
         CellName::unchecked_new(""),
         CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("".to_owned())),
-        HashMap::from_iter([(CellAlias::new("".to_owned()), CellName::unchecked_new(""))]),
+        HashMap::new(),
     )]);
     let cell_configs = empty_configs(&resolver);
 
