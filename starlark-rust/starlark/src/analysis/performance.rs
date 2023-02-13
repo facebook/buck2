@@ -30,6 +30,14 @@ use crate::syntax::AstModule;
 pub(crate) enum Performance {
     #[error("Dict copy `{0}` is more efficient as `{1}`")]
     DictWithoutStarStar(String, String),
+
+    #[error(
+        "`{0}` eagerly evaluates all items in the iterable, and allocates an array for the results. Prefer using a for-loop."
+    )]
+    EagerAndInefficientBoolCheck(String),
+
+    #[error("`{0}` allocates a new {1} for the results. Prefer using a for-loop.")]
+    InefficientBoolCheck(String, String),
 }
 
 impl LintWarning for Performance {
@@ -55,9 +63,49 @@ fn match_dict_copy(codemap: &CodeMap, x: &AstExpr, res: &mut Vec<LintT<Performan
     }
 }
 
-fn dict_copy(module: &AstModule, res: &mut Vec<LintT<Performance>>) {
+fn match_inefficient_bool_check(codemap: &CodeMap, x: &AstExpr, res: &mut Vec<LintT<Performance>>) {
+    match &**x {
+        Expr::Call(fun, args) if args.len() == 1 => match (&***fun, &*args[0]) {
+            (Expr::Identifier(f, _), Argument::Positional(arg))
+                if f.node == "any" || f.node == "all" =>
+            {
+                match &**arg {
+                    // any([blah for blah in blahs])
+                    Expr::ListComprehension(_, _, _) | Expr::DictComprehension(_, _, _) => res
+                        .push(LintT::new(
+                            codemap,
+                            x.span,
+                            Performance::EagerAndInefficientBoolCheck(f.node.clone()),
+                        )),
+                    // any(list(_get_some_dict()))
+                    Expr::Call(any_call, _) => match &***any_call {
+                        Expr::Identifier(any_id, _)
+                            if any_id.node == "dict" || any_id.node == "list" =>
+                        {
+                            res.push(LintT::new(
+                                codemap,
+                                x.span,
+                                Performance::InefficientBoolCheck(
+                                    x.to_string(),
+                                    any_id.node.clone(),
+                                ),
+                            ))
+                        }
+                        _ => {}
+                    },
+                    _ => {}
+                }
+            }
+            _ => {}
+        },
+        _ => {}
+    }
+}
+
+fn check_call_expr(module: &AstModule, res: &mut Vec<LintT<Performance>>) {
     fn check(codemap: &CodeMap, x: &AstExpr, res: &mut Vec<LintT<Performance>>) {
         match_dict_copy(codemap, x, res);
+        match_inefficient_bool_check(codemap, x, res);
         x.visit_expr(|x| check(codemap, x, res));
     }
     module
@@ -67,7 +115,7 @@ fn dict_copy(module: &AstModule, res: &mut Vec<LintT<Performance>>) {
 
 pub(crate) fn performance(module: &AstModule) -> Vec<LintT<Performance>> {
     let mut res = Vec::new();
-    dict_copy(module, &mut res);
+    check_call_expr(module, &mut res);
     res
 }
 
@@ -83,9 +131,9 @@ mod tests {
     }
 
     #[test]
-    fn test_lint_performance() {
+    fn test_lint_matches_dict_issue() {
         let mut res = Vec::new();
-        dict_copy(
+        check_call_expr(
             &module(
                 r#"
 def foo(extra, **kwargs):
@@ -99,6 +147,36 @@ def foo(extra, **kwargs):
         assert_eq!(
             res.map(|x| x.to_string()),
             &["bad.bzl:3:9-23: Dict copy `dict(**kwargs)` is more efficient as `dict(kwargs)`"]
+        );
+    }
+
+    #[test]
+    fn test_lint_matches_any_function() {
+        let mut res = Vec::new();
+        check_call_expr(
+            &module(
+                r#"
+def foo(items):
+    a = all(items)
+    b = all([item for item in items])
+    c = any([item for item in items])
+    d = all({"a": a for a in []})
+    e = any(list({}))
+    f = all(dict([]))
+    return (a,b,c,d,e,f)
+"#,
+            ),
+            &mut res,
+        );
+        assert_eq!(
+            res.map(|x| x.to_string()),
+            &[
+                "bad.bzl:4:9-38: `all` eagerly evaluates all items in the iterable, and allocates an array for the results. Prefer using a for-loop.",
+                "bad.bzl:5:9-38: `any` eagerly evaluates all items in the iterable, and allocates an array for the results. Prefer using a for-loop.",
+                "bad.bzl:6:9-34: `all` eagerly evaluates all items in the iterable, and allocates an array for the results. Prefer using a for-loop.",
+                "bad.bzl:7:9-22: `any(list({}))` allocates a new list for the results. Prefer using a for-loop.",
+                "bad.bzl:8:9-22: `all(dict([]))` allocates a new dict for the results. Prefer using a for-loop."
+            ]
         );
     }
 }
