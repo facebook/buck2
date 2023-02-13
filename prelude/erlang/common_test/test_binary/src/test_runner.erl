@@ -219,7 +219,17 @@ provide_output_file(
                         collect_results_broken_run(Tests, Suite, ErrorMsg, ResultExec, OutLog)
                 end
         end,
+    {ok, ResultOuptuFile} = case OutputFormat of
+        xml ->
+            junit_interfacer:write_xml_output(OutputDir, Results, Suite, ResultExec, OutLog);
+        json ->
+            json_interfacer:write_json_output(OutputDir, Results)
+    end,
+    JsonLogs = execution_logs:create_dir_summary(OutputDir),
+    file:write_file(filename:join(OutputDir, "logs.json"), jsone:encode(JsonLogs)),
     FilesToUpload = [
+        ResultsFile,
+        ResultOuptuFile,
         epmd_manager:get_epmd_out_path(OutputDir),
         test_logger:get_log_file(OutputDir, ct_executor),
         test_logger:get_std_out(OutputDir, ct_executor),
@@ -227,15 +237,7 @@ provide_output_file(
         test_logger:get_std_out(OutputDir, test_runner),
         TestSpecFile
     ],
-    test_artifact_directory:prepare(FilesToUpload, OutputDir),
-    JsonLogs = execution_logs:create_dir_summary(OutputDir),
-    file:write_file(filename:join(OutputDir, "logs.json"), jsone:encode(JsonLogs)),
-    case OutputFormat of
-        xml ->
-            junit_interfacer:write_xml_output(OutputDir, Results, Suite, ResultExec, OutLog);
-        json ->
-            json_interfacer:write_json_output(OutputDir, Results)
-    end.
+    test_artifact_directory:prepare(FilesToUpload, OutputDir).
 
 trimmed_content_file(File) ->
     case file:open(File, [read]) of

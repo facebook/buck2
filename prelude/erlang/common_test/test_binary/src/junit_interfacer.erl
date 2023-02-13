@@ -37,11 +37,13 @@ format_result(disabled) -> "DISABLED";
 format_result(excluded) -> "EXCLUDED";
 format_result(dry_run) -> "DRYRUN".
 
--spec write_xml_output(string(), list(cth_tpx:case_result()), atom(), any(), binary()) -> ok.
+-spec write_xml_output(string(), list(cth_tpx:case_result()), atom(), any(), binary()) -> {ok, file:filename()}.
 write_xml_output(OutputDir, TpxResults, Suite, Exit, Stdout) ->
     TestCase = results_to_test_case(TpxResults, Suite, Exit, Stdout),
     Export = xmerl:export_simple([test_case_to_xml(TestCase)], xmerl_xml),
-    file:write_file(filename:join(OutputDir, "results.xml"), Export).
+    {ok, OuptutFile} = filename:join(OutputDir, "results.xml"),
+    file:write_file(OuptutFile, Export),
+    {ok, OuptutFile}.
 
 test_case_to_xml(#test_case{
     name = Name,

@@ -56,9 +56,11 @@ summary(omitted) -> ?OMITTED.
         ends := list(formated_result())
     }.
 
--spec write_json_output(string(), list(cth_tpx:case_result())) -> ok.
+-spec write_json_output(string(), list(cth_tpx:case_result())) -> {ok, file:filename()}.
 write_json_output(OutputDir, TpxResults) ->
-    file:write_file(filename:join(OutputDir, "result_exec.json"), format_json(TpxResults)).
+    OuptputFile = filename:join(OutputDir, "result_exec.json"),
+    file:write_file(OuptputFile, format_json(TpxResults)),
+    {ok, OuptputFile}.
 
 -spec format_json(list(cth_tpx:case_result())) -> string().
 format_json(TpxResults) ->
