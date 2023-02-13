@@ -62,7 +62,7 @@ fn import(cell: &str, package: &str, filename: &str) -> ImportPath {
 }
 
 fn root_cell() -> CellName {
-    CellName::unchecked_new("")
+    CellName::unchecked_new("root")
 }
 
 fn calculation(fs: &ProjectRootTemp) -> DiceTransaction {
@@ -76,7 +76,7 @@ fn calculation(fs: &ProjectRootTemp) -> DiceTransaction {
     let mut ctx = dice.updater_with_data(per_transaction_data);
 
     let resolver = CellResolver::with_names_and_paths_with_alias(&[(
-        CellName::unchecked_new(""),
+        CellName::unchecked_new("root"),
         CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("".to_owned())),
         HashMap::new(),
     )]);
@@ -126,7 +126,7 @@ async fn test_eval_import() {
 
     let env = calculation
         .eval_module(StarlarkModulePath::LoadFile(&import(
-            "", "package", "two.bzl",
+            "root", "package", "two.bzl",
         )))
         .await
         .unwrap();
@@ -177,7 +177,7 @@ async fn test_eval_import_with_load() {
 
     let env = calculation
         .eval_module(StarlarkModulePath::LoadFile(&import(
-            "", "package", "two.bzl",
+            "root", "package", "two.bzl",
         )))
         .await
         .unwrap();
