@@ -317,7 +317,7 @@ def _get_exopackage_outputs(exopackage_info: ExopackageInfo.type) -> ["artifact"
 def _verify_params(ctx: "context"):
     expect(ctx.attrs.aapt_mode == "aapt2", "aapt1 is deprecated!")
     expect(ctx.attrs.dex_tool == "d8", "dx is deprecated!")
-    expect(ctx.attrs.allow_r_dot_java_in_secondary_dex == True)
+    expect(not ctx.attrs.use_split_dex or ctx.attrs.allow_r_dot_java_in_secondary_dex)
 
 def generate_install_config(ctx: "context") -> "artifact":
     data = get_install_config()
