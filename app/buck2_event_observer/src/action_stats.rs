@@ -58,12 +58,8 @@ impl ActionStats {
         self.local_actions + self.remote_actions + self.cached_actions
     }
 
-    pub fn was_fallback_action(&mut self, action: &buck2_data::ActionExecutionEnd) -> bool {
-        action.commands.len() > 1
-    }
-
     pub fn update(&mut self, action: &buck2_data::ActionExecutionEnd) {
-        if self.was_fallback_action(action) {
+        if was_fallback_action(action) {
             self.fallback_actions += 1;
         }
         match get_last_command_execution_kind(action) {
@@ -105,4 +101,8 @@ impl fmt::Display for ActionStats {
         }
         write!(f, "{}", action_stats_message)
     }
+}
+
+pub fn was_fallback_action(action: &buck2_data::ActionExecutionEnd) -> bool {
+    action.commands.len() > 1
 }

@@ -1246,6 +1246,8 @@ message InvocationRecord {
   // Count of actions that were skipped. Actions are usually skipped due to a
   // dep-files hit.
   uint64 run_skipped_count = 13;
+  // Optional - Count of actions that used fallback if fallback was used
+  optional uint64 run_fallback_count = 14;
   // Optional - the first snapshot sent.
   Snapshot first_snapshot = 20;
   // Optional - the last snapshot sent.

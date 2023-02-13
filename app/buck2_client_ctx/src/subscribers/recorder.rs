@@ -32,6 +32,7 @@ mod imp {
     use async_trait::async_trait;
     use buck2_common::convert::ProstDurationExt;
     use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+    use buck2_event_observer::action_stats;
     use buck2_event_observer::last_command_execution_kind;
     use buck2_event_observer::last_command_execution_kind::LastCommandExecutionKind;
     use buck2_events::sink::scribe::ThriftScribeSink;
@@ -67,6 +68,7 @@ mod imp {
         run_remote_count: u64,
         run_action_cache_count: u64,
         run_skipped_count: u64,
+        run_fallback_count: u64,
         first_snapshot: Option<buck2_data::Snapshot>,
         last_snapshot: Option<buck2_data::Snapshot>,
         min_build_count_since_rebase: u64,
@@ -122,6 +124,7 @@ mod imp {
                 run_remote_count: 0,
                 run_action_cache_count: 0,
                 run_skipped_count: 0,
+                run_fallback_count: 0,
                 first_snapshot: None,
                 last_snapshot: None,
                 min_build_count_since_rebase: 0,
@@ -193,6 +196,7 @@ mod imp {
                     run_remote_count: self.run_remote_count,
                     run_action_cache_count: self.run_action_cache_count,
                     run_skipped_count: self.run_skipped_count,
+                    run_fallback_count: Some(self.run_fallback_count),
                     first_snapshot: self.first_snapshot.take(),
                     last_snapshot: self.last_snapshot.take(),
                     min_build_count_since_rebase: self.min_build_count_since_rebase,
@@ -357,6 +361,9 @@ mod imp {
             _event: &BuckEvent,
         ) -> anyhow::Result<()> {
             if action.kind == buck2_data::ActionKind::Run as i32 {
+                if action_stats::was_fallback_action(action) {
+                    self.run_fallback_count += 1;
+                }
                 match last_command_execution_kind::get_last_command_execution_kind(action) {
                     LastCommandExecutionKind::Local => {
                         self.run_local_count += 1;
