@@ -197,7 +197,10 @@ impl AnonTargetKey {
     fn parse_target_label(x: &str) -> anyhow::Result<TargetLabel> {
         let err = || AnonTargetsError::NotTargetLabel(x.to_owned());
         let lex = lex_target_pattern::<TargetName>(x, false).with_context(err)?;
-        let cell = CellName::unchecked_new(lex.cell_alias.unwrap_or_default());
+        // TODO(nga): `CellName` contract requires it refers to declared cell name.
+        //   This `unchecked_new` violates it.
+        let cell =
+            CellName::unchecked_new(lex.cell_alias.filter(|a| !a.is_empty()).unwrap_or("anon"));
         match lex.pattern.reject_ambiguity()? {
             PatternData::TargetInPackage { package, target } => Ok(TargetLabel::new(
                 PackageLabel::new(cell, CellRelativePath::new(package)),
@@ -613,7 +616,7 @@ mod test {
             AnonTargetKey::parse_target_label("//foo:bar")
                 .unwrap()
                 .to_string(),
-            "//foo:bar"
+            "anon//foo:bar"
         );
         assert_eq!(
             AnonTargetKey::parse_target_label("cell//foo/bar:baz")
