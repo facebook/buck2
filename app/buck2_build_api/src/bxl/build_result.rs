@@ -23,7 +23,7 @@ use crate::build::BuildTargetResult;
 )]
 pub enum BxlBuildResult {
     None,
-    #[display(fmt = "successful build result")]
+    #[display(fmt = "build result")]
     Built(BuildTargetResult),
 }
 
