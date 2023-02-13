@@ -8,6 +8,7 @@
  */
 
 use std::collections::HashSet;
+use std::iter::zip;
 
 use allocative::Allocative;
 use anyhow::Context as _;
@@ -37,7 +38,6 @@ use futures::future;
 use futures::stream::FuturesOrdered;
 use futures::Future;
 use futures::FutureExt;
-use itertools::zip;
 use ref_cast::RefCast;
 use smallvec::SmallVec;
 use thiserror::Error;

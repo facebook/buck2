@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::iter::zip;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -30,7 +31,6 @@ use futures::stream::FuturesOrdered;
 use futures::Future;
 use futures::FutureExt;
 use indexmap::IndexMap;
-use itertools::zip;
 use ref_cast::RefCast;
 use tracing::debug;
 
