@@ -76,6 +76,9 @@ pub fn map_flavors(flavors: &str) -> anyhow::Result<ProvidersName> {
                 "generate_string_resources" => "generate_string_resources".to_owned(),
                 "exo_symlink_tree" => "exo_symlink_tree".to_owned(),
 
+                // android_library secondary outputs
+                "dummy_r_dot_java" => "dummy_r_dot_java".to_owned(),
+
                 // Rules depend on `#headers` flavor of C++ libraries to use a
                 // dep's headers without linking against it.
                 "headers" => "headers".to_owned(),
