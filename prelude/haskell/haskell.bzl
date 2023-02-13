@@ -372,9 +372,9 @@ def _compile(
     if getattr(ctx.attrs, "main", None) != None:
         compile.add(["-main-is", ctx.attrs.main])
 
-    objects = ctx.actions.declare_output("objects-" + link_style.value)
-    hi = ctx.actions.declare_output("hi-" + link_style.value)
-    stubs = ctx.actions.declare_output("stubs-" + link_style.value)
+    objects = ctx.actions.declare_output("objects-" + link_style.value, dir = True)
+    hi = ctx.actions.declare_output("hi-" + link_style.value, dir = True)
+    stubs = ctx.actions.declare_output("stubs-" + link_style.value, dir = True)
 
     compile.add(
         "-odir",
