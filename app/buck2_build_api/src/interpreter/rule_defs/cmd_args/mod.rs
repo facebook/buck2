@@ -54,7 +54,7 @@ enum CommandLineArgError {
     InvalidItemType { repr: String },
 }
 
-pub(crate) trait ValueAsCommandLineLike<'v> {
+pub trait ValueAsCommandLineLike<'v> {
     fn as_command_line(&self) -> Option<&'v dyn CommandLineArgLike>;
     fn as_command_line_err(&self) -> anyhow::Result<&'v dyn CommandLineArgLike>;
 }

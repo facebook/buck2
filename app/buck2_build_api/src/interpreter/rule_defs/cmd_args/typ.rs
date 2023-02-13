@@ -609,7 +609,7 @@ fn command_line_builder_methods(builder: &mut MethodsBuilder) {
 /// debug-printing and querying the length to tell if any inputs exist.
 #[derive(Debug, PartialEq, ProvidesStaticType, NoSerialize, Allocative)]
 pub struct StarlarkCommandLineInputs {
-    pub(crate) inputs: IndexSet<ArtifactGroup>,
+    pub inputs: IndexSet<ArtifactGroup>,
 }
 
 starlark_simple_value!(StarlarkCommandLineInputs);

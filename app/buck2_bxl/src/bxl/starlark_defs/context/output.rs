@@ -13,8 +13,12 @@ use std::ops::DerefMut;
 
 use allocative::Allocative;
 use anyhow::Context;
+use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::bxl::build_result::BxlBuildResult;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
+use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
+use buck2_build_api::interpreter::rule_defs::cmd_args::StarlarkCommandLineInputs;
+use buck2_build_api::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_execute::artifact::fs::ArtifactFs;
 use derivative::Derivative;
@@ -345,6 +349,13 @@ fn register_output_stream(builder: &mut MethodsBuilder) {
                     })
                     .collect::<anyhow::Result<_>>()?,
             )))
+        } else if let Some(cmd_line) = artifacts.as_command_line() {
+            let mut visitor = SimpleCommandLineArtifactVisitor::new();
+            cmd_line.visit_artifacts(&mut visitor)?;
+            let inputs = StarlarkCommandLineInputs {
+                inputs: visitor.inputs,
+            };
+            Ok(heap.alloc(get_artifacts_from_cmd_line_inputs(&inputs, this)?))
         } else {
             Err(anyhow::anyhow!(incorrect_parameter_type_error(artifacts)))
         }
@@ -353,7 +364,7 @@ fn register_output_stream(builder: &mut MethodsBuilder) {
 
 fn incorrect_parameter_type_error(artifacts: Value) -> ValueError {
     ValueError::IncorrectParameterTypeWithExpected(
-        "list of artifacts or bxl_built_artifacts_iterable".to_owned(),
+        "list of artifacts, bxl_built_artifacts_iterable, or command-line-arg-like".to_owned(),
         artifacts.get_type().to_owned(),
     )
 }
@@ -369,6 +380,33 @@ fn populate_ensured_artifacts(
         .expect("should not have been taken")
         .insert(ensured.clone());
     Ok(())
+}
+
+fn get_artifacts_from_cmd_line_inputs(
+    inputs: &StarlarkCommandLineInputs,
+    output_stream: &OutputStream,
+) -> anyhow::Result<Vec<EnsuredArtifact>> {
+    let mut result = Vec::new();
+
+    for artifact_group in &inputs.inputs {
+        match artifact_group {
+            ArtifactGroup::Artifact(a) => {
+                let artifact = EnsuredArtifact::Artifact {
+                    artifact: StarlarkArtifact::new(a.clone()),
+                    abs: false,
+                };
+                populate_ensured_artifacts(output_stream, &artifact)?;
+                result.push(artifact);
+            }
+            ArtifactGroup::TransitiveSetProjection(_) => {
+                return Err(anyhow::anyhow!(
+                    "Transitive set projections are currently unsupported"
+                ));
+            }
+        }
+    }
+
+    Ok(result)
 }
 
 fn get_artifacts_from_bxl_build_result(
