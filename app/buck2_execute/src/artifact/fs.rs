@@ -44,6 +44,7 @@ impl ArtifactFs {
         let ArtifactPath {
             base_path,
             projected_path,
+            hidden_components_count: _,
         } = artifact;
 
         let base_path = match base_path {

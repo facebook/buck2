@@ -128,7 +128,7 @@ pub(super) fn ensure_artifact_staged<'a>(
     dice: &'a DiceComputations,
     artifact: &'a Artifact,
 ) -> impl Future<Output = anyhow::Result<EnsureArtifactGroupReady>> + 'a {
-    match artifact.0.key() {
+    match artifact.data.key() {
         ArtifactKind::Base(base) => ensure_base_artifact_staged(dice, base).left_future(),
         ArtifactKind::Projected(projected) => dice
             .compute(EnsureProjectedArtifactKey::ref_cast(projected))

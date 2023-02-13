@@ -174,7 +174,7 @@ impl Action for WriteAction {
     }
 
     fn identifier(&self) -> Option<&str> {
-        Some(self.output.get_path().short_path().as_str())
+        Some(self.output.get_path().path().as_str())
     }
 
     fn aquery_attributes(&self, fs: &ExecutorFs) -> IndexMap<String, String> {

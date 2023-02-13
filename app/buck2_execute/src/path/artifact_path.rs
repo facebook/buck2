@@ -26,6 +26,9 @@ use crate::path::buck_out_path::BuckOutPath;
 pub struct ArtifactPath<'a> {
     pub base_path: Either<ARef<'a, BuckOutPath>, BuckPathRef<'a>>,
     pub projected_path: Option<&'a ForwardRelativePath>,
+    /// The number of components at the prefix of that path that are internal details to the rule,
+    /// not returned by `.short_path`. Omitted from Eq and Hash comparisons.
+    pub hidden_components_count: usize,
 }
 
 impl<'a> ArtifactPath<'a> {
@@ -51,13 +54,18 @@ impl<'a> ArtifactPath<'a> {
         for<'b> F: FnOnce(&'b ForwardRelativePath) -> T,
     {
         let base_short_path = match self.base_path.as_ref() {
-            Either::Left(buck_out) => buck_out.short_path(),
+            Either::Left(buck_out) => buck_out.path(),
             Either::Right(buck) => buck.path().as_ref(),
         };
 
         let path = match self.projected_path.as_ref() {
             Some(projected_path) => Cow::Owned(base_short_path.join(projected_path)),
             None => Cow::Borrowed(base_short_path),
+        };
+
+        let path = match path.strip_prefix_components(self.hidden_components_count) {
+            Some(p) => p,
+            None => ForwardRelativePath::empty(),
         };
 
         f(&path)

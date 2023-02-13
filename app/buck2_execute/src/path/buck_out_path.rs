@@ -31,7 +31,6 @@ use buck2_core::package::PackageLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_core::target::name::TargetNameRef;
 use buck2_interpreter::path::BxlFilePath;
-use derivative::Derivative;
 use derive_more::Display;
 use dupe::Dupe;
 use itertools::Itertools;
@@ -40,8 +39,7 @@ use thiserror::Error;
 use crate::base_deferred_key::BaseDeferredKey;
 use crate::bxl::types::BxlFunctionLabel;
 
-#[derive(Clone, Debug, Display, Derivative, Allocative)]
-#[derivative(Hash, Eq, PartialEq)]
+#[derive(Clone, Debug, Display, Allocative, Hash, Eq, PartialEq)]
 #[display(fmt = "({})/{}", owner, "path.as_str()")]
 struct BuckOutPathData {
     /// The owner responsible for creating this path.
@@ -50,10 +48,6 @@ struct BuckOutPathData {
     action_key: Option<Arc<str>>,
     /// The path relative to that target.
     path: ForwardRelativePathBuf,
-    /// The number of components at the prefix of that path that are
-    /// internal details to the rule, not returned by `.short_path`.
-    #[derivative(Hash = "ignore", PartialEq = "ignore")]
-    hidden_components_count: usize,
 }
 
 /// Represents a resolvable path corresponding to outputs of rules that are part
@@ -62,9 +56,7 @@ struct BuckOutPathData {
 ///
 /// This structure contains a target label for generating the base of the path (base
 /// path), and a `ForwardRelativePath` that represents the specific output
-/// location relative to the 'base path'. When a user asks for the `short_path`
-/// of a `BuckOutPath`, some of the `path` prefix may be hidden, as requested
-/// by `declare_output`.
+/// location relative to the 'base path'.
 ///
 /// For `Eq`/`Hash` we want the equality to be based on the path on disk,
 /// regardless of how the path looks to the user. Therefore we ignore the `hidden` field.
@@ -73,31 +65,18 @@ pub struct BuckOutPath(Arc<BuckOutPathData>);
 
 impl BuckOutPath {
     pub fn new(owner: BaseDeferredKey, path: ForwardRelativePathBuf) -> Self {
-        Self::with_hidden(owner, path, 0)
+        Self::with_action_key(owner, path, None)
     }
 
-    /// Create a path where the short_path ignores a number hidden components.
-    /// It _must_ be the case that path has at least that many components in it,
-    /// or `short_path` will fail later.
-    pub fn with_hidden(
+    pub fn with_action_key(
         owner: BaseDeferredKey,
         path: ForwardRelativePathBuf,
-        hidden_components_count: usize,
-    ) -> Self {
-        Self::with_hidden_and_action_key(owner, path, hidden_components_count, None)
-    }
-
-    pub fn with_hidden_and_action_key(
-        owner: BaseDeferredKey,
-        path: ForwardRelativePathBuf,
-        hidden_components_count: usize,
         action_key: Option<Arc<str>>,
     ) -> Self {
         BuckOutPath(Arc::new(BuckOutPathData {
             owner,
             action_key,
             path,
-            hidden_components_count,
         }))
     }
 
@@ -111,13 +90,6 @@ impl BuckOutPath {
 
     pub fn path(&self) -> &ForwardRelativePath {
         &self.0.path
-    }
-
-    // The suffix of `path` that is usually relevant to user rules.
-    pub fn short_path(&self) -> &ForwardRelativePath {
-        self.0.path
-            .strip_prefix_components(self.0.hidden_components_count)
-            .unwrap_or_else(|| panic!("Invalid BuckOutPath, `hidden_components_count` greater than the number of path components, {:?}", self))
     }
 }
 
@@ -865,10 +837,9 @@ mod tests {
             resolved
         );
 
-        let path = BuckOutPath::with_hidden_and_action_key(
+        let path = BuckOutPath::with_action_key(
             BaseDeferredKey::TargetLabel(cfg_target),
             ForwardRelativePathBuf::unchecked_new("quux".to_owned()),
-            0,
             Some(Arc::from("xxx")),
         );
         let resolved = path_resolver.resolve_gen(&path);
@@ -882,32 +853,6 @@ mod tests {
             re,
             resolved
         );
-
-        Ok(())
-    }
-
-    #[test]
-    fn buck_out_path_eq() -> anyhow::Result<()> {
-        let pkg = PackageLabel::new(
-            CellName::unchecked_new("foo"),
-            CellRelativePath::unchecked_new("baz-package"),
-        );
-        let target = TargetLabel::new(pkg, TargetNameRef::unchecked_new("target-name"));
-        let cfg_target = target.configure(ConfigurationData::testing_new());
-
-        let full = BuckOutPath::new(
-            BaseDeferredKey::TargetLabel(cfg_target.dupe()),
-            ForwardRelativePathBuf::unchecked_new("foo/bar/baz".to_owned()),
-        );
-        let hidden = BuckOutPath::with_hidden(
-            BaseDeferredKey::TargetLabel(cfg_target),
-            ForwardRelativePathBuf::unchecked_new("foo/bar/baz".to_owned()),
-            2,
-        );
-        assert_eq!(full.eq(&full), true);
-        assert_eq!(full, hidden);
-        assert_eq!(full.short_path().as_str(), "foo/bar/baz");
-        assert_eq!(hidden.short_path().as_str(), "baz");
 
         Ok(())
     }

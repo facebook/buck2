@@ -212,7 +212,7 @@ impl Action for DownloadFileAction {
         self.outputs
             .iter()
             .next()
-            .map(|o| o.get_path().short_path().as_str())
+            .map(|o| o.get_path().path().as_str())
     }
 }
 

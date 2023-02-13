@@ -77,8 +77,10 @@ impl ActionsRegistry {
         path: BuckOutPath,
         output_type: OutputType,
     ) -> DeclaredArtifact {
-        // We don't want to claim path, because the output belongs to different (outer) context
-        DeclaredArtifact::new(path, output_type)
+        // We don't want to claim path, because the output belongs to different (outer) context. We
+        // also don't care to keep track of the hidden components count since this output will
+        // never escape the dynamic lambda.
+        DeclaredArtifact::new(path, output_type, 0)
     }
 
     pub fn claim_output_path(&mut self, path: &ForwardRelativePath) -> anyhow::Result<()> {
@@ -151,13 +153,9 @@ impl ActionsRegistry {
             Some(prefix) => (prefix.join(path), prefix.iter().count()),
         };
         self.soft_claim_output_path(&path)?;
-        let out_path = BuckOutPath::with_hidden_and_action_key(
-            self.owner.dupe(),
-            path,
-            hidden,
-            self.action_key.dupe(),
-        );
-        let declared = DeclaredArtifact::new(out_path, output_type);
+        let out_path =
+            BuckOutPath::with_action_key(self.owner.dupe(), path, self.action_key.dupe());
+        let declared = DeclaredArtifact::new(out_path, output_type, hidden);
         if !self.artifacts.insert(declared.dupe()) {
             panic!("not expected duplicate artifact after output path was successfully claimed");
         }

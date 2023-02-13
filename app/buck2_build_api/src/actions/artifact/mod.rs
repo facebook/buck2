@@ -32,6 +32,7 @@ pub use buck2_execute::artifact::source_artifact::SourceArtifact;
 use buck2_execute::base_deferred_key::BaseDeferredKey;
 use buck2_execute::execute::request::OutputType;
 use buck2_execute::path::buck_out_path::BuckOutPath;
+use derivative::Derivative;
 use derive_more::Display;
 use derive_more::From;
 use dupe::Dupe;
@@ -53,20 +54,33 @@ pub mod materializer;
 pub(crate) mod projected_artifact;
 
 /// An 'Artifact' that can be materialized at its path.
-#[derive(Clone, Debug, Display, Dupe, PartialEq, Eq, Hash, Allocative)]
-pub struct Artifact(pub Hashed<ArtifactKind>);
+#[derive(Clone, Debug, Display, Dupe, Allocative, Derivative)]
+#[derivative(Hash, Eq, PartialEq)]
+#[display(fmt = "{}", data)]
+pub struct Artifact {
+    pub data: Hashed<ArtifactKind>,
+
+    /// The number of components at the prefix of that path that are internal details to the rule,
+    /// not returned by `.short_path`. Omitted from Eq and Hash comparisons.
+    #[derivative(Hash = "ignore", PartialEq = "ignore")]
+    hidden_components_count: usize,
+}
 
 impl Artifact {
     pub fn new(
         artifact: impl Into<BaseArtifactKind>,
         projected_path: Option<Arc<ForwardRelativePathBuf>>,
+        hidden_components_count: usize,
     ) -> Self {
         let artifact = match projected_path {
             Some(path) => ArtifactKind::Projected(ProjectedArtifact::new(artifact.into(), path)),
             None => ArtifactKind::Base(artifact.into()),
         };
 
-        Self(Hashed::new(artifact))
+        Self {
+            data: Hashed::new(artifact),
+            hidden_components_count,
+        }
     }
 
     pub fn project(self, path: &ForwardRelativePath) -> Self {
@@ -74,11 +88,17 @@ impl Artifact {
             return self;
         }
 
-        match self.0.into_key() {
-            ArtifactKind::Base(a) => Self::new(a, Some(Arc::new(path.to_owned()))),
-            ArtifactKind::Projected(a) => {
-                Self::new(a.base().dupe(), Some(Arc::new(a.path().join(path))))
-            }
+        match self.data.into_key() {
+            ArtifactKind::Base(a) => Self::new(
+                a,
+                Some(Arc::new(path.to_owned())),
+                self.hidden_components_count,
+            ),
+            ArtifactKind::Projected(a) => Self::new(
+                a.base().dupe(),
+                Some(Arc::new(a.path().join(path))),
+                self.hidden_components_count,
+            ),
         }
     }
 
@@ -113,7 +133,7 @@ impl Artifact {
     }
 
     pub fn as_parts(&self) -> (&BaseArtifactKind, Option<&ForwardRelativePath>) {
-        match self.0.key() {
+        match self.data.key() {
             ArtifactKind::Base(a) => (a, None),
             ArtifactKind::Projected(a) => (a.base(), Some(a.path())),
         }
@@ -130,6 +150,7 @@ impl Artifact {
         ArtifactPath {
             base_path,
             projected_path,
+            hidden_components_count: self.hidden_components_count,
         }
     }
 }
@@ -158,33 +179,47 @@ pub enum ArtifactKind {
 
 impl From<SourceArtifact> for Artifact {
     fn from(a: SourceArtifact) -> Self {
-        Artifact(Hashed::new(ArtifactKind::Base(BaseArtifactKind::Source(a))))
+        Artifact {
+            data: Hashed::new(ArtifactKind::Base(BaseArtifactKind::Source(a))),
+            hidden_components_count: 0,
+        }
     }
 }
 
 impl From<BuildArtifact> for Artifact {
     fn from(a: BuildArtifact) -> Self {
-        Artifact(Hashed::new(ArtifactKind::Base(BaseArtifactKind::Build(a))))
+        Artifact {
+            data: Hashed::new(ArtifactKind::Base(BaseArtifactKind::Build(a))),
+            hidden_components_count: 0,
+        }
     }
 }
 
 /// An intermediate struct to respond to calls to `ensure_bound`.
-#[derive(Clone, Dupe, Debug, PartialEq, Eq, Hash, Display, Allocative)]
+#[derive(Clone, Dupe, Debug, Display, Allocative, Derivative)]
+#[derivative(Hash, Eq, PartialEq)]
 #[display(fmt = "{}", "self.get_path()")]
 pub struct BoundBuildArtifact {
     artifact: BuildArtifact,
     projected_path: Option<Arc<ForwardRelativePathBuf>>,
+    #[derivative(Hash = "ignore", PartialEq = "ignore")]
+    hidden_components_count: usize,
 }
 
 impl BoundBuildArtifact {
     pub fn into_artifact(self) -> Artifact {
-        Artifact::new(self.artifact, self.projected_path)
+        Artifact::new(
+            self.artifact,
+            self.projected_path,
+            self.hidden_components_count,
+        )
     }
 
     pub fn into_declared_artifact(self) -> DeclaredArtifact {
         DeclaredArtifact {
             artifact: Rc::new(RefCell::new(DeclaredArtifactKind::Bound(self.artifact))),
             projected_path: self.projected_path,
+            hidden_components_count: self.hidden_components_count,
         }
     }
 
@@ -203,6 +238,7 @@ impl BoundBuildArtifact {
                 .projected_path
                 .as_ref()
                 .map(|p| AsRef::<ForwardRelativePath>::as_ref(&**p)),
+            hidden_components_count: self.hidden_components_count,
         }
     }
 }
@@ -222,15 +258,21 @@ impl BoundBuildArtifact {
 pub struct DeclaredArtifact {
     artifact: Rc<RefCell<DeclaredArtifactKind>>,
     projected_path: Option<Arc<ForwardRelativePathBuf>>,
+    hidden_components_count: usize,
 }
 
 impl DeclaredArtifact {
-    pub(super) fn new(path: BuckOutPath, output_type: OutputType) -> DeclaredArtifact {
+    pub(super) fn new(
+        path: BuckOutPath,
+        output_type: OutputType,
+        hidden_components_count: usize,
+    ) -> DeclaredArtifact {
         DeclaredArtifact {
             artifact: Rc::new(RefCell::new(DeclaredArtifactKind::Unbound(
                 UnboundArtifact(path, output_type),
             ))),
             projected_path: None,
+            hidden_components_count,
         }
     }
 
@@ -245,6 +287,7 @@ impl DeclaredArtifact {
                 Some(existing_path) => existing_path.join(path),
                 None => path.to_owned(),
             })),
+            hidden_components_count: self.hidden_components_count,
         }
     }
 
@@ -268,6 +311,7 @@ impl DeclaredArtifact {
         ArtifactPath {
             base_path: Either::Left(ARef::new_ref(base_path)),
             projected_path,
+            hidden_components_count: self.hidden_components_count,
         }
     }
 
@@ -299,6 +343,7 @@ impl DeclaredArtifact {
         Ok(BoundBuildArtifact {
             artifact,
             projected_path: self.projected_path,
+            hidden_components_count: self.hidden_components_count,
         })
     }
 
@@ -384,6 +429,7 @@ impl OutputArtifact {
         Ok(BoundBuildArtifact {
             artifact,
             projected_path: self.0.projected_path.dupe(),
+            hidden_components_count: self.0.hidden_components_count,
         })
     }
 
@@ -487,6 +533,10 @@ pub mod testing {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::Hash;
+    use std::hash::Hasher;
+
     use assert_matches::assert_matches;
     use buck2_core::buck_path::BuckPath;
     use buck2_core::cells::cell_root_path::CellRootPathBuf;
@@ -539,6 +589,7 @@ mod tests {
                 ForwardRelativePathBuf::unchecked_new("bar.out".into()),
             ),
             OutputType::File,
+            0,
         );
         let key = ActionKey::testing_new(DeferredKey::Base(
             BaseDeferredKey::TargetLabel(target.dupe()),
@@ -667,6 +718,76 @@ mod tests {
             assert_eq!(false, artifact1_executable);
             assert_eq!(true, artifact2_executable);
         }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_eq_hash() -> anyhow::Result<()> {
+        let target = ConfiguredTargetLabel::testing_new(
+            PackageLabel::testing_new("cell", "pkg"),
+            TargetName::unchecked_new("foo"),
+            ConfigurationData::testing_new(),
+        );
+
+        let artifact = BuildArtifact::testing_new(
+            target.dupe(),
+            ForwardRelativePathBuf::unchecked_new("foo/bar.cpp".to_owned()),
+            DeferredId::testing_new(0),
+        );
+
+        let full = Artifact::new(artifact.clone(), None, 0);
+        let hidden = Artifact::new(artifact, None, 1);
+
+        assert_eq!(full, hidden);
+
+        let hash_full = {
+            let mut hasher = DefaultHasher::new();
+            full.hash(&mut hasher);
+            hasher.finish()
+        };
+
+        let hash_hidden = {
+            let mut hasher = DefaultHasher::new();
+            hidden.hash(&mut hasher);
+            hasher.finish()
+        };
+
+        assert_eq!(hash_full, hash_hidden);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_short_path() -> anyhow::Result<()> {
+        let target = ConfiguredTargetLabel::testing_new(
+            PackageLabel::testing_new("cell", "pkg"),
+            TargetName::unchecked_new("foo"),
+            ConfigurationData::testing_new(),
+        );
+
+        let artifact = BuildArtifact::testing_new(
+            target.dupe(),
+            ForwardRelativePathBuf::unchecked_new("foo/bar.cpp".to_owned()),
+            DeferredId::testing_new(0),
+        );
+
+        let full = Artifact::new(artifact.clone(), None, 0);
+        let hidden = Artifact::new(artifact, None, 1);
+
+        full.get_path()
+            .with_full_path(|p| assert_eq!(p, "foo/bar.cpp"));
+
+        full.get_path()
+            .with_short_path(|p| assert_eq!(p, "foo/bar.cpp"));
+
+        hidden
+            .get_path()
+            .with_full_path(|p| assert_eq!(p, "foo/bar.cpp"));
+
+        hidden
+            .get_path()
+            .with_short_path(|p| assert_eq!(p, "bar.cpp"));
 
         Ok(())
     }
