@@ -145,6 +145,26 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def _same_pyc(src1: Path, src2: Path) -> bool:
+    """
+    Given two paths to .pyc files, return True if they are the same.
+    """
+    # As of 3.7, .pyc files are deterministic and have a hash of the original source
+    # file in their first 16 bytes. See https://peps.python.org/pep-0552/#specification
+    total_size = os.path.getsize(src1)
+    if total_size != os.path.getsize(src2):
+        return False
+    to_read = min(total_size, 16)
+    buf_size = 4096
+    with open(src1, mode="rb") as fa, open(src2, mode="rb") as fb:
+        while to_read > 0:
+            chunk_size = min(to_read, buf_size)
+            if fa.read(chunk_size) != fb.read(chunk_size):
+                return False
+            to_read -= chunk_size
+    return True
+
+
 def add_path_mapping(
     path_mapping: Dict[Path, Tuple[str, str]],
     dirs_to_create: Set[Path],
@@ -167,7 +187,10 @@ def add_path_mapping(
     link_path = os.path.relpath(src, new_dest.parent)
     if new_dest in path_mapping:
         prev, prev_origin = path_mapping[new_dest]
-        if prev != link_path:
+        if prev != link_path and not (
+            new_dest.suffix == ".pyc"
+            and _same_pyc(src, (new_dest.parent / prev).resolve())
+        ):
             raise ValueError(
                 "Destination path `{}` specified at both {} and {} (`{}` before relativisation)".format(
                     new_dest,
