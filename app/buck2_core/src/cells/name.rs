@@ -18,6 +18,12 @@ use internment_tweaks::Equiv;
 use internment_tweaks::Intern;
 use internment_tweaks::StaticInterner;
 
+#[derive(Debug, thiserror::Error)]
+enum CellNameError {
+    #[error("Cell name must be non-empty")]
+    Empty,
+}
+
 #[derive(Clone, Debug, Display, Eq, PartialEq, Ord, PartialOrd, Allocative)]
 struct CellNameData(Box<str>);
 
@@ -65,6 +71,9 @@ impl CellName {
     /// to an existing cell. This function should only be used when creating
     /// repository cells at startup.
     pub fn unchecked_new(name: &str) -> anyhow::Result<CellName> {
+        if name.is_empty() {
+            return Err(CellNameError::Empty.into());
+        }
         Ok(CellName(INTERNER.intern(CellNameDataRef(name))))
     }
 
