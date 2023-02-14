@@ -20,7 +20,9 @@ use ref_cast::RefCast;
 use relative_path::RelativePath;
 use thiserror::Error;
 
+use crate::cells::paths::CellRelativePath;
 use crate::fs::paths::forward_rel_path::ForwardRelativePath;
+use crate::package::package_relative_path::PackageRelativePath;
 
 /// Errors from ForwardRelativePath creation
 #[derive(Error, Debug)]
@@ -97,6 +99,20 @@ impl AsRef<ForwardRelativePath> for FileName {
     #[inline]
     fn as_ref(&self) -> &ForwardRelativePath {
         ForwardRelativePath::unchecked_new(&self.0)
+    }
+}
+
+impl AsRef<PackageRelativePath> for FileName {
+    #[inline]
+    fn as_ref(&self) -> &PackageRelativePath {
+        PackageRelativePath::unchecked_new(&self.0)
+    }
+}
+
+impl AsRef<CellRelativePath> for FileName {
+    #[inline]
+    fn as_ref(&self) -> &CellRelativePath {
+        CellRelativePath::unchecked_new(&self.0)
     }
 }
 
