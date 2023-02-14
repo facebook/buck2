@@ -265,12 +265,12 @@ impl InterpreterForCell {
             let prelude_env = loaded_modules
                 .map
                 .get(&StarlarkModulePath::LoadFile(prelude_import))
-                .unwrap_or_else(|| {
-                    panic!(
-                        "Should've had an env for the root import (`{}`).",
+                .with_context(|| {
+                    format!(
+                        "Should've had an env for the prelude import `{}` (internal error)",
                         prelude_import,
                     )
-                })
+                })?
                 .env();
             env.import_public_symbols(prelude_env);
             if let StarlarkPath::BuildFile(_) = starlark_path {
@@ -316,12 +316,12 @@ impl InterpreterForCell {
             let root_env = loaded_modules
                 .map
                 .get(&StarlarkModulePath::LoadFile(&root_import))
-                .unwrap_or_else(|| {
-                    panic!(
-                        "Should've had an env for the root import (`{}`).",
+                .with_context(|| {
+                    format!(
+                        "Should've had an env for the root import `{}` (internal error)",
                         root_import,
                     )
-                })
+                })?
                 .env();
             env.import_public_symbols(root_env);
         }
