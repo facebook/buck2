@@ -93,8 +93,11 @@ impl EdenIoProvider {
 
 #[async_trait]
 impl IoProvider for EdenIoProvider {
-    async fn read_file(&self, path: ProjectRelativePathBuf) -> anyhow::Result<String> {
-        self.fs.read_file(path).await
+    async fn read_file_if_exists(
+        &self,
+        path: ProjectRelativePathBuf,
+    ) -> anyhow::Result<Option<String>> {
+        self.fs.read_file_if_exists(path).await
     }
 
     async fn read_dir(&self, path: ProjectRelativePathBuf) -> anyhow::Result<Vec<RawDirEntry>> {

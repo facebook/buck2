@@ -26,7 +26,10 @@ use crate::legacy_configs::LegacyBuckConfig;
 
 #[async_trait]
 pub trait IoProvider: Allocative + Send + Sync {
-    async fn read_file(&self, path: ProjectRelativePathBuf) -> anyhow::Result<String>;
+    async fn read_file_if_exists(
+        &self,
+        path: ProjectRelativePathBuf,
+    ) -> anyhow::Result<Option<String>>;
 
     async fn read_dir(&self, path: ProjectRelativePathBuf) -> anyhow::Result<Vec<RawDirEntry>>;
 

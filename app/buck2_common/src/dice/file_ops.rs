@@ -68,8 +68,8 @@ impl<'c> HasFileOps<'c> for DiceComputations {
 struct FileToken(Arc<CellPath>);
 
 impl FileToken {
-    async fn read(&self, fs: &dyn FileOps) -> anyhow::Result<String> {
-        fs.read_file((*self.0).as_ref()).await
+    async fn read_if_exists(&self, fs: &dyn FileOps) -> anyhow::Result<Option<String>> {
+        fs.read_file_if_exists((*self.0).as_ref()).await
     }
 }
 
@@ -136,10 +136,13 @@ async fn get_default_file_ops(dice: &DiceComputations) -> SharedResult<Arc<dyn F
 
     #[async_trait]
     impl FileOps for DiceFileOpsDelegate {
-        async fn read_file(&self, path: CellPathRef<'async_trait>) -> anyhow::Result<String> {
+        async fn read_file_if_exists(
+            &self,
+            path: CellPathRef<'async_trait>,
+        ) -> anyhow::Result<Option<String>> {
             // TODO(cjhopman): error on ignored paths, maybe.
             let project_path = self.resolve(path)?;
-            self.io_provider().read_file(project_path).await
+            self.io_provider().read_file_if_exists(project_path).await
         }
 
         async fn read_dir_with_ignores(
@@ -442,14 +445,17 @@ impl Key for PathMetadataKey {
 
 #[async_trait]
 impl<'c> FileOps for DiceFileOps<'c> {
-    async fn read_file(&self, path: CellPathRef<'async_trait>) -> anyhow::Result<String> {
+    async fn read_file_if_exists(
+        &self,
+        path: CellPathRef<'async_trait>,
+    ) -> anyhow::Result<Option<String>> {
         let path = path.to_owned();
         let file_ops = get_default_file_ops(self.0).await?;
 
         self.0
             .compute(&ReadFileKey(Arc::new(path)))
             .await?
-            .read(&*file_ops)
+            .read_if_exists(&*file_ops)
             .await
     }
 

@@ -190,10 +190,8 @@ impl<'c> DiceCalculationDelegate<'c> {
     }
 
     async fn parse_file(&self, starlark_path: StarlarkPath<'_>) -> anyhow::Result<ParseResult> {
-        let content = self
-            .fs
-            .read_file(starlark_path.path().as_ref().as_ref())
-            .await?;
+        let content =
+            <dyn FileOps>::read_file(&self.fs, starlark_path.path().as_ref().as_ref()).await?;
         self.configs.parse(starlark_path, content)
     }
 

@@ -9,6 +9,7 @@
 
 use std::io::Write;
 
+use anyhow::Context;
 use async_trait::async_trait;
 use buck2_cli_proto::ClientContext;
 use buck2_client_ctx::path_arg::PathArg;
@@ -49,7 +50,10 @@ async fn lint_file(
     let dialect = path.file_type().dialect(false);
     let proj_path = cell_resolver.resolve_path(path.path().as_ref().as_ref())?;
     let path_str = proj_path.to_string();
-    let content = io.read_file(proj_path).await?;
+    let content = io
+        .read_file_if_exists(proj_path)
+        .await?
+        .with_context(|| format!("File not found: `{}`", path_str))?;
     match AstModule::parse(&path_str, content.clone(), &dialect) {
         Ok(ast) => Ok(ast.lint(Some(&*cached_globals.get_names(path).await?))),
         Err(err) => {

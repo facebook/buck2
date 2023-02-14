@@ -318,7 +318,10 @@ impl<T> From<PathMetadata> for PathMetadataOrRedirection<T> {
 
 #[async_trait]
 pub trait FileOps: Allocative + Send + Sync {
-    async fn read_file(&self, path: CellPathRef<'async_trait>) -> anyhow::Result<String>;
+    async fn read_file_if_exists(
+        &self,
+        path: CellPathRef<'async_trait>,
+    ) -> anyhow::Result<Option<String>>;
 
     async fn read_dir_with_ignores(
         &self,
@@ -336,6 +339,12 @@ pub trait FileOps: Allocative + Send + Sync {
 }
 
 impl dyn FileOps + '_ {
+    pub async fn read_file(&self, path: CellPathRef<'_>) -> anyhow::Result<String> {
+        self.read_file_if_exists(path)
+            .await?
+            .ok_or_else(|| FileOpsError::FileNotFound(path.to_string()).into())
+    }
+
     pub async fn read_dir(&self, path: CellPathRef<'_>) -> anyhow::Result<Arc<[SimpleDirEntry]>> {
         Ok(self.read_dir_with_ignores(path).await?.included)
     }
@@ -485,14 +494,14 @@ pub mod testing {
 
     #[async_trait]
     impl FileOps for TestFileOps {
-        async fn read_file(&self, path: CellPathRef<'async_trait>) -> anyhow::Result<String> {
-            self.entries
-                .get(&path.to_owned())
-                .and_then(|e| match e {
-                    TestFileOpsEntry::File(data, ..) => Some(data.clone()),
-                    _ => None,
-                })
-                .ok_or_else(|| anyhow::anyhow!("couldn't find file {:?}", path))
+        async fn read_file_if_exists(
+            &self,
+            path: CellPathRef<'async_trait>,
+        ) -> anyhow::Result<Option<String>> {
+            Ok(self.entries.get(&path.to_owned()).and_then(|e| match e {
+                TestFileOpsEntry::File(data, ..) => Some(data.clone()),
+                _ => None,
+            }))
         }
 
         async fn read_dir_with_ignores(

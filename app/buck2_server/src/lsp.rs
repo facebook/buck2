@@ -662,10 +662,11 @@ impl LspContext for BuckLspContext {
                         let path = self.import_path(path).await?;
 
                         self.with_dice_ctx(async move |dice_ctx| {
-                            match dice_ctx
-                                .file_ops()
-                                .read_file(path.borrow().path().as_ref())
-                                .await
+                            match <dyn FileOps>::read_file(
+                                &dice_ctx.file_ops(),
+                                path.borrow().path().as_ref(),
+                            )
+                            .await
                             {
                                 Ok(s) => Ok(Some(s)),
                                 Err(e) => match e.downcast_ref::<io::Error>() {

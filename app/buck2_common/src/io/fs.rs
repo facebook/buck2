@@ -60,7 +60,10 @@ enum ReadDirError {
 /// edenfs, for example).
 #[async_trait]
 impl IoProvider for FsIoProvider {
-    async fn read_file(&self, path: ProjectRelativePathBuf) -> anyhow::Result<String> {
+    async fn read_file_if_exists(
+        &self,
+        path: ProjectRelativePathBuf,
+    ) -> anyhow::Result<Option<String>> {
         let path = self.fs.resolve(&path);
 
         // Don't want to totally saturate the executor with these so that some other work can progress.
@@ -69,7 +72,7 @@ impl IoProvider for FsIoProvider {
         static SEMAPHORE: Lazy<Semaphore> = Lazy::new(|| Semaphore::new(100));
         let _permit = SEMAPHORE.acquire().await.unwrap();
 
-        tokio::task::spawn_blocking(move || fs_util::read_to_string(path))
+        tokio::task::spawn_blocking(move || fs_util::read_to_string_opt(path))
             .await
             .unwrap()
     }
