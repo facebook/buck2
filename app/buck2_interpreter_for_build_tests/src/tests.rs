@@ -24,7 +24,6 @@ use buck2_core::cells::testing::CellResolverExt;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::project::ProjectRootTemp;
-use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::package::PackageLabel;
 use buck2_events::dispatch::with_dispatcher_async;
@@ -102,17 +101,14 @@ fn calculation(fs: &ProjectRootTemp) -> DiceTransaction {
 #[tokio::test]
 async fn test_eval_import() {
     let fs = ProjectRootTemp::new().unwrap();
-    fs.path()
-        .write_file(
-            ProjectRelativePath::new("pkg/two.bzl").unwrap(),
-            indoc!(
-                r#"
+    fs.write_file(
+        "pkg/two.bzl",
+        indoc!(
+            r#"
         message = "hello world!"
         "#
-            ),
-            false,
-        )
-        .unwrap();
+        ),
+    );
 
     let ctx = calculation(&fs);
 
@@ -138,33 +134,27 @@ async fn test_eval_import() {
 async fn test_eval_import_with_load() {
     let fs = ProjectRootTemp::new().unwrap();
 
-    fs.path()
-        .write_file(
-            ProjectRelativePath::new("imports/one.bzl").unwrap(),
-            indoc!(
-                r#"
-            def concat(*args):
-              s = ""
-              for a in args:
-                s += a
-              return s
+    fs.write_file(
+        "imports/one.bzl",
+        indoc!(
+            r#"
+                def concat(*args):
+                    s = ""
+                    for a in args:
+                        s += a
+                    return s
             "#
-            ),
-            false,
-        )
-        .unwrap();
-    fs.path()
-        .write_file(
-            ProjectRelativePath::new("pkg/two.bzl").unwrap(),
-            indoc!(
-                r#"
-        load("//imports:one.bzl", "concat")
-        message = concat("hello", " ", "world!")
+        ),
+    );
+    fs.write_file(
+        "pkg/two.bzl",
+        indoc!(
+            r#"
+                load("//imports:one.bzl", "concat")
+                message = concat("hello", " ", "world!")
             "#
-            ),
-            false,
-        )
-        .unwrap();
+        ),
+    );
 
     let ctx = calculation(&fs);
     let calculation = ctx
@@ -189,85 +179,64 @@ async fn test_eval_import_with_load() {
 async fn test_eval_build_file() {
     let fs = ProjectRootTemp::new().unwrap();
 
-    fs.path()
-        .write_file(
-            ProjectRelativePath::new("rules.bzl").unwrap(),
-            indoc!(
-                r#"
-            def _impl(ctx):
-                return DefaultInfo()
+    fs.write_file(
+        "rules.bzl",
+        indoc!(
+            r#"
+                def _impl(ctx):
+                    return DefaultInfo()
 
-            export_file = rule(
-                impl = _impl,
-                attrs = {
-                    "src": attrs.string(),
-                },
-            )
+                export_file = rule(
+                    impl = _impl,
+                    attrs = {
+                        "src": attrs.string(),
+                    },
+                )
 
-            java_library = rule(
-                impl = _impl,
-                attrs = {
-                    "srcs": attrs.list(attrs.string()),
-                },
-            )
+                java_library = rule(
+                    impl = _impl,
+                    attrs = {
+                        "srcs": attrs.list(attrs.string()),
+                    },
+                )
         "#
-            ),
-            false,
-        )
-        .unwrap();
+        ),
+    );
 
-    fs.path()
-        .write_file(
-            ProjectRelativePath::new("imports/one.bzl").unwrap(),
-            indoc!(
-                r#"
-                    load("//rules.bzl", "export_file")
+    fs.write_file(
+        "imports/one.bzl",
+        indoc!(
+            r#"
+                load("//rules.bzl", "export_file")
 
-                    def some_macro(name, **kwargs):
-                        export_file(
-                            name=name+"-exported",
-                            **kwargs
-                        )
-            "#
-            ),
-            false,
-        )
-        .unwrap();
-    fs.path()
-        .write_file(
-            ProjectRelativePath::new("pkg/file1.java").unwrap(),
-            "",
-            false,
-        )
-        .unwrap();
-    fs.path()
-        .write_file(
-            ProjectRelativePath::new("pkg/file2.java").unwrap(),
-            "",
-            false,
-        )
-        .unwrap();
-    fs.path()
-        .write_file(
-            ProjectRelativePath::new("pkg/BUCK").unwrap(),
-            indoc!(
-                r#"
-                    load("//imports:one.bzl", "some_macro")
-                    load("//rules.bzl", "java_library")
-
-                    some_macro(
-                        name = "invoke_some",
-                        src = "some.file",
-                    )
-                    java_library(
-                        name = "java",
-                        srcs = glob(["*.java"]),
+                def some_macro(name, **kwargs):
+                    export_file(
+                        name=name+"-exported",
+                        **kwargs
                     )
             "#
-            ),
-            false,
-        )
-        .unwrap();
+        ),
+    );
+    fs.write_file("pkg/file1.java", "");
+    fs.write_file("pkg/file2.java", "");
+    fs.write_file(
+        "pkg/BUCK",
+        indoc!(
+            r#"
+                load("//imports:one.bzl", "some_macro")
+                load("//rules.bzl", "java_library")
+
+                some_macro(
+                    name = "invoke_some",
+                    src = "some.file",
+                )
+                java_library(
+                    name = "java",
+                    srcs = glob(["*.java"]),
+                )
+            "#
+        ),
+    );
 
     let ctx = calculation(&fs);
     let calculation = ctx

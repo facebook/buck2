@@ -62,6 +62,11 @@ impl ProjectRootTemp {
     pub fn path(&self) -> &ProjectRoot {
         &self.path
     }
+
+    pub fn write_file(&self, path: &str, content: &str) {
+        let path = ProjectRelativePath::new(path).unwrap();
+        self.path().write_file(path, content, false).unwrap();
+    }
 }
 
 impl ProjectRoot {
