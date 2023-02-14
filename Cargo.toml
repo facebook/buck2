@@ -124,7 +124,7 @@ indent_write = "2.2.0"
 indexmap = { version = "1.9.1", features = ["serde-1"] }
 indoc = "1.0.3"
 inferno = { version = "0.11.11", default-features = false }
-internment = { version = "0.5", features = ["arc"] }
+internment = { version = "0.7", features = ["arc"] }
 inventory = "0.1.9"
 itertools = "0.10.3"
 jemalloc-ctl = "0.5.0"
