@@ -69,21 +69,21 @@ Instances of Buck2 share a [daemon](#daemon) if and only if their isolation dire
 String that resolves to a set of [targets](#target). They can be used as arguments to commands such as `buck2 build` and `buck2 uquery`. They can also be used in the [visibility](#visibility) argument of a [rule](#rule). See more: [Target pattern](./target_pattern.md).
 
 #### Package
-:::note
-🚧   THIS SECTION IS UNDER CONSTRUCTION
-:::
+
+Directory that contains a Buck2 [build file](#build-file) and all [source files](#source-file) belonging to the same directory as the build file or any of its subdirectories that do not contain a build file themselves.
+
 #### Project
-:::note
-🚧   THIS SECTION IS UNDER CONSTRUCTION
-:::
+
+Outer most directory where there is a [.buckconfig](#buckconfig), also known as the [root cell](#cell). The .buckconfig for the project specifies the [cells](#cell) that constitute the Buck2 project. Specifically, these cells are specified in the '[repositories]' section of the .buckconfig. All command invocations are executed from the project root.
+
 #### Provider
-:::note
-🚧   THIS SECTION IS UNDER CONSTRUCTION
-:::
+
+Data returned from a [rule](#rule) function. It's the only way that information from this rule is available to other rules that depend on it (see [dependency](#dependency)). Every rule must return at least the `DefaultInfo` provider. A common case is to also return either `RunInfo` (because they are executable) or custom providers that the dependents rule can use. See more: [Providers](https://buck2.build/docs/rule_authors/writing_rules/#providers).
+
 #### Remote execution (RE)
-:::note
-🚧   THIS SECTION IS UNDER CONSTRUCTION
-:::
+
+Distributed execution of [actions](#action) on remote workers. It can speed up builds significantly, by scaling the nodes available for parallel actions and by caching action outputs across buck2 users.
+
 #### Rule
 :::note
 🚧   THIS SECTION IS UNDER CONSTRUCTION
