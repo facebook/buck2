@@ -9,6 +9,8 @@
 
 #![cfg(test)]
 
+#[cfg(test)]
+mod attr;
 pub mod interpreter;
 mod rule;
 mod tests;
