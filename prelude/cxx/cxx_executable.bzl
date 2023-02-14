@@ -95,6 +95,7 @@ load(
     ":link_groups.bzl",
     "LINK_GROUP_MAP_DATABASE_SUB_TARGET",
     "create_link_groups",
+    "find_relevant_roots",
     "get_filtered_labels_to_links_map",
     "get_filtered_links",
     "get_filtered_targets",
@@ -267,8 +268,15 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
                 for name, lib in link_group_libs.items()
             },
             link_style = link_style,
-            deps = [d.linkable_graph.nodes.value.label for d in link_deps],
-            other_roots = link_group_other_roots,
+            roots = (
+                [d.linkable_graph.nodes.value.label for d in link_deps] +
+                find_relevant_roots(
+                    link_group = link_group,
+                    linkable_graph_node_map = linkable_graph_node_map,
+                    link_group_mappings = link_group_mappings,
+                    roots = link_group_other_roots,
+                )
+            ),
             is_executable_link = True,
             prefer_stripped = impl_params.prefer_stripped_objects,
         )
@@ -282,7 +290,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
                 link_group_mappings,
                 link_group_preferred_linkage,
                 link_style,
-                deps = [d.linkable_graph.nodes.value.label for d in link_deps],
+                roots = [d.linkable_graph.nodes.value.label for d in link_deps],
                 is_executable_link = True,
                 prefer_stripped = impl_params.prefer_stripped_objects,
             )

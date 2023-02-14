@@ -217,10 +217,7 @@ def get_filtered_labels_to_links_map(
         link_group_mappings: [{"label": str.type}, None],
         link_group_preferred_linkage: {"label": Linkage.type},
         link_style: LinkStyle.type,
-        deps: ["label"],
-        # Additional roots to search for nodes in the target link group (e.g.
-        # dlopen-enabled libs or outlined native Python extensions).
-        other_roots: ["label"] = [],
+        roots: ["label"],
         link_group_libs: {str.type: (["label", None], LinkInfos.type)} = {},
         prefer_stripped: bool.type = False,
         is_executable_link: bool.type = False) -> {"label": LinkGroupLinkInfo.type}:
@@ -250,28 +247,10 @@ def get_filtered_labels_to_links_map(
 
         return node_linkables
 
-    # Walk through roots looking for the first node which maps to the current
-    # link group.
-    def collect_and_traverse_roots(roots, node_target):
-        node_link_group = link_group_mappings.get(node_target)
-        if node_link_group == MATCH_ALL_LABEL:
-            roots.append(node_target)
-            return []
-        if node_link_group == link_group:
-            roots.append(node_target)
-            return []
-        return get_traversed_deps(node_target)
-
     # Get all potential linkable targets
-    other_deps = []
-    breadth_first_traversal_by(
-        linkable_graph_node_map,
-        other_roots,
-        partial(collect_and_traverse_roots, other_deps),
-    )
     linkables = breadth_first_traversal_by(
         linkable_graph_node_map,
-        deps + other_deps,
+        roots,
         get_traversed_deps,
     )
 
@@ -345,7 +324,10 @@ def get_filtered_labels_to_links_map(
         else:  # static or static_pic
             target_link_group = link_group_mappings.get(target)
 
-            if not target_link_group and not link_group:
+            # Always add force-static libs to the link.
+            if node.preferred_linkage == Linkage("static"):
+                add_link(target, actual_link_style)
+            elif not target_link_group and not link_group:
                 # Ungrouped linkable targets belong to the unlabeled executable
                 add_link(target, actual_link_style)
             elif is_executable_link and target_link_group == NO_MATCH_LABEL:
@@ -463,6 +445,36 @@ def make_link_group_info(groups: [Group.type], mappings: {"label": str.type}) ->
         mappings = mappings,
     )
 
+def find_relevant_roots(
+        link_group: [str.type, None] = None,
+        linkable_graph_node_map: {"label": LinkableNode.type} = {},
+        link_group_mappings: {"label": str.type} = {},
+        roots: ["label"] = []):
+    # Walk through roots looking for the first node which maps to the current
+    # link group.
+    def collect_and_traverse_roots(roots, node_target):
+        node = linkable_graph_node_map.get(node_target)
+        if node.preferred_linkage == Linkage("static"):
+            return node.deps + node.exported_deps
+        node_link_group = link_group_mappings.get(node_target)
+        if node_link_group == MATCH_ALL_LABEL:
+            roots.append(node_target)
+            return []
+        if node_link_group == link_group:
+            roots.append(node_target)
+            return []
+        return node.deps + node.exported_deps
+
+    relevant_roots = []
+
+    breadth_first_traversal_by(
+        linkable_graph_node_map,
+        roots,
+        partial(collect_and_traverse_roots, relevant_roots),
+    )
+
+    return relevant_roots
+
 def _create_link_group(
         ctx: "context",
         spec: LinkGroupLibSpec.type,
@@ -493,7 +505,7 @@ def _create_link_group(
 
     # Get roots to begin the linkable search.
     # TODO(agallagher): We should use the groups "public" nodes as the roots.
-    deps = []
+    roots = []
     has_empty_root = False
     if spec.root != None:
         # If there's a linkable root attached to the spec, use that to guide
@@ -503,7 +515,7 @@ def _create_link_group(
             spec.root.link_infos,
             prefer_stripped = prefer_stripped_objects,
         ))
-        deps.extend(spec.root.deps)
+        roots.extend(spec.root.deps)
     else:
         for mapping in spec.group.mappings:
             # If there's no explicit root, this means we need to search the entire
@@ -511,9 +523,20 @@ def _create_link_group(
             if mapping.root == None:
                 has_empty_root = True
             else:
-                deps.append(mapping.root.label)
+                roots.append(mapping.root.label)
+
+        # If this link group has an empty mapping, we need to search everything
+        # -- even the additional roots -- to find potential nodes in the link
+        # group.
         if has_empty_root:
-            deps.extend(executable_deps)
+            roots.extend(
+                find_relevant_roots(
+                    link_group = spec.group.name,
+                    linkable_graph_node_map = linkable_graph_node_map,
+                    link_group_mappings = link_group_mappings,
+                    roots = executable_deps + other_roots,
+                ),
+            )
 
     # Add roots...
     filtered_labels_to_links_map = get_filtered_labels_to_links_map(
@@ -523,11 +546,7 @@ def _create_link_group(
         link_group_preferred_linkage,
         link_group_libs = link_group_libs,
         link_style = link_style,
-        # If this link group has an empty mapping, we need to search everything
-        # -- even the additional roots -- to find potential nodes in the link
-        # group.
-        other_roots = other_roots if has_empty_root else [],
-        deps = deps,
+        roots = roots,
         is_executable_link = False,
         prefer_stripped = prefer_stripped_objects,
     )

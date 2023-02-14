@@ -37,6 +37,8 @@ load(
 )
 load(
     "@prelude//linking:link_info.bzl",
+    "LinkInfo",
+    "LinkInfos",
     "LinkStyle",
     "Linkage",
     "create_merged_link_info",
@@ -163,6 +165,11 @@ def cxx_python_extension_impl(ctx: "context") -> ["provider"]:
 
         python_module_names[base_module.replace("/", ".") + module_name] = pyinit_symbol
 
+    # Add a dummy shared link info to avoid marking this node as preferred
+    # linkage being "static", which has a special meaning for various link
+    # strategies
+    link_infos[LinkStyle("shared")] = LinkInfos(default = LinkInfo())
+
     # Create linkable providers for the extension.
     link_deps = linkables(cxx_deps)
     linkable_providers = LinkableProviders(
@@ -174,7 +181,7 @@ def cxx_python_extension_impl(ctx: "context") -> ["provider"]:
                 linkable_node = create_linkable_node(
                     ctx = ctx,
                     deps = cxx_deps,
-                    preferred_linkage = Linkage("static"),
+                    preferred_linkage = Linkage("any"),
                     link_infos = link_infos,
                 ),
             ),

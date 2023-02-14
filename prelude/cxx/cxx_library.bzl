@@ -856,7 +856,7 @@ def _get_shared_library_links(
             for name, lib in link_group_libs.items()
         },
         link_style = link_style,
-        deps = linkable_deps(non_exported_deps + exported_deps),
+        roots = linkable_deps(non_exported_deps + exported_deps),
         prefer_stripped = prefer_stripped,
     )
     filtered_links = get_filtered_links(filtered_labels_to_links_map)
