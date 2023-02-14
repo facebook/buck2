@@ -262,6 +262,8 @@ pub(crate) struct DefInfo {
     pub(crate) name: FrozenStringValue,
     /// Span of function signature.
     pub(crate) signature_span: FrozenFileSpan,
+    /// Indices of parameters, which are captured in nested defs.
+    parameter_captures: FrozenRef<'static, [LocalSlotId]>,
     /// Codemap of the file where the function is declared.
     pub(crate) codemap: FrozenRef<'static, CodeMap>,
     /// The raw docstring pulled out of the AST.
@@ -293,6 +295,7 @@ impl DefInfo {
         static EMPTY: Lazy<DefInfo> = Lazy::new(|| DefInfo {
             name: const_frozen_string!("<empty>"),
             signature_span: FrozenFileSpan::default(),
+            parameter_captures: FrozenRef::new(&[]),
             codemap: FrozenRef::new(CodeMap::empty_static()),
             docstring: None,
             used: FrozenRef::new(&[]),
@@ -315,6 +318,7 @@ impl DefInfo {
         DefInfo {
             name: const_frozen_string!("<module>"),
             signature_span: FrozenFileSpan::default(),
+            parameter_captures: FrozenRef::new(&[]),
             codemap,
             docstring: None,
             used: local_names,
@@ -453,6 +457,10 @@ impl Compiler<'_, '_, '_> {
         let info = self.eval.module_env.frozen_heap().alloc_any(DefInfo {
             name,
             signature_span,
+            parameter_captures: self
+                .eval
+                .frozen_heap()
+                .alloc_any_slice_display_from_debug(&params.parameter_captures()),
             codemap: self.codemap,
             docstring,
             used,
@@ -487,8 +495,9 @@ impl Compiler<'_, '_, '_> {
 #[derivative(Debug)]
 pub(crate) struct DefGen<V> {
     pub(crate) parameters: ParametersSpec<V>, // The parameters, **kwargs etc including defaults (which are evaluated afresh each time)
-    // Indices of parameters, which are captured in nested defs.
-    parameter_captures: Vec<LocalSlotId>,
+    /// Indices of parameters, which are captured in nested defs.
+    /// This is a copy of `DefInfo.parameter_captures`.
+    parameter_captures: FrozenRef<'static, [LocalSlotId]>,
     // The types of the parameters.
     // (Sparse indexed array, (0, argm T) implies parameter 0 named arg must have type T).
     parameter_types: Vec<(LocalSlotId, String, V, TypeCompiled)>,
@@ -528,7 +537,6 @@ starlark_complex_values!(Def);
 impl<'v> Def<'v> {
     pub(crate) fn new(
         parameters: ParametersSpec<Value<'v>>,
-        parameter_captures: Vec<LocalSlotId>,
         parameter_types: Vec<(LocalSlotId, String, Value<'v>, TypeCompiled)>,
         return_type: Option<(Value<'v>, TypeCompiled)>,
         stmt: FrozenRef<'static, DefInfo>,
@@ -540,7 +548,7 @@ impl<'v> Def<'v> {
             .map(|copy| eval.clone_slot_capture(copy, &stmt));
         eval.heap().alloc(Self {
             parameters,
-            parameter_captures,
+            parameter_captures: stmt.parameter_captures,
             parameter_types,
             return_type,
             captured,
@@ -744,7 +752,7 @@ where
         // Parameters are collected into local slots without captures
         // (to avoid even more branches in parameter capture),
         // and this loop wraps captured parameters.
-        for &captured in &self.parameter_captures {
+        for &captured in &*self.parameter_captures {
             eval.wrap_local_slot_captured(captured);
         }
 

@@ -1343,7 +1343,6 @@ impl InstrNoFlowImpl for InstrDefImpl {
         );
         parameters.no_more_positional_only_args();
         let mut parameter_types = Vec::new();
-        let parameter_captures = def_data.params.parameter_captures();
 
         let mut pop_index = 0;
 
@@ -1405,7 +1404,6 @@ impl InstrNoFlowImpl for InstrDefImpl {
         assert!(pop_index as usize == pop.len());
         let def = eval.heap().alloc(Def::new(
             parameters.finish(),
-            parameter_captures,
             parameter_types,
             return_type,
             def_data.info,
