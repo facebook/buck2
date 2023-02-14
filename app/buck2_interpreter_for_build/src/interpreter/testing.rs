@@ -181,7 +181,7 @@ impl Tester {
         self.prelude_path = Some(prelude_import);
     }
 
-    pub fn interpreter(&self) -> anyhow::Result<Arc<InterpreterForCell>> {
+    fn interpreter(&self) -> anyhow::Result<Arc<InterpreterForCell>> {
         let import_paths = ImplicitImportPaths::parse(
             self.configs
                 .get(self.cell_alias_resolver.resolve_self())
@@ -214,6 +214,13 @@ impl Tester {
             )?),
             Arc::new(import_paths),
         )?))
+    }
+
+    pub fn parse(&self, import: StarlarkPath, content: &str) -> ParseResult {
+        self.interpreter()
+            .unwrap()
+            .parse(import, content.to_owned())
+            .unwrap()
     }
 
     /// Evaluate an import, and add it to the existing loaded_modules() map to be

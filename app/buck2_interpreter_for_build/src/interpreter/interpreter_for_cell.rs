@@ -104,7 +104,7 @@ impl ParseResult {
 /// evaluating that AST. The Interpreter doesn't maintain state or cache results
 /// of parsing or loading imports.
 #[derive(Allocative)]
-pub struct InterpreterForCell {
+pub(crate) struct InterpreterForCell {
     /// Non-cell-specific information.
     global_state: Arc<GlobalInterpreterState>,
     /// Cell-specific alias resolver.
@@ -240,7 +240,7 @@ impl InterpreterForCell {
     }
 
     //, configuror: Arc<dyn InterpreterConfigurer>
-    pub fn new(
+    pub(crate) fn new(
         cell_names: CellAliasResolver,
         global_state: Arc<GlobalInterpreterState>,
         implicit_import_paths: Arc<ImplicitImportPaths>,
@@ -379,7 +379,7 @@ impl InterpreterForCell {
     }
 
     /// Parses skylark code to an AST.
-    pub fn parse(
+    pub(crate) fn parse(
         self: &Arc<Self>,
         import: StarlarkPath,
         content: String,
@@ -419,7 +419,7 @@ impl InterpreterForCell {
         result.with_context(|| StarlarkParseError::InFile(OwnedStarlarkPath::new(import)))
     }
 
-    pub fn resolve_path(
+    pub(crate) fn resolve_path(
         self: &Arc<Self>,
         import: StarlarkPath<'_>,
         import_string: &str,
@@ -481,7 +481,7 @@ impl InterpreterForCell {
     /// Evaluates the AST for a parsed module. Loaded modules must contain the loaded
     /// environment for all (transitive) required imports.
     /// Returns the FrozenModule for the module.
-    pub fn eval_module(
+    pub(crate) fn eval_module(
         self: &Arc<Self>,
         starlark_path: StarlarkModulePath<'_>,
         buckconfig: &dyn LegacyBuckConfigView,
@@ -509,7 +509,7 @@ impl InterpreterForCell {
     /// Evaluates the AST for a parsed build file. Loaded modules must contain the
     /// loaded environment for all (transitive) required imports.
     /// Returns the result of evaluation.
-    pub fn eval_build_file(
+    pub(crate) fn eval_build_file(
         self: &Arc<Self>,
         build_file: &BuildFilePath,
         buckconfig: &dyn LegacyBuckConfigView,

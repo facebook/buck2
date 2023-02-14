@@ -212,29 +212,21 @@ fn cells() -> CellsData {
 fn test_find_imports() {
     let tester = Tester::with_cells(cells()).unwrap();
     let path = BuildFilePath::unchecked_new("cell1", "config", "BUCK");
-    let parse_result = tester
-        .interpreter()
-        .unwrap()
-        .parse(
-            StarlarkPath::BuildFile(&path),
-            indoc!(
-                r#"
+    let parse_result = tester.parse(
+        StarlarkPath::BuildFile(&path),
+        indoc!(
+            r#"
             a = 1
         "#
-            )
-            .to_owned(),
-        )
-        .unwrap();
+        ),
+    );
 
     assert!(parse_result.imports().is_empty());
 
-    let parse_result = tester
-        .interpreter()
-        .unwrap()
-        .parse(
-            StarlarkPath::BuildFile(&path),
-            indoc!(
-                r#"
+    let parse_result = tester.parse(
+        StarlarkPath::BuildFile(&path),
+        indoc!(
+            r#"
             # some documentation
             """ and a string """
 
@@ -245,10 +237,8 @@ fn test_find_imports() {
             # some other comments
             load(":other.bzl", "some_macro")
         "#
-            )
-            .to_owned(),
-        )
-        .unwrap();
+        ),
+    );
 
     assert_eq!(
         &[
