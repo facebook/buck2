@@ -11,19 +11,22 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use buck2_build_api::bxl::calculation::BxlCalculationDyn;
+use buck2_build_api::bxl::calculation::BXL_CALCULATION_IMPL;
 use buck2_build_api::bxl::result::BxlResult;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
 use buck2_common::result::ToUnsharedResultExt;
 use buck2_execute::bxl::types::BxlKey;
 use buck2_interpreter::dice::starlark_profiler::GetStarlarkProfilerInstrumentation;
+use ctor::ctor;
 use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
 
 use crate::bxl::eval::eval;
 
-pub struct BxlCalculationImpl;
+#[derive(Debug)]
+struct BxlCalculationImpl;
 
 #[async_trait]
 impl BxlCalculationDyn for BxlCalculationImpl {
@@ -36,6 +39,13 @@ impl BxlCalculationDyn for BxlCalculationImpl {
             .await?
             .unshared_error()
     }
+}
+
+#[ctor]
+fn set_bxl_calculation_impl() {
+    BXL_CALCULATION_IMPL
+        .set(&BxlCalculationImpl)
+        .expect("BXL_CALCULATION_IMPL already set (internal error)");
 }
 
 #[async_trait]

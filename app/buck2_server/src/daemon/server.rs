@@ -25,7 +25,6 @@ use allocative::Allocative;
 use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_build_api::actions::build_listener;
-use buck2_build_api::bxl::calculation::BxlCalculationDyn;
 use buck2_build_api::configure_dice::configure_dice_for_buck;
 use buck2_build_api::spawner::BuckSpawner;
 use buck2_cli_proto::daemon_api_server::*;
@@ -128,8 +127,6 @@ impl DaemonShutdown {
 struct DaemonStateDiceConstructorImpl {
     /// Whether to detect cycles in Dice
     detect_cycles: Option<DetectCycles>,
-    #[allocative(skip)]
-    bxl_calculations: &'static dyn BxlCalculationDyn,
 }
 
 impl DaemonStateDiceConstructor for DaemonStateDiceConstructorImpl {
@@ -138,12 +135,7 @@ impl DaemonStateDiceConstructor for DaemonStateDiceConstructorImpl {
         io: Arc<dyn IoProvider>,
         root_config: &LegacyBuckConfig,
     ) -> anyhow::Result<Arc<Dice>> {
-        configure_dice_for_buck(
-            io,
-            self.bxl_calculations,
-            Some(root_config),
-            self.detect_cycles,
-        )
+        configure_dice_for_buck(io, Some(root_config), self.detect_cycles)
     }
 }
 
@@ -215,7 +207,6 @@ pub trait BuckdServerDependencies: Send + Sync + 'static {
         ctx: Box<dyn ServerCommandContextTrait>,
         req: buck2_cli_proto::UnstableDocsRequest,
     ) -> anyhow::Result<buck2_cli_proto::UnstableDocsResponse>;
-    fn bxl_calculation(&self) -> &'static dyn BxlCalculationDyn;
     fn configure_bxl_file_globals(&self) -> fn(&mut GlobalsBuilder);
 }
 
@@ -312,10 +303,7 @@ impl BuckdServer {
                 DaemonState::new(
                     fb,
                     paths,
-                    box DaemonStateDiceConstructorImpl {
-                        detect_cycles,
-                        bxl_calculations: callbacks.bxl_calculation(),
-                    },
+                    box DaemonStateDiceConstructorImpl { detect_cycles },
                 )
                 .await,
             ),

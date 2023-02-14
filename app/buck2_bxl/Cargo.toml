@@ -8,6 +8,7 @@ description = "Buck V2 extension language"
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 clap = { workspace = true }
+ctor = { workspace = true }
 derivative = { workspace = true }
 derive_more = { workspace = true }
 either = { workspace = true }

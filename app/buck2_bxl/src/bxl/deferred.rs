@@ -15,7 +15,6 @@ mod tests {
 
     use allocative::Allocative;
     use buck2_build_api::actions::artifact::build_artifact::BuildArtifact;
-    use buck2_build_api::bxl::calculation::BxlCalculationDyn;
     use buck2_build_api::bxl::result::BxlResult;
     use buck2_build_api::calculation::Calculation;
     use buck2_build_api::deferred::types::BaseKey;
@@ -43,7 +42,6 @@ mod tests {
     use indexmap::IndexSet;
 
     use crate::bxl::calculation::testing::BxlComputeKey;
-    use crate::bxl::calculation::BxlCalculationImpl;
 
     #[derive(Allocative)]
     struct FakeDeferred(usize, IndexSet<DeferredInput>, Arc<AtomicBool>);
@@ -90,7 +88,6 @@ mod tests {
         let fs = ProjectRootTemp::new()?;
         let dice = DiceBuilder::new()
             .set_data(|data| data.set_testing_io_provider(&fs))
-            .set_data(|data| data.set::<&dyn BxlCalculationDyn>(&BxlCalculationImpl))
             .mock_and_return(
                 BxlComputeKey(bxl.dupe()),
                 anyhow::Ok(Arc::new(BxlResult::BuildsArtifacts {

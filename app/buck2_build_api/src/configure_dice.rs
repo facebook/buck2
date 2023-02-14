@@ -17,19 +17,15 @@ use buck2_common::legacy_configs::LegacyBuckConfig;
 use dice::DetectCycles;
 use dice::Dice;
 
-use crate::bxl::calculation::BxlCalculationDyn;
-
 /// Utility to configure the dice globals.
 /// One place to not forget to initialize something in all places.
 pub fn configure_dice_for_buck(
     io: Arc<dyn IoProvider>,
-    bxl: &'static dyn BxlCalculationDyn,
     root_config: Option<&LegacyBuckConfig>,
     detect_cycles: Option<DetectCycles>,
 ) -> anyhow::Result<Arc<Dice>> {
     let mut dice = Dice::builder();
     dice.set_io_provider(io);
-    dice.set(bxl);
 
     let detect_cycles = detect_cycles.map_or_else(
         || {

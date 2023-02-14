@@ -20,8 +20,6 @@ use allocative::Allocative;
 use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_audit::server::server_audit_command;
-use buck2_build_api::bxl::calculation::BxlCalculationDyn;
-use buck2_bxl::bxl::calculation::BxlCalculationImpl;
 use buck2_bxl::bxl::starlark_defs::configure_bxl_file_globals;
 use buck2_bxl::command::bxl_command;
 use buck2_bxl::profile_command::bxl_profile_command;
@@ -207,9 +205,6 @@ impl BuckdServerDependencies for BuckdServerDependenciesImpl {
         req: buck2_cli_proto::UnstableDocsRequest,
     ) -> anyhow::Result<buck2_cli_proto::UnstableDocsResponse> {
         docs_command(ctx, req).await
-    }
-    fn bxl_calculation(&self) -> &'static dyn BxlCalculationDyn {
-        &BxlCalculationImpl
     }
     fn configure_bxl_file_globals(&self) -> fn(&mut GlobalsBuilder) {
         configure_bxl_file_globals
