@@ -77,7 +77,7 @@ pub(crate) fn register_provider(builder: &mut GlobalsBuilder) {
 }
 
 #[starlark_module]
-pub(crate) fn register_transitive_set(builder: &mut GlobalsBuilder) {
+pub fn register_transitive_set(builder: &mut GlobalsBuilder) {
     fn transitive_set<'v>(
         args_projections: Option<SmallMap<String, Value<'v>>>,
         json_projections: Option<SmallMap<String, Value<'v>>>,

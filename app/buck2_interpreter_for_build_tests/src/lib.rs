@@ -10,5 +10,5 @@
 #![cfg(test)]
 
 pub mod interpreter;
-#[cfg(test)]
+mod rule;
 mod tests;
