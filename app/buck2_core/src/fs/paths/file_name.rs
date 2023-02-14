@@ -118,12 +118,15 @@ impl FileName {
     #[inline]
     pub fn new<S: ?Sized + AsRef<str>>(s: &S) -> anyhow::Result<&Self> {
         verify_file_name(s.as_ref())?;
-        Ok(Self::unchecked_new(s))
+        Ok(Self::unchecked_new(s.as_ref()))
     }
 
     #[inline]
-    pub fn unchecked_new<S: ?Sized + AsRef<str>>(s: &S) -> &Self {
-        FileName::ref_cast(s.as_ref())
+    pub const fn unchecked_new(s: &str) -> &FileName {
+        unsafe {
+            // SAFETY: `FileName` is `repr(transparent)` over `str`.
+            &*(s as *const str as *const FileName)
+        }
     }
 
     #[inline]
