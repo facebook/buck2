@@ -453,6 +453,7 @@ def convert_python_library_to_executable(
             prefer_stripped_objects = ctx.attrs.prefer_stripped_native_objects,
             link_group_info = link_group_info,
             auto_link_group_specs = auto_link_group_specs,
+            exe_category_suffix = "python_exe",
             extra_link_roots = (
                 extension_info.unembeddable_extensions.values() +
                 extension_info.dlopen_deps.values()

@@ -386,6 +386,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
         strip_args_factory = impl_params.strip_args_factory,
         link_postprocessor = impl_params.link_postprocessor,
         force_full_hybrid_if_capable = impl_params.force_full_hybrid_if_capable,
+        category_suffix = impl_params.exe_category_suffix,
     )
 
     # Define the xcode data sub target
@@ -503,7 +504,8 @@ def _link_into_executable(
         strip: bool.type = False,
         strip_args_factory = None,
         link_postprocessor: ["cmd_args", None] = None,
-        force_full_hybrid_if_capable: bool.type = False) -> (LinkedObject.type, ["_arglike"], ["artifact", None], [""]):
+        force_full_hybrid_if_capable: bool.type = False,
+        category_suffix: [str.type, None] = None) -> (LinkedObject.type, ["_arglike"], ["artifact", None], [""]):
     output = ctx.actions.declare_output("{}{}".format(get_cxx_executable_product_name(ctx), "." + binary_extension if binary_extension else ""))
     extra_args, runtime_files, shared_libs_symlink_tree = executable_shared_lib_arguments(
         ctx.actions,
@@ -518,7 +520,7 @@ def _link_into_executable(
         prefer_local = prefer_local,
         link_weight = link_weight,
         enable_distributed_thinlto = enable_distributed_thinlto,
-        category_suffix = "executable",
+        category_suffix = category_suffix,
         strip = strip,
         strip_args_factory = strip_args_factory,
         executable_link = True,

@@ -166,4 +166,6 @@ CxxRuleConstructorParams = record(
     link_group_info = field([LinkGroupInfo.type, None], None),
     # Whether to use pre-stripped objects when linking.
     prefer_stripped_objects = field(bool.type, False),
+    # The category suffix to use for executables actions (e.g. linking).
+    exe_category_suffix = field(str.type, "executable"),
 )
