@@ -191,7 +191,7 @@ impl CellRelativePath {
     /// # anyhow::Ok(())
     /// ```
     pub fn file_name(&self) -> Option<&FileName> {
-        self.0.file_name().map(FileName::unchecked_new)
+        self.0.file_name()
     }
 
     /// Returns a 'ForwardRelativePath' that, when joined onto `base`, yields
