@@ -11,12 +11,6 @@ use std::sync::Arc;
 
 use anyhow::Context as _;
 use buck2_core::provider::label::ProvidersLabel;
-use buck2_interpreter_for_build::attrs::attribute_as_starlark_value::AttributeAsStarlarkValue;
-use buck2_interpreter_for_build::attrs::coerce::attr_type::AttrTypeExt;
-use buck2_interpreter_for_build::attrs::coerce::ctx::BuildAttrCoercionContext;
-use buck2_interpreter_for_build::interpreter::build_context::BuildContext;
-use buck2_interpreter_for_build::provider::callable::ValueAsProviderCallableLike;
-use buck2_interpreter_for_build::transition::transition_id_from_value;
 use buck2_node::attrs::attr::Attribute;
 use buck2_node::attrs::attr_type::any::AnyAttrType;
 use buck2_node::attrs::attr_type::AttrType;
@@ -28,10 +22,18 @@ use dupe::OptionDupedExt;
 use gazebo::prelude::*;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
+use starlark::starlark_module;
 use starlark::values::Value;
 use starlark::values::ValueError;
 use thiserror::Error;
 use tracing::error;
+
+use crate::attrs::attribute_as_starlark_value::AttributeAsStarlarkValue;
+use crate::attrs::coerce::attr_type::AttrTypeExt;
+use crate::attrs::coerce::ctx::BuildAttrCoercionContext;
+use crate::interpreter::build_context::BuildContext;
+use crate::provider::callable::ValueAsProviderCallableLike;
+use crate::transition::transition_id_from_value;
 
 const OPTION_NONE_EXPLANATION: &str = "`None` as an attribute value always picks the default. For `attrs.option`, if the default isn't `None`, there is no way to express `None`.";
 
@@ -46,7 +48,7 @@ enum AttrError {
     DefaultOnlyMustHaveDefault,
 }
 
-pub(crate) trait AttributeExt {
+pub trait AttributeExt {
     /// Helper to create an attribute from attrs.foo functions
     fn attr<'v>(
         eval: &mut Evaluator<'v, '_>,
@@ -102,7 +104,7 @@ impl AttributeExt for Attribute {
 /// Grab a new coercion context object based on the main build file that is being evaluated.
 /// This is used because we do not have access to a specific shared instance via ctx.extra
 /// when evaluating .bzl files
-pub(crate) fn get_attr_coercion_context<'v>(
+pub fn get_attr_coercion_context<'v>(
     eval: &Evaluator<'v, '_>,
 ) -> anyhow::Result<BuildAttrCoercionContext> {
     Ok(BuildAttrCoercionContext::new_no_package(

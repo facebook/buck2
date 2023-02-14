@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use buck2_interpreter_for_build::attrs::attrs_global::register_attrs;
 use buck2_interpreter_for_build::rule::register_rule_function;
 use fancy_regex::Regex;
 use starlark::environment::GlobalsBuilder;
@@ -15,12 +16,10 @@ use starlark::values::dict::DictRef;
 use starlark::values::none::NoneType;
 use tracing::warn;
 
-use crate::interpreter::rule_defs::attr::register_attrs;
 use crate::interpreter::rule_defs::provider::registration::register_builtin_providers;
 
 pub mod artifact;
 pub mod artifact_tagging;
-pub mod attr;
 pub mod cmd_args;
 pub mod command_executor_config;
 pub mod context;

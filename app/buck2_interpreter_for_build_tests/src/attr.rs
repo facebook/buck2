@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use buck2_build_api::interpreter::rule_defs::attr::register_attrs;
 use buck2_build_api::nodes::hacks::value_to_string;
 use buck2_common::package_listing::listing::testing::PackageListingExt;
 use buck2_common::package_listing::listing::PackageListing;
@@ -15,6 +14,7 @@ use buck2_common::result::SharedResult;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::package::package_relative_path::PackageRelativePathBuf;
 use buck2_core::package::PackageLabel;
+use buck2_interpreter_for_build::attrs::attrs_global::register_attrs;
 use buck2_interpreter_for_build::attrs::coerce::attr_type::AttrTypeExt;
 use buck2_interpreter_for_build::attrs::coerce::ctx::BuildAttrCoercionContext;
 use buck2_interpreter_for_build::interpreter::testing::cells;

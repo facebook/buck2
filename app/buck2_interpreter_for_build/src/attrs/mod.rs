@@ -19,6 +19,7 @@ use starlark::values::Value;
 use crate::attrs::coerce::attr_type::AttrTypeExt;
 
 pub mod attribute_as_starlark_value;
+pub mod attrs_global;
 pub mod coerce;
 
 #[derive(Debug, thiserror::Error)]

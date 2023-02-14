@@ -14,6 +14,7 @@ use allocative::Allocative;
 use buck2_core::bzl::ImportPath;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::target::label::TargetLabel;
+use buck2_interpreter_for_build::attrs::attrs_global::get_attr_coercion_context;
 use buck2_interpreter_for_build::interpreter::build_context::BuildContext;
 use buck2_interpreter_for_build::transition::TransitionValue;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
@@ -37,8 +38,6 @@ use starlark::values::StarlarkValue;
 use starlark::values::StringValue;
 use starlark::values::Trace;
 use starlark::values::Value;
-
-use crate::interpreter::rule_defs::attr::get_attr_coercion_context;
 
 #[derive(Debug, thiserror::Error)]
 enum TransitionError {
