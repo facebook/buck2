@@ -1,0 +1,15 @@
+[buildfile]
+name = BUCK2
+
+[repositories]
+root = .
+prelude = prelude
+ovr_config = prelude
+toolchains = toolchains
+config = config
+buck = none
+fbcode = none
+fbsource = none
+
+[parser]
+target_platform_detector_spec = target:root//...->config//platform:default_platforms

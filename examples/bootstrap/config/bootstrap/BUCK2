@@ -1,0 +1,10 @@
+constraint_setting(
+    name = "bootstrap",
+    visibility = ["PUBLIC"],
+)
+
+constraint_value(
+    name = "use_bootstrap",
+    constraint_setting = ":bootstrap",
+    visibility = ["PUBLIC"],
+)

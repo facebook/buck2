@@ -22,3 +22,7 @@ used to encapsulate build logic.
 ## toolchains
 
 Examples testing the various toolchains included in the prelude.
+
+## bootstrap
+
+A sample project that demonstrates configuration of a bootstrap toolchain.

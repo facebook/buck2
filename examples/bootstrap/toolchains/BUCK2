@@ -1,0 +1,59 @@
+load("@prelude//toolchains:rust.bzl", "system_rust_toolchain")
+load(":toolchain.bzl", "toolchain", "toolchain_alias")
+load(":rust_toolchain.bzl", "rust_toolchain")
+load("@prelude//toolchains:cxx.bzl", "system_cxx_toolchain")
+load("@prelude//toolchains:python.bzl", "system_python_bootstrap_toolchain", "system_python_toolchain")
+
+### Toolchains for Cxx/Python/etc. ###
+system_cxx_toolchain(
+    name = "cxx",
+    visibility = ["PUBLIC"],
+)
+
+system_python_toolchain(
+    name = "python",
+    visibility = ["PUBLIC"],
+)
+
+system_python_bootstrap_toolchain(
+    name = "python_bootstrap",
+    visibility = ["PUBLIC"],
+)
+### Toolchains for Cxx/Python/etc. ###
+
+
+### Toolchains for Rust ###
+# Pick the bootstrap toolchain or normal toolchain (from system) based on the bootstrap constraint
+toolchain_alias(
+   name = "rust",
+   actual = select({
+     "config//bootstrap:use_bootstrap": ":rust_bootstrap_toolchain",
+     "DEFAULT": ":rust_toolchain_with_compiled_rustc",
+   }),
+   visibility = ["PUBLIC"],
+)
+
+system_rust_toolchain(
+    name = "rust_bootstrap_toolchain",
+    default_edition = "2021",
+)
+
+rust_toolchain(
+    name = "rust_toolchain_with_compiled_rustc",
+    compiler = ":rustc_with_bootstrap_toolchain",
+    default_edition = "2021",
+)
+
+configured_alias(
+    name = "rustc_with_bootstrap_toolchain",
+    actual = ":rustc_wrapper",
+    platform = "config//platform:bootstrap_platforms"
+)
+
+rust_binary(
+    name = "rustc_wrapper",
+    # Most basic binary that just execs into rustc
+    srcs = ["rustc_wrapper.rs"],
+    crate_root = "rustc_wrapper.rs",
+)
+### Toolchains for Rust ###
