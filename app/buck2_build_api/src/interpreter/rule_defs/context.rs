@@ -25,6 +25,7 @@ use buck2_execute::execute::request::OutputType;
 use buck2_execute::materialize::http::Checksum;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
 use buck2_interpreter::types::label::Label;
+use buck2_interpreter_for_build::rule::FrozenRuleCallable;
 use chrono::TimeZone;
 use chrono::Utc;
 use derive_more::Display;
@@ -94,7 +95,6 @@ use crate::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::StarlarkCommandLine;
 use crate::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
 use crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
-use crate::interpreter::rule_defs::rule::FrozenRuleCallable;
 
 #[derive(Error, Debug)]
 enum DownloadFileError {

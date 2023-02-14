@@ -18,6 +18,7 @@ use buck2_execute::base_deferred_key::BaseDeferredKey;
 use buck2_execute::execute::request::OutputType;
 use buck2_execute::path::buck_out_path::BuckOutPath;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
+use buck2_interpreter_for_build::rule::FrozenRuleCallable;
 use buck2_node::configuration::execution::ExecutionPlatformResolution;
 use derivative::Derivative;
 use dupe::Dupe;
@@ -53,7 +54,6 @@ use crate::interpreter::rule_defs::artifact::StarlarkArtifactLike;
 use crate::interpreter::rule_defs::artifact::StarlarkDeclaredArtifact;
 use crate::interpreter::rule_defs::artifact::StarlarkOutputArtifact;
 use crate::interpreter::rule_defs::artifact::ValueAsArtifactLike;
-use crate::interpreter::rule_defs::rule::FrozenRuleCallable;
 
 #[derive(Derivative, Trace, Allocative)]
 #[derivative(Debug)]

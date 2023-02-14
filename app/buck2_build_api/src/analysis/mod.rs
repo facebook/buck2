@@ -21,6 +21,7 @@ use buck2_interpreter::starlark_profiler::StarlarkProfileDataAndStats;
 use buck2_interpreter::starlark_profiler::StarlarkProfileModeOrInstrumentation;
 use buck2_interpreter::starlark_profiler::StarlarkProfiler;
 use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
+use buck2_interpreter_for_build::rule::FrozenRuleCallable;
 use buck2_node::configuration::execution::ExecutionPlatformResolution;
 use dice::DiceComputations;
 use futures::Future;
@@ -43,7 +44,6 @@ use crate::interpreter::rule_defs::cmd_args::FrozenCommandLineArgLike;
 use crate::interpreter::rule_defs::context::AnalysisContext;
 use crate::interpreter::rule_defs::provider::builtin::template_placeholder_info::FrozenTemplatePlaceholderInfo;
 use crate::interpreter::rule_defs::provider::collection::ProviderCollection;
-use crate::interpreter::rule_defs::rule::FrozenRuleCallable;
 
 pub(crate) mod anon_targets;
 pub mod calculation;

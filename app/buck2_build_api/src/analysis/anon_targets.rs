@@ -42,6 +42,7 @@ use buck2_execute::base_deferred_key::BaseDeferredKey;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
 use buck2_interpreter::types::label::Label;
 use buck2_interpreter_for_build::attrs::coerce::attr_type::AttrTypeInnerExt;
+use buck2_interpreter_for_build::rule::FrozenRuleCallable;
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::dep::DepAttr;
 use buck2_node::attrs::attr_type::dep::DepAttrTransition;
@@ -92,7 +93,6 @@ use crate::interpreter::rule_defs::context::AnalysisContext;
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use crate::interpreter::rule_defs::provider::collection::ProviderCollection;
 use crate::interpreter::rule_defs::provider::dependency::Dependency;
-use crate::interpreter::rule_defs::rule::FrozenRuleCallable;
 use crate::keep_going;
 use crate::nodes::calculation::find_execution_platform_by_configuration;
 

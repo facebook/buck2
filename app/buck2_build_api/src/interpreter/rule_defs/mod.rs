@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use buck2_interpreter_for_build::rule::register_rule_function;
 use fancy_regex::Regex;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
@@ -25,7 +26,6 @@ pub mod command_executor_config;
 pub mod context;
 pub mod label_relative_path;
 pub mod provider;
-pub mod rule;
 pub mod transition;
 pub mod transitive_set;
 pub mod util;
@@ -58,7 +58,7 @@ fn extra_functions(builder: &mut GlobalsBuilder) {
 
 pub fn register_rule_defs(globals: &mut GlobalsBuilder) {
     register_attrs(globals);
-    rule::register_rule_function(globals);
+    register_rule_function(globals);
     cmd_args::register_cmd_args(globals);
     register_builtin_providers(globals);
     extra_functions(globals);

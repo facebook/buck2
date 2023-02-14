@@ -15,12 +15,6 @@ use std::sync::Arc;
 use allocative::Allocative;
 use buck2_core::bzl::ImportPath;
 use buck2_core::configuration::transition::id::TransitionId;
-use buck2_interpreter_for_build::attrs::attribute_as_starlark_value::AttributeAsStarlarkValue;
-use buck2_interpreter_for_build::interpreter::build_context::BuildContext;
-use buck2_interpreter_for_build::interpreter::module_internals::ModuleInternals;
-use buck2_interpreter_for_build::nodes::attr_spec::AttributeSpecExt;
-use buck2_interpreter_for_build::nodes::unconfigured::TargetNodeExt;
-use buck2_interpreter_for_build::transition::transition_id_from_value;
 use buck2_node::attrs::attr::Attribute;
 use buck2_node::attrs::spec::AttributeSpec;
 use buck2_node::nodes::unconfigured::RuleKind;
@@ -40,6 +34,8 @@ use starlark::environment::GlobalsBuilder;
 use starlark::eval::Arguments;
 use starlark::eval::Evaluator;
 use starlark::eval::ParametersSpec;
+use starlark::starlark_module;
+use starlark::starlark_simple_value;
 use starlark::starlark_type;
 use starlark::values::dict::DictOf;
 use starlark::values::AllocValue;
@@ -51,6 +47,13 @@ use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
+
+use crate::attrs::attribute_as_starlark_value::AttributeAsStarlarkValue;
+use crate::interpreter::build_context::BuildContext;
+use crate::interpreter::module_internals::ModuleInternals;
+use crate::nodes::attr_spec::AttributeSpecExt;
+use crate::nodes::unconfigured::TargetNodeExt;
+use crate::transition::transition_id_from_value;
 
 pub static NAME_ATTRIBUTE_FIELD: &str = "name";
 
