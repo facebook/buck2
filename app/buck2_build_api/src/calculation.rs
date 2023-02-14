@@ -54,7 +54,7 @@ use crate::analysis::calculation as analysis_calculation;
 use crate::artifact_groups::calculation as artifact_group_calculation;
 use crate::artifact_groups::ArtifactGroup;
 use crate::artifact_groups::ArtifactGroupValues;
-use crate::configuration::ConfigurationCalculation;
+use crate::configuration::calculation::ConfigurationCalculation;
 use crate::context::HasBuildContextData;
 use crate::deferred::calculation as deferred_calculation;
 use crate::deferred::types::DeferredData;

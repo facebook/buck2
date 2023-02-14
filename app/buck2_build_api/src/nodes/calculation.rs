@@ -60,7 +60,7 @@ use starlark::collections::SmallSet;
 use thiserror::Error;
 
 use crate::calculation::BuildErrors;
-use crate::configuration::ConfigurationCalculation;
+use crate::configuration::calculation::ConfigurationCalculation;
 use crate::interpreter::rule_defs::transition::calculation_apply_transition::ApplyTransition;
 
 #[derive(Debug, thiserror::Error)]
