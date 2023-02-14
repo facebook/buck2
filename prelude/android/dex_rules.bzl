@@ -351,7 +351,6 @@ def merge_to_split_dex(
         )
 
     input_artifacts = flatten([[
-        input.lib.dex,
         input.lib.weight_estimate,
         input.filtered_class_names_file,
     ] for input in pre_dexed_lib_with_class_names_files]) + ([apk_module_graph_file] if apk_module_graph_file else [])
