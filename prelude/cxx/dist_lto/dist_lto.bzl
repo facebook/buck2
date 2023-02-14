@@ -240,9 +240,9 @@ def cxx_dist_link(
 
                 name = name_for_obj(link_name, linkable.archive.artifact)
                 archive_manifest = ctx.actions.declare_output("%s/%s/manifest.json" % (prepare_cat, name))
-                archive_objects = ctx.actions.declare_output("%s/%s/objects" % (prepare_cat, name))
-                archive_opt_objects = ctx.actions.declare_output("%s/%s/opt_objects" % (prepare_cat, name))
-                archive_indexes = ctx.actions.declare_output("%s/%s/indexes" % (prepare_cat, name))
+                archive_objects = ctx.actions.declare_output("%s/%s/objects" % (prepare_cat, name), dir = True)
+                archive_opt_objects = ctx.actions.declare_output("%s/%s/opt_objects" % (prepare_cat, name), dir = True)
+                archive_indexes = ctx.actions.declare_output("%s/%s/indexes" % (prepare_cat, name), dir = True)
                 archive_plan = ctx.actions.declare_output("%s/%s/plan.json" % (prepare_cat, name))
                 archive_opt_manifest = ctx.actions.declare_output("%s/%s/opt_objects.manifest" % (prepare_cat, name))
                 prepare_args = cmd_args([
