@@ -237,6 +237,7 @@ def create_modules_dir(args: argparse.Namespace) -> None:
         with open(manifest) as manifest_file:
             for dest, src, origin in json.load(manifest_file):
                 dest = Path(dest)
+                src = Path(src)
 
                 # Add `__init__.py` files for all parent dirs (except the root).
                 if dest.suffix in _MODULE_SUFFIXES:
@@ -256,6 +257,7 @@ def create_modules_dir(args: argparse.Namespace) -> None:
     for manifest in args.resource_manifests + args.native_library_manifests:
         with open(manifest) as manifest_file:
             for dest, src, origin in json.load(manifest_file):
+                src = Path(src)
                 add_path_mapping(
                     path_mapping,
                     dirs_to_create,
