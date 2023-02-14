@@ -46,6 +46,8 @@ pub(crate) enum FlowIssue {
     RedundantContinue,
     #[error("A `load` statement not at the top of the file")]
     MisplacedLoad,
+    #[error("Statement at has no effect")]
+    NoEffect,
 }
 
 impl LintWarning for FlowIssue {
@@ -80,6 +82,22 @@ fn is_fail(x: &AstExpr) -> bool {
             _ => false,
         },
         _ => false,
+    }
+}
+
+fn has_effect(x: &AstExpr) -> bool {
+    match &**x {
+        Expr::Literal(x) => {
+            // String literals have the "effect" of providing documentation
+            matches!(x, AstLiteral::String(_))
+        }
+        Expr::Lambda(_) => false,
+        Expr::If(_) | Expr::Tuple(_) | Expr::List(_) | Expr::Dict(_) => {
+            let mut res = false;
+            x.visit_expr(|x| res = res || has_effect(x));
+            res
+        }
+        _ => true,
     }
 }
 
@@ -277,12 +295,22 @@ fn misplaced_load(codemap: &CodeMap, x: &AstStmt, res: &mut Vec<LintT<FlowIssue>
     }
 }
 
+fn no_effect(codemap: &CodeMap, x: &AstStmt, res: &mut Vec<LintT<FlowIssue>>) {
+    match &**x {
+        Stmt::Expression(x) if !has_effect(x) => {
+            res.push(LintT::new(codemap, x.span, FlowIssue::NoEffect))
+        }
+        _ => x.visit_stmt(|x| no_effect(codemap, x, res)),
+    }
+}
+
 pub(crate) fn flow_issues(module: &AstModule) -> Vec<LintT<FlowIssue>> {
     let mut res = Vec::new();
     stmt(&module.codemap, &module.statement, &mut res);
     reachable(&module.codemap, &module.statement, &mut res);
     redundant(&module.codemap, &module.statement, &mut res);
     misplaced_load(&module.codemap, &module.statement, &mut res);
+    no_effect(&module.codemap, &module.statement, &mut res);
     res
 }
 
@@ -457,5 +485,26 @@ load("c", "b")
         let mut res = Vec::new();
         misplaced_load(&m.codemap, &m.statement, &mut res);
         assert_eq!(res.len(), 1);
+    }
+
+    #[test]
+    fn test_lint_no_effect() {
+        let m = module(
+            r#"
+"""
+a doc block
+"""
+load("b", "b")
+
+x = 1
+7
+def foo():
+    [18]
+1 + 2
+"#,
+        );
+        let mut res = Vec::new();
+        no_effect(&m.codemap, &m.statement, &mut res);
+        assert_eq!(res.map(|x| x.location.resolve_span().begin_line), &[7, 9]);
     }
 }
