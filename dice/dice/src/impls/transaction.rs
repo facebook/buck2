@@ -16,7 +16,7 @@ use crate::api::error::DiceError;
 use crate::api::error::DiceResult;
 use crate::api::key::Key;
 use crate::api::user_data::UserComputationData;
-use crate::impls::ctx::ComputationCtx;
+use crate::impls::ctx::PerComputeCtx;
 use crate::impls::key::DiceKey;
 use crate::impls::key::DiceKeyDynExt;
 use crate::impls::value::DiceComputedValue;
@@ -70,17 +70,17 @@ impl TransactionUpdater {
     }
 
     /// Commit the changes registered via 'changed' and 'changed_to' to the current newest version.
-    pub(crate) fn commit(self) -> ComputationCtx {
+    pub(crate) fn commit(self) -> PerComputeCtx {
         unimplemented!("todo")
     }
 
     /// Commit the changes registered via 'changed' and 'changed_to' to the current newest version,
     /// replacing the user data with the given set
-    pub(crate) fn commit_with_data(self, _extra: UserComputationData) -> ComputationCtx {
+    pub(crate) fn commit_with_data(self, _extra: UserComputationData) -> PerComputeCtx {
         unimplemented!("todo")
     }
 
-    pub(crate) fn existing_state(&self) -> ComputationCtx {
+    pub(crate) fn existing_state(&self) -> PerComputeCtx {
         unimplemented!("todo")
     }
 }

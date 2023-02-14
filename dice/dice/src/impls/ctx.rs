@@ -8,6 +8,7 @@
  */
 
 use std::future::Future;
+use std::sync::Arc;
 
 use allocative::Allocative;
 use dupe::Dupe;
@@ -20,11 +21,12 @@ use crate::api::user_data::UserComputationData;
 use crate::impls::opaque::OpaqueValueModern;
 use crate::versions::VersionNumber;
 
+/// Context given to the `compute` function of a `Key`.
 #[derive(Allocative, Dupe, Clone)]
-pub(crate) struct ComputationCtx {}
+pub(crate) struct PerComputeCtx {}
 
 #[allow(clippy::manual_async_fn)]
-impl ComputationCtx {
+impl PerComputeCtx {
     /// Gets all the result of of the given computation key.
     /// recorded as dependencies of the current computation for which this
     /// context is for.
@@ -60,7 +62,7 @@ impl ComputationCtx {
         f: F,
     ) -> impl Future<Output = R> + Send + 'static
     where
-        F: FnOnce(ComputationCtx) -> FUT + Send + 'static,
+        F: FnOnce(PerComputeCtx) -> FUT + Send + 'static,
         FUT: Future<Output = R> + Send,
         R: Send + 'static,
     {
@@ -86,6 +88,45 @@ impl ComputationCtx {
     }
 
     pub(crate) fn into_updater(self) -> DiceTransactionUpdater {
+        unimplemented!("todo")
+    }
+}
+
+/// Context that is shared for all current live computations of the same version.
+#[derive(Allocative)]
+pub(crate) struct PerLiveTransactionCtx {}
+
+#[allow(clippy::manual_async_fn)]
+impl PerLiveTransactionCtx {
+    /// Compute "opaque" value where the value is only accessible via projections.
+    /// Projections allow accessing derived results from the "opaque" value,
+    /// where the dependency of reading a projection is the projection value rather
+    /// than the entire opaque value.
+    pub(crate) fn compute_opaque<'b, 'a: 'b, K>(
+        self: &Arc<Self>,
+        key: &'b K,
+    ) -> impl Future<Output = DiceResult<OpaqueValueModern<K>>> + 'b
+    where
+        K: Key,
+    {
+        async move { unimplemented!("todo") }
+    }
+
+    /// Data that is static per the entire lifetime of Dice. These data are initialized at the
+    /// time that Dice is initialized via the constructor.
+    pub(crate) fn global_data(&self) -> &DiceData {
+        unimplemented!("todo")
+    }
+
+    /// Data that is static for the lifetime of the current request context. This lifetime is
+    /// the lifetime of the top-level `DiceComputation` used for all requests.
+    /// The data is also specific to each request context, so multiple concurrent requests can
+    /// each have their own individual data.
+    pub(crate) fn per_transaction_data(&self) -> &UserComputationData {
+        unimplemented!("todo")
+    }
+
+    pub(crate) fn get_version(&self) -> VersionNumber {
         unimplemented!("todo")
     }
 }
