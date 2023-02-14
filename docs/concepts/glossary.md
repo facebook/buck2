@@ -49,17 +49,21 @@ A BUILD file (also often named `BUCK` or `TARGETS`, this is configurable) is the
 🚧   THIS SECTION IS UNDER CONSTRUCTION
 :::
 #### Dependency
-:::note
-🚧   THIS SECTION IS UNDER CONSTRUCTION
-:::
+
+A directed edge between two [targets](#target). A target `A` can have a dependency on target `B`, for example, if any `dep` attribute of `A` mentions `B`. Whether a target can depend on another target depends on the [visibility](#visibility) of the later.
+
 #### Execution platform
-:::note
-🚧   THIS SECTION IS UNDER CONSTRUCTION
-:::
+
+A type of [rule](#rule) that includes information such as which execution types a [target](#target) supports, which can be [remote](#remote-execution-re), local and [hybrid](#hybrid-execution) execution. Also whether it supports cache uploads, which allows us to get cache hits for things that executed locally.
+
+#### Hybrid execution
+
+Enables shifting work to the local host when available parallelism in the build is low. This lets us save on [remote execution](#remote-execution-re) round-trips to enable faster builds.
+
 #### Isolation dir
-:::note
-🚧   THIS SECTION IS UNDER CONSTRUCTION
-:::
+
+Instances of Buck2 share a [daemon](#daemon) if and only if their isolation directory is identical. The isolation directory also influences the output paths provided by Buck2.
+
 #### Target pattern
 :::note
 🚧   THIS SECTION IS UNDER CONSTRUCTION
