@@ -23,6 +23,7 @@ use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_events::dispatch::console_message;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::DiceTransactionUpdater;
@@ -198,7 +199,16 @@ async fn get_default_file_ops(dice: &DiceComputations) -> SharedResult<Arc<dyn F
                         file_name,
                     });
                 } else {
-                    let file_name = FileNameBuf::try_from(file_name)?;
+                    let file_name = match FileNameBuf::try_from_or_get_back(file_name) {
+                        Ok(file_name) => file_name,
+                        Err(file_name) => {
+                            console_message(format!(
+                                "File name `{file_name}` is not valid. \
+                                    Add the path to `project.ignore` to mute this message",
+                            ));
+                            continue;
+                        }
+                    };
                     included_entries.push(SimpleDirEntry {
                         file_type,
                         file_name,

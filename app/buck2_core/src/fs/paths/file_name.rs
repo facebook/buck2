@@ -209,6 +209,15 @@ impl FileNameBuf {
     }
 
     #[inline]
+    pub fn try_from_or_get_back(s: CompactString) -> Result<FileNameBuf, CompactString> {
+        if verify_file_name(&s).is_ok() {
+            Ok(FileNameBuf(s))
+        } else {
+            Err(s)
+        }
+    }
+
+    #[inline]
     pub fn into_inner(self) -> CompactString {
         self.0
     }
