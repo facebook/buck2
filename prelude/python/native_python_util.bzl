@@ -74,8 +74,9 @@ def rewrite_static_symbols(
         pic_objects: ["artifact"],
         non_pic_objects: ["artifact"],
         libraries: {LinkStyle.type: LinkInfos.type},
-        cxx_toolchain: "CxxToolchainInfo") -> {LinkStyle.type: LinkInfos.type}:
-    symbols_file = write_syms_file(ctx, pic_objects + non_pic_objects, suffix, cxx_toolchain)
+        cxx_toolchain: "CxxToolchainInfo",
+        suffix_all: bool.type = False) -> {LinkStyle.type: LinkInfos.type}:
+    symbols_file = write_syms_file(ctx, pic_objects + non_pic_objects, suffix, cxx_toolchain, suffix_all = suffix_all)
     static_objects, stripped_static_objects = suffix_symbols(ctx, suffix, non_pic_objects, symbols_file, cxx_toolchain)
     static_pic_objects, stripped_static_pic_objects = suffix_symbols(ctx, suffix, pic_objects, symbols_file, cxx_toolchain)
 
@@ -116,7 +117,8 @@ def write_syms_file(
         ctx: "context",
         objects: ["artifact"],
         suffix: str.type,
-        cxx_toolchain: "CxxToolchainInfo") -> "artifact":
+        cxx_toolchain: "CxxToolchainInfo",
+        suffix_all: bool.type = False) -> "artifact":
     """
     Take a list of objects and append a suffix to all  defined symbols.
     """
@@ -142,8 +144,12 @@ def write_syms_file(
     # objcopy uses a list of symbol name followed by updated name e.g. 'PyInit_hello PyInit_hello_package_module'
     script = (
         "set -euo pipefail; " +  # fail if any command in the script fails
-        '"$NM" --no-sort --defined-only -j $OBJECTS | sed "/:$/d;/^$/d" | sort -u |  ' +
-        'awk \'{{print $1" "$1"_{suffix}"}}\' > '.format(suffix = suffix) +
+        '"$NM" --no-sort --defined-only -j $OBJECTS | sed "/:$/d;/^$/d" | sort -u'
+    )
+    if not suffix_all:
+        script += ' | grep "^PyInit_"'
+    script += (
+        ' | awk \'{{print $1" "$1"_{suffix}"}}\' > '.format(suffix = suffix) +
         '"$SYMSFILE";'
     )
     ctx.actions.run(

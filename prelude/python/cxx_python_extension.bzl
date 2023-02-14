@@ -152,6 +152,7 @@ def cxx_python_extension_impl(ctx: "context") -> ["provider"]:
                 non_pic_objects = static_output.object_files,
                 libraries = libraries.libraries,
                 cxx_toolchain = cxx_toolchain,
+                suffix_all = ctx.attrs.suffix_all,
             )
             pyinit_symbol = "PyInit_{}_{}".format(module_name, suffix)
 
