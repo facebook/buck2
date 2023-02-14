@@ -15,6 +15,8 @@ use buck2_interpreter::extra::buckconfig::LegacyBuckConfigForStarlark;
 use buck2_interpreter::extra::cell_info::InterpreterCellInfo;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
+use buck2_interpreter::file_type::StarlarkFileType;
+use buck2_interpreter::path::StarlarkModulePath;
 use buck2_interpreter::path::StarlarkPath;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::Module;
@@ -29,6 +31,47 @@ enum BuildContextError {
         "This function is unavailable during analysis (usual solution is to place the information on a toolchain)"
     )]
     UnavailableDuringAnalysis,
+    #[error("Expecting a build file; current file type context is {0:?}")]
+    NotBuildFile(StarlarkFileType),
+}
+
+#[derive(Debug)]
+pub(crate) enum PerFileTypeContext {
+    /// Context for evaluating `BUCK` files.
+    Build(ModuleInternals),
+    Bzl,
+    Bxl,
+}
+
+impl PerFileTypeContext {
+    fn file_type(&self) -> StarlarkFileType {
+        match self {
+            PerFileTypeContext::Build(..) => StarlarkFileType::Buck,
+            PerFileTypeContext::Bzl => StarlarkFileType::Bzl,
+            PerFileTypeContext::Bxl => StarlarkFileType::Bxl,
+        }
+    }
+
+    pub(crate) fn require_build(&self) -> anyhow::Result<&ModuleInternals> {
+        match self {
+            PerFileTypeContext::Build(internals) => Ok(internals),
+            x => Err(BuildContextError::NotBuildFile(x.file_type()).into()),
+        }
+    }
+
+    pub(crate) fn into_build(self) -> anyhow::Result<ModuleInternals> {
+        match self {
+            PerFileTypeContext::Build(internals) => Ok(internals),
+            x => Err(BuildContextError::NotBuildFile(x.file_type()).into()),
+        }
+    }
+
+    pub(crate) fn for_module(path: StarlarkModulePath) -> PerFileTypeContext {
+        match path {
+            StarlarkModulePath::LoadFile(_) => PerFileTypeContext::Bzl,
+            StarlarkModulePath::BxlFile(_) => PerFileTypeContext::Bxl,
+        }
+    }
 }
 
 /// Buck-specific information exposed to the starlark environment via the context's extra field.
@@ -64,9 +107,8 @@ pub struct BuildContext<'a> {
 
     pub host_architecture: InterpreterHostArchitecture,
 
-    /// Additional dynamic information passed in via the interpreter
-    /// configurator
-    pub additional: Option<ModuleInternals>,
+    /// Context specific to type type.
+    pub(crate) additional: PerFileTypeContext,
 
     /// When true, rule function is no-op.
     pub ignore_attrs_for_profiling: bool,
@@ -74,7 +116,7 @@ pub struct BuildContext<'a> {
 
 impl<'a> BuildContext<'a> {
     /// Create a build context for the given module.
-    pub fn new_for_module(
+    pub(crate) fn new_for_module(
         module: &'a Module,
         cell_info: &'a InterpreterCellInfo,
         buckconfig: &'a (dyn LegacyBuckConfigView + 'a),
@@ -82,7 +124,7 @@ impl<'a> BuildContext<'a> {
         starlark_path: StarlarkPath<'a>,
         host_platform: InterpreterHostPlatform,
         host_architecture: InterpreterHostArchitecture,
-        additional: Option<ModuleInternals>,
+        additional: PerFileTypeContext,
         ignore_attrs_for_profiling: bool,
     ) -> BuildContext<'a> {
         let buckconfig = LegacyBuckConfigForStarlark::new(module, buckconfig);
@@ -127,11 +169,6 @@ impl<'a> BuildContext<'a> {
 impl ModuleInternals {
     /// Try to get this inner context from the `ctx.extra` property.
     pub fn from_context<'a>(ctx: &'a Evaluator) -> anyhow::Result<&'a Self> {
-        match &BuildContext::from_context(ctx)?.additional {
-            None => Err(anyhow::anyhow!(
-                "Unable to access module internals. This could be due to accessing it in the context of interpreting a .bzl file."
-            )),
-            Some(v) => Ok(v),
-        }
+        BuildContext::from_context(ctx)?.additional.require_build()
     }
 }

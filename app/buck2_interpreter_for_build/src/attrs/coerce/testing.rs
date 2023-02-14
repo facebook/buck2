@@ -37,6 +37,7 @@ use starlark::values::Value;
 
 use crate::attrs::coerce::ctx::BuildAttrCoercionContext;
 use crate::interpreter::build_context::BuildContext;
+use crate::interpreter::build_context::PerFileTypeContext;
 
 pub trait CoercedAttrExt {
     fn from_literal(lit: AttrLiteral<CoercedAttr>) -> Self;
@@ -105,7 +106,7 @@ pub fn to_value<'v>(env: &'v Module, globals: &Globals, content: &str) -> Value<
         StarlarkPath::LoadFile(&import_path),
         InterpreterHostPlatform::Linux,
         InterpreterHostArchitecture::X86_64,
-        None,
+        PerFileTypeContext::Bzl,
         false,
     );
     eval.extra = Some(&build_ctx);

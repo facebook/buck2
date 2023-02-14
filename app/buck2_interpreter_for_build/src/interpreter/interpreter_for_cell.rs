@@ -49,6 +49,7 @@ use starlark::syntax::AstModule;
 use thiserror::Error;
 
 use crate::interpreter::build_context::BuildContext;
+use crate::interpreter::build_context::PerFileTypeContext;
 use crate::interpreter::global_interpreter_state::GlobalInterpreterState;
 use crate::interpreter::module_internals::ModuleInternals;
 
@@ -434,9 +435,9 @@ impl InterpreterForCell {
         buckconfig: &dyn LegacyBuckConfigView,
         root_buckconfig: &dyn LegacyBuckConfigView,
         loaded_modules: LoadedModules,
-        extra_context: Option<ModuleInternals>,
+        extra_context: PerFileTypeContext,
         profiler: &mut StarlarkProfilerOrInstrumentation,
-    ) -> anyhow::Result<Option<ModuleInternals>> {
+    ) -> anyhow::Result<PerFileTypeContext> {
         let globals = self.global_state.globals_for_file_type(import.file_type());
         let file_loader =
             InterpreterFileLoader::new(loaded_modules, Arc::new(self.load_resolver(import)));
@@ -497,7 +498,7 @@ impl InterpreterForCell {
             buckconfig,
             root_buckconfig,
             loaded_modules,
-            None,
+            PerFileTypeContext::for_module(starlark_path),
             &mut StarlarkProfilerOrInstrumentation::maybe_instrumentation(
                 starlark_profiler_instrumentation,
             ),
@@ -533,10 +534,10 @@ impl InterpreterForCell {
                 buckconfig,
                 root_buckconfig,
                 loaded_modules,
-                Some(internals),
+                PerFileTypeContext::Build(internals),
                 profiler,
             )?
-            .expect("We sent a context, expect one back");
+            .into_build()?;
 
         Ok(EvaluationResult::from(internals))
     }
