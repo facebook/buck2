@@ -7,11 +7,5 @@
  * of this source tree.
  */
 
-#![cfg(test)]
-
-#[cfg(test)]
-mod attr;
-mod functions;
-pub mod interpreter;
-mod rule;
-mod tests;
+mod host_info;
+mod read_config;

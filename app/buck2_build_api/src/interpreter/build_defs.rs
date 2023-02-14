@@ -159,8 +159,6 @@ mod tests {
     use buck2_core::bzl::ImportPath;
     use buck2_interpreter::file_loader::LoadedModules;
     use buck2_interpreter::path::OwnedStarlarkModulePath;
-    use buck2_interpreter_for_build::interpreter::functions::host_info::register_host_info;
-    use buck2_interpreter_for_build::interpreter::functions::read_config::register_read_config;
     use buck2_interpreter_for_build::interpreter::natives::register_module_natives;
     use buck2_interpreter_for_build::interpreter::testing::buildfile;
     use buck2_interpreter_for_build::interpreter::testing::cells;
@@ -312,63 +310,6 @@ mod tests {
                 assert_eq(True, instance.y)
                 assert_eq(DocInfo(x = 2, y = True), instance)
             "#
-        ))?;
-        Ok(())
-    }
-
-    #[test]
-    fn test_read_config() -> anyhow::Result<()> {
-        let mut tester = Tester::new().unwrap();
-        tester.set_additional_globals(register_read_config);
-        tester.run_starlark_test(indoc!(
-            r#"
-            def test():
-                assert_eq("default", read_config("missing_section", "key", "default"))
-                assert_eq("default", read_config("section", "missing_key", "default"))
-                assert_eq(1, read_config("section", "missing_key", 1))
-                assert_eq(None, read_config("section", "missing_key", None))
-
-                assert_eq("value", read_config("section", "key", "default"))
-                assert_eq("value", read_config("section", "key"))
-
-                assert_eq("1", read_config("section", "other"))
-                assert_eq("hello world!", read_config("section", "multiline"))
-                assert_eq("okay", read_config("config", "key"))
-            "#
-        ))?;
-        Ok(())
-    }
-
-    #[test]
-    fn test_host_info() -> anyhow::Result<()> {
-        let mut tester = Tester::new().unwrap();
-        tester.set_additional_globals(register_host_info);
-        tester.run_starlark_test(indoc!(
-            r#"
-            def test():
-                assert_eq(True, host_info().os.is_linux)
-                assert_eq(False, host_info().os.is_macos)
-                assert_eq(False, host_info().os.is_macos)
-
-                assert_eq(True, host_info().arch.is_x86_64)
-                assert_eq(False, host_info().arch.is_arm)
-                assert_eq(False, host_info().arch.is_mipsel64)
-
-            "#
-        ))?;
-        Ok(())
-    }
-
-    #[test]
-    fn test_buck_v2() -> anyhow::Result<()> {
-        let mut tester = Tester::new().unwrap();
-        tester.set_additional_globals(register_host_info);
-        tester.run_starlark_test(indoc!(
-            r#"
-            def test():
-                assert_eq(True, hasattr(host_info(), "buck2"))
-                assert_eq(False, hasattr(host_info(), "buck1"))
-        "#
         ))?;
         Ok(())
     }
