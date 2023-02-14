@@ -77,7 +77,7 @@ impl NameWarning {
     }
 }
 
-pub(crate) fn name_warnings(
+pub(crate) fn lint(
     module: &AstModule,
     globals: Option<&HashSet<String>>,
 ) -> Vec<LintT<NameWarning>> {

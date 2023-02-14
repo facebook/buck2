@@ -304,7 +304,7 @@ fn no_effect(codemap: &CodeMap, x: &AstStmt, res: &mut Vec<LintT<FlowIssue>>) {
     }
 }
 
-pub(crate) fn flow_issues(module: &AstModule) -> Vec<LintT<FlowIssue>> {
+pub(crate) fn lint(module: &AstModule) -> Vec<LintT<FlowIssue>> {
     let mut res = Vec::new();
     stmt(&module.codemap, &module.statement, &mut res);
     reachable(&module.codemap, &module.statement, &mut res);

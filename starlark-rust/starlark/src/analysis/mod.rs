@@ -46,19 +46,11 @@ impl AstModule {
     /// The precise checks run by the linter are not considered stable between versions.
     pub fn lint(&self, globals: Option<&HashSet<String>>) -> Vec<Lint> {
         let mut res = Vec::new();
-        res.extend(flow::flow_issues(self).into_iter().map(LintT::erase));
-        res.extend(
-            incompatible::incompatibilities(self)
-                .into_iter()
-                .map(LintT::erase),
-        );
-        res.extend(dubious::dubious(self).into_iter().map(LintT::erase));
-        res.extend(
-            names::name_warnings(self, globals)
-                .into_iter()
-                .map(LintT::erase),
-        );
-        res.extend(performance::performance(self).into_iter().map(LintT::erase));
+        res.extend(flow::lint(self).into_iter().map(LintT::erase));
+        res.extend(incompatible::lint(self).into_iter().map(LintT::erase));
+        res.extend(dubious::lint(self).into_iter().map(LintT::erase));
+        res.extend(names::lint(self, globals).into_iter().map(LintT::erase));
+        res.extend(performance::lint(self).into_iter().map(LintT::erase));
         res
     }
 }

@@ -113,7 +113,7 @@ fn check_call_expr(module: &AstModule, res: &mut Vec<LintT<Performance>>) {
         .visit_expr(|x| check(&module.codemap, x, res));
 }
 
-pub(crate) fn performance(module: &AstModule) -> Vec<LintT<Performance>> {
+pub(crate) fn lint(module: &AstModule) -> Vec<LintT<Performance>> {
     let mut res = Vec::new();
     check_call_expr(module, &mut res);
     res

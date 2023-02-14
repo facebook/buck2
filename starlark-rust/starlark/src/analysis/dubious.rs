@@ -110,7 +110,7 @@ fn duplicate_dictionary_key(module: &AstModule, res: &mut Vec<LintT<Dubious>>) {
         .visit_expr(|x| expr(x, &module.codemap, res))
 }
 
-pub(crate) fn dubious(module: &AstModule) -> Vec<LintT<Dubious>> {
+pub(crate) fn lint(module: &AstModule) -> Vec<LintT<Dubious>> {
     let mut res = Vec::new();
     duplicate_dictionary_key(module, &mut res);
     res

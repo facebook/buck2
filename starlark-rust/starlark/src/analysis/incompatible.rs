@@ -189,7 +189,7 @@ fn duplicate_top_level_assignment(module: &AstModule, res: &mut Vec<LintT<Incomp
     )
 }
 
-pub(crate) fn incompatibilities(module: &AstModule) -> Vec<LintT<Incompatibility>> {
+pub(crate) fn lint(module: &AstModule) -> Vec<LintT<Incompatibility>> {
     let mut res = Vec::new();
     bad_type_equality(module, &mut res);
     duplicate_top_level_assignment(module, &mut res);
