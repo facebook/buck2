@@ -9,6 +9,8 @@
 
 use std::collections::HashSet;
 use std::collections::VecDeque;
+use std::fmt;
+use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::sync::Arc;
 
@@ -96,6 +98,7 @@ pub struct ConfiguredGraphQueryEnvironment<'a> {
     delegate: &'a dyn ConfiguredGraphQueryEnvironmentDelegate,
 }
 
+#[derive(Debug)]
 struct ConfiguredGraphFunctions<'a>(PhantomData<&'a ()>);
 #[query_module(ConfiguredGraphQueryEnvironment<'a>)]
 impl<'a> ConfiguredGraphFunctions<'a> {
@@ -136,6 +139,12 @@ impl<'a> ConfiguredGraphQueryEnvironment<'a> {
         struct Functions<'a> {
             defaults: DefaultQueryFunctionsModule<ConfiguredGraphQueryEnvironment<'a>>,
             extra_functions: ConfiguredGraphFunctions<'a>,
+        }
+
+        impl Debug for Functions<'_> {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.debug_struct("Functions").finish_non_exhaustive()
+            }
         }
 
         impl<'a> QueryFunctions for Functions<'a> {

@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::fmt;
+use std::fmt::Debug;
 use std::marker::PhantomData;
 
 use allocative::Allocative;
@@ -46,7 +48,7 @@ pub trait HasModuleDescription {
 }
 
 #[async_trait]
-pub trait QueryFunctions: Send + Sync {
+pub trait QueryFunctions: Debug + Send + Sync {
     type Env: QueryEnvironment;
 
     fn get(&self, name: &str) -> Option<&dyn QueryFunction<Self::Env>>;
@@ -54,7 +56,7 @@ pub trait QueryFunctions: Send + Sync {
     fn get_op(&self, op: BinaryOp) -> Option<&dyn QueryBinaryOp<Self::Env>>;
 }
 
-pub trait QueryFunctionsVisitLiterals: Send + Sync {
+pub trait QueryFunctionsVisitLiterals: Debug + Send + Sync {
     fn visit_literals(
         &self,
         visitor: &mut dyn QueryLiteralVisitor,
@@ -151,6 +153,13 @@ impl<F: QueryFunctions> QueryFunctionsVisitLiterals for F {
 #[allocative(bound = "")]
 pub struct DefaultQueryFunctionsModule<Env: QueryEnvironment> {
     implementation: DefaultQueryFunctions<Env>,
+}
+
+impl<Env: QueryEnvironment> Debug for DefaultQueryFunctionsModule<Env> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("DefaultQueryFunctionsModule")
+            .finish_non_exhaustive()
+    }
 }
 
 impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
@@ -628,6 +637,13 @@ impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
 pub struct AugmentedQueryFunctions<'a, Env: QueryEnvironment> {
     inner: &'a dyn QueryFunctions<Env = Env>,
     extra: Box<dyn QueryFunctions<Env = Env> + 'a>,
+}
+
+impl<'a, Env: QueryEnvironment> Debug for AugmentedQueryFunctions<'a, Env> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("AugmentedQueryFunctions")
+            .finish_non_exhaustive()
+    }
 }
 
 impl<'a, Env: QueryEnvironment> AugmentedQueryFunctions<'a, Env> {

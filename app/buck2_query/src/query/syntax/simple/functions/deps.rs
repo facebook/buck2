@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::fmt;
+use std::fmt::Debug;
 use std::marker::PhantomData;
 
 use async_trait::async_trait;
@@ -27,6 +29,13 @@ use crate::query::syntax::simple::functions::QueryFunctions;
 
 pub(crate) struct DepsContextFunctions<'a, Env: QueryEnvironment> {
     target: &'a Env::Target,
+}
+
+impl<'a, Env: QueryEnvironment> Debug for DepsContextFunctions<'a, Env> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("DepsContextFunctions")
+            .finish_non_exhaustive()
+    }
 }
 
 #[query_module(Env)]
