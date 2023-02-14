@@ -21,6 +21,7 @@ use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::dice::LegacyBuckConfigOnDice;
 use buck2_common::package_boundary::HasPackageBoundaryExceptions;
 use buck2_common::package_listing::dice::HasPackageListingResolver;
+use buck2_common::package_listing::listing::PackageListing;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToUnsharedResultExt;
 use buck2_core::build_file_path::BuildFilePath;
@@ -271,12 +272,11 @@ impl<'c> DiceCalculationDelegate<'c> {
         ))
     }
 
-    pub async fn eval_build_file(
+    async fn resolve_package_listing(
         &self,
         package: PackageLabel,
-        profiler: &mut StarlarkProfilerOrInstrumentation<'_>,
-    ) -> anyhow::Result<EvaluationResult> {
-        let listing = span_async(
+    ) -> anyhow::Result<PackageListing> {
+        span_async(
             buck2_data::LoadPackageStart {
                 path: package.as_cell_path().to_string(),
             },
@@ -292,7 +292,15 @@ impl<'c> DiceCalculationDelegate<'c> {
                 )
             },
         )
-        .await?;
+        .await
+    }
+
+    pub async fn eval_build_file(
+        &self,
+        package: PackageLabel,
+        profiler: &mut StarlarkProfilerOrInstrumentation<'_>,
+    ) -> anyhow::Result<EvaluationResult> {
+        let listing = self.resolve_package_listing(package.dupe()).await?;
         let package_boundary_exception = self
             .ctx
             .get_package_boundary_exception(package.as_cell_path())
