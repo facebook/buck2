@@ -4,21 +4,17 @@ title: Glossary
 ---
 
 #### .buckconfig
-:::note
-🚧   THIS SECTION IS UNDER CONSTRUCTION
-:::
+The root of your [project](#project) must contain a configuration file named `.buckconfig`. Before executing, Buck2 reads this file to incorporate specified customizations. Performs the same role as it did in Buck1. See more: [Legacy docs](https://buck2.build/docs/legacy/files-and-directories/dot-buckconfig).
+
 #### Action
-:::note
-🚧   THIS SECTION IS UNDER CONSTRUCTION
-:::
+An individual, cacheable, ideally hermetic command that's run during the [build](#build). It takes [artifacts](#artifact) as inputs and produces other artifacts as outputs. An example command could be `gcc -o main main.c` which takes the artifact `main.c` (a source file) and produces the artifact called `main` (the compiled binary).
+
 #### Action graph
-:::note
-🚧   THIS SECTION IS UNDER CONSTRUCTION
-:::
+It's the dependency graph of all the [actions](#action) belonging to a target. Can be queried with `buck2 aquery`.
+
 #### Artifact
-:::note
-🚧   THIS SECTION IS UNDER CONSTRUCTION
-:::
+A single input or output of an [action](#action). These are files that participate as inputs or outputs of a build. These can be source files or build outputs. See also: [Artifact API](https://buck2.build/docs/generated/native/Artifact/).
+
 #### Attribute
 :::note
 🚧   THIS SECTION IS UNDER CONSTRUCTION
