@@ -6,7 +6,6 @@
 # of this source tree.
 
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
-load("@prelude//utils:anon_targets.bzl", "anon_targets")
 load(":apple_sdk_modules_utility.bzl", "SDKDepTSet", "get_compiled_sdk_deps_tset")
 load(":apple_utility.bzl", "expand_relative_prefixed_sdk_path")
 load(":swift_module_map.bzl", "write_swift_module_map")
@@ -103,7 +102,7 @@ def _swift_interface_compilation_impl(ctx: "context") -> ["promise", ["provider"
         ctx.attrs.dep[SdkUncompiledModuleInfo].deps,
     )
 
-    return anon_targets(ctx, sdk_pcm_deps_anon_targets + sdk_swift_interface_anon_targets, k)
+    return ctx.actions.anon_targets(sdk_pcm_deps_anon_targets + sdk_swift_interface_anon_targets).map(k)
 
 _swift_interface_compilation = rule(
     impl = _swift_interface_compilation_impl,

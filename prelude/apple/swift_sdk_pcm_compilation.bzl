@@ -6,7 +6,6 @@
 # of this source tree.
 
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
-load("@prelude//utils:anon_targets.bzl", "anon_targets")
 load(":apple_sdk_modules_utility.bzl", "SDKDepTSet", "get_compiled_sdk_deps_tset")
 load(":apple_utility.bzl", "expand_relative_prefixed_sdk_path", "get_disable_pch_validation_flags")
 load(":swift_toolchain_types.bzl", "SdkCompiledModuleInfo", "SdkUncompiledModuleInfo", "WrappedSdkCompiledModuleInfo")
@@ -170,7 +169,7 @@ def _swift_sdk_pcm_compilation_impl(ctx: "context") -> ["promise", ["provider"]]
         ctx.attrs.dep[SdkUncompiledModuleInfo].deps,
     )
 
-    return anon_targets(ctx, sdk_pcm_anon_targets, k)
+    return ctx.actions.anon_targets(sdk_pcm_anon_targets).map(k)
 
 _swift_sdk_pcm_compilation = rule(
     impl = _swift_sdk_pcm_compilation_impl,
