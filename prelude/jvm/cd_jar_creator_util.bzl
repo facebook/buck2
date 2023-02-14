@@ -23,7 +23,7 @@ def add_java_7_8_bootclasspath(target_level: int.type, bootclasspath_entries: ["
         return bootclasspath_entries + java_toolchain.bootclasspath_8
     return bootclasspath_entries
 
-def declare_prefixed_output(actions: "actions", prefix: [str.type, None], output: str.type, dir = False) -> "artifact":
+def declare_prefixed_output(actions: "actions", prefix: [str.type, None], output: str.type, dir: bool.type = False) -> "artifact":
     return actions.declare_output(declare_prefixed_name(output, prefix), dir = dir)
 
 # The library and the toolchain can both set a specific abi generation
