@@ -23,6 +23,7 @@ namespace {
 static PyObject* _create_module(PyObject* self, PyObject* spec) {
   PyObject* name;
   PyObject* mod;
+  const char* oldcontext;
 
   name = PyObject_GetAttrString(spec, "name");
   if (name == nullptr) {
@@ -56,7 +57,15 @@ static PyObject* _create_module(PyObject* self, PyObject* spec) {
 
   PyObject* modules = nullptr;
   PyModuleDef* def;
+  oldcontext = _Py_PackageContext;
+  _Py_PackageContext = namestr.c_str();
+  if (_Py_PackageContext == nullptr) {
+    _Py_PackageContext = oldcontext;
+    Py_DECREF(name);
+    return nullptr;
+  }
   mod = initfunc();
+  _Py_PackageContext = oldcontext;
   if (mod == nullptr) {
     Py_DECREF(name);
     return nullptr;
