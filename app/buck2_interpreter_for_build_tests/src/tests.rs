@@ -104,7 +104,7 @@ async fn test_eval_import() {
     let fs = ProjectRootTemp::new().unwrap();
     fs.path()
         .write_file(
-            ProjectRelativePath::new("package/two.bzl").unwrap(),
+            ProjectRelativePath::new("pkg/two.bzl").unwrap(),
             indoc!(
                 r#"
         message = "hello world!"
@@ -123,7 +123,7 @@ async fn test_eval_import() {
 
     let env = calculation
         .eval_module(StarlarkModulePath::LoadFile(&import(
-            "root", "package", "two.bzl",
+            "root", "pkg", "two.bzl",
         )))
         .await
         .unwrap();
@@ -155,7 +155,7 @@ async fn test_eval_import_with_load() {
         .unwrap();
     fs.path()
         .write_file(
-            ProjectRelativePath::new("package/two.bzl").unwrap(),
+            ProjectRelativePath::new("pkg/two.bzl").unwrap(),
             indoc!(
                 r#"
         load("//imports:one.bzl", "concat")
@@ -174,7 +174,7 @@ async fn test_eval_import_with_load() {
 
     let env = calculation
         .eval_module(StarlarkModulePath::LoadFile(&import(
-            "root", "package", "two.bzl",
+            "root", "pkg", "two.bzl",
         )))
         .await
         .unwrap();
@@ -235,21 +235,21 @@ async fn test_eval_build_file() {
         .unwrap();
     fs.path()
         .write_file(
-            ProjectRelativePath::new("package/file1.java").unwrap(),
+            ProjectRelativePath::new("pkg/file1.java").unwrap(),
             "",
             false,
         )
         .unwrap();
     fs.path()
         .write_file(
-            ProjectRelativePath::new("package/file2.java").unwrap(),
+            ProjectRelativePath::new("pkg/file2.java").unwrap(),
             "",
             false,
         )
         .unwrap();
     fs.path()
         .write_file(
-            ProjectRelativePath::new("package/BUCK").unwrap(),
+            ProjectRelativePath::new("pkg/BUCK").unwrap(),
             indoc!(
                 r#"
                     load("//imports:one.bzl", "some_macro")
@@ -277,7 +277,7 @@ async fn test_eval_build_file() {
 
     let package = PackageLabel::new(
         root_cell(),
-        CellRelativePath::new(ForwardRelativePath::new("package").unwrap()),
+        CellRelativePath::new(ForwardRelativePath::new("pkg").unwrap()),
     );
     let eval_result = with_dispatcher_async(
         EventDispatcher::null(),
