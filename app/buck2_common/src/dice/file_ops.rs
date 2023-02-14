@@ -44,6 +44,8 @@ use crate::ignores::HasAllCellIgnores;
 use crate::ignores::MaybeIgnoredCellRelativePath;
 use crate::io::IoProvider;
 use crate::result::SharedResult;
+use crate::result::ToSharedResultExt;
+use crate::result::ToUnsharedResultExt;
 
 pub trait HasFileOps<'c> {
     type T: FileOps;
@@ -142,7 +144,7 @@ async fn get_default_file_ops(dice: &DiceComputations) -> SharedResult<Arc<dyn F
         async fn read_dir_with_ignores(
             &self,
             path: CellPathRef<'async_trait>,
-        ) -> SharedResult<ReadDirOutput> {
+        ) -> anyhow::Result<ReadDirOutput> {
             // TODO(cjhopman): This should also probably verify that the parent chain is not ignored.
             self.ignores
                 .check_ignored(path.cell(), MaybeIgnoredCellRelativePath::new(path.path()))?
@@ -213,7 +215,7 @@ async fn get_default_file_ops(dice: &DiceComputations) -> SharedResult<Arc<dyn F
         async fn read_path_metadata_if_exists(
             &self,
             path: CellPathRef<'async_trait>,
-        ) -> SharedResult<Option<RawPathMetadata>> {
+        ) -> anyhow::Result<Option<RawPathMetadata>> {
             let project_path = self.resolve(path)?;
 
             let res = self
@@ -376,6 +378,7 @@ impl Key for ReadDirKey {
             .await?
             .read_dir_with_ignores(self.0.as_ref())
             .await
+            .shared_error()
     }
 
     fn equality(x: &Self::Value, y: &Self::Value) -> bool {
@@ -443,15 +446,21 @@ impl<'c> FileOps for DiceFileOps<'c> {
     async fn read_dir_with_ignores(
         &self,
         path: CellPathRef<'async_trait>,
-    ) -> SharedResult<ReadDirOutput> {
-        self.0.compute(&ReadDirKey(path.to_owned())).await?
+    ) -> anyhow::Result<ReadDirOutput> {
+        self.0
+            .compute(&ReadDirKey(path.to_owned()))
+            .await?
+            .unshared_error()
     }
 
     async fn read_path_metadata_if_exists(
         &self,
         path: CellPathRef<'async_trait>,
-    ) -> SharedResult<Option<RawPathMetadata>> {
-        self.0.compute(&PathMetadataKey(path.to_owned())).await?
+    ) -> anyhow::Result<Option<RawPathMetadata>> {
+        self.0
+            .compute(&PathMetadataKey(path.to_owned()))
+            .await?
+            .unshared_error()
     }
 
     async fn is_ignored(&self, path: CellPathRef<'async_trait>) -> anyhow::Result<bool> {

@@ -30,7 +30,12 @@ use crate::cas_digest::CasDigest;
 use crate::cas_digest::TrackedCasDigest;
 use crate::cas_digest::TrackedCasDigestKind;
 use crate::external_symlink::ExternalSymlink;
-use crate::result::SharedResult;
+
+#[derive(Debug, thiserror::Error)]
+enum FileOpsError {
+    #[error("File not found: `{0}`")]
+    FileNotFound(String),
+}
 
 /// std::fs::FileType is an opaque type that isn't constructible. This is
 /// basically the equivalent.
@@ -318,20 +323,20 @@ pub trait FileOps: Allocative + Send + Sync {
     async fn read_dir_with_ignores(
         &self,
         path: CellPathRef<'async_trait>,
-    ) -> SharedResult<ReadDirOutput>;
+    ) -> anyhow::Result<ReadDirOutput>;
 
     async fn is_ignored(&self, path: CellPathRef<'async_trait>) -> anyhow::Result<bool>;
 
     async fn read_path_metadata_if_exists(
         &self,
         path: CellPathRef<'async_trait>,
-    ) -> SharedResult<Option<RawPathMetadata>>;
+    ) -> anyhow::Result<Option<RawPathMetadata>>;
 
     fn eq_token(&self) -> PartialEqAny;
 }
 
 impl dyn FileOps + '_ {
-    pub async fn read_dir(&self, path: CellPathRef<'_>) -> SharedResult<Arc<[SimpleDirEntry]>> {
+    pub async fn read_dir(&self, path: CellPathRef<'_>) -> anyhow::Result<Arc<[SimpleDirEntry]>> {
         Ok(self.read_dir_with_ignores(path).await?.included)
     }
 
@@ -339,10 +344,13 @@ impl dyn FileOps + '_ {
         Ok(self.read_path_metadata_if_exists(path).await?.is_some())
     }
 
-    pub async fn read_path_metadata(&self, path: CellPathRef<'_>) -> SharedResult<RawPathMetadata> {
+    pub async fn read_path_metadata(
+        &self,
+        path: CellPathRef<'_>,
+    ) -> anyhow::Result<RawPathMetadata> {
         self.read_path_metadata_if_exists(path)
             .await?
-            .ok_or_else(|| anyhow::anyhow!("file `{}` not found", path.to_owned()).into())
+            .ok_or_else(|| FileOpsError::FileNotFound(path.to_string()).into())
     }
 }
 
@@ -375,8 +383,6 @@ pub mod testing {
     use crate::file_ops::ReadDirOutput;
     use crate::file_ops::SimpleDirEntry;
     use crate::file_ops::TrackedFileDigest;
-    use crate::result::SharedResult;
-    use crate::result::ToSharedResultExt;
 
     enum TestFileOpsEntry {
         File(String /*data*/, FileMetadata),
@@ -492,7 +498,7 @@ pub mod testing {
         async fn read_dir_with_ignores(
             &self,
             path: CellPathRef<'async_trait>,
-        ) -> SharedResult<ReadDirOutput> {
+        ) -> anyhow::Result<ReadDirOutput> {
             let included = self
                 .entries
                 .get(&path.to_owned())
@@ -512,23 +518,20 @@ pub mod testing {
         async fn read_path_metadata_if_exists(
             &self,
             path: CellPathRef<'async_trait>,
-        ) -> SharedResult<Option<RawPathMetadata>> {
-            self.entries
-                .get(&path.to_owned())
-                .map_or(Ok(None), |e| {
-                    match e {
-                        TestFileOpsEntry::File(_data, metadata) => {
-                            Ok(RawPathMetadata::File(metadata.to_owned()))
-                        }
-                        TestFileOpsEntry::ExternalSymlink(sym) => Ok(RawPathMetadata::Symlink {
-                            at: Arc::new(path.to_owned()),
-                            to: RawSymlink::External(sym.dupe()),
-                        }),
-                        _ => Err(anyhow::anyhow!("couldn't get metadata for {:?}", path)),
+        ) -> anyhow::Result<Option<RawPathMetadata>> {
+            self.entries.get(&path.to_owned()).map_or(Ok(None), |e| {
+                match e {
+                    TestFileOpsEntry::File(_data, metadata) => {
+                        Ok(RawPathMetadata::File(metadata.to_owned()))
                     }
-                    .map(Some)
-                })
-                .shared_error()
+                    TestFileOpsEntry::ExternalSymlink(sym) => Ok(RawPathMetadata::Symlink {
+                        at: Arc::new(path.to_owned()),
+                        to: RawSymlink::External(sym.dupe()),
+                    }),
+                    _ => Err(anyhow::anyhow!("couldn't get metadata for {:?}", path)),
+                }
+                .map(Some)
+            })
         }
 
         async fn is_ignored(&self, _path: CellPathRef<'async_trait>) -> anyhow::Result<bool> {
