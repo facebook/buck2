@@ -45,20 +45,19 @@ use dice::Key;
 use dupe::Dupe;
 use starlark::codemap::FileSpan;
 use starlark::syntax::AstModule;
-use thiserror::Error;
 
 use crate::interpreter::dice_calculation_delegate::keys::EvalImportKey;
 use crate::interpreter::global_interpreter_state::HasGlobalInterpreterState;
 use crate::interpreter::interpreter_for_cell::InterpreterForCell;
 use crate::interpreter::interpreter_for_cell::ParseResult;
 
-#[derive(Debug, Error)]
-#[error("Error evaluating build file: `{0}`")]
-pub struct EvalBuildFileError(BuildFilePath);
-
-#[derive(Debug, Error)]
-#[error("Error evaluating module: `{0}`")]
-pub struct EvalModuleError(String);
+#[derive(Debug, thiserror::Error)]
+enum DiceCalculationDelegateError {
+    #[error("Error evaluating build file: `{0}`")]
+    EvalBuildFileError(BuildFilePath),
+    #[error("Error evaluating module: `{0}`")]
+    EvalModuleError(String),
+}
 
 #[async_trait]
 pub trait HasCalculationDelegate<'c> {
@@ -261,7 +260,9 @@ impl<'c> DiceCalculationDelegate<'c> {
                 loaded_modules.clone(),
                 starlark_profiler_instrumentation,
             )
-            .with_context(|| EvalModuleError(starlark_file.to_string()))?;
+            .with_context(|| {
+                DiceCalculationDelegateError::EvalModuleError(starlark_file.to_string())
+            })?;
 
         Ok(LoadedModule::new(
             OwnedStarlarkModulePath::new(starlark_file),
@@ -321,7 +322,7 @@ impl<'c> DiceCalculationDelegate<'c> {
                     deps.get_loaded_modules(),
                     profiler,
                 )
-                .with_context(|| EvalBuildFileError(build_file_path));
+                .with_context(|| DiceCalculationDelegateError::EvalBuildFileError(build_file_path));
             let error = result.as_ref().err().map(|e| format!("{:#}", e));
 
             (
