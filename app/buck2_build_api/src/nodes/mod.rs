@@ -38,7 +38,6 @@ pub mod hacks {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
 
     use buck2_core::bzl::ImportPath;
     use buck2_core::cells::name::CellName;
@@ -55,7 +54,6 @@ mod tests {
     use starlark::values::Heap;
 
     use super::*;
-    use crate::query::analysis::environment::ConfiguredGraphQueryEnvironment;
 
     #[test]
     fn function_id_has_useful_string() {
@@ -75,10 +73,7 @@ mod tests {
     #[test]
     fn stringifies_correctly() -> anyhow::Result<()> {
         let heap = Heap::new();
-        let coercer_ctx = BuildAttrCoercionContext::new_no_package(
-            cells(None)?.0,
-            Arc::new(ConfiguredGraphQueryEnvironment::functions()),
-        );
+        let coercer_ctx = BuildAttrCoercionContext::new_no_package(cells(None)?.0);
         let coercer = AttrType::string();
         let coerced = coercer
             .coerce(

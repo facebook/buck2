@@ -18,6 +18,7 @@ pub mod coerced_attr;
 pub mod ctx;
 pub mod error;
 mod interner;
+pub mod query_functions;
 pub mod testing;
 
 pub trait AttrTypeCoerce {

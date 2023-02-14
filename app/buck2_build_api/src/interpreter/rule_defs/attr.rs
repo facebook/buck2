@@ -33,8 +33,6 @@ use starlark::values::ValueError;
 use thiserror::Error;
 use tracing::error;
 
-use crate::query::analysis::environment::ConfiguredGraphQueryEnvironment;
-
 const OPTION_NONE_EXPLANATION: &str = "`None` as an attribute value always picks the default. For `attrs.option`, if the default isn't `None`, there is no way to express `None`.";
 
 #[derive(Error, Debug)]
@@ -112,7 +110,6 @@ pub(crate) fn get_attr_coercion_context<'v>(
             .cell_info()
             .cell_alias_resolver()
             .dupe(),
-        Arc::new(ConfiguredGraphQueryEnvironment::functions()),
     ))
 }
 
@@ -479,7 +476,6 @@ pub(crate) fn register_attrs(globals: &mut GlobalsBuilder) {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
 
     use buck2_common::package_listing::listing::testing::PackageListingExt;
     use buck2_common::package_listing::listing::PackageListing;
@@ -501,7 +497,6 @@ mod tests {
 
     use crate::interpreter::rule_defs::attr::register_attrs;
     use crate::nodes::hacks::value_to_string;
-    use crate::query::analysis::environment::ConfiguredGraphQueryEnvironment;
 
     fn tester() -> Tester {
         let mut tester = Tester::new().unwrap();
@@ -597,7 +592,6 @@ mod tests {
             cell_alias_resolver,
             enclosing_package,
             false,
-            Arc::new(ConfiguredGraphQueryEnvironment::functions()),
         );
         let label_coercer = AttrType::dep(ProviderIdSet::EMPTY);
         let string_coercer = AttrType::string();
@@ -770,12 +764,8 @@ mod tests {
                 PackageListing::testing_files(&["baz/quz.cpp"]),
             ),
             false,
-            Arc::new(ConfiguredGraphQueryEnvironment::functions()),
         );
-        let no_package_ctx = BuildAttrCoercionContext::new_no_package(
-            cell_alias_resolver,
-            Arc::new(ConfiguredGraphQueryEnvironment::functions()),
-        );
+        let no_package_ctx = BuildAttrCoercionContext::new_no_package(cell_alias_resolver);
 
         let err = no_package_ctx
             .coerce_path("baz/quz.cpp", false)

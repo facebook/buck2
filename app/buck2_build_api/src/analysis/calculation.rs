@@ -473,7 +473,6 @@ mod tests {
     use crate::interpreter::build_defs::register_provider;
     use crate::interpreter::rule_defs::provider::builtin::default_info::DefaultInfoCallable;
     use crate::interpreter::rule_defs::register_rule_defs;
-    use crate::query::analysis::environment::ConfiguredGraphQueryEnvironment;
     use crate::spawner::BuckSpawner;
 
     #[tokio::test]
@@ -591,7 +590,6 @@ mod tests {
                 register_rule_defs,
                 |_| {},
                 None,
-                Arc::new(ConfiguredGraphQueryEnvironment::functions()),
             ),
             configs,
         )?;

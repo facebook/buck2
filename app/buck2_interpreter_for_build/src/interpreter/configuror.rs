@@ -21,7 +21,6 @@ use buck2_interpreter::extra::InterpreterHostPlatform;
 use buck2_interpreter::file_loader::LoadedModules;
 use buck2_interpreter::package_imports::ImplicitImport;
 use buck2_interpreter::path::StarlarkModulePath;
-use buck2_query::query::syntax::simple::functions::QueryFunctionsVisitLiterals;
 use dupe::Dupe;
 use starlark::environment::Globals;
 use starlark::environment::GlobalsBuilder;
@@ -69,28 +68,6 @@ impl PartialEq for AdditionalGlobalsFn {
     }
 }
 
-#[derive(Clone, Dupe, Allocative)]
-struct QueryFunctionsHolder(
-    #[allocative(skip)] // TODO(nga): do not skip.
-    Arc<dyn QueryFunctionsVisitLiterals>,
-);
-
-impl PartialEq for QueryFunctionsHolder {
-    fn eq(&self, _other: &Self) -> bool {
-        // Query functions are always created with
-        // `ConfiguredGraphQueryEnvironment::functions()`,
-        // which has no state. So it is safe to return true here.
-        true
-    }
-}
-
-impl Debug for QueryFunctionsHolder {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("QueryFunctionsHolder")
-            .finish_non_exhaustive()
-    }
-}
-
 #[derive(Clone, Debug, PartialEq, Allocative)]
 pub struct BuildInterpreterConfiguror {
     /// Path to prelude import (typically `prelude//:prelude.bzl`).
@@ -109,7 +86,6 @@ pub struct BuildInterpreterConfiguror {
     configure_bxl_file_globals: ConfigureGlobalsFn,
     /// For test.
     additional_globals: Option<AdditionalGlobalsFn>,
-    query_functions: QueryFunctionsHolder,
 }
 
 impl BuildInterpreterConfiguror {
@@ -122,7 +98,6 @@ impl BuildInterpreterConfiguror {
         configure_extension_file_globals: fn(&mut GlobalsBuilder),
         configure_bxl_file_globals: fn(&mut GlobalsBuilder),
         additional_globals: Option<AdditionalGlobalsFn>,
-        query_functions: Arc<dyn QueryFunctionsVisitLiterals>,
     ) -> Arc<Self> {
         Arc::new(Self {
             prelude_import,
@@ -133,7 +108,6 @@ impl BuildInterpreterConfiguror {
             configure_extension_file_globals: ConfigureGlobalsFn(configure_extension_file_globals),
             configure_bxl_file_globals: ConfigureGlobalsFn(configure_bxl_file_globals),
             additional_globals,
-            query_functions: QueryFunctionsHolder(query_functions),
         })
     }
 
@@ -209,7 +183,6 @@ impl BuildInterpreterConfiguror {
             cell_info.cell_alias_resolver().dupe(),
             (buildfile_path.package().dupe(), package_listing.dupe()),
             package_boundary_exception,
-            self.query_functions.0.dupe(),
         );
 
         let imports = loaded_modules.imports().cloned().collect();

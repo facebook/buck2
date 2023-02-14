@@ -10,10 +10,12 @@
 use std::collections::HashSet;
 use std::collections::VecDeque;
 use std::marker::PhantomData;
+use std::sync::Arc;
 
 use anyhow::Context;
 use async_trait::async_trait;
 use buck2_core::target::label::ConfiguredTargetLabel;
+use buck2_interpreter_for_build::attrs::coerce::query_functions::QUERY_FUNCTIONS;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::configured_ref::ConfiguredGraphNodeRef;
 use buck2_node::nodes::configured_ref::ConfiguredGraphNodeRefLookup;
@@ -38,6 +40,7 @@ use buck2_query_parser::BinaryOp;
 use dupe::Dupe;
 use futures::Future;
 use indexmap::IndexSet;
+use inventory::ctor;
 use thiserror::Error;
 
 use crate::actions::artifact::Artifact;
@@ -352,6 +355,16 @@ impl<'a> ConfiguredGraphQueryEnvironment<'a> {
             .await?;
 
         Ok(delegate.targets)
+    }
+}
+
+#[ctor]
+fn set_query_functions() {
+    if QUERY_FUNCTIONS
+        .set(Arc::new(ConfiguredGraphQueryEnvironment::functions()))
+        .is_err()
+    {
+        panic!("QUERY_FUNCTIONS already set");
     }
 }
 

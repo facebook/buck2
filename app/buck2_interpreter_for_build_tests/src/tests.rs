@@ -8,7 +8,6 @@
  */
 
 use std::collections::HashMap;
-use std::sync::Arc;
 
 use buck2_build_api::interpreter::rule_defs::register_rule_defs;
 use buck2_common::dice::cells::SetCellResolver;
@@ -40,7 +39,6 @@ use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
 use buck2_interpreter_for_build::interpreter::configuror::BuildInterpreterConfiguror;
 use buck2_interpreter_for_build::interpreter::context::SetInterpreterContext;
 use buck2_interpreter_for_build::interpreter::dice_calculation_delegate::HasCalculationDelegate;
-use buck2_query::query::syntax::simple::functions::testing::QueryFunctionsPanic;
 use dice::DetectCycles;
 use dice::Dice;
 use dice::DiceTransaction;
@@ -92,7 +90,6 @@ fn calculation(fs: &ProjectRootTemp) -> DiceTransaction {
         register_rule_defs,
         |_| {},
         None,
-        Arc::new(QueryFunctionsPanic),
     ))
     .unwrap();
     ctx.set_legacy_configs(cell_configs).unwrap();

@@ -10,7 +10,6 @@
 use std::cell::RefCell;
 use std::fmt;
 use std::fmt::Debug;
-use std::sync::Arc;
 
 use buck2_common::package_listing::listing::PackageListing;
 use buck2_core::cells::CellAliasResolver;
@@ -29,7 +28,6 @@ use buck2_node::attrs::coerced_path::CoercedDirectory;
 use buck2_node::attrs::coerced_path::CoercedPath;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_query::query::syntax::simple::eval::error::QueryError;
-use buck2_query::query::syntax::simple::functions::QueryFunctionsVisitLiterals;
 use buck2_query::query::syntax::simple::functions::QueryLiteralVisitor;
 use buck2_query_parser::spanned::Spanned;
 use buck2_query_parser::Expr;
@@ -43,6 +41,7 @@ use tracing::info;
 use twox_hash::xxh3;
 
 use super::interner::AttrCoercionInterner;
+use crate::attrs::coerce::query_functions::query_functions;
 
 #[derive(Debug, thiserror::Error)]
 enum BuildAttrCoercionContextError {
@@ -87,8 +86,6 @@ pub struct BuildAttrCoercionContext {
     // than select values
     dict_interner: AttrCoercionInterner<ArcSlice<(CoercedAttr, CoercedAttr)>>,
     select_interner: AttrCoercionInterner<ArcSlice<(TargetLabel, CoercedAttr)>>,
-    /// `ConfiguredGraphQueryEnvironment::functions()`.
-    query_functions: Arc<dyn QueryFunctionsVisitLiterals>,
 }
 
 impl Debug for BuildAttrCoercionContext {
@@ -103,7 +100,6 @@ impl BuildAttrCoercionContext {
         cell_alias_resolver: CellAliasResolver,
         enclosing_package: Option<(PackageLabel, PackageListing)>,
         package_boundary_exception: bool,
-        query_functions: Arc<dyn QueryFunctionsVisitLiterals>,
     ) -> Self {
         Self {
             cell_alias_resolver,
@@ -115,28 +111,22 @@ impl BuildAttrCoercionContext {
             list_interner: AttrCoercionInterner::new(),
             dict_interner: AttrCoercionInterner::new(),
             select_interner: AttrCoercionInterner::new(),
-            query_functions,
         }
     }
 
-    pub fn new_no_package(
-        cell_alias_resolver: CellAliasResolver,
-        query_functions: Arc<dyn QueryFunctionsVisitLiterals>,
-    ) -> Self {
-        Self::new(cell_alias_resolver, None, false, query_functions)
+    pub fn new_no_package(cell_alias_resolver: CellAliasResolver) -> Self {
+        Self::new(cell_alias_resolver, None, false)
     }
 
     pub fn new_with_package(
         cell_alias_resolver: CellAliasResolver,
         enclosing_package: (PackageLabel, PackageListing),
         package_boundary_exception: bool,
-        query_functions: Arc<dyn QueryFunctionsVisitLiterals>,
     ) -> Self {
         Self::new(
             cell_alias_resolver,
             Some(enclosing_package),
             package_boundary_exception,
-            query_functions,
         )
     }
 
@@ -271,7 +261,7 @@ impl AttrCoercionContext for BuildAttrCoercionContext {
         expr: &Spanned<Expr>,
         query: &str,
     ) -> anyhow::Result<()> {
-        self.query_functions
+        query_functions()
             .visit_literals(visitor, expr)
             .map_err(|e| QueryError::convert_error(e, query))?;
         Ok(())

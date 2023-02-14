@@ -25,7 +25,6 @@ use buck2_build_api::context::SetBuildContextData;
 use buck2_build_api::interpreter::context::configure_build_file_globals;
 use buck2_build_api::interpreter::context::configure_extension_file_globals;
 use buck2_build_api::interpreter::context::prelude_path;
-use buck2_build_api::query::analysis::environment::ConfiguredGraphQueryEnvironment;
 use buck2_build_api::spawner::BuckSpawner;
 use buck2_cli_proto::client_context::HostArchOverride;
 use buck2_cli_proto::client_context::HostPlatformOverride;
@@ -553,7 +552,6 @@ impl DiceUpdater for DiceCommandUpdater {
             configure_extension_file_globals,
             self.configure_bxl_file_globals,
             None,
-            Arc::new(ConfiguredGraphQueryEnvironment::functions()),
         );
 
         let mut ctx = self.file_watcher.sync(ctx).await?;

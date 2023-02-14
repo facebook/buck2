@@ -34,7 +34,6 @@ use buck2_interpreter::path::StarlarkPath;
 use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::targets_map::TargetsMap;
-use buck2_query::query::syntax::simple::functions::testing::QueryFunctionsPanic;
 use dupe::Dupe;
 use indoc::indoc;
 use maplit::hashmap;
@@ -210,7 +209,6 @@ impl Tester {
                             (additional_globals.0)(globals_builder)
                         }
                     }))),
-                    Arc::new(QueryFunctionsPanic),
                 ),
                 false,
             )?),

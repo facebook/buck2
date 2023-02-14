@@ -27,11 +27,6 @@ use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
-use buck2_query::query::syntax::simple::eval::values::QueryResult;
-use buck2_query::query::syntax::simple::functions::QueryFunctionsVisitLiterals;
-use buck2_query::query::syntax::simple::functions::QueryLiteralVisitor;
-use buck2_query_parser::spanned::Spanned;
-use buck2_query_parser::Expr;
 use maplit::hashmap;
 use starlark::environment::Globals;
 use starlark::environment::Module;
@@ -73,22 +68,10 @@ pub fn coercion_ctx_listing(package_listing: PackageListing) -> impl AttrCoercio
         CellAlias::new("cell1".to_owned()) => CellName::testing_new("cell1"),
     ];
 
-    struct NoFunctions;
-    impl QueryFunctionsVisitLiterals for NoFunctions {
-        fn visit_literals(
-            &self,
-            _visitor: &mut dyn QueryLiteralVisitor,
-            _expr: &Spanned<Expr>,
-        ) -> QueryResult<()> {
-            panic!("not needed in tests")
-        }
-    }
-
     BuildAttrCoercionContext::new_with_package(
         CellAliasResolver::new(package.cell_name(), Arc::new(aliases)).unwrap(),
         (package, package_listing),
         false,
-        Arc::new(NoFunctions),
     )
 }
 
