@@ -608,9 +608,9 @@ mod tests {
 
         assert_eq!(
             CliArgType::target_label().coerce_value(heap.alloc(StarlarkTargetLabel::new(
-                TargetLabel::testing_parse("//foo:bar")
+                TargetLabel::testing_parse("root//foo:bar")
             )))?,
-            CliArgValue::TargetLabel(TargetLabel::testing_parse("//foo:bar"))
+            CliArgValue::TargetLabel(TargetLabel::testing_parse("root//foo:bar"))
         );
 
         assert_eq!(

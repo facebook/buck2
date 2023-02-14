@@ -152,10 +152,11 @@ mod tests {
     #[test]
     fn test_skipping_message_for_multiple() {
         let set = vec![
-            TargetLabel::testing_parse("//foo:bar").configure(ConfigurationData::testing_new()),
+            TargetLabel::testing_parse("glass//foo:bar")
+                .configure(ConfigurationData::testing_new()),
         ];
         assert_eq!(
-            "Skipped 1 incompatible targets:\n  //foo:bar (<testing>)\n",
+            "Skipped 1 incompatible targets:\n  glass//foo:bar (<testing>)\n",
             &IncompatiblePlatformReason::skipping_message_for_multiple(&set)
         );
 
@@ -165,19 +166,19 @@ mod tests {
             IncompatiblePlatformReason::skipping_message_for_multiple(&set);
 
             set.push(
-                TargetLabel::testing_parse(&format!("//foo:bar{}", i))
+                TargetLabel::testing_parse(&format!("plate//foo:bar{}", i))
                     .configure(ConfigurationData::testing_new()),
             );
         }
         assert_eq!(
             r"Skipped 20 incompatible targets:
-  //foo:bar0 (<testing>)
-  //foo:bar1 (<testing>)
-  //foo:bar10 (<testing>)
+  plate//foo:bar0 (<testing>)
+  plate//foo:bar1 (<testing>)
+  plate//foo:bar10 (<testing>)
   ...
-  //foo:bar7 (<testing>)
-  //foo:bar8 (<testing>)
-  //foo:bar9 (<testing>)
+  plate//foo:bar7 (<testing>)
+  plate//foo:bar8 (<testing>)
+  plate//foo:bar9 (<testing>)
 ",
             &IncompatiblePlatformReason::skipping_message_for_multiple(&set)
         );

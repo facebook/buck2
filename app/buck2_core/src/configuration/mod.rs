@@ -507,11 +507,11 @@ mod tests {
             ConstraintValue(TargetLabel::testing_parse(t))
         }
 
-        let os = constraint_key("//:os");
-        let linux = constraint_value("//:linux");
-        let cpu = constraint_key("//:cpu");
-        let arm64 = constraint_value("//:arm64");
-        let x86_64 = constraint_value("//:x86_64");
+        let os = constraint_key("config//:os");
+        let linux = constraint_value("config//:linux");
+        let cpu = constraint_key("config//:cpu");
+        let arm64 = constraint_value("config//:arm64");
+        let x86_64 = constraint_value("config//:x86_64");
 
         let c_linux = ConfigurationDataData {
             constraints: BTreeMap::from_iter([(os.dupe(), linux.dupe())]),

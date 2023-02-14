@@ -189,7 +189,11 @@ mod tests {
     fn root_package() -> anyhow::Result<()> {
         assert_eq!(
             path("root", "package/path", "import.bzl"),
-            parse_import(&resolver(), &dir("", ""), "//package/path:import.bzl")?
+            parse_import(
+                &resolver(),
+                &dir("passport", ""),
+                "//package/path:import.bzl"
+            )?
         );
         Ok(())
     }
@@ -198,7 +202,11 @@ mod tests {
     fn cell_package() -> anyhow::Result<()> {
         assert_eq!(
             path("cell1", "package/path", "import.bzl"),
-            parse_import(&resolver(), &dir("", ""), "@cell1//package/path:import.bzl")?
+            parse_import(
+                &resolver(),
+                &dir("root", ""),
+                "@cell1//package/path:import.bzl"
+            )?
         );
         Ok(())
     }
@@ -216,7 +224,7 @@ mod tests {
     fn missing_colon() -> anyhow::Result<()> {
         let import = "//package/path/import.bzl".to_owned();
         assert_eq!(
-            parse_import(&resolver(), &dir("", ""), &import)?,
+            parse_import(&resolver(), &dir("lighter", ""), &import)?,
             path("root", "package/path", "import.bzl")
         );
         Ok(())
@@ -225,7 +233,7 @@ mod tests {
     #[test]
     fn empty_filename() -> anyhow::Result<()> {
         let path = "//package/path:".to_owned();
-        match parse_import(&resolver(), &dir("", ""), &path) {
+        match parse_import(&resolver(), &dir("root", ""), &path) {
             Ok(import) => panic!("Expected parse failure for {}, got result {}", path, import),
             Err(e) => {
                 assert_eq!(
@@ -240,7 +248,7 @@ mod tests {
     #[test]
     fn bad_alias() -> anyhow::Result<()> {
         let path = "bad_alias//package/path:".to_owned();
-        match parse_import(&resolver(), &dir("", ""), &path) {
+        match parse_import(&resolver(), &dir("root", ""), &path) {
             Ok(import) => panic!("Expected parse failure for {}, got result {}", path, import),
             Err(_) => {
                 // TODO: should we verify the contents of the error?
@@ -280,7 +288,7 @@ mod tests {
             path("cell1", "package/path", "import.bzl"),
             parse_import(
                 &resolver(),
-                &dir("", "foo/bar"),
+                &dir("root", "foo/bar"),
                 "@cell1//package/path:import.bzl",
             )?
         );
@@ -293,7 +301,7 @@ mod tests {
             path("cell1", "package/path", "import.bzl"),
             parse_import_with_config(
                 &resolver(),
-                &dir("", ""),
+                &dir("root", ""),
                 "cell1//package/path:import.bzl",
                 &ParseImportOptions {
                     allow_missing_at_symbol: true,
@@ -309,7 +317,7 @@ mod tests {
         let imported_file = ":bar.bzl";
         let res = parse_import_with_config(
             &resolver(),
-            &dir("", ""),
+            &dir("root", ""),
             imported_file,
             &ParseImportOptions {
                 allow_missing_at_symbol: false,

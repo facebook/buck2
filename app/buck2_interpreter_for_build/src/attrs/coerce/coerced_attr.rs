@@ -263,15 +263,15 @@ mod tests {
             ConstraintValue(TargetLabel::testing_parse(t))
         }
 
-        let c_os = constraint_key("//c:os");
-        let c_linux = constraint_value("//c:linux");
-        let c_cpu = constraint_key("//c:cpu");
-        let c_arm64 = constraint_value("//c:arm64");
-        let c_x86_64 = constraint_value("//c:x86_64");
+        let c_os = constraint_key("config//c:os");
+        let c_linux = constraint_value("config//c:linux");
+        let c_cpu = constraint_key("config//c:cpu");
+        let c_arm64 = constraint_value("config//c:arm64");
+        let c_x86_64 = constraint_value("config//c:x86_64");
 
-        let linux = TargetLabel::testing_parse("//:linux");
-        let linux_arm64 = TargetLabel::testing_parse("//:linux-arm64");
-        let linux_x86_64 = TargetLabel::testing_parse("//:linux-x86_64");
+        let linux = TargetLabel::testing_parse("config//:linux");
+        let linux_arm64 = TargetLabel::testing_parse("config//:linux-arm64");
+        let linux_x86_64 = TargetLabel::testing_parse("config//:linux-x86_64");
 
         let ctx = SelectTestConfigurationContext {
             settings: BTreeMap::from_iter([
@@ -338,8 +338,8 @@ mod tests {
             (linux_x86_64.dupe(), literal_str()),
         ];
         assert_eq!(
-            "Both select keys `//:linux-arm64` and `//:linux-x86_64` match the configuration, \
-            but neither is more specific",
+            "Both select keys `config//:linux-arm64` and `config//:linux-x86_64` \
+            match the configuration, but neither is more specific",
             CoercedAttr::select_the_most_specific(&ctx, &*select_entries)
                 .unwrap_err()
                 .to_string()
@@ -365,16 +365,16 @@ mod tests {
     #[test]
     fn test_to_json_selector() {
         assert_eq!(
-            r#"{"__type":"selector","entries":{"//:a":true,"//:b":10,"DEFAULT":"ddd"}}"#,
+            r#"{"__type":"selector","entries":{"DEFAULT":"ddd","config//:a":true,"config//:b":10}}"#,
             CoercedAttr::Selector(
                 box CoercedSelector::new(
                     ArcSlice::new([
                         (
-                            TargetLabel::testing_parse("//:a"),
+                            TargetLabel::testing_parse("config//:a"),
                             CoercedAttr::Literal(AttrLiteral::Bool(true))
                         ),
                         (
-                            TargetLabel::testing_parse("//:b"),
+                            TargetLabel::testing_parse("config//:b"),
                             CoercedAttr::Literal(AttrLiteral::Int(10))
                         ),
                     ]),
