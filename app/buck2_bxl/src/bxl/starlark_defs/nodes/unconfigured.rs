@@ -63,7 +63,16 @@ impl<'a> UnpackValue<'a> for StarlarkTargetNode {
 /// Methods for unconfigured target node.
 #[starlark_module]
 fn target_node_value_methods(builder: &mut MethodsBuilder) {
-    /// Gets the coerced attributes from the unconfigured target node.
+    /// Gets the coerced attributes from the unconfigured target node. Returns an iterable `starlark_attributes`
+    /// object.
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def _impl_attributes(ctx):
+    ///     target_node = ctx.uquery().eval("owner('path/to/file')")[0]
+    ///     for attr in target_node.attributes:
+    ///         ctx.output.print(attr)
+    /// ```
     #[starlark(attribute)]
     fn attributes<'v>(this: StarlarkTargetNode, heap: &Heap) -> anyhow::Result<Value<'v>> {
         Ok(heap.alloc(StarlarkTargetNodeCoercedAttributes {
@@ -72,6 +81,13 @@ fn target_node_value_methods(builder: &mut MethodsBuilder) {
     }
 
     /// Gets the label from the unconfigured target node.
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def _impl_label(ctx):
+    ///     target_node = ctx.uquery().eval("owner('path/to/file')")[0]
+    ///     ctx.output.print(target_node.label)
+    /// ```
     #[starlark(attribute)]
     fn label(this: &StarlarkTargetNode) -> anyhow::Result<StarlarkTargetLabel> {
         Ok(this.0.label().dupe().into())
