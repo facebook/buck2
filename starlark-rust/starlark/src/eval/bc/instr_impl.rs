@@ -58,7 +58,6 @@ use crate::eval::compiler::expr::get_attr_hashed_raw;
 use crate::eval::compiler::expr::EvalError;
 use crate::eval::compiler::expr::MemberOrValue;
 use crate::eval::compiler::expr_throw;
-use crate::eval::compiler::scope::Captured;
 use crate::eval::compiler::span::IrSpanned;
 use crate::eval::compiler::stmt::add_assign;
 use crate::eval::compiler::stmt::before_stmt;
@@ -1344,7 +1343,7 @@ impl InstrNoFlowImpl for InstrDefImpl {
         );
         parameters.no_more_positional_only_args();
         let mut parameter_types = Vec::new();
-        let mut parameter_captures = Vec::new();
+        let parameter_captures = def_data.params.parameter_captures();
 
         let mut pop_index = 0;
 
@@ -1389,9 +1388,6 @@ impl InstrNoFlowImpl for InstrDefImpl {
                 ParameterCompiled::Args(_, _) => parameters.args(),
                 ParameterCompiled::KwArgs(_, _) => parameters.kwargs(),
             };
-            if let Captured::Yes = x.captured() {
-                parameter_captures.push(LocalSlotId(i));
-            }
         }
         let return_type = match &def_data.return_type {
             None => None,

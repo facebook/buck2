@@ -229,6 +229,20 @@ impl<T> ParametersCompiled<T> {
             )
         })
     }
+
+    pub(crate) fn parameter_captures(&self) -> Vec<LocalSlotId> {
+        self.params
+            .iter()
+            .enumerate()
+            .filter_map(|(i, p)| {
+                if p.captured() == Captured::Yes {
+                    Some(LocalSlotId(i as u32))
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
 }
 
 /// Copy local variable slot to nested function.
