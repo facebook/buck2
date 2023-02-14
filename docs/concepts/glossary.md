@@ -65,9 +65,9 @@ Enables shifting work to the local host when available parallelism in the build 
 Instances of Buck2 share a [daemon](#daemon) if and only if their isolation directory is identical. The isolation directory also influences the output paths provided by Buck2.
 
 #### Target pattern
-:::note
-🚧   THIS SECTION IS UNDER CONSTRUCTION
-:::
+
+String that resolves to a set of [targets](#target). They can be used as arguments to commands such as `buck2 build` and `buck2 uquery`. They can also be used in the [visibility](#visibility) argument of a [rule](#rule). See more: [Target pattern](./target_pattern.md).
+
 #### Package
 :::note
 🚧   THIS SECTION IS UNDER CONSTRUCTION
