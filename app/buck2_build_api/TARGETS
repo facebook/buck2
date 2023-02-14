@@ -39,7 +39,7 @@ rust_library(
         "fbsource//third-party/rust:reqwest",
         "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:serde_json",
-        "fbsource//third-party/rust:sha-1",
+        "fbsource//third-party/rust:sha1",
         "fbsource//third-party/rust:shlex",
         "fbsource//third-party/rust:smallvec",
         "fbsource//third-party/rust:static_assertions",

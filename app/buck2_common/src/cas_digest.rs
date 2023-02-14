@@ -163,8 +163,9 @@ impl<Kind> CasDigest<Kind> {
     }
 
     pub fn from_bytes_sha1(bytes: &[u8]) -> Self {
-        let sha1 = Sha1::digest(bytes).into();
-        Self::new_sha1(sha1, bytes.len() as u64)
+        let mut hasher = Sha1::new();
+        hasher.update(bytes);
+        Self::new_sha1(hasher.finalize().into(), bytes.len() as u64)
     }
 
     pub fn coerce<NewKind>(self) -> CasDigest<NewKind> {

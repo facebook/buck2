@@ -22,7 +22,7 @@ rand = { workspace = true }
 ref-cast = { workspace = true }
 regex = { workspace = true }
 rusqlite = { workspace = true }
-sha-1 = { workspace = true }
+sha1 = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 tonic = { workspace = true }

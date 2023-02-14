@@ -55,7 +55,7 @@ rust_library(
         "fbsource//third-party/rust:ref-cast",
         "fbsource//third-party/rust:regex",
         "fbsource//third-party/rust:rusqlite",
-        "fbsource//third-party/rust:sha-1",
+        "fbsource//third-party/rust:sha1",
         "fbsource//third-party/rust:thiserror",
         "fbsource//third-party/rust:tokio",
         "fbsource//third-party/rust:tonic",

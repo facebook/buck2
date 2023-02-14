@@ -40,7 +40,7 @@ glob = { workspace = true }
 indexmap = { workspace = true }
 either = { workspace = true }
 reqwest = { workspace = true }
-sha-1 = { workspace = true }
+sha1 = { workspace = true }
 hex = { workspace = true }
 smallvec = { workspace = true }
 assert_matches = { workspace = true }
