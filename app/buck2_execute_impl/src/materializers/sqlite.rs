@@ -101,7 +101,7 @@ impl From<ArtifactMetadata> for ArtifactMetadataSqliteEntry {
             (
                 digest.size(),
                 digest.digest().as_bytes().to_vec(),
-                digest.digest().kind() as _,
+                digest.digest().algorithm() as _,
             )
         }
 

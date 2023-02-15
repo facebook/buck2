@@ -40,17 +40,18 @@ pub const SHA256_SIZE: usize = 32;
 /// The number of bytes required by a Blake3 hash
 pub const BLAKE3_SIZE: usize = 32;
 
+/// The bytes that make up a file digest.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Allocative, Clone)]
-pub enum DigestHash {
+pub enum RawDigest {
     Sha1([u8; SHA1_SIZE]),
     Sha256([u8; SHA256_SIZE]),
     Blake3([u8; BLAKE3_SIZE]),
 }
 
 // We consider copying 20 bytes is cheap enough not to qualify for Dupe
-impl Dupe for DigestHash {}
+impl Dupe for RawDigest {}
 
-impl DigestHash {
+impl RawDigest {
     pub fn as_bytes(&self) -> &[u8] {
         match self {
             Self::Sha1(x) => x,
@@ -59,18 +60,18 @@ impl DigestHash {
         }
     }
 
-    pub fn kind(&self) -> DigestKind {
+    pub fn algorithm(&self) -> DigestAlgorithm {
         match self {
-            Self::Sha1(..) => DigestKind::Sha1,
-            Self::Sha256(..) => DigestKind::Sha256,
-            Self::Blake3(..) => DigestKind::Blake3,
+            Self::Sha1(..) => DigestAlgorithm::Sha1,
+            Self::Sha256(..) => DigestAlgorithm::Sha256,
+            Self::Blake3(..) => DigestAlgorithm::Blake3,
         }
     }
 }
 
 #[derive(Debug, Eq, PartialEq, TryFromPrimitive, Copy, Clone, Dupe)]
 #[repr(u8)]
-pub enum DigestKind {
+pub enum DigestAlgorithm {
     Sha1,
     Sha256,
     Blake3,
@@ -82,10 +83,9 @@ pub enum DigestKind {
 #[display(fmt = "{}:{}", "hex::encode(digest.as_bytes())", size)]
 struct CasDigestData {
     size: u64,
-    digest: DigestHash,
+    digest: RawDigest,
 }
 
-/// The bytes that make up a file digest.
 #[derive(Display, Derivative, Allocative, Clone_, Dupe_)]
 #[allocative(bound = "")]
 #[derivative(PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -104,11 +104,11 @@ impl<Kind> fmt::Debug for CasDigest<Kind> {
 }
 
 impl<Kind> CasDigest<Kind> {
-    pub fn new(kind: DigestKind, digest: &[u8], size: u64) -> anyhow::Result<Self> {
+    pub fn new(kind: DigestAlgorithm, digest: &[u8], size: u64) -> anyhow::Result<Self> {
         Ok(match kind {
-            DigestKind::Sha1 => Self::new_sha1(digest.try_into()?, size),
-            DigestKind::Sha256 => Self::new_sha256(digest.try_into()?, size),
-            DigestKind::Blake3 => Self::new_blake3(digest.try_into()?, size),
+            DigestAlgorithm::Sha1 => Self::new_sha1(digest.try_into()?, size),
+            DigestAlgorithm::Sha256 => Self::new_sha256(digest.try_into()?, size),
+            DigestAlgorithm::Blake3 => Self::new_blake3(digest.try_into()?, size),
         })
     }
 
@@ -116,33 +116,33 @@ impl<Kind> CasDigest<Kind> {
         Self {
             data: CasDigestData {
                 size,
-                digest: DigestHash::Sha1(sha1),
+                digest: RawDigest::Sha1(sha1),
             },
             kind: PhantomData,
         }
     }
 
-    pub fn new_sha256(sha1: [u8; SHA256_SIZE], size: u64) -> Self {
+    pub fn new_sha256(sha256: [u8; SHA256_SIZE], size: u64) -> Self {
         Self {
             data: CasDigestData {
                 size,
-                digest: DigestHash::Sha256(sha1),
+                digest: RawDigest::Sha256(sha256),
             },
             kind: PhantomData,
         }
     }
 
-    pub fn new_blake3(sha1: [u8; BLAKE3_SIZE], size: u64) -> Self {
+    pub fn new_blake3(blake3: [u8; BLAKE3_SIZE], size: u64) -> Self {
         Self {
             data: CasDigestData {
                 size,
-                digest: DigestHash::Blake3(sha1),
+                digest: RawDigest::Blake3(blake3),
             },
             kind: PhantomData,
         }
     }
 
-    pub fn digest(&self) -> &DigestHash {
+    pub fn digest(&self) -> &RawDigest {
         &self.data.digest
     }
 
@@ -341,7 +341,7 @@ impl<Kind> TrackedCasDigest<Kind> {
         &self.inner.data
     }
 
-    pub fn digest(&self) -> &DigestHash {
+    pub fn digest(&self) -> &RawDigest {
         self.inner.data.digest()
     }
 
