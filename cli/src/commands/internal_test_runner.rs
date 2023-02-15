@@ -29,16 +29,25 @@ impl InternalTestRunnerCommand {
         _matches: &clap::ArgMatches,
         _ctx: ClientCommandContext,
     ) -> anyhow::Result<()> {
-        let runtime = Runtime::new().expect("Failed to create Tokio runtime");
-        runtime.block_on(async move {
-            #[cfg(unix)]
-            {
-                self.unix_runner.run().await
-            }
-            #[cfg(not(unix))]
-            {
-                self.tcp_runner.run().await
-            }
-        })
+        // Internal test runner should only be used in the open source version of Buck2.
+        if buck2_core::is_open_source()
+            || std::env::var("BUCK2_ALLOW_INTERNAL_TEST_RUNNER_DO_NOT_USE").is_ok()
+        {
+            let runtime = Runtime::new().expect("Failed to create Tokio runtime");
+            runtime.block_on(async move {
+                #[cfg(unix)]
+                {
+                    self.unix_runner.run().await
+                }
+                #[cfg(not(unix))]
+                {
+                    self.tcp_runner.run().await
+                }
+            })
+        } else {
+            anyhow::bail!(
+                "Cannot use internal test runner. Config value must be provided for test.v2_test_executor."
+            )
+        }
     }
 }
