@@ -148,7 +148,6 @@ CLIPPY_ALLOW = [
     "clippy::len-without-is-empty",  # len() == 0 is perfectly clear
     "clippy::manual-range-contains",  # a <= b && b <= c is way clearer than (a..=c).contains(&b)
     "clippy::many_single_char_names",  # match(a,b,c,d,e) sometimes makes sense
-    "clippy::match_single_binding",  # Triggered by derive(Derivative)
     "clippy::match-like-matches-macro",  # Using matches! is sometimes clearer, sometimes not
     "clippy::match-wild-err-arm",  # Seems reasonable to panic on Err(_)
     "clippy::missing-safety-doc",  # Documentation should be tailored to the reader, not the linter
