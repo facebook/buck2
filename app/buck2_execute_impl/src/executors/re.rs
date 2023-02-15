@@ -86,7 +86,6 @@ pub struct ReExecutor {
     pub re_action_key: Option<String>,
     pub re_max_input_files_bytes: u64,
     pub re_use_case: RemoteExecutorUseCase,
-    pub digest_config: DigestConfig,
     pub knobs: ExecutorGlobalKnobs,
     pub skip_cache_lookup: bool,
 }
@@ -101,7 +100,6 @@ impl ReExecutor {
         re_action_key: Option<String>,
         re_max_input_files_bytes: u64,
         re_use_case: RemoteExecutorUseCase,
-        digest_config: DigestConfig,
         knobs: ExecutorGlobalKnobs,
         skip_cache_lookup: bool,
     ) -> Self {
@@ -116,7 +114,6 @@ impl ReExecutor {
             re_action_key,
             re_max_input_files_bytes,
             re_use_case,
-            digest_config,
             knobs,
             skip_cache_lookup,
         }
@@ -132,6 +129,7 @@ impl ReExecutor {
         mut manager: CommandExecutionManager,
         blobs: &ActionBlobs,
         action_paths: &ActionPaths,
+        digest_config: DigestConfig,
     ) -> ControlFlow<CommandExecutionResult, CommandExecutionManager> {
         let re_client = &self.re_client;
 
@@ -146,7 +144,7 @@ impl ReExecutor {
                     ProjectRelativePath::empty(),
                     &action_paths.inputs,
                     self.re_use_case,
-                    self.digest_config,
+                    digest_config,
                 ),
             )
             .await;
@@ -166,6 +164,7 @@ impl ReExecutor {
         request: &CommandExecutionRequest,
         action_digest: &ActionDigest,
         action_paths: &ActionPaths,
+        digest_config: DigestConfig,
     ) -> ControlFlow<CommandExecutionResult, (CommandExecutionManager, ExecuteResponse)> {
         info!(
             "RE command line:\n```\n$ {}\n```\n for action `{}`",
@@ -215,7 +214,7 @@ impl ReExecutor {
                 CommandStdStreams::Remote(response.std_streams(
                     &self.re_client,
                     self.re_use_case,
-                    self.digest_config,
+                    digest_config,
                 )),
                 Some(action_result.exit_code),
             ));
@@ -241,6 +240,7 @@ impl PreparedCommandExecutor for ReExecutor {
                     action: action_digest,
                     blobs,
                 },
+            digest_config,
         } = command;
 
         if command.request.executor_preference().requires_local() {
@@ -248,10 +248,19 @@ impl PreparedCommandExecutor for ReExecutor {
             return ControlFlow::Break(manager.error("remote_prepare", error))?;
         }
 
-        let manager = self.upload(manager, blobs, action_paths).await?;
+        let manager = self
+            .upload(manager, blobs, action_paths, *digest_config)
+            .await?;
 
         let (manager, response) = self
-            .re_execute(manager, target, request, action_digest, action_paths)
+            .re_execute(
+                manager,
+                target,
+                request,
+                action_digest,
+                action_paths,
+                *digest_config,
+            )
             .await?;
 
         download_action_results(
@@ -259,7 +268,7 @@ impl PreparedCommandExecutor for ReExecutor {
             &*self.materializer,
             &self.re_client,
             self.re_use_case,
-            self.digest_config,
+            *digest_config,
             manager,
             buck2_data::ReStage {
                 stage: Some(buck2_data::ReDownload {}.into()),

@@ -541,6 +541,7 @@ impl PreparedCommandExecutor for LocalExecutor {
             target,
             action_paths: _action_paths,
             prepared_action,
+            digest_config: _digest_config,
         } = command;
 
         let _permit = manager

@@ -346,7 +346,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
         } = self
             .executor
             .command_executor
-            .exec_cmd(action, request, manager)
+            .exec_cmd(action, request, manager, self.digest_config())
             .await;
 
         // TODO (@torozco): The execution kind should be made to come via the command reports too.

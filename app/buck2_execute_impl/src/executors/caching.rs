@@ -70,7 +70,6 @@ pub struct CachingExecutor {
     pub upload_all_actions: bool,
     pub knobs: ExecutorGlobalKnobs,
     pub cache_upload_behavior: CacheUploadBehavior,
-    pub digest_config: DigestConfig,
 }
 
 impl CachingExecutor {
@@ -79,7 +78,6 @@ impl CachingExecutor {
         fs: ArtifactFs,
         materializer: Arc<dyn Materializer>,
         re_client: ManagedRemoteExecutionClient,
-        digest_config: DigestConfig,
         upload_all_actions: bool,
         knobs: ExecutorGlobalKnobs,
         cache_upload_behavior: CacheUploadBehavior,
@@ -92,7 +90,6 @@ impl CachingExecutor {
             upload_all_actions,
             knobs,
             cache_upload_behavior,
-            digest_config,
         }
     }
 
@@ -103,6 +100,7 @@ impl CachingExecutor {
         action_paths: &ActionPaths,
         action_digest: &ActionDigest,
         action_blobs: &ActionBlobs,
+        digest_config: DigestConfig,
     ) -> ControlFlow<CommandExecutionResult, CommandExecutionManager> {
         let re_client = &self.re_client;
         let action_cache_response = manager
@@ -122,7 +120,7 @@ impl CachingExecutor {
                     ProjectRelativePath::empty(),
                     &action_paths.inputs,
                     self.re_use_case(),
-                    self.digest_config,
+                    digest_config,
                 )
                 .await
             {
@@ -153,7 +151,7 @@ impl CachingExecutor {
                 &*self.materializer,
                 &self.re_client,
                 self.re_use_case(),
-                self.digest_config,
+                digest_config,
                 manager,
                 // TODO (torozco): We should deduplicate this and ActionExecutionKind.
                 buck2_data::CacheHit {
@@ -179,6 +177,7 @@ impl CachingExecutor {
         target: CommandExecutionTarget<'_>,
         digest: &ActionDigest,
         result: &CommandExecutionResult,
+        digest_config: DigestConfig,
     ) -> anyhow::Result<Option<CacheUploadOutcome>> {
         let max_bytes = match self.cache_upload_behavior {
             CacheUploadBehavior::Enabled { max_bytes } => max_bytes,
@@ -235,8 +234,14 @@ impl CachingExecutor {
                         }
                     }
 
-                    self.perform_cache_upload(digest, result, &mut file_digests, &mut tree_digests)
-                        .await
+                    self.perform_cache_upload(
+                        digest,
+                        result,
+                        &mut file_digests,
+                        &mut tree_digests,
+                        digest_config,
+                    )
+                    .await
                 }
                 .await;
 
@@ -274,6 +279,7 @@ impl CachingExecutor {
         result: &CommandExecutionResult,
         file_digests: &mut Vec<String>,
         tree_digests: &mut Vec<String>,
+        digest_config: DigestConfig,
     ) -> anyhow::Result<CacheUploadOutcome> {
         tracing::debug!("Uploading action result for `{}`", digest);
 
@@ -341,7 +347,7 @@ impl CachingExecutor {
                                 output.path(),
                                 &d.dupe().as_immutable(),
                                 self.re_use_case(),
-                                self.digest_config,
+                                digest_config,
                             )
                             .await
                     };
@@ -446,6 +452,7 @@ impl PreparedCommandExecutor for CachingExecutor {
                 &command.action_paths,
                 &command.prepared_action.action,
                 &command.prepared_action.blobs,
+                command.digest_config,
             )
             .await?;
 
@@ -457,6 +464,7 @@ impl PreparedCommandExecutor for CachingExecutor {
                 command.target,
                 &command.prepared_action.action,
                 &res,
+                command.digest_config,
             )
             .await;
 

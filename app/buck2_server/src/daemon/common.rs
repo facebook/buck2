@@ -12,7 +12,6 @@ use std::sync::Arc;
 use anyhow::Context as _;
 use buck2_cli_proto::client_context::HostPlatformOverride;
 use buck2_cli_proto::common_build_options::ExecutionStrategy;
-use buck2_common::digest_config::DigestConfig;
 use buck2_common::executor_config::CacheUploadBehavior;
 use buck2_common::executor_config::CommandExecutorConfig;
 use buck2_common::executor_config::CommandExecutorKind;
@@ -69,7 +68,6 @@ pub struct CommandExecutorFactory {
     pub forkserver: Option<ForkserverClient>,
     pub no_remote_cache: bool,
     project_root: ProjectRoot,
-    digest_config: DigestConfig,
 }
 
 impl CommandExecutorFactory {
@@ -85,7 +83,6 @@ impl CommandExecutorFactory {
         forkserver: Option<ForkserverClient>,
         no_remote_cache: bool,
         project_root: ProjectRoot,
-        digest_config: DigestConfig,
     ) -> Self {
         Self {
             re_connection,
@@ -99,7 +96,6 @@ impl CommandExecutorFactory {
             forkserver,
             no_remote_cache,
             project_root,
-            digest_config,
         }
     }
 }
@@ -159,7 +155,6 @@ impl HasCommandExecutor for CommandExecutorFactory {
                     .re_max_input_files_bytes
                     .unwrap_or(DEFAULT_RE_MAX_INPUT_FILE_BYTES),
                 options.re_use_case,
-                self.digest_config,
                 self.executor_global_knobs.dupe(),
                 self.no_remote_cache,
             )
@@ -210,7 +205,6 @@ impl HasCommandExecutor for CommandExecutorFactory {
             artifact_fs.clone(),
             self.materializer.dupe(),
             self.re_connection.get_client(),
-            self.digest_config,
             self.upload_all_actions,
             self.executor_global_knobs.dupe(),
             executor_config.cache_upload_behavior,

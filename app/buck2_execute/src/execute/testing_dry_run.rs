@@ -61,6 +61,7 @@ impl PreparedCommandExecutor for DryRunExecutor {
             target: _target,
             action_paths: _action_paths,
             prepared_action: _prepared_action,
+            digest_config: _digest_config,
         } = command;
 
         let manager = manager.claim().await;

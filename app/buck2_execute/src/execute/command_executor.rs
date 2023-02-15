@@ -11,6 +11,7 @@ use std::ops::ControlFlow;
 use std::sync::Arc;
 use std::time::Duration;
 
+use buck2_common::digest_config::DigestConfig;
 use buck2_common::executor_config::PathSeparatorKind;
 use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
@@ -105,6 +106,7 @@ impl CommandExecutor {
         action: CommandExecutionTarget<'_>,
         request: &CommandExecutionRequest,
         manager: CommandExecutionManager,
+        digest_config: DigestConfig,
     ) -> CommandExecutionResult {
         let (manager, action_paths, prepared_action) = self.prepare(manager, request).await?;
         self.0
@@ -115,6 +117,7 @@ impl CommandExecutor {
                     request,
                     action_paths,
                     prepared_action,
+                    digest_config,
                 },
                 manager,
             )

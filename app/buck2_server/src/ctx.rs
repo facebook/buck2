@@ -33,7 +33,6 @@ use buck2_cli_proto::ClientContext;
 use buck2_cli_proto::CommonBuildOptions;
 use buck2_cli_proto::ConfigOverride;
 use buck2_common::dice::cells::HasCellResolver;
-use buck2_common::dice::data::HasDigestConfig;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_common::executor_config::CommandExecutorConfig;
 use buck2_common::io::IoProvider;
@@ -509,7 +508,6 @@ impl DiceDataProvider for DiceCommandDataProvider {
                 .get_io_provider()
                 .project_root()
                 .to_owned(),
-            ctx.global_data().get_digest_config(),
         ));
         data.set_blocking_executor(self.blocking_executor.dupe());
         data.set_materializer(self.materializer.dupe());

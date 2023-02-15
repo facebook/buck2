@@ -8,6 +8,7 @@
  */
 
 use async_trait::async_trait;
+use buck2_common::digest_config::DigestConfig;
 use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use remote_execution as RE;
@@ -41,6 +42,7 @@ pub struct PreparedCommand<'a, 'b> {
     pub target: CommandExecutionTarget<'b>,
     pub action_paths: ActionPaths,
     pub prepared_action: PreparedAction,
+    pub digest_config: DigestConfig,
 }
 
 #[async_trait]

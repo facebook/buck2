@@ -29,6 +29,8 @@ use buck2_build_api::interpreter::rule_defs::provider::builtin::external_runner_
 use buck2_build_api::interpreter::rule_defs::provider::builtin::external_runner_test_info::FrozenExternalRunnerTestInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::external_runner_test_info::TestCommandMember;
 use buck2_common::dice::cells::HasCellResolver;
+use buck2_common::dice::data::HasDigestConfig;
+use buck2_common::digest_config::DigestConfig;
 use buck2_common::events::HasEvents;
 use buck2_common::executor_config::CommandExecutorConfig;
 use buck2_common::liveliness_observer::LivelinessObserver;
@@ -127,6 +129,7 @@ pub struct BuckTestOrchestrator {
     /// so use sequential identifiers for each target.
     identifiers: DashMap<ConfiguredTargetLabel, usize>,
     liveliness_observer: Arc<dyn LivelinessObserver>,
+    digest_config: DigestConfig,
 }
 
 impl BuckTestOrchestrator {
@@ -137,12 +140,14 @@ impl BuckTestOrchestrator {
         results_channel: UnboundedSender<anyhow::Result<TestResultOrExitCode>>,
     ) -> anyhow::Result<Self> {
         let events = dice.per_transaction_data().get_dispatcher().dupe();
+        let digest_config = dice.global_data().get_digest_config();
         Ok(Self::from_parts(
             dice,
             session,
             liveliness_observer,
             results_channel,
             events,
+            digest_config,
         ))
     }
 
@@ -152,6 +157,7 @@ impl BuckTestOrchestrator {
         liveliness_observer: Arc<dyn LivelinessObserver>,
         results_channel: UnboundedSender<anyhow::Result<TestResultOrExitCode>>,
         events: EventDispatcher,
+        digest_config: DigestConfig,
     ) -> Self {
         Self {
             dice,
@@ -159,6 +165,7 @@ impl BuckTestOrchestrator {
             liveliness_observer,
             results_channel,
             events,
+            digest_config,
             identifiers: Default::default(),
         }
     }
@@ -452,7 +459,12 @@ impl BuckTestOrchestrator {
             self.liveliness_observer.dupe(),
         );
 
-        let command = executor.exec_cmd(command_execution_target, &request, manager);
+        let command = executor.exec_cmd(
+            command_execution_target,
+            &request,
+            manager,
+            self.digest_config,
+        );
 
         // instrument execution with a span.
         // TODO(brasselsprouts): migrate this into the executor to get better accuracy.
@@ -1022,6 +1034,7 @@ mod tests {
                 NoopLivelinessObserver::create(),
                 sender,
                 EventDispatcher::null(),
+                DigestConfig::compat(),
             ),
             receiver,
         ))
