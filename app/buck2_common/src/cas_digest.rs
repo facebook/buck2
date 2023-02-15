@@ -150,13 +150,6 @@ impl<Kind> CasDigest<Kind> {
         self.data.digest.kind()
     }
 
-    pub fn sha1(&self) -> &[u8; SHA1_SIZE] {
-        match &self.data.digest {
-            DigestHash::Sha1(x) => x,
-            _ => panic!("Can;'t get the SHA1 for something that doesn't have it"),
-        }
-    }
-
     pub fn size(&self) -> u64 {
         self.data.size
     }
@@ -358,10 +351,6 @@ impl<Kind> TrackedCasDigest<Kind> {
 
     pub fn digest_kind(&self) -> DigestKind {
         self.inner.data.digest_kind()
-    }
-
-    pub fn sha1(&self) -> &[u8; SHA1_SIZE] {
-        self.inner.data.sha1()
     }
 
     pub fn size(&self) -> u64 {
