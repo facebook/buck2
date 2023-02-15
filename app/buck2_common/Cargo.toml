@@ -29,6 +29,7 @@ tonic = { workspace = true }
 tower = { workspace = true }
 tracing = { workspace = true }
 nix = { workspace = true }
+num_enum = { workspace = true }
 derivative = { workspace = true }
 parking_lot = { workspace = true }
 

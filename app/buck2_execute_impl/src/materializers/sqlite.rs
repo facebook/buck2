@@ -42,7 +42,7 @@ use crate::materializers::deferred::ArtifactMetadata;
 /// materializer state sqlite db schema! If you forget to bump this version,
 /// then you can fix forward by bumping the `buck2.sqlite_materializer_state_version`
 /// buckconfig in the project root's .buckconfig.
-pub const DB_SCHEMA_VERSION: u64 = 3;
+pub const DB_SCHEMA_VERSION: u64 = 4;
 
 pub type MaterializerState = Vec<(ProjectRelativePathBuf, (ArtifactMetadata, DateTime<Utc>))>;
 
@@ -61,15 +61,16 @@ pub(crate) enum ArtifactMetadataSqliteConversionError {
 /// Sqlite representation of sha1. Can be converted directly into BLOB type
 /// in rusqlite. Note we use a Vec and not a fixed length array here because
 /// rusqlite can only convert to Vec.
-pub(crate) type SqliteSha1 = Vec<u8>;
+pub(crate) type SqliteDigest = Vec<u8>;
 
 /// Sqlite representation of `ArtifactMetadata`. All datatypes used implement
 /// rusqlite's `FromSql` trait.
 #[derive(Debug)]
 pub(crate) struct ArtifactMetadataSqliteEntry {
     pub artifact_type: String,
-    pub digest_size: Option<u64>,
-    pub digest_sha1: Option<SqliteSha1>,
+    pub entry_size: Option<u64>,
+    pub entry_hash: Option<SqliteDigest>,
+    pub entry_hash_kind: Option<u8>,
     pub file_is_executable: Option<bool>,
     pub symlink_target: Option<String>,
 }
@@ -77,15 +78,17 @@ pub(crate) struct ArtifactMetadataSqliteEntry {
 impl ArtifactMetadataSqliteEntry {
     pub(crate) fn new(
         artifact_type: String,
-        digest_size: Option<u64>,
-        digest_sha1: Option<Vec<u8>>,
+        entry_size: Option<u64>,
+        entry_hash: Option<Vec<u8>>,
+        entry_hash_kind: Option<u8>,
         file_is_executable: Option<bool>,
         symlink_target: Option<String>,
     ) -> Self {
         Self {
             artifact_type,
-            digest_size,
-            digest_sha1,
+            entry_size,
+            entry_hash,
+            entry_hash_kind,
             file_is_executable,
             symlink_target,
         }
@@ -94,52 +97,67 @@ impl ArtifactMetadataSqliteEntry {
 
 impl From<ArtifactMetadata> for ArtifactMetadataSqliteEntry {
     fn from(metadata: ArtifactMetadata) -> Self {
-        fn get_size_and_sha1(digest: TrackedFileDigest) -> (u64, Vec<u8>) {
-            (digest.size(), digest.sha1().to_vec())
+        fn digest_parts(digest: TrackedFileDigest) -> (u64, Vec<u8>, u8) {
+            (
+                digest.size(),
+                digest.digest().to_vec(),
+                digest.digest_kind() as _,
+            )
         }
 
-        let (artifact_type, digest_size, digest_sha1, file_is_executable, symlink_target) =
-            match metadata.0 {
-                DirectoryEntry::Dir(digest) => {
-                    let (digest_size, digest_sha1) = get_size_and_sha1(digest);
-                    (
-                        "directory",
-                        Some(digest_size),
-                        Some(digest_sha1),
-                        None,
-                        None,
-                    )
-                }
-                DirectoryEntry::Leaf(ActionDirectoryMember::File(file_metadata)) => {
-                    let (digest_size, digest_sha1) = get_size_and_sha1(file_metadata.digest);
-                    (
-                        "file",
-                        Some(digest_size),
-                        Some(digest_sha1),
-                        Some(file_metadata.is_executable),
-                        None,
-                    )
-                }
-                DirectoryEntry::Leaf(ActionDirectoryMember::Symlink(symlink)) => (
-                    "symlink",
+        let (
+            artifact_type,
+            entry_size,
+            entry_hash,
+            entry_hash_kind,
+            file_is_executable,
+            symlink_target,
+        ) = match metadata.0 {
+            DirectoryEntry::Dir(digest) => {
+                let (entry_size, entry_hash, entry_hash_kind) = digest_parts(digest);
+                (
+                    "directory",
+                    Some(entry_size),
+                    Some(entry_hash),
+                    Some(entry_hash_kind),
                     None,
                     None,
+                )
+            }
+            DirectoryEntry::Leaf(ActionDirectoryMember::File(file_metadata)) => {
+                let (entry_size, entry_hash, entry_hash_kind) = digest_parts(file_metadata.digest);
+                (
+                    "file",
+                    Some(entry_size),
+                    Some(entry_hash),
+                    Some(entry_hash_kind),
+                    Some(file_metadata.is_executable),
                     None,
-                    Some(symlink.target().as_str().to_owned()),
-                ),
-                DirectoryEntry::Leaf(ActionDirectoryMember::ExternalSymlink(external_symlink)) => (
-                    "external_symlink",
-                    None,
-                    None,
-                    None,
-                    Some(external_symlink.target_str().to_owned()),
-                ),
-            };
+                )
+            }
+            DirectoryEntry::Leaf(ActionDirectoryMember::Symlink(symlink)) => (
+                "symlink",
+                None,
+                None,
+                None,
+                None,
+                Some(symlink.target().as_str().to_owned()),
+            ),
+            DirectoryEntry::Leaf(ActionDirectoryMember::ExternalSymlink(external_symlink)) => (
+                "external_symlink",
+                None,
+                None,
+                None,
+                None,
+                Some(external_symlink.target_str().to_owned()),
+            ),
+        };
 
         Self {
             artifact_type: artifact_type.to_owned(),
-            digest_size,
-            digest_sha1,
+            entry_size,
+            entry_hash,
+            entry_hash_kind,
             file_is_executable,
             symlink_target,
         }
@@ -152,7 +170,8 @@ impl TryFrom<ArtifactMetadataSqliteEntry> for ArtifactMetadata {
     fn try_from(sqlite_entry: ArtifactMetadataSqliteEntry) -> anyhow::Result<Self> {
         fn digest(
             size: Option<u64>,
-            sha1: Option<Vec<u8>>,
+            entry_hash: Option<Vec<u8>>,
+            entry_hash_kind: Option<u8>,
             artifact_type: &str,
         ) -> anyhow::Result<TrackedFileDigest> {
             let size = size.ok_or_else(|| {
@@ -161,36 +180,38 @@ impl TryFrom<ArtifactMetadataSqliteEntry> for ArtifactMetadata {
                     artifact_type: artifact_type.to_owned()
                 })
             })?;
-            let sha1 = sha1.ok_or_else(|| {
+            let entry_hash = entry_hash.ok_or_else(|| {
                 anyhow::anyhow!(ArtifactMetadataSqliteConversionError::ExpectedNotNull {
-                    field: "sha1".to_owned(),
+                    field: "entry_hash".to_owned(),
                     artifact_type: artifact_type.to_owned()
                 })
             })?;
+            let entry_hash_kind = entry_hash_kind.ok_or_else(|| {
+                anyhow::anyhow!(ArtifactMetadataSqliteConversionError::ExpectedNotNull {
+                    field: "entry_hash_kind".to_owned(),
+                    artifact_type: artifact_type.to_owned()
+                })
+            })?;
+            let entry_hash_kind = entry_hash_kind
+                .try_into()
+                .with_context(|| format!("Invalid entry_hash_kind: `{}`", entry_hash_kind))?;
 
-            let file_digest = FileDigest::new_sha1(
-                // Converts Vec<u8> to [u8; SHA1_LENGTH]
-                sha1.try_into().map_err(|v: Vec<u8>| {
-                    anyhow::anyhow!(
-                        "Internal error: cannot vec of bytes of len {} to a sha1",
-                        v.len()
-                    )
-                })?,
-                size,
-            );
+            let file_digest = FileDigest::new(entry_hash_kind, &entry_hash, size)?;
             Ok(TrackedFileDigest::new(file_digest))
         }
 
         let metadata = match sqlite_entry.artifact_type.as_str() {
             "directory" => DirectoryEntry::Dir(digest(
-                sqlite_entry.digest_size,
-                sqlite_entry.digest_sha1,
+                sqlite_entry.entry_size,
+                sqlite_entry.entry_hash,
+                sqlite_entry.entry_hash_kind,
                 sqlite_entry.artifact_type.as_str(),
             )?),
             "file" => DirectoryEntry::Leaf(ActionDirectoryMember::File(FileMetadata {
                 digest: digest(
-                    sqlite_entry.digest_size,
-                    sqlite_entry.digest_sha1,
+                    sqlite_entry.entry_size,
+                    sqlite_entry.entry_hash,
+                    sqlite_entry.entry_hash_kind,
                     sqlite_entry.artifact_type.as_str(),
                 )?,
                 is_executable: sqlite_entry.file_is_executable.ok_or_else(|| {
@@ -263,8 +284,9 @@ impl MaterializerStateSqliteTable {
             "CREATE TABLE {} (
                 path                    TEXT NOT NULL PRIMARY KEY,
                 artifact_type           TEXT CHECK(artifact_type IN ('directory','file','symlink','external_symlink')) NOT NULL,
-                digest_size             INTEGER NULL DEFAULT NULL,
-                digest_sha1             BLOB NULL DEFAULT NULL,
+                entry_size              INTEGER NULL DEFAULT NULL,
+                entry_hash              BLOB NULL DEFAULT NULL,
+                entry_hash_kind         INTEGER NULL DEFAULT NULL,
                 file_is_executable      INTEGER NULL DEFAULT NULL,
                 symlink_target          TEXT NULL DEFAULT NULL,
                 last_access_time        INTEGER NOT NULL
@@ -287,7 +309,7 @@ impl MaterializerStateSqliteTable {
     ) -> anyhow::Result<()> {
         let entry: ArtifactMetadataSqliteEntry = metadata.into();
         let sql = format!(
-            "INSERT INTO {} (path, artifact_type, digest_size, digest_sha1, file_is_executable, symlink_target, last_access_time) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            "INSERT INTO {} (path, artifact_type, entry_size, entry_hash, entry_hash_kind, file_is_executable, symlink_target, last_access_time) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
             Self::TABLE_NAME
         );
         tracing::trace!(sql = %sql, entry = ?entry, "inserting into table");
@@ -298,8 +320,9 @@ impl MaterializerStateSqliteTable {
                 rusqlite::params![
                     path.as_str(),
                     entry.artifact_type,
-                    entry.digest_size,
-                    entry.digest_sha1,
+                    entry.entry_size,
+                    entry.entry_hash,
+                    entry.entry_hash_kind,
                     entry.file_is_executable,
                     entry.symlink_target,
                     timestamp.timestamp(),
@@ -337,7 +360,7 @@ impl MaterializerStateSqliteTable {
 
     pub(crate) fn read_all(&self) -> anyhow::Result<MaterializerState> {
         let sql = format!(
-            "SELECT path, artifact_type, digest_size, digest_sha1, file_is_executable, symlink_target, last_access_time FROM {}",
+            "SELECT path, artifact_type, entry_size, entry_hash, entry_hash_kind, file_is_executable, symlink_target, last_access_time FROM {}",
             Self::TABLE_NAME,
         );
         tracing::trace!(sql = %sql, "reading all from table");
@@ -355,8 +378,9 @@ impl MaterializerStateSqliteTable {
                             row.get(3)?,
                             row.get(4)?,
                             row.get(5)?,
+                            row.get(6)?,
                         ),
-                        row.get(6)?,
+                        row.get(7)?,
                     ))
                 },
             )?

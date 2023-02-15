@@ -25,6 +25,7 @@ use derive_more::Display;
 use dupe::Clone_;
 use dupe::Dupe;
 use dupe::Dupe_;
+use num_enum::TryFromPrimitive;
 use once_cell::sync::OnceCell;
 use sha1::Digest;
 use sha1::Sha1;
@@ -40,7 +41,7 @@ pub const SHA256_SIZE: usize = 32;
 pub const BLAKE3_SIZE: usize = 32;
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Allocative, Clone)]
-enum DigestHash {
+pub enum DigestHash {
     Sha1([u8; SHA1_SIZE]),
     Sha256([u8; SHA256_SIZE]),
     Blake3([u8; BLAKE3_SIZE]),
@@ -57,6 +58,22 @@ impl DigestHash {
             Self::Blake3(x) => x,
         }
     }
+
+    fn kind(&self) -> DigestKind {
+        match self {
+            Self::Sha1(..) => DigestKind::Sha1,
+            Self::Sha256(..) => DigestKind::Sha256,
+            Self::Blake3(..) => DigestKind::Blake3,
+        }
+    }
+}
+
+#[derive(Debug, Eq, PartialEq, TryFromPrimitive, Copy, Clone, Dupe)]
+#[repr(u8)]
+pub enum DigestKind {
+    Sha1,
+    Sha256,
+    Blake3,
 }
 
 /// Separate struct to allow us to use  `repr(transparent)` below and guarantee an identical
@@ -87,6 +104,14 @@ impl<Kind> fmt::Debug for CasDigest<Kind> {
 }
 
 impl<Kind> CasDigest<Kind> {
+    pub fn new(kind: DigestKind, digest: &[u8], size: u64) -> anyhow::Result<Self> {
+        Ok(match kind {
+            DigestKind::Sha1 => Self::new_sha1(digest.try_into()?, size),
+            DigestKind::Sha256 => Self::new_sha256(digest.try_into()?, size),
+            DigestKind::Blake3 => Self::new_blake3(digest.try_into()?, size),
+        })
+    }
+
     pub fn new_sha1(sha1: [u8; SHA1_SIZE], size: u64) -> Self {
         Self {
             data: CasDigestData {
@@ -119,6 +144,10 @@ impl<Kind> CasDigest<Kind> {
 
     pub fn digest(&self) -> &[u8] {
         self.data.digest.as_bytes()
+    }
+
+    pub fn digest_kind(&self) -> DigestKind {
+        self.data.digest.kind()
     }
 
     pub fn sha1(&self) -> &[u8; SHA1_SIZE] {
@@ -325,6 +354,10 @@ impl<Kind> TrackedCasDigest<Kind> {
 
     pub fn digest(&self) -> &[u8] {
         self.inner.data.digest()
+    }
+
+    pub fn digest_kind(&self) -> DigestKind {
+        self.inner.data.digest_kind()
     }
 
     pub fn sha1(&self) -> &[u8; SHA1_SIZE] {
