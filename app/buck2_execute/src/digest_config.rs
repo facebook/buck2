@@ -8,6 +8,8 @@
  */
 
 use allocative::Allocative;
+use dice::DiceData;
+use dice::DiceDataBuilder;
 use dupe::Dupe;
 
 /// This configuration describes how to interpret digests received from a RE backend.
@@ -17,5 +19,27 @@ pub struct DigestConfig {}
 impl DigestConfig {
     pub fn compat() -> Self {
         Self {}
+    }
+}
+
+pub trait HasDigestConfig {
+    fn get_digest_config(&self) -> DigestConfig;
+}
+
+pub trait SetDigestConfig {
+    fn set_digest_config(&mut self, digest_config: DigestConfig);
+}
+
+impl HasDigestConfig for DiceData {
+    fn get_digest_config(&self) -> DigestConfig {
+        self.get::<DigestConfig>()
+            .expect("digest config should be set")
+            .dupe()
+    }
+}
+
+impl SetDigestConfig for DiceDataBuilder {
+    fn set_digest_config(&mut self, digest_config: DigestConfig) {
+        self.set(digest_config)
     }
 }

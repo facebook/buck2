@@ -13,7 +13,6 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use buck2_common::cas_digest::TrackedCasDigest;
-use buck2_common::digest_config::DigestConfig;
 use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::FileDigestKind;
@@ -39,6 +38,7 @@ use remote_execution::UploadRequest;
 
 use crate::digest::CasDigestFromReExt;
 use crate::digest::CasDigestToReExt;
+use crate::digest_config::DigestConfig;
 use crate::directory::ActionDirectoryMember;
 use crate::directory::ActionFingerprintedDirectory;
 use crate::directory::ActionImmutableDirectory;

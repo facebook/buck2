@@ -410,10 +410,8 @@ mod tests {
     use assert_matches::assert_matches;
     use buck2_common::dice::cells::SetCellResolver;
     use buck2_common::dice::data::testing::SetTestingIoProvider;
-    use buck2_common::dice::data::SetDigestConfig;
     use buck2_common::dice::file_ops::keys::FileOpsValue;
     use buck2_common::dice::file_ops::testing::FileOpsKey;
-    use buck2_common::digest_config::DigestConfig;
     use buck2_common::executor_config::CommandExecutorConfig;
     use buck2_common::external_symlink::ExternalSymlink;
     use buck2_common::file_ops::testing::TestFileOps;
@@ -444,6 +442,8 @@ mod tests {
     use buck2_events::dispatch::EventDispatcher;
     use buck2_execute::artifact::source_artifact::SourceArtifact;
     use buck2_execute::artifact_value::ArtifactValue;
+    use buck2_execute::digest_config::DigestConfig;
+    use buck2_execute::digest_config::SetDigestConfig;
     use buck2_execute::directory::ActionDirectoryMember;
     use buck2_execute::execute::action_digest::ActionDigest;
     use buck2_execute::execute::blocking::testing::DummyBlockingExecutor;

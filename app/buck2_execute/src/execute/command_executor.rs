@@ -11,7 +11,6 @@ use std::ops::ControlFlow;
 use std::sync::Arc;
 use std::time::Duration;
 
-use buck2_common::digest_config::DigestConfig;
 use buck2_common::executor_config::PathSeparatorKind;
 use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
@@ -26,6 +25,7 @@ use sorted_vector_map::SortedVectorMap;
 use crate::artifact::fs::ArtifactFs;
 use crate::artifact::fs::ExecutorFs;
 use crate::digest::CasDigestToReExt;
+use crate::digest_config::DigestConfig;
 use crate::directory::insert_entry;
 use crate::directory::ActionDirectoryMember;
 use crate::directory::ReDirectorySerializer;

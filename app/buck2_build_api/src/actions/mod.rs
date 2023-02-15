@@ -39,7 +39,6 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
-use buck2_common::digest_config::DigestConfig;
 use buck2_common::executor_config::CommandExecutorConfig;
 use buck2_core::category::Category;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
@@ -48,6 +47,7 @@ use buck2_execute::artifact::fs::ArtifactFs;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::base_deferred_key::BaseDeferredKey;
+use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::execute::request::CommandExecutionOutput;
 use buck2_execute::execute::request::CommandExecutionRequest;

@@ -12,8 +12,9 @@ use std::fmt;
 use buck2_common::cas_digest::CasDigest;
 use buck2_common::cas_digest::CasDigestParseError;
 use buck2_common::cas_digest::TrackedCasDigest;
-use buck2_common::digest_config::DigestConfig;
 use thiserror::Error;
+
+use crate::digest_config::DigestConfig;
 
 #[derive(Error, Debug)]
 pub enum DigestConversionError {

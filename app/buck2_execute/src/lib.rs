@@ -20,6 +20,7 @@ pub mod artifact_value;
 pub mod base_deferred_key;
 pub mod bxl;
 pub mod digest;
+pub mod digest_config;
 pub mod directory;
 pub mod execute;
 pub mod knobs;

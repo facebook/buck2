@@ -12,7 +12,6 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use anyhow::Context as _;
-use buck2_common::digest_config::DigestConfig;
 use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::FileMetadata;
@@ -22,6 +21,7 @@ use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest::CasDigestFromReExt;
+use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::extract_artifact_value;
 use buck2_execute::directory::re_tree_to_directory;
 use buck2_execute::directory::ActionDirectoryMember;

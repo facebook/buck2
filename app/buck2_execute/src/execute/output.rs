@@ -11,7 +11,6 @@ use std::fmt;
 use std::fmt::Debug;
 
 use anyhow::Context;
-use buck2_common::digest_config::DigestConfig;
 use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_common::file_ops::FileDigest;
 use futures::future;
@@ -19,6 +18,7 @@ use futures::future;
 use crate::digest::CasDigestConversionResultExt;
 use crate::digest::CasDigestFromReExt;
 use crate::digest::ReDigest;
+use crate::digest_config::DigestConfig;
 use crate::re::manager::ManagedRemoteExecutionClient;
 use crate::re::streams::RemoteCommandStdStreams;
 

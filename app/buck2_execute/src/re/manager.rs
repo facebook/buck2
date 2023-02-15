@@ -18,7 +18,6 @@ use std::sync::Weak;
 use allocative::Allocative;
 use anyhow::Context as _;
 use async_trait::async_trait;
-use buck2_common::digest_config::DigestConfig;
 use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_common::result::SharedResult;
 use buck2_core::async_once_cell::AsyncOnceCell;
@@ -38,6 +37,7 @@ use remote_execution::NamedDigestWithPermissions;
 use remote_execution::TActionResult2;
 use remote_execution::TDigest;
 
+use crate::digest_config::DigestConfig;
 use crate::directory::ActionImmutableDirectory;
 use crate::execute::action_digest::ActionDigest;
 use crate::execute::blobs::ActionBlobs;

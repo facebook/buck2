@@ -8,11 +8,11 @@
  */
 
 use async_trait::async_trait;
-use buck2_common::digest_config::DigestConfig;
 use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use remote_execution as RE;
 
+use crate::digest_config::DigestConfig;
 use crate::directory::ActionImmutableDirectory;
 use crate::execute::action_digest::ActionDigest;
 use crate::execute::blobs::ActionBlobs;

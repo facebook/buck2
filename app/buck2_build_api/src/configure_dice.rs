@@ -10,12 +10,12 @@
 use std::sync::Arc;
 
 use buck2_common::dice::cells::SetCellResolver;
-use buck2_common::dice::data::SetDigestConfig;
 use buck2_common::dice::data::SetIoProvider;
-use buck2_common::digest_config::DigestConfig;
 use buck2_common::io::IoProvider;
 use buck2_common::legacy_configs::dice::SetLegacyConfigs;
 use buck2_common::legacy_configs::LegacyBuckConfig;
+use buck2_execute::digest_config::DigestConfig;
+use buck2_execute::digest_config::SetDigestConfig;
 use dice::DetectCycles;
 use dice::Dice;
 

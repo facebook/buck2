@@ -13,8 +13,6 @@ use std::sync::Arc;
 use allocative::Allocative;
 use anyhow::Context;
 use async_trait::async_trait;
-use buck2_common::dice::data::HasDigestConfig;
-use buck2_common::digest_config::DigestConfig;
 use buck2_common::events::HasEvents;
 use buck2_common::executor_config::CommandExecutorConfig;
 use buck2_common::liveliness_observer::NoopLivelinessObserver;
@@ -22,6 +20,8 @@ use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::artifact::fs::ArtifactFs;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::artifact_value::ArtifactValue;
+use buck2_execute::digest_config::DigestConfig;
+use buck2_execute::digest_config::HasDigestConfig;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::execute::blocking::HasBlockingExecutor;
 use buck2_execute::execute::claim::MutexClaimManager;
@@ -517,7 +517,6 @@ mod tests {
 
     use allocative::Allocative;
     use async_trait::async_trait;
-    use buck2_common::digest_config::DigestConfig;
     use buck2_common::executor_config::CommandExecutorConfig;
     use buck2_common::executor_config::PathSeparatorKind;
     use buck2_core::buck_path::BuckPath;
@@ -544,6 +543,7 @@ mod tests {
     use buck2_execute::artifact::source_artifact::SourceArtifact;
     use buck2_execute::artifact_value::ArtifactValue;
     use buck2_execute::base_deferred_key::BaseDeferredKey;
+    use buck2_execute::digest_config::DigestConfig;
     use buck2_execute::execute::blocking::testing::DummyBlockingExecutor;
     use buck2_execute::execute::clean_output_paths::cleanup_path;
     use buck2_execute::execute::command_executor::ActionExecutionTimingData;

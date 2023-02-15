@@ -15,7 +15,6 @@ use std::time::Duration;
 
 use allocative::Allocative;
 use anyhow::Context;
-use buck2_common::digest_config::DigestConfig;
 use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_core::env_helper::EnvHelper;
@@ -68,6 +67,7 @@ use tokio::sync::Semaphore;
 use tracing::warn;
 
 use crate::digest::CasDigestToReExt;
+use crate::digest_config::DigestConfig;
 use crate::directory::ActionImmutableDirectory;
 use crate::execute::action_digest::ActionDigest;
 use crate::execute::blobs::ActionBlobs;

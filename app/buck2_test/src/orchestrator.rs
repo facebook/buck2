@@ -29,8 +29,6 @@ use buck2_build_api::interpreter::rule_defs::provider::builtin::external_runner_
 use buck2_build_api::interpreter::rule_defs::provider::builtin::external_runner_test_info::FrozenExternalRunnerTestInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::external_runner_test_info::TestCommandMember;
 use buck2_common::dice::cells::HasCellResolver;
-use buck2_common::dice::data::HasDigestConfig;
-use buck2_common::digest_config::DigestConfig;
 use buck2_common::events::HasEvents;
 use buck2_common::executor_config::CommandExecutorConfig;
 use buck2_common::liveliness_observer::LivelinessObserver;
@@ -55,6 +53,8 @@ use buck2_execute::artifact::fs::ArtifactFs;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::base_deferred_key::BaseDeferredKey;
+use buck2_execute::digest_config::DigestConfig;
+use buck2_execute::digest_config::HasDigestConfig;
 use buck2_execute::execute::blocking::HasBlockingExecutor;
 use buck2_execute::execute::claim::MutexClaimManager;
 use buck2_execute::execute::command_executor::CommandExecutor;

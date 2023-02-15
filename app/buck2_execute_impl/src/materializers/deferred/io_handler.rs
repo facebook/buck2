@@ -13,7 +13,6 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use async_trait::async_trait;
-use buck2_common::digest_config::DigestConfig;
 use buck2_common::file_ops::FileDigest;
 use buck2_common::result::SharedError;
 use buck2_common::result::ToSharedResultExt;
@@ -25,6 +24,7 @@ use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::digest::CasDigestFromReExt;
 use buck2_execute::digest::CasDigestToReExt;
+use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::ActionDirectoryEntry;
 use buck2_execute::directory::ActionDirectoryMember;
 use buck2_execute::directory::ActionSharedDirectory;

@@ -18,7 +18,6 @@ use std::sync::Arc;
 use allocative::Allocative;
 use anyhow::Context as _;
 use buck2_common::cas_digest::DigestAlgorithm;
-use buck2_common::digest_config::DigestConfig;
 use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_common::external_symlink::ExternalSymlink;
 use buck2_common::file_ops::FileDigest;
@@ -54,6 +53,7 @@ use thiserror::Error;
 use crate::artifact_value::ArtifactValue;
 use crate::digest::CasDigestFromReExt;
 use crate::digest::CasDigestToReExt;
+use crate::digest_config::DigestConfig;
 use crate::re::manager::ManagedRemoteExecutionClient;
 
 #[allocative::root]

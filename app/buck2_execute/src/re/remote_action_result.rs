@@ -10,7 +10,6 @@
 use std::time::Duration;
 use std::time::SystemTime;
 
-use buck2_common::digest_config::DigestConfig;
 use buck2_common::executor_config::RemoteExecutorUseCase;
 use remote_execution::ActionResultResponse;
 use remote_execution::ExecuteResponse;
@@ -19,6 +18,7 @@ use remote_execution::TExecutedActionMetadata;
 use remote_execution::TFile;
 use remote_execution::TTimestamp;
 
+use crate::digest_config::DigestConfig;
 use crate::execute::action_digest::ActionDigest;
 use crate::execute::kind::CommandExecutionKind;
 use crate::execute::result::CommandExecutionTimingData;

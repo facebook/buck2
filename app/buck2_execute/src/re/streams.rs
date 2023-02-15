@@ -7,13 +7,13 @@
  * of this source tree.
  */
 
-use buck2_common::digest_config::DigestConfig;
 use buck2_common::executor_config::RemoteExecutorUseCase;
 use derivative::Derivative;
 use dupe::Dupe;
 use futures::future;
 use remote_execution::TActionResult2;
 
+use crate::digest_config::DigestConfig;
 use crate::execute::output::ReStdStream;
 use crate::re::manager::ManagedRemoteExecutionClient;
 

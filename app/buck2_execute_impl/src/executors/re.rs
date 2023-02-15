@@ -11,12 +11,12 @@ use std::ops::ControlFlow;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use buck2_common::digest_config::DigestConfig;
 use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_core::collections::sorted_map::SortedMap;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_execute::artifact::fs::ArtifactFs;
+use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::execute::action_digest::ActionDigest;
 use buck2_execute::execute::blobs::ActionBlobs;
 use buck2_execute::execute::kind::CommandExecutionKind;

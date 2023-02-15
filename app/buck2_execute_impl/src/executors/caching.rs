@@ -13,7 +13,6 @@ use std::time::SystemTime;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
-use buck2_common::digest_config::DigestConfig;
 use buck2_common::executor_config::CacheUploadBehavior;
 use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_core::directory::DirectoryEntry;
@@ -22,6 +21,7 @@ use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_events::dispatch::span_async;
 use buck2_execute::artifact::fs::ArtifactFs;
 use buck2_execute::digest::CasDigestToReExt;
+use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::directory_to_re_tree;
 use buck2_execute::directory::ActionDirectoryMember;
 use buck2_execute::execute::action_digest::ActionDigest;
