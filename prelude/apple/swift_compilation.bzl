@@ -19,7 +19,6 @@ load(
     "cxx_inherited_preprocessor_infos",
     "cxx_merge_cpreprocessors",
 )
-load("@prelude//utils:anon_targets.bzl", "anon_targets")
 load(":apple_sdk_modules_utility.bzl", "get_compiled_sdk_deps_tset", "get_uncompiled_sdk_deps", "is_sdk_modules_provided")
 load(":apple_toolchain_types.bzl", "AppleToolchainInfo")
 load(":apple_utility.bzl", "get_disable_pch_validation_flags", "get_module_name", "get_versioned_target_triple")
@@ -100,7 +99,7 @@ def get_swift_anonymous_targets(ctx: "context", get_apple_library_providers: "fu
         ctx,
         direct_uncompiled_sdk_deps,
     )
-    return anon_targets(ctx, pcm_targets + sdk_pcm_targets + swift_interface_anon_targets, get_apple_library_providers)
+    return ctx.actions.anon_targets(pcm_targets + sdk_pcm_targets + swift_interface_anon_targets).map(get_apple_library_providers)
 
 def compile_swift(
         ctx: "context",
