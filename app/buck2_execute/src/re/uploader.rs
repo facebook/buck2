@@ -105,7 +105,8 @@ impl Uploader {
         let mut input_digests = input_digests.into_iter().collect::<Vec<_>>();
         input_digests.sort();
 
-        let mut digest_ttls = digest_ttls.into_map(|d| (FileDigest::from_re(&d.digest), d.ttl));
+        let mut digest_ttls =
+            digest_ttls.into_try_map(|d| anyhow::Ok((FileDigest::from_re(&d.digest)?, d.ttl)))?;
         digest_ttls.sort();
 
         if input_digests.len() != digest_ttls.len() {
@@ -387,7 +388,7 @@ fn add_injected_missing_digests<'a>(
             .map(|digest| {
                 let digest = TDigest::from_str(digest)
                     .with_context(|| format!("Invalid digest: `{}`", digest))?;
-                let digest = FileDigest::from_re(&digest);
+                let digest = FileDigest::from_re(&digest)?;
                 anyhow::Ok(digest)
             })
             .collect()

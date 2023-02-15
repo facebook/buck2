@@ -311,7 +311,7 @@ pub fn re_tree_to_directory(
                     dir: re_dir_name.to_string(),
                 }
             })?;
-            let digest = FileDigest::from_grpc(digest);
+            let digest = FileDigest::from_grpc(digest)?;
             let digest = TrackedFileDigest::new_expires(digest, *leaf_expires);
 
             let member = ActionDirectoryMember::File(FileMetadata {
@@ -343,7 +343,7 @@ pub fn re_tree_to_directory(
                 }
                 Some(d) => d,
             };
-            let child_digest = FileDigest::from_grpc(child_digest);
+            let child_digest = FileDigest::from_grpc(child_digest)?;
             let child_re_dir = match dirmap.get(&child_digest) {
                 None => {
                     return Err(DirectoryReConversionError::IncompleteTreeChildrenList {

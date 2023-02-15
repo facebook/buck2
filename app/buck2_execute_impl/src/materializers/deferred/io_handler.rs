@@ -341,7 +341,7 @@ fn maybe_tombstone_digest(digest: &FileDigest) -> anyhow::Result<&FileDigest> {
             .map(|digest| {
                 let digest = TDigest::from_str(digest)
                     .with_context(|| format!("Invalid digest: `{}`", digest))?;
-                let digest = FileDigest::from_re(&digest);
+                let digest = FileDigest::from_re(&digest)?;
                 anyhow::Ok(digest)
             })
             .collect()

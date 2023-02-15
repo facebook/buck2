@@ -15,6 +15,7 @@ use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_common::file_ops::FileDigest;
 use futures::future;
 
+use crate::digest::CasDigestConversionResultExt;
 use crate::digest::CasDigestFromReExt;
 use crate::digest::ReDigest;
 use crate::re::manager::ManagedRemoteExecutionClient;
@@ -79,7 +80,7 @@ impl ReStdStream {
                         tracing::warn!("Failed to download action stderr: {:#}", e);
                         format!(
                             "Result could not be downloaded - to view type `frecli cas download-blob {}`",
-                            FileDigest::from_re(digest),
+                            FileDigest::from_re(digest).as_display(),
                         )
                     }
                 }
@@ -88,7 +89,7 @@ impl ReStdStream {
             Self::Digest(digest) => {
                 format!(
                     "Result too large to display - to view type `frecli cas download-blob {}`",
-                    FileDigest::from_re(digest),
+                    FileDigest::from_re(digest).as_display(),
                 )
             }
             Self::None => String::new(),
@@ -107,7 +108,10 @@ impl ReStdStream {
                     .download_blob(&digest, use_case)
                     .await
                     .with_context(|| {
-                        format!("Error downloading from {}", FileDigest::from_re(&digest))
+                        format!(
+                            "Error downloading from {}",
+                            FileDigest::from_re(&digest).as_display()
+                        )
                     })?;
                 Ok(bytes)
             }
@@ -138,7 +142,11 @@ impl fmt::Display for ReStdStream {
                 write!(fmt, "raw = `{}`", String::from_utf8_lossy(raw))?;
             }
             Self::Digest(digest) | Self::PrefetchedLossy { digest, .. } => {
-                write!(fmt, "digest = `{}`", FileDigest::from_re(digest))?;
+                write!(
+                    fmt,
+                    "digest = `{}`",
+                    FileDigest::from_re(digest).as_display()
+                )?;
             }
             Self::None => {
                 write!(fmt, "none")?;

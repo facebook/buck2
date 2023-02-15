@@ -7,16 +7,31 @@
  * of this source tree.
  */
 
+use std::fmt;
+
 use buck2_common::cas_digest::CasDigest;
+use buck2_common::cas_digest::CasDigestParseError;
 use buck2_common::cas_digest::TrackedCasDigest;
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+pub enum DigestConversionError {
+    #[error("Error parsing digest: `{}`", digest)]
+    ParseError {
+        digest: String,
+
+        #[source]
+        error: CasDigestParseError,
+    },
+}
 
 pub type ReDigest = remote_execution::TDigest;
 
 pub type GrpcDigest = remote_execution::Digest;
 
-pub trait CasDigestFromReExt {
-    fn from_re(x: &ReDigest) -> Self;
-    fn from_grpc(x: &GrpcDigest) -> Self;
+pub trait CasDigestFromReExt: Sized {
+    fn from_re(x: &ReDigest) -> Result<Self, DigestConversionError>;
+    fn from_grpc(x: &GrpcDigest) -> Result<Self, DigestConversionError>;
 }
 
 pub trait CasDigestToReExt {
@@ -25,28 +40,41 @@ pub trait CasDigestToReExt {
 }
 
 impl<Kind> CasDigestFromReExt for CasDigest<Kind> {
-    fn from_re(x: &ReDigest) -> Self {
-        Self::new_sha1(
-            Self::parse_digest_sha1_without_size(x.hash.as_bytes()).unwrap_or_else(|err| {
-                panic!(
-                    "Invalid ReDigest {}:{}, error {:#}",
-                    x.hash, x.size_in_bytes, err
-                )
-            }),
-            x.size_in_bytes as u64,
-        )
+    fn from_re(digest: &ReDigest) -> Result<Self, DigestConversionError> {
+        Ok(Self::new_sha1(
+            Self::parse_digest_sha1_without_size(digest.hash.as_bytes()).map_err(|error| {
+                DigestConversionError::ParseError {
+                    digest: digest.to_string(),
+                    error,
+                }
+            })?,
+            digest.size_in_bytes as u64,
+        ))
     }
 
-    fn from_grpc(x: &GrpcDigest) -> Self {
-        Self::new_sha1(
-            Self::parse_digest_sha1_without_size(x.hash.as_bytes()).unwrap_or_else(|err| {
-                panic!(
-                    "Invalid GrpcDigest {}:{}, error {:#}",
-                    x.hash, x.size_bytes, err
-                )
-            }),
-            x.size_bytes as u64,
-        )
+    fn from_grpc(digest: &GrpcDigest) -> Result<Self, DigestConversionError> {
+        Ok(Self::new_sha1(
+            Self::parse_digest_sha1_without_size(digest.hash.as_bytes()).map_err(|error| {
+                DigestConversionError::ParseError {
+                    digest: format!("{}:{}", digest.hash, digest.size_bytes),
+                    error,
+                }
+            })?,
+            digest.size_bytes as u64,
+        ))
+    }
+}
+
+pub trait CasDigestConversionResultExt {
+    fn as_display(&self) -> &dyn fmt::Display;
+}
+
+impl<Kind> CasDigestConversionResultExt for Result<CasDigest<Kind>, DigestConversionError> {
+    fn as_display(&self) -> &dyn fmt::Display {
+        match self {
+            Self::Ok(ref v) => v as _,
+            Self::Err(DigestConversionError::ParseError { ref digest, .. }) => digest as _,
+        }
     }
 }
 

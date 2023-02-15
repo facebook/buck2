@@ -169,7 +169,7 @@ impl CasDownloader<'_> {
         let mut input_dir = input_dir.clone().into_builder();
 
         for x in output_spec.output_files() {
-            let digest = FileDigest::from_re(&x.digest.digest);
+            let digest = FileDigest::from_re(&x.digest.digest)?;
             let digest = TrackedFileDigest::new_expires(digest, expires);
 
             let entry = DirectoryEntry::Leaf(ActionDirectoryMember::File(FileMetadata {
