@@ -33,6 +33,8 @@ mod tests {
     use buck2_execute::base_deferred_key::BaseDeferredKey;
     use buck2_execute::bxl::types::BxlFunctionLabel;
     use buck2_execute::bxl::types::BxlKey;
+    use buck2_execute::digest_config::DigestConfig;
+    use buck2_execute::digest_config::SetDigestConfig;
     use buck2_execute::execute::dice_data::set_fallback_executor_config;
     use buck2_execute::path::buck_out_path::BuckOutPath;
     use buck2_interpreter::path::BxlFilePath;
@@ -87,7 +89,10 @@ mod tests {
 
         let fs = ProjectRootTemp::new()?;
         let dice = DiceBuilder::new()
-            .set_data(|data| data.set_testing_io_provider(&fs))
+            .set_data(|data| {
+                data.set_testing_io_provider(&fs);
+                data.set_digest_config(DigestConfig::compat());
+            })
             .mock_and_return(
                 BxlComputeKey(bxl.dupe()),
                 anyhow::Ok(Arc::new(BxlResult::BuildsArtifacts {

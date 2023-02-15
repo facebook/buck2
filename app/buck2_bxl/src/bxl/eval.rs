@@ -27,6 +27,7 @@ use buck2_execute::base_deferred_key::BaseDeferredKey;
 use buck2_execute::bxl::types::BxlFunctionLabel;
 use buck2_execute::bxl::types::BxlKey;
 use buck2_execute::bxl::types::CliArgValue;
+use buck2_execute::digest_config::HasDigestConfig;
 use buck2_execute::path::buck_out_path::BuckOutPath;
 use buck2_interpreter::file_loader::LoadedModule;
 use buck2_interpreter::path::StarlarkModulePath;
@@ -85,6 +86,8 @@ pub async fn eval(
     let project_fs = ctx.global_data().get_io_provider().project_root().dupe();
     let artifact_fs = ctx.get_artifact_fs().await?;
 
+    let digest_config = ctx.global_data().get_digest_config();
+
     // The bxl function may trigger async operations like builds, analysis, parsing etc, but those
     // will be blocking calls so that starlark can remain synchronous.
     // To avoid blocking a tokio thread, we spawn bxl as a blocking tokio task
@@ -139,6 +142,7 @@ pub async fn eval(
                     bxl_cell,
                     BxlSafeDiceComputations::new(&ctx, &cancellation),
                     file,
+                    digest_config,
                 );
                 let bxl_ctx = ValueTyped::<BxlContext>::new(env.heap().alloc(bxl_ctx)).unwrap();
 

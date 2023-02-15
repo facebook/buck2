@@ -17,6 +17,7 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_core::unsafe_send_future::UnsafeSendFuture;
+use buck2_execute::digest_config::HasDigestConfig;
 use buck2_interpreter::starlark_profiler::StarlarkProfileDataAndStats;
 use buck2_interpreter::starlark_profiler::StarlarkProfileModeOrInstrumentation;
 use buck2_interpreter::starlark_profiler::StarlarkProfiler;
@@ -325,6 +326,7 @@ async fn run_analysis_with_env_underlying(
                 ))),
         ),
         registry,
+        dice.global_data().get_digest_config(),
     ));
 
     let mut profiler_opt = profile_mode

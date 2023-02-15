@@ -262,6 +262,7 @@ impl Deferred for DynamicLambda {
                 }
             },
             registry,
+            deferred_ctx.digest_config(),
         ));
 
         eval.eval_function(

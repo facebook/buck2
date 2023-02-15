@@ -21,6 +21,7 @@ use buck2_core::category::Category;
 use buck2_core::collections::ordered_set::OrderedSet;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::paths::RelativePathBuf;
+use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::execute::request::OutputType;
 use buck2_execute::materialize::http::Checksum;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
@@ -131,6 +132,8 @@ pub struct AnalysisActions<'v> {
     pub state: RefCell<Option<AnalysisRegistry<'v>>>,
     /// Copies from the ctx, so we can capture them for `dynamic`.
     pub attributes: Value<'v>,
+    /// Digest configuration to use when interpreting digests passed in analysis.
+    pub digest_config: DigestConfig,
 }
 
 impl<'v> StarlarkTypeRepr for &'v AnalysisActions<'v> {
@@ -207,8 +210,9 @@ impl<'v> AnalysisContext<'v> {
         attributes: Value<'v>,
         label: Option<ValueTyped<'v, Label>>,
         registry: AnalysisRegistry<'v>,
+        digest_config: DigestConfig,
     ) -> Self {
-        Self::new_dynamic(heap, attributes, label, registry)
+        Self::new_dynamic(heap, attributes, label, registry, digest_config)
     }
 
     pub(crate) fn new_dynamic(
@@ -216,6 +220,7 @@ impl<'v> AnalysisContext<'v> {
         attributes: Value<'v>,
         label: Option<ValueTyped<'v, Label>>,
         registry: AnalysisRegistry<'v>,
+        digest_config: DigestConfig,
     ) -> Self {
         // Check the types match what the user expects.
         assert!(StructRef::from_value(attributes).is_some());
@@ -225,6 +230,7 @@ impl<'v> AnalysisContext<'v> {
             actions: heap.alloc_typed(AnalysisActions {
                 state: RefCell::new(Some(registry)),
                 attributes,
+                digest_config,
             }),
             label,
         }
@@ -1057,6 +1063,7 @@ mod tests {
     use buck2_core::target::label::testing::TargetLabelExt;
     use buck2_core::target::label::TargetLabel;
     use buck2_execute::base_deferred_key::BaseDeferredKey;
+    use buck2_execute::digest_config::DigestConfig;
     use buck2_interpreter::types::label::Label;
     use buck2_node::configuration::execution::ExecutionPlatformResolution;
     use dupe::Dupe;
@@ -1124,6 +1131,7 @@ mod tests {
                     ))),
             ),
             registry,
+            DigestConfig::compat(),
         ));
 
         let returned = eval.eval_function(test_function, &[ctx], &[]);

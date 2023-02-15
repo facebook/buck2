@@ -39,6 +39,7 @@ use buck2_core::target::name::TargetNameRef;
 use buck2_core::unsafe_send_future::UnsafeSendFuture;
 use buck2_execute::anon_target::AnonTarget;
 use buck2_execute::base_deferred_key::BaseDeferredKey;
+use buck2_execute::digest_config::HasDigestConfig;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
 use buck2_interpreter::types::label::Label;
 use buck2_interpreter_for_build::attrs::coerce::attr_type::AttrTypeInnerExt;
@@ -378,6 +379,7 @@ impl AnonTargetKey {
                     ))),
             ),
             registry,
+            dice.global_data().get_digest_config(),
         ));
 
         let list_res = rule_impl.invoke(&mut eval, ctx)?;

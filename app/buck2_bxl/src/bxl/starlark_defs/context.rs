@@ -32,6 +32,7 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_core::target::label::TargetLabel;
 use buck2_execute::artifact::fs::ArtifactFs;
 use buck2_execute::bxl::types::BxlKey;
+use buck2_execute::digest_config::DigestConfig;
 use buck2_interpreter::types::label::Label;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::unconfigured::TargetNode;
@@ -125,6 +126,7 @@ impl<'v> BxlContext<'v> {
         cell: CellInstance,
         async_ctx: BxlSafeDiceComputations<'v>,
         output_sink: RefCell<Box<dyn Write>>,
+        digest_config: DigestConfig,
     ) -> Self {
         Self {
             current_bxl,
@@ -135,6 +137,7 @@ impl<'v> BxlContext<'v> {
             state: heap.alloc_typed(AnalysisActions {
                 state: RefCell::new(None),
                 attributes: heap.alloc(AllocStruct::EMPTY),
+                digest_config,
             }),
             output_stream: heap.alloc_typed(OutputStream::new(
                 project_fs,

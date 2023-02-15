@@ -21,6 +21,7 @@ use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
 use buck2_common::result::ToUnsharedResultExt;
 use buck2_execute::base_deferred_key::BaseDeferredKey;
+use buck2_execute::digest_config::HasDigestConfig;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
@@ -259,6 +260,7 @@ async fn compute_deferred(
                 materialized_artifacts?,
                 &mut registry,
                 ctx.global_data().get_io_provider().project_root().dupe(),
+                ctx.global_data().get_digest_config(),
             );
             // TODO populate the deferred map
             Ok(DeferredResult::new(
@@ -345,6 +347,8 @@ mod tests {
     use buck2_core::target::label::testing::TargetLabelExt;
     use buck2_core::target::label::TargetLabel;
     use buck2_execute::base_deferred_key::BaseDeferredKey;
+    use buck2_execute::digest_config::DigestConfig;
+    use buck2_execute::digest_config::SetDigestConfig;
     use buck2_execute::execute::dice_data::set_fallback_executor_config;
     use buck2_node::compatibility::MaybeCompatible;
     use buck2_node::configuration::execution::ExecutionPlatformResolution;
@@ -419,7 +423,10 @@ mod tests {
 
         let fs = ProjectRootTemp::new()?;
         let dice = DiceBuilder::new()
-            .set_data(|data| data.set_testing_io_provider(&fs))
+            .set_data(|data| {
+                data.set_testing_io_provider(&fs);
+                data.set_digest_config(DigestConfig::compat());
+            })
             .mock_and_return(
                 analysis_key,
                 anyhow::Ok(MaybeCompatible::Compatible(AnalysisResult::new(
@@ -516,7 +523,10 @@ mod tests {
 
         let fs = ProjectRootTemp::new()?;
         let dice = DiceBuilder::new()
-            .set_data(|data| data.set_testing_io_provider(&fs))
+            .set_data(|data| {
+                data.set_testing_io_provider(&fs);
+                data.set_digest_config(DigestConfig::compat());
+            })
             .mock_and_return(
                 analysis_key,
                 anyhow::Ok(MaybeCompatible::Compatible(AnalysisResult::new(

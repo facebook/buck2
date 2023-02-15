@@ -450,6 +450,8 @@ mod tests {
     use buck2_core::target::label::testing::TargetLabelExt;
     use buck2_core::target::label::TargetLabel;
     use buck2_events::dispatch::EventDispatcher;
+    use buck2_execute::digest_config::DigestConfig;
+    use buck2_execute::digest_config::SetDigestConfig;
     use buck2_execute::execute::dice_data::set_fallback_executor_config;
     use buck2_interpreter::extra::InterpreterHostArchitecture;
     use buck2_interpreter::extra::InterpreterHostPlatform;
@@ -567,7 +569,10 @@ mod tests {
                 Ok(Arc::new(eval_res)),
             )
             .mock_and_return(ExecutionPlatformsKey, Ok(None))
-            .set_data(|data| data.set_testing_io_provider(&fs))
+            .set_data(|data| {
+                data.set_testing_io_provider(&fs);
+                data.set_digest_config(DigestConfig::compat());
+            })
             .build({
                 let mut data = UserComputationData::new();
                 set_fallback_executor_config(

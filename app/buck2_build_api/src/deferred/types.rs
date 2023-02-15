@@ -23,6 +23,7 @@ use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::base_deferred_key::BaseDeferredKey;
+use buck2_execute::digest_config::DigestConfig;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use derivative::Derivative;
 use derive_more::Display;
@@ -72,6 +73,8 @@ pub trait DeferredCtx {
     fn registry(&mut self) -> &mut DeferredRegistry;
 
     fn project_filesystem(&self) -> &ProjectRoot;
+
+    fn digest_config(&self) -> DigestConfig;
 }
 
 /// DeferredCtx with already resolved values
@@ -83,6 +86,7 @@ pub struct ResolveDeferredCtx<'a> {
     materialized_artifacts: HashMap<Artifact, ProjectRelativePathBuf>,
     registry: &'a mut DeferredRegistry,
     project_filesystem: ProjectRoot,
+    digest_config: DigestConfig,
 }
 
 impl<'a> ResolveDeferredCtx<'a> {
@@ -94,6 +98,7 @@ impl<'a> ResolveDeferredCtx<'a> {
         materialized_artifacts: HashMap<Artifact, ProjectRelativePathBuf>,
         registry: &'a mut DeferredRegistry,
         project_filesystem: ProjectRoot,
+        digest_config: DigestConfig,
     ) -> Self {
         Self {
             key,
@@ -103,6 +108,7 @@ impl<'a> ResolveDeferredCtx<'a> {
             materialized_artifacts,
             registry,
             project_filesystem,
+            digest_config,
         }
     }
 }
@@ -139,6 +145,10 @@ impl<'a> DeferredCtx for ResolveDeferredCtx<'a> {
 
     fn project_filesystem(&self) -> &ProjectRoot {
         &self.project_filesystem
+    }
+
+    fn digest_config(&self) -> DigestConfig {
+        self.digest_config
     }
 }
 
@@ -957,6 +967,7 @@ mod tests {
     use buck2_core::target::label::ConfiguredTargetLabel;
     use buck2_core::target::name::TargetName;
     use buck2_execute::base_deferred_key::BaseDeferredKey;
+    use buck2_execute::digest_config::DigestConfig;
     use dupe::Dupe;
     use indexmap::indexset;
     use indexmap::IndexSet;
@@ -1101,7 +1112,8 @@ mod tests {
                         Default::default(),
                         Default::default(),
                         &mut ctx,
-                        dummy_project_filesystem()
+                        dummy_project_filesystem(),
+                        DigestConfig::compat(),
                     ))
                     .unwrap()
                     .assert_ready()
@@ -1149,6 +1161,7 @@ mod tests {
             Default::default(),
             &mut registry,
             dummy_project_filesystem(),
+            DigestConfig::compat(),
         );
 
         assert_eq!(
@@ -1205,6 +1218,7 @@ mod tests {
                 Default::default(),
                 &mut registry,
                 dummy_project_filesystem(),
+                DigestConfig::compat(),
             ))
             .unwrap();
 
@@ -1237,7 +1251,8 @@ mod tests {
                     Default::default(),
                     Default::default(),
                     &mut registry,
-                    dummy_project_filesystem()
+                    dummy_project_filesystem(),
+                    DigestConfig::compat(),
                 ))
                 .unwrap()
                 .assert_ready()
@@ -1287,7 +1302,8 @@ mod tests {
                         Default::default(),
                         Default::default(),
                         &mut registry,
-                        dummy_project_filesystem()
+                        dummy_project_filesystem(),
+                        DigestConfig::compat(),
                     ))
                     .unwrap()
                     .assert_ready()
