@@ -107,6 +107,14 @@ def _declare_output(ctx: "context", path: str.type) -> "artifact":
     else:
         return ctx.actions.declare_output("out", path)
 
+def _project_output(out: "artifact", path: str.type) -> "artifact":
+    if path == ".":
+        return out
+    elif path.endswith("/"):
+        return out.project(path[:-1], hide_prefix = True)
+    else:
+        return out.project(path, hide_prefix = True)
+
 def process_genrule(
         ctx: "context",
         out_attr: [str.type, None],
@@ -143,10 +151,12 @@ def process_genrule(
 
         handle_whole_out_dir_is_output = _should_handle_special_case_whole_out_dir_is_output(ctx, outs_attr)
 
+        out = ctx.actions.declare_output("out", dir = True)
+
         for (name, this_outputs) in outs_attr.items():
             output_artifacts = []
             for path in this_outputs:
-                artifact = _declare_output(ctx, path)
+                artifact = _project_output(out, path)
                 if path in default_out_paths:
                     default_outputs.append(artifact)
                 output_artifacts.append(artifact)
