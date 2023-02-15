@@ -59,25 +59,42 @@ impl Buck2TestRunner {
                 .context("Spec channel has already been consumed")?;
             drop(maybe_receiver);
         }
-        receiver
-            .for_each(async move |spec| {
+        let run_verdict = receiver
+            .map(async move |spec| {
                 let name = spec.target.legacy_name.to_owned();
                 let target_handle = spec.target.handle.to_owned();
-                let result = self
+
+                let execution_result = self
                     .execute_test_from_spec(spec, Duration::from_secs(DEFAULT_TEST_TIMEOUT_SECS))
                     .await
                     .expect("Test execution request failed");
-                self.report_test_result(name, target_handle, result)
+
+                let test_result = get_test_result(name, target_handle, execution_result);
+                let test_status = test_result.status.clone();
+
+                self.report_test_result(test_result)
                     .await
                     .expect("Test result reporting failed");
+
+                test_status
             })
+            // Use an arbitrarily large buffer -- execution throttling will be handled by the Buck2
+            // executor, so no need to hold back on requests here.
+            .buffer_unordered(10000)
+            // If any individual test failed, consider the entire run to have failed.
+            .fold(
+                RunVerdict::Pass,
+                async move |mut run_verdict, test_status| {
+                    if test_status != TestStatus::PASS {
+                        run_verdict = RunVerdict::Fail;
+                    }
+                    run_verdict
+                },
+            )
             .await;
 
-        // TODO: Decide if the exit_code for the run should ever be non-zero
-        let exit_code = 0;
-
         self.orchestrator_client
-            .end_of_test_results(exit_code)
+            .end_of_test_results(run_verdict.exit_code())
             .await
     }
 
@@ -133,31 +150,49 @@ impl Buck2TestRunner {
             .await
     }
 
-    async fn report_test_result(
-        &self,
-        name: String,
-        target: ConfiguredTargetHandle,
-        execution_result: ExecutionResult2,
-    ) -> anyhow::Result<()> {
-        let status = match execution_result.status {
-            ExecutionStatus::Finished { exitcode } => match exitcode {
-                0 => TestStatus::PASS,
-                _ => TestStatus::FAIL,
-            },
-            ExecutionStatus::TimedOut { .. } => TestStatus::TIMEOUT,
-        };
+    async fn report_test_result(&self, test_result: TestResult) -> anyhow::Result<()> {
         self.orchestrator_client
-            .report_test_result(TestResult {
-                target,
-                name,
-                status,
-                msg: None,
-                duration: Some(execution_result.execution_time),
-                details: format!(
-                    "---- STDOUT ----\n{:?}\n---- STDERR ----\n{:?}\n",
-                    execution_result.stdout, execution_result.stderr
-                ),
-            })
+            .report_test_result(test_result)
             .await
+    }
+}
+
+fn get_test_result(
+    name: String,
+    target: ConfiguredTargetHandle,
+    execution_result: ExecutionResult2,
+) -> TestResult {
+    let status = match execution_result.status {
+        ExecutionStatus::Finished { exitcode } => match exitcode {
+            0 => TestStatus::PASS,
+            _ => TestStatus::FAIL,
+        },
+        ExecutionStatus::TimedOut { .. } => TestStatus::TIMEOUT,
+    };
+    TestResult {
+        target,
+        name,
+        status,
+        msg: None,
+        duration: Some(execution_result.execution_time),
+        details: format!(
+            "---- STDOUT ----\n{:?}\n---- STDERR ----\n{:?}\n",
+            execution_result.stdout, execution_result.stderr
+        ),
+    }
+}
+
+#[derive(Debug)]
+enum RunVerdict {
+    Pass,
+    Fail,
+}
+
+impl RunVerdict {
+    fn exit_code(&self) -> i32 {
+        match self {
+            RunVerdict::Pass => 0,
+            RunVerdict::Fail => 32,
+        }
     }
 }
