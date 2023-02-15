@@ -197,7 +197,7 @@ fn convert_artifact_metadata(
             .try_into()
             .with_context(|| format!("Invalid entry_hash_kind: `{}`", entry_hash_kind))?;
 
-        let file_digest = FileDigest::new(entry_hash_kind, &entry_hash, size)?;
+        let file_digest = FileDigest::from_digest_bytes(entry_hash_kind, &entry_hash, size)?;
         Ok(TrackedFileDigest::new(file_digest))
     }
 

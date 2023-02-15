@@ -114,12 +114,23 @@ impl<Kind> fmt::Debug for CasDigest<Kind> {
 }
 
 impl<Kind> CasDigest<Kind> {
-    pub fn new(kind: DigestAlgorithm, digest: &[u8], size: u64) -> anyhow::Result<Self> {
+    pub fn from_digest_bytes(
+        kind: DigestAlgorithm,
+        digest: &[u8],
+        size: u64,
+    ) -> anyhow::Result<Self> {
         Ok(match kind {
             DigestAlgorithm::Sha1 => Self::new_sha1(digest.try_into()?, size),
             DigestAlgorithm::Sha256 => Self::new_sha256(digest.try_into()?, size),
             DigestAlgorithm::Blake3 => Self::new_blake3(digest.try_into()?, size),
         })
+    }
+
+    pub fn new(digest: RawDigest, size: u64) -> Self {
+        Self {
+            data: CasDigestData { size, digest },
+            kind: PhantomData,
+        }
     }
 
     pub fn new_sha1(sha1: [u8; SHA1_SIZE], size: u64) -> Self {
