@@ -40,6 +40,15 @@ $ yarn start
 
 This command starts a local development server and opens up a browser window. Any changes to generated Starlark API documentation require running the build command above, but changes to the .md files that are checked into the repository should be reflected live without having to restart the server.
 
+### Run on devserver
+
+If developing on a devserver, you'll need to create a tunnel from your Mac to the server, so you can access it in the browser.
+
+To do that, run the following **from your mac**:
+```
+ssh -L 3000:localhost:3000 $DEVSERVER
+```
+
 ## Internal variants
 
 To see the internal versions of the page, do:
