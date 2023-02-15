@@ -8,6 +8,7 @@
  */
 
 use std::net::SocketAddr;
+use std::path::Path;
 use std::process::Stdio;
 
 use anyhow::Context as _;
@@ -17,18 +18,20 @@ use tokio::net::TcpStream;
 use tokio::process::Child;
 
 pub(crate) async fn spawn(
-    name: &str,
+    executable: &Path,
+    args: Vec<String>,
     tpx_args: Vec<String>,
 ) -> anyhow::Result<(Child, TcpStream, TcpStream)> {
     // Use TCPStream via TCPListner with accept to simulate UnixStream.
     let (executor_addr, executor_tcp_listener) = create_tcp_listener().await?;
     let (orchestrator_addr, orchestrator_tcp_listener) = create_tcp_listener().await?;
 
-    let mut command = async_background_command(name);
+    let mut command = async_background_command(executable);
     command
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
+        .args(args)
         .arg("--executor-addr")
         .arg(executor_addr)
         .arg("--orchestrator-addr")
@@ -36,16 +39,24 @@ pub(crate) async fn spawn(
         .arg("--")
         .args(tpx_args);
 
-    let proc = command
-        .spawn()
-        .with_context(|| format!("Failed to start {} for OutOfProcessTestExecutor", name))?;
+    let proc = command.spawn().with_context(|| {
+        format!(
+            "Failed to start {} for OutOfProcessTestExecutor",
+            &executable.display()
+        )
+    })?;
 
     // Use join to wait executor connection in no particular order.
     let ((orchestrator_tcp_stream, _), (executor_tcp_stream, _)) = tokio::try_join!(
         orchestrator_tcp_listener.accept(),
         executor_tcp_listener.accept(),
     )
-    .with_context(|| format!("Failed to accept TCP connection from {}", name))?;
+    .with_context(|| {
+        format!(
+            "Failed to accept TCP connection from {}",
+            &executable.display()
+        )
+    })?;
 
     Ok((proc, executor_tcp_stream, orchestrator_tcp_stream))
 }

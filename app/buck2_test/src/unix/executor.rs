@@ -9,6 +9,7 @@
 
 use std::io;
 use std::os::unix::io::AsRawFd as _;
+use std::path::Path;
 use std::process::Stdio;
 
 use anyhow::Context as _;
@@ -17,7 +18,8 @@ use tokio::net::UnixStream;
 use tokio::process::Child;
 
 pub(crate) async fn spawn(
-    name: &str,
+    executable: &Path,
+    args: Vec<String>,
     tpx_args: Vec<String>,
 ) -> anyhow::Result<(Child, UnixStream, UnixStream)> {
     let (executor_client_async_io, executor_server_async_io) =
@@ -38,11 +40,12 @@ pub(crate) async fn spawn(
         .context("Failed to convert orchestrator_client_io to std")?;
     let orchestrator_client_fd = orchestrator_client_io.as_raw_fd().to_string();
 
-    let mut command = async_background_command(name);
+    let mut command = async_background_command(executable);
     command
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
+        .args(args)
         .arg("--executor-fd")
         .arg(executor_server_fd)
         .arg("--orchestrator-fd")
@@ -76,9 +79,12 @@ pub(crate) async fn spawn(
         });
     }
 
-    let proc = command
-        .spawn()
-        .with_context(|| format!("Failed to start {} for OutOfProcessTestExecutor", name))?;
+    let proc = command.spawn().with_context(|| {
+        format!(
+            "Failed to start {} for OutOfProcessTestExecutor",
+            &executable.display()
+        )
+    })?;
 
     Ok((proc, executor_client_io, orchestrator_server_io))
 }

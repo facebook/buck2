@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::path::PathBuf;
 use std::pin::Pin;
 
 use anyhow::Context as _;
@@ -54,7 +55,8 @@ pub trait ExecutorLauncher: Send + Sync {
 }
 
 pub struct OutOfProcessTestExecutor {
-    pub name: String,
+    pub executable: PathBuf,
+    pub args: Vec<String>,
     pub dispatcher: EventDispatcher,
 }
 
@@ -70,7 +72,12 @@ impl ExecutorLauncher for OutOfProcessTestExecutor {
             let use_tcp = BUCK2_TEST_TPX_USE_TCP.get_copied()?.unwrap_or_default();
             if !use_tcp {
                 return spawn_orchestrator(
-                    crate::unix::executor::spawn(&self.name, tpx_args).await?,
+                    crate::unix::executor::spawn(
+                        self.executable.as_ref(),
+                        self.args.clone(),
+                        tpx_args,
+                    )
+                    .await?,
                     self.dispatcher.dupe(),
                 )
                 .await;
@@ -78,7 +85,8 @@ impl ExecutorLauncher for OutOfProcessTestExecutor {
         }
 
         spawn_orchestrator(
-            crate::tcp::executor::spawn(&self.name, tpx_args).await?,
+            crate::tcp::executor::spawn(self.executable.as_ref(), self.args.clone(), tpx_args)
+                .await?,
             self.dispatcher.dupe(),
         )
         .await

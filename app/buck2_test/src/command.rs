@@ -225,12 +225,24 @@ async fn test(
 
     // Get the test runner from the config. Note that we use a different key from v1 since the API
     // is completely different, so there is not expectation that the same binary works for both.
-    let test_executor = ctx
+    let test_executor_config = ctx
         .get_legacy_config_property(cell_resolver.root_cell(), "test", "v2_test_executor")
         .await?
-        .context("test.v2_test_executor must be set in configuration")?
-        .as_ref()
-        .to_owned();
+        .filter(|s| !s.is_empty());
+
+    let (test_executor, test_executor_args) = match test_executor_config {
+        Some(config) => {
+            let test_executor = config.as_ref().into();
+            let test_executor_args = Vec::new();
+            (test_executor, test_executor_args)
+        }
+        None => {
+            // If no v2_test_executor config was set, fall back to the internal test runner.
+            let test_executor = std::env::current_exe()?;
+            let test_executor_args = vec!["internal-test-runner".to_owned()];
+            (test_executor, test_executor_args)
+        }
+    };
 
     let parsed_patterns = parse_patterns_from_cli_args(
         &request.target_patterns,
@@ -248,7 +260,8 @@ async fn test(
         resolve_patterns(&parsed_patterns, &cell_resolver, &ctx.file_ops()).await?;
 
     let launcher: Box<dyn ExecutorLauncher> = box OutOfProcessTestExecutor {
-        name: test_executor,
+        executable: test_executor,
+        args: test_executor_args,
         dispatcher: ctx.per_transaction_data().get_dispatcher().dupe(),
     };
 
