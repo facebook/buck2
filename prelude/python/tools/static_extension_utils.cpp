@@ -80,15 +80,23 @@ static PyObject* _create_module(PyObject* self, PyObject* spec) {
       Py_DECREF(name);
       return nullptr;
     }
+    PyObject* path = PyObject_GetAttrString(spec, "origin");
+    if (PyModule_AddObject(mod, "__file__", path) < 0) {
+      PyErr_Clear();
+    } else {
+      Py_INCREF(path);
+    }
     def->m_base.m_init = initfunc;
     if (modules == nullptr) {
       modules = PyImport_GetModuleDict();
     }
     // TODO private api usage
     if (_PyImport_FixupExtensionObject(mod, name, name, modules) < 0) {
+      Py_DECREF(path);
       Py_DECREF(name);
       return nullptr;
     }
+    Py_DECREF(path);
     Py_DECREF(name);
     return mod;
   }
