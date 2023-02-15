@@ -405,6 +405,10 @@ def _add_swift_deps_flags(
             list(swift_deps_tset.traverse()),
         )
         cmd.add([
+            "-Xcc",
+            "-fno-implicit-modules",
+            "-Xcc",
+            "-fno-implicit-module-maps",
             "-Xfrontend",
             "-disable-implicit-swift-modules",
             "-Xfrontend",
