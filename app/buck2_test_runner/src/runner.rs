@@ -7,7 +7,15 @@
  * of this source tree.
  */
 
+use std::time::Duration;
+
 use anyhow::Context;
+use buck2_test_api::data::ArgValue;
+use buck2_test_api::data::ArgValueContent;
+use buck2_test_api::data::ConfiguredTargetHandle;
+use buck2_test_api::data::DisplayMetadata;
+use buck2_test_api::data::ExecutionResult2;
+use buck2_test_api::data::ExecutionStatus;
 use buck2_test_api::data::ExternalRunnerSpec;
 use buck2_test_api::data::TestResult;
 use buck2_test_api::data::TestStatus;
@@ -15,7 +23,10 @@ use buck2_test_api::grpc::TestOrchestratorClient;
 use buck2_test_api::protocol::TestOrchestrator;
 use futures::channel::mpsc::UnboundedReceiver;
 use futures::StreamExt;
+use host_sharing::HostSharingRequirements;
 use parking_lot::Mutex;
+
+const DEFAULT_TEST_TIMEOUT_SECS: u64 = 600;
 
 pub type SpecReceiver = UnboundedReceiver<ExternalRunnerSpec>;
 
@@ -50,8 +61,13 @@ impl Buck2TestRunner {
         }
         receiver
             .for_each(async move |spec| {
-                // TODO: Execute test spec
-                self.report_test_result(spec)
+                let name = spec.target.legacy_name.to_owned();
+                let target_handle = spec.target.handle.to_owned();
+                let result = self
+                    .execute_test_from_spec(spec, Duration::from_secs(DEFAULT_TEST_TIMEOUT_SECS))
+                    .await
+                    .expect("Test execution request failed");
+                self.report_test_result(name, target_handle, result)
                     .await
                     .expect("Test result reporting failed");
             })
@@ -65,18 +81,82 @@ impl Buck2TestRunner {
             .await
     }
 
-    async fn report_test_result(&self, spec: ExternalRunnerSpec) -> anyhow::Result<()> {
+    async fn execute_test_from_spec(
+        &self,
+        spec: ExternalRunnerSpec,
+        timeout: Duration,
+    ) -> anyhow::Result<ExecutionResult2> {
+        let display_metadata = DisplayMetadata::Testing {
+            suite: spec.target.target,
+            testcases: Vec::new(),
+        };
+
+        let command = spec
+            .command
+            .into_iter()
+            .map(|spec_value| ArgValue {
+                content: ArgValueContent::ExternalRunnerSpecValue(spec_value),
+                format: None,
+            })
+            .collect();
+
+        let env = spec
+            .env
+            .into_iter()
+            .map(|(key, value)| {
+                (
+                    key,
+                    ArgValue {
+                        content: ArgValueContent::ExternalRunnerSpecValue(value),
+                        format: None,
+                    },
+                )
+            })
+            .collect();
+
+        let target_handle = spec.target.handle;
+        let host_sharing_requirements = HostSharingRequirements::default();
+        let pre_create_dirs = Vec::new();
+        let executor_override = None;
+
+        self.orchestrator_client
+            .execute2(
+                display_metadata,
+                target_handle,
+                command,
+                env,
+                timeout,
+                host_sharing_requirements,
+                pre_create_dirs,
+                executor_override,
+            )
+            .await
+    }
+
+    async fn report_test_result(
+        &self,
+        name: String,
+        target: ConfiguredTargetHandle,
+        execution_result: ExecutionResult2,
+    ) -> anyhow::Result<()> {
+        let status = match execution_result.status {
+            ExecutionStatus::Finished { exitcode } => match exitcode {
+                0 => TestStatus::PASS,
+                _ => TestStatus::FAIL,
+            },
+            ExecutionStatus::TimedOut { .. } => TestStatus::TIMEOUT,
+        };
         self.orchestrator_client
             .report_test_result(TestResult {
-                target: spec.target.handle,
-                name: spec.target.legacy_name,
-                // TODO: Get status from execution_result
-                status: TestStatus::UNKNOWN,
+                target,
+                name,
+                status,
                 msg: None,
-                // TODO:: Get status from execution_result
-                duration: None,
-                // TODO: Get details from execution_result
-                details: "TODO".to_owned(),
+                duration: Some(execution_result.execution_time),
+                details: format!(
+                    "---- STDOUT ----\n{:?}\n---- STDERR ----\n{:?}\n",
+                    execution_result.stdout, execution_result.stderr
+                ),
             })
             .await
     }

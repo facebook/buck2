@@ -13,3 +13,4 @@ tokio = { workspace = true }
 
 buck2_grpc = { workspace = true }
 buck2_test_api = { workspace = true }
+host_sharing = { workspace = true }

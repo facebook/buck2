@@ -17,5 +17,6 @@ rust_library(
         "fbsource//third-party/rust:tokio",
         "//buck2/app/buck2_grpc:buck2_grpc",
         "//buck2/app/buck2_test_api:buck2_test_api",
+        "//buck2/host_sharing:host_sharing",
     ],
 )
