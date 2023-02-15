@@ -140,6 +140,7 @@ def make_pex(
         main_module,
         hidden_resources,
         manifest_module,
+        pex_modules,
         output_suffix = "",
     )
     for style in PackageStyle.values():
@@ -156,6 +157,7 @@ def make_pex(
             main_module,
             hidden_resources,
             manifest_module,
+            pex_modules,
             output_suffix = "-{}".format(style),
         )
         default.sub_targets[style] = make_pex_providers(pex_providers)
@@ -174,6 +176,7 @@ def _make_pex_impl(
         main_module: str.type,
         hidden_resources: [None, "_arglike"],
         manifest_module: [None, "_arglike"],
+        pex_modules: PexModules.type,
         output_suffix: str.type) -> PexProviders.type:
     name = "{}{}".format(ctx.attrs.name, output_suffix)
     standalone = package_style == PackageStyle("standalone")
@@ -208,10 +211,12 @@ def _make_pex_impl(
         manifest_module = None  # manifest generation is handled by make_pex_cmd
 
     modules_args = _pex_modules_args(
+        ctx,
         common_modules_args,
         dep_artifacts,
         symlink_tree_path,
         manifest_module,
+        pex_modules,
     )
 
     output = ctx.actions.declare_output("{}{}".format(name, python_toolchain.pex_extension))
@@ -329,10 +334,6 @@ def _pex_modules_common_args(
         srcs.append(pex_modules.extensions.manifest)
         src_artifacts.extend(pex_modules.extensions.artifacts)
 
-    if pex_modules.compile:
-        srcs.extend(pex_modules.manifests.bytecode_manifests())
-        src_artifacts.extend(pex_modules.manifests.bytecode_artifacts())
-
     if pex_modules.extra_manifests:
         srcs.append(pex_modules.extra_manifests.manifest)
         src_artifacts.extend(pex_modules.extra_manifests.artifacts)
@@ -391,10 +392,12 @@ def _pex_modules_common_args(
     return (cmd, deps)
 
 def _pex_modules_args(
+        ctx: "context",
         common_args: "cmd_args",
         dep_artifacts: ["_arglike"],
         symlink_tree_path: [None, "artifact"],
-        manifest_module: ["_arglike", None]) -> "cmd_args":
+        manifest_module: ["_arglike", None],
+        pex_modules: PexModules.type) -> "cmd_args":
     """
     Produces args to deal with a PEX's modules. Returns args to pass to the
     modules builder, and artifacts the resulting modules would require at
@@ -410,6 +413,19 @@ def _pex_modules_args(
     if symlink_tree_path != None:
         cmd.add(["--modules-dir", symlink_tree_path.as_output()])
     else:
+        if pex_modules.compile:
+            bytecode_manifests = pex_modules.manifests.bytecode_manifests()
+            bytecode_manifests_path = ctx.actions.write(
+                "__bytecode_manifests.txt",
+                _srcs(
+                    bytecode_manifests,
+                    format = "--module-manifest={}",
+                ),
+            )
+            cmd.add(cmd_args(bytecode_manifests_path, format = "@{}"))
+            cmd.hidden(bytecode_manifests)
+            dep_artifacts.extend(pex_modules.manifests.bytecode_artifacts())
+
         # Accumulate all the artifacts we depend on. Only add them to the command
         # if we are not going to create symlinks.
         cmd.hidden(dep_artifacts)
