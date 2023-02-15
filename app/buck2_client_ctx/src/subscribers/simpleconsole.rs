@@ -274,7 +274,7 @@ where
         // When command is stuck we call `rage` to gather debugging information
         if !self.already_raged {
             self.already_raged = true;
-            tokio::spawn(call_rage(self.isolation_dir.clone())).await?;
+            tokio::spawn(call_rage(self.isolation_dir.clone()));
         }
         Ok(())
     }
@@ -638,6 +638,8 @@ async fn call_rage_impl(isolation_dir: FileNameBuf) -> anyhow::Result<()> {
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::piped())
-        .spawn()?;
+        .spawn()?
+        .wait()
+        .await?;
     Ok(())
 }
