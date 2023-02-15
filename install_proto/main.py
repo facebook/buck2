@@ -102,8 +102,7 @@ def serve(args):
         RsyncInstallerService(stop_event, args), server
     )
     ## https://grpc.github.io/grpc/python/grpc.html
-    listen_addr = server.add_insecure_port(f"unix://{args.named_pipe}")
-    print(f"{args.named_pipe}")
+    listen_addr = server.add_insecure_port("[::]:" + args.tcp_port)
     print(f"Starting server on {listen_addr} w/ pid {os.getpid()}")
     server.start()
     signal.signal(signal.SIGINT, lambda x, y: shutdown(stop_event))
@@ -127,9 +126,9 @@ def parse_args(args=None):
         default="/tmp/",
     )
     parser.add_argument(
-        "--named-pipe",
+        "--tcp-port",
         type=str,
-        help="named pipe for installer to connect to",
+        help="tcp port for installer to connect to",
         required=True,
     )
     # no need to parse --tcp-port and other not related params
