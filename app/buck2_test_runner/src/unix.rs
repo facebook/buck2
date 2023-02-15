@@ -51,6 +51,6 @@ impl Buck2TestRunnerUnix {
             DuplexChannel::new(read, write)
         };
 
-        crate::service::run(orchestrator_io, executor_io, &self.args).await
+        crate::service::run(orchestrator_io, executor_io, self.args).await
     }
 }

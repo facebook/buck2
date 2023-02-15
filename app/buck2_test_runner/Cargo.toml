@@ -9,6 +9,7 @@ async-trait = { workspace = true }
 clap = { workspace = true }
 futures = { workspace = true }
 parking_lot = { workspace = true }
+thiserror = { workspace = true }
 tokio = { workspace = true }
 
 buck2_grpc = { workspace = true }

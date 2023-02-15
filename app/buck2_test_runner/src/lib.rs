@@ -9,6 +9,7 @@
 
 #![feature(async_closure)]
 
+mod config;
 mod executor;
 mod runner;
 mod service;

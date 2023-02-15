@@ -17,14 +17,19 @@ use buck2_test_api::data::DisplayMetadata;
 use buck2_test_api::data::ExecutionResult2;
 use buck2_test_api::data::ExecutionStatus;
 use buck2_test_api::data::ExternalRunnerSpec;
+use buck2_test_api::data::ExternalRunnerSpecValue;
 use buck2_test_api::data::TestResult;
 use buck2_test_api::data::TestStatus;
 use buck2_test_api::grpc::TestOrchestratorClient;
 use buck2_test_api::protocol::TestOrchestrator;
+use clap::Parser;
 use futures::channel::mpsc::UnboundedReceiver;
 use futures::StreamExt;
 use host_sharing::HostSharingRequirements;
 use parking_lot::Mutex;
+
+use crate::config::Config;
+use crate::config::EnvValue;
 
 const DEFAULT_TEST_TIMEOUT_SECS: u64 = 600;
 
@@ -40,14 +45,21 @@ pub type SpecReceiver = UnboundedReceiver<ExternalRunnerSpec>;
 pub struct Buck2TestRunner {
     orchestrator_client: TestOrchestratorClient,
     spec_receiver: Mutex<Option<SpecReceiver>>,
+    config: Config,
 }
 
 impl Buck2TestRunner {
-    pub fn new(orchestrator_client: TestOrchestratorClient, spec_receiver: SpecReceiver) -> Self {
-        Self {
+    pub fn new(
+        orchestrator_client: TestOrchestratorClient,
+        spec_receiver: SpecReceiver,
+        args: Vec<String>,
+    ) -> anyhow::Result<Self> {
+        let config = Config::try_parse_from(args).context("Error parsing test runner arguments")?;
+        Ok(Self {
             orchestrator_client,
             spec_receiver: Mutex::new(Some(spec_receiver)),
-        }
+            config,
+        })
     }
 
     pub async fn run_all_tests(&self) -> anyhow::Result<()> {
@@ -117,6 +129,18 @@ impl Buck2TestRunner {
             })
             .collect();
 
+        let config_env = self.config.env.iter().map(|EnvValue { name, value }| {
+            (
+                name.to_owned(),
+                ArgValue {
+                    content: ArgValueContent::ExternalRunnerSpecValue(
+                        ExternalRunnerSpecValue::Verbatim(value.to_owned()),
+                    ),
+                    format: None,
+                },
+            )
+        });
+
         let env = spec
             .env
             .into_iter()
@@ -129,6 +153,7 @@ impl Buck2TestRunner {
                     },
                 )
             })
+            .chain(config_env)
             .collect();
 
         let target_handle = spec.target.handle;

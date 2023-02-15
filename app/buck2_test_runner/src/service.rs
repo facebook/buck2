@@ -20,7 +20,7 @@ use crate::runner::Buck2TestRunner;
 pub async fn run<OC, ER, EW>(
     orchestrator_channel: OC,
     executor_channel: DuplexChannel<ER, EW>,
-    _args: &[String],
+    args: Vec<String>,
 ) -> anyhow::Result<()>
 where
     OC: AsyncRead + AsyncWrite + Unpin + Send + Sync + 'static,
@@ -36,7 +36,7 @@ where
         .await
         .context("Failed to TestOrchestratorClient")?;
 
-    let runner = Buck2TestRunner::new(orchestrator_client, spec_receiver);
+    let runner = Buck2TestRunner::new(orchestrator_client, spec_receiver, args)?;
 
     runner.run_all_tests().await?;
 
