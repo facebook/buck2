@@ -52,25 +52,6 @@ def _ignore_artifacts(ctx: "context") -> bool.type:
 def _requires_no_srcs_environment(ctx: "context") -> bool.type:
     return _NO_SRCS_ENVIRONMENT_LABEL in ctx.attrs.labels
 
-# There is a special use case of `default_outs` which is pretty frequent:
-# ```
-# default_outs = ["."],
-# ```
-# which makes the whole $OUT directory a default output.
-# To handle it in a v1 compatible way create an auxiliary symlinked directory with all output artifacts
-# and return it as a single output.
-def _should_handle_special_case_whole_out_dir_is_output(ctx: "context", outs_attr: dict.type):
-    for (_, item_outputs) in outs_attr.items():
-        # Situation when `"."` is both in `outs` and `default_outs` is handled by default
-        if "." in item_outputs:
-            return False
-    default_outs = ctx.attrs.default_outs
-    if default_outs and default_outs[0] == ".":
-        if len(default_outs) != 1:
-            fail("When present, `.` should be a single element in `default_outs`.")
-        return True
-    return False
-
 # We don't want to use cache mode in open source because the config keys that drive it aren't wired up
 # @oss-disable: _USE_CACHE_MODE = True 
 _USE_CACHE_MODE = False # @oss-enable
@@ -131,50 +112,28 @@ def process_genrule(
     # disallowed as a matter of policy), but for now let's be safe.
     cacheable = value_or(ctx.attrs.cacheable, True) and local_only
 
-    handle_whole_out_dir_is_output = False
-    default_out_map = {}
-
     # TODO(cjhopman): verify output paths are ".", "./", or forward-relative.
     if out_attr != None:
         out_env = out_attr
         out_artifact = _declare_output(ctx, out_attr)
-        default_outputs = [out_artifact]
-        all_outputs = default_outputs
         named_outputs = {}
+        default_outputs = [out_artifact]
     elif outs_attr != None:
         out_env = ""
+        out_artifact = ctx.actions.declare_output("out", dir = True)
 
-        default_outputs = []
-        all_outputs = []
-        named_outputs = {}
-        default_out_paths = ctx.attrs.default_outs or []
+        named_outputs = {
+            name: [_project_output(out_artifact, path) for path in outputs]
+            for (name, outputs) in outs_attr.items()
+        }
 
-        handle_whole_out_dir_is_output = _should_handle_special_case_whole_out_dir_is_output(ctx, outs_attr)
-
-        out = ctx.actions.declare_output("out", dir = True)
-
-        for (name, this_outputs) in outs_attr.items():
-            output_artifacts = []
-            for path in this_outputs:
-                artifact = _project_output(out, path)
-                if path in default_out_paths:
-                    default_outputs.append(artifact)
-                output_artifacts.append(artifact)
-                default_out_map[path] = artifact
-            named_outputs[name] = output_artifacts
-            all_outputs.extend(output_artifacts)
-
-        if handle_whole_out_dir_is_output:
-            # handle it later when artifacts are bound
-            pass
-        elif len(default_outputs) != len(default_out_paths):
-            # TODO(akozhevnikov) handle arbitrary `default_out`, currently fallback to all outputs to support
-            # cases when `default_out` points to directory containing all files from `outs`
-            warning("Could not properly handle `default_outs` and `outs` parameters of `{}` rule, default outputs for the rule are defaulted to all artifacts from `outs` parameter.".format(ctx.label))
-            default_outputs = all_outputs
-        elif len(default_outputs) == 0:
+        default_outputs = [
+            _project_output(out_artifact, path)
+            for path in (ctx.attrs.default_outs or [])
+        ]
+        if len(default_outputs) == 0:
             # We want building to force something to be built, so make sure it contains at least one artifact
-            default_outputs = all_outputs
+            default_outputs = [out_artifact]
     else:
         fail("One of `out` or `outs` should be set. Got `%s`" % repr(ctx.attrs))
 
@@ -302,16 +261,13 @@ def process_genrule(
         # As of 09/2021, all genrule types were legal snake case if their dashes and periods were replaced with underscores.
         category += "_" + ctx.attrs.type.replace("-", "_").replace(".", "_")
     ctx.actions.run(
-        cmd_args(script_args).hidden([cmd, srcs_artifact] + [a.as_output() for a in all_outputs]),
+        cmd_args(script_args).hidden([cmd, srcs_artifact, out_artifact.as_output()]),
         env = env_vars,
         local_only = local_only,
         allow_cache_upload = cacheable,
         category = category,
         identifier = identifier,
     )
-
-    if handle_whole_out_dir_is_output:
-        default_outputs = [ctx.actions.symlinked_dir("out_dir" if not identifier else "{}-outdir", default_out_map)]
 
     providers = [DefaultInfo(
         default_outputs = default_outputs,
