@@ -53,7 +53,6 @@ use thiserror::Error;
 use crate::artifact_value::ArtifactValue;
 use crate::digest::CasDigestFromReExt;
 use crate::digest::CasDigestToReExt;
-use crate::digest::FileDigestFromProtoExt;
 use crate::re::manager::ManagedRemoteExecutionClient;
 
 #[allocative::root]
@@ -291,6 +290,13 @@ pub fn re_tree_to_directory(
     leaf_expires: &DateTime<Utc>,
     digest_config: DigestConfig,
 ) -> anyhow::Result<ActionDirectoryBuilder> {
+    fn from_proto_message<M: prost::Message>(m: &M) -> FileDigest {
+        let mut m_encoded = Vec::new();
+        m.encode(&mut m_encoded)
+            .unwrap_or_else(|e| unreachable!("Protobuf messages are always encodeable: {}", e));
+        FileDigest::from_content_sha1(m_encoded.as_slice())
+    }
+
     // Recursively builds the directory
     fn dfs_build(
         re_dir: &RE::Directory,
@@ -386,11 +392,11 @@ pub fn re_tree_to_directory(
         None => return Ok(ActionDirectoryBuilder::empty()),
     };
 
-    let root_dir_digest = FileDigest::from_proto_message(root_dir);
+    let root_dir_digest = from_proto_message(root_dir);
     let dirmap: HashMap<FileDigest, &RE::Directory> = tree
         .children
         .iter()
-        .map(|d| (FileDigest::from_proto_message(d), d))
+        .map(|d| (from_proto_message(d), d))
         .collect();
 
     dfs_build(

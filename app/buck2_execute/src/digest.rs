@@ -105,16 +105,3 @@ impl<Kind> CasDigestToReExt for CasDigest<Kind> {
         }
     }
 }
-
-pub trait FileDigestFromProtoExt {
-    fn from_proto_message<M: prost::Message>(m: &M) -> Self;
-}
-
-impl<Kind> FileDigestFromProtoExt for CasDigest<Kind> {
-    fn from_proto_message<M: prost::Message>(m: &M) -> Self {
-        let mut m_encoded = Vec::new();
-        m.encode(&mut m_encoded)
-            .unwrap_or_else(|e| unreachable!("Protobuf messages are always encodeable: {}", e));
-        Self::from_content_sha1(m_encoded.as_slice())
-    }
-}
