@@ -495,12 +495,11 @@ def get_swift_pcm_uncompile_info(
         exported_pre: ["CPreprocessor", None]) -> ["SwiftPCMUncompiledInfo", None]:
     swift_toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
 
-    # If a toolchain supports explicit modules, exported PP exists and a target is modular,
-    # let's precompile a modulemap in order to enable consumptions by Swift.
-    if is_sdk_modules_provided(swift_toolchain) and exported_pre and exported_pre.modulemap_path and ctx.attrs.modular:
+    if is_sdk_modules_provided(swift_toolchain):
         propagated_pp_args_cmd = cmd_args(propagated_exported_preprocessor_info.set.project_as_args("args"), prepend = "-Xcc") if propagated_exported_preprocessor_info else None
         return SwiftPCMUncompiledInfo(
             name = get_module_name(ctx),
+            is_transient = not ctx.attrs.modular or not exported_pre,
             exported_preprocessor = exported_pre,
             exported_deps = ctx.attrs.exported_deps,
             propagated_preprocessor_args_cmd = propagated_pp_args_cmd,

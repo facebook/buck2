@@ -58,7 +58,6 @@ def _swift_pcm_compilation_impl(ctx: "context") -> ["promise", ["provider"]]:
         uncompiled_pcm_info = ctx.attrs.dep[SwiftPCMUncompiledInfo]
 
         module_name = ctx.attrs.pcm_name
-        modulemap_path = uncompiled_pcm_info.exported_preprocessor.modulemap_path
 
         swift_toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
 
@@ -83,6 +82,21 @@ def _swift_pcm_compilation_impl(ctx: "context") -> ["promise", ["provider"]]:
         pcm_deps_tset = get_compiled_pcm_deps_tset(ctx, pcm_deps_providers)
         cmd.add(pcm_deps_tset.project_as_args("clang_deps"))
 
+        # We don't need to compile non-modular or targets that do not export any headers,
+        # but for the sake of BUCK1 compatibility, we need to pass them up,
+        # in case they re-export some dependencies.
+        if uncompiled_pcm_info.is_transient:
+            return [
+                DefaultInfo(),
+                WrappedSwiftPCMCompiledInfo(
+                    tset = ctx.actions.tset(PcmDepTSet, children = [pcm_deps_tset]),
+                ),
+                WrappedSdkCompiledModuleInfo(
+                    tset = sdk_deps_tset,
+                ),
+            ]
+
+        modulemap_path = uncompiled_pcm_info.exported_preprocessor.modulemap_path
         pcm_output = ctx.actions.declare_output(module_name + ".pcm")
         cmd.add([
             "-o",
@@ -103,7 +117,8 @@ def _swift_pcm_compilation_impl(ctx: "context") -> ["promise", ["provider"]]:
 
         # When compiling pcm files, module's exported pps and inherited pps
         # must be provided to an action like hmaps which are used for headers resolution.
-        cmd.add(uncompiled_pcm_info.propagated_preprocessor_args_cmd)
+        if uncompiled_pcm_info.propagated_preprocessor_args_cmd:
+            cmd.add(uncompiled_pcm_info.propagated_preprocessor_args_cmd)
 
         # Modular deps like `-Swift.h` have to be materialized.
         cmd.hidden(uncompiled_pcm_info.exported_preprocessor.modular_args)

@@ -7,6 +7,7 @@
 
 SwiftPCMUncompiledInfo = provider(fields = [
     "name",
+    "is_transient",  # If True represents a transient apple_library target, that can't be compiled into pcm, but which we need to pass up for BUCK1 compatibility, because it can re-export some deps.
     "exported_preprocessor",
     "exported_deps",
     "propagated_preprocessor_args_cmd",
