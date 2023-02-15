@@ -19,13 +19,16 @@ load(
     "cxx_inherited_preprocessor_infos",
     "cxx_merge_cpreprocessors",
 )
-load(":apple_sdk_modules_utility.bzl", "get_compiled_sdk_deps_tset", "is_sdk_modules_provided")
+load("@prelude//utils:anon_targets.bzl", "anon_targets")
+load(":apple_sdk_modules_utility.bzl", "get_compiled_sdk_deps_tset", "get_uncompiled_sdk_deps", "is_sdk_modules_provided")
 load(":apple_toolchain_types.bzl", "AppleToolchainInfo")
 load(":apple_utility.bzl", "get_disable_pch_validation_flags", "get_module_name", "get_versioned_target_triple")
 load(":modulemap.bzl", "preprocessor_info_for_modulemap")
 load(":swift_module_map.bzl", "write_swift_module_map_with_swift_deps")
-load(":swift_pcm_compilation.bzl", "get_compiled_pcm_deps_tset")
+load(":swift_pcm_compilation.bzl", "get_compiled_pcm_deps_tset", "get_swift_pcm_anon_targets")
 load(":swift_pcm_compilation_types.bzl", "SwiftPCMUncompiledInfo")
+load(":swift_sdk_pcm_compilation.bzl", "get_swift_sdk_pcm_anon_targets")
+load(":swift_sdk_swiftinterface_compilation.bzl", "get_swift_interface_anon_targets")
 
 def _add_swiftmodule_search_path(swiftmodule_path: "artifact"):
     # Value will contain a path to the artifact,
@@ -67,6 +70,37 @@ SwiftCompilationOutput = record(
     # Argsfile to compile an object file which is used by some subtargets.
     swift_argsfile = field("CxxAdditionalArgsfileParams"),
 )
+
+REQUIRED_SDK_MODULES = ["Swift", "SwiftOnoneSupport", "Darwin", "_Concurrency", "_StringProcessing"]
+
+def get_swift_anonymous_targets(ctx: "context", get_apple_library_providers: "function") -> "promise":
+    # Get SDK deps from direct dependencies,
+    # all transitive deps will be compiled recursively.
+    direct_uncompiled_sdk_deps = get_uncompiled_sdk_deps(
+        ctx.attrs.sdk_modules,
+        ctx.attrs.name,
+        REQUIRED_SDK_MODULES,
+        ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info,
+    )
+
+    # Recursively compile PCMs of transitevely visible exported_deps
+    pcm_targets = get_swift_pcm_anon_targets(
+        ctx,
+        ctx.attrs.deps + ctx.attrs.exported_deps,
+    )
+
+    # Recursively compiling SDK's Clang dependencies
+    sdk_pcm_targets = get_swift_sdk_pcm_anon_targets(
+        ctx,
+        direct_uncompiled_sdk_deps,
+    )
+
+    # Recursively compiling SDK's Swift dependencies
+    swift_interface_anon_targets = get_swift_interface_anon_targets(
+        ctx,
+        direct_uncompiled_sdk_deps,
+    )
+    return anon_targets(ctx, pcm_targets + sdk_pcm_targets + swift_interface_anon_targets, get_apple_library_providers)
 
 def compile_swift(
         ctx: "context",

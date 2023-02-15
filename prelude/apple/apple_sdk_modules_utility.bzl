@@ -36,9 +36,6 @@ def is_sdk_modules_provided(toolchain: "SwiftToolchainInfo") -> bool.type:
         return False
     return True
 
-def get_sdk_deps_tset(**kwargs) -> "SDKDepTSet":
-    fail("UNIMPLEMENTED WILL BE REMOVED IN THE FOLLOWING DIFFS", kwargs)
-
 def get_compiled_sdk_deps_tset(ctx: "context", deps_providers: list.type) -> "SDKDepTSet":
     sdk_deps = [
         deps_provider[WrappedSdkCompiledModuleInfo].tset

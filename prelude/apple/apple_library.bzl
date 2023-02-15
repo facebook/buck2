@@ -7,7 +7,7 @@
 
 load("@prelude//apple:apple_dsym.bzl", "AppleDebuggableInfo", "DEBUGINFO_SUBTARGET", "DSYM_SUBTARGET", "get_apple_dsym")
 load("@prelude//apple:apple_stripping.bzl", "apple_strip_args")
-load("@prelude//apple:swift_compilation.bzl", "compile_swift", "get_swift_dependency_info")
+load("@prelude//apple:swift_compilation.bzl", "compile_swift", "get_swift_anonymous_targets", "get_swift_dependency_info", "get_swift_pcm_uncompile_info")
 load("@prelude//cxx:cxx.bzl", "get_srcs_with_flags")
 load("@prelude//cxx:cxx_library.bzl", "cxx_library_parameterized")
 load("@prelude//cxx:cxx_library_utility.bzl", "cxx_attr_deps", "cxx_attr_exported_deps")
@@ -54,22 +54,37 @@ AppleLibraryAdditionalParams = record(
     force_link_group_linking = field(bool.type, False),
 )
 
-def apple_library_impl(ctx: "context") -> ["provider"]:
-    constructor_params, swift_providers, _ = apple_library_rule_constructor_params_and_swift_providers(ctx, AppleLibraryAdditionalParams(rule_type = "apple_library"))
+def apple_library_impl(ctx: "context") -> ["promise", ["provider"]]:
+    def get_apple_library_providers(deps_providers) -> ["provider"]:
+        constructor_params, swift_providers, exported_pre = apple_library_rule_constructor_params_and_swift_providers(
+            ctx,
+            AppleLibraryAdditionalParams(rule_type = "apple_library"),
+            deps_providers,
+        )
 
-    resource_graph = create_resource_graph(
-        ctx = ctx,
-        labels = ctx.attrs.labels,
-        deps = cxx_attr_deps(ctx),
-        exported_deps = cxx_attr_exported_deps(ctx),
-    )
+        resource_graph = create_resource_graph(
+            ctx = ctx,
+            labels = ctx.attrs.labels,
+            deps = cxx_attr_deps(ctx),
+            exported_deps = cxx_attr_exported_deps(ctx),
+        )
 
-    output = cxx_library_parameterized(ctx, constructor_params)
+        output = cxx_library_parameterized(ctx, constructor_params)
 
-    providers = output.providers + [resource_graph] + swift_providers
-    return providers
+        exported_swift_pcm_uncompiled_info = get_swift_pcm_uncompile_info(
+            ctx,
+            output.propagated_exported_preprocessor_info,
+            exported_pre,
+        )
 
-def apple_library_rule_constructor_params_and_swift_providers(ctx: "context", params: AppleLibraryAdditionalParams.type) -> (CxxRuleConstructorParams.type, ["provider"], [CPreprocessor.type, None]):
+        return output.providers + [resource_graph] + swift_providers + ([exported_swift_pcm_uncompiled_info] if exported_swift_pcm_uncompiled_info else [])
+
+    if ctx.attrs.uses_explicit_modules:
+        return get_swift_anonymous_targets(ctx, get_apple_library_providers)
+    else:
+        return get_apple_library_providers([])
+
+def apple_library_rule_constructor_params_and_swift_providers(ctx: "context", params: AppleLibraryAdditionalParams.type, deps_providers: list.type = []) -> (CxxRuleConstructorParams.type, ["provider"], [CPreprocessor.type, None]):
     cxx_srcs, swift_srcs = _filter_swift_srcs(ctx)
 
     # First create a modulemap if necessary. This is required for importing
@@ -80,7 +95,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: "context", pa
     else:
         modulemap_pre = None
 
-    swift_compile = compile_swift(ctx, swift_srcs, [], exported_hdrs, modulemap_pre, params.extra_swift_compiler_flags)
+    swift_compile = compile_swift(ctx, swift_srcs, deps_providers, exported_hdrs, modulemap_pre, params.extra_swift_compiler_flags)
     swift_object_files = swift_compile.object_files if swift_compile else []
 
     swift_pre = CPreprocessor()

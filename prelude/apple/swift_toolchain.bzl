@@ -40,12 +40,12 @@ def swift_toolchain_impl(ctx):
     uncompiled_swift_sdk_modules_deps = {}
     uncompiled_clang_sdk_modules_deps = {}
 
-    # for sdk_module_dep in ctx.attrs.sdk_modules:
-    #     traverse_sdk_modules_graph(
-    #         uncompiled_swift_sdk_modules_deps,
-    #         uncompiled_clang_sdk_modules_deps,
-    #         sdk_module_dep,
-    #     )
+    for sdk_module_dep in ctx.attrs.sdk_modules:
+        traverse_sdk_modules_graph(
+            uncompiled_swift_sdk_modules_deps,
+            uncompiled_clang_sdk_modules_deps,
+            sdk_module_dep,
+        )
 
     return [
         DefaultInfo(),
