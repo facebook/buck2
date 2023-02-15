@@ -24,7 +24,7 @@ load(":apple_toolchain_types.bzl", "AppleToolchainInfo")
 load(":apple_utility.bzl", "get_disable_pch_validation_flags", "get_explicit_modules_env_var", "get_module_name", "get_versioned_target_triple")
 load(":modulemap.bzl", "preprocessor_info_for_modulemap")
 load(":swift_module_map.bzl", "write_swift_module_map_with_swift_deps")
-load(":swift_pcm_compilation.bzl", "get_compiled_pcm_deps_tset", "get_swift_pcm_anon_targets")
+load(":swift_pcm_compilation.bzl", "PcmDepTSet", "compile_underlying_pcm", "get_compiled_pcm_deps_tset", "get_swift_pcm_anon_targets")
 load(":swift_pcm_compilation_types.bzl", "SwiftPCMUncompiledInfo")
 load(":swift_sdk_pcm_compilation.bzl", "get_swift_sdk_pcm_anon_targets")
 load(":swift_sdk_swiftinterface_compilation.bzl", "get_swift_interface_anon_targets")
@@ -133,6 +133,24 @@ def compile_swift(
     if not srcs:
         return None
 
+    if objc_modulemap_pp_info:
+        underlying_swift_pcm_uncompiled_info = get_swift_pcm_uncompile_info(
+            ctx,
+            None,
+            objc_modulemap_pp_info,
+        )
+        if underlying_swift_pcm_uncompiled_info:
+            compiled_underlying_pcm = compile_underlying_pcm(
+                ctx,
+                underlying_swift_pcm_uncompiled_info,
+                deps_providers,
+                get_swift_cxx_flags(ctx),
+            )
+        else:
+            compiled_underlying_pcm = None
+    else:
+        compiled_underlying_pcm = None
+
     toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
 
     module_name = get_module_name(ctx)
@@ -143,6 +161,7 @@ def compile_swift(
     shared_flags = _get_shared_flags(
         ctx,
         deps_providers,
+        compiled_underlying_pcm,
         module_name,
         exported_headers,
         objc_modulemap_pp_info,
@@ -294,6 +313,7 @@ def _compile_with_argsfile(
 def _get_shared_flags(
         ctx: "context",
         deps_providers: list.type,
+        underlying_module: ["SwiftPCMCompiledInfo", None],
         module_name: str.type,
         objc_headers: [CHeader.type],
         objc_modulemap_pp_info: ["CPreprocessor", None],
@@ -369,7 +389,7 @@ def _get_shared_flags(
     sdk_deps_tset = get_compiled_sdk_deps_tset(ctx, deps_providers)
 
     # Add flags required to import ObjC module dependencies
-    _add_clang_deps_flags(ctx, pcm_deps_tset, sdk_deps_tset, cmd)
+    _add_clang_deps_flags(ctx, underlying_module, pcm_deps_tset, sdk_deps_tset, cmd)
     _add_swift_deps_flags(ctx, sdk_deps_tset, cmd)
 
     # Add flags for importing the ObjC part of this library
@@ -426,6 +446,7 @@ def _add_swift_deps_flags(
 
 def _add_clang_deps_flags(
         ctx: "context",
+        underlying_module: ["SwiftPCMCompiledInfo", None],
         pcm_deps_tset: "PcmDepTSet",
         sdk_deps_tset: "SDKDepTSet",
         cmd: "cmd_args") -> None:
@@ -436,6 +457,11 @@ def _add_clang_deps_flags(
 
         # Add Clang sdk modules which do not go to swift modulemap
         cmd.add(sdk_deps_tset.project_as_args("clang_deps"))
+        if underlying_module:
+            cmd.add(ctx.actions.tset(
+                PcmDepTSet,
+                value = underlying_module,
+            ).project_as_args("clang_deps"))
     else:
         inherited_preprocessor_infos = cxx_inherited_preprocessor_infos(ctx.attrs.deps + ctx.attrs.exported_deps)
         preprocessors = cxx_merge_cpreprocessors(ctx, [], inherited_preprocessor_infos)
