@@ -617,7 +617,7 @@ mod tests {
 
     #[test]
     fn test_artifact_metadata_dir_sqlite_entry_conversion_succeeds() {
-        let digest = TrackedFileDigest::new(FileDigest::from_bytes_sha1(b"directory"));
+        let digest = TrackedFileDigest::new(FileDigest::from_content_sha1(b"directory"));
         let metadata = ArtifactMetadata(DirectoryEntry::Dir(digest));
         let entry: ArtifactMetadataSqliteEntry = metadata.dupe().into();
         assert_eq!(metadata, entry.try_into().unwrap());
@@ -625,7 +625,7 @@ mod tests {
 
     #[test]
     fn test_artifact_metadata_file_sqlite_entry_conversion_succeeds() {
-        let digest = TrackedFileDigest::new(FileDigest::from_bytes_sha1(b"file"));
+        let digest = TrackedFileDigest::new(FileDigest::from_content_sha1(b"file"));
         let metadata = ArtifactMetadata(DirectoryEntry::Leaf(ActionDirectoryMember::File(
             FileMetadata {
                 digest,
@@ -684,9 +684,9 @@ mod tests {
 
         table.create_table().unwrap();
 
-        let dir_fingerprint = TrackedFileDigest::new(FileDigest::from_bytes_sha1(b"directory"));
+        let dir_fingerprint = TrackedFileDigest::new(FileDigest::from_content_sha1(b"directory"));
         let file = ActionDirectoryMember::File(FileMetadata {
-            digest: TrackedFileDigest::new(FileDigest::from_bytes_sha1(b"file")),
+            digest: TrackedFileDigest::new(FileDigest::from_content_sha1(b"file")),
             is_executable: false,
         });
         let symlink = new_symlink("foo/bar").unwrap();
@@ -782,7 +782,7 @@ mod tests {
 
         let path = ProjectRelativePath::unchecked_new("foo").to_owned();
         let artifact_metadata = ArtifactMetadata(DirectoryEntry::Dir(TrackedFileDigest::new(
-            FileDigest::from_bytes_sha1(b"directory"),
+            FileDigest::from_content_sha1(b"directory"),
         )));
         let timestamp = now_seconds();
         let metadatas = testing_metadatas();

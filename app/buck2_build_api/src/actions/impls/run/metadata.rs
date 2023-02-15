@@ -79,6 +79,6 @@ pub(crate) fn metadata_content(
         version: 1,
     };
     let json_string = serde_json::to_string(&json)?;
-    let digest = TrackedFileDigest::new(FileDigest::from_bytes_sha1(json_string.as_bytes()));
+    let digest = TrackedFileDigest::new(FileDigest::from_content_sha1(json_string.as_bytes()));
     Ok((json_string.into(), digest))
 }

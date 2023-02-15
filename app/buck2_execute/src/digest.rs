@@ -115,6 +115,6 @@ impl<Kind> FileDigestFromProtoExt for CasDigest<Kind> {
         let mut m_encoded = Vec::new();
         m.encode(&mut m_encoded)
             .unwrap_or_else(|e| unreachable!("Protobuf messages are always encodeable: {}", e));
-        Self::from_bytes_sha1(m_encoded.as_slice())
+        Self::from_content_sha1(m_encoded.as_slice())
     }
 }

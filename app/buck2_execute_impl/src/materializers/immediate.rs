@@ -258,7 +258,7 @@ pub async fn write_to_disk<'a>(
                     is_executable,
                 } in requests
                 {
-                    let digest = FileDigest::from_bytes_sha1(&content);
+                    let digest = FileDigest::from_content_sha1(&content);
                     cleanup_path(fs, &path)?;
                     fs.write_file(&path, &content, is_executable)?;
 

@@ -34,7 +34,7 @@ impl ActionBlobs {
         let mut blob = Vec::new();
         // Unwrap is safe because it only fails in OOM conditions, which we pretend don't happen
         m.encode(&mut blob).unwrap();
-        let digest = TrackedFileDigest::new(FileDigest::from_bytes_sha1(&blob));
+        let digest = TrackedFileDigest::new(FileDigest::from_content_sha1(&blob));
         self.0.insert(digest.dupe(), blob);
         digest
     }

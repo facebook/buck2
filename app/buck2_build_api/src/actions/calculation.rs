@@ -780,7 +780,7 @@ mod tests {
         );
         let source_artifact = create_test_source_artifact("cell", "pkg", "src.cpp");
         let metadata = FileMetadata {
-            digest: TrackedFileDigest::new(FileDigest::from_bytes_sha1(b"content")),
+            digest: TrackedFileDigest::new(FileDigest::from_content_sha1(b"content")),
             is_executable: true,
         };
 

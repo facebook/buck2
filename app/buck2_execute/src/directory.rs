@@ -187,7 +187,7 @@ impl DirectoryHasher<ActionDirectoryMember> for ReDirectorySerializer {
         >,
         D: ActionFingerprintedDirectory + 'a,
     {
-        TrackedFileDigest::new(FileDigest::from_bytes_sha1(&Self::serialize_entries(
+        TrackedFileDigest::new(FileDigest::from_content_sha1(&Self::serialize_entries(
             entries,
         )))
     }
@@ -999,7 +999,7 @@ mod tests {
         let dir = builder.fingerprint();
         let tree = directory_to_re_tree(&dir);
         let tree = proto_serialize(&tree);
-        let digest = FileDigest::from_bytes_sha1(&tree);
+        let digest = FileDigest::from_content_sha1(&tree);
         assert_eq!(
             digest.to_string(),
             "28e2632abbdc186ddd3ce26d2faf2da40c4c2695:521"

@@ -177,10 +177,10 @@ impl<Kind> CasDigest<Kind> {
 
     /// Return the digest of an empty string
     pub fn empty_sha1() -> Self {
-        Self::from_bytes_sha1(&[])
+        Self::from_content_sha1(&[])
     }
 
-    pub fn from_bytes_sha1(bytes: &[u8]) -> Self {
+    pub fn from_content_sha1(bytes: &[u8]) -> Self {
         let mut hasher = Sha1::new();
         hasher.update(bytes);
         Self::new_sha1(hasher.finalize().into(), bytes.len() as u64)

@@ -426,7 +426,7 @@ pub mod testing {
                             TestFileOpsEntry::File(
                                 data.clone(),
                                 FileMetadata {
-                                    digest: TrackedFileDigest::new(FileDigest::from_bytes_sha1(
+                                    digest: TrackedFileDigest::new(FileDigest::from_content_sha1(
                                         data.as_bytes(),
                                     )),
                                     is_executable: false,
@@ -619,7 +619,7 @@ mod tests {
 
     #[test]
     fn test_tracked_file_digest_equivalence() {
-        let digest = FileDigest::from_bytes_sha1(b"foo");
+        let digest = FileDigest::from_content_sha1(b"foo");
         let tracked_digest = TrackedFileDigest::new(digest.dupe());
 
         assert_eq!(&digest, tracked_digest.borrow());

@@ -590,7 +590,7 @@ impl Materializer for DeferredMaterializer {
             is_executable,
         } in contents
         {
-            let digest = FileDigest::from_bytes_sha1(&content);
+            let digest = FileDigest::from_content_sha1(&content);
 
             let meta = FileMetadata {
                 digest: TrackedFileDigest::new(digest),

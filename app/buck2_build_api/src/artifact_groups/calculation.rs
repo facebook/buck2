@@ -505,7 +505,7 @@ mod tests {
         )));
 
         let foo_meta = FileMetadata {
-            digest: TrackedFileDigest::new(FileDigest::from_bytes_sha1(b"foo")),
+            digest: TrackedFileDigest::new(FileDigest::from_content_sha1(b"foo")),
             is_executable: true,
         };
 
@@ -520,7 +520,7 @@ mod tests {
         );
 
         let bar_meta = FileMetadata {
-            digest: TrackedFileDigest::new(FileDigest::from_bytes_sha1(b"bar")),
+            digest: TrackedFileDigest::new(FileDigest::from_content_sha1(b"bar")),
             is_executable: true,
         };
 

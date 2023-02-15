@@ -396,7 +396,7 @@ mod tests {
 
     #[test]
     fn test_get_object_id_and_type_blob() -> anyhow::Result<()> {
-        let digest = TrackedFileDigest::new(FileDigest::from_bytes_sha1(b"content"));
+        let digest = TrackedFileDigest::new(FileDigest::from_content_sha1(b"content"));
         let metadata_executable = FileMetadata {
             digest: digest.dupe(),
             is_executable: true,
