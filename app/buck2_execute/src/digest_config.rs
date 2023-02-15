@@ -8,6 +8,7 @@
  */
 
 use allocative::Allocative;
+use buck2_common::cas_digest::CasDigestConfig;
 use buck2_common::file_ops::FileMetadata;
 use dice::DiceData;
 use dice::DiceDataBuilder;
@@ -21,11 +22,19 @@ use crate::directory::INTERNER;
 
 /// This configuration describes how to interpret digests received from a RE backend.
 #[derive(Copy, Clone, Dupe, Debug, Allocative, Hash, Eq, PartialEq)]
-pub struct DigestConfig {}
+pub struct DigestConfig {
+    inner: CasDigestConfig,
+}
 
 impl DigestConfig {
     pub fn compat() -> Self {
-        Self {}
+        Self {
+            inner: CasDigestConfig::compat(),
+        }
+    }
+
+    pub fn cas_digest_config(&self) -> CasDigestConfig {
+        self.inner
     }
 
     pub fn empty_file(&self) -> FileMetadata {

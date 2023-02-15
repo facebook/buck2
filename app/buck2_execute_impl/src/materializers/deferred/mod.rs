@@ -136,6 +136,7 @@ pub struct DeferredMaterializer {
     /// To be removed, used to implement write for now.
     fs: ProjectRoot,
     io_executor: Arc<dyn BlockingExecutor>,
+    digest_config: DigestConfig,
 
     /// Tracked for logging purposes.
     materializer_state_info: buck2_data::MaterializerStateInfo,
@@ -213,6 +214,8 @@ struct MaterializerReceiver<T> {
 
 struct DeferredMaterializerCommandProcessor<T> {
     io: Arc<T>,
+    #[allow(unused)]
+    digest_config: DigestConfig,
     sqlite_db: Option<MaterializerStateSqliteDb>,
     /// The runtime the deferred materializer will spawn futures on. This is normally the runtime
     /// used by the rest of Buck.
@@ -716,6 +719,7 @@ impl DeferredMaterializer {
     /// threads when dropped.
     pub fn new(
         fs: ProjectRoot,
+        digest_config: DigestConfig,
         buck_out_path: ProjectRelativePathBuf,
         re_client_manager: Arc<ReConnectionManager>,
         io_executor: Arc<dyn BlockingExecutor>,
@@ -740,10 +744,12 @@ impl DeferredMaterializer {
         let command_processor = DeferredMaterializerCommandProcessor {
             io: Arc::new(DefaultIoHandler {
                 fs: fs.dupe(),
+                digest_config,
                 buck_out_path,
                 re_client_manager,
                 io_executor: io_executor.dupe(),
             }),
+            digest_config,
             sqlite_db,
             rt: Handle::current(),
             defer_write_actions: configs.defer_write_actions,
@@ -800,6 +806,7 @@ impl DeferredMaterializer {
             defer_write_actions: configs.defer_write_actions,
             fs,
             io_executor,
+            digest_config,
             materializer_state_info,
         })
     }

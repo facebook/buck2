@@ -30,6 +30,7 @@ use fbinit::FacebookInit;
 use gazebo::cmp::PartialEqAny;
 use tokio::sync::Semaphore;
 
+use crate::cas_digest::CasDigestConfig;
 use crate::eden::EdenConnectionManager;
 use crate::eden::EdenDataIntoResult;
 use crate::file_ops::FileType;
@@ -47,7 +48,11 @@ pub struct EdenIoProvider {
 }
 
 impl EdenIoProvider {
-    pub async fn new(fb: FacebookInit, fs: &ProjectRoot) -> anyhow::Result<Option<Self>> {
+    pub async fn new(
+        fb: FacebookInit,
+        fs: &ProjectRoot,
+        cas_digest_config: CasDigestConfig,
+    ) -> anyhow::Result<Option<Self>> {
         if cfg!(not(fbcode_build)) {
             tracing::warn!("Disabling Eden I/O: Cargo build detected");
             return Ok(None);
@@ -84,9 +89,11 @@ impl EdenIoProvider {
             tracing::warn!("You are using a development version of Eden, enabling Eden I/O");
         }
 
+        // TODO (DigestConfig): Dont enable Eden I/O if SHA1 is not supported.
+
         Ok(Some(Self {
             manager,
-            fs: FsIoProvider::new(fs.dupe()),
+            fs: FsIoProvider::new(fs.dupe(), cas_digest_config),
         }))
     }
 }

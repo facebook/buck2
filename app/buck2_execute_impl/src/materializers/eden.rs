@@ -256,6 +256,7 @@ impl Materializer for EdenMaterializer {
 impl EdenMaterializer {
     pub fn new(
         fs: ProjectRoot,
+        digest_config: DigestConfig,
         re_client_manager: Arc<ReConnectionManager>,
         blocking_executor: Arc<dyn BlockingExecutor>,
         eden_buck_out: EdenBuckOut,
@@ -264,13 +265,14 @@ impl EdenMaterializer {
             re_client_manager: re_client_manager.dupe(),
             delegator: Arc::new(ImmediateMaterializer::new(
                 fs.dupe(),
+                digest_config,
                 re_client_manager,
                 blocking_executor,
             )),
             eden_buck_out,
             fs,
+            digest_config,
             re_use_case: RemoteExecutorUseCase::buck2_default(), // TODO (yipu): Should this be configurable?
-            digest_config: DigestConfig::compat(),
         })
     }
 }

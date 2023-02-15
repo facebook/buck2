@@ -194,8 +194,11 @@ mod state_machine {
 
     #[tokio::test]
     async fn test_declare_reuse() -> anyhow::Result<()> {
+        let digest_config = DigestConfig::compat();
+
         let mut dm = DeferredMaterializerCommandProcessor {
             io: Arc::new(StubIoHandler::default()),
+            digest_config,
             sqlite_db: None,
             rt: Handle::current(),
             defer_write_actions: true,
@@ -276,6 +279,7 @@ mod state_machine {
 
         let mut dm = DeferredMaterializerCommandProcessor {
             io: Arc::new(StubIoHandler::new(materialization_config)),
+            digest_config,
             sqlite_db: None,
             rt: Handle::current(),
             defer_write_actions: true,
@@ -362,6 +366,7 @@ mod state_machine {
             rt: Handle::current(),
             defer_write_actions: true,
             log_buffer: LogBuffer::new(1),
+            digest_config,
         };
 
         // Declare symlink

@@ -261,6 +261,7 @@ impl DaemonState {
                     fb,
                     fs.dupe(),
                     legacy_configs.get(cells.root_cell()).ok(),
+                    digest_config.cas_digest_config(),
                 ),
                 maybe_launch_forkserver(root_config),
                 (blocking_executor.dupe() as Arc<dyn BlockingExecutor>).execute_io_inline(|| {
@@ -292,6 +293,7 @@ impl DaemonState {
         let materializer = Self::create_materializer(
             fb,
             io.project_root().dupe(),
+            digest_config,
             paths.buck_out_dir(),
             re_client_manager.dupe(),
             blocking_executor.dupe(),
@@ -384,6 +386,7 @@ impl DaemonState {
     fn create_materializer(
         fb: FacebookInit,
         fs: ProjectRoot,
+        digest_config: DigestConfig,
         buck_out_path: ProjectRelativePathBuf,
         re_client_manager: Arc<ReConnectionManager>,
         blocking_executor: Arc<dyn BlockingExecutor>,
@@ -395,12 +398,14 @@ impl DaemonState {
         match materialization_method {
             MaterializationMethod::Immediate => Ok(Arc::new(ImmediateMaterializer::new(
                 fs,
+                digest_config,
                 re_client_manager,
                 blocking_executor,
             ))),
             MaterializationMethod::Deferred | MaterializationMethod::DeferredSkipFinalArtifacts => {
                 Ok(Arc::new(DeferredMaterializer::new(
                     fs,
+                    digest_config,
                     buck_out_path,
                     re_client_manager,
                     blocking_executor,
@@ -421,6 +426,7 @@ impl DaemonState {
                         Ok(Arc::new(
                             EdenMaterializer::new(
                                 fs,
+                                digest_config,
                                 re_client_manager.dupe(),
                                 blocking_executor,
                                 EdenBuckOut::new(

@@ -29,6 +29,7 @@ use once_cell::sync::Lazy;
 use thiserror::Error;
 use tokio::sync::Semaphore;
 
+use crate::cas_digest::CasDigestConfig;
 use crate::external_symlink::ExternalSymlink;
 use crate::file_ops::FileDigest;
 use crate::file_ops::FileMetadata;
@@ -41,11 +42,19 @@ use crate::io::IoProvider;
 #[derive(PartialEq, Clone, Dupe, Allocative)]
 pub struct FsIoProvider {
     fs: ProjectRoot,
+    cas_digest_config: CasDigestConfig,
 }
 
 impl FsIoProvider {
-    pub fn new(fs: ProjectRoot) -> Self {
-        Self { fs }
+    pub fn new(fs: ProjectRoot, cas_digest_config: CasDigestConfig) -> Self {
+        Self {
+            fs,
+            cas_digest_config,
+        }
+    }
+
+    pub fn cas_digest_config(&self) -> CasDigestConfig {
+        self.cas_digest_config
     }
 }
 

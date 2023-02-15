@@ -15,6 +15,7 @@ use dice::DiceData;
 use dice::DiceDataBuilder;
 use dupe::Dupe;
 
+use crate::cas_digest::CasDigestConfig;
 use crate::io::IoProvider;
 
 pub trait HasIoProvider {
@@ -52,7 +53,10 @@ pub mod testing {
 
     impl SetTestingIoProvider for DiceDataBuilder {
         fn set_testing_io_provider(&mut self, fs: &ProjectRootTemp) {
-            self.set_io_provider(Arc::new(FsIoProvider::new(fs.path().dupe())))
+            self.set_io_provider(Arc::new(FsIoProvider::new(
+                fs.path().dupe(),
+                CasDigestConfig::compat(),
+            )))
         }
     }
 }

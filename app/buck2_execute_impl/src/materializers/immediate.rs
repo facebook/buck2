@@ -21,6 +21,7 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest::CasDigestToReExt;
+use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::ActionDirectoryMember;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::execute::clean_output_paths::cleanup_path;
@@ -52,6 +53,7 @@ use crate::materializers::io::MaterializeTreeStructure;
 #[derive(Allocative)]
 pub struct ImmediateMaterializer {
     fs: ProjectRoot,
+    digest_config: DigestConfig,
     re_client_manager: Arc<ReConnectionManager>,
     io_executor: Arc<dyn BlockingExecutor>,
 }
@@ -59,6 +61,7 @@ pub struct ImmediateMaterializer {
 impl ImmediateMaterializer {
     pub fn new(
         fs: ProjectRoot,
+        digest_config: DigestConfig,
         re_client_manager: Arc<ReConnectionManager>,
         io_executor: Arc<dyn BlockingExecutor>,
     ) -> Self {
@@ -66,6 +69,7 @@ impl ImmediateMaterializer {
             fs,
             re_client_manager,
             io_executor,
+            digest_config,
         }
     }
 }

@@ -78,6 +78,15 @@ pub enum DigestAlgorithm {
     Blake3,
 }
 
+#[derive(Copy, Clone, Dupe, Debug, Allocative, Hash, Eq, PartialEq)]
+pub struct CasDigestConfig {}
+
+impl CasDigestConfig {
+    pub fn compat() -> Self {
+        Self {}
+    }
+}
+
 /// Separate struct to allow us to use  `repr(transparent)` below and guarantee an identical
 /// layout.
 #[derive(Display, PartialEq, Eq, PartialOrd, Ord, Hash, Allocative, Clone, Dupe)]

@@ -20,6 +20,7 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use gazebo::cmp::PartialEqAny;
 
+use crate::cas_digest::CasDigestConfig;
 use crate::file_ops::RawDirEntry;
 use crate::file_ops::RawPathMetadata;
 use crate::legacy_configs::LegacyBuckConfig;
@@ -59,6 +60,7 @@ pub async fn create_io_provider(
     fb: fbinit::FacebookInit,
     project_fs: ProjectRoot,
     root_config: Option<&LegacyBuckConfig>,
+    cas_digest_config: CasDigestConfig,
 ) -> anyhow::Result<Arc<dyn IoProvider>> {
     #[cfg(any(fbcode_build, cargo_internal_build))]
     {
@@ -73,7 +75,9 @@ pub async fn create_io_provider(
             .roll();
 
         if allow_eden_io {
-            if let Some(eden) = eden::EdenIoProvider::new(fb, &project_fs).await? {
+            if let Some(eden) =
+                eden::EdenIoProvider::new(fb, &project_fs, cas_digest_config).await?
+            {
                 return Ok(Arc::new(eden));
             }
         }
@@ -82,5 +86,8 @@ pub async fn create_io_provider(
     let _allow_unused = fb;
     let _allow_unused = root_config;
 
-    Ok(Arc::new(fs::FsIoProvider::new(project_fs)))
+    Ok(Arc::new(fs::FsIoProvider::new(
+        project_fs,
+        cas_digest_config,
+    )))
 }
