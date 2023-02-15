@@ -287,6 +287,22 @@ impl ConcurrencyHandlerData {
         true
     }
 
+    /// Attempt a transition to available assuming the cleanup future at `cleanup_epoch` has been
+    /// awaited already.
+    fn transition_to_idle(&mut self, cleanup_epoch: usize) {
+        if !matches!(self.dice_status, DiceStatus::Cleanup { .. }) {
+            // Noop: we already transitioned to available.
+            return;
+        }
+
+        if self.cleanup_epoch != cleanup_epoch {
+            // Noop: we already transitioned to available then back to cleanup.
+            return;
+        }
+
+        self.dice_status = DiceStatus::idle();
+    }
+
     fn notify_tainted(&self) {
         for command in self.active_commands.values() {
             command.notify_tainted()
@@ -414,12 +430,7 @@ impl ConcurrencyHandler {
                         data = self.data.lock();
                     }
 
-                    // Once the cleanup future resolves, check that we haven't completely skipped
-                    // an epoch (in which case we need to cleanup again), and proceed to report
-                    // DICE is available again.
-                    if data.cleanup_epoch == epoch {
-                        data.dice_status = DiceStatus::idle();
-                    }
+                    data.transition_to_idle(epoch);
                 }
                 DiceStatus::Available { active } => {
                     tracing::debug!("ActiveDice is available");
@@ -711,7 +722,7 @@ mod tests {
             &self,
             mut ctx: DiceTransactionUpdater,
         ) -> anyhow::Result<DiceTransactionUpdater> {
-            ctx.changed(vec![K])?;
+            ctx.changed_to(vec![(K, ())])?;
             Ok(ctx)
         }
     }
@@ -721,7 +732,7 @@ mod tests {
 
     #[async_trait]
     impl InjectedKey for K {
-        type Value = usize;
+        type Value = ();
 
         fn compare(_x: &Self::Value, _y: &Self::Value) -> bool {
             false
@@ -1318,6 +1329,43 @@ mod tests {
             .await?;
 
         assert!(has_taint_event(&mut events));
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_thundering_herd() -> anyhow::Result<()> {
+        let dice = Dice::builder().build(DetectCycles::Enabled);
+
+        let concurrency = ConcurrencyHandler::new(
+            dice.dupe(),
+            NestedInvocation::Error,
+            ParallelInvocation::Block,
+            DiceCleanup::Block,
+        );
+
+        let concurrency = &concurrency;
+
+        let tasks = (0..3).map(|_i| async {
+            concurrency
+                .enter(
+                    EventDispatcher::null(),
+                    &TestDiceDataProvider,
+                    &CtxDifferent,
+                    |dice| async move {
+                        // NOTE: We need to actually compute something for DICE to be not-idle.
+                        dice.compute(&K).await.unwrap();
+                        tokio::task::yield_now().await;
+                    },
+                    false,
+                    Vec::new(),
+                )
+                .await
+        });
+
+        futures::future::try_join_all(tasks).await?;
+
+        assert!(!concurrency.data.lock().previously_tainted);
 
         Ok(())
     }
