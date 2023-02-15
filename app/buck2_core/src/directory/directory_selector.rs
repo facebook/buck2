@@ -16,6 +16,7 @@ use thiserror::Error;
 
 use super::Directory;
 use super::DirectoryBuilder;
+use super::DirectoryDigest;
 use super::DirectoryEntries;
 use super::DirectoryEntry;
 use super::DirectoryIterator;
@@ -24,7 +25,6 @@ use super::DirectoryIteratorPathStack;
 use super::FingerprintedDirectory;
 use super::FingerprintedDirectoryEntries;
 use super::FingerprintedOrderedDirectoryEntries;
-use super::HasDirectoryDigest;
 use super::OrderedDirectoryEntries;
 use crate::fs::paths::file_name::FileName;
 use crate::fs::paths::file_name::FileNameBuf;
@@ -100,7 +100,7 @@ impl DirectorySelector {
     pub fn filter<L, H>(&self, dir: &mut DirectoryBuilder<L, H>) -> Result<(), DirectoryFilterError>
     where
         L: Clone,
-        H: HasDirectoryDigest,
+        H: DirectoryDigest,
     {
         let mut res = Ok(());
 
@@ -119,7 +119,7 @@ fn filter_inner<L, H>(
     res: &mut Result<(), DirectoryFilterError>,
 ) where
     L: Clone,
-    H: HasDirectoryDigest,
+    H: DirectoryDigest,
 {
     let dir = dir.as_mut();
 

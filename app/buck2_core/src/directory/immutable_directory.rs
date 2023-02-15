@@ -19,13 +19,13 @@ use super::impl_fingerprinted_directory;
 use super::DashMapDirectoryInterner;
 use super::Directory;
 use super::DirectoryBuilder;
+use super::DirectoryDigest;
 use super::DirectoryEntries;
 use super::DirectoryEntry;
 use super::DirectoryHasher;
 use super::ExclusiveDirectory;
 use super::FingerprintedDirectory;
 use super::FingerprintedDirectoryEntries;
-use super::HasDirectoryDigest;
 use super::SharedDirectory;
 use crate::fs::paths::file_name::FileName;
 use crate::fs::paths::file_name::FileNameBuf;
@@ -35,7 +35,7 @@ use crate::fs::paths::file_name::FileNameBuf;
 #[derivative(Clone(bound = "L: ::std::clone::Clone"))]
 pub enum ImmutableDirectory<L, H>
 where
-    H: HasDirectoryDigest,
+    H: DirectoryDigest,
 {
     Exclusive(ExclusiveDirectory<L, H>),
     Shared(SharedDirectory<L, H>),
@@ -43,7 +43,7 @@ where
 
 impl<L, H> ImmutableDirectory<L, H>
 where
-    H: HasDirectoryDigest,
+    H: DirectoryDigest,
 {
     pub fn shared(self, interner: &DashMapDirectoryInterner<L, H>) -> SharedDirectory<L, H> {
         match self {
@@ -63,7 +63,7 @@ where
 impl<L, H> ImmutableDirectory<L, H>
 where
     L: Clone,
-    H: HasDirectoryDigest,
+    H: DirectoryDigest,
 {
     pub fn into_entries<C>(self) -> C
     where
@@ -78,7 +78,7 @@ where
 
 impl<L, H> Directory<L, H> for ImmutableDirectory<L, H>
 where
-    H: HasDirectoryDigest,
+    H: DirectoryDigest,
 {
     fn entries(&self) -> DirectoryEntries<'_, L, H> {
         match self {
@@ -107,7 +107,7 @@ where
 
 impl<L, H> FingerprintedDirectory<L, H> for ImmutableDirectory<L, H>
 where
-    H: HasDirectoryDigest,
+    H: DirectoryDigest,
 {
     fn fingerprinted_entries<'a>(&'a self) -> FingerprintedDirectoryEntries<'a, L, H> {
         match self {
@@ -126,7 +126,7 @@ where
         }
     }
 
-    fn fingerprint(&self) -> &<H as HasDirectoryDigest>::Digest {
+    fn fingerprint(&self) -> &H {
         match self {
             Self::Exclusive(dir) => FingerprintedDirectory::fingerprint(dir),
             Self::Shared(dir) => FingerprintedDirectory::fingerprint(dir),
@@ -136,11 +136,11 @@ where
 
 impl<L, H> PartialEq for ImmutableDirectory<L, H>
 where
-    H: HasDirectoryDigest,
+    H: DirectoryDigest,
 {
     fn eq(&self, other: &Self) -> bool {
         self.fingerprint() == other.fingerprint()
     }
 }
 
-impl<L, H> Eq for ImmutableDirectory<L, H> where H: HasDirectoryDigest {}
+impl<L, H> Eq for ImmutableDirectory<L, H> where H: DirectoryDigest {}

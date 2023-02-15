@@ -13,6 +13,7 @@ use std::collections::HashSet;
 use buck2_common::file_ops::FileMetadata;
 use buck2_execute::directory::insert_file;
 use buck2_execute::directory::ActionDirectoryBuilder;
+use buck2_execute::directory::ReDirectorySerializer;
 use dupe::Dupe;
 
 use super::*;
@@ -248,7 +249,7 @@ mod state_machine {
             ActionDirectoryEntry::Leaf(ActionDirectoryMember::Symlink(Arc::new(Symlink::new(
                 target_from_symlink.clone(),
             )))),
-            Some(deps.fingerprint().shared(&*INTERNER)),
+            Some(deps.fingerprint(&ReDirectorySerializer).shared(&*INTERNER)),
         );
         Ok(symlink_value)
     }

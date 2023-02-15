@@ -12,6 +12,7 @@ use std::fmt::Display;
 use std::hash::Hash;
 
 use allocative::Allocative;
+use derive_more::Display;
 use dupe::Dupe;
 use gazebo::prelude::*;
 
@@ -19,15 +20,24 @@ use super::DirectoryEntry;
 use super::FingerprintedDirectory;
 use crate::fs::paths::file_name::FileName;
 
-pub trait HasDirectoryDigest {
-    type Digest: Allocative + PartialEq + Eq + Hash + Clone + Dupe + Debug + Display;
+pub trait DirectoryDigest:
+    Allocative + PartialEq + Eq + Hash + Clone + Dupe + Debug + Display
+{
 }
 
-pub trait DirectoryHasher<L>: HasDirectoryDigest {
-    fn hash_entries<'a, D, I>(entries: I) -> <Self as HasDirectoryDigest>::Digest
+// TODO: Rename to DirectoryDigester
+pub trait DirectoryHasher<L, H> {
+    fn hash_entries<'a, D, I>(&self, entries: I) -> H
     where
         I: Iterator<Item = (&'a FileName, DirectoryEntry<&'a D, &'a L>)>,
-        D: FingerprintedDirectory<L, Self> + 'a,
+        D: FingerprintedDirectory<L, H> + 'a,
         L: 'a,
         Self: Sized;
 }
+
+#[derive(Clone, Debug, Eq, PartialEq, Hash, Allocative, Display)]
+pub struct NoDigest(!);
+
+impl Dupe for NoDigest {}
+
+impl DirectoryDigest for NoDigest {}

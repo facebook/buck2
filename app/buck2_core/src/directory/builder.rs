@@ -17,13 +17,13 @@ use thiserror::Error;
 
 use super::Directory;
 use super::DirectoryData;
+use super::DirectoryDigest;
 use super::DirectoryEntries;
 use super::DirectoryEntry;
 use super::DirectoryHasher;
 use super::DirectoryMut;
 use super::ExclusiveDirectory;
 use super::FingerprintedDirectory;
-use super::HasDirectoryDigest;
 use super::ImmutableDirectory;
 use super::PathAccumulator;
 use super::UnorderedDirectoryWalk;
@@ -62,7 +62,7 @@ pub enum DirectoryMergeError {
 #[derivative(Clone(bound = "L: ::std::clone::Clone"))]
 pub enum DirectoryBuilder<L, H>
 where
-    H: HasDirectoryDigest,
+    H: DirectoryDigest,
 {
     /// This has a dedicated copy and we can mutate it.
     Mutable(SmallMap<FileNameBuf, DirectoryEntry<DirectoryBuilder<L, H>, L>>),
@@ -71,7 +71,7 @@ where
 
 impl<L, H> DirectoryBuilder<L, H>
 where
-    H: HasDirectoryDigest,
+    H: DirectoryDigest,
 {
     pub fn empty() -> Self {
         Self::Mutable(Default::default())
@@ -97,7 +97,7 @@ where
 impl<L, H> DirectoryBuilder<L, H>
 where
     L: Clone,
-    H: HasDirectoryDigest,
+    H: DirectoryDigest,
 {
     /// Insert the entry `val` at `path`.
     ///
@@ -254,7 +254,7 @@ where
 
 impl<L, H> Directory<L, H> for DirectoryBuilder<L, H>
 where
-    H: HasDirectoryDigest,
+    H: DirectoryDigest,
 {
     fn entries(&self) -> DirectoryEntries<'_, L, H> {
         box self.entries()
@@ -282,7 +282,7 @@ where
 
 impl<L, H> DirectoryMut<L, H> for DirectoryBuilder<L, H>
 where
-    H: HasDirectoryDigest,
+    H: DirectoryDigest,
     L: Clone,
 {
     fn get_mut<'a>(
@@ -297,17 +297,17 @@ where
 
 impl<L, H> DirectoryBuilder<L, H>
 where
-    H: DirectoryHasher<L>,
+    H: DirectoryDigest,
 {
-    pub fn fingerprint(self) -> ImmutableDirectory<L, H> {
+    pub fn fingerprint(self, hasher: &impl DirectoryHasher<L, H>) -> ImmutableDirectory<L, H> {
         match self {
             Self::Mutable(entries) => {
                 let entries = entries
                     .into_iter()
-                    .map(|(k, v)| (k, v.map_dir(|v| v.fingerprint())))
+                    .map(|(k, v)| (k, v.map_dir(|v| v.fingerprint(hasher))))
                     .collect();
                 ImmutableDirectory::Exclusive(ExclusiveDirectory {
-                    data: DirectoryData::new(entries),
+                    data: DirectoryData::new(entries, hasher),
                 })
             }
             Self::Immutable(c) => c,

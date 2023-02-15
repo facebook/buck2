@@ -29,6 +29,7 @@ use buck2_execute::directory::expand_selector_for_dependencies;
 use buck2_execute::directory::ActionDirectoryBuilder;
 use buck2_execute::directory::ActionImmutableDirectory;
 use buck2_execute::directory::ActionSharedDirectory;
+use buck2_execute::directory::ReDirectorySerializer;
 use buck2_execute::directory::INTERNER;
 use buck2_execute::execute::target::CommandExecutionTarget;
 use buck2_execute::materialize::materializer::MaterializationError;
@@ -478,11 +479,14 @@ impl PartitionedInputs<ActionSharedDirectory> {
 impl PartitionedInputs<ActionDirectoryBuilder> {
     fn share(self) -> PartitionedInputs<ActionSharedDirectory> {
         PartitionedInputs {
-            untagged: self.untagged.fingerprint().shared(&*INTERNER),
+            untagged: self
+                .untagged
+                .fingerprint(&ReDirectorySerializer)
+                .shared(&*INTERNER),
             tagged: self
                 .tagged
                 .into_iter()
-                .map(|(k, v)| (k, v.fingerprint().shared(&*INTERNER)))
+                .map(|(k, v)| (k, v.fingerprint(&ReDirectorySerializer).shared(&*INTERNER)))
                 .collect(),
         }
     }
@@ -522,11 +526,11 @@ impl PartitionedInputs<ActionDirectoryBuilder> {
     /// Compute fingerprints for all the PartitionedInputs in here. This lets us do comparisons.
     fn fingerprint(self) -> PartitionedInputs<ActionImmutableDirectory> {
         PartitionedInputs {
-            untagged: self.untagged.fingerprint(),
+            untagged: self.untagged.fingerprint(&ReDirectorySerializer),
             tagged: self
                 .tagged
                 .into_iter()
-                .map(|(k, v)| (k, v.fingerprint()))
+                .map(|(k, v)| (k, v.fingerprint(&ReDirectorySerializer)))
                 .collect(),
         }
     }

@@ -12,17 +12,7 @@ use derive_more::Display;
 use dupe::Dupe;
 use gazebo::prelude::*;
 
-use super::HasDirectoryDigest;
-
 #[derive(Eq, PartialEq, Copy, Clone, Display, Debug, Hash, Allocative)]
 pub struct NoHash(!);
 
 impl Dupe for NoHash {}
-
-/// A struct that can be used as the DirectoryHasher when hashing is not required.
-#[derive(Allocative)]
-pub struct NoHasher;
-
-impl HasDirectoryDigest for NoHasher {
-    type Digest = NoHash;
-}

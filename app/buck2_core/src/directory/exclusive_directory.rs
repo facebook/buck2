@@ -20,12 +20,12 @@ use super::DashMapDirectoryInterner;
 use super::Directory;
 use super::DirectoryBuilder;
 use super::DirectoryData;
+use super::DirectoryDigest;
 use super::DirectoryEntries;
 use super::DirectoryEntry;
 use super::DirectoryHasher;
 use super::FingerprintedDirectory;
 use super::FingerprintedDirectoryEntries;
-use super::HasDirectoryDigest;
 use super::ImmutableDirectory;
 use super::SharedDirectory;
 use crate::fs::paths::file_name::FileName;
@@ -37,14 +37,14 @@ use crate::fs::paths::file_name::FileNameBuf;
 #[display(fmt = "{}", "self.data")]
 pub struct ExclusiveDirectory<L, H>
 where
-    H: HasDirectoryDigest,
+    H: DirectoryDigest,
 {
     pub(super) data: DirectoryData<ImmutableDirectory<L, H>, L, H>,
 }
 
 impl<L, H> ExclusiveDirectory<L, H>
 where
-    H: HasDirectoryDigest,
+    H: DirectoryDigest,
 {
     pub fn shared(self, interner: &DashMapDirectoryInterner<L, H>) -> SharedDirectory<L, H> {
         if let Some(shared) = interner.get(self.fingerprint()) {
@@ -96,7 +96,7 @@ where
         self.data.entries.get(needle).as_ref().map(|v| v.as_ref())
     }
 
-    pub fn fingerprint(&self) -> &<H as HasDirectoryDigest>::Digest {
+    pub fn fingerprint(&self) -> &H {
         self.data.fingerprint()
     }
 

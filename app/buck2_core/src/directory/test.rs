@@ -14,7 +14,9 @@ use std::fmt::Write;
 use std::hash::Hash;
 use std::hash::Hasher;
 
+use allocative::Allocative;
 use assert_matches::assert_matches;
+use derive_more::Display;
 use dupe::Dupe;
 use gazebo::prelude::*;
 
@@ -28,15 +30,16 @@ pub struct NopEntry;
 
 pub struct TestHasher;
 
-impl HasDirectoryDigest for TestHasher {
-    type Digest = u64;
-}
+#[derive(Clone, Dupe, Debug, Eq, PartialEq, Hash, Allocative, Display)]
+struct TestDigest(u64);
 
-impl DirectoryHasher<NopEntry> for TestHasher {
-    fn hash_entries<'a, D, I>(entries: I) -> <Self as HasDirectoryDigest>::Digest
+impl DirectoryDigest for TestDigest {}
+
+impl DirectoryHasher<NopEntry, TestDigest> for TestHasher {
+    fn hash_entries<'a, D, I>(&self, entries: I) -> TestDigest
     where
         I: Iterator<Item = (&'a FileName, DirectoryEntry<&'a D, &'a NopEntry>)>,
-        D: FingerprintedDirectory<NopEntry, TestHasher> + 'a,
+        D: FingerprintedDirectory<NopEntry, TestDigest> + 'a,
     {
         let mut hasher = DefaultHasher::new();
 
@@ -50,12 +53,12 @@ impl DirectoryHasher<NopEntry> for TestHasher {
         entries.sort_by_key(|(name, _)| *name);
 
         entries.hash(&mut hasher);
-        hasher.finish()
+        TestDigest(hasher.finish())
     }
 }
 
-type TestDirectoryBuilder = DirectoryBuilder<NopEntry, TestHasher>;
-type NoHasherDirectoryBuilder = DirectoryBuilder<NopEntry, NoHasher>;
+type TestDirectoryBuilder = DirectoryBuilder<NopEntry, TestDigest>;
+type NoHasherDirectoryBuilder = DirectoryBuilder<NopEntry, NoDigest>;
 
 fn path<'a>(s: &'a str) -> &'a ForwardRelativePath {
     ForwardRelativePath::unchecked_new(s)
@@ -139,7 +142,7 @@ fn test_walk() -> anyhow::Result<()> {
         assert_matches!(it.next(), None);
     }
 
-    let b = b.fingerprint();
+    let b = b.fingerprint(&TestHasher);
 
     {
         let mut it = b.fingerprinted_ordered_walk().with_paths();
@@ -284,7 +287,7 @@ fn test_merge_conflict() -> anyhow::Result<()> {
 
 #[test]
 fn test_copy_on_write() -> anyhow::Result<()> {
-    let empty = TestDirectoryBuilder::empty().fingerprint();
+    let empty = TestDirectoryBuilder::empty().fingerprint(&TestHasher);
 
     let mut a = TestDirectoryBuilder::empty();
     a.insert(path("a"), DirectoryEntry::Dir(empty.into_builder()))?;
@@ -374,7 +377,7 @@ fn test_search() -> anyhow::Result<()> {
     let mut b = TestDirectoryBuilder::empty();
     b.insert(path("a/b"), DirectoryEntry::Leaf(NopEntry))?;
     b.insert(path("b/c"), DirectoryEntry::Leaf(NopEntry))?;
-    let d = b.fingerprint();
+    let d = b.fingerprint(&TestHasher);
 
     {
         let mut selector = DirectorySelector::empty();
@@ -495,9 +498,9 @@ fn test_bounds() {
 
     assert_impls_debug::<TestDirectoryBuilder>();
     assert_impls_clone::<TestDirectoryBuilder>();
-    assert_impls_eq::<DirectoryEntry<ExclusiveDirectory<NopEntry, TestHasher>, NopEntry>>();
-    assert_impls_eq::<DirectoryEntry<SharedDirectory<NopEntry, TestHasher>, NopEntry>>();
-    assert_impls_eq::<DirectoryEntry<ImmutableDirectory<NopEntry, TestHasher>, NopEntry>>();
+    assert_impls_eq::<DirectoryEntry<ExclusiveDirectory<NopEntry, TestDigest>, NopEntry>>();
+    assert_impls_eq::<DirectoryEntry<SharedDirectory<NopEntry, TestDigest>, NopEntry>>();
+    assert_impls_eq::<DirectoryEntry<ImmutableDirectory<NopEntry, TestDigest>, NopEntry>>();
 }
 
 #[test]
@@ -545,13 +548,13 @@ fn test_directory_interner() -> anyhow::Result<()> {
     let d1 = {
         let mut b = TestDirectoryBuilder::empty();
         b.insert(path("a/b"), DirectoryEntry::Leaf(NopEntry));
-        b.fingerprint().shared(&interner)
+        b.fingerprint(&TestHasher).shared(&interner)
     };
 
     let d2 = {
         let mut b = TestDirectoryBuilder::empty();
         b.insert(path("a/b"), DirectoryEntry::Leaf(NopEntry));
-        b.fingerprint().shared(&interner)
+        b.fingerprint(&TestHasher).shared(&interner)
     };
 
     assert!(d1.ptr_eq(&d2));
@@ -574,13 +577,13 @@ fn test_directory_interner_deep() -> anyhow::Result<()> {
     let d1 = {
         let mut b = TestDirectoryBuilder::empty();
         b.insert(path("a/b"), DirectoryEntry::Leaf(NopEntry));
-        b.fingerprint().shared(&interner)
+        b.fingerprint(&TestHasher).shared(&interner)
     };
 
     let d2 = {
         let mut b = TestDirectoryBuilder::empty();
         b.insert(path("b"), DirectoryEntry::Leaf(NopEntry));
-        b.fingerprint().shared(&interner)
+        b.fingerprint(&TestHasher).shared(&interner)
     };
 
     assert_eq!(interner.len(), 2);

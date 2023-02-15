@@ -318,6 +318,8 @@ impl<Kind> fmt::Debug for TrackedCasDigest<Kind> {
     }
 }
 
+impl<Kind> buck2_core::directory::DirectoryDigest for TrackedCasDigest<Kind> {}
+
 impl<Kind> TrackedCasDigest<Kind> {
     pub fn new(data: CasDigest<Kind>) -> Self
     where

@@ -27,6 +27,7 @@ use crate::artifact::fs::ExecutorFs;
 use crate::digest::CasDigestToReExt;
 use crate::directory::insert_entry;
 use crate::directory::ActionDirectoryMember;
+use crate::directory::ReDirectorySerializer;
 use crate::execute::blobs::ActionBlobs;
 use crate::execute::inputs_directory::inputs_directory;
 use crate::execute::manager::CommandExecutionManager;
@@ -197,7 +198,7 @@ impl CommandExecutor {
             DirectoryEntry::Leaf(ActionDirectoryMember::File(FileMetadata::empty())),
         )?;
 
-        let input_dir = builder.fingerprint();
+        let input_dir = builder.fingerprint(&ReDirectorySerializer);
 
         let mut input_files_bytes = 0;
 

@@ -21,6 +21,7 @@ use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::directory::insert_artifact;
 use buck2_execute::directory::ActionDirectoryBuilder;
 use buck2_execute::directory::ActionSharedDirectory;
+use buck2_execute::directory::ReDirectorySerializer;
 use buck2_execute::directory::INTERNER;
 use dupe::Dupe;
 use smallvec::smallvec;
@@ -64,7 +65,9 @@ impl ArtifactGroupValues {
                 .context("Merge failed")?;
         }
 
-        let directory = builder.fingerprint().shared(&*INTERNER);
+        let directory = builder
+            .fingerprint(&ReDirectorySerializer)
+            .shared(&*INTERNER);
 
         Ok(Self(Arc::new(ArtifactGroupValuesData {
             values,

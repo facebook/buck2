@@ -26,6 +26,7 @@ use crate::directory::ActionDirectoryBuilder;
 use crate::directory::ActionDirectoryEntry;
 use crate::directory::ActionDirectoryMember;
 use crate::directory::ActionSharedDirectory;
+use crate::directory::ReDirectorySerializer;
 use crate::directory::INTERNER;
 
 pub struct ArtifactValueBuilder<'a> {
@@ -91,7 +92,7 @@ impl<'a> ArtifactValueBuilder<'a> {
             DirectoryEntry::Dir(directory) => {
                 let mut builder = directory.dupe().into_builder();
                 relativize_directory(&mut builder, src.as_ref(), dest.as_ref())?;
-                DirectoryEntry::Dir(builder.fingerprint())
+                DirectoryEntry::Dir(builder.fingerprint(&ReDirectorySerializer))
             }
             DirectoryEntry::Leaf(ActionDirectoryMember::Symlink(s)) => {
                 // TODO: This seems like it normally shouldn't need to be normalizing anything.

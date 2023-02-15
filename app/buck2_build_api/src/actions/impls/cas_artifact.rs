@@ -24,6 +24,7 @@ use buck2_execute::digest::CasDigestToReExt;
 use buck2_execute::directory::re_directory_to_re_tree;
 use buck2_execute::directory::re_tree_to_directory;
 use buck2_execute::directory::ActionDirectoryEntry;
+use buck2_execute::directory::ReDirectorySerializer;
 use buck2_execute::directory::INTERNER;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
 use buck2_execute::materialize::materializer::CasDownloadInfo;
@@ -239,7 +240,9 @@ impl IncrementalActionExecutable for CasArtifactAction {
                 .context("Invalid directory")?;
 
                 ArtifactValue::new(
-                    ActionDirectoryEntry::Dir(dir.fingerprint().shared(&*INTERNER)),
+                    ActionDirectoryEntry::Dir(
+                        dir.fingerprint(&ReDirectorySerializer).shared(&*INTERNER),
+                    ),
                     None,
                 )
             }

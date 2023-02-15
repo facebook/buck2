@@ -27,6 +27,7 @@ use buck2_execute::digest::CasDigestToReExt;
 use buck2_execute::directory::insert_artifact;
 use buck2_execute::directory::ActionDirectoryBuilder;
 use buck2_execute::directory::ActionDirectoryMember;
+use buck2_execute::directory::ReDirectorySerializer;
 use buck2_execute::execute::blobs::ActionBlobs;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::materialize::eden_api::EdenBuckOut;
@@ -121,7 +122,7 @@ impl Materializer for EdenMaterializer {
         // TODO(yipu) We don't need to upload CAS, and we should pass ArtifactValue to eden directly
         let mut builder = ActionDirectoryBuilder::empty();
         insert_artifact(&mut builder, path.as_ref(), &value)?;
-        let input_dir = builder.fingerprint();
+        let input_dir = builder.fingerprint(&ReDirectorySerializer);
 
         self.re_client_manager
             .get_re_connection()

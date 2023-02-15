@@ -29,6 +29,7 @@ use buck2_execute::directory::ActionDirectoryBuilder;
 use buck2_execute::directory::ActionDirectoryEntry;
 use buck2_execute::directory::ActionDirectoryMember;
 use buck2_execute::directory::ActionSharedDirectory;
+use buck2_execute::directory::ReDirectorySerializer;
 use buck2_execute::directory::INTERNER;
 use derive_more::Display;
 use dice::DiceComputations;
@@ -243,7 +244,7 @@ async fn dir_artifact_value(
     let entries = future::try_join_all(entries).await?;
     let entries = entries.into_iter().collect();
 
-    let d: DirectoryData<_, _, _> = DirectoryData::new(entries);
+    let d: DirectoryData<_, _, _> = DirectoryData::new(entries, &ReDirectorySerializer);
     Ok(ActionDirectoryEntry::Dir(INTERNER.intern(d)))
 }
 

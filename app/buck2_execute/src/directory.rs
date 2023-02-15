@@ -34,7 +34,6 @@ use buck2_core::directory::DirectoryHasher;
 use buck2_core::directory::DirectoryIterator;
 use buck2_core::directory::DirectorySelector;
 use buck2_core::directory::FingerprintedDirectory;
-use buck2_core::directory::HasDirectoryDigest;
 use buck2_core::directory::ImmutableDirectory;
 use buck2_core::directory::SharedDirectory;
 use buck2_core::fs::paths::file_name::FileName;
@@ -58,12 +57,12 @@ use crate::digest::CasDigestToReExt;
 use crate::re::manager::ManagedRemoteExecutionClient;
 
 #[allocative::root]
-pub static INTERNER: Lazy<DashMapDirectoryInterner<ActionDirectoryMember, ReDirectorySerializer>> =
+pub static INTERNER: Lazy<DashMapDirectoryInterner<ActionDirectoryMember, TrackedFileDigest>> =
     Lazy::new(DashMapDirectoryInterner::new);
 
 pub static EMPTY_DIRECTORY: Lazy<ActionSharedDirectory> = Lazy::new(|| {
     ActionDirectoryBuilder::empty()
-        .fingerprint()
+        .fingerprint(&ReDirectorySerializer)
         .shared(&*INTERNER)
 });
 
@@ -80,17 +79,16 @@ pub enum ActionDirectoryMember {
 
 pub type ActionDirectoryEntry<D> = DirectoryEntry<D, ActionDirectoryMember>;
 
-pub type ActionImmutableDirectory =
-    ImmutableDirectory<ActionDirectoryMember, ReDirectorySerializer>;
+pub type ActionImmutableDirectory = ImmutableDirectory<ActionDirectoryMember, TrackedFileDigest>;
 
-pub type ActionSharedDirectory = SharedDirectory<ActionDirectoryMember, ReDirectorySerializer>;
+pub type ActionSharedDirectory = SharedDirectory<ActionDirectoryMember, TrackedFileDigest>;
 
-pub type ActionDirectoryBuilder = DirectoryBuilder<ActionDirectoryMember, ReDirectorySerializer>;
+pub type ActionDirectoryBuilder = DirectoryBuilder<ActionDirectoryMember, TrackedFileDigest>;
 
-pub trait ActionDirectory = Directory<ActionDirectoryMember, ReDirectorySerializer>;
+pub trait ActionDirectory = Directory<ActionDirectoryMember, TrackedFileDigest>;
 
 pub trait ActionFingerprintedDirectory =
-    FingerprintedDirectory<ActionDirectoryMember, ReDirectorySerializer>;
+    FingerprintedDirectory<ActionDirectoryMember, TrackedFileDigest>;
 
 #[derive(Allocative)]
 pub struct ReDirectorySerializer;
@@ -173,12 +171,8 @@ fn proto_serialize<M: prost::Message>(m: &M) -> Vec<u8> {
     serialized_buf
 }
 
-impl HasDirectoryDigest for ReDirectorySerializer {
-    type Digest = TrackedFileDigest;
-}
-
-impl DirectoryHasher<ActionDirectoryMember> for ReDirectorySerializer {
-    fn hash_entries<'a, D, I>(entries: I) -> Self::Digest
+impl DirectoryHasher<ActionDirectoryMember, TrackedFileDigest> for ReDirectorySerializer {
+    fn hash_entries<'a, D, I>(&self, entries: I) -> TrackedFileDigest
     where
         I: Iterator<
             Item = (
@@ -739,12 +733,14 @@ pub fn extract_artifact_value(
         )?;
     }
 
-    let entry = entry
-        .map_leaf(|l| l.dupe())
-        .map_dir(|d| d.to_builder().fingerprint().shared(&*INTERNER));
+    let entry = entry.map_leaf(|l| l.dupe()).map_dir(|d| {
+        d.to_builder()
+            .fingerprint(&ReDirectorySerializer)
+            .shared(&*INTERNER)
+    });
 
     let deps = if has_deps {
-        Some(deps.fingerprint().shared(&*INTERNER))
+        Some(deps.fingerprint(&ReDirectorySerializer).shared(&*INTERNER))
     } else {
         None
     };
@@ -1004,7 +1000,7 @@ mod tests {
         insert_file(&mut builder, path("a/aa"), FileMetadata::empty())?;
         insert_file(&mut builder, path("a/bb"), FileMetadata::empty())?;
         insert_file(&mut builder, path("b/b"), FileMetadata::empty())?;
-        let dir = builder.fingerprint();
+        let dir = builder.fingerprint(&ReDirectorySerializer);
 
         let tree = directory_to_re_tree(&dir);
         let dir2 = re_tree_to_directory(&tree, &Utc::now(), DigestConfig::compat())?;
@@ -1028,7 +1024,7 @@ mod tests {
         for p in &["a/aa/f", "a/aaa/f", "b/bb/f", "d/f"] {
             insert_file(&mut builder, path(p), FileMetadata::empty())?;
         }
-        let dir = builder.fingerprint();
+        let dir = builder.fingerprint(&ReDirectorySerializer);
         let tree = directory_to_re_tree(&dir);
         let tree = proto_serialize(&tree);
         let digest = FileDigest::from_content_sha1(&tree);

@@ -18,7 +18,7 @@ use buck2_core::directory::DirectoryBuilder;
 use buck2_core::directory::DirectoryEntry;
 use buck2_core::directory::DirectoryInsertError;
 use buck2_core::directory::DirectoryIterator;
-use buck2_core::directory::NoHasher;
+use buck2_core::directory::NoDigest;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::soft_error;
@@ -53,7 +53,7 @@ pub struct ActionsRegistry {
         ActionToBeRegistered,
     )>,
     execution_platform: ExecutionPlatformResolution,
-    claimed_output_paths: DirectoryBuilder<(), NoHasher>,
+    claimed_output_paths: DirectoryBuilder<(), NoDigest>,
 }
 
 impl ActionsRegistry {

@@ -10,11 +10,11 @@
 use std::fmt;
 use std::iter::once;
 
+use super::DirectoryDigest;
 use super::DirectoryEntry;
 use super::DirectoryHasher;
 use super::FingerprintedOrderedDirectoryWalk;
 use super::FingerprintedUnorderedDirectoryWalk;
-use super::HasDirectoryDigest;
 use super::PathAccumulator;
 use crate::fs::paths::file_name::FileName;
 
@@ -43,9 +43,9 @@ pub trait FingerprintedDirectory<L, H> {
         FingerprintedOrderedDirectoryWalk::new(self)
     }
 
-    fn fingerprint(&self) -> &<H as HasDirectoryDigest>::Digest
+    fn fingerprint(&self) -> &H
     where
-        H: HasDirectoryDigest;
+        H: DirectoryDigest;
 }
 
 impl<'a, L, H> fmt::Debug for &'a dyn FingerprintedDirectory<L, H> {

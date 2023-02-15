@@ -17,10 +17,10 @@ use derive_more::Display;
 use gazebo::prelude::*;
 use sorted_vector_map::SortedVectorMap;
 
+use super::DirectoryDigest;
 use super::DirectoryEntry;
 use super::DirectoryHasher;
 use super::FingerprintedDirectory;
-use super::HasDirectoryDigest;
 use crate::fs::paths::file_name::FileNameBuf;
 
 #[derive(Derivative, Display, Allocative)]
@@ -29,13 +29,13 @@ use crate::fs::paths::file_name::FileNameBuf;
 #[display(fmt = "Directory({})", "self.fingerprint")]
 pub struct DirectoryData<D, L, H>
 where
-    H: HasDirectoryDigest,
+    H: DirectoryDigest,
 {
     /// SortedVectorMap is a more compact immutatable representation for directories.
     /// Experimentally, it takes about 30% less space, while resulting in no runtime regression.
     pub entries: SortedVectorMap<FileNameBuf, DirectoryEntry<D, L>>,
 
-    pub(super) fingerprint: <H as HasDirectoryDigest>::Digest,
+    pub(super) fingerprint: H,
 
     #[derivative(Debug = "ignore")]
     pub(super) _hash: PhantomData<H>,
@@ -43,20 +43,24 @@ where
 
 impl<D, L, H> DirectoryData<D, L, H>
 where
-    H: HasDirectoryDigest,
+    H: DirectoryDigest,
 {
-    pub fn fingerprint(&self) -> &<H as HasDirectoryDigest>::Digest {
+    pub fn fingerprint(&self) -> &H {
         &self.fingerprint
     }
 }
 
 impl<D, L, H> DirectoryData<D, L, H>
 where
-    H: DirectoryHasher<L>,
+    H: DirectoryDigest,
     D: FingerprintedDirectory<L, H>,
 {
-    pub fn new(entries: SortedVectorMap<FileNameBuf, DirectoryEntry<D, L>>) -> Self {
-        let fingerprint = H::hash_entries(entries.iter().map(|(k, e)| (k.as_ref(), e.as_ref())));
+    pub fn new(
+        entries: SortedVectorMap<FileNameBuf, DirectoryEntry<D, L>>,
+        hasher: &impl DirectoryHasher<L, H>,
+    ) -> Self {
+        let fingerprint =
+            hasher.hash_entries(entries.iter().map(|(k, e)| (k.as_ref(), e.as_ref())));
         Self {
             entries,
             fingerprint,

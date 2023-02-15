@@ -11,8 +11,8 @@ use std::fmt;
 use std::iter::once;
 
 use super::DirectoryBuilder;
+use super::DirectoryDigest;
 use super::DirectoryEntry;
-use super::HasDirectoryDigest;
 use super::OrderedDirectoryWalk;
 use super::PathAccumulator;
 use super::UnorderedDirectoryWalk;
@@ -42,7 +42,7 @@ pub trait Directory<L, H> {
     fn to_builder(&self) -> DirectoryBuilder<L, H>
     where
         L: Clone,
-        H: HasDirectoryDigest;
+        H: DirectoryDigest;
 }
 
 impl<'a, L, H> fmt::Debug for &'a dyn Directory<L, H> {

@@ -13,7 +13,7 @@ macro_rules! impl_fingerprinted_directory {
     ) => {
         impl<L, H> Directory<L, H> for $this<L, H>
         where
-            H: HasDirectoryDigest,
+            H: DirectoryDigest,
         {
             fn entries<'a>(&'a self) -> DirectoryEntries<'a, L, H> {
                 let it = self.entries().into_iter().map(|(k, v)| {
@@ -41,7 +41,7 @@ macro_rules! impl_fingerprinted_directory {
 
         impl<L, H> FingerprintedDirectory<L, H> for $this<L, H>
         where
-            H: HasDirectoryDigest,
+            H: DirectoryDigest,
         {
             fn fingerprinted_entries<'a>(&'a self) -> FingerprintedDirectoryEntries<'a, L, H> {
                 let it = self.entries().into_iter().map(|(k, v)| {
@@ -62,21 +62,21 @@ macro_rules! impl_fingerprinted_directory {
                     .map(|v| v.map_dir(|d| d as &dyn FingerprintedDirectory<L, H>))
             }
 
-            fn fingerprint(&self) -> &<H as HasDirectoryDigest>::Digest {
+            fn fingerprint(&self) -> &H {
                 $this::fingerprint(self)
             }
         }
 
         impl<L, H> PartialEq for $this<L, H>
         where
-            H: HasDirectoryDigest,
+            H: DirectoryDigest,
         {
             fn eq(&self, other: &Self) -> bool {
                 self.fingerprint() == other.fingerprint()
             }
         }
 
-        impl<L, H> Eq for $this<L, H> where H: HasDirectoryDigest {}
+        impl<L, H> Eq for $this<L, H> where H: DirectoryDigest {}
     };
 }
 

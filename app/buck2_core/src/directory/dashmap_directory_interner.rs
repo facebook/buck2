@@ -18,8 +18,8 @@ use dupe::Dupe;
 use dupe::Dupe_;
 use gazebo::prelude::*;
 
+use super::DirectoryDigest;
 use super::DirectoryHasher;
-use super::HasDirectoryDigest;
 use super::SharedDirectory;
 use super::SharedDirectoryData;
 use super::SharedDirectoryInner;
@@ -27,14 +27,14 @@ use super::SharedDirectoryInner;
 #[derive(Dupe_, Clone_, Allocative)]
 pub struct DashMapDirectoryInterner<L, H>
 where
-    H: HasDirectoryDigest,
+    H: DirectoryDigest,
 {
-    inner: Arc<DashMap<<H as HasDirectoryDigest>::Digest, Weak<SharedDirectoryInner<L, H>>>>,
+    inner: Arc<DashMap<H, Weak<SharedDirectoryInner<L, H>>>>,
 }
 
 impl<L, H> DashMapDirectoryInterner<L, H>
 where
-    H: HasDirectoryDigest,
+    H: DirectoryDigest,
 {
     pub fn new() -> Self {
         Self {
@@ -51,10 +51,7 @@ where
     }
 
     /// Get an existing entry from the interner.
-    pub fn get(
-        &self,
-        fingerprint: &<H as HasDirectoryDigest>::Digest,
-    ) -> Option<SharedDirectory<L, H>> {
+    pub fn get(&self, fingerprint: &H) -> Option<SharedDirectory<L, H>> {
         self.inner
             .get(fingerprint)
             .and_then(|inner| inner.upgrade())

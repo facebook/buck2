@@ -27,12 +27,12 @@ use super::DashMapDirectoryInterner;
 use super::Directory;
 use super::DirectoryBuilder;
 use super::DirectoryData;
+use super::DirectoryDigest;
 use super::DirectoryEntries;
 use super::DirectoryEntry;
 use super::DirectoryHasher;
 use super::FingerprintedDirectory;
 use super::FingerprintedDirectoryEntries;
-use super::HasDirectoryDigest;
 use super::ImmutableDirectory;
 use crate::fs::paths::file_name::FileName;
 use crate::fs::paths::file_name::FileNameBuf;
@@ -44,7 +44,7 @@ pub type SharedDirectoryData<L, H> = DirectoryData<SharedDirectory<L, H>, L, H>;
 #[display(fmt = "{}", "self.data")]
 pub struct SharedDirectoryInner<L, H>
 where
-    H: HasDirectoryDigest,
+    H: DirectoryDigest,
 {
     pub(super) data: SharedDirectoryData<L, H>,
 
@@ -54,7 +54,7 @@ where
 
 impl<L, H> Drop for SharedDirectoryInner<L, H>
 where
-    H: HasDirectoryDigest,
+    H: DirectoryDigest,
 {
     fn drop(&mut self) {
         self.interner.dropped(&self.data)
@@ -66,14 +66,14 @@ where
 #[display(fmt = "{}", "self.inner")]
 pub struct SharedDirectory<L, H>
 where
-    H: HasDirectoryDigest,
+    H: DirectoryDigest,
 {
     pub(super) inner: Arc<SharedDirectoryInner<L, H>>,
 }
 
 impl<L, H> SharedDirectory<L, H>
 where
-    H: HasDirectoryDigest,
+    H: DirectoryDigest,
 {
     pub fn as_immutable(self) -> ImmutableDirectory<L, H> {
         ImmutableDirectory::Shared(self)
@@ -98,7 +98,7 @@ where
             .map(|v| v.as_ref())
     }
 
-    pub fn fingerprint(&self) -> &<H as HasDirectoryDigest>::Digest {
+    pub fn fingerprint(&self) -> &H {
         self.inner.data.fingerprint()
     }
 
@@ -114,7 +114,7 @@ where
 impl<L, H> SharedDirectory<L, H>
 where
     L: Clone,
-    H: HasDirectoryDigest,
+    H: DirectoryDigest,
 {
     pub fn into_entries<C>(self) -> C
     where

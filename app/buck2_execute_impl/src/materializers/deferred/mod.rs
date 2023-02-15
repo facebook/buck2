@@ -49,6 +49,7 @@ use buck2_execute::directory::ActionDirectory;
 use buck2_execute::directory::ActionDirectoryEntry;
 use buck2_execute::directory::ActionDirectoryMember;
 use buck2_execute::directory::ActionSharedDirectory;
+use buck2_execute::directory::ReDirectorySerializer;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::materialize::materializer::ArtifactNotMaterializedReason;
 use buck2_execute::materialize::materializer::CasDownloadInfo;
@@ -1490,7 +1491,7 @@ impl ArtifactTree {
                         path,
                         // TODO (@torozco): A nicer API to get an Immutable directory here.
                         entry: entry
-                            .map_dir(|d| d.to_builder().fingerprint())
+                            .map_dir(|d| d.to_builder().fingerprint(&ReDirectorySerializer))
                             .map_leaf(|l| l.dupe()),
                         info: info.dupe(),
                     }),
