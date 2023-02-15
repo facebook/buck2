@@ -51,7 +51,7 @@ pub enum DigestHash {
 impl Dupe for DigestHash {}
 
 impl DigestHash {
-    fn as_bytes(&self) -> &[u8] {
+    pub fn as_bytes(&self) -> &[u8] {
         match self {
             Self::Sha1(x) => x,
             Self::Sha256(x) => x,
@@ -59,7 +59,7 @@ impl DigestHash {
         }
     }
 
-    fn kind(&self) -> DigestKind {
+    pub fn kind(&self) -> DigestKind {
         match self {
             Self::Sha1(..) => DigestKind::Sha1,
             Self::Sha256(..) => DigestKind::Sha256,
@@ -142,12 +142,8 @@ impl<Kind> CasDigest<Kind> {
         }
     }
 
-    pub fn digest(&self) -> &[u8] {
-        self.data.digest.as_bytes()
-    }
-
-    pub fn digest_kind(&self) -> DigestKind {
-        self.data.digest.kind()
+    pub fn digest(&self) -> &DigestHash {
+        &self.data.digest
     }
 
     pub fn size(&self) -> u64 {
@@ -205,7 +201,7 @@ pub trait TrackedCasDigestKind: Sized + 'static {
 }
 
 #[derive(Display)]
-#[display(fmt = "{}", "hex::encode(&of.digest()[0..4])")]
+#[display(fmt = "{}", "hex::encode(&of.digest().as_bytes()[0..4])")]
 pub struct TinyDigest<'a, Kind> {
     of: &'a CasDigest<Kind>,
 }
@@ -345,12 +341,8 @@ impl<Kind> TrackedCasDigest<Kind> {
         &self.inner.data
     }
 
-    pub fn digest(&self) -> &[u8] {
+    pub fn digest(&self) -> &DigestHash {
         self.inner.data.digest()
-    }
-
-    pub fn digest_kind(&self) -> DigestKind {
-        self.inner.data.digest_kind()
     }
 
     pub fn size(&self) -> u64 {

@@ -136,10 +136,11 @@ impl FileHasher for PathsAndContentsHasher {
             match PathMetadataOrRedirection::from(info) {
                 PathMetadataOrRedirection::PathMetadata(meta) => match meta {
                     PathMetadata::File(m) => {
-                        res.reserve(1 + m.digest.digest().len());
+                        let digest = m.digest.digest().as_bytes();
+                        res.reserve(1 + digest.len());
                         // We ignore `digest.size` as the SHA1 alone is enough to be unique
                         res.push(0u8);
-                        res.extend(m.digest.digest());
+                        res.extend(digest);
                     }
                     PathMetadata::ExternalSymlink(m) => {
                         // We don't want to go to the disk and get the digest of the file in the external symlink.

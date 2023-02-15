@@ -100,8 +100,8 @@ impl From<ArtifactMetadata> for ArtifactMetadataSqliteEntry {
         fn digest_parts(digest: TrackedFileDigest) -> (u64, Vec<u8>, u8) {
             (
                 digest.size(),
-                digest.digest().to_vec(),
-                digest.digest_kind() as _,
+                digest.digest().as_bytes().to_vec(),
+                digest.digest().kind() as _,
             )
         }
 
