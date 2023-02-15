@@ -19,6 +19,7 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::rollout_percentage::RolloutPercentage;
+use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::materialize::materializer::MaterializationMethod;
 use buck2_execute_impl::materializers::deferred::DeferredMaterializerConfigs;
@@ -59,6 +60,7 @@ pub(crate) async fn maybe_initialize_materializer_sqlite_db(
     root_config: &LegacyBuckConfig,
     deferred_materializer_configs: &DeferredMaterializerConfigs,
     fs: ProjectRoot,
+    digest_config: DigestConfig,
 ) -> anyhow::Result<(Option<MaterializerStateSqliteDb>, Option<MaterializerState>)> {
     if !options.sqlite_materializer_state {
         // When sqlite materializer state is disabled, we should always delete the materializer state db.
@@ -102,6 +104,7 @@ pub(crate) async fn maybe_initialize_materializer_sqlite_db(
         versions,
         metadata,
         io_executor,
+        digest_config,
     )
     .await?;
     let materializer_state = match load_result {

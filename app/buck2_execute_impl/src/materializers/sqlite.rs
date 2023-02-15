@@ -22,6 +22,7 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::ActionDirectoryMember;
 use buck2_execute::directory::Symlink;
 use buck2_execute::execute::blocking::BlockingExecutor;
@@ -164,108 +165,104 @@ impl From<ArtifactMetadata> for ArtifactMetadataSqliteEntry {
     }
 }
 
-impl TryFrom<ArtifactMetadataSqliteEntry> for ArtifactMetadata {
-    type Error = anyhow::Error;
+fn convert_artifact_metadata(
+    sqlite_entry: ArtifactMetadataSqliteEntry,
+    _digest_config: DigestConfig,
+) -> anyhow::Result<ArtifactMetadata> {
+    fn digest(
+        size: Option<u64>,
+        entry_hash: Option<Vec<u8>>,
+        entry_hash_kind: Option<u8>,
+        artifact_type: &str,
+    ) -> anyhow::Result<TrackedFileDigest> {
+        let size = size.ok_or_else(|| {
+            anyhow::anyhow!(ArtifactMetadataSqliteConversionError::ExpectedNotNull {
+                field: "size".to_owned(),
+                artifact_type: artifact_type.to_owned()
+            })
+        })?;
+        let entry_hash = entry_hash.ok_or_else(|| {
+            anyhow::anyhow!(ArtifactMetadataSqliteConversionError::ExpectedNotNull {
+                field: "entry_hash".to_owned(),
+                artifact_type: artifact_type.to_owned()
+            })
+        })?;
+        let entry_hash_kind = entry_hash_kind.ok_or_else(|| {
+            anyhow::anyhow!(ArtifactMetadataSqliteConversionError::ExpectedNotNull {
+                field: "entry_hash_kind".to_owned(),
+                artifact_type: artifact_type.to_owned()
+            })
+        })?;
+        let entry_hash_kind = entry_hash_kind
+            .try_into()
+            .with_context(|| format!("Invalid entry_hash_kind: `{}`", entry_hash_kind))?;
 
-    fn try_from(sqlite_entry: ArtifactMetadataSqliteEntry) -> anyhow::Result<Self> {
-        fn digest(
-            size: Option<u64>,
-            entry_hash: Option<Vec<u8>>,
-            entry_hash_kind: Option<u8>,
-            artifact_type: &str,
-        ) -> anyhow::Result<TrackedFileDigest> {
-            let size = size.ok_or_else(|| {
-                anyhow::anyhow!(ArtifactMetadataSqliteConversionError::ExpectedNotNull {
-                    field: "size".to_owned(),
-                    artifact_type: artifact_type.to_owned()
-                })
-            })?;
-            let entry_hash = entry_hash.ok_or_else(|| {
-                anyhow::anyhow!(ArtifactMetadataSqliteConversionError::ExpectedNotNull {
-                    field: "entry_hash".to_owned(),
-                    artifact_type: artifact_type.to_owned()
-                })
-            })?;
-            let entry_hash_kind = entry_hash_kind.ok_or_else(|| {
-                anyhow::anyhow!(ArtifactMetadataSqliteConversionError::ExpectedNotNull {
-                    field: "entry_hash_kind".to_owned(),
-                    artifact_type: artifact_type.to_owned()
-                })
-            })?;
-            let entry_hash_kind = entry_hash_kind
-                .try_into()
-                .with_context(|| format!("Invalid entry_hash_kind: `{}`", entry_hash_kind))?;
+        let file_digest = FileDigest::new(entry_hash_kind, &entry_hash, size)?;
+        Ok(TrackedFileDigest::new(file_digest))
+    }
 
-            let file_digest = FileDigest::new(entry_hash_kind, &entry_hash, size)?;
-            Ok(TrackedFileDigest::new(file_digest))
-        }
-
-        let metadata = match sqlite_entry.artifact_type.as_str() {
-            "directory" => DirectoryEntry::Dir(digest(
+    let metadata = match sqlite_entry.artifact_type.as_str() {
+        "directory" => DirectoryEntry::Dir(digest(
+            sqlite_entry.entry_size,
+            sqlite_entry.entry_hash,
+            sqlite_entry.entry_hash_kind,
+            sqlite_entry.artifact_type.as_str(),
+        )?),
+        "file" => DirectoryEntry::Leaf(ActionDirectoryMember::File(FileMetadata {
+            digest: digest(
                 sqlite_entry.entry_size,
                 sqlite_entry.entry_hash,
                 sqlite_entry.entry_hash_kind,
                 sqlite_entry.artifact_type.as_str(),
-            )?),
-            "file" => DirectoryEntry::Leaf(ActionDirectoryMember::File(FileMetadata {
-                digest: digest(
-                    sqlite_entry.entry_size,
-                    sqlite_entry.entry_hash,
-                    sqlite_entry.entry_hash_kind,
-                    sqlite_entry.artifact_type.as_str(),
-                )?,
-                is_executable: sqlite_entry.file_is_executable.ok_or_else(|| {
-                    anyhow::anyhow!(ArtifactMetadataSqliteConversionError::ExpectedNotNull {
-                        field: "file_is_executable".to_owned(),
-                        artifact_type: sqlite_entry.artifact_type.clone()
-                    })
-                })?,
-            })),
-            "symlink" => {
-                let symlink = Symlink::new(
-                    sqlite_entry
-                        .symlink_target
-                        .ok_or_else(|| {
-                            anyhow::anyhow!(
-                                ArtifactMetadataSqliteConversionError::ExpectedNotNull {
-                                    field: "symlink_target".to_owned(),
-                                    artifact_type: sqlite_entry.artifact_type.clone()
-                                }
-                            )
-                        })?
-                        .into(),
-                );
-                DirectoryEntry::Leaf(ActionDirectoryMember::Symlink(Arc::new(symlink)))
-            }
-            "external_symlink" => {
-                let external_symlink = ExternalSymlink::new(
-                    sqlite_entry
-                        .symlink_target
-                        .ok_or_else(|| {
-                            anyhow::anyhow!(
-                                ArtifactMetadataSqliteConversionError::ExpectedNotNull {
-                                    field: "symlink_target".to_owned(),
-                                    artifact_type: sqlite_entry.artifact_type.clone()
-                                }
-                            )
-                        })?
-                        .into(),
-                    None,
-                )?;
-                DirectoryEntry::Leaf(ActionDirectoryMember::ExternalSymlink(Arc::new(
-                    external_symlink,
-                )))
-            }
-            artifact_type => {
-                return Err(anyhow::anyhow!(
-                    ArtifactMetadataSqliteConversionError::UnknownArtifactType(
-                        artifact_type.to_owned()
-                    )
-                ));
-            }
-        };
-        Ok(Self(metadata))
-    }
+            )?,
+            is_executable: sqlite_entry.file_is_executable.ok_or_else(|| {
+                anyhow::anyhow!(ArtifactMetadataSqliteConversionError::ExpectedNotNull {
+                    field: "file_is_executable".to_owned(),
+                    artifact_type: sqlite_entry.artifact_type.clone()
+                })
+            })?,
+        })),
+        "symlink" => {
+            let symlink = Symlink::new(
+                sqlite_entry
+                    .symlink_target
+                    .ok_or_else(|| {
+                        anyhow::anyhow!(ArtifactMetadataSqliteConversionError::ExpectedNotNull {
+                            field: "symlink_target".to_owned(),
+                            artifact_type: sqlite_entry.artifact_type.clone()
+                        })
+                    })?
+                    .into(),
+            );
+            DirectoryEntry::Leaf(ActionDirectoryMember::Symlink(Arc::new(symlink)))
+        }
+        "external_symlink" => {
+            let external_symlink = ExternalSymlink::new(
+                sqlite_entry
+                    .symlink_target
+                    .ok_or_else(|| {
+                        anyhow::anyhow!(ArtifactMetadataSqliteConversionError::ExpectedNotNull {
+                            field: "symlink_target".to_owned(),
+                            artifact_type: sqlite_entry.artifact_type.clone()
+                        })
+                    })?
+                    .into(),
+                None,
+            )?;
+            DirectoryEntry::Leaf(ActionDirectoryMember::ExternalSymlink(Arc::new(
+                external_symlink,
+            )))
+        }
+        artifact_type => {
+            return Err(anyhow::anyhow!(
+                ArtifactMetadataSqliteConversionError::UnknownArtifactType(
+                    artifact_type.to_owned()
+                )
+            ));
+        }
+    };
+
+    Ok(ArtifactMetadata(metadata))
 }
 
 pub(crate) struct MaterializerStateSqliteTable {
@@ -358,7 +355,10 @@ impl MaterializerStateSqliteTable {
         Ok(())
     }
 
-    pub(crate) fn read_all(&self) -> anyhow::Result<MaterializerState> {
+    pub(crate) fn read_all(
+        &self,
+        digest_config: DigestConfig,
+    ) -> anyhow::Result<MaterializerState> {
         let sql = format!(
             "SELECT path, artifact_type, entry_size, entry_hash, entry_hash_kind, file_is_executable, symlink_target, last_access_time FROM {}",
             Self::TABLE_NAME,
@@ -391,7 +391,7 @@ impl MaterializerStateSqliteTable {
             .into_try_map(
                 |(path, entry, last_access_time)| -> anyhow::Result<(ProjectRelativePathBuf, (ArtifactMetadata, DateTime<Utc>))> {
                     let path = ProjectRelativePathBuf::unchecked_new(path);
-                    let metadata: ArtifactMetadata = entry.try_into()?;
+                    let metadata = convert_artifact_metadata(entry, digest_config)?;
                     let timestamp = Utc.timestamp_opt(last_access_time, 0).single().with_context(|| "invalid timestamp")?;
                     Ok((path, (metadata, timestamp)))
                 },
@@ -514,10 +514,16 @@ impl MaterializerStateSqliteDb {
         // Using `BlockingExecutor` out of convenience. This function should be called during startup
         // when there's not a lot of I/O so it shouldn't matter.
         io_executor: Arc<dyn BlockingExecutor>,
+        digest_config: DigestConfig,
     ) -> anyhow::Result<(Self, anyhow::Result<MaterializerState>)> {
         io_executor
             .execute_io_inline(|| {
-                Self::initialize_impl(materializer_state_dir, versions, current_instance_metadata)
+                Self::initialize_impl(
+                    materializer_state_dir,
+                    versions,
+                    current_instance_metadata,
+                    digest_config,
+                )
             })
             .await
     }
@@ -526,6 +532,7 @@ impl MaterializerStateSqliteDb {
         materializer_state_dir: AbsNormPathBuf,
         versions: HashMap<String, String>,
         current_instance_metadata: HashMap<String, String>,
+        digest_config: DigestConfig,
     ) -> anyhow::Result<(Self, anyhow::Result<MaterializerState>)> {
         let db_path = materializer_state_dir.join(FileName::unchecked_new(Self::DB_FILENAME));
 
@@ -554,7 +561,7 @@ impl MaterializerStateSqliteDb {
             db.last_read_by_table
                 .insert_all(current_instance_metadata.clone())?;
 
-            let state = db.materializer_state_table().read_all()?;
+            let state = db.materializer_state_table().read_all(digest_config)?;
             (db, state)
         };
         match result {
@@ -617,14 +624,21 @@ mod tests {
 
     #[test]
     fn test_artifact_metadata_dir_sqlite_entry_conversion_succeeds() {
+        let digest_config = DigestConfig::compat();
+
         let digest = TrackedFileDigest::new(FileDigest::from_content_sha1(b"directory"));
         let metadata = ArtifactMetadata(DirectoryEntry::Dir(digest));
         let entry: ArtifactMetadataSqliteEntry = metadata.dupe().into();
-        assert_eq!(metadata, entry.try_into().unwrap());
+        assert_eq!(
+            metadata,
+            convert_artifact_metadata(entry, digest_config).unwrap()
+        );
     }
 
     #[test]
     fn test_artifact_metadata_file_sqlite_entry_conversion_succeeds() {
+        let digest_config = DigestConfig::compat();
+
         let digest = TrackedFileDigest::new(FileDigest::from_content_sha1(b"file"));
         let metadata = ArtifactMetadata(DirectoryEntry::Leaf(ActionDirectoryMember::File(
             FileMetadata {
@@ -633,11 +647,16 @@ mod tests {
             },
         )));
         let entry: ArtifactMetadataSqliteEntry = metadata.dupe().into();
-        assert_eq!(metadata, entry.try_into().unwrap());
+        assert_eq!(
+            metadata,
+            convert_artifact_metadata(entry, digest_config).unwrap()
+        );
     }
 
     #[test]
     fn test_artifact_metadata_symlink_sqlite_entry_conversion_succeeds() {
+        let digest_config = DigestConfig::compat();
+
         let symlink = new_symlink("foo/bar").unwrap();
         // We use `new_symlink` as a helper but it can technically create both Symlink and ExternalSymlink.
         // Verify that we have a Symlink here.
@@ -645,11 +664,16 @@ mod tests {
 
         let metadata = ArtifactMetadata(DirectoryEntry::Leaf(symlink));
         let entry: ArtifactMetadataSqliteEntry = metadata.dupe().into();
-        assert_eq!(metadata, entry.try_into().unwrap());
+        assert_eq!(
+            metadata,
+            convert_artifact_metadata(entry, digest_config).unwrap()
+        );
     }
 
     #[test]
     fn test_artifact_metadata_external_symlink_sqlite_entry_conversion_succeeds() {
+        let digest_config = DigestConfig::compat();
+
         let external_symlink = new_symlink(if cfg!(windows) {
             // Not sure if we actually support any external symlink on windows, but better
             // to just check anyways.
@@ -663,7 +687,10 @@ mod tests {
 
         let metadata = ArtifactMetadata(DirectoryEntry::Leaf(external_symlink));
         let entry: ArtifactMetadataSqliteEntry = metadata.dupe().into();
-        assert_eq!(metadata, entry.try_into().unwrap());
+        assert_eq!(
+            metadata,
+            convert_artifact_metadata(entry, digest_config).unwrap()
+        );
     }
 
     fn now_seconds() -> DateTime<Utc> {
@@ -674,6 +701,8 @@ mod tests {
 
     #[test]
     fn test_materializer_state_sqlite_table() {
+        let digest_config = DigestConfig::compat();
+
         let fs = ProjectRootTemp::new().unwrap();
         let connection = Connection::open(
             fs.path()
@@ -736,7 +765,7 @@ mod tests {
                 .unwrap();
         }
 
-        let state = table.read_all().unwrap();
+        let state = table.read_all(digest_config).unwrap();
         assert_eq!(artifacts, state.into_iter().collect::<HashMap<_, _>>());
 
         let paths_to_remove = vec![
@@ -749,7 +778,7 @@ mod tests {
         for path in paths_to_remove.iter() {
             artifacts.remove(path);
         }
-        let state = table.read_all().unwrap();
+        let state = table.read_all(digest_config).unwrap();
         assert_eq!(artifacts, state.into_iter().collect::<HashMap<_, _>>());
     }
 
@@ -764,6 +793,7 @@ mod tests {
             )),
             versions,
             metadata,
+            DigestConfig::compat(),
         )
     }
 

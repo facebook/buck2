@@ -276,6 +276,7 @@ impl DaemonState {
                     root_config,
                     &deferred_materializer_configs,
                     fs,
+                    digest_config,
                 ),
             )
             .await?;
