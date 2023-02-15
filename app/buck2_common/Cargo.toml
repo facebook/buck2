@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 anyhow = { workspace = true }
 async-trait = { workspace = true }
+blake3 = { workspace = true }
 chrono = { workspace = true }
 compact_str = { workspace = true }
 derive_more = { workspace = true }
@@ -23,6 +24,7 @@ ref-cast = { workspace = true }
 regex = { workspace = true }
 rusqlite = { workspace = true }
 sha1 = { workspace = true }
+sha2 = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 tonic = { workspace = true }

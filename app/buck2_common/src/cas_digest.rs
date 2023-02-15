@@ -29,6 +29,7 @@ use num_enum::TryFromPrimitive;
 use once_cell::sync::OnceCell;
 use sha1::Digest;
 use sha1::Sha1;
+use sha2::Sha256;
 use thiserror::Error;
 
 /// The number of bytes required by a SHA-1 hash
@@ -69,7 +70,7 @@ impl RawDigest {
     }
 }
 
-#[derive(Debug, Eq, PartialEq, TryFromPrimitive, Copy, Clone, Dupe)]
+#[derive(Debug, Eq, PartialEq, TryFromPrimitive, Copy, Clone, Dupe, Hash)]
 #[repr(u8)]
 pub enum DigestAlgorithm {
     Sha1,
@@ -184,6 +185,30 @@ impl<Kind> CasDigest<Kind> {
         let mut hasher = Sha1::new();
         hasher.update(bytes);
         Self::new_sha1(hasher.finalize().into(), bytes.len() as u64)
+    }
+
+    /// NOTE: Eventually this probably needs to take something that isn't DigestAlgorithm because
+    /// we might need to deal with keyed Blake3.
+    pub fn from_content(bytes: &[u8], algorithm: DigestAlgorithm) -> Self {
+        match algorithm {
+            DigestAlgorithm::Sha1 => {
+                let sha1 = Sha1::digest(bytes).into();
+                Self::new_sha1(sha1, bytes.len() as u64)
+            }
+            DigestAlgorithm::Sha256 => {
+                let mut sha256 = Sha256::new();
+                sha256.update(bytes);
+                Self::new_sha256(sha256.finalize().into(), bytes.len() as u64)
+            }
+            DigestAlgorithm::Blake3 => {
+                // NOTE: This is where keying would matter. Note that we don't need to actually
+                // retain the key in RawDigest or DigestAlgorithm, since we never actually care
+                // about which hash we have besides debugging purposes.
+                let mut digest = blake3::Hasher::new();
+                digest.update(bytes);
+                Self::new_blake3(digest.finalize().into(), bytes.len() as u64)
+            }
+        }
     }
 
     pub fn coerce<NewKind>(self) -> CasDigest<NewKind> {
