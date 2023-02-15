@@ -13,6 +13,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use anyhow::Context;
 use async_trait::async_trait;
+use buck2_common::dice::data::HasDigestConfig;
 use buck2_common::digest_config::DigestConfig;
 use buck2_common::events::HasEvents;
 use buck2_common::executor_config::CommandExecutorConfig;
@@ -211,6 +212,7 @@ impl HasActionExecutor for DiceComputations {
         executor_config: &CommandExecutorConfig,
     ) -> anyhow::Result<Arc<dyn ActionExecutor>> {
         let artifact_fs = self.get_artifact_fs().await?;
+        let digest_config = self.global_data().get_digest_config();
 
         let command_executor = self.get_command_executor(&artifact_fs, executor_config)?;
         let blocking_executor = self.get_blocking_executor();
@@ -229,7 +231,7 @@ impl HasActionExecutor for DiceComputations {
             materializer,
             events,
             re_client,
-            executor_config.digest_config,
+            digest_config,
             run_action_knobs,
         )))
     }

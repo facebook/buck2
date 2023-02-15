@@ -15,6 +15,7 @@ use dice::DiceData;
 use dice::DiceDataBuilder;
 use dupe::Dupe;
 
+use crate::digest_config::DigestConfig;
 use crate::io::IoProvider;
 
 pub trait HasIoProvider {
@@ -37,6 +38,28 @@ impl HasIoProvider for DiceData {
 impl SetIoProvider for DiceDataBuilder {
     fn set_io_provider(&mut self, fs: Arc<dyn IoProvider>) {
         self.set(fs)
+    }
+}
+
+pub trait HasDigestConfig {
+    fn get_digest_config(&self) -> DigestConfig;
+}
+
+pub trait SetDigestConfig {
+    fn set_digest_config(&mut self, digest_config: DigestConfig);
+}
+
+impl HasDigestConfig for DiceData {
+    fn get_digest_config(&self) -> DigestConfig {
+        self.get::<DigestConfig>()
+            .expect("digest config should be set")
+            .dupe()
+    }
+}
+
+impl SetDigestConfig for DiceDataBuilder {
+    fn set_digest_config(&mut self, digest_config: DigestConfig) {
+        self.set(digest_config)
     }
 }
 

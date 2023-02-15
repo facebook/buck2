@@ -410,8 +410,10 @@ mod tests {
     use assert_matches::assert_matches;
     use buck2_common::dice::cells::SetCellResolver;
     use buck2_common::dice::data::testing::SetTestingIoProvider;
+    use buck2_common::dice::data::SetDigestConfig;
     use buck2_common::dice::file_ops::keys::FileOpsValue;
     use buck2_common::dice::file_ops::testing::FileOpsKey;
+    use buck2_common::digest_config::DigestConfig;
     use buck2_common::executor_config::CommandExecutorConfig;
     use buck2_common::external_symlink::ExternalSymlink;
     use buck2_common::file_ops::testing::TestFileOps;
@@ -559,7 +561,10 @@ mod tests {
         let output_path = ProjectRelativePathBuf::unchecked_new("buck-out/v2".into());
 
         let mut dice_builder = DiceBuilder::new();
-        dice_builder = dice_builder.set_data(|data| data.set_testing_io_provider(temp_fs));
+        dice_builder = dice_builder.set_data(|data| {
+            data.set_testing_io_provider(temp_fs);
+            data.set_digest_config(DigestConfig::compat());
+        });
 
         for mock in mocks.into_iter() {
             dice_builder = mock(dice_builder);

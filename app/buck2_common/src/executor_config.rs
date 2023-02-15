@@ -19,8 +19,6 @@ use internment_tweaks::Intern;
 use internment_tweaks::StaticInterner;
 use once_cell::sync::Lazy;
 
-use crate::digest_config::DigestConfig;
-
 #[derive(Debug, Eq, Hash, PartialEq, Clone, Dupe, Allocative)]
 pub struct LocalExecutorOptions {}
 
@@ -123,7 +121,6 @@ pub struct CommandExecutorConfig {
     pub executor_kind: CommandExecutorKind,
     pub path_separator: PathSeparatorKind,
     pub cache_upload_behavior: CacheUploadBehavior,
-    pub digest_config: DigestConfig,
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Dupe, Hash, Allocative)]
@@ -167,7 +164,6 @@ impl CommandExecutorConfig {
             executor_kind: CommandExecutorKind::Local(LocalExecutorOptions {}),
             path_separator: PathSeparatorKind::system_default(),
             cache_upload_behavior: CacheUploadBehavior::Disabled,
-            digest_config: DigestConfig::compat(),
         })
     }
 }

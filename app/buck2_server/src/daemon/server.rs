@@ -30,6 +30,7 @@ use buck2_build_api::spawner::BuckSpawner;
 use buck2_cli_proto::daemon_api_server::*;
 use buck2_cli_proto::*;
 use buck2_common::buckd_connection::BUCK_AUTH_TOKEN_HEADER;
+use buck2_common::digest_config::DigestConfig;
 use buck2_common::events::HasEvents;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::io::IoProvider;
@@ -133,9 +134,10 @@ impl DaemonStateDiceConstructor for DaemonStateDiceConstructorImpl {
     fn construct_dice(
         &self,
         io: Arc<dyn IoProvider>,
+        digest_config: DigestConfig,
         root_config: &LegacyBuckConfig,
     ) -> anyhow::Result<Arc<Dice>> {
-        configure_dice_for_buck(io, Some(root_config), self.detect_cycles)
+        configure_dice_for_buck(io, digest_config, Some(root_config), self.detect_cycles)
     }
 }
 

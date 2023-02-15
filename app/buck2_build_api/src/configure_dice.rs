@@ -10,7 +10,9 @@
 use std::sync::Arc;
 
 use buck2_common::dice::cells::SetCellResolver;
+use buck2_common::dice::data::SetDigestConfig;
 use buck2_common::dice::data::SetIoProvider;
+use buck2_common::digest_config::DigestConfig;
 use buck2_common::io::IoProvider;
 use buck2_common::legacy_configs::dice::SetLegacyConfigs;
 use buck2_common::legacy_configs::LegacyBuckConfig;
@@ -21,11 +23,13 @@ use dice::Dice;
 /// One place to not forget to initialize something in all places.
 pub fn configure_dice_for_buck(
     io: Arc<dyn IoProvider>,
+    digest_config: DigestConfig,
     root_config: Option<&LegacyBuckConfig>,
     detect_cycles: Option<DetectCycles>,
 ) -> anyhow::Result<Arc<Dice>> {
     let mut dice = Dice::builder();
     dice.set_io_provider(io);
+    dice.set_digest_config(digest_config);
 
     let detect_cycles = detect_cycles.map_or_else(
         || {

@@ -16,6 +16,7 @@ use std::time::Instant;
 use allocative::Allocative;
 use anyhow::Context;
 use buck2_cli_proto::unstable_dice_dump_request::DiceDumpFormat;
+use buck2_common::digest_config::DigestConfig;
 use buck2_common::ignores::IgnoreSet;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::io::IoProvider;
@@ -150,6 +151,7 @@ pub trait DaemonStateDiceConstructor: Allocative + Send + Sync + 'static {
     fn construct_dice(
         &self,
         io: Arc<dyn IoProvider>,
+        digest_config: DigestConfig,
         root_config: &LegacyBuckConfig,
     ) -> anyhow::Result<Arc<Dice>>;
 }
@@ -192,6 +194,8 @@ impl DaemonState {
         let root_config = legacy_configs
             .get(cells.root_cell())
             .context("No config for root cell")?;
+
+        let digest_config = DigestConfig::compat();
 
         // TODO(rafaelc): merge configs from all cells once they are consistent
         let static_metadata = Arc::new(RemoteExecutionStaticMetadata::from_legacy_config(
@@ -296,7 +300,7 @@ impl DaemonState {
             materializer_state,
         )?;
 
-        let dice = dice_constructor.construct_dice(io.dupe(), root_config)?;
+        let dice = dice_constructor.construct_dice(io.dupe(), digest_config, root_config)?;
 
         // TODO(cjhopman): We want to use Expr::True here, but we need to workaround
         // https://github.com/facebook/watchman/issues/911. Adding other filetypes to
