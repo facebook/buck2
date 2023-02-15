@@ -115,7 +115,7 @@ pub fn register_target_function(builder: &mut GlobalsBuilder) {
 /// Global methods on artifacts.
 #[starlark_module]
 pub fn register_artifact_function(builder: &mut GlobalsBuilder) {
-    /// The project relative path of the source or build artifact.
+    /// The output path of a source or build artifact. Takes an optional boolean to print the absolute or relative path.
     /// Note that this method returns an artifact path without asking for the artifact to be materialized,
     /// (i.e. it may not actually exist on the disk yet).
     ///
@@ -134,15 +134,18 @@ pub fn register_artifact_function(builder: &mut GlobalsBuilder) {
     /// ```
     fn get_path_without_materialization<'v>(
         this: &'v StarlarkArtifact,
-        heap: &'v Heap,
         ctx: &'v BxlContext<'v>,
+        #[starlark(require = named, default = false)] abs: bool,
+        heap: &'v Heap,
     ) -> anyhow::Result<StringValue<'v>> {
-        let resolved = ctx
-            .output_stream
-            .artifact_fs
-            .resolve(this.artifact().get_path())?;
+        let path = get_artifact_path_display(
+            this.artifact().get_path(),
+            abs,
+            &ctx.output_stream.project_fs,
+            &ctx.output_stream.artifact_fs,
+        )?;
 
-        Ok(heap.alloc_str(resolved.as_str()))
+        Ok(heap.alloc_str(&path))
     }
 
     /// The output paths of a `cmd_args()` inputs. The output paths will be returned as a list.
