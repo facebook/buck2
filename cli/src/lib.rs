@@ -72,6 +72,7 @@ use crate::check_user_allowed::check_user_allowed;
 use crate::commands::daemon::DaemonCommand;
 use crate::commands::docs::DocsCommand;
 use crate::commands::forkserver::ForkserverCommand;
+use crate::commands::internal_test_runner::InternalTestRunnerCommand;
 
 #[macro_use]
 pub mod panic;
@@ -209,6 +210,8 @@ pub(crate) enum CommandKind {
     Daemon(DaemonCommand),
     #[clap(setting(AppSettings::Hidden))]
     Forkserver(ForkserverCommand),
+    #[clap(setting(AppSettings::Hidden))]
+    InternalTestRunner(InternalTestRunnerCommand),
     #[clap(subcommand)]
     Audit(AuditCommand),
     Aquery(AqueryCommand),
@@ -350,6 +353,7 @@ impl CommandKind {
             CommandKind::Forkserver(cmd) => {
                 cmd.exec(matches, command_ctx, log_reload_handle).into()
             }
+            CommandKind::InternalTestRunner(cmd) => cmd.exec(matches, command_ctx).into(),
             CommandKind::Aquery(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Build(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Bxl(cmd) => cmd.exec(matches, command_ctx),

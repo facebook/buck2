@@ -30,6 +30,7 @@ members = [
     "app/buck2_test",
     "app/buck2_test_api",
     "app/buck2_test_proto",
+    "app/buck2_test_runner",
     "app/buck2_forkserver",
     "app/buck2_forkserver_proto",
     "app/buck2_profile",
@@ -243,6 +244,7 @@ buck2_interpreter_for_build = { path = "app/buck2_interpreter_for_build" }
 buck2_test = { path = "app/buck2_test" }
 buck2_test_api = { path = "app/buck2_test_api" }
 buck2_test_proto = { path = "app/buck2_test_proto" }
+buck2_test_runner = { path = "app/buck2_test_runner" }
 buck2_forkserver = { path = "app/buck2_forkserver" }
 buck2_forkserver_proto = { path = "app/buck2_forkserver_proto" }
 buck2_profile = { path = "app/buck2_profile" }
