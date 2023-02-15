@@ -320,8 +320,5 @@ def process_genrule(
 
     # The cxx_genrule also forwards here, and that doesn't have .executable, so use getattr
     if getattr(ctx.attrs, "executable", False):
-        if out_attr == None:
-            providers.append(RunInfo(args = cmd_args(default_outputs)))
-        else:
-            providers.append(RunInfo(args = cmd_args(all_outputs)))
+        providers.append(RunInfo(args = cmd_args(default_outputs)))
     return providers
