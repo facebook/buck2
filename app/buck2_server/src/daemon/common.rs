@@ -12,6 +12,7 @@ use std::sync::Arc;
 use anyhow::Context as _;
 use buck2_cli_proto::client_context::HostPlatformOverride;
 use buck2_cli_proto::common_build_options::ExecutionStrategy;
+use buck2_common::digest_config::DigestConfig;
 use buck2_common::executor_config::CacheUploadBehavior;
 use buck2_common::executor_config::CommandExecutorConfig;
 use buck2_common::executor_config::CommandExecutorKind;
@@ -155,6 +156,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                     .re_max_input_files_bytes
                     .unwrap_or(DEFAULT_RE_MAX_INPUT_FILE_BYTES),
                 options.re_use_case,
+                executor_config.digest_config,
                 self.executor_global_knobs.dupe(),
                 self.no_remote_cache,
             )
@@ -205,6 +207,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
             artifact_fs.clone(),
             self.materializer.dupe(),
             self.re_connection.get_client(),
+            executor_config.digest_config,
             self.upload_all_actions,
             self.executor_global_knobs.dupe(),
             executor_config.cache_upload_behavior,
@@ -292,6 +295,7 @@ pub fn get_executor_config_for_strategy(
         executor_kind,
         path_separator: PathSeparatorKind::system_default(),
         cache_upload_behavior: CacheUploadBehavior::Disabled,
+        digest_config: DigestConfig::compat(),
     }
 }
 

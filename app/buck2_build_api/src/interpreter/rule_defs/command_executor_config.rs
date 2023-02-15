@@ -11,6 +11,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use anyhow::Context as _;
+use buck2_common::digest_config::DigestConfig;
 use buck2_common::executor_config::CacheUploadBehavior;
 use buck2_common::executor_config::CommandExecutorConfig;
 use buck2_common::executor_config::CommandExecutorKind;
@@ -176,6 +177,7 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
                 } else {
                     CacheUploadBehavior::Disabled
                 },
+                digest_config: DigestConfig::compat(),
             }
         };
 

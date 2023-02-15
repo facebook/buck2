@@ -12,6 +12,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use anyhow::Context as _;
 use async_trait::async_trait;
+use buck2_common::digest_config::DigestConfig;
 use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::FileMetadata;
@@ -55,6 +56,7 @@ pub struct EdenMaterializer {
     eden_buck_out: EdenBuckOut,
     fs: ProjectRoot,
     re_use_case: RemoteExecutorUseCase,
+    digest_config: DigestConfig,
 }
 
 #[async_trait]
@@ -130,6 +132,7 @@ impl Materializer for EdenMaterializer {
                 ProjectRelativePath::empty(),
                 &input_dir,
                 self.re_use_case,
+                self.digest_config,
             )
             .await?;
 
@@ -264,6 +267,7 @@ impl EdenMaterializer {
             eden_buck_out,
             fs,
             re_use_case: RemoteExecutorUseCase::buck2_default(), // TODO (yipu): Should this be configurable?
+            digest_config: DigestConfig::compat(),
         })
     }
 }

@@ -18,6 +18,7 @@ use std::sync::Weak;
 use allocative::Allocative;
 use anyhow::Context as _;
 use async_trait::async_trait;
+use buck2_common::digest_config::DigestConfig;
 use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_common::result::SharedResult;
 use buck2_core::async_once_cell::AsyncOnceCell;
@@ -320,11 +321,19 @@ impl ManagedRemoteExecutionClient {
         dir_path: &ProjectRelativePath,
         input_dir: &ActionImmutableDirectory,
         use_case: RemoteExecutorUseCase,
+        digest_config: DigestConfig,
     ) -> anyhow::Result<()> {
         self.lock()?
             .get()
             .await?
-            .upload(materializer, blobs, dir_path, input_dir, use_case)
+            .upload(
+                materializer,
+                blobs,
+                dir_path,
+                input_dir,
+                use_case,
+                digest_config,
+            )
             .await
     }
 

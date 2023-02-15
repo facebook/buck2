@@ -39,6 +39,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
+use buck2_common::digest_config::DigestConfig;
 use buck2_common::executor_config::CommandExecutorConfig;
 use buck2_core::category::Category;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
@@ -207,6 +208,8 @@ pub trait ActionExecutionCtx: Send + Sync {
     fn blocking_executor(&self) -> &dyn BlockingExecutor;
 
     fn re_client(&self) -> ManagedRemoteExecutionClient;
+
+    fn digest_config(&self) -> DigestConfig;
 
     /// Obtian per-command knobs for RunAction.
     fn run_action_knobs(&self) -> RunActionKnobs;

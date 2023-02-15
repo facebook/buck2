@@ -15,6 +15,7 @@ use std::time::Duration;
 
 use allocative::Allocative;
 use anyhow::Context;
+use buck2_common::digest_config::DigestConfig;
 use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_core::env_helper::EnvHelper;
@@ -333,13 +334,21 @@ impl RemoteExecutionClient {
         dir_path: &ProjectRelativePath,
         input_dir: &ActionImmutableDirectory,
         use_case: RemoteExecutorUseCase,
+        digest_config: DigestConfig,
     ) -> anyhow::Result<()> {
         self.data
             .uploads
             .op(self
                 .data
                 .client
-                .upload(materializer, blobs, dir_path, input_dir, use_case)
+                .upload(
+                    materializer,
+                    blobs,
+                    dir_path,
+                    input_dir,
+                    use_case,
+                    digest_config,
+                )
                 .map_err(|e| self.decorate_error(e)))
             .await
     }
@@ -723,6 +732,7 @@ impl RemoteExecutionClientImpl {
         dir_path: &ProjectRelativePath,
         input_dir: &ActionImmutableDirectory,
         use_case: RemoteExecutorUseCase,
+        digest_config: DigestConfig,
     ) -> anyhow::Result<()> {
         // Actually upload to CAS
         let _cas = self.cas_semaphore.acquire().await;
@@ -733,6 +743,7 @@ impl RemoteExecutionClientImpl {
             input_dir,
             blobs,
             use_case,
+            digest_config,
         )
         .await
     }

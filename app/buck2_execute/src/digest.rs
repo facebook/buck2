@@ -12,6 +12,7 @@ use std::fmt;
 use buck2_common::cas_digest::CasDigest;
 use buck2_common::cas_digest::CasDigestParseError;
 use buck2_common::cas_digest::TrackedCasDigest;
+use buck2_common::digest_config::DigestConfig;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -30,8 +31,8 @@ pub type ReDigest = remote_execution::TDigest;
 pub type GrpcDigest = remote_execution::Digest;
 
 pub trait CasDigestFromReExt: Sized {
-    fn from_re(x: &ReDigest) -> Result<Self, DigestConversionError>;
-    fn from_grpc(x: &GrpcDigest) -> Result<Self, DigestConversionError>;
+    fn from_re(x: &ReDigest, cfg: DigestConfig) -> Result<Self, DigestConversionError>;
+    fn from_grpc(x: &GrpcDigest, cfg: DigestConfig) -> Result<Self, DigestConversionError>;
 }
 
 pub trait CasDigestToReExt {
@@ -40,7 +41,7 @@ pub trait CasDigestToReExt {
 }
 
 impl<Kind> CasDigestFromReExt for CasDigest<Kind> {
-    fn from_re(digest: &ReDigest) -> Result<Self, DigestConversionError> {
+    fn from_re(digest: &ReDigest, _cfg: DigestConfig) -> Result<Self, DigestConversionError> {
         Ok(Self::new_sha1(
             Self::parse_digest_sha1_without_size(digest.hash.as_bytes()).map_err(|error| {
                 DigestConversionError::ParseError {
@@ -52,7 +53,7 @@ impl<Kind> CasDigestFromReExt for CasDigest<Kind> {
         ))
     }
 
-    fn from_grpc(digest: &GrpcDigest) -> Result<Self, DigestConversionError> {
+    fn from_grpc(digest: &GrpcDigest, _cfg: DigestConfig) -> Result<Self, DigestConversionError> {
         Ok(Self::new_sha1(
             Self::parse_digest_sha1_without_size(digest.hash.as_bytes()).map_err(|error| {
                 DigestConversionError::ParseError {

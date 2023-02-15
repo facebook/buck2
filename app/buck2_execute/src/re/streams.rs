@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use buck2_common::digest_config::DigestConfig;
 use buck2_common::executor_config::RemoteExecutorUseCase;
 use derivative::Derivative;
 use dupe::Dupe;
@@ -23,6 +24,8 @@ pub struct RemoteCommandStdStreams {
     client: ManagedRemoteExecutionClient,
     #[derivative(Debug = "ignore")]
     use_case: RemoteExecutorUseCase,
+    #[derivative(Debug = "ignore")]
+    digest_config: DigestConfig,
     stdout: ReStdStream,
     stderr: ReStdStream,
 }
@@ -32,6 +35,7 @@ impl RemoteCommandStdStreams {
         action_result: &TActionResult2,
         client: &ManagedRemoteExecutionClient,
         use_case: RemoteExecutorUseCase,
+        digest_config: DigestConfig,
     ) -> Self {
         let stdout = ReStdStream::new(
             action_result.stdout_raw.clone(),
@@ -45,6 +49,7 @@ impl RemoteCommandStdStreams {
         Self {
             client: client.dupe(),
             use_case,
+            digest_config,
             stdout,
             stderr,
         }
@@ -52,23 +57,29 @@ impl RemoteCommandStdStreams {
 
     pub async fn prefetch_lossy_stderr(mut self) -> Self {
         self.stderr
-            .prefetch_lossy(&self.client, self.use_case)
+            .prefetch_lossy(&self.client, self.use_case, self.digest_config)
             .await;
         self
     }
 
     pub(crate) async fn to_lossy_stdout(&self) -> String {
-        self.stdout.to_lossy(&self.client, self.use_case).await
+        self.stdout
+            .to_lossy(&self.client, self.use_case, self.digest_config)
+            .await
     }
 
     pub(crate) async fn to_lossy_stderr(&self) -> String {
-        self.stderr.to_lossy(&self.client, self.use_case).await
+        self.stderr
+            .to_lossy(&self.client, self.use_case, self.digest_config)
+            .await
     }
 
     pub(crate) async fn into_stdout_stderr_bytes(self) -> anyhow::Result<(Vec<u8>, Vec<u8>)> {
         future::try_join(
-            self.stdout.into_bytes(&self.client, self.use_case),
-            self.stderr.into_bytes(&self.client, self.use_case),
+            self.stdout
+                .into_bytes(&self.client, self.use_case, self.digest_config),
+            self.stderr
+                .into_bytes(&self.client, self.use_case, self.digest_config),
         )
         .await
     }

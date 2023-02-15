@@ -11,6 +11,7 @@ use std::ops::ControlFlow;
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use buck2_common::digest_config::DigestConfig;
 use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_core::collections::sorted_map::SortedMap;
 use buck2_core::fs::project::ProjectRoot;
@@ -85,6 +86,7 @@ pub struct ReExecutor {
     pub re_action_key: Option<String>,
     pub re_max_input_files_bytes: u64,
     pub re_use_case: RemoteExecutorUseCase,
+    pub digest_config: DigestConfig,
     pub knobs: ExecutorGlobalKnobs,
     pub skip_cache_lookup: bool,
 }
@@ -99,6 +101,7 @@ impl ReExecutor {
         re_action_key: Option<String>,
         re_max_input_files_bytes: u64,
         re_use_case: RemoteExecutorUseCase,
+        digest_config: DigestConfig,
         knobs: ExecutorGlobalKnobs,
         skip_cache_lookup: bool,
     ) -> Self {
@@ -113,6 +116,7 @@ impl ReExecutor {
             re_action_key,
             re_max_input_files_bytes,
             re_use_case,
+            digest_config,
             knobs,
             skip_cache_lookup,
         }
@@ -142,6 +146,7 @@ impl ReExecutor {
                     ProjectRelativePath::empty(),
                     &action_paths.inputs,
                     self.re_use_case,
+                    self.digest_config,
                 ),
             )
             .await;
@@ -207,7 +212,11 @@ impl ReExecutor {
                 //   this will allow tpx to correctly retrieve the output of
                 //   failing tests running on RE. See D34344489 for context.
                 IndexMap::new(),
-                CommandStdStreams::Remote(response.std_streams(&self.re_client, self.re_use_case)),
+                CommandStdStreams::Remote(response.std_streams(
+                    &self.re_client,
+                    self.re_use_case,
+                    self.digest_config,
+                )),
                 Some(action_result.exit_code),
             ));
         }
@@ -250,6 +259,7 @@ impl PreparedCommandExecutor for ReExecutor {
             &*self.materializer,
             &self.re_client,
             self.re_use_case,
+            self.digest_config,
             manager,
             buck2_data::ReStage {
                 stage: Some(buck2_data::ReDownload {}.into()),

@@ -13,6 +13,7 @@ use std::time::SystemTime;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
+use buck2_common::digest_config::DigestConfig;
 use buck2_common::executor_config::CacheUploadBehavior;
 use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_core::directory::DirectoryEntry;
@@ -69,6 +70,7 @@ pub struct CachingExecutor {
     pub upload_all_actions: bool,
     pub knobs: ExecutorGlobalKnobs,
     pub cache_upload_behavior: CacheUploadBehavior,
+    pub digest_config: DigestConfig,
 }
 
 impl CachingExecutor {
@@ -77,6 +79,7 @@ impl CachingExecutor {
         fs: ArtifactFs,
         materializer: Arc<dyn Materializer>,
         re_client: ManagedRemoteExecutionClient,
+        digest_config: DigestConfig,
         upload_all_actions: bool,
         knobs: ExecutorGlobalKnobs,
         cache_upload_behavior: CacheUploadBehavior,
@@ -89,6 +92,7 @@ impl CachingExecutor {
             upload_all_actions,
             knobs,
             cache_upload_behavior,
+            digest_config,
         }
     }
 
@@ -118,6 +122,7 @@ impl CachingExecutor {
                     ProjectRelativePath::empty(),
                     &action_paths.inputs,
                     self.re_use_case(),
+                    self.digest_config,
                 )
                 .await
             {
@@ -148,6 +153,7 @@ impl CachingExecutor {
                 &*self.materializer,
                 &self.re_client,
                 self.re_use_case(),
+                self.digest_config,
                 manager,
                 // TODO (torozco): We should deduplicate this and ActionExecutionKind.
                 buck2_data::CacheHit {
@@ -335,6 +341,7 @@ impl CachingExecutor {
                                 output.path(),
                                 &d.dupe().as_immutable(),
                                 self.re_use_case(),
+                                self.digest_config,
                             )
                             .await
                     };

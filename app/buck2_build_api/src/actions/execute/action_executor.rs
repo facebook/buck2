@@ -13,6 +13,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use anyhow::Context;
 use async_trait::async_trait;
+use buck2_common::digest_config::DigestConfig;
 use buck2_common::events::HasEvents;
 use buck2_common::executor_config::CommandExecutorConfig;
 use buck2_common::liveliness_observer::NoopLivelinessObserver;
@@ -228,6 +229,7 @@ impl HasActionExecutor for DiceComputations {
             materializer,
             events,
             re_client,
+            executor_config.digest_config,
             run_action_knobs,
         )))
     }
@@ -239,6 +241,7 @@ pub struct BuckActionExecutor {
     materializer: Arc<dyn Materializer>,
     events: EventDispatcher,
     re_client: ManagedRemoteExecutionClient,
+    digest_config: DigestConfig,
     run_action_knobs: RunActionKnobs,
 }
 
@@ -249,6 +252,7 @@ impl BuckActionExecutor {
         materializer: Arc<dyn Materializer>,
         events: EventDispatcher,
         re_client: ManagedRemoteExecutionClient,
+        digest_config: DigestConfig,
         run_action_knobs: RunActionKnobs,
     ) -> Self {
         Self {
@@ -257,6 +261,7 @@ impl BuckActionExecutor {
             materializer,
             events,
             re_client,
+            digest_config,
             run_action_knobs,
         }
     }
@@ -307,6 +312,10 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
 
     fn re_client(&self) -> ManagedRemoteExecutionClient {
         self.executor.re_client.dupe()
+    }
+
+    fn digest_config(&self) -> DigestConfig {
+        self.executor.digest_config
     }
 
     fn run_action_knobs(&self) -> RunActionKnobs {
@@ -506,6 +515,7 @@ mod tests {
 
     use allocative::Allocative;
     use async_trait::async_trait;
+    use buck2_common::digest_config::DigestConfig;
     use buck2_common::executor_config::CommandExecutorConfig;
     use buck2_common::executor_config::PathSeparatorKind;
     use buck2_core::buck_path::BuckPath;
@@ -605,6 +615,7 @@ mod tests {
             Arc::new(NoDiskMaterializer),
             EventDispatcher::null(),
             ManagedRemoteExecutionClient::testing_new_dummy(),
+            DigestConfig::compat(),
             Default::default(),
         );
 

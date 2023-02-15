@@ -10,6 +10,7 @@
 //! Common utilities for bxl
 use std::sync::Arc;
 
+use buck2_common::digest_config::DigestConfig;
 use buck2_common::executor_config::CacheUploadBehavior;
 use buck2_common::executor_config::CommandExecutorConfig;
 use buck2_common::executor_config::CommandExecutorKind;
@@ -30,6 +31,7 @@ pub static EXECUTION_PLATFORM: Lazy<ExecutionPlatformResolution> = Lazy::new(|| 
                 executor_kind: CommandExecutorKind::Local(LocalExecutorOptions {}),
                 path_separator: PathSeparatorKind::system_default(),
                 cache_upload_behavior: CacheUploadBehavior::Disabled,
+                digest_config: DigestConfig::compat(),
             }),
             ConfigurationNoExec::unspecified(),
         )),

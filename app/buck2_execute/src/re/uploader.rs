@@ -13,6 +13,7 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use buck2_common::cas_digest::TrackedCasDigest;
+use buck2_common::digest_config::DigestConfig;
 use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::FileDigestKind;
@@ -56,6 +57,7 @@ impl Uploader {
         input_dir: &'a ActionImmutableDirectory,
         blobs: &'a ActionBlobs,
         use_case: &RemoteExecutorUseCase,
+        digest_config: DigestConfig,
     ) -> anyhow::Result<(
         Vec<InlinedBlobWithDigest>,
         HashSet<&'a TrackedCasDigest<FileDigestKind>>,
@@ -105,8 +107,9 @@ impl Uploader {
         let mut input_digests = input_digests.into_iter().collect::<Vec<_>>();
         input_digests.sort();
 
-        let mut digest_ttls =
-            digest_ttls.into_try_map(|d| anyhow::Ok((FileDigest::from_re(&d.digest)?, d.ttl)))?;
+        let mut digest_ttls = digest_ttls.into_try_map(|d| {
+            anyhow::Ok((FileDigest::from_re(&d.digest, digest_config)?, d.ttl))
+        })?;
         digest_ttls.sort();
 
         if input_digests.len() != digest_ttls.len() {
@@ -154,9 +157,10 @@ impl Uploader {
         input_dir: &ActionImmutableDirectory,
         blobs: &ActionBlobs,
         use_case: RemoteExecutorUseCase,
+        digest_config: DigestConfig,
     ) -> anyhow::Result<()> {
         let (mut upload_blobs, mut missing_digests) =
-            Self::find_missing(client, input_dir, blobs, &use_case).await?;
+            Self::find_missing(client, input_dir, blobs, &use_case, digest_config).await?;
 
         if upload_blobs.is_empty() && missing_digests.is_empty() {
             return Ok(());
@@ -388,7 +392,7 @@ fn add_injected_missing_digests<'a>(
             .map(|digest| {
                 let digest = TDigest::from_str(digest)
                     .with_context(|| format!("Invalid digest: `{}`", digest))?;
-                let digest = FileDigest::from_re(&digest)?;
+                let digest = FileDigest::from_re(&digest, DigestConfig::compat())?;
                 anyhow::Ok(digest)
             })
             .collect()

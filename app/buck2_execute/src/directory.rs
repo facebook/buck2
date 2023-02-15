@@ -17,6 +17,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use anyhow::Context as _;
+use buck2_common::digest_config::DigestConfig;
 use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_common::external_symlink::ExternalSymlink;
 use buck2_common::file_ops::FileDigest;
@@ -288,6 +289,7 @@ pub async fn re_directory_to_re_tree(
 pub fn re_tree_to_directory(
     tree: &RE::Tree,
     leaf_expires: &DateTime<Utc>,
+    digest_config: DigestConfig,
 ) -> anyhow::Result<ActionDirectoryBuilder> {
     // Recursively builds the directory
     fn dfs_build(
@@ -295,6 +297,7 @@ pub fn re_tree_to_directory(
         re_dir_name: &(impl fmt::Display + ?Sized),
         dirmap: &HashMap<FileDigest, &RE::Directory>,
         leaf_expires: &DateTime<Utc>,
+        digest_config: DigestConfig,
     ) -> anyhow::Result<ActionDirectoryBuilder> {
         let mut builder = ActionDirectoryBuilder::empty();
         for node in &re_dir.files {
@@ -311,7 +314,7 @@ pub fn re_tree_to_directory(
                     dir: re_dir_name.to_string(),
                 }
             })?;
-            let digest = FileDigest::from_grpc(digest)?;
+            let digest = FileDigest::from_grpc(digest, digest_config)?;
             let digest = TrackedFileDigest::new_expires(digest, *leaf_expires);
 
             let member = ActionDirectoryMember::File(FileMetadata {
@@ -343,7 +346,7 @@ pub fn re_tree_to_directory(
                 }
                 Some(d) => d,
             };
-            let child_digest = FileDigest::from_grpc(child_digest)?;
+            let child_digest = FileDigest::from_grpc(child_digest, digest_config)?;
             let child_re_dir = match dirmap.get(&child_digest) {
                 None => {
                     return Err(DirectoryReConversionError::IncompleteTreeChildrenList {
@@ -354,7 +357,13 @@ pub fn re_tree_to_directory(
                 }
                 Some(&d) => d,
             };
-            let dir = dfs_build(child_re_dir, &child_digest, dirmap, leaf_expires)?;
+            let dir = dfs_build(
+                child_re_dir,
+                &child_digest,
+                dirmap,
+                leaf_expires,
+                digest_config,
+            )?;
             builder.insert(
                 FileNameBuf::try_from(dir_node.name.clone()).map_err(|_| {
                     DirectoryReConversionError::IncorrectFileName {
@@ -384,7 +393,13 @@ pub fn re_tree_to_directory(
         .map(|d| (FileDigest::from_proto_message(d), d))
         .collect();
 
-    dfs_build(root_dir, &root_dir_digest, &dirmap, leaf_expires)
+    dfs_build(
+        root_dir,
+        &root_dir_digest,
+        &dirmap,
+        leaf_expires,
+        digest_config,
+    )
 }
 
 #[derive(Debug, Error)]
@@ -960,7 +975,7 @@ mod tests {
         let dir = builder.fingerprint();
 
         let tree = directory_to_re_tree(&dir);
-        let dir2 = re_tree_to_directory(&tree, &Utc::now())?;
+        let dir2 = re_tree_to_directory(&tree, &Utc::now(), DigestConfig::compat())?;
 
         assert_dirs_eq(&dir, &dir2);
 

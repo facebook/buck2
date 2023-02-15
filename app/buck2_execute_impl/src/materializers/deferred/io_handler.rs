@@ -13,6 +13,7 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use async_trait::async_trait;
+use buck2_common::digest_config::DigestConfig;
 use buck2_common::file_ops::FileDigest;
 use buck2_common::result::SharedError;
 use buck2_common::result::ToSharedResultExt;
@@ -341,7 +342,7 @@ fn maybe_tombstone_digest(digest: &FileDigest) -> anyhow::Result<&FileDigest> {
             .map(|digest| {
                 let digest = TDigest::from_str(digest)
                     .with_context(|| format!("Invalid digest: `{}`", digest))?;
-                let digest = FileDigest::from_re(&digest)?;
+                let digest = FileDigest::from_re(&digest, DigestConfig::compat())?;
                 anyhow::Ok(digest)
             })
             .collect()

@@ -11,6 +11,7 @@ use std::fmt;
 use std::fmt::Debug;
 
 use anyhow::Context;
+use buck2_common::digest_config::DigestConfig;
 use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_common::file_ops::FileDigest;
 use futures::future;
@@ -66,6 +67,7 @@ impl ReStdStream {
         &self,
         client: &ManagedRemoteExecutionClient,
         use_case: RemoteExecutorUseCase,
+        digest_config: DigestConfig,
     ) -> String {
         // 4MBs seems like a reasonably large volume of output. There is no research or science behind
         // this number.
@@ -80,7 +82,7 @@ impl ReStdStream {
                         tracing::warn!("Failed to download action stderr: {:#}", e);
                         format!(
                             "Result could not be downloaded - to view type `frecli cas download-blob {}`",
-                            FileDigest::from_re(digest).as_display(),
+                            FileDigest::from_re(digest, digest_config).as_display(),
                         )
                     }
                 }
@@ -89,7 +91,7 @@ impl ReStdStream {
             Self::Digest(digest) => {
                 format!(
                     "Result too large to display - to view type `frecli cas download-blob {}`",
-                    FileDigest::from_re(digest).as_display(),
+                    FileDigest::from_re(digest, digest_config).as_display(),
                 )
             }
             Self::None => String::new(),
@@ -100,6 +102,7 @@ impl ReStdStream {
         self,
         client: &ManagedRemoteExecutionClient,
         use_case: RemoteExecutorUseCase,
+        digest_config: DigestConfig,
     ) -> anyhow::Result<Vec<u8>> {
         match self {
             Self::Raw(raw) => Ok(raw),
@@ -110,7 +113,7 @@ impl ReStdStream {
                     .with_context(|| {
                         format!(
                             "Error downloading from {}",
-                            FileDigest::from_re(&digest).as_display()
+                            FileDigest::from_re(&digest, digest_config).as_display()
                         )
                     })?;
                 Ok(bytes)
@@ -124,9 +127,10 @@ impl ReStdStream {
         &mut self,
         client: &ManagedRemoteExecutionClient,
         use_case: RemoteExecutorUseCase,
+        digest_config: DigestConfig,
     ) {
         if let Self::Digest(digest) = &self {
-            let data = self.to_lossy(client, use_case).await;
+            let data = self.to_lossy(client, use_case, digest_config).await;
             *self = Self::PrefetchedLossy {
                 data,
                 digest: digest.clone(),
@@ -145,7 +149,7 @@ impl fmt::Display for ReStdStream {
                 write!(
                     fmt,
                     "digest = `{}`",
-                    FileDigest::from_re(digest).as_display()
+                    FileDigest::from_re(digest, DigestConfig::compat()).as_display()
                 )?;
             }
             Self::None => {

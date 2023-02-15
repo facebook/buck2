@@ -10,6 +10,7 @@
 use std::time::Duration;
 use std::time::SystemTime;
 
+use buck2_common::digest_config::DigestConfig;
 use buck2_common::executor_config::RemoteExecutorUseCase;
 use remote_execution::ActionResultResponse;
 use remote_execution::ExecuteResponse;
@@ -36,6 +37,7 @@ pub trait RemoteActionResult: Send + Sync {
         &self,
         client: &ManagedRemoteExecutionClient,
         use_case: RemoteExecutorUseCase,
+        digest_config: DigestConfig,
     ) -> RemoteCommandStdStreams;
 
     /// The TTL given by RE for the outputs for this action.
@@ -63,8 +65,9 @@ impl RemoteActionResult for ExecuteResponse {
         &self,
         client: &ManagedRemoteExecutionClient,
         use_case: RemoteExecutorUseCase,
+        digest_config: DigestConfig,
     ) -> RemoteCommandStdStreams {
-        RemoteCommandStdStreams::new(&self.action_result, client, use_case)
+        RemoteCommandStdStreams::new(&self.action_result, client, use_case, digest_config)
     }
 
     fn ttl(&self) -> i64 {
@@ -95,8 +98,9 @@ impl RemoteActionResult for ActionResultResponse {
         &self,
         client: &ManagedRemoteExecutionClient,
         use_case: RemoteExecutorUseCase,
+        digest_config: DigestConfig,
     ) -> RemoteCommandStdStreams {
-        RemoteCommandStdStreams::new(&self.action_result, client, use_case)
+        RemoteCommandStdStreams::new(&self.action_result, client, use_case, digest_config)
     }
 
     fn ttl(&self) -> i64 {

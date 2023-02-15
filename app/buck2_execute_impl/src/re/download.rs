@@ -12,6 +12,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use anyhow::Context as _;
+use buck2_common::digest_config::DigestConfig;
 use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::FileMetadata;
@@ -54,6 +55,7 @@ pub async fn download_action_results<'a>(
     materializer: &dyn Materializer,
     re_client: &ManagedRemoteExecutionClient,
     re_use_case: RemoteExecutorUseCase,
+    digest_config: DigestConfig,
     manager: CommandExecutionManager,
     stage: buck2_data::executor_stage_start::Stage,
     action_paths: &ActionPaths,
@@ -68,6 +70,7 @@ pub async fn download_action_results<'a>(
         materializer,
         re_client,
         re_use_case,
+        digest_config,
     };
 
     let download = downloader.download(
@@ -79,7 +82,7 @@ pub async fn download_action_results<'a>(
         response,
     );
 
-    let std_streams = response.std_streams(re_client, re_use_case);
+    let std_streams = response.std_streams(re_client, re_use_case, digest_config);
     let std_streams = async {
         if request.prefetch_lossy_stderr() {
             std_streams.prefetch_lossy_stderr().await
@@ -103,6 +106,7 @@ pub struct CasDownloader<'a> {
     pub materializer: &'a dyn Materializer,
     pub re_client: &'a ManagedRemoteExecutionClient,
     pub re_use_case: RemoteExecutorUseCase,
+    pub digest_config: DigestConfig,
 }
 
 impl CasDownloader<'_> {
@@ -169,7 +173,7 @@ impl CasDownloader<'_> {
         let mut input_dir = input_dir.clone().into_builder();
 
         for x in output_spec.output_files() {
-            let digest = FileDigest::from_re(&x.digest.digest)?;
+            let digest = FileDigest::from_re(&x.digest.digest, self.digest_config)?;
             let digest = TrackedFileDigest::new_expires(digest, expires);
 
             let entry = DirectoryEntry::Leaf(ActionDirectoryMember::File(FileMetadata {
@@ -195,7 +199,7 @@ impl CasDownloader<'_> {
             .context(DownloadError::DownloadTrees)?;
 
         for (dir, tree) in output_spec.output_directories().iter().zip(trees) {
-            let entry = re_tree_to_directory(&tree, &expires)?;
+            let entry = re_tree_to_directory(&tree, &expires, self.digest_config)?;
             input_dir.insert(
                 re_forward_path(dir.path.as_str())?,
                 DirectoryEntry::Dir(entry),

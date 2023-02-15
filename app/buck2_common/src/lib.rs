@@ -30,6 +30,7 @@ pub mod client_utils;
 pub mod convert;
 pub mod daemon_dir;
 pub mod dice;
+pub mod digest_config;
 #[cfg(any(fbcode_build, cargo_internal_build))]
 pub mod eden;
 pub mod error_report;
