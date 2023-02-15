@@ -25,7 +25,13 @@ else
     MODULE_CACHE_PATH="/tmp/buck-module-cache"
 fi
 
-"$@" -debug-prefix-map "$PWD"=. -module-cache-path "$MODULE_CACHE_PATH"
+module_cache_path_args=()
+if [ -z "$EXPLICIT_MODULES_ENABLED" ]; then
+    module_cache_path_args+=("-module-cache-path")
+    module_cache_path_args+=("$MODULE_CACHE_PATH")
+fi
+
+"$@" -debug-prefix-map "$PWD"=. "${module_cache_path_args[@]}"
 
 OUTPUT_PATHS=()
 for ARG in "$@"

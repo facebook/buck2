@@ -21,7 +21,7 @@ load(
 )
 load(":apple_sdk_modules_utility.bzl", "get_compiled_sdk_deps_tset", "get_uncompiled_sdk_deps", "is_sdk_modules_provided")
 load(":apple_toolchain_types.bzl", "AppleToolchainInfo")
-load(":apple_utility.bzl", "get_disable_pch_validation_flags", "get_module_name", "get_versioned_target_triple")
+load(":apple_utility.bzl", "get_disable_pch_validation_flags", "get_explicit_modules_env_var", "get_module_name", "get_versioned_target_triple")
 load(":modulemap.bzl", "preprocessor_info_for_modulemap")
 load(":swift_module_map.bzl", "write_swift_module_map_with_swift_deps")
 load(":swift_pcm_compilation.bzl", "get_compiled_pcm_deps_tset", "get_swift_pcm_anon_targets")
@@ -280,7 +280,13 @@ def _compile_with_argsfile(
 
     # If we prefer to execute locally (e.g., for perf reasons), ensure we upload to the cache,
     # so that CI builds populate caches used by developer machines.
-    ctx.actions.run(cmd, category = name, prefer_local = prefer_local, allow_cache_upload = prefer_local)
+    ctx.actions.run(
+        cmd,
+        env = get_explicit_modules_env_var(ctx.attrs.uses_explicit_modules),
+        category = name,
+        prefer_local = prefer_local,
+        allow_cache_upload = prefer_local,
+    )
 
     hidden_args = [shared_flags]
     return CxxAdditionalArgsfileParams(file = argfile, hidden_args = hidden_args, extension = ".swift")

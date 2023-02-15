@@ -7,7 +7,7 @@
 
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load(":apple_sdk_modules_utility.bzl", "get_compiled_sdk_deps_tset", "get_uncompiled_sdk_deps")
-load(":apple_utility.bzl", "get_versioned_target_triple")
+load(":apple_utility.bzl", "get_explicit_modules_env_var", "get_versioned_target_triple")
 load(":swift_pcm_compilation_types.bzl", "SwiftPCMCompiledInfo", "SwiftPCMUncompiledInfo", "WrappedSwiftPCMCompiledInfo")
 load(":swift_sdk_pcm_compilation.bzl", "get_shared_pcm_compilation_args", "get_swift_sdk_pcm_anon_targets")
 load(":swift_sdk_swiftinterface_compilation.bzl", "get_swift_interface_anon_targets")
@@ -108,7 +108,12 @@ def _swift_pcm_compilation_impl(ctx: "context") -> ["promise", ["provider"]]:
         # Modular deps like `-Swift.h` have to be materialized.
         cmd.hidden(uncompiled_pcm_info.exported_preprocessor.modular_args)
 
-        ctx.actions.run(cmd, category = "swift_pcm_compile", identifier = module_name)
+        ctx.actions.run(
+            cmd,
+            env = get_explicit_modules_env_var(True),
+            category = "swift_pcm_compile",
+            identifier = module_name,
+        )
 
         compiled_pcm = SwiftPCMCompiledInfo(
             name = module_name,

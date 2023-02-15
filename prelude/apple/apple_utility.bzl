@@ -22,6 +22,9 @@ _TARGET_TRIPLE_MAP = {
     "watchsimulator": "apple-watchos{}-simulator".format(_VERSION_PLACEHOLDER),
 }
 
+def get_explicit_modules_env_var(uses_explicit_modules: bool.type) -> dict.type:
+    return ({"EXPLICIT_MODULES_ENABLED": "TRUE"} if uses_explicit_modules else {})
+
 def get_apple_cxx_headers_layout(ctx: "context") -> CxxHeadersLayout.type:
     namespace = value_or(ctx.attrs.header_path_prefix, ctx.attrs.name)
     return CxxHeadersLayout(namespace = namespace, naming = CxxHeadersNaming("apple"))
