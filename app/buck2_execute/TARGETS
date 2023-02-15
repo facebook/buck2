@@ -58,5 +58,6 @@ rust_library(
         "//common/rust/shed/fbinit:fbinit",
         "//common/rust/shed/sorted_vector_map:sorted_vector_map",
         "//buck2/allocative/allocative:allocative",
+        "//buck2/starlark-rust/starlark_map:starlark_map",
     ],
 )

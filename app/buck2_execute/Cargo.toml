@@ -40,6 +40,7 @@ more_futures = { workspace = true }
 remote_execution = { workspace = true }
 sorted_vector_map = { workspace = true }
 allocative = { workspace = true }
+starlark_map = { workspace = true }
 
 buck2_common = { workspace = true }
 buck2_core = { workspace = true }

@@ -17,6 +17,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use anyhow::Context as _;
+use buck2_common::cas_digest::DigestAlgorithm;
 use buck2_common::digest_config::DigestConfig;
 use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_common::external_symlink::ExternalSymlink;
@@ -48,6 +49,7 @@ use derive_more::Display;
 use dupe::Dupe;
 use once_cell::sync::Lazy;
 use remote_execution as RE;
+use starlark_map::small_map::SmallMap;
 use thiserror::Error;
 
 use crate::artifact_value::ArtifactValue;
@@ -290,18 +292,49 @@ pub fn re_tree_to_directory(
     leaf_expires: &DateTime<Utc>,
     digest_config: DigestConfig,
 ) -> anyhow::Result<ActionDirectoryBuilder> {
-    fn from_proto_message<M: prost::Message>(m: &M) -> FileDigest {
+    /// A map of digests to directories, populated lazily when we access it based on the hash we
+    /// use. We need this because in a RE tree, the directories in the tree don't carry their hash,
+    /// but the pointers are hashes, so we need to first see a hash before we can work out what
+    /// hashing mechanism to use here.
+    struct DirMap<'a> {
+        by_kind: SmallMap<DigestAlgorithm, HashMap<FileDigest, &'a RE::Directory>>,
+        directories: &'a [RE::Directory],
+    }
+
+    impl<'a> DirMap<'a> {
+        fn new(directories: &'a [RE::Directory]) -> Self {
+            Self {
+                by_kind: SmallMap::new(),
+                directories,
+            }
+        }
+
+        fn get(&mut self, digest: &FileDigest) -> Option<&'a RE::Directory> {
+            let algo = digest.digest().algorithm();
+
+            let map = self.by_kind.entry(algo).or_insert_with(|| {
+                self.directories
+                    .iter()
+                    .map(|d| (from_proto_message(d, algo), d))
+                    .collect()
+            });
+
+            map.get(digest).copied()
+        }
+    }
+
+    fn from_proto_message<M: prost::Message>(m: &M, algo: DigestAlgorithm) -> FileDigest {
         let mut m_encoded = Vec::new();
         m.encode(&mut m_encoded)
             .unwrap_or_else(|e| unreachable!("Protobuf messages are always encodeable: {}", e));
-        FileDigest::from_content_sha1(m_encoded.as_slice())
+        FileDigest::from_content(m_encoded.as_slice(), algo)
     }
 
     // Recursively builds the directory
-    fn dfs_build(
-        re_dir: &RE::Directory,
-        re_dir_name: &(impl fmt::Display + ?Sized),
-        dirmap: &HashMap<FileDigest, &RE::Directory>,
+    fn dfs_build<'a>(
+        re_dir: &'_ RE::Directory,
+        re_dir_name: &'_ (impl fmt::Display + ?Sized),
+        dirmap: &'_ mut DirMap<'a>,
         leaf_expires: &DateTime<Utc>,
         digest_config: DigestConfig,
     ) -> anyhow::Result<ActionDirectoryBuilder> {
@@ -361,7 +394,7 @@ pub fn re_tree_to_directory(
                     }
                     .into());
                 }
-                Some(&d) => d,
+                Some(d) => d,
             };
             let dir = dfs_build(
                 child_re_dir,
@@ -392,17 +425,10 @@ pub fn re_tree_to_directory(
         None => return Ok(ActionDirectoryBuilder::empty()),
     };
 
-    let root_dir_digest = from_proto_message(root_dir);
-    let dirmap: HashMap<FileDigest, &RE::Directory> = tree
-        .children
-        .iter()
-        .map(|d| (from_proto_message(d), d))
-        .collect();
-
     dfs_build(
         root_dir,
-        &root_dir_digest,
-        &dirmap,
+        "root directory",
+        &mut DirMap::new(&tree.children),
         leaf_expires,
         digest_config,
     )
