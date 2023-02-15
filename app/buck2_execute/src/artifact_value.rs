@@ -79,12 +79,6 @@ impl ArtifactValue {
         }
     }
 
-    /// This should very rarely be used. It's currently only used in unit
-    /// tests where we treat all artifacts as empty files.
-    pub fn empty_file() -> Self {
-        Self::file(FileMetadata::empty())
-    }
-
     pub fn entry(&self) -> &ActionDirectoryEntry<ActionSharedDirectory> {
         &self.entry
     }

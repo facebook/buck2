@@ -669,7 +669,7 @@ mod tests {
                         .map(|x| {
                             CommandExecutionInput::Artifact(box ArtifactGroupValues::from_artifact(
                                 x.unpack_artifact().unwrap().dupe(),
-                                ArtifactValue::empty_file(),
+                                ArtifactValue::file(ctx.digest_config().empty_file()),
                             ))
                         })
                         .collect(),
@@ -692,7 +692,12 @@ mod tests {
                 let outputs = self
                     .outputs
                     .iter()
-                    .map(|o| (o.get_path().dupe(), ArtifactValue::empty_file()))
+                    .map(|o| {
+                        (
+                            o.get_path().dupe(),
+                            ArtifactValue::file(ctx.digest_config().empty_file()),
+                        )
+                    })
                     .collect();
                 Ok((
                     ActionOutputs::new(outputs),
@@ -747,7 +752,12 @@ mod tests {
         .unwrap();
         let outputs = outputs
             .iter()
-            .map(|o| (o.get_path().dupe(), ArtifactValue::empty_file()))
+            .map(|o| {
+                (
+                    o.get_path().dupe(),
+                    ArtifactValue::file(executor.digest_config.empty_file()),
+                )
+            })
             .collect();
         assert_eq!(res.0, ActionOutputs::new(outputs));
     }

@@ -204,7 +204,7 @@ mod state_machine {
 
         let mut tree = ArtifactTree::new();
         let path = make_path("foo/bar");
-        let value = ArtifactValue::empty_file();
+        let value = ArtifactValue::file(DigestConfig::compat().empty_file());
         let method = ArtifactMaterializationMethod::Test;
 
         dm.declare(
@@ -286,7 +286,7 @@ mod state_machine {
         dm.declare(
             &mut tree,
             target_path.clone(),
-            ArtifactValue::empty_file(),
+            ArtifactValue::file(DigestConfig::compat().empty_file()),
             box ArtifactMaterializationMethod::Test,
             0,
             &command_sender(),
@@ -411,7 +411,7 @@ mod state_machine {
         dm.declare(
             &mut tree,
             target_path.clone(),
-            ArtifactValue::empty_file(),
+            ArtifactValue::file(digest_config.empty_file()),
             box ArtifactMaterializationMethod::Test,
             0,
             &command_sender(),

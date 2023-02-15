@@ -8,6 +8,7 @@
  */
 
 use allocative::Allocative;
+use buck2_common::file_ops::FileMetadata;
 use dice::DiceData;
 use dice::DiceDataBuilder;
 use dupe::Dupe;
@@ -25,6 +26,11 @@ pub struct DigestConfig {}
 impl DigestConfig {
     pub fn compat() -> Self {
         Self {}
+    }
+
+    pub fn empty_file(&self) -> FileMetadata {
+        // TODO: This should be a field on the DigestConfig, obviously.
+        FileMetadata::empty()
     }
 
     pub fn empty_directory(&self) -> ActionSharedDirectory {

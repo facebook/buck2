@@ -61,7 +61,7 @@ impl PreparedCommandExecutor for DryRunExecutor {
             target: _target,
             action_paths: _action_paths,
             prepared_action: _prepared_action,
-            digest_config: _digest_config,
+            digest_config,
         } = command;
 
         let manager = manager.claim().await;
@@ -88,7 +88,7 @@ impl PreparedCommandExecutor for DryRunExecutor {
                     let path = x.resolve(fs).into_path();
                     fs.fs().write_file(&path, "", false)?;
                 }
-                Ok((x.cloned(), ArtifactValue::empty_file()))
+                Ok((x.cloned(), ArtifactValue::file(digest_config.empty_file())))
             })
             .collect::<anyhow::Result<_>>()
         {
