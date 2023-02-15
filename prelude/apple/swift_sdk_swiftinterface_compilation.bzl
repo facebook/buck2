@@ -33,7 +33,8 @@ def _swift_interface_compilation_impl(ctx: "context") -> ["promise", ["provider"
         uncompiled_sdk_module_info = ctx.attrs.dep[SdkUncompiledModuleInfo]
         uncompiled_module_info_name = uncompiled_sdk_module_info.module_name
 
-        swift_toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
+        apple_toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo]
+        swift_toolchain = apple_toolchain.swift_toolchain_info
         cmd = cmd_args(swift_toolchain.compiler)
         cmd.add(uncompiled_sdk_module_info.partial_cmd)
         cmd.add(["-sdk", swift_toolchain.sdk_path])
@@ -63,6 +64,7 @@ def _swift_interface_compilation_impl(ctx: "context") -> ["promise", ["provider"
         expanded_swiftinterface_cmd = expand_relative_prefixed_sdk_path(
             cmd_args(swift_toolchain.sdk_path),
             cmd_args(swift_toolchain.resource_dir),
+            cmd_args(apple_toolchain.platform_path),
             uncompiled_sdk_module_info.input_relative_path,
         )
         cmd.add([

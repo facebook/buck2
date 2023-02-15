@@ -56,8 +56,10 @@ def get_versioned_target_triple(ctx: "context") -> str.type:
 def expand_relative_prefixed_sdk_path(
         sdk_path: "cmd_args",
         swift_resource_dir: "cmd_args",
+        platform_path: "cmd_args",
         path_to_expand: str.type) -> "cmd_args":
     path_expansion_map = {
+        "$PLATFORM_DIR": platform_path,
         "$RESOURCEDIR": swift_resource_dir,
         "$SDKROOT": sdk_path,
     }
