@@ -9,6 +9,7 @@
 
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::fmt;
 use std::fmt::Debug;
 use std::path::Path;
 use std::path::PathBuf;
@@ -291,18 +292,24 @@ pub fn re_tree_to_directory(
     // Recursively builds the directory
     fn dfs_build(
         re_dir: &RE::Directory,
-        dir_digest: FileDigest,
+        re_dir_name: &(impl fmt::Display + ?Sized),
         dirmap: &HashMap<FileDigest, &RE::Directory>,
         leaf_expires: &DateTime<Utc>,
     ) -> anyhow::Result<ActionDirectoryBuilder> {
         let mut builder = ActionDirectoryBuilder::empty();
         for node in &re_dir.files {
             let name = FileNameBuf::try_from(node.name.clone()).with_context(|| {
-                DirectoryReConversionError::IncorrectFileName(node.name.clone())
+                DirectoryReConversionError::IncorrectFileName {
+                    name: node.name.clone(),
+                    dir: re_dir_name.to_string(),
+                }
             })?;
 
             let digest = node.digest.as_ref().with_context(|| {
-                DirectoryReConversionError::NodeWithDigestNone(node.name.clone(), dir_digest.dupe())
+                DirectoryReConversionError::NodeWithDigestNone {
+                    name: node.name.clone(),
+                    dir: re_dir_name.to_string(),
+                }
             })?;
             let digest = FileDigest::from_grpc(digest);
             let digest = TrackedFileDigest::new_expires(digest, *leaf_expires);
@@ -317,7 +324,10 @@ pub fn re_tree_to_directory(
         for node in &re_dir.symlinks {
             builder.insert(
                 FileNameBuf::try_from(node.name.clone()).map_err(|_| {
-                    DirectoryReConversionError::IncorrectFileName(node.name.clone())
+                    DirectoryReConversionError::IncorrectFileName {
+                        name: node.name.clone(),
+                        dir: re_dir_name.to_string(),
+                    }
                 })?,
                 DirectoryEntry::Leaf(node.try_into()?),
             )?;
@@ -325,10 +335,10 @@ pub fn re_tree_to_directory(
         for dir_node in &re_dir.directories {
             let child_digest = match &dir_node.digest {
                 None => {
-                    return Err(DirectoryReConversionError::NodeWithDigestNone(
-                        dir_node.name.clone(),
-                        dir_digest,
-                    )
+                    return Err(DirectoryReConversionError::NodeWithDigestNone {
+                        name: dir_node.name.clone(),
+                        dir: re_dir_name.to_string(),
+                    }
                     .into());
                 }
                 Some(d) => d,
@@ -336,18 +346,21 @@ pub fn re_tree_to_directory(
             let child_digest = FileDigest::from_grpc(child_digest);
             let child_re_dir = match dirmap.get(&child_digest) {
                 None => {
-                    return Err(DirectoryReConversionError::IncompleteTreeChildrenList(
-                        dir_node.name.clone(),
-                        dir_digest,
-                    )
+                    return Err(DirectoryReConversionError::IncompleteTreeChildrenList {
+                        name: dir_node.name.clone(),
+                        dir: re_dir_name.to_string(),
+                    }
                     .into());
                 }
                 Some(&d) => d,
             };
-            let dir = dfs_build(child_re_dir, child_digest, dirmap, leaf_expires)?;
+            let dir = dfs_build(child_re_dir, &child_digest, dirmap, leaf_expires)?;
             builder.insert(
                 FileNameBuf::try_from(dir_node.name.clone()).map_err(|_| {
-                    DirectoryReConversionError::IncorrectFileName(dir_node.name.clone())
+                    DirectoryReConversionError::IncorrectFileName {
+                        name: dir_node.name.clone(),
+                        dir: re_dir_name.to_string(),
+                    }
                 })?,
                 DirectoryEntry::Dir(dir),
             )?;
@@ -369,21 +382,22 @@ pub fn re_tree_to_directory(
         .children
         .iter()
         .map(|d| (FileDigest::from_proto_message(d), d))
-        .chain(vec![(root_dir_digest.dupe(), root_dir)])
         .collect();
 
-    dfs_build(root_dir, root_dir_digest, &dirmap, leaf_expires)
+    dfs_build(root_dir, &root_dir_digest, &dirmap, leaf_expires)
 }
 
 #[derive(Debug, Error)]
 pub enum DirectoryReConversionError {
     // Conversion from RE::Tree errors (these shouldn't happen unless something is broken on RE side)
-    #[error("Converting RE::Tree to Directory, dir `{1}` has child `{0}` with digest=None.")]
-    NodeWithDigestNone(String, FileDigest),
-    #[error("Converting RE::Tree to Directory, dir `{1}` has child `{0}` not in tree.children.")]
-    IncompleteTreeChildrenList(String, FileDigest),
-    #[error("Converting RE::Tree to Directory, file name `{0}` is incorrect")]
-    IncorrectFileName(String),
+    #[error("Converting RE::Tree to Directory, dir `{dir}` has child `{name}` with digest=None.")]
+    NodeWithDigestNone { name: String, dir: String },
+    #[error(
+        "Converting RE::Tree to Directory, dir `{dir}` has child `{name}` not in tree.children."
+    )]
+    IncompleteTreeChildrenList { name: String, dir: String },
+    #[error("Converting RE::Tree to Directory, dir `{dir}` has incorrect file name `{name}`")]
+    IncorrectFileName { name: String, dir: String },
 }
 
 impl<'a> TryFrom<&'a RE::SymlinkNode> for ActionDirectoryMember {
