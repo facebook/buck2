@@ -17,7 +17,6 @@ use buck2_common::dice::cells::HasCellResolver;
 use buck2_query::query::syntax::simple::functions::DefaultQueryFunctions;
 use derivative::Derivative;
 use derive_more::Display;
-use dice::DiceComputations;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::Methods;
@@ -75,9 +74,12 @@ impl<'v> StarlarkValue<'v> for StarlarkUQueryCtx<'v> {
 }
 
 pub(crate) async fn get_uquery_env<'v>(
-    ctx: &'v DiceComputations,
+    ctx: &'v BxlContext<'v>,
+    use_correct_cell_resolution: bool,
 ) -> anyhow::Result<UqueryEnvironment<'v>> {
-    let dice_query_delegate = BxlContext::dice_query_delegate(ctx, None).await?;
+    let dice_query_delegate = ctx
+        .dice_query_delegate(None, use_correct_cell_resolution)
+        .await?;
     let uquery_delegate = Arc::new(dice_query_delegate);
     Ok(UqueryEnvironment::new(
         uquery_delegate.dupe(),

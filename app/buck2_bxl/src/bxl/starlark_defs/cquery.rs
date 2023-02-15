@@ -21,7 +21,6 @@ use buck2_query::query::syntax::simple::functions::DefaultQueryFunctions;
 use buck2_query::query::syntax::simple::functions::DefaultQueryFunctionsModule;
 use derivative::Derivative;
 use derive_more::Display;
-use dice::DiceComputations;
 use dupe::Dupe;
 use gazebo::prelude::*;
 use starlark::any::ProvidesStaticType;
@@ -107,10 +106,13 @@ impl<'v> UnpackValue<'v> for &'v StarlarkCQueryCtx<'v> {
 }
 
 pub(crate) async fn get_cquery_env<'v>(
-    ctx: &'v DiceComputations,
+    ctx: &'v BxlContext<'v>,
     target_platform: Option<TargetLabel>,
+    use_correct_cell_resolution: bool,
 ) -> anyhow::Result<CqueryEnvironment<'v>> {
-    let dice_query_delegate = BxlContext::dice_query_delegate(ctx, target_platform).await?;
+    let dice_query_delegate = ctx
+        .dice_query_delegate(target_platform, use_correct_cell_resolution)
+        .await?;
     let cquery_delegate = Arc::new(dice_query_delegate);
     Ok(CqueryEnvironment::new(
         cquery_delegate.dupe(),
@@ -125,11 +127,12 @@ impl<'v> StarlarkCQueryCtx<'v> {
     pub async fn new(
         ctx: &'v BxlContext<'v>,
         global_target_platform: Value<'v>,
+        use_correct_cell_resolution: bool,
     ) -> anyhow::Result<StarlarkCQueryCtx<'v>> {
         let target_platform =
             global_target_platform.parse_target_platforms(&ctx.target_alias_resolver, &ctx.cell)?;
 
-        let env = get_cquery_env(ctx.async_ctx.0, target_platform.dupe()).await?;
+        let env = get_cquery_env(ctx, target_platform.dupe(), use_correct_cell_resolution).await?;
         Ok(Self {
             ctx,
             functions: DefaultQueryFunctions::new(),

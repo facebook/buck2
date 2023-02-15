@@ -312,8 +312,8 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     /// Sample usage:
     /// ```text
     /// def _impl_get_source(ctx):
-    ///     owner = ctx.cquery().owner("cell//path/to/file")[0]
-    ///     artifact = owner.get_source("cell//path/to/file", ctx)
+    ///     owner = ctx.cquery().owner("cell/relative/path/to/file")[0]
+    ///     artifact = owner.sources()[0]
     ///     ctx.output.print(artifact)
     /// ```
     fn get_source(
