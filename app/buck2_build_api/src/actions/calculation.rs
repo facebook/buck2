@@ -789,7 +789,9 @@ mod tests {
             is_executable: true,
         };
 
-        let dice_builder = DiceBuilder::new();
+        let dice_builder = DiceBuilder::new().set_data(|data| {
+            data.set_digest_config(DigestConfig::compat());
+        });
         let dice_computations = dice_builder
             .mock_and_return(
                 FileOpsKey(),
@@ -839,7 +841,9 @@ mod tests {
             .unwrap(),
         );
 
-        let dice_builder = DiceBuilder::new();
+        let dice_builder = DiceBuilder::new().set_data(|data| {
+            data.set_digest_config(DigestConfig::compat());
+        });
         let dice_computations = dice_builder
             .mock_and_return(
                 FileOpsKey(),

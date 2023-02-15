@@ -31,6 +31,7 @@ use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_execute::artifact::fs::ArtifactFs;
 use buck2_execute::artifact_value::ArtifactValue;
+use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::extract_artifact_value;
 use buck2_execute::directory::insert_entry;
 use buck2_execute::directory::new_symlink;
@@ -200,6 +201,7 @@ impl LocalExecutor {
         request: &CommandExecutionRequest,
         mut manager: CommandExecutionManager,
         cancellation: CancellationObserver,
+        digest_config: DigestConfig,
     ) -> CommandExecutionResult {
         let args = request.args();
         if args.is_empty() {
@@ -377,7 +379,10 @@ impl LocalExecutor {
 
         match status {
             GatherOutputStatus::Finished(status) => {
-                let outputs = match self.calculate_and_declare_output_values(request).await {
+                let outputs = match self
+                    .calculate_and_declare_output_values(request, digest_config)
+                    .await
+                {
                     Ok(output_values) => output_values,
                     Err(e) => return manager.error("calculate_output_values_failed", e),
                 };
@@ -412,6 +417,7 @@ impl LocalExecutor {
     async fn calculate_and_declare_output_values(
         &self,
         request: &CommandExecutionRequest,
+        digest_config: DigestConfig,
     ) -> anyhow::Result<IndexMap<CommandExecutionOutput, ArtifactValue>> {
         let mut builder = inputs_directory(request.inputs(), &self.artifact_fs)?;
 
@@ -433,7 +439,7 @@ impl LocalExecutor {
         let mut mapped_outputs = IndexMap::with_capacity(entries.len());
 
         for (output, path) in entries {
-            let value = extract_artifact_value(&builder, path.as_ref())?;
+            let value = extract_artifact_value(&builder, path.as_ref(), digest_config)?;
             if let Some(value) = value {
                 match output {
                     CommandExecutionOutput::BuildArtifact { .. } => {
@@ -541,7 +547,7 @@ impl PreparedCommandExecutor for LocalExecutor {
             target,
             action_paths: _action_paths,
             prepared_action,
-            digest_config: _digest_config,
+            digest_config,
         } = command;
 
         let _permit = manager
@@ -564,6 +570,7 @@ impl PreparedCommandExecutor for LocalExecutor {
                 request,
                 manager,
                 cancellation,
+                *digest_config,
             )
         })
         .await

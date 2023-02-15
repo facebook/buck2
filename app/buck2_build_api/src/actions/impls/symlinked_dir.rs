@@ -228,7 +228,7 @@ impl IncrementalActionExecutable for SymlinkedDirAction {
     ) -> anyhow::Result<(ActionOutputs, ActionExecutionMetadata)> {
         let fs = ctx.fs().fs();
         let output = ctx.fs().resolve_build(self.output().get_path());
-        let mut builder = ArtifactValueBuilder::new(fs);
+        let mut builder = ArtifactValueBuilder::new(fs, ctx.digest_config());
         let mut srcs = Vec::new();
 
         for (group, dest) in &self.args {

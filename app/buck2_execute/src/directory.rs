@@ -60,12 +60,6 @@ use crate::re::manager::ManagedRemoteExecutionClient;
 pub static INTERNER: Lazy<DashMapDirectoryInterner<ActionDirectoryMember, TrackedFileDigest>> =
     Lazy::new(DashMapDirectoryInterner::new);
 
-pub static EMPTY_DIRECTORY: Lazy<ActionSharedDirectory> = Lazy::new(|| {
-    ActionDirectoryBuilder::empty()
-        .fingerprint(&ReDirectorySerializer)
-        .shared(&*INTERNER)
-});
-
 /// Represents a relative symlink, and stores the symlink's target path.
 #[derive(Debug, Display, Eq, PartialEq, Allocative)]
 pub struct Symlink(RelativePathBuf);
@@ -91,7 +85,9 @@ pub trait ActionFingerprintedDirectory =
     FingerprintedDirectory<ActionDirectoryMember, TrackedFileDigest>;
 
 #[derive(Allocative)]
-pub struct ReDirectorySerializer;
+pub struct ReDirectorySerializer {
+    pub digest_config: DigestConfig,
+}
 
 impl ReDirectorySerializer {
     fn create_re_directory<'a, D, I>(entries: I) -> RE::Directory
@@ -690,6 +686,7 @@ pub fn expand_selector_for_dependencies(
 pub fn extract_artifact_value(
     builder: &ActionDirectoryBuilder,
     path: &ForwardRelativePath,
+    digest_config: DigestConfig,
 ) -> anyhow::Result<Option<ArtifactValue>> {
     let entry = match find(builder, path)? {
         Some(entry) => entry,
@@ -735,12 +732,15 @@ pub fn extract_artifact_value(
 
     let entry = entry.map_leaf(|l| l.dupe()).map_dir(|d| {
         d.to_builder()
-            .fingerprint(&ReDirectorySerializer)
+            .fingerprint(&ReDirectorySerializer { digest_config })
             .shared(&*INTERNER)
     });
 
     let deps = if has_deps {
-        Some(deps.fingerprint(&ReDirectorySerializer).shared(&*INTERNER))
+        Some(
+            deps.fingerprint(&ReDirectorySerializer { digest_config })
+                .shared(&*INTERNER),
+        )
     } else {
         None
     };
@@ -877,7 +877,8 @@ mod tests {
     #[test]
     fn test_extract_no_deps() -> anyhow::Result<()> {
         let root = build_test_dir()?;
-        let value = extract_artifact_value(&root, path("d6"))?.context("Not value!")?;
+        let value = extract_artifact_value(&root, path("d6"), DigestConfig::compat())?
+            .context("Not value!")?;
         assert!(value.deps().is_none());
         Ok(())
     }
@@ -885,7 +886,8 @@ mod tests {
     #[test]
     fn test_extract_has_deps_dir() -> anyhow::Result<()> {
         let root = build_test_dir()?;
-        let value = extract_artifact_value(&root, path("d1/d2/d3"))?.context("Not value!")?;
+        let value = extract_artifact_value(&root, path("d1/d2/d3"), DigestConfig::compat())?
+            .context("Not value!")?;
 
         let expected = {
             let mut builder = ActionDirectoryBuilder::empty();
@@ -910,7 +912,8 @@ mod tests {
     #[test]
     fn test_extract_has_deps_leaf() -> anyhow::Result<()> {
         let root = build_test_dir()?;
-        let value = extract_artifact_value(&root, path("d1/d2/d3/s3"))?.context("Not value!")?;
+        let value = extract_artifact_value(&root, path("d1/d2/d3/s3"), DigestConfig::compat())?
+            .context("Not value!")?;
 
         let expected = {
             let mut builder = ActionDirectoryBuilder::empty();
@@ -945,7 +948,8 @@ mod tests {
             builder
         };
 
-        let value = extract_artifact_value(&builder, path("d1/f1"))?.context("Not value!")?;
+        let value = extract_artifact_value(&builder, path("d1/f1"), DigestConfig::compat())?
+            .context("Not value!")?;
 
         assert_dirs_eq(value.deps().context("No deps!")?, &expected);
 
@@ -973,7 +977,8 @@ mod tests {
 
         insert_file(&mut builder, path("d3/f"), FileMetadata::empty())?;
 
-        let value = extract_artifact_value(&builder, path("l1"))?.context("Not value!")?;
+        let value = extract_artifact_value(&builder, path("l1"), DigestConfig::compat())?
+            .context("Not value!")?;
 
         let expected = {
             let mut builder = ActionDirectoryBuilder::empty();
@@ -996,14 +1001,16 @@ mod tests {
 
     #[test]
     fn test_re_tree_roundtrip() -> anyhow::Result<()> {
+        let digest_config = DigestConfig::compat();
+
         let mut builder = ActionDirectoryBuilder::empty();
         insert_file(&mut builder, path("a/aa"), FileMetadata::empty())?;
         insert_file(&mut builder, path("a/bb"), FileMetadata::empty())?;
         insert_file(&mut builder, path("b/b"), FileMetadata::empty())?;
-        let dir = builder.fingerprint(&ReDirectorySerializer);
+        let dir = builder.fingerprint(&ReDirectorySerializer { digest_config });
 
         let tree = directory_to_re_tree(&dir);
-        let dir2 = re_tree_to_directory(&tree, &Utc::now(), DigestConfig::compat())?;
+        let dir2 = re_tree_to_directory(&tree, &Utc::now(), digest_config)?;
 
         assert_dirs_eq(&dir, &dir2);
 
@@ -1020,11 +1027,13 @@ mod tests {
     /// ```
     #[test]
     fn test_re_tree_compatibility() -> anyhow::Result<()> {
+        let digest_config = DigestConfig::compat();
+
         let mut builder = ActionDirectoryBuilder::empty();
         for p in &["a/aa/f", "a/aaa/f", "b/bb/f", "d/f"] {
             insert_file(&mut builder, path(p), FileMetadata::empty())?;
         }
-        let dir = builder.fingerprint(&ReDirectorySerializer);
+        let dir = builder.fingerprint(&ReDirectorySerializer { digest_config });
         let tree = directory_to_re_tree(&dir);
         let tree = proto_serialize(&tree);
         let digest = FileDigest::from_content_sha1(&tree);
@@ -1049,7 +1058,8 @@ mod tests {
         )?;
         insert_file(&mut builder, path("d2/f2"), FileMetadata::empty())?;
 
-        extract_artifact_value(&builder, path("d1/f1"))?.context("Not value!")?;
+        extract_artifact_value(&builder, path("d1/f1"), DigestConfig::compat())?
+            .context("Not value!")?;
         Ok(())
     }
 }

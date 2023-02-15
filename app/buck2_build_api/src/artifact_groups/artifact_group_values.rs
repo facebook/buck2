@@ -18,6 +18,7 @@ use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::artifact::fs::ArtifactFs;
 use buck2_execute::artifact::group::artifact_group_values_dyn::ArtifactGroupValuesDyn;
 use buck2_execute::artifact_value::ArtifactValue;
+use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::insert_artifact;
 use buck2_execute::directory::ActionDirectoryBuilder;
 use buck2_execute::directory::ActionSharedDirectory;
@@ -40,6 +41,7 @@ impl ArtifactGroupValues {
         values: SmallVec<[(Artifact, ArtifactValue); 1]>,
         children: Vec<Self>,
         artifact_fs: &ArtifactFs,
+        digest_config: DigestConfig,
     ) -> anyhow::Result<Self> {
         let mut builder = ActionDirectoryBuilder::empty();
 
@@ -66,7 +68,7 @@ impl ArtifactGroupValues {
         }
 
         let directory = builder
-            .fingerprint(&ReDirectorySerializer)
+            .fingerprint(&ReDirectorySerializer { digest_config })
             .shared(&*INTERNER);
 
         Ok(Self(Arc::new(ArtifactGroupValuesData {

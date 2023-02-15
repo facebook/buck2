@@ -24,6 +24,7 @@ use buck2_core::directory::Directory;
 use buck2_core::directory::DirectoryIterator;
 use buck2_core::target::name::TargetName;
 use buck2_execute::base_deferred_key::BaseDeferredKey;
+use buck2_execute::digest_config::HasDigestConfig;
 use buck2_execute::materialize::materializer::HasMaterializer;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
@@ -106,7 +107,11 @@ impl AuditSubcommand for AuditDepFilesCommand {
                     .context("Failed to read dep files")?
                     .context("Dep fils have expired")?;
 
-                let fingerprints = state.locked_compute_fingerprints(Cow::Owned(dep_files), true);
+                let fingerprints = state.locked_compute_fingerprints(
+                    Cow::Owned(dep_files),
+                    true,
+                    ctx.global_data().get_digest_config(),
+                );
 
                 let dirs = match &*fingerprints {
                     StoredFingerprints::Digests(..) => {

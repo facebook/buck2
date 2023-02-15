@@ -170,7 +170,7 @@ impl IncrementalActionExecutable for CopyAction {
 
         let value = {
             let fs = artifact_fs.fs();
-            let mut builder = ArtifactValueBuilder::new(fs);
+            let mut builder = ArtifactValueBuilder::new(fs, ctx.digest_config());
             match self.copy {
                 CopyMode::Copy => {
                     builder.add_copied(src_value, src.as_ref(), dest.as_ref())?;

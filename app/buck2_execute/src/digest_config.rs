@@ -11,6 +11,12 @@ use allocative::Allocative;
 use dice::DiceData;
 use dice::DiceDataBuilder;
 use dupe::Dupe;
+use once_cell::sync::OnceCell;
+
+use crate::directory::ActionDirectoryBuilder;
+use crate::directory::ActionSharedDirectory;
+use crate::directory::ReDirectorySerializer;
+use crate::directory::INTERNER;
 
 /// This configuration describes how to interpret digests received from a RE backend.
 #[derive(Copy, Clone, Dupe, Debug, Allocative, Hash, Eq, PartialEq)]
@@ -19,6 +25,20 @@ pub struct DigestConfig {}
 impl DigestConfig {
     pub fn compat() -> Self {
         Self {}
+    }
+
+    pub fn empty_directory(&self) -> ActionSharedDirectory {
+        // TODO: This should be a field on the DigestConfig, obviously.
+        static EMPTY_DIRECTORY: OnceCell<ActionSharedDirectory> = OnceCell::new();
+        EMPTY_DIRECTORY
+            .get_or_init(|| {
+                ActionDirectoryBuilder::empty()
+                    .fingerprint(&ReDirectorySerializer {
+                        digest_config: *self,
+                    })
+                    .shared(&*INTERNER)
+            })
+            .dupe()
     }
 }
 

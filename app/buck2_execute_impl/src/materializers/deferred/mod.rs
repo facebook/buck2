@@ -45,6 +45,7 @@ use buck2_events::dispatch::EventDispatcher;
 use buck2_events::span::SpanId;
 use buck2_events::trace::TraceId;
 use buck2_execute::artifact_value::ArtifactValue;
+use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::ActionDirectory;
 use buck2_execute::directory::ActionDirectoryEntry;
 use buck2_execute::directory::ActionDirectoryMember;
@@ -1491,7 +1492,11 @@ impl ArtifactTree {
                         path,
                         // TODO (@torozco): A nicer API to get an Immutable directory here.
                         entry: entry
-                            .map_dir(|d| d.to_builder().fingerprint(&ReDirectorySerializer))
+                            .map_dir(|d| {
+                                d.to_builder().fingerprint(&ReDirectorySerializer {
+                                    digest_config: DigestConfig::compat(),
+                                })
+                            })
                             .map_leaf(|l| l.dupe()),
                         info: info.dupe(),
                     }),

@@ -23,6 +23,8 @@ use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::directory::DirectoryData;
 use buck2_execute::artifact::source_artifact::SourceArtifact;
 use buck2_execute::artifact_value::ArtifactValue;
+use buck2_execute::digest_config::DigestConfig;
+use buck2_execute::digest_config::HasDigestConfig;
 use buck2_execute::directory::extract_artifact_value;
 use buck2_execute::directory::insert_artifact;
 use buck2_execute::directory::ActionDirectoryBuilder;
@@ -159,11 +161,17 @@ fn ensure_source_artifact_staged<'a>(
     dice: &'a DiceComputations,
     source: &'a SourceArtifact,
 ) -> impl Future<Output = anyhow::Result<EnsureArtifactGroupReady>> + 'a {
+    let digest_config = dice.global_data().get_digest_config();
+
     async move {
         Ok(EnsureArtifactGroupReady::Single(
-            path_artifact_value(&dice.file_ops(), source.get_path().to_cell_path().as_ref())
-                .await?
-                .into(),
+            path_artifact_value(
+                &dice.file_ops(),
+                source.get_path().to_cell_path().as_ref(),
+                digest_config,
+            )
+            .await?
+            .into(),
         ))
     }
     .boxed()
@@ -233,18 +241,25 @@ fn _assert_ensure_artifact_group_future_size() {
 async fn dir_artifact_value(
     file_ops: &dyn FileOps,
     cell_path: CellPathRef<'_>,
+    digest_config: DigestConfig,
 ) -> anyhow::Result<ActionDirectoryEntry<ActionSharedDirectory>> {
     let files = file_ops.read_dir(cell_path.dupe()).await?;
 
     let entries = files.iter().map(|x| async {
-        let value = path_artifact_value(file_ops, cell_path.join(&x.file_name).as_ref()).await?;
+        let value = path_artifact_value(
+            file_ops,
+            cell_path.join(&x.file_name).as_ref(),
+            digest_config,
+        )
+        .await?;
         anyhow::Ok((x.file_name.clone(), value))
     });
 
     let entries = future::try_join_all(entries).await?;
     let entries = entries.into_iter().collect();
 
-    let d: DirectoryData<_, _, _> = DirectoryData::new(entries, &ReDirectorySerializer);
+    let d: DirectoryData<_, _, _> =
+        DirectoryData::new(entries, &ReDirectorySerializer { digest_config });
     Ok(ActionDirectoryEntry::Dir(INTERNER.intern(d)))
 }
 
@@ -252,6 +267,7 @@ async fn dir_artifact_value(
 async fn path_artifact_value(
     file_ops: &dyn FileOps,
     cell_path: CellPathRef<'async_recursion>,
+    digest_config: DigestConfig,
 ) -> anyhow::Result<ActionDirectoryEntry<ActionSharedDirectory>> {
     let raw = file_ops.read_path_metadata(cell_path.dupe()).await?;
     match PathMetadataOrRedirection::from(raw) {
@@ -262,11 +278,11 @@ async fn path_artifact_value(
             PathMetadata::File(metadata) => Ok(ActionDirectoryEntry::Leaf(
                 ActionDirectoryMember::File(metadata),
             )),
-            PathMetadata::Directory => dir_artifact_value(file_ops, cell_path).await,
+            PathMetadata::Directory => dir_artifact_value(file_ops, cell_path, digest_config).await,
         },
         PathMetadataOrRedirection::Redirection(r) => {
             // TODO (T126181780): This should have a limit on recursion.
-            path_artifact_value(file_ops, r.as_ref().as_ref()).await
+            path_artifact_value(file_ops, r.as_ref().as_ref(), digest_config).await
         }
     }
 }
@@ -285,6 +301,7 @@ impl Key for EnsureProjectedArtifactKey {
             .unpack_single()?;
 
         let artifact_fs = crate::calculation::Calculation::get_artifact_fs(ctx).await?;
+        let digest_config = ctx.global_data().get_digest_config();
 
         let base_path = match self.0.base() {
             BaseArtifactKind::Build(built) => artifact_fs.resolve_build(built.get_path()),
@@ -294,14 +311,18 @@ impl Key for EnsureProjectedArtifactKey {
         let mut builder = ActionDirectoryBuilder::empty();
         insert_artifact(&mut builder, base_path.as_ref(), &base_value)?;
 
-        let value = extract_artifact_value(&builder, base_path.join(self.0.path()).as_ref())?
-            .with_context(|| {
-                format!(
-                    "The path `{}` does not exist in the artifact `{}`",
-                    self.0.path(),
-                    self.0.base()
-                )
-            })?;
+        let value = extract_artifact_value(
+            &builder,
+            base_path.join(self.0.path()).as_ref(),
+            digest_config,
+        )?
+        .with_context(|| {
+            format!(
+                "The path `{}` does not exist in the artifact `{}`",
+                self.0.path(),
+                self.0.base()
+            )
+        })?;
 
         Ok(value)
     }
@@ -398,7 +419,9 @@ impl Key for EnsureTransitiveSetProjectionKey {
                 });
             }
 
-            let values = ArtifactGroupValues::new(values, children, &artifact_fs)
+            let digest_config = ctx.global_data().get_digest_config();
+
+            let values = ArtifactGroupValues::new(values, children, &artifact_fs, digest_config)
                 .context("Failed to construct ArtifactGroupValues")?;
 
             Ok(values)
@@ -440,6 +463,8 @@ mod tests {
     use buck2_core::package::PackageLabel;
     use buck2_execute::artifact::source_artifact::SourceArtifact;
     use buck2_execute::artifact_value::ArtifactValue;
+    use buck2_execute::digest_config::DigestConfig;
+    use buck2_execute::digest_config::SetDigestConfig;
     use dice::testing::DiceBuilder;
     use dice::UserComputationData;
     use indoc::indoc;
@@ -534,7 +559,10 @@ mod tests {
 
         let mut dice_builder = DiceBuilder::new()
             .mock_and_return(FileOpsKey(), Ok(FileOpsValue(Arc::new(files))))
-            .set_data(|data| data.set_testing_io_provider(&fs));
+            .set_data(|data| {
+                data.set_testing_io_provider(&fs);
+                data.set_digest_config(DigestConfig::compat());
+            });
 
         // Register all the sets as deferreds.
         dice_builder = mock_deferred_tset(dice_builder, set.to_owned_frozen_value());

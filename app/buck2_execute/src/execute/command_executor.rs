@@ -108,7 +108,8 @@ impl CommandExecutor {
         manager: CommandExecutionManager,
         digest_config: DigestConfig,
     ) -> CommandExecutionResult {
-        let (manager, action_paths, prepared_action) = self.prepare(manager, request).await?;
+        let (manager, action_paths, prepared_action) =
+            self.prepare(manager, request, digest_config).await?;
         self.0
             .inner
             .exec_cmd(
@@ -128,10 +129,11 @@ impl CommandExecutor {
         &self,
         mut manager: CommandExecutionManager,
         request: &CommandExecutionRequest,
+        digest_config: DigestConfig,
     ) -> ControlFlow<CommandExecutionResult, (CommandExecutionManager, ActionPaths, PreparedAction)>
     {
         let (action_paths, action) = match manager.stage(buck2_data::PrepareAction {}, || {
-            let action_paths = self.preamble(request.inputs(), request.outputs())?;
+            let action_paths = self.preamble(request.inputs(), request.outputs(), digest_config)?;
             let input_digest = action_paths.inputs.fingerprint();
 
             let mut output_files = Vec::new();
@@ -181,6 +183,7 @@ impl CommandExecutor {
         &self,
         inputs: &[CommandExecutionInput],
         outputs: impl Iterator<Item = CommandExecutionOutputRef<'a>>,
+        digest_config: DigestConfig,
     ) -> anyhow::Result<ActionPaths> {
         let mut builder = inputs_directory(inputs, &self.0.artifact_fs)?;
 
@@ -201,7 +204,7 @@ impl CommandExecutor {
             DirectoryEntry::Leaf(ActionDirectoryMember::File(FileMetadata::empty())),
         )?;
 
-        let input_dir = builder.fingerprint(&ReDirectorySerializer);
+        let input_dir = builder.fingerprint(&ReDirectorySerializer { digest_config });
 
         let mut input_files_bytes = 0;
 

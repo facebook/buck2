@@ -241,7 +241,10 @@ impl IncrementalActionExecutable for CasArtifactAction {
 
                 ArtifactValue::new(
                     ActionDirectoryEntry::Dir(
-                        dir.fingerprint(&ReDirectorySerializer).shared(&*INTERNER),
+                        dir.fingerprint(&ReDirectorySerializer {
+                            digest_config: ctx.digest_config(),
+                        })
+                        .shared(&*INTERNER),
                     ),
                     None,
                 )

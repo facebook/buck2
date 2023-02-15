@@ -17,6 +17,7 @@ use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use dupe::Dupe;
 
 use crate::artifact_value::ArtifactValue;
+use crate::digest_config::DigestConfig;
 use crate::directory::extract_artifact_value;
 use crate::directory::insert_artifact;
 use crate::directory::insert_entry;
@@ -33,13 +34,15 @@ pub struct ArtifactValueBuilder<'a> {
     /// Only used to relativize paths; no disk operations performed!
     project_fs: &'a ProjectRoot,
     builder: ActionDirectoryBuilder,
+    digest_config: DigestConfig,
 }
 
 impl<'a> ArtifactValueBuilder<'a> {
-    pub fn new(project_fs: &'a ProjectRoot) -> Self {
+    pub fn new(project_fs: &'a ProjectRoot, digest_config: DigestConfig) -> Self {
         Self {
             project_fs,
             builder: ActionDirectoryBuilder::empty(),
+            digest_config,
         }
     }
 
@@ -92,7 +95,9 @@ impl<'a> ArtifactValueBuilder<'a> {
             DirectoryEntry::Dir(directory) => {
                 let mut builder = directory.dupe().into_builder();
                 relativize_directory(&mut builder, src.as_ref(), dest.as_ref())?;
-                DirectoryEntry::Dir(builder.fingerprint(&ReDirectorySerializer))
+                DirectoryEntry::Dir(builder.fingerprint(&ReDirectorySerializer {
+                    digest_config: self.digest_config,
+                }))
             }
             DirectoryEntry::Leaf(ActionDirectoryMember::Symlink(s)) => {
                 // TODO: This seems like it normally shouldn't need to be normalizing anything.
@@ -126,11 +131,11 @@ impl<'a> ArtifactValueBuilder<'a> {
     /// project root, `output` must be passed to specify the path of the value
     /// being built.
     pub fn build(&self, output: &ProjectRelativePath) -> anyhow::Result<ArtifactValue> {
-        match extract_artifact_value(&self.builder, output.as_ref())? {
+        match extract_artifact_value(&self.builder, output.as_ref(), self.digest_config)? {
             Some(v) => Ok(v),
             None => {
                 tracing::debug!("Extracting {} produces empty directory!", output);
-                Ok(ArtifactValue::empty_dir())
+                Ok(ArtifactValue::dir(self.digest_config.empty_directory()))
             }
         }
     }
@@ -171,7 +176,7 @@ mod tests {
 
         let entry = {
             let fs = ProjectRootTemp::new().unwrap();
-            let mut builder = ArtifactValueBuilder::new(fs.path());
+            let mut builder = ArtifactValueBuilder::new(fs.path(), DigestConfig::compat());
             builder.add_copied(
                 &get_symlink_artifact_value("../../../d6/target"),
                 path("d1/d2/d3/d4/link"),

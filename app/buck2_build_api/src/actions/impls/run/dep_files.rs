@@ -25,6 +25,7 @@ use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::soft_error;
 use buck2_execute::artifact::fs::ArtifactFs;
 use buck2_execute::base_deferred_key::BaseDeferredKey;
+use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::expand_selector_for_dependencies;
 use buck2_execute::directory::ActionDirectoryBuilder;
 use buck2_execute::directory::ActionImmutableDirectory;
@@ -192,6 +193,7 @@ impl DepFileState {
         &'a self,
         dep_files: Cow<'_, ConcreteDepFiles>,
         keep_directories: bool,
+        digest_config: DigestConfig,
     ) -> MappedMutexGuard<'a, StoredFingerprints> {
         // Now we need to know the signatures on the original action. Produce them if they're
         // missing. We're either storing input directories or outputs here.
@@ -204,7 +206,7 @@ impl DepFileState {
                 .expect("Poisoned DepFileStateInputSignatures")
                 .unshare()
                 .filter(dep_files.into_owned())
-                .fingerprint();
+                .fingerprint(digest_config);
 
             let fingerprints = if keep_directories {
                 StoredFingerprints::Dirs(directories)
@@ -285,12 +287,15 @@ pub async fn match_or_clear_dep_file(
             // Now we need to know the fingerprints on the original action. Produce them if they're
             // missing. We're either storing input directories or outputs here.
 
+            let digest_config = ctx.digest_config();
+
             let fingerprints_match = {
                 // NOTE: We don't bother releasing the guard here (we'd have to clone the fingerprints to do
                 // so), because this Mutex won't be contended: only one action will look at its value.
                 let previous_fingerprints = previous_state.locked_compute_fingerprints(
                     Cow::Borrowed(&dep_files),
                     KEEP_DIRECTORIES.get_copied()?.unwrap_or_default(),
+                    digest_config,
                 );
 
                 // NOTE: We use the new directory to e.g. resolve symlinks referenced in the dep file. This
@@ -300,7 +305,7 @@ pub async fn match_or_clear_dep_file(
                 let new_fingerprints = declared_inputs
                     .to_directories(ctx)?
                     .filter(dep_files)
-                    .fingerprint();
+                    .fingerprint(digest_config);
 
                 *previous_fingerprints == new_fingerprints
             };
@@ -367,11 +372,12 @@ pub async fn populate_dep_files(
     let has_no_dep_files = declared_dep_files.is_empty();
 
     let directories = declared_inputs.to_directories(ctx)?;
+    let digest_config = ctx.digest_config();
 
     let state = DepFileState {
         cli_digest,
         input_signatures: Mutex::new(DepFileStateInputSignatures::Deferred(Some(
-            directories.share(),
+            directories.share(digest_config),
         ))),
         declared_dep_files,
         result: result.dupe(),
@@ -387,6 +393,7 @@ pub async fn populate_dep_files(
         std::mem::drop(state.locked_compute_fingerprints(
             Cow::Owned(dep_files),
             KEEP_DIRECTORIES.get_copied()?.unwrap_or_default(),
+            digest_config,
         ));
     }
 
@@ -477,16 +484,22 @@ impl PartitionedInputs<ActionSharedDirectory> {
 }
 
 impl PartitionedInputs<ActionDirectoryBuilder> {
-    fn share(self) -> PartitionedInputs<ActionSharedDirectory> {
+    fn share(self, digest_config: DigestConfig) -> PartitionedInputs<ActionSharedDirectory> {
         PartitionedInputs {
             untagged: self
                 .untagged
-                .fingerprint(&ReDirectorySerializer)
+                .fingerprint(&ReDirectorySerializer { digest_config })
                 .shared(&*INTERNER),
             tagged: self
                 .tagged
                 .into_iter()
-                .map(|(k, v)| (k, v.fingerprint(&ReDirectorySerializer).shared(&*INTERNER)))
+                .map(|(k, v)| {
+                    (
+                        k,
+                        v.fingerprint(&ReDirectorySerializer { digest_config })
+                            .shared(&*INTERNER),
+                    )
+                })
                 .collect(),
         }
     }
@@ -524,13 +537,18 @@ impl PartitionedInputs<ActionDirectoryBuilder> {
     }
 
     /// Compute fingerprints for all the PartitionedInputs in here. This lets us do comparisons.
-    fn fingerprint(self) -> PartitionedInputs<ActionImmutableDirectory> {
+    fn fingerprint(
+        self,
+        digest_config: DigestConfig,
+    ) -> PartitionedInputs<ActionImmutableDirectory> {
         PartitionedInputs {
-            untagged: self.untagged.fingerprint(&ReDirectorySerializer),
+            untagged: self
+                .untagged
+                .fingerprint(&ReDirectorySerializer { digest_config }),
             tagged: self
                 .tagged
                 .into_iter()
-                .map(|(k, v)| (k, v.fingerprint(&ReDirectorySerializer)))
+                .map(|(k, v)| (k, v.fingerprint(&ReDirectorySerializer { digest_config })))
                 .collect(),
         }
     }

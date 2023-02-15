@@ -11,6 +11,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 
 use buck2_common::file_ops::FileMetadata;
+use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::insert_file;
 use buck2_execute::directory::ActionDirectoryBuilder;
 use buck2_execute::directory::ReDirectorySerializer;
@@ -241,6 +242,7 @@ mod state_machine {
     fn make_artifact_value_with_symlink_dep(
         target_path: &ProjectRelativePathBuf,
         target_from_symlink: &RelativePathBuf,
+        digest_config: DigestConfig,
     ) -> anyhow::Result<ArtifactValue> {
         let mut deps = ActionDirectoryBuilder::empty();
         let target = ActionDirectoryEntry::Leaf(ActionDirectoryMember::File(FileMetadata::empty()));
@@ -249,13 +251,18 @@ mod state_machine {
             ActionDirectoryEntry::Leaf(ActionDirectoryMember::Symlink(Arc::new(Symlink::new(
                 target_from_symlink.clone(),
             )))),
-            Some(deps.fingerprint(&ReDirectorySerializer).shared(&*INTERNER)),
+            Some(
+                deps.fingerprint(&ReDirectorySerializer { digest_config })
+                    .shared(&*INTERNER),
+            ),
         );
         Ok(symlink_value)
     }
 
     #[tokio::test]
     async fn test_materialize_symlink_and_target() -> anyhow::Result<()> {
+        let digest_config = DigestConfig::compat();
+
         // Construct a tree with a symlink and its target, materialize both at once
         let mut tree = ArtifactTree::new();
         let symlink_path = make_path("foo/bar_symlink");
@@ -287,8 +294,11 @@ mod state_machine {
         assert_eq!(dm.io.take_log(), &[(Op::Clean, target_path.clone())]);
 
         // Declare symlink
-        let symlink_value =
-            make_artifact_value_with_symlink_dep(&target_path, &target_from_symlink)?;
+        let symlink_value = make_artifact_value_with_symlink_dep(
+            &target_path,
+            &target_from_symlink,
+            digest_config,
+        )?;
         dm.declare(
             &mut tree,
             symlink_path.clone(),
@@ -332,6 +342,8 @@ mod state_machine {
 
     #[tokio::test]
     async fn test_materialize_symlink_first_then_target() -> anyhow::Result<()> {
+        let digest_config = DigestConfig::compat();
+
         // Materialize a symlink, then materialize the target. Test that we still
         // materialize deps if the main artifact has already been materialized.
         let mut tree = ArtifactTree::new();
@@ -353,8 +365,11 @@ mod state_machine {
         };
 
         // Declare symlink
-        let symlink_value =
-            make_artifact_value_with_symlink_dep(&target_path, &target_from_symlink)?;
+        let symlink_value = make_artifact_value_with_symlink_dep(
+            &target_path,
+            &target_from_symlink,
+            digest_config,
+        )?;
         dm.declare(
             &mut tree,
             symlink_path.clone(),

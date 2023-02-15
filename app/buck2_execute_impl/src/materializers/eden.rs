@@ -122,7 +122,9 @@ impl Materializer for EdenMaterializer {
         // TODO(yipu) We don't need to upload CAS, and we should pass ArtifactValue to eden directly
         let mut builder = ActionDirectoryBuilder::empty();
         insert_artifact(&mut builder, path.as_ref(), &value)?;
-        let input_dir = builder.fingerprint(&ReDirectorySerializer);
+        let input_dir = builder.fingerprint(&ReDirectorySerializer {
+            digest_config: self.digest_config,
+        });
 
         self.re_client_manager
             .get_re_connection()

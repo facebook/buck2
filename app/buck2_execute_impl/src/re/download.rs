@@ -210,7 +210,7 @@ impl CasDownloader<'_> {
         let mut mapped_outputs = IndexMap::with_capacity(output_paths.len());
 
         for (requested, (path, _)) in requested_outputs.zip(output_paths.iter()) {
-            let value = extract_artifact_value(&input_dir, path.as_ref())?;
+            let value = extract_artifact_value(&input_dir, path.as_ref(), self.digest_config)?;
             if let Some(value) = value {
                 to_declare.push((path.clone(), value.dupe()));
                 mapped_outputs.insert(requested.cloned(), value);

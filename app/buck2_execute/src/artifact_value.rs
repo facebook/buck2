@@ -18,7 +18,6 @@ use dupe::Dupe;
 use crate::directory::ActionDirectoryEntry;
 use crate::directory::ActionDirectoryMember;
 use crate::directory::ActionSharedDirectory;
-use crate::directory::EMPTY_DIRECTORY;
 
 /// `ArtifactValue` stores enough information about an artifact such that, if
 /// it's in the CAS, we don't have to read anything from disk. In summary:
@@ -62,6 +61,13 @@ impl ArtifactValue {
         }
     }
 
+    pub fn dir(dir: ActionSharedDirectory) -> Self {
+        Self {
+            entry: ActionDirectoryEntry::Dir(dir),
+            deps: None,
+        }
+    }
+
     pub fn is_dir(&self) -> bool {
         matches!(self.entry, ActionDirectoryEntry::Dir(_))
     }
@@ -77,13 +83,6 @@ impl ArtifactValue {
     /// tests where we treat all artifacts as empty files.
     pub fn empty_file() -> Self {
         Self::file(FileMetadata::empty())
-    }
-
-    pub fn empty_dir() -> Self {
-        Self {
-            entry: ActionDirectoryEntry::Dir(EMPTY_DIRECTORY.dupe()),
-            deps: None,
-        }
     }
 
     pub fn entry(&self) -> &ActionDirectoryEntry<ActionSharedDirectory> {
