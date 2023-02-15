@@ -36,11 +36,16 @@ def get_compiled_pcm_deps_tset(ctx: "context", pcm_deps_providers: list.type) ->
     ]
     return ctx.actions.tset(PcmDepTSet, children = pcm_deps)
 
-def get_swift_pcm_anon_targets(ctx: "context", uncompiled_deps: ["dependency"]):
+def get_swift_pcm_anon_targets(
+        ctx: "context",
+        uncompiled_deps: ["dependency"],
+        swift_cxx_args: [str.type]):
     deps = [
         {
             "dep": uncompiled_dep,
             "pcm_name": uncompiled_dep[SwiftPCMUncompiledInfo].name,
+            "swift_cxx_args": swift_cxx_args,
+            "target_sdk_version": ctx.attrs.target_sdk_version,
             "_apple_toolchain": ctx.attrs._apple_toolchain,
         }
         for uncompiled_dep in uncompiled_deps
@@ -94,6 +99,8 @@ def _swift_pcm_compilation_impl(ctx: "context") -> ["promise", ["provider"]]:
             cmd_args(modulemap_path).parent(),
         ])
 
+        cmd.add(ctx.attrs.swift_cxx_args)
+
         # When compiling pcm files, module's exported pps and inherited pps
         # must be provided to an action like hmaps which are used for headers resolution.
         cmd.add(uncompiled_pcm_info.propagated_preprocessor_args_cmd)
@@ -134,6 +141,7 @@ def _swift_pcm_compilation_impl(ctx: "context") -> ["promise", ["provider"]]:
     sdk_pcm_deps_anon_targets = get_swift_sdk_pcm_anon_targets(
         ctx,
         direct_uncompiled_sdk_deps,
+        ctx.attrs.swift_cxx_args,
     )
 
     # Recursively compiling SDK's Swift dependencies
@@ -143,12 +151,14 @@ def _swift_pcm_compilation_impl(ctx: "context") -> ["promise", ["provider"]]:
     swift_interface_anon_targets = get_swift_interface_anon_targets(
         ctx,
         direct_uncompiled_sdk_deps,
+        ctx.attrs.swift_cxx_args,
     )
 
     # Recursively compile PCMs of transitevely visible exported_deps
     swift_pcm_anon_targets = get_swift_pcm_anon_targets(
         ctx,
         ctx.attrs.dep[SwiftPCMUncompiledInfo].exported_deps,
+        ctx.attrs.swift_cxx_args,
     )
     return ctx.actions.anon_targets(sdk_pcm_deps_anon_targets + swift_pcm_anon_targets + swift_interface_anon_targets).map(k)
 
@@ -157,6 +167,8 @@ _swift_pcm_compilation = rule(
     attrs = {
         "dep": attrs.dep(),
         "pcm_name": attrs.string(),
+        "swift_cxx_args": attrs.list(attrs.string(), default = []),
+        "target_sdk_version": attrs.option(attrs.string(), default = None),
         "_apple_toolchain": attrs.dep(),
     },
 )

@@ -14,11 +14,13 @@ load(":swift_toolchain_types.bzl", "SdkCompiledModuleInfo", "SdkUncompiledModule
 
 def get_swift_interface_anon_targets(
         ctx: "context",
-        uncompiled_sdk_deps: ["dependency"]):
+        uncompiled_sdk_deps: ["dependency"],
+        swift_cxx_args: [str.type]):
     deps = [
         {
             "dep": uncompiled_sdk_dep,
             "sdk_swiftinterface_name": uncompiled_sdk_dep[SdkUncompiledModuleInfo].module_name,
+            "swift_cxx_args": swift_cxx_args,
             "_apple_toolchain": ctx.attrs._apple_toolchain,
         }
         for uncompiled_sdk_dep in uncompiled_sdk_deps
@@ -94,12 +96,14 @@ def _swift_interface_compilation_impl(ctx: "context") -> ["promise", ["provider"
     sdk_pcm_deps_anon_targets = get_swift_sdk_pcm_anon_targets(
         ctx,
         ctx.attrs.dep[SdkUncompiledModuleInfo].deps,
+        ctx.attrs.swift_cxx_args,
     )
 
     # Recursively compile swiftinterface of any other exported_deps
     sdk_swift_interface_anon_targets = get_swift_interface_anon_targets(
         ctx,
         ctx.attrs.dep[SdkUncompiledModuleInfo].deps,
+        ctx.attrs.swift_cxx_args,
     )
 
     return ctx.actions.anon_targets(sdk_pcm_deps_anon_targets + sdk_swift_interface_anon_targets).map(k)
@@ -109,6 +113,7 @@ _swift_interface_compilation = rule(
     attrs = {
         "dep": attrs.dep(),
         "sdk_swiftinterface_name": attrs.string(),
+        "swift_cxx_args": attrs.list(attrs.string(), default = []),
         "_apple_toolchain": attrs.dep(),
     },
 )

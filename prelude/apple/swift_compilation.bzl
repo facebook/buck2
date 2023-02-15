@@ -73,6 +73,8 @@ SwiftCompilationOutput = record(
 REQUIRED_SDK_MODULES = ["Swift", "SwiftOnoneSupport", "Darwin", "_Concurrency", "_StringProcessing"]
 
 def get_swift_anonymous_targets(ctx: "context", get_apple_library_providers: "function") -> "promise":
+    swift_cxx_flags = get_swift_cxx_flags(ctx)
+
     # Get SDK deps from direct dependencies,
     # all transitive deps will be compiled recursively.
     direct_uncompiled_sdk_deps = get_uncompiled_sdk_deps(
@@ -86,20 +88,40 @@ def get_swift_anonymous_targets(ctx: "context", get_apple_library_providers: "fu
     pcm_targets = get_swift_pcm_anon_targets(
         ctx,
         ctx.attrs.deps + ctx.attrs.exported_deps,
+        swift_cxx_flags,
     )
 
     # Recursively compiling SDK's Clang dependencies
     sdk_pcm_targets = get_swift_sdk_pcm_anon_targets(
         ctx,
         direct_uncompiled_sdk_deps,
+        swift_cxx_flags,
     )
 
     # Recursively compiling SDK's Swift dependencies
     swift_interface_anon_targets = get_swift_interface_anon_targets(
         ctx,
         direct_uncompiled_sdk_deps,
+        swift_cxx_flags,
     )
     return ctx.actions.anon_targets(pcm_targets + sdk_pcm_targets + swift_interface_anon_targets).map(get_apple_library_providers)
+
+def get_swift_cxx_flags(ctx: "context") -> [str.type]:
+    gather, next = ([], False)
+    for f in ctx.attrs.swift_compiler_flags:
+        if next:
+            gather.append("-Xcc")
+            gather.append(str(f).replace('\"', ""))
+            next = False
+        next = str(f) == "\"-Xcc\""
+
+    if ctx.attrs.enable_cxx_interop:
+        gather += ["-Xfrontend", "-enable-cxx-interop"]
+
+    if ctx.attrs.swift_version != None:
+        gather += ["-swift-version", ctx.attrs.swift_version]
+
+    return gather
 
 def compile_swift(
         ctx: "context",

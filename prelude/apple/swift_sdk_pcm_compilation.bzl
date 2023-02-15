@@ -85,11 +85,15 @@ def _add_sdk_module_search_path(cmd, uncompiled_sdk_module_info, swift_toolchain
         cmd_args(expanded_path),
     ])
 
-def get_swift_sdk_pcm_anon_targets(ctx: "context", uncompiled_sdk_deps: ["dependency"]):
+def get_swift_sdk_pcm_anon_targets(
+        ctx: "context",
+        uncompiled_sdk_deps: ["dependency"],
+        swift_cxx_args: [str.type]):
     deps = [
         {
             "dep": uncompiled_sdk_dep,
             "sdk_pcm_name": uncompiled_sdk_dep[SdkUncompiledModuleInfo].name,
+            "swift_cxx_args": swift_cxx_args,
             "_apple_toolchain": ctx.attrs._apple_toolchain,
         }
         for uncompiled_sdk_dep in uncompiled_sdk_deps
@@ -140,6 +144,8 @@ def _swift_sdk_pcm_compilation_impl(ctx: "context") -> ["promise", ["provider"]]
             "-fsystem-module",
         ])
 
+        cmd.add(ctx.attrs.swift_cxx_args)
+
         _add_sdk_module_search_path(cmd, uncompiled_sdk_module_info, swift_toolchain)
         ctx.actions.run(cmd, category = "sdk_swift_pcm_compile", identifier = module_name)
 
@@ -167,6 +173,7 @@ def _swift_sdk_pcm_compilation_impl(ctx: "context") -> ["promise", ["provider"]]
     sdk_pcm_anon_targets = get_swift_sdk_pcm_anon_targets(
         ctx,
         ctx.attrs.dep[SdkUncompiledModuleInfo].deps,
+        ctx.attrs.swift_cxx_args,
     )
 
     return ctx.actions.anon_targets(sdk_pcm_anon_targets).map(k)
@@ -176,6 +183,7 @@ _swift_sdk_pcm_compilation = rule(
     attrs = {
         "dep": attrs.dep(),
         "sdk_pcm_name": attrs.string(),
+        "swift_cxx_args": attrs.list(attrs.string(), default = []),
         "_apple_toolchain": attrs.dep(),
     },
 )
