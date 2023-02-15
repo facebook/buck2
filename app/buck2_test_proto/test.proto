@@ -78,8 +78,9 @@ message ConfiguredTargetHandle {
 
 message ConfiguredTarget {
   ConfiguredTargetHandle handle = 1;
-  // Backwards-compat name.
-  string name = 2;
+  // Backwards-compatible name used by test runner to create Buck1 matching test
+  // names.
+  string legacy_name = 2;
   // Structured data describing the target
   string cell = 3;
   string package = 4;
