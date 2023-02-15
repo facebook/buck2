@@ -7,8 +7,6 @@
  * of this source tree.
  */
 
-use std::time::Duration;
-
 use anyhow::Context;
 use buck2_test_api::data::ArgValue;
 use buck2_test_api::data::ArgValueContent;
@@ -30,8 +28,6 @@ use parking_lot::Mutex;
 
 use crate::config::Config;
 use crate::config::EnvValue;
-
-const DEFAULT_TEST_TIMEOUT_SECS: u64 = 600;
 
 pub type SpecReceiver = UnboundedReceiver<ExternalRunnerSpec>;
 
@@ -77,7 +73,7 @@ impl Buck2TestRunner {
                 let target_handle = spec.target.handle.to_owned();
 
                 let execution_result = self
-                    .execute_test_from_spec(spec, Duration::from_secs(DEFAULT_TEST_TIMEOUT_SECS))
+                    .execute_test_from_spec(spec)
                     .await
                     .expect("Test execution request failed");
 
@@ -113,7 +109,6 @@ impl Buck2TestRunner {
     async fn execute_test_from_spec(
         &self,
         spec: ExternalRunnerSpec,
-        timeout: Duration,
     ) -> anyhow::Result<ExecutionResult2> {
         let display_metadata = DisplayMetadata::Testing {
             suite: spec.target.target,
@@ -167,7 +162,7 @@ impl Buck2TestRunner {
                 target_handle,
                 command,
                 env,
-                timeout,
+                self.config.timeout,
                 host_sharing_requirements,
                 pre_create_dirs,
                 executor_override,
