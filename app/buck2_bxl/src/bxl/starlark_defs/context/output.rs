@@ -17,11 +17,13 @@ use anyhow::Context;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::bxl::build_result::BxlBuildResult;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
+use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::cmd_args::StarlarkCommandLineInputs;
 use buck2_build_api::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_execute::artifact::fs::ArtifactFs;
+use buck2_execute::path::artifact_path::ArtifactPath;
 use derivative::Derivative;
 use derive_more::Display;
 use dupe::Dupe;
@@ -180,26 +182,24 @@ fn register_output_stream(builder: &mut MethodsBuilder) {
 
         for arg in args {
             if let Some(ensured) = <&EnsuredArtifact>::unpack_value(arg) {
-                let resolved = this
-                    .artifact_fs
-                    .resolve(ensured.as_artifact().get_artifact_path())?;
-
-                if ensured.abs() {
-                    write(&this.project_fs.resolve(&resolved).display())?;
-                } else {
-                    write(&resolved)?;
-                }
+                let path = get_artifact_path_display(
+                    ensured.as_artifact().get_artifact_path(),
+                    ensured.abs(),
+                    &this.project_fs,
+                    &this.artifact_fs,
+                )?;
+                write(&path)?;
             } else if let Some(ensured) = <&EnsuredArtifactGroup>::unpack_value(arg) {
                 this.async_ctx.via_dice(|ctx| {
                     ensured.visit_artifact_path_without_associated_deduped(
                         |artifact_path, abs| {
-                            let resolved = this.artifact_fs.resolve(artifact_path)?;
-                            if abs {
-                                write(&this.project_fs.resolve(&resolved).display())?;
-                            } else {
-                                write(&resolved)?;
-                            }
-                            Ok(())
+                            let path = get_artifact_path_display(
+                                artifact_path,
+                                abs,
+                                &this.project_fs,
+                                &this.artifact_fs,
+                            )?;
+                            write(&path)
                         },
                         ctx,
                     )
@@ -252,19 +252,14 @@ fn register_output_stream(builder: &mut MethodsBuilder) {
                 S: Serializer,
             {
                 if let Some(ensured) = <&EnsuredArtifact>::unpack_value(self.value) {
-                    let resolved = self
-                        .artifact_fs
-                        .resolve(ensured.as_artifact().get_artifact_path())
-                        .map_err(|err| serde::ser::Error::custom(format!("{:#}", err)))?;
-
-                    if ensured.abs() {
-                        serializer.serialize_str(&format!(
-                            "{}",
-                            self.project_fs.resolve(&resolved).display()
-                        ))
-                    } else {
-                        serializer.serialize_str(resolved.as_str())
-                    }
+                    let path = get_artifact_path_display(
+                        ensured.as_artifact().get_artifact_path(),
+                        ensured.abs(),
+                        self.project_fs,
+                        self.artifact_fs,
+                    )
+                    .map_err(|err| serde::ser::Error::custom(format!("{:#}", err)))?;
+                    serializer.serialize_str(&path)
                 } else if let Some(ensured) = <&EnsuredArtifactGroup>::unpack_value(self.value) {
                     let mut seq_ser = serializer.serialize_seq(None)?;
 
@@ -272,14 +267,12 @@ fn register_output_stream(builder: &mut MethodsBuilder) {
                         .via_dice(|ctx| {
                             ensured.visit_artifact_path_without_associated_deduped(
                                 |artifact_path, abs| {
-                                    let resolved = self.artifact_fs.resolve(artifact_path)?;
-
-                                    let path = if abs {
-                                        format!("{}", self.project_fs.resolve(&resolved).display())
-                                    } else {
-                                        resolved.to_string()
-                                    };
-
+                                    let path = get_artifact_path_display(
+                                        artifact_path,
+                                        abs,
+                                        self.project_fs,
+                                        self.artifact_fs,
+                                    )?;
                                     seq_ser
                                         .serialize_element(&path)
                                         .map_err(|err| anyhow::anyhow!(format!("{:#}", err)))?;
@@ -416,12 +409,7 @@ fn register_output_stream(builder: &mut MethodsBuilder) {
                     .collect::<anyhow::Result<_>>()?,
             )))
         } else if let Some(cmd_line) = artifacts.as_command_line() {
-            let mut visitor = SimpleCommandLineArtifactVisitor::new();
-            cmd_line.visit_artifacts(&mut visitor)?;
-            let inputs = StarlarkCommandLineInputs {
-                inputs: visitor.inputs,
-            };
-
+            let inputs = get_cmd_line_inputs(cmd_line)?;
             let mut result = Vec::new();
 
             for artifact_group in &inputs.inputs {
@@ -437,6 +425,31 @@ fn register_output_stream(builder: &mut MethodsBuilder) {
             Err(anyhow::anyhow!(incorrect_parameter_type_error(artifacts)))
         }
     }
+}
+
+pub(crate) fn get_cmd_line_inputs<'v>(
+    cmd_line: &'v dyn CommandLineArgLike,
+) -> anyhow::Result<StarlarkCommandLineInputs> {
+    let mut visitor = SimpleCommandLineArtifactVisitor::new();
+    cmd_line.visit_artifacts(&mut visitor)?;
+    let inputs = StarlarkCommandLineInputs {
+        inputs: visitor.inputs,
+    };
+    Ok(inputs)
+}
+
+pub(crate) fn get_artifact_path_display(
+    artifact_path: ArtifactPath,
+    abs: bool,
+    project_fs: &ProjectRoot,
+    artifact_fs: &ArtifactFs,
+) -> anyhow::Result<String> {
+    let resolved = artifact_fs.resolve(artifact_path)?;
+    Ok(if abs {
+        project_fs.resolve(&resolved).to_string()
+    } else {
+        resolved.to_string()
+    })
 }
 
 fn incorrect_parameter_type_error(artifacts: Value) -> ValueError {

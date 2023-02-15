@@ -66,6 +66,52 @@ pub struct EnsuredArtifactGroupInner {
     pub(crate) ags: Vec<ArtifactGroup>,
 }
 
+pub async fn visit_artifact_path_without_associated_deduped<'v>(
+    ags: &'v [ArtifactGroup],
+    abs: bool,
+    mut visitor: impl FnMut(ArtifactPath, bool) -> anyhow::Result<()>,
+    ctx: &'v DiceComputations,
+) -> anyhow::Result<()> {
+    // If there's a case where a tset projection returns a projection, we want to make sure
+    // we are not reprocessing the nested projection over again. Since we are using
+
+    // `get_projection_sub_inputs()` to iterate through the tset, this is also needed to make
+    // sure we aren't re-processing tests.
+    let mut visited_artifact_groups = SmallSet::new();
+    let mut visited_artifacts = SmallSet::new();
+
+    let mut todo = Vec::new();
+    todo.extend(ags.iter().duped());
+
+    while let Some(ag) = todo.pop() {
+        match ag {
+            ArtifactGroup::Artifact(a) => {
+                if !visited_artifacts.insert(a.dupe()) {
+                    continue;
+                }
+
+                visitor(a.get_path(), abs)?;
+            }
+            ArtifactGroup::TransitiveSetProjection(t) => {
+                if !visited_artifact_groups.insert(t.dupe()) {
+                    continue;
+                }
+
+                let set = ctx
+                    .compute_deferred_data(&t.key)
+                    .await
+                    .context("Failed to compute deferred for transitive set projection key")?;
+
+                let set = set.as_transitive_set()?;
+
+                todo.extend(set.get_projection_sub_inputs(t.projection)?);
+            }
+        }
+    }
+
+    Ok(())
+}
+
 #[derive(Clone, Debug, Trace, ProvidesStaticType, StarlarkDocs, Allocative)]
 #[repr(C)]
 #[starlark_docs(directory = "bxl")]
@@ -94,47 +140,10 @@ impl<'v> EnsuredArtifactGroup<'v> {
 
     pub async fn visit_artifact_path_without_associated_deduped(
         &self,
-        mut visitor: impl FnMut(ArtifactPath, bool) -> anyhow::Result<()>,
+        visitor: impl FnMut(ArtifactPath, bool) -> anyhow::Result<()>,
         ctx: &'v DiceComputations,
     ) -> anyhow::Result<()> {
-        // If there's a case where a tset projection returns a projection, we want to make sure
-        // we are not reprocessing the nested projection over again. Since we are using
-
-        // `get_projection_sub_inputs()` to iterate through the tset, this is also needed to make
-        // sure we aren't re-processing tests.
-        let mut visited_artifact_groups = SmallSet::new();
-        let mut visited_artifacts = SmallSet::new();
-
-        let mut todo = Vec::new();
-        todo.extend(self.inner().iter().duped());
-
-        while let Some(ag) = todo.pop() {
-            match ag {
-                ArtifactGroup::Artifact(a) => {
-                    if !visited_artifacts.insert(a.dupe()) {
-                        continue;
-                    }
-
-                    visitor(a.get_path(), self.abs)?;
-                }
-                ArtifactGroup::TransitiveSetProjection(t) => {
-                    if !visited_artifact_groups.insert(t.dupe()) {
-                        continue;
-                    }
-
-                    let set = ctx
-                        .compute_deferred_data(&t.key)
-                        .await
-                        .context("Failed to compute deferred for transitive set projection key")?;
-
-                    let set = set.as_transitive_set()?;
-
-                    todo.extend(set.get_projection_sub_inputs(t.projection)?);
-                }
-            }
-        }
-
-        Ok(())
+        visit_artifact_path_without_associated_deduped(self.inner(), self.abs, visitor, ctx).await
     }
 }
 

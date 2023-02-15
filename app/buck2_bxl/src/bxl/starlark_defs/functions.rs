@@ -11,6 +11,7 @@ use std::time::Instant;
 
 use anyhow::Context;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
+use buck2_build_api::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::NonDefaultProvidersName;
 use buck2_core::provider::label::ProviderName;
@@ -32,6 +33,9 @@ use starlark::values::StringValue;
 use starlark::values::Value;
 use starlark::values::ValueError;
 
+use super::artifacts::visit_artifact_path_without_associated_deduped;
+use super::context::output::get_artifact_path_display;
+use super::context::output::get_cmd_line_inputs;
 use crate::bxl::starlark_defs::context::BxlContext;
 use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
 use crate::bxl::starlark_defs::time::StarlarkInstant;
@@ -108,7 +112,7 @@ pub fn register_target_function(builder: &mut GlobalsBuilder) {
     }
 }
 
-/// Global methods on the StarlarkArtifact.
+/// Global methods on artifacts.
 #[starlark_module]
 pub fn register_artifact_function(builder: &mut GlobalsBuilder) {
     /// The project relative path of the source or build artifact.
@@ -139,6 +143,65 @@ pub fn register_artifact_function(builder: &mut GlobalsBuilder) {
             .resolve(this.artifact().get_path())?;
 
         Ok(heap.alloc_str(resolved.as_str()))
+    }
+
+    /// The output paths of a `cmd_args()` inputs. The output paths will be returned as a list.
+    /// Takes an optional boolean to print the absolute or relative path.
+    /// Note that this method returns an artifact path without asking for the artifact to be materialized,
+    /// (i.e. it may not actually exist on the disk yet).
+    ///
+    /// This is a risky function to call because you may accidentally pass this path to further BXL actions
+    /// that expect the artifact to be materialized. If this happens, the BXL script will error out.
+    /// If you want the path without materialization for other uses that don’t involve passing them into
+    /// further actions, then it’s safe.
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def _impl_get_paths_without_materialization(ctx):
+    ///     node = ctx.configured_targets("root//bin:the_binary")
+    ///     providers = ctx.analysis(node).providers()
+    ///     path = get_paths_without_materialization(providers[RunInfo], abs=True) # Note this artifact is NOT ensured or materialized
+    ///     ctx.output.print(path)
+    /// ```
+    fn get_paths_without_materialization<'v>(
+        this: Value<'v>,
+        ctx: &'v BxlContext<'v>,
+        #[starlark(require = named, default = false)] abs: bool,
+        heap: &'v Heap,
+    ) -> anyhow::Result<Value<'v>> {
+        match this.as_command_line() {
+            Some(cmd_line) => {
+                let inputs = get_cmd_line_inputs(cmd_line)?;
+                let mut result = Vec::new();
+
+                for artifact_group in &inputs.inputs {
+                    result.push(artifact_group.dupe());
+                }
+
+                let mut paths = Vec::new();
+
+                let _result = ctx.async_ctx.via_dice(|dice_ctx| {
+                    visit_artifact_path_without_associated_deduped(
+                        &result,
+                        abs,
+                        |artifact_path, abs| {
+                            let path = get_artifact_path_display(
+                                artifact_path,
+                                abs,
+                                &ctx.output_stream.project_fs,
+                                &ctx.output_stream.artifact_fs,
+                            )?;
+
+                            paths.push(path);
+                            Ok(())
+                        },
+                        dice_ctx,
+                    )
+                });
+                Ok(heap.alloc(paths))
+            }
+            None => Err(anyhow::anyhow!("Expected a cmd_args()")),
+        }
     }
 }
 
