@@ -297,6 +297,19 @@ where
         Ok(())
     }
 
+    async fn handle_panic(
+        &mut self,
+        panic: &buck2_data::Panic,
+        _event: &BuckEvent,
+    ) -> anyhow::Result<()> {
+        if panic.quiet {
+            return Ok(());
+        }
+        echo!("{}", panic.payload)?;
+        self.notify_printed();
+        Ok(())
+    }
+
     async fn handle_file_watcher_end(
         &mut self,
         file_watcher: &buck2_data::FileWatcherEnd,

@@ -15,8 +15,9 @@ use once_cell::sync::OnceCell;
 
 use crate::env_helper::EnvHelper;
 
-type SoftErrorHandler =
-    Box<dyn Fn(&'static str, &anyhow::Error, (&'static str, u32, u32)) + Send + Sync + 'static>;
+type SoftErrorHandler = Box<
+    dyn Fn(&'static str, &anyhow::Error, (&'static str, u32, u32), bool) + Send + Sync + 'static,
+>;
 
 static HANDLER: OnceCell<SoftErrorHandler> = OnceCell::new();
 
@@ -73,11 +74,8 @@ pub fn handle_soft_error(
 
     // We want to limit each error to appearing at most 10 times in a build (no point spamming people)
     if count.fetch_add(1, Ordering::SeqCst) < 10 {
-        if !quiet {
-            tracing::warn!("Warning \"{}\": {:#}", category, err);
-        }
         if let Some(handler) = HANDLER.get() {
-            handler(category, &err, loc);
+            handler(category, &err, loc, quiet);
         }
     }
 
@@ -114,11 +112,16 @@ mod tests {
 
     static RESULT: Mutex<Vec<String>> = Mutex::new(Vec::new());
 
-    fn mock_handler(category: &'static str, err: &anyhow::Error, loc: (&'static str, u32, u32)) {
+    fn mock_handler(
+        category: &'static str,
+        err: &anyhow::Error,
+        loc: (&'static str, u32, u32),
+        quiet: bool,
+    ) {
         RESULT
             .lock()
             .unwrap()
-            .push(format!("{:?}, : {} : {}", loc, err, category));
+            .push(format!("{:?}, : {} : {} : {}", loc, err, category, quiet));
     }
 
     fn test_init() -> MutexGuard<'static, ()> {
@@ -148,7 +151,7 @@ mod tests {
         );
         assert_eq!(
             Some(&format!(
-                "({:?}, {}, 34), : Should be logged : test_logged_soft_error",
+                "({:?}, {}, 34), : Should be logged : test_logged_soft_error : false",
                 file!(),
                 before_error_line + 1,
             )),

@@ -343,6 +343,23 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
         }
     }
 
+    async fn handle_panic(
+        &mut self,
+        panic: &buck2_data::Panic,
+        event: &BuckEvent,
+    ) -> anyhow::Result<()> {
+        if panic.quiet {
+            return Ok(());
+        }
+        match &mut self.super_console {
+            Some(super_console) => {
+                super_console.emit(panic.payload.lines().map(Line::sanitized).collect());
+                Ok(())
+            }
+            None => self.state.simple_console.handle_panic(panic, event).await,
+        }
+    }
+
     async fn handle_file_watcher_end(
         &mut self,
         file_watcher: &buck2_data::FileWatcherEnd,

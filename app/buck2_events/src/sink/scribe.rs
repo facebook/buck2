@@ -129,6 +129,7 @@ mod fbcode {
                                     buf.len()),
                                     metadata: metadata::collect(),
                                     backtrace: Vec::new(),
+                                    quiet: false,
                                 }
                                 .into(),
                             ),

@@ -24,7 +24,7 @@ pub fn initialize(fb: FacebookInit) {
         the_panic_hook(fb, info);
         hook(info);
     });
-    buck2_core::error::initialize(box move |category, err, loc| {
+    buck2_core::error::initialize(box move |category, err, loc, quiet| {
         imp::write_soft_error(
             fb,
             category,
@@ -34,6 +34,7 @@ pub fn initialize(fb: FacebookInit) {
                 line: loc.1,
                 column: loc.2,
             },
+            quiet,
         );
     });
 }
@@ -134,7 +135,7 @@ mod imp {
             line: loc.line(),
             column: loc.column(),
         });
-        write_to_scribe(fb, panic_payload(location, message, get_stack()));
+        write_to_scribe(fb, panic_payload(location, message, get_stack(), false));
     }
 
     pub(crate) fn write_soft_error(
@@ -142,11 +143,13 @@ mod imp {
         category: &'static str,
         err: &anyhow::Error,
         location: Location,
+        quiet: bool,
     ) {
         let event = panic_payload(
             Some(location),
             format!("Soft Error: {}: {:#}", category, err),
             Vec::new(),
+            quiet,
         );
 
         // If the soft error was fired in a context with an ambient dispatcher, then we only send
@@ -168,6 +171,7 @@ mod imp {
         location: Option<Location>,
         message: String,
         backtrace: Vec<buck2_data::panic::StackFrame>,
+        quiet: bool,
     ) -> buck2_data::Panic {
         let metadata = get_metadata_for_panic();
         buck2_data::Panic {
@@ -175,6 +179,7 @@ mod imp {
             payload: message,
             metadata,
             backtrace,
+            quiet,
         }
     }
 
