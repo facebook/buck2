@@ -174,6 +174,8 @@ pub struct StarlarkReadDirSet {
     pub cell_path: CellPath,
     /// Files that are not ignored within the buckconfig.
     pub included: Arc<[SimpleDirEntry]>,
+    /// Only return directories when iterating or printing.
+    pub dirs_only: bool,
 }
 
 starlark_simple_value!(StarlarkReadDirSet);
@@ -181,11 +183,13 @@ starlark_simple_value!(StarlarkReadDirSet);
 impl StarlarkReadDirSet {
     fn children(&self) -> anyhow::Result<Vec<CellPath>> {
         let mut result: Vec<CellPath> = Vec::with_capacity(self.included.len());
-        result.extend(
-            self.included
-                .iter()
-                .map(|e| self.cell_path.join(&e.file_name)),
-        );
+        result.extend(self.included.iter().filter_map(|e| {
+            if !self.dirs_only || e.file_type.is_dir() {
+                Some(self.cell_path.join(&e.file_name))
+            } else {
+                None
+            }
+        }));
         result.sort();
         Ok(result)
     }

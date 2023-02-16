@@ -126,7 +126,7 @@ fn fs_operations(builder: &mut MethodsBuilder) {
     }
 
     /// Returns all the contents of the given input that points to a directory.
-    /// Errors if the given path is a file.
+    /// Errors if the given path is a file. Takes an optional boolean `dirs_only` to only return directories, defaults to false.
     ///
     /// The input is a either a literal, a source artifact (via `[StarlarkArtifact]`), or a `[StarlarkFileNode]`.
     ///
@@ -140,6 +140,7 @@ fn fs_operations(builder: &mut MethodsBuilder) {
     fn list<'v>(
         this: &BxlFilesystem<'v>,
         expr: FileExpr<'v>,
+        #[starlark(require = named, default = false)] dirs_only: bool,
     ) -> anyhow::Result<StarlarkReadDirSet> {
         let path = expr.get(this.dice);
 
@@ -149,6 +150,7 @@ fn fs_operations(builder: &mut MethodsBuilder) {
                 Ok(StarlarkReadDirSet {
                     cell_path: path,
                     included: read_dir_output.included,
+                    dirs_only,
                 })
             }),
             Err(e) => Err(e),
