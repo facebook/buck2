@@ -517,4 +517,48 @@ mod tests {
             s
         );
     }
+
+    #[test]
+    fn test_digest_from_reader() {
+        let content = &b"foo"[..];
+
+        assert_eq!(
+            CasDigest::<()>::from_reader_for_algorithm(content, DigestAlgorithm::Sha1)
+                .unwrap()
+                .to_string(),
+            "0beec7b5ea3f0fdbc95d0dd47f3c5bc275da8a33:3"
+        );
+        assert_eq!(
+            CasDigest::<()>::from_reader_for_algorithm(content, DigestAlgorithm::Sha256)
+                .unwrap()
+                .to_string(),
+            "2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae:3"
+        );
+        assert_eq!(
+            CasDigest::<()>::from_reader_for_algorithm(content, DigestAlgorithm::Blake3)
+                .unwrap()
+                .to_string(),
+            "04e0bb39f30b1a3feb89f536c93be15055482df748674b00d26e5a75777702e9:3"
+        );
+    }
+
+    #[test]
+    fn test_digest_from_content() {
+        let content = &b"foo"[..];
+
+        assert_eq!(
+            CasDigest::<()>::from_content_for_algorithm(content, DigestAlgorithm::Sha1).to_string(),
+            "0beec7b5ea3f0fdbc95d0dd47f3c5bc275da8a33:3"
+        );
+        assert_eq!(
+            CasDigest::<()>::from_content_for_algorithm(content, DigestAlgorithm::Sha256)
+                .to_string(),
+            "2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae:3"
+        );
+        assert_eq!(
+            CasDigest::<()>::from_content_for_algorithm(content, DigestAlgorithm::Blake3)
+                .to_string(),
+            "04e0bb39f30b1a3feb89f536c93be15055482df748674b00d26e5a75777702e9:3"
+        );
+    }
 }
