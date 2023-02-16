@@ -236,7 +236,13 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
         for link_style in get_link_styles_for_linkage(cxx_attr_preferred_linkage(ctx)):
             sub_targets[link_style.value.replace("_", "-")] = [DefaultInfo(default_output = None)]
 
-        return _CxxLibraryParameterizedOutput(sub_targets = sub_targets, providers = [DefaultInfo(default_output = None, sub_targets = sub_targets)])
+        return _CxxLibraryParameterizedOutput(
+            providers = [
+                DefaultInfo(default_output = None, sub_targets = sub_targets),
+                SharedLibraryInfo(set = None),
+            ],
+            sub_targets = sub_targets,
+        )
 
     non_exported_deps = cxx_attr_deps(ctx)
     exported_deps = cxx_attr_exported_deps(ctx)
