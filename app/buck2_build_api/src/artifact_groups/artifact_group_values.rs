@@ -22,7 +22,6 @@ use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::insert_artifact;
 use buck2_execute::directory::ActionDirectoryBuilder;
 use buck2_execute::directory::ActionSharedDirectory;
-use buck2_execute::directory::ReDirectorySerializer;
 use buck2_execute::directory::INTERNER;
 use dupe::Dupe;
 use smallvec::smallvec;
@@ -68,7 +67,7 @@ impl ArtifactGroupValues {
         }
 
         let directory = builder
-            .fingerprint(&ReDirectorySerializer { digest_config })
+            .fingerprint(digest_config.as_directory_serializer())
             .shared(&*INTERNER);
 
         Ok(Self(Arc::new(ArtifactGroupValuesData {

@@ -28,7 +28,6 @@ use crate::digest::CasDigestToReExt;
 use crate::digest_config::DigestConfig;
 use crate::directory::insert_entry;
 use crate::directory::ActionDirectoryMember;
-use crate::directory::ReDirectorySerializer;
 use crate::execute::blobs::ActionBlobs;
 use crate::execute::inputs_directory::inputs_directory;
 use crate::execute::manager::CommandExecutionManager;
@@ -207,7 +206,7 @@ impl CommandExecutor {
             ))),
         )?;
 
-        let input_dir = builder.fingerprint(&ReDirectorySerializer { digest_config });
+        let input_dir = builder.fingerprint(digest_config.as_directory_serializer());
 
         let mut input_files_bytes = 0;
 

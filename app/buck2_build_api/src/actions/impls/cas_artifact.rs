@@ -24,7 +24,6 @@ use buck2_execute::digest::CasDigestToReExt;
 use buck2_execute::directory::re_directory_to_re_tree;
 use buck2_execute::directory::re_tree_to_directory;
 use buck2_execute::directory::ActionDirectoryEntry;
-use buck2_execute::directory::ReDirectorySerializer;
 use buck2_execute::directory::INTERNER;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
 use buck2_execute::materialize::materializer::CasDownloadInfo;
@@ -241,10 +240,8 @@ impl IncrementalActionExecutable for CasArtifactAction {
 
                 ArtifactValue::new(
                     ActionDirectoryEntry::Dir(
-                        dir.fingerprint(&ReDirectorySerializer {
-                            digest_config: ctx.digest_config(),
-                        })
-                        .shared(&*INTERNER),
+                        dir.fingerprint(ctx.digest_config().as_directory_serializer())
+                            .shared(&*INTERNER),
                     ),
                     None,
                 )

@@ -31,7 +31,6 @@ use buck2_execute::directory::ActionDirectoryBuilder;
 use buck2_execute::directory::ActionDirectoryEntry;
 use buck2_execute::directory::ActionDirectoryMember;
 use buck2_execute::directory::ActionSharedDirectory;
-use buck2_execute::directory::ReDirectorySerializer;
 use buck2_execute::directory::INTERNER;
 use derive_more::Display;
 use dice::DiceComputations;
@@ -259,7 +258,7 @@ async fn dir_artifact_value(
     let entries = entries.into_iter().collect();
 
     let d: DirectoryData<_, _, _> =
-        DirectoryData::new(entries, &ReDirectorySerializer { digest_config });
+        DirectoryData::new(entries, digest_config.as_directory_serializer());
     Ok(ActionDirectoryEntry::Dir(INTERNER.intern(d)))
 }
 

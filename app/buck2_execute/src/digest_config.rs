@@ -14,6 +14,7 @@ use dice::DiceData;
 use dice::DiceDataBuilder;
 use dupe::Dupe;
 use once_cell::sync::OnceCell;
+use ref_cast::RefCast;
 
 use crate::directory::ActionDirectoryBuilder;
 use crate::directory::ActionSharedDirectory;
@@ -40,6 +41,10 @@ impl DigestConfig {
     pub fn empty_file(&self) -> FileMetadata {
         // TODO: This should be a field on the DigestConfig, obviously.
         FileMetadata::empty(self.cas_digest_config())
+    }
+
+    pub fn as_directory_serializer(&self) -> &ReDirectorySerializer {
+        ReDirectorySerializer::ref_cast(self)
     }
 
     pub fn empty_directory(&self) -> ActionSharedDirectory {

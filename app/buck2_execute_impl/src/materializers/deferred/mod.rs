@@ -49,7 +49,6 @@ use buck2_execute::directory::ActionDirectory;
 use buck2_execute::directory::ActionDirectoryEntry;
 use buck2_execute::directory::ActionDirectoryMember;
 use buck2_execute::directory::ActionSharedDirectory;
-use buck2_execute::directory::ReDirectorySerializer;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::materialize::materializer::ArtifactNotMaterializedReason;
 use buck2_execute::materialize::materializer::CasDownloadInfo;
@@ -1508,7 +1507,7 @@ impl ArtifactTree {
                         entry: entry
                             .map_dir(|d| {
                                 d.to_builder()
-                                    .fingerprint(&ReDirectorySerializer { digest_config })
+                                    .fingerprint(digest_config.as_directory_serializer())
                             })
                             .map_leaf(|l| l.dupe()),
                         info: info.dupe(),

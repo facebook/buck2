@@ -46,6 +46,7 @@ use chrono::Utc;
 use derive_more::Display;
 use dupe::Dupe;
 use once_cell::sync::Lazy;
+use ref_cast::RefCast;
 use remote_execution as RE;
 use starlark_map::small_map::SmallMap;
 use thiserror::Error;
@@ -84,7 +85,8 @@ pub trait ActionDirectory = Directory<ActionDirectoryMember, TrackedFileDigest>;
 pub trait ActionFingerprintedDirectory =
     FingerprintedDirectory<ActionDirectoryMember, TrackedFileDigest>;
 
-#[derive(Allocative)]
+#[derive(Allocative, RefCast)]
+#[repr(transparent)]
 pub struct ReDirectorySerializer {
     pub digest_config: DigestConfig,
 }
@@ -737,13 +739,13 @@ pub fn extract_artifact_value(
 
     let entry = entry.map_leaf(|l| l.dupe()).map_dir(|d| {
         d.to_builder()
-            .fingerprint(&ReDirectorySerializer { digest_config })
+            .fingerprint(digest_config.as_directory_serializer())
             .shared(&*INTERNER)
     });
 
     let deps = if has_deps {
         Some(
-            deps.fingerprint(&ReDirectorySerializer { digest_config })
+            deps.fingerprint(digest_config.as_directory_serializer())
                 .shared(&*INTERNER),
         )
     } else {
@@ -1060,7 +1062,7 @@ mod tests {
             path("b/b"),
             FileMetadata::empty(digest_config.cas_digest_config()),
         )?;
-        let dir = builder.fingerprint(&ReDirectorySerializer { digest_config });
+        let dir = builder.fingerprint(digest_config.as_directory_serializer());
 
         let tree = directory_to_re_tree(&dir);
         let dir2 = re_tree_to_directory(&tree, &Utc::now(), digest_config)?;
@@ -1090,7 +1092,7 @@ mod tests {
                 FileMetadata::empty(digest_config.cas_digest_config()),
             )?;
         }
-        let dir = builder.fingerprint(&ReDirectorySerializer { digest_config });
+        let dir = builder.fingerprint(digest_config.as_directory_serializer());
         let tree = directory_to_re_tree(&dir);
         let tree = proto_serialize(&tree);
         let digest = FileDigest::from_content(&tree, digest_config.cas_digest_config());

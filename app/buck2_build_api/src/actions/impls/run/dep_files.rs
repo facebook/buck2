@@ -30,7 +30,6 @@ use buck2_execute::directory::expand_selector_for_dependencies;
 use buck2_execute::directory::ActionDirectoryBuilder;
 use buck2_execute::directory::ActionImmutableDirectory;
 use buck2_execute::directory::ActionSharedDirectory;
-use buck2_execute::directory::ReDirectorySerializer;
 use buck2_execute::directory::INTERNER;
 use buck2_execute::execute::target::CommandExecutionTarget;
 use buck2_execute::materialize::materializer::MaterializationError;
@@ -488,7 +487,7 @@ impl PartitionedInputs<ActionDirectoryBuilder> {
         PartitionedInputs {
             untagged: self
                 .untagged
-                .fingerprint(&ReDirectorySerializer { digest_config })
+                .fingerprint(digest_config.as_directory_serializer())
                 .shared(&*INTERNER),
             tagged: self
                 .tagged
@@ -496,7 +495,7 @@ impl PartitionedInputs<ActionDirectoryBuilder> {
                 .map(|(k, v)| {
                     (
                         k,
-                        v.fingerprint(&ReDirectorySerializer { digest_config })
+                        v.fingerprint(digest_config.as_directory_serializer())
                             .shared(&*INTERNER),
                     )
                 })
@@ -544,11 +543,11 @@ impl PartitionedInputs<ActionDirectoryBuilder> {
         PartitionedInputs {
             untagged: self
                 .untagged
-                .fingerprint(&ReDirectorySerializer { digest_config }),
+                .fingerprint(digest_config.as_directory_serializer()),
             tagged: self
                 .tagged
                 .into_iter()
-                .map(|(k, v)| (k, v.fingerprint(&ReDirectorySerializer { digest_config })))
+                .map(|(k, v)| (k, v.fingerprint(digest_config.as_directory_serializer())))
                 .collect(),
         }
     }
