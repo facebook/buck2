@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+mod build_info;
 mod rage_dumps;
 mod source_control;
 
@@ -22,7 +23,6 @@ use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::manifold;
 use buck2_client_ctx::manifold::UploadError;
 use buck2_client_ctx::stdin::Stdin;
-use buck2_client_ctx::stream_value::StreamValue;
 use buck2_client_ctx::subscribers::event_log::file_names::get_local_logs_if_exist;
 use buck2_client_ctx::subscribers::event_log::EventLogPathBuf;
 use buck2_client_ctx::subscribers::event_log::EventLogSummary;
@@ -41,8 +41,6 @@ use chrono::DateTime;
 use dupe::Dupe;
 use futures::future::FutureExt;
 use futures::future::LocalBoxFuture;
-use futures::TryStreamExt;
-use humantime::format_duration;
 use serde::Serialize;
 use thiserror::Error;
 use tokio::io::AsyncBufRead;
@@ -67,8 +65,6 @@ enum RageError {
     PastryOutputError,
     #[error("Pastry command failed with code '{0}' and error '{1}' ")]
     PastryCommandError(i32, String),
-    #[error("Failed to read event log")]
-    EventLogReadError,
     #[error("Failed to open file `{0}`")]
     OpenFileError(String),
 }
@@ -209,7 +205,7 @@ impl RageCommand {
                 match selected_invocation.as_ref() {
                     None => RageSection::get_skipped(title),
                     Some(invocation) => {
-                        RageSection::get(title, timeout, || get_build_info(invocation))
+                        RageSection::get(title, timeout, || build_info::get(invocation))
                     }
                 }
             };
@@ -307,82 +303,6 @@ async fn upload_daemon_stderr(
         e => Err(UploadError::ExitCodeError(path.display().to_string(), e).into()),
     }?;
     Ok(format!("buck2_rage_dumps/flat/{}", filename))
-}
-
-async fn get_build_info(log: &EventLogPathBuf) -> anyhow::Result<String> {
-    let (invocation, events) = log.unpack_stream().await?;
-    let mut filtered_events = events.try_filter_map(|log| {
-        let maybe_buck_event = match log {
-            StreamValue::Result(_) => None,
-            StreamValue::Event(buck_event) => Some(buck_event),
-        };
-        futures::future::ready(Ok(maybe_buck_event))
-    });
-
-    let first_event: BuckEvent = filtered_events
-        .try_next()
-        .await?
-        .ok_or(RageError::EventLogReadError)?
-        .try_into()?;
-    let mut revision = None;
-    let mut daemon_uptime_s = None;
-    let mut timestamp_end: Option<SystemTime> = None;
-    while let Some(event) = filtered_events.try_next().await? {
-        match event.data {
-            Some(buck2_data::buck_event::Data::SpanStart(span)) => match &span.data {
-                Some(buck2_data::span_start_event::Data::Command(action)) => {
-                    if revision.is_none() && action.metadata.contains_key("buck2_revision") {
-                        if let Some(buck2_revision) = action.metadata.get("buck2_revision") {
-                            revision.get_or_insert(buck2_revision.clone());
-                        }
-                    }
-                }
-                _ => (),
-            },
-            Some(buck2_data::buck_event::Data::Instant(span)) => match &span.data {
-                Some(buck2_data::instant_event::Data::Snapshot(snapshot)) => {
-                    daemon_uptime_s.get_or_insert(snapshot.daemon_uptime_s);
-                }
-                _ => (),
-            },
-
-            _ => (),
-        }
-        if let Some(timestamp) = event.timestamp {
-            timestamp_end = Some(SystemTime::try_from(timestamp.clone())?)
-        };
-    }
-
-    let timestamp_start = first_event.timestamp();
-    let duration = {
-        if let Some(end) = timestamp_end {
-            Some(end.duration_since(timestamp_start)?)
-        } else {
-            None
-        }
-    };
-
-    let t_start: DateTime<Local> = timestamp_start.into();
-
-    let output = format!(
-        "buck2 UI: https://www.internalfb.com/buck2/{}
-timestamp: {}
-command: {}
-working dir: {}
-buck2_revision: {}
-command duration: {}
-daemon uptime: {}
-",
-        first_event.trace_id()?,
-        t_start.format("%c %Z"),
-        format_cmd(&invocation.command_line_args),
-        invocation.working_dir,
-        revision.unwrap_or_else(|| "".to_owned()),
-        seconds_to_string(duration.map(|d| d.as_secs())),
-        seconds_to_string(daemon_uptime_s),
-    );
-
-    Ok(output)
 }
 
 async fn upload_event_logs(path: &EventLogPathBuf, manifold_id: &str) -> anyhow::Result<String> {
@@ -528,7 +448,7 @@ where
 }
 
 fn print_log_summary(index: usize, log_summary: &EventLogSummary) -> anyhow::Result<()> {
-    let cmd = format_cmd(&log_summary.invocation.command_line_args);
+    let cmd = build_info::format_cmd(&log_summary.invocation.command_line_args);
 
     let timestamp: DateTime<Local> = log_summary.timestamp.into();
     buck2_client_ctx::eprintln!(
@@ -537,19 +457,6 @@ fn print_log_summary(index: usize, log_summary: &EventLogSummary) -> anyhow::Res
         timestamp.format("%c %Z"),
         cmd
     )
-}
-
-fn format_cmd(cmd_args: &[String]) -> String {
-    if cmd_args.is_empty() {
-        "???".to_owned()
-    } else {
-        let mut program_name: &str = &cmd_args[0];
-        let program_args = &cmd_args[1..];
-        if program_name.ends_with("fbcode/buck2/.buck2") {
-            program_name = "buck2";
-        }
-        format!("{} {}", program_name, program_args.join(" "))
-    }
 }
 
 async fn output_rage(no_paste: bool, output: &str) -> anyhow::Result<()> {
@@ -603,15 +510,6 @@ async fn generate_paste(title: &str, content: &str) -> anyhow::Result<String> {
     let ((), paste) = futures::future::try_join(writer, reader).await?;
 
     Ok(paste)
-}
-
-fn seconds_to_string(seconds: Option<u64>) -> String {
-    if let Some(seconds) = seconds {
-        let duration = Duration::from_secs(seconds);
-        format_duration(duration).to_string()
-    } else {
-        "".to_owned()
-    }
 }
 
 async fn get_trace_id(invocation: &Option<EventLogPathBuf>) -> anyhow::Result<Option<TraceId>> {
