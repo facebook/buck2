@@ -422,24 +422,46 @@ def generate_abi_jars(
             source_abi_target_type = TargetType("source_abi")
             source_abi_qualified_name = get_qualified_name(label, source_abi_target_type)
             source_abi_output_paths = define_output_paths(actions, source_abi_identifier)
+            source_abi_dir = declare_prefixed_output(actions, source_abi_identifier, "source-abi-dir", dir = True)
             source_abi_command = encode_abi_command(source_abi_output_paths, source_abi_target_type)
-            define_action("source_abi_", source_abi_identifier, source_abi_command, source_abi_qualified_name, source_abi_output_paths, source_abi_target_type, path_to_class_hashes = None)
+            define_action(
+                "source_abi_",
+                source_abi_identifier,
+                source_abi_command,
+                source_abi_qualified_name,
+                source_abi_output_paths,
+                source_abi_dir,
+                source_abi_target_type,
+                path_to_class_hashes = None,
+            )
             source_abi = source_abi_output_paths.jar
 
             if abi_generation_mode == AbiGenerationMode("source"):
                 classpath_abi = source_abi
+                classpath_abi_dir = source_abi_dir
 
         if abi_generation_mode == AbiGenerationMode("source_only") or not is_building_android_binary:
             source_only_abi_identifier = declare_prefixed_name("source_only_abi", actions_identifier)
             source_only_abi_target_type = TargetType("source_only_abi")
             source_only_abi_qualified_name = get_qualified_name(label, source_only_abi_target_type)
             source_only_abi_output_paths = define_output_paths(actions, source_only_abi_identifier)
+            source_only_abi_dir = declare_prefixed_output(actions, source_only_abi_identifier, "dir", dir = True)
             source_only_abi_command = encode_abi_command(source_only_abi_output_paths, source_only_abi_target_type)
-            define_action("source_only_abi_", source_only_abi_identifier, source_only_abi_command, source_only_abi_qualified_name, source_only_abi_output_paths, source_only_abi_target_type, path_to_class_hashes = None)
+            define_action(
+                "source_only_abi_",
+                source_only_abi_identifier,
+                source_only_abi_command,
+                source_only_abi_qualified_name,
+                source_only_abi_output_paths,
+                source_only_abi_dir,
+                source_only_abi_target_type,
+                path_to_class_hashes = None,
+            )
             source_only_abi = source_only_abi_output_paths.jar
 
             if abi_generation_mode == AbiGenerationMode("source_only"):
                 classpath_abi = source_only_abi
+                classpath_abi_dir = source_only_abi_dir
 
         if abi_generation_mode == AbiGenerationMode("none"):
             classpath_abi = final_jar

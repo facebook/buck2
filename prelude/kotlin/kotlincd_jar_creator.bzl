@@ -190,6 +190,7 @@ def create_jar_artifact_kotlincd(
             encoded_command: struct.type,
             qualified_name: str.type,
             output_paths: OutputPaths.type,
+            abi_dir: ["artifact", None],
             target_type: TargetType.type,
             path_to_class_hashes: ["artifact", None]):
         proto = declare_prefixed_output(actions, actions_identifier, "jar_command.proto.json")
@@ -214,6 +215,14 @@ def create_jar_artifact_kotlincd(
                 jvm_abi_gen.as_output(),
                 "--abi-output-dir",
                 class_abi_output_dir.as_output(),
+            )
+
+        if target_type == TargetType("source_abi") or target_type == TargetType("source_only_abi"):
+            cmd.add(
+                "--kotlincd-abi-output",
+                output_paths.jar.as_output(),
+                "--abi-output-dir",
+                abi_dir.as_output(),
             )
 
         cmd = add_output_paths_to_cmd_args(cmd, output_paths, path_to_class_hashes)
@@ -257,6 +266,7 @@ def create_jar_artifact_kotlincd(
         encoded_command = command,
         qualified_name = base_qualified_name(label),
         output_paths = output_paths,
+        abi_dir = class_abi_output_dir if should_create_class_abi else None,
         target_type = TargetType("library"),
         path_to_class_hashes = path_to_class_hashes_out,
     )

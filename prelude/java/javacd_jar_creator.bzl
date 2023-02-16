@@ -150,7 +150,8 @@ def create_jar_artifact_javacd(
             encoded_command: struct.type,
             qualified_name: str.type,
             output_paths: OutputPaths.type,
-            _target_type: TargetType.type,
+            abi_dir: ["artifact", None],
+            target_type: TargetType.type,
             path_to_class_hashes: ["artifact", None]):
         proto = declare_prefixed_output(actions, actions_identifier, "jar_command.proto.json")
 
@@ -165,6 +166,15 @@ def create_jar_artifact_javacd(
             "--command-file",
             proto_with_inputs,
         ])
+
+        if target_type == TargetType("source_abi") or target_type == TargetType("source_only_abi"):
+            cmd.add(
+                "--javacd-abi-output",
+                output_paths.jar.as_output(),
+                "--abi-output-dir",
+                abi_dir.as_output(),
+            )
+
         cmd = add_output_paths_to_cmd_args(cmd, output_paths, path_to_class_hashes)
 
         # TODO(cjhopman): make sure this works both locally and remote.
@@ -204,6 +214,7 @@ def create_jar_artifact_javacd(
         command,
         base_qualified_name(label),
         output_paths,
+        None,
         TargetType("library"),
         path_to_class_hashes_out,
     )
