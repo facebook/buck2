@@ -6,6 +6,8 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+set -e
+
 print_help() {
   echo "Generates documentation in fbsource/fbcode/buck2/docs/generated"
   echo ""
