@@ -81,7 +81,7 @@ def android_instrumentation_test_impl(ctx: "context"):
         use_project_relative_paths = True,
         executor_overrides = {
             "android-emulator": CommandExecutorConfig(
-                local_enabled = False,
+                local_enabled = True,
                 remote_enabled = True,
                 remote_execution_properties = {
                     "platform": "android-emulator",
