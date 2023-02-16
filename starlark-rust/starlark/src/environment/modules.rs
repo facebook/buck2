@@ -24,17 +24,13 @@ use std::cell::Cell;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::mem;
-use std::sync::Arc;
 use std::time::Duration;
 use std::time::Instant;
 
 use allocative::Allocative;
-use derive_more::Display;
 use dupe::Dupe;
 use itertools::Itertools;
 
-use crate as starlark;
-use crate::any::ProvidesStaticType;
 use crate::collections::Hashed;
 use crate::docs;
 use crate::docs::DocItem;
@@ -56,6 +52,7 @@ use crate::values::layout::heap::profile::aggregated::RetainedHeapProfile;
 use crate::values::Freezer;
 use crate::values::FrozenHeap;
 use crate::values::FrozenHeapRef;
+use crate::values::FrozenRef;
 use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
 use crate::values::Heap;
@@ -82,31 +79,13 @@ enum ModuleError {
 // Two Arc's should still be plenty cheap enough to qualify for `Dupe`.
 pub struct FrozenModule {
     heap: FrozenHeapRef,
-    module: FrozenModuleRef,
+    module: FrozenRef<'static, FrozenModuleData>,
     /// Module evaluation duration:
     /// * evaluation of the top-level statements
     /// * optimizations during that evaluation
     /// * freezing and optimizations during freezing
     /// * does not include parsing time
     pub(crate) eval_duration: Duration,
-}
-
-#[derive(Debug, Clone, Dupe, ProvidesStaticType, Display, Allocative)]
-#[display(fmt = "{:?}", self)] // Type should not be user visible
-pub(crate) struct FrozenModuleRef(pub(crate) Arc<FrozenModuleData>);
-
-impl FrozenModuleRef {
-    pub(crate) fn get_module_data(&self) -> &FrozenModuleData {
-        self.0.as_ref()
-    }
-
-    pub(crate) fn documentation(&self) -> Option<DocItem> {
-        self.0.docstring.as_ref().map(|d| {
-            DocItem::Module(docs::Module {
-                docs: DocString::from_docstring(DocStringKind::Starlark, d),
-            })
-        })
-    }
 }
 
 #[derive(Debug, Allocative)]
@@ -158,10 +137,9 @@ pub struct Module {
 
 impl FrozenModule {
     fn get_any_visibility_option(&self, name: &str) -> Option<(OwnedFrozenValue, Visibility)> {
-        self.module.0.names.get_name(name).and_then(|(slot, vis)|
+        self.module.names.get_name(name).and_then(|(slot, vis)|
         // This code is safe because we know the frozen module ref keeps the values alive
         self.module
-            .0
             .slots
             .get_slot(slot)
             .map(|x| (unsafe { OwnedFrozenValue::new(self.heap.dupe(), x) }, vis)))
@@ -213,7 +191,7 @@ impl FrozenModule {
 
     /// Iterate through all the names defined in this module.
     pub fn names(&self) -> impl Iterator<Item = FrozenStringValue> + '_ {
-        self.module.0.names()
+        self.module.names()
     }
 
     /// Obtain the [`FrozenHeapRef`] which owns the storage of all values defined in this module.
@@ -223,11 +201,11 @@ impl FrozenModule {
 
     /// Print out some approximation of the module definitions.
     pub fn describe(&self) -> String {
-        self.module.0.describe()
+        self.module.describe()
     }
 
     pub(crate) fn all_items(&self) -> impl Iterator<Item = (FrozenStringValue, FrozenValue)> + '_ {
-        self.module.0.all_items()
+        self.module.all_items()
     }
 
     /// Fetch the documentation for the module.
@@ -257,7 +235,7 @@ impl FrozenModule {
 
     /// Retained memory info, or error if not enabled.
     pub fn aggregated_heap_profile_info(&self) -> anyhow::Result<&AggregateHeapProfileInfo> {
-        match &self.module.0.heap_profile {
+        match &self.module.heap_profile {
             None => Err(ModuleError::RetainedMemoryProfileNotEnabled.into()),
             Some(p) => Ok(&p.info),
         }
@@ -265,7 +243,7 @@ impl FrozenModule {
 
     /// Retained memory info, or error if not enabled.
     pub fn heap_profile(&self) -> anyhow::Result<ProfileData> {
-        match &self.module.0.heap_profile {
+        match &self.module.heap_profile {
             None => Err(ModuleError::RetainedMemoryProfileNotEnabled.into()),
             Some(p) => Ok(p.to_profile()),
         }
@@ -308,6 +286,14 @@ impl FrozenModuleData {
             }
         }
         None
+    }
+
+    pub(crate) fn documentation(&self) -> Option<DocItem> {
+        self.docstring.as_ref().map(|d| {
+            DocItem::Module(docs::Module {
+                docs: DocString::from_docstring(DocStringKind::Starlark, d),
+            })
+        })
     }
 }
 
@@ -406,13 +392,13 @@ impl Module {
         } else {
             None
         };
-        let rest = FrozenModuleRef(Arc::new(FrozenModuleData {
+        let rest = FrozenModuleData {
             names: names.freeze(),
             slots,
             docstring: docstring.into_inner(),
             heap_profile: stacks,
-        }));
-        let frozen_module_ref = freezer.heap.alloc_any(rest.dupe());
+        };
+        let frozen_module_ref = freezer.heap.alloc_any_display_from_debug(rest);
         for frozen_def in freezer.frozen_defs.borrow().as_slice() {
             frozen_def.post_freeze(frozen_module_ref, &heap, &freezer.heap);
         }
@@ -420,7 +406,7 @@ impl Module {
         // but can now be dropped
         mem::drop(heap);
 
-        if let Some(stacks) = &rest.0.heap_profile {
+        if let Some(stacks) = &frozen_module_ref.heap_profile {
             assert_eq!(stacks.info.unused_capacity.get(), 0, "sanity check");
             stacks
                 .info
@@ -430,7 +416,7 @@ impl Module {
 
         Ok(FrozenModule {
             heap: freezer.into_ref(),
-            module: rest,
+            module: frozen_module_ref,
             eval_duration: start.elapsed() + eval_duration.get(),
         })
     }
@@ -465,9 +451,9 @@ impl Module {
     /// Import symbols from a module, similar to what is done during `load()`.
     pub fn import_public_symbols(&self, module: &FrozenModule) {
         self.frozen_heap.add_reference(&module.heap);
-        for (k, slot) in module.module.0.names.symbols() {
+        for (k, slot) in module.module.names.symbols() {
             if Self::default_visibility(&k) == Visibility::Public {
-                if let Some(value) = module.module.0.slots.get_slot(slot) {
+                if let Some(value) = module.module.slots.get_slot(slot) {
                     self.set_private(k, Value::new_frozen(value))
                 }
             }

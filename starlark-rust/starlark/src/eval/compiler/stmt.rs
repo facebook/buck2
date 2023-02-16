@@ -31,7 +31,7 @@ use thiserror::Error;
 use crate::codemap::Span;
 use crate::codemap::Spanned;
 use crate::environment::slots::ModuleSlotId;
-use crate::environment::FrozenModuleRef;
+use crate::environment::FrozenModuleData;
 use crate::eval::compiler::expr::Builtin1;
 use crate::eval::compiler::expr::ExprCompiled;
 use crate::eval::compiler::expr::ExprLogicalBinOp;
@@ -111,7 +111,7 @@ pub(crate) struct StmtCompileContext {
 }
 
 pub(crate) struct OptimizeOnFreezeContext<'v, 'a> {
-    pub(crate) module: &'a FrozenModuleRef,
+    pub(crate) module: &'a FrozenModuleData,
     /// Nothing useful should be left in the heap after the freeze,
     /// but having a heap is useful to allocate objects temporarily
     /// (when invoking operations which require heap).

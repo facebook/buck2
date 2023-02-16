@@ -32,7 +32,7 @@ use crate::collections::alloca::Alloca;
 use crate::collections::string_pool::StringPool;
 use crate::environment::slots::ModuleSlotId;
 use crate::environment::EnvironmentError;
-use crate::environment::FrozenModuleRef;
+use crate::environment::FrozenModuleData;
 use crate::environment::Module;
 use crate::errors::Diagnostic;
 use crate::eval::bc::frame::BcFramePtr;
@@ -112,7 +112,7 @@ pub struct Evaluator<'v, 'a> {
     // The module-level variables in scope at the moment.
     // If `None` then we're in the initial module, use variables from `module_env`.
     // If `Some` we've called a `def` in a loaded frozen module.
-    pub(crate) module_variables: Option<FrozenRef<'static, FrozenModuleRef>>,
+    pub(crate) module_variables: Option<FrozenRef<'static, FrozenModuleData>>,
     /// Current function (`def` or `lambda`) frame: locals and bytecode stack.
     pub(crate) current_frame: BcFramePtr<'v>,
     // How we deal with a `load` function.
@@ -431,7 +431,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
     #[inline(always)] // There is only one caller
     pub(crate) fn with_function_context<R>(
         &mut self,
-        module: Option<FrozenRef<'static, FrozenModuleRef>>, // None == use module_env
+        module: Option<FrozenRef<'static, FrozenModuleData>>, // None == use module_env
         within: impl FnOnce(&mut Self) -> R,
     ) -> R {
         // Set up for the new function call
@@ -475,7 +475,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
                     .names()
                     .get_slot(slot)
                     .map(|s| s.as_str().to_owned()),
-                Some(e) => e.0.get_slot_name(slot).map(|s| s.as_str().to_owned()),
+                Some(e) => e.get_slot_name(slot).map(|s| s.as_str().to_owned()),
             }
             .unwrap_or_else(|| "<unknown>".to_owned());
             EnvironmentError::LocalVariableReferencedBeforeAssignment(name).into()
@@ -483,7 +483,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
 
         match &self.module_variables {
             None => self.module_env.slots().get_slot(slot),
-            Some(e) => e.0.get_slot(slot).map(Value::new_frozen),
+            Some(e) => e.get_slot(slot).map(Value::new_frozen),
         }
         .ok_or_else(|| error(self, slot))
     }

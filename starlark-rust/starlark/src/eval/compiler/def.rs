@@ -41,7 +41,7 @@ use crate::docs;
 use crate::docs::DocItem;
 use crate::docs::DocString;
 use crate::docs::DocStringKind;
-use crate::environment::FrozenModuleRef;
+use crate::environment::FrozenModuleData;
 use crate::environment::Globals;
 use crate::eval::bc::bytecode::Bc;
 use crate::eval::bc::frame::alloca_frame;
@@ -516,7 +516,7 @@ pub(crate) struct DefGen<V> {
     /// When the module is not frozen yet, this field contains `None`, and function's module
     /// can be accessed from evaluator's module.
     #[allocative(skip)]
-    module: AtomicFrozenRefOption<FrozenModuleRef>,
+    module: AtomicFrozenRefOption<FrozenModuleData>,
     /// This field is only used in `FrozenDef`. It is populated in `post_freeze`.
     #[derivative(Debug = "ignore")]
     #[allocative(skip)]
@@ -792,7 +792,7 @@ where
 impl FrozenDef {
     pub(crate) fn post_freeze(
         &self,
-        module: FrozenRef<FrozenModuleRef>,
+        module: FrozenRef<FrozenModuleData>,
         heap: &Heap,
         frozen_heap: &FrozenHeap,
     ) {
