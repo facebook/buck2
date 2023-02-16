@@ -94,6 +94,9 @@ pub fn map_flavors(flavors: &str) -> anyhow::Result<ProvidersName> {
                 // Used in JEX builder script (https://fburl.com/code/2w2gjkey)
                 "shared" => "shared".to_owned(),
 
+                // Used by Nullsafe for (android|java)_libraries
+                "nullsafex-json" => "nullsafex-json".to_owned(),
+
                 // This is for js_bundle. We strip it and let the configuration handle it instead.
                 "android" => return Ok(ProvidersName::Default),
 
