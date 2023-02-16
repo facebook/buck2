@@ -10,6 +10,7 @@ blake3 = { workspace = true }
 chrono = { workspace = true }
 compact_str = { workspace = true }
 derive_more = { workspace = true }
+digest = { workspace = true }
 dirs = { workspace = true }
 faccess = { workspace = true }
 futures = { workspace = true }

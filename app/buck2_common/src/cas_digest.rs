@@ -11,6 +11,7 @@ use std::borrow::Borrow;
 use std::fmt;
 use std::hash::Hash;
 use std::hash::Hasher;
+use std::io::Read;
 use std::marker::PhantomData;
 use std::sync::atomic::AtomicI64;
 use std::sync::atomic::Ordering;
@@ -22,12 +23,12 @@ use chrono::TimeZone;
 use chrono::Utc;
 use derivative::Derivative;
 use derive_more::Display;
+use digest::Digest;
 use dupe::Clone_;
 use dupe::Dupe;
 use dupe::Dupe_;
 use num_enum::TryFromPrimitive;
 use once_cell::sync::OnceCell;
-use sha1::Digest;
 use sha1::Sha1;
 use sha2::Sha256;
 use thiserror::Error;
@@ -107,6 +108,11 @@ impl CasDigestConfig {
 
     pub fn compat() -> Self {
         Self {}
+    }
+
+    pub fn preferred_algorithm(self) -> DigestAlgorithm {
+        // TODO (DigestConfig): actually make this configurable
+        DigestAlgorithm::Sha1
     }
 }
 
@@ -224,9 +230,8 @@ impl<Kind> CasDigest<Kind> {
         Self::from_content(&[], config)
     }
 
-    pub fn from_content(bytes: &[u8], _config: CasDigestConfig) -> Self {
-        // TODO (DigestConfig): Actually ask the CasDigestConfig for the prefrred algorithm.
-        Self::from_content_for_algorithm(bytes, DigestAlgorithm::Sha1)
+    pub fn from_content(bytes: &[u8], config: CasDigestConfig) -> Self {
+        Self::from_content_for_algorithm(bytes, config.preferred_algorithm())
     }
 
     /// NOTE: Eventually this probably needs to take something that isn't DigestAlgorithm because
@@ -252,6 +257,55 @@ impl<Kind> CasDigest<Kind> {
                 Self::new_blake3(digest.finalize().into(), bytes.len() as u64)
             }
         }
+    }
+
+    pub fn from_reader<R: Read>(reader: R, config: CasDigestConfig) -> anyhow::Result<Self> {
+        Self::from_reader_for_algorithm(reader, config.preferred_algorithm())
+    }
+
+    /// NOTE: Eventually this probably needs to take something that isn't DigestAlgorithm because
+    /// we might need to deal with keyed Blake3.
+    pub fn from_reader_for_algorithm<R: Read>(
+        reader: R,
+        algorithm: DigestAlgorithm,
+    ) -> anyhow::Result<Self> {
+        fn hash_reader<R: Read, H: Digest>(mut reader: R, hasher: &mut H) -> anyhow::Result<u64> {
+            // Buffer size chosen based on benchmarks at D26176645
+            // Also optimal for Blake3's SIMD implementation.
+            let mut size = 0;
+            let mut buffer = [0; 16 * 1024];
+            loop {
+                let count = reader.read(&mut buffer)?;
+                if count == 0 {
+                    break;
+                }
+                size += count as u64;
+                hasher.update(&buffer[..count]);
+            }
+
+            Ok(size)
+        }
+
+        Ok(match algorithm {
+            DigestAlgorithm::Sha1 => {
+                let mut hasher = Sha1::new();
+                let len = hash_reader(reader, &mut hasher)?;
+                Self::new_sha1(hasher.finalize().into(), len)
+            }
+            DigestAlgorithm::Sha256 => {
+                let mut hasher = Sha256::new();
+                let len = hash_reader(reader, &mut hasher)?;
+                Self::new_sha256(hasher.finalize().into(), len)
+            }
+            DigestAlgorithm::Blake3 => {
+                // NOTE: This is where keying would matter. Note that we don't need to actually
+                // retain the key in RawDigest or DigestAlgorithm, since we never actually care
+                // about which hash we have besides debugging purposes.
+                let mut hasher = blake3::Hasher::new();
+                let len = hash_reader(reader, &mut hasher)?;
+                Self::new_blake3(hasher.finalize().into(), len)
+            }
+        })
     }
 
     pub fn coerce<NewKind>(self) -> CasDigest<NewKind> {

@@ -9,7 +9,6 @@
 
 use std::fs::File;
 use std::hash::Hash;
-use std::io::Read;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -22,8 +21,6 @@ use compact_str::CompactString;
 use derive_more::Display;
 use dupe::Dupe;
 use gazebo::cmp::PartialEqAny;
-use sha1::Digest;
-use sha1::Sha1;
 
 use crate::cas_digest::CasDigest;
 use crate::cas_digest::CasDigestConfig;
@@ -188,24 +185,10 @@ impl FileDigest {
 
     /// Get the digest from disk. You should usually prefer `from_file`
     /// which also uses faster methods of getting the SHA1 if it can.
-    pub fn from_file_disk(file: &Path, _config: CasDigestConfig) -> anyhow::Result<Self> {
+    pub fn from_file_disk(file: &Path, config: CasDigestConfig) -> anyhow::Result<Self> {
         // TODO (DigestConfig): Implement support for other hashes + move this into CasDigest.
-        let mut f = File::open(file)?;
-        let mut h = Sha1::new();
-        let mut size = 0;
-
-        // Buffer size chosen based on benchmarks at D26176645
-        let mut buffer = [0; 16 * 1024];
-        loop {
-            let count = f.read(&mut buffer)?;
-            if count == 0 {
-                break;
-            }
-            size += count as u64;
-            h.update(&buffer[..count]);
-        }
-        let sha1 = h.finalize().into();
-        Ok(Self::new_sha1(sha1, size))
+        let f = File::open(file)?;
+        FileDigest::from_reader(f, config)
     }
 }
 
