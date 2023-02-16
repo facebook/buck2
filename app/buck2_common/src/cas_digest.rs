@@ -32,6 +32,8 @@ use sha1::Sha1;
 use sha2::Sha256;
 use thiserror::Error;
 
+use crate::file_ops::FileDigestKind;
+
 /// The number of bytes required by a SHA-1 hash
 pub const SHA1_SIZE: usize = 20;
 
@@ -68,6 +70,12 @@ impl RawDigest {
             Self::Blake3(..) => DigestAlgorithm::Blake3,
         }
     }
+
+    pub fn parse_sha1(data: &[u8]) -> Result<Self, CasDigestParseError> {
+        let mut sha1 = [0; SHA1_SIZE];
+        hex::decode_to_slice(data, &mut sha1).map_err(CasDigestParseError::InvalidSha1)?;
+        Ok(RawDigest::Sha1(sha1))
+    }
 }
 
 #[derive(Debug, Eq, PartialEq, TryFromPrimitive, Copy, Clone, Dupe, Hash)]
@@ -82,6 +90,21 @@ pub enum DigestAlgorithm {
 pub struct CasDigestConfig {}
 
 impl CasDigestConfig {
+    /// Allow optimizing the empty file digest path, we do that by having the CasDigestConfig hold
+    /// a cell for it (later in this stack).
+    pub fn empty_file_digest(self) -> crate::file_ops::TrackedFileDigest {
+        static EMPTY_DIGEST: OnceCell<TrackedCasDigest<FileDigestKind>> = OnceCell::new();
+
+        EMPTY_DIGEST
+            .get_or_init(|| TrackedCasDigest {
+                inner: Arc::new(TrackedCasDigestInner {
+                    data: CasDigest::empty(self),
+                    expires: AtomicI64::new(0),
+                }),
+            })
+            .dupe()
+    }
+
     pub fn compat() -> Self {
         Self {}
     }
@@ -177,43 +200,43 @@ impl<Kind> CasDigest<Kind> {
         TinyDigest { of: self }
     }
 
-    pub fn parse_digest_sha1(s: &str) -> Result<Self, CasDigestParseError> {
-        let (sha1, size) = s
+    pub fn parse_digest(s: &str, config: CasDigestConfig) -> Result<Self, CasDigestParseError> {
+        let (digest, size) = s
             .split_once(':')
             .ok_or(CasDigestParseError::MissingSizeSeparator)?;
 
-        let sha1 = CasDigest::<Kind>::parse_digest_sha1_without_size(sha1.as_bytes())?;
+        let digest = CasDigest::<Kind>::parse_digest_without_size(digest.as_bytes(), config)?;
         let size = size.parse().map_err(CasDigestParseError::InvalidSize)?;
 
-        Ok(Self::new_sha1(sha1, size))
+        Ok(Self::new(digest, size))
     }
 
-    pub fn parse_digest_sha1_without_size(
+    pub fn parse_digest_without_size(
         data: &[u8],
-    ) -> Result<[u8; SHA1_SIZE], CasDigestParseError> {
-        let mut sha1 = [0; SHA1_SIZE];
-        hex::decode_to_slice(data, &mut sha1).map_err(CasDigestParseError::InvalidSha1)?;
-        Ok(sha1)
+        _config: CasDigestConfig,
+    ) -> Result<RawDigest, CasDigestParseError> {
+        // TODO (DigestConfig): actually select the preferred variant.
+        RawDigest::parse_sha1(data)
     }
 
     /// Return the digest of an empty string
-    pub fn empty_sha1() -> Self {
-        Self::from_content_sha1(&[])
+    pub fn empty(config: CasDigestConfig) -> Self {
+        Self::from_content(&[], config)
     }
 
-    pub fn from_content_sha1(bytes: &[u8]) -> Self {
-        let mut hasher = Sha1::new();
-        hasher.update(bytes);
-        Self::new_sha1(hasher.finalize().into(), bytes.len() as u64)
+    pub fn from_content(bytes: &[u8], _config: CasDigestConfig) -> Self {
+        // TODO (DigestConfig): Actually ask the CasDigestConfig for the prefrred algorithm.
+        Self::from_content_for_algorithm(bytes, DigestAlgorithm::Sha1)
     }
 
     /// NOTE: Eventually this probably needs to take something that isn't DigestAlgorithm because
     /// we might need to deal with keyed Blake3.
-    pub fn from_content(bytes: &[u8], algorithm: DigestAlgorithm) -> Self {
+    pub fn from_content_for_algorithm(bytes: &[u8], algorithm: DigestAlgorithm) -> Self {
         match algorithm {
             DigestAlgorithm::Sha1 => {
-                let sha1 = Sha1::digest(bytes).into();
-                Self::new_sha1(sha1, bytes.len() as u64)
+                let mut hasher = Sha1::new();
+                hasher.update(bytes);
+                Self::new_sha1(hasher.finalize().into(), bytes.len() as u64)
             }
             DigestAlgorithm::Sha256 => {
                 let mut sha256 = Sha256::new();
@@ -242,7 +265,7 @@ impl<Kind> CasDigest<Kind> {
 pub trait TrackedCasDigestKind: Sized + 'static {
     /// This needs to be a concrete implementation since we share the empty instance in a static
     /// but we can't have static generics.
-    fn cell_for_empty_digest() -> Option<&'static OnceCell<TrackedCasDigest<Self>>>;
+    fn empty_digest(config: CasDigestConfig) -> Option<TrackedCasDigest<Self>>;
 }
 
 #[derive(Display)]
@@ -341,12 +364,12 @@ impl<Kind> fmt::Debug for TrackedCasDigest<Kind> {
 impl<Kind> buck2_core::directory::DirectoryDigest for TrackedCasDigest<Kind> {}
 
 impl<Kind> TrackedCasDigest<Kind> {
-    pub fn new(data: CasDigest<Kind>) -> Self
+    pub fn new(data: CasDigest<Kind>, config: CasDigestConfig) -> Self
     where
         Kind: TrackedCasDigestKind,
     {
         if data.size() == 0 {
-            return Self::empty();
+            return Self::empty(config);
         }
 
         Self {
@@ -357,31 +380,48 @@ impl<Kind> TrackedCasDigest<Kind> {
         }
     }
 
-    pub fn new_expires(data: CasDigest<Kind>, expiry: DateTime<Utc>) -> Self
+    pub fn new_expires(
+        data: CasDigest<Kind>,
+        expiry: DateTime<Utc>,
+        config: CasDigestConfig,
+    ) -> Self
     where
         Kind: TrackedCasDigestKind,
     {
-        let res = Self::new(data);
+        let res = Self::new(data, config);
         res.update_expires(expiry);
         res
     }
 
-    pub fn empty() -> Self
+    pub fn empty(config: CasDigestConfig) -> Self
     where
         Kind: TrackedCasDigestKind,
     {
-        let make = || Self {
-            inner: Arc::new(TrackedCasDigestInner {
-                data: CasDigest::empty_sha1(),
-                expires: AtomicI64::new(0),
-            }),
-        };
+        match Kind::empty_digest(config) {
+            Some(o) => o,
+            None => Self {
+                inner: Arc::new(TrackedCasDigestInner {
+                    data: CasDigest::empty(config),
+                    expires: AtomicI64::new(0),
+                }),
+            },
+        }
+    }
 
-        if let Some(cell) = Kind::cell_for_empty_digest() {
-            return cell.get_or_init(make).dupe();
+    pub fn from_content(bytes: &[u8], config: CasDigestConfig) -> Self
+    where
+        Kind: TrackedCasDigestKind,
+    {
+        if bytes.is_empty() {
+            return Self::empty(config);
         }
 
-        make()
+        Self {
+            inner: Arc::new(TrackedCasDigestInner {
+                data: CasDigest::from_content(bytes, config),
+                expires: AtomicI64::new(0),
+            }),
+        }
     }
 
     pub fn data(&self) -> &CasDigest<Kind> {
@@ -415,8 +455,11 @@ mod tests {
     #[test]
     fn test_digest_from_str() {
         let s = "0000000000000000000000000000000000000000:123";
+        let config = CasDigestConfig::compat();
         assert_eq!(
-            CasDigest::<()>::parse_digest_sha1(s).unwrap().to_string(),
+            CasDigest::<()>::parse_digest(s, config)
+                .unwrap()
+                .to_string(),
             s
         );
     }

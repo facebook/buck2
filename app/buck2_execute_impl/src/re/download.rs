@@ -174,7 +174,11 @@ impl CasDownloader<'_> {
 
         for x in output_spec.output_files() {
             let digest = FileDigest::from_re(&x.digest.digest, self.digest_config)?;
-            let digest = TrackedFileDigest::new_expires(digest, expires);
+            let digest = TrackedFileDigest::new_expires(
+                digest,
+                expires,
+                self.digest_config.cas_digest_config(),
+            );
 
             let entry = DirectoryEntry::Leaf(ActionDirectoryMember::File(FileMetadata {
                 digest,
@@ -221,7 +225,11 @@ impl CasDownloader<'_> {
         self.materializer
             .declare_cas_many(
                 Arc::new(CasDownloadInfo::new_execution(
-                    TrackedActionDigest::new_expires(action_digest.dupe(), expires),
+                    TrackedActionDigest::new_expires(
+                        action_digest.dupe(),
+                        expires,
+                        self.digest_config.cas_digest_config(),
+                    ),
                     self.re_use_case,
                     retrieved_instant,
                     std::time::Duration::from_secs(ttl.try_into().unwrap_or(0)),

@@ -22,11 +22,11 @@ use compact_str::CompactString;
 use derive_more::Display;
 use dupe::Dupe;
 use gazebo::cmp::PartialEqAny;
-use once_cell::sync::OnceCell;
 use sha1::Digest;
 use sha1::Sha1;
 
 use crate::cas_digest::CasDigest;
+use crate::cas_digest::CasDigestConfig;
 use crate::cas_digest::TrackedCasDigest;
 use crate::cas_digest::TrackedCasDigestKind;
 use crate::external_symlink::ExternalSymlink;
@@ -103,9 +103,8 @@ pub struct FileDigestKind {
 }
 
 impl TrackedCasDigestKind for FileDigestKind {
-    fn cell_for_empty_digest() -> Option<&'static OnceCell<TrackedCasDigest<Self>>> {
-        static EMPTY_DIGEST: OnceCell<TrackedCasDigest<FileDigestKind>> = OnceCell::new();
-        Some(&EMPTY_DIGEST)
+    fn empty_digest(config: CasDigestConfig) -> Option<TrackedCasDigest<Self>> {
+        Some(config.empty_file_digest())
     }
 }
 
@@ -115,24 +114,30 @@ pub type TrackedFileDigest = TrackedCasDigest<FileDigestKind>;
 
 impl FileDigest {
     /// Obtain the digest of the file if you can.
-    pub fn from_file<P>(file: P) -> anyhow::Result<Self>
+    pub fn from_file<P>(file: P, config: CasDigestConfig) -> anyhow::Result<Self>
     where
         P: AsRef<Path>,
     {
         let file = file.as_ref();
-        match Self::from_file_attr(file) {
+        match Self::from_file_attr(file, config) {
             Some(x) => Ok(x),
-            None => Self::from_file_disk(file),
+            None => Self::from_file_disk(file, config),
         }
     }
 
     /// Read the file from the xattr, or skip if it's not available.
     #[cfg(unix)]
-    fn from_file_attr(file: &Path) -> Option<Self> {
+    fn from_file_attr(file: &Path, config: CasDigestConfig) -> Option<Self> {
         use std::borrow::Cow;
         use std::collections::HashSet;
 
         use buck2_core::fs::fs_util;
+
+        use crate::cas_digest::RawDigest;
+
+        // TODO (DigestConfig): check that the config allows SHA1.
+
+        let _unused = config;
 
         let mut file = Cow::Borrowed(file);
         let mut meta;
@@ -167,9 +172,9 @@ impl FileDigest {
 
         match xattr::get(&file, "user.sha1") {
             Ok(Some(v)) => {
-                let sha1 = Self::parse_digest_sha1_without_size(&v).ok()?;
+                let sha1 = RawDigest::parse_sha1(&v).ok()?;
                 let size = meta.len();
-                Some(Self::new_sha1(sha1, size))
+                Some(Self::new(sha1, size))
             }
             _ => None,
         }
@@ -177,13 +182,14 @@ impl FileDigest {
 
     /// Windows doesn't support extended file attributes.
     #[cfg(windows)]
-    fn from_file_attr(_file: &Path) -> Option<Self> {
+    fn from_file_attr(_file: &Path, _config: CasDigestConfig) -> Option<Self> {
         None
     }
 
     /// Get the digest from disk. You should usually prefer `from_file`
     /// which also uses faster methods of getting the SHA1 if it can.
-    pub fn from_file_disk(file: &Path) -> anyhow::Result<Self> {
+    pub fn from_file_disk(file: &Path, _config: CasDigestConfig) -> anyhow::Result<Self> {
+        // TODO (DigestConfig): Implement support for other hashes + move this into CasDigest.
         let mut f = File::open(file)?;
         let mut h = Sha1::new();
         let mut size = 0;
@@ -214,9 +220,9 @@ pub struct FileMetadata {
 
 impl FileMetadata {
     /// Metadata of an empty file
-    pub fn empty() -> Self {
+    pub fn empty(config: CasDigestConfig) -> Self {
         Self {
-            digest: TrackedFileDigest::empty(),
+            digest: TrackedFileDigest::empty(config),
             is_executable: false,
         }
     }
@@ -382,8 +388,8 @@ pub mod testing {
     use gazebo::cmp::PartialEqAny;
     use itertools::Itertools;
 
+    use crate::cas_digest::CasDigestConfig;
     use crate::external_symlink::ExternalSymlink;
-    use crate::file_ops::FileDigest;
     use crate::file_ops::FileMetadata;
     use crate::file_ops::FileOps;
     use crate::file_ops::FileType;
@@ -417,6 +423,8 @@ pub mod testing {
         }
 
         pub fn new_with_files(files: BTreeMap<CellPath, String>) -> Self {
+            let cas_digest_config = CasDigestConfig::compat();
+
             Self::new(
                 files
                     .into_iter()
@@ -426,9 +434,10 @@ pub mod testing {
                             TestFileOpsEntry::File(
                                 data.clone(),
                                 FileMetadata {
-                                    digest: TrackedFileDigest::new(FileDigest::from_content_sha1(
+                                    digest: TrackedFileDigest::from_content(
                                         data.as_bytes(),
-                                    )),
+                                        cas_digest_config,
+                                    ),
                                     is_executable: false,
                                 },
                             ),
@@ -573,6 +582,7 @@ mod tests {
 
         #[test]
         fn test_from_file_attr() -> anyhow::Result<()> {
+            let config = CasDigestConfig::compat();
             let tempdir = tempfile::tempdir()?;
 
             let file = tempdir.path().join("dest");
@@ -588,12 +598,13 @@ mod tests {
             symlink("link", tempdir.path().join("recurse_link"))?;
             symlink("recurse_link", tempdir.path().join("recurse_recurse_link"))?;
 
-            let d1 = FileDigest::from_file(&file).context("file")?;
-            let d2 = FileDigest::from_file(tempdir.path().join("link")).context("file")?;
-            let d3 = FileDigest::from_file(tempdir.path().join("abs_link")).context("abs_link")?;
-            let d4 = FileDigest::from_file(tempdir.path().join("recurse_link"))
+            let d1 = FileDigest::from_file(&file, config).context("file")?;
+            let d2 = FileDigest::from_file(tempdir.path().join("link"), config).context("file")?;
+            let d3 = FileDigest::from_file(tempdir.path().join("abs_link"), config)
+                .context("abs_link")?;
+            let d4 = FileDigest::from_file(tempdir.path().join("recurse_link"), config)
                 .context("recurse_link")?;
-            let d5 = FileDigest::from_file(tempdir.path().join("recurse_recurse_link"))
+            let d5 = FileDigest::from_file(tempdir.path().join("recurse_recurse_link"), config)
                 .context("recurse_recurse_link")?;
 
             assert_eq!(d1.digest().as_bytes(), &[0; SHA1_SIZE][..]);
@@ -619,8 +630,9 @@ mod tests {
 
     #[test]
     fn test_tracked_file_digest_equivalence() {
-        let digest = FileDigest::from_content_sha1(b"foo");
-        let tracked_digest = TrackedFileDigest::new(digest.dupe());
+        let digest_config = CasDigestConfig::compat();
+        let digest = FileDigest::from_content(b"foo", digest_config);
+        let tracked_digest = TrackedFileDigest::new(digest.dupe(), digest_config);
 
         assert_eq!(&digest, tracked_digest.borrow());
 

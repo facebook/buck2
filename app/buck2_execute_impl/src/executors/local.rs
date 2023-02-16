@@ -427,7 +427,7 @@ impl LocalExecutor {
             let path = output.resolve(&self.artifact_fs).into_path();
             let abspath = self.root.join(&path);
             let entry = self
-                .build_entry_from_disk(abspath)
+                .build_entry_from_disk(abspath, digest_config)
                 .with_context(|| format!("collecting output {:?}", path))?;
             if let Some(entry) = entry {
                 insert_entry(&mut builder, path.as_ref(), entry)?;
@@ -465,9 +465,11 @@ impl LocalExecutor {
     fn build_entry_from_disk(
         &self,
         mut path: AbsNormPathBuf,
+        digest_config: DigestConfig,
     ) -> anyhow::Result<Option<ActionDirectoryEntry<ActionDirectoryBuilder>>> {
         fn build_dir_from_disk(
             disk_path: &mut AbsNormPathBuf,
+            digest_config: DigestConfig,
         ) -> anyhow::Result<ActionDirectoryBuilder> {
             let mut builder = ActionDirectoryBuilder::empty();
 
@@ -485,7 +487,7 @@ impl LocalExecutor {
                 disk_path.push(&filename);
 
                 if filetype.is_dir() {
-                    let dir = build_dir_from_disk(disk_path)?;
+                    let dir = build_dir_from_disk(disk_path, digest_config)?;
                     builder.insert(filename, DirectoryEntry::Dir(dir))?;
                 } else if filetype.is_symlink() {
                     builder.insert(
@@ -494,7 +496,10 @@ impl LocalExecutor {
                     )?;
                 } else if filetype.is_file() {
                     let metadata = FileMetadata {
-                        digest: TrackedFileDigest::new(FileDigest::from_file(&disk_path)?),
+                        digest: TrackedFileDigest::new(
+                            FileDigest::from_file(&disk_path, digest_config.cas_digest_config())?,
+                            digest_config.cas_digest_config(),
+                        ),
                         is_executable: file.path().executable(),
                     };
                     builder.insert(
@@ -519,11 +524,14 @@ impl LocalExecutor {
             DirectoryEntry::Leaf(new_symlink(fs_util::read_link(&path)?)?)
         } else if m.is_file() {
             DirectoryEntry::Leaf(ActionDirectoryMember::File(FileMetadata {
-                digest: TrackedFileDigest::new(FileDigest::from_file(&path)?),
+                digest: TrackedFileDigest::new(
+                    FileDigest::from_file(&path, digest_config.cas_digest_config())?,
+                    digest_config.cas_digest_config(),
+                ),
                 is_executable: path.executable(),
             }))
         } else if m.is_dir() {
-            DirectoryEntry::Dir(build_dir_from_disk(&mut path)?)
+            DirectoryEntry::Dir(build_dir_from_disk(&mut path, digest_config)?)
         } else {
             unimplemented!("Path {:?} is of an unknown file type.", path)
         };

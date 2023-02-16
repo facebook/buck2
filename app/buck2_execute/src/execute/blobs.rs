@@ -9,20 +9,24 @@
 
 use std::collections::HashMap;
 
-use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::TrackedFileDigest;
 use dupe::Dupe;
 use prost::Message;
+
+use crate::digest_config::DigestConfig;
 
 /// Contains small blobs referenced from action messages (does not include any file contents blobs).
 pub struct ActionBlobs(HashMap<TrackedFileDigest, Vec<u8>>);
 
 impl ActionBlobs {
-    pub fn new() -> Self {
+    pub fn new(digest_config: DigestConfig) -> Self {
         // We add empty files to the input that don't exist in disk; so add
         // the empty digest to blobs, as going to disk would fail.
         let mut blobs = HashMap::new();
-        blobs.insert(TrackedFileDigest::empty(), Vec::new());
+        blobs.insert(
+            TrackedFileDigest::empty(digest_config.cas_digest_config()),
+            Vec::new(),
+        );
         Self(blobs)
     }
 
@@ -30,11 +34,15 @@ impl ActionBlobs {
         self.0.insert(digest, data);
     }
 
-    pub fn add_protobuf_message(&mut self, m: &impl Message) -> TrackedFileDigest {
+    pub fn add_protobuf_message(
+        &mut self,
+        m: &impl Message,
+        digest_config: DigestConfig,
+    ) -> TrackedFileDigest {
         let mut blob = Vec::new();
         // Unwrap is safe because it only fails in OOM conditions, which we pretend don't happen
         m.encode(&mut blob).unwrap();
-        let digest = TrackedFileDigest::new(FileDigest::from_content_sha1(&blob));
+        let digest = TrackedFileDigest::from_content(&blob, digest_config.cas_digest_config());
         self.0.insert(digest.dupe(), blob);
         digest
     }

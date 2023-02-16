@@ -329,8 +329,8 @@ impl CachingExecutor {
                 }
                 DirectoryEntry::Dir(d) => {
                     let tree = directory_to_re_tree(d);
-                    let mut action_blobs = ActionBlobs::new();
-                    let tree_digest = action_blobs.add_protobuf_message(&tree);
+                    let mut action_blobs = ActionBlobs::new(digest_config);
+                    let tree_digest = action_blobs.add_protobuf_message(&tree, digest_config);
 
                     output_directories.push(TDirectory2 {
                         path: output.path().to_string(),

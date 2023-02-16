@@ -13,11 +13,13 @@ use std::sync::Arc;
 use allocative::Allocative;
 use anyhow::Context as _;
 use async_trait::async_trait;
+use buck2_common::cas_digest::RawDigest;
 use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::category::Category;
 use buck2_execute::artifact_value::ArtifactValue;
+use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
 use buck2_execute::materialize::http::http_client;
 use buck2_execute::materialize::http::http_download;
@@ -128,6 +130,7 @@ impl DownloadFileAction {
     async fn declared_metadata(
         &self,
         client: &reqwest::Client,
+        digest_config: DigestConfig,
     ) -> anyhow::Result<Option<FileMetadata>> {
         if !self.inner.is_deferrable {
             return Ok(None);
@@ -138,9 +141,9 @@ impl DownloadFileAction {
             _ => return Ok(None),
         };
 
-        // NOTE: We should probably fail earlier here, but since historically we didn't, we'll let
-        // that proceed to download and flag the wrong digest.
-        let sha1 = match FileDigest::parse_digest_sha1_without_size(sha1.as_bytes()) {
+        // TODO (DigestConfig): Verify that SHA1 is allowed by the config.
+
+        let sha1 = match RawDigest::parse_sha1(sha1.as_bytes()) {
             Ok(sha1) => sha1,
             Err(_) => return Ok(None),
         };
@@ -172,7 +175,10 @@ impl DownloadFileAction {
 
         match content_length {
             Some(length) => {
-                let digest = TrackedFileDigest::new(FileDigest::new_sha1(sha1, length));
+                let digest = TrackedFileDigest::new(
+                    FileDigest::new(sha1, length),
+                    digest_config.cas_digest_config(),
+                );
                 Ok(Some(FileMetadata {
                     digest,
                     is_executable: self.inner.is_executable,
@@ -224,55 +230,57 @@ impl IncrementalActionExecutable for DownloadFileAction {
     ) -> anyhow::Result<(ActionOutputs, ActionExecutionMetadata)> {
         let client = http_client()?;
 
-        let (metadata, execution_kind) = match self.declared_metadata(&client).await? {
-            Some(metadata) => {
-                let artifact_fs = ctx.fs();
-                let rel_path = artifact_fs.resolve_build(self.output().get_path());
+        let (metadata, execution_kind) =
+            match self.declared_metadata(&client, ctx.digest_config()).await? {
+                Some(metadata) => {
+                    let artifact_fs = ctx.fs();
+                    let rel_path = artifact_fs.resolve_build(self.output().get_path());
 
-                // Fast path: download later via the materializer.
-                ctx.materializer()
-                    .declare_http(
-                        rel_path,
-                        HttpDownloadInfo {
-                            url: self.inner.url.dupe(),
-                            checksum: self.inner.checksum.dupe(),
-                            metadata: metadata.dupe(),
-                            owner: ctx.target().owner.dupe(),
-                        },
+                    // Fast path: download later via the materializer.
+                    ctx.materializer()
+                        .declare_http(
+                            rel_path,
+                            HttpDownloadInfo {
+                                url: self.inner.url.dupe(),
+                                checksum: self.inner.checksum.dupe(),
+                                metadata: metadata.dupe(),
+                                owner: ctx.target().owner.dupe(),
+                            },
+                        )
+                        .await?;
+
+                    (metadata, ActionExecutionKind::Deferred)
+                }
+                None => {
+                    ctx.cleanup_outputs().await?;
+
+                    let artifact_fs = ctx.fs();
+                    let project_fs = artifact_fs.fs();
+                    let rel_path = artifact_fs.resolve_build(self.output().get_path());
+
+                    // Slow path: download now.
+                    let digest = http_download(
+                        &client,
+                        project_fs,
+                        ctx.digest_config(),
+                        &rel_path,
+                        &self.inner.url,
+                        &self.inner.checksum,
+                        self.inner.is_executable,
                     )
                     .await?;
 
-                (metadata, ActionExecutionKind::Deferred)
-            }
-            None => {
-                ctx.cleanup_outputs().await?;
+                    let metadata = FileMetadata {
+                        digest,
+                        is_executable: self.inner.is_executable,
+                    };
+                    ctx.materializer()
+                        .declare_existing(vec![(rel_path, ArtifactValue::file(metadata.dupe()))])
+                        .await?;
 
-                let artifact_fs = ctx.fs();
-                let project_fs = artifact_fs.fs();
-                let rel_path = artifact_fs.resolve_build(self.output().get_path());
-
-                // Slow path: download now.
-                let digest = http_download(
-                    &client,
-                    project_fs,
-                    &rel_path,
-                    &self.inner.url,
-                    &self.inner.checksum,
-                    self.inner.is_executable,
-                )
-                .await?;
-
-                let metadata = FileMetadata {
-                    digest,
-                    is_executable: self.inner.is_executable,
-                };
-                ctx.materializer()
-                    .declare_existing(vec![(rel_path, ArtifactValue::file(metadata.dupe()))])
-                    .await?;
-
-                (metadata, ActionExecutionKind::Simple)
-            }
-        };
+                    (metadata, ActionExecutionKind::Simple)
+                }
+            };
 
         let value = ArtifactValue::file(metadata);
 

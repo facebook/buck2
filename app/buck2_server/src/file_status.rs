@@ -27,6 +27,8 @@ use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_execute::digest_config::DigestConfig;
+use buck2_execute::digest_config::HasDigestConfig;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::raw_output::RawOutputGuard;
 use buck2_server_ctx::template::run_server_command;
@@ -82,6 +84,7 @@ impl ServerCommandTemplate for FileStatusServerCommand {
         let file_ops = ctx.file_ops();
         let cell_resolver = ctx.get_cell_resolver().await?;
         let project_root = server_ctx.project_root();
+        let digest_config = ctx.global_data().get_digest_config();
         let mut result = FileStatusResult {
             checked: 0,
             bad: 0,
@@ -91,7 +94,15 @@ impl ServerCommandTemplate for FileStatusServerCommand {
         for path in &self.req.paths {
             let path = project_root.relativize_any(AbsPath::new(Path::new(path))?)?;
             writeln!(result.stderr, "Check file status: {}", path)?;
-            check_file_status(&file_ops, &cell_resolver, project_root, &path, &mut result).await?;
+            check_file_status(
+                &file_ops,
+                &cell_resolver,
+                project_root,
+                digest_config,
+                &path,
+                &mut result,
+            )
+            .await?;
         }
         if result.bad != 0 {
             Err(anyhow::anyhow!("Failed with {} mismatches", result.bad))
@@ -136,6 +147,7 @@ async fn check_file_status(
     file_ops: &dyn FileOps,
     cell_resolver: &CellResolver,
     project_root: &ProjectRoot,
+    digest_config: DigestConfig,
     path: &ProjectRelativePath,
     result: &mut FileStatusResult,
 ) -> anyhow::Result<()> {
@@ -194,7 +206,10 @@ async fn check_file_status(
                             dice_metadata.digest.size(),
                         ))?;
                     } else {
-                        let fs_digest = FileDigest::from_file_disk(&abs_path)?;
+                        let fs_digest = FileDigest::from_file_disk(
+                            &abs_path,
+                            digest_config.cas_digest_config(),
+                        )?;
                         if &fs_digest != dice_metadata.digest.data() {
                             result.mismatch(Mismatch::FileDigest(
                                 path.to_owned(),
@@ -237,8 +252,15 @@ async fn check_file_status(
                         for file in &*dice_read_dir.included {
                             let mut path = path.to_owned();
                             path.push(&file.file_name);
-                            check_file_status(file_ops, cell_resolver, project_root, &path, result)
-                                .await?;
+                            check_file_status(
+                                file_ops,
+                                cell_resolver,
+                                project_root,
+                                digest_config,
+                                &path,
+                                result,
+                            )
+                            .await?;
                         }
                     }
                 }

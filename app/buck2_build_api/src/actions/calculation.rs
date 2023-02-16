@@ -415,7 +415,6 @@ mod tests {
     use buck2_common::executor_config::CommandExecutorConfig;
     use buck2_common::external_symlink::ExternalSymlink;
     use buck2_common::file_ops::testing::TestFileOps;
-    use buck2_common::file_ops::FileDigest;
     use buck2_common::file_ops::FileMetadata;
     use buck2_common::file_ops::TrackedFileDigest;
     use buck2_common::result::ToSharedResultExt;
@@ -779,13 +778,15 @@ mod tests {
 
     #[tokio::test]
     async fn test_ensure_artifact_source_artifact() -> anyhow::Result<()> {
+        let digest_config = DigestConfig::compat();
+
         let path = CellPath::new(
             CellName::testing_new("cell"),
             CellRelativePathBuf::unchecked_new("pkg/src.cpp".to_owned()),
         );
         let source_artifact = create_test_source_artifact("cell", "pkg", "src.cpp");
         let metadata = FileMetadata {
-            digest: TrackedFileDigest::new(FileDigest::from_content_sha1(b"content")),
+            digest: TrackedFileDigest::from_content(b"content", digest_config.cas_digest_config()),
             is_executable: true,
         };
 
@@ -882,11 +883,13 @@ mod tests {
     async fn test_command_details_omission() {
         use buck2_data::command_execution_details::Command;
 
+        let digest_config = DigestConfig::compat();
+
         let mut report = CommandExecutionReport {
             claim: None,
             status: CommandExecutionStatus::Success {
                 execution_kind: CommandExecutionKind::Local {
-                    digest: ActionDigest::empty_sha1(),
+                    digest: ActionDigest::empty(digest_config.cas_digest_config()),
                     command: vec![],
                     env: sorted_vector_map![],
                 },
@@ -911,7 +914,7 @@ mod tests {
 
         report.status = CommandExecutionStatus::Failure {
             execution_kind: CommandExecutionKind::Local {
-                digest: ActionDigest::empty_sha1(),
+                digest: ActionDigest::empty(digest_config.cas_digest_config()),
                 command: vec![],
                 env: sorted_vector_map![],
             },

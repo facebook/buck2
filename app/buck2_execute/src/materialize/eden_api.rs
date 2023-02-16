@@ -359,7 +359,6 @@ mod tests {
     use std::sync::Arc;
 
     use buck2_common::external_symlink::ExternalSymlink;
-    use buck2_common::file_ops::FileDigest;
     use buck2_common::file_ops::FileMetadata;
     use buck2_common::file_ops::TrackedFileDigest;
     use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
@@ -368,6 +367,7 @@ mod tests {
 
     use super::*;
     use crate::artifact_value::ArtifactValue;
+    use crate::digest_config::DigestConfig;
     use crate::directory::Symlink;
 
     #[test]
@@ -396,7 +396,9 @@ mod tests {
 
     #[test]
     fn test_get_object_id_and_type_blob() -> anyhow::Result<()> {
-        let digest = TrackedFileDigest::new(FileDigest::from_content_sha1(b"content"));
+        let digest_config = DigestConfig::compat();
+
+        let digest = TrackedFileDigest::from_content(b"content", digest_config.cas_digest_config());
         let metadata_executable = FileMetadata {
             digest: digest.dupe(),
             is_executable: true,

@@ -23,7 +23,6 @@ use std::sync::Arc;
 use allocative::Allocative;
 use anyhow::Context;
 use async_trait::async_trait;
-use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_common::result::SharedError;
@@ -214,7 +213,6 @@ struct MaterializerReceiver<T> {
 
 struct DeferredMaterializerCommandProcessor<T> {
     io: Arc<T>,
-    #[allow(unused)]
     digest_config: DigestConfig,
     sqlite_db: Option<MaterializerStateSqliteDb>,
     /// The runtime the deferred materializer will spawn futures on. This is normally the runtime
@@ -580,7 +578,13 @@ impl Materializer for DeferredMaterializer {
         gen: Box<dyn FnOnce() -> anyhow::Result<Vec<WriteRequest>> + Send + 'a>,
     ) -> anyhow::Result<Vec<ArtifactValue>> {
         if !self.defer_write_actions {
-            return immediate::write_to_disk(&self.fs, self.io_executor.as_ref(), gen).await;
+            return immediate::write_to_disk(
+                &self.fs,
+                self.io_executor.as_ref(),
+                self.digest_config,
+                gen,
+            )
+            .await;
         }
 
         let contents = gen()?;
@@ -595,10 +599,11 @@ impl Materializer for DeferredMaterializer {
             is_executable,
         } in contents
         {
-            let digest = FileDigest::from_content_sha1(&content);
+            let digest =
+                TrackedFileDigest::from_content(&content, self.digest_config.cas_digest_config());
 
             let meta = FileMetadata {
-                digest: TrackedFileDigest::new(digest),
+                digest,
                 is_executable,
             };
 
@@ -889,7 +894,8 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                     match command {
                         // Entry point for `get_materialized_file_paths` calls
                         MaterializerCommand::GetMaterializedFilePaths(paths, result_sender) => {
-                            let result = paths.into_map(|p| tree.file_contents_path(p));
+                            let result =
+                                paths.into_map(|p| tree.file_contents_path(p, self.digest_config));
                             result_sender.send(result).ok();
                         }
                         MaterializerCommand::DeclareExisting(artifacts, ..) => {
@@ -1464,6 +1470,7 @@ impl ArtifactTree {
     fn file_contents_path(
         &self,
         path: ProjectRelativePathBuf,
+        digest_config: DigestConfig,
     ) -> Result<ProjectRelativePathBuf, ArtifactNotMaterializedReason> {
         let mut path_iter = path.iter();
         let materialization_data = match self.prefix_get(&mut path_iter) {
@@ -1500,9 +1507,8 @@ impl ArtifactTree {
                         // TODO (@torozco): A nicer API to get an Immutable directory here.
                         entry: entry
                             .map_dir(|d| {
-                                d.to_builder().fingerprint(&ReDirectorySerializer {
-                                    digest_config: DigestConfig::compat(),
-                                })
+                                d.to_builder()
+                                    .fingerprint(&ReDirectorySerializer { digest_config })
                             })
                             .map_leaf(|l| l.dupe()),
                         info: info.dupe(),
@@ -1526,7 +1532,7 @@ impl ArtifactTree {
                 match srcs.prefix_get(&mut path_iter) {
                     None => Ok(path),
                     Some(src_path) => match path_iter.next() {
-                        None => self.file_contents_path(src_path.clone()),
+                        None => self.file_contents_path(src_path.clone(), digest_config),
                         // This is not supposed to be reachable, and if it's, there
                         // is a bug somewhere else. Panic to prevent the bug from
                         // propagating.

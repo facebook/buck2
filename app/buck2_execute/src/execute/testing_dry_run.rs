@@ -76,7 +76,7 @@ impl PreparedCommandExecutor for DryRunExecutor {
             .push(DryRunEntry { args, outputs, env });
 
         let exec_kind = CommandExecutionKind::Local {
-            digest: ActionDigest::empty_sha1(),
+            digest: ActionDigest::empty(digest_config.cas_digest_config()),
             command: Default::default(),
             env: Default::default(),
         };

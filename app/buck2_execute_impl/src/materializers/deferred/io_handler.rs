@@ -65,7 +65,6 @@ use crate::materializers::io::MaterializeTreeStructure;
 
 pub(super) struct DefaultIoHandler {
     pub(super) fs: ProjectRoot,
-    #[allow(unused)]
     pub(super) digest_config: DigestConfig,
     pub(super) buck_out_path: ProjectRelativePathBuf,
     pub(super) re_client_manager: Arc<ReConnectionManager>,
@@ -180,6 +179,7 @@ impl DefaultIoHandler {
                     let downloaded = http_download(
                         &http_client()?,
                         &self.fs,
+                        self.digest_config,
                         &path,
                         &info.url,
                         &info.checksum,

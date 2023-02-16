@@ -12,7 +12,6 @@ use std::sync::Arc;
 use allocative::Allocative;
 use anyhow::Context;
 use async_trait::async_trait;
-use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::directory::unordered_entry_walk;
@@ -188,6 +187,7 @@ impl Materializer for ImmediateMaterializer {
         http_download(
             &http_client()?,
             &self.fs,
+            self.digest_config,
             &path,
             &info.url,
             &info.checksum,
@@ -210,7 +210,7 @@ impl Materializer for ImmediateMaterializer {
         &self,
         gen: Box<dyn FnOnce() -> anyhow::Result<Vec<WriteRequest>> + Send + 'a>,
     ) -> anyhow::Result<Vec<ArtifactValue>> {
-        write_to_disk(&self.fs, self.io_executor.as_ref(), gen).await
+        write_to_disk(&self.fs, self.io_executor.as_ref(), self.digest_config, gen).await
     }
 
     async fn invalidate_many(&self, _paths: Vec<ProjectRelativePathBuf>) -> anyhow::Result<()> {
@@ -248,6 +248,7 @@ impl Materializer for ImmediateMaterializer {
 pub async fn write_to_disk<'a>(
     fs: &ProjectRoot,
     io_executor: &dyn BlockingExecutor,
+    digest_config: DigestConfig,
     gen: Box<dyn FnOnce() -> anyhow::Result<Vec<WriteRequest>> + Send + 'a>,
 ) -> anyhow::Result<Vec<ArtifactValue>> {
     io_executor
@@ -262,12 +263,15 @@ pub async fn write_to_disk<'a>(
                     is_executable,
                 } in requests
                 {
-                    let digest = FileDigest::from_content_sha1(&content);
+                    let digest = TrackedFileDigest::from_content(
+                        &content,
+                        digest_config.cas_digest_config(),
+                    );
                     cleanup_path(fs, &path)?;
                     fs.write_file(&path, &content, is_executable)?;
 
                     values.push(ArtifactValue::file(FileMetadata {
-                        digest: TrackedFileDigest::new(digest),
+                        digest,
                         is_executable,
                     }));
                 }

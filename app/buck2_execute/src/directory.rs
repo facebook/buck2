@@ -178,9 +178,10 @@ impl DirectoryHasher<ActionDirectoryMember, TrackedFileDigest> for ReDirectorySe
         >,
         D: ActionFingerprintedDirectory + 'a,
     {
-        TrackedFileDigest::new(FileDigest::from_content_sha1(&Self::serialize_entries(
-            entries,
-        )))
+        TrackedFileDigest::from_content(
+            &Self::serialize_entries(entries),
+            self.digest_config.cas_digest_config(),
+        )
     }
 }
 
@@ -317,7 +318,7 @@ pub fn re_tree_to_directory(
         let mut m_encoded = Vec::new();
         m.encode(&mut m_encoded)
             .unwrap_or_else(|e| unreachable!("Protobuf messages are always encodeable: {}", e));
-        FileDigest::from_content(m_encoded.as_slice(), algo)
+        FileDigest::from_content_for_algorithm(m_encoded.as_slice(), algo)
     }
 
     // Recursively builds the directory
@@ -344,7 +345,11 @@ pub fn re_tree_to_directory(
                 }
             })?;
             let digest = FileDigest::from_grpc(digest, digest_config)?;
-            let digest = TrackedFileDigest::new_expires(digest, *leaf_expires);
+            let digest = TrackedFileDigest::new_expires(
+                digest,
+                *leaf_expires,
+                digest_config.cas_digest_config(),
+            );
 
             let member = ActionDirectoryMember::File(FileMetadata {
                 digest,
@@ -792,9 +797,15 @@ mod tests {
 
     #[test]
     fn directory_relativized() -> anyhow::Result<()> {
+        let digest_config = DigestConfig::compat();
+
         let mut dir = {
             let mut builder = ActionDirectoryBuilder::empty();
-            insert_file(&mut builder, path("inter/f"), FileMetadata::empty())?;
+            insert_file(
+                &mut builder,
+                path("inter/f"),
+                FileMetadata::empty(digest_config.cas_digest_config()),
+            )?;
             insert_symlink(
                 &mut builder,
                 path("sym"),
@@ -810,7 +821,11 @@ mod tests {
 
         let expected_dir = {
             let mut builder = ActionDirectoryBuilder::empty();
-            insert_file(&mut builder, path("inter/f"), FileMetadata::empty())?;
+            insert_file(
+                &mut builder,
+                path("inter/f"),
+                FileMetadata::empty(digest_config.cas_digest_config()),
+            )?;
             insert_symlink(
                 &mut builder,
                 path("sym"),
@@ -833,6 +848,8 @@ mod tests {
     }
 
     fn build_test_dir() -> anyhow::Result<ActionDirectoryBuilder> {
+        let digest_config = DigestConfig::compat();
+
         let mut builder = ActionDirectoryBuilder::empty();
         // /
         // |-f1
@@ -853,7 +870,11 @@ mod tests {
         // |-f5
 
         for file in &["f1", "d1/d2/d4/f2", "d1/d2/d5/f3", "d6/f4", "f5"] {
-            insert_file(&mut builder, path(file), FileMetadata::empty())?;
+            insert_file(
+                &mut builder,
+                path(file),
+                FileMetadata::empty(digest_config.cas_digest_config()),
+            )?;
         }
 
         for (sym, target) in &[
@@ -876,17 +897,20 @@ mod tests {
     /// All deps of d6 are internal to it, so we don't return any deps.
     #[test]
     fn test_extract_no_deps() -> anyhow::Result<()> {
+        let digest_config = DigestConfig::compat();
         let root = build_test_dir()?;
-        let value = extract_artifact_value(&root, path("d6"), DigestConfig::compat())?
-            .context("Not value!")?;
+        let value =
+            extract_artifact_value(&root, path("d6"), digest_config)?.context("Not value!")?;
         assert!(value.deps().is_none());
         Ok(())
     }
 
     #[test]
     fn test_extract_has_deps_dir() -> anyhow::Result<()> {
+        let digest_config = DigestConfig::compat();
+
         let root = build_test_dir()?;
-        let value = extract_artifact_value(&root, path("d1/d2/d3"), DigestConfig::compat())?
+        let value = extract_artifact_value(&root, path("d1/d2/d3"), digest_config)?
             .context("Not value!")?;
 
         let expected = {
@@ -911,13 +935,19 @@ mod tests {
 
     #[test]
     fn test_extract_has_deps_leaf() -> anyhow::Result<()> {
+        let digest_config = DigestConfig::compat();
+
         let root = build_test_dir()?;
-        let value = extract_artifact_value(&root, path("d1/d2/d3/s3"), DigestConfig::compat())?
+        let value = extract_artifact_value(&root, path("d1/d2/d3/s3"), digest_config)?
             .context("Not value!")?;
 
         let expected = {
             let mut builder = ActionDirectoryBuilder::empty();
-            insert_file(&mut builder, path("f1"), FileMetadata::empty())?;
+            insert_file(
+                &mut builder,
+                path("f1"),
+                FileMetadata::empty(digest_config.cas_digest_config()),
+            )?;
             builder
         };
 
@@ -928,6 +958,8 @@ mod tests {
 
     #[test]
     fn test_extract_cycle() -> anyhow::Result<()> {
+        let digest_config = DigestConfig::compat();
+
         let mut builder = ActionDirectoryBuilder::empty();
 
         for (sym, target) in &[("d1/f1", "../d2/f2"), ("d2/f2", "../d1/f1")] {
@@ -948,7 +980,7 @@ mod tests {
             builder
         };
 
-        let value = extract_artifact_value(&builder, path("d1/f1"), DigestConfig::compat())?
+        let value = extract_artifact_value(&builder, path("d1/f1"), digest_config)?
             .context("Not value!")?;
 
         assert_dirs_eq(value.deps().context("No deps!")?, &expected);
@@ -961,6 +993,7 @@ mod tests {
         // Crank up the difficulty: l1 points through d3/f, but through l2. We need all of those in
         // the deps! In practice, this tends to not happen in Buck 2 because we always dereference
         // symlinks and traverse them, but might a well support it properly.
+        let digest_config = DigestConfig::compat();
 
         let mut builder = ActionDirectoryBuilder::empty();
         insert_symlink(
@@ -975,10 +1008,14 @@ mod tests {
             Arc::new(Symlink::new("d3".into())),
         )?;
 
-        insert_file(&mut builder, path("d3/f"), FileMetadata::empty())?;
+        insert_file(
+            &mut builder,
+            path("d3/f"),
+            FileMetadata::empty(digest_config.cas_digest_config()),
+        )?;
 
-        let value = extract_artifact_value(&builder, path("l1"), DigestConfig::compat())?
-            .context("Not value!")?;
+        let value =
+            extract_artifact_value(&builder, path("l1"), digest_config)?.context("Not value!")?;
 
         let expected = {
             let mut builder = ActionDirectoryBuilder::empty();
@@ -989,7 +1026,11 @@ mod tests {
                 Arc::new(Symlink::new("d3".into())),
             )?;
 
-            insert_file(&mut builder, path("d3/f"), FileMetadata::empty())?;
+            insert_file(
+                &mut builder,
+                path("d3/f"),
+                FileMetadata::empty(digest_config.cas_digest_config()),
+            )?;
 
             builder
         };
@@ -1004,9 +1045,21 @@ mod tests {
         let digest_config = DigestConfig::compat();
 
         let mut builder = ActionDirectoryBuilder::empty();
-        insert_file(&mut builder, path("a/aa"), FileMetadata::empty())?;
-        insert_file(&mut builder, path("a/bb"), FileMetadata::empty())?;
-        insert_file(&mut builder, path("b/b"), FileMetadata::empty())?;
+        insert_file(
+            &mut builder,
+            path("a/aa"),
+            FileMetadata::empty(digest_config.cas_digest_config()),
+        )?;
+        insert_file(
+            &mut builder,
+            path("a/bb"),
+            FileMetadata::empty(digest_config.cas_digest_config()),
+        )?;
+        insert_file(
+            &mut builder,
+            path("b/b"),
+            FileMetadata::empty(digest_config.cas_digest_config()),
+        )?;
         let dir = builder.fingerprint(&ReDirectorySerializer { digest_config });
 
         let tree = directory_to_re_tree(&dir);
@@ -1031,12 +1084,16 @@ mod tests {
 
         let mut builder = ActionDirectoryBuilder::empty();
         for p in &["a/aa/f", "a/aaa/f", "b/bb/f", "d/f"] {
-            insert_file(&mut builder, path(p), FileMetadata::empty())?;
+            insert_file(
+                &mut builder,
+                path(p),
+                FileMetadata::empty(digest_config.cas_digest_config()),
+            )?;
         }
         let dir = builder.fingerprint(&ReDirectorySerializer { digest_config });
         let tree = directory_to_re_tree(&dir);
         let tree = proto_serialize(&tree);
-        let digest = FileDigest::from_content_sha1(&tree);
+        let digest = FileDigest::from_content(&tree, digest_config.cas_digest_config());
         assert_eq!(
             digest.to_string(),
             "28e2632abbdc186ddd3ce26d2faf2da40c4c2695:521"
@@ -1050,16 +1107,21 @@ mod tests {
     //Test that a symlink created with a windows path doesn't get interpreted as an invalid sylink
     //TODO(lmvasquezg) Update symlinks to store a normalized, OS-independent path
     fn test_unnormalized_symlinks() -> anyhow::Result<()> {
+        let digest_config = DigestConfig::compat();
+
         let mut builder = ActionDirectoryBuilder::empty();
         insert_symlink(
             &mut builder,
             path("d1/f1"),
             Arc::new(Symlink::new("..\\d2\\f2".into())),
         )?;
-        insert_file(&mut builder, path("d2/f2"), FileMetadata::empty())?;
+        insert_file(
+            &mut builder,
+            path("d2/f2"),
+            FileMetadata::empty(digest_config.cas_digest_config()),
+        )?;
 
-        extract_artifact_value(&builder, path("d1/f1"), DigestConfig::compat())?
-            .context("Not value!")?;
+        extract_artifact_value(&builder, path("d1/f1"), digest_config)?.context("Not value!")?;
         Ok(())
     }
 }

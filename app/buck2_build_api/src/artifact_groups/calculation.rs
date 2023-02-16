@@ -445,7 +445,6 @@ mod tests {
     use buck2_common::dice::file_ops::keys::FileOpsValue;
     use buck2_common::dice::file_ops::testing::FileOpsKey;
     use buck2_common::file_ops::testing::TestFileOps;
-    use buck2_common::file_ops::FileDigest;
     use buck2_common::file_ops::FileMetadata;
     use buck2_common::file_ops::TrackedFileDigest;
     use buck2_common::result::ToSharedResultExt;
@@ -493,6 +492,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_ensure_artifact_group() -> anyhow::Result<()> {
+        let digest_config = DigestConfig::compat();
+
         let set = testing::new_transitive_set(indoc!(
             r#"
             def project(value):
@@ -531,7 +532,7 @@ mod tests {
         )));
 
         let foo_meta = FileMetadata {
-            digest: TrackedFileDigest::new(FileDigest::from_content_sha1(b"foo")),
+            digest: TrackedFileDigest::from_content(b"foo", digest_config.cas_digest_config()),
             is_executable: true,
         };
 
@@ -546,7 +547,7 @@ mod tests {
         );
 
         let bar_meta = FileMetadata {
-            digest: TrackedFileDigest::new(FileDigest::from_content_sha1(b"bar")),
+            digest: TrackedFileDigest::from_content(b"bar", digest_config.cas_digest_config()),
             is_executable: true,
         };
 

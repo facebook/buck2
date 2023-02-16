@@ -375,7 +375,7 @@ impl IncrementalActionExecutable for RunAction {
             let path = BuckOutPath::new(ctx.target().owner.dupe(), metadata_param.path.clone());
             let resolved_path = fs.buck_out_path_resolver().resolve_gen(&path);
             env.insert(metadata_param.env_var.to_owned(), resolved_path.to_string());
-            let (data, digest) = metadata_content(fs, &artifact_inputs)?;
+            let (data, digest) = metadata_content(fs, &artifact_inputs, ctx.digest_config())?;
             inputs.push(CommandExecutionInput::ActionMetadata(ActionMetadataBlob {
                 data,
                 digest,

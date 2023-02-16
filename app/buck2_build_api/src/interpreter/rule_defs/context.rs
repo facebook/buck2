@@ -938,9 +938,9 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         #[starlark(require = named, default = false)] is_directory: bool,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
-        let mut this = this.state();
+        let mut registry = this.state();
 
-        let digest = CasDigest::parse_digest_sha1(digest)
+        let digest = CasDigest::parse_digest(digest, this.digest_config.cas_digest_config())
             .with_context(|| CasArtifactError::InvalidDigest(digest.to_owned()))?;
 
         let use_case = RemoteExecutorUseCase::new(use_case.to_owned());
@@ -959,9 +959,9 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
             ArtifactKind::File => OutputType::File,
         };
         let (output_value, output_artifact) =
-            this.get_or_declare_output(eval, output, "output", output_type)?;
+            registry.get_or_declare_output(eval, output, "output", output_type)?;
 
-        this.register_action(
+        registry.register_action(
             IndexSet::new(),
             indexset![output_artifact],
             UnregisteredCasArtifactAction {

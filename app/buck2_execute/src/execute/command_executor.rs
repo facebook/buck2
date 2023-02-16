@@ -166,6 +166,7 @@ impl CommandExecutor {
                 None,
                 self.0.inner.re_platform().cloned(),
                 false,
+                digest_config,
             );
 
             anyhow::Ok((action_paths, action))
@@ -201,7 +202,9 @@ impl CommandExecutor {
         insert_entry(
             &mut builder,
             ForwardRelativePath::unchecked_new(".buckconfig"),
-            DirectoryEntry::Leaf(ActionDirectoryMember::File(FileMetadata::empty())),
+            DirectoryEntry::Leaf(ActionDirectoryMember::File(FileMetadata::empty(
+                digest_config.cas_digest_config(),
+            ))),
         )?;
 
         let input_dir = builder.fingerprint(&ReDirectorySerializer { digest_config });
@@ -236,6 +239,7 @@ fn re_create_action(
     timeout: Option<&Duration>,
     platform: Option<RE::Platform>,
     do_not_cache: bool,
+    digest_config: DigestConfig,
 ) -> PreparedAction {
     let command = RE::Command {
         arguments: args,
@@ -257,18 +261,22 @@ fn re_create_action(
         nanos: t.subsec_nanos() as i32,
     });
 
-    let mut prepared_blobs = ActionBlobs::new();
+    let mut prepared_blobs = ActionBlobs::new(digest_config);
     for (data, digest) in blobs {
         prepared_blobs.add_blob(digest, data);
     }
     let action = RE::Action {
         input_root_digest: Some(input_digest.to_grpc()),
-        command_digest: Some(prepared_blobs.add_protobuf_message(&command).to_grpc()),
+        command_digest: Some(
+            prepared_blobs
+                .add_protobuf_message(&command, digest_config)
+                .to_grpc(),
+        ),
         timeout,
         do_not_cache,
     };
 
-    let action = prepared_blobs.add_protobuf_message(&action);
+    let action = prepared_blobs.add_protobuf_message(&action, digest_config);
     PreparedAction {
         action: action.data().dupe().coerce(),
         blobs: prepared_blobs,

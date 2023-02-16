@@ -39,7 +39,7 @@ impl DigestConfig {
 
     pub fn empty_file(&self) -> FileMetadata {
         // TODO: This should be a field on the DigestConfig, obviously.
-        FileMetadata::empty()
+        FileMetadata::empty(self.cas_digest_config())
     }
 
     pub fn empty_directory(&self) -> ActionSharedDirectory {

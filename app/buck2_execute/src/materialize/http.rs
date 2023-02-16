@@ -13,6 +13,7 @@ use std::time::Duration;
 
 use allocative::Allocative;
 use anyhow::Context as _;
+use buck2_common::cas_digest::RawDigest;
 use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::fs::fs_util;
@@ -30,6 +31,8 @@ use sha1::Digest;
 use sha1::Sha1;
 use sha2::Sha256;
 use thiserror::Error;
+
+use crate::digest_config::DigestConfig;
 
 #[derive(Debug, Clone, Dupe, Allocative)]
 pub enum Checksum {
@@ -218,11 +221,14 @@ pub async fn http_head(client: &Client, url: &str) -> anyhow::Result<Response> {
 pub async fn http_download(
     client: &Client,
     fs: &ProjectRoot,
+    digest_config: DigestConfig,
     path: &ProjectRelativePath,
     url: &str,
     checksum: &Checksum,
     executable: bool,
 ) -> anyhow::Result<TrackedFileDigest> {
+    // TODO (DigestConfig): Check that we allow SHA1 in the DigestConfig.
+
     let abs_path = fs.resolve(path);
     if let Some(dir) = abs_path.parent() {
         fs_util::create_dir_all(fs.resolve(dir))?;
@@ -303,10 +309,15 @@ pub async fn http_download(
                 .map_err(HttpDownloadError::IoError)?;
         }
 
-        Result::<_, HttpDownloadError>::Ok(TrackedFileDigest::new(FileDigest::new_sha1(
-            FileDigest::parse_digest_sha1_without_size(download_sha1.as_bytes()).unwrap(),
-            file_len,
-        )))
+        // TODO (DigestConfig): We need to use the proper hasher here instead of just using SHA1.
+
+        Result::<_, HttpDownloadError>::Ok(TrackedFileDigest::new(
+            FileDigest::new(
+                RawDigest::parse_sha1(download_sha1.as_bytes()).unwrap(),
+                file_len,
+            ),
+            digest_config.cas_digest_config(),
+        ))
     })
     .await?)
 }

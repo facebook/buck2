@@ -167,13 +167,14 @@ impl From<ArtifactMetadata> for ArtifactMetadataSqliteEntry {
 
 fn convert_artifact_metadata(
     sqlite_entry: ArtifactMetadataSqliteEntry,
-    _digest_config: DigestConfig,
+    digest_config: DigestConfig,
 ) -> anyhow::Result<ArtifactMetadata> {
     fn digest(
         size: Option<u64>,
         entry_hash: Option<Vec<u8>>,
         entry_hash_kind: Option<u8>,
         artifact_type: &str,
+        digest_config: DigestConfig,
     ) -> anyhow::Result<TrackedFileDigest> {
         let size = size.ok_or_else(|| {
             anyhow::anyhow!(ArtifactMetadataSqliteConversionError::ExpectedNotNull {
@@ -198,7 +199,10 @@ fn convert_artifact_metadata(
             .with_context(|| format!("Invalid entry_hash_kind: `{}`", entry_hash_kind))?;
 
         let file_digest = FileDigest::from_digest_bytes(entry_hash_kind, &entry_hash, size)?;
-        Ok(TrackedFileDigest::new(file_digest))
+        Ok(TrackedFileDigest::new(
+            file_digest,
+            digest_config.cas_digest_config(),
+        ))
     }
 
     let metadata = match sqlite_entry.artifact_type.as_str() {
@@ -207,6 +211,7 @@ fn convert_artifact_metadata(
             sqlite_entry.entry_hash,
             sqlite_entry.entry_hash_kind,
             sqlite_entry.artifact_type.as_str(),
+            digest_config,
         )?),
         "file" => DirectoryEntry::Leaf(ActionDirectoryMember::File(FileMetadata {
             digest: digest(
@@ -214,6 +219,7 @@ fn convert_artifact_metadata(
                 sqlite_entry.entry_hash,
                 sqlite_entry.entry_hash_kind,
                 sqlite_entry.artifact_type.as_str(),
+                digest_config,
             )?,
             is_executable: sqlite_entry.file_is_executable.ok_or_else(|| {
                 anyhow::anyhow!(ArtifactMetadataSqliteConversionError::ExpectedNotNull {
@@ -610,13 +616,13 @@ mod tests {
     use std::collections::HashMap;
 
     use assert_matches::assert_matches;
-    use buck2_common::file_ops::FileDigest;
     use buck2_common::file_ops::FileMetadata;
     use buck2_common::file_ops::TrackedFileDigest;
     use buck2_core::directory::DirectoryEntry;
     use buck2_core::fs::project::ProjectRoot;
     use buck2_core::fs::project::ProjectRootTemp;
     use buck2_core::fs::project_rel_path::ProjectRelativePath;
+    use buck2_execute::digest_config::DigestConfig;
     use buck2_execute::directory::new_symlink;
     use buck2_execute::directory::ActionDirectoryMember;
 
@@ -626,7 +632,8 @@ mod tests {
     fn test_artifact_metadata_dir_sqlite_entry_conversion_succeeds() {
         let digest_config = DigestConfig::compat();
 
-        let digest = TrackedFileDigest::new(FileDigest::from_content_sha1(b"directory"));
+        let digest =
+            TrackedFileDigest::from_content(b"directory", digest_config.cas_digest_config());
         let metadata = ArtifactMetadata(DirectoryEntry::Dir(digest));
         let entry: ArtifactMetadataSqliteEntry = metadata.dupe().into();
         assert_eq!(
@@ -639,7 +646,7 @@ mod tests {
     fn test_artifact_metadata_file_sqlite_entry_conversion_succeeds() {
         let digest_config = DigestConfig::compat();
 
-        let digest = TrackedFileDigest::new(FileDigest::from_content_sha1(b"file"));
+        let digest = TrackedFileDigest::from_content(b"file", digest_config.cas_digest_config());
         let metadata = ArtifactMetadata(DirectoryEntry::Leaf(ActionDirectoryMember::File(
             FileMetadata {
                 digest,
@@ -713,9 +720,10 @@ mod tests {
 
         table.create_table().unwrap();
 
-        let dir_fingerprint = TrackedFileDigest::new(FileDigest::from_content_sha1(b"directory"));
+        let dir_fingerprint =
+            TrackedFileDigest::from_content(b"directory", digest_config.cas_digest_config());
         let file = ActionDirectoryMember::File(FileMetadata {
-            digest: TrackedFileDigest::new(FileDigest::from_content_sha1(b"file")),
+            digest: TrackedFileDigest::from_content(b"file", digest_config.cas_digest_config()),
             is_executable: false,
         });
         let symlink = new_symlink("foo/bar").unwrap();
@@ -808,12 +816,14 @@ mod tests {
             metadatas
         }
 
+        let digest_config = DigestConfig::compat();
+
         let fs = ProjectRootTemp::new()?;
 
         let path = ProjectRelativePath::unchecked_new("foo").to_owned();
-        let artifact_metadata = ArtifactMetadata(DirectoryEntry::Dir(TrackedFileDigest::new(
-            FileDigest::from_content_sha1(b"directory"),
-        )));
+        let artifact_metadata = ArtifactMetadata(DirectoryEntry::Dir(
+            TrackedFileDigest::from_content(b"directory", digest_config.cas_digest_config()),
+        ));
         let timestamp = now_seconds();
         let metadatas = testing_metadatas();
 

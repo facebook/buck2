@@ -13,7 +13,6 @@ use allocative::Allocative;
 use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_common::executor_config::RemoteExecutorUseCase;
-use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::directory::DirectoryEntry;
@@ -131,7 +130,7 @@ impl Materializer for EdenMaterializer {
             .get_client()
             .upload(
                 &self.delegator,
-                &ActionBlobs::new(),
+                &ActionBlobs::new(self.digest_config),
                 ProjectRelativePath::empty(),
                 &input_dir,
                 self.re_use_case,
@@ -206,8 +205,13 @@ impl Materializer for EdenMaterializer {
         &self,
         gen: Box<dyn FnOnce() -> anyhow::Result<Vec<WriteRequest>> + Send + 'a>,
     ) -> anyhow::Result<Vec<ArtifactValue>> {
-        let (paths, values) =
-            write_to_cas(self.re_client_manager.as_ref(), self.re_use_case, gen).await?;
+        let (paths, values) = write_to_cas(
+            self.re_client_manager.as_ref(),
+            self.re_use_case,
+            self.digest_config,
+            gen,
+        )
+        .await?;
 
         futures::future::try_join_all(
             std::iter::zip(paths.iter(), values.iter())
@@ -280,6 +284,7 @@ impl EdenMaterializer {
 async fn write_to_cas<'a>(
     re: &ReConnectionManager,
     re_use_case: RemoteExecutorUseCase,
+    digest_config: DigestConfig,
     gen: Box<dyn FnOnce() -> anyhow::Result<Vec<WriteRequest>> + Send + 'a>,
 ) -> anyhow::Result<(Vec<ProjectRelativePathBuf>, Vec<ArtifactValue>)> {
     let contents = gen()?;
@@ -294,10 +299,10 @@ async fn write_to_cas<'a>(
         is_executable,
     } in contents
     {
-        let digest = FileDigest::from_content_sha1(&content);
+        let digest = TrackedFileDigest::from_content(&content, digest_config.cas_digest_config());
 
         let meta = FileMetadata {
-            digest: TrackedFileDigest::new(digest),
+            digest,
             is_executable,
         };
 

@@ -250,7 +250,11 @@ impl IncrementalActionExecutable for CasArtifactAction {
                 )
             }
             ArtifactKind::File => {
-                let digest = TrackedFileDigest::new_expires(self.inner.digest.dupe(), expiration);
+                let digest = TrackedFileDigest::new_expires(
+                    self.inner.digest.dupe(),
+                    expiration,
+                    ctx.digest_config().cas_digest_config(),
+                );
                 let metadata = FileMetadata {
                     digest,
                     is_executable: self.inner.executable,

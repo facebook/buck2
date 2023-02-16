@@ -28,7 +28,7 @@ fn test_find_artifacts() -> anyhow::Result<()> {
     let non_artifact1 = ProjectRelativePathBuf::unchecked_new("foo/bar/qux".to_owned());
     let non_artifact2 = ProjectRelativePathBuf::unchecked_new("foo/bar/bar/corge".to_owned());
 
-    let file = FileMetadata::empty();
+    let file = FileMetadata::empty(DigestConfig::compat().cas_digest_config());
 
     // Build deps with artifacts 1-3, and non-artifacts 1-2
     let mut builder = ActionDirectoryBuilder::empty();
@@ -207,7 +207,7 @@ mod state_machine {
 
         let mut tree = ArtifactTree::new();
         let path = make_path("foo/bar");
-        let value = ArtifactValue::file(DigestConfig::compat().empty_file());
+        let value = ArtifactValue::file(digest_config.empty_file());
         let method = ArtifactMaterializationMethod::Test;
 
         dm.declare(
@@ -248,7 +248,9 @@ mod state_machine {
         digest_config: DigestConfig,
     ) -> anyhow::Result<ArtifactValue> {
         let mut deps = ActionDirectoryBuilder::empty();
-        let target = ActionDirectoryEntry::Leaf(ActionDirectoryMember::File(FileMetadata::empty()));
+        let target = ActionDirectoryEntry::Leaf(ActionDirectoryMember::File(FileMetadata::empty(
+            digest_config.cas_digest_config(),
+        )));
         deps.insert(target_path.as_forward_relative_path(), target)?;
         let symlink_value = ArtifactValue::new(
             ActionDirectoryEntry::Leaf(ActionDirectoryMember::Symlink(Arc::new(Symlink::new(
@@ -290,7 +292,7 @@ mod state_machine {
         dm.declare(
             &mut tree,
             target_path.clone(),
-            ArtifactValue::file(DigestConfig::compat().empty_file()),
+            ArtifactValue::file(digest_config.empty_file()),
             box ArtifactMaterializationMethod::Test,
             0,
             &command_sender(),

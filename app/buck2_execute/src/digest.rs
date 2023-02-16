@@ -32,8 +32,11 @@ pub type ReDigest = remote_execution::TDigest;
 pub type GrpcDigest = remote_execution::Digest;
 
 pub trait CasDigestFromReExt: Sized {
-    fn from_re(x: &ReDigest, cfg: DigestConfig) -> Result<Self, DigestConversionError>;
-    fn from_grpc(x: &GrpcDigest, cfg: DigestConfig) -> Result<Self, DigestConversionError>;
+    fn from_re(x: &ReDigest, digest_config: DigestConfig) -> Result<Self, DigestConversionError>;
+    fn from_grpc(
+        x: &GrpcDigest,
+        digest_config: DigestConfig,
+    ) -> Result<Self, DigestConversionError>;
 }
 
 pub trait CasDigestToReExt {
@@ -42,25 +45,35 @@ pub trait CasDigestToReExt {
 }
 
 impl<Kind> CasDigestFromReExt for CasDigest<Kind> {
-    fn from_re(digest: &ReDigest, _cfg: DigestConfig) -> Result<Self, DigestConversionError> {
-        Ok(Self::new_sha1(
-            Self::parse_digest_sha1_without_size(digest.hash.as_bytes()).map_err(|error| {
-                DigestConversionError::ParseError {
-                    digest: digest.to_string(),
-                    error,
-                }
+    fn from_re(
+        digest: &ReDigest,
+        digest_config: DigestConfig,
+    ) -> Result<Self, DigestConversionError> {
+        Ok(Self::new(
+            Self::parse_digest_without_size(
+                digest.hash.as_bytes(),
+                digest_config.cas_digest_config(),
+            )
+            .map_err(|error| DigestConversionError::ParseError {
+                digest: digest.to_string(),
+                error,
             })?,
             digest.size_in_bytes as u64,
         ))
     }
 
-    fn from_grpc(digest: &GrpcDigest, _cfg: DigestConfig) -> Result<Self, DigestConversionError> {
-        Ok(Self::new_sha1(
-            Self::parse_digest_sha1_without_size(digest.hash.as_bytes()).map_err(|error| {
-                DigestConversionError::ParseError {
-                    digest: format!("{}:{}", digest.hash, digest.size_bytes),
-                    error,
-                }
+    fn from_grpc(
+        digest: &GrpcDigest,
+        digest_config: DigestConfig,
+    ) -> Result<Self, DigestConversionError> {
+        Ok(Self::new(
+            Self::parse_digest_without_size(
+                digest.hash.as_bytes(),
+                digest_config.cas_digest_config(),
+            )
+            .map_err(|error| DigestConversionError::ParseError {
+                digest: format!("{}:{}", digest.hash, digest.size_bytes),
+                error,
             })?,
             digest.size_bytes as u64,
         ))

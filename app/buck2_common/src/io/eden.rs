@@ -240,7 +240,8 @@ impl IoProvider for EdenIoProvider {
                         .context("Eden returned an invalid fileSize")?,
                 );
 
-                let digest = TrackedFileDigest::new(digest);
+                // TODO (DigestConfig): Check that the config allows SHA1 earlier here.
+                let digest = TrackedFileDigest::new(digest, self.fs.cas_digest_config());
 
                 let is_executable = data.r#type.context("Eden did not return a type")?
                     == SourceControlType::EXECUTABLE_FILE;
