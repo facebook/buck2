@@ -656,7 +656,10 @@ impl EventLog {
                     // since we only keep the 10 most recent logs
                     tracing::debug!("{}", e);
                 } else {
-                    soft_error!("event_log_upload_failed", anyhow::Error::new(e))?;
+                    // Do not fail e2e tests if manifold is not available.
+                    // TODO(nga): there's no ready to use API to send such warning to Scuba,
+                    //   so use `soft_error!` for now.
+                    let _ignore = soft_error!("event_log_upload_failed", anyhow::Error::new(e));
                 }
             }
 
