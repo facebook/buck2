@@ -178,11 +178,10 @@ message ExternalRunnerSpecValue {
 }
 
 message TestExecutable {
+  reserved 4;
   DisplayMetadata ui_prints = 1;
   ConfiguredTargetHandle target = 2;
   repeated ArgValue cmd = 3;
-  // TODO(T144767335) cleanup deprecated env fields
-  map<string, ArgValue> DEPRECATED_env = 4;
   repeated DeclaredOutput pre_create_dirs = 5;
   repeated EnvironmentVariable env = 6;
 }
@@ -254,9 +253,8 @@ message ExecuteResponse2 {
 }
 
 message PrepareForLocalExecutionResult {
+  reserved 2;
   repeated string cmd = 1;
-  // TODO(T144767335) cleanup deprecated env fields
-  map<string, string> DEPRECATED_env = 2;
   string cwd = 3;
   repeated VerbatimEnvironmentVariable env = 4;
 }
