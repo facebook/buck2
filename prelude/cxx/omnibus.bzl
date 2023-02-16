@@ -274,8 +274,18 @@ def create_linkable_root(
             SharedOmnibusRoot(
                 product = OmnibusRootProduct(
                     shared_library = shared_library,
-                    global_syms = extract_global_syms(ctx, shared_library.output, prefer_local = False),
-                    undefined_syms = extract_undefined_syms(ctx, shared_library.output, prefer_local = False),
+                    global_syms = extract_global_syms(
+                        ctx,
+                        shared_library.output,
+                        category_prefix = "omnibus",
+                        prefer_local = False,
+                    ),
+                    undefined_syms = extract_undefined_syms(
+                        ctx,
+                        shared_library.output,
+                        category_prefix = "omnibus",
+                        prefer_local = False,
+                    ),
                     private = None,
                 ),
                 required_body = required_body,
@@ -468,12 +478,14 @@ def _create_root(
         global_syms = extract_global_syms(
             ctx,
             shared_library.output,
+            category_prefix = "omnibus",
             # Same as above.
             prefer_local = True,
         ),
         undefined_syms = extract_undefined_syms(
             ctx,
             shared_library.output,
+            category_prefix = "omnibus",
             # Same as above.
             prefer_local = True,
         ),

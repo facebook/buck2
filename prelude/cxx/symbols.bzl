@@ -73,7 +73,7 @@ def extract_symbol_names(
     )
     return output
 
-def extract_undefined_syms(ctx: "context", output: "artifact", prefer_local: bool.type) -> "artifact":
+def extract_undefined_syms(ctx: "context", output: "artifact", category_prefix: str.type, prefer_local: bool.type) -> "artifact":
     return extract_symbol_names(
         ctx,
         output.short_path + ".undefined_syms.txt",
@@ -81,19 +81,19 @@ def extract_undefined_syms(ctx: "context", output: "artifact", prefer_local: boo
         dynamic = True,
         global_only = True,
         undefined_only = True,
-        category = "omnibus_undefined_syms",
+        category = "{}_undefined_syms".format(category_prefix),
         identifier = output.basename,
         prefer_local = prefer_local,
     )
 
-def extract_global_syms(ctx: "context", output: "artifact", prefer_local: bool.type) -> "artifact":
+def extract_global_syms(ctx: "context", output: "artifact", category_prefix: str.type, prefer_local: bool.type) -> "artifact":
     return extract_symbol_names(
         ctx,
         output.short_path + ".global_syms.txt",
         [output],
         dynamic = True,
         global_only = True,
-        category = "omnibus_global_syms",
+        category = "{}_global_syms".format(category_prefix),
         identifier = output.basename,
         prefer_local = prefer_local,
     )

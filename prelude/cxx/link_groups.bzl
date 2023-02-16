@@ -590,6 +590,7 @@ def _symbol_flags_for_link_group(
     undefined_symfile = extract_undefined_syms(
         ctx = ctx,
         output = lib.output,
+        category_prefix = "link_groups",
         prefer_local = prefer_local,
     )
     sym_linker_flags.append(
@@ -597,7 +598,7 @@ def _symbol_flags_for_link_group(
             ctx = ctx,
             name = "{}.undefined_symbols.linker_script".format(lib.output.short_path),
             symbol_files = [undefined_symfile],
-            category = "link_groups_undefined_syms",
+            category = "link_groups_undefined_syms_script",
             identifier = lib.output.short_path,
         ),
     )
@@ -607,6 +608,7 @@ def _symbol_flags_for_link_group(
     global_symfile = extract_global_syms(
         ctx = ctx,
         output = lib.output,
+        category_prefix = "link_groups",
         prefer_local = prefer_local,
     )
     dynamic_list_vers = create_dynamic_list_version_script(
