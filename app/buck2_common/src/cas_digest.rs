@@ -116,6 +116,45 @@ impl CasDigestConfig {
     }
 }
 
+pub struct Digester<Kind> {
+    variant: DigesterVariant,
+    size: u64,
+    kind: PhantomData<Kind>,
+}
+
+enum DigesterVariant {
+    Sha1(Sha1),
+    Sha256(Sha256),
+    Blake3(Box<blake3::Hasher>), // This is unusually large.
+}
+
+impl<Kind> Digester<Kind> {
+    pub fn update(&mut self, data: &[u8]) {
+        // Explicit dynamic dispatch because we need to match on which variant it was.
+        match &mut self.variant {
+            DigesterVariant::Sha1(h) => {
+                h.update(data);
+            }
+            DigesterVariant::Sha256(h) => {
+                h.update(data);
+            }
+            DigesterVariant::Blake3(h) => {
+                h.update(data);
+            }
+        };
+
+        self.size += data.len() as u64;
+    }
+
+    pub fn finalize(self) -> CasDigest<Kind> {
+        match self.variant {
+            DigesterVariant::Sha1(h) => CasDigest::new_sha1(h.finalize().into(), self.size),
+            DigesterVariant::Sha256(h) => CasDigest::new_sha256(h.finalize().into(), self.size),
+            DigesterVariant::Blake3(h) => CasDigest::new_blake3(h.finalize().into(), self.size),
+        }
+    }
+}
+
 /// Separate struct to allow us to use  `repr(transparent)` below and guarantee an identical
 /// layout.
 #[derive(Display, PartialEq, Eq, PartialOrd, Ord, Hash, Allocative, Clone, Dupe)]
@@ -230,6 +269,29 @@ impl<Kind> CasDigest<Kind> {
         Self::from_content(&[], config)
     }
 
+    pub fn digester(config: CasDigestConfig) -> Digester<Kind> {
+        Self::digester_for_algorithm(config.preferred_algorithm())
+    }
+
+    /// NOTE: Eventually this probably needs to take something that isn't DigestAlgorithm because
+    /// we might need to deal with keyed Blake3.
+    pub fn digester_for_algorithm(algorithm: DigestAlgorithm) -> Digester<Kind> {
+        let variant = match algorithm {
+            DigestAlgorithm::Sha1 => DigesterVariant::Sha1(Sha1::new()),
+            DigestAlgorithm::Sha256 => DigesterVariant::Sha256(Sha256::new()),
+            // NOTE: This is where keying would matter. Note that we don't need to actually
+            // retain the key in RawDigest or DigestAlgorithm, since we never actually care
+            // about which hash we have besides debugging purposes.
+            DigestAlgorithm::Blake3 => DigesterVariant::Blake3(box blake3::Hasher::new()),
+        };
+
+        Digester {
+            variant,
+            size: 0,
+            kind: PhantomData,
+        }
+    }
+
     pub fn from_content(bytes: &[u8], config: CasDigestConfig) -> Self {
         Self::from_content_for_algorithm(bytes, config.preferred_algorithm())
     }
@@ -237,26 +299,9 @@ impl<Kind> CasDigest<Kind> {
     /// NOTE: Eventually this probably needs to take something that isn't DigestAlgorithm because
     /// we might need to deal with keyed Blake3.
     pub fn from_content_for_algorithm(bytes: &[u8], algorithm: DigestAlgorithm) -> Self {
-        match algorithm {
-            DigestAlgorithm::Sha1 => {
-                let mut hasher = Sha1::new();
-                hasher.update(bytes);
-                Self::new_sha1(hasher.finalize().into(), bytes.len() as u64)
-            }
-            DigestAlgorithm::Sha256 => {
-                let mut sha256 = Sha256::new();
-                sha256.update(bytes);
-                Self::new_sha256(sha256.finalize().into(), bytes.len() as u64)
-            }
-            DigestAlgorithm::Blake3 => {
-                // NOTE: This is where keying would matter. Note that we don't need to actually
-                // retain the key in RawDigest or DigestAlgorithm, since we never actually care
-                // about which hash we have besides debugging purposes.
-                let mut digest = blake3::Hasher::new();
-                digest.update(bytes);
-                Self::new_blake3(digest.finalize().into(), bytes.len() as u64)
-            }
-        }
+        let mut digester = Self::digester_for_algorithm(algorithm);
+        digester.update(bytes);
+        digester.finalize()
     }
 
     pub fn from_reader<R: Read>(reader: R, config: CasDigestConfig) -> anyhow::Result<Self> {
@@ -266,46 +311,23 @@ impl<Kind> CasDigest<Kind> {
     /// NOTE: Eventually this probably needs to take something that isn't DigestAlgorithm because
     /// we might need to deal with keyed Blake3.
     pub fn from_reader_for_algorithm<R: Read>(
-        reader: R,
+        mut reader: R,
         algorithm: DigestAlgorithm,
     ) -> anyhow::Result<Self> {
-        fn hash_reader<R: Read, H: Digest>(mut reader: R, hasher: &mut H) -> anyhow::Result<u64> {
-            // Buffer size chosen based on benchmarks at D26176645
-            // Also optimal for Blake3's SIMD implementation.
-            let mut size = 0;
-            let mut buffer = [0; 16 * 1024];
-            loop {
-                let count = reader.read(&mut buffer)?;
-                if count == 0 {
-                    break;
-                }
-                size += count as u64;
-                hasher.update(&buffer[..count]);
-            }
+        let mut digester = Self::digester_for_algorithm(algorithm);
 
-            Ok(size)
+        // Buffer size chosen based on benchmarks at D26176645
+        // Also optimal for Blake3's SIMD implementation.
+        let mut buffer = [0; 16 * 1024];
+        loop {
+            let count = reader.read(&mut buffer)?;
+            if count == 0 {
+                break;
+            }
+            digester.update(&buffer[..count]);
         }
 
-        Ok(match algorithm {
-            DigestAlgorithm::Sha1 => {
-                let mut hasher = Sha1::new();
-                let len = hash_reader(reader, &mut hasher)?;
-                Self::new_sha1(hasher.finalize().into(), len)
-            }
-            DigestAlgorithm::Sha256 => {
-                let mut hasher = Sha256::new();
-                let len = hash_reader(reader, &mut hasher)?;
-                Self::new_sha256(hasher.finalize().into(), len)
-            }
-            DigestAlgorithm::Blake3 => {
-                // NOTE: This is where keying would matter. Note that we don't need to actually
-                // retain the key in RawDigest or DigestAlgorithm, since we never actually care
-                // about which hash we have besides debugging purposes.
-                let mut hasher = blake3::Hasher::new();
-                let len = hash_reader(reader, &mut hasher)?;
-                Self::new_blake3(hasher.finalize().into(), len)
-            }
-        })
+        Ok(digester.finalize())
     }
 
     pub fn coerce<NewKind>(self) -> CasDigest<NewKind> {
