@@ -129,7 +129,11 @@ def cxx_mk_shlib_intf(
         get_shared_library_name(linker_info, name + "-interface"),
     )
     args.add(output.as_output())
-    ctx.actions.run(args, category = "generate_shared_library_interface")
+    ctx.actions.run(
+        args,
+        category = "generate_shared_library_interface",
+        identifier = name,
+    )
     return output
 
 def cxx_is_gnu(ctx: "context") -> bool.type:

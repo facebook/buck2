@@ -52,6 +52,10 @@ load(
 )
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 load(
+    ":cxx_library_utility.bzl",
+    "cxx_mk_shlib_intf",
+)
+load(
     ":groups.bzl",
     "Group",  # @unused Used as a type
     "MATCH_ALL_LABEL",
@@ -690,7 +694,13 @@ def create_link_groups(
                 shared_link_infos = LinkInfos(
                     default = LinkInfo(
                         linkables = [
-                            SharedLibLinkable(lib = link_group_lib.output),
+                            SharedLibLinkable(
+                                lib = cxx_mk_shlib_intf(
+                                    ctx = ctx,
+                                    name = link_group_spec.name,
+                                    shared_lib = link_group_lib.output,
+                                ),
+                            ),
                         ],
                     ),
                 ),
