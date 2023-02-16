@@ -10,8 +10,10 @@
 use starlark::environment::GlobalsBuilder;
 
 use crate::super_package::package::register_package_function;
+use crate::super_package::package_value::register_write_package_value;
 
 /// Globals for `PACKAGE` files and `bzl` files included from `PACKAGE` files.
 pub fn register_package_natives(globals: &mut GlobalsBuilder) {
     register_package_function(globals);
+    register_write_package_value(globals);
 }

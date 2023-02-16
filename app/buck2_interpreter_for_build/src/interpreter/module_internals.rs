@@ -83,7 +83,7 @@ pub struct ModuleInternals {
     record_target_call_stacks: bool,
     /// The files owned by this directory. Is `None` for .bzl files.
     package_listing: PackageListing,
-    _super_package: SuperPackage,
+    pub(crate) super_package: SuperPackage,
 }
 
 #[derive(Debug)]
@@ -133,7 +133,7 @@ impl ModuleInternals {
             default_visibility_to_public,
             record_target_call_stacks,
             package_listing,
-            _super_package: super_package,
+            super_package,
         }
     }
 

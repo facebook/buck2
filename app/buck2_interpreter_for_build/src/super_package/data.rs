@@ -11,20 +11,40 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use dupe::Dupe;
+use starlark::values::OwnedFrozenValue;
+use starlark_map::small_map::SmallMap;
 
 #[derive(Default, Debug, Allocative)]
-struct SuperPackageData {}
+pub(crate) struct SuperPackageData {
+    package_values: SmallMap<String, OwnedFrozenValue>,
+}
 
 /// Contents of a `PACKAGE` file merged with contents of containing `PACKAGE` files.
 /// This object exists even for non-existent `PACKAGE` files.
 #[derive(Default, Debug, Allocative, Clone, Dupe)]
 pub(crate) struct SuperPackage(Arc<SuperPackageData>);
 
+impl SuperPackage {
+    pub(crate) fn new(package_values: SmallMap<String, OwnedFrozenValue>) -> SuperPackage {
+        SuperPackage(Arc::new(SuperPackageData { package_values }))
+    }
+
+    pub(crate) fn package_values(&self) -> &SmallMap<String, OwnedFrozenValue> {
+        &self.0.package_values
+    }
+}
+
 impl PartialEq for SuperPackage {
     fn eq(&self, other: &Self) -> bool {
-        let SuperPackageData {} = &*self.0;
-        let SuperPackageData {} = &*other.0;
-        // It won't be `Eq` later when package-local Starlark values are added.
-        true
+        let SuperPackageData {
+            package_values: this_values,
+        } = &*self.0;
+        let SuperPackageData {
+            package_values: other_values,
+        } = &*other.0;
+        // If either package values are not empty, we cannot compare them
+        // because we cannot reliably compare arbitrary Starlark values.
+        // So if either package values are not empty, we consider super package not equal.
+        this_values.is_empty() && other_values.is_empty()
     }
 }

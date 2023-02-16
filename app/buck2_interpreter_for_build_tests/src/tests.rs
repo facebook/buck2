@@ -38,6 +38,8 @@ use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
 use buck2_interpreter_for_build::interpreter::configuror::BuildInterpreterConfiguror;
 use buck2_interpreter_for_build::interpreter::context::SetInterpreterContext;
 use buck2_interpreter_for_build::interpreter::dice_calculation_delegate::HasCalculationDelegate;
+use buck2_interpreter_for_build::super_package::defs::register_package_natives;
+use buck2_interpreter_for_build::super_package::package_value::register_read_package_value;
 use dice::DetectCycles;
 use dice::Dice;
 use dice::DiceTransaction;
@@ -85,8 +87,8 @@ pub(crate) fn calculation(fs: &ProjectRootTemp) -> DiceTransaction {
         InterpreterHostPlatform::Linux,
         InterpreterHostArchitecture::X86_64,
         false,
-        |_| {},
-        |_| {},
+        register_read_package_value,
+        register_package_natives,
         register_rule_defs,
         |_| {},
         None,

@@ -6,7 +6,6 @@ description = "Tests for buck2_intepreter_for_build"
 
 [dev-dependencies]
 anyhow = { workspace = true }
-assert_matches = { workspace = true }
 indoc = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }

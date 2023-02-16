@@ -7,6 +7,9 @@
  * of this source tree.
  */
 
+use starlark::values::OwnedFrozenValue;
+use starlark_map::small_map::SmallMap;
+
 use crate::super_package::data::SuperPackage;
 
 #[derive(Debug)]
@@ -17,8 +20,12 @@ pub(crate) struct PackageFileEvalCtx {
 }
 
 impl PackageFileEvalCtx {
-    pub(crate) fn build_super_package(self) -> SuperPackage {
-        let _ignore = self.parent;
-        SuperPackage::default()
+    pub(crate) fn build_super_package(
+        self,
+        package_values: SmallMap<String, OwnedFrozenValue>,
+    ) -> SuperPackage {
+        let mut merged_package_values = self.parent.package_values().clone();
+        merged_package_values.extend(package_values);
+        SuperPackage::new(merged_package_values)
     }
 }

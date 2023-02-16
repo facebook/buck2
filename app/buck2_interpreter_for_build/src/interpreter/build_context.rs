@@ -72,6 +72,13 @@ impl PerFileTypeContext {
         }
     }
 
+    pub(crate) fn require_package_file(&self) -> anyhow::Result<&PackageFileEvalCtx> {
+        match self {
+            PerFileTypeContext::Package(ctx) => Ok(ctx),
+            x => Err(BuildContextError::NotPackageFile(x.file_type()).into()),
+        }
+    }
+
     pub(crate) fn into_package_file(self) -> anyhow::Result<PackageFileEvalCtx> {
         match self {
             PerFileTypeContext::Package(ctx) => Ok(ctx),

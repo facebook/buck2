@@ -47,6 +47,10 @@ use starlark::environment::FrozenModule;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::syntax::AstModule;
+use starlark::values::list::ListRef;
+use starlark::values::OwnedFrozenValue;
+use starlark::values::ValueLike;
+use starlark_map::small_map::SmallMap;
 use thiserror::Error;
 
 use crate::interpreter::build_context::BuildContext;
@@ -55,6 +59,7 @@ use crate::interpreter::global_interpreter_state::GlobalInterpreterState;
 use crate::interpreter::module_internals::ModuleInternals;
 use crate::super_package::data::SuperPackage;
 use crate::super_package::eval_ctx::PackageFileEvalCtx;
+use crate::super_package::package_value::PackageValues;
 
 #[derive(Debug, Error)]
 enum StarlarkParseError {
@@ -526,24 +531,70 @@ impl InterpreterForCell {
             &loaded_modules,
         )?;
 
+        let package_values = env.heap().alloc_complex_no_freeze(PackageValues::default());
+        env.set_extra_value(package_values);
+
         let extra_context = PerFileTypeContext::Package(PackageFileEvalCtx { parent });
 
-        let package_file_eval_ctx = self
-            .eval(
-                &env,
-                ast,
-                StarlarkPath::PackageFile(package_file_path),
-                buckconfig,
-                root_buckconfig,
-                loaded_modules,
-                extra_context,
-                &mut StarlarkProfilerOrInstrumentation::maybe_instrumentation(
-                    starlark_profiler_instrumentation,
-                ),
-            )?
-            .into_package_file()?;
+        let per_file_context = self.eval(
+            &env,
+            ast,
+            StarlarkPath::PackageFile(package_file_path),
+            buckconfig,
+            root_buckconfig,
+            loaded_modules,
+            extra_context,
+            &mut StarlarkProfilerOrInstrumentation::maybe_instrumentation(
+                starlark_profiler_instrumentation,
+            ),
+        )?;
 
-        Ok(package_file_eval_ctx.build_super_package())
+        let package_values = env
+            .extra_value()
+            .context("extra_value not set (internal error)")?;
+        let package_values = package_values
+            .downcast_ref::<PackageValues>()
+            .context("extra_value is not a PackageValues (internal error)")?;
+
+        let keys = package_values
+            .values
+            .borrow()
+            .keys()
+            .cloned()
+            .collect::<Vec<_>>();
+        let values = package_values
+            .values
+            .borrow()
+            .values()
+            .copied()
+            .collect::<Vec<_>>();
+        // Starlark list of strings. We only need to freeze values, not keys.
+        // We could freeze full `PackageValues` but if we do that we:
+        // * would have have to implement `Freeze` for `PackageValue`
+        // * will store a bit more memory in frozen heap.
+        let values = env.heap().alloc(values);
+
+        env.set_extra_value(values);
+
+        let env = env.freeze().context("Freezing package values")?;
+
+        let values = env
+            .extra_value()
+            .context("extra_value not set (internal error)")?;
+        let values = ListRef::from_frozen_value(values)
+            .context("extra_value is not a list (internal error)")?;
+
+        let package_values: SmallMap<String, OwnedFrozenValue> = keys
+            .into_iter()
+            .zip(values.content().map(|v| {
+                let frozen_value = v.unpack_frozen().unwrap();
+                unsafe { OwnedFrozenValue::new(env.frozen_heap().dupe(), frozen_value) }
+            }))
+            .collect();
+
+        let package_file_eval_ctx = per_file_context.into_package_file()?;
+
+        Ok(package_file_eval_ctx.build_super_package(package_values))
     }
 
     /// Evaluates the AST for a parsed build file. Loaded modules must contain the

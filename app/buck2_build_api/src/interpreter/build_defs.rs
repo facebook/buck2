@@ -12,6 +12,7 @@ use buck2_interpreter_for_build::interpreter::build_context::BuildContext;
 use buck2_interpreter_for_build::interpreter::functions::host_info::register_host_info;
 use buck2_interpreter_for_build::interpreter::functions::read_config::register_read_config;
 use buck2_interpreter_for_build::interpreter::natives::register_module_natives;
+use buck2_interpreter_for_build::super_package::package_value::register_read_package_value;
 use either::Either;
 use itertools::Itertools;
 use starlark::collections::SmallMap;
@@ -149,6 +150,7 @@ pub(crate) fn register_build_bzl_natives(builder: &mut GlobalsBuilder) {
     register_module_natives(builder);
     register_host_info(builder);
     register_read_config(builder);
+    register_read_package_value(builder);
 }
 
 #[cfg(test)]
