@@ -229,7 +229,7 @@ DexInputWithSpecifiedClasses = record(
 
 DexInputWithClassNamesFile = record(
     lib = "DexLibraryInfo",
-    filtered_class_names_file = "artifact",
+    weight_estimate_and_filtered_class_names_file = "artifact",
 )
 
 # When using jar compression, the secondary dex directory consists of N secondary dex jars, each
@@ -297,9 +297,9 @@ def _filter_pre_dexed_libs(
     for pre_dexed_lib in pre_dexed_libs:
         class_names = pre_dexed_lib.class_names
         id = "{}_{}_{}".format(class_names.owner.package, class_names.owner.name, class_names.short_path)
-        filtered_class_names_file = actions.declare_output("primary_dex_class_names_for_{}".format(id))
+        weight_estimate_and_filtered_class_names_file = actions.declare_output("primary_dex_class_names_for_{}".format(id))
         pre_dexed_lib_with_class_names_files.append(
-            DexInputWithClassNamesFile(lib = pre_dexed_lib, filtered_class_names_file = filtered_class_names_file),
+            DexInputWithClassNamesFile(lib = pre_dexed_lib, weight_estimate_and_filtered_class_names_file = weight_estimate_and_filtered_class_names_file),
         )
 
     filter_dex_cmd = cmd_args([
@@ -308,8 +308,10 @@ def _filter_pre_dexed_libs(
         primary_dex_patterns_file,
         "--class-names",
         [x.lib.class_names for x in pre_dexed_lib_with_class_names_files],
+        "--weight-estimates",
+        [x.lib.weight_estimate for x in pre_dexed_lib_with_class_names_files],
         "--output",
-        [x.filtered_class_names_file.as_output() for x in pre_dexed_lib_with_class_names_files],
+        [x.weight_estimate_and_filtered_class_names_file.as_output() for x in pre_dexed_lib_with_class_names_files],
     ])
     actions.run(filter_dex_cmd, category = "filter_dex", identifier = "batch_{}".format(batch_number))
 
@@ -350,10 +352,10 @@ def merge_to_split_dex(
             ),
         )
 
-    input_artifacts = flatten([[
-        input.lib.weight_estimate,
-        input.filtered_class_names_file,
-    ] for input in pre_dexed_lib_with_class_names_files]) + ([apk_module_graph_file] if apk_module_graph_file else [])
+    input_artifacts = [
+        input.weight_estimate_and_filtered_class_names_file
+        for input in pre_dexed_lib_with_class_names_files
+    ] + ([apk_module_graph_file] if apk_module_graph_file else [])
     primary_dex_artifact_list = ctx.actions.declare_output("pre_dexed_artifacts_for_primary_dex.txt")
     primary_dex_output = ctx.actions.declare_output("classes.dex")
     primary_dex_class_names_list = ctx.actions.declare_output("primary_dex_class_names_list.txt")
@@ -564,7 +566,7 @@ def _sort_pre_dexed_files(
     for pre_dexed_lib_with_class_names_file in pre_dexed_lib_with_class_names_files:
         pre_dexed_lib = pre_dexed_lib_with_class_names_file.lib
         module = get_module_from_target(str(pre_dexed_lib.dex.owner.raw_target()))
-        primary_dex_data, secondary_dex_data = artifacts[pre_dexed_lib_with_class_names_file.filtered_class_names_file].read_string().split(";")
+        weight_estimate_string, primary_dex_data, secondary_dex_data = artifacts[pre_dexed_lib_with_class_names_file.weight_estimate_and_filtered_class_names_file].read_string().split(";")
         primary_dex_class_names = primary_dex_data.split(",") if primary_dex_data else []
         secondary_dex_class_names = secondary_dex_data.split(",") if secondary_dex_data else []
 
@@ -592,7 +594,7 @@ def _sort_pre_dexed_files(
             )
 
         if len(secondary_dex_class_names) > 0:
-            weight_estimate = int(artifacts[pre_dexed_lib.weight_estimate].read_string().strip())
+            weight_estimate = int(weight_estimate_string)
             current_secondary_dex_size = current_secondary_dex_size_map.get(module, 0)
             if current_secondary_dex_size + weight_estimate > split_dex_merge_config.secondary_dex_weight_limit_bytes:
                 current_secondary_dex_size = 0
