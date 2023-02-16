@@ -39,7 +39,6 @@ use allocative::Allocative;
 use dupe::Dupe;
 use either::Either;
 use gazebo::cast;
-use once_cell::sync::Lazy;
 use starlark_map::small_set::SmallSet;
 
 use crate::collections::maybe_uninit_backport::maybe_uninit_write_slice;
@@ -144,13 +143,6 @@ struct FrozenFrozenHeap {
 unsafe impl Sync for FrozenFrozenHeap {}
 unsafe impl Send for FrozenFrozenHeap {}
 
-impl FrozenFrozenHeap {
-    fn is_empty(&self) -> bool {
-        let FrozenFrozenHeap { arena, refs } = self;
-        arena.is_empty() && refs.is_empty()
-    }
-}
-
 impl Debug for FrozenHeap {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let mut x = f.debug_struct("FrozenHeap");
@@ -172,10 +164,10 @@ impl Debug for FrozenFrozenHeap {
 /// A reference to a [`FrozenHeap`] that keeps alive all values on the underlying heap.
 /// Note that the [`Hash`] is consistent for a single [`FrozenHeapRef`], but non-deterministic
 /// across executions and distinct but observably identical [`FrozenHeapRef`] values.
-#[derive(Clone, Dupe, Debug, Allocative)]
+#[derive(Default, Clone, Dupe, Debug, Allocative)]
 // The Eq/Hash are by pointer rather than value, since we produce unique values
 // given an underlying FrozenHeap.
-pub struct FrozenHeapRef(Arc<FrozenFrozenHeap>);
+pub struct FrozenHeapRef(Option<Arc<FrozenFrozenHeap>>);
 
 fn _test_frozen_heap_ref_send_sync()
 where
@@ -183,24 +175,22 @@ where
 {
 }
 
-impl Default for FrozenHeapRef {
-    fn default() -> Self {
-        static EMPTY: Lazy<FrozenHeapRef> =
-            Lazy::new(|| FrozenHeapRef(Arc::new(FrozenFrozenHeap::default())));
-        Lazy::force(&EMPTY).dupe()
-    }
-}
-
 impl Hash for FrozenHeapRef {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        let x: &FrozenFrozenHeap = Deref::deref(&self.0);
-        ptr::hash(x, state);
+        if let Some(arc) = &self.0 {
+            let x: &FrozenFrozenHeap = Deref::deref(&arc);
+            ptr::hash(x, state);
+        }
     }
 }
 
 impl PartialEq<FrozenHeapRef> for FrozenHeapRef {
     fn eq(&self, other: &FrozenHeapRef) -> bool {
-        Arc::ptr_eq(&self.0, &other.0)
+        match (&self.0, &other.0) {
+            (Some(a), Some(b)) => Arc::ptr_eq(a, b),
+            (None, None) => true,
+            (Some(_), None) | (None, Some(_)) => false,
+        }
     }
 }
 
@@ -210,20 +200,22 @@ impl FrozenHeapRef {
     /// Number of bytes allocated on this heap, not including any memory
     /// allocated outside of the starlark heap.
     pub fn allocated_bytes(&self) -> usize {
-        self.0.arena.allocated_bytes()
+        self.0.as_ref().map_or(0, |a| a.arena.allocated_bytes())
     }
 
     /// Number of bytes allocated by the heap but not filled.
     /// Note that these bytes will _never_ be filled as no further allocations can
     /// be made on this heap (it has been sealed).
     pub fn available_bytes(&self) -> usize {
-        self.0.arena.available_bytes()
+        self.0.as_ref().map_or(0, |a| a.arena.available_bytes())
     }
 
     /// Obtain a summary of how much memory is currently allocated by this heap.
     /// Doesn't include the heaps it keeps alive by reference.
     pub fn allocated_summary(&self) -> HeapSummary {
-        self.0.arena.allocated_summary()
+        self.0
+            .as_ref()
+            .map_or_else(HeapSummary::default, |a| a.arena.allocated_summary())
     }
 }
 
@@ -242,10 +234,10 @@ impl FrozenHeap {
         if arena.is_empty() && refs.is_empty() {
             FrozenHeapRef::default()
         } else {
-            FrozenHeapRef(Arc::new(FrozenFrozenHeap {
+            FrozenHeapRef(Some(Arc::new(FrozenFrozenHeap {
                 arena,
                 refs: refs.into_iter().collect(),
-            }))
+            })))
         }
     }
 
@@ -253,7 +245,7 @@ impl FrozenHeap {
     /// is kept alive. Used if a [`FrozenValue`] in this heap points at values in another
     /// [`FrozenHeap`].
     pub fn add_reference(&self, heap: &FrozenHeapRef) {
-        if heap.0.is_empty() {
+        if heap.0.is_none() {
             return;
         }
 
