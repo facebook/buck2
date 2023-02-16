@@ -13,10 +13,8 @@ use std::ops::Deref;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use buck2_common::file_ops::RawDirEntry;
 use buck2_common::file_ops::SimpleDirEntry;
 use buck2_core::cells::cell_path::CellPath;
-use buck2_core::fs::paths::file_name::FileName;
 use buck2_query::query::environment::QueryEnvironment;
 use buck2_query::query::syntax::simple::eval::file_set::FileSet;
 use derive_more::Display;
@@ -176,26 +174,18 @@ pub struct StarlarkReadDirSet {
     pub cell_path: CellPath,
     /// Files that are not ignored within the buckconfig.
     pub included: Arc<[SimpleDirEntry]>,
-    /// Files that are ignored within the buckconfig.
-    pub ignored: Option<Arc<[RawDirEntry]>>,
 }
 
 starlark_simple_value!(StarlarkReadDirSet);
 
 impl StarlarkReadDirSet {
     fn children(&self) -> anyhow::Result<Vec<CellPath>> {
-        let mut result: Vec<CellPath> =
-            Vec::with_capacity(self.included.len() + self.ignored.as_ref().map_or(0, |v| v.len()));
+        let mut result: Vec<CellPath> = Vec::with_capacity(self.included.len());
         result.extend(
             self.included
                 .iter()
                 .map(|e| self.cell_path.join(&e.file_name)),
         );
-        if let Some(ignored) = &self.ignored {
-            for e in &**ignored {
-                result.push(self.cell_path.join(FileName::new(&e.file_name)?));
-            }
-        }
         result.sort();
         Ok(result)
     }

@@ -126,8 +126,8 @@ fn fs_operations(builder: &mut MethodsBuilder) {
     }
 
     /// Returns all the contents of the given input that points to a directory.
-    /// Errors if the given path is a file. The optional `include_ignored` specifies
-    /// whether to include the buckconfig's ignored files in the output.
+    /// Errors if the given path is a file.
+    ///
     /// The input is a either a literal, a source artifact (via `[StarlarkArtifact]`), or a `[StarlarkFileNode]`.
     ///
     /// Sample usage:
@@ -140,7 +140,6 @@ fn fs_operations(builder: &mut MethodsBuilder) {
     fn list<'v>(
         this: &BxlFilesystem<'v>,
         expr: FileExpr<'v>,
-        #[starlark(require = named, default = false)] include_ignored: bool,
     ) -> anyhow::Result<StarlarkReadDirSet> {
         let path = expr.get(this.dice);
 
@@ -150,11 +149,6 @@ fn fs_operations(builder: &mut MethodsBuilder) {
                 Ok(StarlarkReadDirSet {
                     cell_path: path,
                     included: read_dir_output.included,
-                    ignored: if include_ignored {
-                        Some(read_dir_output.ignored)
-                    } else {
-                        None
-                    },
                 })
             }),
             Err(e) => Err(e),
