@@ -53,10 +53,10 @@ load(
 load(
     ":symbols.bzl",
     "create_global_symbols_version_script",
-    "create_undefined_symbols_argsfile",
     "extract_global_syms",
     "extract_symbol_names",
     "extract_undefined_syms",
+    "get_undefined_symbols_args",
 )
 
 OmnibusEnvironment = provider(fields = [
@@ -629,14 +629,13 @@ def _create_omnibus(
         if label not in spec.body
     ]
     if non_body_root_undefined_syms:
-        argsfile = create_undefined_symbols_argsfile(
-            actions = ctx.actions,
-            name = "__undefined_symbols__.argsfile",
-            symbol_files = non_body_root_undefined_syms,
-            category = "omnibus_undefined_symbols",
-        )
         inputs.append(LinkInfo(pre_flags = [
-            cmd_args(argsfile, format = "@{}"),
+            get_undefined_symbols_args(
+                ctx = ctx,
+                name = "__undefined_symbols__.linker_script",
+                symbol_files = non_body_root_undefined_syms,
+                category = "omnibus_undefined_symbols",
+            ),
         ]))
 
     # Process all body nodes.

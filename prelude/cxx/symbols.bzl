@@ -108,7 +108,7 @@ def _create_symbols_file_from_script(
         weight_percentage: int.type,
         identifier: [str.type, None] = None) -> "artifact":
     """
-    Generate a version script exporting symbols from from the given objects and
+    Generate a symbols file from from the given objects and
     link args.
     """
 
@@ -132,6 +132,34 @@ def _create_symbols_file_from_script(
     )
     return output
 
+def get_undefined_symbols_args(
+        ctx: "context",
+        name: str.type,
+        symbol_files: ["artifact"],
+        category: [str.type, None] = None,
+        identifier: [str.type, None] = None,
+        prefer_local: bool.type = False) -> cmd_args.type:
+    if get_cxx_toolchain_info(ctx).linker_info.type == "gnu":
+        # linker script is only supported in gnu linkers
+        linker_script = create_undefined_symbols_linker_script(
+            ctx.actions,
+            name,
+            symbol_files,
+            category,
+            identifier,
+            prefer_local,
+        )
+        return cmd_args(linker_script, format = "-Wl,--script={}")
+    argsfile = create_undefined_symbols_argsfile(
+        ctx.actions,
+        name,
+        symbol_files,
+        category,
+        identifier,
+        prefer_local,
+    )
+    return cmd_args(argsfile, format = "@{}")
+
 def create_undefined_symbols_argsfile(
         actions: "actions",
         name: str.type,
@@ -141,7 +169,7 @@ def create_undefined_symbols_argsfile(
         prefer_local: bool.type = False) -> "artifact":
     """
     Combine files with sorted lists of symbols names into an argsfile to pass
-    to the linker to mark these symbols as undefined (e.g. `-m`).
+    to the linker to mark these symbols as undefined via `-u`.
     """
     return _create_symbols_file_from_script(
         actions = actions,
@@ -149,6 +177,35 @@ def create_undefined_symbols_argsfile(
         script = (
             "set -euo pipefail; " +
             'xargs cat < "$1" | LC_ALL=C sort -S 10% -u -m | sed "s/^/-u/" > $2'
+        ),
+        symbol_files = symbol_files,
+        category = category,
+        identifier = identifier,
+        prefer_local = prefer_local,
+        weight_percentage = 15,  # 10% + a little padding
+    )
+
+def create_undefined_symbols_linker_script(
+        actions: "actions",
+        name: str.type,
+        symbol_files: ["artifact"],
+        category: [str.type, None] = None,
+        identifier: [str.type, None] = None,
+        prefer_local: bool.type = False) -> "artifact":
+    """
+    Combine files with sorted lists of symbols names into a linker script
+    to mark these symbols as undefined via EXTERN.
+    """
+    return _create_symbols_file_from_script(
+        actions = actions,
+        name = name,
+        script = (
+            """
+            set -euo pipefail;
+            echo "EXTERN(" > "$2";
+            xargs cat < "$1" | LC_ALL=C sort -S 10% -u -m >> "$2";
+            echo ")" >> "$2";
+            """
         ),
         symbol_files = symbol_files,
         category = category,

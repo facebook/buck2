@@ -70,9 +70,9 @@ load(
 load(
     ":symbols.bzl",
     "create_dynamic_list_version_script",
-    "create_undefined_symbols_argsfile",
     "extract_global_syms",
     "extract_undefined_syms",
+    "get_undefined_symbols_args",
 )
 
 LINK_GROUP_MAP_DATABASE_SUB_TARGET = "link-group-map-database"
@@ -592,14 +592,15 @@ def _symbol_flags_for_link_group(
         output = lib.output,
         prefer_local = prefer_local,
     )
-    undefined_argsfile = create_undefined_symbols_argsfile(
-        actions = ctx.actions,
-        name = "{}.undefined_symbols.argsfile".format(lib.output.short_path),
-        symbol_files = [undefined_symfile],
-        category = "link_groups_undefined_syms",
-        identifier = lib.output.short_path,
+    sym_linker_flags.append(
+        get_undefined_symbols_args(
+            ctx = ctx,
+            name = "{}.undefined_symbols.linker_script".format(lib.output.short_path),
+            symbol_files = [undefined_symfile],
+            category = "link_groups_undefined_syms",
+            identifier = lib.output.short_path,
+        ),
     )
-    sym_linker_flags.append(cmd_args(undefined_argsfile, format = "@{}"))
 
     # Extract global symbols, format into a dynamic list version file, and add
     # to linker flags.
