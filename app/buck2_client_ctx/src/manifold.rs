@@ -103,7 +103,9 @@ impl<'a> Upload<'a> {
             None => child.await?,
             Some(x) => tokio::time::timeout(Duration::from_secs(x), child)
                 .await
-                .context("Timed out waiting for file upload to Manifold")??,
+                .with_context(|| {
+                    format!("Timed out waiting {}s for file upload to Manifold", x)
+                })??,
         };
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr).to_string();
