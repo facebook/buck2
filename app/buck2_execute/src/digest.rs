@@ -50,14 +50,11 @@ impl<Kind> CasDigestFromReExt for CasDigest<Kind> {
         digest_config: DigestConfig,
     ) -> Result<Self, DigestConversionError> {
         Ok(Self::new(
-            Self::parse_digest_without_size(
-                digest.hash.as_bytes(),
-                digest_config.cas_digest_config(),
-            )
-            .map_err(|error| DigestConversionError::ParseError {
-                digest: digest.to_string(),
-                error,
-            })?,
+            Self::parse_digest_without_size(&digest.hash, digest_config.cas_digest_config())
+                .map_err(|error| DigestConversionError::ParseError {
+                    digest: digest.to_string(),
+                    error,
+                })?,
             digest.size_in_bytes as u64,
         ))
     }
@@ -67,14 +64,11 @@ impl<Kind> CasDigestFromReExt for CasDigest<Kind> {
         digest_config: DigestConfig,
     ) -> Result<Self, DigestConversionError> {
         Ok(Self::new(
-            Self::parse_digest_without_size(
-                digest.hash.as_bytes(),
-                digest_config.cas_digest_config(),
-            )
-            .map_err(|error| DigestConversionError::ParseError {
-                digest: format!("{}:{}", digest.hash, digest.size_bytes),
-                error,
-            })?,
+            Self::parse_digest_without_size(&digest.hash, digest_config.cas_digest_config())
+                .map_err(|error| DigestConversionError::ParseError {
+                    digest: format!("{}:{}", digest.hash, digest.size_bytes),
+                    error,
+                })?,
             digest.size_bytes as u64,
         ))
     }

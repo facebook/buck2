@@ -28,12 +28,10 @@ use dupe::Clone_;
 use dupe::Dupe;
 use dupe::Dupe_;
 use num_enum::TryFromPrimitive;
-use once_cell::sync::OnceCell;
+use once_cell::sync::Lazy;
 use sha1::Sha1;
 use sha2::Sha256;
 use thiserror::Error;
-
-use crate::file_ops::FileDigestKind;
 
 /// The number of bytes required by a SHA-1 hash
 pub const SHA1_SIZE: usize = 20;
@@ -74,12 +72,35 @@ impl RawDigest {
 
     pub fn parse_sha1(data: &[u8]) -> Result<Self, CasDigestParseError> {
         let mut sha1 = [0; SHA1_SIZE];
-        hex::decode_to_slice(data, &mut sha1).map_err(CasDigestParseError::InvalidSha1)?;
+        hex::decode_to_slice(data, &mut sha1).map_err(CasDigestParseError::InvalidDigest)?;
         Ok(RawDigest::Sha1(sha1))
+    }
+
+    pub fn parse_sha256(data: &[u8]) -> Result<Self, CasDigestParseError> {
+        let mut sha256 = [0; SHA256_SIZE];
+        hex::decode_to_slice(data, &mut sha256).map_err(CasDigestParseError::InvalidDigest)?;
+        Ok(RawDigest::Sha256(sha256))
+    }
+
+    pub fn parse_blake3(data: &[u8]) -> Result<Self, CasDigestParseError> {
+        let mut blake3 = [0; BLAKE3_SIZE];
+        hex::decode_to_slice(data, &mut blake3).map_err(CasDigestParseError::InvalidDigest)?;
+        Ok(RawDigest::Blake3(blake3))
     }
 }
 
-#[derive(Debug, Eq, PartialEq, TryFromPrimitive, Copy, Clone, Dupe, Hash)]
+#[derive(
+    Debug,
+    Display,
+    Eq,
+    PartialEq,
+    TryFromPrimitive,
+    Copy,
+    Clone,
+    Dupe,
+    Hash,
+    Allocative
+)]
 #[repr(u8)]
 pub enum DigestAlgorithm {
     Sha1,
@@ -88,32 +109,92 @@ pub enum DigestAlgorithm {
 }
 
 #[derive(Copy, Clone, Dupe, Debug, Allocative, Hash, Eq, PartialEq)]
-pub struct CasDigestConfig {}
+pub struct CasDigestConfig {
+    inner: &'static CasDigestConfigInner,
+}
 
 impl CasDigestConfig {
+    pub fn compat() -> Self {
+        static COMPAT: Lazy<CasDigestConfigInner> =
+            Lazy::new(|| CasDigestConfigInner::new(vec![DigestAlgorithm::Sha1]).unwrap());
+
+        Self { inner: &COMPAT }
+    }
+
     /// Allow optimizing the empty file digest path, we do that by having the CasDigestConfig hold
     /// a cell for it (later in this stack).
     pub fn empty_file_digest(self) -> crate::file_ops::TrackedFileDigest {
-        static EMPTY_DIGEST: OnceCell<TrackedCasDigest<FileDigestKind>> = OnceCell::new();
-
-        EMPTY_DIGEST
-            .get_or_init(|| TrackedCasDigest {
-                inner: Arc::new(TrackedCasDigestInner {
-                    data: CasDigest::empty(self),
-                    expires: AtomicI64::new(0),
-                }),
-            })
-            .dupe()
-    }
-
-    pub fn compat() -> Self {
-        Self {}
+        self.inner.empty_file_digest.dupe()
     }
 
     pub fn preferred_algorithm(self) -> DigestAlgorithm {
-        // TODO (DigestConfig): actually make this configurable
-        DigestAlgorithm::Sha1
+        self.inner.preferred_algorithm
     }
+
+    pub fn digest160(self) -> Option<DigestAlgorithm> {
+        self.inner.digest160
+    }
+
+    pub fn digest256(self) -> Option<DigestAlgorithm> {
+        self.inner.digest256
+    }
+}
+
+#[derive(Debug, Allocative, Hash, Eq, PartialEq)]
+struct CasDigestConfigInner {
+    preferred_algorithm: DigestAlgorithm,
+    digest160: Option<DigestAlgorithm>,
+    digest256: Option<DigestAlgorithm>,
+    empty_file_digest: crate::file_ops::TrackedFileDigest,
+}
+
+impl CasDigestConfigInner {
+    /// Initialize a CasDigestConfigInner. The algorithms should be listed in decreasing order of
+    /// preference.
+    fn new(algorithms: Vec<DigestAlgorithm>) -> Result<Self, CasDigestConfigError> {
+        let preferred_algorithm = *algorithms
+            .first()
+            .ok_or(CasDigestConfigError::NotConfigured)?;
+
+        let mut digest160 = None;
+        let mut digest256 = None;
+
+        for algo in algorithms {
+            let slot = match algo {
+                DigestAlgorithm::Sha1 => &mut digest160,
+                DigestAlgorithm::Sha256 => &mut digest256,
+                DigestAlgorithm::Blake3 => &mut digest256,
+            };
+
+            if let Some(slot) = &slot {
+                return Err(CasDigestConfigError::Conflict(*slot, algo));
+            }
+
+            *slot = Some(algo);
+        }
+
+        let empty_file_digest = TrackedCasDigest {
+            inner: Arc::new(TrackedCasDigestInner {
+                data: CasDigest::from_content_for_algorithm(&[], preferred_algorithm),
+                expires: AtomicI64::new(0),
+            }),
+        };
+
+        Ok(Self {
+            preferred_algorithm,
+            digest160,
+            digest256,
+            empty_file_digest,
+        })
+    }
+}
+
+#[derive(Error, Debug)]
+pub enum CasDigestConfigError {
+    #[error("At least one algorithm must be enabled")]
+    NotConfigured,
+    #[error("Two algorithms were enabled for the same size: `{}` and `{}`", .0, .1)]
+    Conflict(DigestAlgorithm, DigestAlgorithm),
 }
 
 pub struct Digester<Kind> {
@@ -262,18 +343,31 @@ impl<Kind> CasDigest<Kind> {
             .split_once(':')
             .ok_or(CasDigestParseError::MissingSizeSeparator)?;
 
-        let digest = CasDigest::<Kind>::parse_digest_without_size(digest.as_bytes(), config)?;
+        let digest = CasDigest::<Kind>::parse_digest_without_size(digest, config)?;
         let size = size.parse().map_err(CasDigestParseError::InvalidSize)?;
 
         Ok(Self::new(digest, size))
     }
 
     pub fn parse_digest_without_size(
-        data: &[u8],
-        _config: CasDigestConfig,
+        data: &str,
+        config: CasDigestConfig,
     ) -> Result<RawDigest, CasDigestParseError> {
-        // TODO (DigestConfig): actually select the preferred variant.
-        RawDigest::parse_sha1(data)
+        let algo = if data.len() == 40 {
+            config.digest160()
+        } else if data.len() == 64 {
+            config.digest256()
+        } else {
+            None
+        };
+
+        let algo = algo.ok_or(CasDigestParseError::UnsupportedDigest(data.len()))?;
+
+        match algo {
+            DigestAlgorithm::Sha1 => RawDigest::parse_sha1(data.as_bytes()),
+            DigestAlgorithm::Sha256 => RawDigest::parse_sha256(data.as_bytes()),
+            DigestAlgorithm::Blake3 => RawDigest::parse_blake3(data.as_bytes()),
+        }
     }
 
     /// Return the digest of an empty string
@@ -367,10 +461,13 @@ pub enum CasDigestParseError {
     #[error("The digest is missing a size separator, it should look like `HASH:SIZE`")]
     MissingSizeSeparator,
 
-    #[error("The SHA1 part of the digest is invalid")]
-    InvalidSha1(#[source] hex::FromHexError),
+    #[error("The digest part of the CAS digest is invalid")]
+    InvalidDigest(#[source] hex::FromHexError),
 
-    #[error("The size part of the digest is invalid")]
+    #[error("The digest size ({} chars) does not correspond to a supported digest size", .0)]
+    UnsupportedDigest(usize),
+
+    #[error("The size part of the CAS digest is invalid")]
     InvalidSize(#[source] std::num::ParseIntError),
 }
 
@@ -536,6 +633,49 @@ impl<Kind> TrackedCasDigest<Kind> {
     }
 }
 
+pub mod testing {
+    use super::*;
+
+    pub fn sha1_sha256() -> CasDigestConfig {
+        static CONFIG: Lazy<CasDigestConfigInner> = Lazy::new(|| {
+            CasDigestConfigInner::new(vec![DigestAlgorithm::Sha1, DigestAlgorithm::Sha256]).unwrap()
+        });
+        CasDigestConfig { inner: &CONFIG }
+    }
+
+    pub fn sha1_blake3() -> CasDigestConfig {
+        static CONFIG: Lazy<CasDigestConfigInner> = Lazy::new(|| {
+            CasDigestConfigInner::new(vec![DigestAlgorithm::Sha1, DigestAlgorithm::Blake3]).unwrap()
+        });
+        CasDigestConfig { inner: &CONFIG }
+    }
+
+    pub fn sha256_sha1() -> CasDigestConfig {
+        static CONFIG: Lazy<CasDigestConfigInner> = Lazy::new(|| {
+            CasDigestConfigInner::new(vec![DigestAlgorithm::Sha256, DigestAlgorithm::Sha1]).unwrap()
+        });
+        CasDigestConfig { inner: &CONFIG }
+    }
+
+    pub fn sha1() -> CasDigestConfig {
+        static CONFIG: Lazy<CasDigestConfigInner> =
+            Lazy::new(|| CasDigestConfigInner::new(vec![DigestAlgorithm::Sha1]).unwrap());
+        CasDigestConfig { inner: &CONFIG }
+    }
+
+    pub fn sha256() -> CasDigestConfig {
+        static CONFIG: Lazy<CasDigestConfigInner> =
+            Lazy::new(|| CasDigestConfigInner::new(vec![DigestAlgorithm::Sha256]).unwrap());
+        CasDigestConfig { inner: &CONFIG }
+    }
+
+    pub fn blake3() -> CasDigestConfig {
+        static CONFIG: Lazy<CasDigestConfigInner> =
+            Lazy::new(|| CasDigestConfigInner::new(vec![DigestAlgorithm::Blake3]).unwrap());
+        CasDigestConfig { inner: &CONFIG }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -592,6 +732,60 @@ mod tests {
         assert_eq!(
             CasDigest::<()>::from_content_for_algorithm(content, DigestAlgorithm::Blake3)
                 .to_string(),
+            "04e0bb39f30b1a3feb89f536c93be15055482df748674b00d26e5a75777702e9:3"
+        );
+    }
+
+    #[test]
+    fn test_preferred_algorithm() {
+        let content = &b"foo"[..];
+
+        assert_eq!(
+            CasDigest::<()>::from_content(content, testing::sha1(),).to_string(),
+            "0beec7b5ea3f0fdbc95d0dd47f3c5bc275da8a33:3"
+        );
+        assert_eq!(
+            CasDigest::<()>::from_content(content, testing::sha256(),).to_string(),
+            "2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae:3"
+        );
+        assert_eq!(
+            CasDigest::<()>::from_content(content, testing::blake3(),).to_string(),
+            "04e0bb39f30b1a3feb89f536c93be15055482df748674b00d26e5a75777702e9:3"
+        );
+    }
+
+    #[test]
+    fn test_parse_digest() {
+        let sha1 = CasDigest::<()>::parse_digest(
+            "0beec7b5ea3f0fdbc95d0dd47f3c5bc275da8a33:3",
+            testing::sha256_sha1(),
+        )
+        .unwrap();
+        assert_eq!(sha1.digest().algorithm(), DigestAlgorithm::Sha1);
+        assert_eq!(
+            sha1.to_string(),
+            "0beec7b5ea3f0fdbc95d0dd47f3c5bc275da8a33:3"
+        );
+
+        let sha256 = CasDigest::<()>::parse_digest(
+            "2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae:3",
+            testing::sha1_sha256(),
+        )
+        .unwrap();
+        assert_eq!(sha256.digest().algorithm(), DigestAlgorithm::Sha256);
+        assert_eq!(
+            sha256.to_string(),
+            "2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae:3"
+        );
+
+        let blake3 = CasDigest::<()>::parse_digest(
+            "04e0bb39f30b1a3feb89f536c93be15055482df748674b00d26e5a75777702e9:3",
+            testing::sha1_blake3(),
+        )
+        .unwrap();
+        assert_eq!(blake3.digest().algorithm(), DigestAlgorithm::Blake3);
+        assert_eq!(
+            blake3.to_string(),
             "04e0bb39f30b1a3feb89f536c93be15055482df748674b00d26e5a75777702e9:3"
         );
     }
