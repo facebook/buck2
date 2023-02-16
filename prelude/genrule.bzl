@@ -214,7 +214,7 @@ def process_genrule(
     if is_windows:
         script = [
             cmd_args(srcs_artifact, format = "if not exist .\\{}\\..\\out mkdir .\\{}\\..\\out"),
-            cmd_args("if NOT \"%TMPDIR%\" == \"\" set \"TMP=%TMPDIR%\""),
+            cmd_args("if NOT \"%TEMP%\" == \"\" set \"TMP=%TEMP%\""),
         ]
         script_extension = "bat"
     else:
