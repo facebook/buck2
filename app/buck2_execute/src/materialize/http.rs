@@ -13,13 +13,14 @@ use std::time::Duration;
 
 use allocative::Allocative;
 use anyhow::Context as _;
-use buck2_common::cas_digest::RawDigest;
+use buck2_common::cas_digest::DigestAlgorithm;
 use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::is_open_source;
+use digest::DynDigest;
 use dupe::Dupe;
 use futures::future::Future;
 use futures::StreamExt;
@@ -30,6 +31,7 @@ use reqwest::StatusCode;
 use sha1::Digest;
 use sha1::Sha1;
 use sha2::Sha256;
+use smallvec::SmallVec;
 use thiserror::Error;
 
 use crate::digest_config::DigestConfig;
@@ -75,9 +77,9 @@ pub enum HttpError {
     },
 
     #[error(
-        "HTTP Transfer Error when querying URL: {}. Failed before receiving headers.",
-        .url,
-    )]
+            "HTTP Transfer Error when querying URL: {}. Failed before receiving headers.",
+            .url,
+        )]
     HttpHeadersTransferError {
         url: String,
         #[source]
@@ -85,10 +87,10 @@ pub enum HttpError {
     },
 
     #[error(
-        "HTTP Transfer Error when querying URL: {}. Failed after {} bytes",
-        .url,
-        .received
-    )]
+                "HTTP Transfer Error when querying URL: {}. Failed after {} bytes",
+                .url,
+                .received
+            )]
     HttpTransferError {
         received: u64,
         url: String,
@@ -227,8 +229,6 @@ pub async fn http_download(
     checksum: &Checksum,
     executable: bool,
 ) -> anyhow::Result<TrackedFileDigest> {
-    // TODO (DigestConfig): Check that we allow SHA1 in the DigestConfig.
-
     let abs_path = fs.resolve(path);
     if let Some(dir) = abs_path.parent() {
         fs_util::create_dir_all(fs.resolve(dir))?;
@@ -245,19 +245,44 @@ pub async fn http_download(
 
         let response = http_dispatch(client.get(url), url).await?;
 
+        let mut digester = FileDigest::digester(digest_config.cas_digest_config());
+
+        // For each checksum entry we have, we're going to add a validator. We might have to create
+        // a new hasher, or reuse the `FileDigest::digester` if it matches.
+
+        enum Validator {
+            PrimaryDigest,
+            ExtraDigest(Box<dyn DynDigest + Send>),
+        }
+
+        let mut validators = SmallVec::<[_; 2]>::new();
+
+        if let Some(sha1) = checksum.sha1() {
+            let validator = if digester.algorithm() == DigestAlgorithm::Sha1 {
+                Validator::PrimaryDigest
+            } else {
+                Validator::ExtraDigest(box Sha1::new() as _)
+            };
+
+            validators.push((validator, sha1, "sha1"));
+        }
+
+        if let Some(sha256) = checksum.sha256() {
+            let validator = if digester.algorithm() == DigestAlgorithm::Sha256 {
+                Validator::PrimaryDigest
+            } else {
+                Validator::ExtraDigest(box Sha256::new() as _)
+            };
+
+            validators.push((validator, sha256, "sha256"));
+        }
+
         let mut stream = response.bytes_stream();
         let mut buf_writer = std::io::BufWriter::new(file);
 
-        // We always build a SHA1 hash, as it'll be used for the file digest. We optionally build a
-        // sha256 hasher if a sha256 hash was provided for validation.
-        let mut sha1_hasher = Sha1::new();
-        let mut sha256_hasher_and_expected =
-            checksum.sha256().map(|sha256| (Sha256::new(), sha256));
-
-        let mut file_len = 0u64;
         while let Some(chunk) = stream.next().await {
             let chunk = chunk.map_err(|source| HttpError::HttpTransferError {
-                received: file_len,
+                received: digester.bytes_read(),
                 url: url.to_owned(),
                 source,
             })?;
@@ -265,40 +290,33 @@ pub async fn http_download(
                 .write(&chunk)
                 .with_context(|| format!("write({})", abs_path))
                 .map_err(HttpDownloadError::IoError)?;
-            sha1_hasher.update(&chunk);
-            if let Some((sha256_hasher, ..)) = &mut sha256_hasher_and_expected {
-                sha256_hasher.update(&chunk);
+
+            digester.update(&chunk);
+            for (validator, _expected, _kind) in validators.iter_mut() {
+                if let Validator::ExtraDigest(hasher) = validator {
+                    hasher.update(&chunk);
+                }
             }
-            file_len += chunk.len() as u64;
         }
         buf_writer
             .flush()
             .with_context(|| format!("flush({})", abs_path))
             .map_err(HttpDownloadError::IoError)?;
 
-        // Form the SHA1, and verify any fingerprints that were provided. Note that, by construction,
-        // we always require at least one, since one can't construct a Checksum that has neither SHA1
-        // nor SHA256
-        let download_sha1 = hex::encode(sha1_hasher.finalize().as_slice());
+        let digest = digester.finalize();
 
-        if let Some(expected_sha1) = checksum.sha1() {
-            if expected_sha1 != download_sha1 {
-                return Err(HttpDownloadError::InvalidChecksum(
-                    "sha1",
-                    expected_sha1.to_owned(),
-                    download_sha1,
-                    url.to_owned(),
-                ));
-            }
-        }
+        // Validate
+        for (validator, expected, kind) in validators {
+            let obtained = match validator {
+                Validator::PrimaryDigest => hex::encode(digest.digest().as_bytes()),
+                Validator::ExtraDigest(hasher) => hex::encode(hasher.finalize()),
+            };
 
-        if let Some((sha256_hasher, expected_sha256)) = sha256_hasher_and_expected {
-            let download_sha256 = hex::encode(sha256_hasher.finalize().as_slice());
-            if expected_sha256 != download_sha256 {
+            if expected != obtained {
                 return Err(HttpDownloadError::InvalidChecksum(
-                    "sha256",
-                    expected_sha256.to_owned(),
-                    download_sha256,
+                    kind,
+                    expected.to_owned(),
+                    obtained,
                     url.to_owned(),
                 ));
             }
@@ -309,13 +327,8 @@ pub async fn http_download(
                 .map_err(HttpDownloadError::IoError)?;
         }
 
-        // TODO (DigestConfig): We need to use the proper hasher here instead of just using SHA1.
-
         Result::<_, HttpDownloadError>::Ok(TrackedFileDigest::new(
-            FileDigest::new(
-                RawDigest::parse_sha1(download_sha1.as_bytes()).unwrap(),
-                file_len,
-            ),
+            digest,
             digest_config.cas_digest_config(),
         ))
     })

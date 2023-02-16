@@ -153,6 +153,18 @@ impl<Kind> Digester<Kind> {
             DigesterVariant::Blake3(h) => CasDigest::new_blake3(h.finalize().into(), self.size),
         }
     }
+
+    pub fn algorithm(&self) -> DigestAlgorithm {
+        match &self.variant {
+            DigesterVariant::Sha1(..) => DigestAlgorithm::Sha1,
+            DigesterVariant::Sha256(..) => DigestAlgorithm::Sha256,
+            DigesterVariant::Blake3(..) => DigestAlgorithm::Blake3,
+        }
+    }
+
+    pub fn bytes_read(&self) -> u64 {
+        self.size
+    }
 }
 
 /// Separate struct to allow us to use  `repr(transparent)` below and guarantee an identical

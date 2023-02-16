@@ -11,6 +11,7 @@ crossbeam-channel = { workspace = true }
 chrono = { workspace = true }
 derivative = { workspace = true }
 derive_more = { workspace = true }
+digest = { workspace = true }
 either = { workspace = true }
 futures = { workspace = true }
 hex = { workspace = true }
@@ -25,6 +26,7 @@ serde = { workspace = true }
 sha1 = { workspace = true }
 sha2 = { workspace = true }
 slog = { workspace = true }
+smallvec = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 toml = { workspace = true }
