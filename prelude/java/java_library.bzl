@@ -145,7 +145,7 @@ def _append_javac_params(
         source_level: int.type,
         target_level: int.type,
         deps: ["dependency"],
-        extra_arguments: ["string"],
+        extra_arguments: "cmd_args",
         additional_classpath_entries: ["artifact"],
         bootclasspath_entries: ["artifact"],
         cmd: "cmd_args",
@@ -157,7 +157,7 @@ def _append_javac_params(
         "-sourcepath",
         '""',
     )
-    javac_args.add(*extra_arguments)
+    javac_args.add(extra_arguments)
 
     compiling_classpath = _build_classpath(actions, deps, additional_classpath_entries, "args_for_compiling")
     if compiling_classpath:
@@ -282,7 +282,7 @@ def compile_to_jar(
         deps: [["dependency"], None] = None,
         required_for_source_only_abi: bool.type = False,
         source_only_abi_deps: [["dependency"], None] = None,
-        extra_arguments: [["string"], None] = None,
+        extra_arguments: ["cmd_args", None] = None,
         additional_classpath_entries: [["artifact"], None] = None,
         additional_compiled_srcs: ["artifact", None] = None,
         bootclasspath_entries: [["artifact"], None] = None) -> "JavaCompileOutputs":
@@ -291,7 +291,7 @@ def compile_to_jar(
     if not bootclasspath_entries:
         bootclasspath_entries = []
     if not extra_arguments:
-        extra_arguments = []
+        extra_arguments = cmd_args()
     if not resources:
         resources = []
     if not deps:
@@ -360,7 +360,7 @@ def _create_jar_artifact(
         deps: ["dependency"],
         required_for_source_only_abi: bool.type,
         _source_only_abi_deps: ["dependency"],
-        extra_arguments: ["string"],
+        extra_arguments: "cmd_args",
         additional_classpath_entries: ["artifact"],
         additional_compiled_srcs: ["artifact", None],
         bootclasspath_entries: ["artifact"],
@@ -556,7 +556,7 @@ def build_java_library(
             "ap_params": ap_params,
             "bootclasspath_entries": bootclasspath_entries,
             "deps": first_order_deps,
-            "extra_arguments": ctx.attrs.extra_arguments,
+            "extra_arguments": cmd_args(ctx.attrs.extra_arguments),
             "manifest_file": manifest_file,
             "remove_classes": ctx.attrs.remove_classes,
             "required_for_source_only_abi": ctx.attrs.required_for_source_only_abi,

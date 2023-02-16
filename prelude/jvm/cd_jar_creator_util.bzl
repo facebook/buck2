@@ -276,7 +276,7 @@ def encode_base_jar_command(
         resources_map: {str.type: "artifact"},
         ap_params: ["AnnotationProcessorParams"],
         plugin_params: ["PluginParams", None],
-        extra_arguments: ["string"],
+        extra_arguments: "cmd_args",
         track_class_usage: bool.type) -> struct.type:
     library_jar_params = encode_jar_params(remove_classes, output_paths)
     qualified_name = get_qualified_name(label, target_type)
