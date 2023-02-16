@@ -205,6 +205,7 @@ fn test_load_symbols_extra() -> anyhow::Result<()> {
     for (name, value) in extra.0.lock().unwrap().iter() {
         modu.set(name, *value);
     }
+    modu.set_extra_value(Value::new_none());
     let mut a = Assert::new();
     a.globals(globals);
     a.module_add("a", modu.freeze()?);

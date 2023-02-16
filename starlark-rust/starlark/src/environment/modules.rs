@@ -49,6 +49,7 @@ use crate::syntax::ast::Visibility;
 use crate::values::layout::heap::heap_type::HeapKind;
 use crate::values::layout::heap::profile::aggregated::AggregateHeapProfileInfo;
 use crate::values::layout::heap::profile::aggregated::RetainedHeapProfile;
+use crate::values::Freeze;
 use crate::values::Freezer;
 use crate::values::FrozenHeap;
 use crate::values::FrozenHeapRef;
@@ -80,6 +81,7 @@ enum ModuleError {
 pub struct FrozenModule {
     heap: FrozenHeapRef,
     module: FrozenRef<'static, FrozenModuleData>,
+    extra_value: Option<FrozenValue>,
     /// Module evaluation duration:
     /// * evaluation of the top-level statements
     /// * optimizations during that evaluation
@@ -248,6 +250,17 @@ impl FrozenModule {
             Some(p) => Ok(p.to_profile()),
         }
     }
+
+    /// `extra_value` field from `Module`, frozen.
+    pub fn extra_value(&self) -> Option<FrozenValue> {
+        self.extra_value
+    }
+
+    /// `extra_value` field from `Module`, frozen.
+    pub fn owned_extra_value(&self) -> Option<OwnedFrozenValue> {
+        self.extra_value
+            .map(|v| unsafe { OwnedFrozenValue::new(self.heap.dupe(), v) })
+    }
 }
 
 impl FrozenModuleData {
@@ -370,10 +383,9 @@ impl Module {
             heap,
             docstring,
             eval_duration,
-            extra_value: extra_v,
+            extra_value,
             heap_profile_on_freeze,
         } = self;
-        let _ = extra_v;
         let start = Instant::now();
         // This is when we do the GC/freeze, using the module slots as roots
         // Note that we even freeze anonymous slots, since they are accessed by
@@ -381,6 +393,7 @@ impl Module {
         // they are used.
         let freezer = Freezer::new(frozen_heap);
         let slots = slots.freeze(&freezer)?;
+        let extra_value = extra_value.into_inner().freeze(&freezer)?;
         let stacks = if let Some(mode) = heap_profile_on_freeze.get() {
             // TODO(nga): retained heap profile does not store information about data
             //   allocated in frozen heap before freeze starts.
@@ -417,6 +430,7 @@ impl Module {
         Ok(FrozenModule {
             heap: freezer.into_ref(),
             module: frozen_module_ref,
+            extra_value,
             eval_duration: start.elapsed() + eval_duration.get(),
         })
     }
