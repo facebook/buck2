@@ -12,8 +12,8 @@ import sys
 
 from typing import Sequence
 
-# pyre-ignore[21]: This import path only exists in BUCK:
-from __legacy_merge__ import inputs, legacy_outputs
+import inputs
+import legacy_outputs
 
 
 def run_merge(root: pathlib.Path, input_file: str, output_file: str) -> None:

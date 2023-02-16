@@ -10,7 +10,8 @@ import json
 import pathlib
 from typing import Dict, Iterable, Mapping, Optional, Set
 
-from . import inputs, outputs
+import inputs
+import outputs
 
 
 @dataclasses.dataclass(frozen=True)

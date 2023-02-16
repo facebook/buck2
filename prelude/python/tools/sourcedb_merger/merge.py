@@ -12,7 +12,8 @@ import sys
 
 from typing import Sequence
 
-from . import inputs, outputs
+import inputs
+import outputs
 
 
 def run_merge(root: pathlib.Path, input_file: str, output_file: str) -> None:

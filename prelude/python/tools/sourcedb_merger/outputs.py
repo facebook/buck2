@@ -10,7 +10,7 @@ import json
 import pathlib
 from typing import Dict, Iterable, Mapping
 
-from . import inputs
+import inputs
 
 
 @dataclasses.dataclass(frozen=True)
