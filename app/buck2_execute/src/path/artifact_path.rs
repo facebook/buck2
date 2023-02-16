@@ -68,7 +68,7 @@ impl<'a> ArtifactPath<'a> {
             None => ForwardRelativePath::empty(),
         };
 
-        f(&path)
+        f(path)
     }
 
     pub fn with_full_path<F, T>(&self, f: F) -> T

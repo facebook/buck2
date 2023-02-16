@@ -66,9 +66,9 @@ impl ImmediateMaterializer {
     ) -> Self {
         Self {
             fs,
+            digest_config,
             re_client_manager,
             io_executor,
-            digest_config,
         }
     }
 }
