@@ -138,6 +138,10 @@ impl CasDigestConfig {
     pub fn digest256(self) -> Option<DigestAlgorithm> {
         self.inner.digest256
     }
+
+    pub fn allows_sha1(self) -> bool {
+        self.inner.digest160 == Some(DigestAlgorithm::Sha1)
+    }
 }
 
 #[derive(Debug, Allocative, Hash, Eq, PartialEq)]

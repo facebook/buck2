@@ -136,12 +136,14 @@ impl DownloadFileAction {
             return Ok(None);
         }
 
+        if !digest_config.cas_digest_config().allows_sha1() {
+            return Ok(None);
+        }
+
         let sha1 = match self.inner.checksum.sha1() {
             Some(sha1) => sha1,
             _ => return Ok(None),
         };
-
-        // TODO (DigestConfig): Verify that SHA1 is allowed by the config.
 
         let sha1 = match RawDigest::parse_sha1(sha1.as_bytes()) {
             Ok(sha1) => sha1,

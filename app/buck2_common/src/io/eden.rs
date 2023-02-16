@@ -89,7 +89,10 @@ impl EdenIoProvider {
             tracing::warn!("You are using a development version of Eden, enabling Eden I/O");
         }
 
-        // TODO (DigestConfig): Dont enable Eden I/O if SHA1 is not supported.
+        if !cas_digest_config.allows_sha1() {
+            tracing::warn!("Disabling Eden I/O: your digest config does not allow SHA1");
+            return Ok(None);
+        }
 
         Ok(Some(Self {
             manager,

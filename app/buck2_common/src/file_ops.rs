@@ -132,9 +132,9 @@ impl FileDigest {
 
         use crate::cas_digest::RawDigest;
 
-        // TODO (DigestConfig): check that the config allows SHA1.
-
-        let _unused = config;
+        if !config.allows_sha1() {
+            return None;
+        }
 
         let mut file = Cow::Borrowed(file);
         let mut meta;
@@ -186,7 +186,6 @@ impl FileDigest {
     /// Get the digest from disk. You should usually prefer `from_file`
     /// which also uses faster methods of getting the SHA1 if it can.
     pub fn from_file_disk(file: &Path, config: CasDigestConfig) -> anyhow::Result<Self> {
-        // TODO (DigestConfig): Implement support for other hashes + move this into CasDigest.
         let f = File::open(file)?;
         FileDigest::from_reader(f, config)
     }
@@ -596,6 +595,11 @@ mod tests {
             assert_eq!(d1, d3);
             assert_eq!(d1, d4);
             assert_eq!(d1, d5);
+
+            let dx = FileDigest::from_file(&file, crate::cas_digest::testing::sha256())
+                .context("disable xattr")?;
+
+            assert_ne!(d1, dx);
 
             Ok(())
         }
