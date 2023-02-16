@@ -29,6 +29,7 @@ use crate::attrs::coerce::ctx::BuildAttrCoercionContext;
 use crate::interpreter::build_defs::configure_base_globals;
 use crate::interpreter::module_internals::ModuleInternals;
 use crate::interpreter::module_internals::PackageImplicits;
+use crate::super_package::data::SuperPackage;
 
 #[derive(Clone, Allocative)]
 struct ConfigureGlobalsFn(#[allocative(skip)] fn(&mut GlobalsBuilder));
@@ -82,6 +83,7 @@ pub struct BuildInterpreterConfiguror {
     host_architecture: InterpreterHostArchitecture,
     record_target_call_stack: bool,
     configure_build_file_globals: ConfigureGlobalsFn,
+    configure_package_file_globals: ConfigureGlobalsFn,
     configure_extension_file_globals: ConfigureGlobalsFn,
     configure_bxl_file_globals: ConfigureGlobalsFn,
     /// For test.
@@ -95,6 +97,7 @@ impl BuildInterpreterConfiguror {
         host_architecture: InterpreterHostArchitecture,
         record_target_call_stack: bool,
         configure_build_file_globals: fn(&mut GlobalsBuilder),
+        configure_package_file_globals: fn(&mut GlobalsBuilder),
         configure_extension_file_globals: fn(&mut GlobalsBuilder),
         configure_bxl_file_globals: fn(&mut GlobalsBuilder),
         additional_globals: Option<AdditionalGlobalsFn>,
@@ -105,6 +108,7 @@ impl BuildInterpreterConfiguror {
             host_architecture,
             record_target_call_stack,
             configure_build_file_globals: ConfigureGlobalsFn(configure_build_file_globals),
+            configure_package_file_globals: ConfigureGlobalsFn(configure_package_file_globals),
             configure_extension_file_globals: ConfigureGlobalsFn(configure_extension_file_globals),
             configure_bxl_file_globals: ConfigureGlobalsFn(configure_bxl_file_globals),
             additional_globals,
@@ -116,6 +120,17 @@ impl BuildInterpreterConfiguror {
         configure_base_globals(self.configure_extension_file_globals.0)
             .with(|g| {
                 (self.configure_build_file_globals.0)(g);
+                if let Some(additional_globals) = &self.additional_globals {
+                    (additional_globals.0)(g);
+                }
+            })
+            .build()
+    }
+
+    pub(crate) fn package_file_globals(&self) -> Globals {
+        configure_base_globals(self.configure_extension_file_globals.0)
+            .with(|g| {
+                (self.configure_package_file_globals.0)(g);
                 if let Some(additional_globals) = &self.additional_globals {
                     (additional_globals.0)(g);
                 }
@@ -158,6 +173,7 @@ impl BuildInterpreterConfiguror {
         cell_info: &InterpreterCellInfo,
         buildfile_path: BuildFilePath,
         package_listing: PackageListing,
+        super_package: SuperPackage,
         package_boundary_exception: bool,
         loaded_modules: &LoadedModules,
         implicit_import: Option<&Arc<ImplicitImport>>,
@@ -195,6 +211,7 @@ impl BuildInterpreterConfiguror {
             cell_info.default_visibility_to_public(),
             record_target_call_stack,
             package_listing,
+            super_package,
         ))
     }
 

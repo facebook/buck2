@@ -23,6 +23,7 @@ use buck2_common::package_boundary::HasPackageBoundaryExceptions;
 use buck2_common::package_listing::dice::HasPackageListingResolver;
 use buck2_common::package_listing::listing::PackageListing;
 use buck2_common::result::SharedResult;
+use buck2_common::result::ToSharedResultExt;
 use buck2_common::result::ToUnsharedResultExt;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
@@ -35,6 +36,7 @@ use buck2_interpreter::file_loader::LoadedModule;
 use buck2_interpreter::file_loader::ModuleDeps;
 use buck2_interpreter::import_paths::HasImportPaths;
 use buck2_interpreter::path::OwnedStarlarkModulePath;
+use buck2_interpreter::path::PackageFilePath;
 use buck2_interpreter::path::StarlarkModulePath;
 use buck2_interpreter::path::StarlarkPath;
 use buck2_interpreter::starlark_profiler::StarlarkProfilerInstrumentation;
@@ -44,6 +46,7 @@ use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
+use futures::future;
 use starlark::codemap::FileSpan;
 use starlark::syntax::AstModule;
 
@@ -51,6 +54,7 @@ use crate::interpreter::dice_calculation_delegate::keys::EvalImportKey;
 use crate::interpreter::global_interpreter_state::HasGlobalInterpreterState;
 use crate::interpreter::interpreter_for_cell::InterpreterForCell;
 use crate::interpreter::interpreter_for_cell::ParseResult;
+use crate::super_package::data::SuperPackage;
 
 #[derive(Debug, thiserror::Error)]
 enum DiceCalculationDelegateError {
@@ -58,6 +62,8 @@ enum DiceCalculationDelegateError {
     EvalBuildFileError(BuildFilePath),
     #[error("Error evaluating module: `{0}`")]
     EvalModuleError(String),
+    #[error("File not found: `{0}`")]
+    NotFound(String),
 }
 
 #[async_trait]
@@ -189,10 +195,18 @@ impl<'c> DiceCalculationDelegate<'c> {
             .await
     }
 
-    async fn parse_file(&self, starlark_path: StarlarkPath<'_>) -> anyhow::Result<ParseResult> {
-        let content =
-            <dyn FileOps>::read_file(&self.fs, starlark_path.path().as_ref().as_ref()).await?;
-        self.configs.parse(starlark_path, content)
+    async fn parse_file_if_exists(
+        &self,
+        starlark_path: StarlarkPath<'_>,
+    ) -> anyhow::Result<Option<ParseResult>> {
+        let content = self
+            .fs
+            .read_file_if_exists(starlark_path.path().as_ref().as_ref())
+            .await?;
+        match content {
+            Some(content) => Ok(Some(self.configs.parse(starlark_path, content)?)),
+            None => Ok(None),
+        }
     }
 
     async fn eval_deps(
@@ -215,13 +229,26 @@ impl<'c> DiceCalculationDelegate<'c> {
         ))
     }
 
+    async fn prepare_eval_if_exists<'a>(
+        &'a self,
+        starlark_file: StarlarkPath<'_>,
+    ) -> anyhow::Result<Option<(AstModule, ModuleDeps)>> {
+        let Some(ParseResult(ast, imports)) = self.parse_file_if_exists(starlark_file).await? else {
+            return Ok(None);
+        };
+        let deps = self.eval_deps(&imports).await?;
+        Ok(Some((ast, deps)))
+    }
+
     pub async fn prepare_eval<'a>(
         &'a self,
         starlark_file: StarlarkPath<'_>,
     ) -> anyhow::Result<(AstModule, ModuleDeps)> {
-        let ParseResult(ast, imports) = self.parse_file(starlark_file).await?;
-        let deps = self.eval_deps(&imports).await?;
-        Ok((ast, deps))
+        let option = self.prepare_eval_if_exists(starlark_file).await?;
+        match option {
+            Some(x) => Ok(x),
+            None => Err(DiceCalculationDelegateError::NotFound(starlark_file.to_string()).into()),
+        }
     }
 
     pub fn prepare_eval_with_content<'a>(
@@ -272,6 +299,109 @@ impl<'c> DiceCalculationDelegate<'c> {
         ))
     }
 
+    /// Eval parent `PACKAGE` file for given `PACKAGE` file.
+    async fn eval_parent_package_file(
+        &self,
+        file: &PackageFilePath,
+    ) -> anyhow::Result<SuperPackage> {
+        match file.parent_package_file() {
+            None => {
+                // We are in the cell root, there's no parent.
+                Ok(SuperPackage::default())
+            }
+            Some(parent) => self.eval_package_file(&parent).await,
+        }
+    }
+
+    async fn eval_package_file_uncached(
+        &self,
+        path: &PackageFilePath,
+    ) -> anyhow::Result<SuperPackage> {
+        let parent = self.eval_parent_package_file(path);
+        let prepare_eval = self.prepare_eval_if_exists(StarlarkPath::PackageFile(path));
+
+        let (parent, ast_deps) = future::try_join(parent, prepare_eval).await?;
+
+        let (ast, deps) = match ast_deps {
+            Some(x) => x,
+            None => return Ok(parent),
+        };
+
+        let starlark_profiler_instrumentation =
+            self.ctx.get_starlark_profiler_instrumentation().await?;
+
+        let buckconfig = self.get_legacy_buck_config_for_starlark().await?;
+        let root_buckconfig = self.ctx.get_legacy_root_config_on_dice().await?;
+        self.configs
+            .eval_package_file(
+                path,
+                ast,
+                parent,
+                &buckconfig,
+                &root_buckconfig,
+                deps.get_loaded_modules(),
+                starlark_profiler_instrumentation,
+            )
+            .with_context(|| format!("evaluating Starlark PACKAGE file `{}`", path))
+    }
+
+    async fn eval_package_file(&self, path: &PackageFilePath) -> anyhow::Result<SuperPackage> {
+        #[derive(Debug, Display, Clone, Allocative, Eq, PartialEq, Hash)]
+        struct PackageFileKey(PackageFilePath);
+
+        #[async_trait]
+        impl Key for PackageFileKey {
+            type Value = SharedResult<SuperPackage>;
+
+            async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
+                let interpreter = ctx
+                    .get_interpreter_calculator(self.0.cell(), self.0.build_file_cell())
+                    .await
+                    .shared_error()?;
+                interpreter
+                    .eval_package_file_uncached(&self.0)
+                    .await
+                    .shared_error()
+            }
+
+            fn equality(x: &Self::Value, y: &Self::Value) -> bool {
+                match (x, y) {
+                    (Ok(x), Ok(y)) => x == y,
+                    _ => false,
+                }
+            }
+
+            fn validity(x: &Self::Value) -> bool {
+                x.is_ok()
+            }
+        }
+
+        self.ctx
+            .compute(&PackageFileKey(path.clone()))
+            .await?
+            .unshared_error()
+    }
+
+    /// Most directories do not contain a `PACKAGE` file, this function
+    /// optimizes `eval_package_file` for this case by avoiding creation of DICE key.
+    async fn eval_package_file_for_build_file(
+        &self,
+        package: PackageLabel,
+        package_listing: &PackageListing,
+    ) -> anyhow::Result<SuperPackage> {
+        let package_file_path = PackageFilePath::for_dir(package.as_cell_path());
+        if package_listing
+            .get_file(PackageFilePath::PACKAGE_FILE_NAME.as_ref())
+            .is_none()
+        {
+            // Without this optimization, `cquery <that android target>` has 6% time regression.
+            // With this optimization, check for `PACKAGE` files adds 2% to time.
+            self.eval_parent_package_file(&package_file_path).await
+        } else {
+            self.eval_package_file(&package_file_path).await
+        }
+    }
+
     async fn resolve_package_listing(
         &self,
         package: PackageLabel,
@@ -301,22 +431,26 @@ impl<'c> DiceCalculationDelegate<'c> {
         profiler: &mut StarlarkProfilerOrInstrumentation<'_>,
     ) -> anyhow::Result<EvaluationResult> {
         let listing = self.resolve_package_listing(package.dupe()).await?;
+
+        let build_file_path = BuildFilePath::new(package.dupe(), listing.buildfile().to_owned());
+        let ast_deps = self.prepare_eval(StarlarkPath::BuildFile(&build_file_path));
+
+        let super_package = self.eval_package_file_for_build_file(package.dupe(), &listing);
+
+        let ((ast, deps), super_package) = future::try_join(ast_deps, super_package).await?;
+
         let package_boundary_exception = self
             .ctx
             .get_package_boundary_exception(package.as_cell_path())
             .await?;
-        let build_file_path = BuildFilePath::new(package.dupe(), listing.buildfile().to_owned());
+        let buckconfig = self.get_legacy_buck_config_for_starlark().await?;
+        let root_buckconfig = self.ctx.get_legacy_root_config_on_dice().await?;
         let module_id = build_file_path.to_string();
         let cell_str = build_file_path.cell().as_str().to_owned();
         let start_event = buck2_data::LoadBuildFileStart {
             cell: cell_str.clone(),
             module_id: module_id.clone(),
         };
-        let (ast, deps) = self
-            .prepare_eval(StarlarkPath::BuildFile(&build_file_path))
-            .await?;
-        let buckconfig = self.get_legacy_buck_config_for_starlark().await?;
-        let root_buckconfig = self.ctx.get_legacy_root_config_on_dice().await?;
         span(start_event, move || {
             let result = self
                 .configs
@@ -325,6 +459,7 @@ impl<'c> DiceCalculationDelegate<'c> {
                     &buckconfig,
                     &root_buckconfig,
                     listing,
+                    super_package,
                     package_boundary_exception,
                     ast,
                     deps.get_loaded_modules(),

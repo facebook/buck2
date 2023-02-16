@@ -592,6 +592,7 @@ mod tests {
                 InterpreterHostArchitecture::X86_64,
                 false,
                 |_| {},
+                |_| {},
                 register_rule_defs,
                 |_| {},
                 None,

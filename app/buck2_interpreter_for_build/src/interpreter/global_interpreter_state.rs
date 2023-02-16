@@ -42,6 +42,9 @@ pub struct GlobalInterpreterState {
     /// be available in a build file.
     pub build_file_global_env: Globals,
 
+    /// Symbols for `PACKAGE` files.
+    pub package_file_global_env: Globals,
+
     /// The GlobalEnvironment contains all the globally available symbols
     /// (primarily starlark stdlib and Buck-provided functions) that should
     /// be available in an extension file.
@@ -69,6 +72,7 @@ impl GlobalInterpreterState {
         // TODO: There should be one of these that also does not have native functions
         // in the global       namespace so that it can be configured per-cell
         let build_file_global_env = interpreter_configuror.build_file_globals();
+        let package_file_global_env = interpreter_configuror.package_file_globals();
         let extension_file_global_env = interpreter_configuror.extension_file_globals();
         let bxl_file_global_env = interpreter_configuror.bxl_file_globals();
 
@@ -88,6 +92,7 @@ impl GlobalInterpreterState {
             cell_resolver,
             cell_configs,
             build_file_global_env,
+            package_file_global_env,
             extension_file_global_env,
             bxl_file_global_env,
             configuror: interpreter_configuror,
@@ -102,6 +107,7 @@ impl GlobalInterpreterState {
     pub fn globals_for_file_type(&self, file_type: StarlarkFileType) -> &Globals {
         match file_type {
             StarlarkFileType::Buck => &self.build_file_global_env,
+            StarlarkFileType::Package => &self.package_file_global_env,
             StarlarkFileType::Bzl => &self.extension_file_global_env,
             StarlarkFileType::Bxl => &self.bxl_file_global_env,
         }

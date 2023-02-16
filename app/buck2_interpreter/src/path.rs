@@ -16,8 +16,10 @@ use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_path::CellPath;
+use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePathBuf;
+use buck2_core::fs::paths::file_name::FileName;
 use derive_more::Display;
 use dupe::Dupe;
 use gazebo::variants::UnpackVariants;
@@ -84,12 +86,55 @@ impl BxlFilePath {
     }
 }
 
+#[derive(Clone, Debug, Eq, PartialEq, Hash, Allocative, derive_more::Display)]
+#[display(fmt = "{}", path)]
+pub struct PackageFilePath {
+    /// Including `/PACKAGE`.
+    path: CellPath,
+}
+
+impl PackageFilePath {
+    pub const PACKAGE_FILE_NAME: &'static FileName = FileName::unchecked_new("PACKAGE");
+
+    /// Create for directory containing `PACKAGE` file.
+    pub fn for_dir(path: CellPathRef) -> PackageFilePath {
+        PackageFilePath {
+            path: path.join(Self::PACKAGE_FILE_NAME),
+        }
+    }
+
+    pub fn cell(&self) -> CellName {
+        self.path.cell()
+    }
+
+    pub fn build_file_cell(&self) -> BuildFileCell {
+        BuildFileCell::new(self.cell())
+    }
+
+    /// Directory containing this `PACKAGE` file.
+    pub(crate) fn dir(&self) -> CellPathRef {
+        self.path
+            .parent()
+            .expect("constructor verifies that path is not root")
+    }
+
+    pub fn parent_package_file(&self) -> Option<PackageFilePath> {
+        self.dir().parent().map(PackageFilePath::for_dir)
+    }
+
+    pub(crate) fn path(&self) -> &CellPath {
+        &self.path
+    }
+}
+
 /// Path to file containing starlark that can be evaluated by the interpreter.
 #[derive(Display, Clone, Copy, Dupe, Debug, UnpackVariants)]
 #[display(fmt = "{}", self.id())]
 pub enum StarlarkPath<'a> {
     /// a build file
     BuildFile(&'a BuildFilePath),
+    /// a `PACKAGE` file
+    PackageFile(&'a PackageFilePath),
     /// a file to be imported
     LoadFile(&'a ImportPath),
     /// a bxl file to be evaluated
@@ -100,6 +145,7 @@ impl<'a> StarlarkPath<'a> {
     pub fn cell(&self) -> CellName {
         match self {
             StarlarkPath::BuildFile(b) => b.cell(),
+            StarlarkPath::PackageFile(p) => p.cell(),
             StarlarkPath::LoadFile(l) => l.cell(),
             StarlarkPath::BxlFile(b) => b.cell(),
         }
@@ -108,6 +154,7 @@ impl<'a> StarlarkPath<'a> {
     pub fn build_file_cell(&self) -> BuildFileCell {
         match self {
             StarlarkPath::BuildFile(b) => b.build_file_cell(),
+            StarlarkPath::PackageFile(p) => p.build_file_cell(),
             StarlarkPath::LoadFile(l) => l.build_file_cell(),
             StarlarkPath::BxlFile(b) => b.build_file_cell(),
         }
@@ -116,6 +163,7 @@ impl<'a> StarlarkPath<'a> {
     pub fn path(&self) -> Cow<CellPath> {
         match self {
             StarlarkPath::BuildFile(b) => Cow::Owned(b.path()),
+            StarlarkPath::PackageFile(p) => Cow::Borrowed(p.path()),
             StarlarkPath::LoadFile(l) => Cow::Borrowed(l.path()),
             StarlarkPath::BxlFile(b) => Cow::Borrowed(b.path()),
         }
@@ -124,6 +172,7 @@ impl<'a> StarlarkPath<'a> {
     pub fn file_type(&self) -> StarlarkFileType {
         match self {
             StarlarkPath::BuildFile(_) => StarlarkFileType::Buck,
+            StarlarkPath::PackageFile(_) => StarlarkFileType::Package,
             StarlarkPath::LoadFile(_) => StarlarkFileType::Bzl,
             StarlarkPath::BxlFile(_) => StarlarkFileType::Bxl,
         }
@@ -135,6 +184,8 @@ impl<'a> StarlarkPath<'a> {
 pub enum OwnedStarlarkPath {
     /// a build file
     BuildFile(BuildFilePath),
+    /// a package file
+    PackageFile(PackageFilePath),
     /// a file to be imported
     LoadFile(ImportPath),
     /// a bxl file to be evaluated
@@ -145,6 +196,7 @@ impl OwnedStarlarkPath {
     pub fn new(path: StarlarkPath<'_>) -> Self {
         match path {
             StarlarkPath::BuildFile(p) => Self::BuildFile(p.clone()),
+            StarlarkPath::PackageFile(p) => Self::PackageFile(p.clone()),
             StarlarkPath::LoadFile(p) => Self::LoadFile(p.clone()),
             StarlarkPath::BxlFile(p) => Self::BxlFile(p.clone()),
         }
@@ -153,6 +205,7 @@ impl OwnedStarlarkPath {
     pub fn borrow(&self) -> StarlarkPath<'_> {
         match self {
             OwnedStarlarkPath::BuildFile(p) => StarlarkPath::BuildFile(p),
+            OwnedStarlarkPath::PackageFile(p) => StarlarkPath::PackageFile(p),
             OwnedStarlarkPath::LoadFile(p) => StarlarkPath::LoadFile(p),
             OwnedStarlarkPath::BxlFile(p) => StarlarkPath::BxlFile(p),
         }

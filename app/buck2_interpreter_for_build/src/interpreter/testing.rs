@@ -46,6 +46,7 @@ use crate::interpreter::configuror::BuildInterpreterConfiguror;
 use crate::interpreter::global_interpreter_state::GlobalInterpreterState;
 use crate::interpreter::interpreter_for_cell::InterpreterForCell;
 use crate::interpreter::interpreter_for_cell::ParseResult;
+use crate::super_package::data::SuperPackage;
 
 /// Simple container that allows us to instrument things like imports
 #[derive(Debug)]
@@ -203,6 +204,7 @@ impl Tester {
                     |_| {},
                     |_| {},
                     |_| {},
+                    |_| {},
                     Some(AdditionalGlobalsFn(Arc::new(move |globals_builder| {
                         common_helpers(globals_builder);
                         if let Some(additional_globals) = &additional_globals {
@@ -303,6 +305,7 @@ impl Tester {
             buckconfig,
             root_buckconfig,
             package_listing,
+            SuperPackage::default(),
             false,
             ast,
             loaded_modules,

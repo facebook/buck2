@@ -24,6 +24,7 @@ use starlark::eval::Evaluator;
 use thiserror::Error;
 
 use crate::interpreter::module_internals::ModuleInternals;
+use crate::super_package::eval_ctx::PackageFileEvalCtx;
 
 #[derive(Error, Debug)]
 enum BuildContextError {
@@ -33,12 +34,16 @@ enum BuildContextError {
     UnavailableDuringAnalysis,
     #[error("Expecting a build file; current file type context is {0:?}")]
     NotBuildFile(StarlarkFileType),
+    #[error("Expecting a package file; current file type context is {0:?}")]
+    NotPackageFile(StarlarkFileType),
 }
 
 #[derive(Debug)]
 pub(crate) enum PerFileTypeContext {
     /// Context for evaluating `BUCK` files.
     Build(ModuleInternals),
+    /// Context for evaluating `PACKAGE` files.
+    Package(PackageFileEvalCtx),
     Bzl,
     Bxl,
 }
@@ -47,6 +52,7 @@ impl PerFileTypeContext {
     fn file_type(&self) -> StarlarkFileType {
         match self {
             PerFileTypeContext::Build(..) => StarlarkFileType::Buck,
+            PerFileTypeContext::Package(..) => StarlarkFileType::Package,
             PerFileTypeContext::Bzl => StarlarkFileType::Bzl,
             PerFileTypeContext::Bxl => StarlarkFileType::Bxl,
         }
@@ -63,6 +69,13 @@ impl PerFileTypeContext {
         match self {
             PerFileTypeContext::Build(internals) => Ok(internals),
             x => Err(BuildContextError::NotBuildFile(x.file_type()).into()),
+        }
+    }
+
+    pub(crate) fn into_package_file(self) -> anyhow::Result<PackageFileEvalCtx> {
+        match self {
+            PerFileTypeContext::Package(ctx) => Ok(ctx),
+            x => Err(BuildContextError::NotPackageFile(x.file_type()).into()),
         }
     }
 

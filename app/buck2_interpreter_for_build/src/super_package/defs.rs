@@ -7,12 +7,11 @@
  * of this source tree.
  */
 
-#![cfg(test)]
+use starlark::environment::GlobalsBuilder;
 
-#[cfg(test)]
-mod attr;
-mod functions;
-pub mod interpreter;
-mod rule;
-mod super_package;
-mod tests;
+use crate::super_package::package::register_package_function;
+
+/// Globals for `PACKAGE` files and `bzl` files included from `PACKAGE` files.
+pub fn register_package_natives(globals: &mut GlobalsBuilder) {
+    register_package_function(globals);
+}

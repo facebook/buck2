@@ -30,6 +30,7 @@ use starlark::environment::FrozenModule;
 use starlark::values::OwnedFrozenValue;
 
 use crate::attrs::coerce::ctx::BuildAttrCoercionContext;
+use crate::super_package::data::SuperPackage;
 
 impl From<ModuleInternals> for EvaluationResult {
     // TODO(cjhopman): Let's make this an `into_evaluation_result()` on ModuleInternals instead.
@@ -82,6 +83,7 @@ pub struct ModuleInternals {
     record_target_call_stacks: bool,
     /// The files owned by this directory. Is `None` for .bzl files.
     package_listing: PackageListing,
+    _super_package: SuperPackage,
 }
 
 #[derive(Debug)]
@@ -120,6 +122,7 @@ impl ModuleInternals {
         default_visibility_to_public: bool,
         record_target_call_stacks: bool,
         package_listing: PackageListing,
+        super_package: SuperPackage,
     ) -> Self {
         Self {
             attr_coercion_context,
@@ -130,6 +133,7 @@ impl ModuleInternals {
             default_visibility_to_public,
             record_target_call_stacks,
             package_listing,
+            _super_package: super_package,
         }
     }
 

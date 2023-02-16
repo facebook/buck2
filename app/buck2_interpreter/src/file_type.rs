@@ -16,6 +16,7 @@ pub enum StarlarkFileType {
     Bzl,
     Bxl,
     Buck,
+    Package,
 }
 
 /// What type of file are we parsing - a `.bzl` file, `.bxl` file, or a `BUCK`/`TARGETS` file.
@@ -29,6 +30,16 @@ impl StarlarkFileType {
             enable_types: DialectTypes::Disable,
             // FIXME: Would like to make this false
             enable_tabs: true,
+            enable_load_reexport: false,
+            enable_top_level_stmt: false,
+        };
+        let package_dialect: Dialect = Dialect {
+            enable_def: false,
+            enable_lambda: true,
+            enable_load: true,
+            enable_keyword_only_arguments: false,
+            enable_types: DialectTypes::Disable,
+            enable_tabs: false,
             enable_load_reexport: false,
             enable_top_level_stmt: false,
         };
@@ -65,6 +76,7 @@ impl StarlarkFileType {
         match self {
             Self::Bzl => bzl_dialect,
             Self::Buck => buck_dialect,
+            Self::Package => package_dialect,
             Self::Bxl => bxl_dialect,
         }
     }

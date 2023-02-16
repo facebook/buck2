@@ -58,11 +58,11 @@ fn import(cell: &str, package: &str, filename: &str) -> ImportPath {
     ImportPath::testing_new(cell, package, filename)
 }
 
-fn root_cell() -> CellName {
+pub(crate) fn root_cell() -> CellName {
     CellName::testing_new("root")
 }
 
-fn calculation(fs: &ProjectRootTemp) -> DiceTransaction {
+pub(crate) fn calculation(fs: &ProjectRootTemp) -> DiceTransaction {
     let mut dice = Dice::builder();
     dice.set(EventDispatcher::null());
     dice.set_testing_io_provider(fs);
@@ -85,6 +85,7 @@ fn calculation(fs: &ProjectRootTemp) -> DiceTransaction {
         InterpreterHostPlatform::Linux,
         InterpreterHostArchitecture::X86_64,
         false,
+        |_| {},
         |_| {},
         register_rule_defs,
         |_| {},

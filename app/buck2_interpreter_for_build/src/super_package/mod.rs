@@ -7,12 +7,7 @@
  * of this source tree.
  */
 
-#![cfg(test)]
-
-#[cfg(test)]
-mod attr;
-mod functions;
-pub mod interpreter;
-mod rule;
-mod super_package;
-mod tests;
+pub(crate) mod data;
+pub mod defs;
+pub(crate) mod eval_ctx;
+pub(crate) mod package;

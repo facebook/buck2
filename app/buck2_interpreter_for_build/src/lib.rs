@@ -16,4 +16,5 @@ pub mod label;
 pub mod nodes;
 pub mod provider;
 pub mod rule;
+pub mod super_package;
 pub mod transition;

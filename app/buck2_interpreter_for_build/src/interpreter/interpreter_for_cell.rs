@@ -34,6 +34,7 @@ use buck2_interpreter::parse_import::parse_import;
 use buck2_interpreter::path::BxlFilePath;
 use buck2_interpreter::path::OwnedStarlarkModulePath;
 use buck2_interpreter::path::OwnedStarlarkPath;
+use buck2_interpreter::path::PackageFilePath;
 use buck2_interpreter::path::StarlarkModulePath;
 use buck2_interpreter::path::StarlarkPath;
 use buck2_interpreter::starlark_profiler::StarlarkProfilerInstrumentation;
@@ -52,6 +53,8 @@ use crate::interpreter::build_context::BuildContext;
 use crate::interpreter::build_context::PerFileTypeContext;
 use crate::interpreter::global_interpreter_state::GlobalInterpreterState;
 use crate::interpreter::module_internals::ModuleInternals;
+use crate::super_package::data::SuperPackage;
+use crate::super_package::eval_ctx::PackageFileEvalCtx;
 
 #[derive(Debug, Error)]
 enum StarlarkParseError {
@@ -155,7 +158,7 @@ impl LoadResolver for InterpreterLoadResolver {
         // All bxl imports are parsed the same regardless of prelude or not.
         if path.path().extension() == Some("bxl") {
             match self.loader_file_type {
-                StarlarkFileType::Bzl | StarlarkFileType::Buck => {
+                StarlarkFileType::Bzl | StarlarkFileType::Buck | StarlarkFileType::Package => {
                     return Err(LoadResolutionError::BxlLoadNotAllowed(path).into());
                 }
                 StarlarkFileType::Bxl => {
@@ -299,6 +302,7 @@ impl InterpreterForCell {
         &self,
         build_file: &BuildFilePath,
         package_listing: &PackageListing,
+        super_package: SuperPackage,
         package_boundary_exception: bool,
         loaded_modules: &LoadedModules,
     ) -> anyhow::Result<(Module, ModuleInternals)> {
@@ -306,6 +310,7 @@ impl InterpreterForCell {
             self.get_cell_config(build_file.build_file_cell()),
             build_file.clone(),
             package_listing.dupe(),
+            super_package,
             package_boundary_exception,
             loaded_modules,
             self.package_import(build_file),
@@ -506,6 +511,41 @@ impl InterpreterForCell {
         env.freeze()
     }
 
+    pub(crate) fn eval_package_file(
+        self: &Arc<Self>,
+        package_file_path: &PackageFilePath,
+        ast: AstModule,
+        parent: SuperPackage,
+        buckconfig: &dyn LegacyBuckConfigView,
+        root_buckconfig: &dyn LegacyBuckConfigView,
+        loaded_modules: LoadedModules,
+        starlark_profiler_instrumentation: Option<StarlarkProfilerInstrumentation>,
+    ) -> anyhow::Result<SuperPackage> {
+        let env = self.create_env(
+            StarlarkPath::PackageFile(package_file_path),
+            &loaded_modules,
+        )?;
+
+        let extra_context = PerFileTypeContext::Package(PackageFileEvalCtx { parent });
+
+        let package_file_eval_ctx = self
+            .eval(
+                &env,
+                ast,
+                StarlarkPath::PackageFile(package_file_path),
+                buckconfig,
+                root_buckconfig,
+                loaded_modules,
+                extra_context,
+                &mut StarlarkProfilerOrInstrumentation::maybe_instrumentation(
+                    starlark_profiler_instrumentation,
+                ),
+            )?
+            .into_package_file()?;
+
+        Ok(package_file_eval_ctx.build_super_package())
+    }
+
     /// Evaluates the AST for a parsed build file. Loaded modules must contain the
     /// loaded environment for all (transitive) required imports.
     /// Returns the result of evaluation.
@@ -515,6 +555,7 @@ impl InterpreterForCell {
         buckconfig: &dyn LegacyBuckConfigView,
         root_buckconfig: &dyn LegacyBuckConfigView,
         listing: PackageListing,
+        super_package: SuperPackage,
         package_boundary_exception: bool,
         ast: AstModule,
         loaded_modules: LoadedModules,
@@ -523,6 +564,7 @@ impl InterpreterForCell {
         let (env, internals) = self.create_build_env(
             build_file,
             &listing,
+            super_package,
             package_boundary_exception,
             &loaded_modules,
         )?;
