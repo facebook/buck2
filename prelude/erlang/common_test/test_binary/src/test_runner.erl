@@ -457,6 +457,13 @@ check_ct_opts(CtOpts) ->
 
 -spec max_timeout(#test_env{}) -> integer().
 max_timeout(#test_env{ct_opts = CtOpts}) ->
-    Multiplier = proplists:get_value(multiply_timetraps, CtOpts, 1),
-    %% 9 minutes 30 seconds, giving us 30 seconds to crash multiplied by multiply_timetraps
-    round(Multiplier * (9 * 60 + 30) * 1000).
+    case os:getenv("TPX_TIMEOUT_SEC") of
+        false ->
+            Multiplier = proplists:get_value(multiply_timetraps, CtOpts, 1),
+            %% 9 minutes 30 seconds, giving us 30 seconds to crash multiplied by multiply_timetraps
+            round(Multiplier * (9 * 60 + 30) * 1000);
+        StrTimeout -> InputTimeout =  list_to_integer(StrTimeout),
+            case InputTimeout of _ when InputTimeout > 30 -> (InputTimeout -30) * 1000;
+                _ -> error("Please allow at least 30s for the binary to execute")
+        end
+    end.
