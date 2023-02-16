@@ -25,6 +25,12 @@ enum BuildInfoError {
     EventLogReadFail,
 }
 
+struct LogInfo {
+    revision: Option<String>,
+    daemon_uptime_s: Option<u64>,
+    timestamp_end: Option<SystemTime>,
+}
+
 pub async fn get(log: &EventLogPathBuf) -> anyhow::Result<String> {
     let (invocation, events) = log.unpack_stream().await?;
     let mut filtered_events = events.try_filter_map(|log| {
@@ -40,38 +46,19 @@ pub async fn get(log: &EventLogPathBuf) -> anyhow::Result<String> {
         .await?
         .ok_or(BuildInfoError::EventLogReadFail)?
         .try_into()?;
-    let mut revision = None;
-    let mut daemon_uptime_s = None;
-    let mut timestamp_end: Option<SystemTime> = None;
-    while let Some(event) = filtered_events.try_next().await? {
-        match event.data {
-            Some(buck2_data::buck_event::Data::SpanStart(span)) => match &span.data {
-                Some(buck2_data::span_start_event::Data::Command(action)) => {
-                    if revision.is_none() && action.metadata.contains_key("buck2_revision") {
-                        if let Some(buck2_revision) = action.metadata.get("buck2_revision") {
-                            revision.get_or_insert(buck2_revision.clone());
-                        }
-                    }
-                }
-                _ => (),
-            },
-            Some(buck2_data::buck_event::Data::Instant(span)) => match &span.data {
-                Some(buck2_data::instant_event::Data::Snapshot(snapshot)) => {
-                    daemon_uptime_s.get_or_insert(snapshot.daemon_uptime_s);
-                }
-                _ => (),
-            },
 
-            _ => (),
-        }
-        if let Some(timestamp) = event.timestamp {
-            timestamp_end = Some(SystemTime::try_from(timestamp.clone())?)
-        };
+    let mut info = LogInfo {
+        revision: None,
+        daemon_uptime_s: None,
+        timestamp_end: None,
+    };
+    while let Some(event) = filtered_events.try_next().await? {
+        extract_info(&mut info, event)?;
     }
 
     let timestamp_start = first_event.timestamp();
     let duration = {
-        if let Some(end) = timestamp_end {
+        if let Some(end) = info.timestamp_end {
             Some(end.duration_since(timestamp_start)?)
         } else {
             None
@@ -93,12 +80,39 @@ daemon uptime: {}
         t_start.format("%c %Z"),
         format_cmd(&invocation.command_line_args),
         invocation.working_dir,
-        revision.unwrap_or_else(|| "".to_owned()),
+        info.revision.unwrap_or_else(|| "".to_owned()),
         seconds_to_string(duration.map(|d| d.as_secs())),
-        seconds_to_string(daemon_uptime_s),
+        seconds_to_string(info.daemon_uptime_s),
     );
 
     Ok(output)
+}
+
+fn extract_info(info: &mut LogInfo, event: Box<buck2_data::BuckEvent>) -> anyhow::Result<()> {
+    match event.data {
+        Some(buck2_data::buck_event::Data::SpanStart(span)) => match &span.data {
+            Some(buck2_data::span_start_event::Data::Command(action)) => {
+                if info.revision.is_none() && action.metadata.contains_key("buck2_revision") {
+                    if let Some(buck2_revision) = action.metadata.get("buck2_revision") {
+                        info.revision.get_or_insert(buck2_revision.clone());
+                    }
+                }
+            }
+            _ => (),
+        },
+        Some(buck2_data::buck_event::Data::Instant(span)) => match &span.data {
+            Some(buck2_data::instant_event::Data::Snapshot(snapshot)) => {
+                info.daemon_uptime_s.get_or_insert(snapshot.daemon_uptime_s);
+            }
+            _ => (),
+        },
+
+        _ => (),
+    }
+    if let Some(timestamp) = event.timestamp {
+        info.timestamp_end = Some(SystemTime::try_from(timestamp)?)
+    };
+    Ok(())
 }
 
 fn seconds_to_string(seconds: Option<u64>) -> String {
