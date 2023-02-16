@@ -618,10 +618,11 @@ def build_java_library(
 
         ### NULLSAFE START
         nullsafe_plugin = java_toolchain.nullsafe
+        nullsafe_signatures = java_toolchain.nullsafe_signatures
         nullsafe_output = ctx.actions.declare_output("reports", dir = True)
         nullsafe_plugin_params = create_plugin_params(ctx, [nullsafe_plugin])
 
-        # TODO: signatures and extra args from config
+        # TODO: extra args from config
         nullsafe_args = cmd_args(
             "-XDcompilePolicy=simple",
             "-Anullsafe.reportToJava=false",
@@ -629,6 +630,10 @@ def build_java_library(
         nullsafe_args.add(cmd_args(
             nullsafe_output.as_output(),
             format = "-Anullsafe.writeJsonReportToDir={}",
+        ))
+        nullsafe_args.add(cmd_args(
+            nullsafe_signatures,
+            format = "-Anullsafe.signatures={}",
         ))
 
         extra_arguments.add(nullsafe_args)

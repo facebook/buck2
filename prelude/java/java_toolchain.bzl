@@ -38,6 +38,7 @@ JavaToolchainInfo = provider(
         "javac",
         "javac_protocol",
         "nullsafe",
+        "nullsafe_signatures",
         "source_level",
         "src_root_elements",
         "src_root_prefixes",
