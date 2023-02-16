@@ -97,7 +97,7 @@ impl<'a> Upload<'a> {
         Ok(Upload { upload, filepath })
     }
 
-    pub async fn spawn(&mut self, timeout: Option<u64>) -> Result<(), UploadError> {
+    pub async fn spawn(mut self, timeout: Option<u64>) -> Result<(), UploadError> {
         let child = self.spawn_child()?.wait_with_output();
         let output = match timeout {
             None => child.await?,
@@ -119,7 +119,7 @@ impl<'a> Upload<'a> {
         Ok(())
     }
 
-    pub async fn spawn_and_forget(&mut self) -> Result<(), UploadError> {
+    pub async fn spawn_and_forget(mut self) -> Result<(), UploadError> {
         self.spawn_child()?;
         Ok(())
     }
