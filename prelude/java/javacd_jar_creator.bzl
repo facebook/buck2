@@ -218,6 +218,7 @@ def create_jar_artifact_javacd(
         java_toolchain.class_abi_generator,
         final_jar,
         class_abi_jar = None,
+        class_abi_output_dir = None,
         encode_abi_command = encode_abi_command,
         define_action = define_javacd_action,
     )

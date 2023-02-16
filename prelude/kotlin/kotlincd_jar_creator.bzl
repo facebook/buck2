@@ -75,10 +75,12 @@ def create_jar_artifact_kotlincd(
     should_create_class_abi = actual_abi_generation_mode == AbiGenerationMode("class") or not is_building_android_binary
     if should_create_class_abi:
         class_abi_jar = declare_prefixed_output(actions, actions_identifier, "class-abi.jar")
+        class_abi_output_dir = declare_prefixed_output(actions, actions_identifier, "class_abi_dir", dir = True)
         jvm_abi_gen = output_paths.jar_parent.project("jvm-abi-gen.jar")
         should_use_jvm_abi_gen = True
     else:
         class_abi_jar = None
+        class_abi_output_dir = None
         jvm_abi_gen = None
         should_use_jvm_abi_gen = False
 
@@ -210,6 +212,8 @@ def create_jar_artifact_kotlincd(
                 class_abi_jar.as_output(),
                 "--jvm-abi-gen-output",
                 jvm_abi_gen.as_output(),
+                "--abi-output-dir",
+                class_abi_output_dir.as_output(),
             )
 
         cmd = add_output_paths_to_cmd_args(cmd, output_paths, path_to_class_hashes)
@@ -277,6 +281,7 @@ def create_jar_artifact_kotlincd(
         class_abi_generator = java_toolchain.class_abi_generator,
         final_jar = final_jar,
         class_abi_jar = class_abi_jar,
+        class_abi_output_dir = class_abi_output_dir,
         encode_abi_command = encode_abi_command,
         define_action = define_kotlincd_action,
     )

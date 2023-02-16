@@ -404,6 +404,7 @@ def generate_abi_jars(
         class_abi_generator: "dependency",
         final_jar: "artifact",
         class_abi_jar: ["artifact", None],
+        class_abi_output_dir: ["artifact", None],
         encode_abi_command: "function",
         define_action: "function") -> tuple.type:
     class_abi = None
@@ -447,5 +448,7 @@ def generate_abi_jars(
         class_abi = class_abi_jar or create_abi(actions, class_abi_generator, final_jar)
         if classpath_abi == None:
             classpath_abi = class_abi
+            if class_abi_output_dir:
+                classpath_abi_dir = class_abi_output_dir
 
     return class_abi, source_abi, source_only_abi, classpath_abi, classpath_abi_dir
