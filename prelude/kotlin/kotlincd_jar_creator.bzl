@@ -230,7 +230,7 @@ def create_jar_artifact_kotlincd(
         event_pipe_out = declare_prefixed_output(actions, actions_identifier, "events.data")
 
         dep_files = {}
-        if srcs and kotlin_toolchain.dep_files == DepFiles("per_jar") and target_type == TargetType("library"):
+        if srcs and (java_toolchain.dep_files == DepFiles("per_jar") or java_toolchain.dep_files == DepFiles("per_class")) and target_type == TargetType("library"):
             used_classes_json_outputs = [
                 output_paths.jar_parent.project("used-classes.json"),
                 output_paths.jar_parent.project("kotlin-used-classes.json"),
@@ -244,6 +244,7 @@ def create_jar_artifact_kotlincd(
                 srcs,
                 resources_map.values(),
                 used_classes_json_outputs,
+                compiling_deps_tset.project_as_args("abi_to_abi_dir") if kotlin_toolchain.dep_files == DepFiles("per_class") and compiling_deps_tset else None,
             )
 
             dep_files["classpath_jars"] = classpath_jars_tag

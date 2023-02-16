@@ -105,8 +105,14 @@ def _args_for_compiling(entry: JavaClasspathEntry.type):
 def _javacd_json(v):
     return v.abi
 
+def _abi_to_abi_dir(entry: JavaClasspathEntry.type):
+    if entry.abi_as_dir:
+        return cmd_args([entry.abi, entry.abi_as_dir], delimiter = " ")
+    return []
+
 JavaCompilingDepsTSet = transitive_set(
     args_projections = {
+        "abi_to_abi_dir": _abi_to_abi_dir,
         "args_for_ast_dumper": _args_for_ast_dumper,
         "args_for_compiling": _args_for_compiling,
     },

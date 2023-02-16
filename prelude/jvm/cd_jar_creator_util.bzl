@@ -333,7 +333,8 @@ def setup_dep_files(
         java_toolchain: "JavaToolchainInfo",
         srcs: ["artifact"],
         resources: ["artifact"],
-        used_classes_json_outputs: ["artifact"]) -> "cmd_args":
+        used_classes_json_outputs: ["artifact"],
+        abi_to_abi_dir_map: ["transitive_set_args_projection", None]) -> "cmd_args":
     dep_file = declare_prefixed_output(actions, actions_identifier, "dep_file.txt")
 
     # TODO(T134944772) We won't need this once we can do tag_artifacts on a JSON projection,
@@ -355,8 +356,18 @@ def setup_dep_files(
     ] + [
         "--output",
         classpath_jars_tag.tag_artifacts(dep_file.as_output()),
-        cmd,
     ])
+
+    if abi_to_abi_dir_map:
+        abi_to_abi_dir_map_file = declare_prefixed_output(actions, actions_identifier, "abi_to_abi_dir_map")
+        actions.write(abi_to_abi_dir_map_file, abi_to_abi_dir_map)
+        new_cmd.add([
+            "--jar-to-jar-dir-map",
+            abi_to_abi_dir_map_file,
+        ])
+        new_cmd.hidden(classpath_jars_tag.tag_artifacts(abi_to_abi_dir_map))
+
+    new_cmd.add(cmd)
 
     return new_cmd
 

@@ -10,6 +10,7 @@
 
 import argparse
 import json
+import os
 import pathlib
 import shutil
 import subprocess
@@ -39,22 +40,46 @@ def _parse_args():
         required=True,
     )
 
+    parser.add_argument(
+        "--jar-to-jar-dir-map",
+        type=pathlib.Path,
+    )
+
     return parser.parse_known_args()
 
 
-def rewrite_dep_file(always_used_files_path, used_classes_paths, dst_path):
+def rewrite_dep_file(
+    always_used_files_path, used_classes_paths, dst_path, jar_to_jar_dir_map_file
+):
     """
     Convert a used_classes.json to a depfile suitable for use by Buck2. The files we
     rewrite are JSON where the keys are the jars that were used.
     """
     shutil.copyfile(always_used_files_path, dst_path)
 
+    jar_to_jar_dir_map = {}
+    if jar_to_jar_dir_map_file is not None:
+        with open(jar_to_jar_dir_map_file, "r") as f:
+            for line in f.readlines():
+                jar, jar_dir = line.strip().split()
+                jar_to_jar_dir_map[jar] = jar_dir
+
     all_used_classes = []
     for used_classes_path in used_classes_paths:
         with open(used_classes_path) as f:
             used_classes_body = f.read()
             used_classes_map = json.loads(used_classes_body)
-            all_used_classes.extend(used_classes_map.keys())
+            for used_jar, used_classes in used_classes_map.items():
+                used_jar_dir = jar_to_jar_dir_map.get(used_jar)
+                if used_jar_dir is None:
+                    all_used_classes.append(used_jar)
+                else:
+                    all_used_classes.extend(
+                        [
+                            os.path.join(used_jar_dir, used_class)
+                            for used_class in used_classes.keys()
+                        ]
+                    )
 
     with open(dst_path, "a") as f:
         f.write("\n")
@@ -70,7 +95,10 @@ def main():
     ret = subprocess.call(unparsed_args)
     if ret == 0:
         rewrite_dep_file(
-            parsed_args.always_used_files, parsed_args.used_classes, parsed_args.output
+            parsed_args.always_used_files,
+            parsed_args.used_classes,
+            parsed_args.output,
+            parsed_args.jar_to_jar_dir_map,
         )
     sys.exit(ret)
 

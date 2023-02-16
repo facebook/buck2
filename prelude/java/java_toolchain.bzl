@@ -7,7 +7,7 @@
 
 AbiGenerationMode = enum("class", "none", "source", "source_only")
 
-DepFiles = enum("none", "per_jar")
+DepFiles = enum("none", "per_class", "per_jar")
 
 JavacProtocol = enum("classic", "javacd")
 
