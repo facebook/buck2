@@ -23,6 +23,8 @@ use crate::fs::paths::file_name::FileName;
 enum ImportPathError {
     #[error("Invalid import path `{0}`")]
     Invalid(CellPath),
+    #[error("Import path must have suffix `.bzl`: `{0}`")]
+    Suffix(CellPath),
 }
 
 /// Path of a `.bzl` file.
@@ -38,6 +40,29 @@ pub struct ImportPath {
 
 impl ImportPath {
     pub fn new(path: CellPath, build_file_cell: BuildFileCell) -> anyhow::Result<Self> {
+        if path.parent().is_none() {
+            return Err(ImportPathError::Invalid(path).into());
+        }
+
+        if path.path().as_str().contains('?') {
+            return Err(ImportPathError::Invalid(path).into());
+        }
+
+        if path.path().extension() != Some("bzl") {
+            return Err(ImportPathError::Suffix(path).into());
+        }
+
+        Ok(Self {
+            path,
+            build_file_cell,
+        })
+    }
+
+    /// LSP creates imports for non-bzl files.
+    pub fn new_hack_for_lsp(
+        path: CellPath,
+        build_file_cell: BuildFileCell,
+    ) -> anyhow::Result<Self> {
         if path.parent().is_none() {
             return Err(ImportPathError::Invalid(path).into());
         }

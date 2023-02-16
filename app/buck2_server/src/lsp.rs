@@ -404,9 +404,9 @@ impl BuckLspContext {
                 // the cell of the file being currently evaluated.
                 let bfc = BuildFileCell::new(cell_path.cell());
 
-                Ok(OwnedStarlarkModulePath::LoadFile(ImportPath::new(
-                    cell_path, bfc,
-                )?))
+                Ok(OwnedStarlarkModulePath::LoadFile(
+                    ImportPath::new_hack_for_lsp(cell_path, bfc)?,
+                ))
             }
         }
     }
