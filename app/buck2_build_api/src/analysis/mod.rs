@@ -352,7 +352,7 @@ async fn run_analysis_with_env_underlying(
     // TODO: Convert the ValueError from `try_from_value` better than just printing its Debug
     let res_typed = ProviderCollection::try_from_value(list_res)?;
     let res = env.heap().alloc(res_typed);
-    env.set("", res);
+    env.set_extra_value(res);
 
     // Pull the ctx object back out, and steal ctx.action's state back
     let analysis_registry = ctx.take_state();
@@ -364,7 +364,9 @@ async fn run_analysis_with_env_underlying(
 
     let profile_data = profiler_opt.map(|p| p.finish()).transpose()?.map(Arc::new);
 
-    let res = frozen_env.get("").unwrap();
+    let res = frozen_env
+        .owned_extra_value()
+        .context("extra_value not set (internal error)")?;
     let provider_collection = FrozenProviderCollectionValue::try_from_value(res)
         .expect("just created this, this shouldn't happen");
 
