@@ -37,6 +37,7 @@ JavaToolchainInfo = provider(
         "java_for_tests",
         "javac",
         "javac_protocol",
+        "nullsafe",
         "source_level",
         "src_root_elements",
         "src_root_prefixes",

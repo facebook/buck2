@@ -538,6 +538,7 @@ def build_java_library(
         ctx.attrs.annotation_processor_deps,
     ) if run_annotation_processors else None
     plugin_params = create_plugin_params(ctx, ctx.attrs.plugins) if run_annotation_processors else None
+    extra_arguments = cmd_args(ctx.attrs.extra_arguments)
     manifest_file = ctx.attrs.manifest_file
     source_level, target_level = get_java_version_attributes(ctx)
     javac_tool = derive_javac(ctx.attrs.javac) if ctx.attrs.javac else None
@@ -556,7 +557,6 @@ def build_java_library(
             "ap_params": ap_params,
             "bootclasspath_entries": bootclasspath_entries,
             "deps": first_order_deps,
-            "extra_arguments": cmd_args(ctx.attrs.extra_arguments),
             "manifest_file": manifest_file,
             "remove_classes": ctx.attrs.remove_classes,
             "required_for_source_only_abi": ctx.attrs.required_for_source_only_abi,
@@ -572,6 +572,7 @@ def build_java_library(
             ctx,
             javac_tool = javac_tool,
             plugin_params = plugin_params,
+            extra_arguments = extra_arguments,
             **common_compile_kwargs
         )
 
@@ -609,10 +610,40 @@ def build_java_library(
             actions_identifier = "ast",
             plugin_params = ast_dumping_plugin_params,
             javac_tool = java_toolchain.fallback_javac,
+            extra_arguments = extra_arguments,
             **common_compile_kwargs
         )
 
         sub_targets["ast"] = [DefaultInfo(default_output = ast_output)]
+
+        ### NULLSAFE START
+        nullsafe_plugin = java_toolchain.nullsafe
+        nullsafe_output = ctx.actions.declare_output("reports", dir = True)
+        nullsafe_plugin_params = create_plugin_params(ctx, [nullsafe_plugin])
+
+        # TODO: signatures and extra args from config
+        nullsafe_args = cmd_args(
+            "-XDcompilePolicy=simple",
+            "-Anullsafe.reportToJava=false",
+        )
+        nullsafe_args.add(cmd_args(
+            nullsafe_output.as_output(),
+            format = "-Anullsafe.writeJsonReportToDir={}",
+        ))
+
+        extra_arguments.add(nullsafe_args)
+
+        compile_to_jar(
+            ctx,
+            actions_identifier = "nullsafe",
+            plugin_params = nullsafe_plugin_params,
+            javac_tool = java_toolchain.fallback_javac,
+            extra_arguments = extra_arguments,
+            **common_compile_kwargs
+        )
+
+        sub_targets["nullsafex-json"] = [DefaultInfo(default_output = nullsafe_output)]
+        ### NULLSAFE END
 
     java_library_info, java_packaging_info, shared_library_info, cxx_resource_info, template_placeholder_info, intellij_info = create_java_library_providers(
         ctx,
