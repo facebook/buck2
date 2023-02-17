@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::future::Future;
 use std::ops::Deref;
 use std::thread;
 
@@ -27,7 +28,7 @@ use crate::versions::VersionNumber;
 pub struct DiceTransactionUpdater(pub(crate) DiceTransactionUpdaterImpl);
 
 impl DiceTransactionUpdater {
-    pub fn existing_state(&self) -> DiceComputations {
+    pub fn existing_state(&self) -> impl Future<Output = DiceComputations> {
         self.0.existing_state()
     }
 

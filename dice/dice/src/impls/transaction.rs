@@ -8,6 +8,7 @@
  */
 
 use std::borrow::Cow;
+use std::future::Future;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -82,8 +83,8 @@ impl TransactionUpdater {
         unimplemented!("todo")
     }
 
-    pub(crate) fn existing_state(&self) -> PerComputeCtx {
-        unimplemented!("todo")
+    pub(crate) fn existing_state(&self) -> impl Future<Output = PerComputeCtx> {
+        async move { unimplemented!("todo") }
     }
 }
 

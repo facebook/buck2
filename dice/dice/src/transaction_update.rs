@@ -7,10 +7,12 @@
  * of this source tree.
  */
 
+use std::future::Future;
 use std::sync::Arc;
 
 use allocative::Allocative;
 use dupe::Dupe;
+use futures::FutureExt;
 
 use crate::api::computations::DiceComputations;
 use crate::api::error::DiceResult;
@@ -31,14 +33,16 @@ pub(crate) enum DiceTransactionUpdaterImpl {
 }
 
 impl DiceTransactionUpdaterImpl {
-    pub(crate) fn existing_state(&self) -> DiceComputations {
+    pub(crate) fn existing_state(&self) -> impl Future<Output = DiceComputations> {
         match self {
             DiceTransactionUpdaterImpl::Legacy(ctx) => {
-                DiceComputations(DiceComputationsImpl::Legacy(ctx.dupe()))
+                futures::future::ready(DiceComputations(DiceComputationsImpl::Legacy(ctx.dupe())))
+                    .left_future()
             }
-            DiceTransactionUpdaterImpl::Modern(delegate) => {
-                DiceComputations(DiceComputationsImpl::Modern(delegate.existing_state()))
-            }
+            DiceTransactionUpdaterImpl::Modern(delegate) => delegate
+                .existing_state()
+                .map(|d| DiceComputations(DiceComputationsImpl::Modern(d)))
+                .right_future(),
         }
     }
 

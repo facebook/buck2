@@ -32,8 +32,8 @@ impl InjectedKey for Foo {
     }
 }
 
-#[test]
-fn compute_and_update_uses_proper_version_numbers() -> anyhow::Result<()> {
+#[tokio::test]
+async fn compute_and_update_uses_proper_version_numbers() -> anyhow::Result<()> {
     let dice = DiceLegacy::builder().build(DetectCycles::Enabled);
 
     {
@@ -52,25 +52,34 @@ fn compute_and_update_uses_proper_version_numbers() -> anyhow::Result<()> {
         let mut ctx = dice.updater();
         ctx.changed_to(vec![(Foo(1), 1)])?;
         // current version shouldn't be updated
-        assert_eq!(ctx.existing_state().0.get_version(), VersionNumber::new(0));
         assert_eq!(
-            ctx.existing_state().0.get_minor_version(),
+            ctx.existing_state().await.0.get_version(),
+            VersionNumber::new(0)
+        );
+        assert_eq!(
+            ctx.existing_state().await.0.get_minor_version(),
             MinorVersion::testing_new(1)
         );
 
         let mut ctx1 = dice.updater();
         // previous ctx isn't dropped, so versions shouldn't be committed yet.
-        assert_eq!(ctx1.existing_state().0.get_version(), VersionNumber::new(0));
         assert_eq!(
-            ctx1.existing_state().0.get_minor_version(),
+            ctx1.existing_state().await.0.get_version(),
+            VersionNumber::new(0)
+        );
+        assert_eq!(
+            ctx1.existing_state().await.0.get_minor_version(),
             MinorVersion::testing_new(1)
         );
 
         // if we update on the new context, nothing committed
         ctx1.changed_to(vec![(Foo(2), 2)])?;
-        assert_eq!(ctx1.existing_state().0.get_version(), VersionNumber::new(0));
         assert_eq!(
-            ctx1.existing_state().0.get_minor_version(),
+            ctx1.existing_state().await.0.get_version(),
+            VersionNumber::new(0)
+        );
+        assert_eq!(
+            ctx1.existing_state().await.0.get_minor_version(),
             MinorVersion::testing_new(1)
         );
 
@@ -101,16 +110,22 @@ fn compute_and_update_uses_proper_version_numbers() -> anyhow::Result<()> {
 
     {
         let mut ctx = dice.updater();
-        assert_eq!(ctx.existing_state().0.get_version(), VersionNumber::new(2));
         assert_eq!(
-            ctx.existing_state().0.get_minor_version(),
+            ctx.existing_state().await.0.get_version(),
+            VersionNumber::new(2)
+        );
+        assert_eq!(
+            ctx.existing_state().await.0.get_minor_version(),
             MinorVersion::testing_new(2)
         );
 
         ctx.changed_to(vec![(Foo(3), 3)])?;
-        assert_eq!(ctx.existing_state().0.get_version(), VersionNumber::new(2));
         assert_eq!(
-            ctx.existing_state().0.get_minor_version(),
+            ctx.existing_state().await.0.get_version(),
+            VersionNumber::new(2)
+        );
+        assert_eq!(
+            ctx.existing_state().await.0.get_minor_version(),
             MinorVersion::testing_new(2)
         );
 

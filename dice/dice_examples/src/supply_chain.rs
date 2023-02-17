@@ -158,6 +158,7 @@ impl Setup for DiceTransactionUpdater {
         // get the remote resources => company mapping
         let remote_resources = join_all(
             self.existing_state()
+                .await
                 .compute_many(&resources.iter().collect::<Vec<_>>()),
         )
         .await;
@@ -311,7 +312,7 @@ impl CostUpdater for DiceTransactionUpdater {
         new_price: u16,
     ) -> anyhow::Result<()> {
         let company_lookup = LookupCompany(Arc::new(company.to_owned()));
-        let old_company = self.existing_state().compute(&company_lookup).await?;
+        let old_company = self.existing_state().await.compute(&company_lookup).await?;
         let mut new_company = (*old_company).clone();
         let old_price = new_company.makes.get_mut(resource).ok_or_else(|| {
             anyhow::anyhow!("Tried to update cost for a resource company does not make")

@@ -128,7 +128,11 @@ async fn key_does_not_read_opaque() -> anyhow::Result<()> {
     // Both keys are computed.
     assert_eq!(
         "Aaa",
-        &*ctx.existing_state().compute(&DoesNotReadOpaque).await?
+        &*ctx
+            .existing_state()
+            .await
+            .compute(&DoesNotReadOpaque)
+            .await?
     );
     assert_eq!(
         vec![KeyType::DoesNotReadOpaque, KeyType::IsOpaque],
