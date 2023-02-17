@@ -220,7 +220,7 @@ sorted_vector_map.version = "0.1"
 
 allocative.version = "0.2"
 allocative.path = "allocative/allocative"
-allocative.features = ["anyhow", "bumpalo", "dashmap", "either", "futures", "hashbrown", "indexmap", "num-bigint", "once_cell", "owning_ref", "parking_lot", "prost-types", "relative-path", "smallvec", "compact_str", "sorted_vector_map", "triomphe"]
+allocative.features = ["anyhow", "bumpalo", "dashmap", "either", "futures", "hashbrown", "indexmap", "num-bigint", "once_cell", "owning_ref", "parking_lot", "prost-types", "relative-path", "smallvec", "compact_str", "sorted_vector_map", "tokio", "triomphe"]
 gazebo.version = "0.8.1"
 gazebo.features = ["str_pattern_extensions"]
 gazebo.path = "gazebo/gazebo"
