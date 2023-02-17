@@ -19,7 +19,7 @@ use gazebo::prelude::*;
 use re_grpc_proto::build::bazel::remote::execution::v2::content_addressable_storage_client::ContentAddressableStorageClient;
 use re_grpc_proto::build::bazel::remote::execution::v2::execution_client::ExecutionClient;
 use re_grpc_proto::build::bazel::remote::execution::v2::Digest;
-use slog::*;
+use slog::Logger;
 use tonic::transport::Channel;
 
 use crate::config::*;
@@ -33,7 +33,7 @@ const INSTANCE_NAME: &str = "";
 
 #[derive(Default)]
 pub struct REClientBuilder {
-    logger: Option<slog::Logger>,
+    logger: Option<Logger>,
     cfg: Option<ClientCfg>,
 }
 
@@ -93,7 +93,7 @@ impl REClientBuilder {
             */
             let drain = slog::Discard;
 
-            slog::Logger::root(drain, o!())
+            Logger::root(drain, slog::o!())
         };
 
         let cfg = self.cfg.unwrap_or_default();
@@ -398,7 +398,7 @@ impl REClient {
             .collect();
 
         if failures.is_empty() {
-            debug!(self.logger, "uploaded: {:?}", blob_hashes);
+            slog::debug!(self.logger, "uploaded: {:?}", blob_hashes);
             // TODO(aloiscochard): Add something interesting in UploadResponse?
             Ok(UploadResponse {})
         } else {
