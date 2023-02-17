@@ -37,9 +37,6 @@ impl CoreStateHandle {
     }
 }
 
-/// Core state of DICE, holding the actual graph and version information
-pub(super) struct CoreState {}
-
 /// Start processing state
 pub(crate) fn init_state() -> CoreStateHandle {
     StateProcessor::spawn()

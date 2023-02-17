@@ -7,8 +7,5 @@
  * of this source tree.
  */
 
-mod graph;
-mod internals;
-mod processor;
-pub(crate) mod state;
-pub(crate) mod versions;
+/// Core state of DICE, holding the actual graph and version information
+pub(super) struct CoreState {}

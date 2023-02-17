@@ -9,7 +9,7 @@
 
 use gazebo::variants::VariantName;
 
-use crate::impls::core::state::CoreState;
+use crate::impls::core::internals::CoreState;
 use crate::impls::core::state::CoreStateHandle;
 use crate::impls::core::state::StateRequest;
 
