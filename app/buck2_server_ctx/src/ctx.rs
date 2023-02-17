@@ -9,6 +9,7 @@
 
 use std::collections::HashMap;
 use std::future::Future;
+use std::sync::Arc;
 
 use async_trait::async_trait;
 use buck2_common::result::SharedResult;
@@ -22,6 +23,7 @@ use buck2_data::CommandCriticalStart;
 use buck2_data::DiceCriticalSectionEnd;
 use buck2_data::DiceCriticalSectionStart;
 use buck2_events::dispatch::EventDispatcher;
+use buck2_execute::materialize::materializer::Materializer;
 use dice::DiceComputations;
 use dice::DiceTransaction;
 use dupe::Dupe;
@@ -38,6 +40,8 @@ pub trait ServerCommandContextTrait: Send + Sync + 'static {
     fn working_dir_abs(&self) -> &WorkingDir;
 
     fn project_root(&self) -> &ProjectRoot;
+
+    fn materializer(&self) -> Arc<dyn Materializer>;
 
     /// exposes the dice for scoped access, but isn't intended to be callable by anyone
     async fn dice_accessor(&self, private: PrivateStruct) -> SharedResult<DiceAccessor>;
@@ -74,12 +78,33 @@ pub trait ServerCommandDiceContext {
     where
         F: FnOnce(&'v dyn ServerCommandContextTrait, DiceTransaction) -> Fut + Send,
         Fut: Future<Output = anyhow::Result<R>> + Send;
+
+    async fn with_dice_ctx_maybe_exclusive<'v, F, Fut, R>(
+        &'v self,
+        exec: F,
+        exclusive_cmd: Option<String>,
+    ) -> anyhow::Result<R>
+    where
+        F: FnOnce(&'v dyn ServerCommandContextTrait, DiceTransaction) -> Fut + Send,
+        Fut: Future<Output = anyhow::Result<R>> + Send;
 }
 
 #[async_trait]
 impl ServerCommandDiceContext for Box<dyn ServerCommandContextTrait> {
     /// Allows running a section of code that uses the shared DiceTransaction
     async fn with_dice_ctx<'v, F, Fut, R>(&'v self, exec: F) -> anyhow::Result<R>
+    where
+        F: FnOnce(&'v dyn ServerCommandContextTrait, DiceTransaction) -> Fut + Send,
+        Fut: Future<Output = anyhow::Result<R>> + Send,
+    {
+        self.with_dice_ctx_maybe_exclusive(exec, None).await
+    }
+
+    async fn with_dice_ctx_maybe_exclusive<'v, F, Fut, R>(
+        &'v self,
+        exec: F,
+        exclusive_cmd: Option<String>,
+    ) -> anyhow::Result<R>
     where
         F: FnOnce(&'v dyn ServerCommandContextTrait, DiceTransaction) -> Fut + Send,
         Fut: Future<Output = anyhow::Result<R>> + Send,
@@ -118,6 +143,7 @@ impl ServerCommandDiceContext for Box<dyn ServerCommandContextTrait> {
                             },
                             dice_accessor.is_nested_invocation,
                             dice_accessor.sanitized_argv,
+                            exclusive_cmd,
                         )
                         .await,
                     DiceCriticalSectionEnd {},

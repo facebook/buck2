@@ -70,6 +70,7 @@ message SpanStartEvent {
     DiceBlockConcurrentCommandStart dice_block_concurrent_command = 70;
     DiceSynchronizeSectionStart dice_synchronize_section = 71;
     DiceCleanupStart dice_cleanup = 72;
+    ExclusiveCommandWaitStart exclusive_command_wait = 73;
     // Used in Buck unit tests.
     FakeStart fake = 999;
   }
@@ -106,6 +107,7 @@ message SpanEndEvent {
     DiceBlockConcurrentCommandEnd dice_block_concurrent_command = 71;
     DiceSynchronizeSectionEnd dice_synchronize_section = 72;
     DiceCleanupEnd dice_cleanup = 73;
+    ExclusiveCommandWaitEnd exclusive_command_wait = 74;
     // Used in Buck unit tests.
     FakeEnd fake = 999;
   }
@@ -1381,6 +1383,12 @@ message MaterializationEnd {
   // The type of entry that was materialized
   optional MaterializationMethod method = 7;
 };
+
+message ExclusiveCommandWaitStart {
+  optional string command_name = 1;
+}
+
+message ExclusiveCommandWaitEnd {}
 
 message DiceCriticalSectionStart {}
 

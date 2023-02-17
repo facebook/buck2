@@ -594,6 +594,10 @@ impl ServerCommandContextTrait for ServerCommandContext {
         &self.base_context.project_root
     }
 
+    fn materializer(&self) -> Arc<dyn Materializer> {
+        self.base_context.materializer.dupe()
+    }
+
     /// Provides a DiceTransaction, initialized on first use and shared after initialization.
     async fn dice_accessor(&self, _private: PrivateStruct) -> SharedResult<DiceAccessor> {
         let is_nested_invocation = if let Some(uuid) = &self.daemon_uuid_from_client {

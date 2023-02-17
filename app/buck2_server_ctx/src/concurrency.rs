@@ -13,6 +13,7 @@
 //! If there are no buckconfig changes, nor file changes, then commands can be allowed to execute
 //! concurrently. Otherwise, `buck2` will block waiting for other commands to finish.
 
+use std::collections::VecDeque;
 use std::fmt::Debug;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -27,6 +28,8 @@ use buck2_data::DiceBlockConcurrentCommandStart;
 use buck2_data::DiceEqualityCheck;
 use buck2_data::DiceSynchronizeSectionEnd;
 use buck2_data::DiceSynchronizeSectionStart;
+use buck2_data::ExclusiveCommandWaitEnd;
+use buck2_data::ExclusiveCommandWaitStart;
 use buck2_data::NoActiveDiceState;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::trace::TraceId;
@@ -169,6 +172,8 @@ pub struct ConcurrencyHandler {
     parallel_invocation_config: ParallelInvocation,
     /// Whether to wait for idle DICE.
     dice_cleanup_config: DiceCleanup,
+    /// Used to prevent commands (clean --stale) from running in parallel with dice commands
+    exclusive_command_lock: Arc<ExclusiveCommandLock>,
 }
 
 #[derive(Allocative)]
@@ -323,6 +328,60 @@ pub trait DiceDataProvider: Send + Sync + 'static {
     async fn provide(&self, ctx: &DiceComputations) -> anyhow::Result<UserComputationData>;
 }
 
+#[derive(Allocative)]
+struct ExclusiveCommandLock {
+    lock: tokio::sync::RwLock<()>,
+    owning_command: Arc<parking_lot::Mutex<VecDeque<String>>>,
+}
+
+enum ExclusiveCommandLockGuard<'a> {
+    Shared(tokio::sync::RwLockReadGuard<'a, ()>),
+    Exclusive(
+        tokio::sync::RwLockWriteGuard<'a, ()>,
+        Arc<parking_lot::Mutex<VecDeque<String>>>,
+    ),
+}
+
+impl<'a> Drop for ExclusiveCommandLockGuard<'a> {
+    fn drop(&mut self) {
+        if let ExclusiveCommandLockGuard::Exclusive(_, owner) = self {
+            let mut own = owner.lock();
+            own.pop_front();
+        }
+    }
+}
+
+impl ExclusiveCommandLock {
+    pub fn new() -> Self {
+        ExclusiveCommandLock {
+            lock: tokio::sync::RwLock::new(()),
+            owning_command: Arc::new(parking_lot::Mutex::new(VecDeque::new())),
+        }
+    }
+
+    pub async fn exclusive_lock<'a>(&'a self, cmd_name: String) -> ExclusiveCommandLockGuard<'a> {
+        {
+            let mut owning_command = self.owning_command.lock();
+            owning_command.push_back(cmd_name);
+            drop(owning_command);
+        }
+        ExclusiveCommandLockGuard::Exclusive(self.lock.write().await, self.owning_command.dupe())
+    }
+
+    pub async fn shared_lock<'a>(&'a self) -> ExclusiveCommandLockGuard<'a> {
+        ExclusiveCommandLockGuard::Shared(self.lock.read().await)
+    }
+
+    pub fn owning_command(&self) -> Option<String> {
+        // owning command is not unset when exclusive lock is dropped, just ignored
+        if self.lock.try_read().is_ok() {
+            None
+        } else {
+            self.owning_command.lock().front().cloned()
+        }
+    }
+}
+
 impl ConcurrencyHandler {
     pub fn new(
         dice: Arc<Dice>,
@@ -343,6 +402,7 @@ impl ConcurrencyHandler {
             nested_invocation_config,
             parallel_invocation_config,
             dice_cleanup_config,
+            exclusive_command_lock: Arc::new(ExclusiveCommandLock::new()),
         }
     }
 
@@ -356,13 +416,31 @@ impl ConcurrencyHandler {
         exec: F,
         is_nested_invocation: bool,
         sanitized_argv: Vec<String>,
+        exclusive_cmd: Option<String>,
     ) -> anyhow::Result<R>
     where
         F: FnOnce(DiceTransaction) -> Fut,
         Fut: Future<Output = R> + Send,
     {
-        let events = event_dispatcher.dupe();
+        let _exclusive_command_guard = event_dispatcher
+            .span_async(
+                ExclusiveCommandWaitStart {
+                    command_name: self.exclusive_command_lock.owning_command(),
+                },
+                async move {
+                    let guard = if let Some(cmd_name) = exclusive_cmd {
+                        let guard = self.exclusive_command_lock.exclusive_lock(cmd_name).await;
+                        self.dice.wait_for_idle().await;
+                        guard
+                    } else {
+                        self.exclusive_command_lock.shared_lock().await
+                    };
+                    (guard, ExclusiveCommandWaitEnd {})
+                },
+            )
+            .await;
 
+        let events = event_dispatcher.dupe();
         let (_guard, transaction) = event_dispatcher
             .span_async(DiceSynchronizeSectionStart {}, async move {
                 (
@@ -777,6 +855,7 @@ mod tests {
             },
             true,
             Vec::new(),
+            None,
         );
         let fut2 = concurrency.enter(
             EventDispatcher::null_sink_with_trace(traces2),
@@ -790,6 +869,7 @@ mod tests {
             },
             true,
             Vec::new(),
+            None,
         );
         let fut3 = concurrency.enter(
             EventDispatcher::null_sink_with_trace(traces3),
@@ -803,6 +883,7 @@ mod tests {
             },
             true,
             Vec::new(),
+            None,
         );
 
         let (r1, r2, r3) = futures::future::join3(fut1, fut2, fut3).await;
@@ -839,6 +920,7 @@ mod tests {
             },
             true,
             Vec::new(),
+            None,
         );
 
         let fut2 = concurrency.enter(
@@ -853,6 +935,7 @@ mod tests {
             },
             true,
             Vec::new(),
+            None,
         );
 
         match futures::future::try_join(fut1, fut2).await {
@@ -892,6 +975,7 @@ mod tests {
             },
             false,
             Vec::new(),
+            None,
         );
         let fut2 = concurrency.enter(
             EventDispatcher::null_sink_with_trace(traces2),
@@ -905,6 +989,7 @@ mod tests {
             },
             false,
             Vec::new(),
+            None,
         );
         let fut3 = concurrency.enter(
             EventDispatcher::null_sink_with_trace(traces3),
@@ -918,6 +1003,7 @@ mod tests {
             },
             false,
             Vec::new(),
+            None,
         );
 
         let (r1, r2, r3) = futures::future::join3(fut1, fut2, fut3).await;
@@ -969,6 +1055,7 @@ mod tests {
                         },
                         false,
                         Vec::new(),
+                        None,
                     )
                     .await
             }
@@ -991,6 +1078,7 @@ mod tests {
                         },
                         false,
                         Vec::new(),
+                        None,
                     )
                     .await
             }
@@ -1015,6 +1103,7 @@ mod tests {
                         },
                         false,
                         Vec::new(),
+                        None,
                     )
                     .await
             }
@@ -1093,6 +1182,7 @@ mod tests {
                         },
                         false,
                         Vec::new(),
+                        None,
                     )
                     .await
             }
@@ -1113,6 +1203,7 @@ mod tests {
                         },
                         false,
                         Vec::new(),
+                        None,
                     )
                     .await
             }
@@ -1133,6 +1224,7 @@ mod tests {
                         },
                         false,
                         Vec::new(),
+                        None,
                     )
                     .await
             }
@@ -1223,6 +1315,7 @@ mod tests {
                 },
                 false,
                 Vec::new(),
+                None,
             )
             .await?;
 
@@ -1239,6 +1332,7 @@ mod tests {
                 },
                 false,
                 Vec::new(),
+                None,
             )
             .await?;
 
@@ -1254,6 +1348,7 @@ mod tests {
                 },
                 false,
                 Vec::new(),
+                None,
             )
             .await?;
 
@@ -1307,6 +1402,7 @@ mod tests {
                 },
                 false,
                 Vec::new(),
+                None,
             )
             .await?;
 
@@ -1325,6 +1421,7 @@ mod tests {
                 },
                 false,
                 Vec::new(),
+                None,
             )
             .await?;
 
@@ -1359,6 +1456,7 @@ mod tests {
                     },
                     false,
                     Vec::new(),
+                    None,
                 )
                 .await
         });

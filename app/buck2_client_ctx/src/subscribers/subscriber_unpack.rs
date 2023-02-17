@@ -141,6 +141,9 @@ pub trait UnpackingEventSubscriber: Send {
             buck2_data::span_start_event::Data::DiceCleanup(dice_cleanup) => {
                 self.handle_dice_cleanup_start(dice_cleanup, event)
             }
+            buck2_data::span_start_event::Data::ExclusiveCommandWait(exclusive_command_wait) => {
+                self.handle_exclusive_command_wait_start(exclusive_command_wait, event)
+            }
             buck2_data::span_start_event::Data::Fake(fake) => self.handle_fake_start(fake, event),
         }
         .await
@@ -227,6 +230,9 @@ pub trait UnpackingEventSubscriber: Send {
             }
             buck2_data::span_end_event::Data::DiceCleanup(dice_cleanup) => {
                 self.handle_dice_cleanup_end(dice_cleanup, event)
+            }
+            buck2_data::span_end_event::Data::ExclusiveCommandWait(exclusive_command_wait) => {
+                self.handle_exclusive_command_wait_end(exclusive_command_wait, event)
             }
             buck2_data::span_end_event::Data::Fake(fake) => self.handle_fake_end(fake, event),
         }
@@ -745,7 +751,20 @@ pub trait UnpackingEventSubscriber: Send {
     ) -> anyhow::Result<()> {
         Ok(())
     }
-
+    async fn handle_exclusive_command_wait_start(
+        &mut self,
+        _dice_cleanup: &buck2_data::ExclusiveCommandWaitStart,
+        _event: &BuckEvent,
+    ) -> anyhow::Result<()> {
+        Ok(())
+    }
+    async fn handle_exclusive_command_wait_end(
+        &mut self,
+        _dice_cleanup: &buck2_data::ExclusiveCommandWaitEnd,
+        _event: &BuckEvent,
+    ) -> anyhow::Result<()> {
+        Ok(())
+    }
     async fn handle_resolved_target_patterns(
         &mut self,
         _pattern: &buck2_data::ResolvedTargetPatterns,

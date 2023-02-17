@@ -404,7 +404,8 @@ impl SpanTrackable for Arc<BuckEvent> {
                 | Data::CacheUpload(..)
                 | Data::DiceBlockConcurrentCommand(..)
                 | Data::DiceSynchronizeSection(..)
-                | Data::DiceCleanup(..),
+                | Data::DiceCleanup(..)
+                | Data::ExclusiveCommandWait(..),
             ) => true,
             None => false,
         }
