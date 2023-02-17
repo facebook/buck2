@@ -43,13 +43,17 @@ impl DiceModern {
     }
 
     pub fn updater(self: &Arc<Self>) -> DiceTransactionUpdater {
-        DiceTransactionUpdater(DiceTransactionUpdaterImpl::Modern(TransactionUpdater::new(
-            self.dupe(),
-        )))
+        self.updater_with_data(UserComputationData::new())
     }
 
-    pub fn updater_with_data(&self, _extra: UserComputationData) -> DiceTransactionUpdater {
-        unimplemented!("todo")
+    pub fn updater_with_data(
+        self: &Arc<Self>,
+        extra: UserComputationData,
+    ) -> DiceTransactionUpdater {
+        DiceTransactionUpdater(DiceTransactionUpdaterImpl::Modern(TransactionUpdater::new(
+            self.dupe(),
+            extra,
+        )))
     }
 
     pub fn serialize_tsv(

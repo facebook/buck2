@@ -28,12 +28,14 @@ use crate::HashMap;
 #[derive(Allocative)]
 pub(crate) struct TransactionUpdater {
     scheduled_changes: Changes,
+    user_data: UserComputationData,
 }
 
 impl TransactionUpdater {
-    pub(crate) fn new(dice: Arc<DiceModern>) -> Self {
+    pub(crate) fn new(dice: Arc<DiceModern>, user_data: UserComputationData) -> Self {
         Self {
             scheduled_changes: Changes::new(dice),
+            user_data,
         }
     }
 
@@ -131,6 +133,7 @@ mod tests {
 
     use crate::api::computations::DiceComputations;
     use crate::api::key::Key;
+    use crate::api::user_data::UserComputationData;
     use crate::impls::dice::DiceModern;
     use crate::impls::transaction::ChangeType;
     use crate::impls::transaction::TransactionUpdater;
@@ -138,7 +141,7 @@ mod tests {
     #[test]
     fn changes_are_recorded() -> anyhow::Result<()> {
         let dice = DiceModern::new();
-        let mut updater = TransactionUpdater::new(dice.dupe());
+        let mut updater = TransactionUpdater::new(dice.dupe(), UserComputationData::new());
 
         #[derive(Allocative, Clone, PartialEq, Eq, Hash, Debug, Display)]
         struct K(usize);
