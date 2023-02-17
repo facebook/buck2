@@ -59,6 +59,7 @@ const manualSidebar = [
       'concepts/concept_map',
       'concepts/glossary',
       'concepts/target_pattern',
+      'concepts/visibility',
     ],
   },
   {

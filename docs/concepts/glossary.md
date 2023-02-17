@@ -94,27 +94,22 @@ Rules are instantiated in [build files](#build-file) to declare targets and set 
 
 As an example, you would use the `cxx_binary` rule to create a C++ binary, but you would use the `android_binary` rule to create an Android APK
 
-#### Starlark
-:::note
-🚧   THIS SECTION IS UNDER CONSTRUCTION
-:::
 #### Target
-:::note
-🚧   THIS SECTION IS UNDER CONSTRUCTION
-:::
+
+Object that is defined in a [build file](#build-file). Targets represent the buildable units of a build from the perspective of the end user. Declared by instantiating a [rule](#rule) with attributes. A target has [dependencies](#dependency), which are references to other targets.
+
 #### Toolchain
 :::note
 🚧   THIS SECTION IS UNDER CONSTRUCTION
 :::
 #### Transition
-:::note
-🚧   THIS SECTION IS UNDER CONSTRUCTION
-:::
+
+Allows the [configuration](#configuration) to change across a [dependency](#dependency) edge. That is, normally,  if [target](#target) A depends on target B, then if the configuration for A is X, then B is configured using X too. Using a transition, you can produce X' to configure B instead.
+
 #### Unconfigured graph
-:::note
-🚧   THIS SECTION IS UNDER CONSTRUCTION
-:::
+
+Graph of [targets](#target) before [configurations](#configuration) are applied. Can be queried via `buck2 uquery`.
+
 #### Visibility
-:::note
-🚧   THIS SECTION IS UNDER CONSTRUCTION
-:::
+
+Visibility determines whether a [target](#target) can include another [target](#target) as its [dependency](#dependency). See more: [Visibility](./visibility.md).
