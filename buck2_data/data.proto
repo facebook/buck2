@@ -1307,6 +1307,8 @@ message InvocationRecord {
   FileWatcherStats file_watcher_stats = 47;
   // Time elapsed from a build's start until the last action ends execution.
   optional uint64 time_to_last_action_execution_end_ms = 48;
+  // Isolation directory.
+  optional string isolation_dir = 49;
 }
 
 message CacheUploadStart {

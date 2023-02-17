@@ -50,6 +50,7 @@ mod imp {
 
     pub struct InvocationRecorder {
         cli_args: Vec<String>,
+        isolation_dir: String,
         start_time: Instant,
         async_cleanup_context: AsyncCleanupContext,
         scribe: Arc<ThriftScribeSink>,
@@ -101,11 +102,13 @@ mod imp {
             async_cleanup_context: AsyncCleanupContext,
             scribe: ThriftScribeSink,
             sanitized_argv: Vec<String>,
+            isolation_dir: String,
             build_count_manager: BuildCountManager,
             invocation_root_path: AbsNormPathBuf,
         ) -> Self {
             Self {
                 cli_args: sanitized_argv,
+                isolation_dir,
                 start_time: Instant::now(),
                 async_cleanup_context,
                 scribe: Arc::new(scribe),
@@ -237,6 +240,7 @@ mod imp {
                     time_to_last_action_execution_end_ms: self
                         .time_to_last_action_execution_end
                         .and_then(|d| u64::try_from(d.as_millis()).ok()),
+                    isolation_dir: Some(self.isolation_dir.clone()),
                 };
                 let event = BuckEvent::new(
                     SystemTime::now(),
@@ -572,6 +576,7 @@ mod imp {
 pub(crate) fn try_get_invocation_recorder(
     ctx: &ClientCommandContext,
     sanitized_argv: Vec<String>,
+    isolation_dir: String,
 ) -> anyhow::Result<Option<Box<dyn EventSubscriber>>> {
     if ctx.replayer.is_none() {
         if let Some(sink) =
@@ -581,6 +586,7 @@ pub(crate) fn try_get_invocation_recorder(
                 ctx.async_cleanup_context().dupe(),
                 sink,
                 sanitized_argv,
+                isolation_dir,
                 BuildCountManager::new(ctx.paths()?.build_count_dir()),
                 ctx.paths()?.project_root().root().to_buf(),
             );

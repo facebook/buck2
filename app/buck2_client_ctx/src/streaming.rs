@@ -63,7 +63,11 @@ fn default_subscribers<T: StreamingCommand>(
     if let Some(build_id_writer) = try_get_build_id_writer(cmd.event_log_opts(), ctx)? {
         subscribers.push(build_id_writer)
     }
-    if let Some(recorder) = try_get_invocation_recorder(ctx, cmd.sanitized_argv())? {
+    if let Some(recorder) = try_get_invocation_recorder(
+        ctx,
+        cmd.sanitized_argv(),
+        ctx.paths()?.isolation.as_str().to_owned(),
+    )? {
         subscribers.push(recorder);
     }
     Ok(subscribers)
