@@ -139,7 +139,7 @@ def compile_swift(
 
     # If a target exports ObjC headers and Swift explicit modules are enabled,
     # we need to precompile a PCM of the underlying module and supply it to the Swift compilation.
-    if objc_modulemap_pp_info:
+    if objc_modulemap_pp_info and ctx.attrs.uses_explicit_modules:
         underlying_swift_pcm_uncompiled_info = get_swift_pcm_uncompile_info(
             ctx,
             None,
