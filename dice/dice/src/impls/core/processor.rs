@@ -23,7 +23,7 @@ impl StateProcessor {
         let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
         let state = CoreState {};
 
-        tokio::task::spawn_blocking(move || StateProcessor { state, rx }.event_loop());
+        std::thread::spawn(move || StateProcessor { state, rx }.event_loop());
         CoreStateHandle::new(tx)
     }
 
