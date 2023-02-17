@@ -242,6 +242,9 @@ message Panic {
   map<string, string> metadata = 3;
   // A backtrace associated with this panic.
   repeated StackFrame backtrace = 4;
+  // Panic is also used to propagate soft_errors, which can be hidden from
+  // users. If true, it won't get logged to console
+  bool quiet = 5;
 }
 
 // An event capturing the input, output, and context during the execution of an
