@@ -29,7 +29,8 @@ static BXL_GLOBAL_METHOD_NAME_SET: Lazy<HashSet<&str>> = Lazy::new(|| {
         "sub_target",
         "configured_sub_target",
         "target_set",
-        "get_path_without_materialization"
+        "get_path_without_materialization",
+        "get_paths_without_materialization"
     ]
 });
 
