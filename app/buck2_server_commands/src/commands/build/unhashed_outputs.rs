@@ -39,12 +39,12 @@ pub(crate) fn create_unhashed_outputs(
         }
 
         match provider_artifact.values.iter().exactly_one() {
-            Ok((artifact, _)) => match artifact.as_parts().0 {
-                BaseArtifactKind::Build(build) => {
+            Ok((artifact, _)) => match artifact.as_parts() {
+                (BaseArtifactKind::Build(build), _projected_path) => {
                     if let Some(unhashed_path) =
                         artifact_fs.retrieve_unhashed_location(build.get_path())
                     {
-                        let path = artifact_fs.resolve(artifact.get_path())?;
+                        let path = artifact_fs.resolve_build(build.get_path());
                         let abs_unhashed_path = fs.resolve(&unhashed_path);
                         let entry = unhashed_to_hashed
                             .entry(abs_unhashed_path)
@@ -86,6 +86,8 @@ fn create_unhashed_link(
     buck_out_root: &AbsNormPathBuf,
 ) -> anyhow::Result<()> {
     // Remove the final path separator if it exists so that the path looks like a file and not a directory or else symlink() fails.
+    tracing::debug!("Creating link: `{}` -> `{}`", unhashed_path, original_path);
+
     let mut abs_unhashed_path = unhashed_path.to_owned();
     if let Some(path) = unhashed_path
         .to_str()
