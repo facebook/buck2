@@ -389,6 +389,13 @@ impl<'c> DiceCalculationDelegate<'c> {
         package: PackageLabel,
         package_listing: &PackageListing,
     ) -> anyhow::Result<SuperPackage> {
+        if true {
+            // TODO(nga): fix package files on macos.
+            //   Currently it fails because there's a lot of directories "package",
+            //   and evaluation because macos is case-insensitive.
+            return Ok(SuperPackage::default());
+        }
+
         let package_file_path = PackageFilePath::for_dir(package.as_cell_path());
         if package_listing
             .get_file(PackageFilePath::PACKAGE_FILE_NAME.as_ref())
