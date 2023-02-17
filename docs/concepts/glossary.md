@@ -85,13 +85,15 @@ Data returned from a [rule](#rule) function. It's the only way that information 
 Distributed execution of [actions](#action) on remote workers. It can speed up builds significantly, by scaling the nodes available for parallel actions and by caching action outputs across buck2 users.
 
 #### Rule
-:::note
-🚧   THIS SECTION IS UNDER CONSTRUCTION
-:::
-#### Source file
-:::note
-🚧   THIS SECTION IS UNDER CONSTRUCTION
-:::
+
+A rule consists of an attribute spec and an implementation, which is a [Starlark](#starlark) function.
+
+The attribute spec declares what attributes the rule expects to receive. The rule implementation receives the [attributes](#attribute) of a [target](#target) and the [providers](#provider) of its [dependencies](#dependency). It can declare new [actions](#action) and [artifacts](#artifact), and must return [providers](#provider) that can be used to pass data to its dependents or to Buck2 itself.
+
+Rules are instantiated in [build files](#build-file) to declare targets and set their attributes. The rule implementation is called when Buck2 needs its providers, which can happen when the target is built, or when one of its dependents is.
+
+As an example, you would use the `cxx_binary` rule to create a C++ binary, but you would use the `android_binary` rule to create an Android APK
+
 #### Starlark
 :::note
 🚧   THIS SECTION IS UNDER CONSTRUCTION
