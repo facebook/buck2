@@ -241,11 +241,11 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
                 other_roots = link_group_other_roots,
                 prefer_stripped_objects = impl_params.prefer_stripped_objects,
             )
-            for name, linked_link_group in linked_link_groups.items():
+            for name, linked_link_group in linked_link_groups.libs.items():
                 auto_link_groups[name] = linked_link_group.artifact
                 if linked_link_group.library != None:
                     link_group_libs[name] = linked_link_group.library
-                own_binary_link_flags += linked_link_group.symbol_ldflags
+            own_binary_link_flags += linked_link_groups.symbol_ldflags
 
         else:
             # NOTE(agallagher): We don't use version scripts and linker scripts

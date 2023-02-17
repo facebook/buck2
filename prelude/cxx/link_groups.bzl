@@ -109,9 +109,13 @@ LinkGroupLibSpec = record(
     group = field(Group.type),
 )
 
-LinkedLinkGroup = record(
+_LinkedLinkGroup = record(
     artifact = field(LinkedObject.type),
     library = field([LinkGroupLib.type, None], None),
+)
+
+_LinkedLinkGroups = record(
+    libs = field({str.type: _LinkedLinkGroup.type}),
     symbol_ldflags = field([""], []),
 )
 
@@ -597,50 +601,62 @@ def _stub_library(ctx: "context", name: str.type, extra_ldflags: [""] = []) -> L
         ),
     )
 
-def _symbol_flags_for_link_group(
+def _symbol_files_for_link_group(
         ctx: "context",
         lib: LinkedObject.type,
-        prefer_local: bool.type = False) -> ["_arglike"]:
+        prefer_local: bool.type = False) -> ("artifact", "artifact"):
     """
-    Analyze symbols in the given shared library and generate linker flags which,
-    when applied to the main executable, make sure required symbols are included
-    in the link *and* exported to the dynamic symbol table.
+    Find and return all undefined and global symbols form the given library.
     """
 
-    sym_linker_flags = []
-
-    # Extract undefined symbols, format into an argsfile with `-u`s, and add to
-    # linker flags.
+    # Extract undefined symbols.
     undefined_symfile = extract_undefined_syms(
         ctx = ctx,
         output = lib.output,
         category_prefix = "link_groups",
         prefer_local = prefer_local,
     )
-    sym_linker_flags.append(
-        get_undefined_symbols_args(
-            ctx = ctx,
-            name = "{}.undefined_symbols.linker_script".format(lib.output.short_path),
-            symbol_files = [undefined_symfile],
-            category = "link_groups_undefined_syms_script",
-            identifier = lib.output.short_path,
-        ),
-    )
 
-    # Extract global symbols, format into a dynamic list version file, and add
-    # to linker flags.
+    # Extract global symbols.
     global_symfile = extract_global_syms(
         ctx = ctx,
         output = lib.output,
         category_prefix = "link_groups",
         prefer_local = prefer_local,
     )
+
+    return undefined_symfile, global_symfile
+
+def _symbol_flags_for_link_groups(
+        ctx: "context",
+        undefined_symfiles: ["artifact"] = [],
+        global_symfiles: ["artifact"] = []) -> ["_arglike"]:
+    """
+    Generate linker flags which, when applied to the main executable, make sure
+    required symbols are included in the link *and* exported to the dynamic
+    symbol table.
+    """
+
+    sym_linker_flags = []
+
+    # Format undefined symbols into an argsfile with `-u`s, and add to linker
+    # flags.
+    sym_linker_flags.append(
+        get_undefined_symbols_args(
+            ctx = ctx,
+            name = "undefined_symbols.linker_script",
+            symbol_files = undefined_symfiles,
+            category = "link_groups_undefined_syms_script",
+        ),
+    )
+
+    # Format global symfiles into a dynamic list version file, and add to
+    # linker flags.
     dynamic_list_vers = create_dynamic_list_version_script(
         actions = ctx.actions,
-        name = "{}.dynamic_list.vers".format(lib.output.short_path),
-        symbol_files = [global_symfile],
+        name = "dynamic_list.vers",
+        symbol_files = global_symfiles,
         category = "link_groups_dynamic_list",
-        identifier = lib.output.short_path,
     )
     sym_linker_flags.extend([
         "-Wl,--dynamic-list",
@@ -659,7 +675,7 @@ def create_link_groups(
         prefer_stripped_objects: bool.type = False,
         linkable_graph_node_map: {"label": LinkableNode.type} = {},
         link_group_preferred_linkage: {"label": Linkage.type} = {},
-        link_group_mappings: [{"label": str.type}, None] = None) -> {str.type: LinkedLinkGroup.type}:
+        link_group_mappings: [{"label": str.type}, None] = None) -> _LinkedLinkGroups.type:
     # Generate stubs first, so that subsequent links can link against them.
     link_group_shared_links = {}
     for link_group_spec in link_group_specs:
@@ -671,6 +687,8 @@ def create_link_groups(
             )
 
     linked_link_groups = {}
+    undefined_symfiles = []
+    global_symfiles = []
 
     public_nodes = get_public_link_group_nodes(
         linkable_graph_node_map,
@@ -703,12 +721,8 @@ def create_link_groups(
             category_suffix = "link_group",
         )
 
-        linked_link_groups[link_group_spec.group.name] = LinkedLinkGroup(
+        linked_link_groups[link_group_spec.group.name] = _LinkedLinkGroup(
             artifact = link_group_lib,
-            # Add linker flags to make sure any symbols from the main
-            # executable needed by these link groups are pulled in and
-            # exported to the dynamic symbol table.
-            symbol_ldflags = _symbol_flags_for_link_group(ctx, link_group_lib),
             library = None if not link_group_spec.is_shared_lib else LinkGroupLib(
                 shared_libs = {link_group_spec.name: link_group_lib},
                 shared_link_infos = LinkInfos(
@@ -727,4 +741,29 @@ def create_link_groups(
             ),
         )
 
-    return linked_link_groups
+        # Merge and format all symbol files into flags that we can pass into
+        # the binary link.
+        undefined_symfile, global_symfile = _symbol_files_for_link_group(
+            ctx = ctx,
+            lib = link_group_lib,
+        )
+        undefined_symfiles.append(undefined_symfile)
+        global_symfiles.append(global_symfile)
+
+    # Add linker flags to make sure any symbols from the main executable
+    # needed by these link groups are pulled in and exported to the dynamic
+    # symbol table.
+    symbol_ldflags = []
+    if link_group_specs:
+        symbol_ldflags.extend(
+            _symbol_flags_for_link_groups(
+                ctx = ctx,
+                undefined_symfiles = undefined_symfiles,
+                global_symfiles = global_symfiles,
+            ),
+        )
+
+    return _LinkedLinkGroups(
+        libs = linked_link_groups,
+        symbol_ldflags = symbol_ldflags,
+    )

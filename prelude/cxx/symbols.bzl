@@ -174,10 +174,11 @@ def create_undefined_symbols_argsfile(
     return _create_symbols_file_from_script(
         actions = actions,
         name = name,
-        script = (
-            "set -euo pipefail; " +
-            'xargs cat < "$1" | LC_ALL=C sort -S 10% -u -m | sed "s/^/-u/" > $2'
-        ),
+        script = """\
+set -euo pipefail
+tr '\\n' '\\0' < "$1" > "$2.files0.txt"
+LC_ALL=C sort -S 10% -u -m --files0-from="$2.files0.txt" | sed "s/^/-u/" > "$2"
+""",
         symbol_files = symbol_files,
         category = category,
         identifier = identifier,
@@ -199,14 +200,13 @@ def create_undefined_symbols_linker_script(
     return _create_symbols_file_from_script(
         actions = actions,
         name = name,
-        script = (
-            """
-            set -euo pipefail;
-            echo "EXTERN(" > "$2";
-            xargs cat < "$1" | LC_ALL=C sort -S 10% -u -m >> "$2";
-            echo ")" >> "$2";
-            """
-        ),
+        script = """\
+set -euo pipefail;
+echo "EXTERN(" > "$2";
+tr '\\n' '\\0' < "$1" > "$2.files0.txt"
+LC_ALL=C sort -S 10% -u -m --files0-from="$2.files0.txt" >> "$2";
+echo ")" >> "$2";
+""",
         symbol_files = symbol_files,
         category = category,
         identifier = identifier,
@@ -232,7 +232,8 @@ def create_global_symbols_version_script(
 set -euo pipefail
 echo "{" > "$2"
 echo "  global:" >> "$2"
-xargs cat < "$1" | LC_ALL=C sort -S 10% -u -m | awk '{print "    \\""$1"\\";"}' >> "$2"
+tr '\\n' '\\0' < "$1" > "$2.files0.txt"
+LC_ALL=C sort -S 10% -u -m --files0-from="$2.files0.txt" | awk '{print "    \\""$1"\\";"}' >> "$2"
 echo "  local: *;" >> "$2"
 echo "};" >> "$2"
 """,
@@ -260,7 +261,8 @@ def create_dynamic_list_version_script(
         script = """\
 set -euo pipefail
 echo "{" > "$2"
-xargs cat < "$1" | LC_ALL=C sort -S 10% -u -m | awk '{print "    \\""$1"\\";"}' >> "$2"
+tr '\\n' '\\0' < "$1" > "$2.files0.txt"
+LC_ALL=C sort -S 10% -u -m --files0-from="$2.files0.txt" | awk '{print "    \\""$1"\\";"}' >> "$2"
 echo "};" >> "$2"
 """,
         symbol_files = symbol_files,
