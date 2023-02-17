@@ -135,7 +135,7 @@ def get_multi_dex(
     )
     primary_dex_file = ctx.actions.declare_output("classes.dex")
     primary_dex_class_names = ctx.actions.declare_output("primary_dex_class_names.txt")
-    root_module_secondary_dex_output_dir = ctx.actions.declare_output("root_module_secondary_dex_output_dir")
+    root_module_secondary_dex_output_dir = ctx.actions.declare_output("root_module_secondary_dex_output_dir", dir = True)
     secondary_dex_dir = ctx.actions.declare_output("secondary_dex_output_dir", dir = True)
 
     # dynamic actions are not valid with no input, but it's easier to use the same code regardless,
@@ -161,7 +161,7 @@ def get_multi_dex(
                 multi_dex_cmd.add("--primary-dex-class-names", outputs[primary_dex_class_names].as_output())
                 multi_dex_cmd.add("--secondary-dex-output-dir", outputs[root_module_secondary_dex_output_dir].as_output())
             else:
-                secondary_dex_dir_for_module = ctx.actions.declare_output("secondary_dex_output_dir_for_module_{}".format(module))
+                secondary_dex_dir_for_module = ctx.actions.declare_output("secondary_dex_output_dir_for_module_{}".format(module), dir = True)
                 secondary_dex_subdir = secondary_dex_dir_for_module.project(_get_secondary_dex_subdir(module))
                 secondary_dex_dir_srcs[_get_secondary_dex_subdir(module)] = secondary_dex_subdir
                 multi_dex_cmd.add("--secondary-dex-output-dir", secondary_dex_dir_for_module.as_output())
@@ -453,7 +453,7 @@ def merge_to_split_dex(
                 metadata_dot_txt_files_by_module[module] = metadata_dot_txt_file
             else:
                 raw_secondary_dexes_dir = ctx.actions.symlinked_dir("raw_secondary_dexes_dir_for_module_{}".format(module), raw_secondary_dexes_for_compressing)
-                secondary_dex_dir_for_module = ctx.actions.declare_output("secondary_dexes_dir_for_{}".format(module))
+                secondary_dex_dir_for_module = ctx.actions.declare_output("secondary_dexes_dir_for_{}".format(module), dir = True)
                 secondary_dex_subdir = secondary_dex_dir_for_module.project(_get_secondary_dex_subdir(module))
 
                 multi_dex_cmd = cmd_args(android_toolchain.multi_dex_command[RunInfo])
