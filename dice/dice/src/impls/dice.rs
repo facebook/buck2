@@ -16,16 +16,19 @@ use allocative::Allocative;
 use dupe::Dupe;
 use serde::Serializer;
 
+use crate::api::cycles::DetectCycles;
 use crate::api::transaction::DiceTransactionUpdater;
 use crate::api::user_data::UserComputationData;
+use crate::impls::core::state::init_state;
+use crate::impls::core::state::CoreStateHandle;
 use crate::impls::key_index::DiceKeyIndex;
 use crate::impls::transaction::TransactionUpdater;
 use crate::transaction_update::DiceTransactionUpdaterImpl;
-use crate::DetectCycles;
 
 #[derive(Allocative)]
 pub(crate) struct DiceModern {
     pub(crate) key_index: DiceKeyIndex,
+    state_handle: CoreStateHandle,
 }
 
 impl Debug for DiceModern {
@@ -37,8 +40,11 @@ impl Debug for DiceModern {
 impl DiceModern {
     #[allow(unused)]
     pub(crate) fn new() -> Arc<Self> {
+        let state_handle = init_state();
+
         Arc::new(DiceModern {
             key_index: Default::default(),
+            state_handle,
         })
     }
 
