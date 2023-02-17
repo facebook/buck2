@@ -395,11 +395,11 @@ def _get_shared_flags(
     sdk_deps_tset = get_compiled_sdk_deps_tset(ctx, deps_providers)
 
     # Add flags required to import ObjC module dependencies
-    _add_clang_deps_flags(ctx, underlying_module, pcm_deps_tset, sdk_deps_tset, cmd)
+    _add_clang_deps_flags(ctx, pcm_deps_tset, sdk_deps_tset, cmd)
     _add_swift_deps_flags(ctx, sdk_deps_tset, cmd)
 
     # Add flags for importing the ObjC part of this library
-    _add_mixed_library_flags_to_cmd(cmd, objc_headers, objc_modulemap_pp_info)
+    _add_mixed_library_flags_to_cmd(ctx, cmd, underlying_module, objc_headers, objc_modulemap_pp_info)
 
     # Add toolchain and target flags last to allow for overriding defaults
     cmd.add(toolchain.compiler_flags)
@@ -452,7 +452,6 @@ def _add_swift_deps_flags(
 
 def _add_clang_deps_flags(
         ctx: "context",
-        underlying_module: ["SwiftPCMCompiledInfo", None],
         pcm_deps_tset: "PcmDepTSet",
         sdk_deps_tset: "SDKDepTSet",
         cmd: "cmd_args") -> None:
@@ -463,11 +462,6 @@ def _add_clang_deps_flags(
 
         # Add Clang sdk modules which do not go to swift modulemap
         cmd.add(sdk_deps_tset.project_as_args("clang_deps"))
-        if underlying_module:
-            cmd.add(ctx.actions.tset(
-                PcmDepTSet,
-                value = underlying_module,
-            ).project_as_args("clang_deps"))
     else:
         inherited_preprocessor_infos = cxx_inherited_preprocessor_infos(ctx.attrs.deps + ctx.attrs.exported_deps)
         preprocessors = cxx_merge_cpreprocessors(ctx, [], inherited_preprocessor_infos)
@@ -476,9 +470,20 @@ def _add_clang_deps_flags(
         cmd.add(cmd_args(preprocessors.set.project_as_args("include_dirs"), prepend = "-Xcc"))
 
 def _add_mixed_library_flags_to_cmd(
+        ctx: "context",
         cmd: "cmd_args",
+        underlying_module: ["SwiftPCMCompiledInfo", None],
         objc_headers: [CHeader.type],
         objc_modulemap_pp_info: ["CPreprocessor", None]) -> None:
+    if _uses_explicit_modules(ctx):
+        if underlying_module:
+            cmd.add(ctx.actions.tset(
+                PcmDepTSet,
+                value = underlying_module,
+            ).project_as_args("clang_deps"))
+            cmd.add("-import-underlying-module")
+        return
+
     if not objc_headers:
         return
 
