@@ -43,16 +43,19 @@ impl VersionTracker {
     }
 
     /// hands out the current "latest" committed version's associated transaction context
-    pub(crate) fn current(&mut self) -> Arc<PerLiveTransactionCtx> {
-        let cur = self.current;
+    pub(crate) fn current(&mut self) -> VersionNumber {
+        self.current
+    }
 
-        let mut entry =
-            self.active_versions
-                .entry(cur)
-                .or_insert_with_key(|_v| ActiveVersionData {
-                    per_transaction_ctx: Arc::new(PerLiveTransactionCtx {}),
-                    ref_count: 0,
-                });
+    pub(crate) fn at(&mut self, v: VersionNumber) -> Arc<PerLiveTransactionCtx> {
+        let mut entry = self
+            .active_versions
+            .entry(v)
+            .or_insert_with_key(|_v| ActiveVersionData {
+                // TODO properly create the PerLiveTransactionCtx
+                per_transaction_ctx: Arc::new(PerLiveTransactionCtx {}),
+                ref_count: 0,
+            });
 
         entry.ref_count += 1;
 
@@ -93,14 +96,13 @@ mod tests {
     #[test]
     fn simple_version_increases() {
         let mut vt = VersionTracker::new();
-        let vg = vt.current();
 
+        let vg = vt.at(VersionNumber::new(0));
         assert_matches!(
             vt.active_versions.get(&VersionNumber::new(0)), Some(active) if active.ref_count == 1
         );
 
-        let vg = vt.current();
-
+        let vg = vt.at(VersionNumber::new(0));
         assert_matches!(
             vt.active_versions.get(&VersionNumber::new(0)), Some(active) if active.ref_count == 2
         );

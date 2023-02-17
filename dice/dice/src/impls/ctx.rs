@@ -99,7 +99,7 @@ impl PerComputeCtx {
 }
 
 /// Context that is shared for all current live computations of the same version.
-#[derive(Allocative)]
+#[derive(Allocative, Debug)]
 pub(crate) struct PerLiveTransactionCtx {}
 
 #[allow(clippy::manual_async_fn)]

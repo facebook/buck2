@@ -115,7 +115,7 @@ impl Changes {
 }
 
 #[derive(Allocative, Debug)]
-enum ChangeType {
+pub(crate) enum ChangeType {
     /// Just invalidate the key
     Invalidate,
     /// Update the key to the given value

@@ -12,6 +12,7 @@ use gazebo::variants::VariantName;
 use crate::impls::core::internals::CoreState;
 use crate::impls::core::state::CoreStateHandle;
 use crate::impls::core::state::StateRequest;
+use crate::impls::core::versions::VersionTracker;
 
 pub(super) struct StateProcessor {
     state: CoreState,
@@ -21,7 +22,7 @@ pub(super) struct StateProcessor {
 impl StateProcessor {
     pub(super) fn spawn() -> CoreStateHandle {
         let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
-        let state = CoreState {};
+        let state = CoreState::new();
 
         std::thread::spawn(move || StateProcessor { state, rx }.event_loop());
         CoreStateHandle::new(tx)
@@ -46,6 +47,10 @@ impl StateProcessor {
     fn iteration(&mut self, message: StateRequest) {
         match message {
             StateRequest::Todo => {}
+            StateRequest::UpdateState { changes, resp } => {
+                // ignore error if the requester dropped it.
+                drop(resp.send(self.state.update_state(changes)));
+            }
         }
     }
 }
