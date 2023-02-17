@@ -35,7 +35,7 @@ def _build_js_bundle(
         source_map_out = js_bundle_info.source_map
 
     if ctx.attrs.rewrite_misc:
-        misc_out = ctx.actions.declare_output("{}/misc".format(named_output))
+        misc_out = ctx.actions.declare_output("{}/misc".format(named_output), dir = True)
         env_vars["MISC_OUT"] = cmd_args(misc_out.as_output())
     else:
         misc_out = js_bundle_info.misc
