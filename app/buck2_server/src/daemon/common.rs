@@ -19,6 +19,7 @@ use buck2_common::executor_config::HybridExecutionLevel;
 use buck2_common::executor_config::LocalExecutorOptions;
 use buck2_common::executor_config::PathSeparatorKind;
 use buck2_common::executor_config::RemoteExecutorOptions;
+use buck2_core::collections::sorted_map::SortedMap;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_execute::artifact::fs::ArtifactFs;
@@ -32,7 +33,6 @@ use buck2_execute::re::manager::ReConnectionHandle;
 use buck2_execute_impl::executors::caching::CachingExecutor;
 use buck2_execute_impl::executors::hybrid::HybridExecutor;
 use buck2_execute_impl::executors::local::LocalExecutor;
-use buck2_execute_impl::executors::re::ReExecutionPlatform;
 use buck2_execute_impl::executors::re::ReExecutor;
 use buck2_execute_impl::low_pass_filter::LowPassFilter;
 use buck2_forkserver::client::ForkserverClient;
@@ -251,11 +251,12 @@ impl ExecutionStrategyExt for ExecutionStrategy {
     }
 }
 
-pub fn get_executor_config_for_strategy(
+/// This is used when execution platforms are not configured.
+pub fn get_default_executor_config_for_strategy(
     strategy: ExecutionStrategy,
     host_platform: HostPlatformOverride,
 ) -> CommandExecutorConfig {
-    let re_execution_platform = get_re_execution_platform(host_platform);
+    let re_properties = get_default_re_properties(host_platform);
     let executor_kind = match strategy {
         // NOTE: NoExecution here retunrs a default config, which is fine because the filter will
         // kick in later.
@@ -263,7 +264,7 @@ pub fn get_executor_config_for_strategy(
             CommandExecutorKind::Hybrid {
                 local: LocalExecutorOptions {},
                 remote: RemoteExecutorOptions {
-                    re_properties: re_execution_platform.intrinsic_properties(),
+                    re_properties,
                     ..Default::default()
                 },
                 level: HybridExecutionLevel::Limited,
@@ -275,7 +276,7 @@ pub fn get_executor_config_for_strategy(
             CommandExecutorKind::Hybrid {
                 local: LocalExecutorOptions {},
                 remote: RemoteExecutorOptions {
-                    re_properties: re_execution_platform.intrinsic_properties(),
+                    re_properties,
                     ..Default::default()
                 },
                 level: HybridExecutionLevel::Limited,
@@ -283,7 +284,7 @@ pub fn get_executor_config_for_strategy(
         }
         ExecutionStrategy::LocalOnly => CommandExecutorKind::Local(LocalExecutorOptions {}),
         ExecutionStrategy::RemoteOnly => CommandExecutorKind::Remote(RemoteExecutorOptions {
-            re_properties: re_execution_platform.intrinsic_properties(),
+            re_properties,
             ..Default::default()
         }),
     };
@@ -295,23 +296,25 @@ pub fn get_executor_config_for_strategy(
     }
 }
 
-fn get_re_execution_platform(host_platform: HostPlatformOverride) -> ReExecutionPlatform {
-    let linux = ReExecutionPlatform::Linux;
-    let mac = ReExecutionPlatform::MacOS {
-        subplatform: "any".to_owned(),
-    };
+fn get_default_re_properties(host_platform: HostPlatformOverride) -> SortedMap<String, String> {
+    let linux = &[("platform", "linux-remote-execution")];
+    let macos = &[("platform", "mac"), ("subplatform", "any")];
+    let windows = &[("platform", "windows")];
 
-    let windows = ReExecutionPlatform::Windows;
-
-    match host_platform {
-        HostPlatformOverride::Linux => linux,
-        HostPlatformOverride::MacOs => mac,
-        HostPlatformOverride::Windows => windows,
+    let props = match host_platform {
+        HostPlatformOverride::Linux => linux.as_slice(),
+        HostPlatformOverride::MacOs => macos.as_slice(),
+        HostPlatformOverride::Windows => windows.as_slice(),
         HostPlatformOverride::DefaultPlatform => match std::env::consts::OS {
-            "linux" => linux,
-            "macos" => mac,
-            "windows" => windows,
+            "linux" => linux.as_slice(),
+            "macos" => macos.as_slice(),
+            "windows" => windows.as_slice(),
             v => unimplemented!("no support yet for operating system `{}`", v),
         },
-    }
+    };
+
+    props
+        .iter()
+        .map(|(k, v)| ((*k).to_owned(), (*v).to_owned()))
+        .collect()
 }

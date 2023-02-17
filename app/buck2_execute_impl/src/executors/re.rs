@@ -12,7 +12,6 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use buck2_common::executor_config::RemoteExecutorUseCase;
-use buck2_core::collections::sorted_map::SortedMap;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_execute::artifact::fs::ArtifactFs;
@@ -47,34 +46,10 @@ use tracing::info;
 
 use crate::re::download::download_action_results;
 
-// temporary platform like thing to build apple. We probably eventually want to replace this with
-// the action/target/execution group platform.
-#[derive(Clone)]
-pub enum ReExecutionPlatform {
-    Linux,
-    MacOS { subplatform: String },
-    Windows,
-}
-
 #[derive(Debug, Error)]
 pub enum RemoteExecutorError {
     #[error("Trying to execute a `local_only = True` action on remote executor for {0}")]
     LocalOnlyAction(String),
-}
-
-impl ReExecutionPlatform {
-    pub fn intrinsic_properties(&self) -> SortedMap<String, String> {
-        match self {
-            Self::Linux => {
-                SortedMap::from_iter([("platform".to_owned(), "linux-remote-execution".to_owned())])
-            }
-            Self::MacOS { subplatform } => SortedMap::from_iter([
-                ("platform".to_owned(), "mac".to_owned()),
-                ("subplatform".to_owned(), subplatform.to_owned()),
-            ]),
-            Self::Windows => SortedMap::from_iter([("platform".to_owned(), "windows".to_owned())]),
-        }
-    }
 }
 
 pub struct ReExecutor {

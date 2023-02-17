@@ -98,7 +98,7 @@ use tracing::warn;
 
 use crate::active_commands::ActiveCommandDropGuard;
 use crate::configs::parse_legacy_cells;
-use crate::daemon::common::get_executor_config_for_strategy;
+use crate::daemon::common::get_default_executor_config_for_strategy;
 use crate::daemon::common::parse_concurrency;
 use crate::daemon::common::CommandExecutorFactory;
 use crate::dice_tracker::BuckDiceTracker;
@@ -325,8 +325,10 @@ impl ServerCommandContext {
             .map(|obj| parse_concurrency(obj.concurrency))
             .map(|v| v.map_err(SharedError::from));
 
-        let executor_config =
-            get_executor_config_for_strategy(execution_strategy, self.host_platform_override);
+        let executor_config = get_default_executor_config_for_strategy(
+            execution_strategy,
+            self.host_platform_override,
+        );
         let blocking_executor: Arc<_> = self.base_context.blocking_executor.dupe();
         let materializer = self.base_context.materializer.dupe();
         let re_connection = Arc::new(self.get_re_connection());
