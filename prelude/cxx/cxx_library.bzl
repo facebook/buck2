@@ -338,6 +338,7 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
         non_exported_deps,
         impl_params.force_link_group_linking,
         frameworks_linkable,
+        force_static_follows_dependents = impl_params.link_groups_force_static_follows_dependents,
     )
     if impl_params.generate_sub_targets.link_group_map and link_group_map:
         sub_targets[LINK_GROUP_MAP_DATABASE_SUB_TARGET] = [link_group_map]
@@ -815,7 +816,8 @@ def _get_shared_library_links(
         exported_deps: ["dependency"],
         non_exported_deps: ["dependency"],
         force_link_group_linking,
-        frameworks_linkable: ["FrameworksLinkable", None]) -> ("LinkArgs", [DefaultInfo.type, None]):
+        frameworks_linkable: ["FrameworksLinkable", None],
+        force_static_follows_dependents: bool.type = True) -> ("LinkArgs", [DefaultInfo.type, None]):
     """
     TODO(T110378116): Omnibus linking always creates shared libraries by linking
     against shared dependencies. This is not true for link groups and possibly
@@ -862,8 +864,9 @@ def _get_shared_library_links(
             for name, lib in link_group_libs.items()
         },
         link_style = link_style,
-        deps = linkable_deps(non_exported_deps + exported_deps),
+        roots = linkable_deps(non_exported_deps + exported_deps),
         prefer_stripped = prefer_stripped,
+        force_static_follows_dependents = force_static_follows_dependents,
     )
     filtered_links = get_filtered_links(filtered_labels_to_links_map)
     filtered_targets = get_filtered_targets(filtered_labels_to_links_map)

@@ -45,6 +45,8 @@ def apple_binary_impl(ctx: "context") -> ["provider"]:
         link_postprocessor = get_apple_link_postprocessor(ctx),
         link_group_info = get_link_group_info(ctx),
         prefer_stripped_objects = ctx.attrs.prefer_stripped_objects,
+        # Some apple rules rely on `static` libs *not* following dependents.
+        link_groups_force_static_follows_dependents = False,
     )
     (cxx_output, _comp_db_info, xcode_data_info) = cxx_executable(ctx, constructor_params)
 

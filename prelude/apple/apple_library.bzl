@@ -166,6 +166,8 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: "context", pa
         generate_sub_targets = params.generate_sub_targets,
         generate_providers = params.generate_providers,
         link_postprocessor = get_apple_link_postprocessor(ctx),
+        # Some apple rules rely on `static` libs *not* following dependents.
+        link_groups_force_static_follows_dependents = False,
     ), swift_providers, exported_pre
 
 def _filter_swift_srcs(ctx: "context") -> (["CxxSrcWithFlags"], ["CxxSrcWithFlags"]):

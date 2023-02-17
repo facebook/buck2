@@ -168,4 +168,7 @@ CxxRuleConstructorParams = record(
     prefer_stripped_objects = field(bool.type, False),
     # The category suffix to use for executables actions (e.g. linking).
     exe_category_suffix = field(str.type, "executable"),
+    # Whether link groups liking should make `preferred_linkage = "static"` libs
+    # "follow" their dependents across link group boundaries.
+    link_groups_force_static_follows_dependents = field(bool.type, True),
 )
