@@ -195,7 +195,7 @@ def _maybe_filter_resources(
         if resource.res == None:
             res_infos_with_no_res.append(resource)
         else:
-            filtered_res = ctx.actions.declare_output("filtered_res_{}".format(i))
+            filtered_res = ctx.actions.declare_output("filtered_res_{}".format(i), dir = True)
             res_info_to_out_res_dir[resource] = filtered_res
 
     filter_resources_cmd = cmd_args(android_toolchain.filter_resources[RunInfo])
@@ -344,7 +344,7 @@ def _maybe_package_strings_as_assets(
     if not is_store_strings_as_assets:
         return None
 
-    string_assets_dir = ctx.actions.declare_output("package_strings_as_assets/string_assets")
+    string_assets_dir = ctx.actions.declare_output("package_strings_as_assets/string_assets", dir = True)
     string_assets_zip = ctx.actions.declare_output("package_strings_as_assets/string_assets_zip.zip")
     all_locales_string_assets_zip = ctx.actions.declare_output("package_strings_as_assets/all_locales_string_assets_zip.zip")
 
