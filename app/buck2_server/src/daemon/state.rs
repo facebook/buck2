@@ -17,6 +17,7 @@ use allocative::Allocative;
 use anyhow::Context;
 use async_trait::async_trait;
 use buck2_cli_proto::unstable_dice_dump_request::DiceDumpFormat;
+use buck2_common::cas_digest::DigestAlgorithm;
 use buck2_common::ignores::IgnoreSet;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::io::IoProvider;
@@ -197,7 +198,14 @@ impl DaemonState {
             .get(cells.root_cell())
             .context("No config for root cell")?;
 
-        let digest_config = DigestConfig::compat();
+        let digest_config = {
+            let algo = if buck2_core::is_open_source() {
+                DigestAlgorithm::Sha256
+            } else {
+                DigestAlgorithm::Sha1
+            };
+            DigestConfig::leak_new(vec![algo])?
+        };
 
         // TODO(rafaelc): merge configs from all cells once they are consistent
         let static_metadata = Arc::new(RemoteExecutionStaticMetadata::from_legacy_config(

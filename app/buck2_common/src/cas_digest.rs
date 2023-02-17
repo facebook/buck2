@@ -121,6 +121,13 @@ impl CasDigestConfig {
         Self { inner: &COMPAT }
     }
 
+    /// We just Box::leak this since we create one per daemon and as a result just use
+    /// CasDigestConfig as a pointer.
+    pub fn leak_new(algorithms: Vec<DigestAlgorithm>) -> Result<Self, CasDigestConfigError> {
+        let inner = Box::leak(box CasDigestConfigInner::new(algorithms)?);
+        Ok(Self { inner })
+    }
+
     /// Allow optimizing the empty file digest path, we do that by having the CasDigestConfig hold
     /// a cell for it (later in this stack).
     pub fn empty_file_digest(self) -> crate::file_ops::TrackedFileDigest {

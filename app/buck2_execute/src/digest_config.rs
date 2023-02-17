@@ -9,6 +9,8 @@
 
 use allocative::Allocative;
 use buck2_common::cas_digest::CasDigestConfig;
+use buck2_common::cas_digest::CasDigestConfigError;
+use buck2_common::cas_digest::DigestAlgorithm;
 use buck2_common::file_ops::FileMetadata;
 use derivative::Derivative;
 use dice::DiceData;
@@ -34,6 +36,15 @@ impl DigestConfig {
             Lazy::new(|| DigestConfigInner::new(CasDigestConfig::compat()));
 
         Self { inner: &COMPAT }
+    }
+
+    /// We just Box::leak this since we create one per daemon and as a result just use
+    /// CasDigestConfig as a pointer.
+    pub fn leak_new(algorithms: Vec<DigestAlgorithm>) -> Result<Self, CasDigestConfigError> {
+        let inner = Box::leak(box DigestConfigInner::new(CasDigestConfig::leak_new(
+            algorithms,
+        )?));
+        Ok(Self { inner })
     }
 
     pub fn cas_digest_config(&self) -> CasDigestConfig {
