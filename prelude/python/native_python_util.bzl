@@ -124,9 +124,9 @@ def write_syms_file(
     """
     nm = cxx_toolchain.binary_utilities_info.nm
     symbols_file = ctx.actions.declare_output(ctx.label.name + "_renamed_syms")
-    objects_args = cmd_args()
-    for obj in objects:
-        objects_args.add(cmd_args(obj, format = "{}"))
+
+    objects_argsfile = ctx.actions.write(ctx.label.name + ".objects.argsfile", objects)
+    objects_args = cmd_args(objects_argsfile).hidden(objects)
 
     script_env = {
         "NM": nm,
@@ -144,7 +144,7 @@ def write_syms_file(
     # objcopy uses a list of symbol name followed by updated name e.g. 'PyInit_hello PyInit_hello_package_module'
     script = (
         "set -euo pipefail; " +  # fail if any command in the script fails
-        '"$NM" --no-sort --defined-only -j $OBJECTS | sed "/:$/d;/^$/d" | sort -u'
+        '"$NM" --no-sort --defined-only -j @"$OBJECTS" | sed "/:$/d;/^$/d" | sort -u'
     )
     if not suffix_all:
         script += ' | grep "^PyInit_"'
