@@ -878,11 +878,18 @@ def _rustc_invoke(
     compile_cmd_file, extra_args = ctx.actions.write("{}-{}.args".format(prefix, diag), compile_cmd, allow_args = True)
 
     incremental_enabled = ctx.attrs.incremental_enabled
-    local_only = (is_binary and link_cxx_binary_locally(ctx)) or incremental_enabled
+    local_only = False
+    prefer_local = False
+    if incremental_enabled:
+        local_only = True
+    elif is_binary and link_cxx_binary_locally(ctx):
+        prefer_local = True
+
     identifier = "{} {} [{}]".format(prefix, short_cmd, diag)
     ctx.actions.run(
         cmd_args(rustc_action, cmd_args(compile_cmd_file, format = "@{}")).hidden(compile_cmd, extra_args),
         local_only = local_only,
+        prefer_local = prefer_local,
         category = "rustc",
         identifier = identifier,
         no_outputs_cleanup = incremental_enabled,
