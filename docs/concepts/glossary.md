@@ -98,6 +98,10 @@ As an example, you would use the `cxx_binary` rule to create a C++ binary, but y
 
 Object that is defined in a [build file](#build-file). Targets represent the buildable units of a build from the perspective of the end user. Declared by instantiating a [rule](#rule) with attributes. A target has [dependencies](#dependency), which are references to other targets.
 
+#### Target label
+
+Identifier for a [target](#target). Structured as `cellAlias//path/to/package:target` where `cellAlias//` maps to a [cell root](#cell) path (as defined in the [./buckconfig](#buckconfig) of the cell this target belongs to), `path/to/package` is the [package](#package) directory that contains the [build file](#build-file) declaring the target (relative to the mapped cell alias) and `:target` is the target's name.
+
 #### Toolchain
 :::note
 🚧   THIS SECTION IS UNDER CONSTRUCTION
