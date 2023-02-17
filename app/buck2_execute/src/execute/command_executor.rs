@@ -253,6 +253,7 @@ fn re_create_action(
                 value: (*v).clone(),
             })
             .collect(),
+        ..Default::default()
     };
 
     let timeout = timeout.map(|t| prost_types::Duration {
@@ -273,6 +274,7 @@ fn re_create_action(
         ),
         timeout,
         do_not_cache,
+        ..Default::default()
     };
 
     let action = prepared_blobs.add_protobuf_message(&action, digest_config);
