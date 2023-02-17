@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@prelude//:attributes.bzl", "LinkableDepType", "Linkage")
+load("@prelude//apple/swift:swift_toolchain.bzl", "swift_toolchain_impl")
 load("@prelude//cxx:headers.bzl", "CPrecompiledHeaderInfo")
 load("@prelude//cxx:omnibus.bzl", "omnibus_environment_attr")
 load("@prelude//cxx/user:link_group_map.bzl", "link_group_map_attr")
@@ -31,7 +32,6 @@ load(":apple_test.bzl", "apple_test_impl")
 load(":apple_toolchain.bzl", "apple_toolchain_impl")
 load(":apple_toolchain_types.bzl", "AppleToolsInfo")
 load(":prebuilt_apple_framework.bzl", "prebuilt_apple_framework_impl")
-load(":swift_toolchain.bzl", "swift_toolchain_impl")
 load(":xcode_postbuild_script.bzl", "xcode_postbuild_script_impl")
 load(":xcode_prebuild_script.bzl", "xcode_prebuild_script_impl")
 

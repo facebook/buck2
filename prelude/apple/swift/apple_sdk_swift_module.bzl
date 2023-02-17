@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load(":apple_utility.bzl", "get_disable_pch_validation_flags")
+load("@prelude//apple:apple_utility.bzl", "get_disable_pch_validation_flags")
 load(":swift_toolchain_types.bzl", "SdkUncompiledModuleInfo")
 
 def apple_sdk_swift_module_impl(ctx: "context") -> ["provider"]:

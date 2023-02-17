@@ -7,7 +7,7 @@
 
 load("@prelude//apple:apple_library.bzl", "AppleLibraryAdditionalParams", "apple_library_rule_constructor_params_and_swift_providers")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
-load("@prelude//apple:swift_compilation.bzl", "get_swift_anonymous_targets")
+load("@prelude//apple/swift:swift_compilation.bzl", "get_swift_anonymous_targets")
 load(
     "@prelude//cxx:compile.bzl",
     "CxxSrcWithFlags",  # @unused Used as a type
