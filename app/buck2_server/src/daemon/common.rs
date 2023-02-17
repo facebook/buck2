@@ -256,37 +256,54 @@ pub fn get_default_executor_config_for_strategy(
     strategy: ExecutionStrategy,
     host_platform: HostPlatformOverride,
 ) -> CommandExecutorConfig {
-    let re_properties = get_default_re_properties(host_platform);
-    let executor_kind = match strategy {
-        // NOTE: NoExecution here retunrs a default config, which is fine because the filter will
-        // kick in later.
-        ExecutionStrategy::Default | ExecutionStrategy::NoExecution => {
-            CommandExecutorKind::Hybrid {
-                local: LocalExecutorOptions {},
-                remote: RemoteExecutorOptions {
-                    re_properties,
-                    ..Default::default()
-                },
-                level: HybridExecutionLevel::Limited,
+    let executor_kind = if buck2_core::is_open_source() {
+        match strategy {
+            ExecutionStrategy::Default
+            | ExecutionStrategy::NoExecution
+            | ExecutionStrategy::LocalOnly => CommandExecutorKind::Local(LocalExecutorOptions {}),
+            ExecutionStrategy::Hybrid
+            | ExecutionStrategy::HybridPreferLocal
+            | ExecutionStrategy::RemoteOnly => {
+                tracing::warn!(
+                    "To use remote execution strategies you must enable execution platforms"
+                );
+                CommandExecutorKind::Local(LocalExecutorOptions {})
             }
         }
-        // NOTE: We don't differentiate between the preferences for Hybrid here. This gets injected
-        // later when we actually instantiate the Executor.
-        ExecutionStrategy::Hybrid | ExecutionStrategy::HybridPreferLocal => {
-            CommandExecutorKind::Hybrid {
-                local: LocalExecutorOptions {},
-                remote: RemoteExecutorOptions {
-                    re_properties,
-                    ..Default::default()
-                },
-                level: HybridExecutionLevel::Limited,
+    } else {
+        let re_properties = get_default_re_properties(host_platform);
+
+        match strategy {
+            // NOTE: NoExecution here retunrs a default config, which is fine because the filter will
+            // kick in later.
+            ExecutionStrategy::Default | ExecutionStrategy::NoExecution => {
+                CommandExecutorKind::Hybrid {
+                    local: LocalExecutorOptions {},
+                    remote: RemoteExecutorOptions {
+                        re_properties,
+                        ..Default::default()
+                    },
+                    level: HybridExecutionLevel::Limited,
+                }
             }
+            // NOTE: We don't differentiate between the preferences for Hybrid here. This gets injected
+            // later when we actually instantiate the Executor.
+            ExecutionStrategy::Hybrid | ExecutionStrategy::HybridPreferLocal => {
+                CommandExecutorKind::Hybrid {
+                    local: LocalExecutorOptions {},
+                    remote: RemoteExecutorOptions {
+                        re_properties,
+                        ..Default::default()
+                    },
+                    level: HybridExecutionLevel::Limited,
+                }
+            }
+            ExecutionStrategy::LocalOnly => CommandExecutorKind::Local(LocalExecutorOptions {}),
+            ExecutionStrategy::RemoteOnly => CommandExecutorKind::Remote(RemoteExecutorOptions {
+                re_properties,
+                ..Default::default()
+            }),
         }
-        ExecutionStrategy::LocalOnly => CommandExecutorKind::Local(LocalExecutorOptions {}),
-        ExecutionStrategy::RemoteOnly => CommandExecutorKind::Remote(RemoteExecutorOptions {
-            re_properties,
-            ..Default::default()
-        }),
     };
 
     CommandExecutorConfig {
