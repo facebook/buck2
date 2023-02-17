@@ -49,6 +49,7 @@ AndroidToolchainInfo = provider(fields = [
     "replace_application_id_placeholders",
     "secondary_dex_weight_limit",
     "set_application_id_to_specified_package",
+    "should_run_sanity_check_for_placeholders",
     "unpack_aar",
     "zipalign",
 ])

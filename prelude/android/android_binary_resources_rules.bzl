@@ -404,12 +404,18 @@ def _get_manifest(
 
     if android_toolchain.set_application_id_to_specified_package:
         android_manifest_with_replaced_application_id = ctx.actions.declare_output("android_manifest_with_replaced_application_id")
+        should_run_sanity_check = android_toolchain.should_run_sanity_check_for_placeholders
+        should_run_sanity_check_string = "false"
+        if should_run_sanity_check:
+            should_run_sanity_check_string = "true"
         replace_application_id_placeholders_cmd = cmd_args([
             ctx.attrs._android_toolchain[AndroidToolchainInfo].replace_application_id_placeholders[RunInfo],
             "--manifest",
             android_manifest,
             "--output",
             android_manifest_with_replaced_application_id.as_output(),
+            "--should-sanity-check-placeholders",
+            should_run_sanity_check_string,
         ])
         ctx.actions.run(replace_application_id_placeholders_cmd, category = "replace_application_id_placeholders")
         return android_manifest_with_replaced_application_id
