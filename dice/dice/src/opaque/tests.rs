@@ -142,7 +142,7 @@ async fn key_does_not_read_opaque() -> anyhow::Result<()> {
     // Part 2: invalidate opaque key, and "compute" the key again.
 
     ctx.changed([IsOpaque])?;
-    let ctx = ctx.commit();
+    let ctx = ctx.commit().await;
 
     tracker.lock().computations.clear();
 

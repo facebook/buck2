@@ -37,14 +37,14 @@ async fn compute_and_update_uses_proper_version_numbers() -> anyhow::Result<()> 
     let dice = DiceLegacy::builder().build(DetectCycles::Enabled);
 
     {
-        let ctx = dice.updater().commit();
+        let ctx = dice.updater().commit().await;
         assert_eq!(ctx.0.0.get_version(), VersionNumber::new(0));
         assert_eq!(ctx.0.0.get_minor_version(), MinorVersion::testing_new(0));
     }
 
     {
         // second context that didn't have any writes should still be the same version
-        let ctx = dice.updater().commit();
+        let ctx = dice.updater().commit().await;
         assert_eq!(ctx.0.0.get_version(), VersionNumber::new(0));
         assert_eq!(ctx.0.0.get_minor_version(), MinorVersion::testing_new(1));
 
@@ -84,7 +84,7 @@ async fn compute_and_update_uses_proper_version_numbers() -> anyhow::Result<()> 
         );
 
         // drop a context
-        ctx1.commit();
+        ctx1.commit().await;
         // we should only have committed once, and in increasing order
         let vg = dice.global_versions.current();
         assert_eq!(
@@ -92,7 +92,7 @@ async fn compute_and_update_uses_proper_version_numbers() -> anyhow::Result<()> 
             (VersionNumber::new(1), MinorVersion::testing_new(1))
         );
 
-        ctx.commit();
+        ctx.commit().await;
         // both versions finalized.
         let vg = dice.global_versions.current();
         assert_eq!(
@@ -129,7 +129,7 @@ async fn compute_and_update_uses_proper_version_numbers() -> anyhow::Result<()> 
             MinorVersion::testing_new(2)
         );
 
-        ctx.commit();
+        ctx.commit().await;
         let vg = dice.global_versions.current();
         assert_eq!(
             (vg.version, *vg.minor_version_guard),

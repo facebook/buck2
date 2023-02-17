@@ -229,7 +229,7 @@ impl SyncableQueryProcessor for WatchmanQueryProcessor {
         // Dropping the entire DICE map can be somewhat computationally expensive as there
         // are a lot of destructors to run. On the other hand, we don't have to wait for
         // it. So, we just send it off to its own thread.
-        let ctx = ctx.commit().unstable_take().into_updater();
+        let ctx = ctx.commit().await.unstable_take().into_updater();
 
         Ok((
             buck2_data::FileWatcherStats {

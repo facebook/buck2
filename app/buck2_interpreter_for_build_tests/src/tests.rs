@@ -64,7 +64,7 @@ pub(crate) fn root_cell() -> CellName {
     CellName::testing_new("root")
 }
 
-pub(crate) fn calculation(fs: &ProjectRootTemp) -> DiceTransaction {
+pub(crate) async fn calculation(fs: &ProjectRootTemp) -> DiceTransaction {
     let mut dice = Dice::builder();
     dice.set(EventDispatcher::null());
     dice.set_testing_io_provider(fs);
@@ -98,7 +98,7 @@ pub(crate) fn calculation(fs: &ProjectRootTemp) -> DiceTransaction {
     ctx.set_starlark_profiler_instrumentation_override(StarlarkProfilerConfiguration::default())
         .unwrap();
     ctx.set_disable_starlark_types(false).unwrap();
-    ctx.commit()
+    ctx.commit().await
 }
 
 #[tokio::test]
@@ -113,7 +113,7 @@ async fn test_eval_import() {
         ),
     );
 
-    let ctx = calculation(&fs);
+    let ctx = calculation(&fs).await;
 
     let calculation = ctx
         .get_interpreter_calculator(root_cell(), BuildFileCell::new(root_cell()))
@@ -159,7 +159,7 @@ async fn test_eval_import_with_load() {
         ),
     );
 
-    let ctx = calculation(&fs);
+    let ctx = calculation(&fs).await;
     let calculation = ctx
         .get_interpreter_calculator(root_cell(), BuildFileCell::new(root_cell()))
         .await
@@ -241,7 +241,7 @@ async fn test_eval_build_file() {
         ),
     );
 
-    let ctx = calculation(&fs);
+    let ctx = calculation(&fs).await;
     let calculation = ctx
         .get_interpreter_calculator(root_cell(), BuildFileCell::new(root_cell()))
         .await

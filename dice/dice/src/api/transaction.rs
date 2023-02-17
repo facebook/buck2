@@ -58,13 +58,13 @@ impl DiceTransactionUpdater {
     }
 
     /// Commit the changes registered via 'changed' and 'changed_to' to the current newest version.
-    pub fn commit(self) -> DiceTransaction {
+    pub async fn commit(self) -> DiceTransaction {
         self.0.commit()
     }
 
     /// Commit the changes registered via 'changed' and 'changed_to' to the current newest version,
     /// replacing the user data with the given set
-    pub fn commit_with_data(self, extra: UserComputationData) -> DiceTransaction {
+    pub async fn commit_with_data(self, extra: UserComputationData) -> DiceTransaction {
         self.0.commit_with_data(extra)
     }
 }

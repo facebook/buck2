@@ -98,7 +98,7 @@ mod tests {
     #[tokio::test]
     async fn test_serialization() -> anyhow::Result<()> {
         let dice = DiceLegacy::builder().build(DetectCycles::Disabled);
-        let ctx = dice.updater().commit();
+        let ctx = dice.updater().commit().await;
         ctx.compute(&KeyA(3)).await?;
 
         let mut nodes = Vec::new();
@@ -152,7 +152,7 @@ mod tests {
     #[tokio::test]
     async fn test_serialization_dense() -> anyhow::Result<()> {
         let dice = DiceLegacy::builder().build(DetectCycles::Disabled);
-        let ctx = dice.updater().commit();
+        let ctx = dice.updater().commit().await;
         ctx.compute(&KeyA(3)).await?;
 
         let node = bincode::serialize(&dice.to_introspectable())?;

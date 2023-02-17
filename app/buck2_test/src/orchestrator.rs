@@ -1003,7 +1003,7 @@ mod tests {
 
     use super::*;
 
-    fn make() -> anyhow::Result<(
+    async fn make() -> anyhow::Result<(
         BuckTestOrchestrator,
         UnboundedReceiver<anyhow::Result<TestResultOrExitCode>>,
     )> {
@@ -1023,7 +1023,7 @@ mod tests {
         dice.set_buck_out_path(Some(buckout_path))?;
         dice.set_cell_resolver(cell_resolver)?;
 
-        let dice = dice.commit();
+        let dice = dice.commit().await;
 
         let (sender, receiver) = mpsc::unbounded();
 
@@ -1042,7 +1042,7 @@ mod tests {
 
     #[tokio::test]
     async fn orchestrator_results() -> anyhow::Result<()> {
-        let (orchestrator, channel) = make()?;
+        let (orchestrator, channel) = make().await?;
 
         let jobs = async {
             orchestrator
@@ -1104,7 +1104,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_orchestrator_channel_drop() -> anyhow::Result<()> {
-        let (orchestrator, channel) = make()?;
+        let (orchestrator, channel) = make().await?;
         drop(orchestrator);
 
         let res = channel.try_collect::<Vec<_>>().await;
@@ -1115,7 +1115,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_orchestrator_closes_channel() -> anyhow::Result<()> {
-        let (orchestrator, channel) = make()?;
+        let (orchestrator, channel) = make().await?;
         let sender = orchestrator.results_channel.clone();
         orchestrator.end_of_test_results(1).await?;
 

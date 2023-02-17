@@ -543,7 +543,7 @@ mod tests {
         dice_builder.mock_and_return(deferred_resolve, anyhow::Ok(an_any).shared_error())
     }
 
-    fn make_default_dice_state(
+    async fn make_default_dice_state(
         dry_run_tracker: Arc<Mutex<Vec<DryRunEntry>>>,
         temp_fs: &ProjectRootTemp,
         mocks: Vec<Box<dyn FnOnce(DiceBuilder) -> DiceBuilder>>,
@@ -599,7 +599,7 @@ mod tests {
         computations.set_buck_out_path(Some(output_path))?;
         computations.set_cell_resolver(cell_resolver)?;
 
-        Ok(computations.commit())
+        Ok(computations.commit().await)
     }
 
     #[tokio::test]
@@ -623,7 +623,10 @@ mod tests {
             deferred_resolve,
             registered_action.dupe(),
         );
-        let dice_computations = dice_builder.build(UserComputationData::new())?.commit();
+        let dice_computations = dice_builder
+            .build(UserComputationData::new())?
+            .commit()
+            .await;
 
         let result = with_dispatcher_async(
             EventDispatcher::null(),
@@ -660,7 +663,8 @@ mod tests {
                     mock_deferred_resolution_calculation(builder, deferred_resolve, action)
                 }
             }],
-        )?;
+        )
+        .await?;
 
         let result =
             ActionCalculation::build_action(&dice_computations, registered_action.key()).await;
@@ -704,7 +708,8 @@ mod tests {
             vec![box move |builder| {
                 mock_deferred_resolution_calculation(builder, deferred_resolve, registered_action)
             }]
-        })?;
+        })
+        .await?;
 
         let result = with_dispatcher_async(
             EventDispatcher::null(),
@@ -750,7 +755,8 @@ mod tests {
             vec![box move |builder| {
                 mock_deferred_resolution_calculation(builder, deferred_resolve, registered_action)
             }]
-        })?;
+        })
+        .await?;
 
         let result = with_dispatcher_async(
             EventDispatcher::null(),
@@ -801,7 +807,8 @@ mod tests {
                 ))),
             )
             .build(UserComputationData::new())?
-            .commit();
+            .commit()
+            .await;
 
         let source_artifact = Artifact::from(source_artifact);
         let input = ArtifactGroup::Artifact(source_artifact.dupe());
@@ -853,7 +860,8 @@ mod tests {
                 )))),
             )
             .build(UserComputationData::new())?
-            .commit();
+            .commit()
+            .await;
 
         let source_artifact = Artifact::from(source_artifact);
         let input = ArtifactGroup::Artifact(source_artifact.dupe());

@@ -130,14 +130,15 @@ struct DaemonStateDiceConstructorImpl {
     detect_cycles: Option<DetectCycles>,
 }
 
+#[async_trait]
 impl DaemonStateDiceConstructor for DaemonStateDiceConstructorImpl {
-    fn construct_dice(
+    async fn construct_dice(
         &self,
         io: Arc<dyn IoProvider>,
         digest_config: DigestConfig,
         root_config: &LegacyBuckConfig,
     ) -> anyhow::Result<Arc<Dice>> {
-        configure_dice_for_buck(io, digest_config, Some(root_config), self.detect_cycles)
+        configure_dice_for_buck(io, digest_config, Some(root_config), self.detect_cycles).await
     }
 }
 

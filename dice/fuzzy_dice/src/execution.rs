@@ -457,7 +457,7 @@ impl DiceExecutionOrder {
                 } => {
                     let mut ctx = dice.updater();
                     ctx.set_equation(*var, expr.clone()).unwrap();
-                    dice_ctxs.insert(*new_ctx_id, ctx.commit());
+                    dice_ctxs.insert(*new_ctx_id, ctx.commit().await);
                 }
                 Operation::EnqueueStep(var, steps) => {
                     let queue = state.steps.get(var).unwrap();

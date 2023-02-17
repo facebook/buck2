@@ -166,7 +166,7 @@
 //! let mut ctx = engine.updater();
 //! ctx.inject_config(0);
 //!
-//! let ctx = ctx.commit();
+//! let ctx = rt.block_on(ctx.commit());
 //!
 //! // request the computation from DICE
 //! rt.block_on(async {
@@ -176,7 +176,7 @@
 //! let mut ctx = engine.updater();
 //! ctx.inject_config(2);
 //!
-//! let ctx = ctx.commit();
+//! let ctx = rt.block_on(ctx.commit());
 //!
 //! // request the computation from DICE
 //! rt.block_on(async {

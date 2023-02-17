@@ -987,7 +987,7 @@ mod tests {
             .mock_and_return(InterpreterResultsKey(pkg), Ok(Arc::new(eval_result)))
             .mock_and_return(ExecutionPlatformsKey, Ok(None))
             .build(data)?;
-        let computations = computations.commit();
+        let computations = computations.commit().await;
 
         let node = computations.get_target_node(&label1).await?;
         assert_eq!(node.0, node1.0);

@@ -135,51 +135,49 @@ impl SetFilesystem for DiceTransactionUpdater {
     }
 }
 
-#[test]
-fn demo() -> anyhow::Result<()> {
+#[tokio::test]
+async fn demo() -> anyhow::Result<()> {
     let temp = NamedTempFile::new().unwrap();
     let f = PathBuf::from(temp.path());
 
-    let rt = tokio::runtime::Runtime::new().unwrap();
     let dice = DiceLegacy::builder().build(DetectCycles::Enabled);
 
     let mut ctx = dice.updater();
     ctx.set_encodings(Encoding::Utf8)?;
-    ctx.commit();
+    ctx.commit().await;
 
     let set = |x: &str| fs::write(&f, x).unwrap();
 
-    let get = |x: &str| {
-        rt.block_on(async {
-            let contents = dice
-                .updater()
-                .commit()
-                .filesystem()
-                .read_file(&f)
-                .await
-                .unwrap();
-            assert_eq!(*contents, x)
-        })
-    };
+    async fn get(x: &str, dice: &Arc<DiceLegacy>, f: &Path) {
+        let contents = dice
+            .updater()
+            .commit()
+            .await
+            .filesystem()
+            .read_file(f)
+            .await
+            .unwrap();
+        assert_eq!(*contents, x)
+    }
 
     set(":-)");
 
-    get(":-)");
+    get(":-)", &dice, &f).await;
 
     // doesn't change because I didn't dirty it
     set("hello :-)");
 
-    get(":-)");
+    get(":-)", &dice, &f).await;
 
     let mut ctx = dice.updater();
     ctx.filesystem_changed(&f)?;
-    ctx.commit();
-    get("hello :-)");
+    ctx.commit().await;
+    get("hello :-)", &dice, &f).await;
 
     let mut ctx = dice.updater();
     ctx.set_encodings(Encoding::Ascii)?;
-    ctx.commit();
-    get("hello smile");
+    ctx.commit().await;
+    get("hello smile", &dice, &f).await;
 
     Ok(())
 }

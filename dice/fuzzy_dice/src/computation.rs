@@ -270,7 +270,7 @@ mod tests {
                     otherwise: Unit::Variable(Var(3)),
                 },
             )?;
-            ctx.commit()
+            ctx.commit().await
         };
         assert!(ctx.eval(empty_state.dupe(), Var(1)).await?);
         assert!(ctx.eval(empty_state.dupe(), Var(2)).await?);

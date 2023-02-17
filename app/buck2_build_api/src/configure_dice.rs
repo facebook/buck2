@@ -21,7 +21,7 @@ use dice::Dice;
 
 /// Utility to configure the dice globals.
 /// One place to not forget to initialize something in all places.
-pub fn configure_dice_for_buck(
+pub async fn configure_dice_for_buck(
     io: Arc<dyn IoProvider>,
     digest_config: DigestConfig,
     root_config: Option<&LegacyBuckConfig>,
@@ -47,7 +47,7 @@ pub fn configure_dice_for_buck(
     let mut dice_ctx = dice.updater();
     dice_ctx.set_none_cell_resolver()?;
     dice_ctx.set_none_legacy_configs()?;
-    dice_ctx.commit();
+    dice_ctx.commit().await;
 
     Ok(dice)
 }

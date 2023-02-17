@@ -23,12 +23,12 @@ async fn setup(companies: Vec<Company>) -> anyhow::Result<(Arc<Dice>, DiceTransa
     let dice = Dice::builder().build(DetectCycles::Enabled);
     let mut ctx = dice.updater();
     ctx.init_state()?;
-    ctx.commit();
+    ctx.commit().await;
 
     let mut ctx = dice.updater();
     ctx.add_companies(companies).await?;
 
-    Ok((dice, ctx.commit()))
+    Ok((dice, ctx.commit().await))
 }
 
 #[tokio::test]
@@ -196,7 +196,7 @@ async fn test_change_cost() -> Result<(), Arc<anyhow::Error>> {
         .await
         .map_err(|e| Arc::new(anyhow::anyhow!(e)))?;
 
-    let ctx = ctx.commit();
+    let ctx = ctx.commit().await;
 
     assert_eq!(
         Some(3 * 7 + 2 * (2 * (1 + 2) + 2) + 10),

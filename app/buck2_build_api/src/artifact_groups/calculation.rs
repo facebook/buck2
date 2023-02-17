@@ -580,7 +580,7 @@ mod tests {
         let mut dice = dice_builder.build(UserComputationData::new())?;
         dice.set_cell_resolver(cell_resolver)?;
         dice.set_buck_out_path(None)?;
-        let dice = dice.commit();
+        let dice = dice.commit().await;
 
         let result = dice
             .ensure_artifact_group(&ArtifactGroup::TransitiveSetProjection(

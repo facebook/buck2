@@ -192,7 +192,7 @@ async fn smoke() -> anyhow::Result<()> {
         ..Default::default()
     });
 
-    let ctx = ctx.commit();
+    let ctx = ctx.commit().await;
 
     let file = ctx
         .compute(&FileKey {
@@ -214,7 +214,7 @@ async fn smoke() -> anyhow::Result<()> {
 
     let mut ctx = ctx.into_updater();
     ctx.changed([ConfigKey])?;
-    ctx.commit();
+    ctx.commit().await;
     tracker.lock().computations.clear();
 
     // Part 2: we update the config with the identical config.
@@ -225,7 +225,7 @@ async fn smoke() -> anyhow::Result<()> {
     data.data.set(GlobalConfig {
         config: HashMap::from_iter([("x".to_owned(), "X".to_owned())]),
     });
-    let ctx = dice.updater_with_data(data).commit();
+    let ctx = dice.updater_with_data(data).commit().await;
 
     let file = ctx
         .compute(&FileKey {
@@ -242,7 +242,7 @@ async fn smoke() -> anyhow::Result<()> {
 
     let mut ctx = ctx.into_updater();
     ctx.changed([ConfigKey])?;
-    ctx.commit();
+    ctx.commit().await;
     tracker.lock().computations.clear();
 
     // Part 3: we update the config with a different config,
@@ -257,7 +257,7 @@ async fn smoke() -> anyhow::Result<()> {
             ("y".to_owned(), "Y".to_owned()),
         ]),
     });
-    let ctx = dice.updater_with_data(data).commit();
+    let ctx = dice.updater_with_data(data).commit().await;
 
     let file = ctx
         .compute(&FileKey {

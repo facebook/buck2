@@ -62,7 +62,7 @@ async fn set_injected_multiple_times_per_commit() -> anyhow::Result<()> {
         ctx.changed_to(vec![(Foo(0), 0)])?;
         ctx.changed_to(vec![(Foo(1), 1)])?;
 
-        let ctx = ctx.commit();
+        let ctx = ctx.commit().await;
         assert_eq!(ctx.compute(&Foo(0)).await?, 0);
         assert_eq!(ctx.compute(&Foo(1)).await?, 1);
     }
@@ -88,7 +88,7 @@ async fn set_injected_with_no_change_no_new_ctx() -> anyhow::Result<()> {
         let mut ctx = dice.updater();
         ctx.changed_to(vec![(Foo(0), 0)])?;
 
-        let ctx = ctx.commit();
+        let ctx = ctx.commit().await;
 
         assert_eq!(ctx.0.0.get_version(), VersionNumber::new(1));
     }
@@ -97,7 +97,7 @@ async fn set_injected_with_no_change_no_new_ctx() -> anyhow::Result<()> {
         let mut ctx = dice.updater();
         ctx.changed_to(vec![(Foo(0), 0)])?;
 
-        let ctx = ctx.commit();
+        let ctx = ctx.commit().await;
         assert_eq!(ctx.0.0.get_version(), VersionNumber::new(1));
     }
 
@@ -118,7 +118,7 @@ async fn updates_caches_only_on_ctx_finalize_in_order() -> anyhow::Result<()> {
             .get_maybe_cached(Foo(1), vg.version, *vg.minor_version_guard)
             .assert_none();
 
-        ctx.commit();
+        ctx.commit().await;
 
         // committing the context commits the value
         let vg = dice.global_versions.current();
@@ -141,7 +141,7 @@ async fn updates_caches_only_on_ctx_finalize_in_order() -> anyhow::Result<()> {
 
         // as long as we commit ctx1 first, it's values are committed first, in linear
         // history
-        ctx1.commit();
+        ctx1.commit().await;
 
         let vg = dice.global_versions.current();
         assert_eq!(
@@ -157,7 +157,7 @@ async fn updates_caches_only_on_ctx_finalize_in_order() -> anyhow::Result<()> {
             .get_maybe_cached(Foo(2), vg.version, *vg.minor_version_guard)
             .assert_none();
 
-        ctx.commit();
+        ctx.commit().await;
 
         // only now is 'ctx' committed
         let vg = dice.global_versions.current();
@@ -208,7 +208,7 @@ fn ctx_tracks_deps_properly() -> anyhow::Result<()> {
 
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {
-        let ctx = dice.updater().commit();
+        let ctx = dice.updater().commit().await;
         let res = ctx
             .compute(&K(5))
             .await?
@@ -262,7 +262,7 @@ fn ctx_tracks_rdeps_properly() -> anyhow::Result<()> {
         .build()
         .unwrap();
     rt.block_on(async {
-        let ctx = dice.updater().commit();
+        let ctx = dice.updater().commit().await;
         let res = ctx
             .compute(&K(5))
             .await?
@@ -388,6 +388,7 @@ fn dice_computations_are_parallel() {
             .map(|i| async move {
                 dice.updater()
                     .commit()
+                    .await
                     .compute(&Blocking {
                         index: i,
                         barrier: barrier.dupe(),
@@ -438,9 +439,9 @@ async fn different_data_per_compute_ctx() {
         d
     };
 
-    let ctx0 = dice.updater_with_data(per_cmd_data0).commit();
+    let ctx0 = dice.updater_with_data(per_cmd_data0).commit().await;
 
-    let ctx1 = dice.updater_with_data(per_cmd_data1).commit();
+    let ctx1 = dice.updater_with_data(per_cmd_data1).commit().await;
 
     let request0 = ctx0.compute(&DataRequest(0));
     let request1 = ctx1.compute(&DataRequest(1));
@@ -477,7 +478,7 @@ async fn invalid_results_are_not_cached() -> anyhow::Result<()> {
     let dice = Dice::builder().build(DetectCycles::Enabled);
     let is_ran = Arc::new(AtomicBool::new(false));
     {
-        let ctx = dice.updater().commit();
+        let ctx = dice.updater().commit().await;
         ctx.compute(&AlwaysTransient(is_ran.dupe())).await?;
         assert!(is_ran.load(Ordering::SeqCst));
 
@@ -487,7 +488,7 @@ async fn invalid_results_are_not_cached() -> anyhow::Result<()> {
         assert!(!is_ran.load(Ordering::SeqCst));
 
         // simultaneously ctx should also re-use the result
-        let ctx1 = dice.updater().commit();
+        let ctx1 = dice.updater().commit().await;
         is_ran.store(false, Ordering::SeqCst);
         ctx1.compute(&AlwaysTransient(is_ran.dupe())).await?;
         assert!(!is_ran.load(Ordering::SeqCst));
@@ -495,7 +496,7 @@ async fn invalid_results_are_not_cached() -> anyhow::Result<()> {
 
     {
         // new context should re-run
-        let ctx = dice.updater().commit();
+        let ctx = dice.updater().commit().await;
         is_ran.store(false, Ordering::SeqCst);
         ctx.compute(&AlwaysTransient(is_ran.dupe())).await?;
         assert!(is_ran.load(Ordering::SeqCst));
@@ -560,7 +561,7 @@ async fn demo_with_transient() -> anyhow::Result<()> {
 
     let dice = Dice::builder().build(DetectCycles::Enabled);
 
-    let ctx = dice.updater().commit();
+    let ctx = dice.updater().commit().await;
     let validity = Arc::new(AtomicBool::new(false));
 
     assert!(
@@ -578,7 +579,7 @@ async fn demo_with_transient() -> anyhow::Result<()> {
 
     drop(ctx);
 
-    let ctx = dice.updater().commit();
+    let ctx = dice.updater().commit().await;
     assert_eq!(
         ctx.compute(&MaybeTransient(10, validity.dupe())).await?,
         Ok(512)
@@ -617,7 +618,7 @@ async fn test_wait_for_idle() -> anyhow::Result<()> {
 
     let dice = Dice::builder().build(DetectCycles::Enabled);
 
-    let ctx = dice.updater().commit();
+    let ctx = dice.updater().commit().await;
 
     let (tx, rx) = oneshot::channel();
     let rx = rx.shared();

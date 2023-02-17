@@ -599,7 +599,7 @@ mod tests {
             ),
             configs,
         )?;
-        let dice = dice.commit();
+        let dice = dice.commit().await;
 
         let analysis = dice
             .get_analysis_result(

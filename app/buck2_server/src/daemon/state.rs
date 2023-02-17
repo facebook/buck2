@@ -15,6 +15,7 @@ use std::time::Instant;
 
 use allocative::Allocative;
 use anyhow::Context;
+use async_trait::async_trait;
 use buck2_cli_proto::unstable_dice_dump_request::DiceDumpFormat;
 use buck2_common::ignores::IgnoreSet;
 use buck2_common::invocation_paths::InvocationPaths;
@@ -147,8 +148,9 @@ impl DaemonStatePanicDiceDump for DaemonStateData {
     }
 }
 
+#[async_trait]
 pub trait DaemonStateDiceConstructor: Allocative + Send + Sync + 'static {
-    fn construct_dice(
+    async fn construct_dice(
         &self,
         io: Arc<dyn IoProvider>,
         digest_config: DigestConfig,
@@ -303,7 +305,9 @@ impl DaemonState {
             materializer_state,
         )?;
 
-        let dice = dice_constructor.construct_dice(io.dupe(), digest_config, root_config)?;
+        let dice = dice_constructor
+            .construct_dice(io.dupe(), digest_config, root_config)
+            .await?;
 
         // TODO(cjhopman): We want to use Expr::True here, but we need to workaround
         // https://github.com/facebook/watchman/issues/911. Adding other filetypes to
