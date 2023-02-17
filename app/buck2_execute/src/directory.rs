@@ -17,6 +17,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use anyhow::Context as _;
+use buck2_common::cas_digest::CasDigestConfig;
 use buck2_common::cas_digest::DigestAlgorithm;
 use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_common::external_symlink::ExternalSymlink;
@@ -88,7 +89,7 @@ pub trait ActionFingerprintedDirectory =
 #[derive(Allocative, RefCast)]
 #[repr(transparent)]
 pub struct ReDirectorySerializer {
-    pub digest_config: DigestConfig,
+    pub cas_digest_config: CasDigestConfig,
 }
 
 impl ReDirectorySerializer {
@@ -180,10 +181,7 @@ impl DirectoryHasher<ActionDirectoryMember, TrackedFileDigest> for ReDirectorySe
         >,
         D: ActionFingerprintedDirectory + 'a,
     {
-        TrackedFileDigest::from_content(
-            &Self::serialize_entries(entries),
-            self.digest_config.cas_digest_config(),
-        )
+        TrackedFileDigest::from_content(&Self::serialize_entries(entries), self.cas_digest_config)
     }
 }
 

@@ -10,10 +10,11 @@
 use allocative::Allocative;
 use buck2_common::cas_digest::CasDigestConfig;
 use buck2_common::file_ops::FileMetadata;
+use derivative::Derivative;
 use dice::DiceData;
 use dice::DiceDataBuilder;
 use dupe::Dupe;
-use once_cell::sync::OnceCell;
+use once_cell::sync::Lazy;
 use ref_cast::RefCast;
 
 use crate::directory::ActionDirectoryBuilder;
@@ -24,18 +25,19 @@ use crate::directory::INTERNER;
 /// This configuration describes how to interpret digests received from a RE backend.
 #[derive(Copy, Clone, Dupe, Debug, Allocative, Hash, Eq, PartialEq)]
 pub struct DigestConfig {
-    inner: CasDigestConfig,
+    inner: &'static DigestConfigInner,
 }
 
 impl DigestConfig {
     pub fn compat() -> Self {
-        Self {
-            inner: CasDigestConfig::compat(),
-        }
+        static COMPAT: Lazy<DigestConfigInner> =
+            Lazy::new(|| DigestConfigInner::new(CasDigestConfig::compat()));
+
+        Self { inner: &COMPAT }
     }
 
     pub fn cas_digest_config(&self) -> CasDigestConfig {
-        self.inner
+        self.inner.cas_digest_config
     }
 
     pub fn empty_file(&self) -> FileMetadata {
@@ -44,21 +46,32 @@ impl DigestConfig {
     }
 
     pub fn as_directory_serializer(&self) -> &ReDirectorySerializer {
-        ReDirectorySerializer::ref_cast(self)
+        ReDirectorySerializer::ref_cast(&self.inner.cas_digest_config)
     }
 
     pub fn empty_directory(&self) -> ActionSharedDirectory {
-        // TODO: This should be a field on the DigestConfig, obviously.
-        static EMPTY_DIRECTORY: OnceCell<ActionSharedDirectory> = OnceCell::new();
-        EMPTY_DIRECTORY
-            .get_or_init(|| {
-                ActionDirectoryBuilder::empty()
-                    .fingerprint(&ReDirectorySerializer {
-                        digest_config: *self,
-                    })
-                    .shared(&*INTERNER)
-            })
-            .dupe()
+        self.inner.empty_directory.dupe()
+    }
+}
+
+#[derive(Debug, Allocative, Derivative, Eq)]
+#[derivative(Hash, PartialEq)]
+struct DigestConfigInner {
+    cas_digest_config: CasDigestConfig,
+    #[derivative(PartialEq = "ignore", Hash = "ignore")]
+    empty_directory: ActionSharedDirectory,
+}
+
+impl DigestConfigInner {
+    fn new(cas_digest_config: CasDigestConfig) -> Self {
+        let empty_directory = ActionDirectoryBuilder::empty()
+            .fingerprint(&ReDirectorySerializer { cas_digest_config })
+            .shared(&*INTERNER);
+
+        Self {
+            cas_digest_config,
+            empty_directory,
+        }
     }
 }
 
