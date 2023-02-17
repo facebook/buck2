@@ -18,6 +18,7 @@ use buck2_core::directory::DirectoryEntry;
 use buck2_core::directory::DirectoryIterator;
 use buck2_core::directory::FingerprintedDirectory;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
+use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use dupe::Dupe;
 use remote_execution as RE;
 use sorted_vector_map::SortedVectorMap;
@@ -135,19 +136,6 @@ impl CommandExecutor {
             let action_paths = self.preamble(request.inputs(), request.outputs(), digest_config)?;
             let input_digest = action_paths.inputs.fingerprint();
 
-            let mut output_files = Vec::new();
-            let mut output_dirs = Vec::new();
-            for (output, output_type) in &action_paths.outputs {
-                match output_type {
-                    OutputType::FileOrDirectory => {
-                        output_files.push(output.as_str().to_owned());
-                        output_dirs.push(output.as_str().to_owned());
-                    }
-                    OutputType::File => output_files.push(output.as_str().to_owned()),
-                    OutputType::Directory => output_dirs.push(output.as_str().to_owned()),
-                }
-            }
-
             let action_metadata_blobs = request.inputs().iter().filter_map(|x| match x {
                 CommandExecutionInput::Artifact(_) => None,
                 CommandExecutionInput::ActionMetadata(metadata) => {
@@ -156,8 +144,7 @@ impl CommandExecutor {
             });
             let action = re_create_action(
                 request.args().to_vec(),
-                output_files,
-                output_dirs,
+                &action_paths.outputs,
                 request.working_directory().map(|p| p.as_str().to_owned()),
                 request.env(),
                 input_digest,
@@ -229,8 +216,7 @@ impl CommandExecutor {
 
 fn re_create_action(
     args: Vec<String>,
-    output_files: Vec<String>,
-    output_directories: Vec<String>,
+    outputs: &[(ProjectRelativePathBuf, OutputType)],
     workdir: Option<String>,
     environment: &SortedVectorMap<String, String>,
     input_digest: &TrackedFileDigest,
@@ -240,10 +226,8 @@ fn re_create_action(
     do_not_cache: bool,
     digest_config: DigestConfig,
 ) -> PreparedAction {
-    let command = RE::Command {
+    let mut command = RE::Command {
         arguments: args,
-        output_files,
-        output_directories,
         platform,
         working_directory: workdir.unwrap_or_default(),
         environment_variables: environment
@@ -255,6 +239,29 @@ fn re_create_action(
             .collect(),
         ..Default::default()
     };
+
+    #[cfg(fbcode_build)]
+    {
+        for (output, output_type) in outputs {
+            match output_type {
+                OutputType::FileOrDirectory => {
+                    command.output_files.push(output.as_str().to_owned());
+                    command.output_directories.push(output.as_str().to_owned());
+                }
+                OutputType::File => command.output_files.push(output.as_str().to_owned()),
+                OutputType::Directory => {
+                    command.output_directories.push(output.as_str().to_owned())
+                }
+            }
+        }
+    }
+
+    #[cfg(not(fbcode_build))]
+    {
+        for (output, _output_type) in outputs {
+            command.output_paths.push(output.as_str().to_owned());
+        }
+    }
 
     let timeout = timeout.map(|t| prost_types::Duration {
         seconds: t.as_secs() as i64,
