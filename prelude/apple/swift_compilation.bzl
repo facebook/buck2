@@ -84,21 +84,24 @@ def get_swift_anonymous_targets(ctx: "context", get_apple_library_providers: "fu
         ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info,
     )
 
-    # Recursively compile PCMs of transitevely visible exported_deps
+    # Recursively compiling headers of direct and transitive deps as PCM modules,
+    # passing apple_library's cxx flags through that must be used for all downward PCM compilations.
     pcm_targets = get_swift_pcm_anon_targets(
         ctx,
         ctx.attrs.deps + ctx.attrs.exported_deps,
         swift_cxx_flags,
     )
 
-    # Recursively compiling SDK's Clang dependencies
+    # Recursively compiling SDK's Clang dependencies,
+    # passing apple_library's cxx flags through that must be used for all downward PCM compilations.
     sdk_pcm_targets = get_swift_sdk_pcm_anon_targets(
         ctx,
         direct_uncompiled_sdk_deps,
         swift_cxx_flags,
     )
 
-    # Recursively compiling SDK's Swift dependencies
+    # Recursively compiling SDK's Swift dependencies,
+    # passing apple_library's cxx flags through that must be used for all downward PCM compilations.
     swift_interface_anon_targets = get_swift_interface_anon_targets(
         ctx,
         direct_uncompiled_sdk_deps,
@@ -107,6 +110,7 @@ def get_swift_anonymous_targets(ctx: "context", get_apple_library_providers: "fu
     return ctx.actions.anon_targets(pcm_targets + sdk_pcm_targets + swift_interface_anon_targets).map(get_apple_library_providers)
 
 def get_swift_cxx_flags(ctx: "context") -> [str.type]:
+    """Iterates through `swift_compiler_flags` and returns a list of flags that might affect Clang compilation"""
     gather, next = ([], False)
     for f in ctx.attrs.swift_compiler_flags:
         if next:
@@ -133,6 +137,8 @@ def compile_swift(
     if not srcs:
         return None
 
+    # If a target exports ObjC headers and Swift explicit modules are enabled,
+    # we need to precompile a PCM of the underlying module and supply it to the Swift compilation.
     if objc_modulemap_pp_info:
         underlying_swift_pcm_uncompiled_info = get_swift_pcm_uncompile_info(
             ctx,

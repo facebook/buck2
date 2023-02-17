@@ -37,6 +37,9 @@ def traverse_sdk_modules_graph(
             clang_sdk_module_name_to_deps[uncompiled_sdk_module_info.module_name] = sdk_module_dep
 
 def swift_toolchain_impl(ctx):
+    # All Clang's PCMs need to be compiled with cxx flags of the target that imports them,
+    # because of that, we expose `dependency`s of SDK modules,
+    # which might be accessed from apple_library/apple_test rules and compiled there.
     uncompiled_swift_sdk_modules_deps = {}
     uncompiled_clang_sdk_modules_deps = {}
 

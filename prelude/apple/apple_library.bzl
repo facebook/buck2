@@ -71,6 +71,9 @@ def apple_library_impl(ctx: "context") -> ["promise", ["provider"]]:
 
         output = cxx_library_parameterized(ctx, constructor_params)
 
+        # Expose `SwiftPCMUncompiledInfo` which represents the ObjC part of a target,
+        # if a target also has a Swift part, the provider will expose the generated `-Swift.h` header.
+        # This is used for Swift Explicit Modules, and allows compiling a PCM file out of the exported headers.
         exported_swift_pcm_uncompiled_info = get_swift_pcm_uncompile_info(
             ctx,
             output.propagated_exported_preprocessor_info,
