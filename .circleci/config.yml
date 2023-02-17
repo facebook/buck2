@@ -47,6 +47,7 @@ commands:
             # Avoid: "Error: The `brew link` step did not complete
             # successfully" (for llvm dependency 'six').
             rm -f '/usr/local/lib/python3.9/site-packages/six.py'
+            brew unlink python@3.9
             brew install cmake coreutils opam llvm
       - run:
           name: Init opam
