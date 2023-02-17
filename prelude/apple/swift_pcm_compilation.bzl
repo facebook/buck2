@@ -94,11 +94,17 @@ def _swift_pcm_compilation_impl(ctx: "context") -> ["promise", ["provider"]]:
         if uncompiled_pcm_info.propagated_preprocessor_args_cmd:
             cmd.add(uncompiled_pcm_info.propagated_preprocessor_args_cmd)
 
+        # T142915880 There is an issue with hard links,
+        # when we compile pcms remotely on linux machines.
+        local_only = True
+
         ctx.actions.run(
             cmd,
             env = get_explicit_modules_env_var(True),
             category = "swift_pcm_compile",
             identifier = module_name,
+            local_only = local_only,
+            allow_cache_upload = local_only,
         )
 
         compiled_pcm = SwiftPCMCompiledInfo(
@@ -195,11 +201,17 @@ def compile_underlying_pcm(
         cmd_args([cmd_args(modulemap_path).parent(), "exported_symlink_tree"], delimiter = "/"),
     ])
 
+    # T142915880 There is an issue with hard links,
+    # when we compile pcms remotely on linux machines.
+    local_only = True
+
     ctx.actions.run(
         cmd,
         env = get_explicit_modules_env_var(True),
         category = "swift_underlying_pcm_compile",
         identifier = module_name,
+        local_only = local_only,
+        allow_cache_upload = local_only,
     )
 
     return SwiftPCMCompiledInfo(

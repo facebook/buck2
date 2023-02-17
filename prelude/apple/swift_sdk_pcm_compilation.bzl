@@ -150,7 +150,18 @@ def _swift_sdk_pcm_compilation_impl(ctx: "context") -> ["promise", ["provider"]]
         cmd.add(ctx.attrs.swift_cxx_args)
 
         _add_sdk_module_search_path(cmd, uncompiled_sdk_module_info, apple_toolchain)
-        ctx.actions.run(cmd, category = "sdk_swift_pcm_compile", identifier = module_name)
+
+        # T142915880 There is an issue with hard links,
+        # when we compile pcms remotely on linux machines.
+        local_only = True
+
+        ctx.actions.run(
+            cmd,
+            category = "sdk_swift_pcm_compile",
+            identifier = module_name,
+            local_only = local_only,
+            allow_cache_upload = local_only,
+        )
 
         compiled_sdk = SdkCompiledModuleInfo(
             name = uncompiled_sdk_module_info.name,
