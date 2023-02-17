@@ -12,6 +12,8 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use dupe::Dupe;
+use futures::FutureExt;
+use more_futures::spawn::spawn_dropcancel;
 
 use crate::api::data::DiceData;
 use crate::api::error::DiceResult;
@@ -23,7 +25,10 @@ use crate::versions::VersionNumber;
 
 /// Context given to the `compute` function of a `Key`.
 #[derive(Allocative, Dupe, Clone)]
-pub(crate) struct PerComputeCtx {}
+pub(crate) struct PerComputeCtx {
+    per_live_version_ctx: Arc<PerLiveTransactionCtx>,
+    user_data: Arc<UserComputationData>,
+}
 
 #[allow(clippy::manual_async_fn)]
 impl PerComputeCtx {
@@ -37,7 +42,8 @@ impl PerComputeCtx {
     where
         K: Key,
     {
-        async move { unimplemented!("todo") }
+        self.compute_opaque(key)
+            .map(|r| r.map(|opaque| opaque.into_value()))
     }
 
     /// Compute "opaque" value where the value is only accessible via projections.
@@ -51,7 +57,7 @@ impl PerComputeCtx {
     where
         K: Key,
     {
-        async move { unimplemented!("todo") }
+        self.per_live_version_ctx.compute_opaque(key)
     }
 
     /// temporarily here while we figure out why dice isn't paralleling computations so that we can
@@ -80,7 +86,7 @@ impl PerComputeCtx {
     /// The data is also specific to each request context, so multiple concurrent requests can
     /// each have their own individual data.
     pub(crate) fn per_transaction_data(&self) -> &UserComputationData {
-        unimplemented!("todo")
+        &self.user_data
     }
 
     pub(crate) fn get_version(&self) -> VersionNumber {
