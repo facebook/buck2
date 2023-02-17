@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::collections::VecDeque;
 use std::convert::Infallible;
 use std::ffi::OsStr;
 use std::marker::PhantomData;
@@ -84,6 +85,22 @@ impl<T: Allocative> Allocative for Vec<T> {
         if self.capacity() != 0 && mem::size_of::<T>() != 0 {
             let mut visitor = visitor.enter_unique(PTR_NAME, mem::size_of::<*const T>());
             visitor.visit_slice(self.as_slice());
+            visitor.visit_simple(
+                UNUSED_CAPACITY_NAME,
+                (self.capacity() - self.len()) * mem::size_of::<T>(),
+            );
+        }
+        visitor.exit();
+    }
+}
+
+impl<T: Allocative> Allocative for VecDeque<T> {
+    fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {
+        let mut visitor = visitor.enter_self_sized::<Self>();
+        if self.capacity() != 0 && mem::size_of::<T>() != 0 {
+            let mut visitor = visitor.enter_unique(PTR_NAME, mem::size_of::<*const T>());
+            visitor.visit_slice(self.as_slices().0);
+            visitor.visit_slice(self.as_slices().1);
             visitor.visit_simple(
                 UNUSED_CAPACITY_NAME,
                 (self.capacity() - self.len()) * mem::size_of::<T>(),
