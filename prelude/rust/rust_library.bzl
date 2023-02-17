@@ -409,18 +409,28 @@ def _default_providers(
         for (k, v) in targets.items()
     }
 
+    providers = []
+
     if rustdoc_test:
-        sub_targets["doc"].append(ExternalRunnerTestInfo(
+        rustdoc_test_info = ExternalRunnerTestInfo(
             type = "rustdoc",
             command = [rustdoc_test],
             run_from_project_root = True,
             env = {"RUSTC_BOOTSTRAP": "1"},  # for `-Zunstable-options`
-        ))
+        )
 
-    return [DefaultInfo(
+        # Run doc test as part of `buck2 test :crate`
+        providers.append(rustdoc_test_info)
+
+        # Run doc test as part of `buck2 test :crate[doc]`
+        sub_targets["doc"].append(rustdoc_test_info)
+
+    providers.append(DefaultInfo(
         default_output = check_artifacts["check"],
         sub_targets = sub_targets,
-    )]
+    ))
+
+    return providers
 
 def _rust_providers(
         ctx: "context",
