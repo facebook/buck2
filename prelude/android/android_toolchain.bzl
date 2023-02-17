@@ -31,6 +31,7 @@ AndroidToolchainInfo = provider(fields = [
     "framework_aidl_file",
     "generate_build_config",
     "generate_manifest",
+    "instrumentation_test_can_run_locally",
     "instrumentation_test_runner_classpath",
     "instrumentation_test_runner_main_class",
     "manifest_utils",
