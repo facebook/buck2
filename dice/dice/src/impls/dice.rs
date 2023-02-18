@@ -76,7 +76,7 @@ impl DiceModern {
     ) -> DiceTransactionUpdater {
         DiceTransactionUpdater(DiceTransactionUpdaterImpl::Modern(TransactionUpdater::new(
             self.dupe(),
-            extra,
+            Arc::new(extra),
         )))
     }
 

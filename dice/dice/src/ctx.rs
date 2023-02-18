@@ -138,8 +138,8 @@ impl DiceComputationsImpl {
     pub(crate) fn into_updater(self) -> DiceTransactionUpdater {
         DiceTransactionUpdater(match self {
             DiceComputationsImpl::Legacy(delegate) => DiceTransactionUpdaterImpl::Legacy(delegate),
-            DiceComputationsImpl::Modern(_delegate) => {
-                unimplemented!("todo")
+            DiceComputationsImpl::Modern(delegate) => {
+                DiceTransactionUpdaterImpl::Modern(delegate.into_updater())
             }
         })
     }

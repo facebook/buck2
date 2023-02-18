@@ -22,6 +22,7 @@ use crate::api::transaction::DiceTransactionUpdater;
 use crate::api::user_data::UserComputationData;
 use crate::impls::dice::DiceModern;
 use crate::impls::opaque::OpaqueValueModern;
+use crate::impls::transaction::TransactionUpdater;
 use crate::versions::VersionNumber;
 
 /// Context given to the `compute` function of a `Key`.
@@ -107,8 +108,8 @@ impl PerComputeCtx {
         unimplemented!("todo")
     }
 
-    pub(crate) fn into_updater(self) -> DiceTransactionUpdater {
-        unimplemented!("todo")
+    pub(crate) fn into_updater(self) -> TransactionUpdater {
+        TransactionUpdater::new(self.dice.dupe(), self.user_data.dupe())
     }
 }
 
@@ -142,5 +143,55 @@ impl PerLiveTransactionCtx {
 
     pub(crate) fn get_version(&self) -> VersionNumber {
         unimplemented!("todo")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::impls::dice::DiceModern;
+    use crate::impls::dice::DiceModernDataBuilder;
+    use crate::DetectCycles;
+    use crate::UserComputationData;
+
+    #[tokio::test]
+    async fn ctx_and_updater_with_user_data() {
+        let dice = {
+            let mut updater = DiceModernDataBuilder::new();
+
+            updater.build(DetectCycles::Disabled)
+        };
+
+        let mut updater = dice.updater();
+        let mut data = UserComputationData::new();
+        data.data.set::<u32>(5);
+
+        let ctx = updater.commit_with_data(data).await;
+        let set_data = ctx
+            .per_transaction_data()
+            .data
+            .get::<u32>()
+            .expect("missing data");
+        assert_eq!(set_data, &5);
+
+        // check that into_updater keeps the data version
+        let ctx = ctx.into_updater().commit().await;
+        let set_data = ctx
+            .per_transaction_data()
+            .data
+            .get::<u32>()
+            .expect("missing data");
+        assert_eq!(set_data, &5);
+
+        let mut data = UserComputationData::new();
+        data.data.set::<u32>(2);
+        let mut updater = dice.updater_with_data(data);
+
+        let ctx = updater.commit().await;
+        let set_data = ctx
+            .per_transaction_data()
+            .data
+            .get::<u32>()
+            .expect("missing data");
+        assert_eq!(set_data, &2);
     }
 }

@@ -34,11 +34,11 @@ use crate::HashMap;
 pub(crate) struct TransactionUpdater {
     dice: Arc<DiceModern>,
     scheduled_changes: Changes,
-    user_data: UserComputationData,
+    user_data: Arc<UserComputationData>,
 }
 
 impl TransactionUpdater {
-    pub(crate) fn new(dice: Arc<DiceModern>, user_data: UserComputationData) -> Self {
+    pub(crate) fn new(dice: Arc<DiceModern>, user_data: Arc<UserComputationData>) -> Self {
         Self {
             dice: dice.dupe(),
             scheduled_changes: Changes::new(dice),
@@ -88,9 +88,7 @@ impl TransactionUpdater {
 
         let dice = self.dice.dupe();
 
-        rx.map(|transaction| {
-            PerComputeCtx::new(transaction.unwrap(), Arc::new(self.user_data), dice)
-        })
+        rx.map(|transaction| PerComputeCtx::new(transaction.unwrap(), self.user_data, dice))
     }
 
     /// Commit the changes registered via 'changed' and 'changed_to' to the current newest version,
@@ -152,6 +150,7 @@ pub(crate) enum ChangeType {
 #[cfg(test)]
 mod tests {
     use std::borrow::Cow;
+    use std::sync::Arc;
 
     use allocative::Allocative;
     use assert_matches::assert_matches;
@@ -170,7 +169,8 @@ mod tests {
     #[test]
     fn changes_are_recorded() -> anyhow::Result<()> {
         let dice = DiceModern::new(DiceData::new());
-        let mut updater = TransactionUpdater::new(dice.dupe(), UserComputationData::new());
+        let mut updater =
+            TransactionUpdater::new(dice.dupe(), Arc::new(UserComputationData::new()));
 
         #[derive(Allocative, Clone, PartialEq, Eq, Hash, Debug, Display)]
         struct K(usize);
