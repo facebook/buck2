@@ -177,7 +177,7 @@ static PyObject* _check_module(PyObject* self, PyObject* fullname) {
     return nullptr;
   }
   const std::string modname = PyUnicode_AsUTF8(fullname);
-  if (_static_extension_info.contains(modname)) {
+  if (_static_extension_info.find(modname) != _static_extension_info.end()) {
     Py_INCREF(Py_True);
     return Py_True;
   }
