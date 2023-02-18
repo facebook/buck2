@@ -53,6 +53,7 @@ load(
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 load(
     ":cxx_library_utility.bzl",
+    "cxx_is_gnu",
     "cxx_mk_shlib_intf",
 )
 load(
@@ -721,21 +722,23 @@ def create_link_groups(
             category_suffix = "link_group",
         )
 
+        # On GNU, use shlib interfaces.
+        if cxx_is_gnu(ctx):
+            shlib_for_link = cxx_mk_shlib_intf(
+                ctx = ctx,
+                name = link_group_spec.name,
+                shared_lib = link_group_lib.output,
+            )
+        else:
+            shlib_for_link = link_group_lib.output
+
         linked_link_groups[link_group_spec.group.name] = _LinkedLinkGroup(
             artifact = link_group_lib,
             library = None if not link_group_spec.is_shared_lib else LinkGroupLib(
                 shared_libs = {link_group_spec.name: link_group_lib},
                 shared_link_infos = LinkInfos(
                     default = LinkInfo(
-                        linkables = [
-                            SharedLibLinkable(
-                                lib = cxx_mk_shlib_intf(
-                                    ctx = ctx,
-                                    name = link_group_spec.name,
-                                    shared_lib = link_group_lib.output,
-                                ),
-                            ),
-                        ],
+                        linkables = [SharedLibLinkable(lib = shlib_for_link)],
                     ),
                 ),
             ),
