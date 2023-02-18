@@ -17,6 +17,7 @@ use dupe::Dupe;
 use serde::Serializer;
 
 use crate::api::cycles::DetectCycles;
+use crate::api::data::DiceData;
 use crate::api::transaction::DiceTransactionUpdater;
 use crate::api::user_data::UserComputationData;
 use crate::impls::core::state::init_state;
@@ -29,6 +30,7 @@ use crate::transaction_update::DiceTransactionUpdaterImpl;
 pub(crate) struct DiceModern {
     pub(crate) key_index: DiceKeyIndex,
     pub(crate) state_handle: CoreStateHandle,
+    pub(crate) global_data: DiceData,
 }
 
 impl Debug for DiceModern {
@@ -37,14 +39,32 @@ impl Debug for DiceModern {
     }
 }
 
+#[allow(unused)]
+pub(crate) struct DiceModernDataBuilder(DiceData);
+
+#[allow(unused)]
+impl DiceModernDataBuilder {
+    pub(crate) fn new() -> Self {
+        Self(DiceData::new())
+    }
+
+    pub fn set<K: Send + Sync + 'static>(&mut self, val: K) {
+        self.0.set(val);
+    }
+
+    pub fn build(self, _detect_cycles: DetectCycles) -> Arc<DiceModern> {
+        DiceModern::new(self.0)
+    }
+}
+
 impl DiceModern {
-    #[allow(unused)]
-    pub(crate) fn new() -> Arc<Self> {
+    pub(crate) fn new(global_data: DiceData) -> Arc<Self> {
         let state_handle = init_state();
 
         Arc::new(DiceModern {
             key_index: Default::default(),
             state_handle,
+            global_data,
         })
     }
 

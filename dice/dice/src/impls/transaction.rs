@@ -154,6 +154,7 @@ mod tests {
     use dupe::Dupe;
 
     use crate::api::computations::DiceComputations;
+    use crate::api::data::DiceData;
     use crate::api::key::Key;
     use crate::api::user_data::UserComputationData;
     use crate::impls::dice::DiceModern;
@@ -162,7 +163,7 @@ mod tests {
 
     #[test]
     fn changes_are_recorded() -> anyhow::Result<()> {
-        let dice = DiceModern::new();
+        let dice = DiceModern::new(DiceData::new());
         let mut updater = TransactionUpdater::new(dice.dupe(), UserComputationData::new());
 
         #[derive(Allocative, Clone, PartialEq, Eq, Hash, Debug, Display)]
