@@ -21,6 +21,7 @@ load(
     "SharedLibLinkable",
     "get_actual_link_style",
     "set_linkable_link_whole",
+    "wrap_with_no_as_needed_shared_libs_flags",
     get_link_info_from_link_infos = "get_link_info",
 )
 load(
@@ -67,10 +68,6 @@ load(
 load(
     ":link.bzl",
     "cxx_link_shared_library",
-)
-load(
-    ":linker.bzl",
-    "get_no_as_needed_shared_libs_flags",
 )
 load(
     ":symbols.bzl",
@@ -586,19 +583,16 @@ def _stub_library(ctx: "context", name: str.type, extra_ldflags: [""] = []) -> L
     toolchain_info = get_cxx_toolchain_info(ctx)
     linker_info = toolchain_info.linker_info
     return LinkInfos(
-        default = LinkInfo(
-            # Since we link against empty stub libraries, `--as-needed`
-            # will end up removing `DT_NEEDED` tags that we actually
-            # need at runtime, so pass in `--no-as-needed` last to
-            # make sure this is overridden.
-            # TODO(agallagher): It'd be nice to at least support a
-            # mode where we don't need to use empty stub libs.
-            pre_flags = (
-                ["-Wl,--push-state"] +
-                get_no_as_needed_shared_libs_flags(linker_info.type)
+        # Since we link against empty stub libraries, `--as-needed` will end up
+        # removing `DT_NEEDED` tags that we actually need at runtime, so pass in
+        # `--no-as-needed` last to make sure this is overridden.
+        # TODO(agallagher): It'd be nice to at least support a mode where we
+        # don't need to use empty stub libs.
+        default = wrap_with_no_as_needed_shared_libs_flags(
+            linker_type = linker_info.type,
+            link_info = LinkInfo(
+                linkables = [SharedLibLinkable(lib = output)],
             ),
-            linkables = [SharedLibLinkable(lib = output)],
-            post_flags = ["-Wl,--pop-state"],
         ),
     )
 

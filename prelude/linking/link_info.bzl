@@ -5,7 +5,12 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//cxx:linker.bzl", "get_link_whole_args", "get_objects_as_library_args")
+load(
+    "@prelude//cxx:linker.bzl",
+    "get_link_whole_args",
+    "get_no_as_needed_shared_libs_flags",
+    "get_objects_as_library_args",
+)
 load(
     "@prelude//utils:utils.bzl",
     "flatten",
@@ -584,3 +589,24 @@ def merge_framework_linkables(linkables: [[FrameworksLinkable.type, None]]) -> F
         unresolved_framework_paths = unique_framework_paths.keys(),
         library_names = unique_library_names.keys(),
     )
+
+def wrap_with_no_as_needed_shared_libs_flags(linker_type: str.type, link_info: LinkInfo.type) -> LinkInfo.type:
+    """
+    Wrap link info in args used to prevent linkers from dropping unused shared
+    library dependencies from the e.g. DT_NEEDED tags of the link.
+    """
+
+    if linker_type == "gnu":
+        return wrap_link_info(
+            inner = link_info,
+            pre_flags = (
+                ["-Wl,--push-state"] +
+                get_no_as_needed_shared_libs_flags(linker_type)
+            ),
+            post_flags = ["-Wl,--pop-state"],
+        )
+
+    if linker_type == "darwin":
+        return link_info
+
+    fail("Linker type {} not supported".format(linker_type))
