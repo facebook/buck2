@@ -174,16 +174,12 @@ impl IoProvider for EdenIoProvider {
     #[cfg(not(unix))]
     async fn read_path_metadata_if_exists(
         &self,
-        _path: ProjectRelativePathBuf,
+        path: ProjectRelativePathBuf,
     ) -> anyhow::Result<Option<RawPathMetadata<ProjectRelativePathBuf>>> {
-        #[derive(thiserror::Error, Debug)]
-        #[error(
-            "read_path_metadata_if_exists() is not supported on Windows \
-            because of dependency on nix crate"
-        )]
-        struct NotImplemented;
+        // `read_path_metadata_if_exists` is not implemented with eden on Windows
+        // because of dependency on nix crate.
 
-        Err(NotImplemented.into())
+        self.fs.read_path_metadata_if_exists(path).await
     }
 
     #[cfg(unix)]
