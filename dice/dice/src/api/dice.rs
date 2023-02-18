@@ -198,7 +198,7 @@ use crate::api::cycles::DetectCycles;
 use crate::api::transaction::DiceTransactionUpdater;
 use crate::api::user_data::UserComputationData;
 use crate::legacy::metrics::Metrics;
-use crate::legacy::DiceLegacyDataBuilder;
+use crate::DiceDataBuilderImpl;
 use crate::DiceImplementation;
 
 /// An incremental computation engine that executes arbitrary computations that
@@ -210,10 +210,10 @@ pub struct Dice {
 
 impl Dice {
     pub fn builder() -> DiceDataBuilder {
-        DiceDataBuilder::new()
+        DiceDataBuilder(DiceDataBuilderImpl::new_legacy())
     }
 
-    fn new(implementation: DiceImplementation) -> Arc<Self> {
+    pub(crate) fn new(implementation: DiceImplementation) -> Arc<Self> {
         Arc::new(Self { implementation })
     }
 
@@ -263,19 +263,15 @@ impl Dice {
     }
 }
 
-pub struct DiceDataBuilder(DiceLegacyDataBuilder);
+pub struct DiceDataBuilder(DiceDataBuilderImpl);
 
 impl DiceDataBuilder {
-    pub(crate) fn new() -> Self {
-        Self(DiceLegacyDataBuilder::new())
-    }
-
     pub fn set<K: Send + Sync + 'static>(&mut self, val: K) {
         self.0.set(val);
     }
 
     pub fn build(self, detect_cycles: DetectCycles) -> Arc<Dice> {
-        Dice::new(DiceImplementation::Legacy(self.0.build(detect_cycles)))
+        self.0.build(detect_cycles)
     }
 }
 

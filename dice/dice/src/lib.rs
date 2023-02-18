@@ -252,7 +252,9 @@ pub use crate::api::transaction::DiceTransaction;
 pub use crate::api::transaction::DiceTransactionUpdater;
 pub use crate::api::user_data::UserComputationData;
 use crate::impls::dice::DiceModern;
+use crate::impls::dice::DiceModernDataBuilder;
 use crate::legacy::DiceLegacy;
+use crate::legacy::DiceLegacyDataBuilder;
 
 #[derive(Allocative, Debug)]
 pub(crate) enum DiceImplementation {
@@ -329,6 +331,36 @@ impl DiceImplementation {
             DiceImplementation::Legacy(dice) => dice.is_idle(),
             DiceImplementation::Modern(dice) => dice.is_idle(),
         }
+    }
+}
+
+pub(crate) enum DiceDataBuilderImpl {
+    Legacy(DiceLegacyDataBuilder),
+    Modern(DiceModernDataBuilder),
+}
+
+impl DiceDataBuilderImpl {
+    pub(crate) fn new_legacy() -> Self {
+        Self::Legacy(DiceLegacyDataBuilder::new())
+    }
+
+    #[allow(unused)] // TODO(bobyf)
+    pub(crate) fn new_modern() -> Self {
+        Self::Modern(DiceModernDataBuilder::new())
+    }
+
+    pub fn set<K: Send + Sync + 'static>(&mut self, val: K) {
+        match self {
+            DiceDataBuilderImpl::Legacy(d) => d.set(val),
+            DiceDataBuilderImpl::Modern(d) => d.set(val),
+        }
+    }
+
+    pub fn build(self, detect_cycles: DetectCycles) -> Arc<Dice> {
+        Dice::new(match self {
+            DiceDataBuilderImpl::Legacy(d) => DiceImplementation::Legacy(d.build(detect_cycles)),
+            DiceDataBuilderImpl::Modern(d) => DiceImplementation::Modern(d.build(detect_cycles)),
+        })
     }
 }
 

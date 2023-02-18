@@ -39,10 +39,8 @@ impl Debug for DiceModern {
     }
 }
 
-#[allow(unused)]
 pub(crate) struct DiceModernDataBuilder(DiceData);
 
-#[allow(unused)]
 impl DiceModernDataBuilder {
     pub(crate) fn new() -> Self {
         Self(DiceData::new())
