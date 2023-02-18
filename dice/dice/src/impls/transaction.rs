@@ -12,11 +12,15 @@ use std::future::Future;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use dupe::Dupe;
+use futures::FutureExt;
+use tokio::sync::oneshot;
 
 use crate::api::error::DiceError;
 use crate::api::error::DiceResult;
 use crate::api::key::Key;
 use crate::api::user_data::UserComputationData;
+use crate::impls::core::state::StateRequest;
 use crate::impls::ctx::PerComputeCtx;
 use crate::impls::key::DiceKey;
 use crate::impls::key::DiceKeyDynExt;
@@ -28,6 +32,7 @@ use crate::HashMap;
 // TODO fill this more
 #[derive(Allocative)]
 pub(crate) struct TransactionUpdater {
+    dice: Arc<DiceModern>,
     scheduled_changes: Changes,
     user_data: UserComputationData,
 }
@@ -35,6 +40,7 @@ pub(crate) struct TransactionUpdater {
 impl TransactionUpdater {
     pub(crate) fn new(dice: Arc<DiceModern>, user_data: UserComputationData) -> Self {
         Self {
+            dice: dice.dupe(),
             scheduled_changes: Changes::new(dice),
             user_data,
         }
@@ -73,14 +79,29 @@ impl TransactionUpdater {
     }
 
     /// Commit the changes registered via 'changed' and 'changed_to' to the current newest version.
-    pub(crate) fn commit(self) -> PerComputeCtx {
-        unimplemented!("todo")
+    pub(crate) fn commit(self) -> impl Future<Output = PerComputeCtx> {
+        let (tx, rx) = oneshot::channel();
+        self.dice.state_handle.request(StateRequest::UpdateState {
+            changes: self.scheduled_changes.changes.into_iter().collect(),
+            resp: tx,
+        });
+
+        rx.map(|transaction| PerComputeCtx::new(transaction.unwrap(), Arc::new(self.user_data)))
     }
 
     /// Commit the changes registered via 'changed' and 'changed_to' to the current newest version,
     /// replacing the user data with the given set
-    pub(crate) fn commit_with_data(self, _extra: UserComputationData) -> PerComputeCtx {
-        unimplemented!("todo")
+    pub(crate) fn commit_with_data(
+        self,
+        extra: UserComputationData,
+    ) -> impl Future<Output = PerComputeCtx> {
+        let (tx, rx) = oneshot::channel();
+        self.dice.state_handle.request(StateRequest::UpdateState {
+            changes: self.scheduled_changes.changes.into_iter().collect(),
+            resp: tx,
+        });
+
+        rx.map(|transaction| PerComputeCtx::new(transaction.unwrap(), Arc::new(extra)))
     }
 
     pub(crate) fn existing_state(&self) -> impl Future<Output = PerComputeCtx> {

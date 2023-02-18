@@ -32,6 +32,16 @@ pub(crate) struct PerComputeCtx {
 
 #[allow(clippy::manual_async_fn)]
 impl PerComputeCtx {
+    pub(crate) fn new(
+        per_live_version_ctx: Arc<PerLiveTransactionCtx>,
+        user_data: Arc<UserComputationData>,
+    ) -> Self {
+        Self {
+            per_live_version_ctx,
+            user_data,
+        }
+    }
+
     /// Gets all the result of of the given computation key.
     /// recorded as dependencies of the current computation for which this
     /// context is for.

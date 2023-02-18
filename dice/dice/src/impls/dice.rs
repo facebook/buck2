@@ -28,7 +28,7 @@ use crate::transaction_update::DiceTransactionUpdaterImpl;
 #[derive(Allocative)]
 pub(crate) struct DiceModern {
     pub(crate) key_index: DiceKeyIndex,
-    state_handle: CoreStateHandle,
+    pub(crate) state_handle: CoreStateHandle,
 }
 
 impl Debug for DiceModern {

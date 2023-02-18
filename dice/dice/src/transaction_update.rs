@@ -78,27 +78,34 @@ impl DiceTransactionUpdaterImpl {
     }
 
     /// Commit the changes registered via 'changed' and 'changed_to' to the current newest version.
-    pub(crate) fn commit(self) -> DiceTransaction {
+    pub(crate) fn commit(self) -> impl Future<Output = DiceTransaction> {
         match self {
-            DiceTransactionUpdaterImpl::Legacy(ctx) => {
-                DiceTransaction(DiceComputations(DiceComputationsImpl::Legacy(ctx.commit())))
-            }
-            DiceTransactionUpdaterImpl::Modern(delegate) => DiceTransaction(DiceComputations(
-                DiceComputationsImpl::Modern(delegate.commit()),
-            )),
+            DiceTransactionUpdaterImpl::Legacy(ctx) => futures::future::ready(DiceTransaction(
+                DiceComputations(DiceComputationsImpl::Legacy(ctx.commit())),
+            ))
+            .left_future(),
+            DiceTransactionUpdaterImpl::Modern(delegate) => delegate
+                .commit()
+                .map(|x| DiceTransaction(DiceComputations(DiceComputationsImpl::Modern(x))))
+                .right_future(),
         }
     }
 
     /// Commit the changes registered via 'changed' and 'changed_to' to the current newest version,
     /// replacing the user data with the given set
-    pub(crate) fn commit_with_data(self, extra: UserComputationData) -> DiceTransaction {
+    pub(crate) fn commit_with_data(
+        self,
+        extra: UserComputationData,
+    ) -> impl Future<Output = DiceTransaction> {
         match self {
-            DiceTransactionUpdaterImpl::Legacy(ctx) => DiceTransaction(DiceComputations(
-                DiceComputationsImpl::Legacy(ctx.commit_with_data(extra)),
-            )),
-            DiceTransactionUpdaterImpl::Modern(delegate) => DiceTransaction(DiceComputations(
-                DiceComputationsImpl::Modern(delegate.commit_with_data(extra)),
-            )),
+            DiceTransactionUpdaterImpl::Legacy(ctx) => futures::future::ready(DiceTransaction(
+                DiceComputations(DiceComputationsImpl::Legacy(ctx.commit_with_data(extra))),
+            ))
+            .left_future(),
+            DiceTransactionUpdaterImpl::Modern(delegate) => delegate
+                .commit_with_data(extra)
+                .map(|x| DiceTransaction(DiceComputations(DiceComputationsImpl::Modern(x))))
+                .right_future(),
         }
     }
 }
