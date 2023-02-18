@@ -20,6 +20,7 @@ use crate::api::error::DiceResult;
 use crate::api::key::Key;
 use crate::api::transaction::DiceTransactionUpdater;
 use crate::api::user_data::UserComputationData;
+use crate::impls::dice::DiceModern;
 use crate::impls::opaque::OpaqueValueModern;
 use crate::versions::VersionNumber;
 
@@ -28,6 +29,7 @@ use crate::versions::VersionNumber;
 pub(crate) struct PerComputeCtx {
     per_live_version_ctx: Arc<PerLiveTransactionCtx>,
     user_data: Arc<UserComputationData>,
+    dice: Arc<DiceModern>,
 }
 
 #[allow(clippy::manual_async_fn)]
@@ -35,10 +37,12 @@ impl PerComputeCtx {
     pub(crate) fn new(
         per_live_version_ctx: Arc<PerLiveTransactionCtx>,
         user_data: Arc<UserComputationData>,
+        dice: Arc<DiceModern>,
     ) -> Self {
         Self {
             per_live_version_ctx,
             user_data,
+            dice,
         }
     }
 
@@ -88,7 +92,7 @@ impl PerComputeCtx {
     /// Data that is static per the entire lifetime of Dice. These data are initialized at the
     /// time that Dice is initialized via the constructor.
     pub(crate) fn global_data(&self) -> &DiceData {
-        unimplemented!("todo")
+        &self.dice.global_data
     }
 
     /// Data that is static for the lifetime of the current request context. This lifetime is
@@ -126,12 +130,6 @@ impl PerLiveTransactionCtx {
         K: Key,
     {
         async move { unimplemented!("todo") }
-    }
-
-    /// Data that is static per the entire lifetime of Dice. These data are initialized at the
-    /// time that Dice is initialized via the constructor.
-    pub(crate) fn global_data(&self) -> &DiceData {
-        unimplemented!("todo")
     }
 
     /// Data that is static for the lifetime of the current request context. This lifetime is

@@ -86,7 +86,11 @@ impl TransactionUpdater {
             resp: tx,
         });
 
-        rx.map(|transaction| PerComputeCtx::new(transaction.unwrap(), Arc::new(self.user_data)))
+        let dice = self.dice.dupe();
+
+        rx.map(|transaction| {
+            PerComputeCtx::new(transaction.unwrap(), Arc::new(self.user_data), dice)
+        })
     }
 
     /// Commit the changes registered via 'changed' and 'changed_to' to the current newest version,
@@ -101,7 +105,9 @@ impl TransactionUpdater {
             resp: tx,
         });
 
-        rx.map(|transaction| PerComputeCtx::new(transaction.unwrap(), Arc::new(extra)))
+        let dice = self.dice.dupe();
+
+        rx.map(|transaction| PerComputeCtx::new(transaction.unwrap(), Arc::new(extra), dice))
     }
 
     pub(crate) fn existing_state(&self) -> impl Future<Output = PerComputeCtx> {
