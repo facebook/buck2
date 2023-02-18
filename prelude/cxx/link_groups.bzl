@@ -70,6 +70,10 @@ load(
     "cxx_link_shared_library",
 )
 load(
+    ":linker.bzl",
+    "get_ignore_undefined_symbols_flags",
+)
+load(
     ":symbols.bzl",
     "create_dynamic_list_version_script",
     "extract_global_syms",
@@ -507,8 +511,16 @@ def _create_link_group(
     inputs = []
 
     # Add extra linker flags.
-    if linker_flags:
-        inputs.append(LinkInfo(pre_flags = linker_flags))
+    linker_info = get_cxx_toolchain_info(ctx).linker_info
+    linker_type = linker_info.type
+    inputs.append(LinkInfo(
+        pre_flags =
+            linker_flags +
+            # There's scenarios where we no required syms won't be on the root
+            # link lines (e.g. syms from executable), so we need to ignore
+            # undefined symbols.
+            get_ignore_undefined_symbols_flags(linker_type),
+    ))
 
     # Get roots to begin the linkable search.
     # TODO(agallagher): We should use the groups "public" nodes as the roots.
