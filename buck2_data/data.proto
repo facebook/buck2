@@ -305,6 +305,7 @@ message RageResult {
   string hg_snapshot_id = 4;
   // Rage can be associated with an invocation
   optional string invocation_id = 6;
+  string origin = 7;
 }
 
 // A snapshot of current system state, with useful info.
