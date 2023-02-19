@@ -21,7 +21,6 @@ use std::sync::Mutex;
 use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_build_api::calculation::load_patterns;
-use buck2_build_api::calculation::BuildErrors;
 use buck2_build_api::nodes::hacks::value_to_json;
 use buck2_build_api::nodes::lookup::ConfiguredTargetNodeLookup;
 use buck2_build_api::nodes::lookup::TargetNodeLookup;
@@ -874,10 +873,7 @@ async fn load_package(
 
     let targets = match spec {
         PackageSpec::Targets(targets) => {
-            targets.into_try_map(|target| match result.targets().get(&target) {
-                None => Err(BuildErrors::MissingTarget(package.dupe(), target).into()),
-                Some(x) => anyhow::Ok(x.dupe()),
-            })?
+            targets.into_try_map(|target| anyhow::Ok(result.resolve_target(&target)?.dupe()))?
         }
         PackageSpec::All => result.targets().values().duped().collect(),
     };

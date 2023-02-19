@@ -59,7 +59,6 @@ use indexmap::IndexSet;
 use starlark::collections::SmallSet;
 use thiserror::Error;
 
-use crate::calculation::BuildErrors;
 use crate::configuration::calculation::ConfigurationCalculation;
 use crate::interpreter::rule_defs::transition::calculation_apply_transition::ApplyTransition;
 
@@ -824,14 +823,7 @@ impl NodeCalculation for DiceComputations {
                     target
                 )
             })?
-            .targets()
-            .get(target.name())
-            .ok_or_else(|| {
-                anyhow::anyhow!(BuildErrors::MissingTarget(
-                    target.pkg().dupe(),
-                    target.name().to_owned()
-                ))
-            })?
+            .resolve_target(target.name())?
             .dupe())
     }
 

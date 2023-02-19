@@ -29,7 +29,6 @@ use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_query::query::environment::LabeledNode;
 use buck2_query::query::environment::NodeLabel;
 use buck2_query::query::environment::QueryEnvironment;
-use buck2_query::query::environment::QueryEnvironmentError;
 use buck2_query::query::environment::QueryTarget;
 use buck2_query::query::syntax::simple::eval::file_set::FileNode;
 use buck2_query::query::syntax::simple::eval::file_set::FileSet;
@@ -181,16 +180,7 @@ impl<'c> UqueryEnvironment<'c> {
             .eval_build_file(target.pkg())
             .await
             .with_context(|| format!("when looking up `{}``", target))?;
-        let node = match package.targets().get(target.name()) {
-            Some(target) => target,
-            None => {
-                return Err(QueryEnvironmentError::missing_target(
-                    target,
-                    package.targets().keys(),
-                )
-                .into());
-            }
-        };
+        let node = package.resolve_target(target.name())?;
         Ok(node.dupe())
     }
 }

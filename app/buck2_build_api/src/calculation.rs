@@ -26,7 +26,6 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_core::target::label::TargetLabel;
-use buck2_core::target::name::TargetName;
 use buck2_execute::artifact::fs::ArtifactFs;
 use buck2_execute::path::buck_out_path::BuckOutPathResolver;
 use buck2_execute::path::buck_out_path::BuckPathResolver;
@@ -64,10 +63,7 @@ use crate::nodes::calculation as node_calculation;
 use crate::nodes::calculation::get_execution_platform_toolchain_dep;
 
 #[derive(Debug, Error)]
-pub enum BuildErrors {
-    #[error("No target with name `{1}` in package `{0}`.")]
-    MissingTarget(PackageLabel, TargetName),
-
+enum BuildErrors {
     #[error("Did not find package with name `{0}`.")]
     MissingPackage(PackageLabel),
 }
@@ -392,17 +388,8 @@ fn apply_spec<T: PatternType>(
                 match pkg_spec {
                     PackageSpec::Targets(targets) => {
                         for target in targets {
-                            match res.targets().get(target.target()) {
-                                Some(node) => {
-                                    label_to_node.insert(target, node.dupe());
-                                }
-                                None => {
-                                    return Err(anyhow::anyhow!(BuildErrors::MissingTarget(
-                                        pkg,
-                                        target.target().to_owned()
-                                    )));
-                                }
-                            }
+                            let node = res.resolve_target(target.target())?;
+                            label_to_node.insert(target, node.dupe());
                         }
                     }
                     PackageSpec::All => {
