@@ -55,10 +55,8 @@ use crate::cells::cell_path::CellPath;
 use crate::cells::cell_path::CellPathRef;
 use crate::cells::name::CellName;
 use crate::cells::paths::CellRelativePath;
-use crate::cells::CellResolver;
 use crate::fs::paths::fmt::quoted_display;
 use crate::fs::paths::forward_rel_path::ForwardRelativePath;
-use crate::fs::project_rel_path::ProjectRelativePathBuf;
 
 /// A 'Package' as defined above.
 #[derive(
@@ -153,49 +151,6 @@ impl PackageLabel {
             CellName::testing_new("root"),
             CellRelativePath::new(ForwardRelativePath::new("package/subdir").unwrap()),
         )
-    }
-}
-
-///
-/// Resolves 'Package' to a corresponding 'ProjectRelativePath'
-impl CellResolver {
-    ///
-    /// resolves a given 'Package' to the 'ProjectRelativePath' that points to
-    /// the 'Package'
-    ///
-    /// ```
-    /// use buck2_core::cells::CellResolver;
-    /// use buck2_core::fs::project_rel_path::{ProjectRelativePath, ProjectRelativePathBuf};
-    /// use buck2_core::fs::paths::forward_rel_path::{ForwardRelativePathBuf, ForwardRelativePath};
-    /// use buck2_core::package::PackageLabel;
-    /// use std::convert::TryFrom;
-    /// use buck2_core::cells::cell_root_path::CellRootPathBuf;
-    /// use buck2_core::cells::name::CellName;
-    /// use buck2_core::cells::paths::CellRelativePath;
-    /// use buck2_core::cells::testing::CellResolverExt;
-    ///
-    /// let cell_path = ProjectRelativePath::new("my/cell")?;
-    ///
-    /// let cells = CellResolver::of_names_and_paths(
-    ///     CellName::testing_new("mycell"),
-    ///     &[
-    ///         (CellName::testing_new("mycell"), CellRootPathBuf::new(cell_path.to_buf()))
-    ///     ]);
-    ///
-    /// let pkg = PackageLabel::new(
-    ///     CellName::testing_new("mycell"),
-    ///     CellRelativePath::unchecked_new("somepkg"),
-    /// );
-    ///
-    /// assert_eq!(
-    ///     cells.resolve_package(pkg)?,
-    ///     ProjectRelativePathBuf::unchecked_new("my/cell/somepkg".into()),
-    /// );
-    ///
-    /// # anyhow::Ok(())
-    /// ```
-    pub fn resolve_package(&self, pkg: PackageLabel) -> anyhow::Result<ProjectRelativePathBuf> {
-        self.resolve_path(pkg.0.0.as_ref())
     }
 }
 
