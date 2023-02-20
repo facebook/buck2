@@ -131,7 +131,10 @@ impl ActionsRegistry {
                     if let ActionErrors::ConflictingOutputPath(_) = action_error {
                         Err(e)
                     } else {
-                        soft_error!("conflicting_output_path", e)?;
+                        soft_error!(
+                            "conflicting_output_path",
+                            e.context(format!("Error in target: `{}`", self.owner))
+                        )?;
                         Ok(())
                     }
                 } else {
