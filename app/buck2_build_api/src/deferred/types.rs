@@ -1068,7 +1068,7 @@ mod tests {
 
     fn dummy_base() -> BaseDeferredKey {
         BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_new(
-            PackageLabel::testing_new("cell", "pkg"),
+            PackageLabel::testing_parse("cell//pkg"),
             TargetName::unchecked_new("foo"),
             ConfigurationData::testing_new(),
         ))
@@ -1126,7 +1126,7 @@ mod tests {
     #[test]
     fn mapping_async_data() -> anyhow::Result<()> {
         let base = BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_new(
-            PackageLabel::testing_new("cell", "pkg"),
+            PackageLabel::testing_parse("cell//pkg"),
             TargetName::unchecked_new("foo"),
             ConfigurationData::testing_new(),
         ));
@@ -1178,7 +1178,7 @@ mod tests {
     #[test]
     fn register_nested_deferred() -> anyhow::Result<()> {
         let target = ConfiguredTargetLabel::testing_new(
-            PackageLabel::testing_new("cell", "pkg"),
+            PackageLabel::testing_parse("cell//pkg"),
             TargetName::unchecked_new("foo"),
             ConfigurationData::testing_new(),
         );
@@ -1265,7 +1265,7 @@ mod tests {
     #[test]
     fn reserving_deferred() -> anyhow::Result<()> {
         let base = BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_new(
-            PackageLabel::testing_new("cell", "pkg"),
+            PackageLabel::testing_parse("cell//pkg"),
             TargetName::unchecked_new("foo"),
             ConfigurationData::testing_new(),
         ));
@@ -1316,7 +1316,7 @@ mod tests {
     #[test]
     fn reserving_deferred_unbound() {
         let base = BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_new(
-            PackageLabel::testing_new("cell", "pkg"),
+            PackageLabel::testing_parse("cell//pkg"),
             TargetName::unchecked_new("foo"),
             ConfigurationData::testing_new(),
         ));
@@ -1331,7 +1331,7 @@ mod tests {
     #[test]
     fn trivial_deferred() -> anyhow::Result<()> {
         let base = BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_new(
-            PackageLabel::testing_new("cell", "pkg"),
+            PackageLabel::testing_parse("cell//pkg"),
             TargetName::unchecked_new("foo"),
             ConfigurationData::testing_new(),
         ));

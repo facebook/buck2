@@ -61,7 +61,7 @@ async fn test_package_value_same_dir_package_file() {
 
     let result = interpreter
         .eval_build_file(
-            PackageLabel::testing_new("root", "headphones"),
+            PackageLabel::testing_parse("root//headphones"),
             &mut StarlarkProfilerOrInstrumentation::disabled(),
         )
         .await
@@ -109,7 +109,7 @@ async fn test_package_value_parent_dir_package_file() {
 
     let result = interpreter
         .eval_build_file(
-            PackageLabel::testing_new("root", "trackpad"),
+            PackageLabel::testing_parse("root//trackpad"),
             &mut StarlarkProfilerOrInstrumentation::disabled(),
         )
         .await
@@ -145,7 +145,7 @@ async fn test_overwrite_package_value_not_allowed_without_overwrite_flag() {
         .unwrap();
     let err = interpreter
         .eval_build_file(
-            PackageLabel::testing_new("root", "foo"),
+            PackageLabel::testing_parse("root//foo"),
             &mut StarlarkProfilerOrInstrumentation::disabled(),
         )
         .await;
@@ -189,7 +189,7 @@ async fn test_overwrite_package_value_with_flag() {
 
     let result = interpreter
         .eval_build_file(
-            PackageLabel::testing_new("root", "foo"),
+            PackageLabel::testing_parse("root//foo"),
             &mut StarlarkProfilerOrInstrumentation::disabled(),
         )
         .await

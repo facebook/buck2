@@ -223,14 +223,14 @@ mod tests {
             .await?
             .assert_eq(&[
                 (
-                    PackageLabel::testing_new("root", "some"),
+                    PackageLabel::testing_parse("root//some"),
                     PackageSpec::Targets(vec![
                         TargetName::unchecked_new("target"),
                         TargetName::unchecked_new("other_target"),
                     ]),
                 ),
                 (
-                    PackageLabel::testing_new("child", "a/package"),
+                    PackageLabel::testing_parse("child//a/package"),
                     PackageSpec::All,
                 ),
             ]);
@@ -253,7 +253,7 @@ mod tests {
             .await?
             .assert_eq(&[
                 (
-                    PackageLabel::testing_new("root", "some"),
+                    PackageLabel::testing_parse("root//some"),
                     PackageSpec::Targets(vec![
                         ProvidersPattern {
                             target: TargetName::unchecked_new("target"),
@@ -271,7 +271,7 @@ mod tests {
                     ]),
                 ),
                 (
-                    PackageLabel::testing_new("child", "a/package"),
+                    PackageLabel::testing_parse("child//a/package"),
                     PackageSpec::All,
                 ),
             ]);
@@ -311,29 +311,29 @@ mod tests {
                 .await
                 .unwrap()
                 .assert_eq(&[
-                    (PackageLabel::testing_new("root", "other"), PackageSpec::All),
+                    (PackageLabel::testing_parse("root//other"), PackageSpec::All),
                     (
-                        PackageLabel::testing_new("root", "other/a/bit/deeper"),
+                        PackageLabel::testing_parse("root//other/a/bit/deeper"),
                         PackageSpec::All,
                     ),
                     (
-                        PackageLabel::testing_new("root", "other/a/bit/deeper/and/deeper"),
+                        PackageLabel::testing_parse("root//other/a/bit/deeper/and/deeper"),
                         PackageSpec::All,
                     ),
                     (
-                        PackageLabel::testing_new("root", "some/thing/dir/a"),
+                        PackageLabel::testing_parse("root//some/thing/dir/a"),
                         PackageSpec::All,
                     ),
                     (
-                        PackageLabel::testing_new("root", "some/thing/dir/a/b"),
+                        PackageLabel::testing_parse("root//some/thing/dir/a/b"),
                         PackageSpec::All,
                     ),
                     (
-                        PackageLabel::testing_new("root", "some/thing/extra"),
+                        PackageLabel::testing_parse("root//some/thing/extra"),
                         PackageSpec::All,
                     ),
-                    (PackageLabel::testing_new("child", ""), PackageSpec::All),
-                    (PackageLabel::testing_new("child", "foo"), PackageSpec::All),
+                    (PackageLabel::testing_parse("child//"), PackageSpec::All),
+                    (PackageLabel::testing_parse("child//foo"), PackageSpec::All),
                 ]);
         })
     }

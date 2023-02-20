@@ -279,7 +279,7 @@ mod tests {
     use crate::actions::ArtifactGroup;
 
     fn mk_artifact() -> Artifact {
-        let pkg = PackageLabel::testing_new("cell", "pkg");
+        let pkg = PackageLabel::testing_parse("cell//pkg");
         let path = PackageRelativePathBuf::unchecked_new("".to_owned());
         let buck_path = BuckPath::testing_new(pkg, path);
         Artifact::from(SourceArtifact::new(buck_path))

@@ -256,7 +256,7 @@ mod tests {
 
     fn artifact(name: &str) -> (Artifact, ArtifactValue) {
         let target = ConfiguredTargetLabel::testing_new(
-            PackageLabel::testing_new("cell", "pkg"),
+            PackageLabel::testing_parse("cell//pkg"),
             TargetName::unchecked_new("foo"),
             ConfigurationData::testing_new(),
         );

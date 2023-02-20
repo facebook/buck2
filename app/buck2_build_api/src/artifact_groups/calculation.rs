@@ -525,7 +525,7 @@ mod tests {
         );
 
         let foo_artifact = Artifact::from(SourceArtifact::new(BuckPath::testing_new(
-            PackageLabel::testing_new("root", "foo"),
+            PackageLabel::testing_parse("root//foo"),
             PackageRelativePathBuf::unchecked_new("foo".to_owned()),
         )));
 
@@ -535,7 +535,7 @@ mod tests {
         };
 
         let bar_artifact = Artifact::from(SourceArtifact::new(BuckPath::testing_new(
-            PackageLabel::testing_new("root", "bar"),
+            PackageLabel::testing_parse("root//bar"),
             PackageRelativePathBuf::unchecked_new("bar".to_owned()),
         )));
 

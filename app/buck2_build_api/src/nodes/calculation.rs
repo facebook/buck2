@@ -903,7 +903,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_node() -> anyhow::Result<()> {
         let cfg = ConfigurationData::testing_new();
-        let pkg = PackageLabel::testing_new("cell", "foo/bar");
+        let pkg = PackageLabel::testing_parse("cell//foo/bar");
 
         let name1 = TargetName::unchecked_new("t1");
         let label1 = TargetLabel::new(pkg.dupe(), name1.as_ref());

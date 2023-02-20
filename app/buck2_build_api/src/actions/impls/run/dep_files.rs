@@ -787,7 +787,7 @@ mod test {
     #[test]
     fn test_declares_same_dep_files() {
         let target = ConfiguredTargetLabel::testing_new(
-            PackageLabel::testing_new("cell", "pkg"),
+            PackageLabel::testing_parse("cell//pkg"),
             TargetName::unchecked_new("foo"),
             ConfigurationData::testing_new(),
         );

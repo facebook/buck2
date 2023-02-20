@@ -564,7 +564,7 @@ mod tests {
                 Ok(module),
             )
             .mock_and_return(
-                InterpreterResultsKey(PackageLabel::testing_new("cell", "pkg")),
+                InterpreterResultsKey(PackageLabel::testing_parse("cell//pkg")),
                 Ok(Arc::new(eval_res)),
             )
             .mock_and_return(ExecutionPlatformsKey, Ok(None))

@@ -46,7 +46,7 @@ pub fn tset_factory(builder: &mut GlobalsBuilder) {
         static LAST_ID: AtomicU32 = AtomicU32::new(0);
 
         let target = ConfiguredTargetLabel::testing_new(
-            PackageLabel::testing_new("cell", "path"),
+            PackageLabel::testing_parse("cell//path"),
             TargetName::unchecked_new("target"),
             ConfigurationData::testing_new(),
         );

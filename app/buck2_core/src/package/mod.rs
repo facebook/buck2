@@ -161,4 +161,9 @@ impl PackageLabel {
             CellRelativePath::new(ForwardRelativePath::new(path).unwrap()),
         )
     }
+
+    pub fn testing_parse(label: &str) -> PackageLabel {
+        let (cell, path) = label.split_once("//").unwrap();
+        PackageLabel::testing_new(cell, path)
+    }
 }

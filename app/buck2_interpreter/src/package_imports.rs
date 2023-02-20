@@ -162,7 +162,7 @@ mod tests {
 
         assert_eq!(
             None,
-            imports.get(PackageLabel::testing_new("root", "java/src"))
+            imports.get(PackageLabel::testing_parse("root//java/src"))
         );
 
         let expect_import = |cell, path| {
@@ -192,10 +192,10 @@ mod tests {
         assert_eq!("alias3", import.lookup_alias("alias3"));
         assert_eq!("symbol1", import.lookup_alias("symbol1"));
 
-        assert_eq!(None, imports.get(PackageLabel::testing_new("root", "")));
+        assert_eq!(None, imports.get(PackageLabel::testing_parse("root//")));
         assert_eq!(
             None,
-            imports.get(PackageLabel::testing_new("root", "third_party/src"))
+            imports.get(PackageLabel::testing_parse("root//third_party/src"))
         );
 
         Ok(())

@@ -566,7 +566,7 @@ mod tests {
     #[test]
     fn artifact_binding() -> anyhow::Result<()> {
         let target = ConfiguredTargetLabel::testing_new(
-            PackageLabel::testing_new("cell", "pkg"),
+            PackageLabel::testing_parse("cell//pkg"),
             TargetName::unchecked_new("foo"),
             ConfigurationData::testing_new(),
         );
@@ -613,7 +613,7 @@ mod tests {
     #[test]
     fn resolve_artifact() -> anyhow::Result<()> {
         let source = SourceArtifact::new(BuckPath::testing_new(
-            PackageLabel::testing_new("cell", "pkg"),
+            PackageLabel::testing_parse("cell//pkg"),
             PackageRelativePathBuf::unchecked_new("src.cpp".into()),
         ));
 
@@ -646,7 +646,7 @@ mod tests {
         let project_fs = project_root.path();
 
         let target = ConfiguredTargetLabel::testing_new(
-            PackageLabel::testing_new("cell", "pkg"),
+            PackageLabel::testing_parse("cell//pkg"),
             TargetName::unchecked_new("foo"),
             ConfigurationData::testing_new(),
         );
@@ -712,7 +712,7 @@ mod tests {
     #[test]
     fn test_eq_hash() -> anyhow::Result<()> {
         let target = ConfiguredTargetLabel::testing_new(
-            PackageLabel::testing_new("cell", "pkg"),
+            PackageLabel::testing_parse("cell//pkg"),
             TargetName::unchecked_new("foo"),
             ConfigurationData::testing_new(),
         );
@@ -748,7 +748,7 @@ mod tests {
     #[test]
     fn test_short_path() -> anyhow::Result<()> {
         let target = ConfiguredTargetLabel::testing_new(
-            PackageLabel::testing_new("cell", "pkg"),
+            PackageLabel::testing_parse("cell//pkg"),
             TargetName::unchecked_new("foo"),
             ConfigurationData::testing_new(),
         );

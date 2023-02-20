@@ -289,7 +289,7 @@ mod tests {
     #[test]
     fn declaring_artifacts() -> anyhow::Result<()> {
         let base = BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_new(
-            PackageLabel::testing_new("cell", "pkg"),
+            PackageLabel::testing_parse("cell//pkg"),
             TargetName::unchecked_new("foo"),
             ConfigurationData::testing_new(),
         ));
@@ -325,7 +325,7 @@ mod tests {
     #[test]
     fn claiming_conflicting_path() -> anyhow::Result<()> {
         let target = ConfiguredTargetLabel::testing_new(
-            PackageLabel::testing_new("cell", "pkg"),
+            PackageLabel::testing_parse("cell//pkg"),
             TargetName::unchecked_new("my_target"),
             ConfigurationData::testing_new(),
         );
@@ -388,7 +388,7 @@ mod tests {
     #[test]
     fn register_actions() -> anyhow::Result<()> {
         let base = BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_new(
-            PackageLabel::testing_new("cell", "pkg"),
+            PackageLabel::testing_parse("cell//pkg"),
             TargetName::unchecked_new("foo"),
             ConfigurationData::testing_new(),
         ));
@@ -431,7 +431,7 @@ mod tests {
     #[test]
     fn finalizing_actions() -> anyhow::Result<()> {
         let base = BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_new(
-            PackageLabel::testing_new("cell", "pkg"),
+            PackageLabel::testing_parse("cell//pkg"),
             TargetName::unchecked_new("foo"),
             ConfigurationData::testing_new(),
         ));
@@ -521,7 +521,7 @@ mod tests {
         action_names: &[(&'static str, Option<&'static str>)],
     ) -> anyhow::Result<()> {
         let base = BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_new(
-            PackageLabel::testing_new("cell", "pkg"),
+            PackageLabel::testing_parse("cell//pkg"),
             TargetName::unchecked_new("foo"),
             ConfigurationData::testing_new(),
         ));
