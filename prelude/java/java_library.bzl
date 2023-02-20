@@ -23,7 +23,7 @@ load("@prelude//java:java_resources.bzl", "get_resources_map")
 load("@prelude//java:java_toolchain.bzl", "AbiGenerationMode", "JavaToolchainInfo")
 load("@prelude//java:javacd_jar_creator.bzl", "create_jar_artifact_javacd")
 load("@prelude//java/plugins:java_annotation_processor.bzl", "create_ap_params")
-load("@prelude//java/plugins:java_plugin.bzl", "PluginParams", "create_plugin_params")
+load("@prelude//java/plugins:java_plugin.bzl", "create_plugin_params")
 load("@prelude//java/utils:java_utils.bzl", "declare_prefixed_name", "derive_javac", "get_abi_generation_mode", "get_default_info", "get_java_version_attributes", "get_path_separator", "to_java_version")
 load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo")
 load("@prelude//utils:utils.bzl", "expect")
@@ -583,39 +583,6 @@ def build_java_library(
         not java_toolchain.is_bootstrap_toolchain and
         not ctx.attrs._is_building_android_binary
     ):
-        ast_dumper = java_toolchain.ast_dumper
-
-        # Replace whatever compiler plugins are present with the AST dumper instead
-        ast_output = ctx.actions.declare_output("ast_json")
-        dump_ast_args = cmd_args(ast_output.as_output(), "--target-label", '"{}"'.format(ctx.label))
-        for dep in _build_bootclasspath(bootclasspath_entries, source_level, java_toolchain):
-            dump_ast_args.add("--dependency", '"{}"'.format(dep.owner), dep)
-        classpath_args = _build_classpath(ctx.actions, first_order_deps, additional_classpath_entries, "args_for_ast_dumper")
-        if classpath_args:
-            dump_ast_args.add(classpath_args)
-        ast_dumping_plugin_params = create_plugin_params(ctx, [ast_dumper])
-        ast_dumper_args_file = ctx.actions.write("dump_ast_args", dump_ast_args)
-        ast_dumping_plugin_params = PluginParams(
-            processors = ast_dumping_plugin_params.processors,
-            deps = ast_dumping_plugin_params.deps,
-            args = {
-                "DumpAstPlugin": cmd_args(ast_dumper_args_file).hidden(dump_ast_args),
-            },
-        )
-
-        # We don't actually care about the jar output this time; we just want the AST from the
-        # plugin
-        compile_to_jar(
-            ctx,
-            actions_identifier = "ast",
-            plugin_params = ast_dumping_plugin_params,
-            javac_tool = java_toolchain.fallback_javac,
-            extra_arguments = extra_arguments,
-            **common_compile_kwargs
-        )
-
-        sub_targets["ast"] = [DefaultInfo(default_output = ast_output)]
-
         nullsafe_plugin = java_toolchain.nullsafe
         nullsafe_signatures = java_toolchain.nullsafe_signatures
         nullsafe_extra_args = java_toolchain.nullsafe_extra_args
