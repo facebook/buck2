@@ -36,7 +36,6 @@ use buck2_execute::re::manager::ManagedRemoteExecutionClient;
 use buck2_execute::re::remote_action_result::RemoteActionResult;
 use dupe::Dupe;
 use futures::FutureExt;
-use gazebo::prelude::*;
 use indexmap::IndexMap;
 use remote_execution as RE;
 use remote_execution::ExecuteResponse;
@@ -54,46 +53,18 @@ pub enum RemoteExecutorError {
 
 pub struct ReExecutor {
     pub artifact_fs: ArtifactFs,
+    pub project_fs: ProjectRoot,
     pub materializer: Arc<dyn Materializer>,
     pub re_client: ManagedRemoteExecutionClient,
-    pub project_fs: ProjectRoot,
     pub re_platform: RE::Platform,
+    pub re_use_case: RemoteExecutorUseCase,
     pub re_action_key: Option<String>,
     pub re_max_input_files_bytes: u64,
-    pub re_use_case: RemoteExecutorUseCase,
     pub knobs: ExecutorGlobalKnobs,
     pub skip_cache_lookup: bool,
 }
 
 impl ReExecutor {
-    pub fn new(
-        artifact_fs: ArtifactFs,
-        project_fs: ProjectRoot,
-        materializer: Arc<dyn Materializer>,
-        re_client: ManagedRemoteExecutionClient,
-        re_properties: Vec<(String, String)>,
-        re_action_key: Option<String>,
-        re_max_input_files_bytes: u64,
-        re_use_case: RemoteExecutorUseCase,
-        knobs: ExecutorGlobalKnobs,
-        skip_cache_lookup: bool,
-    ) -> Self {
-        Self {
-            artifact_fs,
-            materializer,
-            re_client,
-            project_fs,
-            re_platform: RE::Platform {
-                properties: re_properties.into_map(|(name, value)| RE::Property { name, value }),
-            },
-            re_action_key,
-            re_max_input_files_bytes,
-            re_use_case,
-            knobs,
-            skip_cache_lookup,
-        }
-    }
-
     /// Indicate whether an action is too big to run on RE.
     pub fn is_action_too_large(&self, action_paths: &ActionPaths) -> bool {
         action_paths.input_files_bytes > self.re_max_input_files_bytes
@@ -260,10 +231,6 @@ impl PreparedCommandExecutor for ReExecutor {
 
     fn re_platform(&self) -> Option<&RE::Platform> {
         Some(&self.re_platform)
-    }
-
-    fn re_use_case(&self) -> RemoteExecutorUseCase {
-        self.re_use_case
     }
 }
 

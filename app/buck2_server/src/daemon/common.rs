@@ -41,6 +41,7 @@ use buck2_forkserver::client::ForkserverClient;
 use dupe::Dupe;
 use host_sharing::HostSharingBroker;
 use once_cell::sync::OnceCell;
+use remote_execution as RE;
 
 pub fn parse_concurrency(requested: u32) -> anyhow::Result<usize> {
     let mut ret = requested.try_into().context("Invalid concurrency")?;
@@ -138,30 +139,25 @@ impl HasCommandExecutor for CommandExecutorFactory {
 
         let remote_executor_new =
             |options: &RemoteExecutorOptions,
-             re_properties: &SortedMap<String, String>,
+             re_platform: &RE::Platform,
              re_use_case: &RemoteExecutorUseCase| {
-                let properties = re_properties
-                    .iter()
-                    .map(|(k, v)| (k.clone(), v.clone()))
-                    .collect();
-
                 // 30GB is the max RE can currently support.
                 const DEFAULT_RE_MAX_INPUT_FILE_BYTES: u64 = 30 * 1024 * 1024 * 1024;
 
-                ReExecutor::new(
-                    artifact_fs.clone(),
-                    self.project_root.clone(),
-                    self.materializer.dupe(),
-                    self.re_connection.get_client(),
-                    properties,
-                    options.re_action_key.clone(),
-                    options
+                ReExecutor {
+                    artifact_fs: artifact_fs.clone(),
+                    project_fs: self.project_root.clone(),
+                    materializer: self.materializer.dupe(),
+                    re_client: self.re_connection.get_client(),
+                    re_platform: re_platform.clone(),
+                    re_use_case: *re_use_case,
+                    re_action_key: options.re_action_key.clone(),
+                    re_max_input_files_bytes: options
                         .re_max_input_files_bytes
                         .unwrap_or(DEFAULT_RE_MAX_INPUT_FILE_BYTES),
-                    *re_use_case,
-                    self.executor_global_knobs.dupe(),
-                    self.no_remote_cache,
-                )
+                    knobs: self.executor_global_knobs.dupe(),
+                    skip_cache_lookup: self.no_remote_cache,
+                }
             };
 
         let executor: Option<Arc<dyn PreparedCommandExecutor>> = match &executor_config.executor {
@@ -178,12 +174,22 @@ impl HasCommandExecutor for CommandExecutorFactory {
                 re_use_case,
                 cache_upload_behavior,
             } => {
+                let re_platform = RE::Platform {
+                    properties: re_properties
+                        .iter()
+                        .map(|(k, v)| RE::Property {
+                            name: k.clone(),
+                            value: v.clone(),
+                        })
+                        .collect(),
+                };
+
                 let inner_executor: Option<Arc<dyn PreparedCommandExecutor>> = match &executor {
                     RemoteEnabledExecutor::Local(local) if !self.strategy.ban_local() => {
                         Some(Arc::new(local_executor_new(local)))
                     }
                     RemoteEnabledExecutor::Remote(remote) if !self.strategy.ban_remote() => Some(
-                        Arc::new(remote_executor_new(remote, re_properties, re_use_case)),
+                        Arc::new(remote_executor_new(remote, &re_platform, re_use_case)),
                     ),
                     RemoteEnabledExecutor::Hybrid {
                         local,
@@ -191,7 +197,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                         level,
                     } if !self.strategy.ban_hybrid() => Some(Arc::new(HybridExecutor {
                         local: local_executor_new(local),
-                        remote: remote_executor_new(remote, re_properties, re_use_case),
+                        remote: remote_executor_new(remote, &re_platform, re_use_case),
                         level: *level,
                         executor_preference: self.strategy.hybrid_preference(),
                         low_pass_filter: self.low_pass_filter.dupe(),
@@ -213,15 +219,17 @@ impl HasCommandExecutor for CommandExecutorFactory {
                     inner_executor
                 } else {
                     inner_executor.map(|inner_executor| {
-                        Arc::new(CachingExecutor::new(
-                            inner_executor,
-                            artifact_fs.clone(),
-                            self.materializer.dupe(),
-                            self.re_connection.get_client(),
-                            self.upload_all_actions,
-                            self.executor_global_knobs.dupe(),
-                            *cache_upload_behavior,
-                        )) as _
+                        Arc::new(CachingExecutor {
+                            inner: inner_executor,
+                            artifact_fs: artifact_fs.clone(),
+                            materializer: self.materializer.dupe(),
+                            re_client: self.re_connection.get_client(),
+                            re_platform,
+                            re_use_case: *re_use_case,
+                            upload_all_actions: self.upload_all_actions,
+                            knobs: self.executor_global_knobs.dupe(),
+                            cache_upload_behavior: *cache_upload_behavior,
+                        }) as _
                     })
                 }
             }

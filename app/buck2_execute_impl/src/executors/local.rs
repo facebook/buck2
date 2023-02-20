@@ -18,7 +18,6 @@ use std::time::SystemTime;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
-use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
@@ -593,10 +592,6 @@ impl PreparedCommandExecutor for LocalExecutor {
 
     fn re_platform(&self) -> Option<&RE::Platform> {
         None
-    }
-
-    fn re_use_case(&self) -> RemoteExecutorUseCase {
-        RemoteExecutorUseCase::buck2_default()
     }
 }
 

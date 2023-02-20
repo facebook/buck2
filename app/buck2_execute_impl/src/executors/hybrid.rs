@@ -12,7 +12,6 @@ use std::sync::Arc;
 use anyhow::Context;
 use async_trait::async_trait;
 use buck2_common::executor_config::HybridExecutionLevel;
-use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_common::liveliness_observer::CancelledLivelinessGuard;
 use buck2_common::liveliness_observer::LivelinessGuard;
 use buck2_common::liveliness_observer::LivelinessObserver;
@@ -300,10 +299,6 @@ impl PreparedCommandExecutor for HybridExecutor {
 
     fn re_platform(&self) -> Option<&RE::Platform> {
         self.remote.re_platform()
-    }
-
-    fn re_use_case(&self) -> RemoteExecutorUseCase {
-        self.remote.re_use_case()
     }
 }
 

@@ -64,35 +64,17 @@ static ERROR_ON_CACHE_UPLOAD: EnvHelper<bool> = EnvHelper::new("BUCK2_TEST_ERROR
 /// A PreparedCommandExecutor that will check the action cache before executing any actions using the underlying executor.
 pub struct CachingExecutor {
     pub inner: Arc<dyn PreparedCommandExecutor>,
-    pub fs: ArtifactFs,
+    pub artifact_fs: ArtifactFs,
     pub materializer: Arc<dyn Materializer>,
     pub re_client: ManagedRemoteExecutionClient,
+    pub re_platform: RE::Platform,
+    pub re_use_case: RemoteExecutorUseCase,
     pub upload_all_actions: bool,
     pub knobs: ExecutorGlobalKnobs,
     pub cache_upload_behavior: CacheUploadBehavior,
 }
 
 impl CachingExecutor {
-    pub fn new(
-        inner: Arc<dyn PreparedCommandExecutor>,
-        fs: ArtifactFs,
-        materializer: Arc<dyn Materializer>,
-        re_client: ManagedRemoteExecutionClient,
-        upload_all_actions: bool,
-        knobs: ExecutorGlobalKnobs,
-        cache_upload_behavior: CacheUploadBehavior,
-    ) -> Self {
-        Self {
-            inner,
-            fs,
-            materializer,
-            re_client,
-            upload_all_actions,
-            knobs,
-            cache_upload_behavior,
-        }
-    }
-
     async fn try_action_cache_fetch(
         &self,
         mut manager: CommandExecutionManager,
@@ -108,7 +90,7 @@ impl CachingExecutor {
                 buck2_data::CacheQuery {
                     action_digest: action_digest.to_string(),
                 },
-                re_client.action_cache(action_digest.dupe(), self.re_use_case()),
+                re_client.action_cache(action_digest.dupe(), self.re_use_case),
             )
             .await;
 
@@ -119,7 +101,7 @@ impl CachingExecutor {
                     action_blobs,
                     ProjectRelativePath::empty(),
                     &action_paths.inputs,
-                    self.re_use_case(),
+                    self.re_use_case,
                     digest_config,
                 )
                 .await
@@ -150,7 +132,7 @@ impl CachingExecutor {
                 request,
                 &*self.materializer,
                 &self.re_client,
-                self.re_use_case(),
+                self.re_use_case,
                 digest_config,
                 manager,
                 // TODO (torozco): We should deduplicate this and ActionExecutionKind.
@@ -290,7 +272,7 @@ impl CachingExecutor {
         let mut output_directories = vec![];
 
         for (output, value) in result.outputs.iter() {
-            let output = output.as_ref().resolve(&self.fs);
+            let output = output.as_ref().resolve(&self.artifact_fs);
 
             match value.entry().as_ref() {
                 DirectoryEntry::Leaf(ActionDirectoryMember::File(f)) => {
@@ -319,7 +301,7 @@ impl CachingExecutor {
                                 }],
                                 vec![],
                                 vec![],
-                                self.re_use_case(),
+                                self.re_use_case,
                             )
                             .await
                     };
@@ -346,7 +328,7 @@ impl CachingExecutor {
                                 &action_blobs,
                                 output.path(),
                                 &d.dupe().as_immutable(),
-                                self.re_use_case(),
+                                self.re_use_case,
                                 digest_config,
                             )
                             .await
@@ -381,7 +363,7 @@ impl CachingExecutor {
                 .report
                 .std_streams
                 .clone()
-                .into_re(&self.re_client, self.re_use_case())
+                .into_re(&self.re_client, self.re_use_case)
                 .await
                 .context("Error accessing std_streams")
         };
@@ -426,7 +408,7 @@ impl CachingExecutor {
         };
 
         self.re_client
-            .write_action_result(digest.to_re(), result, self.re_use_case())
+            .write_action_result(digest.to_re(), result, self.re_use_case)
             .await?;
 
         Ok(CacheUploadOutcome::Success)
@@ -509,11 +491,7 @@ impl PreparedCommandExecutor for CachingExecutor {
     }
 
     fn re_platform(&self) -> Option<&RE::Platform> {
-        self.inner.re_platform()
-    }
-
-    fn re_use_case(&self) -> RemoteExecutorUseCase {
-        self.inner.re_use_case()
+        Some(&self.re_platform)
     }
 }
 

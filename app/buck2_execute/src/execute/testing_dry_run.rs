@@ -11,7 +11,6 @@ use std::sync::Arc;
 use std::sync::Mutex;
 
 use async_trait::async_trait;
-use buck2_common::executor_config::RemoteExecutorUseCase;
 use indexmap::IndexMap;
 use remote_execution as RE;
 use sorted_vector_map::SortedVectorMap;
@@ -105,9 +104,5 @@ impl PreparedCommandExecutor for DryRunExecutor {
 
     fn re_platform(&self) -> Option<&RE::Platform> {
         None
-    }
-
-    fn re_use_case(&self) -> RemoteExecutorUseCase {
-        RemoteExecutorUseCase::buck2_default()
     }
 }

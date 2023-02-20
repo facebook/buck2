@@ -8,7 +8,6 @@
  */
 
 use async_trait::async_trait;
-use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use remote_execution as RE;
 
@@ -59,6 +58,4 @@ pub trait PreparedCommandExecutor: Send + Sync {
     ) -> CommandExecutionResult;
 
     fn re_platform(&self) -> Option<&RE::Platform>;
-
-    fn re_use_case(&self) -> RemoteExecutorUseCase;
 }

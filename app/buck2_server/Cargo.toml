@@ -41,6 +41,7 @@ gazebo = { workspace = true }
 dupe = { workspace = true }
 dice = { workspace = true }
 more_futures = { workspace = true }
+remote_execution = { workspace = true }
 starlark = { workspace = true }
 watchman_client.version = "0.8.0"
 # @oss-disable: watchman_client.path = "../../../watchman/rust/watchman_client"
