@@ -7,19 +7,34 @@
  * of this source tree.
  */
 
+use std::collections::HashMap;
 use std::future;
 use std::pin::Pin;
 use std::sync::Mutex;
 
 use anyhow::Context;
 use buck2_core::fs::fs_util;
+use futures::future::Future;
 use futures::stream;
 use futures::Stream;
 use gazebo::prelude::*;
+use prost::Message;
+use re_grpc_proto::build::bazel::remote::execution::v2::batch_update_blobs_request::Request;
+use re_grpc_proto::build::bazel::remote::execution::v2::compressor;
 use re_grpc_proto::build::bazel::remote::execution::v2::content_addressable_storage_client::ContentAddressableStorageClient;
 use re_grpc_proto::build::bazel::remote::execution::v2::execution_client::ExecutionClient;
+use re_grpc_proto::build::bazel::remote::execution::v2::BatchReadBlobsRequest;
+use re_grpc_proto::build::bazel::remote::execution::v2::BatchReadBlobsResponse;
+use re_grpc_proto::build::bazel::remote::execution::v2::BatchUpdateBlobsRequest;
 use re_grpc_proto::build::bazel::remote::execution::v2::Digest;
+use re_grpc_proto::build::bazel::remote::execution::v2::ExecuteRequest as GExecuteRequest;
+use re_grpc_proto::build::bazel::remote::execution::v2::ExecuteResponse as GExecuteResponse;
+use re_grpc_proto::build::bazel::remote::execution::v2::ResultsCachePolicy;
+use re_grpc_proto::google::longrunning::operation::Result as OpResult;
+use re_grpc_proto::google::rpc::Code;
 use slog::Logger;
+use tokio::fs::OpenOptions;
+use tokio::io::AsyncWriteExt;
 use tonic::transport::Channel;
 
 use crate::config::*;
@@ -27,8 +42,6 @@ use crate::error::*;
 use crate::metadata::*;
 use crate::request::*;
 use crate::response::*;
-
-// TODO(aloiscochard): Get instance_name from settings, what key? need a new one?
 const INSTANCE_NAME: &str = "";
 
 #[derive(Default)]
@@ -178,13 +191,8 @@ impl REClient {
     ) -> anyhow::Result<
         Pin<Box<dyn Stream<Item = anyhow::Result<ExecuteWithProgressResponse>> + Send>>,
     > {
-        use prost::Message;
-        use re_grpc_proto::build::bazel::remote::execution::v2::ExecuteRequest as GExecuteRequest;
-        use re_grpc_proto::build::bazel::remote::execution::v2::ExecuteResponse as GExecuteResponse;
         // TODO(aloiscochard): Map those properly in the request
         // use crate::proto::build::bazel::remote::execution::v2::ExecutionPolicy;
-        use re_grpc_proto::build::bazel::remote::execution::v2::ResultsCachePolicy;
-        use re_grpc_proto::google::longrunning::operation::Result as OpResult;
 
         let mut client = self.grpc_clients.execution_client.clone();
 
@@ -335,11 +343,6 @@ impl REClient {
         _metadata: RemoteExecutionMetadata,
         request: UploadRequest,
     ) -> anyhow::Result<UploadResponse> {
-        use re_grpc_proto::build::bazel::remote::execution::v2::batch_update_blobs_request::Request;
-        use re_grpc_proto::build::bazel::remote::execution::v2::compressor;
-        use re_grpc_proto::build::bazel::remote::execution::v2::BatchUpdateBlobsRequest;
-        use re_grpc_proto::google::rpc::Code;
-
         let mut client = self.grpc_clients.cas_client.clone();
 
         let files_with_digest: Vec<Request> = request
@@ -420,43 +423,11 @@ impl REClient {
         _metadata: RemoteExecutionMetadata,
         request: DownloadRequest,
     ) -> anyhow::Result<DownloadResponse> {
-        use re_grpc_proto::build::bazel::remote::execution::v2::compressor;
-        use re_grpc_proto::build::bazel::remote::execution::v2::BatchReadBlobsRequest;
-
-        let mut client = self.grpc_clients.cas_client.clone();
-
-        let re_request = BatchReadBlobsRequest {
-            instance_name: INSTANCE_NAME.into(),
-            digests: [
-                request
-                    .inlined_digests
-                    .unwrap_or_default()
-                    .into_map(tdigest_to),
-                request
-                    .file_digests
-                    .unwrap_or_default()
-                    .into_map(|x| tdigest_to(x.named_digest.digest)),
-            ]
-            .concat(),
-            acceptable_compressors: vec![compressor::Value::Identity as i32],
-        };
-
-        let response = client.batch_read_blobs(re_request).await?;
-
-        let blobs: Vec<InlinedDigestWithStatus> =
-            response.into_inner().responses.into_try_map(|r| {
-                anyhow::Ok(InlinedDigestWithStatus {
-                    // TODO(aloiscochard): Here we should check if r.status is ok!
-                    digest: tdigest_from(r.digest.with_context(|| "Response digest not found.")?),
-                    status: tstatus_ok(),
-                    blob: r.data,
-                })
-            })?;
-
-        Ok(DownloadResponse {
-            inlined_blobs: Some(blobs),
-            directories: None,
+        download_impl(request, |re_request| async {
+            let mut client = self.grpc_clients.cas_client.clone();
+            Ok(client.batch_read_blobs(re_request).await?.into_inner())
         })
+        .await
     }
 
     pub async fn get_digests_ttl(
@@ -505,5 +476,251 @@ impl REClient {
 
     pub fn get_experiment_name(&self) -> anyhow::Result<Option<String>> {
         Ok(None)
+    }
+}
+
+async fn download_impl<F, Fut>(request: DownloadRequest, f: F) -> anyhow::Result<DownloadResponse>
+where
+    F: FnOnce(BatchReadBlobsRequest) -> Fut,
+    Fut: Future<Output = anyhow::Result<BatchReadBlobsResponse>>,
+{
+    let inlined_digests = request.inlined_digests.unwrap_or_default();
+    let file_digests = request.file_digests.unwrap_or_default();
+
+    let re_request = BatchReadBlobsRequest {
+        instance_name: INSTANCE_NAME.into(),
+        digests: file_digests
+            .iter()
+            .map(|req| &req.named_digest.digest)
+            .chain(inlined_digests.iter())
+            .map(|d| tdigest_to(d.clone()))
+            .collect(),
+        acceptable_compressors: vec![compressor::Value::Identity as i32],
+    };
+
+    let response = f(re_request).await?;
+
+    let response = response
+        .responses
+        .into_iter()
+        .map(|r| {
+            // TODO(aloiscochard): Here we should check if r.status is ok!
+            let digest = tdigest_from(r.digest.context("Response digest not found.")?);
+            anyhow::Ok((digest, r.data))
+        })
+        .collect::<Result<HashMap<_, _>, _>>()?;
+
+    let inlined_blobs = inlined_digests.into_try_map(|digest| {
+        let data = response
+            .get(&digest)
+            .with_context(|| format!("Did not receive digest data for `{}`", digest))?
+            .clone();
+
+        anyhow::Ok(InlinedDigestWithStatus {
+            digest,
+            status: tstatus_ok(),
+            blob: data,
+        })
+    })?;
+
+    let writes = file_digests.iter().map(|req| async {
+        let data = response
+            .get(&req.named_digest.digest)
+            .with_context(|| {
+                format!(
+                    "Did not receive digest data for `{}`",
+                    req.named_digest.digest
+                )
+            })?
+            .clone();
+
+        let mut opts = OpenOptions::new();
+        opts.read(true).write(true).create_new(true);
+        #[cfg(unix)]
+        {
+            if req.is_executable {
+                opts.mode(0o755);
+            } else {
+                opts.mode(0o644);
+            }
+        }
+
+        async {
+            let mut file = opts
+                .open(&req.named_digest.name)
+                .await
+                .context("Error opening")?;
+            file.write_all(&data).await.context("Error writing")?;
+            file.flush().await.context("Error flushing")?;
+            anyhow::Ok(())
+        }
+        .await
+        .with_context(|| {
+            format!(
+                "Error writing digest `{}` to `{}`",
+                req.named_digest.digest, req.named_digest.name,
+            )
+        })
+    });
+
+    futures::future::try_join_all(writes).await?;
+
+    Ok(DownloadResponse {
+        inlined_blobs: Some(inlined_blobs),
+        directories: None,
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use re_grpc_proto::build::bazel::remote::execution::v2::batch_read_blobs_response;
+
+    use super::*;
+    use crate::NamedDigest;
+    use crate::NamedDigestWithPermissions;
+
+    #[tokio::test]
+    async fn test_download_named() -> anyhow::Result<()> {
+        let work = tempfile::tempdir()?;
+
+        let path1 = work.path().join("path1");
+        let path1 = path1.to_str().context("tempdir is not utf8")?;
+
+        let path2 = work.path().join("path2");
+        let path2 = path2.to_str().context("tempdir is not utf8")?;
+
+        let digest1 = TDigest {
+            hash: "aa".to_owned(),
+            size_in_bytes: 3,
+            ..Default::default()
+        };
+
+        let digest2 = TDigest {
+            hash: "bb".to_owned(),
+            size_in_bytes: 3,
+            ..Default::default()
+        };
+
+        let req = DownloadRequest {
+            file_digests: Some(vec![
+                NamedDigestWithPermissions {
+                    named_digest: NamedDigest {
+                        name: path1.to_owned(),
+                        digest: digest1.clone(),
+                        ..Default::default()
+                    },
+                    is_executable: true,
+                    ..Default::default()
+                },
+                NamedDigestWithPermissions {
+                    named_digest: NamedDigest {
+                        name: path2.to_owned(),
+                        digest: digest2.clone(),
+                        ..Default::default()
+                    },
+                    is_executable: false,
+                    ..Default::default()
+                },
+            ]),
+            ..Default::default()
+        };
+
+        let res = BatchReadBlobsResponse {
+            responses: vec![
+                // Reply out of order
+                batch_read_blobs_response::Response {
+                    digest: Some(tdigest_to(digest2.clone())),
+                    data: vec![4, 5, 6],
+                    ..Default::default()
+                },
+                batch_read_blobs_response::Response {
+                    digest: Some(tdigest_to(digest1.clone())),
+                    data: vec![1, 2, 3],
+                    ..Default::default()
+                },
+            ],
+        };
+
+        download_impl(req, |req| async move {
+            assert_eq!(req.digests.len(), 2);
+            assert_eq!(req.digests[0], tdigest_to(digest1.clone()));
+            assert_eq!(req.digests[1], tdigest_to(digest2.clone()));
+            Ok(res)
+        })
+        .await?;
+
+        assert_eq!(tokio::fs::read(&path1).await?, vec![1, 2, 3]);
+        assert_eq!(tokio::fs::read(&path2).await?, vec![4, 5, 6]);
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            assert_eq!(
+                tokio::fs::metadata(&path1).await?.permissions().mode() & 0o111,
+                0o111
+            );
+            assert_eq!(
+                tokio::fs::metadata(&path2).await?.permissions().mode() & 0o111,
+                0o000
+            );
+        }
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_download_inlined() -> anyhow::Result<()> {
+        let digest1 = &TDigest {
+            hash: "aa".to_owned(),
+            size_in_bytes: 3,
+            ..Default::default()
+        };
+
+        let digest2 = &TDigest {
+            hash: "bb".to_owned(),
+            size_in_bytes: 3,
+            ..Default::default()
+        };
+
+        let req = DownloadRequest {
+            inlined_digests: Some(vec![digest1.clone(), digest2.clone()]),
+            ..Default::default()
+        };
+
+        let res = BatchReadBlobsResponse {
+            responses: vec![
+                // Reply out of order
+                batch_read_blobs_response::Response {
+                    digest: Some(tdigest_to(digest2.clone())),
+                    data: vec![4, 5, 6],
+                    ..Default::default()
+                },
+                batch_read_blobs_response::Response {
+                    digest: Some(tdigest_to(digest1.clone())),
+                    data: vec![1, 2, 3],
+                    ..Default::default()
+                },
+            ],
+        };
+
+        let res = download_impl(req, |req| async move {
+            assert_eq!(req.digests.len(), 2);
+            assert_eq!(req.digests[0], tdigest_to(digest1.clone()));
+            assert_eq!(req.digests[1], tdigest_to(digest2.clone()));
+            Ok(res)
+        })
+        .await?;
+
+        let inlined_blobs = res.inlined_blobs.unwrap();
+
+        assert_eq!(inlined_blobs.len(), 2);
+
+        assert_eq!(inlined_blobs[0].digest, *digest1);
+        assert_eq!(inlined_blobs[0].blob, vec![1, 2, 3]);
+
+        assert_eq!(inlined_blobs[1].digest, *digest2);
+        assert_eq!(inlined_blobs[1].blob, vec![4, 5, 6]);
+
+        Ok(())
     }
 }

@@ -6,6 +6,9 @@ oncall("buck2")
 rust_library(
     name = "remote_execution",
     srcs = glob(["src/**/*.rs"]),
+    test_deps = [
+        "fbsource//third-party/rust:tempfile",
+    ],
     deps = [
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:futures",
@@ -14,6 +17,7 @@ rust_library(
         "fbsource//third-party/rust:regex",
         "fbsource//third-party/rust:slog",
         "fbsource//third-party/rust:thiserror",
+        "fbsource//third-party/rust:tokio",
         "fbsource//third-party/rust:tonic",
         "//buck2/app/buck2_core:buck2_core",
         "//buck2/gazebo/dupe:dupe",

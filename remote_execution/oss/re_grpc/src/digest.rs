@@ -14,7 +14,7 @@ use std::str::FromStr;
 use anyhow::Context;
 use regex::Regex;
 
-#[derive(Clone, Default, PartialEq, Eq, Hash)]
+#[derive(Clone, Default, PartialEq, Eq, Hash, Debug)]
 pub struct TDigest {
     pub hash: String,
     pub size_in_bytes: i64,
