@@ -275,8 +275,7 @@ def _compile_cmd(ctx: "context", compiler: "cmd_args", cc: "cmd_args", includes:
 def _preprocess(ctx: "context", srcs: ["artifact"], build_mode: BuildMode.type) -> ["artifact"]:
     ocaml_toolchain = ctx.attrs._ocaml_toolchain[OCamlToolchainInfo]
     ocamllex = ocaml_toolchain.lex_compiler
-    _ocamlyacc = ocaml_toolchain.yacc_compiler  # Not used.
-    menhir = ocaml_toolchain.menhir_compiler  # Rather, we use menhir exclusively.
+    menhir = ocaml_toolchain.menhir_compiler  # We no longer use yacc_compiler, just menhir.
 
     result = []
     gen_dir = "_" + build_mode.value + "_gen_/"

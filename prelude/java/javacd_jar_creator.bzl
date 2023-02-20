@@ -10,7 +10,11 @@ load(
     "make_compile_outputs",
 )
 load("@prelude//java:java_resources.bzl", "get_resources_map")
-load("@prelude//java:java_toolchain.bzl", "AbiGenerationMode", "DepFiles")
+load(
+    "@prelude//java:java_toolchain.bzl",
+    "AbiGenerationMode",  # @unused Used as a type
+    "DepFiles",
+)
 load(
     "@prelude//jvm:cd_jar_creator_util.bzl",
     "OutputPaths",
@@ -67,7 +71,6 @@ def create_jar_artifact_javacd(
 
     # TODO(cjhopman): Handle manifest file.
     _ = manifest_file
-    _ = AbiGenerationMode("class")
 
     bootclasspath_entries = add_java_7_8_bootclasspath(target_level, bootclasspath_entries, java_toolchain)
     abi_generation_mode = get_abi_generation_mode(abi_generation_mode, java_toolchain, srcs, ap_params)
