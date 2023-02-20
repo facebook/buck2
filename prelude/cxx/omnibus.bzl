@@ -604,9 +604,6 @@ def _create_global_symbols_version_script(
         link_args,
     ))
 
-    all_global_symbols_files = ctx.actions.write("__global_symbols__.symbols", global_symbols_files)
-    all_global_symbols_files = cmd_args(all_global_symbols_files).hidden(global_symbols_files)
-
     return create_global_symbols_version_script(
         actions = ctx.actions,
         name = "__global_symbols__.vers",
