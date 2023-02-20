@@ -152,7 +152,6 @@ impl TryFrom<buck2_test_proto::ConfiguredTarget> for ConfiguredTarget {
     fn try_from(s: buck2_test_proto::ConfiguredTarget) -> Result<Self, Self::Error> {
         let buck2_test_proto::ConfiguredTarget {
             handle,
-            legacy_name,
             cell,
             package,
             target,
@@ -165,7 +164,6 @@ impl TryFrom<buck2_test_proto::ConfiguredTarget> for ConfiguredTarget {
                 .context("Missing `handle`")?
                 .try_into()
                 .context("Invalid `handle`")?,
-            legacy_name,
             cell,
             package,
             target,
@@ -183,7 +181,6 @@ impl TryInto<buck2_test_proto::ConfiguredTarget> for ConfiguredTarget {
     fn try_into(self) -> Result<buck2_test_proto::ConfiguredTarget, Self::Error> {
         Ok(buck2_test_proto::ConfiguredTarget {
             handle: Some(self.handle.try_into().context("Invalid `handle`")?),
-            legacy_name: self.legacy_name,
             cell: self.cell,
             package: self.package,
             target: self.target,
@@ -811,7 +808,6 @@ mod tests {
         let test_spec = ExternalRunnerSpec {
             target: ConfiguredTarget {
                 handle: ConfiguredTargetHandle(1),
-                legacy_name: "foo:bar".into(),
                 cell: "qux".into(),
                 package: "foo".into(),
                 target: "bar".into(),

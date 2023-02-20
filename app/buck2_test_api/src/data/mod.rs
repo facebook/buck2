@@ -34,7 +34,6 @@ pub struct ConfiguredTargetHandle(u64);
 #[derive(Debug, Clone, PartialEq)]
 pub struct ConfiguredTarget {
     pub handle: ConfiguredTargetHandle,
-    pub legacy_name: String,
     /// Structured data
     pub cell: String,
     pub package: String,

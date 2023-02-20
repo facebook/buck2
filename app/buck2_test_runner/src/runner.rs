@@ -69,7 +69,10 @@ impl Buck2TestRunner {
         }
         let run_verdict = receiver
             .map(async move |spec| {
-                let name = spec.target.legacy_name.to_owned();
+                let name = format!(
+                    "{}//{}:{}",
+                    spec.target.cell, spec.target.package, spec.target.target
+                );
                 let target_handle = spec.target.handle.to_owned();
 
                 let execution_result = self

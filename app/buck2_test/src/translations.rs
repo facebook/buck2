@@ -21,9 +21,6 @@ pub fn build_configured_target_handle(
     cell_resolver: &CellResolver,
 ) -> anyhow::Result<ConfiguredTarget> {
     let label = target.target().unconfigured();
-    // We emulate the target name that Buck v1 would provide. This matters because downstream
-    // dependencies such as unittest finder expect exact matches here.
-    let legacy_name = format!("{}:{}", label.pkg().cell_relative_path(), label.name());
     let cell = label.pkg().cell_name().to_string();
     let package = label.pkg().cell_relative_path().to_string();
     let target_name = label.name().to_string();
@@ -34,7 +31,6 @@ pub fn build_configured_target_handle(
 
     Ok(ConfiguredTarget {
         handle: session.register(target),
-        legacy_name,
         cell,
         package,
         target: target_name,
