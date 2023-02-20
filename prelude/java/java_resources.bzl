@@ -7,6 +7,23 @@
 
 load("@prelude//:paths.bzl", "paths")
 
+# Infer the likely package name for the given path based on conventional
+# source root components.
+def get_src_package(src_root_prefixes: [str.type], src_root_elements: [str.type], path: str.type) -> str.type:
+    for prefix in src_root_prefixes:
+        if path.startswith(prefix):
+            return paths.relativize(
+                path,
+                prefix,
+            )
+    parts = path.split("/")
+    for i in range(len(parts) - 1, -1, -1):
+        part = parts[i]
+        if part in src_root_elements:
+            return "/".join(parts[i + 1:])
+
+    return path
+
 def get_resources_map(
         java_toolchain: "JavaToolchainInfo",
         package: str.type,
@@ -15,8 +32,6 @@ def get_resources_map(
     # As in v1, root the resource root via the current package.
     if resources_root != None:
         resources_root = paths.normalize(paths.join(package, resources_root))
-
-    java_package_finder = _get_java_package_finder(java_toolchain)
 
     resources_to_copy = {}
     for resource in resources:
@@ -35,27 +50,6 @@ def get_resources_map(
                 resources_root,
             )
         else:
-            resource_name = java_package_finder(full_resource)
+            resource_name = get_src_package(java_toolchain.src_root_prefixes, java_toolchain.src_root_elements, full_resource)
         resources_to_copy[resource_name] = resource
     return resources_to_copy
-
-def _get_java_package_finder(java_toolchain: "JavaToolchainInfo") -> "function":
-    src_root_prefixes = java_toolchain.src_root_prefixes
-    src_root_elements = java_toolchain.src_root_elements
-
-    def finder(path):
-        for prefix in src_root_prefixes:
-            if path.startswith(prefix):
-                return paths.relativize(
-                    path,
-                    prefix,
-                )
-        parts = path.split("/")
-        for i in range(len(parts) - 1, -1, -1):
-            part = parts[i]
-            if part in src_root_elements:
-                return "/".join(parts[i + 1:])
-
-        return path
-
-    return finder
