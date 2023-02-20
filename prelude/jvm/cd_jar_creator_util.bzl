@@ -230,8 +230,7 @@ def encode_ap_params(ap_params: ["AnnotationProcessorParams"], target_type: Targ
             if target_type == TargetType("source_only_abi") and not ap.affects_abi:
                 continue
 
-            parameters = encoded_ap_params.parameters
-            parameters += ap.params
+            encoded_ap_params.parameters.extend(ap.params)
             encoded_ap_params.pluginProperties.append(
                 struct(
                     canReuseClassLoader = False,
