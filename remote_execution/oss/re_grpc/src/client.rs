@@ -32,6 +32,7 @@ use re_grpc_proto::build::bazel::remote::execution::v2::ExecuteResponse as GExec
 use re_grpc_proto::build::bazel::remote::execution::v2::ResultsCachePolicy;
 use re_grpc_proto::google::longrunning::operation::Result as OpResult;
 use re_grpc_proto::google::rpc::Code;
+use re_grpc_proto::google::rpc::Status;
 use slog::Logger;
 use tokio::fs::OpenOptions;
 use tokio::io::AsyncWriteExt;
@@ -71,6 +72,17 @@ fn tstatus_ok() -> TStatus {
         message: "".to_owned(),
         ..Default::default()
     }
+}
+
+fn check_status(status: Status) -> Result<(), REClientError> {
+    if status.code == 0 {
+        return Ok(());
+    }
+
+    Err(REClientError {
+        code: TCode(status.code),
+        message: status.message,
+    })
 }
 
 fn ttimestamp_from(ts: Option<::prost_types::Timestamp>) -> TTimestamp {
@@ -212,6 +224,7 @@ impl REClient {
         let mut result = None;
 
         while let Some(operation) = stream.message().await? {
+            // TODO
             if operation.done {
                 result = operation.result;
             }
@@ -322,7 +335,7 @@ impl REClient {
                     error: REError {
                         code: TCode::OK,
                         message: execute_response_grpc.message,
-                        error_location: ErrorLocation(0),
+                        ..Default::default()
                     },
                     cached_result: execute_response_grpc.cached_result,
                     action_digest: action_tdigest.clone(),
@@ -504,7 +517,7 @@ where
         .responses
         .into_iter()
         .map(|r| {
-            // TODO(aloiscochard): Here we should check if r.status is ok!
+            check_status(r.status.unwrap_or_default())?;
             let digest = tdigest_from(r.digest.context("Response digest not found.")?);
             anyhow::Ok((digest, r.data))
         })
