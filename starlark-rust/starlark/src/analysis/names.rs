@@ -29,11 +29,6 @@ use crate::analysis::types::LintT;
 use crate::analysis::types::LintWarning;
 use crate::codemap::CodeMap;
 use crate::codemap::Span;
-use crate::syntax::ast::Assign;
-use crate::syntax::ast::AstStmt;
-use crate::syntax::ast::DefP;
-use crate::syntax::ast::Expr;
-use crate::syntax::ast::Stmt;
 use crate::syntax::AstModule;
 
 #[derive(Error, Debug, VariantName)]
@@ -48,10 +43,6 @@ pub(crate) enum NameWarning {
     UsingUnassigned(String),
     #[error("Use of undefined variable `{0}`")]
     UsingUndefined(String),
-    #[error("Underscore-prefixed nested function name `{0}`")]
-    UnderscoreFunction(String),
-    #[error("Used ignored variable `{0}`")]
-    UsingIgnored(String),
 }
 
 impl LintWarning for NameWarning {
@@ -89,8 +80,6 @@ pub(crate) fn lint(
     if let Some(globals) = globals {
         undefined_variable(&module.codemap, &scope, globals, &mut res);
     }
-    inappropriate_underscore(&module.codemap, &module.statement, true, &mut res);
-    use_ignored(&module.codemap, &scope, None, &mut res);
     res
 }
 
@@ -207,96 +196,6 @@ fn unassigned_variable(codemap: &CodeMap, scope: &Scope, res: &mut Vec<LintT<Nam
     }
 }
 
-// There's no reason to make a def or lambda and give it an underscore name not at the top level
-fn inappropriate_underscore(
-    codemap: &CodeMap,
-    x: &AstStmt,
-    top: bool,
-    res: &mut Vec<LintT<NameWarning>>,
-) {
-    match &**x {
-        Stmt::Def(DefP { name, body, .. }) => {
-            if !top && name.0.starts_with('_') {
-                res.push(LintT::new(
-                    codemap,
-                    name.span,
-                    NameWarning::UnderscoreFunction(name.0.clone()),
-                ))
-            }
-            inappropriate_underscore(codemap, body, false, res)
-        }
-        Stmt::Assign(lhs, type_rhs) if !top => {
-            let (_, rhs) = &**type_rhs;
-            match (&**lhs, &**rhs) {
-                (Assign::Identifier(name), Expr::Lambda(..)) if name.0.starts_with('_') => res
-                    .push(LintT::new(
-                        codemap,
-                        name.span,
-                        NameWarning::UnderscoreFunction(name.node.0.clone()),
-                    )),
-                _ => {}
-            }
-        }
-        Stmt::AssignModify(lhs, _, rhs) if !top => match (&**lhs, &rhs.node) {
-            (Assign::Identifier(name), Expr::Lambda(..)) if name.0.starts_with('_') => {
-                res.push(LintT::new(
-                    codemap,
-                    name.span,
-                    NameWarning::UnderscoreFunction(name.node.0.clone()),
-                ))
-            }
-            _ => {}
-        },
-        _ => x.visit_stmt(|x| inappropriate_underscore(codemap, x, top, res)),
-    }
-}
-
-// Don't want to use a variable that has been defined to be ignored
-fn use_ignored(
-    codemap: &CodeMap,
-    scope: &Scope,
-    root: Option<&Scope>,
-    res: &mut Vec<LintT<NameWarning>>,
-) {
-    match root {
-        None => {
-            // Things at the top level can be ignored and used
-            for x in &scope.inner {
-                if let Bind::Scope(x) = x {
-                    use_ignored(codemap, x, Some(scope), res)
-                }
-            }
-        }
-        Some(root) => {
-            // You can only use _ variables which are defined at the root,
-            // and thus must be free in this scope.
-            // If you use _foo, but foo is already in this scope, you may have been avoiding shadowing.
-            for x in &scope.inner {
-                match x {
-                    Bind::Get(x) if x.starts_with('_') => {
-                        // There are two permissible reasons to use an underscore variable
-                        let defined_at_root =
-                            || root.bound.contains_key(&x.node) && scope.free.contains_key(&x.node);
-                        let shadows = || {
-                            let suffix = &x[1..];
-                            scope.free.contains_key(suffix) || scope.bound.contains_key(suffix)
-                        };
-                        if !defined_at_root() && !shadows() {
-                            res.push(LintT::new(
-                                codemap,
-                                x.span,
-                                NameWarning::UsingIgnored(x.node.clone()),
-                            ))
-                        }
-                    }
-                    Bind::Scope(x) => use_ignored(codemap, x, Some(root), res),
-                    _ => {}
-                }
-            }
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use gazebo::prelude::*;
@@ -312,8 +211,6 @@ mod tests {
                 NameWarning::UnusedArgument(x) => x,
                 NameWarning::UsingUnassigned(x) => x,
                 NameWarning::UsingUndefined(x) => x,
-                NameWarning::UnderscoreFunction(x) => x,
-                NameWarning::UsingIgnored(x) => x,
             }
         }
     }
@@ -455,54 +352,5 @@ def bar(ctx):
         let mut res = res.map(|x| x.problem.about());
         res.sort();
         assert_eq!(res, &["no1", "no2"])
-    }
-
-    #[test]
-    fn test_lint_inappropriate_underscore() {
-        let m = module(
-            r#"
-def _ok():
-    def _no1():
-        _no2 = lambda x: x
-        _ignore = 8
-"#,
-        );
-        let mut res = Vec::new();
-        inappropriate_underscore(&m.codemap, &m.statement, true, &mut res);
-        let mut res = res.map(|x| x.problem.about());
-        res.sort();
-        assert_eq!(res, &["_no1", "_no2"])
-    }
-
-    #[test]
-    fn test_lint_use_ignored() {
-        let m = module(
-            r#"
-def _foo(): pass
-_no4 = 1
-def bar():
-    def _no1(): pass
-    _foo()
-    _no1()
-    _no2 = 1
-    print(_no2)
-    _no3 = 1
-    _no4 = 1
-    print(_no4)
-    def deeper():
-        print(_no3)
-        _foo()
-def foo():
-    x = 1
-    for _x in range(1, 100):
-        print(_x)
-"#,
-        );
-        let mut res = Vec::new();
-        let scope = bind::scope(&m);
-        use_ignored(&m.codemap, &scope, None, &mut res);
-        let mut res = res.map(|x| x.problem.about());
-        res.sort();
-        assert_eq!(res, &["_no1", "_no2", "_no3", "_no4"])
     }
 }

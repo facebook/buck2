@@ -39,6 +39,7 @@ mod incompatible;
 mod names;
 mod performance;
 mod types;
+mod underscore;
 
 impl AstModule {
     /// Run a static linter over the module. If the complete set of global variables are known
@@ -50,6 +51,7 @@ impl AstModule {
         res.extend(incompatible::lint(self).into_iter().map(LintT::erase));
         res.extend(dubious::lint(self).into_iter().map(LintT::erase));
         res.extend(names::lint(self, globals).into_iter().map(LintT::erase));
+        res.extend(underscore::lint(self).into_iter().map(LintT::erase));
         res.extend(performance::lint(self).into_iter().map(LintT::erase));
         res
     }
