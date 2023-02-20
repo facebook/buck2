@@ -10,6 +10,7 @@
 use std::time::SystemTime;
 
 use anyhow::Context as _;
+use buck2_core::cells::name::CellName;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use gazebo::prelude::*;
 
@@ -294,6 +295,7 @@ impl TryFrom<buck2_test_proto::ExternalRunnerSpec> for ExternalRunnerSpec {
             labels,
             contacts,
             oncall,
+            working_dir_cell,
         } = s;
 
         Ok(Self {
@@ -312,6 +314,7 @@ impl TryFrom<buck2_test_proto::ExternalRunnerSpec> for ExternalRunnerSpec {
             labels,
             contacts,
             oncall,
+            working_dir_cell: CellName::unchecked_new(&working_dir_cell)?,
         })
     }
 }
@@ -328,6 +331,7 @@ impl TryInto<buck2_test_proto::ExternalRunnerSpec> for ExternalRunnerSpec {
             labels,
             contacts,
             oncall,
+            working_dir_cell,
         } = self;
         Ok(buck2_test_proto::ExternalRunnerSpec {
             target: Some(target.try_into().context("Invalid `target`")?),
@@ -342,6 +346,7 @@ impl TryInto<buck2_test_proto::ExternalRunnerSpec> for ExternalRunnerSpec {
             labels,
             contacts,
             oncall,
+            working_dir_cell: working_dir_cell.as_str().to_owned(),
         })
     }
 }
@@ -836,6 +841,7 @@ mod tests {
             labels: vec!["label1".to_owned(), "label2".to_owned()],
             contacts: vec!["contact1".to_owned(), "contact2".to_owned()],
             oncall: Some("contact1".to_owned()),
+            working_dir_cell: CellName::testing_new("qux"),
         };
         assert_roundtrips::<buck2_test_proto::ExternalRunnerSpec, ExternalRunnerSpec>(&test_spec);
     }

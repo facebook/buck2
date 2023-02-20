@@ -9,6 +9,7 @@
 
 use std::sync::Arc;
 
+use buck2_core::cells::name::CellName;
 use buck2_test_api::data::ConfiguredTarget;
 use buck2_test_api::data::ExternalRunnerSpec;
 use buck2_test_api::data::ExternalRunnerSpecValue;
@@ -32,6 +33,7 @@ pub trait TestProvider {
         &self,
         target: ConfiguredTarget,
         executor: Arc<dyn TestExecutor + 'exec>,
+        working_dir_cell: CellName,
     ) -> BoxFuture<'exec, anyhow::Result<()>>;
 }
 
@@ -48,6 +50,7 @@ impl TestProvider for FrozenExternalRunnerTestInfo {
         &self,
         target: ConfiguredTarget,
         executor: Arc<dyn TestExecutor + 'exec>,
+        working_dir_cell: CellName,
     ) -> BoxFuture<'exec, anyhow::Result<()>> {
         let mut handle_index = 0;
 
@@ -84,6 +87,7 @@ impl TestProvider for FrozenExternalRunnerTestInfo {
             labels: self.labels().map(|l| l.to_owned()).collect(),
             contacts: self.contacts().map(|l| l.to_owned()).collect(),
             oncall: self.contacts().exactly_one().ok().map(str::to_owned),
+            working_dir_cell,
         };
 
         async move { executor.external_runner_spec(spec).await }.boxed()

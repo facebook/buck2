@@ -26,6 +26,7 @@ use buck2_common::events::HasEvents;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::liveliness_observer::LivelinessGuard;
 use buck2_common::pattern::resolve::ResolvedPattern;
+use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
@@ -219,6 +220,7 @@ async fn test(
 ) -> anyhow::Result<TestResponse> {
     let cwd = server_ctx.working_dir();
     let cell_resolver = ctx.get_cell_resolver().await?;
+    let working_dir_cell = cell_resolver.find(cwd)?;
 
     let global_target_platform =
         target_platform_from_client_context(request.context.as_ref(), &cell_resolver, cwd).await?;
@@ -290,6 +292,7 @@ async fn test(
         &*launcher,
         session,
         cell_resolver,
+        working_dir_cell,
     )
     .await?;
 
@@ -357,6 +360,7 @@ async fn test_targets(
     launcher: &dyn ExecutorLauncher,
     session: TestSession,
     cell_resolver: CellResolver,
+    working_dir_cell: CellName,
 ) -> anyhow::Result<TestOutcome> {
     let session = Arc::new(session);
     let (liveliness_observer, _guard) = LivelinessGuard::create();
@@ -390,7 +394,7 @@ async fn test_targets(
         move |ctx| {
             // NOTE: This is made a critical section so that we shut down gracefully. We'll cancel
             // if the liveliness guard indicates we should.
-            critical_section(|| async move {
+            critical_section(move || async move {
                 // Spawn our server to listen to the test runner's requests for execution.
                 let orchestrator = BuckTestOrchestrator::new(
                     ctx.dupe(),
@@ -410,6 +414,7 @@ async fn test_targets(
                     session: &session,
                     test_executor: &test_executor,
                     cell_resolver: &cell_resolver,
+                    working_dir_cell,
                 });
 
                 driver.push_pattern(pattern);
@@ -508,6 +513,7 @@ pub(crate) struct TestDriverState<'a, 'e> {
     session: &'a TestSession,
     test_executor: &'a Arc<dyn TestExecutor + 'e>,
     cell_resolver: &'a CellResolver,
+    working_dir_cell: CellName,
 }
 
 /// Maintains the state of an ongoing test execution.
@@ -637,6 +643,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                     state.session,
                     state.label_filtering.dupe(),
                     state.cell_resolver,
+                    state.working_dir_cell,
                 )
                 .await?;
 
@@ -694,6 +701,7 @@ async fn test_target(
     session: &TestSession,
     label_filtering: Arc<TestLabelFiltering>,
     cell_resolver: &CellResolver,
+    working_dir_cell: CellName,
 ) -> anyhow::Result<Option<ConfiguredProvidersLabel>> {
     // NOTE: We fail if we hit an incompatible target here. This can happen if we reach an
     // incompatible target via `tests = [...]`. This should perhaps change, but that's how it works
@@ -707,9 +715,16 @@ async fn test_target(
             if skip_run_based_on_labels(test_info, &label_filtering) {
                 return Ok(None);
             }
-            run_tests(test_executor, target, test_info, session, cell_resolver)
-                .map(|l| Some(l).transpose())
-                .left_future()
+            run_tests(
+                test_executor,
+                target,
+                test_info,
+                session,
+                cell_resolver,
+                working_dir_cell,
+            )
+            .map(|l| Some(l).transpose())
+            .left_future()
         }
         None => {
             // not a test
@@ -781,13 +796,14 @@ fn run_tests<'a, 'b>(
     test_info: &'b dyn TestProvider,
     session: &'b TestSession,
     cell_resolver: &'b CellResolver,
+    working_dir_cell: CellName,
 ) -> BoxFuture<'a, anyhow::Result<ConfiguredProvidersLabel>> {
     let maybe_handle =
         build_configured_target_handle(providers_label.clone(), session, cell_resolver);
 
     match maybe_handle {
         Ok(handle) => {
-            let fut = test_info.dispatch(handle, test_executor);
+            let fut = test_info.dispatch(handle, test_executor, working_dir_cell);
 
             (async move {
                 fut.await

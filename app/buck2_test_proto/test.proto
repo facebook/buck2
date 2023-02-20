@@ -164,7 +164,8 @@ message ExternalRunnerSpec {
   // Oncall
   optional string oncall = 7;
 
-  // TODO: do we need cwd as per the buck1 spec?
+  // Current working directory cell.
+  string working_dir_cell = 8;
 }
 
 message ExternalRunnerSpecValue {

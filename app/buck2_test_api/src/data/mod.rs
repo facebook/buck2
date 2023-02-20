@@ -18,6 +18,7 @@ use std::fmt::Formatter;
 use std::time::Duration;
 use std::time::SystemTime;
 
+use buck2_core::cells::name::CellName;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use derive_more::From;
@@ -131,6 +132,8 @@ pub struct ExternalRunnerSpec {
     pub contacts: Vec<String>,
     /// Oncall for the test
     pub oncall: Option<String>,
+    /// Cell of current working directory for test command.
+    pub working_dir_cell: CellName,
 }
 
 /// Command line argument or environment variable value
