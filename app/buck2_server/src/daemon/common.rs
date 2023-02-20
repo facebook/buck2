@@ -14,11 +14,13 @@ use buck2_cli_proto::client_context::HostPlatformOverride;
 use buck2_cli_proto::common_build_options::ExecutionStrategy;
 use buck2_common::executor_config::CacheUploadBehavior;
 use buck2_common::executor_config::CommandExecutorConfig;
-use buck2_common::executor_config::CommandExecutorKind;
+use buck2_common::executor_config::Executor;
 use buck2_common::executor_config::HybridExecutionLevel;
 use buck2_common::executor_config::LocalExecutorOptions;
 use buck2_common::executor_config::PathSeparatorKind;
+use buck2_common::executor_config::RemoteEnabledExecutor;
 use buck2_common::executor_config::RemoteExecutorOptions;
+use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_core::collections::sorted_map::SortedMap;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::project::ProjectRoot;
@@ -134,81 +136,103 @@ impl HasCommandExecutor for CommandExecutorFactory {
             return Ok(Arc::new(local_executor_new(&LocalExecutorOptions {})));
         }
 
-        let remote_executor_new = |options: &RemoteExecutorOptions| {
-            let properties = options
-                .re_properties
-                .iter()
-                .map(|(k, v)| (k.clone(), v.clone()))
-                .collect();
+        let remote_executor_new =
+            |options: &RemoteExecutorOptions,
+             re_properties: &SortedMap<String, String>,
+             re_use_case: &RemoteExecutorUseCase| {
+                let properties = re_properties
+                    .iter()
+                    .map(|(k, v)| (k.clone(), v.clone()))
+                    .collect();
 
-            // 30GB is the max RE can currently support.
-            const DEFAULT_RE_MAX_INPUT_FILE_BYTES: u64 = 30 * 1024 * 1024 * 1024;
+                // 30GB is the max RE can currently support.
+                const DEFAULT_RE_MAX_INPUT_FILE_BYTES: u64 = 30 * 1024 * 1024 * 1024;
 
-            ReExecutor::new(
-                artifact_fs.clone(),
-                self.project_root.clone(),
-                self.materializer.dupe(),
-                self.re_connection.get_client(),
-                properties,
-                options.re_action_key.clone(),
-                options
-                    .re_max_input_files_bytes
-                    .unwrap_or(DEFAULT_RE_MAX_INPUT_FILE_BYTES),
-                options.re_use_case,
-                self.executor_global_knobs.dupe(),
-                self.no_remote_cache,
-            )
+                ReExecutor::new(
+                    artifact_fs.clone(),
+                    self.project_root.clone(),
+                    self.materializer.dupe(),
+                    self.re_connection.get_client(),
+                    properties,
+                    options.re_action_key.clone(),
+                    options
+                        .re_max_input_files_bytes
+                        .unwrap_or(DEFAULT_RE_MAX_INPUT_FILE_BYTES),
+                    *re_use_case,
+                    self.executor_global_knobs.dupe(),
+                    self.no_remote_cache,
+                )
+            };
+
+        let executor: Option<Arc<dyn PreparedCommandExecutor>> = match &executor_config.executor {
+            Executor::Local(local) => {
+                if self.strategy.ban_local() {
+                    None
+                } else {
+                    Some(Arc::new(local_executor_new(local)))
+                }
+            }
+            Executor::RemoteEnabled {
+                executor,
+                re_properties,
+                re_use_case,
+                cache_upload_behavior,
+            } => {
+                let inner_executor: Option<Arc<dyn PreparedCommandExecutor>> = match &executor {
+                    RemoteEnabledExecutor::Local(local) if !self.strategy.ban_local() => {
+                        Some(Arc::new(local_executor_new(local)))
+                    }
+                    RemoteEnabledExecutor::Remote(remote) if !self.strategy.ban_remote() => Some(
+                        Arc::new(remote_executor_new(remote, re_properties, re_use_case)),
+                    ),
+                    RemoteEnabledExecutor::Hybrid {
+                        local,
+                        remote,
+                        level,
+                    } if !self.strategy.ban_hybrid() => Some(Arc::new(HybridExecutor {
+                        local: local_executor_new(local),
+                        remote: remote_executor_new(remote, re_properties, re_use_case),
+                        level: *level,
+                        executor_preference: self.strategy.hybrid_preference(),
+                        low_pass_filter: self.low_pass_filter.dupe(),
+                    })),
+                    _ => None,
+                };
+
+                // NOTE: While we now have a legit flag for this, we keep the env var. This has been used
+                // in remediating prod incidents in the past, and this is the kind of thing that can easily
+                // become tribal knowledge. Keeping this does not hurt us.
+                static DISABLE_CACHING: EnvHelper<bool> =
+                    EnvHelper::new("BUCK2_TEST_DISABLE_CACHING");
+
+                let disable_caching = DISABLE_CACHING
+                    .get_copied()?
+                    .unwrap_or(self.no_remote_cache);
+
+                if disable_caching {
+                    inner_executor
+                } else {
+                    inner_executor.map(|inner_executor| {
+                        Arc::new(CachingExecutor::new(
+                            inner_executor,
+                            artifact_fs.clone(),
+                            self.materializer.dupe(),
+                            self.re_connection.get_client(),
+                            self.upload_all_actions,
+                            self.executor_global_knobs.dupe(),
+                            *cache_upload_behavior,
+                        )) as _
+                    })
+                }
+            }
         };
 
-        let inner_executor: Arc<dyn PreparedCommandExecutor> = match &executor_config.executor_kind
-        {
-            CommandExecutorKind::Local(local) if !self.strategy.ban_local() => {
-                Arc::new(local_executor_new(local))
-            }
-            CommandExecutorKind::Remote(remote) if !self.strategy.ban_remote() => {
-                Arc::new(remote_executor_new(remote))
-            }
-            CommandExecutorKind::Hybrid {
-                local,
-                remote,
-                level,
-            } if !self.strategy.ban_hybrid() => Arc::new(HybridExecutor {
-                local: local_executor_new(local),
-                remote: remote_executor_new(remote),
-                level: *level,
-                executor_preference: self.strategy.hybrid_preference(),
-                low_pass_filter: self.low_pass_filter.dupe(),
-            }),
-            config => {
-                return Err(anyhow::anyhow!(
-                    "The desired execution strategy (`{:?}`) is incompatible with the executor config that was selected: {:?}",
-                    self.strategy,
-                    config
-                ));
-            }
-        };
+        let executor = executor
+            .with_context(|| format!(
+"The desired execution strategy (`{:?}`) is incompatible with the executor config that was selected: {:?}",
+self.strategy, executor_config))?;
 
-        // NOTE: While we now have a legit flag for this, we keep the env var. This has been used
-        // in remediating prod incidents in the past, and this is the kind of thing that can easily
-        // become tribal knowledge. Keeping this does not hurt us.
-        static DISABLE_CACHING: EnvHelper<bool> = EnvHelper::new("BUCK2_TEST_DISABLE_CACHING");
-
-        if DISABLE_CACHING
-            .get_copied()?
-            .unwrap_or(self.no_remote_cache)
-        {
-            return Ok(inner_executor);
-        }
-
-        Ok(Arc::new(CachingExecutor::new(
-            inner_executor,
-            artifact_fs.clone(),
-            self.materializer.dupe(),
-            self.re_connection.get_client(),
-            self.upload_all_actions,
-            self.executor_global_knobs.dupe(),
-            executor_config.cache_upload_behavior,
-        )))
+        Ok(executor)
     }
 }
 
@@ -253,24 +277,24 @@ impl ExecutionStrategyExt for ExecutionStrategy {
 
 /// This is used when execution platforms are not configured.
 pub fn get_default_executor_config(host_platform: HostPlatformOverride) -> CommandExecutorConfig {
-    let executor_kind = if buck2_core::is_open_source() {
-        CommandExecutorKind::Local(LocalExecutorOptions {})
+    let executor = if buck2_core::is_open_source() {
+        Executor::Local(LocalExecutorOptions {})
     } else {
-        let re_properties = get_default_re_properties(host_platform);
-        CommandExecutorKind::Hybrid {
-            local: LocalExecutorOptions {},
-            remote: RemoteExecutorOptions {
-                re_properties,
-                ..Default::default()
+        Executor::RemoteEnabled {
+            executor: RemoteEnabledExecutor::Hybrid {
+                local: LocalExecutorOptions {},
+                remote: RemoteExecutorOptions::default(),
+                level: HybridExecutionLevel::Limited,
             },
-            level: HybridExecutionLevel::Limited,
+            re_properties: get_default_re_properties(host_platform),
+            re_use_case: RemoteExecutorUseCase::buck2_default(),
+            cache_upload_behavior: CacheUploadBehavior::Disabled,
         }
     };
 
     CommandExecutorConfig {
-        executor_kind,
+        executor,
         path_separator: PathSeparatorKind::system_default(),
-        cache_upload_behavior: CacheUploadBehavior::Disabled,
     }
 }
 

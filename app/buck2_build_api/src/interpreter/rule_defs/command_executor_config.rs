@@ -13,10 +13,11 @@ use allocative::Allocative;
 use anyhow::Context as _;
 use buck2_common::executor_config::CacheUploadBehavior;
 use buck2_common::executor_config::CommandExecutorConfig;
-use buck2_common::executor_config::CommandExecutorKind;
+use buck2_common::executor_config::Executor;
 use buck2_common::executor_config::HybridExecutionLevel;
 use buck2_common::executor_config::LocalExecutorOptions;
 use buck2_common::executor_config::PathSeparatorKind;
+use buck2_common::executor_config::RemoteEnabledExecutor;
 use buck2_common::executor_config::RemoteExecutorOptions;
 use buck2_common::executor_config::RemoteExecutorUseCase;
 use derive_more::Display;
@@ -36,6 +37,12 @@ use thiserror::Error;
 enum CommandExecutorConfigErrors {
     #[error("expected a dict, got `{0}` (type `{1}`)")]
     RePropertiesNotADict(String, String),
+    #[error("expected `{0}` to be set")]
+    MissingField(&'static str),
+    #[error(
+        "executor config must specify at least `local_enabled = True` or `remote_enabled = True`"
+    )]
+    NoExecutor,
 }
 
 #[derive(Debug, Display, NoSerialize, ProvidesStaticType, Allocative)]
@@ -93,12 +100,9 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
 
             let max_cache_upload_mebibytes = max_cache_upload_mebibytes.into_option();
 
-            let local_options = if local_enabled {
-                Some(LocalExecutorOptions {})
-            } else {
+            let re_properties = if remote_execution_properties.is_none() {
                 None
-            };
-            let remote_options = if remote_enabled {
+            } else {
                 let re_properties = DictRef::from_value(remote_execution_properties.to_value())
                     .ok_or_else(|| {
                         CommandExecutorConfigErrors::RePropertiesNotADict(
@@ -106,11 +110,30 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
                             remote_execution_properties.to_value().get_type().to_owned(),
                         )
                     })?;
-                let re_properties = re_properties
-                    .iter()
-                    .map(|(k, v)| (k.to_str(), v.to_str()))
-                    .collect();
 
+                Some(
+                    re_properties
+                        .iter()
+                        .map(|(k, v)| (k.to_str(), v.to_str()))
+                        .collect(),
+                )
+            };
+
+            let re_use_case = if remote_execution_use_case.is_none() {
+                None
+            } else {
+                let re_use_case = remote_execution_use_case
+                    .unpack_str()
+                    .context("remote_execution_use_case is not a string")?;
+                Some(RemoteExecutorUseCase::new(re_use_case.to_owned()))
+            };
+
+            let local_options = if local_enabled {
+                Some(LocalExecutorOptions {})
+            } else {
+                None
+            };
+            let remote_options = if remote_enabled {
                 let re_action_key = remote_execution_action_key.to_value();
                 let re_action_key = if re_action_key.is_none() {
                     None
@@ -124,16 +147,9 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
                     .context("remote_execution_max_input_files_mebibytes is negative")?
                     .map(|b| b * 1024 * 1024);
 
-                let re_use_case = remote_execution_use_case
-                    .unpack_str()
-                    .context("remote_execution_use_case is missing")?;
-                let re_use_case = RemoteExecutorUseCase::new(re_use_case.to_owned());
-
                 Some(RemoteExecutorOptions {
-                    re_properties,
                     re_action_key,
                     re_max_input_files_bytes,
-                    re_use_case,
                 })
             } else {
                 None
@@ -158,23 +174,58 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
                 .context("max_cache_upload_mebibytes is negative")?
                 .map(|b| b * 1024 * 1024);
 
+            let cache_upload_behavior = if allow_cache_uploads {
+                CacheUploadBehavior::Enabled {
+                    max_bytes: max_cache_upload_bytes,
+                }
+            } else {
+                CacheUploadBehavior::Disabled
+            };
+
+            let executor = match (local_options, remote_options) {
+                (local, Some(remote)) => {
+                    let executor = match local {
+                        Some(local) => RemoteEnabledExecutor::Hybrid {
+                            local,
+                            remote,
+                            level: hybrid_level,
+                        },
+                        None => RemoteEnabledExecutor::Remote(remote),
+                    };
+
+                    Executor::RemoteEnabled {
+                        executor,
+                        re_properties: re_properties.context(
+                            CommandExecutorConfigErrors::MissingField(
+                                "remote_execution_properties",
+                            ),
+                        )?,
+                        re_use_case: re_use_case
+                            .context(CommandExecutorConfigErrors::MissingField("re_use_case"))?,
+                        cache_upload_behavior,
+                    }
+                }
+                (Some(local), None) => {
+                    // FIXME: Make caching configurable to allow for a truly local executor here.
+                    Executor::RemoteEnabled {
+                        executor: RemoteEnabledExecutor::Local(local),
+                        re_properties: re_properties.unwrap_or_default(),
+                        re_use_case: re_use_case
+                            .unwrap_or_else(RemoteExecutorUseCase::buck2_default),
+                        cache_upload_behavior,
+                    }
+                }
+                (None, None) => {
+                    return Err(CommandExecutorConfigErrors::NoExecutor.into());
+                }
+            };
+
             CommandExecutorConfig {
-                executor_kind: CommandExecutorKind::new(
-                    local_options,
-                    remote_options,
-                    hybrid_level,
-                )?,
+                executor,
                 path_separator: if use_windows_path_separators {
                     PathSeparatorKind::Windows
                 } else {
                     PathSeparatorKind::Unix
-                },
-                cache_upload_behavior: if allow_cache_uploads {
-                    CacheUploadBehavior::Enabled {
-                        max_bytes: max_cache_upload_bytes,
-                    }
-                } else {
-                    CacheUploadBehavior::Disabled
                 },
             }
         };

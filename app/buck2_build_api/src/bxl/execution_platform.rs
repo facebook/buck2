@@ -10,9 +10,8 @@
 //! Common utilities for bxl
 use std::sync::Arc;
 
-use buck2_common::executor_config::CacheUploadBehavior;
 use buck2_common::executor_config::CommandExecutorConfig;
-use buck2_common::executor_config::CommandExecutorKind;
+use buck2_common::executor_config::Executor;
 use buck2_common::executor_config::LocalExecutorOptions;
 use buck2_common::executor_config::PathSeparatorKind;
 use buck2_core::configuration::pair::ConfigurationNoExec;
@@ -27,9 +26,8 @@ pub static EXECUTION_PLATFORM: Lazy<ExecutionPlatformResolution> = Lazy::new(|| 
     ExecutionPlatformResolution::new(
         Some(ExecutionPlatform::legacy_execution_platform(
             Arc::new(CommandExecutorConfig {
-                executor_kind: CommandExecutorKind::Local(LocalExecutorOptions {}),
+                executor: Executor::Local(LocalExecutorOptions {}),
                 path_separator: PathSeparatorKind::system_default(),
-                cache_upload_behavior: CacheUploadBehavior::Disabled,
             }),
             ConfigurationNoExec::unspecified(),
         )),

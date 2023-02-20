@@ -52,39 +52,39 @@ impl Hash for RemoteExecutorUseCase {
     }
 }
 
-#[derive(Debug, Eq, PartialEq, Clone, Hash, Allocative)]
+#[derive(Debug, Default, Eq, PartialEq, Clone, Hash, Allocative)]
 pub struct RemoteExecutorOptions {
-    pub re_properties: SortedMap<String, String>,
     pub re_action_key: Option<String>,
     pub re_max_input_files_bytes: Option<u64>,
-    pub re_use_case: RemoteExecutorUseCase,
 }
 
-impl Default for RemoteExecutorOptions {
-    fn default() -> Self {
-        Self {
-            re_properties: Default::default(),
-            re_action_key: Default::default(),
-            re_max_input_files_bytes: Default::default(),
-            re_use_case: RemoteExecutorUseCase::new("buck2-default".to_owned()),
-        }
-    }
-}
-
-#[derive(Debug, thiserror::Error)]
-enum ExecutorConfigError {
-    #[error("Action executor config must have at least one of local or remote options")]
-    MissingLocalAndRemote,
-}
-
+/// The actual executor portion of a RemoteEnabled executor. It's possible for a RemoteEnabled
+/// executor to wrap a local executor, which is a glorified way of saying "this is a local executor
+/// with a RE backend for caching".
 #[derive(Debug, Eq, PartialEq, Clone, Hash, Allocative)]
-pub enum CommandExecutorKind {
+pub enum RemoteEnabledExecutor {
     Local(LocalExecutorOptions),
     Remote(RemoteExecutorOptions),
     Hybrid {
         local: LocalExecutorOptions,
         remote: RemoteExecutorOptions,
         level: HybridExecutionLevel,
+    },
+}
+
+#[derive(Debug, Eq, PartialEq, Clone, Hash, Allocative)]
+pub enum Executor {
+    /// This executor only runs local commands.
+    Local(LocalExecutorOptions),
+
+    /// This executor interacts with a RE backend. It may use that to read or write to caches, or
+    /// to execute commands.
+    RemoteEnabled {
+        executor: RemoteEnabledExecutor,
+        re_properties: SortedMap<String, String>,
+        re_use_case: RemoteExecutorUseCase,
+        cache_upload_behavior: CacheUploadBehavior,
+        // FIXME: Make caching configurable here.
     },
 }
 
@@ -118,9 +118,8 @@ impl Default for CacheUploadBehavior {
 
 #[derive(Debug, Eq, PartialEq, Hash, Allocative)]
 pub struct CommandExecutorConfig {
-    pub executor_kind: CommandExecutorKind,
+    pub executor: Executor,
     pub path_separator: PathSeparatorKind,
-    pub cache_upload_behavior: CacheUploadBehavior,
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Dupe, Hash, Allocative)]
@@ -139,31 +138,11 @@ pub enum HybridExecutionLevel {
     },
 }
 
-impl CommandExecutorKind {
-    pub fn new(
-        local: Option<LocalExecutorOptions>,
-        remote: Option<RemoteExecutorOptions>,
-        hybrid_level: HybridExecutionLevel,
-    ) -> anyhow::Result<Self> {
-        match (local, remote) {
-            (None, None) => Err(ExecutorConfigError::MissingLocalAndRemote.into()),
-            (None, Some(remote)) => Ok(Self::Remote(remote)),
-            (Some(local), None) => Ok(Self::Local(local)),
-            (Some(local), Some(remote)) => Ok(Self::Hybrid {
-                local,
-                remote,
-                level: hybrid_level,
-            }),
-        }
-    }
-}
-
 impl CommandExecutorConfig {
     pub fn testing_local() -> Arc<CommandExecutorConfig> {
         Arc::new(CommandExecutorConfig {
-            executor_kind: CommandExecutorKind::Local(LocalExecutorOptions {}),
+            executor: Executor::Local(LocalExecutorOptions {}),
             path_separator: PathSeparatorKind::system_default(),
-            cache_upload_behavior: CacheUploadBehavior::Disabled,
         })
     }
 }
