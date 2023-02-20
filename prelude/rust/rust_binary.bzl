@@ -170,6 +170,7 @@ def _rust_binary_common(
         extra_flags = extra_flags,
     )
 
+    (link, args, extra_targets, runtime_files) = styles[specified_link_style]
     extra_targets += [
         ("doc", generate_rustdoc(
             ctx = ctx,
@@ -195,8 +196,6 @@ def _rust_binary_common(
             RunInfo(args = sub_args),
         ]
 
-    (link, args, extra_targets, runtime_files) = styles[specified_link_style]
-
     providers = [
         DefaultInfo(
             default_output = link,
@@ -204,7 +203,6 @@ def _rust_binary_common(
             sub_targets = sub_targets,
         ),
     ]
-
     return (providers, args)
 
 def rust_binary_impl(ctx: "context") -> [[DefaultInfo.type, RunInfo.type]]:
