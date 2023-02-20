@@ -45,6 +45,7 @@ use crate::events_ctx::FileTailers;
 use crate::stream_value::StreamValue;
 use crate::version::BuckVersion;
 
+pub(crate) mod command_with_lower_priority;
 pub mod connect;
 
 use crate::replayer::Replayer;
