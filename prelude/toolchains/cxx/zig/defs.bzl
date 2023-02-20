@@ -186,16 +186,16 @@ zig_distribution = rule(
 def _http_archive_impl(ctx: "context") -> ["provider"]:
     url = ctx.attrs.urls[0]
     if url.endswith(".tar.xz"):
-        type = "tar.xz"
+        ext = "tar.xz"
         flags = ["tar", "xJf"]
     elif url.endswith(".zip"):
         flags = ["unzip"]
-        type = "zip"
+        ext = "zip"
     else:
         fail("Unknown archive type in URL '{}'".format(url))
 
     # Download archive.
-    archive = ctx.actions.declare_output("archive." + type)
+    archive = ctx.actions.declare_output("archive." + ext)
     ctx.actions.download_file(archive.as_output(), url, sha256 = ctx.attrs.sha256, is_deferrable = True)
 
     # Unpack archive to output directory.
