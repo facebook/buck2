@@ -350,7 +350,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
     if gnu_use_link_groups:
         # When there are no matches for a pattern based link group,
         # `link_group_mappings` will not have an entry associated with the lib.
-        for name, link_group_lib in link_group_libs.items():
+        for _name, link_group_lib in link_group_libs.items():
             shared_libs.update(link_group_lib.shared_libs)
 
     toolchain_info = get_cxx_toolchain_info(ctx)

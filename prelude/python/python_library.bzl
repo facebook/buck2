@@ -252,7 +252,7 @@ def _src_types(srcs: {str.type: "artifact"}, type_stubs: {str.type: "artifact"})
 
     # First, add all `.py` files.
     for name, src in srcs.items():
-        base, ext = paths.split_extension(name)
+        _, ext = paths.split_extension(name)
         if ext == ".py" or ext == ".pyi":
             src_types[name] = src
 

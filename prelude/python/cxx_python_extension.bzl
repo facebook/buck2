@@ -129,7 +129,6 @@ def cxx_python_extension_impl(ctx: "context") -> ["provider"]:
     base_module = dest_prefix(ctx.label, ctx.attrs.base_module)
     cxx_deps = [dep for dep in cxx_attr_deps(ctx)]
 
-    linkable_providers = None
     extension_artifacts = {}
     python_module_names = {}
     unembeddable_extensions = {}

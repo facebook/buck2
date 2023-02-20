@@ -914,7 +914,6 @@ def _static_library(
     name = _archive_name(base_name, pic = pic, extension = linker_info.static_library_extension)
     archive = make_archive(ctx, name, objects)
 
-    linkable = None
     if use_archives(ctx):
         linkable = ArchiveLinkable(
             archive = archive,

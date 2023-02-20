@@ -13,7 +13,7 @@ def topo_sort(graph: {"_a": ["_a"]}) -> ["_a"]:
     """
 
     in_degrees = {node: 0 for node in graph}
-    for node, deps in graph.items():
+    for _node, deps in graph.items():
         for dep in dedupe(deps):
             in_degrees[dep] += 1
 

@@ -36,7 +36,6 @@ def parse_build_target_pattern(pattern: str.type) -> BuildTargetPattern.type:
         cell = pattern[0:root_position]
 
     name = None
-    end_of_path_position = -1
     if pattern.endswith(_TARGET_SYMBOL):
         kind = _BuildTargetPatternKind("package")
         end_of_path_position = len(pattern) - 1
