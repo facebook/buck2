@@ -19,16 +19,19 @@ use futures::stream;
 use futures::Stream;
 use gazebo::prelude::*;
 use prost::Message;
+use re_grpc_proto::build::bazel::remote::execution::v2::action_cache_client::ActionCacheClient;
 use re_grpc_proto::build::bazel::remote::execution::v2::batch_update_blobs_request::Request;
 use re_grpc_proto::build::bazel::remote::execution::v2::compressor;
 use re_grpc_proto::build::bazel::remote::execution::v2::content_addressable_storage_client::ContentAddressableStorageClient;
 use re_grpc_proto::build::bazel::remote::execution::v2::execution_client::ExecutionClient;
+use re_grpc_proto::build::bazel::remote::execution::v2::ActionResult;
 use re_grpc_proto::build::bazel::remote::execution::v2::BatchReadBlobsRequest;
 use re_grpc_proto::build::bazel::remote::execution::v2::BatchReadBlobsResponse;
 use re_grpc_proto::build::bazel::remote::execution::v2::BatchUpdateBlobsRequest;
 use re_grpc_proto::build::bazel::remote::execution::v2::Digest;
 use re_grpc_proto::build::bazel::remote::execution::v2::ExecuteRequest as GExecuteRequest;
 use re_grpc_proto::build::bazel::remote::execution::v2::ExecuteResponse as GExecuteResponse;
+use re_grpc_proto::build::bazel::remote::execution::v2::GetActionResultRequest;
 use re_grpc_proto::build::bazel::remote::execution::v2::ResultsCachePolicy;
 use re_grpc_proto::google::longrunning::operation::Result as OpResult;
 use re_grpc_proto::google::rpc::Code;
@@ -129,7 +132,8 @@ impl REClientBuilder {
 
         let grpc_clients = GRPCClients {
             cas_client: ContentAddressableStorageClient::connect(address.clone()).await?,
-            execution_client: ExecutionClient::connect(address).await?,
+            execution_client: ExecutionClient::connect(address.clone()).await?,
+            action_cache_client: ActionCacheClient::connect(address).await?,
         };
 
         Ok(REClient::new(logger, grpc_clients))
@@ -149,6 +153,7 @@ impl REClientBuilder {
 pub struct GRPCClients {
     cas_client: ContentAddressableStorageClient<Channel>,
     execution_client: ExecutionClient<Channel>,
+    action_cache_client: ActionCacheClient<Channel>,
 }
 
 #[derive(Default)]
@@ -185,7 +190,20 @@ impl REClient {
         _metadata: RemoteExecutionMetadata,
         request: ActionResultRequest,
     ) -> anyhow::Result<ActionResultResponse> {
-        Err(anyhow::anyhow!("Not found: {}", request.digest))
+        let mut client = self.grpc_clients.action_cache_client.clone();
+
+        let res = client
+            .get_action_result(GetActionResultRequest {
+                instance_name: INSTANCE_NAME.into(),
+                action_digest: Some(tdigest_to(request.digest)),
+                ..Default::default()
+            })
+            .await?;
+
+        Ok(ActionResultResponse {
+            action_result: convert_action_result(res.into_inner())?,
+            ttl: 0,
+        })
     }
 
     pub async fn write_action_result(
@@ -209,7 +227,6 @@ impl REClient {
         let mut client = self.grpc_clients.execution_client.clone();
 
         let action_digest = tdigest_to(execute_request.action_digest.clone());
-        let action_tdigest = execute_request.action_digest.clone();
 
         let request = GExecuteRequest {
             instance_name: INSTANCE_NAME.into(),
@@ -240,105 +257,25 @@ impl REClient {
             OpResult::Response(any) => {
                 let execute_response_grpc: GExecuteResponse =
                     GExecuteResponse::decode(&any.value[..])?;
-                // note: the execute_response_grpc.status field is undefined when response is successful
+
+                check_status(execute_response_grpc.status.unwrap_or_default())?;
+
                 let action_result = execute_response_grpc
                     .result
                     .with_context(|| "The action result is not defined.")?;
 
-                let execution_metadata = action_result
-                    .execution_metadata
-                    .with_context(|| "The execution metadata are not defined.")?;
-
-                let output_files = action_result.output_files.into_try_map(|output_file| {
-                    let output_file_digest =
-                        output_file.digest.with_context(|| "Digest not found.")?;
-
-                    anyhow::Ok(TFile {
-                        digest: DigestWithStatus {
-                            status: tstatus_ok(),
-                            digest: tdigest_from(output_file_digest),
-                            _dot_dot_default: (),
-                        },
-                        name: output_file.path,
-                        existed: false,
-                        executable: output_file.is_executable,
-                        ttl: 0,
-                        _dot_dot_default: (),
-                    })
-                })?;
-
-                let output_directories =
-                    action_result
-                        .output_directories
-                        .into_try_map(|output_directory| {
-                            let digest = tdigest_from(
-                                output_directory
-                                    .tree_digest
-                                    .with_context(|| "Tree digest not defined.")?,
-                            );
-                            anyhow::Ok(TDirectory2 {
-                                path: output_directory.path,
-                                tree_digest: digest.clone(),
-                                root_directory_digest: digest,
-                                _dot_dot_default: (),
-                            })
-                        })?;
+                let action_result = convert_action_result(action_result)?;
 
                 let execute_response = ExecuteResponse {
-                    action_result: TActionResult2 {
-                        output_files,
-                        output_directories,
-                        exit_code: action_result.exit_code,
-                        stdout_raw: Some(action_result.stdout_raw),
-                        stdout_digest: action_result.stdout_digest.map(tdigest_from),
-                        stderr_raw: Some(action_result.stderr_raw),
-                        stderr_digest: action_result.stderr_digest.map(tdigest_from),
-
-                        execution_metadata: TExecutedActionMetadata {
-                            worker: execution_metadata.worker,
-                            queued_timestamp: ttimestamp_from(execution_metadata.queued_timestamp),
-                            worker_start_timestamp: ttimestamp_from(
-                                execution_metadata.worker_start_timestamp,
-                            ),
-                            worker_completed_timestamp: ttimestamp_from(
-                                execution_metadata.worker_completed_timestamp,
-                            ),
-                            input_fetch_start_timestamp: ttimestamp_from(
-                                execution_metadata.input_fetch_start_timestamp,
-                            ),
-                            input_fetch_completed_timestamp: ttimestamp_from(
-                                execution_metadata.input_fetch_completed_timestamp,
-                            ),
-                            execution_start_timestamp: ttimestamp_from(
-                                execution_metadata.execution_start_timestamp,
-                            ),
-                            execution_completed_timestamp: ttimestamp_from(
-                                execution_metadata.execution_completed_timestamp,
-                            ),
-                            output_upload_start_timestamp: ttimestamp_from(
-                                execution_metadata.output_upload_start_timestamp,
-                            ),
-                            output_upload_completed_timestamp: ttimestamp_from(
-                                execution_metadata.output_upload_completed_timestamp,
-                            ),
-                            input_analyzing_start_timestamp: Default::default(),
-                            input_analyzing_completed_timestamp: Default::default(),
-                            execution_dir: "".to_owned(),
-                            execution_attempts: 0,
-                            last_queued_timestamp: Default::default(),
-                            _dot_dot_default: (),
-                        },
-                        _dot_dot_default: (),
-                    },
+                    action_result,
                     action_result_digest: TDigest::default(),
                     action_result_ttl: 0,
                     error: REError {
                         code: TCode::OK,
-                        message: execute_response_grpc.message,
                         ..Default::default()
                     },
                     cached_result: execute_response_grpc.cached_result,
-                    action_digest: action_tdigest.clone(),
+                    action_digest: execute_request.action_digest,
                 };
 
                 Ok(Box::pin(stream::once(future::ready(Ok(
@@ -490,6 +427,91 @@ impl REClient {
     pub fn get_experiment_name(&self) -> anyhow::Result<Option<String>> {
         Ok(None)
     }
+}
+
+fn convert_action_result(action_result: ActionResult) -> anyhow::Result<TActionResult2> {
+    let execution_metadata = action_result
+        .execution_metadata
+        .with_context(|| "The execution metadata are not defined.")?;
+
+    let output_files = action_result.output_files.into_try_map(|output_file| {
+        let output_file_digest = output_file.digest.with_context(|| "Digest not found.")?;
+
+        anyhow::Ok(TFile {
+            digest: DigestWithStatus {
+                status: tstatus_ok(),
+                digest: tdigest_from(output_file_digest),
+                _dot_dot_default: (),
+            },
+            name: output_file.path,
+            existed: false,
+            executable: output_file.is_executable,
+            ttl: 0,
+            _dot_dot_default: (),
+        })
+    })?;
+
+    let output_directories = action_result
+        .output_directories
+        .into_try_map(|output_directory| {
+            let digest = tdigest_from(
+                output_directory
+                    .tree_digest
+                    .with_context(|| "Tree digest not defined.")?,
+            );
+            anyhow::Ok(TDirectory2 {
+                path: output_directory.path,
+                tree_digest: digest.clone(),
+                root_directory_digest: digest,
+                _dot_dot_default: (),
+            })
+        })?;
+
+    let action_result = TActionResult2 {
+        output_files,
+        output_directories,
+        exit_code: action_result.exit_code,
+        stdout_raw: Some(action_result.stdout_raw),
+        stdout_digest: action_result.stdout_digest.map(tdigest_from),
+        stderr_raw: Some(action_result.stderr_raw),
+        stderr_digest: action_result.stderr_digest.map(tdigest_from),
+
+        execution_metadata: TExecutedActionMetadata {
+            worker: execution_metadata.worker,
+            queued_timestamp: ttimestamp_from(execution_metadata.queued_timestamp),
+            worker_start_timestamp: ttimestamp_from(execution_metadata.worker_start_timestamp),
+            worker_completed_timestamp: ttimestamp_from(
+                execution_metadata.worker_completed_timestamp,
+            ),
+            input_fetch_start_timestamp: ttimestamp_from(
+                execution_metadata.input_fetch_start_timestamp,
+            ),
+            input_fetch_completed_timestamp: ttimestamp_from(
+                execution_metadata.input_fetch_completed_timestamp,
+            ),
+            execution_start_timestamp: ttimestamp_from(
+                execution_metadata.execution_start_timestamp,
+            ),
+            execution_completed_timestamp: ttimestamp_from(
+                execution_metadata.execution_completed_timestamp,
+            ),
+            output_upload_start_timestamp: ttimestamp_from(
+                execution_metadata.output_upload_start_timestamp,
+            ),
+            output_upload_completed_timestamp: ttimestamp_from(
+                execution_metadata.output_upload_completed_timestamp,
+            ),
+            input_analyzing_start_timestamp: Default::default(),
+            input_analyzing_completed_timestamp: Default::default(),
+            execution_dir: "".to_owned(),
+            execution_attempts: 0,
+            last_queued_timestamp: Default::default(),
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+
+    Ok(action_result)
 }
 
 async fn download_impl<F, Fut>(request: DownloadRequest, f: F) -> anyhow::Result<DownloadResponse>
