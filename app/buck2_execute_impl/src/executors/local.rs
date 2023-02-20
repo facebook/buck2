@@ -288,17 +288,24 @@ impl LocalExecutor {
         );
 
         let tmpdir = if request.custom_tmpdir {
-            Some(("TMPDIR", scratch_dir_abs.as_os_str()))
+            if cfg!(windows) {
+                vec![
+                    ("TEMP", scratch_dir_abs.as_os_str()),
+                    ("TMP", scratch_dir_abs.as_os_str()),
+                ]
+            } else {
+                vec![("TMPDIR", scratch_dir_abs.as_os_str())]
+            }
         } else {
-            None
+            vec![]
         };
 
         let daemon_uuid: &str = &buck2_events::metadata::DAEMON_UUID.to_string();
 
         let iter_env = || {
             tmpdir
-                .into_iter()
-                .map(|(k, v)| (k, StrOrOsStr::from(v)))
+                .iter()
+                .map(|(k, v)| (*k, StrOrOsStr::from(*v)))
                 .chain(
                     request
                         .env()
