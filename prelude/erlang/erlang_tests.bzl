@@ -54,8 +54,6 @@ def erlang_tests_macro(
     deps = [normalize_application(dep) for dep in deps]
     config_files = list(config_files)
 
-    srcs_app = None
-
     if not suites:
         return
 
