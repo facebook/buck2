@@ -12,7 +12,6 @@ use std::sync::atomic::Ordering;
 
 use anyhow::Context as _;
 use buck2_core::configuration::ConfigurationData;
-use buck2_core::package::testing::PackageExt;
 use buck2_core::package::PackageLabel;
 use buck2_core::target::label::testing::ConfiguredTargetLabelExt;
 use buck2_core::target::label::ConfiguredTargetLabel;

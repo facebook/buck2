@@ -145,6 +145,8 @@ impl PackageLabel {
         }
     }
 
+    // Following functions should only be used in tests, so they have "testing" in their names.
+
     /// Some package name usable in tests.
     pub fn testing() -> PackageLabel {
         PackageLabel::new(
@@ -152,23 +154,11 @@ impl PackageLabel {
             CellRelativePath::new(ForwardRelativePath::new("package/subdir").unwrap()),
         )
     }
-}
 
-pub mod testing {
-    use crate::cells::name::CellName;
-    use crate::cells::paths::CellRelativePathBuf;
-    use crate::package::PackageLabel;
-
-    pub trait PackageExt {
-        fn testing_new(cell: &str, path: &str) -> Self;
-    }
-
-    impl PackageExt for PackageLabel {
-        fn testing_new(cell: &str, path: &str) -> Self {
-            Self::new(
-                CellName::testing_new(cell),
-                &CellRelativePathBuf::unchecked_new(path.into()),
-            )
-        }
+    pub fn testing_new(cell: &str, path: &str) -> PackageLabel {
+        PackageLabel::new(
+            CellName::testing_new(cell),
+            CellRelativePath::new(ForwardRelativePath::new(path).unwrap()),
+        )
     }
 }

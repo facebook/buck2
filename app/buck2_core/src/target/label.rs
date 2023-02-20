@@ -214,7 +214,6 @@ impl TargetLabelMaybeConfigured for ConfiguredTargetLabel {}
 pub mod testing {
     use crate::configuration::pair::Configuration;
     use crate::configuration::ConfigurationData;
-    use crate::package::testing::PackageExt;
     use crate::package::PackageLabel;
     use crate::target::label::ConfiguredTargetLabel;
     use crate::target::label::TargetLabel;

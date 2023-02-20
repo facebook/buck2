@@ -250,7 +250,6 @@ pub mod testing {
     use gazebo::prelude::*;
 
     use super::*;
-    use crate::package::testing::*;
     use crate::package::PackageLabel;
     use crate::target::label::TargetLabel;
     use crate::target::name::TargetNameRef;

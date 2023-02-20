@@ -862,7 +862,6 @@ mod tests {
     use buck2_core::bzl::ImportPath;
     use buck2_core::configuration::ConfigurationData;
     use buck2_core::fs::paths::file_name::FileNameBuf;
-    use buck2_core::package::testing::PackageExt;
     use buck2_core::package::PackageLabel;
     use buck2_core::provider::label::ProvidersLabel;
     use buck2_core::provider::label::ProvidersName;

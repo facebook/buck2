@@ -443,7 +443,6 @@ mod tests {
     use buck2_core::configuration::ConfigurationData;
     use buck2_core::fs::project::ProjectRootTemp;
     use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
-    use buck2_core::package::testing::PackageExt;
     use buck2_core::package::PackageLabel;
     use buck2_core::provider::id::testing::ProviderIdExt;
     use buck2_core::provider::id::ProviderId;

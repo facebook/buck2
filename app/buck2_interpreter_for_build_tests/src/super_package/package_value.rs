@@ -11,7 +11,6 @@
 
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::fs::project::ProjectRootTemp;
-use buck2_core::package::testing::PackageExt;
 use buck2_core::package::PackageLabel;
 use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
 use buck2_interpreter_for_build::interpreter::dice_calculation_delegate::HasCalculationDelegate;

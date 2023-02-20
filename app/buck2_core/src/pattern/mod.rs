@@ -770,7 +770,6 @@ mod tests {
     use crate::cells::name::CellName;
     use crate::cells::paths::CellRelativePathBuf;
     use crate::cells::CellAlias;
-    use crate::package::testing::PackageExt;
     use crate::target::label::TargetLabel;
     use crate::target::name::TargetNameRef;
 

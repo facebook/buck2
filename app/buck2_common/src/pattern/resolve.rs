@@ -97,7 +97,6 @@ mod tests {
     use buck2_core::cells::CellResolver;
     use buck2_core::cells::CellsAggregator;
     use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
-    use buck2_core::package::testing::PackageExt;
     use buck2_core::package::PackageLabel;
     use buck2_core::pattern::PackageSpec;
     use buck2_core::pattern::ParsedPattern;

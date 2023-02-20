@@ -130,7 +130,6 @@ mod tests {
     use buck2_core::cells::name::CellName;
     use buck2_core::cells::CellAlias;
     use buck2_core::cells::CellAliasResolver;
-    use buck2_core::package::testing::PackageExt;
     use dupe::Dupe;
 
     use super::*;
