@@ -8,15 +8,14 @@
  */
 
 use std::collections::HashMap;
-use std::future;
-use std::pin::Pin;
 use std::sync::Mutex;
 
 use anyhow::Context;
 use buck2_core::fs::fs_util;
 use futures::future::Future;
-use futures::stream;
-use futures::Stream;
+use futures::stream::BoxStream;
+use futures::stream::StreamExt;
+use futures::stream::TryStreamExt;
 use gazebo::prelude::*;
 use prost::Message;
 use re_grpc_proto::build::bazel::remote::execution::v2::action_cache_client::ActionCacheClient;
@@ -24,11 +23,13 @@ use re_grpc_proto::build::bazel::remote::execution::v2::batch_update_blobs_reque
 use re_grpc_proto::build::bazel::remote::execution::v2::compressor;
 use re_grpc_proto::build::bazel::remote::execution::v2::content_addressable_storage_client::ContentAddressableStorageClient;
 use re_grpc_proto::build::bazel::remote::execution::v2::execution_client::ExecutionClient;
+use re_grpc_proto::build::bazel::remote::execution::v2::execution_stage;
 use re_grpc_proto::build::bazel::remote::execution::v2::ActionResult;
 use re_grpc_proto::build::bazel::remote::execution::v2::BatchReadBlobsRequest;
 use re_grpc_proto::build::bazel::remote::execution::v2::BatchReadBlobsResponse;
 use re_grpc_proto::build::bazel::remote::execution::v2::BatchUpdateBlobsRequest;
 use re_grpc_proto::build::bazel::remote::execution::v2::Digest;
+use re_grpc_proto::build::bazel::remote::execution::v2::ExecuteOperationMetadata;
 use re_grpc_proto::build::bazel::remote::execution::v2::ExecuteRequest as GExecuteRequest;
 use re_grpc_proto::build::bazel::remote::execution::v2::ExecuteResponse as GExecuteResponse;
 use re_grpc_proto::build::bazel::remote::execution::v2::GetActionResultRequest;
@@ -217,10 +218,8 @@ impl REClient {
     pub async fn execute_with_progress(
         &self,
         _metadata: RemoteExecutionMetadata,
-        execute_request: ExecuteRequest,
-    ) -> anyhow::Result<
-        Pin<Box<dyn Stream<Item = anyhow::Result<ExecuteWithProgressResponse>> + Send>>,
-    > {
+        mut execute_request: ExecuteRequest,
+    ) -> anyhow::Result<BoxStream<'static, anyhow::Result<ExecuteWithProgressResponse>>> {
         // TODO(aloiscochard): Map those properly in the request
         // use crate::proto::build::bazel::remote::execution::v2::ExecutionPolicy;
 
@@ -236,56 +235,96 @@ impl REClient {
             action_digest: Some(action_digest.clone()),
         };
 
-        let mut response = client.execute(request).await?;
-        let stream = response.get_mut();
-        let mut result = None;
+        let stream = client.execute(request).await?.into_inner();
 
-        while let Some(operation) = stream.message().await? {
-            // TODO
-            if operation.done {
-                result = operation.result;
-            }
-        }
+        let stream = futures::stream::try_unfold(stream, move |mut stream| async {
+            let msg = match stream.try_next().await.context("RE channel error")? {
+                Some(msg) => msg,
+                None => return Ok(None),
+            };
 
-        match result.with_context(|| "The operation's result is not defined.")? {
-            OpResult::Error(rpc_status) => Err(anyhow::anyhow!(
-                "Unable to execute action '{:?}', rpc status code: {}, message: \"{}\"",
-                action_digest,
-                rpc_status.code,
-                rpc_status.message
-            )),
-            OpResult::Response(any) => {
-                let execute_response_grpc: GExecuteResponse =
-                    GExecuteResponse::decode(&any.value[..])?;
-
-                check_status(execute_response_grpc.status.unwrap_or_default())?;
-
-                let action_result = execute_response_grpc
+            let status = if msg.done {
+                match msg
                     .result
-                    .with_context(|| "The action result is not defined.")?;
+                    .context("Missing `result` when message was `done`")?
+                {
+                    OpResult::Error(rpc_status) => {
+                        return Err(REClientError {
+                            code: TCode(rpc_status.code),
+                            message: rpc_status.message,
+                        }
+                        .into());
+                    }
+                    OpResult::Response(any) => {
+                        let execute_response_grpc: GExecuteResponse =
+                            GExecuteResponse::decode(&any.value[..])?;
 
-                let action_result = convert_action_result(action_result)?;
+                        check_status(execute_response_grpc.status.unwrap_or_default())?;
 
-                let execute_response = ExecuteResponse {
-                    action_result,
-                    action_result_digest: TDigest::default(),
-                    action_result_ttl: 0,
-                    error: REError {
-                        code: TCode::OK,
-                        ..Default::default()
-                    },
-                    cached_result: execute_response_grpc.cached_result,
-                    action_digest: execute_request.action_digest,
+                        let action_result = execute_response_grpc
+                            .result
+                            .with_context(|| "The action result is not defined.")?;
+
+                        let action_result = convert_action_result(action_result)?;
+
+                        let execute_response = ExecuteResponse {
+                            action_result,
+                            action_result_digest: TDigest::default(),
+                            action_result_ttl: 0,
+                            error: REError {
+                                code: TCode::OK,
+                                ..Default::default()
+                            },
+                            cached_result: execute_response_grpc.cached_result,
+                            action_digest: Default::default(), // Filled in below.
+                        };
+
+                        ExecuteWithProgressResponse {
+                            stage: Stage::COMPLETED,
+                            execute_response: Some(execute_response),
+                        }
+                    }
+                }
+            } else {
+                let meta =
+                    ExecuteOperationMetadata::decode(&msg.metadata.unwrap_or_default().value[..])?;
+
+                let stage = match execution_stage::Value::from_i32(meta.stage) {
+                    Some(execution_stage::Value::Unknown) => Stage::UNKNOWN,
+                    Some(execution_stage::Value::CacheCheck) => Stage::CACHE_CHECK,
+                    Some(execution_stage::Value::Queued) => Stage::QUEUED,
+                    Some(execution_stage::Value::Executing) => Stage::EXECUTING,
+                    Some(execution_stage::Value::Completed) => Stage::COMPLETED,
+                    _ => Stage::UNKNOWN,
                 };
 
-                Ok(Box::pin(stream::once(future::ready(Ok(
-                    ExecuteWithProgressResponse {
-                        stage: Stage::COMPLETED,
-                        execute_response: Some(execute_response),
-                    },
-                )))))
-            }
-        }
+                ExecuteWithProgressResponse {
+                    stage,
+                    execute_response: None,
+                }
+            };
+
+            anyhow::Ok(Some((status, stream)))
+        });
+
+        // We fill in the action digest a little later here. We do it this way so we don't have to
+        // clone the execute_request into every future we create above.
+
+        let stream = stream.map(move |mut r| {
+            match &mut r {
+                Ok(ExecuteWithProgressResponse {
+                    execute_response: Some(ref mut response),
+                    ..
+                }) => {
+                    response.action_digest = std::mem::take(&mut execute_request.action_digest);
+                }
+                _ => {}
+            };
+
+            r
+        });
+
+        Ok(stream.boxed())
     }
 
     pub async fn upload(
