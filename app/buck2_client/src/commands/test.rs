@@ -119,13 +119,13 @@ If include patterns are present, regardless of whether exclude patterns are pres
 
     /// Will allow tests that are compatible with RE (setup to run from the repo root and
     /// use relative paths) to run from RE.
-    #[clap(long, group = "re_options")]
-    unstable_allow_tests_on_re: bool,
+    #[clap(long, group = "re_options", alias = "unstable-allow-tests-on-re")]
+    unstable_allow_compatible_tests_on_re: bool,
 
-    /// Will force tests to run on RE. This will force them to run via the repo root, and use
-    /// relative paths.
-    #[clap(long, group = "re_options")]
-    unstable_force_tests_on_re: bool,
+    /// Will run tests to on RE even if they are missing required settings (running from the root +
+    /// relative paths). Those required settings just get overridden.
+    #[clap(long, group = "re_options", alias = "unstable-force-tests-on-re")]
+    unstable_allow_all_tests_on_re: bool,
 }
 
 #[async_trait]
@@ -156,10 +156,10 @@ impl StreamingCommand for TestCommand {
                     concurrency: self.build_opts.num_threads.unwrap_or(0),
                     build_opts: Some(self.build_opts.to_proto()),
                     session_options: Some(TestSessionOptions {
-                        allow_re: self.unstable_allow_tests_on_re
-                            || self.unstable_force_tests_on_re,
-                        force_use_project_relative_paths: self.unstable_force_tests_on_re,
-                        force_run_from_project_root: self.unstable_force_tests_on_re,
+                        allow_re: self.unstable_allow_compatible_tests_on_re
+                            || self.unstable_allow_all_tests_on_re,
+                        force_use_project_relative_paths: self.unstable_allow_all_tests_on_re,
+                        force_run_from_project_root: self.unstable_allow_all_tests_on_re,
                     }),
                 },
                 ctx.stdin().console_interaction_stream(&self.console_opts),
