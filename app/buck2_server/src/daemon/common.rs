@@ -122,7 +122,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
             )
         };
 
-        if !cfg!(fbcode_build) {
+        if !buck2_core::is_open_source() && !cfg!(fbcode_build) {
             static WARN: OnceCell<()> = OnceCell::new();
             WARN.get_or_init(|| {
                 tracing::warn!("Cargo build detected: disabling remote execution and caching!")
