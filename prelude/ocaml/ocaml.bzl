@@ -318,7 +318,6 @@ def _depends(ctx: "context", srcs: ["artifact"], build_mode: BuildMode.type) -> 
         for f in ctx.attrs.compiler_flags:
             if next:
                 gather.append(f)
-                next = False
 
             # TODO: This reliance on `str` is fragile and discouraged.
             # Do something better (see

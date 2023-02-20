@@ -115,7 +115,6 @@ def get_swift_cxx_flags(ctx: "context") -> [str.type]:
         if next:
             gather.append("-Xcc")
             gather.append(str(f).replace('\"', ""))
-            next = False
         next = str(f) == "\"-Xcc\""
 
     if ctx.attrs.enable_cxx_interop:
