@@ -22,7 +22,12 @@ def main(argv: List[str]) -> None:
     args = parser.parse_args(argv[1:])
 
     entries = []
-    for root, _, files in os.walk(args.extracted):
+    for root, dirs, files in os.walk(args.extracted):
+        # Ensure a consistent iteration order.
+        # Sorting dirs in place affects the future interation
+        # order of os.walk.
+        dirs.sort()
+        files.sort()
         for name in files:
             path = os.path.join(root, name)
             dest = os.path.relpath(path, args.extracted)
@@ -33,7 +38,7 @@ def main(argv: List[str]) -> None:
                 entry.append(args.origin)
             entries.append(entry)
 
-    json.dump(entries, args.output, indent=2, sort_keys=True)
+    json.dump(entries, args.output, indent=2)
 
 
 sys.exit(main(sys.argv))
