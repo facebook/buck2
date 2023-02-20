@@ -73,7 +73,6 @@ use host_sharing::HostSharingBroker;
 use indexmap::IndexMap;
 use more_futures::cancellable_future::with_structured_cancellation;
 use more_futures::cancellable_future::CancellationObserver;
-use remote_execution as RE;
 use thiserror::Error;
 use tracing::info;
 
@@ -588,10 +587,6 @@ impl PreparedCommandExecutor for LocalExecutor {
             )
         })
         .await
-    }
-
-    fn re_platform(&self) -> Option<&RE::Platform> {
-        None
     }
 }
 

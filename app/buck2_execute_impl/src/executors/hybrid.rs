@@ -34,7 +34,6 @@ use futures::future::Either;
 use futures::future::Future;
 use futures::FutureExt;
 use host_sharing::HostSharingRequirements;
-use remote_execution as RE;
 
 use crate::executors::local::LocalExecutor;
 use crate::executors::re::ReExecutor;
@@ -295,10 +294,6 @@ impl PreparedCommandExecutor for HybridExecutor {
 
         res.eligible_for_full_hybrid = !fallback_only;
         res
-    }
-
-    fn re_platform(&self) -> Option<&RE::Platform> {
-        self.remote.re_platform()
     }
 }
 

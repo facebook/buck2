@@ -16,10 +16,16 @@ use dice::DiceComputations;
 use dice::DiceData;
 use dice::UserComputationData;
 use dupe::Dupe;
+use remote_execution as RE;
 
 use crate::artifact::fs::ArtifactFs;
 use crate::execute::prepared::PreparedCommandExecutor;
 use crate::re::manager::ManagedRemoteExecutionClient;
+
+pub struct CommandExecutorResponse {
+    pub executor: Arc<dyn PreparedCommandExecutor>,
+    pub platform: RE::Platform,
+}
 
 pub trait SetCommandExecutor {
     fn set_command_executor(&mut self, init: Box<dyn HasCommandExecutor + Send + Sync + 'static>);
@@ -30,7 +36,7 @@ pub trait HasCommandExecutor {
         &self,
         artifact_fs: &ArtifactFs,
         config: &CommandExecutorConfig,
-    ) -> anyhow::Result<Arc<dyn PreparedCommandExecutor>>;
+    ) -> anyhow::Result<CommandExecutorResponse>;
 }
 
 impl SetCommandExecutor for UserComputationData {
@@ -47,7 +53,7 @@ impl HasCommandExecutor for DiceComputations {
         &self,
         artifact_fs: &ArtifactFs,
         config: &CommandExecutorConfig,
-    ) -> anyhow::Result<Arc<dyn PreparedCommandExecutor>> {
+    ) -> anyhow::Result<CommandExecutorResponse> {
         let holder = self
             .per_transaction_data()
             .data

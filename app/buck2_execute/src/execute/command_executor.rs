@@ -73,6 +73,7 @@ struct CommandExecutorData {
     inner: Arc<dyn PreparedCommandExecutor>,
     artifact_fs: ArtifactFs,
     path_separator: PathSeparatorKind,
+    re_platform: RE::Platform,
 }
 
 impl CommandExecutor {
@@ -80,11 +81,13 @@ impl CommandExecutor {
         inner: Arc<dyn PreparedCommandExecutor>,
         artifact_fs: ArtifactFs,
         path_separator: PathSeparatorKind,
+        re_platform: RE::Platform,
     ) -> Self {
         Self(Arc::new(CommandExecutorData {
             inner,
             artifact_fs,
             path_separator,
+            re_platform,
         }))
     }
 
@@ -150,7 +153,7 @@ impl CommandExecutor {
                 input_digest,
                 action_metadata_blobs,
                 None,
-                self.0.inner.re_platform().cloned(),
+                self.0.re_platform.clone(),
                 false,
                 digest_config,
             );
@@ -222,13 +225,13 @@ fn re_create_action(
     input_digest: &TrackedFileDigest,
     blobs: impl Iterator<Item = (Vec<u8>, TrackedFileDigest)>,
     timeout: Option<&Duration>,
-    platform: Option<RE::Platform>,
+    platform: RE::Platform,
     do_not_cache: bool,
     digest_config: DigestConfig,
 ) -> PreparedAction {
     let mut command = RE::Command {
         arguments: args,
-        platform,
+        platform: Some(platform),
         working_directory: workdir.unwrap_or_default(),
         environment_variables: environment
             .iter()
@@ -288,5 +291,8 @@ fn re_create_action(
     PreparedAction {
         action: action.data().dupe().coerce(),
         blobs: prepared_blobs,
+        platform: command
+            .platform
+            .expect("We did put a platform a few lines up"),
     }
 }

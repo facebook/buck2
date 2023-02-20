@@ -28,6 +28,7 @@ use buck2_execute::execute::claim::MutexClaimManager;
 use buck2_execute::execute::clean_output_paths::CleanOutputPaths;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
 use buck2_execute::execute::command_executor::CommandExecutor;
+use buck2_execute::execute::dice_data::CommandExecutorResponse;
 use buck2_execute::execute::dice_data::GetReClient;
 use buck2_execute::execute::dice_data::HasCommandExecutor;
 use buck2_execute::execute::kind::CommandExecutionKind;
@@ -214,7 +215,8 @@ impl HasActionExecutor for DiceComputations {
         let artifact_fs = self.get_artifact_fs().await?;
         let digest_config = self.global_data().get_digest_config();
 
-        let command_executor = self.get_command_executor(&artifact_fs, executor_config)?;
+        let CommandExecutorResponse { executor, platform } =
+            self.get_command_executor(&artifact_fs, executor_config)?;
         let blocking_executor = self.get_blocking_executor();
         let materializer = self.per_transaction_data().get_materializer();
         let events = self.per_transaction_data().get_dispatcher().dupe();
@@ -223,9 +225,10 @@ impl HasActionExecutor for DiceComputations {
 
         Ok(Arc::new(BuckActionExecutor::new(
             CommandExecutor::new(
-                command_executor,
+                executor,
                 artifact_fs,
                 executor_config.path_separator,
+                platform,
             ),
             blocking_executor,
             materializer,
@@ -612,6 +615,7 @@ mod tests {
                 Arc::new(DryRunExecutor::new(tracker, None)),
                 artifact_fs,
                 PathSeparatorKind::Unix,
+                Default::default(),
             ),
             Arc::new(DummyBlockingExecutor { fs: project_fs }),
             Arc::new(NoDiskMaterializer),

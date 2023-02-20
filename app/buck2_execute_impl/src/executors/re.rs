@@ -56,7 +56,6 @@ pub struct ReExecutor {
     pub project_fs: ProjectRoot,
     pub materializer: Arc<dyn Materializer>,
     pub re_client: ManagedRemoteExecutionClient,
-    pub re_platform: RE::Platform,
     pub re_use_case: RemoteExecutorUseCase,
     pub re_action_key: Option<String>,
     pub re_max_input_files_bytes: u64,
@@ -111,6 +110,7 @@ impl ReExecutor {
         action_digest: &ActionDigest,
         action_paths: &ActionPaths,
         digest_config: DigestConfig,
+        platform: &RE::Platform,
     ) -> ControlFlow<CommandExecutionResult, (CommandExecutionManager, ExecuteResponse)> {
         info!(
             "RE command line:\n```\n$ {}\n```\n for action `{}`",
@@ -124,7 +124,7 @@ impl ReExecutor {
             .re_client
             .execute(
                 action_digest.dupe(),
-                &self.re_platform,
+                platform,
                 self.re_use_case,
                 &identity,
                 &mut manager,
@@ -185,6 +185,7 @@ impl PreparedCommandExecutor for ReExecutor {
                 PreparedAction {
                     action: action_digest,
                     blobs,
+                    platform,
                 },
             digest_config,
         } = command;
@@ -206,6 +207,7 @@ impl PreparedCommandExecutor for ReExecutor {
                 action_digest,
                 action_paths,
                 *digest_config,
+                platform,
             )
             .await?;
 
@@ -227,10 +229,6 @@ impl PreparedCommandExecutor for ReExecutor {
         )
         .boxed()
         .await
-    }
-
-    fn re_platform(&self) -> Option<&RE::Platform> {
-        Some(&self.re_platform)
     }
 }
 

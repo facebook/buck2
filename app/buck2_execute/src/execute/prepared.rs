@@ -34,6 +34,7 @@ pub struct PreparedAction {
     // The encoded action and other messages referenced from it by digest (e.g. RE::Command).
     // Does not include the files referenced in inputs.
     pub blobs: ActionBlobs,
+    pub platform: RE::Platform,
 }
 
 pub struct PreparedCommand<'a, 'b> {
@@ -56,6 +57,4 @@ pub trait PreparedCommandExecutor: Send + Sync {
         command: &PreparedCommand<'_, '_>,
         manager: CommandExecutionManager,
     ) -> CommandExecutionResult;
-
-    fn re_platform(&self) -> Option<&RE::Platform>;
 }

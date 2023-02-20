@@ -44,7 +44,6 @@ use derive_more::Display;
 use dupe::Dupe;
 use futures::future;
 use futures::future::FutureExt;
-use remote_execution as RE;
 use remote_execution::DigestWithStatus;
 use remote_execution::NamedDigest;
 use remote_execution::TActionResult2;
@@ -67,7 +66,6 @@ pub struct CachingExecutor {
     pub artifact_fs: ArtifactFs,
     pub materializer: Arc<dyn Materializer>,
     pub re_client: ManagedRemoteExecutionClient,
-    pub re_platform: RE::Platform,
     pub re_use_case: RemoteExecutorUseCase,
     pub upload_all_actions: bool,
     pub knobs: ExecutorGlobalKnobs,
@@ -488,10 +486,6 @@ impl PreparedCommandExecutor for CachingExecutor {
         };
 
         res
-    }
-
-    fn re_platform(&self) -> Option<&RE::Platform> {
-        Some(&self.re_platform)
     }
 }
 

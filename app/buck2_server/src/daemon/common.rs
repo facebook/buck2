@@ -26,6 +26,7 @@ use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_execute::artifact::fs::ArtifactFs;
 use buck2_execute::execute::blocking::BlockingExecutor;
+use buck2_execute::execute::dice_data::CommandExecutorResponse;
 use buck2_execute::execute::dice_data::HasCommandExecutor;
 use buck2_execute::execute::prepared::PreparedCommandExecutor;
 use buck2_execute::execute::request::ExecutorPreference;
@@ -108,7 +109,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
         &self,
         artifact_fs: &ArtifactFs,
         executor_config: &CommandExecutorConfig,
-    ) -> anyhow::Result<Arc<dyn PreparedCommandExecutor>> {
+    ) -> anyhow::Result<CommandExecutorResponse> {
         let local_executor_new = |_options| {
             LocalExecutor::new(
                 artifact_fs.clone(),
@@ -134,13 +135,14 @@ impl HasCommandExecutor for CommandExecutorFactory {
                 ));
             }
 
-            return Ok(Arc::new(local_executor_new(&LocalExecutorOptions {})));
+            return Ok(CommandExecutorResponse {
+                executor: Arc::new(local_executor_new(&LocalExecutorOptions {})),
+                platform: Default::default(),
+            });
         }
 
         let remote_executor_new =
-            |options: &RemoteExecutorOptions,
-             re_platform: &RE::Platform,
-             re_use_case: &RemoteExecutorUseCase| {
+            |options: &RemoteExecutorOptions, re_use_case: &RemoteExecutorUseCase| {
                 // 30GB is the max RE can currently support.
                 const DEFAULT_RE_MAX_INPUT_FILE_BYTES: u64 = 30 * 1024 * 1024 * 1024;
 
@@ -149,7 +151,6 @@ impl HasCommandExecutor for CommandExecutorFactory {
                     project_fs: self.project_root.clone(),
                     materializer: self.materializer.dupe(),
                     re_client: self.re_connection.get_client(),
-                    re_platform: re_platform.clone(),
                     re_use_case: *re_use_case,
                     re_action_key: options.re_action_key.clone(),
                     re_max_input_files_bytes: options
@@ -160,12 +161,15 @@ impl HasCommandExecutor for CommandExecutorFactory {
                 }
             };
 
-        let executor: Option<Arc<dyn PreparedCommandExecutor>> = match &executor_config.executor {
+        let response = match &executor_config.executor {
             Executor::Local(local) => {
                 if self.strategy.ban_local() {
                     None
                 } else {
-                    Some(Arc::new(local_executor_new(local)))
+                    Some(CommandExecutorResponse {
+                        executor: Arc::new(local_executor_new(local)),
+                        platform: Default::default(),
+                    })
                 }
             }
             Executor::RemoteEnabled {
@@ -174,30 +178,20 @@ impl HasCommandExecutor for CommandExecutorFactory {
                 re_use_case,
                 cache_upload_behavior,
             } => {
-                let re_platform = RE::Platform {
-                    properties: re_properties
-                        .iter()
-                        .map(|(k, v)| RE::Property {
-                            name: k.clone(),
-                            value: v.clone(),
-                        })
-                        .collect(),
-                };
-
                 let inner_executor: Option<Arc<dyn PreparedCommandExecutor>> = match &executor {
                     RemoteEnabledExecutor::Local(local) if !self.strategy.ban_local() => {
                         Some(Arc::new(local_executor_new(local)))
                     }
-                    RemoteEnabledExecutor::Remote(remote) if !self.strategy.ban_remote() => Some(
-                        Arc::new(remote_executor_new(remote, &re_platform, re_use_case)),
-                    ),
+                    RemoteEnabledExecutor::Remote(remote) if !self.strategy.ban_remote() => {
+                        Some(Arc::new(remote_executor_new(remote, re_use_case)))
+                    }
                     RemoteEnabledExecutor::Hybrid {
                         local,
                         remote,
                         level,
                     } if !self.strategy.ban_hybrid() => Some(Arc::new(HybridExecutor {
                         local: local_executor_new(local),
-                        remote: remote_executor_new(remote, &re_platform, re_use_case),
+                        remote: remote_executor_new(remote, re_use_case),
                         level: *level,
                         executor_preference: self.strategy.hybrid_preference(),
                         low_pass_filter: self.low_pass_filter.dupe(),
@@ -215,7 +209,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                     .get_copied()?
                     .unwrap_or(self.no_remote_cache);
 
-                if disable_caching {
+                let executor = if disable_caching {
                     inner_executor
                 } else {
                     inner_executor.map(|inner_executor| {
@@ -224,23 +218,34 @@ impl HasCommandExecutor for CommandExecutorFactory {
                             artifact_fs: artifact_fs.clone(),
                             materializer: self.materializer.dupe(),
                             re_client: self.re_connection.get_client(),
-                            re_platform,
                             re_use_case: *re_use_case,
                             upload_all_actions: self.upload_all_actions,
                             knobs: self.executor_global_knobs.dupe(),
                             cache_upload_behavior: *cache_upload_behavior,
                         }) as _
                     })
-                }
+                };
+
+                let platform = RE::Platform {
+                    properties: re_properties
+                        .iter()
+                        .map(|(k, v)| RE::Property {
+                            name: k.clone(),
+                            value: v.clone(),
+                        })
+                        .collect(),
+                };
+
+                executor.map(|executor| CommandExecutorResponse { executor, platform })
             }
         };
 
-        let executor = executor
+        let response = response
             .with_context(|| format!(
 "The desired execution strategy (`{:?}`) is incompatible with the executor config that was selected: {:?}",
 self.strategy, executor_config))?;
 
-        Ok(executor)
+        Ok(response)
     }
 }
 

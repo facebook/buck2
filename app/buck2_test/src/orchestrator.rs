@@ -58,6 +58,7 @@ use buck2_execute::digest_config::HasDigestConfig;
 use buck2_execute::execute::blocking::HasBlockingExecutor;
 use buck2_execute::execute::claim::MutexClaimManager;
 use buck2_execute::execute::command_executor::CommandExecutor;
+use buck2_execute::execute::dice_data::CommandExecutorResponse;
 use buck2_execute::execute::dice_data::HasCommandExecutor;
 use buck2_execute::execute::environment_inheritance::EnvironmentInheritance;
 use buck2_execute::execute::manager::CommandExecutionManager;
@@ -567,8 +568,14 @@ impl BuckTestOrchestrator {
                 .context("Error accessing executor config")?,
         };
 
-        let executor = self.dice.get_command_executor(fs, executor_config)?;
-        let executor = CommandExecutor::new(executor, fs.clone(), executor_config.path_separator);
+        let CommandExecutorResponse { executor, platform } =
+            self.dice.get_command_executor(fs, executor_config)?;
+        let executor = CommandExecutor::new(
+            executor,
+            fs.clone(),
+            executor_config.path_separator,
+            platform,
+        );
         Ok(executor)
     }
 

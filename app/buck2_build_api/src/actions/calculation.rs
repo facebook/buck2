@@ -448,12 +448,12 @@ mod tests {
     use buck2_execute::execute::blocking::testing::DummyBlockingExecutor;
     use buck2_execute::execute::blocking::SetBlockingExecutor;
     use buck2_execute::execute::dice_data::set_fallback_executor_config;
+    use buck2_execute::execute::dice_data::CommandExecutorResponse;
     use buck2_execute::execute::dice_data::HasCommandExecutor;
     use buck2_execute::execute::dice_data::SetCommandExecutor;
     use buck2_execute::execute::dice_data::SetReClient;
     use buck2_execute::execute::kind::CommandExecutionKind;
     use buck2_execute::execute::output::CommandStdStreams;
-    use buck2_execute::execute::prepared::PreparedCommandExecutor;
     use buck2_execute::execute::request::CommandExecutionOutput;
     use buck2_execute::execute::request::OutputType;
     use buck2_execute::execute::result::CommandExecutionReport;
@@ -578,11 +578,15 @@ mod tests {
                 &self,
                 artifact_fs: &ArtifactFs,
                 _config: &CommandExecutorConfig,
-            ) -> anyhow::Result<Arc<dyn PreparedCommandExecutor>> {
-                Ok(Arc::new(DryRunExecutor::new(
+            ) -> anyhow::Result<CommandExecutorResponse> {
+                let executor = Arc::new(DryRunExecutor::new(
                     self.dry_run_tracker.dupe(),
                     Some(artifact_fs.clone()),
-                )))
+                ));
+                Ok(CommandExecutorResponse {
+                    executor,
+                    platform: Default::default(),
+                })
             }
         }
 

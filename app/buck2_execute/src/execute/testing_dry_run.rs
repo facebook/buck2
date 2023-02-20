@@ -12,7 +12,6 @@ use std::sync::Mutex;
 
 use async_trait::async_trait;
 use indexmap::IndexMap;
-use remote_execution as RE;
 use sorted_vector_map::SortedVectorMap;
 
 use crate::artifact::fs::ArtifactFs;
@@ -100,9 +99,5 @@ impl PreparedCommandExecutor for DryRunExecutor {
             // NOTE: This should probaby be an error() but who cares.
             Err(..) => manager.failure(exec_kind, IndexMap::new(), Default::default(), Some(1)),
         }
-    }
-
-    fn re_platform(&self) -> Option<&RE::Platform> {
-        None
     }
 }
