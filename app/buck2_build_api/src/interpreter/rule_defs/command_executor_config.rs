@@ -64,6 +64,8 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
         local_enabled: bool,
         // Whether to use remote execution for this execution platform
         remote_enabled: bool,
+        // Whether to query RE caches.
+        #[starlark(default = NoneOr::None, require = named)] remote_cache_enabled: NoneOr<bool>,
         // properties for remote execution for this platform
         #[starlark(default = NoneType, require = named)] remote_execution_properties: Value<'v>,
         // A component to inject into the action key. This should typically used to inject variability
@@ -182,8 +184,20 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
                 CacheUploadBehavior::Disabled
             };
 
-            let executor = match (local_options, remote_options) {
-                (local, Some(remote)) => {
+            // FIXME: This should probably default to `remote_enabled` and not `true`, but
+            // historically this has been `true`, so we should probably migrate our defs to set
+            // `remote_cache_enabled = True` explicitly first.
+            let remote_cache_default = if buck2_core::is_open_source() {
+                remote_enabled
+            } else {
+                true
+            };
+            let remote_cache_enabled = remote_cache_enabled
+                .into_option()
+                .unwrap_or(remote_cache_default);
+
+            let executor = match (local_options, remote_options, remote_cache_enabled) {
+                (local, Some(remote), remote_cache_enabled) => {
                     let executor = match local {
                         Some(local) => RemoteEnabledExecutor::Hybrid {
                             local,
@@ -203,19 +217,20 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
                         re_use_case: re_use_case
                             .context(CommandExecutorConfigErrors::MissingField("re_use_case"))?,
                         cache_upload_behavior,
+                        remote_cache_enabled,
                     }
                 }
-                (Some(local), None) => {
-                    // FIXME: Make caching configurable to allow for a truly local executor here.
-                    Executor::RemoteEnabled {
-                        executor: RemoteEnabledExecutor::Local(local),
-                        re_properties: re_properties.unwrap_or_default(),
-                        re_use_case: re_use_case
-                            .unwrap_or_else(RemoteExecutorUseCase::buck2_default),
-                        cache_upload_behavior,
-                    }
-                }
-                (None, None) => {
+                (Some(local), None, true) => Executor::RemoteEnabled {
+                    executor: RemoteEnabledExecutor::Local(local),
+                    // FIXME: We need a migration flip the default for remote_cache_enabled to
+                    // remote_enabled first.
+                    re_properties: re_properties.unwrap_or_default(),
+                    re_use_case: re_use_case.unwrap_or_else(RemoteExecutorUseCase::buck2_default),
+                    cache_upload_behavior,
+                    remote_cache_enabled: true,
+                },
+                (Some(local), None, false) => Executor::Local(local),
+                (None, None, _) => {
                     return Err(CommandExecutorConfigErrors::NoExecutor.into());
                 }
             };

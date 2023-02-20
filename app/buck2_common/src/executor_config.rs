@@ -84,7 +84,7 @@ pub enum Executor {
         re_properties: SortedMap<String, String>,
         re_use_case: RemoteExecutorUseCase,
         cache_upload_behavior: CacheUploadBehavior,
-        // FIXME: Make caching configurable here.
+        remote_cache_enabled: bool,
     },
 }
 

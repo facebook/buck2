@@ -177,6 +177,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                 re_properties,
                 re_use_case,
                 cache_upload_behavior,
+                remote_cache_enabled,
             } => {
                 let inner_executor: Option<Arc<dyn PreparedCommandExecutor>> = match &executor {
                     RemoteEnabledExecutor::Local(local) if !self.strategy.ban_local() => {
@@ -209,7 +210,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                     .get_copied()?
                     .unwrap_or(self.no_remote_cache);
 
-                let executor = if disable_caching {
+                let executor = if disable_caching || !remote_cache_enabled {
                     inner_executor
                 } else {
                     inner_executor.map(|inner_executor| {
@@ -302,6 +303,7 @@ pub fn get_default_executor_config(host_platform: HostPlatformOverride) -> Comma
             re_properties: get_default_re_properties(host_platform),
             re_use_case: RemoteExecutorUseCase::buck2_default(),
             cache_upload_behavior: CacheUploadBehavior::Disabled,
+            remote_cache_enabled: true,
         }
     };
 
