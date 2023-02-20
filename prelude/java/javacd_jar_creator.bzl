@@ -62,7 +62,8 @@ def create_jar_artifact_javacd(
         additional_classpath_entries: ["artifact"],
         additional_compiled_srcs: ["artifact", None],
         bootclasspath_entries: ["artifact"],
-        is_building_android_binary: bool.type) -> "JavaCompileOutputs":
+        is_building_android_binary: bool.type,
+        is_creating_subtarget: bool.type = False) -> "JavaCompileOutputs":
     if javac_tool != None:
         # TODO(cjhopman): We can probably handle this better. I think we should be able to just use the non-javacd path.
         fail("cannot set explicit javac on library when using javacd")
@@ -155,7 +156,8 @@ def create_jar_artifact_javacd(
             output_paths: OutputPaths.type,
             abi_dir: ["artifact", None],
             target_type: TargetType.type,
-            path_to_class_hashes: ["artifact", None]):
+            path_to_class_hashes: ["artifact", None],
+            is_creating_subtarget: bool.type = False):
         proto = declare_prefixed_output(actions, actions_identifier, "jar_command.proto.json")
 
         classpath_jars_tag = actions.artifact_tag()
@@ -184,7 +186,7 @@ def create_jar_artifact_javacd(
         event_pipe_out = declare_prefixed_output(actions, actions_identifier, "events.data")
 
         dep_files = {}
-        if srcs and (java_toolchain.dep_files == DepFiles("per_jar") or java_toolchain.dep_files == DepFiles("per_class")):
+        if not is_creating_subtarget and srcs and (java_toolchain.dep_files == DepFiles("per_jar") or java_toolchain.dep_files == DepFiles("per_class")):
             abi_to_abi_dir_map = compiling_deps_tset.project_as_args("abi_to_abi_dir") if java_toolchain.dep_files == DepFiles("per_class") and compiling_deps_tset and (target_type == TargetType("library") or target_type == TargetType("source_abi")) else None
             used_classes_json_outputs = [output_paths.jar_parent.project("used-classes.json")]
             cmd = setup_dep_files(
@@ -222,31 +224,39 @@ def create_jar_artifact_javacd(
         None,
         TargetType("library"),
         path_to_class_hashes_out,
+        is_creating_subtarget,
     )
     final_jar = prepare_final_jar(actions, actions_identifier, output, output_paths, additional_compiled_srcs, java_toolchain.jar_builder)
-    class_abi, source_abi, source_only_abi, classpath_abi, classpath_abi_dir = generate_abi_jars(
-        actions,
-        actions_identifier,
-        label,
-        abi_generation_mode,
-        additional_compiled_srcs,
-        is_building_android_binary,
-        java_toolchain.class_abi_generator,
-        final_jar,
-        class_abi_jar = None,
-        class_abi_output_dir = None,
-        encode_abi_command = encode_abi_command,
-        define_action = define_javacd_action,
-    )
+    if not is_creating_subtarget:
+        class_abi, source_abi, source_only_abi, classpath_abi, classpath_abi_dir = generate_abi_jars(
+            actions,
+            actions_identifier,
+            label,
+            abi_generation_mode,
+            additional_compiled_srcs,
+            is_building_android_binary,
+            java_toolchain.class_abi_generator,
+            final_jar,
+            class_abi_jar = None,
+            class_abi_output_dir = None,
+            encode_abi_command = encode_abi_command,
+            define_action = define_javacd_action,
+        )
 
-    result = make_compile_outputs(
-        full_library = final_jar,
-        class_abi = class_abi,
-        source_abi = source_abi,
-        source_only_abi = source_only_abi,
-        classpath_abi = classpath_abi,
-        classpath_abi_dir = classpath_abi_dir,
-        required_for_source_only_abi = required_for_source_only_abi,
-        annotation_processor_output = output_paths.annotations,
-    )
+        result = make_compile_outputs(
+            full_library = final_jar,
+            class_abi = class_abi,
+            source_abi = source_abi,
+            source_only_abi = source_only_abi,
+            classpath_abi = classpath_abi,
+            classpath_abi_dir = classpath_abi_dir,
+            required_for_source_only_abi = required_for_source_only_abi,
+            annotation_processor_output = output_paths.annotations,
+        )
+    else:
+        result = make_compile_outputs(
+            full_library = final_jar,
+            required_for_source_only_abi = required_for_source_only_abi,
+            annotation_processor_output = output_paths.annotations,
+        )
     return result

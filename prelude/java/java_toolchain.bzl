@@ -27,7 +27,6 @@ JavaToolchainInfo = provider(
         "class_abi_generator",
         "compile_and_package",
         "dep_files",
-        "fallback_javac",
         "fat_jar",
         "fat_jar_main_class_lib",
         "jar",

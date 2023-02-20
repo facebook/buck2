@@ -285,7 +285,8 @@ def compile_to_jar(
         extra_arguments: ["cmd_args", None] = None,
         additional_classpath_entries: [["artifact"], None] = None,
         additional_compiled_srcs: ["artifact", None] = None,
-        bootclasspath_entries: [["artifact"], None] = None) -> "JavaCompileOutputs":
+        bootclasspath_entries: [["artifact"], None] = None,
+        is_creating_subtarget: bool.type = False) -> "JavaCompileOutputs":
     if not additional_classpath_entries:
         additional_classpath_entries = []
     if not bootclasspath_entries:
@@ -338,6 +339,7 @@ def compile_to_jar(
         additional_compiled_srcs,
         bootclasspath_entries,
         is_building_android_binary,
+        is_creating_subtarget,
     )
 
 def _create_jar_artifact(
@@ -364,7 +366,8 @@ def _create_jar_artifact(
         additional_classpath_entries: ["artifact"],
         additional_compiled_srcs: ["artifact", None],
         bootclasspath_entries: ["artifact"],
-        _is_building_android_binary: bool.type) -> "JavaCompileOutputs":
+        _is_building_android_binary: bool.type,
+        _is_creating_subtarget: bool.type = False) -> "JavaCompileOutputs":
     """
     Creates jar artifact.
 
@@ -541,7 +544,6 @@ def build_java_library(
     extra_arguments = cmd_args(ctx.attrs.extra_arguments)
     manifest_file = ctx.attrs.manifest_file
     source_level, target_level = get_java_version_attributes(ctx)
-    javac_tool = derive_javac(ctx.attrs.javac) if ctx.attrs.javac else None
 
     outputs = None
     common_compile_kwargs = None
@@ -557,6 +559,7 @@ def build_java_library(
             "ap_params": ap_params,
             "bootclasspath_entries": bootclasspath_entries,
             "deps": first_order_deps,
+            "javac_tool": derive_javac(ctx.attrs.javac) if ctx.attrs.javac else None,
             "manifest_file": manifest_file,
             "remove_classes": ctx.attrs.remove_classes,
             "required_for_source_only_abi": ctx.attrs.required_for_source_only_abi,
@@ -570,7 +573,6 @@ def build_java_library(
 
         outputs = compile_to_jar(
             ctx,
-            javac_tool = javac_tool,
             plugin_params = plugin_params,
             extra_arguments = extra_arguments,
             **common_compile_kwargs
@@ -612,8 +614,8 @@ def build_java_library(
                 ctx,
                 actions_identifier = "nullsafe",
                 plugin_params = nullsafe_plugin_params,
-                javac_tool = java_toolchain.fallback_javac,
                 extra_arguments = extra_arguments,
+                is_creating_subtarget = True,
                 **common_compile_kwargs
             )
 
