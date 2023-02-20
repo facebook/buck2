@@ -160,7 +160,9 @@ mod imp {
                 dispatcher.instant_event(event.clone());
             }
             None => {
-                buck2_server::active_commands::broadcast_instant_event(&event);
+                if !buck2_server::active_commands::broadcast_instant_event(&event) && !quiet {
+                    tracing::warn!("Warning \"{}\": {:#}", category, err);
+                }
             }
         }
 

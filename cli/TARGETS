@@ -56,6 +56,7 @@ rust_library(
         "fbsource//third-party/rust:thiserror",
         "fbsource//third-party/rust:tokio",
         "fbsource//third-party/rust:tokio-stream",
+        "fbsource//third-party/rust:tracing",
         "//buck2/allocative/allocative:allocative",
         "//buck2/app/buck2_audit:buck2_audit",
         "//buck2/app/buck2_build_api:buck2_build_api",

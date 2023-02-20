@@ -26,10 +26,18 @@ pub fn active_commands() -> Option<HashMap<TraceId, ActiveCommandHandle>> {
     Some(ACTIVE_COMMANDS.try_lock().ok()?.clone())
 }
 
-pub fn broadcast_instant_event<E: Into<buck2_data::instant_event::Data> + Clone>(event: &E) {
+/// Broadcasts an instant event, returns whether any subscribers were connected.
+pub fn broadcast_instant_event<E: Into<buck2_data::instant_event::Data> + Clone>(
+    event: &E,
+) -> bool {
+    let mut has_subscribers = false;
+
     for cmd in ACTIVE_COMMANDS.lock().unwrap().values() {
-        cmd.dispatcher.instant_event(event.clone())
+        cmd.dispatcher.instant_event(event.clone());
+        has_subscribers = true;
     }
+
+    has_subscribers
 }
 
 pub fn broadcast_shutdown(shutdown: &buck2_data::DaemonShutdown) {
