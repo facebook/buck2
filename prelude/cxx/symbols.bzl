@@ -82,7 +82,7 @@ def extract_undefined_syms(ctx: "context", output: "artifact", category_prefix: 
         global_only = True,
         undefined_only = True,
         category = "{}_undefined_syms".format(category_prefix),
-        identifier = output.basename,
+        identifier = output.short_path,
         prefer_local = prefer_local,
     )
 
@@ -94,7 +94,7 @@ def extract_global_syms(ctx: "context", output: "artifact", category_prefix: str
         dynamic = True,
         global_only = True,
         category = "{}_global_syms".format(category_prefix),
-        identifier = output.basename,
+        identifier = output.short_path,
         prefer_local = prefer_local,
     )
 
