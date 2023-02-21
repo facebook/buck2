@@ -22,6 +22,7 @@ gazebo_lint.optional = true
 # @oss-disable: gazebo_lint.path = "../../../gazebo_lint/gazebo_lint"
 
 buck2_core = { workspace = true }
+buck2_re_configuration = { workspace = true }
 re_grpc_proto = { path = "../re_grpc_proto" }
 
 [dev-dependencies]

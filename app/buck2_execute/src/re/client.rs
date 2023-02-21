@@ -609,21 +609,7 @@ impl RemoteExecutionClientImpl {
             let client = {
                 let _unused = (fb, maybe_logs_dir_path, buck_out_path);
 
-                REClientBuilder::build_and_connect(
-                    static_metadata
-                        .cas_address
-                        .clone()
-                        .context("No CAS address was provided")?,
-                    static_metadata
-                        .action_cache_address
-                        .clone()
-                        .context("No Action Cache address was provided")?,
-                    static_metadata
-                        .engine_address
-                        .clone()
-                        .context("No Engine address was provided")?,
-                )
-                .await?
+                REClientBuilder::build_and_connect(&static_metadata.0).await?
             };
 
             Self {

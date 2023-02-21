@@ -110,27 +110,39 @@ mod not_fbcode {
 
     /// Metadata that doesn't change between executions
     #[derive(Clone, Debug, Default, Allocative)]
-    pub struct RemoteExecutionStaticMetadata {
-        pub cas_address: Option<String>,
-        pub action_cache_address: Option<String>,
-        pub engine_address: Option<String>,
-    }
+    pub struct RemoteExecutionStaticMetadata(pub Buck2OssReConfiguration);
 
     impl RemoteExecutionStaticMetadataImpl for RemoteExecutionStaticMetadata {
         fn from_legacy_config(legacy_config: &LegacyBuckConfig) -> anyhow::Result<Self> {
-            Ok(Self {
-                cas_address: legacy_config.parse(BUCK2_RE_CLIENT_CFG_SECTION, "cas_address")?,
-                action_cache_address: legacy_config
-                    .parse(BUCK2_RE_CLIENT_CFG_SECTION, "action_cache_address")?,
-                engine_address: legacy_config
-                    .parse(BUCK2_RE_CLIENT_CFG_SECTION, "engine_address")?,
-            })
+            Ok(Self(Buck2OssReConfiguration::from_legacy_config(
+                legacy_config,
+            )?))
         }
 
         fn cas_semaphore_size(&self) -> usize {
             // FIXME: make this configurable?
             1024
         }
+    }
+}
+
+/// A configuration used only in our OSS builds. We still compile this always, which lets us
+/// gate less code behind fbcode_build.
+#[derive(Clone, Debug, Default, Allocative)]
+pub struct Buck2OssReConfiguration {
+    pub cas_address: Option<String>,
+    pub engine_address: Option<String>,
+    pub action_cache_address: Option<String>,
+}
+
+impl Buck2OssReConfiguration {
+    pub fn from_legacy_config(legacy_config: &LegacyBuckConfig) -> anyhow::Result<Self> {
+        Ok(Self {
+            cas_address: legacy_config.parse(BUCK2_RE_CLIENT_CFG_SECTION, "cas_address")?,
+            engine_address: legacy_config.parse(BUCK2_RE_CLIENT_CFG_SECTION, "engine_address")?,
+            action_cache_address: legacy_config
+                .parse(BUCK2_RE_CLIENT_CFG_SECTION, "action_cache_address")?,
+        })
     }
 }
 

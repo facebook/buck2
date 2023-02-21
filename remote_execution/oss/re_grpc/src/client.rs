@@ -12,6 +12,7 @@ use std::sync::Mutex;
 
 use anyhow::Context;
 use buck2_core::fs::fs_util;
+use buck2_re_configuration::Buck2OssReConfiguration;
 use futures::future::Future;
 use futures::stream::BoxStream;
 use futures::stream::StreamExt;
@@ -96,15 +97,26 @@ fn ttimestamp_from(ts: Option<::prost_types::Timestamp>) -> TTimestamp {
 pub struct REClientBuilder;
 
 impl REClientBuilder {
-    pub async fn build_and_connect(
-        cas_address: String,
-        action_cache_address: String,
-        engine_address: String,
-    ) -> anyhow::Result<REClient> {
+    pub async fn build_and_connect(opts: &Buck2OssReConfiguration) -> anyhow::Result<REClient> {
         let grpc_clients = GRPCClients {
-            cas_client: ContentAddressableStorageClient::connect(cas_address.clone()).await?,
-            execution_client: ExecutionClient::connect(action_cache_address.clone()).await?,
-            action_cache_client: ActionCacheClient::connect(engine_address).await?,
+            cas_client: ContentAddressableStorageClient::connect(
+                opts.cas_address
+                    .clone()
+                    .context("No CAS address was provided")?,
+            )
+            .await?,
+            execution_client: ExecutionClient::connect(
+                opts.engine_address
+                    .clone()
+                    .context("No Engine address was provided")?,
+            )
+            .await?,
+            action_cache_client: ActionCacheClient::connect(
+                opts.action_cache_address
+                    .clone()
+                    .context("No Engine address was provided")?,
+            )
+            .await?,
         };
 
         Ok(REClient::new(grpc_clients))
