@@ -306,6 +306,7 @@ message RageResult {
   // Rage can be associated with an invocation
   optional string invocation_id = 6;
   string origin = 7;
+  string event_log_dump = 8;
 }
 
 // A snapshot of current system state, with useful info.

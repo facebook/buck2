@@ -272,6 +272,7 @@ impl RageCommand {
                     hg_snapshot_id: hg_snapshot_id.output().to_owned(),
                     invocation_id: invocation_id.map(|inv| inv.to_string()),
                     origin: self.origin.to_string(),
+                    event_log_dump: event_log_dump.output().to_owned(),
                 },
             )
             .await?;
