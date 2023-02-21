@@ -40,7 +40,10 @@ use re_grpc_proto::google::rpc::Code;
 use re_grpc_proto::google::rpc::Status;
 use tokio::fs::OpenOptions;
 use tokio::io::AsyncWriteExt;
+use tonic::transport::channel::ClientTlsConfig;
+use tonic::transport::Certificate;
 use tonic::transport::Channel;
+use tonic::transport::Identity;
 
 use crate::error::*;
 use crate::metadata::*;
@@ -94,29 +97,72 @@ fn ttimestamp_from(ts: Option<::prost_types::Timestamp>) -> TTimestamp {
     }
 }
 
+async fn create_tls_config(opts: &Buck2OssReConfiguration) -> anyhow::Result<ClientTlsConfig> {
+    let config = ClientTlsConfig::new();
+
+    let config = match opts.tls_ca_certs.as_ref() {
+        Some(tls_ca_certs) => {
+            let data = tokio::fs::read(tls_ca_certs)
+                .await
+                .with_context(|| format!("Error reading `{}`", tls_ca_certs))?;
+            config.ca_certificate(Certificate::from_pem(data))
+        }
+        None => {
+            // We set the `tls-webpki-roots` feature so we'll get that default.
+            config
+        }
+    };
+
+    let config = match opts.tls_client_cert.as_ref() {
+        Some(tls_client_cert) => {
+            let data = tokio::fs::read(tls_client_cert)
+                .await
+                .with_context(|| format!("Error reading `{}`", tls_client_cert))?;
+            config.identity(Identity::from_pem(&data, &data))
+        }
+        None => config,
+    };
+
+    Ok(config)
+}
+
 pub struct REClientBuilder;
 
 impl REClientBuilder {
     pub async fn build_and_connect(opts: &Buck2OssReConfiguration) -> anyhow::Result<REClient> {
+        let tls_config = create_tls_config(opts)
+            .await
+            .context("Invalid TLS config")?;
+
+        let tls_config = &tls_config;
+
+        let create_channel = |address: Option<String>| async move {
+            anyhow::Ok(
+                Channel::from_shared(address.as_ref().context("No address")?.clone())?
+                    .tls_config(tls_config.clone())?
+                    .connect()
+                    .await
+                    .context("Error connecting")?,
+            )
+        };
+
+        let (cas, execution, action_cache) = futures::future::join3(
+            create_channel(opts.cas_address.clone()),
+            create_channel(opts.engine_address.clone()),
+            create_channel(opts.action_cache_address.clone()),
+        )
+        .await;
+
         let grpc_clients = GRPCClients {
-            cas_client: ContentAddressableStorageClient::connect(
-                opts.cas_address
-                    .clone()
-                    .context("No CAS address was provided")?,
-            )
-            .await?,
-            execution_client: ExecutionClient::connect(
-                opts.engine_address
-                    .clone()
-                    .context("No Engine address was provided")?,
-            )
-            .await?,
-            action_cache_client: ActionCacheClient::connect(
-                opts.action_cache_address
-                    .clone()
-                    .context("No Engine address was provided")?,
-            )
-            .await?,
+            cas_client: ContentAddressableStorageClient::new(
+                cas.context("Error creating CAS client")?,
+            ),
+            execution_client: ExecutionClient::new(
+                execution.context("Error creating Execution client")?,
+            ),
+            action_cache_client: ActionCacheClient::new(
+                action_cache.context("Error creating ActionCache client")?,
+            ),
         };
 
         Ok(REClient::new(grpc_clients))

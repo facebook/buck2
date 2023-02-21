@@ -160,7 +160,7 @@ tokio = { version = "1.5", features = ["full"] }
 tokio-stream = { version = "0.1.4", features = ["fs", "io-util", "net", "sync", "time"] }
 tokio-util = { version = "0.6", features = ["full"] }
 toml = "0.5.8"
-tonic = "0.8.3"
+tonic = { version = "0.8.3", features = ["tls", "tls-webpki-roots"] }
 tonic-build = { version = "0.8.4", features = ["prost", "cleanup-markdown"] }
 tower = "0.4"
 tower-layer = "0.3.1"

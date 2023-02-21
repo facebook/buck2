@@ -133,6 +133,12 @@ pub struct Buck2OssReConfiguration {
     pub cas_address: Option<String>,
     pub engine_address: Option<String>,
     pub action_cache_address: Option<String>,
+    /// Path to a CA certificates bundle. This must be PEM-encoded. If none is set, a default
+    /// bundle will be used.
+    pub tls_ca_certs: Option<String>,
+    /// Path to a client certificate (and intermediate chain), as well as its associated private
+    /// key. This must be PEM-encoded.
+    pub tls_client_cert: Option<String>,
 }
 
 impl Buck2OssReConfiguration {
@@ -142,6 +148,8 @@ impl Buck2OssReConfiguration {
             engine_address: legacy_config.parse(BUCK2_RE_CLIENT_CFG_SECTION, "engine_address")?,
             action_cache_address: legacy_config
                 .parse(BUCK2_RE_CLIENT_CFG_SECTION, "action_cache_address")?,
+            tls_ca_certs: legacy_config.parse(BUCK2_RE_CLIENT_CFG_SECTION, "tls_ca_certs")?,
+            tls_client_cert: legacy_config.parse(BUCK2_RE_CLIENT_CFG_SECTION, "tls_client_cert")?,
         })
     }
 }
