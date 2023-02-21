@@ -574,8 +574,9 @@ impl TestServer {
             ))
         } else if !notification.diagnostics.is_empty() {
             Err(anyhow::anyhow!(
-                "Got unexpected diagnostic messages when opening {}",
-                uri
+                "Got unexpected diagnostic messages when opening {}, got {:?}",
+                uri,
+                notification.diagnostics
             ))
         } else {
             Ok(())
