@@ -16,6 +16,7 @@ regex = { workspace = true }
 tokio = { workspace = true }
 tonic = { workspace = true }
 tracing = { workspace = true }
+once_cell = { workspace = true }
 
 gazebo_lint.version = "0.1"
 gazebo_lint.optional = true

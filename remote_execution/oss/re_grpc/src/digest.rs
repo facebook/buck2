@@ -12,6 +12,7 @@ use std::fmt::Display;
 use std::str::FromStr;
 
 use anyhow::Context;
+use once_cell::sync::Lazy;
 use regex::Regex;
 
 #[derive(Clone, Default, PartialEq, Eq, Hash, Debug)]
@@ -31,8 +32,11 @@ impl FromStr for TDigest {
     type Err = anyhow::Error;
 
     fn from_str(digest: &str) -> anyhow::Result<TDigest> {
-        let re = Regex::new("([0-9a-f]+):([0-9]+)").context("Failed to compile digest regex")?;
-        let matches = re
+        static DIGEST_RE: Lazy<Regex> = Lazy::new(|| {
+            Regex::new("([0-9a-f]+):([0-9]+)").expect("Failed to compile digest regex")
+        });
+
+        let matches = DIGEST_RE
             .captures(digest)
             .with_context(|| format!("Digest format not valid: {}", digest))?;
         Ok(TDigest {
