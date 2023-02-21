@@ -166,6 +166,7 @@ CLIPPY_ALLOW = [
     "clippy::unwrap-or-else-default",  # Defaults aren't always more clear as it removes the type information when reading code
     "clippy::enum-variant-names",  # Sometimes you do want the same prefixes
     "clippy::uninlined_format_args",  # From Rust 1.67.0 (made pedantic in 1.67.1 https://github.com/rust-lang/rust-clippy/pull/10265)
+    "clippy::needless_update",  # Our RE structs have slightly different definitions in internal and OSS.
 ]
 
 CLIPPY_DENY = [
