@@ -7,8 +7,6 @@
  * of this source tree.
  */
 
-use std::process::ExitStatus;
-
 use anyhow::Context as _;
 use buck2_common::convert::ProstDurationExt;
 use futures::stream::Stream;
@@ -33,21 +31,7 @@ where
             CommandEvent::Stderr(bytes) => Data::Stderr(buck2_forkserver_proto::StreamEvent {
                 data: bytes.to_vec(),
             }),
-            CommandEvent::Exit(GatherOutputStatus::Finished(status)) => {
-                let exit_code;
-
-                #[cfg(unix)]
-                {
-                    use std::os::unix::process::ExitStatusExt;
-                    exit_code = status.into_raw();
-                }
-
-                #[cfg(not(unix))]
-                {
-                    // Windows will always set an exit code.
-                    exit_code = status.code().unwrap_or(1);
-                }
-
+            CommandEvent::Exit(GatherOutputStatus::Finished(exit_code)) => {
                 Data::Exit(buck2_forkserver_proto::ExitEvent { exit_code })
             }
             CommandEvent::Exit(GatherOutputStatus::TimedOut(duration)) => {
@@ -88,21 +72,7 @@ where
                 CommandEvent::Stderr(data.into())
             }
             Data::Exit(buck2_forkserver_proto::ExitEvent { exit_code }) => {
-                let exit_status;
-
-                #[cfg(unix)]
-                {
-                    use std::os::unix::process::ExitStatusExt;
-                    exit_status = ExitStatus::from_raw(exit_code)
-                }
-
-                #[cfg(not(unix))]
-                {
-                    use std::os::windows::process::ExitStatusExt;
-                    exit_status = ExitStatus::from_raw(exit_code as _)
-                }
-
-                CommandEvent::Exit(GatherOutputStatus::Finished(exit_status))
+                CommandEvent::Exit(GatherOutputStatus::Finished(exit_code))
             }
             Data::Timeout(buck2_forkserver_proto::TimeoutEvent { duration }) => {
                 CommandEvent::Exit(GatherOutputStatus::TimedOut(

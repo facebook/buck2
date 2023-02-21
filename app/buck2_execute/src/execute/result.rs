@@ -128,6 +128,8 @@ pub struct CommandExecutionReport {
     pub status: CommandExecutionStatus,
     pub timing: CommandExecutionTimingData,
     pub std_streams: CommandStdStreams,
+    /// No exit_code means the command did not finish executing. Signals get mapped into this as
+    /// 128 + SIGNUM, which is the convention shells follow.
     pub exit_code: Option<i32>,
 }
 

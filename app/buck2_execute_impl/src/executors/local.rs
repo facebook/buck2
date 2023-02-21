@@ -392,9 +392,10 @@ impl LocalExecutor {
                     Err(e) => return manager.error("calculate_output_values_failed", e),
                 };
 
-                match status.code() {
-                    Some(0) => manager.success(execution_kind, outputs, std_streams, timing),
-                    v => manager.failure(execution_kind, outputs, std_streams, v),
+                if status == 0 {
+                    manager.success(execution_kind, outputs, std_streams, timing)
+                } else {
+                    manager.failure(execution_kind, outputs, std_streams, Some(status))
                 }
             }
             GatherOutputStatus::SpawnFailed(reason) => {
@@ -895,7 +896,7 @@ mod tests {
         cmd.args(["-c", "echo hello"]);
 
         let (status, stdout, stderr) = gather_output(cmd, futures::future::pending()).await?;
-        assert!(matches!(status, GatherOutputStatus::Finished(s) if s.code() == Some(0)));
+        assert!(matches!(status, GatherOutputStatus::Finished(s) if s == 0));
         assert_eq!(str::from_utf8(&stdout)?.trim(), "hello");
         assert_eq!(stderr, b"");
 
@@ -926,7 +927,7 @@ mod tests {
         )
         .await?;
         assert!(
-            matches!(status, GatherOutputStatus::Finished(s) if s.code() == Some(0)),
+            matches!(status, GatherOutputStatus::Finished(s) if s == 0),
             "status: {:?}",
             status
         );
@@ -1019,7 +1020,7 @@ mod tests {
                 NoopLivelinessObserver::create(),
             )
             .await?;
-        assert!(matches!(status, GatherOutputStatus::Finished(s) if s.code() == Some(0)));
+        assert!(matches!(status, GatherOutputStatus::Finished(s) if s == 0));
 
         let stdout = std::str::from_utf8(&stdout).context("Invalid stdout")?;
 
@@ -1054,7 +1055,7 @@ mod tests {
                 NoopLivelinessObserver::create(),
             )
             .await?;
-        assert!(matches!(status, GatherOutputStatus::Finished(s) if s.code() == Some(0)));
+        assert!(matches!(status, GatherOutputStatus::Finished(s) if s == 0));
         assert_eq!(stdout, b"\n");
 
         Ok(())

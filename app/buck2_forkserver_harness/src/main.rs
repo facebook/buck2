@@ -91,7 +91,7 @@ async fn main() -> anyhow::Result<()> {
             let (status, out, err) = forkserver
                 .execute(req.clone(), futures::future::pending())
                 .await?;
-            if !matches!(status, GatherOutputStatus::Finished(s) if s.success()) {
+            if !matches!(status, GatherOutputStatus::Finished(s) if s == 0) {
                 failures.fetch_add(1, Ordering::Relaxed);
             }
             if !no_stdout {

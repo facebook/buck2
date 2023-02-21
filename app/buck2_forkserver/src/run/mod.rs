@@ -12,7 +12,6 @@ mod interruptible_async_read;
 use std::io;
 use std::pin::Pin;
 use std::process::Command;
-use std::process::ExitStatus;
 use std::process::Stdio;
 use std::task::Context;
 use std::task::Poll;
@@ -35,7 +34,8 @@ use self::interruptible_async_read::InterruptibleAsyncRead;
 
 #[derive(Debug)]
 pub enum GatherOutputStatus {
-    Finished(ExitStatus),
+    /// Contains the exit code.
+    Finished(i32),
     TimedOut(Duration),
     Cancelled,
     SpawnFailed(String),
@@ -177,7 +177,23 @@ where
     let status = async move {
         let (result, cancelled) = {
             let wait = async {
-                let status = GatherOutputStatus::Finished(child.wait().await?);
+                let status = child.wait().await?;
+                let exit_code;
+
+                #[cfg(unix)]
+                {
+                    // Shell convention on UNIX is to return 128 + signal number on a signal exit,
+                    // so we emulate this here.
+                    use std::os::unix::process::ExitStatusExt;
+                    exit_code = status.code().or_else(|| Some(128 + status.signal()?));
+                }
+
+                #[cfg(not(unix))]
+                {
+                    exit_code = status.code();
+                }
+
+                let status = GatherOutputStatus::Finished(exit_code.unwrap_or(-1));
                 anyhow::Ok((status, false))
             };
 
@@ -369,7 +385,7 @@ mod tests {
         cmd.args(["-c", "echo hello"]);
 
         let (status, stdout, stderr) = gather_output(cmd, futures::future::pending()).await?;
-        assert!(matches!(status, GatherOutputStatus::Finished(s) if s.code() == Some(0)));
+        assert!(matches!(status, GatherOutputStatus::Finished(s) if s == 0));
         assert_eq!(str::from_utf8(&stdout)?.trim(), "hello");
         assert_eq!(stderr, b"");
 
@@ -399,7 +415,7 @@ mod tests {
             timeout_into_cancellation(Some(Duration::from_secs(timeout))),
         )
         .await?;
-        assert!(matches!(status, GatherOutputStatus::Finished(s) if s.code() == Some(0)));
+        assert!(matches!(status, GatherOutputStatus::Finished(s) if s == 0));
         assert_eq!(str::from_utf8(&stdout)?.trim(), "hello");
         assert_eq!(stderr, b"");
 
@@ -523,6 +539,23 @@ mod tests {
         let mut events = stream_command_events(child, futures::future::pending())?.boxed();
         assert_matches!(events.next().await, Some(Ok(CommandEvent::Exit(..))));
         assert_matches!(futures::poll!(events.next()), Poll::Ready(None));
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn test_signal_exit_code() -> anyhow::Result<()> {
+        use nix::sys::signal::Signal;
+
+        let mut cmd = background_command("sh");
+        cmd.arg("-c").arg("kill -KILL \"$$\"");
+        let (status, _stdout, _stderr) = gather_output(cmd, futures::future::pending()).await?;
+
+        assert_matches!(
+            status,
+            GatherOutputStatus::Finished(v) if v == 128 + Signal::SIGKILL as i32
+        );
+
         Ok(())
     }
 }
