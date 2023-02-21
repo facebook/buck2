@@ -19,10 +19,9 @@ use crate::codemap::ResolvedSpan;
 use crate::codemap::Span;
 use crate::codemap::Spanned;
 use crate::syntax::ast::Argument;
+use crate::syntax::ast::AstExpr;
 use crate::syntax::ast::AstLiteral;
-use crate::syntax::ast::AstNoPayload;
 use crate::syntax::ast::Expr;
-use crate::syntax::uniplate::Visit;
 use crate::syntax::AstModule;
 
 impl AstModule {
@@ -34,16 +33,16 @@ impl AstModule {
     pub fn find_function_call_with_name(&self, name: &str) -> Option<ResolvedSpan> {
         let mut ret = None;
 
-        fn visit_node(ret: &mut Option<Span>, name: &str, node: Visit<AstNoPayload>) {
+        fn visit_expr(ret: &mut Option<Span>, name: &str, node: &AstExpr) {
             if ret.is_some() {
                 return;
             }
 
             match node {
-                Visit::Expr(Spanned {
+                Spanned {
                     node: Expr::Call(identifier, arguments),
                     ..
-                }) => {
+                } => {
                     if let Expr::Identifier(_, _) = &identifier.node {
                         let found = arguments.iter().find_map(|argument| match &argument.node {
                             Argument::Named(
@@ -60,12 +59,11 @@ impl AstModule {
                         }
                     }
                 }
-                Visit::Stmt(s) => s.visit_children(|node| visit_node(ret, name, node)),
-                _ => {}
+                _ => node.visit_expr(|x| visit_expr(ret, name, x)),
             }
         }
 
-        visit_node(&mut ret, name, Visit::Stmt(&self.statement));
+        self.statement.visit_expr(|x| visit_expr(&mut ret, name, x));
         ret.map(|span| self.codemap.resolve_span(span))
     }
 }
