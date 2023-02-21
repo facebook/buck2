@@ -7,18 +7,8 @@
  * of this source tree.
  */
 
-#[derive(Clone, Default)]
-pub struct TProperty {
-    pub name: String,
-    pub value: String,
-    pub _dot_dot: (),
-}
-
-#[derive(Clone, Default)]
-pub struct TPlatform {
-    pub properties: Vec<TProperty>,
-    pub _dot_dot: (),
-}
+pub type TPlatform = crate::grpc::Platform;
+pub type TProperty = crate::grpc::Property;
 
 #[derive(Clone, Default)]
 pub struct ActionHistoryInfo {
