@@ -1725,12 +1725,12 @@ mod test {
             <dest_root><dest_foobar>FooBarModule</dest_foobar></dest_root> = 5
             FooModule = struct(<dest_foo>foo</dest_foo> = 5)
             # Member value does not exist
-            BarModule = struct(<dest_bar>bar</dest_bar> = _bar)
+            BarModule = struct(<dest_bar>bar</dest_bar> = bar)
             BazModule = struct(
-                bar = _bar,
+                bar = bar,
                 baz = _baz,
             )
-            QuzModule = struct(bar = _bar, baz = _baz, quz = _quz)
+            QuzModule = struct(bar = bar, baz = _baz, quz = _quz)
 
             <root>Foo<root_click>Bar</root_click>Module</root>.<foobar>f<foobar_click>o</foobar_click>obar</foobar>
             FooModule.<foo>f<foo_click>o</foo_click>o</foo>
