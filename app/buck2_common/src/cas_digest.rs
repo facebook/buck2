@@ -72,19 +72,19 @@ impl RawDigest {
 
     pub fn parse_sha1(data: &[u8]) -> Result<Self, CasDigestParseError> {
         let mut sha1 = [0; SHA1_SIZE];
-        hex::decode_to_slice(data, &mut sha1).map_err(CasDigestParseError::InvalidDigest)?;
+        hex::decode_to_slice(data, &mut sha1).map_err(CasDigestParseError::InvalidSha1)?;
         Ok(RawDigest::Sha1(sha1))
     }
 
     pub fn parse_sha256(data: &[u8]) -> Result<Self, CasDigestParseError> {
         let mut sha256 = [0; SHA256_SIZE];
-        hex::decode_to_slice(data, &mut sha256).map_err(CasDigestParseError::InvalidDigest)?;
+        hex::decode_to_slice(data, &mut sha256).map_err(CasDigestParseError::InvalidSha256)?;
         Ok(RawDigest::Sha256(sha256))
     }
 
     pub fn parse_blake3(data: &[u8]) -> Result<Self, CasDigestParseError> {
         let mut blake3 = [0; BLAKE3_SIZE];
-        hex::decode_to_slice(data, &mut blake3).map_err(CasDigestParseError::InvalidDigest)?;
+        hex::decode_to_slice(data, &mut blake3).map_err(CasDigestParseError::InvalidBlake3)?;
         Ok(RawDigest::Blake3(blake3))
     }
 }
@@ -496,8 +496,14 @@ pub enum CasDigestParseError {
     #[error("The digest is missing a size separator, it should look like `HASH:SIZE`")]
     MissingSizeSeparator,
 
-    #[error("The digest part of the CAS digest is invalid")]
-    InvalidDigest(#[source] hex::FromHexError),
+    #[error("The digest part of the CAS digest is not a valid SHA1 digest")]
+    InvalidSha1(#[source] hex::FromHexError),
+
+    #[error("The digest part of the CAS digest is not a valid SHA256 digest")]
+    InvalidSha256(#[source] hex::FromHexError),
+
+    #[error("The digest part of the CAS digest is not a valid BLAKE3 hash")]
+    InvalidBlake3(#[source] hex::FromHexError),
 
     #[error("The digest size ({} chars) does not correspond to a supported digest size", .0)]
     UnsupportedDigest(usize),
