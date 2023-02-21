@@ -29,9 +29,9 @@ A BUILD file (also often named `BUCK` or `TARGETS`, this is configurable) is the
 [Buck Extension Language](https://buck2.build/docs/developers/bxl). BXL scripts are written in [Starlark](https://github.com/bazelbuild/starlark), a restricted subset of Python, and give integrators the ability to inspect and interact directly with the buck2 graph. BXL scripts can query the [action graph](#action-graph), [configured graph](#configured-graph), and [unconfigured graph](#unconfigured-graph), create [actions](#actions) and trigger builds.
 
 #### Cell
-:::note
-🚧   THIS SECTION IS UNDER CONSTRUCTION
-:::
+
+Directory tree of one or more Buck2 [packages](#package). A Buck2 build can involve multiple cells. The cell root always contains a [.buckconfig](#buckconfig), although the presence of a .buckconfig file doesn't in itself define a cell. Rather, the cells involved in a build are defined at the time Buck2 is invoked; they are specified in the .buckconfig for the Buck [project](#project).
+
 #### Configuration
 :::note
 🚧   THIS SECTION IS UNDER CONSTRUCTION
@@ -45,9 +45,9 @@ A BUILD file (also often named `BUCK` or `TARGETS`, this is configurable) is the
 🚧   THIS SECTION IS UNDER CONSTRUCTION
 :::
 #### Daemon
-:::note
-🚧   THIS SECTION IS UNDER CONSTRUCTION
-:::
+
+Process lives between invocations. It's designed to allow for cache reuse between buck2 invocations which can considerably speed up builds. See more: [Daemon][./daemon.md]
+
 #### Dependency
 
 A directed edge between two [targets](#target). A target `A` can have a dependency on target `B`, for example, if any `dep` attribute of `A` mentions `B`. Whether a target can depend on another target depends on the [visibility](#visibility) of the later.

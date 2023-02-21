@@ -60,6 +60,7 @@ const manualSidebar = [
       'concepts/glossary',
       'concepts/target_pattern',
       'concepts/visibility',
+      'concepts/daemon',
     ],
   },
   {
