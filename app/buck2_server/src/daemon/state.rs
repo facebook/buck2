@@ -50,6 +50,7 @@ use buck2_execute_impl::materializers::sqlite::MaterializerState;
 use buck2_execute_impl::materializers::sqlite::MaterializerStateSqliteDb;
 use buck2_forkserver::client::ForkserverClient;
 use buck2_re_configuration::RemoteExecutionStaticMetadata;
+use buck2_re_configuration::RemoteExecutionStaticMetadataImpl;
 use buck2_server_ctx::concurrency::ConcurrencyHandler;
 use buck2_server_ctx::concurrency::DiceCleanup;
 use buck2_server_ctx::concurrency::NestedInvocation;

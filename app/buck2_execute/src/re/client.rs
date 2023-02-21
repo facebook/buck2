@@ -19,6 +19,7 @@ use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_re_configuration::RemoteExecutionStaticMetadata;
+use buck2_re_configuration::RemoteExecutionStaticMetadataImpl;
 use chrono::DateTime;
 use chrono::Utc;
 use dupe::Dupe;
@@ -493,8 +494,6 @@ impl RemoteExecutionClientImpl {
             // Split things up into smaller chunks.
             let download_chunk_size = std::cmp::max(download_concurrency / 8, 1);
 
-            let cas_pool_size = static_metadata.cas_connection_count;
-
             #[cfg(fbcode_build)]
             let client = {
                 use buck2_core::fs::fs_util;
@@ -515,7 +514,7 @@ impl RemoteExecutionClientImpl {
                     static_metadata.engine_address.clone();
 
                 let mut embedded_cas_daemon_config = EmbeddedCASDaemonClientCfg {
-                    connection_count: cas_pool_size,
+                    connection_count: static_metadata.cas_connection_count,
                     address: static_metadata.cas_address.clone(),
                     name: "buck2".to_owned(),
                     ..Default::default()
@@ -630,7 +629,7 @@ impl RemoteExecutionClientImpl {
             Self {
                 client: Some(client),
                 skip_remote_cache,
-                cas_semaphore: Arc::new(Semaphore::new(cas_pool_size as usize * 30)),
+                cas_semaphore: Arc::new(Semaphore::new(static_metadata.cas_semaphore_size())),
                 download_files_semapore: Arc::new(Semaphore::new(download_concurrency)),
                 download_chunk_size,
             }
