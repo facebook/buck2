@@ -611,6 +611,7 @@ mod tests {
                 artifact_fs,
                 CommandGenerationOptions {
                     path_separator: PathSeparatorKind::Unix,
+                    output_paths_behavior: Default::default(),
                 },
                 Default::default(),
             ),

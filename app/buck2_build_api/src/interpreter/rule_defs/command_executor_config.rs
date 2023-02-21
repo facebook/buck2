@@ -40,6 +40,8 @@ enum CommandExecutorConfigErrors {
     RePropertiesNotADict(String, String),
     #[error("expected `{0}` to be set")]
     MissingField(&'static str),
+    #[error("invalid value in `{0}`")]
+    InvalidField(&'static str),
     #[error(
         "executor config must specify at least `local_enabled = True` or `remote_enabled = True`"
     )]
@@ -95,6 +97,8 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
         >,
         // Whether to use the experimental low pass filter.
         #[starlark(default = false, require = named)] experimental_low_pass_filter: bool,
+        // How to express output paths to RE.
+        #[starlark(default = NoneOr::None, require = named)] remote_output_paths: NoneOr<&str>,
         heap: &'v Heap,
     ) -> anyhow::Result<Value<'v>> {
         let command_executor_config = {
@@ -236,6 +240,15 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
                 }
             };
 
+            let output_paths_behavior = remote_output_paths
+                .into_option()
+                .map(|s| s.parse())
+                .transpose()
+                .context(CommandExecutorConfigErrors::InvalidField(
+                    "remote_output_paths",
+                ))?
+                .unwrap_or_default();
+
             CommandExecutorConfig {
                 executor,
                 options: CommandGenerationOptions {
@@ -244,6 +257,7 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
                     } else {
                         PathSeparatorKind::Unix
                     },
+                    output_paths_behavior,
                 },
             }
         };

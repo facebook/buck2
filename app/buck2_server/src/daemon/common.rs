@@ -312,6 +312,7 @@ pub fn get_default_executor_config(host_platform: HostPlatformOverride) -> Comma
         executor,
         options: CommandGenerationOptions {
             path_separator: PathSeparatorKind::system_default(),
+            output_paths_behavior: Default::default(),
         },
     }
 }

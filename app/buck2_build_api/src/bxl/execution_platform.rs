@@ -30,6 +30,7 @@ pub static EXECUTION_PLATFORM: Lazy<ExecutionPlatformResolution> = Lazy::new(|| 
                 executor: Executor::Local(LocalExecutorOptions {}),
                 options: CommandGenerationOptions {
                     path_separator: PathSeparatorKind::system_default(),
+                    output_paths_behavior: Default::default(),
                 },
             }),
             ConfigurationNoExec::unspecified(),

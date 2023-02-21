@@ -9,6 +9,7 @@
 
 use std::hash::Hash;
 use std::hash::Hasher;
+use std::str::FromStr;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -104,6 +105,41 @@ impl PathSeparatorKind {
     }
 }
 
+/// Controls how we implement output_dirs, output_files, output_paths in RE actions.
+#[derive(Debug, Eq, PartialEq, Clone, Copy, Dupe, Hash, Allocative)]
+pub enum OutputPathsBehavior {
+    /// Ask for things as either files or directories.
+    Strict,
+    /// Ask for things as either directories when certain or files AND directories.
+    Compatibility,
+    /// Ask for things using output_paths.
+    OutputPaths,
+}
+
+impl FromStr for OutputPathsBehavior {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "strict" => Ok(OutputPathsBehavior::Strict),
+            "compatibility" => Ok(OutputPathsBehavior::Compatibility),
+            #[cfg(not(fbcode_build))]
+            "output_paths" => Ok(OutputPathsBehavior::OutputPaths),
+            _ => Err(anyhow::anyhow!("Invalid OutputPathsBehavior: `{}`", s)),
+        }
+    }
+}
+
+impl Default for OutputPathsBehavior {
+    fn default() -> Self {
+        if buck2_core::is_open_source() {
+            Self::OutputPaths
+        } else {
+            Self::Compatibility
+        }
+    }
+}
+
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Dupe, Hash, Allocative)]
 pub enum CacheUploadBehavior {
     Enabled { max_bytes: Option<u64> },
@@ -119,6 +155,7 @@ impl Default for CacheUploadBehavior {
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Dupe, Hash, Allocative)]
 pub struct CommandGenerationOptions {
     pub path_separator: PathSeparatorKind,
+    pub output_paths_behavior: OutputPathsBehavior,
 }
 
 #[derive(Debug, Eq, PartialEq, Hash, Allocative)]
@@ -149,6 +186,7 @@ impl CommandExecutorConfig {
             executor: Executor::Local(LocalExecutorOptions {}),
             options: CommandGenerationOptions {
                 path_separator: PathSeparatorKind::system_default(),
+                output_paths_behavior: Default::default(),
             },
         })
     }

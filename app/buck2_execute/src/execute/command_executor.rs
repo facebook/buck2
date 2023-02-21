@@ -12,6 +12,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use buck2_common::executor_config::CommandGenerationOptions;
+use buck2_common::executor_config::OutputPathsBehavior;
 use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::directory::DirectoryEntry;
@@ -156,7 +157,8 @@ impl CommandExecutor {
                 self.0.re_platform.clone(),
                 false,
                 digest_config,
-            );
+                self.0.options.output_paths_behavior,
+            )?;
 
             anyhow::Ok((action_paths, action))
         }) {
@@ -228,7 +230,8 @@ fn re_create_action(
     platform: RE::Platform,
     do_not_cache: bool,
     digest_config: DigestConfig,
-) -> PreparedAction {
+    output_paths_behavior: OutputPathsBehavior,
+) -> anyhow::Result<PreparedAction> {
     let mut command = RE::Command {
         arguments: args,
         platform: Some(platform),
@@ -243,26 +246,48 @@ fn re_create_action(
         ..Default::default()
     };
 
-    #[cfg(fbcode_build)]
-    {
-        for (output, output_type) in outputs {
-            match output_type {
-                OutputType::FileOrDirectory => {
-                    command.output_files.push(output.as_str().to_owned());
-                    command.output_directories.push(output.as_str().to_owned());
-                }
-                OutputType::File => command.output_files.push(output.as_str().to_owned()),
-                OutputType::Directory => {
-                    command.output_directories.push(output.as_str().to_owned())
+    match output_paths_behavior {
+        OutputPathsBehavior::Compatibility => {
+            for (output, output_type) in outputs {
+                let path = output.as_str().to_owned();
+
+                match output_type {
+                    OutputType::FileOrDirectory => {
+                        command.output_files.push(path.clone());
+                        command.output_directories.push(path);
+                    }
+                    OutputType::File => command.output_files.push(path),
+                    OutputType::Directory => command.output_directories.push(path),
                 }
             }
         }
-    }
+        OutputPathsBehavior::Strict => {
+            for (output, output_type) in outputs {
+                let path = output.as_str().to_owned();
 
-    #[cfg(not(fbcode_build))]
-    {
-        for (output, _output_type) in outputs {
-            command.output_paths.push(output.as_str().to_owned());
+                match output_type {
+                    OutputType::FileOrDirectory => {
+                        command.output_files.push(path);
+                    }
+                    OutputType::File => command.output_files.push(path),
+                    OutputType::Directory => command.output_directories.push(path),
+                }
+            }
+        }
+        OutputPathsBehavior::OutputPaths => {
+            #[cfg(fbcode_build)]
+            {
+                return Err(anyhow::anyhow!(
+                    "output_paths is not supported in fbcode_build"
+                ));
+            }
+
+            #[cfg(not(fbcode_build))]
+            {
+                for (output, _output_type) in outputs {
+                    command.output_paths.push(output.as_str().to_owned());
+                }
+            }
         }
     }
 
@@ -288,11 +313,11 @@ fn re_create_action(
     };
 
     let action = prepared_blobs.add_protobuf_message(&action, digest_config);
-    PreparedAction {
+    Ok(PreparedAction {
         action: action.data().dupe().coerce(),
         blobs: prepared_blobs,
         platform: command
             .platform
             .expect("We did put a platform a few lines up"),
-    }
+    })
 }
