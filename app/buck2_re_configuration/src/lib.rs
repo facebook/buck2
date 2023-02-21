@@ -135,9 +135,15 @@ pub struct Buck2OssReConfiguration {
     pub action_cache_address: Option<String>,
     /// Path to a CA certificates bundle. This must be PEM-encoded. If none is set, a default
     /// bundle will be used.
+    ///
+    /// This can contain environment variables using shell interpolation syntax (i.e. $VAR). They
+    /// will be substituted before using the value.
     pub tls_ca_certs: Option<String>,
     /// Path to a client certificate (and intermediate chain), as well as its associated private
     /// key. This must be PEM-encoded.
+    ///
+    /// This can contain environment variables using shell interpolation syntax (i.e. $VAR). They
+    /// will be substituted before using the value.
     pub tls_client_cert: Option<String>,
 }
 

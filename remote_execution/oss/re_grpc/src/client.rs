@@ -8,6 +8,7 @@
  */
 
 use std::collections::HashMap;
+use std::env::VarError;
 use std::sync::Mutex;
 
 use anyhow::Context;
@@ -18,6 +19,7 @@ use futures::stream::BoxStream;
 use futures::stream::StreamExt;
 use futures::stream::TryStreamExt;
 use gazebo::prelude::*;
+use once_cell::sync::Lazy;
 use prost::Message;
 use re_grpc_proto::build::bazel::remote::execution::v2::action_cache_client::ActionCacheClient;
 use re_grpc_proto::build::bazel::remote::execution::v2::batch_update_blobs_request::Request;
@@ -38,6 +40,7 @@ use re_grpc_proto::build::bazel::remote::execution::v2::ResultsCachePolicy;
 use re_grpc_proto::google::longrunning::operation::Result as OpResult;
 use re_grpc_proto::google::rpc::Code;
 use re_grpc_proto::google::rpc::Status;
+use regex::Regex;
 use tokio::fs::OpenOptions;
 use tokio::io::AsyncWriteExt;
 use tonic::metadata::MetadataValue;
@@ -103,7 +106,9 @@ async fn create_tls_config(opts: &Buck2OssReConfiguration) -> anyhow::Result<Cli
 
     let config = match opts.tls_ca_certs.as_ref() {
         Some(tls_ca_certs) => {
-            let data = tokio::fs::read(tls_ca_certs)
+            let tls_ca_certs =
+                substitute_env_vars(tls_ca_certs).context("Invalid `tls_ca_certs`")?;
+            let data = tokio::fs::read(&tls_ca_certs)
                 .await
                 .with_context(|| format!("Error reading `{}`", tls_ca_certs))?;
             config.ca_certificate(Certificate::from_pem(data))
@@ -116,7 +121,9 @@ async fn create_tls_config(opts: &Buck2OssReConfiguration) -> anyhow::Result<Cli
 
     let config = match opts.tls_client_cert.as_ref() {
         Some(tls_client_cert) => {
-            let data = tokio::fs::read(tls_client_cert)
+            let tls_client_cert =
+                substitute_env_vars(tls_client_cert).context("Invalid `tls_client_cert`")?;
+            let data = tokio::fs::read(&tls_client_cert)
                 .await
                 .with_context(|| format!("Error reading `{}`", tls_client_cert))?;
             config.identity(Identity::from_pem(&data, &data))
@@ -138,8 +145,11 @@ impl REClientBuilder {
         let tls_config = &tls_config;
 
         let create_channel = |address: Option<String>| async move {
+            let address = address.as_ref().context("No address")?;
+            let address = substitute_env_vars(address).context("Invalid address")?;
+
             anyhow::Ok(
-                Channel::from_shared(address.as_ref().context("No address")?.clone())?
+                Channel::from_shared(address)?
                     .tls_config(tls_config.clone())?
                     .connect()
                     .await
@@ -704,6 +714,35 @@ fn with_internal_metadata<T>(t: T, metadata: RemoteExecutionMetadata) -> tonic::
     msg
 }
 
+/// Replace occurences of $FOO in a string with the value of the env var $FOO.
+fn substitute_env_vars(s: &str) -> anyhow::Result<String> {
+    substitute_env_vars_impl(s, |v| std::env::var(v))
+}
+
+fn substitute_env_vars_impl(
+    s: &str,
+    getter: impl Fn(&str) -> Result<String, VarError>,
+) -> anyhow::Result<String> {
+    static ENV_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new("\\$[a-zA-Z_][a-zA-Z_0-9]*").unwrap());
+
+    let mut out = String::with_capacity(s.len());
+    let mut last_idx = 0;
+
+    for mat in ENV_REGEX.find_iter(s) {
+        out.push_str(&s[last_idx..mat.start()]);
+        let var = &mat.as_str()[1..];
+        let val = getter(var).with_context(|| format!("Error substituting `{}`", mat.as_str()))?;
+        out.push_str(&val);
+        last_idx = mat.end();
+    }
+
+    if last_idx < s.len() {
+        out.push_str(&s[last_idx..s.len()]);
+    }
+
+    Ok(out)
+}
+
 #[cfg(test)]
 mod tests {
     use re_grpc_proto::build::bazel::remote::execution::v2::batch_read_blobs_response;
@@ -855,5 +894,31 @@ mod tests {
         assert_eq!(inlined_blobs[1].blob, vec![4, 5, 6]);
 
         Ok(())
+    }
+
+    #[test]
+    fn test_substitute_env_vars() {
+        let getter = |s: &str| match s {
+            "FOO" => Ok("foo_value".to_owned()),
+            "BAR" => Ok("bar_value".to_owned()),
+            "BAZ" => Err(VarError::NotPresent),
+            _ => panic!("Unexpected"),
+        };
+
+        assert_eq!(
+            substitute_env_vars_impl("$FOO", getter).unwrap(),
+            "foo_value"
+        );
+        assert_eq!(
+            substitute_env_vars_impl("$FOO$BAR", getter).unwrap(),
+            "foo_valuebar_value"
+        );
+        assert_eq!(
+            substitute_env_vars_impl("some$FOO.bar", getter).unwrap(),
+            "somefoo_value.bar"
+        );
+        assert_eq!(substitute_env_vars_impl("foo", getter).unwrap(), "foo");
+        assert_eq!(substitute_env_vars_impl("FOO", getter).unwrap(), "FOO");
+        assert!(substitute_env_vars_impl("$FOO$BAZ", getter).is_err());
     }
 }
