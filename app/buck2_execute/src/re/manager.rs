@@ -22,6 +22,7 @@ use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_common::result::SharedResult;
 use buck2_core::async_once_cell::AsyncOnceCell;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
+use buck2_re_configuration::RemoteExecutionStaticMetadata;
 use chrono::DateTime;
 use chrono::Utc;
 use dupe::Dupe;
@@ -46,7 +47,6 @@ use crate::materialize::materializer::Materializer;
 use crate::re::action_identity::ReActionIdentity;
 use crate::re::client::RemoteExecutionClient;
 use crate::re::client::RemoteExecutionClientStats;
-use crate::re::client::RemoteExecutionStaticMetadata;
 use crate::re::re_get_session_id::ReGetSessionId;
 
 /// Lifetime management of the Remote Execution connection (i.e. the RemoteExecutionClient).

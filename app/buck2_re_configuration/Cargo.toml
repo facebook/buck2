@@ -1,0 +1,10 @@
+[package]
+name = "buck2_re_configuration"
+version = "0.1.0"
+edition = "2021"
+description = "utilities to configure RE in Buck2"
+
+[dependencies]
+allocative = { workspace = true }
+anyhow = { workspace = true }
+buck2_common = { workspace = true }

@@ -39,6 +39,7 @@ members = [
     "app/buck2_query_common",
     "app/buck2_query_parser",
     "app/buck2_query_derive",
+    "app/buck2_re_configuration",
     "app/buck2_server",
     "app/buck2_server_commands",
     "app/buck2_server_ctx",
@@ -275,6 +276,7 @@ buck2_server = { path = "app/buck2_server" }
 buck2_server_commands = { path = "app/buck2_server_commands" }
 buck2_server_ctx = { path = "app/buck2_server_ctx" }
 buck2_util = { path = "app/buck2_util" }
+buck2_re_configuration = { path = "app/buck2_re_configuration" }
 
 [profile.release]
 incremental = true
