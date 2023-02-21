@@ -17,12 +17,6 @@
 
 use std::collections::HashSet;
 
-#[cfg(all(test, not(windows)))]
-pub(crate) use definition::helpers::FixtureWithRanges;
-pub(crate) use definition::Definition;
-pub(crate) use definition::DottedDefinition;
-pub(crate) use definition::IdentifierDefinition;
-pub(crate) use definition::LspModule;
 pub use types::EvalMessage;
 pub use types::EvalSeverity;
 pub use types::Lint;
@@ -31,7 +25,7 @@ use crate::analysis::types::LintT;
 use crate::syntax::AstModule;
 
 mod bind;
-mod definition;
+pub(crate) mod definition;
 mod dubious;
 mod exported;
 mod flow;

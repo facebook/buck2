@@ -66,10 +66,10 @@ use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
 
-use crate::analysis::Definition;
-use crate::analysis::DottedDefinition;
-use crate::analysis::IdentifierDefinition;
-use crate::analysis::LspModule;
+use crate::analysis::definition::Definition;
+use crate::analysis::definition::DottedDefinition;
+use crate::analysis::definition::IdentifierDefinition;
+use crate::analysis::definition::LspModule;
 use crate::codemap::ResolvedSpan;
 use crate::lsp::server::LoadContentsError::WrongScheme;
 use crate::syntax::AstModule;
@@ -785,7 +785,7 @@ mod test {
     use lsp_types::Url;
     use textwrap::dedent;
 
-    use crate::analysis::FixtureWithRanges;
+    use crate::analysis::definition::helpers::FixtureWithRanges;
     use crate::codemap::ResolvedSpan;
     use crate::lsp::server::LspServerSettings;
     use crate::lsp::server::LspUrl;
