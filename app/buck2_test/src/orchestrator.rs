@@ -574,12 +574,8 @@ impl BuckTestOrchestrator {
 
         let CommandExecutorResponse { executor, platform } =
             self.dice.get_command_executor(fs, executor_config)?;
-        let executor = CommandExecutor::new(
-            executor,
-            fs.clone(),
-            executor_config.path_separator,
-            platform,
-        );
+        let executor =
+            CommandExecutor::new(executor, fs.clone(), executor_config.options, platform);
         Ok(executor)
     }
 

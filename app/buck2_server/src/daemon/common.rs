@@ -14,6 +14,7 @@ use buck2_cli_proto::client_context::HostPlatformOverride;
 use buck2_cli_proto::common_build_options::ExecutionStrategy;
 use buck2_common::executor_config::CacheUploadBehavior;
 use buck2_common::executor_config::CommandExecutorConfig;
+use buck2_common::executor_config::CommandGenerationOptions;
 use buck2_common::executor_config::Executor;
 use buck2_common::executor_config::HybridExecutionLevel;
 use buck2_common::executor_config::LocalExecutorOptions;
@@ -309,7 +310,9 @@ pub fn get_default_executor_config(host_platform: HostPlatformOverride) -> Comma
 
     CommandExecutorConfig {
         executor,
-        path_separator: PathSeparatorKind::system_default(),
+        options: CommandGenerationOptions {
+            path_separator: PathSeparatorKind::system_default(),
+        },
     }
 }
 

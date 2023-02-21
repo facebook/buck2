@@ -13,6 +13,7 @@ use allocative::Allocative;
 use anyhow::Context as _;
 use buck2_common::executor_config::CacheUploadBehavior;
 use buck2_common::executor_config::CommandExecutorConfig;
+use buck2_common::executor_config::CommandGenerationOptions;
 use buck2_common::executor_config::Executor;
 use buck2_common::executor_config::HybridExecutionLevel;
 use buck2_common::executor_config::LocalExecutorOptions;
@@ -237,10 +238,12 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
 
             CommandExecutorConfig {
                 executor,
-                path_separator: if use_windows_path_separators {
-                    PathSeparatorKind::Windows
-                } else {
-                    PathSeparatorKind::Unix
+                options: CommandGenerationOptions {
+                    path_separator: if use_windows_path_separators {
+                        PathSeparatorKind::Windows
+                    } else {
+                        PathSeparatorKind::Unix
+                    },
                 },
             }
         };

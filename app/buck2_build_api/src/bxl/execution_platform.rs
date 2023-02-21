@@ -11,6 +11,7 @@
 use std::sync::Arc;
 
 use buck2_common::executor_config::CommandExecutorConfig;
+use buck2_common::executor_config::CommandGenerationOptions;
 use buck2_common::executor_config::Executor;
 use buck2_common::executor_config::LocalExecutorOptions;
 use buck2_common::executor_config::PathSeparatorKind;
@@ -27,7 +28,9 @@ pub static EXECUTION_PLATFORM: Lazy<ExecutionPlatformResolution> = Lazy::new(|| 
         Some(ExecutionPlatform::legacy_execution_platform(
             Arc::new(CommandExecutorConfig {
                 executor: Executor::Local(LocalExecutorOptions {}),
-                path_separator: PathSeparatorKind::system_default(),
+                options: CommandGenerationOptions {
+                    path_separator: PathSeparatorKind::system_default(),
+                },
             }),
             ConfigurationNoExec::unspecified(),
         )),

@@ -11,7 +11,7 @@ use std::ops::ControlFlow;
 use std::sync::Arc;
 use std::time::Duration;
 
-use buck2_common::executor_config::PathSeparatorKind;
+use buck2_common::executor_config::CommandGenerationOptions;
 use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::directory::DirectoryEntry;
@@ -72,7 +72,7 @@ pub struct CommandExecutor(Arc<CommandExecutorData>);
 struct CommandExecutorData {
     inner: Arc<dyn PreparedCommandExecutor>,
     artifact_fs: ArtifactFs,
-    path_separator: PathSeparatorKind,
+    options: CommandGenerationOptions,
     re_platform: RE::Platform,
 }
 
@@ -80,13 +80,13 @@ impl CommandExecutor {
     pub fn new(
         inner: Arc<dyn PreparedCommandExecutor>,
         artifact_fs: ArtifactFs,
-        path_separator: PathSeparatorKind,
+        options: CommandGenerationOptions,
         re_platform: RE::Platform,
     ) -> Self {
         Self(Arc::new(CommandExecutorData {
             inner,
             artifact_fs,
-            path_separator,
+            options,
             re_platform,
         }))
     }
@@ -96,7 +96,7 @@ impl CommandExecutor {
     }
 
     pub fn executor_fs(&self) -> ExecutorFs {
-        ExecutorFs::new(&self.0.artifact_fs, self.0.path_separator)
+        ExecutorFs::new(&self.0.artifact_fs, self.0.options.path_separator)
     }
 
     /// Execute a command.

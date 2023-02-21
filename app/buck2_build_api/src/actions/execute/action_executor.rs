@@ -224,12 +224,7 @@ impl HasActionExecutor for DiceComputations {
         let run_action_knobs = self.per_transaction_data().get_run_action_knobs();
 
         Ok(Arc::new(BuckActionExecutor::new(
-            CommandExecutor::new(
-                executor,
-                artifact_fs,
-                executor_config.path_separator,
-                platform,
-            ),
+            CommandExecutor::new(executor, artifact_fs, executor_config.options, platform),
             blocking_executor,
             materializer,
             events,
@@ -521,6 +516,7 @@ mod tests {
     use allocative::Allocative;
     use async_trait::async_trait;
     use buck2_common::executor_config::CommandExecutorConfig;
+    use buck2_common::executor_config::CommandGenerationOptions;
     use buck2_common::executor_config::PathSeparatorKind;
     use buck2_core::buck_path::BuckPath;
     use buck2_core::category::Category;
@@ -613,7 +609,9 @@ mod tests {
             CommandExecutor::new(
                 Arc::new(DryRunExecutor::new(tracker, None)),
                 artifact_fs,
-                PathSeparatorKind::Unix,
+                CommandGenerationOptions {
+                    path_separator: PathSeparatorKind::Unix,
+                },
                 Default::default(),
             ),
             Arc::new(DummyBlockingExecutor { fs: project_fs }),

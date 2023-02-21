@@ -116,10 +116,15 @@ impl Default for CacheUploadBehavior {
     }
 }
 
+#[derive(Debug, Eq, PartialEq, Clone, Copy, Dupe, Hash, Allocative)]
+pub struct CommandGenerationOptions {
+    pub path_separator: PathSeparatorKind,
+}
+
 #[derive(Debug, Eq, PartialEq, Hash, Allocative)]
 pub struct CommandExecutorConfig {
     pub executor: Executor,
-    pub path_separator: PathSeparatorKind,
+    pub options: CommandGenerationOptions,
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Dupe, Hash, Allocative)]
@@ -142,7 +147,9 @@ impl CommandExecutorConfig {
     pub fn testing_local() -> Arc<CommandExecutorConfig> {
         Arc::new(CommandExecutorConfig {
             executor: Executor::Local(LocalExecutorOptions {}),
-            path_separator: PathSeparatorKind::system_default(),
+            options: CommandGenerationOptions {
+                path_separator: PathSeparatorKind::system_default(),
+            },
         })
     }
 }
