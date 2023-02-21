@@ -124,11 +124,7 @@ fn use_ignored(
                         // There are two permissible reasons to use an underscore variable
                         let defined_at_root =
                             || root.bound.contains_key(&x.node) && scope.free.contains_key(&x.node);
-                        let shadows = || {
-                            let suffix = &x[1..];
-                            scope.free.contains_key(suffix) || scope.bound.contains_key(suffix)
-                        };
-                        if !defined_at_root() && !shadows() {
+                        if !defined_at_root() {
                             res.push(LintT::new(
                                 codemap,
                                 x.span,
@@ -200,10 +196,6 @@ def bar():
     def deeper():
         print(_no3)
         _foo()
-def foo():
-    x = 1
-    for _x in range(1, 100):
-        print(_x)
 "#,
         );
         let mut res = Vec::new();
