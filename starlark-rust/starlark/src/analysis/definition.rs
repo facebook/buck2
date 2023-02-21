@@ -624,7 +624,7 @@ pub(crate) mod helpers {
 
     use textwrap::dedent;
 
-    use crate::analysis::LspModule;
+    use super::*;
     use crate::codemap::CodeMap;
     use crate::codemap::Pos;
     use crate::codemap::ResolvedSpan;
@@ -817,11 +817,8 @@ pub(crate) mod helpers {
 mod test {
     use textwrap::dedent;
 
-    use super::helpers::FixtureWithRanges;
-    use crate::analysis::definition::DottedDefinition;
-    use crate::analysis::Definition;
-    use crate::analysis::IdentifierDefinition;
-    use crate::analysis::LspModule;
+    use super::helpers::*;
+    use super::*;
 
     #[test]
     fn find_definition_loaded_symbol() -> anyhow::Result<()> {
