@@ -108,6 +108,30 @@ pub enum DigestAlgorithm {
     Blake3,
 }
 
+#[derive(Error, Debug)]
+#[error("Invalid Digest algorithm: `{0}`")]
+pub struct InvalidDigestAlgorithm(String);
+
+impl std::str::FromStr for DigestAlgorithm {
+    type Err = InvalidDigestAlgorithm;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s == "SHA1" {
+            return Ok(Self::Sha1);
+        }
+
+        if s == "SHA256" {
+            return Ok(Self::Sha256);
+        }
+
+        if s == "BLAKE3" {
+            return Ok(Self::Blake3);
+        }
+
+        Err(InvalidDigestAlgorithm(s.to_owned()))
+    }
+}
+
 #[derive(Copy, Clone, Dupe, Debug, Allocative, Hash, Eq, PartialEq)]
 pub struct CasDigestConfig {
     inner: &'static CasDigestConfigInner,

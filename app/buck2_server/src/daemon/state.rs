@@ -198,14 +198,18 @@ impl DaemonState {
             .get(cells.root_cell())
             .context("No config for root cell")?;
 
-        let digest_config = {
-            let algo = if buck2_core::is_open_source() {
-                DigestAlgorithm::Sha256
-            } else {
-                DigestAlgorithm::Sha1
-            };
-            DigestConfig::leak_new(vec![algo])?
-        };
+        let digest_algorithms = root_config
+            .parse_list("buck2", "digest_algorithms")?
+            .unwrap_or_else(|| {
+                if buck2_core::is_open_source() {
+                    vec![DigestAlgorithm::Sha256]
+                } else {
+                    vec![DigestAlgorithm::Sha1]
+                }
+            });
+
+        let digest_config =
+            DigestConfig::leak_new(digest_algorithms).context("Error initializing DigestConfig")?;
 
         // TODO(rafaelc): merge configs from all cells once they are consistent
         let static_metadata = Arc::new(RemoteExecutionStaticMetadata::from_legacy_config(
