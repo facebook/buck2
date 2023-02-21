@@ -13,7 +13,6 @@
 #![cfg_attr(feature = "gazebo_lint", plugin(gazebo_lint))]
 
 mod client;
-mod config;
 mod digest;
 mod error;
 mod grpc;
@@ -21,7 +20,6 @@ mod metadata;
 mod request;
 mod response;
 pub use client::*;
-pub use config::*;
 pub use digest::*;
 pub use error::*;
 pub use grpc::*;

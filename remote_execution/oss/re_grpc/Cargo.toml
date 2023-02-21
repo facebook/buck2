@@ -13,9 +13,9 @@ thiserror = { workspace = true }
 prost-types = { workspace = true }
 prost = { workspace = true }
 regex = { workspace = true }
-slog = { workspace = true }
-tonic = { workspace = true }
 tokio = { workspace = true }
+tonic = { workspace = true }
+tracing = { workspace = true }
 
 gazebo_lint.version = "0.1"
 gazebo_lint.optional = true

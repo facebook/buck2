@@ -37,23 +37,16 @@ use re_grpc_proto::build::bazel::remote::execution::v2::ResultsCachePolicy;
 use re_grpc_proto::google::longrunning::operation::Result as OpResult;
 use re_grpc_proto::google::rpc::Code;
 use re_grpc_proto::google::rpc::Status;
-use slog::Logger;
 use tokio::fs::OpenOptions;
 use tokio::io::AsyncWriteExt;
 use tonic::transport::Channel;
 
-use crate::config::*;
 use crate::error::*;
 use crate::metadata::*;
 use crate::request::*;
 use crate::response::*;
-const INSTANCE_NAME: &str = "";
 
-#[derive(Default)]
-pub struct REClientBuilder {
-    logger: Option<Logger>,
-    cfg: Option<ClientCfg>,
-}
+const INSTANCE_NAME: &str = "";
 
 fn tdigest_to(tdigest: TDigest) -> Digest {
     Digest {
@@ -100,54 +93,21 @@ fn ttimestamp_from(ts: Option<::prost_types::Timestamp>) -> TTimestamp {
     }
 }
 
+pub struct REClientBuilder;
+
 impl REClientBuilder {
-    pub fn new<T>(_fb_init: T) -> Self {
-        REClientBuilder::default()
-    }
-
-    pub async fn build_and_connect(self) -> anyhow::Result<REClient> {
-        let logger = {
-            /*
-            let log_path = "buck-out/v2/re_logs/grpc.log";
-            let file = OpenOptions::new()
-                .create(true)
-                .write(true)
-                .truncate(true)
-                .open(log_path)
-                .unwrap();
-
-            let decorator = slog_term::PlainDecorator::new(file);
-            let drain = slog_term::FullFormat::new(decorator).build().fuse();
-            slog_async::Async::new(drain).build().fuse();
-            */
-            let drain = slog::Discard;
-
-            Logger::root(drain, slog::o!())
-        };
-
-        let cfg = self.cfg.unwrap_or_default();
-        let address = cfg
-            .execution_client_config
-            .address
-            .context("Execution client address not defined")?;
-
+    pub async fn build_and_connect(
+        cas_address: String,
+        action_cache_address: String,
+        engine_address: String,
+    ) -> anyhow::Result<REClient> {
         let grpc_clients = GRPCClients {
-            cas_client: ContentAddressableStorageClient::connect(address.clone()).await?,
-            execution_client: ExecutionClient::connect(address.clone()).await?,
-            action_cache_client: ActionCacheClient::connect(address).await?,
+            cas_client: ContentAddressableStorageClient::connect(cas_address.clone()).await?,
+            execution_client: ExecutionClient::connect(action_cache_address.clone()).await?,
+            action_cache_client: ActionCacheClient::connect(engine_address).await?,
         };
 
-        Ok(REClient::new(logger, grpc_clients))
-    }
-
-    pub fn with_config(mut self, cfg: ClientCfg) -> Self {
-        self.cfg = Some(cfg);
-        self
-    }
-
-    pub fn with_logger(mut self, logger: Logger) -> Self {
-        self.logger = Some(logger);
-        self
+        Ok(REClient::new(grpc_clients))
     }
 }
 
@@ -165,7 +125,6 @@ pub struct REState {
 }
 
 pub struct REClient {
-    logger: Logger,
     grpc_clients: GRPCClients,
     state: Mutex<REState>,
 }
@@ -178,9 +137,8 @@ impl Drop for REClient {
 }
 
 impl REClient {
-    pub fn new(logger: Logger, grpc_clients: GRPCClients) -> Self {
+    pub fn new(grpc_clients: GRPCClients) -> Self {
         REClient {
-            logger,
             grpc_clients,
             state: Mutex::new(REState::default()),
         }
@@ -390,7 +348,7 @@ impl REClient {
             .collect();
 
         if failures.is_empty() {
-            slog::debug!(self.logger, "uploaded: {:?}", blob_hashes);
+            tracing::debug!("uploaded: {:?}", blob_hashes);
             // TODO(aloiscochard): Add something interesting in UploadResponse?
             Ok(UploadResponse {})
         } else {

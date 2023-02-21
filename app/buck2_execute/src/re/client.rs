@@ -18,7 +18,6 @@ use anyhow::Context;
 use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_core::env_helper::EnvHelper;
-use buck2_core::fs::fs_util;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use chrono::DateTime;
 use chrono::Utc;
@@ -33,14 +32,10 @@ use gazebo::prelude::*;
 use itertools::Itertools;
 use prost::Message;
 use remote_execution as RE;
-use remote_execution::create_default_config;
 use remote_execution::ActionHistoryInfo;
 use remote_execution::ActionResultRequest;
 use remote_execution::ActionResultResponse;
-use remote_execution::CASDaemonClientCfg;
-use remote_execution::CopyPolicy;
 use remote_execution::DownloadRequest;
-use remote_execution::EmbeddedCASDaemonClientCfg;
 use remote_execution::ExecuteRequest;
 use remote_execution::ExecuteResponse;
 use remote_execution::ExecuteWithProgressResponse;
@@ -54,7 +49,6 @@ use remote_execution::REClient;
 use remote_execution::REClientBuilder;
 use remote_execution::REClientError;
 use remote_execution::RemoteExecutionMetadata;
-use remote_execution::RichClientMode;
 use remote_execution::Stage;
 use remote_execution::TActionResult2;
 use remote_execution::TCode;
@@ -578,104 +572,138 @@ impl RemoteExecutionClientImpl {
 
             let cas_pool_size = static_metadata.cas_connection_count;
 
-            let mut re_client_config = create_default_config();
-            re_client_config.action_cache_client_config.connection_count =
-                static_metadata.action_cache_connection_count;
-            re_client_config.action_cache_client_config.address =
-                static_metadata.action_cache_address.clone();
-            re_client_config.execution_client_config.connection_count =
-                static_metadata.engine_connection_count;
-            re_client_config.execution_client_config.address =
-                static_metadata.engine_address.clone();
+            #[cfg(fbcode_build)]
+            let client = {
+                use buck2_core::fs::fs_util;
+                use remote_execution::create_default_config;
+                use remote_execution::CASDaemonClientCfg;
+                use remote_execution::CopyPolicy;
+                use remote_execution::EmbeddedCASDaemonClientCfg;
+                use remote_execution::RichClientMode;
 
-            let mut embedded_cas_daemon_config = EmbeddedCASDaemonClientCfg {
-                connection_count: cas_pool_size,
-                address: static_metadata.cas_address.clone(),
-                name: "buck2".to_owned(),
-                ..Default::default()
+                let mut re_client_config = create_default_config();
+                re_client_config.action_cache_client_config.connection_count =
+                    static_metadata.action_cache_connection_count;
+                re_client_config.action_cache_client_config.address =
+                    static_metadata.action_cache_address.clone();
+                re_client_config.execution_client_config.connection_count =
+                    static_metadata.engine_connection_count;
+                re_client_config.execution_client_config.address =
+                    static_metadata.engine_address.clone();
+
+                let mut embedded_cas_daemon_config = EmbeddedCASDaemonClientCfg {
+                    connection_count: cas_pool_size,
+                    address: static_metadata.cas_address.clone(),
+                    name: "buck2".to_owned(),
+                    ..Default::default()
+                };
+
+                // buck2 makes find_missing calls for the same blobs
+                // so having a 50Mb cache to amortize that
+                embedded_cas_daemon_config
+                    .cache_config
+                    .find_missing_cache_size_byte = 50 << 20;
+                // a small cache maps inodes to digests
+                // useful for both uploads and downloads
+                embedded_cas_daemon_config.cache_config.digest_cache_size = 100000;
+
+                // prevents downloading the same trees (dirs)
+                embedded_cas_daemon_config
+                    .rich_client_config
+                    .get_tree_cache_size = 50 << 20; // 50 Mb
+
+                // disabling zippy rich client until we have limits in place
+                embedded_cas_daemon_config
+                    .rich_client_config
+                    .zdb_client_mode = if static_metadata.use_zippy_rich_client {
+                    RichClientMode::HYBRID
+                } else {
+                    RichClientMode::DISABLED
+                };
+                embedded_cas_daemon_config.rich_client_config.disable_p2p =
+                    !static_metadata.use_p2p;
+                embedded_cas_daemon_config
+                    .rich_client_config
+                    .enable_rich_client = static_metadata.use_manifold_rich_client;
+
+                if let Some(channels) = static_metadata.rich_client_channels_per_blob {
+                    embedded_cas_daemon_config
+                        .rich_client_config
+                        .number_of_parallel_channels = channels;
+                }
+
+                if let Some(attempt_timeout) = static_metadata.rich_client_attempt_timeout_ms {
+                    embedded_cas_daemon_config
+                        .rich_client_config
+                        .attempt_timeout_ms = attempt_timeout;
+                }
+
+                if let Some(retries_count) = static_metadata.rich_client_retries_count {
+                    embedded_cas_daemon_config
+                        .rich_client_config
+                        .number_of_retries = retries_count;
+                }
+
+                embedded_cas_daemon_config.force_enable_deduplicate_find_missing =
+                    static_metadata.force_enable_deduplicate_find_missing;
+
+                // Will either choose the SOFT_COPY (on some linux fs like btrfs/extfs etc, on Mac if using APFS) or FULL_COPY otherwise
+                embedded_cas_daemon_config.copy_policy = CopyPolicy::BEST_AVAILABLE;
+                embedded_cas_daemon_config.meterialization_mount_path =
+                    Some(buck_out_path.to_owned());
+
+                embedded_cas_daemon_config.thread_count = static_metadata.cas_thread_count;
+
+                // make sure that outputs are writable
+                // otherwise actions that are modifying outputs will fail due to a permission error
+                embedded_cas_daemon_config.writable_outputs = true;
+
+                re_client_config.cas_client_config =
+                    CASDaemonClientCfg::embedded_config(embedded_cas_daemon_config);
+                if let Some(logs_dir_path) = maybe_logs_dir_path {
+                    // make sure that the log dir exists as glog is expecting that :(
+                    fs_util::create_dir_all(logs_dir_path)?;
+                    re_client_config.log_file_location = Some(logs_dir_path.to_owned());
+                    // keep last 10 sessions (similar to a number of buck builds)
+                    re_client_config.log_rollup_window_size = 10;
+                }
+
+                re_client_config.features_config_path = static_metadata
+                    .features_config_path
+                    .as_deref()
+                    .unwrap_or("remote_execution/features/client_buck2")
+                    .to_owned();
+
+                // TODO(ndmitchell): For now, we just drop RE log messages, but ideally we'd put them in our log stream.
+                let logger = slog::Logger::root(slog::Discard, slog::o!());
+                REClientBuilder::new(fb)
+                    .with_config(re_client_config)
+                    .with_logger(logger)
+                    .build_and_connect()
+                    .await?
             };
 
-            // buck2 makes find_missing calls for the same blobs
-            // so having a 50Mb cache to amortize that
-            embedded_cas_daemon_config
-                .cache_config
-                .find_missing_cache_size_byte = 50 << 20;
-            // a small cache maps inodes to digests
-            // useful for both uploads and downloads
-            embedded_cas_daemon_config.cache_config.digest_cache_size = 100000;
+            #[cfg(not(fbcode_build))]
+            let client = {
+                let _unused = (fb, maybe_logs_dir_path, buck_out_path);
 
-            // prevents downloading the same trees (dirs)
-            embedded_cas_daemon_config
-                .rich_client_config
-                .get_tree_cache_size = 50 << 20; // 50 Mb
-
-            // disabling zippy rich client until we have limits in place
-            embedded_cas_daemon_config
-                .rich_client_config
-                .zdb_client_mode = if static_metadata.use_zippy_rich_client {
-                RichClientMode::HYBRID
-            } else {
-                RichClientMode::DISABLED
+                REClientBuilder::build_and_connect(
+                    static_metadata
+                        .cas_address
+                        .clone()
+                        .context("No CAS address was provided")?,
+                    static_metadata
+                        .action_cache_address
+                        .clone()
+                        .context("No Action Cache address was provided")?,
+                    static_metadata
+                        .engine_address
+                        .clone()
+                        .context("No Engine address was provided")?,
+                )
+                .await?
             };
-            embedded_cas_daemon_config.rich_client_config.disable_p2p = !static_metadata.use_p2p;
-            embedded_cas_daemon_config
-                .rich_client_config
-                .enable_rich_client = static_metadata.use_manifold_rich_client;
 
-            if let Some(channels) = static_metadata.rich_client_channels_per_blob {
-                embedded_cas_daemon_config
-                    .rich_client_config
-                    .number_of_parallel_channels = channels;
-            }
-
-            if let Some(attempt_timeout) = static_metadata.rich_client_attempt_timeout_ms {
-                embedded_cas_daemon_config
-                    .rich_client_config
-                    .attempt_timeout_ms = attempt_timeout;
-            }
-
-            if let Some(retries_count) = static_metadata.rich_client_retries_count {
-                embedded_cas_daemon_config
-                    .rich_client_config
-                    .number_of_retries = retries_count;
-            }
-
-            embedded_cas_daemon_config.force_enable_deduplicate_find_missing =
-                static_metadata.force_enable_deduplicate_find_missing;
-
-            // Will either choose the SOFT_COPY (on some linux fs like btrfs/extfs etc, on Mac if using APFS) or FULL_COPY otherwise
-            embedded_cas_daemon_config.copy_policy = CopyPolicy::BEST_AVAILABLE;
-            embedded_cas_daemon_config.meterialization_mount_path = Some(buck_out_path.to_owned());
-
-            embedded_cas_daemon_config.thread_count = static_metadata.cas_thread_count;
-
-            // make sure that outputs are writable
-            // otherwise actions that are modifying outputs will fail due to a permission error
-            embedded_cas_daemon_config.writable_outputs = true;
-
-            re_client_config.cas_client_config =
-                CASDaemonClientCfg::embedded_config(embedded_cas_daemon_config);
-            if let Some(logs_dir_path) = maybe_logs_dir_path {
-                // make sure that the log dir exists as glog is expecting that :(
-                fs_util::create_dir_all(logs_dir_path)?;
-                re_client_config.log_file_location = Some(logs_dir_path.to_owned());
-                // keep last 10 sessions (similar to a number of buck builds)
-                re_client_config.log_rollup_window_size = 10;
-            }
-
-            re_client_config.features_config_path = static_metadata
-                .features_config_path
-                .as_deref()
-                .unwrap_or("remote_execution/features/client_buck2")
-                .to_owned();
-
-            // TODO(ndmitchell): For now, we just drop RE log messages, but ideally we'd put them in our log stream.
-            let logger = slog::Logger::root(slog::Discard, slog::o!());
-            let client = REClientBuilder::new(fb)
-                .with_config(re_client_config)
-                .with_logger(logger)
-                .build_and_connect()
-                .await?;
             Self {
                 client: Some(client),
                 skip_remote_cache,
@@ -684,6 +712,7 @@ impl RemoteExecutionClientImpl {
                 download_chunk_size,
             }
         };
+
         res.context("RE: creating client")
     }
 
