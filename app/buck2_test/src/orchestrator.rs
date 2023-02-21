@@ -243,23 +243,9 @@ impl TestOrchestrator for BuckTestOrchestrator {
             )
             .await?;
 
-        // We'd love to use the `metadata` field to generate a unique identifier,
-        // but Tpx might run the same test repeatedly, so it is not unique.
-        let identifier = self.new_identifier(test_target.target());
-        let owner = BaseDeferredKey::TargetLabel(test_target.target().dupe());
-        let action_key = TestActionKey {
-            target: test_target.target(),
-        };
-        let command_execution_target = CommandExecutionTarget {
-            owner: &owner,
-            category: &TEST_CATEGORY,
-            identifier: Some(&identifier),
-            action_key: &action_key as _,
-        };
-
         let (stdout, stderr, status, timing, outputs) = self
             .execute_shared(
-                command_execution_target,
+                &test_target,
                 metadata,
                 Some(host_sharing_requirements),
                 timeout,
@@ -306,6 +292,7 @@ impl TestOrchestrator for BuckTestOrchestrator {
     async fn report_test_result(&self, r: TestResult) -> anyhow::Result<()> {
         let event = buck2_data::instant_event::Data::TestResult(translations::convert_test_result(
             r.clone(),
+            &self.session,
         )?);
         self.events.instant_event(event);
         self.results_channel
@@ -316,15 +303,17 @@ impl TestOrchestrator for BuckTestOrchestrator {
 
     async fn report_tests_discovered(
         &self,
-        // FIXME(bobyf): Should be using this
-        _target: ConfiguredTargetHandle,
+        test_target: ConfiguredTargetHandle,
         suite: String,
         names: Vec<String>,
     ) -> anyhow::Result<()> {
+        let test_target = self.session.get(test_target)?;
+
         self.events.instant_event(TestDiscovery {
             data: Some(buck2_data::test_discovery::Data::Tests(TestSuite {
                 suite_name: suite,
                 test_names: names,
+                target_label: Some(test_target.target().as_proto()),
             })),
         });
 
@@ -419,7 +408,7 @@ impl TestOrchestrator for BuckTestOrchestrator {
 impl BuckTestOrchestrator {
     async fn execute_shared<'a>(
         &self,
-        command_execution_target: CommandExecutionTarget<'a>,
+        test_target: &ConfiguredProvidersLabel,
         metadata: DisplayMetadata,
         host_sharing_requirements: Option<HostSharingRequirements>,
         timeout: Duration,
@@ -433,6 +422,20 @@ impl BuckTestOrchestrator {
         CommandExecutionTimingData,
         IndexMap<CommandExecutionOutput, ArtifactValue>,
     )> {
+        // We'd love to use the `metadata` field to generate a unique identifier,
+        // but Tpx might run the same test repeatedly, so it is not unique.
+        let identifier = self.new_identifier(test_target.target());
+        let owner = BaseDeferredKey::TargetLabel(test_target.target().dupe());
+        let action_key = TestActionKey {
+            target: test_target.target(),
+        };
+        let command_execution_target = CommandExecutionTarget {
+            owner: &owner,
+            category: &TEST_CATEGORY,
+            identifier: Some(&identifier),
+            action_key: &action_key as _,
+        };
+
         let mut executor_preference = ExecutorPreference::Default;
 
         if !self.session.options().allow_re {
@@ -497,6 +500,7 @@ impl BuckTestOrchestrator {
                     suite: Some(TestSuite {
                         suite_name: suite,
                         test_names: testcases,
+                        target_label: Some(test_target.target().as_proto()),
                     }),
                 };
                 let end = TestRunEnd {};
@@ -996,10 +1000,12 @@ mod tests {
     use buck2_core::cells::name::CellName;
     use buck2_core::cells::testing::CellResolverExt;
     use buck2_core::cells::CellResolver;
+    use buck2_core::configuration::ConfigurationData;
     use buck2_core::fs::project::ProjectRootTemp;
     use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+    use buck2_core::package::PackageLabel;
+    use buck2_core::target::name::TargetName;
     use buck2_events::dispatch::EventDispatcher;
-    use buck2_test_api::data::testing::ConfiguredTargetHandleExt;
     use buck2_test_api::data::TestStatus;
     use dice::testing::DiceBuilder;
     use dice::UserComputationData;
@@ -1051,10 +1057,19 @@ mod tests {
     async fn orchestrator_results() -> anyhow::Result<()> {
         let (orchestrator, channel) = make().await?;
 
+        let target = ConfiguredTargetLabel::testing_new(
+            PackageLabel::testing_new("cell", "pkg"),
+            TargetName::unchecked_new("foo"),
+            ConfigurationData::testing_new(),
+        );
+
+        let target = ConfiguredProvidersLabel::new(target, Default::default());
+        let target = orchestrator.session.register(target);
+
         let jobs = async {
             orchestrator
                 .report_test_result(TestResult {
-                    target: ConfiguredTargetHandle::testing_new(0),
+                    target,
                     status: TestStatus::PASS,
                     msg: None,
                     name: "First - test".to_owned(),
@@ -1065,7 +1080,7 @@ mod tests {
 
             orchestrator
                 .report_test_result(TestResult {
-                    target: ConfiguredTargetHandle::testing_new(0),
+                    target,
                     status: TestStatus::FAIL,
                     msg: None,
                     name: "Second - test".to_owned(),
@@ -1085,7 +1100,7 @@ mod tests {
             results,
             vec![
                 TestResultOrExitCode::TestResult(TestResult {
-                    target: ConfiguredTargetHandle::testing_new(0),
+                    target,
 
                     status: TestStatus::PASS,
                     msg: None,
@@ -1094,7 +1109,7 @@ mod tests {
                     details: "1".to_owned(),
                 }),
                 TestResultOrExitCode::TestResult(TestResult {
-                    target: ConfiguredTargetHandle::testing_new(0),
+                    target,
 
                     status: TestStatus::FAIL,
                     msg: None,

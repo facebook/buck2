@@ -428,6 +428,7 @@ message TestResult {
   OptionalMsg msg = 5; // Optional
   google.protobuf.Duration duration = 7; // Optional
   string details = 8; // Required
+  ConfiguredTargetLabel target_label = 9;
 }
 
 // At the beginning of discovery, the test orchestrator will advertise
@@ -443,6 +444,7 @@ message TestSuite {
   // we are also given the suite name for the tests.
   string suite_name = 1;
   repeated string test_names = 2;
+  ConfiguredTargetLabel target_label = 3;
 }
 
 // An event that marks the beginning of a command.

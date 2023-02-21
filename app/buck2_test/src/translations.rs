@@ -8,9 +8,11 @@
  */
 
 //! Translation between buck core data and the test spec data types
+
 use anyhow::Context;
 use buck2_core::cells::CellResolver;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
+use buck2_data::ToProtoMessage;
 use buck2_test_api::data::ConfiguredTarget;
 
 use crate::session::TestSession;
@@ -41,6 +43,7 @@ pub fn build_configured_target_handle(
 
 pub fn convert_test_result(
     test_result: buck2_test_api::data::TestResult,
+    session: &TestSession,
 ) -> anyhow::Result<buck2_data::TestResult> {
     let buck2_test_api::data::TestResult {
         name,
@@ -48,13 +51,17 @@ pub fn convert_test_result(
         msg,
         duration,
         details,
-        ..
+        target: test_target,
     } = test_result;
+
+    let test_target = session.get(test_target)?;
+
     Ok(buck2_data::TestResult {
         name,
         status: status.try_into().context("Invalid `status`")?,
         msg: msg.map(|msg| buck2_data::test_result::OptionalMsg { msg }),
         duration: duration.and_then(|d| d.try_into().ok()),
         details,
+        target_label: Some(test_target.target().as_proto()),
     })
 }
