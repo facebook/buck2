@@ -489,22 +489,27 @@ load("c", "b")
 
     #[test]
     fn test_lint_no_effect() {
-        let m = module(
-            r#"
+        let src = r#"
 """
 a doc block
 """
 load("b", "b")
 
 x = 1
-7
+7 ## BAD
 def foo():
-    [18]
+    [18] ## BAD
 1 + 2
-"#,
-        );
+"#;
+
+        let m = module(src);
+        let bad = src
+            .lines()
+            .enumerate()
+            .filter_map(|(i, x)| x.contains("## BAD").then_some(i))
+            .collect::<Vec<_>>();
         let mut res = Vec::new();
         no_effect(&m.codemap, &m.statement, &mut res);
-        assert_eq!(res.map(|x| x.location.resolve_span().begin_line), &[7, 9]);
+        assert_eq!(res.map(|x| x.location.resolve_span().begin_line), bad);
     }
 }
