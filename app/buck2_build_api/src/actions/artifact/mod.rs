@@ -53,12 +53,18 @@ use starlark_map::Hashed;
 pub mod materializer;
 pub(crate) mod projected_artifact;
 
-/// An 'Artifact' that can be materialized at its path.
+/// An 'Artifact' that can be materialized at its path. The underlying data is not very large here,
+/// but we do store many copies of it, which is why we store this as an Arc.
+#[derive(
+    Clone, Debug, Display, Dupe, Allocative, Derivative, PartialEq, Eq, Hash
+)]
+pub struct Artifact(Arc<ArtifactData>);
+
 #[derive(Clone, Debug, Display, Dupe, Allocative, Derivative)]
 #[derivative(Hash, Eq, PartialEq)]
 #[display(fmt = "{}", data)]
-pub struct Artifact {
-    pub data: Hashed<ArtifactKind>,
+struct ArtifactData {
+    data: Hashed<ArtifactKind>,
 
     /// The number of components at the prefix of that path that are internal details to the rule,
     /// not returned by `.short_path`. Omitted from Eq and Hash comparisons.
@@ -77,10 +83,14 @@ impl Artifact {
             None => ArtifactKind::Base(artifact.into()),
         };
 
-        Self {
+        Self(Arc::new(ArtifactData {
             data: Hashed::new(artifact),
             hidden_components_count,
-        }
+        }))
+    }
+
+    pub fn data(&self) -> &ArtifactKind {
+        self.0.data.key()
     }
 
     pub fn is_source(&self) -> bool {
@@ -114,7 +124,7 @@ impl Artifact {
     }
 
     pub fn as_parts(&self) -> (&BaseArtifactKind, Option<&ForwardRelativePath>) {
-        match self.data.key() {
+        match self.0.data.key() {
             ArtifactKind::Base(a) => (a, None),
             ArtifactKind::Projected(a) => (a.base(), Some(a.path())),
         }
@@ -131,7 +141,7 @@ impl Artifact {
         ArtifactPath {
             base_path,
             projected_path,
-            hidden_components_count: self.hidden_components_count,
+            hidden_components_count: self.0.hidden_components_count,
         }
     }
 }
@@ -160,19 +170,13 @@ pub enum ArtifactKind {
 
 impl From<SourceArtifact> for Artifact {
     fn from(a: SourceArtifact) -> Self {
-        Artifact {
-            data: Hashed::new(ArtifactKind::Base(BaseArtifactKind::Source(a))),
-            hidden_components_count: 0,
-        }
+        Self::new(a, None, 0)
     }
 }
 
 impl From<BuildArtifact> for Artifact {
     fn from(a: BuildArtifact) -> Self {
-        Artifact {
-            data: Hashed::new(ArtifactKind::Base(BaseArtifactKind::Build(a))),
-            hidden_components_count: 0,
-        }
+        Self::new(a, None, 0)
     }
 }
 
