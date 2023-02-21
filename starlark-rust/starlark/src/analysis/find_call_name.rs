@@ -72,33 +72,34 @@ impl AstModule {
 
 #[cfg(test)]
 mod test {
-    use textwrap::dedent;
 
-    use crate::analysis::definition::helpers::FixtureWithRanges;
+    use crate::codemap::ResolvedSpan;
+    use crate::syntax::AstModule;
+    use crate::syntax::Dialect;
 
     #[test]
     fn finds_function_calls_with_name_kwarg() -> anyhow::Result<()> {
-        let contents = dedent(
-            r#"
-            <foo>foo</foo>(name = "foo_name")
-            bar("bar_name")
-            baz(name = "baz_name")
+        let contents = r#"
+foo(name = "foo_name")
+bar("bar_name")
+baz(name = "baz_name")
 
-            def x(name = "foo_name"):
-                pass
-            "#,
-        )
-        .trim()
-        .to_owned();
+def x(name = "foo_name"):
+    pass
+"#;
 
-        let parsed = FixtureWithRanges::from_fixture("foo.star", &contents)?;
+        let module = AstModule::parse("foo.star", contents.to_owned(), &Dialect::Extended).unwrap();
 
-        let module = parsed.module()?;
         assert_eq!(
-            Some(parsed.span("foo")),
-            module.ast.find_function_call_with_name("foo_name")
+            Some(ResolvedSpan {
+                begin_line: 1,
+                begin_column: 0,
+                end_line: 1,
+                end_column: 3
+            }),
+            module.find_function_call_with_name("foo_name")
         );
-        assert_eq!(None, module.ast.find_function_call_with_name("bar_name"));
+        assert_eq!(None, module.find_function_call_with_name("bar_name"));
         Ok(())
     }
 }
