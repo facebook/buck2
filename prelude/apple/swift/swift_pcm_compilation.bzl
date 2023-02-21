@@ -7,6 +7,7 @@
 
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load("@prelude//apple:apple_utility.bzl", "get_explicit_modules_env_var", "get_module_name", "get_versioned_target_triple")
+load("@prelude//cxx:preprocessor.bzl", "cxx_inherited_preprocessor_infos", "cxx_merge_cpreprocessors")
 load(":apple_sdk_modules_utility.bzl", "get_compiled_sdk_deps_tset", "get_uncompiled_sdk_deps")
 load(":swift_pcm_compilation_types.bzl", "SwiftPCMCompiledInfo", "SwiftPCMUncompiledInfo", "WrappedSwiftPCMCompiledInfo")
 load(":swift_sdk_pcm_compilation.bzl", "get_shared_pcm_compilation_args", "get_swift_sdk_pcm_anon_targets")
@@ -88,6 +89,13 @@ def _swift_pcm_compilation_impl(ctx: "context") -> ["promise", ["provider"]]:
             pcm_deps_tset,
             ctx.attrs.swift_cxx_args,
         )
+
+        # It's possible that modular targets can re-export headers of non-modular targets,
+        # (e.g `raw_headers`) because of that we need to provide search paths of such targets to
+        # pcm compilation actions in order for them to be successful.
+        inherited_preprocessor_infos = cxx_inherited_preprocessor_infos(uncompiled_pcm_info.exported_deps)
+        preprocessors = cxx_merge_cpreprocessors(ctx, [], inherited_preprocessor_infos)
+        cmd.add(cmd_args(preprocessors.set.project_as_args("include_dirs"), prepend = "-Xcc"))
 
         # When compiling pcm files, module's exported pps and inherited pps
         # must be provided to an action like hmaps which are used for headers resolution.
