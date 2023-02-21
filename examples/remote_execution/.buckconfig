@@ -1,0 +1,20 @@
+[buildfile]
+name=BUILD
+
+[repositories]
+root = .
+prelude = prelude
+
+[buck2]
+# Adjust as needed.
+digest_algorithms = SHA1
+
+[buck2_re_client]
+# Adjust as needed.
+engine_address = $ENGINE_ADDRESS
+action_cache_address = $ACTION_CACHE_ADDRESS
+cas_address = $CAS_ADDRESS
+tls_client_cert = $THRIFT_TLS_CL_CERT_PATH
+
+[build]
+  execution_platforms = root//platforms:platforms
