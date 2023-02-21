@@ -1171,6 +1171,28 @@ impl LegacyBuckConfig {
             .transpose()
     }
 
+    pub fn parse_list<T: FromStr>(&self, section: &str, key: &str) -> anyhow::Result<Option<Vec<T>>>
+    where
+        anyhow::Error: From<<T as FromStr>::Err>,
+    {
+        /// A wrapper type so we can use .parse() on this.
+        struct ParseList<T>(Vec<T>);
+
+        impl<T> FromStr for ParseList<T>
+        where
+            T: FromStr,
+        {
+            type Err = <T as FromStr>::Err;
+
+            fn from_str(s: &str) -> Result<Self, Self::Err> {
+                Ok(Self(
+                    s.split(',').map(T::from_str).collect::<Result<_, _>>()?,
+                ))
+            }
+        }
+
+        Ok(self.parse::<ParseList<T>>(section, key)?.map(|l| l.0))
+    }
     pub fn sections(&self) -> impl Iterator<Item = &String> {
         self.0.values.keys()
     }

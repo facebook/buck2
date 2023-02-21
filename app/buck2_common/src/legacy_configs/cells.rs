@@ -23,6 +23,7 @@ use buck2_core::fs::paths::RelativePath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use gazebo::prelude::*;
 use once_cell::unsync::OnceCell;
 
 use crate::legacy_configs::path::BuckConfigFile;
@@ -308,10 +309,6 @@ impl BuckConfigBasedCells {
 
     /// Deal with the `buildfile.name` key (and `name_v2`)
     fn parse_buildfile_name(config: &LegacyBuckConfig) -> anyhow::Result<Option<Vec<FileNameBuf>>> {
-        fn parse_list(val: &str) -> impl Iterator<Item = &str> {
-            val.split(',').map(|v| v.trim())
-        }
-
         // For buck2, we support a slightly different mechanism for setting the buildfile to
         // assist with easier migration from v1 to v2.
         // First, we check the key `buildfile.name_v2`, if this is provided, we use it.
@@ -320,17 +317,13 @@ impl BuckConfigBasedCells {
         // If neither of those is provided, we will use the default of `["BUCK.v2", "BUCK"]`.
         // This scheme provides a natural progression to buckv2, with the ability to use separate
         // buildfiles for the two where necessary.
-        if let Some(buildfiles_value) = config.get("buildfile", "name_v2") {
-            Ok(Some(
-                parse_list(buildfiles_value)
-                    .map(|s| FileNameBuf::try_from((*s).to_owned()))
-                    .collect::<anyhow::Result<Vec<_>>>()?,
-            ))
-        } else if let Some(buildfiles_value) = config.get("buildfile", "name") {
+        if let Some(buildfiles_value) = config.parse_list::<String>("buildfile", "name_v2")? {
+            Ok(Some(buildfiles_value.into_try_map(FileNameBuf::try_from)?))
+        } else if let Some(buildfiles_value) = config.parse_list::<String>("buildfile", "name")? {
             let mut buildfiles = Vec::new();
-            for buildfile in parse_list(buildfiles_value) {
+            for buildfile in buildfiles_value {
                 buildfiles.push(FileNameBuf::try_from(format!("{}.v2", buildfile))?);
-                buildfiles.push(FileNameBuf::try_from(buildfile.to_owned())?);
+                buildfiles.push(FileNameBuf::try_from(buildfile)?);
             }
             Ok(Some(buildfiles))
         } else {
