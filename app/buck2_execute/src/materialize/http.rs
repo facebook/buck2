@@ -13,6 +13,7 @@ use std::time::Duration;
 
 use allocative::Allocative;
 use anyhow::Context as _;
+use buck2_common::cas_digest::CasDigestConfig;
 use buck2_common::cas_digest::DigestAlgorithm;
 use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::TrackedFileDigest;
@@ -20,9 +21,11 @@ use buck2_core::fs::fs_util;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::is_open_source;
+use bytes::Bytes;
 use digest::DynDigest;
 use dupe::Dupe;
 use futures::future::Future;
+use futures::stream::Stream;
 use futures::StreamExt;
 use reqwest::Client;
 use reqwest::RequestBuilder;
@@ -245,82 +248,18 @@ pub async fn http_download(
 
         let response = http_dispatch(client.get(url), url).await?;
 
-        let mut digester = FileDigest::digester(digest_config.cas_digest_config());
+        let stream = response.bytes_stream();
+        let buf_writer = std::io::BufWriter::new(file);
 
-        // For each checksum entry we have, we're going to add a validator. We might have to create
-        // a new hasher, or reuse the `FileDigest::digester` if it matches.
-
-        enum Validator {
-            PrimaryDigest,
-            ExtraDigest(Box<dyn DynDigest + Send>),
-        }
-
-        let mut validators = SmallVec::<[_; 2]>::new();
-
-        if let Some(sha1) = checksum.sha1() {
-            let validator = if digester.algorithm() == DigestAlgorithm::Sha1 {
-                Validator::PrimaryDigest
-            } else {
-                Validator::ExtraDigest(box Sha1::new() as _)
-            };
-
-            validators.push((validator, sha1, "sha1"));
-        }
-
-        if let Some(sha256) = checksum.sha256() {
-            let validator = if digester.algorithm() == DigestAlgorithm::Sha256 {
-                Validator::PrimaryDigest
-            } else {
-                Validator::ExtraDigest(box Sha256::new() as _)
-            };
-
-            validators.push((validator, sha256, "sha256"));
-        }
-
-        let mut stream = response.bytes_stream();
-        let mut buf_writer = std::io::BufWriter::new(file);
-
-        while let Some(chunk) = stream.next().await {
-            let chunk = chunk.map_err(|source| HttpError::HttpTransferError {
-                received: digester.bytes_read(),
-                url: url.to_owned(),
-                source,
-            })?;
-            buf_writer
-                .write(&chunk)
-                .with_context(|| format!("write({})", abs_path))
-                .map_err(HttpDownloadError::IoError)?;
-
-            digester.update(&chunk);
-            for (validator, _expected, _kind) in validators.iter_mut() {
-                if let Validator::ExtraDigest(hasher) = validator {
-                    hasher.update(&chunk);
-                }
-            }
-        }
-        buf_writer
-            .flush()
-            .with_context(|| format!("flush({})", abs_path))
-            .map_err(HttpDownloadError::IoError)?;
-
-        let digest = digester.finalize();
-
-        // Validate
-        for (validator, expected, kind) in validators {
-            let obtained = match validator {
-                Validator::PrimaryDigest => hex::encode(digest.digest().as_bytes()),
-                Validator::ExtraDigest(hasher) => hex::encode(hasher.finalize()),
-            };
-
-            if expected != obtained {
-                return Err(HttpDownloadError::InvalidChecksum(
-                    kind,
-                    expected.to_owned(),
-                    obtained,
-                    url.to_owned(),
-                ));
-            }
-        }
+        let digest = copy_and_hash(
+            url,
+            &abs_path,
+            stream,
+            buf_writer,
+            digest_config.cas_digest_config(),
+            checksum,
+        )
+        .await?;
 
         if executable {
             fs.set_executable(path)
@@ -333,6 +272,92 @@ pub async fn http_download(
         ))
     })
     .await?)
+}
+
+/// Copy a stream into a writer while producing its digest and checksumming it.
+async fn copy_and_hash(
+    url: &str,
+    abs_path: &(impl std::fmt::Display + ?Sized),
+    mut stream: impl Stream<Item = Result<Bytes, reqwest::Error>> + Unpin,
+    mut writer: impl Write,
+    digest_config: CasDigestConfig,
+    checksum: &Checksum,
+) -> Result<FileDigest, HttpDownloadError> {
+    let mut digester = FileDigest::digester(digest_config);
+
+    // For each checksum entry we have, we're going to add a validator. We might have to create
+    // a new hasher, or reuse the `FileDigest::digester` if it matches.
+
+    enum Validator {
+        PrimaryDigest,
+        ExtraDigest(Box<dyn DynDigest + Send>),
+    }
+
+    let mut validators = SmallVec::<[_; 2]>::new();
+
+    if let Some(sha1) = checksum.sha1() {
+        let validator = if digester.algorithm() == DigestAlgorithm::Sha1 {
+            Validator::PrimaryDigest
+        } else {
+            Validator::ExtraDigest(box Sha1::new() as _)
+        };
+
+        validators.push((validator, sha1, "sha1"));
+    }
+
+    if let Some(sha256) = checksum.sha256() {
+        let validator = if digester.algorithm() == DigestAlgorithm::Sha256 {
+            Validator::PrimaryDigest
+        } else {
+            Validator::ExtraDigest(box Sha256::new() as _)
+        };
+
+        validators.push((validator, sha256, "sha256"));
+    }
+
+    while let Some(chunk) = stream.next().await {
+        let chunk = chunk.map_err(|source| HttpError::HttpTransferError {
+            received: digester.bytes_read(),
+            url: url.to_owned(),
+            source,
+        })?;
+        writer
+            .write(&chunk)
+            .with_context(|| format!("write({})", abs_path))
+            .map_err(HttpDownloadError::IoError)?;
+
+        digester.update(&chunk);
+        for (validator, _expected, _kind) in validators.iter_mut() {
+            if let Validator::ExtraDigest(hasher) = validator {
+                hasher.update(&chunk);
+            }
+        }
+    }
+    writer
+        .flush()
+        .with_context(|| format!("flush({})", abs_path))
+        .map_err(HttpDownloadError::IoError)?;
+
+    let digest = digester.finalize();
+
+    // Validate
+    for (validator, expected, kind) in validators {
+        let obtained = match validator {
+            Validator::PrimaryDigest => hex::encode(digest.digest().as_bytes()),
+            Validator::ExtraDigest(hasher) => hex::encode(hasher.finalize()),
+        };
+
+        if expected != obtained {
+            return Err(HttpDownloadError::InvalidChecksum(
+                kind,
+                expected.to_owned(),
+                obtained,
+                url.to_owned(),
+            ));
+        }
+    }
+
+    Ok(digest)
 }
 
 async fn http_retry<Exec, F, T, E>(exec: Exec) -> Result<T, E>
@@ -367,4 +392,85 @@ where
     }
 
     unreachable!("The loop above will exit before we get to the end")
+}
+
+#[cfg(test)]
+mod test {
+    use assert_matches::assert_matches;
+    use buck2_common::cas_digest::testing;
+    use futures::stream;
+
+    use super::*;
+
+    async fn do_test(
+        digest_config: CasDigestConfig,
+        checksum: &Checksum,
+    ) -> Result<(FileDigest, Vec<u8>), HttpDownloadError> {
+        let mut out = Vec::new();
+
+        let digest = copy_and_hash(
+            "test",
+            "test",
+            stream::iter(vec![Ok(Bytes::from("foo")), Ok(Bytes::from("bar"))]),
+            &mut out,
+            digest_config,
+            checksum,
+        )
+        .await?;
+
+        Ok((digest, out))
+    }
+
+    #[tokio::test]
+    async fn test_copy_and_hash_ok() -> anyhow::Result<()> {
+        let (digest, bytes) = do_test(
+            testing::blake3(),
+            &Checksum::Both {
+                sha1: Arc::from("8843d7f92416211de9ebb963ff4ce28125932878"),
+                sha256: Arc::from(
+                    "c3ab8ff13720e8ad9047dd39466b3c8974e592c2fa383d4a3960714caef0c4f2",
+                ),
+            },
+        )
+        .await?;
+
+        assert_eq!(
+            digest.to_string(),
+            "aa51dcd43d5c6c5203ee16906fd6b35db298b9b2e1de3fce81811d4806b76b7d:6"
+        );
+
+        assert_eq!(std::str::from_utf8(&bytes).unwrap(), "foobar");
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_copy_and_hash_invalid_primary_hash() -> anyhow::Result<()> {
+        assert_matches!(
+            do_test(testing::sha1(), &Checksum::Sha1(Arc::from("oops")),).await,
+            Err(HttpDownloadError::InvalidChecksum(..))
+        );
+
+        assert_matches!(
+            do_test(testing::sha256(), &Checksum::Sha256(Arc::from("oops")),).await,
+            Err(HttpDownloadError::InvalidChecksum(..))
+        );
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_copy_and_hash_invalid_secondary_hash() -> anyhow::Result<()> {
+        assert_matches!(
+            do_test(testing::blake3(), &Checksum::Sha1(Arc::from("oops")),).await,
+            Err(HttpDownloadError::InvalidChecksum(..))
+        );
+
+        assert_matches!(
+            do_test(testing::blake3(), &Checksum::Sha256(Arc::from("oops")),).await,
+            Err(HttpDownloadError::InvalidChecksum(..))
+        );
+
+        Ok(())
+    }
 }
