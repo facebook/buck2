@@ -25,6 +25,7 @@ use crate::analysis::types::LintT;
 use crate::analysis::types::LintWarning;
 use crate::codemap::CodeMap;
 use crate::syntax::ast::Assign;
+use crate::syntax::ast::AstExpr;
 use crate::syntax::ast::AstStmt;
 use crate::syntax::ast::DefP;
 use crate::syntax::ast::Expr;
@@ -33,8 +34,8 @@ use crate::syntax::AstModule;
 
 #[derive(Error, Debug, VariantName)]
 pub(crate) enum UnderscoreWarning {
-    #[error("Underscore-prefixed nested function name `{0}`")]
-    UnderscoreFunction(String),
+    #[error("Underscore definitions should be simple `{0}`")]
+    UnderscoreDefinition(String),
     #[error("Used ignored variable `{0}`")]
     UsingIgnored(String),
 }
@@ -60,39 +61,39 @@ fn inappropriate_underscore(
     top: bool,
     res: &mut Vec<LintT<UnderscoreWarning>>,
 ) {
+    // Is this value allowed as an assignment to a boring identifier - just tuple of vars and var
+    fn is_allowed(x: &AstExpr) -> bool {
+        match &**x {
+            Expr::Tuple(xs) if !xs.is_empty() => {
+                xs.iter().all(|x| matches!(&**x, Expr::Identifier(..)))
+            }
+            Expr::Identifier(..) => true,
+            _ => false,
+        }
+    }
+
     match &**x {
         Stmt::Def(DefP { name, body, .. }) => {
             if !top && name.0.starts_with('_') {
                 res.push(LintT::new(
                     codemap,
                     name.span,
-                    UnderscoreWarning::UnderscoreFunction(name.0.clone()),
+                    UnderscoreWarning::UnderscoreDefinition(name.0.clone()),
                 ))
             }
             inappropriate_underscore(codemap, body, false, res)
         }
         Stmt::Assign(lhs, type_rhs) if !top => {
-            let (_, rhs) = &**type_rhs;
-            match (&**lhs, &**rhs) {
-                (Assign::Identifier(name), Expr::Lambda(..)) if name.0.starts_with('_') => res
-                    .push(LintT::new(
+            if let Assign::Identifier(name) = &**lhs {
+                if name.0.starts_with('_') && !is_allowed(&type_rhs.1) {
+                    res.push(LintT::new(
                         codemap,
                         name.span,
-                        UnderscoreWarning::UnderscoreFunction(name.node.0.clone()),
-                    )),
-                _ => {}
+                        UnderscoreWarning::UnderscoreDefinition(name.node.0.clone()),
+                    ))
+                }
             }
         }
-        Stmt::AssignModify(lhs, _, rhs) if !top => match (&**lhs, &rhs.node) {
-            (Assign::Identifier(name), Expr::Lambda(..)) if name.0.starts_with('_') => {
-                res.push(LintT::new(
-                    codemap,
-                    name.span,
-                    UnderscoreWarning::UnderscoreFunction(name.node.0.clone()),
-                ))
-            }
-            _ => {}
-        },
         _ => x.visit_stmt(|x| inappropriate_underscore(codemap, x, top, res)),
     }
 }
@@ -153,7 +154,7 @@ mod tests {
     impl UnderscoreWarning {
         fn about(&self) -> &String {
             match self {
-                UnderscoreWarning::UnderscoreFunction(x) => x,
+                UnderscoreWarning::UnderscoreDefinition(x) => x,
                 UnderscoreWarning::UsingIgnored(x) => x,
             }
         }
@@ -168,16 +169,17 @@ mod tests {
         let m = module(
             r#"
 def _ok():
-    def _no1():
+    def _no1(foo):
         _no2 = lambda x: x
-        _ignore = 8
+        _no3 = 8
+        _unused = foo
 "#,
         );
         let mut res = Vec::new();
         inappropriate_underscore(&m.codemap, &m.statement, true, &mut res);
         let mut res = res.map(|x| x.problem.about());
         res.sort();
-        assert_eq!(res, &["_no1", "_no2"])
+        assert_eq!(res, &["_no1", "_no2", "_no3"])
     }
 
     #[test]
