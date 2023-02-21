@@ -40,6 +40,7 @@ use re_grpc_proto::google::rpc::Code;
 use re_grpc_proto::google::rpc::Status;
 use tokio::fs::OpenOptions;
 use tokio::io::AsyncWriteExt;
+use tonic::metadata::MetadataValue;
 use tonic::transport::channel::ClientTlsConfig;
 use tonic::transport::Certificate;
 use tonic::transport::Channel;
@@ -204,17 +205,20 @@ impl REClient {
 
     pub async fn get_action_result(
         &self,
-        _metadata: RemoteExecutionMetadata,
+        metadata: RemoteExecutionMetadata,
         request: ActionResultRequest,
     ) -> anyhow::Result<ActionResultResponse> {
         let mut client = self.grpc_clients.action_cache_client.clone();
 
         let res = client
-            .get_action_result(GetActionResultRequest {
-                instance_name: INSTANCE_NAME.into(),
-                action_digest: Some(tdigest_to(request.digest)),
-                ..Default::default()
-            })
+            .get_action_result(with_internal_metadata(
+                GetActionResultRequest {
+                    instance_name: INSTANCE_NAME.into(),
+                    action_digest: Some(tdigest_to(request.digest)),
+                    ..Default::default()
+                },
+                metadata,
+            ))
             .await?;
 
         Ok(ActionResultResponse {
@@ -233,7 +237,7 @@ impl REClient {
 
     pub async fn execute_with_progress(
         &self,
-        _metadata: RemoteExecutionMetadata,
+        metadata: RemoteExecutionMetadata,
         mut execute_request: ExecuteRequest,
     ) -> anyhow::Result<BoxStream<'static, anyhow::Result<ExecuteWithProgressResponse>>> {
         // TODO(aloiscochard): Map those properly in the request
@@ -251,7 +255,10 @@ impl REClient {
             action_digest: Some(action_digest.clone()),
         };
 
-        let stream = client.execute(request).await?.into_inner();
+        let stream = client
+            .execute(with_internal_metadata(request, metadata))
+            .await?
+            .into_inner();
 
         let stream = futures::stream::try_unfold(stream, move |mut stream| async {
             let msg = match stream.try_next().await.context("RE channel error")? {
@@ -345,7 +352,7 @@ impl REClient {
 
     pub async fn upload(
         &self,
-        _metadata: RemoteExecutionMetadata,
+        metadata: RemoteExecutionMetadata,
         request: UploadRequest,
     ) -> anyhow::Result<UploadResponse> {
         let mut client = self.grpc_clients.cas_client.clone();
@@ -383,7 +390,9 @@ impl REClient {
             .iter()
             .map(|x| x.digest.as_ref().unwrap().hash.clone())
             .collect::<Vec<String>>();
-        let response = client.batch_update_blobs(re_request).await?;
+        let response = client
+            .batch_update_blobs(with_internal_metadata(re_request, metadata))
+            .await?;
 
         let failures: Vec<String> = response
             .get_ref()
@@ -425,12 +434,15 @@ impl REClient {
 
     pub async fn download(
         &self,
-        _metadata: RemoteExecutionMetadata,
+        metadata: RemoteExecutionMetadata,
         request: DownloadRequest,
     ) -> anyhow::Result<DownloadResponse> {
         download_impl(request, |re_request| async {
             let mut client = self.grpc_clients.cas_client.clone();
-            Ok(client.batch_read_blobs(re_request).await?.into_inner())
+            Ok(client
+                .batch_read_blobs(with_internal_metadata(re_request, metadata))
+                .await?
+                .into_inner())
         })
         .await
     }
@@ -659,6 +671,37 @@ where
         inlined_blobs: Some(inlined_blobs),
         directories: None,
     })
+}
+
+fn with_internal_metadata<T>(t: T, metadata: RemoteExecutionMetadata) -> tonic::Request<T> {
+    // This is pretty ugly, but the protobuf spec that defines this is internal, so considering
+    // field numbers need to be stable anyway (= low risk), and this is not used in prod (= low
+    // impact if this goes wrong), we just inline it here. This is a small hack that lets us use
+    // our internal RE using this GRPC client for testing.
+    //
+    // This is defined in `fbcode/remote_execution/grpc/metadata.proto`.
+    #[derive(prost::Message)]
+    struct Metadata {
+        #[prost(message, optional, tag = "15")]
+        platform: Option<crate::grpc::Platform>,
+        #[prost(string, optional, tag = "18")]
+        use_case_id: Option<String>,
+    }
+
+    let mut msg = tonic::Request::new(t);
+
+    // We encode minimal metadata here. This is a bit of a hack to be compatible with internal RE.
+
+    let mut encoded = Vec::new();
+    Metadata {
+        platform: metadata.platform,
+        use_case_id: Some(metadata.use_case_id),
+    }
+    .encode(&mut encoded)
+    .expect("Encoding into a Vec cannot not fail");
+    msg.metadata_mut()
+        .insert_bin("re-metadata-bin", MetadataValue::from_bytes(&encoded));
+    msg
 }
 
 #[cfg(test)]
