@@ -28,6 +28,7 @@ mod bind;
 pub(crate) mod definition;
 mod dubious;
 mod exported;
+mod find_call_name;
 mod flow;
 mod incompatible;
 mod names;
