@@ -15,12 +15,11 @@
  * limitations under the License.
  */
 
+use std::collections::HashSet;
+
 use gazebo::variants::VariantName;
 use thiserror::Error;
 
-use crate::analysis::bind;
-use crate::analysis::bind::Bind;
-use crate::analysis::bind::Scope;
 use crate::analysis::types::LintT;
 use crate::analysis::types::LintWarning;
 use crate::codemap::CodeMap;
@@ -48,9 +47,8 @@ impl LintWarning for UnderscoreWarning {
 
 pub(crate) fn lint(module: &AstModule) -> Vec<LintT<UnderscoreWarning>> {
     let mut res = Vec::new();
-    let scope = bind::scope(module);
     inappropriate_underscore(&module.codemap, &module.statement, true, &mut res);
-    use_ignored(&module.codemap, &scope, None, &mut res);
+    use_ignored(&module.codemap, &module.statement, &mut res);
     res
 }
 
@@ -99,45 +97,55 @@ fn inappropriate_underscore(
 }
 
 // Don't want to use a variable that has been defined to be ignored
-fn use_ignored(
-    codemap: &CodeMap,
-    scope: &Scope,
-    root: Option<&Scope>,
-    res: &mut Vec<LintT<UnderscoreWarning>>,
-) {
-    match root {
-        None => {
-            // Things at the top level can be ignored and used
-            for x in &scope.inner {
-                if let Bind::Scope(x) = x {
-                    use_ignored(codemap, x, Some(scope), res)
+fn use_ignored(codemap: &CodeMap, x: &AstStmt, res: &mut Vec<LintT<UnderscoreWarning>>) {
+    // we are ok with using things that were defined at the top level, but not nested
+    fn root_definitions<'a>(x: &'a AstStmt, res: &mut HashSet<&'a str>) {
+        match &**x {
+            Stmt::Assign(x, _) | Stmt::AssignModify(x, _, _) => {
+                x.visit_lvalue(|x| {
+                    res.insert(x.0.as_str());
+                });
+            }
+            Stmt::Def(x) => {
+                res.insert(x.name.0.as_str());
+            }
+            Stmt::Load(xs) => {
+                for x in &xs.args {
+                    res.insert(x.0.0.as_str());
                 }
             }
-        }
-        Some(root) => {
-            // You can only use _ variables which are defined at the root,
-            // and thus must be free in this scope.
-            // If you use _foo, but foo is already in this scope, you may have been avoiding shadowing.
-            for x in &scope.inner {
-                match x {
-                    Bind::Get(x) if x.starts_with('_') => {
-                        // There are two permissible reasons to use an underscore variable
-                        let defined_at_root =
-                            || root.bound.contains_key(&x.node) && scope.free.contains_key(&x.node);
-                        if !defined_at_root() {
-                            res.push(LintT::new(
-                                codemap,
-                                x.span,
-                                UnderscoreWarning::UsingIgnored(x.node.clone()),
-                            ))
-                        }
-                    }
-                    Bind::Scope(x) => use_ignored(codemap, x, Some(root), res),
-                    _ => {}
-                }
-            }
+            _ => x.visit_stmt(|x| root_definitions(x, res)),
         }
     }
+
+    fn is_ignored(x: &str) -> bool {
+        // we want things like __internal__ for builtin things to expose themselves quietly
+        x.starts_with('_') && !(x.starts_with("__") && x.ends_with("__"))
+    }
+
+    fn check_expr(
+        codemap: &CodeMap,
+        x: &AstExpr,
+        roots: &HashSet<&str>,
+        res: &mut Vec<LintT<UnderscoreWarning>>,
+    ) {
+        match &**x {
+            Expr::Identifier(x, _) => {
+                if is_ignored(x.as_str()) && !roots.contains(x.as_str()) {
+                    res.push(LintT::new(
+                        codemap,
+                        x.span,
+                        UnderscoreWarning::UsingIgnored(x.node.clone()),
+                    ));
+                }
+            }
+            _ => x.visit_expr(|x| check_expr(codemap, x, roots, res)),
+        }
+    }
+
+    let mut roots = HashSet::new();
+    root_definitions(x, &mut roots);
+    x.visit_expr(|x| check_expr(codemap, x, &roots, res));
 }
 
 #[cfg(test)]
@@ -183,7 +191,8 @@ def _ok():
         let m = module(
             r#"
 def _foo(): pass
-_no4 = 1
+_allowed = 1
+_missed = 1
 def bar():
     def _no1(): pass
     _foo()
@@ -191,18 +200,19 @@ def bar():
     _no2 = 1
     print(_no2)
     _no3 = 1
-    _no4 = 1
-    print(_no4)
+    _missed = 7
+    # Could argue that missed should be an error, since it shadows
+    print(_missed)
+    print(_allowed)
     def deeper():
         print(_no3)
-        _foo()
+        _foo(__internal__)
 "#,
         );
         let mut res = Vec::new();
-        let scope = bind::scope(&m);
-        use_ignored(&m.codemap, &scope, None, &mut res);
+        use_ignored(&m.codemap, &m.statement, &mut res);
         let mut res = res.map(|x| x.problem.about());
         res.sort();
-        assert_eq!(res, &["_no1", "_no2", "_no3", "_no4"])
+        assert_eq!(res, &["_no1", "_no2", "_no3"])
     }
 }
