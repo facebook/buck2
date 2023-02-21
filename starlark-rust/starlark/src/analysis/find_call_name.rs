@@ -18,10 +18,10 @@
 use crate::codemap::ResolvedSpan;
 use crate::codemap::Span;
 use crate::codemap::Spanned;
-use crate::syntax::ast::ArgumentP;
+use crate::syntax::ast::Argument;
 use crate::syntax::ast::AstLiteral;
 use crate::syntax::ast::AstNoPayload;
-use crate::syntax::ast::ExprP;
+use crate::syntax::ast::Expr;
 use crate::syntax::uniplate::Visit;
 use crate::syntax::AstModule;
 
@@ -41,15 +41,15 @@ impl AstModule {
 
             match node {
                 Visit::Expr(Spanned {
-                    node: ExprP::Call(identifier, arguments),
+                    node: Expr::Call(identifier, arguments),
                     ..
                 }) => {
-                    if let ExprP::Identifier(_, _) = &identifier.node {
+                    if let Expr::Identifier(_, _) = &identifier.node {
                         let found = arguments.iter().find_map(|argument| match &argument.node {
-                            ArgumentP::Named(
+                            Argument::Named(
                                 arg_name,
                                 Spanned {
-                                    node: ExprP::Literal(AstLiteral::String(s)),
+                                    node: Expr::Literal(AstLiteral::String(s)),
                                     ..
                                 },
                             ) if arg_name.node == "name" && s.node == name => Some(identifier.span),
