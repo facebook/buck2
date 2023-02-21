@@ -103,6 +103,16 @@ impl fmt::Display for ActionStats {
     }
 }
 
+/// Identify whether an action was a fallback action. A fallback action is an action that executed
+/// two commands, unless one of those was a ClaimCancelled, which just means hybrid execution
+/// cancelled the local run (and which is not a fallback).
 pub fn was_fallback_action(action: &buck2_data::ActionExecutionEnd) -> bool {
-    action.commands.len() > 1
+    use buck2_data::command_execution::Status;
+
+    action
+        .commands
+        .iter()
+        .filter(|c| !matches!(c.status, Some(Status::ClaimCancelled(..))))
+        .count()
+        > 1
 }
