@@ -428,6 +428,10 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
         )
         if impl_params.generate_providers.merged_native_link_info:
             providers.append(merged_native_link_info)
+    else:
+        # This code sets merged_native_link_info only in some cases, leaving it unassigned in others.
+        # Add a fake definition set to None so the assignment checker is satisfied.
+        merged_native_link_info = None
 
     # Propagate shared libraries up the tree.
     if impl_params.generate_providers.shared_libraries:
@@ -563,7 +567,7 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
             args.add(linker_info.linker_flags or [])
             args.add(unpack_link_args(
                 get_link_args(
-                    merged_native_link_info,  # buildifier: disable=uninitialized Initialized if impl_params.generate_providers.template_placeholders is True
+                    merged_native_link_info,
                     link_style,
                 ),
             ))
