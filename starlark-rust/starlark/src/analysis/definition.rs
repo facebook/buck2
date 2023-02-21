@@ -40,7 +40,7 @@ use crate::syntax::AstModule;
 
 /// The location of a definition for a given identifier. See [`AstModule::find_definition`].
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub enum IdentifierDefinition {
+pub(crate) enum IdentifierDefinition {
     /// The definition was found at this location in the current file.
     Location {
         source: ResolvedSpan,
@@ -88,17 +88,17 @@ impl IdentifierDefinition {
 
 /// A definition as in [`IdentifierDefinition`], but the source is within a dot expression.
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct DottedDefinition {
+pub(crate) struct DottedDefinition {
     /// The location of the member access that was requested.
-    pub source: ResolvedSpan,
+    pub(crate) source: ResolvedSpan,
     /// The [`IdentifierDefinition`] for the left most component of the expression.
     ///
     /// For example, this would be the location of `x` if `source` enclosed `y` in `x.y.z`.
-    pub root_definition_location: IdentifierDefinition,
+    pub(crate) root_definition_location: IdentifierDefinition,
     /// All of the identifiers up to the one that `source` includes.
     ///
     /// For example. if the `y` in `x.y.z` is the source, this would contain `x` and `y`.
-    pub segments: Vec<String>,
+    pub(crate) segments: Vec<String>,
 }
 
 /// An inner structure that only holds references and unresolved spans. Used while
@@ -162,7 +162,7 @@ impl<'a> From<TempDottedDefinition<'a>> for TempDefinition<'a> {
 /// The container for both definition locations of a standalone identifier, and
 /// for ones that access members (via '.' syntax)
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub enum Definition {
+pub(crate) enum Definition {
     Identifier(IdentifierDefinition),
     Dotted(DottedDefinition),
 }
