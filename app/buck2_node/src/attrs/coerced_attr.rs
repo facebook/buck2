@@ -368,7 +368,7 @@ impl CoercedAttr {
 
 #[cfg(test)]
 mod tests {
-    use buck2_core::target::label::testing::TargetLabelExt;
+
     use buck2_core::target::label::TargetLabel;
     use dupe::Dupe;
 

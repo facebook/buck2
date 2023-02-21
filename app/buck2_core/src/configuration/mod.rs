@@ -476,7 +476,6 @@ mod tests {
     use crate::configuration::constraints::ConstraintValue;
     use crate::configuration::ConfigurationData;
     use crate::configuration::ConfigurationDataData;
-    use crate::target::label::testing::TargetLabelExt;
     use crate::target::label::TargetLabel;
 
     #[test]

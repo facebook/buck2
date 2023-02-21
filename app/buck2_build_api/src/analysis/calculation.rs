@@ -446,7 +446,6 @@ mod tests {
     use buck2_core::package::PackageLabel;
     use buck2_core::provider::id::testing::ProviderIdExt;
     use buck2_core::provider::id::ProviderId;
-    use buck2_core::target::label::testing::TargetLabelExt;
     use buck2_core::target::label::TargetLabel;
     use buck2_events::dispatch::EventDispatcher;
     use buck2_execute::digest_config::DigestConfig;

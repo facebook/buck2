@@ -523,7 +523,6 @@ mod tests {
 
     use buck2_core::provider::label::testing::ProvidersLabelTestExt;
     use buck2_core::provider::label::ProvidersLabel;
-    use buck2_core::target::label::testing::TargetLabelExt;
     use buck2_core::target::label::TargetLabel;
     use buck2_interpreter::types::label::StarlarkProvidersLabel;
     use buck2_interpreter::types::target_label::StarlarkTargetLabel;

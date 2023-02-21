@@ -262,7 +262,6 @@ mod tests {
     use buck2_core::configuration::ConfigurationData;
     use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
     use buck2_core::package::PackageLabel;
-    use buck2_core::target::label::testing::ConfiguredTargetLabelExt;
     use buck2_core::target::label::ConfiguredTargetLabel;
     use buck2_core::target::name::TargetName;
     use buck2_execute::base_deferred_key::BaseDeferredKey;

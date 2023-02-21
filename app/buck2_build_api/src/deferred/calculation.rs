@@ -344,7 +344,6 @@ mod tests {
     use buck2_core::bzl::ImportPath;
     use buck2_core::configuration::ConfigurationData;
     use buck2_core::fs::project::ProjectRootTemp;
-    use buck2_core::target::label::testing::TargetLabelExt;
     use buck2_core::target::label::TargetLabel;
     use buck2_execute::base_deferred_key::BaseDeferredKey;
     use buck2_execute::digest_config::DigestConfig;

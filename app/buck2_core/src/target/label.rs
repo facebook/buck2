@@ -26,6 +26,7 @@ use crate::configuration::pair::Configuration;
 use crate::configuration::pair::ConfigurationNoExec;
 use crate::configuration::ConfigurationData;
 use crate::package::PackageLabel;
+use crate::target::name::TargetName;
 use crate::target::name::TargetNameRef;
 
 #[derive(Eq, PartialEq, Allocative)]
@@ -134,6 +135,15 @@ impl TargetLabel {
     pub fn configure_pair_no_exec(&self, cfg: ConfigurationNoExec) -> ConfiguredTargetLabel {
         self.configure_pair(cfg.cfg_pair().dupe())
     }
+
+    /// Simple and incorrect target label parser which can be used in tests.
+    pub fn testing_parse(target_label: &str) -> TargetLabel {
+        let (cell, cell_rel) = target_label.split_once("//").expect("no //");
+        let (path, name) = cell_rel.split_once(':').expect("no :");
+        let pkg = PackageLabel::testing_new(cell, path);
+        let name = TargetNameRef::new(name).unwrap();
+        TargetLabel::new(pkg, name)
+    }
 }
 
 impl Serialize for TargetLabel {
@@ -194,6 +204,17 @@ impl ConfiguredTargetLabel {
     pub fn exec_cfg(&self) -> Option<&ConfigurationData> {
         self.cfg_pair.exec_cfg()
     }
+
+    pub fn testing_new(
+        pkg: PackageLabel,
+        label: TargetName,
+        cfg: ConfigurationData,
+    ) -> ConfiguredTargetLabel {
+        ConfiguredTargetLabel {
+            target: TargetLabel::new(pkg, label.as_ref()),
+            cfg_pair: Configuration::new(cfg, None),
+        }
+    }
 }
 
 impl Serialize for ConfiguredTargetLabel {
@@ -210,40 +231,3 @@ pub trait TargetLabelMaybeConfigured: Display {}
 
 impl TargetLabelMaybeConfigured for TargetLabel {}
 impl TargetLabelMaybeConfigured for ConfiguredTargetLabel {}
-
-pub mod testing {
-    use crate::configuration::pair::Configuration;
-    use crate::configuration::ConfigurationData;
-    use crate::package::PackageLabel;
-    use crate::target::label::ConfiguredTargetLabel;
-    use crate::target::label::TargetLabel;
-    use crate::target::name::TargetName;
-    use crate::target::name::TargetNameRef;
-
-    pub trait ConfiguredTargetLabelExt {
-        /// creates 'ConfiguredTargetLabel'
-        fn testing_new(
-            pkg: PackageLabel,
-            label: TargetName,
-            cfg: ConfigurationData,
-        ) -> ConfiguredTargetLabel {
-            ConfiguredTargetLabel {
-                target: TargetLabel::new(pkg, label.as_ref()),
-                cfg_pair: Configuration::new(cfg, None),
-            }
-        }
-    }
-    impl ConfiguredTargetLabelExt for ConfiguredTargetLabel {}
-
-    pub trait TargetLabelExt {
-        /// Simple and incorrect target label parser which can be used in tests.
-        fn testing_parse(target_label: &str) -> TargetLabel {
-            let (cell, cell_rel) = target_label.split_once("//").expect("no //");
-            let (path, name) = cell_rel.split_once(':').expect("no :");
-            let pkg = PackageLabel::testing_new(cell, path);
-            let name = TargetNameRef::new(name).unwrap();
-            TargetLabel::new(pkg, name)
-        }
-    }
-    impl TargetLabelExt for TargetLabel {}
-}
