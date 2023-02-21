@@ -2,5 +2,4 @@
 # so mark these things as to ignore
 /third-party/rust/.cargo/
 /third-party/rust/BUILD
-/third-party/rust/fixups/
 /third-party/rust/vendor/
