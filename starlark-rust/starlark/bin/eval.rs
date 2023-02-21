@@ -248,7 +248,7 @@ impl Context {
     }
 
     fn check(&self, module: &AstModule) -> impl Iterator<Item = EvalMessage> {
-        let globals = if self.prelude.is_empty() && self.builtin_symbols.is_empty() {
+        let globals = if self.prelude.is_empty() {
             None
         } else {
             let mut globals = HashSet::new();
