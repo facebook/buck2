@@ -49,8 +49,17 @@ impl StateProcessor {
             StateRequest::Todo => {}
             StateRequest::UpdateState { changes, resp } => {
                 // ignore error if the requester dropped it.
-                drop(resp.send(self.state.update_state(changes)));
+                let _ = resp.send(self.state.update_state(changes));
             }
+            StateRequest::CtxAtVersion { version, resp } => {
+                let ctx = self.state.ctx_at_version(version);
+                if resp.send(ctx).is_err() {
+                    // if we failed to send, then no one got the extra copy, so we say it has been
+                    // dropped
+                    self.state.drop_ctx_at_version(version);
+                }
+            }
+            StateRequest::DropCtxAtVersion { version } => self.state.drop_ctx_at_version(version),
         }
     }
 }

@@ -13,6 +13,7 @@ use crate::impls::core::versions::VersionTracker;
 use crate::impls::ctx::PerLiveTransactionCtx;
 use crate::impls::key::DiceKey;
 use crate::impls::transaction::ChangeType;
+use crate::versions::VersionNumber;
 
 /// Core state of DICE, holding the actual graph and version information
 pub(super) struct CoreState {
@@ -29,22 +30,75 @@ impl CoreState {
     pub(super) fn update_state(
         &mut self,
         updates: impl IntoIterator<Item = (DiceKey, ChangeType)>,
-    ) -> Arc<PerLiveTransactionCtx> {
-        let v = {
-            let version_update = self.version_tracker.write();
+    ) -> VersionNumber {
+        let version_update = self.version_tracker.write();
 
-            let mut changes_recorded = false;
-            for (_key, _change) in updates {
-                // TODO update the graph
-                changes_recorded |= true;
-            }
-            if changes_recorded {
-                version_update.commit()
-            } else {
-                version_update.undo()
-            }
-        };
+        let mut changes_recorded = false;
+        for (_key, _change) in updates {
+            // TODO update the graph
+            changes_recorded |= true;
+        }
+        if changes_recorded {
+            version_update.commit()
+        } else {
+            version_update.undo()
+        }
+    }
 
+    pub(super) fn ctx_at_version(&mut self, v: VersionNumber) -> Arc<PerLiveTransactionCtx> {
         self.version_tracker.at(v)
+    }
+
+    pub(super) fn drop_ctx_at_version(&mut self, v: VersionNumber) {
+        self.version_tracker.drop_at_version(v)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use crate::impls::core::internals::CoreState;
+    use crate::impls::key::DiceKey;
+    use crate::impls::transaction::ChangeType;
+    use crate::versions::VersionNumber;
+
+    #[test]
+    fn update_state_gets_next_version() {
+        let mut core = CoreState::new();
+
+        assert_eq!(
+            core.update_state([(DiceKey { index: 0 }, ChangeType::Invalidate)]),
+            VersionNumber::new(1)
+        );
+
+        assert_eq!(
+            core.update_state([(DiceKey { index: 1 }, ChangeType::Invalidate)]),
+            VersionNumber::new(2)
+        );
+    }
+
+    #[test]
+    fn state_ctx_at_version() {
+        let mut core = CoreState::new();
+        let v = VersionNumber::new(0);
+
+        let ctx = core.ctx_at_version(v);
+        assert_eq!(ctx.get_version(), v);
+
+        let ctx1 = core.ctx_at_version(v);
+        assert!(Arc::ptr_eq(&ctx, &ctx1));
+
+        // if you drop one, there is still reference so getting the same version should give the
+        // same instance of ctx
+        core.drop_ctx_at_version(v);
+        let ctx2 = core.ctx_at_version(v);
+        assert!(Arc::ptr_eq(&ctx, &ctx2));
+
+        // drop all references, should give a different ctx instance
+        core.drop_ctx_at_version(v);
+        core.drop_ctx_at_version(v);
+        let another = core.ctx_at_version(v);
+        assert!(!Arc::ptr_eq(&ctx, &another));
     }
 }

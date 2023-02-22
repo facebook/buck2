@@ -51,15 +51,32 @@ impl VersionTracker {
         let mut entry = self
             .active_versions
             .entry(v)
-            .or_insert_with_key(|_v| ActiveVersionData {
+            .or_insert_with(|| ActiveVersionData {
                 // TODO properly create the PerLiveTransactionCtx
-                per_transaction_ctx: Arc::new(PerLiveTransactionCtx {}),
+                per_transaction_ctx: PerLiveTransactionCtx::new(v),
                 ref_count: 0,
             });
 
         entry.ref_count += 1;
 
         entry.per_transaction_ctx.dupe()
+    }
+
+    /// Drops reference to a VersionNumber given the token
+    pub(crate) fn drop_at_version(&mut self, v: VersionNumber) {
+        let ref_count = {
+            let entry = self
+                .active_versions
+                .get_mut(&v)
+                .expect("shouldn't be able to return version without obtaining one");
+
+            entry.ref_count -= 1;
+            entry.ref_count
+        };
+
+        if ref_count == 0 {
+            self.active_versions.remove(&v).expect("existed above");
+        }
     }
 
     /// Requests the 'WriteVersion' that is intended to be used for updates to
@@ -106,6 +123,14 @@ mod tests {
         assert_matches!(
             vt.active_versions.get(&VersionNumber::new(0)), Some(active) if active.ref_count == 2
         );
+
+        vt.drop_at_version(VersionNumber::new(0));
+        assert_matches!(
+            vt.active_versions.get(&VersionNumber::new(0)), Some(active) if active.ref_count == 1
+        );
+
+        vt.drop_at_version(VersionNumber::new(0));
+        assert_matches!(vt.active_versions.get(&VersionNumber::new(0)), None);
     }
 
     #[test]

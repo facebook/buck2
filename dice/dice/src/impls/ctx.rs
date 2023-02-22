@@ -22,6 +22,7 @@ use crate::api::transaction::DiceTransactionUpdater;
 use crate::api::user_data::UserComputationData;
 use crate::impls::dice::DiceModern;
 use crate::impls::opaque::OpaqueValueModern;
+use crate::impls::transaction::ActiveTransactionGuard;
 use crate::impls::transaction::TransactionUpdater;
 use crate::versions::VersionNumber;
 
@@ -29,6 +30,7 @@ use crate::versions::VersionNumber;
 #[derive(Allocative, Dupe, Clone)]
 pub(crate) struct PerComputeCtx {
     per_live_version_ctx: Arc<PerLiveTransactionCtx>,
+    live_version_guard: ActiveTransactionGuard,
     user_data: Arc<UserComputationData>,
     dice: Arc<DiceModern>,
 }
@@ -37,11 +39,13 @@ pub(crate) struct PerComputeCtx {
 impl PerComputeCtx {
     pub(crate) fn new(
         per_live_version_ctx: Arc<PerLiveTransactionCtx>,
+        live_version_guard: ActiveTransactionGuard,
         user_data: Arc<UserComputationData>,
         dice: Arc<DiceModern>,
     ) -> Self {
         Self {
             per_live_version_ctx,
+            live_version_guard,
             user_data,
             dice,
         }
@@ -105,7 +109,7 @@ impl PerComputeCtx {
     }
 
     pub(crate) fn get_version(&self) -> VersionNumber {
-        unimplemented!("todo")
+        self.per_live_version_ctx.get_version()
     }
 
     pub(crate) fn into_updater(self) -> TransactionUpdater {
@@ -115,10 +119,16 @@ impl PerComputeCtx {
 
 /// Context that is shared for all current live computations of the same version.
 #[derive(Allocative, Debug)]
-pub(crate) struct PerLiveTransactionCtx {}
+pub(crate) struct PerLiveTransactionCtx {
+    version: VersionNumber,
+}
 
 #[allow(clippy::manual_async_fn)]
 impl PerLiveTransactionCtx {
+    pub(crate) fn new(v: VersionNumber) -> Arc<Self> {
+        Arc::new(Self { version: v })
+    }
+
     /// Compute "opaque" value where the value is only accessible via projections.
     /// Projections allow accessing derived results from the "opaque" value,
     /// where the dependency of reading a projection is the projection value rather
@@ -142,7 +152,7 @@ impl PerLiveTransactionCtx {
     }
 
     pub(crate) fn get_version(&self) -> VersionNumber {
-        unimplemented!("todo")
+        self.version
     }
 }
 

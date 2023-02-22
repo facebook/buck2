@@ -13,7 +13,6 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use dupe::Dupe;
-use futures::FutureExt;
 use tokio::sync::oneshot;
 
 use crate::api::error::DiceError;
@@ -22,10 +21,12 @@ use crate::api::key::Key;
 use crate::api::user_data::UserComputationData;
 use crate::impls::core::state::StateRequest;
 use crate::impls::ctx::PerComputeCtx;
+use crate::impls::ctx::PerLiveTransactionCtx;
 use crate::impls::key::DiceKey;
 use crate::impls::key::DiceKeyDynExt;
 use crate::impls::value::DiceComputedValue;
 use crate::impls::value::DiceValue;
+use crate::versions::VersionNumber;
 use crate::DiceModern;
 use crate::HashMap;
 
@@ -79,37 +80,63 @@ impl TransactionUpdater {
     }
 
     /// Commit the changes registered via 'changed' and 'changed_to' to the current newest version.
-    pub(crate) fn commit(self) -> impl Future<Output = PerComputeCtx> {
-        let (tx, rx) = oneshot::channel();
-        self.dice.state_handle.request(StateRequest::UpdateState {
-            changes: self.scheduled_changes.changes.into_iter().collect(),
-            resp: tx,
-        });
-
+    pub(crate) async fn commit(self) -> PerComputeCtx {
+        let user_data = self.user_data.dupe();
         let dice = self.dice.dupe();
 
-        rx.map(|transaction| PerComputeCtx::new(transaction.unwrap(), self.user_data, dice))
+        let (guard, transaction) = self.commit_to_state().await;
+
+        PerComputeCtx::new(transaction, guard, user_data, dice)
     }
 
     /// Commit the changes registered via 'changed' and 'changed_to' to the current newest version,
     /// replacing the user data with the given set
-    pub(crate) fn commit_with_data(
-        self,
-        extra: UserComputationData,
-    ) -> impl Future<Output = PerComputeCtx> {
+    pub(crate) async fn commit_with_data(self, extra: UserComputationData) -> PerComputeCtx {
+        let dice = self.dice.dupe();
+
+        let (guard, transaction) = self.commit_to_state().await;
+
+        PerComputeCtx::new(transaction, guard, Arc::new(extra), dice)
+    }
+
+    pub(crate) fn existing_state(&self) -> impl Future<Output = PerComputeCtx> {
+        async move { unimplemented!("todo") }
+    }
+
+    async fn commit_to_state(self) -> (ActiveTransactionGuard, Arc<PerLiveTransactionCtx>) {
         let (tx, rx) = oneshot::channel();
         self.dice.state_handle.request(StateRequest::UpdateState {
             changes: self.scheduled_changes.changes.into_iter().collect(),
             resp: tx,
         });
 
-        let dice = self.dice.dupe();
+        let v = rx.await.unwrap();
+        let guard = ActiveTransactionGuard {
+            v,
+            dice: self.dice.dupe(),
+        };
+        let (tx, rx) = oneshot::channel();
+        self.dice.state_handle.request(StateRequest::CtxAtVersion {
+            version: v,
+            resp: tx,
+        });
 
-        rx.map(|transaction| PerComputeCtx::new(transaction.unwrap(), Arc::new(extra), dice))
+        let transaction = rx.await.unwrap();
+        (guard, transaction)
     }
+}
 
-    pub(crate) fn existing_state(&self) -> impl Future<Output = PerComputeCtx> {
-        async move { unimplemented!("todo") }
+#[derive(Allocative, Dupe, Clone)]
+pub(crate) struct ActiveTransactionGuard {
+    v: VersionNumber,
+    dice: Arc<DiceModern>,
+}
+
+impl Drop for ActiveTransactionGuard {
+    fn drop(&mut self) {
+        self.dice
+            .state_handle
+            .request(StateRequest::DropCtxAtVersion { version: self.v })
     }
 }
 
