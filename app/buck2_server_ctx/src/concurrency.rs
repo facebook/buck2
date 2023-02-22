@@ -519,25 +519,27 @@ impl ConcurrencyHandler {
                     // this might cause some churn, but concurrent commands don't happen much and
                     // isn't a big perf bottleneck. Dice should be able to resurrect nodes properly.
 
-                    let transaction = event_dispatcher
-                        .span_async(buck2_data::DiceStateUpdateStart {}, async {
-                            (
-                                async {
-                                    let updater = self.dice.updater();
-                                    let user_data =
-                                        user_data.provide(&updater.existing_state().await).await?;
-                                    let transaction = updates
-                                        .update(updater)
-                                        .await?
-                                        .commit_with_data(user_data)
-                                        .await;
-                                    anyhow::Ok(transaction)
-                                }
-                                .await,
-                                buck2_data::DiceStateUpdateEnd {},
-                            )
-                        })
-                        .await?;
+                    let transaction = async {
+                        let updater = self.dice.updater();
+                        let user_data = user_data.provide(&updater.existing_state().await).await?;
+
+                        let transaction = updates.update(updater).await?;
+
+                        event_dispatcher
+                            .span_async(buck2_data::DiceStateUpdateStart {}, async {
+                                (
+                                    async {
+                                        let transaction =
+                                            transaction.commit_with_data(user_data).await;
+                                        anyhow::Ok(transaction)
+                                    }
+                                    .await,
+                                    buck2_data::DiceStateUpdateEnd {},
+                                )
+                            })
+                            .await
+                    }
+                    .await?;
 
                     if let Some(active) = active {
                         let is_same_state = transaction.equivalent(&active.version);
