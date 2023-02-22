@@ -158,6 +158,9 @@ _GENRULE_LOCAL_LABELS = {label: True for label in [
 
     # Uses yumdownloader which is not in RE
     "yumdownloader",
+
+    # Uses locally installed mvn.
+    "use_maven",
 ]}
 
 def genrule_labels_require_local(labels):
