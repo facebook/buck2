@@ -221,7 +221,13 @@ mod state_machine {
         assert_eq!(dm.io.take_log(), &[(Op::Clean, path.clone())]);
 
         let res = dm
-            .materialize_artifact(&mut tree, &path, EventDispatcher::null(), &command_sender())
+            .materialize_artifact(
+                &mut tree,
+                &path,
+                EventDispatcher::null(),
+                &command_sender(),
+                &mut version_tracker,
+            )
             .context("Expected a future")?
             .await;
         assert_eq!(dm.io.take_log(), &[(Op::Materialize, path.clone())]);
@@ -322,6 +328,7 @@ mod state_machine {
             &symlink_path,
             EventDispatcher::null(),
             &command_sender(),
+            &mut version_tracker,
         )
         .context("Expected a future")?
         .await
@@ -398,6 +405,7 @@ mod state_machine {
                 &symlink_path,
                 EventDispatcher::null(),
                 &command_sender(),
+                &mut version_tracker,
             )
             .context("Expected a future")?
             .await;
@@ -437,6 +445,7 @@ mod state_machine {
             &symlink_path,
             EventDispatcher::null(),
             &command_sender(),
+            &mut version_tracker,
         )
         .context("Expected a future")?
         .await
