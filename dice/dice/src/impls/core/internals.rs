@@ -9,6 +9,8 @@
 
 use std::sync::Arc;
 
+use crate::impls::core::graph::types::VersionedGraphKey;
+use crate::impls::core::graph::types::VersionedGraphResult;
 use crate::impls::core::versions::VersionTracker;
 use crate::impls::ctx::SharedLiveTransactionCtx;
 use crate::impls::key::DiceKey;
@@ -55,6 +57,11 @@ impl CoreState {
 
     pub(super) fn drop_ctx_at_version(&mut self, v: VersionNumber) {
         self.version_tracker.drop_at_version(v)
+    }
+
+    pub(super) fn lookup_key(&mut self, _key: VersionedGraphKey) -> VersionedGraphResult {
+        // TODO(bobyf) fill in actual logic to check cache
+        VersionedGraphResult::Compute
     }
 }
 

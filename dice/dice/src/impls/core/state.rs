@@ -14,6 +14,8 @@ use dupe::Dupe;
 use gazebo::variants::VariantName;
 use tokio::sync::oneshot::Sender;
 
+use crate::impls::core::graph::types::VersionedGraphKey;
+use crate::impls::core::graph::types::VersionedGraphResult;
 use crate::impls::core::processor::StateProcessor;
 use crate::impls::ctx::SharedLiveTransactionCtx;
 use crate::impls::key::DiceKey;
@@ -38,6 +40,12 @@ pub(crate) enum StateRequest {
     },
     /// Report that a computation context at a version has been dropped
     DropCtxAtVersion { version: VersionNumber },
+    /// Lookup the state of a key
+    #[allow(unused)]
+    LookupKey {
+        key: VersionedGraphKey,
+        resp: Sender<VersionedGraphResult>,
+    },
 }
 
 /// A handle to the core state that allows sending requests
