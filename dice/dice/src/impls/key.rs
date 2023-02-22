@@ -11,11 +11,15 @@ use std::any::Any;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use async_trait::async_trait;
 use dupe::Dupe;
 use gazebo::cmp::PartialEqAny;
 
 use crate::api::key::Key;
 use crate::impls::hash;
+use crate::impls::value::DiceComputedValue;
+use crate::impls::value::DiceValue;
+use crate::DiceComputations;
 
 /// Type erased internal dice key
 #[derive(
@@ -26,7 +30,10 @@ pub(crate) struct DiceKey {
     pub(crate) index: u32,
 }
 
+#[async_trait]
 pub(crate) trait DiceKeyDyn: Allocative + Send + Sync + 'static {
+    async fn compute(&self, ctx: &DiceComputations) -> DiceValue;
+
     fn eq_any(&self) -> PartialEqAny;
 
     fn hash(&self) -> u64;
@@ -34,10 +41,16 @@ pub(crate) trait DiceKeyDyn: Allocative + Send + Sync + 'static {
     fn as_any(&self) -> &dyn Any;
 }
 
+#[async_trait]
 impl<K> DiceKeyDyn for K
 where
     K: Key,
 {
+    async fn compute(&self, ctx: &DiceComputations) -> DiceValue {
+        let value = self.compute(ctx).await;
+        DiceValue::new(DiceComputedValue::<K>::new(value))
+    }
+
     fn eq_any(&self) -> PartialEqAny {
         PartialEqAny::new(self)
     }
