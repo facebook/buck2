@@ -10,6 +10,7 @@
 use std::sync::Arc;
 
 use allocative::Allocative;
+use dupe::Dupe;
 use gazebo::variants::VariantName;
 use tokio::sync::oneshot::Sender;
 
@@ -56,6 +57,8 @@ impl CoreStateHandle {
         self.tx.send(message).expect("dice runner died");
     }
 }
+
+impl Dupe for CoreStateHandle {}
 
 /// Start processing state
 pub(crate) fn init_state() -> CoreStateHandle {
