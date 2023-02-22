@@ -371,7 +371,7 @@ enum LowPriorityMaterializerCommand {
     MaterializationFinished {
         path: ProjectRelativePathBuf,
         timestamp: DateTime<Utc>,
-        version: u64,
+        version: Version,
         result: Result<(), SharedMaterializingError>,
     },
 }
@@ -400,13 +400,24 @@ impl std::fmt::Debug for LowPriorityMaterializerCommand {
 /// materialize them.
 type ArtifactTree = FileTree<Box<ArtifactMaterializationData>>;
 
+/// The Version of a processing future associated with an artifact. We use this to know if we can
+/// clear the processing field when a callback is received, or if more work is expected.
+#[derive(Eq, PartialEq, Copy, Clone, Dupe, Debug, Ord, PartialOrd, Display)]
+struct Version(u64);
+
+impl Version {
+    fn increment(&mut self) {
+        self.0 += 1;
+    }
+}
+
 pub(crate) struct ArtifactMaterializationData {
     /// Taken from `deps` of `ArtifactValue`. Used to materialize deps of the artifact.
     deps: Option<ActionSharedDirectory>,
     stage: ArtifactMaterializationStage,
     /// The version is just an internal counter that increases every time an
     /// artifact is declared (i.e. it tells us in which order they were declared).
-    version: u64,
+    version: Version,
     /// An optional future that may be processing something at the current path
     /// (for example, materializing or deleting). Any other future that needs to process
     /// this path would need to wait on the existing future to finish.
@@ -809,7 +820,7 @@ impl DeferredMaterializer {
                             last_access_time,
                             active: false,
                         },
-                        version: 0u64, // Any state restored from disk always gets set to version 0
+                        version: Version(0),
                         processing_fut: None,
                     },
                 );
@@ -937,7 +948,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         // a second time mid materialization of its previous version, we don't
         // incorrectly assume we materialized the latest version. We start with
         // 1 with because any disk state restored will start with version 0.
-        let mut next_version = 1u64;
+        let mut next_version = Version(0);
 
         let refresh_ttl_ticker = if ttl_refresh.enabled {
             Some(tokio::time::interval_at(
@@ -970,7 +981,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                         MaterializerCommand::DeclareExisting(artifacts, ..) => {
                             for (path, artifact) in artifacts {
                                 self.declare_existing(&mut tree, path, artifact, next_version);
-                                next_version += 1;
+                                next_version.increment();
                             }
                         }
                         // Entry point for `declare_{copy|cas}` calls
@@ -983,7 +994,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                                 next_version,
                                 &command_sender,
                             );
-                            next_version += 1;
+                            next_version.increment();
                         }
                         MaterializerCommand::MatchArtifacts(paths, sender) => {
                             let all_matches = paths
@@ -1053,7 +1064,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                                 self.sqlite_db.as_mut(),
                                 &self.rt,
                             );
-                            next_version += 1;
+                            next_version.increment();
                         }
                     }
 
@@ -1127,7 +1138,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         tree: &'a mut ArtifactTree,
         path: ProjectRelativePathBuf,
         value: ArtifactValue,
-        version: u64,
+        version: Version,
     ) {
         let metadata = ArtifactMetadata::from(value.entry().dupe());
 
@@ -1165,7 +1176,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         path: ProjectRelativePathBuf,
         value: ArtifactValue,
         method: Box<ArtifactMaterializationMethod>,
-        version: u64,
+        version: Version,
         command_sender: &MaterializerSender<T>,
     ) {
         // Check if artifact to be declared is same as artifact that's already materialized.
@@ -1219,7 +1230,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
             path = %path,
             method = %method,
             value = %value.entry(),
-            version = version,
+            version = %version,
             "declare artifact",
         );
 
@@ -1404,7 +1415,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
             has_entry_and_method = entry_and_method.is_some(),
             method = ?entry_and_method.as_ref().map(|(_, m)| m),
             has_deps = deps.is_some(),
-            version = version,
+            version = %version,
             cleaning = cleaning_fut.is_some(),
             "materialize artifact"
         );
@@ -1631,10 +1642,10 @@ impl ArtifactTree {
         &mut self,
         artifact_path: ProjectRelativePathBuf,
         timestamp: DateTime<Utc>,
-        version: u64,
+        version: Version,
         result: Result<(), SharedMaterializingError>,
         io: &Arc<T>,
-        next_version: u64,
+        next_version: Version,
         sqlite_db: Option<&mut MaterializerStateSqliteDb>,
         rt: &Handle,
     ) {

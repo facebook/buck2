@@ -16,6 +16,7 @@ use buck2_execute::directory::insert_file;
 use buck2_execute::directory::ActionDirectoryBuilder;
 use dupe::Dupe;
 
+use super::Version;
 use super::*;
 
 #[test]
@@ -130,7 +131,7 @@ mod state_machine {
             self: &Arc<Self>,
             path: ProjectRelativePathBuf,
             _write: Arc<WriteFile>,
-            _version: u64,
+            _version: Version,
             _command_sender: MaterializerSender<Self>,
         ) -> BoxFuture<'static, Result<(), SharedMaterializingError>> {
             self.log.lock().push((Op::Materialize, path));
@@ -212,7 +213,7 @@ mod state_machine {
             path.clone(),
             value,
             box method,
-            0,
+            Version(0),
             &command_sender(),
         );
         assert_eq!(dm.io.take_log(), &[(Op::Clean, path.clone())]);
@@ -227,10 +228,10 @@ mod state_machine {
         tree.materialization_finished(
             path.clone(),
             Utc::now(),
-            0,
+            Version(0),
             res,
             &dm.io,
-            1,
+            Version(1),
             dm.sqlite_db.as_mut(),
             &dm.rt,
         );
@@ -291,7 +292,7 @@ mod state_machine {
             target_path.clone(),
             ArtifactValue::file(digest_config.empty_file()),
             box ArtifactMaterializationMethod::Test,
-            0,
+            Version(0),
             &command_sender(),
         );
         assert_eq!(dm.io.take_log(), &[(Op::Clean, target_path.clone())]);
@@ -307,7 +308,7 @@ mod state_machine {
             symlink_path.clone(),
             symlink_value,
             box ArtifactMaterializationMethod::Test,
-            0,
+            Version(0),
             &command_sender(),
         );
         assert_eq!(dm.io.take_log(), &[(Op::Clean, symlink_path.clone())]);
@@ -379,7 +380,7 @@ mod state_machine {
             symlink_path.clone(),
             symlink_value,
             box ArtifactMaterializationMethod::Test,
-            0,
+            Version(0),
             &command_sender(),
         );
         assert_eq!(dm.io.take_log(), &[(Op::Clean, symlink_path.clone())]);
@@ -402,10 +403,10 @@ mod state_machine {
         tree.materialization_finished(
             symlink_path.clone(),
             Utc::now(),
-            0,
+            Version(0),
             res,
             &dm.io,
-            1,
+            Version(1),
             dm.sqlite_db.as_mut(),
             &dm.rt,
         );
@@ -417,7 +418,7 @@ mod state_machine {
             target_path.clone(),
             ArtifactValue::file(digest_config.empty_file()),
             box ArtifactMaterializationMethod::Test,
-            0,
+            Version(0),
             &command_sender(),
         );
         assert_eq!(dm.io.take_log(), &[(Op::Clean, target_path.clone())]);
