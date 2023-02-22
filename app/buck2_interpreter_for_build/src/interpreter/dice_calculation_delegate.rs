@@ -62,8 +62,6 @@ enum DiceCalculationDelegateError {
     EvalBuildFileError(BuildFilePath),
     #[error("Error evaluating module: `{0}`")]
     EvalModuleError(String),
-    #[error("File not found: `{0}`")]
-    NotFound(String),
 }
 
 #[async_trait]
@@ -195,18 +193,10 @@ impl<'c> DiceCalculationDelegate<'c> {
             .await
     }
 
-    async fn parse_file_if_exists(
-        &self,
-        starlark_path: StarlarkPath<'_>,
-    ) -> anyhow::Result<Option<ParseResult>> {
-        let content = self
-            .fs
-            .read_file_if_exists(starlark_path.path().as_ref().as_ref())
-            .await?;
-        match content {
-            Some(content) => Ok(Some(self.configs.parse(starlark_path, content)?)),
-            None => Ok(None),
-        }
+    async fn parse_file(&self, starlark_path: StarlarkPath<'_>) -> anyhow::Result<ParseResult> {
+        let content =
+            <dyn FileOps>::read_file(&self.fs, starlark_path.path().as_ref().as_ref()).await?;
+        self.configs.parse(starlark_path, content)
     }
 
     async fn eval_deps(
@@ -229,26 +219,13 @@ impl<'c> DiceCalculationDelegate<'c> {
         ))
     }
 
-    async fn prepare_eval_if_exists<'a>(
-        &'a self,
-        starlark_file: StarlarkPath<'_>,
-    ) -> anyhow::Result<Option<(AstModule, ModuleDeps)>> {
-        let Some(ParseResult(ast, imports)) = self.parse_file_if_exists(starlark_file).await? else {
-            return Ok(None);
-        };
-        let deps = self.eval_deps(&imports).await?;
-        Ok(Some((ast, deps)))
-    }
-
     pub async fn prepare_eval<'a>(
         &'a self,
         starlark_file: StarlarkPath<'_>,
     ) -> anyhow::Result<(AstModule, ModuleDeps)> {
-        let option = self.prepare_eval_if_exists(starlark_file).await?;
-        match option {
-            Some(x) => Ok(x),
-            None => Err(DiceCalculationDelegateError::NotFound(starlark_file.to_string()).into()),
-        }
+        let ParseResult(ast, imports) = self.parse_file(starlark_file).await?;
+        let deps = self.eval_deps(&imports).await?;
+        Ok((ast, deps))
     }
 
     pub fn prepare_eval_with_content<'a>(
@@ -313,12 +290,39 @@ impl<'c> DiceCalculationDelegate<'c> {
         }
     }
 
+    /// Return `None` if there's no `PACKAGE` file in the directory.
+    async fn prepare_package_file_eval(
+        &self,
+        path: &PackageFilePath,
+    ) -> anyhow::Result<Option<(AstModule, ModuleDeps)>> {
+        // This is cached if evaluating a `PACKAGE` file next to a `BUCK` file.
+        let dir = self.fs.read_dir_with_ignores(path.dir()).await?;
+        // Note:
+        // * we are using `read_dir` instead of `read_path_metadata` because
+        //   * it is an extra IO, and `read_dir` is likely already cached.
+        //   * `read_path_metadata` would not tell us if the file name is `PACKAGE`
+        //     and not `package` on case-insensitive filesystems.
+        //     We do case-sensitive comparison for `BUCK` files, so we do the same here.
+        //   * we fail here if `PACKAGE` (but not `package`) exists, and it is not a file.
+        // * linear search is fine, we do not do a lot of such operations
+        if !dir
+            .included
+            .iter()
+            .any(|x| x.file_name == PackageFilePath::PACKAGE_FILE_NAME)
+        {
+            return Ok(None);
+        }
+        Ok(Some(
+            self.prepare_eval(StarlarkPath::PackageFile(path)).await?,
+        ))
+    }
+
     async fn eval_package_file_uncached(
         &self,
         path: &PackageFilePath,
     ) -> anyhow::Result<SuperPackage> {
         let parent = self.eval_parent_package_file(path);
-        let prepare_eval = self.prepare_eval_if_exists(StarlarkPath::PackageFile(path));
+        let prepare_eval = self.prepare_package_file_eval(path);
 
         let (parent, ast_deps) = future::try_join(parent, prepare_eval).await?;
 
@@ -389,13 +393,6 @@ impl<'c> DiceCalculationDelegate<'c> {
         package: PackageLabel,
         package_listing: &PackageListing,
     ) -> anyhow::Result<SuperPackage> {
-        if true {
-            // TODO(nga): fix package files on macos.
-            //   Currently it fails because there's a lot of directories "package",
-            //   and evaluation because macos is case-insensitive.
-            return Ok(SuperPackage::default());
-        }
-
         let package_file_path = PackageFilePath::for_dir(package.as_cell_path());
         if package_listing
             .get_file(PackageFilePath::PACKAGE_FILE_NAME.as_ref())

@@ -112,7 +112,7 @@ impl PackageFilePath {
     }
 
     /// Directory containing this `PACKAGE` file.
-    pub(crate) fn dir(&self) -> CellPathRef {
+    pub fn dir(&self) -> CellPathRef {
         self.path
             .parent()
             .expect("constructor verifies that path is not root")

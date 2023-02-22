@@ -31,7 +31,6 @@ rrr = rule(
 "#;
 
 #[tokio::test]
-#[ignore] // TODO(nga): fix and enable
 async fn test_package_value_same_dir_package_file() {
     let fs = ProjectRootTemp::new().unwrap();
 
@@ -82,7 +81,6 @@ async fn test_package_value_same_dir_package_file() {
 }
 
 #[tokio::test]
-#[ignore] // TODO(nga): fix and enable
 async fn test_package_value_parent_dir_package_file() {
     let fs = ProjectRootTemp::new().unwrap();
 
@@ -130,7 +128,6 @@ async fn test_package_value_parent_dir_package_file() {
 }
 
 #[tokio::test]
-#[ignore] // TODO(nga): fix and enable
 async fn test_overwrite_package_value_not_allowed_without_overwrite_flag() {
     let fs = ProjectRootTemp::new().unwrap();
 
@@ -158,7 +155,6 @@ async fn test_overwrite_package_value_not_allowed_without_overwrite_flag() {
 }
 
 #[tokio::test]
-#[ignore] // TODO(nga): fix and enable
 async fn test_overwrite_package_value_with_flag() {
     let fs = ProjectRootTemp::new().unwrap();
 
