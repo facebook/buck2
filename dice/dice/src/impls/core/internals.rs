@@ -10,7 +10,7 @@
 use std::sync::Arc;
 
 use crate::impls::core::versions::VersionTracker;
-use crate::impls::ctx::PerLiveTransactionCtx;
+use crate::impls::ctx::SharedLiveTransactionCtx;
 use crate::impls::key::DiceKey;
 use crate::impls::transaction::ChangeType;
 use crate::versions::VersionNumber;
@@ -45,7 +45,7 @@ impl CoreState {
         }
     }
 
-    pub(super) fn ctx_at_version(&mut self, v: VersionNumber) -> Arc<PerLiveTransactionCtx> {
+    pub(super) fn ctx_at_version(&mut self, v: VersionNumber) -> Arc<SharedLiveTransactionCtx> {
         self.version_tracker.at(v)
     }
 

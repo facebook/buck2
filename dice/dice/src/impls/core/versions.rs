@@ -13,7 +13,7 @@ use allocative::Allocative;
 use derivative::Derivative;
 use dupe::Dupe;
 
-use crate::impls::ctx::PerLiveTransactionCtx;
+use crate::impls::ctx::SharedLiveTransactionCtx;
 use crate::versions::VersionNumber;
 use crate::HashMap;
 
@@ -30,7 +30,7 @@ pub(crate) struct VersionTracker {
 #[derivative(Debug)]
 struct ActiveVersionData {
     #[derivative(Debug = "ignore")]
-    per_transaction_ctx: Arc<PerLiveTransactionCtx>,
+    per_transaction_ctx: Arc<SharedLiveTransactionCtx>,
     ref_count: usize,
 }
 
@@ -47,13 +47,13 @@ impl VersionTracker {
         self.current
     }
 
-    pub(crate) fn at(&mut self, v: VersionNumber) -> Arc<PerLiveTransactionCtx> {
+    pub(crate) fn at(&mut self, v: VersionNumber) -> Arc<SharedLiveTransactionCtx> {
         let mut entry = self
             .active_versions
             .entry(v)
             .or_insert_with(|| ActiveVersionData {
                 // TODO properly create the PerLiveTransactionCtx
-                per_transaction_ctx: PerLiveTransactionCtx::new(v),
+                per_transaction_ctx: SharedLiveTransactionCtx::new(v),
                 ref_count: 0,
             });
 

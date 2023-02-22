@@ -14,7 +14,7 @@ use gazebo::variants::VariantName;
 use tokio::sync::oneshot::Sender;
 
 use crate::impls::core::processor::StateProcessor;
-use crate::impls::ctx::PerLiveTransactionCtx;
+use crate::impls::ctx::SharedLiveTransactionCtx;
 use crate::impls::key::DiceKey;
 use crate::impls::transaction::ChangeType;
 use crate::versions::VersionNumber;
@@ -33,7 +33,7 @@ pub(crate) enum StateRequest {
     /// Obtains the shared state ctx at the given version
     CtxAtVersion {
         version: VersionNumber,
-        resp: Sender<Arc<PerLiveTransactionCtx>>,
+        resp: Sender<Arc<SharedLiveTransactionCtx>>,
     },
     /// Report that a computation context at a version has been dropped
     DropCtxAtVersion { version: VersionNumber },

@@ -20,7 +20,7 @@ use crate::api::key::Key;
 use crate::api::user_data::UserComputationData;
 use crate::impls::core::state::StateRequest;
 use crate::impls::ctx::PerComputeCtx;
-use crate::impls::ctx::PerLiveTransactionCtx;
+use crate::impls::ctx::SharedLiveTransactionCtx;
 use crate::impls::key::DiceKey;
 use crate::impls::key::DiceKeyDynExt;
 use crate::impls::value::DiceComputedValue;
@@ -119,7 +119,7 @@ impl TransactionUpdater {
         PerComputeCtx::new(transaction, guard, self.user_data.dupe(), self.dice.dupe())
     }
 
-    async fn commit_to_state(self) -> (ActiveTransactionGuard, Arc<PerLiveTransactionCtx>) {
+    async fn commit_to_state(self) -> (ActiveTransactionGuard, Arc<SharedLiveTransactionCtx>) {
         let (tx, rx) = oneshot::channel();
         self.dice.state_handle.request(StateRequest::UpdateState {
             changes: self.scheduled_changes.changes.into_iter().collect(),

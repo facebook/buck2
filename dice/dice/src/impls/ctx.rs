@@ -27,7 +27,7 @@ use crate::versions::VersionNumber;
 /// Context given to the `compute` function of a `Key`.
 #[derive(Allocative, Dupe, Clone)]
 pub(crate) struct PerComputeCtx {
-    per_live_version_ctx: Arc<PerLiveTransactionCtx>,
+    per_live_version_ctx: Arc<SharedLiveTransactionCtx>,
     live_version_guard: ActiveTransactionGuard,
     user_data: Arc<UserComputationData>,
     dice: Arc<DiceModern>,
@@ -36,7 +36,7 @@ pub(crate) struct PerComputeCtx {
 #[allow(clippy::manual_async_fn, unused)]
 impl PerComputeCtx {
     pub(crate) fn new(
-        per_live_version_ctx: Arc<PerLiveTransactionCtx>,
+        per_live_version_ctx: Arc<SharedLiveTransactionCtx>,
         live_version_guard: ActiveTransactionGuard,
         user_data: Arc<UserComputationData>,
         dice: Arc<DiceModern>,
@@ -117,12 +117,12 @@ impl PerComputeCtx {
 
 /// Context that is shared for all current live computations of the same version.
 #[derive(Allocative, Debug)]
-pub(crate) struct PerLiveTransactionCtx {
+pub(crate) struct SharedLiveTransactionCtx {
     version: VersionNumber,
 }
 
 #[allow(clippy::manual_async_fn, unused)]
-impl PerLiveTransactionCtx {
+impl SharedLiveTransactionCtx {
     pub(crate) fn new(v: VersionNumber) -> Arc<Self> {
         Arc::new(Self { version: v })
     }
