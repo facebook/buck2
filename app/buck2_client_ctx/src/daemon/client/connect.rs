@@ -23,6 +23,7 @@ use buck2_common::client_utils::get_channel_uds;
 use buck2_common::daemon_dir::DaemonDir;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_core::env_helper::EnvHelper;
+use buck2_util::process::async_background_command;
 use futures::future::try_join3;
 use thiserror::Error;
 use tokio::io::AsyncReadExt;
@@ -34,7 +35,6 @@ use tonic::transport::Channel;
 use tonic::Request;
 use tonic::Status;
 
-use crate::daemon::client::command_with_lower_priority::command_with_lower_priority;
 use crate::daemon::client::BuckdClient;
 use crate::daemon::client::BuckdClientConnector;
 use crate::daemon::client::BuckdLifecycleLock;
@@ -143,8 +143,8 @@ impl<'a> BuckdLifecycle<'a> {
                 .unwrap_or_else(|_| panic!("Cannot convert {} to int", t))
         }));
 
-        let exe = env::current_exe().context("Failed to get current exe")?;
-        let mut cmd = command_with_lower_priority(exe);
+        let mut cmd =
+            async_background_command(std::env::current_exe().context("Failed to get current exe")?);
         cmd.current_dir(project_dir.root())
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())
