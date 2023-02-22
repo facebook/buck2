@@ -339,7 +339,7 @@ impl<T: SpanTrackable> SpanTracker<T> {
         self.roots_completed
     }
 
-    /// Return if span_tracker has been used.
+    /// Return false if span_tracker has been used.
     pub fn is_unused(&self) -> bool {
         self.roots.is_empty() && self.roots_completed == 0
     }
