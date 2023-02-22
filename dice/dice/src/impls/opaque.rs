@@ -14,7 +14,7 @@ use crate::api::key::Key;
 use crate::api::projection::ProjectionKey;
 
 #[derive(Debug)]
-pub(crate) struct OpaqueValueModern<K>(PhantomData<K>);
+pub(crate) struct OpaqueValueModern<K>(pub(crate) PhantomData<K>);
 
 impl<K> OpaqueValueModern<K>
 where
