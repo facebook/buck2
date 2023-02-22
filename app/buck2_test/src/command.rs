@@ -9,6 +9,7 @@
 
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use anyhow::Context;
@@ -234,7 +235,8 @@ async fn test(
 
     let (test_executor, test_executor_args) = match test_executor_config {
         Some(config) => {
-            let test_executor = config.as_ref().into();
+            let test_executor = post_process_test_executor(config.as_ref())
+                .with_context(|| format!("Invalid `test.v2_test_executor`: {}", config))?;
             let test_executor_args = Vec::new();
             (test_executor, test_executor_args)
         }
@@ -875,6 +877,20 @@ impl TestLabelFiltering {
             always_exclude,
             build_filtered_targets,
         }
+    }
+}
+
+fn post_process_test_executor(s: &str) -> anyhow::Result<PathBuf> {
+    match s.split_once("$BUCK2_BINARY_DIR/") {
+        Some(("", rest)) => {
+            let exe = std::env::current_exe().context("Cannot get Buck2 executable")?;
+            let exe_dir = exe
+                .parent()
+                .context("Buck2 executable directory has no parent")?;
+            Ok(exe_dir.join(rest))
+        }
+        Some(..) => Err(anyhow::anyhow!("Invalid value: {}", s)),
+        None => Ok(s.into()),
     }
 }
 
