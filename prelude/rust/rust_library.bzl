@@ -240,6 +240,7 @@ def rust_library_impl(ctx: "context") -> ["provider"]:
     providers = []
 
     providers += _default_providers(
+        ctx = ctx,
         lang_style_param = lang_style_param,
         param_artifact = rust_param_artifact,
         rustdoc = rustdoc,
@@ -383,6 +384,7 @@ def _handle_rust_artifact(
         )
 
 def _default_providers(
+        ctx: "context",
         lang_style_param: {(LinkageLang.type, LinkStyle.type): BuildParams.type},
         param_artifact: {BuildParams.type: RustLinkStyleInfo.type},
         rustdoc: "artifact",
@@ -412,11 +414,14 @@ def _default_providers(
     providers = []
 
     if rustdoc_test:
+        doc_env = dict(ctx.attrs.doc_env)
+        doc_env["RUSTC_BOOTSTRAP"] = "1"  # for `-Zunstable-options`
+
         rustdoc_test_info = ExternalRunnerTestInfo(
             type = "rustdoc",
             command = [rustdoc_test],
             run_from_project_root = True,
-            env = {"RUSTC_BOOTSTRAP": "1"},  # for `-Zunstable-options`
+            env = doc_env,
         )
 
         # Run doc test as part of `buck2 test :crate`

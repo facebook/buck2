@@ -571,6 +571,7 @@ inlined_extra_attributes = {
         # don't have to know whether we're building a rust_binary or a
         # rust_library.
         "doc_deps": attrs.list(attrs.dep(), default = []),
+        "doc_env": attrs.dict(key = attrs.string(), value = attrs.arg(), sorted = False, default = {}),
         "doc_linker_flags": attrs.list(attrs.arg(), default = []),
         "doc_named_deps": attrs.dict(key = attrs.string(), value = attrs.dep(), sorted = False, default = {}),
         "doc_platform_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
