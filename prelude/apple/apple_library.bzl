@@ -7,7 +7,7 @@
 
 load("@prelude//apple:apple_dsym.bzl", "AppleDebuggableInfo", "DEBUGINFO_SUBTARGET", "DSYM_SUBTARGET", "get_apple_dsym")
 load("@prelude//apple:apple_stripping.bzl", "apple_strip_args")
-load("@prelude//apple/swift:swift_compilation.bzl", "compile_swift", "get_swift_anonymous_targets", "get_swift_dependency_info", "get_swift_pcm_uncompile_info")
+load("@prelude//apple/swift:swift_compilation.bzl", "compile_swift", "get_swift_anonymous_targets", "get_swift_dependency_info", "get_swift_pcm_uncompile_info", "uses_explicit_modules")
 load("@prelude//cxx:cxx.bzl", "get_srcs_with_flags")
 load("@prelude//cxx:cxx_library.bzl", "cxx_library_parameterized")
 load("@prelude//cxx:cxx_library_utility.bzl", "cxx_attr_deps", "cxx_attr_exported_deps")
@@ -82,7 +82,7 @@ def apple_library_impl(ctx: "context") -> ["promise", ["provider"]]:
 
         return output.providers + [resource_graph] + swift_providers + ([exported_swift_pcm_uncompiled_info] if exported_swift_pcm_uncompiled_info else [])
 
-    if ctx.attrs.uses_explicit_modules:
+    if uses_explicit_modules(ctx):
         return get_swift_anonymous_targets(ctx, get_apple_library_providers)
     else:
         return get_apple_library_providers([])

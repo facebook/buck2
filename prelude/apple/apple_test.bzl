@@ -7,7 +7,7 @@
 
 load("@prelude//apple:apple_library.bzl", "AppleLibraryAdditionalParams", "apple_library_rule_constructor_params_and_swift_providers")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
-load("@prelude//apple/swift:swift_compilation.bzl", "get_swift_anonymous_targets")
+load("@prelude//apple/swift:swift_compilation.bzl", "get_swift_anonymous_targets", "uses_explicit_modules")
 load(
     "@prelude//cxx:compile.bzl",
     "CxxSrcWithFlags",  # @unused Used as a type
@@ -119,7 +119,7 @@ def apple_test_impl(ctx: "context") -> ["provider"]:
             cxx_library_output.cxx_compilationdb_info,
         ]
 
-    if ctx.attrs.uses_explicit_modules:
+    if uses_explicit_modules(ctx):
         return get_swift_anonymous_targets(ctx, get_apple_test_providers)
     else:
         return get_apple_test_providers([])

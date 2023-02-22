@@ -296,7 +296,7 @@ def _compile_with_argsfile(
 
     # Swift compilation on RE without explicit modules is impractically expensive
     # because there's no shared module cache across different libraries.
-    prefer_local = not _uses_explicit_modules(ctx)
+    prefer_local = not uses_explicit_modules(ctx)
 
     # Argsfile should also depend on all artifacts in it, otherwise they won't be materialised.
     cmd.hidden([shell_quoted_args])
@@ -342,7 +342,7 @@ def _get_shared_flags(
         "-no-clang-module-breadcrumbs",
     ])
 
-    if _uses_explicit_modules(ctx):
+    if uses_explicit_modules(ctx):
         cmd.add(get_disable_pch_validation_flags())
 
     if toolchain.resource_dir:
@@ -416,7 +416,7 @@ def _add_swift_deps_flags(
     # 3. Transitive SDK deps of user-defined deps.
     # (This is the case, when a user-defined dep exports a type from SDK module,
     # thus such SDK module should be implicitly visible to consumers of that custom dep)
-    if _uses_explicit_modules(ctx):
+    if uses_explicit_modules(ctx):
         module_name = get_module_name(ctx)
         swift_deps_tset = ctx.actions.tset(
             SwiftmodulePathsTSet,
@@ -455,7 +455,7 @@ def _add_clang_deps_flags(
         cmd: "cmd_args") -> None:
     # If a module uses Explicit Modules, all direct and
     # transitive Clang deps have to be explicitly added.
-    if _uses_explicit_modules(ctx):
+    if uses_explicit_modules(ctx):
         cmd.add(pcm_deps_tset.project_as_args("clang_deps"))
 
         # Add Clang sdk modules which do not go to swift modulemap
@@ -473,7 +473,7 @@ def _add_mixed_library_flags_to_cmd(
         underlying_module: ["SwiftPCMCompiledInfo", None],
         objc_headers: [CHeader.type],
         objc_modulemap_pp_info: ["CPreprocessor", None]) -> None:
-    if _uses_explicit_modules(ctx):
+    if uses_explicit_modules(ctx):
         if underlying_module:
             cmd.add(ctx.actions.tset(
                 PcmDepTSet,
@@ -574,6 +574,6 @@ def _header_basename(header: ["artifact", "string"]) -> "string":
     else:
         return header.basename
 
-def _uses_explicit_modules(ctx: "context") -> bool.type:
+def uses_explicit_modules(ctx: "context") -> bool.type:
     swift_toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
     return ctx.attrs.uses_explicit_modules and is_sdk_modules_provided(swift_toolchain)
