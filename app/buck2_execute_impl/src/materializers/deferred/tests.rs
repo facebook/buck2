@@ -176,12 +176,9 @@ mod state_machine {
 
     /// A stub command sender. We are calling materializer methods directly so that's all we need.
     fn command_sender() -> MaterializerSender<StubIoHandler> {
-        static SENDER: Lazy<MaterializerSender<StubIoHandler>> = Lazy::new(|| {
-            let (tx, _rx) = mpsc::unbounded_channel();
-            MaterializerSender {
-                sender: Box::leak(box tx),
-                counters: MaterializerCounters::leak_new(),
-            }
+        static SENDER: Lazy<MaterializerSender<StubIoHandler>> = Lazy::new(|| MaterializerSender {
+            high_priority: Box::leak(box mpsc::unbounded_channel().0),
+            counters: MaterializerCounters::leak_new(),
         });
 
         *SENDER

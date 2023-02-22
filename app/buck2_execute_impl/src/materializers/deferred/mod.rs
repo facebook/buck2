@@ -16,12 +16,15 @@ mod io_handler;
 mod tests;
 
 use std::collections::VecDeque;
+use std::pin::Pin;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
+use std::task::Context;
+use std::task::Poll;
 
 use allocative::Allocative;
-use anyhow::Context;
+use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
@@ -75,16 +78,18 @@ use futures::future::Shared;
 use futures::future::TryFutureExt;
 use futures::stream::BoxStream;
 use futures::stream::FuturesOrdered;
+use futures::stream::Stream;
 use futures::stream::StreamExt;
 use gazebo::prelude::*;
 use itertools::Itertools;
+use pin_project::pin_project;
 use thiserror::Error;
 use tokio::runtime::Handle;
 use tokio::sync::mpsc;
+use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
-use tokio_stream::wrappers::IntervalStream;
-use tokio_stream::wrappers::UnboundedReceiverStream;
+use tokio::time::Interval;
 use tracing::instrument;
 
 use crate::materializers::deferred::extension::ExtensionCommand;
@@ -190,7 +195,7 @@ impl MaterializerCounters {
 // refcounting any of this (though we make many copies of it).
 #[derive(Copy_, Dupe_, Clone_)]
 struct MaterializerSender<T: ?Sized + 'static> {
-    sender: &'static mpsc::UnboundedSender<MaterializerCommand<T>>,
+    high_priority: &'static mpsc::UnboundedSender<MaterializerCommand<T>>,
     counters: MaterializerCounters,
 }
 
@@ -199,14 +204,14 @@ impl<T> MaterializerSender<T> {
         &self,
         command: MaterializerCommand<T>,
     ) -> Result<(), mpsc::error::SendError<MaterializerCommand<T>>> {
-        let res = self.sender.send(command);
+        let res = self.high_priority.send(command);
         self.counters.sent.fetch_add(1, Ordering::Relaxed);
         res
     }
 }
 
 struct MaterializerReceiver<T> {
-    receiver: mpsc::UnboundedReceiver<MaterializerCommand<T>>,
+    high_priority: mpsc::UnboundedReceiver<MaterializerCommand<T>>,
     counters: MaterializerCounters,
 }
 
@@ -731,17 +736,17 @@ impl DeferredMaterializer {
         sqlite_db: Option<MaterializerStateSqliteDb>,
         sqlite_state: Option<MaterializerState>,
     ) -> anyhow::Result<Self> {
-        let (command_sender, command_receiver) = mpsc::unbounded_channel();
+        let (high_priority_sender, high_priority_receiver) = mpsc::unbounded_channel();
 
         let counters = MaterializerCounters::leak_new();
 
         let command_sender = MaterializerSender {
-            sender: Box::leak(box command_sender),
+            high_priority: Box::leak(box high_priority_sender),
             counters,
         };
 
         let command_receiver = MaterializerReceiver {
-            receiver: command_receiver,
+            high_priority: high_priority_receiver,
             counters,
         };
 
@@ -845,6 +850,39 @@ impl std::fmt::Display for LogBuffer {
     }
 }
 
+#[pin_project]
+struct CommandStream<T> {
+    high_priority: UnboundedReceiver<MaterializerCommand<T>>,
+    refresh_ttl_ticker: Option<Interval>,
+}
+
+enum Op<T> {
+    Command(MaterializerCommand<T>),
+    RefreshTtls,
+}
+
+impl<T> Stream for CommandStream<T> {
+    type Item = Op<T>;
+
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        let this = self.project();
+
+        if let Poll::Ready(Some(e)) = this.high_priority.poll_recv(cx) {
+            return Poll::Ready(Some(Op::Command(e)));
+        }
+
+        if let Some(ticker) = this.refresh_ttl_ticker.as_mut() {
+            if let Poll::Ready(..) = ticker.poll_tick(cx) {
+                return Poll::Ready(Some(Op::RefreshTtls));
+            }
+        }
+
+        // We can never be done because we never drop the senders, so let's not bother.
+
+        Poll::Pending
+    }
+}
+
 impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
     /// Loop that runs for as long as the materializer is alive.
     ///
@@ -856,12 +894,10 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         mut tree: ArtifactTree,
         ttl_refresh: TtlRefreshConfiguration,
     ) {
-        enum Op<T> {
-            Command(MaterializerCommand<T>),
-            RefreshTtls,
-        }
-
-        let MaterializerReceiver { receiver, counters } = commands;
+        let MaterializerReceiver {
+            high_priority,
+            counters,
+        } = commands;
 
         // Each Declare bumps the version, so that if an artifact is declared
         // a second time mid materialization of its previous version, we don't
@@ -869,20 +905,19 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         // 1 with because any disk state restored will start with version 0.
         let mut next_version = 1u64;
 
-        let refresh_stream = if ttl_refresh.enabled {
-            IntervalStream::new(tokio::time::interval_at(
+        let refresh_ttl_ticker = if ttl_refresh.enabled {
+            Some(tokio::time::interval_at(
                 tokio::time::Instant::now() + ttl_refresh.frequency,
                 ttl_refresh.frequency,
             ))
-            .left_stream()
         } else {
-            futures::stream::empty().right_stream()
+            None
         };
 
-        let mut stream = futures::stream::select(
-            UnboundedReceiverStream::new(receiver).map(Op::Command),
-            refresh_stream.map(|_instant| Op::RefreshTtls),
-        );
+        let mut stream = CommandStream {
+            high_priority,
+            refresh_ttl_ticker,
+        };
 
         let mut current_ttl_refresh: Option<JoinHandle<()>> = None;
 
