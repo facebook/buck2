@@ -161,6 +161,13 @@ _GENRULE_LOCAL_LABELS = {label: True for label in [
 
     # Uses locally installed mvn.
     "use_maven",
+
+    # Some Qt genrules don't support RE yet
+    "qt_moc",
+    "qt_qrc_gen",
+    "qt_qrc_compile",
+    "qt_qsb_gen",
+    "qt_qmlcachegen",
 ]}
 
 def genrule_labels_require_local(labels):
