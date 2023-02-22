@@ -39,6 +39,7 @@ import errno
 import os
 import platform
 import stat
+import sys
 from pathlib import Path
 
 
@@ -146,7 +147,11 @@ def write_bootstrapper(args: argparse.Namespace) -> None:
     if args.preload_libraries:
         ld_preload = repr(":".join(p.name for p in args.preload_libraries))
 
-    new_data = data.replace("<PYTHON>", "/usr/bin/env " + str(args.python))
+    if sys.platform == "darwin":
+        prefix = "/usr/bin/arch -x86_64"
+    else:
+        prefix = "/usr/bin/env"
+    new_data = data.replace("<PYTHON>", prefix + " " + str(args.python))
     new_data = new_data.replace("<PYTHON_INTERPRETER_FLAGS>", "")
     # new_data = new_data.replace(
     #    "<PYTHON_INTERPRETER_FLAGS>", args.python_interpreter_flags
