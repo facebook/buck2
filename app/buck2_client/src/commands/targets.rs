@@ -71,6 +71,10 @@ pub struct TargetsCommand {
     #[clap(long)]
     json: bool,
 
+    /// Print targets as JSON-lines
+    #[clap(long, conflicts_with = "json")]
+    json_lines: bool,
+
     /// Print statistics of how many entries were processed
     #[clap(long)]
     stats: bool,
@@ -229,6 +233,7 @@ impl StreamingCommand for TargetsCommand {
                 value: pat.to_owned(),
             }),
             json: self.json,
+            json_lines: self.json_lines,
             stats: self.stats,
             output_attributes,
             target_hash_file_mode: match self.target_hash_file_mode {

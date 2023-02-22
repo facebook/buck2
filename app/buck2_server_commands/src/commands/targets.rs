@@ -105,36 +105,60 @@ struct JsonFormat {
     attributes: Option<RegexSet>,
     attr_inspect_opts: AttrInspectOptions,
     target_call_stacks: bool,
+    json_lines: bool,
 }
 
 impl JsonFormat {
     fn entry_start(&self, buffer: &mut String) {
-        buffer.push_str("  {\n");
+        if self.json_lines {
+            buffer.push('{');
+        } else {
+            buffer.push_str("  {\n");
+        }
     }
 
-    fn entry_end(&self, buffer: &mut String) {
-        buffer.push_str("  }");
+    fn entry_end(&self, buffer: &mut String, first: bool) {
+        if self.json_lines {
+            buffer.push_str("}\n");
+        } else {
+            if !first {
+                buffer.push('\n');
+            }
+            buffer.push_str("  }");
+        }
     }
 
     fn entry_item(&self, buffer: &mut String, first: &mut bool, key: &str, value: &str) {
         if *first {
             *first = false;
+        } else if self.json_lines {
+            buffer.push(',');
         } else {
             buffer.push_str(",\n");
         }
-        write!(buffer, "    \"{}\": {}", key, value).unwrap();
+        if self.json_lines {
+            write!(buffer, "\"{}\":{}", key, value).unwrap();
+        } else {
+            write!(buffer, "    \"{}\": {}", key, value).unwrap();
+        }
     }
 }
 
 impl TargetFormatter for JsonFormat {
     fn begin(&self, buffer: &mut String) {
-        buffer.push_str("[\n");
+        if !self.json_lines {
+            buffer.push_str("[\n");
+        }
     }
     fn end(&self, _stats: &Stats, buffer: &mut String) {
-        buffer.push_str("\n]\n");
+        if !self.json_lines {
+            buffer.push_str("\n]\n");
+        }
     }
     fn separator(&self, buffer: &mut String) {
-        buffer.push_str(",\n");
+        if !self.json_lines {
+            buffer.push_str(",\n");
+        }
     }
 
     fn target(&self, package: PackageLabel, target_info: TargetInfo<'_>, buffer: &mut String) {
@@ -210,11 +234,7 @@ impl TargetFormatter for JsonFormat {
                 }
             }
         }
-
-        if !first {
-            buffer.push('\n');
-        }
-        self.entry_end(buffer);
+        self.entry_end(buffer, first);
     }
 
     fn imports(
@@ -251,7 +271,7 @@ impl TargetFormatter for JsonFormat {
                     .join(", ")
             ),
         );
-        self.entry_end(buffer);
+        self.entry_end(buffer, first);
     }
 
     fn package_error(&self, package: PackageLabel, error: &anyhow::Error, buffer: &mut String) {
@@ -269,7 +289,7 @@ impl TargetFormatter for JsonFormat {
             "buck.error",
             &quote_json_string(&format!("{:?}", error)),
         );
-        self.entry_end(buffer);
+        self.entry_end(buffer, first);
     }
 }
 
@@ -471,7 +491,7 @@ impl ServerCommandTemplate for TargetsServerCommand {
 }
 
 fn crate_formatter(request: &TargetsRequest) -> anyhow::Result<Arc<dyn TargetFormatter>> {
-    let is_json = request.json || !request.output_attributes.is_empty();
+    let is_json = request.json || request.json_lines || !request.output_attributes.is_empty();
     if is_json {
         Ok(Arc::new(JsonFormat {
             attributes: if request.output_attributes.is_empty() {
@@ -485,6 +505,7 @@ fn crate_formatter(request: &TargetsRequest) -> anyhow::Result<Arc<dyn TargetFor
                 AttrInspectOptions::DefinedOnly
             },
             target_call_stacks: request.target_call_stacks,
+            json_lines: request.json_lines,
         }))
     } else if request.stats {
         Ok(Arc::new(StatsFormat))
