@@ -53,10 +53,10 @@ use crate::legacy::incremental::graph::dependencies::VersionedRevDependencies;
 use crate::legacy::incremental::graph::storage_properties::StorageProperties;
 use crate::legacy::incremental::history::HistoryState;
 use crate::legacy::incremental::versions::MinorVersion;
-use crate::legacy::incremental::versions::VersionRanges;
 use crate::legacy::incremental::CellHistory;
 use crate::legacy::incremental::Dependency;
 use crate::versions::VersionNumber;
+use crate::versions::VersionRanges;
 use crate::HashSet;
 
 /// The Key for a Versioned, incremental computation
@@ -1425,13 +1425,13 @@ mod tests {
     use crate::legacy::incremental::history::CellHistory;
     use crate::legacy::incremental::testing::ComputedDependencyExt;
     use crate::legacy::incremental::testing::DependencyExt;
-    use crate::legacy::incremental::versions::testing::VersionRangesExt;
     use crate::legacy::incremental::versions::MinorVersion;
-    use crate::legacy::incremental::versions::VersionRange;
-    use crate::legacy::incremental::versions::VersionRanges;
     use crate::legacy::incremental::Computable;
     use crate::legacy::incremental::StorageType;
+    use crate::versions::testing::VersionRangesExt;
     use crate::versions::VersionNumber;
+    use crate::versions::VersionRange;
+    use crate::versions::VersionRanges;
     use crate::HashSet;
 
     #[derive(Clone, Dupe, Display, Debug, Eq, PartialEq, Hash, Allocative)]

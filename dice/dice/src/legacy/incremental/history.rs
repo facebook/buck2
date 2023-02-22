@@ -20,9 +20,9 @@ use sorted_vector_map::SortedVectorMap;
 use sorted_vector_map::SortedVectorSet;
 
 use crate::legacy::incremental::graph::ReadOnlyHistory;
-use crate::legacy::incremental::versions::VersionRange;
-use crate::legacy::incremental::versions::VersionRanges;
 use crate::versions::VersionNumber;
+use crate::versions::VersionRange;
+use crate::versions::VersionRanges;
 
 /// The history of one computation unit.
 /// The history is one of the `HistoryState`s.
@@ -500,10 +500,10 @@ mod tests {
     use crate::legacy::incremental::history::testing::CellHistoryExt;
     use crate::legacy::incremental::history::testing::HistoryExt;
     use crate::legacy::incremental::history::CellHistory;
-    use crate::legacy::incremental::versions::testing::VersionRangesExt;
-    use crate::legacy::incremental::versions::VersionRange;
-    use crate::legacy::incremental::versions::VersionRanges;
     use crate::legacy::incremental::VersionNumber;
+    use crate::versions::testing::VersionRangesExt;
+    use crate::versions::VersionRange;
+    use crate::versions::VersionRanges;
 
     #[test]
     fn cell_history_propagates() {
