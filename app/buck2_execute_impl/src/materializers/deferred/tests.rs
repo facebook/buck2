@@ -17,6 +17,7 @@ use buck2_execute::directory::ActionDirectoryBuilder;
 use dupe::Dupe;
 
 use super::Version;
+use super::VersionTracker;
 use super::*;
 
 #[test]
@@ -207,13 +208,14 @@ mod state_machine {
         let path = make_path("foo/bar");
         let value = ArtifactValue::file(digest_config.empty_file());
         let method = ArtifactMaterializationMethod::Test;
+        let mut version_tracker = VersionTracker::new();
 
         dm.declare(
             &mut tree,
             path.clone(),
             value,
             box method,
-            Version(0),
+            &mut version_tracker,
             &command_sender(),
         );
         assert_eq!(dm.io.take_log(), &[(Op::Clean, path.clone())]);
@@ -228,10 +230,10 @@ mod state_machine {
         tree.materialization_finished(
             path.clone(),
             Utc::now(),
-            Version(0),
+            version_tracker.current(),
             res,
             &dm.io,
-            Version(1),
+            &mut version_tracker,
             dm.sqlite_db.as_mut(),
             &dm.rt,
         );
@@ -277,6 +279,8 @@ mod state_machine {
         // await for symlink targets and the entry materialization
         materialization_config.insert(target_path.clone(), TokioDuration::from_millis(100));
 
+        let mut version_tracker = VersionTracker::new();
+
         let mut dm = DeferredMaterializerCommandProcessor {
             io: Arc::new(StubIoHandler::new(materialization_config)),
             digest_config,
@@ -292,7 +296,7 @@ mod state_machine {
             target_path.clone(),
             ArtifactValue::file(digest_config.empty_file()),
             box ArtifactMaterializationMethod::Test,
-            Version(0),
+            &mut version_tracker,
             &command_sender(),
         );
         assert_eq!(dm.io.take_log(), &[(Op::Clean, target_path.clone())]);
@@ -308,7 +312,7 @@ mod state_machine {
             symlink_path.clone(),
             symlink_value,
             box ArtifactMaterializationMethod::Test,
-            Version(0),
+            &mut version_tracker,
             &command_sender(),
         );
         assert_eq!(dm.io.take_log(), &[(Op::Clean, symlink_path.clone())]);
@@ -360,6 +364,8 @@ mod state_machine {
         // await for symlink targets and the entry materialization
         materialization_config.insert(target_path.clone(), TokioDuration::from_millis(100));
 
+        let mut version_tracker = VersionTracker::new();
+
         let mut dm = DeferredMaterializerCommandProcessor {
             io: Arc::new(StubIoHandler::new(materialization_config)),
             sqlite_db: None,
@@ -380,7 +386,7 @@ mod state_machine {
             symlink_path.clone(),
             symlink_value,
             box ArtifactMaterializationMethod::Test,
-            Version(0),
+            &mut version_tracker,
             &command_sender(),
         );
         assert_eq!(dm.io.take_log(), &[(Op::Clean, symlink_path.clone())]);
@@ -403,10 +409,10 @@ mod state_machine {
         tree.materialization_finished(
             symlink_path.clone(),
             Utc::now(),
-            Version(0),
+            version_tracker.current(),
             res,
             &dm.io,
-            Version(1),
+            &mut version_tracker,
             dm.sqlite_db.as_mut(),
             &dm.rt,
         );
@@ -418,7 +424,7 @@ mod state_machine {
             target_path.clone(),
             ArtifactValue::file(digest_config.empty_file()),
             box ArtifactMaterializationMethod::Test,
-            Version(0),
+            &mut version_tracker,
             &command_sender(),
         );
         assert_eq!(dm.io.take_log(), &[(Op::Clean, target_path.clone())]);

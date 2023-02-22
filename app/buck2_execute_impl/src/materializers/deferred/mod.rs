@@ -405,9 +405,27 @@ type ArtifactTree = FileTree<Box<ArtifactMaterializationData>>;
 #[derive(Eq, PartialEq, Copy, Clone, Dupe, Debug, Ord, PartialOrd, Display)]
 struct Version(u64);
 
-impl Version {
-    fn increment(&mut self) {
-        self.0 += 1;
+#[derive(Debug)]
+struct VersionTracker(Version);
+
+impl VersionTracker {
+    fn new() -> Self {
+        // Each Declare bumps the version, so that if an artifact is declared
+        // a second time mid materialization of its previous version, we don't
+        // incorrectly assume we materialized the latest version. We start with
+        // 1 with because any disk state restored will start with version 0.
+        Self(Version(1))
+    }
+
+    fn current(&self) -> Version {
+        self.0
+    }
+
+    /// Increment the current version, return the previous  vlaue
+    fn next(&mut self) -> Version {
+        let ret = self.current();
+        self.0.0 += 1;
+        ret
     }
 }
 
@@ -944,11 +962,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
             counters,
         } = commands;
 
-        // Each Declare bumps the version, so that if an artifact is declared
-        // a second time mid materialization of its previous version, we don't
-        // incorrectly assume we materialized the latest version. We start with
-        // 1 with because any disk state restored will start with version 0.
-        let mut next_version = Version(0);
+        let mut version_tracker = VersionTracker::new();
 
         let refresh_ttl_ticker = if ttl_refresh.enabled {
             Some(tokio::time::interval_at(
@@ -980,8 +994,12 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                         }
                         MaterializerCommand::DeclareExisting(artifacts, ..) => {
                             for (path, artifact) in artifacts {
-                                self.declare_existing(&mut tree, path, artifact, next_version);
-                                next_version.increment();
+                                self.declare_existing(
+                                    &mut tree,
+                                    path,
+                                    artifact,
+                                    &mut version_tracker,
+                                );
                             }
                         }
                         // Entry point for `declare_{copy|cas}` calls
@@ -991,10 +1009,9 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                                 path,
                                 value,
                                 method,
-                                next_version,
+                                &mut version_tracker,
                                 &command_sender,
                             );
-                            next_version.increment();
                         }
                         MaterializerCommand::MatchArtifacts(paths, sender) => {
                             let all_matches = paths
@@ -1060,11 +1077,10 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                                 // in which case the version of the newly declared artifact should be bumped.
                                 // Let materialization_finished always consume a version in case the entry
                                 // gets redeclared.
-                                next_version,
+                                &mut version_tracker,
                                 self.sqlite_db.as_mut(),
                                 &self.rt,
                             );
-                            next_version.increment();
                         }
                     }
 
@@ -1138,7 +1154,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         tree: &'a mut ArtifactTree,
         path: ProjectRelativePathBuf,
         value: ArtifactValue,
-        version: Version,
+        version_tracker: &mut VersionTracker,
     ) {
         let metadata = ArtifactMetadata::from(value.entry().dupe());
 
@@ -1151,7 +1167,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                     last_access_time: Utc::now(),
                     active: true,
                 },
-                version,
+                version: version_tracker.next(),
                 processing_fut: None,
             },
         );
@@ -1176,7 +1192,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         path: ProjectRelativePathBuf,
         value: ArtifactValue,
         method: Box<ArtifactMaterializationMethod>,
-        version: Version,
+        version_tracker: &mut VersionTracker,
         command_sender: &MaterializerSender<T>,
     ) {
         // Check if artifact to be declared is same as artifact that's already materialized.
@@ -1226,6 +1242,8 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         }
 
         // We don't have a matching artifact. Declare it.
+        let version = version_tracker.next();
+
         tracing::trace!(
             path = %path,
             method = %method,
@@ -1637,7 +1655,7 @@ impl ArtifactTree {
         }
     }
 
-    #[instrument(level = "debug", skip(self, result, io, sqlite_db), fields(path = %artifact_path, version = %version))]
+    #[instrument(level = "debug", skip(self, result, io, sqlite_db), fields(path = %artifact_path))]
     fn materialization_finished<T: IoHandler>(
         &mut self,
         artifact_path: ProjectRelativePathBuf,
@@ -1645,7 +1663,7 @@ impl ArtifactTree {
         version: Version,
         result: Result<(), SharedMaterializingError>,
         io: &Arc<T>,
-        next_version: Version,
+        version_tracker: &mut VersionTracker,
         sqlite_db: Option<&mut MaterializerStateSqliteDb>,
         rt: &Handle,
     ) {
@@ -1663,7 +1681,7 @@ impl ArtifactTree {
                 if result.is_err() {
                     tracing::debug!("materialization failed, redeclaring artifact");
                     // Bump the version here because the artifact is redeclared.
-                    info.version = next_version;
+                    info.version = version_tracker.next();
                     // Even though materialization failed, something may have still materialized at artifact_path,
                     // so we need to delete anything at artifact_path before we ever retry materializing it.
                     // TODO(scottcao): Once command processor accepts an ArtifactTree instead of initializing one,
