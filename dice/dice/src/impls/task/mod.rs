@@ -7,16 +7,5 @@
  * of this source tree.
  */
 
-#[allow(unused)]
-pub(crate) mod cache;
-pub(crate) mod core;
-pub(crate) mod ctx;
-pub(crate) mod dice;
-mod hash;
-pub(crate) mod key;
-mod key_index;
-pub(crate) mod opaque;
-#[allow(unused)]
-pub(crate) mod task;
-pub(crate) mod transaction;
-pub(crate) mod value;
+//! A task stored by Dice that is shared for all transactions at the same version
+pub(crate) struct DiceTask;
