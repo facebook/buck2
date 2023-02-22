@@ -174,7 +174,12 @@ impl Changes {
         let key = self.dice.key_index.index(Cow::<K>::Owned(key));
         if self.changes.insert(key, change).is_some() {
             Err(DiceError::duplicate(
-                self.dice.key_index.get(key).downcast::<K>().unwrap(),
+                self.dice
+                    .key_index
+                    .get(key)
+                    .unpack()
+                    .downcast::<K>()
+                    .unwrap(),
             ))
         } else {
             Ok(())

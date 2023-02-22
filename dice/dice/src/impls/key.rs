@@ -8,6 +8,7 @@
  */
 
 use std::any::Any;
+use std::hash::Hash;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -28,6 +29,27 @@ use crate::DiceComputations;
 pub(crate) struct DiceKey {
     /// represented as indexes into an internal index based map
     pub(crate) index: u32,
+}
+
+#[derive(Allocative, Clone, Dupe)]
+pub struct DiceKeyErased(Arc<dyn DiceKeyDyn>);
+
+impl DiceKeyErased {
+    pub(crate) fn new<K: Key>(k: K) -> Self {
+        Self(Arc::new(k))
+    }
+
+    pub(crate) fn unpack(self) -> Arc<dyn DiceKeyDyn> {
+        self.0
+    }
+
+    pub(crate) fn hash(&self) -> u64 {
+        self.0.hash()
+    }
+
+    pub(crate) fn eq_any(&self) -> PartialEqAny {
+        self.0.eq_any()
+    }
 }
 
 #[async_trait]
