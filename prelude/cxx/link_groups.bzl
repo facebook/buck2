@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//:paths.bzl", "paths")
 load(
     "@prelude//linking:link_groups.bzl",
     "LinkGroupLib",  # @unused Used as a type
@@ -574,7 +575,7 @@ def _create_link_group(
     # link the rule
     return cxx_link_shared_library(
         ctx,
-        ctx.actions.declare_output(spec.name),
+        ctx.actions.declare_output(paths.join("__link_groups__", spec.name)),
         name = spec.name if spec.is_shared_lib else None,
         links = [LinkArgs(infos = inputs)],
         category_suffix = category_suffix,

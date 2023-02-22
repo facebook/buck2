@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//:paths.bzl", "paths")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 
 def extract_symbol_names(
@@ -28,7 +29,7 @@ def extract_symbol_names(
 
     cxx_toolchain = get_cxx_toolchain_info(ctx)
     nm = cxx_toolchain.binary_utilities_info.nm
-    output = ctx.actions.declare_output(name)
+    output = ctx.actions.declare_output(paths.join("__symbols__", name))
 
     # -A: Prepend all lines with the name of the input file to which it
     # corresponds.  Added only to make parsing the output a bit easier.
