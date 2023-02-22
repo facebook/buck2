@@ -43,7 +43,7 @@ impl VersionTracker {
     }
 
     /// hands out the current "latest" committed version's associated transaction context
-    pub(crate) fn current(&mut self) -> VersionNumber {
+    pub(crate) fn current(&self) -> VersionNumber {
         self.current
     }
 

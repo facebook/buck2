@@ -28,7 +28,7 @@ use crate::versions::VersionNumber;
 pub struct DiceTransactionUpdater(pub(crate) DiceTransactionUpdaterImpl);
 
 impl DiceTransactionUpdater {
-    pub fn existing_state(&self) -> impl Future<Output = DiceComputations> {
+    pub fn existing_state(&self) -> impl Future<Output = DiceComputations> + '_ {
         self.0.existing_state()
     }
 

@@ -255,6 +255,7 @@ use crate::impls::dice::DiceModern;
 use crate::impls::dice::DiceModernDataBuilder;
 use crate::legacy::DiceLegacy;
 use crate::legacy::DiceLegacyDataBuilder;
+use crate::transaction_update::DiceTransactionUpdaterImpl;
 
 #[derive(Allocative, Debug)]
 pub(crate) enum DiceImplementation {
@@ -267,14 +268,18 @@ impl DiceImplementation {
     pub fn updater(&self) -> DiceTransactionUpdater {
         match self {
             DiceImplementation::Legacy(dice) => dice.updater(),
-            DiceImplementation::Modern(dice) => dice.updater(),
+            DiceImplementation::Modern(dice) => {
+                DiceTransactionUpdater(DiceTransactionUpdaterImpl::Modern(dice.updater()))
+            }
         }
     }
 
     pub fn updater_with_data(&self, extra: UserComputationData) -> DiceTransactionUpdater {
         match self {
             DiceImplementation::Legacy(dice) => dice.updater_with_data(extra),
-            DiceImplementation::Modern(dice) => dice.updater_with_data(extra),
+            DiceImplementation::Modern(dice) => DiceTransactionUpdater(
+                DiceTransactionUpdaterImpl::Modern(dice.updater_with_data(extra)),
+            ),
         }
     }
 

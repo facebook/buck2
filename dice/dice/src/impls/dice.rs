@@ -18,13 +18,11 @@ use serde::Serializer;
 
 use crate::api::cycles::DetectCycles;
 use crate::api::data::DiceData;
-use crate::api::transaction::DiceTransactionUpdater;
 use crate::api::user_data::UserComputationData;
 use crate::impls::core::state::init_state;
 use crate::impls::core::state::CoreStateHandle;
 use crate::impls::key_index::DiceKeyIndex;
 use crate::impls::transaction::TransactionUpdater;
-use crate::transaction_update::DiceTransactionUpdaterImpl;
 
 #[derive(Allocative)]
 pub(crate) struct DiceModern {
@@ -66,18 +64,12 @@ impl DiceModern {
         })
     }
 
-    pub fn updater(self: &Arc<Self>) -> DiceTransactionUpdater {
+    pub fn updater(self: &Arc<Self>) -> TransactionUpdater {
         self.updater_with_data(UserComputationData::new())
     }
 
-    pub fn updater_with_data(
-        self: &Arc<Self>,
-        extra: UserComputationData,
-    ) -> DiceTransactionUpdater {
-        DiceTransactionUpdater(DiceTransactionUpdaterImpl::Modern(TransactionUpdater::new(
-            self.dupe(),
-            Arc::new(extra),
-        )))
+    pub fn updater_with_data(self: &Arc<Self>, extra: UserComputationData) -> TransactionUpdater {
+        TransactionUpdater::new(self.dupe(), Arc::new(extra))
     }
 
     pub fn serialize_tsv(

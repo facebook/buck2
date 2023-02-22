@@ -60,6 +60,10 @@ impl StateProcessor {
                 }
             }
             StateRequest::DropCtxAtVersion { version } => self.state.drop_ctx_at_version(version),
+            StateRequest::CurrentVersion { resp } => {
+                // ignore error if the requester dropped it.
+                let _ = resp.send(self.state.current_version());
+            }
         }
     }
 }

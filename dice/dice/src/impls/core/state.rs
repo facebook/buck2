@@ -31,6 +31,10 @@ pub(crate) enum StateRequest {
         changes: Vec<(DiceKey, ChangeType)>,
         resp: Sender<VersionNumber>,
     },
+    /// Gets the current version number
+    CurrentVersion {
+        resp: Sender<VersionNumber>,
+    },
     /// Obtains the shared state ctx at the given version
     CtxAtVersion {
         version: VersionNumber,

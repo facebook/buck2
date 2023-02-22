@@ -33,7 +33,7 @@ pub(crate) enum DiceTransactionUpdaterImpl {
 }
 
 impl DiceTransactionUpdaterImpl {
-    pub(crate) fn existing_state(&self) -> impl Future<Output = DiceComputations> {
+    pub(crate) fn existing_state(&self) -> impl Future<Output = DiceComputations> + '_ {
         match self {
             DiceTransactionUpdaterImpl::Legacy(ctx) => {
                 futures::future::ready(DiceComputations(DiceComputationsImpl::Legacy(ctx.dupe())))

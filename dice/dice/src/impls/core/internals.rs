@@ -49,6 +49,10 @@ impl CoreState {
         self.version_tracker.at(v)
     }
 
+    pub(super) fn current_version(&self) -> VersionNumber {
+        self.version_tracker.current()
+    }
+
     pub(super) fn drop_ctx_at_version(&mut self, v: VersionNumber) {
         self.version_tracker.drop_at_version(v)
     }

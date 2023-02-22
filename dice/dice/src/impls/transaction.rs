@@ -8,7 +8,6 @@
  */
 
 use std::borrow::Cow;
-use std::future::Future;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -99,8 +98,25 @@ impl TransactionUpdater {
         PerComputeCtx::new(transaction, guard, Arc::new(extra), dice)
     }
 
-    pub(crate) fn existing_state(&self) -> impl Future<Output = PerComputeCtx> {
-        async move { unimplemented!("todo") }
+    pub(crate) async fn existing_state(&self) -> PerComputeCtx {
+        let (tx, rx) = oneshot::channel();
+        self.dice
+            .state_handle
+            .request(StateRequest::CurrentVersion { resp: tx });
+
+        let v = rx.await.unwrap();
+        let guard = ActiveTransactionGuard {
+            v,
+            dice: self.dice.dupe(),
+        };
+        let (tx, rx) = oneshot::channel();
+        self.dice.state_handle.request(StateRequest::CtxAtVersion {
+            version: v,
+            resp: tx,
+        });
+
+        let transaction = rx.await.unwrap();
+        PerComputeCtx::new(transaction, guard, self.user_data.dupe(), self.dice.dupe())
     }
 
     async fn commit_to_state(self) -> (ActiveTransactionGuard, Arc<PerLiveTransactionCtx>) {
@@ -192,28 +208,29 @@ mod tests {
     use crate::impls::dice::DiceModern;
     use crate::impls::transaction::ChangeType;
     use crate::impls::transaction::TransactionUpdater;
+    use crate::versions::VersionNumber;
+
+    #[derive(Allocative, Clone, PartialEq, Eq, Hash, Debug, Display)]
+    struct K(usize);
+
+    #[async_trait]
+    impl Key for K {
+        type Value = usize;
+
+        async fn compute(&self, _ctx: &DiceComputations) -> Self::Value {
+            unimplemented!("test")
+        }
+
+        fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
+            unimplemented!("test")
+        }
+    }
 
     #[test]
     fn changes_are_recorded() -> anyhow::Result<()> {
         let dice = DiceModern::new(DiceData::new());
         let mut updater =
             TransactionUpdater::new(dice.dupe(), Arc::new(UserComputationData::new()));
-
-        #[derive(Allocative, Clone, PartialEq, Eq, Hash, Debug, Display)]
-        struct K(usize);
-
-        #[async_trait]
-        impl Key for K {
-            type Value = usize;
-
-            async fn compute(&self, _ctx: &DiceComputations) -> Self::Value {
-                unimplemented!("test")
-            }
-
-            fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
-                unimplemented!("test")
-            }
-        }
 
         updater.changed(vec![K(1), K(2)])?;
 
@@ -251,6 +268,22 @@ mod tests {
             );
 
         assert!(updater.changed(vec![K(1)]).is_err());
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn transaction_versions() -> anyhow::Result<()> {
+        let dice = DiceModern::new(DiceData::new());
+        let mut updater = dice.updater();
+
+        updater.changed(vec![K(1), K(2)])?;
+
+        let ctx = updater.existing_state().await;
+        assert_eq!(ctx.get_version(), VersionNumber::new(0));
+
+        let ctx = updater.commit().await;
+        assert_eq!(ctx.get_version(), VersionNumber::new(1));
 
         Ok(())
     }
