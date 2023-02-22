@@ -7,22 +7,22 @@ A *target pattern* is a string that resolves to a set of [targets](./glossary.md
 
 The simplest build target pattern matches the build target of the same name:
 
-```
+```bash
 #
 # Matches //apps/myapp:app
 #
 //apps/myapp:app
 ```
 
-A build target pattern that ends with a colon matches all build targets in the build file at the preceding directory path. For example, suppose that the build file
+A build target pattern that ends with a colon matches all build targets in the build file at the preceding directory path. For example, suppose that the build file:
 
-```
+```sh
 apps/myapp/BUCK
 ```
 
 defines the rules: `app_v1` and `app_v2`, then the following build target pattern would match both of those rules:
 
-```
+```bash
 #
 # Matches //apps/myapp:app_v1 and //apps/myapp:app_v2
 #
@@ -31,14 +31,14 @@ defines the rules: `app_v1` and `app_v2`, then the following build target patter
 
 A build target pattern that ends with an ellipsis (`/...`) matches all build targets in the build file in the directory that precedes the ellipsis and also *all build targets in build files in subdirectories*. For example, suppose that you have the following build files:
 
-```
+```bash
 apps/BUCK
 apps/myapp/BUCK
 ```
 
 then the following pattern would match all build targets in both of those files:
 
-```
+```bash
 #
 # Matches (for example) //apps:common and //apps/myapp:app
 #
@@ -47,16 +47,16 @@ then the following pattern would match all build targets in both of those files:
 
 A target pattern that does not include a `:` separator matches the target with the same name as the last element of the path:
 
-```
+```bash
 #
 # Matches //apps/myapp:myapp
 #
 //apps/myapp
 ```
 
-Finally, target patterns can be relative to your current directory. For example,
+Finally, target patterns can be relative to your current directory. For example:
 
-```
+```bash
 #
 # If your current working directory is `apps`, matches //apps/myapp:myapp
 #
