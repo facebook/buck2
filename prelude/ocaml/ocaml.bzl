@@ -265,7 +265,7 @@ def _compile_cmd(ctx: "context", compiler: "cmd_args", cc: "cmd_args", includes:
     ocaml_toolchain = ctx.attrs._ocaml_toolchain[OCamlToolchainInfo]
 
     cmd = _compiler_cmd(ctx, compiler, cc)
-    cmd.add("-annot", "-bin-annot", "-no-alias-deps")
+    cmd.add("-bin-annot")  # TODO(sf, 2023-02-21): Move this to 'gen_modes.py'?
     cmd.add(ocaml_toolchain.ocaml_compiler_flags)
     cmd.add(cmd_args(includes, format = "-I={}"))
 
@@ -311,21 +311,6 @@ def _preprocess(ctx: "context", srcs: ["artifact"], build_mode: BuildMode.type) 
 
 # Generate the dependencies
 def _depends(ctx: "context", srcs: ["artifact"], build_mode: BuildMode.type) -> "artifact":
-    # Utility for harvesting pp/ppx args from a context's compiler
-    # flags.
-    def gather(flag: str.type, ctx: "context") -> ["_a"]:
-        gather, next = ([], False)
-        for f in ctx.attrs.compiler_flags:
-            if next:
-                gather.append(f)
-
-            # TODO: This reliance on `str` is fragile and discouraged.
-            # Do something better (see
-            # https://www.internalfb.com/diff/D32210793 for some
-            # discussion on what that might be).
-            next = str(f) == flag
-        return gather
-
     ocaml_toolchain = ctx.attrs._ocaml_toolchain[OCamlToolchainInfo]
     ocamldep = ocaml_toolchain.dep_tool
 
@@ -333,9 +318,10 @@ def _depends(ctx: "context", srcs: ["artifact"], build_mode: BuildMode.type) -> 
     dep_output = ctx.actions.declare_output(dep_output_filename)
     dep_cmdline = cmd_args([ocamldep, "-native"])  # Yes, always native (see D36426635 for details).
 
-    # If there are any pp or ppx flags pass them to ocamldep.
-    dep_cmdline.add(cmd_args([g for g in gather("\"-pp\"", ctx)], format = "-pp \"{}\""))
-    dep_cmdline.add(cmd_args([g for g in gather("\"-ppx\"", ctx)], format = "-ppx \"{}\""))
+    # We are writing the command into a file for later execution. Each flag
+    # needs enclosing in quotes (since it's possible that some flags contain
+    # might contain whitespace e.g. `foo --as-ppx`).
+    dep_cmdline.add([cmd_args(f, format = "\"{}\"") for f in ctx.attrs.ocamldep_flags])
 
     # These -I's are for ocamldep.
     dep_cmdline.add(cmd_args([cmd_args(src).parent() for src in srcs], format = "-I {}"))
