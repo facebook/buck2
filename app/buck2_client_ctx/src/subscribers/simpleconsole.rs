@@ -267,8 +267,8 @@ where
             self.last_had_open_spans = Instant::now();
             return Ok(());
         }
-        // Do nothing if less than 10 minutes since last open span
-        if self.last_had_open_spans.elapsed().as_secs() < 10 * 60 {
+        // Do nothing if less than 1 minute since last open span
+        if self.last_had_open_spans.elapsed().as_secs() < 60 {
             return Ok(());
         }
         // When command is stuck we call `rage` to gather debugging information
