@@ -71,7 +71,7 @@ impl AuditSubcommand for DeferredMaterializerCommand {
                         let mut stdout = server_ctx.stdout()?;
 
                         while let Some((path, entry)) = stream.next().await {
-                            writeln!(stdout, "{}\t{}\n", path, entry)?;
+                            writeln!(stdout, "{}\t{}", path, entry)?;
                         }
                     }
                     DeferredMaterializerSubcommand::Refresh { min_ttl } => {
