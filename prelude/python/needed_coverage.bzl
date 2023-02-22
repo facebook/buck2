@@ -44,8 +44,6 @@ def _parse_python_needed_coverage_spec(
     else:
         modules = coverage.modules.values()
 
-    expect(len(modules) > 0, "no modules found for {} ({})", dep.label, coverage)
-
     return PythonNeededCoverage(
         ratio = ratio_percentage,
         modules = modules,
