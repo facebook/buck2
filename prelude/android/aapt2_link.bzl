@@ -95,15 +95,23 @@ def get_aapt2_link(
     # This is a faster filtering step that just uses zip -d to remove entries from the archive.
     # It's also superbly dangerous.
     if len(extra_filtered_resources) > 0:
-        filter_resources_cmd = cmd_args()
-        filter_resources_cmd.add(["zip", "-d"])
-        filter_resources_cmd.add(resources_apk)
-        filter_resources_cmd.add(extra_filtered_resources)
-
-        ctx.actions.run(filter_resources_cmd, category = "aapt2_filter_resources")
+        filtered_resources_apk = ctx.actions.declare_output("filtered-resource-apk.ap_")
+        filter_resources_sh_cmd = cmd_args([
+            "sh",
+            "-c",
+            "cp $1 $2 && zip -d $2 $3",
+            "--",
+            resources_apk,
+            filtered_resources_apk.as_output(),
+            extra_filtered_resources,
+        ])
+        ctx.actions.run(filter_resources_sh_cmd, category = "aapt2_filter_resources")
+        primary_resources_apk = filtered_resources_apk
+    else:
+        primary_resources_apk = resources_apk
 
     return Aapt2LinkInfo(
-        primary_resources_apk = resources_apk,
+        primary_resources_apk = primary_resources_apk,
         proguard_config_file = proguard_config,
         r_dot_txt = r_dot_txt,
     )
