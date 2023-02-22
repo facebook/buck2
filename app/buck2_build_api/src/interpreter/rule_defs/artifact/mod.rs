@@ -158,6 +158,7 @@ pub mod testing {
                 None,
                 ForwardRelativePathBuf::try_from(path.to_owned()).unwrap(),
                 OutputType::File,
+                None,
             )?;
             Ok(StarlarkDeclaredArtifact::new(
                 None,
@@ -183,6 +184,7 @@ pub mod testing {
                 None,
                 ForwardRelativePathBuf::try_from(path.to_owned()).unwrap(),
                 OutputType::File,
+                None,
             )?;
             let outputs = indexset![artifact.as_output()];
             registry.register(

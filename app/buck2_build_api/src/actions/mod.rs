@@ -34,7 +34,6 @@ pub(crate) mod registry;
 
 use std::borrow::Cow;
 use std::fmt::Debug;
-use std::path::PathBuf;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -226,7 +225,7 @@ pub(crate) enum ActionErrors {
     #[error(
         "Multiple artifacts and/or metadata files are declared at conflicting output locations. Output path `{0}` conflicts with the following output paths: {1:?}."
     )]
-    ConflictingOutputPaths(ForwardRelativePathBuf, Vec<PathBuf>),
+    ConflictingOutputPaths(ForwardRelativePathBuf, Vec<String>),
     #[error(
         "Action category `{0}` contains duplicate identifier `{1}`; category-identifier pairs must be unique within a rule"
     )]

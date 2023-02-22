@@ -13,6 +13,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_core::category::Category;
+use buck2_core::directory;
 use buck2_core::directory::Directory;
 use buck2_core::directory::DirectoryBuilder;
 use buck2_core::directory::DirectoryEntry;
@@ -21,13 +22,13 @@ use buck2_core::directory::DirectoryIterator;
 use buck2_core::directory::NoDigest;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
-use buck2_core::soft_error;
 use buck2_execute::base_deferred_key::BaseDeferredKey;
 use buck2_execute::execute::request::OutputType;
 use buck2_execute::path::buck_out_path::BuckOutPath;
 use buck2_node::configuration::execution::ExecutionPlatformResolution;
 use dupe::Dupe;
 use indexmap::IndexSet;
+use starlark::codemap::FileSpan;
 
 use crate::actions::artifact::DeclaredArtifact;
 use crate::actions::artifact::OutputArtifact;
@@ -53,7 +54,7 @@ pub struct ActionsRegistry {
         ActionToBeRegistered,
     )>,
     execution_platform: ExecutionPlatformResolution,
-    claimed_output_paths: DirectoryBuilder<(), NoDigest>,
+    claimed_output_paths: DirectoryBuilder<Option<FileSpan>, NoDigest>,
 }
 
 impl ActionsRegistry {
@@ -83,10 +84,14 @@ impl ActionsRegistry {
         DeclaredArtifact::new(path, output_type, 0)
     }
 
-    pub fn claim_output_path(&mut self, path: &ForwardRelativePath) -> anyhow::Result<()> {
+    pub fn claim_output_path(
+        &mut self,
+        path: &ForwardRelativePath,
+        declaration_location: Option<FileSpan>,
+    ) -> anyhow::Result<()> {
         match self
             .claimed_output_paths
-            .insert(path, DirectoryEntry::Leaf(()))
+            .insert(path, DirectoryEntry::Leaf(declaration_location))
         {
             Ok(None) => Ok(()),
             Ok(Some(conflict)) => match conflict {
@@ -97,8 +102,14 @@ impl ActionsRegistry {
                     let conflicting_paths = conflict_dir
                         .ordered_walk()
                         .with_paths()
-                        .filter_map(|(p, i)| match i {
-                            DirectoryEntry::Leaf(_) => Some(path.join(p).to_string().into()),
+                        .filter_map(|(p, entry)| match entry {
+                            DirectoryEntry::Leaf(location) => Some(format!(
+                                "{} declared at {}",
+                                path.join(p),
+                                location
+                                    .as_ref()
+                                    .map_or(&"<unknown>" as _, |l| l as &dyn std::fmt::Display)
+                            )),
                             _ => None,
                         })
                         .collect::<Vec<_>>();
@@ -112,34 +123,23 @@ impl ActionsRegistry {
                 Err(anyhow::anyhow!(ActionErrors::EmptyOutputPath))
             }
             Err(DirectoryInsertError::CannotTraverseLeaf { path: conflict }) => {
+                let location = match directory::find(&self.claimed_output_paths, &conflict) {
+                    Ok(Some(DirectoryEntry::Leaf(l))) => l.as_ref(),
+                    _ => None,
+                };
+
+                let conflict = format!(
+                    "{} declared at {}",
+                    conflict,
+                    location
+                        .as_ref()
+                        .map_or(&"<unknown>" as _, |l| l as &dyn std::fmt::Display)
+                );
+
                 Err(anyhow::anyhow!(ActionErrors::ConflictingOutputPaths(
                     path.to_owned(),
-                    vec![conflict.to_string().into()],
+                    vec![conflict],
                 )))
-            }
-        }
-    }
-
-    /// Temporary wrapper for gradual rollout of conflicts detection
-    fn soft_claim_output_path(&mut self, path: &ForwardRelativePath) -> anyhow::Result<()> {
-        let result = self.claim_output_path(path);
-        match result {
-            Ok(x) => Ok(x),
-            Err(e) => {
-                if let Some(action_error) = e.downcast_ref::<ActionErrors>() {
-                    // Only fail on exact conflicts where two artifacts have exactly same paths.
-                    if let ActionErrors::ConflictingOutputPath(_) = action_error {
-                        Err(e)
-                    } else {
-                        soft_error!(
-                            "conflicting_output_path",
-                            e.context(format!("Error in target: `{}`", self.owner))
-                        )?;
-                        Ok(())
-                    }
-                } else {
-                    panic!("expected one of `ActionErrors`");
-                }
             }
         }
     }
@@ -150,12 +150,13 @@ impl ActionsRegistry {
         prefix: Option<ForwardRelativePathBuf>,
         path: ForwardRelativePathBuf,
         output_type: OutputType,
+        declaration_location: Option<FileSpan>,
     ) -> anyhow::Result<DeclaredArtifact> {
         let (path, hidden) = match prefix {
             None => (path, 0),
             Some(prefix) => (prefix.join(path), prefix.iter().count()),
         };
-        self.soft_claim_output_path(&path)?;
+        self.claim_output_path(&path, declaration_location)?;
         let out_path =
             BuckOutPath::with_action_key(self.owner.dupe(), path, self.action_key.dupe());
         let declared = DeclaredArtifact::new(out_path, output_type, hidden);
@@ -253,8 +254,6 @@ impl ActionsRegistry {
 
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
-
     use assert_matches::assert_matches;
     use buck2_common::executor_config::CommandExecutorConfig;
     use buck2_core::category::Category;
@@ -296,20 +295,20 @@ mod tests {
             ActionsRegistry::new(base.dupe(), ExecutionPlatformResolution::unspecified());
         let out1 = ForwardRelativePathBuf::unchecked_new("bar.out".into());
         let buckout1 = BuckOutPath::new(base.dupe(), out1.clone());
-        let declared1 = actions.declare_artifact(None, out1.clone(), OutputType::File)?;
+        let declared1 = actions.declare_artifact(None, out1.clone(), OutputType::File, None)?;
         declared1
             .get_path()
             .with_full_path(|p| assert_eq!(p, buckout1.path()));
 
         let out2 = ForwardRelativePathBuf::unchecked_new("bar2.out".into());
         let buckout2 = BuckOutPath::new(base, out2.clone());
-        let declared2 = actions.declare_artifact(None, out2, OutputType::File)?;
+        let declared2 = actions.declare_artifact(None, out2, OutputType::File, None)?;
         declared2
             .get_path()
             .with_full_path(|p| assert_eq!(p, buckout2.path()));
 
         if actions
-            .declare_artifact(None, out1, OutputType::File)
+            .declare_artifact(None, out1, OutputType::File, None)
             .is_ok()
         {
             panic!("should error due to duplicate artifact")
@@ -334,16 +333,16 @@ mod tests {
         );
 
         let out1 = ForwardRelativePathBuf::unchecked_new("foo/a/1".into());
-        actions.claim_output_path(&out1)?;
+        actions.claim_output_path(&out1, None)?;
 
         let out2 = ForwardRelativePathBuf::unchecked_new("foo/a/2".into());
-        actions.claim_output_path(&out2)?;
+        actions.claim_output_path(&out2, None)?;
 
         {
-            let expected_conflicts: Vec<PathBuf> = vec!["foo/a/1".into()];
+            let expected_conflicts = vec!["foo/a/1 declared at <unknown>".to_owned()];
             let prefix_claimed = ForwardRelativePathBuf::unchecked_new("foo/a/1/some/path".into());
             assert_matches!(
-                actions.claim_output_path(&prefix_claimed),
+                actions.claim_output_path(&prefix_claimed, None),
                 Err(e) => {
                     assert_matches!(
                         e.downcast_ref::<ActionErrors>(),
@@ -356,7 +355,7 @@ mod tests {
         }
 
         assert_matches!(
-            actions.claim_output_path(&out1),
+            actions.claim_output_path(&out1, None),
             Err(e) => {
                 assert_matches!(
                     e.downcast_ref::<ActionErrors>(),
@@ -367,9 +366,12 @@ mod tests {
 
         {
             let overwrite_dir = ForwardRelativePathBuf::unchecked_new("foo".into());
-            let expected_conflicts: Vec<PathBuf> = vec!["foo/a/1".into(), "foo/a/2".into()];
+            let expected_conflicts = vec![
+                "foo/a/1 declared at <unknown>".to_owned(),
+                "foo/a/2 declared at <unknown>".to_owned(),
+            ];
             assert_matches!(
-                actions.claim_output_path(&overwrite_dir),
+                actions.claim_output_path(&overwrite_dir, None),
                 Err(e) => {
                     assert_matches!(
                         e.downcast_ref::<ActionErrors>(),
@@ -395,7 +397,7 @@ mod tests {
         let mut actions =
             ActionsRegistry::new(base.dupe(), ExecutionPlatformResolution::unspecified());
         let out = ForwardRelativePathBuf::unchecked_new("bar.out".into());
-        let declared = actions.declare_artifact(None, out, OutputType::File)?;
+        let declared = actions.declare_artifact(None, out, OutputType::File, None)?;
 
         let inputs = indexset![ArtifactGroup::Artifact(
             BuildArtifact::testing_new(
@@ -446,7 +448,7 @@ mod tests {
             ),
         );
         let out = ForwardRelativePathBuf::unchecked_new("bar.out".into());
-        let declared = actions.declare_artifact(None, out, OutputType::File)?;
+        let declared = actions.declare_artifact(None, out, OutputType::File, None)?;
 
         let inputs = indexset![ArtifactGroup::Artifact(
             BuildArtifact::testing_new(

@@ -110,8 +110,13 @@ impl<'v> AnalysisRegistry<'v> {
     /// Reserves a path in an output directory. Doesn't declare artifact,
     /// but checks that there is no previously declared artifact with a path
     /// which is in conflict with claimed `path`.
-    pub(crate) fn claim_output_path(&mut self, path: &ForwardRelativePath) -> anyhow::Result<()> {
-        self.actions.claim_output_path(path)
+    pub(crate) fn claim_output_path(
+        &mut self,
+        eval: &Evaluator<'_, '_>,
+        path: &ForwardRelativePath,
+    ) -> anyhow::Result<()> {
+        let declaration_location = eval.call_stack_top_location();
+        self.actions.claim_output_path(path, declaration_location)
     }
 
     pub(crate) fn declare_dynamic_output(
@@ -127,6 +132,7 @@ impl<'v> AnalysisRegistry<'v> {
         prefix: Option<&str>,
         filename: &str,
         output_type: OutputType,
+        declaration_location: Option<FileSpan>,
     ) -> anyhow::Result<DeclaredArtifact> {
         // We want this artifact to be a file/directory inside the current context, which means
         // things like `..` and the empty path `.` can be bad ideas. The `::new` method checks for those
@@ -141,7 +147,8 @@ impl<'v> AnalysisRegistry<'v> {
             None => None,
             Some(x) => Some(ForwardRelativePath::new(x)?.to_owned()),
         };
-        self.actions.declare_artifact(prefix, path, output_type)
+        self.actions
+            .declare_artifact(prefix, path, output_type, declaration_location)
     }
 
     /// Takes a string or artifact/output artifact and converts it into an output artifact
@@ -166,7 +173,8 @@ impl<'v> AnalysisRegistry<'v> {
         let declaration_location = eval.call_stack_top_location();
         let heap = eval.heap();
         if let Some(path) = value.unpack_str() {
-            let artifact = self.declare_output(None, path, output_type)?;
+            let artifact =
+                self.declare_output(None, path, output_type, declaration_location.dupe())?;
             Ok((
                 ArtifactDeclaration {
                     artifact: ArtifactDeclarationKind::DeclaredArtifact(artifact.dupe()),

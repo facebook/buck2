@@ -439,7 +439,12 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         } else {
             OutputType::FileOrDirectory
         };
-        let artifact = this.state().declare_output(prefix, filename, output_type)?;
+        let artifact = this.state().declare_output(
+            prefix,
+            filename,
+            output_type,
+            eval.call_stack_top_location(),
+        )?;
 
         Ok(StarlarkDeclaredArtifact::new(
             eval.call_stack_top_location(),
@@ -580,6 +585,7 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
                     None,
                     &format!("{}/{}.macro", &macro_directory_path, i),
                     OutputType::File,
+                    eval.call_stack_top_location(),
                 )?;
                 written_macro_files.insert(macro_file);
             }
@@ -734,7 +740,7 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         #[starlark(require = named, default = false)] no_outputs_cleanup: bool,
         #[starlark(require = named, default = false)] allow_cache_upload: bool,
         #[starlark(require = named, default = false)] force_full_hybrid_if_capable: bool,
-        heap: &'v Heap,
+        eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<NoneType> {
         struct RunCommandArtifactVisitor {
             inner: SimpleCommandLineArtifactVisitor,
@@ -853,7 +859,7 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         let metadata_param = match (metadata_env_var, metadata_path) {
             (Some(env_var), Some(path)) => {
                 let path: ForwardRelativePathBuf = path.try_into()?;
-                this.state().claim_output_path(&path)?;
+                this.state().claim_output_path(eval, &path)?;
                 Ok(Some(MetadataParameter { env_var, path }))
             }
             (Some(_), None) => Err(anyhow::anyhow!(RunActionError::MetadataPathMissing)),
@@ -864,7 +870,7 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         if artifacts.outputs.is_empty() {
             return Err(RunActionError::NoOutputsSpecified.into());
         }
-        let starlark = heap.alloc((starlark_cli, starlark_env));
+        let starlark = eval.heap().alloc((starlark_cli, starlark_env));
 
         let action = UnregisteredRunAction {
             category,
