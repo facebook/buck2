@@ -31,7 +31,7 @@ struct LogInfo {
     timestamp_end: Option<SystemTime>,
 }
 
-pub async fn get(log: &EventLogPathBuf) -> anyhow::Result<String> {
+pub(crate) async fn get(log: &EventLogPathBuf) -> anyhow::Result<String> {
     let (invocation, events) = log.unpack_stream().await?;
     let mut filtered_events = events.try_filter_map(|log| {
         let maybe_buck_event = match log {
