@@ -170,7 +170,10 @@ impl DefaultIoHandler {
                             debug: Arc::from(e.message.as_str()),
                         },
                         _ => MaterializeEntryError::Error(e.context({
-                            format!("Error materializing files declared by action: {}", info)
+                            format!(
+                                "Error materializing files declared by action: {}",
+                                info.origin
+                            )
                         })),
                     })?;
             }

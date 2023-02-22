@@ -238,7 +238,7 @@ enum MaterializeEntryError {
     Error(#[from] anyhow::Error),
 
     /// The artifact wasn't found. This typically means it expired in the CAS.
-    #[error("Artifact not found (digest origin: {}, debug: {})", .info, .debug)]
+    #[error("Artifact not found (digest origin: {}, debug: {})", .info.origin.as_display_for_not_found(), .debug)]
     NotFound {
         info: Arc<CasDownloadInfo>,
         debug: Arc<str>,
@@ -449,7 +449,7 @@ enum ArtifactMaterializationMethod {
     Write(Arc<WriteFile>),
 
     /// The files must be fetched from the CAS.
-    #[display(fmt = "cas download (action: {})", .info)]
+    #[display(fmt = "cas download (action: {})", "info.origin")]
     CasDownload {
         /// The digest of the action that produced this output
         info: Arc<CasDownloadInfo>,

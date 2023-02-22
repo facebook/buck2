@@ -89,7 +89,7 @@ pub enum MaterializationError {
         has been online for a long time. This error is currently unrecoverable. \
         To proceed, you should restart Buck using `buck2 killall` (debug info: {})",
         .path,
-        .info,
+        .info.origin.as_display_for_not_found(),
         .debug
     )]
     NotFound {
@@ -365,7 +365,7 @@ impl CopiedArtifact {
 }
 
 #[derive(Debug)]
-enum CasDownloadInfoOrigin {
+pub enum CasDownloadInfoOrigin {
     /// Declared by an action that executed on RE.
     Execution {
         /// Digest of the action that led us to discover this CAS object.
@@ -399,10 +399,6 @@ impl fmt::Display for CasDownloadInfoOrigin {
                     action_instant.elapsed().as_secs_f64(),
                     ttl.as_secs_f64()
                 )?;
-
-                if action_instant.elapsed() < *ttl {
-                    write!(f, " (not expired: action cache corruption)")?;
-                }
             }
             Self::Declared => {
                 write!(f, "declared")?;
@@ -413,11 +409,41 @@ impl fmt::Display for CasDownloadInfoOrigin {
     }
 }
 
+impl CasDownloadInfoOrigin {
+    pub fn as_display_for_not_found(&self) -> CasDownloadInfoOriginNotFound<'_> {
+        CasDownloadInfoOriginNotFound { inner: self }
+    }
+}
+
+/// A Display wrapper for CasDownloadInfoOrigin in cases where this origin was not found (in those
+/// cases we want to report potential action cache corruption).
+pub struct CasDownloadInfoOriginNotFound<'a> {
+    inner: &'a CasDownloadInfoOrigin,
+}
+
+impl fmt::Display for CasDownloadInfoOriginNotFound<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.inner.fmt(f)?;
+
+        match self.inner {
+            CasDownloadInfoOrigin::Execution {
+                action_instant,
+                ttl,
+                ..
+            } if action_instant.elapsed() < *ttl => {
+                write!(f, " (not expired: action cache corruption)")?;
+            }
+            _ => {}
+        }
+
+        Ok(())
+    }
+}
+
 /// Information about a CAS download we might require when an artifact is not materialized.
-#[derive(Debug, Display)]
-#[display(fmt = "{}", "self.origin")]
+#[derive(Debug)]
 pub struct CasDownloadInfo {
-    origin: CasDownloadInfoOrigin,
+    pub origin: CasDownloadInfoOrigin,
     /// RE Use case to use whne downloading this
     pub re_use_case: RemoteExecutorUseCase,
 }
@@ -488,7 +514,7 @@ pub enum ArtifactNotMaterializedReason {
         but has not been downloaded",
         .path,
         .entry,
-        .info
+        .info.origin.as_display_for_not_found()
     )]
     RequiresCasDownload {
         path: ProjectRelativePathBuf,
@@ -505,7 +531,7 @@ pub enum ArtifactNotMaterializedReason {
         this exact path.",
         .path,
         .entry,
-        .info
+        .info.origin
     )]
     DeferredMaterializerCorruption {
         path: ProjectRelativePathBuf,
