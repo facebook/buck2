@@ -141,14 +141,6 @@ impl PerLiveTransactionCtx {
         async move { unimplemented!("todo") }
     }
 
-    /// Data that is static for the lifetime of the current request context. This lifetime is
-    /// the lifetime of the top-level `DiceComputation` used for all requests.
-    /// The data is also specific to each request context, so multiple concurrent requests can
-    /// each have their own individual data.
-    pub(crate) fn per_transaction_data(&self) -> &UserComputationData {
-        unimplemented!("todo")
-    }
-
     pub(crate) fn get_version(&self) -> VersionNumber {
         self.version
     }
