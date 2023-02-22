@@ -142,7 +142,7 @@ def cxx_python_extension_impl(ctx: "context") -> ["provider"]:
         if not ctx.attrs.allow_suffixing:
             pyinit_symbol = "PyInit_{}".format(module_name)
         else:
-            suffix = base_module.replace("/", "_") + module_name
+            suffix = base_module.replace("/", "$") + module_name
             static_output = libraries.outputs[LinkStyle("static")]
             static_pic_output = libraries.outputs[LinkStyle("static_pic")]
             cxx_toolchain = get_cxx_toolchain_info(ctx)

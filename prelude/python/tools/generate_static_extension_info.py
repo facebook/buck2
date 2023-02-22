@@ -22,11 +22,14 @@ def main(argv: List[str]) -> int:
     table = [
         "std::unordered_map<std::string, pyinitfunc>  _static_extension_info = {",
     ]
+    i = 0
     for python_name in args.extension:
         module_name, pyinit_func = python_name.split(":")
-        # If this is a top level module we do not suffix the PyInit_ symbol
-        externs.append(f"PyMODINIT_FUNC {pyinit_func}(void);")
-        table.append(f'  {{ "{module_name}", {pyinit_func} }},')
+        # Use of the 'asm' directive allows us to use symbol names that would otherwise be invalid in C
+        # For example foo.bar/baz would be foo.bar$baz which is invalid as a c function name
+        externs.append(f'PyMODINIT_FUNC dummy_name_{i}(void) asm ("{pyinit_func}");')
+        table.append(f'  {{ "{module_name}", dummy_name_{i} }},')
+        i += 1
     table.append("};")
 
     out_lines = (
