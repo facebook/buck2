@@ -12,7 +12,6 @@ use gazebo::variants::VariantName;
 use crate::impls::core::internals::CoreState;
 use crate::impls::core::state::CoreStateHandle;
 use crate::impls::core::state::StateRequest;
-use crate::impls::core::versions::VersionTracker;
 
 pub(super) struct StateProcessor {
     state: CoreState,
@@ -43,10 +42,9 @@ impl StateProcessor {
         debug!("Processor terminated");
     }
 
-    #[cfg_attr(fbcode_build, instrument(skip_all, fields(kind = %message.variant_name())))]
+    #[instrument(skip_all, fields(kind = %message.variant_name()))]
     fn iteration(&mut self, message: StateRequest) {
         match message {
-            StateRequest::Todo => {}
             StateRequest::UpdateState { changes, resp } => {
                 // ignore error if the requester dropped it.
                 let _ = resp.send(self.state.update_state(changes));

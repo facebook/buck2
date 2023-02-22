@@ -7,16 +7,12 @@
  * of this source tree.
  */
 
-#[allow(unused)] // TODO(bobyf)
 pub(crate) mod core;
-#[allow(unused)] // TODO(bobyf)
 pub(crate) mod ctx;
 pub(crate) mod dice;
 mod hash;
 pub(crate) mod key;
-#[allow(unused)] // TODO(bobyf)
 mod key_index;
 pub(crate) mod opaque;
 pub(crate) mod transaction;
-#[allow(unused)] // TODO(bobyf)
 pub(crate) mod value;

@@ -27,6 +27,7 @@ impl Debug for DiceValue {
     }
 }
 
+#[allow(unused)]
 impl DiceValue {
     pub(crate) fn new<V: DiceValueDyn>(value: V) -> DiceValue {
         DiceValue(Arc::new(value))

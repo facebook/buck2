@@ -14,7 +14,6 @@ use gazebo::variants::VariantName;
 use tokio::sync::oneshot::Sender;
 
 use crate::impls::core::processor::StateProcessor;
-use crate::impls::core::versions::VersionTracker;
 use crate::impls::ctx::PerLiveTransactionCtx;
 use crate::impls::key::DiceKey;
 use crate::impls::transaction::ChangeType;
@@ -23,8 +22,6 @@ use crate::versions::VersionNumber;
 /// Core state is accessed via message passing to a single threaded processor
 #[derive(Debug, VariantName)]
 pub(crate) enum StateRequest {
-    // TODO
-    Todo,
     /// Updates the core state with the given set of changes. The new VersionNumber that should be
     /// used is sent back via the channel provided
     UpdateState {
@@ -32,18 +29,14 @@ pub(crate) enum StateRequest {
         resp: Sender<VersionNumber>,
     },
     /// Gets the current version number
-    CurrentVersion {
-        resp: Sender<VersionNumber>,
-    },
+    CurrentVersion { resp: Sender<VersionNumber> },
     /// Obtains the shared state ctx at the given version
     CtxAtVersion {
         version: VersionNumber,
         resp: Sender<Arc<PerLiveTransactionCtx>>,
     },
     /// Report that a computation context at a version has been dropped
-    DropCtxAtVersion {
-        version: VersionNumber,
-    },
+    DropCtxAtVersion { version: VersionNumber },
 }
 
 /// A handle to the core state that allows sending requests

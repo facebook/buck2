@@ -193,21 +193,17 @@ pub(crate) enum ChangeType {
 #[cfg(test)]
 mod tests {
     use std::borrow::Cow;
-    use std::sync::Arc;
 
     use allocative::Allocative;
     use assert_matches::assert_matches;
     use async_trait::async_trait;
     use derive_more::Display;
-    use dupe::Dupe;
 
     use crate::api::computations::DiceComputations;
     use crate::api::data::DiceData;
     use crate::api::key::Key;
-    use crate::api::user_data::UserComputationData;
     use crate::impls::dice::DiceModern;
     use crate::impls::transaction::ChangeType;
-    use crate::impls::transaction::TransactionUpdater;
     use crate::versions::VersionNumber;
 
     #[derive(Allocative, Clone, PartialEq, Eq, Hash, Debug, Display)]
@@ -229,8 +225,7 @@ mod tests {
     #[test]
     fn changes_are_recorded() -> anyhow::Result<()> {
         let dice = DiceModern::new(DiceData::new());
-        let mut updater =
-            TransactionUpdater::new(dice.dupe(), Arc::new(UserComputationData::new()));
+        let mut updater = dice.updater();
 
         updater.changed(vec![K(1), K(2)])?;
 

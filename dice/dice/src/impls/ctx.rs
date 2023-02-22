@@ -13,12 +13,10 @@ use std::sync::Arc;
 use allocative::Allocative;
 use dupe::Dupe;
 use futures::FutureExt;
-use more_futures::spawn::spawn_dropcancel;
 
 use crate::api::data::DiceData;
 use crate::api::error::DiceResult;
 use crate::api::key::Key;
-use crate::api::transaction::DiceTransactionUpdater;
 use crate::api::user_data::UserComputationData;
 use crate::impls::dice::DiceModern;
 use crate::impls::opaque::OpaqueValueModern;
@@ -35,7 +33,7 @@ pub(crate) struct PerComputeCtx {
     dice: Arc<DiceModern>,
 }
 
-#[allow(clippy::manual_async_fn)]
+#[allow(clippy::manual_async_fn, unused)]
 impl PerComputeCtx {
     pub(crate) fn new(
         per_live_version_ctx: Arc<PerLiveTransactionCtx>,
@@ -123,7 +121,7 @@ pub(crate) struct PerLiveTransactionCtx {
     version: VersionNumber,
 }
 
-#[allow(clippy::manual_async_fn)]
+#[allow(clippy::manual_async_fn, unused)]
 impl PerLiveTransactionCtx {
     pub(crate) fn new(v: VersionNumber) -> Arc<Self> {
         Arc::new(Self { version: v })
@@ -158,7 +156,7 @@ impl PerLiveTransactionCtx {
 
 #[cfg(test)]
 mod tests {
-    use crate::impls::dice::DiceModern;
+
     use crate::impls::dice::DiceModernDataBuilder;
     use crate::DetectCycles;
     use crate::UserComputationData;
@@ -166,12 +164,12 @@ mod tests {
     #[tokio::test]
     async fn ctx_and_updater_with_user_data() {
         let dice = {
-            let mut updater = DiceModernDataBuilder::new();
+            let updater = DiceModernDataBuilder::new();
 
             updater.build(DetectCycles::Disabled)
         };
 
-        let mut updater = dice.updater();
+        let updater = dice.updater();
         let mut data = UserComputationData::new();
         data.data.set::<u32>(5);
 
@@ -194,7 +192,7 @@ mod tests {
 
         let mut data = UserComputationData::new();
         data.data.set::<u32>(2);
-        let mut updater = dice.updater_with_data(data);
+        let updater = dice.updater_with_data(data);
 
         let ctx = updater.commit().await;
         let set_data = ctx

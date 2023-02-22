@@ -114,12 +114,12 @@ mod tests {
     fn simple_version_increases() {
         let mut vt = VersionTracker::new();
 
-        let vg = vt.at(VersionNumber::new(0));
+        let _vg = vt.at(VersionNumber::new(0));
         assert_matches!(
             vt.active_versions.get(&VersionNumber::new(0)), Some(active) if active.ref_count == 1
         );
 
-        let vg = vt.at(VersionNumber::new(0));
+        let _vg = vt.at(VersionNumber::new(0));
         assert_matches!(
             vt.active_versions.get(&VersionNumber::new(0)), Some(active) if active.ref_count == 2
         );
