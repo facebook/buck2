@@ -195,7 +195,11 @@ impl MaterializerCounters {
 // refcounting any of this (though we make many copies of it).
 #[derive(Copy_, Dupe_, Clone_)]
 struct MaterializerSender<T: ?Sized + 'static> {
+    /// High priority commands are processed in order.
     high_priority: &'static mpsc::UnboundedSender<MaterializerCommand<T>>,
+    /// Low priority commands are processed in order relative to each other, but high priority
+    /// commands can be reordered ahead of them.
+    low_priority: &'static mpsc::UnboundedSender<LowPriorityMaterializerCommand>,
     counters: MaterializerCounters,
 }
 
@@ -208,10 +212,20 @@ impl<T> MaterializerSender<T> {
         self.counters.sent.fetch_add(1, Ordering::Relaxed);
         res
     }
+
+    fn send_low_priority(
+        &self,
+        command: LowPriorityMaterializerCommand,
+    ) -> Result<(), mpsc::error::SendError<LowPriorityMaterializerCommand>> {
+        let res = self.low_priority.send(command);
+        self.counters.sent.fetch_add(1, Ordering::Relaxed);
+        res
+    }
 }
 
 struct MaterializerReceiver<T> {
     high_priority: mpsc::UnboundedReceiver<MaterializerCommand<T>>,
+    low_priority: mpsc::UnboundedReceiver<LowPriorityMaterializerCommand>,
     counters: MaterializerCounters,
 }
 
@@ -316,18 +330,6 @@ enum MaterializerCommand<T: ?Sized> {
         oneshot::Sender<BoxStream<'static, Result<(), MaterializationError>>>,
     ),
 
-    /// [Materialization task -> Command thread]
-    /// Notifies the command thread that an artifact was materialized. It takes
-    /// the artifact path and the version that was materialized, such that if
-    /// a newer version was declared during materialization - which should not
-    /// happen under normal conditions - we can react accordingly.
-    MaterializationFinished {
-        path: ProjectRelativePathBuf,
-        timestamp: DateTime<Utc>,
-        version: u64,
-        result: Result<(), SharedMaterializingError>,
-    },
-
     Extension(Box<dyn ExtensionCommand<T>>),
 }
 
@@ -354,7 +356,30 @@ impl<T> std::fmt::Debug for MaterializerCommand<T> {
                 write!(f, "InvalidateFilePaths({:?})", paths)
             }
             MaterializerCommand::Ensure(paths, _, _) => write!(f, "Ensure({:?}, _)", paths,),
-            MaterializerCommand::MaterializationFinished {
+            MaterializerCommand::Extension(ext) => write!(f, "Extension({:?})", ext),
+        }
+    }
+}
+
+/// Materializer commands that can be reordered with regard to other commands.
+enum LowPriorityMaterializerCommand {
+    /// [Materialization task -> Command thread]
+    /// Notifies the command thread that an artifact was materialized. It takes
+    /// the artifact path and the version that was materialized, such that if
+    /// a newer version was declared during materialization - which should not
+    /// happen under normal conditions - we can react accordingly.
+    MaterializationFinished {
+        path: ProjectRelativePathBuf,
+        timestamp: DateTime<Utc>,
+        version: u64,
+        result: Result<(), SharedMaterializingError>,
+    },
+}
+
+impl std::fmt::Debug for LowPriorityMaterializerCommand {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::MaterializationFinished {
                 path,
                 timestamp,
                 version,
@@ -366,7 +391,6 @@ impl<T> std::fmt::Debug for MaterializerCommand<T> {
                 .field("version", version)
                 .field("result", result)
                 .finish(),
-            MaterializerCommand::Extension(ext) => write!(f, "Extension({:?})", ext),
         }
     }
 }
@@ -737,16 +761,19 @@ impl DeferredMaterializer {
         sqlite_state: Option<MaterializerState>,
     ) -> anyhow::Result<Self> {
         let (high_priority_sender, high_priority_receiver) = mpsc::unbounded_channel();
+        let (low_priority_sender, low_priority_receiver) = mpsc::unbounded_channel();
 
         let counters = MaterializerCounters::leak_new();
 
         let command_sender = MaterializerSender {
             high_priority: Box::leak(box high_priority_sender),
+            low_priority: Box::leak(box low_priority_sender),
             counters,
         };
 
         let command_receiver = MaterializerReceiver {
             high_priority: high_priority_receiver,
+            low_priority: low_priority_receiver,
             counters,
         };
 
@@ -853,11 +880,13 @@ impl std::fmt::Display for LogBuffer {
 #[pin_project]
 struct CommandStream<T> {
     high_priority: UnboundedReceiver<MaterializerCommand<T>>,
+    low_priority: UnboundedReceiver<LowPriorityMaterializerCommand>,
     refresh_ttl_ticker: Option<Interval>,
 }
 
 enum Op<T> {
     Command(MaterializerCommand<T>),
+    LowPriorityCommand(LowPriorityMaterializerCommand),
     RefreshTtls,
 }
 
@@ -869,6 +898,10 @@ impl<T> Stream for CommandStream<T> {
 
         if let Poll::Ready(Some(e)) = this.high_priority.poll_recv(cx) {
             return Poll::Ready(Some(Op::Command(e)));
+        }
+
+        if let Poll::Ready(Some(e)) = this.low_priority.poll_recv(cx) {
+            return Poll::Ready(Some(Op::LowPriorityCommand(e)));
         }
 
         if let Some(ticker) = this.refresh_ttl_ticker.as_mut() {
@@ -896,6 +929,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
     ) {
         let MaterializerReceiver {
             high_priority,
+            low_priority,
             counters,
         } = commands;
 
@@ -916,6 +950,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
 
         let mut stream = CommandStream {
             high_priority,
+            low_priority,
             refresh_ttl_ticker,
         };
 
@@ -989,8 +1024,16 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                                 ))
                                 .ok();
                         }
+                        MaterializerCommand::Extension(ext) => ext.execute(&mut tree, &mut self),
+                    }
+
+                    counters.ack_received();
+                }
+                Op::LowPriorityCommand(command) => {
+                    self.log_buffer.push(format!("{:?}", command));
+                    match command {
                         // Materialization of artifact succeeded
-                        MaterializerCommand::MaterializationFinished {
+                        LowPriorityMaterializerCommand::MaterializationFinished {
                             path,
                             timestamp,
                             version,
@@ -1012,7 +1055,6 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                             );
                             next_version += 1;
                         }
-                        MaterializerCommand::Extension(ext) => ext.execute(&mut tree, &mut self),
                     }
 
                     counters.ack_received();
@@ -1471,12 +1513,14 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 };
 
                 // Materialization finished, notify the command thread
-                let _ignored = command_sender.send(MaterializerCommand::MaterializationFinished {
-                    path: path_buf_dup,
-                    timestamp,
-                    version,
-                    result: res.dupe(),
-                });
+                let _ignored = command_sender.send_low_priority(
+                    LowPriorityMaterializerCommand::MaterializationFinished {
+                        path: path_buf_dup,
+                        timestamp,
+                        version,
+                        result: res.dupe(),
+                    },
+                );
 
                 res
             })
