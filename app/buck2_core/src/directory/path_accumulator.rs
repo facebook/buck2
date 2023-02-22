@@ -52,6 +52,15 @@ impl fmt::Display for PathAccumulator {
     }
 }
 
+impl<'a> IntoIterator for &'a PathAccumulator {
+    type Item = &'a FileName;
+    type IntoIter = impl Iterator<Item = Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.inner.iter().rev().map(|e| e.as_ref())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -63,5 +72,10 @@ mod tests {
 
         let p = p.with(FileName::unchecked_new("bar"));
         assert_eq!(p.to_string(), "bar/foo");
+
+        let mut iter = (&p).into_iter();
+        assert_eq!(iter.next().unwrap().to_string(), "bar");
+        assert_eq!(iter.next().unwrap().to_string(), "foo");
+        assert_eq!(iter.next(), None);
     }
 }
