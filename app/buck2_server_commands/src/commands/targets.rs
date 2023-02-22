@@ -107,6 +107,25 @@ struct JsonFormat {
     target_call_stacks: bool,
 }
 
+impl JsonFormat {
+    fn entry_start(&self, buffer: &mut String) {
+        buffer.push_str("  {\n");
+    }
+
+    fn entry_end(&self, buffer: &mut String) {
+        buffer.push_str("  }");
+    }
+
+    fn entry_item(&self, buffer: &mut String, first: &mut bool, key: &str, value: &str) {
+        if *first {
+            *first = false;
+        } else {
+            buffer.push_str(",\n");
+        }
+        write!(buffer, "    \"{}\": {}", key, value).unwrap();
+    }
+}
+
 impl TargetFormatter for JsonFormat {
     fn begin(&self, buffer: &mut String) {
         buffer.push_str("[\n");
@@ -119,7 +138,7 @@ impl TargetFormatter for JsonFormat {
     }
 
     fn target(&self, package: PackageLabel, target_info: TargetInfo<'_>, buffer: &mut String) {
-        buffer.push_str("  {\n");
+        self.entry_start(buffer);
         let mut first = true;
 
         fn print_attr(
@@ -134,11 +153,7 @@ impl TargetFormatter for JsonFormat {
                     return;
                 }
             }
-            if !*first {
-                buffer.push_str(",\n");
-            }
-            *first = false;
-            write!(buffer, "    \"{}\": {}", k, v()).unwrap();
+            this.entry_item(buffer, first, k, &v());
         }
 
         print_attr(self, buffer, &mut first, TYPE, || {
@@ -199,7 +214,7 @@ impl TargetFormatter for JsonFormat {
         if !first {
             buffer.push('\n');
         }
-        buffer.push_str("  }");
+        self.entry_end(buffer);
     }
 
     fn imports(
@@ -209,32 +224,52 @@ impl TargetFormatter for JsonFormat {
         package: Option<PackageLabel>,
         buffer: &mut String,
     ) {
-        buffer.push_str("  {\n");
+        self.entry_start(buffer);
+        let mut first = true;
         if let Some(package) = package {
-            writeln!(buffer, "    \"{}\": \"{}\",", PACKAGE, package).unwrap();
+            self.entry_item(
+                buffer,
+                &mut first,
+                PACKAGE,
+                &quote_json_string(&package.to_string()),
+            );
         }
-        writeln!(buffer, "    \"buck.file\": \"{}\",", source).unwrap();
-        writeln!(
+        self.entry_item(
             buffer,
-            "    \"buck.imports\": [{}]",
-            imports
-                .map(|d| quote_json_string(&d.path().to_string()))
-                .join(", ")
-        )
-        .unwrap();
-        buffer.push_str("  }");
+            &mut first,
+            "buck.file",
+            &quote_json_string(&source.to_string()),
+        );
+        self.entry_item(
+            buffer,
+            &mut first,
+            "buck.imports",
+            &format!(
+                "[{}]",
+                imports
+                    .map(|d| quote_json_string(&d.path().to_string()))
+                    .join(", ")
+            ),
+        );
+        self.entry_end(buffer);
     }
 
     fn package_error(&self, package: PackageLabel, error: &anyhow::Error, buffer: &mut String) {
-        buffer.push_str("  {\n");
-        writeln!(buffer, "    \"{}\": \"{}\",", PACKAGE, package).unwrap();
-        writeln!(
+        self.entry_start(buffer);
+        let mut first = true;
+        self.entry_item(
             buffer,
-            "    \"buck.error\": {}",
-            quote_json_string(&format!("{:?}", error))
-        )
-        .unwrap();
-        buffer.push_str("  }");
+            &mut first,
+            PACKAGE,
+            &quote_json_string(&package.to_string()),
+        );
+        self.entry_item(
+            buffer,
+            &mut first,
+            "buck.error",
+            &quote_json_string(&format!("{:?}", error)),
+        );
+        self.entry_end(buffer);
     }
 }
 
