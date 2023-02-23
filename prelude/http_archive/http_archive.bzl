@@ -8,17 +8,51 @@
 load("@prelude//utils:utils.bzl", "expect", "value_or")
 
 # Flags to apply to decompress the various types of archives.
-_FLAGS = {
+_TAR_FLAGS = {
     "tar.gz": "-z",
     "tar.xz": "-J",
     "tar.zst": "--use-compress-program=unzstd",
 }
 
+_ARCHIVE_EXTS = _TAR_FLAGS.keys() + [
+    "zip",
+]
+
+def _url_path(url: str.type) -> str.type:
+    if "?" in url:
+        return url.split("?")[0]
+    else:
+        return url
+
+def _type_from_url(url: str.type) -> [str.type, None]:
+    url_path = _url_path(url)
+    for filename_ext in _ARCHIVE_EXTS:
+        if url_path.endswith("." + filename_ext):
+            return filename_ext
+    return None
+
 def _type(ctx: "context") -> str.type:
-    typ = value_or(ctx.attrs.type, "tar.gz")
-    if typ not in _FLAGS:
-        fail("unsupported `type`: {}".format(typ))
+    url = ctx.attrs.urls[0]
+    typ = ctx.attrs.type
+    if typ == None:
+        typ = value_or(_type_from_url(url), "tar.gz")
+    if typ not in _ARCHIVE_EXTS:
+        fail("unsupported archive type: {}".format(typ))
     return typ
+
+def _unarchive_cmd(ext_type: str.type, archive: "artifact") -> [""]:
+    if ext_type in _TAR_FLAGS:
+        return [
+            "tar",
+            _TAR_FLAGS[ext_type],
+            "-x",
+            "-f",
+            archive,
+        ]
+    elif ext_type == "zip":
+        return ["unzip", archive]
+    else:
+        fail()
 
 def http_archive_impl(ctx: "context") -> ["provider"]:
     expect(len(ctx.attrs.urls) == 1, "multiple `urls` not support: {}".format(ctx.attrs.urls))
@@ -28,17 +62,20 @@ def http_archive_impl(ctx: "context") -> ["provider"]:
     # remotely, unless we can defer them.
     local_only = ctx.attrs.sha1 == None
 
+    ext_type = _type(ctx)
+
     # Download archive.
-    archive = ctx.actions.declare_output("archive.tgz")
+    archive = ctx.actions.declare_output("archive." + ext_type)
     url = ctx.attrs.urls[0]
     ctx.actions.download_file(archive.as_output(), url, sha1 = ctx.attrs.sha1, sha256 = ctx.attrs.sha256, is_deferrable = True)
 
     # Unpack archive to output directory.
-    compress_flag = _FLAGS[_type(ctx)]
-
     exclude_flags = []
     exclude_hidden = []
     if ctx.attrs.excludes:
+        tar_flags = _TAR_FLAGS.get(ext_type)
+        expect(tar_flags != None, "excludes not supported for non-tar archives")
+
         # Tar excludes files using globs, but we take regexes, so we need to
         # apply our regexes onto the file listing and produce an exclusion list
         # that just has strings.
@@ -47,7 +84,7 @@ def http_archive_impl(ctx: "context") -> ["provider"]:
             ctx.attrs._create_exclusion_list[RunInfo],
             "--tar-archive",
             archive,
-            cmd_args(compress_flag, format = "--tar-flag={}"),
+            cmd_args(tar_flags, format = "--tar-flag={}"),
             "--out",
             exclusions.as_output(),
         ]
@@ -64,16 +101,7 @@ def http_archive_impl(ctx: "context") -> ["provider"]:
         [
             cmd_args(output, format = "mkdir -p {}"),
             cmd_args(output, format = "cd {}"),
-            cmd_args(
-                [
-                    "tar",
-                    compress_flag,
-                    "-x",
-                    "-f",
-                    archive,
-                ] + exclude_flags,
-                delimiter = " ",
-            ).relative_to(output),
+            cmd_args(_unarchive_cmd(ext_type, archive) + exclude_flags, delimiter = " ").relative_to(output),
         ],
         is_executable = True,
         allow_args = True,
