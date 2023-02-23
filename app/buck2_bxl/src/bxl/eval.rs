@@ -36,6 +36,7 @@ use buck2_interpreter::starlark_profiler::StarlarkProfileModeOrInstrumentation;
 use buck2_interpreter::starlark_profiler::StarlarkProfiler;
 use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
+use buck2_interpreter_for_build::interpreter::print_handler::EventDispatcherPrintHandler;
 use dice::DiceComputations;
 use dice::DiceTransaction;
 use dupe::Dupe;
@@ -94,7 +95,7 @@ pub async fn eval(
     let dispatcher = ctx.per_transaction_data().get_dispatcher().dupe();
 
     with_structured_cancellation(|cancellation| async move {
-        tokio::task::spawn_blocking(with_dispatcher(dispatcher, || {
+        tokio::task::spawn_blocking(with_dispatcher(dispatcher.clone(), || {
             move || {
                 let env = Module::new();
 
@@ -120,6 +121,9 @@ pub async fn eval(
                 let file = RefCell::new(box project_fs.create_file(&file_path, false)?);
 
                 let mut eval = Evaluator::new(&env);
+
+                let print = EventDispatcherPrintHandler(dispatcher.clone());
+                eval.set_print_handler(&print);
 
                 let mut profiler_opt = profile_mode_or_instrumentation
                     .profile_mode()

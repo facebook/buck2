@@ -21,6 +21,8 @@ use buck2_core::configuration::transition::applied::TransitionApplied;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::configuration::ConfigurationData;
 use buck2_core::target::label::TargetLabel;
+use buck2_events::dispatch::get_dispatcher;
+use buck2_interpreter_for_build::interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::display::AttrDisplayWithContextExt;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
@@ -125,6 +127,8 @@ async fn do_apply_transition(
         refs_refs.push(provider_collection_value);
     }
     let mut eval = Evaluator::new(&module);
+    let print = EventDispatcherPrintHandler(get_dispatcher());
+    eval.set_print_handler(&print);
     let refs = module.heap().alloc(AllocStruct(refs));
     let attrs = match (&transition.attrs, attrs) {
         (Some(names), Some(values)) => {

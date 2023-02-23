@@ -23,6 +23,7 @@ use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::soft_error;
+use buck2_events::dispatch::get_dispatcher;
 use buck2_interpreter::extra::cell_info::InterpreterCellInfo;
 use buck2_interpreter::file_loader::InterpreterFileLoader;
 use buck2_interpreter::file_loader::LoadResolver;
@@ -53,6 +54,7 @@ use starlark::values::ValueLike;
 use starlark_map::small_map::SmallMap;
 use thiserror::Error;
 
+use super::print_handler::EventDispatcherPrintHandler;
 use crate::interpreter::build_context::BuildContext;
 use crate::interpreter::build_context::PerFileTypeContext;
 use crate::interpreter::global_interpreter_state::GlobalInterpreterState;
@@ -466,6 +468,8 @@ impl InterpreterForCell {
             self.ignore_attrs_for_profiling,
         );
         let mut eval = Evaluator::new(env);
+        let print = EventDispatcherPrintHandler(get_dispatcher());
+        eval.set_print_handler(&print);
         eval.set_loader(&file_loader);
         eval.extra = Some(&extra);
         profiler.initialize(&mut eval)?;

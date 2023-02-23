@@ -37,12 +37,14 @@ use buck2_core::target::label::TargetLabel;
 use buck2_core::target::name::TargetName;
 use buck2_core::target::name::TargetNameRef;
 use buck2_core::unsafe_send_future::UnsafeSendFuture;
+use buck2_events::dispatch::get_dispatcher;
 use buck2_execute::anon_target::AnonTarget;
 use buck2_execute::base_deferred_key::BaseDeferredKey;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
 use buck2_interpreter::types::label::Label;
 use buck2_interpreter_for_build::attrs::coerce::attr_type::AttrTypeInnerExt;
+use buck2_interpreter_for_build::interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter_for_build::rule::FrozenRuleCallable;
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::dep::DepAttr;
@@ -321,6 +323,8 @@ impl AnonTargetKey {
         let rule_impl = get_rule_impl(dice, self.0.rule_type()).await?;
         let env = Module::new();
         let mut eval = Evaluator::new(&env);
+        let print = EventDispatcherPrintHandler(get_dispatcher());
+        eval.set_print_handler(&print);
 
         let dep_analysis_results: HashMap<_, _> = keep_going::try_join_all(
             self.deps()?

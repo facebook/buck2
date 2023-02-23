@@ -17,11 +17,13 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_core::unsafe_send_future::UnsafeSendFuture;
+use buck2_events::dispatch::get_dispatcher;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_interpreter::starlark_profiler::StarlarkProfileDataAndStats;
 use buck2_interpreter::starlark_profiler::StarlarkProfileModeOrInstrumentation;
 use buck2_interpreter::starlark_profiler::StarlarkProfiler;
 use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
+use buck2_interpreter_for_build::interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter_for_build::rule::FrozenRuleCallable;
 use buck2_node::configuration::execution::ExecutionPlatformResolution;
 use dice::DiceComputations;
@@ -293,6 +295,8 @@ async fn run_analysis_with_env_underlying(
 ) -> anyhow::Result<AnalysisResult> {
     let env = Module::new();
     let mut eval = Evaluator::new(&env);
+    let print = EventDispatcherPrintHandler(get_dispatcher());
+    eval.set_print_handler(&print);
 
     let resolution_ctx = RuleAnalysisAttrResolutionContext {
         module: &env,

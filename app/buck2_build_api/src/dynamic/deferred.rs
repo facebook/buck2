@@ -13,8 +13,10 @@ use std::sync::Arc;
 use allocative::Allocative;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
+use buck2_events::dispatch::get_dispatcher;
 use buck2_execute::base_deferred_key::BaseDeferredKey;
 use buck2_interpreter::types::label::Label;
+use buck2_interpreter_for_build::interpreter::print_handler::EventDispatcherPrintHandler;
 use dupe::Dupe;
 use gazebo::prelude::*;
 use indexmap::indexset;
@@ -174,6 +176,8 @@ impl Deferred for DynamicLambda {
         let env = Module::new();
         let heap = env.heap();
         let mut eval = Evaluator::new(&env);
+        let print = EventDispatcherPrintHandler(get_dispatcher());
+        eval.set_print_handler(&print);
 
         let data =
             TupleRef::from_value(self.attributes_lambda.owned_value(env.frozen_heap())).unwrap();
