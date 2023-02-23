@@ -374,7 +374,7 @@ def _create_jar_artifact(
     Returns a single artifacts that represents jar output file
     """
     javac_tool = javac_tool or java_toolchain.javac
-    jar_out = output or actions.declare_output(paths.join(actions_identifier or "jar", "lib.jar"))
+    jar_out = output or actions.declare_output(paths.join(actions_identifier or "jar", "{}.jar".format(label.name)))
 
     args = [
         java_toolchain.compile_and_package[RunInfo],

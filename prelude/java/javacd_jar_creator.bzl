@@ -76,7 +76,7 @@ def create_jar_artifact_javacd(
     bootclasspath_entries = add_java_7_8_bootclasspath(target_level, bootclasspath_entries, java_toolchain)
     abi_generation_mode = get_abi_generation_mode(abi_generation_mode, java_toolchain, srcs, ap_params)
 
-    output_paths = define_output_paths(actions, actions_identifier)
+    output_paths = define_output_paths(actions, actions_identifier, label)
     path_to_class_hashes_out = declare_prefixed_output(actions, actions_identifier, "classes.txt")
 
     compiling_deps_tset = get_compiling_deps_tset(actions, deps, additional_classpath_entries)

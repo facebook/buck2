@@ -106,14 +106,14 @@ def get_qualified_name(label: "label", target_type: TargetType.type) -> str.type
         TargetType("source_only_abi"): base_qualified_name(label) + "[source-only-abi]",
     }[target_type]
 
-def define_output_paths(actions: "actions", prefix: [str.type, None]) -> OutputPaths.type:
+def define_output_paths(actions: "actions", prefix: [str.type, None], label: "label") -> OutputPaths.type:
     # currently, javacd requires that at least some outputs are in the root
     # output dir. so we put all of them there. If javacd is updated we
     # could consolidate some of these into one subdir.
     jar_parent = declare_prefixed_output(actions, prefix, "jar", dir = True)
     return OutputPaths(
         jar_parent = jar_parent,
-        jar = jar_parent.project("lib.jar"),
+        jar = jar_parent.project("{}.jar".format(label.name)),
         classes = declare_prefixed_output(actions, prefix, "__classes__", dir = True),
         annotations = declare_prefixed_output(actions, prefix, "__gen__", dir = True),
         scratch = declare_prefixed_output(actions, prefix, "scratch", dir = True),
@@ -431,7 +431,7 @@ def generate_abi_jars(
             source_abi_identifier = declare_prefixed_name("source_abi", actions_identifier)
             source_abi_target_type = TargetType("source_abi")
             source_abi_qualified_name = get_qualified_name(label, source_abi_target_type)
-            source_abi_output_paths = define_output_paths(actions, source_abi_identifier)
+            source_abi_output_paths = define_output_paths(actions, source_abi_identifier, label)
             source_abi_dir = declare_prefixed_output(actions, source_abi_identifier, "source-abi-dir", dir = True)
             source_abi_command = encode_abi_command(source_abi_output_paths, source_abi_target_type)
             define_action(
@@ -454,7 +454,7 @@ def generate_abi_jars(
             source_only_abi_identifier = declare_prefixed_name("source_only_abi", actions_identifier)
             source_only_abi_target_type = TargetType("source_only_abi")
             source_only_abi_qualified_name = get_qualified_name(label, source_only_abi_target_type)
-            source_only_abi_output_paths = define_output_paths(actions, source_only_abi_identifier)
+            source_only_abi_output_paths = define_output_paths(actions, source_only_abi_identifier, label)
             source_only_abi_dir = declare_prefixed_output(actions, source_only_abi_identifier, "dir", dir = True)
             source_only_abi_command = encode_abi_command(source_only_abi_output_paths, source_only_abi_target_type)
             define_action(
