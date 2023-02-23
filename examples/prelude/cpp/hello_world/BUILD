@@ -2,9 +2,9 @@ load("//test_utils.bzl", "assert_output")
 
 cxx_binary(
     name = "main",
-    link_style = "static",
     srcs = ["main.cpp"],
-    deps = ["//cpp/library:print"]
+    link_style = "static",
+    deps = ["//cpp/library:print"],
 ) if not host_info().os.is_windows else None
 
 assert_output(

@@ -4,8 +4,8 @@ ocaml_library(
     name = "ppx-record-selectors",
     srcs = ["record_selectors.ml"],
     deps = [
-        "//third-party/ocaml:ppxlib"
-    ]
+        "//third-party/ocaml:ppxlib",
+    ],
 ) if not host_info().os.is_windows else None
 
 ocaml_binary(
@@ -14,10 +14,10 @@ ocaml_binary(
     compiler_flags = [
         "-linkall",
     ],
-   deps = [
+    deps = [
         ":ppx-record-selectors",
         "//third-party/ocaml:ppxlib",
-    ]
+    ],
 ) if not host_info().os.is_windows else None
 
 ocaml_binary(
@@ -25,8 +25,8 @@ ocaml_binary(
     srcs = ["ppx_record_selectors_test.ml"],
     compiler_flags = [
         "-pp",
-        "$(exe :ppx)"
-    ]
+        "$(exe :ppx)",
+    ],
 ) if not host_info().os.is_windows else None
 
 # [Note: Use the 'expand' sub-target to see the effects of

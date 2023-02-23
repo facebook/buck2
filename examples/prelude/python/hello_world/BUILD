@@ -2,8 +2,8 @@ load("//test_utils.bzl", "assert_output")
 
 python_binary(
     name = "main",
+    main = "main/main.py",
     deps = ["//python/library:printlib"],
-    main = "main/main.py"
 )
 
 assert_output(

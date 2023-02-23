@@ -3,9 +3,8 @@ load("//test_utils.bzl", "assert_output")
 ocaml_binary(
     name = "hello-world",
     srcs = ["hello_world.ml"],
-    deps = [":hello-world-lib"]
+    deps = [":hello-world-lib"],
 ) if not host_info().os.is_windows else None
-
 
 ocaml_library(
     name = "hello-world-lib",

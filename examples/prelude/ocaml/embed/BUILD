@@ -10,15 +10,15 @@ cxx_binary(
     srcs = ["fib.cpp"],
     deps = [
         ":fib-ml",
-        "//third-party/ocaml:ocaml-dev"
+        "//third-party/ocaml:ocaml-dev",
     ],
 ) if host_info().os.is_macos else None
 
 rust_binary(
     name = "fib-rs",
     srcs = ["fib.rs"],
-    deps = [":fib-ml"],
     crate_root = "fib.rs",
+    deps = [":fib-ml"],
 ) if host_info().os.is_macos else None
 
 assert_output(
