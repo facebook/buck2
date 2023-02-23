@@ -179,6 +179,27 @@ mod fbcode {
                                 truncate_cmd(last_command, !action_execution.failed);
                             }
                         }
+                        Some(Data::Command(ref mut command_end)) => {
+                            use buck2_data::command_end::Data;
+                            match &mut command_end.data {
+                                Some(Data::Build(ref mut build_command_end)) => {
+                                    Self::truncate_target_patterns(
+                                        &mut build_command_end.unresolved_target_patterns,
+                                    );
+                                }
+                                Some(Data::Test(ref mut test_command_end)) => {
+                                    Self::truncate_target_patterns(
+                                        &mut test_command_end.unresolved_target_patterns,
+                                    );
+                                }
+                                Some(Data::Install(ref mut install_command_end)) => {
+                                    Self::truncate_target_patterns(
+                                        &mut install_command_end.unresolved_target_patterns,
+                                    );
+                                }
+                                _ => {}
+                            }
+                        }
                         _ => {}
                     };
                 }
@@ -189,6 +210,9 @@ mod fbcode {
                             const TRUNCATED_DETAILS_LENGTH: usize = 512 * 1024; // 512Kb
                             test_result.details =
                                 truncate(&test_result.details, TRUNCATED_DETAILS_LENGTH);
+                        }
+                        Some(Data::TargetPatterns(ref mut target_patterns)) => {
+                            Self::truncate_target_patterns(&mut target_patterns.target_patterns);
                         }
                         _ => {}
                     }
@@ -215,10 +239,53 @@ mod fbcode {
                                 }
                             }
                         }
+                        if let Some(ref mut resolved_target_patterns) =
+                            invocation_record.resolved_target_patterns
+                        {
+                            Self::truncate_target_patterns(
+                                &mut resolved_target_patterns.target_patterns,
+                            );
+                        }
+                        if let Some(ref mut command_end) = invocation_record.command_end {
+                            use buck2_data::command_end::Data;
+                            match &mut command_end.data {
+                                Some(Data::Build(ref mut build_command_end)) => {
+                                    Self::truncate_target_patterns(
+                                        &mut build_command_end.unresolved_target_patterns,
+                                    );
+                                }
+                                Some(Data::Test(ref mut test_command_end)) => {
+                                    Self::truncate_target_patterns(
+                                        &mut test_command_end.unresolved_target_patterns,
+                                    );
+                                }
+                                Some(Data::Install(ref mut install_command_end)) => {
+                                    Self::truncate_target_patterns(
+                                        &mut install_command_end.unresolved_target_patterns,
+                                    );
+                                }
+                                _ => {}
+                            }
+                        }
                     }
                 }
                 _ => {}
             };
+        }
+
+        fn truncate_target_patterns(target_patterns: &mut Vec<buck2_data::TargetPattern>) {
+            const MAX_TARGET_PATTERNS_BYTES: usize = 512 * 1024;
+            let orig_len = target_patterns.len();
+            let mut bytes: usize = 0;
+            for (index, target) in target_patterns.iter().enumerate() {
+                bytes += target.value.len();
+                if bytes > MAX_TARGET_PATTERNS_BYTES {
+                    target_patterns.truncate(index);
+                    let warn = format!("<<Truncated (reported {} / {})>>", index, orig_len);
+                    target_patterns.push(buck2_data::TargetPattern { value: warn });
+                    break;
+                }
+            }
         }
     }
 
