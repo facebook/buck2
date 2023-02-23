@@ -74,15 +74,13 @@ enum DaemonError {
 /// Buck client invokes it to spawn a server process.
 #[derive(Clone, Debug, clap::Parser)]
 pub(crate) struct DaemonCommand {
-    #[clap(
-        help(
-            "Sets the interval for how often the daemon performs consistency checks. These are used to ensure that the daemon is still the one referenced by files in the daemon dir."
-        ),
-        long,
-        default_value("60")
-    )]
+    /// Sets the interval for how often the daemon performs consistency checks.
+    /// These are used to ensure that the daemon is still the one referenced
+    /// by files in the daemon dir.
+    #[clap(long, default_value("60"))]
     checker_interval_seconds: u64,
-    #[clap(help("Run buck daemon but do not daemonize the process"), long)]
+    /// Run buck daemon but do not daemonize the process.
+    #[clap(long)]
     dont_daemonize: bool,
     /// Do not redirect stdout/stderr to a file.
     /// This is used for in-process server, because if we redirect,
