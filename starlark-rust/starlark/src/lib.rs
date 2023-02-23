@@ -388,6 +388,7 @@ mod macros;
 
 pub use starlark_derive::starlark_module;
 pub use starlark_derive::StarlarkDocs;
+pub use stdlib::PrintHandler;
 
 pub(crate) mod analysis;
 pub mod any;
