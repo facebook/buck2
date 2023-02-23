@@ -4,9 +4,12 @@ name = BUCK2
 [repositories]
 root = .
 prelude = prelude
-ovr_config = prelude
 toolchains = toolchains
 config = config
+none = none
+
+[repository_aliases]
+ovr_config = prelude
 buck = none
 fbcode = none
 fbsource = none

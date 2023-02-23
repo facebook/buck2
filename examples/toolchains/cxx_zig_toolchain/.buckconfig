@@ -1,12 +1,15 @@
 [repositories]
 self = .
-ovr_config = prelude
 prelude = prelude
 toolchains = toolchains
-buck = no
-fbcode = no
-fbcode_macros = no
-fbsource = no
+none = none
+
+[repository_aliases]
+ovr_config = prelude
+buck = none
+fbcode = none
+fbcode_macros = none
+fbsource = none
 
 [buildfile]
 name = BUILD
