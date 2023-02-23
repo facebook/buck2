@@ -1,3 +1,4 @@
+# buildifier: disable=no-effect
 prebuilt_cxx_library(
     name = "ocaml-dev",
     header_dirs = ["standard_library"],
@@ -5,6 +6,7 @@ prebuilt_cxx_library(
     visibility = ["PUBLIC"],
 ) if not host_info().os.is_windows else None
 
+# buildifier: disable=no-effect
 prebuilt_ocaml_library(
     name = "ocaml-compiler-libs.shadow",
     bytecode_lib = "opam/lib/ocaml-compiler-libs/shadow/ocaml_shadow.cma",
@@ -13,6 +15,7 @@ prebuilt_ocaml_library(
     visibility = ["PUBLIC"],
 ) if not host_info().os.is_windows else None
 
+# buildifier: disable=no-effect
 prebuilt_ocaml_library(
     name = "ppx_derivers",
     bytecode_lib = "opam/lib/ppx_derivers/ppx_derivers.cma",
@@ -21,6 +24,7 @@ prebuilt_ocaml_library(
     visibility = ["PUBLIC"],
 ) if not host_info().os.is_windows else None
 
+# buildifier: disable=no-effect
 prebuilt_ocaml_library(
     name = "ocaml.compiler-libs.common",
     bytecode_lib = "standard_library/compiler-libs/ocamlcommon.cma",
@@ -30,6 +34,7 @@ prebuilt_ocaml_library(
     deps = [],
 ) if not host_info().os.is_windows else None
 
+# buildifier: disable=no-effect
 prebuilt_ocaml_library(
     name = "ocaml-compiler-libs.common",
     bytecode_lib = "opam/lib/ocaml-compiler-libs/common/ocaml_common.cma",
@@ -39,6 +44,7 @@ prebuilt_ocaml_library(
     deps = [],
 ) if not host_info().os.is_windows else None
 
+# buildifier: disable=no-effect
 prebuilt_ocaml_library(
     name = "ppxlib.traverse_builtins",
     bytecode_lib = "opam/lib/ppxlib/traverse_builtins/ppxlib_traverse_builtins.cma",
@@ -59,6 +65,7 @@ prebuilt_ocaml_library(
     ],
 ) if not host_info().os.is_windows else None
 
+# buildifier: disable=no-effect
 prebuilt_ocaml_library(
     name = "ppxlib.print_diff",
     bytecode_lib = "opam/lib/ppxlib/print_diff/ppxlib_print_diff.cma",
@@ -67,6 +74,7 @@ prebuilt_ocaml_library(
     visibility = ["PUBLIC"],
 ) if not host_info().os.is_windows else None
 
+# buildifier: disable=no-effect
 prebuilt_ocaml_library(
     name = "ppxlib.ast",
     bytecode_lib = "opam/lib/ppxlib/ast/ppxlib_ast.cma",
@@ -76,6 +84,7 @@ prebuilt_ocaml_library(
     deps = [":ppxlib.astlib"],
 ) if not host_info().os.is_windows else None
 
+# buildifier: disable=no-effect
 prebuilt_ocaml_library(
     name = "sexplib0",
     bytecode_lib = "opam/lib/sexplib0/sexplib0.cma",
@@ -84,6 +93,7 @@ prebuilt_ocaml_library(
     visibility = ["PUBLIC"],
 ) if not host_info().os.is_windows else None
 
+# buildifier: disable=no-effect
 prebuilt_ocaml_library(
     name = "stdlib-shims",
     bytecode_lib = "opam/lib/stdlib-shims/stdlib_shims.cma",
@@ -92,6 +102,7 @@ prebuilt_ocaml_library(
     visibility = ["PUBLIC"],
 ) if not host_info().os.is_windows else None
 
+# buildifier: disable=no-effect
 prebuilt_ocaml_library(
     name = "ppxlib.stdppx",
     bytecode_lib = "opam/lib/ppxlib/stdppx/stdppx.cma",
@@ -104,6 +115,7 @@ prebuilt_ocaml_library(
     ],
 ) if not host_info().os.is_windows else None
 
+# buildifier: disable=no-effect
 prebuilt_ocaml_library(
     name = "ppxlib",
     bytecode_lib = "opam/lib/ppxlib/ppxlib.cma",

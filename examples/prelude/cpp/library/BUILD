@@ -1,3 +1,4 @@
+# buildifier: disable=no-effect
 cxx_library(
     name = "print",
     srcs = glob(["**/*.cpp"]),

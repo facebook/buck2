@@ -6,6 +6,7 @@
 #     visibility = ["PUBLIC"],
 # )
 
+# buildifier: disable=no-effect
 cxx_library(
     name = "python-3.10",
     exported_linker_flags = [

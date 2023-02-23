@@ -1,3 +1,4 @@
+# buildifier: disable=no-effect
 ocaml_binary(
     name = "calc",
     srcs = [

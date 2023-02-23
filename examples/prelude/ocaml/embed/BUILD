@@ -1,10 +1,12 @@
 load("//test_utils.bzl", "assert_output")
 
+# buildifier: disable=no-effect
 ocaml_object(
     name = "fib-ml",
     srcs = ["fib.ml"],
 ) if host_info().os.is_macos else None
 
+# buildifier: disable=no-effect
 cxx_binary(
     name = "fib-cpp",
     srcs = ["fib.cpp"],
@@ -14,6 +16,7 @@ cxx_binary(
     ],
 ) if host_info().os.is_macos else None
 
+# buildifier: disable=no-effect
 rust_binary(
     name = "fib-rs",
     srcs = ["fib.rs"],
@@ -21,12 +24,14 @@ rust_binary(
     deps = [":fib-ml"],
 ) if host_info().os.is_macos else None
 
+# buildifier: disable=no-effect
 assert_output(
     name = "check-fib-cpp",
     command = "$(exe_target :fib-cpp)",
     output = "fib(10) = Result is: 89",
 ) if host_info().os.is_macos else None
 
+# buildifier: disable=no-effect
 assert_output(
     name = "check-fib-rs",
     command = "$(exe_target :fib-rs)",

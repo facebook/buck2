@@ -1,5 +1,6 @@
 load("//test_utils.bzl", "assert_output")
 
+# buildifier: disable=no-effect
 ocaml_library(
     name = "ppx-record-selectors",
     srcs = ["record_selectors.ml"],
@@ -8,6 +9,7 @@ ocaml_library(
     ],
 ) if not host_info().os.is_windows else None
 
+# buildifier: disable=no-effect
 ocaml_binary(
     name = "ppx",
     srcs = ["ppx_driver.ml"],
@@ -20,6 +22,7 @@ ocaml_binary(
     ],
 ) if not host_info().os.is_windows else None
 
+# buildifier: disable=no-effect
 ocaml_binary(
     name = "ppx-record-selectors-test",
     srcs = ["ppx_record_selectors_test.ml"],
@@ -46,6 +49,7 @@ ocaml_binary(
 # cat $(dirname "$loc")/_expandobj_/ppx_record_selectors_test.pp.ml
 # ```
 
+# buildifier: disable=no-effect
 assert_output(
     name = "ppx-record-selectors-test-check",
     command = "$(exe_target :ppx-record-selectors-test)",
