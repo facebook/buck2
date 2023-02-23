@@ -14,14 +14,14 @@ use buck2_data::ToProtoMessage;
 use derivative::Derivative;
 use dupe::Dupe;
 
-use crate::base_deferred_key::BaseDeferredKey;
+use crate::base_deferred_key_dyn::BaseDeferredKeyDyn;
 use crate::path::buck_out_path::BuckOutScratchPath;
 
 /// Indicates why we are executing a given command.
-#[derive(Copy, Clone, Dupe, Derivative)]
+#[derive(Clone, Dupe, Derivative)]
 #[derivative(Debug)]
 pub struct CommandExecutionTarget<'a> {
-    pub owner: &'a BaseDeferredKey,
+    pub owner: BaseDeferredKeyDyn,
     pub category: &'a Category,
     pub identifier: Option<&'a str>,
 

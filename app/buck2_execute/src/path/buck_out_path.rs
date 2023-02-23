@@ -36,14 +36,14 @@ use dupe::Dupe;
 use itertools::Itertools;
 use thiserror::Error;
 
-use crate::base_deferred_key::BaseDeferredKey;
+use crate::base_deferred_key_dyn::BaseDeferredKeyDyn;
 use crate::bxl::types::BxlFunctionLabel;
 
 #[derive(Clone, Debug, Display, Allocative, Hash, Eq, PartialEq)]
 #[display(fmt = "({})/{}", owner, "path.as_str()")]
 struct BuckOutPathData {
     /// The owner responsible for creating this path.
-    owner: BaseDeferredKey,
+    owner: BaseDeferredKeyDyn,
     /// The unique identifier for this action (only set for outputs inside dynamic actions)
     action_key: Option<Arc<str>>,
     /// The path relative to that target.
@@ -64,12 +64,12 @@ struct BuckOutPathData {
 pub struct BuckOutPath(Arc<BuckOutPathData>);
 
 impl BuckOutPath {
-    pub fn new(owner: BaseDeferredKey, path: ForwardRelativePathBuf) -> Self {
+    pub fn new(owner: BaseDeferredKeyDyn, path: ForwardRelativePathBuf) -> Self {
         Self::with_action_key(owner, path, None)
     }
 
     pub fn with_action_key(
-        owner: BaseDeferredKey,
+        owner: BaseDeferredKeyDyn,
         path: ForwardRelativePathBuf,
         action_key: Option<Arc<str>>,
     ) -> Self {
@@ -80,7 +80,7 @@ impl BuckOutPath {
         }))
     }
 
-    pub fn owner(&self) -> &BaseDeferredKey {
+    pub fn owner(&self) -> &BaseDeferredKeyDyn {
         &self.0.owner
     }
 
@@ -93,11 +93,11 @@ impl BuckOutPath {
     }
 }
 
-#[derive(Clone, Debug, Display, Hash, Eq, PartialEq)]
+#[derive(Clone, Debug, Display, Eq, PartialEq)]
 #[display(fmt = "tmp/({})/{}", owner, "path.as_str()")]
 pub struct BuckOutScratchPath {
     /// The deferred responsible for creating this path.
-    owner: BaseDeferredKey,
+    owner: BaseDeferredKeyDyn,
     /// The path relative to that target.
     path: ForwardRelativePathBuf,
 }
@@ -106,7 +106,7 @@ impl BuckOutScratchPath {
     /// Returning an Err from this function is considered an internal error - we try
     /// really hard to normalise anything the user supplies.
     pub fn new(
-        owner: BaseDeferredKey,
+        owner: BaseDeferredKeyDyn,
         category: &Category,
         identifier: Option<&str>,
     ) -> anyhow::Result<Self> {
@@ -250,7 +250,7 @@ impl BuckOutPathResolver {
     fn prefixed_path_for_owner(
         &self,
         prefix: &ForwardRelativePath,
-        owner: &BaseDeferredKey,
+        owner: &BaseDeferredKeyDyn,
         action_key: Option<&str>,
         path: &ForwardRelativePath,
     ) -> ProjectRelativePathBuf {
@@ -281,141 +281,6 @@ fn join(parts: &[&str]) -> String {
     }
 
     ret
-}
-
-impl BaseDeferredKey {
-    fn make_unhashed_path(&self) -> Option<ForwardRelativePathBuf> {
-        match self {
-            BaseDeferredKey::TargetLabel(target) => Some(
-                ForwardRelativePath::new(target.pkg().cell_name().as_str())
-                    .unwrap()
-                    .join(target.pkg().cell_relative_path()),
-            ),
-            _ => None,
-        }
-    }
-
-    fn make_hashed_path(
-        &self,
-        base: &ProjectRelativePath,
-        prefix: &ForwardRelativePath,
-        action_key: Option<&str>,
-        path: &ForwardRelativePath,
-    ) -> ProjectRelativePathBuf {
-        match self {
-            BaseDeferredKey::TargetLabel(target) => {
-                let cell_relative_path = target.pkg().cell_relative_path().as_str();
-
-                // It is performance critical that we use slices and allocate via `join` instead of
-                // repeated calls to `join` on the path object because `join` allocates on each call,
-                // which has a significant impact.
-                let parts = [
-                    base.as_str(),
-                    "/",
-                    prefix.as_str(),
-                    "/",
-                    target.pkg().cell_name().as_str(),
-                    "/",
-                    target.cfg().output_hash(),
-                    if target.exec_cfg().is_some() { "-" } else { "" },
-                    target.exec_cfg().as_ref().map_or("", |x| x.output_hash()),
-                    "/",
-                    cell_relative_path,
-                    if cell_relative_path.is_empty() {
-                        ""
-                    } else {
-                        "/"
-                    },
-                    "__",
-                    target.name().as_str(),
-                    "__",
-                    "/",
-                    if action_key.is_none() {
-                        ""
-                    } else {
-                        "__action__"
-                    },
-                    action_key.unwrap_or_default(),
-                    if action_key.is_none() { "" } else { "__/" },
-                    path.as_str(),
-                ];
-
-                ProjectRelativePathBuf::unchecked_new(join(&parts))
-            }
-            BaseDeferredKey::BxlLabel(key) => {
-                let label = key.label();
-                let cell_relative_path = label.bxl_path.path().path().as_str();
-
-                let output_hash = {
-                    let mut hasher = DefaultHasher::new();
-                    key.cli_args().hash(&mut hasher);
-                    let output_hash = hasher.finish();
-                    format!("{:x}", output_hash)
-                };
-
-                // It is performance critical that we use slices and allocate via `join` instead of
-                // repeated calls to `join` on the path object because `join` allocates on each call,
-                // which has a significant impact.
-                let parts = [
-                    base.as_str(),
-                    "/",
-                    prefix.as_str(),
-                    "-bxl/",
-                    label.bxl_path.cell().as_str(),
-                    "/",
-                    output_hash.as_str(),
-                    "/",
-                    cell_relative_path,
-                    if cell_relative_path.is_empty() {
-                        ""
-                    } else {
-                        "/"
-                    },
-                    "__",
-                    key.label().name.as_str(),
-                    "__",
-                    action_key.unwrap_or_default(),
-                    if action_key.is_none() { "" } else { "__" },
-                    "/",
-                    path.as_str(),
-                ];
-
-                ProjectRelativePathBuf::unchecked_new(join(&parts))
-            }
-            BaseDeferredKey::AnonTarget(target) => {
-                let cell_relative_path = target.name().pkg().cell_relative_path().as_str();
-
-                // It is performance critical that we use slices and allocate via `join` instead of
-                // repeated calls to `join` on the path object because `join` allocates on each call,
-                // which has a significant impact.
-                let parts = [
-                    base.as_str(),
-                    "/",
-                    prefix.as_str(),
-                    "-anon/",
-                    target.name().pkg().cell_name().as_str(),
-                    "/",
-                    target.exec_cfg().output_hash(),
-                    cell_relative_path,
-                    if cell_relative_path.is_empty() {
-                        ""
-                    } else {
-                        "/"
-                    },
-                    target.rule_type_attrs_hash(),
-                    "/__",
-                    target.name().name().as_str(),
-                    "__",
-                    action_key.unwrap_or_default(),
-                    if action_key.is_none() { "" } else { "__" },
-                    "/",
-                    path.as_str(),
-                ];
-
-                ProjectRelativePathBuf::unchecked_new(join(&parts))
-            }
-        }
-    }
 }
 
 #[derive(Debug, Error)]
@@ -728,7 +593,7 @@ mod tests {
     use dupe::Dupe;
     use regex::Regex;
 
-    use crate::base_deferred_key::BaseDeferredKey;
+    use crate::base_deferred_key_dyn::BaseDeferredKeyDyn;
     use crate::bxl::types::BxlFunctionLabel;
     use crate::path::buck_out_path::BuckOutPath;
     use crate::path::buck_out_path::BuckOutPathParser;
@@ -797,7 +662,7 @@ mod tests {
         let cfg_target = target.configure(ConfigurationData::testing_new());
 
         let resolved = path_resolver.resolve_gen(&BuckOutPath::new(
-            BaseDeferredKey::TargetLabel(cfg_target),
+            BaseDeferredKeyDyn::TargetLabel(cfg_target),
             ForwardRelativePathBuf::unchecked_new("faz.file".into()),
         ));
 
@@ -825,7 +690,7 @@ mod tests {
         let cfg_target = target.configure(ConfigurationData::testing_new());
 
         let resolved = path_resolver.resolve_gen(&BuckOutPath::new(
-            BaseDeferredKey::TargetLabel(cfg_target.dupe()),
+            BaseDeferredKeyDyn::TargetLabel(cfg_target.dupe()),
             ForwardRelativePathBuf::unchecked_new("quux".to_owned()),
         ));
 
@@ -838,7 +703,7 @@ mod tests {
         );
 
         let path = BuckOutPath::with_action_key(
-            BaseDeferredKey::TargetLabel(cfg_target),
+            BaseDeferredKeyDyn::TargetLabel(cfg_target),
             ForwardRelativePathBuf::unchecked_new("quux".to_owned()),
             Some(Arc::from("xxx")),
         );
@@ -869,7 +734,7 @@ mod tests {
 
         // We expect these all to be valid paths, avoiding weird things we throw in
         BuckOutScratchPath::new(
-            BaseDeferredKey::TargetLabel(cfg_target.dupe()),
+            BaseDeferredKeyDyn::TargetLabel(cfg_target.dupe()),
             &category,
             None,
         )
@@ -877,7 +742,7 @@ mod tests {
 
         let mk = move |s| {
             BuckOutScratchPath::new(
-                BaseDeferredKey::TargetLabel(cfg_target.dupe()),
+                BaseDeferredKeyDyn::TargetLabel(cfg_target.dupe()),
                 &category,
                 Some(s),
             )

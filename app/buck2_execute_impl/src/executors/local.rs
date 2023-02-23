@@ -580,7 +580,7 @@ impl PreparedCommandExecutor for LocalExecutor {
             Self::exec_request(
                 self,
                 &prepared_action.action,
-                *target,
+                target.dupe(),
                 request,
                 manager,
                 cancellation,

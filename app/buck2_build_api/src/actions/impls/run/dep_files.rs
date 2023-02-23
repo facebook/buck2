@@ -24,7 +24,7 @@ use buck2_core::fs::fs_util;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::soft_error;
 use buck2_execute::artifact::fs::ArtifactFs;
-use buck2_execute::base_deferred_key::BaseDeferredKey;
+use buck2_execute::base_deferred_key_dyn::BaseDeferredKeyDyn;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::expand_selector_for_dependencies;
 use buck2_execute::directory::ActionDirectoryBuilder;
@@ -81,13 +81,13 @@ pub fn get_dep_files(key: &DepFilesKey) -> Option<Arc<DepFileState>> {
     "identifier.as_deref().unwrap_or(\"<no identifier>\")"
 )]
 pub struct DepFilesKey {
-    owner: BaseDeferredKey,
+    owner: BaseDeferredKeyDyn,
     category: Category,
     identifier: Option<String>,
 }
 
 impl DepFilesKey {
-    pub fn new(owner: BaseDeferredKey, category: Category, identifier: Option<String>) -> Self {
+    pub fn new(owner: BaseDeferredKeyDyn, category: Category, identifier: Option<String>) -> Self {
         Self {
             owner,
             category,

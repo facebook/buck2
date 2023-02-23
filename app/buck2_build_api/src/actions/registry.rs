@@ -157,8 +157,11 @@ impl ActionsRegistry {
             Some(prefix) => (prefix.join(path), prefix.iter().count()),
         };
         self.claim_output_path(&path, declaration_location)?;
-        let out_path =
-            BuckOutPath::with_action_key(self.owner.dupe(), path, self.action_key.dupe());
+        let out_path = BuckOutPath::with_action_key(
+            self.owner.dupe().into_dyn(),
+            path,
+            self.action_key.dupe(),
+        );
         let declared = DeclaredArtifact::new(out_path, output_type, hidden);
         if !self.artifacts.insert(declared.dupe()) {
             panic!("not expected duplicate artifact after output path was successfully claimed");
@@ -294,14 +297,14 @@ mod tests {
         let mut actions =
             ActionsRegistry::new(base.dupe(), ExecutionPlatformResolution::unspecified());
         let out1 = ForwardRelativePathBuf::unchecked_new("bar.out".into());
-        let buckout1 = BuckOutPath::new(base.dupe(), out1.clone());
+        let buckout1 = BuckOutPath::new(base.dupe().into_dyn(), out1.clone());
         let declared1 = actions.declare_artifact(None, out1.clone(), OutputType::File, None)?;
         declared1
             .get_path()
             .with_full_path(|p| assert_eq!(p, buckout1.path()));
 
         let out2 = ForwardRelativePathBuf::unchecked_new("bar2.out".into());
-        let buckout2 = BuckOutPath::new(base, out2.clone());
+        let buckout2 = BuckOutPath::new(base.into_dyn(), out2.clone());
         let declared2 = actions.declare_artifact(None, out2, OutputType::File, None)?;
         declared2
             .get_path()

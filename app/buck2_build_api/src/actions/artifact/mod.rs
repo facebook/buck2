@@ -29,7 +29,6 @@ use std::sync::Arc;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 pub use buck2_execute::artifact::source_artifact::SourceArtifact;
-use buck2_execute::base_deferred_key::BaseDeferredKey;
 use buck2_execute::execute::request::OutputType;
 use buck2_execute::path::buck_out_path::BuckOutPath;
 use derivative::Derivative;
@@ -47,6 +46,7 @@ use crate::actions::key::ActionKey;
 pub mod build_artifact;
 use allocative::Allocative;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
+use buck2_execute::base_deferred_key_dyn::BaseDeferredKeyDyn;
 use buck2_execute::path::artifact_path::ArtifactPath;
 use starlark_map::Hashed;
 
@@ -108,7 +108,7 @@ impl Artifact {
     }
 
     /// The callsite that declared this artifact, any.
-    pub fn owner(&self) -> Option<&BaseDeferredKey> {
+    pub fn owner(&self) -> Option<&BaseDeferredKeyDyn> {
         match self.as_parts().0 {
             BaseArtifactKind::Source(_) => None,
             BaseArtifactKind::Build(b) => Some(b.get_path().owner()),
@@ -339,7 +339,7 @@ impl DeclaredArtifact {
         })
     }
 
-    pub fn owner(&self) -> Option<BaseDeferredKey> {
+    pub fn owner(&self) -> Option<BaseDeferredKeyDyn> {
         match &*self.artifact.borrow() {
             DeclaredArtifactKind::Bound(b) => Some(b.get_path().owner().dupe()),
             DeclaredArtifactKind::Unbound(_) => None,
@@ -452,6 +452,7 @@ pub mod testing {
     use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
     use buck2_core::target::label::ConfiguredTargetLabel;
     use buck2_execute::base_deferred_key::BaseDeferredKey;
+    use buck2_execute::base_deferred_key_dyn::BaseDeferredKeyDyn;
     use buck2_execute::execute::request::OutputType;
     use buck2_execute::path::buck_out_path::BuckOutPath;
     use dupe::Dupe;
@@ -512,7 +513,7 @@ pub mod testing {
             id: DeferredId,
         ) -> BuildArtifact {
             BuildArtifact::new(
-                BuckOutPath::new(BaseDeferredKey::TargetLabel(target.dupe()), path),
+                BuckOutPath::new(BaseDeferredKeyDyn::TargetLabel(target.dupe()), path),
                 ActionKey::new(DeferredData::testing_new(DeferredKey::Base(
                     BaseDeferredKey::TargetLabel(target),
                     id,
@@ -550,6 +551,7 @@ mod tests {
     use buck2_execute::artifact::fs::ArtifactFs;
     use buck2_execute::artifact::source_artifact::SourceArtifact;
     use buck2_execute::base_deferred_key::BaseDeferredKey;
+    use buck2_execute::base_deferred_key_dyn::BaseDeferredKeyDyn;
     use buck2_execute::execute::request::OutputType;
     use buck2_execute::path::buck_out_path::BuckOutPath;
     use buck2_execute::path::buck_out_path::BuckOutPathResolver;
@@ -575,7 +577,7 @@ mod tests {
         );
         let declared = DeclaredArtifact::new(
             BuckOutPath::new(
-                BaseDeferredKey::TargetLabel(target.dupe()),
+                BaseDeferredKeyDyn::TargetLabel(target.dupe()),
                 ForwardRelativePathBuf::unchecked_new("bar.out".into()),
             ),
             OutputType::File,

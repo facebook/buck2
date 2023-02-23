@@ -30,7 +30,7 @@ use futures::stream::TryStreamExt;
 use thiserror::Error;
 
 use crate::artifact_value::ArtifactValue;
-use crate::base_deferred_key::BaseDeferredKey;
+use crate::base_deferred_key_dyn::BaseDeferredKeyDyn;
 use crate::directory::ActionDirectoryEntry;
 use crate::directory::ActionDirectoryMember;
 use crate::directory::ActionImmutableDirectory;
@@ -504,7 +504,7 @@ pub struct HttpDownloadInfo {
     pub checksum: Checksum,
 
     /// Target that declared the action.
-    pub owner: BaseDeferredKey,
+    pub owner: BaseDeferredKeyDyn,
 }
 
 #[derive(Debug, Error)]

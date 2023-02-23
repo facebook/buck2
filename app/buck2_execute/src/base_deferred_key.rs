@@ -16,6 +16,7 @@ use dupe::Dupe;
 use gazebo::variants::UnpackVariants;
 
 use crate::anon_target::AnonTarget;
+use crate::base_deferred_key_dyn::BaseDeferredKeyDyn;
 use crate::bxl::types::BxlKey;
 
 /// Key types for the base 'DeferredKey'
@@ -34,4 +35,16 @@ pub enum BaseDeferredKey {
     TargetLabel(ConfiguredTargetLabel),
     AnonTarget(Arc<AnonTarget>),
     BxlLabel(BxlKey),
+}
+
+impl BaseDeferredKey {
+    pub fn into_dyn(self) -> BaseDeferredKeyDyn {
+        match self {
+            BaseDeferredKey::TargetLabel(label) => BaseDeferredKeyDyn::TargetLabel(label),
+            BaseDeferredKey::AnonTarget(target) => BaseDeferredKeyDyn::Dyn(target),
+            BaseDeferredKey::BxlLabel(label) => {
+                BaseDeferredKeyDyn::Dyn(label.into_base_deferred_key_dyn_impl())
+            }
+        }
+    }
 }

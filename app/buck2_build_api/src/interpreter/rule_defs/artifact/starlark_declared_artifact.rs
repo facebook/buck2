@@ -18,7 +18,7 @@ use buck2_core::collections::ordered_set::OrderedSet;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
-use buck2_execute::base_deferred_key::BaseDeferredKey;
+use buck2_execute::base_deferred_key_dyn::BaseDeferredKeyDyn;
 use buck2_execute::path::artifact_path::ArtifactPath;
 use buck2_interpreter::types::label::Label;
 use dupe::Dupe;
@@ -275,12 +275,10 @@ fn artifact_methods(builder: &mut MethodsBuilder) {
         match this.artifact.owner() {
             None => Ok(None),
             Some(x) => Ok(match x {
-                BaseDeferredKey::TargetLabel(t) => Some(Label::new(ConfiguredProvidersLabel::new(
-                    t,
-                    ProvidersName::Default,
-                ))),
-                BaseDeferredKey::BxlLabel(_) => None,
-                BaseDeferredKey::AnonTarget(_) => None,
+                BaseDeferredKeyDyn::TargetLabel(t) => Some(Label::new(
+                    ConfiguredProvidersLabel::new(t, ProvidersName::Default),
+                )),
+                BaseDeferredKeyDyn::Dyn(_) => None,
             }),
         }
     }

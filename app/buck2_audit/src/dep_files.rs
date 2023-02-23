@@ -23,7 +23,7 @@ use buck2_core::category::Category;
 use buck2_core::directory::Directory;
 use buck2_core::directory::DirectoryIterator;
 use buck2_core::target::name::TargetName;
-use buck2_execute::base_deferred_key::BaseDeferredKey;
+use buck2_execute::base_deferred_key_dyn::BaseDeferredKeyDyn;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_execute::materialize::materializer::HasMaterializer;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
@@ -91,7 +91,7 @@ impl AuditSubcommand for AuditDepFilesCommand {
                 let category = Category::try_from(self.category.as_str())?;
 
                 let key = DepFilesKey::new(
-                    BaseDeferredKey::TargetLabel(label),
+                    BaseDeferredKeyDyn::TargetLabel(label),
                     category,
                     self.identifier.clone(),
                 );

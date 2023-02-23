@@ -109,7 +109,7 @@ pub async fn eval(
                 // is super important, as it HAS to be the SAME as the DiceKey so that DICE is keeping
                 // the output file cache up to date.
                 let output_stream = BuckOutPath::new(
-                    BaseDeferredKey::BxlLabel(key.clone()),
+                    BaseDeferredKey::BxlLabel(key.clone()).into_dyn(),
                     ForwardRelativePathBuf::unchecked_new(
                         "__bxl_internal__/outputstream_cache".to_owned(),
                     ),

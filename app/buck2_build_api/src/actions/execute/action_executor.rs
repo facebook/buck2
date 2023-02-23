@@ -279,7 +279,7 @@ struct BuckActionExecutionContext<'a> {
 impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
     fn target(&self) -> CommandExecutionTarget<'_> {
         CommandExecutionTarget {
-            owner: self.action.owner(),
+            owner: self.action.owner().dupe().into_dyn(),
             category: self.action.category(),
             identifier: self.action.identifier(),
             action_key: self.action.key() as _,

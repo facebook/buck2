@@ -14,7 +14,7 @@ use allocative::Allocative;
 use buck2_core::collections::ordered_set::OrderedSet;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
-use buck2_execute::base_deferred_key::BaseDeferredKey;
+use buck2_execute::base_deferred_key_dyn::BaseDeferredKeyDyn;
 use buck2_execute::path::artifact_path::ArtifactPath;
 use buck2_interpreter::types::label::Label;
 use dupe::Dupe;
@@ -242,7 +242,7 @@ enum CannotProject {
     #[error("Source artifacts cannot be projected")]
     SourceArtifact,
     #[error("This artifact was declared by another rule: `{0}`")]
-    DeclaredElsewhere(BaseDeferredKey),
+    DeclaredElsewhere(BaseDeferredKeyDyn),
 }
 
 /// A single input or output for an action
@@ -281,11 +281,10 @@ fn artifact_methods(builder: &mut MethodsBuilder) {
     fn owner<'v>(this: &StarlarkArtifact) -> anyhow::Result<Option<Label>> {
         match this.artifact.owner() {
             None => Ok(None),
-            Some(BaseDeferredKey::TargetLabel(target)) => Ok(Some(Label::new(
+            Some(BaseDeferredKeyDyn::TargetLabel(target)) => Ok(Some(Label::new(
                 ConfiguredProvidersLabel::new(target.dupe(), ProvidersName::Default),
             ))),
-            Some(BaseDeferredKey::BxlLabel(_)) => Ok(None),
-            Some(BaseDeferredKey::AnonTarget(_)) => Ok(None),
+            Some(BaseDeferredKeyDyn::Dyn(_)) => Ok(None),
         }
     }
 

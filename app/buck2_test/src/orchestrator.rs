@@ -430,7 +430,7 @@ impl BuckTestOrchestrator {
             target: test_target.target(),
         };
         let command_execution_target = CommandExecutionTarget {
-            owner: &owner,
+            owner: owner.into_dyn(),
             category: &TEST_CATEGORY,
             identifier: Some(&identifier),
             action_key: &action_key as _,

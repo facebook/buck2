@@ -16,11 +16,18 @@ use std::sync::Arc;
 use allocative::Allocative;
 use buck2_core::collections::sorted_map::SortedMap;
 use buck2_core::configuration::ConfigurationData;
+use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
+use buck2_core::fs::project_rel_path::ProjectRelativePath;
+use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_data::ToProtoMessage;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_node::rule_type::StarlarkRuleType;
+use gazebo::cmp::PartialEqAny;
+
+use crate::base_deferred_key_dyn::string_join;
+use crate::base_deferred_key_dyn::BaseDeferredKeyDynImpl;
 
 #[derive(Hash, Eq, PartialEq, Clone, Debug, Allocative)]
 pub struct AnonTarget {
@@ -105,5 +112,56 @@ impl AnonTarget {
         // We need a configured label, but we don't have a real configuration (because it doesn't make sense),
         // so create a dummy version
         self.name().configure(ConfigurationData::unspecified())
+    }
+}
+
+impl BaseDeferredKeyDynImpl for AnonTarget {
+    fn eq_token(&self) -> PartialEqAny {
+        PartialEqAny::new(self)
+    }
+
+    fn hash(&self) -> u64 {
+        let mut hasher = DefaultHasher::new();
+        Hash::hash(self, &mut hasher);
+        hasher.finish()
+    }
+
+    fn make_hashed_path(
+        &self,
+        base: &ProjectRelativePath,
+        prefix: &ForwardRelativePath,
+        action_key: Option<&str>,
+        path: &ForwardRelativePath,
+    ) -> ProjectRelativePathBuf {
+        let cell_relative_path = self.name().pkg().cell_relative_path().as_str();
+
+        // It is performance critical that we use slices and allocate via `join` instead of
+        // repeated calls to `join` on the path object because `join` allocates on each call,
+        // which has a significant impact.
+        let parts = [
+            base.as_str(),
+            "/",
+            prefix.as_str(),
+            "-anon/",
+            self.name().pkg().cell_name().as_str(),
+            "/",
+            self.exec_cfg().output_hash(),
+            cell_relative_path,
+            if cell_relative_path.is_empty() {
+                ""
+            } else {
+                "/"
+            },
+            self.rule_type_attrs_hash(),
+            "/__",
+            self.name().name().as_str(),
+            "__",
+            action_key.unwrap_or_default(),
+            if action_key.is_none() { "" } else { "__" },
+            "/",
+            path.as_str(),
+        ];
+
+        ProjectRelativePathBuf::unchecked_new(string_join(&parts))
     }
 }

@@ -441,7 +441,7 @@ impl PreparedCommandExecutor for CachingExecutor {
         let upload_res = self
             .maybe_perform_cache_upload(
                 command.request,
-                command.target,
+                command.target.dupe(),
                 &command.prepared_action.action,
                 &res,
                 command.digest_config,

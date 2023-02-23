@@ -97,7 +97,7 @@ mod tests {
                 BxlComputeKey(bxl.dupe()),
                 anyhow::Ok(Arc::new(BxlResult::BuildsArtifacts {
                     output_loc: BuckOutPath::new(
-                        BaseDeferredKey::BxlLabel(bxl.dupe()),
+                        BaseDeferredKey::BxlLabel(bxl.dupe()).into_dyn(),
                         ForwardRelativePathBuf::unchecked_new("test".to_owned()),
                     ),
                     built: vec![],

@@ -18,6 +18,7 @@ pub mod artifact;
 pub mod artifact_utils;
 pub mod artifact_value;
 pub mod base_deferred_key;
+pub mod base_deferred_key_dyn;
 pub mod bxl;
 pub mod digest;
 pub mod digest_config;

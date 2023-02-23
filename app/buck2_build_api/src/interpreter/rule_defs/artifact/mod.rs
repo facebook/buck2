@@ -15,7 +15,7 @@ mod starlark_output_artifact;
 
 use std::fmt::Debug;
 
-use buck2_execute::base_deferred_key::BaseDeferredKey;
+use buck2_execute::base_deferred_key_dyn::BaseDeferredKeyDyn;
 
 pub use self::starlark_artifact::StarlarkArtifact;
 pub(crate) use self::starlark_artifact_like::StarlarkArtifactLike;
@@ -40,7 +40,7 @@ enum ArtifactError {
     )]
     BoundArtifactAsOutput {
         artifact_repr: String,
-        existing_owner: BaseDeferredKey,
+        existing_owner: BaseDeferredKeyDyn,
     },
 }
 
