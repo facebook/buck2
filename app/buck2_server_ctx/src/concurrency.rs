@@ -764,10 +764,13 @@ mod tests {
     use std::time::Duration;
 
     use allocative::Allocative;
+    use anyhow::Context;
     use async_trait::async_trait;
     use buck2_events::create_source_sink_pair;
     use buck2_events::dispatch::EventDispatcher;
+    use buck2_events::span::SpanId;
     use buck2_events::trace::TraceId;
+    use buck2_events::BuckEvent;
     use buck2_events::EventSource;
     use derivative::Derivative;
     use dice::DetectCycles;
@@ -1357,6 +1360,160 @@ mod tests {
             )
             .await?;
 
+        Ok(())
+    }
+
+    async fn wait_for_event<T, F>(source: &mut T, matcher: Box<F>) -> anyhow::Result<BuckEvent>
+    where
+        T: EventSource,
+        F: Fn(&BuckEvent) -> bool + Send,
+    {
+        return tokio::time::timeout(Duration::from_millis(2), async {
+            loop {
+                if let Some(event) = source.try_receive() {
+                    if let Some(event) = event.unpack_buck() {
+                        if matcher(event) {
+                            break event.clone();
+                        }
+                    }
+                }
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .context("Time out waiting for matching buck event");
+    }
+
+    async fn wait_for_exclusive_span_start<T>(
+        source: &mut T,
+        cmd: Option<&str>,
+    ) -> anyhow::Result<Option<SpanId>>
+    where
+        T: EventSource,
+    {
+        let cmd = cmd.map(|c| c.to_owned());
+        Ok(wait_for_event(source, box |e| {
+            if let Some(span_start) = &e.span_start_event() {
+                if let Some(buck2_data::span_start_event::Data::ExclusiveCommandWait(data)) =
+                    &span_start.data
+                {
+                    let ExclusiveCommandWaitStart {
+                        command_name: event_cmd,
+                    } = data;
+                    return event_cmd == &cmd;
+                }
+            }
+            false
+        })
+        .await?
+        .span_id())
+    }
+
+    async fn wait_for_exclusive_span_end<T>(
+        source: &mut T,
+        span_id: Option<SpanId>,
+    ) -> anyhow::Result<BuckEvent>
+    where
+        T: EventSource,
+    {
+        wait_for_event(source, box |e| {
+            if let Some(span_end) = &e.span_end_event() {
+                if let Some(buck2_data::span_end_event::Data::ExclusiveCommandWait(_)) =
+                    &span_end.data
+                {
+                    return e.span_id() == span_id || span_id.is_none();
+                }
+            }
+            false
+        })
+        .await
+    }
+
+    #[tokio::test]
+    async fn exclusive_command_lock() -> anyhow::Result<()> {
+        let dice = Dice::builder().build(DetectCycles::Enabled);
+        let concurrency = ConcurrencyHandler::new(
+            dice.dupe(),
+            NestedInvocation::Run,
+            ParallelInvocation::Run,
+            DiceCleanup::Block,
+        );
+        let (mut source, sink) = create_source_sink_pair();
+        let dispatcher = EventDispatcher::new(TraceId::new(), sink);
+
+        let mutex = Arc::new(Mutex::new(()));
+        let command = |exclusive_cmd: Option<&str>, barriers: Option<&Arc<(Barrier, Barrier)>>| {
+            tokio::spawn({
+                let concurrency = concurrency.dupe();
+                let dispatcher = dispatcher.dupe();
+                let barriers = barriers.map(|b| b.dupe());
+                let exclusive_cmd = exclusive_cmd.map(|b| b.to_owned());
+                let mutex = mutex.dupe();
+                async move {
+                    concurrency
+                        .enter(
+                            dispatcher,
+                            &TestDiceDataProvider,
+                            &NoChanges,
+                            |_| async move {
+                                let _guard = mutex.try_lock().expect("Not exclusive!");
+                                if let Some(barriers) = barriers {
+                                    barriers.0.wait().await;
+                                    barriers.1.wait().await;
+                                }
+                                tokio::task::yield_now().await;
+                            },
+                            false,
+                            Vec::new(),
+                            exclusive_cmd,
+                        )
+                        .await
+                }
+            })
+        };
+
+        let non_exclusive_barriers = Arc::new((Barrier::new(2), Barrier::new(2)));
+        // Start non_exclusive command and enter critical section
+        let non_exclusive_fut = command(None, Some(&non_exclusive_barriers.dupe()));
+        non_exclusive_barriers.0.wait().await;
+
+        let span_id_non_exclusive = wait_for_exclusive_span_start(&mut source, None).await?;
+        wait_for_exclusive_span_end(&mut source, span_id_non_exclusive).await?;
+
+        let command_barriers = Arc::new((Barrier::new(2), Barrier::new(2)));
+        // Start exclusive command, blocked by non_exclusive
+        let exclusive_fut_1 = command(Some("exclusive_1"), Some(&command_barriers.dupe()));
+
+        let span_id_exclusive_1 = wait_for_exclusive_span_start(&mut source, None).await?;
+
+        // Finish non_exclusive, enter exclusive_1 critical section
+        non_exclusive_barriers.1.wait().await;
+        non_exclusive_fut.await??;
+        command_barriers.0.wait().await;
+
+        wait_for_exclusive_span_end(&mut source, span_id_exclusive_1).await?;
+
+        // Start series of exclusive commands and another second non_exclusive
+        let exclusive_fut_2 = command(Some("exclusive_2"), None);
+        let span_id_exclusive_2 =
+            wait_for_exclusive_span_start(&mut source, Some("exclusive_1")).await?;
+        let exclusive_fut_3 = command(Some("exclusive_3"), None);
+        let span_id_exclusive_3 =
+            wait_for_exclusive_span_start(&mut source, Some("exclusive_1")).await?;
+        let non_exclusive_fut = command(None, None);
+        let span_id_non_exclusive =
+            wait_for_exclusive_span_start(&mut source, Some("exclusive_1")).await?;
+
+        // Unblock first exclusive command, remaining commands are unblocked
+        command_barriers.1.wait().await;
+        exclusive_fut_1.await??;
+        exclusive_fut_2.await??;
+        exclusive_fut_3.await??;
+        non_exclusive_fut.await??;
+
+        wait_for_exclusive_span_end(&mut source, span_id_exclusive_2).await?;
+        wait_for_exclusive_span_end(&mut source, span_id_exclusive_3).await?;
+        wait_for_exclusive_span_end(&mut source, span_id_non_exclusive).await?;
         Ok(())
     }
 
