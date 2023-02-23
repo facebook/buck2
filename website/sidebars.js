@@ -57,10 +57,10 @@ const manualSidebar = [
     label: 'Concepts',
     items: [
       'concepts/concept_map',
-      'concepts/glossary',
       'concepts/target_pattern',
       'concepts/visibility',
       'concepts/daemon',
+      'concepts/glossary',
     ],
   },
   {
