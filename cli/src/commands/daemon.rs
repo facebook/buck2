@@ -82,13 +82,6 @@ pub(crate) struct DaemonCommand {
     /// Run buck daemon but do not daemonize the process.
     #[clap(long)]
     dont_daemonize: bool,
-    /// Do not redirect stdout/stderr to a file.
-    /// This is used for in-process server, because if we redirect,
-    /// server buck2 process (acting as client) won't be able to print anything.
-    ///
-    /// This shouldn't be an option.
-    #[clap(hidden = true, long)]
-    dont_redirect_output: bool,
 }
 
 impl DaemonCommand {
@@ -97,7 +90,6 @@ impl DaemonCommand {
         DaemonCommand {
             checker_interval_seconds: 60,
             dont_daemonize: true,
-            dont_redirect_output: true,
         }
     }
 }
@@ -253,6 +245,7 @@ impl DaemonCommand {
         log_reload_handle: Box<dyn LogConfigurationReloadHandle>,
         paths: InvocationPaths,
         detect_cycles: Option<DetectCycles>,
+        in_process: bool,
         listener_created: impl FnOnce() + Send,
     ) -> anyhow::Result<()> {
         // NOTE: Do not create any threads before this point.
@@ -299,7 +292,7 @@ impl DaemonCommand {
         } else {
             fs_util::write(&pid_path, format!("{}", process::id()))?;
 
-            if !self.dont_redirect_output {
+            if !in_process {
                 self.redirect_output(stdout, stderr)?;
             }
 
@@ -476,6 +469,7 @@ impl DaemonCommand {
         log_reload_handle: Box<dyn LogConfigurationReloadHandle>,
         paths: InvocationPaths,
         detect_cycles: Option<DetectCycles>,
+        in_process: bool,
         listener_created: impl FnOnce() + Send,
     ) -> anyhow::Result<()> {
         let project_root = paths.project_root();
@@ -496,6 +490,7 @@ impl DaemonCommand {
             log_reload_handle,
             paths,
             detect_cycles,
+            in_process,
             listener_created,
         )?;
         Ok(())

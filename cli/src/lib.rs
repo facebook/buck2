@@ -276,6 +276,7 @@ impl CommandKind {
                     log_reload_handle,
                     paths?,
                     common_opts.detect_cycles,
+                    false,
                     || {},
                 )
                 .into();
@@ -305,6 +306,7 @@ impl CommandKind {
                             <dyn LogConfigurationReloadHandle>::noop(),
                             paths,
                             common_opts.detect_cycles,
+                            true,
                             move || drop(tx_clone.send(Ok(()))),
                         );
                         // Since `tx` is unbounded, there's race here: it is possible
