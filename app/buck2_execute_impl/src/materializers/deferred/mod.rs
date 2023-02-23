@@ -362,6 +362,7 @@ impl<T> std::fmt::Debug for MaterializerCommand<T> {
 }
 
 /// Materializer commands that can be reordered with regard to other commands.
+#[derive(Debug)]
 enum LowPriorityMaterializerCommand {
     /// [Materialization task -> Command thread]
     /// Notifies the command thread that an artifact was materialized. It takes
@@ -374,25 +375,12 @@ enum LowPriorityMaterializerCommand {
         version: Version,
         result: Result<(), SharedMaterializingError>,
     },
-}
 
-impl std::fmt::Debug for LowPriorityMaterializerCommand {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::MaterializationFinished {
-                path,
-                timestamp,
-                version,
-                result,
-            } => f
-                .debug_struct("MaterializationFinished")
-                .field("path", path)
-                .field("timestamp", timestamp)
-                .field("version", version)
-                .field("result", result)
-                .finish(),
-        }
-    }
+    CleanupFinished {
+        path: ProjectRelativePathBuf,
+        version: Version,
+        result: Result<(), SharedMaterializingError>,
+    },
 }
 
 /// Tree that stores materialization data for each artifact. Used internally by
@@ -1107,8 +1095,16 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                                 // gets redeclared.
                                 &mut version_tracker,
                                 self.sqlite_db.as_mut(),
+                                &command_sender,
                                 &self.rt,
                             );
+                        }
+                        LowPriorityMaterializerCommand::CleanupFinished {
+                            path,
+                            version,
+                            result,
+                        } => {
+                            tree.cleanup_finished(path, version, result);
                         }
                     }
 
@@ -1306,9 +1302,11 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                         .write(path.clone(), write.dupe(), version, *command_sender);
                 ProcessingFuture::Materializing(materialize.shared())
             }
-            _ => ProcessingFuture::Cleaning(clean_output_paths(
+            _ => ProcessingFuture::Cleaning(clean_path(
                 &self.io,
                 path.clone(),
+                version,
+                *command_sender,
                 existing_futs,
                 &self.rt,
             )),
@@ -1700,7 +1698,7 @@ impl ArtifactTree {
         }
     }
 
-    #[instrument(level = "debug", skip(self, result, io, sqlite_db), fields(path = %artifact_path))]
+    #[instrument(level = "debug", skip(self, result, io, sqlite_db, command_sender), fields(path = %artifact_path))]
     fn materialization_finished<T: IoHandler>(
         &mut self,
         artifact_path: ProjectRelativePathBuf,
@@ -1710,6 +1708,7 @@ impl ArtifactTree {
         io: &Arc<T>,
         version_tracker: &mut VersionTracker,
         sqlite_db: Option<&mut MaterializerStateSqliteDb>,
+        command_sender: &MaterializerSender<T>,
         rt: &Handle,
     ) {
         match self.prefix_get_mut(&mut artifact_path.iter()) {
@@ -1727,16 +1726,16 @@ impl ArtifactTree {
                     // so we need to delete anything at artifact_path before we ever retry materializing it.
                     // TODO(scottcao): Once command processor accepts an ArtifactTree instead of initializing one,
                     // add a test case to ensure this behavior.
-                    let future = ProcessingFuture::Cleaning(clean_output_paths(
+                    let version = version_tracker.next();
+                    let future = ProcessingFuture::Cleaning(clean_path(
                         io,
                         artifact_path.clone(),
+                        version,
+                        *command_sender,
                         Vec::new(),
                         rt,
                     ));
-                    info.processing = Processing::Active {
-                        future,
-                        version: version_tracker.next(),
-                    };
+                    info.processing = Processing::Active { future, version };
                 } else {
                     tracing::debug!(has_deps = info.deps.is_some(), "transition to Materialized");
                     let new_stage = match &info.stage {
@@ -1786,6 +1785,38 @@ impl ArtifactTree {
             None => {
                 // NOTE: This can happen if a path got invalidted while it was being materialized.
                 tracing::debug!("materialization_finished but path is vacant!")
+            }
+        }
+    }
+
+    #[instrument(level = "debug", skip(self, result), fields(path = %artifact_path))]
+    fn cleanup_finished(
+        &mut self,
+        artifact_path: ProjectRelativePathBuf,
+        version: Version,
+        result: Result<(), SharedMaterializingError>,
+    ) {
+        match self
+            .prefix_get_mut(&mut artifact_path.iter())
+            .context("Path is vacant")
+        {
+            Ok(mut info) => {
+                if info.processing.current_version() > version {
+                    // We can only unset the future if version matches.
+                    // Otherwise, we may be unsetting a different future from a newer version.
+                    tracing::debug!("version conflict");
+                    return;
+                }
+
+                if result.is_err() {
+                    // Leave it alone, don't keep retrying.
+                } else {
+                    info.processing = Processing::Done(version);
+                }
+            }
+            Err(e) => {
+                // NOTE: This shouldn't normally happen?
+                quiet_soft_error!("cleanup_finished_vacant", e).unwrap();
             }
         }
     }
@@ -1926,21 +1957,23 @@ async fn join_all_existing_futs(
 
 /// Spawns a future to clean output paths while waiting for any
 /// pending future to finish.
-fn clean_output_paths<T: IoHandler>(
+fn clean_path<T: IoHandler>(
     io: &Arc<T>,
     path: ProjectRelativePathBuf,
+    version: Version,
+    command_sender: MaterializerSender<T>,
     existing_futs: Vec<(ProjectRelativePathBuf, ProcessingFuture)>,
     rt: &Handle,
 ) -> CleaningFuture {
     if existing_futs.is_empty() {
-        return io.clean_output_paths(vec![path]).shared();
+        return io.clean_path(path, version, command_sender).shared();
     }
 
     rt.spawn({
         let io = io.dupe();
         async move {
             join_all_existing_futs(existing_futs).await?;
-            io.clean_output_paths(vec![path]).await
+            io.clean_path(path, version, command_sender).await
         }
     })
     .map(|r| match r {

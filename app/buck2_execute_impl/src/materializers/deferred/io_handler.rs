@@ -31,7 +31,6 @@ use buck2_execute::directory::ActionSharedDirectory;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::execute::blocking::IoRequest;
 use buck2_execute::execute::clean_output_paths::cleanup_path;
-use buck2_execute::execute::clean_output_paths::CleanOutputPaths;
 use buck2_execute::materialize::http::http_client;
 use buck2_execute::materialize::http::http_download;
 use buck2_execute::output_size::OutputSize;
@@ -88,9 +87,11 @@ pub(super) trait IoHandler: Sync + Send + 'static {
         command_sender: MaterializerSender<Self>,
     ) -> BoxFuture<'static, Result<(), SharedMaterializingError>>;
 
-    fn clean_output_paths(
+    fn clean_path(
         self: &Arc<Self>,
-        paths: Vec<ProjectRelativePathBuf>,
+        path: ProjectRelativePathBuf,
+        version: Version,
+        command_sender: MaterializerSender<Self>,
     ) -> BoxFuture<'static, Result<(), SharedError>>;
 
     async fn materialize_entry(
@@ -272,12 +273,18 @@ impl IoHandler for DefaultIoHandler {
             .boxed()
     }
 
-    fn clean_output_paths(
+    fn clean_path(
         self: &Arc<Self>,
-        paths: Vec<ProjectRelativePathBuf>,
+        path: ProjectRelativePathBuf,
+        version: Version,
+        command_sender: MaterializerSender<Self>,
     ) -> BoxFuture<'static, Result<(), SharedError>> {
         self.io_executor
-            .execute_io(box CleanOutputPaths { paths })
+            .execute_io(box CleanIoRequest {
+                path,
+                version,
+                command_sender,
+            })
             .map(|r| r.shared_error())
             .boxed()
     }
@@ -467,6 +474,31 @@ impl IoRequest for WriteIoRequest {
             LowPriorityMaterializerCommand::MaterializationFinished {
                 path: self.path,
                 timestamp: Utc::now(),
+                version: self.version,
+                result: res.dupe().map_err(SharedMaterializingError::Error),
+            },
+        );
+
+        Ok(res?)
+    }
+}
+
+struct CleanIoRequest {
+    path: ProjectRelativePathBuf,
+    version: Version,
+    command_sender: MaterializerSender<DefaultIoHandler>,
+}
+
+impl IoRequest for CleanIoRequest {
+    fn execute(self: Box<Self>, project_fs: &ProjectRoot) -> anyhow::Result<()> {
+        // NOTE: No spans here! We should perhaps add one, but this needs to be considered
+        // carefully as it's a lot of spans, and we haven't historically emitted those for writes.
+        let res = cleanup_path(project_fs, &self.path).shared_error();
+
+        // If the materializer has shut down, we ignore this.
+        let _ignored = self.command_sender.send_low_priority(
+            LowPriorityMaterializerCommand::CleanupFinished {
+                path: self.path,
                 version: self.version,
                 result: res.dupe().map_err(SharedMaterializingError::Error),
             },

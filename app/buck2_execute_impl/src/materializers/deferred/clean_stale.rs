@@ -17,20 +17,21 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_execute::execute::clean_output_paths::CleanOutputPaths;
 use chrono::DateTime;
 use chrono::Utc;
 use derivative::Derivative;
+use dupe::Dupe;
 use futures::future::BoxFuture;
+use futures::future::Future;
 use futures::FutureExt;
-use tokio::runtime::Handle;
 use tokio::sync::oneshot::Sender;
 
-use crate::materializers::deferred::clean_output_paths;
 use crate::materializers::deferred::extension::ExtensionCommand;
 use crate::materializers::deferred::file_tree::DataTree;
+use crate::materializers::deferred::join_all_existing_futs;
 use crate::materializers::deferred::ArtifactMaterializationStage;
 use crate::materializers::deferred::ArtifactTree;
-use crate::materializers::deferred::CleaningFuture;
 use crate::materializers::deferred::DefaultIoHandler;
 use crate::materializers::deferred::DeferredMaterializerCommandProcessor;
 use crate::materializers::sqlite::MaterializerStateSqliteDb;
@@ -66,13 +67,10 @@ impl ExtensionCommand<DefaultIoHandler> for CleanStaleArtifacts {
             self.tracked_only,
             &mut processor.sqlite_db,
             &processor.io,
-            &processor.rt,
         );
         let fut = async move {
             let (cleaning_futs, output) = res?;
-            for t in cleaning_futs {
-                t.await?;
-            }
+            futures::future::try_join_all(cleaning_futs).await?;
             tracing::trace!("finished cleaning stale artifacts");
             Ok(output)
         }
@@ -88,8 +86,7 @@ fn gather_clean_futures_for_stale_artifacts(
     tracked_only: bool,
     sqlite_db: &mut Option<MaterializerStateSqliteDb>,
     io: &Arc<DefaultIoHandler>,
-    rt: &Handle,
-) -> anyhow::Result<(Vec<CleaningFuture>, String)> {
+) -> anyhow::Result<(Vec<impl Future<Output = anyhow::Result<()>>>, String)> {
     let gen_path = &io
         .buck_out_path
         .join(ProjectRelativePathBuf::unchecked_new("gen".to_owned()));
@@ -146,10 +143,18 @@ fn gather_clean_futures_for_stale_artifacts(
         )?;
 
         for path in paths_to_clean {
+            let io = io.dupe();
+
             let existing_futs =
                 tree.invalidate_paths_and_collect_futures(vec![path.clone()], sqlite_db.as_mut());
 
-            cleaning_futs.push(clean_output_paths(io, path, existing_futs, rt));
+            cleaning_futs.push(async move {
+                join_all_existing_futs(existing_futs).await?;
+                io.io_executor
+                    .execute_io(box CleanOutputPaths { paths: vec![path] })
+                    .await?;
+                anyhow::Ok(())
+            });
         }
     }
 

@@ -139,13 +139,13 @@ mod state_machine {
             futures::future::ready(Ok(())).boxed()
         }
 
-        fn clean_output_paths(
+        fn clean_path(
             self: &Arc<Self>,
-            paths: Vec<ProjectRelativePathBuf>,
+            path: ProjectRelativePathBuf,
+            _version: Version,
+            _command_sender: MaterializerSender<Self>,
         ) -> BoxFuture<'static, Result<(), SharedError>> {
-            for path in paths {
-                self.log.lock().push((Op::Clean, path));
-            }
+            self.log.lock().push((Op::Clean, path));
             futures::future::ready(Ok(())).boxed()
         }
 
@@ -241,6 +241,7 @@ mod state_machine {
             &dm.io,
             &mut version_tracker,
             dm.sqlite_db.as_mut(),
+            &command_sender(),
             &dm.rt,
         );
         assert_eq!(dm.io.take_log(), &[]);
@@ -422,6 +423,7 @@ mod state_machine {
             &dm.io,
             &mut version_tracker,
             dm.sqlite_db.as_mut(),
+            &command_sender(),
             &dm.rt,
         );
         assert_eq!(dm.io.take_log(), &[]);
