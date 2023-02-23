@@ -251,10 +251,7 @@ def _include_paths_in_context(ctx: "context", build_mode: BuildMode.type):
     ocaml_toolchain = ctx.attrs._ocaml_toolchain[OCamlToolchainInfo]
     includes = [cmd_args(ocaml_toolchain.interop_includes)] if ocaml_toolchain.interop_includes else []
     ocaml_libs = merge_ocaml_link_infos(_attr_deps_ocaml_link_infos(ctx)).info
-    accessible_libs = [d.label for d in ctx.attrs.deps] + [d.label for d in _by_platform(ctx, ctx.attrs.platform_deps)]
     for lib in ocaml_libs:
-        if lib.target not in accessible_libs:
-            continue
         includes.extend(lib.include_dirs_nat if _is_native(build_mode) else lib.include_dirs_byt)
 
     return includes
