@@ -28,7 +28,7 @@ To build Buck2 using Buck2:
 
 * Install [`reindeer`](https://github.com/facebookincubator/reindeer), which is used to make Buck targets for Rust libraries.
 * Run `reindeer --third-party-dir shim/third-party/rust vendor`
-* Run `reindeer --third-party-dir shim/third-party/rust buckify --stdout > shim/third-party/rust/BUILD`
+* Run `reindeer --third-party-dir shim/third-party/rust buckify --stdout > shim/third-party/rust/BUCK`
 * Run `buck2 build :buck2`
 
 Note that the resulting binary will be compiled without optimisations or [jemalloc](https://github.com/jemalloc/jemalloc), so we recommend using the Cargo-produced binary in further development.
