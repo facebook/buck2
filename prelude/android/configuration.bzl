@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//android:cpu_filters.bzl", "ALL_CPU_FILTERS")
+load("@prelude//android:cpu_filters.bzl", "ALL_CPU_FILTERS", "CPU_FILTER_FOR_DEFAULT_PLATFORM")
 load("@prelude//android:min_sdk_version.bzl", "get_min_sdk_version_constraint_value_name", "get_min_sdk_version_range")
 
 # FIXME: prelude// should be standalone (not refer to ovr_config//)
@@ -15,6 +15,7 @@ _REFS = {
     "build_only_native_code": "fbsource//xplat/buck2/platform/android:build_only_native_code",
     "building_android_binary": "prelude//os:building_android_binary",
     "cpu": "ovr_config//cpu/constraints:cpu",
+    "default_platform": "ovr_config//platform/android:x86_32-fbsource",
     "do_not_build_only_native_code": "fbsource//xplat/buck2/platform/android:do_not_build_only_native_code",
     "maybe_build_only_native_code": "fbsource//xplat/buck2/platform/android:maybe_build_only_native_code",
     "maybe_building_android_binary": "prelude//os:maybe_building_android_binary",
@@ -33,6 +34,8 @@ def _cpu_split_transition_instrumentation_test_apk_impl(
     cpu_filters = attrs.cpu_filters or ALL_CPU_FILTERS
     if attrs._is_force_single_cpu:
         cpu_filters = cpu_filters[0:1]
+    elif attrs._is_force_single_default_cpu:
+        cpu_filters = ["default"]
 
     return _cpu_split_transition(
         platform,
@@ -49,6 +52,8 @@ def _cpu_split_transition_impl(
     cpu_filters = attrs.cpu_filters or ALL_CPU_FILTERS
     if attrs._is_force_single_cpu:
         cpu_filters = cpu_filters[0:1]
+    elif attrs._is_force_single_default_cpu:
+        cpu_filters = ["default"]
 
     do_not_build_only_native_code = refs.do_not_build_only_native_code[ConstraintValueInfo].label in [constraint.label for constraint in platform.configuration.constraints.values()]
 
@@ -71,6 +76,10 @@ def _cpu_split_transition(
     x86_64 = refs.x86_64[ConstraintValueInfo]
     armv7 = refs.armv7[ConstraintValueInfo]
     arm64 = refs.arm64[ConstraintValueInfo]
+
+    if len(cpu_filters) == 1 and cpu_filters[0] == "default":
+        default = refs.default_platform[PlatformInfo]
+        return {CPU_FILTER_FOR_DEFAULT_PLATFORM: default}
 
     cpu_name_to_cpu_constraint = {}
     for cpu_filter in cpu_filters:
@@ -126,6 +135,7 @@ cpu_split_transition = transition(
         "cpu_filters",
         "min_sdk_version",
         "_is_force_single_cpu",
+        "_is_force_single_default_cpu",
     ],
     split = True,
 )
@@ -137,6 +147,7 @@ cpu_split_transition_instrumentation_test_apk = transition(
         "cpu_filters",
         "min_sdk_version",
         "_is_force_single_cpu",
+        "_is_force_single_default_cpu",
     ],
     split = True,
 )
@@ -155,6 +166,7 @@ cpu_transition = transition(
         "cpu_filters",
         "min_sdk_version",
         "_is_force_single_cpu",
+        "_is_force_single_default_cpu",
     ],
 )
 

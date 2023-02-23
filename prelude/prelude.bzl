@@ -11,7 +11,7 @@
 # This is buck2's shim import. Any public symbols here will be available within
 # **all** interpreted files.
 
-load("@prelude//android:cpu_filters.bzl", "ALL_CPU_FILTERS")
+load("@prelude//android:cpu_filters.bzl", "ALL_CPU_FILTERS", "CPU_FILTER_FOR_DEFAULT_PLATFORM")
 load("@prelude//apple:apple_bundle_macro_layer.bzl", "apple_bundle_macro_impl")
 load("@prelude//apple:apple_macro_layer.bzl", "apple_binary_macro_impl", "apple_library_macro_impl")
 load("@prelude//apple:apple_test_macro_layer.bzl", "apple_test_macro_impl")
@@ -157,6 +157,9 @@ def _at_most_one(*items):
     return res
 
 def _get_valid_cpu_filters(cpu_filters: [[str.type], None]) -> [str.type]:
+    if read_config("buck2", "android_force_single_default_cpu") in ("True", "true"):
+        return [CPU_FILTER_FOR_DEFAULT_PLATFORM]
+
     cpu_abis_config_string = read_config("ndk", "cpu_abis")
     if cpu_abis_config_string:
         cpu_abis = [v.strip() for v in cpu_abis_config_string.split(",")]

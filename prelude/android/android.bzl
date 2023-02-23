@@ -93,6 +93,7 @@ implemented_rules = {
 
 # Can't load `read_bool` here because it will cause circular load.
 FORCE_SINGLE_CPU = read_config("buck2", "android_force_single_cpu") in ("True", "true")
+FORCE_SINGLE_DEFAULT_CPU = read_config("buck2", "android_force_single_default_cpu") in ("True", "true")
 
 extra_attributes = {
     "android_aar": {
@@ -117,6 +118,7 @@ extra_attributes = {
         "_dex_toolchain": _dex_toolchain(),
         "_is_building_android_binary": attrs.default_only(attrs.bool(default = True)),
         "_is_force_single_cpu": attrs.default_only(attrs.bool(default = FORCE_SINGLE_CPU)),
+        "_is_force_single_default_cpu": attrs.default_only(attrs.bool(default = FORCE_SINGLE_DEFAULT_CPU)),
         "_java_toolchain": java_toolchain_for_android(),
     },
     "android_build_config": {
@@ -138,6 +140,7 @@ extra_attributes = {
         "_dex_toolchain": _dex_toolchain(),
         "_is_building_android_binary": attrs.default_only(attrs.bool(default = True)),
         "_is_force_single_cpu": attrs.default_only(attrs.bool(default = FORCE_SINGLE_CPU)),
+        "_is_force_single_default_cpu": attrs.default_only(attrs.bool(default = FORCE_SINGLE_DEFAULT_CPU)),
         "_java_toolchain": java_toolchain_for_android(),
     },
     "android_instrumentation_test": {
