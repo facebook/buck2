@@ -36,10 +36,7 @@ impl WhatMaterializedCommand {
         rt.block_on(async move {
             let (invocation, mut events) = log_path.unpack_stream().await?;
 
-            buck2_client_ctx::eprintln!(
-                "Showing materializations from: {}",
-                shlex::join(invocation.command_line_args.iter().map(|e| e.as_str()))
-            )?;
+            buck2_client_ctx::eprintln!("Showing materializations from: {}", invocation,)?;
 
             while let Some(event) = events.try_next().await? {
                 match event {

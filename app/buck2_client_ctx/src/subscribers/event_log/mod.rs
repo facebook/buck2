@@ -11,6 +11,7 @@ pub mod file_names;
 pub mod options;
 pub mod upload;
 
+use std::fmt;
 use std::io;
 use std::io::Cursor;
 use std::mem;
@@ -487,6 +488,16 @@ pub(crate) struct EventLog {
 pub struct Invocation {
     pub command_line_args: Vec<String>,
     pub working_dir: String,
+}
+
+impl fmt::Display for Invocation {
+    fn fmt(&self, w: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            w,
+            "{}",
+            shlex::join(self.command_line_args.iter().map(|e| e.as_str()))
+        )
+    }
 }
 
 impl EventLog {
