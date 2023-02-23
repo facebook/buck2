@@ -26,6 +26,7 @@ load(
 )
 load(
     "@prelude//linking:link_info.bzl",
+    "LinkStyle",
     "Linkage",
     "MergedLinkInfo",
     "merge_link_infos",
@@ -44,6 +45,13 @@ load(":compile.bzl", "GoPkgCompileInfo", "compile", "get_filtered_srcs", "get_in
 load(":link.bzl", "GoPkgLinkInfo", "get_inherited_link_pkgs")
 load(":packages.bzl", "go_attr_pkg_name", "merge_pkgs")
 load(":toolchain.bzl", "GoToolchainInfo", "get_toolchain_cmd_args")
+
+# A map of expected linkages for provided link style
+_LINKAGE_FOR_LINK_STYLE = {
+    LinkStyle("static"): Linkage("static"),
+    LinkStyle("static_pic"): Linkage("static"),
+    LinkStyle("shared"): Linkage("shared"),
+}
 
 def _cgo(
         ctx: "context",
@@ -131,6 +139,7 @@ def cgo_library_impl(ctx: "context") -> ["provider"]:
     link_style = ctx.attrs.link_style
     if link_style == None:
         link_style = "static"
+    linkage = _LINKAGE_FOR_LINK_STYLE[LinkStyle(link_style)]
 
     # Copmile C++ sources into object files.
     c_compile_cmds = cxx_compile_srcs(
@@ -144,7 +153,7 @@ def cgo_library_impl(ctx: "context") -> ["provider"]:
         [own_pre, cgo_headers_pre],
         inherited_pre,
         [],
-        Linkage(link_style),
+        linkage,
     )
 
     compiled_objects = c_compile_cmds.objects
