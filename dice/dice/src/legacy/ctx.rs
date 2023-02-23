@@ -7,10 +7,7 @@
  * of this source tree.
  */
 
-use std::fmt::Debug;
-use std::fmt::Display;
 use std::future::Future;
-use std::hash::Hash;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -20,23 +17,30 @@ use more_futures::spawn::spawn_dropcancel;
 
 use crate::api::cycles::DetectCycles;
 use crate::api::data::DiceData;
+use crate::api::error::DiceErrorImpl;
 use crate::api::error::DiceResult;
 use crate::api::key::Key;
 use crate::api::projection::ProjectionKey;
 use crate::api::user_data::UserComputationData;
+use crate::api::user_data::UserCycleDetectorGuard;
 use crate::legacy::cycles::CycleDetector;
 use crate::legacy::incremental::dep_trackers::BothDepTrackers;
 use crate::legacy::incremental::dep_trackers::BothDeps;
+use crate::legacy::incremental::graph::storage_properties::StorageProperties;
 use crate::legacy::incremental::transaction_ctx::ActiveTransactionCountGuard;
 use crate::legacy::incremental::transaction_ctx::Changes;
 use crate::legacy::incremental::transaction_ctx::TransactionCtx;
 use crate::legacy::incremental::versions::VersionForWrites;
 use crate::legacy::incremental::versions::VersionGuard;
+use crate::legacy::key::StoragePropertiesForKey;
 use crate::legacy::map::DiceMap;
 use crate::legacy::opaque::OpaqueValueImplLegacy;
 use crate::legacy::projection::ProjectionKeyAsKey;
+use crate::legacy::projection::ProjectionKeyProperties;
 use crate::legacy::DiceLegacy;
 use crate::versions::VersionNumber;
+use crate::DiceError;
+use crate::UserCycleDetector;
 
 /// A context for the duration of a top-level compute request.
 ///
@@ -46,6 +50,8 @@ pub(crate) struct ComputationData {
     pub(crate) user_data: Arc<UserComputationData>,
     cycle_detector: Option<Box<CycleDetector>>,
     // TODO(bobyf): this seems a natural place to gather some stats about the compute too
+    #[allocative(skip)]
+    pub(crate) user_cycle_detector_guard: Option<Box<dyn UserCycleDetectorGuard>>,
 }
 
 impl ComputationData {
@@ -56,15 +62,19 @@ impl ComputationData {
                 DetectCycles::Enabled => Some(box CycleDetector::new()),
                 DetectCycles::Disabled => None,
             },
+            user_cycle_detector_guard: None,
         }
     }
 
     /// records that we are entering the computation of another key as part of this main request
     /// i.e. computing key a, which during its evaluation requests key b, enters a new subrequest.
-    pub(crate) fn subrequest<K>(&self, key: &K) -> DiceResult<Self>
+    pub(crate) fn subrequest<K>(&self, key: &K::Key) -> DiceResult<Self>
     where
-        K: Allocative + Clone + Display + Debug + Eq + Hash + Send + Sync + 'static,
+        K: StorageProperties,
     {
+        if let Some(v) = &self.user_cycle_detector_guard {
+            v.add_edge(K::to_key_any(key));
+        }
         Ok(Self {
             user_data: self.user_data.dupe(),
             cycle_detector: self
@@ -72,7 +82,26 @@ impl ComputationData {
                 .as_ref()
                 .map(|detector| Ok(box CycleDetector::visit(detector, key)?))
                 .transpose()?,
+            user_cycle_detector_guard: None,
         })
+    }
+
+    pub(crate) fn start_computing_key<K: StorageProperties>(&mut self, k: &K::Key) {
+        assert!(self.user_cycle_detector_guard.is_none());
+        self.user_cycle_detector_guard = self
+            .user_data
+            .cycle_detector
+            .as_ref()
+            .and_then(|v| v.start_computing_key(K::to_key_any(k)));
+    }
+
+    pub(crate) fn finished_computing_key<K: StorageProperties>(
+        cycle_detector: Option<&Arc<dyn UserCycleDetector>>,
+        k: &K::Key,
+    ) {
+        if let Some(v) = &cycle_detector {
+            v.finished_computing_key(K::to_key_any(k))
+        }
     }
 }
 
@@ -146,7 +175,7 @@ impl DiceComputationsImplLegacy {
         // This would be simpler with an `async fn/async move {}`, but we create these for every edge in the computation
         // and many of those may be live at a time, and so we need to take more care and ensure this is fairly small.
         let cache = self.dice.find_cache::<K>();
-        let extra = self.extra.subrequest(key);
+        let extra = self.extra.subrequest::<StoragePropertiesForKey<K>>(key);
         match extra {
             Ok(extra) => cache
                 .eval_for_opaque(key, &self.transaction_ctx, extra)
@@ -173,13 +202,15 @@ impl DiceComputationsImplLegacy {
             k: projection_key.clone(),
         };
 
-        let extra = self.extra.subrequest(&projection_key_as_key)?;
+        let extra = self
+            .extra
+            .subrequest::<ProjectionKeyProperties<P>>(&projection_key_as_key)?;
 
         Ok(cache.eval_projection(
             &projection_key_as_key,
             derive_from,
             &self.transaction_ctx,
-            extra,
+            &extra,
         ))
     }
 
@@ -249,7 +280,7 @@ impl DiceComputationsImplLegacy {
         extra: UserComputationData,
     ) -> Arc<DiceComputationsImplLegacy> {
         // TODO need to clean up these ctxs so we have less runtime errors from Arc references
-        let this = Arc::try_unwrap(self)
+        let mut this = Arc::try_unwrap(self)
             .map_err(|_| "Error: tried to commit when there are more references")
             .unwrap();
         let eval = Arc::try_unwrap(this.transaction_ctx)
@@ -262,7 +293,8 @@ impl DiceComputationsImplLegacy {
 
         this.dice.make_ctx(ComputationData {
             user_data: Arc::new(extra),
-            cycle_detector: this.extra.cycle_detector,
+            cycle_detector: this.extra.cycle_detector.take(),
+            user_cycle_detector_guard: None,
         })
     }
 
@@ -302,6 +334,21 @@ impl DiceComputationsImplLegacy {
 
     pub(crate) fn per_transaction_data(&self) -> &UserComputationData {
         &self.extra.user_data
+    }
+
+    pub(crate) fn cycle_guard<T: UserCycleDetectorGuard>(&self) -> DiceResult<Option<&T>> {
+        match &self.extra.user_cycle_detector_guard {
+            None => Ok(None),
+            Some(guard) => match guard.as_any().downcast_ref() {
+                Some(guard) => Ok(Some(guard)),
+                None => Err(DiceError(Arc::new(
+                    DiceErrorImpl::UnexpectedCycleGuardType {
+                        expected_type_name: std::any::type_name::<T>().to_owned(),
+                        actual_type_name: guard.type_name().to_owned(),
+                    },
+                ))),
+            },
+        }
     }
 }
 

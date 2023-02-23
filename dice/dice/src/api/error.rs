@@ -54,6 +54,15 @@ pub(crate) enum DiceErrorImpl {
     /// future doesn't get cancelled.
     #[error("The evaluation of this key was cancelled")]
     Cancelled,
+    #[error(
+        "Requested cycle_guard of type {}, but current guard has type {}",
+        expected_type_name,
+        actual_type_name
+    )]
+    UnexpectedCycleGuardType {
+        expected_type_name: String,
+        actual_type_name: String,
+    },
 }
 
 pub type DiceResult<T> = Result<T, DiceError>;

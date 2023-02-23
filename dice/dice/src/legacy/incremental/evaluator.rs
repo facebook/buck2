@@ -65,6 +65,7 @@ pub(crate) mod testing {
     use crate::legacy::incremental::evaluator::Evaluator;
     use crate::legacy::incremental::graph::storage_properties::StorageProperties;
     use crate::legacy::incremental::graph::GraphNode;
+    use crate::legacy::incremental::Computable;
     use crate::legacy::incremental::IncrementalComputeProperties;
     use crate::legacy::incremental::IncrementalEngine;
     use crate::legacy::incremental::StorageType;
@@ -108,6 +109,10 @@ pub(crate) mod testing {
 
         fn validity(&self, _x: &Self::Value) -> bool {
             true
+        }
+
+        fn to_key_any(_key: &Self::Key) -> &dyn std::any::Any {
+            unreachable!()
         }
     }
 
@@ -204,12 +209,16 @@ pub(crate) mod testing {
         fn validity(&self, _x: &Self::Value) -> bool {
             true
         }
+
+        fn to_key_any(key: &Self::Key) -> &dyn std::any::Any {
+            key
+        }
     }
 
     #[async_trait]
     impl<K, V> IncrementalComputeProperties for EvaluatorFn<K, V>
     where
-        K: Clone + Eq + Hash + Display + Debug + Allocative + Send + Sync + 'static,
+        K: Computable + 'static,
         V: Dupe + PartialEq + Allocative + Send + Sync + 'static,
     {
         type DiceTask = WeakDiceFutureHandle<Self>;
@@ -221,7 +230,7 @@ pub(crate) mod testing {
             extra: &ComputationData,
         ) -> DiceResult<GraphNode<Self>> {
             engine
-                .eval_entry_versioned(key, transaction_ctx, extra.subrequest(key)?)
+                .eval_entry_versioned(key, transaction_ctx, extra.subrequest::<Self>(key)?)
                 .await
         }
     }

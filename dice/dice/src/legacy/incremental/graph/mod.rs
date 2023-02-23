@@ -1792,6 +1792,10 @@ mod tests {
             let _ = x;
             self.validity.load(atomic::Ordering::SeqCst)
         }
+
+        fn to_key_any(key: &Self::Key) -> &dyn std::any::Any {
+            key
+        }
     }
 
     #[tokio::test]
@@ -2122,6 +2126,10 @@ mod tests {
             fn validity(&self, x: &Self::Value) -> bool {
                 let _ = x;
                 false
+            }
+
+            fn to_key_any(key: &Self::Key) -> &dyn std::any::Any {
+                key
             }
         }
 

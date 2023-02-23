@@ -158,7 +158,7 @@ where
     }
 }
 
-pub(crate) trait Computable:
+pub trait Computable:
     Allocative + Clone + Display + Debug + Eq + Hash + Send + Sync + 'static
 {
 }
@@ -441,10 +441,12 @@ where
                     Ok(entry)
                 }
                 VersionedGraphResult::Mismatch(mismatch) => {
+                    let mut extra = extra;
                     debug!("no matching entry in cache. checking for dependency changes");
+                    extra.start_computing_key::<K>(&ev.k);
 
                     match Self::compute_whether_versioned_dependencies_changed(
-                        &eval_ctx, &extra, &mismatch,
+                        &ev.k, &eval_ctx, &extra, &mismatch,
                     )
                     .await
                     {
@@ -454,6 +456,10 @@ where
                         }
                         DidDepsChange::NoChange(unchanged_both_deps) => {
                             debug!("dependencies are unchanged, reusing entry");
+                            ComputationData::finished_computing_key::<K>(
+                                extra.user_data.cycle_detector.as_ref(),
+                                &ev.k,
+                            );
                             Ok(ev.engine.reuse(
                                 ev.k.clone(),
                                 &eval_ctx,
@@ -464,13 +470,15 @@ where
                     }
                 }
                 VersionedGraphResult::Dirty | VersionedGraphResult::None => {
+                    let mut extra = extra;
+                    extra.start_computing_key::<K>(&ev.k);
+
                     debug!("dirtied. recomputing...");
                     ev.engine.compute(&ev.k, eval_ctx, extra).await
                 }
             };
 
             debug!("finished. returning result");
-
             res
         };
 
@@ -536,6 +544,7 @@ where
             .user_data
             .tracker
             .event(DiceEvent::Started { key_type: desc });
+        let cycle_detector = extra.user_data.cycle_detector.clone();
 
         let v = transaction_ctx.get_version();
         let m_v = transaction_ctx.get_minor_version();
@@ -568,6 +577,7 @@ where
 
         debug!(msg = "cache updates completed");
         tracker.event(DiceEvent::Finished { key_type: desc });
+        ComputationData::finished_computing_key::<K>(cycle_detector.as_ref(), k);
 
         Ok(entry)
     }
@@ -580,7 +590,7 @@ impl<P: ProjectionKey> IncrementalEngine<ProjectionKeyProperties<P>> {
         k: &ProjectionKeyAsKey<P>,
         derive_from: &OpaqueValueImplLegacy<P::DeriveFromKey>,
         transaction_ctx: &Arc<TransactionCtx>,
-        extra: ComputationData,
+        extra: &ComputationData,
     ) -> P::Value {
         let node = self.eval_projection_versioned(k, derive_from, transaction_ctx, extra);
 
@@ -606,7 +616,7 @@ impl<P: ProjectionKey> IncrementalEngine<ProjectionKeyProperties<P>> {
         k: &ProjectionKeyAsKey<P>,
         derive_from: &OpaqueValueImplLegacy<P::DeriveFromKey>,
         transaction_ctx: &Arc<TransactionCtx>,
-        extra: ComputationData,
+        extra: &ComputationData,
     ) -> GraphNode<ProjectionKeyProperties<P>> {
         if let VersionedGraphResult::Match(entry) = self.versioned_cache.get(
             VersionedGraphKeyRef::new(transaction_ctx.get_version(), k),
@@ -667,7 +677,7 @@ impl<P: ProjectionKey> IncrementalEngine<ProjectionKeyProperties<P>> {
         derive_from: &GraphNode<StoragePropertiesForKey<P::DeriveFromKey>>,
         derive_from_as_deps: BothDeps,
         transaction_ctx: &Arc<TransactionCtx>,
-        extra: ComputationData,
+        extra: &ComputationData,
         tx: tokio::sync::oneshot::Sender<GraphNode<ProjectionKeyProperties<P>>>,
     ) -> GraphNode<ProjectionKeyProperties<P>> {
         debug!(msg = "evaluating sync projection task");
@@ -747,7 +757,7 @@ impl<P: ProjectionKey> IncrementalEngine<ProjectionKeyProperties<P>> {
         derive_from: &<P::DeriveFromKey as Key>::Value,
         derive_from_as_deps: BothDeps,
         transaction_ctx: &Arc<TransactionCtx>,
-        extra: ComputationData,
+        extra: &ComputationData,
     ) -> GraphNode<ProjectionKeyProperties<P>> {
         let dice = self
             .versioned_cache
@@ -795,14 +805,14 @@ impl<P: ProjectionKey> IncrementalEngine<ProjectionKeyProperties<P>> {
                 // we can perform full dependencies changes check.
                 // Unlike asynchronous key computation, we do not hold task lock here.
                 match Self::compute_whether_versioned_dependencies_changed(
-                    &eval_ctx, &extra, &mismatch,
+                    k, &eval_ctx, &extra, &mismatch,
                 )
                 .await
                 {
                     DidDepsChange::Changed | DidDepsChange::NoDeps => {
                         debug!("dependencies changed. recomputing...");
 
-                        self.do_recompute_projection(k, transaction_ctx, extra)
+                        self.do_recompute_projection(k, transaction_ctx, &extra)
                             .await
                     }
                     DidDepsChange::NoChange(unchanged_both_deps) => {
@@ -813,7 +823,7 @@ impl<P: ProjectionKey> IncrementalEngine<ProjectionKeyProperties<P>> {
                 }
             }
             VersionedGraphResult::Dirty => {
-                self.do_recompute_projection(k, transaction_ctx, extra)
+                self.do_recompute_projection(k, transaction_ctx, &extra)
                     .await
             }
             VersionedGraphResult::None => {
@@ -826,7 +836,7 @@ impl<P: ProjectionKey> IncrementalEngine<ProjectionKeyProperties<P>> {
         self: &Arc<Self>,
         k: &ProjectionKeyAsKey<P>,
         transaction_ctx: &Arc<TransactionCtx>,
-        extra: ComputationData,
+        extra: &ComputationData,
     ) -> DiceResult<GraphNode<ProjectionKeyProperties<P>>> {
         let cache = self
             .versioned_cache
@@ -843,7 +853,8 @@ impl<P: ProjectionKey> IncrementalEngine<ProjectionKeyProperties<P>> {
             .eval_for_opaque(
                 &k.derive_from_key,
                 transaction_ctx,
-                extra.subrequest(&k.derive_from_key)?,
+                extra
+                    .subrequest::<StoragePropertiesForKey<P::DeriveFromKey>>(&k.derive_from_key)?,
             )
             .await?;
 
@@ -894,6 +905,7 @@ impl<K: IncrementalComputeProperties> IncrementalEngine<K> {
         fields(version = %transaction_ctx.get_version()),
     )]
     async fn compute_whether_versioned_dependencies_changed(
+        key: &K::Key,
         transaction_ctx: &Arc<TransactionCtx>,
         extra: &ComputationData,
         mismatch: &VersionedGraphResultMismatch<K>,
@@ -906,11 +918,17 @@ impl<K: IncrementalComputeProperties> IncrementalEngine<K> {
         match mismatch.deps_at_last_version() {
             (versions, Some(deps)) => {
                 // TODO(bobyf) spawn everything for now, but we really should be smarter here
-                Self::compute_whether_dependencies_changed(transaction_ctx, extra, versions, &deps)
-                    // boxed to segment this more expensive bit out of the main new_dice_task future (held
-                    // by all active computations).
-                    .boxed()
-                    .await
+                Self::compute_whether_dependencies_changed(
+                    key,
+                    transaction_ctx,
+                    extra,
+                    versions,
+                    &deps,
+                )
+                // boxed to segment this more expensive bit out of the main new_dice_task future (held
+                // by all active computations).
+                .boxed()
+                .await
             }
             _ => DidDepsChange::Changed,
         }
@@ -948,6 +966,7 @@ impl<K: IncrementalComputeProperties> IncrementalEngine<K> {
         fields(version = %transaction_ctx.get_version(), verified_versions = %verified_versions)
     )]
     async fn compute_whether_dependencies_changed(
+        key: &K::Key,
         transaction_ctx: &Arc<TransactionCtx>,
         extra: &ComputationData,
         verified_versions: &VersionRanges,
@@ -1594,6 +1613,10 @@ mod tests {
             fn introspect<'a>(&'a self) -> AnyKey {
                 AnyKey::new(self.0)
             }
+
+            fn to_key_any(&self) -> &dyn std::any::Any {
+                self
+            }
         }
 
         let dep = FakeDep::new(1, CellHistory::testing_new(&[VersionNumber::new(1)], &[]));
@@ -1614,6 +1637,7 @@ mod tests {
         let eval_ctx = Arc::new(TransactionCtx::testing_new(VersionNumber::new(1)));
         assert!(
             IncrementalEngine::<StoragePropertiesLastN<usize, usize>>::compute_whether_versioned_dependencies_changed(
+                &1337,
                 &eval_ctx,
                 &ComputationData::testing_new(),
                 &VersionedGraphResultMismatch {
@@ -1642,6 +1666,7 @@ mod tests {
         let eval_ctx = Arc::new(TransactionCtx::testing_new(VersionNumber::new(2)));
         assert!(
             !IncrementalEngine::<StoragePropertiesLastN<usize, usize>>::compute_whether_versioned_dependencies_changed(
+                &1337,
                 &eval_ctx,
                 &ComputationData::testing_new(),
                 &VersionedGraphResultMismatch {
@@ -1694,6 +1719,10 @@ mod tests {
             fn introspect<'a>(&'a self) -> AnyKey {
                 AnyKey::new(2123)
             }
+
+            fn to_key_any(&self) -> &dyn std::any::Any {
+                self
+            }
         }
 
         let dep = FakeCycleDep;
@@ -1712,6 +1741,7 @@ mod tests {
         let eval_ctx = Arc::new(TransactionCtx::testing_new(VersionNumber::new(2)));
         assert!(
             IncrementalEngine::<StoragePropertiesLastN<usize, usize>>::compute_whether_versioned_dependencies_changed(
+                &1338,
                 &eval_ctx,
                 &ComputationData::testing_new(),
                 &VersionedGraphResultMismatch {
@@ -2178,6 +2208,10 @@ mod tests {
             fn validity(&self, _x: &Self::Value) -> bool {
                 true
             }
+
+            fn to_key_any(key: &Self::Key) -> &dyn std::any::Any {
+                key
+            }
         }
 
         #[async_trait]
@@ -2191,7 +2225,7 @@ mod tests {
                 extra: &ComputationData,
             ) -> DiceResult<GraphNode<Self>> {
                 engine
-                    .eval_entry_versioned(key, transaction_ctx, extra.subrequest(key)?)
+                    .eval_entry_versioned(key, transaction_ctx, extra.subrequest::<Self>(key)?)
                     .await
             }
         }
@@ -2241,6 +2275,10 @@ mod tests {
 
             fn validity(&self, _x: &Self::Value) -> bool {
                 true
+            }
+
+            fn to_key_any(key: &Self::Key) -> &dyn std::any::Any {
+                key
             }
         }
 

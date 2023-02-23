@@ -56,4 +56,8 @@ where
     fn key_type_name() -> &'static str {
         K::key_type_name()
     }
+
+    fn to_key_any(key: &Self::Key) -> &dyn std::any::Any {
+        key
+    }
 }

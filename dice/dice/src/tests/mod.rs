@@ -13,6 +13,7 @@ mod projection;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 use std::sync::Barrier;
+use std::sync::Mutex;
 use std::time::Duration;
 
 use assert_matches::assert_matches;
@@ -649,4 +650,153 @@ async fn test_wait_for_idle() -> anyhow::Result<()> {
     assert_matches!(timeout(Duration::from_secs(1), stays_idle).await, Ok(..));
 
     Ok(())
+}
+
+#[derive(Clone, Copy, Dupe, Display, Debug, Eq, PartialEq, Hash, Allocative)]
+#[display(fmt = "{:?}", self)]
+struct Fib(u8);
+
+#[async_trait]
+impl Key for Fib {
+    type Value = Result<u64, Arc<anyhow::Error>>;
+
+    async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
+        if self.0 > 93 {
+            return Err(Arc::new(anyhow::anyhow!("that's too big")));
+        }
+        if self.0 < 2 {
+            return Ok(self.0 as u64);
+        }
+        let (a, b) =
+            futures::future::join(ctx.compute(&Fib(self.0 - 2)), ctx.compute(&Fib(self.0 - 1)))
+                .await;
+        match (a, b) {
+            (Ok(a), Ok(b)) => Ok(a? + b?),
+            _ => Err(Arc::new(anyhow::anyhow!("some dice error"))),
+        }
+    }
+
+    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
+        match (x, y) {
+            (Ok(x), Ok(y)) => x == y,
+            _ => false,
+        }
+    }
+}
+
+#[derive(Debug, Eq, PartialEq)]
+enum CycleDetectorEvents {
+    Start(Fib),
+    Finish(Fib),
+    Edge(Fib, Fib),
+}
+
+#[derive(Debug, Clone)]
+struct CycleDetector {
+    events: Arc<Mutex<Vec<CycleDetectorEvents>>>,
+}
+
+struct CycleDetectorGuard {
+    key: Fib,
+    events: Arc<Mutex<Vec<CycleDetectorEvents>>>,
+}
+
+impl UserCycleDetector for CycleDetector {
+    fn start_computing_key(
+        &self,
+        key: &dyn std::any::Any,
+    ) -> Option<Box<dyn UserCycleDetectorGuard>> {
+        let f = key.downcast_ref::<Fib>().unwrap();
+        self.events
+            .lock()
+            .unwrap()
+            .push(CycleDetectorEvents::Start(*f));
+        Some(box CycleDetectorGuard {
+            key: *f,
+            events: self.events.clone(),
+        })
+    }
+
+    fn finished_computing_key(&self, key: &dyn std::any::Any) {
+        let f = key.downcast_ref::<Fib>().unwrap();
+        self.events
+            .lock()
+            .unwrap()
+            .push(CycleDetectorEvents::Finish(*f));
+    }
+}
+
+impl UserCycleDetectorGuard for CycleDetectorGuard {
+    fn add_edge(&self, key: &dyn std::any::Any) {
+        let f = key.downcast_ref::<Fib>().unwrap();
+        self.events
+            .lock()
+            .unwrap()
+            .push(CycleDetectorEvents::Edge(self.key, *f))
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn type_name(&self) -> &'static str {
+        std::any::type_name::<Self>()
+    }
+}
+
+#[test]
+fn user_cycle_detector_receives_events() -> anyhow::Result<()> {
+    let dice = DiceLegacy::builder().build(DetectCycles::Disabled);
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let events = Arc::new(Mutex::new(Vec::new()));
+        let user_data = UserComputationData {
+            cycle_detector: Some(Arc::new(CycleDetector {
+                events: events.clone(),
+            })),
+            ..Default::default()
+        };
+        let ctx = dice.updater_with_data(user_data).commit().await;
+        let res = ctx.compute(&Fib(20)).await?.expect("should succeed");
+        assert_eq!(res, 6765);
+
+        let check_events = move |i, expected_edges| {
+            let mut started = false;
+            let mut finished = false;
+            let mut edges = Vec::new();
+            for ev in events.lock().unwrap().iter() {
+                match ev {
+                    CycleDetectorEvents::Start(Fib(v)) if i == *v => {
+                        started = true;
+                        assert!(!finished);
+                    }
+                    CycleDetectorEvents::Finish(Fib(v)) if i == *v => {
+                        assert!(!finished);
+                        finished = true;
+                        assert!(started);
+                    }
+                    CycleDetectorEvents::Edge(Fib(v), Fib(j)) if i == *v => {
+                        assert!(started);
+                        assert!(!finished);
+                        edges.push(*j)
+                    }
+                    _ => {
+                        // ignore
+                    }
+                }
+            }
+            assert!(finished);
+            edges.sort();
+            assert_eq!(edges, expected_edges);
+        };
+
+        check_events(0, vec![]);
+        check_events(1, vec![]);
+        for i in 2..=20 {
+            check_events(i, vec![i - 2, i - 1]);
+        }
+
+        Ok(())
+    })
 }

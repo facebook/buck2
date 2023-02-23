@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::any::Any;
 use std::fmt::Debug;
 
 use allocative::Allocative;
@@ -24,6 +25,11 @@ pub(crate) trait StorageProperties:
     /// Type of the value.
     type Value: Allocative + Dupe + Send + Sync + 'static;
     fn key_type_name() -> &'static str;
+
+    /// Returns the Key as an Any. This should be an Any for the user-provided
+    /// type (or ProjectionKeyAsKey for projections) so that users can potentially
+    /// inspect its concrete type.
+    fn to_key_any(key: &Self::Key) -> &dyn Any;
 
     /// How long the value should be stored.
     fn storage_type(&self) -> StorageType;
@@ -127,6 +133,10 @@ pub(crate) mod testing {
         fn validity(&self, x: &Self::Value) -> bool {
             let _ = x;
             true
+        }
+
+        fn to_key_any(key: &Self::Key) -> &dyn std::any::Any {
+            key
         }
     }
 }

@@ -318,6 +318,10 @@ mod internals {
         fn introspect(&self) -> AnyKey {
             AnyKey::new(self.k.clone())
         }
+
+        fn to_key_any(&self) -> &dyn std::any::Any {
+            K::to_key_any(&self.k)
+        }
     }
 
     impl<K> Debug for Dep<K>

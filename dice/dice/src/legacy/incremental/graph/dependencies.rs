@@ -9,6 +9,7 @@
 
 //! Represents the forward and backward dependencies of the computation graph
 
+use std::any::Any;
 use std::collections::hash_map::Entry;
 use std::fmt::Debug;
 use std::fmt::Display;
@@ -50,6 +51,8 @@ pub(crate) trait Dependency: Allocative + Debug + Display + Send + Sync {
     fn dirty(&self, v: VersionNumber);
 
     fn get_key_equality(&self) -> PartialEqAny;
+
+    fn to_key_any(&self) -> &dyn Any;
 
     fn hash(&self, state: &mut dyn Hasher);
 

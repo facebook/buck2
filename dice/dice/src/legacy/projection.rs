@@ -76,6 +76,10 @@ impl<P: ProjectionKey> StorageProperties for ProjectionKeyProperties<P> {
     fn key_type_name() -> &'static str {
         short_type_name(std::any::type_name::<Self>())
     }
+
+    fn to_key_any(key: &Self::Key) -> &dyn std::any::Any {
+        &key.k
+    }
 }
 
 #[async_trait]
@@ -89,7 +93,7 @@ impl<P: ProjectionKey> IncrementalComputeProperties for ProjectionKeyProperties<
         extra: &ComputationData,
     ) -> DiceResult<GraphNode<Self>> {
         engine
-            .recompute_projection(key, transaction_ctx, extra.subrequest(key)?)
+            .recompute_projection(key, transaction_ctx, extra.subrequest::<Self>(key)?)
             .await
     }
 }

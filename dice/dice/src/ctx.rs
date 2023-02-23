@@ -19,6 +19,7 @@ use crate::api::error::DiceResult;
 use crate::api::key::Key;
 use crate::api::opaque::OpaqueValue;
 use crate::api::user_data::UserComputationData;
+use crate::api::user_data::UserCycleDetectorGuard;
 use crate::impls::ctx::PerComputeCtx;
 use crate::legacy::ctx::DiceComputationsImplLegacy;
 use crate::legacy::map::DiceMap;
@@ -118,6 +119,13 @@ impl DiceComputationsImpl {
         match self {
             DiceComputationsImpl::Legacy(delegate) => delegate.per_transaction_data(),
             DiceComputationsImpl::Modern(delegate) => delegate.per_transaction_data(),
+        }
+    }
+
+    pub(crate) fn cycle_guard<T: UserCycleDetectorGuard>(&self) -> DiceResult<Option<&T>> {
+        match self {
+            DiceComputationsImpl::Legacy(delegate) => delegate.cycle_guard(),
+            DiceComputationsImpl::Modern(_) => Ok(None),
         }
     }
 

@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::any::Any;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -29,8 +30,33 @@ pub struct UserComputationData {
     #[allocative(skip)]
     pub spawner: Arc<dyn Spawner<Self>>,
 
+    #[allocative(skip)]
+    pub cycle_detector: Option<Arc<dyn UserCycleDetector>>,
+
     /// We require that UserComputationData always be constructed with `..Default::default()`
     pub _requires_default: RequireDefault,
+}
+
+/// A UserCycleDetector can be used for custom cycle detection in the DICE computation.
+pub trait UserCycleDetector: Send + Sync + 'static {
+    /// Called by DICE when it starts computing a key. `key` will be a user Key type (and so user can reliably downcast it to known types).
+    fn start_computing_key(&self, key: &dyn Any) -> Option<Box<dyn UserCycleDetectorGuard>>;
+
+    /// Called by DICE when the key finished computing.
+    fn finished_computing_key(&self, key: &dyn Any);
+}
+
+/// A UserCycleDetectorGuard is used to track the currently computing key. User code can access this through
+/// ComputationData::cycle_guard() (and then downcast it with as_any to potentially access custom cycle behavior).
+pub trait UserCycleDetectorGuard: Send + Sync + 'static {
+    /// Called by dice when a dependency edge is encountered.
+    fn add_edge(&self, key: &dyn Any);
+
+    /// This is used to allow user code to get at the concrete guard instance.
+    fn as_any(&self) -> &dyn Any;
+
+    /// Used in error messages.
+    fn type_name(&self) -> &'static str;
 }
 
 #[derive(Allocative)]
@@ -48,6 +74,7 @@ impl Default for UserComputationData {
             data: DiceData::new(),
             tracker: Arc::new(NoOpTracker),
             spawner: Arc::new(TokioSpawner::default()),
+            cycle_detector: None,
             _requires_default: RequireDefault(()),
         }
     }

@@ -20,6 +20,7 @@ use crate::api::opaque::OpaqueValue;
 use crate::api::transaction::DiceTransaction;
 use crate::api::user_data::UserComputationData;
 use crate::ctx::DiceComputationsImpl;
+use crate::UserCycleDetectorGuard;
 
 /// The context for computations to register themselves, and request for additional dependencies.
 /// The dependencies accessed are tracked for caching via the `DiceCtx`.
@@ -104,6 +105,11 @@ impl DiceComputations {
     pub fn per_transaction_data(&self) -> &UserComputationData {
         self.0.per_transaction_data()
     }
+
+    /// Gets the current cycle guard if its set. If it's set but a different type, an error will be returned.
+    pub fn cycle_guard<T: UserCycleDetectorGuard>(&self) -> DiceResult<Option<&T>> {
+        self.0.cycle_guard()
+    }
 }
 
 #[cfg(test)]
@@ -120,17 +126,43 @@ mod tests {
     use crate::api::user_data::UserComputationData;
     use crate::legacy::ctx::ComputationData;
     use crate::legacy::cycles::RequestedKey;
+    use crate::legacy::incremental::graph::storage_properties::StorageProperties;
 
     #[derive(Clone, Dupe, Display, Debug, PartialEq, Eq, Hash, Allocative)]
     struct K(usize);
+    impl StorageProperties for K {
+        type Key = K;
+
+        type Value = ();
+
+        fn key_type_name() -> &'static str {
+            unreachable!()
+        }
+
+        fn to_key_any(key: &Self::Key) -> &dyn std::any::Any {
+            key
+        }
+
+        fn storage_type(&self) -> crate::legacy::incremental::StorageType {
+            unreachable!()
+        }
+
+        fn equality(&self, _x: &Self::Value, _y: &Self::Value) -> bool {
+            unreachable!()
+        }
+
+        fn validity(&self, _x: &Self::Value) -> bool {
+            unreachable!()
+        }
+    }
 
     #[test]
     fn cycle_detection_when_no_cycles() -> anyhow::Result<()> {
         let ctx = ComputationData::new(UserComputationData::new(), DetectCycles::Enabled);
-        let ctx = ctx.subrequest(&K(1))?;
-        let ctx = ctx.subrequest(&K(2))?;
-        let ctx = ctx.subrequest(&K(3))?;
-        let _ctx = ctx.subrequest(&K(4))?;
+        let ctx = ctx.subrequest::<K>(&K(1))?;
+        let ctx = ctx.subrequest::<K>(&K(2))?;
+        let ctx = ctx.subrequest::<K>(&K(3))?;
+        let _ctx = ctx.subrequest::<K>(&K(4))?;
 
         Ok(())
     }
@@ -138,11 +170,11 @@ mod tests {
     #[test]
     fn cycle_detection_when_cycles() -> anyhow::Result<()> {
         let ctx = ComputationData::new(UserComputationData::new(), DetectCycles::Enabled);
-        let ctx = ctx.subrequest(&K(1))?;
-        let ctx = ctx.subrequest(&K(2))?;
-        let ctx = ctx.subrequest(&K(3))?;
-        let ctx = ctx.subrequest(&K(4))?;
-        match ctx.subrequest(&K(1)) {
+        let ctx = ctx.subrequest::<K>(&K(1))?;
+        let ctx = ctx.subrequest::<K>(&K(2))?;
+        let ctx = ctx.subrequest::<K>(&K(3))?;
+        let ctx = ctx.subrequest::<K>(&K(4))?;
+        match ctx.subrequest::<K>(&K(1)) {
             Ok(_) => {
                 panic!("should have cycle error")
             }

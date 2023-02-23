@@ -67,7 +67,7 @@ pub trait ProjectionKey:
 /// Only provide access to globals.
 pub struct DiceProjectionComputations<'a> {
     pub(crate) data: &'a DiceData,
-    pub(crate) extra: ComputationData,
+    pub(crate) extra: &'a ComputationData,
 }
 
 impl<'a> DiceProjectionComputations<'a> {
