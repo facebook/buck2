@@ -1,4 +1,3 @@
-
 load(":platforms.bzl", "execution_platform", "host_configuration")
 
 execution_platform(
@@ -11,8 +10,8 @@ execution_platform(
 # Construct a bootstrap platforms that inherits everything from
 # default_platforms but adds on an extra bootstrap constraint
 platform(
-  name = "bootstrap_platforms",
-  deps = [":default_platforms"],
-  constraint_values = ["config//bootstrap:use_bootstrap"],
-  visibility = ["PUBLIC"],
+    name = "bootstrap_platforms",
+    constraint_values = ["config//bootstrap:use_bootstrap"],
+    visibility = ["PUBLIC"],
+    deps = [":default_platforms"],
 )

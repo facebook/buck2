@@ -1,8 +1,8 @@
-load("@prelude//toolchains:rust.bzl", "system_rust_toolchain")
-load(":toolchain.bzl", "toolchain", "toolchain_alias")
-load(":rust_toolchain.bzl", "rust_toolchain")
 load("@prelude//toolchains:cxx.bzl", "system_cxx_toolchain")
 load("@prelude//toolchains:python.bzl", "system_python_bootstrap_toolchain", "system_python_toolchain")
+load("@prelude//toolchains:rust.bzl", "system_rust_toolchain")
+load(":rust_toolchain.bzl", "rust_toolchain")
+load(":toolchain.bzl", "toolchain_alias")
 
 ### Toolchains for Cxx/Python/etc. ###
 system_cxx_toolchain(
@@ -21,16 +21,15 @@ system_python_bootstrap_toolchain(
 )
 ### Toolchains for Cxx/Python/etc. ###
 
-
 ### Toolchains for Rust ###
 # Pick the bootstrap toolchain or normal toolchain (from system) based on the bootstrap constraint
 toolchain_alias(
-   name = "rust",
-   actual = select({
-     "config//bootstrap:use_bootstrap": ":rust_bootstrap_toolchain",
-     "DEFAULT": ":rust_toolchain_with_compiled_rustc",
-   }),
-   visibility = ["PUBLIC"],
+    name = "rust",
+    actual = select({
+        "DEFAULT": ":rust_toolchain_with_compiled_rustc",
+        "config//bootstrap:use_bootstrap": ":rust_bootstrap_toolchain",
+    }),
+    visibility = ["PUBLIC"],
 )
 
 system_rust_toolchain(
@@ -47,7 +46,7 @@ rust_toolchain(
 configured_alias(
     name = "rustc_with_bootstrap_toolchain",
     actual = ":rustc_wrapper",
-    platform = "config//platform:bootstrap_platforms"
+    platform = "config//platform:bootstrap_platforms",
 )
 
 rust_binary(
