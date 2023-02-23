@@ -23,7 +23,7 @@ itertools = { workspace = true }
 libc = { workspace = true }
 linked-hash-map = { workspace = true }
 lsp-server = { workspace = true }
-memmap = { workspace = true }
+memmap2 = { workspace = true }
 nix = { workspace = true }
 object = { workspace = true }
 once_cell = { workspace = true }

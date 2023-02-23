@@ -57,7 +57,7 @@ impl BuckVersion {
         // be part of the build/packaging process at some point.
         let exe = std::env::current_exe().unwrap();
         let mut file = File::open(exe).unwrap();
-        let file_m = match unsafe { memmap::Mmap::map(&file) } {
+        let file_m = match unsafe { memmap2::Mmap::map(&file) } {
             Ok(mmap) => mmap,
             Err(err) => {
                 panic!(
