@@ -124,7 +124,7 @@ pub struct LazyCycleDetectorGuard<C: CycleDescriptor> {
 }
 
 impl<C: CycleDescriptor> LazyCycleDetectorGuard<C> {
-    pub async fn guard_this<R, Fut: Future<Output = R> + std::marker::Unpin>(
+    pub async fn guard_this<R, Fut: Future<Output = R>>(
         &self,
         fut: Fut,
     ) -> anyhow::Result<Result<R, C::Error>> {
