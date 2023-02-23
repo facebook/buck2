@@ -10,6 +10,7 @@
 pub mod last_log;
 pub mod show_log;
 pub mod what_failed;
+pub mod what_materialized;
 pub mod what_ran;
 pub mod what_up;
 
@@ -36,6 +37,9 @@ pub enum LogCommand {
     /// Show all the spans that where open when the log ended
     #[clap(alias = "whatup")]
     WhatUp(what_up::WhatUpCommand),
+
+    /// Shows materializations in a log.
+    WhatMaterialized(what_materialized::WhatMaterializedCommand),
 }
 
 impl LogCommand {
@@ -46,6 +50,7 @@ impl LogCommand {
             Self::Last(cmd) => cmd.exec(matches, ctx),
             Self::Show(cmd) => cmd.exec(matches, ctx),
             Self::WhatUp(cmd) => cmd.exec(matches, ctx),
+            Self::WhatMaterialized(cmd) => cmd.exec(matches, ctx),
         }
     }
 }
