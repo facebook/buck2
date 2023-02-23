@@ -10,6 +10,7 @@
 use allocative::Allocative;
 use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::file_ops::FileOps;
+use buck2_core::cells::CellInstance;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_execute::artifact::fs::ArtifactFs;
@@ -59,6 +60,8 @@ pub struct BxlFilesystem<'v> {
     #[trace(unsafe_ignore)]
     #[derivative(Debug = "ignore")]
     artifact_fs: &'v ArtifactFs,
+    #[trace(unsafe_ignore)]
+    cell: &'v CellInstance,
 }
 
 impl<'v> BxlFilesystem<'v> {
@@ -66,11 +69,13 @@ impl<'v> BxlFilesystem<'v> {
         dice: &'v BxlSafeDiceComputations<'v>,
         project_fs: &'v ProjectRoot,
         artifact_fs: &'v ArtifactFs,
+        cell: &'v CellInstance,
     ) -> Self {
         Self {
             dice,
             project_fs,
             artifact_fs,
+            cell,
         }
     }
 }
@@ -115,7 +120,7 @@ fn fs_operations(builder: &mut MethodsBuilder) {
     ///     ctx.output.print(ctx.fs.exists("bin"))
     /// ```
     fn exists<'v>(this: &BxlFilesystem<'v>, expr: FileExpr<'v>) -> anyhow::Result<bool> {
-        let path = expr.get(this.dice);
+        let path = expr.get(this.dice, this.cell);
 
         match path {
             Ok(p) => this.dice.via_dice(async move |ctx| {
@@ -142,7 +147,7 @@ fn fs_operations(builder: &mut MethodsBuilder) {
         expr: FileExpr<'v>,
         #[starlark(require = named, default = false)] dirs_only: bool,
     ) -> anyhow::Result<StarlarkReadDirSet> {
-        let path = expr.get(this.dice);
+        let path = expr.get(this.dice, this.cell);
 
         match path {
             Ok(path) => this.dice.via_dice(async move |ctx| {
@@ -184,7 +189,7 @@ fn fs_operations(builder: &mut MethodsBuilder) {
 
 /// Returns the absolute path for a FileExpr.
 fn resolve<'v>(bxl_fs: &BxlFilesystem<'v>, expr: FileExpr<'v>) -> anyhow::Result<AbsNormPathBuf> {
-    let cell_path = expr.get(bxl_fs.dice)?;
+    let cell_path = expr.get(bxl_fs.dice, bxl_fs.cell)?;
     let project_rel_path = bxl_fs.artifact_fs.resolve_cell_path(cell_path.as_ref())?;
     Ok(bxl_fs.project_fs.resolve(&project_rel_path))
 }

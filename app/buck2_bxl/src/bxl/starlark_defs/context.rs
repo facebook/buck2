@@ -502,6 +502,7 @@ fn register_context(builder: &mut MethodsBuilder) {
             &this.async_ctx,
             &this.output_stream.project_fs,
             &this.output_stream.artifact_fs,
+            &this.cell,
         ))
     }
 

@@ -26,6 +26,7 @@ use regex::Regex;
 
 use crate::cells::cell_path::CellPath;
 use crate::cells::paths::CellRelativePath;
+use crate::cells::CellAlias;
 use crate::cells::CellAliasResolver;
 use crate::fs::paths::forward_rel_path::ForwardRelativePath;
 use crate::package::PackageLabel;
@@ -483,6 +484,19 @@ impl<'a, T> PatternData<'a, T> {
     pub fn is_adjacent_target(&self) -> bool {
         self.package_path().is_empty() && self.target().is_some()
     }
+}
+
+// Splits a pattern into cell alias and forward relative path if "//" is present, otherwise returns None,
+pub fn maybe_split_cell_alias_and_relative_path<'a>(
+    pattern: &'a str,
+) -> anyhow::Result<Option<(CellAlias, &'a ForwardRelativePath)>> {
+    Ok(match split1_opt_ascii(pattern, AsciiStr2::new("//")) {
+        Some((a, p)) => Some((
+            CellAlias::new(trim_prefix_ascii(a, AsciiChar::new('@')).to_owned()),
+            ForwardRelativePath::new(p)?,
+        )),
+        None => None,
+    })
 }
 
 // Lex the target pattern into the relevant pieces

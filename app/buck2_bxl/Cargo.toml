@@ -47,3 +47,6 @@ buck2_query = { workspace = true }
 buck2_query_parser = { workspace = true }
 buck2_server_ctx = { workspace = true }
 buck2_cli_proto = { workspace = true }
+
+[dev-dependencies]
+maplit = { workspace = true }
