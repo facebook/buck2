@@ -99,7 +99,7 @@ def get_aapt2_link(
         filter_resources_sh_cmd = cmd_args([
             "sh",
             "-c",
-            "cp $1 $2 && zip -d $2 $3",
+            'cp "$1" "$2" && chmod 644 "$2" && zip -d "$2" "$3"',
             "--",
             resources_apk,
             filtered_resources_apk.as_output(),
