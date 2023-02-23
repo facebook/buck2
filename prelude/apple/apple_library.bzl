@@ -58,7 +58,14 @@ def apple_library_impl(ctx: "context") -> ["promise", ["provider"]]:
     def get_apple_library_providers(deps_providers) -> ["provider"]:
         constructor_params, swift_providers, exported_pre = apple_library_rule_constructor_params_and_swift_providers(
             ctx,
-            AppleLibraryAdditionalParams(rule_type = "apple_library"),
+            AppleLibraryAdditionalParams(
+                rule_type = "apple_library",
+                generate_providers = CxxRuleProviderParams(
+                    java_packaging_info = False,
+                    android_packageable_info = False,
+                    omnibus_root = False,
+                ),
+            ),
             deps_providers,
         )
 
