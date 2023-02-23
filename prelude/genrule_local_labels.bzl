@@ -171,6 +171,9 @@ _GENRULE_LOCAL_LABELS = {label: True for label in [
     "qt_qrc_compile",
     "qt_qsb_gen",
     "qt_qmlcachegen",
+
+    # use local jar
+    "uses_jar",
 ]}
 
 def genrule_labels_require_local(labels):
