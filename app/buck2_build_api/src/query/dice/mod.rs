@@ -26,6 +26,7 @@ use buck2_common::target_aliases::HasTargetAliasResolver;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::name::CellName;
+use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
@@ -33,6 +34,7 @@ use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::package::PackageLabel;
+use buck2_core::pattern::maybe_split_cell_alias_and_relative_path;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::ProvidersPattern;
 use buck2_core::target::label::ConfiguredTargetLabel;
@@ -99,11 +101,22 @@ impl LiteralParser {
     }
 
     fn parse_file_literal(&self, literal: &str) -> anyhow::Result<CellPath> {
-        let path = Path::new(literal);
-        // Note if the path is absolute, this `join` is a no-op.
-        let path_abs = self.working_dir_abs.as_abs_path().join(path);
-        let project_path = self.project_root.relativize_any(path_abs)?;
-        self.cell_resolver.get_cell_path(&project_path)
+        match maybe_split_cell_alias_and_relative_path(literal)? {
+            Some((alias, path)) => {
+                let cell_name = self.cell_alias_resolver.resolve(&alias)?;
+
+                let cell_relative_path = CellRelativePath::new(path);
+
+                Ok(CellPath::new(cell_name, cell_relative_path.to_buf()))
+            }
+            None => {
+                let path = Path::new(literal);
+                // Note if the path is absolute, this `join` is a no-op.
+                let path_abs = self.working_dir_abs.as_abs_path().join(path);
+                let project_path = self.project_root.relativize_any(path_abs)?;
+                self.cell_resolver.get_cell_path(&project_path)
+            }
+        }
     }
 }
 
