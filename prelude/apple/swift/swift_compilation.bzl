@@ -78,7 +78,6 @@ def get_swift_anonymous_targets(ctx: "context", get_apple_library_providers: "fu
     # all transitive deps will be compiled recursively.
     direct_uncompiled_sdk_deps = get_uncompiled_sdk_deps(
         ctx.attrs.sdk_modules,
-        ctx.attrs.name,
         REQUIRED_SDK_MODULES,
         ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info,
     )

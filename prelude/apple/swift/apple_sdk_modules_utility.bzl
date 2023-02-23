@@ -46,7 +46,6 @@ def get_compiled_sdk_deps_tset(ctx: "context", deps_providers: list.type) -> "SD
 
 def get_uncompiled_sdk_deps(
         sdk_modules: [str.type],
-        module_name: str.type,
         required_modules: [str.type],
         toolchain: "SwiftToolchainInfo") -> ["dependency"]:
     if not is_sdk_modules_provided(toolchain):
@@ -58,10 +57,9 @@ def get_uncompiled_sdk_deps(
     sdk_deps = []
 
     for sdk_module_dep_name in all_sdk_modules:
-        if sdk_module_dep_name not in toolchain.uncompiled_swift_sdk_modules_deps and sdk_module_dep_name not in toolchain.uncompiled_clang_sdk_modules_deps:
-            fail("{} depends on a non-existing SDK module: {}".format(module_name, sdk_module_dep_name))
-
-        sdk_uncompiled_module_dep = toolchain.uncompiled_swift_sdk_modules_deps.get(sdk_module_dep_name) or toolchain.uncompiled_clang_sdk_modules_deps.get(sdk_module_dep_name)
-        sdk_deps.append(sdk_uncompiled_module_dep)
+        if sdk_module_dep_name in toolchain.uncompiled_swift_sdk_modules_deps:
+            sdk_deps.append(toolchain.uncompiled_swift_sdk_modules_deps[sdk_module_dep_name])
+        elif sdk_module_dep_name in toolchain.uncompiled_clang_sdk_modules_deps:
+            sdk_deps.append(toolchain.uncompiled_clang_sdk_modules_deps[sdk_module_dep_name])
 
     return sdk_deps

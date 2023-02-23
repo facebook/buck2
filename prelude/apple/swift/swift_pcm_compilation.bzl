@@ -137,7 +137,6 @@ def _swift_pcm_compilation_impl(ctx: "context") -> ["promise", ["provider"]]:
 
     direct_uncompiled_sdk_deps = get_uncompiled_sdk_deps(
         ctx.attrs.dep[SwiftPCMUncompiledInfo].uncompiled_sdk_modules,
-        ctx.attrs.pcm_name,
         _REQUIRED_SDK_MODULES,
         ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info,
     )
