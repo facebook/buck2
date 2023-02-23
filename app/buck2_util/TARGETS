@@ -21,12 +21,15 @@ rust_library(
     ],
     deps = [
         "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:futures",
         "fbsource//third-party/rust:libc",
         "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:static_assertions",
         "fbsource//third-party/rust:tokio",
+        "fbsource//third-party/rust:tracing",
         "fbsource//third-party/rust:triomphe",
         "//buck2/allocative/allocative:allocative",
         "//buck2/gazebo/dupe:dupe",
+        "//buck2/starlark-rust/starlark_map:starlark_map",
     ],
 )

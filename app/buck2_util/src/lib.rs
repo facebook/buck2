@@ -7,7 +7,10 @@
  * of this source tree.
  */
 
+#![feature(box_syntax)]
+
 pub mod arc_str;
+pub mod cycle_detector;
 pub mod process;
 pub mod process_stats;
 pub mod rtabort;
