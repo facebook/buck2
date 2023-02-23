@@ -174,6 +174,9 @@ _GENRULE_LOCAL_LABELS = {label: True for label in [
 
     # use local jar
     "uses_jar",
+
+    #use locally installed svnyum
+    "uses_svnyum",
 ]}
 
 def genrule_labels_require_local(labels):
