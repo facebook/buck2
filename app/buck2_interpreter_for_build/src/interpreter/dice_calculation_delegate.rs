@@ -13,6 +13,7 @@ use allocative::Allocative;
 use anyhow::Context;
 use async_trait::async_trait;
 use buck2_common::dice::cells::HasCellResolver;
+use buck2_common::dice::cycles::CycleGuard;
 use buck2_common::dice::file_ops::DiceFileOps;
 use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::error_report::CreateErrorReport;
@@ -50,6 +51,7 @@ use futures::future;
 use starlark::codemap::FileSpan;
 use starlark::syntax::AstModule;
 
+use crate::interpreter::cycles::LoadCycleDescriptor;
 use crate::interpreter::dice_calculation_delegate::keys::EvalImportKey;
 use crate::interpreter::global_interpreter_state::HasGlobalInterpreterState;
 use crate::interpreter::interpreter_for_cell::InterpreterForCell;
@@ -224,7 +226,8 @@ impl<'c> DiceCalculationDelegate<'c> {
         starlark_file: StarlarkPath<'_>,
     ) -> anyhow::Result<(AstModule, ModuleDeps)> {
         let ParseResult(ast, imports) = self.parse_file(starlark_file).await?;
-        let deps = self.eval_deps(&imports).await?;
+        let fut = self.eval_deps(&imports);
+        let deps = LoadCycleDescriptor::guard_this(self.ctx, fut).await???;
         Ok((ast, deps))
     }
 

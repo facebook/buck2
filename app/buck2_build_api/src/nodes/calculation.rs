@@ -15,6 +15,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use anyhow::Context;
 use async_trait::async_trait;
+use buck2_common::dice::cycles::CycleGuard;
 use buck2_common::result::SharedError;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
@@ -59,6 +60,7 @@ use indexmap::IndexSet;
 use starlark::collections::SmallSet;
 use thiserror::Error;
 
+use crate::calculation::ConfiguredGraphCycleDescriptor;
 use crate::configuration::calculation::ConfigurationCalculation;
 use crate::interpreter::rule_defs::transition::calculation_apply_transition::ApplyTransition;
 
@@ -628,11 +630,12 @@ async fn compute_configured_target_node_no_transition(
         .iter()
         .map(|v| ctx.get_configured_target_node(v.target()));
 
-    let (dep_results, exec_dep_results): (Vec<_>, Vec<_>) = futures::future::join(
+    let fut = futures::future::join(
         futures::future::join_all(dep_futures),
         futures::future::join_all(exec_dep_futures),
-    )
-    .await;
+    );
+    let (dep_results, exec_dep_results): (Vec<_>, Vec<_>) =
+        ConfiguredGraphCycleDescriptor::guard_this(ctx, fut).await??;
 
     let mut deps = Vec::with_capacity(deps.len());
     let mut exec_deps = Vec::with_capacity(exec_deps.len());
@@ -844,6 +847,10 @@ impl NodeCalculation for DiceComputations {
                     (Ok(x), Ok(y)) => x == y,
                     _ => false,
                 }
+            }
+
+            fn validity(x: &Self::Value) -> bool {
+                x.is_ok()
             }
         }
 

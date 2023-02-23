@@ -21,6 +21,7 @@ use buck2_build_api::actions::build_listener::SetBuildSignals;
 use buck2_build_api::actions::impls::run::knobs::HasRunActionKnobs;
 use buck2_build_api::actions::impls::run::knobs::RunActionKnobs;
 use buck2_build_api::build::HasCreateUnhashedSymlinkLock;
+use buck2_build_api::calculation::ConfiguredGraphCycleDescriptor;
 use buck2_build_api::context::SetBuildContextData;
 use buck2_build_api::interpreter::context::configure_build_file_globals;
 use buck2_build_api::interpreter::context::configure_extension_file_globals;
@@ -34,6 +35,8 @@ use buck2_cli_proto::ClientContext;
 use buck2_cli_proto::CommonBuildOptions;
 use buck2_cli_proto::ConfigOverride;
 use buck2_common::dice::cells::HasCellResolver;
+use buck2_common::dice::cycles::CycleDetectorAdapter;
+use buck2_common::dice::cycles::StackedDiceCycleDetector;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_common::executor_config::CommandExecutorConfig;
 use buck2_common::io::IoProvider;
@@ -53,6 +56,7 @@ use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::fs::working_dir::WorkingDir;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::ProvidersPattern;
+use buck2_core::rollout_percentage::RolloutPercentage;
 use buck2_core::truncate::truncate_container;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::metadata;
@@ -74,6 +78,7 @@ use buck2_interpreter::dice::starlark_profiler::StarlarkProfilerConfiguration;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
 use buck2_interpreter_for_build::interpreter::configuror::BuildInterpreterConfiguror;
+use buck2_interpreter_for_build::interpreter::cycles::LoadCycleDescriptor;
 use buck2_interpreter_for_build::interpreter::interpreter_setup::setup_interpreter;
 use buck2_server_ctx::concurrency::ConcurrencyHandler;
 use buck2_server_ctx::concurrency::DiceDataProvider;
@@ -88,6 +93,7 @@ use dice::DiceComputations;
 use dice::DiceData;
 use dice::DiceTransactionUpdater;
 use dice::UserComputationData;
+use dice::UserCycleDetector;
 use dupe::Dupe;
 use gazebo::prelude::SliceExt;
 use host_sharing::HostSharingBroker;
@@ -485,9 +491,20 @@ impl DiceDataProvider for DiceCommandDataProvider {
         let mut data = DiceData::new();
         data.set(self.events.dupe());
 
+        let cycle_detector = if root_config
+            .parse::<RolloutPercentage>("build", "lazy_cycle_detector")?
+            .map_or(false, |v| v.roll())
+        {
+            Some(create_cycle_detector())
+        } else {
+            None
+        };
+        let has_cycle_detector = cycle_detector.is_some();
+
         let mut data = UserComputationData {
             data,
             tracker: Arc::new(BuckDiceTracker::new(self.events.dupe())),
+            cycle_detector,
             ..Default::default()
         };
 
@@ -515,8 +532,21 @@ impl DiceDataProvider for DiceCommandDataProvider {
         data.set_run_action_knobs(self.run_action_knobs.dupe());
         data.set_create_unhashed_symlink_lock(self.create_unhashed_symlink_lock.dupe());
         data.spawner = Arc::new(BuckSpawner::default());
+
+        let tags = vec![format!("lazy-cycle-detector:{}", has_cycle_detector)];
+        self.events.instant_event(buck2_data::TagEvent { tags });
+
         Ok(data)
     }
+}
+
+fn create_cycle_detector() -> Arc<dyn UserCycleDetector> {
+    Arc::new(StackedDiceCycleDetector {
+        inner: vec![
+            box CycleDetectorAdapter::<LoadCycleDescriptor>::new(),
+            box CycleDetectorAdapter::<ConfiguredGraphCycleDescriptor>::new(),
+        ],
+    })
 }
 
 struct DiceCommandUpdater {

@@ -12,6 +12,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use buck2_common::dice::cells::HasCellResolver;
+use buck2_common::dice::cycles::CycleAdapterDescriptor;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_common::pattern::package_roots::find_package_roots_stream;
 use buck2_common::pattern::resolve::ResolvedPattern;
@@ -35,6 +36,8 @@ use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::unconfigured::RuleKind;
 use buck2_node::nodes::unconfigured::TargetNode;
+use buck2_util::cycle_detector::CycleDescriptor;
+use derive_more::Display;
 use dice::DiceComputations;
 use dupe::Dupe;
 use futures::future::BoxFuture;
@@ -42,6 +45,7 @@ use futures::stream::FuturesUnordered;
 use futures::FutureExt;
 use futures::Stream;
 use futures::StreamExt;
+use gazebo::prelude::*;
 use itertools::Itertools;
 use thiserror::Error;
 
@@ -61,6 +65,7 @@ use crate::deferred::types::DeferredValueReady;
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use crate::nodes::calculation as node_calculation;
 use crate::nodes::calculation::get_execution_platform_toolchain_dep;
+use crate::nodes::calculation::ConfiguredTargetNodeKey;
 
 #[derive(Debug, Error)]
 enum BuildErrors {
@@ -427,4 +432,54 @@ pub async fn load_patterns<T: PatternType>(
     }
 
     apply_spec(spec, results)
+}
+
+#[derive(Error, Debug, Clone, Dupe)]
+pub struct ConfiguredGraphCycleError {
+    cycle: Arc<Vec<ConfiguredGraphCycleKeys>>,
+}
+
+impl std::fmt::Display for ConfiguredGraphCycleError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "Configured target detected (`->` means \"depends on\"):")?;
+        for p in self.cycle.iter() {
+            writeln!(f, "  {} ->", p)?;
+        }
+        // point back at the first item in the cycle.
+        writeln!(f, "  {}", self.cycle.first().unwrap())?;
+        Ok(())
+    }
+}
+
+// TODO(cjhopman): There's other keys that could be involved in a cycle in the configured graph and they should probably also be tracked
+// here. Would be good to check on things like transitions, toolchains, configuration nodes. Still, this will currently catch most
+// configured graph cycles.
+#[derive(Debug, Display, Clone, Eq, PartialEq, Hash)]
+pub enum ConfiguredGraphCycleKeys {
+    #[display(fmt = "{}", _0)]
+    ConfiguredTargetNode(ConfiguredTargetNodeKey),
+}
+
+#[derive(Debug)]
+pub struct ConfiguredGraphCycleDescriptor;
+
+impl CycleDescriptor for ConfiguredGraphCycleDescriptor {
+    type Key = ConfiguredGraphCycleKeys;
+
+    type Error = ConfiguredGraphCycleError;
+
+    fn cycle_error(cycle: Vec<&Self::Key>) -> Self::Error {
+        ConfiguredGraphCycleError {
+            cycle: Arc::new(cycle.cloned()),
+        }
+    }
+}
+
+impl CycleAdapterDescriptor for ConfiguredGraphCycleDescriptor {
+    fn to_key(key: &dyn std::any::Any) -> Option<Self::Key> {
+        if let Some(v) = key.downcast_ref::<ConfiguredTargetNodeKey>() {
+            return Some(ConfiguredGraphCycleKeys::ConfiguredTargetNode(v.dupe()));
+        }
+        None
+    }
 }
