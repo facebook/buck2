@@ -8,42 +8,65 @@
  */
 
 use anyhow::Context;
+use async_trait::async_trait;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
-use buck2_server_ctx::ctx::ServerCommandDiceContext;
+use buck2_server_ctx::template::run_server_command;
+use buck2_server_ctx::template::ServerCommandTemplate;
 use chrono::TimeZone;
 use chrono::Utc;
+use dice::DiceTransaction;
 
 use crate::ctx::ServerCommandContext;
 
 pub(crate) async fn clean_stale_command(
-    context: ServerCommandContext,
+    ctx: ServerCommandContext,
     req: buck2_cli_proto::CleanStaleRequest,
 ) -> anyhow::Result<buck2_cli_proto::CleanStaleResponse> {
-    let box_ctx: Box<dyn ServerCommandContextTrait> = box context;
-    box_ctx
-        .with_dice_ctx_maybe_exclusive(
-            async move |server_ctx, _| {
-                more_futures::cancellable_future::critical_section(async move || {
-                    let deferred_materializer = server_ctx.materializer();
+    run_server_command(CleanStaleServerCommand { req }, box ctx).await
+}
 
-                    let extension = deferred_materializer
-                        .as_deferred_materializer_extension()
-                        .context("Deferred materializer is not in use")?;
+struct CleanStaleServerCommand {
+    req: buck2_cli_proto::CleanStaleRequest,
+}
 
-                    let keep_since_time = Utc
-                        .timestamp_opt(req.keep_since_time, 0)
-                        .single()
-                        .context("Invalid timestamp")?;
+#[async_trait]
+impl ServerCommandTemplate for CleanStaleServerCommand {
+    type StartEvent = buck2_data::CleanCommandStart;
+    type EndEvent = buck2_data::CleanCommandEnd;
+    type Response = buck2_cli_proto::CleanStaleResponse;
 
-                    extension
-                        .clean_stale_artifacts(keep_since_time, req.dry_run, req.tracked_only)
-                        .await
-                        .map(|s| buck2_cli_proto::CleanStaleResponse { response: s })
-                        .context("Failed to clean stale artifacts.")
-                })
+    async fn command<'v>(
+        &self,
+        server_ctx: &'v dyn ServerCommandContextTrait,
+        _ctx: DiceTransaction,
+    ) -> anyhow::Result<Self::Response> {
+        more_futures::cancellable_future::critical_section(async move || {
+            let deferred_materializer = server_ctx.materializer();
+
+            let extension = deferred_materializer
+                .as_deferred_materializer_extension()
+                .context("Deferred materializer is not in use")?;
+
+            let keep_since_time = Utc
+                .timestamp_opt(self.req.keep_since_time, 0)
+                .single()
+                .context("Invalid timestamp")?;
+
+            extension
+                .clean_stale_artifacts(keep_since_time, self.req.dry_run, self.req.tracked_only)
                 .await
-            },
-            Some("clean --stale".to_owned()),
-        )
+                .map(|s| buck2_cli_proto::CleanStaleResponse { response: s })
+                .context("Failed to clean stale artifacts.")
+        })
         .await
+    }
+
+    fn is_success(&self, _response: &Self::Response) -> bool {
+        // No response if we failed.
+        true
+    }
+
+    fn exclusive_command_name(&self) -> Option<String> {
+        Some("clean --stale".to_owned())
+    }
 }
