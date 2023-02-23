@@ -64,6 +64,9 @@ _GENRULE_LOCAL_LABELS = {label: True for label in [
     # Uses thrift tool which is not on RE.
     "uses_thrift",
 
+    # Uses protoc tool which is not on RE.
+    "uses_protoc",
+
     # Yarn installs use a large in-repo yarn repo that's ~6.1GB at the time of
     # writing, and so v1 uses workarounds (D17359502) to avoid the overhead this
     # would causes.  So, run these rules locally to maintain compatiblity and
