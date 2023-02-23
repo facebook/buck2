@@ -240,6 +240,7 @@ def _python_executable_attrs():
     # allow non-default value for the args below
     updated_attrs.update({
         "allow_huge_dwp": attrs.bool(default = False),
+        "compiler_flags": attrs.list(attrs.arg(), default = []),
         "cxx_main": attrs.source(default = "prelude//python/tools:embedded_main.cpp"),
         "enable_distributed_thinlto": attrs.bool(default = False),
         "executable_deps": attrs.list(attrs.dep(), default = []),
