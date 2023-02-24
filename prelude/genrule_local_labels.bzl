@@ -163,7 +163,7 @@ _GENRULE_LOCAL_LABELS = {label: True for label in [
     "yumdownloader",
 
     # Uses locally installed mvn.
-    "use_maven",
+    "uses_maven",
 
     # Some Qt genrules don't support RE yet
     "qt_moc",
