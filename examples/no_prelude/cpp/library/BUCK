@@ -4,7 +4,7 @@ cpp_library(
     name = "library",
     srcs = glob(["src/**/*.cpp"]),
     headers = glob(["src/**/*.hpp"]),
-    visibility = ["PUBLIC"],
     toolchain = "//:clang",
+    visibility = ["PUBLIC"],
     deps = [],
 )
