@@ -175,8 +175,8 @@ enum CellError {
     DuplicateNames(CellName, CellRootPathBuf, CellRootPathBuf),
     #[error("cannot find the cell at current path `{0}`. Known roots are `<{}>`", .1.join(", "))]
     UnknownCellPath(ProjectRelativePathBuf, Vec<String>),
-    #[error("unknown cell alias: `{0}`. known aliases are: `{}`", .1.iter().join(", "))]
-    UnknownCellAlias(CellAlias, Vec<CellAlias>),
+    #[error("unknown cell alias: `{0}`. In cell `{1}`, known aliases are: `{}`", .2.iter().join(", "))]
+    UnknownCellAlias(CellAlias, CellName, Vec<CellAlias>),
     #[error("cell aliases cannot contain empty alias")]
     EmptyAlias,
     #[error("unknown cell name: `{0}`. known cell names are `{}`", .1.iter().join(", "))]
@@ -249,6 +249,7 @@ impl CellAliasResolver {
         self.aliases.get(alias).duped().ok_or_else(|| {
             anyhow::Error::new(CellError::UnknownCellAlias(
                 CellAlias::new(alias.to_string()),
+                self.current,
                 self.aliases.keys().cloned().collect(),
             ))
         })
