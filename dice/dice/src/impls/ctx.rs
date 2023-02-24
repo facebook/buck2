@@ -14,11 +14,13 @@ use std::sync::Arc;
 use allocative::Allocative;
 use dupe::Dupe;
 use futures::FutureExt;
+use parking_lot::Mutex;
 
 use crate::api::data::DiceData;
 use crate::api::error::DiceResult;
 use crate::api::key::Key;
 use crate::api::user_data::UserComputationData;
+use crate::impls::dep_trackers::RecordingDepsTracker;
 use crate::impls::dice::DiceModern;
 use crate::impls::key::CowDiceKey;
 use crate::impls::key::DiceKey;
@@ -40,6 +42,7 @@ pub(crate) struct PerComputeCtxData {
     per_live_version_ctx: Arc<SharedLiveTransactionCtx>,
     live_version_guard: ActiveTransactionGuard,
     user_data: Arc<UserComputationData>,
+    dep_trackers: Mutex<RecordingDepsTracker>, // If we make PerComputeCtx &mut, we can get rid of this mutex after some refactoring
     dice: Arc<DiceModern>,
 }
 
@@ -56,6 +59,7 @@ impl PerComputeCtx {
                 per_live_version_ctx,
                 live_version_guard,
                 user_data,
+                dep_trackers: Mutex::new(RecordingDepsTracker::new()),
                 dice,
             }),
         }
@@ -91,6 +95,7 @@ impl PerComputeCtx {
             .dice
             .key_index
             .index(CowDiceKey::Ref(DiceKeyErasedRef::key(key)));
+
         self.data
             .per_live_version_ctx
             .compute_opaque(dice_key)
