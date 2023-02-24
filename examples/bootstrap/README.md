@@ -21,12 +21,12 @@ constraint_value(
 
 ### Bootstrap platform
 
-We then define a new platform `bootstrap//platform:bootstrap_platforms`, which inherits everything from the default platform `bootstrap//platform:default_platforms` and adds the extra `bootstrap` constraint defined above.
+We then define a new platform `bootstrap//platform:bootstrap`, which inherits everything from the default platform `bootstrap//platform:default` and adds the extra `bootstrap` constraint defined above.
 
 ```python
 platform(
-  name = "bootstrap_platforms",
-  deps = [":default_platforms"],
+  name = "bootstrap",
+  deps = [":default"],
   constraint_values = ["bootstrap//bootstrap:use_bootstrap"],
 )
 ```
@@ -53,7 +53,7 @@ rust_binary(
 )
 ```
 
-To construct a new toolchain that uses the new "rustc", we use `configured_alias` to tack on the `bootstrap_platforms` to the binary.
+To construct a new toolchain that uses the new "rustc", we use `configured_alias` to tack on the `bootstrap` to the binary.
 ```python
 rust_toolchain(
     name = "rust_toolchain_with_compiled_rustc",
@@ -63,7 +63,7 @@ rust_toolchain(
 configured_alias(
     name = "rustc_with_bootstrap_toolchain",
     actual = ":rustc_wrapper",
-    platform = "bootstrap//platform:bootstrap_platforms"
+    platform = "bootstrap//platform:bootstrap"
 )
 ```
 

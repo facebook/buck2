@@ -12,4 +12,4 @@ fbcode = none
 fbsource = none
 
 [parser]
-target_platform_detector_spec = target:root//...->bootstrap//platform:default_platforms
+target_platform_detector_spec = target:root//...->bootstrap//platform:default

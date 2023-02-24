@@ -46,7 +46,7 @@ rust_toolchain(
 configured_alias(
     name = "rustc_with_bootstrap_toolchain",
     actual = ":rustc_wrapper",
-    platform = "bootstrap//platform:bootstrap_platforms",
+    platform = "bootstrap//platform:bootstrap",
 )
 
 rust_binary(
