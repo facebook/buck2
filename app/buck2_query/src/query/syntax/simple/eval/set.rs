@@ -161,6 +161,13 @@ impl<'a, T: QueryTarget> Extend<&'a T> for TargetSet<T> {
     }
 }
 
+impl<T: QueryTarget> FromIterator<T> for TargetSet<T> {
+    fn from_iter<Iter: IntoIterator<Item = T>>(iter: Iter) -> Self {
+        let targets = LabelIndexedSet::from_iter(iter);
+        Self { targets }
+    }
+}
+
 /// This contains additional TargetSet functions implemented via the core
 /// functions on TargetSet itself.
 pub trait TargetSetExt {
