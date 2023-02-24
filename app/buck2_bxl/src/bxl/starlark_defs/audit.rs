@@ -12,6 +12,7 @@ use buck2_audit::output::audit_output;
 use buck2_audit::output::AuditOutputResult;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_core::target::label::TargetLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use derivative::Derivative;
 use derive_more::Display;
@@ -60,6 +61,7 @@ pub struct StarlarkAuditCtx<'v> {
     #[trace(unsafe_ignore)]
     #[derivative(Debug = "ignore")]
     cell_resolver: CellResolver,
+    global_target_platform: Option<TargetLabel>,
 }
 
 impl<'v> StarlarkValue<'v> for StarlarkAuditCtx<'v> {
@@ -94,11 +96,13 @@ impl<'v> StarlarkAuditCtx<'v> {
         ctx: &'v BxlContext<'v>,
         working_dir: ProjectRelativePathBuf,
         cell_resolver: CellResolver,
+        global_target_platform: Option<TargetLabel>,
     ) -> anyhow::Result<Self> {
         Ok(Self {
             ctx,
             working_dir,
             cell_resolver,
+            global_target_platform,
         })
     }
 }
@@ -128,8 +132,11 @@ fn register_audit(builder: &mut MethodsBuilder) {
         #[starlark(default = NoneType)] target_platform: Value<'v>,
         heap: &'v Heap,
     ) -> anyhow::Result<Option<Value<'v>>> {
-        let target_platform = target_platform
-            .parse_target_platforms(&this.ctx.target_alias_resolver, &this.ctx.cell)?;
+        let target_platform = target_platform.parse_target_platforms(
+            &this.ctx.target_alias_resolver,
+            &this.ctx.cell,
+            &this.global_target_platform,
+        )?;
 
         this.ctx.async_ctx.via_dice(|ctx| async move {
             Ok::<_, anyhow::Error>(

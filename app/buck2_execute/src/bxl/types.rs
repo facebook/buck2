@@ -58,8 +58,16 @@ pub enum CliArgValue {
 pub struct BxlKey(Arc<BxlKeyData>);
 
 impl BxlKey {
-    pub fn new(spec: BxlFunctionLabel, bxl_args: Arc<OrderedMap<String, CliArgValue>>) -> Self {
-        Self(Arc::new(BxlKeyData { spec, bxl_args }))
+    pub fn new(
+        spec: BxlFunctionLabel,
+        bxl_args: Arc<OrderedMap<String, CliArgValue>>,
+        global_target_platform: Option<TargetLabel>,
+    ) -> Self {
+        Self(Arc::new(BxlKeyData {
+            spec,
+            bxl_args,
+            global_target_platform,
+        }))
     }
 
     pub fn label(&self) -> &BxlFunctionLabel {
@@ -73,6 +81,10 @@ impl BxlKey {
     pub fn into_base_deferred_key_dyn_impl(self) -> Arc<dyn BaseDeferredKeyDynImpl> {
         self.0
     }
+
+    pub fn global_target_platform(&self) -> &Option<TargetLabel> {
+        &self.0.global_target_platform
+    }
 }
 
 #[derive(
@@ -82,6 +94,7 @@ impl BxlKey {
 struct BxlKeyData {
     spec: BxlFunctionLabel,
     bxl_args: Arc<OrderedMap<String, CliArgValue>>,
+    global_target_platform: Option<TargetLabel>,
 }
 
 fn print_like_args(args: &Arc<OrderedMap<String, CliArgValue>>) -> String {

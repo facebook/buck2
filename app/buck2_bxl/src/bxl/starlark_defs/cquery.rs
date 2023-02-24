@@ -127,10 +127,14 @@ impl<'v> StarlarkCQueryCtx<'v> {
     pub async fn new(
         ctx: &'v BxlContext<'v>,
         global_target_platform: Value<'v>,
+        default_target_platform: &Option<TargetLabel>,
         use_correct_cell_resolution: bool,
     ) -> anyhow::Result<StarlarkCQueryCtx<'v>> {
-        let target_platform =
-            global_target_platform.parse_target_platforms(&ctx.target_alias_resolver, &ctx.cell)?;
+        let target_platform = global_target_platform.parse_target_platforms(
+            &ctx.target_alias_resolver,
+            &ctx.cell,
+            default_target_platform,
+        )?;
 
         let env = get_cquery_env(ctx, target_platform.dupe(), use_correct_cell_resolution).await?;
         Ok(Self {

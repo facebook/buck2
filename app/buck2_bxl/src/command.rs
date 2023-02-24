@@ -25,6 +25,7 @@ use buck2_build_api::calculation::Calculation;
 use buck2_cli_proto::build_request::Materializations;
 use buck2_cli_proto::BxlRequest;
 use buck2_cli_proto::BxlResponse;
+use buck2_cli_proto::ClientContext;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
@@ -40,6 +41,7 @@ use buck2_interpreter::path::BxlFilePath;
 use buck2_interpreter::path::StarlarkModulePath;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
+use buck2_server_ctx::pattern::target_platform_from_client_context;
 use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
 use dice::DiceComputations;
@@ -99,7 +101,14 @@ async fn bxl(
 ) -> anyhow::Result<buck2_cli_proto::BxlResponse> {
     let cwd = server_ctx.working_dir();
 
-    let bxl_key = get_bxl_key(cwd, &ctx, &request.bxl_label, &request.bxl_args).await?;
+    let bxl_key = get_bxl_key(
+        cwd,
+        &ctx,
+        &request.bxl_label,
+        &request.bxl_args,
+        request.context.as_ref(),
+    )
+    .await?;
 
     let result = ctx.eval_bxl(bxl_key).await?;
 
@@ -130,8 +139,12 @@ pub(crate) async fn get_bxl_key(
     ctx: &DiceTransaction,
     bxl_label: &str,
     bxl_args: &Vec<String>,
+    client_ctx: Option<&ClientContext>,
 ) -> anyhow::Result<BxlKey> {
     let cell_resolver = ctx.get_cell_resolver().await?;
+
+    let global_target_platform =
+        target_platform_from_client_context(client_ctx, &cell_resolver, cwd).await?;
 
     let bxl_label = parse_bxl_label_from_cli(cwd, bxl_label, &cell_resolver)?;
 
@@ -162,7 +175,11 @@ pub(crate) async fn get_bxl_key(
     let bxl_args =
         Arc::new(resolve_cli_args(&bxl_label, &cli_ctx, bxl_args, &frozen_callable).await?);
 
-    Ok(BxlKey::new(bxl_label.clone(), bxl_args))
+    Ok(BxlKey::new(
+        bxl_label.clone(),
+        bxl_args,
+        global_target_platform,
+    ))
 }
 
 async fn copy_output<W: Write>(

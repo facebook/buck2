@@ -112,6 +112,7 @@ pub struct BxlContext<'v> {
     pub(crate) async_ctx: BxlSafeDiceComputations<'v>,
     pub(crate) state: ValueTyped<'v, AnalysisActions<'v>>,
     pub(crate) output_stream: ValueTyped<'v, OutputStream<'v>>,
+    pub(crate) global_target_platform: Option<TargetLabel>,
 }
 
 impl<'v> BxlContext<'v> {
@@ -126,6 +127,7 @@ impl<'v> BxlContext<'v> {
         async_ctx: BxlSafeDiceComputations<'v>,
         output_sink: RefCell<Box<dyn Write>>,
         digest_config: DigestConfig,
+        global_target_platform: Option<TargetLabel>,
     ) -> Self {
         Self {
             current_bxl,
@@ -144,6 +146,7 @@ impl<'v> BxlContext<'v> {
                 output_sink,
                 async_ctx,
             )),
+            global_target_platform,
         }
     }
 
@@ -306,8 +309,11 @@ fn register_context(builder: &mut MethodsBuilder) {
         #[starlark(default = NoneType)] target_platform: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
-        let target_platform =
-            target_platform.parse_target_platforms(&this.target_alias_resolver, &this.cell)?;
+        let target_platform = target_platform.parse_target_platforms(
+            &this.target_alias_resolver,
+            &this.cell,
+            &this.global_target_platform,
+        )?;
 
         let res: anyhow::Result<Value<'v>> = this.async_ctx.via_dice(|ctx| async move {
             Ok(
@@ -402,8 +408,9 @@ fn register_context(builder: &mut MethodsBuilder) {
         #[starlark(default = NoneType)] target_platform: Value<'v>,
     ) -> anyhow::Result<StarlarkCQueryCtx<'v>> {
         // TODO(@wendyy) - change this to true once everyone is migrated to cquery_legacy()
-        this.async_ctx
-            .via(|| StarlarkCQueryCtx::new(this, target_platform, false))
+        this.async_ctx.via(|| {
+            StarlarkCQueryCtx::new(this, target_platform, &this.global_target_platform, false)
+        })
     }
 
     /// Please do not use this at the moment. We need to fix how cell resolution is done within cquery.
@@ -412,8 +419,9 @@ fn register_context(builder: &mut MethodsBuilder) {
         // TODO(brasselsprouts): I would like to strongly type this.
         #[starlark(default = NoneType)] target_platform: Value<'v>,
     ) -> anyhow::Result<StarlarkCQueryCtx<'v>> {
-        this.async_ctx
-            .via(|| StarlarkCQueryCtx::new(this, target_platform, false))
+        this.async_ctx.via(|| {
+            StarlarkCQueryCtx::new(this, target_platform, &this.global_target_platform, false)
+        })
     }
 
     /// Returns the action context [`BxlActionsCtx`] for creating and running actions.
@@ -512,7 +520,12 @@ fn register_context(builder: &mut MethodsBuilder) {
             let working_dir = this.cell.path().as_project_relative_path();
             let cell_resolver = ctx.get_cell_resolver().await?;
 
-            StarlarkAuditCtx::new(this, working_dir.to_buf(), cell_resolver)
+            StarlarkAuditCtx::new(
+                this,
+                working_dir.to_buf(),
+                cell_resolver,
+                this.global_target_platform.clone(),
+            )
         })
     }
 }

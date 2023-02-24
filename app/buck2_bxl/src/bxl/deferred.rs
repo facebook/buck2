@@ -76,6 +76,7 @@ mod tests {
                 name: "foo".to_owned(),
             },
             Arc::new(OrderedMap::new()),
+            None,
         );
 
         let mut deferred =

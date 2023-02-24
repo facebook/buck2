@@ -30,6 +30,7 @@ pub trait ValueAsStarlarkTargetLabel {
         self,
         target_alias_resolver: &BuckConfigTargetAliasResolver,
         cell: &CellInstance,
+        default_target_platform: &Option<TargetLabel>,
     ) -> anyhow::Result<Option<TargetLabel>>;
 }
 
@@ -38,9 +39,10 @@ impl<'v> ValueAsStarlarkTargetLabel for Value<'v> {
         self,
         target_alias_resolver: &BuckConfigTargetAliasResolver,
         cell: &CellInstance,
+        default_target_platform: &Option<TargetLabel>,
     ) -> anyhow::Result<Option<TargetLabel>> {
         let target_platform = if self.is_none() {
-            None
+            default_target_platform.clone()
         } else if let Some(s) = self.unpack_str() {
             Some(
                 ParsedPattern::<TargetName>::parse_relaxed(

@@ -136,6 +136,8 @@ pub async fn eval(
                     Some(profiler) => StarlarkProfilerOrInstrumentation::for_profiler(profiler),
                 };
 
+                let global_target_platform = key.global_target_platform().clone();
+
                 let bxl_ctx = BxlContext::new(
                     eval.heap(),
                     key,
@@ -147,6 +149,7 @@ pub async fn eval(
                     BxlSafeDiceComputations::new(&ctx, &cancellation),
                     file,
                     digest_config,
+                    global_target_platform,
                 );
                 let bxl_ctx = ValueTyped::<BxlContext>::new(env.heap().alloc(bxl_ctx)).unwrap();
 

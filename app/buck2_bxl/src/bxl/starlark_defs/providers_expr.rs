@@ -60,8 +60,11 @@ impl ProvidersExpr {
         ctx: &BxlContext,
         eval: &Evaluator<'v, '_>,
     ) -> anyhow::Result<Self> {
-        let target_platform =
-            target_platform.parse_target_platforms(&ctx.target_alias_resolver, &ctx.cell)?;
+        let target_platform = target_platform.parse_target_platforms(
+            &ctx.target_alias_resolver,
+            &ctx.cell,
+            &ctx.global_target_platform,
+        )?;
 
         Ok(
             if let Some(resolved) = Self::unpack_literal(value, &target_platform, ctx)? {

@@ -63,8 +63,14 @@ impl ServerCommandTemplate for BxlProfileServerCommand {
                     StarlarkProfilerConfiguration::ProfileBxl(profile_mode) => {
                         let cwd = server_ctx.working_dir();
 
-                        let bxl_key =
-                            get_bxl_key(cwd, &ctx, &opts.bxl_label, &opts.bxl_args).await?;
+                        let bxl_key = get_bxl_key(
+                            cwd,
+                            &ctx,
+                            &opts.bxl_label,
+                            &opts.bxl_args,
+                            self.req.context.as_ref(),
+                        )
+                        .await?;
                         eval(
                             ctx,
                             bxl_key,
