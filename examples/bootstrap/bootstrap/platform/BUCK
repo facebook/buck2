@@ -11,7 +11,7 @@ execution_platform(
 # default but adds on an extra bootstrap constraint
 platform(
     name = "bootstrap",
-    constraint_values = ["bootstrap//bootstrap:use_bootstrap"],
+    constraint_values = ["bootstrap//:use_bootstrap"],
     visibility = ["PUBLIC"],
     deps = [":default"],
 )

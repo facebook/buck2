@@ -6,7 +6,7 @@ This project provides an example of what it might look like to configure a boots
 
 ### Bootstrap constraint
 
-In order to differentiate between a regular toolchain and a bootstrap toolchain, we introduce a new constraint setting `bootstrap//bootstrap:bootstrap` and a corresponding constraint value `bootstrap//bootstrap:use_bootstrap`.
+In order to differentiate between a regular toolchain and a bootstrap toolchain, we introduce a new constraint setting `bootstrap//:bootstrap` and a corresponding constraint value `bootstrap//:use_bootstrap`.
 
 ```python
 constraint_setting(
@@ -27,7 +27,7 @@ We then define a new platform `bootstrap//platform:bootstrap`, which inherits ev
 platform(
   name = "bootstrap",
   deps = [":default"],
-  constraint_values = ["bootstrap//bootstrap:use_bootstrap"],
+  constraint_values = ["bootstrap//:use_bootstrap"],
 )
 ```
 
@@ -72,7 +72,7 @@ Now that we have both toolchains constructed, we can create our final Rust toolc
 toolchain_alias(
    name = "rust",
    actual = select({
-     "bootstrap//bootstrap:use_bootstrap": ":rust_bootstrap_toolchain",
+     "bootstrap//:use_bootstrap": ":rust_bootstrap_toolchain",
      "DEFAULT": ":rust_toolchain_with_compiled_rustc",
    }),
    visibility = ["PUBLIC"],
