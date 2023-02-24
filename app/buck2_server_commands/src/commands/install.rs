@@ -146,7 +146,7 @@ impl ServerCommandTemplate for InstallServerCommand {
     type EndEvent = buck2_data::InstallCommandEnd;
     type Response = InstallResponse;
 
-    fn end_event(&self) -> Self::EndEvent {
+    fn end_event(&self, _response: &anyhow::Result<Self::Response>) -> Self::EndEvent {
         buck2_data::InstallCommandEnd {
             unresolved_target_patterns: self.req.target_patterns.clone(),
         }

@@ -76,7 +76,7 @@ impl ServerCommandTemplate for BxlServerCommand {
         buck2_data::BxlCommandStart { bxl_label }
     }
 
-    fn end_event(&self) -> Self::EndEvent {
+    fn end_event(&self, _response: &anyhow::Result<Self::Response>) -> Self::EndEvent {
         let bxl_label = self.req.bxl_label.clone();
         buck2_data::BxlCommandEnd { bxl_label }
     }

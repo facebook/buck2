@@ -199,7 +199,7 @@ impl ServerCommandTemplate for TestServerCommand {
         response.exit_code == 0
     }
 
-    fn end_event(&self) -> buck2_data::TestCommandEnd {
+    fn end_event(&self, _response: &anyhow::Result<Self::Response>) -> Self::EndEvent {
         buck2_data::TestCommandEnd {
             unresolved_target_patterns: self.req.target_patterns.clone(),
         }
