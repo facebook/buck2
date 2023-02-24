@@ -32,7 +32,7 @@ struct Shard {
 impl Shard {
     fn get(&self, key: DiceKeyErasedRef, hash: u64) -> Option<u32> {
         self.table
-            .get(hash, |k| self.values[*k as usize].eq_any() == key.eq_any())
+            .get(hash, |k| self.values[*k as usize].as_ref() == key)
             .copied()
     }
 
@@ -168,7 +168,7 @@ mod tests {
         let mut i = 0;
         loop {
             let key = TestKey(i);
-            let coin_key = key_index.index(CowDiceKey::Owned(DiceKeyErased::new(key)));
+            let coin_key = key_index.index(CowDiceKey::Owned(DiceKeyErased::key(key)));
 
             assert_eq!(i, key_index.get(coin_key).downcast::<TestKey>().unwrap().0);
 
@@ -189,7 +189,7 @@ mod tests {
 
         while i < 100000 {
             let key = TestKey(i);
-            let coin_key = key_index.index(CowDiceKey::Owned(DiceKeyErased::new(key)));
+            let coin_key = key_index.index(CowDiceKey::Owned(DiceKeyErased::key(key)));
 
             assert_eq!(i, key_index.get(coin_key).downcast::<TestKey>().unwrap().0);
 

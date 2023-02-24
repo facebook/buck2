@@ -9,18 +9,23 @@
 
 use std::any::Any;
 use std::hash::Hash;
+use std::hash::Hasher;
 use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
 use dupe::Dupe;
+use fnv::FnvHasher;
 use gazebo::cmp::PartialEqAny;
 
+use crate::api::computations::DiceComputations;
 use crate::api::key::Key;
+use crate::api::projection::DiceProjectionComputations;
+use crate::api::projection::ProjectionKey;
 use crate::impls::hash;
 use crate::impls::value::DiceKeyValue;
+use crate::impls::value::DiceProjectValue;
 use crate::impls::value::DiceValue;
-use crate::DiceComputations;
 
 /// Type erased internal dice key
 #[derive(
@@ -32,48 +37,111 @@ pub(crate) struct DiceKey {
 }
 
 #[derive(Allocative, Clone, Dupe)]
-pub(crate) struct DiceKeyErased(Arc<dyn DiceKeyDyn>);
+pub(crate) enum DiceKeyErased {
+    Key(Arc<dyn DiceKeyDyn>),
+    Projection(ProjectionWithBase),
+}
 
 impl DiceKeyErased {
-    pub(crate) fn new<K: Key>(k: K) -> Self {
-        Self(Arc::new(k))
+    pub(crate) fn key<K: Key>(k: K) -> Self {
+        Self::Key(Arc::new(k))
+    }
+
+    #[allow(unused)]
+    pub(crate) fn proj<K: ProjectionKey>(base: Arc<dyn DiceKeyDyn>, k: K) -> Self {
+        Self::Projection(ProjectionWithBase {
+            base,
+            proj: Arc::new(k),
+        })
     }
 
     pub(crate) fn hash(&self) -> u64 {
-        self.0.hash()
-    }
-
-    pub(crate) fn eq_any(&self) -> PartialEqAny {
-        self.0.eq_any()
-    }
-
-    pub(crate) fn downcast<K: Key>(self) -> Option<Arc<K>> {
-        if self.0.as_any().is::<K>() {
-            Some(unsafe { Arc::from_raw(Arc::into_raw(self.0).cast()) })
-        } else {
-            None
+        match self {
+            DiceKeyErased::Key(k) => k.hash(),
+            DiceKeyErased::Projection(proj) => proj.hash(),
         }
     }
 
-    fn as_ref(&self) -> DiceKeyErasedRef {
-        DiceKeyErasedRef(&*self.0)
+    pub(crate) fn downcast<K: 'static>(self) -> Option<Arc<K>> {
+        match self {
+            DiceKeyErased::Key(k) => {
+                if k.as_any().is::<K>() {
+                    Some(unsafe { Arc::from_raw(Arc::into_raw(k).cast()) })
+                } else {
+                    None
+                }
+            }
+            DiceKeyErased::Projection(proj) => {
+                if proj.proj.as_any().is::<K>() {
+                    Some(unsafe { Arc::from_raw(Arc::into_raw(proj.proj).cast()) })
+                } else {
+                    None
+                }
+            }
+        }
+    }
+
+    pub(crate) fn as_ref<'a>(&'a self) -> DiceKeyErasedRef<'a> {
+        match self {
+            DiceKeyErased::Key(k) => DiceKeyErasedRef::Key(&**k),
+            DiceKeyErased::Projection(proj) => {
+                DiceKeyErasedRef::Projection(ProjectionWithBaseRef {
+                    base: &*proj.base,
+                    proj: &*proj.proj,
+                })
+            }
+        }
+    }
+}
+
+impl PartialEq for DiceKeyErased {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (DiceKeyErased::Key(k), DiceKeyErased::Key(ok)) => k.eq_any() == ok.eq_any(),
+            (DiceKeyErased::Projection(k), DiceKeyErased::Projection(ok)) => k == ok,
+            _ => false,
+        }
     }
 }
 
 #[derive(Copy, Clone, Dupe)]
-pub(crate) struct DiceKeyErasedRef<'a>(&'a dyn DiceKeyDyn);
+pub(crate) enum DiceKeyErasedRef<'a> {
+    Key(&'a dyn DiceKeyDyn),
+    Projection(ProjectionWithBaseRef<'a>),
+}
 
 impl<'a> DiceKeyErasedRef<'a> {
-    pub(crate) fn new<K: Key>(k: &'a K) -> Self {
-        Self(k)
+    pub(crate) fn key<K: Key>(k: &'a K) -> Self {
+        Self::Key(k)
+    }
+
+    #[allow(unused)] // TODO(bobyf)
+    pub(crate) fn proj<K: ProjectionKey>(base: &'a dyn DiceKeyDyn, k: &'a K) -> Self {
+        Self::Projection(ProjectionWithBaseRef { base, proj: k })
     }
 
     pub(crate) fn hash(&self) -> u64 {
-        self.0.hash()
+        match self {
+            DiceKeyErasedRef::Key(k) => k.hash(),
+            DiceKeyErasedRef::Projection(p) => p.hash(),
+        }
     }
 
-    pub(crate) fn eq_any(&self) -> PartialEqAny {
-        self.0.eq_any()
+    fn to_owned(&self) -> DiceKeyErased {
+        match self {
+            DiceKeyErasedRef::Key(k) => DiceKeyErased::Key(k.clone_arc()),
+            DiceKeyErasedRef::Projection(p) => DiceKeyErased::Projection(p.to_owned()),
+        }
+    }
+}
+
+impl<'a> PartialEq for DiceKeyErasedRef<'a> {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (DiceKeyErasedRef::Key(k), DiceKeyErasedRef::Key(ok)) => k.eq_any() == ok.eq_any(),
+            (DiceKeyErasedRef::Projection(k), DiceKeyErasedRef::Projection(ok)) => k == ok,
+            _ => false,
+        }
     }
 }
 
@@ -88,7 +156,7 @@ impl<'a> CowDiceKey<'a> {
     pub(crate) fn into_owned(self) -> DiceKeyErased {
         match self {
             CowDiceKey::Borrow(b) => b.dupe(),
-            CowDiceKey::Ref(r) => DiceKeyErased(r.0.clone_arc()),
+            CowDiceKey::Ref(r) => r.to_owned(),
             CowDiceKey::Owned(owned) => owned,
         }
     }
@@ -142,6 +210,106 @@ where
     }
 }
 
+pub(crate) trait DiceProjectionDyn: Allocative + Send + Sync + 'static {
+    fn compute(&self, derive_from: DiceValue, ctx: &DiceProjectionComputations) -> DiceValue;
+
+    fn eq_any(&self) -> PartialEqAny;
+
+    fn hash(&self) -> u64;
+
+    fn as_any(&self) -> &dyn Any;
+
+    fn clone_arc(&self) -> Arc<dyn DiceProjectionDyn>;
+}
+
+impl<K> DiceProjectionDyn for K
+where
+    K: ProjectionKey,
+{
+    fn compute(&self, derive_from: DiceValue, ctx: &DiceProjectionComputations) -> DiceValue {
+        let value = self.compute(
+            derive_from
+                .downcast_ref()
+                .expect("Projection Key derived from wrong type"),
+            ctx,
+        );
+        DiceValue::new(DiceProjectValue::<K>::new(value))
+    }
+
+    fn eq_any(&self) -> PartialEqAny {
+        PartialEqAny::new(self)
+    }
+
+    fn hash(&self) -> u64 {
+        hash::key_hash(self)
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn clone_arc(&self) -> Arc<dyn DiceProjectionDyn> {
+        Arc::new(self.clone())
+    }
+}
+
+#[derive(Allocative, Clone, Dupe)]
+pub(crate) struct ProjectionWithBase {
+    base: Arc<dyn DiceKeyDyn>,
+    proj: Arc<dyn DiceProjectionDyn>,
+}
+
+impl ProjectionWithBase {
+    fn hash(&self) -> u64 {
+        let mut hasher = FnvHasher::default();
+
+        self.base.hash().hash(&mut hasher);
+        self.proj.hash().hash(&mut hasher);
+
+        hasher.finish()
+    }
+}
+
+impl PartialEq for ProjectionWithBase {
+    fn eq(&self, other: &Self) -> bool {
+        self.proj.eq_any() == other.proj.eq_any() && self.base.eq_any() == self.base.eq_any()
+    }
+}
+
+impl Eq for ProjectionWithBase {}
+
+#[derive(Copy, Clone, Dupe)]
+pub(crate) struct ProjectionWithBaseRef<'a> {
+    base: &'a dyn DiceKeyDyn,
+    proj: &'a dyn DiceProjectionDyn,
+}
+
+impl<'a> ProjectionWithBaseRef<'a> {
+    fn to_owned(&self) -> ProjectionWithBase {
+        ProjectionWithBase {
+            base: self.base.clone_arc(),
+            proj: self.proj.clone_arc(),
+        }
+    }
+
+    fn hash(&self) -> u64 {
+        let mut hasher = FnvHasher::default();
+
+        self.base.hash().hash(&mut hasher);
+        self.proj.hash().hash(&mut hasher);
+
+        hasher.finish()
+    }
+}
+
+impl<'a> PartialEq for ProjectionWithBaseRef<'a> {
+    fn eq(&self, other: &Self) -> bool {
+        self.proj.eq_any() == other.proj.eq_any() && self.base.eq_any() == self.base.eq_any()
+    }
+}
+
+impl<'a> Eq for ProjectionWithBaseRef<'a> {}
+
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
@@ -152,6 +320,8 @@ mod tests {
 
     use crate::api::computations::DiceComputations;
     use crate::api::key::Key;
+    use crate::api::projection::DiceProjectionComputations;
+    use crate::api::projection::ProjectionKey;
     use crate::impls::key::DiceKeyErased;
 
     #[test]
@@ -172,13 +342,44 @@ mod tests {
             }
         }
 
-        let erased = DiceKeyErased::new(TestK);
+        let erased = DiceKeyErased::key(TestK);
 
         let downcast = erased.downcast::<TestK>();
         assert!(downcast.is_some());
         let downcast = downcast.unwrap();
 
         assert_eq!(&*downcast, &TestK);
+
+        // no extra copies
+        assert_eq!(Arc::strong_count(&downcast), 1);
+
+        #[derive(Allocative, Debug, Display, Clone, Dupe, Eq, PartialEq, Hash)]
+        struct TestProj;
+
+        impl ProjectionKey for TestProj {
+            type DeriveFromKey = TestK;
+            type Value = ();
+
+            fn compute(
+                &self,
+                _derive_from: &<<Self as ProjectionKey>::DeriveFromKey as Key>::Value,
+                _ctx: &DiceProjectionComputations,
+            ) -> Self::Value {
+                unimplemented!("test")
+            }
+
+            fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
+                unimplemented!("test")
+            }
+        }
+
+        let erased = DiceKeyErased::proj(Arc::new(TestK), TestProj);
+
+        let downcast = erased.downcast::<TestProj>();
+        assert!(downcast.is_some());
+        let downcast = downcast.unwrap();
+
+        assert_eq!(&*downcast, &TestProj);
 
         // no extra copies
         assert_eq!(Arc::strong_count(&downcast), 1);

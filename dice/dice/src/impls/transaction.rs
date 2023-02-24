@@ -174,7 +174,7 @@ impl Changes {
         let key = self
             .dice
             .key_index
-            .index(CowDiceKey::Owned(DiceKeyErased::new(key)));
+            .index(CowDiceKey::Owned(DiceKeyErased::key(key)));
         if self.changes.insert(key, change).is_some() {
             Err(DiceError::duplicate(
                 self.dice.key_index.get(key).dupe().downcast::<K>().unwrap(),
@@ -239,7 +239,7 @@ mod tests {
             updater.scheduled_changes.changes.get(
                 &dice
                     .key_index
-                    .index(CowDiceKey::Owned(DiceKeyErased::new(K(1))))
+                    .index(CowDiceKey::Owned(DiceKeyErased::key(K(1))))
             ),
             Some(ChangeType::Invalidate)
         );
@@ -247,7 +247,7 @@ mod tests {
             updater.scheduled_changes.changes.get(
                 &dice
                     .key_index
-                    .index(CowDiceKey::Owned(DiceKeyErased::new(K(2))))
+                    .index(CowDiceKey::Owned(DiceKeyErased::key(K(2))))
             ),
             Some(ChangeType::Invalidate)
         );
@@ -256,7 +256,7 @@ mod tests {
         updater
             .scheduled_changes
             .changes
-            .get(&dice.key_index.index(CowDiceKey::Owned(DiceKeyErased::new(K(3))))),
+            .get(&dice.key_index.index(CowDiceKey::Owned(DiceKeyErased::key(K(3))))),
         Some(ChangeType::UpdateValue(x)) if *x.0.downcast_ref::<usize>().unwrap() == 3
             );
 
@@ -264,7 +264,7 @@ mod tests {
         updater
             .scheduled_changes
             .changes
-            .get(&dice.key_index.index(CowDiceKey::Owned(DiceKeyErased::new(K(4))))),
+            .get(&dice.key_index.index(CowDiceKey::Owned(DiceKeyErased::key(K(4))))),
         Some(ChangeType::UpdateValue(x)) if *x.0.downcast_ref::<usize>().unwrap() == 4
             );
 

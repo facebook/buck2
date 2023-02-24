@@ -16,6 +16,7 @@ use allocative::Allocative;
 use dupe::Dupe;
 
 use crate::Key;
+use crate::ProjectionKey;
 
 /// Type erased value associated for each Key in Dice
 #[derive(Allocative, Clone, Dupe)]
@@ -73,6 +74,37 @@ where
 impl<K> DiceValueDyn for DiceKeyValue<K>
 where
     K: Key,
+{
+    fn value_as_any(&self) -> &dyn Any {
+        &self.value
+    }
+
+    fn equality(&self, other: &dyn DiceValueDyn) -> bool {
+        K::equality(&self.value, other.downcast_ref().unwrap())
+    }
+
+    fn validity(&self) -> bool {
+        K::validity(&self.value)
+    }
+}
+
+#[derive(Allocative)]
+pub(crate) struct DiceProjectValue<K: ProjectionKey> {
+    value: K::Value,
+}
+
+impl<K> DiceProjectValue<K>
+where
+    K: ProjectionKey,
+{
+    pub(crate) fn new(value: K::Value) -> Self {
+        Self { value }
+    }
+}
+
+impl<K> DiceValueDyn for DiceProjectValue<K>
+where
+    K: ProjectionKey,
 {
     fn value_as_any(&self) -> &dyn Any {
         &self.value

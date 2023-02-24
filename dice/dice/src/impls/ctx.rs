@@ -82,7 +82,7 @@ impl PerComputeCtx {
         let dice_key = self
             .dice
             .key_index
-            .index(CowDiceKey::Ref(DiceKeyErasedRef::new(key)));
+            .index(CowDiceKey::Ref(DiceKeyErasedRef::key(key)));
         self.per_live_version_ctx
             .compute_opaque(dice_key)
             .map(|dice_result| {
