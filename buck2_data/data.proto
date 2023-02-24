@@ -645,7 +645,7 @@ message DocsCommandEnd {
 }
 
 message CleanCommandEnd {
-  // TODO fill this with useful fields
+  optional CleanStaleStats clean_stale_stats = 1;
 }
 
 message CleanStaleStats {

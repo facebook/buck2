@@ -65,6 +65,15 @@ impl ServerCommandTemplate for CleanStaleServerCommand {
         true
     }
 
+    fn end_event(&self, response: &anyhow::Result<Self::Response>) -> Self::EndEvent {
+        let clean_stale_stats = if let Ok(res) = response {
+            res.stats.clone()
+        } else {
+            None
+        };
+        buck2_data::CleanCommandEnd { clean_stale_stats }
+    }
+
     fn exclusive_command_name(&self) -> Option<String> {
         Some("clean --stale".to_owned())
     }
