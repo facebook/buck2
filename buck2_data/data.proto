@@ -648,6 +648,18 @@ message CleanCommandEnd {
   // TODO fill this with useful fields
 }
 
+message CleanStaleStats {
+  uint64 stale_artifact_count = 1;
+  uint64 stale_bytes = 2;
+  uint64 retained_artifact_count = 3;
+  uint64 retained_bytes = 4;
+  uint64 untracked_artifact_count = 5;
+  uint64 untracked_bytes = 6;
+  uint64 cleaned_path_count = 7;
+  uint64 cleaned_artifact_count = 8;
+  uint64 cleaned_bytes = 9;
+}
+
 message InstallCommandEnd {
   repeated TargetPattern unresolved_target_patterns = 1;
 }

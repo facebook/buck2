@@ -625,7 +625,7 @@ pub trait DeferredMaterializerExtensions: Send + Sync {
         keep_since_time: DateTime<Utc>,
         dry_run: bool,
         tracked_only: bool,
-    ) -> anyhow::Result<String>;
+    ) -> anyhow::Result<buck2_cli_proto::CleanStaleResponse>;
 
     async fn test_iter(&self, count: usize) -> anyhow::Result<String>;
 

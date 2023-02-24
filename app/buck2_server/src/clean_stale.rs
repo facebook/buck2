@@ -55,7 +55,6 @@ impl ServerCommandTemplate for CleanStaleServerCommand {
             extension
                 .clean_stale_artifacts(keep_since_time, self.req.dry_run, self.req.tracked_only)
                 .await
-                .map(|s| buck2_cli_proto::CleanStaleResponse { response: s })
                 .context("Failed to clean stale artifacts.")
         })
         .await

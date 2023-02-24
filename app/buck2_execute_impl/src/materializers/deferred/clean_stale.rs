@@ -43,7 +43,7 @@ pub struct CleanStaleArtifacts {
     pub dry_run: bool,
     pub tracked_only: bool,
     #[derivative(Debug = "ignore")]
-    pub sender: Sender<BoxFuture<'static, anyhow::Result<String>>>,
+    pub sender: Sender<BoxFuture<'static, anyhow::Result<buck2_cli_proto::CleanStaleResponse>>>,
 }
 
 impl ExtensionCommand<DefaultIoHandler> for CleanStaleArtifacts {
@@ -54,7 +54,10 @@ impl ExtensionCommand<DefaultIoHandler> for CleanStaleArtifacts {
     ) {
         if !processor.defer_write_actions || processor.sqlite_db.is_none() {
             let fut = async move {
-                Ok("Skipping clean, set buck2.sqlite_materializer_state and buck2.defer_write_actions to use clean --stale".to_owned())
+                Ok(buck2_cli_proto::CleanStaleResponse {
+                    response: "Skipping clean, set buck2.sqlite_materializer_state and buck2.defer_write_actions to use clean --stale".to_owned(),
+                    stats: None,
+                })
             }.boxed();
             let _ignored = self.sender.send(fut);
             return;
@@ -69,10 +72,10 @@ impl ExtensionCommand<DefaultIoHandler> for CleanStaleArtifacts {
             &processor.io,
         );
         let fut = async move {
-            let (cleaning_futs, output) = res?;
+            let (cleaning_futs, response) = res?;
             futures::future::try_join_all(cleaning_futs).await?;
             tracing::trace!("finished cleaning stale artifacts");
-            Ok(output)
+            Ok(response)
         }
         .boxed();
         let _ignored = self.sender.send(fut);
@@ -86,17 +89,36 @@ fn gather_clean_futures_for_stale_artifacts(
     tracked_only: bool,
     sqlite_db: &mut Option<MaterializerStateSqliteDb>,
     io: &Arc<DefaultIoHandler>,
-) -> anyhow::Result<(Vec<impl Future<Output = anyhow::Result<()>>>, String)> {
+) -> anyhow::Result<(
+    Vec<impl Future<Output = anyhow::Result<()>>>,
+    buck2_cli_proto::CleanStaleResponse,
+)> {
     let gen_path = &io
         .buck_out_path
         .join(ProjectRelativePathBuf::unchecked_new("gen".to_owned()));
     let gen_dir = io.fs.resolve(gen_path);
     if !fs_util::try_exists(&gen_dir)? {
-        return Ok((vec![], "Nothing to clean".to_owned()));
+        return Ok((
+            vec![],
+            buck2_cli_proto::CleanStaleResponse {
+                response: "Nothing to clean".to_owned(),
+                stats: None,
+            },
+        ));
     }
     tracing::trace!(gen_dir = %gen_dir, "Scanning");
 
-    let mut stats = StaleFinderStats::new();
+    let mut stats = buck2_data::CleanStaleStats {
+        stale_artifact_count: 0,
+        stale_bytes: 0,
+        retained_artifact_count: 0,
+        retained_bytes: 0,
+        untracked_artifact_count: 0,
+        untracked_bytes: 0,
+        cleaned_artifact_count: 0,
+        cleaned_path_count: 0,
+        cleaned_bytes: 0,
+    };
     let result = if tracked_only {
         find_stale_tracked_only(tree, keep_since_time, &mut stats)?
     } else {
@@ -110,36 +132,37 @@ fn gather_clean_futures_for_stale_artifacts(
     writeln!(
         output,
         "Found {} stale artifacts ({})",
-        stats.stale_count,
+        stats.stale_artifact_count,
         bytesize::to_string(stats.stale_bytes, true),
     )?;
     writeln!(
         output,
         "Found {} recent artifacts ({})",
-        stats.retained_count,
+        stats.retained_artifact_count,
         bytesize::to_string(stats.retained_bytes, true),
     )?;
     writeln!(
         output,
         "Found {} untracked artifacts ({})",
-        stats.untracked_count,
+        stats.untracked_artifact_count,
         bytesize::to_string(stats.untracked_bytes, true),
     )?;
     let mut cleaning_futs = Vec::new();
     if !dry_run {
         let paths_to_clean = result.paths();
+        stats.cleaned_path_count = paths_to_clean.len() as u64;
+        stats.cleaned_artifact_count = stats.stale_artifact_count + stats.untracked_artifact_count;
         writeln!(
             output,
             "Cleaned {} paths ({} artifacts)",
-            paths_to_clean.len(),
-            stats.stale_count + stats.untracked_count,
+            stats.cleaned_path_count, stats.cleaned_artifact_count,
         )?;
-        let clean_size = stats.untracked_bytes + stats.stale_bytes;
+        stats.cleaned_bytes = stats.untracked_bytes + stats.stale_bytes;
         writeln!(
             output,
             "{} bytes cleaned ({})",
-            clean_size,
-            bytesize::to_string(clean_size, true),
+            stats.cleaned_bytes,
+            bytesize::to_string(stats.cleaned_bytes, true),
         )?;
 
         for path in paths_to_clean {
@@ -158,7 +181,13 @@ fn gather_clean_futures_for_stale_artifacts(
         }
     }
 
-    Ok((cleaning_futs, output))
+    Ok((
+        cleaning_futs,
+        buck2_cli_proto::CleanStaleResponse {
+            response: output,
+            stats: Some(stats),
+        },
+    ))
 }
 
 enum StaleFinderResult {
@@ -185,28 +214,6 @@ impl StaleFinderResult {
     }
 }
 
-struct StaleFinderStats {
-    stale_count: u64,
-    retained_count: u64,
-    untracked_count: u64,
-    stale_bytes: u64,
-    retained_bytes: u64,
-    untracked_bytes: u64,
-}
-
-impl StaleFinderStats {
-    fn new() -> Self {
-        Self {
-            stale_count: 0,
-            retained_count: 0,
-            untracked_count: 0,
-            stale_bytes: 0,
-            retained_bytes: 0,
-            untracked_bytes: 0,
-        }
-    }
-}
-
 /// Get file size or directory size, without following symlinks
 pub fn get_size(path: &AbsNormPath) -> anyhow::Result<u64> {
     let mut result = 0;
@@ -225,14 +232,14 @@ fn find_stale_recursive(
     subtree: Option<&ArtifactTree>,
     path: &AbsNormPath,
     keep_since_time: DateTime<Utc>,
-    stats: &mut StaleFinderStats,
+    stats: &mut buck2_data::CleanStaleStats,
 ) -> anyhow::Result<StaleFinderResult> {
     // Use symlink_metadata to not follow symlinks (stale/untracked symlink target may have been cleaned first)
     let path_type = FileType::from(path.symlink_metadata()?.file_type());
     let rel_path = fs.relativize(&path)?;
 
-    let clean_untracked = |stats: &mut StaleFinderStats| {
-        stats.untracked_count += 1;
+    let clean_untracked = |stats: &mut buck2_data::CleanStaleStats| {
+        stats.untracked_artifact_count += 1;
         stats.untracked_bytes += get_size(path)?;
         tracing::trace!(path = %path, path_type = ?path_type, "marking as untracked");
         Ok(StaleFinderResult::CleanPath(rel_path.clone().into_owned()))
@@ -246,12 +253,12 @@ fn find_stale_recursive(
         } = metadata.stage
         {
             if last_access_time < keep_since_time && !active {
-                stats.stale_count += 1;
+                stats.stale_artifact_count += 1;
                 stats.stale_bytes += get_size(path)?;
                 tracing::trace!(path = %path, path_type = ?path_type, "marking as stale");
                 Ok(StaleFinderResult::CleanPath(rel_path.clone().into_owned()))
             } else {
-                stats.retained_count += 1;
+                stats.retained_artifact_count += 1;
                 stats.retained_bytes += get_size(path)?;
                 tracing::trace!(path = %path, path_type = ?path_type, "marking as retained");
                 Ok(StaleFinderResult::CleanNone)
@@ -295,7 +302,7 @@ fn find_stale_recursive(
 fn find_stale_tracked_only(
     tree: &ArtifactTree,
     keep_since_time: DateTime<Utc>,
-    stats: &mut StaleFinderStats,
+    stats: &mut buck2_data::CleanStaleStats,
 ) -> anyhow::Result<StaleFinderResult> {
     let mut paths_to_clean = Vec::new();
     for (f_path, v) in tree.iter_with_paths() {
@@ -308,11 +315,11 @@ fn find_stale_tracked_only(
             let path = ProjectRelativePathBuf::from(f_path);
             if *last_access_time < keep_since_time && !active {
                 tracing::trace!(path = %path, "stale artifact");
-                stats.stale_count += 1;
+                stats.stale_artifact_count += 1;
                 paths_to_clean.push(path);
             } else {
                 tracing::trace!(path = %path, "retaining artifact");
-                stats.retained_count += 1;
+                stats.retained_artifact_count += 1;
             }
         }
     }
