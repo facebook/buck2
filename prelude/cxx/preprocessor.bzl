@@ -198,8 +198,6 @@ def cxx_exported_preprocessor_info(ctx: "context", headers_layout: CxxHeadersLay
     if header_root != None:
         inc_flag = _header_style_flag(style)
         args.extend([inc_flag, header_root.include_path])
-        if header_root.preprocessor_args != None:
-            args.append(header_root.preprocessor_args)
 
     # Embed raw headers as hidden artifacts in our args.  This means downstream
     # cases which use these args don't also need to know to add raw headers.
@@ -294,8 +292,6 @@ def _cxx_private_preprocessor_info(
     header_root = prepare_headers(ctx, header_map, "buck-private-headers")
     if header_root != None:
         args.extend(["-I", header_root.include_path])
-        if header_root.preprocessor_args != None:
-            args.append(header_root.preprocessor_args)
 
     # Embed raw headers as hidden artifacts in our args.  This means downstream
     # cases which use these args don't also need to know to add raw headers.
