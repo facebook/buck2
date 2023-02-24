@@ -16,7 +16,6 @@ use buck2_build_api::actions::key::ActionKey;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::analysis::AnalysisResult;
 use buck2_build_api::calculation::Calculation;
-use buck2_build_api::context::HasBuildContextData;
 use buck2_build_api::query::aquery::environment::ActionQueryNode;
 use buck2_build_api::query::aquery::evaluator::get_dice_aquery_delegate;
 use buck2_build_api::query::dice::aquery::DiceAqueryDelegate;
@@ -24,10 +23,10 @@ use buck2_cli_proto::ClientContext;
 use buck2_cli_proto::QueryOutputFormat;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_core::cells::CellResolver;
+use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::target::label::TargetLabel;
 use buck2_execute::path::buck_out_path::BuckOutPathParser;
-use buck2_execute::path::buck_out_path::BuckOutPathResolver;
 use buck2_execute::path::buck_out_path::BuckOutPathType;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationValue;
@@ -76,17 +75,17 @@ pub struct AuditOutputCommand {
 }
 
 fn check_output_path<'v>(
-    buck_out_path_resolver: &'v BuckOutPathResolver,
     build_artifact: &'v BuildArtifact,
-    path_to_check: &'v str,
+    path_to_check: &'v ForwardRelativePathBuf,
 ) -> anyhow::Result<Option<&'v ActionKey>> {
-    let path = build_artifact.get_path();
+    let path = build_artifact.get_path().path();
 
-    let project_relative_path = buck_out_path_resolver.resolve_gen(path).to_string();
+    debug!(
+        "Checking action's output path: {}. Path to check: {}",
+        path, path_to_check
+    );
 
-    debug!("Checking action's output path: {}", project_relative_path);
-
-    if project_relative_path.ends_with(path_to_check) {
+    if path_to_check.starts_with(path_to_check) {
         Ok(Some(build_artifact.key()))
     } else {
         Ok(None)
@@ -128,22 +127,14 @@ async fn write_output<'v>(
 
 async fn find_matching_action<'v>(
     dice_aquery_delegate: Arc<DiceAqueryDelegate<'v>>,
-    dice_ctx: &'v DiceComputations,
     analysis: &AnalysisResult,
-    path_after_isolation_prefix: &'v str,
+    path_after_target_name: ForwardRelativePathBuf,
 ) -> anyhow::Result<Option<ActionQueryNode>> {
-    let buck_out_path_resolver =
-        BuckOutPathResolver::new((dice_ctx.get_buck_out_path().await?).to_buf());
-
     for entry in analysis.iter_deferreds() {
         match entry.as_complex().debug_artifact_outputs()? {
             Some(outputs) => {
                 for build_artifact in &outputs {
-                    match check_output_path(
-                        &buck_out_path_resolver,
-                        build_artifact,
-                        path_after_isolation_prefix,
-                    )? {
+                    match check_output_path(build_artifact, &path_after_target_name)? {
                         Some(action_key) => {
                             return Ok(Some(
                                 dice_aquery_delegate.get_action_node(action_key).await?,
@@ -178,13 +169,13 @@ pub async fn audit_output<'v>(
     let buck_out_parser = BuckOutPathParser::new(cell_resolver);
     let parsed = buck_out_parser.parse(output_path)?;
 
-    let (target_label, config_hash, path_after_isolation_prefix) = match parsed {
+    let (target_label, config_hash, path_after_target_name) = match parsed {
         BuckOutPathType::RuleOutput {
             target_label,
             config_hash,
-            path_after_isolation_prefix,
+            path_after_target_name,
             ..
-        } => (target_label, config_hash, path_after_isolation_prefix),
+        } => (target_label, config_hash, path_after_target_name),
         _ => {
             return Err(anyhow::anyhow!(AuditOutputError::UnsupportedPathType(
                 output_path.to_owned()
@@ -210,14 +201,11 @@ pub async fn audit_output<'v>(
         .await?
         .require_compatible()?;
 
-    Ok(find_matching_action(
-        dice_aquery_delegate,
-        dice_ctx,
-        &analysis,
-        &path_after_isolation_prefix,
+    Ok(
+        find_matching_action(dice_aquery_delegate, &analysis, path_after_target_name)
+            .await?
+            .map(AuditOutputResult::Match),
     )
-    .await?
-    .map(AuditOutputResult::Match))
 }
 
 #[async_trait]

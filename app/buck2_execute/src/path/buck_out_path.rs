@@ -308,8 +308,8 @@ pub enum BuckOutPathType {
     RuleOutput {
         path: CellPath,
         target_label: TargetLabel,
-        // This is the part of the buck-out after the isolation prefix. Ex: `gen/path/to/__target_name/artifact`
-        path_after_isolation_prefix: String,
+        // This is the part of the buck-out after target name. For example, it would `artifact` in  `gen/path/to/__target_name__/artifact`
+        path_after_target_name: ForwardRelativePathBuf,
         config_hash: String,
     },
     TestOutput {
@@ -489,8 +489,6 @@ impl<'v> BuckOutPathParser<'v> {
 
         validate_buck_out_and_isolation_prefix(&mut iter)?;
 
-        let path_after_isolation_prefix = iter.clone().join("/");
-
         // Advance the iterator to the prefix (tmp, test, gen, gen-anon, or gen-bxl)
         match iter.next() {
             Some(part) => {
@@ -516,11 +514,13 @@ impl<'v> BuckOutPathParser<'v> {
                         let (path, config_hash, _) =
                             get_cell_path(&mut iter, self.cell_resolver, "gen")?;
                         let target_label = get_target_label(&mut iter, path.clone())?;
+                        let path_after_target_name =
+                            ForwardRelativePathBuf::new(iter.clone().join("/"))?;
 
                         Ok(BuckOutPathType::RuleOutput {
                             path,
                             target_label,
-                            path_after_isolation_prefix,
+                            path_after_target_name,
                             config_hash,
                         })
                     }
@@ -871,15 +871,12 @@ mod tests {
             BuckOutPathType::RuleOutput {
                 path,
                 target_label,
-                path_after_isolation_prefix,
+                path_after_target_name,
                 config_hash,
             } => {
                 assert_eq!(
-                    path_after_isolation_prefix,
-                    format!(
-                        "gen/bar/{}/path/to/target/__target_name__/output",
-                        expected_config_hash
-                    )
+                    path_after_target_name,
+                    ForwardRelativePathBuf::new("output".to_owned())?,
                 );
                 assert_eq!(target_label, expected_target_label,);
                 assert_eq!(path, expected_cell_path,);
