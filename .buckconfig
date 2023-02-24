@@ -14,8 +14,5 @@ buck = shim
 [buildfile]
 name = TARGETS
 
-[build]
-execution_platforms = ovr_config//platforms:default
-
 [parser]
-target_platform_detector_spec = target:root//...->ovr_config//platforms:default target:shim//...->ovr_config//platforms:default
+target_platform_detector_spec = target:root//...->prelude//platforms:default target:shim//...->prelude//platforms:default
