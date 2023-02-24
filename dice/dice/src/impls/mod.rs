@@ -11,6 +11,8 @@
 pub(crate) mod cache;
 pub(crate) mod core;
 pub(crate) mod ctx;
+#[allow(unused)] // TODO(bobyf)
+mod dep_trackers;
 pub(crate) mod dice;
 mod hash;
 pub(crate) mod key;
