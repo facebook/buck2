@@ -27,7 +27,7 @@ toolchain_alias(
     name = "rust",
     actual = select({
         "DEFAULT": ":rust_toolchain_with_compiled_rustc",
-        "config//bootstrap:use_bootstrap": ":rust_bootstrap_toolchain",
+        "bootstrap//bootstrap:use_bootstrap": ":rust_bootstrap_toolchain",
     }),
     visibility = ["PUBLIC"],
 )
@@ -46,7 +46,7 @@ rust_toolchain(
 configured_alias(
     name = "rustc_with_bootstrap_toolchain",
     actual = ":rustc_wrapper",
-    platform = "config//platform:bootstrap_platforms",
+    platform = "bootstrap//platform:bootstrap_platforms",
 )
 
 rust_binary(
