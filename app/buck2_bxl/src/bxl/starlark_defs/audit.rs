@@ -8,8 +8,8 @@
  */
 
 use allocative::Allocative;
-use buck2_audit::output::audit_output;
-use buck2_audit::output::AuditOutputResult;
+use buck2_audit::output::command::audit_output;
+use buck2_audit::output::command::AuditOutputResult;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::target::label::TargetLabel;

@@ -21,7 +21,6 @@ use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
-use output::AuditOutputCommand;
 
 use crate::analysis_queries::AuditAnalysisQueriesCommand;
 use crate::cell::AuditCellCommand;
@@ -31,6 +30,7 @@ use crate::deferred_materializer::DeferredMaterializerCommand;
 use crate::dep_files::AuditDepFilesCommand;
 use crate::execution_platform_resolution::AuditExecutionPlatformResolutionCommand;
 use crate::includes::AuditIncludesCommand;
+use crate::output::command::AuditOutputCommand;
 use crate::prelude::AuditPreludeCommand;
 use crate::providers::AuditProvidersCommand;
 use crate::starlark::StarlarkCommand;
