@@ -441,7 +441,10 @@ pub struct ConfiguredGraphCycleError {
 
 impl std::fmt::Display for ConfiguredGraphCycleError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "Configured target detected (`->` means \"depends on\"):")?;
+        writeln!(
+            f,
+            "Configured target cycle detected (`->` means \"depends on\"):"
+        )?;
         for p in self.cycle.iter() {
             writeln!(f, "  {} ->", p)?;
         }
