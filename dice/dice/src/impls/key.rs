@@ -18,7 +18,7 @@ use gazebo::cmp::PartialEqAny;
 
 use crate::api::key::Key;
 use crate::impls::hash;
-use crate::impls::value::DiceComputedValue;
+use crate::impls::value::DiceKeyValue;
 use crate::impls::value::DiceValue;
 use crate::DiceComputations;
 
@@ -122,7 +122,7 @@ where
 {
     async fn compute(&self, ctx: &DiceComputations) -> DiceValue {
         let value = self.compute(ctx).await;
-        DiceValue::new(DiceComputedValue::<K>::new(value))
+        DiceValue::new(DiceKeyValue::<K>::new(value))
     }
 
     fn eq_any(&self) -> PartialEqAny {

@@ -23,7 +23,7 @@ use crate::impls::ctx::SharedLiveTransactionCtx;
 use crate::impls::key::CowDiceKey;
 use crate::impls::key::DiceKey;
 use crate::impls::key::DiceKeyErased;
-use crate::impls::value::DiceComputedValue;
+use crate::impls::value::DiceKeyValue;
 use crate::impls::value::DiceValue;
 use crate::versions::VersionNumber;
 use crate::DiceModern;
@@ -73,7 +73,7 @@ impl TransactionUpdater {
         changed.into_iter().try_for_each(|(k, new_value)| {
             self.scheduled_changes.change(
                 k,
-                ChangeType::UpdateValue(DiceValue::new(DiceComputedValue::<K>::new(new_value))),
+                ChangeType::UpdateValue(DiceValue::new(DiceKeyValue::<K>::new(new_value))),
             )
         })
     }

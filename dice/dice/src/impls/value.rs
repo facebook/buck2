@@ -57,11 +57,11 @@ impl dyn DiceValueDyn {
 }
 
 #[derive(Allocative)]
-pub(crate) struct DiceComputedValue<K: Key> {
+pub(crate) struct DiceKeyValue<K: Key> {
     value: K::Value,
 }
 
-impl<K> DiceComputedValue<K>
+impl<K> DiceKeyValue<K>
 where
     K: Key,
 {
@@ -70,7 +70,7 @@ where
     }
 }
 
-impl<K> DiceValueDyn for DiceComputedValue<K>
+impl<K> DiceValueDyn for DiceKeyValue<K>
 where
     K: Key,
 {
