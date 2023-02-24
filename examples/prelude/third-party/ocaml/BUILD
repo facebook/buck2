@@ -53,6 +53,7 @@ prebuilt_ocaml_library(
     visibility = ["PUBLIC"],
 ) if not host_info().os.is_windows else None
 
+# buildifier: disable=no-effect
 prebuilt_ocaml_library(
     name = "ppxlib.astlib",
     bytecode_lib = "opam/lib/ppxlib/astlib/astlib.cma",
