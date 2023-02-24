@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::borrow::Cow;
 use std::future::Future;
 use std::marker::PhantomData;
 use std::sync::Arc;
@@ -21,7 +20,9 @@ use crate::api::error::DiceResult;
 use crate::api::key::Key;
 use crate::api::user_data::UserComputationData;
 use crate::impls::dice::DiceModern;
+use crate::impls::key::CowDiceKey;
 use crate::impls::key::DiceKey;
+use crate::impls::key::DiceKeyErasedRef;
 use crate::impls::opaque::OpaqueValueModern;
 use crate::impls::transaction::ActiveTransactionGuard;
 use crate::impls::transaction::TransactionUpdater;
@@ -78,7 +79,10 @@ impl PerComputeCtx {
     where
         K: Key,
     {
-        let dice_key = self.dice.key_index.index(Cow::Borrowed(key));
+        let dice_key = self
+            .dice
+            .key_index
+            .index(CowDiceKey::Ref(DiceKeyErasedRef::new(key)));
         self.per_live_version_ctx
             .compute_opaque(dice_key)
             .map(|dice_result| {

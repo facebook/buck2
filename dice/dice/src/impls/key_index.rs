@@ -8,8 +8,6 @@
  */
 
 use std::array;
-use std::borrow::Borrow;
-use std::borrow::Cow;
 
 use allocative::Allocative;
 use dupe::Dupe;
@@ -17,11 +15,10 @@ use hashbrown::raw::RawTable;
 use parking_lot::RwLock;
 use parking_lot::RwLockUpgradableReadGuard;
 
-use crate::api::key::Key;
-use crate::impls::hash;
+use crate::impls::key::CowDiceKey;
 use crate::impls::key::DiceKey;
-use crate::impls::key::DiceKeyDyn;
 use crate::impls::key::DiceKeyErased;
+use crate::impls::key::DiceKeyErasedRef;
 
 /// We bound each shard to only store up to u32 size entry. Together with `SHARDS`s shards, this
 /// is capable to ~4 billion keys. After which point, it is probably too large for DICE to
@@ -33,7 +30,7 @@ struct Shard {
 }
 
 impl Shard {
-    fn get(&self, key: &dyn DiceKeyDyn, hash: u64) -> Option<u32> {
+    fn get(&self, key: DiceKeyErasedRef, hash: u64) -> Option<u32> {
         self.table
             .get(hash, |k| self.values[*k as usize].eq_any() == key.eq_any())
             .copied()
@@ -69,27 +66,22 @@ impl DiceKeyIndex {
     pub(crate) const SHARDS: u32 = 64;
     pub(crate) const MAX_INDEX_IN_SHARD: u32 = u32::MAX / DiceKeyIndex::SHARDS;
 
-    fn index_impl<K: Key>(&self, key: Cow<K>) -> DiceKey {
-        let hash = hash::key_hash(&key);
+    pub(crate) fn index(&self, key: CowDiceKey) -> DiceKey {
+        let hash = key.borrow().hash();
         let shard_index = (hash as usize % self.shards.len()) as u32; // shard size is bounded to u32
         let shard = &self.shards[shard_index as usize];
         let shard = shard.upgradable_read();
-        let index_in_shard =
-            if let Some(index_in_shard) = shard.get(key.borrow() as &K as &dyn DiceKeyDyn, hash) {
-                index_in_shard
-            } else {
-                let mut shard = RwLockUpgradableReadGuard::upgrade(shard);
-                shard.insert_unique_unchecked(DiceKeyErased::new(key.into_owned()), hash)
-            };
+        let index_in_shard = if let Some(index_in_shard) = shard.get(key.borrow(), hash) {
+            index_in_shard
+        } else {
+            let mut shard = RwLockUpgradableReadGuard::upgrade(shard);
+            shard.insert_unique_unchecked(key.into_owned(), hash)
+        };
         DiceKeyUnpacked {
             shard_index,
             index_in_shard,
         }
         .pack()
-    }
-
-    pub(crate) fn index<K: Key>(&self, key: Cow<K>) -> DiceKey {
-        self.index_impl(key)
     }
 
     pub(crate) fn get(&self, key: DiceKey) -> DiceKeyErased {
@@ -123,7 +115,6 @@ impl DiceKeyUnpacked {
 
 #[cfg(test)]
 mod tests {
-    use std::borrow::Cow;
     use std::cmp;
 
     use allocative::Allocative;
@@ -133,7 +124,8 @@ mod tests {
 
     use crate::api::computations::DiceComputations;
     use crate::api::key::Key;
-    use crate::impls::key::DiceKeyDynExt;
+    use crate::impls::key::CowDiceKey;
+    use crate::impls::key::DiceKeyErased;
     use crate::impls::key_index::DiceKeyIndex;
     use crate::impls::key_index::DiceKeyUnpacked;
 
@@ -176,17 +168,9 @@ mod tests {
         let mut i = 0;
         loop {
             let key = TestKey(i);
-            let coin_key = key_index.index_impl(Cow::<TestKey>::Owned(key));
+            let coin_key = key_index.index(CowDiceKey::Owned(DiceKeyErased::new(key)));
 
-            assert_eq!(
-                i,
-                key_index
-                    .get(coin_key)
-                    .unpack()
-                    .downcast::<TestKey>()
-                    .unwrap()
-                    .0
-            );
+            assert_eq!(i, key_index.get(coin_key).downcast::<TestKey>().unwrap().0);
 
             seen_shards[DiceKeyUnpacked::unpack(coin_key).shard_index as usize] += 1;
             max_index = cmp::max(max_index, coin_key.index);
@@ -205,17 +189,9 @@ mod tests {
 
         while i < 100000 {
             let key = TestKey(i);
-            let coin_key = key_index.index_impl(Cow::<TestKey>::Owned(key));
+            let coin_key = key_index.index(CowDiceKey::Owned(DiceKeyErased::new(key)));
 
-            assert_eq!(
-                i,
-                key_index
-                    .get(coin_key)
-                    .unpack()
-                    .downcast::<TestKey>()
-                    .unwrap()
-                    .0
-            );
+            assert_eq!(i, key_index.get(coin_key).downcast::<TestKey>().unwrap().0);
 
             seen_shards[DiceKeyUnpacked::unpack(coin_key).shard_index as usize] += 1;
             max_index = cmp::max(max_index, coin_key.index);

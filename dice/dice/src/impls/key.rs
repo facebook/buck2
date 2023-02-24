@@ -32,15 +32,11 @@ pub(crate) struct DiceKey {
 }
 
 #[derive(Allocative, Clone, Dupe)]
-pub struct DiceKeyErased(Arc<dyn DiceKeyDyn>);
+pub(crate) struct DiceKeyErased(Arc<dyn DiceKeyDyn>);
 
 impl DiceKeyErased {
     pub(crate) fn new<K: Key>(k: K) -> Self {
         Self(Arc::new(k))
-    }
-
-    pub(crate) fn unpack(self) -> Arc<dyn DiceKeyDyn> {
-        self.0
     }
 
     pub(crate) fn hash(&self) -> u64 {
@@ -49,6 +45,60 @@ impl DiceKeyErased {
 
     pub(crate) fn eq_any(&self) -> PartialEqAny {
         self.0.eq_any()
+    }
+
+    pub(crate) fn downcast<K: Key>(self) -> Option<Arc<K>> {
+        if self.0.as_any().is::<K>() {
+            Some(unsafe { Arc::from_raw(Arc::into_raw(self.0).cast()) })
+        } else {
+            None
+        }
+    }
+
+    fn as_ref(&self) -> DiceKeyErasedRef {
+        DiceKeyErasedRef(&*self.0)
+    }
+}
+
+#[derive(Copy, Clone, Dupe)]
+pub(crate) struct DiceKeyErasedRef<'a>(&'a dyn DiceKeyDyn);
+
+impl<'a> DiceKeyErasedRef<'a> {
+    pub(crate) fn new<K: Key>(k: &'a K) -> Self {
+        Self(k)
+    }
+
+    pub(crate) fn hash(&self) -> u64 {
+        self.0.hash()
+    }
+
+    pub(crate) fn eq_any(&self) -> PartialEqAny {
+        self.0.eq_any()
+    }
+}
+
+pub(crate) enum CowDiceKey<'a> {
+    #[allow(unused)]
+    Borrow(&'a DiceKeyErased),
+    Ref(DiceKeyErasedRef<'a>),
+    Owned(DiceKeyErased),
+}
+
+impl<'a> CowDiceKey<'a> {
+    pub(crate) fn into_owned(self) -> DiceKeyErased {
+        match self {
+            CowDiceKey::Borrow(b) => b.dupe(),
+            CowDiceKey::Ref(r) => DiceKeyErased(r.0.clone_arc()),
+            CowDiceKey::Owned(owned) => owned,
+        }
+    }
+
+    pub(crate) fn borrow(&'a self) -> DiceKeyErasedRef<'a> {
+        match self {
+            CowDiceKey::Borrow(b) => b.as_ref(),
+            CowDiceKey::Ref(r) => *r,
+            CowDiceKey::Owned(owned) => owned.as_ref(),
+        }
     }
 }
 
@@ -61,6 +111,8 @@ pub(crate) trait DiceKeyDyn: Allocative + Send + Sync + 'static {
     fn hash(&self) -> u64;
 
     fn as_any(&self) -> &dyn Any;
+
+    fn clone_arc(&self) -> Arc<dyn DiceKeyDyn>;
 }
 
 #[async_trait]
@@ -84,19 +136,9 @@ where
     fn as_any(&self) -> &dyn Any {
         self
     }
-}
 
-pub(crate) trait DiceKeyDynExt {
-    fn downcast<K: Key>(self) -> Option<Arc<K>>;
-}
-
-impl DiceKeyDynExt for Arc<dyn DiceKeyDyn> {
-    fn downcast<K: Key>(self) -> Option<Arc<K>> {
-        if self.as_any().is::<K>() {
-            Some(unsafe { Arc::from_raw(Arc::into_raw(self).cast()) })
-        } else {
-            None
-        }
+    fn clone_arc(&self) -> Arc<dyn DiceKeyDyn> {
+        Arc::new(self.clone())
     }
 }
 
@@ -110,8 +152,7 @@ mod tests {
 
     use crate::api::computations::DiceComputations;
     use crate::api::key::Key;
-    use crate::impls::key::DiceKeyDyn;
-    use crate::impls::key::DiceKeyDynExt;
+    use crate::impls::key::DiceKeyErased;
 
     #[test]
     fn downcast_key_does_not_increase_refs() {
@@ -131,7 +172,7 @@ mod tests {
             }
         }
 
-        let erased: Arc<dyn DiceKeyDyn> = Arc::new(TestK);
+        let erased = DiceKeyErased::new(TestK);
 
         let downcast = erased.downcast::<TestK>();
         assert!(downcast.is_some());

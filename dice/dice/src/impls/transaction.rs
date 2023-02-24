@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::borrow::Cow;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -21,8 +20,9 @@ use crate::api::user_data::UserComputationData;
 use crate::impls::core::state::StateRequest;
 use crate::impls::ctx::PerComputeCtx;
 use crate::impls::ctx::SharedLiveTransactionCtx;
+use crate::impls::key::CowDiceKey;
 use crate::impls::key::DiceKey;
-use crate::impls::key::DiceKeyDynExt;
+use crate::impls::key::DiceKeyErased;
 use crate::impls::value::DiceComputedValue;
 use crate::impls::value::DiceValue;
 use crate::versions::VersionNumber;
@@ -171,15 +171,13 @@ impl Changes {
     }
 
     pub(crate) fn change<K: Key>(&mut self, key: K, change: ChangeType) -> DiceResult<()> {
-        let key = self.dice.key_index.index(Cow::<K>::Owned(key));
+        let key = self
+            .dice
+            .key_index
+            .index(CowDiceKey::Owned(DiceKeyErased::new(key)));
         if self.changes.insert(key, change).is_some() {
             Err(DiceError::duplicate(
-                self.dice
-                    .key_index
-                    .get(key)
-                    .unpack()
-                    .downcast::<K>()
-                    .unwrap(),
+                self.dice.key_index.get(key).dupe().downcast::<K>().unwrap(),
             ))
         } else {
             Ok(())
@@ -197,7 +195,6 @@ pub(crate) enum ChangeType {
 
 #[cfg(test)]
 mod tests {
-    use std::borrow::Cow;
 
     use allocative::Allocative;
     use assert_matches::assert_matches;
@@ -208,6 +205,8 @@ mod tests {
     use crate::api::data::DiceData;
     use crate::api::key::Key;
     use crate::impls::dice::DiceModern;
+    use crate::impls::key::CowDiceKey;
+    use crate::impls::key::DiceKeyErased;
     use crate::impls::transaction::ChangeType;
     use crate::versions::VersionNumber;
 
@@ -237,17 +236,19 @@ mod tests {
         updater.changed_to(vec![(K(3), 3), (K(4), 4)])?;
 
         assert_matches!(
-            updater
-                .scheduled_changes
-                .changes
-                .get(&dice.key_index.index(Cow::<K>::Owned(K(1)))),
+            updater.scheduled_changes.changes.get(
+                &dice
+                    .key_index
+                    .index(CowDiceKey::Owned(DiceKeyErased::new(K(1))))
+            ),
             Some(ChangeType::Invalidate)
         );
         assert_matches!(
-            updater
-                .scheduled_changes
-                .changes
-                .get(&dice.key_index.index(Cow::<K>::Owned(K(2)))),
+            updater.scheduled_changes.changes.get(
+                &dice
+                    .key_index
+                    .index(CowDiceKey::Owned(DiceKeyErased::new(K(2))))
+            ),
             Some(ChangeType::Invalidate)
         );
 
@@ -255,7 +256,7 @@ mod tests {
         updater
             .scheduled_changes
             .changes
-            .get(&dice.key_index.index(Cow::<K>::Owned(K(3)))),
+            .get(&dice.key_index.index(CowDiceKey::Owned(DiceKeyErased::new(K(3))))),
         Some(ChangeType::UpdateValue(x)) if *x.0.downcast_ref::<usize>().unwrap() == 3
             );
 
@@ -263,7 +264,7 @@ mod tests {
         updater
             .scheduled_changes
             .changes
-            .get(&dice.key_index.index(Cow::<K>::Owned(K(4)))),
+            .get(&dice.key_index.index(CowDiceKey::Owned(DiceKeyErased::new(K(4))))),
         Some(ChangeType::UpdateValue(x)) if *x.0.downcast_ref::<usize>().unwrap() == 4
             );
 
