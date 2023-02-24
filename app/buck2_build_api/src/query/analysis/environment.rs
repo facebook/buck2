@@ -116,22 +116,24 @@ pub trait ConfiguredGraphQueryEnvironmentDelegate: Send + Sync {
         // This will contain the ArtifactGroups we encounter during our traversal (so only artifacts and top-level tset nodes).
         // Artifacts are put here to keep them in the correct order in the output, tsets are top-level tset nodes that we need
         // to traverse.
-        let mut artifacts = VecDeque::new();
+        let artifacts = futures::future::try_join_all(targets.iter().map(|target| async move {
+            let artifacts = self
+                .get_template_info_provider_artifacts(target.label(), template_name)
+                .await?;
+            anyhow::Ok(
+                artifacts
+                    .into_iter()
+                    .map(|artifact| (target.label().dupe(), artifact)),
+            )
+        }))
+        .await?;
+        let mut artifacts: VecDeque<_> = artifacts.into_iter().flatten().collect();
 
         // This will contain the TransitiveSetProjectionKey we encounter as top-level nodes and we will also put in TransitiveSetProjectionKey
         // for all the tset nodes that we encounter during our traversal of those top-level nodes. We don't need to track artifacts because
         // we just extract the targetlabel and put that in the output set and that can dedupe them (and we don't need to further
         // traverse artifacts).
         let mut seen = HashSet::new();
-
-        for target in targets.iter() {
-            for artifact in self
-                .get_template_info_provider_artifacts(target.label(), template_name)
-                .await?
-            {
-                artifacts.push_back((target.label().dupe(), artifact))
-            }
-        }
 
         while let Some((target, artifact)) = artifacts.pop_front() {
             match artifact {
