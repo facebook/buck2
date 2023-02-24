@@ -7,5 +7,4 @@
  * of this source tree.
  */
 
-//! A task stored by Dice that is shared for all transactions at the same version
-pub(crate) struct DiceTask;
+pub(crate) mod dice;

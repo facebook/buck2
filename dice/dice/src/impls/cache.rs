@@ -14,7 +14,7 @@ use dashmap::DashMap;
 use fnv::FnvBuildHasher;
 
 use crate::impls::key::DiceKey;
-use crate::impls::task::DiceTask;
+use crate::impls::task::dice::DiceTask;
 
 pub(crate) struct SharedCache {
     storage: DashMap<DiceKey, DiceTask, FnvBuildHasher>,
