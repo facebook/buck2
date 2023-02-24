@@ -1,6 +1,3 @@
-[buildfile]
-name=BUILD
-
 [repositories]
 root = .
 prelude = prelude
