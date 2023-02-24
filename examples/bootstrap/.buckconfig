@@ -1,6 +1,3 @@
-[buildfile]
-name = BUCK2
-
 [repositories]
 root = .
 prelude = prelude
