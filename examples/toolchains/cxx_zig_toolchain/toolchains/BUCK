@@ -1,4 +1,5 @@
-load("@prelude//toolchains/cxx/zig:defs.bzl", "download_zig_distribution", "cxx_zig_toolchain")
+load("@prelude//toolchains/cxx/zig:defs.bzl", "cxx_zig_toolchain", "download_zig_distribution")
+
 # TODO Replace by prelude toolchain once available
 load("@toolchains//python:defs.bzl", "system_python_bootstrap_toolchain")
 

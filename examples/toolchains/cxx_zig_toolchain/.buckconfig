@@ -11,8 +11,5 @@ fbcode = none
 fbcode_macros = none
 fbsource = none
 
-[buildfile]
-name = BUILD
-
 [parser]
 target_platform_detector_spec = target://...->prelude//platforms:default

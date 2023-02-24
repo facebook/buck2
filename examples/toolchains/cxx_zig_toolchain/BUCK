@@ -1,5 +1,3 @@
-load("@prelude//platforms:defs.bzl", "execution_platform")
-
 cxx_library(
     name = "lib",
     srcs = ["lib.cc"],
