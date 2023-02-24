@@ -32,6 +32,11 @@ use crate::versions::VersionNumber;
 /// Context given to the `compute` function of a `Key`.
 #[derive(Allocative, Dupe, Clone)]
 pub(crate) struct PerComputeCtx {
+    data: Arc<PerComputeCtxData>,
+}
+
+#[derive(Allocative)]
+pub(crate) struct PerComputeCtxData {
     per_live_version_ctx: Arc<SharedLiveTransactionCtx>,
     live_version_guard: ActiveTransactionGuard,
     user_data: Arc<UserComputationData>,
@@ -47,10 +52,12 @@ impl PerComputeCtx {
         dice: Arc<DiceModern>,
     ) -> Self {
         Self {
-            per_live_version_ctx,
-            live_version_guard,
-            user_data,
-            dice,
+            data: Arc::new(PerComputeCtxData {
+                per_live_version_ctx,
+                live_version_guard,
+                user_data,
+                dice,
+            }),
         }
     }
 
@@ -80,10 +87,12 @@ impl PerComputeCtx {
         K: Key,
     {
         let dice_key = self
+            .data
             .dice
             .key_index
             .index(CowDiceKey::Ref(DiceKeyErasedRef::key(key)));
-        self.per_live_version_ctx
+        self.data
+            .per_live_version_ctx
             .compute_opaque(dice_key)
             .map(|dice_result| {
                 dice_result.map(|dice_value| {
@@ -111,7 +120,7 @@ impl PerComputeCtx {
     /// Data that is static per the entire lifetime of Dice. These data are initialized at the
     /// time that Dice is initialized via the constructor.
     pub(crate) fn global_data(&self) -> &DiceData {
-        &self.dice.global_data
+        &self.data.dice.global_data
     }
 
     /// Data that is static for the lifetime of the current request context. This lifetime is
@@ -119,15 +128,15 @@ impl PerComputeCtx {
     /// The data is also specific to each request context, so multiple concurrent requests can
     /// each have their own individual data.
     pub(crate) fn per_transaction_data(&self) -> &UserComputationData {
-        &self.user_data
+        &self.data.user_data
     }
 
     pub(crate) fn get_version(&self) -> VersionNumber {
-        self.per_live_version_ctx.get_version()
+        self.data.per_live_version_ctx.get_version()
     }
 
     pub(crate) fn into_updater(self) -> TransactionUpdater {
-        TransactionUpdater::new(self.dice.dupe(), self.user_data.dupe())
+        TransactionUpdater::new(self.data.dice.dupe(), self.data.user_data.dupe())
     }
 }
 
