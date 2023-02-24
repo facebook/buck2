@@ -1328,6 +1328,8 @@ message InvocationRecord {
   optional uint64 time_to_last_action_execution_end_ms = 48;
   // Isolation directory.
   optional string isolation_dir = 49;
+  // Number of materializer entries loaded from db on daemon start.
+  optional uint64 initial_materializer_entries_from_sqlite = 50;
 }
 
 message CacheUploadStart {

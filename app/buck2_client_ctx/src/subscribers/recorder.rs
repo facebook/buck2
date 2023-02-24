@@ -87,6 +87,7 @@ mod imp {
         event_count: u64,
         time_to_first_action_execution: Option<Duration>,
         materialization_output_size: u64,
+        initial_materializer_entries_from_sqlite: Option<u64>,
         time_to_command_start: Option<Duration>,
         time_to_command_critical_section: Option<Duration>,
         time_to_first_analysis: Option<Duration>,
@@ -145,6 +146,7 @@ mod imp {
                 event_count: 0,
                 time_to_first_action_execution: None,
                 materialization_output_size: 0,
+                initial_materializer_entries_from_sqlite: None,
                 time_to_command_start: None,
                 time_to_command_critical_section: None,
                 time_to_first_analysis: None,
@@ -220,6 +222,8 @@ mod imp {
                         .time_to_first_action_execution
                         .and_then(|d| u64::try_from(d.as_millis()).ok()),
                     materialization_output_size: Some(self.materialization_output_size),
+                    initial_materializer_entries_from_sqlite: self
+                        .initial_materializer_entries_from_sqlite,
                     time_to_command_start_ms: self
                         .time_to_command_start
                         .and_then(|d| u64::try_from(d.as_millis()).ok()),
@@ -479,6 +483,15 @@ mod imp {
             _event: &BuckEvent,
         ) -> anyhow::Result<()> {
             self.materialization_output_size += materialization.total_bytes;
+            Ok(())
+        }
+
+        async fn handle_materializer_state_info(
+            &mut self,
+            materializer_state_info: &buck2_data::MaterializerStateInfo,
+        ) -> anyhow::Result<()> {
+            self.initial_materializer_entries_from_sqlite =
+                Some(materializer_state_info.num_entries_from_sqlite);
             Ok(())
         }
 
