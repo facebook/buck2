@@ -85,16 +85,24 @@ def _cgo(
 
     cmd = get_toolchain_cmd_args(go_toolchain, go_root = False)
     cmd.add(go_toolchain.cgo_wrapper[RunInfo])
-    cmd.add(cmd_args(go_toolchain.cgo, format = "--cgo={}"))
+
+    args = cmd_args()
+    args.add(cmd_args(go_toolchain.cgo, format = "--cgo={}"))
 
     # TODO(agallagher): cgo outputs a dir with generated sources, but I'm not
     # sure how to pass in an output dir *and* enumerate the sources we know will
     # generated w/o v2 complaining that the output dir conflicts with the nested
     # artifacts.
-    cmd.add(cmd_args(go_srcs[0].as_output(), format = "--output={}/.."))
-    cmd.add(cmd_args(cxx_toolchain.c_compiler_info.preprocessor, format = "--cpp={}"))
-    cmd.add(cmd_args(pre_args, format = "--cpp={}"))
-    cmd.add(srcs)
+    args.add(cmd_args(go_srcs[0].as_output(), format = "--output={}/.."))
+    args.add(cmd_args(cxx_toolchain.c_compiler_info.preprocessor, format = "--cpp={}"))
+    args.add(cmd_args(pre_args, format = "--cpp={}"))
+    args.add(srcs)
+
+    argsfile = ctx.actions.declare_output(paths.join(gen_dir, ".cgo.argsfile"))
+    ctx.actions.write(argsfile.as_output(), args, allow_args = True)
+
+    cmd.add(cmd_args(argsfile, format = "@{}").hidden([args]))
+
     for src in go_srcs + c_headers + c_srcs:
         cmd.hidden(src.as_output())
     ctx.actions.run(cmd, category = "cgo")

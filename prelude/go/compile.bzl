@@ -130,7 +130,13 @@ def compile(
     cmd.add(cmd_args(go_toolchain.packer, format = "--packer={}"))
     if ctx.attrs.embedcfg:
         cmd.add(cmd_args(ctx.attrs.embedcfg, format = "--embedcfg={}"))
-    cmd.add(srcs)
+
+    argsfile = ctx.actions.declare_output(pkg_name + ".go.argsfile")
+    srcs_args = cmd_args(srcs)
+    ctx.actions.write(argsfile.as_output(), srcs_args, allow_args = True)
+
+    cmd.add(cmd_args(argsfile, format = "@{}").hidden([srcs_args]))
+
     ctx.actions.run(cmd, category = "go_compile", identifier = paths.basename(pkg_name))
 
     return output

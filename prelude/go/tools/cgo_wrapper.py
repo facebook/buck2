@@ -10,8 +10,10 @@
 
 import argparse
 import os
+import pipes
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 
@@ -36,8 +38,18 @@ def main(argv):
     # cmd.append(cgoCompilerFlags)
     cmd.append("--")
     # cmd.append(cxxCompilerFlags)
-    cmd.extend(args.cpp[1:])
+
+    with tempfile.NamedTemporaryFile("w", delete=False) as argsfile:
+        for arg in args.cpp[1:]:
+            print(pipes.quote(arg), file=argsfile)
+            argsfile.flush()
+    cmd.append("@" + argsfile.name)
+
     cmd.extend(args.srcs)
+    r = subprocess.call(cmd)
+    if r != 0:
+        sys.exit(r)
+
     subprocess.check_call(cmd)
 
 
