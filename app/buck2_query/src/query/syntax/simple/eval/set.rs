@@ -36,6 +36,12 @@ impl<T: QueryTarget> TargetSet<T> {
         }
     }
 
+    pub fn with_capacity(n: usize) -> Self {
+        Self {
+            targets: LabelIndexedSet::with_capacity(n),
+        }
+    }
+
     pub fn insert(&mut self, value: T) -> bool {
         self.targets.insert(value)
     }
