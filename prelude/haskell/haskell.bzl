@@ -655,10 +655,18 @@ def haskell_library_impl(ctx: "context") -> ["provider"]:
     default_output = hlib_infos[actual_link_style].libs
 
     inherited_pp_info = cxx_inherited_preprocessor_infos(_attr_deps(ctx))
-    pp = [CPreprocessor(
-        args =
-            flatten([["-isystem", dir] for dir in hlib_infos[actual_link_style].stub_dirs]),
-    )]
+
+    # We would like to expose the generated _stub.h headers to C++
+    # compilations, but it's hard to do that without overbuilding. Which
+    # link_style should we pick below? If we pick a different link_style from
+    # the one being used by the root rule, we'll end up building all the
+    # Haskell libraries multiple times.
+    #
+    #    pp = [CPreprocessor(
+    #        args =
+    #            flatten([["-isystem", dir] for dir in hlib_infos[actual_link_style].stub_dirs]),
+    #    )]
+    pp = []
 
     providers = [
         DefaultInfo(
