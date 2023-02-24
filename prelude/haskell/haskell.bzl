@@ -351,32 +351,29 @@ def _compile(
         ctx: "context",
         link_style: LinkStyle.type,
         extra_args = []) -> CompileResultInfo.type:
-    haskell_toolchain = ctx.attrs._haskell_toolchain[HaskellToolchainInfo]
-
-    compile = cmd_args(haskell_toolchain.compiler)
-    compile.add(haskell_toolchain.compiler_flags)
-    compile.add(ctx.attrs.compiler_flags)
-    compile.add("-no-link", "-i")
+    compile_args = cmd_args()
+    compile_args.add(ctx.attrs.compiler_flags)
+    compile_args.add("-no-link", "-i")
 
     if ctx.attrs.enable_profiling:
-        compile.add("-prof")
+        compile_args.add("-prof")
 
     if link_style == LinkStyle("shared"):
-        compile.add("-dynamic", "-fPIC")
+        compile_args.add("-dynamic", "-fPIC")
     elif link_style == LinkStyle("static_pic"):
-        compile.add("-fPIC")
+        compile_args.add("-fPIC")
 
     osuf, hisuf = _output_extensions(link_style, ctx.attrs.enable_profiling)
-    compile.add("-osuf", osuf, "-hisuf", hisuf)
+    compile_args.add("-osuf", osuf, "-hisuf", hisuf)
 
     if getattr(ctx.attrs, "main", None) != None:
-        compile.add(["-main-is", ctx.attrs.main])
+        compile_args.add(["-main-is", ctx.attrs.main])
 
     objects = ctx.actions.declare_output("objects-" + link_style.value, dir = True)
     hi = ctx.actions.declare_output("hi-" + link_style.value, dir = True)
     stubs = ctx.actions.declare_output("stubs-" + link_style.value, dir = True)
 
-    compile.add(
+    compile_args.add(
         "-odir",
         objects.as_output(),
         "-hidir",
@@ -395,39 +392,48 @@ def _compile(
     for lib in merge_haskell_link_infos(_attr_deps_haskell_link_infos(ctx)).info[link_style]:
         libs[lib.db] = lib  # lib.db is a good enough unique key
     for lib in libs.values():
-        compile.hidden(lib.import_dirs)
-        compile.hidden(lib.stub_dirs)
+        compile_args.hidden(lib.import_dirs)
+        compile_args.hidden(lib.stub_dirs)
 
         # libs of dependencies might be needed at compile time if
         # we're using Template Haskell:
-        compile.hidden(lib.libs)
+        compile_args.hidden(lib.libs)
     for db in libs:
-        compile.add("-package-db", db)
+        compile_args.add("-package-db", db)
 
     # Expose only the packages we depend on directly
     for lib in _attr_deps_haskell_lib_infos(ctx, link_style):
-        compile.add("-expose-package", lib.name)
+        compile_args.add("-expose-package", lib.name)
 
     # base is special and gets exposed by default
-    compile.add("-expose-package", "base")
+    compile_args.add("-expose-package", "base")
 
     # Add args from preprocess-able inputs.
     inherited_pre = cxx_inherited_preprocessor_infos(ctx.attrs.deps)
     pre = cxx_merge_cpreprocessors(ctx, [], inherited_pre)
     pre_args = pre.set.project_as_args("args")
-    compile.add(cmd_args(pre_args, format = "-optP={}"))
+    compile_args.add(cmd_args(pre_args, format = "-optP={}"))
 
-    compile.add(extra_args)
+    compile_args.add(extra_args)
 
     for (path, src) in ctx.attrs.srcs.items():
         # hs-boot files aren't expected to be an argument to compiler but does need
         # to be included in the directory of the associated src file
         if _is_boot_src(path):
-            compile.hidden(src)
+            compile_args.hidden(src)
         else:
-            compile.add(src)
+            compile_args.add(src)
 
-    ctx.actions.run(compile, category = "haskell_compile_" + link_style.value)
+    argsfile = ctx.actions.declare_output("haskell_compile_" + link_style.value + ".argsfile")
+    ctx.actions.write(argsfile.as_output(), compile_args, allow_args = True)
+
+    haskell_toolchain = ctx.attrs._haskell_toolchain[HaskellToolchainInfo]
+    compile_cmd = cmd_args(haskell_toolchain.compiler)
+    compile_cmd.add(haskell_toolchain.compiler_flags)
+    hidden_args = [compile_args]
+    compile_cmd.add(cmd_args(argsfile, format = "@{}").hidden(hidden_args))
+
+    ctx.actions.run(compile_cmd, category = "haskell_compile_" + link_style.value)
 
     producing_indices = "-fwrite-ide-info" in ctx.attrs.compiler_flags
 
