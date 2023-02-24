@@ -8,13 +8,13 @@
  */
 
 use std::future::Future;
-use std::marker::PhantomData;
 use std::sync::Arc;
 
 use allocative::Allocative;
 use dupe::Dupe;
 use futures::FutureExt;
 use parking_lot::Mutex;
+use parking_lot::MutexGuard;
 
 use crate::api::data::DiceData;
 use crate::api::error::DiceResult;
@@ -99,10 +99,16 @@ impl PerComputeCtx {
         self.data
             .per_live_version_ctx
             .compute_opaque(dice_key)
-            .map(|dice_result| {
-                dice_result.map(|dice_value| {
-                    // TODO properly create OpaqueValue
-                    OpaqueValueModern(PhantomData)
+            .map(move |dice_result| {
+                dice_result.map(move |dice_value| {
+                    OpaqueValueModern::new(
+                        self,
+                        dice_key,
+                        dice_value
+                            .downcast_ref::<K::Value>()
+                            .expect("Type mismatch when computing key")
+                            .dupe(),
+                    )
                 })
             })
     }
@@ -142,6 +148,10 @@ impl PerComputeCtx {
 
     pub(crate) fn into_updater(self) -> TransactionUpdater {
         TransactionUpdater::new(self.data.dice.dupe(), self.data.user_data.dupe())
+    }
+
+    pub(super) fn dep_trackers(&self) -> MutexGuard<'_, RecordingDepsTracker> {
+        self.data.dep_trackers.lock()
     }
 }
 

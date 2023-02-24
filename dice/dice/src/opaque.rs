@@ -28,7 +28,7 @@ use crate::legacy::opaque::OpaqueValueImplLegacy;
 /// but the opaque value key is not.
 pub(crate) enum OpaqueValueImpl<'a, K: Key> {
     Legacy(OpaqueValueImplLegacy<'a, K>),
-    Modern(OpaqueValueModern<K>),
+    Modern(OpaqueValueModern<'a, K>),
 }
 
 impl<'a, K> Debug for OpaqueValueImpl<'a, K>

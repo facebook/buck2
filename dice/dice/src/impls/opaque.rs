@@ -7,19 +7,40 @@
  * of this source tree.
  */
 
-use std::marker::PhantomData;
+use derivative::Derivative;
 
 use crate::api::error::DiceResult;
 use crate::api::key::Key;
 use crate::api::projection::ProjectionKey;
+use crate::impls::ctx::PerComputeCtx;
+use crate::impls::key::DiceKey;
 
-#[derive(Debug)]
-pub(crate) struct OpaqueValueModern<K>(pub(crate) PhantomData<K>);
+#[derive(Derivative)]
+#[derivative(Debug)]
+pub(crate) struct OpaqueValueModern<'a, K: Key> {
+    derive_from_key: DiceKey,
+    #[derivative(Debug = "ignore")]
+    derive_from: K::Value,
+    #[derivative(Debug = "ignore")]
+    parent_computation: &'a PerComputeCtx,
+}
 
-impl<K> OpaqueValueModern<K>
+impl<'a, K> OpaqueValueModern<'a, K>
 where
     K: Key,
 {
+    pub(crate) fn new(
+        parent_computation: &'a PerComputeCtx,
+        derive_from_key: DiceKey,
+        derive_from: K::Value,
+    ) -> Self {
+        Self {
+            derive_from_key,
+            derive_from,
+            parent_computation,
+        }
+    }
+
     pub(crate) fn projection<P>(&self, _projection_key: &P) -> DiceResult<P::Value>
     where
         P: ProjectionKey<DeriveFromKey = K>,
@@ -29,6 +50,60 @@ where
 
     /// Get a value and record parent computation dependency on `K`.
     pub(crate) fn into_value(self) -> K::Value {
-        unimplemented!("todo")
+        self.parent_computation
+            .dep_trackers()
+            .record(self.derive_from_key);
+
+        self.derive_from
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use allocative::Allocative;
+    use async_trait::async_trait;
+    use derive_more::Display;
+
+    use crate::api::data::DiceData;
+    use crate::api::key::Key;
+    use crate::impls::dep_trackers::testing::RecordingDepsTrackersExt;
+    use crate::impls::dice::DiceModern;
+    use crate::impls::key::DiceKey;
+    use crate::impls::opaque::OpaqueValueModern;
+    use crate::DiceComputations;
+    use crate::HashSet;
+
+    #[derive(Allocative, Clone, Hash, Eq, PartialEq, Debug, Display)]
+    struct K;
+
+    #[async_trait]
+    impl Key for K {
+        type Value = i32;
+
+        async fn compute(&self, _ctx: &DiceComputations) -> Self::Value {
+            unimplemented!("test")
+        }
+
+        fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
+            unimplemented!("test")
+        }
+    }
+
+    #[tokio::test]
+    async fn opaque_records_deps_when_used() {
+        let dice = DiceModern::new(DiceData::new());
+
+        let ctx = dice.updater().commit().await;
+
+        let opaque = OpaqueValueModern::<K>::new(&ctx, DiceKey { index: 0 }, 1);
+
+        assert_eq!(ctx.dep_trackers().recorded_deps(), &HashSet::default());
+
+        assert_eq!(opaque.into_value(), 1);
+
+        assert_eq!(
+            ctx.dep_trackers().recorded_deps(),
+            &[DiceKey { index: 0 }].into_iter().collect()
+        );
     }
 }

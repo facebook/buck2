@@ -39,6 +39,24 @@ impl RecordingDepsTracker {
 }
 
 #[cfg(test)]
+pub(crate) mod testing {
+
+    use crate::impls::dep_trackers::RecordingDepsTracker;
+    use crate::impls::key::DiceKey;
+    use crate::HashSet;
+
+    pub(crate) trait RecordingDepsTrackersExt {
+        fn recorded_deps(&self) -> &HashSet<DiceKey>;
+    }
+
+    impl RecordingDepsTrackersExt for RecordingDepsTracker {
+        fn recorded_deps(&self) -> &HashSet<DiceKey> {
+            &self.deps
+        }
+    }
+}
+
+#[cfg(test)]
 mod tests {
 
     use crate::impls::dep_trackers::RecordingDepsTracker;
