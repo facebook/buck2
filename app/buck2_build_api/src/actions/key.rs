@@ -11,10 +11,10 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_data::ToProtoMessage;
-use buck2_execute::base_deferred_key::BaseDeferredKey;
 use dupe::Dupe;
 
 use crate::actions::RegisteredAction;
+use crate::deferred::base_deferred_key::BaseDeferredKey;
 use crate::deferred::types::DeferredData;
 use crate::deferred::types::DeferredKey;
 

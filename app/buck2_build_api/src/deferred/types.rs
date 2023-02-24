@@ -22,7 +22,6 @@ use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_execute::artifact_value::ArtifactValue;
-use buck2_execute::base_deferred_key::BaseDeferredKey;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use derivative::Derivative;
@@ -38,6 +37,7 @@ use thiserror::Error;
 
 use crate::actions::artifact::build_artifact::BuildArtifact;
 use crate::actions::artifact::Artifact;
+use crate::deferred::base_deferred_key::BaseDeferredKey;
 
 /// An asynchronous chunk of work that will be executed when requested.
 /// The 'Deferred' can have "inputs" which are values that will be guaranteed to be ready to use
@@ -964,7 +964,6 @@ mod tests {
     use buck2_core::package::PackageLabel;
     use buck2_core::target::label::ConfiguredTargetLabel;
     use buck2_core::target::name::TargetName;
-    use buck2_execute::base_deferred_key::BaseDeferredKey;
     use buck2_execute::digest_config::DigestConfig;
     use dupe::Dupe;
     use indexmap::indexset;
@@ -973,6 +972,7 @@ mod tests {
     use super::AnyValue;
     use super::TrivialDeferred;
     use crate::actions::artifact::build_artifact::BuildArtifact;
+    use crate::deferred::base_deferred_key::BaseDeferredKey;
     use crate::deferred::types::testing::DeferredValueAnyExt;
     use crate::deferred::types::BaseKey;
     use crate::deferred::types::Deferred;

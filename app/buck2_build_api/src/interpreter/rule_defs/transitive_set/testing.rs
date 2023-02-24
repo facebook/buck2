@@ -15,7 +15,6 @@ use buck2_core::configuration::ConfigurationData;
 use buck2_core::package::PackageLabel;
 use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_core::target::name::TargetName;
-use buck2_execute::base_deferred_key::BaseDeferredKey;
 use indoc::indoc;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Module;
@@ -23,6 +22,7 @@ use starlark::eval::Evaluator;
 use starlark::values::OwnedFrozenValueTyped;
 use starlark::values::Value;
 
+use crate::deferred::base_deferred_key::BaseDeferredKey;
 use crate::deferred::types::testing::DeferredDataExt;
 use crate::deferred::types::testing::DeferredIdExt;
 use crate::deferred::types::DeferredData;

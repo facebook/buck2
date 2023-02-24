@@ -9,7 +9,6 @@
 
 use allocative::Allocative;
 use anyhow::Context;
-use buck2_execute::base_deferred_key::BaseDeferredKey;
 use dupe::Dupe;
 use indexmap::IndexSet;
 
@@ -17,6 +16,7 @@ use crate::actions::artifact::Artifact;
 use crate::actions::artifact::OutputArtifact;
 use crate::actions::key::ActionKey;
 use crate::analysis::registry::AnalysisValueFetcher;
+use crate::deferred::base_deferred_key::BaseDeferredKey;
 use crate::deferred::types::DeferredId;
 use crate::deferred::types::DeferredRegistry;
 use crate::deferred::types::ReservedDeferredData;

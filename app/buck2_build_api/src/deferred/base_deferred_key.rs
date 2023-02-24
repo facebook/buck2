@@ -11,13 +11,12 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_core::target::label::ConfiguredTargetLabel;
+use buck2_execute::anon_target::AnonTarget;
+use buck2_execute::base_deferred_key_dyn::BaseDeferredKeyDyn;
+use buck2_execute::bxl::types::BxlKey;
 use derive_more::Display;
 use dupe::Dupe;
 use gazebo::variants::UnpackVariants;
-
-use crate::anon_target::AnonTarget;
-use crate::base_deferred_key_dyn::BaseDeferredKeyDyn;
-use crate::bxl::types::BxlKey;
 
 /// Key types for the base 'DeferredKey'
 #[derive(

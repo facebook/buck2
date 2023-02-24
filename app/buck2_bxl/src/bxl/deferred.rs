@@ -17,6 +17,7 @@ mod tests {
     use buck2_build_api::actions::artifact::build_artifact::BuildArtifact;
     use buck2_build_api::bxl::result::BxlResult;
     use buck2_build_api::calculation::Calculation;
+    use buck2_build_api::deferred::base_deferred_key::BaseDeferredKey;
     use buck2_build_api::deferred::types::BaseKey;
     use buck2_build_api::deferred::types::Deferred;
     use buck2_build_api::deferred::types::DeferredCtx;
@@ -30,7 +31,6 @@ mod tests {
     use buck2_core::collections::ordered_map::OrderedMap;
     use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
     use buck2_core::fs::project::ProjectRootTemp;
-    use buck2_execute::base_deferred_key::BaseDeferredKey;
     use buck2_execute::bxl::types::BxlFunctionLabel;
     use buck2_execute::bxl::types::BxlKey;
     use buck2_execute::digest_config::DigestConfig;

@@ -67,7 +67,6 @@ pub mod testing {
     use buck2_execute::artifact::fs::ArtifactFs;
     use buck2_execute::artifact::fs::ExecutorFs;
     use buck2_execute::artifact::source_artifact::SourceArtifact;
-    use buck2_execute::base_deferred_key::BaseDeferredKey;
     use buck2_execute::execute::request::OutputType;
     use buck2_execute::path::buck_out_path::BuckOutPathResolver;
     use buck2_execute::path::buck_out_path::BuckPathResolver;
@@ -88,6 +87,7 @@ pub mod testing {
     use crate::actions::testings::SimpleUnregisteredAction;
     use crate::analysis::registry::AnalysisRegistry;
     use crate::artifact_groups::ArtifactGroup;
+    use crate::deferred::base_deferred_key::BaseDeferredKey;
     use crate::deferred::types::testing::DeferredIdExt;
     use crate::deferred::types::BaseKey;
     use crate::deferred::types::DeferredId;

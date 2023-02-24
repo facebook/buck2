@@ -1067,7 +1067,6 @@ mod tests {
     use buck2_core::provider::label::ConfiguredProvidersLabel;
     use buck2_core::provider::label::ProvidersName;
     use buck2_core::target::label::TargetLabel;
-    use buck2_execute::base_deferred_key::BaseDeferredKey;
     use buck2_execute::digest_config::DigestConfig;
     use buck2_interpreter::types::label::Label;
     use buck2_node::configuration::execution::ExecutionPlatformResolution;
@@ -1084,6 +1083,7 @@ mod tests {
     use starlark::values::Value;
 
     use crate::analysis::registry::AnalysisRegistry;
+    use crate::deferred::base_deferred_key::BaseDeferredKey;
     use crate::interpreter::rule_defs::context::AnalysisContext;
     use crate::starlark::values::UnpackValue;
 

@@ -540,7 +540,6 @@ mod tests {
     use buck2_execute::artifact::fs::ArtifactFs;
     use buck2_execute::artifact::source_artifact::SourceArtifact;
     use buck2_execute::artifact_value::ArtifactValue;
-    use buck2_execute::base_deferred_key::BaseDeferredKey;
     use buck2_execute::digest_config::DigestConfig;
     use buck2_execute::execute::blocking::testing::DummyBlockingExecutor;
     use buck2_execute::execute::clean_output_paths::cleanup_path;
@@ -576,6 +575,7 @@ mod tests {
     use crate::actions::RegisteredAction;
     use crate::artifact_groups::ArtifactGroup;
     use crate::artifact_groups::ArtifactGroupValues;
+    use crate::deferred::base_deferred_key::BaseDeferredKey;
     use crate::deferred::types::testing::DeferredDataExt;
     use crate::deferred::types::testing::DeferredIdExt;
     use crate::deferred::types::DeferredData;

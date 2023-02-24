@@ -451,7 +451,6 @@ impl UnboundArtifact {
 pub mod testing {
     use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
     use buck2_core::target::label::ConfiguredTargetLabel;
-    use buck2_execute::base_deferred_key::BaseDeferredKey;
     use buck2_execute::base_deferred_key_dyn::BaseDeferredKeyDyn;
     use buck2_execute::execute::request::OutputType;
     use buck2_execute::path::buck_out_path::BuckOutPath;
@@ -461,6 +460,7 @@ pub mod testing {
     use crate::actions::artifact::DeclaredArtifact;
     use crate::actions::artifact::DeclaredArtifactKind;
     use crate::actions::key::ActionKey;
+    use crate::deferred::base_deferred_key::BaseDeferredKey;
     use crate::deferred::types::testing::DeferredDataExt;
     use crate::deferred::types::DeferredData;
     use crate::deferred::types::DeferredId;
@@ -550,7 +550,6 @@ mod tests {
     use buck2_core::target::name::TargetName;
     use buck2_execute::artifact::fs::ArtifactFs;
     use buck2_execute::artifact::source_artifact::SourceArtifact;
-    use buck2_execute::base_deferred_key::BaseDeferredKey;
     use buck2_execute::base_deferred_key_dyn::BaseDeferredKeyDyn;
     use buck2_execute::execute::request::OutputType;
     use buck2_execute::path::buck_out_path::BuckOutPath;
@@ -564,6 +563,7 @@ mod tests {
     use crate::actions::artifact::DeclaredArtifact;
     use crate::actions::artifact::DeclaredArtifactKind;
     use crate::actions::key::ActionKey;
+    use crate::deferred::base_deferred_key::BaseDeferredKey;
     use crate::deferred::types::testing::DeferredIdExt;
     use crate::deferred::types::DeferredId;
     use crate::deferred::types::DeferredKey;

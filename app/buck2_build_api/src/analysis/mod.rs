@@ -53,7 +53,6 @@ pub mod calculation;
 pub(crate) mod configured_graph;
 pub mod registry;
 use allocative::Allocative;
-use buck2_execute::base_deferred_key::BaseDeferredKey;
 use buck2_interpreter::types::label::Label;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
@@ -62,6 +61,7 @@ use dupe::Dupe;
 use starlark::values::structs::AllocStruct;
 
 use crate::attrs::resolve::configured_attr::ConfiguredAttrExt;
+use crate::deferred::base_deferred_key::BaseDeferredKey;
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 
 #[derive(Error, Debug)]

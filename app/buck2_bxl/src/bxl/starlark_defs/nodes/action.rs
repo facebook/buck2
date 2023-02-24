@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_build_api::actions::RegisteredAction;
-use buck2_execute::base_deferred_key::BaseDeferredKey;
+use buck2_build_api::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_interpreter::types::target_label::StarlarkConfiguredTargetLabel;
 use derive_more::Display;
 use dupe::Dupe;

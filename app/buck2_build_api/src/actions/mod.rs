@@ -45,7 +45,6 @@ use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::artifact::fs::ArtifactFs;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::artifact_value::ArtifactValue;
-use buck2_execute::base_deferred_key::BaseDeferredKey;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::execute::request::CommandExecutionOutput;
@@ -69,6 +68,7 @@ use crate::actions::execute::action_executor::ActionExecutionMetadata;
 use crate::actions::execute::action_executor::ActionOutputs;
 use crate::artifact_groups::ArtifactGroup;
 use crate::artifact_groups::ArtifactGroupValues;
+use crate::deferred::base_deferred_key::BaseDeferredKey;
 use crate::deferred::types::AnyValue;
 use crate::deferred::types::TrivialDeferred;
 

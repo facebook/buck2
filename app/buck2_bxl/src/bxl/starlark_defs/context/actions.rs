@@ -13,7 +13,7 @@
 use allocative::Allocative;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
 use buck2_build_api::bxl::execution_platform::EXECUTION_PLATFORM;
-use buck2_execute::base_deferred_key::BaseDeferredKey;
+use buck2_build_api::deferred::base_deferred_key::BaseDeferredKey;
 use derivative::Derivative;
 use derive_more::Display;
 use dupe::Dupe;
