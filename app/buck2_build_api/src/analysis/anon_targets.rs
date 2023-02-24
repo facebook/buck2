@@ -38,7 +38,6 @@ use buck2_core::target::name::TargetName;
 use buck2_core::target::name::TargetNameRef;
 use buck2_core::unsafe_send_future::UnsafeSendFuture;
 use buck2_events::dispatch::get_dispatcher;
-use buck2_execute::anon_target::AnonTarget;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
 use buck2_interpreter::types::label::Label;
@@ -83,6 +82,7 @@ use starlark::values::Value;
 use starlark::values::ValueTyped;
 use thiserror::Error;
 
+use crate::analysis::anon_target_node::AnonTarget;
 use crate::analysis::calculation::get_rule_impl;
 use crate::analysis::calculation::RuleAnalysisCalculation;
 use crate::analysis::registry::AnalysisRegistry;

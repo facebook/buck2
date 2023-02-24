@@ -22,12 +22,11 @@ use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_data::ToProtoMessage;
+use buck2_execute::base_deferred_key_dyn::string_join;
+use buck2_execute::base_deferred_key_dyn::BaseDeferredKeyDynImpl;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_node::rule_type::StarlarkRuleType;
 use gazebo::cmp::PartialEqAny;
-
-use crate::base_deferred_key_dyn::string_join;
-use crate::base_deferred_key_dyn::BaseDeferredKeyDynImpl;
 
 #[derive(Hash, Eq, PartialEq, Clone, Debug, Allocative)]
 pub struct AnonTarget {

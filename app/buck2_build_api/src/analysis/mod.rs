@@ -48,10 +48,12 @@ use crate::interpreter::rule_defs::context::AnalysisContext;
 use crate::interpreter::rule_defs::provider::builtin::template_placeholder_info::FrozenTemplatePlaceholderInfo;
 use crate::interpreter::rule_defs::provider::collection::ProviderCollection;
 
+pub mod anon_target_node;
 pub(crate) mod anon_targets;
 pub mod calculation;
 pub(crate) mod configured_graph;
 pub mod registry;
+
 use allocative::Allocative;
 use buck2_interpreter::types::label::Label;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
