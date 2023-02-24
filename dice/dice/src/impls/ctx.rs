@@ -13,6 +13,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use dupe::Dupe;
 use futures::FutureExt;
+use more_futures::spawn::spawn_dropcancel;
 use parking_lot::Mutex;
 use parking_lot::MutexGuard;
 
@@ -125,7 +126,14 @@ impl PerComputeCtx {
         FUT: Future<Output = R> + Send,
         R: Send + 'static,
     {
-        async move { unimplemented!("todo") }
+        let duped = self.dupe();
+
+        spawn_dropcancel(
+            async move { f(duped).await },
+            self.data.user_data.spawner.as_ref(),
+            &self.data.user_data,
+            debug_span!(parent: None, "spawned_task",),
+        )
     }
 
     /// Data that is static per the entire lifetime of Dice. These data are initialized at the
