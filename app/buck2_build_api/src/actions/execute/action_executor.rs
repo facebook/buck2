@@ -687,7 +687,9 @@ mod tests {
 
                 // Must write out the things we promised to do
                 for x in &self.outputs {
-                    ctx.fs().write_file(x.get_path(), "", false)?
+                    let dest = x.get_path();
+                    let dest_path = ctx.fs().resolve_build(dest);
+                    ctx.fs().fs().write_file(&dest_path, "", false)?
                 }
 
                 res?;

@@ -77,18 +77,6 @@ impl ArtifactFs {
         self.buck_path_resolver.resolve(source_artifact_path)
     }
 
-    /// Writes a file's contents to disk, creating any intermediate directories needed
-    pub fn write_file(
-        &self,
-        dest: &BuckOutPath,
-        contents: impl AsRef<[u8]>,
-        executable: bool,
-    ) -> anyhow::Result<()> {
-        let dest_path = self.resolve_build(dest);
-        self.project_filesystem
-            .write_file(&dest_path, contents, executable)
-    }
-
     pub fn fs(&self) -> &ProjectRoot {
         &self.project_filesystem
     }
