@@ -10,6 +10,7 @@
 use allocative::Allocative;
 use buck2_common::executor_config::PathSeparatorKind;
 use buck2_core::buck_path::path::BuckPathRef;
+use buck2_core::buck_path::resolver::BuckPathResolver;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
@@ -18,7 +19,6 @@ use either::Either;
 use crate::path::artifact_path::ArtifactPath;
 use crate::path::buck_out_path::BuckOutPath;
 use crate::path::buck_out_path::BuckOutPathResolver;
-use crate::path::buck_out_path::BuckPathResolver;
 
 #[derive(Clone, Allocative)]
 pub struct ArtifactFs {

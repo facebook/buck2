@@ -519,6 +519,7 @@ mod tests {
     use buck2_common::executor_config::CommandGenerationOptions;
     use buck2_common::executor_config::PathSeparatorKind;
     use buck2_core::buck_path::path::BuckPath;
+    use buck2_core::buck_path::resolver::BuckPathResolver;
     use buck2_core::category::Category;
     use buck2_core::cells::cell_root_path::CellRootPathBuf;
     use buck2_core::cells::name::CellName;
@@ -550,7 +551,6 @@ mod tests {
     use buck2_execute::execute::testing_dry_run::DryRunExecutor;
     use buck2_execute::materialize::nodisk::NoDiskMaterializer;
     use buck2_execute::path::buck_out_path::BuckOutPathResolver;
-    use buck2_execute::path::buck_out_path::BuckPathResolver;
     use buck2_execute::re::manager::ManagedRemoteExecutionClient;
     use dupe::Dupe;
     use indexmap::indexset;

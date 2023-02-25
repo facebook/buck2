@@ -50,6 +50,7 @@ pub mod testing {
 
     use buck2_common::executor_config::PathSeparatorKind;
     use buck2_core::buck_path::path::BuckPath;
+    use buck2_core::buck_path::resolver::BuckPathResolver;
     use buck2_core::category::Category;
     use buck2_core::cells::paths::CellRelativePath;
     use buck2_core::collections::ordered_set::OrderedSet;
@@ -68,7 +69,6 @@ pub mod testing {
     use buck2_execute::artifact::fs::ExecutorFs;
     use buck2_execute::execute::request::OutputType;
     use buck2_execute::path::buck_out_path::BuckOutPathResolver;
-    use buck2_execute::path::buck_out_path::BuckPathResolver;
     use buck2_interpreter_for_build::interpreter::build_context::BuildContext;
     use buck2_interpreter_for_build::interpreter::testing::cells;
     use buck2_node::configuration::execution::ExecutionPlatformResolution;

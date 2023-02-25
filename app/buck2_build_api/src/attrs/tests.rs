@@ -10,6 +10,7 @@
 use buck2_common::executor_config::PathSeparatorKind;
 use buck2_common::package_listing::listing::testing::PackageListingExt;
 use buck2_common::package_listing::listing::PackageListing;
+use buck2_core::buck_path::resolver::BuckPathResolver;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::testing::CellResolverExt;
@@ -21,7 +22,6 @@ use buck2_core::package::PackageLabel;
 use buck2_execute::artifact::fs::ArtifactFs;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::path::buck_out_path::BuckOutPathResolver;
-use buck2_execute::path::buck_out_path::BuckPathResolver;
 use buck2_interpreter::selector::register_select;
 use buck2_interpreter_for_build::attrs::coerce::attr_type::AttrTypeExt;
 use buck2_interpreter_for_build::attrs::coerce::testing::coercion_ctx;

@@ -533,6 +533,7 @@ mod tests {
 
     use assert_matches::assert_matches;
     use buck2_core::buck_path::path::BuckPath;
+    use buck2_core::buck_path::resolver::BuckPathResolver;
     use buck2_core::cells::cell_root_path::CellRootPathBuf;
     use buck2_core::cells::name::CellName;
     use buck2_core::cells::testing::CellResolverExt;
@@ -554,7 +555,6 @@ mod tests {
     use buck2_execute::execute::request::OutputType;
     use buck2_execute::path::buck_out_path::BuckOutPath;
     use buck2_execute::path::buck_out_path::BuckOutPathResolver;
-    use buck2_execute::path::buck_out_path::BuckPathResolver;
     use dupe::Dupe;
 
     use crate::actions::artifact::build_artifact::BuildArtifact;

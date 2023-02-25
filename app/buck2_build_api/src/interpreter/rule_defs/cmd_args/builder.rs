@@ -135,6 +135,7 @@ impl CommandLineContext for AbsCommandLineContext<'_> {
 #[cfg(test)]
 mod tests {
     use buck2_common::executor_config::PathSeparatorKind;
+    use buck2_core::buck_path::resolver::BuckPathResolver;
     use buck2_core::cells::cell_root_path::CellRootPathBuf;
     use buck2_core::cells::name::CellName;
     use buck2_core::cells::testing::CellResolverExt;
@@ -144,7 +145,6 @@ mod tests {
     use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
     use buck2_execute::artifact::fs::ArtifactFs;
     use buck2_execute::path::buck_out_path::BuckOutPathResolver;
-    use buck2_execute::path::buck_out_path::BuckPathResolver;
 
     use super::*;
     use crate::interpreter::rule_defs::cmd_args::builder::DefaultCommandLineContext;
