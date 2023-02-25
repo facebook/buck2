@@ -72,7 +72,7 @@ mod tests {
     async fn lookup_deferred_from_bxl() -> anyhow::Result<()> {
         let bxl = BxlKey::new(
             BxlFunctionLabel {
-                bxl_path: BxlFilePath::unchecked_new("cell", "dir"),
+                bxl_path: BxlFilePath::testing_new("cell", "dir"),
                 name: "foo".to_owned(),
             },
             Arc::new(OrderedMap::new()),

@@ -61,14 +61,14 @@ impl BxlFilePath {
         Ok(Self::unverified_new(path))
     }
 
-    pub fn unverified_new(path: CellPath) -> Self {
+    fn unverified_new(path: CellPath) -> Self {
         BxlFilePath { path }
     }
 
-    pub fn unchecked_new(cell: &str, cell_relative_path: &str) -> Self {
+    pub fn testing_new(cell: &str, cell_relative_path: &str) -> Self {
         let path = CellPath::new(
             CellName::testing_new(cell),
-            CellRelativePathBuf::unchecked_new(cell_relative_path.to_owned()),
+            CellRelativePathBuf::try_from(cell_relative_path.to_owned()).unwrap(),
         );
         Self::unverified_new(path)
     }
