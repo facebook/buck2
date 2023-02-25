@@ -17,11 +17,13 @@ use std::time::SystemTime;
 use dupe::Dupe;
 use indexmap::IndexMap;
 
+use crate::artifact::fs::ArtifactFs;
 use crate::artifact_value::ArtifactValue;
 use crate::execute::claim::Claim;
 use crate::execute::kind::CommandExecutionKind;
 use crate::execute::output::CommandStdStreams;
 use crate::execute::request::CommandExecutionOutput;
+use crate::execute::request::ResolvedCommandExecutionOutput;
 use crate::output_size::OutputSize;
 
 /// "Status" of an action execution indicating how it finished. E.g. "built_remotely", "local_fallback", "action_cache".
@@ -129,6 +131,15 @@ impl CommandExecutionResult {
             .values()
             .map(|v| v.calc_output_count_and_bytes().bytes)
             .sum()
+    }
+
+    pub fn resolve_outputs<'a>(
+        &'a self,
+        fs: &'a ArtifactFs,
+    ) -> impl Iterator<Item = (ResolvedCommandExecutionOutput, &ArtifactValue)> + 'a {
+        self.outputs
+            .iter()
+            .map(|(output, value)| (output.as_ref().resolve(fs), value))
     }
 }
 

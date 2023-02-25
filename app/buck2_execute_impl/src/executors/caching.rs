@@ -263,9 +263,7 @@ impl CachingExecutor {
         let mut output_files = vec![];
         let mut output_directories = vec![];
 
-        for (output, value) in result.outputs.iter() {
-            let output = output.as_ref().resolve(&self.artifact_fs);
-
+        for (output, value) in result.resolve_outputs(&self.artifact_fs) {
             match value.entry().as_ref() {
                 DirectoryEntry::Leaf(ActionDirectoryMember::File(f)) => {
                     output_files.push(TFile {
