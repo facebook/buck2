@@ -28,7 +28,6 @@ use std::sync::Arc;
 
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
-pub use buck2_execute::artifact::source_artifact::SourceArtifact;
 use buck2_execute::execute::request::OutputType;
 use buck2_execute::path::buck_out_path::BuckOutPath;
 use derivative::Derivative;
@@ -37,6 +36,7 @@ use derive_more::From;
 use dupe::Dupe;
 use either::Either;
 use gazebo::cell::ARef;
+pub use source_artifact::SourceArtifact;
 use thiserror::Error;
 
 use crate::actions::artifact::build_artifact::BuildArtifact;
@@ -52,6 +52,7 @@ use starlark_map::Hashed;
 
 pub mod materializer;
 pub(crate) mod projected_artifact;
+pub mod source_artifact;
 
 /// An 'Artifact' that can be materialized at its path. The underlying data is not very large here,
 /// but we do store many copies of it, which is why we store this as an Arc.
@@ -549,7 +550,6 @@ mod tests {
     use buck2_core::target::label::ConfiguredTargetLabel;
     use buck2_core::target::name::TargetName;
     use buck2_execute::artifact::fs::ArtifactFs;
-    use buck2_execute::artifact::source_artifact::SourceArtifact;
     use buck2_execute::base_deferred_key_dyn::BaseDeferredKeyDyn;
     use buck2_execute::execute::request::OutputType;
     use buck2_execute::path::buck_out_path::BuckOutPath;
@@ -558,6 +558,7 @@ mod tests {
     use dupe::Dupe;
 
     use crate::actions::artifact::build_artifact::BuildArtifact;
+    use crate::actions::artifact::source_artifact::SourceArtifact;
     use crate::actions::artifact::testing::BuildArtifactTestingExt;
     use crate::actions::artifact::Artifact;
     use crate::actions::artifact::DeclaredArtifact;

@@ -437,7 +437,6 @@ mod tests {
     use buck2_core::target::name::TargetName;
     use buck2_events::dispatch::with_dispatcher_async;
     use buck2_events::dispatch::EventDispatcher;
-    use buck2_execute::artifact::source_artifact::SourceArtifact;
     use buck2_execute::artifact_value::ArtifactValue;
     use buck2_execute::digest_config::DigestConfig;
     use buck2_execute::digest_config::SetDigestConfig;
@@ -470,6 +469,7 @@ mod tests {
     use sorted_vector_map::sorted_vector_map;
 
     use crate::actions::artifact::build_artifact::BuildArtifact;
+    use crate::actions::artifact::source_artifact::SourceArtifact;
     use crate::actions::artifact::testing::BuildArtifactTestingExt;
     use crate::actions::artifact::Artifact;
     use crate::actions::calculation::command_details;

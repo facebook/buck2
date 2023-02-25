@@ -21,7 +21,6 @@ use buck2_common::file_ops::PathMetadataOrRedirection;
 use buck2_common::result::SharedResult;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::directory::DirectoryData;
-use buck2_execute::artifact::source_artifact::SourceArtifact;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::HasDigestConfig;
@@ -46,6 +45,7 @@ use thiserror::Error;
 
 use crate::actions::artifact::build_artifact::BuildArtifact;
 use crate::actions::artifact::projected_artifact::ProjectedArtifact;
+use crate::actions::artifact::source_artifact::SourceArtifact;
 use crate::actions::artifact::Artifact;
 use crate::actions::artifact::ArtifactKind;
 use crate::actions::artifact::BaseArtifactKind;
@@ -458,7 +458,6 @@ mod tests {
     use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
     use buck2_core::package::package_relative_path::PackageRelativePathBuf;
     use buck2_core::package::PackageLabel;
-    use buck2_execute::artifact::source_artifact::SourceArtifact;
     use buck2_execute::artifact_value::ArtifactValue;
     use buck2_execute::digest_config::DigestConfig;
     use buck2_execute::digest_config::SetDigestConfig;
@@ -469,6 +468,7 @@ mod tests {
     use starlark::values::OwnedFrozenValue;
 
     use super::*;
+    use crate::actions::artifact::source_artifact::SourceArtifact;
     use crate::actions::artifact::Artifact;
     use crate::artifact_groups::deferred::DeferredTransitiveSetData;
     use crate::context::SetBuildContextData;

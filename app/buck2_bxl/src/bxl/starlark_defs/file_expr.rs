@@ -10,6 +10,7 @@
 use std::borrow::Cow;
 use std::path::Path;
 
+use buck2_build_api::actions::artifact::source_artifact::SourceArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
 use buck2_common::dice::cells::HasCellResolver;
@@ -21,7 +22,6 @@ use buck2_core::cells::CellInstance;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::pattern::maybe_split_cell_alias_and_relative_path;
-use buck2_execute::artifact::source_artifact::SourceArtifact;
 use derive_more::Display;
 use dupe::Dupe;
 use either::Either;

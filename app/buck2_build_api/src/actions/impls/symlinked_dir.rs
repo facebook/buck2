@@ -272,9 +272,9 @@ mod tests {
     use buck2_core::buck_path::BuckPath;
     use buck2_core::package::package_relative_path::PackageRelativePathBuf;
     use buck2_core::package::PackageLabel;
-    use buck2_execute::artifact::source_artifact::SourceArtifact;
 
     use super::*;
+    use crate::actions::artifact::source_artifact::SourceArtifact;
     use crate::actions::artifact::Artifact;
     use crate::actions::ArtifactGroup;
 

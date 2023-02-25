@@ -11,7 +11,6 @@ use std::fmt::Debug;
 
 use buck2_core::buck_path::BuckPath;
 use buck2_core::package::PackageLabel;
-use buck2_execute::artifact::source_artifact::SourceArtifact;
 use buck2_interpreter::types::label::Label;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
@@ -36,6 +35,7 @@ use starlark::values::Heap;
 use starlark::values::StarlarkValue;
 use starlark::values::Value;
 
+use crate::actions::artifact::source_artifact::SourceArtifact;
 use crate::actions::artifact::Artifact;
 use crate::attrs::resolve::attr_type::arg::ConfiguredStringWithMacrosExt;
 use crate::attrs::resolve::attr_type::configuration_dep::ConfigurationDepAttrTypeExt;

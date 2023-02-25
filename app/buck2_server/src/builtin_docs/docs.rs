@@ -12,6 +12,7 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use buck2_build_api::actions::artifact::source_artifact::SourceArtifact;
 use buck2_build_api::actions::artifact::Artifact;
 use buck2_build_api::interpreter::context::prelude_path;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
@@ -30,7 +31,6 @@ use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::package::package_relative_path::PackageRelativePathBuf;
 use buck2_core::package::PackageLabel;
-use buck2_execute::artifact::source_artifact::SourceArtifact;
 use buck2_interpreter::parse_import::parse_import_with_config;
 use buck2_interpreter::parse_import::ParseImportOptions;
 use buck2_interpreter::path::StarlarkModulePath;

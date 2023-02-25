@@ -14,6 +14,7 @@ use std::path::Path;
 
 use allocative::Allocative;
 use anyhow::Context;
+use buck2_build_api::actions::artifact::source_artifact::SourceArtifact;
 use buck2_build_api::actions::artifact::Artifact;
 use buck2_build_api::analysis::calculation::get_dep_analysis;
 use buck2_build_api::analysis::calculation::resolve_queries;
@@ -31,7 +32,6 @@ use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::package::PackageLabel;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::label::ConfiguredTargetLabel;
-use buck2_execute::artifact::source_artifact::SourceArtifact;
 use buck2_interpreter::types::target_label::StarlarkConfiguredTargetLabel;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_node::attrs::configured_traversal::ConfiguredAttrTraversal;
