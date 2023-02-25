@@ -22,7 +22,6 @@ use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_data::ToProtoMessage;
-use buck2_execute::base_deferred_key_dyn::string_join;
 use buck2_execute::base_deferred_key_dyn::BaseDeferredKeyDynImpl;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_node::rule_type::StarlarkRuleType;
@@ -161,6 +160,6 @@ impl BaseDeferredKeyDynImpl for AnonTarget {
             path.as_str(),
         ];
 
-        ProjectRelativePathBuf::unchecked_new(string_join(&parts))
+        ProjectRelativePathBuf::unchecked_new(parts.concat())
     }
 }

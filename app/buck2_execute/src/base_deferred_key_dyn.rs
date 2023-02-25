@@ -64,10 +64,6 @@ impl Hash for BaseDeferredKeyDyn {
     }
 }
 
-pub fn string_join(parts: &[&str]) -> String {
-    parts.concat()
-}
-
 impl BaseDeferredKeyDyn {
     pub fn unpack_target_label(&self) -> Option<&ConfiguredTargetLabel> {
         match self {
@@ -121,7 +117,7 @@ impl BaseDeferredKeyDyn {
                     path.as_str(),
                 ];
 
-                ProjectRelativePathBuf::unchecked_new(string_join(&parts))
+                ProjectRelativePathBuf::unchecked_new(parts.concat())
             }
             BaseDeferredKeyDyn::Dyn(d) => d.make_hashed_path(base, prefix, action_key, path),
         }
