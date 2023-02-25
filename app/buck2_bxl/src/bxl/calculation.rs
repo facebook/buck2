@@ -13,10 +13,10 @@ use async_trait::async_trait;
 use buck2_build_api::bxl::calculation::BxlCalculationDyn;
 use buck2_build_api::bxl::calculation::BXL_CALCULATION_IMPL;
 use buck2_build_api::bxl::result::BxlResult;
+use buck2_build_api::bxl::types::BxlKey;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
 use buck2_common::result::ToUnsharedResultExt;
-use buck2_execute::bxl::types::BxlKey;
 use buck2_interpreter::dice::starlark_profiler::GetStarlarkProfilerInstrumentation;
 use ctor::ctor;
 use dice::DiceComputations;
@@ -71,7 +71,7 @@ impl Key for internal::BxlComputeKey {
 
 mod internal {
     use allocative::Allocative;
-    use buck2_execute::bxl::types::BxlKey;
+    use buck2_build_api::bxl::types::BxlKey;
     use derive_more::Display;
     use dupe::Dupe;
 

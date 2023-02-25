@@ -10,6 +10,7 @@
 use std::iter::Peekable;
 
 use anyhow::Context;
+use buck2_build_api::bxl::types::BxlFunctionLabel;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePath;
@@ -19,7 +20,6 @@ use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::package::PackageLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_core::target::name::TargetNameRef;
-use buck2_execute::bxl::types::BxlFunctionLabel;
 use buck2_interpreter::path::BxlFilePath;
 use dupe::Dupe;
 use itertools::Itertools;
@@ -313,6 +313,7 @@ mod tests {
     use std::collections::BTreeMap;
     use std::collections::HashMap;
 
+    use buck2_build_api::bxl::types::BxlFunctionLabel;
     use buck2_core::cells::cell_path::CellPath;
     use buck2_core::cells::cell_root_path::CellRootPath;
     use buck2_core::cells::name::CellName;
@@ -327,7 +328,6 @@ mod tests {
     use buck2_core::package::PackageLabel;
     use buck2_core::target::label::TargetLabel;
     use buck2_core::target::name::TargetNameRef;
-    use buck2_execute::bxl::types::BxlFunctionLabel;
     use buck2_interpreter::path::BxlFilePath;
 
     use crate::output::buck_out_path_parser::BuckOutPathParser;

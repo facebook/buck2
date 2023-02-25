@@ -10,8 +10,8 @@
 //! Processing and reporting the the results of the build
 
 use buck2_build_api::build::BuildTargetResult;
+use buck2_build_api::bxl::types::BxlFunctionLabel;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
-use buck2_execute::bxl::types::BxlFunctionLabel;
 
 pub(crate) enum BuildOwner<'a> {
     Target(&'a ConfiguredProvidersLabel),
@@ -181,6 +181,7 @@ pub mod build_report {
     use std::collections::HashMap;
 
     use buck2_build_api::build::BuildProviderType;
+    use buck2_build_api::bxl::types::BxlFunctionLabel;
     use buck2_core::configuration::ConfigurationData;
     use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
     use buck2_core::fs::project::ProjectRoot;
@@ -190,7 +191,6 @@ pub mod build_report {
     use buck2_core::target::label::TargetLabel;
     use buck2_events::trace::TraceId;
     use buck2_execute::artifact::fs::ArtifactFs;
-    use buck2_execute::bxl::types::BxlFunctionLabel;
     use derivative::Derivative;
     use dupe::Dupe;
     use itertools::Itertools;

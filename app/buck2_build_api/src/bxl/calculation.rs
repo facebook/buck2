@@ -14,11 +14,11 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use async_trait::async_trait;
-use buck2_execute::bxl::types::BxlKey;
 use dice::DiceComputations;
 use once_cell::sync::OnceCell;
 
 use crate::bxl::result::BxlResult;
+use crate::bxl::types::BxlKey;
 
 #[async_trait]
 pub trait BxlCalculationDyn: Debug + Send + Sync + 'static {

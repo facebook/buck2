@@ -16,11 +16,11 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use anyhow::Context;
+use buck2_build_api::bxl::types::BxlFunctionLabel;
+use buck2_build_api::bxl::types::CliArgValue;
 use buck2_build_api::interpreter::rule_defs::cmd_args::register_cmd_args;
 use buck2_build_api::interpreter::rule_defs::provider::registration::register_builtin_providers;
 use buck2_core::collections::ordered_map::OrderedMap;
-use buck2_execute::bxl::types::BxlFunctionLabel;
-use buck2_execute::bxl::types::CliArgValue;
 use buck2_interpreter::path::BxlFilePath;
 use buck2_interpreter_for_build::interpreter::build_context::BuildContext;
 use buck2_interpreter_for_build::interpreter::build_defs::register_base_natives;

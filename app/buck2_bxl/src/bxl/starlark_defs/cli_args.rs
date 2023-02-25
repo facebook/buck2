@@ -16,13 +16,13 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use anyhow::Context as _;
+use buck2_build_api::bxl::types::CliArgValue;
 use buck2_build_api::calculation::load_patterns;
 use buck2_common::result::SharedResult;
 use buck2_core::pattern::lex_target_pattern;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::ProvidersPattern;
 use buck2_core::target::name::TargetName;
-use buck2_execute::bxl::types::CliArgValue;
 use buck2_interpreter::types::label::StarlarkProvidersLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use derive_more::Display;

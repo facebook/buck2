@@ -20,6 +20,8 @@ use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_data::ToProtoMessage;
+use buck2_execute::base_deferred_key_dyn::string_join;
+use buck2_execute::base_deferred_key_dyn::BaseDeferredKeyDynImpl;
 use buck2_interpreter::path::BxlFilePath;
 use derive_more::Display;
 use dupe::Dupe;
@@ -27,9 +29,6 @@ use gazebo::cmp::PartialEqAny;
 use itertools::Itertools;
 use serde::Serialize;
 use serde::Serializer;
-
-use crate::base_deferred_key_dyn::string_join;
-use crate::base_deferred_key_dyn::BaseDeferredKeyDynImpl;
 
 #[derive(
     Debug, Display, PartialEq, Eq, Clone, Hash, Ord, PartialOrd, Allocative
