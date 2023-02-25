@@ -201,14 +201,13 @@ impl BuckOutPathResolver {
 
     /// Resolve a test path
     pub fn resolve_test(&self, path: &BuckOutTestPath) -> ProjectRelativePathBuf {
-        ProjectRelativePathBuf::unchecked_new(join(&[
-            self.0.as_str(),
-            "/",
-            "test",
-            "/",
-            path.base.as_ref().map_or("", |b| b.as_str()),
-            if path.base.is_some() { "/" } else { "" },
-            path.path.as_str(),
+        ProjectRelativePathBuf::from(ForwardRelativePathBuf::concat([
+            self.0.as_forward_relative_path(),
+            ForwardRelativePath::new("test").unwrap(),
+            path.base
+                .as_ref()
+                .map_or(ForwardRelativePath::empty(), |p| p),
+            &path.path,
         ]))
     }
 
@@ -235,17 +234,6 @@ impl BuckOutPathResolver {
             ]),
         ))
     }
-}
-
-fn join(parts: &[&str]) -> String {
-    let len = parts.iter().map(|p| p.len()).sum();
-
-    let mut ret = String::with_capacity(len);
-    for part in parts {
-        ret.push_str(part);
-    }
-
-    ret
 }
 
 #[cfg(test)]
