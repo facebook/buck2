@@ -89,12 +89,6 @@ impl ArtifactFs {
             .write_file(&dest_path, contents, executable)
     }
 
-    pub fn copy(&self, src: ArtifactPath, dest: &BuckOutPath) -> anyhow::Result<()> {
-        let src_path = self.resolve(src)?;
-        let dest_path = self.resolve_build(dest);
-        self.project_filesystem.copy(&src_path, &dest_path)
-    }
-
     pub fn fs(&self) -> &ProjectRoot {
         &self.project_filesystem
     }
