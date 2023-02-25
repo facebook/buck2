@@ -145,7 +145,7 @@ impl BuckOutScratchPath {
 pub struct BuckOutTestPath {
     /// A base path. This is primarily useful when e.g. set of tests should all be in the same
     /// path.
-    base: Option<ForwardRelativePathBuf>,
+    base: ForwardRelativePathBuf,
 
     /// A path relative to the base path.
     path: ForwardRelativePathBuf,
@@ -153,10 +153,7 @@ pub struct BuckOutTestPath {
 
 impl BuckOutTestPath {
     pub fn new(base: ForwardRelativePathBuf, path: ForwardRelativePathBuf) -> Self {
-        Self {
-            base: Some(base),
-            path,
-        }
+        BuckOutTestPath { base, path }
     }
 
     pub fn into_path(self) -> ForwardRelativePathBuf {
@@ -204,9 +201,7 @@ impl BuckOutPathResolver {
         ProjectRelativePathBuf::from(ForwardRelativePathBuf::concat([
             self.0.as_forward_relative_path(),
             ForwardRelativePath::new("test").unwrap(),
-            path.base
-                .as_ref()
-                .map_or(ForwardRelativePath::empty(), |p| p),
+            &path.base,
             &path.path,
         ]))
     }
