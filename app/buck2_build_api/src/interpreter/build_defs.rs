@@ -189,7 +189,7 @@ mod tests {
 
         // The prelude should be included in build files, and in .bzl files that are not in the
         // prelude's package
-        let build_file = BuildFilePath::unchecked_new("root", "prelude", "TARGETS.v2");
+        let build_file = BuildFilePath::testing_new("root", "prelude", "TARGETS.v2");
         assert!(
             tester
                 .eval_build_file_with_loaded_modules(

@@ -138,7 +138,7 @@ fn test_eval_build_file() {
         )
         .unwrap();
 
-    let build_path = BuildFilePath::unchecked_new("root", "some/package", "BUILD");
+    let build_path = BuildFilePath::testing_new("root", "some/package", "BUILD");
     let eval_result = tester
         .eval_build_file(
             &build_path,
@@ -210,7 +210,7 @@ fn cells() -> CellsData {
 #[test]
 fn test_find_imports() {
     let tester = Tester::with_cells(cells()).unwrap();
-    let path = BuildFilePath::unchecked_new("cell1", "config", "BUCK");
+    let path = BuildFilePath::testing_new("cell1", "config", "BUCK");
     let parse_result = tester.parse(
         StarlarkPath::BuildFile(&path),
         indoc!(
@@ -289,7 +289,7 @@ fn test_root_import() {
         )
         .unwrap();
 
-    let build_path = BuildFilePath::unchecked_new("root", "some/package", "BUCK");
+    let build_path = BuildFilePath::testing_new("root", "some/package", "BUCK");
     let eval_result = tester
         .eval_build_file(
             &build_path,

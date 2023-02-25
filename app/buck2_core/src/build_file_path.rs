@@ -13,7 +13,7 @@ use dupe::Dupe;
 use crate::cells::build_file_cell::BuildFileCell;
 use crate::cells::cell_path::CellPath;
 use crate::cells::name::CellName;
-use crate::cells::paths::CellRelativePathBuf;
+use crate::cells::paths::CellRelativePath;
 use crate::fs::paths::file_name::FileName;
 use crate::fs::paths::file_name::FileNameBuf;
 use crate::package::PackageLabel;
@@ -33,12 +33,12 @@ impl BuildFilePath {
         Self { package, filename }
     }
 
-    pub fn unchecked_new(cell: &str, package: &str, filename: &str) -> Self {
+    pub fn testing_new(cell: &str, package: &str, filename: &str) -> Self {
         let package = PackageLabel::new(
-            CellName::unchecked_new(cell).unwrap(),
-            &CellRelativePathBuf::unchecked_new(package.to_owned()),
+            CellName::testing_new(cell),
+            <&CellRelativePath>::try_from(package).unwrap(),
         );
-        let filename = FileNameBuf::unchecked_new(filename);
+        let filename = FileNameBuf::try_from(filename.to_owned()).unwrap();
         Self::new(package, filename)
     }
 

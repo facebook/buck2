@@ -415,5 +415,5 @@ impl Tester {
 }
 
 pub fn buildfile(cell: &str, package: &str) -> BuildFilePath {
-    BuildFilePath::unchecked_new(cell, package, "BUCK")
+    BuildFilePath::testing_new(cell, package, "BUCK")
 }
