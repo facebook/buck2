@@ -7,4 +7,5 @@
  * of this source tree.
  */
 
+pub(crate) mod buck_out_path_parser;
 pub mod command;

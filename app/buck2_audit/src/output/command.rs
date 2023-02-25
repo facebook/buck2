@@ -26,8 +26,6 @@ use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::target::label::TargetLabel;
-use buck2_execute::path::buck_out_path::BuckOutPathParser;
-use buck2_execute::path::buck_out_path::BuckOutPathType;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationValue;
 use buck2_query_common::query_args::CommonAttributeArgs;
@@ -41,6 +39,8 @@ use dice::DiceComputations;
 use thiserror::Error;
 use tracing::debug;
 
+use crate::output::buck_out_path_parser::BuckOutPathParser;
+use crate::output::buck_out_path_parser::BuckOutPathType;
 use crate::AuditCommandCommonOptions;
 use crate::AuditSubcommand;
 
