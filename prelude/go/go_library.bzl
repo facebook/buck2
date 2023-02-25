@@ -34,6 +34,7 @@ def go_library_impl(ctx: "context") -> ["provider"]:
             pkg_name,
             get_filtered_srcs(ctx, ctx.attrs.srcs),
             deps = ctx.attrs.deps + ctx.attrs.exported_deps,
+            compile_flags = ctx.attrs.compiler_flags,
         )
         default_output = lib
         pkgs[pkg_name] = lib

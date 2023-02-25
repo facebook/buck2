@@ -63,7 +63,13 @@ def go_test_impl(ctx: "context") -> ["provider"]:
         coverage_vars = cov_res.variables
 
     # Compile all tests into a package.
-    tests = compile(ctx, pkg_name, srcs, deps = deps)
+    tests = compile(
+        ctx,
+        pkg_name,
+        srcs,
+        deps = deps,
+        compile_flags = ctx.attrs.compiler_flags,
+    )
 
     # Generate a main function which runs the tests and build that into another
     # package.
