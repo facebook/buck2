@@ -22,7 +22,7 @@ use buck2_cli_proto::unstable_docs_response;
 use buck2_cli_proto::UnstableDocsRequest;
 use buck2_cli_proto::UnstableDocsResponse;
 use buck2_common::dice::cells::HasCellResolver;
-use buck2_core::buck_path::BuckPath;
+use buck2_core::buck_path::path::BuckPath;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_path::CellPath;

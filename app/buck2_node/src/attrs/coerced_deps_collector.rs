@@ -10,7 +10,7 @@
 use std::sync::Arc;
 
 use allocative::Allocative;
-use buck2_core::buck_path::BuckPathRef;
+use buck2_core::buck_path::path::BuckPathRef;
 use buck2_core::collections::ordered_set::OrderedSet;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::target::label::TargetLabel;

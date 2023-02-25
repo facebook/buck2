@@ -532,7 +532,7 @@ mod tests {
     use std::hash::Hasher;
 
     use assert_matches::assert_matches;
-    use buck2_core::buck_path::BuckPath;
+    use buck2_core::buck_path::path::BuckPath;
     use buck2_core::cells::cell_root_path::CellRootPathBuf;
     use buck2_core::cells::name::CellName;
     use buck2_core::cells::testing::CellResolverExt;

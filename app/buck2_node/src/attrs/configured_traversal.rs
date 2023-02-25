@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use buck2_core::buck_path::BuckPathRef;
+use buck2_core::buck_path::path::BuckPathRef;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::label::TargetLabel;
 

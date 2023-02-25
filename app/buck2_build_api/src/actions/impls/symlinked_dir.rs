@@ -269,7 +269,7 @@ impl IncrementalActionExecutable for SymlinkedDirAction {
 
 #[cfg(test)]
 mod tests {
-    use buck2_core::buck_path::BuckPath;
+    use buck2_core::buck_path::path::BuckPath;
     use buck2_core::package::package_relative_path::PackageRelativePathBuf;
     use buck2_core::package::PackageLabel;
 

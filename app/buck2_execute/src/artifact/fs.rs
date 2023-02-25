@@ -9,7 +9,7 @@
 
 use allocative::Allocative;
 use buck2_common::executor_config::PathSeparatorKind;
-use buck2_core::buck_path::BuckPathRef;
+use buck2_core::buck_path::path::BuckPathRef;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;

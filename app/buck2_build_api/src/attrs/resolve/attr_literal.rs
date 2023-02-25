@@ -9,7 +9,7 @@
 
 use std::fmt::Debug;
 
-use buck2_core::buck_path::BuckPath;
+use buck2_core::buck_path::path::BuckPath;
 use buck2_core::package::PackageLabel;
 use buck2_interpreter::types::label::Label;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;

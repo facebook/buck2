@@ -13,7 +13,7 @@ use std::hash::Hasher;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use buck2_core::buck_path::BuckPathRef;
+use buck2_core::buck_path::path::BuckPathRef;
 use buck2_core::category::Category;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::CellResolver;
@@ -275,7 +275,7 @@ mod tests {
 
     use std::sync::Arc;
 
-    use buck2_core::buck_path::BuckPath;
+    use buck2_core::buck_path::path::BuckPath;
     use buck2_core::category::Category;
     use buck2_core::cells::cell_root_path::CellRootPathBuf;
     use buck2_core::cells::name::CellName;

@@ -518,7 +518,7 @@ mod tests {
     use buck2_common::executor_config::CommandExecutorConfig;
     use buck2_common::executor_config::CommandGenerationOptions;
     use buck2_common::executor_config::PathSeparatorKind;
-    use buck2_core::buck_path::BuckPath;
+    use buck2_core::buck_path::path::BuckPath;
     use buck2_core::category::Category;
     use buck2_core::cells::cell_root_path::CellRootPathBuf;
     use buck2_core::cells::name::CellName;

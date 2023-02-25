@@ -447,7 +447,7 @@ mod tests {
     use buck2_common::file_ops::FileMetadata;
     use buck2_common::file_ops::TrackedFileDigest;
     use buck2_common::result::ToSharedResultExt;
-    use buck2_core::buck_path::BuckPath;
+    use buck2_core::buck_path::path::BuckPath;
     use buck2_core::cells::cell_path::CellPath;
     use buck2_core::cells::cell_root_path::CellRootPathBuf;
     use buck2_core::cells::name::CellName;

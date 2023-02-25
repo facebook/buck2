@@ -49,7 +49,7 @@ pub mod testing {
     use std::sync::Arc;
 
     use buck2_common::executor_config::PathSeparatorKind;
-    use buck2_core::buck_path::BuckPath;
+    use buck2_core::buck_path::path::BuckPath;
     use buck2_core::category::Category;
     use buck2_core::cells::paths::CellRelativePath;
     use buck2_core::collections::ordered_set::OrderedSet;

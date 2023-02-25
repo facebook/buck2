@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use buck2_core::buck_path::BuckPath;
+use buck2_core::buck_path::path::BuckPath;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_node::attrs::attr_type::source::SourceAttrType;
 use starlark::values::list::ListRef;

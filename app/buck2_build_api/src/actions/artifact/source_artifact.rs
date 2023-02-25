@@ -11,8 +11,8 @@ use std::hash::Hash;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use buck2_core::buck_path::BuckPath;
-use buck2_core::buck_path::BuckPathRef;
+use buck2_core::buck_path::path::BuckPath;
+use buck2_core::buck_path::path::BuckPathRef;
 use derive_more::Display;
 use dupe::Dupe;
 
