@@ -10,8 +10,8 @@
 use buck2_build_api::interpreter::build_defs::register_transitive_set;
 use buck2_build_api::interpreter::rule_defs::register_rule_defs;
 use buck2_common::result::SharedResult;
+use buck2_core::bzl::ImportPath;
 use buck2_interpreter::file_loader::LoadedModules;
-use buck2_interpreter_for_build::interpreter::testing::import;
 use buck2_interpreter_for_build::interpreter::testing::Tester;
 use buck2_interpreter_for_build::nodes::attr_spec::AttributeSpecExt;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
@@ -368,7 +368,7 @@ fn returns_documentation() -> anyhow::Result<()> {
 
     let tester = rule_tester();
     let res = tester.eval_import(
-        &import("root", "", "defs.bzl"),
+        &ImportPath::testing_new("root//:defs.bzl"),
         bzl,
         LoadedModules::default(),
     )?;

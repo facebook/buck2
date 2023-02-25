@@ -57,7 +57,7 @@ mod tests {
 
     #[test]
     fn function_id_has_useful_string() {
-        let import = ImportPath::testing_new("root", "some/subdir", "foo.bzl");
+        let import = ImportPath::testing_new("root//some/subdir:foo.bzl");
         let name = "foo_binary".to_owned();
 
         assert_eq!(

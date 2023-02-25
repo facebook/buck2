@@ -65,8 +65,7 @@ pub fn register_rule_defs(globals: &mut GlobalsBuilder) {
 
 #[cfg(test)]
 mod tests {
-
-    use buck2_interpreter_for_build::interpreter::testing::import;
+    use buck2_core::bzl::ImportPath;
     use buck2_interpreter_for_build::interpreter::testing::Tester;
 
     use crate::interpreter::rule_defs::register_rule_defs;
@@ -75,7 +74,7 @@ mod tests {
     fn test_load_symbols() -> anyhow::Result<()> {
         let mut t = Tester::new()?;
         t.set_additional_globals(register_rule_defs);
-        let defines = import("root", "pkg", "test.bzl");
+        let defines = ImportPath::testing_new("root//pkg:test.bzl");
         t.add_import(
             &defines,
             r#"

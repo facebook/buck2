@@ -527,8 +527,8 @@ pub(crate) mod tester {
 #[cfg(test)]
 mod tests {
     use buck2_common::result::SharedResult;
+    use buck2_core::bzl::ImportPath;
     use buck2_interpreter_for_build::interpreter::testing::expect_error;
-    use buck2_interpreter_for_build::interpreter::testing::import;
     use buck2_interpreter_for_build::interpreter::testing::Tester;
     use indoc::indoc;
 
@@ -546,7 +546,7 @@ mod tests {
             register_provider(builder);
         });
         tester.add_import(
-            &import("root", "provider", "defs1.bzl"),
+            &ImportPath::testing_new("root//provider:defs1.bzl"),
             indoc!(
                 r#"
                     FooInfo = provider(fields=["foo"])
@@ -556,7 +556,7 @@ mod tests {
             ),
         )?;
         tester.add_import(
-            &import("root", "provider", "defs2.bzl"),
+            &ImportPath::testing_new("root//provider:defs2.bzl"),
             indoc!(
                 r#"
                     load("//provider:defs1.bzl", "FooInfo", "BarInfo", "BazInfo")
@@ -674,7 +674,7 @@ mod tests {
     fn provider_collection_contains_methods_and_in_operator() -> SharedResult<()> {
         let mut tester = provider_collection_tester()?;
         tester.add_import(
-            &import("root", "providers", "defs.bzl"),
+            &ImportPath::testing_new("root//providers:defs.bzl"),
             indoc!(
                 r#"
                 FooInfo = provider(fields=["foo"])
@@ -701,7 +701,7 @@ mod tests {
     fn provider_collection_get() -> SharedResult<()> {
         let mut tester = provider_collection_tester()?;
         tester.add_import(
-            &import("root", "providers", "defs.bzl"),
+            &ImportPath::testing_new("root//providers:defs.bzl"),
             indoc!(
                 r#"
                 FooInfo = provider(fields=["foo"])

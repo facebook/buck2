@@ -164,7 +164,6 @@ mod tests {
     use buck2_interpreter_for_build::interpreter::natives::register_module_natives;
     use buck2_interpreter_for_build::interpreter::testing::buildfile;
     use buck2_interpreter_for_build::interpreter::testing::cells;
-    use buck2_interpreter_for_build::interpreter::testing::import;
     use buck2_interpreter_for_build::interpreter::testing::run_simple_starlark_test;
     use buck2_interpreter_for_build::interpreter::testing::Tester;
     use buck2_node::attrs::inspect_options::AttrInspectOptions;
@@ -178,7 +177,7 @@ mod tests {
     #[test]
     fn prelude_is_included() -> anyhow::Result<()> {
         let mut tester = Tester::new()?;
-        let prelude_path = ImportPath::testing_new("root", "prelude", "prelude.bzl");
+        let prelude_path = ImportPath::testing_new("root//prelude:prelude.bzl");
         tester.set_prelude(prelude_path.clone());
 
         let prelude =
@@ -203,7 +202,7 @@ mod tests {
             "build files in the prelude package should have access to the prelude"
         );
 
-        let import = ImportPath::testing_new("root", "not_prelude", "sibling.bzl");
+        let import = ImportPath::testing_new("root//not_prelude:sibling.bzl");
         assert!(
             tester
                 .eval_import(&import, "other_var = some_var", loaded_modules.clone())
@@ -211,7 +210,7 @@ mod tests {
             ".bzl files not in the prelude package should have access to the prelude"
         );
 
-        let import = ImportPath::testing_new("root", "prelude", "defs.bzl");
+        let import = ImportPath::testing_new("root//prelude:defs.bzl");
         assert!(
             tester
                 .eval_import(&import, "other_var = some_var", loaded_modules)
@@ -235,7 +234,7 @@ mod tests {
             register_module_natives(g);
         });
 
-        let import_path = import("root", "", "include.bzl");
+        let import_path = ImportPath::testing_new("root//:include.bzl");
         tester.add_import(
             &import_path,
             indoc!(

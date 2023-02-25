@@ -441,7 +441,7 @@ mod tests {
                     ConfiguredTargetNode::testing_new(
                         target.dupe(),
                         RuleType::Starlark(Arc::new(StarlarkRuleType {
-                            import_path: ImportPath::testing_new("cell", "pkg", "rules.bzl"),
+                            import_path: ImportPath::testing_new("cell//pkg:rules.bzl"),
                             name: "foo_lib".to_owned(),
                         })),
                         Vec::new(),
@@ -541,7 +541,7 @@ mod tests {
                     ConfiguredTargetNode::testing_new(
                         target.dupe(),
                         RuleType::Starlark(Arc::new(StarlarkRuleType {
-                            import_path: ImportPath::testing_new("cell", "pkg", "rules.bzl"),
+                            import_path: ImportPath::testing_new("cell//pkg:rules.bzl"),
                             name: "foo_lib".to_owned(),
                         })),
                         Vec::new(),

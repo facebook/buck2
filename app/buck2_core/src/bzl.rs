@@ -77,9 +77,10 @@ impl ImportPath {
         })
     }
 
-    pub fn testing_new(cell: &str, cell_relative_path: &str, filename: &str) -> Self {
-        let cell = cell.to_owned();
-        Self::testing_new_cross_cell(&cell, cell_relative_path, filename, &cell)
+    pub fn testing_new(path: &str) -> Self {
+        let (cell, rem) = path.split_once("//").unwrap();
+        let (cell_relative_path, filename) = rem.rsplit_once(':').unwrap();
+        Self::testing_new_cross_cell(cell, cell_relative_path, filename, cell)
     }
 
     pub fn testing_new_cross_cell(

@@ -321,7 +321,7 @@ impl Tester {
     /// Run a starlark test with a basic environment. See
     /// `run_starlark_test()` above.
     pub fn run_starlark_test(&mut self, content: &str) -> SharedResult<TargetsMap> {
-        let import_path = import("root", "some/package", "defs.bzl");
+        let import_path = ImportPath::testing_new("root//some/package:defs.bzl");
         self.add_import(
             &import_path,
             &(indoc!(
@@ -359,7 +359,7 @@ impl Tester {
     /// evaluation environment is different from the build file
     /// environment.
     pub fn run_starlark_bzl_test(&mut self, content: &str) -> SharedResult<()> {
-        let import_path = import("root", "some/package", "defs.bzl");
+        let import_path = ImportPath::testing_new("root//some/package:defs.bzl");
         let template = indoc!(
             r#"
             def _assert_eq_ignore_hash_for_strings(a, b):
@@ -397,7 +397,7 @@ impl Tester {
 
         self.add_import(&import_path, &format!("{}\n\n{}", template, content))?;
 
-        let test_path = import("root", "some/package", "test.bzl");
+        let test_path = ImportPath::testing_new("root//some/package:test.bzl");
         let test_content = indoc!(
             r#"
             load("//some/package:defs.bzl", "test")
@@ -412,10 +412,6 @@ impl Tester {
     pub fn run_starlark_bzl_test_expecting_error(&mut self, content: &str, expected: &str) {
         expect_error(self.run_starlark_bzl_test(content), content, expected);
     }
-}
-
-pub fn import(cell: &str, package: &str, filename: &str) -> ImportPath {
-    ImportPath::testing_new(cell, package, filename)
 }
 
 pub fn buildfile(cell: &str, package: &str) -> BuildFilePath {

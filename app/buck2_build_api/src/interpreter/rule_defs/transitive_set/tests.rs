@@ -7,8 +7,8 @@
  * of this source tree.
  */
 
+use buck2_core::bzl::ImportPath;
 use buck2_interpreter_for_build::interpreter::testing::expect_error;
-use buck2_interpreter_for_build::interpreter::testing::import;
 use buck2_interpreter_for_build::interpreter::testing::Tester;
 use indoc::indoc;
 
@@ -54,7 +54,7 @@ fn test_hash_transitive_set() -> anyhow::Result<()> {
     let mut tester = transitive_set_tester();
 
     tester.add_import(
-        &import("root", "test", "def1.bzl"),
+        &ImportPath::testing_new("root//test:def1.bzl"),
         indoc!(
             r#"
             FooSet = transitive_set()
@@ -135,12 +135,12 @@ fn test_frozen_transitive_sets() -> anyhow::Result<()> {
     let mut tester = transitive_set_tester();
 
     tester.add_import(
-        &import("root", "test", "def1.bzl"),
+        &ImportPath::testing_new("root//test:def1.bzl"),
         "FooSet = transitive_set()",
     )?;
 
     tester.add_import(
-        &import("root", "test", "use1.bzl"),
+        &ImportPath::testing_new("root//test:use1.bzl"),
         indoc!(
             r#"
             load("//test:def1.bzl", "FooSet")
@@ -337,12 +337,12 @@ fn test_frozen_transitive_sets_iteration() -> anyhow::Result<()> {
     let mut tester = transitive_set_tester();
 
     tester.add_import(
-        &import("root", "test", "def1.bzl"),
+        &ImportPath::testing_new("root//test:def1.bzl"),
         "FooSet = transitive_set()",
     )?;
 
     tester.add_import(
-        &import("root", "test", "use1.bzl"),
+        &ImportPath::testing_new("root//test:use1.bzl"),
         indoc!(
             r#"
             load("//test:def1.bzl", "FooSet")
@@ -373,7 +373,7 @@ fn test_projection_args() -> anyhow::Result<()> {
     let mut tester = transitive_set_tester();
 
     tester.add_import(
-        &import("root", "test", "decl.bzl"),
+        &ImportPath::testing_new("root//test:decl.bzl"),
         indoc!(
             r#"
             "#
@@ -572,7 +572,7 @@ fn test_definition_type() -> anyhow::Result<()> {
     let mut tester = transitive_set_tester();
 
     tester.add_import(
-        &import("root", "test", "def.bzl"),
+        &ImportPath::testing_new("root//test:def.bzl"),
         "FooSet = transitive_set()",
     )?;
 

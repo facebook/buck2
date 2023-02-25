@@ -469,7 +469,7 @@ fn default_info_creator(builder: &mut GlobalsBuilder) {
 #[cfg(test)]
 mod tests {
     use buck2_common::result::SharedResult;
-    use buck2_interpreter_for_build::interpreter::testing::import;
+    use buck2_core::bzl::ImportPath;
     use buck2_interpreter_for_build::interpreter::testing::Tester;
     use indoc::indoc;
 
@@ -486,7 +486,7 @@ mod tests {
             register_provider(g);
         });
         tester.add_import(
-            &import("root", "foo", "defs.bzl"),
+            &ImportPath::testing_new("root//foo:defs.bzl"),
             r#"BarInfo = provider(fields=["bar"])"#,
         )?;
         tester.run_starlark_bzl_test(indoc!(

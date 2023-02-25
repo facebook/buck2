@@ -14,7 +14,7 @@ pub mod rule_defs;
 #[cfg(test)]
 mod tests {
     use buck2_common::result::SharedResult;
-    use buck2_interpreter_for_build::interpreter::testing::import;
+    use buck2_core::bzl::ImportPath;
     use buck2_interpreter_for_build::interpreter::testing::Tester;
     use indoc::indoc;
     use starlark::environment::GlobalsBuilder;
@@ -83,7 +83,7 @@ mod tests {
         fn new_tester() -> SharedResult<Tester> {
             let mut tester = Tester::new()?;
             tester.add_import(
-                &import("root", "test", "def1.bzl"),
+                &ImportPath::testing_new("root//test:def1.bzl"),
                 indoc!(
                     r#"
                 l = [1,2,3]
@@ -91,7 +91,7 @@ mod tests {
                 ),
             )?;
             tester.add_import(
-                &import("root", "test", "def2.bzl"),
+                &ImportPath::testing_new("root//test:def2.bzl"),
                 indoc!(
                     r#"
                 load("//test:def1.bzl", "l")

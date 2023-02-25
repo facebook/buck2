@@ -8,8 +8,8 @@
  */
 
 use buck2_common::result::SharedResult;
+use buck2_core::bzl::ImportPath;
 use buck2_interpreter_for_build::interpreter::testing::expect_error;
-use buck2_interpreter_for_build::interpreter::testing::import;
 use buck2_interpreter_for_build::interpreter::testing::Tester;
 use buck2_interpreter_for_build::label::testing::label_creator;
 use indoc::indoc;
@@ -482,7 +482,7 @@ fn test_frozen_inputs_outputs() -> anyhow::Result<()> {
     let mut tester = tester()?;
 
     tester.add_import(
-        &import("root", "test", "def1.bzl"),
+        &ImportPath::testing_new("root//test:def1.bzl"),
         indoc!(
             r#"
             def norm(xs):

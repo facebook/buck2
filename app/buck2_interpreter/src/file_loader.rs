@@ -161,21 +161,15 @@ mod tests {
             _location: Option<&FileSpan>,
         ) -> anyhow::Result<OwnedStarlarkModulePath> {
             match path {
-                "//some/package:import.bzl" => Ok(OwnedStarlarkModulePath::LoadFile(import(
-                    "root",
-                    "some/package",
-                    "import.bzl",
-                ))),
-                "cell1//next/package:import.bzl" => Ok(OwnedStarlarkModulePath::LoadFile(import(
-                    "cell1",
-                    "next/package",
-                    "import.bzl",
-                ))),
-                "alias2//last/package:import.bzl" => Ok(OwnedStarlarkModulePath::LoadFile(import(
-                    "cell2",
-                    "last/package",
-                    "import.bzl",
-                ))),
+                "//some/package:import.bzl" => Ok(OwnedStarlarkModulePath::LoadFile(
+                    ImportPath::testing_new("root//some/package:import.bzl"),
+                )),
+                "cell1//next/package:import.bzl" => Ok(OwnedStarlarkModulePath::LoadFile(
+                    ImportPath::testing_new("cell1//next/package:import.bzl"),
+                )),
+                "alias2//last/package:import.bzl" => Ok(OwnedStarlarkModulePath::LoadFile(
+                    ImportPath::testing_new("cell2//last/package:import.bzl"),
+                )),
                 _ => Err(anyhow::anyhow!("error")),
             }
         }
@@ -211,10 +205,6 @@ mod tests {
         insert("alias2//last/package:import.bzl");
 
         loaded_modules
-    }
-
-    fn import(cell: &str, package: &str, filename: &str) -> ImportPath {
-        ImportPath::testing_new(cell, package, filename)
     }
 
     #[test]

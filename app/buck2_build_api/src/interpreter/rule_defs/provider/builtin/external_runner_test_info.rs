@@ -409,7 +409,7 @@ fn external_runner_test_info_creator(globals: &mut GlobalsBuilder) {
 
 #[cfg(test)]
 mod tests {
-    use buck2_interpreter_for_build::interpreter::testing::import;
+    use buck2_core::bzl::ImportPath;
     use buck2_interpreter_for_build::interpreter::testing::Tester;
     use indoc::indoc;
 
@@ -595,7 +595,7 @@ mod tests {
         let mut tester = tester();
 
         let res = tester.add_import(
-            &import("root", "test", "def1.bzl"),
+            &ImportPath::testing_new("root//test:def1.bzl"),
             indoc!(
                 r#"
             def make_info():

@@ -19,7 +19,6 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_interpreter::path::StarlarkPath;
-use buck2_interpreter_for_build::interpreter::testing::import;
 use buck2_interpreter_for_build::interpreter::testing::CellsData;
 use buck2_interpreter_for_build::interpreter::testing::Tester;
 use dupe::Dupe;
@@ -31,7 +30,7 @@ fn test_eval_import() {
     let loaded = Tester::new()
         .unwrap()
         .add_import(
-            &import("root", "some/package", "defs.bzl"),
+            &ImportPath::testing_new("root//some/package:defs.bzl"),
             indoc!(
                 r#"
             one = 1
@@ -51,7 +50,7 @@ fn test_eval_import() {
 
 #[test]
 fn test_load() {
-    let import_path = import("root", "imports", "one.bzl");
+    let import_path = ImportPath::testing_new("root//imports:one.bzl");
     let mut tester = Tester::new().unwrap();
     tester
         .add_import(
@@ -70,7 +69,7 @@ fn test_load() {
 
     let parse_result = tester
         .add_import(
-            &import("root", "some/package", "defs.bzl"),
+            &ImportPath::testing_new("root//some/package:defs.bzl"),
             indoc!(
                 r#"
                 load("@root//imports:one.bzl", "concat")
@@ -98,7 +97,7 @@ fn test_eval_build_file() {
 
     tester
         .add_import(
-            &ImportPath::testing_new("root", "", "rules.bzl"),
+            &ImportPath::testing_new("root//:rules.bzl"),
             indoc!(
                 r#"
                 def _impl(ctx):
@@ -266,7 +265,7 @@ fn test_root_import() {
 
     tester.set_additional_globals(register_rule_defs);
 
-    let import_path = ImportPath::testing_new("root", "", "include.bzl");
+    let import_path = ImportPath::testing_new("root//:include.bzl");
     tester
         .add_import(
             &import_path,

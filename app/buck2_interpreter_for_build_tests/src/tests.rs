@@ -56,10 +56,6 @@ fn empty_configs(resolver: &CellResolver) -> LegacyBuckConfigs {
     LegacyBuckConfigs::new(config)
 }
 
-fn import(cell: &str, package: &str, filename: &str) -> ImportPath {
-    ImportPath::testing_new(cell, package, filename)
-}
-
 pub(crate) fn root_cell() -> CellName {
     CellName::testing_new("root")
 }
@@ -121,8 +117,8 @@ async fn test_eval_import() {
         .unwrap();
 
     let env = calculation
-        .eval_module(StarlarkModulePath::LoadFile(&import(
-            "root", "pkg", "two.bzl",
+        .eval_module(StarlarkModulePath::LoadFile(&ImportPath::testing_new(
+            "root//pkg:two.bzl",
         )))
         .await
         .unwrap();
@@ -166,8 +162,8 @@ async fn test_eval_import_with_load() {
         .unwrap();
 
     let env = calculation
-        .eval_module(StarlarkModulePath::LoadFile(&import(
-            "root", "pkg", "two.bzl",
+        .eval_module(StarlarkModulePath::LoadFile(&ImportPath::testing_new(
+            "root//pkg:two.bzl",
         )))
         .await
         .unwrap();
