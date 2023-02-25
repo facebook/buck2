@@ -62,7 +62,19 @@ impl Configuration {
 }
 
 /// `ConfigurationPair` where `exec_cfg` is always `None`.
-#[derive(Debug, Clone, Dupe, Eq, PartialEq, Hash, Ord, PartialOrd, Allocative)]
+#[derive(
+    Debug,
+    Clone,
+    Dupe,
+    Eq,
+    PartialEq,
+    Hash,
+    Ord,
+    PartialOrd,
+    Allocative,
+    derive_more::Display
+)]
+#[display(fmt = "{}", "self.cfg()")]
 pub struct ConfigurationNoExec(Configuration);
 
 impl ConfigurationNoExec {

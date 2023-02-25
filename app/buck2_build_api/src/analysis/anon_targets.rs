@@ -190,7 +190,7 @@ impl AnonTargetKey {
             rule.rule_type().dupe(),
             name,
             attrs.into(),
-            execution_platform.cfg().cfg().dupe(),
+            execution_platform.cfg().dupe(),
         ))))
     }
 
@@ -360,8 +360,8 @@ impl AnonTargetKey {
             Some(
                 find_execution_platform_by_configuration(
                     dice,
-                    self.0.exec_cfg(),
-                    self.0.exec_cfg(),
+                    self.0.exec_cfg().cfg(),
+                    self.0.exec_cfg().cfg(),
                 )
                 .await?,
             ),

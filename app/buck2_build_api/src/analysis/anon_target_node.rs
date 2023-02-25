@@ -15,6 +15,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_core::collections::sorted_map::SortedMap;
+use buck2_core::configuration::pair::ConfigurationNoExec;
 use buck2_core::configuration::ConfigurationData;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
@@ -39,7 +40,7 @@ pub struct AnonTarget {
     /// The hash of the `rule_type` and `attrs`
     hash: String,
     /// The execution configuration - same as the parent.
-    exec_cfg: ConfigurationData,
+    exec_cfg: ConfigurationNoExec,
 }
 
 impl fmt::Display for AnonTarget {
@@ -54,7 +55,7 @@ impl ToProtoMessage for AnonTarget {
     fn as_proto(&self) -> Self::Message {
         buck2_data::AnonTarget {
             name: Some(self.name.as_proto()),
-            execution_configuration: Some(self.exec_cfg.as_proto()),
+            execution_configuration: Some(self.exec_cfg.cfg().as_proto()),
             hash: self.hash.clone(),
         }
     }
@@ -74,7 +75,7 @@ impl AnonTarget {
         rule_type: Arc<StarlarkRuleType>,
         name: TargetLabel,
         attrs: SortedMap<String, ConfiguredAttr>,
-        exec_cfg: ConfigurationData,
+        exec_cfg: ConfigurationNoExec,
     ) -> Self {
         let hash = Self::mk_hash(&rule_type, &attrs);
         Self {
@@ -102,7 +103,7 @@ impl AnonTarget {
         &self.hash
     }
 
-    pub fn exec_cfg(&self) -> &ConfigurationData {
+    pub fn exec_cfg(&self) -> &ConfigurationNoExec {
         &self.exec_cfg
     }
 
@@ -143,7 +144,7 @@ impl BaseDeferredKeyDynImpl for AnonTarget {
             "-anon/",
             self.name().pkg().cell_name().as_str(),
             "/",
-            self.exec_cfg().output_hash(),
+            self.exec_cfg().cfg().output_hash(),
             cell_relative_path,
             if cell_relative_path.is_empty() {
                 ""
