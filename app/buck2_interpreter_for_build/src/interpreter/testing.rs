@@ -315,7 +315,7 @@ impl Tester {
     }
 
     pub fn build_file_path() -> BuildFilePath {
-        buildfile("root", "some/package")
+        BuildFilePath::testing_new("root//some/package:BUCK")
     }
 
     /// Run a starlark test with a basic environment. See
@@ -412,8 +412,4 @@ impl Tester {
     pub fn run_starlark_bzl_test_expecting_error(&mut self, content: &str, expected: &str) {
         expect_error(self.run_starlark_bzl_test(content), content, expected);
     }
-}
-
-pub fn buildfile(cell: &str, package: &str) -> BuildFilePath {
-    BuildFilePath::testing_new(cell, package, "BUCK")
 }

@@ -162,7 +162,6 @@ mod tests {
     use buck2_interpreter::file_loader::LoadedModules;
     use buck2_interpreter::path::OwnedStarlarkModulePath;
     use buck2_interpreter_for_build::interpreter::natives::register_module_natives;
-    use buck2_interpreter_for_build::interpreter::testing::buildfile;
     use buck2_interpreter_for_build::interpreter::testing::cells;
     use buck2_interpreter_for_build::interpreter::testing::run_simple_starlark_test;
     use buck2_interpreter_for_build::interpreter::testing::Tester;
@@ -189,7 +188,7 @@ mod tests {
 
         // The prelude should be included in build files, and in .bzl files that are not in the
         // prelude's package
-        let build_file = BuildFilePath::testing_new("root", "prelude", "TARGETS.v2");
+        let build_file = BuildFilePath::testing_new("root//prelude:TARGETS.v2");
         assert!(
             tester
                 .eval_build_file_with_loaded_modules(
@@ -249,7 +248,7 @@ mod tests {
             ),
         )?;
 
-        let build_path = buildfile("root", "src/package");
+        let build_path = BuildFilePath::testing_new("root//src/package:BUCK");
         let eval_result = tester.eval_build_file(
             &build_path,
             indoc!(

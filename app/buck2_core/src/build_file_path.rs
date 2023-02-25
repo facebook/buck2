@@ -13,7 +13,6 @@ use dupe::Dupe;
 use crate::cells::build_file_cell::BuildFileCell;
 use crate::cells::cell_path::CellPath;
 use crate::cells::name::CellName;
-use crate::cells::paths::CellRelativePath;
 use crate::fs::paths::file_name::FileName;
 use crate::fs::paths::file_name::FileNameBuf;
 use crate::package::PackageLabel;
@@ -33,13 +32,12 @@ impl BuildFilePath {
         Self { package, filename }
     }
 
-    pub fn testing_new(cell: &str, package: &str, filename: &str) -> Self {
-        let package = PackageLabel::new(
-            CellName::testing_new(cell),
-            <&CellRelativePath>::try_from(package).unwrap(),
-        );
-        let filename = FileNameBuf::try_from(filename.to_owned()).unwrap();
-        Self::new(package, filename)
+    pub fn testing_new(path: &str) -> Self {
+        let (package, filename) = path.split_once(':').unwrap();
+        Self::new(
+            PackageLabel::testing_parse(package),
+            FileNameBuf::try_from(filename.to_owned()).unwrap(),
+        )
     }
 
     pub fn cell(&self) -> CellName {
@@ -60,5 +58,19 @@ impl BuildFilePath {
 
     pub fn filename(&self) -> &FileName {
         &self.filename
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::build_file_path::BuildFilePath;
+
+    #[test]
+    fn test_testing_new() {
+        // `testing_new` accepts the same format `Display` produces.
+        assert_eq!(
+            "foo//bar/baz:BUCK",
+            BuildFilePath::testing_new("foo//bar/baz:BUCK").to_string()
+        );
     }
 }

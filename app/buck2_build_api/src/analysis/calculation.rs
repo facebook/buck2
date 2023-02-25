@@ -523,7 +523,7 @@ mod tests {
                 LoadedModules::default(),
             )?;
 
-        let buildfile = BuildFilePath::testing_new("cell", "pkg", "BUCK");
+        let buildfile = BuildFilePath::testing_new("cell//pkg:BUCK");
         let eval_res = interpreter.eval_build_file_with_loaded_modules(
             &buildfile,
             indoc!(
