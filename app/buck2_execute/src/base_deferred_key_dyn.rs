@@ -65,14 +65,7 @@ impl Hash for BaseDeferredKeyDyn {
 }
 
 pub fn string_join(parts: &[&str]) -> String {
-    let len = parts.iter().map(|p| p.len()).sum();
-
-    let mut ret = String::with_capacity(len);
-    for part in parts {
-        ret.push_str(part);
-    }
-
-    ret
+    parts.concat()
 }
 
 impl BaseDeferredKeyDyn {
