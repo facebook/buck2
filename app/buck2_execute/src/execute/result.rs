@@ -22,6 +22,7 @@ use crate::execute::claim::Claim;
 use crate::execute::kind::CommandExecutionKind;
 use crate::execute::output::CommandStdStreams;
 use crate::execute::request::CommandExecutionOutput;
+use crate::output_size::OutputSize;
 
 /// "Status" of an action execution indicating how it finished. E.g. "built_remotely", "local_fallback", "action_cache".
 #[derive(Debug)]
@@ -119,6 +120,16 @@ pub struct CommandExecutionResult {
     pub did_cache_upload: bool,
     /// Whether this command was eligible for hybrid execution.
     pub eligible_for_full_hybrid: bool,
+}
+
+impl CommandExecutionResult {
+    /// Total size of all outputs in bytes.
+    pub fn calc_output_size_bytes(&self) -> u64 {
+        self.outputs
+            .values()
+            .map(|v| v.calc_output_count_and_bytes().bytes)
+            .sum()
+    }
 }
 
 /// Describes how a command executed.

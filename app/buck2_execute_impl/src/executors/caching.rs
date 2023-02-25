@@ -38,7 +38,6 @@ use buck2_execute::execute::result::CommandExecutionStatus;
 use buck2_execute::execute::target::CommandExecutionTarget;
 use buck2_execute::knobs::ExecutorGlobalKnobs;
 use buck2_execute::materialize::materializer::Materializer;
-use buck2_execute::output_size::OutputSize;
 use buck2_execute::re::manager::ManagedRemoteExecutionClient;
 use derive_more::Display;
 use dupe::Dupe;
@@ -168,12 +167,7 @@ impl CachingExecutor {
             return Ok(None);
         }
 
-        let output_bytes = result
-            .outputs
-            .values()
-            .into_iter()
-            .map(|v| v.calc_output_count_and_bytes().bytes)
-            .sum();
+        let output_bytes = result.calc_output_size_bytes();
 
         match &result.report.status {
             CommandExecutionStatus::Success {
