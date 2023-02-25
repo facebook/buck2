@@ -9,12 +9,12 @@
 
 use allocative::Allocative;
 use buck2_common::executor_config::PathSeparatorKind;
+use buck2_core::buck_path::BuckPathRef;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use either::Either;
 
-use crate::artifact::source_artifact::SourceArtifact;
 use crate::path::artifact_path::ArtifactPath;
 use crate::path::buck_out_path::BuckOutPath;
 use crate::path::buck_out_path::BuckOutPathResolver;
@@ -72,9 +72,9 @@ impl ArtifactFs {
 
     pub fn resolve_source(
         &self,
-        artifact: &SourceArtifact,
+        source_artifact_path: BuckPathRef,
     ) -> anyhow::Result<ProjectRelativePathBuf> {
-        self.buck_path_resolver.resolve(artifact.get_path())
+        self.buck_path_resolver.resolve(source_artifact_path)
     }
 
     /// Writes a file's contents to disk, creating any intermediate directories needed

@@ -304,7 +304,7 @@ impl Key for EnsureProjectedArtifactKey {
 
         let base_path = match self.0.base() {
             BaseArtifactKind::Build(built) => artifact_fs.resolve_build(built.get_path()),
-            BaseArtifactKind::Source(source) => artifact_fs.resolve_source(source)?,
+            BaseArtifactKind::Source(source) => artifact_fs.resolve_source(source.get_path())?,
         };
 
         let mut builder = ActionDirectoryBuilder::empty();
