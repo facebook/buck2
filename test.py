@@ -317,7 +317,16 @@ def starlark_linter() -> None:
     with tempfile.NamedTemporaryFile(mode="w+t") as fp:
         fp.writelines([x + "\n" for x in starlark_files])
         fp.flush()
-        run(["buck2", "starlark", "lint", "--no-buckd", "@" + fp.name])
+        run(
+            [
+                "buck2",
+                "--isolation-dir=starlark-linter",
+                "starlark",
+                "lint",
+                "--no-buckd",
+                "@" + fp.name,
+            ]
+        )
 
 
 def _lookup(d, *keys):
