@@ -351,8 +351,15 @@ def _compile(
         ctx: "context",
         link_style: LinkStyle.type,
         extra_args = []) -> CompileResultInfo.type:
+    haskell_toolchain = ctx.attrs._haskell_toolchain[HaskellToolchainInfo]
+    compile_cmd = cmd_args(haskell_toolchain.compiler)
+    compile_cmd.add(haskell_toolchain.compiler_flags)
+
+    # Some rules pass in RTS (e.g. `+RTS ... -RTS`) options for GHC, which can't
+    # be parsed when inside an argsfile.
+    compile_cmd.add(ctx.attrs.compiler_flags)
+
     compile_args = cmd_args()
-    compile_args.add(ctx.attrs.compiler_flags)
     compile_args.add("-no-link", "-i")
 
     if ctx.attrs.enable_profiling:
@@ -426,10 +433,6 @@ def _compile(
 
     argsfile = ctx.actions.declare_output("haskell_compile_" + link_style.value + ".argsfile")
     ctx.actions.write(argsfile.as_output(), compile_args, allow_args = True)
-
-    haskell_toolchain = ctx.attrs._haskell_toolchain[HaskellToolchainInfo]
-    compile_cmd = cmd_args(haskell_toolchain.compiler)
-    compile_cmd.add(haskell_toolchain.compiler_flags)
     hidden_args = [compile_args]
     compile_cmd.add(cmd_args(argsfile, format = "@{}").hidden(hidden_args))
 
