@@ -46,6 +46,8 @@ def _system_ocaml_toolchain_impl(_ctx):
             debug = None,
             warnings_flags = "-4-29-35-41-42-44-45-48-50-58-70",
             ocaml_compiler_flags = [],  # e.g. "-opaque"
+            ocamlc_flags = [],
+            ocamlopt_flags = [],
         ),
         OCamlPlatformInfo(name = "x86_64"),
     ]

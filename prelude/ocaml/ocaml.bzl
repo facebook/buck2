@@ -256,14 +256,18 @@ def _include_paths_in_context(ctx: "context", build_mode: BuildMode.type):
 
     return includes
 
+def _compiler_flags(ctx: "context", build_mode: BuildMode.type):
+    ocaml_toolchain = ctx.attrs._ocaml_toolchain[OCamlToolchainInfo]
+    mode_flags = ocaml_toolchain.ocamlopt_flags if _is_native(build_mode) else ocaml_toolchain.ocamlc_flags
+
+    return ocaml_toolchain.ocaml_compiler_flags + mode_flags
+
 # Configure a new compile command. Each source file (.mli, .ml) gets one of its
 # own.
-def _compile_cmd(ctx: "context", compiler: "cmd_args", cc: "cmd_args", includes: ["cmd_args"]) -> "cmd_args":
-    ocaml_toolchain = ctx.attrs._ocaml_toolchain[OCamlToolchainInfo]
-
+def _compile_cmd(ctx: "context", compiler: "cmd_args", build_mode: BuildMode.type, cc: "cmd_args", includes: ["cmd_args"]) -> "cmd_args":
     cmd = _compiler_cmd(ctx, compiler, cc)
     cmd.add("-bin-annot")  # TODO(sf, 2023-02-21): Move this to 'gen_modes.py'?
-    cmd.add(ocaml_toolchain.ocaml_compiler_flags)
+    cmd.add(_compiler_flags(ctx, build_mode))
     cmd.add(cmd_args(includes, format = "-I={}"))
 
     return cmd
@@ -338,9 +342,7 @@ def _depends(ctx: "context", srcs: ["artifact"], build_mode: BuildMode.type) -> 
 # native code, 'cmos' in the returned info will be empty while 'objs' & 'cmxs'
 # will be non-empty.
 def _compile(ctx: "context", compiler: "cmd_args", build_mode: BuildMode.type) -> CompileResultInfo.type:
-    ocaml_toolchain = ctx.attrs._ocaml_toolchain[OCamlToolchainInfo]
-
-    opaque_enabled = "-opaque" in ocaml_toolchain.ocaml_compiler_flags
+    opaque_enabled = "-opaque" in _compiler_flags(ctx, build_mode)
     is_native = _is_native(build_mode)
     is_bytecode = not is_native
 
@@ -494,7 +496,7 @@ def _compile(ctx: "context", compiler: "cmd_args", build_mode: BuildMode.type) -
 
             if ext == ".mli":
                 (cmi, cmti, ppmli) = produces[src]
-                cmd = _compile_cmd(ctx, compiler, cc, all_include_paths)
+                cmd = _compile_cmd(ctx, compiler, build_mode, cc, all_include_paths)
                 cmd.add(src, "-c", "-o", mk_out(cmi))
                 if build_mode.value == "expand":
                     cmd.add("-dsource")
@@ -509,7 +511,7 @@ def _compile(ctx: "context", compiler: "cmd_args", build_mode: BuildMode.type) -
 
             elif ext == ".ml":
                 (obj, cmo, cmx, cmt, cmi, ppml) = produces[src]
-                cmd = _compile_cmd(ctx, compiler, cc, all_include_paths)
+                cmd = _compile_cmd(ctx, compiler, build_mode, cc, all_include_paths)
                 cmd.hidden(depends_produce)
                 if cmo != None:
                     cmd.add(src, "-c", "-o", mk_out(cmo))
@@ -535,7 +537,7 @@ def _compile(ctx: "context", compiler: "cmd_args", build_mode: BuildMode.type) -
 
             elif ext == ".c":
                 (stb,) = produces[src]
-                cmd = _compile_cmd(ctx, compiler, cc, all_include_paths)
+                cmd = _compile_cmd(ctx, compiler, build_mode, cc, all_include_paths)
 
                 # `ocaml_object` breaks for `-flto=...` so ensure `-fno-lto` prevails here.
                 cmd.add(src, "-c", "-ccopt", "-fno-lto", "-ccopt", cmd_args(mk_out(stb), format = "-o \"{}\""))
@@ -575,8 +577,8 @@ def _include_paths(cmis: ["artifact"], cmos: ["artifact"]) -> cmd_args.type:
     return include_paths
 
 def ocaml_library_impl(ctx: "context") -> ["provider"]:
-    ocaml_toolchain = ctx.attrs._ocaml_toolchain[OCamlToolchainInfo]
-    opaque_enabled = "-opaque" in ocaml_toolchain.ocaml_compiler_flags
+    opaque_enabled_nat = "-opaque" in _compiler_flags(ctx, BuildMode("native"))
+    opaque_enabled_byt = "-opaque" in _compiler_flags(ctx, BuildMode("bytecode"))
 
     env = _mk_env(ctx)
     ocamlopt = _mk_ocaml_compiler(ctx, env, BuildMode("native"))
@@ -602,7 +604,7 @@ def ocaml_library_impl(ctx: "context") -> ["provider"]:
     cmd_nat.add(stbs_nat, "-args", cmxs_order)
 
     # Native clients need these compile flags to use this library.
-    include_paths_nat = _include_paths(cmis_nat, cmxs if not opaque_enabled else [])
+    include_paths_nat = _include_paths(cmis_nat, cmxs if not opaque_enabled_nat else [])
 
     # These were produced by the compile step and so are hidden dependencies of
     # the archive step.
@@ -617,7 +619,7 @@ def ocaml_library_impl(ctx: "context") -> ["provider"]:
     cmd_byt.add(stbs_byt, "-args", cmxs_order)
 
     # Bytecode clients need these compile flags to use this library.
-    include_paths_byt = _include_paths(cmis_byt, cmos if not opaque_enabled else [])
+    include_paths_byt = _include_paths(cmis_byt, cmos if not opaque_enabled_byt else [])
 
     # These were produced by the compile step and so are hidden dependencies of
     # the archive step.

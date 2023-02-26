@@ -37,7 +37,9 @@ OCamlToolchainInfo = provider(fields = [
     "debug",
     "interop_includes",
     "warnings_flags",
-    "ocaml_compiler_flags",
+    "ocaml_compiler_flags",  # passed to both ocamlc and ocamlopt, like dune's (flags)
+    "ocamlc_flags",  # passed to ocamlc only, like dune's (ocamlc_flags)
+    "ocamlopt_flags",  # passed to ocamlopt only, like dune's (ocamlopt_flags)
 ])
 
 # Stores "platform"/flavor name used to resolve *platform_* arguments
