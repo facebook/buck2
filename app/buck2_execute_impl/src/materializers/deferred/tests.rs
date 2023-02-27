@@ -187,21 +187,28 @@ mod state_machine {
         ProjectRelativePath::new(p).unwrap().to_owned()
     }
 
-    #[tokio::test]
-    async fn test_declare_reuse() -> anyhow::Result<()> {
-        let digest_config = DigestConfig::compat();
-
-        let mut dm = DeferredMaterializerCommandProcessor {
-            io: Arc::new(StubIoHandler::default()),
-            digest_config,
+    fn make_processor(
+        digest_config: DigestConfig,
+        materialization_config: HashMap<ProjectRelativePathBuf, TokioDuration>,
+    ) -> DeferredMaterializerCommandProcessor<StubIoHandler> {
+        DeferredMaterializerCommandProcessor {
+            io: Arc::new(StubIoHandler::new(materialization_config)),
             sqlite_db: None,
             rt: Handle::current(),
             defer_write_actions: true,
             log_buffer: LogBuffer::new(1),
+            digest_config,
             version_tracker: VersionTracker::new(),
             command_sender: command_sender(),
             tree: ArtifactTree::new(),
-        };
+        }
+    }
+
+    #[tokio::test]
+    async fn test_declare_reuse() -> anyhow::Result<()> {
+        let digest_config = DigestConfig::compat();
+
+        let mut dm = make_processor(digest_config, Default::default());
 
         let path = make_path("foo/bar");
         let value = ArtifactValue::file(digest_config.empty_file());
@@ -258,17 +265,7 @@ mod state_machine {
         // await for symlink targets and the entry materialization
         materialization_config.insert(target_path.clone(), TokioDuration::from_millis(100));
 
-        let mut dm = DeferredMaterializerCommandProcessor {
-            io: Arc::new(StubIoHandler::new(materialization_config)),
-            digest_config,
-            sqlite_db: None,
-            rt: Handle::current(),
-            defer_write_actions: true,
-            log_buffer: LogBuffer::new(1),
-            version_tracker: VersionTracker::new(),
-            command_sender: command_sender(),
-            tree: ArtifactTree::new(),
-        };
+        let mut dm = make_processor(digest_config, materialization_config);
 
         // Declare symlink target
         dm.declare(
@@ -332,17 +329,7 @@ mod state_machine {
         // await for symlink targets and the entry materialization
         materialization_config.insert(target_path.clone(), TokioDuration::from_millis(100));
 
-        let mut dm = DeferredMaterializerCommandProcessor {
-            io: Arc::new(StubIoHandler::new(materialization_config)),
-            sqlite_db: None,
-            rt: Handle::current(),
-            defer_write_actions: true,
-            log_buffer: LogBuffer::new(1),
-            digest_config,
-            version_tracker: VersionTracker::new(),
-            command_sender: command_sender(),
-            tree: ArtifactTree::new(),
-        };
+        let mut dm = make_processor(digest_config, materialization_config);
 
         // Declare symlink
         let symlink_value = make_artifact_value_with_symlink_dep(
