@@ -1006,82 +1006,12 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
             match op {
                 Op::Command(command) => {
                     self.log_buffer.push(format!("{:?}", command));
-                    match command {
-                        // Entry point for `get_materialized_file_paths` calls
-                        MaterializerCommand::GetMaterializedFilePaths(paths, result_sender) => {
-                            let result = paths
-                                .into_map(|p| self.tree.file_contents_path(p, self.digest_config));
-                            result_sender.send(result).ok();
-                        }
-                        MaterializerCommand::DeclareExisting(artifacts, ..) => {
-                            for (path, artifact) in artifacts {
-                                self.declare_existing(path, artifact);
-                            }
-                        }
-                        // Entry point for `declare_{copy|cas}` calls
-                        MaterializerCommand::Declare(path, value, method, _dispatcher) => {
-                            self.declare(&path, value, method);
-                        }
-                        MaterializerCommand::MatchArtifacts(paths, sender) => {
-                            let all_matches = paths
-                                .into_iter()
-                                .all(|(path, value)| self.match_artifact(path, value));
-                            sender.send(all_matches).ok();
-                        }
-                        MaterializerCommand::InvalidateFilePaths(paths, sender) => {
-                            tracing::trace!(
-                                paths = ?paths,
-                                "invalidate paths",
-                            );
-
-                            let existing_futs = self.tree.invalidate_paths_and_collect_futures(
-                                paths,
-                                self.sqlite_db.as_mut(),
-                            );
-
-                            // TODO: This proably shouldn't return a CleanFuture
-                            sender
-                                .send(
-                                    async move {
-                                        join_all_existing_futs(existing_futs).await.shared_error()
-                                    }
-                                    .boxed()
-                                    .shared(),
-                                )
-                                .ok();
-                        }
-                        // Entry point for `ensure_materialized` calls
-                        MaterializerCommand::Ensure(paths, event_dispatcher, fut_sender) => {
-                            fut_sender
-                                .send(self.materialize_many_artifacts(paths, event_dispatcher))
-                                .ok();
-                        }
-                        MaterializerCommand::Extension(ext) => ext.execute(&mut self),
-                    }
-
+                    self.process_one_command(command);
                     counters.ack_received();
                 }
                 Op::LowPriorityCommand(command) => {
                     self.log_buffer.push(format!("{:?}", command));
-                    match command {
-                        // Materialization of artifact succeeded
-                        LowPriorityMaterializerCommand::MaterializationFinished {
-                            path,
-                            timestamp,
-                            version,
-                            result,
-                        } => {
-                            self.materialization_finished(path, timestamp, version, result);
-                        }
-                        LowPriorityMaterializerCommand::CleanupFinished {
-                            path,
-                            version,
-                            result,
-                        } => {
-                            self.tree.cleanup_finished(path, version, result);
-                        }
-                    }
-
+                    self.process_one_low_priority_command(command);
                     counters.ack_received();
                 }
                 Op::RefreshTtls => {
@@ -1118,6 +1048,79 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                             }),
                     };
                 }
+            }
+        }
+    }
+
+    fn process_one_command(&mut self, command: MaterializerCommand<T>) {
+        match command {
+            // Entry point for `get_materialized_file_paths` calls
+            MaterializerCommand::GetMaterializedFilePaths(paths, result_sender) => {
+                let result =
+                    paths.into_map(|p| self.tree.file_contents_path(p, self.digest_config));
+                result_sender.send(result).ok();
+            }
+            MaterializerCommand::DeclareExisting(artifacts, ..) => {
+                for (path, artifact) in artifacts {
+                    self.declare_existing(path, artifact);
+                }
+            }
+            // Entry point for `declare_{copy|cas}` calls
+            MaterializerCommand::Declare(path, value, method, _event_dispatcher) => {
+                self.declare(&path, value, method);
+            }
+            MaterializerCommand::MatchArtifacts(paths, sender) => {
+                let all_matches = paths
+                    .into_iter()
+                    .all(|(path, value)| self.match_artifact(path, value));
+                sender.send(all_matches).ok();
+            }
+            MaterializerCommand::InvalidateFilePaths(paths, sender) => {
+                tracing::trace!(
+                    paths = ?paths,
+                    "invalidate paths",
+                );
+
+                let existing_futs = self
+                    .tree
+                    .invalidate_paths_and_collect_futures(paths, self.sqlite_db.as_mut());
+
+                // TODO: This proably shouldn't return a CleanFuture
+                sender
+                    .send(
+                        async move { join_all_existing_futs(existing_futs).await.shared_error() }
+                            .boxed()
+                            .shared(),
+                    )
+                    .ok();
+            }
+            // Entry point for `ensure_materialized` calls
+            MaterializerCommand::Ensure(paths, event_dispatcher, fut_sender) => {
+                fut_sender
+                    .send(self.materialize_many_artifacts(paths, event_dispatcher))
+                    .ok();
+            }
+            MaterializerCommand::Extension(ext) => ext.execute(self),
+        }
+    }
+
+    fn process_one_low_priority_command(&mut self, command: LowPriorityMaterializerCommand) {
+        match command {
+            // Materialization of artifact succeeded
+            LowPriorityMaterializerCommand::MaterializationFinished {
+                path,
+                timestamp,
+                version,
+                result,
+            } => {
+                self.materialization_finished(path, timestamp, version, result);
+            }
+            LowPriorityMaterializerCommand::CleanupFinished {
+                path,
+                version,
+                result,
+            } => {
+                self.tree.cleanup_finished(path, version, result);
             }
         }
     }
