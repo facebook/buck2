@@ -610,6 +610,70 @@ async fn targets(
     Ok(response)
 }
 
+trait ResolveAliasFormatter {
+    /// Before writing anything.
+    fn begin(&self, buffer: &mut String);
+
+    /// After writing everything.
+    fn end(&self, buffer: &mut String);
+
+    /// Between items
+    fn separator(&self, buffer: &mut String);
+
+    /// Emit an alias
+    fn emit(&self, alias: &str, label: &TargetLabel, buffer: &mut String);
+}
+
+impl ResolveAliasFormatter for JsonWriter {
+    fn begin(&self, buffer: &mut String) {
+        self.begin(buffer);
+    }
+
+    fn end(&self, buffer: &mut String) {
+        self.end(buffer);
+    }
+
+    fn separator(&self, buffer: &mut String) {
+        self.separator(buffer);
+    }
+
+    fn emit(&self, alias: &str, label: &TargetLabel, buffer: &mut String) {
+        let mut first = true;
+        self.entry_start(buffer);
+        self.entry_item(buffer, &mut first, "alias", &quote_json_string(alias));
+        // Using a format consistent wit hthe output of `buck2 targets`
+        self.entry_item(
+            buffer,
+            &mut first,
+            PACKAGE,
+            &quote_json_string(&label.pkg().to_string()),
+        );
+        self.entry_item(
+            buffer,
+            &mut first,
+            "name",
+            &quote_json_string(label.name().as_str()),
+        );
+        self.entry_end(buffer, first);
+    }
+}
+
+struct LinesWriter;
+
+impl ResolveAliasFormatter for LinesWriter {
+    fn begin(&self, _buffer: &mut String) {}
+
+    fn end(&self, _buffer: &mut String) {}
+
+    fn separator(&self, buffer: &mut String) {
+        buffer.push('\n');
+    }
+
+    fn emit(&self, _alias: &str, label: &TargetLabel, buffer: &mut String) {
+        write!(buffer, "{}", label).unwrap();
+    }
+}
+
 async fn targets_resolve_aliases(
     dice: DiceTransaction,
     request: &TargetsRequest,
@@ -651,6 +715,21 @@ async fn targets_resolve_aliases(
 
     let mut buffer = String::new();
 
+    let json_writer;
+
+    let formatter = if request.json || request.json_lines {
+        json_writer = JsonWriter {
+            json_lines: request.json_lines,
+        };
+        &json_writer as &dyn ResolveAliasFormatter
+    } else {
+        &LinesWriter as &dyn ResolveAliasFormatter
+    };
+
+    let mut needs_separator = false;
+
+    formatter.begin(&mut buffer);
+
     for (alias, (package, target_name)) in
         std::iter::zip(&request.target_patterns, &parsed_target_patterns)
     {
@@ -674,8 +753,14 @@ async fn targets_resolve_aliases(
             })
             .with_context(|| format!("Invalid alias: `{}`", alias.value))?;
 
-        writeln!(buffer, "{}", node.label())?;
+        if needs_separator {
+            formatter.separator(&mut buffer);
+        }
+        needs_separator = true;
+        formatter.emit(&alias.value, node.label(), &mut buffer);
     }
+
+    formatter.end(&mut buffer);
 
     Ok(TargetsResponse {
         error_count: 0,
