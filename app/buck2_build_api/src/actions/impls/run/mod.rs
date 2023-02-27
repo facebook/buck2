@@ -405,10 +405,6 @@ impl IncrementalActionExecutable for RunAction {
 
         let (outputs, meta) = ctx.exec_cmd(&req).await?;
 
-        let outputs = outputs
-            .into_iter()
-            .filter_map(|(o, v)| Some((o.into_build_artifact()?.0, v)))
-            .collect();
         let outputs = ActionOutputs::new(outputs);
 
         if let Some(dep_files) = dep_files {

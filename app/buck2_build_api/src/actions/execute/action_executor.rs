@@ -33,7 +33,6 @@ use buck2_execute::execute::dice_data::GetReClient;
 use buck2_execute::execute::dice_data::HasCommandExecutor;
 use buck2_execute::execute::kind::CommandExecutionKind;
 use buck2_execute::execute::manager::CommandExecutionManager;
-use buck2_execute::execute::request::CommandExecutionOutput;
 use buck2_execute::execute::request::CommandExecutionRequest;
 use buck2_execute::execute::request::OutputType;
 use buck2_execute::execute::result::CommandExecutionReport;
@@ -326,7 +325,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
         &mut self,
         request: &CommandExecutionRequest,
     ) -> anyhow::Result<(
-        IndexMap<CommandExecutionOutput, ArtifactValue>,
+        IndexMap<BuckOutPath, ArtifactValue>,
         ActionExecutionMetadata,
     )> {
         let action = self.target();
@@ -350,7 +349,10 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
         // TODO (@torozco): The execution kind should be made to come via the command reports too.
         let res = match &report.status {
             CommandExecutionStatus::Success { execution_kind } => Ok((
-                outputs,
+                outputs
+                    .into_iter()
+                    .filter_map(|(output, value)| Some((output.into_build_artifact()?.0, value)))
+                    .collect(),
                 ActionExecutionMetadata {
                     execution_kind: ActionExecutionKind::Command {
                         kind: execution_kind.clone(),

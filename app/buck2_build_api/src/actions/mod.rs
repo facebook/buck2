@@ -47,10 +47,10 @@ use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::execute::blocking::BlockingExecutor;
-use buck2_execute::execute::request::CommandExecutionOutput;
 use buck2_execute::execute::request::CommandExecutionRequest;
 use buck2_execute::execute::target::CommandExecutionTarget;
 use buck2_execute::materialize::materializer::Materializer;
+use buck2_execute::path::buck_out_path::BuckOutPath;
 use buck2_execute::re::manager::ManagedRemoteExecutionClient;
 use derivative::Derivative;
 use derive_more::Display;
@@ -191,7 +191,7 @@ pub trait ActionExecutionCtx: Send + Sync {
         &mut self,
         request: &CommandExecutionRequest,
     ) -> anyhow::Result<(
-        IndexMap<CommandExecutionOutput, ArtifactValue>,
+        IndexMap<BuckOutPath, ArtifactValue>,
         ActionExecutionMetadata,
     )>;
 
@@ -473,10 +473,6 @@ pub(crate) mod testings {
 
             let (outputs, meta) = ctx.exec_cmd(&req).await?;
 
-            let outputs = outputs
-                .into_iter()
-                .filter_map(|(o, v)| Some((o.into_build_artifact()?.0, v)))
-                .collect();
             let outputs = ActionOutputs::new(outputs);
 
             Ok((outputs, meta))
