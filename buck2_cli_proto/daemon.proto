@@ -476,7 +476,7 @@ message CommandResult {
   }
 }
 
-// A configuration, identified by its full name.
+// A response from a command, either an informational event or the response.
 message CommandProgress {
   oneof progress {
     buck.data.BuckEvent event = 1;
