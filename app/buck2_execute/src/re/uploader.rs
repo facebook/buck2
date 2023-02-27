@@ -65,7 +65,7 @@ impl Uploader {
         // RE mentions they usually take 5-10 minutes of leeway so we mirror this here.
         let now = Utc::now();
         let ttl_wanted = 600i64;
-        let ttl_deadline = now + chrono::Duration::seconds(ttl_wanted);
+        let ttl_deadline = now + Duration::seconds(ttl_wanted);
 
         // See if anything needs uploading
         let mut input_digests = blobs.keys().collect::<HashSet<_>>();
@@ -351,7 +351,7 @@ fn should_error_for_missing_digest(info: &CasDownloadInfo) -> bool {
     // tells us a digest doesn't exist even though it does) in order to provide better UX when we
     // hit a true positive.
     if let Some(age) = info.action_age() {
-        age >= std::time::Duration::from_secs(3600 * 5)
+        age >= Duration::seconds(3600 * 5)
     } else {
         true
     }

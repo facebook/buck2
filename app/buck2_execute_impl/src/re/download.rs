@@ -9,7 +9,6 @@
 
 use std::ops::ControlFlow;
 use std::sync::Arc;
-use std::time::Instant;
 
 use anyhow::Context as _;
 use buck2_common::executor_config::RemoteExecutorUseCase;
@@ -157,9 +156,9 @@ impl CasDownloader<'_> {
             return Err(anyhow::anyhow!("Injected error"));
         }
 
-        let retrieved_instant = Instant::now();
-        let ttl = output_spec.ttl();
-        let expires = Utc::now() + Duration::seconds(ttl);
+        let now = Utc::now();
+        let ttl = Duration::seconds(output_spec.ttl());
+        let expires = now + ttl;
 
         // Download process:
         // 1. merges all the outputs (files and trees) into the inputs structure
@@ -231,8 +230,8 @@ impl CasDownloader<'_> {
                         self.digest_config.cas_digest_config(),
                     ),
                     self.re_use_case,
-                    retrieved_instant,
-                    std::time::Duration::from_secs(ttl.try_into().unwrap_or(0)),
+                    now,
+                    ttl,
                 )),
                 to_declare,
             )

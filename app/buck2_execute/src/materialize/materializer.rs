@@ -9,8 +9,6 @@
 
 use std::fmt;
 use std::sync::Arc;
-use std::time::Duration;
-use std::time::Instant;
 
 use allocative::Allocative;
 use async_trait::async_trait;
@@ -21,6 +19,7 @@ use buck2_core::directory::DirectoryEntry;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_events::dispatch::EventDispatcher;
 use chrono::DateTime;
+use chrono::Duration;
 use chrono::Utc;
 use derive_more::Display;
 use dice::UserComputationData;
@@ -367,37 +366,51 @@ impl CopiedArtifact {
 #[derive(Debug)]
 pub enum CasDownloadInfoOrigin {
     /// Declared by an action that executed on RE.
-    Execution {
-        /// Digest of the action that led us to discover this CAS object.
-        action_digest: TrackedActionDigest,
-
-        /// When did we learn of the connection between this digest and the download it allows. This
-        /// typically represents how much time has passed since we executed the action or hit in the
-        /// action cache.
-        action_instant: Instant,
-
-        /// The TTL we retrieved from RE for this action.
-        ttl: Duration,
-    },
+    Execution(ActionExecutionOrigin),
 
     /// Simply declared by an action.
     Declared,
 }
 
+#[derive(Debug)]
+pub struct ActionExecutionOrigin {
+    /// Digest of the action that led us to discover this CAS object.
+    action_digest: TrackedActionDigest,
+
+    /// When did we learn of the connection between this digest and the download it allows. This
+    /// typically represents how much time has passed since we executed the action or hit in the
+    /// action cache.
+    ///
+    /// NOTE: we do not store this as `std::time::Instant`, because `Instant::elapsed()` does
+    /// not necessarily track wall time (which is what we rather care about when dealing with
+    /// TTLs received from RE). In particular, `Instant::elapsed()` can be *very* far off if
+    /// the system went to sleep (on MacOS, it will not increase during that time!).
+    ///
+    /// See: <https://github.com/rust-lang/rust/issues/79462>
+    action_instant: DateTime<Utc>,
+
+    /// The TTL we retrieved from RE for this action.
+    ttl: Duration,
+}
+
+impl ActionExecutionOrigin {
+    fn action_age(&self) -> Duration {
+        // NOTE: This might return a negative duration if our time skewed a lot, but that's
+        // actually totally fine, since we only care to know if this is < TTL.
+        Utc::now() - self.action_instant
+    }
+}
+
 impl fmt::Display for CasDownloadInfoOrigin {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Execution {
-                action_digest,
-                action_instant,
-                ttl,
-            } => {
+            Self::Execution(execution) => {
                 write!(
                     f,
                     "{} retrieved {:.3} seconds ago with ttl = {:.3} seconds",
-                    action_digest,
-                    action_instant.elapsed().as_secs_f64(),
-                    ttl.as_secs_f64()
+                    execution.action_digest,
+                    execution.action_age().num_seconds(),
+                    execution.ttl.num_seconds()
                 )?;
             }
             Self::Declared => {
@@ -426,14 +439,12 @@ impl fmt::Display for CasDownloadInfoOriginNotFound<'_> {
         self.inner.fmt(f)?;
 
         match self.inner {
-            CasDownloadInfoOrigin::Execution {
-                action_instant,
-                ttl,
-                ..
-            } if action_instant.elapsed() < *ttl => {
-                write!(f, " (not expired: action cache corruption)")?;
+            CasDownloadInfoOrigin::Execution(execution) => {
+                if execution.action_age() < execution.ttl {
+                    write!(f, " (not expired: action cache corruption)")?;
+                }
             }
-            _ => {}
+            CasDownloadInfoOrigin::Declared => {}
         }
 
         Ok(())
@@ -452,15 +463,15 @@ impl CasDownloadInfo {
     pub fn new_execution(
         action_digest: TrackedActionDigest,
         re_use_case: RemoteExecutorUseCase,
-        action_instant: Instant,
+        action_instant: DateTime<Utc>,
         ttl: Duration,
     ) -> Self {
         Self {
-            origin: CasDownloadInfoOrigin::Execution {
+            origin: CasDownloadInfoOrigin::Execution(ActionExecutionOrigin {
                 action_digest,
                 action_instant,
                 ttl,
-            },
+            }),
             re_use_case,
         }
     }
@@ -473,17 +484,15 @@ impl CasDownloadInfo {
     }
 
     pub fn action_age(&self) -> Option<Duration> {
-        match self.origin {
-            CasDownloadInfoOrigin::Execution { action_instant, .. } => {
-                Some(action_instant.elapsed())
-            }
+        match &self.origin {
+            CasDownloadInfoOrigin::Execution(execution) => Some(execution.action_age()),
             CasDownloadInfoOrigin::Declared => None,
         }
     }
 
     pub fn action_digest(&self) -> Option<&TrackedActionDigest> {
         match &self.origin {
-            CasDownloadInfoOrigin::Execution { action_digest, .. } => Some(action_digest),
+            CasDownloadInfoOrigin::Execution(execution) => Some(&execution.action_digest),
             CasDownloadInfoOrigin::Declared => None,
         }
     }
