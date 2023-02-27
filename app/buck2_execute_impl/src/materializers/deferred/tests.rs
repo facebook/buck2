@@ -228,17 +228,14 @@ mod state_machine {
             .await;
         assert_eq!(dm.io.take_log(), &[(Op::Materialize, path.clone())]);
 
-        // This API is a bit odd -_-
-        tree.materialization_finished(
+        dm.materialization_finished(
+            &mut tree,
             path.clone(),
             Utc::now(),
             version_tracker.current(),
             res,
-            &dm.io,
             &mut version_tracker,
-            dm.sqlite_db.as_mut(),
             &command_sender(),
-            &dm.rt,
         );
         assert_eq!(dm.io.take_log(), &[]);
 
@@ -411,16 +408,14 @@ mod state_machine {
         assert_eq!(logs, &[(Op::Materialize, symlink_path.clone())]);
 
         // Mark the symlink as materialized
-        tree.materialization_finished(
+        dm.materialization_finished(
+            &mut tree,
             symlink_path.clone(),
             Utc::now(),
             version_tracker.current(),
             res,
-            &dm.io,
             &mut version_tracker,
-            dm.sqlite_db.as_mut(),
             &command_sender(),
-            &dm.rt,
         );
         assert_eq!(dm.io.take_log(), &[]);
 

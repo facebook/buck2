@@ -1088,20 +1088,18 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                             version,
                             result,
                         } => {
-                            tree.materialization_finished(
+                            self.materialization_finished(
+                                &mut tree,
                                 path,
                                 timestamp,
                                 version,
                                 result,
-                                &self.io,
                                 // materialization_finished transitions the entry to Declared stage on errors,
                                 // in which case the version of the newly declared artifact should be bumped.
                                 // Let materialization_finished always consume a version in case the entry
                                 // gets redeclared.
                                 &mut version_tracker,
-                                self.sqlite_db.as_mut(),
                                 &command_sender,
-                                &self.rt,
                             );
                         }
                         LowPriorityMaterializerCommand::CleanupFinished {
@@ -1613,6 +1611,95 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
 
         Some(task)
     }
+
+    #[instrument(level = "debug", skip(self, tree, result, command_sender), fields(path = %artifact_path))]
+    fn materialization_finished(
+        &mut self,
+        tree: &mut ArtifactTree,
+        artifact_path: ProjectRelativePathBuf,
+        timestamp: DateTime<Utc>,
+        version: Version,
+        result: Result<(), SharedMaterializingError>,
+        version_tracker: &mut VersionTracker,
+        command_sender: &MaterializerSender<T>,
+    ) {
+        match tree.prefix_get_mut(&mut artifact_path.iter()) {
+            Some(mut info) => {
+                if info.processing.current_version() > version {
+                    // We can only unset the future if version matches.
+                    // Otherwise, we may be unsetting a different future from a newer version.
+                    tracing::debug!("version conflict");
+                    return;
+                }
+
+                if result.is_err() {
+                    tracing::debug!("materialization failed, redeclaring artifact");
+                    // Even though materialization failed, something may have still materialized at artifact_path,
+                    // so we need to delete anything at artifact_path before we ever retry materializing it.
+                    // TODO(scottcao): Once command processor accepts an ArtifactTree instead of initializing one,
+                    // add a test case to ensure this behavior.
+                    let version = version_tracker.next();
+                    let future = ProcessingFuture::Cleaning(clean_path(
+                        &self.io,
+                        artifact_path.clone(),
+                        version,
+                        *command_sender,
+                        Vec::new(),
+                        &self.rt,
+                    ));
+                    info.processing = Processing::Active { future, version };
+                } else {
+                    tracing::debug!(has_deps = info.deps.is_some(), "transition to Materialized");
+                    let new_stage = match &info.stage {
+                        ArtifactMaterializationStage::Materialized { .. } => {
+                            // This happens if deps = true. In this case, the entry itself was not
+                            // materialized again, but its deps have been. We need to clear the
+                            // waiting future regardless.
+                            tracing::debug!("artifact is already materialized");
+                            None
+                        }
+                        ArtifactMaterializationStage::Declared {
+                            entry,
+                            method: _method,
+                        } => {
+                            let metadata = ArtifactMetadata::from(entry.dupe());
+
+                            // NOTE: We only insert this artifact if there isn't an in-progress cleanup
+                            // future on this path.
+                            if let Some(sqlite_db) = self.sqlite_db.as_mut() {
+                                if let Err(e) = sqlite_db.materializer_state_table().insert(
+                                    artifact_path,
+                                    metadata.dupe(),
+                                    timestamp,
+                                ) {
+                                    // TODO (torozco): Soft-erroring here is not appropriate. We should
+                                    // exit the process at this point. Let's check we don't unexpectedly hit
+                                    // this first.
+                                    quiet_soft_error!("materializer_finished_error", e).unwrap();
+                                }
+                            }
+
+                            Some(ArtifactMaterializationStage::Materialized {
+                                metadata,
+                                last_access_time: timestamp,
+                                active: true,
+                            })
+                        }
+                    };
+
+                    if let Some(new_stage) = new_stage {
+                        info.stage = new_stage;
+                    }
+
+                    info.processing = Processing::Done(version);
+                }
+            }
+            None => {
+                // NOTE: This can happen if a path got invalidted while it was being materialized.
+                tracing::debug!("materialization_finished but path is vacant!")
+            }
+        }
+    }
 }
 
 impl ArtifactTree {
@@ -1700,97 +1787,6 @@ impl ArtifactTree {
             }
             #[cfg(test)]
             ArtifactMaterializationMethod::Test => unimplemented!(),
-        }
-    }
-
-    #[instrument(level = "debug", skip(self, result, io, sqlite_db, command_sender), fields(path = %artifact_path))]
-    fn materialization_finished<T: IoHandler>(
-        &mut self,
-        artifact_path: ProjectRelativePathBuf,
-        timestamp: DateTime<Utc>,
-        version: Version,
-        result: Result<(), SharedMaterializingError>,
-        io: &Arc<T>,
-        version_tracker: &mut VersionTracker,
-        sqlite_db: Option<&mut MaterializerStateSqliteDb>,
-        command_sender: &MaterializerSender<T>,
-        rt: &Handle,
-    ) {
-        match self.prefix_get_mut(&mut artifact_path.iter()) {
-            Some(mut info) => {
-                if info.processing.current_version() > version {
-                    // We can only unset the future if version matches.
-                    // Otherwise, we may be unsetting a different future from a newer version.
-                    tracing::debug!("version conflict");
-                    return;
-                }
-
-                if result.is_err() {
-                    tracing::debug!("materialization failed, redeclaring artifact");
-                    // Even though materialization failed, something may have still materialized at artifact_path,
-                    // so we need to delete anything at artifact_path before we ever retry materializing it.
-                    // TODO(scottcao): Once command processor accepts an ArtifactTree instead of initializing one,
-                    // add a test case to ensure this behavior.
-                    let version = version_tracker.next();
-                    let future = ProcessingFuture::Cleaning(clean_path(
-                        io,
-                        artifact_path.clone(),
-                        version,
-                        *command_sender,
-                        Vec::new(),
-                        rt,
-                    ));
-                    info.processing = Processing::Active { future, version };
-                } else {
-                    tracing::debug!(has_deps = info.deps.is_some(), "transition to Materialized");
-                    let new_stage = match &info.stage {
-                        ArtifactMaterializationStage::Materialized { .. } => {
-                            // This happens if deps = true. In this case, the entry itself was not
-                            // materialized again, but its deps have been. We need to clear the
-                            // waiting future regardless.
-                            tracing::debug!("artifact is already materialized");
-                            None
-                        }
-                        ArtifactMaterializationStage::Declared {
-                            entry,
-                            method: _method,
-                        } => {
-                            let metadata = ArtifactMetadata::from(entry.dupe());
-
-                            // NOTE: We only insert this artifact if there isn't an in-progress cleanup
-                            // future on this path.
-                            if let Some(sqlite_db) = sqlite_db {
-                                if let Err(e) = sqlite_db.materializer_state_table().insert(
-                                    artifact_path,
-                                    metadata.dupe(),
-                                    timestamp,
-                                ) {
-                                    // TODO (torozco): Soft-erroring here is not appropriate. We should
-                                    // exit the process at this point. Let's check we don't unexpectedly hit
-                                    // this first.
-                                    quiet_soft_error!("materializer_finished_error", e).unwrap();
-                                }
-                            }
-
-                            Some(ArtifactMaterializationStage::Materialized {
-                                metadata,
-                                last_access_time: timestamp,
-                                active: true,
-                            })
-                        }
-                    };
-
-                    if let Some(new_stage) = new_stage {
-                        info.stage = new_stage;
-                    }
-
-                    info.processing = Processing::Done(version);
-                }
-            }
-            None => {
-                // NOTE: This can happen if a path got invalidted while it was being materialized.
-                tracing::debug!("materialization_finished but path is vacant!")
-            }
         }
     }
 
