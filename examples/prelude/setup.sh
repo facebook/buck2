@@ -20,15 +20,21 @@ if [ "$DIRNAME" != "examples" ] && [ "$BASENAME" != "prelude" ]; then
     exit 1
 fi
 
-# Bring the OCaml toolchain into scope.
-eval "$(opam env --switch=default --set-switch)"
-
 # Link 'prelude'.
 if [ ! -L prelude ]; then
     ln -s "$(realpath ../../prelude)" prelude
 else
     echo "Link 'prelude' exists. To overwrite it, first remove it and run $0 again"
 fi
+
+if ! command -v opam &> /dev/null
+then
+    echo "opam is not installed, which is a dependency for building targets in ocaml."
+    exit
+fi
+
+# Bring the OCaml toolchain into scope.
+eval "$(opam env --switch=default --set-switch)"
 
 # Link 'third-party/ocaml/standard_library'.
 if [ ! -L third-party/ocaml/standard_library ]; then
