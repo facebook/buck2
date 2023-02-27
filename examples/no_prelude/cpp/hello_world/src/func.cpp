@@ -7,10 +7,8 @@
  * of this source tree.
  */
 
-package main
+#include <iostream>
 
-import "fmt"
-
-func main() {
-	fmt.Println("hello from go toolchain")
+void print_hello() {
+  std::cout << "Hello from C++!" << std::endl;
 }

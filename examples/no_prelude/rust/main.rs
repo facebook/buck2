@@ -8,5 +8,5 @@
  */
 
 fn main() {
-    println!("hello from rustc");
+    println!("Hello from Rust!");
 }

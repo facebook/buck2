@@ -7,8 +7,10 @@
  * of this source tree.
  */
 
-#include <iostream>
+package main
 
-void print_hello() {
-  std::cout << "hellp from cpp" << std::endl;
+import "fmt"
+
+func main() {
+	fmt.Println("Hello from Go!")
 }

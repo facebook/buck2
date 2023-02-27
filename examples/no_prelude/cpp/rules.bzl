@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("//toolchain.bzl", "CxxCompilerInfo")
+load("//cpp:toolchain.bzl", "CxxCompilerInfo")
 
 CxxLibraryInfo = provider(fields = ["headers", "objects", "include_folders"])
 

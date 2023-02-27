@@ -1,6 +1,6 @@
 [repositories]
 root = .
-prelude = prelude
+prelude = .
 buck = no
 fbcode = no
 fbsource = no

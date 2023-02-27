@@ -1,0 +1,8 @@
+load("//go:rules.bzl", "go_binary")
+
+go_binary(
+    name = "main",
+    srcs = glob(["*.go"]),
+    toolchain = "//go:go_linux",
+    deps = [],
+)

@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("//toolchain.bzl", "GoCompilerInfo")
+load("//go:toolchain.bzl", "GoCompilerInfo")
 
 def _go_binary_impl(ctx: "context") -> ["provider"]:
     sources = ctx.attrs.srcs

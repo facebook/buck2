@@ -1,4 +1,4 @@
-load("//:toolchain.bzl", "cpp_local_toolchain")
+load("//cpp:toolchain.bzl", "cpp_local_toolchain")
 
 cpp_local_toolchain(
     name = "clang",
