@@ -55,21 +55,14 @@ where
 
     pub fn observe(&mut self, receive_time: Instant, event: &Arc<BuckEvent>) -> anyhow::Result<()> {
         self.span_tracker.handle_event(event)?;
+        if self.session_info.trace_id.is_none() {
+            self.session_info.trace_id = Some(event.trace_id()?);
+        }
 
         {
             use buck2_data::buck_event::Data::*;
 
             match event.data() {
-                SpanStart(start) => {
-                    use buck2_data::span_start_event::Data::*;
-
-                    match start.data.as_ref().context("Missing `data` in SpanStart")? {
-                        Command(_command_start) => {
-                            self.session_info.trace_id = Some(event.trace_id()?);
-                        }
-                        _ => {}
-                    }
-                }
                 SpanEnd(end) => {
                     use buck2_data::span_end_event::Data::*;
 
