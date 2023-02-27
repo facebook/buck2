@@ -307,6 +307,7 @@ enum MaterializerCommand<T: ?Sized> {
         ProjectRelativePathBuf,
         ArtifactValue,
         Box<ArtifactMaterializationMethod>, // Boxed to avoid growing all variants
+        EventDispatcher,
     ),
 
     MatchArtifacts(
@@ -346,7 +347,7 @@ impl<T> std::fmt::Debug for MaterializerCommand<T> {
                     paths, current_span, trace_id
                 )
             }
-            MaterializerCommand::Declare(path, value, method) => {
+            MaterializerCommand::Declare(path, value, method, _dispatcher) => {
                 write!(f, "Declare({:?}, {:?}, {:?})", path, value, method,)
             }
             MaterializerCommand::MatchArtifacts(paths, _) => {
@@ -610,6 +611,7 @@ impl Materializer for DeferredMaterializer {
             path,
             value,
             box ArtifactMaterializationMethod::LocalCopy(srcs_tree, srcs),
+            get_dispatcher(),
         );
         self.command_sender.send(cmd)?;
         Ok(())
@@ -625,6 +627,7 @@ impl Materializer for DeferredMaterializer {
                 path,
                 value,
                 box ArtifactMaterializationMethod::CasDownload { info: info.dupe() },
+                get_dispatcher(),
             );
             self.command_sender.send(cmd)?;
         }
@@ -640,6 +643,7 @@ impl Materializer for DeferredMaterializer {
             path,
             ArtifactValue::file(info.metadata.dupe()),
             box ArtifactMaterializationMethod::HttpDownload { info },
+            get_dispatcher(),
         );
         self.command_sender.send(cmd)?;
 
@@ -703,6 +707,7 @@ impl Materializer for DeferredMaterializer {
                 path,
                 value.dupe(),
                 box method,
+                get_dispatcher(),
             ))?;
         }
 
@@ -1018,7 +1023,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                             }
                         }
                         // Entry point for `declare_{copy|cas}` calls
-                        MaterializerCommand::Declare(path, value, method) => {
+                        MaterializerCommand::Declare(path, value, method, _dispatcher) => {
                             self.declare(
                                 &mut tree,
                                 path,
