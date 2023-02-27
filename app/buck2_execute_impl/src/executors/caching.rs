@@ -26,6 +26,7 @@ use buck2_execute::directory::directory_to_re_tree;
 use buck2_execute::directory::ActionDirectoryMember;
 use buck2_execute::execute::action_digest::ActionDigest;
 use buck2_execute::execute::blobs::ActionBlobs;
+use buck2_execute::execute::executor_stage_async;
 use buck2_execute::execute::kind::CommandExecutionKind;
 use buck2_execute::execute::manager::CommandExecutionManager;
 use buck2_execute::execute::manager::CommandExecutionManagerExt;
@@ -74,7 +75,7 @@ pub struct CachingExecutor {
 impl CachingExecutor {
     async fn try_action_cache_fetch(
         &self,
-        mut manager: CommandExecutionManager,
+        manager: CommandExecutionManager,
         request: &CommandExecutionRequest,
         action_paths: &ActionPaths,
         action_digest: &ActionDigest,
@@ -82,14 +83,13 @@ impl CachingExecutor {
         digest_config: DigestConfig,
     ) -> ControlFlow<CommandExecutionResult, CommandExecutionManager> {
         let re_client = &self.re_client;
-        let action_cache_response = manager
-            .stage_async(
-                buck2_data::CacheQuery {
-                    action_digest: action_digest.to_string(),
-                },
-                re_client.action_cache(action_digest.dupe(), self.re_use_case),
-            )
-            .await;
+        let action_cache_response = executor_stage_async(
+            buck2_data::CacheQuery {
+                action_digest: action_digest.to_string(),
+            },
+            re_client.action_cache(action_digest.dupe(), self.re_use_case),
+        )
+        .await;
 
         if self.upload_all_actions {
             match re_client
@@ -111,7 +111,9 @@ impl CachingExecutor {
         }
 
         let response = match action_cache_response {
-            Err(e) => return ControlFlow::Break(manager.error("remote_action_cache", e)),
+            Err(e) => {
+                return ControlFlow::Break(manager.error("remote_action_cache", e));
+            }
             Ok(Some(response)) => {
                 // we were able to go to the action cache, so can skip uploading and running
                 info!(

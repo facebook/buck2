@@ -66,6 +66,7 @@ use crate::digest_config::DigestConfig;
 use crate::directory::ActionImmutableDirectory;
 use crate::execute::action_digest::ActionDigest;
 use crate::execute::blobs::ActionBlobs;
+use crate::execute::executor_stage_async;
 use crate::execute::manager::CommandExecutionManager;
 use crate::materialize::materializer::Materializer;
 use crate::re::action_identity::ReActionIdentity;
@@ -301,6 +302,7 @@ impl RemoteExecutionClient {
         identity: &ReActionIdentity<'_, '_>,
         manager: &mut CommandExecutionManager,
         skip_cache_lookup: bool,
+        re_max_queue_time: Option<Duration>,
     ) -> anyhow::Result<ExecuteResponse> {
         self.data
             .executes
@@ -314,6 +316,7 @@ impl RemoteExecutionClient {
                     identity,
                     manager,
                     skip_cache_lookup,
+                    re_max_queue_time,
                 )
                 .map_err(|e| self.decorate_error(e)))
             .await
@@ -717,6 +720,7 @@ impl RemoteExecutionClientImpl {
         request: ExecuteRequest,
         action_digest: &ActionDigest,
         manager: &mut CommandExecutionManager,
+        re_max_queue_time: Option<Duration>,
     ) -> anyhow::Result<ExecuteResponse> {
         use buck2_data::re_stage;
         use buck2_data::ReExecute;
@@ -732,25 +736,36 @@ impl RemoteExecutionClientImpl {
             previous_stage: Stage,
             report_stage: re_stage::Stage,
             manager: &mut CommandExecutionManager,
+            re_max_queue_time: Option<Duration>,
         ) -> anyhow::Result<ExecuteWithProgressResponse> {
-            manager
-                .stage_async(
-                    buck2_data::ReStage {
-                        stage: Some(report_stage),
-                    },
-                    async move {
-                        while let Some(event) = receiver.next().await {
-                            let event = event.context("Error was returned on the stream by RE")?;
-                            if event.execute_response.is_some() || event.stage != previous_stage {
-                                return Ok(event);
+            executor_stage_async(
+                buck2_data::ReStage {
+                    stage: Some(report_stage),
+                },
+                async move {
+                    while let Some(event) = receiver.next().await {
+                        let event = event.context("Error was returned on the stream by RE")?;
+                        if event.execute_response.is_some() || event.stage != previous_stage {
+                            return Ok(event);
+                        }
+                        if let Some(re_max_queue_time) = re_max_queue_time {
+                            if let Some(info) = event.metadata.task_info {
+                                let est = u64::try_from(info.estimated_queue_time_ms)
+                                    .context("estimated_queue_time_ms from RE is negative")?;
+                                let queue_time = Duration::from_millis(est);
+
+                                if queue_time > re_max_queue_time {
+                                    manager.on_result_delayed();
+                                }
                             }
                         }
-                        Err(anyhow::anyhow!(
-                            "RE execution did not yield a ExecuteResponse"
-                        ))
-                    },
-                )
-                .await
+                    }
+                    Err(anyhow::anyhow!(
+                        "RE execution did not yield a ExecuteResponse"
+                    ))
+                },
+            )
+            .await
         }
 
         fn re_stage_from_exe_stage(stage: Stage, action_digest: String) -> re_stage::Stage {
@@ -802,6 +817,7 @@ impl RemoteExecutionClientImpl {
                 exe_stage,
                 re_stage_from_exe_stage(exe_stage, action_digest_str.clone()),
                 manager,
+                re_max_queue_time,
             )
             .await?;
 
@@ -823,6 +839,7 @@ impl RemoteExecutionClientImpl {
         identity: &ReActionIdentity<'_, '_>,
         manager: &mut CommandExecutionManager,
         skip_cache_lookup: bool,
+        re_max_queue_time: Option<Duration>,
     ) -> anyhow::Result<ExecuteResponse> {
         let metadata = RemoteExecutionMetadata {
             action_history_info: Some(ActionHistoryInfo {
@@ -849,9 +866,15 @@ impl RemoteExecutionClientImpl {
             action_digest: action_digest.to_re(),
             ..Default::default()
         };
-        self.execute_action_with_retry(metadata, request, &action_digest, manager)
-            .await
-            .with_context(|| format!("RE: execution with digest {}", &action_digest))
+        self.execute_action_with_retry(
+            metadata,
+            request,
+            &action_digest,
+            manager,
+            re_max_queue_time,
+        )
+        .await
+        .with_context(|| format!("RE: execution with digest {}", &action_digest))
     }
 
     /// Fetches a list of digests from the CAS and casts them to Tree objects.

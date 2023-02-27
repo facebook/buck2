@@ -57,6 +57,7 @@ impl Hash for RemoteExecutorUseCase {
 pub struct RemoteExecutorOptions {
     pub re_action_key: Option<String>,
     pub re_max_input_files_bytes: Option<u64>,
+    pub re_max_queue_time_ms: Option<u64>,
 }
 
 /// The actual executor portion of a RemoteEnabled executor. It's possible for a RemoteEnabled

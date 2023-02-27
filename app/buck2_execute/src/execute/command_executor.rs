@@ -31,6 +31,7 @@ use crate::digest_config::DigestConfig;
 use crate::directory::insert_entry;
 use crate::directory::ActionDirectoryMember;
 use crate::execute::blobs::ActionBlobs;
+use crate::execute::executor_stage_async;
 use crate::execute::inputs_directory::inputs_directory;
 use crate::execute::manager::CommandExecutionManager;
 use crate::execute::manager::CommandExecutionManagerExt;
@@ -131,40 +132,44 @@ impl CommandExecutor {
 
     async fn prepare(
         &self,
-        mut manager: CommandExecutionManager,
+        manager: CommandExecutionManager,
         request: &CommandExecutionRequest,
         digest_config: DigestConfig,
     ) -> ControlFlow<CommandExecutionResult, (CommandExecutionManager, ActionPaths, PreparedAction)>
     {
-        let (action_paths, action) = match manager.stage(buck2_data::PrepareAction {}, || {
-            let action_paths = self.preamble(request.inputs(), request.outputs(), digest_config)?;
-            let input_digest = action_paths.inputs.fingerprint();
+        let (action_paths, action) =
+            match executor_stage_async(buck2_data::PrepareAction {}, async {
+                let action_paths =
+                    self.preamble(request.inputs(), request.outputs(), digest_config)?;
+                let input_digest = action_paths.inputs.fingerprint();
 
-            let action_metadata_blobs = request.inputs().iter().filter_map(|x| match x {
-                CommandExecutionInput::Artifact(_) => None,
-                CommandExecutionInput::ActionMetadata(metadata) => {
-                    Some((metadata.data.clone(), metadata.digest.dupe()))
-                }
-            });
-            let action = re_create_action(
-                request.args().to_vec(),
-                &action_paths.outputs,
-                request.working_directory().map(|p| p.as_str().to_owned()),
-                request.env(),
-                input_digest,
-                action_metadata_blobs,
-                None,
-                self.0.re_platform.clone(),
-                false,
-                digest_config,
-                self.0.options.output_paths_behavior,
-            )?;
+                let action_metadata_blobs = request.inputs().iter().filter_map(|x| match x {
+                    CommandExecutionInput::Artifact(_) => None,
+                    CommandExecutionInput::ActionMetadata(metadata) => {
+                        Some((metadata.data.clone(), metadata.digest.dupe()))
+                    }
+                });
+                let action = re_create_action(
+                    request.args().to_vec(),
+                    &action_paths.outputs,
+                    request.working_directory().map(|p| p.as_str().to_owned()),
+                    request.env(),
+                    input_digest,
+                    action_metadata_blobs,
+                    None,
+                    self.0.re_platform.clone(),
+                    false,
+                    digest_config,
+                    self.0.options.output_paths_behavior,
+                )?;
 
-            anyhow::Ok((action_paths, action))
-        }) {
-            Ok(v) => v,
-            Err(e) => return ControlFlow::Break(manager.error("prepare", e)),
-        };
+                anyhow::Ok((action_paths, action))
+            })
+            .await
+            {
+                Ok(v) => v,
+                Err(e) => return ControlFlow::Break(manager.error("prepare", e)),
+            };
 
         ControlFlow::Continue((manager, action_paths, action))
     }

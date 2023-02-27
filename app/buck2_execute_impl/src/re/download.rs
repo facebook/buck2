@@ -27,6 +27,7 @@ use buck2_execute::directory::re_tree_to_directory;
 use buck2_execute::directory::ActionDirectoryMember;
 use buck2_execute::execute::action_digest::ActionDigest;
 use buck2_execute::execute::action_digest::TrackedActionDigest;
+use buck2_execute::execute::executor_stage_async;
 use buck2_execute::execute::manager::CommandExecutionManager;
 use buck2_execute::execute::manager::CommandExecutionManagerExt;
 use buck2_execute::execute::manager::CommandExecutionManagerWithClaim;
@@ -112,7 +113,7 @@ pub struct CasDownloader<'a> {
 impl CasDownloader<'_> {
     async fn download<'a>(
         &self,
-        mut manager: CommandExecutionManagerWithClaim,
+        manager: CommandExecutionManagerWithClaim,
         stage: buck2_data::executor_stage_start::Stage,
         action_paths: &ActionPaths,
         requested_outputs: impl Iterator<Item = CommandExecutionOutputRef<'a>>,
@@ -125,12 +126,11 @@ impl CasDownloader<'_> {
             IndexMap<CommandExecutionOutput, ArtifactValue>,
         ),
     > {
-        let download_response = manager
-            .stage_async(
-                stage,
-                self.materialize_files(action_paths, requested_outputs, action_digest, output_spec),
-            )
-            .await;
+        let download_response = executor_stage_async(
+            stage,
+            self.materialize_files(action_paths, requested_outputs, action_digest, output_spec),
+        )
+        .await;
 
         let outputs = match download_response {
             Ok(outputs) => outputs,

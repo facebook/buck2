@@ -157,6 +157,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                     re_max_input_files_bytes: options
                         .re_max_input_files_bytes
                         .unwrap_or(DEFAULT_RE_MAX_INPUT_FILE_BYTES),
+                    re_max_queue_time_ms: options.re_max_queue_time_ms,
                     knobs: self.executor_global_knobs.dupe(),
                     skip_cache_lookup: self.no_remote_cache,
                 }

@@ -78,6 +78,10 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
         // The maximum input file size (in bytes) that remote execution can support.
         #[starlark(default = NoneOr::None, require = named)]
         remote_execution_max_input_files_mebibytes: NoneOr<i32>,
+        // The maximum time in seconds we are willing to wait in the
+        // RE queue for remote execution to start running our action.
+        #[starlark(default = NoneOr::None, require = named)]
+        remote_execution_queue_time_threshold_s: NoneOr<i32>,
         // The use case to use when communicating with RE.
         #[starlark(default = NoneType, require = named)] remote_execution_use_case: Value<'v>,
         // Whether to use the limited hybrid executor
@@ -104,6 +108,9 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
         let command_executor_config = {
             let remote_execution_max_input_files_mebibytes =
                 remote_execution_max_input_files_mebibytes.into_option();
+
+            let remote_execution_queue_time_threshold_s =
+                remote_execution_queue_time_threshold_s.into_option();
 
             let max_cache_upload_mebibytes = max_cache_upload_mebibytes.into_option();
 
@@ -154,9 +161,16 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
                     .context("remote_execution_max_input_files_mebibytes is negative")?
                     .map(|b| b * 1024 * 1024);
 
+                let re_max_queue_time_ms = remote_execution_queue_time_threshold_s
+                    .map(u64::try_from)
+                    .transpose()
+                    .context("remote_execution_queue_time_threshold_s is negative")?
+                    .map(|t| t * 1000);
+
                 Some(RemoteExecutorOptions {
                     re_action_key,
                     re_max_input_files_bytes,
+                    re_max_queue_time_ms,
                 })
             } else {
                 None

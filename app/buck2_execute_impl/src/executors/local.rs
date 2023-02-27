@@ -41,6 +41,7 @@ use buck2_execute::execute::action_digest::ActionDigest;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::execute::clean_output_paths::CleanOutputPaths;
 use buck2_execute::execute::environment_inheritance::EnvironmentInheritance;
+use buck2_execute::execute::executor_stage_async;
 use buck2_execute::execute::inputs_directory::inputs_directory;
 use buck2_execute::execute::kind::CommandExecutionKind;
 use buck2_execute::execute::manager::CommandExecutionManager;
@@ -197,7 +198,7 @@ impl LocalExecutor {
         action_digest: &ActionDigest,
         action: CommandExecutionTarget<'_>,
         request: &CommandExecutionRequest,
-        mut manager: CommandExecutionManager,
+        manager: CommandExecutionManager,
         cancellation: CancellationObserver,
         digest_config: DigestConfig,
     ) -> CommandExecutionResult {
@@ -206,42 +207,41 @@ impl LocalExecutor {
             return manager.error("no_args", LocalExecutionError::NoArgs);
         }
 
-        match manager
-            .stage_async(
-                buck2_data::LocalStage {
-                    stage: Some(buck2_data::LocalMaterializeInputs {}.into()),
-                },
-                async {
-                    let (r1, r2) = future::join(
-                        materialize_inputs(&self.artifact_fs, &self.materializer, request),
-                        async {
-                            // When user requests to not perform a cleanup for a specific action
-                            // output from previous run of that action could actually be used as the
-                            // input during current run (e.g. extra output which is an incremental state describing the actual output).
-                            if !request.outputs_cleanup {
-                                materialize_build_outputs_from_previous_run(
-                                    &self.artifact_fs,
-                                    &self.materializer,
-                                    request,
-                                )
-                                .await
-                            } else {
-                                Ok(())
-                            }
-                        },
-                    )
-                    .await;
-                    r1.and(r2)
-                },
-            )
-            .await
+        match executor_stage_async(
+            buck2_data::LocalStage {
+                stage: Some(buck2_data::LocalMaterializeInputs {}.into()),
+            },
+            async {
+                let (r1, r2) = future::join(
+                    materialize_inputs(&self.artifact_fs, &self.materializer, request),
+                    async {
+                        // When user requests to not perform a cleanup for a specific action
+                        // output from previous run of that action could actually be used as the
+                        // input during current run (e.g. extra output which is an incremental state describing the actual output).
+                        if !request.outputs_cleanup {
+                            materialize_build_outputs_from_previous_run(
+                                &self.artifact_fs,
+                                &self.materializer,
+                                request,
+                            )
+                            .await
+                        } else {
+                            Ok(())
+                        }
+                    },
+                )
+                .await;
+                r1.and(r2)
+            },
+        )
+        .await
         {
             Ok(_) => {}
             Err(e) => return manager.error("materialize_inputs_failed", e),
         };
 
         // TODO: Release here.
-        let mut manager = manager.claim().await;
+        let manager = manager.claim().await;
 
         let scratch_dir = self
             .artifact_fs
@@ -250,32 +250,31 @@ impl LocalExecutor {
         // For the $TMPDIR - important it is absolute
         let scratch_dir_abs = self.artifact_fs.fs().resolve(&scratch_dir);
 
-        if let Err(e) = manager
-            .stage_async(
-                buck2_data::LocalStage {
-                    stage: Some(buck2_data::LocalPrepareOutputDirs {}.into()),
-                },
-                async move {
-                    // TODO(cjhopman): This should be getting the action exec context so it get use io_blocking_section
-                    if request.custom_tmpdir {
-                        let project_fs = self.artifact_fs.fs();
-                        project_fs.remove_path_recursive(&scratch_dir)?;
-                        fs_util::create_dir_all(&*project_fs.resolve(&scratch_dir))?;
-                    }
+        if let Err(e) = executor_stage_async(
+            buck2_data::LocalStage {
+                stage: Some(buck2_data::LocalPrepareOutputDirs {}.into()),
+            },
+            async move {
+                // TODO(cjhopman): This should be getting the action exec context so it get use io_blocking_section
+                if request.custom_tmpdir {
+                    let project_fs = self.artifact_fs.fs();
+                    project_fs.remove_path_recursive(&scratch_dir)?;
+                    fs_util::create_dir_all(&*project_fs.resolve(&scratch_dir))?;
+                }
 
-                    create_output_dirs(
-                        &self.artifact_fs,
-                        request,
-                        self.materializer.dupe(),
-                        self.blocking_executor.dupe(),
-                    )
-                    .await
-                    .context("Error creating output directories")?;
+                create_output_dirs(
+                    &self.artifact_fs,
+                    request,
+                    self.materializer.dupe(),
+                    self.blocking_executor.dupe(),
+                )
+                .await
+                .context("Error creating output directories")?;
 
-                    anyhow::Ok(())
-                },
-            )
-            .await
+                anyhow::Ok(())
+            },
+        )
+        .await
         {
             return manager.error("prepare_output_dirs_failed", e);
         };
@@ -318,56 +317,55 @@ impl LocalExecutor {
 
         let liveliness_observer = manager.liveliness_observer.dupe().and(cancellation);
 
-        let (timing, res) = manager
-            .stage_async(
-                {
-                    let env = iter_env()
-                        .map(|(k, v)| buck2_data::local_command::EnvironmentEntry {
-                            key: k.to_owned(),
-                            value: v.into_string_lossy(),
-                        })
-                        .collect();
-                    let stage = buck2_data::LocalExecute {
-                        command: Some(buck2_data::LocalCommand {
-                            action_digest: action_digest.to_string(),
-                            argv: args.to_vec(),
-                            env,
-                        }),
-                    };
-                    buck2_data::LocalStage {
-                        stage: Some(stage.into()),
-                    }
-                },
-                async move {
-                    let execution_start = Instant::now();
-                    let start_time = SystemTime::now();
+        let (timing, res) = executor_stage_async(
+            {
+                let env = iter_env()
+                    .map(|(k, v)| buck2_data::local_command::EnvironmentEntry {
+                        key: k.to_owned(),
+                        value: v.into_string_lossy(),
+                    })
+                    .collect();
+                let stage = buck2_data::LocalExecute {
+                    command: Some(buck2_data::LocalCommand {
+                        action_digest: action_digest.to_string(),
+                        argv: args.to_vec(),
+                        env,
+                    }),
+                };
+                buck2_data::LocalStage {
+                    stage: Some(stage.into()),
+                }
+            },
+            async move {
+                let execution_start = Instant::now();
+                let start_time = SystemTime::now();
 
-                    let env = iter_env().map(|(k, v)| (k, v.into_os_str()));
-                    let r = self
-                        .exec(
-                            &args[0],
-                            &args[1..],
-                            env,
-                            request.working_directory(),
-                            request.timeout(),
-                            request.local_environment_inheritance(),
-                            liveliness_observer,
-                        )
-                        .await;
+                let env = iter_env().map(|(k, v)| (k, v.into_os_str()));
+                let r = self
+                    .exec(
+                        &args[0],
+                        &args[1..],
+                        env,
+                        request.working_directory(),
+                        request.timeout(),
+                        request.local_environment_inheritance(),
+                        liveliness_observer,
+                    )
+                    .await;
 
-                    let execution_time = execution_start.elapsed();
+                let execution_time = execution_start.elapsed();
 
-                    let timing = CommandExecutionTimingData {
-                        wall_time: execution_time,
-                        re_queue_time: None,
-                        execution_time,
-                        start_time,
-                    };
+                let timing = CommandExecutionTimingData {
+                    wall_time: execution_time,
+                    re_queue_time: None,
+                    execution_time,
+                    start_time,
+                };
 
-                    (timing, r)
-                },
-            )
-            .await;
+                (timing, r)
+            },
+        )
+        .await;
 
         let execution_kind = CommandExecutionKind::Local {
             digest: action_digest.dupe(),
@@ -550,7 +548,7 @@ impl PreparedCommandExecutor for LocalExecutor {
     async fn exec_cmd(
         &self,
         command: &PreparedCommand<'_, '_>,
-        mut manager: CommandExecutionManager,
+        manager: CommandExecutionManager,
     ) -> CommandExecutionResult {
         if command.request.executor_preference().requires_remote() {
             return manager.error("local_prepare", LocalExecutionError::RemoteOnlyAction);
@@ -564,15 +562,14 @@ impl PreparedCommandExecutor for LocalExecutor {
             digest_config,
         } = command;
 
-        let _permit = manager
-            .stage_async(
-                buck2_data::LocalStage {
-                    stage: Some(buck2_data::LocalQueued {}.into()),
-                },
-                self.host_sharing_broker
-                    .acquire(request.host_sharing_requirements()),
-            )
-            .await;
+        let _permit = executor_stage_async(
+            buck2_data::LocalStage {
+                stage: Some(buck2_data::LocalQueued {}.into()),
+            },
+            self.host_sharing_broker
+                .acquire(request.host_sharing_requirements()),
+        )
+        .await;
 
         // If we start running something, we don't want this task to get dropped, because if we do
         // we might interfere with e.g. clean up.

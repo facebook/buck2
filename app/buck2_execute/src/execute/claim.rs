@@ -28,6 +28,12 @@ pub trait ClaimManager: Send + Sync + 'static {
     /// The expectation is that multiple actions that attempt to write to the same output directory
     /// should not be allowed to obtain claims concurrently.
     async fn claim(self: Box<Self>) -> Box<dyn Claim>;
+
+    /// Inform the manager that producing a result might take longer than expected.
+    ///
+    /// The manager may use this information to notify other parts of the system. We use this notably
+    /// to unblock local execution if RE reports long queueing.
+    fn on_result_delayed(&mut self);
 }
 
 pub trait Claim: Send + Sync + fmt::Debug + 'static {
@@ -68,6 +74,8 @@ impl ClaimManager for MutexClaimManager {
         *guard = ClaimStatus::Claimed;
         box MutexClaim { guard }
     }
+
+    fn on_result_delayed(&mut self) {}
 }
 
 #[derive(Display, Derivative)]

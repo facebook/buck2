@@ -146,6 +146,19 @@ pub struct ExecuteResponse {
     pub action_result_ttl: i64,
 }
 
+#[derive(Clone, Default)]
+pub struct TaskInfo {
+    pub estimated_queue_time_ms: i64,
+}
+
+#[derive(Clone, Default)]
+pub struct OperationMetadata {
+    pub action_digest: TDigest,
+    pub stdout_stream_name: String,
+    pub stderr_stream_name: String,
+    pub task_info: Option<TaskInfo>,
+}
+
 #[derive(PartialEq, Eq, Debug, Clone, Dupe, Copy, Default)]
 pub struct Stage(pub i32);
 
@@ -164,6 +177,7 @@ impl Stage {
 pub struct ExecuteWithProgressResponse {
     pub stage: Stage,
     pub execute_response: Option<ExecuteResponse>,
+    pub metadata: OperationMetadata,
 }
 
 #[derive(Clone, Dupe, Default)]

@@ -9,6 +9,7 @@
 
 use std::ops::ControlFlow;
 use std::sync::Arc;
+use std::time::Duration;
 
 use async_trait::async_trait;
 use buck2_common::executor_config::RemoteExecutorUseCase;
@@ -18,6 +19,7 @@ use buck2_execute::artifact::fs::ArtifactFs;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::execute::action_digest::ActionDigest;
 use buck2_execute::execute::blobs::ActionBlobs;
+use buck2_execute::execute::executor_stage_async;
 use buck2_execute::execute::kind::CommandExecutionKind;
 use buck2_execute::execute::manager::CommandExecutionManager;
 use buck2_execute::execute::manager::CommandExecutionManagerExt;
@@ -61,6 +63,7 @@ pub struct ReExecutor {
     pub re_max_input_files_bytes: u64,
     pub knobs: ExecutorGlobalKnobs,
     pub skip_cache_lookup: bool,
+    pub re_max_queue_time_ms: Option<u64>,
 }
 
 impl ReExecutor {
@@ -71,28 +74,27 @@ impl ReExecutor {
 
     async fn upload(
         &self,
-        mut manager: CommandExecutionManager,
+        manager: CommandExecutionManager,
         blobs: &ActionBlobs,
         action_paths: &ActionPaths,
         digest_config: DigestConfig,
     ) -> ControlFlow<CommandExecutionResult, CommandExecutionManager> {
         let re_client = &self.re_client;
 
-        let upload_response = manager
-            .stage_async(
-                buck2_data::ReStage {
-                    stage: Some(buck2_data::ReUpload {}.into()),
-                },
-                re_client.upload(
-                    &self.materializer,
-                    blobs,
-                    ProjectRelativePath::empty(),
-                    &action_paths.inputs,
-                    self.re_use_case,
-                    digest_config,
-                ),
-            )
-            .await;
+        let upload_response = executor_stage_async(
+            buck2_data::ReStage {
+                stage: Some(buck2_data::ReUpload {}.into()),
+            },
+            re_client.upload(
+                &self.materializer,
+                blobs,
+                ProjectRelativePath::empty(),
+                &action_paths.inputs,
+                self.re_use_case,
+                digest_config,
+            ),
+        )
+        .await;
 
         match upload_response {
             Ok(()) => {}
@@ -129,6 +131,7 @@ impl ReExecutor {
                 &identity,
                 &mut manager,
                 self.skip_cache_lookup,
+                self.re_max_queue_time_ms.map(Duration::from_millis),
             )
             .await;
 

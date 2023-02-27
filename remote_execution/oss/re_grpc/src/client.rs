@@ -315,6 +315,7 @@ impl REClient {
                         ExecuteWithProgressResponse {
                             stage: Stage::COMPLETED,
                             execute_response: Some(execute_response),
+                            ..Default::default()
                         }
                     }
                 }
@@ -334,6 +335,7 @@ impl REClient {
                 ExecuteWithProgressResponse {
                     stage,
                     execute_response: None,
+                    ..Default::default()
                 }
             };
 

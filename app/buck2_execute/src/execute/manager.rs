@@ -7,15 +7,11 @@
  * of this source tree.
  */
 
-use std::future::Future;
 use std::sync::Arc;
 use std::time::Duration;
 
 use buck2_common::liveliness_observer::LivelinessObserver;
-use buck2_events::dispatch::span;
-use buck2_events::dispatch::span_async;
 use buck2_events::dispatch::EventDispatcher;
-use futures::FutureExt;
 use indexmap::IndexMap;
 
 use crate::artifact_value::ArtifactValue;
@@ -72,29 +68,8 @@ impl CommandExecutionManager {
         }
     }
 
-    pub fn stage<T, F: FnOnce() -> T>(
-        &mut self,
-        stage: impl Into<buck2_data::executor_stage_start::Stage>,
-        f: F,
-    ) -> T {
-        let event = buck2_data::ExecutorStageStart {
-            stage: Some(stage.into()),
-        };
-
-        span(event, || (f(), buck2_data::ExecutorStageEnd {}))
-    }
-
-    pub fn stage_async<F: Future>(
-        &mut self,
-        stage: impl Into<buck2_data::executor_stage_start::Stage>,
-        f: F,
-    ) -> impl Future<Output = <F as Future>::Output> {
-        // We avoid using `async fn` or `async move` here to avoid doubling the
-        // future size. See https://github.com/rust-lang/rust/issues/62958
-        let event = buck2_data::ExecutorStageStart {
-            stage: Some(stage.into()),
-        };
-        span_async(event, f.map(|v| (v, buck2_data::ExecutorStageEnd {})))
+    pub fn on_result_delayed(&mut self) {
+        self.claim_manager.on_result_delayed();
     }
 }
 
@@ -156,32 +131,6 @@ impl CommandExecutionManagerWithClaim {
             Default::default(),
             None,
             CommandExecutionTimingData::default(),
-        )
-    }
-
-    pub fn stage<T, F: FnOnce() -> T>(
-        &mut self,
-        stage: impl Into<buck2_data::executor_stage_start::Stage>,
-        f: F,
-    ) -> T {
-        let event = buck2_data::ExecutorStageStart {
-            stage: Some(stage.into()),
-        };
-
-        span(event, || (f(), buck2_data::ExecutorStageEnd {}))
-    }
-
-    pub fn stage_async<F: Future>(
-        &mut self,
-        stage: impl Into<buck2_data::executor_stage_start::Stage>,
-        f: F,
-    ) -> impl Future<Output = <F as Future>::Output> {
-        let event = buck2_data::ExecutorStageStart {
-            stage: Some(stage.into()),
-        };
-        span_async(
-            event,
-            async move { (f.await, buck2_data::ExecutorStageEnd {}) },
         )
     }
 }

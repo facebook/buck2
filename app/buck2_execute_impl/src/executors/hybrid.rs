@@ -99,7 +99,7 @@ impl PreparedCommandExecutor for HybridExecutor {
         // the current approach effectively loses the data from the primary result (for example, we
         // should have stage events the reflect the full duration not just the fallback part).
 
-        // Construct our claim manager and a liveniless guard for local commands. The way this
+        // Construct our claim manager and a liveliness guard for local commands. The way this
         // works is as follows: when RE takes a claim, we cancel local commands. This means that we
         // can truly race RE and local: if RE finishes even after local started, it'll cancel the
         // local execution, we'll get back here with a ClaimCancelled from local execution, cancel
@@ -199,64 +199,45 @@ impl PreparedCommandExecutor for HybridExecutor {
 
         let fallback_only = fallback_only && !command.request.force_full_hybrid_if_capable();
 
-        let ((mut first_res, first_priority), second) = if fallback_only {
-            // In the fallback-only case, the primary always "wins" the race, since we don't start
-            // the secondary.
-            jobs.execute_sequential().await
-        } else {
-            // In the full-hybrid case, we do race both executors. If the low-pass filter is in
-            // use, then we wrap the local execution with that.
-            //
-            // If the command prefers local execution, then it'll count in the low-pass
-            // filter but it will not wait for access. This ensures that commands that are
-            // flagged as prefer_local for performance reasons get to run locally even when
-            // full hybrid is enabled.
-            //
-            // NOTE (@torozco): that we only use the command's executor preference here.
-            // Ideally we'd probably just use `executor_preference` (which folds in this
-            // executor's preference), but anecdotally I've seen a bunch of users pass
-            // `--prefer-local` without necessarily knowing why so I'd like them to not get
-            // this behavor by default.
-            let command_prefers_local = command.request.executor_preference().prefers_local();
-
-            let jobs = jobs.map_local(move |local| {
-                if low_pass_filter {
-                    let bypass_low_pass_filter = if command_prefers_local {
-                        futures::future::ready(()).left_future()
-                    } else {
-                        futures::future::pending().right_future()
-                    };
-
-                    async move {
-                        // Block local until either conditon is met:
-                        // - we only have a few actions (that's low_pass_filter)
-                        // - the remote executor aborts (that's remote_execution_liveliness_guard)
-                        let access = self.low_pass_filter.access(weight);
-                        let alive = remote_execution_liveliness_observer.while_alive();
-                        futures::pin_mut!(access);
-                        futures::pin_mut!(alive);
-                        futures::pin_mut!(bypass_low_pass_filter);
-                        let _guard = futures::future::select(
-                            access,
-                            futures::future::select(alive, bypass_low_pass_filter),
-                        )
-                        .await;
-                        local.await
-                    }
-                    .left_future()
-                } else {
-                    local.right_future()
-                }
-            });
-
-            if command_prefers_local {
-                // As noted above, don't race in this scenario, since this is typically used for
+        let ((mut first_res, first_priority), second) =
+            if command.request.executor_preference().prefers_local() {
+                // Don't race in this scenario, since this is typically used for
                 // actions that are too expensive to run on RE.
                 jobs.execute_sequential().await
             } else {
+                // In the full-hybrid case, we do race both executors. If the low-pass filter is in
+                // use, then we wrap the local execution with that.
+                let jobs = if fallback_only {
+                    jobs.map_local(move |local| {
+                        async move {
+                            // Block local until the remote executor aborts (that's remote_execution_liveliness_guard)
+                            // The claim actually comes back to us via the execution report so there's no race condition
+                            // where local unblocks just when RE finishes
+                            remote_execution_liveliness_observer.while_alive().await;
+                            local.await
+                        }
+                        .boxed()
+                    })
+                } else if low_pass_filter {
+                    jobs.map_local(move |local| {
+                        async move {
+                            // Block local until either conditon is met:
+                            // - we only have a few actions (that's low_pass_filter)
+                            // - the remote executor aborts (that's remote_execution_liveliness_guard)
+                            let access = self.low_pass_filter.access(weight);
+                            let alive = remote_execution_liveliness_observer.while_alive();
+                            futures::pin_mut!(access);
+                            futures::pin_mut!(alive);
+                            let _guard = futures::future::select(access, alive).await;
+                            local.await
+                        }
+                        .boxed()
+                    })
+                } else {
+                    jobs.map_local(|local| local.boxed())
+                };
                 jobs.execute_concurrent().await
-            }
-        };
+            };
 
         let mut res = if is_retryable_status(&first_res) {
             // If the first result had made a claim, then cancel it now to let the other result
@@ -311,7 +292,7 @@ impl ReClaimManager {
             inner: Some(ReClaimManagerInner {
                 local_execution_liveliness_guard,
                 claim_manager,
-                remote_execution_liveliness_guard,
+                remote_execution_liveliness_guard: Some(remote_execution_liveliness_guard),
             }),
         }
     }
@@ -331,8 +312,8 @@ struct ReClaimManagerInner {
     local_execution_liveliness_guard: LivelinessGuard,
     claim_manager: Box<dyn ClaimManager>,
 
-    /// Only kept aive while the ReClaimManager (or its Claim) is alive.
-    remote_execution_liveliness_guard: LivelinessGuard,
+    /// Only kept alive while the ReClaimManager (or its Claim) is alive.
+    remote_execution_liveliness_guard: Option<LivelinessGuard>,
 }
 
 #[async_trait::async_trait]
@@ -353,6 +334,12 @@ impl ClaimManager for ReClaimManager {
             _remote_execution_liveliness_guard: inner.remote_execution_liveliness_guard,
         }
     }
+
+    fn on_result_delayed(&mut self) {
+        if let Some(inner) = &mut self.inner {
+            inner.remote_execution_liveliness_guard.take();
+        }
+    }
 }
 
 #[derive(Derivative)]
@@ -365,7 +352,7 @@ struct ReClaim {
 
     /// Only used for its lifetime.
     #[derivative(Debug = "ignore")]
-    _remote_execution_liveliness_guard: LivelinessGuard,
+    _remote_execution_liveliness_guard: Option<LivelinessGuard>,
 }
 
 impl Claim for ReClaim {

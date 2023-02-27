@@ -14,6 +14,7 @@ use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::RwLock;
 use std::sync::Weak;
+use std::time::Duration;
 
 use allocative::Allocative;
 use anyhow::Context as _;
@@ -364,6 +365,7 @@ impl ManagedRemoteExecutionClient {
         identity: &ReActionIdentity<'_, '_>,
         manager: &mut CommandExecutionManager,
         skip_cache_lookup: bool,
+        re_max_queue_time: Option<Duration>,
     ) -> anyhow::Result<ExecuteResponse> {
         self.lock()?
             .get()
@@ -375,6 +377,7 @@ impl ManagedRemoteExecutionClient {
                 identity,
                 manager,
                 skip_cache_lookup,
+                re_max_queue_time,
             )
             .await
     }
