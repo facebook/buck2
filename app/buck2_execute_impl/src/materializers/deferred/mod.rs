@@ -1161,18 +1161,14 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
             },
         );
 
-        if let Some(sqlite_db) = self.sqlite_db.as_mut() {
-            if let Err(e) = sqlite_db
-                .materializer_state_table()
-                .insert(&path, metadata, Utc::now())
-            {
-                quiet_soft_error!(
-                    "materializer_declare_existing_error",
-                    e.context(self.log_buffer.clone())
-                )
-                .unwrap();
-            }
-        }
+        on_materialization(
+            self.sqlite_db.as_mut(),
+            &self.log_buffer,
+            &path,
+            metadata,
+            Utc::now(),
+            "materializer_declare_existing_error",
+        );
     }
 
     fn declare(
@@ -1596,18 +1592,14 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
 
                             // NOTE: We only insert this artifact if there isn't an in-progress cleanup
                             // future on this path.
-                            if let Some(sqlite_db) = self.sqlite_db.as_mut() {
-                                if let Err(e) = sqlite_db.materializer_state_table().insert(
-                                    &artifact_path,
-                                    metadata.dupe(),
-                                    timestamp,
-                                ) {
-                                    // TODO (torozco): Soft-erroring here is not appropriate. We should
-                                    // exit the process at this point. Let's check we don't unexpectedly hit
-                                    // this first.
-                                    quiet_soft_error!("materializer_finished_error", e).unwrap();
-                                }
-                            }
+                            on_materialization(
+                                self.sqlite_db.as_mut(),
+                                &self.log_buffer,
+                                &artifact_path,
+                                metadata.dupe(),
+                                timestamp,
+                                "materializer_finished_error",
+                            );
 
                             Some(ArtifactMaterializationStage::Materialized {
                                 metadata,
@@ -1628,6 +1620,25 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 // NOTE: This can happen if a path got invalidted while it was being materialized.
                 tracing::debug!("materialization_finished but path is vacant!")
             }
+        }
+    }
+}
+
+/// Run callbacks for an artifact being materialized at `path`.
+fn on_materialization(
+    sqlite_db: Option<&mut MaterializerStateSqliteDb>,
+    log_buffer: &LogBuffer,
+    path: &ProjectRelativePath,
+    metadata: ArtifactMetadata,
+    timestamp: DateTime<Utc>,
+    error_name: &'static str,
+) {
+    if let Some(sqlite_db) = sqlite_db {
+        if let Err(e) = sqlite_db
+            .materializer_state_table()
+            .insert(path, metadata, timestamp)
+        {
+            quiet_soft_error!(error_name, e.context(log_buffer.clone())).unwrap();
         }
     }
 }
