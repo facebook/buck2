@@ -1020,7 +1020,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                         }
                         // Entry point for `declare_{copy|cas}` calls
                         MaterializerCommand::Declare(path, value, method, _dispatcher) => {
-                            self.declare(path, value, method);
+                            self.declare(&path, value, method);
                         }
                         MaterializerCommand::MatchArtifacts(paths, sender) => {
                             let all_matches = paths
@@ -1177,7 +1177,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
 
     fn declare(
         &mut self,
-        path: ProjectRelativePathBuf,
+        path: &ProjectRelativePath,
         value: ArtifactValue,
         method: Box<ArtifactMaterializationMethod>,
     ) {
@@ -1243,7 +1243,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         // thinks it still exists.
         let existing_futs = self
             .tree
-            .invalidate_paths_and_collect_futures(vec![path.clone()], self.sqlite_db.as_mut());
+            .invalidate_paths_and_collect_futures(vec![path.to_owned()], self.sqlite_db.as_mut());
 
         let method = Arc::from(method);
 
@@ -1256,12 +1256,12 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
             ArtifactMaterializationMethod::Write(write) if can_use_write_fast_path => {
                 let materialize =
                     self.io
-                        .write(path.clone(), write.dupe(), version, self.command_sender);
+                        .write(path.to_owned(), write.dupe(), version, self.command_sender);
                 ProcessingFuture::Materializing(materialize.shared())
             }
             _ => ProcessingFuture::Cleaning(clean_path(
                 &self.io,
-                path.clone(),
+                path.to_owned(),
                 version,
                 self.command_sender,
                 existing_futs,

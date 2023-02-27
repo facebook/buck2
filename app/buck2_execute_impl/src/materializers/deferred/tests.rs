@@ -207,7 +207,7 @@ mod state_machine {
         let value = ArtifactValue::file(digest_config.empty_file());
         let method = ArtifactMaterializationMethod::Test;
 
-        dm.declare(path.clone(), value, box method);
+        dm.declare(&path, value, box method);
         assert_eq!(dm.io.take_log(), &[(Op::Clean, path.clone())]);
 
         let res = dm
@@ -272,7 +272,7 @@ mod state_machine {
 
         // Declare symlink target
         dm.declare(
-            target_path.clone(),
+            &target_path,
             ArtifactValue::file(digest_config.empty_file()),
             box ArtifactMaterializationMethod::Test,
         );
@@ -285,7 +285,7 @@ mod state_machine {
             digest_config,
         )?;
         dm.declare(
-            symlink_path.clone(),
+            &symlink_path,
             symlink_value,
             box ArtifactMaterializationMethod::Test,
         );
@@ -351,7 +351,7 @@ mod state_machine {
             digest_config,
         )?;
         dm.declare(
-            symlink_path.clone(),
+            &symlink_path,
             symlink_value,
             box ArtifactMaterializationMethod::Test,
         );
@@ -377,7 +377,7 @@ mod state_machine {
 
         // Declare symlink target
         dm.declare(
-            target_path.clone(),
+            &target_path,
             ArtifactValue::file(digest_config.empty_file()),
             box ArtifactMaterializationMethod::Test,
         );
