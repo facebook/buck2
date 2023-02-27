@@ -41,18 +41,6 @@ The directory tree of one or more Buck2 [packages](#package). A Buck2 build can 
 🚧   THIS SECTION IS UNDER CONSTRUCTION
 :::
 
-#### Configured graph
-
-:::note
-🚧   THIS SECTION IS UNDER CONSTRUCTION
-:::
-
-#### Constraint value
-
-:::note
-🚧   THIS SECTION IS UNDER CONSTRUCTION
-:::
-
 #### Daemon
 
 The Daemon process lives between invocations and is designed to allow for cache reuse between Buck2 invocations, which can considerably speed up builds. For more information, see [Daemon (buckd)](daemon.md).
@@ -122,12 +110,6 @@ The identifier for a [target](#target). Structured as `cellAlias//path/to/packag
 #### Target pattern
 
 A string that resolves to a set of [targets](#target). They can be used as arguments to commands such as `buck2 build` and `buck2 uquery`. They can also be used in the [visibility](#visibility) argument of a [rule](#rule). For more information, see [Target pattern](./target_pattern.md).
-
-#### Toolchain
-
-:::note
-🚧   THIS SECTION IS UNDER CONSTRUCTION
-:::
 
 #### Transition
 
