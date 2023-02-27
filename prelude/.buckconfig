@@ -17,4 +17,9 @@ buck_bazel_skylib = ../../../xplat/build_infra/buck_client/third-party/skylark/b
 toolchains = ../toolchains
 
 [buildfile]
+[not_buildfile] # @oss-enable
 name = TARGETS
+
+[not_buildfile]
+[buildfile] # @oss-enable
+name = TARGETS,BUCK

@@ -12,7 +12,7 @@ fbsource = shim
 buck = shim
 
 [buildfile]
-name = TARGETS
+name = TARGETS,BUCK
 
 [parser]
 target_platform_detector_spec = target:root//...->prelude//platforms:default target:shim//...->prelude//platforms:default
