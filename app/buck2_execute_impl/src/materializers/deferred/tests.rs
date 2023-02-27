@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::collections::HashSet;
 
@@ -175,12 +176,12 @@ mod state_machine {
     /// A stub command sender. We are calling materializer methods directly so that's all we need.
     fn command_sender() -> MaterializerSender<StubIoHandler> {
         static SENDER: Lazy<MaterializerSender<StubIoHandler>> = Lazy::new(|| MaterializerSender {
-            high_priority: Box::leak(box mpsc::unbounded_channel().0),
-            low_priority: Box::leak(box mpsc::unbounded_channel().0),
+            high_priority: Cow::Borrowed(Box::leak(box mpsc::unbounded_channel().0)),
+            low_priority: Cow::Borrowed(Box::leak(box mpsc::unbounded_channel().0)),
             counters: MaterializerCounters::leak_new(),
         });
 
-        *SENDER
+        SENDER.dupe()
     }
 
     fn make_path(p: &str) -> ProjectRelativePathBuf {

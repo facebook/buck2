@@ -15,6 +15,7 @@ mod io_handler;
 #[cfg(test)]
 mod tests;
 
+use std::borrow::Cow;
 use std::collections::VecDeque;
 use std::pin::Pin;
 use std::sync::atomic::AtomicUsize;
@@ -68,9 +69,7 @@ use chrono::Duration;
 use chrono::Utc;
 use derive_more::Display;
 use dupe::Clone_;
-use dupe::Copy_;
 use dupe::Dupe;
-use dupe::Dupe_;
 use dupe::OptionDupedExt;
 use futures::future::BoxFuture;
 use futures::future::FutureExt;
@@ -193,15 +192,18 @@ impl MaterializerCounters {
 // NOTE: When constructing a MaterializerSender, we just leak the underlying channel. We do this
 // because the materializer lives for the lifetime of the process anyway, so there's no value in
 // refcounting any of this (though we make many copies of it).
-#[derive(Copy_, Dupe_, Clone_)]
+#[derive(Clone_)]
 struct MaterializerSender<T: 'static> {
     /// High priority commands are processed in order.
-    high_priority: &'static mpsc::UnboundedSender<MaterializerCommand<T>>,
+    high_priority: Cow<'static, mpsc::UnboundedSender<MaterializerCommand<T>>>,
     /// Low priority commands are processed in order relative to each other, but high priority
     /// commands can be reordered ahead of them.
-    low_priority: &'static mpsc::UnboundedSender<LowPriorityMaterializerCommand>,
+    low_priority: Cow<'static, mpsc::UnboundedSender<LowPriorityMaterializerCommand>>,
     counters: MaterializerCounters,
 }
+
+// Unbounded channels can be cheaply cloned.
+impl<T> Dupe for MaterializerSender<T> {}
 
 impl<T> MaterializerSender<T> {
     fn send(
@@ -823,8 +825,8 @@ impl DeferredMaterializer {
         let counters = MaterializerCounters::leak_new();
 
         let command_sender = MaterializerSender {
-            high_priority: Box::leak(box high_priority_sender),
-            low_priority: Box::leak(box low_priority_sender),
+            high_priority: Cow::Borrowed(Box::leak(box high_priority_sender)),
+            low_priority: Cow::Borrowed(Box::leak(box low_priority_sender)),
             counters,
         };
 
@@ -871,7 +873,7 @@ impl DeferredMaterializer {
             defer_write_actions: configs.defer_write_actions,
             log_buffer: LogBuffer::new(25),
             version_tracker: VersionTracker::new(),
-            command_sender,
+            command_sender: command_sender.dupe(),
             tree,
         };
 
@@ -1253,16 +1255,19 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
 
         let future = match &*method {
             ArtifactMaterializationMethod::Write(write) if can_use_write_fast_path => {
-                let materialize =
-                    self.io
-                        .write(path.to_owned(), write.dupe(), version, self.command_sender);
+                let materialize = self.io.write(
+                    path.to_owned(),
+                    write.dupe(),
+                    version,
+                    self.command_sender.dupe(),
+                );
                 ProcessingFuture::Materializing(materialize.shared())
             }
             _ => ProcessingFuture::Cleaning(clean_path(
                 &self.io,
                 path.to_owned(),
                 version,
-                self.command_sender,
+                self.command_sender.dupe(),
                 existing_futs,
                 &self.rt,
             )),
@@ -1458,7 +1463,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         let path_buf = path.to_buf();
         let path_buf_dup = path_buf.clone();
         let io = self.io.dupe();
-        let command_sender = self.command_sender;
+        let command_sender = self.command_sender.dupe();
         let task = self
             .rt
             .spawn(async move {
@@ -1572,7 +1577,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                         &self.io,
                         artifact_path.clone(),
                         version,
-                        self.command_sender,
+                        self.command_sender.dupe(),
                         Vec::new(),
                         &self.rt,
                     ));
