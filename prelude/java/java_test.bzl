@@ -10,6 +10,7 @@ load("@prelude//java:java_providers.bzl", "get_all_java_packaging_deps_tset")
 load("@prelude//java:java_toolchain.bzl", "JavaTestToolchainInfo", "JavaToolchainInfo")
 load("@prelude//java/utils:java_utils.bzl", "get_path_separator")
 load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo", "merge_shared_libraries", "traverse_shared_library_info")
+load("@prelude//utils:utils.bzl", "expect")
 load("@prelude//test/inject_test_run_info.bzl", "inject_test_run_info")
 
 def java_test_impl(ctx: "context") -> ["provider"]:
@@ -86,6 +87,8 @@ def build_junit_test(
 
     if ctx.attrs.test_case_timeout_ms:
         cmd.extend(["--default_test_timeout", ctx.attrs.test_case_timeout_ms])
+
+    expect(tests_java_library_info.library_output != None, "Built test library has no output, likely due to missing srcs")
 
     class_names = ctx.actions.declare_output("class_names")
     list_class_names_cmd = cmd_args([
