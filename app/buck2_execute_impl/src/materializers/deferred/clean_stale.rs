@@ -49,7 +49,6 @@ pub struct CleanStaleArtifacts {
 impl ExtensionCommand<DefaultIoHandler> for CleanStaleArtifacts {
     fn execute(
         self: Box<Self>,
-        tree: &mut ArtifactTree,
         processor: &mut DeferredMaterializerCommandProcessor<DefaultIoHandler>,
     ) {
         if !processor.defer_write_actions || processor.sqlite_db.is_none() {
@@ -64,7 +63,7 @@ impl ExtensionCommand<DefaultIoHandler> for CleanStaleArtifacts {
         }
 
         let res = gather_clean_futures_for_stale_artifacts(
-            tree,
+            &mut processor.tree,
             self.keep_since_time,
             self.dry_run,
             self.tracked_only,

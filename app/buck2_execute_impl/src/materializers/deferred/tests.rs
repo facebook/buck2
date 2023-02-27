@@ -198,45 +198,25 @@ mod state_machine {
             rt: Handle::current(),
             defer_write_actions: true,
             log_buffer: LogBuffer::new(1),
+            version_tracker: VersionTracker::new(),
+            command_sender: command_sender(),
+            tree: ArtifactTree::new(),
         };
 
-        let mut tree = ArtifactTree::new();
         let path = make_path("foo/bar");
         let value = ArtifactValue::file(digest_config.empty_file());
         let method = ArtifactMaterializationMethod::Test;
-        let mut version_tracker = VersionTracker::new();
 
-        dm.declare(
-            &mut tree,
-            path.clone(),
-            value,
-            box method,
-            &mut version_tracker,
-            &command_sender(),
-        );
+        dm.declare(path.clone(), value, box method);
         assert_eq!(dm.io.take_log(), &[(Op::Clean, path.clone())]);
 
         let res = dm
-            .materialize_artifact(
-                &mut tree,
-                &path,
-                EventDispatcher::null(),
-                &command_sender(),
-                &mut version_tracker,
-            )
+            .materialize_artifact(&path, EventDispatcher::null())
             .context("Expected a future")?
             .await;
         assert_eq!(dm.io.take_log(), &[(Op::Materialize, path.clone())]);
 
-        dm.materialization_finished(
-            &mut tree,
-            path.clone(),
-            Utc::now(),
-            version_tracker.current(),
-            res,
-            &mut version_tracker,
-            &command_sender(),
-        );
+        dm.materialization_finished(path.clone(), Utc::now(), dm.version_tracker.current(), res);
         assert_eq!(dm.io.take_log(), &[]);
 
         Ok(())
@@ -269,7 +249,6 @@ mod state_machine {
         let digest_config = DigestConfig::compat();
 
         // Construct a tree with a symlink and its target, materialize both at once
-        let mut tree = ArtifactTree::new();
         let symlink_path = make_path("foo/bar_symlink");
         let target_path = make_path("foo/bar_target");
         let target_from_symlink = RelativePathBuf::from_path(Path::new("bar_target"))?;
@@ -279,8 +258,6 @@ mod state_machine {
         // await for symlink targets and the entry materialization
         materialization_config.insert(target_path.clone(), TokioDuration::from_millis(100));
 
-        let mut version_tracker = VersionTracker::new();
-
         let mut dm = DeferredMaterializerCommandProcessor {
             io: Arc::new(StubIoHandler::new(materialization_config)),
             digest_config,
@@ -288,16 +265,16 @@ mod state_machine {
             rt: Handle::current(),
             defer_write_actions: true,
             log_buffer: LogBuffer::new(1),
+            version_tracker: VersionTracker::new(),
+            command_sender: command_sender(),
+            tree: ArtifactTree::new(),
         };
 
         // Declare symlink target
         dm.declare(
-            &mut tree,
             target_path.clone(),
             ArtifactValue::file(digest_config.empty_file()),
             box ArtifactMaterializationMethod::Test,
-            &mut version_tracker,
-            &command_sender(),
         );
         assert_eq!(dm.io.take_log(), &[(Op::Clean, target_path.clone())]);
 
@@ -308,25 +285,16 @@ mod state_machine {
             digest_config,
         )?;
         dm.declare(
-            &mut tree,
             symlink_path.clone(),
             symlink_value,
             box ArtifactMaterializationMethod::Test,
-            &mut version_tracker,
-            &command_sender(),
         );
         assert_eq!(dm.io.take_log(), &[(Op::Clean, symlink_path.clone())]);
 
-        dm.materialize_artifact(
-            &mut tree,
-            &symlink_path,
-            EventDispatcher::null(),
-            &command_sender(),
-            &mut version_tracker,
-        )
-        .context("Expected a future")?
-        .await
-        .map_err(|_| anyhow::anyhow!("error materializing"))?;
+        dm.materialize_artifact(&symlink_path, EventDispatcher::null())
+            .context("Expected a future")?
+            .await
+            .map_err(|_| anyhow::anyhow!("error materializing"))?;
 
         let logs = dm.io.take_log();
         if cfg!(unix) {
@@ -355,7 +323,6 @@ mod state_machine {
 
         // Materialize a symlink, then materialize the target. Test that we still
         // materialize deps if the main artifact has already been materialized.
-        let mut tree = ArtifactTree::new();
         let symlink_path = make_path("foo/bar_symlink");
         let target_path = make_path("foo/bar_target");
         let target_from_symlink = RelativePathBuf::from_path(Path::new("bar_target"))?;
@@ -365,8 +332,6 @@ mod state_machine {
         // await for symlink targets and the entry materialization
         materialization_config.insert(target_path.clone(), TokioDuration::from_millis(100));
 
-        let mut version_tracker = VersionTracker::new();
-
         let mut dm = DeferredMaterializerCommandProcessor {
             io: Arc::new(StubIoHandler::new(materialization_config)),
             sqlite_db: None,
@@ -374,6 +339,9 @@ mod state_machine {
             defer_write_actions: true,
             log_buffer: LogBuffer::new(1),
             digest_config,
+            version_tracker: VersionTracker::new(),
+            command_sender: command_sender(),
+            tree: ArtifactTree::new(),
         };
 
         // Declare symlink
@@ -383,24 +351,15 @@ mod state_machine {
             digest_config,
         )?;
         dm.declare(
-            &mut tree,
             symlink_path.clone(),
             symlink_value,
             box ArtifactMaterializationMethod::Test,
-            &mut version_tracker,
-            &command_sender(),
         );
         assert_eq!(dm.io.take_log(), &[(Op::Clean, symlink_path.clone())]);
 
         // Materialize the symlink, at this point the target is not in the tree so it's ignored
         let res = dm
-            .materialize_artifact(
-                &mut tree,
-                &symlink_path,
-                EventDispatcher::null(),
-                &command_sender(),
-                &mut version_tracker,
-            )
+            .materialize_artifact(&symlink_path, EventDispatcher::null())
             .context("Expected a future")?
             .await;
 
@@ -409,40 +368,28 @@ mod state_machine {
 
         // Mark the symlink as materialized
         dm.materialization_finished(
-            &mut tree,
             symlink_path.clone(),
             Utc::now(),
-            version_tracker.current(),
+            dm.version_tracker.current(),
             res,
-            &mut version_tracker,
-            &command_sender(),
         );
         assert_eq!(dm.io.take_log(), &[]);
 
         // Declare symlink target
         dm.declare(
-            &mut tree,
             target_path.clone(),
             ArtifactValue::file(digest_config.empty_file()),
             box ArtifactMaterializationMethod::Test,
-            &mut version_tracker,
-            &command_sender(),
         );
         assert_eq!(dm.io.take_log(), &[(Op::Clean, target_path.clone())]);
 
         // Materialize the symlink again.
         // This time, we don't re-materialize the symlink as that's already been done.
         // But we still materialize the target as that has not been materialized yet.
-        dm.materialize_artifact(
-            &mut tree,
-            &symlink_path,
-            EventDispatcher::null(),
-            &command_sender(),
-            &mut version_tracker,
-        )
-        .context("Expected a future")?
-        .await
-        .map_err(|_| anyhow::anyhow!("error materializing"))?;
+        dm.materialize_artifact(&symlink_path, EventDispatcher::null())
+            .context("Expected a future")?
+            .await
+            .map_err(|_| anyhow::anyhow!("error materializing"))?;
 
         let logs = dm.io.take_log();
         assert_eq!(logs, &[(Op::Materialize, target_path.clone())]);

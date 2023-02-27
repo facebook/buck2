@@ -36,18 +36,13 @@ use crate::materializers::deferred::clean_stale::CleanStaleArtifacts;
 use crate::materializers::deferred::io_handler::create_ttl_refresh;
 use crate::materializers::deferred::ArtifactMaterializationMethod;
 use crate::materializers::deferred::ArtifactMaterializationStage;
-use crate::materializers::deferred::ArtifactTree;
 use crate::materializers::deferred::DefaultIoHandler;
 use crate::materializers::deferred::DeferredMaterializer;
 use crate::materializers::deferred::DeferredMaterializerCommandProcessor;
 use crate::materializers::deferred::MaterializerCommand;
 
 pub(super) trait ExtensionCommand<T>: Debug + Sync + Send + 'static {
-    fn execute(
-        self: Box<Self>,
-        tree: &mut ArtifactTree,
-        processor: &mut DeferredMaterializerCommandProcessor<T>,
-    );
+    fn execute(self: Box<Self>, processor: &mut DeferredMaterializerCommandProcessor<T>);
 }
 
 #[derive(Debug, Display)]
@@ -73,10 +68,9 @@ struct Iterate {
 impl ExtensionCommand<DefaultIoHandler> for Iterate {
     fn execute(
         self: Box<Self>,
-        tree: &mut ArtifactTree,
-        _processor: &mut DeferredMaterializerCommandProcessor<DefaultIoHandler>,
+        processor: &mut DeferredMaterializerCommandProcessor<DefaultIoHandler>,
     ) {
-        for (path, data) in tree.iter_with_paths() {
+        for (path, data) in processor.tree.iter_with_paths() {
             let path_data = match &data.stage {
                 ArtifactMaterializationStage::Declared { method, .. } => {
                     PathData::Declared(method.dupe())
@@ -113,11 +107,10 @@ struct RefreshTtls {
 impl ExtensionCommand<DefaultIoHandler> for RefreshTtls {
     fn execute(
         self: Box<Self>,
-        tree: &mut ArtifactTree,
         processor: &mut DeferredMaterializerCommandProcessor<DefaultIoHandler>,
     ) {
         let task = create_ttl_refresh(
-            tree,
+            &processor.tree,
             &processor.io.re_client_manager,
             Duration::seconds(self.min_ttl),
         )
@@ -136,15 +129,14 @@ struct TestIter {
 impl ExtensionCommand<DefaultIoHandler> for TestIter {
     fn execute(
         self: Box<Self>,
-        tree: &mut ArtifactTree,
-        _processor: &mut DeferredMaterializerCommandProcessor<DefaultIoHandler>,
+        processor: &mut DeferredMaterializerCommandProcessor<DefaultIoHandler>,
     ) {
         let mut out = String::new();
 
         let now = std::time::Instant::now();
 
         for _i in 0..self.count {
-            let it = tree.iter_without_paths();
+            let it = processor.tree.iter_without_paths();
 
             for e in it {
                 let _e = e;
@@ -162,7 +154,7 @@ impl ExtensionCommand<DefaultIoHandler> for TestIter {
         let now = std::time::Instant::now();
 
         for _i in 0..self.count {
-            let it = tree.iter_with_paths();
+            let it = processor.tree.iter_with_paths();
 
             for e in it {
                 let _e = e;
