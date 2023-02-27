@@ -10,8 +10,11 @@
 #![allow(unused)]
 
 use std::collections::HashMap;
+use std::collections::HashSet;
 
+use anyhow::Context as _;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
+use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use derivative::Derivative;
 use derive_more::Display;
 use dupe::Dupe;
@@ -26,7 +29,7 @@ use crate::materializers::deferred::MaterializerSender;
 /// notifications when those paths are materialized.
 pub(super) struct MaterializerSubscriptions {
     index: SubscriptionIndex,
-    active: HashMap<SubscriptionIndex, ()>,
+    active: HashMap<SubscriptionIndex, SubscriptionData>,
 }
 
 impl MaterializerSubscriptions {
@@ -59,6 +62,18 @@ impl MaterializerSubscriptions {
     }
 }
 
+struct SubscriptionData {
+    paths: HashSet<ProjectRelativePathBuf>,
+}
+
+impl SubscriptionData {
+    fn new() -> Self {
+        Self {
+            paths: HashSet::new(),
+        }
+    }
+}
+
 /// A index uniquely identifying a given Subscription.
 #[derive(
     Eq, PartialEq, Copy, Clone, Dupe, Debug, Ord, PartialOrd, Display, Hash
@@ -82,8 +97,15 @@ pub(super) enum MaterializerSubscriptionOperation<T: 'static> {
         #[derivative(Debug = "ignore")]
         sender: Sender<SubscriptionHandle<T>>,
     },
+
     /// Notify the materializer that this subscription is no longer needed.
     Destroy { index: SubscriptionIndex },
+
+    /// Ask the materializer to send new notifications for the following paths.
+    Subscribe {
+        index: SubscriptionIndex,
+        paths: Vec<ProjectRelativePathBuf>,
+    },
 }
 
 impl<T> MaterializerSubscriptionOperation<T>
@@ -95,7 +117,9 @@ where
             Self::Create { sender } => {
                 let subscriptions = &mut dm.subscriptions;
                 let index = dm.subscriptions.index.next();
-                dm.subscriptions.active.insert(index, ());
+                dm.subscriptions
+                    .active
+                    .insert(index, SubscriptionData::new());
                 let _ignored = sender.send(SubscriptionHandle {
                     index,
                     command_sender: dm.command_sender.dupe(),
@@ -103,6 +127,19 @@ where
             }
             Self::Destroy { index } => {
                 dm.subscriptions.active.remove(&index);
+            }
+            Self::Subscribe { index, paths } => {
+                // Messages are processed in order and handles delete themselves when they are
+                // dropped so it's not possible for us to receive this message without the
+                // underlying subscription existing.
+                let subscription = dm
+                    .subscriptions
+                    .active
+                    .get_mut(&index)
+                    .with_context(|| format!("Invalid subscription: {}", index))
+                    .unwrap();
+
+                subscription.paths.extend(paths);
             }
         }
     }
@@ -116,6 +153,17 @@ pub(super) struct SubscriptionHandle<T: 'static> {
     index: SubscriptionIndex,
     #[derivative(Debug = "ignore")]
     command_sender: MaterializerSender<T>,
+}
+
+impl<T: 'static> SubscriptionHandle<T> {
+    pub fn subscribe_to_paths(&self, paths: Vec<ProjectRelativePathBuf>) {
+        self.command_sender.send(MaterializerCommand::Subscription(
+            MaterializerSubscriptionOperation::Subscribe {
+                index: self.index,
+                paths,
+            },
+        ));
+    }
 }
 
 impl<T: 'static> Drop for SubscriptionHandle<T> {
