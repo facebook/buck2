@@ -19,7 +19,3 @@ toolchains = ../toolchains
 [buildfile]
 [not_buildfile] # @oss-enable
 name = TARGETS
-
-[not_buildfile]
-[buildfile] # @oss-enable
-name = TARGETS,BUCK
