@@ -90,7 +90,6 @@ mod state_machine {
 
     use buck2_execute::directory::Symlink;
     use buck2_execute::directory::INTERNER;
-    use once_cell::sync::Lazy;
     use parking_lot::Mutex;
     use tokio::time::sleep;
     use tokio::time::Duration as TokioDuration;
@@ -174,14 +173,33 @@ mod state_machine {
     }
 
     /// A stub command sender. We are calling materializer methods directly so that's all we need.
-    fn command_sender() -> MaterializerSender<StubIoHandler> {
-        static SENDER: Lazy<MaterializerSender<StubIoHandler>> = Lazy::new(|| MaterializerSender {
-            high_priority: Cow::Borrowed(Box::leak(box mpsc::unbounded_channel().0)),
-            low_priority: Cow::Borrowed(Box::leak(box mpsc::unbounded_channel().0)),
-            counters: MaterializerCounters::leak_new(),
-        });
+    fn channel() -> (
+        MaterializerSender<StubIoHandler>,
+        MaterializerReceiver<StubIoHandler>,
+    ) {
+        // We don't use those counts in tests.
+        static SENT: AtomicUsize = AtomicUsize::new(0);
+        static RECEIVED: AtomicUsize = AtomicUsize::new(0);
 
-        SENDER.dupe()
+        let (hi_send, hi_recv) = mpsc::unbounded_channel();
+        let (lo_send, lo_recv) = mpsc::unbounded_channel();
+        let counters = MaterializerCounters {
+            sent: &SENT,
+            received: &RECEIVED,
+        };
+
+        (
+            MaterializerSender {
+                high_priority: Cow::Owned(hi_send),
+                low_priority: Cow::Owned(lo_send),
+                counters,
+            },
+            MaterializerReceiver {
+                high_priority: hi_recv,
+                low_priority: lo_recv,
+                counters,
+            },
+        )
     }
 
     fn make_path(p: &str) -> ProjectRelativePathBuf {
@@ -191,25 +209,33 @@ mod state_machine {
     fn make_processor(
         digest_config: DigestConfig,
         materialization_config: HashMap<ProjectRelativePathBuf, TokioDuration>,
-    ) -> DeferredMaterializerCommandProcessor<StubIoHandler> {
-        DeferredMaterializerCommandProcessor {
-            io: Arc::new(StubIoHandler::new(materialization_config)),
-            sqlite_db: None,
-            rt: Handle::current(),
-            defer_write_actions: true,
-            log_buffer: LogBuffer::new(1),
-            digest_config,
-            version_tracker: VersionTracker::new(),
-            command_sender: command_sender(),
-            tree: ArtifactTree::new(),
-        }
+    ) -> (
+        DeferredMaterializerCommandProcessor<StubIoHandler>,
+        MaterializerReceiver<StubIoHandler>,
+    ) {
+        let (command_sender, command_receiver) = channel();
+
+        (
+            DeferredMaterializerCommandProcessor {
+                io: Arc::new(StubIoHandler::new(materialization_config)),
+                sqlite_db: None,
+                rt: Handle::current(),
+                defer_write_actions: true,
+                log_buffer: LogBuffer::new(1),
+                digest_config,
+                version_tracker: VersionTracker::new(),
+                command_sender,
+                tree: ArtifactTree::new(),
+            },
+            command_receiver,
+        )
     }
 
     #[tokio::test]
     async fn test_declare_reuse() -> anyhow::Result<()> {
         let digest_config = DigestConfig::compat();
 
-        let mut dm = make_processor(digest_config, Default::default());
+        let (mut dm, _) = make_processor(digest_config, Default::default());
 
         let path = make_path("foo/bar");
         let value = ArtifactValue::file(digest_config.empty_file());
@@ -266,7 +292,7 @@ mod state_machine {
         // await for symlink targets and the entry materialization
         materialization_config.insert(target_path.clone(), TokioDuration::from_millis(100));
 
-        let mut dm = make_processor(digest_config, materialization_config);
+        let (mut dm, _) = make_processor(digest_config, materialization_config);
 
         // Declare symlink target
         dm.declare(
@@ -330,7 +356,7 @@ mod state_machine {
         // await for symlink targets and the entry materialization
         materialization_config.insert(target_path.clone(), TokioDuration::from_millis(100));
 
-        let mut dm = make_processor(digest_config, materialization_config);
+        let (mut dm, _) = make_processor(digest_config, materialization_config);
 
         // Declare symlink
         let symlink_value = make_artifact_value_with_symlink_dep(
