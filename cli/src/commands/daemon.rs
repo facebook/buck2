@@ -60,6 +60,7 @@ use starlark::environment::GlobalsBuilder;
 use thiserror::Error;
 use tokio::runtime::Builder;
 
+use crate::commands::daemon_lower_priority::daemon_lower_priority;
 use crate::commands::schedule_termination::maybe_schedule_termination;
 
 #[derive(Debug, Error)]
@@ -82,6 +83,10 @@ pub(crate) struct DaemonCommand {
     /// Run buck daemon but do not daemonize the process.
     #[clap(long)]
     dont_daemonize: bool,
+    /// This flag is set to prevent infinite recursion when the process is restarted
+    /// with lower priority.
+    #[clap(long)]
+    skip_macos_qos: bool,
 }
 
 impl DaemonCommand {
@@ -90,6 +95,7 @@ impl DaemonCommand {
         DaemonCommand {
             checker_interval_seconds: 60,
             dont_daemonize: true,
+            skip_macos_qos: true,
         }
     }
 }
@@ -472,6 +478,8 @@ impl DaemonCommand {
         in_process: bool,
         listener_created: impl FnOnce() + Send,
     ) -> anyhow::Result<()> {
+        daemon_lower_priority(self.skip_macos_qos)?;
+
         let project_root = paths.project_root();
         let daemon_dir = paths.daemon_dir()?;
 

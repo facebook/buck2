@@ -8,6 +8,7 @@
  */
 
 pub mod daemon;
+pub(crate) mod daemon_lower_priority;
 pub(crate) mod daemonize;
 pub mod docs;
 pub mod forkserver;
