@@ -33,6 +33,7 @@ use crate::eval::compiler::span::IrSpanned;
 use crate::eval::runtime::frame_span::FrameSpan;
 use crate::eval::runtime::inlined_frame::InlinedFrameAlloc;
 use crate::eval::runtime::visit_span::VisitSpanMut;
+use crate::values::enumeration::FrozenEnumType;
 use crate::values::string::interpolation::parse_format_one;
 use crate::values::FrozenStringValue;
 use crate::values::Value;
@@ -215,6 +216,18 @@ impl CallCompiled {
         })?
     }
 
+    // Optimize `MyEnum(arg)`.
+    fn try_enum_value(
+        fun: &IrSpanned<ExprCompiled>,
+        args: &ArgsCompiledValue,
+    ) -> Option<ExprCompiled> {
+        let fun = fun.as_value()?.downcast_frozen_ref::<FrozenEnumType>()?;
+        let arg = args.one_pos()?.as_value()?;
+        Some(ExprCompiled::Value(
+            fun.value.construct(arg.to_value()).ok()?,
+        ))
+    }
+
     // Optimize `"aaa{}bbb".format(arg)`.
     fn try_format(
         fun: &IrSpanned<ExprCompiled>,
@@ -259,6 +272,10 @@ impl CallCompiled {
             if let Some(arg) = args.one_pos() {
                 return ExprCompiled::typ(span, arg.clone());
             }
+        }
+
+        if let Some(r) = CallCompiled::try_enum_value(&fun, &args) {
+            return r;
         }
 
         if let Some(r) = CallCompiled::try_spec_exec(span, &fun, &args, ctx) {

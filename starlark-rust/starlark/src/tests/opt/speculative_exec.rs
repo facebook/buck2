@@ -39,3 +39,17 @@ def test():
 "#,
     );
 }
+
+#[test]
+fn test_speculatively_inline_enum() {
+    bc_golden_test(
+        "speculative_exec_enum_inline",
+        r#"
+MyEnum = enum("red", "green", "blue")
+
+def test(x):
+    # Test there is no enum evaluation.
+    return x == MyEnum("red")
+"#,
+    );
+}
