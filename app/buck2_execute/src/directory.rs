@@ -466,8 +466,8 @@ impl<'a> TryFrom<&'a RE::SymlinkNode> for ActionDirectoryMember {
 
 pub fn relativize_directory(
     builder: &mut ActionDirectoryBuilder,
-    orig_root: &ForwardRelativePath,
-    new_root: &ForwardRelativePath,
+    orig_root: &ProjectRelativePath,
+    new_root: &ProjectRelativePath,
 ) -> anyhow::Result<()> {
     let mut replacements = ActionDirectoryBuilder::empty();
 
@@ -492,6 +492,7 @@ pub fn relativize_directory(
             let new_dest = new_path
                 .parent()
                 .context("Symlink has no dir parent")?
+                .as_forward_relative_path()
                 .as_relative_path()
                 .relative(orig_dest);
             let new_link = Arc::new(Symlink::new(new_dest));
@@ -510,7 +511,7 @@ pub fn relativize_directory(
 
 pub fn insert_entry(
     builder: &mut ActionDirectoryBuilder,
-    path: &ForwardRelativePath,
+    path: &ProjectRelativePath,
     entry: ActionDirectoryEntry<ActionDirectoryBuilder>,
 ) -> anyhow::Result<()> {
     if let DirectoryEntry::Leaf(ActionDirectoryMember::ExternalSymlink(s)) = entry {
@@ -561,7 +562,7 @@ pub fn insert_entry(
 /// symlinks to calculate the `deps` of the `ArtifactValue`.
 pub fn insert_artifact(
     builder: &mut ActionDirectoryBuilder,
-    path: &ForwardRelativePath,
+    path: &ProjectRelativePath,
     value: &ArtifactValue,
 ) -> anyhow::Result<()> {
     insert_entry(
@@ -578,7 +579,7 @@ pub fn insert_artifact(
 
 pub fn insert_file(
     builder: &mut ActionDirectoryBuilder,
-    path: &ForwardRelativePath,
+    path: &ProjectRelativePath,
     meta: FileMetadata,
 ) -> anyhow::Result<()> {
     insert_entry(
@@ -591,7 +592,7 @@ pub fn insert_file(
 #[cfg(test)]
 pub fn insert_symlink(
     builder: &mut ActionDirectoryBuilder,
-    path: &ForwardRelativePath,
+    path: &ProjectRelativePath,
     symlink: Arc<Symlink>,
 ) -> anyhow::Result<()> {
     insert_entry(
@@ -694,10 +695,10 @@ pub fn expand_selector_for_dependencies(
 /// extracting any symlinks found in the builder.
 pub fn extract_artifact_value(
     builder: &ActionDirectoryBuilder,
-    path: &ForwardRelativePath,
+    path: &ProjectRelativePath,
     digest_config: DigestConfig,
 ) -> anyhow::Result<Option<ArtifactValue>> {
-    let entry = match find(builder, path)? {
+    let entry = match find(builder, path.as_forward_relative_path())? {
         Some(entry) => entry,
         _ => return Ok(None),
     };
@@ -725,7 +726,7 @@ pub fn extract_artifact_value(
             }
         };
 
-        if entry_path == path {
+        if entry_path == path.as_forward_relative_path() {
             continue;
         }
 
@@ -763,8 +764,8 @@ mod tests {
 
     use super::*;
 
-    fn path<'a>(s: &'a str) -> &'a ForwardRelativePath {
-        ForwardRelativePath::new(s).unwrap()
+    fn path<'a>(s: &'a str) -> &'a ProjectRelativePath {
+        ProjectRelativePath::new(s).unwrap()
     }
 
     fn assert_dirs_eq(d1: &impl ActionDirectory, d2: &impl ActionDirectory) {
@@ -922,7 +923,7 @@ mod tests {
 
             for p in &["d6/s4", "d6/f4", "d1/d2/d4", "f1"] {
                 let path = path(p);
-                let entry = find(&root, path)?
+                let entry = find(&root, path.as_forward_relative_path())?
                     .with_context(|| format!("Missing {}", path))?
                     .map_dir(|d| d.to_builder())
                     .map_leaf(|l| l.dupe());

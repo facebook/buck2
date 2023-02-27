@@ -18,7 +18,7 @@ use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::directory::DirectoryEntry;
 use buck2_core::directory::DirectoryIterator;
 use buck2_core::directory::FingerprintedDirectory;
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
+use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use dupe::Dupe;
 use remote_execution as RE;
@@ -192,7 +192,7 @@ impl CommandExecutor {
 
         insert_entry(
             &mut builder,
-            ForwardRelativePath::unchecked_new(".buckconfig"),
+            ProjectRelativePath::unchecked_new(".buckconfig"),
             DirectoryEntry::Leaf(ActionDirectoryMember::File(FileMetadata::empty(
                 digest_config.cas_digest_config(),
             ))),

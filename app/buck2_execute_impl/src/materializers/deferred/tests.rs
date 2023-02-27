@@ -33,18 +33,14 @@ fn test_find_artifacts() -> anyhow::Result<()> {
 
     // Build deps with artifacts 1-3, and non-artifacts 1-2
     let mut builder = ActionDirectoryBuilder::empty();
+    insert_file(&mut builder, &artifact1.join_normalized("f1")?, file.dupe())?;
     insert_file(
         &mut builder,
-        artifact1.join_normalized("f1")?.as_ref(),
+        &artifact2.join_normalized("d/f1")?,
         file.dupe(),
     )?;
-    insert_file(
-        &mut builder,
-        artifact2.join_normalized("d/f1")?.as_ref(),
-        file.dupe(),
-    )?;
-    insert_file(&mut builder, artifact3.as_ref(), file.dupe())?;
-    insert_file(&mut builder, non_artifact2.as_ref(), file.dupe())?;
+    insert_file(&mut builder, &artifact3, file.dupe())?;
+    insert_file(&mut builder, &non_artifact2, file.dupe())?;
     builder.mkdir(&non_artifact1)?;
 
     // Build tree with artifacts 1-4

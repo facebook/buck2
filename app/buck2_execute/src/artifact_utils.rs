@@ -50,7 +50,7 @@ impl<'a> ArtifactValueBuilder<'a> {
         path: &ProjectRelativePath,
         entry: ActionDirectoryEntry<ActionDirectoryBuilder>,
     ) -> anyhow::Result<()> {
-        insert_entry(&mut self.builder, path.as_ref(), entry)
+        insert_entry(&mut self.builder, path, entry)
     }
 
     /// Inserts an input to the tree, which will be required when following
@@ -60,7 +60,7 @@ impl<'a> ArtifactValueBuilder<'a> {
         path: &ProjectRelativePath,
         value: &ArtifactValue,
     ) -> anyhow::Result<()> {
-        insert_artifact(&mut self.builder, path.as_ref(), value)
+        insert_artifact(&mut self.builder, path, value)
     }
 
     /// Takes an input `src_value`, adds it to the builder at `src`. Then
@@ -72,7 +72,7 @@ impl<'a> ArtifactValueBuilder<'a> {
         src: &ProjectRelativePath,
         dest: &ProjectRelativePath,
     ) -> anyhow::Result<()> {
-        insert_artifact(&mut self.builder, src.as_ref(), src_value)?;
+        insert_artifact(&mut self.builder, src, src_value)?;
         let entry = DirectoryEntry::Leaf(new_symlink(self.project_fs.relative_path(src, dest))?);
         self.builder.insert(dest, entry)?;
         Ok(())
@@ -88,12 +88,12 @@ impl<'a> ArtifactValueBuilder<'a> {
         src: &ProjectRelativePath,
         dest: &ProjectRelativePath,
     ) -> anyhow::Result<ActionDirectoryEntry<ActionSharedDirectory>> {
-        insert_artifact(&mut self.builder, src.as_ref(), src_value)?;
+        insert_artifact(&mut self.builder, src, src_value)?;
 
         let entry = match src_value.entry() {
             DirectoryEntry::Dir(directory) => {
                 let mut builder = directory.dupe().into_builder();
-                relativize_directory(&mut builder, src.as_ref(), dest.as_ref())?;
+                relativize_directory(&mut builder, src, dest)?;
                 DirectoryEntry::Dir(
                     builder.fingerprint(self.digest_config.as_directory_serializer()),
                 )
@@ -130,7 +130,7 @@ impl<'a> ArtifactValueBuilder<'a> {
     /// project root, `output` must be passed to specify the path of the value
     /// being built.
     pub fn build(&self, output: &ProjectRelativePath) -> anyhow::Result<ArtifactValue> {
-        match extract_artifact_value(&self.builder, output.as_ref(), self.digest_config)? {
+        match extract_artifact_value(&self.builder, output, self.digest_config)? {
             Some(v) => Ok(v),
             None => {
                 tracing::debug!("Extracting {} produces empty directory!", output);

@@ -436,7 +436,7 @@ impl LocalExecutor {
                 .build_entry_from_disk(abspath, digest_config)
                 .with_context(|| format!("collecting output {:?}", path))?;
             if let Some(entry) = entry {
-                insert_entry(&mut builder, path.as_ref(), entry)?;
+                insert_entry(&mut builder, &path, entry)?;
                 entries.push((output.cloned(), path));
             }
         }
@@ -445,7 +445,7 @@ impl LocalExecutor {
         let mut mapped_outputs = IndexMap::with_capacity(entries.len());
 
         for (output, path) in entries {
-            let value = extract_artifact_value(&builder, path.as_ref(), digest_config)?;
+            let value = extract_artifact_value(&builder, &path, digest_config)?;
             if let Some(value) = value {
                 match output {
                     CommandExecutionOutput::BuildArtifact { .. } => {

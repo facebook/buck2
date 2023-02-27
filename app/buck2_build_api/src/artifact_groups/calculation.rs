@@ -310,18 +310,15 @@ impl Key for EnsureProjectedArtifactKey {
         let mut builder = ActionDirectoryBuilder::empty();
         insert_artifact(&mut builder, base_path.as_ref(), &base_value)?;
 
-        let value = extract_artifact_value(
-            &builder,
-            base_path.join(self.0.path()).as_ref(),
-            digest_config,
-        )?
-        .with_context(|| {
-            format!(
-                "The path `{}` does not exist in the artifact `{}`",
-                self.0.path(),
-                self.0.base()
-            )
-        })?;
+        let value =
+            extract_artifact_value(&builder, &base_path.join(self.0.path()), digest_config)?
+                .with_context(|| {
+                    format!(
+                        "The path `{}` does not exist in the artifact `{}`",
+                        self.0.path(),
+                        self.0.base()
+                    )
+                })?;
 
         Ok(value)
     }
