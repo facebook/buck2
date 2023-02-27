@@ -1164,7 +1164,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         if let Some(sqlite_db) = self.sqlite_db.as_mut() {
             if let Err(e) = sqlite_db
                 .materializer_state_table()
-                .insert(path, metadata, Utc::now())
+                .insert(&path, metadata, Utc::now())
             {
                 quiet_soft_error!(
                     "materializer_declare_existing_error",
@@ -1399,7 +1399,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                     if let Some(sqlite_db) = self.sqlite_db.as_mut() {
                         if let Err(e) = sqlite_db
                             .materializer_state_table()
-                            .update_access_time(path.to_buf(), timestamp)
+                            .update_access_time(path, timestamp)
                         {
                             quiet_soft_error!(
                                 "materializer_materialize_error",
@@ -1598,7 +1598,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                             // future on this path.
                             if let Some(sqlite_db) = self.sqlite_db.as_mut() {
                                 if let Err(e) = sqlite_db.materializer_state_table().insert(
-                                    artifact_path,
+                                    &artifact_path,
                                     metadata.dupe(),
                                     timestamp,
                                 ) {

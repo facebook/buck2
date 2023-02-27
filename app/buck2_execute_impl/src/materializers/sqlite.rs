@@ -21,6 +21,7 @@ use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::file_name::FileName;
+use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::ActionDirectoryMember;
@@ -306,7 +307,7 @@ impl MaterializerStateSqliteTable {
 
     pub(crate) fn insert(
         &self,
-        path: ProjectRelativePathBuf,
+        path: &ProjectRelativePath,
         metadata: ArtifactMetadata,
         timestamp: DateTime<Utc>,
     ) -> anyhow::Result<()> {
@@ -343,7 +344,7 @@ impl MaterializerStateSqliteTable {
 
     pub(crate) fn update_access_time(
         &self,
-        path: ProjectRelativePathBuf,
+        path: &ProjectRelativePath,
         timestamp: DateTime<Utc>,
     ) -> anyhow::Result<()> {
         let sql = format!(
@@ -768,9 +769,7 @@ mod tests {
         ]);
 
         for (path, metadata) in artifacts.iter() {
-            table
-                .insert(path.to_owned(), metadata.0.clone(), metadata.1)
-                .unwrap();
+            table.insert(path, metadata.0.clone(), metadata.1).unwrap();
         }
 
         let state = table.read_all(digest_config).unwrap();
@@ -846,7 +845,7 @@ mod tests {
             assert_eq!(&db.last_read_by_table.read_all()?, &metadatas[0]);
 
             db.materializer_state_table()
-                .insert(path.clone(), artifact_metadata.clone(), timestamp)
+                .insert(&path, artifact_metadata.clone(), timestamp)
                 .unwrap();
         }
 
@@ -890,7 +889,7 @@ mod tests {
             assert_eq!(&db.last_read_by_table.read_all()?, &metadatas[2]);
 
             db.materializer_state_table()
-                .insert(path.clone(), artifact_metadata.clone(), timestamp)
+                .insert(&path, artifact_metadata.clone(), timestamp)
                 .unwrap();
         }
 
