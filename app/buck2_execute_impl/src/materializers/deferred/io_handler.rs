@@ -78,7 +78,7 @@ struct MaterializationStat {
 }
 
 #[async_trait]
-pub(super) trait IoHandler: Sync + Send + 'static {
+pub(super) trait IoHandler: Sized + Sync + Send + 'static {
     fn write(
         self: &Arc<Self>,
         path: ProjectRelativePathBuf,

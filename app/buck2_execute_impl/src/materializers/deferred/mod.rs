@@ -194,7 +194,7 @@ impl MaterializerCounters {
 // because the materializer lives for the lifetime of the process anyway, so there's no value in
 // refcounting any of this (though we make many copies of it).
 #[derive(Copy_, Dupe_, Clone_)]
-struct MaterializerSender<T: ?Sized + 'static> {
+struct MaterializerSender<T: 'static> {
     /// High priority commands are processed in order.
     high_priority: &'static mpsc::UnboundedSender<MaterializerCommand<T>>,
     /// Low priority commands are processed in order relative to each other, but high priority
@@ -292,7 +292,7 @@ enum ProcessingFuture {
 }
 
 /// Message taken by the `DeferredMaterializer`'s command loop.
-enum MaterializerCommand<T: ?Sized> {
+enum MaterializerCommand<T> {
     // [Materializer trait methods -> Command thread]
     /// Takes a list of file paths, computes the materialized file paths of all
     /// of them, and sends the result through the oneshot.
