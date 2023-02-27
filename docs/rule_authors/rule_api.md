@@ -135,3 +135,5 @@ The examples below assume an artifact such as one created with `ctx.actions.decl
 Artifacts can be *projected* via the `project()` method. Projecting an artifact yields a path within it.
 
 For example, if artifact `foo` is a directory containing a file `bar`, then `foo.project("bar")` yields the file `bar`.
+
+It is possible for projected artifacts to hide the prefix in order to have the short name of the resulting artifact only contain the projected path, by passing `hide_prefix = True` to `project()`.
