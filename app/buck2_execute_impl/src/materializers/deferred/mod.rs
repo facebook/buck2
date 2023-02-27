@@ -96,6 +96,7 @@ use crate::materializers::deferred::extension::ExtensionCommand;
 use crate::materializers::deferred::file_tree::FileTree;
 use crate::materializers::deferred::io_handler::DefaultIoHandler;
 use crate::materializers::deferred::io_handler::IoHandler;
+use crate::materializers::deferred::subscriptions::MaterializerSubscriptionOperation;
 use crate::materializers::deferred::subscriptions::MaterializerSubscriptions;
 use crate::materializers::immediate;
 use crate::materializers::sqlite::MaterializerState;
@@ -227,7 +228,7 @@ impl<T> MaterializerSender<T> {
     }
 }
 
-struct MaterializerReceiver<T> {
+struct MaterializerReceiver<T: 'static> {
     high_priority: mpsc::UnboundedReceiver<MaterializerCommand<T>>,
     low_priority: mpsc::UnboundedReceiver<LowPriorityMaterializerCommand>,
     counters: MaterializerCounters,
@@ -298,7 +299,7 @@ enum ProcessingFuture {
 }
 
 /// Message taken by the `DeferredMaterializer`'s command loop.
-enum MaterializerCommand<T> {
+enum MaterializerCommand<T: 'static> {
     // [Materializer trait methods -> Command thread]
     /// Takes a list of file paths, computes the materialized file paths of all
     /// of them, and sends the result through the oneshot.
@@ -344,6 +345,8 @@ enum MaterializerCommand<T> {
         oneshot::Sender<BoxStream<'static, Result<(), MaterializationError>>>,
     ),
 
+    Subscription(MaterializerSubscriptionOperation<T>),
+
     Extension(Box<dyn ExtensionCommand<T>>),
 }
 
@@ -370,6 +373,7 @@ impl<T> std::fmt::Debug for MaterializerCommand<T> {
                 write!(f, "InvalidateFilePaths({:?})", paths)
             }
             MaterializerCommand::Ensure(paths, _, _) => write!(f, "Ensure({:?}, _)", paths,),
+            MaterializerCommand::Subscription(op) => write!(f, "Subscription({:?})", op,),
             MaterializerCommand::Extension(ext) => write!(f, "Extension({:?})", ext),
         }
     }
@@ -939,19 +943,19 @@ impl std::fmt::Display for LogBuffer {
 }
 
 #[pin_project]
-struct CommandStream<T> {
+struct CommandStream<T: 'static> {
     high_priority: UnboundedReceiver<MaterializerCommand<T>>,
     low_priority: UnboundedReceiver<LowPriorityMaterializerCommand>,
     refresh_ttl_ticker: Option<Interval>,
 }
 
-enum Op<T> {
+enum Op<T: 'static> {
     Command(MaterializerCommand<T>),
     LowPriorityCommand(LowPriorityMaterializerCommand),
     RefreshTtls,
 }
 
-impl<T> Stream for CommandStream<T> {
+impl<T: 'static> Stream for CommandStream<T> {
     type Item = Op<T>;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
@@ -1111,6 +1115,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                     .send(self.materialize_many_artifacts(paths, event_dispatcher))
                     .ok();
             }
+            MaterializerCommand::Subscription(sub) => sub.execute(self),
             MaterializerCommand::Extension(ext) => ext.execute(self),
         }
     }

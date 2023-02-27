@@ -411,4 +411,27 @@ mod state_machine {
 
         Ok(())
     }
+
+    #[tokio::test]
+    async fn test_subscription_create_destroy() {
+        let digest_config = DigestConfig::compat();
+
+        let (mut dm, mut channel) = make_processor(digest_config, Default::default());
+
+        let handle = {
+            let (sender, recv) = oneshot::channel();
+            MaterializerSubscriptionOperation::Create { sender }.execute(&mut dm);
+            recv.await.unwrap()
+        };
+
+        assert!(dm.subscriptions.has_subscription(&handle));
+
+        drop(handle);
+
+        while let Ok(cmd) = channel.high_priority.try_recv() {
+            dm.process_one_command(cmd);
+        }
+
+        assert!(!dm.subscriptions.has_any_subscriptions());
+    }
 }
