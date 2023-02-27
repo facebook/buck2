@@ -18,7 +18,12 @@ use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use derivative::Derivative;
 use derive_more::Display;
 use dupe::Dupe;
+use futures::stream::Stream;
+use tokio::sync::mpsc::unbounded_channel;
+use tokio::sync::mpsc::UnboundedReceiver;
+use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::oneshot::Sender;
+use tokio_stream::wrappers::UnboundedReceiverStream;
 
 use crate::materializers::deferred::DeferredMaterializerCommandProcessor;
 use crate::materializers::deferred::IoHandler;
@@ -42,11 +47,23 @@ impl MaterializerSubscriptions {
 
     /// Return whether a given path should be materialized eagerly.
     pub fn should_materialize_eagerly(&self, path: &ProjectRelativePath) -> bool {
+        for sub in self.active.values() {
+            if sub.paths.contains(path) {
+                return true;
+            }
+        }
+
         false
     }
 
     /// Notify this subscription that a given path has been materialized.
-    pub fn on_materialization_finished(&self, path: &ProjectRelativePath) {}
+    pub fn on_materialization_finished(&self, path: &ProjectRelativePath) {
+        for sub in self.active.values() {
+            if sub.paths.contains(path) {
+                sub.sender.send(path.to_owned());
+            }
+        }
+    }
 
     #[cfg(test)]
     pub(super) fn has_subscription<T>(&self, handle: &SubscriptionHandle<T>) -> bool
@@ -64,12 +81,14 @@ impl MaterializerSubscriptions {
 
 struct SubscriptionData {
     paths: HashSet<ProjectRelativePathBuf>,
+    sender: UnboundedSender<ProjectRelativePathBuf>,
 }
 
 impl SubscriptionData {
-    fn new() -> Self {
+    fn new(sender: UnboundedSender<ProjectRelativePathBuf>) -> Self {
         Self {
             paths: HashSet::new(),
+            sender,
         }
     }
 }
@@ -117,18 +136,28 @@ where
             Self::Create { sender } => {
                 let subscriptions = &mut dm.subscriptions;
                 let index = dm.subscriptions.index.next();
+                let (notification_sender, notification_receiver) = unbounded_channel();
                 dm.subscriptions
                     .active
-                    .insert(index, SubscriptionData::new());
+                    .insert(index, SubscriptionData::new(notification_sender));
                 let _ignored = sender.send(SubscriptionHandle {
                     index,
                     command_sender: dm.command_sender.dupe(),
+                    receiver: UnboundedReceiverStream::new(notification_receiver),
                 });
             }
             Self::Destroy { index } => {
                 dm.subscriptions.active.remove(&index);
             }
             Self::Subscribe { index, paths } => {
+                let mut paths_to_report = Vec::new();
+
+                for path in &paths {
+                    if dm.is_path_materialized(path) {
+                        paths_to_report.push(path.to_owned());
+                    }
+                }
+
                 // Messages are processed in order and handles delete themselves when they are
                 // dropped so it's not possible for us to receive this message without the
                 // underlying subscription existing.
@@ -138,6 +167,10 @@ where
                     .get_mut(&index)
                     .with_context(|| format!("Invalid subscription: {}", index))
                     .unwrap();
+
+                for path in paths_to_report {
+                    subscription.sender.send(path);
+                }
 
                 subscription.paths.extend(paths);
             }
@@ -153,6 +186,9 @@ pub(super) struct SubscriptionHandle<T: 'static> {
     index: SubscriptionIndex,
     #[derivative(Debug = "ignore")]
     command_sender: MaterializerSender<T>,
+    /// Channel to send back notifications.
+    #[derivative(Debug = "ignore")]
+    receiver: UnboundedReceiverStream<ProjectRelativePathBuf>,
 }
 
 impl<T: 'static> SubscriptionHandle<T> {
@@ -163,6 +199,15 @@ impl<T: 'static> SubscriptionHandle<T> {
                 paths,
             },
         ));
+    }
+
+    pub fn stream(&mut self) -> &mut (impl Stream<Item = ProjectRelativePathBuf> + Unpin) {
+        &mut self.receiver
+    }
+
+    #[cfg(test)]
+    pub fn receiver(&mut self) -> &mut UnboundedReceiver<ProjectRelativePathBuf> {
+        self.receiver.as_mut()
     }
 }
 

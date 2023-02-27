@@ -1073,7 +1073,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
             }
             MaterializerCommand::DeclareExisting(artifacts, ..) => {
                 for (path, artifact) in artifacts {
-                    self.declare_existing(path, artifact);
+                    self.declare_existing(&path, artifact);
                 }
             }
             // Entry point for `declare_{copy|cas}` calls
@@ -1141,6 +1141,18 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         }
     }
 
+    fn is_path_materialized(&self, path: &ProjectRelativePath) -> bool {
+        match self.tree.prefix_get(&mut path.iter()) {
+            None => false,
+            Some(data) => {
+                matches!(
+                    data.stage,
+                    ArtifactMaterializationStage::Materialized { .. }
+                )
+            }
+        }
+    }
+
     fn materialize_many_artifacts(
         &mut self,
         paths: Vec<ProjectRelativePathBuf>,
@@ -1164,7 +1176,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         tasks.collect::<FuturesOrdered<_>>().boxed()
     }
 
-    fn declare_existing(&mut self, path: ProjectRelativePathBuf, value: ArtifactValue) {
+    fn declare_existing(&mut self, path: &ProjectRelativePath, value: ArtifactValue) {
         let metadata = ArtifactMetadata::from(value.entry().dupe());
 
         on_materialization(

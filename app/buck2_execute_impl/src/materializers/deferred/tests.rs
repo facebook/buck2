@@ -434,4 +434,41 @@ mod state_machine {
 
         assert!(!dm.subscriptions.has_any_subscriptions());
     }
+
+    #[tokio::test]
+    async fn test_subscription_notifications() {
+        let digest_config = DigestConfig::compat();
+        let value = ArtifactValue::file(digest_config.empty_file());
+
+        let (mut dm, mut channel) = make_processor(digest_config, Default::default());
+
+        let mut handle = {
+            let (sender, recv) = oneshot::channel();
+            MaterializerSubscriptionOperation::Create { sender }.execute(&mut dm);
+            recv.await.unwrap()
+        };
+
+        let foo_bar = make_path("foo/bar");
+        let foo_bar_baz = make_path("foo/bar/baz");
+        let bar = make_path("bar");
+        let qux = make_path("qux");
+
+        dm.declare_existing(&foo_bar, value.dupe());
+
+        handle.subscribe_to_paths(vec![foo_bar_baz.clone(), bar.clone()]);
+        while let Ok(cmd) = channel.high_priority.try_recv() {
+            dm.process_one_command(cmd);
+        }
+
+        dm.declare_existing(&bar, value.dupe());
+        dm.declare_existing(&foo_bar_baz, value.dupe());
+        dm.declare_existing(&qux, value.dupe());
+
+        let mut paths = Vec::new();
+        while let Ok(path) = handle.receiver().try_recv() {
+            paths.push(path);
+        }
+
+        assert_eq!(paths, vec![foo_bar_baz.clone(), bar, foo_bar_baz]);
+    }
 }
