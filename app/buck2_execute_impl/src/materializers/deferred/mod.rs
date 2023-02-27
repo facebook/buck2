@@ -11,6 +11,7 @@ mod clean_stale;
 mod extension;
 mod file_tree;
 mod io_handler;
+mod subscriptions;
 
 #[cfg(test)]
 mod tests;
@@ -95,6 +96,7 @@ use crate::materializers::deferred::extension::ExtensionCommand;
 use crate::materializers::deferred::file_tree::FileTree;
 use crate::materializers::deferred::io_handler::DefaultIoHandler;
 use crate::materializers::deferred::io_handler::IoHandler;
+use crate::materializers::deferred::subscriptions::MaterializerSubscriptions;
 use crate::materializers::immediate;
 use crate::materializers::sqlite::MaterializerState;
 use crate::materializers::sqlite::MaterializerStateSqliteDb;
@@ -247,6 +249,8 @@ struct DeferredMaterializerCommandProcessor<T: 'static> {
     command_sender: MaterializerSender<T>,
     /// The actual materializer state.
     tree: ArtifactTree,
+    /// Active subscriptions
+    subscriptions: MaterializerSubscriptions,
 }
 
 // NOTE: This doesn't derive `Error` and that's on purpose.  We don't want to make it easy (or
@@ -875,6 +879,7 @@ impl DeferredMaterializer {
             version_tracker: VersionTracker::new(),
             command_sender: command_sender.dupe(),
             tree,
+            subscriptions: MaterializerSubscriptions::new(),
         };
 
         let command_thread = std::thread::Builder::new()
@@ -1068,8 +1073,12 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 }
             }
             // Entry point for `declare_{copy|cas}` calls
-            MaterializerCommand::Declare(path, value, method, _event_dispatcher) => {
+            MaterializerCommand::Declare(path, value, method, event_dispatcher) => {
                 self.declare(&path, value, method);
+
+                if self.subscriptions.should_materialize_eagerly(&path) {
+                    self.materialize_artifact(&path, event_dispatcher);
+                }
             }
             MaterializerCommand::MatchArtifacts(paths, sender) => {
                 let all_matches = paths
@@ -1156,6 +1165,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         on_materialization(
             self.sqlite_db.as_mut(),
             &self.log_buffer,
+            &self.subscriptions,
             &path,
             &metadata,
             Utc::now(),
@@ -1603,6 +1613,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                             on_materialization(
                                 self.sqlite_db.as_mut(),
                                 &self.log_buffer,
+                                &self.subscriptions,
                                 &artifact_path,
                                 &metadata,
                                 timestamp,
@@ -1636,6 +1647,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
 fn on_materialization(
     sqlite_db: Option<&mut MaterializerStateSqliteDb>,
     log_buffer: &LogBuffer,
+    subscriptions: &MaterializerSubscriptions,
     path: &ProjectRelativePath,
     metadata: &ArtifactMetadata,
     timestamp: DateTime<Utc>,
@@ -1649,6 +1661,8 @@ fn on_materialization(
             quiet_soft_error!(error_name, e.context(log_buffer.clone())).unwrap();
         }
     }
+
+    subscriptions.on_materialization_finished(path);
 }
 
 impl ArtifactTree {

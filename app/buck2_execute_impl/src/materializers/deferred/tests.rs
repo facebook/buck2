@@ -226,6 +226,7 @@ mod state_machine {
                 version_tracker: VersionTracker::new(),
                 command_sender,
                 tree: ArtifactTree::new(),
+                subscriptions: MaterializerSubscriptions::new(),
             },
             command_receiver,
         )
