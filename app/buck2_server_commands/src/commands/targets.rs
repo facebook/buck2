@@ -101,14 +101,29 @@ trait TargetFormatter: Send + Sync {
     fn package_error(&self, package: PackageLabel, error: &anyhow::Error, buffer: &mut String) {}
 }
 
-struct JsonFormat {
-    attributes: Option<RegexSet>,
-    attr_inspect_opts: AttrInspectOptions,
-    target_call_stacks: bool,
+struct JsonWriter {
     json_lines: bool,
 }
 
-impl JsonFormat {
+impl JsonWriter {
+    fn begin(&self, buffer: &mut String) {
+        if !self.json_lines {
+            buffer.push_str("[\n");
+        }
+    }
+
+    fn end(&self, buffer: &mut String) {
+        if !self.json_lines {
+            buffer.push_str("\n]\n");
+        }
+    }
+
+    fn separator(&self, buffer: &mut String) {
+        if !self.json_lines {
+            buffer.push_str(",\n");
+        }
+    }
+
     fn entry_start(&self, buffer: &mut String) {
         if self.json_lines {
             buffer.push('{');
@@ -144,25 +159,28 @@ impl JsonFormat {
     }
 }
 
+struct JsonFormat {
+    attributes: Option<RegexSet>,
+    attr_inspect_opts: AttrInspectOptions,
+    target_call_stacks: bool,
+    writer: JsonWriter,
+}
+
 impl TargetFormatter for JsonFormat {
     fn begin(&self, buffer: &mut String) {
-        if !self.json_lines {
-            buffer.push_str("[\n");
-        }
+        self.writer.begin(buffer)
     }
+
     fn end(&self, _stats: &Stats, buffer: &mut String) {
-        if !self.json_lines {
-            buffer.push_str("\n]\n");
-        }
+        self.writer.end(buffer)
     }
+
     fn separator(&self, buffer: &mut String) {
-        if !self.json_lines {
-            buffer.push_str(",\n");
-        }
+        self.writer.separator(buffer)
     }
 
     fn target(&self, package: PackageLabel, target_info: TargetInfo<'_>, buffer: &mut String) {
-        self.entry_start(buffer);
+        self.writer.entry_start(buffer);
         let mut first = true;
 
         fn print_attr(
@@ -177,7 +195,7 @@ impl TargetFormatter for JsonFormat {
                     return;
                 }
             }
-            this.entry_item(buffer, first, k, &v());
+            this.writer.entry_item(buffer, first, k, &v());
         }
 
         print_attr(self, buffer, &mut first, TYPE, || {
@@ -234,7 +252,7 @@ impl TargetFormatter for JsonFormat {
                 }
             }
         }
-        self.entry_end(buffer, first);
+        self.writer.entry_end(buffer, first);
     }
 
     fn imports(
@@ -244,23 +262,23 @@ impl TargetFormatter for JsonFormat {
         package: Option<PackageLabel>,
         buffer: &mut String,
     ) {
-        self.entry_start(buffer);
+        self.writer.entry_start(buffer);
         let mut first = true;
         if let Some(package) = package {
-            self.entry_item(
+            self.writer.entry_item(
                 buffer,
                 &mut first,
                 PACKAGE,
                 &quote_json_string(&package.to_string()),
             );
         }
-        self.entry_item(
+        self.writer.entry_item(
             buffer,
             &mut first,
             "buck.file",
             &quote_json_string(&source.to_string()),
         );
-        self.entry_item(
+        self.writer.entry_item(
             buffer,
             &mut first,
             "buck.imports",
@@ -271,25 +289,25 @@ impl TargetFormatter for JsonFormat {
                     .join(", ")
             ),
         );
-        self.entry_end(buffer, first);
+        self.writer.entry_end(buffer, first);
     }
 
     fn package_error(&self, package: PackageLabel, error: &anyhow::Error, buffer: &mut String) {
-        self.entry_start(buffer);
+        self.writer.entry_start(buffer);
         let mut first = true;
-        self.entry_item(
+        self.writer.entry_item(
             buffer,
             &mut first,
             PACKAGE,
             &quote_json_string(&package.to_string()),
         );
-        self.entry_item(
+        self.writer.entry_item(
             buffer,
             &mut first,
             "buck.error",
             &quote_json_string(&format!("{:?}", error)),
         );
-        self.entry_end(buffer, first);
+        self.writer.entry_end(buffer, first);
     }
 }
 
@@ -505,7 +523,9 @@ fn crate_formatter(request: &TargetsRequest) -> anyhow::Result<Arc<dyn TargetFor
                 AttrInspectOptions::DefinedOnly
             },
             target_call_stacks: request.target_call_stacks,
-            json_lines: request.json_lines,
+            writer: JsonWriter {
+                json_lines: request.json_lines,
+            },
         }))
     } else if request.stats {
         Ok(Arc::new(StatsFormat))
