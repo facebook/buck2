@@ -1148,26 +1148,26 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
     fn declare_existing(&mut self, path: ProjectRelativePathBuf, value: ArtifactValue) {
         let metadata = ArtifactMetadata::from(value.entry().dupe());
 
+        on_materialization(
+            self.sqlite_db.as_mut(),
+            &self.log_buffer,
+            &path,
+            &metadata,
+            Utc::now(),
+            "materializer_declare_existing_error",
+        );
+
         self.tree.insert(
             path.iter().map(|f| f.to_owned()),
             box ArtifactMaterializationData {
                 deps: value.deps().duped(),
                 stage: ArtifactMaterializationStage::Materialized {
-                    metadata: metadata.dupe(),
+                    metadata,
                     last_access_time: Utc::now(),
                     active: true,
                 },
                 processing: Processing::Done(self.version_tracker.next()),
             },
-        );
-
-        on_materialization(
-            self.sqlite_db.as_mut(),
-            &self.log_buffer,
-            &path,
-            metadata,
-            Utc::now(),
-            "materializer_declare_existing_error",
         );
     }
 
@@ -1596,7 +1596,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                                 self.sqlite_db.as_mut(),
                                 &self.log_buffer,
                                 &artifact_path,
-                                metadata.dupe(),
+                                &metadata,
                                 timestamp,
                                 "materializer_finished_error",
                             );
@@ -1629,7 +1629,7 @@ fn on_materialization(
     sqlite_db: Option<&mut MaterializerStateSqliteDb>,
     log_buffer: &LogBuffer,
     path: &ProjectRelativePath,
-    metadata: ArtifactMetadata,
+    metadata: &ArtifactMetadata,
     timestamp: DateTime<Utc>,
     error_name: &'static str,
 ) {

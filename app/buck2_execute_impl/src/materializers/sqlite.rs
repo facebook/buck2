@@ -100,9 +100,9 @@ impl ArtifactMetadataSqliteEntry {
     }
 }
 
-impl From<ArtifactMetadata> for ArtifactMetadataSqliteEntry {
-    fn from(metadata: ArtifactMetadata) -> Self {
-        fn digest_parts(digest: TrackedFileDigest) -> (u64, Vec<u8>, u8) {
+impl From<&ArtifactMetadata> for ArtifactMetadataSqliteEntry {
+    fn from(metadata: &ArtifactMetadata) -> Self {
+        fn digest_parts(digest: &TrackedFileDigest) -> (u64, Vec<u8>, u8) {
             (
                 digest.size(),
                 digest.digest().as_bytes().to_vec(),
@@ -117,7 +117,7 @@ impl From<ArtifactMetadata> for ArtifactMetadataSqliteEntry {
             entry_hash_kind,
             file_is_executable,
             symlink_target,
-        ) = match metadata.0 {
+        ) = match &metadata.0 {
             DirectoryEntry::Dir(digest) => {
                 let (entry_size, entry_hash, entry_hash_kind) = digest_parts(digest);
                 (
@@ -130,7 +130,7 @@ impl From<ArtifactMetadata> for ArtifactMetadataSqliteEntry {
                 )
             }
             DirectoryEntry::Leaf(ActionDirectoryMember::File(file_metadata)) => {
-                let (entry_size, entry_hash, entry_hash_kind) = digest_parts(file_metadata.digest);
+                let (entry_size, entry_hash, entry_hash_kind) = digest_parts(&file_metadata.digest);
                 (
                     "file",
                     Some(entry_size),
@@ -309,7 +309,7 @@ impl MaterializerStateSqliteTable {
     pub(crate) fn insert(
         &self,
         path: &ProjectRelativePath,
-        metadata: ArtifactMetadata,
+        metadata: &ArtifactMetadata,
         timestamp: DateTime<Utc>,
     ) -> anyhow::Result<()> {
         let entry: ArtifactMetadataSqliteEntry = metadata.into();
@@ -642,7 +642,7 @@ mod tests {
         let digest =
             TrackedFileDigest::from_content(b"directory", digest_config.cas_digest_config());
         let metadata = ArtifactMetadata(DirectoryEntry::Dir(digest));
-        let entry: ArtifactMetadataSqliteEntry = metadata.dupe().into();
+        let entry = ArtifactMetadataSqliteEntry::from(&metadata);
         assert_eq!(
             metadata,
             convert_artifact_metadata(entry, digest_config).unwrap()
@@ -660,7 +660,7 @@ mod tests {
                 is_executable: false,
             },
         )));
-        let entry: ArtifactMetadataSqliteEntry = metadata.dupe().into();
+        let entry = ArtifactMetadataSqliteEntry::from(&metadata);
         assert_eq!(
             metadata,
             convert_artifact_metadata(entry, digest_config).unwrap()
@@ -677,7 +677,7 @@ mod tests {
         assert_matches!(symlink, ActionDirectoryMember::Symlink(..));
 
         let metadata = ArtifactMetadata(DirectoryEntry::Leaf(symlink));
-        let entry: ArtifactMetadataSqliteEntry = metadata.dupe().into();
+        let entry = ArtifactMetadataSqliteEntry::from(&metadata);
         assert_eq!(
             metadata,
             convert_artifact_metadata(entry, digest_config).unwrap()
@@ -700,7 +700,7 @@ mod tests {
         assert_matches!(external_symlink, ActionDirectoryMember::ExternalSymlink(..));
 
         let metadata = ArtifactMetadata(DirectoryEntry::Leaf(external_symlink));
-        let entry: ArtifactMetadataSqliteEntry = metadata.dupe().into();
+        let entry = ArtifactMetadataSqliteEntry::from(&metadata);
         assert_eq!(
             metadata,
             convert_artifact_metadata(entry, digest_config).unwrap()
@@ -775,7 +775,7 @@ mod tests {
         ]);
 
         for (path, metadata) in artifacts.iter() {
-            table.insert(path, metadata.0.clone(), metadata.1).unwrap();
+            table.insert(path, &metadata.0, metadata.1).unwrap();
         }
 
         let state = table.read_all(digest_config).unwrap();
@@ -851,7 +851,7 @@ mod tests {
             assert_eq!(&db.last_read_by_table.read_all()?, &metadatas[0]);
 
             db.materializer_state_table()
-                .insert(&path, artifact_metadata.clone(), timestamp)
+                .insert(&path, &artifact_metadata, timestamp)
                 .unwrap();
         }
 
@@ -895,7 +895,7 @@ mod tests {
             assert_eq!(&db.last_read_by_table.read_all()?, &metadatas[2]);
 
             db.materializer_state_table()
-                .insert(&path, artifact_metadata.clone(), timestamp)
+                .insert(&path, &artifact_metadata, timestamp)
                 .unwrap();
         }
 
