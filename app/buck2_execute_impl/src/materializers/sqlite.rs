@@ -33,6 +33,7 @@ use chrono::Utc;
 use dupe::Dupe;
 use gazebo::prelude::*;
 use itertools::Itertools;
+use once_cell::sync::Lazy;
 use parking_lot::Mutex;
 use rusqlite::Connection;
 use thiserror::Error;
@@ -45,6 +46,8 @@ use crate::materializers::deferred::ArtifactMetadata;
 /// then you can fix forward by bumping the `buck2.sqlite_materializer_state_version`
 /// buckconfig in the project root's .buckconfig.
 pub const DB_SCHEMA_VERSION: u64 = 4;
+
+const STATE_TABLE_NAME: &str = "materializer_state";
 
 pub type MaterializerState = Vec<(ProjectRelativePathBuf, (ArtifactMetadata, DateTime<Utc>))>;
 
@@ -277,8 +280,6 @@ pub(crate) struct MaterializerStateSqliteTable {
 }
 
 impl MaterializerStateSqliteTable {
-    const TABLE_NAME: &'static str = "materializer_state";
-
     pub fn new(connection: Arc<Mutex<Connection>>) -> Self {
         Self { connection }
     }
@@ -295,13 +296,13 @@ impl MaterializerStateSqliteTable {
                 symlink_target          TEXT NULL DEFAULT NULL,
                 last_access_time        INTEGER NOT NULL
             )",
-            Self::TABLE_NAME,
+            STATE_TABLE_NAME,
         );
-        tracing::trace!(sql = %sql, "creating table");
+        tracing::trace!(sql = %*sql, "creating table");
         self.connection
             .lock()
             .execute(&sql, [])
-            .with_context(|| format!("creating sqlite table {}", Self::TABLE_NAME))?;
+            .with_context(|| format!("creating sqlite table {}", STATE_TABLE_NAME))?;
         Ok(())
     }
 
@@ -312,15 +313,17 @@ impl MaterializerStateSqliteTable {
         timestamp: DateTime<Utc>,
     ) -> anyhow::Result<()> {
         let entry: ArtifactMetadataSqliteEntry = metadata.into();
-        let sql = format!(
-            "INSERT INTO {} (path, artifact_type, entry_size, entry_hash, entry_hash_kind, file_is_executable, symlink_target, last_access_time) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-            Self::TABLE_NAME
-        );
-        tracing::trace!(sql = %sql, entry = ?entry, "inserting into table");
+        static SQL: Lazy<String> = Lazy::new(|| {
+            format!(
+                "INSERT INTO {} (path, artifact_type, entry_size, entry_hash, entry_hash_kind, file_is_executable, symlink_target, last_access_time) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                STATE_TABLE_NAME
+            )
+        });
+        tracing::trace!(sql = %*SQL, entry = ?entry, "inserting into table");
         self.connection
             .lock()
             .execute(
-                &sql,
+                &SQL,
                 rusqlite::params![
                     path.as_str(),
                     entry.artifact_type,
@@ -335,8 +338,7 @@ impl MaterializerStateSqliteTable {
             .with_context(|| {
                 format!(
                     "inserting `{}` into sqlite table {}",
-                    path,
-                    Self::TABLE_NAME
+                    path, STATE_TABLE_NAME
                 )
             })?;
         Ok(())
@@ -347,18 +349,20 @@ impl MaterializerStateSqliteTable {
         path: &ProjectRelativePath,
         timestamp: DateTime<Utc>,
     ) -> anyhow::Result<()> {
-        let sql = format!(
-            "UPDATE {} SET last_access_time = (?1) WHERE path = (?2)",
-            Self::TABLE_NAME,
-        );
-        tracing::trace!(sql = %sql, now = %timestamp, "updating last_access_time");
+        static SQL: Lazy<String> = Lazy::new(|| {
+            format!(
+                "UPDATE {} SET last_access_time = (?1) WHERE path = (?2)",
+                STATE_TABLE_NAME,
+            )
+        });
+        tracing::trace!(sql = %*SQL, now = %timestamp, "updating last_access_time");
         self.connection
             .lock()
             .execute(
-                &sql,
+                &SQL,
                 rusqlite::params![timestamp.timestamp(), path.as_str()],
             )
-            .with_context(|| format!("updating sqlite table {}", Self::TABLE_NAME))?;
+            .with_context(|| format!("updating sqlite table {}", STATE_TABLE_NAME))?;
         Ok(())
     }
 
@@ -366,13 +370,15 @@ impl MaterializerStateSqliteTable {
         &self,
         digest_config: DigestConfig,
     ) -> anyhow::Result<MaterializerState> {
-        let sql = format!(
-            "SELECT path, artifact_type, entry_size, entry_hash, entry_hash_kind, file_is_executable, symlink_target, last_access_time FROM {}",
-            Self::TABLE_NAME,
-        );
-        tracing::trace!(sql = %sql, "reading all from table");
+        static SQL: Lazy<String> = Lazy::new(|| {
+            format!(
+                "SELECT path, artifact_type, entry_size, entry_hash, entry_hash_kind, file_is_executable, symlink_target, last_access_time FROM {}",
+                STATE_TABLE_NAME,
+            )
+        });
+        tracing::trace!(sql = %*SQL, "reading all from table");
         let connection = self.connection.lock();
-        let mut stmt = connection.prepare(&sql)?;
+        let mut stmt = connection.prepare(&SQL)?;
         let result = stmt
             .query_map(
                 [],
@@ -392,7 +398,7 @@ impl MaterializerStateSqliteTable {
                 },
             )?
             .collect::<Result<Vec<_>, _>>()
-            .with_context(|| format!("reading from sqlite table {}", Self::TABLE_NAME))?;
+            .with_context(|| format!("reading from sqlite table {}", STATE_TABLE_NAME))?;
 
         result
             .into_try_map(
@@ -403,7 +409,7 @@ impl MaterializerStateSqliteTable {
                     Ok((path, (metadata, timestamp)))
                 },
             )
-            .with_context(|| format!("error reading row of sqlite table {}", Self::TABLE_NAME))
+            .with_context(|| format!("error reading row of sqlite table {}", STATE_TABLE_NAME))
     }
 
     pub(crate) fn delete(&self, paths: Vec<ProjectRelativePathBuf>) -> anyhow::Result<usize> {
@@ -412,7 +418,7 @@ impl MaterializerStateSqliteTable {
         }
         let sql = format!(
             "DELETE FROM {} WHERE path IN ({})",
-            Self::TABLE_NAME,
+            STATE_TABLE_NAME,
             // According to rusqlite docs this is the best way to generate the right
             // number of query placeholders.
             itertools::repeat_n("?", paths.len()).join(","),
@@ -425,7 +431,7 @@ impl MaterializerStateSqliteTable {
                 &sql,
                 rusqlite::params_from_iter(paths.iter().map(|p| p.as_str())),
             )
-            .with_context(|| format!("deleting from sqlite table {}", Self::TABLE_NAME))?;
+            .with_context(|| format!("deleting from sqlite table {}", STATE_TABLE_NAME))?;
         Ok(rows_deleted)
     }
 }
