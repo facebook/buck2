@@ -52,7 +52,6 @@ use buck2_data::ToProtoMessage;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::artifact::fs::ArtifactFs;
 use buck2_execute::artifact::fs::ExecutorFs;
-use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_execute::execute::blocking::HasBlockingExecutor;
@@ -63,7 +62,6 @@ use buck2_execute::execute::dice_data::HasCommandExecutor;
 use buck2_execute::execute::environment_inheritance::EnvironmentInheritance;
 use buck2_execute::execute::manager::CommandExecutionManager;
 use buck2_execute::execute::request::CommandExecutionInput;
-use buck2_execute::execute::request::CommandExecutionOutput;
 use buck2_execute::execute::request::CommandExecutionRequest;
 use buck2_execute::execute::request::ExecutorPreference;
 use buck2_execute::execute::request::OutputCreationBehavior;
@@ -259,8 +257,7 @@ impl TestOrchestrator for BuckTestOrchestrator {
 
         let (outputs, paths_to_materialize) = outputs
             .into_iter()
-            .filter_map(|(output, _value)| output.into_test_path())
-            .map(|(test_path, _)| {
+            .map(|test_path| {
                 let project_path = fs.buck_out_path_resolver().resolve_test(&test_path);
                 let abs_path = fs.fs().resolve(&project_path);
                 let declared_output = DeclaredOutput {
@@ -420,7 +417,7 @@ impl BuckTestOrchestrator {
         ExecutionStream,
         ExecutionStatus,
         CommandExecutionTimingData,
-        IndexMap<CommandExecutionOutput, ArtifactValue>,
+        Vec<BuckOutTestPath>,
     )> {
         // We'd love to use the `metadata` field to generate a unique identifier,
         // but Tpx might run the same test repeatedly, so it is not unique.
@@ -509,6 +506,11 @@ impl BuckTestOrchestrator {
                     .await
             }
         };
+
+        let outputs = outputs
+            .into_keys()
+            .filter_map(|output| Some(output.into_test_path()?.0))
+            .collect();
 
         let std_streams = std_streams
             .into_bytes()
