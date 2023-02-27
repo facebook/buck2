@@ -45,10 +45,10 @@ use either::Either;
 use gazebo::cell::AsARef;
 use gazebo::display::display_container;
 use serde::Serialize;
+use starlark_map::Equivalent;
 use thiserror::Error;
 
 use crate::any::ProvidesStaticType;
-use crate::coerce::coerce;
 use crate::coerce::Coerce;
 use crate::collections::SmallMap;
 use crate::collections::StarlarkHasher;
@@ -185,29 +185,35 @@ impl<'v, V: ValueLike<'v>> EnumValueGen<V> {
     }
 }
 
+impl<'v, Typ: 'v, V: ValueLike<'v> + 'v> EnumTypeGen<V, Typ>
+where
+    Value<'v>: Equivalent<V>,
+{
+    pub(crate) fn construct(&self, val: Value<'v>) -> anyhow::Result<V> {
+        match self.elements.get_hashed_by_value(val.get_hashed()?) {
+            Some(v) => Ok(*v),
+            None => Err(EnumError::InvalidElement(val.to_str(), self.to_string()).into()),
+        }
+    }
+}
+
 impl<'v, Typ: Allocative + 'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for EnumTypeGen<V, Typ>
 where
     Self: ProvidesStaticType,
     Typ: AsARef<Option<String>> + Debug + Allocative,
+    Value<'v>: Equivalent<V>,
 {
     starlark_type!(FUNCTION_TYPE);
 
     fn invoke(
         &self,
-        me: Value<'v>,
+        _me: Value<'v>,
         args: &Arguments<'v, '_>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
-        let this = me;
         args.no_named_args()?;
         let val = args.positional1(eval.heap())?;
-        let elements = EnumType::from_value(this)
-            .unwrap()
-            .either(|x| &x.elements, |x| coerce(&x.elements));
-        match elements.get_hashed_by_value(val.get_hashed()?) {
-            Some(v) => Ok(*v),
-            None => Err(EnumError::InvalidElement(val.to_str(), this.to_repr()).into()),
-        }
+        Ok(self.construct(val)?.to_value())
     }
 
     fn length(&self) -> anyhow::Result<i32> {
