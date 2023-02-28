@@ -40,6 +40,7 @@ use std::time::SystemTime;
 use anyhow::Context;
 use async_trait::async_trait;
 use buck2_cli_proto::CommandResult;
+use buck2_cli_proto::PartialResult;
 use derive_more::From;
 use gazebo::variants::UnpackVariants;
 use serde::Serialize;
@@ -224,7 +225,9 @@ impl TryFrom<Box<buck2_data::BuckEvent>> for BuckEvent {
 #[derive(Clone, From)]
 pub enum ControlEvent {
     /// A command result, produced upon completion of a command.
-    CommandResult(CommandResult),
+    CommandResult(Box<CommandResult>),
+    /// A progress event from this command. Different commands have different types.
+    PartialResult(PartialResult),
 }
 
 /// The set of events that can flow out of an EventSource. Control events are not intended to be sent across the gRPC

@@ -9,6 +9,7 @@
 
 use std::future;
 use std::io;
+use std::marker::PhantomData;
 use std::path::Path;
 use std::pin::Pin;
 use std::sync::atomic::AtomicBool;
@@ -358,29 +359,37 @@ impl BuckdServer {
         }?;
 
         let init_request = Request::new(init_request);
-        self.run_streaming(init_request, opts, |ctx, init_req| {
-            func(
-                ctx,
-                init_req
-                    .client_context()
-                    .expect("already checked for a valid context"),
-                StreamingRequestHandler::new(req),
-            )
-        })
+        self.run_streaming(
+            init_request,
+            opts,
+            |ctx, _: PartialResultDispatcher<NoPartialResult>, init_req| {
+                // TODO: Use the PartialResultDispatcher instead of writing events.
+                func(
+                    ctx,
+                    init_req
+                        .client_context()
+                        .expect("already checked for a valid context"),
+                    StreamingRequestHandler::new(req),
+                )
+            },
+        )
         .await
     }
 
-    async fn run_streaming_anyhow<Req, Res, Fut, F>(
+    async fn run_streaming_anyhow<Req, Res, PartialRes, Fut, F>(
         &self,
         req: Request<Req>,
         opts: impl StreamingCommandOptions<Req>,
         func: F,
     ) -> anyhow::Result<Response<ResponseStream>>
     where
-        F: FnOnce(ServerCommandContext, Req) -> Fut + Send + 'static,
+        F: FnOnce(ServerCommandContext, PartialResultDispatcher<PartialRes>, Req) -> Fut
+            + Send
+            + 'static,
         Fut: Future<Output = anyhow::Result<Res>> + Send,
         Req: HasClientContext + HasBuildOptions + HasRecordTargetCallStacks + Send + Sync + 'static,
         Res: Into<command_result::Result> + Send + 'static,
+        PartialRes: Into<partial_result::PartialResult> + Send + 'static,
     {
         // This will reset counters incorrectly if commands are running concurrently.
         // This is fine.
@@ -423,13 +432,21 @@ impl BuckdServer {
                             configure_bxl_file_globals,
                         )?;
 
-                        func(context, req).await
+                        func(
+                            context,
+                            PartialResultDispatcher {
+                                dispatcher: dispatch.dupe(),
+                                result_type: PhantomData,
+                            },
+                            req,
+                        )
+                        .await
                     })
                     .await?
                 };
 
                 let result: CommandResult = result_to_command_result(result);
-                dispatch.control_event(ControlEvent::CommandResult(result));
+                dispatch.control_event(ControlEvent::CommandResult(box result));
             },
         )
         .await;
@@ -439,17 +456,20 @@ impl BuckdServer {
     /// Runs a single command (given by the func F). Prior to running the command, calls the
     /// `opts`'s `pre_run` hook.  then bootstraps an event source and command context so that the
     /// invoked function has the ability to stream events to the caller.
-    async fn run_streaming<Req, Res, Fut, F>(
+    async fn run_streaming<Req, Res, PartialRes, Fut, F>(
         &self,
         req: Request<Req>,
         opts: impl StreamingCommandOptions<Req>,
         func: F,
     ) -> Result<Response<ResponseStream>, Status>
     where
-        F: FnOnce(ServerCommandContext, Req) -> Fut + Send + 'static,
+        F: FnOnce(ServerCommandContext, PartialResultDispatcher<PartialRes>, Req) -> Fut
+            + Send
+            + 'static,
         Fut: Future<Output = anyhow::Result<Res>> + Send,
         Req: HasClientContext + HasBuildOptions + HasRecordTargetCallStacks + Send + Sync + 'static,
         Res: Into<command_result::Result> + Send + 'static,
+        PartialRes: Into<partial_result::PartialResult> + Send + 'static,
     {
         // send signal to register new command time
         _ = self.0.command_channel.unbounded_send(());
@@ -582,11 +602,16 @@ fn pump_events<E: EventSource>(
                 match control_event {
                     ControlEvent::CommandResult(result) => {
                         let _ignore = output_send.send(Ok(CommandProgress {
-                            progress: Some(command_progress::Progress::Result(box result)),
+                            progress: Some(command_progress::Progress::Result(result)),
+                        }));
+                        return;
+                    }
+                    ControlEvent::PartialResult(result) => {
+                        let _ignore = output_send.send(Ok(CommandProgress {
+                            progress: Some(command_progress::Progress::PartialResult(box result)),
                         }));
                     }
                 }
-                return;
             }
             Event::Buck(buck_event) => {
                 // A buck event. These events should be forwarded directly to gRPC.
@@ -811,36 +836,46 @@ impl DaemonApi for BuckdServer {
         &self,
         req: Request<FileStatusRequest>,
     ) -> Result<Response<ResponseStream>, Status> {
-        self.run_streaming(req, DefaultCommandOptions, |context, req| {
-            file_status_command(context, req)
-        })
+        self.run_streaming(
+            req,
+            DefaultCommandOptions,
+            |context, _: PartialResultDispatcher<NoPartialResult>, req| {
+                file_status_command(context, req)
+            },
+        )
         .await
     }
 
     type BuildStream = ResponseStream;
     async fn build(&self, req: Request<BuildRequest>) -> Result<Response<ResponseStream>, Status> {
         let callbacks = self.0.callbacks;
-        self.run_streaming(req, DefaultCommandOptions, |ctx, req| {
-            callbacks.build(box ctx, req)
-        })
+        self.run_streaming(
+            req,
+            DefaultCommandOptions,
+            |ctx, _: PartialResultDispatcher<NoPartialResult>, req| callbacks.build(box ctx, req),
+        )
         .await
     }
 
     type BxlStream = ResponseStream;
     async fn bxl(&self, req: Request<BxlRequest>) -> Result<Response<ResponseStream>, Status> {
         let callbacks = self.0.callbacks;
-        self.run_streaming(req, DefaultCommandOptions, |ctx, req| {
-            callbacks.bxl(box ctx, req)
-        })
+        self.run_streaming(
+            req,
+            DefaultCommandOptions,
+            |ctx, _: PartialResultDispatcher<NoPartialResult>, req| callbacks.bxl(box ctx, req),
+        )
         .await
     }
 
     type TestStream = ResponseStream;
     async fn test(&self, req: Request<TestRequest>) -> Result<Response<ResponseStream>, Status> {
         let callbacks = self.0.callbacks;
-        self.run_streaming(req, DefaultCommandOptions, |ctx, req| {
-            callbacks.test(box ctx, req)
-        })
+        self.run_streaming(
+            req,
+            DefaultCommandOptions,
+            |ctx, _: PartialResultDispatcher<NoPartialResult>, req| callbacks.test(box ctx, req),
+        )
         .await
     }
 
@@ -850,9 +885,11 @@ impl DaemonApi for BuckdServer {
         req: Request<AqueryRequest>,
     ) -> Result<Response<ResponseStream>, Status> {
         let callbacks = self.0.callbacks;
-        self.run_streaming(req, DefaultCommandOptions, |ctx, req| {
-            callbacks.aquery(box ctx, req)
-        })
+        self.run_streaming(
+            req,
+            DefaultCommandOptions,
+            |ctx, _: PartialResultDispatcher<NoPartialResult>, req| callbacks.aquery(box ctx, req),
+        )
         .await
     }
 
@@ -862,9 +899,11 @@ impl DaemonApi for BuckdServer {
         req: Request<UqueryRequest>,
     ) -> Result<Response<ResponseStream>, Status> {
         let callbacks = self.0.callbacks;
-        self.run_streaming(req, DefaultCommandOptions, |ctx, req| {
-            callbacks.uquery(box ctx, req)
-        })
+        self.run_streaming(
+            req,
+            DefaultCommandOptions,
+            |ctx, _: PartialResultDispatcher<NoPartialResult>, req| callbacks.uquery(box ctx, req),
+        )
         .await
     }
 
@@ -874,9 +913,11 @@ impl DaemonApi for BuckdServer {
         req: Request<CqueryRequest>,
     ) -> Result<Response<ResponseStream>, Status> {
         let callbacks = self.0.callbacks;
-        self.run_streaming(req, DefaultCommandOptions, |ctx, req| {
-            callbacks.cquery(box ctx, req)
-        })
+        self.run_streaming(
+            req,
+            DefaultCommandOptions,
+            |ctx, _: PartialResultDispatcher<NoPartialResult>, req| callbacks.cquery(box ctx, req),
+        )
         .await
     }
 
@@ -886,9 +927,11 @@ impl DaemonApi for BuckdServer {
         req: Request<TargetsRequest>,
     ) -> Result<Response<ResponseStream>, Status> {
         let callbacks = self.0.callbacks;
-        self.run_streaming(req, DefaultCommandOptions, |ctx, req| {
-            callbacks.targets(box ctx, req)
-        })
+        self.run_streaming(
+            req,
+            DefaultCommandOptions,
+            |ctx, _: PartialResultDispatcher<NoPartialResult>, req| callbacks.targets(box ctx, req),
+        )
         .await
     }
 
@@ -898,9 +941,13 @@ impl DaemonApi for BuckdServer {
         req: Request<TargetsRequest>,
     ) -> Result<Response<ResponseStream>, Status> {
         let callbacks = self.0.callbacks;
-        self.run_streaming(req, DefaultCommandOptions, |ctx, req| {
-            callbacks.targets_show_outputs(box ctx, req)
-        })
+        self.run_streaming(
+            req,
+            DefaultCommandOptions,
+            |ctx, _: PartialResultDispatcher<NoPartialResult>, req| {
+                callbacks.targets_show_outputs(box ctx, req)
+            },
+        )
         .await
     }
 
@@ -910,9 +957,11 @@ impl DaemonApi for BuckdServer {
         req: Request<GenericRequest>,
     ) -> Result<Response<ResponseStream>, Status> {
         let callbacks = self.0.callbacks;
-        self.run_streaming(req, DefaultCommandOptions, |ctx, req| {
-            callbacks.audit(box ctx, req)
-        })
+        self.run_streaming(
+            req,
+            DefaultCommandOptions,
+            |ctx, _: PartialResultDispatcher<NoPartialResult>, req| callbacks.audit(box ctx, req),
+        )
         .await
     }
 
@@ -922,9 +971,13 @@ impl DaemonApi for BuckdServer {
         req: Request<GenericRequest>,
     ) -> Result<Response<ResponseStream>, Status> {
         let callbacks = self.0.callbacks;
-        self.run_streaming(req, DefaultCommandOptions, |ctx, req| {
-            callbacks.starlark(box ctx, req)
-        })
+        self.run_streaming(
+            req,
+            DefaultCommandOptions,
+            |ctx, _: PartialResultDispatcher<NoPartialResult>, req| {
+                callbacks.starlark(box ctx, req)
+            },
+        )
         .await
     }
 
@@ -934,9 +987,11 @@ impl DaemonApi for BuckdServer {
         req: Request<InstallRequest>,
     ) -> Result<Response<ResponseStream>, Status> {
         let callbacks = self.0.callbacks;
-        self.run_streaming(req, DefaultCommandOptions, |ctx, req| {
-            callbacks.install(box ctx, req)
-        })
+        self.run_streaming(
+            req,
+            DefaultCommandOptions,
+            |ctx, _: PartialResultDispatcher<NoPartialResult>, req| callbacks.install(box ctx, req),
+        )
         .await
     }
 
@@ -1057,7 +1112,7 @@ impl DaemonApi for BuckdServer {
                 };
 
                 let result: CommandResult = result_to_command_result(result);
-                dispatcher.control_event(ControlEvent::CommandResult(result));
+                dispatcher.control_event(ControlEvent::CommandResult(box result));
 
                 drop(guard);
             },
@@ -1071,9 +1126,11 @@ impl DaemonApi for BuckdServer {
         req: Request<UnstableDocsRequest>,
     ) -> Result<Response<ResponseStream>, Status> {
         let callbacks = self.0.callbacks;
-        self.run_streaming(req, DefaultCommandOptions, |ctx, req| {
-            callbacks.docs(box ctx, req)
-        })
+        self.run_streaming(
+            req,
+            DefaultCommandOptions,
+            |ctx, _: PartialResultDispatcher<NoPartialResult>, req| callbacks.docs(box ctx, req),
+        )
         .await
     }
 
@@ -1096,9 +1153,11 @@ impl DaemonApi for BuckdServer {
         }
 
         let callbacks = self.0.callbacks;
-        self.run_streaming(req, ProfileCommandOptions, |ctx, req| {
-            callbacks.profile(box ctx, req)
-        })
+        self.run_streaming(
+            req,
+            ProfileCommandOptions,
+            |ctx, _: PartialResultDispatcher<NoPartialResult>, req| callbacks.profile(box ctx, req),
+        )
         .await
     }
 
@@ -1107,9 +1166,13 @@ impl DaemonApi for BuckdServer {
         &self,
         req: Request<MaterializeRequest>,
     ) -> Result<Response<ResponseStream>, Status> {
-        self.run_streaming(req, DefaultCommandOptions, |context, req| {
-            materialize_command(context, req)
-        })
+        self.run_streaming(
+            req,
+            DefaultCommandOptions,
+            |context, _: PartialResultDispatcher<NoPartialResult>, req| {
+                materialize_command(context, req)
+            },
+        )
         .await
     }
 
@@ -1118,9 +1181,13 @@ impl DaemonApi for BuckdServer {
         &self,
         req: Request<CleanStaleRequest>,
     ) -> Result<Response<ResponseStream>, Status> {
-        self.run_streaming(req, DefaultCommandOptions, |context, req| {
-            clean_stale_command(context, req)
-        })
+        self.run_streaming(
+            req,
+            DefaultCommandOptions,
+            |context, _: PartialResultDispatcher<NoPartialResult>, req| {
+                clean_stale_command(context, req)
+            },
+        )
         .await
     }
 
@@ -1230,3 +1297,33 @@ struct DefaultCommandOptions;
 
 impl OneshotCommandOptions for DefaultCommandOptions {}
 impl<Req> StreamingCommandOptions<Req> for DefaultCommandOptions {}
+
+/// A typed partial result dispatcher. Each command can only send one kind of partial result, hence
+/// the typing.
+pub struct PartialResultDispatcher<T> {
+    dispatcher: EventDispatcher,
+    result_type: PhantomData<T>,
+}
+
+impl<T> PartialResultDispatcher<T>
+where
+    T: Into<partial_result::PartialResult>,
+{
+    /// NOTE: This doesn't actually require &mut self but that's been reasonable to have for the
+    /// predecessor to this (stdout) so keeping it this way.
+    #[allow(unused)]
+    fn emit(&mut self, res: T) {
+        self.dispatcher.control_event(PartialResult {
+            partial_result: Some(res.into()),
+        });
+    }
+}
+
+/// An uninhabited type for methods that do not produce partial results.
+enum NoPartialResult {}
+
+impl From<NoPartialResult> for partial_result::PartialResult {
+    fn from(v: NoPartialResult) -> Self {
+        match v {}
+    }
+}

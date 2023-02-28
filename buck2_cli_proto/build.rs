@@ -29,7 +29,6 @@ fn main() -> io::Result<()> {
         .field_attribute("uptime", "#[serde(with = \"serialize_duration\")]")
         .field_attribute("delay", "#[serde(with = \"serialize_duration\")]")
         .field_attribute("ProfileResponse.elapsed", "#[serde(with = \"serialize_duration\")]")
-
         .boxed("CommandProgress.progress.event")
         .boxed("CommandProgress.progress.result")
         .boxed("CommandProgress.progress.partial_result")

@@ -476,7 +476,13 @@ message CommandResult {
   }
 }
 
-message PartialResult {}
+message StdoutBytes {}
+
+message PartialResult {
+  oneof partial_result {
+    StdoutBytes stdout_bytes = 1;
+  }
+}
 
 // A response from a command, either an informational event or the response.
 message CommandProgress {

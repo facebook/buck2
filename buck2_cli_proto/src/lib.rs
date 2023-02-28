@@ -117,6 +117,30 @@ macro_rules! result_convert {
     };
 }
 
+macro_rules! partial_result_convert {
+    ( $name:ident ) => {
+        impl From<$name> for partial_result::PartialResult {
+            fn from(v: $name) -> Self {
+                Self::$name(v)
+            }
+        }
+
+        impl TryFrom<partial_result::PartialResult> for $name {
+            type Error = partial_result::PartialResult;
+
+            fn try_from(r: partial_result::PartialResult) -> Result<Self, Self::Error> {
+                #![allow(irrefutable_let_patterns)]
+
+                if let partial_result::PartialResult::$name(res) = r {
+                    Ok(res)
+                } else {
+                    Err(r)
+                }
+            }
+        }
+    };
+}
+
 /// Helper macro for defining a request and implementing common traits for said request. See the bottom of this file
 /// for usage examples.
 macro_rules! define_request {
@@ -252,6 +276,8 @@ result_convert!(MaterializeResponse);
 result_convert!(CleanStaleResponse);
 result_convert!(LspResponse);
 result_convert!(AllocativeResponse);
+
+partial_result_convert!(StdoutBytes);
 
 define_request!(KillRequest);
 define_request!(StatusRequest);
