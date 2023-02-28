@@ -648,17 +648,6 @@ impl ServerCommandContextTrait for ServerCommandContext {
         &self.base_context.events
     }
 
-    fn stdout(&self) -> anyhow::Result<RawOutputGuard<'_>> {
-        // Buffer until MESSAGE_BUFFER_SIZE bytes get written to save gRPC communication overheads
-        Ok(RawOutputGuard {
-            _phantom: PhantomData,
-            inner: BufWriter::with_capacity(
-                4096,
-                RawOutputWriter::new(self, StdoutOrStderr::Stdout)?,
-            ),
-        })
-    }
-
     fn stderr(&self) -> anyhow::Result<RawOutputGuard<'_>> {
         Ok(RawOutputGuard {
             _phantom: PhantomData,

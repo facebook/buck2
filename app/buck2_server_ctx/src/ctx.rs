@@ -48,8 +48,6 @@ pub trait ServerCommandContextTrait: Send + Sync + 'static {
 
     fn events(&self) -> &EventDispatcher;
 
-    fn stdout(&self) -> anyhow::Result<RawOutputGuard<'_>>;
-
     fn stderr(&self) -> anyhow::Result<RawOutputGuard<'_>>;
 
     async fn request_metadata(&self) -> anyhow::Result<HashMap<String, String>>;
