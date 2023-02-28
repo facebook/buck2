@@ -598,6 +598,10 @@ mod tests {
         .unwrap();
 
         assert_eq!(configuration.output_hash(), "fd698fb05d52efbc");
+        assert_eq!(
+            configuration.to_string(),
+            "cfg_for//:testing_exec-fd698fb05d52efbc"
+        );
 
         Ok(())
     }
