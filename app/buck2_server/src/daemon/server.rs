@@ -210,7 +210,7 @@ pub trait BuckdServerDependencies: Send + Sync + 'static {
     async fn targets(
         &self,
         ctx: Box<dyn ServerCommandContextTrait>,
-        partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
+        partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         req: TargetsRequest,
     ) -> anyhow::Result<TargetsResponse>;
     async fn targets_show_outputs(

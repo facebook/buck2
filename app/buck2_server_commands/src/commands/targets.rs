@@ -12,7 +12,7 @@ use std::collections::HashSet;
 use std::fmt::Write as _;
 use std::fs::File;
 use std::io::BufWriter;
-use std::io::Write as _;
+use std::io::Write;
 use std::mem;
 use std::path::Path;
 use std::sync::Arc;
@@ -56,7 +56,6 @@ use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
-use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
 use buck2_server_ctx::pattern::target_platform_from_client_context;
@@ -428,27 +427,17 @@ impl Outputter {
         }
     }
 
-    fn write1(
-        &mut self,
-        server_ctx: &dyn ServerCommandContextTrait,
-        x: &str,
-    ) -> anyhow::Result<()> {
+    fn write1(&mut self, stdout: &mut impl Write, x: &str) -> anyhow::Result<()> {
         match self {
-            Self::Stdout => server_ctx.stdout()?.write_all(x.as_bytes())?,
+            Self::Stdout => stdout.write_all(x.as_bytes())?,
             Self::File(f) => f.write_all(x.as_bytes())?,
         }
         Ok(())
     }
 
-    fn write2(
-        &mut self,
-        server_ctx: &dyn ServerCommandContextTrait,
-        x: &str,
-        y: &str,
-    ) -> anyhow::Result<()> {
+    fn write2(&mut self, stdout: &mut impl Write, x: &str, y: &str) -> anyhow::Result<()> {
         match self {
             Self::Stdout => {
-                let mut stdout = server_ctx.stdout()?;
                 stdout.write_all(x.as_bytes())?;
                 stdout.write_all(y.as_bytes())?;
             }
@@ -481,7 +470,7 @@ impl Outputter {
 
 pub async fn targets_command(
     server_ctx: Box<dyn ServerCommandContextTrait>,
-    partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
+    partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
     req: TargetsRequest,
 ) -> anyhow::Result<TargetsResponse> {
     run_server_command(
@@ -501,15 +490,21 @@ impl ServerCommandTemplate for TargetsServerCommand {
     type StartEvent = buck2_data::TargetsCommandStart;
     type EndEvent = buck2_data::TargetsCommandEnd;
     type Response = TargetsResponse;
-    type PartialResult = NoPartialResult;
+    type PartialResult = buck2_cli_proto::StdoutBytes;
 
     async fn command<'v>(
         &self,
         server_ctx: &'v dyn ServerCommandContextTrait,
-        _partial_result_dispatcher: PartialResultDispatcher<Self::PartialResult>,
+        mut partial_result_dispatcher: PartialResultDispatcher<Self::PartialResult>,
         dice: DiceTransaction,
     ) -> anyhow::Result<Self::Response> {
-        targets(server_ctx, dice, &self.req).await
+        targets(
+            server_ctx,
+            &mut partial_result_dispatcher.as_writer(),
+            dice,
+            &self.req,
+        )
+        .await
     }
 
     fn is_success(&self, _response: &Self::Response) -> bool {
@@ -550,6 +545,7 @@ fn crate_formatter(request: &TargetsRequest) -> anyhow::Result<Arc<dyn TargetFor
 
 async fn targets(
     server_ctx: &dyn ServerCommandContextTrait,
+    stdout: &mut impl Write,
     dice: DiceTransaction,
     request: &TargetsRequest,
 ) -> anyhow::Result<TargetsResponse> {
@@ -582,6 +578,7 @@ async fn targets(
 
         let res = targets_streaming(
             server_ctx,
+            stdout,
             dice,
             formatter,
             &mut outputter,
@@ -881,6 +878,7 @@ async fn targets_batch(
 
 async fn targets_streaming(
     server_ctx: &dyn ServerCommandContextTrait,
+    stdout: &mut impl Write,
     dice: DiceTransaction,
     formatter: Arc<dyn TargetFormatter>,
     outputter: &mut Outputter,
@@ -970,7 +968,7 @@ async fn targets_streaming(
                 formatter.separator(&mut buffer);
             }
             needs_separator = true;
-            outputter.write2(server_ctx, &buffer, &res.stdout)?;
+            outputter.write2(stdout, &buffer, &res.stdout)?;
             buffer.clear();
         }
     }
@@ -991,7 +989,7 @@ async fn targets_streaming(
             let imports = loaded.imports().cloned().collect::<Vec<_>>();
             formatter.imports(path.path(), &imports, None, &mut buffer);
             todo.extend(imports);
-            outputter.write1(server_ctx, &buffer)?;
+            outputter.write1(stdout, &buffer)?;
             buffer.clear();
         }
     }

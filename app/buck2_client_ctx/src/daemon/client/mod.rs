@@ -715,7 +715,7 @@ impl<'a> FlushingBuckdClient<'a> {
         targets,
         TargetsRequest,
         TargetsResponse,
-        NoPartialResultHandler
+        StdoutPartialResultHandler
     );
     stream_method!(
         targets_show_outputs,

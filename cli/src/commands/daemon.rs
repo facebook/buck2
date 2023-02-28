@@ -196,7 +196,7 @@ impl BuckdServerDependencies for BuckdServerDependenciesImpl {
     async fn targets(
         &self,
         ctx: Box<dyn ServerCommandContextTrait>,
-        partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
+        partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         req: buck2_cli_proto::TargetsRequest,
     ) -> anyhow::Result<buck2_cli_proto::TargetsResponse> {
         targets_command(ctx, partial_result_dispatcher, req).await
