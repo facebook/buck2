@@ -72,27 +72,30 @@ enum RageError {
 }
 
 #[derive(Debug, PartialEq, Serialize)]
-struct RageSection {
+struct RageSection<T> {
     title: String,
-    status: CommandStatus,
+    status: CommandStatus<T>,
 }
 
 #[derive(Debug, PartialEq, Serialize)]
-enum CommandStatus {
-    Success { output: String },
+enum CommandStatus<T> {
+    Success { output: T },
     Failure { error: String },
     Timeout,
     Skipped,
 }
 
-impl RageSection {
-    fn get<'a, Fut>(
+impl<'a, T> RageSection<T>
+where
+    T: std::fmt::Display + 'a,
+{
+    fn get<Fut>(
         title: String,
         timeout: Duration,
         command: impl FnOnce() -> Fut,
     ) -> LocalBoxFuture<'a, Self>
     where
-        Fut: Future<Output = anyhow::Result<String>> + 'a,
+        Fut: Future<Output = anyhow::Result<T>> + 'a,
     {
         let fut = command();
         async move {
@@ -108,24 +111,24 @@ impl RageSection {
         .boxed_local()
     }
 
-    fn get_skipped<'a>(title: String) -> LocalBoxFuture<'a, Self> {
+    fn get_skipped(title: String) -> LocalBoxFuture<'a, Self> {
         let status = CommandStatus::Skipped;
         async { RageSection { title, status } }.boxed_local()
     }
 
-    fn output(&self) -> &str {
+    fn output(&self) -> String {
         match &self.status {
-            CommandStatus::Success { output } => output,
-            CommandStatus::Failure { error } => error,
-            CommandStatus::Timeout {} => "Timeout",
-            CommandStatus::Skipped {} => "Skipped",
+            CommandStatus::Success { output } => output.to_string(),
+            CommandStatus::Failure { error } => error.to_owned(),
+            CommandStatus::Timeout {} => "Timeout".to_owned(),
+            CommandStatus::Skipped {} => "Skipped".to_owned(),
         }
     }
 
     fn pretty_print_section(
         &self,
         f: &mut fmt::Formatter,
-        content: &str,
+        content: String,
     ) -> Result<(), std::fmt::Error> {
         let content_divider = "-".repeat(30);
         write!(
@@ -136,7 +139,10 @@ impl RageSection {
     }
 }
 
-impl fmt::Display for RageSection {
+impl<T> fmt::Display for RageSection<T>
+where
+    T: std::fmt::Display,
+{
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.pretty_print_section(f, self.output())
     }
@@ -284,22 +290,22 @@ impl RageCommand {
         rage_id: &TraceId,
         sink: Option<ThriftScribeSink>,
         invocation_id: Option<TraceId>,
-        system_info: RageSection,
-        daemon_stderr_dump: RageSection,
-        hg_snapshot_id: RageSection,
-        dice_dump: RageSection,
-        event_log_dump: RageSection,
+        system_info: RageSection<String>,
+        daemon_stderr_dump: RageSection<String>,
+        hg_snapshot_id: RageSection<String>,
+        dice_dump: RageSection<String>,
+        event_log_dump: RageSection<String>,
     ) -> anyhow::Result<()> {
         let string_data = convert_args!(
             keys = String::from,
             hashmap! (
-                "dice_dump" => dice_dump.output().to_owned(),
-                "daemon_stderr_dump" => daemon_stderr_dump.output().to_owned(),
-                "system_info" => system_info.output().to_owned(),
-                "hg_snapshot_id" => hg_snapshot_id.output().to_owned(),
+                "dice_dump" => dice_dump.output(),
+                "daemon_stderr_dump" => daemon_stderr_dump.output(),
+                "system_info" => system_info.output(),
+                "hg_snapshot_id" => hg_snapshot_id.output(),
                 "invocation_id" => invocation_id.map(|inv| inv.to_string()).unwrap_or_default(),
                 "origin" => self.origin.to_string(),
-                "event_log_dump" => event_log_dump.output().to_owned(),
+                "event_log_dump" => event_log_dump.output(),
             )
         );
         dispatch_result_event(sink.as_ref(), rage_id, RageResult { string_data }).await
