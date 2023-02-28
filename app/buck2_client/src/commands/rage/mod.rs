@@ -264,21 +264,45 @@ impl RageCommand {
             let sections: Vec<String> = sections.iter().map(|i| i.to_string()).collect();
             output_rage(self.no_paste, &sections.join("")).await?;
 
-            let string_data = convert_args!(
-                keys = String::from,
-                hashmap! (
-                    "dice_dump" => dice_dump.output().to_owned(),
-                    "daemon_stderr_dump" => daemon_stderr_dump.output().to_owned(),
-                    "system_info" => system_info.output().to_owned(),
-                    "hg_snapshot_id" => hg_snapshot_id.output().to_owned(),
-                    "invocation_id" => invocation_id.map(|inv| inv.to_string()).unwrap_or_default(),
-                    "origin" => self.origin.to_string(),
-                    "event_log_dump" => event_log_dump.output().to_owned(),
-                )
-            );
-            dispatch_result_event(sink.as_ref(), &rage_id, RageResult { string_data }).await?;
+            self.send_to_scuba(
+                &rage_id,
+                sink,
+                invocation_id,
+                system_info,
+                daemon_stderr_dump,
+                hg_snapshot_id,
+                dice_dump,
+                event_log_dump,
+            )
+            .await?;
             ExitResult::success()
         })
+    }
+
+    async fn send_to_scuba(
+        &self,
+        rage_id: &TraceId,
+        sink: Option<ThriftScribeSink>,
+        invocation_id: Option<TraceId>,
+        system_info: RageSection,
+        daemon_stderr_dump: RageSection,
+        hg_snapshot_id: RageSection,
+        dice_dump: RageSection,
+        event_log_dump: RageSection,
+    ) -> anyhow::Result<()> {
+        let string_data = convert_args!(
+            keys = String::from,
+            hashmap! (
+                "dice_dump" => dice_dump.output().to_owned(),
+                "daemon_stderr_dump" => daemon_stderr_dump.output().to_owned(),
+                "system_info" => system_info.output().to_owned(),
+                "hg_snapshot_id" => hg_snapshot_id.output().to_owned(),
+                "invocation_id" => invocation_id.map(|inv| inv.to_string()).unwrap_or_default(),
+                "origin" => self.origin.to_string(),
+                "event_log_dump" => event_log_dump.output().to_owned(),
+            )
+        );
+        dispatch_result_event(sink.as_ref(), rage_id, RageResult { string_data }).await
     }
 }
 
