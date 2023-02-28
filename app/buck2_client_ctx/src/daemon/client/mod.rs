@@ -14,6 +14,7 @@ use std::time::Duration;
 use std::time::Instant;
 
 use anyhow::Context;
+use async_trait::async_trait;
 use buck2_cli_proto::daemon_api_client::*;
 use buck2_cli_proto::*;
 use buck2_common::daemon_dir::DaemonDir;
@@ -42,6 +43,7 @@ use crate::console_interaction_stream::ConsoleInteractionStream;
 use crate::daemon::client::connect::BuckAddAuthTokenInterceptor;
 use crate::events_ctx::EventsCtx;
 use crate::events_ctx::FileTailers;
+use crate::events_ctx::PartialResultCtx;
 use crate::events_ctx::PartialResultHandler;
 use crate::stream_value::StreamValue;
 use crate::version::BuckVersion;
@@ -530,6 +532,7 @@ impl TryFrom<buck2_cli_proto::partial_result::PartialResult> for NoPartialResult
 
 struct NoPartialResultHandler;
 
+#[async_trait]
 impl PartialResultHandler for NoPartialResultHandler {
     type PartialResult = NoPartialResult;
 
@@ -537,7 +540,11 @@ impl PartialResultHandler for NoPartialResultHandler {
         Self
     }
 
-    fn handle_partial_result(&mut self, partial_res: Self::PartialResult) -> anyhow::Result<()> {
+    async fn handle_partial_result(
+        &mut self,
+        _ctx: PartialResultCtx<'_>,
+        partial_res: Self::PartialResult,
+    ) -> anyhow::Result<()> {
         match partial_res {}
     }
 }

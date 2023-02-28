@@ -12,6 +12,7 @@ use std::sync::Arc;
 use std::time::SystemTime;
 
 use anyhow::Context;
+use async_trait::async_trait;
 use buck2_cli_proto::command_result;
 use buck2_cli_proto::CommandResult;
 use buck2_common::daemon_dir::DaemonDir;
@@ -67,6 +68,7 @@ impl From<tonic::Status> for BuckdCommunicationError {
     }
 }
 
+#[async_trait]
 pub trait PartialResultHandler {
     type PartialResult: TryFrom<
         buck2_cli_proto::partial_result::PartialResult,
@@ -75,7 +77,24 @@ pub trait PartialResultHandler {
 
     fn new() -> Self;
 
-    fn handle_partial_result(&mut self, partial_res: Self::PartialResult) -> anyhow::Result<()>;
+    async fn handle_partial_result(
+        &mut self,
+        ctx: PartialResultCtx<'_>,
+        partial_res: Self::PartialResult,
+    ) -> anyhow::Result<()>;
+}
+
+/// Exposes restricted access to EventsCtx from PartialResultHandler instances.
+pub struct PartialResultCtx<'a> {
+    inner: &'a mut EventsCtx,
+}
+
+impl<'a> PartialResultCtx<'a> {
+    pub async fn stdout(&mut self, bytes: &[u8]) -> anyhow::Result<()> {
+        self.inner
+            .handle_subscribers(|subscriber| subscriber.handle_output(bytes))
+            .await
+    }
 }
 
 /// Manages incoming event streams from the daemon for the buck2 client and
@@ -139,7 +158,9 @@ impl EventsCtx {
                         .context("Empty partial result")?
                         .try_into()
                         .map_err(|e| anyhow::anyhow!("Invalid PartialResult: {:?}", e))?;
-                    partial_result_handler.handle_partial_result(partial_res)?;
+                    partial_result_handler
+                        .handle_partial_result(PartialResultCtx { inner: self }, partial_res)
+                        .await?;
                 }
                 StreamValue::Result(res) => {
                     self.handle_events(events, shutdown).await?;
