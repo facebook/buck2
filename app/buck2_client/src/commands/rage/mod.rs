@@ -125,6 +125,13 @@ where
         }
     }
 
+    fn structured_output(&self) -> Option<&T> {
+        match &self.status {
+            CommandStatus::Success { output } => Some(output),
+            _ => None,
+        }
+    }
+
     fn pretty_print_section(
         &self,
         f: &mut fmt::Formatter,
@@ -278,6 +285,7 @@ impl RageCommand {
                 hg_snapshot_id,
                 dice_dump,
                 event_log_dump,
+                build_info,
             )
             .await?;
             ExitResult::success()
@@ -294,6 +302,7 @@ impl RageCommand {
         hg_snapshot_id: RageSection<String>,
         dice_dump: RageSection<String>,
         event_log_dump: RageSection<String>,
+        build_info: RageSection<build_info::BuildInfo>,
     ) -> anyhow::Result<()> {
         let string_data = convert_args!(
             keys = String::from,
@@ -305,9 +314,38 @@ impl RageCommand {
                 "invocation_id" => invocation_id.map(|inv| inv.to_string()).unwrap_or_default(),
                 "origin" => self.origin.to_string(),
                 "event_log_dump" => event_log_dump.output(),
+                "command" => build_info.structured_output().map(|o| o.command.clone()).unwrap_or_default(),
+                "buck2_revision" => build_info
+                    .structured_output()
+                    .map(|o| o.buck2_revision.clone()).unwrap_or_default(),
             )
         );
-        dispatch_result_event(sink.as_ref(), rage_id, RageResult { string_data }).await
+        let int_data = convert_args!(
+            keys = String::from,
+            hashmap! (
+                "daemon_uptime_s" => build_info
+                .structured_output()
+                .and_then(|o| o.daemon_uptime_s).unwrap_or_default(),
+            )
+        );
+        dispatch_result_event(
+            sink.as_ref(),
+            rage_id,
+            RageResult {
+                string_data,
+                int_data,
+                timestamp: build_info
+                    .structured_output()
+                    .map(|o| SystemTime::from(o.timestamp).into()),
+                command_duration: build_info.structured_output().and_then(|o| {
+                    Some(prost_types::Duration {
+                        seconds: o.command_duration?.as_secs() as i64,
+                        nanos: o.command_duration?.subsec_nanos() as i32,
+                    })
+                }),
+            },
+        )
+        .await
     }
 }
 

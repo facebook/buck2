@@ -35,12 +35,12 @@ struct LogInfo {
 
 pub(crate) struct BuildInfo {
     uuid: TraceId,
-    timestamp: DateTime<Local>,
-    command: String,
+    pub timestamp: DateTime<Local>,
+    pub command: String,
     working_dir: String,
-    buck2_revision: String,
-    command_duration: Option<Duration>,
-    daemon_uptime_s: Option<u64>,
+    pub buck2_revision: String,
+    pub command_duration: Option<Duration>,
+    pub daemon_uptime_s: Option<u64>,
 }
 
 impl fmt::Display for BuildInfo {

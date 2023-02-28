@@ -301,6 +301,9 @@ message RageInvoked {
 message RageResult {
   reserved 1 to 8;
   map<string, string> string_data = 9;
+  map<string, uint64> int_data = 10;
+  google.protobuf.Timestamp timestamp = 11;
+  google.protobuf.Duration command_duration = 12;
 }
 
 // A snapshot of current system state, with useful info.
