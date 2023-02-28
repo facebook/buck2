@@ -10,6 +10,7 @@
 mod build_info;
 mod rage_dumps;
 mod source_control;
+mod system_info;
 
 use std::fmt;
 use std::future::Future;
@@ -218,7 +219,7 @@ impl RageCommand {
             }
 
             let system_info_command =
-                RageSection::get("System info".to_owned(), timeout, get_system_info);
+                RageSection::get("System info".to_owned(), timeout, system_info::get);
             let daemon_stderr_command =
                 RageSection::get("Daemon stderr".to_owned(), timeout, || {
                     upload_daemon_stderr(stderr_path, &manifold_id)
@@ -347,22 +348,6 @@ impl RageCommand {
         )
         .await
     }
-}
-
-async fn get_system_info() -> anyhow::Result<String> {
-    let info = metadata::system_info();
-    let output = format!(
-        "username: {}
-hostname: {}
-os: {}
-os_version: {}
-",
-        info.username.unwrap_or_else(|| "".to_owned()),
-        info.hostname.unwrap_or_else(|| "".to_owned()),
-        info.os,
-        info.os_version.unwrap_or_else(|| "".to_owned()),
-    );
-    Ok(output)
 }
 
 async fn upload_daemon_stderr(
