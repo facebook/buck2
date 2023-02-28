@@ -10,6 +10,7 @@
 use allocative::Allocative;
 use dupe::Dupe;
 use fnv::FnvHasher;
+use internment_tweaks::Equiv;
 use internment_tweaks::Intern;
 use internment_tweaks::StaticInterner;
 use once_cell::sync::Lazy;
@@ -27,6 +28,12 @@ struct ConfigurationPairData {
     cfg: ConfigurationData,
     /// Usually this is None, but for toolchain deps where the exec_cfg isn't picked it is set
     exec_cfg: Option<ConfigurationData>,
+}
+
+impl Equiv<ConfigurationPairData> for ConfigurationPairData {
+    fn equivalent(&self, key: &ConfigurationPairData) -> bool {
+        self == key
+    }
 }
 
 /// Pair of `cfg` and `exec_cfg`.

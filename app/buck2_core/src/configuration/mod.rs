@@ -27,6 +27,7 @@ use std::hash::Hasher;
 
 use allocative::Allocative;
 use dupe::Dupe;
+use internment_tweaks::Equiv;
 use internment_tweaks::Intern;
 use internment_tweaks::StaticInterner;
 use once_cell::sync::Lazy;
@@ -435,6 +436,12 @@ pub(crate) struct HashedPlatformConfigurationData {
     full_name: String,
     /// A hash of the configuration data that is used for determining output paths.
     output_hash: String,
+}
+
+impl Equiv<HashedPlatformConfigurationData> for HashedPlatformConfigurationData {
+    fn equivalent(&self, key: &HashedPlatformConfigurationData) -> bool {
+        self == key
+    }
 }
 
 /// This will hash just the "output_hash" which should uniquely identify this data.

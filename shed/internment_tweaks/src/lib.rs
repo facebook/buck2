@@ -180,14 +180,14 @@ pub trait Equiv<K: ?Sized> {
     fn equivalent(&self, key: &K) -> bool;
 }
 
-impl<Q: ?Sized, K: ?Sized> Equiv<K> for Q
+impl<Q: ?Sized, K: ?Sized> Equiv<K> for &Q
 where
     Q: Eq,
     K: Borrow<Q>,
 {
     #[inline]
     fn equivalent(&self, key: &K) -> bool {
-        *self == *key.borrow()
+        *self == key.borrow()
     }
 }
 
@@ -285,7 +285,7 @@ impl<T: 'static, H: Hasher + Default> StaticInterner<T, H> {
         value: &Q,
     ) -> Option<&'static InternedData<T>>
     where
-        Q: Hash + Equiv<T> + ?Sized,
+        Q: Hash + Equiv<T>,
         T: Eq + Hash,
     {
         table.get(hash, |t| value.equivalent(&t.data)).copied()
@@ -332,14 +332,14 @@ impl<T: 'static, H: Hasher + Default> StaticInterner<T, H> {
     }
 
     /// Get a value if it has been interned.
-    pub fn get<Q>(&'static self, key: &Q) -> Option<Intern<T>>
+    pub fn get<Q>(&'static self, key: Q) -> Option<Intern<T>>
     where
-        Q: Hash + Equiv<T> + ?Sized,
+        Q: Hash + Equiv<T>,
         T: Eq + Hash,
     {
         let hashed = Hashed::<_, H>::new(key);
         let guard = self.table_for_hash(hashed.hash as usize).read();
-        Self::table_get(&*guard, hashed.hash, hashed.value).map(|pointer| Intern { pointer })
+        Self::table_get(&*guard, hashed.hash, &hashed.value).map(|pointer| Intern { pointer })
     }
 
     /// Iterate over the interned values. The iterator will hold always hold a lock on (a portion of) the interned
@@ -417,12 +417,16 @@ mod tests {
     #[test]
     fn test_intern() {
         assert_eq!(
-            STRING_INTERNER.intern("hello".to_owned()),
-            STRING_INTERNER.intern("hello".to_owned())
+            STRING_INTERNER.intern(&"hello".to_owned()),
+            STRING_INTERNER.intern(&"hello".to_owned())
+        );
+        assert_eq!(
+            STRING_INTERNER.intern(&"hello".to_owned()),
+            STRING_INTERNER.intern("hello"),
         );
         assert_ne!(
-            STRING_INTERNER.intern("hello".to_owned()),
-            STRING_INTERNER.intern("world".to_owned())
+            STRING_INTERNER.intern(&"hello".to_owned()),
+            STRING_INTERNER.intern(&"world".to_owned())
         );
     }
 
@@ -432,13 +436,13 @@ mod tests {
         let mut interned_strings = Vec::new();
         for i in 0..100000 {
             let s = i.to_string();
-            let interned = STRING_INTERNER.intern(s.clone());
+            let interned = STRING_INTERNER.intern(&s);
             assert_eq!(&s, &*interned);
             interned_strings.push(interned);
         }
 
         for s in &interned_strings {
-            let interned = STRING_INTERNER.intern(String::clone(s));
+            let interned = STRING_INTERNER.intern(&String::clone(s));
             assert_eq!(*s, interned);
         }
     }
@@ -450,7 +454,7 @@ mod tests {
         assert_eq!(interner.get("hello"), None);
         assert_eq!(interner.get(&"hello".to_owned()), None);
 
-        let interned = interner.intern("hello".to_owned());
+        let interned = interner.intern(&"hello".to_owned());
         assert_eq!(interner.get("hello"), Some(interned));
         assert_eq!(interner.get(&"hello".to_owned()), Some(interned));
         assert_eq!(interner.get("world"), None);

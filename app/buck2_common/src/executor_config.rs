@@ -29,7 +29,7 @@ pub struct RemoteExecutorUseCase(Intern<String>);
 impl RemoteExecutorUseCase {
     pub fn new(use_case: String) -> Self {
         static USE_CASE_INTERNER: StaticInterner<String> = StaticInterner::new();
-        Self(USE_CASE_INTERNER.intern(use_case))
+        Self(USE_CASE_INTERNER.intern(&use_case))
     }
 
     pub fn as_str(&self) -> &'static str {
