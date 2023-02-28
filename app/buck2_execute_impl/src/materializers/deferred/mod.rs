@@ -1183,7 +1183,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
             self.sqlite_db.as_mut(),
             &self.log_buffer,
             &self.subscriptions,
-            &path,
+            path,
             &metadata,
             Utc::now(),
             "materializer_declare_existing_error",
