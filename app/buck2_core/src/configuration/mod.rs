@@ -85,7 +85,16 @@ enum ConfigurationLookupError {
 
 /// The inner PlatformConfigurationData is interned as the same configuration could be formed through
 /// paths (as many transitions are associative).
-#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Allocative)]
+#[derive(
+    Clone,
+    Debug,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    Allocative,
+    derive_more::Display
+)]
 pub struct ConfigurationData(Intern<HashedPlatformConfigurationData>);
 
 /// Intern doesn't implement Hash.
@@ -277,12 +286,6 @@ impl ConfigurationData {
     }
 }
 
-impl Display for ConfigurationData {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(self.full_name())
-    }
-}
-
 impl Serialize for ConfigurationData {
     fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
     where
@@ -428,7 +431,16 @@ struct PlatformConfigurationData {
     data: ConfigurationDataData,
 }
 
-#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Allocative)]
+#[derive(
+    Debug,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    Allocative,
+    derive_more::Display
+)]
+#[display(fmt = "{}", full_name)]
 pub(crate) struct HashedPlatformConfigurationData {
     platform_configuration_data: PlatformConfigurationData,
     // The remaining fields are computed from `platform_configuration_data`.
