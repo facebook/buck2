@@ -41,7 +41,6 @@ use buck2_interpreter::path::BxlFilePath;
 use buck2_interpreter::path::StarlarkModulePath;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
-use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::pattern::target_platform_from_client_context;
 use buck2_server_ctx::template::run_server_command;
@@ -58,7 +57,7 @@ use crate::bxl::eval::CliResolutionCtx;
 
 pub async fn bxl_command(
     ctx: Box<dyn ServerCommandContextTrait>,
-    partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
+    partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
     req: BxlRequest,
 ) -> anyhow::Result<BxlResponse> {
     run_server_command(BxlServerCommand { req }, ctx, partial_result_dispatcher).await
@@ -73,7 +72,7 @@ impl ServerCommandTemplate for BxlServerCommand {
     type StartEvent = buck2_data::BxlCommandStart;
     type EndEvent = buck2_data::BxlCommandEnd;
     type Response = buck2_cli_proto::BxlResponse;
-    type PartialResult = NoPartialResult;
+    type PartialResult = buck2_cli_proto::StdoutBytes;
 
     fn start_event(&self) -> Self::StartEvent {
         let bxl_label = self.req.bxl_label.clone();
@@ -88,10 +87,16 @@ impl ServerCommandTemplate for BxlServerCommand {
     async fn command<'v>(
         &self,
         server_ctx: &'v dyn ServerCommandContextTrait,
-        _partial_result_dispatcher: PartialResultDispatcher<Self::PartialResult>,
+        mut partial_result_dispatcher: PartialResultDispatcher<Self::PartialResult>,
         ctx: DiceTransaction,
     ) -> anyhow::Result<Self::Response> {
-        bxl(server_ctx, ctx, &self.req).await
+        bxl(
+            server_ctx,
+            partial_result_dispatcher.as_writer(),
+            ctx,
+            &self.req,
+        )
+        .await
     }
 
     fn is_success(&self, response: &Self::Response) -> bool {
@@ -101,6 +106,7 @@ impl ServerCommandTemplate for BxlServerCommand {
 
 async fn bxl(
     server_ctx: &dyn ServerCommandContextTrait,
+    stdout: impl Write,
     ctx: DiceTransaction,
     request: &BxlRequest,
 ) -> anyhow::Result<buck2_cli_proto::BxlResponse> {
@@ -125,7 +131,7 @@ async fn bxl(
         ConvertMaterializationContext::from(final_artifact_materializations);
 
     let build_result = ensure_artifacts(&ctx, &materialization_context, &result).await;
-    copy_output(server_ctx.stdout()?, &ctx, &result).await?;
+    copy_output(stdout, &ctx, &result).await?;
 
     let project_root = server_ctx.project_root().to_string();
 

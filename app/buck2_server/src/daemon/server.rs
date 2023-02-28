@@ -168,7 +168,7 @@ pub trait BuckdServerDependencies: Send + Sync + 'static {
     async fn bxl(
         &self,
         ctx: Box<dyn ServerCommandContextTrait>,
-        partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
+        partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         req: buck2_cli_proto::BxlRequest,
     ) -> anyhow::Result<BxlResponse>;
     async fn audit(

@@ -724,7 +724,7 @@ impl<'a> FlushingBuckdClient<'a> {
         NoPartialResultHandler
     );
     stream_method!(build, BuildRequest, BuildResponse, NoPartialResultHandler);
-    stream_method!(bxl, BxlRequest, BxlResponse, NoPartialResultHandler);
+    stream_method!(bxl, BxlRequest, BxlResponse, StdoutPartialResultHandler);
     stream_method!(test, TestRequest, TestResponse, NoPartialResultHandler);
     stream_method!(
         install,
