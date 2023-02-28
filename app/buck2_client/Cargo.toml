@@ -20,6 +20,7 @@ indexmap = { workspace = true }
 itertools = { workspace = true }
 libc = { workspace = true }
 lsp-server = { workspace = true }
+maplit = { workspace = true }
 multimap = { workspace = true }
 once_cell = { workspace = true }
 serde = { workspace = true }

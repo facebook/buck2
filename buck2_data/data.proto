@@ -299,14 +299,8 @@ message RageInvoked {
 
 // Result of invoking buck2 rage
 message RageResult {
-  string dice_dump = 1;
-  string daemon_stderr_dump = 2;
-  string system_info = 3;
-  string hg_snapshot_id = 4;
-  // Rage can be associated with an invocation
-  optional string invocation_id = 6;
-  string origin = 7;
-  string event_log_dump = 8;
+  reserved 1 to 8;
+  map<string, string> string_data = 9;
 }
 
 // A snapshot of current system state, with useful info.

@@ -41,6 +41,8 @@ use chrono::DateTime;
 use dupe::Dupe;
 use futures::future::FutureExt;
 use futures::future::LocalBoxFuture;
+use maplit::convert_args;
+use maplit::hashmap;
 use serde::Serialize;
 use thiserror::Error;
 use tokio::io::AsyncBufRead;
@@ -262,20 +264,19 @@ impl RageCommand {
             let sections: Vec<String> = sections.iter().map(|i| i.to_string()).collect();
             output_rage(self.no_paste, &sections.join("")).await?;
 
-            dispatch_result_event(
-                sink.as_ref(),
-                &rage_id,
-                RageResult {
-                    dice_dump: dice_dump.output().to_owned(),
-                    daemon_stderr_dump: daemon_stderr_dump.output().to_owned(),
-                    system_info: system_info.output().to_owned(),
-                    hg_snapshot_id: hg_snapshot_id.output().to_owned(),
-                    invocation_id: invocation_id.map(|inv| inv.to_string()),
-                    origin: self.origin.to_string(),
-                    event_log_dump: event_log_dump.output().to_owned(),
-                },
-            )
-            .await?;
+            let string_data = convert_args!(
+                keys = String::from,
+                hashmap! (
+                    "dice_dump" => dice_dump.output().to_owned(),
+                    "daemon_stderr_dump" => daemon_stderr_dump.output().to_owned(),
+                    "system_info" => system_info.output().to_owned(),
+                    "hg_snapshot_id" => hg_snapshot_id.output().to_owned(),
+                    "invocation_id" => invocation_id.map(|inv| inv.to_string()).unwrap_or_default(),
+                    "origin" => self.origin.to_string(),
+                    "event_log_dump" => event_log_dump.output().to_owned(),
+                )
+            );
+            dispatch_result_event(sink.as_ref(), &rage_id, RageResult { string_data }).await?;
             ExitResult::success()
         })
     }

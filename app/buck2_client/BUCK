@@ -26,6 +26,7 @@ rust_library(
         "fbsource//third-party/rust:itertools",
         "fbsource//third-party/rust:libc",
         "fbsource//third-party/rust:lsp-server",
+        "fbsource//third-party/rust:maplit",
         "fbsource//third-party/rust:multimap",
         "fbsource//third-party/rust:num_cpus",
         "fbsource//third-party/rust:once_cell",
