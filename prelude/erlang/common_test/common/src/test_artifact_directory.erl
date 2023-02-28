@@ -103,7 +103,7 @@ link_to_artifact_dir(File, Root) ->
                         string:strip(String, left, $/)
                 end,
             FullFileName = lists:flatten(string:replace(RelativePath, "/", ".", all)),
-            case filelib:is_file(FullFileName) of
+            case filelib:is_file(File) of
                 true ->
                     file:make_symlink(File, filename:join(ArtifactDir, FullFileName)),
                     Annotation = artifact_annotations:create_artifact_annotation(FullFileName),
