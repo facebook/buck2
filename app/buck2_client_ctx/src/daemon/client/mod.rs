@@ -709,7 +709,7 @@ impl<'a> FlushingBuckdClient<'a> {
         uquery,
         UqueryRequest,
         UqueryResponse,
-        NoPartialResultHandler
+        StdoutPartialResultHandler
     );
     stream_method!(
         targets,

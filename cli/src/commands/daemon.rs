@@ -172,7 +172,7 @@ impl BuckdServerDependencies for BuckdServerDependenciesImpl {
     async fn uquery(
         &self,
         ctx: Box<dyn ServerCommandContextTrait>,
-        partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
+        partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         req: buck2_cli_proto::UqueryRequest,
     ) -> anyhow::Result<buck2_cli_proto::UqueryResponse> {
         uquery_command(ctx, partial_result_dispatcher, req).await

@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::io::Write;
+
 use async_trait::async_trait;
 use buck2_build_api::query::uquery::evaluator::get_uquery_evaluator;
 use buck2_cli_proto::UqueryRequest;
@@ -14,7 +16,6 @@ use buck2_cli_proto::UqueryResponse;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
-use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::pattern::target_platform_from_client_context;
 use buck2_server_ctx::template::run_server_command;
@@ -26,7 +27,7 @@ use crate::commands::query::printer::ShouldPrintProviders;
 
 pub async fn uquery_command(
     ctx: Box<dyn ServerCommandContextTrait>,
-    partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
+    partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
     req: UqueryRequest,
 ) -> anyhow::Result<UqueryResponse> {
     run_server_command(UqueryServerCommand { req }, ctx, partial_result_dispatcher).await
@@ -41,15 +42,21 @@ impl ServerCommandTemplate for UqueryServerCommand {
     type StartEvent = buck2_data::QueryCommandStart;
     type EndEvent = buck2_data::QueryCommandEnd;
     type Response = UqueryResponse;
-    type PartialResult = NoPartialResult;
+    type PartialResult = buck2_cli_proto::StdoutBytes;
 
     async fn command<'v>(
         &self,
         server_ctx: &'v dyn ServerCommandContextTrait,
-        _partial_result_dispatcher: PartialResultDispatcher<Self::PartialResult>,
+        mut partial_result_dispatcher: PartialResultDispatcher<Self::PartialResult>,
         ctx: DiceTransaction,
     ) -> anyhow::Result<Self::Response> {
-        uquery(server_ctx, ctx, &self.req).await
+        uquery(
+            server_ctx,
+            partial_result_dispatcher.as_writer(),
+            ctx,
+            &self.req,
+        )
+        .await
     }
 
     fn is_success(&self, response: &Self::Response) -> bool {
@@ -59,6 +66,7 @@ impl ServerCommandTemplate for UqueryServerCommand {
 
 async fn uquery(
     server_ctx: &dyn ServerCommandContextTrait,
+    mut stdout: impl Write,
     ctx: DiceTransaction,
     request: &UqueryRequest,
 ) -> anyhow::Result<UqueryResponse> {
@@ -89,8 +97,6 @@ async fn uquery(
     let evaluator = &evaluator;
 
     let query_result = evaluator.eval_query(query, query_args).await?;
-
-    let mut stdout = server_ctx.stdout()?;
 
     let result = match query_result {
         QueryEvaluationResult::Single(targets) => {

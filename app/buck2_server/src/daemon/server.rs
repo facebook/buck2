@@ -192,7 +192,7 @@ pub trait BuckdServerDependencies: Send + Sync + 'static {
     async fn uquery(
         &self,
         ctx: Box<dyn ServerCommandContextTrait>,
-        partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
+        partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         req: buck2_cli_proto::UqueryRequest,
     ) -> anyhow::Result<buck2_cli_proto::UqueryResponse>;
     async fn cquery(
