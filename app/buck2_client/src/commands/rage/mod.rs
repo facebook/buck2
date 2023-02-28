@@ -260,14 +260,13 @@ impl RageCommand {
                 event_log_command,
             );
             let sections = vec![
-                &system_info,
-                &daemon_stderr_dump,
-                &hg_snapshot_id,
-                &dice_dump,
-                &build_info,
-                &event_log_dump,
+                system_info.to_string(),
+                daemon_stderr_dump.to_string(),
+                hg_snapshot_id.to_string(),
+                dice_dump.to_string(),
+                build_info.to_string(),
+                event_log_dump.to_string(),
             ];
-            let sections: Vec<String> = sections.iter().map(|i| i.to_string()).collect();
             output_rage(self.no_paste, &sections.join("")).await?;
 
             self.send_to_scuba(

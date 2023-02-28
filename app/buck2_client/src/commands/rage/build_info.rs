@@ -7,11 +7,13 @@
  * of this source tree.
  */
 
+use std::fmt;
 use std::time::Duration;
 use std::time::SystemTime;
 
 use buck2_client_ctx::stream_value::StreamValue;
 use buck2_client_ctx::subscribers::event_log::EventLogPathBuf;
+use buck2_events::trace::TraceId;
 use buck2_events::BuckEvent;
 use chrono::DateTime;
 use chrono::Local;
@@ -31,7 +33,40 @@ struct LogInfo {
     timestamp_end: Option<SystemTime>,
 }
 
-pub(crate) async fn get(log: &EventLogPathBuf) -> anyhow::Result<String> {
+pub(crate) struct BuildInfo {
+    uuid: TraceId,
+    timestamp: DateTime<Local>,
+    command: String,
+    working_dir: String,
+    buck2_revision: String,
+    command_duration: Option<Duration>,
+    daemon_uptime_s: Option<u64>,
+}
+
+impl fmt::Display for BuildInfo {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "buck2 UI: https://www.internalfb.com/buck2/{}
+timestamp: {}
+command: {}
+working dir: {}
+buck2_revision: {}
+command duration: {}
+daemon uptime: {}
+        ",
+            self.uuid,
+            self.timestamp.format("%c %Z"),
+            self.command,
+            self.working_dir,
+            self.buck2_revision,
+            seconds_to_string(self.command_duration.map(|d| d.as_secs())),
+            seconds_to_string(self.daemon_uptime_s),
+        )
+    }
+}
+
+pub(crate) async fn get(log: &EventLogPathBuf) -> anyhow::Result<BuildInfo> {
     let (invocation, events) = log.unpack_stream().await?;
     let mut filtered_events = events.try_filter_map(|log| {
         let maybe_buck_event = match log {
@@ -75,23 +110,15 @@ pub(crate) async fn get(log: &EventLogPathBuf) -> anyhow::Result<String> {
 
     let t_start: DateTime<Local> = timestamp_start.into();
 
-    let output = format!(
-        "buck2 UI: https://www.internalfb.com/buck2/{}
-timestamp: {}
-command: {}
-working dir: {}
-buck2_revision: {}
-command duration: {}
-daemon uptime: {}
-",
-        first_event.trace_id()?,
-        t_start.format("%c %Z"),
-        format_cmd(&invocation.command_line_args),
-        invocation.working_dir,
-        info.revision.unwrap_or_else(|| "".to_owned()),
-        seconds_to_string(duration.map(|d| d.as_secs())),
-        seconds_to_string(info.daemon_uptime_s),
-    );
+    let output = BuildInfo {
+        uuid: first_event.trace_id()?,
+        timestamp: t_start,
+        command: format_cmd(&invocation.command_line_args),
+        working_dir: invocation.working_dir,
+        buck2_revision: info.revision.unwrap_or_else(|| "".to_owned()),
+        command_duration: duration,
+        daemon_uptime_s: info.daemon_uptime_s,
+    };
 
     Ok(output)
 }
