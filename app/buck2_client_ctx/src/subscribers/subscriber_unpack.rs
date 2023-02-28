@@ -275,7 +275,6 @@ pub trait UnpackingEventSubscriber: Send {
             buck2_data::instant_event::Data::DiceStateSnapshot(update) => {
                 self.handle_dice_snapshot(update)
             }
-            buck2_data::instant_event::Data::LspResult(result) => self.handle_lsp_result(result),
             buck2_data::instant_event::Data::TagEvent(tag) => self.handle_tag(tag),
             buck2_data::instant_event::Data::TargetPatterns(tag) => {
                 self.handle_resolved_target_patterns(tag)
@@ -774,10 +773,6 @@ pub trait UnpackingEventSubscriber: Send {
         _prefs: &buck2_data::ConsolePreferences,
         _event: &BuckEvent,
     ) -> anyhow::Result<()> {
-        Ok(())
-    }
-
-    async fn handle_lsp_result(&mut self, _msg: &buck2_data::LspResult) -> anyhow::Result<()> {
         Ok(())
     }
 

@@ -9,7 +9,6 @@
 
 use std::borrow::Cow;
 use std::fmt::Display;
-use std::io::Write;
 use std::process::Stdio;
 use std::sync::Arc;
 use std::time::Duration;
@@ -35,7 +34,6 @@ use buck2_event_observer::what_ran::WhatRanOutputCommand;
 use buck2_event_observer::what_ran::WhatRanOutputWriter;
 use buck2_events::BuckEvent;
 use dupe::Dupe;
-use lsp_server::Message;
 use superconsole::DrawMode;
 use superconsole::SuperConsole;
 use termwiz::escape::Action;
@@ -583,16 +581,6 @@ where
             self.notify_printed();
         }
 
-        Ok(())
-    }
-
-    async fn handle_lsp_result(&mut self, msg: &buck2_data::LspResult) -> anyhow::Result<()> {
-        let lsp_message: Message = serde_json::from_str(&msg.lsp_json)?;
-
-        let stdout = std::io::stdout();
-        let mut stdout = stdout.lock();
-        lsp_message.write(&mut stdout)?;
-        stdout.flush()?;
         Ok(())
     }
 }

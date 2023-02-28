@@ -31,7 +31,6 @@ use buck2_core::package::PackageLabel;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::ProvidersPattern;
 use buck2_core::target::name::TargetName;
-use buck2_events::dispatch::instant_event;
 use buck2_events::dispatch::span_async;
 use buck2_events::dispatch::with_dispatcher;
 use buck2_events::dispatch::with_dispatcher_async;
@@ -43,7 +42,6 @@ use buck2_interpreter_for_build::interpreter::global_interpreter_state::HasGloba
 use buck2_server_ctx::command_end::command_end;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
-use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use dice::DiceEquality;
 use dice::DiceTransaction;
@@ -717,7 +715,7 @@ impl LspContext for BuckLspContext {
 
 pub(crate) async fn run_lsp_server_command(
     ctx: Box<dyn ServerCommandContextTrait>,
-    _partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
+    partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::LspMessage>,
     req: StreamingRequestHandler<buck2_cli_proto::LspRequest>,
 ) -> anyhow::Result<buck2_cli_proto::LspResponse> {
     let metadata = ctx.request_metadata().await?;
@@ -726,7 +724,7 @@ pub(crate) async fn run_lsp_server_command(
         data: Some(buck2_data::LspCommandStart {}.into()),
     };
     span_async(start_event, async move {
-        let result = run_lsp_server(ctx, req).await;
+        let result = run_lsp_server(ctx, partial_result_dispatcher, req).await;
         let end_event = command_end(metadata, &result, buck2_data::LspCommandEnd {});
         (result, end_event)
     })
@@ -736,6 +734,7 @@ pub(crate) async fn run_lsp_server_command(
 /// Run an LSP server for a given client.
 async fn run_lsp_server(
     ctx: Box<dyn ServerCommandContextTrait>,
+    mut partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::LspMessage>,
     mut req: StreamingRequestHandler<LspRequest>,
 ) -> anyhow::Result<LspResponse> {
     // This gets a bit messy because the various frameworks don't quite work the same way.
@@ -781,7 +780,7 @@ async fn run_lsp_server(
                 handle_incoming_lsp_message(&send_to_server, m)
             },
             m = events_to_client.next() => {
-                Ok(handle_outgoing_lsp_message(m))
+                Ok(handle_outgoing_lsp_message(&mut partial_result_dispatcher, m))
             },
         };
         match message_handler_res {
@@ -801,13 +800,13 @@ async fn run_lsp_server(
 /// This returns `Ok(())` when the other end of the connection disconnects.
 async fn recv_from_lsp(
     to_client: crossbeam_channel::Receiver<Message>,
-    mut event_sender: UnboundedSender<buck2_data::LspResult>,
+    mut event_sender: UnboundedSender<buck2_cli_proto::LspMessage>,
 ) -> anyhow::Result<()> {
     loop {
         let msg = to_client.recv()?;
 
         let lsp_json = serde_json::to_string(&msg).unwrap();
-        let res = buck2_data::LspResult { lsp_json };
+        let res = buck2_cli_proto::LspMessage { lsp_json };
         match event_sender.send(res).await {
             Ok(_) => {}
             Err(e) if e.is_disconnected() => break Ok(()),
@@ -842,10 +841,13 @@ fn handle_incoming_lsp_message(
 ///     - `None` if the message could be passed to the client / event dispatcher.
 ///     - `Some(LspResponse)` if there was no message. This happens when the server is done
 ///                           sending messages, and the stream should be disconnected.
-fn handle_outgoing_lsp_message(event: Option<buck2_data::LspResult>) -> Option<LspResponse> {
+fn handle_outgoing_lsp_message(
+    partial_result_dispatcher: &mut PartialResultDispatcher<buck2_cli_proto::LspMessage>,
+    event: Option<buck2_cli_proto::LspMessage>,
+) -> Option<LspResponse> {
     match event {
         Some(event) => {
-            instant_event(event);
+            partial_result_dispatcher.emit(event);
             None
         }
         None => Some(LspResponse {}),

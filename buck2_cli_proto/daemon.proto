@@ -480,9 +480,16 @@ message StdoutBytes {
   bytes data = 1;
 }
 
+/// The result of an LSP request.
+message LspMessage {
+  // The json that should be sent, unchanged, to LSP clients.
+  string lsp_json = 1;
+}
+
 message PartialResult {
   oneof partial_result {
     StdoutBytes stdout_bytes = 1;
+    LspMessage lsp_message = 2;
   }
 }
 
@@ -558,11 +565,9 @@ message LspRequest {
   string lsp_json = 1;
 }
 
-/// Not used at the moment, but signals that
-/// the starlark LSP server is complete for
-/// this request. Responses to individual
-/// LSP requsts are sent back in the event
-/// stream. See `buck.data.LspResult`
+// Signals that the starlark LSP server is complete for / this request.
+// Responses to individual LSP requsts are sent back as PartialResult. See
+// LspMessage.
 message LspResponse {}
 
 message BxlProfile {

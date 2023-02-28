@@ -401,7 +401,6 @@ mod fbcode {
                 match i.data {
                     Some(Data::Snapshot(..)) => false,
                     Some(Data::DiceStateSnapshot(..)) => false,
-                    Some(Data::LspResult(..)) => false,
                     Some(Data::DiceEqualityCheck(..)) => false,
                     Some(Data::NoActiveDiceState(..)) => false,
                     None => false,

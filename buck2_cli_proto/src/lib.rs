@@ -278,6 +278,7 @@ result_convert!(LspResponse);
 result_convert!(AllocativeResponse);
 
 partial_result_convert!(StdoutBytes);
+partial_result_convert!(LspMessage);
 
 define_request!(KillRequest);
 define_request!(StatusRequest);

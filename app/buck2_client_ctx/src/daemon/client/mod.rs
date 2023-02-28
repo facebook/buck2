@@ -569,6 +569,29 @@ impl PartialResultHandler for StdoutPartialResultHandler {
     }
 }
 
+/// Receives StdoutBytes, writes them to stdout.
+struct LspPartialResultHandler;
+
+#[async_trait]
+impl PartialResultHandler for LspPartialResultHandler {
+    type PartialResult = buck2_cli_proto::LspMessage;
+
+    fn new() -> Self {
+        Self
+    }
+
+    async fn handle_partial_result(
+        &mut self,
+        mut ctx: PartialResultCtx<'_>,
+        partial_res: Self::PartialResult,
+    ) -> anyhow::Result<()> {
+        let lsp_message: lsp_server::Message = serde_json::from_str(&partial_res.lsp_json)?;
+        let mut buffer = Vec::new();
+        lsp_message.write(&mut buffer)?;
+        ctx.stdout(&buffer).await
+    }
+}
+
 /// Implement a streaming method with full event reporting.
 macro_rules! stream_method {
     ($method: ident, $req: ty, $res: ty, $handler: ty) => {
@@ -782,7 +805,7 @@ impl<'a> FlushingBuckdClient<'a> {
         NoPartialResultHandler
     );
 
-    bidirectional_stream_method!(lsp, LspRequest, LspResponse, NoPartialResultHandler);
+    bidirectional_stream_method!(lsp, LspRequest, LspResponse, LspPartialResultHandler);
 
     oneshot_method!(flush_dep_files, FlushDepFilesRequest, GenericResponse);
 

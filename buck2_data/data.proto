@@ -120,7 +120,7 @@ message SpanStats {
 
 // An event that represents a single point in time.
 message InstantEvent {
-  reserved 9;
+  reserved 9, 13;
 
   oneof data {
     Panic panic = 1;
@@ -140,9 +140,6 @@ message InstantEvent {
     Snapshot snapshot = 10;
 
     DiceStateSnapshot dice_state_snapshot = 11;
-
-    // Result of one (of potentially many) starlark LSP requests.
-    LspResult lsp_result = 13;
 
     // A tag to mark on the scuba tables
     TagEvent tag_event = 14;
@@ -171,14 +168,6 @@ message InstantEvent {
   }
 
   reserved 12; // Log
-}
-
-/// The result of an LSP request. Multiple requests and
-/// responses are handled in a single (bidirectional streaming)
-/// RPC call, so allow these in the middle of a stream.
-message LspResult {
-  // The json that should be sent, unchanged, to LSP clients.
-  string lsp_json = 1;
 }
 
 message DiceStateSnapshot {
