@@ -81,8 +81,18 @@ fn print(mut writer: impl Write, fmt: Arguments, err: FailureExitCode) -> anyhow
     })
 }
 
-pub fn print_bytes(vec: &[u8]) -> anyhow::Result<()> {
-    io::stdout().lock().write_all(vec).map_err(|e| {
+pub fn print_bytes(bytes: &[u8]) -> anyhow::Result<()> {
+    io::stdout().lock().write_all(bytes).map_err(|e| {
+        if e.kind() == io::ErrorKind::BrokenPipe {
+            anyhow::Error::new(FailureExitCode::StdoutBrokenPipe)
+        } else {
+            anyhow::Error::new(e)
+        }
+    })
+}
+
+pub fn flush() -> anyhow::Result<()> {
+    io::stdout().flush().map_err(|e| {
         if e.kind() == io::ErrorKind::BrokenPipe {
             anyhow::Error::new(FailureExitCode::StdoutBrokenPipe)
         } else {

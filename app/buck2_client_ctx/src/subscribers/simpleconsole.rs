@@ -286,7 +286,11 @@ where
     E: EventObserverExtra,
 {
     async fn handle_output(&mut self, raw_output: &[u8]) -> anyhow::Result<()> {
+        // We expect output that gets here to already have been buffered if possible (because it
+        // primarily gets to us through a GRPC layer that already needs buffering), so we
+        // unconditionally flush it.
         crate::stdio::print_bytes(raw_output)?;
+        crate::stdio::flush()?;
         self.notify_printed();
         Ok(())
     }
