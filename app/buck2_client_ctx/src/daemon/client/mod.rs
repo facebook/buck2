@@ -549,6 +549,26 @@ impl PartialResultHandler for NoPartialResultHandler {
     }
 }
 
+/// Receives StdoutBytes, writes them to stdout.
+struct StdoutPartialResultHandler;
+
+#[async_trait]
+impl PartialResultHandler for StdoutPartialResultHandler {
+    type PartialResult = buck2_cli_proto::StdoutBytes;
+
+    fn new() -> Self {
+        Self
+    }
+
+    async fn handle_partial_result(
+        &mut self,
+        mut ctx: PartialResultCtx<'_>,
+        partial_res: Self::PartialResult,
+    ) -> anyhow::Result<()> {
+        ctx.stdout(&partial_res.data).await
+    }
+}
+
 /// Implement a streaming method with full event reporting.
 macro_rules! stream_method {
     ($method: ident, $req: ty, $res: ty, $handler: ty) => {

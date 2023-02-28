@@ -476,7 +476,9 @@ message CommandResult {
   }
 }
 
-message StdoutBytes {}
+message StdoutBytes {
+  bytes data = 1;
+}
 
 message PartialResult {
   oneof partial_result {

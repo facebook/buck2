@@ -13,6 +13,8 @@ use buck2_cli_proto::partial_result;
 use buck2_cli_proto::PartialResult;
 use buck2_events::dispatch::EventDispatcher;
 
+use crate::stdout_partial_output::StdoutPartialOutput;
+
 /// A typed partial result dispatcher. Each command can only send one kind of partial result, hence
 /// the typing.
 pub struct PartialResultDispatcher<T> {
@@ -37,6 +39,12 @@ where
         self.dispatcher.control_event(PartialResult {
             partial_result: Some(res.into()),
         });
+    }
+}
+
+impl PartialResultDispatcher<buck2_cli_proto::StdoutBytes> {
+    pub fn as_writer(&mut self) -> StdoutPartialOutput<'_> {
+        StdoutPartialOutput::new(self)
     }
 }
 

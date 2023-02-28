@@ -16,4 +16,5 @@ pub mod logging;
 pub mod partial_result_dispatcher;
 pub mod pattern;
 pub mod raw_output;
+pub mod stdout_partial_output;
 pub mod template;
