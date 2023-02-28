@@ -346,19 +346,25 @@ impl BuckdServer {
     /// This mostly just ensures that a client context has been sent first, and passes a client
     /// stream to `func` that converts to the correct type (or returns an error and shuts the
     /// stream down)
-    async fn run_bidirectional<Req, Res, Fut, F>(
+    async fn run_bidirectional<Req, Res, PartialRes, Fut, F>(
         &self,
         req: Request<tonic::Streaming<StreamingRequest>>,
         opts: impl StreamingCommandOptions<StreamingRequest>,
         func: F,
     ) -> Result<Response<ResponseStream>, Status>
     where
-        F: FnOnce(ServerCommandContext, &ClientContext, StreamingRequestHandler<Req>) -> Fut
+        F: FnOnce(
+                ServerCommandContext,
+                PartialResultDispatcher<PartialRes>,
+                &ClientContext,
+                StreamingRequestHandler<Req>,
+            ) -> Fut
             + Send
             + 'static,
         Fut: Future<Output = anyhow::Result<Res>> + Send,
         Req: TryFrom<StreamingRequest, Error = Status> + Send + Sync + 'static,
         Res: Into<command_result::Result> + Send + 'static,
+        PartialRes: Into<partial_result::PartialResult> + Send + 'static,
     {
         let mut req = req.into_inner();
         let init_request = match req.message().await? {
@@ -376,10 +382,11 @@ impl BuckdServer {
         self.run_streaming(
             init_request,
             opts,
-            |ctx, _: PartialResultDispatcher<NoPartialResult>, init_req| {
+            |ctx, partial_result_dispatcher, init_req| {
                 // TODO: Use the PartialResultDispatcher instead of writing events.
                 func(
                     ctx,
+                    partial_result_dispatcher,
                     init_req
                         .client_context()
                         .expect("already checked for a valid context"),
@@ -1227,8 +1234,11 @@ impl DaemonApi for BuckdServer {
         self.run_bidirectional(
             req,
             DefaultCommandOptions,
-            |ctx, _client_ctx, req: StreamingRequestHandler<LspRequest>| {
-                run_lsp_server_command(box ctx, req)
+            |ctx,
+             partial_result_dispatcher,
+             _client_ctx,
+             req: StreamingRequestHandler<LspRequest>| {
+                run_lsp_server_command(box ctx, partial_result_dispatcher, req)
             },
         )
         .await

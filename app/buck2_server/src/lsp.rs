@@ -43,6 +43,8 @@ use buck2_interpreter_for_build::interpreter::global_interpreter_state::HasGloba
 use buck2_server_ctx::command_end::command_end;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
+use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
+use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use dice::DiceEquality;
 use dice::DiceTransaction;
 use dupe::Dupe;
@@ -715,6 +717,7 @@ impl LspContext for BuckLspContext {
 
 pub(crate) async fn run_lsp_server_command(
     ctx: Box<dyn ServerCommandContextTrait>,
+    _partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
     req: StreamingRequestHandler<buck2_cli_proto::LspRequest>,
 ) -> anyhow::Result<buck2_cli_proto::LspResponse> {
     let metadata = ctx.request_metadata().await?;
