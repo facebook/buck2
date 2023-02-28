@@ -61,6 +61,11 @@ const { fbContent, isInternal } = require('docusaurus-plugin-internaldocs-fb/int
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
+      docs: {
+        sidebar: {
+          hideable: true,
+        },
+      },
       navbar: {
         title: 'Buck2',
         logo: {
