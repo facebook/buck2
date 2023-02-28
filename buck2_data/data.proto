@@ -120,6 +120,8 @@ message SpanStats {
 
 // An event that represents a single point in time.
 message InstantEvent {
+  reserved 9;
+
   oneof data {
     Panic panic = 1;
     MercurialInfo hg_info = 2;
@@ -135,8 +137,6 @@ message InstantEvent {
     TestResult test_result = 7;
     // Inform tailer that rage was performed on certain command.
     RageInvoked rage_invoked = 8;
-    // Raw output variant is special: it is not written to event logs.
-    RawOutput raw_output = 9;
     Snapshot snapshot = 10;
 
     DiceStateSnapshot dice_state_snapshot = 11;
@@ -1176,11 +1176,6 @@ message TargetPattern {
 /// console events if additional formatting is required.
 message ConsoleMessage {
   string message = 1;
-}
-
-/// A message that is printed out to client's stdout verbatim
-message RawOutput {
-  string raw_output = 1;
 }
 
 /// A representation of a command that we executed locally.

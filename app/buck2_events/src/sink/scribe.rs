@@ -399,7 +399,6 @@ mod fbcode {
                 use buck2_data::instant_event::Data;
 
                 match i.data {
-                    Some(Data::RawOutput(..)) => false,
                     Some(Data::Snapshot(..)) => false,
                     Some(Data::DiceStateSnapshot(..)) => false,
                     Some(Data::LspResult(..)) => false,

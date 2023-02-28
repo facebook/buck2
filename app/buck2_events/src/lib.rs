@@ -163,33 +163,6 @@ impl BuckEvent {
             }
         }
     }
-
-    fn instant_event(&self) -> Option<&buck2_data::InstantEvent> {
-        match self.data() {
-            buck2_data::buck_event::Data::Instant(instant) => Some(instant),
-            _ => None,
-        }
-    }
-
-    fn instant_event_data(&self) -> anyhow::Result<Option<&buck2_data::instant_event::Data>> {
-        match self.instant_event() {
-            None => Ok(None),
-            Some(instant) => {
-                Ok(Some(instant.data.as_ref().with_context(|| {
-                    BuckEventError::MissingField(self.clone())
-                })?))
-            }
-        }
-    }
-
-    pub fn raw_output(&self) -> anyhow::Result<Option<&str>> {
-        match self.instant_event_data()? {
-            Some(buck2_data::instant_event::Data::RawOutput(raw_output)) => {
-                Ok(Some(&raw_output.raw_output))
-            }
-            _ => Ok(None),
-        }
-    }
 }
 
 impl From<BuckEvent> for Box<buck2_data::BuckEvent> {

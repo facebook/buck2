@@ -37,8 +37,6 @@ use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::fs::working_dir::WorkingDir;
 use buck2_core::soft_error;
-use buck2_data::buck_event;
-use buck2_data::instant_event;
 use buck2_events::trace::TraceId;
 use buck2_events::BuckEvent;
 use bytes::BytesMut;
@@ -740,11 +738,6 @@ impl EventSubscriber for EventLog {
         let mut event_refs = Vec::new();
         let mut first = true;
         for event in events {
-            if let buck_event::Data::Instant(instant) = event.data() {
-                if let Some(instant_event::Data::RawOutput(_)) = instant.data.as_ref() {
-                    continue;
-                }
-            }
             if first {
                 self.ensure_log_files_opened(event).await?;
                 first = false;

@@ -269,9 +269,6 @@ pub trait UnpackingEventSubscriber: Send {
             buck2_data::instant_event::Data::RageInvoked(result) => {
                 self.handle_rage_invoked(result, event)
             }
-            buck2_data::instant_event::Data::RawOutput(output) => {
-                self.handle_output(output.raw_output.as_bytes())
-            }
             buck2_data::instant_event::Data::Snapshot(result) => {
                 self.handle_snapshot(result, event)
             }
