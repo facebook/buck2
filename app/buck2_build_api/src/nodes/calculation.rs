@@ -848,10 +848,6 @@ impl NodeCalculation for DiceComputations {
                     _ => false,
                 }
             }
-
-            fn validity(x: &Self::Value) -> bool {
-                x.is_ok()
-            }
         }
 
         self.compute(&ConfiguredTargetNodeKey(target.dupe()))
