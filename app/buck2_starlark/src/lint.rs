@@ -21,6 +21,7 @@ use buck2_core::cells::CellResolver;
 use buck2_interpreter::path::StarlarkPath;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
+use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use starlark::codemap::FileSpan;
 use starlark::errors::Diagnostic;
 use starlark::errors::Lint;
@@ -79,6 +80,7 @@ impl StarlarkSubcommand for StarlarkLintCommand {
     async fn server_execute(
         &self,
         server_ctx: Box<dyn ServerCommandContextTrait>,
+        mut stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         _client_ctx: ClientContext,
     ) -> anyhow::Result<()> {
         server_ctx
@@ -88,7 +90,7 @@ impl StarlarkSubcommand for StarlarkLintCommand {
                 let io = ctx.global_data().get_io_provider();
                 let mut cached_globals = CachedGlobals::new(&ctx);
 
-                let mut stdout = server_ctx.stdout()?;
+                let mut stdout = stdout.as_writer();
                 let mut lint_count = 0;
                 let files =
                     starlark_files(&self.paths, server_ctx, &cell_resolver, &fs, &*io).await?;

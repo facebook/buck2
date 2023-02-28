@@ -12,14 +12,13 @@ use std::collections::HashMap;
 use buck2_events::dispatch::span_async;
 use buck2_server_ctx::command_end::command_end;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
-use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 
 use crate::StarlarkCommand;
 
 pub async fn server_starlark_command(
     ctx: Box<dyn ServerCommandContextTrait>,
-    _partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
+    partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
     req: buck2_cli_proto::GenericRequest,
 ) -> anyhow::Result<buck2_cli_proto::GenericResponse> {
     let metadata = ctx.request_metadata().await?;
@@ -30,7 +29,7 @@ pub async fn server_starlark_command(
 
     span_async(
         start_event,
-        server_starlark_command_inner(metadata, ctx, req),
+        server_starlark_command_inner(metadata, ctx, partial_result_dispatcher, req),
     )
     .await
 }
@@ -38,6 +37,7 @@ pub async fn server_starlark_command(
 async fn server_starlark_command_inner(
     metadata: HashMap<String, String>,
     context: Box<dyn ServerCommandContextTrait>,
+    partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
     req: buck2_cli_proto::GenericRequest,
 ) -> (
     anyhow::Result<buck2_cli_proto::GenericResponse>,
@@ -45,7 +45,7 @@ async fn server_starlark_command_inner(
 ) {
     let args = req.serialized_opts.to_owned();
     let dir = context.working_dir().to_string();
-    let result = parse_command_and_execute(context, req).await;
+    let result = parse_command_and_execute(context, partial_result_dispatcher, req).await;
     let end_event = command_end(
         metadata,
         &result,
@@ -63,12 +63,14 @@ async fn server_starlark_command_inner(
 
 async fn parse_command_and_execute(
     context: Box<dyn ServerCommandContextTrait>,
+    partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
     req: buck2_cli_proto::GenericRequest,
 ) -> anyhow::Result<()> {
     let command: StarlarkCommand = serde_json::from_str(&req.serialized_opts)?;
     command
         .server_execute(
             context,
+            partial_result_dispatcher,
             req.context.expect("buck cli always sets a client context"),
         )
         .await

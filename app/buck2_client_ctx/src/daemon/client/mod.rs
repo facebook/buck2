@@ -742,7 +742,7 @@ impl<'a> FlushingBuckdClient<'a> {
         starlark,
         GenericRequest,
         GenericResponse,
-        NoPartialResultHandler
+        StdoutPartialResultHandler
     );
     stream_method!(
         materialize,

@@ -21,6 +21,7 @@ use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
+use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 
 use crate::lint::StarlarkLintCommand;
 
@@ -52,6 +53,7 @@ pub trait StarlarkSubcommand: Send + Sync + 'static {
     async fn server_execute(
         &self,
         server_ctx: Box<dyn ServerCommandContextTrait>,
+        stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         client_server_ctx: ClientContext,
     ) -> anyhow::Result<()>;
 
@@ -62,10 +64,11 @@ impl StarlarkCommand {
     pub async fn server_execute(
         &self,
         server_ctx: Box<dyn ServerCommandContextTrait>,
+        stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         client_server_ctx: ClientContext,
     ) -> anyhow::Result<()> {
         self.as_subcommand()
-            .server_execute(server_ctx, client_server_ctx)
+            .server_execute(server_ctx, stdout, client_server_ctx)
             .await
     }
     fn as_subcommand(&self) -> &dyn StarlarkSubcommand {

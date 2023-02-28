@@ -149,7 +149,7 @@ impl BuckdServerDependencies for BuckdServerDependenciesImpl {
     async fn starlark(
         &self,
         ctx: Box<dyn ServerCommandContextTrait>,
-        partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
+        partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         req: buck2_cli_proto::GenericRequest,
     ) -> anyhow::Result<buck2_cli_proto::GenericResponse> {
         server_starlark_command(ctx, partial_result_dispatcher, req).await
