@@ -103,6 +103,7 @@ impl WhatUpCommand {
 
                         console.handle_event(&Arc::new(e)).await.unwrap();
                     }
+                    StreamValue::PartialResult(..) => {}
                     StreamValue::Result(result) => {
                         console.handle_command_result(&result).await.unwrap();
                         should_render = false;

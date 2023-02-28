@@ -11,7 +11,6 @@ use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::stdio;
 use buck2_client_ctx::subscribers::event_log::options::EventLogOptions;
-use buck2_client_ctx::subscribers::event_log::SerializeForLog;
 use tokio::runtime;
 use tokio_stream::StreamExt;
 
@@ -36,12 +35,12 @@ impl ShowLogCommand {
             let (invocation, mut events) = log_path.unpack_stream().await?;
 
             let mut buf = Vec::new();
-            invocation.serialize_to_json(&mut buf)?;
+            serde_json::to_writer(&mut buf, &invocation)?;
             stdio::print_bytes(&buf)?;
             stdio::print_bytes(b"\n")?;
             while let Some(event) = events.try_next().await? {
                 buf.clear();
-                event.as_ref().serialize_to_json(&mut buf)?;
+                serde_json::to_writer(&mut buf, &event)?;
                 stdio::print_bytes(&buf)?;
                 stdio::print_bytes(b"\n")?;
             }

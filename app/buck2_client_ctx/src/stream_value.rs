@@ -9,27 +9,14 @@
 
 use allocative::Allocative;
 use buck2_cli_proto::CommandResult;
+use buck2_cli_proto::PartialResult;
 use serde::Deserialize;
 use serde::Serialize;
 
-#[derive(Allocative, Deserialize)]
+#[derive(Allocative, Deserialize, Serialize)]
 #[allow(clippy::large_enum_variant)]
 pub enum StreamValue {
     Result(Box<CommandResult>),
+    PartialResult(Box<PartialResult>),
     Event(Box<buck2_data::BuckEvent>),
-}
-
-impl StreamValue {
-    pub fn as_ref(&self) -> StreamValueRef {
-        match self {
-            StreamValue::Result(result) => StreamValueRef::Result(result),
-            StreamValue::Event(event) => StreamValueRef::Event(event),
-        }
-    }
-}
-
-#[derive(Serialize)]
-pub enum StreamValueRef<'a> {
-    Result(&'a CommandResult),
-    Event(&'a buck2_data::BuckEvent),
 }

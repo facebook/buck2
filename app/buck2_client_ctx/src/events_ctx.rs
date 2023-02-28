@@ -118,6 +118,9 @@ impl EventsCtx {
                     let event = event.try_into()?;
                     events.push(event);
                 }
+                StreamValue::PartialResult(_res) => {
+                    // TODO: Handle partial results.
+                }
                 StreamValue::Result(res) => {
                     self.handle_events(events, shutdown).await?;
                     self.handle_command_result(&res).await?;

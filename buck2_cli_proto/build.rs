@@ -32,6 +32,7 @@ fn main() -> io::Result<()> {
 
         .boxed("CommandProgress.progress.event")
         .boxed("CommandProgress.progress.result")
+        .boxed("CommandProgress.progress.partial_result")
         .extern_path(".buck.data", "::buck2_data")
         .compile(proto_files, &[".", &events_include])
 }

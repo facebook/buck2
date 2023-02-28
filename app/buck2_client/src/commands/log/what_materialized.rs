@@ -82,7 +82,7 @@ impl WhatMaterializedCommand {
                             _ => {}
                         }
                     }
-                    StreamValue::Result(..) => {}
+                    StreamValue::Result(..) | StreamValue::PartialResult(..) => {}
                 }
             }
 

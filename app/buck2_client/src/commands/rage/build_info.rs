@@ -70,7 +70,7 @@ pub(crate) async fn get(log: &EventLogPathBuf) -> anyhow::Result<BuildInfo> {
     let (invocation, events) = log.unpack_stream().await?;
     let mut filtered_events = events.try_filter_map(|log| {
         let maybe_buck_event = match log {
-            StreamValue::Result(_) => None,
+            StreamValue::Result(_) | StreamValue::PartialResult(_) => None,
             StreamValue::Event(buck_event) => Some(buck_event),
         };
         futures::future::ready(Ok(maybe_buck_event))

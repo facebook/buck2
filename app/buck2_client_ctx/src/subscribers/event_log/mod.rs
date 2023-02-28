@@ -68,7 +68,6 @@ use tokio_util::codec::FramedRead;
 
 use crate::cleanup_ctx::AsyncCleanupContext;
 use crate::stream_value::StreamValue;
-use crate::stream_value::StreamValueRef;
 use crate::subscribers::event_log::file_names::get_logfile_name;
 use crate::subscribers::event_log::file_names::remove_old_logs;
 use crate::subscribers::event_log::upload::log_upload;
@@ -340,6 +339,9 @@ impl EventLogPathBuf {
                     Some(command_progress::Progress::Result(result)) => {
                         Ok(StreamValue::Result(result))
                     }
+                    Some(command_progress::Progress::PartialResult(result)) => {
+                        Ok(StreamValue::PartialResult(result))
+                    }
                     None => Err(anyhow::anyhow!("Event type not recognized")),
                 },
             }
@@ -420,7 +422,7 @@ impl EventLogPathBuf {
         let buck_event: BuckEvent = events
             .try_filter_map(|log| {
                 let maybe_buck_event = match log {
-                    StreamValue::Result(_) => None,
+                    StreamValue::Result(_) | StreamValue::PartialResult(_) => None,
                     StreamValue::Event(buck_event) => Some(buck_event),
                 };
                 futures::future::ready(Ok(maybe_buck_event))
@@ -747,7 +749,8 @@ impl EventSubscriber for EventLog {
                 self.ensure_log_files_opened(event).await?;
                 first = false;
             }
-            event_refs.push(StreamValueRef::Event(event.event()));
+
+            event_refs.push(StreamValueForWrite::Event(event.event()));
         }
 
         if event_refs.is_empty() {
@@ -773,7 +776,7 @@ impl EventSubscriber for EventLog {
             }
         }
 
-        let event = StreamValueRef::Result(result);
+        let event = StreamValueForWrite::Result(result);
 
         self.write_ln(&[event]).await
     }
@@ -800,7 +803,7 @@ impl EventSubscriber for EventLog {
     }
 }
 
-pub trait SerializeForLog {
+trait SerializeForLog {
     fn serialize_to_json(&self, buf: &mut Vec<u8>) -> anyhow::Result<()>;
     fn serialize_to_protobuf_length_delimited(&self, buf: &mut Vec<u8>) -> anyhow::Result<()>;
 }
@@ -820,7 +823,13 @@ impl SerializeForLog for Invocation {
     }
 }
 
-impl<'a> SerializeForLog for StreamValueRef<'a> {
+#[derive(Serialize)]
+pub enum StreamValueForWrite<'a> {
+    Result(&'a CommandResult),
+    Event(&'a buck2_data::BuckEvent),
+}
+
+impl<'a> SerializeForLog for StreamValueForWrite<'a> {
     fn serialize_to_json(&self, buf: &mut Vec<u8>) -> anyhow::Result<()> {
         serde_json::to_writer(buf, &self).context("Failed to serialize event")
     }
@@ -967,7 +976,7 @@ mod tests {
         let mut event_log = EventLog::new_test_event_log(log.clone()).await?;
 
         //Log event
-        let value = StreamValueRef::Event(event.event());
+        let value = StreamValueForWrite::Event(event.event());
         event_log.log_invocation().await?;
         event_log.write_ln(&[value]).await?;
         event_log.exit().await?;
@@ -978,7 +987,7 @@ mod tests {
         //Get event
         let retrieved_event = match events.try_next().await?.expect("Failed getting log") {
             StreamValue::Event(e) => BuckEvent::try_from(e),
-            StreamValue::Result(_) => panic!("found result"),
+            _ => panic!("expected event"),
         }?;
 
         //Assert it's the same event created in the beginning
@@ -1020,7 +1029,7 @@ mod tests {
         let mut event_log = EventLog::new_test_event_log(log.clone()).await?;
 
         let event = make_event();
-        let value = StreamValueRef::Event(event.event());
+        let value = StreamValueForWrite::Event(event.event());
         event_log.log_invocation().await?;
         event_log.write_ln(&[value]).await?;
 
@@ -1037,7 +1046,7 @@ mod tests {
 
         let retrieved_event = match events.try_next().await?.expect("Failed getting log") {
             StreamValue::Event(e) => BuckEvent::try_from(e).unwrap(),
-            StreamValue::Result(_) => panic!("expecting event"),
+            _ => panic!("expecting event"),
         };
 
         assert_eq!(retrieved_event.timestamp(), event.timestamp());
@@ -1071,7 +1080,7 @@ mod tests {
     fn test_stream_value_serialize_to_protobuf_length_delimited() {
         let event = make_event();
         let mut actual = Vec::new();
-        StreamValueRef::Event(event.event())
+        StreamValueForWrite::Event(event.event())
             .serialize_to_protobuf_length_delimited(&mut actual)
             .unwrap();
         let expected = buck2_cli_proto::CommandProgress {

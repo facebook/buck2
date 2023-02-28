@@ -206,6 +206,9 @@ fn grpc_to_stream(
         let value = match msg.progress {
             Some(command_progress::Progress::Event(e)) => Some(Ok(StreamValue::Event(e))),
             Some(command_progress::Progress::Result(res)) => Some(Ok(StreamValue::Result(res))),
+            Some(command_progress::Progress::PartialResult(res)) => {
+                Some(Ok(StreamValue::PartialResult(res)))
+            }
             None => Some(Err(GrpcToStreamError::EmptyCommandProgress.into())),
         };
 

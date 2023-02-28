@@ -476,11 +476,14 @@ message CommandResult {
   }
 }
 
+message PartialResult {}
+
 // A response from a command, either an informational event or the response.
 message CommandProgress {
   oneof progress {
     buck.data.BuckEvent event = 1;
     CommandResult result = 2;
+    PartialResult partial_result = 3;
   }
 }
 
