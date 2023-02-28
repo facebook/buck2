@@ -76,9 +76,25 @@ def rewrite_static_symbols(
         libraries: {LinkStyle.type: LinkInfos.type},
         cxx_toolchain: "CxxToolchainInfo",
         suffix_all: bool.type = False) -> {LinkStyle.type: LinkInfos.type}:
-    symbols_file = write_syms_file(ctx, pic_objects + non_pic_objects, suffix, cxx_toolchain, suffix_all = suffix_all)
+    symbols_file = _write_syms_file(
+        ctx = ctx,
+        name = ctx.label.name + "_rename_syms",
+        objects = non_pic_objects,
+        suffix = suffix,
+        cxx_toolchain = cxx_toolchain,
+        suffix_all = suffix_all,
+    )
     static_objects, stripped_static_objects = suffix_symbols(ctx, suffix, non_pic_objects, symbols_file, cxx_toolchain)
-    static_pic_objects, stripped_static_pic_objects = suffix_symbols(ctx, suffix, pic_objects, symbols_file, cxx_toolchain)
+
+    symbols_file_pic = _write_syms_file(
+        ctx = ctx,
+        name = ctx.label.name + "_rename_syms_pic",
+        objects = pic_objects,
+        suffix = suffix,
+        cxx_toolchain = cxx_toolchain,
+        suffix_all = suffix_all,
+    )
+    static_pic_objects, stripped_static_pic_objects = suffix_symbols(ctx, suffix, pic_objects, symbols_file_pic, cxx_toolchain)
 
     static_info = libraries[LinkStyle("static")].default
     updated_static_info = LinkInfo(
@@ -113,8 +129,9 @@ def rewrite_static_symbols(
     }
     return updated_libraries
 
-def write_syms_file(
+def _write_syms_file(
         ctx: "context",
+        name: str.type,
         objects: ["artifact"],
         suffix: str.type,
         cxx_toolchain: "CxxToolchainInfo",
@@ -123,9 +140,9 @@ def write_syms_file(
     Take a list of objects and append a suffix to all  defined symbols.
     """
     nm = cxx_toolchain.binary_utilities_info.nm
-    symbols_file = ctx.actions.declare_output(ctx.label.name + "_renamed_syms")
+    symbols_file = ctx.actions.declare_output(name)
 
-    objects_argsfile = ctx.actions.write(ctx.label.name + ".objects.argsfile", objects)
+    objects_argsfile = ctx.actions.write(name + ".objects.argsfile", objects)
     objects_args = cmd_args(objects_argsfile).hidden(objects)
 
     script_env = {
