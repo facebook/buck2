@@ -12,6 +12,7 @@ mod rage_dumps;
 mod source_control;
 mod system_info;
 
+use std::collections::HashMap;
 use std::fmt;
 use std::future::Future;
 use std::process::Stdio;
@@ -126,9 +127,9 @@ where
         }
     }
 
-    fn structured_output(&self) -> Option<&T> {
+    fn get_field<D>(&self, extract_field: impl FnOnce(&T) -> Option<D>) -> Option<D> {
         match &self.status {
-            CommandStatus::Success { output } => Some(output),
+            CommandStatus::Success { output } => extract_field(output),
             _ => None,
         }
     }
@@ -305,7 +306,7 @@ impl RageCommand {
         event_log_dump: RageSection<String>,
         build_info: RageSection<build_info::BuildInfo>,
     ) -> anyhow::Result<()> {
-        let string_data = convert_args!(
+        let mut string_data = convert_args!(
             keys = String::from,
             hashmap! (
                 "dice_dump" => dice_dump.output(),
@@ -315,48 +316,52 @@ impl RageCommand {
                 "invocation_id" => invocation_id.map(|inv| inv.to_string()).unwrap_or_default(),
                 "origin" => self.origin.to_string(),
                 "event_log_dump" => event_log_dump.output(),
-                "command" => build_info.structured_output().map(|o| o.command.clone()).unwrap_or_default(),
-                "buck2_revision" => build_info
-                    .structured_output()
-                    .map(|o| o.buck2_revision.clone()).unwrap_or_default(),
-                "username" => system_info
-                    .structured_output()
-                    .and_then(|o| o.username.clone()).unwrap_or_default(),
-                "hostname" => system_info
-                    .structured_output()
-                    .and_then(|o| o.hostname.clone()).unwrap_or_default(),
-                "os" => system_info.structured_output().map(|o| o.os.clone()).unwrap_or_default(),
-                "os_version" => system_info
-                    .structured_output()
-                    .and_then(|o| o.os_version.clone()).unwrap_or_default()
             )
         );
-        let int_data = convert_args!(
-            keys = String::from,
-            hashmap! (
-                "daemon_uptime_s" => build_info
-                .structured_output()
-                .and_then(|o| o.daemon_uptime_s).unwrap_or_default(),
-            )
-        );
+
+        let command = build_info.get_field(|o| Some(o.command.to_owned()));
+        let buck2_revision = build_info.get_field(|o| Some(o.buck2_revision.to_owned()));
+        let username = system_info.get_field(|o| o.username.to_owned());
+        let hostname = system_info.get_field(|o| o.hostname.to_owned());
+        let os = system_info.get_field(|o| Some(o.os.to_owned()));
+        let os_version = system_info.get_field(|o| o.os_version.to_owned());
+
+        insert_if_some(&mut string_data, "command", command);
+        insert_if_some(&mut string_data, "buck2_revision", buck2_revision);
+        insert_if_some(&mut string_data, "username", username);
+        insert_if_some(&mut string_data, "hostname", hostname);
+        insert_if_some(&mut string_data, "os", os);
+        insert_if_some(&mut string_data, "os_version", os_version);
+
+        let mut int_data = HashMap::new();
+        let daemon_uptime_s = build_info.get_field(|o| o.daemon_uptime_s);
+        insert_if_some(&mut int_data, "daemon_uptime_s", daemon_uptime_s);
+
+        let timestamp = build_info.get_field(|o| Some(SystemTime::from(o.timestamp).into()));
+        let command_duration = build_info.get_field(|o| {
+            Some(prost_types::Duration {
+                seconds: o.command_duration?.as_secs() as i64,
+                nanos: o.command_duration?.subsec_nanos() as i32,
+            })
+        });
+
         dispatch_result_event(
             sink.as_ref(),
             rage_id,
             RageResult {
                 string_data,
                 int_data,
-                timestamp: build_info
-                    .structured_output()
-                    .map(|o| SystemTime::from(o.timestamp).into()),
-                command_duration: build_info.structured_output().and_then(|o| {
-                    Some(prost_types::Duration {
-                        seconds: o.command_duration?.as_secs() as i64,
-                        nanos: o.command_duration?.subsec_nanos() as i32,
-                    })
-                }),
+                timestamp,
+                command_duration,
             },
         )
         .await
+    }
+}
+
+fn insert_if_some<D>(data: &mut HashMap<String, D>, key: &str, value: Option<D>) {
+    if let Some(value) = value {
+        data.insert(key.to_owned(), value);
     }
 }
 
