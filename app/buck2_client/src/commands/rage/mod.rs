@@ -298,7 +298,7 @@ impl RageCommand {
         rage_id: &TraceId,
         sink: Option<ThriftScribeSink>,
         invocation_id: Option<TraceId>,
-        system_info: RageSection<String>,
+        system_info: RageSection<system_info::SystemInfo>,
         daemon_stderr_dump: RageSection<String>,
         hg_snapshot_id: RageSection<String>,
         dice_dump: RageSection<String>,
