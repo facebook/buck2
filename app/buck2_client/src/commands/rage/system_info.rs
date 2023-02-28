@@ -10,10 +10,10 @@
 use std::fmt;
 
 pub(crate) struct SystemInfo {
-    username: Option<String>,
-    hostname: Option<String>,
-    os: String,
-    os_version: Option<String>,
+    pub(crate) username: Option<String>,
+    pub(crate) hostname: Option<String>,
+    pub(crate) os: String,
+    pub(crate) os_version: Option<String>,
 }
 
 impl fmt::Display for SystemInfo {

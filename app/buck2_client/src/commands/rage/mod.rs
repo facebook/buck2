@@ -319,6 +319,16 @@ impl RageCommand {
                 "buck2_revision" => build_info
                     .structured_output()
                     .map(|o| o.buck2_revision.clone()).unwrap_or_default(),
+                "username" => system_info
+                    .structured_output()
+                    .and_then(|o| o.username.clone()).unwrap_or_default(),
+                "hostname" => system_info
+                    .structured_output()
+                    .and_then(|o| o.hostname.clone()).unwrap_or_default(),
+                "os" => system_info.structured_output().map(|o| o.os.clone()).unwrap_or_default(),
+                "os_version" => system_info
+                    .structured_output()
+                    .and_then(|o| o.os_version.clone()).unwrap_or_default()
             )
         );
         let int_data = convert_args!(
