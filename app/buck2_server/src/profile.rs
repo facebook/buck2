@@ -35,6 +35,8 @@ use buck2_interpreter_for_build::interpreter::dice_calculation_delegate::HasCalc
 use buck2_profile::get_profile_response;
 use buck2_profile::starlark_profiler_configuration_from_request;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
+use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
+use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
 use buck2_server_ctx::pattern::resolve_patterns;
 use buck2_server_ctx::pattern::target_platform_from_client_context;
@@ -109,9 +111,10 @@ async fn generate_profile_loading(
 
 pub async fn profile_command(
     ctx: Box<dyn ServerCommandContextTrait>,
+    partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
     req: buck2_cli_proto::ProfileRequest,
 ) -> anyhow::Result<buck2_cli_proto::ProfileResponse> {
-    run_server_command(ProfileServerCommand { req }, ctx).await
+    run_server_command(ProfileServerCommand { req }, ctx, partial_result_dispatcher).await
 }
 
 struct ProfileServerCommand {
@@ -123,10 +126,12 @@ impl ServerCommandTemplate for ProfileServerCommand {
     type StartEvent = buck2_data::ProfileCommandStart;
     type EndEvent = buck2_data::ProfileCommandEnd;
     type Response = buck2_cli_proto::ProfileResponse;
+    type PartialResult = NoPartialResult;
 
     async fn command<'v>(
         &self,
         server_ctx: &'v dyn ServerCommandContextTrait,
+        _partial_result_dispatcher: PartialResultDispatcher<Self::PartialResult>,
         ctx: DiceTransaction,
     ) -> anyhow::Result<Self::Response> {
         let output: PathBuf = self.req.destination_path.clone().into();

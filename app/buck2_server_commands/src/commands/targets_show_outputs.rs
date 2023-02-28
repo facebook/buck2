@@ -30,6 +30,8 @@ use buck2_core::target::label::TargetLabel;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
+use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
+use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
 use buck2_server_ctx::pattern::resolve_patterns;
 use buck2_server_ctx::pattern::target_platform_from_client_context;
@@ -49,9 +51,15 @@ struct TargetsArtifacts {
 
 pub async fn targets_show_outputs_command(
     ctx: Box<dyn ServerCommandContextTrait>,
+    partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
     req: TargetsRequest,
 ) -> anyhow::Result<TargetsShowOutputsResponse> {
-    run_server_command(TargetsShowOutputsServerCommand { req }, ctx).await
+    run_server_command(
+        TargetsShowOutputsServerCommand { req },
+        ctx,
+        partial_result_dispatcher,
+    )
+    .await
 }
 
 struct TargetsShowOutputsServerCommand {
@@ -63,10 +71,12 @@ impl ServerCommandTemplate for TargetsShowOutputsServerCommand {
     type StartEvent = buck2_data::TargetsCommandStart;
     type EndEvent = buck2_data::TargetsCommandEnd;
     type Response = buck2_cli_proto::TargetsShowOutputsResponse;
+    type PartialResult = NoPartialResult;
 
     async fn command<'v>(
         &self,
         server_ctx: &'v dyn ServerCommandContextTrait,
+        _partial_result_dispatcher: PartialResultDispatcher<Self::PartialResult>,
         ctx: DiceTransaction,
     ) -> anyhow::Result<Self::Response> {
         targets_show_outputs(server_ctx, ctx, &self.req).await

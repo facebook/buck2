@@ -19,6 +19,8 @@ use buck2_interpreter::starlark_profiler::StarlarkProfileModeOrInstrumentation;
 use buck2_profile::get_profile_response;
 use buck2_profile::starlark_profiler_configuration_from_request;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
+use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
+use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
 use dice::DiceTransaction;
@@ -28,9 +30,15 @@ use crate::command::get_bxl_key;
 
 pub async fn bxl_profile_command(
     ctx: Box<dyn ServerCommandContextTrait>,
+    partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
     req: ProfileRequest,
 ) -> anyhow::Result<ProfileResponse> {
-    run_server_command(BxlProfileServerCommand { req }, ctx).await
+    run_server_command(
+        BxlProfileServerCommand { req },
+        ctx,
+        partial_result_dispatcher,
+    )
+    .await
 }
 
 struct BxlProfileServerCommand {
@@ -42,10 +50,12 @@ impl ServerCommandTemplate for BxlProfileServerCommand {
     type StartEvent = buck2_data::ProfileCommandStart;
     type EndEvent = buck2_data::ProfileCommandEnd;
     type Response = buck2_cli_proto::ProfileResponse;
+    type PartialResult = NoPartialResult;
 
     async fn command<'v>(
         &self,
         server_ctx: &'v dyn ServerCommandContextTrait,
+        _partial_result_dispatcher: PartialResultDispatcher<Self::PartialResult>,
         ctx: DiceTransaction,
     ) -> anyhow::Result<Self::Response> {
         match self

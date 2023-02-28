@@ -15,6 +15,7 @@ use crate::command_end::command_end_ext;
 use crate::ctx::ServerCommandContextTrait;
 use crate::ctx::ServerCommandDiceContext;
 use crate::logging::TracingLogFile;
+use crate::partial_result_dispatcher::PartialResultDispatcher;
 
 /// Typical server command with DICE and span.
 #[async_trait]
@@ -24,7 +25,10 @@ pub trait ServerCommandTemplate: Send + Sync {
     /// Event to send in the end of command.
     type EndEvent: Into<buck2_data::command_end::Data> + Default;
     /// Command return type.
+    /// TODO: This is called `Result` everywhere, we should probably be consistent.
     type Response;
+    /// Command partial response.
+    type PartialResult: Send + Sync;
 
     /// Create start event. Called before command is invoked.
     fn start_event(&self) -> Self::StartEvent {
@@ -50,6 +54,7 @@ pub trait ServerCommandTemplate: Send + Sync {
     async fn command<'v>(
         &self,
         server_ctx: &'v dyn ServerCommandContextTrait,
+        partial_result_dispatcher: PartialResultDispatcher<Self::PartialResult>,
         ctx: DiceTransaction,
     ) -> anyhow::Result<Self::Response>;
 }
@@ -58,6 +63,7 @@ pub trait ServerCommandTemplate: Send + Sync {
 pub async fn run_server_command<T: ServerCommandTemplate>(
     command: T,
     server_ctx: Box<dyn ServerCommandContextTrait>,
+    partial_result_dispatcher: PartialResultDispatcher<<T as ServerCommandTemplate>::PartialResult>,
 ) -> anyhow::Result<T::Response> {
     let metadata = server_ctx.request_metadata().await?;
     let start_event = buck2_data::CommandStart {
@@ -71,7 +77,7 @@ pub async fn run_server_command<T: ServerCommandTemplate>(
     span_async(start_event, async {
         let result = server_ctx
             .with_dice_ctx_maybe_exclusive(
-                |server_ctx, ctx| command.command(server_ctx, ctx),
+                |server_ctx, ctx| command.command(server_ctx, partial_result_dispatcher, ctx),
                 command.exclusive_command_name(),
             )
             .await;

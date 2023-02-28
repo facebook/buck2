@@ -39,6 +39,8 @@ use buck2_interpreter_for_build::interpreter::dice_calculation_delegate::HasCalc
 use buck2_interpreter_for_build::interpreter::global_interpreter_state::GlobalInterpreterState;
 use buck2_interpreter_for_build::interpreter::global_interpreter_state::HasGlobalInterpreterState;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
+use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
+use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
 use dice::DiceTransaction;
@@ -282,9 +284,15 @@ async fn get_docs_from_module(
 
 pub async fn docs_command(
     context: Box<dyn ServerCommandContextTrait>,
+    partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
     req: UnstableDocsRequest,
 ) -> anyhow::Result<UnstableDocsResponse> {
-    run_server_command(DocsServerCommand { req }, context).await
+    run_server_command(
+        DocsServerCommand { req },
+        context,
+        partial_result_dispatcher,
+    )
+    .await
 }
 
 struct DocsServerCommand {
@@ -296,10 +304,12 @@ impl ServerCommandTemplate for DocsServerCommand {
     type StartEvent = buck2_data::DocsCommandStart;
     type EndEvent = buck2_data::DocsCommandEnd;
     type Response = UnstableDocsResponse;
+    type PartialResult = NoPartialResult;
 
     async fn command<'v>(
         &self,
         server_ctx: &'v dyn ServerCommandContextTrait,
+        _partial_result_dispatcher: PartialResultDispatcher<Self::PartialResult>,
         ctx: DiceTransaction,
     ) -> anyhow::Result<Self::Response> {
         docs(server_ctx, ctx, &self.req).await

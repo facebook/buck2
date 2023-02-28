@@ -41,6 +41,8 @@ use buck2_interpreter::path::BxlFilePath;
 use buck2_interpreter::path::StarlarkModulePath;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
+use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
+use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::pattern::target_platform_from_client_context;
 use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
@@ -56,9 +58,10 @@ use crate::bxl::eval::CliResolutionCtx;
 
 pub async fn bxl_command(
     ctx: Box<dyn ServerCommandContextTrait>,
+    partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
     req: BxlRequest,
 ) -> anyhow::Result<BxlResponse> {
-    run_server_command(BxlServerCommand { req }, ctx).await
+    run_server_command(BxlServerCommand { req }, ctx, partial_result_dispatcher).await
 }
 
 struct BxlServerCommand {
@@ -70,6 +73,7 @@ impl ServerCommandTemplate for BxlServerCommand {
     type StartEvent = buck2_data::BxlCommandStart;
     type EndEvent = buck2_data::BxlCommandEnd;
     type Response = buck2_cli_proto::BxlResponse;
+    type PartialResult = NoPartialResult;
 
     fn start_event(&self) -> Self::StartEvent {
         let bxl_label = self.req.bxl_label.clone();
@@ -84,6 +88,7 @@ impl ServerCommandTemplate for BxlServerCommand {
     async fn command<'v>(
         &self,
         server_ctx: &'v dyn ServerCommandContextTrait,
+        _partial_result_dispatcher: PartialResultDispatcher<Self::PartialResult>,
         ctx: DiceTransaction,
     ) -> anyhow::Result<Self::Response> {
         bxl(server_ctx, ctx, &self.req).await

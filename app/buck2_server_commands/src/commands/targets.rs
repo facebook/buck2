@@ -56,6 +56,8 @@ use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
+use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
+use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
 use buck2_server_ctx::pattern::target_platform_from_client_context;
 use buck2_server_ctx::template::run_server_command;
@@ -479,9 +481,15 @@ impl Outputter {
 
 pub async fn targets_command(
     server_ctx: Box<dyn ServerCommandContextTrait>,
+    partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
     req: TargetsRequest,
 ) -> anyhow::Result<TargetsResponse> {
-    run_server_command(TargetsServerCommand { req }, server_ctx).await
+    run_server_command(
+        TargetsServerCommand { req },
+        server_ctx,
+        partial_result_dispatcher,
+    )
+    .await
 }
 
 struct TargetsServerCommand {
@@ -493,10 +501,12 @@ impl ServerCommandTemplate for TargetsServerCommand {
     type StartEvent = buck2_data::TargetsCommandStart;
     type EndEvent = buck2_data::TargetsCommandEnd;
     type Response = TargetsResponse;
+    type PartialResult = NoPartialResult;
 
     async fn command<'v>(
         &self,
         server_ctx: &'v dyn ServerCommandContextTrait,
+        _partial_result_dispatcher: PartialResultDispatcher<Self::PartialResult>,
         dice: DiceTransaction,
     ) -> anyhow::Result<Self::Response> {
         targets(server_ctx, dice, &self.req).await

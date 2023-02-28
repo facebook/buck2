@@ -14,6 +14,8 @@ use buck2_cli_proto::UqueryResponse;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
+use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
+use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::pattern::target_platform_from_client_context;
 use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
@@ -24,9 +26,10 @@ use crate::commands::query::printer::ShouldPrintProviders;
 
 pub async fn uquery_command(
     ctx: Box<dyn ServerCommandContextTrait>,
+    partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
     req: UqueryRequest,
 ) -> anyhow::Result<UqueryResponse> {
-    run_server_command(UqueryServerCommand { req }, ctx).await
+    run_server_command(UqueryServerCommand { req }, ctx, partial_result_dispatcher).await
 }
 
 struct UqueryServerCommand {
@@ -38,10 +41,12 @@ impl ServerCommandTemplate for UqueryServerCommand {
     type StartEvent = buck2_data::QueryCommandStart;
     type EndEvent = buck2_data::QueryCommandEnd;
     type Response = UqueryResponse;
+    type PartialResult = NoPartialResult;
 
     async fn command<'v>(
         &self,
         server_ctx: &'v dyn ServerCommandContextTrait,
+        _partial_result_dispatcher: PartialResultDispatcher<Self::PartialResult>,
         ctx: DiceTransaction,
     ) -> anyhow::Result<Self::Response> {
         uquery(server_ctx, ctx, &self.req).await

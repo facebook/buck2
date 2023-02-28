@@ -12,11 +12,14 @@ use std::collections::HashMap;
 use buck2_events::dispatch::span_async;
 use buck2_server_ctx::command_end::command_end;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
+use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
+use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 
 use crate::StarlarkCommand;
 
 pub async fn server_starlark_command(
     ctx: Box<dyn ServerCommandContextTrait>,
+    _partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
     req: buck2_cli_proto::GenericRequest,
 ) -> anyhow::Result<buck2_cli_proto::GenericResponse> {
     let metadata = ctx.request_metadata().await?;

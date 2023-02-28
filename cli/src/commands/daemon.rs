@@ -46,6 +46,8 @@ use buck2_server_commands::commands::query::uquery::uquery_command;
 use buck2_server_commands::commands::targets::targets_command;
 use buck2_server_commands::commands::targets_show_outputs::targets_show_outputs_command;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
+use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
+use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_starlark::server::server_starlark_command;
 use buck2_test::command::test_command;
 use dice::DetectCycles;
@@ -107,100 +109,113 @@ impl BuckdServerDependencies for BuckdServerDependenciesImpl {
     async fn test(
         &self,
         ctx: Box<dyn ServerCommandContextTrait>,
+        partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
         req: buck2_cli_proto::TestRequest,
     ) -> anyhow::Result<buck2_cli_proto::TestResponse> {
-        test_command(ctx, req).await
+        test_command(ctx, partial_result_dispatcher, req).await
     }
     async fn build(
         &self,
         ctx: Box<dyn ServerCommandContextTrait>,
+        partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
         req: buck2_cli_proto::BuildRequest,
     ) -> anyhow::Result<buck2_cli_proto::BuildResponse> {
-        build_command(ctx, req).await
+        build_command(ctx, partial_result_dispatcher, req).await
     }
     async fn install(
         &self,
         ctx: Box<dyn ServerCommandContextTrait>,
+        partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
         req: buck2_cli_proto::InstallRequest,
     ) -> anyhow::Result<buck2_cli_proto::InstallResponse> {
-        install_command(ctx, req).await
+        install_command(ctx, partial_result_dispatcher, req).await
     }
     async fn bxl(
         &self,
         ctx: Box<dyn ServerCommandContextTrait>,
+        partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
         req: buck2_cli_proto::BxlRequest,
     ) -> anyhow::Result<buck2_cli_proto::BxlResponse> {
-        bxl_command(ctx, req).await
+        bxl_command(ctx, partial_result_dispatcher, req).await
     }
     async fn audit(
         &self,
         ctx: Box<dyn ServerCommandContextTrait>,
+        partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
         req: buck2_cli_proto::GenericRequest,
     ) -> anyhow::Result<buck2_cli_proto::GenericResponse> {
-        server_audit_command(ctx, req).await
+        server_audit_command(ctx, partial_result_dispatcher, req).await
     }
     async fn starlark(
         &self,
         ctx: Box<dyn ServerCommandContextTrait>,
+        partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
         req: buck2_cli_proto::GenericRequest,
     ) -> anyhow::Result<buck2_cli_proto::GenericResponse> {
-        server_starlark_command(ctx, req).await
+        server_starlark_command(ctx, partial_result_dispatcher, req).await
     }
     async fn profile(
         &self,
         ctx: Box<dyn ServerCommandContextTrait>,
+        partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
         req: buck2_cli_proto::ProfileRequest,
     ) -> anyhow::Result<buck2_cli_proto::ProfileResponse> {
         match req.profile_opts.as_ref().expect("Missing profile opts") {
             buck2_cli_proto::profile_request::ProfileOpts::TargetProfile(_) => {
-                profile_command(ctx, req).await
+                profile_command(ctx, partial_result_dispatcher, req).await
             }
             buck2_cli_proto::profile_request::ProfileOpts::BxlProfile(_) => {
-                bxl_profile_command(ctx, req).await
+                bxl_profile_command(ctx, partial_result_dispatcher, req).await
             }
         }
     }
     async fn uquery(
         &self,
         ctx: Box<dyn ServerCommandContextTrait>,
+        partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
         req: buck2_cli_proto::UqueryRequest,
     ) -> anyhow::Result<buck2_cli_proto::UqueryResponse> {
-        uquery_command(ctx, req).await
+        uquery_command(ctx, partial_result_dispatcher, req).await
     }
     async fn cquery(
         &self,
         ctx: Box<dyn ServerCommandContextTrait>,
+        partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
         req: buck2_cli_proto::CqueryRequest,
     ) -> anyhow::Result<buck2_cli_proto::CqueryResponse> {
-        cquery_command(ctx, req).await
+        cquery_command(ctx, partial_result_dispatcher, req).await
     }
     async fn aquery(
         &self,
         ctx: Box<dyn ServerCommandContextTrait>,
+        partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
         req: buck2_cli_proto::AqueryRequest,
     ) -> anyhow::Result<buck2_cli_proto::AqueryResponse> {
-        aquery_command(ctx, req).await
+        aquery_command(ctx, partial_result_dispatcher, req).await
     }
     async fn targets(
         &self,
         ctx: Box<dyn ServerCommandContextTrait>,
+        partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
         req: buck2_cli_proto::TargetsRequest,
     ) -> anyhow::Result<buck2_cli_proto::TargetsResponse> {
-        targets_command(ctx, req).await
+        targets_command(ctx, partial_result_dispatcher, req).await
     }
     async fn targets_show_outputs(
         &self,
         ctx: Box<dyn ServerCommandContextTrait>,
+        partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
         req: buck2_cli_proto::TargetsRequest,
     ) -> anyhow::Result<buck2_cli_proto::TargetsShowOutputsResponse> {
-        targets_show_outputs_command(ctx, req).await
+        targets_show_outputs_command(ctx, partial_result_dispatcher, req).await
     }
     async fn docs(
         &self,
         ctx: Box<dyn ServerCommandContextTrait>,
+        partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
         req: buck2_cli_proto::UnstableDocsRequest,
     ) -> anyhow::Result<buck2_cli_proto::UnstableDocsResponse> {
-        docs_command(ctx, req).await
+        docs_command(ctx, partial_result_dispatcher, req).await
     }
     fn configure_bxl_file_globals(&self) -> fn(&mut GlobalsBuilder) {
         configure_bxl_file_globals

@@ -22,6 +22,8 @@ use buck2_node::compatibility::MaybeCompatible;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
+use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
+use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::pattern::target_platform_from_client_context;
 use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
@@ -35,9 +37,10 @@ use crate::commands::query::printer::ShouldPrintProviders;
 
 pub async fn cquery_command(
     ctx: Box<dyn ServerCommandContextTrait>,
+    partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
     req: CqueryRequest,
 ) -> anyhow::Result<CqueryResponse> {
-    run_server_command(CqueryServerCommand { req }, ctx).await
+    run_server_command(CqueryServerCommand { req }, ctx, partial_result_dispatcher).await
 }
 
 struct CqueryServerCommand {
@@ -49,6 +52,7 @@ impl ServerCommandTemplate for CqueryServerCommand {
     type StartEvent = buck2_data::CQueryCommandStart;
     type EndEvent = buck2_data::CQueryCommandEnd;
     type Response = CqueryResponse;
+    type PartialResult = NoPartialResult;
 
     fn start_event(&self) -> buck2_data::CQueryCommandStart {
         buck2_data::CQueryCommandStart {
@@ -61,6 +65,7 @@ impl ServerCommandTemplate for CqueryServerCommand {
     async fn command<'v>(
         &self,
         server_ctx: &'v dyn ServerCommandContextTrait,
+        _partial_result_dispatcher: PartialResultDispatcher<Self::PartialResult>,
         ctx: DiceTransaction,
     ) -> anyhow::Result<Self::Response> {
         cquery(server_ctx, ctx, &self.req).await

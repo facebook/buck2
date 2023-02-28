@@ -30,6 +30,8 @@ use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
+use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
+use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::raw_output::RawOutputGuard;
 use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
@@ -41,9 +43,15 @@ use crate::ctx::ServerCommandContext;
 
 pub(crate) async fn file_status_command(
     ctx: ServerCommandContext,
+    partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
     req: buck2_cli_proto::FileStatusRequest,
 ) -> anyhow::Result<buck2_cli_proto::GenericResponse> {
-    run_server_command(FileStatusServerCommand { req }, box ctx).await
+    run_server_command(
+        FileStatusServerCommand { req },
+        box ctx,
+        partial_result_dispatcher,
+    )
+    .await
 }
 struct FileStatusServerCommand {
     req: buck2_cli_proto::FileStatusRequest,
@@ -75,10 +83,12 @@ impl ServerCommandTemplate for FileStatusServerCommand {
     type StartEvent = buck2_data::FileStatusCommandStart;
     type EndEvent = buck2_data::FileStatusCommandEnd;
     type Response = buck2_cli_proto::GenericResponse;
+    type PartialResult = NoPartialResult;
 
     async fn command<'v>(
         &self,
         server_ctx: &'v dyn ServerCommandContextTrait,
+        _partial_result_dispatcher: PartialResultDispatcher<Self::PartialResult>,
         ctx: DiceTransaction,
     ) -> anyhow::Result<Self::Response> {
         let file_ops = ctx.file_ops();

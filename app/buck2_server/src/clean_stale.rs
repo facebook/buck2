@@ -10,6 +10,8 @@
 use anyhow::Context;
 use async_trait::async_trait;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
+use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
+use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
 use chrono::TimeZone;
@@ -20,9 +22,15 @@ use crate::ctx::ServerCommandContext;
 
 pub(crate) async fn clean_stale_command(
     ctx: ServerCommandContext,
+    partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
     req: buck2_cli_proto::CleanStaleRequest,
 ) -> anyhow::Result<buck2_cli_proto::CleanStaleResponse> {
-    run_server_command(CleanStaleServerCommand { req }, box ctx).await
+    run_server_command(
+        CleanStaleServerCommand { req },
+        box ctx,
+        partial_result_dispatcher,
+    )
+    .await
 }
 
 struct CleanStaleServerCommand {
@@ -34,10 +42,12 @@ impl ServerCommandTemplate for CleanStaleServerCommand {
     type StartEvent = buck2_data::CleanCommandStart;
     type EndEvent = buck2_data::CleanCommandEnd;
     type Response = buck2_cli_proto::CleanStaleResponse;
+    type PartialResult = NoPartialResult;
 
     async fn command<'v>(
         &self,
         server_ctx: &'v dyn ServerCommandContextTrait,
+        _partial_result_dispatcher: PartialResultDispatcher<Self::PartialResult>,
         _ctx: DiceTransaction,
     ) -> anyhow::Result<Self::Response> {
         more_futures::cancellable_future::critical_section(async move || {
