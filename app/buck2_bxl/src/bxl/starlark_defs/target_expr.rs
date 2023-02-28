@@ -161,9 +161,13 @@ impl<'v> TargetExpr<'v, TargetNode> {
 
 #[derive(Debug, Error)]
 pub enum TargetExprError {
-    #[error("Expected a list of target like items, but was `{0}`")]
+    #[error(
+        "Expected a list of target like items, but was `{0}`. If you have passed in a list of `label`s, make sure to call `configured_target()` to get the underlying configured target label."
+    )]
     NotAListOfTargets(String),
-    #[error("Expected a single target like item, but was `{0}`")]
+    #[error(
+        "Expected a single target like item, but was `{0}`. If you have passed in a `label`, make sure to call `configured_target()` to get the underlying configured target label."
+    )]
     NotATarget(String),
 }
 

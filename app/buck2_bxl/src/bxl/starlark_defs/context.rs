@@ -300,6 +300,10 @@ fn register_context(builder: &mut MethodsBuilder) {
     ///     - a single target node or label, configured or unconfigured
     ///     - a list of the two options above.
     ///
+    /// Note that this function does not accept `Label` (which is a configured provider label), since this
+    /// is the label of a subtarget. You can get the underlying configured target label on the `Label`
+    /// using `configured_targets()` (ex: `my_label.configured_target()`).
+    ///
     /// This returns either a single [`StarlarkConfiguredTargetNode`] if the given `labels`
     /// is "singular", a dict keyed by target labels of [`StarlarkConfiguredTargetNode`] if the
     /// given `labels` is list-like
