@@ -346,7 +346,14 @@ where
         _command: &buck2_data::CommandStart,
         event: &BuckEvent,
     ) -> anyhow::Result<()> {
-        echo!("Build ID: {}", event.trace_id()?)?;
+        if cfg!(fbcode_build) {
+            echo!(
+                "Buck UI: https://www.internalfb.com/buck2/{}",
+                event.trace_id()?
+            )?;
+        } else {
+            echo!("Build ID: {}", event.trace_id()?)?;
+        }
         self.notify_printed();
         Ok(())
     }
