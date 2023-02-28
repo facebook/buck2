@@ -1210,7 +1210,8 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         method: Box<ArtifactMaterializationMethod>,
     ) {
         // Check if artifact to be declared is same as artifact that's already materialized.
-        if let Some(data) = self.tree.prefix_get_mut(&mut path.iter()) {
+        let mut path_iter = path.iter();
+        if let Some(data) = self.tree.prefix_get_mut(&mut path_iter) {
             match &data.stage {
                 ArtifactMaterializationStage::Materialized {
                     metadata,
@@ -1232,7 +1233,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                         .copied()
                         .unwrap_or_default();
 
-                    if metadata == &new_metadata && !force_mismatch {
+                    if path_iter.next().is_none() && metadata == &new_metadata && !force_mismatch {
                         // In this case, the entry declared matches the already materialized
                         // entry on disk, so just update the deps field but leave
                         // the artifact as materialized.

@@ -240,9 +240,8 @@ mod state_machine {
 
         let path = make_path("foo/bar");
         let value = ArtifactValue::file(digest_config.empty_file());
-        let method = ArtifactMaterializationMethod::Test;
 
-        dm.declare(&path, value, box method);
+        dm.declare(&path, value.dupe(), box ArtifactMaterializationMethod::Test);
         assert_eq!(dm.io.take_log(), &[(Op::Clean, path.clone())]);
 
         let res = dm
@@ -253,6 +252,25 @@ mod state_machine {
 
         dm.materialization_finished(path.clone(), Utc::now(), dm.version_tracker.current(), res);
         assert_eq!(dm.io.take_log(), &[]);
+
+        // When redeclaring the same artifact nothing happens.
+        dm.declare(&path, value.dupe(), box ArtifactMaterializationMethod::Test);
+        assert_eq!(dm.io.take_log(), &[]);
+
+        // When declaring the same artifact but under it, we clean it and it's a new artifact.
+        let path2 = make_path("foo/bar/baz");
+        dm.declare(
+            &path2,
+            value.dupe(),
+            box ArtifactMaterializationMethod::Test,
+        );
+        assert_eq!(dm.io.take_log(), &[(Op::Clean, path2.clone())]);
+
+        let _ignore = dm
+            .materialize_artifact(&path2, EventDispatcher::null())
+            .context("Expected a future")?
+            .await;
+        assert_eq!(dm.io.take_log(), &[(Op::Materialize, path2.clone())]);
 
         Ok(())
     }
