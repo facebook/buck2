@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::io::Write;
+
 use async_trait::async_trait;
 use buck2_build_api::calculation::Calculation;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
@@ -22,7 +24,6 @@ use buck2_node::compatibility::MaybeCompatible;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
-use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::pattern::target_platform_from_client_context;
 use buck2_server_ctx::template::run_server_command;
@@ -37,7 +38,7 @@ use crate::commands::query::printer::ShouldPrintProviders;
 
 pub async fn cquery_command(
     ctx: Box<dyn ServerCommandContextTrait>,
-    partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
+    partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
     req: CqueryRequest,
 ) -> anyhow::Result<CqueryResponse> {
     run_server_command(CqueryServerCommand { req }, ctx, partial_result_dispatcher).await
@@ -52,7 +53,7 @@ impl ServerCommandTemplate for CqueryServerCommand {
     type StartEvent = buck2_data::CQueryCommandStart;
     type EndEvent = buck2_data::CQueryCommandEnd;
     type Response = CqueryResponse;
-    type PartialResult = NoPartialResult;
+    type PartialResult = buck2_cli_proto::StdoutBytes;
 
     fn start_event(&self) -> buck2_data::CQueryCommandStart {
         buck2_data::CQueryCommandStart {
@@ -65,10 +66,16 @@ impl ServerCommandTemplate for CqueryServerCommand {
     async fn command<'v>(
         &self,
         server_ctx: &'v dyn ServerCommandContextTrait,
-        _partial_result_dispatcher: PartialResultDispatcher<Self::PartialResult>,
+        mut partial_result_dispatcher: PartialResultDispatcher<Self::PartialResult>,
         ctx: DiceTransaction,
     ) -> anyhow::Result<Self::Response> {
-        cquery(server_ctx, ctx, &self.req).await
+        cquery(
+            server_ctx,
+            partial_result_dispatcher.as_writer(),
+            ctx,
+            &self.req,
+        )
+        .await
     }
 
     fn is_success(&self, response: &Self::Response) -> bool {
@@ -78,6 +85,7 @@ impl ServerCommandTemplate for CqueryServerCommand {
 
 async fn cquery(
     server_ctx: &dyn ServerCommandContextTrait,
+    mut stdout: impl Write,
     ctx: DiceTransaction,
     request: &CqueryRequest,
 ) -> anyhow::Result<CqueryResponse> {
@@ -129,8 +137,6 @@ async fn cquery(
     let query_result = evaluator
         .eval_query(query, query_args, target_universe.as_ref().map(|v| &v[..]))
         .await?;
-
-    let mut stdout = server_ctx.stdout()?;
 
     let should_print_providers = if *show_providers {
         ShouldPrintProviders::Yes(&*ctx as &dyn ProviderLookUp<ConfiguredTargetNode>)

@@ -703,7 +703,7 @@ impl<'a> FlushingBuckdClient<'a> {
         cquery,
         CqueryRequest,
         CqueryResponse,
-        NoPartialResultHandler
+        StdoutPartialResultHandler
     );
     stream_method!(
         uquery,
