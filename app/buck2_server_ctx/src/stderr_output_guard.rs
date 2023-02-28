@@ -19,34 +19,28 @@ use dupe::Dupe;
 
 use crate::ctx::ServerCommandContextTrait;
 
-pub enum StdoutOrStderr {
-    Stdout,
-    Stderr,
-}
-
-pub struct RawOutputGuard<'a> {
+pub struct StderrOutputGuard<'a> {
     pub _phantom: PhantomData<&'a mut dyn ServerCommandContextTrait>,
 
-    // `RawOutputWriter` expects arguments to `write` to be complete UTF-8 strings.
+    // `StderrOutputWriter` expects arguments to `write` to be complete UTF-8 strings.
     //
     // `BufWriter` (this is implementation detail) may concatenate but never split
     // supplied inputs before passing to the underlying writer.
     //
     // So as long as complete UTF-8 strings are passed to this writer,
-    // this writer will never pass partial UTF-8 strings to the underlying `RawOutputWriter`.
-    pub inner: BufWriter<RawOutputWriter>,
+    // this writer will never pass partial UTF-8 strings to the underlying `StderrOutputWriter`.
+    pub inner: BufWriter<StderrOutputWriter>,
 }
 
-/// A writer that fires InstantEvent (RawOutput) when `write` function is called.
-/// Client is supposed to print the message to its stdout immediately as verbatim.
-pub struct RawOutputWriter {
+/// A writer that fires InstantEvent (ConsoleMessage) when `write` function is called.  Client is
+/// supposed to print the message to its stderr immediately as verbatim.
+pub struct StderrOutputWriter {
     dispatcher: EventDispatcher,
     /// Maximum bytes of a message that is delivered to cli per `write` call
     chunk_size: usize,
-    stdout_or_stderr: StdoutOrStderr,
 }
 
-impl<'a> Write for RawOutputGuard<'a> {
+impl<'a> Write for StderrOutputGuard<'a> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         self.inner.write(buf)
     }
@@ -56,25 +50,21 @@ impl<'a> Write for RawOutputGuard<'a> {
     }
 }
 
-impl<'a> Drop for RawOutputGuard<'a> {
+impl<'a> Drop for StderrOutputGuard<'a> {
     fn drop(&mut self) {
         // This would only happen if we had output that isn't utf-8 and got flushed. For now we live with ignoring
         // this.
         if let Err(e) = self.inner.flush() {
-            tracing::error!("Discarded RawOutputWriter output: {:#}", e);
+            tracing::error!("Discarded StderrOutputWriter output: {:#}", e);
         }
     }
 }
 
-impl RawOutputWriter {
-    pub fn new(
-        context: &dyn ServerCommandContextTrait,
-        stdout_or_stderr: StdoutOrStderr,
-    ) -> anyhow::Result<Self> {
+impl StderrOutputWriter {
+    pub fn new(context: &dyn ServerCommandContextTrait) -> anyhow::Result<Self> {
         Ok(Self {
             dispatcher: context.events().dupe(),
-            chunk_size: RawOutputWriter::get_chunk_size()?,
-            stdout_or_stderr,
+            chunk_size: StderrOutputWriter::get_chunk_size()?,
         })
     }
 
@@ -115,31 +105,23 @@ impl RawOutputWriter {
     }
 }
 
-impl Write for RawOutputWriter {
+impl Write for StderrOutputWriter {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         let len = std::cmp::min(buf.len(), self.chunk_size);
         if len > 0 {
-            let s = RawOutputWriter::truncate_str(buf, len)?;
+            let s = StderrOutputWriter::truncate_str(buf, len)?;
             if s.is_empty() {
                 return Err(io::Error::new(
                     io::ErrorKind::Other,
                     "Configured chunk size is not enough to hold a single utf-8 character",
                 ));
             }
-            match self.stdout_or_stderr {
-                StdoutOrStderr::Stdout => {
-                    let raw_output = buck2_data::RawOutput {
-                        raw_output: s.to_owned(),
-                    };
-                    self.dispatcher.instant_event(raw_output);
-                }
-                StdoutOrStderr::Stderr => {
-                    let raw_output = buck2_data::ConsoleMessage {
-                        message: s.to_owned(),
-                    };
-                    self.dispatcher.instant_event(raw_output);
-                }
-            }
+
+            let raw_output = buck2_data::ConsoleMessage {
+                message: s.to_owned(),
+            };
+            self.dispatcher.instant_event(raw_output);
+
             Ok(s.len())
         } else {
             Ok(0)
@@ -153,20 +135,20 @@ impl Write for RawOutputWriter {
 
 #[cfg(test)]
 mod tests {
-    use crate::raw_output::RawOutputWriter;
+    use crate::stderr_output_guard::StderrOutputWriter;
 
     #[test]
     fn test_truncate_str() {
         let s = "Маяк".as_bytes();
-        assert_eq!("", RawOutputWriter::truncate_str(s, 0).unwrap());
-        assert_eq!("", RawOutputWriter::truncate_str(s, 1).unwrap());
-        assert_eq!("М", RawOutputWriter::truncate_str(s, 2).unwrap());
-        assert_eq!("М", RawOutputWriter::truncate_str(s, 3).unwrap());
-        assert_eq!("Ма", RawOutputWriter::truncate_str(s, 4).unwrap());
-        assert_eq!("Ма", RawOutputWriter::truncate_str(s, 5).unwrap());
-        assert_eq!("Мая", RawOutputWriter::truncate_str(s, 6).unwrap());
-        assert_eq!("Мая", RawOutputWriter::truncate_str(s, 7).unwrap());
-        assert_eq!("Маяк", RawOutputWriter::truncate_str(s, 8).unwrap());
+        assert_eq!("", StderrOutputWriter::truncate_str(s, 0).unwrap());
+        assert_eq!("", StderrOutputWriter::truncate_str(s, 1).unwrap());
+        assert_eq!("М", StderrOutputWriter::truncate_str(s, 2).unwrap());
+        assert_eq!("М", StderrOutputWriter::truncate_str(s, 3).unwrap());
+        assert_eq!("Ма", StderrOutputWriter::truncate_str(s, 4).unwrap());
+        assert_eq!("Ма", StderrOutputWriter::truncate_str(s, 5).unwrap());
+        assert_eq!("Мая", StderrOutputWriter::truncate_str(s, 6).unwrap());
+        assert_eq!("Мая", StderrOutputWriter::truncate_str(s, 7).unwrap());
+        assert_eq!("Маяк", StderrOutputWriter::truncate_str(s, 8).unwrap());
 
         // Now test corrupted UTF-8.
         for i in 0..s.len() {
@@ -175,9 +157,9 @@ mod tests {
             s0[i] = 0xff;
             for j in 0..=s.len() {
                 if j <= i {
-                    assert!(RawOutputWriter::truncate_str(&s0, j).is_ok());
+                    assert!(StderrOutputWriter::truncate_str(&s0, j).is_ok());
                 } else {
-                    assert!(RawOutputWriter::truncate_str(&s0, j).is_err());
+                    assert!(StderrOutputWriter::truncate_str(&s0, j).is_err());
                 }
             }
         }

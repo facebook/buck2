@@ -32,7 +32,7 @@ use buck2_execute::digest_config::HasDigestConfig;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
-use buck2_server_ctx::raw_output::RawOutputGuard;
+use buck2_server_ctx::stderr_output_guard::StderrOutputGuard;
 use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
 use dice::DiceTransaction;
@@ -63,7 +63,7 @@ struct FileStatusResult<'a> {
     /// Number of ones that were bad
     bad: usize,
     /// Handle for writing output
-    stderr: RawOutputGuard<'a>,
+    stderr: StderrOutputGuard<'a>,
 }
 
 impl FileStatusResult<'_> {

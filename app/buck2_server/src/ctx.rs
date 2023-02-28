@@ -86,9 +86,8 @@ use buck2_server_ctx::concurrency::DiceUpdater;
 use buck2_server_ctx::ctx::DiceAccessor;
 use buck2_server_ctx::ctx::PrivateStruct;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
-use buck2_server_ctx::raw_output::RawOutputGuard;
-use buck2_server_ctx::raw_output::RawOutputWriter;
-use buck2_server_ctx::raw_output::StdoutOrStderr;
+use buck2_server_ctx::stderr_output_guard::StderrOutputGuard;
+use buck2_server_ctx::stderr_output_guard::StderrOutputWriter;
 use dice::DiceComputations;
 use dice::DiceData;
 use dice::DiceTransactionUpdater;
@@ -648,13 +647,13 @@ impl ServerCommandContextTrait for ServerCommandContext {
         &self.base_context.events
     }
 
-    fn stderr(&self) -> anyhow::Result<RawOutputGuard<'_>> {
-        Ok(RawOutputGuard {
+    fn stderr(&self) -> anyhow::Result<StderrOutputGuard<'_>> {
+        Ok(StderrOutputGuard {
             _phantom: PhantomData,
             inner: BufWriter::with_capacity(
                 // TODO(nga): no need to buffer here.
                 4096,
-                RawOutputWriter::new(self, StdoutOrStderr::Stderr)?,
+                StderrOutputWriter::new(self)?,
             ),
         })
     }
