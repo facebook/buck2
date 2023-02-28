@@ -19,6 +19,7 @@ use buck2_interpreter::path::StarlarkModulePath;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
+use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 
 use crate::AuditCommandCommonOptions;
 
@@ -39,6 +40,7 @@ impl StarlarkModuleCommand {
     pub async fn server_execute(
         &self,
         server_ctx: Box<dyn ServerCommandContextTrait>,
+        mut stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         _client_ctx: ClientContext,
     ) -> anyhow::Result<()> {
         server_ctx
@@ -68,7 +70,7 @@ impl StarlarkModuleCommand {
                     .get_loaded_module(StarlarkModulePath::LoadFile(&import_path))
                     .await?;
 
-                let mut stdout = server_ctx.stdout()?;
+                let mut stdout = stdout.as_writer();
                 writeln!(stdout, "{}", loaded_module.path())?;
                 writeln!(stdout)?;
                 writeln!(stdout, "Imports:")?;

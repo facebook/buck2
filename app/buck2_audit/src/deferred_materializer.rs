@@ -15,6 +15,7 @@ use buck2_cli_proto::ClientContext;
 use buck2_execute::materialize::materializer::HasMaterializer;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
+use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use futures::stream::StreamExt;
 
 use crate::AuditCommandCommonOptions;
@@ -52,10 +53,12 @@ impl AuditSubcommand for DeferredMaterializerCommand {
     async fn server_execute(
         &self,
         server_ctx: Box<dyn ServerCommandContextTrait>,
+        mut stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         _client_ctx: ClientContext,
     ) -> anyhow::Result<()> {
         server_ctx
-            .with_dice_ctx(move |server_ctx, dice| async move {
+            .with_dice_ctx(move |_server_ctx, dice| async move {
+                let mut stdout = stdout.as_writer();
                 let materializer = dice.per_transaction_data().get_materializer();
 
                 let deferred_materializer = materializer
@@ -67,8 +70,6 @@ impl AuditSubcommand for DeferredMaterializerCommand {
                         let mut stream = deferred_materializer
                             .iterate()
                             .context("Failed to start iterating")?;
-
-                        let mut stdout = server_ctx.stdout()?;
 
                         while let Some((path, entry)) = stream.next().await {
                             writeln!(stdout, "{}\t{}", path, entry)?;
@@ -86,7 +87,6 @@ impl AuditSubcommand for DeferredMaterializerCommand {
                             .await
                             .context("Failed to test_iter")?;
 
-                        let mut stdout = server_ctx.stdout()?;
                         write!(stdout, "{}", text)?;
                     }
                 }

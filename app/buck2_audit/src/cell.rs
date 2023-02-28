@@ -15,6 +15,7 @@ use buck2_common::dice::cells::HasCellResolver;
 use buck2_core::cells::CellAlias;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
+use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use indexmap::IndexMap;
 
 use crate::AuditCommandCommonOptions;
@@ -56,6 +57,7 @@ impl AuditSubcommand for AuditCellCommand {
     async fn server_execute(
         &self,
         server_ctx: Box<dyn ServerCommandContextTrait>,
+        mut stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         _client_ctx: ClientContext,
     ) -> anyhow::Result<()> {
         server_ctx
@@ -118,7 +120,7 @@ impl AuditSubcommand for AuditCellCommand {
                     }
                 };
 
-                let mut stdout = server_ctx.stdout()?;
+                let mut stdout = stdout.as_writer();
                 if self.paths_only {
                     if self.json {
                         let paths: Vec<_> = mappings.values().collect();

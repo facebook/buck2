@@ -28,6 +28,7 @@ use buck2_execute::digest_config::HasDigestConfig;
 use buck2_execute::materialize::materializer::HasMaterializer;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
+use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
 use buck2_server_ctx::pattern::target_platform_from_client_context;
 
@@ -58,6 +59,7 @@ impl AuditSubcommand for AuditDepFilesCommand {
     async fn server_execute(
         &self,
         server_ctx: Box<dyn ServerCommandContextTrait>,
+        mut stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         client_ctx: ClientContext,
     ) -> anyhow::Result<()> {
         server_ctx
@@ -121,7 +123,7 @@ impl AuditSubcommand for AuditDepFilesCommand {
                     StoredFingerprints::Dirs(dirs) => dirs,
                 };
 
-                let mut stdout = server_ctx.stdout()?;
+                let mut stdout = stdout.as_writer();
 
                 for (path, ..) in dirs
                     .untagged

@@ -13,6 +13,7 @@ use async_trait::async_trait;
 use buck2_cli_proto::ClientContext;
 use buck2_core::configuration::ConfigurationData;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
+use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use itertools::Itertools;
 
 use crate::AuditCommandCommonOptions;
@@ -39,10 +40,11 @@ pub struct AuditConfigurationsCommand {
 impl AuditSubcommand for AuditConfigurationsCommand {
     async fn server_execute(
         &self,
-        server_ctx: Box<dyn ServerCommandContextTrait>,
+        _server_ctx: Box<dyn ServerCommandContextTrait>,
+        mut stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         _client_ctx: ClientContext,
     ) -> anyhow::Result<()> {
-        let mut stdout = server_ctx.stdout()?;
+        let mut stdout = stdout.as_writer();
 
         if self.configs.is_empty() {
             for cfg in ConfigurationData::iter_existing()?

@@ -23,6 +23,7 @@ use buck2_interpreter::path::StarlarkPath;
 use buck2_interpreter_for_build::interpreter::dice_calculation_delegate::HasCalculationDelegate;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
+use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use dupe::Dupe;
 
 use crate::AuditCommandCommonOptions;
@@ -44,6 +45,7 @@ impl StarlarkPackageDepsCommand {
     pub async fn server_execute(
         &self,
         server_ctx: Box<dyn ServerCommandContextTrait>,
+        mut stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         _client_ctx: ClientContext,
     ) -> anyhow::Result<()> {
         server_ctx
@@ -75,7 +77,7 @@ impl StarlarkPackageDepsCommand {
                     )))
                     .await?;
 
-                let mut stdout = server_ctx.stdout()?;
+                let mut stdout = stdout.as_writer();
 
                 struct Printer {
                     first: bool,

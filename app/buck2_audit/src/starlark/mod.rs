@@ -15,6 +15,7 @@ mod package_deps;
 use async_trait::async_trait;
 use buck2_cli_proto::ClientContext;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
+use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 
 use crate::starlark::module::StarlarkModuleCommand;
 use crate::starlark::package_deps::StarlarkPackageDepsCommand;
@@ -33,11 +34,16 @@ impl AuditSubcommand for StarlarkCommand {
     async fn server_execute(
         &self,
         server_ctx: Box<dyn ServerCommandContextTrait>,
+        stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         client_ctx: ClientContext,
     ) -> anyhow::Result<()> {
         match self {
-            StarlarkCommand::Module(cmd) => cmd.server_execute(server_ctx, client_ctx).await,
-            StarlarkCommand::PackageDeps(cmd) => cmd.server_execute(server_ctx, client_ctx).await,
+            StarlarkCommand::Module(cmd) => {
+                cmd.server_execute(server_ctx, stdout, client_ctx).await
+            }
+            StarlarkCommand::PackageDeps(cmd) => {
+                cmd.server_execute(server_ctx, stdout, client_ctx).await
+            }
         }
     }
 

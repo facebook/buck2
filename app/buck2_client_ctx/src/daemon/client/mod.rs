@@ -736,7 +736,7 @@ impl<'a> FlushingBuckdClient<'a> {
         audit,
         GenericRequest,
         GenericResponse,
-        NoPartialResultHandler
+        StdoutPartialResultHandler
     );
     stream_method!(
         starlark,

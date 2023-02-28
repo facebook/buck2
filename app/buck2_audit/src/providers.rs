@@ -21,6 +21,7 @@ use buck2_core::provider::label::ProvidersName;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
+use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
 use buck2_server_ctx::pattern::resolve_patterns;
 use buck2_server_ctx::pattern::target_platform_from_client_context;
@@ -68,11 +69,12 @@ impl AuditSubcommand for AuditProvidersCommand {
     async fn server_execute(
         &self,
         server_ctx: Box<dyn ServerCommandContextTrait>,
+        stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         client_ctx: ClientContext,
     ) -> anyhow::Result<()> {
         server_ctx
             .with_dice_ctx(move |server_ctx, ctx| {
-                self.server_execute_with_dice(client_ctx, server_ctx, ctx)
+                self.server_execute_with_dice(client_ctx, server_ctx, stdout, ctx)
             })
             .await
     }
@@ -93,6 +95,7 @@ impl AuditProvidersCommand {
         &self,
         client_ctx: ClientContext,
         server_ctx: &dyn ServerCommandContextTrait,
+        mut stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         ctx: DiceTransaction,
     ) -> anyhow::Result<()> {
         let cells = ctx.get_cell_resolver().await?;
@@ -147,7 +150,7 @@ impl AuditProvidersCommand {
             }
         }
 
-        let mut stdout = server_ctx.stdout()?;
+        let mut stdout = stdout.as_writer();
         let mut stderr = server_ctx.stderr()?;
 
         fn indent(s: &str) -> String {

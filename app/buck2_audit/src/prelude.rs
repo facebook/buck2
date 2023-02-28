@@ -18,6 +18,7 @@ use buck2_interpreter_for_build::interpreter::dice_calculation_delegate::HasCalc
 use buck2_interpreter_for_build::interpreter::global_interpreter_state::HasGlobalInterpreterState;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
+use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 
 use crate::AuditCommandCommonOptions;
 use crate::AuditSubcommand;
@@ -37,11 +38,12 @@ impl AuditSubcommand for AuditPreludeCommand {
     async fn server_execute(
         &self,
         server_ctx: Box<dyn ServerCommandContextTrait>,
+        mut stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         _client_ctx: ClientContext,
     ) -> anyhow::Result<()> {
         server_ctx
-            .with_dice_ctx(async move |server_ctx, ctx| {
-                let mut stdout = server_ctx.stdout()?;
+            .with_dice_ctx(async move |_server_ctx, ctx| {
+                let mut stdout = stdout.as_writer();
                 // Print out all the Prelude-like stuff that is loaded into each module
                 let global_interpreter_state = ctx.get_global_interpreter_state().await?;
                 let cell_resolver = ctx.get_cell_resolver().await?;

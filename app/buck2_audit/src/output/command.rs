@@ -33,8 +33,8 @@ use buck2_server_commands::commands::query::printer::QueryResultPrinter;
 use buck2_server_commands::commands::query::printer::ShouldPrintProviders;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
+use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::pattern::target_platform_from_client_context;
-use buck2_server_ctx::raw_output::RawOutputGuard;
 use dice::DiceComputations;
 use thiserror::Error;
 use tracing::debug;
@@ -92,12 +92,12 @@ fn check_output_path<'v>(
     }
 }
 
-async fn write_output<'v>(
-    stdout: &'v mut RawOutputGuard<'_>,
+async fn write_output(
+    stdout: &mut impl Write,
     action: ActionQueryNode,
     json: bool,
     output_attributes: &[String],
-    cell_resolver: &'v CellResolver,
+    cell_resolver: &CellResolver,
 ) -> anyhow::Result<()> {
     // Dot/DotCompact output format don't make sense here.
     let unstable_output_format = if json {
@@ -213,6 +213,7 @@ impl AuditSubcommand for AuditOutputCommand {
     async fn server_execute(
         &self,
         server_ctx: Box<dyn ServerCommandContextTrait>,
+        mut stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         client_ctx: ClientContext,
     ) -> anyhow::Result<()> {
         server_ctx
@@ -236,7 +237,7 @@ impl AuditSubcommand for AuditOutputCommand {
 
                 let result = audit_output(&self.output_path, working_dir, &cell_resolver, &dice_ctx, global_target_platform).await?;
 
-                let mut stdout = server_ctx.stdout()?;
+                let mut stdout = stdout.as_writer();
 
                 match result {
                     Some(result) => {

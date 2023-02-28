@@ -35,6 +35,7 @@ use buck2_query::query::traversal::AsyncTraversalDelegate;
 use buck2_query::query::traversal::ChildVisitor;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
+use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use derive_more::Display;
 use dice::DiceComputations;
 use dupe::Dupe;
@@ -213,6 +214,7 @@ impl AuditSubcommand for AuditIncludesCommand {
     async fn server_execute(
         &self,
         server_ctx: Box<dyn ServerCommandContextTrait>,
+        mut stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         _client_ctx: ClientContext,
     ) -> anyhow::Result<()> {
         server_ctx
@@ -257,7 +259,7 @@ impl AuditSubcommand for AuditIncludesCommand {
                 let results: Vec<(String, SharedResult<Vec<AbsNormPathBuf>>)> = results
                     .into_map(|(path, includes)| (path, includes.and_then(absolutize_paths)));
 
-                let mut stdout = server_ctx.stdout()?;
+                let mut stdout = stdout.as_writer();
 
                 // For the printing of results, we don't need to propagate errors, just print
                 // them. After we print the results, we'll propagate an error if there is one.

@@ -20,6 +20,7 @@ use buck2_common::legacy_configs::LegacyBuckConfigValue;
 use buck2_core::cells::name::CellName;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
+use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use dupe::Dupe;
 use gazebo::prelude::*;
 use serde_json::json;
@@ -196,6 +197,7 @@ impl AuditSubcommand for AuditConfigCommand {
     async fn server_execute(
         &self,
         server_ctx: Box<dyn ServerCommandContextTrait>,
+        mut stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         _client_ctx: ClientContext,
     ) -> anyhow::Result<()> {
         server_ctx
@@ -251,7 +253,7 @@ impl AuditSubcommand for AuditConfigCommand {
                     }
                 };
 
-                let mut stdout = server_ctx.stdout()?;
+                let mut stdout = stdout.as_writer();
 
                 match self.output_format() {
                     OutputFormat::Json => writeln!(

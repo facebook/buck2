@@ -19,6 +19,7 @@ use buck2_core::configuration::ConfigurationData;
 use buck2_core::target::name::TargetName;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
+use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::pattern::target_platform_from_client_context;
 use buck2_server_ctx::pattern::PatternParser;
 use indent_write::io::IndentWriter;
@@ -44,6 +45,7 @@ impl AuditSubcommand for AuditExecutionPlatformResolutionCommand {
     async fn server_execute(
         &self,
         server_ctx: Box<dyn ServerCommandContextTrait>,
+        mut stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         client_ctx: ClientContext,
     ) -> anyhow::Result<()> {
         server_ctx.with_dice_ctx(
@@ -95,7 +97,7 @@ impl AuditSubcommand for AuditExecutionPlatformResolutionCommand {
                     }
                 }
 
-                let mut stdout = server_ctx.stdout()?;
+                let mut stdout = stdout.as_writer();
 
                 for configured_target in configured_patterns {
                     let configured_node = ctx.get_configured_target_node(&configured_target).await?;
