@@ -225,14 +225,14 @@ fn set_up_project(
     let mut buck_config = {
         let mut buck_config = std::fs::File::create(path.join(".buckconfig"))?;
         writeln!(buck_config, "[buildfile]")?;
-        writeln!(buck_config, "name = BUCK2")?;
+        writeln!(buck_config, "name = BUCK")?;
         writeln!(buck_config)?;
         writeln!(buck_config, "[repositories]")?;
         writeln!(buck_config, "root = .")?;
         buck_config
     };
 
-    let mut buck2 = std::fs::File::create(path.join("BUCK2"))?;
+    let mut buck2 = std::fs::File::create(path.join("BUCK"))?;
 
     if prelude {
         if !Command::new("git")
