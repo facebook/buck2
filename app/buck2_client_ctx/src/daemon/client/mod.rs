@@ -42,6 +42,7 @@ use crate::console_interaction_stream::ConsoleInteractionStream;
 use crate::daemon::client::connect::BuckAddAuthTokenInterceptor;
 use crate::events_ctx::EventsCtx;
 use crate::events_ctx::FileTailers;
+use crate::events_ctx::PartialResultHandler;
 use crate::stream_value::StreamValue;
 use crate::version::BuckVersion;
 
@@ -241,18 +242,24 @@ impl BuckdClient {
     /// For these commands, we want to be able to manipulate CLI state.
     ///
     /// This command also does the heavy lifting to substitute the `Replayer` for an actual connection.
-    async fn stream<'i, T, R: TryFrom<command_result::Result, Error = command_result::Result>>(
+    async fn stream<'i, T, Res, Handler, Command>(
         &mut self,
-        command: impl for<'a> FnOnce(
+        command: Command,
+        request: T,
+        partial_result_handler: &mut Handler,
+        console_interaction: Option<ConsoleInteractionStream<'i>>,
+    ) -> anyhow::Result<CommandOutcome<Res>>
+    where
+        Command: for<'a> FnOnce(
             &'a mut DaemonApiClient<InterceptedService<Channel, BuckAddAuthTokenInterceptor>>,
             Request<T>,
         ) -> BoxFuture<
             'a,
             Result<tonic::Response<tonic::Streaming<MultiCommandProgress>>, Status>,
         >,
-        request: T,
-        console_interaction: Option<ConsoleInteractionStream<'i>>,
-    ) -> anyhow::Result<CommandOutcome<R>> {
+        Res: TryFrom<command_result::Result, Error = command_result::Result>,
+        Handler: PartialResultHandler,
+    {
         let Self {
             client, events_ctx, ..
         } = self;
@@ -264,12 +271,22 @@ impl BuckdClient {
                 let stream = grpc_to_stream(response);
                 pin_mut!(stream);
                 events_ctx
-                    .unpack_stream(stream, self.tailers.take(), console_interaction)
+                    .unpack_stream(
+                        partial_result_handler,
+                        stream,
+                        self.tailers.take(),
+                        console_interaction,
+                    )
                     .await
             }
             ClientKind::Replayer(ref mut replayer) => {
                 events_ctx
-                    .unpack_stream(replayer, self.tailers.take(), console_interaction)
+                    .unpack_stream(
+                        partial_result_handler,
+                        replayer,
+                        self.tailers.take(),
+                        console_interaction,
+                    )
                     .await
             }
         }
@@ -501,24 +518,53 @@ impl<'a> FlushingBuckdClient<'a> {
     }
 }
 
+enum NoPartialResult {}
+
+impl TryFrom<buck2_cli_proto::partial_result::PartialResult> for NoPartialResult {
+    type Error = buck2_cli_proto::partial_result::PartialResult;
+
+    fn try_from(v: buck2_cli_proto::partial_result::PartialResult) -> Result<Self, Self::Error> {
+        Err(v)
+    }
+}
+
+struct NoPartialResultHandler;
+
+impl PartialResultHandler for NoPartialResultHandler {
+    type PartialResult = NoPartialResult;
+
+    fn new() -> Self {
+        Self
+    }
+
+    fn handle_partial_result(&mut self, partial_res: Self::PartialResult) -> anyhow::Result<()> {
+        match partial_res {}
+    }
+}
+
 /// Implement a streaming method with full event reporting.
 macro_rules! stream_method {
-    ($method: ident, $req: ty, $res: ty) => {
-        stream_method!($method, $method, $req, $res);
+    ($method: ident, $req: ty, $res: ty, $handler: ty) => {
+        stream_method!($method, $method, $req, $res, $handler);
     };
 
-    ($method: ident, $grpc_method: ident, $req: ty, $res: ty) => {
+    ($method: ident, $grpc_method: ident, $req: ty, $res: ty, $handler: ty) => {
         pub async fn $method(
             &mut self,
             req: $req,
             console_interaction: Option<ConsoleInteractionStream<'_>>,
         ) -> anyhow::Result<CommandOutcome<$res>> {
             self.enter()?;
+            let mut handler = <$handler>::new();
             let res = self
                 .inner
                 .stream(
                     |d, r| Box::pin(DaemonApiClient::$grpc_method(d, r)),
                     req,
+                    // For now we only support handlers that can be constructed like so, and we
+                    // don't let anything go out. Eventually if we wanted to stream structured
+                    // data, that could change.
+                    &mut handler,
                     console_interaction,
                 )
                 .await;
@@ -530,21 +576,27 @@ macro_rules! stream_method {
 
 /// Implement a bi-directional streaming method with full event reporting.
 macro_rules! bidirectional_stream_method {
-    ($method: ident, $req: ty, $res: ty) => {
-        bidirectional_stream_method!($method, $method, $req, $res);
+    ($method: ident, $req: ty, $res: ty, $handler: ty) => {
+        bidirectional_stream_method!($method, $method, $req, $res, $handler);
     };
 
-    ($method: ident, $grpc_method: ident, $req: ty, $res: ty) => {
+    ($method: ident, $grpc_method: ident, $req: ty, $res: ty, $handler: ty) => {
         pub async fn $method(
             &mut self,
             context: ClientContext,
             requests: impl Stream<Item = $req> + Send + Sync + 'static,
         ) -> anyhow::Result<CommandOutcome<$res>> {
             self.enter()?;
+            let mut handler = <$handler>::new();
             let req = create_client_stream(context, requests);
             let res = self
                 .inner
-                .stream(|d, r| Box::pin(DaemonApiClient::$method(d, r)), req, None)
+                .stream(
+                    |d, r| Box::pin(DaemonApiClient::$method(d, r)),
+                    req,
+                    &mut handler,
+                    None,
+                )
                 .await;
             self.exit().await?;
             res
@@ -614,29 +666,96 @@ macro_rules! wrap_method {
  }
 
 impl<'a> FlushingBuckdClient<'a> {
-    stream_method!(aquery, AqueryRequest, AqueryResponse);
-    stream_method!(cquery, CqueryRequest, CqueryResponse);
-    stream_method!(uquery, UqueryRequest, UqueryResponse);
-    stream_method!(targets, TargetsRequest, TargetsResponse);
+    stream_method!(
+        aquery,
+        AqueryRequest,
+        AqueryResponse,
+        NoPartialResultHandler
+    );
+    stream_method!(
+        cquery,
+        CqueryRequest,
+        CqueryResponse,
+        NoPartialResultHandler
+    );
+    stream_method!(
+        uquery,
+        UqueryRequest,
+        UqueryResponse,
+        NoPartialResultHandler
+    );
+    stream_method!(
+        targets,
+        TargetsRequest,
+        TargetsResponse,
+        NoPartialResultHandler
+    );
     stream_method!(
         targets_show_outputs,
         TargetsRequest,
-        TargetsShowOutputsResponse
+        TargetsShowOutputsResponse,
+        NoPartialResultHandler
     );
-    stream_method!(build, BuildRequest, BuildResponse);
-    stream_method!(bxl, BxlRequest, BxlResponse);
-    stream_method!(test, TestRequest, TestResponse);
-    stream_method!(install, InstallRequest, InstallResponse);
-    stream_method!(audit, GenericRequest, GenericResponse);
-    stream_method!(starlark, GenericRequest, GenericResponse);
-    stream_method!(materialize, MaterializeRequest, MaterializeResponse);
-    stream_method!(clean_stale, CleanStaleRequest, CleanStaleResponse);
-    stream_method!(file_status, FileStatusRequest, GenericResponse);
-    stream_method!(unstable_docs, UnstableDocsRequest, UnstableDocsResponse);
-    stream_method!(profile, profile2, ProfileRequest, ProfileResponse);
-    stream_method!(allocative, AllocativeRequest, AllocativeResponse);
+    stream_method!(build, BuildRequest, BuildResponse, NoPartialResultHandler);
+    stream_method!(bxl, BxlRequest, BxlResponse, NoPartialResultHandler);
+    stream_method!(test, TestRequest, TestResponse, NoPartialResultHandler);
+    stream_method!(
+        install,
+        InstallRequest,
+        InstallResponse,
+        NoPartialResultHandler
+    );
+    stream_method!(
+        audit,
+        GenericRequest,
+        GenericResponse,
+        NoPartialResultHandler
+    );
+    stream_method!(
+        starlark,
+        GenericRequest,
+        GenericResponse,
+        NoPartialResultHandler
+    );
+    stream_method!(
+        materialize,
+        MaterializeRequest,
+        MaterializeResponse,
+        NoPartialResultHandler
+    );
+    stream_method!(
+        clean_stale,
+        CleanStaleRequest,
+        CleanStaleResponse,
+        NoPartialResultHandler
+    );
+    stream_method!(
+        file_status,
+        FileStatusRequest,
+        GenericResponse,
+        NoPartialResultHandler
+    );
+    stream_method!(
+        unstable_docs,
+        UnstableDocsRequest,
+        UnstableDocsResponse,
+        NoPartialResultHandler
+    );
+    stream_method!(
+        profile,
+        profile2,
+        ProfileRequest,
+        ProfileResponse,
+        NoPartialResultHandler
+    );
+    stream_method!(
+        allocative,
+        AllocativeRequest,
+        AllocativeResponse,
+        NoPartialResultHandler
+    );
 
-    bidirectional_stream_method!(lsp, LspRequest, LspResponse);
+    bidirectional_stream_method!(lsp, LspRequest, LspResponse, NoPartialResultHandler);
 
     oneshot_method!(flush_dep_files, FlushDepFilesRequest, GenericResponse);
 

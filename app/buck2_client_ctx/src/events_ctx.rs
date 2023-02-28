@@ -67,6 +67,17 @@ impl From<tonic::Status> for BuckdCommunicationError {
     }
 }
 
+pub trait PartialResultHandler {
+    type PartialResult: TryFrom<
+        buck2_cli_proto::partial_result::PartialResult,
+        Error = buck2_cli_proto::partial_result::PartialResult,
+    >;
+
+    fn new() -> Self;
+
+    fn handle_partial_result(&mut self, partial_res: Self::PartialResult) -> anyhow::Result<()>;
+}
+
 /// Manages incoming event streams from the daemon for the buck2 client and
 /// fowards them to the appropriate subscribers registered on this struct
 pub struct EventsCtx {
@@ -98,11 +109,15 @@ impl EventsCtx {
         }
     }
 
-    async fn handle_stream_next(
+    async fn handle_stream_next<Handler>(
         &mut self,
+        partial_result_handler: &mut Handler,
         next: Option<Vec<anyhow::Result<StreamValue>>>,
         shutdown: &mut Option<buck2_data::DaemonShutdown>,
-    ) -> anyhow::Result<ControlFlow<Box<CommandResult>, ()>> {
+    ) -> anyhow::Result<ControlFlow<Box<CommandResult>, ()>>
+    where
+        Handler: PartialResultHandler,
+    {
         let next = next.context(BuckdCommunicationError::MissingCommandResult)?;
         let mut events = Vec::with_capacity(next.len());
         for next in next {
@@ -118,8 +133,13 @@ impl EventsCtx {
                     let event = event.try_into()?;
                     events.push(event);
                 }
-                StreamValue::PartialResult(_res) => {
-                    // TODO: Handle partial results.
+                StreamValue::PartialResult(partial_res) => {
+                    let partial_res = partial_res
+                        .partial_result
+                        .context("Empty partial result")?
+                        .try_into()
+                        .map_err(|e| anyhow::anyhow!("Invalid PartialResult: {:?}", e))?;
+                    partial_result_handler.handle_partial_result(partial_res)?;
                 }
                 StreamValue::Result(res) => {
                     self.handle_events(events, shutdown).await?;
@@ -139,12 +159,17 @@ impl EventsCtx {
         }
     }
 
-    async fn unpack_stream_inner<S: Stream<Item = anyhow::Result<StreamValue>> + Unpin>(
+    async fn unpack_stream_inner<S, Handler>(
         &mut self,
+        partial_result_handler: &mut Handler,
         stream: S,
         tailers: Option<FileTailers>,
         mut console_interaction: Option<ConsoleInteractionStream<'_>>,
-    ) -> anyhow::Result<CommandResult> {
+    ) -> anyhow::Result<CommandResult>
+    where
+        S: Stream<Item = anyhow::Result<StreamValue>> + Unpin,
+        Handler: PartialResultHandler,
+    {
         let mut noop_console_interaction = NoopConsoleInteraction;
         let console_interaction: &mut dyn ConsoleInteraction = match &mut console_interaction {
             Some(i) => i as _,
@@ -172,7 +197,11 @@ impl EventsCtx {
                 tokio::select! {
                     next = stream.next() => {
                         // Make sure we still flush if next produces an error is accurate
-                        match self.handle_stream_next(next, &mut shutdown).await? {
+                        match self.handle_stream_next(
+                            partial_result_handler,
+                            next,
+                            &mut shutdown
+                        ).await? {
                             ControlFlow::Continue(()) => {}
                             ControlFlow::Break(res) => break *res,
                         }
@@ -224,17 +253,20 @@ impl EventsCtx {
     /// Given a stream of StreamValues originating from the daemon, "unpacks" it by extracting the command result from the
     /// event stream and returning it.
     /// Also merges all other streams into a single, larger stream
-    pub async fn unpack_stream<
-        R: TryFrom<command_result::Result, Error = command_result::Result>,
-        S: Stream<Item = anyhow::Result<StreamValue>> + Unpin,
-    >(
+    pub async fn unpack_stream<S, Res, Handler>(
         &mut self,
+        partial_result_handler: &mut Handler,
         stream: S,
         tailers: Option<FileTailers>,
         console_interaction: Option<ConsoleInteractionStream<'_>>,
-    ) -> anyhow::Result<CommandOutcome<R>> {
+    ) -> anyhow::Result<CommandOutcome<Res>>
+    where
+        S: Stream<Item = anyhow::Result<StreamValue>> + Unpin,
+        Res: TryFrom<command_result::Result, Error = command_result::Result>,
+        Handler: PartialResultHandler,
+    {
         let command_result = self
-            .unpack_stream_inner(stream, tailers, console_interaction)
+            .unpack_stream_inner(partial_result_handler, stream, tailers, console_interaction)
             .await;
 
         match command_result {
@@ -256,13 +288,13 @@ impl EventsCtx {
     /// Unpack a single `CommandResult`, log any failures if necessary, and convert it to a
     /// `CommandOutcome`
     pub async fn unpack_oneshot<
-        R: TryFrom<command_result::Result, Error = command_result::Result>,
+        Res: TryFrom<command_result::Result, Error = command_result::Result>,
         Fut: Future<Output = Result<tonic::Response<CommandResult>, tonic::Status>>,
     >(
         &mut self,
         tailers: &mut Option<FileTailers>,
         f: impl FnOnce() -> Fut,
-    ) -> anyhow::Result<CommandOutcome<R>> {
+    ) -> anyhow::Result<CommandOutcome<Res>> {
         let res = self.flushing_tailers(tailers, f).await?;
         // important - do not early return before flushing the buffers!
         let inner = res?.into_inner();
