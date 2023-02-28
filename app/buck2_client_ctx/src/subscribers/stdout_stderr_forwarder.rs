@@ -21,8 +21,10 @@ impl EventSubscriber for StdoutStderrForwarder {
         crate::eprintln!("{}", stderr)?;
         Ok(())
     }
-    async fn handle_tailer_stdout(&mut self, raw_output: &str) -> anyhow::Result<()> {
-        crate::eprint!("{}", raw_output)?;
+    async fn handle_output(&mut self, raw_output: &[u8]) -> anyhow::Result<()> {
+        // Lossy conversion is a bit awkward here, but so is printing stdout to stderr anyway. If
+        // that happens our output is going to be pretty busted anyway.
+        crate::eprint!("{}", String::from_utf8_lossy(raw_output))?;
         Ok(())
     }
 }

@@ -37,11 +37,12 @@ impl Tick {
 /// Each method will be called whenever an event occurs.
 #[async_trait]
 pub trait EventSubscriber: Send {
-    /// `handle_tailer_stdout` and `handle_tailer_stderr` are fired only for tailer stdout/stderr.
-    /// Output events produces by the server are sent to `handle_event`.
-    async fn handle_tailer_stdout(&mut self, _raw_output: &str) -> anyhow::Result<()> {
+    /// Fired by the tailer for stdout, or by PartialResultHandler instances that wish to write to
+    /// stdout.
+    async fn handle_output(&mut self, _raw_output: &[u8]) -> anyhow::Result<()> {
         Ok(())
     }
+    /// Fired by the tailer for stderr.
     async fn handle_tailer_stderr(&mut self, _stderr: &str) -> anyhow::Result<()> {
         Ok(())
     }

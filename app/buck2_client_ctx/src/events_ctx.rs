@@ -379,7 +379,7 @@ fn convert_result<R: TryFrom<command_result::Result, Error = command_result::Res
 
 impl EventsCtx {
     async fn handle_tailer_stdout(&mut self, raw_output: &str) -> anyhow::Result<()> {
-        self.handle_subscribers(|subscriber| subscriber.handle_tailer_stdout(raw_output))
+        self.handle_subscribers(|subscriber| subscriber.handle_output(raw_output.as_bytes()))
             .await
     }
 

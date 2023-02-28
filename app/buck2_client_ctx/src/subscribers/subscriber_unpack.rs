@@ -798,8 +798,8 @@ pub trait UnpackingEventSubscriber: Send {
 
 #[async_trait]
 impl<U: UnpackingEventSubscriber> EventSubscriber for UnpackingEventSubscriberAsEventSubscriber<U> {
-    async fn handle_tailer_stdout(&mut self, raw_output: &str) -> anyhow::Result<()> {
-        self.0.handle_output(raw_output.as_bytes()).await
+    async fn handle_output(&mut self, raw_output: &[u8]) -> anyhow::Result<()> {
+        self.0.handle_output(raw_output).await
     }
 
     async fn handle_tailer_stderr(&mut self, stderr: &str) -> anyhow::Result<()> {
