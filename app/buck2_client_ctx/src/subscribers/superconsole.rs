@@ -380,7 +380,7 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
         }
     }
 
-    async fn handle_output(&mut self, raw_output: &str) -> anyhow::Result<()> {
+    async fn handle_output(&mut self, raw_output: &[u8]) -> anyhow::Result<()> {
         if let Some(super_console) = self.super_console.take() {
             super_console.finalize(&self.state.state())?;
         }

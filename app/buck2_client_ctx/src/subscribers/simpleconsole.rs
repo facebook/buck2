@@ -285,8 +285,8 @@ impl<E> UnpackingEventSubscriber for SimpleConsole<E>
 where
     E: EventObserverExtra,
 {
-    async fn handle_output(&mut self, raw_output: &str) -> anyhow::Result<()> {
-        crate::print!("{}", raw_output)?;
+    async fn handle_output(&mut self, raw_output: &[u8]) -> anyhow::Result<()> {
+        crate::stdio::print_bytes(raw_output)?;
         self.notify_printed();
         Ok(())
     }

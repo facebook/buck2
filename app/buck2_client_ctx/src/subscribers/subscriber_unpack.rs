@@ -33,7 +33,7 @@ pub(crate) struct UnpackingEventSubscriberAsEventSubscriber<U: UnpackingEventSub
 
 #[async_trait]
 pub trait UnpackingEventSubscriber: Send {
-    async fn handle_output(&mut self, _raw_output: &str) -> anyhow::Result<()> {
+    async fn handle_output(&mut self, _raw_output: &[u8]) -> anyhow::Result<()> {
         Ok(())
     }
     async fn handle_stderr(&mut self, _stderr: &str) -> anyhow::Result<()> {
@@ -270,7 +270,7 @@ pub trait UnpackingEventSubscriber: Send {
                 self.handle_rage_invoked(result, event)
             }
             buck2_data::instant_event::Data::RawOutput(output) => {
-                self.handle_output(&output.raw_output)
+                self.handle_output(output.raw_output.as_bytes())
             }
             buck2_data::instant_event::Data::Snapshot(result) => {
                 self.handle_snapshot(result, event)
@@ -799,7 +799,7 @@ pub trait UnpackingEventSubscriber: Send {
 #[async_trait]
 impl<U: UnpackingEventSubscriber> EventSubscriber for UnpackingEventSubscriberAsEventSubscriber<U> {
     async fn handle_tailer_stdout(&mut self, raw_output: &str) -> anyhow::Result<()> {
-        self.0.handle_output(raw_output).await
+        self.0.handle_output(raw_output.as_bytes()).await
     }
 
     async fn handle_tailer_stderr(&mut self, stderr: &str) -> anyhow::Result<()> {
