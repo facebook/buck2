@@ -15,9 +15,8 @@ load("@prelude//apple:apple_rules_impl.bzl", _apple_extra_attributes = "extra_at
 # Configuration
 load("@prelude//configurations:rules.bzl", _config_extra_attributes = "extra_attributes", _config_implemented_rules = "implemented_rules")
 load("@prelude//cxx:cxx.bzl", "cxx_binary_impl", "cxx_library_impl", "cxx_precompiled_header_impl", "cxx_test_impl", "prebuilt_cxx_library_impl")
-load("@prelude//cxx:cxx_toolchain.bzl", "cxx_toolchain_impl")
-load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo", "CxxToolchainInfo", "DistLtoToolsInfo")
-load("@prelude//cxx:debug.bzl", "SplitDebugMode")
+load("@prelude//cxx:cxx_toolchain.bzl", "cxx_toolchain_extra_attributes", "cxx_toolchain_impl")
+load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo", "CxxToolchainInfo")
 
 # C++
 load("@prelude//cxx:headers.bzl", "CPrecompiledHeaderInfo")
@@ -56,7 +55,6 @@ load("@prelude//julia:julia.bzl", _julia_extra_attributes = "extra_attributes", 
 
 # Kotlin
 load("@prelude//kotlin:kotlin.bzl", _kotlin_extra_attributes = "extra_attributes", _kotlin_implemented_rules = "implemented_rules")
-load("@prelude//linking:link_info.bzl", "LinkOrdering")
 
 # Lua
 load("@prelude//lua:cxx_lua_extension.bzl", "cxx_lua_extension_impl")
@@ -401,40 +399,7 @@ inlined_extra_attributes = {
         remote_execution = attrs.option(attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False), default = None),
         **_cxx_binary_and_test_attrs()
     ),
-    "cxx_toolchain": {
-        "archiver": attrs.dep(providers = [RunInfo]),
-        "archiver_supports_argfiles": attrs.bool(default = False),
-        "asm_compiler": attrs.option(attrs.dep(providers = [RunInfo]), default = None),
-        "asm_preprocessor": attrs.option(attrs.dep(providers = [RunInfo]), default = None),
-        "assembler": attrs.dep(providers = [RunInfo]),
-        "assembler_preprocessor": attrs.option(attrs.dep(providers = [RunInfo]), default = None),
-        "bolt_enabled": attrs.bool(default = False),
-        "c_compiler": attrs.dep(providers = [RunInfo]),
-        "cuda_compiler": attrs.option(attrs.dep(providers = [RunInfo]), default = None),
-        "cxx_compiler": attrs.dep(providers = [RunInfo]),
-        "hip_compiler": attrs.option(attrs.dep(providers = [RunInfo]), default = None),
-        "link_ordering": attrs.enum(LinkOrdering.values(), default = "preorder"),
-        "linker": attrs.dep(providers = [RunInfo]),
-        "nm": attrs.dep(providers = [RunInfo]),
-        "objcopy_for_shared_library_interface": attrs.dep(providers = [RunInfo]),
-        # Used for resolving any 'platform_*' attributes.
-        "platform_name": attrs.option(attrs.string(), default = None),
-        "private_headers_symlinks_enabled": attrs.bool(default = True),
-        "public_headers_symlinks_enabled": attrs.bool(default = True),
-        "ranlib": attrs.option(attrs.dep(providers = [RunInfo]), default = None),
-        "requires_objects": attrs.bool(default = False),
-        "split_debug_mode": attrs.enum(SplitDebugMode.values(), default = "none"),
-        "strip": attrs.dep(providers = [RunInfo]),
-        "supports_distributed_thinlto": attrs.bool(default = False),
-        "use_archiver_flags": attrs.bool(default = True),
-        "use_dep_files": attrs.option(attrs.bool(), default = None),
-        "_dep_files_processor": attrs.dep(providers = [RunInfo], default = "prelude//cxx/tools:makefile_to_dep_file"),
-        "_dist_lto_tools": attrs.default_only(attrs.dep(providers = [DistLtoToolsInfo], default = "prelude//cxx/dist_lto/tools:dist_lto_tools")),
-        "_mk_comp_db": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//cxx/tools:make_comp_db")),
-        # FIXME: prelude// should be standalone (not refer to fbsource//)
-        "_mk_hmap": attrs.default_only(attrs.dep(providers = [RunInfo], default = "fbsource//xplat/buck2/tools/cxx:hmap_wrapper")),
-        "_msvc_hermetic_exec": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//windows/tools:msvc_hermetic_exec")),
-    },
+    "cxx_toolchain": cxx_toolchain_extra_attributes(is_toolchain_rule = False),
     "export_file": {
         "src": attrs.source(allow_directory = True),
     },
@@ -495,6 +460,9 @@ inlined_extra_attributes = {
     "http_file": {
         "sha1": attrs.option(attrs.string(), default = None),
         "sha256": attrs.option(attrs.string(), default = None),
+    },
+    "ndk_toolchain": {
+        "cxx_toolchain": attrs.toolchain_dep(providers = [CxxToolchainInfo, CxxPlatformInfo]),
     },
     "prebuilt_cxx_library": {
         "exported_header_style": attrs.enum(IncludeType, default = "system"),

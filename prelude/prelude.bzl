@@ -15,6 +15,7 @@ load("@prelude//android:cpu_filters.bzl", "ALL_CPU_FILTERS", "CPU_FILTER_FOR_DEF
 load("@prelude//apple:apple_bundle_macro_layer.bzl", "apple_bundle_macro_impl")
 load("@prelude//apple:apple_macro_layer.bzl", "apple_binary_macro_impl", "apple_library_macro_impl")
 load("@prelude//apple:apple_test_macro_layer.bzl", "apple_test_macro_impl")
+load("@prelude//cxx:cxx_toolchain.bzl", "cxx_toolchain_inheriting_target_platform")
 load("@prelude//cxx:cxx_toolchain_types.bzl", _cxx = "cxx")
 load("@prelude//erlang:erlang.bzl", _erlang_application = "erlang_application", _erlang_tests = "erlang_tests")
 load("@prelude//python:toolchain.bzl", _python = "python")
@@ -312,6 +313,12 @@ def _apple_library_macro_stub(**kwargs):
         **kwargs
     )
 
+def _cxx_toolchain_macro_stub(inherit_target_platform = False, **kwargs):
+    if inherit_target_platform:
+        cxx_toolchain_inheriting_target_platform(**kwargs)
+    else:
+        __rules__["cxx_toolchain"](**kwargs)
+
 def _erlang_application_macro_stub(**kwargs):
     _erlang_application(
         erlang_app_rule = __rules__["erlang_app"],
@@ -338,6 +345,7 @@ __extra_rules__ = {
     "apple_test": _apple_test_macro_stub,
     "apple_watchos_bundle": _apple_watchos_bundle_macro_stub,
     "configured_alias": _configured_alias_macro_stub,
+    "cxx_toolchain": _cxx_toolchain_macro_stub,
     "erlang_application": _erlang_application_macro_stub,
     "erlang_tests": _erlang_tests_macro_stub,
     "export_file": _export_file_macro_stub,

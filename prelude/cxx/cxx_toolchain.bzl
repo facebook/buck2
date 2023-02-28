@@ -5,11 +5,12 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//cxx:cxx_toolchain_types.bzl", "AsCompilerInfo", "AsmCompilerInfo", "BinaryUtilitiesInfo", "CCompilerInfo", "CudaCompilerInfo", "CxxCompilerInfo", "HipCompilerInfo", "LinkerInfo", "StripFlagsInfo", "cxx_toolchain_infos")
+load("@prelude//:attributes.bzl", "attributes")
+load("@prelude//cxx:cxx_toolchain_types.bzl", "AsCompilerInfo", "AsmCompilerInfo", "BinaryUtilitiesInfo", "CCompilerInfo", "CudaCompilerInfo", "CxxCompilerInfo", "DistLtoToolsInfo", "HipCompilerInfo", "LinkerInfo", "StripFlagsInfo", "cxx_toolchain_infos")
 load("@prelude//cxx:debug.bzl", "SplitDebugMode")
 load("@prelude//cxx:headers.bzl", "HeaderMode", "HeadersAsRawHeadersMode")
 load("@prelude//cxx:linker.bzl", "LINKERS")
-load("@prelude//linking:link_info.bzl", "LinkStyle")
+load("@prelude//linking:link_info.bzl", "LinkOrdering", "LinkStyle")
 load("@prelude//linking:lto.bzl", "LtoMode")
 load("@prelude//utils:utils.bzl", "value_or")
 
@@ -129,6 +130,54 @@ def cxx_toolchain_impl(ctx):
         # TODO(T138705365): Turn on dep files by default
         use_dep_files = value_or(ctx.attrs.use_dep_files, _get_default_use_dep_files(platform_name)),
     )
+
+def cxx_toolchain_extra_attributes(is_toolchain_rule):
+    dep_type = attrs.exec_dep if is_toolchain_rule else attrs.dep
+    return {
+        "archiver": dep_type(providers = [RunInfo]),
+        "archiver_supports_argfiles": attrs.bool(default = False),
+        "asm_compiler": attrs.option(dep_type(providers = [RunInfo]), default = None),
+        "asm_preprocessor": attrs.option(dep_type(providers = [RunInfo]), default = None),
+        "assembler": dep_type(providers = [RunInfo]),
+        "assembler_preprocessor": attrs.option(dep_type(providers = [RunInfo]), default = None),
+        "bolt_enabled": attrs.bool(default = False),
+        "c_compiler": dep_type(providers = [RunInfo]),
+        "cuda_compiler": attrs.option(dep_type(providers = [RunInfo]), default = None),
+        "cxx_compiler": dep_type(providers = [RunInfo]),
+        "hip_compiler": attrs.option(dep_type(providers = [RunInfo]), default = None),
+        "link_ordering": attrs.enum(LinkOrdering.values(), default = "preorder"),
+        "linker": dep_type(providers = [RunInfo]),
+        "nm": dep_type(providers = [RunInfo]),
+        "objcopy_for_shared_library_interface": dep_type(providers = [RunInfo]),
+        # Used for resolving any 'platform_*' attributes.
+        "platform_name": attrs.option(attrs.string(), default = None),
+        "private_headers_symlinks_enabled": attrs.bool(default = True),
+        "public_headers_symlinks_enabled": attrs.bool(default = True),
+        "ranlib": attrs.option(dep_type(providers = [RunInfo]), default = None),
+        "requires_objects": attrs.bool(default = False),
+        "split_debug_mode": attrs.enum(SplitDebugMode.values(), default = "none"),
+        "strip": dep_type(providers = [RunInfo]),
+        "supports_distributed_thinlto": attrs.bool(default = False),
+        "use_archiver_flags": attrs.bool(default = True),
+        "use_dep_files": attrs.option(attrs.bool(), default = None),
+        "_dep_files_processor": dep_type(providers = [RunInfo], default = "prelude//cxx/tools:makefile_to_dep_file"),
+        "_dist_lto_tools": attrs.default_only(dep_type(providers = [DistLtoToolsInfo], default = "prelude//cxx/dist_lto/tools:dist_lto_tools")),
+        "_mk_comp_db": attrs.default_only(dep_type(providers = [RunInfo], default = "prelude//cxx/tools:make_comp_db")),
+        # FIXME: prelude// should be standalone (not refer to fbsource//)
+        "_mk_hmap": attrs.default_only(dep_type(providers = [RunInfo], default = "fbsource//xplat/buck2/tools/cxx:hmap_wrapper")),
+        "_msvc_hermetic_exec": attrs.default_only(dep_type(providers = [RunInfo], default = "prelude//windows/tools:msvc_hermetic_exec")),
+    }
+
+def _cxx_toolchain_inheriting_target_platform_attrs():
+    attrs = dict(attributes["cxx_toolchain"])
+    attrs.update(cxx_toolchain_extra_attributes(is_toolchain_rule = True))
+    return attrs
+
+cxx_toolchain_inheriting_target_platform = rule(
+    impl = cxx_toolchain_impl,
+    attrs = _cxx_toolchain_inheriting_target_platform_attrs(),
+    is_toolchain_rule = True,
+)
 
 _APPLE_PLATFORM_NAME_PREFIXES = [
     "iphonesimulator",
