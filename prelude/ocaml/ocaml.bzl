@@ -315,7 +315,7 @@ def _depends(ctx: "context", srcs: ["artifact"], build_mode: BuildMode.type) -> 
     ocaml_toolchain = ctx.attrs._ocaml_toolchain[OCamlToolchainInfo]
     ocamldep = ocaml_toolchain.dep_tool
 
-    dep_output_filename = "deps_" + build_mode.value + ".mk"
+    dep_output_filename = "ocamldep_" + build_mode.value + ".mk"
     dep_output = ctx.actions.declare_output(dep_output_filename)
     dep_cmdline = cmd_args([ocamldep, "-native"])  # Yes, always native (see D36426635 for details).
 
@@ -327,14 +327,14 @@ def _depends(ctx: "context", srcs: ["artifact"], build_mode: BuildMode.type) -> 
     # These -I's are for ocamldep.
     dep_cmdline.add(cmd_args([cmd_args(src).parent() for src in srcs], format = "-I {}"))
     dep_cmdline.add(srcs)
-    dep_script_name = "deps_" + build_mode.value + ".sh"
+    dep_script_name = "ocamldep_" + build_mode.value + ".sh"
     dep_sh, _ = ctx.actions.write(
         dep_script_name,
         ["#!/usr/bin/env bash", cmd_args([dep_cmdline, ">", dep_output], delimiter = " ")],
         is_executable = True,
         allow_args = True,
     )
-    ctx.actions.run(cmd_args(dep_sh).hidden(dep_output.as_output(), dep_cmdline), category = "ocaml_dep_" + build_mode.value)
+    ctx.actions.run(cmd_args(dep_sh).hidden(dep_output.as_output(), dep_cmdline), category = "ocamldep_" + build_mode.value)
     return dep_output
 
 # Compile all the context's sources. If bytecode compiling, 'cmxs' & 'objs' will
