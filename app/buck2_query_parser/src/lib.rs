@@ -44,8 +44,6 @@
 //!
 //! ```
 
-#![feature(box_syntax)]
-
 pub mod span;
 pub mod spanned;
 
@@ -295,7 +293,10 @@ fn expr<'a, E: NomParseError<'a>>(input: Span<'a>) -> NomResult<'a, SpannedExpr<
                 let (input, left_expr) = single_expr(input)?;
 
                 if let Ok((input, binary_ops)) = trailing_infix(input) {
-                    Ok((input, Expr::BinaryOpSequence(box left_expr, binary_ops)))
+                    Ok((
+                        input,
+                        Expr::BinaryOpSequence(Box::new(left_expr), binary_ops),
+                    ))
                 } else {
                     Ok((input, left_expr.value))
                 }
