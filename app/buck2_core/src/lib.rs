@@ -19,7 +19,6 @@
 #![feature(termination_trait_lib)]
 #![feature(try_trait_v2)]
 #![feature(type_alias_impl_trait)]
-#![feature(box_syntax)]
 #![feature(never_type)]
 #![feature(pattern)]
 #![feature(box_patterns)]

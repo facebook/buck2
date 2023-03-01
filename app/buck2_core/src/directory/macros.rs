@@ -21,7 +21,7 @@ macro_rules! impl_fingerprinted_directory {
                     let v = v.as_ref().map_dir(|v| v as &dyn Directory<L, H>);
                     (k, v)
                 });
-                box it
+                Box::new(it)
             }
 
             fn get<'a>(
@@ -51,7 +51,7 @@ macro_rules! impl_fingerprinted_directory {
                         .map_dir(|v| v as &dyn FingerprintedDirectory<L, H>);
                     (k, v)
                 });
-                box it
+                Box::new(it)
             }
 
             fn get<'a>(

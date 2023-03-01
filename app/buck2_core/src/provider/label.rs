@@ -276,10 +276,10 @@ pub mod testing {
                     TargetNameRef::new(target).unwrap(),
                 ),
                 match name {
-                    Some(n) => ProvidersName::NonDefault(box NonDefaultProvidersName::Named(
+                    Some(n) => ProvidersName::NonDefault(Box::new(NonDefaultProvidersName::Named(
                         n.map(|s| ProviderName::new((*s).to_owned()).unwrap())
                             .into_boxed_slice(),
-                    )),
+                    ))),
                     _ => ProvidersName::Default,
                 },
             )

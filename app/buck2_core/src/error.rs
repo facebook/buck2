@@ -132,7 +132,7 @@ mod tests {
 
         static ONCE: Once = Once::new();
         ONCE.call_once(|| {
-            initialize(box mock_handler);
+            initialize(Box::new(mock_handler));
         });
 
         RESULT.lock().unwrap().clear();

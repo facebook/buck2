@@ -179,9 +179,9 @@ impl PatternType for ProvidersPattern {
 
             Ok((
                 t,
-                ProvidersName::NonDefault(box NonDefaultProvidersName::Named(
+                ProvidersName::NonDefault(Box::new(NonDefaultProvidersName::Named(
                     names.into_boxed_slice(),
-                )),
+                ))),
             ))
         } else {
             Ok((s, ProvidersName::Default))
@@ -816,10 +816,10 @@ mod tests {
             ProvidersPattern {
                 target: TargetName::unchecked_new(target),
                 providers: providers.map_or(ProvidersName::Default, |n| {
-                    ProvidersName::NonDefault(box NonDefaultProvidersName::Named(
+                    ProvidersName::NonDefault(Box::new(NonDefaultProvidersName::Named(
                         n.map(|s| ProviderName::new((*s).to_owned()).unwrap())
                             .into_boxed_slice(),
-                    ))
+                    )))
                 }),
             },
         )

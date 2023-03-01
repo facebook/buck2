@@ -21,7 +21,7 @@ pub trait LogConfigurationReloadHandle: Send + Sync + 'static {
 
 impl dyn LogConfigurationReloadHandle {
     pub fn noop() -> Box<dyn LogConfigurationReloadHandle> {
-        box NoopLogConfigurationReloadHandle as _
+        Box::new(NoopLogConfigurationReloadHandle) as _
     }
 }
 
@@ -77,5 +77,5 @@ where
 
     tracing_subscriber::registry().with(layer).init();
 
-    Ok(box handle as _)
+    Ok(Box::new(handle) as _)
 }

@@ -257,7 +257,7 @@ where
     H: DirectoryDigest,
 {
     fn entries(&self) -> DirectoryEntries<'_, L, H> {
-        box self.entries()
+        Box::new(self.entries())
     }
 
     fn get<'a>(
