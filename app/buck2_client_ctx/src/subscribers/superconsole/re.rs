@@ -18,7 +18,7 @@ pub struct ReHeader;
 
 impl ReHeader {
     pub fn boxed() -> Box<dyn Component> {
-        box Self
+        Box::new(Self)
     }
 }
 

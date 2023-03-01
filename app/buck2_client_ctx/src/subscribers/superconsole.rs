@@ -145,18 +145,25 @@ impl StatefulSuperConsole {
         sandwiched: Option<Box<dyn Component>>,
     ) -> Box<dyn Component> {
         let header = format!("Command: `{}`.", command_name);
-        let mut components: Vec<Box<dyn Component>> =
-            vec![box SessionInfoComponent, ReHeader::boxed(), box IoHeader];
+        let mut components: Vec<Box<dyn Component>> = vec![
+            Box::new(SessionInfoComponent),
+            ReHeader::boxed(),
+            Box::new(IoHeader),
+        ];
         if let Some(sandwiched) = sandwiched {
             components.push(sandwiched);
         }
-        components.push(box DebugEventsComponent);
-        components.push(box DiceComponent);
-        components.push(box CommandsComponent);
-        components.push(box TimedList::new(CUTOFFS, header));
-        let root = box Split::new(components, Direction::Vertical, SplitKind::Adaptive);
+        components.push(Box::new(DebugEventsComponent));
+        components.push(Box::new(DiceComponent));
+        components.push(Box::new(CommandsComponent));
+        components.push(Box::new(TimedList::new(CUTOFFS, header)));
+        let root = Box::new(Split::new(
+            components,
+            Direction::Vertical,
+            SplitKind::Adaptive,
+        ));
         // bound all components to our recommended grapheme-width
-        box Bounded::new(root, Some(SUPERCONSOLE_WIDTH), None)
+        Box::new(Bounded::new(root, Some(SUPERCONSOLE_WIDTH), None))
     }
 
     pub fn new_with_root_forced(

@@ -282,7 +282,7 @@ impl BootstrapBuckdClient {
     ) -> Self {
         // Start with basic output forwarding to catch any output (usually errors or panics) at startup.
         // This subscriber gets replaced with the actual subscribers once the startup stage of the daemon lifecycle is complete.
-        let events_ctx = EventsCtx::new(daemon_dir, vec![box StdoutStderrForwarder]);
+        let events_ctx = EventsCtx::new(daemon_dir, vec![Box::new(StdoutStderrForwarder)]);
         let client = BuckdClient {
             info,
             client: ClientKind::Daemon(client),
@@ -321,7 +321,7 @@ impl BuckdConnectOptions {
     pub fn existing_only_no_console() -> Self {
         Self {
             existing_only: true,
-            subscribers: vec![box StdoutStderrForwarder],
+            subscribers: vec![Box::new(StdoutStderrForwarder)],
         }
     }
 

@@ -36,28 +36,28 @@ pub(crate) fn get_console_with_root(
     isolation_dir: FileNameBuf,
 ) -> anyhow::Result<Option<Box<dyn EventSubscriber>>> {
     match console_type {
-        ConsoleType::Simple => Ok(Some(box UnpackingEventSubscriberAsEventSubscriber(
+        ConsoleType::Simple => Ok(Some(Box::new(UnpackingEventSubscriberAsEventSubscriber(
             SimpleConsole::<NoopEventObserverExtra>::autodetect(
                 isolation_dir,
                 verbosity,
                 show_waiting_message,
             ),
-        ))),
-        ConsoleType::SimpleNoTty => Ok(Some(box UnpackingEventSubscriberAsEventSubscriber(
+        )))),
+        ConsoleType::SimpleNoTty => Ok(Some(Box::new(UnpackingEventSubscriberAsEventSubscriber(
             SimpleConsole::<NoopEventObserverExtra>::without_tty(
                 isolation_dir,
                 verbosity,
                 show_waiting_message,
             ),
-        ))),
-        ConsoleType::SimpleTty => Ok(Some(box UnpackingEventSubscriberAsEventSubscriber(
+        )))),
+        ConsoleType::SimpleTty => Ok(Some(Box::new(UnpackingEventSubscriberAsEventSubscriber(
             SimpleConsole::<NoopEventObserverExtra>::with_tty(
                 isolation_dir,
                 verbosity,
                 show_waiting_message,
             ),
-        ))),
-        ConsoleType::Super => Ok(Some(box UnpackingEventSubscriberAsEventSubscriber(
+        )))),
+        ConsoleType::Super => Ok(Some(Box::new(UnpackingEventSubscriberAsEventSubscriber(
             StatefulSuperConsole::new_with_root_forced(
                 root,
                 verbosity,
@@ -67,7 +67,7 @@ pub(crate) fn get_console_with_root(
                 config,
                 isolation_dir,
             )?,
-        ))),
+        )))),
         ConsoleType::Auto => {
             match StatefulSuperConsole::new_with_root(
                 root,
@@ -77,16 +77,16 @@ pub(crate) fn get_console_with_root(
                 config,
                 isolation_dir.clone(),
             )? {
-                Some(super_console) => Ok(Some(box UnpackingEventSubscriberAsEventSubscriber(
-                    super_console,
+                Some(super_console) => Ok(Some(Box::new(
+                    UnpackingEventSubscriberAsEventSubscriber(super_console),
                 ))),
-                None => Ok(Some(box UnpackingEventSubscriberAsEventSubscriber(
+                None => Ok(Some(Box::new(UnpackingEventSubscriberAsEventSubscriber(
                     SimpleConsole::<NoopEventObserverExtra>::autodetect(
                         isolation_dir,
                         verbosity,
                         show_waiting_message,
                     ),
-                ))),
+                )))),
             }
         }
         ConsoleType::None => Ok(None),
@@ -118,7 +118,7 @@ pub(crate) fn try_get_event_log_subscriber(
         ctx.async_cleanup_context().dupe(),
         ctx.command_name.clone(),
     )?;
-    Ok(Some(box log))
+    Ok(Some(Box::new(log)))
 }
 
 pub(crate) fn try_get_re_log_subscriber(
@@ -132,7 +132,9 @@ pub(crate) fn try_get_re_log_subscriber(
         ctx.paths()?.isolation.clone(),
         ctx.async_cleanup_context().dupe(),
     );
-    Ok(Some(box UnpackingEventSubscriberAsEventSubscriber(log)))
+    Ok(Some(Box::new(UnpackingEventSubscriberAsEventSubscriber(
+        log,
+    ))))
 }
 
 pub(crate) fn try_get_build_id_writer(
@@ -140,9 +142,9 @@ pub(crate) fn try_get_build_id_writer(
     ctx: &ClientCommandContext,
 ) -> anyhow::Result<Option<Box<dyn EventSubscriber>>> {
     if let Some(file_loc) = opts.build_id_file.as_ref() {
-        Ok(Some(box BuildIdWriter::new(
+        Ok(Some(Box::new(BuildIdWriter::new(
             file_loc.resolve(&ctx.working_dir),
-        )))
+        ))))
     } else {
         Ok(None)
     }

@@ -252,7 +252,7 @@ mod imp {
                     None,
                     None,
                     buck2_data::RecordEvent {
-                        data: Some((box record).into()),
+                        data: Some((Box::new(record)).into()),
                     }
                     .into(),
                 );

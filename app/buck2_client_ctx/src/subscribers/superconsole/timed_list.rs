@@ -62,7 +62,9 @@ pub(crate) struct TimedListBody(Box<dyn Component>);
 
 impl TimedListBody {
     pub(crate) fn new(cutoffs: Cutoffs) -> Self {
-        Self(box Expanding::new(box TimedListBodyInner { cutoffs }))
+        Self(Box::new(Expanding::new(Box::new(TimedListBodyInner {
+            cutoffs,
+        }))))
     }
 }
 
@@ -287,9 +289,9 @@ pub(crate) struct TimedListHeader(Bordered);
 
 impl TimedListHeader {
     pub(crate) fn new(header: String) -> Self {
-        let info = box StaticStringComponent { header };
-        let count = box CountComponent;
-        let header_split = box HeaderLineComponent::new(info, count);
+        let info = Box::new(StaticStringComponent { header });
+        let count = Box::new(CountComponent);
+        let header_split = Box::new(HeaderLineComponent::new(info, count));
         let header_box = Bordered::new(
             header_split,
             BorderedSpec {
@@ -325,9 +327,9 @@ impl TimedList {
     /// * `cutoffs` determines durations for warnings, time-outs, and baseline notability.
     /// * `header` is the string displayed at the top of the list.
     pub fn new(cutoffs: Cutoffs, header: String) -> Self {
-        let head = box TimedListHeader::new(header);
+        let head = Box::new(TimedListHeader::new(header));
         // Subtract for the header and the padding row above and beneath
-        let body = box TimedListBody::new(cutoffs);
+        let body = Box::new(TimedListBody::new(cutoffs));
 
         Self {
             child: Split::new(vec![head, body], Direction::Vertical, SplitKind::Adaptive),

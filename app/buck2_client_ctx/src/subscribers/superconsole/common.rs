@@ -24,11 +24,11 @@ pub(crate) struct HeaderLineComponent(Split);
 
 impl HeaderLineComponent {
     pub(crate) fn new(lhs: Box<dyn Component>, rhs: Box<dyn Component>) -> Self {
-        let rhs = box Aligned {
+        let rhs = Box::new(Aligned {
             child: rhs,
             horizontal: HorizontalAlignmentKind::Right,
             ..Default::default()
-        };
+        });
         Self(Split::new(
             vec![lhs, rhs],
             Direction::Horizontal,

@@ -400,16 +400,16 @@ impl EventLogPathBuf {
         let file = CountingReader::new(file, compressed_bytes);
         let file = match self.encoding.compression {
             Compression::None => {
-                box CountingReader::new(file, decompressed_bytes) as EventLogReader
+                Box::new(CountingReader::new(file, decompressed_bytes)) as EventLogReader
             }
-            Compression::Gzip => {
-                box CountingReader::new(GzipDecoder::new(BufReader::new(file)), decompressed_bytes)
-                    as EventLogReader
-            }
-            Compression::Zstd => {
-                box CountingReader::new(ZstdDecoder::new(BufReader::new(file)), decompressed_bytes)
-                    as EventLogReader
-            }
+            Compression::Gzip => Box::new(CountingReader::new(
+                GzipDecoder::new(BufReader::new(file)),
+                decompressed_bytes,
+            )) as EventLogReader,
+            Compression::Zstd => Box::new(CountingReader::new(
+                ZstdDecoder::new(BufReader::new(file)),
+                decompressed_bytes,
+            )) as EventLogReader,
         };
 
         Ok(file)
@@ -716,13 +716,15 @@ async fn open_event_log_for_writing(
         })?;
 
     let file = match path.encoding.compression {
-        Compression::None => box file as EventLogWriter,
-        Compression::Gzip => {
-            box GzipEncoder::with_quality(file, async_compression::Level::Fastest) as EventLogWriter
-        }
-        Compression::Zstd => {
-            box ZstdEncoder::with_quality(file, async_compression::Level::Default) as EventLogWriter
-        }
+        Compression::None => Box::new(file) as EventLogWriter,
+        Compression::Gzip => Box::new(GzipEncoder::with_quality(
+            file,
+            async_compression::Level::Fastest,
+        )) as EventLogWriter,
+        Compression::Zstd => Box::new(ZstdEncoder::with_quality(
+            file,
+            async_compression::Level::Default,
+        )) as EventLogWriter,
     };
 
     Ok(NamedEventLogWriter {

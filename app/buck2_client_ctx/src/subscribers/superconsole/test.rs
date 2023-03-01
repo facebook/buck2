@@ -116,7 +116,7 @@ pub struct TestHeader(Box<dyn Component>);
 
 impl TestHeader {
     pub fn new() -> Self {
-        Self(box TestCounterComponent)
+        Self(Box::new(TestCounterComponent))
     }
 }
 
