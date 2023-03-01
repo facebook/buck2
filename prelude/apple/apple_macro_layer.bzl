@@ -41,3 +41,8 @@ def apple_library_macro_impl(apple_library_rule = None, **kwargs):
 def apple_binary_macro_impl(apple_binary_rule = None, **kwargs):
     kwargs.update(apple_macro_layer_set_bool_override_attrs_from_config(_APPLE_BINARY_LOCAL_EXECUTION_OVERRIDES))
     apple_binary_rule(**kwargs)
+
+def apple_package_macro_impl(apple_package_rule = None, **kwargs):
+    apple_package_rule(
+        **kwargs
+    )

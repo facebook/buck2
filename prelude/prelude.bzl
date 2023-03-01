@@ -13,7 +13,7 @@
 
 load("@prelude//android:cpu_filters.bzl", "ALL_CPU_FILTERS", "CPU_FILTER_FOR_DEFAULT_PLATFORM")
 load("@prelude//apple:apple_bundle_macro_layer.bzl", "apple_bundle_macro_impl")
-load("@prelude//apple:apple_macro_layer.bzl", "apple_binary_macro_impl", "apple_library_macro_impl")
+load("@prelude//apple:apple_macro_layer.bzl", "apple_binary_macro_impl", "apple_library_macro_impl", "apple_package_macro_impl")
 load("@prelude//apple:apple_test_macro_layer.bzl", "apple_test_macro_impl")
 load("@prelude//cxx:cxx_toolchain.bzl", "cxx_toolchain_inheriting_target_platform")
 load("@prelude//cxx:cxx_toolchain_types.bzl", _cxx = "cxx")
@@ -313,6 +313,12 @@ def _apple_library_macro_stub(**kwargs):
         **kwargs
     )
 
+def _apple_package_macro_stub(**kwargs):
+    apple_package_macro_impl(
+        apple_package_rule = __rules__["apple_package"],
+        **kwargs
+    )
+
 def _cxx_toolchain_macro_stub(inherit_target_platform = False, **kwargs):
     if inherit_target_platform:
         cxx_toolchain_inheriting_target_platform(**kwargs)
@@ -342,6 +348,7 @@ __extra_rules__ = {
     "apple_binary": _apple_binary_macro_stub,
     "apple_bundle": _apple_bundle_macro_stub,
     "apple_library": _apple_library_macro_stub,
+    "apple_package": _apple_package_macro_stub,
     "apple_test": _apple_test_macro_stub,
     "apple_watchos_bundle": _apple_watchos_bundle_macro_stub,
     "configured_alias": _configured_alias_macro_stub,
