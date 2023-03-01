@@ -331,18 +331,31 @@ impl<'a> RenderMarkdown for ObjectRenderer<'a> {
                     })
                     .unzip();
 
-                let members_table =
-                    Table(Some("starlark_members_table"), members_header, members_rows)
-                        .render_markdown(flavor);
                 let members_details = member_details.join("\n\n---\n");
 
-                let page_body = format!(
-                    "{title}{summary}\n\n### Members\n\n{members_table}\n\n\n{members_details}",
-                    title = title,
-                    summary = summary,
-                    members_table = members_table,
-                    members_details = members_details
-                );
+                // Omit the prelude.bzl table, as it's currently unusable.
+                // TODO: remove this conditional when we fix up the prelude docs.
+                let page_body = if self.id.name == "native" {
+                    format!(
+                        "{title}{summary}\n\n### Members\n\n{members_details}",
+                        title = title,
+                        summary = summary,
+                        members_details = members_details
+                    )
+                } else {
+                    let members_table =
+                        Table(Some("starlark_members_table"), members_header, members_rows)
+                            .render_markdown(flavor);
+
+                    format!(
+                        "{title}{summary}\n\n### Members\n\n{members_table}\n\n\n{members_details}",
+                        title = title,
+                        summary = summary,
+                        members_table = members_table,
+                        members_details = members_details
+                    )
+                };
+
                 Some(page_body)
             }
             MarkdownFlavor::LspSummary => None,
