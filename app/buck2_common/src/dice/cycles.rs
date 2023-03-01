@@ -86,9 +86,9 @@ impl<D: CycleAdapterDescriptor> UserCycleDetector for CycleDetectorAdapter<D> {
     fn start_computing_key(&self, key: &dyn Any) -> Option<Box<dyn UserCycleDetectorGuard>> {
         match D::to_key(key) {
             None => None,
-            Some(v) => Some(box CycleAdapterGuard {
+            Some(v) => Some(Box::new(CycleAdapterGuard {
                 guard: self.inner.start(v),
-            }),
+            })),
         }
     }
 

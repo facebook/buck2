@@ -85,10 +85,11 @@ impl<'a> LegacyBuckConfigsView for LegacyBuckConfigsOnDice<'a> {
     fn iter<'x>(
         &'x self,
     ) -> Box<dyn Iterator<Item = (CellName, &'x dyn LegacyBuckConfigView)> + 'x> {
-        box self
-            .configs
-            .iter()
-            .map(|(cell_name, config)| (*cell_name, config as &dyn LegacyBuckConfigView))
+        Box::new(
+            self.configs
+                .iter()
+                .map(|(cell_name, config)| (*cell_name, config as &dyn LegacyBuckConfigView)),
+        )
     }
 }
 

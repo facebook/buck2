@@ -261,12 +261,12 @@ mod tests {
                         },
                         ProvidersPattern {
                             target: TargetName::unchecked_new("other_target"),
-                            providers: ProvidersName::NonDefault(
-                                box NonDefaultProvidersName::Named(box [ProviderName::new(
+                            providers: ProvidersName::NonDefault(Box::new(
+                                NonDefaultProvidersName::Named(Box::new([ProviderName::new(
                                     "my-label".to_owned(),
                                 )
-                                .unwrap()]),
-                            ),
+                                .unwrap()])),
+                            )),
                         },
                     ]),
                 ),

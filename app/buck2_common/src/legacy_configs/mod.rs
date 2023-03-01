@@ -178,9 +178,10 @@ impl LegacyBuckConfigsView for LegacyBuckConfigs {
     fn iter<'a>(
         &'a self,
     ) -> Box<dyn Iterator<Item = (CellName, &'a dyn LegacyBuckConfigView)> + 'a> {
-        box self
-            .iter()
-            .map(|(cell, config)| (cell, config as &dyn LegacyBuckConfigView))
+        Box::new(
+            self.iter()
+                .map(|(cell, config)| (cell, config as &dyn LegacyBuckConfigView)),
+        )
     }
 }
 
@@ -453,7 +454,7 @@ impl ConfigParserFileOps for DefaultConfigParserFileOps {
     ) -> anyhow::Result<Box<dyn Iterator<Item = Result<String, std::io::Error>>>> {
         let f = std::fs::File::open(path).with_context(|| format!("Reading file `{:?}`", path))?;
         let file = std::io::BufReader::new(f);
-        Ok(box file.lines())
+        Ok(Box::new(file.lines()))
     }
 
     fn file_exists(&self, path: &AbsNormPath) -> bool {
@@ -1339,7 +1340,7 @@ pub mod testing {
                 }
             }
             let file = std::io::BufReader::new(StringReader(content.into_bytes(), 0));
-            Ok(box file.lines())
+            Ok(Box::new(file.lines()))
         }
     }
 }

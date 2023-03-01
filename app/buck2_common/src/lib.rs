@@ -13,7 +13,6 @@
 #![cfg_attr(feature = "gazebo_lint", feature(plugin))]
 #![cfg_attr(feature = "gazebo_lint", allow(deprecated))] // :(
 #![cfg_attr(feature = "gazebo_lint", plugin(gazebo_lint))]
-#![feature(box_syntax)]
 #![feature(fs_try_exists)]
 #![feature(io_error_more)]
 #![feature(is_sorted)]

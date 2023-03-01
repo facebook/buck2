@@ -148,7 +148,7 @@ impl CasDigestConfig {
     /// We just Box::leak this since we create one per daemon and as a result just use
     /// CasDigestConfig as a pointer.
     pub fn leak_new(algorithms: Vec<DigestAlgorithm>) -> Result<Self, CasDigestConfigError> {
-        let inner = Box::leak(box CasDigestConfigInner::new(algorithms)?);
+        let inner = Box::leak(Box::new(CasDigestConfigInner::new(algorithms)?));
         Ok(Self { inner })
     }
 
@@ -423,7 +423,7 @@ impl<Kind> CasDigest<Kind> {
             // NOTE: This is where keying would matter. Note that we don't need to actually
             // retain the key in RawDigest or DigestAlgorithm, since we never actually care
             // about which hash we have besides debugging purposes.
-            DigestAlgorithm::Blake3 => DigesterVariant::Blake3(box blake3::Hasher::new()),
+            DigestAlgorithm::Blake3 => DigesterVariant::Blake3(Box::new(blake3::Hasher::new())),
         };
 
         Digester {
