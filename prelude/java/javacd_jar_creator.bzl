@@ -76,6 +76,14 @@ def create_jar_artifact_javacd(
     bootclasspath_entries = add_java_7_8_bootclasspath(target_level, bootclasspath_entries, java_toolchain)
     abi_generation_mode = get_abi_generation_mode(abi_generation_mode, java_toolchain, srcs, ap_params)
 
+    should_create_class_abi = not is_creating_subtarget and (abi_generation_mode == AbiGenerationMode("class") or not is_building_android_binary)
+    if should_create_class_abi:
+        class_abi_jar = declare_prefixed_output(actions, actions_identifier, "class-abi.jar")
+        class_abi_output_dir = declare_prefixed_output(actions, actions_identifier, "class_abi_dir", dir = True)
+    else:
+        class_abi_jar = None
+        class_abi_output_dir = None
+
     output_paths = define_output_paths(actions, actions_identifier, label)
     path_to_class_hashes_out = declare_prefixed_output(actions, actions_identifier, "classes.txt")
 
@@ -172,6 +180,16 @@ def create_jar_artifact_javacd(
             proto_with_inputs,
         ])
 
+        if target_type == TargetType("library") and should_create_class_abi:
+            cmd.add(
+                "--full-library",
+                output_paths.jar.as_output(),
+                "--class-abi-output",
+                class_abi_jar.as_output(),
+                "--abi-output-dir",
+                class_abi_output_dir.as_output(),
+            )
+
         if target_type == TargetType("source_abi") or target_type == TargetType("source_only_abi"):
             cmd.add(
                 "--javacd-abi-output",
@@ -221,7 +239,7 @@ def create_jar_artifact_javacd(
         command,
         base_qualified_name(label),
         output_paths,
-        None,
+        class_abi_output_dir if should_create_class_abi else None,
         TargetType("library"),
         path_to_class_hashes_out,
         is_creating_subtarget,
@@ -237,8 +255,8 @@ def create_jar_artifact_javacd(
             is_building_android_binary,
             java_toolchain.class_abi_generator,
             final_jar,
-            class_abi_jar = None,
-            class_abi_output_dir = None,
+            class_abi_jar = class_abi_jar,
+            class_abi_output_dir = class_abi_output_dir,
             encode_abi_command = encode_abi_command,
             define_action = define_javacd_action,
         )
