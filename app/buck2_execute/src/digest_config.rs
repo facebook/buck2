@@ -41,9 +41,9 @@ impl DigestConfig {
     /// We just Box::leak this since we create one per daemon and as a result just use
     /// CasDigestConfig as a pointer.
     pub fn leak_new(algorithms: Vec<DigestAlgorithm>) -> Result<Self, CasDigestConfigError> {
-        let inner = Box::leak(box DigestConfigInner::new(CasDigestConfig::leak_new(
+        let inner = Box::leak(Box::new(DigestConfigInner::new(CasDigestConfig::leak_new(
             algorithms,
-        )?));
+        )?)));
         Ok(Self { inner })
     }
 

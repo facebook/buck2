@@ -72,7 +72,7 @@ impl ClaimManager for MutexClaimManager {
             ClaimStatus::Claimed => futures::future::pending().await,
         }
         *guard = ClaimStatus::Claimed;
-        box MutexClaim { guard }
+        Box::new(MutexClaim { guard })
     }
 
     fn on_result_delayed(&mut self) {}
@@ -105,9 +105,9 @@ mod tests {
     #[tokio::test]
     async fn test_mutex_claim_release() {
         let claim_manager = MutexClaimManager::new();
-        let claim = (box claim_manager.dupe()).claim().await;
+        let claim = Box::new(claim_manager.dupe()).claim().await;
 
-        let claim2 = (box claim_manager.dupe()).claim();
+        let claim2 = Box::new(claim_manager.dupe()).claim();
         futures::pin_mut!(claim2);
         assert_matches!(futures::poll!(claim2.as_mut()), Poll::Pending);
 

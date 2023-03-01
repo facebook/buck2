@@ -299,7 +299,7 @@ async fn copy_and_hash(
         let validator = if digester.algorithm() == DigestAlgorithm::Sha1 {
             Validator::PrimaryDigest
         } else {
-            Validator::ExtraDigest(box Sha1::new() as _)
+            Validator::ExtraDigest(Box::new(Sha1::new()) as _)
         };
 
         validators.push((validator, sha1, "sha1"));
@@ -309,7 +309,7 @@ async fn copy_and_hash(
         let validator = if digester.algorithm() == DigestAlgorithm::Sha256 {
             Validator::PrimaryDigest
         } else {
-            Validator::ExtraDigest(box Sha256::new() as _)
+            Validator::ExtraDigest(Box::new(Sha256::new()) as _)
         };
 
         validators.push((validator, sha256, "sha256"));

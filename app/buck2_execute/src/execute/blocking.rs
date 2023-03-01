@@ -51,10 +51,10 @@ impl dyn BlockingExecutor {
         T: Send,
     {
         let mut res = None;
-        self.execute_dyn_io_inline(box || {
+        self.execute_dyn_io_inline(Box::new(|| {
             res = Some(f()?);
             Ok(())
-        })
+        }))
         .await?;
         res.context("Inline I/O did not execute")
     }

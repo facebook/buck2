@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-#![feature(box_syntax)]
 #![feature(never_type)]
 #![feature(trait_alias)]
 #![feature(try_blocks)]
