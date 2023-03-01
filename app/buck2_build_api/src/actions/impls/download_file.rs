@@ -85,7 +85,7 @@ impl UnregisteredAction for UnregisteredDownloadFileAction {
         outputs: IndexSet<BuildArtifact>,
         _starlark_data: Option<OwnedFrozenValue>,
     ) -> anyhow::Result<Box<dyn Action>> {
-        Ok(box DownloadFileAction::new(inputs, outputs, *self)?)
+        Ok(Box::new(DownloadFileAction::new(inputs, outputs, *self)?))
     }
 }
 

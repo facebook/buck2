@@ -63,7 +63,7 @@ impl UnregisteredAction for UnregisteredWriteMacrosToFileAction {
     ) -> anyhow::Result<Box<dyn Action>> {
         let contents = starlark_data.expect("Action data should be present");
         let action = WriteMacrosToFileAction::new(contents, inputs, outputs)?;
-        Ok(box action)
+        Ok(Box::new(action))
     }
 }
 
@@ -148,7 +148,7 @@ impl IncrementalActionExecutable for WriteMacrosToFileAction {
 
         let values = ctx
             .materializer()
-            .declare_write(box || {
+            .declare_write(Box::new(|| {
                 execution_start = Some(Instant::now());
 
                 let fs = ctx.executor_fs();
@@ -177,7 +177,7 @@ impl IncrementalActionExecutable for WriteMacrosToFileAction {
                         })
                         .collect(),
                 )
-            })
+            }))
             .await?;
 
         let wall_time = execution_start

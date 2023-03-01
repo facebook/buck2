@@ -113,11 +113,13 @@ fn err<R, E: serde::ser::Error>(res: anyhow::Result<R>) -> Result<R, E> {
 /// and end up getting wrapped in a list below.
 fn get_artifact<'v>(x: Value<'v>) -> Option<Box<dyn FnOnce() -> anyhow::Result<Artifact> + 'v>> {
     if let Some(x) = x.as_artifact() {
-        Some(box || Ok(x.get_bound_artifact()?.dupe()))
+        Some(Box::new(|| Ok(x.get_bound_artifact()?.dupe())))
     } else if let Some(x) = x.downcast_ref::<StarlarkOutputArtifact>() {
-        Some(box || Ok(((*x.artifact()).dupe().ensure_bound())?.into_artifact()))
+        Some(Box::new(|| {
+            Ok(((*x.artifact()).dupe().ensure_bound())?.into_artifact())
+        }))
     } else if let Some(x) = x.downcast_ref::<FrozenStarlarkOutputArtifact>() {
-        Some(box || Ok(x.artifact()))
+        Some(Box::new(|| Ok(x.artifact())))
     } else {
         None
     }
@@ -311,7 +313,7 @@ impl UnregisteredAction for UnregisteredWriteJsonAction {
     ) -> anyhow::Result<Box<dyn Action>> {
         let contents = starlark_data.expect("module data to be present");
         let action = WriteJsonAction::new(contents, inputs, outputs)?;
-        Ok(box action)
+        Ok(Box::new(action))
     }
 }
 
@@ -410,7 +412,7 @@ impl IncrementalActionExecutable for WriteJsonAction {
 
         let value = ctx
             .materializer()
-            .declare_write(box || {
+            .declare_write(Box::new(|| {
                 execution_start = Some(Instant::now());
                 let content = self.get_contents(&ctx.executor_fs())?;
                 Ok(vec![WriteRequest {
@@ -418,7 +420,7 @@ impl IncrementalActionExecutable for WriteJsonAction {
                     content,
                     is_executable: false,
                 }])
-            })
+            }))
             .await?
             .into_iter()
             .next()

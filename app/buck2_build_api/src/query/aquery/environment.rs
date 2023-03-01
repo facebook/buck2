@@ -194,11 +194,11 @@ impl QueryTarget for ActionQueryNode {
 
         let indirect = Iter::new(indirect);
 
-        box direct.chain(indirect.flat_map(|v| v.node.direct.iter()))
+        Box::new(direct.chain(indirect.flat_map(|v| v.node.direct.iter())))
     }
 
     fn exec_deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::NodeRef> + Send + 'a> {
-        box std::iter::empty()
+        Box::new(std::iter::empty())
     }
 
     fn target_deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::NodeRef> + Send + 'a> {

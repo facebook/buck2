@@ -251,7 +251,7 @@ impl AnonTargetKey {
             match Dependency::from_value(x) {
                 Some(dep) => {
                     let label = dep.label().inner().clone();
-                    AttrLiteral::ConfiguredDep(box DepAttr { attr_type, label })
+                    AttrLiteral::ConfiguredDep(Box::new(DepAttr { attr_type, label }))
                 }
                 _ => return Err(AnonTargetsError::InvalidDep(x.get_type().to_owned()).into()),
             }

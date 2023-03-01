@@ -214,12 +214,16 @@ where
         'v: 'a,
     {
         match ordering {
-            TransitiveSetOrdering::Preorder => box PreorderTransitiveSetIteratorGen::new(self),
-            TransitiveSetOrdering::Postorder => box PostorderTransitiveSetIteratorGen::new(self),
-            TransitiveSetOrdering::Topological => {
-                box TopologicalTransitiveSetIteratorGen::new(self)
+            TransitiveSetOrdering::Preorder => {
+                Box::new(PreorderTransitiveSetIteratorGen::new(self))
             }
-            TransitiveSetOrdering::Bfs => box BfsTransitiveSetIteratorGen::new(self),
+            TransitiveSetOrdering::Postorder => {
+                Box::new(PostorderTransitiveSetIteratorGen::new(self))
+            }
+            TransitiveSetOrdering::Topological => {
+                Box::new(TopologicalTransitiveSetIteratorGen::new(self))
+            }
+            TransitiveSetOrdering::Bfs => Box::new(BfsTransitiveSetIteratorGen::new(self)),
         }
     }
 
@@ -230,10 +234,11 @@ where
     where
         'v: 'a,
     {
-        Ok(box self
-            .iter(ordering)
-            .values()
-            .map(|node| node.value.to_value()))
+        Ok(Box::new(
+            self.iter(ordering)
+                .values()
+                .map(|node| node.value.to_value()),
+        ))
     }
 
     pub(super) fn iter_projection_values<'a>(
@@ -254,7 +259,9 @@ where
                 .context("Invalid projection")?;
         }
 
-        Ok(box iter.map(move |node| node.projections.get(projection).unwrap().to_value()))
+        Ok(Box::new(iter.map(move |node| {
+            node.projections.get(projection).unwrap().to_value()
+        })))
     }
 }
 

@@ -134,7 +134,7 @@ impl UnregisteredAction for UnregisteredRunAction {
     ) -> anyhow::Result<Box<dyn Action>> {
         let starlark_cli = starlark_data.expect("module data to be present");
         let run_action = RunAction::new(*self, starlark_cli, outputs)?;
-        Ok(box run_action)
+        Ok(Box::new(run_action))
     }
 }
 
@@ -365,7 +365,7 @@ impl IncrementalActionExecutable for RunAction {
             .collect();
 
         let mut inputs: Vec<CommandExecutionInput> =
-            artifact_inputs[..].map(|&i| CommandExecutionInput::Artifact(box i.dupe()));
+            artifact_inputs[..].map(|&i| CommandExecutionInput::Artifact(Box::new(i.dupe())));
 
         // Handle case when user requested file with action metadata to be generated.
         // Generate content and output path for the file. It will be either passed

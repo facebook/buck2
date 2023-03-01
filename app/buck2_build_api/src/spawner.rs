@@ -96,7 +96,7 @@ mod tests {
         let ctx = create_ctx(dispatcher);
         let (start, end) = create_start_end_events();
 
-        let task = async { span(start, || (box () as _, end)) }.boxed();
+        let task = async { span(start, || (Box::new(()) as _, end)) }.boxed();
 
         sp.spawn(&ctx, task).await.expect("Task panicked");
 

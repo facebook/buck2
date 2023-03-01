@@ -164,12 +164,12 @@ impl UnregisteredAction for UnregisteredSymlinkedDirAction {
         outputs: IndexSet<BuildArtifact>,
         _starlark_data: Option<OwnedFrozenValue>,
     ) -> anyhow::Result<Box<dyn Action>> {
-        Ok(box SymlinkedDirAction {
+        Ok(Box::new(SymlinkedDirAction {
             copy: self.copy,
             args: self.args,
             inputs: BoxSliceSet::from(inputs),
             outputs: BoxSliceSet::from(outputs),
-        })
+        }))
     }
 }
 

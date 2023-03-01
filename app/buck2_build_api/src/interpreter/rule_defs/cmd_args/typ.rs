@@ -187,7 +187,7 @@ impl<'v, V: ValueLike<'v>> StarlarkCommandLineDataGen<'v, V> {
 
     fn options_mut(&mut self) -> &mut CommandLineOptions<'v, V> {
         if self.options.is_none() {
-            self.options = Some(box Default::default());
+            self.options = Some(Box::default());
         }
         self.options.as_mut().unwrap()
     }
@@ -573,7 +573,7 @@ fn command_line_builder_methods(builder: &mut MethodsBuilder) {
         if let Some(replacements) = &mut options.replacements {
             replacements.push((pattern, replacement));
         } else {
-            options.replacements = Some(box vec![(pattern, replacement)]);
+            options.replacements = Some(Box::new(vec![(pattern, replacement)]));
         }
         Ok(this)
     }

@@ -439,7 +439,7 @@ impl DeferredRegistry {
 
         match self.registry.get_mut(id) {
             Some(entry @ DeferredRegistryEntry::Pending) => {
-                *entry = DeferredRegistryEntry::Set(DeferredTableEntry::Complex(box d));
+                *entry = DeferredRegistryEntry::Set(DeferredTableEntry::Complex(Box::new(d)));
             }
             _ => {
                 panic!("the reserved should always be in pending");
@@ -488,7 +488,7 @@ impl DeferredRegistry {
         };
         self.registry
             .push(DeferredRegistryEntry::Set(DeferredTableEntry::Complex(
-                box d,
+                Box::new(d),
             )));
         DeferredData::new(self.base_key.make_key(id))
     }

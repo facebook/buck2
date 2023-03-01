@@ -69,7 +69,7 @@ impl UnregisteredAction for UnregisteredCopyAction {
         outputs: IndexSet<BuildArtifact>,
         _starlark_data: Option<OwnedFrozenValue>,
     ) -> anyhow::Result<Box<dyn Action>> {
-        Ok(box CopyAction::new(self.copy, inputs, outputs)?)
+        Ok(Box::new(CopyAction::new(self.copy, inputs, outputs)?))
     }
 }
 

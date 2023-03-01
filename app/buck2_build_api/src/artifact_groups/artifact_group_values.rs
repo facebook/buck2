@@ -224,9 +224,10 @@ where
 
 impl ArtifactGroupValuesDyn for ArtifactGroupValues {
     fn iter(&self) -> Box<dyn Iterator<Item = (&dyn ArtifactDyn, &ArtifactValue)> + '_> {
-        box self
-            .iter()
-            .map(|(artifact, value)| (artifact as &dyn ArtifactDyn, value))
+        Box::new(
+            self.iter()
+                .map(|(artifact, value)| (artifact as &dyn ArtifactDyn, value)),
+        )
     }
 
     fn add_to_directory(

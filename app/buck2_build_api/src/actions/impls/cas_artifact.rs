@@ -107,7 +107,7 @@ impl UnregisteredAction for UnregisteredCasArtifactAction {
         outputs: IndexSet<BuildArtifact>,
         _starlark_data: Option<OwnedFrozenValue>,
     ) -> anyhow::Result<Box<dyn Action>> {
-        Ok(box CasArtifactAction::new(inputs, outputs, *self)?)
+        Ok(Box::new(CasArtifactAction::new(inputs, outputs, *self)?))
     }
 }
 

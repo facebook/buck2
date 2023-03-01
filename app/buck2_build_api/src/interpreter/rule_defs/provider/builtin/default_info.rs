@@ -359,11 +359,11 @@ trait ValueAsArtifactTraversable<'v> {
 impl<'v, V: ValueLike<'v>> ValueAsArtifactTraversable<'v> for V {
     fn as_artifact_traversable(&self) -> Option<Box<dyn ArtifactTraversable + 'v>> {
         if let Some(artifact) = self.as_artifact() {
-            return Some(box artifact);
+            return Some(Box::new(artifact));
         }
 
         if let Some(cli) = self.to_value().as_command_line() {
-            return Some(box cli);
+            return Some(Box::new(cli));
         }
 
         None

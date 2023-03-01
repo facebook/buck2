@@ -83,7 +83,7 @@ impl UnregisteredAction for UnregisteredWriteAction {
             self.macro_files,
             outputs,
         )?;
-        Ok(box write_action)
+        Ok(Box::new(write_action))
     }
 }
 
@@ -200,7 +200,7 @@ impl IncrementalActionExecutable for WriteAction {
 
         let value = ctx
             .materializer()
-            .declare_write(box || {
+            .declare_write(Box::new(|| {
                 execution_start = Some(Instant::now());
                 let content = self.get_contents(&ctx.executor_fs())?.into_bytes();
                 Ok(vec![WriteRequest {
@@ -208,7 +208,7 @@ impl IncrementalActionExecutable for WriteAction {
                     content,
                     is_executable: self.is_executable,
                 }])
-            })
+            }))
             .await?
             .into_iter()
             .next()

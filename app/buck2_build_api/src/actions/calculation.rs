@@ -205,7 +205,7 @@ async fn build_action_no_redirect(
 
         (
             action_result,
-            box buck2_data::ActionExecutionEnd {
+            Box::new(buck2_data::ActionExecutionEnd {
                 key: Some(action.key().as_proto()),
                 kind: action.kind().into(),
                 name: Some(buck2_data::ActionName {
@@ -228,7 +228,7 @@ async fn build_action_no_redirect(
                 eligible_for_full_hybrid,
                 buck2_revision,
                 buck2_build_time,
-            },
+            }),
         )
     };
     // boxed() the future so that we don't need to allocate space for it while waiting on input dependencies.
@@ -589,7 +589,7 @@ mod tests {
         }
 
         set_fallback_executor_config(&mut extra.data, CommandExecutorConfig::testing_local());
-        extra.set_command_executor(box CommandExecutorProvider { dry_run_tracker });
+        extra.set_command_executor(Box::new(CommandExecutorProvider { dry_run_tracker }));
         extra.set_blocking_executor(Arc::new(DummyBlockingExecutor { fs }));
         extra.set_materializer(Arc::new(NoDiskMaterializer));
         extra.set_re_client(ManagedRemoteExecutionClient::testing_new_dummy());
@@ -610,13 +610,13 @@ mod tests {
         let deferred_resolve = DeferredResolve(build_artifact.key().deferred_key().dupe());
         let registered_action = registered_action(
             build_artifact.dupe(),
-            box SimpleAction::new(
+            Box::new(SimpleAction::new(
                 indexset![],
                 indexset![build_artifact.dupe()],
                 vec![],
                 Category::try_from("fake_action").unwrap(),
                 None,
-            ),
+            )),
         );
 
         let mut dice_builder = DiceBuilder::new();
@@ -646,13 +646,13 @@ mod tests {
         let deferred_resolve = DeferredResolve(build_artifact.key().deferred_key().dupe());
         let registered_action = registered_action(
             build_artifact.dupe(),
-            box SimpleAction::new(
+            Box::new(SimpleAction::new(
                 indexset![],
                 indexset![build_artifact.dupe()],
                 vec!["foo".to_owned(), "cmd".to_owned()],
                 Category::try_from("fake_action").unwrap(),
                 None,
-            ),
+            )),
         );
 
         let dry_run_tracker = Arc::new(Mutex::new(vec![]));
@@ -661,9 +661,9 @@ mod tests {
             &temp_fs,
             vec![{
                 let action = registered_action.dupe();
-                box move |builder| {
+                Box::new(move |builder| {
                     mock_deferred_resolution_calculation(builder, deferred_resolve, action)
-                }
+                })
             }],
         )
         .await?;
@@ -695,21 +695,21 @@ mod tests {
         let deferred_resolve = DeferredResolve(build_artifact.key().deferred_key().dupe());
         let registered_action = registered_action(
             build_artifact.dupe(),
-            box SimpleAction::new(
+            Box::new(SimpleAction::new(
                 indexset![],
                 indexset![build_artifact.dupe()],
                 vec!["bar".to_owned(), "cmd".to_owned()],
                 Category::try_from("fake_action").unwrap(),
                 None,
-            ),
+            )),
         );
 
         let dry_run_tracker = Arc::new(Mutex::new(vec![]));
         let dice_computations = make_default_dice_state(dry_run_tracker.dupe(), &temp_fs, {
             let registered_action = registered_action.dupe();
-            vec![box move |builder| {
+            vec![Box::new(move |builder| {
                 mock_deferred_resolution_calculation(builder, deferred_resolve, registered_action)
-            }]
+            })]
         })
         .await?;
 
@@ -742,21 +742,21 @@ mod tests {
         let deferred_resolve = DeferredResolve(build_artifact.key().deferred_key().dupe());
         let registered_action = registered_action(
             build_artifact.dupe(),
-            box SimpleAction::new(
+            Box::new(SimpleAction::new(
                 indexset![],
                 indexset![build_artifact.dupe()],
                 vec!["ensure".to_owned(), "cmd".to_owned()],
                 Category::try_from("fake_action").unwrap(),
                 None,
-            ),
+            )),
         );
 
         let dry_run_tracker = Arc::new(Mutex::new(vec![]));
         let dice_computations = make_default_dice_state(dry_run_tracker.dupe(), &temp_fs, {
             let registered_action = registered_action.dupe();
-            vec![box move |builder| {
+            vec![Box::new(move |builder| {
                 mock_deferred_resolution_calculation(builder, deferred_resolve, registered_action)
-            }]
+            })]
         })
         .await?;
 

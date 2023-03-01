@@ -330,7 +330,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
     )> {
         let action = self.target();
         let manager = CommandExecutionManager::new(
-            box MutexClaimManager::new(),
+            Box::new(MutexClaimManager::new()),
             self.executor.events.dupe(),
             NoopLivelinessObserver::create(),
         );
@@ -403,9 +403,9 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
         } else {
             self.executor
                 .blocking_executor
-                .execute_io(box CleanOutputPaths {
+                .execute_io(Box::new(CleanOutputPaths {
                     paths: output_paths,
-                })
+                }))
                 .await
                 .context("Failed to cleanup output directory")?;
         }
@@ -671,9 +671,11 @@ mod tests {
                     self.inputs
                         .iter()
                         .map(|x| {
-                            CommandExecutionInput::Artifact(box ArtifactGroupValues::from_artifact(
-                                x.unpack_artifact().unwrap().dupe(),
-                                ArtifactValue::file(ctx.digest_config().empty_file()),
+                            CommandExecutionInput::Artifact(Box::new(
+                                ArtifactGroupValues::from_artifact(
+                                    x.unpack_artifact().unwrap().dupe(),
+                                    ArtifactValue::file(ctx.digest_config().empty_file()),
+                                ),
                             ))
                         })
                         .collect(),
@@ -742,11 +744,11 @@ mod tests {
                 BaseDeferredKey::TargetLabel(label.dupe()),
                 DeferredId::testing_new(0),
             ))),
-            box TestingAction {
+            Box::new(TestingAction {
                 inputs: BoxSliceSet::from(inputs),
                 outputs: BoxSliceSet::from(outputs.clone()),
                 ran: Default::default(),
-            },
+            }),
             CommandExecutorConfig::testing_local(),
         );
         let res = with_dispatcher_async(

@@ -324,7 +324,7 @@ impl ActionToBeRegistered {
         Self {
             inputs,
             outputs,
-            action: box a,
+            action: Box::new(a),
         }
     }
 
@@ -418,13 +418,13 @@ pub(crate) mod testings {
             outputs: IndexSet<BuildArtifact>,
             _starlark_data: Option<OwnedFrozenValue>,
         ) -> anyhow::Result<Box<dyn Action>> {
-            Ok(box SimpleAction {
+            Ok(Box::new(SimpleAction {
                 inputs: BoxSliceSet::from(inputs),
                 outputs: BoxSliceSet::from(outputs),
                 cmd: self.cmd,
                 category: self.category,
                 identifier: self.identifier,
-            })
+            }))
         }
     }
 
