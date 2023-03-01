@@ -195,13 +195,15 @@ impl MacroBase<CoercedAttr> {
                 ConfiguredMacro::UserUnkeyedPlaceholder(var_name.clone())
             }
             UnconfiguredMacro::UserKeyedPlaceholder(box (var_name, target, arg)) => {
-                ConfiguredMacro::UserKeyedPlaceholder(box (
+                ConfiguredMacro::UserKeyedPlaceholder(Box::new((
                     var_name.clone(),
                     ctx.configure_target(target),
                     arg.clone(),
-                ))
+                )))
             }
-            UnconfiguredMacro::Query(query) => ConfiguredMacro::Query(box query.configure(ctx)?),
+            UnconfiguredMacro::Query(query) => {
+                ConfiguredMacro::Query(Box::new(query.configure(ctx)?))
+            }
             UnconfiguredMacro::UnrecognizedMacro(macr) => {
                 ConfiguredMacro::UnrecognizedMacro(macr.clone())
             }

@@ -8,7 +8,6 @@
  */
 
 #![feature(box_patterns)]
-#![feature(box_syntax)]
 // Plugins
 #![cfg_attr(feature = "gazebo_lint", feature(plugin))]
 #![cfg_attr(feature = "gazebo_lint", allow(deprecated))] // :(

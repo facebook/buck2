@@ -66,7 +66,7 @@ impl Hash for StarlarkCallStack {
 impl StarlarkCallStack {
     pub fn new(call_stack: impl StarlarkCallStackImpl) -> StarlarkCallStack {
         StarlarkCallStack {
-            call_stack: box call_stack,
+            call_stack: Box::new(call_stack),
         }
     }
 }

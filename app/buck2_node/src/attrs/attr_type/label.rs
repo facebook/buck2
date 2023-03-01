@@ -23,6 +23,6 @@ impl LabelAttrType {
         ctx: &dyn AttrConfigurationContext,
         label: &ProvidersLabel,
     ) -> anyhow::Result<AttrLiteral<ConfiguredAttr>> {
-        Ok(AttrLiteral::Label(box ctx.configure_target(label)))
+        Ok(AttrLiteral::Label(Box::new(ctx.configure_target(label))))
     }
 }

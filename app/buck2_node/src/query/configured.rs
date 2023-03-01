@@ -46,19 +46,19 @@ impl QueryTarget for ConfiguredTargetNode {
 
     // TODO(cjhopman): Use existential traits to remove the Box<> once they are stabilized.
     fn deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::NodeRef> + Send + 'a> {
-        box ConfiguredTargetNode::deps(self).map(|v| v.label())
+        Box::new(ConfiguredTargetNode::deps(self).map(|v| v.label()))
     }
 
     fn exec_deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::NodeRef> + Send + 'a> {
-        box ConfiguredTargetNode::exec_deps(self).map(|v| v.label())
+        Box::new(ConfiguredTargetNode::exec_deps(self).map(|v| v.label()))
     }
 
     fn target_deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::NodeRef> + Send + 'a> {
-        box ConfiguredTargetNode::target_deps(self).map(|v| v.label())
+        Box::new(ConfiguredTargetNode::target_deps(self).map(|v| v.label()))
     }
 
     fn tests<'a>(&'a self) -> Option<Box<dyn Iterator<Item = Self::NodeRef> + Send + 'a>> {
-        Some(box self.tests().map(|t| t.target().dupe()))
+        Some(Box::new(self.tests().map(|t| t.target().dupe())))
     }
 
     fn special_attrs_for_each<E, F: FnMut(&str, &Self::Attr) -> Result<(), E>>(

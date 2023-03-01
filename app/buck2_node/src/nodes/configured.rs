@@ -266,13 +266,13 @@ impl ConfiguredTargetNode {
             ConfiguredTargetNodeData {
                 label: name.dupe(),
                 target_node: TargetNodeOrForward::Forward(
-                    CoercedAttr::Literal(AttrLiteral::ConfiguredDep(box DepAttr {
+                    CoercedAttr::Literal(AttrLiteral::ConfiguredDep(Box::new(DepAttr {
                         attr_type: DepAttrType::new(
                             ProviderIdSet::EMPTY,
                             DepAttrTransition::Identity,
                         ),
                         label: configured_providers_label,
-                    })),
+                    }))),
                     transitioned_node.dupe(),
                 ),
                 // We have no attributes with selects, so resolved configurations is empty.
@@ -284,8 +284,8 @@ impl ConfiguredTargetNode {
                 resolved_transition_configurations: OrderedMap::new(),
                 // Nothing to execute for a forward node.
                 execution_platform_resolution: ExecutionPlatformResolution::unspecified(),
-                deps: ConfiguredTargetNodeDeps(box [transitioned_node]),
-                exec_deps: ConfiguredTargetNodeDeps(box []),
+                deps: ConfiguredTargetNodeDeps(Box::new([transitioned_node])),
+                exec_deps: ConfiguredTargetNodeDeps(Box::new([])),
                 platform_cfgs: OrderedMap::new(),
             },
         ))))
@@ -453,10 +453,10 @@ impl ConfiguredTargetNode {
         let deps_attr = ConfiguredAttr::new(AttrLiteral::List(
             self.deps()
                 .map(|t| {
-                    ConfiguredAttr(AttrLiteral::Label(box ConfiguredProvidersLabel::new(
+                    ConfiguredAttr(AttrLiteral::Label(Box::new(ConfiguredProvidersLabel::new(
                         t.label().dupe(),
                         ProvidersName::Default,
-                    )))
+                    ))))
                 })
                 .collect::<Vec<_>>()
                 .into(),

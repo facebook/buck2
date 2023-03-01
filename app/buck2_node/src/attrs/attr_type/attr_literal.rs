@@ -339,16 +339,16 @@ impl AttrLiteral<CoercedAttr> {
             AttrLiteral::SplitTransitionDep(dep) => {
                 SplitTransitionDepAttrType::configure(ctx, dep)?
             }
-            AttrLiteral::Query(query) => AttrLiteral::Query(box query.configure(ctx)?),
+            AttrLiteral::Query(query) => AttrLiteral::Query(Box::new(query.configure(ctx)?)),
             AttrLiteral::SourceFile(s) => AttrLiteral::SourceFile(s.clone()),
-            AttrLiteral::SourceLabel(box source) => {
-                AttrLiteral::SourceLabel(box source.configure_pair(ctx.cfg().cfg_pair().dupe()))
-            }
+            AttrLiteral::SourceLabel(box source) => AttrLiteral::SourceLabel(Box::new(
+                source.configure_pair(ctx.cfg().cfg_pair().dupe()),
+            )),
             AttrLiteral::Arg(arg) => AttrLiteral::Arg(arg.configure(ctx)?),
             AttrLiteral::Label(label) => LabelAttrType::configure(ctx, label)?,
             AttrLiteral::OneOf(l, i) => {
                 let ConfiguredAttr(configured) = l.configure(ctx)?;
-                AttrLiteral::OneOf(box configured, *i)
+                AttrLiteral::OneOf(Box::new(configured), *i)
             }
             AttrLiteral::Visibility(v) => AttrLiteral::Visibility(v.clone()),
         }))

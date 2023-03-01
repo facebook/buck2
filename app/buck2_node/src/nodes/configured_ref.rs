@@ -96,7 +96,7 @@ impl QueryTarget for ConfiguredGraphNodeRef {
 
     // TODO(cjhopman): Use existential traits to remove the Box<> once they are stabilized.
     fn deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::NodeRef> + Send + 'a> {
-        box self.0.deps().map(ConfiguredGraphNodeRef::ref_cast)
+        Box::new(self.0.deps().map(ConfiguredGraphNodeRef::ref_cast))
     }
 
     fn exec_deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::NodeRef> + Send + 'a> {

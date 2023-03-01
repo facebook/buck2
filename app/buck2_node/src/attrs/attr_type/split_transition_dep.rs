@@ -43,12 +43,12 @@ impl SplitTransitionDepAttrType {
     ) -> anyhow::Result<AttrLiteral<ConfiguredAttr>> {
         let configured_providers =
             ctx.configure_split_transition_target(&dep_attr.label, &dep_attr.transition)?;
-        Ok(AttrLiteral::SplitTransitionDep(
-            box ConfiguredSplitTransitionDep {
+        Ok(AttrLiteral::SplitTransitionDep(Box::new(
+            ConfiguredSplitTransitionDep {
                 deps: configured_providers,
                 required_providers: dep_attr.required_providers.dupe(),
             },
-        ))
+        )))
     }
 }
 

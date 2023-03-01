@@ -32,7 +32,7 @@ impl ExplicitConfiguredDepAttrType {
         dep_attr: &UnconfiguredExplicitConfiguredDep,
     ) -> anyhow::Result<AttrLiteral<ConfiguredAttr>> {
         let configured = Self::configure_target_with_platform(ctx, dep_attr)?;
-        Ok(AttrLiteral::ExplicitConfiguredDep(box configured))
+        Ok(AttrLiteral::ExplicitConfiguredDep(Box::new(configured)))
     }
 
     fn configure_target_with_platform(

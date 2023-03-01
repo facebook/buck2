@@ -114,10 +114,10 @@ impl DepAttrType {
             DepAttrTransition::Toolchain => ctx.configure_toolchain_target(label),
             DepAttrTransition::Transition(tr) => ctx.configure_transition_target(label, tr)?,
         };
-        Ok(AttrLiteral::Dep(box DepAttr {
+        Ok(AttrLiteral::Dep(Box::new(DepAttr {
             attr_type: dep_attr.attr_type.dupe(),
             label: configured_label,
-        }))
+        })))
     }
 }
 
