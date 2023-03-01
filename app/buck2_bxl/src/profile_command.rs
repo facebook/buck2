@@ -11,9 +11,11 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use buck2_build_api::bxl::types::BxlKey;
 use buck2_cli_proto::profile_request::ProfileOpts;
 use buck2_cli_proto::ProfileRequest;
 use buck2_cli_proto::ProfileResponse;
+use buck2_common::dice::cells::HasCellResolver;
 use buck2_interpreter::dice::starlark_profiler::StarlarkProfilerConfiguration;
 use buck2_interpreter::starlark_profiler::StarlarkProfileModeOrInstrumentation;
 use buck2_profile::get_profile_response;
@@ -21,12 +23,15 @@ use buck2_profile::starlark_profiler_configuration_from_request;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
+use buck2_server_ctx::pattern::target_platform_from_client_context;
 use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
 use dice::DiceTransaction;
 
 use crate::bxl::eval::eval;
-use crate::command::get_bxl_key;
+use crate::bxl::eval::BxlResolvedCliArgs;
+use crate::command::get_bxl_cli_args;
+use crate::command::parse_bxl_label_from_cli;
 
 pub async fn bxl_profile_command(
     ctx: Box<dyn ServerCommandContextTrait>,
@@ -73,14 +78,37 @@ impl ServerCommandTemplate for BxlProfileServerCommand {
                     StarlarkProfilerConfiguration::ProfileBxl(profile_mode) => {
                         let cwd = server_ctx.working_dir();
 
-                        let bxl_key = get_bxl_key(
+                        let cell_resolver = ctx.get_cell_resolver().await?;
+                        let bxl_label =
+                            parse_bxl_label_from_cli(cwd, &opts.bxl_label, &cell_resolver)?;
+
+                        let bxl_args = match get_bxl_cli_args(
                             cwd,
                             &ctx,
-                            &opts.bxl_label,
+                            &bxl_label,
                             &opts.bxl_args,
+                            &cell_resolver,
+                        )
+                        .await?
+                        {
+                            BxlResolvedCliArgs::Resolved(bxl_args) => Arc::new(bxl_args),
+                            _ => {
+                                return Err(anyhow::anyhow!(
+                                    "Help docs were displayed. No profiler data available"
+                                ));
+                            }
+                        };
+
+                        let global_target_platform = target_platform_from_client_context(
                             self.req.context.as_ref(),
+                            &cell_resolver,
+                            cwd,
                         )
                         .await?;
+
+                        let bxl_key =
+                            BxlKey::new(bxl_label.clone(), bxl_args, global_target_platform);
+
                         eval(
                             ctx,
                             bxl_key,

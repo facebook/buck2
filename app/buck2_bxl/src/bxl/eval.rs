@@ -26,6 +26,7 @@ use buck2_core::cells::CellAliasResolver;
 use buck2_core::collections::ordered_map::OrderedMap;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::package::PackageLabel;
+use buck2_events::dispatch::console_message;
 use buck2_events::dispatch::with_dispatcher;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_execute::path::buck_out_path::BuckOutPath;
@@ -37,6 +38,7 @@ use buck2_interpreter::starlark_profiler::StarlarkProfiler;
 use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
 use buck2_interpreter_for_build::interpreter::print_handler::EventDispatcherPrintHandler;
+use clap::ErrorKind;
 use dice::DiceComputations;
 use dice::DiceTransaction;
 use dupe::Dupe;
@@ -247,20 +249,41 @@ pub struct CliResolutionCtx<'a> {
     pub dice: &'a DiceComputations,
 }
 
+pub enum BxlResolvedCliArgs {
+    Resolved(OrderedMap<String, CliArgValue>),
+    Help,
+}
+
 pub async fn resolve_cli_args<'a>(
     spec: &BxlFunctionLabel,
     cli_ctx: &CliResolutionCtx<'a>,
     bxl_args: &Vec<String>,
     frozen_callable: &'a FrozenBxlFunction,
-) -> anyhow::Result<OrderedMap<String, CliArgValue>> {
-    frozen_callable
-        .parse_clap(
-            frozen_callable
-                .to_clap(clap::Command::new(&spec.name).no_binary_name(true))
-                .try_get_matches_from(bxl_args)?,
-            cli_ctx,
-        )
-        .await
+) -> anyhow::Result<BxlResolvedCliArgs> {
+    match frozen_callable
+        .to_clap(clap::Command::new(&spec.name).no_binary_name(true))
+        .try_get_matches_from(bxl_args)
+    {
+        Ok(args) => Ok(BxlResolvedCliArgs::Resolved(
+            frozen_callable.parse_clap(args, cli_ctx).await?,
+        )),
+        Err(e) => match e.kind() {
+            ErrorKind::DisplayHelp => {
+                let mut help_out = Vec::new();
+
+                frozen_callable
+                    .to_clap(clap::Command::new(&spec.name).no_binary_name(true))
+                    .write_long_help(&mut help_out)
+                    .unwrap();
+                let help_msg = String::from_utf8(help_out)?;
+
+                console_message(help_msg);
+
+                Ok(BxlResolvedCliArgs::Help)
+            }
+            _ => Err(e.into()),
+        },
+    }
 }
 
 #[derive(Debug, Error)]

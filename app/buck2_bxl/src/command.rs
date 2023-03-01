@@ -27,7 +27,6 @@ use buck2_build_api::calculation::Calculation;
 use buck2_cli_proto::build_request::Materializations;
 use buck2_cli_proto::BxlRequest;
 use buck2_cli_proto::BxlResponse;
-use buck2_cli_proto::ClientContext;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
@@ -53,6 +52,7 @@ use itertools::Itertools;
 
 use crate::bxl::eval::get_bxl_callable;
 use crate::bxl::eval::resolve_cli_args;
+use crate::bxl::eval::BxlResolvedCliArgs;
 use crate::bxl::eval::CliResolutionCtx;
 
 pub async fn bxl_command(
@@ -111,15 +111,26 @@ async fn bxl(
     request: &BxlRequest,
 ) -> anyhow::Result<buck2_cli_proto::BxlResponse> {
     let cwd = server_ctx.working_dir();
+    let cell_resolver = ctx.get_cell_resolver().await?;
+    let bxl_label = parse_bxl_label_from_cli(cwd, &request.bxl_label, &cell_resolver)?;
+    let project_root = server_ctx.project_root().to_string();
 
-    let bxl_key = get_bxl_key(
-        cwd,
-        &ctx,
-        &request.bxl_label,
-        &request.bxl_args,
-        request.context.as_ref(),
-    )
-    .await?;
+    let global_target_platform =
+        target_platform_from_client_context(request.context.as_ref(), &cell_resolver, cwd).await?;
+
+    let bxl_args =
+        match get_bxl_cli_args(cwd, &ctx, &bxl_label, &request.bxl_args, &cell_resolver).await? {
+            BxlResolvedCliArgs::Resolved(bxl_args) => Arc::new(bxl_args),
+            // Return early if user passed in `--help`
+            BxlResolvedCliArgs::Help => {
+                return Ok(BxlResponse {
+                    project_root,
+                    error_messages: Vec::new(),
+                });
+            }
+        };
+
+    let bxl_key = BxlKey::new(bxl_label.clone(), bxl_args, global_target_platform);
 
     let result = ctx.eval_bxl(bxl_key).await?;
 
@@ -133,8 +144,6 @@ async fn bxl(
     let build_result = ensure_artifacts(&ctx, &materialization_context, &result).await;
     copy_output(stdout, &ctx, &result).await?;
 
-    let project_root = server_ctx.project_root().to_string();
-
     let error_messages = match build_result {
         Ok(_) => vec![],
         Err(errors) => errors.iter().map(|e| format!("{:#}", e)).unique().collect(),
@@ -145,20 +154,13 @@ async fn bxl(
     })
 }
 
-pub(crate) async fn get_bxl_key(
+pub(crate) async fn get_bxl_cli_args(
     cwd: &ProjectRelativePath,
     ctx: &DiceTransaction,
-    bxl_label: &str,
+    bxl_label: &BxlFunctionLabel,
     bxl_args: &Vec<String>,
-    client_ctx: Option<&ClientContext>,
-) -> anyhow::Result<BxlKey> {
-    let cell_resolver = ctx.get_cell_resolver().await?;
-
-    let global_target_platform =
-        target_platform_from_client_context(client_ctx, &cell_resolver, cwd).await?;
-
-    let bxl_label = parse_bxl_label_from_cli(cwd, bxl_label, &cell_resolver)?;
-
+    cell_resolver: &CellResolver,
+) -> anyhow::Result<BxlResolvedCliArgs> {
     let cur_package = PackageLabel::from_cell_path(cell_resolver.get_cell_path(&cwd)?.as_ref());
     let cell_name = cell_resolver.find(&cwd)?;
 
@@ -175,7 +177,7 @@ pub(crate) async fn get_bxl_key(
         .get_loaded_module(StarlarkModulePath::BxlFile(&bxl_label.bxl_path))
         .await?;
 
-    let frozen_callable = get_bxl_callable(&bxl_label, &bxl_module)?;
+    let frozen_callable = get_bxl_callable(bxl_label, &bxl_module)?;
     let cli_ctx = CliResolutionCtx {
         target_alias_resolver,
         cell_resolver: cell.cell_alias_resolver().dupe(),
@@ -183,14 +185,7 @@ pub(crate) async fn get_bxl_key(
         dice: ctx,
     };
 
-    let bxl_args =
-        Arc::new(resolve_cli_args(&bxl_label, &cli_ctx, bxl_args, &frozen_callable).await?);
-
-    Ok(BxlKey::new(
-        bxl_label.clone(),
-        bxl_args,
-        global_target_platform,
-    ))
+    resolve_cli_args(bxl_label, &cli_ctx, bxl_args, &frozen_callable).await
 }
 
 async fn copy_output<W: Write>(
@@ -275,7 +270,7 @@ async fn ensure_artifacts(
 struct BxlLabelError(String);
 
 /// Parse the bxl function label out of cli pattern
-fn parse_bxl_label_from_cli(
+pub(crate) fn parse_bxl_label_from_cli(
     cwd: &ProjectRelativePath,
     bxl_label: &str,
     cell_resolver: &CellResolver,
