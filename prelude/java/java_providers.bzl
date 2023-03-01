@@ -135,8 +135,8 @@ JavaPackagingDep = record(
 
 def _full_jar_args(dep: JavaPackagingDep.type):
     if dep.jar:
-        return [dep.jar]
-    return []
+        return cmd_args(dep.jar)
+    return cmd_args()
 
 def _args_for_classpath_macro(dep: JavaPackagingDep.type):
     return dep.output_for_classpath_macro
