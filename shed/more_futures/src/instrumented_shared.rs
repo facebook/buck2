@@ -101,12 +101,12 @@ where
 
             if *this.owner_trace_id != *dispatcher.trace_id() {
                 // Send start event
-                *this.span = SharedSpanState::Started(box Span::start(
+                *this.span = SharedSpanState::Started(Box::new(Span::start(
                     dispatcher,
                     SharedTaskStart {
                         owner_trace_id: this.owner_trace_id.to_string(),
                     },
-                ))
+                )))
             } else {
                 *this.span = SharedSpanState::Ended;
             }

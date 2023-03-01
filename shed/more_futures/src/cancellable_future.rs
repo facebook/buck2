@@ -352,7 +352,7 @@ impl<F> CancellableFuture<F> {
         (
             CancellableFuture {
                 shared,
-                execution: Some(box ExecutionContext::new(ref_count.downgrade())),
+                execution: Some(Box::new(ExecutionContext::new(ref_count.downgrade()))),
                 started: false,
                 future,
             },

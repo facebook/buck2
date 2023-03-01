@@ -175,7 +175,7 @@ where
     // While we could feasibly distinguish the no-op preamble case, one extra pointer
     // is an okay cost for the simpler api (for now).
     let (future, guard) = CancellableFuture::new_refcounted(future);
-    let future = future.map(|v| box v as _);
+    let future = future.map(|v| Box::new(v) as _);
     let future = preamble.then(|_| future);
     let future = if span.is_disabled() {
         future.boxed()

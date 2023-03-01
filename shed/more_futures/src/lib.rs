@@ -8,7 +8,6 @@
  */
 
 #![feature(negative_impls)]
-#![feature(box_syntax)]
 #![feature(assert_matches)]
 // Plugins
 #![cfg_attr(feature = "gazebo_lint", feature(plugin))]
