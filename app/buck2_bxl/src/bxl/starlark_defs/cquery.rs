@@ -508,7 +508,8 @@ fn register_cquery(builder: &mut MethodsBuilder) {
             .map(StarlarkTargetSet::from)
     }
 
-    /// The rdeps query for finding the transitive closure of reverse dependencies.
+    /// The rdeps query for finding the transitive closure of reverse dependencies. Takes in an optional depth
+    /// parameter. If no depth is passed in, then all rdeps found will be returned.
     ///
     /// Sample usage:
     /// ```text
