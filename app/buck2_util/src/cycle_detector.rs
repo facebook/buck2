@@ -272,7 +272,9 @@ impl<C: CycleDescriptor> CycleDetectorState<C> {
                         let _ignored = sender.send((**e).clone());
                     }
                     NodeState::Working(v) => v.1 = sender,
-                    v @ NodeState::Known => *v = NodeState::Working(box (VecDeque::new(), sender)),
+                    v @ NodeState::Known => {
+                        *v = NodeState::Working(Box::new((VecDeque::new(), sender)))
+                    }
                 }
             }
             Event::Edge(k, dep) => {
@@ -414,7 +416,7 @@ impl<C: CycleDescriptor> CycleDetectorState<C> {
 
                             if matches!(node, NodeState::Working(..)) {
                                 debug!("sending cycle error for {}", key);
-                                let mut working = NodeState::CycleDetected(box cycle.clone());
+                                let mut working = NodeState::CycleDetected(Box::new(cycle.clone()));
                                 std::mem::swap(&mut *node, &mut working);
                                 match working {
                                     NodeState::Working(v) => {
