@@ -191,7 +191,7 @@ async fn test_syncable_query() -> anyhow::Result<()> {
         connector,
         &root,
         Expr::Any(vec![Expr::FileType(FileType::Regular)]),
-        box TestQueryProcessor,
+        Box::new(TestQueryProcessor),
         None,
     )?;
 

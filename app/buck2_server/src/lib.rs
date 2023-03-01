@@ -8,7 +8,6 @@
  */
 
 #![feature(async_closure)]
-#![feature(box_syntax)]
 #![feature(try_blocks)]
 
 pub mod active_commands;

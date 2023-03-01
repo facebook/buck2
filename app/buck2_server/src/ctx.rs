@@ -509,7 +509,7 @@ impl DiceDataProvider for DiceCommandDataProvider {
 
         set_fallback_executor_config(&mut data.data, self.executor_config.dupe());
         data.set_re_client(self.re_connection.get_client());
-        data.set_command_executor(box CommandExecutorFactory::new(
+        data.set_command_executor(Box::new(CommandExecutorFactory::new(
             self.re_connection.dupe(),
             host_sharing_broker,
             low_pass_filter,
@@ -524,7 +524,7 @@ impl DiceDataProvider for DiceCommandDataProvider {
                 .get_io_provider()
                 .project_root()
                 .to_owned(),
-        ));
+        )));
         data.set_blocking_executor(self.blocking_executor.dupe());
         data.set_materializer(self.materializer.dupe());
         data.set_build_signals(self.build_signals.dupe());
@@ -542,8 +542,8 @@ impl DiceDataProvider for DiceCommandDataProvider {
 fn create_cycle_detector() -> Arc<dyn UserCycleDetector> {
     Arc::new(StackedDiceCycleDetector {
         inner: vec![
-            box CycleDetectorAdapter::<LoadCycleDescriptor>::new(),
-            box CycleDetectorAdapter::<ConfiguredGraphCycleDescriptor>::new(),
+            Box::new(CycleDetectorAdapter::<LoadCycleDescriptor>::new()),
+            Box::new(CycleDetectorAdapter::<ConfiguredGraphCycleDescriptor>::new()),
         ],
     })
 }
@@ -636,8 +636,8 @@ impl ServerCommandContextTrait for ServerCommandContext {
 
         Ok(DiceAccessor {
             dice_handler: self.base_context.dice_manager.dupe(),
-            data: box self.dice_data_constructor().await,
-            setup: box self.dice_updater().await?,
+            data: Box::new(self.dice_data_constructor().await),
+            setup: Box::new(self.dice_updater().await?),
             is_nested_invocation,
             sanitized_argv: self.sanitized_argv.clone(),
         })

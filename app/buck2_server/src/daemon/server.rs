@@ -321,7 +321,7 @@ impl BuckdServer {
                 DaemonState::new(
                     fb,
                     paths,
-                    box DaemonStateDiceConstructorImpl { detect_cycles },
+                    Box::new(DaemonStateDiceConstructorImpl { detect_cycles }),
                 )
                 .await,
             ),
@@ -427,9 +427,9 @@ impl BuckdServer {
         } = ActiveCommand::new(&dispatch);
         let data = daemon_state.data()?;
 
-        dispatch.instant_event(
-            box snapshot::SnapshotCollector::pre_initialization_snapshot(data.start_time),
-        );
+        dispatch.instant_event(Box::new(
+            snapshot::SnapshotCollector::pre_initialization_snapshot(data.start_time),
+        ));
 
         let configure_bxl_file_globals = self.0.callbacks.configure_bxl_file_globals();
 
@@ -459,7 +459,7 @@ impl BuckdServer {
                 };
 
                 let result: CommandResult = result_to_command_result(result);
-                dispatch.control_event(ControlEvent::CommandResult(box result));
+                dispatch.control_event(ControlEvent::CommandResult(Box::new(result)));
             },
         )
         .await;
@@ -555,9 +555,9 @@ fn result_to_command_result<R: Into<command_result::Result>>(
 
 fn error_to_command_progress(e: anyhow::Error) -> CommandProgress {
     CommandProgress {
-        progress: Some(command_progress::Progress::Result(
-            box error_to_command_result(e),
-        )),
+        progress: Some(command_progress::Progress::Result(Box::new(
+            error_to_command_result(e),
+        ))),
     }
 }
 
@@ -621,7 +621,9 @@ fn pump_events<E: EventSource>(
                     }
                     ControlEvent::PartialResult(result) => {
                         let _ignore = output_send.send(Ok(CommandProgress {
-                            progress: Some(command_progress::Progress::PartialResult(box result)),
+                            progress: Some(command_progress::Progress::PartialResult(Box::new(
+                                result,
+                            ))),
                         }));
                     }
                 }
@@ -709,8 +711,8 @@ where
 
     let daemon_shutdown_stream = daemon_shutdown_channel
         .map_ok(move |shutdown| CommandProgress {
-            progress: Some(command_progress::Progress::Event(
-                box buck2_data::BuckEvent {
+            progress: Some(command_progress::Progress::Event(Box::new(
+                buck2_data::BuckEvent {
                     timestamp: Some(SystemTime::now().into()),
                     trace_id: trace_id.to_string(),
                     span_id: 0,
@@ -722,7 +724,7 @@ where
                         .into(),
                     ),
                 },
-            )),
+            ))),
         })
         .into_stream()
         .filter_map(|e| {
@@ -866,7 +868,7 @@ impl DaemonApi for BuckdServer {
             req,
             DefaultCommandOptions,
             |ctx, partial_result_dispatcher, req| {
-                callbacks.build(box ctx, partial_result_dispatcher, req)
+                callbacks.build(Box::new(ctx), partial_result_dispatcher, req)
             },
         )
         .await
@@ -879,7 +881,7 @@ impl DaemonApi for BuckdServer {
             req,
             DefaultCommandOptions,
             |ctx, partial_result_dispatcher, req| {
-                callbacks.bxl(box ctx, partial_result_dispatcher, req)
+                callbacks.bxl(Box::new(ctx), partial_result_dispatcher, req)
             },
         )
         .await
@@ -892,7 +894,7 @@ impl DaemonApi for BuckdServer {
             req,
             DefaultCommandOptions,
             |ctx, partial_result_dispatcher, req| {
-                callbacks.test(box ctx, partial_result_dispatcher, req)
+                callbacks.test(Box::new(ctx), partial_result_dispatcher, req)
             },
         )
         .await
@@ -908,7 +910,7 @@ impl DaemonApi for BuckdServer {
             req,
             DefaultCommandOptions,
             |ctx, partial_result_dispatcher, req| {
-                callbacks.aquery(box ctx, partial_result_dispatcher, req)
+                callbacks.aquery(Box::new(ctx), partial_result_dispatcher, req)
             },
         )
         .await
@@ -924,7 +926,7 @@ impl DaemonApi for BuckdServer {
             req,
             DefaultCommandOptions,
             |ctx, partial_result_dispatcher, req| {
-                callbacks.uquery(box ctx, partial_result_dispatcher, req)
+                callbacks.uquery(Box::new(ctx), partial_result_dispatcher, req)
             },
         )
         .await
@@ -940,7 +942,7 @@ impl DaemonApi for BuckdServer {
             req,
             DefaultCommandOptions,
             |ctx, partial_result_dispatcher, req| {
-                callbacks.cquery(box ctx, partial_result_dispatcher, req)
+                callbacks.cquery(Box::new(ctx), partial_result_dispatcher, req)
             },
         )
         .await
@@ -956,7 +958,7 @@ impl DaemonApi for BuckdServer {
             req,
             DefaultCommandOptions,
             |ctx, partial_result_dispatcher, req| {
-                callbacks.targets(box ctx, partial_result_dispatcher, req)
+                callbacks.targets(Box::new(ctx), partial_result_dispatcher, req)
             },
         )
         .await
@@ -972,7 +974,7 @@ impl DaemonApi for BuckdServer {
             req,
             DefaultCommandOptions,
             |ctx, partial_result_dispatcher, req| {
-                callbacks.targets_show_outputs(box ctx, partial_result_dispatcher, req)
+                callbacks.targets_show_outputs(Box::new(ctx), partial_result_dispatcher, req)
             },
         )
         .await
@@ -988,7 +990,7 @@ impl DaemonApi for BuckdServer {
             req,
             DefaultCommandOptions,
             |ctx, partial_result_dispatcher, req| {
-                callbacks.audit(box ctx, partial_result_dispatcher, req)
+                callbacks.audit(Box::new(ctx), partial_result_dispatcher, req)
             },
         )
         .await
@@ -1004,7 +1006,7 @@ impl DaemonApi for BuckdServer {
             req,
             DefaultCommandOptions,
             |ctx, partial_result_dispatcher, req| {
-                callbacks.starlark(box ctx, partial_result_dispatcher, req)
+                callbacks.starlark(Box::new(ctx), partial_result_dispatcher, req)
             },
         )
         .await
@@ -1020,7 +1022,7 @@ impl DaemonApi for BuckdServer {
             req,
             DefaultCommandOptions,
             |ctx, partial_result_dispatcher, req| {
-                callbacks.install(box ctx, partial_result_dispatcher, req)
+                callbacks.install(Box::new(ctx), partial_result_dispatcher, req)
             },
         )
         .await
@@ -1143,7 +1145,7 @@ impl DaemonApi for BuckdServer {
                 };
 
                 let result: CommandResult = result_to_command_result(result);
-                dispatcher.control_event(ControlEvent::CommandResult(box result));
+                dispatcher.control_event(ControlEvent::CommandResult(Box::new(result)));
 
                 drop(guard);
             },
@@ -1161,7 +1163,7 @@ impl DaemonApi for BuckdServer {
             req,
             DefaultCommandOptions,
             |ctx, partial_result_dispatcher, req| {
-                callbacks.docs(box ctx, partial_result_dispatcher, req)
+                callbacks.docs(Box::new(ctx), partial_result_dispatcher, req)
             },
         )
         .await
@@ -1190,7 +1192,7 @@ impl DaemonApi for BuckdServer {
             req,
             ProfileCommandOptions,
             |ctx, partial_result_dispatcher, req| {
-                callbacks.profile(box ctx, partial_result_dispatcher, req)
+                callbacks.profile(Box::new(ctx), partial_result_dispatcher, req)
             },
         )
         .await
@@ -1238,7 +1240,7 @@ impl DaemonApi for BuckdServer {
              partial_result_dispatcher,
              _client_ctx,
              req: StreamingRequestHandler<LspRequest>| {
-                run_lsp_server_command(box ctx, partial_result_dispatcher, req)
+                run_lsp_server_command(Box::new(ctx), partial_result_dispatcher, req)
             },
         )
         .await

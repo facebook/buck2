@@ -277,11 +277,11 @@ impl WatchmanFileWatcher {
                 Expr::FileType(FileType::Directory),
                 Expr::FileType(FileType::Symlink),
             ]),
-            box WatchmanQueryProcessor {
+            Box::new(WatchmanQueryProcessor {
                 cells,
                 ignore_specs,
                 retain_dep_files_on_watchman_fresh_instance,
-            },
+            }),
             watchman_merge_base,
         )?;
 

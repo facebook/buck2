@@ -48,7 +48,7 @@ pub(crate) async fn file_status_command(
 ) -> anyhow::Result<buck2_cli_proto::GenericResponse> {
     run_server_command(
         FileStatusServerCommand { req },
-        box ctx,
+        Box::new(ctx),
         partial_result_dispatcher,
     )
     .await

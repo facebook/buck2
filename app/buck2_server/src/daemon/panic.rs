@@ -57,10 +57,10 @@ async fn remove_old_panic_dumps() -> anyhow::Result<()> {
 /// Initializes the panic hook.
 pub fn initialize(daemon_state: Arc<dyn DaemonStatePanicDiceDump>) {
     let hook = panic::take_hook();
-    panic::set_hook(box move |info| {
+    panic::set_hook(Box::new(move |info| {
         daemon_panic_hook(&daemon_state, info);
         hook(info);
-    });
+    }));
     tokio::spawn(remove_old_panic_dumps());
 }
 

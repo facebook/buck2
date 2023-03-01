@@ -27,7 +27,7 @@ pub(crate) async fn clean_stale_command(
 ) -> anyhow::Result<buck2_cli_proto::CleanStaleResponse> {
     run_server_command(
         CleanStaleServerCommand { req },
-        box ctx,
+        Box::new(ctx),
         partial_result_dispatcher,
     )
     .await
