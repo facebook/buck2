@@ -77,13 +77,17 @@ Line profiling builds on top of the `before_stmt` hook that is used for debuggin
 
 The flame profiling modes produces a `.svg` flamegraph showing either time spent or allocations.
 
+<FbInternalOnly>
+
 The flame profile provides a list of how time is used based on call stacks (you can download an example [here](https://www.internalfb.com/intern/px/p/1Mz2W)).
+
+</FbInternalOnly>
 
 ## Native profiling
 
 * Profiling on Linux can be done with `perf record -g --call-graph=dwarf,20000 ...` and `perf report --call-graph`
   * Don't profile the `buck2` process directly unless you are interested in profiling the CLI; you likely want to profile the `buck2` daemon process. You can find the pid with `buck2 status` and attach `perf` to that PID.
-* Profiling on Mac can be done with `Instruments` (for details, see the Wiki article [Running and Testing Builds](https://www.internalfb.com/intern/wiki/GraphQL/Build_Infra/Running_and_Testing_Builds/#profiling-the-rust-code)).
+* Profiling on Mac can be done with `Instruments`<FbInternalOnly> (for details, see the Wiki article [Running and Testing Builds](https://www.internalfb.com/intern/wiki/GraphQL/Build_Infra/Running_and_Testing_Builds/#profiling-the-rust-code))</FbInternalOnly>.
 
 ## Benchmarking
 

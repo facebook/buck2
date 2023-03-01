@@ -159,7 +159,7 @@ cxx_binary(
 
 ## Request transition on command line
 
-For information, see [RFC](https://www.internalfb.com/diff/D35136639).
+For information, see [RFC](../rfcs/drafts/configuration-at-syntax.md).
 
 ## Access rule attributes in transition function implementation
 
