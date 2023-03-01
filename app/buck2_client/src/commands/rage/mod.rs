@@ -173,18 +173,22 @@ impl fmt::Display for Origin {
 #[derive(Debug, clap::Parser)]
 #[clap(
     name = "rage",
-    about = "Record information about the previous failed buck2 command"
+    about = "Record information about the previous failed buck2 command",
+    group = clap::ArgGroup::new("invocation").multiple(false)
 )]
 pub struct RageCommand {
     /// Stop collecting information after `<timeout>` seconds
     #[clap(long, default_value = "60")]
     timeout: u64,
     /// Use value 0 to select last invocation, 1 to select second to last and so on
-    #[clap(long, conflicts_with = "invocation-id")]
+    #[clap(long, group = "invocation")]
     invocation_offset: Option<usize>,
     /// Select invocation directly using the invocation's UUID
-    #[clap(long, conflicts_with = "invocation_offset")]
+    #[clap(long, group = "invocation")]
     invocation_id: Option<String>,
+    /// Collect rage report about buck2 in general, not about specific invocation
+    #[clap(long, group = "invocation")]
+    no_invocation: bool,
     /// We may want to omit paste if this is not a user
     /// or is called in a machine with no pastry command
     #[clap(long)]
@@ -214,13 +218,7 @@ impl RageCommand {
             )?;
             buck2_client_ctx::eprintln!("Collecting debug info...\n\n")?;
 
-            let selected_invocation = maybe_select_invocation(
-                ctx.stdin(),
-                &logdir,
-                self.invocation_offset,
-                &self.invocation_id,
-            )
-            .await?;
+            let selected_invocation = maybe_select_invocation(ctx.stdin(), &logdir, &self).await?;
             let invocation_id = get_trace_id(&selected_invocation).await?;
             dispatch_invoked_event(sink.as_ref(), &rage_id, invocation_id.as_ref()).await?;
             if let Some(ref invocation_id) = invocation_id {
@@ -472,9 +470,11 @@ fn create_scribe_sink(ctx: &ClientCommandContext) -> anyhow::Result<Option<Thrif
 async fn maybe_select_invocation(
     stdin: &mut Stdin,
     logdir: &AbsNormPathBuf,
-    invocation_offset: Option<usize>,
-    invocation_id: &Option<String>,
+    command: &RageCommand,
 ) -> anyhow::Result<Option<EventLogPathBuf>> {
+    if command.no_invocation {
+        return Ok(None);
+    };
     let mut logs = match get_local_logs_if_exist(logdir)? {
         None => return Ok(None),
         Some(logs) => logs
@@ -486,7 +486,7 @@ async fn maybe_select_invocation(
     if logs.is_empty() {
         return Ok(None);
     }
-    let index = log_index(stdin, &mut logs, invocation_offset, invocation_id).await?;
+    let index = log_index(stdin, &mut logs, command).await?;
     if index >= logs.len() {
         return Err(RageError::LogNotFoundError.into());
     }
@@ -496,10 +496,9 @@ async fn maybe_select_invocation(
 async fn log_index(
     stdin: &mut Stdin,
     logs: &mut Vec<EventLogPathBuf>,
-    invocation_offset: Option<usize>,
-    invocation_id: &Option<String>,
+    command: &RageCommand,
 ) -> Result<usize, anyhow::Error> {
-    if let Some(invocation_id) = invocation_id {
+    if let Some(invocation_id) = &command.invocation_id {
         for (index, buf) in logs.iter().enumerate() {
             if let Some(file_name) = buf.path().file_name() {
                 if file_name.to_string_lossy().contains(invocation_id) {
@@ -509,7 +508,7 @@ async fn log_index(
         }
         return Err(RageError::InvalidSelectionError.into()); // couldn't find requested invocation
     };
-    let index = match invocation_offset {
+    let index = match command.invocation_offset {
         Some(i) => i,
         None => {
             let mut stdin = BufReader::new(stdin);
