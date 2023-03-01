@@ -231,7 +231,7 @@ impl CachingExecutor {
 
                 (
                     res,
-                    box buck2_data::CacheUploadEnd {
+                    Box::new(buck2_data::CacheUploadEnd {
                         key: Some(target.action_key.as_proto()),
                         name: Some(name),
                         action_digest: digest.to_string(),
@@ -240,7 +240,7 @@ impl CachingExecutor {
                         file_digests,
                         tree_digests,
                         output_bytes: Some(output_bytes),
-                    },
+                    }),
                 )
             },
         )

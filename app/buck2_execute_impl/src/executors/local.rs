@@ -700,9 +700,9 @@ pub async fn create_output_dirs(
                 .await?;
         } else {
             blocking_executor
-                .execute_io(box CleanOutputPaths {
+                .execute_io(Box::new(CleanOutputPaths {
                     paths: output_paths,
-                })
+                }))
                 .await
                 .context("Failed to cleanup output directory")?;
         }

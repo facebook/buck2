@@ -89,7 +89,7 @@ impl ExtensionCommand<DefaultIoHandler> for Iterate {
 
             let path = ProjectRelativePathBuf::from(path);
 
-            match self.sender.send((path, box path_data as _)) {
+            match self.sender.send((path, Box::new(path_data) as _)) {
                 Ok(..) => {}
                 Err(..) => break, // No use sending more if the client disconnected.
             }
@@ -181,16 +181,18 @@ impl DeferredMaterializerExtensions for DeferredMaterializer {
         BoxStream<'static, (ProjectRelativePathBuf, Box<dyn DeferredMaterializerEntry>)>,
     > {
         let (sender, receiver) = mpsc::unbounded_channel();
-        self.command_sender
-            .send(MaterializerCommand::Extension(box Iterate { sender } as _))?;
+        self.command_sender.send(MaterializerCommand::Extension(
+            Box::new(Iterate { sender }) as _
+        ))?;
         Ok(UnboundedReceiverStream::new(receiver).boxed())
     }
 
     async fn refresh_ttls(&self, min_ttl: i64) -> anyhow::Result<()> {
         let (sender, receiver) = oneshot::channel();
-        self.command_sender.send(MaterializerCommand::Extension(
-            box RefreshTtls { sender, min_ttl } as _,
-        ))?;
+        self.command_sender
+            .send(MaterializerCommand::Extension(
+                Box::new(RefreshTtls { sender, min_ttl }) as _,
+            ))?;
         match receiver.await.context("No response from materializer")? {
             Some(task) => task
                 .await
@@ -209,20 +211,23 @@ impl DeferredMaterializerExtensions for DeferredMaterializer {
     ) -> anyhow::Result<buck2_cli_proto::CleanStaleResponse> {
         let (sender, recv) = oneshot::channel();
         self.command_sender
-            .send(MaterializerCommand::Extension(box CleanStaleArtifacts {
-                keep_since_time,
-                dry_run,
-                tracked_only,
-                sender,
-            }))?;
+            .send(MaterializerCommand::Extension(Box::new(
+                CleanStaleArtifacts {
+                    keep_since_time,
+                    dry_run,
+                    tracked_only,
+                    sender,
+                },
+            )))?;
         recv.await?.await
     }
 
     async fn test_iter(&self, count: usize) -> anyhow::Result<String> {
         let (sender, receiver) = oneshot::channel();
-        self.command_sender.send(MaterializerCommand::Extension(
-            box TestIter { sender, count } as _,
-        ))?;
+        self.command_sender
+            .send(MaterializerCommand::Extension(
+                Box::new(TestIter { sender, count }) as _,
+            ))?;
         receiver.await.context("No response from materializer")
     }
 

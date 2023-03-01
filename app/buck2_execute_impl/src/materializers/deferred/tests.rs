@@ -241,7 +241,11 @@ mod state_machine {
         let path = make_path("foo/bar");
         let value = ArtifactValue::file(digest_config.empty_file());
 
-        dm.declare(&path, value.dupe(), box ArtifactMaterializationMethod::Test);
+        dm.declare(
+            &path,
+            value.dupe(),
+            Box::new(ArtifactMaterializationMethod::Test),
+        );
         assert_eq!(dm.io.take_log(), &[(Op::Clean, path.clone())]);
 
         let res = dm
@@ -254,7 +258,11 @@ mod state_machine {
         assert_eq!(dm.io.take_log(), &[]);
 
         // When redeclaring the same artifact nothing happens.
-        dm.declare(&path, value.dupe(), box ArtifactMaterializationMethod::Test);
+        dm.declare(
+            &path,
+            value.dupe(),
+            Box::new(ArtifactMaterializationMethod::Test),
+        );
         assert_eq!(dm.io.take_log(), &[]);
 
         // When declaring the same artifact but under it, we clean it and it's a new artifact.
@@ -262,7 +270,7 @@ mod state_machine {
         dm.declare(
             &path2,
             value.dupe(),
-            box ArtifactMaterializationMethod::Test,
+            Box::new(ArtifactMaterializationMethod::Test),
         );
         assert_eq!(dm.io.take_log(), &[(Op::Clean, path2.clone())]);
 
@@ -317,7 +325,7 @@ mod state_machine {
         dm.declare(
             &target_path,
             ArtifactValue::file(digest_config.empty_file()),
-            box ArtifactMaterializationMethod::Test,
+            Box::new(ArtifactMaterializationMethod::Test),
         );
         assert_eq!(dm.io.take_log(), &[(Op::Clean, target_path.clone())]);
 
@@ -330,7 +338,7 @@ mod state_machine {
         dm.declare(
             &symlink_path,
             symlink_value,
-            box ArtifactMaterializationMethod::Test,
+            Box::new(ArtifactMaterializationMethod::Test),
         );
         assert_eq!(dm.io.take_log(), &[(Op::Clean, symlink_path.clone())]);
 
@@ -386,7 +394,7 @@ mod state_machine {
         dm.declare(
             &symlink_path,
             symlink_value,
-            box ArtifactMaterializationMethod::Test,
+            Box::new(ArtifactMaterializationMethod::Test),
         );
         assert_eq!(dm.io.take_log(), &[(Op::Clean, symlink_path.clone())]);
 
@@ -412,7 +420,7 @@ mod state_machine {
         dm.declare(
             &target_path,
             ArtifactValue::file(digest_config.empty_file()),
-            box ArtifactMaterializationMethod::Test,
+            Box::new(ArtifactMaterializationMethod::Test),
         );
         assert_eq!(dm.io.take_log(), &[(Op::Clean, target_path.clone())]);
 

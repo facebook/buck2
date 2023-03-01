@@ -117,7 +117,7 @@ impl PreparedCommandExecutor for HybridExecutor {
         // (this is important in the case where we shouldn't be sending one of them).
         let local_result = self.local_exec_cmd(
             command,
-            box claim_manager.dupe(),
+            Box::new(claim_manager.dupe()),
             manager.events.dupe(),
             Arc::new(
                 manager
@@ -129,11 +129,11 @@ impl PreparedCommandExecutor for HybridExecutor {
 
         let remote_result = self.remote_exec_cmd(
             command,
-            box ReClaimManager::new(
+            Box::new(ReClaimManager::new(
                 local_execution_liveliness_guard,
-                box claim_manager,
+                Box::new(claim_manager),
                 remote_execution_liveliness_guard,
-            ),
+            )),
             manager.events.dupe(),
             manager.liveliness_observer.dupe(),
         );
@@ -328,11 +328,11 @@ impl ClaimManager for ReClaimManager {
         // execution finished.
         let claim = inner.claim_manager.claim().await;
 
-        box ReClaim {
+        Box::new(ReClaim {
             released_liveliness_guard,
             claim,
             _remote_execution_liveliness_guard: inner.remote_execution_liveliness_guard,
-        }
+        })
     }
 
     fn on_result_delayed(&mut self) {

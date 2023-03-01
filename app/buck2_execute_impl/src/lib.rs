@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-#![feature(box_syntax)]
 #![feature(try_blocks)]
 
 pub mod executors;

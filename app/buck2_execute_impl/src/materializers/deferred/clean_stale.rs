@@ -173,7 +173,7 @@ fn gather_clean_futures_for_stale_artifacts(
             cleaning_futs.push(async move {
                 join_all_existing_futs(existing_futs).await?;
                 io.io_executor
-                    .execute_io(box CleanOutputPaths { paths: vec![path] })
+                    .execute_io(Box::new(CleanOutputPaths { paths: vec![path] }))
                     .await?;
                 anyhow::Ok(())
             });

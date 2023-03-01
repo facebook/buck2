@@ -94,17 +94,17 @@ impl Materializer for ImmediateMaterializer {
         srcs: Vec<CopiedArtifact>,
     ) -> anyhow::Result<()> {
         self.io_executor
-            .execute_io(box CleanOutputPaths {
+            .execute_io(Box::new(CleanOutputPaths {
                 paths: vec![path.to_owned()],
-            })
+            }))
             .await?;
 
         // TODO: display [materializing] in superconsole
         self.io_executor
-            .execute_io(box MaterializeTreeStructure {
+            .execute_io(Box::new(MaterializeTreeStructure {
                 path: path.clone(),
                 entry: value.entry().dupe(),
-            })
+            }))
             .await?;
 
         self.io_executor
@@ -135,17 +135,17 @@ impl Materializer for ImmediateMaterializer {
         artifacts: Vec<(ProjectRelativePathBuf, ArtifactValue)>,
     ) -> anyhow::Result<()> {
         self.io_executor
-            .execute_io(box CleanOutputPaths {
+            .execute_io(Box::new(CleanOutputPaths {
                 paths: artifacts.map(|(p, _)| p.to_owned()),
-            })
+            }))
             .await?;
 
         for (path, value) in artifacts.iter() {
             self.io_executor
-                .execute_io(box MaterializeTreeStructure {
+                .execute_io(Box::new(MaterializeTreeStructure {
                     path: path.to_owned(),
                     entry: value.entry().dupe(),
-                })
+                }))
                 .await?;
         }
 
@@ -179,9 +179,9 @@ impl Materializer for ImmediateMaterializer {
         info: HttpDownloadInfo,
     ) -> anyhow::Result<()> {
         self.io_executor
-            .execute_io(box CleanOutputPaths {
+            .execute_io(Box::new(CleanOutputPaths {
                 paths: vec![path.to_owned()],
-            })
+            }))
             .await?;
 
         http_download(

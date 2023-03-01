@@ -176,8 +176,8 @@ impl MaterializerCounters {
     /// New counters. Note that this leaks the underlying data. See comments on MaterializerSender.
     fn leak_new() -> Self {
         Self {
-            sent: Box::leak(box AtomicUsize::new(0)),
-            received: Box::leak(box AtomicUsize::new(0)),
+            sent: Box::leak(Box::new(AtomicUsize::new(0))),
+            received: Box::leak(Box::new(AtomicUsize::new(0))),
         }
     }
 
@@ -627,7 +627,7 @@ impl Materializer for DeferredMaterializer {
         let cmd = MaterializerCommand::Declare(
             path,
             value,
-            box ArtifactMaterializationMethod::LocalCopy(srcs_tree, srcs),
+            Box::new(ArtifactMaterializationMethod::LocalCopy(srcs_tree, srcs)),
             get_dispatcher(),
         );
         self.command_sender.send(cmd)?;
@@ -643,7 +643,7 @@ impl Materializer for DeferredMaterializer {
             let cmd = MaterializerCommand::Declare(
                 path,
                 value,
-                box ArtifactMaterializationMethod::CasDownload { info: info.dupe() },
+                Box::new(ArtifactMaterializationMethod::CasDownload { info: info.dupe() }),
                 get_dispatcher(),
             );
             self.command_sender.send(cmd)?;
@@ -659,7 +659,7 @@ impl Materializer for DeferredMaterializer {
         let cmd = MaterializerCommand::Declare(
             path,
             ArtifactValue::file(info.metadata.dupe()),
-            box ArtifactMaterializationMethod::HttpDownload { info },
+            Box::new(ArtifactMaterializationMethod::HttpDownload { info }),
             get_dispatcher(),
         );
         self.command_sender.send(cmd)?;
@@ -723,7 +723,7 @@ impl Materializer for DeferredMaterializer {
             self.command_sender.send(MaterializerCommand::Declare(
                 path,
                 value.dupe(),
-                box method,
+                Box::new(method),
                 get_dispatcher(),
             ))?;
         }
@@ -833,8 +833,8 @@ impl DeferredMaterializer {
         let counters = MaterializerCounters::leak_new();
 
         let command_sender = MaterializerSender {
-            high_priority: Cow::Borrowed(Box::leak(box high_priority_sender)),
-            low_priority: Cow::Borrowed(Box::leak(box low_priority_sender)),
+            high_priority: Cow::Borrowed(Box::leak(Box::new(high_priority_sender))),
+            low_priority: Cow::Borrowed(Box::leak(Box::new(low_priority_sender))),
             counters,
         };
 
@@ -854,7 +854,7 @@ impl DeferredMaterializer {
             for (path, (metadata, last_access_time)) in sqlite_state.into_iter() {
                 tree.insert(
                     path.iter().map(|f| f.to_owned()),
-                    box ArtifactMaterializationData {
+                    Box::new(ArtifactMaterializationData {
                         deps: None,
                         stage: ArtifactMaterializationStage::Materialized {
                             metadata,
@@ -862,7 +862,7 @@ impl DeferredMaterializer {
                             active: false,
                         },
                         processing: Processing::Done(Version(0)),
-                    },
+                    }),
                 );
             }
         }
@@ -1191,7 +1191,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
 
         self.tree.insert(
             path.iter().map(|f| f.to_owned()),
-            box ArtifactMaterializationData {
+            Box::new(ArtifactMaterializationData {
                 deps: value.deps().duped(),
                 stage: ArtifactMaterializationStage::Materialized {
                     metadata,
@@ -1199,7 +1199,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                     active: true,
                 },
                 processing: Processing::Done(self.version_tracker.next()),
-            },
+            }),
         );
     }
 
@@ -1301,14 +1301,14 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
             )),
         };
 
-        let data = box ArtifactMaterializationData {
+        let data = Box::new(ArtifactMaterializationData {
             deps: value.deps().duped(),
             stage: ArtifactMaterializationStage::Declared {
                 entry: value.entry().dupe(),
                 method,
             },
             processing: Processing::Active { future, version },
-        };
+        });
         self.tree.insert(path.iter().map(|f| f.to_owned()), data);
     }
 
@@ -1901,10 +1901,11 @@ impl<V: 'static> FileTree<V> {
         let path = path.to_owned();
 
         match removed {
-            Some(tree) => box tree
-                .into_iter_with_paths()
-                .map(move |(k, v)| ((path).join(k), v)),
-            None => box std::iter::empty(),
+            Some(tree) => Box::new(
+                tree.into_iter_with_paths()
+                    .map(move |(k, v)| ((path).join(k), v)),
+            ),
+            None => Box::new(std::iter::empty()),
         }
     }
 }

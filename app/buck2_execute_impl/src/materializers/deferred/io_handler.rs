@@ -121,10 +121,10 @@ impl DefaultIoHandler {
     ) -> Result<(), MaterializeEntryError> {
         // Materialize the dir structure, and symlinks
         self.io_executor
-            .execute_io(box MaterializeTreeStructure {
+            .execute_io(Box::new(MaterializeTreeStructure {
                 path: path.clone(),
                 entry: entry.dupe(),
-            })
+            }))
             .await?;
 
         // Materialize files
@@ -263,12 +263,12 @@ impl IoHandler for DefaultIoHandler {
         command_sender: MaterializerSender<Self>,
     ) -> BoxFuture<'static, Result<(), SharedMaterializingError>> {
         self.io_executor
-            .execute_io(box WriteIoRequest {
+            .execute_io(Box::new(WriteIoRequest {
                 path,
                 write,
                 version,
                 command_sender,
-            })
+            }))
             .map_err(|e| SharedMaterializingError::Error(e.into()))
             .boxed()
     }
@@ -280,11 +280,11 @@ impl IoHandler for DefaultIoHandler {
         command_sender: MaterializerSender<Self>,
     ) -> BoxFuture<'static, Result<(), SharedError>> {
         self.io_executor
-            .execute_io(box CleanIoRequest {
+            .execute_io(Box::new(CleanIoRequest {
                 path,
                 version,
                 command_sender,
-            })
+            }))
             .map(|r| r.shared_error())
             .boxed()
     }
