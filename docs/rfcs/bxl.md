@@ -4,7 +4,12 @@ Buck2 will allow more complex introspection and interaction with its graphs via 
 BXL will be a starlark script that allows integrators to interact with `buck` commands like
 build and query within starlark, creating a sequence of operations that introspect, build,
 and extend the build graph.
+
+<FbInternalOnly>
+
 https://fb.workplace.com/groups/buck2prototyping/permalink/2404233936540759/.
+
+</FbInternalOnly>
 
 These are essentially custom buck operations, defined in Starlark,
 that still follow the constraints of Buck2, which will enable
@@ -17,8 +22,13 @@ that are targeted at solving key issues for IDE integration.
 
 ### Cpp LSP
 
+<FbInternalOnly>
+
 I’ve previously defined some proposed integrations
 [here](https://docs.google.com/document/d/1jyehtuQ236rtwq2yyLnLmsIgBOctuAm9eoqx95TCO4I/edit).
+
+</FbInternalOnly>
+
 Lsp prefers to have a single buck command that given a file,
 returns the corresponding compilation database. This requires a single command, i.e a bxl,
 that accepts a file as input, performs `owners` queries,
@@ -67,10 +77,15 @@ The same can be achieved in bxl, but with the entire sequence being cacheable
 and subscribable so that when the graph is updated, or even when generated files
 need updating, buck2 can automatically push the updates.
 However, it is uncertain whether xcode itself can make use of push updates.
+
+<FbInternalOnly>
+
 In https://docs.google.com/document/d/1USZ_ZYxq45DHUFF-BAYo6zS4lAHlpvNk9uM5SBL9e-w/edit?disco=AAAAQv4gLQ0,
 it was also proposed that project generation may need information to flow down
 as part of the generation, which is only possible via bxl defining its own actions.
 (Although, there may have been a workaround per Chatura).
+
+</FbInternalOnly>
 
 ### Rust LSP
 
