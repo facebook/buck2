@@ -362,13 +362,16 @@ build_test_spec(Suite, Tests, TestDir, OutputDir, CtOpts) ->
 %% @doc Create a ct_hook for the test spec by plugging together
 -spec getCtHook([term()], string()) -> {term(), [term()]}.
 getCtHook(CtOpts, ResultOutput) ->
-    {CtHooks, NewOpts} =
-        case lists:keyfind(ct_hooks, 1, CtOpts) of
-            false -> {[], CtOpts};
-            {ct_hooks, Hooks} -> {Hooks, lists:keydelete(ct_hooks, 1, CtOpts)}
-        end,
-    CtHookHandle = {ct_hooks, [{cth_tpx, [{result_json, ResultOutput}]} | CtHooks]},
+    {NewOpts, Hooks} = addOptsHook(CtOpts, []),
+    CtHookHandle = {ct_hooks, [{cth_tpx, [{result_json, ResultOutput}]} | lists:reverse(Hooks)]},
     {CtHookHandle, NewOpts}.
+
+-spec addOptsHook([term()], [term()]) -> {term(), [term()]}.
+addOptsHook(CtOpts, Hooks) ->
+    case lists:keyfind(ct_hooks, 1, CtOpts) of
+        false -> {CtOpts, Hooks};
+        {ct_hooks, NewHooks} -> addOptsHook(lists:keydelete(ct_hooks, 1, CtOpts), NewHooks ++ Hooks)
+    end.
 
 %% @doc Add a spec tuple to the list of ct_options if a tuple defining the property isn't present yet.
 -spec add_spec_if_absent({atom(), term()}, [term()]) -> [term()].

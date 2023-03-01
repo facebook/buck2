@@ -104,11 +104,7 @@ load_test_info(TestInfoFile) ->
 -spec make_ct_opts([ctopt()], [cth()]) -> [ctopt()].
 make_ct_opts(CtOpts, []) -> CtOpts;
 make_ct_opts(CtOpts, ExtraCtHooks) ->
-    NewCtHooks = case proplists:get_all_values(ct_hooks, CtOpts) of
-        [] -> ExtraCtHooks;
-        [GivenCtHooks |_] -> GivenCtHooks ++ ExtraCtHooks
-    end,
-    [{ct_hooks, NewCtHooks} | CtOpts].
+    [{ct_hooks, ExtraCtHooks} | CtOpts].
 
 -spec load_suite(string()) -> [{atom(), string()}].
 load_suite(SuitePath) ->
