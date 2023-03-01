@@ -467,9 +467,9 @@ impl TargetHashes {
 
     fn new_hasher(use_fast_hash: bool) -> Box<dyn BuckTargetHasher> {
         if use_fast_hash {
-            box SipHasher24::new()
+            Box::new(SipHasher24::new())
         } else {
-            box Blake3Adapter(blake3::Hasher::new())
+            Box::new(Blake3Adapter(blake3::Hasher::new()))
         }
     }
 

@@ -10,7 +10,6 @@
 //! Implementation of several server commands.
 
 #![feature(async_closure)]
-#![feature(box_syntax)]
 #![feature(box_patterns)]
 #![feature(try_blocks)]
 
