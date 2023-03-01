@@ -180,8 +180,11 @@ pub struct RageCommand {
     #[clap(long, default_value = "60")]
     timeout: u64,
     /// Use value 0 to select last invocation, 1 to select second to last and so on
-    #[clap(long)]
-    invocation: Option<usize>,
+    #[clap(long, conflicts_with = "invocation-id")]
+    invocation_offset: Option<usize>,
+    /// Select invocation directly using the invocation's UUID
+    #[clap(long, conflicts_with = "invocation_offset")]
+    invocation_id: Option<String>,
     /// We may want to omit paste if this is not a user
     /// or is called in a machine with no pastry command
     #[clap(long)]
@@ -211,8 +214,13 @@ impl RageCommand {
             )?;
             buck2_client_ctx::eprintln!("Collecting debug info...\n\n")?;
 
-            let selected_invocation =
-                maybe_select_invocation(ctx.stdin(), &logdir, self.invocation).await?;
+            let selected_invocation = maybe_select_invocation(
+                ctx.stdin(),
+                &logdir,
+                self.invocation_offset,
+                &self.invocation_id,
+            )
+            .await?;
             let invocation_id = get_trace_id(&selected_invocation).await?;
             dispatch_invoked_event(sink.as_ref(), &rage_id, invocation_id.as_ref()).await?;
             if let Some(ref invocation_id) = invocation_id {
@@ -464,7 +472,8 @@ fn create_scribe_sink(ctx: &ClientCommandContext) -> anyhow::Result<Option<Thrif
 async fn maybe_select_invocation(
     stdin: &mut Stdin,
     logdir: &AbsNormPathBuf,
-    invocation: Option<usize>,
+    invocation_offset: Option<usize>,
+    invocation_id: &Option<String>,
 ) -> anyhow::Result<Option<EventLogPathBuf>> {
     let mut logs = match get_local_logs_if_exist(logdir)? {
         None => return Ok(None),
@@ -477,17 +486,37 @@ async fn maybe_select_invocation(
     if logs.is_empty() {
         return Ok(None);
     }
-    let index = match invocation {
-        Some(i) => i,
-        None => {
-            let mut stdin = BufReader::new(stdin);
-            user_prompt_select_log(&mut stdin, &logs).await?
-        }
-    };
+    let index = log_index(stdin, &mut logs, invocation_offset, invocation_id).await?;
     if index >= logs.len() {
         return Err(RageError::LogNotFoundError.into());
     }
     Ok(Some(logs.swap_remove(index)))
+}
+
+async fn log_index(
+    stdin: &mut Stdin,
+    logs: &mut Vec<EventLogPathBuf>,
+    invocation_offset: Option<usize>,
+    invocation_id: &Option<String>,
+) -> Result<usize, anyhow::Error> {
+    if let Some(invocation_id) = invocation_id {
+        for (index, buf) in logs.iter().enumerate() {
+            if let Some(file_name) = buf.path().file_name() {
+                if file_name.to_string_lossy().contains(invocation_id) {
+                    return Ok(index);
+                }
+            }
+        }
+        return Err(RageError::InvalidSelectionError.into()); // couldn't find requested invocation
+    };
+    let index = match invocation_offset {
+        Some(i) => i,
+        None => {
+            let mut stdin = BufReader::new(stdin);
+            user_prompt_select_log(&mut stdin, &*logs).await?
+        }
+    };
+    Ok(index)
 }
 
 async fn user_prompt_select_log<'a>(

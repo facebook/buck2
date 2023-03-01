@@ -646,7 +646,7 @@ async fn call_rage_impl(isolation_dir: FileNameBuf) -> anyhow::Result<()> {
         .arg("--timeout")
         .arg("3600")
         .arg("--no-paste")
-        .args(["--invocation", "0"]) // last invocation
+        .args(["--invocation-offset", "0"]) // last invocation
         .args(["--origin", "hang-detector"])
         .stdin(Stdio::null())
         .stdout(Stdio::null())
