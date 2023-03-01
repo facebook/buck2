@@ -117,7 +117,7 @@ async fn spawn_orchestrator<T: AsyncRead + AsyncWrite + Send + Sync + Unpin + 's
         })
     };
 
-    let make_server = box move |orchestrator, downward_api| {
+    let make_server = Box::new(move |orchestrator, downward_api| {
         let (read, write) = tokio::io::split(orchestrator_server_io);
         let orchestrator_server_io = DuplexChannel::new(read, write);
         spawn_orchestrator_server(
@@ -126,7 +126,7 @@ async fn spawn_orchestrator<T: AsyncRead + AsyncWrite + Send + Sync + Unpin + 's
             downward_api,
             dispatcher,
         )
-    };
+    });
 
     Ok(ExecutorLaunch {
         handle: service_task.boxed(),

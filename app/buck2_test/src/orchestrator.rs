@@ -455,7 +455,7 @@ impl BuckTestOrchestrator {
         }
 
         let manager = CommandExecutionManager::new(
-            box MutexClaimManager::new(),
+            Box::new(MutexClaimManager::new()),
             self.events.dupe(),
             self.liveliness_observer.dupe(),
         );
@@ -721,9 +721,9 @@ impl BuckTestOrchestrator {
             // we already built these before reaching out to tpx, so these should already be ready
             // hence we don't actually need to spawn these in parallel
             // TODO (T102328660): Does CommandExecutionRequest need this artifact?
-            inputs.push(CommandExecutionInput::Artifact(
-                box self.dice.ensure_artifact_group(input).await?,
-            ));
+            inputs.push(CommandExecutionInput::Artifact(Box::new(
+                self.dice.ensure_artifact_group(input).await?,
+            )));
         }
 
         // NOTE: This looks a bit awkward, that's because fbcode's rustfmt and ours slightly

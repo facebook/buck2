@@ -10,7 +10,6 @@
 //! Implementation of test running.
 
 #![feature(async_closure)]
-#![feature(box_syntax)]
 
 pub mod command;
 pub mod downward_api;

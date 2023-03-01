@@ -268,11 +268,11 @@ async fn test(
     let resolved_pattern =
         resolve_patterns(&parsed_patterns, &cell_resolver, &ctx.file_ops()).await?;
 
-    let launcher: Box<dyn ExecutorLauncher> = box OutOfProcessTestExecutor {
+    let launcher: Box<dyn ExecutorLauncher> = Box::new(OutOfProcessTestExecutor {
         executable: test_executor,
         args: test_executor_args,
         dispatcher: ctx.per_transaction_data().get_dispatcher().dupe(),
-    };
+    });
 
     let options = request
         .session_options
