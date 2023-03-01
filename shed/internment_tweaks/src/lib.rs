@@ -15,8 +15,6 @@
 #![cfg_attr(feature = "gazebo_lint", feature(plugin))]
 #![cfg_attr(feature = "gazebo_lint", allow(deprecated))] // :(
 #![cfg_attr(feature = "gazebo_lint", plugin(gazebo_lint))]
-// We deliberately make our code stable compatible
-#![cfg_attr(feature = "gazebo_lint", allow(gazebo_lint_use_box))]
 
 use std::borrow::Borrow;
 use std::cmp::Ordering;

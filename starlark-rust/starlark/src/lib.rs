@@ -374,7 +374,6 @@
 #![allow(clippy::wrong_self_convention)]
 // FIXME: Temporary
 #![allow(clippy::useless_transmute)] // Seems to be a clippy bug, but we should be using less transmute anyway
-#![cfg_attr(feature = "gazebo_lint", allow(gazebo_lint_use_box))]
 #![deny(missing_docs)]
 
 #[macro_use]

@@ -18,7 +18,6 @@
 // Plugins
 #![cfg_attr(feature = "gazebo_lint", feature(plugin))]
 #![cfg_attr(feature = "gazebo_lint", allow(deprecated))] // :(
-#![cfg_attr(feature = "gazebo_lint", allow(gazebo_lint_use_box))]
 #![cfg_attr(feature = "gazebo_lint", plugin(gazebo_lint))]
 // Disagree these are good hints
 #![allow(clippy::type_complexity)]
