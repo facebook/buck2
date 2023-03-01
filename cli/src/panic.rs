@@ -20,11 +20,11 @@ use fbinit::FacebookInit;
 /// Initializes the panic hook.
 pub fn initialize(fb: FacebookInit) {
     let hook = panic::take_hook();
-    panic::set_hook(box move |info| {
+    panic::set_hook(Box::new(move |info| {
         the_panic_hook(fb, info);
         hook(info);
-    });
-    buck2_core::error::initialize(box move |category, err, loc, quiet| {
+    }));
+    buck2_core::error::initialize(Box::new(move |category, err, loc, quiet| {
         imp::write_soft_error(
             fb,
             category,
@@ -36,7 +36,7 @@ pub fn initialize(fb: FacebookInit) {
             },
             quiet,
         );
-    });
+    }));
 }
 
 /// The panic hook, initialized during `initialize`. Invoked immediately on a panic, but prior to the process being

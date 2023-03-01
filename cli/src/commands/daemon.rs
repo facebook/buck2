@@ -392,9 +392,9 @@ impl DaemonCommand {
                 }
             }
 
-            let delegate = box Delegate {
+            let delegate = Box::new(Delegate {
                 hard_shutdown_sender: hard_shutdown_sender.clone(),
-            };
+            });
             let daemon_dir = paths.daemon_dir()?;
 
             listener.set_nonblocking(true)?;
@@ -629,7 +629,7 @@ mod tests {
             fbinit,
             <dyn LogConfigurationReloadHandle>::noop(),
             invocation_paths,
-            box Delegate,
+            Box::new(Delegate),
             None,
             process_info.clone(),
             listener,

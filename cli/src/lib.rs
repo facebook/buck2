@@ -10,7 +10,6 @@
 //! `buck2 audit` command implementation, both client and server.
 
 #![allow(stable_features)]
-#![feature(box_syntax)]
 #![feature(async_closure)]
 #![feature(try_blocks)]
 #![feature(negative_impls)]
@@ -296,7 +295,7 @@ impl CommandKind {
             if common_opts.no_buckd {
                 let paths = paths.clone()?;
                 // Create a function which spawns an in-process daemon.
-                Some(box move || {
+                Some(Box::new(move || {
                     let (tx, rx) = std::sync::mpsc::channel();
                     // Spawn a thread which runs the daemon.
                     thread::spawn(move || {
@@ -332,7 +331,7 @@ impl CommandKind {
                             "In-process daemon failed to start and we don't know why"
                         )),
                     }
-                })
+                }))
             } else {
                 None
             };
