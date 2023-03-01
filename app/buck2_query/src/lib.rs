@@ -9,7 +9,6 @@
 
 #![feature(async_closure)]
 #![feature(box_patterns)]
-#![feature(box_syntax)]
 #![feature(try_blocks)]
 // Plugins
 #![cfg_attr(feature = "gazebo_lint", feature(plugin))]

@@ -69,15 +69,15 @@ impl QueryTarget for TestTarget {
     }
 
     fn deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::NodeRef> + Send + 'a> {
-        box self.deps.iter()
+        Box::new(self.deps.iter())
     }
 
     fn exec_deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::NodeRef> + Send + 'a> {
-        box std::iter::empty()
+        Box::new(std::iter::empty())
     }
 
     fn target_deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::NodeRef> + Send + 'a> {
-        box std::iter::empty()
+        Box::new(std::iter::empty())
     }
 
     fn attr_to_string_alternate(&self, _attr: &Self::Attr) -> String {

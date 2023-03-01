@@ -376,7 +376,7 @@ mod tests {
         }
 
         fn deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::NodeRef> + Send + 'a> {
-            box self.1.iter()
+            Box::new(self.1.iter())
         }
 
         fn special_attrs_for_each<E, F: FnMut(&str, &Self::Attr) -> Result<(), E>>(

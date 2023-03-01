@@ -91,7 +91,7 @@ impl<Env: QueryEnvironment> DepsFunction<Env> {
                     async fn get_children(&self, target: &T) -> anyhow::Result<TargetSet<T>> {
                         let augmented_functions = AugmentedQueryFunctions::augment(
                             self.functions,
-                            box DepsContextFunctions { target },
+                            Box::new(DepsContextFunctions { target }),
                         );
                         let evaluator = QueryEvaluator::new(self.inner_env, &augmented_functions);
                         match evaluator.eval_parsed_query(self.expr.expr).await {
