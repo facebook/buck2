@@ -17,6 +17,7 @@ load(":apple_code_signing_types.bzl", "CodeSignType")
 load(":apple_core_data.bzl", "apple_core_data_impl")
 load(":apple_library.bzl", "apple_library_impl")
 load(":apple_package.bzl", "apple_package_impl")
+load(":apple_package_config.bzl", "IpaCompressionLevel")
 load(":apple_resource.bzl", "apple_resource_impl")
 load(
     ":apple_rules_impl_utility.bzl",
@@ -89,6 +90,9 @@ extra_attributes = {
         "_omnibus_environment": omnibus_environment_attr(),
         APPLE_LINK_LIBRARIES_LOCALLY_OVERRIDE_ATTR_NAME: attrs.option(attrs.bool(), default = None),
         APPLE_ARCHIVE_OBJECTS_LOCALLY_OVERRIDE_ATTR_NAME: attrs.option(attrs.bool(), default = None),
+    },
+    "apple_package": {
+        "_ipa_compression_level": attrs.enum(IpaCompressionLevel.values()),
     },
     "apple_resource": {
         "codesign_on_copy": attrs.bool(default = False),

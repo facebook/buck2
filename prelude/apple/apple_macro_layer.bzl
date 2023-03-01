@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load(":apple_package_config.bzl", "apple_package_config")
 load(
     ":apple_rules_impl_utility.bzl",
     "APPLE_ARCHIVE_OBJECTS_LOCALLY_OVERRIDE_ATTR_NAME",
@@ -43,6 +44,7 @@ def apple_binary_macro_impl(apple_binary_rule = None, **kwargs):
     apple_binary_rule(**kwargs)
 
 def apple_package_macro_impl(apple_package_rule = None, **kwargs):
+    kwargs.update(apple_package_config())
     apple_package_rule(
         **kwargs
     )
