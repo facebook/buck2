@@ -272,7 +272,14 @@ where
         // When command is stuck we call `rage` to gather debugging information
         if !self.already_raged {
             self.already_raged = true;
-            tokio::spawn(call_rage(self.isolation_dir.clone()));
+            tokio::spawn(call_rage(
+                self.isolation_dir.clone(),
+                self.observer()
+                    .session_info()
+                    .trace_id
+                    .as_ref()
+                    .map(|t| t.to_string()),
+            ));
         }
         Ok(())
     }
@@ -631,23 +638,33 @@ mod tests {
     }
 }
 
-async fn call_rage(isolation_dir: FileNameBuf) {
-    match call_rage_impl(isolation_dir).await {
+async fn call_rage(isolation_dir: FileNameBuf, trace_id: Option<String>) {
+    match call_rage_impl(isolation_dir, trace_id).await {
         Ok(_) => {}
         Err(e) => tracing::warn!("Error calling buck2 rage: {:#}", e),
     };
 }
 
-async fn call_rage_impl(isolation_dir: FileNameBuf) -> anyhow::Result<()> {
+async fn call_rage_impl(
+    isolation_dir: FileNameBuf,
+    trace_id: Option<String>,
+) -> anyhow::Result<()> {
     let current_exe = std::env::current_exe().context("Not current_exe")?;
-    let _child = buck2_util::process::async_background_command(current_exe)
+    let mut command = buck2_util::process::async_background_command(current_exe);
+    let mut command = command
         .args(["--isolation-dir", isolation_dir.as_str()])
         .arg("rage")
         .arg("--timeout")
         .arg("3600")
         .arg("--no-paste")
-        .args(["--invocation-offset", "0"]) // last invocation
-        .args(["--origin", "hang-detector"])
+        .args(["--origin", "hang-detector"]);
+    if let Some(ref trace_id) = trace_id {
+        command = command.args(["--invocation-id", trace_id]);
+    } else {
+        tracing::warn!("More than 1 minute has passed and still no trace id");
+        command = command.arg("--no-invocation");
+    };
+    command
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::piped())
