@@ -23,9 +23,9 @@ A single input or output of an [action](#action). These are files that participa
 
 Declared by a [rule](#rule) and used to express the properties of a particular instance of a rule to create a [target](#target). For example, srcs, deps and copts, which declare a target's source files, dependencies, and custom compiler options, respectively. The available attributes for a target depend on its rule type.
 
-#### BUILD file
+#### BUCK file
 
-A BUILD file (also often named `BUCK` or `TARGETS`, this is configurable) is the main configuration file that tells Buck2 what to build, what their dependencies are, and how to build them. Buck2 takes a BUILD file as input and evaluates the file to declare [targets](#target), which are then used to create a graph of dependencies and to derive the [actions](#action) that must be completed to build intermediate and final software outputs. A BUILD file marks a directory and any sub-directories not containing a BUILD file as a [package](#package).
+A `BUCK` file (the name is configurable, some projects use `TARGETS`) is the main configuration file that tells Buck2 what to build, what their dependencies are, and how to build them. Buck2 takes a `BUCK` file as input and evaluates the file to declare [targets](#target), which are then used to create a graph of dependencies and to derive the [actions](#action) that must be completed to build intermediate and final software outputs. A `BUCK` file marks a directory and any sub-directories not containing a `BUCK` file as a [package](#package).
 
 #### BXL
 

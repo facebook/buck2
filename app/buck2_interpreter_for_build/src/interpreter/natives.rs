@@ -23,7 +23,7 @@ pub fn register_module_natives(globals: &mut GlobalsBuilder) {
         Ok(ModuleInternals::from_context(eval)?.target_exists(name))
     }
 
-    /// Called in a TARGETS/BUCK file to declare the oncall contact details for
+    /// Called in a `BUCK` file to declare the oncall contact details for
     /// all the targets defined. Must be called at most once, before any targets
     /// have been declared. Errors if called from a `.bzl` file.
     fn oncall(

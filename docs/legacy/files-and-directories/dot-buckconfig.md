@@ -661,10 +661,10 @@ This sets a list of paths to files that will be automatically included by every 
 
 ### name
 
-The name of [build file](https://buck.build/concept/build_file.html)s within a project. This defaults to `BUCK`. We recommend that you use the default name. However, you could specify a different name—such as `BUILD` shown below—in order to support, for example, a legacy project that used different buildfile naming conventions.
+The name of [build file](https://buck.build/concept/build_file.html)s within a project. This defaults to `BUCK`. We recommend that you use the default name. However, you could specify a different name—such as `TARGETS` shown below—in order to support, for example, a legacy project that used different buildfile naming conventions.
 
 ```
-[buildfile]name = BUILD
+[buildfile]name = TARGETS
 ```
 
 ## [cache]

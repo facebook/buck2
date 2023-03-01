@@ -12,7 +12,7 @@ The retroactively named Buck1 was a capable build system and is still in use tod
 
 Following are aspects common to Buck1 and Buck2 (and in most cases, Bazel):
 
-* **Targets that can be queried** - the build is defined as a series of targets, specified in `TARGETS` files, that depend on other targets. This graph of targets can be queried to understand how they relate to each other and what the potential impact of a change might be.
+* **Targets that can be queried** - the build is defined as a series of targets, specified in `BUCK` files, that depend on other targets. This graph of targets can be queried to understand how they relate to each other and what the potential impact of a change might be.
 * **Remote execution** - the build can send actions to a set of remote servers to be executed, increasing the parallelism significantly.
 * **Multi-language composability** - there can be lots of different languages in a single build, and they can be put together. For example, you could have a Python library that depends on a Rust library, which, in turn depends on a C library.
 * **File watching** - at large enough scale, simply looking for changed files is prohibitively expensive. Buck can integrate with [Watchman](https://facebook.github.io/watchman/) to discover which files have changed efficiently. However, for simplicity of setup, the open-source version defaults to using `inotify` or similar functionality.

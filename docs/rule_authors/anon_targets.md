@@ -63,7 +63,7 @@ Notes:
 The following code represents a scenario for a compile-and-link language where, if two targets end up compiling the same file (for example, they are in the same package and both list it, or it gets export_file'd), then that file is compiled just once:
 
 ```python
-## TARGETS ##############
+## BUCK ##############
 @load(":silly.bzl", "silly_binary")
 
 silly_binary(

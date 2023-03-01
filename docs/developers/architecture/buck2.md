@@ -9,7 +9,7 @@ import useBaseUrl from '@docusaurus/useBaseUrl';
 
 Buck2 is a build system whose core is written in Rust. Starlark, which is a deterministic, immutable version of Python, is used to extend the Buck2 build system, enabling Buck2 to be language-agnostic.
 
-The high-level flow starts with a user creating a build file (a TARGETS file) containing one or more targets, which is specified by the target label, its inputs (sources, attributes, configurations, and dependencies), and the type of macro or rule to use.
+The high-level flow starts with a user creating a build file (a `BUCK` file) containing one or more targets, which is specified by the target label, its inputs (sources, attributes, configurations, and dependencies), and the type of macro or rule to use.
 
 Briefly, a macro is a wrapper around a rule, which runs necessary commands to generate what’s needed for a target (for example, for a `cxx_binary` target, generate the header map and run necessary `clang` commands). Macros can be used to reduce boilerplate code for users (such as to supply the same set of attributes for a rule for all targets). Macros and rules are both written in Starlark and are specified by input sources, attributes, and the implementation function.
 
@@ -35,7 +35,7 @@ Each of the phases and states shown in the Execution Model, are detailed in the 
 
 ### State 0 - Build Files
 
-Build files (commonly referred to as TARGETS files, their default name) are the main input to Buck2 and are syntactically Python.
+Build files (commonly referred to as `BUCK` files, their default name) are the main input to Buck2 and are syntactically Python.
 
 Each build file is uniquely identified by the directory in which it's located. Since all build files have the same name, there cannot be two build files in the same directory. This is usually represented as the relative path from the root of the project (the directory where the .buckconfig file is).
 
