@@ -251,6 +251,6 @@ impl StreamingCommand for TestCommand {
     }
 
     fn extra_superconsole_component(&self) -> Option<Box<dyn superconsole::Component>> {
-        Some(box TestHeader::new())
+        Some(Box::new(TestHeader::new()))
     }
 }

@@ -56,9 +56,13 @@ impl WhatUpCommand {
         let log_path = event_log.get(&ctx)?;
 
         // Create space for a very big console
-        let mut components: Vec<Box<dyn Component>> = vec![box SessionInfoComponent];
-        components.push(box TimedList::new(CUTOFFS, String::new()));
-        let console_root = box Split::new(components, Direction::Vertical, SplitKind::Adaptive);
+        let mut components: Vec<Box<dyn Component>> = vec![Box::new(SessionInfoComponent)];
+        components.push(Box::new(TimedList::new(CUTOFFS, String::new())));
+        let console_root = Box::new(Split::new(
+            components,
+            Direction::Vertical,
+            SplitKind::Adaptive,
+        ));
 
         let rt = runtime::Builder::new_current_thread()
             .enable_all()
