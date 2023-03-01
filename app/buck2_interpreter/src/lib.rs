@@ -9,7 +9,6 @@
 
 //! Implements Buck's handling of target patterns and parsing of build files.
 
-#![feature(box_syntax)]
 #![feature(pattern)]
 #![feature(try_blocks)]
 #![feature(never_type)]
