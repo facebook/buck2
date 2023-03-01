@@ -1090,12 +1090,12 @@ pub(crate) mod testing {
         where
             K: Default,
         {
-            box Dep::<K>::testing_new(
+            Box::new(Dep::<K>::testing_new(
                 // we'll never reach the below since all we do is use this for testing equality for
                 // tests
                 Arc::downgrade(&IncrementalEngine::new(K::default())),
                 k,
-            )
+            ))
         }
     }
 
@@ -1145,11 +1145,11 @@ pub(crate) mod testing {
                 }
             }
 
-            box Fake::<K>(
+            Box::new(Fake::<K>(
                 (k, v),
                 Arc::new(RwLock::new(CellHistory::verified(v))),
                 is_valid,
-            )
+            ))
         }
     }
 
@@ -1316,7 +1316,7 @@ mod tests {
         };
         let engine = IncrementalEngine::new(EvaluatorFn::new(async move |k| eval_fn(k)));
 
-        let vt = VersionTracker::new(box |_| {});
+        let vt = VersionTracker::new(Box::new(|_| {}));
 
         let eval_ctx = Arc::new(TransactionCtx::new(
             VersionGuard::testing_new(
@@ -1564,7 +1564,7 @@ mod tests {
             }
 
             fn into_dependency(self: Box<Self>) -> Box<dyn Dependency> {
-                box (*self)
+                Box::new(*self)
             }
 
             fn get_key_equality(&self) -> (PartialEqAny, VersionNumber) {
@@ -1587,7 +1587,7 @@ mod tests {
                 _transaction_ctx: &Arc<TransactionCtx>,
                 _: &ComputationData,
             ) -> DiceResult<(Box<dyn ComputedDependency>, Arc<dyn GraphNodeDyn>)> {
-                Ok((box self.dupe(), self.1.dupe()))
+                Ok((Box::new(self.dupe()), self.1.dupe()))
             }
 
             fn lookup_node(
@@ -1628,10 +1628,10 @@ mod tests {
                 CellHistory::testing_new(&[VersionNumber::new(0)], &[VersionNumber::new(1)]),
             ),
         );
-        entry
-            .writable()
-            .deps
-            .add_deps(VersionNumber::new(0), Arc::new(vec![box dep.dupe() as _]));
+        entry.writable().deps.add_deps(
+            VersionNumber::new(0),
+            Arc::new(vec![Box::new(dep.dupe()) as _]),
+        );
 
         // new version to trigger re-evaluation of dep
         let eval_ctx = Arc::new(TransactionCtx::testing_new(VersionNumber::new(1)));
@@ -1658,10 +1658,10 @@ mod tests {
             1,
             CellHistory::verified(VersionNumber::new(1)),
         ));
-        entry
-            .writable()
-            .deps
-            .add_deps(VersionNumber::new(1), Arc::new(vec![box dep.dupe() as _]));
+        entry.writable().deps.add_deps(
+            VersionNumber::new(1),
+            Arc::new(vec![Box::new(dep.dupe()) as _]),
+        );
         // new version to trigger re-evaluation of dep
         let eval_ctx = Arc::new(TransactionCtx::testing_new(VersionNumber::new(2)));
         assert!(
@@ -1733,10 +1733,10 @@ mod tests {
             1,
             CellHistory::verified(VersionNumber::new(1)),
         ));
-        entry
-            .writable()
-            .deps
-            .add_deps(VersionNumber::new(1), Arc::new(vec![box dep.dupe() as _]));
+        entry.writable().deps.add_deps(
+            VersionNumber::new(1),
+            Arc::new(vec![Box::new(dep.dupe()) as _]),
+        );
         // new version to trigger re-evaluation of dep
         let eval_ctx = Arc::new(TransactionCtx::testing_new(VersionNumber::new(2)));
         assert!(
@@ -1778,7 +1778,7 @@ mod tests {
                         value: eval_result.load(Ordering::SeqCst),
                         both_deps: BothDeps {
                             deps: HashSet::from_iter([
-                                (box dep.lock().take().unwrap()) as Box<dyn ComputedDependency>
+                                Box::new(dep.lock().take().unwrap()) as Box<dyn ComputedDependency>
                             ]),
                             rdeps: Vec::new(),
                         },
@@ -1969,7 +1969,7 @@ mod tests {
 
     #[tokio::test]
     async fn dirty_invalidates_rdeps_across_engines() -> anyhow::Result<()> {
-        let vt = VersionTracker::new(box |_| {});
+        let vt = VersionTracker::new(Box::new(|_| {}));
         let ctx = Arc::new(TransactionCtx::new(
             VersionGuard::testing_new(
                 vt.dupe(),
@@ -2312,11 +2312,11 @@ mod tests {
                 ValueWithDeps {
                     value: *node.val(),
                     both_deps: BothDeps {
-                        deps: HashSet::from_iter([box ComputedDep {
+                        deps: HashSet::from_iter([Box::new(ComputedDep {
                             engine: Arc::downgrade(&self.0),
                             version: transaction_ctx.get_version(),
                             node: node.dupe(),
-                        }
+                        })
                             as Box<dyn ComputedDependency>]),
                         rdeps: vec![node.into_dyn()],
                     },

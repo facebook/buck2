@@ -185,7 +185,6 @@
 //! ```
 
 #![feature(async_closure)]
-#![feature(box_syntax)]
 #![feature(entry_insert)]
 #![feature(fn_traits)]
 #![feature(test)]

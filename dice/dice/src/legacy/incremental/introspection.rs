@@ -40,10 +40,11 @@ where
     T: Dupe + Send + Sync + 'static,
 {
     fn keys<'a>(&'a self) -> Box<dyn Iterator<Item = AnyKey> + 'a> {
-        box self
-            .versioned_cache
-            .iter()
-            .map(|e| AnyKey::new(e.key().clone()))
+        Box::new(
+            self.versioned_cache
+                .iter()
+                .map(|e| AnyKey::new(e.key().clone())),
+        )
     }
 
     fn edges<'a>(&'a self) -> Box<dyn Iterator<Item = (AnyKey, Vec<AnyKey>)> + 'a> {
@@ -59,14 +60,14 @@ where
                 .deps()
         }
 
-        box self.versioned_cache.iter().map(|e| {
+        Box::new(self.versioned_cache.iter().map(|e| {
             let k = AnyKey::new(e.key().clone());
             let deps = match extract_deps(e.value()) {
                 Some(deps) => deps.iter().map(|d| d.introspect()).collect(),
                 None => Vec::new(),
             };
             (k, deps)
-        })
+        }))
     }
 
     fn keys_currently_running<'a>(
@@ -157,7 +158,7 @@ where
                 }
             })
         }
-        box self.versioned_cache.iter().map(move |e| {
+        Box::new(self.versioned_cache.iter().map(move |e| {
             let k = AnyKey::new(e.key().clone());
             SerializedGraphNodesForKey {
                 id: map_id(AnyKey::new(e.key().clone())),
@@ -169,7 +170,7 @@ where
                     .map(|(v, node)| (v.to_introspectable(), visit_node(node, &mut map_id)))
                     .collect(),
             }
-        })
+        }))
     }
 
     fn len_for_introspection(&self) -> usize {

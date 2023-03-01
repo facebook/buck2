@@ -59,7 +59,7 @@ impl ComputationData {
         Self {
             user_data: Arc::new(data),
             cycle_detector: match detect_cycles {
-                DetectCycles::Enabled => Some(box CycleDetector::new()),
+                DetectCycles::Enabled => Some(Box::new(CycleDetector::new())),
                 DetectCycles::Disabled => None,
             },
             user_cycle_detector_guard: None,
@@ -80,7 +80,7 @@ impl ComputationData {
             cycle_detector: self
                 .cycle_detector
                 .as_ref()
-                .map(|detector| Ok(box CycleDetector::visit(detector, key)?))
+                .map(|detector| Ok(Box::new(CycleDetector::visit(detector, key)?)))
                 .transpose()?,
             user_cycle_detector_guard: None,
         })
@@ -225,7 +225,7 @@ impl DiceComputationsImplLegacy {
             let dice = self.dice.dupe();
             changes.change(
                 k.clone(),
-                box (move |version| {
+                Box::new(move |version| {
                     debug!(msg = "marking value as changed", version = %version, key = %k);
                     let cache = dice.find_cache::<K>();
                     cache.dirty(k, version, true);
@@ -247,7 +247,7 @@ impl DiceComputationsImplLegacy {
             let dice = self.dice.dupe();
             changes.change(
                 k.clone(),
-                box (move |version| {
+                Box::new(move |version| {
                     let cache = dice.find_cache::<K>();
                     debug!(msg = "marking value as updated", version = %version, key = %k);
                     cache.update_injected_value(k, version, v)

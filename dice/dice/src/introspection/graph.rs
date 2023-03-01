@@ -234,7 +234,7 @@ pub fn short_type_name(type_name: &str) -> &str {
 
 impl AnyKey {
     pub fn new(k: impl KeyForIntrospection) -> Self {
-        Self { inner: box k }
+        Self { inner: Box::new(k) }
     }
 
     pub fn type_name(&self) -> &'static str {

@@ -711,10 +711,10 @@ impl UserCycleDetector for CycleDetector {
             .lock()
             .unwrap()
             .push(CycleDetectorEvents::Start(*f));
-        Some(box CycleDetectorGuard {
+        Some(Box::new(CycleDetectorGuard {
             key: *f,
             events: self.events.clone(),
-        })
+        }))
     }
 
     fn finished_computing_key(&self, key: &dyn std::any::Any) {

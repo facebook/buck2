@@ -44,11 +44,11 @@ impl RecordingDepsTracker {
     where
         K: IncrementalComputeProperties,
     {
-        self.deps.insert(box ComputedDep {
+        self.deps.insert(Box::new(ComputedDep {
             engine: Arc::downgrade(&engine),
             version: v,
             node,
-        });
+        }));
     }
 
     fn collect_deps(self) -> HashSet<Box<dyn ComputedDependency>> {
@@ -93,11 +93,11 @@ impl BothDeps {
         node: GraphNode<S>,
         incremental_engine: &Arc<IncrementalEngine<S>>,
     ) -> BothDeps {
-        let dep: Box<dyn ComputedDependency> = box ComputedDep::<S> {
+        let dep: Box<dyn ComputedDependency> = Box::new(ComputedDep::<S> {
             engine: Arc::downgrade(incremental_engine),
             version,
             node: node.dupe(),
-        };
+        });
         BothDeps {
             deps: HashSet::from_iter([dep]),
             rdeps: Vec::from_iter([node.into_dyn()]),
@@ -211,10 +211,10 @@ mod internals {
         }
 
         fn into_dependency(self: Box<Self>) -> Box<dyn Dependency> {
-            box Dep {
+            Box::new(Dep {
                 engine: self.engine,
                 k: self.node.key().clone(),
-            }
+            })
         }
 
         fn get_key_equality(&self) -> (PartialEqAny, VersionNumber) {
@@ -281,11 +281,11 @@ mod internals {
             let res = K::recompute(&self.k, &self.engine(), transaction_ctx, extra).await?;
 
             Ok((
-                box ComputedDep {
+                Box::new(ComputedDep {
                     engine: self.engine.dupe(),
                     version: transaction_ctx.get_version(),
                     node: res.dupe(),
-                },
+                }),
                 res.into_dyn(),
             ))
         }

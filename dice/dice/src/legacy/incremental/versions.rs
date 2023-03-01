@@ -128,7 +128,7 @@ impl VersionForWrites {
 
         Self {
             v: OnceCell::from(VersionWriteGuard { lock, v }),
-            version_tracker: VersionTracker::new(box |_| {}),
+            version_tracker: VersionTracker::new(Box::new(|_| {})),
         }
     }
 }
@@ -411,7 +411,7 @@ mod tests {
 
     #[test]
     fn simple_version_increases() {
-        let vt = VersionTracker::new(box |_| {});
+        let vt = VersionTracker::new(Box::new(|_| {}));
         let vg = vt.current();
         assert_eq!(
             (vg.version, *vg.minor_version_guard),
@@ -433,9 +433,9 @@ mod tests {
 
         let vt = VersionTracker::new({
             let c = cleaned.dupe();
-            box move |v| {
+            Box::new(move |v| {
                 *c.lock().unwrap() = v.deleted_version();
-            }
+            })
         });
         let vg1 = vt.current();
         assert_eq!(vg1.version, VersionNumber::new(0));
@@ -486,7 +486,7 @@ mod tests {
 
     #[test]
     fn write_version_commits_on_drop() {
-        let vt = VersionTracker::new(box |_| {});
+        let vt = VersionTracker::new(Box::new(|_| {}));
         {
             let vg = vt.current();
             assert_eq!(
@@ -540,7 +540,7 @@ mod tests {
 
     #[test]
     fn write_version_is_lazy() {
-        let vt = VersionTracker::new(box |_| {});
+        let vt = VersionTracker::new(Box::new(|_| {}));
 
         let write1 = vt.write();
         let write2 = vt.write();
@@ -557,7 +557,7 @@ mod tests {
 
     #[test]
     fn write_version_rollbacks() {
-        let vt = VersionTracker::new(box |_| {});
+        let vt = VersionTracker::new(Box::new(|_| {}));
 
         let write1 = vt.write();
         let write2 = vt.write();
@@ -602,7 +602,7 @@ mod tests {
 
     #[test]
     fn version_write_is_exclusive() {
-        let tracker = VersionTracker::new(box |_| {});
+        let tracker = VersionTracker::new(Box::new(|_| {}));
         let write_v = tracker.write();
         assert_eq!(write_v.get(), VersionNumber::new(1));
 

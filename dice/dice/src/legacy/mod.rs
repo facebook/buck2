@@ -116,7 +116,7 @@ impl DiceLegacy {
         Arc::new(DiceLegacy {
             data,
             map,
-            global_versions: VersionTracker::new(box move |update| {
+            global_versions: VersionTracker::new(Box::new(move |update| {
                 tracing::info!("VersionTracker update: {:?}", update);
 
                 if let Some(deleted) = update.deleted_version() {
@@ -130,7 +130,7 @@ impl DiceLegacy {
 
                 // If the corresponding Dice has been dropped, then so be it, ignore the error.
                 active_versions_sender.send_replace(update.active_version_count());
-            }),
+            })),
             detect_cycles,
             active_transaction_count: AtomicU32::new(0),
             active_versions_observer,

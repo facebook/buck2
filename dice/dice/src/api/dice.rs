@@ -313,8 +313,9 @@ pub mod testing {
         where
             K: Key,
         {
-            self.mocked
-                .push(box move |ctx| Ok(ctx.changed_to(vec![(expected_k, expected_res)])?));
+            self.mocked.push(Box::new(move |ctx| {
+                Ok(ctx.changed_to(vec![(expected_k, expected_res)])?)
+            }));
             self
         }
 
