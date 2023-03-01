@@ -67,24 +67,24 @@ where
     where
         'v: 'a,
     {
-        Ok(box self
-            .0
-            .downcast_ref::<StarlarkBxlBuildResult>()
-            .unwrap()
-            .0
-            .unpack_built()
-            .unwrap()
-            .outputs
-            .iter()
-            .flat_map(|built| match built {
-                Ok(built) => itertools::Either::Left(
-                    box built
-                        .values
-                        .iter()
-                        .map(|(artifact, _)| heap.alloc(StarlarkArtifact::new(artifact.dupe()))),
-                ),
-                Err(_) => itertools::Either::Right(std::iter::empty()),
-            }))
+        Ok(Box::new(
+            self.0
+                .downcast_ref::<StarlarkBxlBuildResult>()
+                .unwrap()
+                .0
+                .unpack_built()
+                .unwrap()
+                .outputs
+                .iter()
+                .flat_map(|built| match built {
+                    Ok(built) => {
+                        itertools::Either::Left(Box::new(built.values.iter().map(
+                            |(artifact, _)| heap.alloc(StarlarkArtifact::new(artifact.dupe())),
+                        )))
+                    }
+                    Err(_) => itertools::Either::Right(std::iter::empty()),
+                }),
+        ))
     }
 }
 
@@ -117,19 +117,20 @@ where
     where
         'v: 'a,
     {
-        Ok(box self
-            .0
-            .downcast_ref::<StarlarkBxlBuildResult>()
-            .unwrap()
-            .0
-            .unpack_built()
-            .unwrap()
-            .outputs
-            .iter()
-            .filter_map(|built| match built {
-                Ok(_) => None,
-                Err(e) => Some(heap.alloc(format!("{}", e))),
-            }))
+        Ok(Box::new(
+            self.0
+                .downcast_ref::<StarlarkBxlBuildResult>()
+                .unwrap()
+                .0
+                .unpack_built()
+                .unwrap()
+                .outputs
+                .iter()
+                .filter_map(|built| match built {
+                    Ok(_) => None,
+                    Err(e) => Some(heap.alloc(format!("{}", e))),
+                }),
+        ))
     }
 }
 

@@ -118,7 +118,7 @@ pub async fn eval(
                     .buck_out_path_resolver()
                     .resolve_gen(&output_stream);
 
-                let file = RefCell::new(box project_fs.create_file(&file_path, false)?);
+                let file = RefCell::new(Box::new(project_fs.create_file(&file_path, false)?));
 
                 let mut eval = Evaluator::new(&env);
 

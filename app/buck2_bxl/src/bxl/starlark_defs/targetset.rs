@@ -79,10 +79,11 @@ impl<'v, Node: NodeLike> StarlarkValue<'v> for StarlarkTargetSet<Node> {
     where
         'v: 'a,
     {
-        Ok(box self
-            .0
-            .iter()
-            .map(|target_node| target_node.dupe().alloc(heap)))
+        Ok(Box::new(
+            self.0
+                .iter()
+                .map(|target_node| target_node.dupe().alloc(heap)),
+        ))
     }
 
     fn at(&self, index: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {

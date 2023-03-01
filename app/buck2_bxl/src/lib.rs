@@ -8,7 +8,6 @@
  */
 
 #![feature(async_closure)]
-#![feature(box_syntax)]
 #![feature(trait_alias)]
 #![feature(try_blocks)]
 

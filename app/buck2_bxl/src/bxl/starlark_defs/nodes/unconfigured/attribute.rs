@@ -80,12 +80,14 @@ where
             .downcast_ref::<StarlarkTargetNode>()
             .context("invalid inner")?;
         let target_node = &starlark_target_node.0;
-        Ok(box target_node.attrs(AttrInspectOptions::All).map(|a| {
-            heap.alloc((
-                a.name,
-                StarlarkCoercedAttr(a.value.clone(), target_node.label().pkg()),
-            ))
-        }))
+        Ok(Box::new(target_node.attrs(AttrInspectOptions::All).map(
+            |a| {
+                heap.alloc((
+                    a.name,
+                    StarlarkCoercedAttr(a.value.clone(), target_node.label().pkg()),
+                ))
+            },
+        )))
     }
 }
 

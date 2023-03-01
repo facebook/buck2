@@ -115,10 +115,9 @@ impl<'v> StarlarkValue<'v> for StarlarkFileSet {
     where
         'v: 'a,
     {
-        Ok(box self
-            .0
-            .iter()
-            .map(|cell_path| heap.alloc(StarlarkFileNode(cell_path.clone()))))
+        Ok(Box::new(self.0.iter().map(|cell_path| {
+            heap.alloc(StarlarkFileNode(cell_path.clone()))
+        })))
     }
 
     fn at(&self, index: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
@@ -218,6 +217,6 @@ impl<'v> StarlarkValue<'v> for StarlarkReadDirSet {
             .children()?
             .into_map(|cell_path| heap.alloc(StarlarkFileNode(cell_path)));
 
-        Ok(box iter.into_iter())
+        Ok(Box::new(iter.into_iter()))
     }
 }
