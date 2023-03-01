@@ -85,7 +85,7 @@ def do_query(
     return _expand_and_filter_dependencies(ctx, actions, root_targets)
 
 def _do_query_entry_point(ctx: "bxl_ctx") -> None:
-    targets = do_query(ctx, ctx.cquery(), ctx.bxl_actions.action_factory(), ctx.cli_args.target)
+    targets = do_query(ctx, ctx.cquery_legacy(), ctx.bxl_actions.action_factory(), ctx.cli_args.target)
     ctx.output.print_json([target.raw_target() for target in targets])
 
 query = bxl(

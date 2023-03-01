@@ -12,8 +12,8 @@ def _deduped_paths(paths):
     }.values())
 
 def _ebin_paths(ctx):
-    test_target = ctx.cquery().kind("erlang_test", ctx.cquery().owner(ctx.cli_args.source))
-    app_target = ctx.cquery().kind("erlang_app$", ctx.cquery().owner(ctx.cli_args.source))
+    test_target = ctx.cquery_legacy().kind("erlang_test", ctx.cquery_legacy().owner(ctx.cli_args.source))
+    app_target = ctx.cquery_legacy().kind("erlang_app$", ctx.cquery_legacy().owner(ctx.cli_args.source))
 
     target = test_target + app_target
 

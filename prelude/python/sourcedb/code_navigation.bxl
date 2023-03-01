@@ -10,7 +10,7 @@ load(":merge.bxl", "do_merge")
 load(":query.bxl", "do_query")
 
 def _build_entry_point(ctx: "bxl_ctx") -> None:
-    query = ctx.cquery()
+    query = ctx.cquery_legacy()
     actions = ctx.bxl_actions.action_factory()
     root = ctx.root()
 
