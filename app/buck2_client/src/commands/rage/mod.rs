@@ -317,7 +317,6 @@ impl RageCommand {
             hashmap! (
                 "dice_dump" => dice_dump.output(),
                 "daemon_stderr_dump" => daemon_stderr_dump.output(),
-                "system_info" => system_info.output(),
                 "hg_snapshot_id" => hg_snapshot_id.output(),
                 "invocation_id" => invocation_id.map(|inv| inv.to_string()).unwrap_or_default(),
                 "origin" => self.origin.to_string(),
