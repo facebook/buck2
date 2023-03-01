@@ -10,7 +10,6 @@
 #![cfg_attr(feature = "gazebo_lint", feature(plugin))]
 #![cfg_attr(feature = "gazebo_lint", allow(deprecated))] // :(
 #![cfg_attr(feature = "gazebo_lint", plugin(gazebo_lint))]
-#![feature(box_syntax)]
 
 //!
 //! Events and event streams for Buck2.
@@ -91,7 +90,7 @@ impl BuckEvent {
             data: Some(data),
         };
         BuckEvent {
-            event: box event,
+            event: Box::new(event),
             timestamp,
             span_id,
             parent_id,
