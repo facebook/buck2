@@ -7,8 +7,6 @@
  * of this source tree.
  */
 
-#![feature(box_syntax)]
-
 pub mod command_end;
 pub mod concurrency;
 pub mod ctx;

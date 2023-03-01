@@ -1392,19 +1392,22 @@ mod tests {
         T: EventSource,
     {
         let cmd = cmd.map(|c| c.to_owned());
-        Ok(wait_for_event(source, box |e| {
-            if let Some(span_start) = &e.span_start_event() {
-                if let Some(buck2_data::span_start_event::Data::ExclusiveCommandWait(data)) =
-                    &span_start.data
-                {
-                    let ExclusiveCommandWaitStart {
-                        command_name: event_cmd,
-                    } = data;
-                    return event_cmd == &cmd;
+        Ok(wait_for_event(
+            source,
+            Box::new(|e: &BuckEvent| {
+                if let Some(span_start) = &e.span_start_event() {
+                    if let Some(buck2_data::span_start_event::Data::ExclusiveCommandWait(data)) =
+                        &span_start.data
+                    {
+                        let ExclusiveCommandWaitStart {
+                            command_name: event_cmd,
+                        } = data;
+                        return event_cmd == &cmd;
+                    }
                 }
-            }
-            false
-        })
+                false
+            }),
+        )
         .await?
         .span_id())
     }
@@ -1416,16 +1419,19 @@ mod tests {
     where
         T: EventSource,
     {
-        wait_for_event(source, box |e| {
-            if let Some(span_end) = &e.span_end_event() {
-                if let Some(buck2_data::span_end_event::Data::ExclusiveCommandWait(_)) =
-                    &span_end.data
-                {
-                    return e.span_id() == span_id || span_id.is_none();
+        wait_for_event(
+            source,
+            Box::new(|e: &BuckEvent| {
+                if let Some(span_end) = &e.span_end_event() {
+                    if let Some(buck2_data::span_end_event::Data::ExclusiveCommandWait(_)) =
+                        &span_end.data
+                    {
+                        return e.span_id() == span_id || span_id.is_none();
+                    }
                 }
-            }
-            false
-        })
+                false
+            }),
+        )
         .await
     }
 
