@@ -100,10 +100,10 @@ impl CoercedAttrExr for CoercedAttr {
 
                         assert_eq!(entries.capacity(), entries.len());
 
-                        Ok(CoercedAttr::Selector(box CoercedSelector::new(
+                        Ok(CoercedAttr::Selector(Box::new(CoercedSelector::new(
                             ctx.intern_select(entries),
                             default,
-                        )?))
+                        )?)))
                     } else {
                         Err(anyhow::anyhow!(SelectError::ValueNotDict(v.to_repr())))
                     }
@@ -165,8 +165,8 @@ mod tests {
 
     #[test]
     fn selector_equals_accounts_for_ordering() {
-        let s1 = CoercedAttr::Selector(
-            box CoercedSelector::new(
+        let s1 = CoercedAttr::Selector(Box::new(
+            CoercedSelector::new(
                 ArcSlice::new([
                     (
                         TargetLabel::testing_parse("cell1//pkg1:target1"),
@@ -180,9 +180,9 @@ mod tests {
                 None,
             )
             .unwrap(),
-        );
-        let s2 = CoercedAttr::Selector(
-            box CoercedSelector::new(
+        ));
+        let s2 = CoercedAttr::Selector(Box::new(
+            CoercedSelector::new(
                 ArcSlice::new([
                     (
                         TargetLabel::testing_parse("cell1//pkg1:target1"),
@@ -196,12 +196,12 @@ mod tests {
                 None,
             )
             .unwrap(),
-        );
+        ));
 
         assert_eq!(s1 == s2, true);
 
-        let s2 = CoercedAttr::Selector(
-            box CoercedSelector::new(
+        let s2 = CoercedAttr::Selector(Box::new(
+            CoercedSelector::new(
                 ArcSlice::new([
                     (
                         TargetLabel::testing_parse("cell2//pkg2:target2"),
@@ -215,7 +215,7 @@ mod tests {
                 None,
             )
             .unwrap(),
-        );
+        ));
 
         assert_eq!(s1 == s2, false);
     }
@@ -312,30 +312,30 @@ mod tests {
         }
 
         // Test more specific is selected even if it is not first.
-        let select_entries = box [
+        let select_entries = Box::new([
             (linux.dupe(), literal_true()),
             (linux_x86_64.dupe(), literal_str()),
-        ];
+        ]);
         assert_eq!(
             Some(&literal_str()),
             CoercedAttr::select_the_most_specific(&ctx, &*select_entries).unwrap()
         );
 
         // Test more specific is selected even if it is first.
-        let select_entries = box [
+        let select_entries = Box::new([
             (linux_x86_64.dupe(), literal_str()),
             (linux.dupe(), literal_true()),
-        ];
+        ]);
         assert_eq!(
             Some(&literal_str()),
             CoercedAttr::select_the_most_specific(&ctx, &*select_entries).unwrap()
         );
 
         // Conflicting keys.
-        let select_entries = box [
+        let select_entries = Box::new([
             (linux_arm64.dupe(), literal_true()),
             (linux_x86_64.dupe(), literal_str()),
-        ];
+        ]);
         assert_eq!(
             "Both select keys `config//:linux-arm64` and `config//:linux-x86_64` \
             match the configuration, but neither is more specific",
@@ -349,12 +349,12 @@ mod tests {
     fn test_to_json_concat() {
         assert_eq!(
             r#"{"__type":"concat","items":["a","b","c","d"]}"#,
-            CoercedAttr::Concat(box [
+            CoercedAttr::Concat(Box::new([
                 CoercedAttr::Literal(AttrLiteral::String(ArcStr::from("a"))),
                 CoercedAttr::Literal(AttrLiteral::String(ArcStr::from("b"))),
                 CoercedAttr::Literal(AttrLiteral::String(ArcStr::from("c"))),
                 CoercedAttr::Literal(AttrLiteral::String(ArcStr::from("d"))),
-            ])
+            ]))
             .to_json(&AttrFmtContext::NO_CONTEXT)
             .unwrap()
             .to_string()
@@ -365,8 +365,8 @@ mod tests {
     fn test_to_json_selector() {
         assert_eq!(
             r#"{"__type":"selector","entries":{"DEFAULT":"ddd","config//:a":true,"config//:b":10}}"#,
-            CoercedAttr::Selector(
-                box CoercedSelector::new(
+            CoercedAttr::Selector(Box::new(
+                CoercedSelector::new(
                     ArcSlice::new([
                         (
                             TargetLabel::testing_parse("config//:a"),
@@ -382,7 +382,7 @@ mod tests {
                     )))),
                 )
                 .unwrap()
-            )
+            ))
             .to_json(&AttrFmtContext::NO_CONTEXT)
             .unwrap()
             .to_string()

@@ -163,11 +163,11 @@ pub trait UnconfiguredMacroExt {
         } else {
             None
         };
-        Ok(UnconfiguredMacro::UserKeyedPlaceholder(box (
+        Ok(UnconfiguredMacro::UserKeyedPlaceholder(Box::new((
             var_name.into_boxed_str(),
             ctx.coerce_label(&args[0])?,
             arg.map(|a| a.into_boxed_str()),
-        )))
+        ))))
     }
 
     fn new_query(
@@ -196,10 +196,10 @@ pub trait UnconfiguredMacroExt {
 
         // TODO(cjhopman): errors when args aren't the right size (too many, or separator for non-separator query)
 
-        Ok(MacroBase::Query(box QueryMacroBase {
+        Ok(MacroBase::Query(Box::new(QueryMacroBase {
             expansion_type,
             query: QueryAttrType::coerce(ctx, query)?,
-        }))
+        })))
     }
 
     fn new_user_unkeyed_placeholder(var_name: String) -> UnconfiguredMacro {
@@ -207,10 +207,10 @@ pub trait UnconfiguredMacroExt {
     }
 
     fn new_unrecognized(macro_type: String, args: Vec<String>) -> UnconfiguredMacro {
-        UnconfiguredMacro::UnrecognizedMacro(box UnrecognizedMacro {
+        UnconfiguredMacro::UnrecognizedMacro(Box::new(UnrecognizedMacro {
             macro_type: macro_type.into_boxed_str(),
             args: args.into_boxed_slice(),
-        })
+        }))
     }
 }
 

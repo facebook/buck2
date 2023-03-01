@@ -234,10 +234,10 @@ impl AttrCoercionContext for BuildAttrCoercionContext {
                 }
             }
             let files = listing.files_within(&path).duped().collect();
-            Ok(CoercedPath::Directory(box CoercedDirectory {
+            Ok(CoercedPath::Directory(Box::new(CoercedDirectory {
                 dir: path,
                 files,
-            }))
+            })))
         } else {
             let e =
                 BuildAttrCoercionContextError::SourceFileMissing(package.dupe(), value.to_owned());

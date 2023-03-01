@@ -45,7 +45,7 @@ impl AttrTypeCoerce for SourceAttrType {
             .unpack_str()
             .ok_or_else(|| anyhow::anyhow!(CoercionError::type_error(STRING_TYPE, value)))?;
         match ctx.coerce_label(source_label) {
-            Ok(label) => Ok(AttrLiteral::SourceLabel(box label)),
+            Ok(label) => Ok(AttrLiteral::SourceLabel(Box::new(label))),
             Err(label_err) => {
                 match ctx.coerce_path(cleanup_path(source_label), self.allow_directory) {
                     Ok(path) => Ok(AttrLiteral::SourceFile(path)),

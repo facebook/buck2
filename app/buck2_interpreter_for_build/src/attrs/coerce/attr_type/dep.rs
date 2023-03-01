@@ -36,10 +36,10 @@ impl AttrTypeCoerce for DepAttrType {
 
         let label = ctx.coerce_label(label)?;
 
-        Ok(AttrLiteral::Dep(box DepAttr {
+        Ok(AttrLiteral::Dep(Box::new(DepAttr {
             attr_type: self.dupe(),
             label,
-        }))
+        })))
     }
 
     fn starlark_type(&self) -> String {
@@ -72,13 +72,13 @@ impl AttrTypeCoerce for ExplicitConfiguredDepAttrType {
             .ok_or_else(|| anyhow::anyhow!(CoercionError::type_error(STRING_TYPE, value)))?;
         let platform = ctx.coerce_target(platform_string)?;
 
-        Ok(AttrLiteral::ExplicitConfiguredDep(
-            box UnconfiguredExplicitConfiguredDep {
+        Ok(AttrLiteral::ExplicitConfiguredDep(Box::new(
+            UnconfiguredExplicitConfiguredDep {
                 attr_type: self.dupe(),
                 label,
                 platform,
             },
-        ))
+        )))
     }
 
     fn starlark_type(&self) -> String {

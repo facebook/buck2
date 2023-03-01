@@ -33,11 +33,13 @@ impl AttrTypeCoerce for SplitTransitionDepAttrType {
 
         let label = ctx.coerce_label(label)?;
 
-        Ok(AttrLiteral::SplitTransitionDep(box SplitTransitionDep {
-            label,
-            transition: self.transition.dupe(),
-            required_providers: self.required_providers.dupe(),
-        }))
+        Ok(AttrLiteral::SplitTransitionDep(Box::new(
+            SplitTransitionDep {
+                label,
+                transition: self.transition.dupe(),
+                required_providers: self.required_providers.dupe(),
+            },
+        )))
     }
 
     fn starlark_type(&self) -> String {

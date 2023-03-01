@@ -92,10 +92,10 @@ impl AttrTypeCoerce for QueryAttrType {
             .unpack_str()
             .ok_or_else(|| CoercionError::type_error(STRING_TYPE, value))?;
 
-        Ok(AttrLiteral::Query(box QueryAttr {
+        Ok(AttrLiteral::Query(Box::new(QueryAttr {
             query: Self::coerce(ctx, query.to_owned())?,
             providers: ProviderIdSet::EMPTY,
-        }))
+        })))
     }
 
     fn starlark_type(&self) -> String {

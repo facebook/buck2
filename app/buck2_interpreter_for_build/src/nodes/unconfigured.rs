@@ -160,8 +160,8 @@ pub(crate) fn parse_visibility(
     }
     match specs {
         None => Ok(VisibilitySpecification::Default),
-        Some(specs) => Ok(VisibilitySpecification::VisibleTo(
-            box specs.into_boxed_slice(),
-        )),
+        Some(specs) => Ok(VisibilitySpecification::VisibleTo(Box::new(
+            specs.into_boxed_slice(),
+        ))),
     }
 }

@@ -31,7 +31,7 @@ impl AttrTypeCoerce for LabelAttrType {
 
         let label = ctx.coerce_label(label)?;
 
-        Ok(AttrLiteral::Label(box label))
+        Ok(AttrLiteral::Label(Box::new(label)))
     }
 
     fn starlark_type(&self) -> String {
