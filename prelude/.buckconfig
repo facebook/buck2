@@ -16,6 +16,10 @@ buck = ../../../xplat/build_infra/buck_client
 buck_bazel_skylib = ../../../xplat/build_infra/buck_client/third-party/skylark/bazel-skylib
 toolchains = ../toolchains
 
+[repository_aliases]
+[not_repository_aliases] # @oss-enable
+config = ovr_config
+
 [buildfile]
 [not_buildfile] # @oss-enable
 name = TARGETS
