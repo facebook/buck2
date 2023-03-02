@@ -26,6 +26,7 @@ pub mod final_console;
 pub mod find_certs;
 pub mod manifold;
 pub mod path_arg;
+pub mod protobuf_util;
 pub mod replayer;
 pub mod startup_deadline;
 pub mod stdin;

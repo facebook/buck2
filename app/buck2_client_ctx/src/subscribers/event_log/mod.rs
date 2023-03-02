@@ -13,7 +13,6 @@ pub mod upload;
 
 use std::fmt;
 use std::io;
-use std::io::Cursor;
 use std::mem;
 use std::pin::Pin;
 use std::sync::atomic::AtomicUsize;
@@ -39,7 +38,6 @@ use buck2_core::fs::working_dir::WorkingDir;
 use buck2_core::soft_error;
 use buck2_events::trace::TraceId;
 use buck2_events::BuckEvent;
-use bytes::BytesMut;
 use dupe::Dupe;
 use futures::future::Future;
 use futures::stream::BoxStream;
@@ -61,10 +59,10 @@ use tokio::io::AsyncWriteExt;
 use tokio::io::BufReader;
 use tokio::io::ReadBuf;
 use tokio_stream::wrappers::LinesStream;
-use tokio_util::codec::Decoder;
 use tokio_util::codec::FramedRead;
 
 use crate::cleanup_ctx::AsyncCleanupContext;
+use crate::protobuf_util::ProtobufSplitter;
 use crate::stream_value::StreamValue;
 use crate::subscribers::event_log::file_names::get_logfile_name;
 use crate::subscribers::event_log::file_names::remove_old_logs;
@@ -315,33 +313,26 @@ impl EventLogPathBuf {
         assert_eq!(self.encoding.mode, LogMode::Protobuf);
 
         let log_file = self.open(stats).await?;
-        let mut stream = FramedRead::new(log_file, EventLogDecoder::new());
+        let mut stream = FramedRead::new(log_file, ProtobufSplitter);
 
-        let invocation = match stream.try_next().await?.context("No invocation found")? {
-            Frame::Invocation(inv) => Invocation {
-                command_line_args: inv.command_line_args,
-                working_dir: inv.working_dir,
-            },
-            Frame::Value(_) => {
-                return Err(anyhow::anyhow!("Expected Invocation, found StreamValue"));
-            }
+        let invocation = stream.try_next().await?.context("No invocation found")?;
+        let invocation = buck2_data::Invocation::decode_length_delimited(invocation)
+            .context("Invalid Invocation")?;
+        let invocation = Invocation {
+            command_line_args: invocation.command_line_args,
+            working_dir: invocation.working_dir,
         };
 
-        let events = stream.and_then(|frame| async move {
-            match frame {
-                Frame::Invocation(_) => {
-                    Err(anyhow::anyhow!("Expected StreamValue, found Invocation"))
+        let events = stream.and_then(|data| async move {
+            let val = buck2_cli_proto::CommandProgress::decode_length_delimited(data)
+                .context("Invalid CommandProgress")?;
+            match val.progress {
+                Some(command_progress::Progress::Event(event)) => Ok(StreamValue::Event(event)),
+                Some(command_progress::Progress::Result(result)) => Ok(StreamValue::Result(result)),
+                Some(command_progress::Progress::PartialResult(result)) => {
+                    Ok(StreamValue::PartialResult(result))
                 }
-                Frame::Value(val) => match val.progress {
-                    Some(command_progress::Progress::Event(event)) => Ok(StreamValue::Event(event)),
-                    Some(command_progress::Progress::Result(result)) => {
-                        Ok(StreamValue::Result(result))
-                    }
-                    Some(command_progress::Progress::PartialResult(result)) => {
-                        Ok(StreamValue::PartialResult(result))
-                    }
-                    None => Err(anyhow::anyhow!("Event type not recognized")),
-                },
+                None => Err(anyhow::anyhow!("Event type not recognized")),
             }
         });
 
@@ -844,61 +835,6 @@ impl<'a> SerializeForLog for StreamValueForWrite<'a> {
         };
         stream_val.encode_length_delimited(buf)?;
         Ok(())
-    }
-}
-
-#[allow(clippy::large_enum_variant)]
-enum Frame {
-    Invocation(buck2_data::Invocation),
-    Value(buck2_cli_proto::CommandProgress),
-}
-
-struct EventLogDecoder {
-    saw_invocation: bool,
-}
-
-impl EventLogDecoder {
-    pub(crate) fn new() -> EventLogDecoder {
-        Self {
-            saw_invocation: false,
-        }
-    }
-}
-impl Decoder for EventLogDecoder {
-    type Item = Frame;
-    type Error = anyhow::Error;
-
-    fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
-        let orig_len = src.len();
-
-        let data_length = match prost::decode_length_delimiter(Cursor::new(src.as_mut())) {
-            Ok(length) => length,
-            Err(..) => {
-                // 10 bytes is the largest length of an encoded size
-                if orig_len > 10 {
-                    return Err(anyhow::anyhow!("Corrupted stream"));
-                } else {
-                    return Ok(None);
-                }
-            }
-        };
-
-        let required_len = prost::length_delimiter_len(data_length) + data_length;
-        if orig_len < required_len {
-            return Ok(None);
-        }
-        let data = src.split_to(required_len);
-
-        Some(
-            if self.saw_invocation {
-                buck2_cli_proto::CommandProgress::decode_length_delimited(data).map(Frame::Value)
-            } else {
-                self.saw_invocation = true;
-                buck2_data::Invocation::decode_length_delimited(data).map(Frame::Invocation)
-            }
-            .context("Failed to decode"),
-        )
-        .transpose()
     }
 }
 
