@@ -32,6 +32,7 @@ use buck2_build_api::interpreter::rule_defs::provider::builtin::install_info::In
 use buck2_build_api::interpreter::rule_defs::provider::builtin::run_info::RunInfo;
 use buck2_cli_proto::InstallRequest;
 use buck2_cli_proto::InstallResponse;
+use buck2_common::cas_digest::RawDigest;
 use buck2_common::client_utils::get_channel_tcp;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::HasFileOps;
@@ -582,20 +583,30 @@ async fn send_file(
     let name = file.name;
     let artifact = file.artifact;
 
-    let digest = match &file.artifact_value.entry() {
-        DirectoryEntry::Dir(dir) => dir.fingerprint().raw_digest().to_string(),
+    enum Data<'a> {
+        Digest(&'a RawDigest),
+        Symlink(&'a str),
+    }
+
+    let data = match &file.artifact_value.entry() {
+        DirectoryEntry::Dir(dir) => Data::Digest(dir.fingerprint().raw_digest()),
         DirectoryEntry::Leaf(ActionDirectoryMember::File(file)) => {
-            file.digest.raw_digest().to_string()
+            Data::Digest(file.digest.raw_digest())
         }
         DirectoryEntry::Leaf(ActionDirectoryMember::Symlink(symlink)) => {
             // todo(@lebentle) Use for now to unblock exopackage,
             // but should follow symlink and validate the target exists and send that
-            format!("re-symlink:{}", symlink.target().as_str())
+            Data::Symlink(symlink.target().as_str())
         }
         DirectoryEntry::Leaf(ActionDirectoryMember::ExternalSymlink(..)) => {
             // This is a wart but it's not possible for this to show up here in an output.
             return Err(InstallError::ErrorRetrievingHash(name).into());
         }
+    };
+
+    let (digest, digest_algorithm) = match data {
+        Data::Digest(d) => (d.to_string(), d.algorithm().to_string()),
+        Data::Symlink(sym) => (format!("re-symlink:{}", sym), "".to_owned()), // Messy :(
     };
 
     let path = &artifact_fs
@@ -605,6 +616,7 @@ async fn send_file(
         install_id: install_id.to_owned(),
         name: name.to_owned(),
         digest,
+        digest_algorithm,
         path: path.to_string(),
     });
 
