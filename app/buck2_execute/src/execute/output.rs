@@ -14,10 +14,10 @@ use anyhow::Context;
 use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_common::file_ops::FileDigest;
 use futures::future;
+use remote_execution::TDigest;
 
 use crate::digest::CasDigestConversionResultExt;
 use crate::digest::CasDigestFromReExt;
-use crate::digest::ReDigest;
 use crate::digest_config::DigestConfig;
 use crate::re::manager::ManagedRemoteExecutionClient;
 use crate::re::streams::RemoteCommandStdStreams;
@@ -36,18 +36,18 @@ pub enum ReStdStream {
     Raw(Vec<u8>),
 
     /// Output not available inline, we have a digest.
-    Digest(ReDigest),
+    Digest(TDigest),
 
     /// This output was not available inline, but was prefetched. The prefetch might be lossy. We
     /// have a digest to access the full data if needed.
-    PrefetchedLossy { data: String, digest: ReDigest },
+    PrefetchedLossy { data: String, digest: TDigest },
 
     /// There was no output made available by RE.
     None,
 }
 
 impl ReStdStream {
-    pub fn new(raw: Option<Vec<u8>>, digest: Option<ReDigest>) -> Self {
+    pub fn new(raw: Option<Vec<u8>>, digest: Option<TDigest>) -> Self {
         match (raw, digest) {
             (Some(raw), _) if !raw.is_empty() => Self::Raw(raw),
             (_, Some(digest)) => Self::Digest(digest),
@@ -55,7 +55,7 @@ impl ReStdStream {
         }
     }
 
-    pub fn into_raw_or_digest(self) -> (Option<Vec<u8>>, Option<ReDigest>) {
+    pub fn into_raw_or_digest(self) -> (Option<Vec<u8>>, Option<TDigest>) {
         match self {
             Self::Raw(raw) => (Some(raw), None),
             Self::Digest(digest) | Self::PrefetchedLossy { digest, .. } => (None, Some(digest)),

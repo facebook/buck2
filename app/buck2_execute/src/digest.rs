@@ -12,6 +12,8 @@ use std::fmt;
 use buck2_common::cas_digest::CasDigest;
 use buck2_common::cas_digest::CasDigestParseError;
 use buck2_common::cas_digest::TrackedCasDigest;
+use remote_execution::Digest;
+use remote_execution::TDigest;
 use thiserror::Error;
 
 use crate::digest_config::DigestConfig;
@@ -27,26 +29,19 @@ pub enum DigestConversionError {
     },
 }
 
-pub type ReDigest = remote_execution::TDigest;
-
-pub type GrpcDigest = remote_execution::Digest;
-
 pub trait CasDigestFromReExt: Sized {
-    fn from_re(x: &ReDigest, digest_config: DigestConfig) -> Result<Self, DigestConversionError>;
-    fn from_grpc(
-        x: &GrpcDigest,
-        digest_config: DigestConfig,
-    ) -> Result<Self, DigestConversionError>;
+    fn from_re(x: &TDigest, digest_config: DigestConfig) -> Result<Self, DigestConversionError>;
+    fn from_grpc(x: &Digest, digest_config: DigestConfig) -> Result<Self, DigestConversionError>;
 }
 
 pub trait CasDigestToReExt {
-    fn to_re(&self) -> ReDigest;
-    fn to_grpc(&self) -> GrpcDigest;
+    fn to_re(&self) -> TDigest;
+    fn to_grpc(&self) -> Digest;
 }
 
 impl<Kind> CasDigestFromReExt for CasDigest<Kind> {
     fn from_re(
-        digest: &ReDigest,
+        digest: &TDigest,
         digest_config: DigestConfig,
     ) -> Result<Self, DigestConversionError> {
         Ok(Self::new(
@@ -60,7 +55,7 @@ impl<Kind> CasDigestFromReExt for CasDigest<Kind> {
     }
 
     fn from_grpc(
-        digest: &GrpcDigest,
+        digest: &Digest,
         digest_config: DigestConfig,
     ) -> Result<Self, DigestConversionError> {
         Ok(Self::new(
@@ -88,26 +83,26 @@ impl<Kind> CasDigestConversionResultExt for Result<CasDigest<Kind>, DigestConver
 }
 
 impl<Kind> CasDigestToReExt for TrackedCasDigest<Kind> {
-    fn to_re(&self) -> ReDigest {
+    fn to_re(&self) -> TDigest {
         self.data().to_re()
     }
 
-    fn to_grpc(&self) -> GrpcDigest {
+    fn to_grpc(&self) -> Digest {
         self.data().to_grpc()
     }
 }
 
 impl<Kind> CasDigestToReExt for CasDigest<Kind> {
-    fn to_re(&self) -> ReDigest {
-        ReDigest {
+    fn to_re(&self) -> TDigest {
+        TDigest {
             hash: hex::encode(self.digest().as_bytes()),
             size_in_bytes: self.size() as i64,
             ..Default::default()
         }
     }
 
-    fn to_grpc(&self) -> GrpcDigest {
-        GrpcDigest {
+    fn to_grpc(&self) -> Digest {
+        Digest {
             hash: hex::encode(self.digest().as_bytes()),
             size_bytes: self.size() as i64,
         }
