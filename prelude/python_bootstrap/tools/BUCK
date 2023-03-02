@@ -6,6 +6,6 @@ prelude.sh_binary(
     visibility = ["PUBLIC"],
     target_compatible_with = select({
         "DEFAULT": [],
-        "ovr_config//os:windows": ["ovr_config//os:windows"],
+        "config//os:windows": ["config//os:windows"],
     }),
 )

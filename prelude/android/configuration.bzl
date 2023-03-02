@@ -8,20 +8,19 @@
 load("@prelude//android:cpu_filters.bzl", "ALL_CPU_FILTERS", "CPU_FILTER_FOR_DEFAULT_PLATFORM")
 load("@prelude//android:min_sdk_version.bzl", "get_min_sdk_version_constraint_value_name", "get_min_sdk_version_range")
 
-# FIXME: prelude// should be standalone (not refer to ovr_config//)
 _REFS = {
-    "arm64": "ovr_config//cpu/constraints:arm64",
-    "armv7": "ovr_config//cpu/constraints:arm32",
+    "arm64": "config//cpu/constraints:arm64",
+    "armv7": "config//cpu/constraints:arm32",
     "build_only_native_code": "fbsource//xplat/buck2/platform/android:build_only_native_code",
     "building_android_binary": "prelude//os:building_android_binary",
-    "cpu": "ovr_config//cpu/constraints:cpu",
-    "default_platform": "ovr_config//platform/android:x86_32-fbsource",
+    "cpu": "config//cpu/constraints:cpu",
+    "default_platform": "config//platform/android:x86_32-fbsource",
     "do_not_build_only_native_code": "fbsource//xplat/buck2/platform/android:do_not_build_only_native_code",
     "maybe_build_only_native_code": "fbsource//xplat/buck2/platform/android:maybe_build_only_native_code",
     "maybe_building_android_binary": "prelude//os:maybe_building_android_binary",
     "min_sdk_version": "fbsource//xplat/buck2/platform/android:min_sdk_version",
-    "x86": "ovr_config//cpu/constraints:x86_32",
-    "x86_64": "ovr_config//cpu/constraints:x86_64",
+    "x86": "config//cpu/constraints:x86_32",
+    "x86_64": "config//cpu/constraints:x86_64",
 }
 for min_sdk in get_min_sdk_version_range():
     constraint_value_name = get_min_sdk_version_constraint_value_name(min_sdk)

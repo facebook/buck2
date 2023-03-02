@@ -298,7 +298,7 @@ NativeLinkStrategy = ["separate", "native", "merged"]
 def _package_python_binary_remotely():
     return select({
         "DEFAULT": False,
-        "ovr_config//os/constraints:android": True,
+        "config//os/constraints:android": True,
     })
 
 def _python_binary_attrs():

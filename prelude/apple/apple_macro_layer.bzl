@@ -31,7 +31,7 @@ def apple_macro_layer_set_bool_override_attrs_from_config(attrib_map: {str.type:
             attribs[attrib_name] = select({
                 "DEFAULT": config_truth_value,
                 # Do not set attribute value for host tools
-                "ovr_config//platform/macos/constraints:execution-platform-transitioned": None,
+                "config//platform/macos/constraints:execution-platform-transitioned": None,
             })
     return attribs
 

@@ -28,27 +28,27 @@ load(":prebuilt_jar.bzl", "prebuilt_jar_impl")
 AbiGenerationMode = ["class", "source", "source_only", "none"]
 
 def select_java_toolchain():
-    # FIXME: prelude// should be standalone (not refer to fbcode//, fbsource// or ovr_config//)
+    # FIXME: prelude// should be standalone (not refer to fbcode//, fbsource//)
     return select(
         {
             # By default use the fbsource toolchain
             "DEFAULT": "fbsource//xplat/buck2/platform/java:java",
             # if target is meant to run on host but with an android environment then use .buckconfig from fbsource cell
-            "ovr_config//runtime/constraints:android-host-test": "fbsource//xplat/buck2/platform/java:java-for-host-tests",
+            "config//runtime/constraints:android-host-test": "fbsource//xplat/buck2/platform/java:java-for-host-tests",
             # if target is with fbcode constraint then use .buckconfig from fbcode cell
-            "ovr_config//runtime:fbcode": "fbcode//buck2/platform:java_fbcode",
+            "config//runtime:fbcode": "fbcode//buck2/platform:java_fbcode",
             # if target is for android (fbsource repo) then use .buckconfig from fbsource cell
-            "ovr_config//toolchain/fb:android-ndk": "fbsource//xplat/buck2/platform/java:java",
+            "config//toolchain/fb:android-ndk": "fbsource//xplat/buck2/platform/java:java",
         },
     )
 
 def select_dex_toolchain():
-    # FIXME: prelude// should be standalone (not refer to fbsource//, ovr_config//)
+    # FIXME: prelude// should be standalone (not refer to fbsource//)
     return select(
         {
             # Only need a Dex toolchain for Android builds.
             "DEFAULT": None,
-            "ovr_config//os/constraints:android": "fbsource//xplat/buck2/platform/java:dex",
+            "config//os/constraints:android": "fbsource//xplat/buck2/platform/java:dex",
         },
     )
 
