@@ -262,6 +262,12 @@ pub fn display_event(event: &BuckEvent, opts: TargetDisplayOptions) -> anyhow::R
                     Ok("Waiting for dice".to_owned())
                 }
             }
+            Data::DeferredPreparationStage(prep) => {
+                use buck2_data::deferred_preparation_stage_start::Stage;
+                match prep.stage.as_ref().context("Missing `stage`")? {
+                    Stage::MaterializedArtifacts(_) => Ok("local_materialize_inputs".to_owned()),
+                }
+            }
             Data::Fake(fake) => Ok(format!("{} -- speak of the devil", fake.caramba)),
         };
 

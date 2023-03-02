@@ -55,6 +55,11 @@ pub trait Deferred: Allocative {
 
     /// returns a vec of output artifacts if the object has them.
     fn debug_artifact_outputs(&self) -> anyhow::Result<Option<Vec<BuildArtifact>>>;
+
+    /// An optional stage to wrap execution in.
+    fn span(&self) -> Option<buck2_data::span_start_event::Data> {
+        None
+    }
 }
 
 /// The context for executing a 'Deferred'.
@@ -301,6 +306,11 @@ impl DeferredAny for TrivialDeferredValue {
     fn debug_artifact_outputs(&self) -> anyhow::Result<Option<Vec<BuildArtifact>>> {
         self.0.debug_artifact_outputs()
     }
+
+    fn span(&self) -> Option<buck2_data::span_start_event::Data> {
+        // No evaluation Span if you never evaluate.
+        None
+    }
 }
 
 #[derive(Allocative)]
@@ -342,6 +352,13 @@ impl DeferredAny for DeferredTableEntry {
         match self {
             Self::Trivial(v) => v.debug_artifact_outputs(),
             Self::Complex(v) => v.debug_artifact_outputs(),
+        }
+    }
+
+    fn span(&self) -> Option<buck2_data::span_start_event::Data> {
+        match self {
+            Self::Trivial(..) => None,
+            Self::Complex(v) => v.span(),
         }
     }
 }
@@ -798,6 +815,9 @@ pub trait DeferredAny: Allocative + Send + Sync {
     fn as_any(&self) -> &dyn Any;
 
     fn type_name(&self) -> &str;
+
+    /// An optional stage to wrap execution in.
+    fn span(&self) -> Option<buck2_data::span_start_event::Data>;
 }
 
 impl dyn DeferredAny {
@@ -860,6 +880,10 @@ where
 
     fn type_name(&self) -> &str {
         type_name::<D>()
+    }
+
+    fn span(&self) -> Option<buck2_data::span_start_event::Data> {
+        D::span(self)
     }
 }
 

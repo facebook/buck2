@@ -351,6 +351,7 @@ mod fbcode {
                     Some(Data::DiceSynchronizeSection(_)) => false,
                     Some(Data::DiceCleanup(_)) => false,
                     Some(Data::ExclusiveCommandWait(_)) => false,
+                    Some(Data::DeferredPreparationStage(_)) => false,
                     Some(Data::Fake(..)) => false,
                     None => false,
                 }
@@ -391,6 +392,8 @@ mod fbcode {
                     Some(Data::DiceSynchronizeSection(_)) => false,
                     Some(Data::DiceCleanup(_)) => false,
                     Some(Data::ExclusiveCommandWait(_)) => false,
+                    Some(Data::DeferredPreparationStage(_)) => false,
+                    Some(Data::DeferredEvaluation(_)) => false,
                     Some(Data::Fake(..)) => true,
                     None => false,
                 }

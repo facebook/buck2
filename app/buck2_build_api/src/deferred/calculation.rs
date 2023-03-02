@@ -20,6 +20,7 @@ use buck2_common::dice::data::HasIoProvider;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
 use buck2_common::result::ToUnsharedResultExt;
+use buck2_events::dispatch::create_span;
 use buck2_execute::digest_config::HasDigestConfig;
 use derive_more::Display;
 use dice::DiceComputations;
@@ -27,9 +28,13 @@ use dice::Key;
 use dupe::Dupe;
 use futures::stream::FuturesUnordered;
 use futures::Future;
+use futures::FutureExt;
 use futures::StreamExt;
+use futures::TryStreamExt;
 use gazebo::prelude::*;
+use once_cell::sync::Lazy;
 
+use crate::actions::artifact::materializer::ArtifactMaterializer;
 use crate::analysis::anon_targets::eval_anon_target;
 use crate::analysis::calculation::RuleAnalysisCalculation;
 use crate::analysis::AnalysisResult;
@@ -186,7 +191,7 @@ async fn compute_deferred(
             let target_node_futs = FuturesUnordered::new();
             let deferreds_futs = FuturesUnordered::new();
             let artifacts_futs = FuturesUnordered::new();
-            let materialized_artifacts_futs = FuturesUnordered::new();
+            let materialized_artifacts = FuturesUnordered::new();
 
             deferred.inputs().iter().for_each(|input| match input {
                 DeferredInput::ConfiguredTarget(target) => target_node_futs.push(async move {
@@ -227,27 +232,59 @@ async fn compute_deferred(
                     })
                 }
                 DeferredInput::MaterializedArtifact(artifact) => {
-                    let artifact = artifact.dupe();
-                    materialized_artifacts_futs.push(async move {
-                        crate::calculation::Calculation::ensure_artifact_group(
-                            ctx,
-                            &ArtifactGroup::Artifact(artifact.dupe()),
-                        )
-                        .await?;
-                        let path = crate::actions::artifact::materializer::ArtifactMaterializer::materialize(
-                            ctx, &artifact,
-                        )
-                        .await?;
-                        Ok((artifact.dupe(), path))
-                    })
+                    materialized_artifacts.push(artifact.dupe());
                 }
             });
+
+            // We'll create the Span lazily when materialization hits it.
+            let span = Lazy::new(|| deferred.span().map(create_span));
+
+            // This is a bit suboptimal: we wait for all artifacts to be ready in order to
+            // materialize any of them. However that is how we execute *all* local actions so in
+            // the grand scheme of things that's probably not a huge deal.
+            let materialized_artifacts_fut = {
+                let span = &span;
+                async move {
+                    futures::future::try_join_all(materialized_artifacts.iter().map(
+                        |artifact| async {
+                            crate::calculation::Calculation::ensure_artifact_group(
+                                ctx,
+                                &ArtifactGroup::Artifact(artifact.dupe()),
+                            )
+                            .await
+                        },
+                    ))
+                    .await?;
+
+                    let fut = materialized_artifacts
+                        .into_iter()
+                        .map(|artifact| async {
+                            let path = ArtifactMaterializer::materialize(ctx, &artifact).await?;
+                            anyhow::Ok((artifact, path))
+                        })
+                        .collect::<FuturesUnordered<_>>()
+                        .try_collect::<HashMap<_, _>>();
+
+                    match span.as_ref() {
+                        Some(span) => {
+                            span.create_child(buck2_data::DeferredPreparationStageStart {
+                                stage: Some(buck2_data::MaterializedArtifacts {}.into()),
+                            })
+                            .wrap_future(
+                                fut.map(|r| (r, buck2_data::DeferredPreparationStageEnd {})),
+                            )
+                            .await
+                        }
+                        None => fut.await,
+                    }
+                }
+            };
 
             let (targets, deferreds, artifacts, materialized_artifacts) = futures::future::join4(
                 futures_pair_to_map(target_node_futs),
                 futures_pair_to_map(deferreds_futs),
                 futures_pair_to_map(artifacts_futs),
-                futures_pair_to_map(materialized_artifacts_futs),
+                materialized_artifacts_fut,
             )
             .await;
 
@@ -262,11 +299,18 @@ async fn compute_deferred(
                 ctx.global_data().get_io_provider().project_root().dupe(),
                 ctx.global_data().get_digest_config(),
             );
+
+            let mut execute = move || deferred.execute(&mut ctx);
+
+            let res = match Lazy::into_value(span).unwrap_or_else(|init| init()) {
+                Some(span) => {
+                    span.wrap_closure(|| (execute(), buck2_data::DeferredEvaluationEnd {}))
+                }
+                None => execute(),
+            };
+
             // TODO populate the deferred map
-            Ok(DeferredResult::new(
-                deferred.execute(&mut ctx)?,
-                registry.take_result()?,
-            ))
+            Ok(DeferredResult::new(res?, registry.take_result()?))
         }
 
         fn equality(_: &Self::Value, _: &Self::Value) -> bool {

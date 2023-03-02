@@ -71,6 +71,7 @@ message SpanStartEvent {
     DiceSynchronizeSectionStart dice_synchronize_section = 71;
     DiceCleanupStart dice_cleanup = 72;
     ExclusiveCommandWaitStart exclusive_command_wait = 73;
+    DeferredPreparationStageStart deferred_preparation_stage = 74;
     // Used in Buck unit tests.
     FakeStart fake = 999;
   }
@@ -108,6 +109,8 @@ message SpanEndEvent {
     DiceSynchronizeSectionEnd dice_synchronize_section = 72;
     DiceCleanupEnd dice_cleanup = 73;
     ExclusiveCommandWaitEnd exclusive_command_wait = 74;
+    DeferredPreparationStageEnd deferred_preparation_stage = 75;
+    DeferredEvaluationEnd deferred_evaluation = 76;
     // Used in Buck unit tests.
     FakeEnd fake = 999;
   }
@@ -1466,3 +1469,15 @@ message ConsolePreferences {
 message SubscriptionCommandStart {}
 
 message SubscriptionCommandEnd {}
+
+message DeferredPreparationStageStart {
+  oneof stage {
+    MaterializedArtifacts materialized_artifacts = 1;
+  }
+}
+
+message MaterializedArtifacts {}
+
+message DeferredPreparationStageEnd {}
+
+message DeferredEvaluationEnd {}
