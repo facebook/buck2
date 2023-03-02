@@ -21,9 +21,11 @@ Example:
 # pyre-unsafe
 
 import argparse
+import contextlib
 import os
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from typing import List
 
@@ -72,38 +74,56 @@ def main(argv):
     s_files = [s for s in args.srcs if s.suffix == ".s"]
     o_files = [s for s in args.srcs if s.suffix == ".o"]
 
-    if go_files:
-        compile_prefix = []
-        compile_prefix.extend(args.compiler)
+    with contextlib.ExitStack() as stack:
 
-        # If we have assembly files, generate the symabi file to compile against.
+        asmhdr_dir = None
+
+        assemble_prefix = []
+        assemble_prefix.extend(args.assembler)
+
+        if go_files:
+            compile_prefix = []
+            compile_prefix.extend(args.compiler)
+
+            # If we have assembly files, generate the symabi file to compile
+            # against, and the asm header.
+            if s_files:
+                asmhdr_dir = stack.push(tempfile.TemporaryDirectory())
+
+                asmhdr = Path(asmhdr_dir.name) / "go_asm.h"
+                asmhdr.touch()
+                compile_prefix.extend(["-asmhdr", asmhdr])
+                assemble_prefix.extend(["-I", asmhdr_dir.name])
+
+                # Note: at this point go_asm.h is empty, but that's OK. As per the Go compiler:
+                # https://github.com/golang/go/blob/3f8f929d60a90c4e4e2b07c8d1972166c1a783b1/src/cmd/go/internal/work/gc.go#L441-L443
+                symabis = args.output.with_suffix(".symabis")
+                _compile(assemble_prefix + ["-gensymabis"], symabis, s_files)
+                compile_prefix.extend(["-symabis", symabis])
+
+            if args.embedcfg is not None:
+                compile_prefix.extend(
+                    [
+                        "-embedcfg",
+                        args.embedcfg,
+                    ]
+                )
+
+            # This will create go_asm.h
+            _compile(compile_prefix, args.output, go_files)
+
+        else:
+            args.output.touch()
+
+        # If there are assembly files, assemble them to an object and add into the
+        # output archive.
         if s_files:
-            symabis = args.output.with_suffix(".symabis")
-            _compile(args.assembler + ["-gensymabis"], symabis, s_files)
-            compile_prefix.extend(["-symabis", symabis])
+            s_object = args.output.with_suffix(".o")
+            _compile(assemble_prefix, s_object, s_files)
+            o_files.append(s_object)
 
-        if args.embedcfg is not None:
-            compile_prefix.extend(
-                [
-                    "-embedcfg",
-                    args.embedcfg,
-                ]
-            )
-
-        _compile(compile_prefix, args.output, go_files)
-
-    else:
-        args.output.touch()
-
-    # If there are assembly files, assemble them to an object and add into the
-    # output archive.
-    if s_files:
-        s_object = args.output.with_suffix(".o")
-        _compile(args.assembler, s_object, s_files)
-        o_files.append(s_object)
-
-    if o_files:
-        _pack(args.packer, args.output, o_files)
+        if o_files:
+            _pack(args.packer, args.output, o_files)
 
 
 sys.exit(main(sys.argv))
