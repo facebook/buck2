@@ -365,10 +365,9 @@ fn register_context(builder: &mut MethodsBuilder) {
         this: &'v BxlContext<'v>,
         labels: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
-        #[starlark(require = named, default = false)] use_correct_cell_resolution: bool,
     ) -> anyhow::Result<Value<'v>> {
         let res: anyhow::Result<Value<'v>> = this.async_ctx.via_dice(|ctx| async move {
-            let query_env = get_uquery_env(this, use_correct_cell_resolution).await?;
+            let query_env = get_uquery_env(this, true).await?;
             Ok(
                 match TargetExpr::<'v, TargetNode>::unpack(labels, this, eval).await? {
                     TargetExpr::Label(label) => {
@@ -391,7 +390,7 @@ fn register_context(builder: &mut MethodsBuilder) {
     /// Returns the [`StarlarkUQueryCtx`] that holds all uquery functions.
     fn uquery<'v>(this: &'v BxlContext<'v>) -> anyhow::Result<StarlarkUQueryCtx<'v>> {
         // TODO(@wendyy) - change this to true once everyone is migrated to cquery_legacy()
-        let delegate = this.sync_dice_query_delegate(None, false)?;
+        let delegate = this.sync_dice_query_delegate(None, true)?;
         StarlarkUQueryCtx::new(this, Arc::new(delegate))
     }
 
@@ -413,7 +412,7 @@ fn register_context(builder: &mut MethodsBuilder) {
     ) -> anyhow::Result<StarlarkCQueryCtx<'v>> {
         // TODO(@wendyy) - change this to true once everyone is migrated to cquery_legacy()
         this.async_ctx.via(|| {
-            StarlarkCQueryCtx::new(this, target_platform, &this.global_target_platform, false)
+            StarlarkCQueryCtx::new(this, target_platform, &this.global_target_platform, true)
         })
     }
 
