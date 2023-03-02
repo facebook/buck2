@@ -43,6 +43,7 @@ def robolectric_test_impl(ctx: "context") -> ["provider"]:
         java_packaging_deps = [],  # Only used for third-party jar resources, which we don't care about here.
         use_proto_format = False,
         referenced_resources_lists = [],
+        generate_strings_and_ids_separately = False,
     )
 
     test_config_properties_file = ctx.actions.write(
@@ -67,11 +68,13 @@ def robolectric_test_impl(ctx: "context") -> ["provider"]:
     ctx.actions.run(jar_cmd, category = "test_config_properties_jar_cmd")
     extra_cmds.append(cmd_args().hidden(resources_info.primary_resources_apk, resources_info.manifest))
 
+    r_dot_javas = [r_dot_java.library_output.full_library for r_dot_java in resources_info.r_dot_javas if r_dot_java.library_output]
+    expect(len(r_dot_javas) <= 1, "android_library only works with single R.java")
+
+    java_providers, _ = build_android_library(ctx, r_dot_java = r_dot_javas[0] if r_dot_javas else None)
+
     extra_classpath_entries = [test_config_properties_jar] + ctx.attrs._android_toolchain[AndroidToolchainInfo].android_bootclasspath
-    extra_classpath_entries.extend([r_dot_java.library_output.full_library for r_dot_java in resources_info.r_dot_javas if r_dot_java.library_output])
-
-    java_providers, _ = build_android_library(ctx)
-
+    extra_classpath_entries.extend(r_dot_javas)
     external_runner_test_info = build_junit_test(
         ctx,
         java_providers.java_library_info,
