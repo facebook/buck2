@@ -651,4 +651,9 @@ pub trait DeferredMaterializerExtensions: Send + Sync {
     async fn test_iter(&self, count: usize) -> anyhow::Result<String>;
 
     fn queue_size(&self) -> usize;
+
+    /// Create a new DeferredMaterializerSubscription.
+    async fn create_subscription(
+        &self,
+    ) -> anyhow::Result<Box<dyn DeferredMaterializerSubscription>>;
 }

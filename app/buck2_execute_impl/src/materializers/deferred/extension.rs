@@ -16,6 +16,7 @@ use async_trait::async_trait;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_execute::materialize::materializer::DeferredMaterializerEntry;
 use buck2_execute::materialize::materializer::DeferredMaterializerExtensions;
+use buck2_execute::materialize::materializer::DeferredMaterializerSubscription;
 use chrono::DateTime;
 use chrono::Duration;
 use chrono::TimeZone;
@@ -34,6 +35,7 @@ use tokio_stream::wrappers::UnboundedReceiverStream;
 
 use crate::materializers::deferred::clean_stale::CleanStaleArtifacts;
 use crate::materializers::deferred::io_handler::create_ttl_refresh;
+use crate::materializers::deferred::subscriptions::MaterializerSubscriptionOperation;
 use crate::materializers::deferred::ArtifactMaterializationMethod;
 use crate::materializers::deferred::ArtifactMaterializationStage;
 use crate::materializers::deferred::DefaultIoHandler;
@@ -233,5 +235,15 @@ impl DeferredMaterializerExtensions for DeferredMaterializer {
 
     fn queue_size(&self) -> usize {
         self.command_sender.counters.queue_size()
+    }
+
+    async fn create_subscription(
+        &self,
+    ) -> anyhow::Result<Box<dyn DeferredMaterializerSubscription>> {
+        let (sender, receiver) = oneshot::channel();
+        self.command_sender.send(MaterializerCommand::Subscription(
+            MaterializerSubscriptionOperation::Create { sender },
+        ))?;
+        Ok(Box::new(receiver.await.context("No response from materializer")?) as _)
     }
 }
