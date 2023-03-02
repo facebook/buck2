@@ -9,8 +9,9 @@
 
 load("@prelude//:cache_mode.bzl", "CacheModeInfo")
 load("@prelude//:genrule_local_labels.bzl", "genrule_labels_require_local")
+load("@prelude//:genrule_toolchain.bzl", "GenruleToolchainInfo")
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
-load("@prelude//utils:utils.bzl", "value_or")
+load("@prelude//utils:utils.bzl", "flatten", "value_or")
 
 # Currently, some rules require running from the project root, so provide an
 # opt-in list for those here.  Longer-term, these should be ported to actual
@@ -58,11 +59,15 @@ _USE_CACHE_MODE = False # @oss-enable
 
 # Extra attributes required by every genrule based on genrule_impl
 def genrule_attributes() -> {str.type: "attribute"}:
+    attributes = {
+        "_genrule_toolchain": attrs.default_only(attrs.toolchain_dep(default = "toolchains//:genrule", providers = [GenruleToolchainInfo])),
+    }
+
     if _USE_CACHE_MODE:
         # FIXME: prelude// should be standalone (not refer to fbsource//)
-        return {"_cache_mode": attrs.dep(default = "fbsource//xplat/buck2/platform/cache_mode:cache_mode")}
-    else:
-        return {}
+        attributes["_cache_mode"] = attrs.dep(default = "fbsource//xplat/buck2/platform/cache_mode:cache_mode")
+
+    return attributes
 
 def _get_cache_mode(ctx: "context") -> CacheModeInfo.type:
     if _USE_CACHE_MODE:
@@ -228,6 +233,25 @@ def process_genrule(
     # Actually define the operation, relative to where we changed to
     script.append(cmd)
 
+    hidden = []
+    genrule_toolchain = ctx.attrs._genrule_toolchain[GenruleToolchainInfo]
+    zip_scrubber = genrule_toolchain.zip_scrubber
+    if not is_windows and zip_scrubber != None:
+        zip_outputs = [output for output in default_outputs + flatten(named_outputs.values()) if output.extension == ".zip"]
+
+        if zip_outputs:
+            hidden.append(zip_scrubber)
+
+            # Any outputs that are .zip files need to be "scrubbed" to ensure that they are deterministic.
+            script = [
+                cmd_args("ORIGINAL_DIR_FOR_ZIP_SCRUBBING=$(pwd)"),
+            ] + script + [
+                cmd_args('cd "$ORIGINAL_DIR_FOR_ZIP_SCRUBBING"'),
+            ] + [
+                cmd_args(zip_scrubber, output, delimiter = " ", quote = "shell")
+                for output in zip_outputs
+            ]
+
     # Some rules need to run from the build root, but for everything else, `cd`
     # into the sandboxed source dir and relative all paths to that.
     if not _requires_build_root(ctx):
@@ -261,7 +285,7 @@ def process_genrule(
         # As of 09/2021, all genrule types were legal snake case if their dashes and periods were replaced with underscores.
         category += "_" + ctx.attrs.type.replace("-", "_").replace(".", "_")
     ctx.actions.run(
-        cmd_args(script_args).hidden([cmd, srcs_artifact, out_artifact.as_output()]),
+        cmd_args(script_args).hidden([cmd, srcs_artifact, out_artifact.as_output()] + hidden),
         env = env_vars,
         local_only = local_only,
         allow_cache_upload = cacheable,
