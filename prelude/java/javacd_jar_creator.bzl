@@ -213,8 +213,7 @@ def create_jar_artifact_javacd(
                 cmd,
                 classpath_jars_tag,
                 java_toolchain,
-                srcs,
-                resources_map.values(),
+                srcs + resources_map.values() + [proto],
                 used_classes_json_outputs,
                 abi_to_abi_dir_map,
             )

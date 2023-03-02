@@ -330,8 +330,7 @@ def setup_dep_files(
         cmd: "cmd_args",
         classpath_jars_tag: "artifact_tag",
         java_toolchain: "JavaToolchainInfo",
-        srcs: ["artifact"],
-        resources: ["artifact"],
+        always_used_inputs: ["artifact"],
         used_classes_json_outputs: ["artifact"],
         abi_to_abi_dir_map: ["transitive_set_args_projection", None]) -> "cmd_args":
     dep_file = declare_prefixed_output(actions, actions_identifier, "dep_file.txt")
@@ -339,15 +338,15 @@ def setup_dep_files(
     # TODO(T134944772) We won't need this once we can do tag_artifacts on a JSON projection,
     # but for now we have to tag all the inputs on the .proto definition, and so we need to
     # tell the dep file to include all the inputs that the compiler won't report.
-    srcs_and_resources = actions.write(
-        declare_prefixed_output(actions, actions_identifier, "srcs_and_resources"),
-        srcs + resources,
+    always_used_inputs = actions.write(
+        declare_prefixed_output(actions, actions_identifier, "always_used_inputs.txt"),
+        always_used_inputs,
     )
 
     new_cmd = cmd_args([
         java_toolchain.used_classes_to_dep_file[RunInfo],
         "--always-used-files",
-        srcs_and_resources,
+        always_used_inputs,
         "--used-classes",
     ] + [
         used_classes_json.as_output()
