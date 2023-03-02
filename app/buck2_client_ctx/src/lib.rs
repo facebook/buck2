@@ -31,6 +31,7 @@ pub mod replayer;
 pub mod startup_deadline;
 pub mod stdin;
 pub mod stdio;
+pub mod stream_util;
 pub mod stream_value;
 pub mod streaming;
 pub mod subscribers;
