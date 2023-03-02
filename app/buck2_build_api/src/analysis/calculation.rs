@@ -569,7 +569,7 @@ mod tests {
             .mock_and_return(ExecutionPlatformsKey, Ok(None))
             .set_data(|data| {
                 data.set_testing_io_provider(&fs);
-                data.set_digest_config(DigestConfig::compat());
+                data.set_digest_config(DigestConfig::testing_default());
             })
             .build({
                 let mut data = UserComputationData::new();

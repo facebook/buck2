@@ -31,9 +31,9 @@ pub struct DigestConfig {
 }
 
 impl DigestConfig {
-    pub fn compat() -> Self {
+    pub fn testing_default() -> Self {
         static COMPAT: Lazy<DigestConfigInner> =
-            Lazy::new(|| DigestConfigInner::new(CasDigestConfig::compat()));
+            Lazy::new(|| DigestConfigInner::new(CasDigestConfig::testing_default()));
 
         Self { inner: &COMPAT }
     }

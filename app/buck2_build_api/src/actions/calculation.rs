@@ -560,7 +560,7 @@ mod tests {
         let mut dice_builder = DiceBuilder::new();
         dice_builder = dice_builder.set_data(|data| {
             data.set_testing_io_provider(temp_fs);
-            data.set_digest_config(DigestConfig::compat());
+            data.set_digest_config(DigestConfig::testing_default());
         });
 
         for mock in mocks.into_iter() {
@@ -786,7 +786,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_ensure_artifact_source_artifact() -> anyhow::Result<()> {
-        let digest_config = DigestConfig::compat();
+        let digest_config = DigestConfig::testing_default();
 
         let path = CellPath::new(
             CellName::testing_new("cell"),
@@ -799,7 +799,7 @@ mod tests {
         };
 
         let dice_builder = DiceBuilder::new().set_data(|data| {
-            data.set_digest_config(DigestConfig::compat());
+            data.set_digest_config(DigestConfig::testing_default());
         });
         let dice_computations = dice_builder
             .mock_and_return(
@@ -852,7 +852,7 @@ mod tests {
         );
 
         let dice_builder = DiceBuilder::new().set_data(|data| {
-            data.set_digest_config(DigestConfig::compat());
+            data.set_digest_config(DigestConfig::testing_default());
         });
         let dice_computations = dice_builder
             .mock_and_return(
@@ -893,7 +893,7 @@ mod tests {
     async fn test_command_details_omission() {
         use buck2_data::command_execution_details::Command;
 
-        let digest_config = DigestConfig::compat();
+        let digest_config = DigestConfig::testing_default();
 
         let mut report = CommandExecutionReport {
             claim: None,

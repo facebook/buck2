@@ -355,7 +355,9 @@ fn maybe_tombstone_digest(digest: &FileDigest) -> anyhow::Result<&FileDigest> {
             .map(|digest| {
                 let digest = TDigest::from_str(digest)
                     .with_context(|| format!("Invalid digest: `{}`", digest))?;
-                let digest = FileDigest::from_re(&digest, DigestConfig::compat())?;
+                // This code is only used by E2E tests, so while it's not *a test*, testing_default
+                // is an OK choice here.
+                let digest = FileDigest::from_re(&digest, DigestConfig::testing_default())?;
                 anyhow::Ok(digest)
             })
             .collect()

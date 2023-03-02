@@ -267,7 +267,7 @@ mod tests {
             DeferredId::testing_new(0),
         );
 
-        let value = ArtifactValue::file(DigestConfig::compat().empty_file());
+        let value = ArtifactValue::file(DigestConfig::testing_default().empty_file());
 
         (Artifact::from(artifact), value)
     }

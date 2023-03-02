@@ -1136,7 +1136,7 @@ mod tests {
                     ))),
             ),
             registry,
-            DigestConfig::compat(),
+            DigestConfig::testing_default(),
         ));
 
         let returned = eval.eval_function(test_function, &[ctx], &[]);

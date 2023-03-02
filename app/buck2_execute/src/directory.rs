@@ -802,7 +802,7 @@ mod tests {
 
     #[test]
     fn directory_relativized() -> anyhow::Result<()> {
-        let digest_config = DigestConfig::compat();
+        let digest_config = DigestConfig::testing_default();
 
         let mut dir = {
             let mut builder = ActionDirectoryBuilder::empty();
@@ -853,7 +853,7 @@ mod tests {
     }
 
     fn build_test_dir() -> anyhow::Result<ActionDirectoryBuilder> {
-        let digest_config = DigestConfig::compat();
+        let digest_config = DigestConfig::testing_default();
 
         let mut builder = ActionDirectoryBuilder::empty();
         // /
@@ -902,7 +902,7 @@ mod tests {
     /// All deps of d6 are internal to it, so we don't return any deps.
     #[test]
     fn test_extract_no_deps() -> anyhow::Result<()> {
-        let digest_config = DigestConfig::compat();
+        let digest_config = DigestConfig::testing_default();
         let root = build_test_dir()?;
         let value =
             extract_artifact_value(&root, path("d6"), digest_config)?.context("Not value!")?;
@@ -912,7 +912,7 @@ mod tests {
 
     #[test]
     fn test_extract_has_deps_dir() -> anyhow::Result<()> {
-        let digest_config = DigestConfig::compat();
+        let digest_config = DigestConfig::testing_default();
 
         let root = build_test_dir()?;
         let value = extract_artifact_value(&root, path("d1/d2/d3"), digest_config)?
@@ -940,7 +940,7 @@ mod tests {
 
     #[test]
     fn test_extract_has_deps_leaf() -> anyhow::Result<()> {
-        let digest_config = DigestConfig::compat();
+        let digest_config = DigestConfig::testing_default();
 
         let root = build_test_dir()?;
         let value = extract_artifact_value(&root, path("d1/d2/d3/s3"), digest_config)?
@@ -963,7 +963,7 @@ mod tests {
 
     #[test]
     fn test_extract_cycle() -> anyhow::Result<()> {
-        let digest_config = DigestConfig::compat();
+        let digest_config = DigestConfig::testing_default();
 
         let mut builder = ActionDirectoryBuilder::empty();
 
@@ -998,7 +998,7 @@ mod tests {
         // Crank up the difficulty: l1 points through d3/f, but through l2. We need all of those in
         // the deps! In practice, this tends to not happen in Buck 2 because we always dereference
         // symlinks and traverse them, but might a well support it properly.
-        let digest_config = DigestConfig::compat();
+        let digest_config = DigestConfig::testing_default();
 
         let mut builder = ActionDirectoryBuilder::empty();
         insert_symlink(
@@ -1047,7 +1047,7 @@ mod tests {
 
     #[test]
     fn test_re_tree_roundtrip() -> anyhow::Result<()> {
-        let digest_config = DigestConfig::compat();
+        let digest_config = DigestConfig::testing_default();
 
         let mut builder = ActionDirectoryBuilder::empty();
         insert_file(
@@ -1085,7 +1085,7 @@ mod tests {
     /// ```
     #[test]
     fn test_re_tree_compatibility() -> anyhow::Result<()> {
-        let digest_config = DigestConfig::compat();
+        let digest_config = DigestConfig::testing_default();
 
         let mut builder = ActionDirectoryBuilder::empty();
         for p in &["a/aa/f", "a/aaa/f", "b/bb/f", "d/f"] {
@@ -1112,7 +1112,7 @@ mod tests {
     //Test that a symlink created with a windows path doesn't get interpreted as an invalid sylink
     //TODO(lmvasquezg) Update symlinks to store a normalized, OS-independent path
     fn test_unnormalized_symlinks() -> anyhow::Result<()> {
-        let digest_config = DigestConfig::compat();
+        let digest_config = DigestConfig::testing_default();
 
         let mut builder = ActionDirectoryBuilder::empty();
         insert_symlink(

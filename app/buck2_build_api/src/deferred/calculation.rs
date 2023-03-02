@@ -424,7 +424,7 @@ mod tests {
         let dice = DiceBuilder::new()
             .set_data(|data| {
                 data.set_testing_io_provider(&fs);
-                data.set_digest_config(DigestConfig::compat());
+                data.set_digest_config(DigestConfig::testing_default());
             })
             .mock_and_return(
                 analysis_key,
@@ -524,7 +524,7 @@ mod tests {
         let dice = DiceBuilder::new()
             .set_data(|data| {
                 data.set_testing_io_provider(&fs);
-                data.set_digest_config(DigestConfig::compat());
+                data.set_digest_config(DigestConfig::testing_default());
             })
             .mock_and_return(
                 analysis_key,

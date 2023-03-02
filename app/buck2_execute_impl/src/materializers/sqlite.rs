@@ -637,7 +637,7 @@ mod tests {
 
     #[test]
     fn test_artifact_metadata_dir_sqlite_entry_conversion_succeeds() {
-        let digest_config = DigestConfig::compat();
+        let digest_config = DigestConfig::testing_default();
 
         let digest =
             TrackedFileDigest::from_content(b"directory", digest_config.cas_digest_config());
@@ -651,7 +651,7 @@ mod tests {
 
     #[test]
     fn test_artifact_metadata_file_sqlite_entry_conversion_succeeds() {
-        let digest_config = DigestConfig::compat();
+        let digest_config = DigestConfig::testing_default();
 
         let digest = TrackedFileDigest::from_content(b"file", digest_config.cas_digest_config());
         let metadata = ArtifactMetadata(DirectoryEntry::Leaf(ActionDirectoryMember::File(
@@ -669,7 +669,7 @@ mod tests {
 
     #[test]
     fn test_artifact_metadata_symlink_sqlite_entry_conversion_succeeds() {
-        let digest_config = DigestConfig::compat();
+        let digest_config = DigestConfig::testing_default();
 
         let symlink = new_symlink("foo/bar").unwrap();
         // We use `new_symlink` as a helper but it can technically create both Symlink and ExternalSymlink.
@@ -686,7 +686,7 @@ mod tests {
 
     #[test]
     fn test_artifact_metadata_external_symlink_sqlite_entry_conversion_succeeds() {
-        let digest_config = DigestConfig::compat();
+        let digest_config = DigestConfig::testing_default();
 
         let external_symlink = new_symlink(if cfg!(windows) {
             // Not sure if we actually support any external symlink on windows, but better
@@ -715,7 +715,7 @@ mod tests {
 
     #[test]
     fn test_materializer_state_sqlite_table() {
-        let digest_config = DigestConfig::compat();
+        let digest_config = DigestConfig::testing_default();
 
         let fs = ProjectRootTemp::new().unwrap();
         let connection = Connection::open(
@@ -806,7 +806,7 @@ mod tests {
             )),
             versions,
             metadata,
-            DigestConfig::compat(),
+            DigestConfig::testing_default(),
         )
     }
 
@@ -821,7 +821,7 @@ mod tests {
             metadatas
         }
 
-        let digest_config = DigestConfig::compat();
+        let digest_config = DigestConfig::testing_default();
 
         let fs = ProjectRootTemp::new()?;
 

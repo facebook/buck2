@@ -392,7 +392,8 @@ fn add_injected_missing_digests<'a>(
             .map(|digest| {
                 let digest = TDigest::from_str(digest)
                     .with_context(|| format!("Invalid digest: `{}`", digest))?;
-                let digest = FileDigest::from_re(&digest, DigestConfig::compat())?;
+                // This code does not run in a test but it is only used for testing.
+                let digest = FileDigest::from_re(&digest, DigestConfig::testing_default())?;
                 anyhow::Ok(digest)
             })
             .collect()

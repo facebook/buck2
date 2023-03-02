@@ -175,7 +175,7 @@ mod tests {
 
         let entry = {
             let fs = ProjectRootTemp::new().unwrap();
-            let mut builder = ArtifactValueBuilder::new(fs.path(), DigestConfig::compat());
+            let mut builder = ArtifactValueBuilder::new(fs.path(), DigestConfig::testing_default());
             builder.add_copied(
                 &get_symlink_artifact_value("../../../d6/target"),
                 path("d1/d2/d3/d4/link"),

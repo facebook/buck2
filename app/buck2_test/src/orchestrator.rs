@@ -1045,7 +1045,7 @@ mod tests {
                 NoopLivelinessObserver::create(),
                 sender,
                 EventDispatcher::null(),
-                DigestConfig::compat(),
+                DigestConfig::testing_default(),
             ),
             receiver,
         ))

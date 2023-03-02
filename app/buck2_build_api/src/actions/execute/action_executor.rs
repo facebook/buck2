@@ -621,7 +621,7 @@ mod tests {
             Arc::new(NoDiskMaterializer),
             EventDispatcher::null(),
             ManagedRemoteExecutionClient::testing_new_dummy(),
-            DigestConfig::compat(),
+            DigestConfig::testing_default(),
             Default::default(),
         );
 

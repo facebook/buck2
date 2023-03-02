@@ -273,7 +273,7 @@ mod tests {
             read_path_metadata(
                 AbsNormPath::new(t.path())?,
                 ForwardRelativePath::new("x")?,
-                CasDigestConfig::compat()
+                CasDigestConfig::testing_default()
             ),
             Ok(Some(RawPathMetadata::File(..)))
         );
@@ -288,7 +288,7 @@ mod tests {
         unix::fs::symlink("y/z", t.path().join("x"))?;
 
         assert_matches!(
-            read_path_metadata(AbsNormPath::new(t.path())?, ForwardRelativePath::new("x")?, CasDigestConfig::compat()),
+            read_path_metadata(AbsNormPath::new(t.path())?, ForwardRelativePath::new("x")?, CasDigestConfig::testing_default()),
             Ok(Some(RawPathMetadata::Symlink{at:_, to: RawSymlink::Relative(r)})) => {
                 assert_eq!(r, "y/z");
             }
@@ -305,7 +305,7 @@ mod tests {
         unix::fs::symlink("../y", t.path().join("x/xx/xxx"))?;
 
         assert_matches!(
-            read_path_metadata(AbsNormPath::new(t.path())?, ForwardRelativePath::new("x/xx/xxx")?, CasDigestConfig::compat()),
+            read_path_metadata(AbsNormPath::new(t.path())?, ForwardRelativePath::new("x/xx/xxx")?, CasDigestConfig::testing_default()),
             Ok(Some(RawPathMetadata::Symlink{at:_, to: RawSymlink::Relative(r)})) => {
                 assert_eq!(r, "x/y");
             }
@@ -321,7 +321,7 @@ mod tests {
         unix::fs::symlink("y", t.path().join("x"))?;
 
         assert_matches!(
-            read_path_metadata(AbsNormPath::new(t.path())?, ForwardRelativePath::new("x/z/zz")?, CasDigestConfig::compat()),
+            read_path_metadata(AbsNormPath::new(t.path())?, ForwardRelativePath::new("x/z/zz")?, CasDigestConfig::testing_default()),
             Ok(Some(RawPathMetadata::Symlink{at:_, to: RawSymlink::Relative(r)})) => {
                 assert_eq!(r, "y/z/zz");
             }
@@ -337,7 +337,7 @@ mod tests {
         unix::fs::symlink("../y", t.path().join("x"))?;
 
         assert_matches!(
-            read_path_metadata(AbsNormPath::new(t.path())?, ForwardRelativePath::new("x/xx/xxx")?, CasDigestConfig::compat()),
+            read_path_metadata(AbsNormPath::new(t.path())?, ForwardRelativePath::new("x/xx/xxx")?, CasDigestConfig::testing_default()),
             Err(e) if format!("{:#}", e).contains("Invalid symlink")
         );
 

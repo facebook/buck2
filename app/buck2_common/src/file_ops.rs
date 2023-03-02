@@ -405,7 +405,7 @@ pub mod testing {
         }
 
         pub fn new_with_files(files: BTreeMap<CellPath, String>) -> Self {
-            let cas_digest_config = CasDigestConfig::compat();
+            let cas_digest_config = CasDigestConfig::testing_default();
 
             Self::new(
                 files
@@ -564,7 +564,7 @@ mod tests {
 
         #[test]
         fn test_from_file_attr() -> anyhow::Result<()> {
-            let config = CasDigestConfig::compat();
+            let config = CasDigestConfig::testing_default();
             let tempdir = tempfile::tempdir()?;
 
             let file = tempdir.path().join("dest");
@@ -617,7 +617,7 @@ mod tests {
 
     #[test]
     fn test_tracked_file_digest_equivalence() {
-        let digest_config = CasDigestConfig::compat();
+        let digest_config = CasDigestConfig::testing_default();
         let digest = FileDigest::from_content(b"foo", digest_config);
         let tracked_digest = TrackedFileDigest::new(digest.dupe(), digest_config);
 

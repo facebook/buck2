@@ -487,7 +487,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_ensure_artifact_group() -> anyhow::Result<()> {
-        let digest_config = DigestConfig::compat();
+        let digest_config = DigestConfig::testing_default();
 
         let set = testing::new_transitive_set(indoc!(
             r#"
@@ -557,7 +557,7 @@ mod tests {
             .mock_and_return(FileOpsKey(), Ok(FileOpsValue(Arc::new(files))))
             .set_data(|data| {
                 data.set_testing_io_provider(&fs);
-                data.set_digest_config(DigestConfig::compat());
+                data.set_digest_config(DigestConfig::testing_default());
             });
 
         // Register all the sets as deferreds.

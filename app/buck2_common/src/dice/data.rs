@@ -55,7 +55,7 @@ pub mod testing {
         fn set_testing_io_provider(&mut self, fs: &ProjectRootTemp) {
             self.set_io_provider(Arc::new(FsIoProvider::new(
                 fs.path().dupe(),
-                CasDigestConfig::compat(),
+                CasDigestConfig::testing_default(),
             )))
         }
     }

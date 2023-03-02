@@ -146,11 +146,7 @@ impl fmt::Display for ReStdStream {
                 write!(fmt, "raw = `{}`", String::from_utf8_lossy(raw))?;
             }
             Self::Digest(digest) | Self::PrefetchedLossy { digest, .. } => {
-                write!(
-                    fmt,
-                    "digest = `{}`",
-                    FileDigest::from_re(digest, DigestConfig::compat()).as_display()
-                )?;
+                write!(fmt, "digest = `{}`", digest,)?;
             }
             Self::None => {
                 write!(fmt, "none")?;

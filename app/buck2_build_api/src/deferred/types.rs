@@ -1111,7 +1111,7 @@ mod tests {
                         Default::default(),
                         &mut ctx,
                         dummy_project_filesystem(),
-                        DigestConfig::compat(),
+                        DigestConfig::testing_default(),
                     ))
                     .unwrap()
                     .assert_ready()
@@ -1159,7 +1159,7 @@ mod tests {
             Default::default(),
             &mut registry,
             dummy_project_filesystem(),
-            DigestConfig::compat(),
+            DigestConfig::testing_default(),
         );
 
         assert_eq!(
@@ -1216,7 +1216,7 @@ mod tests {
                 Default::default(),
                 &mut registry,
                 dummy_project_filesystem(),
-                DigestConfig::compat(),
+                DigestConfig::testing_default(),
             ))
             .unwrap();
 
@@ -1250,7 +1250,7 @@ mod tests {
                     Default::default(),
                     &mut registry,
                     dummy_project_filesystem(),
-                    DigestConfig::compat(),
+                    DigestConfig::testing_default(),
                 ))
                 .unwrap()
                 .assert_ready()
@@ -1301,7 +1301,7 @@ mod tests {
                         Default::default(),
                         &mut registry,
                         dummy_project_filesystem(),
-                        DigestConfig::compat(),
+                        DigestConfig::testing_default(),
                     ))
                     .unwrap()
                     .assert_ready()

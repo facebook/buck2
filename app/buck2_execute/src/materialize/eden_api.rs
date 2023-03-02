@@ -396,7 +396,7 @@ mod tests {
 
     #[test]
     fn test_get_object_id_and_type_blob() -> anyhow::Result<()> {
-        let digest_config = DigestConfig::compat();
+        let digest_config = DigestConfig::testing_default();
 
         let digest = TrackedFileDigest::from_content(b"content", digest_config.cas_digest_config());
         let metadata_executable = FileMetadata {

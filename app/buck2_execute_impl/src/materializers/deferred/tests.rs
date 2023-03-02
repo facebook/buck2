@@ -31,7 +31,7 @@ fn test_find_artifacts() -> anyhow::Result<()> {
     let non_artifact1 = ProjectRelativePathBuf::unchecked_new("foo/bar/qux".to_owned());
     let non_artifact2 = ProjectRelativePathBuf::unchecked_new("foo/bar/bar/corge".to_owned());
 
-    let file = FileMetadata::empty(DigestConfig::compat().cas_digest_config());
+    let file = FileMetadata::empty(DigestConfig::testing_default().cas_digest_config());
 
     // Build deps with artifacts 1-3, and non-artifacts 1-2
     let mut builder = ActionDirectoryBuilder::empty();
@@ -235,7 +235,7 @@ mod state_machine {
 
     #[tokio::test]
     async fn test_declare_reuse() -> anyhow::Result<()> {
-        let digest_config = DigestConfig::compat();
+        let digest_config = DigestConfig::testing_default();
 
         let (mut dm, _) = make_processor(digest_config, Default::default());
 
@@ -308,7 +308,7 @@ mod state_machine {
 
     #[tokio::test]
     async fn test_materialize_symlink_and_target() -> anyhow::Result<()> {
-        let digest_config = DigestConfig::compat();
+        let digest_config = DigestConfig::testing_default();
 
         // Construct a tree with a symlink and its target, materialize both at once
         let symlink_path = make_path("foo/bar_symlink");
@@ -371,7 +371,7 @@ mod state_machine {
 
     #[tokio::test]
     async fn test_materialize_symlink_first_then_target() -> anyhow::Result<()> {
-        let digest_config = DigestConfig::compat();
+        let digest_config = DigestConfig::testing_default();
 
         // Materialize a symlink, then materialize the target. Test that we still
         // materialize deps if the main artifact has already been materialized.
@@ -441,7 +441,7 @@ mod state_machine {
 
     #[tokio::test]
     async fn test_subscription_create_destroy() {
-        let digest_config = DigestConfig::compat();
+        let digest_config = DigestConfig::testing_default();
 
         let (mut dm, mut channel) = make_processor(digest_config, Default::default());
 
@@ -464,7 +464,7 @@ mod state_machine {
 
     #[tokio::test]
     async fn test_subscription_notifications() {
-        let digest_config = DigestConfig::compat();
+        let digest_config = DigestConfig::testing_default();
         let value = ArtifactValue::file(digest_config.empty_file());
 
         let (mut dm, mut channel) = make_processor(digest_config, Default::default());

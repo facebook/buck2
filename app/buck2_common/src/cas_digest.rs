@@ -138,7 +138,7 @@ pub struct CasDigestConfig {
 }
 
 impl CasDigestConfig {
-    pub fn compat() -> Self {
+    pub fn testing_default() -> Self {
         static COMPAT: Lazy<CasDigestConfigInner> =
             Lazy::new(|| CasDigestConfigInner::new(vec![DigestAlgorithm::Sha1]).unwrap());
 
@@ -724,7 +724,7 @@ mod tests {
     #[test]
     fn test_digest_from_str() {
         let s = "0000000000000000000000000000000000000000:123";
-        let config = CasDigestConfig::compat();
+        let config = CasDigestConfig::testing_default();
         assert_eq!(
             CasDigest::<()>::parse_digest(s, config)
                 .unwrap()
