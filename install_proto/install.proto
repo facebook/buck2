@@ -32,6 +32,7 @@ message FileReadyRequest {
   string digest = 3;
   string path = 4;
   string digest_algorithm = 5;
+  uint64 size = 6;
 }
 
 message FileResponse {

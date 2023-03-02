@@ -32,11 +32,11 @@ use buck2_build_api::interpreter::rule_defs::provider::builtin::install_info::In
 use buck2_build_api::interpreter::rule_defs::provider::builtin::run_info::RunInfo;
 use buck2_cli_proto::InstallRequest;
 use buck2_cli_proto::InstallResponse;
-use buck2_common::cas_digest::RawDigest;
 use buck2_common::client_utils::get_channel_tcp;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::executor_config::PathSeparatorKind;
+use buck2_common::file_ops::FileDigest;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_core::directory::DirectoryEntry;
 use buck2_core::fs::fs_util;
@@ -584,15 +584,13 @@ async fn send_file(
     let artifact = file.artifact;
 
     enum Data<'a> {
-        Digest(&'a RawDigest),
+        Digest(&'a FileDigest), // NOTE: A misnommer, this is rather BlobDigest.
         Symlink(&'a str),
     }
 
     let data = match &file.artifact_value.entry() {
-        DirectoryEntry::Dir(dir) => Data::Digest(dir.fingerprint().raw_digest()),
-        DirectoryEntry::Leaf(ActionDirectoryMember::File(file)) => {
-            Data::Digest(file.digest.raw_digest())
-        }
+        DirectoryEntry::Dir(dir) => Data::Digest(dir.fingerprint().data()),
+        DirectoryEntry::Leaf(ActionDirectoryMember::File(file)) => Data::Digest(file.digest.data()),
         DirectoryEntry::Leaf(ActionDirectoryMember::Symlink(symlink)) => {
             // todo(@lebentle) Use for now to unblock exopackage,
             // but should follow symlink and validate the target exists and send that
@@ -604,9 +602,13 @@ async fn send_file(
         }
     };
 
-    let (digest, digest_algorithm) = match data {
-        Data::Digest(d) => (d.to_string(), d.algorithm().to_string()),
-        Data::Symlink(sym) => (format!("re-symlink:{}", sym), "".to_owned()), // Messy :(
+    let (digest, size, digest_algorithm) = match data {
+        Data::Digest(d) => (
+            d.raw_digest().to_string(),
+            d.size(),
+            d.raw_digest().algorithm().to_string(),
+        ),
+        Data::Symlink(sym) => (format!("re-symlink:{}", sym), 0, "".to_owned()), // Messy :(
     };
 
     let path = &artifact_fs
@@ -617,6 +619,7 @@ async fn send_file(
         name: name.to_owned(),
         digest,
         digest_algorithm,
+        size,
         path: path.to_string(),
     });
 
