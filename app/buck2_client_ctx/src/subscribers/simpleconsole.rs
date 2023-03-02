@@ -261,6 +261,10 @@ where
     }
 
     pub(crate) async fn detect_hangs(&mut self) -> anyhow::Result<()> {
+        if !self.show_waiting_message {
+            // No open spans are to be expected in this case (D37658796)
+            return Ok(());
+        };
         if self.observer().spans().iter_roots().len() > 0 {
             self.last_had_open_spans = Instant::now();
             return Ok(());
