@@ -13,13 +13,8 @@ use async_trait::async_trait;
 use buck2_cli_proto::CommandResult;
 use buck2_data::buck_event;
 use buck2_data::InstantEvent;
-use buck2_data::SpanCancelled;
 use buck2_data::SpanEndEvent;
 use buck2_data::SpanStartEvent;
-use buck2_data::TestDiscoveryEnd;
-use buck2_data::TestDiscoveryStart;
-use buck2_data::TestRunEnd;
-use buck2_data::TestRunStart;
 use buck2_event_observer::unpack_event::VisitorError;
 use buck2_events::BuckEvent;
 
@@ -74,79 +69,25 @@ pub trait UnpackingEventSubscriber: Send {
             .ok_or_else(|| VisitorError::MissingField((**event).clone()))?
         {
             buck2_data::span_start_event::Data::Command(command) => {
-                self.handle_command_start(command, event)
+                self.handle_command_start(command, event).await
             }
             buck2_data::span_start_event::Data::CommandCritical(command) => {
-                self.handle_command_critical_start(command, event)
+                self.handle_command_critical_start(command, event).await
             }
             buck2_data::span_start_event::Data::ActionExecution(action) => {
-                self.handle_action_execution_start(action, event)
-            }
-            buck2_data::span_start_event::Data::FinalMaterialization(materialization) => {
-                self.handle_final_materialization_start(materialization, event)
+                self.handle_action_execution_start(action, event).await
             }
             buck2_data::span_start_event::Data::Analysis(analysis) => {
-                self.handle_analysis_start(analysis, event)
+                self.handle_analysis_start(analysis, event).await
             }
-            buck2_data::span_start_event::Data::AnalysisStage(stage) => {
-                self.handle_analysis_stage_start(stage, event)
-            }
-            buck2_data::span_start_event::Data::Load(eval) => self.handle_load_start(eval, event),
-            buck2_data::span_start_event::Data::LoadPackage(eval) => {
-                self.handle_load_package_start(eval, event)
+            buck2_data::span_start_event::Data::Load(eval) => {
+                self.handle_load_start(eval, event).await
             }
             buck2_data::span_start_event::Data::ExecutorStage(stage) => {
-                self.handle_executor_stage_start(stage, event)
+                self.handle_executor_stage_start(stage, event).await
             }
-            buck2_data::span_start_event::Data::TestDiscovery(discovery) => {
-                self.handle_test_discovery_start(discovery, event)
-            }
-            buck2_data::span_start_event::Data::TestStart(test_suite) => {
-                self.handle_test_start(test_suite, event)
-            }
-            buck2_data::span_start_event::Data::FileWatcher(file_watcher) => {
-                self.handle_file_watcher_start(file_watcher, event)
-            }
-            buck2_data::span_start_event::Data::MatchDepFiles(dep_files) => {
-                self.handle_match_dep_files_start(dep_files, event)
-            }
-            buck2_data::span_start_event::Data::SharedTask(shared_task) => {
-                self.handle_shared_task_start(shared_task, event)
-            }
-            buck2_data::span_start_event::Data::CacheUpload(cache_upload) => {
-                self.handle_cache_upload_start(cache_upload, event)
-            }
-            buck2_data::span_start_event::Data::CreateOutputSymlinks(create_output_symlinks) => {
-                self.handle_create_output_symlinks_start(create_output_symlinks, event)
-            }
-            buck2_data::span_start_event::Data::InstallEventInfo(info) => {
-                self.handle_install_event_info_start(info, event)
-            }
-            buck2_data::span_start_event::Data::DiceStateUpdate(dice_update) => {
-                self.handle_dice_state_update_start(dice_update, event)
-            }
-            buck2_data::span_start_event::Data::Materialization(materialization) => {
-                self.handle_materialization_start(materialization, event)
-            }
-            buck2_data::span_start_event::Data::DiceCriticalSection(dice_critical_section) => {
-                self.handle_dice_critical_section_start(dice_critical_section, event)
-            }
-            buck2_data::span_start_event::Data::DiceBlockConcurrentCommand(
-                dice_block_concurrent_command,
-            ) => self
-                .handle_dice_block_concurrent_command_start(dice_block_concurrent_command, event),
-            buck2_data::span_start_event::Data::DiceSynchronizeSection(
-                dice_synchronize_section,
-            ) => self.handle_dice_synchronize_section_start(dice_synchronize_section, event),
-            buck2_data::span_start_event::Data::DiceCleanup(dice_cleanup) => {
-                self.handle_dice_cleanup_start(dice_cleanup, event)
-            }
-            buck2_data::span_start_event::Data::ExclusiveCommandWait(exclusive_command_wait) => {
-                self.handle_exclusive_command_wait_start(exclusive_command_wait, event)
-            }
-            buck2_data::span_start_event::Data::Fake(fake) => self.handle_fake_start(fake, event),
+            _ => Ok(()),
         }
-        .await
     }
 
     async fn handle_event_end(
@@ -160,83 +101,26 @@ pub trait UnpackingEventSubscriber: Send {
             .ok_or_else(|| VisitorError::MissingField((**event).clone()))?
         {
             buck2_data::span_end_event::Data::Command(command) => {
-                self.handle_command_end(command, event)
+                self.handle_command_end(command, event).await
             }
             buck2_data::span_end_event::Data::CommandCritical(command) => {
-                self.handle_command_critical_end(command, event)
+                self.handle_command_critical_end(command, event).await
             }
             buck2_data::span_end_event::Data::ActionExecution(action) => {
-                self.handle_action_execution_end(action, event)
-            }
-            buck2_data::span_end_event::Data::FinalMaterialization(materialization) => {
-                self.handle_final_materialization_end(materialization, event)
-            }
-            buck2_data::span_end_event::Data::Analysis(analysis) => {
-                self.handle_analysis_end(analysis, event)
-            }
-            buck2_data::span_end_event::Data::AnalysisStage(stage) => {
-                self.handle_analysis_stage_end(stage, event)
-            }
-            buck2_data::span_end_event::Data::Load(eval) => self.handle_load_end(eval, event),
-            buck2_data::span_end_event::Data::LoadPackage(eval) => {
-                self.handle_load_package_end(eval, event)
-            }
-            buck2_data::span_end_event::Data::ExecutorStage(stage) => {
-                self.handle_executor_stage_end(stage, event)
-            }
-            buck2_data::span_end_event::Data::TestDiscovery(discovery) => {
-                self.handle_test_discovery_end(discovery, event)
-            }
-            buck2_data::span_end_event::Data::TestEnd(test_suite) => {
-                self.handle_test_end(test_suite, event)
-            }
-            buck2_data::span_end_event::Data::SpanCancelled(span_cancelled) => {
-                self.handle_span_cancelled(span_cancelled, event)
+                self.handle_action_execution_end(action, event).await
             }
             buck2_data::span_end_event::Data::FileWatcher(file_watcher) => {
-                self.handle_file_watcher_end(file_watcher, event)
-            }
-            buck2_data::span_end_event::Data::SharedTask(shared_task) => {
-                self.handle_shared_task_end(shared_task, event)
-            }
-            buck2_data::span_end_event::Data::MatchDepFiles(dep_files) => {
-                self.handle_match_dep_files_end(dep_files, event)
+                self.handle_file_watcher_end(file_watcher, event).await
             }
             buck2_data::span_end_event::Data::CacheUpload(cache_upload) => {
-                self.handle_cache_upload_end(cache_upload, event)
-            }
-            buck2_data::span_end_event::Data::CreateOutputSymlinks(create_output_symlinks) => {
-                self.handle_create_output_symlinks_end(create_output_symlinks, event)
-            }
-            buck2_data::span_end_event::Data::InstallEventInfo(info) => {
-                self.handle_install_event_info_end(info, event)
-            }
-            buck2_data::span_end_event::Data::DiceStateUpdate(dice_update) => {
-                self.handle_dice_state_update_end(dice_update, event)
+                self.handle_cache_upload_end(cache_upload, event).await
             }
             buck2_data::span_end_event::Data::Materialization(materialization) => {
                 self.handle_materialization_end(materialization, event)
+                    .await
             }
-            buck2_data::span_end_event::Data::DiceCriticalSection(dice_critical_section) => {
-                self.handle_dice_critical_section_end(dice_critical_section, event)
-            }
-            buck2_data::span_end_event::Data::DiceBlockConcurrentCommand(
-                dice_block_concurrent_command,
-            ) => {
-                self.handle_dice_block_concurrent_command_end(dice_block_concurrent_command, event)
-            }
-            buck2_data::span_end_event::Data::DiceSynchronizeSection(dice_synchronize_section) => {
-                self.handle_dice_synchronize_section_end(dice_synchronize_section, event)
-            }
-            buck2_data::span_end_event::Data::DiceCleanup(dice_cleanup) => {
-                self.handle_dice_cleanup_end(dice_cleanup, event)
-            }
-            buck2_data::span_end_event::Data::ExclusiveCommandWait(exclusive_command_wait) => {
-                self.handle_exclusive_command_wait_end(exclusive_command_wait, event)
-            }
-            buck2_data::span_end_event::Data::Fake(fake) => self.handle_fake_end(fake, event),
+            _ => Ok(()),
         }
-        .await
     }
 
     async fn handle_instant(
@@ -250,55 +134,37 @@ pub trait UnpackingEventSubscriber: Send {
             .ok_or_else(|| VisitorError::MissingField((**event).clone()))?
         {
             buck2_data::instant_event::Data::ConsoleMessage(message) => {
-                self.handle_console_message(message, event)
+                self.handle_console_message(message, event).await
             }
             buck2_data::instant_event::Data::ReSession(session) => {
-                self.handle_re_session_created(session, event)
+                self.handle_re_session_created(session, event).await
             }
-            buck2_data::instant_event::Data::Panic(panic) => self.handle_panic(panic, event),
-            buck2_data::instant_event::Data::HgInfo(hg) => self.handle_hg_info(hg, event),
+            buck2_data::instant_event::Data::Panic(panic) => self.handle_panic(panic, event).await,
             buck2_data::instant_event::Data::BuildGraphInfo(info) => {
-                self.handle_build_graph_info(info, event)
+                self.handle_build_graph_info(info, event).await
             }
             buck2_data::instant_event::Data::TestDiscovery(discovery) => {
-                self.handle_test_discovery(discovery, event)
+                self.handle_test_discovery(discovery, event).await
             }
             buck2_data::instant_event::Data::TestResult(result) => {
-                self.handle_test_result(result, event)
-            }
-            buck2_data::instant_event::Data::RageInvoked(result) => {
-                self.handle_rage_invoked(result, event)
+                self.handle_test_result(result, event).await
             }
             buck2_data::instant_event::Data::Snapshot(result) => {
-                self.handle_snapshot(result, event)
+                self.handle_snapshot(result, event).await
             }
-            buck2_data::instant_event::Data::DiceStateSnapshot(update) => {
-                self.handle_dice_snapshot(update)
-            }
-            buck2_data::instant_event::Data::TagEvent(tag) => self.handle_tag(tag),
+            buck2_data::instant_event::Data::TagEvent(tag) => self.handle_tag(tag).await,
             buck2_data::instant_event::Data::TargetPatterns(tag) => {
-                self.handle_resolved_target_patterns(tag)
-            }
-            buck2_data::instant_event::Data::DiceEqualityCheck(equality_check) => {
-                self.handle_dice_equality_check(equality_check)
-            }
-            buck2_data::instant_event::Data::NoActiveDiceState(no_active_dice_state) => {
-                self.handle_no_active_dice_state(no_active_dice_state)
+                self.handle_resolved_target_patterns(tag).await
             }
             buck2_data::instant_event::Data::MaterializerStateInfo(materializer_state) => {
                 self.handle_materializer_state_info(materializer_state)
-            }
-            buck2_data::instant_event::Data::DaemonShutdown(daemon_shutdown) => {
-                self.handle_daemon_shutdown(daemon_shutdown)
-            }
-            buck2_data::instant_event::Data::RageResult(result) => {
-                self.handle_rage_result(result, event)
+                    .await
             }
             buck2_data::instant_event::Data::ConsolePreferences(preferences) => {
-                self.handle_console_preferences(preferences, event)
+                self.handle_console_preferences(preferences, event).await
             }
+            _ => Ok(()),
         }
-        .await
     }
 
     async fn handle_command_start(
@@ -343,44 +209,9 @@ pub trait UnpackingEventSubscriber: Send {
     ) -> anyhow::Result<()> {
         Ok(())
     }
-    async fn handle_final_materialization_start(
-        &mut self,
-        _materialization: &buck2_data::MaterializeRequestedArtifactStart,
-        _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-    async fn handle_final_materialization_end(
-        &mut self,
-        _materialization: &buck2_data::MaterializeRequestedArtifactEnd,
-        _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
     async fn handle_analysis_start(
         &mut self,
         _analysis: &buck2_data::AnalysisStart,
-        _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-    async fn handle_analysis_end(
-        &mut self,
-        _analysis: &buck2_data::AnalysisEnd,
-        _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-    async fn handle_analysis_stage_start(
-        &mut self,
-        _eval: &buck2_data::AnalysisStageStart,
-        _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-    async fn handle_analysis_stage_end(
-        &mut self,
-        _eval: &buck2_data::AnalysisStageEnd,
         _event: &BuckEvent,
     ) -> anyhow::Result<()> {
         Ok(())
@@ -392,27 +223,6 @@ pub trait UnpackingEventSubscriber: Send {
     ) -> anyhow::Result<()> {
         Ok(())
     }
-    async fn handle_load_end(
-        &mut self,
-        _eval: &buck2_data::LoadBuildFileEnd,
-        _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-    async fn handle_load_package_start(
-        &mut self,
-        _eval: &buck2_data::LoadPackageStart,
-        _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-    async fn handle_load_package_end(
-        &mut self,
-        _eval: &buck2_data::LoadPackageEnd,
-        _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
     async fn handle_executor_stage_start(
         &mut self,
         _eval: &buck2_data::ExecutorStageStart,
@@ -420,9 +230,9 @@ pub trait UnpackingEventSubscriber: Send {
     ) -> anyhow::Result<()> {
         Ok(())
     }
-    async fn handle_executor_stage_end(
+    async fn handle_file_watcher_end(
         &mut self,
-        _eval: &buck2_data::ExecutorStageEnd,
+        _watchman: &buck2_data::FileWatcherEnd,
         _event: &BuckEvent,
     ) -> anyhow::Result<()> {
         Ok(())
@@ -448,13 +258,6 @@ pub trait UnpackingEventSubscriber: Send {
     ) -> anyhow::Result<()> {
         Ok(())
     }
-    async fn handle_hg_info(
-        &mut self,
-        _hg: &buck2_data::MercurialInfo,
-        _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
     async fn handle_build_graph_info(
         &mut self,
         _info: &buck2_data::BuildGraphExecutionInfo,
@@ -476,198 +279,22 @@ pub trait UnpackingEventSubscriber: Send {
     ) -> anyhow::Result<()> {
         Ok(())
     }
-    async fn handle_test_discovery_start(
+    async fn handle_snapshot(
         &mut self,
-        _test_info: &TestDiscoveryStart,
+        _snapshot: &buck2_data::Snapshot,
         _event: &BuckEvent,
     ) -> anyhow::Result<()> {
         Ok(())
     }
-    async fn handle_test_discovery_end(
+    async fn handle_materializer_state_info(
         &mut self,
-        _test_info: &TestDiscoveryEnd,
-        _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-    async fn handle_test_start(
-        &mut self,
-        _test_info: &TestRunStart,
-        _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-    async fn handle_test_end(
-        &mut self,
-        _test_info: &TestRunEnd,
-        _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-    async fn handle_span_cancelled(
-        &mut self,
-        _test_info: &SpanCancelled,
-        _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-    async fn handle_file_watcher_start(
-        &mut self,
-        _watchman: &buck2_data::FileWatcherStart,
-        _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-    async fn handle_file_watcher_end(
-        &mut self,
-        _watchman: &buck2_data::FileWatcherEnd,
-        _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-    async fn handle_shared_task_start(
-        &mut self,
-        _shared_task: &buck2_data::SharedTaskStart,
-        _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-    async fn handle_shared_task_end(
-        &mut self,
-        _shared_task: &buck2_data::SharedTaskEnd,
-        _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-    async fn handle_fake_start(
-        &mut self,
-        _fake: &buck2_data::FakeStart,
-        _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-    async fn handle_fake_end(
-        &mut self,
-        _fake: &buck2_data::FakeEnd,
-        _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-    async fn handle_match_dep_files_start(
-        &mut self,
-        _dep_files: &buck2_data::MatchDepFilesStart,
-        _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-    async fn handle_match_dep_files_end(
-        &mut self,
-        _dep_files: &buck2_data::MatchDepFilesEnd,
-        _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-    async fn handle_cache_upload_start(
-        &mut self,
-        _cache_upload: &buck2_data::CacheUploadStart,
-        _event: &BuckEvent,
+        _materializer_state_info: &buck2_data::MaterializerStateInfo,
     ) -> anyhow::Result<()> {
         Ok(())
     }
     async fn handle_cache_upload_end(
         &mut self,
         _cache_upload: &buck2_data::CacheUploadEnd,
-        _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-    async fn handle_create_output_symlinks_start(
-        &mut self,
-        _create_output_symlinks: &buck2_data::CreateOutputSymlinksStart,
-        _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-    async fn handle_create_output_symlinks_end(
-        &mut self,
-        _create_output_symlinks: &buck2_data::CreateOutputSymlinksEnd,
-        _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-    async fn handle_install_event_info_start(
-        &mut self,
-        _info: &buck2_data::InstallEventInfoStart,
-        _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-    async fn handle_install_event_info_end(
-        &mut self,
-        _info: &buck2_data::InstallEventInfoEnd,
-        _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-    async fn handle_dice_state_update_start(
-        &mut self,
-        _dice_update: &buck2_data::DiceStateUpdateStart,
-        _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-    async fn handle_dice_state_update_end(
-        &mut self,
-        _dice_update: &buck2_data::DiceStateUpdateEnd,
-        _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-    async fn handle_materialization_start(
-        &mut self,
-        _materialization: &buck2_data::MaterializationStart,
-        _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-    async fn handle_dice_critical_section_start(
-        &mut self,
-        _dice_critical_section: &buck2_data::DiceCriticalSectionStart,
-        _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-    async fn handle_dice_critical_section_end(
-        &mut self,
-        _dice_critical_section: &buck2_data::DiceCriticalSectionEnd,
-        _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-    async fn handle_dice_block_concurrent_command_start(
-        &mut self,
-        _dice_block_concurrent_command: &buck2_data::DiceBlockConcurrentCommandStart,
-        _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-    async fn handle_dice_block_concurrent_command_end(
-        &mut self,
-        _dice_block_concurrent_command: &buck2_data::DiceBlockConcurrentCommandEnd,
-        _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-    async fn handle_dice_synchronize_section_start(
-        &mut self,
-        _dice_block_concurrent_command: &buck2_data::DiceSynchronizeSectionStart,
-        _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-    async fn handle_dice_synchronize_section_end(
-        &mut self,
-        _dice_block_concurrent_command: &buck2_data::DiceSynchronizeSectionEnd,
         _event: &BuckEvent,
     ) -> anyhow::Result<()> {
         Ok(())
@@ -679,86 +306,7 @@ pub trait UnpackingEventSubscriber: Send {
     ) -> anyhow::Result<()> {
         Ok(())
     }
-    async fn handle_rage_invoked(
-        &mut self,
-        _command: &buck2_data::RageInvoked,
-        _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-    async fn handle_snapshot(
-        &mut self,
-        _snapshot: &buck2_data::Snapshot,
-        _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-    async fn handle_dice_snapshot(
-        &mut self,
-        _update: &buck2_data::DiceStateSnapshot,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-    async fn handle_dice_equality_check(
-        &mut self,
-        _dice_equality_check: &buck2_data::DiceEqualityCheck,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-    async fn handle_no_active_dice_state(
-        &mut self,
-        _no_active_dice_state: &buck2_data::NoActiveDiceState,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-    async fn handle_materializer_state_info(
-        &mut self,
-        _materializer_state_info: &buck2_data::MaterializerStateInfo,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-    async fn handle_daemon_shutdown(
-        &mut self,
-        _daemon_shtudown: &buck2_data::DaemonShutdown,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-    async fn handle_rage_result(
-        &mut self,
-        _command: &buck2_data::RageResult,
-        _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
     async fn handle_tag(&mut self, _tag: &buck2_data::TagEvent) -> anyhow::Result<()> {
-        Ok(())
-    }
-    async fn handle_dice_cleanup_start(
-        &mut self,
-        _dice_cleanup: &buck2_data::DiceCleanupStart,
-        _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-    async fn handle_dice_cleanup_end(
-        &mut self,
-        _dice_cleanup: &buck2_data::DiceCleanupEnd,
-        _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-    async fn handle_exclusive_command_wait_start(
-        &mut self,
-        _dice_cleanup: &buck2_data::ExclusiveCommandWaitStart,
-        _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-    async fn handle_exclusive_command_wait_end(
-        &mut self,
-        _dice_cleanup: &buck2_data::ExclusiveCommandWaitEnd,
-        _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
         Ok(())
     }
     async fn handle_resolved_target_patterns(
@@ -767,7 +315,6 @@ pub trait UnpackingEventSubscriber: Send {
     ) -> anyhow::Result<()> {
         Ok(())
     }
-
     async fn handle_console_preferences(
         &mut self,
         _prefs: &buck2_data::ConsolePreferences,
