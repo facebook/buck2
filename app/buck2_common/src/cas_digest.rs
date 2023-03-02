@@ -109,8 +109,11 @@ impl fmt::Display for RawDigest {
 )]
 #[repr(u8)]
 pub enum DigestAlgorithm {
+    #[display(fmt = "SHA1")]
     Sha1,
+    #[display(fmt = "SHA256")]
     Sha256,
+    #[display(fmt = "BLAKE3")]
     Blake3,
 }
 
@@ -835,5 +838,16 @@ mod tests {
             blake3.to_string(),
             "04e0bb39f30b1a3feb89f536c93be15055482df748674b00d26e5a75777702e9:3"
         );
+    }
+
+    #[test]
+    fn test_digest_algorithm_roundtrip() {
+        for v in [
+            DigestAlgorithm::Sha1,
+            DigestAlgorithm::Sha256,
+            DigestAlgorithm::Blake3,
+        ] {
+            assert_eq!(v, v.to_string().parse().unwrap());
+        }
     }
 }
