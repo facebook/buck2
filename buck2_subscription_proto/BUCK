@@ -1,0 +1,16 @@
+load("@fbcode//buck2:proto_defs.bzl", "rust_protobuf_library")
+load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
+
+oncall("buck2")
+
+rust_protobuf_library(
+    name = "buck2_subscription_proto",
+    srcs = glob(["src/**/*.rs"]),
+    build_script = "build.rs",
+    doctests = False,  # FIXME
+    protos = ["subscription.proto"],
+    deps = [
+        "fbsource//third-party/rust:serde",
+        "//buck2/allocative/allocative:allocative",
+    ],
+)

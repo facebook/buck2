@@ -13,11 +13,20 @@ use std::path::PathBuf;
 
 fn main() -> io::Result<()> {
     let proto_files = &["daemon.proto"];
-    let events_include = if let Ok(value) = env::var("BUCK_HACK_PROTOC_INCLUDE") {
+
+    let data_include = if let Ok(value) = env::var("BUCK_HACK_DATA_PROTOC_INCLUDE") {
         let path = PathBuf::from(value);
         path.parent().unwrap().to_str().unwrap().to_owned()
     } else {
         "../buck2_data".to_owned()
+    };
+
+    let subscription_include = if let Ok(value) = env::var("BUCK_HACK_SUBSCRIPTION_PROTOC_INCLUDE")
+    {
+        let path = PathBuf::from(value);
+        path.parent().unwrap().to_str().unwrap().to_owned()
+    } else {
+        "../buck2_subscription_proto".to_owned()
     };
 
     buck2_protoc_dev::configure()
@@ -33,5 +42,6 @@ fn main() -> io::Result<()> {
         .boxed("CommandProgress.progress.result")
         .boxed("CommandProgress.progress.partial_result")
         .extern_path(".buck.data", "::buck2_data")
-        .compile(proto_files, &[".", &events_include])
+        .extern_path(".buck.subscription", "::buck2_subscription_proto")
+        .compile(proto_files, &[".", &data_include, &subscription_include])
 }

@@ -14,6 +14,7 @@ package buck.daemon;
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/duration.proto";
 import "data.proto";
+import "subscription.proto";
 
 message DaemonProcessInfo {
   int64 pid = 1;
@@ -490,6 +491,7 @@ message PartialResult {
   oneof partial_result {
     StdoutBytes stdout_bytes = 1;
     LspMessage lsp_message = 2;
+    SubscriptionResponseWrapper subscription = 3;
   }
 }
 
@@ -522,6 +524,7 @@ message StreamingRequest {
   oneof request {
     ClientContext context = 1;
     LspRequest lsp = 2;
+    SubscriptionRequestWrapper subscription = 3;
   }
 }
 
@@ -657,6 +660,18 @@ message SetLogFilterRequest {
 }
 
 message SetLogFilterResponse {}
+
+// A wrapper for SubscriptionRequest. We *could* use SubscriptionRequest
+// directly, but this lets us have the daemon potentially send data to the CLI
+// as a side channel.
+message SubscriptionRequestWrapper {
+  buck.subscription.SubscriptionRequest request = 1;
+}
+
+// Same as above but for responses.
+message SubscriptionResponseWrapper {
+  buck.subscription.SubscriptionResponse response = 1;
+}
 
 // Note: When adding new request or response types, some of the declarations in
 // src/lib.rs need to be updated to derive common things for buck's cli package.

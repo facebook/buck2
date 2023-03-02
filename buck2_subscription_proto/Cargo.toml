@@ -1,0 +1,14 @@
+[package]
+name = "buck2_subscription_proto"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+prost = { workspace = true }
+serde = { workspace = true }
+tonic = { workspace = true }
+allocative = { workspace = true }
+
+[build-dependencies]
+buck2_protoc_dev = { workspace = true }
+tonic-build = { workspace = true }

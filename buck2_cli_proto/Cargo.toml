@@ -14,6 +14,7 @@ thiserror = { workspace = true }
 tonic = { workspace = true }
 
 buck2_data = { workspace = true }
+buck2_subscription_proto = { workspace = true }
 
 [build-dependencies]
 buck2_protoc_dev = { workspace = true }

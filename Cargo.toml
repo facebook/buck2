@@ -50,6 +50,7 @@ members = [
     "app/buck2_build_api",
     "app/buck2_build_api_derive",
     "buck2_cli_proto",
+    "buck2_subscription_proto",
     "cli",
     "dice/dice",
     "dice/dice_examples",
@@ -277,6 +278,7 @@ buck2_server_commands = { path = "app/buck2_server_commands" }
 buck2_server_ctx = { path = "app/buck2_server_ctx" }
 buck2_util = { path = "app/buck2_util" }
 buck2_re_configuration = { path = "app/buck2_re_configuration" }
+buck2_subscription_proto = { path = "buck2_subscription_proto" }
 
 [profile.release]
 incremental = true
