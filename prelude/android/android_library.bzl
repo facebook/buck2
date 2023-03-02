@@ -43,13 +43,17 @@ def android_library_impl(ctx: "context") -> ["provider"]:
     ] + android_providers
 
 def build_android_library(
-        ctx: "context") -> ("JavaProviders", [AndroidLibraryIntellijInfo.type, None]):
+        ctx: "context",
+        r_dot_java: ["artifact", None] = None) -> ("JavaProviders", [AndroidLibraryIntellijInfo.type, None]):
     bootclasspath_entries = [] + ctx.attrs._android_toolchain[AndroidToolchainInfo].android_bootclasspath
     additional_classpath_entries = []
 
     dummy_r_dot_java, android_library_intellij_info = _get_dummy_r_dot_java(ctx)
     extra_sub_targets = {}
-    if dummy_r_dot_java:
+
+    if r_dot_java:
+        additional_classpath_entries.append(r_dot_java)
+    elif dummy_r_dot_java:
         additional_classpath_entries.append(dummy_r_dot_java)
         extra_sub_targets["dummy_r_dot_java"] = [DefaultInfo(default_output = dummy_r_dot_java)]
 
