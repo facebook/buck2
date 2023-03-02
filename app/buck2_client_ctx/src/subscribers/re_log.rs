@@ -8,6 +8,7 @@
  */
 
 use std::process::Stdio;
+use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::Context;
@@ -21,7 +22,7 @@ use tokio::process::Child;
 
 use crate::cleanup_ctx::AsyncCleanupContext;
 use crate::subscribers::disable_log_upload;
-use crate::subscribers::subscriber_unpack::UnpackingEventSubscriber;
+use crate::subscribers::subscriber::EventSubscriber;
 
 #[derive(Copy, Clone, Dupe, Debug, PartialEq, Eq)]
 enum LogMode {
@@ -61,17 +62,25 @@ impl ReLog {
 }
 
 #[async_trait]
-impl UnpackingEventSubscriber for ReLog {
+impl EventSubscriber for ReLog {
     async fn exit(&mut self) -> anyhow::Result<()> {
         self.log_upload().await
     }
 
-    async fn handle_re_session_created(
-        &mut self,
-        session: &buck2_data::RemoteExecutionSessionCreated,
-        _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        self.re_session_id = Some(session.session_id.clone());
+    async fn handle_events(&mut self, events: &[Arc<BuckEvent>]) -> anyhow::Result<()> {
+        for event in events {
+            match event.data() {
+                buck2_data::buck_event::Data::Instant(ref instant) => {
+                    match instant.data.as_ref().context("Missing `data`")? {
+                        buck2_data::instant_event::Data::ReSession(session) => {
+                            self.re_session_id = Some(session.session_id.clone());
+                        }
+                        _ => {}
+                    }
+                }
+                _ => {}
+            }
+        }
         Ok(())
     }
 }

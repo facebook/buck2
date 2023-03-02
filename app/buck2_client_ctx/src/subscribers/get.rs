@@ -132,9 +132,7 @@ pub(crate) fn try_get_re_log_subscriber(
         ctx.paths()?.isolation.clone(),
         ctx.async_cleanup_context().dupe(),
     );
-    Ok(Some(Box::new(UnpackingEventSubscriberAsEventSubscriber(
-        log,
-    ))))
+    Ok(Some(Box::new(log)))
 }
 
 pub(crate) fn try_get_build_id_writer(
