@@ -29,7 +29,7 @@ message InstallResponse {
 message FileReadyRequest {
   string install_id = 1;
   string name = 2;
-  string sha1 = 3;
+  string digest = 3;
   string path = 4;
 }
 

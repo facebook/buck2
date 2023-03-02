@@ -582,7 +582,7 @@ async fn send_file(
     let name = file.name;
     let artifact = file.artifact;
 
-    let sha1 = match &file.artifact_value.entry() {
+    let digest = match &file.artifact_value.entry() {
         DirectoryEntry::Dir(dir) => dir.fingerprint().raw_digest().to_string(),
         DirectoryEntry::Leaf(ActionDirectoryMember::File(file)) => {
             file.digest.raw_digest().to_string()
@@ -604,7 +604,7 @@ async fn send_file(
     let request = tonic::Request::new(FileReadyRequest {
         install_id: install_id.to_owned(),
         name: name.to_owned(),
-        sha1,
+        digest,
         path: path.to_string(),
     });
 
