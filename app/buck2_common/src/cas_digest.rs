@@ -89,6 +89,12 @@ impl RawDigest {
     }
 }
 
+impl fmt::Display for RawDigest {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", hex::encode(self.as_bytes()))
+    }
+}
+
 #[derive(
     Debug,
     Display,
@@ -286,7 +292,7 @@ impl<Kind> Digester<Kind> {
 /// Separate struct to allow us to use  `repr(transparent)` below and guarantee an identical
 /// layout.
 #[derive(Display, PartialEq, Eq, PartialOrd, Ord, Hash, Allocative, Clone, Dupe)]
-#[display(fmt = "{}:{}", "hex::encode(digest.as_bytes())", size)]
+#[display(fmt = "{}:{}", digest, size)]
 struct CasDigestData {
     size: u64,
     digest: RawDigest,
