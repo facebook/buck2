@@ -16,7 +16,6 @@ use dupe::Dupe;
 use crate::build_count::BuildCountManager;
 use crate::client_ctx::ClientCommandContext;
 use crate::subscribers::subscriber::EventSubscriber;
-use crate::subscribers::subscriber_unpack::UnpackingEventSubscriberAsEventSubscriber;
 
 mod imp {
     use std::cmp;
@@ -46,7 +45,7 @@ mod imp {
     use crate::cleanup_ctx::AsyncCleanupContext;
     use crate::subscribers::recorder::is_eden_dir;
     use crate::subscribers::recorder::system_memory_stats;
-    use crate::subscribers::subscriber_unpack::UnpackingEventSubscriber;
+    use crate::subscribers::subscriber::EventSubscriber;
 
     pub struct InvocationRecorder {
         cli_args: Vec<String>,
@@ -303,20 +302,8 @@ mod imp {
             ints.insert("is_tty".to_owned(), std::io::stderr().is_tty() as i64);
             buck2_data::TypedMetadata { ints }
         }
-    }
 
-    impl Drop for InvocationRecorder {
-        fn drop(&mut self) {
-            if let Some(fut) = self.exit() {
-                self.async_cleanup_context
-                    .register("sending invocation to Scribe", fut.boxed());
-            }
-        }
-    }
-
-    #[async_trait]
-    impl UnpackingEventSubscriber for InvocationRecorder {
-        async fn handle_command_start(
+        fn handle_command_start(
             &mut self,
             command: &buck2_data::CommandStart,
             event: &BuckEvent,
@@ -365,7 +352,7 @@ mod imp {
             }
             Ok(())
         }
-        async fn handle_command_critical_start(
+        fn handle_command_critical_start(
             &mut self,
             command: &buck2_data::CommandCriticalStart,
             _event: &BuckEvent,
@@ -374,7 +361,7 @@ mod imp {
             self.time_to_command_critical_section = Some(self.start_time.elapsed());
             Ok(())
         }
-        async fn handle_command_critical_end(
+        fn handle_command_critical_end(
             &mut self,
             command: &buck2_data::CommandCriticalEnd,
             _event: &BuckEvent,
@@ -383,7 +370,7 @@ mod imp {
             Ok(())
         }
 
-        async fn handle_action_execution_start(
+        fn handle_action_execution_start(
             &mut self,
             _action: &buck2_data::ActionExecutionStart,
             _event: &BuckEvent,
@@ -393,7 +380,7 @@ mod imp {
             }
             Ok(())
         }
-        async fn handle_action_execution_end(
+        fn handle_action_execution_end(
             &mut self,
             action: &buck2_data::ActionExecutionEnd,
             _event: &BuckEvent,
@@ -436,7 +423,7 @@ mod imp {
             Ok(())
         }
 
-        async fn handle_analysis_start(
+        fn handle_analysis_start(
             &mut self,
             _analysis: &buck2_data::AnalysisStart,
             _event: &BuckEvent,
@@ -446,7 +433,7 @@ mod imp {
             Ok(())
         }
 
-        async fn handle_load_start(
+        fn handle_load_start(
             &mut self,
             _eval: &buck2_data::LoadBuildFileStart,
             _event: &BuckEvent,
@@ -456,7 +443,7 @@ mod imp {
             Ok(())
         }
 
-        async fn handle_executor_stage_start(
+        fn handle_executor_stage_start(
             &mut self,
             executor_stage: &buck2_data::ExecutorStageStart,
             _event: &BuckEvent,
@@ -485,7 +472,7 @@ mod imp {
             Ok(())
         }
 
-        async fn handle_cache_upload_end(
+        fn handle_cache_upload_end(
             &mut self,
             cache_upload: &buck2_data::CacheUploadEnd,
             _event: &BuckEvent,
@@ -497,7 +484,7 @@ mod imp {
             Ok(())
         }
 
-        async fn handle_re_session_created(
+        fn handle_re_session_created(
             &mut self,
             session: &buck2_data::RemoteExecutionSessionCreated,
             _event: &BuckEvent,
@@ -507,7 +494,7 @@ mod imp {
             Ok(())
         }
 
-        async fn handle_materialization_end(
+        fn handle_materialization_end(
             &mut self,
             materialization: &buck2_data::MaterializationEnd,
             _event: &BuckEvent,
@@ -516,7 +503,7 @@ mod imp {
             Ok(())
         }
 
-        async fn handle_materializer_state_info(
+        fn handle_materializer_state_info(
             &mut self,
             materializer_state_info: &buck2_data::MaterializerStateInfo,
         ) -> anyhow::Result<()> {
@@ -525,7 +512,7 @@ mod imp {
             Ok(())
         }
 
-        async fn handle_test_discovery(
+        fn handle_test_discovery(
             &mut self,
             test_info: &buck2_data::TestDiscovery,
             _event: &BuckEvent,
@@ -540,7 +527,7 @@ mod imp {
             Ok(())
         }
 
-        async fn handle_build_graph_info(
+        fn handle_build_graph_info(
             &mut self,
             info: &buck2_data::BuildGraphExecutionInfo,
             _event: &BuckEvent,
@@ -555,12 +542,12 @@ mod imp {
             Ok(())
         }
 
-        async fn handle_tag(&mut self, tag: &buck2_data::TagEvent) -> anyhow::Result<()> {
+        fn handle_tag(&mut self, tag: &buck2_data::TagEvent) -> anyhow::Result<()> {
             self.tags.extend(tag.tags.iter().cloned());
             Ok(())
         }
 
-        async fn handle_snapshot(
+        fn handle_snapshot(
             &mut self,
             update: &buck2_data::Snapshot,
             _event: &BuckEvent,
@@ -591,7 +578,7 @@ mod imp {
             Ok(())
         }
 
-        async fn handle_file_watcher_end(
+        fn handle_file_watcher_end(
             &mut self,
             file_watcher: &buck2_data::FileWatcherEnd,
             _event: &BuckEvent,
@@ -600,16 +587,11 @@ mod imp {
             Ok(())
         }
 
-        async fn handle_resolved_target_patterns(
+        fn handle_resolved_target_patterns(
             &mut self,
             patterns: &buck2_data::ResolvedTargetPatterns,
         ) -> anyhow::Result<()> {
             self.resolved_target_patterns = Some(patterns.clone());
-            Ok(())
-        }
-
-        async fn handle_console_interaction(&mut self, _c: char) -> anyhow::Result<()> {
-            self.tags.push("console-interaction".to_owned());
             Ok(())
         }
 
@@ -623,7 +605,104 @@ mod imp {
                 ));
             }
             self.event_count += 1;
-            self.handle_inner_event(event).await
+
+            match event.data() {
+                buck2_data::buck_event::Data::SpanStart(ref start) => {
+                    match start.data.as_ref().context("Missing `start`")? {
+                        buck2_data::span_start_event::Data::Command(command) => {
+                            self.handle_command_start(command, event)
+                        }
+                        buck2_data::span_start_event::Data::CommandCritical(command) => {
+                            self.handle_command_critical_start(command, event)
+                        }
+                        buck2_data::span_start_event::Data::ActionExecution(action) => {
+                            self.handle_action_execution_start(action, event)
+                        }
+                        buck2_data::span_start_event::Data::Analysis(analysis) => {
+                            self.handle_analysis_start(analysis, event)
+                        }
+                        buck2_data::span_start_event::Data::Load(eval) => {
+                            self.handle_load_start(eval, event)
+                        }
+                        buck2_data::span_start_event::Data::ExecutorStage(stage) => {
+                            self.handle_executor_stage_start(stage, event)
+                        }
+                        _ => Ok(()),
+                    }
+                }
+                buck2_data::buck_event::Data::SpanEnd(ref end) => {
+                    match end.data.as_ref().context("Missing `end`")? {
+                        buck2_data::span_end_event::Data::Command(command) => {
+                            self.handle_command_end(command, event).await
+                        }
+                        buck2_data::span_end_event::Data::CommandCritical(command) => {
+                            self.handle_command_critical_end(command, event)
+                        }
+                        buck2_data::span_end_event::Data::ActionExecution(action) => {
+                            self.handle_action_execution_end(action, event)
+                        }
+                        buck2_data::span_end_event::Data::FileWatcher(file_watcher) => {
+                            self.handle_file_watcher_end(file_watcher, event)
+                        }
+                        buck2_data::span_end_event::Data::CacheUpload(cache_upload) => {
+                            self.handle_cache_upload_end(cache_upload, event)
+                        }
+                        buck2_data::span_end_event::Data::Materialization(materialization) => {
+                            self.handle_materialization_end(materialization, event)
+                        }
+                        _ => Ok(()),
+                    }
+                }
+                buck2_data::buck_event::Data::Instant(ref instant) => {
+                    match instant.data.as_ref().context("Missing `data`")? {
+                        buck2_data::instant_event::Data::ReSession(session) => {
+                            self.handle_re_session_created(session, event)
+                        }
+                        buck2_data::instant_event::Data::BuildGraphInfo(info) => {
+                            self.handle_build_graph_info(info, event)
+                        }
+                        buck2_data::instant_event::Data::TestDiscovery(discovery) => {
+                            self.handle_test_discovery(discovery, event)
+                        }
+                        buck2_data::instant_event::Data::Snapshot(result) => {
+                            self.handle_snapshot(result, event)
+                        }
+                        buck2_data::instant_event::Data::TagEvent(tag) => self.handle_tag(tag),
+                        buck2_data::instant_event::Data::TargetPatterns(tag) => {
+                            self.handle_resolved_target_patterns(tag)
+                        }
+                        buck2_data::instant_event::Data::MaterializerStateInfo(
+                            materializer_state,
+                        ) => self.handle_materializer_state_info(materializer_state),
+                        _ => Ok(()),
+                    }
+                }
+                buck2_data::buck_event::Data::Record(_) => Ok(()),
+            }
+        }
+    }
+
+    impl Drop for InvocationRecorder {
+        fn drop(&mut self) {
+            if let Some(fut) = self.exit() {
+                self.async_cleanup_context
+                    .register("sending invocation to Scribe", fut.boxed());
+            }
+        }
+    }
+
+    #[async_trait]
+    impl EventSubscriber for InvocationRecorder {
+        async fn handle_events(&mut self, events: &[Arc<BuckEvent>]) -> anyhow::Result<()> {
+            for event in events {
+                self.handle_event(event).await?;
+            }
+            Ok(())
+        }
+
+        async fn handle_console_interaction(&mut self, _c: char) -> anyhow::Result<()> {
+            self.tags.push("console-interaction".to_owned());
+            Ok(())
         }
     }
 
@@ -652,9 +731,7 @@ pub(crate) fn try_get_invocation_recorder(
                 BuildCountManager::new(ctx.paths()?.build_count_dir()),
                 ctx.paths()?.project_root().root().to_buf(),
             );
-            return Ok(Some(Box::new(UnpackingEventSubscriberAsEventSubscriber(
-                recorder,
-            ))));
+            return Ok(Some(Box::new(recorder) as _));
         }
     }
     Ok(None)
