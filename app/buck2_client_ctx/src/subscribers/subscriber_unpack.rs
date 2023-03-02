@@ -121,9 +121,6 @@ pub trait UnpackingEventSubscriber: Send {
             buck2_data::instant_event::Data::TestResult(result) => {
                 self.handle_test_result(result, event).await
             }
-            buck2_data::instant_event::Data::Snapshot(result) => {
-                self.handle_snapshot(result, event).await
-            }
             buck2_data::instant_event::Data::ConsolePreferences(preferences) => {
                 self.handle_console_preferences(preferences, event).await
             }
@@ -197,13 +194,6 @@ pub trait UnpackingEventSubscriber: Send {
     async fn handle_test_result(
         &mut self,
         _result: &buck2_data::TestResult,
-        _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-    async fn handle_snapshot(
-        &mut self,
-        _snapshot: &buck2_data::Snapshot,
         _event: &BuckEvent,
     ) -> anyhow::Result<()> {
         Ok(())

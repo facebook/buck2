@@ -603,17 +603,6 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
         Ok(())
     }
 
-    async fn handle_snapshot(
-        &mut self,
-        update: &buck2_data::Snapshot,
-        event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        self.state
-            .simple_console
-            .handle_snapshot(update, event)
-            .await
-    }
-
     async fn handle_console_preferences(
         &mut self,
         prefs: &buck2_data::ConsolePreferences,
