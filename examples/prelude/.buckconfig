@@ -6,6 +6,7 @@ none = none
 
 [repository_aliases]
 ovr_config = prelude
+config = prelude
 fbcode = none
 fbsource = none
 buck = none
