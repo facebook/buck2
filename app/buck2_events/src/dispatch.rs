@@ -185,8 +185,16 @@ impl EventDispatcher {
         End: Into<span_end_event::Data>,
         Fut: Future<Output = (R, End)>,
     {
-        let span = Span::start(self.dupe(), start);
-        SpanAsync { fut, span }
+        Span::start(self.dupe(), start).wrap_future(fut)
+    }
+
+    /// Creates a new span but does not enter it. Use `wrap_future` or `wrap_closure` to enter it,
+    /// or create children spans via `create_child` and enter those.
+    pub fn create_span<Start>(&self, start: Start) -> Span
+    where
+        Start: Into<span_start_event::Data>,
+    {
+        Span::start(self.dupe(), start)
     }
 
     /// Returns the traceid for this event dispatcher.
@@ -262,7 +270,13 @@ impl Span {
     where
         D: Into<span_start_event::Data>,
     {
-        let parent_id = current_span();
+        Self::start_impl(dispatcher, data, current_span())
+    }
+
+    fn start_impl<D>(dispatcher: EventDispatcher, data: D, parent_id: Option<SpanId>) -> Self
+    where
+        D: Into<span_start_event::Data>,
+    {
         let span_id = SpanId::new();
         let start_instant = Instant::now();
 
@@ -289,6 +303,32 @@ impl Span {
         D: Into<span_end_event::Data>,
     {
         self.send(data.into());
+    }
+
+    pub fn span_id(&self) -> SpanId {
+        self.span_id
+    }
+
+    pub fn wrap_future<End, Fut, R>(self, fut: Fut) -> impl Future<Output = R>
+    where
+        End: Into<span_end_event::Data>,
+        Fut: Future<Output = (R, End)>,
+    {
+        SpanAsync { fut, span: self }
+    }
+
+    pub fn wrap_closure<End, Fun, R>(mut self, fun: Fun) -> R
+    where
+        End: Into<span_end_event::Data>,
+        Fun: FnOnce() -> (R, End),
+    {
+        let (r, end) = self.call_in_span(fun);
+        self.send(end.into());
+        r
+    }
+
+    pub fn create_child(&self, data: impl Into<span_start_event::Data>) -> Span {
+        Span::start_impl(self.dispatcher.dupe(), data, Some(self.span_id))
     }
 
     fn call_in_span<T, F>(&mut self, f: F) -> T
@@ -449,6 +489,12 @@ where
     get_dispatcher().span_async(start, fut)
 }
 
+/// To use when wrapping via span() and span_async is not convenient. This produces a Span guard
+/// that must be ended. The span is not automatically entered.
+pub fn create_span(start: impl Into<span_start_event::Data>) -> Span {
+    get_dispatcher().create_span(start)
+}
+
 #[cfg(test)]
 mod tests {
     use buck2_data::CommandEnd;
@@ -580,6 +626,39 @@ mod tests {
         assert_eq!(e1.span_id, e4.span_id);
         assert_eq!(e2.span_id, e3.span_id);
         assert_eq!(e2.parent_id, e1.span_id);
+    }
+
+    #[tokio::test]
+    async fn send_event_with_nested_span_explicit() {
+        let (dispatcher, mut source, _trace_id) = create_dispatcher();
+        let (start, end) = create_start_end_events();
+
+        let top = dispatcher.create_span(start.clone());
+        let middle = top.create_child(start.clone());
+        middle.wrap_closure(|| {
+            (
+                dispatcher.span(start.clone(), || ((), end.clone())),
+                end.clone(),
+            )
+        });
+        top.end(end);
+
+        let enter_top = next_event(&mut source).await;
+        let enter_middle = next_event(&mut source).await;
+        let enter_bottom = next_event(&mut source).await;
+        let exit_bottom = next_event(&mut source).await;
+        let exit_middle = next_event(&mut source).await;
+        let exit_top = next_event(&mut source).await;
+
+        assert_eq!(enter_top.span_id, exit_top.span_id);
+        assert_eq!(enter_middle.span_id, exit_middle.span_id);
+        assert_eq!(enter_bottom.span_id, exit_bottom.span_id);
+
+        assert_eq!(enter_middle.parent_id.unwrap(), enter_top.span_id.unwrap());
+        assert_eq!(
+            enter_bottom.parent_id.unwrap(),
+            enter_middle.span_id.unwrap()
+        );
     }
 
     #[test]
