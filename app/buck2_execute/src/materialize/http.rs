@@ -343,7 +343,7 @@ async fn copy_and_hash(
     // Validate
     for (validator, expected, kind) in validators {
         let obtained = match validator {
-            Validator::PrimaryDigest => hex::encode(digest.raw_digest().as_bytes()),
+            Validator::PrimaryDigest => digest.raw_digest().to_string(),
             Validator::ExtraDigest(hasher) => hex::encode(hasher.finalize()),
         };
 

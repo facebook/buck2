@@ -95,7 +95,7 @@ impl<Kind> CasDigestToReExt for TrackedCasDigest<Kind> {
 impl<Kind> CasDigestToReExt for CasDigest<Kind> {
     fn to_re(&self) -> TDigest {
         TDigest {
-            hash: hex::encode(self.raw_digest().as_bytes()),
+            hash: self.raw_digest().to_string(),
             size_in_bytes: self.size() as i64,
             ..Default::default()
         }
@@ -103,7 +103,7 @@ impl<Kind> CasDigestToReExt for CasDigest<Kind> {
 
     fn to_grpc(&self) -> Digest {
         Digest {
-            hash: hex::encode(self.raw_digest().as_bytes()),
+            hash: self.raw_digest().to_string(),
             size_bytes: self.size() as i64,
         }
     }
