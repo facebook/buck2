@@ -229,18 +229,18 @@ def encode_ap_params(ap_params: ["AnnotationProcessorParams"], target_type: Targ
             # We should also filter out non-abi-affecting APs for source-abi, but buck1 doesn't and so we have lots that depend on not filtering them there.
             if target_type == TargetType("source_only_abi") and not ap.affects_abi:
                 continue
-
             encoded_ap_params.parameters.extend(ap.params)
-            encoded_ap_params.pluginProperties.append(
-                struct(
-                    canReuseClassLoader = False,
-                    doesNotAffectAbi = not ap.affects_abi,
-                    supportsAbiGenerationFromSource = ap.supports_source_only_abi,
-                    processorNames = ap.processors,
-                    classpath = ap.deps.project_as_json("javacd_json") if ap.deps else [],
-                    pathParams = {},
-                ),
-            )
+            if ap.processors:
+                encoded_ap_params.pluginProperties.append(
+                    struct(
+                        canReuseClassLoader = False,
+                        doesNotAffectAbi = not ap.affects_abi,
+                        supportsAbiGenerationFromSource = ap.supports_source_only_abi,
+                        processorNames = ap.processors,
+                        classpath = ap.deps.project_as_json("javacd_json") if ap.deps else [],
+                        pathParams = {},
+                    ),
+                )
     return encoded_ap_params
 
 def encode_plugin_params(plugin_params: ["PluginParams", None]) -> [struct.type, None]:
