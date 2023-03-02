@@ -132,37 +132,32 @@ pub trait UnpackingEventSubscriber: Send {
         &mut self,
         _command: &buck2_data::CommandStart,
         _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
+    ) -> anyhow::Result<()>;
+
     async fn handle_command_end(
         &mut self,
         _command: &buck2_data::CommandEnd,
         _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
+    ) -> anyhow::Result<()>;
+
     async fn handle_action_execution_end(
         &mut self,
         _action: &buck2_data::ActionExecutionEnd,
         _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
+    ) -> anyhow::Result<()>;
+
     async fn handle_file_watcher_end(
         &mut self,
         _watchman: &buck2_data::FileWatcherEnd,
         _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
+    ) -> anyhow::Result<()>;
+
     async fn handle_console_message(
         &mut self,
         _message: &buck2_data::ConsoleMessage,
         _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
+    ) -> anyhow::Result<()>;
+
     async fn handle_re_session_created(
         &mut self,
         _session: &buck2_data::RemoteExecutionSessionCreated,
@@ -174,48 +169,32 @@ pub trait UnpackingEventSubscriber: Send {
         &mut self,
         _panic: &buck2_data::Panic,
         _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-    async fn handle_build_graph_info(
-        &mut self,
-        _info: &buck2_data::BuildGraphExecutionInfo,
-        _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
+    ) -> anyhow::Result<()>;
+
     async fn handle_test_discovery(
         &mut self,
         _test_info: &buck2_data::TestDiscovery,
         _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
+    ) -> anyhow::Result<()>;
+
     async fn handle_test_result(
         &mut self,
         _result: &buck2_data::TestResult,
         _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
+    ) -> anyhow::Result<()>;
+
     async fn handle_console_preferences(
         &mut self,
         _prefs: &buck2_data::ConsolePreferences,
         _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
+    ) -> anyhow::Result<()>;
 
     /// Give the subscriber a chance to react to errors as we start trying to clean up.
     /// They may return another error, which will be incorporated into the end result.
-    async fn handle_error(&mut self, _error: &anyhow::Error) -> anyhow::Result<()> {
-        Ok(())
-    }
+    async fn handle_error(&mut self, _error: &anyhow::Error) -> anyhow::Result<()>;
 
     /// Allow the subscriber to do some sort of action once every render cycle.
-    async fn tick(&mut self, _tick: &Tick) -> anyhow::Result<()> {
-        Ok(())
-    }
+    async fn tick(&mut self, _tick: &Tick) -> anyhow::Result<()>;
 }
 
 #[async_trait]

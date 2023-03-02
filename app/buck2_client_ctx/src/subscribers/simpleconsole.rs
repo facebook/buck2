@@ -590,6 +590,20 @@ where
 
         Ok(())
     }
+
+    async fn handle_error(&mut self, _error: &anyhow::Error) -> anyhow::Result<()> {
+        // We don't need to do any cleanup to exit.
+        Ok(())
+    }
+
+    async fn handle_console_preferences(
+        &mut self,
+        _prefs: &buck2_data::ConsolePreferences,
+        _event: &BuckEvent,
+    ) -> anyhow::Result<()> {
+        // Those are only used by the Superconsole at the moment.
+        Ok(())
+    }
 }
 
 struct PrintDebugCommandToStderr;

@@ -612,6 +612,32 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
 
         Ok(())
     }
+
+    // Our state snapshot handles those for us.
+
+    async fn handle_command_start(
+        &mut self,
+        _command: &buck2_data::CommandStart,
+        _event: &BuckEvent,
+    ) -> anyhow::Result<()> {
+        Ok(())
+    }
+
+    async fn handle_command_end(
+        &mut self,
+        _command: &buck2_data::CommandEnd,
+        _event: &BuckEvent,
+    ) -> anyhow::Result<()> {
+        Ok(())
+    }
+
+    async fn handle_test_discovery(
+        &mut self,
+        _test_info: &buck2_data::TestDiscovery,
+        _event: &BuckEvent,
+    ) -> anyhow::Result<()> {
+        Ok(())
+    }
 }
 
 fn lines_for_command_details(
