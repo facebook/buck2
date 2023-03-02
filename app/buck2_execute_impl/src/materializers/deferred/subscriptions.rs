@@ -13,8 +13,10 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 
 use anyhow::Context as _;
+use async_trait::async_trait;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_execute::materialize::materializer::DeferredMaterializerSubscription;
 use derivative::Derivative;
 use derive_more::Display;
 use dupe::Dupe;
@@ -23,7 +25,6 @@ use tokio::sync::mpsc::unbounded_channel;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::oneshot::Sender;
-use tokio_stream::wrappers::UnboundedReceiverStream;
 
 use crate::materializers::deferred::DeferredMaterializerCommandProcessor;
 use crate::materializers::deferred::IoHandler;
@@ -143,7 +144,7 @@ where
                 let _ignored = sender.send(SubscriptionHandle {
                     index,
                     command_sender: dm.command_sender.dupe(),
-                    receiver: UnboundedReceiverStream::new(notification_receiver),
+                    receiver: notification_receiver,
                 });
             }
             Self::Destroy { index } => {
@@ -188,11 +189,19 @@ pub(super) struct SubscriptionHandle<T: 'static> {
     command_sender: MaterializerSender<T>,
     /// Channel to send back notifications.
     #[derivative(Debug = "ignore")]
-    receiver: UnboundedReceiverStream<ProjectRelativePathBuf>,
+    receiver: UnboundedReceiver<ProjectRelativePathBuf>,
 }
 
 impl<T: 'static> SubscriptionHandle<T> {
-    pub fn subscribe_to_paths(&self, paths: Vec<ProjectRelativePathBuf>) {
+    #[cfg(test)]
+    pub fn receiver(&mut self) -> &mut UnboundedReceiver<ProjectRelativePathBuf> {
+        &mut self.receiver
+    }
+}
+
+#[async_trait]
+impl<T: 'static> DeferredMaterializerSubscription for SubscriptionHandle<T> {
+    fn subscribe_to_paths(&mut self, paths: Vec<ProjectRelativePathBuf>) {
         self.command_sender.send(MaterializerCommand::Subscription(
             MaterializerSubscriptionOperation::Subscribe {
                 index: self.index,
@@ -201,13 +210,8 @@ impl<T: 'static> SubscriptionHandle<T> {
         ));
     }
 
-    pub fn stream(&mut self) -> &mut (impl Stream<Item = ProjectRelativePathBuf> + Unpin) {
-        &mut self.receiver
-    }
-
-    #[cfg(test)]
-    pub fn receiver(&mut self) -> &mut UnboundedReceiver<ProjectRelativePathBuf> {
-        self.receiver.as_mut()
+    async fn next_materialization(&mut self) -> Option<ProjectRelativePathBuf> {
+        self.receiver.recv().await
     }
 }
 

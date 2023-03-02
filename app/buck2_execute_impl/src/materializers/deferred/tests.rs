@@ -15,6 +15,7 @@ use buck2_common::file_ops::FileMetadata;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::insert_file;
 use buck2_execute::directory::ActionDirectoryBuilder;
+use buck2_execute::materialize::materializer::DeferredMaterializerSubscription;
 use dupe::Dupe;
 
 use super::Version;

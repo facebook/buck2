@@ -618,6 +618,18 @@ impl MaterializationMethod {
 /// `DeferredMaterializerEntry` lives in a crate that depends on this one.
 pub trait DeferredMaterializerEntry: Send + Sync + std::fmt::Display {}
 
+/// Obtain notifications for entries as they are materialized, and request eager materialization of
+/// those paths.
+#[async_trait]
+pub trait DeferredMaterializerSubscription: Send + Sync {
+    /// Get notifications for specific paths. This also implicitly requests their eager
+    /// materialization.
+    fn subscribe_to_paths(&mut self, paths: Vec<ProjectRelativePathBuf>);
+
+    /// Await the next materialization on this subscription.
+    async fn next_materialization(&mut self) -> Option<ProjectRelativePathBuf>;
+}
+
 /// Extensions to the Materializer trait that are only available in the Deferred materializer.
 #[async_trait]
 pub trait DeferredMaterializerExtensions: Send + Sync {
