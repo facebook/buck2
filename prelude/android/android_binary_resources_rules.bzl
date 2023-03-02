@@ -24,7 +24,8 @@ def get_android_binary_resources_info(
         use_proto_format: bool.type,
         referenced_resources_lists: ["artifact"],
         manifest_entries: dict.type = {},
-        resource_infos_to_exclude: [set_type, None] = None) -> "AndroidBinaryResourcesInfo":
+        resource_infos_to_exclude: [set_type, None] = None,
+        generate_strings_and_ids_separately: [bool.type, None] = True) -> "AndroidBinaryResourcesInfo":
     android_toolchain = ctx.attrs._android_toolchain[AndroidToolchainInfo]
     unfiltered_resource_infos = [
         resource_info
@@ -138,6 +139,7 @@ def get_android_binary_resources_info(
         getattr(ctx.attrs, "duplicate_resource_whitelist", None),
         getattr(ctx.attrs, "resource_union_package", None),
         referenced_resources_lists,
+        generate_strings_and_ids_separately = generate_strings_and_ids_separately,
     )
     string_source_map = _maybe_generate_string_source_map(
         ctx.actions,

@@ -43,13 +43,14 @@ def generate_r_dot_javas(
         override_symbols_paths: ["artifact"],
         duplicate_resources_allowlist: ["artifact", None],
         union_package: [str.type, None],
-        referenced_resources_lists: ["artifact"]) -> ["JavaLibraryInfo"]:
+        referenced_resources_lists: ["artifact"],
+        generate_strings_and_ids_separately: [bool.type, None] = True) -> ["JavaLibraryInfo"]:
     r_dot_java_source_code = _generate_r_dot_java_source_code(
         ctx,
         merge_android_resources_tool,
         android_resources,
         "r_dot_java",
-        generate_strings_and_ids_separately = True,
+        generate_strings_and_ids_separately = generate_strings_and_ids_separately,
         force_final_resources_ids = True,
         banned_duplicate_resource_types = banned_duplicate_resource_types,
         uber_r_dot_txt_files = uber_r_dot_txt_files,
@@ -64,24 +65,28 @@ def generate_r_dot_javas(
         r_dot_java_source_code.r_dot_java_source_code_zipped,
         "main_r_dot_java",
     )
-    strings_library_output = _generate_and_compile_r_dot_java(
-        ctx,
-        r_dot_java_source_code.strings_source_code_zipped,
-        "strings_r_dot_java",
-        remove_classes = [".R$"],
-    )
-    ids_library_output = _generate_and_compile_r_dot_java(
-        ctx,
-        r_dot_java_source_code.ids_source_code_zipped,
-        "ids_r_dot_java",
-        remove_classes = [".R$"],
-    )
+    if generate_strings_and_ids_separately:
+        strings_library_output = _generate_and_compile_r_dot_java(
+            ctx,
+            r_dot_java_source_code.strings_source_code_zipped,
+            "strings_r_dot_java",
+            remove_classes = [".R$"],
+        )
+        ids_library_output = _generate_and_compile_r_dot_java(
+            ctx,
+            r_dot_java_source_code.ids_source_code_zipped,
+            "ids_r_dot_java",
+            remove_classes = [".R$"],
+        )
+    else:
+        strings_library_output = None
+        ids_library_output = None
 
     return [JavaLibraryInfo(
         compiling_deps = derive_compiling_deps(ctx.actions, library_output, []),
         library_output = library_output,
         output_for_classpath_macro = library_output.full_library,
-    ) for library_output in [main_library_output, strings_library_output, ids_library_output]]
+    ) for library_output in filter(None, [main_library_output, strings_library_output, ids_library_output])]
 
 def _generate_r_dot_java_source_code(
         ctx: "context",
