@@ -96,6 +96,10 @@ mod imp {
         system_total_memory_bytes: Option<u64>,
         file_watcher_stats: Option<buck2_data::FileWatcherStats>,
         time_to_last_action_execution_end: Option<Duration>,
+        initial_sink_success_count: Option<u64>,
+        initial_sink_failure_count: Option<u64>,
+        initial_sink_dropped_count: Option<u64>,
+        sink_max_buffer_depth: u64,
     }
 
     impl InvocationRecorder {
@@ -155,6 +159,10 @@ mod imp {
                 system_total_memory_bytes: Some(system_memory_stats()),
                 file_watcher_stats: None,
                 time_to_last_action_execution_end: None,
+                initial_sink_success_count: None,
+                initial_sink_failure_count: None,
+                initial_sink_dropped_count: None,
+                sink_max_buffer_depth: 0,
             }
         }
 
@@ -182,6 +190,24 @@ mod imp {
 
         fn exit(&mut self) -> Option<impl Future<Output = ()> + 'static + Send> {
             if let Some(trace_id) = self.trace_id.take() {
+                let mut sink_success_count = None;
+                let mut sink_failure_count = None;
+                let mut sink_dropped_count = None;
+                if let Some(snapshot) = &self.last_snapshot {
+                    sink_success_count = calculate_diff_if_some(
+                        &snapshot.sink_successes,
+                        &self.initial_sink_success_count,
+                    );
+                    sink_failure_count = calculate_diff_if_some(
+                        &snapshot.sink_failures,
+                        &self.initial_sink_failure_count,
+                    );
+                    sink_dropped_count = calculate_diff_if_some(
+                        &snapshot.sink_dropped,
+                        &self.initial_sink_dropped_count,
+                    );
+                }
+
                 let record = buck2_data::InvocationRecord {
                     command_start: self.command_start.take(),
                     command_end: self.command_end.take(),
@@ -245,6 +271,10 @@ mod imp {
                         .time_to_last_action_execution_end
                         .and_then(|d| u64::try_from(d.as_millis()).ok()),
                     isolation_dir: Some(self.isolation_dir.clone()),
+                    sink_success_count,
+                    sink_failure_count,
+                    sink_dropped_count,
+                    sink_max_buffer_depth: Some(self.sink_max_buffer_depth),
                 };
                 let event = BuckEvent::new(
                     SystemTime::now(),
@@ -546,6 +576,18 @@ mod imp {
             } else {
                 self.last_snapshot = Some(update.clone());
             }
+            if self.initial_sink_success_count.is_none() {
+                self.initial_sink_success_count = update.sink_successes;
+            }
+            if self.initial_sink_failure_count.is_none() {
+                self.initial_sink_failure_count = update.sink_failures;
+            }
+            if self.initial_sink_dropped_count.is_none() {
+                self.initial_sink_dropped_count = update.sink_dropped;
+            }
+            self.sink_max_buffer_depth =
+                cmp::max(self.sink_max_buffer_depth, update.sink_buffer_depth());
+
             Ok(())
         }
 
@@ -582,6 +624,13 @@ mod imp {
             }
             self.event_count += 1;
             self.handle_inner_event(event).await
+        }
+    }
+
+    fn calculate_diff_if_some(a: &Option<u64>, b: &Option<u64>) -> Option<u64> {
+        match (a, b) {
+            (Some(av), Some(bv)) => Some(std::cmp::max(av, bv) - std::cmp::min(av, bv)),
+            _ => None,
         }
     }
 }

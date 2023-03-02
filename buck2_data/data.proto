@@ -1311,6 +1311,11 @@ message InvocationRecord {
   optional string isolation_dir = 49;
   // Number of materializer entries loaded from db on daemon start.
   optional uint64 initial_materializer_entries_from_sqlite = 50;
+  // Sink write statistics for the command
+  optional uint64 sink_success_count = 51;
+  optional uint64 sink_failure_count = 52;
+  optional uint64 sink_dropped_count = 53;
+  optional uint64 sink_max_buffer_depth = 54;
 }
 
 message CacheUploadStart {
