@@ -72,6 +72,7 @@ message SpanStartEvent {
     DiceCleanupStart dice_cleanup = 72;
     ExclusiveCommandWaitStart exclusive_command_wait = 73;
     DeferredPreparationStageStart deferred_preparation_stage = 74;
+    DynamicLambdaStart dynamic_lambda = 75;
     // Used in Buck unit tests.
     FakeStart fake = 999;
   }
@@ -1479,5 +1480,14 @@ message DeferredPreparationStageStart {
 message MaterializedArtifacts {}
 
 message DeferredPreparationStageEnd {}
+
+message DynamicLambdaStart {
+  // The configured target label that this action contributes to.
+  oneof owner {
+    ConfiguredTargetLabel target_label = 1;
+    BxlFunctionKey bxl_key = 2;
+    AnonTarget anon_target = 3;
+  }
+}
 
 message DeferredEvaluationEnd {}

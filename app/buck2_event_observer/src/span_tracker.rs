@@ -406,7 +406,8 @@ impl SpanTrackable for Arc<BuckEvent> {
                 | Data::DiceSynchronizeSection(..)
                 | Data::DiceCleanup(..)
                 | Data::ExclusiveCommandWait(..)
-                | Data::DeferredPreparationStage(..),
+                | Data::DeferredPreparationStage(..)
+                | Data::DynamicLambda(..),
             ) => true,
             None => false,
         }

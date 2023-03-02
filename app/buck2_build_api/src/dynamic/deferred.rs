@@ -13,6 +13,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
+use buck2_data::ToProtoMessage;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_interpreter::types::label::Label;
 use buck2_interpreter_for_build::interpreter::print_handler::EventDispatcherPrintHandler;
@@ -294,5 +295,15 @@ impl Deferred for DynamicLambda {
 
     fn debug_artifact_outputs(&self) -> anyhow::Result<Option<Vec<BuildArtifact>>> {
         Ok(Some(self.outputs.clone()))
+    }
+
+    fn span(&self) -> Option<buck2_data::span_start_event::Data> {
+        let owner = match &self.owner {
+            BaseDeferredKey::TargetLabel(target) => target.as_proto().into(),
+            BaseDeferredKey::BxlLabel(bxl) => bxl.as_proto().into(),
+            BaseDeferredKey::AnonTarget(target) => target.as_proto().into(),
+        };
+
+        Some(buck2_data::DynamicLambdaStart { owner: Some(owner) }.into())
     }
 }

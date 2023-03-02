@@ -268,6 +268,19 @@ pub fn display_event(event: &BuckEvent, opts: TargetDisplayOptions) -> anyhow::R
                     Stage::MaterializedArtifacts(_) => Ok("local_materialize_inputs".to_owned()),
                 }
             }
+            Data::DynamicLambda(lambda) => {
+                use buck2_data::dynamic_lambda_start::Owner;
+
+                let label = match lambda.owner.as_ref().context("Missing `owner`")? {
+                    Owner::TargetLabel(target_label) => {
+                        display_configured_target_label(target_label, opts)
+                    }
+                    Owner::BxlKey(bxl_key) => display_bxl_key(bxl_key),
+                    Owner::AnonTarget(anon_target) => display_anon_target(anon_target),
+                }?;
+
+                Ok(format!("{} -- dynamic analysis", label))
+            }
             Data::Fake(fake) => Ok(format!("{} -- speak of the devil", fake.caramba)),
         };
 
