@@ -74,7 +74,6 @@ use futures::future::try_join;
 use futures::future::try_join_all;
 use futures::stream::StreamExt;
 use futures::stream::TryStreamExt;
-use gazebo::prelude::StrExt;
 use install_proto::installer_client::InstallerClient;
 use install_proto::FileReadyRequest;
 use install_proto::InstallInfoRequest;
@@ -582,24 +581,30 @@ async fn send_file(
     let install_id = file.install_id;
     let name = file.name;
     let artifact = file.artifact;
-    let sha1: String = match &file.artifact_value.entry() {
-        DirectoryEntry::Dir(dir) => dir.fingerprint().to_string(),
-        // todo(@lebentle) Use for now to unblock exopackage,
-        // but should follow symlink and validate the target exists and send that
+
+    let sha1 = match &file.artifact_value.entry() {
+        DirectoryEntry::Dir(dir) => dir.fingerprint().raw_digest().to_string(),
+        DirectoryEntry::Leaf(ActionDirectoryMember::File(file)) => {
+            file.digest.raw_digest().to_string()
+        }
         DirectoryEntry::Leaf(ActionDirectoryMember::Symlink(symlink)) => {
+            // todo(@lebentle) Use for now to unblock exopackage,
+            // but should follow symlink and validate the target exists and send that
             format!("re-symlink:{}", symlink.target().as_str())
         }
-        DirectoryEntry::Leaf(ActionDirectoryMember::File(file)) => file.digest.to_string(),
-        _ => return Err(InstallError::ErrorRetrievingHash(name).into()),
+        DirectoryEntry::Leaf(ActionDirectoryMember::ExternalSymlink(..)) => {
+            // This is a wart but it's not possible for this to show up here in an output.
+            return Err(InstallError::ErrorRetrievingHash(name).into());
+        }
     };
-    let (sha1, _size) = sha1.split1(":");
+
     let path = &artifact_fs
         .fs()
         .resolve(&artifact_fs.resolve(artifact.get_path())?);
     let request = tonic::Request::new(FileReadyRequest {
         install_id: install_id.to_owned(),
         name: name.to_owned(),
-        sha1: sha1.to_owned(),
+        sha1,
         path: path.to_string(),
     });
 
