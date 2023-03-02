@@ -18,9 +18,12 @@ use tokio_stream::wrappers::ReceiverStream;
 /// borrow stdin statically (though in practice that doesn't really matter because the way the
 /// command ends is when stdin is empty). So, what we do instead is that we forward stdin only
 /// while the command is ongoing.
+///
+/// The `hangup` parameter allows producing a message when stdin ends.
 pub async fn reborrow_stream_for_static<'a, T, R, F>(
     stream: impl Stream<Item = T> + 'a,
     f: impl FnOnce(ReceiverStream<T>) -> F,
+    hangup: impl FnOnce() -> Option<T>,
 ) -> R
 where
     F: Future<Output = R> + 'a,
@@ -36,6 +39,10 @@ where
                 Some(e) => permit.send(e),
                 None => break,
             }
+        }
+
+        if let Some(hangup) = hangup() {
+            let _ignored = tx.send(hangup).await;
         }
 
         // The LSP server side does not handle hangups. So, until it does... we never hang up:

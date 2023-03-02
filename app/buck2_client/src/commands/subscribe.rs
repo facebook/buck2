@@ -71,12 +71,25 @@ impl StreamingCommand for SubscribeCommand {
                 request: Some(request),
             });
 
-        reborrow_stream_for_static(stream, |stream| async move {
-            buckd
-                .with_flushing()
-                .subscription(client_context, stream)
-                .await
-        })
+        reborrow_stream_for_static(
+            stream,
+            |stream| async move {
+                buckd
+                    .with_flushing()
+                    .subscription(client_context, stream)
+                    .await
+            },
+            || {
+                Some(buck2_cli_proto::SubscriptionRequestWrapper {
+                    request: Some(
+                        SubscriptionRequest {
+                            request: Some(buck2_subscription_proto::Disconnect {}.into()),
+                        }
+                        .into(),
+                    ),
+                })
+            },
+        )
         .await??;
 
         ExitResult::success()

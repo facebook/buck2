@@ -66,9 +66,13 @@ impl StreamingCommand for LspCommand {
             })
         });
 
-        reborrow_stream_for_static(stream, |stream| async move {
-            buckd.with_flushing().lsp(client_context, stream).await
-        })
+        reborrow_stream_for_static(
+            stream,
+            |stream| async move { buckd.with_flushing().lsp(client_context, stream).await },
+            // The LSP server side does not handle hangups. So, until it does... we never hang up:
+            // Err(Status { code: FailedPrecondition, message: "received a message that is not a `StreamingRequest`", source: None })
+            || None,
+        )
         .await??;
 
         ExitResult::success()
