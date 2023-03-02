@@ -12,15 +12,17 @@ load("@prelude//js:js_library.bzl", "js_library_impl")
 load("@prelude//genrule.bzl", "genrule_attributes")
 
 def _select_platform():
+    # FIXME: prelude// should be standalone (not refer to ovr_config//)
     return select({
         "DEFAULT": "android",
-        "config//os/constraints:iphoneos": "ios",
+        "ovr_config//os/constraints:iphoneos": "ios",
     })
 
 def _is_release():
+    # FIXME: prelude// should be standalone (not refer to ovr_config//)
     return select({
         "DEFAULT": False,
-        "config//build_mode/constraints:release": True,
+        "ovr_config//build_mode/constraints:release": True,
     })
 
 def _is_build_only_native_code():

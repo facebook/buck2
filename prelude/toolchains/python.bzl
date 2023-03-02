@@ -16,9 +16,9 @@ load(
 )
 
 _INTERPRETER = select({
-    "config//os:linux": "python3",
-    "config//os:macos": "python3",
-    "config//os:windows": "python",
+    "ovr_config//os:linux": "python3",
+    "ovr_config//os:macos": "python3",
+    "ovr_config//os:windows": "python",
 })
 
 def _system_python_bootstrap_toolchain_impl(ctx):

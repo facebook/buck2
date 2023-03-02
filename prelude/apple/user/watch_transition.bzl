@@ -71,13 +71,14 @@ def _impl(platform: PlatformInfo.type, refs: struct.type) -> "PlatformInfo":
         configuration = new_cfg,
     )
 
+# FIXME: prelude// should be standalone (not refer to ovr_config//)
 watch_transition = transition(impl = _impl, refs = {
-    "ios": "config//os/constraints:iphoneos",
-    "ios_device_sdk": "config//os/sdk/apple/constraints:iphoneos",
-    "ios_simulator_sdk": "config//os/sdk/apple/constraints:iphonesimulator",
-    "os": "config//os/constraints:os",
-    "sdk": "config//os/sdk/apple/constraints:_",
-    "watchos": "config//os/constraints:watchos",
-    "watchos_device_sdk": "config//os/sdk/apple/constraints:watchos",
-    "watchos_simulator_sdk": "config//os/sdk/apple/constraints:watchsimulator",
+    "ios": "ovr_config//os/constraints:iphoneos",
+    "ios_device_sdk": "ovr_config//os/sdk/apple/constraints:iphoneos",
+    "ios_simulator_sdk": "ovr_config//os/sdk/apple/constraints:iphonesimulator",
+    "os": "ovr_config//os/constraints:os",
+    "sdk": "ovr_config//os/sdk/apple/constraints:_",
+    "watchos": "ovr_config//os/constraints:watchos",
+    "watchos_device_sdk": "ovr_config//os/sdk/apple/constraints:watchos",
+    "watchos_simulator_sdk": "ovr_config//os/sdk/apple/constraints:watchsimulator",
 })
