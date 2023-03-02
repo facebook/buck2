@@ -12,7 +12,13 @@ syntax = "proto3";
 package buck.subscription;
 
 // Client-to-daemon interaction in a subscription.
-message SubscriptionRequest {}
+message SubscriptionRequest {
+  oneof request {
+    Disconnect disconnect = 1;
+  }
+}
+
+message Disconnect {}
 
 // Daemon to client interaction in a subscription.
 message SubscriptionResponse {}

@@ -10,6 +10,7 @@ rust_protobuf_library(
     doctests = False,  # FIXME
     protos = ["subscription.proto"],
     deps = [
+        "fbsource//third-party/rust:derive_more",
         "fbsource//third-party/rust:serde",
         "//buck2/allocative/allocative:allocative",
     ],

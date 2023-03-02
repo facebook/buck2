@@ -457,6 +457,7 @@ message CommandStart {
     LspCommandStart lsp = 33;
     FileStatusCommandStart file_status = 34;
     StarlarkCommandStart starlark = 35;
+    SubscriptionCommandStart subscribe = 36;
   }
 }
 
@@ -559,6 +560,7 @@ message CommandEnd {
     LspCommandEnd lsp = 33;
     FileStatusCommandEnd file_status = 34;
     StarlarkCommandEnd starlark = 35;
+    SubscriptionCommandEnd subscribe = 36;
   }
 
   bool is_success = 2;
@@ -1460,3 +1462,7 @@ message DaemonShutdown {
 message ConsolePreferences {
   uint64 max_lines = 1;
 }
+
+message SubscriptionCommandStart {}
+
+message SubscriptionCommandEnd {}

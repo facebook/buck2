@@ -27,3 +27,4 @@ mod materialize;
 pub mod profile;
 mod snapshot;
 mod streaming_request_handler;
+mod subscription;

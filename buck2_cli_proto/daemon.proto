@@ -473,6 +473,7 @@ message CommandResult {
     LspResponse lsp_response = 18;
     AllocativeResponse allocative_response = 19;
     CleanStaleResponse clean_stale_response = 20;
+    SubscriptionCommandResponse subscription_command_response = 21;
     GenericResponse generic_response = 100;
   }
 }
@@ -491,7 +492,7 @@ message PartialResult {
   oneof partial_result {
     StdoutBytes stdout_bytes = 1;
     LspMessage lsp_message = 2;
-    SubscriptionResponseWrapper subscription = 3;
+    SubscriptionResponseWrapper subscription_response_wrapper = 3;
   }
 }
 
@@ -673,6 +674,10 @@ message SubscriptionResponseWrapper {
   buck.subscription.SubscriptionResponse response = 1;
 }
 
+// Sent to close out a call to Subscription. Data atually flows through via
+// SubscriptionResponseWrapper.
+message SubscriptionCommandResponse {}
+
 // Note: When adding new request or response types, some of the declarations in
 // src/lib.rs need to be updated to derive common things for buck's cli package.
 service DaemonApi {
@@ -723,6 +728,10 @@ service DaemonApi {
 
   // Starts a starlark LSP server.
   rpc Lsp(stream StreamingRequest) returns (stream MultiCommandProgress);
+
+  // Starts a subscription
+  rpc Subscription(stream StreamingRequest)
+      returns (stream MultiCommandProgress);
 
   // Update the daemon's log filter.
   rpc SetLogFilter(SetLogFilterRequest) returns (SetLogFilterResponse);

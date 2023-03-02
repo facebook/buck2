@@ -62,6 +62,27 @@ impl From<LspRequest> for StreamingRequest {
     }
 }
 
+impl TryFrom<StreamingRequest> for SubscriptionRequestWrapper {
+    type Error = tonic::Status;
+
+    fn try_from(value: StreamingRequest) -> Result<Self, Self::Error> {
+        match value.request {
+            Some(streaming_request::Request::Subscription(req)) => Ok(req),
+            _ => Err(tonic::Status::invalid_argument(
+                "messages sent by client must be of type `SubscriptionRequestWrapper`",
+            )),
+        }
+    }
+}
+
+impl From<SubscriptionRequestWrapper> for StreamingRequest {
+    fn from(request: SubscriptionRequestWrapper) -> Self {
+        Self {
+            request: Some(streaming_request::Request::Subscription(request)),
+        }
+    }
+}
+
 /// Trait for requests that have CommonBuildOptions.
 pub trait HasBuildOptions {
     fn build_options(&self) -> Option<&CommonBuildOptions>;
@@ -276,9 +297,11 @@ result_convert!(MaterializeResponse);
 result_convert!(CleanStaleResponse);
 result_convert!(LspResponse);
 result_convert!(AllocativeResponse);
+result_convert!(SubscriptionCommandResponse);
 
 partial_result_convert!(StdoutBytes);
 partial_result_convert!(LspMessage);
+partial_result_convert!(SubscriptionResponseWrapper);
 
 define_request!(KillRequest);
 define_request!(StatusRequest);

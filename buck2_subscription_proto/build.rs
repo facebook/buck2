@@ -16,5 +16,9 @@ fn main() -> io::Result<()> {
         .setup_protoc()
         .type_attribute(".", "#[derive(::serde::Serialize, ::serde::Deserialize)]")
         .type_attribute(".", "#[derive(::allocative::Allocative)]")
+        .type_attribute(
+            "buck.subscription.SubscriptionRequest.request",
+            "#[derive(::derive_more::From)]",
+        )
         .compile(proto_files, &["."])
 }

@@ -26,6 +26,7 @@ pub mod root;
 pub mod run;
 pub mod server;
 pub mod status;
+pub mod subscribe;
 pub mod targets;
 pub mod test;
 pub mod uquery;

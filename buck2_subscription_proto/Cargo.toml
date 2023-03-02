@@ -8,6 +8,7 @@ prost = { workspace = true }
 serde = { workspace = true }
 tonic = { workspace = true }
 allocative = { workspace = true }
+derive_more = { workspace = true }
 
 [build-dependencies]
 buck2_protoc_dev = { workspace = true }

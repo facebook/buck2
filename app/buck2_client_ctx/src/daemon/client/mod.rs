@@ -27,6 +27,7 @@ use futures::stream;
 use futures::Stream;
 use futures::StreamExt;
 use futures::TryStreamExt;
+use prost::Message;
 use sysinfo::Pid;
 use sysinfo::PidExt;
 use sysinfo::ProcessExt;
@@ -592,6 +593,38 @@ impl PartialResultHandler for LspPartialResultHandler {
     }
 }
 
+/// Outputs subscription messages.
+struct SubscriptionPartialResultHandler {
+    /// We reuse our output buffer here.
+    buffer: Vec<u8>,
+}
+
+#[async_trait]
+impl PartialResultHandler for SubscriptionPartialResultHandler {
+    type PartialResult = buck2_cli_proto::SubscriptionResponseWrapper;
+
+    fn new() -> Self {
+        Self { buffer: Vec::new() }
+    }
+
+    async fn handle_partial_result(
+        &mut self,
+        mut ctx: PartialResultCtx<'_>,
+        partial_res: Self::PartialResult,
+    ) -> anyhow::Result<()> {
+        let response = partial_res
+            .response
+            .context("Empty `SubscriptionResponseWrapper`")?;
+
+        self.buffer.clear();
+        response
+            .encode_length_delimited(&mut self.buffer)
+            .context("Encoding failed")?;
+
+        ctx.stdout(&self.buffer).await
+    }
+}
+
 /// Implement a streaming method with full event reporting.
 macro_rules! stream_method {
     ($method: ident, $req: ty, $res: ty, $handler: ty) => {
@@ -806,6 +839,12 @@ impl<'a> FlushingBuckdClient<'a> {
     );
 
     bidirectional_stream_method!(lsp, LspRequest, LspResponse, LspPartialResultHandler);
+    bidirectional_stream_method!(
+        subscription,
+        SubscriptionRequestWrapper,
+        SubscriptionCommandResponse,
+        SubscriptionPartialResultHandler
+    );
 
     oneshot_method!(flush_dep_files, FlushDepFilesRequest, GenericResponse);
 

@@ -87,6 +87,7 @@ use crate::lsp::run_lsp_server_command;
 use crate::materialize::materialize_command;
 use crate::snapshot;
 use crate::streaming_request_handler::StreamingRequestHandler;
+use crate::subscription::run_subscription_server_command;
 
 // TODO(cjhopman): Figure out a reasonable value for this.
 static DEFAULT_KILL_TIMEOUT: Duration = Duration::from_millis(500);
@@ -1241,6 +1242,24 @@ impl DaemonApi for BuckdServer {
              _client_ctx,
              req: StreamingRequestHandler<LspRequest>| {
                 run_lsp_server_command(Box::new(ctx), partial_result_dispatcher, req)
+            },
+        )
+        .await
+    }
+
+    type SubscriptionStream = ResponseStream;
+    async fn subscription(
+        &self,
+        req: Request<tonic::Streaming<StreamingRequest>>,
+    ) -> Result<Response<Self::SubscriptionStream>, Status> {
+        self.run_bidirectional(
+            req,
+            DefaultCommandOptions,
+            |ctx,
+             partial_result_dispatcher,
+             _client_ctx,
+             req: StreamingRequestHandler<SubscriptionRequestWrapper>| {
+                run_subscription_server_command(Box::new(ctx), partial_result_dispatcher, req)
             },
         )
         .await

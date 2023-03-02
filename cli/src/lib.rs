@@ -44,6 +44,7 @@ use buck2_client::commands::root::RootCommand;
 use buck2_client::commands::run::RunCommand;
 use buck2_client::commands::server::ServerCommand;
 use buck2_client::commands::status::StatusCommand;
+use buck2_client::commands::subscribe::SubscribeCommand;
 use buck2_client::commands::targets::TargetsCommand;
 use buck2_client::commands::test::TestCommand;
 use buck2_client::commands::uquery::UqueryCommand;
@@ -241,6 +242,7 @@ pub(crate) enum CommandKind {
     #[clap(subcommand)]
     Log(LogCommand),
     Lsp(LspCommand),
+    Subscribe(SubscribeCommand),
 }
 
 impl CommandKind {
@@ -397,6 +399,7 @@ impl CommandKind {
             CommandKind::Install(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Log(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Lsp(cmd) => cmd.exec(matches, command_ctx),
+            CommandKind::Subscribe(cmd) => cmd.exec(matches, command_ctx),
         }
     }
 }
