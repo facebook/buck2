@@ -136,7 +136,7 @@ impl FileHasher for PathsAndContentsHasher {
             match PathMetadataOrRedirection::from(info) {
                 PathMetadataOrRedirection::PathMetadata(meta) => match meta {
                     PathMetadata::File(m) => {
-                        let digest = m.digest.digest().as_bytes();
+                        let digest = m.digest.raw_digest().as_bytes();
                         res.reserve(1 + digest.len());
                         // We ignore `digest.size` as the SHA1 alone is enough to be unique
                         res.push(0u8);

@@ -305,7 +305,7 @@ pub fn re_tree_to_directory(
         }
 
         fn get(&mut self, digest: &FileDigest) -> Option<&'a RE::Directory> {
-            let algo = digest.digest().algorithm();
+            let algo = digest.raw_digest().algorithm();
 
             let map = self.by_kind.entry(algo).or_insert_with(|| {
                 self.directories

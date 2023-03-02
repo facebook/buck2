@@ -589,7 +589,7 @@ mod tests {
             let d5 = FileDigest::from_file(tempdir.path().join("recurse_recurse_link"), config)
                 .context("recurse_recurse_link")?;
 
-            assert_eq!(d1.digest().as_bytes(), &[0; SHA1_SIZE][..]);
+            assert_eq!(d1.raw_digest().as_bytes(), &[0; SHA1_SIZE][..]);
             assert_eq!(d1.size(), 3);
             assert_eq!(d1, d2);
             assert_eq!(d1, d3);

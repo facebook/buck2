@@ -365,7 +365,7 @@ impl<Kind> CasDigest<Kind> {
         }
     }
 
-    pub fn digest(&self) -> &RawDigest {
+    pub fn raw_digest(&self) -> &RawDigest {
         &self.data.digest
     }
 
@@ -492,7 +492,7 @@ pub trait TrackedCasDigestKind: Sized + 'static {
 }
 
 #[derive(Display)]
-#[display(fmt = "{}", "hex::encode(&of.digest().as_bytes()[0..4])")]
+#[display(fmt = "{}", "hex::encode(&of.raw_digest().as_bytes()[0..4])")]
 pub struct TinyDigest<'a, Kind> {
     of: &'a CasDigest<Kind>,
 }
@@ -660,8 +660,8 @@ impl<Kind> TrackedCasDigest<Kind> {
         &self.inner.data
     }
 
-    pub fn digest(&self) -> &RawDigest {
-        self.inner.data.digest()
+    pub fn raw_digest(&self) -> &RawDigest {
+        self.inner.data.raw_digest()
     }
 
     pub fn size(&self) -> u64 {
@@ -808,7 +808,7 @@ mod tests {
             testing::sha256_sha1(),
         )
         .unwrap();
-        assert_eq!(sha1.digest().algorithm(), DigestAlgorithm::Sha1);
+        assert_eq!(sha1.raw_digest().algorithm(), DigestAlgorithm::Sha1);
         assert_eq!(
             sha1.to_string(),
             "0beec7b5ea3f0fdbc95d0dd47f3c5bc275da8a33:3"
@@ -819,7 +819,7 @@ mod tests {
             testing::sha1_sha256(),
         )
         .unwrap();
-        assert_eq!(sha256.digest().algorithm(), DigestAlgorithm::Sha256);
+        assert_eq!(sha256.raw_digest().algorithm(), DigestAlgorithm::Sha256);
         assert_eq!(
             sha256.to_string(),
             "2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae:3"
@@ -830,7 +830,7 @@ mod tests {
             testing::sha1_blake3(),
         )
         .unwrap();
-        assert_eq!(blake3.digest().algorithm(), DigestAlgorithm::Blake3);
+        assert_eq!(blake3.raw_digest().algorithm(), DigestAlgorithm::Blake3);
         assert_eq!(
             blake3.to_string(),
             "04e0bb39f30b1a3feb89f536c93be15055482df748674b00d26e5a75777702e9:3"
