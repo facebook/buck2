@@ -39,12 +39,7 @@ def main(argv):
     # go:embed does not parse symlinks, so following the links to the real paths
     roots = set()
     for root, _dirs, _files in os.walk(args.srcdir):
-        for f in _files:
-            path = os.path.join(root, f)
-            if os.path.islink(os.path.join(root, f)):
-                roots.add(os.path.dirname(os.path.realpath(path)))
-            else:
-                roots.add(root)
+        roots.add(root)
 
     # Run `go list` on all source dirs to filter input sources by build pragmas.
     for root in roots:
