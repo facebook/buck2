@@ -18,6 +18,10 @@ def filegroup_impl(ctx):
     else:
         srcs = {src.short_path: src for src in ctx.attrs.srcs}
 
+    if ctx.attrs.copy:
+        output = ctx.actions.copied_dir(ctx.label.name, srcs)
+    else:
+        output = ctx.actions.symlinked_dir(ctx.label.name, srcs)
+
     # It seems that buck1 always copies, and that's important for Python rules
-    output = ctx.actions.copied_dir(ctx.label.name, srcs)
     return [DefaultInfo(default_output = output)]

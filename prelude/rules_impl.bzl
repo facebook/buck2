@@ -404,6 +404,7 @@ inlined_extra_attributes = {
         "src": attrs.source(allow_directory = True),
     },
     "filegroup": {
+        "copy": attrs.bool(default = True),
         "srcs": attrs.named_set(attrs.source(allow_directory = True), sorted = False, default = []),
     },
     "genrule": genrule_attributes() | {
