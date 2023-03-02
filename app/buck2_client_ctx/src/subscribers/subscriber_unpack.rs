@@ -71,21 +71,6 @@ pub trait UnpackingEventSubscriber: Send {
             buck2_data::span_start_event::Data::Command(command) => {
                 self.handle_command_start(command, event).await
             }
-            buck2_data::span_start_event::Data::CommandCritical(command) => {
-                self.handle_command_critical_start(command, event).await
-            }
-            buck2_data::span_start_event::Data::ActionExecution(action) => {
-                self.handle_action_execution_start(action, event).await
-            }
-            buck2_data::span_start_event::Data::Analysis(analysis) => {
-                self.handle_analysis_start(analysis, event).await
-            }
-            buck2_data::span_start_event::Data::Load(eval) => {
-                self.handle_load_start(eval, event).await
-            }
-            buck2_data::span_start_event::Data::ExecutorStage(stage) => {
-                self.handle_executor_stage_start(stage, event).await
-            }
             _ => Ok(()),
         }
     }
@@ -103,21 +88,11 @@ pub trait UnpackingEventSubscriber: Send {
             buck2_data::span_end_event::Data::Command(command) => {
                 self.handle_command_end(command, event).await
             }
-            buck2_data::span_end_event::Data::CommandCritical(command) => {
-                self.handle_command_critical_end(command, event).await
-            }
             buck2_data::span_end_event::Data::ActionExecution(action) => {
                 self.handle_action_execution_end(action, event).await
             }
             buck2_data::span_end_event::Data::FileWatcher(file_watcher) => {
                 self.handle_file_watcher_end(file_watcher, event).await
-            }
-            buck2_data::span_end_event::Data::CacheUpload(cache_upload) => {
-                self.handle_cache_upload_end(cache_upload, event).await
-            }
-            buck2_data::span_end_event::Data::Materialization(materialization) => {
-                self.handle_materialization_end(materialization, event)
-                    .await
             }
             _ => Ok(()),
         }
@@ -140,9 +115,6 @@ pub trait UnpackingEventSubscriber: Send {
                 self.handle_re_session_created(session, event).await
             }
             buck2_data::instant_event::Data::Panic(panic) => self.handle_panic(panic, event).await,
-            buck2_data::instant_event::Data::BuildGraphInfo(info) => {
-                self.handle_build_graph_info(info, event).await
-            }
             buck2_data::instant_event::Data::TestDiscovery(discovery) => {
                 self.handle_test_discovery(discovery, event).await
             }
@@ -151,14 +123,6 @@ pub trait UnpackingEventSubscriber: Send {
             }
             buck2_data::instant_event::Data::Snapshot(result) => {
                 self.handle_snapshot(result, event).await
-            }
-            buck2_data::instant_event::Data::TagEvent(tag) => self.handle_tag(tag).await,
-            buck2_data::instant_event::Data::TargetPatterns(tag) => {
-                self.handle_resolved_target_patterns(tag).await
-            }
-            buck2_data::instant_event::Data::MaterializerStateInfo(materializer_state) => {
-                self.handle_materializer_state_info(materializer_state)
-                    .await
             }
             buck2_data::instant_event::Data::ConsolePreferences(preferences) => {
                 self.handle_console_preferences(preferences, event).await
@@ -181,51 +145,9 @@ pub trait UnpackingEventSubscriber: Send {
     ) -> anyhow::Result<()> {
         Ok(())
     }
-    async fn handle_command_critical_start(
-        &mut self,
-        _command: &buck2_data::CommandCriticalStart,
-        _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-    async fn handle_command_critical_end(
-        &mut self,
-        _command: &buck2_data::CommandCriticalEnd,
-        _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-    async fn handle_action_execution_start(
-        &mut self,
-        _action: &buck2_data::ActionExecutionStart,
-        _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
     async fn handle_action_execution_end(
         &mut self,
         _action: &buck2_data::ActionExecutionEnd,
-        _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-    async fn handle_analysis_start(
-        &mut self,
-        _analysis: &buck2_data::AnalysisStart,
-        _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-    async fn handle_load_start(
-        &mut self,
-        _eval: &buck2_data::LoadBuildFileStart,
-        _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-    async fn handle_executor_stage_start(
-        &mut self,
-        _eval: &buck2_data::ExecutorStageStart,
         _event: &BuckEvent,
     ) -> anyhow::Result<()> {
         Ok(())
@@ -283,35 +205,6 @@ pub trait UnpackingEventSubscriber: Send {
         &mut self,
         _snapshot: &buck2_data::Snapshot,
         _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-    async fn handle_materializer_state_info(
-        &mut self,
-        _materializer_state_info: &buck2_data::MaterializerStateInfo,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-    async fn handle_cache_upload_end(
-        &mut self,
-        _cache_upload: &buck2_data::CacheUploadEnd,
-        _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-    async fn handle_materialization_end(
-        &mut self,
-        _materialization: &buck2_data::MaterializationEnd,
-        _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-    async fn handle_tag(&mut self, _tag: &buck2_data::TagEvent) -> anyhow::Result<()> {
-        Ok(())
-    }
-    async fn handle_resolved_target_patterns(
-        &mut self,
-        _pattern: &buck2_data::ResolvedTargetPatterns,
     ) -> anyhow::Result<()> {
         Ok(())
     }
