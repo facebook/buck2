@@ -59,7 +59,6 @@ use remote_execution::TResultsCachePolicy;
 use remote_execution::UploadRequest;
 use remote_execution::WriteActionResultRequest;
 use tokio::sync::Semaphore;
-use tracing::warn;
 
 use crate::digest::CasDigestToReExt;
 use crate::digest_config::DigestConfig;
@@ -210,9 +209,10 @@ impl RemoteExecutionClient {
             {
                 Ok(v) => return Ok(v),
                 Err(e) => {
-                    warn!(
+                    tracing::warn!(
                         "Failed to connect to RE, retrying after sleeping {} seconds: {:#?}",
-                        i, e
+                        i,
+                        e
                     );
                     tokio::time::sleep(Duration::from_secs(i as u64)).await;
                 }
@@ -779,9 +779,10 @@ impl RemoteExecutionClientImpl {
                     re_stage::Stage::WorkerUpload(ReWorkerUpload { action_digest })
                 }
                 _ => {
-                    warn!(
+                    tracing::debug!(
                         "Received unexpected RE stage {:#?} for action: {}",
-                        stage, action_digest
+                        stage,
+                        action_digest
                     );
                     re_stage::Stage::Unknown(ReUnknown { action_digest })
                 }
