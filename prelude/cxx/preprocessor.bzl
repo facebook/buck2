@@ -196,8 +196,8 @@ def cxx_exported_preprocessor_info(ctx: "context", headers_layout: CxxHeadersLay
 
     # Propagate the exported header tree.
     if header_root != None:
-        inc_flag = _header_style_flag(style)
-        args.extend([inc_flag, header_root.include_path])
+        hs_args = _header_style_args(style, header_root.include_path)
+        args.extend(hs_args)
 
     # Embed raw headers as hidden artifacts in our args.  This means downstream
     # cases which use these args don't also need to know to add raw headers.
@@ -311,11 +311,11 @@ def _cxx_private_preprocessor_info(
 def _by_language_cxx(x: {"": ""}) -> [""]:
     return cxx_by_language_ext(x, ".cpp")
 
-def _header_style_flag(style: HeaderStyle.type) -> str.type:
+def _header_style_args(style: HeaderStyle.type, path: "cmd_args") -> ["cmd_args"]:
     if style == HeaderStyle("local"):
-        return "-I"
+        return [cmd_args(path, format = "-I{}")]
     if style == HeaderStyle("system"):
-        return "-isystem"
+        return [cmd_args("-isystem"), path]
     fail("unsupported header style: {}".format(style))
 
 def _attr_headers_as_raw_headers_mode(ctx: "context") -> HeadersAsRawHeadersMode.type:
