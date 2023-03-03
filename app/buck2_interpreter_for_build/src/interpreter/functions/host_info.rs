@@ -12,7 +12,6 @@ use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
 use buck2_interpreter::extra::XcodeVersionInfo;
 use derivative::Derivative;
-use once_cell::sync::Lazy;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
@@ -135,75 +134,13 @@ pub(crate) fn new_host_info(
 
 #[starlark_module]
 pub fn register_host_info(builder: &mut GlobalsBuilder) {
+    // Keeping this `speculative_exec_safe` is safe because BuildContext's `HostInfo`,
+    // even when evaluated speculatively, is going to be the same across all interpreters
+    // that might reuse each other's output.
     #[starlark(speculative_exec_safe)]
-    fn host_info<'v>(eval: &mut Evaluator) -> anyhow::Result<Value<'v>> {
-        // TODO: Do something about this. This information shouldn't be exposed in the general
-        // api because the initial build file processing should be host-independent.
-        // If we can't migrate uses off of this, we may need to support detecting at least the
-        // os correctly.
-
-        // Some modules call host_info a lot, so cache the values we might expect
-        // and avoid reallocating them.
-        static HOST_PLATFORM_LINUX_AARCH64: Lazy<OwnedFrozenValue> = Lazy::new(|| {
-            new_host_info(
-                InterpreterHostPlatform::Linux,
-                InterpreterHostArchitecture::AArch64,
-            )
-        });
-        static HOST_PLATFORM_LINUX_X86_64: Lazy<OwnedFrozenValue> = Lazy::new(|| {
-            new_host_info(
-                InterpreterHostPlatform::Linux,
-                InterpreterHostArchitecture::X86_64,
-            )
-        });
-        static HOST_PLATFORM_MACOS_AARCH64: Lazy<OwnedFrozenValue> = Lazy::new(|| {
-            new_host_info(
-                InterpreterHostPlatform::MacOS,
-                InterpreterHostArchitecture::AArch64,
-            )
-        });
-        static HOST_PLATFORM_MACOS_X86_64: Lazy<OwnedFrozenValue> = Lazy::new(|| {
-            new_host_info(
-                InterpreterHostPlatform::MacOS,
-                InterpreterHostArchitecture::X86_64,
-            )
-        });
-        static HOST_PLATFORM_WINDOWS_AARCH64: Lazy<OwnedFrozenValue> = Lazy::new(|| {
-            new_host_info(
-                InterpreterHostPlatform::Windows,
-                InterpreterHostArchitecture::AArch64,
-            )
-        });
-        static HOST_PLATFORM_WINDOWS_X86_64: Lazy<OwnedFrozenValue> = Lazy::new(|| {
-            new_host_info(
-                InterpreterHostPlatform::Windows,
-                InterpreterHostArchitecture::X86_64,
-            )
-        });
-
-        let host_platform = BuildContext::from_context(eval)?.host_platform;
-        let host_architecture = BuildContext::from_context(eval)?.host_architecture;
-        let v = match (host_platform, host_architecture) {
-            (InterpreterHostPlatform::Linux, InterpreterHostArchitecture::AArch64) => {
-                &HOST_PLATFORM_LINUX_AARCH64
-            }
-            (InterpreterHostPlatform::Linux, InterpreterHostArchitecture::X86_64) => {
-                &HOST_PLATFORM_LINUX_X86_64
-            }
-            (InterpreterHostPlatform::MacOS, InterpreterHostArchitecture::AArch64) => {
-                &HOST_PLATFORM_MACOS_AARCH64
-            }
-            (InterpreterHostPlatform::MacOS, InterpreterHostArchitecture::X86_64) => {
-                &HOST_PLATFORM_MACOS_X86_64
-            }
-            (InterpreterHostPlatform::Windows, InterpreterHostArchitecture::AArch64) => {
-                &HOST_PLATFORM_WINDOWS_AARCH64
-            }
-            (InterpreterHostPlatform::Windows, InterpreterHostArchitecture::X86_64) => {
-                &HOST_PLATFORM_WINDOWS_X86_64
-            }
-        };
-        Ok(v.value())
+    fn host_info<'v>(eval: &mut Evaluator<'v, '_>) -> anyhow::Result<Value<'v>> {
+        let host_info = &BuildContext::from_context(eval)?.host_info;
+        Ok(host_info.value.owned_value(eval.frozen_heap()))
     }
 }
 
