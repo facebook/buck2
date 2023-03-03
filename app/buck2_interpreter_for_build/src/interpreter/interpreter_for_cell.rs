@@ -454,8 +454,6 @@ impl InterpreterForCell {
         let file_loader =
             InterpreterFileLoader::new(loaded_modules, Arc::new(self.load_resolver(import)));
         let cell_info = self.get_cell_config(import.build_file_cell());
-        let host_platform = self.global_state.configuror.host_platform();
-        let host_architecture = self.global_state.configuror.host_architecture();
         let host_info = self.global_state.configuror.host_info();
         let extra = BuildContext::new_for_module(
             env,
@@ -463,8 +461,6 @@ impl InterpreterForCell {
             buckconfig,
             root_buckconfig,
             import,
-            host_platform,
-            host_architecture,
             host_info,
             extra_context,
             self.ignore_attrs_for_profiling,

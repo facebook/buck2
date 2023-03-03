@@ -13,8 +13,6 @@ use buck2_common::legacy_configs::view::LegacyBuckConfigView;
 use buck2_core::package::PackageLabel;
 use buck2_interpreter::extra::buckconfig::LegacyBuckConfigForStarlark;
 use buck2_interpreter::extra::cell_info::InterpreterCellInfo;
-use buck2_interpreter::extra::InterpreterHostArchitecture;
-use buck2_interpreter::extra::InterpreterHostPlatform;
 use buck2_interpreter::file_type::StarlarkFileType;
 use buck2_interpreter::path::StarlarkModulePath;
 use buck2_interpreter::path::StarlarkPath;
@@ -124,10 +122,6 @@ pub struct BuildContext<'a> {
     /// The import path that is being evaluated
     pub starlark_path: StarlarkPath<'a>,
 
-    pub host_platform: InterpreterHostPlatform,
-
-    pub host_architecture: InterpreterHostArchitecture,
-
     pub host_info: &'a HostInfo,
 
     /// Context specific to type type.
@@ -145,8 +139,6 @@ impl<'a> BuildContext<'a> {
         buckconfig: &'a (dyn LegacyBuckConfigView + 'a),
         root_buckconfig: &'a (dyn LegacyBuckConfigView + 'a),
         starlark_path: StarlarkPath<'a>,
-        host_platform: InterpreterHostPlatform,
-        host_architecture: InterpreterHostArchitecture,
         host_info: &'a HostInfo,
         additional: PerFileTypeContext,
         ignore_attrs_for_profiling: bool,
@@ -158,8 +150,6 @@ impl<'a> BuildContext<'a> {
             buckconfig,
             root_buckconfig,
             starlark_path,
-            host_platform,
-            host_architecture,
             host_info,
             additional,
             ignore_attrs_for_profiling,

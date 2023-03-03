@@ -80,8 +80,6 @@ pub struct BuildInterpreterConfiguror {
     ///   imports from that directory are evaluated with prelude cell context,
     ///   not with caller cell context (see the comments in `resolve_load`)
     prelude_import: Option<ImportPath>,
-    host_platform: InterpreterHostPlatform,
-    host_architecture: InterpreterHostArchitecture,
     host_info: HostInfo,
     record_target_call_stack: bool,
     configure_build_file_globals: ConfigureGlobalsFn,
@@ -106,8 +104,6 @@ impl BuildInterpreterConfiguror {
     ) -> Arc<Self> {
         Arc::new(Self {
             prelude_import,
-            host_platform,
-            host_architecture,
             host_info: HostInfo::new(host_platform, host_architecture),
             record_target_call_stack,
             configure_build_file_globals: ConfigureGlobalsFn(configure_build_file_globals),
@@ -161,14 +157,6 @@ impl BuildInterpreterConfiguror {
                 }
             })
             .build()
-    }
-
-    pub(crate) fn host_platform(&self) -> InterpreterHostPlatform {
-        self.host_platform
-    }
-
-    pub(crate) fn host_architecture(&self) -> InterpreterHostArchitecture {
-        self.host_architecture
     }
 
     pub(crate) fn host_info(&self) -> &HostInfo {

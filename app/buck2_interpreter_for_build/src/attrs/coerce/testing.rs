@@ -108,8 +108,6 @@ pub fn to_value<'v>(env: &'v Module, globals: &Globals, content: &str) -> Value<
         &buckconfig,
         &root_buckconfig,
         StarlarkPath::LoadFile(&import_path),
-        host_platform,
-        host_architecture,
         &host_info,
         PerFileTypeContext::Bzl,
         false,
