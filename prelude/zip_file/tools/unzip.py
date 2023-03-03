@@ -20,17 +20,28 @@ def _parse_args():
     return parser.parse_args()
 
 
-def do_unzip(src, dst):
-    with zipfile.ZipFile(src) as z:
+def do_unzip(archive, output_dir):
+    with zipfile.ZipFile(archive) as z:
         # First extract non-symlinks so that when symlinks are created in the next step
         # symlink type (whether it's a file or a directory which is important for Windows platform)
         # is automatically detected for non-broken symlinks (see documentation for `os.symlink` function).
         # That way we don't need to pass `target_is_directory` argument to `os.symlink` function.
         for info in (i for i in z.infolist() if not _is_symlink(i)):
-            z.extract(info, path=dst)
+            z.extract(info, path=output_dir)
         for info in (i for i in z.infolist() if _is_symlink(i)):
-            symlink_path = os.path.join(dst, info.filename)
+            symlink_path = os.path.join(output_dir, info.filename)
             symlink_dst = z.read(info).decode("utf-8")
+            if os.path.isabs(symlink_dst):
+                raise RuntimeError(
+                    f"Symlink `{info.filename}` -> `{symlink_dst}` points to absolute path which is prohibited."
+                )
+            output_dir_relative_symlink_dst = os.path.normpath(
+                os.path.join(os.path.dirname(info.filename), symlink_dst)
+            )
+            if output_dir_relative_symlink_dst.startswith(os.pardir):
+                raise RuntimeError(
+                    f"Symlink `{info.filename}` -> `{symlink_dst}` (normalized destination path relative to archive output directory is `{output_dir_relative_symlink_dst}`) points outside of archive output directory which is prohibited."
+                )
             os.symlink(symlink_dst, symlink_path)
 
 
