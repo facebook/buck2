@@ -94,12 +94,9 @@ impl StreamingCommand for SubscribeCommand {
             },
             || {
                 Some(buck2_cli_proto::SubscriptionRequestWrapper {
-                    request: Some(
-                        SubscriptionRequest {
-                            request: Some(buck2_subscription_proto::Disconnect {}.into()),
-                        }
-                        .into(),
-                    ),
+                    request: Some(SubscriptionRequest {
+                        request: Some(buck2_subscription_proto::Disconnect {}.into()),
+                    }),
                 })
             },
         )
