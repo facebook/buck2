@@ -10,6 +10,8 @@
 use std::future::Future;
 
 use buck2_common::events::HasEvents;
+use buck2_data::BxlDiceInvocationEnd;
+use buck2_data::BxlDiceInvocationStart;
 use buck2_events::dispatch::with_dispatcher_async;
 use dice::DiceComputations;
 use dupe::Dupe;
@@ -52,16 +54,22 @@ impl<'a> BxlSafeDiceComputations<'a> {
         Fut: Future<Output = anyhow::Result<T>>,
     {
         let dispatcher = self.0.per_transaction_data().get_dispatcher().dupe();
-        let fut = with_dispatcher_async(dispatcher, f());
-        let fut = async move {
-            futures::pin_mut!(fut);
 
-            match select(fut, self.1.dupe()).await {
-                Either::Left((res, _)) => res,
-                Either::Right(((), _)) => Err(ViaError::Cancelled.into()),
-            }
-        };
+        dispatcher.span(BxlDiceInvocationStart {}, || {
+            let fut = with_dispatcher_async(dispatcher.clone(), f());
+            let fut = async move {
+                futures::pin_mut!(fut);
 
-        tokio::runtime::Handle::current().block_on(fut)
+                match select(fut, self.1.dupe()).await {
+                    Either::Left((res, _)) => res,
+                    Either::Right(((), _)) => Err(ViaError::Cancelled.into()),
+                }
+            };
+
+            (
+                tokio::runtime::Handle::current().block_on(fut),
+                BxlDiceInvocationEnd {},
+            )
+        })
     }
 }

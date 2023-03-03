@@ -74,6 +74,7 @@ message SpanStartEvent {
     DeferredPreparationStageStart deferred_preparation_stage = 74;
     DynamicLambdaStart dynamic_lambda = 75;
     BxlExecutionStart bxl_execution = 76;
+    BxlDiceInvocationStart bxl_dice_invocation = 77;
     // Used in Buck unit tests.
     FakeStart fake = 999;
   }
@@ -114,6 +115,7 @@ message SpanEndEvent {
     DeferredPreparationStageEnd deferred_preparation_stage = 75;
     DeferredEvaluationEnd deferred_evaluation = 76;
     BxlExecutionEnd bxl_execution = 77;
+    BxlDiceInvocationEnd bxl_dice_invocation = 78;
     // Used in Buck unit tests.
     FakeEnd fake = 999;
   }
@@ -1420,6 +1422,10 @@ message BxlExecutionStart {
 }
 
 message BxlExecutionEnd {}
+
+message BxlDiceInvocationStart {}
+
+message BxlDiceInvocationEnd {}
 
 message DiceBlockConcurrentCommandStart {
   string current_active_trace_id = 1;

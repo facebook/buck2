@@ -26,6 +26,8 @@ use buck2_core::cells::CellAliasResolver;
 use buck2_core::collections::ordered_map::OrderedMap;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::package::PackageLabel;
+use buck2_data::BxlExecutionEnd;
+use buck2_data::BxlExecutionStart;
 use buck2_events::dispatch::console_message;
 use buck2_events::dispatch::with_dispatcher;
 use buck2_execute::digest_config::HasDigestConfig;
@@ -140,6 +142,8 @@ pub async fn eval(
 
                 let global_target_platform = key.global_target_platform().clone();
 
+                let bxl_function_name = key.label().name.clone();
+
                 let bxl_ctx = BxlContext::new(
                     eval.heap(),
                     key,
@@ -155,11 +159,21 @@ pub async fn eval(
                 );
                 let bxl_ctx = ValueTyped::<BxlContext>::new(env.heap().alloc(bxl_ctx)).unwrap();
 
-                let result = eval_bxl(
-                    &mut eval,
-                    &frozen_callable,
-                    bxl_ctx.to_value(),
-                    &mut profiler,
+                let result = dispatcher.clone().span(
+                    BxlExecutionStart {
+                        name: bxl_function_name,
+                    },
+                    || {
+                        (
+                            eval_bxl(
+                                &mut eval,
+                                &frozen_callable,
+                                bxl_ctx.to_value(),
+                                &mut profiler,
+                            ),
+                            BxlExecutionEnd {},
+                        )
+                    },
                 )?;
 
                 if !result.is_none() {
