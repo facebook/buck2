@@ -20,5 +20,9 @@ fn main() -> io::Result<()> {
             "buck.subscription.SubscriptionRequest.request",
             "#[derive(::derive_more::From)]",
         )
+        .type_attribute(
+            "buck.subscription.SubscriptionResponse.response",
+            "#[derive(::derive_more::From)]",
+        )
         .compile(proto_files, &["."])
 }

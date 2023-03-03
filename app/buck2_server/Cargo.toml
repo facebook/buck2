@@ -59,6 +59,7 @@ buck2_interpreter_for_build = { workspace = true }
 buck2_profile = { workspace = true }
 buck2_server_ctx = { workspace = true }
 buck2_cli_proto = { workspace = true }
+buck2_subscription_proto = { workspace = true }
 buck2_events = { workspace = true }
 buck2_util = { workspace = true }
 host_sharing = { workspace = true }

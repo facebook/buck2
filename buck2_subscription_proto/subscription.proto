@@ -15,10 +15,26 @@ package buck.subscription;
 message SubscriptionRequest {
   oneof request {
     Disconnect disconnect = 1;
+    SubscribeToPaths subscribe_to_paths = 2;
   }
 }
 
 message Disconnect {}
 
+// Request eager materialization of specific paths and notifications when they
+// get created.
+message SubscribeToPaths {
+  repeated string paths = 1;
+}
+
 // Daemon to client interaction in a subscription.
-message SubscriptionResponse {}
+message SubscriptionResponse {
+  oneof response {
+    Materialized materialized = 1;
+  }
+}
+
+// A path has been materialized.
+message Materialized {
+  string path = 1;
+}
