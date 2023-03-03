@@ -102,27 +102,35 @@ def rewrite_static_symbols(
         pre_flags = static_info.pre_flags,
         post_flags = static_info.post_flags,
         linkables = [static_objects],
+        external_debug_info = static_info.external_debug_info,
     )
-    updated_stripped_static_info = LinkInfo(
-        name = static_info.name,
-        pre_flags = static_info.pre_flags,
-        post_flags = static_info.post_flags,
-        linkables = [stripped_static_objects],
-    )
+    updated_stripped_static_info = None
+    static_info = libraries[LinkStyle("static")].stripped
+    if static_info != None:
+        updated_stripped_static_info = LinkInfo(
+            name = static_info.name,
+            pre_flags = static_info.pre_flags,
+            post_flags = static_info.post_flags,
+            linkables = [stripped_static_objects],
+        )
 
-    static_pic_info = libraries[LinkStyle("static")].default
+    static_pic_info = libraries[LinkStyle("static_pic")].default
     updated_static_pic_info = LinkInfo(
         name = static_pic_info.name,
         pre_flags = static_pic_info.pre_flags,
         post_flags = static_pic_info.post_flags,
         linkables = [static_pic_objects],
+        external_debug_info = static_pic_info.external_debug_info,
     )
-    updated_stripped_static_pic_info = LinkInfo(
-        name = static_pic_info.name,
-        pre_flags = static_pic_info.pre_flags,
-        post_flags = static_pic_info.post_flags,
-        linkables = [stripped_static_pic_objects],
-    )
+    updated_stripped_static_pic_info = None
+    static_pic_info = libraries[LinkStyle("static_pic")].stripped
+    if static_pic_info != None:
+        updated_stripped_static_pic_info = LinkInfo(
+            name = static_pic_info.name,
+            pre_flags = static_pic_info.pre_flags,
+            post_flags = static_pic_info.post_flags,
+            linkables = [stripped_static_pic_objects],
+        )
     updated_libraries = {
         LinkStyle("static"): LinkInfos(default = updated_static_info, stripped = updated_stripped_static_info),
         LinkStyle("static_pic"): LinkInfos(default = updated_static_pic_info, stripped = updated_stripped_static_pic_info),
