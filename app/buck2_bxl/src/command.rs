@@ -29,11 +29,14 @@ use buck2_cli_proto::BxlRequest;
 use buck2_cli_proto::BxlResponse;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::data::HasIoProvider;
+use buck2_common::events::HasEvents;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::result::SharedError;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::package::PackageLabel;
+use buck2_data::BxlExecutionEnd;
+use buck2_data::BxlExecutionStart;
 use buck2_interpreter::parse_import::parse_import_with_config;
 use buck2_interpreter::parse_import::ParseImportOptions;
 use buck2_interpreter::path::BxlFilePath;
@@ -132,7 +135,18 @@ async fn bxl(
 
     let bxl_key = BxlKey::new(bxl_label.clone(), bxl_args, global_target_platform);
 
-    let result = ctx.eval_bxl(bxl_key).await?;
+    let ctx = &ctx;
+    let result = ctx
+        .per_transaction_data()
+        .get_dispatcher()
+        .dupe()
+        .span_async(
+            BxlExecutionStart {
+                name: bxl_label.name,
+            },
+            async move { (ctx.eval_bxl(bxl_key).await, BxlExecutionEnd {}) },
+        )
+        .await?;
 
     let final_artifact_materializations =
         Materializations::from_i32(request.final_artifact_materializations)
@@ -141,8 +155,8 @@ async fn bxl(
     let materialization_context =
         ConvertMaterializationContext::from(final_artifact_materializations);
 
-    let build_result = ensure_artifacts(&ctx, &materialization_context, &result).await;
-    copy_output(stdout, &ctx, &result).await?;
+    let build_result = ensure_artifacts(ctx, &materialization_context, &result).await;
+    copy_output(stdout, ctx, &result).await?;
 
     let error_messages = match build_result {
         Ok(_) => vec![],

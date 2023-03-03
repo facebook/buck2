@@ -281,6 +281,9 @@ pub fn display_event(event: &BuckEvent, opts: TargetDisplayOptions) -> anyhow::R
 
                 Ok(format!("{} -- dynamic analysis", label))
             }
+            Data::BxlExecution(execution) => {
+                Ok(format!("Executing BXL script `{}`", execution.name))
+            }
             Data::Fake(fake) => Ok(format!("{} -- speak of the devil", fake.caramba)),
         };
 

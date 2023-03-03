@@ -353,6 +353,7 @@ mod fbcode {
                     Some(Data::ExclusiveCommandWait(_)) => false,
                     Some(Data::DeferredPreparationStage(_)) => false,
                     Some(Data::DynamicLambda(_)) => true,
+                    Some(Data::BxlExecution(_)) => false,
                     Some(Data::Fake(..)) => false,
                     None => false,
                 }
@@ -395,6 +396,7 @@ mod fbcode {
                     Some(Data::ExclusiveCommandWait(_)) => false,
                     Some(Data::DeferredPreparationStage(_)) => false,
                     Some(Data::DeferredEvaluation(_)) => false,
+                    Some(Data::BxlExecution(_)) => false,
                     Some(Data::Fake(..)) => true,
                     None => false,
                 }

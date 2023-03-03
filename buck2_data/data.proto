@@ -73,6 +73,7 @@ message SpanStartEvent {
     ExclusiveCommandWaitStart exclusive_command_wait = 73;
     DeferredPreparationStageStart deferred_preparation_stage = 74;
     DynamicLambdaStart dynamic_lambda = 75;
+    BxlExecutionStart bxl_execution = 76;
     // Used in Buck unit tests.
     FakeStart fake = 999;
   }
@@ -112,6 +113,7 @@ message SpanEndEvent {
     ExclusiveCommandWaitEnd exclusive_command_wait = 74;
     DeferredPreparationStageEnd deferred_preparation_stage = 75;
     DeferredEvaluationEnd deferred_evaluation = 76;
+    BxlExecutionEnd bxl_execution = 77;
     // Used in Buck unit tests.
     FakeEnd fake = 999;
   }
@@ -1412,6 +1414,12 @@ message DiceCriticalSectionEnd {}
 message DiceSynchronizeSectionStart {}
 
 message DiceSynchronizeSectionEnd {}
+
+message BxlExecutionStart {
+  string name = 1;
+}
+
+message BxlExecutionEnd {}
 
 message DiceBlockConcurrentCommandStart {
   string current_active_trace_id = 1;
