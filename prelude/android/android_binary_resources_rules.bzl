@@ -59,8 +59,8 @@ def get_android_binary_resources_info(
         compiled_resource_apks = [],
         additional_aapt2_params = getattr(ctx.attrs, "additional_aapt_params", []),
         extra_filtered_resources = getattr(ctx.attrs, "extra_filtered_resources", []),
-        locales = getattr(ctx.attrs, "locales", []),
-        filter_locales = getattr(ctx.attrs, "aapt2_locale_filtering", False),
+        locales = getattr(ctx.attrs, "locales", []) or getattr(ctx.attrs, "locales_for_binary_resources", []),
+        filter_locales = getattr(ctx.attrs, "aapt2_locale_filtering", False) or bool(getattr(ctx.attrs, "locales_for_binary_resources", [])),
         min_sdk = aapt2_min_sdk,
         preferred_density = aapt2_preferred_density,
     )
