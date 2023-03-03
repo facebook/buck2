@@ -530,7 +530,10 @@ enum BuckdConnectError {
         stderr: String,
     },
     #[error("during buck daemon startup, the started process had the wrong version.")]
-    BuckDaemonVersionWrongAfterStart { expected: String, actual: String },
+    BuckDaemonVersionWrongAfterStart {
+        expected: buck2_cli_proto::DaemonConstraints,
+        actual: buck2_cli_proto::DaemonConstraints,
+    },
     #[error("Error connecting to the daemon, daemon stderr follows:\n{stderr}")]
     ConnectError { stderr: String },
 }

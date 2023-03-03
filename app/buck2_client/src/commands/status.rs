@@ -73,6 +73,7 @@ impl StatusCommand {
                         "start_time": timestamp,
                         "uptime": uptime,
                         "process_info": serde_json::to_value(status.process_info)?,
+                        "daemon_constraints": serde_json::to_value(status.daemon_constraints)?,
                         "bytes_allocated" : status.bytes_allocated,
                         "bytes_resident" : status.bytes_resident,
                         "bytes_retained" : status.bytes_retained,

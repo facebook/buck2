@@ -19,6 +19,7 @@ pub mod command_outcome;
 pub mod common;
 pub mod console_interaction_stream;
 pub mod daemon;
+pub mod daemon_constraints;
 pub mod events_ctx;
 pub mod exit_result;
 pub mod file_tailer;

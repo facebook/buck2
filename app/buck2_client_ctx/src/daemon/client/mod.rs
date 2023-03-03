@@ -42,12 +42,12 @@ use tonic::Status;
 use crate::command_outcome::CommandOutcome;
 use crate::console_interaction_stream::ConsoleInteractionStream;
 use crate::daemon::client::connect::BuckAddAuthTokenInterceptor;
+use crate::daemon_constraints::gen_daemon_constraints;
 use crate::events_ctx::EventsCtx;
 use crate::events_ctx::FileTailers;
 use crate::events_ctx::PartialResultCtx;
 use crate::events_ctx::PartialResultHandler;
 use crate::stream_value::StreamValue;
-use crate::version::BuckVersion;
 
 pub mod connect;
 
@@ -59,11 +59,17 @@ static FORCE_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(2);
 
 pub enum VersionCheckResult {
     Match,
-    Mismatch { expected: String, actual: String },
+    Mismatch {
+        expected: buck2_cli_proto::DaemonConstraints,
+        actual: buck2_cli_proto::DaemonConstraints,
+    },
 }
 
 impl VersionCheckResult {
-    fn from(expected: String, actual: String) -> Self {
+    fn from(
+        expected: buck2_cli_proto::DaemonConstraints,
+        actual: buck2_cli_proto::DaemonConstraints,
+    ) -> Self {
         if expected == actual {
             Self::Match
         } else {
@@ -489,8 +495,8 @@ impl BuckdClient {
     pub async fn check_version(&mut self) -> anyhow::Result<VersionCheckResult> {
         let status = self.status(false).await?;
         Ok(VersionCheckResult::from(
-            BuckVersion::get_unique_id().to_owned(),
-            status.process_info.unwrap().version,
+            gen_daemon_constraints(),
+            status.daemon_constraints.unwrap_or_default(),
         ))
     }
 

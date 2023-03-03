@@ -24,6 +24,7 @@ use buck2_bxl::bxl::starlark_defs::configure_bxl_file_globals;
 use buck2_bxl::command::bxl_command;
 use buck2_bxl::profile_command::bxl_profile_command;
 use buck2_cli_proto::DaemonProcessInfo;
+use buck2_client_ctx::daemon_constraints::gen_daemon_constraints;
 use buck2_client_ctx::version::BuckVersion;
 use buck2_common::buckd_connection::ConnectionType;
 use buck2_common::daemon_dir::DaemonDir;
@@ -408,6 +409,7 @@ impl DaemonCommand {
                 delegate,
                 detect_cycles,
                 process_info,
+                gen_daemon_constraints(),
                 listener,
                 &BuckdServerDependenciesImpl,
             )
@@ -578,6 +580,7 @@ mod tests {
     use buck2_cli_proto::KillRequest;
     use buck2_cli_proto::PingRequest;
     use buck2_client_ctx::daemon::client::connect::new_daemon_api_client;
+    use buck2_client_ctx::daemon_constraints::gen_daemon_constraints;
     use buck2_common::invocation_paths::InvocationPaths;
     use buck2_common::invocation_roots::InvocationRoots;
     use buck2_core::fs::paths::file_name::FileNameBuf;
@@ -632,6 +635,7 @@ mod tests {
             Box::new(Delegate),
             None,
             process_info.clone(),
+            gen_daemon_constraints(),
             listener,
             &BuckdServerDependenciesImpl,
         ));

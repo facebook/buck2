@@ -266,6 +266,7 @@ pub(crate) struct BuckdServerData {
     stop_accepting_requests: AtomicBool,
     #[allocative(skip)]
     process_info: DaemonProcessInfo,
+    daemon_constraints: buck2_cli_proto::DaemonConstraints,
     start_time: prost_types::Timestamp,
     start_instant: Instant,
     daemon_shutdown: DaemonShutdown,
@@ -293,6 +294,7 @@ impl BuckdServer {
         delegate: Box<dyn BuckdServerDelegate>,
         detect_cycles: Option<DetectCycles>,
         process_info: DaemonProcessInfo,
+        daemon_constraints: buck2_cli_proto::DaemonConstraints,
         listener: I,
         callbacks: &'static dyn BuckdServerDependencies,
     ) -> anyhow::Result<()>
@@ -309,6 +311,7 @@ impl BuckdServer {
         let api_server = BuckdServer(Arc::new(BuckdServerData {
             stop_accepting_requests: AtomicBool::new(false),
             process_info,
+            daemon_constraints,
             start_time: prost_types::Timestamp {
                 seconds: now.as_secs() as i64,
                 nanos: now.subsec_nanos() as i32,
@@ -827,6 +830,7 @@ impl DaemonApi for BuckdServer {
                 start_time: Some(self.0.start_time.clone()),
                 uptime: Some(uptime.try_into()?),
                 snapshot,
+                daemon_constraints: Some(self.0.daemon_constraints.clone()),
                 ..Default::default()
             };
             jemalloc_stats(&mut base);

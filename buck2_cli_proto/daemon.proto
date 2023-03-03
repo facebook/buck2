@@ -19,8 +19,15 @@ import "subscription.proto";
 message DaemonProcessInfo {
   int64 pid = 1;
   string endpoint = 2;
+  // This is only informative, but kept as this gets serialized to JSON so it
+  // can't be removed.
   string version = 3;
   string auth_token = 4;
+}
+
+// Controls whether we will use a given daemon or not.
+message DaemonConstraints {
+  string version = 1;
 }
 
 message KillRequest {
@@ -44,6 +51,7 @@ message StatusResponse {
   optional uint64 bytes_resident = 5;
   optional uint64 bytes_retained = 6;
   buck.data.Snapshot snapshot = 7;
+  DaemonConstraints daemon_constraints = 8;
 }
 
 message PingRequest {
