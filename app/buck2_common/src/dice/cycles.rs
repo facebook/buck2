@@ -10,11 +10,14 @@
 use std::any::Any;
 use std::fmt::Debug;
 
+use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_util::cycle_detector::CycleDescriptor;
 use buck2_util::cycle_detector::LazyCycleDetector;
 use buck2_util::cycle_detector::LazyCycleDetectorGuard;
+use derive_more::Display;
 use dice::DiceComputations;
+use dice::Key;
 use dice::UserCycleDetector;
 use dice::UserCycleDetectorGuard;
 use futures::Future;
@@ -35,7 +38,7 @@ pub struct CycleDetectorAdapter<D: CycleAdapterDescriptor> {
 
 #[async_trait]
 pub trait CycleGuard<E> {
-    async fn guard_this<R, Fut: Future<Output = R> + Send>(
+    async fn guard_this<R: Send, Fut: Future<Output = R> + Send>(
         ctx: &DiceComputations,
         fut: Fut,
     ) -> anyhow::Result<Result<R, E>>;
@@ -54,14 +57,47 @@ impl<D: CycleAdapterDescriptor> CycleGuard<D::Error> for D {
     ///
     /// It's probably the case that the keys in the cycle should treat the cycle error case as invalid (in the sense
     /// of Dice Key::validity()).
-    async fn guard_this<R, Fut: Future<Output = R> + Send>(
+    async fn guard_this<R: Send, Fut: Future<Output = R> + Send>(
         ctx: &DiceComputations,
         fut: Fut,
     ) -> anyhow::Result<Result<R, D::Error>> {
         match ctx.cycle_guard::<CycleAdapterGuard<D>>()? {
-            Some(v) => v.guard.guard_this(fut).await,
+            Some(v) => match v.guard.guard_this(fut).await {
+                Ok(Ok(v)) => Ok(Ok(v)),
+                v => {
+                    // The cycle detector either hit an error or it detected a cycle. In either case, we
+                    // want to make sure that dice doesn't cache this node. To do that, we add a dep on our
+                    // PoisonedDueToDetectedCycle key. We shouldn't hit a dice error, but we know we're already
+                    // returning an error so just ignore it.
+                    let _unused = ctx.compute(&PoisonedDueToDetectedCycleKey).await;
+                    v
+                }
+            },
             None => Ok(Ok(fut.await)),
         }
+    }
+}
+
+/// This is a simple type we can use that will mark any dice node that depends on it as invalid.
+/// This is used to ensure we don't cache an error from the cycle detector (the cycle detector allows
+/// flow of data that is potentially not tracked by dice, and while we may be able to identify those
+/// and fix them it'll still be fragile and its best to just make sure they aren't cached).
+#[derive(Allocative, Debug, Display, Clone, PartialEq, Eq, Hash)]
+#[display(fmt = "poisoned_due_to_detected_cycle")]
+struct PoisonedDueToDetectedCycleKey;
+
+#[async_trait]
+impl Key for PoisonedDueToDetectedCycleKey {
+    type Value = ();
+
+    async fn compute(&self, _ctx: &DiceComputations) -> Self::Value {}
+
+    fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
+        true
+    }
+
+    fn validity(_x: &Self::Value) -> bool {
+        false
     }
 }
 
