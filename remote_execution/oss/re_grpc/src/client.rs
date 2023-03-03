@@ -666,6 +666,7 @@ where
             .map(|req| &req.named_digest.digest)
             .chain(inlined_digests.iter())
             .map(|d| tdigest_to(d.clone()))
+            .filter(|d| d.size_bytes > 0)
             .collect(),
         acceptable_compressors: vec![compressor::Value::Identity as i32],
     };
@@ -682,11 +683,19 @@ where
         })
         .collect::<Result<HashMap<_, _>, _>>()?;
 
-    let inlined_blobs = inlined_digests.into_try_map(|digest| {
-        let data = response
+    let get = |digest: &TDigest| -> anyhow::Result<Vec<u8>> {
+        if digest.size_in_bytes == 0 {
+            return Ok(Vec::new());
+        }
+
+        Ok(response
             .get(&digest)
             .with_context(|| format!("Did not receive digest data for `{}`", digest))?
-            .clone();
+            .clone())
+    };
+
+    let inlined_blobs = inlined_digests.into_try_map(|digest| {
+        let data = get(&digest)?;
 
         anyhow::Ok(InlinedDigestWithStatus {
             digest,
@@ -696,15 +705,7 @@ where
     })?;
 
     let writes = file_digests.iter().map(|req| async {
-        let data = response
-            .get(&req.named_digest.digest)
-            .with_context(|| {
-                format!(
-                    "Did not receive digest data for `{}`",
-                    req.named_digest.digest
-                )
-            })?
-            .clone();
+        let data = get(&req.named_digest.digest)?;
 
         let mut opts = OpenOptions::new();
         opts.read(true).write(true).create_new(true);
@@ -952,6 +953,37 @@ mod tests {
 
         assert_eq!(inlined_blobs[1].digest, *digest2);
         assert_eq!(inlined_blobs[1].blob, vec![4, 5, 6]);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_download_empty() -> anyhow::Result<()> {
+        let digest1 = &TDigest {
+            hash: "aa".to_owned(),
+            size_in_bytes: 0,
+            ..Default::default()
+        };
+
+        let req = DownloadRequest {
+            inlined_digests: Some(vec![digest1.clone()]),
+            ..Default::default()
+        };
+
+        let res = BatchReadBlobsResponse { responses: vec![] };
+
+        let res = download_impl(req, |req| async move {
+            assert_eq!(req.digests.len(), 0);
+            Ok(res)
+        })
+        .await?;
+
+        let inlined_blobs = res.inlined_blobs.unwrap();
+
+        assert_eq!(inlined_blobs.len(), 1);
+
+        assert_eq!(inlined_blobs[0].digest, *digest1);
+        assert!(inlined_blobs[0].blob.is_empty());
 
         Ok(())
     }
