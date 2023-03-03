@@ -59,6 +59,8 @@ def get_android_binary_resources_info(
         extra_filtered_resources = getattr(ctx.attrs, "extra_filtered_resources", []),
         locales = getattr(ctx.attrs, "locales", []),
         filter_locales = getattr(ctx.attrs, "aapt2_locale_filtering", False),
+        min_sdk = None,
+        preferred_density = None,
     )
 
     prebuilt_jars = [packaging_dep.jar for packaging_dep in java_packaging_deps if packaging_dep.is_prebuilt_jar]
