@@ -409,7 +409,7 @@ impl DaemonCommand {
                 delegate,
                 detect_cycles,
                 process_info,
-                gen_daemon_constraints(),
+                gen_daemon_constraints()?,
                 listener,
                 &BuckdServerDependenciesImpl,
             )
@@ -635,7 +635,7 @@ mod tests {
             Box::new(Delegate),
             None,
             process_info.clone(),
-            gen_daemon_constraints(),
+            gen_daemon_constraints().unwrap(),
             listener,
             &BuckdServerDependenciesImpl,
         ));

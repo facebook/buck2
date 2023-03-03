@@ -495,7 +495,7 @@ impl BuckdClient {
     pub async fn check_version(&mut self) -> anyhow::Result<VersionCheckResult> {
         let status = self.status(false).await?;
         Ok(VersionCheckResult::from(
-            gen_daemon_constraints(),
+            gen_daemon_constraints()?,
             status.daemon_constraints.unwrap_or_default(),
         ))
     }

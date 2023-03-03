@@ -28,6 +28,7 @@ message DaemonProcessInfo {
 // Controls whether we will use a given daemon or not.
 message DaemonConstraints {
   string version = 1;
+  optional string user_version = 2;
 }
 
 message KillRequest {
