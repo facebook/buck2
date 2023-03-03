@@ -7,9 +7,11 @@
  * of this source tree.
  */
 
+use allocative::Allocative;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
 use buck2_interpreter::extra::XcodeVersionInfo;
+use derivative::Derivative;
 use once_cell::sync::Lazy;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
@@ -23,7 +25,7 @@ use starlark::values::Value;
 
 use crate::interpreter::build_context::BuildContext;
 
-fn new_host_info(
+pub(crate) fn new_host_info(
     host_platform: InterpreterHostPlatform,
     host_architecture: InterpreterHostArchitecture,
 ) -> OwnedFrozenValue {
@@ -202,5 +204,34 @@ pub fn register_host_info(builder: &mut GlobalsBuilder) {
             }
         };
         Ok(v.value())
+    }
+}
+
+#[derive(Derivative, Clone, Debug, Allocative)]
+#[derivative(PartialEq)]
+pub struct HostInfo {
+    pub platform: InterpreterHostPlatform,
+    pub arch: InterpreterHostArchitecture,
+    pub xcode: Option<XcodeVersionInfo>,
+    #[derivative(PartialEq = "ignore")]
+    pub value: OwnedFrozenValue,
+}
+
+impl HostInfo {
+    pub(crate) fn new(
+        platform: InterpreterHostPlatform,
+        arch: InterpreterHostArchitecture,
+    ) -> Self {
+        Self {
+            platform,
+            arch,
+            xcode: match platform {
+                // TODO(raulgarcia4): Actually do something with any underlying
+                // errors in `XcodeVersionInfo`, rather than discarding them.
+                InterpreterHostPlatform::MacOS => XcodeVersionInfo::new().ok(),
+                _ => None,
+            },
+            value: new_host_info(platform, arch),
+        }
     }
 }

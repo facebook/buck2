@@ -10,6 +10,7 @@
 use std::path::Path;
 use std::path::PathBuf;
 
+use allocative::Allocative;
 use anyhow::Context;
 use buck2_core::fs::fs_util;
 use serde::Deserialize;
@@ -34,7 +35,7 @@ struct XcodeVersionPlistSchema {
 }
 
 /// Versioning information for the currently selected Xcode on the host machine.
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug, Default, PartialEq, Clone, Allocative)]
 pub struct XcodeVersionInfo {
     /// e.g. "14.0.1"
     pub version_string: String,

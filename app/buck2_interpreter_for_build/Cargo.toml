@@ -8,6 +8,7 @@ description = "Interpreter setup to BUCK files"
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 bumpalo = { workspace = true }
+derivative = { workspace = true }
 derive_more = { workspace = true }
 futures = { workspace = true }
 hashbrown = { workspace = true }

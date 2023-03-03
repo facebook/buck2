@@ -27,6 +27,7 @@ use starlark::environment::GlobalsBuilder;
 
 use crate::attrs::coerce::ctx::BuildAttrCoercionContext;
 use crate::interpreter::build_defs::configure_base_globals;
+use crate::interpreter::functions::host_info::HostInfo;
 use crate::interpreter::module_internals::ModuleInternals;
 use crate::interpreter::module_internals::PackageImplicits;
 use crate::super_package::data::SuperPackage;
@@ -81,6 +82,7 @@ pub struct BuildInterpreterConfiguror {
     prelude_import: Option<ImportPath>,
     host_platform: InterpreterHostPlatform,
     host_architecture: InterpreterHostArchitecture,
+    host_info: HostInfo,
     record_target_call_stack: bool,
     configure_build_file_globals: ConfigureGlobalsFn,
     configure_package_file_globals: ConfigureGlobalsFn,
@@ -106,6 +108,7 @@ impl BuildInterpreterConfiguror {
             prelude_import,
             host_platform,
             host_architecture,
+            host_info: HostInfo::new(host_platform, host_architecture),
             record_target_call_stack,
             configure_build_file_globals: ConfigureGlobalsFn(configure_build_file_globals),
             configure_package_file_globals: ConfigureGlobalsFn(configure_package_file_globals),
