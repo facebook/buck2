@@ -12,6 +12,7 @@ engine_address = $ENGINE_ADDRESS
 action_cache_address = $ACTION_CACHE_ADDRESS
 cas_address = $CAS_ADDRESS
 tls_client_cert = $THRIFT_TLS_CL_CERT_PATH
+http_headers = foo:bar, baz:qux
 
 [build]
   execution_platforms = root//platforms:platforms

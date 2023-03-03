@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::str::FromStr;
+
 use allocative::Allocative;
 use buck2_common::legacy_configs::LegacyBuckConfig;
 
@@ -145,6 +147,36 @@ pub struct Buck2OssReConfiguration {
     /// This can contain environment variables using shell interpolation syntax (i.e. $VAR). They
     /// will be substituted before using the value.
     pub tls_client_cert: Option<String>,
+    /// HTTP headers to inject in all requests to RE. This is a comma-separated list of `Header:
+    /// Value` pairs. Minimal validation of those headers is done here.
+    ///
+    /// This can contain environment variables using shell interpolation syntax (i.e. $VAR). They
+    /// will be substituted before using the value.
+    pub http_headers: Vec<HttpHeader>,
+}
+
+#[derive(Clone, Debug, Default, Allocative)]
+pub struct HttpHeader {
+    pub key: String,
+    pub value: String,
+}
+
+impl FromStr for HttpHeader {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut iter = s.split(':');
+        match (iter.next(), iter.next(), iter.next()) {
+            (Some(key), Some(value), None) => Ok(Self {
+                key: key.trim().to_owned(),
+                value: value.trim().to_owned(),
+            }),
+            _ => Err(anyhow::anyhow!(
+                "Invalid header (expect exactly one `:`): `{}`",
+                s
+            )),
+        }
+    }
 }
 
 impl Buck2OssReConfiguration {
@@ -156,6 +188,9 @@ impl Buck2OssReConfiguration {
                 .parse(BUCK2_RE_CLIENT_CFG_SECTION, "action_cache_address")?,
             tls_ca_certs: legacy_config.parse(BUCK2_RE_CLIENT_CFG_SECTION, "tls_ca_certs")?,
             tls_client_cert: legacy_config.parse(BUCK2_RE_CLIENT_CFG_SECTION, "tls_client_cert")?,
+            http_headers: legacy_config
+                .parse_list(BUCK2_RE_CLIENT_CFG_SECTION, "http_headers")?
+                .unwrap_or_default(), // Empty list is as good None.
         })
     }
 }

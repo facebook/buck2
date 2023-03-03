@@ -9,11 +9,14 @@
 
 use std::collections::HashMap;
 use std::env::VarError;
+use std::sync::Arc;
 use std::sync::Mutex;
 
 use anyhow::Context;
 use buck2_core::fs::fs_util;
 use buck2_re_configuration::Buck2OssReConfiguration;
+use buck2_re_configuration::HttpHeader;
+use dupe::Dupe;
 use futures::future::Future;
 use futures::stream::BoxStream;
 use futures::stream::StreamExt;
@@ -43,7 +46,11 @@ use re_grpc_proto::google::rpc::Status;
 use regex::Regex;
 use tokio::fs::OpenOptions;
 use tokio::io::AsyncWriteExt;
+use tonic::codegen::InterceptedService;
+use tonic::metadata;
+use tonic::metadata::MetadataKey;
 use tonic::metadata::MetadataValue;
+use tonic::service::Interceptor;
 use tonic::transport::channel::ClientTlsConfig;
 use tonic::transport::Certificate;
 use tonic::transport::Channel;
@@ -164,15 +171,20 @@ impl REClientBuilder {
         )
         .await;
 
+        let interceptor = InjectHeadersInterceptor::new(&opts.http_headers)?;
+
         let grpc_clients = GRPCClients {
-            cas_client: ContentAddressableStorageClient::new(
+            cas_client: ContentAddressableStorageClient::with_interceptor(
                 cas.context("Error creating CAS client")?,
+                interceptor.dupe(),
             ),
-            execution_client: ExecutionClient::new(
+            execution_client: ExecutionClient::with_interceptor(
                 execution.context("Error creating Execution client")?,
+                interceptor.dupe(),
             ),
-            action_cache_client: ActionCacheClient::new(
+            action_cache_client: ActionCacheClient::with_interceptor(
                 action_cache.context("Error creating ActionCache client")?,
+                interceptor.dupe(),
             ),
         };
 
@@ -180,10 +192,56 @@ impl REClientBuilder {
     }
 }
 
+#[derive(Clone, Dupe)]
+struct InjectHeadersInterceptor {
+    headers: Arc<Vec<(MetadataKey<metadata::Ascii>, MetadataValue<metadata::Ascii>)>>,
+}
+
+impl InjectHeadersInterceptor {
+    pub fn new(headers: &[HttpHeader]) -> anyhow::Result<Self> {
+        let headers = headers
+            .iter()
+            .map(|h| {
+                // This means we can't have `$` in a header key or value, which isn't great. On the
+                // flip side, env vars are good for things like credentials, which those headers
+                // are likely to contain. In time, we should allow escaping.
+                let key = substitute_env_vars(&h.key)?;
+                let value = substitute_env_vars(&h.value)?;
+
+                let key = MetadataKey::<metadata::Ascii>::from_bytes(key.as_bytes())
+                    .with_context(|| format!("Invalid key in header: `{}: {}`", key, value))?;
+
+                let value = MetadataValue::try_from(&value)
+                    .with_context(|| format!("Invalid value in header: `{}: {}`", key, value))?;
+
+                anyhow::Ok((key, value))
+            })
+            .collect::<Result<_, _>>()
+            .context("Error converting headers")?;
+
+        Ok(Self {
+            headers: Arc::new(headers),
+        })
+    }
+}
+
+impl Interceptor for InjectHeadersInterceptor {
+    fn call(
+        &mut self,
+        mut request: tonic::Request<()>,
+    ) -> Result<tonic::Request<()>, tonic::Status> {
+        for (k, v) in self.headers.iter() {
+            request.metadata_mut().insert(k.clone(), v.clone());
+        }
+        Ok(request)
+    }
+}
+
 pub struct GRPCClients {
-    cas_client: ContentAddressableStorageClient<Channel>,
-    execution_client: ExecutionClient<Channel>,
-    action_cache_client: ActionCacheClient<Channel>,
+    cas_client:
+        ContentAddressableStorageClient<InterceptedService<Channel, InjectHeadersInterceptor>>,
+    execution_client: ExecutionClient<InterceptedService<Channel, InjectHeadersInterceptor>>,
+    action_cache_client: ActionCacheClient<InterceptedService<Channel, InjectHeadersInterceptor>>,
 }
 
 #[derive(Default)]
