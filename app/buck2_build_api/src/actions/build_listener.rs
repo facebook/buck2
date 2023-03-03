@@ -27,6 +27,7 @@ use dice::UserComputationData;
 use dupe::Dupe;
 use dupe::OptionDupedExt;
 use gazebo::prelude::*;
+use itertools::Itertools;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio_stream::wrappers::UnboundedReceiverStream;
@@ -241,6 +242,7 @@ impl BuildSignalReceiver {
         dep_keys: impl Iterator<Item = NodeKey>,
     ) {
         let longest_ancestor = dep_keys
+            .unique()
             .filter_map(|node_key| {
                 self.num_edges += 1;
                 let node_data = self.predecessors.get(&node_key)?;
