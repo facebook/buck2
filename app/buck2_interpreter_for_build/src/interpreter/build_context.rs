@@ -23,6 +23,7 @@ use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use thiserror::Error;
 
+use crate::interpreter::functions::host_info::HostInfo;
 use crate::interpreter::module_internals::ModuleInternals;
 use crate::super_package::eval_ctx::PackageFileEvalCtx;
 
@@ -127,6 +128,8 @@ pub struct BuildContext<'a> {
 
     pub host_architecture: InterpreterHostArchitecture,
 
+    pub host_info: &'a HostInfo,
+
     /// Context specific to type type.
     pub(crate) additional: PerFileTypeContext,
 
@@ -144,6 +147,7 @@ impl<'a> BuildContext<'a> {
         starlark_path: StarlarkPath<'a>,
         host_platform: InterpreterHostPlatform,
         host_architecture: InterpreterHostArchitecture,
+        host_info: &'a HostInfo,
         additional: PerFileTypeContext,
         ignore_attrs_for_profiling: bool,
     ) -> BuildContext<'a> {
@@ -156,6 +160,7 @@ impl<'a> BuildContext<'a> {
             starlark_path,
             host_platform,
             host_architecture,
+            host_info,
             additional,
             ignore_attrs_for_profiling,
         }

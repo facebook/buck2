@@ -38,6 +38,7 @@ use starlark::values::Value;
 use crate::attrs::coerce::ctx::BuildAttrCoercionContext;
 use crate::interpreter::build_context::BuildContext;
 use crate::interpreter::build_context::PerFileTypeContext;
+use crate::interpreter::functions::host_info::HostInfo;
 
 pub trait CoercedAttrExt {
     fn from_literal(lit: AttrLiteral<CoercedAttr>) -> Self;
@@ -98,14 +99,18 @@ pub fn to_value<'v>(env: &'v Module, globals: &Globals, content: &str) -> Value<
     .unwrap();
     let buckconfig = LegacyBuckConfig::empty();
     let root_buckconfig = LegacyBuckConfig::empty();
+    let host_platform = InterpreterHostPlatform::Linux;
+    let host_architecture = InterpreterHostArchitecture::X86_64;
+    let host_info = HostInfo::new(host_platform, host_architecture);
     let build_ctx = BuildContext::new_for_module(
         env,
         &cell_info,
         &buckconfig,
         &root_buckconfig,
         StarlarkPath::LoadFile(&import_path),
-        InterpreterHostPlatform::Linux,
-        InterpreterHostArchitecture::X86_64,
+        host_platform,
+        host_architecture,
+        &host_info,
         PerFileTypeContext::Bzl,
         false,
     );

@@ -171,6 +171,10 @@ impl BuildInterpreterConfiguror {
         self.host_architecture
     }
 
+    pub(crate) fn host_info(&self) -> &HostInfo {
+        &self.host_info
+    }
+
     pub(crate) fn new_extra_context(
         &self,
         cell_info: &InterpreterCellInfo,
