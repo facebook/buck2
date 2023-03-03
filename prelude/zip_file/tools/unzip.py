@@ -6,6 +6,8 @@
 # of this source tree.
 
 import argparse
+import os
+import stat
 import sys
 import zipfile
 
@@ -19,8 +21,26 @@ def _parse_args():
 
 
 def do_unzip(src, dst):
-    z = zipfile.ZipFile(src)
-    z.extractall(dst)
+    with zipfile.ZipFile(src) as z:
+        # First extract non-symlinks so that when symlinks are created in the next step
+        # symlink type (whether it's a file or a directory which is important for Windows platform)
+        # is automatically detected for non-broken symlinks (see documentation for `os.symlink` function).
+        # That way we don't need to pass `target_is_directory` argument to `os.symlink` function.
+        for info in (i for i in z.infolist() if not _is_symlink(i)):
+            z.extract(info, path=dst)
+        for info in (i for i in z.infolist() if _is_symlink(i)):
+            symlink_path = os.path.join(dst, info.filename)
+            symlink_dst = z.read(info).decode("utf-8")
+            os.symlink(symlink_dst, symlink_path)
+
+
+def _file_attributes(zip_info):
+    # Those are stored in upper bits
+    return zip_info.external_attr >> 16
+
+
+def _is_symlink(zip_info):
+    return stat.S_ISLNK(_file_attributes(zip_info))
 
 
 def main():
