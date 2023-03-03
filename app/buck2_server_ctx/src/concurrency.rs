@@ -61,7 +61,7 @@ enum ConcurrencyHandlerError {
     )]
     NestedInvocationWithSameStates(String, String),
     #[error(
-        "Recursive invocation of Buck, with a different state - computation will continue but may produce incorrect results. Trace Ids: {0}. Recursive invocation command: `{1}`"
+        "Recursive invocation of Buck, with a different state. Use `--isolation-dir` on the inner invocation to fix this. Trace Ids: {0}. Recursive invocation command: `{1}`"
     )]
     NestedInvocationWithDifferentStates(String, String),
     #[error(
@@ -676,17 +676,6 @@ impl ConcurrencyHandler {
                         active_commands,
                         current_command.format_argv(),
                     ))
-                )?;
-            }
-            RunState::NestedDifferentState => {
-                soft_error!(
-                    "nested_invocation_different_dice_state",
-                    anyhow::anyhow!(
-                        ConcurrencyHandlerError::NestedInvocationWithDifferentStates(
-                            active_commands,
-                            current_command.format_argv()
-                        ),
-                    )
                 )?;
             }
             RunState::ParallelDifferentState => {
