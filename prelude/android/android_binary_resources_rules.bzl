@@ -25,7 +25,9 @@ def get_android_binary_resources_info(
         referenced_resources_lists: ["artifact"],
         manifest_entries: dict.type = {},
         resource_infos_to_exclude: [set_type, None] = None,
-        generate_strings_and_ids_separately: [bool.type, None] = True) -> "AndroidBinaryResourcesInfo":
+        generate_strings_and_ids_separately: [bool.type, None] = True,
+        aapt2_min_sdk: [str.type, None] = None,
+        aapt2_preferred_density: [str.type, None] = None) -> "AndroidBinaryResourcesInfo":
     android_toolchain = ctx.attrs._android_toolchain[AndroidToolchainInfo]
     unfiltered_resource_infos = [
         resource_info
@@ -59,8 +61,8 @@ def get_android_binary_resources_info(
         extra_filtered_resources = getattr(ctx.attrs, "extra_filtered_resources", []),
         locales = getattr(ctx.attrs, "locales", []),
         filter_locales = getattr(ctx.attrs, "aapt2_locale_filtering", False),
-        min_sdk = None,
-        preferred_density = None,
+        min_sdk = aapt2_min_sdk,
+        preferred_density = aapt2_preferred_density,
     )
 
     prebuilt_jars = [packaging_dep.jar for packaging_dep in java_packaging_deps if packaging_dep.is_prebuilt_jar]

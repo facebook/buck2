@@ -44,6 +44,8 @@ def robolectric_test_impl(ctx: "context") -> ["provider"]:
         use_proto_format = False,
         referenced_resources_lists = [],
         generate_strings_and_ids_separately = False,
+        aapt2_min_sdk = ctx.attrs.manifest_entries.get("min_sdk_version", None),
+        aapt2_preferred_density = ctx.attrs.preferred_density_for_binary_resources,
     )
 
     test_config_properties_file = ctx.actions.write(
