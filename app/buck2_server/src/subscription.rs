@@ -58,6 +58,10 @@ pub(crate) async fn run_subscription_server_command(
                                 let paths = paths.into_try_map(|path| path.try_into())?;
                                 materializer_subscription.subscribe_to_paths(paths);
                             }
+                            Request::UnsubscribeFromPaths(buck2_subscription_proto::UnsubscribeFromPaths { paths }) => {
+                                let paths = paths.into_try_map(|path| path.try_into())?;
+                                materializer_subscription.unsubscribe_from_paths(paths);
+                            }
                         }
                     }
                     path = materializer_subscription.next_materialization().fuse() => {

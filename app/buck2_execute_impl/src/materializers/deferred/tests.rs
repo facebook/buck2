@@ -498,4 +498,43 @@ mod state_machine {
 
         assert_eq!(paths, vec![foo_bar_baz.clone(), bar, foo_bar_baz]);
     }
+
+    #[tokio::test]
+    async fn test_subscription_unsubscribe() {
+        let digest_config = DigestConfig::testing_default();
+        let value1 = ArtifactValue::file(digest_config.empty_file());
+        let value2 = ArtifactValue::dir(digest_config.empty_directory());
+
+        let (mut dm, mut channel) = make_processor(digest_config, Default::default());
+
+        let mut handle = {
+            let (sender, recv) = oneshot::channel();
+            MaterializerSubscriptionOperation::Create { sender }.execute(&mut dm);
+            recv.await.unwrap()
+        };
+
+        let path = make_path("foo/bar");
+
+        handle.subscribe_to_paths(vec![path.clone()]);
+        while let Ok(cmd) = channel.high_priority.try_recv() {
+            dm.process_one_command(cmd);
+        }
+
+        dm.declare_existing(&path, value1.dupe());
+
+        handle.unsubscribe_from_paths(vec![path.clone()]);
+        while let Ok(cmd) = channel.high_priority.try_recv() {
+            dm.process_one_command(cmd);
+        }
+
+        dm.declare_existing(&path, value2.dupe());
+
+        let mut paths = Vec::new();
+        while let Ok(path) = handle.receiver().try_recv() {
+            paths.push(path);
+        }
+
+        // Expect only one notification
+        assert_eq!(paths, vec![path]);
+    }
 }

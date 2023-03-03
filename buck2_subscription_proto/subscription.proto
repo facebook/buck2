@@ -18,6 +18,7 @@ message SubscriptionRequest {
   oneof request {
     Disconnect disconnect = 1;
     SubscribeToPaths subscribe_to_paths = 2;
+    UnsubscribeFromPaths unsubscribe_from_paths = 3;
   }
 }
 
@@ -39,6 +40,19 @@ message SubscribeToPaths {
   // Note that while requesting notifications for source paths (i.e. paths not
   // under buck-out) is not an error, it will not produce notifications, since
   // those paths are never materialized by Buck itself.
+  repeated string paths = 1;
+}
+
+// Undo the effects of SubscribeToPaths. In-flight notifications for the paths
+// that are being unsubscribed from are not cancelled: the caller should expect
+// the possibility of receiving notifications for paths after having
+// unsubscribed from them.
+//
+// It is not considered an error to unsubscribe from paths the client never
+// subscribed to.
+message UnsubscribeFromPaths {
+  // The paths to unsubscribe from. The format expected is the same as in
+  // SubscribeToPaths.
   repeated string paths = 1;
 }
 

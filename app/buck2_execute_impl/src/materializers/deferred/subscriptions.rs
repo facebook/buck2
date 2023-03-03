@@ -126,6 +126,12 @@ pub(super) enum MaterializerSubscriptionOperation<T: 'static> {
         index: SubscriptionIndex,
         paths: Vec<ProjectRelativePathBuf>,
     },
+
+    /// Ask the materializer to stop sending notifications for the following paths.
+    Unsubscribe {
+        index: SubscriptionIndex,
+        paths: Vec<ProjectRelativePathBuf>,
+    },
 }
 
 impl<T> MaterializerSubscriptionOperation<T>
@@ -175,6 +181,20 @@ where
 
                 subscription.paths.extend(paths);
             }
+            Self::Unsubscribe { index, paths } => {
+                // Same as above, we guarantee that subscriptions cannot send messages after
+                // they're deleted.
+                let subscription = dm
+                    .subscriptions
+                    .active
+                    .get_mut(&index)
+                    .with_context(|| format!("Invalid subscription: {}", index))
+                    .unwrap();
+
+                for path in &paths {
+                    subscription.paths.remove(path);
+                }
+            }
         }
     }
 }
@@ -204,6 +224,15 @@ impl<T: 'static> DeferredMaterializerSubscription for SubscriptionHandle<T> {
     fn subscribe_to_paths(&mut self, paths: Vec<ProjectRelativePathBuf>) {
         self.command_sender.send(MaterializerCommand::Subscription(
             MaterializerSubscriptionOperation::Subscribe {
+                index: self.index,
+                paths,
+            },
+        ));
+    }
+
+    fn unsubscribe_from_paths(&mut self, paths: Vec<ProjectRelativePathBuf>) {
+        self.command_sender.send(MaterializerCommand::Subscription(
+            MaterializerSubscriptionOperation::Unsubscribe {
                 index: self.index,
                 paths,
             },

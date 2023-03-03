@@ -626,6 +626,10 @@ pub trait DeferredMaterializerSubscription: Send + Sync {
     /// materialization.
     fn subscribe_to_paths(&mut self, paths: Vec<ProjectRelativePathBuf>);
 
+    /// Stop getting notifications for specific paths. In-flight notifications may still be
+    /// received.
+    fn unsubscribe_from_paths(&mut self, paths: Vec<ProjectRelativePathBuf>);
+
     /// Await the next materialization on this subscription.
     async fn next_materialization(&mut self) -> Option<ProjectRelativePathBuf>;
 }
