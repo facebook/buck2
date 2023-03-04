@@ -15,6 +15,7 @@ use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::stream_value::StreamValue;
 use buck2_client_ctx::subscribers::event_log::options::EventLogOptions;
+use buck2_data::re_platform::Property;
 use buck2_event_observer::what_ran;
 use buck2_event_observer::what_ran::CommandReproducer;
 use buck2_event_observer::what_ran::WhatRanOptions;
@@ -309,6 +310,7 @@ impl WhatRanOutputWriter for WhatRanSubcommandOutput {
                     },
                     CommandReproducer::ReExecute(re_execute) => JsonReproducer::Re {
                         digest: &re_execute.action_digest,
+                        platform_properties: into_index_map(&re_execute.platform),
                     },
                     CommandReproducer::LocalExecute(local_execute) => JsonReproducer::Local {
                         command: local_execute.command.as_ref().map_or_else(
@@ -341,6 +343,15 @@ impl WhatRanOutputWriter for WhatRanSubcommandOutput {
     }
 }
 
+fn into_index_map(platform: &Option<buck2_data::RePlatform>) -> IndexMap<&str, &str> {
+    platform.as_ref().map_or_else(IndexMap::new, |p| {
+        p.properties
+            .iter()
+            .map(|Property { name, value }| (name.as_ref(), value.as_ref()))
+            .collect()
+    })
+}
+
 #[derive(serde::Serialize)]
 struct JsonCommand<'a> {
     reason: &'a str,
@@ -361,6 +372,7 @@ enum JsonReproducer<'a> {
     },
     Re {
         digest: &'a str,
+        platform_properties: IndexMap<&'a str, &'a str>,
     },
     Local {
         command: Cow<'a, [String]>,
@@ -395,6 +407,20 @@ mod tests {
             reason: "test.run",
             identity: "some/target",
             reproducer: JsonReproducer::Local { command, env },
+            extra: None,
+        }
+    }
+
+    fn make_base_command_in_re() -> JsonCommand<'static> {
+        JsonCommand {
+            reason: "test.run",
+            identity: "some/target",
+            reproducer: JsonReproducer::Re {
+                digest: "placeholder",
+                platform_properties: indexmap::indexmap! {
+                    "platform" => "linux-remote-execution"
+                },
+            },
             extra: None,
         }
     }
@@ -448,6 +474,27 @@ mod tests {
     "testcases": [
       "case"
     ]
+  }
+}"#;
+        assert_eq!(expected, serde_json::to_string_pretty(&command)?);
+        Ok(())
+    }
+
+    #[test]
+    fn serialize_what_ran_command_in_re() -> anyhow::Result<()> {
+        let command = make_base_command_in_re();
+
+        let expected = r#"{
+  "reason": "test.run",
+  "identity": "some/target",
+  "reproducer": {
+    "executor": "Re",
+    "details": {
+      "digest": "placeholder",
+      "platform_properties": {
+        "platform": "linux-remote-execution"
+      }
+    }
   }
 }"#;
         assert_eq!(expected, serde_json::to_string_pretty(&command)?);

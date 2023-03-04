@@ -999,6 +999,15 @@ message ReUpload {}
 
 message ReExecute {
   string action_digest = 1;
+  RePlatform platform = 2;
+}
+
+message RePlatform {
+  message Property {
+    string name = 1;
+    string value = 2;
+  }
+  repeated Property properties = 1;
 }
 
 message ReDownload {}

@@ -10,6 +10,7 @@
 use std::borrow::Cow;
 use std::fmt;
 
+use buck2_data::re_platform::Property;
 use dupe::Dupe;
 use superconsole::Line;
 use superconsole::SuperConsole;
@@ -175,12 +176,12 @@ pub enum CommandReproducer<'a> {
 }
 
 impl<'a> CommandReproducer<'a> {
-    pub fn executor(&self) -> &'static str {
+    pub fn executor(&self) -> String {
         match self {
-            Self::CacheQuery(..) => "cache_query",
-            Self::CacheHit(..) => "cache",
-            Self::ReExecute(..) => "re",
-            Self::LocalExecute(..) => "local",
+            Self::CacheQuery(..) => "cache_query".to_owned(),
+            Self::CacheHit(..) => "cache".to_owned(),
+            Self::ReExecute(execute) => executor_with_platform(execute),
+            Self::LocalExecute(..) => "local".to_owned(),
         }
     }
 
@@ -320,5 +321,59 @@ impl<'a, 'b> fmt::Display for WhatRanCommandConsoleFormat<'a, 'b> {
             self.repro.executor(),
             self.repro.as_human_readable()
         )
+    }
+}
+
+fn executor_with_platform(execute: &buck2_data::ReExecute) -> String {
+    if let Some(platform) = &execute.platform {
+        let platform = platform
+            .properties
+            .iter()
+            .map(|Property { name, value }| format!("{}={}", name, value))
+            .collect::<Vec<String>>()
+            .join(",");
+        format!("re({})", platform)
+    } else {
+        "re".to_owned()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use buck2_data::re_platform::Property;
+    use buck2_data::ReExecute;
+    use buck2_data::RePlatform;
+
+    use super::*;
+
+    #[test]
+    fn test_executor_with_platform() {
+        let execute = ReExecute {
+            action_digest: "placeholder".to_owned(),
+            platform: Some(RePlatform {
+                properties: vec![
+                    Property {
+                        name: "platform".to_owned(),
+                        value: "linux-remote-execution".to_owned(),
+                    },
+                    Property {
+                        name: "name1".to_owned(),
+                        value: "value1".to_owned(),
+                    },
+                ],
+            }),
+        };
+        let result = executor_with_platform(&execute);
+        assert_eq!(
+            result,
+            "re(platform=linux-remote-execution,name1=value1)".to_owned()
+        );
+    }
+
+    #[test]
+    fn test_executor_with_platform_no_platform() {
+        let execute = buck2_data::ReExecute::default();
+        let result = executor_with_platform(&execute);
+        assert_eq!(result, "re".to_owned());
     }
 }

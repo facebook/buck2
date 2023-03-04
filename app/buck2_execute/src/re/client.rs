@@ -721,6 +721,7 @@ impl RemoteExecutionClientImpl {
         action_digest: &ActionDigest,
         manager: &mut CommandExecutionManager,
         re_max_queue_time: Option<Duration>,
+        platform: &remote_execution::Platform,
     ) -> anyhow::Result<ExecuteResponse> {
         use buck2_data::re_stage;
         use buck2_data::ReExecute;
@@ -768,13 +769,20 @@ impl RemoteExecutionClientImpl {
             .await
         }
 
-        fn re_stage_from_exe_stage(stage: Stage, action_digest: String) -> re_stage::Stage {
+        fn re_stage_from_exe_stage(
+            stage: Stage,
+            action_digest: String,
+            platform: &remote_execution::Platform,
+        ) -> re_stage::Stage {
             match stage {
                 Stage::QUEUED => re_stage::Stage::Queue(ReQueue { action_digest }),
                 Stage::MATERIALIZING_INPUT => {
                     re_stage::Stage::WorkerDownload(ReWorkerDownload { action_digest })
                 }
-                Stage::EXECUTING => re_stage::Stage::Execute(ReExecute { action_digest }),
+                Stage::EXECUTING => re_stage::Stage::Execute(ReExecute {
+                    action_digest,
+                    platform: Some(transform_platform(platform)),
+                }),
                 Stage::UPLOADING_OUTPUT => {
                     re_stage::Stage::WorkerUpload(ReWorkerUpload { action_digest })
                 }
@@ -816,7 +824,7 @@ impl RemoteExecutionClientImpl {
             let progress_response = wait_for_response_or_stage_change(
                 &mut receiver,
                 exe_stage,
-                re_stage_from_exe_stage(exe_stage, action_digest_str.clone()),
+                re_stage_from_exe_stage(exe_stage, action_digest_str.clone(), platform),
                 manager,
                 re_max_queue_time,
             )
@@ -873,6 +881,7 @@ impl RemoteExecutionClientImpl {
             &action_digest,
             manager,
             re_max_queue_time,
+            platform,
         )
         .await
         .with_context(|| format!("RE: execution with digest {}", &action_digest))
@@ -1033,6 +1042,19 @@ impl RemoteExecutionClientImpl {
             .await?;
 
         Ok(())
+    }
+}
+
+fn transform_platform(platform: &remote_execution::Platform) -> buck2_data::RePlatform {
+    buck2_data::RePlatform {
+        properties: platform
+            .properties
+            .iter()
+            .map(|property| buck2_data::re_platform::Property {
+                name: property.name.clone(),
+                value: property.value.clone(),
+            })
+            .collect(),
     }
 }
 
