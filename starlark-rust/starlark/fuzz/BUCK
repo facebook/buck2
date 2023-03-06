@@ -1,0 +1,17 @@
+load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
+
+oncall("buck2")
+
+# This is a fuzzing target with no `main`, which we test at https://github.com/google/oss-fuzz.
+# We have this definition not to run the fuzzer, but just to make sure it continues to compile.
+rust_library(
+    name = "starlark-fuzz",
+    srcs = ["fuzz_targets/starlark.rs"],
+    crate_root = "fuzz_targets/starlark.rs",
+    unittests = False,  # There is no main
+    deps = [
+        "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:libfuzzer-sys",
+        "//buck2/starlark-rust/starlark:starlark",
+    ],
+)
