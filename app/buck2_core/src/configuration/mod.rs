@@ -62,6 +62,8 @@ enum ConfigurationError {
     LabelIsEmpty,
     #[error("Configuration label is too long: {0:?}")]
     LabelIsTooLong(String),
+    #[error("Invalid characters in configuration label: {0:?}")]
+    InvalidCharactersInLabel(String),
     #[error(
         "Config values must be empty in `PlatformInfo` provider \
         because we don't use them, we use global buckconfig to resolve selects"
@@ -124,6 +126,18 @@ impl ConfigurationData {
         if label.len() > 1000 {
             // Sanity check.
             return Err(ConfigurationError::LabelIsTooLong(label).into());
+        }
+        if label.chars().any(|c| {
+            // TODO(nga): restrict more: label should be either:
+            // - a valid target name when a label is created by a `platform()` rule
+            // - something like a target name (but not a target label) when created by a transition
+            // For example we should prohibit strings like `////` or `[foo//bar]`.
+            !c.is_ascii() || c == '#' || c.is_ascii_control() || c == '\t'
+        }) {
+            soft_error!(
+                "invalid_character_in_cfg_label",
+                ConfigurationError::InvalidCharactersInLabel(label.clone()).into()
+            )?;
         }
         if !data.buckconfigs.is_empty() {
             return Err(ConfigurationError::BuckConfigValuesMustBeEmpty.into());
