@@ -345,5 +345,5 @@ def generate_file_map_target(suite: "string", dir_name: "string") -> "string":
                 path = paths.join(suite_dir, dir_name),
             ),
         )
-        return (":{}-{}".format(dir_name, suite_name))
+        return ":{}-{}".format(dir_name, suite_name)
     return ""
