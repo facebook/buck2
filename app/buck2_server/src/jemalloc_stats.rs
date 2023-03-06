@@ -7,33 +7,7 @@
  * of this source tree.
  */
 
-use buck2_cli_proto::StatusResponse;
 use buck2_common::memory::allocator_stats;
-
-// TODO(raulgarcia4): this fn is used for `buck2 status` but will be redundant
-// and thus removed once we capture jemalloc stats in the Snapshot.
-#[cfg(all(unix, not(fbcode_build), not(buck_oss_build)))]
-pub fn jemalloc_stats(response: &mut StatusResponse) {
-    use jemalloc_ctl::epoch;
-    use jemalloc_ctl::stats;
-
-    fn set<T>(to: &mut Option<u64>, from: Result<usize, T>) {
-        if let Ok(from) = from {
-            *to = Some(from as u64);
-        }
-    }
-
-    // Many statistics are cached and only updated when the epoch is advanced.
-    if epoch::advance().is_err() {
-        return;
-    }
-    set(&mut response.bytes_allocated, stats::allocated::read());
-    set(&mut response.bytes_resident, stats::resident::read());
-    set(&mut response.bytes_retained, stats::retained::read());
-}
-
-#[cfg(not(all(unix, not(fbcode_build), not(buck_oss_build))))]
-pub fn jemalloc_stats(_response: &mut StatusResponse) {}
 
 // TODO(raulgarcia4): Consider moving out this file to buck2_common,
 // similary to what was done with buck2_common::process_stats.
@@ -75,18 +49,6 @@ mod tests {
     use buck2_common::memory::has_jemalloc_stats;
 
     use crate::jemalloc_stats::get_allocator_stats;
-    use crate::jemalloc_stats::jemalloc_stats;
-
-    #[test]
-    fn test_jemalloc_stats() {
-        if cfg!(unix) && !cfg!(fbcode_build) {
-            let mut response = buck2_cli_proto::StatusResponse::default();
-            jemalloc_stats(&mut response);
-            assert!(response.bytes_allocated.is_some());
-            assert!(response.bytes_resident.is_some());
-            assert!(response.bytes_retained.is_some());
-        }
-    }
 
     #[test]
     fn test_get_allocator_stats() -> anyhow::Result<()> {

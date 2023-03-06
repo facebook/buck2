@@ -48,9 +48,9 @@ message StatusResponse {
   DaemonProcessInfo process_info = 1;
   google.protobuf.Timestamp start_time = 2;
   google.protobuf.Duration uptime = 3;
-  optional uint64 bytes_allocated = 4;
-  optional uint64 bytes_resident = 5;
-  optional uint64 bytes_retained = 6;
+  reserved 4;
+  reserved 5;
+  reserved 6;
   buck.data.Snapshot snapshot = 7;
   DaemonConstraints daemon_constraints = 8;
 }

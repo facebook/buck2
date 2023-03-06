@@ -82,7 +82,6 @@ use crate::daemon::server_allocative::spawn_allocative;
 use crate::daemon::state::DaemonState;
 use crate::daemon::state::DaemonStateDiceConstructor;
 use crate::file_status::file_status_command;
-use crate::jemalloc_stats::jemalloc_stats;
 use crate::lsp::run_lsp_server_command;
 use crate::materialize::materialize_command;
 use crate::snapshot;
@@ -825,7 +824,7 @@ impl DaemonApi for BuckdServer {
             };
 
             let uptime = self.0.start_instant.elapsed();
-            let mut base = StatusResponse {
+            let base = StatusResponse {
                 process_info: Some(self.0.process_info.clone()),
                 start_time: Some(self.0.start_time.clone()),
                 uptime: Some(uptime.try_into()?),
@@ -833,7 +832,6 @@ impl DaemonApi for BuckdServer {
                 daemon_constraints: Some(self.0.daemon_constraints.clone()),
                 ..Default::default()
             };
-            jemalloc_stats(&mut base);
             Ok(base)
         })
         .await
