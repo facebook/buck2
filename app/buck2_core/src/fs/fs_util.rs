@@ -13,6 +13,7 @@ use std::borrow::Cow;
 use std::fs;
 use std::fs::File;
 use std::io;
+use std::io::Read;
 use std::io::Write;
 use std::ops::Deref;
 use std::path::Path;
@@ -386,12 +387,12 @@ pub fn remove_dir<P: AsRef<Path>>(path: P) -> anyhow::Result<()> {
     fs::remove_dir(&path).with_context(|| format!("remove_dir({})", P::as_ref(&path).display()))
 }
 
-pub struct FileGuard {
+pub struct FileWriteGuard {
     file: File,
     _guard: IoCounterGuard,
 }
 
-impl Write for FileGuard {
+impl Write for FileWriteGuard {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         self.file.write(buf)
     }
@@ -401,11 +402,32 @@ impl Write for FileGuard {
     }
 }
 
-pub fn create_file<P: AsRef<Path>>(path: P) -> anyhow::Result<FileGuard> {
+pub fn create_file<P: AsRef<Path>>(path: P) -> anyhow::Result<FileWriteGuard> {
     let guard = IoCounterKey::Write.guard();
     let file = File::create(path.as_ref())
         .with_context(|| format!("create_file({})", P::as_ref(&path).display()))?;
-    Ok(FileGuard {
+    Ok(FileWriteGuard {
+        file,
+        _guard: guard,
+    })
+}
+
+pub struct FileReadGuard {
+    file: File,
+    _guard: IoCounterGuard,
+}
+
+impl Read for FileReadGuard {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        self.file.read(buf)
+    }
+}
+
+pub fn open_file<P: AsRef<Path>>(path: P) -> anyhow::Result<FileReadGuard> {
+    let guard = IoCounterKey::Read.guard();
+    let file = File::open(path.as_ref())
+        .with_context(|| format!("open_file({})", P::as_ref(&path).display()))?;
+    Ok(FileReadGuard {
         file,
         _guard: guard,
     })

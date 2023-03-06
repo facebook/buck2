@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::fs::File;
 use std::io;
 use std::io::Write;
 use std::sync::Arc;
@@ -32,6 +31,7 @@ use buck2_common::dice::data::HasIoProvider;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::result::SharedError;
 use buck2_core::cells::CellResolver;
+use buck2_core::fs::fs_util;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::package::PackageLabel;
 use buck2_interpreter::parse_import::parse_import_with_config;
@@ -204,7 +204,7 @@ async fn copy_output<W: Write>(
 
     // we write the output to a file in buck-out as cache so we don't use memory caching it in
     // DICE. So now we open the file and read it all into the destination stream.
-    io::copy(&mut File::open(loc)?, &mut output)?;
+    io::copy(&mut fs_util::open_file(loc)?, &mut output)?;
     Ok(())
 }
 
