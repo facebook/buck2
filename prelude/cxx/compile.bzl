@@ -437,6 +437,11 @@ def _mk_argsfile(ctx: "context", compiler_info: "_compiler_info", preprocessor: 
         args.add(["-include", headers_tag.tag_artifacts(ctx.attrs.prefix_header)])
 
     shell_quoted_args = cmd_args(args, quote = "shell")
+
+    # Put file_prefix_args in argsfile directly, make sure they do not appear when evaluating $(cxxppflags)
+    # to avoid "argument too long" errors
+    shell_quoted_args.add(cmd_args(preprocessor.set.project_as_args("file_prefix_args")))
+
     argfile, _ = ctx.actions.write(ext.value + ".argsfile", shell_quoted_args, allow_args = True)
 
     hidden_args = [args]

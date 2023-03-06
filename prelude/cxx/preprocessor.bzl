@@ -43,6 +43,8 @@ CPreprocessor = record(
     uses_modules = field(bool.type, False),
     # Modular args to set when modules are in use, [arglike things]
     modular_args = field([""], []),
+    # File prefix args maps symlinks to source file location
+    file_prefix_args = field([""], []),
     modulemap_path = field("", None),
 )
 
@@ -58,6 +60,12 @@ def _cpreprocessor_modular_args(pres: [CPreprocessor.type]):
     args = cmd_args()
     for pre in pres:
         args.add(pre.modular_args)
+    return args
+
+def _cpreprocessor_file_prefix_args(pres: [CPreprocessor.type]):
+    args = cmd_args()
+    for pre in pres:
+        args.add(pre.file_prefix_args)
     return args
 
 def _cpreprocessor_include_dirs(pres: [CPreprocessor.type]):
@@ -84,6 +92,7 @@ def _cpreprocessor_uses_modules(children: [bool.type], pres: [[CPreprocessor.typ
 CPreprocessorTSet = transitive_set(
     args_projections = {
         "args": _cpreprocessor_args,
+        "file_prefix_args": _cpreprocessor_file_prefix_args,
         "include_dirs": _cpreprocessor_include_dirs,
         "modular_args": _cpreprocessor_modular_args,
     },
@@ -194,10 +203,14 @@ def cxx_exported_preprocessor_info(ctx: "context", headers_layout: CxxHeadersLay
             arg = _cxx_header_tree_hack_replacement(header_root.symlink_tree)
         args.append(arg)
 
+    file_prefix_args = []
+
     # Propagate the exported header tree.
     if header_root != None:
         inc_flag = _header_style_flag(style)
         args.extend([inc_flag, header_root.include_path])
+        if header_root.file_prefix_args != None:
+            file_prefix_args.append(header_root.file_prefix_args)
 
     # Embed raw headers as hidden artifacts in our args.  This means downstream
     # cases which use these args don't also need to know to add raw headers.
@@ -220,6 +233,7 @@ def cxx_exported_preprocessor_info(ctx: "context", headers_layout: CxxHeadersLay
         include_dirs = include_dirs,
         system_include_dirs = system_include_dirs,
         modular_args = modular_args,
+        file_prefix_args = file_prefix_args,
     )
 
 def cxx_private_preprocessor_info(
@@ -289,9 +303,12 @@ def _cxx_private_preprocessor_info(
 
     # Create private header tree and propagate via args.
     args = []
+    file_prefix_args = []
     header_root = prepare_headers(ctx, header_map, "buck-private-headers")
     if header_root != None:
         args.extend(["-I", header_root.include_path])
+        if header_root.file_prefix_args != None:
+            file_prefix_args.append(header_root.file_prefix_args)
 
     # Embed raw headers as hidden artifacts in our args.  This means downstream
     # cases which use these args don't also need to know to add raw headers.
@@ -306,6 +323,7 @@ def _cxx_private_preprocessor_info(
         raw_headers = all_raw_headers,
         include_dirs = include_dirs,
         uses_modules = uses_modules,
+        file_prefix_args = file_prefix_args,
     )
 
 def _by_language_cxx(x: {"": ""}) -> [""]:

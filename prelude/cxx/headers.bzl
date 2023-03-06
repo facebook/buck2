@@ -65,6 +65,8 @@ Headers = record(
     include_path = field("cmd_args"),
     # NOTE(agallagher): Used for module hack replacement.
     symlink_tree = field(["artifact", None], None),
+    # args that map symlinked private headers to source path
+    file_prefix_args = field(["cmd_args", None], None),
 )
 
 CHeader = record(
@@ -183,18 +185,24 @@ def prepare_headers(ctx: "context", srcs: {str.type: "artifact"}, name: str.type
         is_any(lambda n: paths.basename(n) == "module.modulemap", srcs.keys())):
         header_mode = HeaderMode("symlink_tree_only")
     if header_mode == HeaderMode("header_map_only"):
-        hmap = _mk_hmap(ctx, name, {h: (a, "{}") for h, a in srcs.items()})
+        headers = {h: (a, "{}") for h, a in srcs.items()}
+        hmap = _mk_hmap(ctx, name, headers)
+        file_prefix_args = _get_debug_prefix_args(ctx, headers)
         return Headers(
             include_path = cmd_args(hmap).hidden(srcs.values()),
+            file_prefix_args = file_prefix_args,
         )
     symlink_dir = ctx.actions.symlinked_dir(name, _normalize_header_srcs(srcs))
     if header_mode == HeaderMode("symlink_tree_only"):
         return Headers(include_path = cmd_args(symlink_dir), symlink_tree = symlink_dir)
     if header_mode == HeaderMode("symlink_tree_with_header_map"):
-        hmap = _mk_hmap(ctx, name, {h: (symlink_dir, "{}/" + h) for h in srcs})
+        headers = {h: (symlink_dir, "{}/" + h) for h in srcs}
+        hmap = _mk_hmap(ctx, name, headers)
+        file_prefix_args = _get_debug_prefix_args(ctx, headers)
         return Headers(
             include_path = cmd_args(hmap).hidden(symlink_dir),
             symlink_tree = symlink_dir,
+            file_prefix_args = file_prefix_args,
         )
     fail("Unsupported header mode: {}".format(header_mode))
 
@@ -302,6 +310,20 @@ def _get_dict_header_namespace(namespace: str.type, naming: CxxHeadersNaming.typ
         return ""
     else:
         fail("Unsupported header naming: {}".format(naming))
+
+def _get_debug_prefix_args(ctx: "context", headers: {str.type: ("artifact", str.type)}) -> [cmd_args.type, None]:
+    # NOTE(@christylee): Do we need to enable debug-prefix-map for darwin and windows?
+    if get_cxx_toolchain_info(ctx).linker_info.type != "gnu":
+        return None
+
+    debug_prefix_args = cmd_args()
+
+    for path, _ in headers.values():
+        fmt = "-fdebug-prefix-map={}=" + value_or(path.owner.cell, ".")
+        debug_prefix_args.add(
+            cmd_args(path, format = fmt),
+        )
+    return debug_prefix_args
 
 def _mk_hmap(ctx: "context", name: str.type, headers: {str.type: ("artifact", str.type)}) -> "artifact":
     output = ctx.actions.declare_output(name + ".hmap")
