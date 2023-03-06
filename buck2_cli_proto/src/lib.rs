@@ -251,33 +251,6 @@ mod serialize_timestamp {
     }
 }
 
-mod serialize_duration {
-    use serde::Deserialize;
-    use serde::Deserializer;
-    use serde::Serialize;
-    use serde::Serializer;
-
-    pub fn serialize<S>(
-        value: &Option<::prost_types::Duration>,
-        serializer: S,
-    ) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let d = value.as_ref().map(|v| (v.seconds, v.nanos));
-        d.serialize(serializer)
-    }
-
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<::prost_types::Duration>, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let d = Option::<(i64, i32)>::deserialize(deserializer)?;
-        let d = d.map(|(seconds, nanos)| ::prost_types::Duration { seconds, nanos });
-        Ok(d)
-    }
-}
-
 result_convert!(AqueryResponse);
 result_convert!(KillResponse);
 result_convert!(PingResponse);

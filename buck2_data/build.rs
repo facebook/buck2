@@ -114,22 +114,25 @@ fn main() -> io::Result<()> {
             "timestamp",
             "#[serde(with = \"crate::serialize_timestamp\")]",
         )
-        .field_attribute("duration", "#[serde(with = \"crate::serialize_duration\")]")
+        .field_attribute(
+            "duration",
+            "#[serde(rename = \"duration_us\", with = \"crate::serialize_duration_as_micros\")]",
+        )
         .field_attribute(
             "command_duration",
-            "#[serde(with = \"crate::serialize_duration\")]",
+            "#[serde(rename = \"command_duration_us\", with = \"crate::serialize_duration_as_micros\")]",
         )
         .field_attribute(
             "client_walltime",
-            "#[serde(with = \"crate::serialize_duration\")]",
+            "#[serde(rename = \"client_walltime_us\", with = \"crate::serialize_duration_as_micros\")]",
         )
         .field_attribute(
             "critical_path_duration",
-            "#[serde(with = \"crate::serialize_duration\")]",
+            "#[serde(rename = \"critical_path_duration_us\", with = \"crate::serialize_duration_as_micros\")]",
         )
         .field_attribute(
             "ActionExecutionEnd.wall_time",
-            "#[serde(with = \"crate::serialize_duration\")]",
+            "#[serde(rename = \"wall_time_us\", with = \"crate::serialize_duration_as_micros\")]",
         )
         .field_attribute(
             "ActionKey.id",
@@ -147,7 +150,7 @@ fn main() -> io::Result<()> {
         )
         .field_attribute(
             "RemoteCommand.queue_time",
-            "#[serde(with = \"crate::serialize_duration\")]",
+            "#[serde(rename = \"queue_time_us\", with = \"crate::serialize_duration_as_micros\")]",
         )
         .boxed("RecordEvent.data.invocation_record")
         .boxed("SpanEndEvent.data.action_execution")
