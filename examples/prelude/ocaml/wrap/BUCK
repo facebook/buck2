@@ -1,0 +1,48 @@
+# @lint-ignore-every BUCKFORMAT
+
+# buildifier: disable=no-effect
+ocaml_library(
+    name = "_mylib",
+    compiler_flags = [
+        "-no-alias-deps",
+        "-w", "-49",
+    ],
+    srcs = [
+        "mylib.mli",
+        "mylib.ml",
+    ],
+    visibility = [ "PUBLIC" ],
+) if not host_info().os.is_windows else None
+
+export_file(
+    name= "mylib.mli",
+    src = "mylib.mli"
+)
+
+# buildifier: disable=no-effect
+ocaml_library(
+    name = "mylib",
+    ocamldep_flags = [
+        "-open", "Mylib",
+        "-map", "$(location :mylib.mli)"
+    ],
+    compiler_flags = [
+        "-no-alias-deps",
+        "-w", "-49",
+        "-open", "Mylib"
+    ],
+    srcs = [
+        "mylib__A.ml",
+        "mylib__B.ml",
+    ],
+    deps = [ ":_mylib" ],
+    visibility = [ "PUBLIC" ],
+) if not host_info().os.is_windows else None
+
+# buildifier: disable=no-effect
+ocaml_binary(
+    name = "test-mylib",
+    srcs = [ "test_Mylib.ml" ] ,
+    deps = [ ":mylib" ],
+    visibility = [ "PUBLIC" ],
+) if not host_info().os.is_windows else None
