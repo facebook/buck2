@@ -143,13 +143,32 @@ impl ReExecutor {
         let action_result = &response.action_result;
 
         if response.error.code != TCode::OK {
-            return ControlFlow::Break(manager.error(
-                "remote_exec_error",
-                ReErrorWrapper {
-                    action_digest: action_digest.dupe(),
-                    inner: response.error,
-                },
-            ));
+            let res = if let Some(out) = as_missing_outputs_error(&response.error) {
+                // TODO: Add a dedicated report variant for this.
+                // NOTE: We don't get stdout / stderr from RE when this happens, so the best we can
+                // do here is just pass on the error.
+                manager.failure(
+                    CommandExecutionKind::Remote {
+                        digest: action_digest.dupe(),
+                    },
+                    IndexMap::new(),
+                    CommandStdStreams::Local {
+                        stdout: Vec::new(),
+                        stderr: out.to_owned().into(),
+                    },
+                    None,
+                )
+            } else {
+                manager.error(
+                    "remote_exec_error",
+                    ReErrorWrapper {
+                        action_digest: action_digest.dupe(),
+                        inner: response.error,
+                    },
+                )
+            };
+
+            return ControlFlow::Break(res);
         }
         if action_result.exit_code != 0 {
             return ControlFlow::Break(manager.failure(
@@ -246,4 +265,13 @@ impl PreparedCommandExecutor for ReExecutor {
 pub struct ReErrorWrapper {
     action_digest: ActionDigest,
     inner: remote_execution::REError,
+}
+
+fn as_missing_outputs_error(err: &remote_execution::REError) -> Option<&str> {
+    // A dedicated error code would be better for this :(
+    if err.message.contains("OUTMISS") {
+        Some(&err.message)
+    } else {
+        None
+    }
 }
