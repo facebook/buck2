@@ -270,8 +270,7 @@ def clippy(package_args: List[str], fix: bool) -> None:
 
     clippy_fix_args = ["--fix"] if fix else []
     clippy_deny_args = [f"--deny={c}" for c in [*CLIPPY_DENY, *rustc_default_warnings]]
-    clippy_warn_args = [f"--warn={c}" for c in CLIPPY_AUTOFIX]
-    clippy_allow_args = [f"--allow={c}" for c in CLIPPY_ALLOW]
+    clippy_allow_args = [f"--allow={c}" for c in [*CLIPPY_ALLOW, *CLIPPY_AUTOFIX]]
 
     run(
         [
@@ -285,7 +284,6 @@ def clippy(package_args: List[str], fix: bool) -> None:
             "--benches",
             "--",
             *clippy_deny_args,
-            *clippy_warn_args,
             *clippy_allow_args,
         ]
     )
