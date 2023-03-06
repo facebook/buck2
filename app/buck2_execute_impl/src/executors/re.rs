@@ -137,7 +137,7 @@ impl ReExecutor {
 
         let response = match execute_response {
             Ok(result) => result,
-            Err(e) => return ControlFlow::Break(manager.error("remote_exec_error", e)),
+            Err(e) => return ControlFlow::Break(manager.error("remote_call_error", e)),
         };
 
         let action_result = &response.action_result;
