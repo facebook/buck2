@@ -1,3 +1,4 @@
+load("@fbcode_macros//build_defs:rust_binary.bzl", "rust_binary")
 load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
 load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
 
@@ -18,5 +19,49 @@ rust_library(
         "fbsource//third-party/rust:termwiz",
         "fbsource//third-party/rust:thiserror",
         "fbsource//third-party/rust:unicode-segmentation",
+    ],
+)
+
+rust_binary(
+    name = "cargo",
+    srcs = ["examples/cargo.rs"] + glob([
+        "examples/cargo/**",
+    ]),
+    crate_root = "examples/cargo.rs",
+    deps = [
+        "fbsource//third-party/rust:anyhow",
+        ":superconsole",
+    ],
+)
+
+rust_binary(
+    name = "finalization",
+    srcs = ["examples/finalization.rs"],
+    deps = [
+        "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:derive_more",
+        "fbsource//third-party/rust:tokio",
+        ":superconsole",
+    ],
+)
+
+rust_binary(
+    name = "hello_world",
+    srcs = ["examples/hello_world.rs"],
+    deps = [
+        "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:tokio",
+        ":superconsole",
+    ],
+)
+
+rust_binary(
+    name = "stylized",
+    srcs = ["examples/stylized.rs"],
+    deps = [
+        "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:derive_more",
+        "fbsource//third-party/rust:tokio",
+        ":superconsole",
     ],
 )
