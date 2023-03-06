@@ -74,7 +74,7 @@ fn process_word(word: String) -> Vec<Line> {
 /// generates a random word using lorum ipsum at half second intervals
 async fn task_that_takes_some_time() -> String {
     time::sleep(time::Duration::from_secs_f32(0.5)).await;
-    lipsum::lipsum_words(1)
+    "hello world".to_owned()
 }
 
 #[tokio::main]
