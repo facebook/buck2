@@ -777,7 +777,6 @@ impl DaemonApi for BuckdServer {
 
             let reason = buck2_data::DaemonShutdown {
                 reason: req.reason,
-                caller: req.caller,
                 callers: req.callers,
             };
 

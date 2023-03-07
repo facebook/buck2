@@ -10,8 +10,6 @@
 use std::borrow::Cow;
 use std::fmt;
 
-use either::Either;
-
 pub mod serialize_duration_as_micros {
     use serde::Deserialize;
     use serde::Deserializer;
@@ -230,15 +228,7 @@ impl fmt::Display for DaemonShutdown {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}, caller:", self.reason)?;
 
-        let callers = if self.callers.is_empty() {
-            Either::Left(std::iter::once(
-                self.caller.as_deref().unwrap_or("<not known>"),
-            ))
-        } else {
-            Either::Right(self.callers.iter().map(|s| s.as_str()))
-        };
-
-        for caller in callers {
+        for caller in self.callers.iter() {
             let max_len = 70;
 
             let short_caller = if caller.len() > max_len {

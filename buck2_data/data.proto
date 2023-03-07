@@ -1487,8 +1487,8 @@ message MaterializerStateInfo {
 message NoopEvent {}
 
 message DaemonShutdown {
+  reserved 3;
   string reason = 1;
-  optional string caller = 3; // TODO: Deprecate (Jan 2023)
   repeated string callers = 4;
 }
 

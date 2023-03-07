@@ -32,9 +32,9 @@ message DaemonConstraints {
 }
 
 message KillRequest {
+  reserved 3;
   string reason = 1;
   google.protobuf.Duration timeout = 2;
-  optional string caller = 3; // TODO: Deprecate (Jan 2023)
   repeated string callers = 4;
 }
 

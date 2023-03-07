@@ -311,11 +311,6 @@ impl BuckdClient {
             .kill(Request::new(KillRequest {
                 reason: reason.to_owned(),
                 timeout: Some(GRACEFUL_SHUTDOWN_TIMEOUT.try_into()?),
-                caller: if callers.is_empty() {
-                    None
-                } else {
-                    Some(itertools::join(callers.iter(), " -> "))
-                },
                 callers,
             }));
         let time_to_kill = GRACEFUL_SHUTDOWN_TIMEOUT + FORCE_SHUTDOWN_TIMEOUT;
