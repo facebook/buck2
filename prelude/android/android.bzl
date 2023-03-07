@@ -57,6 +57,16 @@ def java_toolchain_for_android():
         ],
     )
 
+def java_toolchain_for_android_test():
+    return attrs.toolchain_dep(
+        # FIXME: prelude// should be standalone (not refer to fbcode//)
+        default = "fbcode//buck2/platform/toolchain:java_for_host_test",
+        providers = [
+            JavaPlatformInfo,
+            JavaToolchainInfo,
+        ],
+    )
+
 def _kotlin_toolchain():
     return attrs.toolchain_dep(
         # FIXME: prelude// should be standalone (not refer to fbcode//)
@@ -204,7 +214,7 @@ extra_attributes = {
                 JavaTestToolchainInfo,
             ],
         )),
-        "_java_toolchain": java_toolchain_for_android(),
+        "_java_toolchain": java_toolchain_for_android_test(),
         "_kotlin_toolchain": _kotlin_toolchain(),
     },
 }
