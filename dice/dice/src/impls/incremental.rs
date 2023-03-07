@@ -16,7 +16,6 @@
 
 use std::borrow::Cow;
 use std::fmt::Debug;
-use std::sync::Arc;
 
 use allocative::Allocative;
 use dupe::Dupe;
@@ -27,14 +26,13 @@ use tokio::sync::oneshot;
 
 use crate::api::error::DiceError;
 use crate::api::error::DiceResult;
-use crate::api::events::DiceEvent;
-use crate::api::user_data::UserComputationData;
 use crate::impls::core::graph::types::VersionedGraphKey;
 use crate::impls::core::graph::types::VersionedGraphResult;
+use crate::impls::core::state::CoreStateHandle;
 use crate::impls::core::state::StateRequest;
 use crate::impls::ctx::SharedLiveTransactionCtx;
-use crate::impls::dice::DiceModern;
 use crate::impls::evaluator::AsyncEvaluator;
+use crate::impls::events::DiceEventDispatcher;
 use crate::impls::key::DiceKey;
 use crate::impls::task::handle::DiceTaskHandle;
 use crate::versions::VersionRanges;
@@ -48,7 +46,7 @@ use crate::versions::VersionRanges;
 /// time if they share the same key and version.
 #[derive(Allocative)]
 pub(crate) struct IncrementalEngine {
-    dice: Arc<DiceModern>,
+    state: CoreStateHandle,
 }
 
 impl Debug for IncrementalEngine {
@@ -59,8 +57,8 @@ impl Debug for IncrementalEngine {
 
 #[allow(unused)] // TODO(bobyf) temporary
 impl IncrementalEngine {
-    pub(crate) fn new(dice: Arc<DiceModern>) -> Self {
-        Self { dice }
+    pub(crate) fn new(state: CoreStateHandle) -> Self {
+        Self { state }
     }
 
     pub(crate) async fn eval_entry_versioned(
@@ -68,12 +66,12 @@ impl IncrementalEngine {
         k: DiceKey,
         eval: AsyncEvaluator,
         transaction_ctx: &SharedLiveTransactionCtx,
-        extra: Arc<UserComputationData>,
+        events_dispatcher: DiceEventDispatcher,
         task_handle: DiceTaskHandle,
     ) {
         let v = transaction_ctx.get_version();
         let (tx, rx) = oneshot::channel();
-        self.dice.state_handle.request(StateRequest::LookupKey {
+        self.state.request(StateRequest::LookupKey {
             key: VersionedGraphKey::new(v, k),
             resp: tx,
         });
@@ -86,7 +84,7 @@ impl IncrementalEngine {
                 task_handle.finished(Ok(entry))
             }
             VersionedGraphResult::Compute => {
-                self.compute(k, eval, transaction_ctx, extra, task_handle)
+                self.compute(k, eval, transaction_ctx, events_dispatcher, task_handle)
                     .await;
             }
 
@@ -101,20 +99,18 @@ impl IncrementalEngine {
                     .await
                 {
                     DidDepsChange::Changed | DidDepsChange::NoDeps => {
-                        self.compute(k, eval, transaction_ctx, extra, task_handle)
+                        self.compute(k, eval, transaction_ctx, events_dispatcher, task_handle)
                             .await;
                     }
                     DidDepsChange::NoChange(deps) => {
                         // report reuse
                         let (tx, rx) = tokio::sync::oneshot::channel();
-                        self.dice
-                            .state_handle
-                            .request(StateRequest::UpdateComputed {
-                                key: VersionedGraphKey::new(v, k),
-                                value: mismatch.entry,
-                                deps,
-                                resp: tx,
-                            });
+                        self.state.request(StateRequest::UpdateComputed {
+                            key: VersionedGraphKey::new(v, k),
+                            value: mismatch.entry,
+                            deps,
+                            resp: tx,
+                        });
 
                         task_handle.finished(Ok(rx.await.unwrap()))
                     }
@@ -125,7 +121,7 @@ impl IncrementalEngine {
 
     #[instrument(
         level = "debug",
-        skip(self, transaction_ctx, extra, eval, task_handle),
+        skip(self, transaction_ctx, eval, task_handle, event_dispatcher),
         fields(k = ?k, version = %transaction_ctx.get_version()),
     )]
     async fn compute(
@@ -133,15 +129,12 @@ impl IncrementalEngine {
         k: DiceKey,
         eval: AsyncEvaluator,
         transaction_ctx: &SharedLiveTransactionCtx,
-        extra: Arc<UserComputationData>,
+        event_dispatcher: DiceEventDispatcher,
         task_handle: DiceTaskHandle,
     ) {
         task_handle.computing();
 
-        let key = self.dice.key_index.get(k);
-
-        let desc = key.key_type_name();
-        extra.tracker.event(DiceEvent::Started { key_type: desc });
+        event_dispatcher.started(k);
 
         let v = transaction_ctx.get_version();
 
@@ -164,14 +157,12 @@ impl IncrementalEngine {
         match eval_result {
             Ok(res) => {
                 let (tx, rx) = tokio::sync::oneshot::channel();
-                self.dice
-                    .state_handle
-                    .request(StateRequest::UpdateComputed {
-                        key: VersionedGraphKey::new(v, k),
-                        value: res.value,
-                        deps: res.deps.into_iter().collect(),
-                        resp: tx,
-                    });
+                self.state.request(StateRequest::UpdateComputed {
+                    key: VersionedGraphKey::new(v, k),
+                    value: res.value,
+                    deps: res.deps.into_iter().collect(),
+                    resp: tx,
+                });
 
                 task_handle.finished(Ok(rx.await.unwrap()))
             }
@@ -179,7 +170,7 @@ impl IncrementalEngine {
         }
 
         debug!(msg = "update future completed");
-        extra.tracker.event(DiceEvent::Finished { key_type: desc });
+        event_dispatcher.finished(k);
     }
 
     /// determines if the given 'Dependency' has changed between versions 'last_version' and
