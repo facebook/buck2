@@ -101,6 +101,7 @@ pub fn display_analysis_target(
     use buck2_data::analysis_start::Target;
     match target {
         Target::StandardTarget(ctl) => display_configured_target_label(ctl, opts),
+        Target::AnonTarget(anon) => display_anon_target(anon),
     }
 }
 

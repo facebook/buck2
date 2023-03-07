@@ -944,6 +944,7 @@ message AnalysisProfile {
 message AnalysisStart {
   oneof target {
     ConfiguredTargetLabel standard_target = 1;
+    AnonTarget anon_target = 3;
   }
   string rule = 2;
 }
@@ -951,6 +952,7 @@ message AnalysisStart {
 message AnalysisEnd {
   oneof target {
     ConfiguredTargetLabel standard_target = 1;
+    AnonTarget anon_target = 4;
   }
   string rule = 3;
   AnalysisProfile profile = 2;

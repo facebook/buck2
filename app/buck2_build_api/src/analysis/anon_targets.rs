@@ -37,7 +37,9 @@ use buck2_core::target::label::TargetLabel;
 use buck2_core::target::name::TargetName;
 use buck2_core::target::name::TargetNameRef;
 use buck2_core::unsafe_send_future::UnsafeSendFuture;
+use buck2_data::ToProtoMessage;
 use buck2_events::dispatch::get_dispatcher;
+use buck2_events::dispatch::span_async;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
 use buck2_interpreter::types::label::Label;
@@ -69,6 +71,7 @@ use either::Either;
 use futures::future;
 use futures::stream::FuturesUnordered;
 use futures::Future;
+use futures::FutureExt;
 use gazebo::prelude::*;
 use ref_cast::RefCast;
 use starlark::environment::Module;
@@ -320,12 +323,6 @@ impl AnonTargetKey {
     }
 
     async fn run_analysis_impl(&self, dice: &DiceComputations) -> anyhow::Result<AnalysisResult> {
-        let rule_impl = get_rule_impl(dice, self.0.rule_type()).await?;
-        let env = Module::new();
-        let mut eval = Evaluator::new(&env);
-        let print = EventDispatcherPrintHandler(get_dispatcher());
-        eval.set_print_handler(&print);
-
         let dep_analysis_results: HashMap<_, _> = keep_going::try_join_all(
             self.deps()?
                 .into_iter()
@@ -340,22 +337,6 @@ impl AnonTargetKey {
         )
         .await?;
 
-        // No attributes are allowed to contain macros or other stuff, so an empty resolution context works
-        let resolution_ctx = RuleAnalysisAttrResolutionContext {
-            module: &env,
-            dep_analysis_results,
-            query_results: HashMap::new(),
-        };
-
-        let mut resolved_attrs = Vec::with_capacity(self.0.attrs().len());
-        for (name, attr) in self.0.attrs().iter() {
-            resolved_attrs.push((
-                name,
-                attr.resolve_single(self.0.name().pkg(), &resolution_ctx)?,
-            ));
-        }
-        let attributes = env.heap().alloc(AllocStruct(resolved_attrs));
-
         let exec_resolution = ExecutionPlatformResolution::new(
             Some(
                 find_execution_platform_by_configuration(
@@ -368,41 +349,84 @@ impl AnonTargetKey {
             Vec::new(),
         );
 
-        let registry = AnalysisRegistry::new_from_owner(
-            BaseDeferredKey::AnonTarget(self.0.dupe()),
-            exec_resolution,
-        );
-        let ctx = env.heap().alloc_typed(AnalysisContext::new(
-            eval.heap(),
-            attributes,
-            Some(
-                eval.heap()
-                    .alloc_typed(Label::new(ConfiguredProvidersLabel::new(
-                        self.0.configured_label(),
-                        ProvidersName::Default,
-                    ))),
-            ),
-            registry,
-            dice.global_data().get_digest_config(),
-        ));
+        let rule_impl = get_rule_impl(dice, self.0.rule_type()).await?;
 
-        let list_res = rule_impl.invoke(&mut eval, ctx)?;
-        ctx.run_promises(dice, &mut eval).await?;
-        let res_typed = ProviderCollection::try_from_value(list_res)?;
-        let res = env.heap().alloc(res_typed);
-        env.set("", res);
+        span_async(
+            buck2_data::AnalysisStart {
+                target: Some(self.0.as_proto().into()),
+                rule: self.0.rule_type().to_string(),
+            },
+            async move {
+                let env = Module::new();
+                let mut eval = Evaluator::new(&env);
+                let print = EventDispatcherPrintHandler(get_dispatcher());
+                eval.set_print_handler(&print);
 
-        // Pull the ctx object back out, and steal ctx.action's state back
-        let analysis_registry = ctx.take_state();
-        let (frozen_env, deferreds) = analysis_registry.finalize(&env)(env)?;
+                // No attributes are allowed to contain macros or other stuff, so an empty resolution context works
+                let resolution_ctx = RuleAnalysisAttrResolutionContext {
+                    module: &env,
+                    dep_analysis_results,
+                    query_results: HashMap::new(),
+                };
 
-        let res = frozen_env.get("").unwrap();
-        let provider_collection = FrozenProviderCollectionValue::try_from_value(res)
-            .expect("just created this, this shouldn't happen");
+                let mut resolved_attrs = Vec::with_capacity(self.0.attrs().len());
+                for (name, attr) in self.0.attrs().iter() {
+                    resolved_attrs.push((
+                        name,
+                        attr.resolve_single(self.0.name().pkg(), &resolution_ctx)?,
+                    ));
+                }
+                let attributes = env.heap().alloc(AllocStruct(resolved_attrs));
 
-        // this could look nicer if we had the entire analysis be a deferred
-        let deferred = DeferredTable::new(deferreds.take_result()?);
-        Ok(AnalysisResult::new(provider_collection, deferred, None))
+                let registry = AnalysisRegistry::new_from_owner(
+                    BaseDeferredKey::AnonTarget(self.0.dupe()),
+                    exec_resolution,
+                );
+
+                let ctx = env.heap().alloc_typed(AnalysisContext::new(
+                    eval.heap(),
+                    attributes,
+                    Some(
+                        eval.heap()
+                            .alloc_typed(Label::new(ConfiguredProvidersLabel::new(
+                                self.0.configured_label(),
+                                ProvidersName::Default,
+                            ))),
+                    ),
+                    registry,
+                    dice.global_data().get_digest_config(),
+                ));
+
+                let list_res = rule_impl.invoke(&mut eval, ctx)?;
+                ctx.run_promises(dice, &mut eval).await?;
+                let res_typed = ProviderCollection::try_from_value(list_res)?;
+                let res = env.heap().alloc(res_typed);
+                env.set("", res);
+
+                // Pull the ctx object back out, and steal ctx.action's state back
+                let analysis_registry = ctx.take_state();
+                let (frozen_env, deferreds) = analysis_registry.finalize(&env)(env)?;
+
+                let res = frozen_env.get("").unwrap();
+                let provider_collection = FrozenProviderCollectionValue::try_from_value(res)
+                    .expect("just created this, this shouldn't happen");
+
+                // this could look nicer if we had the entire analysis be a deferred
+                let deferred = DeferredTable::new(deferreds.take_result()?);
+                Ok(AnalysisResult::new(provider_collection, deferred, None))
+            }
+            .map(|res| {
+                (
+                    res,
+                    buck2_data::AnalysisEnd {
+                        target: Some(self.0.as_proto().into()),
+                        rule: self.0.rule_type().to_string(),
+                        profile: None, // Not implemented for anon targets
+                    },
+                )
+            }),
+        )
+        .await
     }
 }
 
