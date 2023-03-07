@@ -18,7 +18,6 @@ use buck2_core::pattern::ParsedPattern;
 use buck2_core::target::label::TargetLabel;
 use buck2_core::target::name::TargetName;
 use buck2_core::truncate::truncate;
-use buck2_events::dispatch::console_message;
 use buck2_interpreter::types::target_label::StarlarkConfiguredTargetLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use buck2_node::compatibility::IncompatiblePlatformReason;
@@ -97,6 +96,7 @@ impl<'v> TargetExpr<'v, ConfiguredTargetNode> {
 // Filters out incompatible targets and emits the error message
 pub(crate) fn filter_incompatible(
     targets: impl Iterator<Item = MaybeCompatible<ConfiguredTargetNode>>,
+    bxl_ctx: &BxlContext,
 ) -> anyhow::Result<TargetSet<ConfiguredTargetNode>> {
     let mut target_set = TargetSet::new();
     let mut incompatible_targets = SmallSet::new();
@@ -113,9 +113,9 @@ pub(crate) fn filter_incompatible(
     }
 
     if !incompatible_targets.is_empty() {
-        console_message(IncompatiblePlatformReason::skipping_message_for_multiple(
-            incompatible_targets.iter(),
-        ));
+        let _result = bxl_ctx.print_to_error_stream(
+            IncompatiblePlatformReason::skipping_message_for_multiple(incompatible_targets.iter()),
+        )?;
     }
 
     Ok(target_set)

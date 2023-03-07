@@ -112,6 +112,7 @@ pub struct BxlContext<'v> {
     pub(crate) async_ctx: BxlSafeDiceComputations<'v>,
     pub(crate) state: ValueTyped<'v, AnalysisActions<'v>>,
     pub(crate) output_stream: ValueTyped<'v, OutputStream<'v>>,
+    pub(crate) error_stream: ValueTyped<'v, OutputStream<'v>>,
     pub(crate) global_target_platform: Option<TargetLabel>,
 }
 
@@ -126,6 +127,7 @@ impl<'v> BxlContext<'v> {
         cell: CellInstance,
         async_ctx: BxlSafeDiceComputations<'v>,
         output_sink: RefCell<Box<dyn Write>>,
+        error_sink: RefCell<Box<dyn Write>>,
         digest_config: DigestConfig,
         global_target_platform: Option<TargetLabel>,
     ) -> Self {
@@ -141,13 +143,25 @@ impl<'v> BxlContext<'v> {
                 digest_config,
             }),
             output_stream: heap.alloc_typed(OutputStream::new(
+                project_fs.clone(),
+                artifact_fs.clone(),
+                output_sink,
+                async_ctx.clone(),
+            )),
+            error_stream: heap.alloc_typed(OutputStream::new(
                 project_fs,
                 artifact_fs,
-                output_sink,
+                error_sink,
                 async_ctx,
             )),
             global_target_platform,
         }
+    }
+
+    // Used for caching error logs emitted from within the BXL core.
+    pub(crate) fn print_to_error_stream(&self, msg: String) -> anyhow::Result<()> {
+        writeln!(self.error_stream.sink.borrow_mut(), "{}", msg)?;
+        Ok(())
     }
 
     pub(crate) fn project_root(&self) -> &ProjectRoot {
@@ -343,6 +357,7 @@ fn register_context(builder: &mut MethodsBuilder) {
                         .heap()
                         .alloc(StarlarkTargetSet::from(filter_incompatible(
                             multi.get(this.async_ctx.0).await?.into_iter(),
+                            this,
                         )?)),
                 },
             )

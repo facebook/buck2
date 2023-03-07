@@ -176,6 +176,7 @@ fn register_cquery(builder: &mut MethodsBuilder) {
                         .get(this.ctx.async_ctx.0)
                         .await?
                         .into_iter(),
+                        this.ctx,
                     )?,
                     &filter_incompatible(
                         TargetExpr::<'v, ConfiguredTargetNode>::unpack(
@@ -188,6 +189,7 @@ fn register_cquery(builder: &mut MethodsBuilder) {
                         .get(this.ctx.async_ctx.0)
                         .await?
                         .into_iter(),
+                        this.ctx,
                     )?,
                 )
                 .await
@@ -218,6 +220,7 @@ fn register_cquery(builder: &mut MethodsBuilder) {
                         .get(this.ctx.async_ctx.0)
                         .await?
                         .into_iter(),
+                        this.ctx,
                     )?,
                     &filter_incompatible(
                         TargetExpr::<'v, ConfiguredTargetNode>::unpack(
@@ -230,6 +233,7 @@ fn register_cquery(builder: &mut MethodsBuilder) {
                         .get(this.ctx.async_ctx.0)
                         .await?
                         .into_iter(),
+                        this.ctx,
                     )?,
                 )
                 .await
@@ -261,6 +265,7 @@ fn register_cquery(builder: &mut MethodsBuilder) {
                         .get(this.ctx.async_ctx.0)
                         .await?
                         .into_iter(),
+                        this.ctx,
                     )?,
                 )
                 .map(StarlarkTargetSet::from)
@@ -296,6 +301,7 @@ fn register_cquery(builder: &mut MethodsBuilder) {
                         .get(this.ctx.async_ctx.0)
                         .await?
                         .into_iter(),
+                        this.ctx,
                     )?,
                 )
                 .map(StarlarkTargetSet::from)
@@ -333,6 +339,7 @@ fn register_cquery(builder: &mut MethodsBuilder) {
                         .get(this.ctx.async_ctx.0)
                         .await?
                         .into_iter(),
+                        this.ctx,
                     )?,
                 )
                 .map(StarlarkTargetSet::from)
@@ -398,6 +405,7 @@ fn register_cquery(builder: &mut MethodsBuilder) {
                             .get(this.ctx.async_ctx.0)
                             .await?
                             .into_iter(),
+                            this.ctx,
                         )?,
                         depth.into_option(),
                         filter
@@ -440,6 +448,7 @@ fn register_cquery(builder: &mut MethodsBuilder) {
                         .get(this.ctx.async_ctx.0)
                         .await?
                         .into_iter(),
+                        this.ctx,
                     )?,
                 )
             })
@@ -473,6 +482,7 @@ fn register_cquery(builder: &mut MethodsBuilder) {
                     .get(this.ctx.async_ctx.0)
                     .await?
                     .into_iter(),
+                    this.ctx,
                 )?)
             })
             .map(StarlarkFileSet::from)
@@ -501,6 +511,7 @@ fn register_cquery(builder: &mut MethodsBuilder) {
                             .get(this.ctx.async_ctx.0)
                             .await?
                             .into_iter(),
+                            this.ctx,
                         )?,
                     )
                     .await
@@ -541,6 +552,7 @@ fn register_cquery(builder: &mut MethodsBuilder) {
                             .get(this.ctx.async_ctx.0)
                             .await?
                             .into_iter(),
+                            this.ctx,
                         )?,
                         &filter_incompatible(
                             TargetExpr::<'v, ConfiguredTargetNode>::unpack(
@@ -553,6 +565,7 @@ fn register_cquery(builder: &mut MethodsBuilder) {
                             .get(this.ctx.async_ctx.0)
                             .await?
                             .into_iter(),
+                            this.ctx,
                         )?,
                         depth,
                     )
@@ -631,6 +644,7 @@ fn register_cquery(builder: &mut MethodsBuilder) {
                     .get(this.ctx.async_ctx.0)
                     .await?
                     .into_iter(),
+                    this.ctx,
                 )?;
 
                 Ok(this.functions.buildfile(targets))

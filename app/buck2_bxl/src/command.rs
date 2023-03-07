@@ -34,6 +34,7 @@ use buck2_core::cells::CellResolver;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::package::PackageLabel;
+use buck2_execute::path::buck_out_path::BuckOutPath;
 use buck2_interpreter::parse_import::parse_import_with_config;
 use buck2_interpreter::parse_import::ParseImportOptions;
 use buck2_interpreter::path::BxlFilePath;
@@ -143,7 +144,8 @@ async fn bxl(
         ConvertMaterializationContext::from(final_artifact_materializations);
 
     let build_result = ensure_artifacts(ctx, &materialization_context, &result).await;
-    copy_output(stdout, ctx, &result).await?;
+    copy_output(stdout, ctx, result.get_output_loc()).await?;
+    copy_output(server_ctx.stderr()?, ctx, result.get_error_loc()).await?;
 
     let error_messages = match build_result {
         Ok(_) => vec![],
@@ -192,14 +194,14 @@ pub(crate) async fn get_bxl_cli_args(
 async fn copy_output<W: Write>(
     mut output: W,
     dice: &DiceComputations,
-    result: &buck2_build_api::bxl::result::BxlResult,
+    output_loc: &BuckOutPath,
 ) -> anyhow::Result<()> {
     let loc = dice.global_data().get_io_provider().project_root().resolve(
         &dice
             .get_artifact_fs()
             .await?
             .buck_out_path_resolver()
-            .resolve_gen(result.get_output_loc()),
+            .resolve_gen(output_loc),
     );
 
     // we write the output to a file in buck-out as cache so we don't use memory caching it in

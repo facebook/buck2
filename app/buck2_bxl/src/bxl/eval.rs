@@ -124,6 +124,19 @@ pub async fn eval(
 
                 let file = RefCell::new(Box::new(project_fs.create_file(&file_path, false)?));
 
+                let error_stream = BuckOutPath::new(
+                    BaseDeferredKey::BxlLabel(key.clone()).into_dyn(),
+                    ForwardRelativePathBuf::unchecked_new(
+                        "__bxl_internal__/errorstream_cache".to_owned(),
+                    ),
+                );
+                let error_file_path = artifact_fs
+                    .buck_out_path_resolver()
+                    .resolve_gen(&error_stream);
+
+                let error_file =
+                    RefCell::new(Box::new(project_fs.create_file(&error_file_path, false)?));
+
                 let mut eval = Evaluator::new(&env);
 
                 let print = EventDispatcherPrintHandler(dispatcher.clone());
@@ -154,6 +167,7 @@ pub async fn eval(
                     bxl_cell,
                     BxlSafeDiceComputations::new(&ctx, &cancellation),
                     file,
+                    error_file,
                     digest_config,
                     global_target_platform,
                 );
@@ -191,7 +205,12 @@ pub async fn eval(
 
                         (
                             frozen_module,
-                            BxlResult::new(output_stream, ensured_artifacts, deferred_table),
+                            BxlResult::new(
+                                output_stream,
+                                error_stream,
+                                ensured_artifacts,
+                                deferred_table,
+                            ),
                         )
                     }
                     None => {
@@ -202,6 +221,7 @@ pub async fn eval(
                             frozen_module,
                             BxlResult::new(
                                 output_stream,
+                                error_stream,
                                 ensured_artifacts,
                                 DeferredTable::new(Vec::new()),
                             ),

@@ -21,10 +21,14 @@ use crate::deferred::types::DeferredTable;
 #[derive(Allocative)]
 pub enum BxlResult {
     /// represents that the bxl function has no built results
-    None { output_loc: BuckOutPath },
+    None {
+        output_loc: BuckOutPath,
+        error_loc: BuckOutPath,
+    },
     /// a bxl that deals with builds
     BuildsArtifacts {
         output_loc: BuckOutPath,
+        error_loc: BuckOutPath,
         built: Vec<BxlBuildResult>,
         artifacts: Vec<ArtifactGroup>,
         deferred: DeferredTable,
@@ -34,14 +38,19 @@ pub enum BxlResult {
 impl BxlResult {
     pub fn new(
         output_loc: BuckOutPath,
+        error_loc: BuckOutPath,
         ensured_artifacts: IndexSet<ArtifactGroup>,
         deferred: DeferredTable,
     ) -> Self {
         if ensured_artifacts.is_empty() {
-            Self::None { output_loc }
+            Self::None {
+                output_loc,
+                error_loc,
+            }
         } else {
             Self::BuildsArtifacts {
                 output_loc,
+                error_loc,
                 built: vec![],
                 artifacts: ensured_artifacts.into_iter().collect(),
                 deferred,
@@ -61,6 +70,13 @@ impl BxlResult {
         match self {
             BxlResult::None { output_loc, .. } => output_loc,
             BxlResult::BuildsArtifacts { output_loc, .. } => output_loc,
+        }
+    }
+
+    pub fn get_error_loc(&self) -> &BuckOutPath {
+        match self {
+            BxlResult::None { error_loc, .. } => error_loc,
+            BxlResult::BuildsArtifacts { error_loc, .. } => error_loc,
         }
     }
 }

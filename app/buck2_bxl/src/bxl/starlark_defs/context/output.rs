@@ -79,7 +79,7 @@ pub struct OutputStream<'v> {
     #[derivative(Debug = "ignore")]
     #[trace(unsafe_ignore)]
     #[allocative(skip)]
-    sink: RefCell<Box<dyn Write>>,
+    pub(crate) sink: RefCell<Box<dyn Write>>,
     #[trace(unsafe_ignore)]
     artifacts_to_ensure: RefCell<Option<SmallSet<EnsuredArtifactOrGroup>>>,
     #[derivative(Debug = "ignore")]

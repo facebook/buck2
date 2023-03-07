@@ -101,6 +101,10 @@ mod tests {
                         BaseDeferredKey::BxlLabel(bxl.dupe()).into_dyn(),
                         ForwardRelativePathBuf::unchecked_new("test".to_owned()),
                     ),
+                    error_loc: BuckOutPath::new(
+                        BaseDeferredKey::BxlLabel(bxl.dupe()).into_dyn(),
+                        ForwardRelativePathBuf::unchecked_new("error_test".to_owned()),
+                    ),
                     built: vec![],
                     artifacts: vec![],
                     deferred: deferred_result,
