@@ -15,6 +15,7 @@ use crate::impls::core::versions::VersionTracker;
 use crate::impls::ctx::SharedLiveTransactionCtx;
 use crate::impls::key::DiceKey;
 use crate::impls::transaction::ChangeType;
+use crate::impls::value::DiceValue;
 use crate::versions::VersionNumber;
 
 /// Core state of DICE, holding the actual graph and version information
@@ -62,6 +63,16 @@ impl CoreState {
     pub(super) fn lookup_key(&mut self, _key: VersionedGraphKey) -> VersionedGraphResult {
         // TODO(bobyf) fill in actual logic to check cache
         VersionedGraphResult::Compute
+    }
+
+    pub(super) fn update_computed(
+        &mut self,
+        _key: VersionedGraphKey,
+        value: DiceValue,
+        _deps: Vec<DiceKey>,
+    ) -> DiceValue {
+        // TODO(bobyf) fill in actual logic to update cache
+        value
     }
 }
 

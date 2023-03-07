@@ -63,6 +63,15 @@ impl StateProcessor {
                 let _ = resp.send(self.state.current_version());
             }
             StateRequest::LookupKey { key, resp } => drop(resp.send(self.state.lookup_key(key))),
+            StateRequest::UpdateComputed {
+                key,
+                value,
+                deps,
+                resp,
+            } => {
+                // ignore error if the requester dropped it.
+                drop(resp.send(self.state.update_computed(key, value, deps)));
+            }
         }
     }
 }

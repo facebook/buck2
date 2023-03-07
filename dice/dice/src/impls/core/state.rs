@@ -20,6 +20,7 @@ use crate::impls::core::processor::StateProcessor;
 use crate::impls::ctx::SharedLiveTransactionCtx;
 use crate::impls::key::DiceKey;
 use crate::impls::transaction::ChangeType;
+use crate::impls::value::DiceValue;
 use crate::versions::VersionNumber;
 
 /// Core state is accessed via message passing to a single threaded processor
@@ -45,6 +46,18 @@ pub(crate) enum StateRequest {
     LookupKey {
         key: VersionedGraphKey,
         resp: Sender<VersionedGraphResult>,
+    },
+    /// Report that a value has been computed
+    #[allow(unused)]
+    UpdateComputed {
+        key: VersionedGraphKey,
+        /// The newly computed value
+        value: DiceValue,
+        /// The deps accessed during the computation of newly computed value
+        deps: Vec<DiceKey>,
+        /// Response of the new value to use. This could be a different instance that is `Eq` to the
+        /// given computed value if the state already stores an instance of value that is equal.
+        resp: Sender<DiceValue>,
     },
 }
 
