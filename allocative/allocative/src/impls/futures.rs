@@ -13,6 +13,7 @@ use std::future::Future;
 use std::mem;
 
 use futures::future::Shared;
+use futures::task::AtomicWaker;
 
 use crate::allocative_trait::Allocative;
 use crate::impls::common::PTR_NAME;
@@ -35,5 +36,11 @@ where
             }
         }
         visitor.exit();
+    }
+}
+
+impl Allocative for AtomicWaker {
+    fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {
+        visitor.enter_self_sized::<Self>().exit()
     }
 }
