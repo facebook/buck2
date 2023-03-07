@@ -18,7 +18,6 @@ use crate::impls::ctx::SharedLiveTransactionCtx;
 use crate::impls::dice::DiceModern;
 use crate::impls::key::DiceKey;
 use crate::impls::key::DiceKeyErasedRef;
-use crate::impls::transaction::ActiveTransactionGuard;
 use crate::impls::value::DiceValue;
 use crate::DiceComputations;
 use crate::DiceProjectionComputations;
@@ -29,8 +28,7 @@ use crate::UserComputationData;
 #[allow(unused)]
 #[derive(Clone, Dupe)]
 pub(crate) struct AsyncEvaluator {
-    per_live_version_ctx: Arc<SharedLiveTransactionCtx>,
-    live_version_guard: ActiveTransactionGuard,
+    per_live_version_ctx: SharedLiveTransactionCtx,
     user_data: Arc<UserComputationData>,
     dice: Arc<DiceModern>,
 }
@@ -38,14 +36,12 @@ pub(crate) struct AsyncEvaluator {
 #[allow(unused)]
 impl AsyncEvaluator {
     pub(crate) fn new(
-        per_live_version_ctx: Arc<SharedLiveTransactionCtx>,
-        live_version_guard: ActiveTransactionGuard,
+        per_live_version_ctx: SharedLiveTransactionCtx,
         user_data: Arc<UserComputationData>,
         dice: Arc<DiceModern>,
     ) -> Self {
         Self {
             per_live_version_ctx,
-            live_version_guard,
             user_data,
             dice,
         }
@@ -59,7 +55,6 @@ impl AsyncEvaluator {
             DiceKeyErasedRef::Key(key) => {
                 let new_ctx = DiceComputations(DiceComputationsImpl::Modern(PerComputeCtx::new(
                     self.per_live_version_ctx.dupe(),
-                    self.live_version_guard.dupe(),
                     self.user_data.dupe(),
                     self.dice.dupe(),
                 )));

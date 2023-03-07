@@ -10,6 +10,7 @@
 use std::sync::Arc;
 
 use allocative::Allocative;
+use derivative::Derivative;
 use dupe::Dupe;
 use tokio::sync::oneshot;
 
@@ -83,9 +84,9 @@ impl TransactionUpdater {
         let user_data = self.user_data.dupe();
         let dice = self.dice.dupe();
 
-        let (guard, transaction) = self.commit_to_state().await;
+        let transaction = self.commit_to_state().await;
 
-        PerComputeCtx::new(transaction, guard, user_data, dice)
+        PerComputeCtx::new(transaction, user_data, dice)
     }
 
     /// Commit the changes registered via 'changed' and 'changed_to' to the current newest version,
@@ -93,9 +94,9 @@ impl TransactionUpdater {
     pub(crate) async fn commit_with_data(self, extra: UserComputationData) -> PerComputeCtx {
         let dice = self.dice.dupe();
 
-        let (guard, transaction) = self.commit_to_state().await;
+        let transaction = self.commit_to_state().await;
 
-        PerComputeCtx::new(transaction, guard, Arc::new(extra), dice)
+        PerComputeCtx::new(transaction, Arc::new(extra), dice)
     }
 
     pub(crate) async fn existing_state(&self) -> PerComputeCtx {
@@ -105,21 +106,19 @@ impl TransactionUpdater {
             .request(StateRequest::CurrentVersion { resp: tx });
 
         let v = rx.await.unwrap();
-        let guard = ActiveTransactionGuard {
-            v,
-            dice: self.dice.dupe(),
-        };
+        let guard = ActiveTransactionGuard::new(v, self.dice.dupe());
         let (tx, rx) = oneshot::channel();
         self.dice.state_handle.request(StateRequest::CtxAtVersion {
             version: v,
+            guard,
             resp: tx,
         });
 
         let transaction = rx.await.unwrap();
-        PerComputeCtx::new(transaction, guard, self.user_data.dupe(), self.dice.dupe())
+        PerComputeCtx::new(transaction, self.user_data.dupe(), self.dice.dupe())
     }
 
-    async fn commit_to_state(self) -> (ActiveTransactionGuard, Arc<SharedLiveTransactionCtx>) {
+    async fn commit_to_state(self) -> SharedLiveTransactionCtx {
         let (tx, rx) = oneshot::channel();
         self.dice.state_handle.request(StateRequest::UpdateState {
             changes: self.scheduled_changes.changes.into_iter().collect(),
@@ -127,28 +126,37 @@ impl TransactionUpdater {
         });
 
         let v = rx.await.unwrap();
-        let guard = ActiveTransactionGuard {
-            v,
-            dice: self.dice.dupe(),
-        };
+        let guard = ActiveTransactionGuard::new(v, self.dice.dupe());
         let (tx, rx) = oneshot::channel();
         self.dice.state_handle.request(StateRequest::CtxAtVersion {
+            guard,
             version: v,
             resp: tx,
         });
 
-        let transaction = rx.await.unwrap();
-        (guard, transaction)
+        rx.await.unwrap()
     }
 }
 
-#[derive(Allocative, Dupe, Clone)]
-pub(crate) struct ActiveTransactionGuard {
+#[derive(Allocative, Dupe, Clone, Derivative)]
+#[derivative(Debug)]
+pub(crate) struct ActiveTransactionGuard(Arc<ActiveTransactionGuardInner>);
+
+impl ActiveTransactionGuard {
+    pub(crate) fn new(v: VersionNumber, dice: Arc<DiceModern>) -> Self {
+        Self(Arc::new(ActiveTransactionGuardInner { v, dice }))
+    }
+}
+
+#[derive(Allocative, Derivative)]
+#[derivative(Debug)]
+pub(crate) struct ActiveTransactionGuardInner {
     v: VersionNumber,
+    #[derivative(Debug = "ignore")]
     dice: Arc<DiceModern>,
 }
 
-impl Drop for ActiveTransactionGuard {
+impl Drop for ActiveTransactionGuardInner {
     fn drop(&mut self) {
         self.dice
             .state_handle

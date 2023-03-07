@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-#[allow(unused)]
 pub(crate) mod cache;
 pub(crate) mod core;
 pub(crate) mod ctx;

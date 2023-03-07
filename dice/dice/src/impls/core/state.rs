@@ -7,8 +7,6 @@
  * of this source tree.
  */
 
-use std::sync::Arc;
-
 use allocative::Allocative;
 use dupe::Dupe;
 use gazebo::variants::VariantName;
@@ -19,6 +17,7 @@ use crate::impls::core::graph::types::VersionedGraphResult;
 use crate::impls::core::processor::StateProcessor;
 use crate::impls::ctx::SharedLiveTransactionCtx;
 use crate::impls::key::DiceKey;
+use crate::impls::transaction::ActiveTransactionGuard;
 use crate::impls::transaction::ChangeType;
 use crate::impls::value::DiceValue;
 use crate::versions::VersionNumber;
@@ -37,7 +36,8 @@ pub(crate) enum StateRequest {
     /// Obtains the shared state ctx at the given version
     CtxAtVersion {
         version: VersionNumber,
-        resp: Sender<Arc<SharedLiveTransactionCtx>>,
+        guard: ActiveTransactionGuard,
+        resp: Sender<SharedLiveTransactionCtx>,
     },
     /// Report that a computation context at a version has been dropped
     DropCtxAtVersion { version: VersionNumber },

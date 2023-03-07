@@ -9,19 +9,39 @@
 
 //! Shared, concurrent dice task cache that is shared between computations at the same version
 
+use allocative::Allocative;
 use dashmap::mapref::entry::Entry;
 use dashmap::DashMap;
+use dupe::Dupe;
 use fnv::FnvBuildHasher;
+use triomphe::Arc;
 
 use crate::impls::key::DiceKey;
 use crate::impls::task::dice::DiceTask;
 
+#[derive(Allocative, Clone)]
 pub(crate) struct SharedCache {
-    storage: DashMap<DiceKey, DiceTask, FnvBuildHasher>,
+    storage: Arc<DashMap<DiceKey, DiceTask, FnvBuildHasher>>,
 }
 
+impl Dupe for SharedCache {} // Arc triomphe should be dupe
+
 impl SharedCache {
+    #[allow(unused)] // TODO(bobyf)
     pub(crate) fn get(&self, key: DiceKey) -> Entry<DiceKey, DiceTask, FnvBuildHasher> {
         self.storage.entry(key)
+    }
+
+    pub(crate) fn new() -> Self {
+        Self {
+            storage: Arc::new(DashMap::default()),
+        }
+    }
+}
+
+#[cfg(test)]
+impl SharedCache {
+    pub(crate) fn data(&self) -> &Arc<DashMap<DiceKey, DiceTask, FnvBuildHasher>> {
+        &self.storage
     }
 }

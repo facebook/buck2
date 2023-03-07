@@ -7,13 +7,11 @@
  * of this source tree.
  */
 
-use std::sync::Arc;
-
 use allocative::Allocative;
 use derivative::Derivative;
 use dupe::Dupe;
 
-use crate::impls::ctx::SharedLiveTransactionCtx;
+use crate::impls::cache::SharedCache;
 use crate::versions::VersionNumber;
 use crate::HashMap;
 
@@ -30,7 +28,7 @@ pub(crate) struct VersionTracker {
 #[derivative(Debug)]
 struct ActiveVersionData {
     #[derivative(Debug = "ignore")]
-    per_transaction_ctx: Arc<SharedLiveTransactionCtx>,
+    per_transaction_data: SharedCache,
     ref_count: usize,
 }
 
@@ -47,19 +45,19 @@ impl VersionTracker {
         self.current
     }
 
-    pub(crate) fn at(&mut self, v: VersionNumber) -> Arc<SharedLiveTransactionCtx> {
+    pub(crate) fn at(&mut self, v: VersionNumber) -> SharedCache {
         let mut entry = self
             .active_versions
             .entry(v)
             .or_insert_with(|| ActiveVersionData {
                 // TODO properly create the PerLiveTransactionCtx
-                per_transaction_ctx: SharedLiveTransactionCtx::new(v),
+                per_transaction_data: SharedCache::new(),
                 ref_count: 0,
             });
 
         entry.ref_count += 1;
 
-        entry.per_transaction_ctx.dupe()
+        entry.per_transaction_data.dupe()
     }
 
     /// Drops reference to a VersionNumber given the token

@@ -11,6 +11,7 @@ use std::future::Future;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use derivative::Derivative;
 use dupe::Dupe;
 use futures::FutureExt;
 use more_futures::spawn::spawn_dropcancel;
@@ -21,6 +22,7 @@ use crate::api::data::DiceData;
 use crate::api::error::DiceResult;
 use crate::api::key::Key;
 use crate::api::user_data::UserComputationData;
+use crate::impls::cache::SharedCache;
 use crate::impls::dep_trackers::RecordingDepsTracker;
 use crate::impls::dice::DiceModern;
 use crate::impls::evaluator::AsyncEvaluator;
@@ -42,8 +44,7 @@ pub(crate) struct PerComputeCtx {
 
 #[derive(Allocative)]
 pub(crate) struct PerComputeCtxData {
-    per_live_version_ctx: Arc<SharedLiveTransactionCtx>,
-    live_version_guard: ActiveTransactionGuard,
+    per_live_version_ctx: SharedLiveTransactionCtx,
     user_data: Arc<UserComputationData>,
     dep_trackers: Mutex<RecordingDepsTracker>, // If we make PerComputeCtx &mut, we can get rid of this mutex after some refactoring
     dice: Arc<DiceModern>,
@@ -52,15 +53,13 @@ pub(crate) struct PerComputeCtxData {
 #[allow(clippy::manual_async_fn, unused)]
 impl PerComputeCtx {
     pub(crate) fn new(
-        per_live_version_ctx: Arc<SharedLiveTransactionCtx>,
-        live_version_guard: ActiveTransactionGuard,
+        per_live_version_ctx: SharedLiveTransactionCtx,
         user_data: Arc<UserComputationData>,
         dice: Arc<DiceModern>,
     ) -> Self {
         Self {
             data: Arc::new(PerComputeCtxData {
                 per_live_version_ctx,
-                live_version_guard,
                 user_data,
                 dep_trackers: Mutex::new(RecordingDepsTracker::new()),
                 dice,
@@ -105,7 +104,6 @@ impl PerComputeCtx {
                 dice_key,
                 AsyncEvaluator::new(
                     self.data.per_live_version_ctx.dupe(),
-                    self.data.live_version_guard.dupe(),
                     self.data.user_data.dupe(),
                     self.data.dice.dupe(),
                 ),
@@ -182,15 +180,28 @@ impl PerComputeCtx {
 }
 
 /// Context that is shared for all current live computations of the same version.
-#[derive(Allocative, Debug)]
+#[derive(Allocative, Derivative, Dupe, Clone)]
+#[derivative(Debug)]
 pub(crate) struct SharedLiveTransactionCtx {
     version: VersionNumber,
+    #[derivative(Debug = "ignore")]
+    live_version_guard: ActiveTransactionGuard,
+    #[derivative(Debug = "ignore")]
+    cache: SharedCache,
 }
 
 #[allow(clippy::manual_async_fn, unused)]
 impl SharedLiveTransactionCtx {
-    pub(crate) fn new(v: VersionNumber) -> Arc<Self> {
-        Arc::new(Self { version: v })
+    pub(crate) fn new(
+        v: VersionNumber,
+        live_version_guard: ActiveTransactionGuard,
+        cache: SharedCache,
+    ) -> Self {
+        Self {
+            version: v,
+            live_version_guard,
+            cache,
+        }
     }
 
     /// Compute "opaque" value where the value is only accessible via projections.
@@ -198,7 +209,7 @@ impl SharedLiveTransactionCtx {
     /// where the dependency of reading a projection is the projection value rather
     /// than the entire opaque value.
     pub(crate) fn compute_opaque(
-        self: &Arc<Self>,
+        &self,
         key: DiceKey,
         eval: AsyncEvaluator,
     ) -> impl Future<Output = DiceResult<DiceValue>> {

@@ -12,6 +12,7 @@ use gazebo::variants::VariantName;
 use crate::impls::core::internals::CoreState;
 use crate::impls::core::state::CoreStateHandle;
 use crate::impls::core::state::StateRequest;
+use crate::impls::ctx::SharedLiveTransactionCtx;
 
 pub(super) struct StateProcessor {
     state: CoreState,
@@ -49,13 +50,15 @@ impl StateProcessor {
                 // ignore error if the requester dropped it.
                 let _ = resp.send(self.state.update_state(changes));
             }
-            StateRequest::CtxAtVersion { version, resp } => {
-                let ctx = self.state.ctx_at_version(version);
-                if resp.send(ctx).is_err() {
-                    // if we failed to send, then no one got the extra copy, so we say it has been
-                    // dropped
-                    self.state.drop_ctx_at_version(version);
-                }
+            StateRequest::CtxAtVersion {
+                version,
+                guard,
+                resp,
+            } => {
+                let cache = self.state.ctx_at_version(version);
+
+                let ctx = SharedLiveTransactionCtx::new(version, guard, cache);
+                let _ignored = resp.send(ctx);
             }
             StateRequest::DropCtxAtVersion { version } => self.state.drop_ctx_at_version(version),
             StateRequest::CurrentVersion { resp } => {

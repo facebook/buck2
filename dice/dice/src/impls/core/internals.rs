@@ -7,12 +7,10 @@
  * of this source tree.
  */
 
-use std::sync::Arc;
-
+use crate::impls::cache::SharedCache;
 use crate::impls::core::graph::types::VersionedGraphKey;
 use crate::impls::core::graph::types::VersionedGraphResult;
 use crate::impls::core::versions::VersionTracker;
-use crate::impls::ctx::SharedLiveTransactionCtx;
 use crate::impls::key::DiceKey;
 use crate::impls::transaction::ChangeType;
 use crate::impls::value::DiceValue;
@@ -48,7 +46,7 @@ impl CoreState {
         }
     }
 
-    pub(super) fn ctx_at_version(&mut self, v: VersionNumber) -> Arc<SharedLiveTransactionCtx> {
+    pub(super) fn ctx_at_version(&mut self, v: VersionNumber) -> SharedCache {
         self.version_tracker.at(v)
     }
 
@@ -78,7 +76,7 @@ impl CoreState {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
+    use triomphe::Arc;
 
     use crate::impls::core::internals::CoreState;
     use crate::impls::key::DiceKey;
@@ -106,21 +104,20 @@ mod tests {
         let v = VersionNumber::new(0);
 
         let ctx = core.ctx_at_version(v);
-        assert_eq!(ctx.get_version(), v);
 
         let ctx1 = core.ctx_at_version(v);
-        assert!(Arc::ptr_eq(&ctx, &ctx1));
+        assert!(Arc::ptr_eq(ctx.data(), ctx1.data()));
 
         // if you drop one, there is still reference so getting the same version should give the
         // same instance of ctx
         core.drop_ctx_at_version(v);
         let ctx2 = core.ctx_at_version(v);
-        assert!(Arc::ptr_eq(&ctx, &ctx2));
+        assert!(Arc::ptr_eq(ctx.data(), ctx2.data()));
 
         // drop all references, should give a different ctx instance
         core.drop_ctx_at_version(v);
         core.drop_ctx_at_version(v);
         let another = core.ctx_at_version(v);
-        assert!(!Arc::ptr_eq(&ctx, &another));
+        assert!(!Arc::ptr_eq(ctx.data(), another.data()));
     }
 }
