@@ -7,10 +7,6 @@ oncall("buck2")
 _INCLUDE_EXECUTABLES = False # @oss-enable
 
 export_file(
-    name = ".buck2-tpx",
-) if _INCLUDE_EXECUTABLES else None
-
-export_file(
     name = ".buck2",
 ) if _INCLUDE_EXECUTABLES else None
 
