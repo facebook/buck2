@@ -685,7 +685,7 @@ async fn call_rage_impl(
     command
         .stdin(Stdio::null())
         .stdout(Stdio::null())
-        .stderr(Stdio::piped())
+        .stderr(Stdio::null())
         .spawn()?
         .wait()
         .await?;
