@@ -48,7 +48,7 @@ impl DiceKeyErased {
     }
 
     #[allow(unused)]
-    pub(crate) fn proj<K: ProjectionKey>(base: Arc<dyn DiceKeyDyn>, k: K) -> Self {
+    pub(crate) fn proj<K: ProjectionKey>(base: DiceKey, k: K) -> Self {
         Self::Projection(ProjectionWithBase {
             base,
             proj: Arc::new(k),
@@ -94,7 +94,7 @@ impl DiceKeyErased {
             DiceKeyErased::Key(k) => DiceKeyErasedRef::Key(&**k),
             DiceKeyErased::Projection(proj) => {
                 DiceKeyErasedRef::Projection(ProjectionWithBaseRef {
-                    base: &*proj.base,
+                    base: proj.base,
                     proj: &*proj.proj,
                 })
             }
@@ -124,7 +124,7 @@ impl<'a> DiceKeyErasedRef<'a> {
     }
 
     #[allow(unused)] // TODO(bobyf)
-    pub(crate) fn proj<K: ProjectionKey>(base: &'a dyn DiceKeyDyn, k: &'a K) -> Self {
+    pub(crate) fn proj<K: ProjectionKey>(base: DiceKey, k: &'a K) -> Self {
         Self::Projection(ProjectionWithBaseRef { base, proj: k })
     }
 
@@ -283,7 +283,7 @@ where
 
 #[derive(Allocative, Clone, Dupe)]
 pub(crate) struct ProjectionWithBase {
-    base: Arc<dyn DiceKeyDyn>,
+    base: DiceKey,
     proj: Arc<dyn DiceProjectionDyn>,
 }
 
@@ -291,7 +291,7 @@ impl ProjectionWithBase {
     fn hash(&self) -> u64 {
         let mut hasher = FnvHasher::default();
 
-        self.base.hash().hash(&mut hasher);
+        self.base.hash(&mut hasher);
         self.proj.hash().hash(&mut hasher);
 
         hasher.finish()
@@ -300,7 +300,7 @@ impl ProjectionWithBase {
 
 impl PartialEq for ProjectionWithBase {
     fn eq(&self, other: &Self) -> bool {
-        self.proj.eq_any() == other.proj.eq_any() && self.base.eq_any() == self.base.eq_any()
+        self.proj.eq_any() == other.proj.eq_any() && self.base == other.base
     }
 }
 
@@ -308,14 +308,14 @@ impl Eq for ProjectionWithBase {}
 
 #[derive(Copy, Clone, Dupe)]
 pub(crate) struct ProjectionWithBaseRef<'a> {
-    base: &'a dyn DiceKeyDyn,
+    base: DiceKey,
     proj: &'a dyn DiceProjectionDyn,
 }
 
 impl<'a> ProjectionWithBaseRef<'a> {
     fn to_owned(&self) -> ProjectionWithBase {
         ProjectionWithBase {
-            base: self.base.clone_arc(),
+            base: self.base,
             proj: self.proj.clone_arc(),
         }
     }
@@ -323,7 +323,7 @@ impl<'a> ProjectionWithBaseRef<'a> {
     fn hash(&self) -> u64 {
         let mut hasher = FnvHasher::default();
 
-        self.base.hash().hash(&mut hasher);
+        self.base.hash(&mut hasher);
         self.proj.hash().hash(&mut hasher);
 
         hasher.finish()
@@ -332,7 +332,7 @@ impl<'a> ProjectionWithBaseRef<'a> {
 
 impl<'a> PartialEq for ProjectionWithBaseRef<'a> {
     fn eq(&self, other: &Self) -> bool {
-        self.proj.eq_any() == other.proj.eq_any() && self.base.eq_any() == self.base.eq_any()
+        self.proj.eq_any() == other.proj.eq_any() && self.base == other.base
     }
 }
 
@@ -350,6 +350,7 @@ mod tests {
     use crate::api::key::Key;
     use crate::api::projection::DiceProjectionComputations;
     use crate::api::projection::ProjectionKey;
+    use crate::impls::key::DiceKey;
     use crate::impls::key::DiceKeyErased;
 
     #[test]
@@ -401,7 +402,7 @@ mod tests {
             }
         }
 
-        let erased = DiceKeyErased::proj(Arc::new(TestK), TestProj);
+        let erased = DiceKeyErased::proj(DiceKey { index: 99 }, TestProj);
 
         let downcast = erased.downcast::<TestProj>();
         assert!(downcast.is_some());
