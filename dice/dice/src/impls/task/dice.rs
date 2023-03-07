@@ -8,44 +8,158 @@
  */
 
 //! A task stored by Dice that is shared for all transactions at the same version
-use std::sync::Arc;
+use std::any::Any;
+use std::cell::UnsafeCell;
+use std::ops::DerefMut;
+use std::sync::atomic::AtomicU8;
+use std::sync::atomic::Ordering;
+use std::task::Waker;
 
+use dupe::Dupe;
+use dupe::IterDupedExt;
+use futures::task::AtomicWaker;
+use hashbrown::HashSet;
 use parking_lot::Mutex;
+use slab::Slab;
 use tokio::task::JoinHandle;
+use triomphe::Arc;
 
+use crate::impls::key::DiceKey;
+use crate::impls::task::promise::DicePromise;
 use crate::impls::value::DiceValue;
 
+///
+/// 'DiceTask' is approximately a copy of Shared and Weak from std, but with some custom special
+/// record keeping to allow us to track the waiters as DiceKeys.
+///
+/// 'std::future::Weak' is akin to 'DiceTask', and each 'DicePromise' is a strong reference to it
+/// akin to a 'std::future::Shared'.
+///
+/// The DiceTask is always completed by a thread whose future is the 'JoinHandle'. The thread
+/// reports updates to the state of the future via 'DiceTaskHandle'. Simplifying the future
+/// implementation in that no poll will ever be doing real work. No Wakers sleeping will be awoken
+/// unless the task is ready.
+/// The task is not the "standard states" of Pending, Polling, etc as stored by Shared future,
+/// but instead we store the Dice specific states so that its useful when we dump the state.
+/// Wakers are tracked with their corresponding DiceKeys, allowing us to track the rdeps and see
+/// which key is waiting on what
+///
+/// We can explicitly track cancellations by tracking the Waker drops.
+///
+/// Memory size difference:
+/// DiceTask <-> Weak: DiceTask holds an extra JoinHandle which is a single ptr.
+/// DiceTask now holds a 'triomphe::Arc' instead of 'std::Arc' which is slightly more efficient as it
+/// doesn't require weak ptr handling. This is just so that we have the JoinHandle so we can abort
+/// when canceled, but we could choose to change the implementation by moving cancellation
+/// notification into the DiceTaskInternal
 pub(crate) struct DiceTask {
-    internal: Arc<DiceTaskInternal>,
+    pub(super) internal: Arc<DiceTaskInternal>,
+    /// The spawned task that is responsible for completing this task.
+    pub(super) spawned: JoinHandle<Box<dyn Any + Send>>,
 }
 
-struct DiceTaskInternal {
-    /// The spawned task that is responsible for completing this task.
-    spawned: JoinHandle<()>,
+pub(super) struct DiceTaskInternal {
     /// The internal progress state of the task
-    state: Mutex<DiceTaskState>,
+    pub(super) state: AtomicDiceTaskState,
+    /// Other DiceTasks that are awaiting the completion of this task.
+    ///
+    /// We hold a pair DiceKey and Waker.
+    /// Compared to 'Shared', which just holds a standard 'Waker', the Waker itself is now an
+    /// AtomicWaker, which is an extra AtomicUsize, so this is marginally larger than the standard
+    /// Shared future.
+    pub(super) dependants: Mutex<Option<Slab<(DiceKey, Arc<AtomicWaker>)>>>,
+    /// The value if finished computing
+    pub(super) maybe_value: UnsafeCell<Option<DiceValue>>,
 }
 
 impl DiceTask {
-    pub(crate) fn new(spawned: JoinHandle<()>) -> Self {
-        Self {
-            internal: Arc::new(DiceTaskInternal {
-                spawned,
-                state: Mutex::new(DiceTaskState::InitialLookup),
-            }),
+    /// `k` depends on this task, returning a `DicePromise` that will complete when this task
+    /// completes
+    pub(crate) fn depended_on_by(&self, k: DiceKey) -> DicePromise {
+        if self.internal.state.is_ready(Ordering::Acquire) {
+            DicePromise::ready(triomphe_dupe(&self.internal))
+        } else {
+            let mut wakers = self.internal.dependants.lock();
+            match wakers.deref_mut() {
+                None => {
+                    assert!(
+                        self.internal.state.is_ready(Ordering::SeqCst),
+                        "invalid state where deps are taken before state is ready"
+                    );
+                    DicePromise::ready(triomphe_dupe(&self.internal))
+                }
+                Some(ref mut wakers) => {
+                    let waker = Arc::new(AtomicWaker::new());
+                    let id = wakers.insert((k, triomphe_dupe(&waker)));
+
+                    DicePromise::pending(id, triomphe_dupe(&self.internal), waker)
+                }
+            }
         }
     }
 }
 
+impl DiceTaskInternal {
+    pub(super) fn drop_waiter(&self, slab: usize) {
+        let mut deps = self.dependants.lock();
+        match deps.deref_mut() {
+            None => {}
+            Some(ref mut deps) => {
+                deps.remove(slab);
+            }
+        }
+    }
+
+    pub(super) fn new() -> Arc<Self> {
+        Arc::new(Self {
+            state: AtomicDiceTaskState::default(),
+            dependants: Mutex::new(Some(Slab::new())),
+            maybe_value: UnsafeCell::new(None),
+        })
+    }
+}
+
 /// The state of the DiceTask about what stage of evaluation we are in.
-enum DiceTaskState {
+#[derive(Default)]
+pub(super) struct AtomicDiceTaskState(AtomicU8);
+
+impl AtomicDiceTaskState {
+    pub(super) fn is_ready(&self, ordering: Ordering) -> bool {
+        match self.0.load(ordering) {
+            Self::READY => true,
+            _ => false,
+        }
+    }
+
+    pub(super) fn report_checking_deps(&self) {
+        let old = self.0.swap(Self::CHECKING_DEPS, Ordering::SeqCst);
+        assert_eq!(old, Self::INITIAL_LOOKUP, "invalid state");
+    }
+
+    pub(super) fn report_computing(&self) {
+        let old = self.0.swap(Self::COMPUTING, Ordering::SeqCst);
+        assert!(
+            old == Self::INITIAL_LOOKUP || old == Self::CHECKING_DEPS,
+            "invalid state"
+        );
+    }
+
+    pub(super) fn report_ready(&self) {
+        let old = self.0.swap(Self::READY, Ordering::SeqCst);
+        assert_ne!(old, Self::READY, "invalid state");
+    }
+
     /// When waiting for the initial lookup of the cache
-    InitialLookup,
+    const INITIAL_LOOKUP: u8 = 0;
     /// When we are waiting for our dependencies to see if the value can be reused
     /// TODO(bobyf) probably store more metadata here
-    CheckingDeps,
+    const CHECKING_DEPS: u8 = 1;
     /// When we are actively computing the value by running the key's compute
-    Computing,
+    const COMPUTING: u8 = 2;
     /// When the value is ready to be used
-    Ready(DiceValue),
+    const READY: u8 = 3;
+}
+
+fn triomphe_dupe<T>(t: &Arc<T>) -> Arc<T> {
+    t.clone() // triomphe arc is actually dupe
 }
