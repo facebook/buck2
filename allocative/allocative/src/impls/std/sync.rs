@@ -11,11 +11,15 @@ use std::mem;
 use std::rc;
 use std::rc::Rc;
 use std::sync::atomic::AtomicBool;
+use std::sync::atomic::AtomicI16;
 use std::sync::atomic::AtomicI32;
 use std::sync::atomic::AtomicI64;
+use std::sync::atomic::AtomicI8;
 use std::sync::atomic::AtomicIsize;
+use std::sync::atomic::AtomicU16;
 use std::sync::atomic::AtomicU32;
 use std::sync::atomic::AtomicU64;
+use std::sync::atomic::AtomicU8;
 use std::sync::atomic::AtomicUsize;
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -117,6 +121,18 @@ impl<T: Allocative> Allocative for rc::Weak<T> {
     }
 }
 
+impl Allocative for AtomicU8 {
+    fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {
+        visitor.enter_self_sized::<Self>().exit();
+    }
+}
+
+impl Allocative for AtomicU16 {
+    fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {
+        visitor.enter_self_sized::<Self>().exit();
+    }
+}
+
 impl Allocative for AtomicU32 {
     fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {
         visitor.enter_self_sized::<Self>().exit();
@@ -130,6 +146,18 @@ impl Allocative for AtomicU64 {
 }
 
 impl Allocative for AtomicUsize {
+    fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {
+        visitor.enter_self_sized::<Self>().exit();
+    }
+}
+
+impl Allocative for AtomicI8 {
+    fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {
+        visitor.enter_self_sized::<Self>().exit();
+    }
+}
+
+impl Allocative for AtomicI16 {
     fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {
         visitor.enter_self_sized::<Self>().exit();
     }
