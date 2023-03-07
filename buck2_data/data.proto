@@ -942,12 +942,16 @@ message AnalysisProfile {
 }
 
 message AnalysisStart {
-  ConfiguredTargetLabel target = 1;
+  oneof target {
+    ConfiguredTargetLabel standard_target = 1;
+  }
   string rule = 2;
 }
 
 message AnalysisEnd {
-  ConfiguredTargetLabel target = 1;
+  oneof target {
+    ConfiguredTargetLabel standard_target = 1;
+  }
   string rule = 3;
   AnalysisProfile profile = 2;
 }

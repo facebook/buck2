@@ -576,7 +576,7 @@ impl ChromeTraceWriter {
                     {
                         let name = format!(
                             "analysis {}",
-                            display::display_configured_target_label(
+                            display::display_analysis_target(
                                 analysis
                                     .target
                                     .as_ref()

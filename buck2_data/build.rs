@@ -91,6 +91,14 @@ fn main() -> io::Result<()> {
             "buck.data.DeferredPreparationStageStart.stage",
             "#[derive(::derive_more::From, ::gazebo::variants::VariantName)]",
         )
+        .type_attribute(
+            "buck.data.AnalysisStart.target",
+            "#[derive(::derive_more::From, ::gazebo::variants::VariantName)]",
+        )
+        .type_attribute(
+            "buck.data.AnalysisEnd.target",
+            "#[derive(::derive_more::From, ::gazebo::variants::VariantName)]",
+        )
         .type_attribute("buck.data.TargetLabel", "#[derive(Eq, Hash)]")
         .type_attribute("buck.data.Configuration", "#[derive(Eq, Hash)]")
         .type_attribute("buck.data.ConfiguredTargetLabel", "#[derive(Eq, Hash)]")

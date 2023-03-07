@@ -94,6 +94,16 @@ pub fn display_anon_target(ctl: &AnonTarget) -> anyhow::Result<String> {
     }
 }
 
+pub fn display_analysis_target(
+    target: &buck2_data::analysis_start::Target,
+    opts: TargetDisplayOptions,
+) -> anyhow::Result<String> {
+    use buck2_data::analysis_start::Target;
+    match target {
+        Target::StandardTarget(ctl) => display_configured_target_label(ctl, opts),
+    }
+}
+
 pub fn display_bxl_key(ctl: &BxlFunctionKey) -> anyhow::Result<String> {
     if let BxlFunctionKey {
         label: Some(BxlFunctionLabel { bxl_path, name }),
@@ -203,8 +213,8 @@ pub fn display_event(event: &BuckEvent, opts: TargetDisplayOptions) -> anyhow::R
                 Ok(format!("{} -- materializing `{}`", key, path))
             }
             Data::Analysis(analysis) => match &analysis.target {
-                Some(ctl) => {
-                    let target = display_configured_target_label(ctl, opts)?;
+                Some(target) => {
+                    let target = display_analysis_target(target, opts)?;
                     Ok(format!("{} -- running analysis", target))
                 }
                 None => Err(ParseEventError::MissingConfiguredTargetLabel.into()),

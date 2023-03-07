@@ -262,7 +262,7 @@ async fn get_analysis_result(
         RuleType::Starlark(func) => {
             let rule_impl = get_rule_impl(ctx, func).await?;
             let start_event = buck2_data::AnalysisStart {
-                target: Some(target.as_proto()),
+                target: Some(target.as_proto().into()),
                 rule: func.to_string(),
             };
 
@@ -303,7 +303,7 @@ async fn get_analysis_result(
                 (
                     result,
                     buck2_data::AnalysisEnd {
-                        target: Some(target.as_proto()),
+                        target: Some(target.as_proto().into()),
                         rule: func.to_string(),
                         profile,
                     },
