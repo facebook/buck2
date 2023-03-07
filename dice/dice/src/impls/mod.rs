@@ -16,6 +16,7 @@ mod dep_trackers;
 pub(crate) mod dice;
 pub(crate) mod evaluator;
 mod hash;
+pub(crate) mod incremental;
 pub(crate) mod key;
 mod key_index;
 pub(crate) mod opaque;

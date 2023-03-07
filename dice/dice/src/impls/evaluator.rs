@@ -51,7 +51,10 @@ impl AsyncEvaluator {
         }
     }
 
-    async fn evaluate<'b>(&self, key: DiceKeyErasedRef<'b>) -> DiceResult<DiceValueAndDeps> {
+    pub(crate) async fn evaluate<'b>(
+        &self,
+        key: DiceKeyErasedRef<'b>,
+    ) -> DiceResult<DiceValueAndDeps> {
         match key {
             DiceKeyErasedRef::Key(key) => {
                 let new_ctx = DiceComputations(DiceComputationsImpl::Modern(PerComputeCtx::new(

@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-mod graph;
+pub(crate) mod graph;
 mod internals;
 mod processor;
 pub(crate) mod state;

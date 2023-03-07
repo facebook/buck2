@@ -197,11 +197,11 @@ impl SharedLiveTransactionCtx {
     /// Projections allow accessing derived results from the "opaque" value,
     /// where the dependency of reading a projection is the projection value rather
     /// than the entire opaque value.
-    pub(crate) fn compute_opaque<'b, 'a: 'b>(
+    pub(crate) fn compute_opaque(
         self: &Arc<Self>,
         key: DiceKey,
         eval: AsyncEvaluator,
-    ) -> impl Future<Output = DiceResult<DiceValue>> + 'b {
+    ) -> impl Future<Output = DiceResult<DiceValue>> {
         async move { unimplemented!("todo") }
     }
 
