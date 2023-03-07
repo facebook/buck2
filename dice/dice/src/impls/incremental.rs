@@ -148,7 +148,7 @@ impl IncrementalEngine {
         // TODO(bobyf) these also make good locations where we want to perform instrumentation
         debug!(msg = "running evaluator");
 
-        let eval_result = eval.evaluate(key.as_ref()).await;
+        let eval_result = eval.evaluate(k).await;
 
         let _guard = match try_to_disable_cancellation() {
             Some(g) => g,

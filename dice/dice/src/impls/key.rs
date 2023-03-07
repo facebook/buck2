@@ -288,6 +288,14 @@ pub(crate) struct ProjectionWithBase {
 }
 
 impl ProjectionWithBase {
+    pub(crate) fn base(&self) -> DiceKey {
+        self.base
+    }
+
+    pub(crate) fn proj(&self) -> &dyn DiceProjectionDyn {
+        &*self.proj
+    }
+
     fn hash(&self) -> u64 {
         let mut hasher = FnvHasher::default();
 
@@ -313,10 +321,12 @@ pub(crate) struct ProjectionWithBaseRef<'a> {
 }
 
 impl<'a> ProjectionWithBaseRef<'a> {
+    #[allow(unused)]
     pub(crate) fn base(&self) -> DiceKey {
         self.base
     }
 
+    #[allow(unused)]
     pub(crate) fn proj(&self) -> &'a dyn DiceProjectionDyn {
         self.proj
     }

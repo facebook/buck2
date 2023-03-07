@@ -17,7 +17,7 @@ use crate::impls::ctx::PerComputeCtx;
 use crate::impls::ctx::SharedLiveTransactionCtx;
 use crate::impls::dice::DiceModern;
 use crate::impls::key::DiceKey;
-use crate::impls::key::DiceKeyErasedRef;
+use crate::impls::key::DiceKeyErased;
 use crate::impls::value::DiceValue;
 use crate::DiceComputations;
 use crate::DiceProjectionComputations;
@@ -47,12 +47,10 @@ impl AsyncEvaluator {
         }
     }
 
-    pub(crate) async fn evaluate<'b>(
-        &self,
-        key: DiceKeyErasedRef<'b>,
-    ) -> DiceResult<DiceValueAndDeps> {
-        match key {
-            DiceKeyErasedRef::Key(key) => {
+    pub(crate) async fn evaluate<'b>(&self, key: DiceKey) -> DiceResult<DiceValueAndDeps> {
+        let key_erased = self.dice.key_index.get(key);
+        match key_erased {
+            DiceKeyErased::Key(key) => {
                 let new_ctx = DiceComputations(DiceComputationsImpl::Modern(PerComputeCtx::new(
                     self.per_live_version_ctx.dupe(),
                     self.user_data.dupe(),
@@ -69,7 +67,7 @@ impl AsyncEvaluator {
 
                 Ok(DiceValueAndDeps { value, deps })
             }
-            DiceKeyErasedRef::Projection(proj) => {
+            DiceKeyErased::Projection(proj) => {
                 let base = self
                     .per_live_version_ctx
                     .compute_opaque(proj.base(), self.dupe())
