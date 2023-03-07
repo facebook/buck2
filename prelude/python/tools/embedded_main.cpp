@@ -11,10 +11,31 @@
 #include <stdlib.h>
 #include <sys/time.h>
 
+#include <functional>
 #include <optional>
 #include <string>
 
 namespace {
+
+// Scopeguard helper.
+class ScopeGuard {
+ public:
+  ScopeGuard(std::function<void(void)>&& func) : func(std::move(func)) {}
+  ScopeGuard& operator=(ScopeGuard&& other) = default;
+
+  ~ScopeGuard() {
+    if (func)
+      func();
+  }
+
+  template <typename Func>
+  static ScopeGuard create(Func&& func) {
+    return ScopeGuard(std::move(func));
+  }
+
+ private:
+  std::function<void(void)> func;
+};
 
 std::optional<int> MaybeGetExitCode(PyStatus* status, PyConfig* config) {
   if (PyStatus_IsExit(*status)) {
@@ -115,34 +136,62 @@ int main(int argc, char* argv[]) {
     }
   }
 
-  // Call static_extension_finder._initialize()
-  PyObject* pmodule = PyImport_ImportModule("static_extension_finder");
-  if (pmodule == nullptr) {
-    PyErr_Print();
-    fprintf(
-        stderr, "Error: could not import module 'static_extension_finder'\n");
-    // return 1;
-  } else {
-    PyObject* pinitialize = PyObject_GetAttrString(pmodule, "_initialize");
-    Py_DECREF(pmodule);
-    if (pinitialize == nullptr || !PyCallable_Check(pinitialize)) {
+  {
+    auto sysPathGuard = ScopeGuard::create([=]() {});
+
+    // For fastzip, the `static_extensions_finder` module is found in the PAR,
+    // and we're too early in the process to have the fastzip PAR auto-added to
+    // the path (I think this happens in `Py_RunMain` below), so we need to get
+    // it added for this block.
+    const auto par = std::getenv("FB_PAR_FILENAME");
+    if (par != NULL) {
+      PyObject* sysPath = PySys_GetObject((char*)"path");
+      auto result = PyList_Insert(sysPath, 0, PyUnicode_FromString((char*)par));
+      if (result == -1) {
+        PyErr_Print();
+        abort();
+      }
+      sysPathGuard = ScopeGuard::create([=]() {
+        auto result =
+            PyObject_CallMethod(sysPath, "pop", "O", PyLong_FromLong(0));
+        if (result == nullptr) {
+          PyErr_Print();
+          abort();
+        }
+        Py_DECREF(result);
+      });
+    };
+
+    // Call static_extension_finder._initialize()
+    PyObject* pmodule = PyImport_ImportModule("static_extension_finder");
+    if (pmodule == nullptr) {
       PyErr_Print();
       fprintf(
-          stderr,
-          "Error: could not find '_initialize' in module 'static_extension_finder'\n");
+          stderr, "Error: could not import module 'static_extension_finder'\n");
       // return 1;
+    } else {
+      PyObject* pinitialize = PyObject_GetAttrString(pmodule, "_initialize");
+      Py_DECREF(pmodule);
+      if (pinitialize == nullptr || !PyCallable_Check(pinitialize)) {
+        PyErr_Print();
+        fprintf(
+            stderr,
+            "Error: could not find '_initialize' in module 'static_extension_finder'\n");
+        // return 1;
+      }
+      PyObject* retvalue = PyObject_CallObject(pinitialize, nullptr);
+      Py_DECREF(pinitialize);
+      if (retvalue == nullptr) {
+        PyErr_Print();
+        fprintf(
+            stderr,
+            "Error: could not call 'static_extension_finder._initialize()'\n");
+        // return 1;
+      }
+      Py_DECREF(retvalue);
     }
-    PyObject* retvalue = PyObject_CallObject(pinitialize, nullptr);
-    Py_DECREF(pinitialize);
-    if (retvalue == nullptr) {
-      PyErr_Print();
-      fprintf(
-          stderr,
-          "Error: could not call 'static_extension_finder._initialize()'\n");
-      // return 1;
-    }
-    Py_DECREF(retvalue);
   }
+
   PyConfig_Clear(&config);
   return Py_RunMain();
 }
