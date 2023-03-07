@@ -135,19 +135,12 @@ fn input_tag_methods(_: &mut MethodsBuilder) {
 }
 
 #[cfg(test)]
-mod test {
+pub mod test {
     use buck2_interpreter_for_build::interpreter::testing::Tester;
     use indoc::indoc;
-    use starlark::environment::GlobalsBuilder;
 
     use super::*;
-
-    #[starlark_module]
-    pub fn artifact_tag_factory(builder: &mut GlobalsBuilder) {
-        fn make_tag() -> anyhow::Result<ArtifactTag> {
-            Ok(ArtifactTag::new())
-        }
-    }
+    use crate::interpreter::rule_defs::artifact_tagging::testing::artifact_tag_factory;
 
     #[test]
     fn test_artifact_tag_eq() {
