@@ -130,6 +130,11 @@ impl DiceTaskInternal {
     }
 }
 
+// our use of `UnsafeCell` is okay to be send and sync.
+// Each unsafe block around its access has comments explaining the invariants.
+unsafe impl Send for DiceTaskInternal {}
+unsafe impl Sync for DiceTaskInternal {}
+
 /// The state of the DiceTask about what stage of evaluation we are in.
 #[derive(Default)]
 pub(super) struct AtomicDiceTaskState(AtomicU8);
