@@ -13,6 +13,7 @@ pub mod what_failed;
 pub mod what_materialized;
 pub mod what_ran;
 pub mod what_up;
+pub mod what_uploaded;
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::exit_result::ExitResult;
@@ -40,6 +41,9 @@ pub enum LogCommand {
 
     /// Shows materializations in a log.
     WhatMaterialized(what_materialized::WhatMaterializedCommand),
+
+    /// Shows how many bytes/digests were uploaded by a command.
+    WhatUploaded(what_uploaded::WhatUploadedCommand),
 }
 
 impl LogCommand {
@@ -51,6 +55,7 @@ impl LogCommand {
             Self::Show(cmd) => cmd.exec(matches, ctx),
             Self::WhatUp(cmd) => cmd.exec(matches, ctx),
             Self::WhatMaterialized(cmd) => cmd.exec(matches, ctx),
+            Self::WhatUploaded(cmd) => cmd.exec(matches, ctx),
         }
     }
 }
