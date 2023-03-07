@@ -8,22 +8,22 @@
 load("@prelude//rust:rust_toolchain.bzl", "RustPlatformInfo", "RustToolchainInfo")
 
 _DEFAULT_TRIPLE = select({
-    "ovr_config//os:linux": select({
-        "ovr_config//cpu:arm64": "aarch64-unknown-linux-gnu",
-        "ovr_config//cpu:x86_64": "x86_64-unknown-linux-gnu",
+    "config//os:linux": select({
+        "config//cpu:arm64": "aarch64-unknown-linux-gnu",
+        "config//cpu:x86_64": "x86_64-unknown-linux-gnu",
     }),
-    "ovr_config//os:macos": select({
-        "ovr_config//cpu:arm64": "aarch64-apple-darwin",
-        "ovr_config//cpu:x86_64": "x86_64-apple-darwin",
+    "config//os:macos": select({
+        "config//cpu:arm64": "aarch64-apple-darwin",
+        "config//cpu:x86_64": "x86_64-apple-darwin",
     }),
-    "ovr_config//os:windows": select({
+    "config//os:windows": select({
         # FIXME: rustup's default ABI for the host on Windows is MSVC, not GNU.
         # When you do `rustup install stable` that's the one you get. It makes
         # you opt in to GNU by `rustup install stable-gnu`. We should match that
         # default when we're able; but for now buck2 doesn't work with the MSVC
         # toolchain yet.
-        "ovr_config//cpu:arm64": "aarch64-pc-windows-gnu",
-        "ovr_config//cpu:x86_64": "x86_64-pc-windows-gnu",
+        "config//cpu:arm64": "aarch64-pc-windows-gnu",
+        "config//cpu:x86_64": "x86_64-pc-windows-gnu",
     }),
 })
 
