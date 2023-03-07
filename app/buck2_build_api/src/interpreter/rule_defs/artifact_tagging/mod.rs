@@ -8,8 +8,8 @@
  */
 
 mod artifact_tag;
-mod tagged_artifacts;
+mod tagged_command_line;
 
 pub use artifact_tag::ArtifactTag;
-pub use tagged_artifacts::FrozenTaggedArtifacts;
-pub use tagged_artifacts::TaggedArtifacts;
+pub use tagged_command_line::FrozenTaggedCommandLine;
+pub use tagged_command_line::TaggedCommandLine;

@@ -29,7 +29,7 @@ use crate::interpreter::rule_defs::cmd_args::CommandLineContext;
 use crate::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
 use crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 
-/// TaggedArtifacts wraps a CommandLineArgLike to apply a given ArtifactTag to all its inputs and
+/// TaggedCommandLine wraps a CommandLineArgLike to apply a given ArtifactTag to all its inputs and
 /// outputs.
 #[derive(
     Debug,
@@ -43,14 +43,14 @@ use crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 )]
 #[derive(NoSerialize)] // TODO make artifacts serializable
 #[repr(C)]
-#[display(fmt = "TaggedArtifacts({}, tagged {})", inner, tag)]
-pub struct TaggedArtifactsGen<V> {
+#[display(fmt = "TaggedCommandLine({}, tagged {})", inner, tag)]
+pub struct TaggedCommandLineGen<V> {
     inner: V,
     tag: ArtifactTag,
     inputs_only: bool,
 }
 
-impl<'v> TaggedArtifacts<'v> {
+impl<'v> TaggedCommandLine<'v> {
     pub fn new(inner: Value<'v>, tag: ArtifactTag) -> Self {
         Self {
             inner,
@@ -68,16 +68,16 @@ impl<'v> TaggedArtifacts<'v> {
     }
 }
 
-starlark_complex_value!(pub TaggedArtifacts);
+starlark_complex_value!(pub TaggedCommandLine);
 
-impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for TaggedArtifactsGen<V>
+impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for TaggedCommandLineGen<V>
 where
     Self: ProvidesStaticType,
 {
-    starlark_type!("tagged_artifacts");
+    starlark_type!("tagged_command_line");
 }
 
-impl<'v, V: ValueLike<'v>> CommandLineArgLike for TaggedArtifactsGen<V> {
+impl<'v, V: ValueLike<'v>> CommandLineArgLike for TaggedCommandLineGen<V> {
     fn add_to_command_line(
         &self,
         cli: &mut dyn CommandLineBuilder,
@@ -90,7 +90,7 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for TaggedArtifactsGen<V> {
     }
 
     fn visit_artifacts(&self, visitor: &mut dyn CommandLineArtifactVisitor) -> anyhow::Result<()> {
-        let mut visitor = TaggedArtifactsVisitor {
+        let mut visitor = TaggedCommandLineVisitor {
             inner: visitor,
             tag: &self.tag,
             inputs_only: self.inputs_only,
@@ -121,13 +121,13 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for TaggedArtifactsGen<V> {
 }
 
 /// Wrap an existing CommandLineArtifactVisitor into one that adds an ArtifactTag.
-struct TaggedArtifactsVisitor<'a, 'b> {
+struct TaggedCommandLineVisitor<'a, 'b> {
     inner: &'b mut dyn CommandLineArtifactVisitor,
     tag: &'a ArtifactTag,
     inputs_only: bool,
 }
 
-impl<'a, 'b> CommandLineArtifactVisitor for TaggedArtifactsVisitor<'a, 'b> {
+impl<'a, 'b> CommandLineArtifactVisitor for TaggedCommandLineVisitor<'a, 'b> {
     /// Ignore the inner tag, set our own. Nesting input groups generally isn't a great idea, but
     /// we can't statically prevent it.
     fn visit_input(&mut self, input: ArtifactGroup, _tag: Option<&ArtifactTag>) {
