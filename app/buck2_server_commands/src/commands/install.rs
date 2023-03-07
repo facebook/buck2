@@ -91,9 +91,6 @@ pub enum InstallError {
     #[error("Installer target `{0}` doesn't expose RunInfo provider")]
     NoRunInfoProvider(TargetName),
 
-    #[error("Error retrieving hash for `{0}`")]
-    ErrorRetrievingHash(String),
-
     #[error(
         "Installer failed to process file ready request for `{install_id}`. Artifact: `{artifact}` located at `{path}`. Error message: `{err}`\n. More details can be found at `{installer_log}`"
     )]
@@ -585,7 +582,7 @@ async fn send_file(
 
     enum Data<'a> {
         Digest(&'a FileDigest), // NOTE: A misnommer, this is rather BlobDigest.
-        Symlink(&'a str),
+        Symlink(String),
     }
 
     let data = match &file.artifact_value.entry() {
@@ -594,11 +591,10 @@ async fn send_file(
         DirectoryEntry::Leaf(ActionDirectoryMember::Symlink(symlink)) => {
             // todo(@lebentle) Use for now to unblock exopackage,
             // but should follow symlink and validate the target exists and send that
-            Data::Symlink(symlink.target().as_str())
+            Data::Symlink(symlink.target().as_str().to_owned())
         }
-        DirectoryEntry::Leaf(ActionDirectoryMember::ExternalSymlink(..)) => {
-            // This is a wart but it's not possible for this to show up here in an output.
-            return Err(InstallError::ErrorRetrievingHash(name).into());
+        DirectoryEntry::Leaf(ActionDirectoryMember::ExternalSymlink(symlink)) => {
+            Data::Symlink(symlink.with_full_target()?.target_str().to_owned())
         }
     };
 
