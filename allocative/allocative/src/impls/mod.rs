@@ -26,6 +26,7 @@ mod owning_ref;
 mod parking_lot;
 mod prost_types;
 mod relative_path;
+mod slab;
 mod smallvec;
 mod sorted_vector_map;
 mod std;
