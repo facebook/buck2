@@ -15,7 +15,6 @@
 
 pub mod attrs;
 pub mod call_stack;
-pub mod compatibility;
 pub mod configuration;
 pub mod nodes;
 pub mod package;

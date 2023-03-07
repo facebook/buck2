@@ -20,7 +20,7 @@ use buck2_common::result::ToSharedResultExt;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_events::dispatch::console_message;
 use buck2_execute::artifact::fs::ExecutorFs;
-use buck2_node::compatibility::MaybeCompatible;
+use buck2_query::query::compatibility::MaybeCompatible;
 use dashmap::mapref::entry::Entry;
 use dashmap::DashMap;
 use dice::DiceComputations;

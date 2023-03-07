@@ -15,7 +15,7 @@ use async_trait::async_trait;
 use buck2_common::result::SharedResult;
 use buck2_core::pattern::ParsedPattern;
 use buck2_execute::artifact::fs::ArtifactFs;
-use buck2_node::compatibility::MaybeCompatible;
+use buck2_query::query::compatibility::MaybeCompatible;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use dashmap::DashMap;
 use dice::DiceComputations;

@@ -15,13 +15,12 @@ use buck2_core::configuration::pair::ConfigurationNoExec;
 use buck2_core::configuration::ConfigurationData;
 use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_core::target::label::TargetLabel;
+use buck2_query::query::compatibility::IncompatiblePlatformReason;
+use buck2_query::query::compatibility::IncompatiblePlatformReasonCause;
 use dupe::Dupe;
 use indent_write::indentable::Indentable;
 use itertools::Itertools;
 use thiserror::Error;
-
-use crate::compatibility::IncompatiblePlatformReason;
-use crate::compatibility::IncompatiblePlatformReasonCause;
 
 /// An execution platform is used for the execution deps of a target, those dependencies that
 /// need to be invoked as part of a build action or otherwise need to be configured against the

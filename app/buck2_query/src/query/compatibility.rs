@@ -146,7 +146,7 @@ mod tests {
     use buck2_core::configuration::ConfigurationData;
     use buck2_core::target::label::TargetLabel;
 
-    use crate::compatibility::IncompatiblePlatformReason;
+    use crate::query::compatibility::IncompatiblePlatformReason;
 
     #[test]
     fn test_skipping_message_for_multiple() {

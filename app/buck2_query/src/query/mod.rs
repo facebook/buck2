@@ -8,6 +8,7 @@
  */
 
 pub mod buck_types;
+pub mod compatibility;
 pub mod environment;
 pub(crate) mod futures_queue_generic;
 pub mod syntax;

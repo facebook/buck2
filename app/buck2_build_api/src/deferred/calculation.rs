@@ -392,11 +392,11 @@ mod tests {
     use buck2_execute::digest_config::DigestConfig;
     use buck2_execute::digest_config::SetDigestConfig;
     use buck2_execute::execute::dice_data::set_fallback_executor_config;
-    use buck2_node::compatibility::MaybeCompatible;
     use buck2_node::configuration::execution::ExecutionPlatformResolution;
     use buck2_node::nodes::configured::ConfiguredTargetNode;
     use buck2_node::rule_type::RuleType;
     use buck2_node::rule_type::StarlarkRuleType;
+    use buck2_query::query::compatibility::MaybeCompatible;
     use dice::testing::DiceBuilder;
     use dice::UserComputationData;
     use dupe::Dupe;
