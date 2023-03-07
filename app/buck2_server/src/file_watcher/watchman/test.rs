@@ -46,6 +46,7 @@ impl SyncableQueryProcessor for TestQueryProcessor {
         payload: Self::Payload,
         events: Vec<WatchmanEvent>,
         _mergebase: &Option<String>,
+        _watchman_version: Option<String>,
     ) -> anyhow::Result<(Self::Output, Self::Payload)> {
         Ok((
             Out::Files(events.into_map(|e| e.path.display().to_string())),
@@ -57,6 +58,7 @@ impl SyncableQueryProcessor for TestQueryProcessor {
         &self,
         payload: Self::Payload,
         _mergebase: &Option<String>,
+        _watchman_version: Option<String>,
     ) -> anyhow::Result<(Self::Output, Self::Payload)> {
         Ok((Out::FreshInstance, payload))
     }

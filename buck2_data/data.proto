@@ -1119,6 +1119,8 @@ message FileWatcherStats {
   repeated FileWatcherEvent events = 6;
   // Present if the results are incomplete
   optional string incomplete_events_reason = 7;
+  // Present if it is using Watchman
+  optional string watchman_version = 8;
 }
 
 message FileWatcherEnd {
@@ -1341,6 +1343,8 @@ message InvocationRecord {
   optional uint64 sink_failure_count = 52;
   optional uint64 sink_dropped_count = 53;
   optional uint64 sink_max_buffer_depth = 54;
+  // Version number of watchman
+  optional string watchman_version = 55;
 }
 
 message CacheUploadStart {

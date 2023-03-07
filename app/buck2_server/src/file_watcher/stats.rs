@@ -26,9 +26,14 @@ pub(crate) struct FileWatcherStats {
 }
 
 impl FileWatcherStats {
-    pub(crate) fn new(min_count: usize, mergebase: Option<&str>) -> Self {
+    pub(crate) fn new(
+        min_count: usize,
+        mergebase: Option<&str>,
+        watchman_version: Option<String>,
+    ) -> Self {
         let stats = buck2_data::FileWatcherStats {
             branched_from_revision: mergebase.map(ToOwned::to_owned),
+            watchman_version,
             ..Default::default()
         };
 

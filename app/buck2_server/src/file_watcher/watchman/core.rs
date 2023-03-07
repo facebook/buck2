@@ -173,6 +173,7 @@ pub trait SyncableQueryProcessor: Send + Sync {
         payload: Self::Payload,
         events: Vec<WatchmanEvent>,
         mergebase: &Option<String>,
+        watchman_version: Option<String>,
     ) -> anyhow::Result<(Self::Output, Self::Payload)>;
 
     /// Indicates that all derived data should be invalidated. This could happen, for example, if the watchman server restarts.
@@ -180,6 +181,7 @@ pub trait SyncableQueryProcessor: Send + Sync {
         &self,
         dice: Self::Payload,
         mergebase: &Option<String>,
+        watchman_version: Option<String>,
     ) -> anyhow::Result<(Self::Output, Self::Payload)>;
 }
 
@@ -206,11 +208,13 @@ pub enum WatchmanSyncResult {
     FreshInstance {
         merge_base: Option<String>,
         clock: ClockSpec,
+        watchman_version: Option<String>,
     },
     Events {
         events: Vec<WatchmanEvent>,
         merge_base: Option<String>,
         clock: ClockSpec,
+        watchman_version: Option<String>,
     },
 }
 
@@ -278,13 +282,14 @@ where
                 events,
                 merge_base,
                 clock,
+                watchman_version,
             } => {
                 if self.mergebase_with.is_none()
                     || self.last_mergebase.is_some() && self.last_mergebase == merge_base
                 {
                     (
                         self.processor
-                            .process_events(payload, events, &merge_base)
+                            .process_events(payload, events, &merge_base, watchman_version)
                             .await?,
                         merge_base,
                         clock,
@@ -292,16 +297,20 @@ where
                 } else {
                     (
                         self.processor
-                            .on_fresh_instance(payload, &merge_base)
+                            .on_fresh_instance(payload, &merge_base, watchman_version)
                             .await?,
                         merge_base,
                         clock,
                     )
                 }
             }
-            WatchmanSyncResult::FreshInstance { merge_base, clock } => (
+            WatchmanSyncResult::FreshInstance {
+                merge_base,
+                clock,
+                watchman_version,
+            } => (
                 self.processor
-                    .on_fresh_instance(payload, &merge_base)
+                    .on_fresh_instance(payload, &merge_base, watchman_version)
                     .await?,
                 merge_base,
                 clock,
@@ -359,7 +368,7 @@ where
         };
 
         let QueryResult {
-            // version,
+            version,
             is_fresh_instance,
             files,
             clock,
@@ -378,6 +387,7 @@ where
             WatchmanSyncResult::FreshInstance {
                 merge_base: new_mergebase,
                 clock,
+                watchman_version: Some(version),
             }
         } else {
             WatchmanSyncResult::Events {
@@ -388,6 +398,7 @@ where
                     .collect(),
                 merge_base: new_mergebase,
                 clock,
+                watchman_version: Some(version),
             }
         })
     }

@@ -56,9 +56,10 @@ impl WatchmanQueryProcessor {
         mut ctx: DiceTransactionUpdater,
         events: Vec<WatchmanEvent>,
         mergebase: &Option<String>,
+        watchman_version: Option<String>,
     ) -> anyhow::Result<(buck2_data::FileWatcherStats, DiceTransactionUpdater)> {
         let mut handler = FileChangeTracker::new();
-        let mut stats = FileWatcherStats::new(events.len(), mergebase.as_deref());
+        let mut stats = FileWatcherStats::new(events.len(), mergebase.as_deref(), watchman_version);
 
         for ev in events {
             // If the path is invalid, then walk up all the way until you find a valid dir to
@@ -210,14 +211,17 @@ impl SyncableQueryProcessor for WatchmanQueryProcessor {
         dice: DiceTransactionUpdater,
         events: Vec<WatchmanEvent>,
         mergebase: &Option<String>,
+        watchman_version: Option<String>,
     ) -> anyhow::Result<(Self::Output, DiceTransactionUpdater)> {
-        self.process_events_impl(dice, events, mergebase).await
+        self.process_events_impl(dice, events, mergebase, watchman_version)
+            .await
     }
 
     async fn on_fresh_instance(
         &self,
         ctx: DiceTransactionUpdater,
         mergebase: &Option<String>,
+        watchman_version: Option<String>,
     ) -> anyhow::Result<(Self::Output, DiceTransactionUpdater)> {
         eprintln!("watchman fresh instance event, clearing cache");
 
@@ -236,6 +240,7 @@ impl SyncableQueryProcessor for WatchmanQueryProcessor {
                 fresh_instance: true,
                 branched_from_revision: mergebase.clone(),
                 incomplete_events_reason: Some("Fresh instance".to_owned()),
+                watchman_version,
                 ..Default::default()
             },
             ctx,

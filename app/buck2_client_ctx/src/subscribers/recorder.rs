@@ -77,6 +77,7 @@ mod imp {
         resolved_target_patterns: Option<buck2_data::ResolvedTargetPatterns>,
         invocation_root_path: AbsNormPathBuf,
         filesystem: Option<String>,
+        watchman_version: Option<String>,
         test_info: Option<String>,
         eligible_for_full_hybrid: bool,
         max_event_client_delay: Option<Duration>,
@@ -140,6 +141,7 @@ mod imp {
                 resolved_target_patterns: None,
                 invocation_root_path,
                 filesystem: None,
+                watchman_version: None,
                 test_info: None,
                 eligible_for_full_hybrid: false,
                 max_event_client_delay: None,
@@ -234,6 +236,7 @@ mod imp {
                     cache_upload_attempt_count: self.cache_upload_attempt_count,
                     resolved_target_patterns: self.resolved_target_patterns.take(),
                     filesystem: self.filesystem.take().unwrap_or_default(),
+                    watchman_version: self.watchman_version.take(),
                     test_info: self.test_info.take(),
                     eligible_for_full_hybrid: Some(self.eligible_for_full_hybrid),
                     max_event_client_delay_ms: self
@@ -584,6 +587,9 @@ mod imp {
             _event: &BuckEvent,
         ) -> anyhow::Result<()> {
             self.file_watcher_stats = file_watcher.stats.clone();
+            if let Some(stats) = &file_watcher.stats {
+                self.watchman_version = stats.watchman_version.to_owned();
+            }
             Ok(())
         }
 
