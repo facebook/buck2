@@ -766,7 +766,7 @@ impl<P: ProjectionKey> IncrementalEngine<ProjectionKeyProperties<P>> {
             .upgrade()
             .unwrap();
         let ctx = DiceProjectionComputations {
-            extra,
+            user_data: &extra.user_data,
             data: &dice.data,
         };
 

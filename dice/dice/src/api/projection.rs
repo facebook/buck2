@@ -19,7 +19,6 @@ use dupe::Dupe;
 use crate::api::data::DiceData;
 use crate::api::key::Key;
 use crate::api::user_data::UserComputationData;
-use crate::legacy::ctx::ComputationData;
 use crate::legacy::incremental::StorageType;
 
 /// Synchronously computed key from an "opaque" value.
@@ -67,7 +66,7 @@ pub trait ProjectionKey:
 /// Only provide access to globals.
 pub struct DiceProjectionComputations<'a> {
     pub(crate) data: &'a DiceData,
-    pub(crate) extra: &'a ComputationData,
+    pub(crate) user_data: &'a UserComputationData,
 }
 
 impl<'a> DiceProjectionComputations<'a> {
@@ -82,6 +81,6 @@ impl<'a> DiceProjectionComputations<'a> {
     /// The data is also specific to each request context, so multiple concurrent requests can
     /// each have their own individual data.
     pub fn per_transaction_data(&self) -> &UserComputationData {
-        &self.extra.user_data
+        self.user_data
     }
 }
