@@ -20,8 +20,7 @@ use starlark::values::Value;
 use starlark::values::ValueLike;
 
 use super::ArtifactTag;
-use crate::actions::artifact::OutputArtifact;
-use crate::artifact_groups::ArtifactGroup;
+use super::TaggedVisitor;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
@@ -90,11 +89,7 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for TaggedCommandLineGen<V> {
     }
 
     fn visit_artifacts(&self, visitor: &mut dyn CommandLineArtifactVisitor) -> anyhow::Result<()> {
-        let mut visitor = TaggedCommandLineVisitor {
-            inner: visitor,
-            tag: &self.tag,
-            inputs_only: self.inputs_only,
-        };
+        let mut visitor = TaggedVisitor::wrap(&self.tag, self.inputs_only, visitor);
 
         self.inner
             .to_value()
@@ -117,30 +112,5 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for TaggedCommandLineGen<V> {
             .to_value()
             .as_command_line_err()?
             .visit_write_to_file_macros(visitor)
-    }
-}
-
-/// Wrap an existing CommandLineArtifactVisitor into one that adds an ArtifactTag.
-struct TaggedCommandLineVisitor<'a, 'b> {
-    inner: &'b mut dyn CommandLineArtifactVisitor,
-    tag: &'a ArtifactTag,
-    inputs_only: bool,
-}
-
-impl<'a, 'b> CommandLineArtifactVisitor for TaggedCommandLineVisitor<'a, 'b> {
-    /// Ignore the inner tag, set our own. Nesting input groups generally isn't a great idea, but
-    /// we can't statically prevent it.
-    fn visit_input(&mut self, input: ArtifactGroup, _tag: Option<&ArtifactTag>) {
-        self.inner.visit_input(input, Some(self.tag))
-    }
-
-    /// Same as above, no nesting here.
-    fn visit_output(&mut self, artifact: OutputArtifact, _tag: Option<&ArtifactTag>) {
-        let tag = if self.inputs_only {
-            None
-        } else {
-            Some(self.tag)
-        };
-        self.inner.visit_output(artifact, tag)
     }
 }
