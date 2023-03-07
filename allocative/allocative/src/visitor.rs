@@ -90,7 +90,7 @@ impl<'a> Visitor<'a> {
         }
     }
 
-    /// Enter a field containing a shared pointed.
+    /// Enter a field containing a shared pointer.
     ///
     /// This functions does nothing and returns `None`
     /// if pointee (`ptr` argument) was previously visited.
@@ -116,8 +116,8 @@ impl<'a> Visitor<'a> {
         }
     }
 
-    /// This function is typically called as first function of `Allocative` trait
-    /// to record self.
+    /// This function is typically called as the first function of an `Allocative`
+    /// implementation to record self.
     pub fn enter_self_sized<'b, T>(&'b mut self) -> Visitor<'b>
     where
         'a: 'b,
@@ -125,8 +125,8 @@ impl<'a> Visitor<'a> {
         self.enter(Key::for_type_name::<T>(), mem::size_of::<T>())
     }
 
-    /// This function is typically called as first function of `Allocative` trait
-    /// to record self.
+    /// This function is typically called as first function of an `Allocative`
+    /// implementation to record self.
     pub fn enter_self<'b, T: ?Sized>(&'b mut self, this: &T) -> Visitor<'b>
     where
         'a: 'b,
