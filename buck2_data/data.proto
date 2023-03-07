@@ -75,6 +75,7 @@ message SpanStartEvent {
     DynamicLambdaStart dynamic_lambda = 75;
     BxlExecutionStart bxl_execution = 76;
     BxlDiceInvocationStart bxl_dice_invocation = 77;
+    ReUploadStart re_upload = 78;
     // Used in Buck unit tests.
     FakeStart fake = 999;
   }
@@ -116,6 +117,7 @@ message SpanEndEvent {
     DeferredEvaluationEnd deferred_evaluation = 76;
     BxlExecutionEnd bxl_execution = 77;
     BxlDiceInvocationEnd bxl_dice_invocation = 78;
+    ReUploadEnd re_upload = 79;
     // Used in Buck unit tests.
     FakeEnd fake = 999;
   }
@@ -1524,3 +1526,14 @@ message DynamicLambdaStart {
 }
 
 message DeferredEvaluationEnd {}
+
+// Wraps the RE upload stage of execution to report useful data on network
+// traffic.
+// Eventually all the executor stage span definitions should be moved to
+// dedicated spans.
+message ReUploadStart {}
+
+message ReUploadEnd {
+  optional uint64 digests_uploaded = 1;
+  optional uint64 bytes_uploaded = 2;
+}

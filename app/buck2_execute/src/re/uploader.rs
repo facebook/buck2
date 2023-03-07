@@ -49,6 +49,12 @@ use crate::materialize::materializer::CasDownloadInfo;
 use crate::materialize::materializer::Materializer;
 use crate::re::metadata::RemoteExecutionMetadataExt;
 
+#[derive(Clone, Debug, Default)]
+pub struct UploadStats {
+    pub bytes_uploaded: u64,
+    pub digests_uploaded: u64,
+}
+
 pub struct Uploader {}
 
 impl Uploader {
@@ -158,12 +164,12 @@ impl Uploader {
         blobs: &ActionBlobs,
         use_case: RemoteExecutorUseCase,
         digest_config: DigestConfig,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<UploadStats> {
         let (mut upload_blobs, mut missing_digests) =
             Self::find_missing(client, input_dir, blobs, &use_case, digest_config).await?;
 
         if upload_blobs.is_empty() && missing_digests.is_empty() {
-            return Ok(());
+            return Ok(UploadStats::default());
         }
 
         // Find the file paths and directory blobs that need to be uploaded
@@ -301,6 +307,30 @@ impl Uploader {
                 .context("Error materializing paths for upload")?;
         }
 
+        // Compute stats of digests we're about to upload so we can report them
+        // to the span end event of this stage of execution.
+        let stats = {
+            let named_digest_byte_count: u64 = upload_files
+                .iter()
+                .map(|nd| {
+                    let byte_count: u64 = nd.digest.size_in_bytes.try_into().unwrap_or_default();
+                    byte_count
+                })
+                .sum();
+            let blob_byte_count: u64 = upload_blobs
+                .iter()
+                .map(|blob| {
+                    let byte_count: u64 = blob.digest.size_in_bytes.try_into().unwrap_or_default();
+                    byte_count
+                })
+                .sum();
+
+            UploadStats {
+                digests_uploaded: (upload_files.len() + upload_blobs.len()) as u64,
+                bytes_uploaded: named_digest_byte_count + blob_byte_count,
+            }
+        };
+
         // Upload
         let upload_res = if !upload_files.is_empty() || !upload_blobs.is_empty() {
             client
@@ -336,7 +366,7 @@ impl Uploader {
 
         upload_res.context("RE: upload")?;
 
-        Ok(())
+        Ok(stats)
     }
 }
 

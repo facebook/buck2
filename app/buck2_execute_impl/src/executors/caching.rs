@@ -106,7 +106,7 @@ impl CachingExecutor {
                 Err(e) => {
                     return ControlFlow::Break(manager.error("upload", e));
                 }
-                Ok(()) => {}
+                Ok(_) => {}
             };
         }
 
@@ -324,6 +324,7 @@ impl CachingExecutor {
                                 digest_config,
                             )
                             .await
+                            .map(|_| ())
                     };
 
                     upload_futs.push(fut.boxed());

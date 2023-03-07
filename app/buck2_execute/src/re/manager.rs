@@ -49,6 +49,7 @@ use crate::re::action_identity::ReActionIdentity;
 use crate::re::client::RemoteExecutionClient;
 use crate::re::client::RemoteExecutionClientStats;
 use crate::re::re_get_session_id::ReGetSessionId;
+use crate::re::uploader::UploadStats;
 
 /// Lifetime management of the Remote Execution connection (i.e. the RemoteExecutionClient).
 ///
@@ -323,7 +324,7 @@ impl ManagedRemoteExecutionClient {
         input_dir: &ActionImmutableDirectory,
         use_case: RemoteExecutorUseCase,
         digest_config: DigestConfig,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<UploadStats> {
         self.lock()?
             .get()
             .await?

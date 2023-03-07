@@ -70,6 +70,7 @@ use crate::execute::manager::CommandExecutionManager;
 use crate::materialize::materializer::Materializer;
 use crate::re::action_identity::ReActionIdentity;
 use crate::re::metadata::RemoteExecutionMetadataExt;
+use crate::re::uploader::UploadStats;
 use crate::re::uploader::Uploader;
 
 pub struct RemoteExecutionClientOpStats {
@@ -254,7 +255,7 @@ impl RemoteExecutionClient {
         input_dir: &ActionImmutableDirectory,
         use_case: RemoteExecutorUseCase,
         digest_config: DigestConfig,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<UploadStats> {
         self.data
             .uploads
             .op(self
@@ -673,7 +674,7 @@ impl RemoteExecutionClientImpl {
         input_dir: &ActionImmutableDirectory,
         use_case: RemoteExecutorUseCase,
         digest_config: DigestConfig,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<UploadStats> {
         // Actually upload to CAS
         let _cas = self.cas_semaphore.acquire().await;
         Uploader::upload(

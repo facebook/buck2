@@ -355,6 +355,7 @@ mod fbcode {
                     Some(Data::DynamicLambda(_)) => true,
                     Some(Data::BxlExecution(_)) => false,
                     Some(Data::BxlDiceInvocation(_)) => false,
+                    Some(Data::ReUpload(_)) => false,
                     Some(Data::Fake(..)) => false,
                     None => false,
                 }
@@ -399,6 +400,7 @@ mod fbcode {
                     Some(Data::DeferredEvaluation(_)) => false,
                     Some(Data::BxlExecution(_)) => false,
                     Some(Data::BxlDiceInvocation(_)) => false,
+                    Some(Data::ReUpload(_)) => false,
                     Some(Data::Fake(..)) => true,
                     None => false,
                 }
