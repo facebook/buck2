@@ -55,6 +55,14 @@ impl DiceKeyErased {
         })
     }
 
+    #[allow(unused)] // TODO(bobyf) temporary
+    pub(crate) fn key_type_name(&self) -> &'static str {
+        match self {
+            DiceKeyErased::Key(k) => k.key_type_name(),
+            DiceKeyErased::Projection(k) => k.proj.key_type_name(),
+        }
+    }
+
     pub(crate) fn hash(&self) -> u64 {
         match self {
             DiceKeyErased::Key(k) => k.hash(),
@@ -127,6 +135,14 @@ impl<'a> DiceKeyErasedRef<'a> {
         }
     }
 
+    #[allow(unused)] // TODO(bobyf) temporary
+    pub(crate) fn key_type_name(&self) -> &'static str {
+        match self {
+            DiceKeyErasedRef::Key(k) => k.key_type_name(),
+            DiceKeyErasedRef::Projection(k) => k.proj.key_type_name(),
+        }
+    }
+
     fn to_owned(&self) -> DiceKeyErased {
         match self {
             DiceKeyErasedRef::Key(k) => DiceKeyErased::Key(k.clone_arc()),
@@ -181,6 +197,8 @@ pub(crate) trait DiceKeyDyn: Allocative + Send + Sync + 'static {
     fn as_any(&self) -> &dyn Any;
 
     fn clone_arc(&self) -> Arc<dyn DiceKeyDyn>;
+
+    fn key_type_name(&self) -> &'static str;
 }
 
 #[async_trait]
@@ -208,6 +226,10 @@ where
     fn clone_arc(&self) -> Arc<dyn DiceKeyDyn> {
         Arc::new(self.clone())
     }
+
+    fn key_type_name(&self) -> &'static str {
+        K::key_type_name()
+    }
 }
 
 pub(crate) trait DiceProjectionDyn: Allocative + Send + Sync + 'static {
@@ -220,6 +242,8 @@ pub(crate) trait DiceProjectionDyn: Allocative + Send + Sync + 'static {
     fn as_any(&self) -> &dyn Any;
 
     fn clone_arc(&self) -> Arc<dyn DiceProjectionDyn>;
+
+    fn key_type_name(&self) -> &'static str;
 }
 
 impl<K> DiceProjectionDyn for K
@@ -250,6 +274,10 @@ where
 
     fn clone_arc(&self) -> Arc<dyn DiceProjectionDyn> {
         Arc::new(self.clone())
+    }
+
+    fn key_type_name(&self) -> &'static str {
+        K::key_type_name()
     }
 }
 
