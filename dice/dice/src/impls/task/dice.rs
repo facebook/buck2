@@ -16,6 +16,7 @@ use std::sync::atomic::AtomicU8;
 use std::sync::atomic::Ordering;
 use std::task::Waker;
 
+use allocative::Allocative;
 use dupe::Dupe;
 use dupe::IterDupedExt;
 use futures::task::AtomicWaker;
@@ -54,12 +55,15 @@ use crate::impls::value::DiceValue;
 /// doesn't require weak ptr handling. This is just so that we have the JoinHandle so we can abort
 /// when canceled, but we could choose to change the implementation by moving cancellation
 /// notification into the DiceTaskInternal
+#[derive(Allocative)]
 pub(crate) struct DiceTask {
     pub(super) internal: Arc<DiceTaskInternal>,
     /// The spawned task that is responsible for completing this task.
+    #[allocative(skip)]
     pub(super) spawned: JoinHandle<Box<dyn Any + Send>>,
 }
 
+#[derive(Allocative)]
 pub(super) struct DiceTaskInternal {
     /// The internal progress state of the task
     pub(super) state: AtomicDiceTaskState,
@@ -71,6 +75,7 @@ pub(super) struct DiceTaskInternal {
     /// Shared future.
     pub(super) dependants: Mutex<Option<Slab<(DiceKey, Arc<AtomicWaker>)>>>,
     /// The value if finished computing
+    #[allocative(skip)] // TODO should measure this
     pub(super) maybe_value: UnsafeCell<Option<DiceResult<DiceValue>>>,
 }
 
@@ -136,7 +141,7 @@ unsafe impl Send for DiceTaskInternal {}
 unsafe impl Sync for DiceTaskInternal {}
 
 /// The state of the DiceTask about what stage of evaluation we are in.
-#[derive(Default)]
+#[derive(Default, Allocative)]
 pub(super) struct AtomicDiceTaskState(AtomicU8);
 
 impl AtomicDiceTaskState {
