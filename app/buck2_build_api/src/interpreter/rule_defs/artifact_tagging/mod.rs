@@ -9,9 +9,12 @@
 
 mod artifact_tag;
 mod tagged_command_line;
+mod tagged_value;
 mod tagged_visitor;
 
 pub use artifact_tag::ArtifactTag;
 pub use tagged_command_line::FrozenTaggedCommandLine;
 pub use tagged_command_line::TaggedCommandLine;
+pub use tagged_value::TaggedValue;
+use tagged_value::TaggedValueGen;
 pub use tagged_visitor::TaggedVisitor;

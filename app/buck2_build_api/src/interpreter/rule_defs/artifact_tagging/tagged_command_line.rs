@@ -16,11 +16,9 @@ use starlark::values::Freeze;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
-use starlark::values::Value;
 use starlark::values::ValueLike;
 
-use super::ArtifactTag;
-use super::TaggedVisitor;
+use super::TaggedValueGen;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
@@ -42,28 +40,14 @@ use crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 )]
 #[derive(NoSerialize)] // TODO make artifacts serializable
 #[repr(C)]
-#[display(fmt = "TaggedCommandLine({}, tagged {})", inner, tag)]
+#[display(fmt = "TaggedCommandLine({})", inner)]
 pub struct TaggedCommandLineGen<V> {
-    inner: V,
-    tag: ArtifactTag,
-    inputs_only: bool,
+    inner: TaggedValueGen<V>,
 }
 
-impl<'v> TaggedCommandLine<'v> {
-    pub fn new(inner: Value<'v>, tag: ArtifactTag) -> Self {
-        Self {
-            inner,
-            tag,
-            inputs_only: false,
-        }
-    }
-
-    pub fn inputs_only(inner: Value<'v>, tag: ArtifactTag) -> Self {
-        Self {
-            inner,
-            tag,
-            inputs_only: true,
-        }
+impl<V> TaggedCommandLineGen<V> {
+    pub fn new(inner: TaggedValueGen<V>) -> Self {
+        Self { inner }
     }
 }
 
@@ -83,15 +67,17 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for TaggedCommandLineGen<V> {
         context: &mut dyn CommandLineContext,
     ) -> anyhow::Result<()> {
         self.inner
+            .value()
             .to_value()
             .as_command_line_err()?
             .add_to_command_line(cli, context)
     }
 
     fn visit_artifacts(&self, visitor: &mut dyn CommandLineArtifactVisitor) -> anyhow::Result<()> {
-        let mut visitor = TaggedVisitor::wrap(&self.tag, self.inputs_only, visitor);
+        let mut visitor = self.inner.wrap_visitor(visitor);
 
         self.inner
+            .value()
             .to_value()
             .as_command_line_err()?
             .visit_artifacts(&mut visitor)
@@ -99,6 +85,7 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for TaggedCommandLineGen<V> {
 
     fn contains_arg_attr(&self) -> bool {
         self.inner
+            .value()
             .to_value()
             .as_command_line()
             .map_or(false, |inner| inner.contains_arg_attr())
@@ -109,6 +96,7 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for TaggedCommandLineGen<V> {
         visitor: &mut dyn WriteToFileMacroVisitor,
     ) -> anyhow::Result<()> {
         self.inner
+            .value()
             .to_value()
             .as_command_line_err()?
             .visit_write_to_file_macros(visitor)

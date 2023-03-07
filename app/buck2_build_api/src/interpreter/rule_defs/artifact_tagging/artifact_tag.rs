@@ -28,6 +28,7 @@ use starlark::values::Value;
 use starlark::values::ValueLike;
 
 use crate::interpreter::rule_defs::artifact_tagging::TaggedCommandLine;
+use crate::interpreter::rule_defs::artifact_tagging::TaggedValue;
 use crate::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
 
 /// ArtifactTag allows wrapping input and output artifacts in a command line with tags. Those tags
@@ -112,7 +113,7 @@ fn input_tag_methods(_: &mut MethodsBuilder) {
         // Check that the inner is actually a command line.
         let _inner = inner.as_command_line_err()?;
 
-        Ok(heap.alloc(TaggedCommandLine::new(inner, this.dupe())))
+        Ok(heap.alloc(TaggedCommandLine::new(TaggedValue::new(inner, this.dupe()))))
     }
 
     fn tag_inputs<'v>(
@@ -123,7 +124,10 @@ fn input_tag_methods(_: &mut MethodsBuilder) {
         // Check that the inner is actually a command line.
         let _inner = inner.as_command_line_err()?;
 
-        Ok(heap.alloc(TaggedCommandLine::inputs_only(inner, this.dupe())))
+        Ok(heap.alloc(TaggedCommandLine::new(TaggedValue::inputs_only(
+            inner,
+            this.dupe(),
+        ))))
     }
 }
 
