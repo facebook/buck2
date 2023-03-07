@@ -23,6 +23,7 @@ use crate::api::key::Key;
 use crate::api::user_data::UserComputationData;
 use crate::impls::dep_trackers::RecordingDepsTracker;
 use crate::impls::dice::DiceModern;
+use crate::impls::evaluator::AsyncEvaluator;
 use crate::impls::key::CowDiceKey;
 use crate::impls::key::DiceKey;
 use crate::impls::key::DiceKeyErasedRef;
@@ -31,6 +32,7 @@ use crate::impls::transaction::ActiveTransactionGuard;
 use crate::impls::transaction::TransactionUpdater;
 use crate::impls::value::DiceValue;
 use crate::versions::VersionNumber;
+use crate::HashSet;
 
 /// Context given to the `compute` function of a `Key`.
 #[derive(Allocative, Dupe, Clone)]
@@ -99,7 +101,15 @@ impl PerComputeCtx {
 
         self.data
             .per_live_version_ctx
-            .compute_opaque(dice_key)
+            .compute_opaque(
+                dice_key,
+                AsyncEvaluator::new(
+                    self.data.per_live_version_ctx.dupe(),
+                    self.data.live_version_guard.dupe(),
+                    self.data.user_data.dupe(),
+                    self.data.dice.dupe(),
+                ),
+            )
             .map(move |dice_result| {
                 dice_result.map(move |dice_value| {
                     OpaqueValueModern::new(
@@ -161,6 +171,14 @@ impl PerComputeCtx {
     pub(super) fn dep_trackers(&self) -> MutexGuard<'_, RecordingDepsTracker> {
         self.data.dep_trackers.lock()
     }
+
+    pub(crate) fn finalize_deps(self) -> HashSet<DiceKey> {
+        // TODO need to clean up these ctxs so we have less runtime errors from Arc references
+        let data = Arc::try_unwrap(self.data)
+            .map_err(|_| "Error: tried to finalize when there are more references")
+            .unwrap();
+        data.dep_trackers.into_inner().collect_deps()
+    }
 }
 
 /// Context that is shared for all current live computations of the same version.
@@ -182,6 +200,7 @@ impl SharedLiveTransactionCtx {
     pub(crate) fn compute_opaque<'b, 'a: 'b>(
         self: &Arc<Self>,
         key: DiceKey,
+        eval: AsyncEvaluator,
     ) -> impl Future<Output = DiceResult<DiceValue>> + 'b {
         async move { unimplemented!("todo") }
     }
