@@ -18,6 +18,7 @@ use crate::api::error::DiceError;
 use crate::api::error::DiceResult;
 use crate::api::key::Key;
 use crate::api::user_data::UserComputationData;
+use crate::impls::core::state::CoreStateHandle;
 use crate::impls::core::state::StateRequest;
 use crate::impls::ctx::PerComputeCtx;
 use crate::impls::ctx::SharedLiveTransactionCtx;
@@ -106,7 +107,7 @@ impl TransactionUpdater {
             .request(StateRequest::CurrentVersion { resp: tx });
 
         let v = rx.await.unwrap();
-        let guard = ActiveTransactionGuard::new(v, self.dice.dupe());
+        let guard = ActiveTransactionGuard::new(v, self.dice.state_handle.dupe());
         let (tx, rx) = oneshot::channel();
         self.dice.state_handle.request(StateRequest::CtxAtVersion {
             version: v,
@@ -126,7 +127,7 @@ impl TransactionUpdater {
         });
 
         let v = rx.await.unwrap();
-        let guard = ActiveTransactionGuard::new(v, self.dice.dupe());
+        let guard = ActiveTransactionGuard::new(v, self.dice.state_handle.dupe());
         let (tx, rx) = oneshot::channel();
         self.dice.state_handle.request(StateRequest::CtxAtVersion {
             guard,
@@ -143,8 +144,8 @@ impl TransactionUpdater {
 pub(crate) struct ActiveTransactionGuard(Arc<ActiveTransactionGuardInner>);
 
 impl ActiveTransactionGuard {
-    pub(crate) fn new(v: VersionNumber, dice: Arc<DiceModern>) -> Self {
-        Self(Arc::new(ActiveTransactionGuardInner { v, dice }))
+    pub(crate) fn new(v: VersionNumber, state_handle: CoreStateHandle) -> Self {
+        Self(Arc::new(ActiveTransactionGuardInner { v, state_handle }))
     }
 }
 
@@ -153,13 +154,12 @@ impl ActiveTransactionGuard {
 pub(crate) struct ActiveTransactionGuardInner {
     v: VersionNumber,
     #[derivative(Debug = "ignore")]
-    dice: Arc<DiceModern>,
+    state_handle: CoreStateHandle,
 }
 
 impl Drop for ActiveTransactionGuardInner {
     fn drop(&mut self) {
-        self.dice
-            .state_handle
+        self.state_handle
             .request(StateRequest::DropCtxAtVersion { version: self.v })
     }
 }
