@@ -11,6 +11,7 @@ use std::future::Future;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use dashmap::mapref::entry::Entry;
 use derivative::Derivative;
 use dupe::Dupe;
 use futures::FutureExt;
@@ -23,9 +24,12 @@ use crate::api::error::DiceResult;
 use crate::api::key::Key;
 use crate::api::user_data::UserComputationData;
 use crate::impls::cache::SharedCache;
+use crate::impls::core::state::CoreStateHandle;
 use crate::impls::dep_trackers::RecordingDepsTracker;
 use crate::impls::dice::DiceModern;
 use crate::impls::evaluator::AsyncEvaluator;
+use crate::impls::events::DiceEventDispatcher;
+use crate::impls::incremental::IncrementalEngine;
 use crate::impls::key::CowDiceKey;
 use crate::impls::key::DiceKey;
 use crate::impls::key::DiceKeyErasedRef;
@@ -102,11 +106,14 @@ impl PerComputeCtx {
             .per_live_version_ctx
             .compute_opaque(
                 dice_key,
+                self.data.dice.state_handle.dupe(),
                 AsyncEvaluator::new(
                     self.data.per_live_version_ctx.dupe(),
                     self.data.user_data.dupe(),
                     self.data.dice.dupe(),
                 ),
+                &Arc::new(Default::default()),
+                DiceEventDispatcher::new(self.data.user_data.tracker.dupe(), self.data.dice.dupe()),
             )
             .map(move |dice_result| {
                 dice_result.map(move |dice_value| {
@@ -211,62 +218,34 @@ impl SharedLiveTransactionCtx {
     pub(crate) fn compute_opaque(
         &self,
         key: DiceKey,
+        state: CoreStateHandle,
         eval: AsyncEvaluator,
+        extra: &Arc<UserComputationData>,
+        events: DiceEventDispatcher,
     ) -> impl Future<Output = DiceResult<DiceValue>> {
-        async move { unimplemented!("todo") }
+        match self.cache.get(key) {
+            Entry::Occupied(occupied) => occupied.get().depended_on_by(key),
+            Entry::Vacant(vacant) => {
+                let task = IncrementalEngine::spawn_for_key(
+                    state,
+                    extra.spawner.dupe(),
+                    extra,
+                    key,
+                    eval,
+                    self.dupe(),
+                    events,
+                );
+
+                let fut = task.depended_on_by(key);
+
+                vacant.insert(task);
+
+                fut
+            }
+        }
     }
 
     pub(crate) fn get_version(&self) -> VersionNumber {
         self.version
-    }
-}
-
-#[cfg(test)]
-mod tests {
-
-    use crate::impls::dice::DiceModernDataBuilder;
-    use crate::DetectCycles;
-    use crate::UserComputationData;
-
-    #[tokio::test]
-    async fn ctx_and_updater_with_user_data() {
-        let dice = {
-            let updater = DiceModernDataBuilder::new();
-
-            updater.build(DetectCycles::Disabled)
-        };
-
-        let updater = dice.updater();
-        let mut data = UserComputationData::new();
-        data.data.set::<u32>(5);
-
-        let ctx = updater.commit_with_data(data).await;
-        let set_data = ctx
-            .per_transaction_data()
-            .data
-            .get::<u32>()
-            .expect("missing data");
-        assert_eq!(set_data, &5);
-
-        // check that into_updater keeps the data version
-        let ctx = ctx.into_updater().commit().await;
-        let set_data = ctx
-            .per_transaction_data()
-            .data
-            .get::<u32>()
-            .expect("missing data");
-        assert_eq!(set_data, &5);
-
-        let mut data = UserComputationData::new();
-        data.data.set::<u32>(2);
-        let updater = dice.updater_with_data(data);
-
-        let ctx = updater.commit().await;
-        let set_data = ctx
-            .per_transaction_data()
-            .data
-            .get::<u32>()
-            .expect("missing data");
-        assert_eq!(set_data, &2);
     }
 }

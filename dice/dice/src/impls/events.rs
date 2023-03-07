@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use triomphe::Arc;
+use std::sync::Arc;
 
 use crate::api::events::DiceEvent;
 use crate::api::events::DiceEventListener;
@@ -21,6 +21,10 @@ pub(crate) struct DiceEventDispatcher {
 }
 
 impl DiceEventDispatcher {
+    pub(crate) fn new(tracker: Arc<dyn DiceEventListener>, dice: Arc<DiceModern>) -> Self {
+        Self { tracker, dice }
+    }
+
     pub(crate) fn started(&self, k: DiceKey) {
         let desc = self.dice.key_index.get(k).key_type_name();
 

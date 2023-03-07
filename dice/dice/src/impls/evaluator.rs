@@ -16,6 +16,7 @@ use crate::ctx::DiceComputationsImpl;
 use crate::impls::ctx::PerComputeCtx;
 use crate::impls::ctx::SharedLiveTransactionCtx;
 use crate::impls::dice::DiceModern;
+use crate::impls::events::DiceEventDispatcher;
 use crate::impls::key::DiceKey;
 use crate::impls::key::DiceKeyErased;
 use crate::impls::value::DiceValue;
@@ -70,7 +71,13 @@ impl AsyncEvaluator {
             DiceKeyErased::Projection(proj) => {
                 let base = self
                     .per_live_version_ctx
-                    .compute_opaque(proj.base(), self.dupe())
+                    .compute_opaque(
+                        proj.base(),
+                        self.dice.state_handle.dupe(),
+                        self.dupe(),
+                        &self.user_data,
+                        DiceEventDispatcher::new(self.user_data.tracker.dupe(), self.dice.dupe()),
+                    )
                     .await?;
 
                 let ctx = DiceProjectionComputations {
