@@ -110,10 +110,13 @@ fn input_tag_methods(_: &mut MethodsBuilder) {
         inner: Value<'v>,
         heap: &'v Heap,
     ) -> anyhow::Result<Value<'v>> {
-        // Check that the inner is actually a command line.
-        let _inner = inner.as_command_line_err()?;
+        let value = TaggedValue::new(inner, this.dupe());
 
-        Ok(heap.alloc(TaggedCommandLine::new(TaggedValue::new(inner, this.dupe()))))
+        Ok(if inner.as_command_line().is_some() {
+            heap.alloc(TaggedCommandLine::new(value))
+        } else {
+            heap.alloc(value)
+        })
     }
 
     fn tag_inputs<'v>(
@@ -121,13 +124,13 @@ fn input_tag_methods(_: &mut MethodsBuilder) {
         inner: Value<'v>,
         heap: &'v Heap,
     ) -> anyhow::Result<Value<'v>> {
-        // Check that the inner is actually a command line.
-        let _inner = inner.as_command_line_err()?;
+        let value = TaggedValue::inputs_only(inner, this.dupe());
 
-        Ok(heap.alloc(TaggedCommandLine::new(TaggedValue::inputs_only(
-            inner,
-            this.dupe(),
-        ))))
+        Ok(if inner.as_command_line().is_some() {
+            heap.alloc(TaggedCommandLine::new(value))
+        } else {
+            heap.alloc(value)
+        })
     }
 }
 
