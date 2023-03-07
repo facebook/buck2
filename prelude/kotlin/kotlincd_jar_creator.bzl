@@ -235,13 +235,21 @@ def create_jar_artifact_kotlincd(
                 output_paths.jar_parent.project("used-classes.json"),
                 output_paths.jar_parent.project("kotlin-used-classes.json"),
             ]
+            always_used_inputs = srcs + resources_map.values() + bootclasspath_entries + kotlin_compiler_plugins.keys() + [
+                proto,
+                kotlin_toolchain.kotlin_stdlib[JavaLibraryInfo].library_output.full_library,
+                kotlin_toolchain.annotation_processing_jar[JavaLibraryInfo].library_output.full_library,
+                kotlin_toolchain.kosabi_stubs_gen_plugin,
+                kotlin_toolchain.kosabi_applicability_plugin,
+                kotlin_toolchain.kosabi_jvm_abi_gen_plugin,
+            ]
             cmd = setup_dep_files(
                 actions,
                 actions_identifier,
                 cmd,
                 classpath_jars_tag,
                 java_toolchain,
-                srcs + resources_map.values() + [proto],
+                always_used_inputs,
                 used_classes_json_outputs,
                 compiling_deps_tset.project_as_args("abi_to_abi_dir") if kotlin_toolchain.dep_files == DepFiles("per_class") and compiling_deps_tset else None,
             )
