@@ -519,8 +519,41 @@ fn register_cquery(builder: &mut MethodsBuilder) {
             .map(StarlarkTargetSet::from)
     }
 
-    /// The rdeps query for finding the transitive closure of reverse dependencies. Takes in an optional depth
-    /// parameter. If no depth is passed in, then all rdeps found will be returned.
+    /// The testsof query for lising the tests of the specified targets. Performs default target platform
+    /// resolution under the hood for the tests found.
+    fn testsof_with_default_target_platform<'v>(
+        this: &StarlarkCQueryCtx<'v>,
+        targets: Value<'v>,
+        eval: &mut Evaluator<'v, '_>,
+    ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
+        this.ctx
+            .async_ctx
+            .via(|| async {
+                let maybe_compatibles = this
+                    .functions
+                    .testsof_with_default_target_platform(
+                        &this.env,
+                        &filter_incompatible(
+                            TargetExpr::<'v, ConfiguredTargetNode>::unpack(
+                                targets,
+                                &this.target_platform,
+                                this.ctx,
+                                eval,
+                            )
+                            .await?
+                            .get(this.ctx.async_ctx.0)
+                            .await?
+                            .into_iter(),
+                        )?,
+                    )
+                    .await?;
+
+                filter_incompatible(maybe_compatibles.into_iter())
+            })
+            .map(StarlarkTargetSet::from)
+    }
+
+    /// The rdeps query for finding the transitive closure of reverse dependencies.
     ///
     /// Sample usage:
     /// ```text

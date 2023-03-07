@@ -153,6 +153,11 @@ pub trait Calculation<'c> {
         global_target_platform: Option<&TargetLabel>,
     ) -> anyhow::Result<T::Configured>;
 
+    async fn get_default_configured_target<T: ConfigurableTarget>(
+        &self,
+        target: &T,
+    ) -> anyhow::Result<T::Configured>;
+
     /// For a TargetLabel, returns the TargetNode. This is really just part of the the interpreter
     /// results for the the label's package, and so this is just a utility for accessing that, it
     /// isn't separately cached.
@@ -239,6 +244,13 @@ impl<'c> Calculation<'c> for DiceComputations {
                 Ok(target.configure_with_exec(cfg, exec_cfg.cfg().dupe()))
             }
         }
+    }
+
+    async fn get_default_configured_target<T: ConfigurableTarget>(
+        &self,
+        target: &T,
+    ) -> anyhow::Result<T::Configured> {
+        self.get_configured_target(target, None).await
     }
 
     async fn get_target_node(&self, target: &TargetLabel) -> anyhow::Result<TargetNode> {

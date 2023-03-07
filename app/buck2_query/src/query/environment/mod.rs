@@ -24,6 +24,7 @@ use futures::stream::FuturesUnordered;
 use futures::stream::TryStreamExt;
 use thiserror::Error;
 
+use crate::query::compatibility::MaybeCompatible;
 use crate::query::syntax::simple::eval::error::QueryError;
 use crate::query::syntax::simple::eval::file_set::FileSet;
 use crate::query::syntax::simple::eval::set::TargetSet;
@@ -148,6 +149,11 @@ pub trait QueryEnvironment: Send + Sync {
         &self,
         node_ref: &<Self::Target as LabeledNode>::NodeRef,
     ) -> anyhow::Result<Self::Target>;
+
+    async fn get_node_for_default_configured_target(
+        &self,
+        node_ref: &<Self::Target as LabeledNode>::NodeRef,
+    ) -> anyhow::Result<MaybeCompatible<Self::Target>>;
 
     /// Evaluates a literal target pattern. See buck2_common::pattern
     async fn eval_literals(&self, literal: &[&str]) -> anyhow::Result<TargetSet<Self::Target>>;
@@ -361,6 +367,47 @@ pub trait QueryEnvironment: Send + Sync {
         let mut ret = TargetSet::new();
         while let Some(test) = futs.try_next().await? {
             ret.insert(test);
+        }
+
+        Ok(ret)
+    }
+
+    async fn testsof_with_default_target_platform(
+        &self,
+        targets: &TargetSet<Self::Target>,
+    ) -> anyhow::Result<Vec<MaybeCompatible<Self::Target>>> {
+        let target_tests = targets
+            .iter()
+            .map(|target| {
+                let tests = target
+                    .tests()
+                    .ok_or(QueryError::FunctionUnimplemented("testsof"))?;
+
+                anyhow::Ok((target, tests))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let mut futs = target_tests
+            .into_iter()
+            .flat_map(|(target, tests)| {
+                tests.into_iter().map(move |test| async move {
+                    let test = self
+                        .get_node_for_default_configured_target(&test)
+                        .await
+                        .with_context(|| {
+                            format!(
+                                "Error getting test of target {}",
+                                LabeledNode::node_ref(target),
+                            )
+                        })?;
+                    anyhow::Ok(test)
+                })
+            })
+            .collect::<FuturesUnordered<_>>();
+
+        let mut ret = Vec::new();
+        while let Some(test) = futs.try_next().await? {
+            ret.push(test);
         }
 
         Ok(ret)

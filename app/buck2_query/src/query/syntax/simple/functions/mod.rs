@@ -19,6 +19,7 @@ use buck2_query_parser::BinaryOp;
 use buck2_query_parser::Expr;
 use gazebo::variants::VariantName;
 
+use crate::query::compatibility::MaybeCompatible;
 use crate::query::environment::QueryEnvironment;
 use crate::query::syntax::simple::eval::error::QueryError;
 use crate::query::syntax::simple::eval::evaluator::QueryEvaluator;
@@ -553,6 +554,14 @@ impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
         targets: &TargetSet<Env::Target>,
     ) -> anyhow::Result<TargetSet<Env::Target>> {
         env.testsof(targets).await
+    }
+
+    pub async fn testsof_with_default_target_platform(
+        &self,
+        env: &Env,
+        targets: &TargetSet<Env::Target>,
+    ) -> anyhow::Result<Vec<MaybeCompatible<Env::Target>>> {
+        env.testsof_with_default_target_platform(targets).await
     }
 
     // These three functions are intentionally implemented as errors. They are only available within the context

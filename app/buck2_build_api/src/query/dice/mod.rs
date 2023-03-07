@@ -267,6 +267,14 @@ impl<'c> CqueryDelegate for DiceQueryDelegate<'c> {
             .require_compatible()?)
     }
 
+    async fn get_node_for_default_configured_target(
+        &self,
+        target: &TargetLabel,
+    ) -> anyhow::Result<MaybeCompatible<ConfiguredTargetNode>> {
+        let target = self.ctx.get_default_configured_target(target).await?;
+        self.ctx.get_configured_target_node(&target).await
+    }
+
     async fn get_configured_target(
         &self,
         target: &TargetLabel,

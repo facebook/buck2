@@ -26,10 +26,12 @@ use buck2_core::target::label::TargetLabel;
 use buck2_core::target::name::TargetName;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::unconfigured::TargetNode;
+use buck2_query::query::compatibility::MaybeCompatible;
 use buck2_query::query::environment::LabeledNode;
 use buck2_query::query::environment::NodeLabel;
 use buck2_query::query::environment::QueryEnvironment;
 use buck2_query::query::environment::QueryTarget;
+use buck2_query::query::syntax::simple::eval::error::QueryError;
 use buck2_query::query::syntax::simple::eval::file_set::FileNode;
 use buck2_query::query::syntax::simple::eval::file_set::FileSet;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
@@ -191,6 +193,16 @@ impl<'c> QueryEnvironment for UqueryEnvironment<'c> {
 
     async fn get_node(&self, node_ref: &TargetLabel) -> anyhow::Result<Self::Target> {
         UqueryEnvironment::get_node(self, node_ref).await
+    }
+
+    async fn get_node_for_default_configured_target(
+        &self,
+        _node_ref: &TargetLabel,
+    ) -> anyhow::Result<MaybeCompatible<Self::Target>> {
+        Err(QueryError::FunctionUnimplemented(
+            "get_node_for_default_configured_target() only for CqueryEnvironment",
+        )
+        .into())
     }
 
     async fn eval_literals(&self, literals: &[&str]) -> anyhow::Result<TargetSet<TargetNode>> {

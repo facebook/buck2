@@ -61,6 +61,11 @@ pub trait CqueryDelegate: Send + Sync {
         &self,
         target: &TargetLabel,
     ) -> anyhow::Result<ConfiguredTargetLabel>;
+
+    async fn get_node_for_default_configured_target(
+        &self,
+        target: &TargetLabel,
+    ) -> anyhow::Result<MaybeCompatible<ConfiguredTargetNode>>;
 }
 
 /// [Context](https://fburl.com/adiagq2f).
@@ -110,6 +115,15 @@ impl<'c> CqueryEnvironment<'c> {
         label: &ConfiguredTargetLabel,
     ) -> anyhow::Result<ConfiguredTargetNode> {
         self.delegate.get_node_for_configured_target(label).await
+    }
+
+    async fn get_node_for_default_configured_target(
+        &self,
+        label: &ConfiguredTargetLabel,
+    ) -> anyhow::Result<MaybeCompatible<ConfiguredTargetNode>> {
+        self.delegate
+            .get_node_for_default_configured_target(label.unconfigured())
+            .await
     }
 
     /// Deprecated `owner` function implementation.
@@ -186,6 +200,13 @@ impl<'c> QueryEnvironment for CqueryEnvironment<'c> {
 
     async fn get_node(&self, node_ref: &ConfiguredTargetLabel) -> anyhow::Result<Self::Target> {
         CqueryEnvironment::get_node(self, node_ref).await
+    }
+
+    async fn get_node_for_default_configured_target(
+        &self,
+        node_ref: &ConfiguredTargetLabel,
+    ) -> anyhow::Result<MaybeCompatible<Self::Target>> {
+        CqueryEnvironment::get_node_for_default_configured_target(self, node_ref).await
     }
 
     async fn eval_literals(&self, literals: &[&str]) -> anyhow::Result<TargetSet<Self::Target>> {

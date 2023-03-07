@@ -21,6 +21,7 @@ use buck2_interpreter_for_build::attrs::coerce::query_functions::QUERY_FUNCTIONS
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::configured_ref::ConfiguredGraphNodeRef;
 use buck2_node::nodes::configured_ref::ConfiguredGraphNodeRefLookup;
+use buck2_query::query::compatibility::MaybeCompatible;
 use buck2_query::query::environment::LabeledNode;
 use buck2_query::query::environment::QueryEnvironment;
 use buck2_query::query::environment::QueryTarget;
@@ -384,6 +385,16 @@ impl<'a> QueryEnvironment for ConfiguredGraphQueryEnvironment<'a> {
 
     async fn get_node(&self, node_ref: &ConfiguredGraphNodeRef) -> anyhow::Result<Self::Target> {
         Ok(node_ref.dupe())
+    }
+
+    async fn get_node_for_default_configured_target(
+        &self,
+        _node_ref: &ConfiguredGraphNodeRef,
+    ) -> anyhow::Result<MaybeCompatible<Self::Target>> {
+        Err(QueryError::FunctionUnimplemented(
+            "get_node_for_default_configured_target() only for CqueryEnvironment",
+        )
+        .into())
     }
 
     async fn eval_literals(&self, literal: &[&str]) -> anyhow::Result<TargetSet<Self::Target>> {

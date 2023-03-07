@@ -18,6 +18,7 @@ use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_execute::artifact::fs::ArtifactFs;
 use buck2_execute::artifact::fs::ExecutorFs;
+use buck2_query::query::compatibility::MaybeCompatible;
 use buck2_query::query::environment::LabeledNode;
 use buck2_query::query::environment::NodeLabel;
 use buck2_query::query::environment::QueryEnvironment;
@@ -319,6 +320,16 @@ impl<'c> QueryEnvironment for AqueryEnvironment<'c> {
 
     async fn get_node(&self, node_ref: &ActionKey) -> anyhow::Result<Self::Target> {
         AqueryEnvironment::get_node(self, node_ref).await
+    }
+
+    async fn get_node_for_default_configured_target(
+        &self,
+        _node_ref: &ActionKey,
+    ) -> anyhow::Result<MaybeCompatible<Self::Target>> {
+        Err(QueryError::FunctionUnimplemented(
+            "get_node_for_default_configured_target() only for CqueryEnvironment",
+        )
+        .into())
     }
 
     async fn eval_literals(&self, literals: &[&str]) -> anyhow::Result<TargetSet<Self::Target>> {

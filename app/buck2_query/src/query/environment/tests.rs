@@ -159,6 +159,13 @@ impl QueryEnvironment for TestEnv {
         <Self as NodeLookup<TestTarget>>::get(self, node_ref)
     }
 
+    async fn get_node_for_default_configured_target(
+        &self,
+        _node_ref: &<Self::Target as LabeledNode>::NodeRef,
+    ) -> anyhow::Result<MaybeCompatible<Self::Target>> {
+        unimplemented!()
+    }
+
     async fn eval_literals(&self, _literal: &[&str]) -> anyhow::Result<TargetSet<Self::Target>> {
         unimplemented!()
     }

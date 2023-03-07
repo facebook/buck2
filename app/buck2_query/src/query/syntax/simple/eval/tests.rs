@@ -23,6 +23,7 @@ use dupe::Dupe;
 use serde::Serialize;
 use serde::Serializer;
 
+use crate::query::compatibility::MaybeCompatible;
 use crate::query::environment::NodeLabel;
 use crate::query::environment::QueryEnvironment;
 use crate::query::environment::QueryTarget;
@@ -126,6 +127,13 @@ impl QueryEnvironment for Env {
     type Target = Target;
 
     async fn get_node(&self, _node_ref: &TargetRef) -> anyhow::Result<Self::Target> {
+        unimplemented!()
+    }
+
+    async fn get_node_for_default_configured_target(
+        &self,
+        _node_ref: &TargetRef,
+    ) -> anyhow::Result<MaybeCompatible<Self::Target>> {
         unimplemented!()
     }
 
