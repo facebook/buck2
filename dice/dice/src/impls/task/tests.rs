@@ -52,6 +52,8 @@ async fn simple_immediately_ready_task() {
 
     let promise = task.depended_on_by(DiceKey { index: 1 });
 
+    assert_eq!(task.inspect_waiters(), None);
+
     let polled = futures::poll!(promise);
 
     match polled {
@@ -79,6 +81,8 @@ async fn simple_task() {
     });
 
     let mut promise = task.depended_on_by(DiceKey { index: 1 });
+
+    assert_eq!(task.inspect_waiters(), Some(vec![DiceKey { index: 1 }]));
 
     let polled = futures::poll!(&mut promise);
     assert!(
@@ -115,6 +119,17 @@ async fn multiple_promises_all_completes() {
     let promise3 = task.depended_on_by(DiceKey { index: 3 });
     let promise4 = task.depended_on_by(DiceKey { index: 4 });
     let promise5 = task.depended_on_by(DiceKey { index: 5 });
+
+    assert_eq!(
+        task.inspect_waiters(),
+        Some(vec![
+            DiceKey { index: 1 },
+            DiceKey { index: 2 },
+            DiceKey { index: 3 },
+            DiceKey { index: 4 },
+            DiceKey { index: 5 }
+        ])
+    );
 
     let (v1, v2, v3, v4, v5) =
         futures::future::join5(promise1, promise2, promise3, promise4, promise5).await;

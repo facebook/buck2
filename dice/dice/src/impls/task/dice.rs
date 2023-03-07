@@ -10,6 +10,7 @@
 //! A task stored by Dice that is shared for all transactions at the same version
 use std::any::Any;
 use std::cell::UnsafeCell;
+use std::ops::Deref;
 use std::ops::DerefMut;
 use std::sync::atomic::AtomicU8;
 use std::sync::atomic::Ordering;
@@ -96,6 +97,15 @@ impl DiceTask {
                 }
             }
         }
+    }
+
+    pub(crate) fn inspect_waiters(&self) -> Option<Vec<DiceKey>> {
+        self.internal
+            .dependants
+            .lock()
+            .deref()
+            .as_ref()
+            .map(|deps| deps.iter().map(|(_, (k, _))| *k).collect())
     }
 }
 
