@@ -37,9 +37,15 @@ The directory tree of one or more Buck2 [packages](#package). A Buck2 build can 
 
 #### Configuration
 
-:::note
-🚧   THIS SECTION IS UNDER CONSTRUCTION
-:::
+Configurations consist of a set of "constraint values" which are used to resolve `select` [attributes][#attributes] prior to evaluating [rule][#rule] implementations: the attribute takes the value of the first branch in the `select` that matches the configuration.
+
+Configurations are instantiated by rules that produce a `PlatformInfo` [provider][#provider]. Once created, targets can receive their configuration through a variety of mechanisms, such as:
+
+- Inheritance: by default, when following a dependency edge A -> B, B inherits A's cofngiuration.
+- The `default_target_platform` attribute and `--target-platforms` command line flag
+- [Transitions][#transitions]
+
+Configurations allow a single target to exist in multiple variants in the configured graph, for example to build a given binary at differing optimization levels or targeting differen CPU architectures.
 
 #### Daemon
 
