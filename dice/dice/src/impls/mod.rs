@@ -23,5 +23,7 @@ mod key_index;
 pub(crate) mod opaque;
 #[allow(unused)]
 pub(crate) mod task;
+#[cfg(test)]
+mod tests;
 pub(crate) mod transaction;
 pub(crate) mod value;
