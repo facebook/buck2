@@ -25,6 +25,7 @@ use slab::Slab;
 use tokio::task::JoinHandle;
 use triomphe::Arc;
 
+use crate::api::error::DiceResult;
 use crate::impls::key::DiceKey;
 use crate::impls::task::promise::DicePromise;
 use crate::impls::value::DiceValue;
@@ -70,7 +71,7 @@ pub(super) struct DiceTaskInternal {
     /// Shared future.
     pub(super) dependants: Mutex<Option<Slab<(DiceKey, Arc<AtomicWaker>)>>>,
     /// The value if finished computing
-    pub(super) maybe_value: UnsafeCell<Option<DiceValue>>,
+    pub(super) maybe_value: UnsafeCell<Option<DiceResult<DiceValue>>>,
 }
 
 impl DiceTask {

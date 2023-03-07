@@ -15,6 +15,7 @@ use triomphe::Arc;
 
 use crate::impls::task::dice::DiceTaskInternal;
 use crate::impls::value::DiceValue;
+use crate::DiceResult;
 
 /// The handle to the 'DiceTask' owned by the spawned thread that is responsible for completing
 /// the task.
@@ -31,7 +32,7 @@ impl DiceTaskHandle {
         self.internal.state.report_computing();
     }
 
-    pub(crate) fn finished(self, value: DiceValue) {
+    pub(crate) fn finished(self, value: DiceResult<DiceValue>) {
         let prev_exist = unsafe {
             // SAFETY: no tasks read the value unless state is converted to `READY`
             &mut *self.internal.maybe_value.get()

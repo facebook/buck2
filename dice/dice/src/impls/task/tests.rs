@@ -43,9 +43,9 @@ impl Key for K {
 }
 
 #[tokio::test]
-async fn simple_immediately_ready_task() {
+async fn simple_immediately_ready_task() -> anyhow::Result<()> {
     let task = spawn_dice_task(Arc::new(TokioSpawner), &(), |handle| {
-        handle.finished(DiceValue::new(DiceKeyValue::<K>::new(1)));
+        handle.finished(Ok(DiceValue::new(DiceKeyValue::<K>::new(1))));
 
         futures::future::ready(Box::new(()) as Box<dyn Any + Send + 'static>)
     });
@@ -58,14 +58,16 @@ async fn simple_immediately_ready_task() {
 
     match polled {
         Poll::Ready(v) => {
-            assert!(v.equality(&DiceValue::new(DiceKeyValue::<K>::new(1))))
+            assert!(v?.equality(&DiceValue::new(DiceKeyValue::<K>::new(1))))
         }
         Poll::Pending => panic!("Promise should be ready immediately"),
     }
+
+    Ok(())
 }
 
 #[tokio::test]
-async fn simple_task() {
+async fn simple_task() -> anyhow::Result<()> {
     let lock = Arc::new(Mutex::new(()));
 
     let lock_dupe = lock.dupe();
@@ -75,7 +77,7 @@ async fn simple_task() {
         // wait for the lock too
         lock.lock().await;
 
-        handle.finished(DiceValue::new(DiceKeyValue::<K>::new(2)));
+        handle.finished(Ok(DiceValue::new(DiceKeyValue::<K>::new(2))));
 
         Box::new(()) as Box<dyn Any + Send + 'static>
     });
@@ -102,14 +104,16 @@ async fn simple_task() {
     // now await on the task, and see that we wake up and complete
 
     let v = promise.await;
-    assert!(v.equality(&DiceValue::new(DiceKeyValue::<K>::new(2))))
+    assert!(v?.equality(&DiceValue::new(DiceKeyValue::<K>::new(2))));
+
+    Ok(())
 }
 
 #[tokio::test]
-async fn multiple_promises_all_completes() {
+async fn multiple_promises_all_completes() -> anyhow::Result<()> {
     let task = spawn_dice_task(Arc::new(TokioSpawner), &(), async move |handle| {
         // wait for the lock too
-        handle.finished(DiceValue::new(DiceKeyValue::<K>::new(2)));
+        handle.finished(Ok(DiceValue::new(DiceKeyValue::<K>::new(2))));
 
         Box::new(()) as Box<dyn Any + Send + 'static>
     });
@@ -133,9 +137,11 @@ async fn multiple_promises_all_completes() {
 
     let (v1, v2, v3, v4, v5) =
         futures::future::join5(promise1, promise2, promise3, promise4, promise5).await;
-    assert!(v1.equality(&DiceValue::new(DiceKeyValue::<K>::new(2))));
-    assert!(v2.equality(&DiceValue::new(DiceKeyValue::<K>::new(2))));
-    assert!(v3.equality(&DiceValue::new(DiceKeyValue::<K>::new(2))));
-    assert!(v4.equality(&DiceValue::new(DiceKeyValue::<K>::new(2))));
-    assert!(v5.equality(&DiceValue::new(DiceKeyValue::<K>::new(2))));
+    assert!(v1?.equality(&DiceValue::new(DiceKeyValue::<K>::new(2))));
+    assert!(v2?.equality(&DiceValue::new(DiceKeyValue::<K>::new(2))));
+    assert!(v3?.equality(&DiceValue::new(DiceKeyValue::<K>::new(2))));
+    assert!(v4?.equality(&DiceValue::new(DiceKeyValue::<K>::new(2))));
+    assert!(v5?.equality(&DiceValue::new(DiceKeyValue::<K>::new(2))));
+
+    Ok(())
 }

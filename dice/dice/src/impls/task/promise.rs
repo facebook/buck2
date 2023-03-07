@@ -23,6 +23,7 @@ use futures::task::AtomicWaker;
 use parking_lot::Mutex;
 use triomphe::Arc;
 
+use crate::api::error::DiceResult;
 use crate::impls::key::DiceKey;
 use crate::impls::task::dice::DiceTaskInternal;
 use crate::impls::value::DiceValue;
@@ -79,10 +80,10 @@ impl Drop for DicePromise {
 }
 
 impl Future for DicePromise {
-    type Output = DiceValue;
+    type Output = DiceResult<DiceValue>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        fn ready(internal: &Arc<DiceTaskInternal>) -> Poll<DiceValue> {
+        fn ready(internal: &Arc<DiceTaskInternal>) -> Poll<DiceResult<DiceValue>> {
             Poll::Ready(
                 unsafe {
                     // SAFETY: main thread only writes this before setting state to `READY`
