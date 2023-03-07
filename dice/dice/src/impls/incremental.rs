@@ -14,14 +14,17 @@
 //! with multiple versions in-flight at the same time.
 //!
 
+use std::any::Any;
 use std::borrow::Cow;
 use std::fmt::Debug;
+use std::sync::Arc;
 
 use allocative::Allocative;
 use dupe::Dupe;
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
 use more_futures::cancellable_future::try_to_disable_cancellation;
+use more_futures::spawner::Spawner;
 use tokio::sync::oneshot;
 
 use crate::api::error::DiceError;
@@ -34,7 +37,9 @@ use crate::impls::ctx::SharedLiveTransactionCtx;
 use crate::impls::evaluator::AsyncEvaluator;
 use crate::impls::events::DiceEventDispatcher;
 use crate::impls::key::DiceKey;
+use crate::impls::task::dice::DiceTask;
 use crate::impls::task::handle::DiceTaskHandle;
+use crate::impls::task::spawn_dice_task;
 use crate::versions::VersionRanges;
 
 /// The incremental engine that manages all the handling of the results of a
@@ -57,15 +62,35 @@ impl Debug for IncrementalEngine {
 
 #[allow(unused)] // TODO(bobyf) temporary
 impl IncrementalEngine {
-    pub(crate) fn new(state: CoreStateHandle) -> Self {
+    fn new(state: CoreStateHandle) -> Self {
         Self { state }
     }
 
-    pub(crate) async fn eval_entry_versioned(
+    pub(crate) fn spawn_for_key<T>(
+        state: CoreStateHandle,
+        spawner: Arc<dyn Spawner<T>>,
+        spawn_ctx: &T,
+        k: DiceKey,
+        eval: AsyncEvaluator,
+        transaction_ctx: SharedLiveTransactionCtx,
+        events_dispatcher: DiceEventDispatcher,
+    ) -> DiceTask {
+        spawn_dice_task(spawner, spawn_ctx, async move |handle| {
+            let engine = IncrementalEngine::new(state);
+
+            engine
+                .eval_entry_versioned(k, eval, transaction_ctx, events_dispatcher, handle)
+                .await;
+
+            Box::new(()) as Box<dyn Any + Send + 'static>
+        })
+    }
+
+    async fn eval_entry_versioned(
         &self,
         k: DiceKey,
         eval: AsyncEvaluator,
-        transaction_ctx: &SharedLiveTransactionCtx,
+        transaction_ctx: SharedLiveTransactionCtx,
         events_dispatcher: DiceEventDispatcher,
         task_handle: DiceTaskHandle,
     ) {
@@ -84,7 +109,7 @@ impl IncrementalEngine {
                 task_handle.finished(Ok(entry))
             }
             VersionedGraphResult::Compute => {
-                self.compute(k, eval, transaction_ctx, events_dispatcher, task_handle)
+                self.compute(k, eval, &transaction_ctx, events_dispatcher, task_handle)
                     .await;
             }
 
@@ -92,14 +117,14 @@ impl IncrementalEngine {
                 match self
                     .compute_whether_dependencies_changed(
                         eval.dupe(),
-                        transaction_ctx,
+                        &transaction_ctx,
                         &mismatch.verified_versions,
                         mismatch.deps_to_validate,
                     )
                     .await
                 {
                     DidDepsChange::Changed | DidDepsChange::NoDeps => {
-                        self.compute(k, eval, transaction_ctx, events_dispatcher, task_handle)
+                        self.compute(k, eval, &transaction_ctx, events_dispatcher, task_handle)
                             .await;
                     }
                     DidDepsChange::NoChange(deps) => {
