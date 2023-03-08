@@ -22,7 +22,6 @@ use crate::api::user_data::UserComputationData;
 use crate::api::user_data::UserCycleDetectorGuard;
 use crate::impls::ctx::PerComputeCtx;
 use crate::legacy::ctx::DiceComputationsImplLegacy;
-use crate::legacy::map::DiceMap;
 use crate::opaque::OpaqueValueImpl;
 use crate::transaction_update::DiceTransactionUpdaterImpl;
 use crate::versions::VersionNumber;
@@ -126,13 +125,6 @@ impl DiceComputationsImpl {
         match self {
             DiceComputationsImpl::Legacy(delegate) => delegate.cycle_guard(),
             DiceComputationsImpl::Modern(_) => Ok(None),
-        }
-    }
-
-    pub(crate) fn unstable_take(&self) -> DiceMap {
-        match self {
-            DiceComputationsImpl::Legacy(delegate) => delegate.unstable_take(),
-            DiceComputationsImpl::Modern(_delegate) => unimplemented!("todo"),
         }
     }
 

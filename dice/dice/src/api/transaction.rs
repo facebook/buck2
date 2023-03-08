@@ -9,7 +9,6 @@
 
 use std::future::Future;
 use std::ops::Deref;
-use std::thread;
 
 use allocative::Allocative;
 use dupe::Dupe;
@@ -70,6 +69,10 @@ impl DiceTransactionUpdater {
     ) -> impl Future<Output = DiceTransaction> {
         self.0.commit_with_data(extra)
     }
+
+    pub fn unstable_take(self) -> Self {
+        Self(self.0.unstable_take())
+    }
 }
 
 /// The base struct for which all computations start. This is clonable, and dupe, and can be
@@ -82,13 +85,6 @@ impl DiceTransactionUpdater {
 pub struct DiceTransaction(pub(crate) DiceComputations);
 
 impl DiceTransaction {
-    pub fn unstable_take(self) -> Self {
-        let map = self.0.0.unstable_take();
-        // Destructors can be slow, so we do this in a separate thread.
-        thread::spawn(|| drop(map));
-        self
-    }
-
     /// Returns whether the `DiceTransaction` is equivalent. Equivalent is defined as whether the
     /// two Transactions are based off the same underlying set of key states. That is, all
     /// injected keys are the same, and the same compute keys are dirtied, and that any computations

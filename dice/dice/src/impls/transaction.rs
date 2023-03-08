@@ -129,6 +129,10 @@ impl TransactionUpdater {
         )
     }
 
+    pub(crate) fn unstable_take(&self) {
+        unimplemented!("todo")
+    }
+
     async fn commit_to_state(self) -> SharedLiveTransactionCtx {
         let (tx, rx) = oneshot::channel();
         self.dice.state_handle.request(StateRequest::UpdateState {

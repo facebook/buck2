@@ -9,6 +9,7 @@
 
 use std::future::Future;
 use std::sync::Arc;
+use std::thread;
 
 use allocative::Allocative;
 use dupe::Dupe;
@@ -106,6 +107,24 @@ impl DiceTransactionUpdaterImpl {
                 .commit_with_data(extra)
                 .map(|x| DiceTransaction(DiceComputations(DiceComputationsImpl::Modern(x))))
                 .right_future(),
+        }
+    }
+
+    /// Clears the entire DICE state. The dropping of values from memory happens asynchronously.
+    pub fn unstable_take(self) -> Self {
+        match self {
+            DiceTransactionUpdaterImpl::Legacy(ctx) => {
+                let map = ctx.unstable_take();
+                // Destructors can be slow, so we do this in a separate thread.
+                thread::spawn(|| drop(map));
+
+                DiceTransactionUpdaterImpl::Legacy(ctx)
+            }
+            DiceTransactionUpdaterImpl::Modern(delegate) => {
+                delegate.unstable_take();
+
+                DiceTransactionUpdaterImpl::Modern(delegate)
+            }
         }
     }
 }
