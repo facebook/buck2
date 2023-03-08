@@ -9,12 +9,15 @@
 
 use std::sync::Arc;
 
+use dupe::Dupe;
+
 use crate::api::events::DiceEvent;
 use crate::api::events::DiceEventListener;
 use crate::impls::dice::DiceModern;
 use crate::impls::key::DiceKey;
 use crate::impls::key_index::DiceKeyIndex;
 
+#[derive(Clone, Dupe)]
 pub(crate) struct DiceEventDispatcher {
     tracker: Arc<dyn DiceEventListener>,
     dice: Arc<DiceModern>,

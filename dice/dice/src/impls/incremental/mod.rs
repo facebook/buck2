@@ -21,9 +21,9 @@ use std::fmt::Debug;
 use allocative::Allocative;
 use dupe::Dupe;
 use futures::stream::FuturesUnordered;
+use futures::FutureExt;
 use futures::StreamExt;
 use more_futures::cancellable_future::try_to_disable_cancellation;
-use more_futures::spawner::Spawner;
 use tokio::sync::oneshot;
 use triomphe::Arc;
 
@@ -44,6 +44,7 @@ use crate::impls::task::handle::DiceTaskHandle;
 use crate::impls::task::spawn_dice_task;
 use crate::impls::value::DiceComputedValue;
 use crate::versions::VersionRanges;
+use crate::UserComputationData;
 
 /// The incremental engine that manages all the handling of the results of a
 /// specific key, performing the recomputation if necessary
@@ -69,20 +70,27 @@ impl IncrementalEngine {
         Self { state }
     }
 
-    pub(crate) fn spawn_for_key<T>(
+    pub(crate) fn spawn_for_key(
         state: CoreStateHandle,
-        spawner: &dyn Spawner<T>,
-        spawn_ctx: &T,
+        extra: &std::sync::Arc<UserComputationData>,
         k: DiceKey,
         eval: AsyncEvaluator,
         transaction_ctx: SharedLiveTransactionCtx,
         events_dispatcher: DiceEventDispatcher,
     ) -> DiceTask {
-        spawn_dice_task(spawner, spawn_ctx, async move |handle| {
+        let extra_dupe = extra.dupe();
+        spawn_dice_task(&*extra.spawner, extra, async move |handle| {
             let engine = IncrementalEngine::new(state);
 
             engine
-                .eval_entry_versioned(k, eval, transaction_ctx, events_dispatcher, handle)
+                .eval_entry_versioned(
+                    k,
+                    eval,
+                    transaction_ctx,
+                    events_dispatcher,
+                    handle,
+                    extra_dupe,
+                )
                 .await;
 
             Box::new(()) as Box<dyn Any + Send + 'static>
@@ -145,6 +153,7 @@ impl IncrementalEngine {
         transaction_ctx: SharedLiveTransactionCtx,
         events_dispatcher: DiceEventDispatcher,
         task_handle: DiceTaskHandle,
+        extra: std::sync::Arc<UserComputationData>,
     ) {
         let v = transaction_ctx.get_version();
         let (tx, rx) = oneshot::channel();
@@ -172,6 +181,8 @@ impl IncrementalEngine {
                         &transaction_ctx,
                         &mismatch.verified_versions,
                         mismatch.deps_to_validate,
+                        &extra,
+                        events_dispatcher.dupe(),
                     )
                     .await
                 {
@@ -256,25 +267,36 @@ impl IncrementalEngine {
     /// 'target_version'
     #[instrument(
         level = "debug",
-        skip(self, _transaction_ctx, _eval),
-        fields(version = %_transaction_ctx.get_version(), verified_versions = %verified_versions)
+        skip(self, transaction_ctx, eval, extra, events),
+        fields(version = %transaction_ctx.get_version(), verified_versions = %verified_versions)
     )]
     async fn compute_whether_dependencies_changed(
         &self,
-        _eval: AsyncEvaluator,
-        _transaction_ctx: &SharedLiveTransactionCtx,
+        eval: AsyncEvaluator,
+        transaction_ctx: &SharedLiveTransactionCtx,
         verified_versions: &VersionRanges,
         deps: Arc<Vec<DiceKey>>,
+        extra: &std::sync::Arc<UserComputationData>,
+        events: DiceEventDispatcher,
     ) -> DidDepsChange {
-        async fn recompute_dep(_k: DiceKey) -> DiceResult<VersionRanges> {
-            unimplemented!("todo")
-        }
-
         if deps.is_empty() {
             return DidDepsChange::NoDeps;
         }
 
-        let mut fs: FuturesUnordered<_> = deps.iter().map(|dep| recompute_dep(*dep)).collect();
+        let mut fs: FuturesUnordered<_> = deps
+            .iter()
+            .map(|dep| {
+                transaction_ctx
+                    .compute_opaque(
+                        dep.dupe(),
+                        self.state.dupe(),
+                        eval.dupe(),
+                        extra,
+                        events.dupe(),
+                    )
+                    .map(|r| r.map(|v| v.history().get_verified_ranges()))
+            })
+            .collect();
 
         let mut verified_versions = Cow::Borrowed(verified_versions);
 
