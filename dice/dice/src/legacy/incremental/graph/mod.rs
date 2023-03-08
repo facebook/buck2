@@ -21,6 +21,7 @@
 pub(crate) mod dependencies;
 pub(crate) mod storage_properties;
 
+use std::borrow::Borrow;
 use std::collections::Bound;
 use std::fmt::Debug;
 use std::ops::Bound::Included;
@@ -328,6 +329,16 @@ pub(crate) enum ReadOnlyHistory<'a> {
     FromCell(RwLockReadGuard<'a, CellHistory>),
     #[allow(unused)] // created for tests
     TestingValue(CellHistory),
+}
+
+impl<'a> Borrow<CellHistory> for ReadOnlyHistory<'a> {
+    fn borrow(&self) -> &CellHistory {
+        match self {
+            ReadOnlyHistory::FromHistInfo(hist) => hist,
+            ReadOnlyHistory::FromCell(hist) => hist,
+            ReadOnlyHistory::TestingValue(v) => v,
+        }
+    }
 }
 
 impl<'a> From<RwLockReadGuard<'a, NodeMetadata>> for ReadOnlyHistory<'a> {
