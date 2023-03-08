@@ -70,7 +70,7 @@ impl AsyncEvaluator {
                 )));
 
                 let value = key_dyn.compute(&new_ctx).await;
-                let deps = match new_ctx.0 {
+                let (deps, _validity) = match new_ctx.0 {
                     DiceComputationsImpl::Legacy(_) => {
                         unreachable!("modern dice created above")
                     }

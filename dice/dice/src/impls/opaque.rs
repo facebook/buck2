@@ -15,6 +15,7 @@ use crate::api::key::Key;
 use crate::api::projection::ProjectionKey;
 use crate::impls::ctx::PerComputeCtx;
 use crate::impls::key::DiceKey;
+use crate::impls::value::DiceValidity;
 
 #[derive(Derivative)]
 #[derivative(Debug)]
@@ -55,9 +56,14 @@ where
 
     /// Get a value and record parent computation dependency on `K`.
     pub(crate) fn into_value(self) -> K::Value {
-        self.parent_computation
-            .dep_trackers()
-            .record(self.derive_from_key);
+        self.parent_computation.dep_trackers().record(
+            self.derive_from_key,
+            if K::validity(&self.derive_from) {
+                DiceValidity::Valid
+            } else {
+                DiceValidity::Transient
+            },
+        );
 
         self.derive_from
     }

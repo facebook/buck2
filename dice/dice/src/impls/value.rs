@@ -45,6 +45,30 @@ impl DiceValue {
     }
 }
 
+/// Type erased value associated for each Key in Dice
+#[derive(Allocative, Clone, Dupe)]
+pub(crate) struct DiceValueWithValidity {
+    pub(crate) value: DiceValue,
+    pub(crate) validity: DiceValidity,
+}
+
+impl Debug for DiceValueWithValidity {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self.validity {
+            DiceValidity::Valid => f.debug_struct("DiceValidValue").finish_non_exhaustive(),
+            DiceValidity::Transient => f.debug_struct("DiceTransientValue").finish_non_exhaustive(),
+        }
+    }
+}
+
+/// validity, including based on validity of dependencies
+#[derive(Allocative, Clone, Dupe, Copy, PartialEq, Eq, Debug)]
+pub(crate) enum DiceValidity {
+    Valid,
+    /// If the node is invalid or any of its deps are invalid
+    Transient,
+}
+
 #[derive(Allocative, Clone)]
 pub(crate) struct DiceComputedValue {
     value: DiceValue,

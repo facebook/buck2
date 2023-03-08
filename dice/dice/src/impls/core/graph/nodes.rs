@@ -32,6 +32,7 @@ use crate::impls::core::graph::history::CellHistory;
 use crate::impls::key::DiceKey;
 use crate::impls::value::DiceComputedValue;
 use crate::impls::value::DiceValue;
+use crate::impls::value::DiceValueWithValidity;
 use crate::versions::VersionNumber;
 use crate::HashSet;
 

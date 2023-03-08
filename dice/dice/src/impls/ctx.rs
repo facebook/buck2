@@ -43,6 +43,7 @@ use crate::impls::transaction::ActiveTransactionGuard;
 use crate::impls::transaction::TransactionUpdater;
 use crate::impls::value::DiceComputedValue;
 use crate::impls::value::DiceKeyValue;
+use crate::impls::value::DiceValidity;
 use crate::impls::value::DiceValue;
 use crate::versions::VersionNumber;
 use crate::HashSet;
@@ -171,7 +172,14 @@ impl PerComputeCtx {
                 DiceEventDispatcher::new(self.data.user_data.tracker.dupe(), self.data.dice.dupe()),
             )
             .map(|r| {
-                self.data.dep_trackers.lock().record(dice_key);
+                self.data.dep_trackers.lock().record(
+                    dice_key,
+                    if r.value().0.validity() {
+                        DiceValidity::Valid
+                    } else {
+                        DiceValidity::Transient
+                    },
+                );
 
                 r.value()
                     .downcast_ref::<K::Value>()
@@ -228,7 +236,7 @@ impl PerComputeCtx {
         self.data.dep_trackers.lock()
     }
 
-    pub(crate) fn finalize_deps(self) -> HashSet<DiceKey> {
+    pub(crate) fn finalize_deps(self) -> (HashSet<DiceKey>, DiceValidity) {
         // TODO need to clean up these ctxs so we have less runtime errors from Arc references
         let data = Arc::try_unwrap(self.data)
             .map_err(|_| "Error: tried to finalize when there are more references")
