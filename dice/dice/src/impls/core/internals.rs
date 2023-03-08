@@ -11,6 +11,7 @@ use triomphe::Arc;
 
 use crate::impls::cache::SharedCache;
 use crate::impls::core::graph::history::CellHistory;
+use crate::impls::core::graph::storage::VersionedGraph;
 use crate::impls::core::graph::types::VersionedGraphKey;
 use crate::impls::core::graph::types::VersionedGraphResult;
 use crate::impls::core::versions::VersionTracker;
@@ -23,12 +24,14 @@ use crate::versions::VersionNumber;
 /// Core state of DICE, holding the actual graph and version information
 pub(super) struct CoreState {
     version_tracker: VersionTracker,
+    graph: VersionedGraph,
 }
 
 impl CoreState {
     pub(super) fn new() -> Self {
         Self {
             version_tracker: VersionTracker::new(),
+            graph: VersionedGraph::new(),
         }
     }
 
@@ -62,9 +65,8 @@ impl CoreState {
         self.version_tracker.drop_at_version(v)
     }
 
-    pub(super) fn lookup_key(&mut self, _key: VersionedGraphKey) -> VersionedGraphResult {
-        // TODO(bobyf) fill in actual logic to check cache
-        VersionedGraphResult::Compute
+    pub(super) fn lookup_key(&mut self, key: VersionedGraphKey) -> VersionedGraphResult {
+        self.graph.get(key)
     }
 
     pub(super) fn update_computed(
