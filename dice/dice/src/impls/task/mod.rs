@@ -21,6 +21,7 @@ use crate::impls::task::handle::DiceTaskHandle;
 pub(crate) mod dice;
 pub(crate) mod handle;
 pub(crate) mod promise;
+mod state;
 
 #[cfg(test)]
 mod tests;
@@ -40,5 +41,19 @@ where
 
     let spawned = spawner.spawn(ctx, f(handle).boxed());
 
-    DiceTask { internal, spawned }
+    DiceTask {
+        internal,
+        spawned: Some(spawned),
+    }
+}
+
+/// Unsafe as this creates a Task that must be completed explicitly otherwise polling will never
+/// complete.
+pub(crate) unsafe fn sync_dice_task() -> DiceTask {
+    let internal = DiceTaskInternal::new();
+
+    DiceTask {
+        internal,
+        spawned: None,
+    }
 }

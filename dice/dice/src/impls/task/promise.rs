@@ -18,7 +18,6 @@ use std::task::Poll;
 use std::task::RawWaker;
 use std::task::Waker;
 
-use dupe::OptionDupedExt;
 use futures::task::AtomicWaker;
 use parking_lot::Mutex;
 use triomphe::Arc;
@@ -83,28 +82,20 @@ impl Future for DicePromise {
     type Output = DiceResult<DiceValue>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        fn ready(internal: &Arc<DiceTaskInternal>) -> Poll<DiceResult<DiceValue>> {
-            Poll::Ready(
-                unsafe {
-                    // SAFETY: main thread only writes this before setting state to `READY`
-                    &*internal.maybe_value.get()
-                }
-                .as_ref()
-                .duped()
-                .expect("result should be present"),
-            )
-        }
-
         match &self.deref().0 {
-            DicePromiseInternal::Ready { internal } => ready(internal),
+            DicePromiseInternal::Ready { internal } => Poll::Ready(
+                internal
+                    .read_value()
+                    .expect("Promise ready only when value is ready"),
+            ),
             DicePromiseInternal::Pending {
                 task_internal,
                 waker,
                 ..
             } => {
                 waker.register(cx.waker());
-                if task_internal.state.is_ready(Ordering::SeqCst) {
-                    ready(task_internal)
+                if let Some(res) = task_internal.read_value() {
+                    Poll::Ready(res)
                 } else {
                     Poll::Pending
                 }

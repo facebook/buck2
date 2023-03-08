@@ -19,6 +19,7 @@ use std::task::Waker;
 use allocative::Allocative;
 use dupe::Dupe;
 use dupe::IterDupedExt;
+use dupe::OptionDupedExt;
 use futures::task::AtomicWaker;
 use hashbrown::HashSet;
 use parking_lot::Mutex;
@@ -28,7 +29,10 @@ use triomphe::Arc;
 
 use crate::api::error::DiceResult;
 use crate::impls::key::DiceKey;
+use crate::impls::task::handle::DiceTaskHandle;
+use crate::impls::task::handle::TaskState;
 use crate::impls::task::promise::DicePromise;
+use crate::impls::task::state::AtomicDiceTaskState;
 use crate::impls::value::DiceValue;
 
 ///
@@ -60,7 +64,7 @@ pub(crate) struct DiceTask {
     pub(super) internal: Arc<DiceTaskInternal>,
     /// The spawned task that is responsible for completing this task.
     #[allocative(skip)]
-    pub(super) spawned: JoinHandle<Box<dyn Any + Send>>,
+    pub(super) spawned: Option<JoinHandle<Box<dyn Any + Send>>>,
 }
 
 #[derive(Allocative)]
@@ -76,7 +80,7 @@ pub(super) struct DiceTaskInternal {
     pub(super) dependants: Mutex<Option<Slab<(DiceKey, Arc<AtomicWaker>)>>>,
     /// The value if finished computing
     #[allocative(skip)] // TODO should measure this
-    pub(super) maybe_value: UnsafeCell<Option<DiceResult<DiceValue>>>,
+    maybe_value: UnsafeCell<Option<DiceResult<DiceValue>>>,
 }
 
 impl DiceTask {
@@ -102,6 +106,31 @@ impl DiceTask {
                     DicePromise::pending(id, triomphe_dupe(&self.internal), waker)
                 }
             }
+        }
+    }
+
+    /// Get the value if already complete, or complete it. Note that `f` may run even if the result
+    /// is not used.
+    pub(crate) fn get_or_complete(
+        &self,
+        f: impl FnOnce() -> DiceResult<DiceValue>,
+    ) -> DiceResult<DiceValue> {
+        if let Some(res) = self.internal.read_value() {
+            res
+        } else {
+            match self.internal.state.report_project() {
+                TaskState::Continue => {}
+                TaskState::Finished => {
+                    return self
+                        .internal
+                        .read_value()
+                        .expect("task finished must mean result is ready");
+                }
+            }
+
+            let value = f();
+
+            self.internal.set_value(value)
         }
     }
 
@@ -133,53 +162,65 @@ impl DiceTaskInternal {
             maybe_value: UnsafeCell::new(None),
         })
     }
+
+    pub(super) fn read_value(&self) -> Option<DiceResult<DiceValue>> {
+        if self.state.is_ready(Ordering::Acquire) {
+            Some(
+                unsafe {
+                    // SAFETY: main thread only writes this before setting state to `READY`
+                    &*self.maybe_value.get()
+                }
+                .as_ref()
+                .duped()
+                .expect("result should be present"),
+            )
+        } else {
+            None
+        }
+    }
+
+    pub(super) fn set_value(&self, value: DiceResult<DiceValue>) -> DiceResult<DiceValue> {
+        match self.state.sync() {
+            TaskState::Continue => {}
+            TaskState::Finished => {
+                return self
+                    .read_value()
+                    .expect("task finished must mean result is ready");
+            }
+        };
+
+        let prev_exist = unsafe {
+            // SAFETY: no tasks read the value unless state is converted to `READY`
+            &mut *self.maybe_value.get()
+        }
+        .replace(value.dupe())
+        .is_some();
+        assert!(
+            !prev_exist,
+            "invalid state where somehow value was already written"
+        );
+
+        self.state.report_ready();
+        self.wake_deps();
+
+        value
+    }
+
+    pub(super) fn wake_deps(&self) {
+        let mut deps = self
+            .dependants
+            .lock()
+            .take()
+            .expect("Invalid state where deps where taken already");
+
+        deps.drain().for_each(|(_k, waker)| waker.wake());
+    }
 }
 
 // our use of `UnsafeCell` is okay to be send and sync.
 // Each unsafe block around its access has comments explaining the invariants.
 unsafe impl Send for DiceTaskInternal {}
 unsafe impl Sync for DiceTaskInternal {}
-
-/// The state of the DiceTask about what stage of evaluation we are in.
-#[derive(Default, Allocative)]
-pub(super) struct AtomicDiceTaskState(AtomicU8);
-
-impl AtomicDiceTaskState {
-    pub(super) fn is_ready(&self, ordering: Ordering) -> bool {
-        match self.0.load(ordering) {
-            Self::READY => true,
-            _ => false,
-        }
-    }
-
-    pub(super) fn report_checking_deps(&self) {
-        let old = self.0.swap(Self::CHECKING_DEPS, Ordering::SeqCst);
-        assert_eq!(old, Self::INITIAL_LOOKUP, "invalid state");
-    }
-
-    pub(super) fn report_computing(&self) {
-        let old = self.0.swap(Self::COMPUTING, Ordering::SeqCst);
-        assert!(
-            old == Self::INITIAL_LOOKUP || old == Self::CHECKING_DEPS,
-            "invalid state"
-        );
-    }
-
-    pub(super) fn report_ready(&self) {
-        let old = self.0.swap(Self::READY, Ordering::SeqCst);
-        assert_ne!(old, Self::READY, "invalid state");
-    }
-
-    /// When waiting for the initial lookup of the cache
-    const INITIAL_LOOKUP: u8 = 0;
-    /// When we are waiting for our dependencies to see if the value can be reused
-    /// TODO(bobyf) probably store more metadata here
-    const CHECKING_DEPS: u8 = 1;
-    /// When we are actively computing the value by running the key's compute
-    const COMPUTING: u8 = 2;
-    /// When the value is ready to be used
-    const READY: u8 = 3;
-}
 
 fn triomphe_dupe<T>(t: &Arc<T>) -> Arc<T> {
     t.clone() // triomphe arc is actually dupe

@@ -23,37 +23,26 @@ pub(crate) struct DiceTaskHandle {
     pub(super) internal: Arc<DiceTaskInternal>,
 }
 
+/// After reporting that we are about to transition to a state, should we continue processing or
+/// should we terminate
+pub(crate) enum TaskState {
+    /// continue processing as normal
+    Continue,
+    /// task was finished already
+    Finished,
+}
+
 impl DiceTaskHandle {
-    pub(crate) fn checking_deps(&self) {
-        self.internal.state.report_checking_deps();
+    pub(crate) fn checking_deps(&self) -> TaskState {
+        self.internal.state.report_checking_deps()
     }
 
-    pub(crate) fn computing(&self) {
-        self.internal.state.report_computing();
+    pub(crate) fn computing(&self) -> TaskState {
+        self.internal.state.report_computing()
     }
 
     pub(crate) fn finished(self, value: DiceResult<DiceValue>) {
-        let prev_exist = unsafe {
-            // SAFETY: no tasks read the value unless state is converted to `READY`
-            &mut *self.internal.maybe_value.get()
-        }
-        .replace(value)
-        .is_some();
-        assert!(
-            !prev_exist,
-            "invalid state where somehow value was already written"
-        );
-
-        self.internal.state.report_ready();
-
-        let mut deps = self
-            .internal
-            .dependants
-            .lock()
-            .take()
-            .expect("Invalid state where deps where taken already");
-
-        deps.drain().for_each(|(_k, waker)| waker.wake())
+        let _ignore = self.internal.set_value(value);
     }
 }
 
