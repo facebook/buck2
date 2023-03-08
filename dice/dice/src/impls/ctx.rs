@@ -123,7 +123,7 @@ impl PerComputeCtx {
                     self.data.user_data.dupe(),
                     self.data.dice.dupe(),
                 ),
-                &Arc::new(Default::default()),
+                &self.data.user_data,
                 DiceEventDispatcher::new(self.data.user_data.tracker.dupe(), self.data.dice.dupe()),
             )
             .map(move |dice_result| {
