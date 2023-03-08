@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::collections::HashMap;
 use std::collections::HashSet;
 use std::collections::VecDeque;
 use std::fmt;
@@ -40,6 +41,7 @@ use buck2_query::query::traversal::AsyncTraversalDelegate;
 use buck2_query::query::traversal::ChildVisitor;
 use buck2_query::query_module;
 use buck2_query_parser::BinaryOp;
+use dice::DiceComputations;
 use dupe::Dupe;
 use indexmap::IndexMap;
 use inventory::ctor;
@@ -47,6 +49,8 @@ use thiserror::Error;
 
 use crate::actions::artifact::Artifact;
 use crate::actions::artifact::OutputArtifact;
+use crate::analysis::configured_graph::AnalysisConfiguredGraphQueryDelegate;
+use crate::analysis::configured_graph::AnalysisDiceQueryDelegate;
 use crate::artifact_groups::deferred::DeferredTransitiveSetData;
 use crate::artifact_groups::deferred::TransitiveSetKey;
 use crate::artifact_groups::ArtifactGroup;
@@ -302,8 +306,8 @@ impl<'a> ConfiguredGraphQueryEnvironment<'a> {
     /// For each input target goes into its exposed list of providers, finds TemplatePlaceholderInfo among them
     /// and accesses its internal `keyed_variables` map with the passed `template_name` key.
     /// Then converts retrieved value form cmd args into targets and returns them back as result.
-    async fn get_from_template_placeholder_info(
-        &self,
+    async fn get_from_template_placeholder_info<'x>(
+        &'x self,
         template_name: &'static str,
         targets: &TargetSet<ConfiguredGraphNodeRef>,
     ) -> anyhow::Result<IndexMap<ConfiguredTargetLabel, Artifact>> {
@@ -435,4 +439,24 @@ impl<'a> QueryEnvironment for ConfiguredGraphQueryEnvironment<'a> {
     async fn owner(&self, _paths: &FileSet) -> anyhow::Result<TargetSet<Self::Target>> {
         Err(QueryError::FunctionUnimplemented("owner").into())
     }
+}
+
+/// Used by `audit classpath`
+pub async fn classpath(
+    ctx: &DiceComputations,
+    targets: TargetSet<ConfiguredTargetNode>,
+) -> anyhow::Result<IndexMap<ConfiguredTargetLabel, Artifact>> {
+    let targets: TargetSet<_> = targets.into_iter().map(ConfiguredGraphNodeRef).collect();
+
+    let dice_query_delegate = Arc::new(AnalysisDiceQueryDelegate { ctx });
+    let delegate = AnalysisConfiguredGraphQueryDelegate {
+        dice_query_delegate,
+        // Initializing an empty map because we don't have query literals for `audit classpath`. This is a bit hacky
+        // TODO(scottcao): Split a classpath delegate out of the configured graph query delegate so we can use it
+        // without initializing an empty map.
+        resolved_literals: HashMap::new(),
+    };
+    let env = ConfiguredGraphQueryEnvironment::new(&delegate);
+    env.get_from_template_placeholder_info("classpath", &targets)
+        .await
 }

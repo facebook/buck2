@@ -22,6 +22,7 @@ use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
+use classpath::AuditClasspathCommand;
 
 use crate::analysis_queries::AuditAnalysisQueriesCommand;
 use crate::cell::AuditCellCommand;
@@ -39,6 +40,7 @@ use crate::visibility::AuditVisibilityCommand;
 
 mod analysis_queries;
 mod cell;
+mod classpath;
 mod config;
 mod configurations;
 mod deferred_materializer;
@@ -56,6 +58,7 @@ mod visibility;
 #[clap(name = "audit", about = "Perform lower level queries")]
 pub enum AuditCommand {
     Cell(AuditCellCommand),
+    Classpath(AuditClasspathCommand),
     Config(AuditConfigCommand),
     Configurations(AuditConfigurationsCommand),
     Includes(AuditIncludesCommand),
@@ -117,6 +120,7 @@ impl AuditCommand {
     fn as_subcommand(&self) -> &dyn AuditSubcommand {
         match self {
             AuditCommand::Cell(cmd) => cmd,
+            AuditCommand::Classpath(cmd) => cmd,
             AuditCommand::Config(cmd) => cmd,
             AuditCommand::Configurations(cmd) => cmd,
             AuditCommand::Includes(cmd) => cmd,
