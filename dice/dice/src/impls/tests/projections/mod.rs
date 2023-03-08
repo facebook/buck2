@@ -25,6 +25,8 @@ use crate::api::projection::DiceProjectionComputations;
 use crate::api::projection::ProjectionKey;
 use crate::impls::dice::DiceModern;
 
+mod smoke;
+
 #[derive(Allocative, Clone, Debug, Display, Eq, PartialEq, Hash)]
 struct BaseK;
 

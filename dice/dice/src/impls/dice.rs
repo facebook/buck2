@@ -64,6 +64,11 @@ impl DiceModern {
         })
     }
 
+    #[cfg(test)]
+    pub(crate) fn builder() -> DiceModernDataBuilder {
+        DiceModernDataBuilder::new()
+    }
+
     pub fn updater(self: &Arc<Self>) -> TransactionUpdater {
         self.updater_with_data(UserComputationData::new())
     }

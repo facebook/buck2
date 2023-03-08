@@ -7,5 +7,7 @@
  * of this source tree.
  */
 
+mod demo;
+mod general;
 mod keys;
 mod projections;
