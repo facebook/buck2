@@ -20,10 +20,10 @@ pub mod subscriber;
 pub mod subscriber_unpack;
 pub mod superconsole;
 
-pub fn disable_log_upload() -> anyhow::Result<bool> {
+pub fn should_upload_log() -> anyhow::Result<bool> {
     if buck2_core::is_open_source() {
-        return Ok(true);
+        return Ok(false);
     }
     static DISABLE_LOG_UPLOAD: EnvHelper<bool> = EnvHelper::new("BUCK2_TEST_DISABLE_LOG_UPLOAD");
-    Ok(DISABLE_LOG_UPLOAD.get()?.copied().unwrap_or_default())
+    Ok(!DISABLE_LOG_UPLOAD.get()?.copied().unwrap_or_default())
 }

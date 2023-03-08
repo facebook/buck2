@@ -21,7 +21,7 @@ use futures::FutureExt;
 use tokio::process::Child;
 
 use crate::cleanup_ctx::AsyncCleanupContext;
-use crate::subscribers::disable_log_upload;
+use crate::subscribers::should_upload_log;
 use crate::subscribers::subscriber::EventSubscriber;
 
 #[derive(Copy, Clone, Dupe, Debug, PartialEq, Eq)]
@@ -101,7 +101,7 @@ impl Drop for ReLog {
 }
 
 async fn log_upload_impl(session_id: String, isolation_dir: FileNameBuf) -> anyhow::Result<()> {
-    if disable_log_upload()? {
+    if !should_upload_log()? {
         return Ok(());
     }
 

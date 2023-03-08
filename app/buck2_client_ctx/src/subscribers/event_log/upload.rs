@@ -10,8 +10,8 @@
 use buck2_events::trace::TraceId;
 
 use crate::manifold;
-use crate::subscribers::disable_log_upload;
 use crate::subscribers::event_log::EventLogPathBuf;
+use crate::subscribers::should_upload_log;
 
 #[derive(thiserror::Error, Debug)]
 
@@ -37,7 +37,7 @@ pub(crate) async fn log_upload(
 ) -> Result<(), LogUploadError> {
     buck2_core::facebook_only();
 
-    if disable_log_upload().map_err(LogUploadError::Other)? {
+    if !should_upload_log().map_err(LogUploadError::Other)? {
         return Ok(());
     }
 
