@@ -55,7 +55,6 @@ def create_ap_params(
         annotation_processor_params: ["string"],
         annotation_processor_deps: ["dependency"]) -> [AnnotationProcessorParams.type]:
     ap_params = []
-    has_annotation_processors = bool(annotation_processors)
 
     # Extend `ap_processor_deps` with java deps from `annotation_processor_deps`
     if annotation_processors or annotation_processor_params or annotation_processor_deps:
@@ -75,7 +74,6 @@ def create_ap_params(
 
     # APs derived from `plugins` attribute
     for ap_plugin in filter(None, [x.get(JavaProcessorsInfo) for x in plugins]):
-        has_annotation_processors = True
         if not ap_plugin:
             fail("Plugin must have a type of `java_annotation_processor` or `java_plugin`. Plugins: {}".format(plugins))
         if ap_plugin.type == JavaProcessorsType("java_annotation_processor"):
@@ -87,7 +85,7 @@ def create_ap_params(
                 deps = ap_plugin.deps,
             ))
 
-    return ap_params if has_annotation_processors else []
+    return ap_params
 
 def create_ksp_ap_params(ctx: "context", plugins: ["dependency"]) -> [AnnotationProcessorParams.type, None]:
     ap_processors = []
