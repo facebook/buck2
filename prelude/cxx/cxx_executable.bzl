@@ -111,6 +111,7 @@ load(
 
 _CxxExecutableOutput = record(
     binary = "artifact",
+    dwp = field(["artifact", None]),
     # Files that will likely need to be included as .hidden() arguments
     # when executing the executable (ex. RunInfo())
     runtime_files = ["_arglike"],
@@ -481,6 +482,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
 
     return _CxxExecutableOutput(
         binary = binary.output,
+        dwp = binary.dwp,
         runtime_files = runtime_files,
         sub_targets = sub_targets,
         link_args = links,

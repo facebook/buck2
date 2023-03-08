@@ -44,6 +44,10 @@ load(
     "cxx_inherited_preprocessor_infos",
 )
 load(
+    "@prelude//linking:link_info.bzl",
+    "LinkedObject",  # @unused Used as a type
+)
+load(
     "@prelude//linking:linkable_graph.bzl",
     "DlopenableLibraryInfo",
     "LinkableGraph",
@@ -502,7 +506,10 @@ def convert_python_library_to_executable(
 
         # TODO expect(len(executable_info.runtime_files) == 0, "OH NO THERE ARE RUNTIME FILES")
         artifacts = dict(extension_info.artifacts)
-        artifacts["runtime/bin/{}".format(ctx.attrs.executable_name)] = executable_info.binary
+        native_libs["runtime/bin/{}".format(ctx.attrs.executable_name)] = LinkedObject(
+            output = executable_info.binary,
+            dwp = executable_info.dwp,
+        )
         artifacts["static_extension_finder.py"] = ctx.attrs.static_extension_finder
         extra_manifests = create_manifest_for_source_map(ctx, "extension_stubs", artifacts)
 
