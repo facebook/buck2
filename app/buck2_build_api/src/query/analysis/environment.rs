@@ -444,9 +444,9 @@ impl<'a> QueryEnvironment for ConfiguredGraphQueryEnvironment<'a> {
 /// Used by `audit classpath`
 pub async fn classpath(
     ctx: &DiceComputations,
-    targets: TargetSet<ConfiguredTargetNode>,
+    targets: impl Iterator<Item = ConfiguredTargetNode>,
 ) -> anyhow::Result<IndexMap<ConfiguredTargetLabel, Artifact>> {
-    let targets: TargetSet<_> = targets.into_iter().map(ConfiguredGraphNodeRef).collect();
+    let targets: TargetSet<_> = targets.map(ConfiguredGraphNodeRef).collect();
 
     let dice_query_delegate = Arc::new(AnalysisDiceQueryDelegate { ctx });
     let delegate = AnalysisConfiguredGraphQueryDelegate {

@@ -76,7 +76,7 @@ impl AuditSubcommand for AuditClasspathCommand {
                 )
                 .await?;
 
-                let label_to_artifact = classpath(&ctx, targets).await?;
+                let label_to_artifact = classpath(&ctx, targets.into_iter()).await?;
 
                 let mut stdout = stdout.as_writer();
                 let artifact_fs = ctx.get_artifact_fs().await?;
