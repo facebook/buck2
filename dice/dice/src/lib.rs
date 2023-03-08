@@ -208,6 +208,7 @@ mod ctx;
 mod impls;
 pub mod introspection;
 mod legacy;
+pub(crate) mod metrics;
 mod opaque;
 mod transaction_update;
 mod versions;
@@ -226,7 +227,7 @@ use legacy::incremental::graph::GraphNode;
 use legacy::incremental::transaction_ctx::TransactionCtx;
 use legacy::incremental::ValueWithDeps;
 use legacy::key::StoragePropertiesForKey;
-use legacy::metrics::Metrics;
+use metrics::Metrics;
 use serde::Serializer;
 
 pub use crate::api::computations::DiceComputations;
@@ -318,7 +319,7 @@ impl DiceImplementation {
     pub fn metrics(&self) -> Metrics {
         match self {
             DiceImplementation::Legacy(dice) => dice.metrics(),
-            DiceImplementation::Modern(_dice) => unimplemented!("todo"),
+            DiceImplementation::Modern(dice) => dice.metrics(),
         }
     }
 

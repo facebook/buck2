@@ -197,7 +197,7 @@ use serde::Serializer;
 use crate::api::cycles::DetectCycles;
 use crate::api::transaction::DiceTransactionUpdater;
 use crate::api::user_data::UserComputationData;
-use crate::legacy::metrics::Metrics;
+use crate::metrics::Metrics;
 use crate::DiceDataBuilderImpl;
 use crate::DiceImplementation;
 

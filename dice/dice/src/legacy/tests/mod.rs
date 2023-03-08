@@ -919,3 +919,13 @@ async fn compute_and_update_uses_proper_version_numbers() -> anyhow::Result<()> 
 
     Ok(())
 }
+
+#[test]
+fn test_active_transaction_count() {
+    let dice = Arc::new(DiceLegacy::new(DiceData::new(), DetectCycles::Enabled));
+    assert_eq!(0, dice.metrics().active_transaction_count);
+    let ctx = dice.updater().commit();
+    assert_eq!(1, dice.metrics().active_transaction_count);
+    drop(ctx);
+    assert_eq!(0, dice.metrics().active_transaction_count);
+}

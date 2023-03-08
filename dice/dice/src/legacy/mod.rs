@@ -29,7 +29,6 @@ use incremental::IncrementalEngine;
 use incremental::ValueWithDeps;
 use key::StoragePropertiesForKey;
 use map::DiceMap;
-use metrics::Metrics;
 use parking_lot::RwLock;
 use projection::ProjectionKeyProperties;
 use serde::Serializer;
@@ -48,6 +47,7 @@ use crate::introspection::serialize_dense_graph;
 use crate::introspection::serialize_graph;
 use crate::legacy::ctx::ComputationData;
 use crate::legacy::ctx::DiceComputationsImplLegacy;
+use crate::metrics::Metrics;
 use crate::transaction_update::DiceTransactionUpdaterImpl;
 
 pub(crate) mod ctx;
@@ -55,7 +55,6 @@ pub(crate) mod cycles;
 pub(crate) mod dice_futures;
 pub(crate) mod key;
 pub(crate) mod map;
-pub(crate) mod metrics;
 pub(crate) mod opaque;
 pub(crate) mod projection;
 
@@ -234,7 +233,14 @@ impl DiceLegacy {
     }
 
     pub fn metrics(&self) -> Metrics {
-        Metrics::collect(self)
+        let dice_map = self.map.read();
+        Metrics {
+            key_count: dice_map.key_count(),
+            currently_running_key_count: dice_map.currently_running_key_count(),
+            active_transaction_count: self
+                .active_transaction_count
+                .load(std::sync::atomic::Ordering::SeqCst),
+        }
     }
 
     /// Wait until all active versions have exited.
