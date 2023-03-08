@@ -14,6 +14,7 @@ use dupe::Dupe;
 use crate::api::computations::DiceComputations;
 use crate::api::error::DiceResult;
 use crate::api::projection::DiceProjectionComputations;
+use crate::api::storage_type::StorageType;
 use crate::api::user_data::UserComputationData;
 use crate::ctx::DiceComputationsImpl;
 use crate::impls::ctx::PerComputeCtx;
@@ -48,7 +49,7 @@ impl AsyncEvaluator {
         }
     }
 
-    pub(crate) async fn evaluate<'b>(&self, key: DiceKey) -> DiceResult<DiceValueAndDeps> {
+    pub(crate) async fn evaluate<'b>(&self, key: DiceKey) -> DiceResult<DiceValueStorageAndDeps> {
         let key_erased = self.dice.key_index.get(key);
         match key_erased {
             DiceKeyErased::Key(key) => {
@@ -66,7 +67,11 @@ impl AsyncEvaluator {
                     DiceComputationsImpl::Modern(new_ctx) => new_ctx.finalize_deps(),
                 };
 
-                Ok(DiceValueAndDeps { value, deps })
+                Ok(DiceValueStorageAndDeps {
+                    value,
+                    deps,
+                    storage: key.storage_type(),
+                })
             }
             DiceKeyErased::Projection(proj) => {
                 let base = self
@@ -87,9 +92,10 @@ impl AsyncEvaluator {
 
                 let value = proj.proj().compute(base.value(), &ctx);
 
-                Ok(DiceValueAndDeps {
+                Ok(DiceValueStorageAndDeps {
                     value,
                     deps: [proj.base()].into_iter().collect(),
+                    storage: proj.proj().storage_type(),
                 })
             }
         }
@@ -120,7 +126,7 @@ impl SyncEvaluator {
         }
     }
 
-    pub(crate) fn evaluate(&self, key: DiceKey) -> DiceResult<DiceValueAndDeps> {
+    pub(crate) fn evaluate(&self, key: DiceKey) -> DiceResult<DiceValueStorageAndDeps> {
         let key_erased = self.dice.key_index.get(key);
         match key_erased {
             DiceKeyErased::Key(_) => {
@@ -134,9 +140,10 @@ impl SyncEvaluator {
 
                 let value = proj.proj().compute(&self.base, &ctx);
 
-                Ok(DiceValueAndDeps {
+                Ok(DiceValueStorageAndDeps {
                     value,
                     deps: [proj.base()].into_iter().collect(),
+                    storage: proj.proj().storage_type(),
                 })
             }
         }
@@ -144,7 +151,8 @@ impl SyncEvaluator {
 }
 
 #[allow(unused)] // TODO(bobyf)
-pub(crate) struct DiceValueAndDeps {
+pub(crate) struct DiceValueStorageAndDeps {
     pub(crate) value: DiceValue,
     pub(crate) deps: HashSet<DiceKey>,
+    pub(crate) storage: StorageType,
 }
