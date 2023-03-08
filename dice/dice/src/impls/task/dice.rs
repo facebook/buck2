@@ -135,6 +135,11 @@ impl DiceTask {
         }
     }
 
+    /// true if this task is not yet complete and not yet canceled.
+    pub(crate) fn is_pending(&self) -> bool {
+        !self.internal.state.is_ready(Ordering::SeqCst)
+    }
+
     pub(crate) fn inspect_waiters(&self) -> Option<Vec<ParentKey>> {
         self.internal
             .dependants

@@ -60,6 +60,8 @@ async fn simple_immediately_ready_task() -> anyhow::Result<()> {
         futures::future::ready(Box::new(()) as Box<dyn Any + Send + 'static>)
     });
 
+    assert!(!task.is_pending());
+
     let promise = task.depended_on_by(ParentKey::Some(DiceKey { index: 1 }));
 
     assert_eq!(task.inspect_waiters(), None);
@@ -98,6 +100,8 @@ async fn simple_task() -> anyhow::Result<()> {
         Box::new(()) as Box<dyn Any + Send + 'static>
     });
 
+    assert!(task.is_pending());
+
     let mut promise = task.depended_on_by(ParentKey::Some(DiceKey { index: 1 }));
 
     assert_eq!(
@@ -127,6 +131,8 @@ async fn simple_task() -> anyhow::Result<()> {
         v?.value()
             .equality(&DiceValue::new(DiceKeyValue::<K>::new(2)))
     );
+
+    assert!(!task.is_pending());
 
     Ok(())
 }
