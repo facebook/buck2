@@ -262,6 +262,7 @@ impl Dice {
         self.implementation.wait_for_idle()
     }
 
+    /// true when there are no active tasks nor transactions alive
     pub fn is_idle(&self) -> bool {
         self.implementation.is_idle()
     }
