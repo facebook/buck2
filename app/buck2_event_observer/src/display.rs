@@ -296,7 +296,7 @@ pub fn display_event(event: &BuckEvent, opts: TargetDisplayOptions) -> anyhow::R
                 Ok(format!("Executing BXL script `{}`", execution.name))
             }
             Data::BxlDiceInvocation(..) => Ok("Waiting for graph computations".to_owned()),
-            Data::ReUpload(..) => Ok("Uploading inputs to RE".to_owned()),
+            Data::ReUpload(..) => Ok("re_upload".to_owned()),
             Data::Fake(fake) => Ok(format!("{} -- speak of the devil", fake.caramba)),
         };
 
