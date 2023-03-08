@@ -236,3 +236,17 @@ def get_import_library(
         return import_library, [cmd_args(import_library.as_output(), format = "/IMPLIB:{}")]
     else:
         return None, []
+
+def get_rpath_origin(
+        linker_type: str.type) -> str.type:
+    """
+    Return the macro that runtime loaders resolve to the main executable at
+    runtime.
+    """
+
+    if linker_type == "gnu":
+        return "$ORIGIN"
+    if linker_type == "darwin":
+        return "@loader_path"
+
+    fail("Linker type {} not supported".format(linker_type))

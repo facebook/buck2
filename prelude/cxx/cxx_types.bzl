@@ -112,6 +112,7 @@ CxxRuleConstructorParams = record(
     # Additional flags used _only_ when linking the target itself.
     # These flags are _not_ propagated up the dep tree.
     extra_link_flags = field([""], []),
+    extra_binary_link_flags = field([""], []),
     # Additional artifacts to be linked together with the cxx compilation output
     extra_link_input = field(["artifact"], []),
     # If True the extra_link_input should be considered as external debug info

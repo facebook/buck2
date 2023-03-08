@@ -7,6 +7,7 @@
 
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load("@prelude//cxx:debug.bzl", "SplitDebugMode")
+load("@prelude//cxx:linker.bzl", "get_rpath_origin")
 load(
     "@prelude//linking:link_info.bzl",
     "LinkArgs",
@@ -189,12 +190,7 @@ def executable_shared_lib_arguments(
             {name: shlib.output for name, shlib in shared_libs.items()},
         )
         runtime_files.append(shared_libs_symlink_tree)
-        if linker_type == "gnu":
-            rpath_reference = "$ORIGIN"
-        elif linker_type == "darwin":
-            rpath_reference = "@loader_path"
-        else:
-            fail("Linker type {} not supported".format(linker_type))
+        rpath_reference = get_rpath_origin(linker_type)
 
         # We ignore_artifacts() here since we don't want the symlink tree to actually be there for the link.
         rpath_arg = cmd_args(shared_libs_symlink_tree, format = "-Wl,-rpath,{}/{{}}".format(rpath_reference)).relative_to(output, parent = 1).ignore_artifacts()

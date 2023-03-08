@@ -7,6 +7,7 @@
 
 load("@prelude//cxx:compile.bzl", "CxxSrcWithFlags")
 load("@prelude//cxx:cxx.bzl", "create_shared_lib_link_group_specs")
+load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 load("@prelude//cxx:cxx_executable.bzl", "cxx_executable")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo")
 load(
@@ -29,6 +30,7 @@ load(
     "get_link_group_info",
     "make_link_group_info",
 )
+load("@prelude//cxx:linker.bzl", "get_rpath_origin")
 load(
     "@prelude//cxx:omnibus.bzl",
     "create_omnibus_libraries",
@@ -444,11 +446,24 @@ def convert_python_library_to_executable(
             extension_info.unembeddable_extensions,
         )
 
+        # Set rpaths to find 1) the shared libs dir and the 2) runtime libs dir.
+        rpath_ref = get_rpath_origin(get_cxx_toolchain_info(ctx).linker_info.type)
+        rpath_ldflag = "-Wl,-rpath,{}/".format(rpath_ref)
+        extra_binary_link_flags = []
+        if package_style == PackageStyle("standalone"):
+            extra_binary_link_flags.append(rpath_ldflag + "../..")
+            extra_binary_link_flags.append(rpath_ldflag + "../lib")
+        else:
+            rpath_ldflag_prefix = rpath_ldflag + "{}#link-tree".format(ctx.attrs.name)
+            extra_binary_link_flags.append(rpath_ldflag_prefix + "/runtime/lib")
+            extra_binary_link_flags.append(rpath_ldflag_prefix)
+
         impl_params = CxxRuleConstructorParams(
             rule_type = "python_binary",
             headers_layout = cxx_get_regular_cxx_headers_layout(ctx),
             srcs = cxx_executable_srcs,
             extra_link_flags = ctx.attrs.linker_flags,
+            extra_binary_link_flags = extra_binary_link_flags,
             extra_preprocessors = extra_preprocessors,
             extra_preprocessors_info = inherited_preprocessor_info,
             extra_link_deps = link_deps,
