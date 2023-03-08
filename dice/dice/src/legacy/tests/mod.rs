@@ -34,12 +34,16 @@ use crate::api::error::DiceErrorImpl;
 use crate::api::injected::InjectedKey;
 use crate::api::key::Key;
 use crate::api::user_data::UserComputationData;
+use crate::legacy::ctx::testing::DiceCtxExt;
 use crate::legacy::incremental::evaluator::testing::EvaluatorUnreachable;
 use crate::legacy::incremental::testing::DependencyExt;
 use crate::legacy::incremental::testing::IncrementalEngineExt;
 use crate::legacy::incremental::testing::VersionedCacheResultAssertsExt;
+use crate::legacy::incremental::versions::MinorVersion;
 use crate::versions::VersionNumber;
 use crate::HashSet;
+use crate::UserCycleDetector;
+use crate::UserCycleDetectorGuard;
 
 #[derive(Clone, Dupe, Debug, Display, Eq, Hash, PartialEq, Allocative)]
 #[display(fmt = "{:?}", self)]
@@ -379,7 +383,7 @@ fn dice_computations_are_parallel() {
     }
 
     rt.block_on(async move {
-        let dice = Dice::builder().build(DetectCycles::Enabled);
+        let dice = DiceLegacy::builder().build(DetectCycles::Enabled);
         let mut sum = 0;
 
         let dice = &dice;
@@ -428,7 +432,7 @@ async fn different_data_per_compute_ctx() {
         }
     }
 
-    let dice = Dice::builder().build(DetectCycles::Enabled);
+    let dice = DiceLegacy::builder().build(DetectCycles::Enabled);
     let per_cmd_data0 = {
         let mut d = UserComputationData::new();
         d.data.set(U(0));
@@ -476,7 +480,7 @@ async fn invalid_results_are_not_cached() -> anyhow::Result<()> {
         }
     }
 
-    let dice = Dice::builder().build(DetectCycles::Enabled);
+    let dice = DiceLegacy::builder().build(DetectCycles::Enabled);
     let is_ran = Arc::new(AtomicBool::new(false));
     {
         let ctx = dice.updater().commit().await;
@@ -560,7 +564,7 @@ async fn demo_with_transient() -> anyhow::Result<()> {
         }
     }
 
-    let dice = Dice::builder().build(DetectCycles::Enabled);
+    let dice = DiceLegacy::builder().build(DetectCycles::Enabled);
 
     let ctx = dice.updater().commit().await;
     let validity = Arc::new(AtomicBool::new(false));
@@ -617,7 +621,7 @@ async fn test_wait_for_idle() -> anyhow::Result<()> {
         }
     }
 
-    let dice = Dice::builder().build(DetectCycles::Enabled);
+    let dice = DiceLegacy::builder().build(DetectCycles::Enabled);
 
     let ctx = dice.updater().commit().await;
 
@@ -799,4 +803,119 @@ fn user_cycle_detector_receives_events() -> anyhow::Result<()> {
 
         Ok(())
     })
+}
+
+#[tokio::test]
+async fn compute_and_update_uses_proper_version_numbers() -> anyhow::Result<()> {
+    let dice = DiceLegacy::builder().build(DetectCycles::Enabled);
+
+    {
+        let ctx = dice.updater().commit().await;
+        assert_eq!(ctx.0.0.get_version(), VersionNumber::new(0));
+        assert_eq!(ctx.0.0.get_minor_version(), MinorVersion::testing_new(0));
+    }
+
+    {
+        // second context that didn't have any writes should still be the same version
+        let ctx = dice.updater().commit().await;
+        assert_eq!(ctx.0.0.get_version(), VersionNumber::new(0));
+        assert_eq!(ctx.0.0.get_minor_version(), MinorVersion::testing_new(1));
+
+        // now we write something and commit
+        let mut ctx = dice.updater();
+        ctx.changed_to(vec![(Foo(1), 1)])?;
+        // current version shouldn't be updated
+        assert_eq!(
+            ctx.existing_state().await.0.get_version(),
+            VersionNumber::new(0)
+        );
+        assert_eq!(
+            ctx.existing_state().await.0.get_minor_version(),
+            MinorVersion::testing_new(1)
+        );
+
+        let mut ctx1 = dice.updater();
+        // previous ctx isn't dropped, so versions shouldn't be committed yet.
+        assert_eq!(
+            ctx1.existing_state().await.0.get_version(),
+            VersionNumber::new(0)
+        );
+        assert_eq!(
+            ctx1.existing_state().await.0.get_minor_version(),
+            MinorVersion::testing_new(1)
+        );
+
+        // if we update on the new context, nothing committed
+        ctx1.changed_to(vec![(Foo(2), 2)])?;
+        assert_eq!(
+            ctx1.existing_state().await.0.get_version(),
+            VersionNumber::new(0)
+        );
+        assert_eq!(
+            ctx1.existing_state().await.0.get_minor_version(),
+            MinorVersion::testing_new(1)
+        );
+
+        // drop a context
+        ctx1.commit().await;
+        // we should only have committed once, and in increasing order
+        let vg = dice.global_versions.current();
+        assert_eq!(
+            (vg.version, *vg.minor_version_guard),
+            (VersionNumber::new(1), MinorVersion::testing_new(1))
+        );
+
+        ctx.commit().await;
+        // both versions finalized.
+        let vg = dice.global_versions.current();
+        assert_eq!(
+            (vg.version, *vg.minor_version_guard),
+            (VersionNumber::new(2), MinorVersion::testing_new(1))
+        );
+        assert!(dice.map.read().engines().iter().all(|engine| {
+            engine
+                .introspect()
+                .versions_currently_running()
+                .first()
+                .is_none()
+        }));
+    }
+
+    {
+        let mut ctx = dice.updater();
+        assert_eq!(
+            ctx.existing_state().await.0.get_version(),
+            VersionNumber::new(2)
+        );
+        assert_eq!(
+            ctx.existing_state().await.0.get_minor_version(),
+            MinorVersion::testing_new(2)
+        );
+
+        ctx.changed_to(vec![(Foo(3), 3)])?;
+        assert_eq!(
+            ctx.existing_state().await.0.get_version(),
+            VersionNumber::new(2)
+        );
+        assert_eq!(
+            ctx.existing_state().await.0.get_minor_version(),
+            MinorVersion::testing_new(2)
+        );
+
+        ctx.commit().await;
+        let vg = dice.global_versions.current();
+        assert_eq!(
+            (vg.version, *vg.minor_version_guard),
+            (VersionNumber::new(3), MinorVersion::testing_new(1))
+        );
+        assert!(dice.map.read().engines().iter().all(|engine| {
+            engine
+                .introspect()
+                .versions_currently_running()
+                .first()
+                .is_none()
+        }));
+    }
+
+    Ok(())
 }

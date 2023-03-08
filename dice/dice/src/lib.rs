@@ -212,9 +212,6 @@ mod opaque;
 mod transaction_update;
 mod versions;
 
-#[cfg(test)]
-mod tests;
-
 use std::fmt::Debug;
 use std::io::Write;
 use std::sync::Arc;
