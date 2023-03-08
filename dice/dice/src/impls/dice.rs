@@ -93,8 +93,11 @@ impl DiceModern {
         unimplemented!("todo")
     }
 
+    /// Note: modern dice does not support cycle detection yet
     pub fn detect_cycles(&self) -> &DetectCycles {
-        unimplemented!("todo")
+        // TODO(bobyf) actually have cycles for dice modern
+        const CYCLES: DetectCycles = DetectCycles::Disabled;
+        &CYCLES
     }
 
     /// Wait until all active versions have exited.
