@@ -102,7 +102,9 @@ impl DiceModern {
 
     /// Wait until all active versions have exited.
     pub fn wait_for_idle(&self) -> impl Future<Output = ()> + 'static {
-        async move { unimplemented!("todo") }
+        // TODO(bobyf) actually implement this.
+        // However, in the mean time, this is sufficient to let us experiment with this dice in production
+        futures::future::ready(())
     }
 
     pub fn is_idle(&self) -> bool {
