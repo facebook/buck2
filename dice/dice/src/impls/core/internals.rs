@@ -89,6 +89,11 @@ impl CoreState {
         self.graph.update(key, value, deps, storage).0
     }
 
+    pub(super) fn unstable_drop_everything(&mut self) {
+        self.version_tracker.write().commit();
+        self.graph.last_n.clear();
+    }
+
     pub(super) fn metrics(&self) -> Metrics {
         let mut currently_running_key_count = 0;
         let mut active_transaction_count = 0;

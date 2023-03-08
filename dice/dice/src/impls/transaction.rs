@@ -130,7 +130,9 @@ impl TransactionUpdater {
     }
 
     pub(crate) fn unstable_take(&self) {
-        unimplemented!("todo")
+        self.dice
+            .state_handle
+            .request(StateRequest::UnstableDropEverything)
     }
 
     async fn commit_to_state(self) -> SharedLiveTransactionCtx {

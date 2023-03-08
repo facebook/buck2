@@ -65,6 +65,8 @@ pub(crate) enum StateRequest {
         /// given computed value if the state already stores an instance of value that is equal.
         resp: Sender<DiceComputedValue>,
     },
+    /// For unstable take
+    UnstableDropEverything,
     /// Collect metrics
     Metrics { resp: Sender<Metrics> },
 }
