@@ -37,6 +37,15 @@ pub(crate) struct DiceKey {
     pub(crate) index: u32,
 }
 
+/// Key of the parent computation
+#[derive(
+    Allocative, Eq, PartialEq, Clone, Copy, Dupe, Hash, Debug, Ord, PartialOrd
+)]
+pub(crate) enum ParentKey {
+    None,
+    Some(DiceKey),
+}
+
 #[derive(Allocative, Clone, Dupe)]
 pub(crate) enum DiceKeyErased {
     Key(Arc<dyn DiceKeyDyn>),

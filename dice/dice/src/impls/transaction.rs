@@ -26,6 +26,7 @@ use crate::impls::ctx::SharedLiveTransactionCtx;
 use crate::impls::key::CowDiceKey;
 use crate::impls::key::DiceKey;
 use crate::impls::key::DiceKeyErased;
+use crate::impls::key::ParentKey;
 use crate::impls::value::DiceKeyValue;
 use crate::impls::value::DiceValue;
 use crate::versions::VersionNumber;
@@ -91,7 +92,7 @@ impl TransactionUpdater {
 
         let transaction = self.commit_to_state().await;
 
-        PerComputeCtx::new(transaction, user_data, dice)
+        PerComputeCtx::new(ParentKey::None, transaction, user_data, dice)
     }
 
     /// Commit the changes registered via 'changed' and 'changed_to' to the current newest version,
@@ -101,7 +102,7 @@ impl TransactionUpdater {
 
         let transaction = self.commit_to_state().await;
 
-        PerComputeCtx::new(transaction, Arc::new(extra), dice)
+        PerComputeCtx::new(ParentKey::None, transaction, Arc::new(extra), dice)
     }
 
     pub(crate) async fn existing_state(&self) -> PerComputeCtx {
@@ -120,7 +121,12 @@ impl TransactionUpdater {
         });
 
         let transaction = rx.await.unwrap();
-        PerComputeCtx::new(transaction, self.user_data.dupe(), self.dice.dupe())
+        PerComputeCtx::new(
+            ParentKey::None,
+            transaction,
+            self.user_data.dupe(),
+            self.dice.dupe(),
+        )
     }
 
     async fn commit_to_state(self) -> SharedLiveTransactionCtx {

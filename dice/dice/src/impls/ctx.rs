@@ -36,6 +36,7 @@ use crate::impls::incremental::IncrementalEngine;
 use crate::impls::key::CowDiceKey;
 use crate::impls::key::DiceKey;
 use crate::impls::key::DiceKeyErasedRef;
+use crate::impls::key::ParentKey;
 use crate::impls::opaque::OpaqueValueModern;
 use crate::impls::task::sync_dice_task;
 use crate::impls::transaction::ActiveTransactionGuard;
@@ -57,12 +58,14 @@ pub(crate) struct PerComputeCtxData {
     per_live_version_ctx: SharedLiveTransactionCtx,
     user_data: Arc<UserComputationData>,
     dep_trackers: Mutex<RecordingDepsTracker>, // If we make PerComputeCtx &mut, we can get rid of this mutex after some refactoring
+    parent_key: ParentKey,
     dice: Arc<DiceModern>,
 }
 
 #[allow(clippy::manual_async_fn, unused)]
 impl PerComputeCtx {
     pub(crate) fn new(
+        parent_key: ParentKey,
         per_live_version_ctx: SharedLiveTransactionCtx,
         user_data: Arc<UserComputationData>,
         dice: Arc<DiceModern>,
@@ -72,6 +75,7 @@ impl PerComputeCtx {
                 per_live_version_ctx,
                 user_data,
                 dep_trackers: Mutex::new(RecordingDepsTracker::new()),
+                parent_key,
                 dice,
             }),
         }
@@ -112,6 +116,7 @@ impl PerComputeCtx {
             .per_live_version_ctx
             .compute_opaque(
                 dice_key,
+                self.data.parent_key,
                 self.data.dice.state_handle.dupe(),
                 AsyncEvaluator::new(
                     self.data.per_live_version_ctx.dupe(),
@@ -262,18 +267,19 @@ impl SharedLiveTransactionCtx {
     pub(crate) fn compute_opaque(
         &self,
         key: DiceKey,
+        parent_key: ParentKey,
         state: CoreStateHandle,
         eval: AsyncEvaluator,
         extra: &Arc<UserComputationData>,
         events: DiceEventDispatcher,
     ) -> impl Future<Output = DiceResult<DiceComputedValue>> {
         match self.cache.get(key) {
-            Entry::Occupied(occupied) => occupied.get().depended_on_by(key),
+            Entry::Occupied(occupied) => occupied.get().depended_on_by(parent_key),
             Entry::Vacant(vacant) => {
                 let task =
                     IncrementalEngine::spawn_for_key(state, extra, key, eval, self.dupe(), events);
 
-                let fut = task.depended_on_by(key);
+                let fut = task.depended_on_by(parent_key);
 
                 vacant.insert(task);
 

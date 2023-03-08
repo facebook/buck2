@@ -39,6 +39,7 @@ use crate::impls::evaluator::AsyncEvaluator;
 use crate::impls::evaluator::SyncEvaluator;
 use crate::impls::events::DiceEventDispatcher;
 use crate::impls::key::DiceKey;
+use crate::impls::key::ParentKey;
 use crate::impls::task::dice::DiceTask;
 use crate::impls::task::handle::DiceTaskHandle;
 use crate::impls::task::spawn_dice_task;
@@ -177,6 +178,7 @@ impl IncrementalEngine {
             VersionedGraphResult::CheckDeps(mismatch) => {
                 match self
                     .compute_whether_dependencies_changed(
+                        ParentKey::Some(k), // the computing of deps is triggered by this key as the parent
                         eval.dupe(),
                         &transaction_ctx,
                         &mismatch.verified_versions,
@@ -272,6 +274,7 @@ impl IncrementalEngine {
     )]
     async fn compute_whether_dependencies_changed(
         &self,
+        parent_key: ParentKey,
         eval: AsyncEvaluator,
         transaction_ctx: &SharedLiveTransactionCtx,
         verified_versions: &VersionRanges,
@@ -289,6 +292,7 @@ impl IncrementalEngine {
                 transaction_ctx
                     .compute_opaque(
                         dep.dupe(),
+                        parent_key,
                         self.state.dupe(),
                         eval.dupe(),
                         extra,

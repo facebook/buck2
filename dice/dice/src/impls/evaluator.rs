@@ -23,6 +23,7 @@ use crate::impls::dice::DiceModern;
 use crate::impls::events::DiceEventDispatcher;
 use crate::impls::key::DiceKey;
 use crate::impls::key::DiceKeyErased;
+use crate::impls::key::ParentKey;
 use crate::impls::value::DiceValue;
 use crate::HashSet;
 
@@ -60,14 +61,15 @@ impl AsyncEvaluator {
     pub(crate) async fn evaluate<'b>(&self, key: DiceKey) -> DiceResult<DiceValueStorageAndDeps> {
         let key_erased = self.dice.key_index.get(key);
         match key_erased {
-            DiceKeyErased::Key(key) => {
+            DiceKeyErased::Key(key_dyn) => {
                 let new_ctx = DiceComputations(DiceComputationsImpl::Modern(PerComputeCtx::new(
+                    ParentKey::Some(key), // within this key's compute, this key is the parent
                     self.per_live_version_ctx.dupe(),
                     self.user_data.dupe(),
                     self.dice.dupe(),
                 )));
 
-                let value = key.compute(&new_ctx).await;
+                let value = key_dyn.compute(&new_ctx).await;
                 let deps = match new_ctx.0 {
                     DiceComputationsImpl::Legacy(_) => {
                         unreachable!("modern dice created above")
@@ -78,7 +80,7 @@ impl AsyncEvaluator {
                 Ok(DiceValueStorageAndDeps {
                     value,
                     deps,
-                    storage: key.storage_type(),
+                    storage: key_dyn.storage_type(),
                 })
             }
             DiceKeyErased::Projection(proj) => {
@@ -86,6 +88,7 @@ impl AsyncEvaluator {
                     .per_live_version_ctx
                     .compute_opaque(
                         proj.base(),
+                        ParentKey::Some(key), // the parent requesting the projection base is the projection itself
                         self.dice.state_handle.dupe(),
                         self.dupe(),
                         &self.user_data,

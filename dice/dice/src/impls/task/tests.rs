@@ -25,6 +25,7 @@ use crate::api::computations::DiceComputations;
 use crate::api::key::Key;
 use crate::impls::core::graph::history::CellHistory;
 use crate::impls::key::DiceKey;
+use crate::impls::key::ParentKey;
 use crate::impls::task::spawn_dice_task;
 use crate::impls::task::sync_dice_task;
 use crate::impls::value::DiceComputedValue;
@@ -59,7 +60,7 @@ async fn simple_immediately_ready_task() -> anyhow::Result<()> {
         futures::future::ready(Box::new(()) as Box<dyn Any + Send + 'static>)
     });
 
-    let promise = task.depended_on_by(DiceKey { index: 1 });
+    let promise = task.depended_on_by(ParentKey::Some(DiceKey { index: 1 }));
 
     assert_eq!(task.inspect_waiters(), None);
 
@@ -97,9 +98,12 @@ async fn simple_task() -> anyhow::Result<()> {
         Box::new(()) as Box<dyn Any + Send + 'static>
     });
 
-    let mut promise = task.depended_on_by(DiceKey { index: 1 });
+    let mut promise = task.depended_on_by(ParentKey::Some(DiceKey { index: 1 }));
 
-    assert_eq!(task.inspect_waiters(), Some(vec![DiceKey { index: 1 }]));
+    assert_eq!(
+        task.inspect_waiters(),
+        Some(vec![ParentKey::Some(DiceKey { index: 1 })])
+    );
 
     let polled = futures::poll!(&mut promise);
     assert!(
@@ -139,20 +143,20 @@ async fn multiple_promises_all_completes() -> anyhow::Result<()> {
         Box::new(()) as Box<dyn Any + Send + 'static>
     });
 
-    let promise1 = task.depended_on_by(DiceKey { index: 1 });
-    let promise2 = task.depended_on_by(DiceKey { index: 2 });
-    let promise3 = task.depended_on_by(DiceKey { index: 3 });
-    let promise4 = task.depended_on_by(DiceKey { index: 4 });
-    let promise5 = task.depended_on_by(DiceKey { index: 5 });
+    let promise1 = task.depended_on_by(ParentKey::Some(DiceKey { index: 1 }));
+    let promise2 = task.depended_on_by(ParentKey::Some(DiceKey { index: 2 }));
+    let promise3 = task.depended_on_by(ParentKey::Some(DiceKey { index: 3 }));
+    let promise4 = task.depended_on_by(ParentKey::Some(DiceKey { index: 4 }));
+    let promise5 = task.depended_on_by(ParentKey::Some(DiceKey { index: 5 }));
 
     assert_eq!(
         task.inspect_waiters(),
         Some(vec![
-            DiceKey { index: 1 },
-            DiceKey { index: 2 },
-            DiceKey { index: 3 },
-            DiceKey { index: 4 },
-            DiceKey { index: 5 }
+            ParentKey::Some(DiceKey { index: 1 }),
+            ParentKey::Some(DiceKey { index: 2 }),
+            ParentKey::Some(DiceKey { index: 3 }),
+            ParentKey::Some(DiceKey { index: 4 }),
+            ParentKey::Some(DiceKey { index: 5 }),
         ])
     );
 
@@ -189,7 +193,7 @@ async fn sync_complete_task_completes_promises() -> anyhow::Result<()> {
         sync_dice_task()
     };
 
-    let mut promise_before = task.depended_on_by(DiceKey { index: 0 });
+    let mut promise_before = task.depended_on_by(ParentKey::Some(DiceKey { index: 0 }));
 
     assert!(poll!(&mut promise_before).is_pending());
 
@@ -202,7 +206,7 @@ async fn sync_complete_task_completes_promises() -> anyhow::Result<()> {
         .equality(&DiceValue::new(DiceKeyValue::<K>::new(2)))
     );
 
-    let promise_after = task.depended_on_by(DiceKey { index: 1 });
+    let promise_after = task.depended_on_by(ParentKey::Some(DiceKey { index: 1 }));
 
     let polled = futures::poll!(promise_before);
 
@@ -238,16 +242,16 @@ async fn sync_complete_task_wakes_waiters() -> anyhow::Result<()> {
         sync_dice_task()
     };
 
-    let mut promise1 = task.depended_on_by(DiceKey { index: 1 });
-    let mut promise2 = task.depended_on_by(DiceKey { index: 2 });
-    let mut promise3 = task.depended_on_by(DiceKey { index: 3 });
+    let mut promise1 = task.depended_on_by(ParentKey::Some(DiceKey { index: 1 }));
+    let mut promise2 = task.depended_on_by(ParentKey::Some(DiceKey { index: 2 }));
+    let mut promise3 = task.depended_on_by(ParentKey::Some(DiceKey { index: 3 }));
 
     assert_eq!(
         task.inspect_waiters(),
         Some(vec![
-            DiceKey { index: 1 },
-            DiceKey { index: 2 },
-            DiceKey { index: 3 },
+            ParentKey::Some(DiceKey { index: 1 }),
+            ParentKey::Some(DiceKey { index: 2 }),
+            ParentKey::Some(DiceKey { index: 3 }),
         ])
     );
 
@@ -329,7 +333,7 @@ async fn sync_complete_unfinished_spawned_task() -> anyhow::Result<()> {
         }
     });
 
-    let promise_before = task.depended_on_by(DiceKey { index: 0 });
+    let promise_before = task.depended_on_by(ParentKey::Some(DiceKey { index: 0 }));
 
     assert!(
         task.get_or_complete(|| Ok(DiceComputedValue::new(
@@ -342,7 +346,7 @@ async fn sync_complete_unfinished_spawned_task() -> anyhow::Result<()> {
 
     drop(g);
 
-    let promise_after = task.depended_on_by(DiceKey { index: 1 });
+    let promise_after = task.depended_on_by(ParentKey::Some(DiceKey { index: 1 }));
 
     let polled = futures::poll!(promise_before);
 
@@ -390,7 +394,7 @@ async fn sync_complete_finished_spawned_task() -> anyhow::Result<()> {
         }
     });
 
-    let promise_before = task.depended_on_by(DiceKey { index: 0 });
+    let promise_before = task.depended_on_by(ParentKey::Some(DiceKey { index: 0 }));
 
     let _g = sem.acquire().await.unwrap();
 
@@ -404,7 +408,7 @@ async fn sync_complete_finished_spawned_task() -> anyhow::Result<()> {
         .equality(&DiceValue::new(DiceKeyValue::<K>::new(2)))
     );
 
-    let promise_after = task.depended_on_by(DiceKey { index: 1 });
+    let promise_after = task.depended_on_by(ParentKey::Some(DiceKey { index: 1 }));
 
     let polled = futures::poll!(promise_before);
 

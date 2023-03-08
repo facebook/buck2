@@ -29,6 +29,7 @@ use triomphe::Arc;
 
 use crate::api::error::DiceResult;
 use crate::impls::key::DiceKey;
+use crate::impls::key::ParentKey;
 use crate::impls::task::handle::DiceTaskHandle;
 use crate::impls::task::handle::TaskState;
 use crate::impls::task::promise::DicePromise;
@@ -77,7 +78,7 @@ pub(super) struct DiceTaskInternal {
     /// Compared to 'Shared', which just holds a standard 'Waker', the Waker itself is now an
     /// AtomicWaker, which is an extra AtomicUsize, so this is marginally larger than the standard
     /// Shared future.
-    pub(super) dependants: Mutex<Option<Slab<(DiceKey, Arc<AtomicWaker>)>>>,
+    pub(super) dependants: Mutex<Option<Slab<(ParentKey, Arc<AtomicWaker>)>>>,
     /// The value if finished computing
     #[allocative(skip)] // TODO should measure this
     maybe_value: UnsafeCell<Option<DiceResult<DiceComputedValue>>>,
@@ -86,7 +87,7 @@ pub(super) struct DiceTaskInternal {
 impl DiceTask {
     /// `k` depends on this task, returning a `DicePromise` that will complete when this task
     /// completes
-    pub(crate) fn depended_on_by(&self, k: DiceKey) -> DicePromise {
+    pub(crate) fn depended_on_by(&self, k: ParentKey) -> DicePromise {
         if self.internal.state.is_ready(Ordering::Acquire) {
             DicePromise::ready(triomphe_dupe(&self.internal))
         } else {
@@ -134,7 +135,7 @@ impl DiceTask {
         }
     }
 
-    pub(crate) fn inspect_waiters(&self) -> Option<Vec<DiceKey>> {
+    pub(crate) fn inspect_waiters(&self) -> Option<Vec<ParentKey>> {
         self.internal
             .dependants
             .lock()
