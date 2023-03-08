@@ -46,6 +46,7 @@ use parking_lot::RwLockReadGuard;
 use parking_lot::RwLockWriteGuard;
 use sorted_vector_map::SortedVectorMap;
 
+use crate::api::storage_type::StorageType;
 use crate::impls::core::graph::history::HistoryState;
 use crate::introspection::graph::AnyKey;
 use crate::legacy::incremental::dep_trackers::BothDeps;
@@ -550,15 +551,6 @@ where
     fn id(&self) -> usize {
         self as *const Self as usize
     }
-}
-
-/// Storage type for a cached entry.
-/// The oldest entry will be evicted once the cache stores more than N entries of the same key
-/// request to compute them. TODO think about whether or not we can
-/// optimize to delete injected keys when no more computation will request that version
-#[derive(UnpackVariants, Debug, Clone, Copy, Dupe, Allocative)]
-pub enum StorageType {
-    LastN(usize),
 }
 
 /// The actual incremental cache that checks versions and dependency's versions
@@ -1419,6 +1411,7 @@ mod tests {
     use crate::api::computations::DiceComputations;
     use crate::api::injected::InjectedKey;
     use crate::api::key::Key;
+    use crate::api::storage_type::StorageType;
     use crate::impls::core::graph::history::testing::CellHistoryExt;
     use crate::impls::core::graph::history::testing::HistoryExt;
     use crate::impls::core::graph::history::CellHistory;
@@ -1437,7 +1430,6 @@ mod tests {
     use crate::legacy::incremental::testing::DependencyExt;
     use crate::legacy::incremental::versions::MinorVersion;
     use crate::legacy::incremental::Computable;
-    use crate::legacy::incremental::StorageType;
     use crate::versions::testing::VersionRangesExt;
     use crate::versions::VersionNumber;
     use crate::versions::VersionRange;

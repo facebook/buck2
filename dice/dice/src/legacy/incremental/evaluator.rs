@@ -61,6 +61,7 @@ pub(crate) mod testing {
     use gazebo::prelude::*;
 
     use crate::api::error::DiceResult;
+    use crate::api::storage_type::StorageType;
     use crate::legacy::ctx::ComputationData;
     use crate::legacy::incremental::evaluator::Evaluator;
     use crate::legacy::incremental::graph::storage_properties::StorageProperties;
@@ -68,7 +69,6 @@ pub(crate) mod testing {
     use crate::legacy::incremental::Computable;
     use crate::legacy::incremental::IncrementalComputeProperties;
     use crate::legacy::incremental::IncrementalEngine;
-    use crate::legacy::incremental::StorageType;
     use crate::TransactionCtx;
     use crate::ValueWithDeps;
     use crate::WeakDiceFutureHandle;

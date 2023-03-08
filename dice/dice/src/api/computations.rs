@@ -123,6 +123,7 @@ mod tests {
 
     use crate::api::cycles::DetectCycles;
     use crate::api::error::DiceErrorImpl;
+    use crate::api::storage_type::StorageType;
     use crate::api::user_data::UserComputationData;
     use crate::legacy::ctx::ComputationData;
     use crate::legacy::cycles::RequestedKey;
@@ -143,7 +144,7 @@ mod tests {
             key
         }
 
-        fn storage_type(&self) -> crate::legacy::incremental::StorageType {
+        fn storage_type(&self) -> StorageType {
             unreachable!()
         }
 

@@ -67,7 +67,6 @@ pub(crate) use crate::legacy::incremental::graph::dependencies::ComputedDependen
 pub(crate) use crate::legacy::incremental::graph::dependencies::Dependency;
 use crate::legacy::incremental::graph::storage_properties::StorageProperties;
 use crate::legacy::incremental::graph::GraphNode;
-pub(crate) use crate::legacy::incremental::graph::StorageType;
 use crate::legacy::incremental::graph::VersionedGraph;
 use crate::legacy::incremental::graph::VersionedGraphKey;
 use crate::legacy::incremental::graph::VersionedGraphKeyRef;
@@ -1248,6 +1247,7 @@ mod tests {
 
     use crate::api::error::DiceError;
     use crate::api::error::DiceResult;
+    use crate::api::storage_type::StorageType;
     use crate::impls::core::graph::history::testing::CellHistoryExt;
     use crate::introspection::graph::AnyKey;
     use crate::legacy::ctx::testing::ComputationDataExt;
@@ -1285,7 +1285,6 @@ mod tests {
     use crate::legacy::incremental::Evaluator;
     use crate::legacy::incremental::IncrementalComputeProperties;
     use crate::legacy::incremental::IncrementalEngine;
-    use crate::legacy::incremental::StorageType;
     use crate::legacy::incremental::TransactionCtx;
     use crate::legacy::incremental::VersionedGraphResultMismatch;
     use crate::versions::testing::VersionRangesExt;

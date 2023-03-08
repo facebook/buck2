@@ -19,13 +19,13 @@ use async_trait::async_trait;
 
 use crate::api::error::DiceResult;
 use crate::api::projection::ProjectionKey;
+use crate::api::storage_type::StorageType;
 use crate::introspection::graph::short_type_name;
 use crate::legacy::ctx::ComputationData;
 use crate::legacy::dice_futures::sync_handle::SyncDiceTaskHandle;
 use crate::legacy::incremental::graph::storage_properties::StorageProperties;
 use crate::legacy::incremental::IncrementalComputeProperties;
 use crate::legacy::incremental::IncrementalEngine;
-use crate::legacy::incremental::StorageType;
 use crate::legacy::DiceLegacy;
 use crate::GraphNode;
 use crate::TransactionCtx;

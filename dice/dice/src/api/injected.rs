@@ -17,7 +17,7 @@ use dupe::Dupe;
 
 use crate::api::computations::DiceComputations;
 use crate::api::key::Key;
-use crate::legacy::incremental::StorageType;
+use crate::api::storage_type::StorageType;
 
 /// Specialized version of `Key` above. This type of Key is never computed. It
 /// should always be injected onto the graph before being requested via
