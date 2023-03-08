@@ -71,6 +71,7 @@ impl StateProcessor {
                 value,
                 deps,
                 resp,
+                ..
             } => {
                 // ignore error if the requester dropped it.
                 drop(resp.send(self.state.update_computed(key, value, deps)));

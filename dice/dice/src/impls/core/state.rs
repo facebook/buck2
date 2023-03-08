@@ -13,6 +13,7 @@ use gazebo::variants::VariantName;
 use tokio::sync::oneshot::Sender;
 use triomphe::Arc;
 
+use crate::api::storage_type::StorageType;
 use crate::impls::core::graph::types::VersionedGraphKey;
 use crate::impls::core::graph::types::VersionedGraphResult;
 use crate::impls::core::processor::StateProcessor;
@@ -53,6 +54,8 @@ pub(crate) enum StateRequest {
     #[allow(unused)]
     UpdateComputed {
         key: VersionedGraphKey,
+        /// The storage selection for the key,
+        storage: StorageType,
         /// The newly computed value
         value: DiceValue,
         /// The deps accessed during the computation of newly computed value

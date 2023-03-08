@@ -49,6 +49,14 @@ impl AsyncEvaluator {
         }
     }
 
+    pub(crate) fn storage_type(&self, key: DiceKey) -> StorageType {
+        let key_erased = self.dice.key_index.get(key);
+        match key_erased {
+            DiceKeyErased::Key(k) => k.storage_type(),
+            DiceKeyErased::Projection(p) => p.proj().storage_type(),
+        }
+    }
+
     pub(crate) async fn evaluate<'b>(&self, key: DiceKey) -> DiceResult<DiceValueStorageAndDeps> {
         let key_erased = self.dice.key_index.get(key);
         match key_erased {

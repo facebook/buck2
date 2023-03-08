@@ -114,6 +114,7 @@ impl IncrementalEngine {
                     let (tx, _rx) = tokio::sync::oneshot::channel();
                     state.request(StateRequest::UpdateComputed {
                         key: VersionedGraphKey::new(v, k),
+                        storage: res.storage,
                         value: res.value.dupe(),
                         deps: Arc::new(res.deps.into_iter().collect()),
                         resp: tx,
@@ -183,6 +184,7 @@ impl IncrementalEngine {
                         let (tx, rx) = tokio::sync::oneshot::channel();
                         self.state.request(StateRequest::UpdateComputed {
                             key: VersionedGraphKey::new(v, k),
+                            storage: eval.storage_type(k),
                             value: mismatch.entry,
                             deps,
                             resp: tx,
@@ -235,6 +237,7 @@ impl IncrementalEngine {
                 let (tx, rx) = tokio::sync::oneshot::channel();
                 self.state.request(StateRequest::UpdateComputed {
                     key: VersionedGraphKey::new(v, k),
+                    storage: res.storage,
                     value: res.value,
                     deps: Arc::new(res.deps.into_iter().collect()),
                     resp: tx,
