@@ -95,6 +95,14 @@ impl<'a> VersionForWrites<'a> {
         self.tracker.current
     }
 
+    #[allow(unused)]
+    pub(crate) fn version(&self) -> VersionNumber {
+        let mut v = self.tracker.current;
+        v.inc();
+
+        v
+    }
+
     /// Undo the pending write to version
     pub(crate) fn undo(self) -> VersionNumber {
         self.tracker.current
@@ -135,10 +143,21 @@ mod tests {
     fn write_version_commits_and_undo() {
         let mut vt = VersionTracker::new();
 
-        let v1 = vt.write();
-        assert_eq!(v1.commit(), VersionNumber::new(1));
+        {
+            let v1 = vt.write();
+            assert_eq!(v1.version(), VersionNumber::new(1));
+            assert_eq!(v1.version(), VersionNumber::new(1));
 
-        let v1 = vt.write();
-        assert_eq!(v1.undo(), VersionNumber::new(1));
+            assert_eq!(v1.commit(), VersionNumber::new(1));
+            assert_eq!(vt.current(), VersionNumber::new(1));
+        }
+
+        {
+            let v2 = vt.write();
+            assert_eq!(v2.version(), VersionNumber::new(2));
+
+            assert_eq!(v2.undo(), VersionNumber::new(1));
+            assert_eq!(vt.current(), VersionNumber::new(1));
+        }
     }
 }
