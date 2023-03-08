@@ -655,11 +655,6 @@ mod tests {
 
     use crate::api::computations::DiceComputations;
     use crate::api::key::Key;
-    use crate::impls::core::graph::dependencies::VersionedDependencies;
-    use crate::impls::core::graph::history::testing::CellHistoryExt;
-    use crate::impls::core::graph::history::testing::HistoryExt;
-    use crate::impls::core::graph::history::CellHistory;
-    use crate::impls::core::graph::nodes::OccupiedGraphNode;
     use crate::impls::core::graph::storage::testing::VersionedCacheResultAssertsExt;
     use crate::impls::core::graph::storage::InvalidateKind;
     use crate::impls::core::graph::storage::StorageType;
@@ -1033,66 +1028,6 @@ mod tests {
                 VersionNumber::new(5)
             )])
         )
-    }
-
-    #[test]
-    fn update_versioned_graph_entry_tracks_versions_and_deps() {
-        let deps0: Arc<Vec<DiceKey>> = Arc::new(vec![DiceKey { index: 5 }]);
-        let mut entry = OccupiedGraphNode::new(
-            DiceKey { index: 1335 },
-            DiceValue::new(DiceKeyValue::<K>::new(1)),
-            VersionedDependencies::new(VersionNumber::new(0), deps0.clone()), // actually dupe
-            CellHistory::testing_new(
-                &[VersionNumber::new(0)],
-                &[VersionNumber::new(1), VersionNumber::new(2)],
-            ),
-        );
-
-        entry
-            .metadata()
-            .hist
-            .get_history(&VersionNumber::new(0))
-            .assert_verified();
-        assert_eq!(entry.metadata().deps.deps(), deps0); // actually dupe
-
-        entry.mark_unchanged(VersionNumber::new(1), None, None, Arc::new(vec![]));
-        entry
-            .metadata()
-            .hist
-            .get_history(&VersionNumber::new(0))
-            .assert_verified();
-        entry
-            .metadata()
-            .hist
-            .get_history(&VersionNumber::new(1))
-            .assert_verified();
-        assert_eq!(entry.metadata().deps.deps(), Arc::new(Vec::new()));
-
-        let deps1 = Arc::new(vec![DiceKey { index: 7 }]);
-        entry.mark_unchanged(
-            VersionNumber::new(2),
-            Some(VersionNumber::new(1)),
-            None,
-            deps1.clone(), // actually dupe
-        );
-
-        entry
-            .metadata()
-            .hist
-            .get_history(&VersionNumber::new(0))
-            .assert_verified();
-        entry
-            .metadata()
-            .hist
-            .get_history(&VersionNumber::new(1))
-            .assert_verified();
-        entry
-            .metadata()
-            .hist
-            .get_history(&VersionNumber::new(2))
-            .assert_verified();
-
-        assert_eq!(entry.metadata().deps.deps(), deps1);
     }
 
     #[test]
