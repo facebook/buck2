@@ -172,6 +172,19 @@ mod tests {
     }
 
     #[test]
+    fn test_glob_match_case_insensitive() -> anyhow::Result<()> {
+        // NOTE: We probably should change this. But for now, let's codify the current behavior
+        // since that's probably something that should require a migration.
+
+        let spec = GlobSpec::new(&["src/**/*"], &["src/excluded/**/*"])?;
+        assert!(spec.matches("src/foo"));
+        assert!(spec.matches("SRC/foo"));
+        assert!(!spec.matches("src/EXCLUDED/bar"));
+
+        Ok(())
+    }
+
+    #[test]
     fn test_resolve_glob() -> anyhow::Result<()> {
         let spec = GlobSpec::new(&["abc*", "**/*.java", "*/*/*.txt"], &["excluded/**/*"])?;
 
