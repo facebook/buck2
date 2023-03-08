@@ -49,6 +49,7 @@ use crate::impls::key::DiceKey;
 use crate::impls::key::DiceKeyErased;
 use crate::impls::key::ParentKey;
 use crate::impls::transaction::ChangeType;
+use crate::impls::user_cycle::UserCycleDetectorData;
 use crate::impls::value::DiceComputedValue;
 use crate::impls::value::DiceKeyValue;
 use crate::impls::value::DiceValue;
@@ -81,6 +82,7 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
 
     let user_data = std::sync::Arc::new(UserComputationData::new());
     let events = DiceEventDispatcher::new(user_data.tracker.dupe(), dice.dupe());
+    let cycles = UserCycleDetectorData::new(user_data.cycle_detector.dupe(), dice.dupe());
 
     let ctx = dice.testing_shared_ctx(VersionNumber::new(1)).await;
     ctx.inject(
@@ -104,6 +106,7 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
                 )]),
                 Arc::new(vec![DiceKey { index: 100 }]),
                 &user_data,
+                &cycles,
                 events.dupe(),
             )
             .await
@@ -132,6 +135,7 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
                 )]),
                 Arc::new(vec![DiceKey { index: 100 }]),
                 &user_data,
+                &cycles,
                 events.dupe(),
             )
             .await
@@ -160,6 +164,7 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
                 )]),
                 Arc::new(vec![DiceKey { index: 200 }]),
                 &user_data,
+                &cycles,
                 events.dupe(),
             )
             .await
@@ -251,6 +256,7 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
         key.dupe(),
         eval.dupe(),
         ctx,
+        UserCycleDetectorData::new(user_data.cycle_detector.dupe(), dice.dupe()),
         events.dupe(),
     );
     let res = task.depended_on_by(ParentKey::None).await?;
@@ -284,6 +290,7 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
         key.dupe(),
         eval.dupe(),
         ctx,
+        UserCycleDetectorData::new(user_data.cycle_detector.dupe(), dice.dupe()),
         events.dupe(),
     );
     let res = task.depended_on_by(ParentKey::None).await?;
@@ -321,6 +328,7 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
         key.dupe(),
         eval.dupe(),
         ctx,
+        UserCycleDetectorData::new(user_data.cycle_detector.dupe(), dice.dupe()),
         events.dupe(),
     );
     let res = task.depended_on_by(ParentKey::None).await?;
@@ -403,6 +411,7 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
         key.dupe(),
         eval.dupe(),
         ctx,
+        UserCycleDetectorData::new(user_data.cycle_detector.dupe(), dice.dupe()),
         events.dupe(),
     );
     let res = task.depended_on_by(ParentKey::None).await?;
@@ -423,6 +432,7 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
         key.dupe(),
         eval.dupe(),
         ctx,
+        UserCycleDetectorData::new(user_data.cycle_detector.dupe(), dice.dupe()),
         events.dupe(),
     );
     let res2 = task.depended_on_by(ParentKey::None).await?;

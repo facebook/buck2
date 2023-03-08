@@ -351,7 +351,6 @@ impl UserCycleDetectorGuard for CycleDetectorGuard {
 }
 
 #[test]
-#[ignore] // TODO(bobyf)
 fn user_cycle_detector_receives_events() -> anyhow::Result<()> {
     let dice = DiceModern::builder().build(DetectCycles::Disabled);
 

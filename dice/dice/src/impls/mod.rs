@@ -26,4 +26,5 @@ pub(crate) mod task;
 #[cfg(test)]
 mod tests;
 pub(crate) mod transaction;
+pub(crate) mod user_cycle;
 pub(crate) mod value;

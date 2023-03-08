@@ -81,6 +81,13 @@ impl DiceKeyErased {
         }
     }
 
+    pub(crate) fn as_any(&self) -> &dyn Any {
+        match self {
+            DiceKeyErased::Key(k) => k.as_any(),
+            DiceKeyErased::Projection(proj) => proj.proj().as_any(),
+        }
+    }
+
     pub(crate) fn downcast<K: 'static>(self) -> Option<Arc<K>> {
         match self {
             DiceKeyErased::Key(k) => {

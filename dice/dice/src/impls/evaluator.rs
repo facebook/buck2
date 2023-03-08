@@ -24,6 +24,7 @@ use crate::impls::events::DiceEventDispatcher;
 use crate::impls::key::DiceKey;
 use crate::impls::key::DiceKeyErased;
 use crate::impls::key::ParentKey;
+use crate::impls::user_cycle::UserCycleDetectorData;
 use crate::impls::value::MaybeValidDiceValue;
 use crate::HashSet;
 
@@ -58,7 +59,11 @@ impl AsyncEvaluator {
         }
     }
 
-    pub(crate) async fn evaluate<'b>(&self, key: DiceKey) -> DiceResult<DiceValueStorageAndDeps> {
+    pub(crate) async fn evaluate<'b>(
+        &self,
+        key: DiceKey,
+        cycles: UserCycleDetectorData,
+    ) -> DiceResult<DiceValueStorageAndDeps> {
         let key_erased = self.dice.key_index.get(key);
         match key_erased {
             DiceKeyErased::Key(key_dyn) => {
@@ -67,6 +72,7 @@ impl AsyncEvaluator {
                     self.per_live_version_ctx.dupe(),
                     self.user_data.dupe(),
                     self.dice.dupe(),
+                    cycles,
                 )));
 
                 let value = key_dyn.compute(&new_ctx).await;
@@ -92,6 +98,7 @@ impl AsyncEvaluator {
                         self.dice.state_handle.dupe(),
                         self.dupe(),
                         &self.user_data,
+                        cycles,
                         DiceEventDispatcher::new(self.user_data.tracker.dupe(), self.dice.dupe()),
                     )
                     .await?;

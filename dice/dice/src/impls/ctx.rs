@@ -41,6 +41,7 @@ use crate::impls::opaque::OpaqueValueModern;
 use crate::impls::task::sync_dice_task;
 use crate::impls::transaction::ActiveTransactionGuard;
 use crate::impls::transaction::TransactionUpdater;
+use crate::impls::user_cycle::UserCycleDetectorData;
 use crate::impls::value::DiceComputedValue;
 use crate::impls::value::DiceValidity;
 use crate::impls::value::MaybeValidDiceValue;
@@ -60,6 +61,8 @@ pub(crate) struct PerComputeCtxData {
     dep_trackers: Mutex<RecordingDepsTracker>, // If we make PerComputeCtx &mut, we can get rid of this mutex after some refactoring
     parent_key: ParentKey,
     dice: Arc<DiceModern>,
+    #[allocative(skip)]
+    cycles: UserCycleDetectorData,
 }
 
 #[allow(clippy::manual_async_fn, unused)]
@@ -69,6 +72,7 @@ impl PerComputeCtx {
         per_live_version_ctx: SharedLiveTransactionCtx,
         user_data: Arc<UserComputationData>,
         dice: Arc<DiceModern>,
+        cycles: UserCycleDetectorData,
     ) -> Self {
         Self {
             data: Arc::new(PerComputeCtxData {
@@ -77,6 +81,7 @@ impl PerComputeCtx {
                 dep_trackers: Mutex::new(RecordingDepsTracker::new()),
                 parent_key,
                 dice,
+                cycles,
             }),
         }
     }
@@ -124,6 +129,7 @@ impl PerComputeCtx {
                     self.data.dice.dupe(),
                 ),
                 &self.data.user_data,
+                self.data.cycles.subrequest(dice_key),
                 DiceEventDispatcher::new(self.data.user_data.tracker.dupe(), self.data.dice.dupe()),
             )
             .map(move |dice_result| {
@@ -228,6 +234,7 @@ impl PerComputeCtx {
         let data = Arc::try_unwrap(self.data)
             .map_err(|_| "Error: tried to finalize when there are more references")
             .unwrap();
+        data.cycles.finished_computing_key();
         data.dep_trackers.into_inner().collect_deps()
     }
 }
@@ -268,13 +275,21 @@ impl SharedLiveTransactionCtx {
         state: CoreStateHandle,
         eval: AsyncEvaluator,
         extra: &Arc<UserComputationData>,
+        cycles: UserCycleDetectorData,
         events: DiceEventDispatcher,
     ) -> impl Future<Output = DiceResult<DiceComputedValue>> {
         match self.cache.get(key) {
             Entry::Occupied(occupied) => occupied.get().depended_on_by(parent_key),
             Entry::Vacant(vacant) => {
-                let task =
-                    IncrementalEngine::spawn_for_key(state, extra, key, eval, self.dupe(), events);
+                let task = IncrementalEngine::spawn_for_key(
+                    state,
+                    extra,
+                    key,
+                    eval,
+                    self.dupe(),
+                    cycles,
+                    events,
+                );
 
                 let fut = task.depended_on_by(parent_key);
 

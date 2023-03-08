@@ -43,6 +43,7 @@ use crate::impls::key::ParentKey;
 use crate::impls::task::dice::DiceTask;
 use crate::impls::task::handle::DiceTaskHandle;
 use crate::impls::task::spawn_dice_task;
+use crate::impls::user_cycle::UserCycleDetectorData;
 use crate::impls::value::DiceComputedValue;
 use crate::versions::VersionRanges;
 use crate::UserComputationData;
@@ -80,6 +81,7 @@ impl IncrementalEngine {
         k: DiceKey,
         eval: AsyncEvaluator,
         transaction_ctx: SharedLiveTransactionCtx,
+        cycles: UserCycleDetectorData,
         events_dispatcher: DiceEventDispatcher,
     ) -> DiceTask {
         let extra_dupe = extra.dupe();
@@ -91,6 +93,7 @@ impl IncrementalEngine {
                     k,
                     eval,
                     transaction_ctx,
+                    cycles,
                     events_dispatcher,
                     handle,
                     extra_dupe,
@@ -160,6 +163,7 @@ impl IncrementalEngine {
         k: DiceKey,
         eval: AsyncEvaluator,
         transaction_ctx: SharedLiveTransactionCtx,
+        mut cycles: UserCycleDetectorData,
         events_dispatcher: DiceEventDispatcher,
         task_handle: DiceTaskHandle,
         extra: std::sync::Arc<UserComputationData>,
@@ -179,11 +183,20 @@ impl IncrementalEngine {
                 task_handle.finished(Ok(entry))
             }
             VersionedGraphResult::Compute => {
-                self.compute(k, eval, &transaction_ctx, events_dispatcher, task_handle)
-                    .await;
+                cycles.start_computing_key(k);
+                self.compute(
+                    k,
+                    eval,
+                    &transaction_ctx,
+                    cycles,
+                    events_dispatcher,
+                    task_handle,
+                )
+                .await;
             }
 
             VersionedGraphResult::CheckDeps(mismatch) => {
+                cycles.start_computing_key(k);
                 match self
                     .compute_whether_dependencies_changed(
                         ParentKey::Some(k), // the computing of deps is triggered by this key as the parent
@@ -192,15 +205,25 @@ impl IncrementalEngine {
                         &mismatch.verified_versions,
                         mismatch.deps_to_validate,
                         &extra,
+                        &cycles,
                         events_dispatcher.dupe(),
                     )
                     .await
                 {
                     DidDepsChange::Changed | DidDepsChange::NoDeps => {
-                        self.compute(k, eval, &transaction_ctx, events_dispatcher, task_handle)
-                            .await;
+                        self.compute(
+                            k,
+                            eval,
+                            &transaction_ctx,
+                            cycles,
+                            events_dispatcher,
+                            task_handle,
+                        )
+                        .await;
                     }
                     DidDepsChange::NoChange(deps) => {
+                        cycles.finished_computing_key();
+
                         // report reuse
                         let (tx, rx) = tokio::sync::oneshot::channel();
                         self.state.request(StateRequest::UpdateComputed {
@@ -220,7 +243,7 @@ impl IncrementalEngine {
 
     #[instrument(
         level = "debug",
-        skip(self, transaction_ctx, eval, task_handle, event_dispatcher),
+        skip(self, transaction_ctx, eval, task_handle, event_dispatcher, cycles),
         fields(k = ?k, version = %transaction_ctx.get_version()),
     )]
     async fn compute(
@@ -228,6 +251,7 @@ impl IncrementalEngine {
         k: DiceKey,
         eval: AsyncEvaluator,
         transaction_ctx: &SharedLiveTransactionCtx,
+        cycles: UserCycleDetectorData,
         event_dispatcher: DiceEventDispatcher,
         task_handle: DiceTaskHandle,
     ) {
@@ -240,7 +264,7 @@ impl IncrementalEngine {
         // TODO(bobyf) these also make good locations where we want to perform instrumentation
         debug!(msg = "running evaluator");
 
-        let eval_result = eval.evaluate(k).await;
+        let eval_result = eval.evaluate(k, cycles).await;
 
         let _guard = match try_to_disable_cancellation() {
             Some(g) => g,
@@ -285,7 +309,7 @@ impl IncrementalEngine {
     /// 'target_version'
     #[instrument(
         level = "debug",
-        skip(self, transaction_ctx, eval, extra, events),
+        skip(self, transaction_ctx, eval, extra, events, cycles),
         fields(version = %transaction_ctx.get_version(), verified_versions = %verified_versions)
     )]
     async fn compute_whether_dependencies_changed(
@@ -296,6 +320,7 @@ impl IncrementalEngine {
         verified_versions: &VersionRanges,
         deps: Arc<Vec<DiceKey>>,
         extra: &std::sync::Arc<UserComputationData>,
+        cycles: &UserCycleDetectorData,
         events: DiceEventDispatcher,
     ) -> DidDepsChange {
         if deps.is_empty() {
@@ -312,6 +337,7 @@ impl IncrementalEngine {
                         self.state.dupe(),
                         eval.dupe(),
                         extra,
+                        cycles.subrequest(*dep),
                         events.dupe(),
                     )
                     .map(|r| r.map(|v| v.history().get_verified_ranges()))
