@@ -544,11 +544,12 @@ fn register_cquery(builder: &mut MethodsBuilder) {
                             .get(this.ctx.async_ctx.0)
                             .await?
                             .into_iter(),
+                            this.ctx,
                         )?,
                     )
                     .await?;
 
-                filter_incompatible(maybe_compatibles.into_iter())
+                filter_incompatible(maybe_compatibles.into_iter(), this.ctx)
             })
             .map(StarlarkTargetSet::from)
     }
