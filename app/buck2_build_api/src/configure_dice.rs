@@ -18,6 +18,7 @@ use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::SetDigestConfig;
 use dice::DetectCycles;
 use dice::Dice;
+use dice::WhichDice;
 
 /// Utility to configure the dice globals.
 /// One place to not forget to initialize something in all places.
@@ -26,11 +27,8 @@ pub async fn configure_dice_for_buck(
     digest_config: DigestConfig,
     root_config: Option<&LegacyBuckConfig>,
     detect_cycles: Option<DetectCycles>,
+    which_dice: Option<WhichDice>,
 ) -> anyhow::Result<Arc<Dice>> {
-    let mut dice = Dice::builder();
-    dice.set_io_provider(io);
-    dice.set_digest_config(digest_config);
-
     let detect_cycles = detect_cycles.map_or_else(
         || {
             root_config
@@ -42,6 +40,22 @@ pub async fn configure_dice_for_buck(
         },
         Ok,
     )?;
+
+    let which_dice = which_dice.map_or_else(
+        || {
+            root_config
+                .and_then(|c| c.parse::<WhichDice>("buck2", "dice").transpose())
+                .unwrap_or(Ok(WhichDice::Legacy))
+        },
+        Ok,
+    )?;
+
+    let mut dice = match which_dice {
+        WhichDice::Legacy => Dice::builder(),
+        WhichDice::Modern => Dice::modern(),
+    };
+    dice.set_io_provider(io);
+    dice.set_digest_config(digest_config);
 
     let dice = dice.build(detect_cycles);
     let mut dice_ctx = dice.updater();

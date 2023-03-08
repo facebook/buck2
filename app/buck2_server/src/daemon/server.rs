@@ -51,6 +51,7 @@ use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use dice::DetectCycles;
 use dice::Dice;
+use dice::WhichDice;
 use dupe::Dupe;
 use futures::channel::mpsc;
 use futures::channel::mpsc::UnboundedReceiver;
@@ -130,6 +131,8 @@ impl DaemonShutdown {
 struct DaemonStateDiceConstructorImpl {
     /// Whether to detect cycles in Dice
     detect_cycles: Option<DetectCycles>,
+    /// Whether to run legacy or modern dice
+    which_dice: Option<WhichDice>,
 }
 
 #[async_trait]
@@ -140,7 +143,14 @@ impl DaemonStateDiceConstructor for DaemonStateDiceConstructorImpl {
         digest_config: DigestConfig,
         root_config: &LegacyBuckConfig,
     ) -> anyhow::Result<Arc<Dice>> {
-        configure_dice_for_buck(io, digest_config, Some(root_config), self.detect_cycles).await
+        configure_dice_for_buck(
+            io,
+            digest_config,
+            Some(root_config),
+            self.detect_cycles,
+            self.which_dice,
+        )
+        .await
     }
 }
 
@@ -292,6 +302,7 @@ impl BuckdServer {
         paths: InvocationPaths,
         delegate: Box<dyn BuckdServerDelegate>,
         detect_cycles: Option<DetectCycles>,
+        which_dice: Option<WhichDice>,
         process_info: DaemonProcessInfo,
         daemon_constraints: buck2_cli_proto::DaemonConstraints,
         listener: I,
@@ -324,7 +335,10 @@ impl BuckdServer {
                 DaemonState::new(
                     fb,
                     paths,
-                    Box::new(DaemonStateDiceConstructorImpl { detect_cycles }),
+                    Box::new(DaemonStateDiceConstructorImpl {
+                        detect_cycles,
+                        which_dice,
+                    }),
                 )
                 .await,
             ),

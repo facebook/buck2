@@ -66,6 +66,7 @@ use buck2_starlark::StarlarkCommand;
 use clap::AppSettings;
 use clap::Parser;
 use dice::DetectCycles;
+use dice::WhichDice;
 use gazebo::variants::VariantName;
 
 use crate::check_user_allowed::check_user_allowed;
@@ -101,6 +102,9 @@ pub(crate) struct CommonOptions {
 
     #[clap(env("DICE_DETECT_CYCLES_UNSTABLE"), long, hidden(true))]
     detect_cycles: Option<DetectCycles>,
+
+    #[clap(env("WHICH_DICE_UNSTABLE"), long, hidden(true))]
+    which_dice: Option<WhichDice>,
 
     /// How verbose buck should be while logging.
     /// Values:
@@ -277,6 +281,7 @@ impl CommandKind {
                     log_reload_handle,
                     paths?,
                     common_opts.detect_cycles,
+                    common_opts.which_dice,
                     false,
                     || {},
                 )
@@ -307,6 +312,7 @@ impl CommandKind {
                             <dyn LogConfigurationReloadHandle>::noop(),
                             paths,
                             common_opts.detect_cycles,
+                            common_opts.which_dice,
                             true,
                             move || drop(tx_clone.send(Ok(()))),
                         );

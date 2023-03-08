@@ -52,6 +52,7 @@ use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_starlark::server::server_starlark_command;
 use buck2_test::command::test_command;
 use dice::DetectCycles;
+use dice::WhichDice;
 use futures::channel::mpsc;
 use futures::channel::mpsc::UnboundedSender;
 use futures::pin_mut;
@@ -267,6 +268,7 @@ impl DaemonCommand {
         log_reload_handle: Box<dyn LogConfigurationReloadHandle>,
         paths: InvocationPaths,
         detect_cycles: Option<DetectCycles>,
+        which_dice: Option<WhichDice>,
         in_process: bool,
         listener_created: impl FnOnce() + Send,
     ) -> anyhow::Result<()> {
@@ -408,6 +410,7 @@ impl DaemonCommand {
                 paths,
                 delegate,
                 detect_cycles,
+                which_dice,
                 process_info,
                 gen_daemon_constraints()?,
                 listener,
@@ -492,6 +495,7 @@ impl DaemonCommand {
         log_reload_handle: Box<dyn LogConfigurationReloadHandle>,
         paths: InvocationPaths,
         detect_cycles: Option<DetectCycles>,
+        which_dice: Option<WhichDice>,
         in_process: bool,
         listener_created: impl FnOnce() + Send,
     ) -> anyhow::Result<()> {
@@ -515,6 +519,7 @@ impl DaemonCommand {
             log_reload_handle,
             paths,
             detect_cycles,
+            which_dice,
             in_process,
             listener_created,
         )?;
@@ -633,6 +638,7 @@ mod tests {
             <dyn LogConfigurationReloadHandle>::noop(),
             invocation_paths,
             Box::new(Delegate),
+            None,
             None,
             process_info.clone(),
             gen_daemon_constraints().unwrap(),

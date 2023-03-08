@@ -249,6 +249,7 @@ pub use crate::api::transaction::DiceTransactionUpdater;
 pub use crate::api::user_data::UserComputationData;
 pub use crate::api::user_data::UserCycleDetector;
 pub use crate::api::user_data::UserCycleDetectorGuard;
+pub use crate::api::which::WhichDice;
 use crate::impls::dice::DiceModern;
 use crate::impls::dice::DiceModernDataBuilder;
 use crate::legacy::DiceLegacy;
