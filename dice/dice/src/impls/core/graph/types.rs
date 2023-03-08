@@ -13,6 +13,7 @@ use allocative::Allocative;
 use dupe::Dupe;
 use gazebo::variants::UnpackVariants;
 use gazebo::variants::VariantName;
+use triomphe::Arc;
 
 use crate::impls::key::DiceKey;
 use crate::impls::value::DiceComputedValue;
@@ -95,7 +96,7 @@ pub(crate) struct VersionedGraphResultMismatch {
     pub(crate) entry: DiceValue,
     /// Versions at which the value for given key is valid.
     pub(crate) verified_versions: VersionRanges,
-    pub(crate) deps_to_validate: Vec<DiceKey>,
+    pub(crate) deps_to_validate: Arc<Vec<DiceKey>>,
 }
 
 #[derive(Debug, VariantName, UnpackVariants)]

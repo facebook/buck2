@@ -71,7 +71,7 @@ impl CoreState {
         &mut self,
         key: VersionedGraphKey,
         value: DiceValue,
-        _deps: Vec<DiceKey>,
+        _deps: Arc<Vec<DiceKey>>,
     ) -> DiceComputedValue {
         // TODO(bobyf) fill in actual logic to update cache
         DiceComputedValue::new(value, Arc::new(CellHistory::verified(key.v)))

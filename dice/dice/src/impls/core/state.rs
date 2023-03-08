@@ -11,6 +11,7 @@ use allocative::Allocative;
 use dupe::Dupe;
 use gazebo::variants::VariantName;
 use tokio::sync::oneshot::Sender;
+use triomphe::Arc;
 
 use crate::impls::core::graph::types::VersionedGraphKey;
 use crate::impls::core::graph::types::VersionedGraphResult;
@@ -55,7 +56,7 @@ pub(crate) enum StateRequest {
         /// The newly computed value
         value: DiceValue,
         /// The deps accessed during the computation of newly computed value
-        deps: Vec<DiceKey>,
+        deps: Arc<Vec<DiceKey>>,
         /// Response of the new value to use. This could be a different instance that is `Eq` to the
         /// given computed value if the state already stores an instance of value that is equal.
         resp: Sender<DiceComputedValue>,

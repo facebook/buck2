@@ -115,7 +115,7 @@ impl IncrementalEngine {
                     state.request(StateRequest::UpdateComputed {
                         key: VersionedGraphKey::new(v, k),
                         value: res.value.dupe(),
-                        deps: res.deps.into_iter().collect(),
+                        deps: Arc::new(res.deps.into_iter().collect()),
                         resp: tx,
                     });
                     // TODO(bobyf) consider if we want to block and wait for the cache
@@ -236,7 +236,7 @@ impl IncrementalEngine {
                 self.state.request(StateRequest::UpdateComputed {
                     key: VersionedGraphKey::new(v, k),
                     value: res.value,
-                    deps: res.deps.into_iter().collect(),
+                    deps: Arc::new(res.deps.into_iter().collect()),
                     resp: tx,
                 });
 
@@ -261,7 +261,7 @@ impl IncrementalEngine {
         _eval: AsyncEvaluator,
         _transaction_ctx: &SharedLiveTransactionCtx,
         verified_versions: &VersionRanges,
-        deps: Vec<DiceKey>,
+        deps: Arc<Vec<DiceKey>>,
     ) -> DidDepsChange {
         async fn recompute_dep(_k: DiceKey) -> DiceResult<VersionRanges> {
             unimplemented!("todo")
@@ -304,6 +304,6 @@ impl IncrementalEngine {
 enum DidDepsChange {
     Changed,
     /// These deps did not change
-    NoChange(Vec<DiceKey>),
+    NoChange(Arc<Vec<DiceKey>>),
     NoDeps,
 }
