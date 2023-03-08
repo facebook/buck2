@@ -22,6 +22,7 @@ use crate::api::computations::DiceComputations;
 use crate::api::key::Key;
 use crate::api::projection::DiceProjectionComputations;
 use crate::api::projection::ProjectionKey;
+use crate::api::storage_type::StorageType;
 use crate::impls::hash;
 use crate::impls::value::DiceKeyValue;
 use crate::impls::value::DiceProjectValue;
@@ -199,6 +200,8 @@ pub(crate) trait DiceKeyDyn: Allocative + Send + Sync + 'static {
     fn clone_arc(&self) -> Arc<dyn DiceKeyDyn>;
 
     fn key_type_name(&self) -> &'static str;
+
+    fn storage_type(&self) -> StorageType;
 }
 
 #[async_trait]
@@ -230,6 +233,10 @@ where
     fn key_type_name(&self) -> &'static str {
         K::key_type_name()
     }
+
+    fn storage_type(&self) -> StorageType {
+        K::storage_type()
+    }
 }
 
 pub(crate) trait DiceProjectionDyn: Allocative + Send + Sync + 'static {
@@ -244,6 +251,8 @@ pub(crate) trait DiceProjectionDyn: Allocative + Send + Sync + 'static {
     fn clone_arc(&self) -> Arc<dyn DiceProjectionDyn>;
 
     fn key_type_name(&self) -> &'static str;
+
+    fn storage_type(&self) -> StorageType;
 }
 
 impl<K> DiceProjectionDyn for K
@@ -278,6 +287,10 @@ where
 
     fn key_type_name(&self) -> &'static str {
         K::key_type_name()
+    }
+
+    fn storage_type(&self) -> StorageType {
+        K::storage_type()
     }
 }
 
