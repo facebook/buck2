@@ -11,6 +11,7 @@ use triomphe::Arc;
 
 use crate::api::storage_type::StorageType;
 use crate::impls::cache::SharedCache;
+use crate::impls::core::graph::storage::InvalidateKind;
 use crate::impls::core::graph::storage::VersionedGraph;
 use crate::impls::core::graph::types::VersionedGraphKey;
 use crate::impls::core::graph::types::VersionedGraphResult;
@@ -40,11 +41,17 @@ impl CoreState {
         updates: impl IntoIterator<Item = (DiceKey, ChangeType)>,
     ) -> VersionNumber {
         let version_update = self.version_tracker.write();
+        let v = version_update.version();
 
         let mut changes_recorded = false;
-        for (_key, _change) in updates {
-            // TODO update the graph
-            changes_recorded |= true;
+        for (key, change) in updates {
+            changes_recorded |= self.graph.invalidate(
+                VersionedGraphKey::new(v, key),
+                match change {
+                    ChangeType::Invalidate => InvalidateKind::ForceDirty,
+                    ChangeType::UpdateValue(v, s) => InvalidateKind::Update(v, s),
+                },
+            );
         }
         if changes_recorded {
             version_update.commit()
