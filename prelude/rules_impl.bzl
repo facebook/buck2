@@ -206,7 +206,6 @@ def _cxx_python_extension_attrs():
     res = {k: attrs.default_only(library[k]) for k in library if k not in me}
     res.update({
         "allow_embedding": attrs.bool(default = True),
-        "allow_huge_dwp": attrs.bool(default = False),
         "allow_suffixing": attrs.bool(default = True),
         # Copied from cxx_library.
         "auto_link_groups": attrs.bool(default = False),
@@ -237,7 +236,6 @@ def _python_executable_attrs():
 
     # allow non-default value for the args below
     updated_attrs.update({
-        "allow_huge_dwp": attrs.bool(default = False),
         "compiler_flags": attrs.list(attrs.arg(), default = []),
         "cxx_main": attrs.source(default = "prelude//python/tools:embedded_main.cpp"),
         "enable_distributed_thinlto": attrs.bool(default = False),
@@ -275,7 +273,6 @@ def _python_test_attrs():
 
 def _cxx_binary_and_test_attrs():
     return {
-        "allow_huge_dwp": attrs.bool(default = False),
         "auto_link_groups": attrs.bool(default = False),
         # Linker flags that only apply to the executable link, used for link
         # strategies (e.g. link groups) which may link shared libraries from
@@ -377,7 +374,6 @@ inlined_extra_attributes = {
         "_exec_os_type": _exec_os_type(),
     },
     "cxx_library": {
-        "allow_huge_dwp": attrs.bool(default = False),
         "auto_link_groups": attrs.bool(default = False),
         "deps_query": attrs.option(attrs.query(), default = None),
         "extra_xcode_sources": attrs.list(attrs.source(allow_directory = True), default = []),
@@ -503,7 +499,6 @@ inlined_extra_attributes = {
         "srcs": attrs.list(attrs.source()),
     },
     "python_library": {
-        "allow_huge_dwp": attrs.bool(default = False),
         "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source(allow_directory = True)), sorted = True, default = []),
         "_create_manifest_for_source_dir": _create_manifest_for_source_dir(),
         "_cxx_toolchain": _cxx_toolchain(),

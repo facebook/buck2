@@ -619,7 +619,6 @@ def cxx_dist_link(
             # distributed thinlto link actions are ran locally, run llvm-dwp locally as well to
             # ensure all dwo source files are available
             local_only = True,
-            allow_huge_dwp = ctx.attrs.allow_huge_dwp,
         )
 
     return LinkedObject(

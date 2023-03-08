@@ -181,7 +181,6 @@ def cxx_link(
             # just pass in the full link line and extract all inputs from that,
             # which is a bit of an overspecification.
             referenced_objects = [dwp_inputs],
-            allow_huge_dwp = ctx.attrs.allow_huge_dwp if hasattr(ctx.attrs, "allow_huge_dwp") else False,
         )
 
     return LinkedObject(
