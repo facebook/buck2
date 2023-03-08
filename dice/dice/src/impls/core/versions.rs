@@ -40,6 +40,12 @@ impl VersionTracker {
         }
     }
 
+    pub(crate) fn currently_active(&self) -> impl Iterator<Item = (usize, &SharedCache)> {
+        self.active_versions
+            .values()
+            .map(|data| (data.ref_count, &data.per_transaction_data))
+    }
+
     /// hands out the current "latest" committed version's associated transaction context
     pub(crate) fn current(&self) -> VersionNumber {
         self.current

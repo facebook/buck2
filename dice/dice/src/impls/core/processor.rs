@@ -77,6 +77,9 @@ impl StateProcessor {
                 // ignore error if the requester dropped it.
                 drop(resp.send(self.state.update_computed(key, storage, value, deps)));
             }
+            StateRequest::Metrics { resp } => {
+                let _ignored = resp.send(self.state.metrics());
+            }
         }
     }
 }

@@ -21,6 +21,7 @@ use crate::api::data::DiceData;
 use crate::api::user_data::UserComputationData;
 use crate::impls::core::state::init_state;
 use crate::impls::core::state::CoreStateHandle;
+use crate::impls::core::state::StateRequest;
 use crate::impls::key_index::DiceKeyIndex;
 use crate::impls::transaction::TransactionUpdater;
 use crate::metrics::Metrics;
@@ -78,8 +79,13 @@ impl DiceModern {
         TransactionUpdater::new(self.dupe(), Arc::new(extra))
     }
 
-    pub fn metrics(&self) -> Metrics {
-        unimplemented!("todo")
+    pub async fn metrics(&self) -> Metrics {
+        let (tx, rx) = tokio::sync::oneshot::channel();
+
+        self.state_handle
+            .request(StateRequest::Metrics { resp: tx });
+
+        rx.await.unwrap()
     }
 
     pub fn serialize_tsv(

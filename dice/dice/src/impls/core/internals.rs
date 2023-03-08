@@ -20,6 +20,7 @@ use crate::impls::key::DiceKey;
 use crate::impls::transaction::ChangeType;
 use crate::impls::value::DiceComputedValue;
 use crate::impls::value::DiceValue;
+use crate::metrics::Metrics;
 use crate::versions::VersionNumber;
 
 /// Core state of DICE, holding the actual graph and version information
@@ -86,6 +87,23 @@ impl CoreState {
         deps: Arc<Vec<DiceKey>>,
     ) -> DiceComputedValue {
         self.graph.update(key, value, deps, storage).0
+    }
+
+    pub(super) fn metrics(&self) -> Metrics {
+        let mut currently_running_key_count = 0;
+        let mut active_transaction_count = 0;
+
+        let currently_active = self.version_tracker.currently_active();
+        for active in currently_active {
+            active_transaction_count += active.0;
+            currently_running_key_count += active.1.active_tasks_count();
+        }
+
+        Metrics {
+            key_count: self.graph.last_n.len(),
+            currently_running_key_count,
+            active_transaction_count: active_transaction_count as u32, // probably won't support more than u32 transactions
+        }
     }
 }
 

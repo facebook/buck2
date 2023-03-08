@@ -23,6 +23,7 @@ use crate::impls::transaction::ActiveTransactionGuard;
 use crate::impls::transaction::ChangeType;
 use crate::impls::value::DiceComputedValue;
 use crate::impls::value::DiceValue;
+use crate::metrics::Metrics;
 use crate::versions::VersionNumber;
 
 /// Core state is accessed via message passing to a single threaded processor
@@ -64,6 +65,8 @@ pub(crate) enum StateRequest {
         /// given computed value if the state already stores an instance of value that is equal.
         resp: Sender<DiceComputedValue>,
     },
+    /// Collect metrics
+    Metrics { resp: Sender<Metrics> },
 }
 
 /// A handle to the core state that allows sending requests

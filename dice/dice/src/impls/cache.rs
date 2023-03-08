@@ -37,6 +37,10 @@ impl SharedCache {
             storage: Arc::new(DashMap::default()),
         }
     }
+
+    pub(crate) fn active_tasks_count(&self) -> usize {
+        self.storage.iter().filter(|e| e.is_pending()).count()
+    }
 }
 
 #[cfg(test)]

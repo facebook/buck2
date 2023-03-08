@@ -319,7 +319,7 @@ impl DiceImplementation {
     pub async fn metrics(&self) -> Metrics {
         match self {
             DiceImplementation::Legacy(dice) => dice.metrics(),
-            DiceImplementation::Modern(dice) => dice.metrics(),
+            DiceImplementation::Modern(dice) => dice.metrics().await,
         }
     }
 
