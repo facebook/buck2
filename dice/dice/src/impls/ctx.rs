@@ -171,6 +171,8 @@ impl PerComputeCtx {
                 DiceEventDispatcher::new(self.data.user_data.tracker.dupe(), self.data.dice.dupe()),
             )
             .map(|r| {
+                self.data.dep_trackers.lock().record(dice_key);
+
                 r.value()
                     .downcast_ref::<K::Value>()
                     .expect("Type mismatch when computing key")
