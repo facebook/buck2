@@ -83,14 +83,14 @@ impl DiceModern {
         _edges: impl Write,
         _nodes_currently_running: impl Write,
     ) -> anyhow::Result<()> {
-        unimplemented!("todo")
+        Err(anyhow::anyhow!("not yet implemented"))
     }
 
     pub fn serialize_serde<S>(&self, _serializer: S) -> Result<(), S::Error>
     where
         S: Serializer,
     {
-        unimplemented!("todo")
+        Err(serde::ser::Error::custom("not yet implemented"))
     }
 
     /// Note: modern dice does not support cycle detection yet
