@@ -272,7 +272,7 @@ impl SharedLiveTransactionCtx {
             Entry::Vacant(vacant) => {
                 let task = IncrementalEngine::spawn_for_key(
                     state,
-                    extra.spawner.dupe(),
+                    &*extra.spawner,
                     extra,
                     key,
                     eval,

@@ -71,7 +71,7 @@ impl IncrementalEngine {
 
     pub(crate) fn spawn_for_key<T>(
         state: CoreStateHandle,
-        spawner: std::sync::Arc<dyn Spawner<T>>,
+        spawner: &dyn Spawner<T>,
         spawn_ctx: &T,
         k: DiceKey,
         eval: AsyncEvaluator,

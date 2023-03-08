@@ -27,7 +27,7 @@ mod state;
 mod tests;
 
 pub(crate) fn spawn_dice_task<S, F>(
-    spawner: Arc<dyn Spawner<S>>,
+    spawner: &dyn Spawner<S>,
     ctx: &S,
     f: impl FnOnce(DiceTaskHandle) -> F,
 ) -> DiceTask

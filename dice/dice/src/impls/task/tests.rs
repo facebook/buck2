@@ -50,7 +50,7 @@ impl Key for K {
 
 #[tokio::test]
 async fn simple_immediately_ready_task() -> anyhow::Result<()> {
-    let task = spawn_dice_task(std::sync::Arc::new(TokioSpawner), &(), |handle| {
+    let task = spawn_dice_task(&TokioSpawner, &(), |handle| {
         handle.finished(Ok(DiceComputedValue::new(
             DiceValue::new(DiceKeyValue::<K>::new(1)),
             Arc::new(CellHistory::empty()),
@@ -85,21 +85,17 @@ async fn simple_task() -> anyhow::Result<()> {
     let lock_dupe = lock.clone(); // actually dupe
     let locked = lock_dupe.lock().await;
 
-    let task = spawn_dice_task(
-        std::sync::Arc::new(TokioSpawner),
-        &(),
-        async move |handle| {
-            // wait for the lock too
-            lock.lock().await;
+    let task = spawn_dice_task(&TokioSpawner, &(), async move |handle| {
+        // wait for the lock too
+        lock.lock().await;
 
-            handle.finished(Ok(DiceComputedValue::new(
-                DiceValue::new(DiceKeyValue::<K>::new(2)),
-                Arc::new(CellHistory::empty()),
-            )));
+        handle.finished(Ok(DiceComputedValue::new(
+            DiceValue::new(DiceKeyValue::<K>::new(2)),
+            Arc::new(CellHistory::empty()),
+        )));
 
-            Box::new(()) as Box<dyn Any + Send + 'static>
-        },
-    );
+        Box::new(()) as Box<dyn Any + Send + 'static>
+    });
 
     let mut promise = task.depended_on_by(DiceKey { index: 1 });
 
@@ -133,19 +129,15 @@ async fn simple_task() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn multiple_promises_all_completes() -> anyhow::Result<()> {
-    let task = spawn_dice_task(
-        std::sync::Arc::new(TokioSpawner),
-        &(),
-        async move |handle| {
-            // wait for the lock too
-            handle.finished(Ok(DiceComputedValue::new(
-                DiceValue::new(DiceKeyValue::<K>::new(2)),
-                Arc::new(CellHistory::empty()),
-            )));
+    let task = spawn_dice_task(&TokioSpawner, &(), async move |handle| {
+        // wait for the lock too
+        handle.finished(Ok(DiceComputedValue::new(
+            DiceValue::new(DiceKeyValue::<K>::new(2)),
+            Arc::new(CellHistory::empty()),
+        )));
 
-            Box::new(()) as Box<dyn Any + Send + 'static>
-        },
-    );
+        Box::new(()) as Box<dyn Any + Send + 'static>
+    });
 
     let promise1 = task.depended_on_by(DiceKey { index: 1 });
     let promise2 = task.depended_on_by(DiceKey { index: 2 });
@@ -323,7 +315,7 @@ async fn sync_complete_unfinished_spawned_task() -> anyhow::Result<()> {
 
     let g = lock.lock().await;
 
-    let task = spawn_dice_task(std::sync::Arc::new(TokioSpawner), &(), {
+    let task = spawn_dice_task(&TokioSpawner, &(), {
         let lock = lock.clone(); // actually dupe
         async move |handle| {
             let _g = lock.lock().await;
@@ -383,7 +375,7 @@ async fn sync_complete_unfinished_spawned_task() -> anyhow::Result<()> {
 async fn sync_complete_finished_spawned_task() -> anyhow::Result<()> {
     let sem = Arc::new(Semaphore::new(0));
 
-    let task = spawn_dice_task(std::sync::Arc::new(TokioSpawner), &(), {
+    let task = spawn_dice_task(&TokioSpawner, &(), {
         let sem = sem.clone(); // actually dupe
         async move |handle| {
             // wait for the lock too
