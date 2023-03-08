@@ -50,6 +50,8 @@ impl CoreState {
                 match change {
                     ChangeType::Invalidate => InvalidateKind::ForceDirty,
                     ChangeType::UpdateValue(v, s) => InvalidateKind::Update(v, s),
+                    #[cfg(test)]
+                    ChangeType::TestingSoftDirty => InvalidateKind::Invalidate,
                 },
             );
         }

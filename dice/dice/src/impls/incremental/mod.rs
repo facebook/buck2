@@ -47,6 +47,9 @@ use crate::impls::value::DiceComputedValue;
 use crate::versions::VersionRanges;
 use crate::UserComputationData;
 
+#[cfg(test)]
+mod tests;
+
 /// The incremental engine that manages all the handling of the results of a
 /// specific key, performing the recomputation if necessary
 ///
@@ -335,4 +338,69 @@ enum DidDepsChange {
     /// These deps did not change
     NoChange(Arc<Vec<DiceKey>>),
     NoDeps,
+}
+
+#[cfg(test)]
+pub(crate) mod testing {
+
+    // #[async_trait]
+    // pub(crate) trait IncrementalEngineExt<K>
+    //     where
+    //         K: StorageProperties + 'static,
+    // {
+    //     fn get_cached(
+    //         self: &Arc<Self>,
+    //         k: K::Key,
+    //         version: VersionNumber,
+    //         m_version: MinorVersion,
+    //     ) -> GraphNode<K>;
+    //
+    //     fn get_maybe_cached(
+    //         self: &Arc<Self>,
+    //         k: K::Key,
+    //         version: VersionNumber,
+    //         m_version: MinorVersion,
+    //     ) -> VersionedGraphResult<K>;
+    // }
+    //
+    // #[async_trait]
+    // impl<K> IncrementalEngineExt<K> for IncrementalEngine<K>
+    //     where
+    //         K: IncrementalComputeProperties,
+    // {
+    //     fn get_cached(
+    //         self: &Arc<Self>,
+    //         k: K::Key,
+    //         version: VersionNumber,
+    //         m_version: MinorVersion,
+    //     ) -> GraphNode<K> {
+    //         self.get_maybe_cached(k, version, m_version).assert_match()
+    //     }
+    //
+    //     fn get_maybe_cached(
+    //         self: &Arc<Self>,
+    //         k: K::Key,
+    //         version: VersionNumber,
+    //         m_version: MinorVersion,
+    //     ) -> VersionedGraphResult<K> {
+    //         self.versioned_cache
+    //             .get(VersionedGraphKeyRef::new(version, &k), m_version)
+    //     }
+    // }
+
+    use crate::impls::incremental::DidDepsChange;
+
+    pub(crate) trait DidDepsChangeExt {
+        fn is_changed(&self) -> bool;
+    }
+
+    impl DidDepsChangeExt for DidDepsChange {
+        fn is_changed(&self) -> bool {
+            match self {
+                DidDepsChange::Changed => true,
+                DidDepsChange::NoChange(..) => false,
+                DidDepsChange::NoDeps => false,
+            }
+        }
+    }
 }

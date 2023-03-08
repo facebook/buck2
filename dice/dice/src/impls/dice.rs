@@ -101,3 +101,31 @@ impl DiceModern {
         unimplemented!("todo")
     }
 }
+
+#[cfg(test)]
+pub(crate) mod testing {
+    use dupe::Dupe;
+
+    use crate::impls::core::state::StateRequest;
+    use crate::impls::ctx::SharedLiveTransactionCtx;
+    use crate::impls::dice::DiceModern;
+    use crate::impls::transaction::ActiveTransactionGuard;
+    use crate::versions::VersionNumber;
+
+    impl DiceModern {
+        pub(crate) async fn testing_shared_ctx(
+            &self,
+            v: VersionNumber,
+        ) -> SharedLiveTransactionCtx {
+            let (tx, rx) = tokio::sync::oneshot::channel();
+
+            let guard = ActiveTransactionGuard::new(v, self.state_handle.dupe());
+            self.state_handle.request(StateRequest::CtxAtVersion {
+                version: v,
+                guard,
+                resp: tx,
+            });
+            rx.await.unwrap()
+        }
+    }
+}

@@ -315,3 +315,33 @@ impl SharedLiveTransactionCtx {
         self.version
     }
 }
+
+#[cfg(test)]
+pub(crate) mod testing {
+    use dashmap::mapref::entry::Entry;
+
+    use crate::impls::ctx::SharedLiveTransactionCtx;
+    use crate::impls::key::DiceKey;
+    use crate::impls::task::sync_dice_task;
+    use crate::impls::value::DiceComputedValue;
+    use crate::DiceResult;
+
+    impl SharedLiveTransactionCtx {
+        pub(crate) fn inject(&self, k: DiceKey, v: DiceResult<DiceComputedValue>) {
+            let task = unsafe {
+                // SAFETY: completed immediately below
+                sync_dice_task()
+            };
+            let _r = task.get_or_complete(|| v);
+
+            match self.cache.get(k) {
+                Entry::Occupied(o) => {
+                    o.replace_entry(task);
+                }
+                Entry::Vacant(v) => {
+                    v.insert(task);
+                }
+            }
+        }
+    }
+}

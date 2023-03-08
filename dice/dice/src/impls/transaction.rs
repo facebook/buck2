@@ -209,6 +209,9 @@ pub(crate) enum ChangeType {
     Invalidate,
     /// Update the key to the given value
     UpdateValue(DiceValue, StorageType),
+    #[cfg(test)]
+    /// testing only, set as recheck but not required to rerun
+    TestingSoftDirty,
 }
 
 #[cfg(test)]
