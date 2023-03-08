@@ -75,6 +75,10 @@ impl TransactionUpdater {
         I: IntoIterator<Item = (K, K::Value)> + Send + Sync + 'static,
     {
         changed.into_iter().try_for_each(|(k, new_value)| {
+            if !K::validity(&new_value) {
+                return Err(DiceError::invalid_change(Arc::new(k)));
+            }
+
             self.scheduled_changes.change(
                 k,
                 ChangeType::UpdateValue(

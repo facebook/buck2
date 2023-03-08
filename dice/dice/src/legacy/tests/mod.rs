@@ -929,3 +929,31 @@ fn test_active_transaction_count() {
     drop(ctx);
     assert_eq!(0, dice.metrics().active_transaction_count);
 }
+
+#[test]
+fn invalid_update() {
+    #[derive(Clone, Dupe, Debug, Display, PartialEq, Eq, Hash, Allocative)]
+    struct Invalid;
+
+    #[async_trait]
+    impl Key for Invalid {
+        type Value = ();
+
+        async fn compute(&self, _ctx: &DiceComputations) -> Self::Value {
+            unimplemented!("not needed for test")
+        }
+
+        fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
+            unimplemented!("not needed for test")
+        }
+
+        fn validity(_x: &Self::Value) -> bool {
+            false
+        }
+    }
+
+    let dice = DiceLegacy::builder().build(DetectCycles::Enabled);
+    let mut updater = dice.updater();
+
+    assert!(updater.changed_to([(Invalid, ())]).is_err());
+}

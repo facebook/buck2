@@ -244,6 +244,9 @@ impl DiceComputationsImplLegacy {
         let mut changes = self.transaction_ctx.changes();
 
         changed.into_iter().try_for_each(|(k, v)| {
+            if !K::validity(&v) {
+                return Err(DiceError::invalid_change(Arc::new(k)));
+            }
             let dice = self.dice.dupe();
             changes.change(
                 k.clone(),

@@ -26,6 +26,7 @@ use crate::api::key::Key;
 use crate::api::user_data::UserComputationData;
 use crate::impls::dice::DiceModern;
 use crate::versions::VersionNumber;
+use crate::DiceData;
 use crate::UserCycleDetector;
 use crate::UserCycleDetectorGuard;
 
@@ -227,6 +228,34 @@ async fn different_data_per_compute_ctx() {
 
     assert_eq!(request0.await.unwrap(), 0);
     assert_eq!(request1.await.unwrap(), 1);
+}
+
+#[test]
+fn invalid_update() {
+    #[derive(Clone, Dupe, Debug, Display, PartialEq, Eq, Hash, Allocative)]
+    struct Invalid;
+
+    #[async_trait]
+    impl Key for Invalid {
+        type Value = ();
+
+        async fn compute(&self, _ctx: &DiceComputations) -> Self::Value {
+            unimplemented!("not needed for test")
+        }
+
+        fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
+            unimplemented!("not needed for test")
+        }
+
+        fn validity(_x: &Self::Value) -> bool {
+            false
+        }
+    }
+
+    let dice = DiceModern::new(DiceData::new());
+    let mut updater = dice.updater();
+
+    assert!(updater.changed_to([(Invalid, ())]).is_err());
 }
 
 #[derive(Clone, Copy, Dupe, Display, Debug, Eq, PartialEq, Hash, Allocative)]

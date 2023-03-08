@@ -32,6 +32,10 @@ impl DiceError {
         }))
     }
 
+    pub fn invalid_change(key: Arc<dyn RequestedKey>) -> Self {
+        DiceError(Arc::new(DiceErrorImpl::ChangedToInvalid(key)))
+    }
+
     pub fn duplicate(key: Arc<dyn RequestedKey>) -> Self {
         DiceError(Arc::new(DiceErrorImpl::DuplicateChange(key)))
     }
@@ -50,6 +54,8 @@ pub(crate) enum DiceErrorImpl {
     },
     #[error("Key `{0}` was marked as changed multiple times on the same transaction.")]
     DuplicateChange(Arc<dyn RequestedKey>),
+    #[error("Key `{0}` was reported as changed to an invalid value")]
+    ChangedToInvalid(Arc<dyn RequestedKey>),
     /// NOTE: This isn't an error users normally see, since if the user is waiting on a result, the
     /// future doesn't get cancelled.
     #[error("The evaluation of this key was cancelled")]
