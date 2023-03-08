@@ -52,6 +52,7 @@ use crate::impls::transaction::ChangeType;
 use crate::impls::value::DiceComputedValue;
 use crate::impls::value::DiceKeyValue;
 use crate::impls::value::DiceValue;
+use crate::impls::value::MaybeValidDiceValue;
 use crate::versions::testing::VersionRangesExt;
 use crate::versions::VersionNumber;
 use crate::versions::VersionRange;
@@ -85,7 +86,7 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
     ctx.inject(
         DiceKey { index: 100 },
         Ok(DiceComputedValue::new(
-            DiceValue::new(DiceKeyValue::<K>::new(1)),
+            MaybeValidDiceValue::valid(DiceValue::testing_new(DiceKeyValue::<K>::new(1))),
             Arc::new(CellHistory::testing_new(&[VersionNumber::new(1)], &[])),
         )),
     );
@@ -113,7 +114,7 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
     ctx.inject(
         DiceKey { index: 100 },
         Ok(DiceComputedValue::new(
-            DiceValue::new(DiceKeyValue::<K>::new(1)),
+            MaybeValidDiceValue::valid(DiceValue::testing_new(DiceKeyValue::<K>::new(1))),
             Arc::new(CellHistory::testing_new(&[VersionNumber::new(1)], &[])),
         )),
     );
@@ -214,7 +215,7 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
     dice.state_handle.request(StateRequest::UpdateComputed {
         key: VersionedGraphKey::new(VersionNumber::new(0), DiceKey { index: 100 }),
         storage: StorageType::LastN(1),
-        value: DiceValue::new(DiceKeyValue::<K>::new(1)),
+        value: DiceValue::testing_new(DiceKeyValue::<K>::new(1)),
         deps: Arc::new(vec![]),
         resp: tx,
     });
@@ -222,7 +223,7 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
     dice.state_handle.request(StateRequest::UpdateComputed {
         key: VersionedGraphKey::new(VersionNumber::new(0), key.dupe()),
         storage: StorageType::LastN(1),
-        value: DiceValue::new(DiceKeyValue::<IsRan>::new(())),
+        value: DiceValue::testing_new(DiceKeyValue::<IsRan>::new(())),
         deps: Arc::new(vec![DiceKey { index: 100 }]),
         resp: tx,
     });
@@ -238,7 +239,7 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
     ctx.inject(
         DiceKey { index: 100 },
         Ok(DiceComputedValue::new(
-            DiceValue::new(DiceKeyValue::<K>::new(1)),
+            MaybeValidDiceValue::valid(DiceValue::testing_new(DiceKeyValue::<K>::new(1))),
             Arc::new(CellHistory::verified(VersionNumber::new(0))),
         )),
     );
@@ -271,7 +272,7 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
     ctx.inject(
         DiceKey { index: 100 },
         Ok(DiceComputedValue::new(
-            DiceValue::new(DiceKeyValue::<K>::new(1)),
+            MaybeValidDiceValue::valid(DiceValue::testing_new(DiceKeyValue::<K>::new(1))),
             Arc::new(CellHistory::verified(v)),
         )),
     );
@@ -308,7 +309,7 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
     ctx.inject(
         DiceKey { index: 100 },
         Ok(DiceComputedValue::new(
-            DiceValue::new(DiceKeyValue::<K>::new(1)),
+            MaybeValidDiceValue::valid(DiceValue::testing_new(DiceKeyValue::<K>::new(1))),
             Arc::new(CellHistory::testing_new(&[v, new_v], &[])),
         )),
     );
@@ -439,11 +440,11 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
     // verify that the instance we return and store is the same as the original instance
     assert_eq!(
         res.value()
-            .downcast_ref::<InstanceEqual>()
+            .downcast_maybe_transient::<InstanceEqual>()
             .unwrap()
             .instance_count,
         res2.value()
-            .downcast_ref::<InstanceEqual>()
+            .downcast_maybe_transient::<InstanceEqual>()
             .unwrap()
             .instance_count
     );

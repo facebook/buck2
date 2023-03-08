@@ -687,7 +687,7 @@ mod tests {
     #[test]
     fn latest_only_stores_latest_only() {
         let mut cache = VersionedGraph::new();
-        let res = DiceValue::new(DiceKeyValue::<K>::new(100));
+        let res = DiceValue::testing_new(DiceKeyValue::<K>::new(100));
         let key = VersionedGraphKey::new(VersionNumber::new(1), DiceKey { index: 0 });
 
         // first, empty cache gives none
@@ -706,7 +706,7 @@ mod tests {
 
         assert!(cache.get(key.dupe()).assert_match().value().equality(&res));
 
-        let res2 = DiceValue::new(DiceKeyValue::<K>::new(200));
+        let res2 = DiceValue::testing_new(DiceKeyValue::<K>::new(200));
 
         let key2 = VersionedGraphKey::new(VersionNumber::new(2), DiceKey { index: 0 });
         assert!(cache.invalidate(key2.dupe(), InvalidateKind::Invalidate));
@@ -740,7 +740,7 @@ mod tests {
         );
 
         // if the value is the same, then versions are shared
-        let res3 = DiceValue::new(DiceKeyValue::<K>::new(200));
+        let res3 = DiceValue::testing_new(DiceKeyValue::<K>::new(200));
         let key3 = VersionedGraphKey::new(VersionNumber::new(5), DiceKey { index: 0 });
         let key4 = VersionedGraphKey::new(VersionNumber::new(4), DiceKey { index: 0 });
         assert!(cache.invalidate(key4.dupe(), InvalidateKind::Invalidate));
@@ -783,7 +783,7 @@ mod tests {
         );
 
         // smaller version numbers don't get cached
-        let res4 = DiceValue::new(DiceKeyValue::<K>::new(400));
+        let res4 = DiceValue::testing_new(DiceKeyValue::<K>::new(400));
         assert!(
             cache
                 .update(
@@ -846,7 +846,7 @@ mod tests {
     #[test]
     fn last_n_max_usize_stores_everything() {
         let mut cache = VersionedGraph::new();
-        let res = DiceValue::new(DiceKeyValue::<K>::new(100));
+        let res = DiceValue::testing_new(DiceKeyValue::<K>::new(100));
         let key = VersionedGraphKey::new(VersionNumber::new(0), DiceKey { index: 0 });
 
         assert!(
@@ -862,7 +862,7 @@ mod tests {
 
         assert!(cache.get(key.dupe()).assert_match().value().equality(&res));
 
-        let res2 = DiceValue::new(DiceKeyValue::<K>::new(200));
+        let res2 = DiceValue::testing_new(DiceKeyValue::<K>::new(200));
         let key2 = VersionedGraphKey::new(VersionNumber::new(1), DiceKey { index: 0 });
         assert!(cache.invalidate(key2.dupe(), InvalidateKind::Invalidate));
         assert!(
@@ -886,7 +886,7 @@ mod tests {
         assert!(cache.get(key.dupe()).assert_match().value().equality(&res));
 
         // skip a few versions
-        let res3 = DiceValue::new(DiceKeyValue::<K>::new(300));
+        let res3 = DiceValue::testing_new(DiceKeyValue::<K>::new(300));
         let key3 = VersionedGraphKey::new(VersionNumber::new(5), DiceKey { index: 0 });
         let key2 = VersionedGraphKey::new(VersionNumber::new(1), DiceKey { index: 0 });
         assert!(cache.invalidate(key3.dupe(), InvalidateKind::Invalidate));
@@ -948,7 +948,7 @@ mod tests {
     #[tokio::test]
     async fn last_2_stores_last_2() {
         let mut cache = VersionedGraph::new();
-        let res = DiceValue::new(DiceKeyValue::<K>::new(100));
+        let res = DiceValue::testing_new(DiceKeyValue::<K>::new(100));
         let key = VersionedGraphKey::new(VersionNumber::new(0), DiceKey { index: 0 });
 
         assert!(
@@ -964,7 +964,7 @@ mod tests {
 
         assert!(cache.get(key.dupe()).assert_match().value().equality(&res));
 
-        let res2 = DiceValue::new(DiceKeyValue::<K>::new(200));
+        let res2 = DiceValue::testing_new(DiceKeyValue::<K>::new(200));
         let key2 = VersionedGraphKey::new(VersionNumber::new(1), DiceKey { index: 0 });
         assert!(cache.invalidate(key2.dupe(), InvalidateKind::Invalidate));
         assert!(
@@ -988,7 +988,7 @@ mod tests {
         assert!(cache.get(key.dupe()).assert_match().value().equality(&res));
 
         // skip a few versions
-        let res3 = DiceValue::new(DiceKeyValue::<K>::new(300));
+        let res3 = DiceValue::testing_new(DiceKeyValue::<K>::new(300));
         let key3 = VersionedGraphKey::new(VersionNumber::new(5), DiceKey { index: 0 });
         let key2 = VersionedGraphKey::new(VersionNumber::new(1), DiceKey { index: 0 });
         assert!(cache.invalidate(key3.dupe(), InvalidateKind::Invalidate));
@@ -1037,7 +1037,7 @@ mod tests {
         }
 
         let mut cache = VersionedGraph::new();
-        let res = DiceValue::new(DiceKeyValue::<K>::new(100));
+        let res = DiceValue::testing_new(DiceKeyValue::<K>::new(100));
 
         let existing = cache.invalidate(key(0), InvalidateKind::Invalidate);
         assert!(existing);
@@ -1082,7 +1082,7 @@ mod tests {
         }
 
         let mut cache = VersionedGraph::new();
-        let res = DiceValue::new(DiceKeyValue::<K>::new(100));
+        let res = DiceValue::testing_new(DiceKeyValue::<K>::new(100));
 
         let existing = cache.invalidate(key(0), InvalidateKind::Invalidate);
         assert!(existing);
@@ -1128,17 +1128,17 @@ mod tests {
         let mut cache = VersionedGraph::new();
 
         let key1 = VersionedGraphKey::new(VersionNumber::new(0), DiceKey { index: 0 });
-        let res = DiceValue::new(DiceKeyValue::<K>::new(1));
+        let res = DiceValue::testing_new(DiceKeyValue::<K>::new(1));
 
         let value = cache.update(key1, res.dupe(), Arc::new(vec![]), StorageType::LastN(1));
 
         let key2 = VersionedGraphKey::new(VersionNumber::new(1), DiceKey { index: 0 });
-        let res2 = DiceValue::new(DiceKeyValue::<K>::new(2));
+        let res2 = DiceValue::testing_new(DiceKeyValue::<K>::new(2));
 
         cache.update(key2, res2.dupe(), Arc::new(vec![]), StorageType::LastN(1));
 
         let key3 = VersionedGraphKey::new(VersionNumber::new(2), DiceKey { index: 0 });
-        let res3 = DiceValue::new(DiceKeyValue::<K>::new(1));
+        let res3 = DiceValue::testing_new(DiceKeyValue::<K>::new(1));
         let value3 = cache.update(
             key3.dupe(),
             res3.dupe(),
@@ -1148,7 +1148,10 @@ mod tests {
 
         // should have created a new entry because of key2
         #[allow(clippy::vtable_address_comparisons)] // this should be same exact ptr copy
-        let is_same_ptr = !std::sync::Arc::ptr_eq(&value.0.value().0, &value3.0.value().0);
+        let is_same_ptr = !std::sync::Arc::ptr_eq(
+            value.0.value().testing_value(),
+            value3.0.value().testing_value(),
+        );
         assert!(is_same_ptr);
         // should actually be cached though
         cache.get(key3).assert_match();
@@ -1157,7 +1160,7 @@ mod tests {
     #[test]
     fn update_prior_version_reuses_nodes_correctly() {
         let mut cache = VersionedGraph::new();
-        let res = DiceValue::new(DiceKeyValue::<K>::new(100));
+        let res = DiceValue::testing_new(DiceKeyValue::<K>::new(100));
 
         let key = VersionedGraphKey::new(VersionNumber::new(5), DiceKey { index: 0 });
 
@@ -1178,7 +1181,7 @@ mod tests {
         assert!(cache.get(key.dupe()).assert_match().value().equality(&res));
 
         // now insert a new value of a older version, this shouldn't evict anything.
-        let res2 = DiceValue::new(DiceKeyValue::<K>::new(200));
+        let res2 = DiceValue::testing_new(DiceKeyValue::<K>::new(200));
         let key2 = VersionedGraphKey::new(VersionNumber::new(4), DiceKey { index: 0 });
         assert!(
             cache
@@ -1217,7 +1220,7 @@ mod tests {
     #[test]
     fn dirty_invalidates_rdeps() -> anyhow::Result<()> {
         let mut cache = VersionedGraph::new();
-        let res = DiceValue::new(DiceKeyValue::<K>::new(100));
+        let res = DiceValue::testing_new(DiceKeyValue::<K>::new(100));
 
         let key = VersionedGraphKey::new(VersionNumber::new(0), DiceKey { index: 0 });
         cache.update(key, res.dupe(), Arc::new(vec![]), StorageType::LastN(1));
@@ -1270,7 +1273,7 @@ mod tests {
     #[test]
     fn dirty_same_nodes() -> anyhow::Result<()> {
         let mut cache = VersionedGraph::new();
-        let res = DiceValue::new(DiceKeyValue::<K>::new(100));
+        let res = DiceValue::testing_new(DiceKeyValue::<K>::new(100));
 
         let key = VersionedGraphKey::new(VersionNumber::new(0), DiceKey { index: 0 });
         cache.update(key, res.dupe(), Arc::new(vec![]), StorageType::LastN(1));
@@ -1286,7 +1289,7 @@ mod tests {
         assert!(cache.invalidate(
             VersionedGraphKey::new(VersionNumber::new(1), DiceKey { index: 0 }),
             InvalidateKind::Update(
-                DiceValue::new(DiceKeyValue::<K>::new(30)),
+                DiceValue::testing_new(DiceKeyValue::<K>::new(30)),
                 StorageType::LastN(1)
             )
         ));

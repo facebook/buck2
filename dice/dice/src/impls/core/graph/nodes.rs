@@ -32,7 +32,7 @@ use crate::impls::core::graph::history::CellHistory;
 use crate::impls::key::DiceKey;
 use crate::impls::value::DiceComputedValue;
 use crate::impls::value::DiceValue;
-use crate::impls::value::DiceValueWithValidity;
+use crate::impls::value::MaybeValidDiceValue;
 use crate::versions::VersionNumber;
 use crate::HashSet;
 
@@ -165,7 +165,10 @@ impl OccupiedGraphNode {
     }
 
     pub(crate) fn computed_val(&self) -> DiceComputedValue {
-        DiceComputedValue::new(self.res.dupe(), Arc::new(self.metadata.hist.clone()))
+        DiceComputedValue::new(
+            MaybeValidDiceValue::valid(self.res.dupe()),
+            Arc::new(self.metadata.hist.clone()),
+        )
     }
 }
 
@@ -221,7 +224,7 @@ mod tests {
         let deps0: Arc<Vec<DiceKey>> = Arc::new(vec![DiceKey { index: 5 }]);
         let mut entry = OccupiedGraphNode::new(
             DiceKey { index: 1335 },
-            DiceValue::new(DiceKeyValue::<K>::new(1)),
+            DiceValue::testing_new(DiceKeyValue::<K>::new(1)),
             VersionedDependencies::new(VersionNumber::new(0), deps0.clone()), // actually dupe
             CellHistory::testing_new(
                 &[VersionNumber::new(0)],

@@ -123,15 +123,20 @@ impl IncrementalEngine {
             let res = match eval_result {
                 Ok(res) => {
                     // send the update but don't wait for it
-                    let (tx, _rx) = tokio::sync::oneshot::channel();
-                    state.request(StateRequest::UpdateComputed {
-                        key: VersionedGraphKey::new(v, k),
-                        storage: res.storage,
-                        value: res.value.dupe(),
-                        deps: Arc::new(res.deps.into_iter().collect()),
-                        resp: tx,
-                    });
-                    // TODO(bobyf) consider if we want to block and wait for the cache
+                    match res.value.dupe().into_valid_value() {
+                        Ok(value) => {
+                            let (tx, _rx) = tokio::sync::oneshot::channel();
+                            state.request(StateRequest::UpdateComputed {
+                                key: VersionedGraphKey::new(v, k),
+                                storage: res.storage,
+                                value,
+                                deps: Arc::new(res.deps.into_iter().collect()),
+                                resp: tx,
+                            });
+                            // TODO(bobyf) consider if we want to block and wait for the cache
+                        }
+                        Err(_) => {}
+                    }
 
                     Ok(res.value)
                 }
@@ -249,18 +254,26 @@ impl IncrementalEngine {
         debug!(msg = "evaluation finished. updating caches");
 
         match eval_result {
-            Ok(res) => {
-                let (tx, rx) = tokio::sync::oneshot::channel();
-                self.state.request(StateRequest::UpdateComputed {
-                    key: VersionedGraphKey::new(v, k),
-                    storage: res.storage,
-                    value: res.value,
-                    deps: Arc::new(res.deps.into_iter().collect()),
-                    resp: tx,
-                });
+            Ok(res) => match res.value.into_valid_value() {
+                Ok(value) => {
+                    let (tx, rx) = tokio::sync::oneshot::channel();
+                    self.state.request(StateRequest::UpdateComputed {
+                        key: VersionedGraphKey::new(v, k),
+                        storage: res.storage,
+                        value,
+                        deps: Arc::new(res.deps.into_iter().collect()),
+                        resp: tx,
+                    });
 
-                task_handle.finished(Ok(rx.await.unwrap()))
-            }
+                    task_handle.finished(Ok(rx.await.unwrap()))
+                }
+                Err(value) => {
+                    task_handle.finished(Ok(DiceComputedValue::new(
+                        value,
+                        Arc::new(CellHistory::verified(v)),
+                    )));
+                }
+            },
             Err(e) => task_handle.finished(Err(e)),
         }
 

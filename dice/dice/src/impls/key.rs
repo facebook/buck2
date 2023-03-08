@@ -26,7 +26,8 @@ use crate::api::storage_type::StorageType;
 use crate::impls::hash;
 use crate::impls::value::DiceKeyValue;
 use crate::impls::value::DiceProjectValue;
-use crate::impls::value::DiceValue;
+use crate::impls::value::DiceValueDyn;
+use crate::impls::value::MaybeValidDiceValue;
 
 /// Type erased internal dice key
 #[derive(
@@ -198,7 +199,7 @@ impl<'a> CowDiceKey<'a> {
 
 #[async_trait]
 pub(crate) trait DiceKeyDyn: Allocative + Send + Sync + 'static {
-    async fn compute(&self, ctx: &DiceComputations) -> DiceValue;
+    async fn compute(&self, ctx: &DiceComputations) -> Arc<dyn DiceValueDyn>;
 
     fn eq_any(&self) -> PartialEqAny;
 
@@ -218,9 +219,9 @@ impl<K> DiceKeyDyn for K
 where
     K: Key,
 {
-    async fn compute(&self, ctx: &DiceComputations) -> DiceValue {
+    async fn compute(&self, ctx: &DiceComputations) -> Arc<dyn DiceValueDyn> {
         let value = self.compute(ctx).await;
-        DiceValue::new(DiceKeyValue::<K>::new(value))
+        Arc::new(DiceKeyValue::<K>::new(value))
     }
 
     fn eq_any(&self) -> PartialEqAny {
@@ -249,7 +250,11 @@ where
 }
 
 pub(crate) trait DiceProjectionDyn: Allocative + Send + Sync + 'static {
-    fn compute(&self, derive_from: &DiceValue, ctx: &DiceProjectionComputations) -> DiceValue;
+    fn compute(
+        &self,
+        derive_from: &MaybeValidDiceValue,
+        ctx: &DiceProjectionComputations,
+    ) -> Arc<dyn DiceValueDyn>;
 
     fn eq_any(&self) -> PartialEqAny;
 
@@ -268,14 +273,18 @@ impl<K> DiceProjectionDyn for K
 where
     K: ProjectionKey,
 {
-    fn compute(&self, derive_from: &DiceValue, ctx: &DiceProjectionComputations) -> DiceValue {
+    fn compute(
+        &self,
+        derive_from: &MaybeValidDiceValue,
+        ctx: &DiceProjectionComputations,
+    ) -> Arc<dyn DiceValueDyn> {
         let value = self.compute(
             derive_from
-                .downcast_ref()
+                .downcast_maybe_transient()
                 .expect("Projection Key derived from wrong type"),
             ctx,
         );
-        DiceValue::new(DiceProjectValue::<K>::new(value))
+        Arc::new(DiceProjectValue::<K>::new(value))
     }
 
     fn eq_any(&self) -> PartialEqAny {

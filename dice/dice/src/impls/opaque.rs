@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::marker::PhantomData;
+
 use derivative::Derivative;
 use dupe::Dupe;
 
@@ -15,16 +17,17 @@ use crate::api::key::Key;
 use crate::api::projection::ProjectionKey;
 use crate::impls::ctx::PerComputeCtx;
 use crate::impls::key::DiceKey;
-use crate::impls::value::DiceValidity;
+use crate::impls::value::MaybeValidDiceValue;
 
 #[derive(Derivative)]
 #[derivative(Debug)]
 pub(crate) struct OpaqueValueModern<'a, K: Key> {
     derive_from_key: DiceKey,
     #[derivative(Debug = "ignore")]
-    derive_from: K::Value,
+    derive_from: MaybeValidDiceValue,
     #[derivative(Debug = "ignore")]
     parent_computation: &'a PerComputeCtx,
+    ty: PhantomData<K>,
 }
 
 impl<'a, K> OpaqueValueModern<'a, K>
@@ -34,12 +37,13 @@ where
     pub(crate) fn new(
         parent_computation: &'a PerComputeCtx,
         derive_from_key: DiceKey,
-        derive_from: K::Value,
+        derive_from: MaybeValidDiceValue,
     ) -> Self {
         Self {
             derive_from_key,
             derive_from,
             parent_computation,
+            ty: Default::default(),
         }
     }
 
@@ -56,21 +60,21 @@ where
 
     /// Get a value and record parent computation dependency on `K`.
     pub(crate) fn into_value(self) -> K::Value {
-        self.parent_computation.dep_trackers().record(
-            self.derive_from_key,
-            if K::validity(&self.derive_from) {
-                DiceValidity::Valid
-            } else {
-                DiceValidity::Transient
-            },
-        );
+        self.parent_computation
+            .dep_trackers()
+            .record(self.derive_from_key, self.derive_from.validity());
 
         self.derive_from
+            .downcast_maybe_transient::<K::Value>()
+            .expect("type mismatch")
+            .dupe()
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
     use allocative::Allocative;
     use async_trait::async_trait;
     use derive_more::Display;
@@ -81,6 +85,9 @@ mod tests {
     use crate::impls::dice::DiceModern;
     use crate::impls::key::DiceKey;
     use crate::impls::opaque::OpaqueValueModern;
+    use crate::impls::value::DiceKeyValue;
+    use crate::impls::value::DiceValidity;
+    use crate::impls::value::MaybeValidDiceValue;
     use crate::DiceComputations;
     use crate::HashSet;
 
@@ -106,7 +113,11 @@ mod tests {
 
         let ctx = dice.updater().commit().await;
 
-        let opaque = OpaqueValueModern::<K>::new(&ctx, DiceKey { index: 0 }, 1);
+        let opaque = OpaqueValueModern::<K>::new(
+            &ctx,
+            DiceKey { index: 0 },
+            MaybeValidDiceValue::new(Arc::new(DiceKeyValue::<K>::new(1)), DiceValidity::Valid),
+        );
 
         assert_eq!(ctx.dep_trackers().recorded_deps(), &HashSet::default());
 

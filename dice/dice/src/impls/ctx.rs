@@ -42,9 +42,8 @@ use crate::impls::task::sync_dice_task;
 use crate::impls::transaction::ActiveTransactionGuard;
 use crate::impls::transaction::TransactionUpdater;
 use crate::impls::value::DiceComputedValue;
-use crate::impls::value::DiceKeyValue;
 use crate::impls::value::DiceValidity;
-use crate::impls::value::DiceValue;
+use crate::impls::value::MaybeValidDiceValue;
 use crate::versions::VersionNumber;
 use crate::HashSet;
 
@@ -129,15 +128,7 @@ impl PerComputeCtx {
             )
             .map(move |dice_result| {
                 dice_result.map(move |dice_value| {
-                    OpaqueValueModern::new(
-                        self,
-                        dice_key,
-                        dice_value
-                            .value()
-                            .downcast_ref::<K::Value>()
-                            .expect("Type mismatch when computing key")
-                            .dupe(),
-                    )
+                    OpaqueValueModern::new(self, dice_key, dice_value.value().dupe())
                 })
             })
     }
@@ -147,7 +138,7 @@ impl PerComputeCtx {
         &self,
         key: &K,
         base_key: DiceKey,
-        base: <K::DeriveFromKey as Key>::Value,
+        base: MaybeValidDiceValue,
     ) -> DiceResult<K::Value>
     where
         K: ProjectionKey,
@@ -167,22 +158,18 @@ impl PerComputeCtx {
                     self.data.per_live_version_ctx.dupe(),
                     self.data.user_data.dupe(),
                     self.data.dice.dupe(),
-                    DiceValue::new(DiceKeyValue::<K::DeriveFromKey>::new(base)),
+                    base,
                 ),
                 DiceEventDispatcher::new(self.data.user_data.tracker.dupe(), self.data.dice.dupe()),
             )
             .map(|r| {
-                self.data.dep_trackers.lock().record(
-                    dice_key,
-                    if r.value().0.validity() {
-                        DiceValidity::Valid
-                    } else {
-                        DiceValidity::Transient
-                    },
-                );
+                self.data
+                    .dep_trackers
+                    .lock()
+                    .record(dice_key, r.value().validity());
 
                 r.value()
-                    .downcast_ref::<K::Value>()
+                    .downcast_maybe_transient::<K::Value>()
                     .expect("Type mismatch when computing key")
                     .dupe()
             })

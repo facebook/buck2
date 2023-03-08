@@ -28,7 +28,9 @@ use crate::impls::key::DiceKey;
 use crate::impls::key::DiceKeyErased;
 use crate::impls::key::ParentKey;
 use crate::impls::value::DiceKeyValue;
+use crate::impls::value::DiceValidity;
 use crate::impls::value::DiceValue;
+use crate::impls::value::MaybeValidDiceValue;
 use crate::versions::VersionNumber;
 use crate::DiceModern;
 use crate::HashMap;
@@ -75,17 +77,18 @@ impl TransactionUpdater {
         I: IntoIterator<Item = (K, K::Value)> + Send + Sync + 'static,
     {
         changed.into_iter().try_for_each(|(k, new_value)| {
-            if !K::validity(&new_value) {
-                return Err(DiceError::invalid_change(Arc::new(k)));
-            }
-
-            self.scheduled_changes.change(
-                k,
-                ChangeType::UpdateValue(
-                    DiceValue::new(DiceKeyValue::<K>::new(new_value)),
-                    K::storage_type(),
-                ),
+            match MaybeValidDiceValue::new(
+                Arc::new(DiceKeyValue::<K>::new(new_value)),
+                DiceValidity::Valid,
             )
+            .into_valid_value()
+            {
+                Ok(validated_value) => self.scheduled_changes.change(
+                    k,
+                    ChangeType::UpdateValue(validated_value, K::storage_type()),
+                ),
+                Err(_) => Err(DiceError::invalid_change(Arc::new(k))),
+            }
         })
     }
 
@@ -288,7 +291,7 @@ mod tests {
             .scheduled_changes
             .changes
             .get(&dice.key_index.index(CowDiceKey::Owned(DiceKeyErased::key(K(3))))),
-        Some(ChangeType::UpdateValue(x, _)) if *x.0.downcast_ref::<usize>().unwrap() == 3
+        Some(ChangeType::UpdateValue(x, _)) if *x.downcast_ref::<usize>().unwrap() == 3
             );
 
         assert_matches!(
@@ -296,7 +299,7 @@ mod tests {
             .scheduled_changes
             .changes
             .get(&dice.key_index.index(CowDiceKey::Owned(DiceKeyErased::key(K(4))))),
-        Some(ChangeType::UpdateValue(x, _)) if *x.0.downcast_ref::<usize>().unwrap() == 4
+        Some(ChangeType::UpdateValue(x, _)) if *x.downcast_ref::<usize>().unwrap() == 4
             );
 
         assert!(updater.changed(vec![K(1)]).is_err());
