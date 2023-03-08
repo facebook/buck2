@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::borrow::Borrow;
 use std::cmp;
 use std::cmp::min;
 use std::collections::Bound;
@@ -19,7 +20,6 @@ use sorted_vector_map::sorted_vector_set;
 use sorted_vector_map::SortedVectorMap;
 use sorted_vector_map::SortedVectorSet;
 
-use crate::legacy::incremental::graph::ReadOnlyHistory;
 use crate::versions::VersionNumber;
 use crate::versions::VersionRange;
 use crate::versions::VersionRanges;
@@ -143,16 +143,17 @@ impl CellHistory {
     ///
     /// Dependencies history are accounted for by propagating their dirtied versions to the
     /// verified history through 'propagate_dirty_from_deps'
-    pub(crate) fn mark_verified<'a, I>(&mut self, v: VersionNumber, deps: I) -> VersionNumber
+    pub(crate) fn mark_verified<I, H>(&mut self, v: VersionNumber, deps: I) -> VersionNumber
     where
-        I: IntoIterator<Item = ReadOnlyHistory<'a>>,
+        I: IntoIterator<Item = H>,
         I::IntoIter: Clone,
+        H: Borrow<CellHistory>,
     {
         let deps_iter = deps.into_iter();
         // We can't be verified before any of our deps were most-recently verified.
         let all_deps_unchanged_since = deps_iter
             .clone()
-            .filter_map(|dep| dep.latest_verified_before(v))
+            .filter_map(|dep| dep.borrow().latest_verified_before(v))
             .max();
         let min_validated = self.min_validatable_version(v, all_deps_unchanged_since);
         let changed_since = if let Some(prev_verified) = self
@@ -312,11 +313,13 @@ impl CellHistory {
     /// new dependencies.
     /// This will make the current history propagate any dirty versions necessary from the given
     /// set of dependencies at a version 'v'.
-    pub(crate) fn propagate_from_deps<'a>(
+    pub(crate) fn propagate_from_deps<H>(
         &mut self,
         v: VersionNumber,
-        deps: impl IntoIterator<Item = ReadOnlyHistory<'a>>,
-    ) {
+        deps: impl IntoIterator<Item = H>,
+    ) where
+        H: Borrow<CellHistory>,
+    {
         // By verifying the given version, we only need to fill in the history up to the next
         // smallest verified and dirtied version. Any dirties beyond that would be irrelevant
         // as either we would already be dirtied, or some newer version have already verified us
@@ -345,6 +348,7 @@ impl CellHistory {
         let mut min_dirty = None;
         for dep in deps {
             if let Some(dirty) = dep
+                .borrow()
                 .dirtied
                 .range((
                     Bound::Excluded(v),
@@ -496,7 +500,6 @@ mod tests {
     use sorted_vector_map::sorted_vector_set;
     use sorted_vector_map::SortedVectorSet;
 
-    use crate::legacy::incremental::graph::ReadOnlyHistory;
     use crate::legacy::incremental::history::testing::CellHistoryExt;
     use crate::legacy::incremental::history::testing::HistoryExt;
     use crate::legacy::incremental::history::CellHistory;
@@ -510,9 +513,9 @@ mod tests {
         let mut hist = CellHistory::verified(VersionNumber::new(0));
         hist.propagate_from_deps(
             VersionNumber::new(0),
-            vec![
-                ReadOnlyHistory::TestingValue(CellHistory::dirtied(VersionNumber::new(1), false)),
-                ReadOnlyHistory::TestingValue(CellHistory::dirtied(VersionNumber::new(4), true)),
+            &[
+                CellHistory::dirtied(VersionNumber::new(1), false),
+                CellHistory::dirtied(VersionNumber::new(4), true),
             ],
         );
         assert_eq!(
@@ -531,10 +534,7 @@ mod tests {
         // we should ignore dirties that occur after the known version
         hist.propagate_from_deps(
             VersionNumber::new(0),
-            vec![ReadOnlyHistory::TestingValue(CellHistory::dirtied(
-                VersionNumber::new(4),
-                false,
-            ))],
+            &[CellHistory::dirtied(VersionNumber::new(4), false)],
         );
         hist.get_history(&VersionNumber::new(2)).assert_verified();
         hist.get_history(&VersionNumber::new(4)).assert_verified();
@@ -542,10 +542,7 @@ mod tests {
         // we should propagate dirties that occur before the known version
         hist.propagate_from_deps(
             VersionNumber::new(0),
-            vec![ReadOnlyHistory::TestingValue(CellHistory::dirtied(
-                VersionNumber::new(1),
-                false,
-            ))],
+            vec![(CellHistory::dirtied(VersionNumber::new(1), false))],
         );
         assert_eq!(
             hist.get_history(&VersionNumber::new(1)).assert_unknown(),
@@ -563,10 +560,7 @@ mod tests {
         // we should ignore dirties that occur after the known version
         hist.propagate_from_deps(
             VersionNumber::new(0),
-            vec![ReadOnlyHistory::TestingValue(CellHistory::dirtied(
-                VersionNumber::new(4),
-                false,
-            ))],
+            vec![CellHistory::dirtied(VersionNumber::new(4), false)],
         );
         hist.get_history(&VersionNumber::new(2)).assert_verified();
         hist.get_history(&VersionNumber::new(4)).assert_verified();
@@ -574,10 +568,7 @@ mod tests {
         // we should propagate dirties that occur before the known version
         hist.propagate_from_deps(
             VersionNumber::new(0),
-            vec![ReadOnlyHistory::TestingValue(CellHistory::dirtied(
-                VersionNumber::new(1),
-                false,
-            ))],
+            &[CellHistory::dirtied(VersionNumber::new(1), false)],
         );
         assert_eq!(
             hist.get_history(&VersionNumber::new(1)).assert_unknown(),
@@ -609,7 +600,7 @@ mod tests {
         );
 
         assert_eq!(
-            history.mark_verified(VersionNumber::new(0), std::iter::empty()),
+            history.mark_verified(VersionNumber::new(0), std::iter::empty::<CellHistory>()),
             VersionNumber::new(0)
         );
         history
@@ -627,7 +618,7 @@ mod tests {
         );
 
         assert_eq!(
-            history.mark_verified(VersionNumber::new(2), std::iter::empty()),
+            history.mark_verified(VersionNumber::new(2), std::iter::empty::<CellHistory>()),
             VersionNumber::new(2)
         );
         history
@@ -677,7 +668,7 @@ mod tests {
             VersionNumber::new(4),
             [VersionNumber::new(5), VersionNumber::new(8)]
                 .into_iter()
-                .map(|v| ReadOnlyHistory::TestingValue(CellHistory::dirtied(v, false))),
+                .map(|v| CellHistory::dirtied(v, false)),
         );
         assert_eq!(up_to, VersionNumber::new(3));
         history
@@ -706,7 +697,7 @@ mod tests {
         // usually we don't want to assert implementation, but this is important internal state
         assert_eq!(history.verified.len(), 1);
         assert_eq!(history.dirtied.len(), 2);
-        let up_to = history.mark_verified(VersionNumber::new(7), std::iter::empty());
+        let up_to = history.mark_verified(VersionNumber::new(7), std::iter::empty::<CellHistory>());
         assert_eq!(up_to, VersionNumber::new(6));
         history
             .get_history(&VersionNumber::new(0))
@@ -756,7 +747,7 @@ mod tests {
             VersionNumber::new(11),
             [VersionNumber::new(10), VersionNumber::new(11)]
                 .into_iter()
-                .map(|v| ReadOnlyHistory::TestingValue(CellHistory::verified(v))),
+                .map(CellHistory::verified),
         );
         assert_eq!(up_to, VersionNumber::new(11));
 

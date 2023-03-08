@@ -327,8 +327,6 @@ pub(crate) struct NodeMetadata {
 pub(crate) enum ReadOnlyHistory<'a> {
     FromHistInfo(MappedRwLockReadGuard<'a, CellHistory>),
     FromCell(RwLockReadGuard<'a, CellHistory>),
-    #[allow(unused)] // created for tests
-    TestingValue(CellHistory),
 }
 
 impl<'a> Borrow<CellHistory> for ReadOnlyHistory<'a> {
@@ -336,7 +334,6 @@ impl<'a> Borrow<CellHistory> for ReadOnlyHistory<'a> {
         match self {
             ReadOnlyHistory::FromHistInfo(hist) => hist,
             ReadOnlyHistory::FromCell(hist) => hist,
-            ReadOnlyHistory::TestingValue(v) => v,
         }
     }
 }
@@ -360,7 +357,6 @@ impl<'a> Deref for ReadOnlyHistory<'a> {
         match self {
             ReadOnlyHistory::FromHistInfo(hist) => hist,
             ReadOnlyHistory::FromCell(hist) => hist,
-            ReadOnlyHistory::TestingValue(v) => v,
         }
     }
 }
@@ -515,7 +511,10 @@ impl<K: StorageProperties> TransientGraphNode<K> {
     }
 
     fn mark_unchanged(&self, v: VersionNumber) -> VersionNumber {
-        self.meta.write().hist.mark_verified(v, std::iter::empty())
+        self.meta
+            .write()
+            .hist
+            .mark_verified(v, std::iter::empty::<CellHistory>())
     }
 }
 
