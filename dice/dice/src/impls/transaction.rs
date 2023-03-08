@@ -17,6 +17,7 @@ use tokio::sync::oneshot;
 use crate::api::error::DiceError;
 use crate::api::error::DiceResult;
 use crate::api::key::Key;
+use crate::api::storage_type::StorageType;
 use crate::api::user_data::UserComputationData;
 use crate::impls::core::state::CoreStateHandle;
 use crate::impls::core::state::StateRequest;
@@ -75,7 +76,10 @@ impl TransactionUpdater {
         changed.into_iter().try_for_each(|(k, new_value)| {
             self.scheduled_changes.change(
                 k,
-                ChangeType::UpdateValue(DiceValue::new(DiceKeyValue::<K>::new(new_value))),
+                ChangeType::UpdateValue(
+                    DiceValue::new(DiceKeyValue::<K>::new(new_value)),
+                    K::storage_type(),
+                ),
             )
         })
     }
@@ -198,7 +202,7 @@ pub(crate) enum ChangeType {
     /// Just invalidate the key
     Invalidate,
     /// Update the key to the given value
-    UpdateValue(DiceValue),
+    UpdateValue(DiceValue, StorageType),
 }
 
 #[cfg(test)]
@@ -265,7 +269,7 @@ mod tests {
             .scheduled_changes
             .changes
             .get(&dice.key_index.index(CowDiceKey::Owned(DiceKeyErased::key(K(3))))),
-        Some(ChangeType::UpdateValue(x)) if *x.0.downcast_ref::<usize>().unwrap() == 3
+        Some(ChangeType::UpdateValue(x, _)) if *x.0.downcast_ref::<usize>().unwrap() == 3
             );
 
         assert_matches!(
@@ -273,7 +277,7 @@ mod tests {
             .scheduled_changes
             .changes
             .get(&dice.key_index.index(CowDiceKey::Owned(DiceKeyErased::key(K(4))))),
-        Some(ChangeType::UpdateValue(x)) if *x.0.downcast_ref::<usize>().unwrap() == 4
+        Some(ChangeType::UpdateValue(x, _)) if *x.0.downcast_ref::<usize>().unwrap() == 4
             );
 
         assert!(updater.changed(vec![K(1)]).is_err());
