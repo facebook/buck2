@@ -7,12 +7,16 @@
  * of this source tree.
  */
 
+use triomphe::Arc;
+
 use crate::impls::cache::SharedCache;
+use crate::impls::core::graph::history::CellHistory;
 use crate::impls::core::graph::types::VersionedGraphKey;
 use crate::impls::core::graph::types::VersionedGraphResult;
 use crate::impls::core::versions::VersionTracker;
 use crate::impls::key::DiceKey;
 use crate::impls::transaction::ChangeType;
+use crate::impls::value::DiceComputedValue;
 use crate::impls::value::DiceValue;
 use crate::versions::VersionNumber;
 
@@ -65,12 +69,12 @@ impl CoreState {
 
     pub(super) fn update_computed(
         &mut self,
-        _key: VersionedGraphKey,
+        key: VersionedGraphKey,
         value: DiceValue,
         _deps: Vec<DiceKey>,
-    ) -> DiceValue {
+    ) -> DiceComputedValue {
         // TODO(bobyf) fill in actual logic to update cache
-        value
+        DiceComputedValue::new(value, Arc::new(CellHistory::verified(key.v)))
     }
 }
 

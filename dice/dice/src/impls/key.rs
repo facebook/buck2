@@ -233,7 +233,7 @@ where
 }
 
 pub(crate) trait DiceProjectionDyn: Allocative + Send + Sync + 'static {
-    fn compute(&self, derive_from: DiceValue, ctx: &DiceProjectionComputations) -> DiceValue;
+    fn compute(&self, derive_from: &DiceValue, ctx: &DiceProjectionComputations) -> DiceValue;
 
     fn eq_any(&self) -> PartialEqAny;
 
@@ -250,7 +250,7 @@ impl<K> DiceProjectionDyn for K
 where
     K: ProjectionKey,
 {
-    fn compute(&self, derive_from: DiceValue, ctx: &DiceProjectionComputations) -> DiceValue {
+    fn compute(&self, derive_from: &DiceValue, ctx: &DiceProjectionComputations) -> DiceValue {
         let value = self.compute(
             derive_from
                 .downcast_ref()

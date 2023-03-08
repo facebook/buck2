@@ -40,6 +40,7 @@ use crate::impls::opaque::OpaqueValueModern;
 use crate::impls::task::sync_dice_task;
 use crate::impls::transaction::ActiveTransactionGuard;
 use crate::impls::transaction::TransactionUpdater;
+use crate::impls::value::DiceComputedValue;
 use crate::impls::value::DiceKeyValue;
 use crate::impls::value::DiceValue;
 use crate::versions::VersionNumber;
@@ -126,6 +127,7 @@ impl PerComputeCtx {
                         self,
                         dice_key,
                         dice_value
+                            .value()
                             .downcast_ref::<K::Value>()
                             .expect("Type mismatch when computing key")
                             .dupe(),
@@ -164,7 +166,8 @@ impl PerComputeCtx {
                 DiceEventDispatcher::new(self.data.user_data.tracker.dupe(), self.data.dice.dupe()),
             )
             .map(|r| {
-                r.downcast_ref::<K::Value>()
+                r.value()
+                    .downcast_ref::<K::Value>()
                     .expect("Type mismatch when computing key")
                     .dupe()
             })
@@ -263,7 +266,7 @@ impl SharedLiveTransactionCtx {
         eval: AsyncEvaluator,
         extra: &Arc<UserComputationData>,
         events: DiceEventDispatcher,
-    ) -> impl Future<Output = DiceResult<DiceValue>> {
+    ) -> impl Future<Output = DiceResult<DiceComputedValue>> {
         match self.cache.get(key) {
             Entry::Occupied(occupied) => occupied.get().depended_on_by(key),
             Entry::Vacant(vacant) => {
@@ -293,7 +296,7 @@ impl SharedLiveTransactionCtx {
         state: CoreStateHandle,
         eval: SyncEvaluator,
         events: DiceEventDispatcher,
-    ) -> DiceResult<DiceValue> {
+    ) -> DiceResult<DiceComputedValue> {
         let task = match self.cache.get(key) {
             Entry::Occupied(occupied) => occupied.into_ref(),
             Entry::Vacant(vacant) => {

@@ -33,7 +33,7 @@ use crate::impls::task::handle::DiceTaskHandle;
 use crate::impls::task::handle::TaskState;
 use crate::impls::task::promise::DicePromise;
 use crate::impls::task::state::AtomicDiceTaskState;
-use crate::impls::value::DiceValue;
+use crate::impls::value::DiceComputedValue;
 
 ///
 /// 'DiceTask' is approximately a copy of Shared and Weak from std, but with some custom special
@@ -80,7 +80,7 @@ pub(super) struct DiceTaskInternal {
     pub(super) dependants: Mutex<Option<Slab<(DiceKey, Arc<AtomicWaker>)>>>,
     /// The value if finished computing
     #[allocative(skip)] // TODO should measure this
-    maybe_value: UnsafeCell<Option<DiceResult<DiceValue>>>,
+    maybe_value: UnsafeCell<Option<DiceResult<DiceComputedValue>>>,
 }
 
 impl DiceTask {
@@ -113,8 +113,8 @@ impl DiceTask {
     /// is not used.
     pub(crate) fn get_or_complete(
         &self,
-        f: impl FnOnce() -> DiceResult<DiceValue>,
-    ) -> DiceResult<DiceValue> {
+        f: impl FnOnce() -> DiceResult<DiceComputedValue>,
+    ) -> DiceResult<DiceComputedValue> {
         if let Some(res) = self.internal.read_value() {
             res
         } else {
@@ -163,7 +163,7 @@ impl DiceTaskInternal {
         })
     }
 
-    pub(super) fn read_value(&self) -> Option<DiceResult<DiceValue>> {
+    pub(super) fn read_value(&self) -> Option<DiceResult<DiceComputedValue>> {
         if self.state.is_ready(Ordering::Acquire) {
             Some(
                 unsafe {
@@ -179,7 +179,10 @@ impl DiceTaskInternal {
         }
     }
 
-    pub(super) fn set_value(&self, value: DiceResult<DiceValue>) -> DiceResult<DiceValue> {
+    pub(super) fn set_value(
+        &self,
+        value: DiceResult<DiceComputedValue>,
+    ) -> DiceResult<DiceComputedValue> {
         match self.state.sync() {
             TaskState::Continue => {}
             TaskState::Finished => {

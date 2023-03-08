@@ -17,7 +17,6 @@
 use std::any::Any;
 use std::borrow::Cow;
 use std::fmt::Debug;
-use std::sync::Arc;
 
 use allocative::Allocative;
 use dupe::Dupe;
@@ -26,9 +25,11 @@ use futures::StreamExt;
 use more_futures::cancellable_future::try_to_disable_cancellation;
 use more_futures::spawner::Spawner;
 use tokio::sync::oneshot;
+use triomphe::Arc;
 
 use crate::api::error::DiceError;
 use crate::api::error::DiceResult;
+use crate::impls::core::graph::history::CellHistory;
 use crate::impls::core::graph::types::VersionedGraphKey;
 use crate::impls::core::graph::types::VersionedGraphResult;
 use crate::impls::core::state::CoreStateHandle;
@@ -41,7 +42,7 @@ use crate::impls::key::DiceKey;
 use crate::impls::task::dice::DiceTask;
 use crate::impls::task::handle::DiceTaskHandle;
 use crate::impls::task::spawn_dice_task;
-use crate::impls::value::DiceValue;
+use crate::impls::value::DiceComputedValue;
 use crate::versions::VersionRanges;
 
 /// The incremental engine that manages all the handling of the results of a
@@ -70,7 +71,7 @@ impl IncrementalEngine {
 
     pub(crate) fn spawn_for_key<T>(
         state: CoreStateHandle,
-        spawner: Arc<dyn Spawner<T>>,
+        spawner: std::sync::Arc<dyn Spawner<T>>,
         spawn_ctx: &T,
         k: DiceKey,
         eval: AsyncEvaluator,
@@ -95,7 +96,7 @@ impl IncrementalEngine {
         eval: SyncEvaluator,
         transaction_ctx: SharedLiveTransactionCtx,
         event_dispatcher: DiceEventDispatcher,
-    ) -> DiceResult<DiceValue> {
+    ) -> DiceResult<DiceComputedValue> {
         task.get_or_complete(|| {
             event_dispatcher.started(k);
 
@@ -127,7 +128,12 @@ impl IncrementalEngine {
             debug!(msg = "update future completed");
             event_dispatcher.finished(k);
 
-            res
+            res.map(|v| {
+                DiceComputedValue::new(
+                    v,
+                    Arc::new(CellHistory::verified(transaction_ctx.get_version())),
+                )
+            })
         })
     }
 

@@ -19,6 +19,7 @@ use crate::impls::ctx::SharedLiveTransactionCtx;
 use crate::impls::key::DiceKey;
 use crate::impls::transaction::ActiveTransactionGuard;
 use crate::impls::transaction::ChangeType;
+use crate::impls::value::DiceComputedValue;
 use crate::impls::value::DiceValue;
 use crate::versions::VersionNumber;
 
@@ -57,7 +58,7 @@ pub(crate) enum StateRequest {
         deps: Vec<DiceKey>,
         /// Response of the new value to use. This could be a different instance that is `Eq` to the
         /// given computed value if the state already stores an instance of value that is equal.
-        resp: Sender<DiceValue>,
+        resp: Sender<DiceComputedValue>,
     },
 }
 

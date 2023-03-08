@@ -8,7 +8,6 @@
  */
 
 use std::any::Any;
-use std::sync::Arc;
 use std::task::Poll;
 
 use allocative::Allocative;
@@ -20,14 +19,18 @@ use more_futures::spawner::TokioSpawner;
 use tokio::sync::Barrier;
 use tokio::sync::Mutex;
 use tokio::sync::Semaphore;
+use triomphe::Arc;
 
 use crate::api::computations::DiceComputations;
 use crate::api::key::Key;
+use crate::impls::core::graph::history::CellHistory;
 use crate::impls::key::DiceKey;
 use crate::impls::task::spawn_dice_task;
 use crate::impls::task::sync_dice_task;
+use crate::impls::value::DiceComputedValue;
 use crate::impls::value::DiceKeyValue;
 use crate::impls::value::DiceValue;
+use crate::versions::VersionRanges;
 
 #[derive(Allocative, Clone, Debug, Display, Eq, PartialEq, Hash)]
 struct K;
@@ -47,8 +50,11 @@ impl Key for K {
 
 #[tokio::test]
 async fn simple_immediately_ready_task() -> anyhow::Result<()> {
-    let task = spawn_dice_task(Arc::new(TokioSpawner), &(), |handle| {
-        handle.finished(Ok(DiceValue::new(DiceKeyValue::<K>::new(1))));
+    let task = spawn_dice_task(std::sync::Arc::new(TokioSpawner), &(), |handle| {
+        handle.finished(Ok(DiceComputedValue::new(
+            DiceValue::new(DiceKeyValue::<K>::new(1)),
+            Arc::new(CellHistory::empty()),
+        )));
 
         futures::future::ready(Box::new(()) as Box<dyn Any + Send + 'static>)
     });
@@ -61,7 +67,10 @@ async fn simple_immediately_ready_task() -> anyhow::Result<()> {
 
     match polled {
         Poll::Ready(v) => {
-            assert!(v?.equality(&DiceValue::new(DiceKeyValue::<K>::new(1))))
+            assert!(
+                v?.value()
+                    .equality(&DiceValue::new(DiceKeyValue::<K>::new(1)))
+            )
         }
         Poll::Pending => panic!("Promise should be ready immediately"),
     }
@@ -73,17 +82,24 @@ async fn simple_immediately_ready_task() -> anyhow::Result<()> {
 async fn simple_task() -> anyhow::Result<()> {
     let lock = Arc::new(Mutex::new(()));
 
-    let lock_dupe = lock.dupe();
+    let lock_dupe = lock.clone(); // actually dupe
     let locked = lock_dupe.lock().await;
 
-    let task = spawn_dice_task(Arc::new(TokioSpawner), &(), async move |handle| {
-        // wait for the lock too
-        lock.lock().await;
+    let task = spawn_dice_task(
+        std::sync::Arc::new(TokioSpawner),
+        &(),
+        async move |handle| {
+            // wait for the lock too
+            lock.lock().await;
 
-        handle.finished(Ok(DiceValue::new(DiceKeyValue::<K>::new(2))));
+            handle.finished(Ok(DiceComputedValue::new(
+                DiceValue::new(DiceKeyValue::<K>::new(2)),
+                Arc::new(CellHistory::empty()),
+            )));
 
-        Box::new(()) as Box<dyn Any + Send + 'static>
-    });
+            Box::new(()) as Box<dyn Any + Send + 'static>
+        },
+    );
 
     let mut promise = task.depended_on_by(DiceKey { index: 1 });
 
@@ -107,19 +123,29 @@ async fn simple_task() -> anyhow::Result<()> {
     // now await on the task, and see that we wake up and complete
 
     let v = promise.await;
-    assert!(v?.equality(&DiceValue::new(DiceKeyValue::<K>::new(2))));
+    assert!(
+        v?.value()
+            .equality(&DiceValue::new(DiceKeyValue::<K>::new(2)))
+    );
 
     Ok(())
 }
 
 #[tokio::test]
 async fn multiple_promises_all_completes() -> anyhow::Result<()> {
-    let task = spawn_dice_task(Arc::new(TokioSpawner), &(), async move |handle| {
-        // wait for the lock too
-        handle.finished(Ok(DiceValue::new(DiceKeyValue::<K>::new(2))));
+    let task = spawn_dice_task(
+        std::sync::Arc::new(TokioSpawner),
+        &(),
+        async move |handle| {
+            // wait for the lock too
+            handle.finished(Ok(DiceComputedValue::new(
+                DiceValue::new(DiceKeyValue::<K>::new(2)),
+                Arc::new(CellHistory::empty()),
+            )));
 
-        Box::new(()) as Box<dyn Any + Send + 'static>
-    });
+            Box::new(()) as Box<dyn Any + Send + 'static>
+        },
+    );
 
     let promise1 = task.depended_on_by(DiceKey { index: 1 });
     let promise2 = task.depended_on_by(DiceKey { index: 2 });
@@ -140,11 +166,26 @@ async fn multiple_promises_all_completes() -> anyhow::Result<()> {
 
     let (v1, v2, v3, v4, v5) =
         futures::future::join5(promise1, promise2, promise3, promise4, promise5).await;
-    assert!(v1?.equality(&DiceValue::new(DiceKeyValue::<K>::new(2))));
-    assert!(v2?.equality(&DiceValue::new(DiceKeyValue::<K>::new(2))));
-    assert!(v3?.equality(&DiceValue::new(DiceKeyValue::<K>::new(2))));
-    assert!(v4?.equality(&DiceValue::new(DiceKeyValue::<K>::new(2))));
-    assert!(v5?.equality(&DiceValue::new(DiceKeyValue::<K>::new(2))));
+    assert!(
+        v1?.value()
+            .equality(&DiceValue::new(DiceKeyValue::<K>::new(2)))
+    );
+    assert!(
+        v2?.value()
+            .equality(&DiceValue::new(DiceKeyValue::<K>::new(2)))
+    );
+    assert!(
+        v3?.value()
+            .equality(&DiceValue::new(DiceKeyValue::<K>::new(2)))
+    );
+    assert!(
+        v4?.value()
+            .equality(&DiceValue::new(DiceKeyValue::<K>::new(2)))
+    );
+    assert!(
+        v5?.value()
+            .equality(&DiceValue::new(DiceKeyValue::<K>::new(2)))
+    );
 
     Ok(())
 }
@@ -161,8 +202,12 @@ async fn sync_complete_task_completes_promises() -> anyhow::Result<()> {
     assert!(poll!(&mut promise_before).is_pending());
 
     assert!(
-        task.get_or_complete(|| Ok(DiceValue::new(DiceKeyValue::<K>::new(2))))?
-            .equality(&DiceValue::new(DiceKeyValue::<K>::new(2)))
+        task.get_or_complete(|| Ok(DiceComputedValue::new(
+            DiceValue::new(DiceKeyValue::<K>::new(2)),
+            Arc::new(CellHistory::empty())
+        )))?
+        .value()
+        .equality(&DiceValue::new(DiceKeyValue::<K>::new(2)))
     );
 
     let promise_after = task.depended_on_by(DiceKey { index: 1 });
@@ -171,7 +216,10 @@ async fn sync_complete_task_completes_promises() -> anyhow::Result<()> {
 
     match polled {
         Poll::Ready(v) => {
-            assert!(v?.equality(&DiceValue::new(DiceKeyValue::<K>::new(2))))
+            assert!(
+                v?.value()
+                    .equality(&DiceValue::new(DiceKeyValue::<K>::new(2)))
+            )
         }
         Poll::Pending => panic!("Promise should be ready immediately"),
     }
@@ -180,7 +228,10 @@ async fn sync_complete_task_completes_promises() -> anyhow::Result<()> {
 
     match polled {
         Poll::Ready(v) => {
-            assert!(v?.equality(&DiceValue::new(DiceKeyValue::<K>::new(2))))
+            assert!(
+                v?.value()
+                    .equality(&DiceValue::new(DiceKeyValue::<K>::new(2)))
+            )
         }
         Poll::Pending => panic!("Promise should be ready immediately"),
     }
@@ -211,7 +262,7 @@ async fn sync_complete_task_wakes_waiters() -> anyhow::Result<()> {
     let barrier = Arc::new(Barrier::new(4));
 
     let fut1 = tokio::spawn({
-        let barrier = barrier.dupe();
+        let barrier = barrier.clone(); // actually dupe
         async move {
             assert!(poll!(&mut promise1).is_pending());
             barrier.wait().await;
@@ -220,7 +271,7 @@ async fn sync_complete_task_wakes_waiters() -> anyhow::Result<()> {
         }
     });
     let fut2 = tokio::spawn({
-        let barrier = barrier.dupe();
+        let barrier = barrier.clone(); // actually dupe
         async move {
             assert!(poll!(&mut promise2).is_pending());
             barrier.wait().await;
@@ -229,7 +280,7 @@ async fn sync_complete_task_wakes_waiters() -> anyhow::Result<()> {
         }
     });
     let fut3 = tokio::spawn({
-        let barrier = barrier.dupe();
+        let barrier = barrier.clone(); // actually dupe
         async move {
             assert!(poll!(&mut promise3).is_pending());
             barrier.wait().await;
@@ -241,14 +292,27 @@ async fn sync_complete_task_wakes_waiters() -> anyhow::Result<()> {
     barrier.wait().await;
 
     assert!(
-        task.get_or_complete(|| Ok(DiceValue::new(DiceKeyValue::<K>::new(1))))?
-            .equality(&DiceValue::new(DiceKeyValue::<K>::new(1)))
+        task.get_or_complete(|| Ok(DiceComputedValue::new(
+            DiceValue::new(DiceKeyValue::<K>::new(1)),
+            Arc::new(CellHistory::empty())
+        )))?
+        .value()
+        .equality(&DiceValue::new(DiceKeyValue::<K>::new(1)))
     );
 
     let (v1, v2, v3) = futures::future::join3(fut1, fut2, fut3).await;
-    assert!(v1??.equality(&DiceValue::new(DiceKeyValue::<K>::new(1))));
-    assert!(v2??.equality(&DiceValue::new(DiceKeyValue::<K>::new(1))));
-    assert!(v3??.equality(&DiceValue::new(DiceKeyValue::<K>::new(1))));
+    assert!(
+        v1??.value()
+            .equality(&DiceValue::new(DiceKeyValue::<K>::new(1)))
+    );
+    assert!(
+        v2??.value()
+            .equality(&DiceValue::new(DiceKeyValue::<K>::new(1)))
+    );
+    assert!(
+        v3??.value()
+            .equality(&DiceValue::new(DiceKeyValue::<K>::new(1)))
+    );
 
     Ok(())
 }
@@ -259,12 +323,15 @@ async fn sync_complete_unfinished_spawned_task() -> anyhow::Result<()> {
 
     let g = lock.lock().await;
 
-    let task = spawn_dice_task(Arc::new(TokioSpawner), &(), {
-        let lock = lock.dupe();
+    let task = spawn_dice_task(std::sync::Arc::new(TokioSpawner), &(), {
+        let lock = lock.clone(); // actually dupe
         async move |handle| {
             let _g = lock.lock().await;
             // wait for the lock too
-            handle.finished(Ok(DiceValue::new(DiceKeyValue::<K>::new(2))));
+            handle.finished(Ok(DiceComputedValue::new(
+                DiceValue::new(DiceKeyValue::<K>::new(2)),
+                Arc::new(CellHistory::empty()),
+            )));
 
             Box::new(()) as Box<dyn Any + Send + 'static>
         }
@@ -273,8 +340,12 @@ async fn sync_complete_unfinished_spawned_task() -> anyhow::Result<()> {
     let promise_before = task.depended_on_by(DiceKey { index: 0 });
 
     assert!(
-        task.get_or_complete(|| Ok(DiceValue::new(DiceKeyValue::<K>::new(1))))?
-            .equality(&DiceValue::new(DiceKeyValue::<K>::new(1)))
+        task.get_or_complete(|| Ok(DiceComputedValue::new(
+            DiceValue::new(DiceKeyValue::<K>::new(1)),
+            Arc::new(CellHistory::empty())
+        )))?
+        .value()
+        .equality(&DiceValue::new(DiceKeyValue::<K>::new(1)))
     );
 
     drop(g);
@@ -285,7 +356,10 @@ async fn sync_complete_unfinished_spawned_task() -> anyhow::Result<()> {
 
     match polled {
         Poll::Ready(v) => {
-            assert!(v?.equality(&DiceValue::new(DiceKeyValue::<K>::new(1))))
+            assert!(
+                v?.value()
+                    .equality(&DiceValue::new(DiceKeyValue::<K>::new(1)))
+            )
         }
         Poll::Pending => panic!("Promise should be ready immediately"),
     }
@@ -294,7 +368,10 @@ async fn sync_complete_unfinished_spawned_task() -> anyhow::Result<()> {
 
     match polled {
         Poll::Ready(v) => {
-            assert!(v?.equality(&DiceValue::new(DiceKeyValue::<K>::new(1))))
+            assert!(
+                v?.value()
+                    .equality(&DiceValue::new(DiceKeyValue::<K>::new(1)))
+            )
         }
         Poll::Pending => panic!("Promise should be ready immediately"),
     }
@@ -306,11 +383,14 @@ async fn sync_complete_unfinished_spawned_task() -> anyhow::Result<()> {
 async fn sync_complete_finished_spawned_task() -> anyhow::Result<()> {
     let sem = Arc::new(Semaphore::new(0));
 
-    let task = spawn_dice_task(Arc::new(TokioSpawner), &(), {
-        let sem = sem.dupe();
+    let task = spawn_dice_task(std::sync::Arc::new(TokioSpawner), &(), {
+        let sem = sem.clone(); // actually dupe
         async move |handle| {
             // wait for the lock too
-            handle.finished(Ok(DiceValue::new(DiceKeyValue::<K>::new(2))));
+            handle.finished(Ok(DiceComputedValue::new(
+                DiceValue::new(DiceKeyValue::<K>::new(2)),
+                Arc::new(CellHistory::empty()),
+            )));
 
             sem.add_permits(1);
 
@@ -324,8 +404,12 @@ async fn sync_complete_finished_spawned_task() -> anyhow::Result<()> {
 
     // actually completes with `2` from the spawn
     assert!(
-        task.get_or_complete(|| Ok(DiceValue::new(DiceKeyValue::<K>::new(1))))?
-            .equality(&DiceValue::new(DiceKeyValue::<K>::new(2)))
+        task.get_or_complete(|| Ok(DiceComputedValue::new(
+            DiceValue::new(DiceKeyValue::<K>::new(1)),
+            Arc::new(CellHistory::empty())
+        )))?
+        .value()
+        .equality(&DiceValue::new(DiceKeyValue::<K>::new(2)))
     );
 
     let promise_after = task.depended_on_by(DiceKey { index: 1 });
@@ -334,7 +418,10 @@ async fn sync_complete_finished_spawned_task() -> anyhow::Result<()> {
 
     match polled {
         Poll::Ready(v) => {
-            assert!(v?.equality(&DiceValue::new(DiceKeyValue::<K>::new(2))))
+            assert!(
+                v?.value()
+                    .equality(&DiceValue::new(DiceKeyValue::<K>::new(2)))
+            )
         }
         Poll::Pending => panic!("Promise should be ready immediately"),
     }
@@ -343,7 +430,10 @@ async fn sync_complete_finished_spawned_task() -> anyhow::Result<()> {
 
     match polled {
         Poll::Ready(v) => {
-            assert!(v?.equality(&DiceValue::new(DiceKeyValue::<K>::new(2))))
+            assert!(
+                v?.value()
+                    .equality(&DiceValue::new(DiceKeyValue::<K>::new(2)))
+            )
         }
         Poll::Pending => panic!("Promise should be ready immediately"),
     }

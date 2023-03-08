@@ -85,7 +85,7 @@ impl AsyncEvaluator {
                     user_data: &self.user_data,
                 };
 
-                let value = proj.proj().compute(base, &ctx);
+                let value = proj.proj().compute(base.value(), &ctx);
 
                 Ok(DiceValueAndDeps {
                     value,
@@ -132,7 +132,7 @@ impl SyncEvaluator {
                     user_data: &self.user_data,
                 };
 
-                let value = proj.proj().compute(self.base.dupe(), &ctx);
+                let value = proj.proj().compute(&self.base, &ctx);
 
                 Ok(DiceValueAndDeps {
                     value,

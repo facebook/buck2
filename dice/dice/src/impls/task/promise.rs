@@ -25,7 +25,7 @@ use triomphe::Arc;
 use crate::api::error::DiceResult;
 use crate::impls::key::DiceKey;
 use crate::impls::task::dice::DiceTaskInternal;
-use crate::impls::value::DiceValue;
+use crate::impls::value::DiceComputedValue;
 
 /// A string reference to a 'DiceTask' that is pollable as a future.
 /// This is only awoken when the result is ready, as none of the pollers are responsible for
@@ -79,7 +79,7 @@ impl Drop for DicePromise {
 }
 
 impl Future for DicePromise {
-    type Output = DiceResult<DiceValue>;
+    type Output = DiceResult<DiceComputedValue>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         match &self.deref().0 {

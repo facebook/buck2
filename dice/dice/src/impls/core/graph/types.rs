@@ -15,6 +15,7 @@ use gazebo::variants::UnpackVariants;
 use gazebo::variants::VariantName;
 
 use crate::impls::key::DiceKey;
+use crate::impls::value::DiceComputedValue;
 use crate::impls::value::DiceValue;
 use crate::versions::VersionNumber;
 use crate::versions::VersionRanges;
@@ -22,7 +23,7 @@ use crate::versions::VersionRanges;
 /// The Key for a Versioned, incremental computation
 #[derive(Clone, Dupe, Debug)]
 pub(crate) struct VersionedGraphKey {
-    v: VersionNumber,
+    pub(crate) v: VersionNumber,
     k: DiceKey,
 }
 
@@ -100,7 +101,7 @@ pub(crate) struct VersionedGraphResultMismatch {
 #[derive(Debug, VariantName, UnpackVariants)]
 pub(crate) enum VersionedGraphResult {
     /// when the version cache has the exact matching entry via versions
-    Match(DiceValue),
+    Match(DiceComputedValue),
     /// when the version cache found an entry, but the versions were mismatching. The existing entry
     /// is returned, along with the last known version
     CheckDeps(VersionedGraphResultMismatch),
@@ -114,12 +115,12 @@ pub(crate) mod testing {
     use crate::gazebo::variants::VariantName;
     use crate::impls::core::graph::types::VersionedGraphResult;
     use crate::impls::core::graph::types::VersionedGraphResultMismatch;
-    use crate::impls::value::DiceValue;
+    use crate::impls::value::DiceComputedValue;
 
     pub(crate) trait VersionedCacheResultAssertsExt {
         fn assert_compute(&self);
 
-        fn assert_match(&self) -> &DiceValue;
+        fn assert_match(&self) -> &DiceComputedValue;
 
         fn assert_mismatch(&self) -> &VersionedGraphResultMismatch;
     }
@@ -129,7 +130,7 @@ pub(crate) mod testing {
             self.unpack_compute()
                 .unwrap_or_else(|| panic!("expected Compute, but was {}", self.variant_name()))
         }
-        fn assert_match(&self) -> &DiceValue {
+        fn assert_match(&self) -> &DiceComputedValue {
             self.unpack_match()
                 .unwrap_or_else(|| panic!("expected Match, but was {}", self.variant_name()))
         }

@@ -71,7 +71,7 @@ mod introspection {
 
 /// Represents a range of versions. This range must have a start that is inclusive, but may be
 /// unbounded towards the end. The end, if present, is exclusive.
-#[derive(Eq, Debug, Dupe, PartialEq, Hash, Clone)]
+#[derive(Allocative, Eq, Debug, Dupe, PartialEq, Hash, Clone)]
 pub(crate) struct VersionRange {
     begin: VersionNumber,
     end: Option<VersionNumber>,
@@ -232,7 +232,7 @@ impl Ord for VersionRange {
 /// sequence of ranges that contains the version. That is, consider the sequence `[[1,3), [5,6)]`,
 /// 3, and 4 would not be in the sequence of ranges, but 1, 2, 5, would be. This is essentially
 /// a list of numerical end-exclusive intervals.
-#[derive(Eq, Debug, PartialEq, Hash, Clone, PartialOrd, Ord)]
+#[derive(Allocative, Eq, Debug, PartialEq, Hash, Clone, PartialOrd, Ord)]
 pub(crate) struct VersionRanges(SortedVectorSet<VersionRange>);
 
 impl Display for VersionRanges {

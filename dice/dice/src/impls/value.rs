@@ -10,17 +10,18 @@
 use std::any::Any;
 use std::fmt::Debug;
 use std::fmt::Formatter;
-use std::sync::Arc;
 
 use allocative::Allocative;
 use dupe::Dupe;
+use triomphe::Arc;
 
+use crate::impls::core::graph::history::CellHistory;
 use crate::Key;
 use crate::ProjectionKey;
 
 /// Type erased value associated for each Key in Dice
 #[derive(Allocative, Clone, Dupe)]
-pub(crate) struct DiceValue(pub(crate) Arc<dyn DiceValueDyn>);
+pub(crate) struct DiceValue(pub(crate) std::sync::Arc<dyn DiceValueDyn>);
 
 impl Debug for DiceValue {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -31,7 +32,7 @@ impl Debug for DiceValue {
 #[allow(unused)]
 impl DiceValue {
     pub(crate) fn new<V: DiceValueDyn>(value: V) -> DiceValue {
-        DiceValue(Arc::new(value))
+        DiceValue(std::sync::Arc::new(value))
     }
 
     pub(crate) fn downcast_ref<V: Any>(&self) -> Option<&V> {
@@ -41,6 +42,37 @@ impl DiceValue {
     /// Dynamic version of `Key::equality`.
     pub(crate) fn equality(&self, other: &DiceValue) -> bool {
         self.0.equality(&*other.0)
+    }
+}
+
+#[derive(Allocative, Clone)]
+pub(crate) struct DiceComputedValue {
+    value: DiceValue,
+    valid: Arc<CellHistory>,
+}
+
+impl Dupe for DiceComputedValue {
+    // triomphe Arc is dupe
+}
+
+impl DiceComputedValue {
+    pub(crate) fn new(value: DiceValue, valid: Arc<CellHistory>) -> Self {
+        Self { value, valid }
+    }
+
+    pub(crate) fn value(&self) -> &DiceValue {
+        &self.value
+    }
+
+    #[allow(unused)]
+    pub(crate) fn history(&self) -> &CellHistory {
+        &self.valid
+    }
+}
+
+impl Debug for DiceComputedValue {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DiceComputedValue").finish_non_exhaustive()
     }
 }
 

@@ -14,7 +14,7 @@ use futures::task::AtomicWaker;
 use triomphe::Arc;
 
 use crate::impls::task::dice::DiceTaskInternal;
-use crate::impls::value::DiceValue;
+use crate::impls::value::DiceComputedValue;
 use crate::DiceResult;
 
 /// The handle to the 'DiceTask' owned by the spawned thread that is responsible for completing
@@ -41,7 +41,7 @@ impl DiceTaskHandle {
         self.internal.state.report_computing()
     }
 
-    pub(crate) fn finished(self, value: DiceResult<DiceValue>) {
+    pub(crate) fn finished(self, value: DiceResult<DiceComputedValue>) {
         let _ignore = self.internal.set_value(value);
     }
 }
