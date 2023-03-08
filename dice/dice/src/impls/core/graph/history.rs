@@ -9,7 +9,6 @@
 
 use std::borrow::Borrow;
 use std::cmp;
-use std::cmp::min;
 use std::collections::Bound;
 use std::fmt::Debug;
 
@@ -33,7 +32,7 @@ use crate::versions::VersionRanges;
 /// This is technically better represented as a single vec of history states, but we'll change the
 /// actual representation later.
 // TODO(bobyf): this data structure can probably be way better optimized
-#[derive(Debug, Allocative)]
+#[derive(Debug, Allocative, Clone)]
 pub(crate) struct CellHistory {
     verified: SortedVectorSet<VersionNumber>,
     /// versions of dirty, mapping ot whether or not it's a forced dirty (which means recompute
@@ -155,6 +154,42 @@ impl CellHistory {
             .clone()
             .filter_map(|dep| dep.borrow().latest_verified_before(v))
             .max();
+
+        // We only need to propagate the earliest “dirty” from any of its deps, as we can rely on
+        // the recomputation from that dirty version to re-propagate any newer “dirty” as needed.
+        let mut min_dirty = None;
+        for dep in deps_iter {
+            if let Some(dirty) = dep
+                .borrow()
+                .dirtied
+                .range((Bound::Excluded(v), Bound::Unbounded))
+                .next()
+                .map(|e| *e.0)
+            {
+                min_dirty = min_dirty.map_or(Some(dirty), |old| Some(cmp::min(old, dirty)))
+            }
+        }
+
+        self.mark_verified_modern(v, all_deps_unchanged_since, min_dirty)
+    }
+
+    /// Marks the given version as verified on the history, returning the oldest version that
+    /// became verified due to marking this node as verified.
+    /// For example, assuming no deps, if dirtied at v2, and marking v4, the oldest version that
+    /// became verified would be v2, since marking v4 with no changes from v2 to v4 implies that
+    /// all of v2, v3, v4 are verified.
+    /// But if instead there was a dep v3, v2 could not be marked verified, but v3 & v4 would be.
+    ///
+    /// Dependencies history are accounted for by propagating their dirtied versions to the
+    /// verified history through 'propagate_dirty_from_deps'
+    pub(crate) fn mark_verified_modern(
+        &mut self,
+        v: VersionNumber,
+        all_deps_unchanged_since: Option<VersionNumber>,
+        first_dep_dirtied: Option<VersionNumber>,
+    ) -> VersionNumber
+where {
+        // We can't be verified before any of our deps were most-recently verified.
         let min_validated = self.min_validatable_version(v, all_deps_unchanged_since);
         let changed_since = if let Some(prev_verified) = self
             .verified
@@ -184,7 +219,7 @@ impl CellHistory {
             min_validated
         };
 
-        self.propagate_from_deps(changed_since, deps_iter);
+        self.propagate_from_deps_version(changed_since, first_dep_dirtied);
 
         changed_since
     }
@@ -308,6 +343,22 @@ impl CellHistory {
             .copied()
     }
 
+    #[allow(unused)] // TODO(bobyf) temporary
+    pub(crate) fn first_dirty_after(&self, v: VersionNumber) -> Option<VersionNumber> {
+        self.dirtied
+            .range((Bound::Excluded(v), Bound::Unbounded))
+            .next()
+            .map(|(v, _)| *v)
+    }
+
+    #[allow(unused)] // TODO(bobyf) temporary
+    pub(crate) fn first_verified_after(&self, v: VersionNumber) -> Option<VersionNumber> {
+        self.verified
+            .range((Bound::Excluded(v), Bound::Unbounded))
+            .next()
+            .copied()
+    }
+
     /// When a node is recomputed to the same value as its existing history, but with a new set of
     /// dependencies, that node needs to know when itself will next be dirtied due to changes in its
     /// new dependencies.
@@ -320,29 +371,6 @@ impl CellHistory {
     ) where
         H: Borrow<CellHistory>,
     {
-        // By verifying the given version, we only need to fill in the history up to the next
-        // smallest verified and dirtied version. Any dirties beyond that would be irrelevant
-        // as either we would already be dirtied, or some newer version have already verified us
-        // and these propagated deps are irrelevant.
-        let relevant_hist_up_to = {
-            let nearest_verified = self
-                .verified
-                .range((Bound::Excluded(v), Bound::Unbounded))
-                .next();
-            let nearest_dirted = self
-                .dirtied
-                .range((Bound::Excluded(v), Bound::Unbounded))
-                .next()
-                .map(|e| e.0);
-
-            match (nearest_verified, nearest_dirted) {
-                (Some(v), Some(d)) => Some(*min(v, d)),
-                (Some(v), None) => Some(*v),
-                (None, Some(d)) => Some(*d),
-                (None, None) => None,
-            }
-        };
-
         // We only need to propagate the earliest “dirty” from any of its deps, as we can rely on
         // the recomputation from that dirty version to re-propagate any newer “dirty” as needed.
         let mut min_dirty = None;
@@ -350,10 +378,7 @@ impl CellHistory {
             if let Some(dirty) = dep
                 .borrow()
                 .dirtied
-                .range((
-                    Bound::Excluded(v),
-                    relevant_hist_up_to.map_or(Bound::Unbounded, Bound::Excluded),
-                ))
+                .range((Bound::Excluded(v), Bound::Unbounded))
                 .next()
                 .map(|e| *e.0)
             {
@@ -361,8 +386,46 @@ impl CellHistory {
             }
         }
 
-        if let Some(min_dirty) = min_dirty {
-            self.dirtied.insert(min_dirty, false);
+        self.propagate_from_deps_version(v, min_dirty)
+    }
+
+    /// When a node is recomputed to the same value as its existing history, but with a new set of
+    /// dependencies, that node needs to know when itself will next be dirtied due to changes in its
+    /// new dependencies.
+    /// This will make the current history propagate any dirty versions necessary from the given
+    /// set of dependencies at a version 'v'.
+    pub(crate) fn propagate_from_deps_version(
+        &mut self,
+        v: VersionNumber,
+        deps_min_version: Option<VersionNumber>,
+    ) {
+        if let Some(min_dirty) = deps_min_version {
+            // By verifying the given version, we only need to fill in the history up to the next
+            // smallest verified and dirtied version. Any dirties beyond that would be irrelevant
+            // as either we would already be dirtied, or some newer version have already verified us
+            // and these propagated deps are irrelevant.
+            let relevant_hist_up_to = {
+                let nearest_verified = self
+                    .verified
+                    .range((Bound::Excluded(v), Bound::Unbounded))
+                    .next();
+                let nearest_dirted = self
+                    .dirtied
+                    .range((Bound::Excluded(v), Bound::Unbounded))
+                    .next()
+                    .map(|e| e.0);
+
+                match (nearest_verified, nearest_dirted) {
+                    (Some(v), Some(d)) => Some(*cmp::min(v, d)),
+                    (Some(v), None) => Some(*v),
+                    (None, Some(d)) => Some(*d),
+                    (None, None) => None,
+                }
+            };
+
+            if relevant_hist_up_to.map_or(true, |rel_v| min_dirty < rel_v) {
+                self.dirtied.insert(min_dirty, false);
+            }
         }
     }
 

@@ -30,22 +30,10 @@ use crate::impls::core::graph::dependencies::VersionedDependencies;
 use crate::impls::core::graph::dependencies::VersionedRevDependencies;
 use crate::impls::core::graph::history::CellHistory;
 use crate::impls::key::DiceKey;
+use crate::impls::value::DiceComputedValue;
 use crate::impls::value::DiceValue;
 use crate::versions::VersionNumber;
 use crate::HashSet;
-
-/// The Key for a Versioned, incremental computation
-#[derive(Copy, Clone, Dupe, Debug)]
-pub(crate) struct VersionedGraphKey {
-    v: VersionNumber,
-    k: DiceKey,
-}
-
-impl VersionedGraphKey {
-    pub(crate) fn new(v: VersionNumber, k: DiceKey) -> Self {
-        VersionedGraphKey { v, k }
-    }
-}
 
 /// actual entries as seen when querying the cache
 /// The placeholder will be used to indicate known dirty entries.
@@ -76,10 +64,17 @@ impl VersionedGraphNode {
             VersionedGraphNode::Vacant(e) => e.hist.mark_invalidated(v),
         }
     }
+
+    pub(crate) fn history(&self) -> &CellHistory {
+        match self {
+            VersionedGraphNode::Occupied(o) => &o.metadata().hist,
+            VersionedGraphNode::Vacant(v) => &v.hist,
+        }
+    }
 }
 
 /// The stored entry of the cache
-#[derive(Allocative)]
+#[derive(Allocative, Clone)] // TODO(bobyf) remove need to clone
 pub(crate) struct OccupiedGraphNode {
     key: DiceKey,
     res: DiceValue,
@@ -87,7 +82,7 @@ pub(crate) struct OccupiedGraphNode {
 }
 
 /// Meta data about a DICE node, which are its edges and history information
-#[derive(Allocative)]
+#[derive(Allocative, Clone)] // TODO(bobyf) remove need to clone
 pub(crate) struct NodeMetadata {
     pub(crate) deps: VersionedDependencies,
     pub(crate) rdeps: VersionedRevDependencies,
@@ -131,10 +126,16 @@ impl OccupiedGraphNode {
         &self.metadata
     }
 
+    pub(crate) fn metadata_mut(&mut self) -> &mut NodeMetadata {
+        &mut self.metadata
+    }
+
     pub(crate) fn mark_unchanged(
         &mut self,
         v: VersionNumber,
-        deps: Vec<(DiceKey, &CellHistory)>,
+        latest_dep_verified: Option<VersionNumber>,
+        first_dep_dirtied: Option<VersionNumber>,
+        deps: Arc<Vec<DiceKey>>,
     ) -> VersionNumber {
         // Marking a node as unchanged ALWAYS requires the dependencies for which we used to deem
         // that the node is unchanged.
@@ -145,19 +146,25 @@ impl OccupiedGraphNode {
         // and we rely on deferred propagation of dirtiness. However, if at v2, we recompute
         // and find that the values are equal to that at v0, then we can resurrect v0's n2.
         // However, at this point, we will need to deferred propagate the dirty at v3.
-        let changed_since = self
-            .metadata
-            .hist
-            .mark_verified(v, deps.iter().map(|d| d.1));
-        self.metadata
-            .deps
-            .replace_deps(changed_since, Arc::new(deps.into_map(|d| d.0)));
+        let changed_since =
+            self.metadata
+                .hist
+                .mark_verified_modern(v, latest_dep_verified, first_dep_dirtied);
+        self.metadata.deps.replace_deps(changed_since, deps);
 
         changed_since
     }
 
+    pub(crate) fn key(&self) -> DiceKey {
+        self.key
+    }
+
     pub(crate) fn val(&self) -> &DiceValue {
         &self.res
+    }
+
+    pub(crate) fn computed_val(&self) -> DiceComputedValue {
+        DiceComputedValue::new(self.res.dupe(), Arc::new(self.metadata.hist.clone()))
     }
 }
 
@@ -168,6 +175,6 @@ impl OccupiedGraphNode {
 /// need the associated value at this node.
 #[derive(Allocative)]
 pub(crate) struct VacantGraphNode {
-    key: DiceKey,
-    hist: CellHistory,
+    pub(crate) key: DiceKey,
+    pub(crate) hist: CellHistory,
 }

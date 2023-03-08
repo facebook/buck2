@@ -13,5 +13,7 @@ mod dependencies;
 pub(crate) mod history;
 #[allow(unused)]
 mod nodes;
+#[allow(unused)] // TODO(bobyf) temporary
+mod storage;
 #[allow(unused)]
 pub(crate) mod types;

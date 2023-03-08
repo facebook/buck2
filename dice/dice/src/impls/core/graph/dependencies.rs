@@ -19,12 +19,16 @@ use crate::impls::key::DiceKey;
 use crate::versions::VersionNumber;
 use crate::HashMap;
 
-#[derive(Allocative)]
+#[derive(Allocative, Clone)]
 pub(crate) struct VersionedDependencies {
     /// once the deps at a particular version is written, it is final and never modified
     /// We only store the dependencies relevant to the most recent result
     recorded_at: VersionNumber,
     deps: Arc<Vec<DiceKey>>,
+}
+
+impl Dupe for VersionedDependencies {
+    // triomphe is dupe
 }
 
 impl VersionedDependencies {
@@ -50,7 +54,7 @@ impl VersionedDependencies {
 }
 
 // the set of reverse dependencies of a node
-#[derive(Allocative)]
+#[derive(Allocative, Clone)] // TODO(bobyf) remove need to clone
 pub(crate) struct VersionedRevDependencies {
     rdeps: HashMap<DiceKey, VersionNumber>,
 }

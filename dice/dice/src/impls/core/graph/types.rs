@@ -22,72 +22,16 @@ use crate::versions::VersionNumber;
 use crate::versions::VersionRanges;
 
 /// The Key for a Versioned, incremental computation
-#[derive(Clone, Dupe, Debug)]
+#[derive(Copy, Clone, Dupe, Debug)]
 pub(crate) struct VersionedGraphKey {
     pub(crate) v: VersionNumber,
-    k: DiceKey,
+    pub(crate) k: DiceKey,
 }
 
 impl VersionedGraphKey {
     pub(crate) fn new(v: VersionNumber, k: DiceKey) -> Self {
         VersionedGraphKey { v, k }
     }
-}
-
-/// actual entries in the graph
-/// The placeholder will be used to indicate known dirty entries.
-#[derive(UnpackVariants, Allocative)]
-pub(crate) enum VersionedGraphNode {
-    Occupied(OccupiedGraphNode),
-    Vacant(VacantGraphNode),
-}
-
-impl VersionedGraphNode {
-    pub(crate) fn key(&self) -> &DiceKey {
-        match &self {
-            VersionedGraphNode::Occupied(o) => &o.key,
-            VersionedGraphNode::Vacant(v) => &v.key,
-        }
-    }
-}
-
-/// The stored entry of the cache
-#[derive(Allocative)]
-pub(crate) struct OccupiedGraphNode {
-    key: DiceKey,
-    res: DiceValue,
-    metadata: NodeMetadata,
-}
-
-/// Meta data about a DICE node, which are its edges and history information
-#[derive(Allocative)]
-pub(crate) struct NodeMetadata {
-    // TODO(bobyf)
-}
-
-impl OccupiedGraphNode {
-    pub(crate) fn new(key: DiceKey, res: DiceValue, metadata: NodeMetadata) -> Self {
-        Self { key, res, metadata }
-    }
-
-    pub(crate) fn metadata(&self) -> &NodeMetadata {
-        &self.metadata
-    }
-
-    pub(crate) fn metadata_mut(&mut self) -> &NodeMetadata {
-        &mut self.metadata
-    }
-}
-
-/// An entry in the graph that has no computation value associated. This is used to store the
-/// history information that is known.
-/// This will be replaced by `OccupiedGraphNode` when a computed value is associated with
-/// this node. There is no guarantees of when, or even if that will occur since users may never
-/// need the associated value at this node.
-#[derive(Allocative)]
-pub(crate) struct VacantGraphNode {
-    key: DiceKey,
-    metadata: NodeMetadata,
 }
 
 #[derive(Debug)]
