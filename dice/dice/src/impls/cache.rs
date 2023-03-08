@@ -27,7 +27,6 @@ pub(crate) struct SharedCache {
 impl Dupe for SharedCache {} // Arc triomphe should be dupe
 
 impl SharedCache {
-    #[allow(unused)] // TODO(bobyf)
     pub(crate) fn get(&self, key: DiceKey) -> Entry<DiceKey, DiceTask, FnvBuildHasher> {
         self.storage.entry(key)
     }

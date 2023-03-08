@@ -18,11 +18,8 @@
 //! up-to-date-ness of cache entries.
 //!
 
-use std::fmt::Debug;
-
 use allocative::Allocative;
 use dupe::Dupe;
-use gazebo::prelude::VecExt;
 use gazebo::variants::UnpackVariants;
 use triomphe::Arc;
 
@@ -34,7 +31,6 @@ use crate::impls::value::DiceComputedValue;
 use crate::impls::value::DiceValue;
 use crate::impls::value::MaybeValidDiceValue;
 use crate::versions::VersionNumber;
-use crate::HashSet;
 
 /// actual entries as seen when querying the cache
 /// The placeholder will be used to indicate known dirty entries.
@@ -45,13 +41,6 @@ pub(crate) enum VersionedGraphNode {
 }
 
 impl VersionedGraphNode {
-    pub(crate) fn key(&self) -> &DiceKey {
-        match &self {
-            VersionedGraphNode::Occupied(o) => &o.key,
-            VersionedGraphNode::Vacant(v) => &v.key,
-        }
-    }
-
     pub(crate) fn force_dirty(&mut self, v: VersionNumber) -> bool {
         match self {
             VersionedGraphNode::Occupied(e) => e.metadata.hist.force_dirty(v),
@@ -108,21 +97,6 @@ impl OccupiedGraphNode {
         }
     }
 
-    #[cfg(test)]
-    pub(crate) fn testing_new(
-        key: DiceKey,
-        res: DiceValue,
-        hist: CellHistory,
-        deps: VersionedDependencies,
-        rdeps: VersionedRevDependencies,
-    ) -> Self {
-        Self {
-            key,
-            res,
-            metadata: NodeMetadata { deps, rdeps, hist },
-        }
-    }
-
     pub(crate) fn metadata(&self) -> &NodeMetadata {
         &self.metadata
     }
@@ -154,10 +128,6 @@ impl OccupiedGraphNode {
         self.metadata.deps.replace_deps(changed_since, deps);
 
         changed_since
-    }
-
-    pub(crate) fn key(&self) -> DiceKey {
-        self.key
     }
 
     pub(crate) fn val(&self) -> &DiceValue {

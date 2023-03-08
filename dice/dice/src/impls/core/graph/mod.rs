@@ -8,12 +8,8 @@
  */
 
 //! The versioned dice graph of dependencies
-#[allow(unused)]
 mod dependencies;
 pub(crate) mod history;
-#[allow(unused)]
 mod nodes;
-#[allow(unused)] // TODO(bobyf) temporary
 pub(crate) mod storage;
-#[allow(unused)]
 pub(crate) mod types;

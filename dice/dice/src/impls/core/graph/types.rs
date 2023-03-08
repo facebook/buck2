@@ -9,7 +9,6 @@
 
 //! Type definitions for objects relating to the Versioned Graph
 
-use allocative::Allocative;
 use dupe::Dupe;
 use gazebo::variants::UnpackVariants;
 use gazebo::variants::VariantName;

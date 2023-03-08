@@ -19,12 +19,10 @@
 //!
 
 use std::cmp;
-use std::fmt::Debug;
 use std::ops::Bound;
 
 use allocative::Allocative;
 use dupe::Dupe;
-use gazebo::variants::UnpackVariants;
 use sorted_vector_map::SortedVectorMap;
 use triomphe::Arc;
 
@@ -464,7 +462,7 @@ impl VersionedGraph {
                             num_to_keep,
                         }
                     } else {
-                        let mut entry = VersionedGraphNode::Occupied(OccupiedGraphNode::new(
+                        let entry = VersionedGraphNode::Occupied(OccupiedGraphNode::new(
                             key.k,
                             value,
                             VersionedDependencies::new(key.v, Arc::new(vec![])),
@@ -520,6 +518,7 @@ impl VersionedGraph {
 
 pub(crate) enum InvalidateKind {
     ForceDirty,
+    #[allow(unused)]
     Invalidate,
     Update(DiceValue, StorageType),
 }
