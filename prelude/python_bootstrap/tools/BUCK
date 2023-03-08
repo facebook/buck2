@@ -4,8 +4,5 @@ prelude.sh_binary(
     name = "win_python_wrapper",
     main = "win_python_wrapper.bat",
     visibility = ["PUBLIC"],
-    target_compatible_with = select({
-        "DEFAULT": [],
-        "config//os:windows": ["config//os:windows"],
-    }),
+    target_compatible_with = ["ovr_config//os:windows"],
 )

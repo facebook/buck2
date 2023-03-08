@@ -493,7 +493,15 @@ inlined_extra_attributes = {
         "main": attrs.source(),
         "_exec_os_type": _exec_os_type(),
         "_python_bootstrap_toolchain": _python_bootstrap_toolchain(),
-        "_win_python_wrapper": attrs.default_only(attrs.exec_dep(default = "prelude//python_bootstrap/tools:win_python_wrapper")),
+        "_win_python_wrapper": attrs.default_only(
+            attrs.option(
+                attrs.dep(),
+                default = select({
+                    "DEFAULT": None,
+                    "ovr_config//os:windows": "prelude//python_bootstrap/tools:win_python_wrapper",
+                }),
+            ),
+        ),
     },
     "python_bootstrap_library": {
         "srcs": attrs.list(attrs.source()),
