@@ -1487,8 +1487,8 @@ mod tests {
     #[display(fmt = "{:?}", self)]
     struct Last2(i32);
 
-    #[tokio::test]
-    async fn latest_only_stores_latest_only() {
+    #[test]
+    fn latest_only_stores_latest_only() {
         let cache = VersionedGraph::new(StoragePropertiesLastN::<_, i32>::new(1));
         let res = 100;
         let key = VersionedGraphKey::new(VersionNumber::new(1), NonPersistent(0));
@@ -1619,8 +1619,8 @@ mod tests {
         cache.get(key5.as_ref(), mv).assert_dirty()
     }
 
-    #[tokio::test]
-    async fn last_n_max_usize_stores_everything() {
+    #[test]
+    fn last_n_max_usize_stores_everything() {
         let cache = VersionedGraph::new(StoragePropertiesLastN::<_, i32>::new(usize::MAX));
         let res = 100;
         let key = VersionedGraphKey::new(VersionNumber::new(0), Persistent(0));
@@ -1697,8 +1697,8 @@ mod tests {
         cache.get(key7.as_ref(), mv).assert_dirty()
     }
 
-    #[tokio::test]
-    async fn last_2_stores_last_2() {
+    #[test]
+    fn last_2_stores_last_2() {
         let cache = VersionedGraph::new(StoragePropertiesLastN::<_, i32>::new(2));
         let res = 100;
         let key = VersionedGraphKey::new(VersionNumber::new(0), Last2(0));
@@ -1808,8 +1808,8 @@ mod tests {
         }
     }
 
-    #[tokio::test]
-    async fn transient_entry_return_only_for_same_minor_version() {
+    #[test]
+    fn transient_entry_return_only_for_same_minor_version() {
         let validity = Arc::new(atomic::AtomicBool::new(false));
         let cache = VersionedGraph::new(StoragePropertiesForTransientTests {
             storage_type: StorageType::LastN(2),
@@ -1861,8 +1861,8 @@ mod tests {
             .assert_match();
     }
 
-    #[tokio::test]
-    async fn transient_entry_gets_removed_on_update() {
+    #[test]
+    fn transient_entry_gets_removed_on_update() {
         let validity = Arc::new(atomic::AtomicBool::new(false));
         let cache = VersionedGraph::new(StoragePropertiesForTransientTests {
             storage_type: StorageType::LastN(1),
@@ -2212,8 +2212,8 @@ mod tests {
         cache.get(key3.as_ref(), mv).assert_match();
     }
 
-    #[tokio::test]
-    async fn update_prior_version_reuses_nodes_correctly() {
+    #[test]
+    fn update_prior_version_reuses_nodes_correctly() {
         let cache = VersionedGraph::new(StoragePropertiesLastN::<_, i32>::new(1));
         let res = 100;
         let key = VersionedGraphKey::new(VersionNumber::new(5), NonPersistent(0));
