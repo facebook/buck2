@@ -51,7 +51,7 @@ pub trait ProjectionKey:
         true
     }
 
-    fn storage_type(&self) -> StorageType {
+    fn storage_type() -> StorageType {
         StorageType::LastN(1)
     }
 
