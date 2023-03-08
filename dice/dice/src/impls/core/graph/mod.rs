@@ -8,5 +8,6 @@
  */
 
 //! The versioned dice graph of dependencies
+pub(crate) mod history;
 #[allow(unused)]
 pub(crate) mod types;

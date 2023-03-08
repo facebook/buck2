@@ -46,13 +46,13 @@ use parking_lot::RwLockReadGuard;
 use parking_lot::RwLockWriteGuard;
 use sorted_vector_map::SortedVectorMap;
 
+use crate::impls::core::graph::history::HistoryState;
 use crate::introspection::graph::AnyKey;
 use crate::legacy::incremental::dep_trackers::BothDeps;
 use crate::legacy::incremental::graph::dependencies::ComputedDependency;
 use crate::legacy::incremental::graph::dependencies::VersionedDependencies;
 use crate::legacy::incremental::graph::dependencies::VersionedRevDependencies;
 use crate::legacy::incremental::graph::storage_properties::StorageProperties;
-use crate::legacy::incremental::history::HistoryState;
 use crate::legacy::incremental::versions::MinorVersion;
 use crate::legacy::incremental::CellHistory;
 use crate::legacy::incremental::Dependency;
@@ -1419,6 +1419,9 @@ mod tests {
     use crate::api::computations::DiceComputations;
     use crate::api::injected::InjectedKey;
     use crate::api::key::Key;
+    use crate::impls::core::graph::history::testing::CellHistoryExt;
+    use crate::impls::core::graph::history::testing::HistoryExt;
+    use crate::impls::core::graph::history::CellHistory;
     use crate::legacy::incremental::dep_trackers::BothDeps;
     use crate::legacy::incremental::evaluator::testing::EvaluatorUnreachable;
     use crate::legacy::incremental::graph::dependencies::Dependency;
@@ -1430,9 +1433,6 @@ mod tests {
     use crate::legacy::incremental::graph::VersionedGraph;
     use crate::legacy::incremental::graph::VersionedGraphKey;
     use crate::legacy::incremental::graph::VersionedGraphKeyRef;
-    use crate::legacy::incremental::history::testing::CellHistoryExt;
-    use crate::legacy::incremental::history::testing::HistoryExt;
-    use crate::legacy::incremental::history::CellHistory;
     use crate::legacy::incremental::testing::ComputedDependencyExt;
     use crate::legacy::incremental::testing::DependencyExt;
     use crate::legacy::incremental::versions::MinorVersion;

@@ -418,10 +418,10 @@ pub(crate) enum HistoryState {
 pub(crate) mod testing {
     use gazebo::variants::VariantName;
 
-    use crate::legacy::incremental::history::CellHistory;
-    use crate::legacy::incremental::history::HistoryState;
-    use crate::legacy::incremental::VersionNumber;
-    use crate::legacy::incremental::VersionRanges;
+    use crate::impls::core::graph::history::CellHistory;
+    use crate::impls::core::graph::history::HistoryState;
+    use crate::versions::VersionNumber;
+    use crate::versions::VersionRanges;
 
     pub(crate) trait CellHistoryExt {
         fn testing_new(verified: &[VersionNumber], dirtied: &[VersionNumber]) -> Self;
@@ -475,7 +475,7 @@ pub(crate) mod testing {
 }
 
 mod introspection {
-    use crate::legacy::incremental::history::CellHistory;
+    use crate::impls::core::graph::history::CellHistory;
     use crate::versions::VersionNumber;
 
     impl CellHistory {
@@ -500,11 +500,11 @@ mod tests {
     use sorted_vector_map::sorted_vector_set;
     use sorted_vector_map::SortedVectorSet;
 
-    use crate::legacy::incremental::history::testing::CellHistoryExt;
-    use crate::legacy::incremental::history::testing::HistoryExt;
-    use crate::legacy::incremental::history::CellHistory;
-    use crate::legacy::incremental::VersionNumber;
+    use crate::impls::core::graph::history::testing::CellHistoryExt;
+    use crate::impls::core::graph::history::testing::HistoryExt;
+    use crate::impls::core::graph::history::CellHistory;
     use crate::versions::testing::VersionRangesExt;
+    use crate::versions::VersionNumber;
     use crate::versions::VersionRange;
     use crate::versions::VersionRanges;
 
@@ -542,7 +542,7 @@ mod tests {
         // we should propagate dirties that occur before the known version
         hist.propagate_from_deps(
             VersionNumber::new(0),
-            vec![(CellHistory::dirtied(VersionNumber::new(1), false))],
+            &[CellHistory::dirtied(VersionNumber::new(1), false)],
         );
         assert_eq!(
             hist.get_history(&VersionNumber::new(1)).assert_unknown(),
@@ -560,7 +560,7 @@ mod tests {
         // we should ignore dirties that occur after the known version
         hist.propagate_from_deps(
             VersionNumber::new(0),
-            vec![CellHistory::dirtied(VersionNumber::new(4), false)],
+            &[CellHistory::dirtied(VersionNumber::new(4), false)],
         );
         hist.get_history(&VersionNumber::new(2)).assert_verified();
         hist.get_history(&VersionNumber::new(4)).assert_verified();

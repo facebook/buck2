@@ -17,7 +17,6 @@
 pub(crate) mod dep_trackers;
 pub(crate) mod evaluator;
 pub(crate) mod graph;
-mod history;
 pub(crate) mod introspection;
 pub(crate) mod transaction_ctx;
 pub(crate) mod versions;
@@ -55,6 +54,7 @@ use crate::api::key::Key;
 use crate::api::projection::DiceProjectionComputations;
 use crate::api::projection::ProjectionKey;
 use crate::api::user_data::UserComputationData;
+use crate::impls::core::graph::history::CellHistory;
 use crate::introspection::graph::EngineForIntrospection;
 use crate::legacy::ctx::ComputationData;
 use crate::legacy::dice_futures::dice_future::DiceFuture;
@@ -73,7 +73,6 @@ use crate::legacy::incremental::graph::VersionedGraphKey;
 use crate::legacy::incremental::graph::VersionedGraphKeyRef;
 use crate::legacy::incremental::graph::VersionedGraphResult;
 use crate::legacy::incremental::graph::VersionedGraphResultMismatch;
-use crate::legacy::incremental::history::CellHistory;
 use crate::legacy::incremental::transaction_ctx::TransactionCtx;
 use crate::legacy::opaque::OpaqueValueImplLegacy;
 use crate::legacy::projection::ProjectionKeyAsKey;
@@ -1249,6 +1248,7 @@ mod tests {
 
     use crate::api::error::DiceError;
     use crate::api::error::DiceResult;
+    use crate::impls::core::graph::history::testing::CellHistoryExt;
     use crate::introspection::graph::AnyKey;
     use crate::legacy::ctx::testing::ComputationDataExt;
     use crate::legacy::ctx::ComputationData;
@@ -1268,7 +1268,6 @@ mod tests {
     use crate::legacy::incremental::graph::ReadOnlyHistory;
     use crate::legacy::incremental::graph::VersionedGraphKeyRef;
     use crate::legacy::incremental::graph::WritableMetadata;
-    use crate::legacy::incremental::history::testing::CellHistoryExt;
     use crate::legacy::incremental::testing::DependencyExt;
     use crate::legacy::incremental::testing::DidDepsChangeExt;
     use crate::legacy::incremental::testing::IncrementalEngineExt;

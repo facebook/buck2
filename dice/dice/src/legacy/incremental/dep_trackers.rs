@@ -407,6 +407,7 @@ mod tests {
 
     use dupe::Dupe;
 
+    use crate::impls::core::graph::history::CellHistory;
     use crate::legacy::ctx::testing::ComputationDataExt;
     use crate::legacy::ctx::ComputationData;
     use crate::legacy::incremental::dep_trackers::BothDeps;
@@ -415,7 +416,6 @@ mod tests {
     use crate::legacy::incremental::evaluator::testing::EvaluatorFn;
     use crate::legacy::incremental::evaluator::testing::EvaluatorUnreachable;
     use crate::legacy::incremental::graph::OccupiedGraphNode;
-    use crate::legacy::incremental::history::CellHistory;
     use crate::legacy::incremental::testing::ComputedDependencyExt;
     use crate::legacy::incremental::IncrementalEngine;
     use crate::legacy::incremental::TransactionCtx;
