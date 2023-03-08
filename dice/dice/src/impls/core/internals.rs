@@ -9,8 +9,8 @@
 
 use triomphe::Arc;
 
+use crate::api::storage_type::StorageType;
 use crate::impls::cache::SharedCache;
-use crate::impls::core::graph::history::CellHistory;
 use crate::impls::core::graph::storage::VersionedGraph;
 use crate::impls::core::graph::types::VersionedGraphKey;
 use crate::impls::core::graph::types::VersionedGraphResult;
@@ -72,11 +72,11 @@ impl CoreState {
     pub(super) fn update_computed(
         &mut self,
         key: VersionedGraphKey,
+        storage: StorageType,
         value: DiceValue,
-        _deps: Arc<Vec<DiceKey>>,
+        deps: Arc<Vec<DiceKey>>,
     ) -> DiceComputedValue {
-        // TODO(bobyf) fill in actual logic to update cache
-        DiceComputedValue::new(value, Arc::new(CellHistory::verified(key.v)))
+        self.graph.update(key, value, deps, storage).0
     }
 }
 
