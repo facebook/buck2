@@ -35,11 +35,13 @@ use crate::impls::core::state::CoreStateHandle;
 use crate::impls::core::state::StateRequest;
 use crate::impls::ctx::SharedLiveTransactionCtx;
 use crate::impls::evaluator::AsyncEvaluator;
+use crate::impls::evaluator::SyncEvaluator;
 use crate::impls::events::DiceEventDispatcher;
 use crate::impls::key::DiceKey;
 use crate::impls::task::dice::DiceTask;
 use crate::impls::task::handle::DiceTaskHandle;
 use crate::impls::task::spawn_dice_task;
+use crate::impls::value::DiceValue;
 use crate::versions::VersionRanges;
 
 /// The incremental engine that manages all the handling of the results of a
@@ -83,6 +85,49 @@ impl IncrementalEngine {
                 .await;
 
             Box::new(()) as Box<dyn Any + Send + 'static>
+        })
+    }
+
+    pub(crate) fn project_for_key(
+        state: CoreStateHandle,
+        task: &DiceTask,
+        k: DiceKey,
+        eval: SyncEvaluator,
+        transaction_ctx: SharedLiveTransactionCtx,
+        event_dispatcher: DiceEventDispatcher,
+    ) -> DiceResult<DiceValue> {
+        task.get_or_complete(|| {
+            event_dispatcher.started(k);
+
+            let v = transaction_ctx.get_version();
+
+            debug!(msg = "running projection");
+
+            let eval_result = eval.evaluate(k);
+
+            debug!(msg = "projection finished. updating caches");
+
+            let res = match eval_result {
+                Ok(res) => {
+                    // send the update but don't wait for it
+                    let (tx, _rx) = tokio::sync::oneshot::channel();
+                    state.request(StateRequest::UpdateComputed {
+                        key: VersionedGraphKey::new(v, k),
+                        value: res.value.dupe(),
+                        deps: res.deps.into_iter().collect(),
+                        resp: tx,
+                    });
+                    // TODO(bobyf) consider if we want to block and wait for the cache
+
+                    Ok(res.value)
+                }
+                Err(e) => Err(e),
+            };
+
+            debug!(msg = "update future completed");
+            event_dispatcher.finished(k);
+
+            res
         })
     }
 

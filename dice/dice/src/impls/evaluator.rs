@@ -11,7 +11,10 @@ use std::sync::Arc;
 
 use dupe::Dupe;
 
+use crate::api::computations::DiceComputations;
 use crate::api::error::DiceResult;
+use crate::api::projection::DiceProjectionComputations;
+use crate::api::user_data::UserComputationData;
 use crate::ctx::DiceComputationsImpl;
 use crate::impls::ctx::PerComputeCtx;
 use crate::impls::ctx::SharedLiveTransactionCtx;
@@ -20,10 +23,7 @@ use crate::impls::events::DiceEventDispatcher;
 use crate::impls::key::DiceKey;
 use crate::impls::key::DiceKeyErased;
 use crate::impls::value::DiceValue;
-use crate::DiceComputations;
-use crate::DiceProjectionComputations;
 use crate::HashSet;
-use crate::UserComputationData;
 
 /// Evaluates Keys
 #[allow(unused)]
@@ -86,6 +86,53 @@ impl AsyncEvaluator {
                 };
 
                 let value = proj.proj().compute(base, &ctx);
+
+                Ok(DiceValueAndDeps {
+                    value,
+                    deps: [proj.base()].into_iter().collect(),
+                })
+            }
+        }
+    }
+}
+
+/// Evaluates Keys
+#[derive(Clone, Dupe)]
+pub(crate) struct SyncEvaluator {
+    per_live_version_ctx: SharedLiveTransactionCtx,
+    user_data: Arc<UserComputationData>,
+    dice: Arc<DiceModern>,
+    base: DiceValue,
+}
+
+impl SyncEvaluator {
+    pub(crate) fn new(
+        per_live_version_ctx: SharedLiveTransactionCtx,
+        user_data: Arc<UserComputationData>,
+        dice: Arc<DiceModern>,
+        base: DiceValue,
+    ) -> Self {
+        Self {
+            per_live_version_ctx,
+            user_data,
+            dice,
+            base,
+        }
+    }
+
+    pub(crate) fn evaluate(&self, key: DiceKey) -> DiceResult<DiceValueAndDeps> {
+        let key_erased = self.dice.key_index.get(key);
+        match key_erased {
+            DiceKeyErased::Key(_) => {
+                unreachable!("cannot evaluate async keys synchronously")
+            }
+            DiceKeyErased::Projection(proj) => {
+                let ctx = DiceProjectionComputations {
+                    data: &self.dice.global_data,
+                    user_data: &self.user_data,
+                };
+
+                let value = proj.proj().compute(self.base.dupe(), &ctx);
 
                 Ok(DiceValueAndDeps {
                     value,

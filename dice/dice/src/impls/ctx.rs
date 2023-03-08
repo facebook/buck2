@@ -8,6 +8,7 @@
  */
 
 use std::future::Future;
+use std::ops::Deref;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -22,20 +23,24 @@ use parking_lot::MutexGuard;
 use crate::api::data::DiceData;
 use crate::api::error::DiceResult;
 use crate::api::key::Key;
+use crate::api::projection::ProjectionKey;
 use crate::api::user_data::UserComputationData;
 use crate::impls::cache::SharedCache;
 use crate::impls::core::state::CoreStateHandle;
 use crate::impls::dep_trackers::RecordingDepsTracker;
 use crate::impls::dice::DiceModern;
 use crate::impls::evaluator::AsyncEvaluator;
+use crate::impls::evaluator::SyncEvaluator;
 use crate::impls::events::DiceEventDispatcher;
 use crate::impls::incremental::IncrementalEngine;
 use crate::impls::key::CowDiceKey;
 use crate::impls::key::DiceKey;
 use crate::impls::key::DiceKeyErasedRef;
 use crate::impls::opaque::OpaqueValueModern;
+use crate::impls::task::sync_dice_task;
 use crate::impls::transaction::ActiveTransactionGuard;
 use crate::impls::transaction::TransactionUpdater;
+use crate::impls::value::DiceKeyValue;
 use crate::impls::value::DiceValue;
 use crate::versions::VersionNumber;
 use crate::HashSet;
@@ -126,6 +131,42 @@ impl PerComputeCtx {
                             .dupe(),
                     )
                 })
+            })
+    }
+
+    /// Compute "projection" based on deriving value
+    pub(crate) fn project<K>(
+        &self,
+        key: &K,
+        base_key: DiceKey,
+        base: <K::DeriveFromKey as Key>::Value,
+    ) -> DiceResult<K::Value>
+    where
+        K: ProjectionKey,
+    {
+        let dice_key = self
+            .data
+            .dice
+            .key_index
+            .index(CowDiceKey::Ref(DiceKeyErasedRef::proj(base_key, key)));
+
+        self.data
+            .per_live_version_ctx
+            .compute_projection(
+                dice_key,
+                self.data.dice.state_handle.dupe(),
+                SyncEvaluator::new(
+                    self.data.per_live_version_ctx.dupe(),
+                    self.data.user_data.dupe(),
+                    self.data.dice.dupe(),
+                    DiceValue::new(DiceKeyValue::<K::DeriveFromKey>::new(base)),
+                ),
+                DiceEventDispatcher::new(self.data.user_data.tracker.dupe(), self.data.dice.dupe()),
+            )
+            .map(|r| {
+                r.downcast_ref::<K::Value>()
+                    .expect("Type mismatch when computing key")
+                    .dupe()
             })
     }
 
@@ -243,6 +284,29 @@ impl SharedLiveTransactionCtx {
                 fut
             }
         }
+    }
+
+    /// Compute "projection" based on deriving value
+    pub(crate) fn compute_projection(
+        &self,
+        key: DiceKey,
+        state: CoreStateHandle,
+        eval: SyncEvaluator,
+        events: DiceEventDispatcher,
+    ) -> DiceResult<DiceValue> {
+        let task = match self.cache.get(key) {
+            Entry::Occupied(occupied) => occupied.into_ref(),
+            Entry::Vacant(vacant) => {
+                let task = unsafe {
+                    // SAFETY: task completed below by `IncrementalEngine::project_for_key`
+                    sync_dice_task()
+                };
+
+                vacant.insert(task)
+            }
+        };
+
+        IncrementalEngine::project_for_key(state, task.deref(), key, eval, self.dupe(), events)
     }
 
     pub(crate) fn get_version(&self) -> VersionNumber {

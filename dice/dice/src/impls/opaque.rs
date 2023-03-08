@@ -8,6 +8,7 @@
  */
 
 use derivative::Derivative;
+use dupe::Dupe;
 
 use crate::api::error::DiceResult;
 use crate::api::key::Key;
@@ -41,11 +42,15 @@ where
         }
     }
 
-    pub(crate) fn projection<P>(&self, _projection_key: &P) -> DiceResult<P::Value>
+    pub(crate) fn projection<P>(&self, projection_key: &P) -> DiceResult<P::Value>
     where
         P: ProjectionKey<DeriveFromKey = K>,
     {
-        unimplemented!("todo")
+        self.parent_computation.project(
+            projection_key,
+            self.derive_from_key,
+            self.derive_from.dupe(),
+        )
     }
 
     /// Get a value and record parent computation dependency on `K`.
