@@ -403,7 +403,11 @@ def convert_python_library_to_executable(
             ctx.actions,
             deps + executable_deps,
             # Add in dlopen-enabled libs from first-order deps.
-            dlopen_deps = [d for d in ctx.attrs.deps if DlopenableLibraryInfo in d],
+            dlopen_deps = [
+                dep
+                for dep in ctx.attrs.deps + ctx.attrs.preload_deps
+                if DlopenableLibraryInfo in dep
+            ],
         )
         inherited_preprocessor_info = cxx_inherited_preprocessor_infos(executable_deps)
 
