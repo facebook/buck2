@@ -18,6 +18,7 @@ load("@prelude//android:preprocess_java_classes.bzl", "get_preprocessed_java_cla
 load("@prelude//android:proguard.bzl", "get_proguard_output")
 load("@prelude//android:voltron.bzl", "get_target_to_module_mapping")
 load("@prelude//java:java_providers.bzl", "KeystoreInfo", "create_java_packaging_dep", "get_all_java_packaging_deps", "get_all_java_packaging_deps_from_packaging_infos")
+load("@prelude//java/utils:java_utils.bzl", "get_path_separator")
 load("@prelude//utils:set.bzl", "set")
 load("@prelude//utils:utils.bzl", "expect")
 
@@ -159,6 +160,11 @@ def android_apk_impl(ctx: "context") -> ["provider"]:
         ),
         DefaultInfo(default_output = output_apk, other_outputs = _get_exopackage_outputs(exopackage_info), sub_targets = sub_targets),
         _get_install_info(ctx, output_apk = output_apk, manifest = resources_info.manifest, exopackage_info = exopackage_info),
+        TemplatePlaceholderInfo(
+            keyed_variables = {
+                "classpath": cmd_args([dep.jar for dep in java_packaging_deps], delimiter = get_path_separator()),
+            },
+        ),
     ]
 
 def build_apk(
