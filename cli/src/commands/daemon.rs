@@ -227,7 +227,7 @@ impl BuckdServerDependencies for BuckdServerDependenciesImpl {
 pub(crate) fn init_listener() -> anyhow::Result<(std::net::TcpListener, ConnectionType)> {
     let (endpoint, listener) = create_listener()?;
 
-    buck2_client_ctx::eprintln!("Listener created on {}", &endpoint)?;
+    tracing::info!("Listener created on {}", &endpoint);
 
     Ok((listener, endpoint))
 }
@@ -275,6 +275,9 @@ impl DaemonCommand {
         // NOTE: Do not create any threads before this point.
         //   Daemonize does not preserve threads.
 
+        let span = tracing::info_span!("daemon_listener");
+        let span_guard = span.enter();
+
         let daemon_dir = paths.daemon_dir()?;
         let pid_path = daemon_dir.buckd_pid();
         let stdout_path = daemon_dir.buckd_stdout();
@@ -310,7 +313,7 @@ impl DaemonCommand {
             //   so client has to retry to read it. Fix it.
             write_process_info(&daemon_dir, &process_info)?;
 
-            buck2_client_ctx::eprintln!("Daemonized.")?;
+            tracing::info!("Daemonized.");
 
             (listener, process_info)
         } else {
@@ -371,7 +374,7 @@ impl DaemonCommand {
             builder.max_blocking_threads(threads);
         }
 
-        buck2_client_ctx::eprintln!("Starting tokio runtime...")?;
+        tracing::info!("Starting tokio runtime...");
 
         let rt = builder.build().context("Error creating Tokio runtime")?;
 
@@ -404,7 +407,9 @@ impl DaemonCommand {
             let listener = tokio::net::TcpListener::from_std(listener)?;
             let listener = tokio_stream::wrappers::TcpListenerStream::new(listener);
 
-            buck2_client_ctx::eprintln!("Listening.")?;
+            tracing::info!("Listening.");
+
+            drop(span_guard);
 
             let buckd_server = BuckdServer::run(
                 fb,
@@ -435,18 +440,18 @@ impl DaemonCommand {
                     )
                 })?;
 
-            buck2_client_ctx::eprintln!("Initialization complete, running the server.")?;
+            tracing::info!("Initialization complete, running the server.");
 
             // clippy doesn't get along well with the select!
             #[allow(clippy::mut_mut)]
             {
                 select! {
                     _ = buckd_server => {
-                        buck2_client_ctx::eprintln!("server shutdown")?;
+                        tracing::info!("server shutdown");
                     }
                     reason = shutdown_future => {
                         let reason = reason.as_deref().unwrap_or("no reason available");
-                        buck2_client_ctx::eprintln!("server forced shutdown: {}", reason)?;
+                        tracing::info!("server forced shutdown: {}", reason);
                     },
                 };
             }

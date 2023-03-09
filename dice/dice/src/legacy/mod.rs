@@ -116,7 +116,7 @@ impl DiceLegacy {
             data,
             map,
             global_versions: VersionTracker::new(Box::new(move |update| {
-                tracing::info!("VersionTracker update: {:?}", update);
+                tracing::debug!("VersionTracker update: {:?}", update);
 
                 if let Some(deleted) = update.deleted_version() {
                     if let Some(engines) = weak_map.upgrade() {

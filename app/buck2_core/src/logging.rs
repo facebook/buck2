@@ -66,7 +66,7 @@ where
             EnvFilter::try_new(v)
                 .with_context(|| format!("Failed to parse ${} as a filter", ENV_VAR))?
         }
-        None => EnvFilter::new("warn"),
+        None => EnvFilter::new("warn,[daemon_listener]=info"),
     };
 
     let layer = tracing_subscriber::fmt::layer()

@@ -161,6 +161,7 @@ pub trait DaemonStateDiceConstructor: Allocative + Send + Sync + 'static {
 }
 
 impl DaemonState {
+    #[tracing::instrument(name = "daemon_listener", skip_all)]
     pub async fn new(
         fb: fbinit::FacebookInit,
         paths: InvocationPaths,
@@ -172,6 +173,8 @@ impl DaemonState {
         if let Ok(data) = &data {
             crate::daemon::panic::initialize(data.dupe());
         }
+
+        tracing::info!("Daemon state is ready.");
 
         let data = data.shared_error();
 
@@ -192,10 +195,10 @@ impl DaemonState {
     ) -> anyhow::Result<Arc<DaemonStateData>> {
         let fs = paths.project_root().clone();
 
-        eprintln!("Reading config...");
+        tracing::info!("Reading config...");
         let legacy_cells = BuckConfigBasedCells::parse(&fs)?;
 
-        eprintln!("Starting...");
+        tracing::info!("Starting...");
 
         let (legacy_configs, cells) = (legacy_cells.configs_by_name, legacy_cells.cell_resolver);
 

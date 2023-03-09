@@ -329,9 +329,6 @@ impl BuckdServer {
             .await,
         );
 
-        // We can still do some prints here since we're not ready to accept traffic just yet.
-        eprintln!("Daemon state is ready.");
-
         let auth_token = process_info.auth_token.clone();
         let api_server = BuckdServer(Arc::new(BuckdServerData {
             stop_accepting_requests: AtomicBool::new(false),
