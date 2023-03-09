@@ -23,7 +23,9 @@ use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
 use buck2_server_ctx::pattern::target_platform_from_client_context;
+use dupe::Dupe;
 use gazebo::prelude::SliceExt;
+use indexmap::IndexMap;
 
 use crate::AuditCommandCommonOptions;
 use crate::AuditSubcommand;
@@ -41,7 +43,11 @@ pub struct AuditClasspathCommand {
 
     #[clap(name = "TARGET_PATTERNS", help = "Target patterns to audit")]
     patterns: Vec<String>,
-    // TODO(scottcao): Add --show-targets, --json, --dot, and other relevant flags
+
+    /// Output in JSON format
+    #[clap(long)]
+    json: bool,
+    // TODO(scottcao): Add --show-targets, --dot, and other relevant flags
 }
 
 #[async_trait]
@@ -76,14 +82,52 @@ impl AuditSubcommand for AuditClasspathCommand {
                 )
                 .await?;
 
-                let label_to_artifact = classpath(&ctx, targets.into_iter()).await?;
-
                 let mut stdout = stdout.as_writer();
                 let artifact_fs = ctx.get_artifact_fs().await?;
-                for (_label, artifact) in label_to_artifact {
-                    let path = artifact_fs.resolve(artifact.get_path())?;
-                    let abs_path = artifact_fs.fs().resolve(&path);
-                    writeln!(stdout, "{}", &abs_path)?;
+
+                // Json prints a map of targets to list of classpaths while default prints
+                // classpaths for all targets.
+                if self.json {
+                    let target_to_artifacts =
+                        futures::future::try_join_all(targets.into_iter().map(|target| {
+                            let ctx = &ctx;
+                            async move {
+                                let label = target.label().dupe();
+                                let label_to_artifact =
+                                    classpath(ctx, std::iter::once(target)).await?;
+                                anyhow::Ok((label, label_to_artifact))
+                            }
+                        }))
+                        .await?;
+                    let target_to_classpaths: anyhow::Result<IndexMap<_, _>> = target_to_artifacts
+                        .into_iter()
+                        .map(|(target, label_to_artifact)| {
+                            let classpaths: anyhow::Result<Vec<_>> = label_to_artifact
+                                .into_values()
+                                .map(|artifact| {
+                                    let path = artifact_fs.resolve(artifact.get_path())?;
+                                    anyhow::Ok(artifact_fs.fs().resolve(&path))
+                                })
+                                .collect();
+                            // Note: We are choosing unconfigured targets here to match buck1 behavior.
+                            // This means that if same unconfigured target with different configurations are audited,
+                            // one will override the other in the output.
+                            // The replacement for this command in the future should return configured targets.
+                            anyhow::Ok((target.unconfigured().dupe(), classpaths?))
+                        })
+                        .collect();
+                    writeln!(
+                        stdout,
+                        "{}",
+                        serde_json::to_string_pretty(&target_to_classpaths?)?
+                    )?;
+                } else {
+                    let label_to_artifact = classpath(&ctx, targets.into_iter()).await?;
+                    for (_label, artifact) in label_to_artifact {
+                        let path = artifact_fs.resolve(artifact.get_path())?;
+                        let abs_path = artifact_fs.fs().resolve(&path);
+                        writeln!(stdout, "{}", &abs_path)?;
+                    }
                 }
 
                 Ok(())
