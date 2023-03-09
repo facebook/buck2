@@ -49,8 +49,8 @@ use crate::re::download::download_action_results;
 
 #[derive(Debug, Error)]
 pub enum RemoteExecutorError {
-    #[error("Trying to execute a `local_only = True` action on remote executor for {0}")]
-    LocalOnlyAction(String),
+    #[error("Trying to execute a `local_only = True` action on remote executor")]
+    LocalOnlyAction,
 }
 
 pub struct ReExecutor {
@@ -222,8 +222,9 @@ impl PreparedCommandExecutor for ReExecutor {
         } = command;
 
         if command.request.executor_preference().requires_local() {
-            let error = anyhow::anyhow!(RemoteExecutorError::LocalOnlyAction(target.to_string()));
-            return ControlFlow::Break(manager.error("remote_prepare", error))?;
+            return ControlFlow::Break(
+                manager.error("remote_prepare", RemoteExecutorError::LocalOnlyAction),
+            )?;
         }
 
         let manager = self
