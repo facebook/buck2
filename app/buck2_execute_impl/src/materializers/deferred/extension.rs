@@ -7,13 +7,17 @@
  * of this source tree.
  */
 
+use std::fmt;
 use std::fmt::Debug;
+use std::fmt::Display;
 use std::fmt::Write;
 use std::sync::Arc;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
+use buck2_core::directory::DirectoryEntry;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_execute::directory::ActionDirectoryMember;
 use buck2_execute::materialize::materializer::DeferredMaterializerEntry;
 use buck2_execute::materialize::materializer::DeferredMaterializerExtensions;
 use buck2_execute::materialize::materializer::DeferredMaterializerSubscription;
@@ -22,7 +26,6 @@ use chrono::Duration;
 use chrono::TimeZone;
 use chrono::Utc;
 use derivative::Derivative;
-use derive_more::Display;
 use dupe::Dupe;
 use futures::stream::BoxStream;
 use futures::stream::StreamExt;
@@ -47,13 +50,28 @@ pub(super) trait ExtensionCommand<T>: Debug + Sync + Send + 'static {
     fn execute(self: Box<Self>, processor: &mut DeferredMaterializerCommandProcessor<T>);
 }
 
-#[derive(Debug, Display)]
+#[derive(Debug)]
 enum PathData {
-    #[display(fmt = "materialized (ts={:?})", "_0")]
-    Materialized(DateTime<Utc>),
-
-    #[display(fmt = "declared: {}", "_0")]
+    Materialized {
+        ts: DateTime<Utc>,
+        size: Option<u64>,
+    },
     Declared(Arc<ArtifactMaterializationMethod>),
+}
+
+impl Display for PathData {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            PathData::Materialized { ts, size } => {
+                if let Some(size) = size {
+                    write!(f, "materialized (ts={:?}, size={})", ts, size)
+                } else {
+                    write!(f, "materialized (ts={:?})", ts)
+                }
+            }
+            PathData::Declared(method) => write!(f, "declared: {}", method),
+        }
+    }
 }
 
 impl DeferredMaterializerEntry for PathData {}
@@ -78,14 +96,22 @@ impl ExtensionCommand<DefaultIoHandler> for Iterate {
                     PathData::Declared(method.dupe())
                 }
                 ArtifactMaterializationStage::Materialized {
-                    last_access_time, ..
+                    last_access_time,
+                    metadata,
+                    ..
                 } => {
+                    let size = match &metadata.0 {
+                        DirectoryEntry::Leaf(ActionDirectoryMember::File(file_metadata)) => {
+                            Some(file_metadata.digest.size())
+                        }
+                        _ => None,
+                    };
                     // drop nano-seconds
-                    let timestamp = Utc
+                    let ts = Utc
                         .timestamp_opt(last_access_time.timestamp(), 0)
                         .single()
                         .unwrap();
-                    PathData::Materialized(timestamp)
+                    PathData::Materialized { ts, size }
                 }
             };
 
