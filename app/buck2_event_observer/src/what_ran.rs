@@ -362,6 +362,7 @@ mod tests {
                     },
                 ],
             }),
+            action_key: None,
         };
         let result = executor_with_platform(&execute);
         assert_eq!(

@@ -1008,6 +1008,7 @@ message ReUpload {}
 message ReExecute {
   string action_digest = 1;
   RePlatform platform = 2;
+  optional string action_key = 3;
 }
 
 message RePlatform {

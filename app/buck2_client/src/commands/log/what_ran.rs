@@ -311,6 +311,7 @@ impl WhatRanOutputWriter for WhatRanSubcommandOutput {
                     CommandReproducer::ReExecute(re_execute) => JsonReproducer::Re {
                         digest: &re_execute.action_digest,
                         platform_properties: into_index_map(&re_execute.platform),
+                        action_key: re_execute.action_key.as_deref(),
                     },
                     CommandReproducer::LocalExecute(local_execute) => JsonReproducer::Local {
                         command: local_execute.command.as_ref().map_or_else(
@@ -361,24 +362,34 @@ struct JsonCommand<'a> {
     extra: Option<JsonExtra<'a>>,
 }
 
-#[derive(serde::Serialize)]
-#[serde(tag = "executor", content = "details")]
-enum JsonReproducer<'a> {
-    CacheQuery {
-        digest: &'a str,
-    },
-    Cache {
-        digest: &'a str,
-    },
-    Re {
-        digest: &'a str,
-        platform_properties: IndexMap<&'a str, &'a str>,
-    },
-    Local {
-        command: Cow<'a, [String]>,
-        env: IndexMap<&'a str, &'a str>,
-    },
+mod json_reproducer {
+    #![allow(clippy::ref_option_ref)] // within Serialize
+
+    use super::*;
+
+    #[derive(serde::Serialize)]
+    #[serde(tag = "executor", content = "details")]
+    pub enum JsonReproducer<'a> {
+        CacheQuery {
+            digest: &'a str,
+        },
+        Cache {
+            digest: &'a str,
+        },
+        Re {
+            digest: &'a str,
+            platform_properties: IndexMap<&'a str, &'a str>,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            action_key: Option<&'a str>,
+        },
+        Local {
+            command: Cow<'a, [String]>,
+            env: IndexMap<&'a str, &'a str>,
+        },
+    }
 }
+
+use json_reproducer::JsonReproducer;
 
 #[derive(serde::Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -420,6 +431,7 @@ mod tests {
                 platform_properties: indexmap::indexmap! {
                     "platform" => "linux-remote-execution"
                 },
+                action_key: None,
             },
             extra: None,
         }

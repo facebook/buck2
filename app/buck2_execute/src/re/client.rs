@@ -728,6 +728,16 @@ impl RemoteExecutionClientImpl {
         use buck2_data::ReWorkerDownload;
         use buck2_data::ReWorkerUpload;
 
+        static LOG_ACTION_KEYS: EnvHelper<bool> = EnvHelper::new("BUCK2_LOG_ACTION_KEYS");
+        let action_key = if LOG_ACTION_KEYS.get_copied()?.unwrap_or_default() {
+            metadata
+                .action_history_info
+                .as_ref()
+                .map(|h| h.action_key.clone())
+        } else {
+            None
+        };
+
         /// Wait for either the ExecuteResponse to show up, or a stage change, within a span
         /// on the CommandExecutionManager.
         async fn wait_for_response_or_stage_change(
@@ -771,6 +781,7 @@ impl RemoteExecutionClientImpl {
             stage: Stage,
             action_digest: String,
             platform: &remote_execution::Platform,
+            action_key: &Option<String>,
         ) -> re_stage::Stage {
             match stage {
                 Stage::QUEUED => re_stage::Stage::Queue(ReQueue { action_digest }),
@@ -780,6 +791,7 @@ impl RemoteExecutionClientImpl {
                 Stage::EXECUTING => re_stage::Stage::Execute(ReExecute {
                     action_digest,
                     platform: Some(transform_platform(platform)),
+                    action_key: action_key.clone(),
                 }),
                 Stage::UPLOADING_OUTPUT => {
                     re_stage::Stage::WorkerUpload(ReWorkerUpload { action_digest })
@@ -822,7 +834,12 @@ impl RemoteExecutionClientImpl {
             let progress_response = wait_for_response_or_stage_change(
                 &mut receiver,
                 exe_stage,
-                re_stage_from_exe_stage(exe_stage, action_digest_str.clone(), platform),
+                re_stage_from_exe_stage(
+                    exe_stage,
+                    action_digest_str.clone(),
+                    platform,
+                    &action_key,
+                ),
                 manager,
                 re_max_queue_time,
             )
