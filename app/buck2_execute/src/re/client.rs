@@ -712,10 +712,7 @@ impl RemoteExecutionClientImpl {
         Ok(())
     }
 
-    /// Execute an action, retrying if there are infra errors etc.
-    /// This command may return an an Err (we couldn't connect to RE)
-    /// or a Ok whose state is failure.
-    async fn execute_action_with_retry(
+    async fn execute_impl(
         &self,
         metadata: RemoteExecutionMetadata,
         request: ExecuteRequest,
@@ -876,7 +873,7 @@ impl RemoteExecutionClientImpl {
             action_digest: action_digest.to_re(),
             ..Default::default()
         };
-        self.execute_action_with_retry(
+        self.execute_impl(
             metadata,
             request,
             &action_digest,
