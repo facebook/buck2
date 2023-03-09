@@ -391,6 +391,7 @@ inlined_extra_attributes = {
         "preferred_linkage": attrs.enum(Linkage, default = "any"),
         "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source(allow_directory = True)), sorted = True, default = []),
         "supports_python_dlopen": attrs.option(attrs.bool(), default = None),
+        "supports_shlib_interfaces": attrs.bool(default = True),
         "_cxx_hacks": attrs.default_only(attrs.dep(default = "prelude//cxx/tools:cxx_hacks")),
         "_cxx_toolchain": _cxx_toolchain(),
         "_is_building_android_binary": is_building_android_binary_attr(),

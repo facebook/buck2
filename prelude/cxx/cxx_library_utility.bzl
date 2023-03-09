@@ -143,10 +143,14 @@ def cxx_use_shlib_intfs(ctx: "context") -> bool.type:
     """
     Return whether we should use shared library interfaces for linking.
     """
-    linker_info = get_cxx_toolchain_info(ctx).linker_info
+
+    # Per-rule opt-out.
+    if not getattr(ctx.attrs, "supports_shlib_interfaces", True):
+        return False
 
     # TODO(T110378128): Apple currently uses the same configuration as fbcode
     # platforms, so only explicitly enable for linux until this is fixed.
+    linker_info = get_cxx_toolchain_info(ctx).linker_info
     return linker_info.shlib_interfaces != "disabled" and linker_info.type == "gnu"
 
 def cxx_platform_supported(ctx: "context") -> bool.type:

@@ -84,6 +84,7 @@ extra_attributes = {
         "preferred_linkage": attrs.enum(Linkage, default = "any"),
         "serialize_debugging_options": attrs.bool(default = True),
         "stripped": attrs.bool(default = False),
+        "supports_shlib_interfaces": attrs.bool(default = True),
         "use_archive": attrs.option(attrs.bool(), default = None),
         "_apple_toolchain": get_apple_toolchain_attr(),
         # FIXME: prelude// should be standalone (not refer to fbsource//)
