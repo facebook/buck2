@@ -12,14 +12,10 @@ use std::fmt::Debug;
 use derivative::Derivative;
 use dupe::Dupe;
 
-use crate::path::buck_out_path::BuckOutScratchPath;
-
 pub trait CommandExecutionTargetImpl: Send + Sync + Debug {
     fn re_action_key(&self) -> String;
 
     fn re_affinity_key(&self) -> String;
-
-    fn scratch_dir(&self) -> Option<BuckOutScratchPath>;
 
     fn as_proto_action_key(&self) -> buck2_data::ActionKey;
 
@@ -45,10 +41,6 @@ impl<'a> CommandExecutionTarget<'a> {
 
     pub fn re_affinity_key(&self) -> String {
         self.inner.re_affinity_key()
-    }
-
-    pub fn scratch_dir(&self) -> Option<BuckOutScratchPath> {
-        self.inner.scratch_dir()
     }
 
     pub fn as_proto_action_key(&self) -> buck2_data::ActionKey {

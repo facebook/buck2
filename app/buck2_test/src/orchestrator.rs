@@ -70,7 +70,6 @@ use buck2_execute::execute::result::CommandExecutionTimingData;
 use buck2_execute::execute::target::CommandExecutionTarget;
 use buck2_execute::execute::target::CommandExecutionTargetImpl;
 use buck2_execute::materialize::materializer::HasMaterializer;
-use buck2_execute::path::buck_out_path::BuckOutScratchPath;
 use buck2_execute::path::buck_out_path::BuckOutTestPath;
 use buck2_execute_impl::executors::local::apply_local_execution_environment;
 use buck2_execute_impl::executors::local::create_output_dirs;
@@ -435,7 +434,6 @@ impl BuckTestOrchestrator {
 
         request = request
             .with_timeout(timeout)
-            .with_custom_tmpdir(false)
             .with_executor_preference(executor_preference);
         if let Some(requirements) = host_sharing_requirements {
             request = request.with_host_sharing_requirements(requirements);
@@ -976,10 +974,6 @@ impl CommandExecutionTargetImpl for TestTarget<'_> {
 
     fn re_affinity_key(&self) -> String {
         self.target.to_string()
-    }
-
-    fn scratch_dir(&self) -> Option<BuckOutScratchPath> {
-        None
     }
 
     fn as_proto_action_key(&self) -> buck2_data::ActionKey {

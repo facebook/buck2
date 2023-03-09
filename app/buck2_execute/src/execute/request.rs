@@ -27,6 +27,7 @@ use crate::artifact::fs::ArtifactFs;
 use crate::artifact::group::artifact_group_values_dyn::ArtifactGroupValuesDyn;
 use crate::execute::environment_inheritance::EnvironmentInheritance;
 use crate::path::buck_out_path::BuckOutPath;
+use crate::path::buck_out_path::BuckOutScratchPath;
 use crate::path::buck_out_path::BuckOutTestPath;
 
 #[derive(Clone)]
@@ -127,7 +128,7 @@ pub struct CommandExecutionRequest {
     timeout: Option<Duration>,
     executor_preference: ExecutorPreference,
     // Run with a custom $TMPDIR, or just the standard system one
-    pub custom_tmpdir: bool,
+    custom_tmpdir: Option<BuckOutScratchPath>,
     host_sharing_requirements: HostSharingRequirements,
     /// Working directory, relative to the project root.
     working_directory: Option<ProjectRelativePathBuf>,
@@ -161,7 +162,7 @@ impl CommandExecutionRequest {
             env,
             timeout: None,
             executor_preference: ExecutorPreference::Default,
-            custom_tmpdir: true,
+            custom_tmpdir: None,
             host_sharing_requirements: HostSharingRequirements::default(),
             working_directory: None,
             prefetch_lossy_stderr: false,
@@ -182,8 +183,12 @@ impl CommandExecutionRequest {
         self
     }
 
-    pub fn with_custom_tmpdir(mut self, custom_tmpdir: bool) -> Self {
-        self.custom_tmpdir = custom_tmpdir;
+    pub fn custom_tmpdir(&self) -> &Option<BuckOutScratchPath> {
+        &self.custom_tmpdir
+    }
+
+    pub fn with_custom_tmpdir(mut self, custom_tmpdir: BuckOutScratchPath) -> Self {
+        self.custom_tmpdir = Some(custom_tmpdir);
         self
     }
 

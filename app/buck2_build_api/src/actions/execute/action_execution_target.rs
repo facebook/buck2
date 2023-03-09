@@ -42,6 +42,15 @@ impl<'a> ActionExecutionTarget<'a> {
     pub(crate) fn identifier(&self) -> Option<&'a str> {
         self.action.identifier()
     }
+
+    pub(crate) fn custom_tmpdir(&self) -> BuckOutScratchPath {
+        BuckOutScratchPath::new(
+            self.action.owner().dupe().into_dyn(),
+            self.action.category(),
+            self.action.identifier(),
+        )
+        .unwrap()
+    }
 }
 
 impl CommandExecutionTargetImpl for ActionExecutionTarget<'_> {
@@ -62,17 +71,6 @@ impl CommandExecutionTargetImpl for ActionExecutionTarget<'_> {
 
     fn re_affinity_key(&self) -> String {
         self.action.owner().to_string()
-    }
-
-    fn scratch_dir(&self) -> Option<BuckOutScratchPath> {
-        Some(
-            BuckOutScratchPath::new(
-                self.action.owner().dupe().into_dyn(),
-                self.action.category(),
-                self.action.identifier(),
-            )
-            .unwrap(),
-        )
     }
 
     fn as_proto_action_key(&self) -> buck2_data::ActionKey {

@@ -403,7 +403,8 @@ impl IncrementalActionExecutable for RunAction {
         .with_outputs_cleanup(!self.inner.no_outputs_cleanup)
         .with_allow_cache_upload(self.inner.allow_cache_upload)
         .with_local_environment_inheritance(EnvironmentInheritance::local_command_exclusions())
-        .with_force_full_hybrid_if_capable(self.inner.force_full_hybrid_if_capable);
+        .with_force_full_hybrid_if_capable(self.inner.force_full_hybrid_if_capable)
+        .with_custom_tmpdir(ctx.target().custom_tmpdir());
 
         let (outputs, meta) = ctx.exec_cmd(&req).await?;
 
