@@ -95,6 +95,8 @@ def build_junit_test(
         java_test_toolchain.list_class_names[RunInfo],
         "--jar",
         tests_java_library_info.library_output.full_library,
+        "--sources",
+        ctx.actions.write("sources.txt", ctx.attrs.srcs),
         "--output",
         class_names.as_output(),
     ])
