@@ -16,6 +16,8 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_core::quiet_soft_error;
+use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::execute::clean_output_paths::CleanOutputPaths;
 use chrono::DateTime;
 use chrono::Utc;
@@ -23,7 +25,9 @@ use derivative::Derivative;
 use dupe::Dupe;
 use futures::future::BoxFuture;
 use futures::FutureExt;
+use thiserror::Error;
 use tokio::sync::oneshot::Sender;
+use tracing::error;
 
 use crate::materializers::deferred::extension::ExtensionCommand;
 use crate::materializers::deferred::file_tree::DataTree;
@@ -77,6 +81,7 @@ impl ExtensionCommand<DefaultIoHandler> for CleanStaleArtifacts {
                     self.tracked_only,
                     sqlite_db,
                     &processor.io,
+                    processor.digest_config,
                 )
             }
         } else {
@@ -95,6 +100,13 @@ impl ExtensionCommand<DefaultIoHandler> for CleanStaleArtifacts {
     }
 }
 
+#[derive(Debug, Clone, Error)]
+#[error("Internal error: materializer state exists (num db entries: {}) but no artifacts were found by clean ({:?}). Not cleaning untracked artifacts.", .db_size, .stats)]
+pub(crate) struct CleanStaleError {
+    db_size: usize,
+    stats: buck2_data::CleanStaleStats,
+}
+
 fn gather_clean_futures_for_stale_artifacts(
     tree: &mut ArtifactTree,
     keep_since_time: DateTime<Utc>,
@@ -102,6 +114,7 @@ fn gather_clean_futures_for_stale_artifacts(
     tracked_only: bool,
     sqlite_db: &mut MaterializerStateSqliteDb,
     io: &Arc<DefaultIoHandler>,
+    digest: DigestConfig,
 ) -> anyhow::Result<(
     Vec<BoxFuture<'static, anyhow::Result<()>>>,
     buck2_cli_proto::CleanStaleResponse,
@@ -134,6 +147,24 @@ fn gather_clean_futures_for_stale_artifacts(
             .context("Found a file where gen dir expected")?;
         find_stale_recursive(&io.fs, subtree, &gen_dir, keep_since_time, &mut stats)?
     };
+
+    // If no stale or retained artifact founds, the db should be empty.
+    if stats.stale_artifact_count + stats.retained_artifact_count == 0 {
+        // Just need to know if any entries exist, could be a simpler query.
+        // Checking the db directly in case tree is somehow not in sync.
+        let materializer_state = sqlite_db.materializer_state_table().read_all(digest)?;
+
+        // Entries in the db should have been found in buck-out, return error and skip cleaning untracked artifacts.
+        if !materializer_state.is_empty() {
+            let error = CleanStaleError {
+                db_size: materializer_state.len(),
+                stats,
+            };
+            // quiet just because it's also returned, soft_error to log to scribe
+            quiet_soft_error!("clean_stale_error", error.clone().into()).unwrap();
+            return Err(anyhow::anyhow!(error));
+        }
+    }
 
     let mut cleaning_futs = Vec::new();
     if !dry_run {
