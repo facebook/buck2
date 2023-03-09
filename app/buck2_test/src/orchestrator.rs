@@ -90,8 +90,6 @@ use buck2_test_api::data::Output;
 use buck2_test_api::data::PrepareForLocalExecutionResult;
 use buck2_test_api::data::TestResult;
 use buck2_test_api::protocol::TestOrchestrator;
-use dashmap::mapref::entry::Entry;
-use dashmap::DashMap;
 use dice::DiceTransaction;
 use dupe::Dupe;
 use futures::channel::mpsc::UnboundedSender;
@@ -117,12 +115,6 @@ pub struct BuckTestOrchestrator {
     session: Arc<TestSession>,
     results_channel: UnboundedSender<anyhow::Result<TestResultOrExitCode>>,
     events: EventDispatcher,
-    /// In order to run commands, we need to have unique identifiers.
-    /// Unfortunately, Tpx might run the same test multiple times, so we have to manufacture our own.
-    /// Through multiple executions of multiple builds, we don't want to keep creating fresh
-    /// identifiers (e.g. Uuid or similar) because each might create some temporary outputs on disk,
-    /// so use sequential identifiers for each target.
-    identifiers: DashMap<ConfiguredTargetLabel, usize>,
     liveliness_observer: Arc<dyn LivelinessObserver>,
     digest_config: DigestConfig,
 }
@@ -161,27 +153,7 @@ impl BuckTestOrchestrator {
             results_channel,
             events,
             digest_config,
-            identifiers: Default::default(),
         }
-    }
-
-    /// Produce a unique identifier every time it is called with the same target
-    fn new_identifier(&self, target: &ConfiguredTargetLabel) -> String {
-        let i = {
-            // The identifiers value always contains the value to use
-            match self.identifiers.entry(target.dupe()) {
-                Entry::Occupied(mut e) => {
-                    let v = *e.get();
-                    *e.get_mut() = v + 1;
-                    v
-                }
-                Entry::Vacant(e) => {
-                    e.insert(1);
-                    0
-                }
-            }
-        };
-        format!("test-{}", i)
     }
 }
 
@@ -415,10 +387,6 @@ impl BuckTestOrchestrator {
         CommandExecutionTimingData,
         Vec<BuckOutTestPath>,
     )> {
-        // We'd love to use the `metadata` field to generate a unique identifier,
-        // but Tpx might run the same test repeatedly, so it is not unique.
-        let identifier = self.new_identifier(test_target.target());
-
         let mut executor_preference = ExecutorPreference::Default;
 
         if !self.session.options().allow_re {
@@ -447,7 +415,6 @@ impl BuckTestOrchestrator {
 
         let test_target = TestTarget {
             target: test_target.target(),
-            identifier: &identifier,
         };
 
         let command = executor.exec_cmd(
@@ -964,12 +931,11 @@ impl EnvironmentBuilder for LossyEnvironment {
 #[derive(Debug)]
 struct TestTarget<'a> {
     target: &'a ConfiguredTargetLabel,
-    identifier: &'a str,
 }
 
 impl CommandExecutionTargetImpl for TestTarget<'_> {
     fn re_action_key(&self) -> String {
-        format!("{} test {}", self.target, self.identifier)
+        format!("{} test", self.target)
     }
 
     fn re_affinity_key(&self) -> String {
@@ -989,7 +955,7 @@ impl CommandExecutionTargetImpl for TestTarget<'_> {
     fn as_proto_action_name(&self) -> buck2_data::ActionName {
         buck2_data::ActionName {
             category: "test".to_owned(),
-            identifier: self.identifier.to_owned(),
+            identifier: "".to_owned(),
         }
     }
 }
