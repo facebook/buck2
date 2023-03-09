@@ -155,7 +155,7 @@ impl CachingExecutor {
     async fn maybe_perform_cache_upload(
         &self,
         request: &CommandExecutionRequest,
-        target: CommandExecutionTarget<'_>,
+        target: &dyn CommandExecutionTarget,
         digest: &ActionDigest,
         result: &CommandExecutionResult,
         digest_config: DigestConfig,

@@ -39,7 +39,7 @@ pub struct PreparedAction {
 
 pub struct PreparedCommand<'a, 'b> {
     pub request: &'a CommandExecutionRequest,
-    pub target: CommandExecutionTarget<'b>,
+    pub target: &'b dyn CommandExecutionTarget,
     pub action_paths: ActionPaths,
     pub prepared_action: PreparedAction,
     pub digest_config: DigestConfig,

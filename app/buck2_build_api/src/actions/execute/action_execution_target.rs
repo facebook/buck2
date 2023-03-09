@@ -11,7 +11,7 @@ use std::fmt::Write;
 
 use buck2_core::category::Category;
 use buck2_data::ToProtoMessage;
-use buck2_execute::execute::target::CommandExecutionTargetImpl;
+use buck2_execute::execute::target::CommandExecutionTarget;
 use buck2_execute::path::buck_out_path::BuckOutScratchPath;
 use derivative::Derivative;
 use dupe::Dupe;
@@ -53,7 +53,7 @@ impl<'a> ActionExecutionTarget<'a> {
     }
 }
 
-impl CommandExecutionTargetImpl for ActionExecutionTarget<'_> {
+impl CommandExecutionTarget for ActionExecutionTarget<'_> {
     fn re_action_key(&self) -> String {
         let mut key = String::new();
         write!(

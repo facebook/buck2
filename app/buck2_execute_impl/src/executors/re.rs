@@ -116,7 +116,7 @@ impl ReExecutor {
     async fn re_execute(
         &self,
         mut manager: CommandExecutionManager,
-        action: &CommandExecutionTarget<'_>,
+        action: &dyn CommandExecutionTarget,
         request: &CommandExecutionRequest,
         action_digest: &ActionDigest,
         action_paths: &ActionPaths,
@@ -234,7 +234,7 @@ impl PreparedCommandExecutor for ReExecutor {
         let (manager, response) = self
             .re_execute(
                 manager,
-                target,
+                *target,
                 request,
                 action_digest,
                 action_paths,

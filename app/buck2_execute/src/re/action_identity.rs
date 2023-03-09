@@ -10,10 +10,10 @@
 use crate::execute::prepared::ActionPaths;
 use crate::execute::target::CommandExecutionTarget;
 
-pub struct ReActionIdentity<'a, 'b> {
+pub struct ReActionIdentity<'a> {
     /// This is currently unused, but historically it has been useful to add logging in the RE
     /// client, so it's worth keeping around.
-    _target: &'a CommandExecutionTarget<'b>,
+    _target: &'a dyn CommandExecutionTarget,
 
     /// Actions with the same action key share e.g. memory requirements learnt by RE.
     pub action_key: String,
@@ -25,9 +25,9 @@ pub struct ReActionIdentity<'a, 'b> {
     pub action_paths: &'a ActionPaths,
 }
 
-impl<'a, 'b> ReActionIdentity<'a, 'b> {
+impl<'a> ReActionIdentity<'a> {
     pub fn new(
-        target: &'a CommandExecutionTarget<'b>,
+        target: &'a dyn CommandExecutionTarget,
         executor_action_key: Option<&str>,
         action_paths: &'a ActionPaths,
     ) -> Self {

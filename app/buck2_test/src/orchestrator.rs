@@ -68,7 +68,6 @@ use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_execute::execute::result::CommandExecutionStatus;
 use buck2_execute::execute::result::CommandExecutionTimingData;
 use buck2_execute::execute::target::CommandExecutionTarget;
-use buck2_execute::execute::target::CommandExecutionTargetImpl;
 use buck2_execute::materialize::materializer::HasMaterializer;
 use buck2_execute::path::buck_out_path::BuckOutTestPath;
 use buck2_execute_impl::executors::local::apply_local_execution_environment;
@@ -417,12 +416,7 @@ impl BuckTestOrchestrator {
             target: test_target.target(),
         };
 
-        let command = executor.exec_cmd(
-            CommandExecutionTarget::new(&test_target),
-            &request,
-            manager,
-            self.digest_config,
-        );
+        let command = executor.exec_cmd(&test_target as _, &request, manager, self.digest_config);
 
         // instrument execution with a span.
         // TODO(brasselsprouts): migrate this into the executor to get better accuracy.
@@ -933,7 +927,7 @@ struct TestTarget<'a> {
     target: &'a ConfiguredTargetLabel,
 }
 
-impl CommandExecutionTargetImpl for TestTarget<'_> {
+impl CommandExecutionTarget for TestTarget<'_> {
     fn re_action_key(&self) -> String {
         format!("{} test", self.target)
     }

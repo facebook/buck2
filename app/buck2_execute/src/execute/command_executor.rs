@@ -108,7 +108,7 @@ impl CommandExecutor {
     /// to a result with CommandExecutionManager::error.
     pub async fn exec_cmd(
         &self,
-        action: CommandExecutionTarget<'_>,
+        action: &dyn CommandExecutionTarget,
         request: &CommandExecutionRequest,
         manager: CommandExecutionManager,
         digest_config: DigestConfig,

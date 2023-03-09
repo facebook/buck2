@@ -363,7 +363,7 @@ impl ManagedRemoteExecutionClient {
         action_digest: ActionDigest,
         platform: &RE::Platform,
         use_case: RemoteExecutorUseCase,
-        identity: &ReActionIdentity<'_, '_>,
+        identity: &ReActionIdentity<'_>,
         manager: &mut CommandExecutionManager,
         skip_cache_lookup: bool,
         re_max_queue_time: Option<Duration>,

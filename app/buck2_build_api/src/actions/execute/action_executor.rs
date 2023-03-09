@@ -38,7 +38,6 @@ use buck2_execute::execute::request::OutputType;
 use buck2_execute::execute::result::CommandExecutionReport;
 use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_execute::execute::result::CommandExecutionStatus;
-use buck2_execute::execute::target::CommandExecutionTarget;
 use buck2_execute::materialize::materializer::HasMaterializer;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::output_size::OutputCountAndBytes;
@@ -339,12 +338,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
         } = self
             .executor
             .command_executor
-            .exec_cmd(
-                CommandExecutionTarget::new(&action),
-                request,
-                manager,
-                self.digest_config(),
-            )
+            .exec_cmd(&action as _, request, manager, self.digest_config())
             .await;
 
         // TODO (@torozco): The execution kind should be made to come via the command reports too.
