@@ -22,7 +22,6 @@ use chrono::Utc;
 use derivative::Derivative;
 use dupe::Dupe;
 use futures::future::BoxFuture;
-use futures::future::Future;
 use futures::FutureExt;
 use tokio::sync::oneshot::Sender;
 
@@ -45,30 +44,46 @@ pub struct CleanStaleArtifacts {
     pub sender: Sender<BoxFuture<'static, anyhow::Result<buck2_cli_proto::CleanStaleResponse>>>,
 }
 
+fn skip_clean_response_with_message(
+    message: &str,
+) -> anyhow::Result<(
+    Vec<BoxFuture<'static, anyhow::Result<()>>>,
+    buck2_cli_proto::CleanStaleResponse,
+)> {
+    Ok((
+        vec![],
+        buck2_cli_proto::CleanStaleResponse {
+            message: Some(message.to_owned()),
+            stats: None,
+        },
+    ))
+}
+
 impl ExtensionCommand<DefaultIoHandler> for CleanStaleArtifacts {
     fn execute(
         self: Box<Self>,
         processor: &mut DeferredMaterializerCommandProcessor<DefaultIoHandler>,
     ) {
-        if !processor.defer_write_actions || processor.sqlite_db.is_none() {
-            let fut = async move {
-                Ok(buck2_cli_proto::CleanStaleResponse {
-                    message: Some("Skipping clean, set buck2.sqlite_materializer_state and buck2.defer_write_actions to use clean --stale".to_owned()),
-                    stats: None,
-                })
-            }.boxed();
-            let _ignored = self.sender.send(fut);
-            return;
-        }
-
-        let res = gather_clean_futures_for_stale_artifacts(
-            &mut processor.tree,
-            self.keep_since_time,
-            self.dry_run,
-            self.tracked_only,
-            &mut processor.sqlite_db,
-            &processor.io,
-        );
+        let res = if let Some(sqlite_db) = processor.sqlite_db.as_mut() {
+            if !processor.defer_write_actions {
+                skip_clean_response_with_message(
+                    "Skipping clean, set buck2.defer_write_actions to use clean --stale",
+                )
+            } else {
+                gather_clean_futures_for_stale_artifacts(
+                    &mut processor.tree,
+                    self.keep_since_time,
+                    self.dry_run,
+                    self.tracked_only,
+                    sqlite_db,
+                    &processor.io,
+                )
+            }
+        } else {
+            skip_clean_response_with_message(
+                "Skipping clean, set buck2.sqlite_materializer_state to use clean --stale",
+            )
+        };
         let fut = async move {
             let (cleaning_futs, response) = res?;
             futures::future::try_join_all(cleaning_futs).await?;
@@ -85,10 +100,10 @@ fn gather_clean_futures_for_stale_artifacts(
     keep_since_time: DateTime<Utc>,
     dry_run: bool,
     tracked_only: bool,
-    sqlite_db: &mut Option<MaterializerStateSqliteDb>,
+    sqlite_db: &mut MaterializerStateSqliteDb,
     io: &Arc<DefaultIoHandler>,
 ) -> anyhow::Result<(
-    Vec<impl Future<Output = anyhow::Result<()>>>,
+    Vec<BoxFuture<'static, anyhow::Result<()>>>,
     buck2_cli_proto::CleanStaleResponse,
 )> {
     let gen_path = &io
@@ -96,13 +111,7 @@ fn gather_clean_futures_for_stale_artifacts(
         .join(ProjectRelativePathBuf::unchecked_new("gen".to_owned()));
     let gen_dir = io.fs.resolve(gen_path);
     if !fs_util::try_exists(&gen_dir)? {
-        return Ok((
-            vec![],
-            buck2_cli_proto::CleanStaleResponse {
-                message: Some("Nothing to clean".to_owned()),
-                stats: None,
-            },
-        ));
+        return skip_clean_response_with_message("Nothing to clean");
     }
     tracing::trace!(gen_dir = %gen_dir, "Scanning");
 
@@ -137,15 +146,18 @@ fn gather_clean_futures_for_stale_artifacts(
             let io = io.dupe();
 
             let existing_futs =
-                tree.invalidate_paths_and_collect_futures(vec![path.clone()], sqlite_db.as_mut());
+                tree.invalidate_paths_and_collect_futures(vec![path.clone()], Some(sqlite_db));
 
-            cleaning_futs.push(async move {
-                join_all_existing_futs(existing_futs).await?;
-                io.io_executor
-                    .execute_io(Box::new(CleanOutputPaths { paths: vec![path] }))
-                    .await?;
-                anyhow::Ok(())
-            });
+            cleaning_futs.push(
+                async move {
+                    join_all_existing_futs(existing_futs).await?;
+                    io.io_executor
+                        .execute_io(Box::new(CleanOutputPaths { paths: vec![path] }))
+                        .await?;
+                    anyhow::Ok(())
+                }
+                .boxed(),
+            );
         }
     }
 
