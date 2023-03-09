@@ -26,4 +26,10 @@ def apple_resource_impl(ctx: "context") -> ["provider"]:
         exported_deps = [],
         resource_spec = resource_spec,
     )
-    return [DefaultInfo(), graph]
+    return [DefaultInfo(
+        sub_targets = {
+            "headers": [
+                DefaultInfo(default_outputs = []),
+            ],
+        },
+    ), graph]
