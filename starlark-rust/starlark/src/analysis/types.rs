@@ -21,7 +21,6 @@ use std::path::Path;
 
 use dupe::Dupe;
 use gazebo::variants::VariantName;
-use lsp_types::Diagnostic;
 use lsp_types::DiagnosticSeverity;
 use lsp_types::NumberOrString;
 use lsp_types::Range;
@@ -31,7 +30,7 @@ use crate::codemap::CodeMap;
 use crate::codemap::FileSpan;
 use crate::codemap::ResolvedSpan;
 use crate::codemap::Span;
-use crate::errors::Diagnostic as StarlarkDiagnostic;
+use crate::errors::Diagnostic;
 
 pub(crate) trait LintWarning: Display + VariantName {
     fn is_serious(&self) -> bool;
@@ -162,9 +161,9 @@ impl Display for EvalMessage {
 impl EvalMessage {
     /// Convert from an `anyhow::Error`, including some type checking, to an `EvalMessage`
     pub fn from_anyhow(file: &Path, x: &anyhow::Error) -> Self {
-        match x.downcast_ref::<StarlarkDiagnostic>() {
+        match x.downcast_ref::<Diagnostic>() {
             Some(
-                d @ StarlarkDiagnostic {
+                d @ Diagnostic {
                     message,
                     span: Some(span),
                     ..
@@ -214,13 +213,13 @@ impl From<Lint> for EvalMessage {
     }
 }
 
-impl From<EvalMessage> for Diagnostic {
+impl From<EvalMessage> for lsp_types::Diagnostic {
     fn from(x: EvalMessage) -> Self {
         let range = match x.span {
             Some(s) => s.into(),
             _ => Range::default(),
         };
-        Diagnostic::new(
+        lsp_types::Diagnostic::new(
             range,
             Some(x.severity.into()),
             Some(NumberOrString::String(x.name)),
