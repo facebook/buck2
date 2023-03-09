@@ -48,7 +48,6 @@ use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::execute::request::CommandExecutionRequest;
-use buck2_execute::execute::target::CommandExecutionTarget;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::path::buck_out_path::BuckOutPath;
 use buck2_execute::re::manager::ManagedRemoteExecutionClient;
@@ -64,6 +63,7 @@ use static_assertions::_core::ops::Deref;
 use thiserror::Error;
 
 use crate::actions::artifact::build_artifact::BuildArtifact;
+use crate::actions::execute::action_execution_target::ActionExecutionTarget;
 use crate::actions::execute::action_executor::ActionExecutionMetadata;
 use crate::actions::execute::action_executor::ActionOutputs;
 use crate::artifact_groups::ArtifactGroup;
@@ -174,7 +174,7 @@ pub trait IncrementalActionExecutable: Send + Sync + 'static {
 /// The context for actions to use when executing
 #[async_trait]
 pub trait ActionExecutionCtx: Send + Sync {
-    fn target(&self) -> CommandExecutionTarget<'_>;
+    fn target(&self) -> ActionExecutionTarget<'_>;
 
     /// An 'ArtifactFs' to be used for managing 'Artifact's
     fn fs(&self) -> &ArtifactFs;

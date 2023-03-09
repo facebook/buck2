@@ -16,6 +16,7 @@ use buck2_build_api::actions::impls::run::dep_files::get_dep_files;
 use buck2_build_api::actions::impls::run::dep_files::DepFilesKey;
 use buck2_build_api::actions::impls::run::dep_files::StoredFingerprints;
 use buck2_build_api::calculation::Calculation;
+use buck2_build_api::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_cli_proto::ClientContext;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
@@ -23,7 +24,6 @@ use buck2_core::category::Category;
 use buck2_core::directory::Directory;
 use buck2_core::directory::DirectoryIterator;
 use buck2_core::target::name::TargetName;
-use buck2_execute::base_deferred_key_dyn::BaseDeferredKeyDyn;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_execute::materialize::materializer::HasMaterializer;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
@@ -93,7 +93,7 @@ impl AuditSubcommand for AuditDepFilesCommand {
                 let category = Category::try_from(self.category.as_str())?;
 
                 let key = DepFilesKey::new(
-                    BaseDeferredKeyDyn::TargetLabel(label),
+                    BaseDeferredKey::TargetLabel(label),
                     category,
                     self.identifier.clone(),
                 );

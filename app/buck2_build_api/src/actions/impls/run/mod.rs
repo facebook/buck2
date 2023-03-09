@@ -296,8 +296,7 @@ impl IncrementalActionExecutable for RunAction {
             let (matching_result, dep_files) =
                 span_async(buck2_data::MatchDepFilesStart {}, async {
                     let res: anyhow::Result<_> = try {
-                        let dep_files_key =
-                            DepFilesKey::from_command_execution_target(ctx.target());
+                        let dep_files_key = DepFilesKey::from_action_execution_target(ctx.target());
 
                         let mut visitor = DepFilesCommandLineVisitor::new(&self.inner.dep_files);
                         let expanded =
@@ -372,7 +371,10 @@ impl IncrementalActionExecutable for RunAction {
         // to RE as a blob or written to disk in local executor.
         // Path to this file is passed to user in environment variable which is selected by user.
         if let Some(metadata_param) = &self.inner.metadata_param {
-            let path = BuckOutPath::new(ctx.target().owner.dupe(), metadata_param.path.clone());
+            let path = BuckOutPath::new(
+                ctx.target().owner().dupe().into_dyn(),
+                metadata_param.path.clone(),
+            );
             let resolved_path = fs.buck_out_path_resolver().resolve_gen(&path);
             env.insert(metadata_param.env_var.to_owned(), resolved_path.to_string());
             let (data, digest) = metadata_content(fs, &artifact_inputs, ctx.digest_config())?;

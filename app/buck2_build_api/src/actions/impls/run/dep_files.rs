@@ -24,14 +24,12 @@ use buck2_core::fs::fs_util;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::soft_error;
 use buck2_execute::artifact::fs::ArtifactFs;
-use buck2_execute::base_deferred_key_dyn::BaseDeferredKeyDyn;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::expand_selector_for_dependencies;
 use buck2_execute::directory::ActionDirectoryBuilder;
 use buck2_execute::directory::ActionImmutableDirectory;
 use buck2_execute::directory::ActionSharedDirectory;
 use buck2_execute::directory::INTERNER;
-use buck2_execute::execute::target::CommandExecutionTarget;
 use buck2_execute::materialize::materializer::MaterializationError;
 use buck2_execute::materialize::materializer::Materializer;
 use dashmap::DashMap;
@@ -47,11 +45,13 @@ use tracing::instrument;
 
 use crate::actions::artifact::Artifact;
 use crate::actions::artifact::OutputArtifact;
+use crate::actions::execute::action_execution_target::ActionExecutionTarget;
 use crate::actions::execute::action_executor::ActionOutputs;
 use crate::actions::impls::run::expanded_command_line::ExpandedCommandLineDigest;
 use crate::actions::ActionExecutionCtx;
 use crate::actions::BuildArtifact;
 use crate::artifact_groups::ArtifactGroup;
+use crate::deferred::base_deferred_key::BaseDeferredKey;
 use crate::interpreter::rule_defs::artifact_tagging::ArtifactTag;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 
@@ -81,13 +81,13 @@ pub fn get_dep_files(key: &DepFilesKey) -> Option<Arc<DepFileState>> {
     "identifier.as_deref().unwrap_or(\"<no identifier>\")"
 )]
 pub struct DepFilesKey {
-    owner: BaseDeferredKeyDyn,
+    owner: BaseDeferredKey,
     category: Category,
     identifier: Option<String>,
 }
 
 impl DepFilesKey {
-    pub fn new(owner: BaseDeferredKeyDyn, category: Category, identifier: Option<String>) -> Self {
+    pub fn new(owner: BaseDeferredKey, category: Category, identifier: Option<String>) -> Self {
         Self {
             owner,
             category,
@@ -95,11 +95,11 @@ impl DepFilesKey {
         }
     }
 
-    pub fn from_command_execution_target(target: CommandExecutionTarget<'_>) -> Self {
+    pub fn from_action_execution_target(target: ActionExecutionTarget<'_>) -> Self {
         Self {
-            owner: target.owner.dupe(),
-            category: target.category.clone(),
-            identifier: target.identifier.map(|t| t.to_owned()),
+            owner: target.owner().dupe(),
+            category: target.category().clone(),
+            identifier: target.identifier().map(|t| t.to_owned()),
         }
     }
 }

@@ -18,7 +18,6 @@ use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::calculation::Calculation;
-use buck2_build_api::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_build_api::interpreter::rule_defs::cmd_args::AbsCommandLineContext;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
@@ -33,7 +32,6 @@ use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::events::HasEvents;
 use buck2_common::executor_config::CommandExecutorConfig;
 use buck2_common::liveliness_observer::LivelinessObserver;
-use buck2_core::category::Category;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
@@ -70,7 +68,9 @@ use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_execute::execute::result::CommandExecutionStatus;
 use buck2_execute::execute::result::CommandExecutionTimingData;
 use buck2_execute::execute::target::CommandExecutionTarget;
+use buck2_execute::execute::target::CommandExecutionTargetImpl;
 use buck2_execute::materialize::materializer::HasMaterializer;
+use buck2_execute::path::buck_out_path::BuckOutScratchPath;
 use buck2_execute::path::buck_out_path::BuckOutTestPath;
 use buck2_execute_impl::executors::local::apply_local_execution_environment;
 use buck2_execute_impl::executors::local::create_output_dirs;
@@ -100,15 +100,12 @@ use gazebo::prelude::*;
 use host_sharing::HostSharingRequirements;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
-use once_cell::sync::Lazy;
 use sorted_vector_map::SortedVectorMap;
 use starlark::values::FrozenRef;
 use uuid::Uuid;
 
 use crate::session::TestSession;
 use crate::translations;
-
-static TEST_CATEGORY: Lazy<Category> = Lazy::new(|| Category::try_from("test").unwrap());
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum TestResultOrExitCode {
@@ -422,16 +419,6 @@ impl BuckTestOrchestrator {
         // We'd love to use the `metadata` field to generate a unique identifier,
         // but Tpx might run the same test repeatedly, so it is not unique.
         let identifier = self.new_identifier(test_target.target());
-        let owner = BaseDeferredKey::TargetLabel(test_target.target().dupe());
-        let action_key = TestActionKey {
-            target: test_target.target(),
-        };
-        let command_execution_target = CommandExecutionTarget {
-            owner: owner.into_dyn(),
-            category: &TEST_CATEGORY,
-            identifier: Some(&identifier),
-            action_key: &action_key as _,
-        };
 
         let mut executor_preference = ExecutorPreference::Default;
 
@@ -460,8 +447,13 @@ impl BuckTestOrchestrator {
             self.liveliness_observer.dupe(),
         );
 
+        let test_target = TestTarget {
+            target: test_target.target(),
+            identifier: &identifier,
+        };
+
         let command = executor.exec_cmd(
-            command_execution_target,
+            CommandExecutionTarget::new(&test_target),
             &request,
             manager,
             self.digest_config,
@@ -497,7 +489,7 @@ impl BuckTestOrchestrator {
                     suite: Some(TestSuite {
                         suite_name: suite,
                         test_names: testcases,
-                        target_label: Some(test_target.target().as_proto()),
+                        target_label: Some(test_target.target.as_proto()),
                     }),
                 };
                 let end = TestRunEnd {};
@@ -971,20 +963,39 @@ impl EnvironmentBuilder for LossyEnvironment {
     }
 }
 
-struct TestActionKey<'a> {
+#[derive(Debug)]
+struct TestTarget<'a> {
     target: &'a ConfiguredTargetLabel,
+    identifier: &'a str,
 }
 
-impl<'a> ToProtoMessage for TestActionKey<'a> {
-    type Message = buck2_data::ActionKey;
+impl CommandExecutionTargetImpl for TestTarget<'_> {
+    fn re_action_key(&self) -> String {
+        format!("{} test {}", self.target, self.identifier)
+    }
 
-    fn as_proto(&self) -> Self::Message {
+    fn re_affinity_key(&self) -> String {
+        self.target.to_string()
+    }
+
+    fn scratch_dir(&self) -> Option<BuckOutScratchPath> {
+        None
+    }
+
+    fn as_proto_action_key(&self) -> buck2_data::ActionKey {
         buck2_data::ActionKey {
             id: Default::default(),
             owner: Some(buck2_data::action_key::Owner::TestTargetLabel(
                 self.target.as_proto(),
             )),
             key: Default::default(),
+        }
+    }
+
+    fn as_proto_action_name(&self) -> buck2_data::ActionName {
+        buck2_data::ActionName {
+            category: "test".to_owned(),
+            identifier: self.identifier.to_owned(),
         }
     }
 }

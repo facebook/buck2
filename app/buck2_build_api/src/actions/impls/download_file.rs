@@ -246,7 +246,7 @@ impl IncrementalActionExecutable for DownloadFileAction {
                                 url: self.inner.url.dupe(),
                                 checksum: self.inner.checksum.dupe(),
                                 metadata: metadata.dupe(),
-                                owner: ctx.target().owner.dupe(),
+                                owner: ctx.target().owner().dupe().into_dyn(),
                             },
                         )
                         .await?;

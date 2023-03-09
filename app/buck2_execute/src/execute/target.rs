@@ -7,49 +7,55 @@
  * of this source tree.
  */
 
-use std::fmt::Display;
+use std::fmt::Debug;
 
-use buck2_core::category::Category;
-use buck2_data::ToProtoMessage;
 use derivative::Derivative;
 use dupe::Dupe;
 
-use crate::base_deferred_key_dyn::BaseDeferredKeyDyn;
 use crate::path::buck_out_path::BuckOutScratchPath;
 
+pub trait CommandExecutionTargetImpl: Send + Sync + Debug {
+    fn re_action_key(&self) -> String;
+
+    fn re_affinity_key(&self) -> String;
+
+    fn scratch_dir(&self) -> Option<BuckOutScratchPath>;
+
+    fn as_proto_action_key(&self) -> buck2_data::ActionKey;
+
+    fn as_proto_action_name(&self) -> buck2_data::ActionName;
+}
+
+// FIXME: Remove this type entirely.
 /// Indicates why we are executing a given command.
 #[derive(Clone, Dupe, Derivative)]
 #[derivative(Debug)]
 pub struct CommandExecutionTarget<'a> {
-    pub owner: BaseDeferredKeyDyn,
-    pub category: &'a Category,
-    pub identifier: Option<&'a str>,
-
-    // For serialization in logging.
-    #[derivative(Debug = "ignore")]
-    pub action_key: &'a (dyn ToProtoMessage<Message = buck2_data::ActionKey> + Sync),
+    inner: &'a dyn CommandExecutionTargetImpl,
 }
 
 impl<'a> CommandExecutionTarget<'a> {
+    pub fn new(inner: &'a dyn CommandExecutionTargetImpl) -> Self {
+        Self { inner }
+    }
+
     pub fn re_action_key(&self) -> String {
-        self.to_string()
+        self.inner.re_action_key()
     }
 
     pub fn re_affinity_key(&self) -> String {
-        self.owner.to_string()
+        self.inner.re_affinity_key()
     }
 
-    pub fn scratch_dir(&self) -> BuckOutScratchPath {
-        BuckOutScratchPath::new(self.owner.dupe(), self.category, self.identifier).unwrap()
+    pub fn scratch_dir(&self) -> Option<BuckOutScratchPath> {
+        self.inner.scratch_dir()
     }
-}
 
-impl<'a> Display for CommandExecutionTarget<'a> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} {}", self.owner, self.category)?;
-        if let Some(id) = self.identifier {
-            write!(f, " {}", id)?;
-        }
-        Ok(())
+    pub fn as_proto_action_key(&self) -> buck2_data::ActionKey {
+        self.inner.as_proto_action_key()
+    }
+
+    pub fn as_proto_action_name(&self) -> buck2_data::ActionName {
+        self.inner.as_proto_action_name()
     }
 }

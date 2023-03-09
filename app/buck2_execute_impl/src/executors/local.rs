@@ -243,15 +243,18 @@ impl LocalExecutor {
         // TODO: Release here.
         let manager = manager.claim().await;
 
-        let scratch_dir = if request.custom_tmpdir {
-            Some(
-                self.artifact_fs
-                    .buck_out_path_resolver()
-                    .resolve_scratch(&action.scratch_dir()),
-            )
-        } else {
-            None
-        };
+        let scratch_dir =
+            if request.custom_tmpdir {
+                // FIXME: Make it impossible to request a tmpdir and not actually know how to make
+                // one.
+                Some(self.artifact_fs.buck_out_path_resolver().resolve_scratch(
+                    &action.scratch_dir().expect(
+                        "Action set custom_tmpdir = true but did not provide a scratch dir",
+                    ),
+                ))
+            } else {
+                None
+            };
 
         let scratch_dir = &scratch_dir; // So it doesn't move in the block below.
 

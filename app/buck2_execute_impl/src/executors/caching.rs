@@ -183,15 +183,10 @@ impl CachingExecutor {
             }
         }
 
-        let name = buck2_data::ActionName {
-            category: target.category.as_str().to_owned(),
-            identifier: target.identifier.unwrap_or("").to_owned(),
-        };
-
         let outcome = span_async(
             buck2_data::CacheUploadStart {
-                key: Some(target.action_key.as_proto()),
-                name: Some(name.clone()),
+                key: Some(target.as_proto_action_key()),
+                name: Some(target.as_proto_action_name()),
                 action_digest: digest.to_string(),
             },
             async move {
@@ -232,8 +227,8 @@ impl CachingExecutor {
                 (
                     res,
                     Box::new(buck2_data::CacheUploadEnd {
-                        key: Some(target.action_key.as_proto()),
-                        name: Some(name),
+                        key: Some(target.as_proto_action_key()),
+                        name: Some(target.as_proto_action_name()),
                         action_digest: digest.to_string(),
                         success,
                         error,

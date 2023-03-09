@@ -13,7 +13,6 @@ chrono = { workspace = true }
 derive_more = { workspace = true }
 indexmap = { workspace = true }
 libc = { workspace = true }
-once_cell = { workspace = true }
 serde = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }

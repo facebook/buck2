@@ -54,6 +54,7 @@ use indexmap::IndexMap;
 use itertools::Itertools;
 
 use crate::actions::artifact::build_artifact::BuildArtifact;
+use crate::actions::execute::action_execution_target::ActionExecutionTarget;
 use crate::actions::execute::error::CommandExecutionErrorMarker;
 use crate::actions::execute::error::ExecuteError;
 use crate::actions::impls::run::knobs::HasRunActionKnobs;
@@ -276,13 +277,8 @@ struct BuckActionExecutionContext<'a> {
 
 #[async_trait]
 impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
-    fn target(&self) -> CommandExecutionTarget<'_> {
-        CommandExecutionTarget {
-            owner: self.action.owner().dupe().into_dyn(),
-            category: self.action.category(),
-            identifier: self.action.identifier(),
-            action_key: self.action.key() as _,
-        }
+    fn target(&self) -> ActionExecutionTarget<'_> {
+        ActionExecutionTarget::new(self.action)
     }
 
     fn fs(&self) -> &ArtifactFs {
@@ -343,7 +339,12 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
         } = self
             .executor
             .command_executor
-            .exec_cmd(action, request, manager, self.digest_config())
+            .exec_cmd(
+                CommandExecutionTarget::new(&action),
+                request,
+                manager,
+                self.digest_config(),
+            )
             .await;
 
         // TODO (@torozco): The execution kind should be made to come via the command reports too.
