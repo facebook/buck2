@@ -243,12 +243,17 @@ impl LocalExecutor {
         // TODO: Release here.
         let manager = manager.claim().await;
 
-        let scratch_dir = self
-            .artifact_fs
-            .buck_out_path_resolver()
-            .resolve_scratch(&action.scratch_dir());
-        // For the $TMPDIR - important it is absolute
-        let scratch_dir_abs = self.artifact_fs.fs().resolve(&scratch_dir);
+        let scratch_dir = if request.custom_tmpdir {
+            Some(
+                self.artifact_fs
+                    .buck_out_path_resolver()
+                    .resolve_scratch(&action.scratch_dir()),
+            )
+        } else {
+            None
+        };
+
+        let scratch_dir = &scratch_dir; // So it doesn't move in the block below.
 
         if let Err(e) = executor_stage_async(
             buck2_data::LocalStage {
@@ -256,10 +261,10 @@ impl LocalExecutor {
             },
             async move {
                 // TODO(cjhopman): This should be getting the action exec context so it get use io_blocking_section
-                if request.custom_tmpdir {
+                if let Some(scratch_dir) = scratch_dir {
                     let project_fs = self.artifact_fs.fs();
-                    project_fs.remove_path_recursive(&scratch_dir)?;
-                    fs_util::create_dir_all(&*project_fs.resolve(&scratch_dir))?;
+                    project_fs.remove_path_recursive(scratch_dir)?;
+                    fs_util::create_dir_all(&*project_fs.resolve(scratch_dir))?;
                 }
 
                 create_output_dirs(
@@ -284,7 +289,12 @@ impl LocalExecutor {
             args.join(" "),
         );
 
-        let tmpdir = if request.custom_tmpdir {
+        let scratch_dir_abs;
+
+        let tmpdir = if let Some(scratch_dir) = scratch_dir {
+            // For the $TMPDIR - important it is absolute
+            scratch_dir_abs = self.artifact_fs.fs().resolve(scratch_dir);
+
             if cfg!(windows) {
                 vec![
                     ("TEMP", scratch_dir_abs.as_os_str()),
