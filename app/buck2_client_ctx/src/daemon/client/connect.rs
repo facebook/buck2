@@ -406,7 +406,7 @@ impl BuckdConnectOptions {
             .try_connect_existing(&paths.daemon_dir()?, &deadline)
             .await
         {
-            if self.existing_only || client.0.with_flushing().check_version().await?.is_match() {
+            if self.existing_only || client.0.client.check_version().await?.is_match() {
                 // either the version matches or we don't care about the version, return the client.
                 return Ok(client);
             }
@@ -415,7 +415,7 @@ impl BuckdConnectOptions {
                     "sending kill command to the Buck daemon",
                     client
                         .0
-                        .with_flushing()
+                        .client
                         .kill("client expected different buck version"),
                 )
                 .await?;
@@ -445,7 +445,7 @@ impl BuckdConnectOptions {
             return Ok(client);
         }
 
-        match client.0.with_flushing().check_version().await? {
+        match client.0.client.check_version().await? {
             VersionCheckResult::Match => Ok(client),
             VersionCheckResult::Mismatch { expected, actual } => {
                 Err(BuckdConnectError::BuckDaemonVersionWrongAfterStart { expected, actual }.into())
