@@ -25,7 +25,7 @@ def run_dwp_action(
 
     # llvm trunk now supports 64-bit debug cu indedx, add --continue-on-cu-index-overflow by default
     # to supress dwp file overflow warning
-    args.add("/bin/sh", "-c", '"$1" --continue-on-cu-index-overflow -o "$2" -e "$3" && touch "$2"')
+    args.add("/bin/sh", "-c", '"$1" --continue-on-cu-index-overflow -o "$2" -e "$3" && touch "$2"', "")
     args.add(dwp, dwp_output.as_output(), obj)
 
     # All object/dwo files referenced in the library/executable are implicitly
