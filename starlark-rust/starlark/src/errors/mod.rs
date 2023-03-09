@@ -55,7 +55,7 @@ pub struct Diagnostic {
     /// Location where the error originated.
     pub span: Option<FileSpan>,
 
-    /// Call stack of what called what. Most recent frames are at the end.
+    /// Call stack where the error originated.
     pub call_stack: CallStack,
 }
 
