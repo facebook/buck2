@@ -89,7 +89,10 @@ def create_jar_artifact_javacd(
 
     compiling_deps_tset = get_compiling_deps_tset(actions, deps, additional_classpath_entries)
 
-    def encode_library_command(output_paths: OutputPaths.type, path_to_class_hashes: "artifact") -> struct.type:
+    def encode_library_command(
+            output_paths: OutputPaths.type,
+            path_to_class_hashes: "artifact",
+            classpath_jars_tag: "artifact_tag") -> struct.type:
         target_type = TargetType("library")
 
         base_jar_command = encode_base_jar_command(
@@ -98,6 +101,7 @@ def create_jar_artifact_javacd(
             remove_classes,
             label,
             compiling_deps_tset,
+            classpath_jars_tag,
             source_only_abi_deps,
             bootclasspath_entries,
             source_level,
@@ -124,13 +128,17 @@ def create_jar_artifact_javacd(
             ),
         )
 
-    def encode_abi_command(output_paths: OutputPaths.type, target_type: TargetType.type) -> struct.type:
+    def encode_abi_command(
+            output_paths: OutputPaths.type,
+            target_type: TargetType.type,
+            classpath_jars_tag: "artifact_tag") -> struct.type:
         base_jar_command = encode_base_jar_command(
             target_type,
             output_paths,
             remove_classes,
             label,
             compiling_deps_tset,
+            classpath_jars_tag,
             source_only_abi_deps,
             bootclasspath_entries,
             source_level,
@@ -162,15 +170,14 @@ def create_jar_artifact_javacd(
             encoded_command: struct.type,
             qualified_name: str.type,
             output_paths: OutputPaths.type,
+            classpath_jars_tag: "artifact_tag",
             abi_dir: ["artifact", None],
             target_type: TargetType.type,
             path_to_class_hashes: ["artifact", None],
             is_creating_subtarget: bool.type = False):
         proto = declare_prefixed_output(actions, actions_identifier, "jar_command.proto.json")
 
-        classpath_jars_tag = actions.artifact_tag()
-
-        proto_with_inputs = classpath_jars_tag.tag_inputs(actions.write_json(proto, encoded_command, with_inputs = True))
+        proto_with_inputs = actions.write_json(proto, encoded_command, with_inputs = True)
 
         cmd = cmd_args([
             java_toolchain.javac,
@@ -213,7 +220,6 @@ def create_jar_artifact_javacd(
                 cmd,
                 classpath_jars_tag,
                 java_toolchain,
-                srcs + resources_map.values() + [proto],
                 used_classes_json_outputs,
                 abi_to_abi_dir_map,
             )
@@ -231,13 +237,15 @@ def create_jar_artifact_javacd(
             dep_files = dep_files,
         )
 
-    command = encode_library_command(output_paths, path_to_class_hashes_out)
+    library_classpath_jars_tag = actions.artifact_tag()
+    command = encode_library_command(output_paths, path_to_class_hashes_out, library_classpath_jars_tag)
     define_javacd_action(
         "",
         actions_identifier,
         command,
         base_qualified_name(label),
         output_paths,
+        library_classpath_jars_tag,
         class_abi_output_dir if should_create_class_abi else None,
         TargetType("library"),
         path_to_class_hashes_out,

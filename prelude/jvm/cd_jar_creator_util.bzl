@@ -266,6 +266,7 @@ def encode_base_jar_command(
         remove_classes: [str.type],
         label: "label",
         compiling_deps_tset: [JavaCompilingDepsTSet.type, None],
+        classpath_jars_tag: "artifact_tag",
         source_only_abi_deps: ["dependency"],
         bootclasspath_entries: ["artifact"],
         source_level: int.type,
@@ -279,7 +280,9 @@ def encode_base_jar_command(
         track_class_usage: bool.type) -> struct.type:
     library_jar_params = encode_jar_params(remove_classes, output_paths)
     qualified_name = get_qualified_name(label, target_type)
-    compiling_classpath = get_compiling_classpath(compiling_deps_tset, target_type, source_only_abi_deps)
+    compiling_classpath = classpath_jars_tag.tag_artifacts(
+        get_compiling_classpath(compiling_deps_tset, target_type, source_only_abi_deps),
+    )
 
     build_target_value = struct(
         fullyQualifiedName = qualified_name,
@@ -330,23 +333,12 @@ def setup_dep_files(
         cmd: "cmd_args",
         classpath_jars_tag: "artifact_tag",
         java_toolchain: "JavaToolchainInfo",
-        always_used_inputs: ["artifact"],
         used_classes_json_outputs: ["artifact"],
         abi_to_abi_dir_map: ["transitive_set_args_projection", None]) -> "cmd_args":
     dep_file = declare_prefixed_output(actions, actions_identifier, "dep_file.txt")
 
-    # TODO(T134944772) We won't need this once we can do tag_artifacts on a JSON projection,
-    # but for now we have to tag all the inputs on the .proto definition, and so we need to
-    # tell the dep file to include all the inputs that the compiler won't report.
-    always_used_inputs = actions.write(
-        declare_prefixed_output(actions, actions_identifier, "always_used_inputs.txt"),
-        always_used_inputs,
-    )
-
     new_cmd = cmd_args([
         java_toolchain.used_classes_to_dep_file[RunInfo],
-        "--always-used-files",
-        always_used_inputs,
         "--used-classes",
     ] + [
         used_classes_json.as_output()
@@ -431,14 +423,16 @@ def generate_abi_jars(
             source_abi_target_type = TargetType("source_abi")
             source_abi_qualified_name = get_qualified_name(label, source_abi_target_type)
             source_abi_output_paths = define_output_paths(actions, source_abi_identifier, label)
+            source_abi_classpath_jars_tag = actions.artifact_tag()
             source_abi_dir = declare_prefixed_output(actions, source_abi_identifier, "source-abi-dir", dir = True)
-            source_abi_command = encode_abi_command(source_abi_output_paths, source_abi_target_type)
+            source_abi_command = encode_abi_command(source_abi_output_paths, source_abi_target_type, source_abi_classpath_jars_tag)
             define_action(
                 "source_abi_",
                 source_abi_identifier,
                 source_abi_command,
                 source_abi_qualified_name,
                 source_abi_output_paths,
+                source_abi_classpath_jars_tag,
                 source_abi_dir,
                 source_abi_target_type,
                 path_to_class_hashes = None,
@@ -454,14 +448,16 @@ def generate_abi_jars(
             source_only_abi_target_type = TargetType("source_only_abi")
             source_only_abi_qualified_name = get_qualified_name(label, source_only_abi_target_type)
             source_only_abi_output_paths = define_output_paths(actions, source_only_abi_identifier, label)
+            source_only_abi_classpath_jars_tag = actions.artifact_tag()
             source_only_abi_dir = declare_prefixed_output(actions, source_only_abi_identifier, "dir", dir = True)
-            source_only_abi_command = encode_abi_command(source_only_abi_output_paths, source_only_abi_target_type)
+            source_only_abi_command = encode_abi_command(source_only_abi_output_paths, source_only_abi_target_type, source_only_abi_classpath_jars_tag)
             define_action(
                 "source_only_abi_",
                 source_only_abi_identifier,
                 source_only_abi_command,
                 source_only_abi_qualified_name,
                 source_only_abi_output_paths,
+                source_only_abi_classpath_jars_tag,
                 source_only_abi_dir,
                 source_only_abi_target_type,
                 path_to_class_hashes = None,

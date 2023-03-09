@@ -112,7 +112,8 @@ def create_jar_artifact_kotlincd(
 
     def encode_library_command(
             output_paths: OutputPaths.type,
-            path_to_class_hashes: "artifact") -> struct.type:
+            path_to_class_hashes: "artifact",
+            classpath_jars_tag: "artifact_tag") -> struct.type:
         target_type = TargetType("library")
         base_jar_command = encode_base_jar_command(
             target_type,
@@ -120,6 +121,7 @@ def create_jar_artifact_kotlincd(
             remove_classes,
             label,
             compiling_deps_tset,
+            classpath_jars_tag,
             source_only_abi_deps,
             bootclasspath_entries,
             source_level,
@@ -150,13 +152,17 @@ def create_jar_artifact_kotlincd(
             ),
         )
 
-    def encode_abi_command(output_paths: OutputPaths.type, target_type: TargetType.type) -> struct.type:
+    def encode_abi_command(
+            output_paths: OutputPaths.type,
+            target_type: TargetType.type,
+            classpath_jars_tag: "artifact_tag") -> struct.type:
         base_jar_command = encode_base_jar_command(
             target_type,
             output_paths,
             remove_classes,
             label,
             compiling_deps_tset,
+            classpath_jars_tag,
             source_only_abi_deps,
             bootclasspath_entries,
             source_level,
@@ -190,12 +196,12 @@ def create_jar_artifact_kotlincd(
             encoded_command: struct.type,
             qualified_name: str.type,
             output_paths: OutputPaths.type,
+            classpath_jars_tag: "artifact_tag",
             abi_dir: ["artifact", None],
             target_type: TargetType.type,
             path_to_class_hashes: ["artifact", None]):
         proto = declare_prefixed_output(actions, actions_identifier, "jar_command.proto.json")
-        classpath_jars_tag = actions.artifact_tag()
-        proto_with_inputs = classpath_jars_tag.tag_inputs(actions.write_json(proto, encoded_command, with_inputs = True))
+        proto_with_inputs = actions.write_json(proto, encoded_command, with_inputs = True)
 
         cmd = cmd_args([
             kotlin_toolchain.kotlinc[RunInfo],
@@ -235,21 +241,12 @@ def create_jar_artifact_kotlincd(
                 output_paths.jar_parent.project("used-classes.json"),
                 output_paths.jar_parent.project("kotlin-used-classes.json"),
             ]
-            always_used_inputs = srcs + resources_map.values() + bootclasspath_entries + kotlin_compiler_plugins.keys() + [
-                proto,
-                kotlin_toolchain.kotlin_stdlib[JavaLibraryInfo].library_output.full_library,
-                kotlin_toolchain.annotation_processing_jar[JavaLibraryInfo].library_output.full_library,
-                kotlin_toolchain.kosabi_stubs_gen_plugin,
-                kotlin_toolchain.kosabi_applicability_plugin,
-                kotlin_toolchain.kosabi_jvm_abi_gen_plugin,
-            ]
             cmd = setup_dep_files(
                 actions,
                 actions_identifier,
                 cmd,
                 classpath_jars_tag,
                 java_toolchain,
-                always_used_inputs,
                 used_classes_json_outputs,
                 compiling_deps_tset.project_as_args("abi_to_abi_dir") if kotlin_toolchain.dep_files == DepFiles("per_class") and compiling_deps_tset else None,
             )
@@ -267,13 +264,15 @@ def create_jar_artifact_kotlincd(
             dep_files = dep_files,
         )
 
-    command = encode_library_command(output_paths, path_to_class_hashes_out)
+    library_classpath_jars_tag = actions.artifact_tag()
+    command = encode_library_command(output_paths, path_to_class_hashes_out, library_classpath_jars_tag)
     define_kotlincd_action(
         category_prefix = "",
         actions_identifier = actions_identifier,
         encoded_command = command,
         qualified_name = base_qualified_name(label),
         output_paths = output_paths,
+        classpath_jars_tag = library_classpath_jars_tag,
         abi_dir = class_abi_output_dir if should_create_class_abi else None,
         target_type = TargetType("library"),
         path_to_class_hashes = path_to_class_hashes_out,

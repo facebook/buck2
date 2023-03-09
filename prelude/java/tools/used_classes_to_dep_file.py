@@ -23,12 +23,6 @@ def _parse_args():
     )
 
     parser.add_argument(
-        "--always-used-files",
-        type=pathlib.Path,
-        required=True,
-    )
-
-    parser.add_argument(
         "--used-classes",
         type=pathlib.Path,
         nargs="+",
@@ -48,15 +42,11 @@ def _parse_args():
     return parser.parse_known_args()
 
 
-def rewrite_dep_file(
-    always_used_files_path, used_classes_paths, dst_path, jar_to_jar_dir_map_file
-):
+def rewrite_dep_file(used_classes_paths, dst_path, jar_to_jar_dir_map_file):
     """
     Convert a used_classes.json to a depfile suitable for use by Buck2. The files we
     rewrite are JSON where the keys are the jars that were used.
     """
-    shutil.copyfile(always_used_files_path, dst_path)
-
     jar_to_jar_dir_map = {}
     if jar_to_jar_dir_map_file is not None:
         with open(jar_to_jar_dir_map_file, "r") as f:
@@ -81,7 +71,7 @@ def rewrite_dep_file(
                         ]
                     )
 
-    with open(dst_path, "a") as f:
+    with open(dst_path, "w") as f:
         f.write("\n")
         f.write("\n".join(all_used_classes))
 
@@ -95,7 +85,6 @@ def main():
     ret = subprocess.call(unparsed_args)
     if ret == 0:
         rewrite_dep_file(
-            parsed_args.always_used_files,
             parsed_args.used_classes,
             parsed_args.output,
             parsed_args.jar_to_jar_dir_map,
