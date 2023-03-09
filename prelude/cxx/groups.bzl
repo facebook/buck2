@@ -68,22 +68,38 @@ GroupMapping = record(
     preferred_linkage = field([Linkage.type, None], None),
 )
 
+_VALID_ATTRS = [
+    "enable_distributed_thinlto",
+]
+
+# Representation of group attributes
+GroupAttrs = record(
+    enable_distributed_thinlto = field(bool.type, False),
+)
+
 # Representation of a parsed group
 Group = record(
     # The name for this group.
     name = str.type,
     # The mappings that are part of this group.
     mappings = [GroupMapping.type],
-)
-
-GroupsMappings = record(
-    groups = [Group.type],
-    mappings = {"label": str.type},
+    attrs = GroupAttrs.type,
 )
 
 def parse_groups_definitions(map: list.type, dep_to_node: "function" = lambda d: d) -> [Group.type]:
     groups = []
-    for name, mappings in map:
+    for map_entry in map:
+        name = map_entry[0]
+        mappings = map_entry[1]
+        attrs = (map_entry[2] or {}) if len(map_entry) > 2 else {}
+
+        for attr in attrs:
+            if attr not in _VALID_ATTRS:
+                fail("invalid attr '{}' for link group '{}' found. Valid attributes are {}.".format(attr, name, _VALID_ATTRS))
+        group_attrs = GroupAttrs(
+            enable_distributed_thinlto = attrs.get("enable_distributed_thinlto", False),
+        )
+
         parsed_mappings = []
         for entry in mappings:
             traversal = _parse_traversal_from_mapping(entry[1])
@@ -104,7 +120,7 @@ def parse_groups_definitions(map: list.type, dep_to_node: "function" = lambda d:
             )
             parsed_mappings.append(mapping)
 
-        group = Group(name = name, mappings = parsed_mappings)
+        group = Group(name = name, mappings = parsed_mappings, attrs = group_attrs)
         groups.append(group)
 
     return groups

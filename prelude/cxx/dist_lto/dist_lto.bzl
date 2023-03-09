@@ -400,7 +400,7 @@ def cxx_dist_link(
         # However, buck2 disallows `dynamic_output` with a empty input list. We also can't call our `plan` function
         # directly, since it uses `ctx.outputs` to bind its outputs. Instead of doing Starlark hacks to work around
         # the lack of `ctx.outputs`, we declare an empty file as a dynamic input.
-        plan_inputs.append(ctx.actions.write("plan_hack.txt", ""))
+        plan_inputs.append(ctx.actions.write(output.basename + ".plan_hack.txt", ""))
         plan_outputs.extend([link_plan, index_argsfile_out, final_link_index])
         ctx.actions.dynamic_output(dynamic = plan_inputs, inputs = [], outputs = plan_outputs, f = plan)
 

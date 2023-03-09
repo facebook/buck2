@@ -17,6 +17,7 @@ load(
 load(
     "@prelude//cxx:groups.bzl",
     "Group",
+    "GroupAttrs",
     "GroupMapping",
     "GroupRoot",
     "Traversal",
@@ -161,6 +162,10 @@ def _get_root_link_group_specs(
                             traversal = Traversal("node"),
                         ),
                     ],
+                    # TODO(@christylee): Add attributes to python dlopen-able libs
+                    attrs = GroupAttrs(
+                        enable_distributed_thinlto = False,
+                    ),
                 ),
             ),
         )
@@ -182,6 +187,10 @@ def _get_root_link_group_specs(
                             traversal = Traversal("node"),
                         ),
                     ],
+                    # TODO(@christylee): Add attributes to extensions
+                    attrs = GroupAttrs(
+                        enable_distributed_thinlto = False,
+                    ),
                 ),
             ),
         )

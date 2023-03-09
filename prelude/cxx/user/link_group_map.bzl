@@ -55,6 +55,9 @@ def _v1_attrs(optional_root: bool.type = False):
                     attrs.option(attrs.enum(Linkage)),
                 ),
             ),
+            attrs.option(
+                attrs.dict(key = attrs.string(), value = attrs.any(), sorted = False),
+            ),
         ),
     )
 

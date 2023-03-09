@@ -581,6 +581,7 @@ def _create_link_group(
         category_suffix = category_suffix,
         identifier = spec.name,
         prefer_local = prefer_local,
+        enable_distributed_thinlto = spec.group.attrs.enable_distributed_thinlto,
     )
 
 def _stub_library(ctx: "context", name: str.type, extra_ldflags: [""] = []) -> LinkInfos.type:
