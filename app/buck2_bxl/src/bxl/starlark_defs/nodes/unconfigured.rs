@@ -9,6 +9,7 @@
 
 use allocative::Allocative;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
+use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::nodes::unconfigured::TargetNode;
 use derive_more::Display;
 use dupe::Dupe;
@@ -19,6 +20,7 @@ use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
 use starlark::starlark_type;
+use starlark::values::structs::AllocStruct;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
@@ -27,6 +29,7 @@ use starlark::values::Value;
 use starlark::values::ValueLike;
 use starlark::StarlarkDocs;
 
+use crate::bxl::starlark_defs::nodes::unconfigured::attribute::StarlarkCoercedAttr;
 use crate::bxl::starlark_defs::nodes::unconfigured::attribute::StarlarkTargetNodeCoercedAttributes;
 
 pub mod attribute;
@@ -63,6 +66,8 @@ impl<'a> UnpackValue<'a> for StarlarkTargetNode {
 /// Methods for unconfigured target node.
 #[starlark_module]
 fn target_node_value_methods(builder: &mut MethodsBuilder) {
+    /// DO NOT USE. Will be deprecated.
+    ///
     /// Gets the coerced attributes from the unconfigured target node. Returns an iterable `starlark_attributes`
     /// object.
     ///
@@ -78,6 +83,27 @@ fn target_node_value_methods(builder: &mut MethodsBuilder) {
         Ok(heap.alloc(StarlarkTargetNodeCoercedAttributes {
             inner: heap.alloc(this),
         }))
+    }
+
+    /// Gets the coerced attributes from the unconfigured target node. Returns a struct.
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def _impl_attributes(ctx):
+    ///     target_node = ctx.uquery().eval("owner('path/to/file')")[0]
+    ///     ctx.output.print(target_node.attrs.my_attr)
+    /// ```
+    #[starlark(attribute)]
+    fn attrs<'v>(this: StarlarkTargetNode, heap: &Heap) -> anyhow::Result<Value<'v>> {
+        let attrs_iter = this.0.attrs(AttrInspectOptions::All);
+        let attrs = attrs_iter.map(|a| {
+            (
+                a.name,
+                StarlarkCoercedAttr(a.value.clone(), this.0.label().pkg().dupe()),
+            )
+        });
+
+        Ok(heap.alloc(AllocStruct(attrs)))
     }
 
     /// Gets the label from the unconfigured target node.
