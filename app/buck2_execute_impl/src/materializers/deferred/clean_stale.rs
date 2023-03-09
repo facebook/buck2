@@ -11,6 +11,7 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use buck2_common::file_ops::FileType;
+use buck2_core::directory::DirectoryEntry;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::file_name::FileName;
@@ -18,6 +19,7 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::quiet_soft_error;
 use buck2_execute::digest_config::DigestConfig;
+use buck2_execute::directory::ActionDirectoryMember;
 use buck2_execute::execute::clean_output_paths::CleanOutputPaths;
 use chrono::DateTime;
 use chrono::Utc;
@@ -256,21 +258,28 @@ fn find_stale_recursive(
         Ok(StaleFinderResult::CleanPath(rel_path.clone().into_owned()))
     };
 
-    if let Some(DataTree::Data(metadata)) = subtree {
+    if let Some(DataTree::Data(tree_metadata)) = subtree {
         if let ArtifactMaterializationStage::Materialized {
             last_access_time,
             active,
-            ..
-        } = metadata.stage
+            metadata,
+        } = &tree_metadata.stage
         {
-            if last_access_time < keep_since_time && !active {
+            let size = if let DirectoryEntry::Leaf(ActionDirectoryMember::File(file_metadata)) =
+                &metadata.0
+            {
+                file_metadata.digest.size()
+            } else {
+                get_size(path)?
+            };
+            if last_access_time < &keep_since_time && !active {
                 stats.stale_artifact_count += 1;
-                stats.stale_bytes += get_size(path)?;
+                stats.stale_bytes += size;
                 tracing::trace!(path = %path, path_type = ?path_type, "marking as stale");
                 Ok(StaleFinderResult::CleanPath(rel_path.clone().into_owned()))
             } else {
                 stats.retained_artifact_count += 1;
-                stats.retained_bytes += get_size(path)?;
+                stats.retained_bytes += size;
                 tracing::trace!(path = %path, path_type = ?path_type, "marking as retained");
                 Ok(StaleFinderResult::CleanNone)
             }
