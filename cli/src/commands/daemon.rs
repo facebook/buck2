@@ -404,6 +404,8 @@ impl DaemonCommand {
             let listener = tokio::net::TcpListener::from_std(listener)?;
             let listener = tokio_stream::wrappers::TcpListenerStream::new(listener);
 
+            buck2_client_ctx::eprintln!("Listening.")?;
+
             let buckd_server = BuckdServer::run(
                 fb,
                 log_reload_handle,

@@ -192,7 +192,11 @@ impl DaemonState {
     ) -> anyhow::Result<Arc<DaemonStateData>> {
         let fs = paths.project_root().clone();
 
+        eprintln!("Reading config...");
         let legacy_cells = BuckConfigBasedCells::parse(&fs)?;
+
+        eprintln!("Starting...");
+
         let (legacy_configs, cells) = (legacy_cells.configs_by_name, legacy_cells.cell_resolver);
 
         let root_config = legacy_configs

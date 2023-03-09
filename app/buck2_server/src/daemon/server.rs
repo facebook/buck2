@@ -317,6 +317,21 @@ impl BuckdServer {
         let (shutdown_channel, shutdown_receiver): (UnboundedSender<()>, _) = mpsc::unbounded();
         let (command_channel, command_receiver): (UnboundedSender<()>, _) = mpsc::unbounded();
 
+        let daemon_state = Arc::new(
+            DaemonState::new(
+                fb,
+                paths,
+                Box::new(DaemonStateDiceConstructorImpl {
+                    detect_cycles,
+                    which_dice,
+                }),
+            )
+            .await,
+        );
+
+        // We can still do some prints here since we're not ready to accept traffic just yet.
+        eprintln!("Daemon state is ready.");
+
         let auth_token = process_info.auth_token.clone();
         let api_server = BuckdServer(Arc::new(BuckdServerData {
             stop_accepting_requests: AtomicBool::new(false),
@@ -331,17 +346,7 @@ impl BuckdServer {
                 delegate,
                 shutdown_channel,
             },
-            daemon_state: Arc::new(
-                DaemonState::new(
-                    fb,
-                    paths,
-                    Box::new(DaemonStateDiceConstructorImpl {
-                        detect_cycles,
-                        which_dice,
-                    }),
-                )
-                .await,
-            ),
+            daemon_state,
             command_channel,
             callbacks,
             log_reload_handle,
