@@ -651,8 +651,8 @@ message CleanStaleRequest {
 }
 
 message CleanStaleResponse {
-  string response = 1;
-  optional buck.data.CleanStaleStats stats = 2;
+  optional string message = 1;
+  buck.data.CleanStaleStats stats = 2;
 }
 
 message FileStatusRequest {

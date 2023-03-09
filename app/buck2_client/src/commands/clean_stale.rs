@@ -61,6 +61,37 @@ pub fn parse_clean_stale_args(
     Ok(arg)
 }
 
+fn format_result_stats(stats: buck2_data::CleanStaleStats) -> String {
+    let mut output = String::new();
+    output += &format!(
+        "Found {} stale artifacts ({})\n",
+        stats.stale_artifact_count,
+        bytesize::to_string(stats.stale_bytes, true),
+    );
+    output += &format!(
+        "Found {} recent artifacts ({})\n",
+        stats.retained_artifact_count,
+        bytesize::to_string(stats.retained_bytes, true),
+    );
+    output += &format!(
+        "Found {} untracked artifacts ({})\n",
+        stats.untracked_artifact_count,
+        bytesize::to_string(stats.untracked_bytes, true),
+    );
+    if stats.cleaned_path_count > 0 || stats.cleaned_bytes > 0 {
+        output += &format!(
+            "Cleaned {} paths ({} artifacts)\n",
+            stats.cleaned_path_count, stats.cleaned_artifact_count,
+        );
+        output += &format!(
+            "{} bytes cleaned ({})\n",
+            stats.cleaned_bytes,
+            bytesize::to_string(stats.cleaned_bytes, true),
+        );
+    }
+    output
+}
+
 #[async_trait]
 impl StreamingCommand for CleanStaleCommand {
     const COMMAND_NAME: &'static str = "clean";
@@ -104,7 +135,13 @@ impl StreamingCommand for CleanStaleCommand {
                 ctx.stdin().console_interaction_stream(&self.console_opts),
             )
             .await??;
-        buck2_client_ctx::eprintln!("{}", response.response)?;
+
+        if let Some(message) = response.message {
+            buck2_client_ctx::eprintln!("{}", message)?;
+        }
+        if let Some(stats) = response.stats {
+            buck2_client_ctx::eprintln!("{}", format_result_stats(stats))?;
+        }
         ExitResult::success()
     }
 

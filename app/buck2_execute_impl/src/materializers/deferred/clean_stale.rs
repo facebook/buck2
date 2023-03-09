@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::fmt::Write;
 use std::sync::Arc;
 
 use anyhow::Context;
@@ -54,7 +53,7 @@ impl ExtensionCommand<DefaultIoHandler> for CleanStaleArtifacts {
         if !processor.defer_write_actions || processor.sqlite_db.is_none() {
             let fut = async move {
                 Ok(buck2_cli_proto::CleanStaleResponse {
-                    response: "Skipping clean, set buck2.sqlite_materializer_state and buck2.defer_write_actions to use clean --stale".to_owned(),
+                    message: Some("Skipping clean, set buck2.sqlite_materializer_state and buck2.defer_write_actions to use clean --stale".to_owned()),
                     stats: None,
                 })
             }.boxed();
@@ -100,7 +99,7 @@ fn gather_clean_futures_for_stale_artifacts(
         return Ok((
             vec![],
             buck2_cli_proto::CleanStaleResponse {
-                response: "Nothing to clean".to_owned(),
+                message: Some("Nothing to clean".to_owned()),
                 stats: None,
             },
         ));
@@ -127,42 +126,12 @@ fn gather_clean_futures_for_stale_artifacts(
         find_stale_recursive(&io.fs, subtree, &gen_dir, keep_since_time, &mut stats)?
     };
 
-    let mut output = String::new();
-    writeln!(
-        output,
-        "Found {} stale artifacts ({})",
-        stats.stale_artifact_count,
-        bytesize::to_string(stats.stale_bytes, true),
-    )?;
-    writeln!(
-        output,
-        "Found {} recent artifacts ({})",
-        stats.retained_artifact_count,
-        bytesize::to_string(stats.retained_bytes, true),
-    )?;
-    writeln!(
-        output,
-        "Found {} untracked artifacts ({})",
-        stats.untracked_artifact_count,
-        bytesize::to_string(stats.untracked_bytes, true),
-    )?;
     let mut cleaning_futs = Vec::new();
     if !dry_run {
         let paths_to_clean = result.paths();
         stats.cleaned_path_count = paths_to_clean.len() as u64;
         stats.cleaned_artifact_count = stats.stale_artifact_count + stats.untracked_artifact_count;
-        writeln!(
-            output,
-            "Cleaned {} paths ({} artifacts)",
-            stats.cleaned_path_count, stats.cleaned_artifact_count,
-        )?;
         stats.cleaned_bytes = stats.untracked_bytes + stats.stale_bytes;
-        writeln!(
-            output,
-            "{} bytes cleaned ({})",
-            stats.cleaned_bytes,
-            bytesize::to_string(stats.cleaned_bytes, true),
-        )?;
 
         for path in paths_to_clean {
             let io = io.dupe();
@@ -183,7 +152,7 @@ fn gather_clean_futures_for_stale_artifacts(
     Ok((
         cleaning_futs,
         buck2_cli_proto::CleanStaleResponse {
-            response: output,
+            message: None,
             stats: Some(stats),
         },
     ))

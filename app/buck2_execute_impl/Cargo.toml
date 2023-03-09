@@ -8,7 +8,6 @@ description = "Implementations of executors and materializers"
 anyhow = { workspace = true }
 async-condvar-fair = { workspace = true }
 async-trait = { workspace = true }
-bytesize = { workspace = true }
 chrono = { workspace = true }
 derivative = { workspace = true }
 derive_more = { workspace = true }

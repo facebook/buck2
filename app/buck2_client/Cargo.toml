@@ -11,6 +11,7 @@ async-compression = { workspace = true }
 async-recursion = { workspace = true }
 async-trait = { workspace = true }
 bytes = { workspace = true }
+bytesize = { workspace = true }
 clap = { workspace = true }
 chrono = { workspace = true }
 crossterm = { workspace = true }
