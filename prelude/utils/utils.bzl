@@ -116,3 +116,14 @@ def idx(x: ["_a", None], key: "_b") -> ["_c", None]:
 # TODO(T127134666) remove this once we have a native function that does this
 def dedupe_by_value(vals: ["_a"]) -> ["_a"]:
     return {val: None for val in vals}.keys()
+
+def map_val(func: "function", val: ["_a", None]) -> ["_b", None]:
+    """
+    If `val` if `None`, return `None`, else apply `func` to `val` and return the
+    result.
+    """
+
+    if val == None:
+        return None
+
+    return func(val)

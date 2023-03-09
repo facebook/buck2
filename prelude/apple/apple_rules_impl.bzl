@@ -10,6 +10,7 @@ load("@prelude//apple/swift:swift_toolchain.bzl", "swift_toolchain_impl")
 load("@prelude//cxx:headers.bzl", "CPrecompiledHeaderInfo")
 load("@prelude//cxx:omnibus.bzl", "omnibus_environment_attr")
 load("@prelude//cxx/user:link_group_map.bzl", "link_group_map_attr")
+load("@prelude//linking:link_info.bzl", "LinkOrdering")
 load(":apple_asset_catalog.bzl", "apple_asset_catalog_impl")
 load(":apple_binary.bzl", "apple_binary_impl")
 load(":apple_bundle.bzl", "apple_bundle_impl")
@@ -61,6 +62,7 @@ extra_attributes = {
         "enable_distributed_thinlto": attrs.bool(default = False),
         "extra_xcode_sources": attrs.list(attrs.source(allow_directory = True), default = []),
         "link_group_map": link_group_map_attr(),
+        "link_ordering": attrs.option(attrs.enum(LinkOrdering.values()), default = None),
         "link_postprocessor": attrs.option(attrs.exec_dep(), default = None),
         "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
         "prefer_stripped_objects": attrs.bool(default = False),
@@ -76,6 +78,7 @@ extra_attributes = {
     "apple_library": {
         "extra_xcode_sources": attrs.list(attrs.source(allow_directory = True), default = []),
         "link_group_map": link_group_map_attr(),
+        "link_ordering": attrs.option(attrs.enum(LinkOrdering.values()), default = None),
         "link_postprocessor": attrs.option(attrs.exec_dep(), default = None),
         "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
         "preferred_linkage": attrs.enum(Linkage, default = "any"),
@@ -108,6 +111,7 @@ extra_attributes = {
         # The resulting test bundle should have .xctest extension.
         "extension": attrs.string(default = "xctest"),
         "extra_xcode_sources": attrs.list(attrs.source(allow_directory = True), default = []),
+        "link_ordering": attrs.option(attrs.enum(LinkOrdering.values()), default = None),
         "link_postprocessor": attrs.option(attrs.exec_dep(), default = None),
         # Used to create the shared test library. Any library deps whose `preferred_linkage` isn't "shared" will
         # be treated as "static" deps and linked into the shared test library.

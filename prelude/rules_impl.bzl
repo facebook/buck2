@@ -56,6 +56,9 @@ load("@prelude//julia:julia.bzl", _julia_extra_attributes = "extra_attributes", 
 # Kotlin
 load("@prelude//kotlin:kotlin.bzl", _kotlin_extra_attributes = "extra_attributes", _kotlin_implemented_rules = "implemented_rules")
 
+# Linking
+load("@prelude//linking:link_info.bzl", "LinkOrdering")
+
 # Lua
 load("@prelude//lua:cxx_lua_extension.bzl", "cxx_lua_extension_impl")
 load("@prelude//lua:lua_binary.bzl", "lua_binary_impl")
@@ -209,6 +212,7 @@ def _cxx_python_extension_attrs():
         "allow_suffixing": attrs.bool(default = True),
         # Copied from cxx_library.
         "auto_link_groups": attrs.bool(default = False),
+        "link_ordering": attrs.option(attrs.enum(LinkOrdering.values()), default = None),
         "link_whole": attrs.default_only(attrs.bool(default = True)),
         "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
         "preferred_linkage": attrs.default_only(attrs.string(default = "any")),
@@ -283,6 +287,7 @@ def _cxx_binary_and_test_attrs():
         "bolt_profile": attrs.option(attrs.source(), default = None),
         "enable_distributed_thinlto": attrs.bool(default = False),
         "link_group_map": link_group_map_attr(),
+        "link_ordering": attrs.option(attrs.enum(LinkOrdering.values()), default = None),
         "link_whole": attrs.default_only(attrs.bool(default = False)),
         "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
         "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source(allow_directory = True)), sorted = True, default = []),
@@ -380,6 +385,7 @@ inlined_extra_attributes = {
         "force_emit_omnibus_shared_root": attrs.bool(default = False),
         "link_deps_query_whole": attrs.bool(default = False),
         "link_group_map": link_group_map_attr(),
+        "link_ordering": attrs.option(attrs.enum(LinkOrdering.values()), default = None),
         "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
         "prefer_stripped_objects": attrs.bool(default = False),
         "preferred_linkage": attrs.enum(Linkage, default = "any"),

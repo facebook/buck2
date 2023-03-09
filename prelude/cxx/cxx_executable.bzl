@@ -34,6 +34,7 @@ load(
     "@prelude//linking:link_info.bzl",
     "LinkArgs",
     "LinkInfo",
+    "LinkOrdering",  # @unused Used as a type
     "LinkStyle",
     "Linkage",
     "LinkedObject",  # @unused Used as a type
@@ -57,6 +58,7 @@ load(
 load(
     "@prelude//utils:utils.bzl",
     "flatten_dict",
+    "map_val",
 )
 load(
     ":comp_db.bzl",
@@ -382,6 +384,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
         shared_libs if impl_params.exe_shared_libs_link_tree else {},
         linker_info.link_weight,
         linker_info.binary_extension,
+        link_ordering = map_val(LinkOrdering, ctx.attrs.link_ordering),
         prefer_local = False if impl_params.force_full_hybrid_if_capable else link_cxx_binary_locally(ctx),
         enable_distributed_thinlto = ctx.attrs.enable_distributed_thinlto,
         strip = impl_params.strip_executable,
@@ -505,6 +508,7 @@ def _link_into_executable(
         prefer_local: bool.type = False,
         enable_distributed_thinlto = False,
         strip: bool.type = False,
+        link_ordering: [LinkOrdering.type, None] = None,
         strip_args_factory = None,
         link_postprocessor: ["cmd_args", None] = None,
         force_full_hybrid_if_capable: bool.type = False,
@@ -524,6 +528,7 @@ def _link_into_executable(
         link_weight = link_weight,
         enable_distributed_thinlto = enable_distributed_thinlto,
         category_suffix = category_suffix,
+        link_ordering = link_ordering,
         strip = strip,
         strip_args_factory = strip_args_factory,
         executable_link = True,

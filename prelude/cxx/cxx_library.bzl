@@ -43,6 +43,7 @@ load(
     "LinkArgs",
     "LinkInfo",
     "LinkInfos",
+    "LinkOrdering",
     "LinkStyle",
     "Linkage",
     "LinkedObject",  # @unused Used as a type
@@ -73,6 +74,7 @@ load(
     "expect",
     "flatten",
     "is_any",
+    "map_val",
     "value_or",
 )
 load(":archive.bzl", "make_archive")
@@ -768,6 +770,7 @@ def _form_library_outputs(
                     external_debug_info,
                     shared_links,
                     gnu_use_link_groups,
+                    link_ordering = map_val(LinkOrdering, ctx.attrs.link_ordering),
                 )
                 output = _CxxLibraryOutput(
                     default = shlib.output,
@@ -975,7 +978,8 @@ def _shared_library(
         objects: ["artifact"],
         external_debug_info: ["_arglike"],
         dep_infos: "LinkArgs",
-        gnu_use_link_groups: bool.type) -> (str.type, LinkedObject.type, LinkInfo.type):
+        gnu_use_link_groups: bool.type,
+        link_ordering: [LinkOrdering.type, None] = None) -> (str.type, LinkedObject.type, LinkInfo.type):
     """
     Generate a shared library and the associated native link info used by
     dependents to link against it.
@@ -1017,6 +1021,7 @@ def _shared_library(
         soname,
         [LinkArgs(infos = [link_info]), dep_infos],
         identifier = soname,
+        link_ordering = link_ordering,
         soname = impl_params.use_soname,
         shared_library_flags = impl_params.shared_library_flags,
         strip = impl_params.strip_executable,
@@ -1052,6 +1057,7 @@ def _shared_library(
             ctx,
             output = shlib_for_interface,
             category_suffix = "interface",
+            link_ordering = link_ordering,
             name = soname,
             links = [LinkArgs(infos = [link_info])],
             identifier = soname,

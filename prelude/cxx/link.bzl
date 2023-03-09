@@ -25,7 +25,7 @@ load(
 )
 load("@prelude//linking:link_postprocessor.bzl", "postprocess")
 load("@prelude//linking:strip.bzl", "strip_shared_library")
-load("@prelude//utils:utils.bzl", "value_or")
+load("@prelude//utils:utils.bzl", "map_val", "value_or")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 load(
     ":cxx_link_utility.bzl",
@@ -53,6 +53,7 @@ def cxx_link(
         prefer_local: bool.type = False,
         local_only: bool.type = False,
         link_weight: int.type = 1,
+        link_ordering: [LinkOrdering.type, None] = None,
         enable_distributed_thinlto: bool.type = False,
         # A category suffix that will be added to the category of the link action that is generated.
         category_suffix: [str.type, None] = None,
@@ -93,7 +94,11 @@ def cxx_link(
         suffix = identifier,
         dwo_dir_name = output.short_path + ".dwo.d",
         is_shared = is_shared,
-        link_ordering = LinkOrdering(linker_info.link_ordering) if linker_info.link_ordering else None,
+        link_ordering = value_or(
+            link_ordering,
+            # Fallback to toolchain default.
+            map_val(LinkOrdering, linker_info.link_ordering),
+        ),
     )
 
     external_debug_info = []
@@ -207,6 +212,7 @@ def cxx_link_shared_library(
         prefer_local: [bool.type, None] = None,
         local_only: [bool.type, None] = None,
         link_weight: int.type = 1,
+        link_ordering: [LinkOrdering.type, None] = None,
         enable_distributed_thinlto: bool.type = False,
         # A category suffix that will be added to the category of the link action that is generated.
         category_suffix: [str.type, None] = None,
@@ -248,6 +254,7 @@ def cxx_link_shared_library(
         link_weight = link_weight,
         enable_distributed_thinlto = enable_distributed_thinlto,
         category_suffix = category_suffix,
+        link_ordering = link_ordering,
         identifier = identifier,
         is_shared = True,
         strip = strip,
@@ -264,6 +271,7 @@ def cxx_link_into_shared_library(
         # Wether to embed the library name as the SONAME.
         soname: bool.type = True,
         prefer_local: [bool.type, None] = None,
+        link_ordering: [LinkOrdering.type, None] = None,
         local_only: [bool.type, None] = None,
         link_weight: int.type = 1,
         enable_distributed_thinlto: bool.type = False,
@@ -290,6 +298,7 @@ def cxx_link_into_shared_library(
         enable_distributed_thinlto = enable_distributed_thinlto,
         category_suffix = category_suffix,
         identifier = identifier,
+        link_ordering = link_ordering,
         shared_library_flags = shared_library_flags,
         strip = strip,
         strip_args_factory = strip_args_factory,
