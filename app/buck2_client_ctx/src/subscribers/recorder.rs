@@ -586,7 +586,13 @@ mod imp {
             file_watcher: &buck2_data::FileWatcherEnd,
             _event: &BuckEvent,
         ) -> anyhow::Result<()> {
-            self.file_watcher_stats = file_watcher.stats.clone();
+            // We might receive this event twice, so ... deal with it by merging the two.
+            // See: https://fb.workplace.com/groups/buck2dev/permalink/3396726613948720/
+            self.file_watcher_stats = merge_file_watcher_stats(
+                self.file_watcher_stats.take(),
+                file_watcher.stats.clone(),
+            );
+
             if let Some(stats) = &file_watcher.stats {
                 self.watchman_version = stats.watchman_version.to_owned();
             }
@@ -717,6 +723,26 @@ mod imp {
             (Some(av), Some(bv)) => Some(std::cmp::max(av, bv) - std::cmp::min(av, bv)),
             _ => None,
         }
+    }
+
+    fn merge_file_watcher_stats(
+        a: Option<buck2_data::FileWatcherStats>,
+        b: Option<buck2_data::FileWatcherStats>,
+    ) -> Option<buck2_data::FileWatcherStats> {
+        let (mut a, b) = match (a, b) {
+            (Some(a), Some(b)) => (a, b),
+            (a, None) => return a,
+            (None, b) => return b,
+        };
+
+        a.fresh_instance = a.fresh_instance || b.fresh_instance;
+        a.events_total += b.events_total;
+        a.events_processed += b.events_processed;
+        a.branched_from_revision = a.branched_from_revision.or(b.branched_from_revision);
+        a.events.extend(b.events);
+        a.incomplete_events_reason = a.incomplete_events_reason.or(b.incomplete_events_reason);
+        a.watchman_version = a.watchman_version.or(b.watchman_version);
+        Some(a)
     }
 }
 
