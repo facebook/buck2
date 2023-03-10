@@ -452,6 +452,10 @@ def main() -> None:
         package_args.append("--workspace")
         package_args.extend([f"--exclude={p.rstrip('/')}" for p in args.exclude])
 
+    if package_args == [] and not (args.lint_rust_only or args.rustfmt_only):
+        with timing():
+            starlark_linter()
+
     if not (args.rustfmt_only or args.lint_starlark_only):
         with timing():
             clippy(package_args, args.clippy_fix)
@@ -459,10 +463,6 @@ def main() -> None:
     if not args.lint_starlark_only:
         with timing():
             rustfmt(buck2_dir, args.ci)
-
-    if package_args == [] and not (args.lint_rust_only or args.rustfmt_only):
-        with timing():
-            starlark_linter()
 
     if not (
         args.lint_only
