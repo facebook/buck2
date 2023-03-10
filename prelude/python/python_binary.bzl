@@ -475,7 +475,6 @@ def convert_python_library_to_executable(
             rule_type = "python_binary",
             headers_layout = cxx_get_regular_cxx_headers_layout(ctx),
             srcs = cxx_executable_srcs,
-            extra_link_flags = ctx.attrs.linker_flags,
             extra_binary_link_flags = extra_binary_link_flags,
             extra_preprocessors = extra_preprocessors,
             extra_preprocessors_info = inherited_preprocessor_info,
