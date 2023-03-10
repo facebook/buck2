@@ -38,11 +38,11 @@ pub struct DryRunEntry {
 /// to the output file.
 pub struct DryRunExecutor {
     tracker: Arc<Mutex<Vec<DryRunEntry>>>,
-    fs: Option<ArtifactFs>,
+    fs: ArtifactFs,
 }
 
 impl DryRunExecutor {
-    pub fn new(tracker: Arc<Mutex<Vec<DryRunEntry>>>, fs: Option<ArtifactFs>) -> Self {
+    pub fn new(tracker: Arc<Mutex<Vec<DryRunEntry>>>, fs: ArtifactFs) -> Self {
         Self { tracker, fs }
     }
 }
@@ -82,10 +82,8 @@ impl PreparedCommandExecutor for DryRunExecutor {
         match request
             .outputs()
             .map(|x| {
-                if let Some(fs) = &self.fs {
-                    let path = x.resolve(fs).into_path();
-                    fs.fs().write_file(&path, "", false)?;
-                }
+                let path = x.resolve(&self.fs).into_path();
+                self.fs.fs().write_file(&path, "", false)?;
                 Ok((x.cloned(), ArtifactValue::file(digest_config.empty_file())))
             })
             .collect::<anyhow::Result<_>>()

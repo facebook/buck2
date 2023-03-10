@@ -579,7 +579,7 @@ mod tests {
             ) -> anyhow::Result<CommandExecutorResponse> {
                 let executor = Arc::new(DryRunExecutor::new(
                     self.dry_run_tracker.dupe(),
-                    Some(artifact_fs.clone()),
+                    artifact_fs.clone(),
                 ));
                 Ok(CommandExecutorResponse {
                     executor,

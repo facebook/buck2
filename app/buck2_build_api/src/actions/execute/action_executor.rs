@@ -605,7 +605,7 @@ mod tests {
 
         let executor = BuckActionExecutor::new(
             CommandExecutor::new(
-                Arc::new(DryRunExecutor::new(tracker, None)),
+                Arc::new(DryRunExecutor::new(tracker, artifact_fs.clone())),
                 artifact_fs,
                 CommandGenerationOptions {
                     path_separator: PathSeparatorKind::Unix,
