@@ -66,6 +66,8 @@ where
             EnvFilter::try_new(v)
                 .with_context(|| format!("Failed to parse ${} as a filter", ENV_VAR))?
         }
+        // daemon_listener is all emitted before the client starts tailing, which is why we log
+        // those by default.
         None => EnvFilter::new("warn,[daemon_listener]=info"),
     };
 
