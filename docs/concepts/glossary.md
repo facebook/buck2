@@ -23,13 +23,21 @@ A single input or output of an [action](#action). These are files that participa
 
 Declared by a [rule](#rule) and used to express the properties of a particular instance of a rule to create a [target](#target). For example, srcs, deps and copts, which declare a target's source files, dependencies, and custom compiler options, respectively. The available attributes for a target depend on its rule type.
 
+#### Build file
+
+:::note
+🚧   THIS SECTION IS UNDER CONSTRUCTION
+:::
+
 #### BUCK file
 
 A `BUCK` file (the name is configurable, some projects use `TARGETS`) is the main configuration file that tells Buck2 what to build, what their dependencies are, and how to build them. Buck2 takes a `BUCK` file as input and evaluates the file to declare [targets](#target), which are then used to create a graph of dependencies and to derive the [actions](#action) that must be completed to build intermediate and final software outputs. A `BUCK` file marks a directory and any sub-directories not containing a `BUCK` file as a [package](#package).
 
 #### BXL
 
-BXL ([Buck eXtension Language](https://buck2.build/docs/developers/bxl)) scripts are written in [Starlark](https://github.com/bazelbuild/starlark), a restricted subset of Python, and give integrators the ability to inspect and interact directly with the buck2 graph. BXL scripts can query the [action graph](#action-graph), [configured graph](#configured-graph), and [unconfigured graph](#unconfigured-graph). They can also create [actions](#action) and trigger builds.
+BXL ([Buck eXtension Language](https://buck2.build/docs/developers/bxl)) scripts are written in [Starlark](https://github.com/bazelbuild/starlark) (a restricted subset of Python) and give integrators the ability to inspect and interact directly with the buck2 graph.
+
+BXL scripts can query the [action graph](#action-graph), [configured graph](#configured-graph), and [unconfigured graph](#unconfigured-graph). They can also create [actions](#action) and trigger builds.
 
 #### Cell
 
@@ -37,15 +45,21 @@ The directory tree of one or more Buck2 [packages](#package). A Buck2 build can 
 
 #### Configuration
 
-Configurations consist of a set of "constraint values" which are used to resolve `select` [attributes][#attributes] prior to evaluating [rule][#rule] implementations: the attribute takes the value of the first branch in the `select` that matches the configuration.
+Configurations consist of a set of 'constraint values' that are used to resolve `select` [attributes](#attribute) prior to evaluating [rule](#rule) implementations: the attribute takes the value of the first branch in the `select` that matches the configuration.
 
-Configurations are instantiated by rules that produce a `PlatformInfo` [provider][#provider]. Once created, targets can receive their configuration through a variety of mechanisms, such as:
+Configurations are instantiated by rules that produce a `PlatformInfo` [provider](#provider). Once created, targets can receive their configuration through a variety of mechanisms, such as:
 
-- Inheritance: by default, when following a dependency edge A -> B, B inherits A's cofngiuration.
-- The `default_target_platform` attribute and `--target-platforms` command line flag
-- [Transitions][#transitions]
+* Inheritance - by default, when following a dependency edge A -> B, B inherits A's configuration.
+* The `default_target_platform` attribute and `--target-platforms` command line flag.
+* [Transitions](#transition) (see below).
 
-Configurations allow a single target to exist in multiple variants in the configured graph, for example to build a given binary at differing optimization levels or targeting differen CPU architectures.
+Configurations allow a single target to exist in multiple variants in the configured graph (for example, to build a given binary at differing optimization levels or targeting different CPU architectures).
+
+#### Configured graph
+
+:::note
+🚧   THIS SECTION IS UNDER CONSTRUCTION
+:::
 
 #### Daemon
 
