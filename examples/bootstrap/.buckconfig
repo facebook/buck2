@@ -6,7 +6,6 @@ bootstrap = bootstrap
 none = none
 
 [repository_aliases]
-ovr_config = prelude
 config = prelude
 buck = none
 fbcode = none

@@ -4,7 +4,6 @@ prelude = prelude
 shim = shim
 
 [repository_aliases]
-ovr_config = prelude
 config = prelude
 toolchains = shim
 fbcode = shim
