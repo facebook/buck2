@@ -21,7 +21,6 @@ fancy-regex = { workspace = true }
 futures = { workspace = true }
 internment = { workspace = true }
 itertools = { workspace = true }
-owning_ref = { workspace = true }
 pin-project = { workspace = true }
 regex = { workspace = true }
 tracing = { workspace = true }

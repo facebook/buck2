@@ -151,7 +151,6 @@ num_enum = "0.5"
 object = "0.29.0"
 once_cell = "1.3"
 os_str_bytes = "6.0"
-owning_ref = "0.4.1"
 parking_lot = { version = "0.11.2", features = ["send_guard"] }
 pin-project = "0.4.29"
 plist = "0.5"
@@ -222,7 +221,7 @@ sorted_vector_map.version = "0.1"
 
 allocative.version = "0.2"
 allocative.path = "allocative/allocative"
-allocative.features = ["anyhow", "bumpalo", "dashmap", "either", "futures", "hashbrown", "indexmap", "num-bigint", "once_cell", "owning_ref", "parking_lot", "prost-types", "relative-path", "slab", "smallvec", "compact_str", "sorted_vector_map", "tokio", "triomphe"]
+allocative.features = ["anyhow", "bumpalo", "dashmap", "either", "futures", "hashbrown", "indexmap", "num-bigint", "once_cell", "parking_lot", "prost-types", "relative-path", "slab", "smallvec", "compact_str", "sorted_vector_map", "tokio", "triomphe"]
 gazebo.version = "0.8.1"
 gazebo.features = ["str_pattern_extensions"]
 gazebo.path = "gazebo/gazebo"

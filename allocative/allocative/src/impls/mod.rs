@@ -22,7 +22,6 @@ mod indexmap;
 mod lock_api;
 mod num_bigint;
 mod once_cell;
-mod owning_ref;
 mod parking_lot;
 mod prost_types;
 mod relative_path;
