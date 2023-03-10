@@ -88,6 +88,9 @@ load("@prelude//rust:rust_toolchain.bzl", "RustPlatformInfo", "RustToolchainInfo
 # Zip file
 load("@prelude//zip_file:zip_file.bzl", _zip_file_extra_attributes = "extra_attributes", _zip_file_implemented_rules = "implemented_rules")
 
+# Constraints
+load("@prelude//transitions/constraint_overrides.bzl", "constraint_overrides_transition")
+
 # General
 load(":alias.bzl", "alias_impl", "configured_alias_impl", "versioned_alias_impl")
 load(":attributes.bzl", "IncludeType", "LinkableDepType", "Linkage", "attributes")
@@ -241,6 +244,7 @@ def _python_executable_attrs():
     # allow non-default value for the args below
     updated_attrs.update({
         "compiler_flags": attrs.list(attrs.arg(), default = []),
+        "constraint_overrides": attrs.list(attrs.string(), default = []),
         "cxx_main": attrs.source(default = "prelude//python/tools:embedded_main.cpp"),
         "enable_distributed_thinlto": attrs.bool(default = False),
         "executable_deps": attrs.list(attrs.dep(), default = []),
@@ -652,3 +656,9 @@ for rule in [
     }])
 
 extra_attributes = struct(**all_extra_attributes)
+
+# Configuration transitions to pass `cfg` for builtin rules.
+transitions = {
+    "python_binary": constraint_overrides_transition,
+    "python_test": constraint_overrides_transition,
+}

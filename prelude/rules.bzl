@@ -9,7 +9,7 @@ load("@prelude//configurations:rules.bzl", _config_implemented_rules = "implemen
 
 # Combine the attributes we generate, we the custom implementations we have.
 load(":attributes.bzl", "attributes")
-load(":rules_impl.bzl", "extra_attributes", "implemented_rules")
+load(":rules_impl.bzl", "extra_attributes", "implemented_rules", "transitions")
 
 def _unimplemented(name, ctx):
     fail("Unimplemented rule type `{}` for target `{}`.".format(name, ctx.label))
@@ -42,10 +42,16 @@ def _mk_rule(name: str.type, attributes: {str.type: "attribute"}) -> "rule":
 
         attributes["_cxx_toolchain_target_configuration"] = attrs.dep(default = "fbcode//buck2/platform/execution:fat_platform_incompatible")
 
+    extra_args = {}
+    cfg = transitions.get(name)
+    if cfg != None:
+        extra_args["cfg"] = cfg
+
     return rule(
         impl = getattr(implemented_rules, name, _unimplemented_impl(name)),
         attrs = attributes,
         is_configuration_rule = name in _config_implemented_rules,
+        **extra_args
     )
 
 def _merge_attributes() -> {str.type: {str.type: "attribute"}}:
