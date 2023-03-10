@@ -33,7 +33,7 @@ def android_apk_impl(ctx: "context") -> ["provider"]:
     deps = deps_by_platform[primary_platform]
 
     no_dx_target_labels = [no_dx_target.label.raw_target() for no_dx_target in ctx.attrs.no_dx]
-    java_packaging_deps = [packaging_dep for packaging_dep in get_all_java_packaging_deps(ctx, deps) if packaging_dep.dex and packaging_dep.dex.dex.owner.raw_target() not in no_dx_target_labels]
+    java_packaging_deps = [packaging_dep for packaging_dep in get_all_java_packaging_deps(ctx, deps)]
 
     android_packageable_info = merge_android_packageable_info(ctx.label, ctx.actions, deps)
     build_config_infos = list(android_packageable_info.build_config_infos.traverse()) if android_packageable_info.build_config_infos else []
@@ -44,7 +44,7 @@ def android_apk_impl(ctx: "context") -> ["provider"]:
     has_proguard_config = ctx.attrs.proguard_config != None or ctx.attrs.android_sdk_proguard_config == "default" or ctx.attrs.android_sdk_proguard_config == "optimized"
     should_pre_dex = not ctx.attrs.disable_pre_dex and not has_proguard_config and not ctx.attrs.preprocess_java_classes_bash
 
-    referenced_resources_lists = [java_packaging_dep.dex.referenced_resources for java_packaging_dep in java_packaging_deps] if ctx.attrs.trim_resource_ids and should_pre_dex else []
+    referenced_resources_lists = [java_packaging_dep.dex.referenced_resources for java_packaging_dep in java_packaging_deps if java_packaging_dep.dex] if ctx.attrs.trim_resource_ids and should_pre_dex else []
     resources_info = get_android_binary_resources_info(
         ctx,
         deps,
@@ -65,8 +65,9 @@ def android_apk_impl(ctx: "context") -> ["provider"]:
     ]
 
     target_to_module_mapping_file = get_target_to_module_mapping(ctx, deps)
+    dex_java_packaging_deps = [packaging_dep for packaging_dep in java_packaging_deps if packaging_dep.dex and packaging_dep.dex.dex.owner.raw_target() not in no_dx_target_labels]
     if should_pre_dex:
-        pre_dexed_libs = [java_packaging_dep.dex for java_packaging_dep in java_packaging_deps]
+        pre_dexed_libs = [packaging_dep.dex for packaging_dep in dex_java_packaging_deps]
         if ctx.attrs.use_split_dex:
             dex_files_info = merge_to_split_dex(
                 ctx,
@@ -78,11 +79,11 @@ def android_apk_impl(ctx: "context") -> ["provider"]:
         else:
             dex_files_info = merge_to_single_dex(ctx, android_toolchain, pre_dexed_libs)
     else:
-        jars_to_owners = {packaging_dep.jar: packaging_dep.jar.owner.raw_target() for packaging_dep in java_packaging_deps}
+        jars_to_owners = {packaging_dep.jar: packaging_dep.jar.owner.raw_target() for packaging_dep in dex_java_packaging_deps}
         if ctx.attrs.preprocess_java_classes_bash:
             jars_to_owners = get_preprocessed_java_classes(ctx, jars_to_owners)
         if has_proguard_config:
-            proguard_output = get_proguard_output(ctx, jars_to_owners, java_packaging_deps, resources_info.proguard_config_file)
+            proguard_output = get_proguard_output(ctx, jars_to_owners, dex_java_packaging_deps, resources_info.proguard_config_file)
             jars_to_owners = proguard_output.jars_to_owners
             sub_targets["proguard_text_output"] = [
                 DefaultInfo(
@@ -162,7 +163,7 @@ def android_apk_impl(ctx: "context") -> ["provider"]:
         _get_install_info(ctx, output_apk = output_apk, manifest = resources_info.manifest, exopackage_info = exopackage_info),
         TemplatePlaceholderInfo(
             keyed_variables = {
-                "classpath": cmd_args([dep.jar for dep in java_packaging_deps], delimiter = get_path_separator()),
+                "classpath": cmd_args([dep.jar for dep in java_packaging_deps if dep.jar], delimiter = get_path_separator()),
             },
         ),
     ]
