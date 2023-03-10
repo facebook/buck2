@@ -505,7 +505,7 @@ inlined_extra_attributes = {
                 attrs.dep(),
                 default = select({
                     "DEFAULT": None,
-                    "ovr_config//os:windows": "prelude//python_bootstrap/tools:win_python_wrapper",
+                    "config//os:windows": "prelude//python_bootstrap/tools:win_python_wrapper",
                 }),
             ),
         ),
