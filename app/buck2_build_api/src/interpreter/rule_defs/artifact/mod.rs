@@ -55,6 +55,7 @@ pub mod testing {
     use buck2_core::cells::paths::CellRelativePath;
     use buck2_core::collections::ordered_set::OrderedSet;
     use buck2_core::configuration::ConfigurationData;
+    use buck2_core::fs::buck_out_path::BuckOutPathResolver;
     use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
     use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
     use buck2_core::fs::project::ProjectRoot;
@@ -68,7 +69,6 @@ pub mod testing {
     use buck2_execute::artifact::fs::ArtifactFs;
     use buck2_execute::artifact::fs::ExecutorFs;
     use buck2_execute::execute::request::OutputType;
-    use buck2_execute::path::buck_out_path::BuckOutPathResolver;
     use buck2_interpreter_for_build::interpreter::build_context::BuildContext;
     use buck2_interpreter_for_build::interpreter::testing::cells;
     use buck2_node::configuration::execution::ExecutionPlatformResolution;

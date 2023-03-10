@@ -14,13 +14,12 @@ use std::hash::Hasher;
 
 use anyhow::Context;
 use buck2_core::buck_path::path::BuckPathRef;
+use buck2_core::fs::buck_out_path::BuckOutPath;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use either::Either;
 use gazebo::cell::ARef;
 use gazebo::eq_chain;
-
-use crate::path::buck_out_path::BuckOutPath;
 
 #[derive(Debug)]
 pub struct ArtifactPath<'a> {

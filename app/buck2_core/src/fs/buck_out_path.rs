@@ -13,14 +13,15 @@ use std::hash::Hasher;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDyn;
-use buck2_core::category::Category;
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
-use buck2_core::fs::project_rel_path::ProjectRelativePath;
-use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use derive_more::Display;
 use dupe::Dupe;
+
+use crate::base_deferred_key_dyn::BaseDeferredKeyDyn;
+use crate::category::Category;
+use crate::fs::paths::forward_rel_path::ForwardRelativePath;
+use crate::fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use crate::fs::project_rel_path::ProjectRelativePath;
+use crate::fs::project_rel_path::ProjectRelativePathBuf;
 
 #[derive(Clone, Debug, Display, Allocative, Hash, Eq, PartialEq)]
 #[display(fmt = "({})/{}", owner, "path.as_str()")]
@@ -235,28 +236,28 @@ mod tests {
 
     use std::sync::Arc;
 
-    use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDyn;
-    use buck2_core::buck_path::path::BuckPath;
-    use buck2_core::buck_path::resolver::BuckPathResolver;
-    use buck2_core::category::Category;
-    use buck2_core::cells::cell_root_path::CellRootPathBuf;
-    use buck2_core::cells::name::CellName;
-    use buck2_core::cells::paths::CellRelativePath;
-    use buck2_core::cells::testing::CellResolverExt;
-    use buck2_core::cells::CellResolver;
-    use buck2_core::configuration::ConfigurationData;
-    use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
-    use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
-    use buck2_core::package::package_relative_path::PackageRelativePathBuf;
-    use buck2_core::package::PackageLabel;
-    use buck2_core::target::label::TargetLabel;
-    use buck2_core::target::name::TargetNameRef;
     use dupe::Dupe;
     use regex::Regex;
 
-    use crate::path::buck_out_path::BuckOutPath;
-    use crate::path::buck_out_path::BuckOutPathResolver;
-    use crate::path::buck_out_path::BuckOutScratchPath;
+    use crate::base_deferred_key_dyn::BaseDeferredKeyDyn;
+    use crate::buck_path::path::BuckPath;
+    use crate::buck_path::resolver::BuckPathResolver;
+    use crate::category::Category;
+    use crate::cells::cell_root_path::CellRootPathBuf;
+    use crate::cells::name::CellName;
+    use crate::cells::paths::CellRelativePath;
+    use crate::cells::testing::CellResolverExt;
+    use crate::cells::CellResolver;
+    use crate::configuration::ConfigurationData;
+    use crate::fs::buck_out_path::BuckOutPath;
+    use crate::fs::buck_out_path::BuckOutPathResolver;
+    use crate::fs::buck_out_path::BuckOutScratchPath;
+    use crate::fs::paths::forward_rel_path::ForwardRelativePathBuf;
+    use crate::fs::project_rel_path::ProjectRelativePathBuf;
+    use crate::package::package_relative_path::PackageRelativePathBuf;
+    use crate::package::PackageLabel;
+    use crate::target::label::TargetLabel;
+    use crate::target::name::TargetNameRef;
 
     #[test]
     fn buck_path_resolves() -> anyhow::Result<()> {

@@ -31,12 +31,12 @@ mod tests {
     use buck2_common::executor_config::CommandExecutorConfig;
     use buck2_common::result::ToSharedResultExt;
     use buck2_core::collections::ordered_map::OrderedMap;
+    use buck2_core::fs::buck_out_path::BuckOutPath;
     use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
     use buck2_core::fs::project::ProjectRootTemp;
     use buck2_execute::digest_config::DigestConfig;
     use buck2_execute::digest_config::SetDigestConfig;
     use buck2_execute::execute::dice_data::set_fallback_executor_config;
-    use buck2_execute::path::buck_out_path::BuckOutPath;
     use buck2_interpreter::path::BxlFilePath;
     use dice::testing::DiceBuilder;
     use dice::UserComputationData;

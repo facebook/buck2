@@ -12,6 +12,9 @@ use std::time::Duration;
 
 use allocative::Allocative;
 use buck2_common::file_ops::TrackedFileDigest;
+use buck2_core::fs::buck_out_path::BuckOutPath;
+use buck2_core::fs::buck_out_path::BuckOutScratchPath;
+use buck2_core::fs::buck_out_path::BuckOutTestPath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::quiet_soft_error;
@@ -26,9 +29,6 @@ use thiserror::Error;
 use crate::artifact::fs::ArtifactFs;
 use crate::artifact::group::artifact_group_values_dyn::ArtifactGroupValuesDyn;
 use crate::execute::environment_inheritance::EnvironmentInheritance;
-use crate::path::buck_out_path::BuckOutPath;
-use crate::path::buck_out_path::BuckOutScratchPath;
-use crate::path::buck_out_path::BuckOutTestPath;
 
 #[derive(Clone)]
 pub struct ActionMetadataBlob {

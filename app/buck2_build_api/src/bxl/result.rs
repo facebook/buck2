@@ -8,7 +8,7 @@
  */
 
 use allocative::Allocative;
-use buck2_execute::path::buck_out_path::BuckOutPath;
+use buck2_core::fs::buck_out_path::BuckOutPath;
 use indexmap::IndexSet;
 
 use crate::artifact_groups::ArtifactGroup;

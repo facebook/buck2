@@ -13,9 +13,9 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_core::collections::ordered_set::OrderedSet;
+use buck2_core::fs::buck_out_path::BuckOutPath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_execute::execute::request::OutputType;
-use buck2_execute::path::buck_out_path::BuckOutPath;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
 use buck2_interpreter_for_build::rule::FrozenRuleCallable;
 use buck2_node::configuration::execution::ExecutionPlatformResolution;

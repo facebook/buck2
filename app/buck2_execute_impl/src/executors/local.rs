@@ -875,13 +875,13 @@ mod tests {
     use buck2_core::cells::name::CellName;
     use buck2_core::cells::testing::CellResolverExt;
     use buck2_core::cells::CellResolver;
+    use buck2_core::fs::buck_out_path::BuckOutPathResolver;
     use buck2_core::fs::project::ProjectRoot;
     use buck2_core::fs::project::ProjectRootTemp;
     use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
     use buck2_execute::artifact::fs::ArtifactFs;
     use buck2_execute::execute::blocking::testing::DummyBlockingExecutor;
     use buck2_execute::materialize::nodisk::NoDiskMaterializer;
-    use buck2_execute::path::buck_out_path::BuckOutPathResolver;
     use host_sharing::HostSharingStrategy;
 
     use super::*;

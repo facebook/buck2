@@ -56,4 +56,3 @@ buck2_re_configuration = { workspace = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }
-regex = { workspace = true }

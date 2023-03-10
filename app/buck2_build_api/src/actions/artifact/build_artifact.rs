@@ -8,9 +8,9 @@
  */
 
 use allocative::Allocative;
+use buck2_core::fs::buck_out_path::BuckOutPath;
 use buck2_data::ToProtoMessage;
 use buck2_execute::execute::request::OutputType;
-use buck2_execute::path::buck_out_path::BuckOutPath;
 use derivative::Derivative;
 use derive_more::Display;
 use dupe::Dupe;

@@ -26,10 +26,10 @@ use std::ops::Deref;
 use std::rc::Rc;
 use std::sync::Arc;
 
+use buck2_core::fs::buck_out_path::BuckOutPath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_execute::execute::request::OutputType;
-use buck2_execute::path::buck_out_path::BuckOutPath;
 use derivative::Derivative;
 use derive_more::Display;
 use derive_more::From;
@@ -451,10 +451,10 @@ impl UnboundArtifact {
 
 pub mod testing {
     use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDyn;
+    use buck2_core::fs::buck_out_path::BuckOutPath;
     use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
     use buck2_core::target::label::ConfiguredTargetLabel;
     use buck2_execute::execute::request::OutputType;
-    use buck2_execute::path::buck_out_path::BuckOutPath;
     use dupe::Dupe;
 
     use crate::actions::artifact::build_artifact::BuildArtifact;
@@ -540,6 +540,8 @@ mod tests {
     use buck2_core::cells::testing::CellResolverExt;
     use buck2_core::cells::CellResolver;
     use buck2_core::configuration::ConfigurationData;
+    use buck2_core::fs::buck_out_path::BuckOutPath;
+    use buck2_core::fs::buck_out_path::BuckOutPathResolver;
     use buck2_core::fs::fs_util;
     use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
     use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
@@ -553,8 +555,6 @@ mod tests {
     use buck2_core::target::name::TargetName;
     use buck2_execute::artifact::fs::ArtifactFs;
     use buck2_execute::execute::request::OutputType;
-    use buck2_execute::path::buck_out_path::BuckOutPath;
-    use buck2_execute::path::buck_out_path::BuckOutPathResolver;
     use dupe::Dupe;
 
     use crate::actions::artifact::build_artifact::BuildArtifact;

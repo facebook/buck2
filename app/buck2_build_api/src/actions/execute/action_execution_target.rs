@@ -10,9 +10,9 @@
 use std::fmt::Write;
 
 use buck2_core::category::Category;
+use buck2_core::fs::buck_out_path::BuckOutScratchPath;
 use buck2_data::ToProtoMessage;
 use buck2_execute::execute::target::CommandExecutionTarget;
-use buck2_execute::path::buck_out_path::BuckOutScratchPath;
 use derivative::Derivative;
 use dupe::Dupe;
 
