@@ -326,22 +326,9 @@ impl ProjectRoot {
     }
 
     // TODO(nga): refactor this to global function.
-    #[cfg(unix)]
     pub fn set_executable(&self, path: impl PathLike) -> anyhow::Result<()> {
-        use std::os::unix::fs::PermissionsExt;
-        // Unix permission bits
-        let mut perms = fs_util::metadata(path.resolve(self).as_ref())?.permissions();
-        // Add ugo+x
-        perms.set_mode(perms.mode() | 0o111);
-        fs_util::set_permissions(path.resolve(self).as_ref(), perms)?;
-        Ok(())
-    }
-
-    // TODO(nga): refactor this to global function.
-    #[cfg(not(unix))]
-    pub fn set_executable(&self, _path: impl PathLike) -> anyhow::Result<()> {
-        // Nothing to do
-        Ok(())
+        let path = path.resolve(self);
+        fs_util::set_executable(path.as_ref())
     }
 
     /// Create a soft link from one location to another.

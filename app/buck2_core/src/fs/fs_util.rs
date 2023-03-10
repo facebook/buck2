@@ -302,6 +302,28 @@ pub fn set_permissions<P: AsRef<Path>>(path: P, perm: fs::Permissions) -> anyhow
     Ok(())
 }
 
+pub fn set_executable<P: AsRef<Path>>(path: P) -> anyhow::Result<()> {
+    let path = path.as_ref();
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+
+        // Unix permission bits
+        let mut perms = metadata(path)?.permissions();
+        // Add ugo+x
+        perms.set_mode(perms.mode() | 0o111);
+        set_permissions(path, perms)?;
+    }
+    #[cfg(not(unix))]
+    {
+        // Nothing to do
+        let _ignore = path;
+    }
+
+    Ok(())
+}
+
 pub fn remove_dir_all<P: AsRef<Path>>(path: P) -> anyhow::Result<()> {
     let _guard = IoCounterKey::RmDirAll.guard();
     fs::remove_dir_all(&path)
@@ -880,5 +902,21 @@ mod tests {
             RelativePath::new("foo/bar")
         );
         Ok(())
+    }
+
+    #[test]
+    fn test_set_executable() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let path = tempdir.path().join("file");
+        fs_util::write(&path, b"rrr").unwrap();
+        fs_util::set_executable(&path).unwrap();
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+
+            let mode = fs_util::metadata(&path).unwrap().permissions().mode();
+            assert_eq!(0o111, mode & 0o111);
+        }
     }
 }
