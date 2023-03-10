@@ -19,7 +19,7 @@ use derive_more::Display;
 use dupe::Dupe;
 use gazebo::variants::UnpackVariants;
 use host_sharing::host_sharing::HostSharingRequirements;
-use indexmap::IndexMap;
+use indexmap::IndexSet;
 use sorted_vector_map::SortedVectorMap;
 use thiserror::Error;
 
@@ -122,8 +122,7 @@ impl ExecutorPreference {
 pub struct CommandExecutionRequest {
     args: Vec<String>,
     inputs: Vec<CommandExecutionInput>,
-    artifact_outputs: IndexMap<BuckOutPath, OutputType>,
-    test_outputs: IndexMap<BuckOutTestPath, OutputCreationBehavior>,
+    outputs: IndexSet<CommandExecutionOutput>,
     env: SortedVectorMap<String, String>,
     timeout: Option<Duration>,
     executor_preference: ExecutorPreference,
@@ -151,14 +150,13 @@ impl CommandExecutionRequest {
     pub fn new(
         args: Vec<String>,
         inputs: Vec<CommandExecutionInput>,
-        artifact_outputs: IndexMap<BuckOutPath, OutputType>,
+        outputs: IndexSet<CommandExecutionOutput>,
         env: SortedVectorMap<String, String>,
     ) -> Self {
         Self {
             args,
             inputs,
-            artifact_outputs,
-            test_outputs: IndexMap::new(),
+            outputs,
             env,
             timeout: None,
             executor_preference: ExecutorPreference::Default,
@@ -205,14 +203,6 @@ impl CommandExecutionRequest {
         self
     }
 
-    pub fn with_test_outputs(
-        mut self,
-        test_outputs: IndexMap<BuckOutTestPath, OutputCreationBehavior>,
-    ) -> Self {
-        self.test_outputs = test_outputs;
-        self
-    }
-
     pub fn with_prefetch_lossy_stderr(mut self, prefetch_lossy_stderr: bool) -> Self {
         self.prefetch_lossy_stderr = prefetch_lossy_stderr;
         self
@@ -240,22 +230,7 @@ impl CommandExecutionRequest {
     }
 
     pub fn outputs<'a>(&'a self) -> impl Iterator<Item = CommandExecutionOutputRef<'a>> + 'a {
-        let artifact_outputs = self.artifact_outputs.iter().map(|(path, output_type)| {
-            CommandExecutionOutputRef::BuildArtifact {
-                path,
-                output_type: *output_type,
-            }
-        });
-
-        let test_outputs =
-            self.test_outputs
-                .iter()
-                .map(|(path, create)| CommandExecutionOutputRef::TestPath {
-                    path,
-                    create: *create,
-                });
-
-        artifact_outputs.chain(test_outputs)
+        self.outputs.iter().map(|output| output.as_ref())
     }
 
     pub fn env(&self) -> &SortedVectorMap<String, String> {

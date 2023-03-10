@@ -341,6 +341,7 @@ pub(crate) mod testings {
     use allocative::Allocative;
     use async_trait::async_trait;
     use buck2_core::category::Category;
+    use buck2_execute::execute::request::CommandExecutionOutput;
     use buck2_execute::execute::request::CommandExecutionRequest;
     use buck2_execute::execute::request::OutputType;
     use derivative::Derivative;
@@ -466,7 +467,10 @@ pub(crate) mod testings {
                 Vec::new(),
                 self.outputs
                     .iter()
-                    .map(|b| (b.get_path().dupe(), OutputType::File))
+                    .map(|b| CommandExecutionOutput::BuildArtifact {
+                        path: b.get_path().dupe(),
+                        output_type: OutputType::File,
+                    })
                     .collect(),
                 sorted_vector_map![],
             );

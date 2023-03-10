@@ -543,6 +543,7 @@ mod tests {
     use buck2_execute::execute::command_executor::ActionExecutionTimingData;
     use buck2_execute::execute::command_executor::CommandExecutor;
     use buck2_execute::execute::request::CommandExecutionInput;
+    use buck2_execute::execute::request::CommandExecutionOutput;
     use buck2_execute::execute::request::CommandExecutionRequest;
     use buck2_execute::execute::request::OutputType;
     use buck2_execute::execute::testing_dry_run::DryRunExecutor;
@@ -676,7 +677,10 @@ mod tests {
                         .collect(),
                     self.outputs
                         .iter()
-                        .map(|b| (b.get_path().dupe(), OutputType::FileOrDirectory))
+                        .map(|b| CommandExecutionOutput::BuildArtifact {
+                            path: b.get_path().dupe(),
+                            output_type: OutputType::FileOrDirectory,
+                        })
                         .collect(),
                     SortedVectorMap::new(),
                 );

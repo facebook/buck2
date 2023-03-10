@@ -19,6 +19,7 @@ use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::execute::environment_inheritance::EnvironmentInheritance;
 use buck2_execute::execute::request::ActionMetadataBlob;
 use buck2_execute::execute::request::CommandExecutionInput;
+use buck2_execute::execute::request::CommandExecutionOutput;
 use buck2_execute::execute::request::CommandExecutionRequest;
 use buck2_execute::execute::request::ExecutorPreference;
 use buck2_execute::path::buck_out_path::BuckOutPath;
@@ -393,7 +394,10 @@ impl IncrementalActionExecutable for RunAction {
             inputs,
             self.outputs
                 .iter()
-                .map(|b| (b.get_path().dupe(), b.output_type()))
+                .map(|b| CommandExecutionOutput::BuildArtifact {
+                    path: b.get_path().dupe(),
+                    output_type: b.output_type(),
+                })
                 .collect(),
             env,
         )

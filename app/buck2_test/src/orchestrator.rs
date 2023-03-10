@@ -60,6 +60,7 @@ use buck2_execute::execute::dice_data::HasCommandExecutor;
 use buck2_execute::execute::environment_inheritance::EnvironmentInheritance;
 use buck2_execute::execute::manager::CommandExecutionManager;
 use buck2_execute::execute::request::CommandExecutionInput;
+use buck2_execute::execute::request::CommandExecutionOutput;
 use buck2_execute::execute::request::CommandExecutionRequest;
 use buck2_execute::execute::request::ExecutorPreference;
 use buck2_execute::execute::request::OutputCreationBehavior;
@@ -679,9 +680,12 @@ impl BuckTestOrchestrator {
 
         // NOTE: This looks a bit awkward, that's because fbcode's rustfmt and ours slightly
         // disagree about format here...
-        let mut request = CommandExecutionRequest::new(cmd, inputs, Default::default(), env);
+        let outputs = declared_outputs
+            .into_iter()
+            .map(|(path, create)| CommandExecutionOutput::TestPath { path, create })
+            .collect();
+        let mut request = CommandExecutionRequest::new(cmd, inputs, outputs, env);
         request = request
-            .with_test_outputs(declared_outputs)
             .with_working_directory(cwd)
             .with_local_environment_inheritance(EnvironmentInheritance::test_allowlist());
         Ok(request)
