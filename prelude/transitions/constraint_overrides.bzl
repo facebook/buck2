@@ -8,6 +8,14 @@
 # NOTE: Currently, constraints can't be propagated via rule attrs and so need
 # to be hard-coded here.
 _CONSTRAINTS = [
+    "ovr_config//third-party/cuda/constraints:11.0.2",
+    "ovr_config//third-party/cuda/constraints:11.4.2",
+    "ovr_config//third-party/cuda/constraints:11.8.0",
+    "ovr_config//third-party/cuda/constraints:12",
+    "ovr_config//third-party/python/constraints:3.10",
+    "ovr_config//third-party/python/constraints:3.10.cinder",
+    "ovr_config//third-party/python/constraints:3.8",
+    "ovr_config//third-party/python/constraints:cinder.3.8",
 ]
 
 # Apparently, `==` doesn't do value comparison for `ConstraintValueInfo`, so
