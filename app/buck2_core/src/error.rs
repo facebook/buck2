@@ -7,11 +7,13 @@
  * of this source tree.
  */
 
+use std::str::FromStr;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 use std::sync::Mutex;
 
 use once_cell::sync::OnceCell;
+use starlark_map::small_set::SmallSet;
 
 use crate::env_helper::EnvHelper;
 
@@ -20,6 +22,8 @@ type SoftErrorHandler = Box<
 >;
 
 static HANDLER: OnceCell<SoftErrorHandler> = OnceCell::new();
+
+static HARD_ERROR: EnvHelper<HardErrorConfig> = EnvHelper::new("BUCK2_TEST_HARD_ERROR");
 
 static ALL_SOFT_ERROR_COUNTERS: Mutex<Vec<&'static AtomicUsize>> = Mutex::new(Vec::new());
 
@@ -70,8 +74,6 @@ pub fn handle_soft_error(
         ALL_SOFT_ERROR_COUNTERS.lock().unwrap().push(count);
     });
 
-    static HARD_ERROR: EnvHelper<bool> = EnvHelper::new("BUCK2_TEST_HARD_ERROR");
-
     // We want to limit each error to appearing at most 10 times in a build (no point spamming people)
     if count.fetch_add(1, Ordering::SeqCst) < 10 {
         if let Some(handler) = HANDLER.get() {
@@ -79,12 +81,13 @@ pub fn handle_soft_error(
         }
     }
 
-    if HARD_ERROR.get_copied()? == Some(true) {
-        eprintln!("Important warning caused failure due to $BUCK2_TEST_HARD_ERROR");
-        Err(err)
-    } else {
-        Ok(())
+    if let Some(h) = HARD_ERROR.get()? {
+        if h.should_hard_error(category) {
+            return Err(err.context("Upgraded warning to failure via $BUCK2_TEST_HARD_ERROR"));
+        }
     }
+
+    Ok(())
 }
 
 #[allow(clippy::significant_drop_in_scrutinee)] // False positive.
@@ -94,11 +97,57 @@ pub fn reset_soft_error_counters() {
     }
 }
 
-pub fn initialize(handler: SoftErrorHandler) {
+pub fn initialize(handler: SoftErrorHandler) -> anyhow::Result<()> {
+    HARD_ERROR.get()?;
+
     if let Err(_e) = HANDLER.set(handler) {
         panic!("Cannot initialize soft_error handler more than once");
     }
+
+    Ok(())
 }
+
+/// Parse either a boolean or `only=category1,category2`
+enum HardErrorConfig {
+    Bool(bool),
+    Selected(SmallSet<String>),
+}
+
+impl HardErrorConfig {
+    fn should_hard_error(&self, category: &str) -> bool {
+        match self {
+            Self::Bool(v) => *v,
+            Self::Selected(s) => s.contains(category),
+        }
+    }
+}
+
+impl FromStr for HardErrorConfig {
+    type Err = InvalidHardErrorConfig;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if let Ok(v) = s.parse() {
+            return Ok(Self::Bool(v));
+        }
+
+        let mut parts = s.split('=');
+
+        match (parts.next(), parts.next(), parts.next()) {
+            (Some("only"), Some(v), None) => {
+                return Ok(Self::Selected(
+                    v.split(',').map(|s| s.trim().to_owned()).collect(),
+                ));
+            }
+            _ => {}
+        }
+
+        Err(InvalidHardErrorConfig(s.to_owned()))
+    }
+}
+
+#[derive(thiserror::Error, Debug)]
+#[error("Invalid hard error config: `{0}`")]
+struct InvalidHardErrorConfig(String);
 
 #[cfg(test)]
 mod tests {
@@ -106,8 +155,10 @@ mod tests {
     use std::sync::MutexGuard;
     use std::sync::Once;
 
+    use super::*;
     use crate::error::initialize;
     use crate::error::reset_soft_error_counters;
+    use crate::error::HardErrorConfig;
     use crate::soft_error;
 
     static RESULT: Mutex<Vec<String>> = Mutex::new(Vec::new());
@@ -132,7 +183,7 @@ mod tests {
 
         static ONCE: Once = Once::new();
         ONCE.call_once(|| {
-            initialize(Box::new(mock_handler));
+            initialize(Box::new(mock_handler)).unwrap();
         });
 
         RESULT.lock().unwrap().clear();
@@ -186,5 +237,16 @@ mod tests {
             RESULT.lock().unwrap().len(),
             "Should be logged 10 more times"
         );
+    }
+
+    #[test]
+    fn test_hard_error() -> anyhow::Result<()> {
+        assert!(HardErrorConfig::from_str("true")?.should_hard_error("foo"));
+        assert!(!HardErrorConfig::from_str("false")?.should_hard_error("foo"));
+
+        assert!(HardErrorConfig::from_str("only=foo,bar")?.should_hard_error("foo"));
+        assert!(!HardErrorConfig::from_str("only=foo,bar")?.should_hard_error("baz"));
+
+        Ok(())
     }
 }

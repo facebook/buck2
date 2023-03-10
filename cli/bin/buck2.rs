@@ -96,7 +96,7 @@ fn check_cargo() {
 #[fbinit::main]
 fn main(init: fbinit::FacebookInit) -> ! {
     fn main_with_result(init: fbinit::FacebookInit) -> ExitResult {
-        panic::initialize(init);
+        panic::initialize(init)?;
         check_cargo();
         let log_reload_handle = init_logging(init)?;
 

@@ -15,10 +15,11 @@
 use std::panic;
 use std::panic::PanicInfo;
 
+use anyhow::Context as _;
 use fbinit::FacebookInit;
 
 /// Initializes the panic hook.
-pub fn initialize(fb: FacebookInit) {
+pub fn initialize(fb: FacebookInit) -> anyhow::Result<()> {
     let hook = panic::take_hook();
     panic::set_hook(Box::new(move |info| {
         the_panic_hook(fb, info);
@@ -36,7 +37,9 @@ pub fn initialize(fb: FacebookInit) {
             },
             quiet,
         );
-    }));
+    }))
+    .context("Error initializing soft errors")?;
+    Ok(())
 }
 
 /// The panic hook, initialized during `initialize`. Invoked immediately on a panic, but prior to the process being
