@@ -271,6 +271,7 @@ impl ProviderCodegen {
         let name = self.name()?;
         let name_str = self.name_str()?;
         let register_func_name = self.register_func_name()?;
+        let field_names = self.field_names()?;
         Ok(quote! {
             starlark::starlark_complex_value!(#vis #name);
 
@@ -298,6 +299,21 @@ impl ProviderCodegen {
                 fn provide(&'v self, demand: &mut starlark::values::Demand<'_, 'v>) {
                     demand.provide_value::<
                         &dyn crate::interpreter::rule_defs::provider::ProviderLike>(self);
+                }
+
+                fn equals(&self, other: starlark::values::Value<'v>) -> anyhow::Result<bool> {
+                    let this: &#name = starlark::coerce::coerce(self);
+                    let other: &#name = match #name::from_value(other) {
+                        Some(other) => other,
+                        None => return Ok(false),
+                    };
+
+                    #(
+                        if !this.#field_names.equals(other.#field_names)? {
+                            return Ok(false);
+                        }
+                    )*
+                    Ok(true)
                 }
 
                 // TODO(cjhopman): UserProvider implements more of the starlark functions. We should probably match them.

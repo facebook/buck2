@@ -20,3 +20,4 @@ pub mod install_info;
 pub mod platform_info;
 pub mod run_info;
 pub mod template_placeholder_info;
+mod tests;

@@ -11,7 +11,10 @@ pub mod testing {
     use buck2_core::configuration::ConfigurationData;
     use buck2_core::pattern::ParsedPattern;
     use buck2_core::pattern::ProvidersPattern;
+    use buck2_core::target::label::TargetLabel;
+    use buck2_core::target::name::TargetName;
     use buck2_interpreter::types::label::Label;
+    use buck2_interpreter::types::target_label::StarlarkTargetLabel;
     use starlark::environment::GlobalsBuilder;
     use starlark::eval::Evaluator;
     use starlark::starlark_module;
@@ -22,6 +25,8 @@ pub mod testing {
     enum LabelCreatorError {
         #[error("Expected provider, found something else: `{0}`")]
         ExpectedProvider(String),
+        #[error("Expected target, found something else: `{0}`")]
+        ExpectedTarget(String),
     }
 
     #[starlark_module]
@@ -38,6 +43,23 @@ pub mod testing {
             Ok(Label::new(
                 target.configure(ConfigurationData::testing_new()),
             ))
+        }
+
+        fn target_label<'v>(
+            s: &str,
+            eval: &mut Evaluator<'v, '_>,
+        ) -> anyhow::Result<StarlarkTargetLabel> {
+            let c = BuildContext::from_context(eval)?;
+            let target = match ParsedPattern::<TargetName>::parse_precise(
+                c.cell_info().cell_alias_resolver(),
+                s,
+            )? {
+                ParsedPattern::Target(package, target_name) => {
+                    TargetLabel::new(package, target_name.as_ref())
+                }
+                _ => return Err(LabelCreatorError::ExpectedTarget(s.to_owned()).into()),
+            };
+            Ok(StarlarkTargetLabel::new(target))
         }
     }
 }
