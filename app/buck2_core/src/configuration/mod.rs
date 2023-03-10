@@ -134,10 +134,7 @@ impl ConfigurationData {
             // For example we should prohibit strings like `////` or `[foo//bar]`.
             !c.is_ascii() || c == '#' || c.is_ascii_control() || c == '\t'
         }) {
-            soft_error!(
-                "invalid_character_in_cfg_label",
-                ConfigurationError::InvalidCharactersInLabel(label.clone()).into()
-            )?;
+            return Err(ConfigurationError::InvalidCharactersInLabel(label).into());
         }
         if !data.buckconfigs.is_empty() {
             return Err(ConfigurationError::BuckConfigValuesMustBeEmpty.into());
