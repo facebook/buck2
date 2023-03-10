@@ -121,13 +121,15 @@ def java_annotation_processor_impl(ctx: "context") -> ["provider"]:
     if ctx.attrs._build_only_native_code:
         return [DefaultInfo()]
 
+    transitive_deps = derive_transitive_deps(ctx, ctx.attrs.deps)
+
     return [
         JavaProcessorsInfo(
-            deps = derive_transitive_deps(ctx, ctx.attrs.deps),
+            deps = transitive_deps,
             processors = [ctx.attrs.processor_class],
             type = _get_processor_type(ctx.attrs.processor_class),
             affects_abi = not ctx.attrs.does_not_affect_abi,
             supports_source_only_abi = ctx.attrs.supports_abi_generation_from_source,
         ),
-        DefaultInfo(default_output = None),
+        DefaultInfo(default_output = None, other_outputs = [packaging_dep.jar for packaging_dep in transitive_deps.traverse() if packaging_dep.jar]),
     ]
