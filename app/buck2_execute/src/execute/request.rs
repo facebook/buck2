@@ -123,7 +123,7 @@ pub struct CommandExecutionRequest {
     args: Vec<String>,
     inputs: Vec<CommandExecutionInput>,
     artifact_outputs: IndexMap<BuckOutPath, OutputType>,
-    test_outputs: Option<IndexMap<BuckOutTestPath, OutputCreationBehavior>>,
+    test_outputs: IndexMap<BuckOutTestPath, OutputCreationBehavior>,
     env: SortedVectorMap<String, String>,
     timeout: Option<Duration>,
     executor_preference: ExecutorPreference,
@@ -158,7 +158,7 @@ impl CommandExecutionRequest {
             args,
             inputs,
             artifact_outputs,
-            test_outputs: None,
+            test_outputs: IndexMap::new(),
             env,
             timeout: None,
             executor_preference: ExecutorPreference::Default,
@@ -209,7 +209,7 @@ impl CommandExecutionRequest {
         mut self,
         test_outputs: IndexMap<BuckOutTestPath, OutputCreationBehavior>,
     ) -> Self {
-        self.test_outputs = Some(test_outputs);
+        self.test_outputs = test_outputs;
         self
     }
 
@@ -247,14 +247,13 @@ impl CommandExecutionRequest {
             }
         });
 
-        let test_outputs = self.test_outputs.as_ref().into_iter().flat_map(|outputs| {
-            outputs
+        let test_outputs =
+            self.test_outputs
                 .iter()
                 .map(|(path, create)| CommandExecutionOutputRef::TestPath {
                     path,
                     create: *create,
-                })
-        });
+                });
 
         artifact_outputs.chain(test_outputs)
     }
