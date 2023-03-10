@@ -18,6 +18,12 @@ pub mod testing {
 
     use crate::interpreter::build_context::BuildContext;
 
+    #[derive(Debug, thiserror::Error)]
+    enum LabelCreatorError {
+        #[error("Expected provider, found something else: `{0}`")]
+        ExpectedProvider(String),
+    }
+
     #[starlark_module]
     pub fn label_creator(builder: &mut GlobalsBuilder) {
         fn label<'v>(s: &str, eval: &mut Evaluator<'v, '_>) -> anyhow::Result<Label> {
@@ -25,14 +31,9 @@ pub mod testing {
             let target = match ParsedPattern::<ProvidersPattern>::parse_precise(
                 c.cell_info().cell_alias_resolver(),
                 s,
-            ) {
-                Ok(ParsedPattern::Target(package, pattern)) => {
-                    pattern.into_providers_label(package)
-                }
-                _ => {
-                    eprintln!("Expected a target, not {}", s);
-                    panic!();
-                }
+            )? {
+                ParsedPattern::Target(package, pattern) => pattern.into_providers_label(package),
+                _ => return Err(LabelCreatorError::ExpectedProvider(s.to_owned()).into()),
             };
             Ok(Label::new(
                 target.configure(ConfigurationData::testing_new()),
