@@ -38,6 +38,7 @@ pub mod error;
 
 mod ascii_char_set;
 pub mod async_once_cell;
+pub mod base_deferred_key_dyn;
 pub mod buck_path;
 pub mod build_file_path;
 pub mod bzl;

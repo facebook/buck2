@@ -45,8 +45,8 @@ use crate::actions::key::ActionKey;
 
 pub mod build_artifact;
 use allocative::Allocative;
+use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDyn;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
-use buck2_execute::base_deferred_key_dyn::BaseDeferredKeyDyn;
 use buck2_execute::path::artifact_path::ArtifactPath;
 use starlark_map::Hashed;
 
@@ -450,9 +450,9 @@ impl UnboundArtifact {
 }
 
 pub mod testing {
+    use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDyn;
     use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
     use buck2_core::target::label::ConfiguredTargetLabel;
-    use buck2_execute::base_deferred_key_dyn::BaseDeferredKeyDyn;
     use buck2_execute::execute::request::OutputType;
     use buck2_execute::path::buck_out_path::BuckOutPath;
     use dupe::Dupe;
@@ -532,6 +532,7 @@ mod tests {
     use std::hash::Hasher;
 
     use assert_matches::assert_matches;
+    use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDyn;
     use buck2_core::buck_path::path::BuckPath;
     use buck2_core::buck_path::resolver::BuckPathResolver;
     use buck2_core::cells::cell_root_path::CellRootPathBuf;
@@ -551,7 +552,6 @@ mod tests {
     use buck2_core::target::label::ConfiguredTargetLabel;
     use buck2_core::target::name::TargetName;
     use buck2_execute::artifact::fs::ArtifactFs;
-    use buck2_execute::base_deferred_key_dyn::BaseDeferredKeyDyn;
     use buck2_execute::execute::request::OutputType;
     use buck2_execute::path::buck_out_path::BuckOutPath;
     use buck2_execute::path::buck_out_path::BuckOutPathResolver;

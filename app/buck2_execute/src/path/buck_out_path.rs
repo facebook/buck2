@@ -13,6 +13,7 @@ use std::hash::Hasher;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDyn;
 use buck2_core::category::Category;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
@@ -20,8 +21,6 @@ use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use derive_more::Display;
 use dupe::Dupe;
-
-use crate::base_deferred_key_dyn::BaseDeferredKeyDyn;
 
 #[derive(Clone, Debug, Display, Allocative, Hash, Eq, PartialEq)]
 #[display(fmt = "({})/{}", owner, "path.as_str()")]
@@ -236,6 +235,7 @@ mod tests {
 
     use std::sync::Arc;
 
+    use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDyn;
     use buck2_core::buck_path::path::BuckPath;
     use buck2_core::buck_path::resolver::BuckPathResolver;
     use buck2_core::category::Category;
@@ -254,7 +254,6 @@ mod tests {
     use dupe::Dupe;
     use regex::Regex;
 
-    use crate::base_deferred_key_dyn::BaseDeferredKeyDyn;
     use crate::path::buck_out_path::BuckOutPath;
     use crate::path::buck_out_path::BuckOutPathResolver;
     use crate::path::buck_out_path::BuckOutScratchPath;

@@ -15,6 +15,7 @@ use async_trait::async_trait;
 use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_common::file_ops::FileMetadata;
 use buck2_common::legacy_configs::LegacyBuckConfig;
+use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDyn;
 use buck2_core::directory::DirectoryEntry;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_events::dispatch::EventDispatcher;
@@ -29,7 +30,6 @@ use futures::stream::TryStreamExt;
 use thiserror::Error;
 
 use crate::artifact_value::ArtifactValue;
-use crate::base_deferred_key_dyn::BaseDeferredKeyDyn;
 use crate::directory::ActionDirectoryEntry;
 use crate::directory::ActionDirectoryMember;
 use crate::directory::ActionImmutableDirectory;

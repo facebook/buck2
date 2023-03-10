@@ -14,13 +14,14 @@ use std::hash::Hasher;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
-use buck2_core::fs::project_rel_path::ProjectRelativePath;
-use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
-use buck2_core::target::label::ConfiguredTargetLabel;
 use dupe::Dupe;
 use gazebo::cmp::PartialEqAny;
+
+use crate::fs::paths::forward_rel_path::ForwardRelativePath;
+use crate::fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use crate::fs::project_rel_path::ProjectRelativePath;
+use crate::fs::project_rel_path::ProjectRelativePathBuf;
+use crate::target::label::ConfiguredTargetLabel;
 
 pub trait BaseDeferredKeyDynImpl: Debug + Display + Allocative + Send + Sync + 'static {
     fn eq_token(&self) -> PartialEqAny;

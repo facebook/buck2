@@ -11,10 +11,10 @@ use std::fmt::Display;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDyn;
 use buck2_core::collections::ordered_set::OrderedSet;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
-use buck2_execute::base_deferred_key_dyn::BaseDeferredKeyDyn;
 use buck2_execute::path::artifact_path::ArtifactPath;
 use buck2_interpreter::types::label::Label;
 use dupe::Dupe;
