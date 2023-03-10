@@ -99,7 +99,7 @@ def build_junit_test(
         ctx.actions.write("sources.txt", ctx.attrs.srcs),
         "--output",
         class_names.as_output(),
-    ])
+    ]).hidden(ctx.attrs.srcs)
     ctx.actions.run(list_class_names_cmd, category = "list_class_names")
 
     cmd.extend(["--test-class-names-file", class_names])
