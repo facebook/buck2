@@ -73,7 +73,7 @@ mod tests {
     #[test]
     fn test_load_symbols() -> anyhow::Result<()> {
         let mut t = Tester::new()?;
-        t.set_additional_globals(register_rule_defs);
+        t.additional_globals(register_rule_defs);
         let defines = ImportPath::testing_new("root//pkg:test.bzl");
         t.add_import(
             &defines,
@@ -94,7 +94,7 @@ def test():
     #[test]
     fn test_regex() -> anyhow::Result<()> {
         let mut t = Tester::new()?;
-        t.set_additional_globals(register_rule_defs);
+        t.additional_globals(register_rule_defs);
         t.run_starlark_test(
             r#"
 def test():

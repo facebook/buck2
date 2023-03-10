@@ -55,7 +55,7 @@ pub struct Tester {
     cell_resolver: CellResolver,
     configs: LegacyBuckConfigs,
     loaded_modules: LoadedModules,
-    additional_globals: Option<AdditionalGlobalsFn>,
+    additional_globals: Vec<AdditionalGlobalsFn>,
     prelude_path: Option<ImportPath>,
 }
 
@@ -166,16 +166,17 @@ impl Tester {
             cell_resolver,
             configs,
             loaded_modules: LoadedModules::default(),
-            additional_globals: None,
+            additional_globals: Vec::new(),
             prelude_path: None,
         })
     }
 
-    pub fn set_additional_globals(
+    pub fn additional_globals(
         &mut self,
         additional_globals: impl Fn(&mut GlobalsBuilder) + Sync + Send + 'static,
     ) {
-        self.additional_globals = Some(AdditionalGlobalsFn(Arc::new(additional_globals)));
+        self.additional_globals
+            .push(AdditionalGlobalsFn(Arc::new(additional_globals)));
     }
 
     pub fn set_prelude(&mut self, prelude_import: ImportPath) {
@@ -190,7 +191,7 @@ impl Tester {
             BuildFileCell::new(self.cell_alias_resolver.resolve_self()),
             &self.cell_alias_resolver,
         )?;
-        let additional_globals = self.additional_globals.dupe();
+        let additional_globals = self.additional_globals.clone();
         Ok(Arc::new(InterpreterForCell::new(
             self.cell_alias_resolver.dupe(),
             Arc::new(GlobalInterpreterState::new(
@@ -207,7 +208,7 @@ impl Tester {
                     |_| {},
                     Some(AdditionalGlobalsFn(Arc::new(move |globals_builder| {
                         common_helpers(globals_builder);
-                        if let Some(additional_globals) = &additional_globals {
+                        for additional_globals in &additional_globals {
                             (additional_globals.0)(globals_builder)
                         }
                     }))),

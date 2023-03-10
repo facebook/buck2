@@ -14,7 +14,7 @@ use indoc::indoc;
 #[test]
 fn test_read_config() -> anyhow::Result<()> {
     let mut tester = Tester::new().unwrap();
-    tester.set_additional_globals(register_read_config);
+    tester.additional_globals(register_read_config);
     tester.run_starlark_test(indoc!(
         r#"
             def test():

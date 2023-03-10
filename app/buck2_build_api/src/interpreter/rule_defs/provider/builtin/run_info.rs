@@ -106,12 +106,10 @@ mod tests {
 
     fn run_info_tester() -> Tester {
         let mut tester = Tester::new().unwrap();
-        tester.set_additional_globals(|globals| {
-            command_line_stringifier(globals);
-            artifactory(globals);
-            register_rule_defs(globals);
-            collection_creator(globals);
-        });
+        tester.additional_globals(command_line_stringifier);
+        tester.additional_globals(artifactory);
+        tester.additional_globals(register_rule_defs);
+        tester.additional_globals(collection_creator);
         tester
     }
 

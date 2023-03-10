@@ -228,10 +228,8 @@ mod tests {
                 package_includes = src=>//include.bzl::func_alias=some_func
         "#
         )))?)?;
-        tester.set_additional_globals(|g| {
-            register_rule_defs(g);
-            register_module_natives(g);
-        });
+        tester.additional_globals(register_rule_defs);
+        tester.additional_globals(register_module_natives);
 
         let import_path = ImportPath::testing_new("root//:include.bzl");
         tester.add_import(
@@ -287,7 +285,7 @@ mod tests {
     fn test_provider() -> anyhow::Result<()> {
         // TODO: test restricting field names
         let mut tester = Tester::new().unwrap();
-        tester.set_additional_globals(register_provider);
+        tester.additional_globals(register_provider);
         tester.run_starlark_test(indoc!(
             r#"
             SomeInfo = provider(fields=["x", "y"])
@@ -317,10 +315,8 @@ mod tests {
     #[test]
     fn eval() -> anyhow::Result<()> {
         let mut tester = Tester::new()?;
-        tester.set_additional_globals(|g| {
-            register_module_natives(g);
-            register_rule_defs(g);
-        });
+        tester.additional_globals(register_module_natives);
+        tester.additional_globals(register_rule_defs);
         let content = indoc!(
             r#"
             def _impl(ctx):
@@ -352,7 +348,7 @@ mod tests {
     fn test_internal() -> anyhow::Result<()> {
         // Test that most things end up on __internal__
         let mut tester = Tester::new().unwrap();
-        tester.set_additional_globals(register_rule_defs);
+        tester.additional_globals(register_rule_defs);
         run_simple_starlark_test(indoc!(
             r#"
             def test():
@@ -364,10 +360,8 @@ mod tests {
     #[test]
     fn test_oncall() -> anyhow::Result<()> {
         let mut tester = Tester::new().unwrap();
-        tester.set_additional_globals(|g| {
-            register_module_natives(g);
-            register_rule_defs(g);
-        });
+        tester.additional_globals(register_module_natives);
+        tester.additional_globals(register_rule_defs);
         tester.run_starlark_test(indoc!(
             r#"
             def _impl(ctx):

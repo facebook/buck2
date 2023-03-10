@@ -133,12 +133,10 @@ mod tests {
 
     fn tester() -> Tester {
         let mut tester = Tester::new().unwrap();
-        tester.set_additional_globals(|builder| {
-            collection_creator(builder);
-            artifactory(builder);
-            label_creator(builder);
-            register_rule_defs(builder);
-        });
+        tester.additional_globals(collection_creator);
+        tester.additional_globals(artifactory);
+        tester.additional_globals(label_creator);
+        tester.additional_globals(register_rule_defs);
         tester
     }
 

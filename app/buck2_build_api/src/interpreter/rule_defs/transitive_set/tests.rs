@@ -20,13 +20,11 @@ use crate::interpreter::rule_defs::transitive_set::testing::tset_factory;
 
 fn transitive_set_tester() -> Tester {
     let mut tester = Tester::new().unwrap();
-    tester.set_additional_globals(|builder| {
-        register_transitive_set(builder);
-        tset_factory(builder);
-        artifactory(builder);
-        command_line_stringifier(builder);
-        register_rule_defs(builder);
-    });
+    tester.additional_globals(register_transitive_set);
+    tester.additional_globals(tset_factory);
+    tester.additional_globals(artifactory);
+    tester.additional_globals(command_line_stringifier);
+    tester.additional_globals(register_rule_defs);
     tester
 }
 

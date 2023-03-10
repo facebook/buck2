@@ -480,11 +480,9 @@ mod tests {
     #[test]
     fn default_info_is_available() -> SharedResult<()> {
         let mut tester = Tester::new()?;
-        tester.set_additional_globals(|g| {
-            artifactory(g);
-            register_rule_defs(g);
-            register_provider(g);
-        });
+        tester.additional_globals(artifactory);
+        tester.additional_globals(register_rule_defs);
+        tester.additional_globals(register_provider);
         tester.add_import(
             &ImportPath::testing_new("root//foo:defs.bzl"),
             r#"BarInfo = provider(fields=["bar"])"#,
@@ -530,7 +528,7 @@ mod tests {
     fn default_info_validates_types() -> SharedResult<()> {
         // TODO(nmj): More complex types
         let mut tester = Tester::new().unwrap();
-        tester.set_additional_globals(register_rule_defs);
+        tester.additional_globals(register_rule_defs);
         tester.run_starlark_bzl_test_expecting_error(
             indoc!(
                 r#"

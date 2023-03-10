@@ -14,7 +14,7 @@ use indoc::indoc;
 #[test]
 fn test_host_info() -> anyhow::Result<()> {
     let mut tester = Tester::new().unwrap();
-    tester.set_additional_globals(register_host_info);
+    tester.additional_globals(register_host_info);
     tester.run_starlark_test(indoc!(
         r#"
             def test():
@@ -34,7 +34,7 @@ fn test_host_info() -> anyhow::Result<()> {
 #[test]
 fn test_buck_v2() -> anyhow::Result<()> {
     let mut tester = Tester::new().unwrap();
-    tester.set_additional_globals(register_host_info);
+    tester.additional_globals(register_host_info);
     tester.run_starlark_test(indoc!(
         r#"
             def test():

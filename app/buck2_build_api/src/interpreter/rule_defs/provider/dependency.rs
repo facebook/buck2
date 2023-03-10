@@ -169,10 +169,8 @@ mod tests {
     #[test]
     fn dependency_works() -> SharedResult<()> {
         let mut tester = Tester::new()?;
-        tester.set_additional_globals(|x| {
-            crate::interpreter::rule_defs::register_rule_defs(x);
-            dependency_creator(x)
-        });
+        tester.additional_globals(crate::interpreter::rule_defs::register_rule_defs);
+        tester.additional_globals(dependency_creator);
         tester.run_starlark_bzl_test(indoc!(
             r#"
             frozen = create_collection("root//foo:bar[baz]", [DefaultInfo()])

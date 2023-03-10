@@ -26,8 +26,8 @@ use starlark::docs::DocStringKind;
 
 fn rule_tester() -> Tester {
     let mut tester = Tester::new().unwrap();
-    tester.set_additional_globals(register_transitive_set);
-    tester.set_additional_globals(register_rule_defs);
+    tester.additional_globals(register_transitive_set);
+    tester.additional_globals(register_rule_defs);
     tester
 }
 

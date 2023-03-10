@@ -172,7 +172,7 @@ mod tests {
     #[test]
     fn configuration_info_validates_buckconfigs() -> SharedResult<()> {
         let mut tester = Tester::new().unwrap();
-        tester.set_additional_globals(register_rule_defs);
+        tester.additional_globals(register_rule_defs);
         tester.run_starlark_bzl_test_expecting_error(
             indoc!(
                 r#"

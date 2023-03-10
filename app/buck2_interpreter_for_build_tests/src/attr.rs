@@ -29,7 +29,7 @@ use starlark::values::Heap;
 
 fn tester() -> Tester {
     let mut tester = Tester::new().unwrap();
-    tester.set_additional_globals(register_attrs);
+    tester.additional_globals(register_attrs);
     tester
 }
 

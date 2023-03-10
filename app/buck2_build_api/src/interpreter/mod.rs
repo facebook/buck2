@@ -34,7 +34,7 @@ mod tests {
         "#
         );
         let mut tester = Tester::new().unwrap();
-        tester.set_additional_globals(register_rule_defs);
+        tester.additional_globals(register_rule_defs);
         let err = tester.run_starlark_test(content).expect_err("should fail");
         assert!(
             err.to_string()
@@ -55,7 +55,7 @@ mod tests {
     #[test]
     fn tester_can_load_extra_modules() -> SharedResult<()> {
         let mut tester = Tester::new()?;
-        tester.set_additional_globals(extra_provider_module);
+        tester.additional_globals(extra_provider_module);
 
         tester.run_starlark_test(indoc!(
             r#"

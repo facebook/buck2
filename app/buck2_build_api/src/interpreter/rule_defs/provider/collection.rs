@@ -539,12 +539,10 @@ mod tests {
 
     fn provider_collection_tester() -> SharedResult<Tester> {
         let mut tester = Tester::new()?;
-        tester.set_additional_globals(|builder| {
-            collection_creator(builder);
-            artifactory(builder);
-            register_rule_defs(builder);
-            register_provider(builder);
-        });
+        tester.additional_globals(collection_creator);
+        tester.additional_globals(artifactory);
+        tester.additional_globals(register_rule_defs);
+        tester.additional_globals(register_provider);
         tester.add_import(
             &ImportPath::testing_new("root//provider:defs1.bzl"),
             indoc!(

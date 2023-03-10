@@ -503,10 +503,8 @@ mod tests {
             resolver.dupe(),
             configs.dupe(),
         ))?;
-        interpreter.set_additional_globals(|g| {
-            register_rule_defs(g);
-            register_provider(g);
-        });
+        interpreter.additional_globals(register_rule_defs);
+        interpreter.additional_globals(register_provider);
         let module = interpreter
             .eval_import(
                 &bzlfile,

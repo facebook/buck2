@@ -417,7 +417,7 @@ mod tests {
 
     fn tester() -> Tester {
         let mut tester = Tester::new().unwrap();
-        tester.set_additional_globals(register_rule_defs);
+        tester.additional_globals(register_rule_defs);
         tester
     }
 

@@ -40,13 +40,11 @@ pub fn inputs_helper(builder: &mut GlobalsBuilder) {
 
 fn tester() -> anyhow::Result<Tester> {
     let mut tester = Tester::new()?;
-    tester.set_additional_globals(|builder| {
-        tester::command_line_stringifier(builder);
-        inputs_helper(builder);
-        artifactory(builder);
-        label_creator(builder);
-        register_rule_defs(builder);
-    });
+    tester.additional_globals(tester::command_line_stringifier);
+    tester.additional_globals(inputs_helper);
+    tester.additional_globals(artifactory);
+    tester.additional_globals(label_creator);
+    tester.additional_globals(register_rule_defs);
     Ok(tester)
 }
 

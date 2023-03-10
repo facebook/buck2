@@ -93,7 +93,7 @@ fn test_load() {
 #[test]
 fn test_eval_build_file() {
     let mut tester = Tester::new().unwrap();
-    tester.set_additional_globals(register_rule_defs);
+    tester.additional_globals(register_rule_defs);
 
     tester
         .add_import(
@@ -263,7 +263,7 @@ fn test_root_import() {
     )
     .unwrap();
 
-    tester.set_additional_globals(register_rule_defs);
+    tester.additional_globals(register_rule_defs);
 
     let import_path = ImportPath::testing_new("root//:include.bzl");
     tester

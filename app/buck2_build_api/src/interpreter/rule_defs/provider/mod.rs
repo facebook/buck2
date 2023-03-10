@@ -186,11 +186,9 @@ mod tests {
 
     fn provider_tester() -> Tester {
         let mut tester = Tester::new().unwrap();
-        tester.set_additional_globals(|builder| {
-            simple_info_creator(builder);
-            register_rule_defs(builder);
-            crate::interpreter::build_defs::register_provider(builder);
-        });
+        tester.additional_globals(simple_info_creator);
+        tester.additional_globals(register_rule_defs);
+        tester.additional_globals(crate::interpreter::build_defs::register_provider);
         tester
     }
 

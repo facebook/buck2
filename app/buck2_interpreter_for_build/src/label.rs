@@ -53,7 +53,7 @@ mod tests {
     fn labels_are_usable() -> anyhow::Result<()> {
         fn new_tester() -> anyhow::Result<Tester> {
             let mut tester = Tester::new()?;
-            tester.set_additional_globals(label_creator);
+            tester.additional_globals(label_creator);
             Ok(tester)
         }
 

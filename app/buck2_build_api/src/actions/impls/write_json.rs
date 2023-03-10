@@ -642,11 +642,9 @@ mod test {
         }
 
         let mut tester = Tester::new()?;
-        tester.set_additional_globals(|g| {
-            artifact_tag_factory(g);
-            artifactory(g);
-            assertions(g);
-        });
+        tester.additional_globals(artifact_tag_factory);
+        tester.additional_globals(artifactory);
+        tester.additional_globals(assertions);
 
         tester.run_starlark_bzl_test(indoc!(
             r#"
