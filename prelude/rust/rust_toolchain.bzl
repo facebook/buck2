@@ -53,6 +53,8 @@ _rust_toolchain_attrs = {
     "allow_lints": [],
     "deny_lints": [],
     "warn_lints": [],
+    # Clippy configuration file clippy.toml
+    "clippy_toml": None,
     # URL prefix (e.g. /path/to/docs) where crates' docs are hosted. Used for
     # linking types in signatures to their definition in another crate.
     "extern_html_root_url_prefix": None,

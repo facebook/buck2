@@ -137,7 +137,7 @@ def generate_rustdoc(
     subdir = common_args.subdir + "-rustdoc"
     output = ctx.actions.declare_output(subdir)
 
-    plain_env, path_env = _process_env(ctx)
+    plain_env, path_env = _process_env(ctx.attrs.env)
 
     rustdoc_cmd = cmd_args(
         toolchain_info.rustc_action,
@@ -417,11 +417,24 @@ def rust_compile(
     if common_args.is_check:
         # We don't really need the outputs from this build, just to keep the artifact accounting straight
         clippy_out, clippy_emit_args = _rustc_emits(ctx, emit, {}, common_args.subdir + "-clippy", crate, params)
+        clippy_env = dict()
+        if toolchain_info.clippy_toml:
+            # Clippy wants to be given a path to a directory containing a
+            # clippy.toml (or .clippy.toml). Our buckconfig accepts an arbitrary
+            # label like //path/to:my-clippy.toml which may not have the
+            # filename that clippy looks for. Here we make a directory that
+            # symlinks the requested configuration file under the required name.
+            clippy_conf_dir = ctx.actions.symlinked_dir(
+                common_args.subdir + "-clippy-configuration",
+                {"clippy.toml": toolchain_info.clippy_toml},
+            )
+            clippy_env["CLIPPY_CONF_DIR"] = clippy_conf_dir
         (clippy_diag, _) = _rustc_invoke(
             ctx = ctx,
             compile_ctx = compile_ctx,
             prefix = "{}/{}".format(common_args.subdir, common_args.tempfile),
             rustc_cmd = cmd_args(compile_ctx.clippy_wrapper, rustc_cmd, clippy_lints, clippy_emit_args),
+            env = clippy_env,
             diag = "clippy",
             outputs = clippy_out.values(),
             short_cmd = common_args.short_cmd,
@@ -840,10 +853,15 @@ def _rustc_invoke(
         outputs: ["artifact"],
         short_cmd: str.type,
         is_binary: bool.type,
-        crate_map: {str.type: "label"}) -> ({str.type: "artifact"}, ["artifact", None]):
+        crate_map: {str.type: "label"},
+        env: {str.type: ["resolved_macro", "artifact"]} = {}) -> ({str.type: "artifact"}, ["artifact", None]):
     toolchain_info = ctx_toolchain_info(ctx)
 
-    plain_env, path_env = _process_env(ctx)
+    plain_env, path_env = _process_env(ctx.attrs.env)
+
+    more_plain_env, more_path_env = _process_env(env)
+    plain_env.update(more_plain_env)
+    path_env.update(more_path_env)
 
     # Save diagnostic outputs
     json_diag = ctx.actions.declare_output("{}-{}.json".format(prefix, diag))
@@ -906,14 +924,14 @@ def _rustc_invoke(
 # distinguish path from non-path. (This will not work if the value contains both
 # path and non-path content, but we'll burn that bridge when we get to it.)
 def _process_env(
-        ctx: "context") -> ({str.type: "cmd_args"}, {str.type: "cmd_args"}):
+        env: {str.type: ["resolved_macro", "artifact"]}) -> ({str.type: "cmd_args"}, {str.type: "cmd_args"}):
     # Values with inputs (ie artifact references).
     path_env = {}
 
     # Plain strings.
     plain_env = {}
 
-    for k, v in ctx.attrs.env.items():
+    for k, v in env.items():
         v = cmd_args(v)
         if len(v.inputs) > 0:
             path_env[k] = v
