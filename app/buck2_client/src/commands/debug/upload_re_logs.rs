@@ -59,7 +59,7 @@ impl UploadReLogsCommand {
 
                 // write compressed file to stdin
                 let mut child = upload.spawn().context("Error spawning command")?;
-                let mut stdin = child.stdin.take().expect("Stdin was piped");
+                let mut stdin = child.stdin.take().context("Stdin was piped")?;
                 tokio::io::copy(reader, &mut stdin)
                     .await
                     .context("Error writing to stdin")?;
