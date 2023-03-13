@@ -7,9 +7,11 @@
  * of this source tree.
  */
 
-use crate::path::artifact_path::ArtifactPath;
+use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+
+use crate::artifact::fs::ArtifactFs;
 
 pub trait ArtifactDyn: Send + Sync + 'static {
-    fn get_path(&self) -> ArtifactPath;
+    fn resolve_path(&self, fs: &ArtifactFs) -> anyhow::Result<ProjectRelativePathBuf>;
     fn is_source(&self) -> bool;
 }

@@ -20,7 +20,9 @@ use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDyn;
 use buck2_core::fs::buck_out_path::BuckOutPath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
+use buck2_execute::artifact::fs::ArtifactFs;
 use buck2_execute::execute::request::OutputType;
 use buck2_execute::path::artifact_path::ArtifactPath;
 use derivative::Derivative;
@@ -131,8 +133,8 @@ impl Artifact {
 }
 
 impl ArtifactDyn for Artifact {
-    fn get_path(&self) -> ArtifactPath {
-        self.get_path()
+    fn resolve_path(&self, fs: &ArtifactFs) -> anyhow::Result<ProjectRelativePathBuf> {
+        fs.resolve(self.get_path())
     }
 
     fn is_source(&self) -> bool {
