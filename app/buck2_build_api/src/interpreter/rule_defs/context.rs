@@ -212,16 +212,6 @@ impl<'v> AnalysisContext<'v> {
         registry: AnalysisRegistry<'v>,
         digest_config: DigestConfig,
     ) -> Self {
-        Self::new_dynamic(heap, attributes, label, registry, digest_config)
-    }
-
-    pub(crate) fn new_dynamic(
-        heap: &'v Heap,
-        attributes: Value<'v>,
-        label: Option<ValueTyped<'v, Label>>,
-        registry: AnalysisRegistry<'v>,
-        digest_config: DigestConfig,
-    ) -> Self {
         // Check the types match what the user expects.
         assert!(StructRef::from_value(attributes).is_some());
 

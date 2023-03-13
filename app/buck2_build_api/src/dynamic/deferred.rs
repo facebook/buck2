@@ -260,7 +260,7 @@ impl Deferred for DynamicLambda {
         let artifacts = Dict::new(artifacts);
         let outputs = Dict::new(outputs);
 
-        let ctx = heap.alloc_typed(AnalysisContext::new_dynamic(
+        let ctx = heap.alloc_typed(AnalysisContext::new(
             heap,
             attributes,
             match &self.owner {
