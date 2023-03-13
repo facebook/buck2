@@ -9,7 +9,7 @@ The root of your [project](#project) must contain a configuration file named `.b
 
 #### Action
 
-An individual, cacheable, ideally hermetic command that's run during the [build](#build-file). It takes [artifacts](#artifact) as inputs and produces other artifacts as outputs. An example command could be `gcc -o main main.c`, which takes the artifact `main.c` (a source file) and produces the artifact called `main` (the compiled binary).
+An individual, cacheable, ideally hermetic command that's run during the [build](#buck-file). It takes [artifacts](#artifact) as inputs and produces other artifacts as outputs. An example command could be `gcc -o main main.c`, which takes the artifact `main.c` (a source file) and produces the artifact called `main` (the compiled binary).
 
 #### Action graph
 
@@ -22,12 +22,6 @@ A single input or output of an [action](#action). These are files that participa
 #### Attribute
 
 Declared by a [rule](#rule) and used to express the properties of a particular instance of a rule to create a [target](#target). For example, srcs, deps and copts, which declare a target's source files, dependencies, and custom compiler options, respectively. The available attributes for a target depend on its rule type.
-
-#### Build file
-
-:::note
-🚧   THIS SECTION IS UNDER CONSTRUCTION
-:::
 
 #### BUCK file
 
@@ -83,7 +77,7 @@ Instances of Buck2 share a [daemon](#daemon) if and only if their isolation dire
 
 #### Package
 
-A directory that contains a Buck2 [build file](#build-file) and all [source files](#source-file) belonging to the same directory as the build file, or any of its subdirectories that do not contain a build file themselves.
+A directory that contains a Buck2 [BUCK file](#buck-file) and all [source files](#source-file) belonging to the same directory as the BUCK file, or any of its subdirectories that do not contain a BUCK file themselves.
 
 #### Project
 
@@ -103,7 +97,7 @@ A rule consists of an attribute spec and an implementation, which is a [Starlark
 
 The attribute spec declares what attributes the rule expects to receive. The rule implementation receives the [attributes](#attribute) of a [target](#target) and the [providers](#provider) of its [dependencies](#dependency). It can declare new [actions](#action) and [artifacts](#artifact) and must return [providers](#provider) that can be used to pass data to its dependents or to Buck2 itself.
 
-Rules are instantiated in [build files](#build-file) to declare targets and set their attributes. The rule implementation is called when Buck2 needs its providers, which can happen when the target is built, or when one of its dependents is.
+Rules are instantiated in [BUCK files](#buck-file) to declare targets and set their attributes. The rule implementation is called when Buck2 needs its providers, which can happen when the target is built, or when one of its dependents is.
 
 As an example, the `cxx_binary` rule could be used to create a C++ binary, but `android_binary` rule would be used to create an Android APK
 
@@ -121,11 +115,11 @@ As an example, the `cxx_binary` rule could be used to create a C++ binary, but `
 
 #### Target
 
-An object that is defined in a [build file](#build-file). Targets represent the buildable units of a build from the perspective of the end user. Declared by instantiating a [rule](#rule) with attributes. A target has [dependencies](#dependency), which are references to other targets.
+An object that is defined in a [BUCK file](#buck-file). Targets represent the buildable units of a build from the perspective of the end user. Declared by instantiating a [rule](#rule) with attributes. A target has [dependencies](#dependency), which are references to other targets.
 
 #### Target label
 
-The identifier for a [target](#target). Structured as `cellAlias//path/to/package:target`, where `cellAlias//` maps to a [cell root](#cell) path (as defined in the [./buckconfig](#buckconfig) of the cell this target belongs to), `path/to/package` is the [package](#package) directory that contains the [build file](#build-file) declaring the target (relative to the mapped cell alias), and `:target` is the target's name.
+The identifier for a [target](#target). Structured as `cellAlias//path/to/package:target`, where `cellAlias//` maps to a [cell root](#cell) path (as defined in the [./buckconfig](#buckconfig) of the cell this target belongs to), `path/to/package` is the [package](#package) directory that contains the [BUCK file](#buck-file) declaring the target (relative to the mapped cell alias), and `:target` is the target's name.
 
 #### Target pattern
 

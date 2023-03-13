@@ -10,7 +10,7 @@ There are two types of visibility attributes available (each of which takes a li
 * `visibility` - determines which other targets can depend on a target.
 * `within_view` - determines which other targets a target can depend on.
 
-Both attributes act as allowlists, with some exceptions. In general, if a target is not listed, there may be no dependency relationship. If the `within_view` list is empty or unset, however, its check is bypassed. Similarly, targets defined in the same [build file](./glossary.md#build-file) always act as if they were members of their siblings' `visibility` lists.
+Both attributes act as allowlists, with some exceptions. In general, if a target is not listed, there may be no dependency relationship. If the `within_view` list is empty or unset, however, its check is bypassed. Similarly, targets defined in the same [BUCK file](./glossary.md#buck-file) always act as if they were members of their siblings' `visibility` lists.
 
 There is also a special value for `visibility` attribute: `'PUBLIC'`, which makes a build rule visible to all targets.
 
