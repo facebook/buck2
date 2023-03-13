@@ -35,7 +35,7 @@ use starlark::values::ValueError;
 use starlark::values::ValueLike;
 use thiserror::Error;
 
-use crate::actions::artifact::Artifact;
+use crate::actions::artifact::artifact_type::Artifact;
 use crate::artifact_groups::ArtifactGroup;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifactLike;

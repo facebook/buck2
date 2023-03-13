@@ -12,8 +12,8 @@ use anyhow::Context;
 use dupe::Dupe;
 use indexmap::IndexSet;
 
-use crate::actions::artifact::Artifact;
-use crate::actions::artifact::OutputArtifact;
+use crate::actions::artifact::artifact_type::Artifact;
+use crate::actions::artifact::artifact_type::OutputArtifact;
 use crate::actions::key::ActionKey;
 use crate::analysis::registry::AnalysisValueFetcher;
 use crate::deferred::base_deferred_key::BaseDeferredKey;

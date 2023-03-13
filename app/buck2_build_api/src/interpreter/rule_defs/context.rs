@@ -66,7 +66,7 @@ use starlark::values::ValueTyped;
 use starlark_map::small_set::SmallSet;
 use thiserror::Error;
 
-use crate::actions::artifact::OutputArtifact;
+use crate::actions::artifact::artifact_type::OutputArtifact;
 use crate::actions::impls::cas_artifact::ArtifactKind;
 use crate::actions::impls::cas_artifact::DirectoryKind;
 use crate::actions::impls::cas_artifact::UnregisteredCasArtifactAction;

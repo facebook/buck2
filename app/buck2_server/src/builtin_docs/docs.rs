@@ -12,8 +12,8 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use buck2_build_api::actions::artifact::artifact_type::Artifact;
 use buck2_build_api::actions::artifact::source_artifact::SourceArtifact;
-use buck2_build_api::actions::artifact::Artifact;
 use buck2_build_api::interpreter::context::prelude_path;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisContext;

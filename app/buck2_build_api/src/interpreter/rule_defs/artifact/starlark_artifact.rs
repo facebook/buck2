@@ -34,9 +34,9 @@ use starlark::values::Value;
 use starlark::values::ValueLike;
 use thiserror::Error;
 
-use crate::actions::artifact::Artifact;
-use crate::actions::artifact::BaseArtifactKind;
-use crate::actions::artifact::OutputArtifact;
+use crate::actions::artifact::artifact_type::Artifact;
+use crate::actions::artifact::artifact_type::BaseArtifactKind;
+use crate::actions::artifact::artifact_type::OutputArtifact;
 use crate::artifact_groups::ArtifactGroup;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ArtifactFingerprint;
 use crate::interpreter::rule_defs::artifact::ArtifactError;

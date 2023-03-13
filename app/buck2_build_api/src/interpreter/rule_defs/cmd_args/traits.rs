@@ -23,8 +23,8 @@ use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use indexmap::IndexSet;
 use starlark::values::string::StarlarkStr;
 
-use crate::actions::artifact::Artifact;
-use crate::actions::artifact::OutputArtifact;
+use crate::actions::artifact::artifact_type::Artifact;
+use crate::actions::artifact::artifact_type::OutputArtifact;
 use crate::artifact_groups::ArtifactGroup;
 use crate::attrs::resolve::attr_type::arg::value::ResolvedMacro;
 use crate::interpreter::rule_defs::artifact_tagging::ArtifactTag;

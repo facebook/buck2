@@ -27,7 +27,7 @@ use starlark::values::ValueLike;
 use starlark::values::ValueOf;
 use thiserror::Error;
 
-use crate::actions::artifact::Artifact;
+use crate::actions::artifact::artifact_type::Artifact;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
 use crate::interpreter::rule_defs::artifact::ValueAsArtifactLike;
 // Provider that signals a rule is installable (ex. android_binary)

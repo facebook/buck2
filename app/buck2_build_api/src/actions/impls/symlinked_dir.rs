@@ -274,8 +274,8 @@ mod tests {
     use buck2_core::package::PackageLabel;
 
     use super::*;
+    use crate::actions::artifact::artifact_type::Artifact;
     use crate::actions::artifact::source_artifact::SourceArtifact;
-    use crate::actions::artifact::Artifact;
     use crate::actions::ArtifactGroup;
 
     fn mk_artifact() -> Artifact {

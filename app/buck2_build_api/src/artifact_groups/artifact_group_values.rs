@@ -27,7 +27,7 @@ use dupe::Dupe;
 use smallvec::smallvec;
 use smallvec::SmallVec;
 
-use crate::actions::artifact::Artifact;
+use crate::actions::artifact::artifact_type::Artifact;
 
 /// The [`ArtifactValue`]s for an [`crate::artifact_groups::ArtifactGroup`].
 #[derive(Clone, Dupe, Allocative)]
@@ -249,8 +249,8 @@ mod tests {
     use buck2_execute::artifact_value::ArtifactValue;
 
     use super::*;
+    use crate::actions::artifact::artifact_type::testing::BuildArtifactTestingExt;
     use crate::actions::artifact::build_artifact::BuildArtifact;
-    use crate::actions::artifact::testing::BuildArtifactTestingExt;
     use crate::deferred::types::testing::DeferredIdExt;
     use crate::deferred::types::DeferredId;
 

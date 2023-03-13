@@ -555,10 +555,10 @@ mod tests {
     use once_cell::sync::Lazy;
     use sorted_vector_map::SortedVectorMap;
 
+    use crate::actions::artifact::artifact_type::testing::BuildArtifactTestingExt;
+    use crate::actions::artifact::artifact_type::Artifact;
     use crate::actions::artifact::build_artifact::BuildArtifact;
     use crate::actions::artifact::source_artifact::SourceArtifact;
-    use crate::actions::artifact::testing::BuildArtifactTestingExt;
-    use crate::actions::artifact::Artifact;
     use crate::actions::box_slice_set::BoxSliceSet;
     use crate::actions::execute::action_executor::ActionExecutionKind;
     use crate::actions::execute::action_executor::ActionExecutionMetadata;

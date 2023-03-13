@@ -29,8 +29,8 @@ use starlark::values::tuple::TupleRef;
 use starlark::values::OwnedFrozenValue;
 use thiserror::Error;
 
+use crate::actions::artifact::artifact_type::Artifact;
 use crate::actions::artifact::build_artifact::BuildArtifact;
-use crate::actions::artifact::Artifact;
 use crate::actions::key::ActionKey;
 use crate::actions::RegisteredAction;
 use crate::analysis::registry::AnalysisRegistry;

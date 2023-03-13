@@ -35,8 +35,8 @@ use starlark::values::Heap;
 use starlark::values::StarlarkValue;
 use starlark::values::Value;
 
+use crate::actions::artifact::artifact_type::Artifact;
 use crate::actions::artifact::source_artifact::SourceArtifact;
-use crate::actions::artifact::Artifact;
 use crate::attrs::resolve::attr_type::arg::ConfiguredStringWithMacrosExt;
 use crate::attrs::resolve::attr_type::configuration_dep::ConfigurationDepAttrTypeExt;
 use crate::attrs::resolve::attr_type::dep::DepAttrTypeExt;

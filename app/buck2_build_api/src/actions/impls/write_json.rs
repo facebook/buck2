@@ -48,8 +48,8 @@ use starlark::values::Value;
 use starlark::values::ValueLike;
 use thiserror::Error;
 
+use crate::actions::artifact::artifact_type::Artifact;
 use crate::actions::artifact::build_artifact::BuildArtifact;
-use crate::actions::artifact::Artifact;
 use crate::actions::execute::action_executor::ActionExecutionKind;
 use crate::actions::execute::action_executor::ActionExecutionMetadata;
 use crate::actions::execute::action_executor::ActionOutputs;
@@ -583,7 +583,7 @@ mod test {
     use starlark::environment::GlobalsBuilder;
 
     use super::*;
-    use crate::actions::artifact::OutputArtifact;
+    use crate::actions::artifact::artifact_type::OutputArtifact;
     use crate::interpreter::rule_defs::artifact::testing::artifactory;
     use crate::interpreter::rule_defs::artifact_tagging::testing::artifact_tag_factory;
     use crate::interpreter::rule_defs::artifact_tagging::ArtifactTag;

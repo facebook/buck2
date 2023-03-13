@@ -43,12 +43,12 @@ use ref_cast::RefCast;
 use smallvec::SmallVec;
 use thiserror::Error;
 
+use crate::actions::artifact::artifact_type::Artifact;
+use crate::actions::artifact::artifact_type::ArtifactKind;
+use crate::actions::artifact::artifact_type::BaseArtifactKind;
 use crate::actions::artifact::build_artifact::BuildArtifact;
 use crate::actions::artifact::projected_artifact::ProjectedArtifact;
 use crate::actions::artifact::source_artifact::SourceArtifact;
-use crate::actions::artifact::Artifact;
-use crate::actions::artifact::ArtifactKind;
-use crate::actions::artifact::BaseArtifactKind;
 use crate::actions::build_listener::HasBuildSignals;
 use crate::actions::build_listener::TransitiveSetComputationSignal;
 use crate::actions::calculation::ActionCalculation;
@@ -465,8 +465,8 @@ mod tests {
     use starlark::values::OwnedFrozenValue;
 
     use super::*;
+    use crate::actions::artifact::artifact_type::Artifact;
     use crate::actions::artifact::source_artifact::SourceArtifact;
-    use crate::actions::artifact::Artifact;
     use crate::artifact_groups::deferred::DeferredTransitiveSetData;
     use crate::context::SetBuildContextData;
     use crate::deferred::calculation::testing::DeferredResolve;

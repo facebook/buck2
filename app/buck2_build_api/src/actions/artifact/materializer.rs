@@ -14,8 +14,8 @@ use buck2_events::dispatch::span_async;
 use buck2_execute::materialize::materializer::HasMaterializer;
 use dice::DiceComputations;
 
+use crate::actions::artifact::artifact_type::Artifact;
 use crate::actions::artifact::build_artifact::BuildArtifact;
-use crate::actions::artifact::Artifact;
 use crate::calculation::Calculation;
 
 #[async_trait]

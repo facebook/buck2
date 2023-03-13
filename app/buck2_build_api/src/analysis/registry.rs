@@ -37,9 +37,9 @@ use starlark::values::ValueError;
 use starlark::values::ValueTyped;
 use thiserror::Error;
 
-use crate::actions::artifact::Artifact;
-use crate::actions::artifact::DeclaredArtifact;
-use crate::actions::artifact::OutputArtifact;
+use crate::actions::artifact::artifact_type::Artifact;
+use crate::actions::artifact::artifact_type::DeclaredArtifact;
+use crate::actions::artifact::artifact_type::OutputArtifact;
 use crate::actions::registry::ActionsRegistry;
 use crate::actions::UnregisteredAction;
 use crate::analysis::anon_targets::AnonTargetsRegistry;

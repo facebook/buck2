@@ -468,10 +468,10 @@ mod tests {
     use maplit::btreemap;
     use sorted_vector_map::sorted_vector_map;
 
+    use crate::actions::artifact::artifact_type::testing::BuildArtifactTestingExt;
+    use crate::actions::artifact::artifact_type::Artifact;
     use crate::actions::artifact::build_artifact::BuildArtifact;
     use crate::actions::artifact::source_artifact::SourceArtifact;
-    use crate::actions::artifact::testing::BuildArtifactTestingExt;
-    use crate::actions::artifact::Artifact;
     use crate::actions::calculation::command_details;
     use crate::actions::calculation::ActionCalculation;
     use crate::actions::impls::run::knobs::RunActionKnobs;

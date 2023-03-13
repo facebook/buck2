@@ -10,7 +10,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use buck2_build_api::actions::artifact::Artifact;
+use buck2_build_api::actions::artifact::artifact_type::Artifact;
 use buck2_build_api::calculation::Calculation;
 use buck2_cli_proto::targets_show_outputs_response::TargetPaths;
 use buck2_cli_proto::TargetsRequest;

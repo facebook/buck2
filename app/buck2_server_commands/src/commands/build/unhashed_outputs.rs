@@ -12,7 +12,7 @@ use std::path;
 use std::path::Path;
 
 use anyhow::Context;
-use buck2_build_api::actions::artifact::BaseArtifactKind;
+use buck2_build_api::actions::artifact::artifact_type::BaseArtifactKind;
 use buck2_build_api::build::BuildProviderType;
 use buck2_build_api::build::ProviderArtifacts;
 use buck2_core::fs::fs_util;

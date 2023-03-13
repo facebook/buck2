@@ -27,9 +27,9 @@ use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
 
-use crate::actions::artifact::Artifact;
-use crate::actions::artifact::BoundBuildArtifact;
-use crate::actions::artifact::OutputArtifact;
+use crate::actions::artifact::artifact_type::Artifact;
+use crate::actions::artifact::artifact_type::BoundBuildArtifact;
+use crate::actions::artifact::artifact_type::OutputArtifact;
 use crate::interpreter::rule_defs::artifact::ArtifactError;
 use crate::interpreter::rule_defs::artifact::StarlarkDeclaredArtifact;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;

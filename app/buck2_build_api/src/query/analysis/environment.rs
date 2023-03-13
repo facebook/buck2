@@ -47,8 +47,8 @@ use indexmap::IndexMap;
 use inventory::ctor;
 use thiserror::Error;
 
-use crate::actions::artifact::Artifact;
-use crate::actions::artifact::OutputArtifact;
+use crate::actions::artifact::artifact_type::Artifact;
+use crate::actions::artifact::artifact_type::OutputArtifact;
 use crate::analysis::configured_graph::AnalysisConfiguredGraphQueryDelegate;
 use crate::analysis::configured_graph::AnalysisDiceQueryDelegate;
 use crate::artifact_groups::deferred::DeferredTransitiveSetData;

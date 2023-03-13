@@ -30,7 +30,7 @@ use starlark::values::StarlarkValue;
 use starlark::values::Value;
 use thiserror::Error;
 
-use crate::actions::artifact::Artifact;
+use crate::actions::artifact::artifact_type::Artifact;
 
 /// The Starlark representation of an `Artifact` on disk which can be accessed.
 #[derive(Debug, ProvidesStaticType, NoSerialize, Allocative)]

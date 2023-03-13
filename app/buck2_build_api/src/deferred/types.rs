@@ -35,8 +35,8 @@ use itertools::Itertools;
 use once_cell::sync::Lazy;
 use thiserror::Error;
 
+use crate::actions::artifact::artifact_type::Artifact;
 use crate::actions::artifact::build_artifact::BuildArtifact;
-use crate::actions::artifact::Artifact;
 use crate::deferred::base_deferred_key::BaseDeferredKey;
 
 /// An asynchronous chunk of work that will be executed when requested.

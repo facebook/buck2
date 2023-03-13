@@ -42,9 +42,9 @@ use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
 
-use crate::actions::artifact;
-use crate::actions::artifact::Artifact;
-use crate::actions::artifact::OutputArtifact;
+use crate::actions::artifact::artifact_type::Artifact;
+use crate::actions::artifact::artifact_type::DeclaredArtifact;
+use crate::actions::artifact::artifact_type::OutputArtifact;
 use crate::artifact_groups::ArtifactGroup;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ArtifactFingerprint;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
@@ -66,7 +66,7 @@ pub struct StarlarkDeclaredArtifact {
     // FileSpan is not Hash, and the location is not really relevant for equality.
     // We also expect each artifact to be declared at one unique location anyway.
     pub(super) declaration_location: Option<FileSpan>,
-    pub(super) artifact: artifact::DeclaredArtifact,
+    pub(super) artifact: DeclaredArtifact,
     // A set of ArtifactGroups that should be materialized along with the main artifact
     pub(super) associated_artifacts: Arc<OrderedSet<ArtifactGroup>>,
 }
@@ -87,7 +87,7 @@ impl Display for StarlarkDeclaredArtifact {
 impl StarlarkDeclaredArtifact {
     pub fn new(
         declaration_location: Option<FileSpan>,
-        artifact: artifact::DeclaredArtifact,
+        artifact: DeclaredArtifact,
         associated_artifacts: Arc<OrderedSet<ArtifactGroup>>,
     ) -> Self {
         StarlarkDeclaredArtifact {

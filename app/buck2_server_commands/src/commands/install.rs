@@ -18,9 +18,9 @@ use std::process::Stdio;
 
 use anyhow::Context;
 use async_trait::async_trait;
+use buck2_build_api::actions::artifact::artifact_type::Artifact;
+use buck2_build_api::actions::artifact::artifact_type::BaseArtifactKind;
 use buck2_build_api::actions::artifact::materializer::ArtifactMaterializer;
-use buck2_build_api::actions::artifact::Artifact;
-use buck2_build_api::actions::artifact::BaseArtifactKind;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::artifact_groups::ArtifactGroupValues;
 use buck2_build_api::calculation::Calculation;

@@ -14,8 +14,8 @@ use std::path::Path;
 
 use allocative::Allocative;
 use anyhow::Context;
+use buck2_build_api::actions::artifact::artifact_type::Artifact;
 use buck2_build_api::actions::artifact::source_artifact::SourceArtifact;
-use buck2_build_api::actions::artifact::Artifact;
 use buck2_build_api::analysis::calculation::get_dep_analysis;
 use buck2_build_api::analysis::calculation::resolve_queries;
 use buck2_build_api::analysis::get_deps_from_analysis_results;

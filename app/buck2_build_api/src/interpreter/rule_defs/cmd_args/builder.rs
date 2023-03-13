@@ -15,7 +15,7 @@ use buck2_execute::artifact::fs::ExecutorFs;
 use indexmap::IndexSet;
 use thiserror::Error;
 
-use crate::actions::artifact::Artifact;
+use crate::actions::artifact::artifact_type::Artifact;
 use crate::interpreter::rule_defs::cmd_args::traits::CommandLineContext;
 use crate::interpreter::rule_defs::cmd_args::traits::CommandLineLocation;
 

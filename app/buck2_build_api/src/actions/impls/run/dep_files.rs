@@ -43,8 +43,8 @@ use parking_lot::MutexGuard;
 use thiserror::Error;
 use tracing::instrument;
 
-use crate::actions::artifact::Artifact;
-use crate::actions::artifact::OutputArtifact;
+use crate::actions::artifact::artifact_type::Artifact;
+use crate::actions::artifact::artifact_type::OutputArtifact;
 use crate::actions::execute::action_execution_target::ActionExecutionTarget;
 use crate::actions::execute::action_executor::ActionOutputs;
 use crate::actions::impls::run::expanded_command_line::ExpandedCommandLineDigest;
@@ -778,8 +778,8 @@ mod test {
     use maplit::hashmap;
 
     use super::*;
+    use crate::actions::artifact::artifact_type::testing::BuildArtifactTestingExt;
     use crate::actions::artifact::build_artifact::BuildArtifact;
-    use crate::actions::artifact::testing::BuildArtifactTestingExt;
     use crate::deferred::types::testing::DeferredIdExt;
     use crate::deferred::types::DeferredId;
 

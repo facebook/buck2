@@ -29,8 +29,8 @@ use dupe::Dupe;
 use indexmap::IndexSet;
 use starlark::codemap::FileSpan;
 
-use crate::actions::artifact::DeclaredArtifact;
-use crate::actions::artifact::OutputArtifact;
+use crate::actions::artifact::artifact_type::DeclaredArtifact;
+use crate::actions::artifact::artifact_type::OutputArtifact;
 use crate::actions::key::ActionKey;
 use crate::actions::ActionErrors;
 use crate::actions::ActionToBeRegistered;
@@ -273,9 +273,9 @@ mod tests {
     use dupe::Dupe;
     use indexmap::indexset;
 
+    use crate::actions::artifact::artifact_type::testing::ArtifactTestingExt;
+    use crate::actions::artifact::artifact_type::testing::BuildArtifactTestingExt;
     use crate::actions::artifact::build_artifact::BuildArtifact;
-    use crate::actions::artifact::testing::ArtifactTestingExt;
-    use crate::actions::artifact::testing::BuildArtifactTestingExt;
     use crate::actions::registry::ActionsRegistry;
     use crate::actions::testings::SimpleUnregisteredAction;
     use crate::actions::ActionErrors;

@@ -15,7 +15,7 @@ use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use derive_more::Display;
 use dupe::Dupe;
 
-use crate::actions::artifact::BaseArtifactKind;
+use crate::actions::artifact::artifact_type::BaseArtifactKind;
 
 /// A path within another Artifact.
 #[derive(Clone, Debug, Display, Dupe, Hash, PartialEq, Eq, Allocative)]
