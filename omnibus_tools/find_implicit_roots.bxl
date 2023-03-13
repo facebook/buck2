@@ -21,7 +21,7 @@ def _find_implicit_roots(ctx):
         "ovr_config//platform/linux:x86_64-fbcode-platform010-clang"
     )
 
-    targets = ctx.cquery_legacy(platform).eval("kind('^python_(binary|test)', %s)", query_args = [ctx.cli_args.targets])
+    targets = ctx.cquery(platform).eval("kind('^python_(binary|test)', %s)", query_args = [ctx.cli_args.targets])
     targets = _flatten(targets.values())
     all_analysis = ctx.analysis([configured_sub_target(t.label, "omnibus") for t in targets])
 
