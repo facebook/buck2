@@ -150,6 +150,41 @@ impl ExtensionCommand<DefaultIoHandler> for RefreshTtls {
 
 #[derive(Derivative)]
 #[derivative(Debug)]
+struct GetTtlRefreshLog {
+    sender: Sender<String>,
+}
+
+impl ExtensionCommand<DefaultIoHandler> for GetTtlRefreshLog {
+    fn execute(
+        self: Box<Self>,
+        processor: &mut DeferredMaterializerCommandProcessor<DefaultIoHandler>,
+    ) {
+        // We normally poll this very lazily, so actually force it to happen here.
+        processor.poll_current_ttl_refresh();
+
+        let mut out = String::new();
+
+        for entry in &processor.ttl_refresh_history {
+            write!(&mut out, "{:?}\t", entry.at).unwrap();
+            match &entry.outcome {
+                None => {
+                    writeln!(&mut out, "SKIP").unwrap();
+                }
+                Some(Ok(())) => {
+                    writeln!(&mut out, "OK").unwrap();
+                }
+                Some(Err(e)) => {
+                    writeln!(&mut out, "ERR\t{:#}", e).unwrap();
+                }
+            }
+        }
+
+        let _ignored = self.sender.send(out);
+    }
+}
+
+#[derive(Derivative)]
+#[derivative(Debug)]
 struct TestIter {
     sender: Sender<String>,
     count: usize,
@@ -230,6 +265,15 @@ impl DeferredMaterializerExtensions for DeferredMaterializer {
             None => {}
         };
         Ok(())
+    }
+
+    async fn get_ttl_refresh_log(&self) -> anyhow::Result<String> {
+        let (sender, receiver) = oneshot::channel();
+        self.command_sender
+            .send(MaterializerCommand::Extension(
+                Box::new(GetTtlRefreshLog { sender }) as _,
+            ))?;
+        receiver.await.context("No response from materializer")
     }
 
     async fn clean_stale_artifacts(

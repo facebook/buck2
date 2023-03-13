@@ -259,7 +259,6 @@ struct DeferredMaterializerCommandProcessor<T: 'static> {
     ttl_refresh_instance: Option<oneshot::Receiver<(DateTime<Utc>, anyhow::Result<()>)>>,
 }
 
-#[allow(unused)]
 struct TtlRefreshHistoryEntry {
     at: DateTime<Utc>,
     outcome: Option<anyhow::Result<()>>,

@@ -42,6 +42,8 @@ enum DeferredMaterializerSubcommand {
         #[clap()]
         min_ttl: i64,
     },
+    /// Get the log for TTL refreshes.
+    GetRefreshLog,
     TestIter {
         #[clap(long, default_value = "1")]
         count: usize,
@@ -80,6 +82,14 @@ impl AuditSubcommand for DeferredMaterializerCommand {
                             .refresh_ttls(min_ttl)
                             .await
                             .context("Failed to refresh")?;
+                    }
+                    DeferredMaterializerSubcommand::GetRefreshLog => {
+                        let text = deferred_materializer
+                            .get_ttl_refresh_log()
+                            .await
+                            .context("Failed to get_ttl_refresh_log")?;
+
+                        write!(stdout, "{}", text)?;
                     }
                     DeferredMaterializerSubcommand::TestIter { count } => {
                         let text = deferred_materializer

@@ -645,6 +645,8 @@ pub trait DeferredMaterializerExtensions: Send + Sync {
 
     async fn refresh_ttls(&self, min_ttl: i64) -> anyhow::Result<()>;
 
+    async fn get_ttl_refresh_log(&self) -> anyhow::Result<String>;
+
     async fn clean_stale_artifacts(
         &self,
         keep_since_time: DateTime<Utc>,
