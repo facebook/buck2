@@ -77,7 +77,7 @@ Instances of Buck2 share a [daemon](#daemon) if and only if their isolation dire
 
 #### Package
 
-A directory that contains a Buck2 [BUCK file](#buck-file) and all [source files](#source-file) belonging to the same directory as the BUCK file, or any of its subdirectories that do not contain a BUCK file themselves.
+A directory that contains a Buck2 [BUCK file](#buck-file) and all source files belonging to the same directory as the BUCK file, or any of its subdirectories that do not contain a BUCK file themselves.
 
 #### Project
 
@@ -100,12 +100,6 @@ The attribute spec declares what attributes the rule expects to receive. The rul
 Rules are instantiated in [BUCK files](#buck-file) to declare targets and set their attributes. The rule implementation is called when Buck2 needs its providers, which can happen when the target is built, or when one of its dependents is.
 
 As an example, the `cxx_binary` rule could be used to create a C++ binary, but `android_binary` rule would be used to create an Android APK
-
-#### Source file
-
-:::note
-🚧   THIS SECTION IS UNDER CONSTRUCTION
-:::
 
 #### Target
 
