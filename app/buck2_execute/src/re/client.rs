@@ -379,17 +379,17 @@ impl RemoteExecutionClient {
             .await
     }
 
-    pub async fn get_digest_expiration(
+    pub async fn get_digest_expirations(
         &self,
-        digest: TDigest,
+        digests: Vec<TDigest>,
         use_case: RemoteExecutorUseCase,
-    ) -> anyhow::Result<DateTime<Utc>> {
+    ) -> anyhow::Result<Vec<(TDigest, DateTime<Utc>)>> {
         self.data
             .get_digest_expirations
             .op(self
                 .data
                 .client
-                .get_digest_expiration(digest, use_case)
+                .get_digest_expirations(digests, use_case)
                 .map_err(|e| self.decorate_error(e)))
             .await
     }
@@ -1014,28 +1014,30 @@ impl RemoteExecutionClientImpl {
         Ok(())
     }
 
-    async fn get_digest_expiration(
+    async fn get_digest_expirations(
         &self,
-        digest: TDigest,
+        digests: Vec<TDigest>,
         use_case: RemoteExecutorUseCase,
-    ) -> anyhow::Result<DateTime<Utc>> {
-        let ttl = self
+    ) -> anyhow::Result<Vec<(TDigest, DateTime<Utc>)>> {
+        let now = Utc::now();
+
+        let ttls = self
             .client()
             .get_cas_client()
             .get_digests_ttl(
                 use_case.metadata(),
                 GetDigestsTtlRequest {
-                    digests: vec![digest],
+                    digests,
                     ..Default::default()
                 },
             )
             .await?
-            .digests_with_ttl
-            .pop()
-            .context("No ttl returned")?
-            .ttl;
+            .digests_with_ttl;
 
-        Ok(Utc::now() + chrono::Duration::seconds(ttl))
+        Ok(ttls
+            .into_iter()
+            .map(|t| (t.digest, now + chrono::Duration::seconds(t.ttl)))
+            .collect())
     }
 
     async fn write_action_result(

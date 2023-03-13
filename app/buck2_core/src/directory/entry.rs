@@ -60,4 +60,18 @@ impl<D, L> DirectoryEntry<D, L> {
             Self::Leaf(ref mut l) => DirectoryEntry::Leaf(l),
         }
     }
+
+    pub fn dir(self) -> Option<D> {
+        match self {
+            Self::Dir(d) => Some(d),
+            Self::Leaf(..) => None,
+        }
+    }
+
+    pub fn leaf(self) -> Option<L> {
+        match self {
+            Self::Dir(d) => None,
+            Self::Leaf(l) => Some(l),
+        }
+    }
 }

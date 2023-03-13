@@ -168,6 +168,7 @@ mod state_machine {
             self: &Arc<Self>,
             _tree: &ArtifactTree,
             _min_ttl: Duration,
+            _digest_config: DigestConfig,
         ) -> Option<BoxFuture<'static, anyhow::Result<()>>> {
             None
         }

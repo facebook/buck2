@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::collections::HashMap;
 use std::collections::HashSet;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -42,6 +43,7 @@ use futures::future::BoxFuture;
 use futures::future::Future;
 use futures::future::FutureExt;
 use futures::future::TryFutureExt;
+use gazebo::prelude::VecExt;
 use once_cell::sync::Lazy;
 use remote_execution::NamedDigest;
 use remote_execution::NamedDigestWithPermissions;
@@ -106,6 +108,7 @@ pub(super) trait IoHandler: Sized + Sync + Send + 'static {
         self: &Arc<Self>,
         tree: &ArtifactTree,
         min_ttl: Duration,
+        digest_config: DigestConfig,
     ) -> Option<BoxFuture<'static, anyhow::Result<()>>>;
 }
 
@@ -339,8 +342,9 @@ impl IoHandler for DefaultIoHandler {
         self: &Arc<Self>,
         tree: &ArtifactTree,
         min_ttl: Duration,
+        digest_config: DigestConfig,
     ) -> Option<BoxFuture<'static, anyhow::Result<()>>> {
-        create_ttl_refresh(tree, &self.re_client_manager, min_ttl).map(|f| f.boxed())
+        create_ttl_refresh(tree, &self.re_client_manager, min_ttl, digest_config).map(|f| f.boxed())
     }
 }
 
@@ -380,18 +384,27 @@ pub(super) fn create_ttl_refresh(
     tree: &ArtifactTree,
     re_manager: &Arc<ReConnectionManager>,
     min_ttl: Duration,
+    digest_config: DigestConfig,
 ) -> Option<impl Future<Output = anyhow::Result<()>>> {
-    let mut digests_to_refresh = HashSet::new();
+    let mut digests_to_refresh = HashMap::<_, HashSet<_>>::new();
 
     let ttl_deadline = Utc::now() + min_ttl;
 
     for data in tree.iter_without_paths() {
         match &data.stage {
-            ArtifactMaterializationStage::Declared { method, .. } => match method.as_ref() {
+            ArtifactMaterializationStage::Declared { entry, method } => match method.as_ref() {
                 ArtifactMaterializationMethod::CasDownload { info } => {
-                    if let Some(action_digest) = info.action_digest() {
-                        if action_digest.expires() <= ttl_deadline {
-                            digests_to_refresh.insert((action_digest.dupe(), info.re_use_case));
+                    let mut walk = unordered_entry_walk(entry.as_ref());
+                    while let Some((_entry_path, entry)) = walk.next() {
+                        if let DirectoryEntry::Leaf(ActionDirectoryMember::File(file)) = entry {
+                            let needs_refresh = file.digest.expires() < ttl_deadline;
+                            tracing::trace!("{} needs_refresh: {}", file, needs_refresh);
+                            if needs_refresh {
+                                digests_to_refresh
+                                    .entry(info.re_use_case)
+                                    .or_default()
+                                    .insert(file.digest.dupe());
+                            }
                         }
                     }
                 }
@@ -402,49 +415,64 @@ pub(super) fn create_ttl_refresh(
     }
 
     if digests_to_refresh.is_empty() {
-        None
-    } else {
-        let re_manager = re_manager.dupe();
-
-        Some(async move {
-            let re_connection = re_manager.get_re_connection();
-            let re_client = re_connection.get_client();
-            let re_client = &re_client;
-
-            futures::future::join_all(digests_to_refresh.iter().map(
-                |(digest, use_case)| async move {
-                    // A side effect of action cache queries is to refresh the underlying outputs.
-                    match re_client
-                        .action_cache(digest.data().dupe(), *use_case)
-                        .await
-                    {
-                        Ok(Some(res)) => {
-                            let expires = Utc::now() + Duration::seconds(res.ttl);
-                            digest.update_expires(expires);
-                            tracing::debug!("Updated expiry for action `{}`: {}", digest, expires)
-                        }
-                        Ok(None) => {
-                            tracing::info!(
-                                "Action `{}` is referenced by materializer, but expired",
-                                digest
-                            );
-                        }
-                        Err(e) => {
-                            tracing::info!(
-                                "Failed to query action cache for action `{}`: {:#}",
-                                digest,
-                                e
-                            );
-                        }
-                    }
-                },
-            ))
-            .await;
-
-            // Currently we don't propagate errors back here.
-            Ok(())
-        })
+        return None;
     }
+
+    let re_manager = re_manager.dupe();
+
+    let fut = async move {
+        // We need to pick *a number* to not send an unbounded amount of digests here. 500 seems
+        // broadly reasonable.
+        const REFRESH_CHUNK_SIZE: usize = 500;
+
+        let re_connection = re_manager.get_re_connection();
+        let re_client = re_connection.get_client();
+
+        for (use_case, digests_to_refresh) in digests_to_refresh {
+            let mut digests_to_refresh = digests_to_refresh.into_iter().collect::<Vec<_>>();
+            digests_to_refresh.sort();
+
+            for chunk in digests_to_refresh.as_slice().chunks(REFRESH_CHUNK_SIZE) {
+                tracing::debug!("Update {} TTLs", chunk.len());
+
+                let digests_expires = re_client
+                    .get_digest_expirations(chunk.iter().map(|d| d.to_re()).collect(), use_case)
+                    .await?;
+
+                let mut digests_expires = digests_expires.into_try_map(|(digest, expires)| {
+                    anyhow::Ok((FileDigest::from_re(&digest, digest_config)?, expires))
+                })?;
+                digests_expires.sort();
+
+                if chunk.len() != digests_expires.len() {
+                    return Err(anyhow::anyhow!(
+                        "Invalid response from get_digests_ttl: expected {}, got {} digests",
+                        chunk.len(),
+                        digests_expires.len()
+                    ));
+                }
+
+                for (digest, (matching_digest, expires)) in chunk.iter().zip(&digests_expires) {
+                    if digest.data() != matching_digest {
+                        return Err(anyhow::anyhow!("Invalid response from get_digests_ttl"));
+                    }
+
+                    digest.update_expires(*expires);
+                }
+            }
+        }
+
+        anyhow::Ok(())
+    }
+    .map(|res| {
+        if let Err(e) = &res {
+            tracing::info!("TTL Refresh failed: {:#}", e);
+        }
+
+        res
+    });
+
+    Some(fut)
 }
 
 struct WriteIoRequest {

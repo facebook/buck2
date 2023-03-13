@@ -427,15 +427,15 @@ impl ManagedRemoteExecutionClient {
         self.lock()?.get().await?.upload_blob(blob, use_case).await
     }
 
-    pub async fn get_digest_expiration(
+    pub async fn get_digest_expirations(
         &self,
-        digest: TDigest,
+        digests: Vec<TDigest>,
         use_case: RemoteExecutorUseCase,
-    ) -> anyhow::Result<DateTime<Utc>> {
+    ) -> anyhow::Result<Vec<(TDigest, DateTime<Utc>)>> {
         self.lock()?
             .get()
             .await?
-            .get_digest_expiration(digest, use_case)
+            .get_digest_expirations(digests, use_case)
             .await
     }
 

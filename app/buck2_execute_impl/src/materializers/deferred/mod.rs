@@ -1044,7 +1044,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                         Some(task) => Some(task),
                         None => self
                             .io
-                            .create_ttl_refresh(&self.tree, ttl_refresh.min_ttl)
+                            .create_ttl_refresh(&self.tree, ttl_refresh.min_ttl, self.digest_config)
                             .map(|fut| {
                                 self.rt.spawn(async move {
                                     match fut.await {

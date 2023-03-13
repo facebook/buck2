@@ -178,11 +178,15 @@ impl IncrementalActionExecutable for CasArtifactAction {
     ) -> anyhow::Result<(ActionOutputs, ActionExecutionMetadata)> {
         let expiration = ctx
             .re_client()
-            .get_digest_expiration(self.inner.digest.to_re(), self.inner.re_use_case)
+            .get_digest_expirations(vec![self.inner.digest.to_re()], self.inner.re_use_case)
             .await
             .with_context(|| {
                 CasArtifactActionExecutionError::GetDigestExpirationError(self.inner.digest.dupe())
-            })?;
+            })?
+            .into_iter()
+            .next()
+            .context("get_digest_expirations did not return anything")?
+            .1;
 
         if expiration < self.inner.expires_after {
             return Err(CasArtifactActionExecutionError::InvalidExpiration {

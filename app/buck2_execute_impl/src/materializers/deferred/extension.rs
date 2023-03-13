@@ -141,6 +141,7 @@ impl ExtensionCommand<DefaultIoHandler> for RefreshTtls {
             &processor.tree,
             &processor.io.re_client_manager,
             Duration::seconds(self.min_ttl),
+            processor.digest_config,
         )
         .map(|f| processor.rt.spawn(f));
         let _ignored = self.sender.send(task);
