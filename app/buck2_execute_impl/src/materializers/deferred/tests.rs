@@ -229,6 +229,8 @@ mod state_machine {
                 command_sender,
                 tree: ArtifactTree::new(),
                 subscriptions: MaterializerSubscriptions::new(),
+                ttl_refresh_history: Default::default(),
+                ttl_refresh_instance: Default::default(),
             },
             command_receiver,
         )

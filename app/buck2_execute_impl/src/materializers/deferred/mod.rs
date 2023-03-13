@@ -88,7 +88,7 @@ use tokio::runtime::Handle;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::oneshot;
-use tokio::task::JoinHandle;
+use tokio::sync::oneshot::error::TryRecvError;
 use tokio::time::Interval;
 use tracing::instrument;
 
@@ -252,6 +252,17 @@ struct DeferredMaterializerCommandProcessor<T: 'static> {
     tree: ArtifactTree,
     /// Active subscriptions
     subscriptions: MaterializerSubscriptions,
+    /// History of refreshes. This *does* grow without bound, but considering the data is pretty
+    /// small and we create it infrequently, that's fine.
+    ttl_refresh_history: Vec<TtlRefreshHistoryEntry>,
+    /// The current ttl_refresh instance, if any exists.
+    ttl_refresh_instance: Option<oneshot::Receiver<(DateTime<Utc>, anyhow::Result<()>)>>,
+}
+
+#[allow(unused)]
+struct TtlRefreshHistoryEntry {
+    at: DateTime<Utc>,
+    outcome: Option<anyhow::Result<()>>,
 }
 
 // NOTE: This doesn't derive `Error` and that's on purpose.  We don't want to make it easy (or
@@ -884,6 +895,8 @@ impl DeferredMaterializer {
             command_sender: command_sender.dupe(),
             tree,
             subscriptions: MaterializerSubscriptions::new(),
+            ttl_refresh_history: Vec::new(),
+            ttl_refresh_instance: None,
         };
 
         let command_thread = std::thread::Builder::new()
@@ -1011,8 +1024,6 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
             refresh_ttl_ticker,
         };
 
-        let mut current_ttl_refresh: Option<JoinHandle<()>> = None;
-
         while let Some(op) = stream.next().await {
             match op {
                 Op::Command(command) => {
@@ -1032,32 +1043,35 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                     // JoinHandle and just avoid scheduling more than one, though this means we'll
                     // just miss ticks if we do take longer than a tick to run.
 
-                    let curr = match current_ttl_refresh.take() {
-                        Some(mut curr) => match futures::poll!(&mut curr) {
-                            std::task::Poll::Ready(..) => None,
-                            std::task::Poll::Pending => Some(curr),
-                        },
-                        None => None,
-                    };
+                    self.poll_current_ttl_refresh();
 
-                    current_ttl_refresh = match curr {
-                        Some(task) => Some(task),
-                        None => self
+                    if self.ttl_refresh_instance.is_none() {
+                        let ttl_refresh = self
                             .io
                             .create_ttl_refresh(&self.tree, ttl_refresh.min_ttl, self.digest_config)
                             .map(|fut| {
-                                self.rt.spawn(async move {
-                                    match fut.await {
-                                        Ok(()) => {
-                                            tracing::info!("Scheduled TTL refresh succeeded");
-                                        }
-                                        Err(e) => {
-                                            tracing::warn!("Scheduled TTL refresh failed: {:#}", e);
-                                        }
-                                    }
-                                })
+                                // We sue a channel here and not JoinHandle so we get blocking
+                                // `try_recv`.
+                                let (tx, rx) = oneshot::channel();
+
+                                self.rt.spawn(async {
+                                    let res = fut.await;
+                                    let _ignored = tx.send((Utc::now(), res));
+                                });
+
+                                rx
+                            });
+
+                        match ttl_refresh {
+                            Some(ttl_refresh) => {
+                                self.ttl_refresh_instance = Some(ttl_refresh);
+                            }
+                            None => self.ttl_refresh_history.push(TtlRefreshHistoryEntry {
+                                at: Utc::now(),
+                                outcome: None,
                             }),
-                    };
+                        }
+                    }
                 }
             }
         }
@@ -1139,6 +1153,36 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 self.tree.cleanup_finished(path, version, result);
             }
         }
+    }
+
+    /// Poll the current TTL refresh and remove it if it's done. Add the outcome to
+    /// ttl_refresh_history.
+    fn poll_current_ttl_refresh(&mut self) {
+        self.ttl_refresh_instance = match self.ttl_refresh_instance.take() {
+            Some(mut curr) => match curr.try_recv() {
+                Ok((at, outcome)) => {
+                    // Done
+                    self.ttl_refresh_history.push(TtlRefreshHistoryEntry {
+                        at,
+                        outcome: Some(outcome),
+                    });
+                    None
+                }
+                Err(TryRecvError::Empty) => {
+                    // Leave it alone.
+                    Some(curr)
+                }
+                Err(TryRecvError::Closed) => {
+                    // Shouldnt really happen unless Tokio is shutting down, but be safe.
+                    self.ttl_refresh_history.push(TtlRefreshHistoryEntry {
+                        at: Utc::now(),
+                        outcome: Some(Err(anyhow::anyhow!("Shutdown"))),
+                    });
+                    None
+                }
+            },
+            None => None,
+        };
     }
 
     fn is_path_materialized(&self, path: &ProjectRelativePath) -> bool {
