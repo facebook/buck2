@@ -444,7 +444,7 @@ pub(crate) fn get_artifact_path_display(
     project_fs: &ProjectRoot,
     artifact_fs: &ArtifactFs,
 ) -> anyhow::Result<String> {
-    let resolved = artifact_fs.resolve(artifact_path)?;
+    let resolved = artifact_path.resolve(artifact_fs)?;
     Ok(if abs {
         project_fs.resolve(&resolved).to_string()
     } else {

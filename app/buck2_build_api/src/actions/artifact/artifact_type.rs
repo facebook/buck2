@@ -134,7 +134,7 @@ impl Artifact {
 
 impl ArtifactDyn for Artifact {
     fn resolve_path(&self, fs: &ArtifactFs) -> anyhow::Result<ProjectRelativePathBuf> {
-        fs.resolve(self.get_path())
+        self.get_path().resolve(fs)
     }
 
     fn is_source(&self) -> bool {
@@ -624,7 +624,7 @@ mod tests {
         );
 
         assert_eq!(
-            fs.resolve(Artifact::from(source).get_path())?,
+            Artifact::from(source).get_path().resolve(&fs)?,
             ProjectRelativePath::unchecked_new("cell_path/pkg/src.cpp")
         );
 

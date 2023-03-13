@@ -16,9 +16,6 @@ use buck2_core::fs::buck_out_path::BuckOutPath;
 use buck2_core::fs::buck_out_path::BuckOutPathResolver;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
-use either::Either;
-
-use crate::path::artifact_path::ArtifactPath;
 
 #[derive(Clone, Allocative)]
 pub struct ArtifactFs {
@@ -38,24 +35,6 @@ impl ArtifactFs {
             buck_out_path_resolver,
             project_filesystem,
         }
-    }
-
-    pub fn resolve(&self, artifact: ArtifactPath<'_>) -> anyhow::Result<ProjectRelativePathBuf> {
-        let ArtifactPath {
-            base_path,
-            projected_path,
-            hidden_components_count: _,
-        } = artifact;
-
-        let base_path = match base_path {
-            Either::Left(build) => self.buck_out_path_resolver.resolve_gen(&build),
-            Either::Right(source) => self.buck_path_resolver.resolve(source)?,
-        };
-
-        Ok(match projected_path {
-            Some(projected_path) => base_path.join(projected_path),
-            None => base_path,
-        })
     }
 
     pub fn retrieve_unhashed_location(&self, path: &BuckOutPath) -> Option<ProjectRelativePathBuf> {
@@ -83,6 +62,10 @@ impl ArtifactFs {
 
     pub fn buck_out_path_resolver(&self) -> &BuckOutPathResolver {
         &self.buck_out_path_resolver
+    }
+
+    pub fn buck_path_resolver(&self) -> &BuckPathResolver {
+        &self.buck_path_resolver
     }
 }
 

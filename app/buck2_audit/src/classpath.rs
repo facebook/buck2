@@ -105,7 +105,7 @@ impl AuditSubcommand for AuditClasspathCommand {
                             let classpaths: anyhow::Result<Vec<_>> = label_to_artifact
                                 .into_values()
                                 .map(|artifact| {
-                                    let path = artifact_fs.resolve(artifact.get_path())?;
+                                    let path = artifact.get_path().resolve(&artifact_fs)?;
                                     anyhow::Ok(artifact_fs.fs().resolve(&path))
                                 })
                                 .collect();
@@ -124,7 +124,7 @@ impl AuditSubcommand for AuditClasspathCommand {
                 } else {
                     let label_to_artifact = classpath(&ctx, targets.into_iter()).await?;
                     for (_label, artifact) in label_to_artifact {
-                        let path = artifact_fs.resolve(artifact.get_path())?;
+                        let path = artifact.get_path().resolve(&artifact_fs)?;
                         let abs_path = artifact_fs.fs().resolve(&path);
                         writeln!(stdout, "{}", &abs_path)?;
                     }

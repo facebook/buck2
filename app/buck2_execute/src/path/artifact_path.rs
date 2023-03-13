@@ -17,9 +17,13 @@ use buck2_core::buck_path::path::BuckPathRef;
 use buck2_core::fs::buck_out_path::BuckOutPath;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
+use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use dupe::Dupe;
 use either::Either;
 use gazebo::cell::ARef;
 use gazebo::eq_chain;
+
+use crate::artifact::fs::ArtifactFs;
 
 #[derive(Debug)]
 pub struct ArtifactPath<'a> {
@@ -90,6 +94,24 @@ impl<'a> ArtifactPath<'a> {
         };
 
         f(&path)
+    }
+
+    pub fn resolve(&self, artifact_fs: &ArtifactFs) -> anyhow::Result<ProjectRelativePathBuf> {
+        let ArtifactPath {
+            base_path,
+            projected_path,
+            hidden_components_count: _,
+        } = self;
+
+        let base_path = match base_path {
+            Either::Left(build) => artifact_fs.buck_out_path_resolver().resolve_gen(&build),
+            Either::Right(source) => artifact_fs.buck_path_resolver().resolve(source.dupe())?,
+        };
+
+        Ok(match projected_path {
+            Some(projected_path) => base_path.join(projected_path),
+            None => base_path,
+        })
     }
 }
 
