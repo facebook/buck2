@@ -216,6 +216,8 @@ async def main() -> int:
             "SYSTEMROOT",
             # Our rustc wrapper. https://fburl.com/code/qcos5aho
             "SYSROOT_MULTIPLEXER_DEBUG",
+            # Required on Windows for getpass.getuser() to work.
+            "USERNAME",
         ]
         if k in os.environ
     }
