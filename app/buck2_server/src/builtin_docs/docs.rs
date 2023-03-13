@@ -17,7 +17,7 @@ use buck2_build_api::actions::artifact::source_artifact::SourceArtifact;
 use buck2_build_api::interpreter::context::prelude_path;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisContext;
-use buck2_build_api::interpreter::rule_defs::provider::callable::UsedProviderCallable;
+use buck2_build_api::interpreter::rule_defs::provider::callable::UserProviderCallable;
 use buck2_cli_proto::unstable_docs_response;
 use buck2_cli_proto::UnstableDocsRequest;
 use buck2_cli_proto::UnstableDocsResponse;
@@ -103,7 +103,7 @@ fn get_builtin_global_starlark_docs() -> Doc {
 }
 
 fn get_builtin_provider_docs() -> Vec<Doc> {
-    UsedProviderCallable::builtin_provider_documentation()
+    UserProviderCallable::builtin_provider_documentation()
         .into_iter()
         .filter_map(|(name, docs)| docs.map(|item| builtin_doc(name, "providers", item)))
         .collect()

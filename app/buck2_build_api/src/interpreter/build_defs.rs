@@ -23,7 +23,7 @@ use starlark::eval::Evaluator;
 use starlark::values::Value;
 use starlark_map::small_set::SmallSet;
 
-use crate::interpreter::rule_defs::provider::callable::UsedProviderCallable;
+use crate::interpreter::rule_defs::provider::callable::UserProviderCallable;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSetDefinition;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSetError;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSetOperations;
@@ -44,7 +44,7 @@ pub(crate) fn register_provider(builder: &mut GlobalsBuilder) {
         #[starlark(default = "")] doc: &str,
         fields: Either<Vec<String>, SmallMap<&str, &str>>,
         eval: &mut Evaluator,
-    ) -> anyhow::Result<UsedProviderCallable> {
+    ) -> anyhow::Result<UserProviderCallable> {
         let docstring = DocString::from_docstring(DocStringKind::Starlark, doc);
         let path = BuildContext::from_context(eval)?.starlark_path.path();
 
@@ -68,7 +68,7 @@ pub(crate) fn register_provider(builder: &mut GlobalsBuilder) {
                 (field_names, field_docs)
             }
         };
-        Ok(UsedProviderCallable::new(
+        Ok(UserProviderCallable::new(
             path.into_owned(),
             docstring,
             field_docs,

@@ -110,7 +110,7 @@ impl UserProviderCallableImpl {
 ///
 /// Field values default to `None`
 #[derive(Debug, ProvidesStaticType, Trace, NoSerialize, Allocative)]
-pub struct UsedProviderCallable {
+pub struct UserProviderCallable {
     /// The name of this provider, filled in by `export_as()`. This must be set before this
     /// object can be called and Providers created.
     id: RefCell<Option<Arc<ProviderId>>>,
@@ -126,7 +126,7 @@ pub struct UsedProviderCallable {
     callable: RefCell<UserProviderCallableImpl>,
 }
 
-impl Display for UsedProviderCallable {
+impl Display for UserProviderCallable {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.id() {
             None => write!(f, "unnamed provider"),
@@ -144,7 +144,7 @@ impl Display for UsedProviderCallable {
     }
 }
 
-impl UsedProviderCallable {
+impl UserProviderCallable {
     pub fn new(
         path: CellPath,
         docs: Option<DocString>,
@@ -179,20 +179,20 @@ impl UsedProviderCallable {
     }
 }
 
-impl ProviderCallableLike for UsedProviderCallable {
+impl ProviderCallableLike for UserProviderCallable {
     fn id(&self) -> Option<&Arc<ProviderId>> {
         // Safe because once we set id, we never change it
         unsafe { self.id.try_borrow_unguarded().unwrap().as_ref() }
     }
 }
 
-impl<'v> AllocValue<'v> for UsedProviderCallable {
+impl<'v> AllocValue<'v> for UserProviderCallable {
     fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
         heap.alloc_complex(self)
     }
 }
 
-impl Freeze for UsedProviderCallable {
+impl Freeze for UserProviderCallable {
     type Frozen = FrozenUserProviderCallable;
     fn freeze(self, _freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
         let callable = self.callable.into_inner();
@@ -215,7 +215,7 @@ impl Freeze for UsedProviderCallable {
     }
 }
 
-impl<'v> StarlarkValue<'v> for UsedProviderCallable {
+impl<'v> StarlarkValue<'v> for UserProviderCallable {
     starlark_type!("provider_callable");
 
     fn export_as(&self, variable_name: &str, eval: &mut Evaluator<'v, '_>) {
@@ -363,7 +363,7 @@ impl<'v> StarlarkValue<'v> for FrozenUserProviderCallable {
 fn provider_callable_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn r#type<'v>(this: Value<'v>, heap: &Heap) -> anyhow::Result<Value<'v>> {
-        if let Some(x) = this.downcast_ref::<UsedProviderCallable>() {
+        if let Some(x) = this.downcast_ref::<UserProviderCallable>() {
             match &*x.id.borrow() {
                 None => Err(ProviderCallableError::ProviderNotAssigned(x.fields.clone()).into()),
                 Some(id) => Ok(heap.alloc(id.name.as_str())),
