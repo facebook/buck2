@@ -18,6 +18,8 @@ _CONSTRAINTS = [
     "ovr_config//third-party/python/constraints:cinder.3.8",
 ]
 
+_CONSTRAINTS = [] # @oss-enable
+
 # Apparently, `==` doesn't do value comparison for `ConstraintValueInfo`, so
 # impl a hacky eq impl to workaround.
 def _constr_eq(a, b):
