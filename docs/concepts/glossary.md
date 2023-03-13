@@ -29,7 +29,7 @@ A `BUCK` file (the name is configurable, some projects use `TARGETS`) is the mai
 
 #### BXL
 
-BXL ([Buck eXtension Language](https://buck2.build/docs/developers/bxl)) scripts are written in [Starlark](https://github.com/bazelbuild/starlark) (a restricted subset of Python) and give integrators the ability to inspect and interact directly with the buck2 graph.
+BXL ([Buck eXtension Language](https://buck2.build/docs/developers/bxl)) scripts are written in [Starlark](https://github.com/facebookexperimental/starlark-rust) (a restricted subset of Python) and give integrators the ability to inspect and interact directly with the buck2 graph.
 
 BXL scripts can query the [action graph](#action-graph), [configured graph](#configured-graph), and [unconfigured graph](#unconfigured-graph). They can also create [actions](#action) and trigger builds.
 
@@ -93,7 +93,7 @@ Distributed execution of [actions](#action) on remote workers. It can speed up b
 
 #### Rule
 
-A rule consists of an attribute spec and an implementation, which is a [Starlark](#starlark) function.
+A rule consists of an attribute spec and an implementation, which is a [Starlark](https://github.com/facebookexperimental/starlark-rust) function.
 
 The attribute spec declares what attributes the rule expects to receive. The rule implementation receives the [attributes](#attribute) of a [target](#target) and the [providers](#provider) of its [dependencies](#dependency). It can declare new [actions](#action) and [artifacts](#artifact) and must return [providers](#provider) that can be used to pass data to its dependents or to Buck2 itself.
 
@@ -102,12 +102,6 @@ Rules are instantiated in [BUCK files](#buck-file) to declare targets and set th
 As an example, the `cxx_binary` rule could be used to create a C++ binary, but `android_binary` rule would be used to create an Android APK
 
 #### Source file
-
-:::note
-🚧   THIS SECTION IS UNDER CONSTRUCTION
-:::
-
-#### Starlark
 
 :::note
 🚧   THIS SECTION IS UNDER CONSTRUCTION
