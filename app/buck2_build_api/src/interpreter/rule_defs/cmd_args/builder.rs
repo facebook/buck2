@@ -11,6 +11,7 @@ use std::fmt::Debug;
 
 use buck2_core::fs::paths::RelativePathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::artifact::fs::ExecutorFs;
 use indexmap::IndexSet;
 use thiserror::Error;
@@ -90,7 +91,7 @@ impl CommandLineContext for DefaultCommandLineContext<'_> {
             }
             self.maybe_macros_state = Some((files, pos + 1));
             Ok(self
-                .resolve_project_path(self.fs.fs().resolve(files[pos].get_path())?)?
+                .resolve_project_path(files[pos].resolve_path(self.fs.fs())?)?
                 .into_relative())
         } else {
             Err(anyhow::anyhow!(

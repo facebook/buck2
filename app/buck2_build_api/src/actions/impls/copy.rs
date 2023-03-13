@@ -13,6 +13,7 @@ use allocative::Allocative;
 use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_core::category::Category;
+use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::artifact_utils::ArtifactValueBuilder;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
 use buck2_execute::materialize::materializer::CopiedArtifact;
@@ -165,7 +166,7 @@ impl IncrementalActionExecutable for CopyAction {
             .context("Input did not dereference to exactly one artifact")?;
 
         let artifact_fs = ctx.fs();
-        let src = artifact_fs.resolve(input.get_path())?;
+        let src = input.resolve_path(artifact_fs)?;
         let dest = artifact_fs.resolve_build(self.output().get_path());
 
         let value = {

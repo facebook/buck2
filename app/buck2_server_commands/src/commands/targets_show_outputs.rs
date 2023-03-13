@@ -27,6 +27,7 @@ use buck2_core::pattern::ProvidersPattern;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::TargetLabel;
+use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
@@ -121,7 +122,7 @@ async fn targets_show_outputs(
     {
         let mut paths = Vec::new();
         for artifact in targets_artifacts.artifacts {
-            let path = artifact_fs.resolve(artifact.get_path())?;
+            let path = artifact.resolve_path(&artifact_fs)?;
             paths.push(path.to_string());
         }
         targets_paths.push(TargetPaths {

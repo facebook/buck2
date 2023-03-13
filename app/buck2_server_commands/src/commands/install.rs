@@ -50,6 +50,7 @@ use buck2_core::target::name::TargetName;
 use buck2_data::InstallEventInfoEnd;
 use buck2_data::InstallEventInfoStart;
 use buck2_events::dispatch::span_async;
+use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::artifact::fs::ArtifactFs;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::artifact_value::ArtifactValue;
@@ -380,7 +381,7 @@ async fn send_install_info(
     for (file_name, artifact) in install_files {
         let artifact_path = &artifact_fs
             .fs()
-            .resolve(&artifact_fs.resolve(artifact.get_path())?);
+            .resolve(&artifact.resolve_path(artifact_fs)?);
         files_map
             .entry((*file_name).to_owned())
             .or_insert_with(|| artifact_path.to_string());
@@ -609,7 +610,7 @@ async fn send_file(
 
     let path = &artifact_fs
         .fs()
-        .resolve(&artifact_fs.resolve(artifact.get_path())?);
+        .resolve(&artifact.resolve_path(artifact_fs)?);
     let request = tonic::Request::new(FileReadyRequest {
         install_id: install_id.to_owned(),
         name: name.to_owned(),

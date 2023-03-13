@@ -45,8 +45,8 @@ impl ArtifactGroupValues {
         let mut builder = ActionDirectoryBuilder::empty();
 
         for (artifact, value) in values.iter() {
-            let path = artifact_fs
-                .resolve(artifact.get_path())
+            let path = artifact
+                .resolve_path(artifact_fs)
                 .context("Invalid artifact")?;
             insert_artifact(&mut builder, path.as_ref(), value)?;
         }
@@ -96,7 +96,7 @@ impl ArtifactGroupValues {
         }
 
         for (artifact, value) in self.iter() {
-            let projrel_path = artifact_fs.resolve(artifact.get_path())?;
+            let projrel_path = artifact.resolve_path(artifact_fs)?;
             insert_artifact(builder, projrel_path.as_ref(), value)?;
         }
 

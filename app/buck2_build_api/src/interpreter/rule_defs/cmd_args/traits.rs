@@ -18,6 +18,7 @@ use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::fs::paths::RelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use indexmap::IndexSet;
@@ -257,7 +258,7 @@ pub trait CommandLineContext {
 
     /// Resolves the 'Artifact's to a 'CommandLineLocation' relative to the directory this command will run in.
     fn resolve_artifact(&self, artifact: &Artifact) -> anyhow::Result<CommandLineLocation> {
-        self.resolve_project_path(self.fs().fs().resolve(artifact.get_path())?)
+        self.resolve_project_path(artifact.resolve_path(self.fs().fs())?)
             .with_context(|| format!("Error resolving artifact: {}", artifact))
     }
 

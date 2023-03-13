@@ -40,6 +40,7 @@ pub mod result_report {
     use buck2_cli_proto::BuildTarget;
     use buck2_common::result::SharedError;
     use buck2_core::configuration::ConfigurationData;
+    use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
     use buck2_execute::artifact::fs::ArtifactFs;
     use dupe::Dupe;
     use starlark_map::small_map::SmallMap;
@@ -150,7 +151,7 @@ pub mod result_report {
                     artifacts
                         .into_iter()
                         .map(|(a, providers)| BuildOutput {
-                            path: artifact_fs.resolve(a.get_path()).unwrap().to_string(),
+                            path: a.resolve_path(artifact_fs).unwrap().to_string(),
                             providers: Some(providers),
                         })
                         .collect()
@@ -190,6 +191,7 @@ pub mod build_report {
     use buck2_core::provider::label::ProvidersName;
     use buck2_core::target::label::TargetLabel;
     use buck2_events::trace::TraceId;
+    use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
     use buck2_execute::artifact::fs::ArtifactFs;
     use derivative::Derivative;
     use dupe::Dupe;
@@ -335,15 +337,13 @@ pub mod build_report {
 
                             for (artifact, _value) in artifacts.values.iter() {
                                 if is_default {
-                                    default_outs.insert(
-                                        self.artifact_fs.resolve(artifact.get_path()).unwrap(),
-                                    );
+                                    default_outs
+                                        .insert(artifact.resolve_path(self.artifact_fs).unwrap());
                                 }
 
                                 if is_other && self.include_other_outputs {
-                                    other_outs.insert(
-                                        self.artifact_fs.resolve(artifact.get_path()).unwrap(),
-                                    );
+                                    other_outs
+                                        .insert(artifact.resolve_path(self.artifact_fs).unwrap());
                                 }
                             }
                         }

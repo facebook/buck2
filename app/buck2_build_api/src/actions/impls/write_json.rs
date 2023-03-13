@@ -19,6 +19,7 @@ use allocative::Allocative;
 use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_core::category::Category;
+use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
 use buck2_execute::materialize::materializer::WriteRequest;
@@ -230,8 +231,9 @@ impl<'a, 'v> Serialize for SerializeValue<'a, 'v> {
                         // so pass something of the right type, but don't worry about the value.
                         serializer.serialize_str("")
                     }
-                    Some(fs) => serializer
-                        .serialize_str(err(fs.fs().resolve(err(x())?.get_path()))?.as_str()),
+                    Some(fs) => {
+                        serializer.serialize_str(err(err(x())?.resolve_path(fs.fs()))?.as_str())
+                    }
                 }
             }
             JsonUnpack::CommandLine(x) => {

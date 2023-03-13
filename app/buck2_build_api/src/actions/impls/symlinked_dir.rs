@@ -17,6 +17,7 @@ use async_trait::async_trait;
 use buck2_core::category::Category;
 use buck2_core::collections::ordered_set::OrderedSet;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
+use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::artifact_utils::ArtifactValueBuilder;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
 use buck2_execute::materialize::materializer::CopiedArtifact;
@@ -238,7 +239,7 @@ impl IncrementalActionExecutable for SymlinkedDirAction {
                 .into_singleton()
                 .context("Input did not dereference to exactly one artifact")?;
 
-            let src = ctx.fs().resolve(src_artifact.get_path())?;
+            let src = src_artifact.resolve_path(ctx.fs())?;
             let dest = output.join(ForwardRelativePath::new(dest)?);
 
             if self.copy {

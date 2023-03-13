@@ -23,6 +23,7 @@ use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::soft_error;
+use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::artifact::fs::ArtifactFs;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::expand_selector_for_dependencies;
@@ -624,8 +625,8 @@ impl DeclaredDepFiles {
 
         for declared_dep_file in self.tagged.values() {
             let dep_file = &declared_dep_file.output;
-            let path = fs
-                .resolve(dep_file.get_path())
+            let path = dep_file
+                .resolve_path(fs)
                 .map_err(|e| MaterializeDepFilesError::MaterializationFailed { source: e })?;
             paths.push(path);
         }
@@ -669,7 +670,7 @@ impl DeclaredDepFiles {
         for declared_dep_file in self.tagged.values() {
             let mut selector = DirectorySelector::empty();
 
-            let dep_file = fs.resolve(declared_dep_file.output.get_path())?;
+            let dep_file = declared_dep_file.output.resolve_path(fs)?;
 
             let read_dep_file: anyhow::Result<()> = try {
                 let dep_file_path = fs.fs().resolve(&dep_file);

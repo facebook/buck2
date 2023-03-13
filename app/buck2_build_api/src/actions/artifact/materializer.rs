@@ -11,6 +11,7 @@ use async_trait::async_trait;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_data::ToProtoMessage;
 use buck2_events::dispatch::span_async;
+use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::materialize::materializer::HasMaterializer;
 use dice::DiceComputations;
 
@@ -36,7 +37,7 @@ impl ArtifactMaterializer for DiceComputations {
     async fn materialize(&self, artifact: &Artifact) -> anyhow::Result<ProjectRelativePathBuf> {
         let materializer = self.per_transaction_data().get_materializer();
         let artifact_fs = self.get_artifact_fs().await?;
-        let path = artifact_fs.resolve(artifact.get_path())?;
+        let path = artifact.resolve_path(&artifact_fs)?;
         materializer.ensure_materialized(vec![path.clone()]).await?;
         Ok(path)
     }
