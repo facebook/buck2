@@ -280,7 +280,8 @@ async fn compute_deferred(
                 }
             };
 
-            let (targets, deferreds, artifacts, materialized_artifacts) = futures::future::join4(
+            // TODO(nga): do we need to compute artifacts?
+            let (targets, deferreds, _artifacts, materialized_artifacts) = futures::future::join4(
                 futures_pair_to_map(target_node_futs),
                 futures_pair_to_map(deferreds_futs),
                 futures_pair_to_map(artifacts_futs),
@@ -293,7 +294,6 @@ async fn compute_deferred(
                 self.0.dupe(),
                 targets?,
                 deferreds?,
-                artifacts?,
                 materialized_artifacts?,
                 &mut registry,
                 ctx.global_data().get_io_provider().project_root().dupe(),

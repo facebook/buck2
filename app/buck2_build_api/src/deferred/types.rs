@@ -23,7 +23,6 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::target::label::ConfiguredTargetLabel;
-use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use derivative::Derivative;
@@ -72,8 +71,6 @@ pub trait DeferredCtx {
 
     fn get_deferred_data(&self, key: &DeferredKey) -> Option<DeferredValueAnyReady>;
 
-    fn get_artifact(&self, artifact: &Artifact) -> Option<&ArtifactValue>;
-
     fn get_materialized_artifact(&self, artifact: &Artifact) -> Option<&ProjectRelativePath>;
 
     fn registry(&mut self) -> &mut DeferredRegistry;
@@ -88,7 +85,6 @@ pub struct ResolveDeferredCtx<'a> {
     key: DeferredKey,
     configured_targets: HashMap<ConfiguredTargetLabel, ConfiguredTargetNode>,
     deferreds: HashMap<DeferredKey, DeferredValueAnyReady>,
-    artifacts: HashMap<Artifact, ArtifactValue>,
     materialized_artifacts: HashMap<Artifact, ProjectRelativePathBuf>,
     registry: &'a mut DeferredRegistry,
     project_filesystem: ProjectRoot,
@@ -100,7 +96,6 @@ impl<'a> ResolveDeferredCtx<'a> {
         key: DeferredKey,
         configured_targets: HashMap<ConfiguredTargetLabel, ConfiguredTargetNode>,
         deferreds: HashMap<DeferredKey, DeferredValueAnyReady>,
-        artifacts: HashMap<Artifact, ArtifactValue>,
         materialized_artifacts: HashMap<Artifact, ProjectRelativePathBuf>,
         registry: &'a mut DeferredRegistry,
         project_filesystem: ProjectRoot,
@@ -110,7 +105,6 @@ impl<'a> ResolveDeferredCtx<'a> {
             key,
             configured_targets,
             deferreds,
-            artifacts,
             materialized_artifacts,
             registry,
             project_filesystem,
@@ -133,10 +127,6 @@ impl<'a> DeferredCtx for ResolveDeferredCtx<'a> {
 
     fn get_deferred_data(&self, key: &DeferredKey) -> Option<DeferredValueAnyReady> {
         self.deferreds.get(key).map(|b| b.dupe())
-    }
-
-    fn get_artifact(&self, artifact: &Artifact) -> Option<&ArtifactValue> {
-        self.artifacts.get(artifact)
     }
 
     fn get_materialized_artifact(&self, artifact: &Artifact) -> Option<&ProjectRelativePath> {
@@ -1138,7 +1128,6 @@ mod tests {
                         Default::default(),
                         Default::default(),
                         Default::default(),
-                        Default::default(),
                         &mut ctx,
                         dummy_project_filesystem(),
                         DigestConfig::testing_default(),
@@ -1185,7 +1174,6 @@ mod tests {
             vec![make_resolved(&deferred_data, &deferred)]
                 .into_iter()
                 .collect(),
-            Default::default(),
             Default::default(),
             &mut registry,
             dummy_project_filesystem(),
@@ -1243,7 +1231,6 @@ mod tests {
                 Default::default(),
                 Default::default(),
                 Default::default(),
-                Default::default(),
                 &mut registry,
                 dummy_project_filesystem(),
                 DigestConfig::testing_default(),
@@ -1274,7 +1261,6 @@ mod tests {
             *deferred
                 .execute(&mut ResolveDeferredCtx::new(
                     deferred_key,
-                    Default::default(),
                     Default::default(),
                     Default::default(),
                     Default::default(),
@@ -1325,7 +1311,6 @@ mod tests {
                     .unwrap()
                     .execute(&mut ResolveDeferredCtx::new(
                         key,
-                        Default::default(),
                         Default::default(),
                         Default::default(),
                         Default::default(),
