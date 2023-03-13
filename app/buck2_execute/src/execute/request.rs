@@ -12,6 +12,7 @@ use std::time::Duration;
 
 use allocative::Allocative;
 use buck2_common::file_ops::TrackedFileDigest;
+use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::buck_out_path::BuckOutPath;
 use buck2_core::fs::buck_out_path::BuckOutScratchPath;
 use buck2_core::fs::buck_out_path::BuckOutTestPath;
@@ -26,7 +27,6 @@ use indexmap::IndexSet;
 use sorted_vector_map::SortedVectorMap;
 use thiserror::Error;
 
-use crate::artifact::fs::ArtifactFs;
 use crate::artifact::group::artifact_group_values_dyn::ArtifactGroupValuesDyn;
 use crate::execute::environment_inheritance::EnvironmentInheritance;
 

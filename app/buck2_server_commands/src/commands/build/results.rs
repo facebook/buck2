@@ -40,8 +40,8 @@ pub mod result_report {
     use buck2_cli_proto::BuildTarget;
     use buck2_common::result::SharedError;
     use buck2_core::configuration::ConfigurationData;
+    use buck2_core::fs::artifact_path_resolver::ArtifactFs;
     use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
-    use buck2_execute::artifact::fs::ArtifactFs;
     use dupe::Dupe;
     use starlark_map::small_map::SmallMap;
 
@@ -184,6 +184,7 @@ pub mod build_report {
     use buck2_build_api::build::BuildProviderType;
     use buck2_build_api::bxl::types::BxlFunctionLabel;
     use buck2_core::configuration::ConfigurationData;
+    use buck2_core::fs::artifact_path_resolver::ArtifactFs;
     use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
     use buck2_core::fs::project::ProjectRoot;
     use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
@@ -192,7 +193,6 @@ pub mod build_report {
     use buck2_core::target::label::TargetLabel;
     use buck2_events::trace::TraceId;
     use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
-    use buck2_execute::artifact::fs::ArtifactFs;
     use derivative::Derivative;
     use dupe::Dupe;
     use itertools::Itertools;

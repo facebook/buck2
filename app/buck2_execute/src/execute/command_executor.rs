@@ -18,13 +18,13 @@ use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::directory::DirectoryEntry;
 use buck2_core::directory::DirectoryIterator;
 use buck2_core::directory::FingerprintedDirectory;
+use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use dupe::Dupe;
 use remote_execution as RE;
 use sorted_vector_map::SortedVectorMap;
 
-use crate::artifact::fs::ArtifactFs;
 use crate::artifact::fs::ExecutorFs;
 use crate::digest::CasDigestToReExt;
 use crate::digest_config::DigestConfig;

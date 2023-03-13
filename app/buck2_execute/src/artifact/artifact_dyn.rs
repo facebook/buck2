@@ -7,9 +7,8 @@
  * of this source tree.
  */
 
+use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
-
-use crate::artifact::fs::ArtifactFs;
 
 pub trait ArtifactDyn: Send + Sync + 'static {
     fn resolve_path(&self, fs: &ArtifactFs) -> anyhow::Result<ProjectRelativePathBuf>;

@@ -55,6 +55,7 @@ pub mod testing {
     use buck2_core::cells::paths::CellRelativePath;
     use buck2_core::collections::ordered_set::OrderedSet;
     use buck2_core::configuration::ConfigurationData;
+    use buck2_core::fs::artifact_path_resolver::ArtifactFs;
     use buck2_core::fs::buck_out_path::BuckOutPathResolver;
     use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
     use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
@@ -66,7 +67,6 @@ pub mod testing {
     use buck2_core::target::label::ConfiguredTargetLabel;
     use buck2_core::target::label::TargetLabel;
     use buck2_core::target::name::TargetName;
-    use buck2_execute::artifact::fs::ArtifactFs;
     use buck2_execute::artifact::fs::ExecutorFs;
     use buck2_execute::execute::request::OutputType;
     use buck2_interpreter_for_build::interpreter::build_context::BuildContext;

@@ -14,10 +14,10 @@ use std::ops::FromResidual;
 use std::time::Duration;
 use std::time::SystemTime;
 
+use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use dupe::Dupe;
 use indexmap::IndexMap;
 
-use crate::artifact::fs::ArtifactFs;
 use crate::artifact_value::ArtifactValue;
 use crate::execute::claim::Claim;
 use crate::execute::kind::CommandExecutionKind;

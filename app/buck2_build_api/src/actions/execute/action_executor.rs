@@ -16,9 +16,9 @@ use async_trait::async_trait;
 use buck2_common::events::HasEvents;
 use buck2_common::executor_config::CommandExecutorConfig;
 use buck2_common::liveliness_observer::NoopLivelinessObserver;
+use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::buck_out_path::BuckOutPath;
 use buck2_events::dispatch::EventDispatcher;
-use buck2_execute::artifact::fs::ArtifactFs;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest_config::DigestConfig;
@@ -524,6 +524,7 @@ mod tests {
     use buck2_core::cells::testing::CellResolverExt;
     use buck2_core::cells::CellResolver;
     use buck2_core::configuration::ConfigurationData;
+    use buck2_core::fs::artifact_path_resolver::ArtifactFs;
     use buck2_core::fs::buck_out_path::BuckOutPathResolver;
     use buck2_core::fs::fs_util;
     use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
@@ -536,7 +537,6 @@ mod tests {
     use buck2_core::target::name::TargetName;
     use buck2_events::dispatch::with_dispatcher_async;
     use buck2_events::dispatch::EventDispatcher;
-    use buck2_execute::artifact::fs::ArtifactFs;
     use buck2_execute::artifact_value::ArtifactValue;
     use buck2_execute::digest_config::DigestConfig;
     use buck2_execute::execute::blocking::testing::DummyBlockingExecutor;

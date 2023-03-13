@@ -141,11 +141,11 @@ mod tests {
     use buck2_core::cells::name::CellName;
     use buck2_core::cells::testing::CellResolverExt;
     use buck2_core::cells::CellResolver;
+    use buck2_core::fs::artifact_path_resolver::ArtifactFs;
     use buck2_core::fs::buck_out_path::BuckOutPathResolver;
     use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
     use buck2_core::fs::project::ProjectRoot;
     use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
-    use buck2_execute::artifact::fs::ArtifactFs;
 
     use super::*;
     use crate::interpreter::rule_defs::cmd_args::builder::DefaultCommandLineContext;

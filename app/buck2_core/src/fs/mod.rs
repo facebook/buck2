@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+pub mod artifact_path_resolver;
 pub mod async_fs_util;
 pub mod buck_out_path;
 pub mod fs_util;

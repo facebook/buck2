@@ -16,7 +16,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::cell_path::CellPath;
-use buck2_execute::artifact::fs::ArtifactFs;
+use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_query::query::compatibility::MaybeCompatible;
 use buck2_query::query::environment::LabeledNode;

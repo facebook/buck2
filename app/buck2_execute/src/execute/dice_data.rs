@@ -12,13 +12,13 @@
 use std::sync::Arc;
 
 use buck2_common::executor_config::CommandExecutorConfig;
+use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use dice::DiceComputations;
 use dice::DiceData;
 use dice::UserComputationData;
 use dupe::Dupe;
 use remote_execution as RE;
 
-use crate::artifact::fs::ArtifactFs;
 use crate::execute::prepared::PreparedCommandExecutor;
 use crate::re::manager::ManagedRemoteExecutionClient;
 

@@ -11,10 +11,10 @@ use std::sync::Arc;
 use std::sync::Mutex;
 
 use async_trait::async_trait;
+use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use indexmap::IndexMap;
 use sorted_vector_map::SortedVectorMap;
 
-use crate::artifact::fs::ArtifactFs;
 use crate::artifact_value::ArtifactValue;
 use crate::execute::action_digest::ActionDigest;
 use crate::execute::kind::CommandExecutionKind;

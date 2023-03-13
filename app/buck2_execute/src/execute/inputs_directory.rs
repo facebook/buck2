@@ -9,9 +9,9 @@
 
 use buck2_common::file_ops::FileMetadata;
 use buck2_core::directory::DirectoryEntry;
+use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use dupe::Dupe;
 
-use crate::artifact::fs::ArtifactFs;
 use crate::directory::ActionDirectoryBuilder;
 use crate::directory::ActionDirectoryMember;
 use crate::execute::request::CommandExecutionInput;

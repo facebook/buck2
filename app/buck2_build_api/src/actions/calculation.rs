@@ -428,6 +428,7 @@ mod tests {
     use buck2_core::cells::CellResolver;
     use buck2_core::configuration::ConfigurationData;
     use buck2_core::directory::DirectoryEntry;
+    use buck2_core::fs::artifact_path_resolver::ArtifactFs;
     use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
     use buck2_core::fs::project::ProjectRootTemp;
     use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
@@ -477,7 +478,6 @@ mod tests {
     use crate::actions::impls::run::knobs::RunActionKnobs;
     use crate::actions::testings::SimpleAction;
     use crate::actions::Action;
-    use crate::actions::ArtifactFs;
     use crate::actions::RegisteredAction;
     use crate::artifact_groups::calculation::ArtifactGroupCalculation;
     use crate::artifact_groups::ArtifactGroup;

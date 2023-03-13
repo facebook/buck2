@@ -7,8 +7,9 @@
  * of this source tree.
  */
 
+use buck2_core::fs::artifact_path_resolver::ArtifactFs;
+
 use crate::artifact::artifact_dyn::ArtifactDyn;
-use crate::artifact::fs::ArtifactFs;
 use crate::artifact_value::ArtifactValue;
 use crate::directory::ActionDirectoryBuilder;
 

@@ -13,10 +13,10 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use buck2_common::executor_config::RemoteExecutorUseCase;
+use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_events::dispatch::span_async;
-use buck2_execute::artifact::fs::ArtifactFs;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::execute::action_digest::ActionDigest;
 use buck2_execute::execute::blobs::ActionBlobs;
