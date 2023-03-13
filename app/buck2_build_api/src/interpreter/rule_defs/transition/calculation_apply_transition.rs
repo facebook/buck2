@@ -17,6 +17,7 @@ use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
 use buck2_core::collections::ordered_map::OrderedMap;
 use buck2_core::collections::sorted_map::SortedMap;
+use buck2_core::configuration::cfg_diff::cfg_diff;
 use buck2_core::configuration::transition::applied::TransitionApplied;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::configuration::ConfigurationData;
@@ -46,7 +47,6 @@ use crate::attrs::resolve::coerced_attr::CoercedAttrResolveExt;
 use crate::interpreter::rule_defs::provider::builtin::platform_info::PlatformInfo;
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use crate::interpreter::rule_defs::transition::calculation_fetch_transition::FetchTransition;
-use crate::interpreter::rule_defs::transition::cfg_diff::cfg_diff;
 use crate::interpreter::rule_defs::transition::starlark::FrozenTransition;
 
 #[derive(Error, Debug)]

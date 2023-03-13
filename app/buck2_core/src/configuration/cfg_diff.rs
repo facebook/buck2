@@ -11,13 +11,13 @@ use std::cmp::Ordering;
 use std::collections::BTreeMap;
 use std::fmt::Write;
 
-use buck2_core::configuration::constraints::ConstraintKey;
-use buck2_core::configuration::constraints::ConstraintValue;
-use buck2_core::configuration::ConfigurationData;
-use buck2_core::configuration::ConfigurationDataData;
+use crate::configuration::constraints::ConstraintKey;
+use crate::configuration::constraints::ConstraintValue;
+use crate::configuration::ConfigurationData;
+use crate::configuration::ConfigurationDataData;
 
 /// If configurations are not equal, return difference.
-pub(crate) fn cfg_diff(a: &ConfigurationData, b: &ConfigurationData) -> Result<(), String> {
+pub fn cfg_diff(a: &ConfigurationData, b: &ConfigurationData) -> Result<(), String> {
     if a == b {
         return Ok(());
     }
@@ -154,13 +154,12 @@ pub(crate) fn cfg_diff(a: &ConfigurationData, b: &ConfigurationData) -> Result<(
 mod tests {
     use std::collections::BTreeMap;
 
-    use buck2_core::configuration::constraints::ConstraintKey;
-    use buck2_core::configuration::constraints::ConstraintValue;
-    use buck2_core::configuration::ConfigurationData;
-    use buck2_core::configuration::ConfigurationDataData;
-    use buck2_core::target::label::TargetLabel;
-
-    use crate::interpreter::rule_defs::transition::cfg_diff::cfg_diff;
+    use crate::configuration::cfg_diff::cfg_diff;
+    use crate::configuration::constraints::ConstraintKey;
+    use crate::configuration::constraints::ConstraintValue;
+    use crate::configuration::ConfigurationData;
+    use crate::configuration::ConfigurationDataData;
+    use crate::target::label::TargetLabel;
 
     #[test]
     fn test_diff() {

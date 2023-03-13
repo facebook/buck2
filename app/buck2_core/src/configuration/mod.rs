@@ -38,6 +38,7 @@ use thiserror::Error;
 use crate::configuration::constraints::ConstraintKey;
 use crate::configuration::constraints::ConstraintValue;
 
+pub mod cfg_diff;
 pub mod constraints;
 pub mod pair;
 pub mod transition;

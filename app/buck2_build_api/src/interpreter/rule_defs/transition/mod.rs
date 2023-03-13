@@ -9,5 +9,4 @@
 
 pub(crate) mod calculation_apply_transition;
 pub(crate) mod calculation_fetch_transition;
-pub(crate) mod cfg_diff;
 pub(crate) mod starlark;
