@@ -154,8 +154,7 @@ def encode_jar_params(remove_classes: [str.type], output_paths: OutputPaths.type
             patterns = remove_classes,
         ),
         entriesToJar = [output_paths.classes.as_output()],
-        # TODO(cjhopman): Get correct duplicatesLogLevel
-        duplicatesLogLevel = "INFO",
+        duplicatesLogLevel = "FINE",
     )
 
 def command_abi_generation_mode(target_type: TargetType.type, abi_generation_mode: [AbiGenerationMode.type, None]) -> [AbiGenerationMode.type, None]:
