@@ -46,7 +46,7 @@ pub use self::transitive_set_json_projection::TransitiveSetJsonProjection;
 pub use self::traversal::TransitiveSetOrdering;
 
 #[derive(Debug, Error)]
-pub enum TransitiveSetError {
+pub(crate) enum TransitiveSetError {
     #[error(
         "Transitive set type must be assigned to a top-level variable, e.g. `MySet = transitive_set()`"
     )]
@@ -71,12 +71,6 @@ pub enum TransitiveSetError {
         .got
     )]
     TransitiveValueIsOfWrongType { expected: String, got: String },
-
-    #[error(
-        "Transitive set received unexpected arguments (first argument was: `{}`)",
-        .first,
-    )]
-    UnexpectedArgument { first: String },
 
     #[error(
         "The requested projection `{}` does not exist. Valid projections: {}",
