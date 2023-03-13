@@ -12,6 +12,7 @@ allocative = { workspace = true }
 anyhow = { workspace = true }
 dupe = { workspace = true }
 futures = { workspace = true }
+once_cell = { workspace = true }
 triomphe = { workspace = true }
 tracing = { workspace = true }
 starlark_map = { workspace = true }

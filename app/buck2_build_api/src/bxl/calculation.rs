@@ -12,10 +12,9 @@
 use std::fmt::Debug;
 use std::sync::Arc;
 
-use anyhow::Context;
 use async_trait::async_trait;
+use buck2_util::late_binding::LateBinding;
 use dice::DiceComputations;
-use once_cell::sync::OnceCell;
 
 use crate::bxl::result::BxlResult;
 use crate::bxl::types::BxlKey;
@@ -30,7 +29,8 @@ pub trait BxlCalculationDyn: Debug + Send + Sync + 'static {
 ///
 /// BXL implementation lives in downstream crate.
 /// This field is initialized at program start, so this crate can call BXL calculation.
-pub static BXL_CALCULATION_IMPL: OnceCell<&'static dyn BxlCalculationDyn> = OnceCell::new();
+pub static BXL_CALCULATION_IMPL: LateBinding<&'static dyn BxlCalculationDyn> =
+    LateBinding::new("BXL_CALCULATION_IMPL");
 
 #[async_trait]
 pub trait BxlCalculation {
@@ -40,10 +40,6 @@ pub trait BxlCalculation {
 #[async_trait]
 impl BxlCalculation for DiceComputations {
     async fn eval_bxl<'a>(&self, bxl: BxlKey) -> anyhow::Result<Arc<BxlResult>> {
-        BXL_CALCULATION_IMPL
-            .get()
-            .context("BXL_CALCULATION_IMPL not set (internal error)")?
-            .eval_bxl(self, bxl)
-            .await
+        BXL_CALCULATION_IMPL.get()?.eval_bxl(self, bxl).await
     }
 }

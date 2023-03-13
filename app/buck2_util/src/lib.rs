@@ -9,6 +9,7 @@
 
 pub mod arc_str;
 pub mod cycle_detector;
+pub mod late_binding;
 pub mod process;
 pub mod process_stats;
 pub mod rtabort;

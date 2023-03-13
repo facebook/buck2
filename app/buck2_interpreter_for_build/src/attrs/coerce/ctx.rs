@@ -41,7 +41,7 @@ use tracing::info;
 use twox_hash::xxh3;
 
 use super::interner::AttrCoercionInterner;
-use crate::attrs::coerce::query_functions::query_functions;
+use crate::attrs::coerce::query_functions::QUERY_FUNCTIONS;
 
 #[derive(Debug, thiserror::Error)]
 enum BuildAttrCoercionContextError {
@@ -261,7 +261,8 @@ impl AttrCoercionContext for BuildAttrCoercionContext {
         expr: &Spanned<Expr>,
         query: &str,
     ) -> anyhow::Result<()> {
-        query_functions()
+        QUERY_FUNCTIONS
+            .get()?
             .visit_literals(visitor, expr)
             .map_err(|e| QueryError::convert_error(e, query))?;
         Ok(())

@@ -10,14 +10,7 @@
 use std::sync::Arc;
 
 use buck2_query::query::syntax::simple::functions::QueryFunctionsVisitLiterals;
-use once_cell::sync::OnceCell;
+use buck2_util::late_binding::LateBinding;
 
-/// Dependency injection for query functions.
-///
-/// Query functions implementation lives in downstream crate.
-/// This field is initialized at program start, so this crate can visit query functions.
-pub static QUERY_FUNCTIONS: OnceCell<Arc<dyn QueryFunctionsVisitLiterals>> = OnceCell::new();
-
-pub(crate) fn query_functions() -> &'static dyn QueryFunctionsVisitLiterals {
-    &**QUERY_FUNCTIONS.get().expect("QUERY_FUNCTIONS not set")
-}
+pub static QUERY_FUNCTIONS: LateBinding<Arc<dyn QueryFunctionsVisitLiterals>> =
+    LateBinding::new("QUERY_FUNCTIONS");

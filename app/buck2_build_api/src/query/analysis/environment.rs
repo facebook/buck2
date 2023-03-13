@@ -375,12 +375,7 @@ impl<'a> ConfiguredGraphQueryEnvironment<'a> {
 
 #[ctor]
 fn set_query_functions() {
-    if QUERY_FUNCTIONS
-        .set(Arc::new(ConfiguredGraphQueryEnvironment::functions()))
-        .is_err()
-    {
-        panic!("QUERY_FUNCTIONS already set");
-    }
+    QUERY_FUNCTIONS.init(Arc::new(ConfiguredGraphQueryEnvironment::functions()));
 }
 
 #[async_trait]

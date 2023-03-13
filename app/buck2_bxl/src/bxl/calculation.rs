@@ -43,9 +43,7 @@ impl BxlCalculationDyn for BxlCalculationImpl {
 
 #[ctor]
 fn set_bxl_calculation_impl() {
-    BXL_CALCULATION_IMPL
-        .set(&BxlCalculationImpl)
-        .expect("BXL_CALCULATION_IMPL already set (internal error)");
+    BXL_CALCULATION_IMPL.init(&BxlCalculationImpl);
 }
 
 #[async_trait]
