@@ -9,18 +9,10 @@
 
 use allocative::Allocative;
 use gazebo::variants::UnpackVariants;
-use starlark::values::ProvidesStaticType;
 
 use crate::build::BuildTargetResult;
 
-#[derive(
-    Clone,
-    Debug,
-    derive_more::Display,
-    ProvidesStaticType,
-    UnpackVariants,
-    Allocative
-)]
+#[derive(Clone, Debug, derive_more::Display, UnpackVariants, Allocative)]
 pub enum BxlBuildResult {
     None,
     #[display(fmt = "build result")]
