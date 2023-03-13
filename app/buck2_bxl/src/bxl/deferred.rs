@@ -9,12 +9,13 @@
 
 #[cfg(test)]
 mod tests {
+    use std::any;
+    use std::any::Demand;
     use std::sync::atomic::AtomicBool;
     use std::sync::atomic::Ordering;
     use std::sync::Arc;
 
     use allocative::Allocative;
-    use buck2_build_api::actions::artifact::build_artifact::BuildArtifact;
     use buck2_build_api::bxl::result::BxlResult;
     use buck2_build_api::bxl::types::BxlFunctionLabel;
     use buck2_build_api::bxl::types::BxlKey;
@@ -48,6 +49,10 @@ mod tests {
     #[derive(Allocative)]
     struct FakeDeferred(usize, IndexSet<DeferredInput>, Arc<AtomicBool>);
 
+    impl any::Provider for FakeDeferred {
+        fn provide<'a>(&'a self, _demand: &mut Demand<'a>) {}
+    }
+
     impl Deferred for FakeDeferred {
         type Output = usize;
 
@@ -61,10 +66,6 @@ mod tests {
         ) -> anyhow::Result<DeferredValue<Self::Output>> {
             self.2.store(true, Ordering::SeqCst);
             Ok(DeferredValue::Ready(self.0))
-        }
-
-        fn debug_artifact_outputs(&self) -> anyhow::Result<Option<Vec<BuildArtifact>>> {
-            Ok(None)
         }
     }
 

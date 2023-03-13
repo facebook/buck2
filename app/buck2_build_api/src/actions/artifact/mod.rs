@@ -23,4 +23,5 @@ pub mod build_artifact;
 pub mod artifact_type;
 pub mod materializer;
 pub(crate) mod projected_artifact;
+pub mod provide_outputs;
 pub mod source_artifact;

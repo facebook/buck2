@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::any;
+use std::any::Demand;
 use std::mem;
 use std::sync::Arc;
 
@@ -31,6 +33,7 @@ use thiserror::Error;
 
 use crate::actions::artifact::artifact_type::Artifact;
 use crate::actions::artifact::build_artifact::BuildArtifact;
+use crate::actions::artifact::provide_outputs::ProvideOutputs;
 use crate::actions::key::ActionKey;
 use crate::actions::RegisteredAction;
 use crate::analysis::registry::AnalysisRegistry;
@@ -124,6 +127,10 @@ pub(crate) struct DynamicLambdaOutput {
     output: Vec<ActionKey>,
 }
 
+impl any::Provider for DynamicAction {
+    fn provide<'a>(&'a self, _demand: &mut Demand<'a>) {}
+}
+
 impl Deferred for DynamicAction {
     type Output = Arc<RegisteredAction>;
 
@@ -151,16 +158,18 @@ impl Deferred for DynamicAction {
             )?;
         Ok(DeferredValue::Deferred(key.deferred_data().dupe()))
     }
-
-    fn debug_artifact_outputs(&self) -> anyhow::Result<Option<Vec<BuildArtifact>>> {
-        Ok(None)
-    }
 }
 
 #[derive(Debug, Error)]
 enum DynamicLambdaError {
     #[error("dynamic_output and anon_target cannot be used together (yet)")]
     AnonTargetIncompatible,
+}
+
+impl any::Provider for DynamicLambda {
+    fn provide<'a>(&'a self, demand: &mut Demand<'a>) {
+        demand.provide_value_with(|| ProvideOutputs(Ok(self.outputs.clone())));
+    }
 }
 
 impl Deferred for DynamicLambda {
@@ -291,10 +300,6 @@ impl Deferred for DynamicLambda {
         Ok(DeferredValue::Ready(DynamicLambdaOutput {
             output: output?,
         }))
-    }
-
-    fn debug_artifact_outputs(&self) -> anyhow::Result<Option<Vec<BuildArtifact>>> {
-        Ok(Some(self.outputs.clone()))
     }
 
     fn span(&self) -> Option<buck2_data::span_start_event::Data> {

@@ -17,6 +17,7 @@
 #![feature(never_type)]
 #![feature(is_sorted)]
 #![feature(trait_alias)]
+#![feature(provide_any)]
 // Plugins
 #![cfg_attr(feature = "gazebo_lint", feature(plugin))]
 #![cfg_attr(feature = "gazebo_lint", allow(deprecated))] // :(

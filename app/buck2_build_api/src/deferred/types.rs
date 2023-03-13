@@ -7,8 +7,10 @@
  * of this source tree.
  */
 
+use std::any;
 use std::any::type_name;
 use std::any::Any;
+use std::any::Demand;
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Debug;
@@ -36,7 +38,6 @@ use once_cell::sync::Lazy;
 use thiserror::Error;
 
 use crate::actions::artifact::artifact_type::Artifact;
-use crate::actions::artifact::build_artifact::BuildArtifact;
 use crate::deferred::base_deferred_key::BaseDeferredKey;
 
 /// An asynchronous chunk of work that will be executed when requested.
@@ -44,7 +45,10 @@ use crate::deferred::base_deferred_key::BaseDeferredKey;
 /// before the 'Deferred' is actually executed. These can be 'Artifact's, which means that those
 /// 'Artifact's will be materialized and its corresponding 'Action's executed, or other
 /// 'DeferredData', which means those 'Deferred' will be computed first.
-pub trait Deferred: Allocative {
+///
+/// `any::Provider` can be used to obtain data for introspection. At the moment of writing,
+/// only `ProvideOutputs` can be extracted from deferreds with outputs.
+pub trait Deferred: Allocative + any::Provider {
     type Output;
 
     /// the set of 'Deferred's that should be computed first before executing this 'Deferred'
@@ -52,9 +56,6 @@ pub trait Deferred: Allocative {
 
     /// executes this 'Deferred', assuming all inputs and input artifacts are already computed
     fn execute(&self, ctx: &mut dyn DeferredCtx) -> anyhow::Result<DeferredValue<Self::Output>>;
-
-    /// returns a vec of output artifacts if the object has them.
-    fn debug_artifact_outputs(&self) -> anyhow::Result<Option<Vec<BuildArtifact>>>;
 
     /// An optional stage to wrap execution in.
     fn span(&self) -> Option<buck2_data::span_start_event::Data> {
@@ -276,12 +277,21 @@ pub trait TrivialDeferred: Allocative + AnyValue + Debug + Send + Sync {
     /// Convert the object to an AnyValue object
     fn as_any_value(&self) -> &dyn AnyValue;
 
-    /// Returns a vec of `BuildArtifact`s, if exists.
-    fn debug_artifact_outputs(&self) -> anyhow::Result<Option<Vec<BuildArtifact>>>;
+    /// Obtain deferred-specific debug data.
+    ///
+    /// This function is copied from `any::Provider` trait, which cannot be implemented
+    /// for `Arc<RegisteredAction>`.
+    fn provide<'a>(&'a self, demand: &mut Demand<'a>);
 }
 
 #[derive(Allocative)]
 pub struct TrivialDeferredValue(pub Arc<dyn TrivialDeferred>);
+
+impl any::Provider for TrivialDeferredValue {
+    fn provide<'a>(&'a self, demand: &mut Demand<'a>) {
+        self.0.provide(demand)
+    }
+}
 
 impl DeferredAny for TrivialDeferredValue {
     fn inputs(&self) -> &IndexSet<DeferredInput> {
@@ -303,10 +313,6 @@ impl DeferredAny for TrivialDeferredValue {
         self.0.type_name()
     }
 
-    fn debug_artifact_outputs(&self) -> anyhow::Result<Option<Vec<BuildArtifact>>> {
-        self.0.debug_artifact_outputs()
-    }
-
     fn span(&self) -> Option<buck2_data::span_start_event::Data> {
         // No evaluation Span if you never evaluate.
         None
@@ -317,6 +323,15 @@ impl DeferredAny for TrivialDeferredValue {
 pub enum DeferredTableEntry {
     Trivial(TrivialDeferredValue),
     Complex(Box<dyn DeferredAny>),
+}
+
+impl any::Provider for DeferredTableEntry {
+    fn provide<'a>(&'a self, demand: &mut Demand<'a>) {
+        match self {
+            Self::Trivial(v) => v.provide(demand),
+            Self::Complex(v) => v.provide(demand),
+        }
+    }
 }
 
 impl DeferredAny for DeferredTableEntry {
@@ -345,13 +360,6 @@ impl DeferredAny for DeferredTableEntry {
         match self {
             Self::Trivial(v) => v.type_name(),
             Self::Complex(v) => v.type_name(),
-        }
-    }
-
-    fn debug_artifact_outputs(&self) -> anyhow::Result<Option<Vec<BuildArtifact>>> {
-        match self {
-            Self::Trivial(v) => v.debug_artifact_outputs(),
-            Self::Complex(v) => v.debug_artifact_outputs(),
         }
     }
 
@@ -542,6 +550,15 @@ impl DeferredRegistry {
             p: PhantomData<(T, U)>,
         }
 
+        impl<T, U, F> any::Provider for Map<T, U, F>
+        where
+            T: Allocative + Send + Sync + 'static,
+            F: Fn(&T, &mut dyn DeferredCtx) -> DeferredValue<U> + 'static,
+            U: Allocative + 'static,
+        {
+            fn provide<'a>(&'a self, _demand: &mut Demand<'a>) {}
+        }
+
         impl<T, U, F> Deferred for Map<T, U, F>
         where
             T: Allocative + Send + Sync + 'static,
@@ -569,10 +586,6 @@ impl DeferredRegistry {
                         .unwrap(),
                     ctx,
                 ))
-            }
-
-            fn debug_artifact_outputs(&self) -> anyhow::Result<Option<Vec<BuildArtifact>>> {
-                Ok(None)
             }
         }
 
@@ -803,11 +816,9 @@ impl dyn AnyValue {
 }
 
 /// untyped deferred
-pub trait DeferredAny: Allocative + Send + Sync {
+pub trait DeferredAny: Allocative + any::Provider + Send + Sync {
     /// the set of 'Deferred's that should be computed first before executing this 'Deferred'
     fn inputs(&self) -> &IndexSet<DeferredInput>;
-
-    fn debug_artifact_outputs(&self) -> anyhow::Result<Option<Vec<BuildArtifact>>>;
 
     /// executes this 'Deferred', assuming all inputs and input artifacts are already computed
     fn execute(&self, ctx: &mut dyn DeferredCtx) -> anyhow::Result<DeferredValueAny>;
@@ -861,10 +872,6 @@ where
 {
     fn inputs(&self) -> &IndexSet<DeferredInput> {
         self.inputs()
-    }
-
-    fn debug_artifact_outputs(&self) -> anyhow::Result<Option<Vec<BuildArtifact>>> {
-        D::debug_artifact_outputs(self)
     }
 
     fn execute(&self, ctx: &mut dyn DeferredCtx) -> anyhow::Result<DeferredValueAny> {
@@ -976,6 +983,8 @@ pub mod testing {
 
 #[cfg(test)]
 mod tests {
+    use std::any;
+    use std::any::Demand;
     use std::fmt;
     use std::fmt::Debug;
     use std::fmt::Formatter;
@@ -995,7 +1004,6 @@ mod tests {
 
     use super::AnyValue;
     use super::TrivialDeferred;
-    use crate::actions::artifact::build_artifact::BuildArtifact;
     use crate::deferred::base_deferred_key::BaseDeferredKey;
     use crate::deferred::types::testing::DeferredValueAnyExt;
     use crate::deferred::types::BaseKey;
@@ -1027,6 +1035,10 @@ mod tests {
         }
     }
 
+    impl<T: Clone> any::Provider for FakeDeferred<T> {
+        fn provide<'a>(&'a self, _demand: &mut Demand<'a>) {}
+    }
+
     impl<T: Clone> Deferred for FakeDeferred<T> {
         type Output = T;
 
@@ -1037,10 +1049,6 @@ mod tests {
         fn execute(&self, _ctx: &mut dyn DeferredCtx) -> anyhow::Result<DeferredValue<T>> {
             Ok(DeferredValue::Ready(self.val.clone()))
         }
-
-        fn debug_artifact_outputs(&self) -> anyhow::Result<Option<Vec<BuildArtifact>>> {
-            Ok(None)
-        }
     }
 
     impl TrivialDeferred for FakeDeferred<i32> {
@@ -1048,9 +1056,7 @@ mod tests {
             self
         }
 
-        fn debug_artifact_outputs(&self) -> anyhow::Result<Option<Vec<BuildArtifact>>> {
-            Ok(None)
-        }
+        fn provide<'a>(&'a self, _demand: &mut Demand<'a>) {}
     }
 
     #[derive(Clone, Debug, PartialEq, Eq, Allocative)]
@@ -1059,6 +1065,10 @@ mod tests {
         inputs: IndexSet<DeferredInput>,
         #[allocative(skip)]
         defer: FakeDeferred<T>,
+    }
+
+    impl<T: Clone + Debug + Allocative + Send + Sync + 'static> any::Provider for DeferringDeferred<T> {
+        fn provide<'a>(&'a self, _demand: &mut Demand<'a>) {}
     }
 
     impl<T: Clone + Debug + Allocative + Send + Sync + 'static> Deferred for DeferringDeferred<T> {
@@ -1072,10 +1082,6 @@ mod tests {
             Ok(DeferredValue::Deferred(
                 ctx.registry().defer(self.defer.clone()),
             ))
-        }
-
-        fn debug_artifact_outputs(&self) -> anyhow::Result<Option<Vec<BuildArtifact>>> {
-            Ok(None)
         }
     }
 

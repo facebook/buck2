@@ -7,11 +7,9 @@
  * of this source tree.
  */
 
-#![feature(async_closure)]
-#![feature(trait_alias)]
-#![feature(try_blocks)]
-#![feature(provide_any)]
+use crate::actions::artifact::build_artifact::BuildArtifact;
 
-pub mod bxl;
-pub mod command;
-pub mod profile_command;
+/// Dynamic data requested from deferreds.
+///
+/// Newtype to grep easier and to provide some type safety.
+pub struct ProvideOutputs(pub anyhow::Result<Vec<BuildArtifact>>);

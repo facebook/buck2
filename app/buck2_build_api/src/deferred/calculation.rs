@@ -377,6 +377,8 @@ pub mod testing {
 
 #[cfg(test)]
 mod tests {
+    use std::any;
+    use std::any::Demand;
     use std::sync::atomic::AtomicBool;
     use std::sync::atomic::Ordering;
     use std::sync::Arc;
@@ -403,7 +405,6 @@ mod tests {
     use indexmap::IndexSet;
     use indoc::indoc;
 
-    use crate::actions::artifact::build_artifact::BuildArtifact;
     use crate::analysis::calculation::testing::AnalysisKey;
     use crate::analysis::AnalysisResult;
     use crate::deferred::base_deferred_key::BaseDeferredKey;
@@ -421,6 +422,10 @@ mod tests {
     #[derive(Allocative)]
     struct FakeDeferred(usize, IndexSet<DeferredInput>, Arc<AtomicBool>);
 
+    impl any::Provider for FakeDeferred {
+        fn provide<'a>(&'a self, _demand: &mut Demand<'a>) {}
+    }
+
     impl Deferred for FakeDeferred {
         type Output = usize;
 
@@ -434,10 +439,6 @@ mod tests {
         ) -> anyhow::Result<DeferredValue<Self::Output>> {
             self.2.store(true, Ordering::SeqCst);
             Ok(DeferredValue::Ready(self.0))
-        }
-
-        fn debug_artifact_outputs(&self) -> anyhow::Result<Option<Vec<BuildArtifact>>> {
-            Ok(None)
         }
     }
 
@@ -523,6 +524,10 @@ mod tests {
         #[derive(Allocative)]
         struct DeferringDeferred(usize, IndexSet<DeferredInput>, Arc<AtomicBool>);
 
+        impl any::Provider for DeferringDeferred {
+            fn provide<'a>(&'a self, _demand: &mut Demand<'a>) {}
+        }
+
         impl Deferred for DeferringDeferred {
             type Output = usize;
 
@@ -538,10 +543,6 @@ mod tests {
                     ctx.registry()
                         .defer(FakeDeferred(self.0, self.1.clone(), self.2.dupe()));
                 Ok(DeferredValue::Deferred(data))
-            }
-
-            fn debug_artifact_outputs(&self) -> anyhow::Result<Option<Vec<BuildArtifact>>> {
-                Ok(None)
             }
         }
 

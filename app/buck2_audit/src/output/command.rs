@@ -7,11 +7,13 @@
  * of this source tree.
  */
 
+use std::any;
 use std::io::Write;
 use std::sync::Arc;
 
 use async_trait::async_trait;
 use buck2_build_api::actions::artifact::build_artifact::BuildArtifact;
+use buck2_build_api::actions::artifact::provide_outputs::ProvideOutputs;
 use buck2_build_api::actions::key::ActionKey;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::analysis::AnalysisResult;
@@ -131,8 +133,9 @@ async fn find_matching_action<'v>(
     path_after_target_name: ForwardRelativePathBuf,
 ) -> anyhow::Result<Option<ActionQueryNode>> {
     for entry in analysis.iter_deferreds() {
-        match entry.as_complex().debug_artifact_outputs()? {
+        match any::request_value::<ProvideOutputs>(entry.as_complex()) {
             Some(outputs) => {
+                let outputs = outputs.0?;
                 for build_artifact in &outputs {
                     match check_output_path(build_artifact, &path_after_target_name)? {
                         Some(action_key) => {

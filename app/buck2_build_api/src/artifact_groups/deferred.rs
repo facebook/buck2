@@ -7,13 +7,14 @@
  * of this source tree.
  */
 
+use std::any::Demand;
+
 use allocative::Allocative;
 use anyhow::Context;
 use dupe::Dupe;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::Value;
 
-use crate::actions::artifact::build_artifact::BuildArtifact;
 use crate::deferred::types::AnyValue;
 use crate::deferred::types::DeferredData;
 use crate::deferred::types::TrivialDeferred;
@@ -29,9 +30,7 @@ impl TrivialDeferred for DeferredTransitiveSetData {
         self
     }
 
-    fn debug_artifact_outputs(&self) -> anyhow::Result<Option<Vec<BuildArtifact>>> {
-        Ok(None)
-    }
+    fn provide<'a>(&'a self, _demand: &mut Demand<'a>) {}
 }
 
 impl DeferredTransitiveSetData {

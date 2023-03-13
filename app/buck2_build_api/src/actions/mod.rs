@@ -32,6 +32,7 @@ pub mod impls;
 pub mod key;
 pub(crate) mod registry;
 
+use std::any::Demand;
 use std::borrow::Cow;
 use std::fmt::Debug;
 use std::sync::Arc;
@@ -63,6 +64,7 @@ use static_assertions::_core::ops::Deref;
 use thiserror::Error;
 
 use crate::actions::artifact::build_artifact::BuildArtifact;
+use crate::actions::artifact::provide_outputs::ProvideOutputs;
 use crate::actions::execute::action_execution_target::ActionExecutionTarget;
 use crate::actions::execute::action_executor::ActionExecutionMetadata;
 use crate::actions::execute::action_executor::ActionOutputs;
@@ -254,8 +256,14 @@ impl TrivialDeferred for Arc<RegisteredAction> {
         self
     }
 
-    fn debug_artifact_outputs(&self) -> anyhow::Result<Option<Vec<BuildArtifact>>> {
-        Ok(Some(self.action.outputs()?.iter().cloned().collect()))
+    fn provide<'a>(&'a self, demand: &mut Demand<'a>) {
+        demand.provide_value_with(|| {
+            ProvideOutputs(
+                self.action
+                    .outputs()
+                    .map(|outputs| outputs.iter().cloned().collect()),
+            )
+        });
     }
 }
 
