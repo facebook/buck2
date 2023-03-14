@@ -81,7 +81,7 @@ impl GlobSpec {
             if pattern.contains('*') {
                 glob_patterns
                     .push(GlobPattern(glob::Pattern::new(pattern).with_context(
-                        || format!("when creating globspec for `{}`", pattern),
+                        || format!("Error creating globspec for `{}`", pattern),
                     )?));
             } else {
                 exact_matches.insert(pattern.to_owned());
@@ -91,7 +91,7 @@ impl GlobSpec {
             let pattern = pattern.as_ref();
             glob_excludes
                 .push(GlobPattern(glob::Pattern::new(pattern).with_context(
-                    || format!("when creating globspec for `{}`", pattern),
+                    || format!("Error creating globspec for `{}`", pattern),
                 )?));
         }
         Ok(Self {

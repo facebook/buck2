@@ -229,7 +229,7 @@ async fn async_traveral_common<
         if let Err(mut e) = result {
             let mut target = target;
             while let Some(Some(parent)) = visited.get(&target) {
-                e = e.context(format!("when traversing children of {}", parent));
+                e = e.context(format!("Error traversing children of {}", parent));
                 target = parent.clone();
             }
             return Err(e);

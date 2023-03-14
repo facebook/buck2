@@ -105,7 +105,7 @@ impl PackageBoundaryExceptions {
                         .get("project", "package_boundary_exceptions")
                         .map(|v| {
                             let e = CellPackageBoundaryExceptions::new(v).with_context(
-                                || format!("When parsing `project.package_boundary_exceptions` key from cell `{}`", name)
+                                || format!("Error parsing `project.package_boundary_exceptions` key from cell `{}`", name)
                             )?;
                             Ok((name, e))
                         })

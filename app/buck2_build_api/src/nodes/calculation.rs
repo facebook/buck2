@@ -198,7 +198,7 @@ impl ExecutionPlatformConstraints {
         for a in node.attrs(AttrInspectOptions::All) {
             let configured_attr = a.configure(&cfg_ctx).with_context(|| {
                 format!(
-                    "when configuring attribute `{}` to resolve execution platform",
+                    "Error configuring attribute `{}` to resolve execution platform",
                     a.name
                 )
             })?;
@@ -418,7 +418,7 @@ fn unpack_target_compatible_with_attr(
 
     let attr = attr
         .configure(&AttrConfigurationContextToResolveCompatibleWith { resolved_cfg })
-        .with_context(|| format!("when configuring attribute `{}`", attr_name))?;
+        .with_context(|| format!("Error configuring attribute `{}`", attr_name))?;
 
     match attr.value.unpack_list() {
         Some(values) => {
@@ -821,7 +821,7 @@ impl NodeCalculation for DiceComputations {
             .await
             .with_context(|| {
                 format!(
-                    "when loading targets in package `{}` for target `{}`",
+                    "Error loading targets in package `{}` for target `{}`",
                     target.pkg(),
                     target
                 )
@@ -839,7 +839,7 @@ impl NodeCalculation for DiceComputations {
             type Value = SharedResult<MaybeCompatible<ConfiguredTargetNode>>;
             async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
                 let res = compute_configured_target_node(self, ctx).await;
-                Ok(res.with_context(|| format!("when looking up configured node {}", self.0))?)
+                Ok(res.with_context(|| format!("Error looking up configured node {}", self.0))?)
             }
 
             fn equality(x: &Self::Value, y: &Self::Value) -> bool {

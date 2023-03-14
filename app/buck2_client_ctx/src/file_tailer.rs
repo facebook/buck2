@@ -57,7 +57,7 @@ impl FileTailer {
     ) -> anyhow::Result<FileTailer> {
         let mut reader = BufReader::new(
             File::open(&file)
-                .with_context(|| format!("when setting up tailer for {}", file.display()))?,
+                .with_context(|| format!("Error setting up tailer for {}", file.display()))?,
         );
 
         reader.seek(SeekFrom::End(0))?;

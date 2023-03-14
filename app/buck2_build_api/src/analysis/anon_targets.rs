@@ -168,7 +168,7 @@ impl AnonTargetKey {
                 attrs.insert(
                     k.to_owned(),
                     Self::coerce_attr(attr.coercer(), v)
-                        .with_context(|| format!("when coercing attribute `{}`", k))?,
+                        .with_context(|| format!("Error coercing attribute `{}`", k))?,
                 );
             }
         }

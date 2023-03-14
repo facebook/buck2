@@ -95,9 +95,11 @@ impl QueryError {
         let context = err.get_err_context(input);
 
         match err.value {
-            Self::Anyhow(inner) => inner.context(format!("when evaluating expression:{}", context)),
+            Self::Anyhow(inner) => {
+                inner.context(format!("Error evaluating expression:{}", context))
+            }
             Self::Inner(inner) => Self::convert_error(*inner, input)
-                .context(format!("when evaluating expression:{}", context)),
+                .context(format!("Error evaluating expression:{}", context)),
             e => {
                 // TODO(cjhopman): This is going to drop the backtrace attached to the error, we should figure
                 // out how to keep that.

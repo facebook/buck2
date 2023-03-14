@@ -78,7 +78,7 @@ impl AttributeExt for Attribute {
                         &get_attr_coercion_context(eval)?,
                         x,
                     )
-                    .context("When coercing attribute default")?,
+                    .context("Error coercing attribute default")?,
             )),
         };
         Ok(AttributeAsStarlarkValue::new(Attribute::new(

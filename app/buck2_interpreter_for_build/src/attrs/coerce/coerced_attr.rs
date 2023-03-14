@@ -133,7 +133,7 @@ impl CoercedAttrExr for CoercedAttr {
         } else {
             Ok(CoercedAttr::Literal(
                 attr.coerce_item(configuable, ctx, value)
-                    .with_context(|| format!("when coercing {}", value))?,
+                    .with_context(|| format!("Error coercing {}", value))?,
             ))
         }
     }

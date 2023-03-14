@@ -142,7 +142,7 @@ async fn do_apply_transition(
                 let value = match value {
                     Some(value) => value.to_value(module.heap()).with_context(|| {
                         format!(
-                            "when converting attribute `{}={}` to Starlark value",
+                            "Error converting attribute `{}={}` to Starlark value",
                             name.as_str(),
                             value.as_display_no_ctx(),
                         )
@@ -268,7 +268,7 @@ impl ApplyTransition for DiceComputations {
                 };
 
                 Ok(Arc::new(v.with_context(|| {
-                    format!("when computing transition `{}`", self)
+                    format!("Error computing transition `{}`", self)
                 })?))
             }
 

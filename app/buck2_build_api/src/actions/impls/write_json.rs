@@ -307,7 +307,7 @@ impl UnregisteredWriteJsonAction {
 
     fn write(x: Value, fs: Option<&ExecutorFs>, writer: impl Write) -> anyhow::Result<()> {
         serde_json::ser::to_writer(writer, &SerializeValue { value: x, fs })
-            .context("When converting to JSON for `write_json`")
+            .context("Error converting to JSON for `write_json`")
     }
 }
 

@@ -485,7 +485,7 @@ impl<'a> LegacyConfigParser<'a> {
     ) -> anyhow::Result<()> {
         self.start_file(path, source)?;
         self.parse_file_on_stack(path, follow_includes)
-            .with_context(|| format!("When parsing buckconfig `{}`", path))?;
+            .with_context(|| format!("Error parsing buckconfig `{}`", path))?;
         self.finish_file();
         Ok(())
     }

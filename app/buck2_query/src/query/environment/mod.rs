@@ -233,7 +233,7 @@ pub trait QueryEnvironment: Send + Sync {
                         func.visit(dep.clone())?;
                     }
                 };
-                res.with_context(|| format!("When traversing children of `{}`", target.node_ref()))
+                res.with_context(|| format!("Error traversing children of `{}`", target.node_ref()))
             }
         }
 
@@ -316,7 +316,7 @@ pub trait QueryEnvironment: Send + Sync {
                         func.visit(dep.clone())?;
                     }
                 };
-                res.with_context(|| format!("When traversing children of `{}`", target.node_ref()))
+                res.with_context(|| format!("Error traversing children of `{}`", target.node_ref()))
             }
         }
 
@@ -452,7 +452,7 @@ pub trait QueryEnvironment: Send + Sync {
                         }
                     }
                 };
-                res.with_context(|| format!("When traversing children of `{}`", target.node_ref()))
+                res.with_context(|| format!("Error traversing children of `{}`", target.node_ref()))
             }
         }
 

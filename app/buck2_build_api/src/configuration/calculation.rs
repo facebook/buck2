@@ -542,7 +542,7 @@ impl ConfigurationCalculation for DiceComputations {
         .await?
         .with_context(|| {
             format!(
-                "when getting configuration node of `{}` within the `{}` configuration",
+                "Error getting configuration node of `{}` within the `{}` configuration",
                 cfg_target, target_cfg,
             )
         })

@@ -318,7 +318,7 @@ impl StreamingCommand for BuildCommand {
                 out,
             )
             .await
-            .context("when requesting specific output path for --out")?;
+            .context("Error requesting specific output path for --out")?;
         }
 
         if self.show_output
@@ -511,7 +511,7 @@ async fn copy_to_out(
             .join(ForwardRelativePath::new(&single_default_output.path)?);
         let output_meta = tokio::fs::metadata(&output_path)
             .await
-            .context("when inspecting file metadata")?;
+            .context("Error inspecting file metadata")?;
         let is_dir = output_meta.is_dir();
 
         outputs_to_be_copied.push(OutputToBeCopied {
@@ -629,7 +629,7 @@ fn convert_broken_pipe_error(e: io::Error) -> anyhow::Error {
     if e.kind() == io::ErrorKind::BrokenPipe {
         anyhow::Error::new(FailureExitCode::OutputFileBrokenPipe)
     } else {
-        anyhow::Error::new(e).context("when writing build artifact to --out")
+        anyhow::Error::new(e).context("Error writing build artifact to --out")
     }
 }
 

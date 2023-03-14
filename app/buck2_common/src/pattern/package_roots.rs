@@ -94,7 +94,7 @@ async fn find_package_roots_impl<E>(
                 }
             }
             Err(e) => func(Err(
-                e.context(format!("when resolving recursive spec `{}/...`", path))
+                e.context(format!("Error resolving recursive spec `{}/...`", path))
             ))?,
         }
     }
@@ -107,7 +107,7 @@ async fn find_package_roots_impl<E>(
             Ok(r) => r,
             Err(e) => {
                 func(Err(e.context(format!(
-                    "when resolving recursive spec `{}/...`",
+                    "Error resolving recursive spec `{}/...`",
                     path
                 ))))?;
                 continue;

@@ -93,7 +93,7 @@ impl RuleAnalysisCalculation for DiceComputations {
                 let profile_mode = ctx.get_profile_mode_for_intermediate_analysis().await?;
                 Ok(get_analysis_result(ctx, &self.0, &profile_mode)
                     .await
-                    .with_context(|| format!("When running analysis for `{}`", &self.0))?)
+                    .with_context(|| format!("Error running analysis for `{}`", &self.0))?)
             }
 
             fn equality(_: &Self::Value, _: &Self::Value) -> bool {

@@ -181,7 +181,7 @@ impl<'c> UqueryEnvironment<'c> {
             .delegate
             .eval_build_file(target.pkg())
             .await
-            .with_context(|| format!("when looking up `{}``", target))?;
+            .with_context(|| format!("Error looking up `{}``", target))?;
         let node = package.resolve_target(target.name())?;
         Ok(node.dupe())
     }

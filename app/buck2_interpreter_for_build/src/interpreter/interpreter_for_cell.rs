@@ -92,7 +92,10 @@ impl ParseResult {
             let path = resolver
                 .resolve_load(x.module_id, Some(&x.span))
                 .with_context(|| {
-                    format!("When loading `load` of `{}` from `{}`", x.module_id, x.span)
+                    format!(
+                        "Error loading `load` of `{}` from `{}`",
+                        x.module_id, x.span
+                    )
                 })?;
             loads.push((Some(x.span), path));
         }

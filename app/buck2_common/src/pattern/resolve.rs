@@ -73,7 +73,7 @@ pub async fn resolve_target_patterns<
             ParsedPattern::Recursive(cell_path) => {
                 let roots = find_package_roots(cell_path.clone(), file_ops, cell_resolver)
                     .await
-                    .context("When resolving recursive target pattern.")?;
+                    .context("Error resolving recursive target pattern.")?;
                 for package in roots {
                     resolved.add_package(package);
                 }

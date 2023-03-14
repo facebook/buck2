@@ -88,7 +88,7 @@ impl AttributeSpecExt for AttributeSpec {
                     )
                     .with_context(|| {
                         format!(
-                            "when coercing attribute `{}` of `{}:{}`",
+                            "Error coercing attribute `{}` of `{}:{}`",
                             attr_name,
                             internals.buildfile_path().package(),
                             name,

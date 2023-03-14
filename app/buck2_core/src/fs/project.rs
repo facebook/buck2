@@ -396,7 +396,7 @@ impl ProjectRoot {
         let result = self.copy_resolved(&src_abs, &dest_abs);
         result.with_context(|| {
             format!(
-                "When copying from src path `{}` to dest path `{}`",
+                "Error copying from src path `{}` to dest path `{}`",
                 src_abs, dest_abs
             )
         })

@@ -82,7 +82,7 @@ impl TargetPlatformDetector {
                         let target =
                             ParsedPattern::<TargetName>::parse_precise(cell_alias_resolver, target)
                                 .and_then(|x| x.as_target_label(target))
-                                .context("when parsing target platform detector spec")?;
+                                .context("Error parsing target platform detector spec")?;
                         detectors.push((matcher_package, target))
                     }
                     None => {

@@ -98,7 +98,7 @@ impl CleanCommand {
                 StartupDeadline::duration_from_now(Duration::from_secs(10))?,
             )
             .await
-            .with_context(|| "when locking buckd lifecycle.lock")?;
+            .with_context(|| "Error locking buckd lifecycle.lock")?;
             if let Ok(mut buckd) = ctx
                 .connect_buckd(BuckdConnectOptions::existing_only_no_console())
                 .await

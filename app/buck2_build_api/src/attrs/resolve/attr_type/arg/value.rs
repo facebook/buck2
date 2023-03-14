@@ -305,7 +305,7 @@ impl ResolvedStringWithMacros {
                             resolved_parts.push(ResolvedStringWithMacrosPart::Macro(
                                 *write_to_file,
                                 ResolvedMacro::resolved(m, ctx)
-                                    .with_context(|| format!("When resolving `{}`.", part))?,
+                                    .with_context(|| format!("Error resolving `{}`.", part))?,
                             ));
                         }
                     }

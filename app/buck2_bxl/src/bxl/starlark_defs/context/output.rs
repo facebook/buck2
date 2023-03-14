@@ -311,7 +311,7 @@ fn register_output_stream(builder: &mut MethodsBuilder) {
                 async_ctx: &this.async_ctx,
             },
         )
-        .context("When writing to JSON for `write_json`")?;
+        .context("Error writing to JSON for `write_json`")?;
         writeln!(this.sink.borrow_mut())?;
 
         Ok(NoneType)

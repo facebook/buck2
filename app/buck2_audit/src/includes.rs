@@ -55,7 +55,7 @@ use crate::AuditSubcommand;
 
 #[derive(Debug, Error)]
 enum AuditIncludesError {
-    #[error("When loading buildfile for `{0}` found a mismatched buildfile name (`{1}`)")]
+    #[error("Error loading buildfile for `{0}` found a mismatched buildfile name (`{1}`)")]
     WrongBuildfilePath(CellPath, FileNameBuf),
     #[error("invalid buildfile path `{0}`")]
     InvalidPath(CellPath),

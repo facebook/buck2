@@ -291,7 +291,7 @@ impl<'v> TargetExpr<'v, ConfiguredTargetNode> {
                 _ => {
                     return Err(anyhow::anyhow!(TargetExprError::NotATarget(item.to_repr()))
                         .context(format!(
-                            "when resolving list `{}`",
+                            "Error resolving list `{}`",
                             truncate(&value.to_repr(), 150)
                         )));
                 }
@@ -401,7 +401,7 @@ impl<'v> TargetExpr<'v, TargetNode> {
                 _ => {
                     return Err(anyhow::anyhow!(TargetExprError::NotATarget(item.to_repr()))
                         .context(format!(
-                            "when resolving list `{}`",
+                            "Error resolving list `{}`",
                             truncate(&value.to_repr(), 150)
                         )));
                 }

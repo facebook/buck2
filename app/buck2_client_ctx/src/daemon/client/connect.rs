@@ -217,7 +217,7 @@ impl<'a> BuckdLifecycle<'a> {
                     child
                         .kill()
                         .await
-                        .context("When killing process after buck2 daemon launch timing out")?;
+                        .context("Error killing process after buck2 daemon launch timing out")?;
                     // This should return immeditately as kill() waits for the process to end. We wait here again to fetch the ExitStatus
                     // Signal termination is not considered a success, so wait() results in an appropriate ExitStatus
                     Ok(child.wait().await?)
@@ -230,7 +230,7 @@ impl<'a> BuckdLifecycle<'a> {
             stdout_taken
                 .read_to_end(&mut buf)
                 .await
-                .context("When reading stdout of child")?;
+                .context("Error reading stdout of child")?;
             Ok(buf)
         };
         let stderr_fut = async {
@@ -238,7 +238,7 @@ impl<'a> BuckdLifecycle<'a> {
             stderr_taken
                 .read_to_end(&mut buf)
                 .await
-                .context("When reading stderr of child")?;
+                .context("Error reading stderr of child")?;
             Ok(buf)
         };
 
@@ -328,7 +328,7 @@ impl BuckdConnectOptions {
     pub async fn connect(self, paths: &InvocationPaths) -> anyhow::Result<BuckdClientConnector> {
         let daemon_dir = paths.daemon_dir()?;
         buck2_core::fs::fs_util::create_dir_all(&daemon_dir.path)
-            .with_context(|| format!("When creating daemon dir: {}", daemon_dir))?;
+            .with_context(|| format!("Error creating daemon dir: {}", daemon_dir))?;
         let client = self
             .establish_connection(paths)
             .await
