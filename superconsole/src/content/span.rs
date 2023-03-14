@@ -156,6 +156,16 @@ impl Span {
         ))
     }
 
+    pub fn new_colored_lossy(text: &str, color: Color) -> Self {
+        Self::new_styled_lossy(StyledContent::new(
+            ContentStyle {
+                foreground_color: Some(color),
+                ..ContentStyle::default()
+            },
+            text.to_owned(),
+        ))
+    }
+
     /// Returns the number of graphemes in the span.
     pub fn len(&self) -> usize {
         // Pulled this dep from another FB employee's project - better unicode support for terminal column widths.
