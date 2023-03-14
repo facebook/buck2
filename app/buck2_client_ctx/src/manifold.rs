@@ -106,6 +106,35 @@ impl<'a> Upload<'a> {
             stream,
         })
     }
+    pub fn from_stdio(self, stdio: Stdio) -> Result<StdinUploader<'a>, UploadError> {
+        Ok(StdinUploader {
+            upload: self,
+            stream: stdio,
+        })
+    }
+}
+
+pub struct StdinUploader<'a> {
+    upload: Upload<'a>,
+    stream: Stdio,
+}
+impl<'a> StdinUploader<'a> {
+    pub async fn spawn(self, timeout: Option<u64>) -> Result<(), UploadError> {
+        let mut upload = upload_command(self.upload.bucket, self.upload.filename)?
+            .ok_or(UploadError::CommandNotFound)?;
+        let child = upload
+            .stdout(Stdio::null())
+            .stderr(Stdio::piped())
+            .stdin(self.stream)
+            .spawn()
+            .context("Error spawning command")?;
+
+        let exit_code_error =
+            |code: i32, stderr: String| UploadError::StreamUploadExitCode { code, stderr };
+
+        wait_for_command(timeout, child, exit_code_error).await?;
+        Ok(())
+    }
 }
 
 pub struct StreamUploader<'a> {
@@ -209,7 +238,7 @@ where
     Ok(())
 }
 
-pub fn upload_command(bucket: Bucket, manifold_filename: &str) -> anyhow::Result<Option<Command>> {
+fn upload_command(bucket: Bucket, manifold_filename: &str) -> anyhow::Result<Option<Command>> {
     let bucket = bucket.info();
     // we use manifold CLI as it works cross-platform
     let manifold_cli_path = get_cli_path();

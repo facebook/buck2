@@ -17,7 +17,6 @@ use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::daemon::client::connect::BuckdConnectOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::manifold;
-use buck2_client_ctx::manifold::UploadError;
 use buck2_core::fs::fs_util::create_dir_all;
 use buck2_core::fs::fs_util::remove_all;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
@@ -109,25 +108,10 @@ async fn upload_to_manifold(dump_folder: &Path, manifold_filename: &str) -> anyh
             .stderr(std::process::Stdio::null())
             .spawn()?;
 
-        let mut upload = manifold::upload_command(manifold::Bucket::RageDumps, manifold_filename)?
-            .context(UploadError::CommandNotFound)?;
-        upload.stdin(tar_gzip.stdout.unwrap());
-        let output = upload.spawn()?.wait_with_output().await?;
-
-        match output
-            .status
-            .code()
-            .context(UploadError::NoResultCodeError(
-                dump_folder.display().to_string(),
-            ))? {
-            0 => Ok::<(), anyhow::Error>(()),
-            e => Err(UploadError::FileUploadExitCode {
-                path: dump_folder.display().to_string(),
-                code: e,
-                stderr: String::from_utf8_lossy(&output.stderr).to_string(),
-            }
-            .into()),
-        }?
+        manifold::Upload::new(manifold::Bucket::RageDumps, manifold_filename)
+            .from_stdio(tar_gzip.stdout.unwrap().into())?
+            .spawn(None)
+            .await?;
     }
     Ok(())
 }

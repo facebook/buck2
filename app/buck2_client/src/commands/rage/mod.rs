@@ -23,7 +23,6 @@ use anyhow::Context;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::manifold;
-use buck2_client_ctx::manifold::UploadError;
 use buck2_client_ctx::stdin::Stdin;
 use buck2_client_ctx::subscribers::event_log::file_names::get_local_logs_if_exist;
 use buck2_client_ctx::subscribers::event_log::EventLogPathBuf;
@@ -380,23 +379,10 @@ async fn upload_daemon_stderr(
         .context(RageError::OpenFileError(path.display().to_string()))?
         .into();
     let filename = format!("{}.stderr", manifold_id);
-    let mut upload = manifold::upload_command(manifold::Bucket::RageDumps, &filename)?
-        .context(UploadError::CommandNotFound)?;
-    upload.stdin(upload_log_file);
-    let output = upload.spawn()?.wait_with_output().await?;
-    match output
-        .status
-        .code()
-        .context(UploadError::NoResultCodeError(path.display().to_string()))?
-    {
-        0 => Ok::<(), anyhow::Error>(()),
-        e => Err(UploadError::FileUploadExitCode {
-            path: path.display().to_string(),
-            code: e,
-            stderr: String::from_utf8_lossy(&output.stderr).to_string(),
-        }
-        .into()),
-    }?;
+    manifold::Upload::new(manifold::Bucket::RageDumps, &filename)
+        .from_stdio(upload_log_file)?
+        .spawn(None)
+        .await?;
     Ok(format!("buck2_rage_dumps/flat/{}", filename))
 }
 
