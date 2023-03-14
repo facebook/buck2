@@ -121,6 +121,23 @@ impl<'a> Upload<'a> {
             stream: stdio,
         })
     }
+
+    pub(super) fn upload_command(&self) -> Result<Command, UploadError> {
+        let bucket = self.bucket.info();
+        // we use manifold CLI as it works cross-platform
+        let manifold_cli_path = get_cli_path();
+        let bucket_path = &format!("flat/{}", self.filename);
+
+        match manifold_cli_path {
+            None => curl_upload_command(bucket, bucket_path),
+            Some(cli_path) => Ok(Some(cli_upload_command(
+                cli_path,
+                &format!("{}/{}", bucket.name, bucket_path),
+                bucket.key,
+            ))),
+        }?
+        .ok_or(UploadError::CommandNotFound)
+    }
 }
 
 pub struct StdinUploader<'a> {
@@ -129,8 +146,7 @@ pub struct StdinUploader<'a> {
 }
 impl<'a> StdinUploader<'a> {
     pub async fn spawn(self) -> Result<(), UploadError> {
-        let mut upload = upload_command(self.upload.bucket, self.upload.filename)?
-            .ok_or(UploadError::CommandNotFound)?;
+        let mut upload = self.upload.upload_command()?;
         let child = upload
             .stdout(Stdio::null())
             .stderr(Stdio::piped())
@@ -152,8 +168,7 @@ pub struct StreamUploader<'a> {
 }
 impl<'a> StreamUploader<'a> {
     pub async fn spawn(self) -> Result<(), UploadError> {
-        let mut upload = upload_command(self.upload.bucket, self.upload.filename)?
-            .ok_or(UploadError::CommandNotFound)?;
+        let mut upload = self.upload.upload_command()?;
         let upload = upload
             .stdout(Stdio::null())
             .stderr(Stdio::piped())
@@ -208,8 +223,7 @@ impl<'a> FileUploader<'a> {
             }
         }
         .into();
-        let mut upload = upload_command(self.upload.bucket, self.upload.filename)?
-            .ok_or(UploadError::CommandNotFound)?;
+        let mut upload = self.upload.upload_command()?;
         upload.stdin(file);
         let child = upload
             .stdout(Stdio::null())
@@ -245,22 +259,6 @@ where
         return Err(error(code, stderr));
     };
     Ok(())
-}
-
-fn upload_command(bucket: Bucket, manifold_filename: &str) -> anyhow::Result<Option<Command>> {
-    let bucket = bucket.info();
-    // we use manifold CLI as it works cross-platform
-    let manifold_cli_path = get_cli_path();
-    let bucket_path = &format!("flat/{}", manifold_filename);
-
-    match manifold_cli_path {
-        None => curl_upload_command(bucket, bucket_path),
-        Some(cli_path) => Ok(Some(cli_upload_command(
-            cli_path,
-            &format!("{}/{}", bucket.name, bucket_path),
-            bucket.key,
-        ))),
-    }
 }
 
 fn curl_upload_command(
