@@ -102,24 +102,15 @@ pub struct FileUploader<'a> {
 }
 impl<'a> FileUploader<'a> {
     pub async fn spawn(self, timeout: Option<u64>) -> Result<(), UploadError> {
-        let child = self.spawn_child()?.wait_with_output();
-        let output = match timeout {
-            None => child.await?,
-            Some(x) => tokio::time::timeout(Duration::from_secs(x), child)
-                .await
-                .with_context(|| {
-                    format!("Timed out waiting {}s for file upload to Manifold", x)
-                })??,
+        let child = self.spawn_child()?;
+        let filepath = self.filepath.to_string_lossy().to_string();
+        let exit_code_error = |code: i32, stderr: String| UploadError::FileUploadExitCode {
+            path: filepath,
+            code,
+            stderr,
         };
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-            let code = output.status.code().unwrap_or(1);
-            return Err(UploadError::FileUploadExitCode {
-                path: self.filepath.to_string_lossy().to_string(),
-                code,
-                stderr,
-            });
-        }
+
+        wait_for_command(timeout, child, exit_code_error).await?;
         Ok(())
     }
 
@@ -148,6 +139,34 @@ impl<'a> FileUploader<'a> {
             .spawn()?;
         Ok(child)
     }
+}
+
+async fn wait_for_command<F>(
+    timeout_s: Option<u64>,
+    child: Child,
+    error: F,
+) -> Result<(), UploadError>
+where
+    F: FnOnce(i32, String) -> UploadError,
+{
+    let child = child.wait_with_output();
+    let output = match timeout_s {
+        None => child.await?,
+        Some(timeout_s) => tokio::time::timeout(Duration::from_secs(timeout_s), child)
+            .await
+            .with_context(|| {
+                format!(
+                    "Timed out waiting {}s for file upload to Manifold",
+                    timeout_s
+                )
+            })??,
+    };
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+        let code = output.status.code().unwrap_or(1);
+        return Err(error(code, stderr));
+    };
+    Ok(())
 }
 
 pub fn upload_command(bucket: Bucket, manifold_filename: &str) -> anyhow::Result<Option<Command>> {
