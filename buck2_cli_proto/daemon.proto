@@ -240,6 +240,7 @@ message CommonBuildOptions {
     Hybrid = 3;
     HybridPreferLocal = 4;
     NoExecution = 5;
+    HybridPreferRemote = 6;
   }
   ExecutionStrategy execution_strategy = 6;
 

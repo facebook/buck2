@@ -322,6 +322,10 @@ pub struct CommonBuildOptions {
     #[clap(long, group = "build_strategy")]
     prefer_local: bool,
 
+    /// Enable hybrid execution. Will prefer executing actions that can execute remotely on RE and will avoid racing local and remote execution.
+    #[clap(long, group = "build_strategy")]
+    prefer_remote: bool,
+
     /// Enable hybrid execution. Will prefer executing actions that can execute remotely on RE.
     #[clap(long, group = "build_strategy")]
     hybrid: bool,
@@ -373,6 +377,8 @@ impl CommonBuildOptions {
                 ExecutionStrategy::Hybrid as i32
             } else if self.prefer_local {
                 ExecutionStrategy::HybridPreferLocal as i32
+            } else if self.prefer_remote {
+                ExecutionStrategy::HybridPreferRemote as i32
             } else if self.unstable_no_execution {
                 ExecutionStrategy::NoExecution as i32
             } else {

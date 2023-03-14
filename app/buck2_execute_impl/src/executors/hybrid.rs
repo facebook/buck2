@@ -199,44 +199,45 @@ impl PreparedCommandExecutor for HybridExecutor {
 
         let fallback_only = fallback_only && !command.request.force_full_hybrid_if_capable();
 
-        let ((mut first_res, first_priority), second) = if executor_preference.prefers_local() {
-            // Don't race in this scenario, since this is typically used for
-            // actions that are too expensive to run on RE.
-            jobs.execute_sequential().await
-        } else {
-            // In the full-hybrid case, we do race both executors. If the low-pass filter is in
-            // use, then we wrap the local execution with that.
-            let jobs = if fallback_only {
-                jobs.map_local(move |local| {
-                    async move {
-                        // Block local until the remote executor aborts (that's remote_execution_liveliness_guard)
-                        // The claim actually comes back to us via the execution report so there's no race condition
-                        // where local unblocks just when RE finishes
-                        remote_execution_liveliness_observer.while_alive().await;
-                        local.await
-                    }
-                    .boxed()
-                })
-            } else if low_pass_filter {
-                jobs.map_local(move |local| {
-                    async move {
-                        // Block local until either conditon is met:
-                        // - we only have a few actions (that's low_pass_filter)
-                        // - the remote executor aborts (that's remote_execution_liveliness_guard)
-                        let access = self.low_pass_filter.access(weight);
-                        let alive = remote_execution_liveliness_observer.while_alive();
-                        futures::pin_mut!(access);
-                        futures::pin_mut!(alive);
-                        let _guard = futures::future::select(access, alive).await;
-                        local.await
-                    }
-                    .boxed()
-                })
+        let ((mut first_res, first_priority), second) =
+            if executor_preference.prefers_local() || executor_preference.prefers_remote() {
+                // Don't race in this scenario, since this is typically used for
+                // actions that are too expensive to run on RE.
+                jobs.execute_sequential().await
             } else {
-                jobs.map_local(|local| local.boxed())
+                // In the full-hybrid case, we do race both executors. If the low-pass filter is in
+                // use, then we wrap the local execution with that.
+                let jobs = if fallback_only {
+                    jobs.map_local(move |local| {
+                        async move {
+                            // Block local until the remote executor aborts (that's remote_execution_liveliness_guard)
+                            // The claim actually comes back to us via the execution report so there's no race condition
+                            // where local unblocks just when RE finishes
+                            remote_execution_liveliness_observer.while_alive().await;
+                            local.await
+                        }
+                        .boxed()
+                    })
+                } else if low_pass_filter {
+                    jobs.map_local(move |local| {
+                        async move {
+                            // Block local until either conditon is met:
+                            // - we only have a few actions (that's low_pass_filter)
+                            // - the remote executor aborts (that's remote_execution_liveliness_guard)
+                            let access = self.low_pass_filter.access(weight);
+                            let alive = remote_execution_liveliness_observer.while_alive();
+                            futures::pin_mut!(access);
+                            futures::pin_mut!(alive);
+                            let _guard = futures::future::select(access, alive).await;
+                            local.await
+                        }
+                        .boxed()
+                    })
+                } else {
+                    jobs.map_local(|local| local.boxed())
+                };
+                jobs.execute_concurrent().await
             };
-            jobs.execute_concurrent().await
-        };
 
         let mut res = if is_retryable_status(&first_res) {
             // If the first result had made a claim, then cancel it now to let the other result

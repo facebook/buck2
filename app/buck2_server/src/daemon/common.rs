@@ -284,6 +284,7 @@ impl ExecutionStrategyExt for ExecutionStrategy {
     fn hybrid_preference(&self) -> ExecutorPreference {
         match self {
             Self::HybridPreferLocal => ExecutorPreference::LocalPreferred,
+            Self::HybridPreferRemote => ExecutorPreference::RemotePreferred,
             Self::LocalOnly => ExecutorPreference::LocalRequired,
             Self::RemoteOnly => ExecutorPreference::RemoteRequired,
             _ => ExecutorPreference::Default,

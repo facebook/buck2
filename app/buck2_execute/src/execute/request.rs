@@ -64,6 +64,8 @@ pub enum ExecutorPreference {
     LocalPreferred,
     /// Fails when executed by a local-only executor
     RemoteRequired,
+    /// Does not fail when executed by a local-only executor
+    RemotePreferred,
 }
 
 impl ExecutorPreference {
@@ -83,8 +85,14 @@ impl ExecutorPreference {
             return Ok(Self::RemoteRequired);
         }
 
+        // Making prefer_local take precedence over prefer_remote just because
+        // some rules set prefer_local and we probably shouldn't override those
         if self.prefers_local() || other.prefers_local() {
             return Ok(Self::LocalPreferred);
+        }
+
+        if self.prefers_remote() || other.prefers_remote() {
+            return Ok(Self::RemotePreferred);
         }
 
         Ok(Self::Default)
@@ -95,6 +103,7 @@ impl ExecutorPreference {
             Self::LocalRequired => false,
             Self::LocalPreferred => false,
             Self::RemoteRequired => true,
+            Self::RemotePreferred => false,
             Self::Default => false,
         }
     }
@@ -104,6 +113,7 @@ impl ExecutorPreference {
             Self::LocalRequired => true,
             Self::LocalPreferred => false,
             Self::RemoteRequired => false,
+            Self::RemotePreferred => false,
             Self::Default => false,
         }
     }
@@ -113,6 +123,17 @@ impl ExecutorPreference {
             Self::LocalRequired => true,
             Self::LocalPreferred => true,
             Self::RemoteRequired => false,
+            Self::RemotePreferred => false,
+            Self::Default => false,
+        }
+    }
+
+    pub fn prefers_remote(&self) -> bool {
+        match self {
+            Self::LocalRequired => false,
+            Self::LocalPreferred => false,
+            Self::RemoteRequired => true,
+            Self::RemotePreferred => true,
             Self::Default => false,
         }
     }
