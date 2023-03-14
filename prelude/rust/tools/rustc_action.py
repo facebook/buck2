@@ -183,6 +183,11 @@ async def handle_output(  # noqa: C901
                 args.diag_txt.write(rendered)
             sys.stderr.write(rendered)
 
+    if args.diag_json:
+        args.diag_json.close()
+    if args.diag_txt:
+        args.diag_txt.close()
+
     return got_error_diag
 
 

@@ -85,5 +85,7 @@ def main(argv):
                     src = src.resolve().relative_to(os.getcwd())
                     print(src, file=args.output)
 
+    args.output.close()
+
 
 sys.exit(main(sys.argv))

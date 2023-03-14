@@ -78,6 +78,7 @@ def main(argv):
 
     # Write db out.
     json.dump(db, args.output, indent=2)
+    args.output.close()
 
 
 sys.exit(main(sys.argv))

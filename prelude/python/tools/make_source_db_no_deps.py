@@ -47,6 +47,7 @@ def main(argv):
 
     sources = {name: path for name, path, _ in _load(args.sources)}
     json.dump(sources, args.output, indent=2)
+    args.output.close()
 
 
 sys.exit(main(sys.argv))

@@ -44,6 +44,7 @@ def gen(args):
     entry["arguments"] = arguments
 
     json.dump(entry, args.output, indent=2)
+    args.output.close()
 
 
 def merge(args):
@@ -57,6 +58,7 @@ def merge(args):
             entries.append(json.load(f))
 
     json.dump(entries, args.output, indent=2)
+    args.output.close()
 
 
 def main(argv):

@@ -39,6 +39,7 @@ def main(argv: List[str]) -> None:
             entries.append(entry)
 
     json.dump(entries, args.output, indent=2)
+    args.output.close()
 
 
 sys.exit(main(sys.argv))

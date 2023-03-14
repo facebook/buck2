@@ -46,6 +46,7 @@ def main(argv: List[str]) -> int:
 
     for line in out_lines:
         print(line, file=out_file)
+    out_file.close()
     return 0
 
 
