@@ -248,7 +248,7 @@ fn get_cli_path() -> Option<OsString> {
 }
 
 /// Return the place to upload logs, or None to not upload logs at all
-pub fn log_upload_url() -> Option<&'static str> {
+fn log_upload_url() -> Option<&'static str> {
     #[cfg(any(fbcode_build, cargo_internal_build))]
     if hostcaps::is_prod() {
         Some("https://manifold.facebook.net")
