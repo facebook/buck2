@@ -282,8 +282,11 @@ impl ConfiguredTargetNode {
                 ),
                 // We have no attributes to transition, so empty map is fine.
                 resolved_transition_configurations: OrderedMap::new(),
-                // Nothing to execute for a forward node.
-                execution_platform_resolution: ExecutionPlatformResolution::unspecified(),
+                // Set the execution platform equal to the transitioned node's execution platform
+                // so we can call `buck2 test` on Forward.
+                execution_platform_resolution: transitioned_node
+                    .execution_platform_resolution()
+                    .dupe(),
                 deps: ConfiguredTargetNodeDeps(Box::new([transitioned_node])),
                 exec_deps: ConfiguredTargetNodeDeps(Box::new([])),
                 platform_cfgs: OrderedMap::new(),
