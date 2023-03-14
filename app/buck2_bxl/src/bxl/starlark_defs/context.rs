@@ -33,6 +33,7 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::target::label::TargetLabel;
 use buck2_execute::digest_config::DigestConfig;
+use buck2_interpreter::starlark_promise::StarlarkPromise;
 use buck2_interpreter::types::label::Label;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::unconfigured::TargetNode;
@@ -545,5 +546,46 @@ fn register_context(builder: &mut MethodsBuilder) {
                 this.global_target_platform.clone(),
             )
         })
+    }
+
+    /// Awaits a promise and returns an optional value of the promise.
+    ///
+    /// Sample usage:
+    /// ```python
+    /// load("//path/to/rules:rules.bzl", "my_anon_targets_rule", "my_map_function")
+    ///
+    /// def _resolve_impl(ctx):
+    ///     actions = ctx.bxl_actions.action_factory()
+    ///     my_attrs = {
+    ///         "false": False,
+    ///         "int": 42,
+    ///         "list_string": ["a", "b", "c"],
+    ///         "string": "a-string",
+    ///         "true": True,
+    ///     }
+    ///
+    ///     promise = actions.anon_target(my_anon_targets_rule, attrs).map(my_map_function)
+    ///     providers_result = ctx.resolve(promise) # result is `provider_callable` type, which is a collection of `provider`s
+    ///     ctx.output.print(providers_result[0].my_field)
+    /// ```
+    fn resolve<'v>(
+        this: &'v BxlContext<'v>,
+        action_factory: ValueTyped<'v, AnalysisActions<'v>>,
+        promise: ValueTyped<'v, StarlarkPromise<'v>>,
+        eval: &mut Evaluator<'v, '_>,
+    ) -> anyhow::Result<Option<Value<'v>>> {
+        this.async_ctx.via_dice(|dice| async move {
+            loop {
+                let promises = action_factory.state().get_promises();
+                if let Some(promises) = promises {
+                    promises.run_promises(dice, eval).await?;
+                } else {
+                    break;
+                }
+            }
+            Ok(())
+        })?;
+
+        Ok(promise.get())
     }
 }

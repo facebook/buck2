@@ -103,7 +103,7 @@ use crate::keep_going;
 use crate::nodes::calculation::find_execution_platform_by_configuration;
 
 #[derive(Debug, Trace, Allocative)]
-pub(crate) struct AnonTargetsRegistry<'v> {
+pub struct AnonTargetsRegistry<'v> {
     // We inherit the execution platform of our parent
     execution_platform: ExecutionPlatformResolution,
     // The actual data
@@ -578,7 +578,7 @@ impl<'v> AnonTargetsRegistry<'v> {
         }
     }
 
-    pub(crate) async fn run_promises(
+    pub async fn run_promises(
         self,
         dice: &DiceComputations,
         eval: &mut Evaluator<'v, '_>,

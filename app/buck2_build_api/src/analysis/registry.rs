@@ -283,7 +283,7 @@ impl<'v> AnalysisRegistry<'v> {
         self.anon_targets.register_many(promise, rules)
     }
 
-    pub(crate) fn get_promises(&mut self) -> Option<AnonTargetsRegistry<'v>> {
+    pub fn get_promises(&mut self) -> Option<AnonTargetsRegistry<'v>> {
         self.anon_targets.get_promises()
     }
 
