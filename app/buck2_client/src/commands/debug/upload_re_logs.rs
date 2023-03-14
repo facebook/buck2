@@ -7,9 +7,6 @@
  * of this source tree.
  */
 
-use std::process::Stdio;
-
-use anyhow::Context;
 use async_compression::tokio::bufread::ZstdEncoder;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::exit_result::ExitResult;
@@ -45,33 +42,14 @@ impl UploadReLogsCommand {
 
     async fn upload_file<'a, R>(&self, reader: &'a mut R) -> anyhow::Result<ExitResult>
     where
-        R: AsyncRead + Unpin + ?Sized,
+        R: AsyncRead + Unpin,
     {
         let bucket_path = &format!("{}.log.zst", self.session_id);
 
-        let upload = manifold::upload_command(manifold::Bucket::ReLogs, bucket_path)?;
-
-        // Do nothing if upload command could not be found
-        match upload {
-            None => Ok(ExitResult::success()),
-            Some(mut upload) => {
-                upload.stdin(Stdio::piped());
-
-                // write compressed file to stdin
-                let mut child = upload.spawn().context("Error spawning command")?;
-                let mut stdin = child.stdin.take().expect("Stdin was piped");
-                tokio::io::copy(reader, &mut stdin)
-                    .await
-                    .context("Error writing to stdin")?;
-
-                drop(stdin); // This tells the child process that there is no more data
-
-                let exit_code = child.wait().await?.code();
-                match exit_code {
-                    None => Err(anyhow::anyhow!("No exit code returned")),
-                    Some(code) => Ok(ExitResult::status_extended(code)),
-                }
-            }
-        }
+        manifold::Upload::new(manifold::Bucket::ReLogs, bucket_path)
+            .from_async_read(reader)?
+            .spawn(None)
+            .await?;
+        Ok(ExitResult::success())
     }
 }

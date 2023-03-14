@@ -15,6 +15,7 @@ use std::time::Duration;
 
 use anyhow::Context;
 use buck2_core::fs::paths::abs_path::AbsPath;
+use tokio::io::AsyncRead;
 use tokio::process::Child;
 use tokio::process::Command;
 
@@ -36,6 +37,8 @@ pub enum UploadError {
         code: i32,
         stderr: String,
     },
+    #[error("Failed to upload stream to Manifold with exit code `{code}`, stderr: `{stderr}`")]
+    StreamUploadExitCode { code: i32, stderr: String },
     #[error("File not found")]
     FileNotFound,
     #[error(transparent)]
@@ -93,6 +96,43 @@ impl<'a> Upload<'a> {
             upload: self,
             filepath,
         })
+    }
+    pub fn from_async_read(
+        self,
+        stream: &'a mut (dyn AsyncRead + Unpin),
+    ) -> Result<StreamUploader<'a>, UploadError> {
+        Ok(StreamUploader {
+            upload: self,
+            stream,
+        })
+    }
+}
+
+pub struct StreamUploader<'a> {
+    upload: Upload<'a>,
+    stream: &'a mut (dyn AsyncRead + Unpin),
+}
+impl<'a> StreamUploader<'a> {
+    pub async fn spawn(self, timeout: Option<u64>) -> Result<(), UploadError> {
+        let mut upload = upload_command(self.upload.bucket, self.upload.filename)?
+            .ok_or(UploadError::CommandNotFound)?;
+        let upload = upload
+            .stdout(Stdio::null())
+            .stderr(Stdio::piped())
+            .stdin(Stdio::piped());
+
+        let mut child = upload.spawn().context("Error spawning command")?;
+        let mut stdin = child.stdin.take().expect("Stdin was piped");
+        tokio::io::copy(self.stream, &mut stdin)
+            .await
+            .context("Error writing to stdin")?;
+        drop(stdin);
+
+        let exit_code_error =
+            |code: i32, stderr: String| UploadError::StreamUploadExitCode { code, stderr };
+
+        wait_for_command(timeout, child, exit_code_error).await?;
+        Ok(())
     }
 }
 
