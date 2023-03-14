@@ -148,7 +148,7 @@ async fn test_overwrite_package_value_not_allowed_without_overwrite_flag() {
         .await;
     assert!(
         format!("{:?}", err)
-            .contains("key set in parent `PACKAGE` file, and override flag is not set"),
+            .contains("key set in parent `PACKAGE` file, and overwrite flag is not set"),
         "err = {:?}",
         err
     );

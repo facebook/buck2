@@ -59,7 +59,7 @@ they are loaded from `PACKAGE` or `BUCK` file.
 def write_package_value(
     name: str.type,
     value: "",
-    override: bool.type = False,
+    overwrite: bool.type = False,
 ): ...
 ```
 
@@ -68,7 +68,7 @@ Name is a string which must contain exactly one dot symbol (just to enforce code
 Value is an arbitrary Starlark value, for example, an integer, a list of integer,
 a struct or a function.
 
-When `override` is `False` (default), attempt to override per-package
+When `overwrite` is `False` (default), attempt to overwrite per-package
 value defined in parent `PACKAGE` file will fail.
 
 Written values are frozen when `PACKAGE` file evaluation is finished.

@@ -31,7 +31,7 @@ use crate::interpreter::module_internals::ModuleInternals;
 enum PackageValueError {
     #[error("key already set in this file: `{0}`")]
     KeyAlreadySetInThisFile(String),
-    #[error("key set in parent `PACKAGE` file, and override flag is not set: `{0}`")]
+    #[error("key set in parent `PACKAGE` file, and overwrite flag is not set: `{0}`")]
     KeySetInParentFile(String),
     #[error("key must contain exactly one dot: `{0}`")]
     KeyMustContainExactlyOneDot(String),
