@@ -85,11 +85,20 @@ impl Bucket {
 pub struct Upload<'a> {
     bucket: Bucket,
     filename: &'a str,
+    timeout_s: Option<u64>,
 }
 
 impl<'a> Upload<'a> {
     pub fn new(bucket: Bucket, filename: &'a str) -> Self {
-        Self { bucket, filename }
+        Self {
+            bucket,
+            filename,
+            timeout_s: None,
+        }
+    }
+    pub fn with_timeout(mut self, timeout_s: u64) -> Self {
+        self.timeout_s = Some(timeout_s);
+        self
     }
     pub fn from_file(self, filepath: &'a AbsPath) -> Result<FileUploader<'a>, UploadError> {
         Ok(FileUploader {
@@ -119,7 +128,7 @@ pub struct StdinUploader<'a> {
     stream: Stdio,
 }
 impl<'a> StdinUploader<'a> {
-    pub async fn spawn(self, timeout: Option<u64>) -> Result<(), UploadError> {
+    pub async fn spawn(self) -> Result<(), UploadError> {
         let mut upload = upload_command(self.upload.bucket, self.upload.filename)?
             .ok_or(UploadError::CommandNotFound)?;
         let child = upload
@@ -132,7 +141,7 @@ impl<'a> StdinUploader<'a> {
         let exit_code_error =
             |code: i32, stderr: String| UploadError::StreamUploadExitCode { code, stderr };
 
-        wait_for_command(timeout, child, exit_code_error).await?;
+        wait_for_command(self.upload.timeout_s, child, exit_code_error).await?;
         Ok(())
     }
 }
@@ -142,7 +151,7 @@ pub struct StreamUploader<'a> {
     stream: &'a mut (dyn AsyncRead + Unpin),
 }
 impl<'a> StreamUploader<'a> {
-    pub async fn spawn(self, timeout: Option<u64>) -> Result<(), UploadError> {
+    pub async fn spawn(self) -> Result<(), UploadError> {
         let mut upload = upload_command(self.upload.bucket, self.upload.filename)?
             .ok_or(UploadError::CommandNotFound)?;
         let upload = upload
@@ -160,7 +169,7 @@ impl<'a> StreamUploader<'a> {
         let exit_code_error =
             |code: i32, stderr: String| UploadError::StreamUploadExitCode { code, stderr };
 
-        wait_for_command(timeout, child, exit_code_error).await?;
+        wait_for_command(self.upload.timeout_s, child, exit_code_error).await?;
         Ok(())
     }
 }
@@ -170,7 +179,7 @@ pub struct FileUploader<'a> {
     filepath: &'a AbsPath,
 }
 impl<'a> FileUploader<'a> {
-    pub async fn spawn(self, timeout: Option<u64>) -> Result<(), UploadError> {
+    pub async fn spawn(self) -> Result<(), UploadError> {
         let child = self.spawn_child()?;
         let filepath = self.filepath.to_string_lossy().to_string();
         let exit_code_error = |code: i32, stderr: String| UploadError::FileUploadExitCode {
@@ -179,7 +188,7 @@ impl<'a> FileUploader<'a> {
             stderr,
         };
 
-        wait_for_command(timeout, child, exit_code_error).await?;
+        wait_for_command(self.upload.timeout_s, child, exit_code_error).await?;
         Ok(())
     }
 

@@ -48,7 +48,7 @@ impl UploadReLogsCommand {
 
         manifold::Upload::new(manifold::Bucket::ReLogs, bucket_path)
             .from_async_read(reader)?
-            .spawn(None)
+            .spawn()
             .await?;
         Ok(ExitResult::success())
     }

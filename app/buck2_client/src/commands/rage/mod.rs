@@ -381,7 +381,7 @@ async fn upload_daemon_stderr(
     let filename = format!("{}.stderr", manifold_id);
     manifold::Upload::new(manifold::Bucket::RageDumps, &filename)
         .from_stdio(upload_log_file)?
-        .spawn(None)
+        .spawn()
         .await?;
     Ok(format!("buck2_rage_dumps/flat/{}", filename))
 }
@@ -391,7 +391,7 @@ async fn upload_event_logs(path: &EventLogPathBuf, manifold_id: &str) -> anyhow:
     let bucket = manifold::Bucket::RageDumps;
     manifold::Upload::new(bucket, &filename)
         .from_file(path.path())?
-        .spawn(None)
+        .spawn()
         .await?;
     Ok(format!("{}/flat/{}", bucket.info().name, filename))
 }

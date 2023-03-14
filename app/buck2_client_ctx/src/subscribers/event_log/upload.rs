@@ -42,13 +42,14 @@ pub(crate) async fn log_upload(
     }
 
     let manifold_path = &format!("{}{}", trace_id, path.extension());
-    let upload =
-        manifold::Upload::new(manifold::Bucket::EventLogs, manifold_path).from_file(&path.path)?;
+    let upload = manifold::Upload::new(manifold::Bucket::EventLogs, manifold_path)
+        .with_timeout(20)
+        .from_file(&path.path)?;
     match std::env::var_os("SANDCASTLE").is_some() {
         // Network on Sandcastle is fast, so this is a reasonable timeout.
         // If it fails to upload in that time, it is better to fail explicitly
         // and show the error in Sandcastle logs instead of job timeout with no diagnostics.
-        true => upload.spawn(Some(20)).await?,
+        true => upload.spawn().await?,
         false => upload.spawn_and_forget().await?,
     };
     Ok(())
