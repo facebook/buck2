@@ -247,9 +247,9 @@ def main() -> None:
     # for error reporting.
     postprocessing_module_name = os.path.basename(args.header).split("-")[0]
 
-    # The Swift compiler's output looks like this:
+    # The Swift compiler's output looks like this for Swift5.8:
     #
-    # #if __has_feature(modules)
+    # #if __has_feature(objc_modules)
     # #if __has_warning("-Watimport-in-framework-header")
     # #pragma clang diagnostic ignored "-Watimport-in-framework-header"
     # #endif
@@ -276,7 +276,12 @@ def main() -> None:
             # When the modules has not been set, we are still searching for the start of the
             # modules @import section.
             if modules is None:
-                if line == "#if __has_feature(modules)":
+                # The line changed from __has_feature(modules) to __has_feature(objc_modules) between Swift5.7 and Swift5.8.
+                # For the time being, we need to check for either to support both Xcode14.2 and Xcode14.3 onwards.
+                if (
+                    line == "#if __has_feature(objc_modules)"
+                    or line == "#if __has_feature(modules)"
+                ):
                     modules = []
                     if_level = 1
             else:
