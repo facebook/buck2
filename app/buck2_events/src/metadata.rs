@@ -45,6 +45,10 @@ pub fn collect() -> HashMap<String, String> {
         map.insert("buck2_build_time".to_owned(), time.to_owned());
     }
 
+    if let Some(ts) = buck2_build_info::release_timestamp() {
+        map.insert("buck2_release_timestamp".to_owned(), ts.to_owned());
+    }
+
     // Global trace ID
     map.insert("daemon_uuid".to_owned(), DAEMON_UUID.to_string());
 

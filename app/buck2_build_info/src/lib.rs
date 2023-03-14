@@ -41,3 +41,17 @@ pub fn time_iso8601() -> Option<&'static str> {
         None
     }
 }
+
+/// A timestamp for this release. Notionally this is similar to time_iso8601, except a) the format
+/// differs so it's more easily machine readable and b) we *only* set this in release binaries.
+///
+/// We use this in Ingress when dealing with panic and soft error reports to omit logging for older
+/// versions.
+pub fn release_timestamp() -> Option<&'static str> {
+    if let Some(ts) = std::option_env!("BUCK2_RELEASE_TIMESTAMP") {
+        if !ts.is_empty() {
+            return Some(ts);
+        }
+    }
+    None
+}
