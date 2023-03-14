@@ -80,21 +80,28 @@ impl Bucket {
 }
 
 pub struct Upload<'a> {
-    upload: Command,
-    filepath: &'a AbsPath,
+    bucket: Bucket,
+    filename: &'a str,
 }
 
 impl<'a> Upload<'a> {
-    pub fn new(
-        bucket: Bucket,
-        filepath: &'a AbsPath,
-        filename: &'a str,
-    ) -> Result<Self, UploadError> {
-        let upload = upload_command(bucket, filename)?.ok_or(UploadError::CommandNotFound)?;
-        Ok(Upload { upload, filepath })
+    pub fn new(bucket: Bucket, filename: &'a str) -> Self {
+        Self { bucket, filename }
     }
+    pub fn from_file(self, filepath: &'a AbsPath) -> Result<FileUploader<'a>, UploadError> {
+        Ok(FileUploader {
+            upload: self,
+            filepath,
+        })
+    }
+}
 
-    pub async fn spawn(mut self, timeout: Option<u64>) -> Result<(), UploadError> {
+pub struct FileUploader<'a> {
+    upload: Upload<'a>,
+    filepath: &'a AbsPath,
+}
+impl<'a> FileUploader<'a> {
+    pub async fn spawn(self, timeout: Option<u64>) -> Result<(), UploadError> {
         let child = self.spawn_child()?.wait_with_output();
         let output = match timeout {
             None => child.await?,
@@ -116,12 +123,12 @@ impl<'a> Upload<'a> {
         Ok(())
     }
 
-    pub async fn spawn_and_forget(mut self) -> Result<(), UploadError> {
+    pub async fn spawn_and_forget(self) -> Result<(), UploadError> {
         self.spawn_child()?;
         Ok(())
     }
 
-    fn spawn_child(&mut self) -> Result<Child, UploadError> {
+    fn spawn_child(&self) -> Result<Child, UploadError> {
         let file: Stdio = match std::fs::File::open(self.filepath) {
             Ok(file) => file,
             Err(err) => {
@@ -132,9 +139,10 @@ impl<'a> Upload<'a> {
             }
         }
         .into();
-        self.upload.stdin(file);
-        let child = self
-            .upload
+        let mut upload = upload_command(self.upload.bucket, self.upload.filename)?
+            .ok_or(UploadError::CommandNotFound)?;
+        upload.stdin(file);
+        let child = upload
             .stdout(Stdio::null())
             .stderr(Stdio::piped())
             .spawn()?;

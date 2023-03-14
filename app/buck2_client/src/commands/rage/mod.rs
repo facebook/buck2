@@ -403,7 +403,8 @@ async fn upload_daemon_stderr(
 async fn upload_event_logs(path: &EventLogPathBuf, manifold_id: &str) -> anyhow::Result<String> {
     let filename = format!("{}-event_log{}", manifold_id, path.extension());
     let bucket = manifold::Bucket::RageDumps;
-    manifold::Upload::new(bucket, path.path(), &filename)?
+    manifold::Upload::new(bucket, &filename)
+        .from_file(path.path())?
         .spawn(None)
         .await?;
     Ok(format!("{}/flat/{}", bucket.info().name, filename))
