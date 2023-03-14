@@ -8,6 +8,7 @@ description = "`buck2 audit` command implementation, both client and server"
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 clap = { workspace = true }
+ctor = { workspace = true }
 derive_more = { workspace = true }
 futures = { workspace = true }
 indent_write = { workspace = true }

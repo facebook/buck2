@@ -17,6 +17,8 @@ use buck2_build_api::actions::artifact::provide_outputs::ProvideOutputs;
 use buck2_build_api::actions::key::ActionKey;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::analysis::AnalysisResult;
+use buck2_build_api::audit_output::AuditOutputResult;
+use buck2_build_api::audit_output::AUDIT_OUTPUT;
 use buck2_build_api::calculation::Calculation;
 use buck2_build_api::query::aquery::environment::ActionQueryNode;
 use buck2_build_api::query::aquery::evaluator::get_dice_aquery_delegate;
@@ -37,6 +39,7 @@ use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::pattern::target_platform_from_client_context;
+use ctor::ctor;
 use dice::DiceComputations;
 use thiserror::Error;
 use tracing::debug;
@@ -153,16 +156,7 @@ async fn find_matching_action<'v>(
     Ok(None)
 }
 
-/// The result of audit output.
-pub enum AuditOutputResult {
-    /// The exact action that matched the buck-out path.
-    Match(ActionQueryNode),
-    /// If the platform configuration of the buck-out path doesn't match the platform used when calling
-    /// audit output, then we return the unconfigured target label.
-    MaybeRelevant(TargetLabel),
-}
-
-pub async fn audit_output<'v>(
+async fn audit_output<'v>(
     output_path: &'v str,
     working_dir: &'v ProjectRelativePath,
     cell_resolver: &'v CellResolver,
@@ -209,6 +203,21 @@ pub async fn audit_output<'v>(
             .await?
             .map(AuditOutputResult::Match),
     )
+}
+
+#[ctor]
+fn set_audit_output() {
+    AUDIT_OUTPUT.init(
+        |output_path, working_dir, cell_resolver, dice_ctx, global_target_platform| {
+            Box::pin(audit_output(
+                output_path,
+                working_dir,
+                cell_resolver,
+                dice_ctx,
+                global_target_platform,
+            ))
+        },
+    );
 }
 
 #[async_trait]
