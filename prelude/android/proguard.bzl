@@ -45,9 +45,9 @@ def _get_proguard_command_line_args(
         cmd.add(cmd_args("\"", proguard_config, "\"", delimiter = ""))
 
     for jar_input, jar_output in inputs_to_unscrubbed_outputs.items():
-        cmd.add("-injar", jar_input, "-outjar", jar_output if jar_output == jar_input else jar_output.as_output())
+        cmd.add("-injars", jar_input, "-outjars", jar_output if jar_output == jar_input else jar_output.as_output())
 
-    cmd.add("-library")
+    cmd.add("-libraryjars")
     cmd.add(cmd_args(android_toolchain.android_bootclasspath, delimiter = get_path_separator()))
 
     cmd.add("-printmapping", mapping.as_output())
