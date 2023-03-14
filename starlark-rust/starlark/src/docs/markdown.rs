@@ -278,6 +278,44 @@ struct ObjectRenderer<'a> {
     object: &'a Object,
 }
 
+impl<'a> ObjectRenderer<'a> {
+    fn gather_members_info(&self, flavor: MarkdownFlavor) -> (Vec<TableRow>, Vec<String>) {
+        self.object
+            .members
+            .iter()
+            .sorted_by(|(l_m, _), (r_m, _)| l_m.cmp(r_m))
+            .map(|(name, member)| {
+                let (summary, typ) = match member {
+                    Member::Property(p) => (&p.docs, TypeRenderer::Type(&p.typ)),
+                    Member::Function(f) => (
+                        &f.docs,
+                        TypeRenderer::Function {
+                            function_name: None,
+                            show_param_details: true,
+                            max_args_before_multiline: Some(0),
+                            f,
+                        },
+                    ),
+                };
+                let row = TableRow(vec![
+                    Box::new(name.clone()),
+                    Box::new(DocStringRenderer(DSOpts::Summary, summary)),
+                    Box::new(CodeBlock {
+                        language: Some("python".to_owned()),
+                        contents: Box::new(typ),
+                    }),
+                ]);
+                let details = MemberDetails {
+                    name: name.clone(),
+                    member,
+                }
+                .render_markdown(flavor);
+                (row, details)
+            })
+            .unzip()
+    }
+}
+
 impl<'a> RenderMarkdown for ObjectRenderer<'a> {
     fn render_markdown_opt(&self, flavor: MarkdownFlavor) -> Option<String> {
         match flavor {
@@ -293,52 +331,20 @@ impl<'a> RenderMarkdown for ObjectRenderer<'a> {
                     .render_markdown_opt(flavor)
                     .map(|s| format!("\n\n{}", s))
                     .unwrap_or_default();
-
                 let members_header = TableHeader(&["Member", "Description", "Type"]);
 
-                let (members_rows, member_details): (Vec<TableRow>, Vec<String>) = self
-                    .object
-                    .members
-                    .iter()
-                    .sorted_by(|(l_m, _), (r_m, _)| l_m.cmp(r_m))
-                    .map(|(name, member)| {
-                        let (summary, typ) = match member {
-                            Member::Property(p) => (&p.docs, TypeRenderer::Type(&p.typ)),
-                            Member::Function(f) => (
-                                &f.docs,
-                                TypeRenderer::Function {
-                                    function_name: None,
-                                    show_param_details: true,
-                                    max_args_before_multiline: Some(0),
-                                    f,
-                                },
-                            ),
-                        };
-                        let row = TableRow(vec![
-                            Box::new(name.clone()),
-                            Box::new(DocStringRenderer(DSOpts::Summary, summary)),
-                            Box::new(CodeBlock {
-                                language: Some("python".to_owned()),
-                                contents: Box::new(typ),
-                            }),
-                        ]);
-                        let details = MemberDetails {
-                            name: name.clone(),
-                            member,
-                        }
-                        .render_markdown(flavor);
-                        (row, details)
-                    })
-                    .unzip();
+                let (members_rows, member_details): (Vec<TableRow>, Vec<String>) =
+                    self.gather_members_info(flavor);
 
                 let members_details = member_details.join("\n\n---\n");
 
-                // Omit the prelude.bzl table, as it's currently unusable.
+                // Only display the summary and members details for prelude.bzl, as the generated table is currently unusable.
+                // Manually insert a summary as well, as nothing is pulled in from the bzl file
                 // TODO: remove this conditional when we fix up the prelude docs.
                 let page_body = if self.id.name == "native" {
+                    let summary = "\n\nThis document contains a list of rules and their signatures provided by our prelude.";
                     format!(
-                        "{title}{summary}\n\n### Members\n\n{members_details}",
-                        title = title,
+                        "{summary}\n\n{members_details}",
                         summary = summary,
                         members_details = members_details
                     )
