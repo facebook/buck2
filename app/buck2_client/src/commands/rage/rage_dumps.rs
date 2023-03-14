@@ -112,13 +112,21 @@ async fn upload_to_manifold(dump_folder: &Path, manifold_filename: &str) -> anyh
         let mut upload = manifold::upload_command(manifold::Bucket::RageDumps, manifold_filename)?
             .context(UploadError::CommandNotFound)?;
         upload.stdin(tar_gzip.stdout.unwrap());
-        let exit_code_result = upload.spawn()?.wait().await?.code();
+        let output = upload.spawn()?.wait_with_output().await?;
 
-        match exit_code_result.context(UploadError::NoResultCodeError(
-            dump_folder.display().to_string(),
-        ))? {
+        match output
+            .status
+            .code()
+            .context(UploadError::NoResultCodeError(
+                dump_folder.display().to_string(),
+            ))? {
             0 => Ok::<(), anyhow::Error>(()),
-            e => Err(UploadError::ExitCodeError(dump_folder.display().to_string(), e).into()),
+            e => Err(UploadError::FileUploadExitCode {
+                path: dump_folder.display().to_string(),
+                code: e,
+                stderr: String::from_utf8_lossy(&output.stderr).to_string(),
+            }
+            .into()),
         }?
     }
     Ok(())

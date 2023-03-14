@@ -383,15 +383,19 @@ async fn upload_daemon_stderr(
     let mut upload = manifold::upload_command(manifold::Bucket::RageDumps, &filename)?
         .context(UploadError::CommandNotFound)?;
     upload.stdin(upload_log_file);
-    match upload
-        .spawn()?
-        .wait()
-        .await?
+    let output = upload.spawn()?.wait_with_output().await?;
+    match output
+        .status
         .code()
         .context(UploadError::NoResultCodeError(path.display().to_string()))?
     {
         0 => Ok::<(), anyhow::Error>(()),
-        e => Err(UploadError::ExitCodeError(path.display().to_string(), e).into()),
+        e => Err(UploadError::FileUploadExitCode {
+            path: path.display().to_string(),
+            code: e,
+            stderr: String::from_utf8_lossy(&output.stderr).to_string(),
+        }
+        .into()),
     }?;
     Ok(format!("buck2_rage_dumps/flat/{}", filename))
 }

@@ -22,19 +22,16 @@ use crate::find_certs::find_tls_cert;
 
 #[derive(Debug, thiserror::Error)]
 pub enum UploadError {
-    #[error("Failed to upload path `{0}` to Manifold with exit code {1}")]
-    ExitCodeError(String, i32),
     #[error(
         "No result code from uploading path `{0}` to Manifold, probably due to signal interrupt"
     )]
     NoResultCodeError(String),
     #[error("Failed to find suitable Manifold upload command")]
     CommandNotFound,
-    // TODO iguridi: consolidate with ExitCodeError
     #[error(
         "Failed to upload path `{path}` to Manifold with exit code `{code}`, stderr: `{stderr}`"
     )]
-    ChildExitCode {
+    FileUploadExitCode {
         path: String,
         code: i32,
         stderr: String,
@@ -110,7 +107,7 @@ impl<'a> Upload<'a> {
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr).to_string();
             let code = output.status.code().unwrap_or(1);
-            return Err(UploadError::ChildExitCode {
+            return Err(UploadError::FileUploadExitCode {
                 path: self.filepath.to_string_lossy().to_string(),
                 code,
                 stderr,
