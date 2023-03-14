@@ -285,11 +285,21 @@ impl LocalExecutor {
 
         let scratch_dir_abs;
 
-        let tmpdir = if let Some(scratch_dir) = scratch_dir {
+        let tmpdirs = if let Some(scratch_dir) = scratch_dir {
             // For the $TMPDIR - important it is absolute
             scratch_dir_abs = self.artifact_fs.fs().resolve(scratch_dir);
 
             if cfg!(windows) {
+                const MAX_PATH: usize = 260;
+                if scratch_dir_abs.as_os_str().len() > MAX_PATH {
+                    return manager.error(
+                        "scratch_dir_too_long",
+                        anyhow::anyhow!(
+                            "Scratch directory path is longer than MAX_PATH: {}",
+                            scratch_dir_abs
+                        ),
+                    );
+                }
                 vec![
                     ("TEMP", scratch_dir_abs.as_os_str()),
                     ("TMP", scratch_dir_abs.as_os_str()),
@@ -304,7 +314,7 @@ impl LocalExecutor {
         let daemon_uuid: &str = &buck2_events::metadata::DAEMON_UUID.to_string();
 
         let iter_env = || {
-            tmpdir
+            tmpdirs
                 .iter()
                 .map(|(k, v)| (*k, StrOrOsStr::from(*v)))
                 .chain(
