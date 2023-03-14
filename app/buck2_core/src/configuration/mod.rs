@@ -232,7 +232,7 @@ impl ConfigurationData {
     /// This can only find configurations that have otherwise already been encountered by
     /// the current daemon process.
     pub fn lookup_from_string(cfg: &str) -> anyhow::Result<Self> {
-        match cfg.rsplit_once('-') {
+        match cfg.rsplit_once('#') {
             Some((_, hash)) => match INTERNER.get(hash) {
                 Some(cfg) => Ok(Self(cfg)),
                 None => Err(ConfigurationLookupError::ConfigNotFound(
@@ -487,7 +487,7 @@ impl HashedPlatformConfigurationData {
         let full_name = if platform_configuration_data.data.is_empty() {
             platform_configuration_data.platform.to_string()
         } else {
-            format!("{:#}-{}", platform_configuration_data.platform, output_hash)
+            format!("{:#}#{}", platform_configuration_data.platform, output_hash)
         };
         Self {
             platform_configuration_data,
@@ -624,9 +624,40 @@ mod tests {
         assert_eq!(configuration.output_hash(), "fd698fb05d52efbc");
         assert_eq!(
             configuration.to_string(),
-            "cfg_for//:testing_exec-fd698fb05d52efbc"
+            "cfg_for//:testing_exec#fd698fb05d52efbc"
         );
 
         Ok(())
+    }
+
+    #[test]
+    fn test_lookup_from_string() {
+        let configuration = ConfigurationData::from_platform(
+            "cfg_for//:testing_exec".to_owned(),
+            ConfigurationDataData {
+                constraints: BTreeMap::from_iter([
+                    (
+                        ConstraintKey(TargetLabel::testing_parse("foo//bar:c")),
+                        ConstraintValue(TargetLabel::testing_parse("foo//bar:v")),
+                    ),
+                    (
+                        ConstraintKey(TargetLabel::testing_parse("foo//qux:c")),
+                        ConstraintValue(TargetLabel::testing_parse("foo//qux:vx")),
+                    ),
+                ]),
+                buckconfigs: BTreeMap::new(),
+            },
+        )
+        .unwrap();
+
+        assert_eq!(
+            "cfg_for//:testing_exec#fd698fb05d52efbc",
+            configuration.to_string()
+        );
+
+        let looked_up =
+            ConfigurationData::lookup_from_string("cfg_for//:testing_exec#fd698fb05d52efbc")
+                .unwrap();
+        assert_eq!(configuration, looked_up);
     }
 }
