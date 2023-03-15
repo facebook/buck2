@@ -34,12 +34,12 @@ Sample:
 ```python
 def my_bxl(ctx):
     actions_factory = ctx.bxl_actions.factory()
-    
+
     artifact = actions_factory.write("file.txt", "content")
-    
+
     # note that existing artifacts that were declared by other rules can be built
     ctx.actions.build(ctx.analysis(ctx.target("foo")).providers[DefaultInfo].default_output))
-    
+
     return [artifact] # exposes the declared artifact to users
 ```
 

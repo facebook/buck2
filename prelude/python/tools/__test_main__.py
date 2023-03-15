@@ -1,4 +1,4 @@
-#!/usr/local/bin/python2.6 -tt
+#!/usr/bin/env fbpython -tt
 # Copyright (c) Meta Platforms, Inc. and affiliates.
 #
 # This source code is licensed under both the MIT license found in the

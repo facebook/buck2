@@ -438,7 +438,7 @@ impl<T: LspContext> Backend<T> {
 
     /// Find the ultimate places that an identifier is defined.
     ///
-    /// Takes a definition location and if necesary loads other files trying
+    /// Takes a definition location and if necessary loads other files trying
     /// to find where the symbol was defined in a useful way. e.g. pointing to the
     /// symbol in a "load()" statement isn't useful, but going to the file it is
     /// loaded from and pointing at a function definition very much is.

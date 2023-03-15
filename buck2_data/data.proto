@@ -364,7 +364,7 @@ message Snapshot {
   uint32 io_in_flight_canonicalize = 1117;
   uint32 io_in_flight_eden_settle = 1118;
 
-  // Time passed since buck2 deamon was started
+  // Time passed since buck2 daemon was started
   uint64 daemon_uptime_s = 7;
 
   // https://jemalloc.net/jemalloc.3.html
