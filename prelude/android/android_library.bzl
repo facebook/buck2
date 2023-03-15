@@ -26,7 +26,7 @@ def android_library_impl(ctx: "context") -> ["provider"]:
             shared_library_info,
             cxx_resource_info,
             # Add an unused default output in case this target is used as an attr.source() anywhere.
-            DefaultInfo(default_output = ctx.actions.write("unused.jar", [])),
+            DefaultInfo(default_output = ctx.actions.write("{}/unused.jar".format(ctx.label.name), [])),
         ]
 
     java_providers, android_library_intellij_info = build_android_library(ctx)
