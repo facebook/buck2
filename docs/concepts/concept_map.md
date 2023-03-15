@@ -14,9 +14,7 @@ The Concept Map is for reference only and is not intended to be 100% accurate no
 
 <FbInternalOnly>
 
-For the Excalidraw version of the Concept Map, see [EX49081](https://www.internalfb.com/excalidraw/EX49081).
-
-The version above was created in LucidChart and is located in the team folder 'Buck2'. To access the folder in LucidChart, please use your Meta credentials to [Login](https://lucid.app/folder/invitations/accept/inv_c5c89718-b1cd-4b22-ae76-a47616719948).
+The version above was created in LucidChart and is located in the [Buck2 team folder](https://lucid.app/folder/invitations/accept/inv_c5c89718-b1cd-4b22-ae76-a47616719948). To login into Lucidcharts, do `bunnylol lucidchart`
 
 </FbInternalOnly>
 :::
