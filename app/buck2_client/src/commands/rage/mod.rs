@@ -8,6 +8,7 @@
  */
 
 mod build_info;
+mod materializer;
 mod rage_dumps;
 mod source_control;
 mod system_info;
@@ -210,6 +211,8 @@ impl RageCommand {
             let logdir = paths.log_dir();
             let dice_dump_dir = paths.dice_dump_dir();
 
+            let client_ctx = ctx.empty_client_context()?;
+
             let rage_id = TraceId::new();
             let mut manifold_id = format!("{}", rage_id);
             let sink = create_scribe_sink(&ctx)?;
@@ -246,6 +249,10 @@ impl RageCommand {
             let dice_dump_command = RageSection::get("Dice Dump".to_owned(), timeout, || async {
                 rage_dumps::upload_dice_dump(buckd.clone()?, dice_dump_dir, &manifold_id).await
             });
+            let materializer_state =
+                RageSection::get("Materializer state".to_owned(), timeout, || {
+                    materializer::upload_materializer_state(&buckd, &client_ctx, &manifold_id)
+                });
             let build_info_command = {
                 let title = "Associated invocation info".to_owned();
                 match selected_invocation.as_ref() {
@@ -271,6 +278,7 @@ impl RageCommand {
                 daemon_stderr_dump,
                 hg_snapshot_id,
                 dice_dump,
+                materializer_state,
                 build_info,
                 event_log_dump,
             ) = tokio::join!(
@@ -278,6 +286,7 @@ impl RageCommand {
                 daemon_stderr_command,
                 hg_snapshot_id_command,
                 dice_dump_command,
+                materializer_state,
                 build_info_command,
                 event_log_command,
             );
@@ -286,6 +295,7 @@ impl RageCommand {
                 daemon_stderr_dump.to_string(),
                 hg_snapshot_id.to_string(),
                 dice_dump.to_string(),
+                materializer_state.to_string(),
                 build_info.to_string(),
                 event_log_dump.to_string(),
             ];
@@ -299,6 +309,7 @@ impl RageCommand {
                 daemon_stderr_dump,
                 hg_snapshot_id,
                 dice_dump,
+                materializer_state,
                 event_log_dump,
                 build_info,
             )
@@ -316,6 +327,7 @@ impl RageCommand {
         daemon_stderr_dump: RageSection<String>,
         hg_snapshot_id: RageSection<String>,
         dice_dump: RageSection<String>,
+        materializer_state: RageSection<String>,
         event_log_dump: RageSection<String>,
         build_info: RageSection<build_info::BuildInfo>,
     ) -> anyhow::Result<()> {
@@ -323,6 +335,7 @@ impl RageCommand {
             keys = String::from,
             hashmap! (
                 "dice_dump" => dice_dump.output(),
+                "materializer_state" => materializer_state.output(),
                 "daemon_stderr_dump" => daemon_stderr_dump.output(),
                 "hg_snapshot_id" => hg_snapshot_id.output(),
                 "invocation_id" => invocation_id.map(|inv| inv.to_string()).unwrap_or_default(),

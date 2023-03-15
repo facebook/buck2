@@ -45,7 +45,7 @@ mod cell;
 mod classpath;
 mod config;
 mod configurations;
-mod deferred_materializer;
+pub mod deferred_materializer;
 mod dep_files;
 mod execution_platform_resolution;
 mod includes;

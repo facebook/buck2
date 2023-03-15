@@ -11,6 +11,7 @@
 #![feature(try_blocks)]
 #![feature(try_trait_v2)]
 #![feature(trait_alias)]
+#![feature(exit_status_error)]
 
 pub mod args;
 pub mod commands;

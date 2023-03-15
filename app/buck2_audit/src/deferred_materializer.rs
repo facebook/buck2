@@ -26,14 +26,14 @@ use crate::AuditSubcommand;
 )]
 pub struct DeferredMaterializerCommand {
     #[clap(flatten)]
-    common_opts: AuditCommandCommonOptions,
+    pub common_opts: AuditCommandCommonOptions,
 
     #[clap(subcommand)]
-    subcommand: DeferredMaterializerSubcommand,
+    pub subcommand: DeferredMaterializerSubcommand,
 }
 
 #[derive(Debug, clap::Subcommand, serde::Serialize, serde::Deserialize)]
-enum DeferredMaterializerSubcommand {
+pub enum DeferredMaterializerSubcommand {
     List,
     Refresh {
         /// Minimum TTL to require for actions.

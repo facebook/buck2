@@ -45,6 +45,7 @@ rust_library(
         "fbsource//third-party/rust:tracing",
         "fbsource//third-party/rust:walkdir",
         "//buck2/allocative/allocative:allocative",
+        "//buck2/app/buck2_audit:buck2_audit",
         "//buck2/app/buck2_cli_proto:buck2_cli_proto",
         "//buck2/app/buck2_client_ctx:buck2_client_ctx",
         "//buck2/app/buck2_common:buck2_common",
