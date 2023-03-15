@@ -360,7 +360,15 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
         }
         match &mut self.super_console {
             Some(super_console) => {
-                super_console.emit(panic.payload.lines().map(Line::sanitized).collect());
+                super_console.emit(
+                    panic
+                        .payload
+                        .lines()
+                        .map(|line| {
+                            Line::from_iter([Span::new_colored_lossy(line, Color::DarkYellow)])
+                        })
+                        .collect(),
+                );
                 Ok(())
             }
             None => self.state.simple_console.handle_panic(panic, event).await,
