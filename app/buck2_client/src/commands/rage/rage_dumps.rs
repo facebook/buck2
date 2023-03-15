@@ -13,26 +13,22 @@ use std::path::PathBuf;
 use anyhow::Context;
 use buck2_cli_proto::unstable_dice_dump_request::DiceDumpFormat;
 use buck2_cli_proto::UnstableDiceDumpRequest;
-use buck2_client_ctx::client_ctx::ClientCommandContext;
-use buck2_client_ctx::daemon::client::connect::BuckdConnectOptions;
+use buck2_client_ctx::daemon::client::connect::BootstrapBuckdClient;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::manifold;
 use buck2_core::fs::fs_util::create_dir_all;
 use buck2_core::fs::fs_util::remove_all;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_util::process::background_command;
-use dupe::Dupe;
 
 pub async fn upload_dice_dump(
-    ctx: &ClientCommandContext,
+    buckd: BootstrapBuckdClient,
+    buck_out_dice: AbsNormPathBuf,
     manifold_id: &String,
 ) -> anyhow::Result<String> {
+    let buckd = buckd.with_subscribers(Default::default());
     let manifold_filename = &format!("{}_dice-dump.gz", manifold_id);
-    let buckd = ctx
-        .connect_buckd(BuckdConnectOptions::existing_only_no_console())
-        .await?;
     let this_dump_folder_name = chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string();
-    let buck_out_dice = ctx.paths.as_ref().map_err(|e| e.dupe())?.dice_dump_dir();
     DiceDump::new(buck_out_dice, &this_dump_folder_name)
         .upload(buckd, manifold_filename)
         .await?;

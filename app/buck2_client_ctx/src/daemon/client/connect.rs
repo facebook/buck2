@@ -300,7 +300,7 @@ impl<'a> BuckdLifecycle<'a> {
 
 /// Client used for connection setup. Can be used to create BuckdClientConnector instances later.
 #[derive(Clone)]
-struct BootstrapBuckdClient {
+pub struct BootstrapBuckdClient {
     info: DaemonProcessInfo,
     daemon_dir: DaemonDir,
     client: DaemonApiClient<InterceptedService<Channel, BuckAddAuthTokenInterceptor>>,

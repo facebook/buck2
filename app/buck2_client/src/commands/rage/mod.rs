@@ -21,12 +21,14 @@ use std::time::SystemTime;
 
 use anyhow::Context;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
+use buck2_client_ctx::daemon::client::connect::BootstrapBuckdClient;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::manifold;
 use buck2_client_ctx::stdin::Stdin;
 use buck2_client_ctx::subscribers::event_log::file_names::get_local_logs_if_exist;
 use buck2_client_ctx::subscribers::event_log::EventLogPathBuf;
 use buck2_client_ctx::subscribers::event_log::EventLogSummary;
+use buck2_common::result::ToSharedResultExt;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_data::instant_event::Data;
 use buck2_data::InstantEvent;
@@ -206,6 +208,7 @@ impl RageCommand {
             let paths = ctx.paths.as_ref().map_err(|e| e.dupe())?;
             let stderr_path = paths.daemon_dir()?.buckd_stderr();
             let logdir = paths.log_dir();
+            let dice_dump_dir = paths.dice_dump_dir();
 
             let rage_id = TraceId::new();
             let mut manifold_id = format!("{}", rage_id);
@@ -216,6 +219,11 @@ impl RageCommand {
                 self.timeout
             )?;
             buck2_client_ctx::eprintln!("Collecting debug info...\n\n")?;
+
+            // If there is a daemon, connect.
+            let buckd = BootstrapBuckdClient::connect(paths, true)
+                .await
+                .shared_error();
 
             let selected_invocation = maybe_select_invocation(ctx.stdin(), &logdir, &self).await?;
             let invocation_id = get_trace_id(&selected_invocation).await?;
@@ -235,8 +243,8 @@ impl RageCommand {
                 timeout,
                 source_control::get_info,
             );
-            let dice_dump_command = RageSection::get("Dice Dump".to_owned(), timeout, || {
-                rage_dumps::upload_dice_dump(&ctx, &manifold_id)
+            let dice_dump_command = RageSection::get("Dice Dump".to_owned(), timeout, || async {
+                rage_dumps::upload_dice_dump(buckd.clone()?, dice_dump_dir, &manifold_id).await
             });
             let build_info_command = {
                 let title = "Associated invocation info".to_owned();
