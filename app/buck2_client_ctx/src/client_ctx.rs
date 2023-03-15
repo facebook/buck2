@@ -105,7 +105,6 @@ impl ClientCommandContext {
         BuckdConnectOptions { ..options }
             .connect(self.paths()?)
             .await
-        .context("Failed to connect to buck daemon. Try running `buck2 clean` and your command afterwards. Alternatively, try running `rm -rf ~/.buck/buckd` and your command afterwards")
     }
 
     pub fn client_context(

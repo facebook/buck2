@@ -316,6 +316,11 @@ impl BootstrapBuckdClient {
         establish_connection(paths, existing_only)
             .await
             .with_context(|| daemon_connect_error(paths))
+            .context(
+                "Failed to connect to buck daemon. \
+                Try running `buck2 clean` and your command afterwards. \
+                Alternatively, try running `rm -rf ~/.buck/buckd` and your command afterwards",
+            )
     }
 
     fn new(
