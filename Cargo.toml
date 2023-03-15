@@ -14,6 +14,7 @@ members = [
     "app/buck2_client_ctx",
     "app/buck2_common",
     "app/buck2_core",
+    "app/buck2_cli_proto",
     "app/buck2_downward_api",
     "app/buck2_downward_api_proto",
     "app/buck2_event_observer",
@@ -49,7 +50,6 @@ members = [
     # @oss-disable: "buck2_tpx_cli",
     "app/buck2_build_api",
     "app/buck2_build_api_derive",
-    "buck2_cli_proto",
     "buck2_subscription_proto",
     "cli",
     "dice/dice",
@@ -70,6 +70,7 @@ members = [
     "shed/internment_tweaks",
     "shed/more_futures",
     "superconsole",
+    "buck2_subscription_proto",
     "install_proto",
 ]
 
@@ -256,7 +257,7 @@ buck2_query_parser = { path = "app/buck2_query_parser" }
 buck2_query_derive = { path = "app/buck2_query_derive" }
 buck2_starlark = { path = "app/buck2_starlark" }
 buck2_audit = { path = "app/buck2_audit" }
-buck2_cli_proto = { path = "buck2_cli_proto" }
+buck2_cli_proto = { path = "app/buck2_cli_proto" }
 buck2_data = { path = "buck2_data" }
 buck2_event_observer = { path = "app/buck2_event_observer" }
 buck2_events = { path = "app/buck2_events" }
