@@ -17,6 +17,7 @@ use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::parse_config_section_and_key;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
+use buck2_common::result::ToUnsharedResultExt;
 use buck2_core::cells::name::CellName;
 use buck2_core::collections::unordered_map::UnorderedMap;
 use buck2_core::configuration::pair::ConfigurationNoExec;
@@ -419,16 +420,47 @@ pub trait ConfigurationCalculation {
     ) -> SharedResult<ToolchainConstraints>;
 }
 
+/// Basically, evaluate `platform()` rule.
+async fn compute_platform_configuration(
+    ctx: &DiceComputations,
+    target: &TargetLabel,
+) -> anyhow::Result<ConfigurationData> {
+    let result = ctx.get_configuration_analysis_result(target).await?;
+    let platform_info = PlatformInfo::from_providers(result.providers().provider_collection())
+        .ok_or_else(|| ConfigurationError::MissingPlatformInfo(target.dupe()))?;
+    platform_info.to_configuration()
+}
+
 #[async_trait]
 impl ConfigurationCalculation for DiceComputations {
     async fn get_platform_configuration(
         &self,
         target: &TargetLabel,
     ) -> anyhow::Result<ConfigurationData> {
-        let result = self.get_configuration_analysis_result(target).await?;
-        let platform_info = PlatformInfo::from_providers(result.providers().provider_collection())
-            .ok_or_else(|| ConfigurationError::MissingPlatformInfo(target.dupe()))?;
-        platform_info.to_configuration()
+        #[derive(derive_more::Display, Debug, Eq, Hash, PartialEq, Clone, Allocative)]
+        struct PlatformConfigurationKey(TargetLabel);
+
+        #[async_trait]
+        impl Key for PlatformConfigurationKey {
+            type Value = SharedResult<ConfigurationData>;
+
+            async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
+                compute_platform_configuration(ctx, &self.0)
+                    .await
+                    .shared_error()
+            }
+
+            fn equality(x: &Self::Value, y: &Self::Value) -> bool {
+                match (x, y) {
+                    (Ok(x), Ok(y)) => x == y,
+                    _ => false,
+                }
+            }
+        }
+
+        self.compute(&PlatformConfigurationKey(target.dupe()))
+            .await?
+            .unshared_error()
     }
 
     async fn get_default_platform(&self, target: &TargetLabel) -> SharedResult<ConfigurationData> {
