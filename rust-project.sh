@@ -17,4 +17,4 @@ set -e
 # Change to this directory
 cd -- "$(dirname -- "$0")"
 
-arc rust-project develop fbcode//buck2/cli:buck2 --out ../../rust-project.json
+arc rust-project develop fbcode//buck2:buck2 --out ../../rust-project.json

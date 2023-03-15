@@ -54,7 +54,7 @@ python_pytest(
     srcs = ["test_daemon.py"],
     env = {
         "SCRIPT": "$(location :server)",
-        "TEST_EXECUTABLE": "$(location //buck2/cli:buck2)",
+        "TEST_EXECUTABLE": "$(location //buck2:buck2)",
     },
     deps = [
         "fbsource//third-party/pypi/python-daemon:python-daemon",
