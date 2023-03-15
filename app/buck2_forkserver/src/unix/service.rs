@@ -31,6 +31,7 @@ use tonic::Streaming;
 
 use crate::convert::encode_event_stream;
 use crate::run::prepare_command;
+use crate::run::status_decoder::DefaultStatusDecoder;
 use crate::run::stream_command_events;
 use crate::run::timeout_into_cancellation;
 use crate::run::GatherOutputStatus;
@@ -120,7 +121,7 @@ impl Forkserver for UnixForkserverService {
 
             let cancellation = select(timeout.boxed(), cancel.boxed()).map(|r| r.factor_first().0);
 
-            let stream = stream_command_events(child, cancellation)?;
+            let stream = stream_command_events(child, cancellation, DefaultStatusDecoder)?;
             let stream = encode_event_stream(stream);
             Ok(Box::pin(stream) as _)
         })

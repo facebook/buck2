@@ -8,6 +8,7 @@
  */
 
 mod interruptible_async_read;
+pub mod status_decoder;
 
 use std::io;
 use std::pin::Pin;
@@ -31,6 +32,9 @@ use tokio_util::codec::FramedRead;
 
 use self::interruptible_async_read::InterruptNotifiable;
 use self::interruptible_async_read::InterruptibleAsyncRead;
+use self::status_decoder::DecodedStatus;
+use self::status_decoder::DefaultStatusDecoder;
+use self::status_decoder::StatusDecoder;
 
 #[derive(Debug)]
 pub enum GatherOutputStatus {
@@ -39,6 +43,15 @@ pub enum GatherOutputStatus {
     TimedOut(Duration),
     Cancelled,
     SpawnFailed(String),
+}
+
+impl From<DecodedStatus> for GatherOutputStatus {
+    fn from(d: DecodedStatus) -> Self {
+        match d {
+            DecodedStatus::Status(v) => Self::Finished(v),
+            DecodedStatus::SpawnFailed(v) => Self::SpawnFailed(v),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -146,6 +159,7 @@ pub async fn timeout_into_cancellation(
 pub fn stream_command_events<T>(
     child: io::Result<Child>,
     cancellation: T,
+    decoder: impl StatusDecoder,
 ) -> anyhow::Result<impl Stream<Item = anyhow::Result<CommandEvent>>>
 where
     T: Future<Output = anyhow::Result<GatherOutputStatus>>,
@@ -178,22 +192,7 @@ where
         let (result, cancelled) = {
             let wait = async {
                 let status = child.wait().await?;
-                let exit_code;
-
-                #[cfg(unix)]
-                {
-                    // Shell convention on UNIX is to return 128 + signal number on a signal exit,
-                    // so we emulate this here.
-                    use std::os::unix::process::ExitStatusExt;
-                    exit_code = status.code().or_else(|| Some(128 + status.signal()?));
-                }
-
-                #[cfg(not(unix))]
-                {
-                    exit_code = status.code();
-                }
-
-                let status = GatherOutputStatus::Finished(exit_code.unwrap_or(-1));
+                let status = decoder.decode_status(status).await?.into();
                 anyhow::Ok((status, false))
             };
 
@@ -262,7 +261,7 @@ where
     let cmd = prepare_command(cmd);
 
     let child = spawn_retry_txt_busy(cmd, || tokio::time::sleep(Duration::from_millis(50))).await;
-    let stream = stream_command_events(child, cancellation)?;
+    let stream = stream_command_events(child, cancellation, DefaultStatusDecoder)?;
     decode_command_event_stream(stream).await
 }
 
@@ -536,7 +535,8 @@ mod tests {
         cmd.args(["-c", "exit 0"]);
 
         let child = prepare_command(cmd).spawn();
-        let mut events = stream_command_events(child, futures::future::pending())?.boxed();
+        let mut events =
+            stream_command_events(child, futures::future::pending(), DefaultStatusDecoder)?.boxed();
         assert_matches!(events.next().await, Some(Ok(CommandEvent::Exit(..))));
         assert_matches!(futures::poll!(events.next()), Poll::Ready(None));
         Ok(())
