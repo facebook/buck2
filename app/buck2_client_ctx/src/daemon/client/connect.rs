@@ -307,7 +307,18 @@ struct BootstrapBuckdClient {
 }
 
 impl BootstrapBuckdClient {
-    pub fn new(
+    pub async fn connect(paths: &InvocationPaths, existing_only: bool) -> anyhow::Result<Self> {
+        let daemon_dir = paths.daemon_dir()?;
+
+        buck2_core::fs::fs_util::create_dir_all(&daemon_dir.path)
+            .with_context(|| format!("Error creating daemon dir: {}", daemon_dir))?;
+
+        establish_connection(paths, existing_only)
+            .await
+            .with_context(|| daemon_connect_error(paths))
+    }
+
+    fn new(
         info: DaemonProcessInfo,
         daemon_dir: DaemonDir,
         client: DaemonApiClient<InterceptedService<Channel, BuckAddAuthTokenInterceptor>>,
@@ -393,14 +404,7 @@ impl BuckdConnectOptions {
     }
 
     pub async fn connect(self, paths: &InvocationPaths) -> anyhow::Result<BuckdClientConnector> {
-        let daemon_dir = paths.daemon_dir()?;
-        buck2_core::fs::fs_util::create_dir_all(&daemon_dir.path)
-            .with_context(|| format!("Error creating daemon dir: {}", daemon_dir))?;
-        let client = establish_connection(paths, self.existing_only)
-            .await
-            .with_context(|| daemon_connect_error(paths))?;
-
-        // after startup is complete, replace the basic readers with our own.
+        let client = BootstrapBuckdClient::connect(paths, self.existing_only).await?;
         Ok(client.with_subscribers(self.subscribers))
     }
 
