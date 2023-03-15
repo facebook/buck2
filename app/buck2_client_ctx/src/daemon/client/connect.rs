@@ -396,8 +396,7 @@ impl BuckdConnectOptions {
         let daemon_dir = paths.daemon_dir()?;
         buck2_core::fs::fs_util::create_dir_all(&daemon_dir.path)
             .with_context(|| format!("Error creating daemon dir: {}", daemon_dir))?;
-        let client = self
-            .establish_connection(paths)
+        let client = establish_connection(paths, self.existing_only)
             .await
             .with_context(|| daemon_connect_error(paths))?;
 
@@ -427,161 +426,154 @@ impl BuckdConnectOptions {
 
         Ok(BuckdClientConnector { client })
     }
+}
 
-    async fn establish_connection(
-        &self,
-        paths: &InvocationPaths,
-    ) -> anyhow::Result<BootstrapBuckdClient> {
-        // There are many places where `establish_connection_inner` may hang.
-        // If it does, better print something to the user instead of hanging quietly forever.
-        let timeout = buckd_startup_timeout()? * 3;
-        let deadline = StartupDeadline::duration_from_now(timeout)?;
+async fn establish_connection(
+    paths: &InvocationPaths,
+    existing_only: bool,
+) -> anyhow::Result<BootstrapBuckdClient> {
+    // There are many places where `establish_connection_inner` may hang.
+    // If it does, better print something to the user instead of hanging quietly forever.
+    let timeout = buckd_startup_timeout()? * 3;
+    let deadline = StartupDeadline::duration_from_now(timeout)?;
+    deadline
+        .down(
+            "establishing connection to Buck daemon or start a daemon",
+            |timeout| establish_connection_inner(paths, existing_only, timeout),
+        )
+        .await
+}
+
+async fn establish_connection_inner(
+    paths: &InvocationPaths,
+    existing_only: bool,
+    deadline: StartupDeadline,
+) -> anyhow::Result<BootstrapBuckdClient> {
+    if let Some(client) = deadline
+        .half()?
+        .run("connecting to existing buck daemon", {
+            try_connect_existing_before_daemon_restart(paths, existing_only)
+        })
+        .await?
+    {
+        return Ok(client);
+    }
+
+    // At this point, we've either failed to connect to buckd or buckd had the wrong version. At this point,
+    // we'll get the lifecycle lock to ensure we don't have races with other processes as we check and change things.
+
+    let lifecycle_lock = deadline
+        .down("acquire lifecycle lock", |deadline| {
+            BuckdLifecycle::lock_with_timeout(paths, deadline)
+        })
+        .await?;
+
+    // Even if we didn't connect before, it's possible that we just raced with another invocation
+    // starting the server, so we try to connect again while holding the lock.
+    if let Ok(mut client) = try_connect_existing(&paths.daemon_dir()?, &deadline).await {
+        if existing_only || client.check_version().await?.is_match() {
+            // either the version matches or we don't care about the version, return the client.
+            return Ok(client);
+        }
         deadline
-            .down(
-                "establishing connection to Buck daemon or start a daemon",
-                |timeout| self.establish_connection_inner(paths, timeout),
-            )
-            .await
-    }
-
-    async fn establish_connection_inner(
-        &self,
-        paths: &InvocationPaths,
-        deadline: StartupDeadline,
-    ) -> anyhow::Result<BootstrapBuckdClient> {
-        if let Some(client) = deadline
-            .half()?
-            .run("connecting to existing buck daemon", {
-                self.try_connect_existing_before_daemon_restart(paths)
-            })
-            .await?
-        {
-            return Ok(client);
-        }
-
-        // At this point, we've either failed to connect to buckd or buckd had the wrong version. At this point,
-        // we'll get the lifecycle lock to ensure we don't have races with other processes as we check and change things.
-
-        let lifecycle_lock = deadline
-            .down("acquire lifecycle lock", |deadline| {
-                BuckdLifecycle::lock_with_timeout(paths, deadline)
-            })
-            .await?;
-
-        // Even if we didn't connect before, it's possible that we just raced with another invocation
-        // starting the server, so we try to connect again while holding the lock.
-        if let Ok(mut client) = self
-            .try_connect_existing(&paths.daemon_dir()?, &deadline)
-            .await
-        {
-            if self.existing_only || client.check_version().await?.is_match() {
-                // either the version matches or we don't care about the version, return the client.
-                return Ok(client);
-            }
-            deadline
-                .run(
-                    "sending kill command to the Buck daemon",
-                    client.kill_for_version_mismatch(),
-                )
-                .await?;
-        }
-
-        // Daemon dir may be corrupted. Safer to delete it.
-        lifecycle_lock
-            .clean_daemon_dir()
-            .context("Cleaning daemon dir")?;
-
-        // Now there's definitely no server that can be connected to
-        // TODO(cjhopman): a non-responsive buckd process may be somehow lingering around and we should probably kill it off here.
-        lifecycle_lock.start_server().await?;
-        // It might take a little bit for the daemon server to start up. We could wait for the buckd.info
-        // file to appear, but it's just as easy to just retry the connection itself.
-
-        let mut client = deadline
-            .retrying(
-                "connect to buckd after server start",
-                Duration::from_millis(5),
-                Duration::from_millis(100),
-                || async { self.try_connect_existing_impl(&paths.daemon_dir()?).await },
-            )
-            .await?;
-
-        if self.existing_only {
-            return Ok(client);
-        }
-
-        match client.check_version().await? {
-            VersionCheckResult::Match => Ok(client),
-            VersionCheckResult::Mismatch { expected, actual } => {
-                Err(BuckdConnectError::BuckDaemonVersionWrongAfterStart { expected, actual }.into())
-            }
-        }
-    }
-
-    /// Connect to buckd before attempt to restart the server.
-    ///
-    /// # Returns
-    ///
-    /// * `Ok(Some(client))` if we connected to an existing buckd
-    /// * `Ok(None)` if we failed to connect and should restart buckd
-    /// * `Err` if we failed to connect and should abandon startup
-    async fn try_connect_existing_before_daemon_restart(
-        &self,
-        paths: &InvocationPaths,
-    ) -> anyhow::Result<Option<BootstrapBuckdClient>> {
-        match self.try_connect_existing_impl(&paths.daemon_dir()?).await {
-            Ok(mut client) => {
-                if self.existing_only || client.check_version().await?.is_match() {
-                    // either the version matches or we don't care about the version, return the client.
-                    return Ok(Some(client));
-                }
-                // fallthrough to the more complicated startup case.
-            }
-            Err(e) if self.existing_only => {
-                return Err(e.context("No existing connection and not asked to start one"));
-            }
-            Err(_) => {
-                // fallthrough to the startup case
-            }
-        }
-        Ok(None)
-    }
-
-    async fn try_connect_existing(
-        &self,
-        daemon_dir: &DaemonDir,
-        timeout: &StartupDeadline,
-    ) -> anyhow::Result<BootstrapBuckdClient> {
-        timeout
-            .min(buckd_startup_timeout()?)?
             .run(
-                "connect existing buckd",
-                self.try_connect_existing_impl(daemon_dir),
+                "sending kill command to the Buck daemon",
+                client.kill_for_version_mismatch(),
             )
-            .await
+            .await?;
     }
 
-    async fn try_connect_existing_impl(
-        &self,
-        daemon_dir: &DaemonDir,
-    ) -> anyhow::Result<BootstrapBuckdClient> {
-        let location = daemon_dir.buckd_info();
-        let file = File::open(&location)
-            .with_context(|| format!("Trying to open buckd info, `{}`", location.display()))?;
-        let reader = BufReader::new(file);
-        let info: DaemonProcessInfo = serde_json::from_reader(reader).with_context(|| {
+    // Daemon dir may be corrupted. Safer to delete it.
+    lifecycle_lock
+        .clean_daemon_dir()
+        .context("Cleaning daemon dir")?;
+
+    // Now there's definitely no server that can be connected to
+    // TODO(cjhopman): a non-responsive buckd process may be somehow lingering around and we should probably kill it off here.
+    lifecycle_lock.start_server().await?;
+    // It might take a little bit for the daemon server to start up. We could wait for the buckd.info
+    // file to appear, but it's just as easy to just retry the connection itself.
+
+    let mut client = deadline
+        .retrying(
+            "connect to buckd after server start",
+            Duration::from_millis(5),
+            Duration::from_millis(100),
+            || async { try_connect_existing_impl(&paths.daemon_dir()?).await },
+        )
+        .await?;
+
+    if existing_only {
+        return Ok(client);
+    }
+
+    match client.check_version().await? {
+        VersionCheckResult::Match => Ok(client),
+        VersionCheckResult::Mismatch { expected, actual } => {
+            Err(BuckdConnectError::BuckDaemonVersionWrongAfterStart { expected, actual }.into())
+        }
+    }
+}
+
+/// Connect to buckd before attempt to restart the server.
+///
+/// # Returns
+///
+/// * `Ok(Some(client))` if we connected to an existing buckd
+/// * `Ok(None)` if we failed to connect and should restart buckd
+/// * `Err` if we failed to connect and should abandon startup
+async fn try_connect_existing_before_daemon_restart(
+    paths: &InvocationPaths,
+    existing_only: bool,
+) -> anyhow::Result<Option<BootstrapBuckdClient>> {
+    match try_connect_existing_impl(&paths.daemon_dir()?).await {
+        Ok(mut client) => {
+            if existing_only || client.check_version().await?.is_match() {
+                // either the version matches or we don't care about the version, return the client.
+                return Ok(Some(client));
+            }
+            // fallthrough to the more complicated startup case.
+        }
+        Err(e) if existing_only => {
+            return Err(e.context("No existing connection and not asked to start one"));
+        }
+        Err(_) => {
+            // fallthrough to the startup case
+        }
+    }
+    Ok(None)
+}
+
+async fn try_connect_existing(
+    daemon_dir: &DaemonDir,
+    timeout: &StartupDeadline,
+) -> anyhow::Result<BootstrapBuckdClient> {
+    timeout
+        .min(buckd_startup_timeout()?)?
+        .run(
+            "connect existing buckd",
+            try_connect_existing_impl(daemon_dir),
+        )
+        .await
+}
+
+async fn try_connect_existing_impl(daemon_dir: &DaemonDir) -> anyhow::Result<BootstrapBuckdClient> {
+    let location = daemon_dir.buckd_info();
+    let file = File::open(&location)
+        .with_context(|| format!("Trying to open buckd info, `{}`", location.display()))?;
+    let reader = BufReader::new(file);
+    let info: DaemonProcessInfo = serde_json::from_reader(reader).with_context(|| {
             format!(
                 "Parsing daemon info in `{}`. Try deleting that file and running `buck2 killall` before running your command again",
                 location.display(),
             )
         })?;
 
-        let connection_type = ConnectionType::parse(&info.endpoint)?;
+    let connection_type = ConnectionType::parse(&info.endpoint)?;
 
-        let client = new_daemon_api_client(connection_type, info.auth_token.clone()).await?;
+    let client = new_daemon_api_client(connection_type, info.auth_token.clone()).await?;
 
-        Ok(BootstrapBuckdClient::new(info, daemon_dir.clone(), client))
-    }
+    Ok(BootstrapBuckdClient::new(info, daemon_dir.clone(), client))
 }
 
 #[derive(Debug, Error)]
