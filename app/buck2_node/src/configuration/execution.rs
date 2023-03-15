@@ -11,8 +11,8 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_common::executor_config::CommandExecutorConfig;
+use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::configuration::pair::ConfigurationNoExec;
-use buck2_core::configuration::ConfigurationData;
 use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_query::query::compatibility::IncompatiblePlatformReason;

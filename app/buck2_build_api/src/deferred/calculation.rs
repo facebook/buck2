@@ -388,7 +388,7 @@ mod tests {
     use buck2_common::executor_config::CommandExecutorConfig;
     use buck2_common::result::ToSharedResultExt;
     use buck2_core::bzl::ImportPath;
-    use buck2_core::configuration::ConfigurationData;
+    use buck2_core::configuration::data::ConfigurationData;
     use buck2_core::fs::project::ProjectRootTemp;
     use buck2_core::target::label::TargetLabel;
     use buck2_execute::digest_config::DigestConfig;

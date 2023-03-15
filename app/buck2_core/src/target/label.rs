@@ -23,9 +23,9 @@ use starlark_map::StarlarkHashValue;
 use triomphe::ThinArc;
 
 use crate::cells::CellAliasResolver;
+use crate::configuration::data::ConfigurationData;
 use crate::configuration::pair::Configuration;
 use crate::configuration::pair::ConfigurationNoExec;
-use crate::configuration::ConfigurationData;
 use crate::package::PackageLabel;
 use crate::pattern::ParsedPattern;
 use crate::target::name::TargetName;

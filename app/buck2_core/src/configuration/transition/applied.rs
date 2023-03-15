@@ -10,7 +10,7 @@
 use allocative::Allocative;
 
 use crate::collections::sorted_map::SortedMap;
-use crate::configuration::ConfigurationData;
+use crate::configuration::data::ConfigurationData;
 
 #[derive(thiserror::Error, Debug)]
 enum TransitionAppliedError {

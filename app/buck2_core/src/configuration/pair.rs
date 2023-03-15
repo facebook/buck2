@@ -15,7 +15,7 @@ use internment_tweaks::Intern;
 use internment_tweaks::StaticInterner;
 use once_cell::sync::Lazy;
 
-use crate::configuration::ConfigurationData;
+use crate::configuration::data::ConfigurationData;
 
 #[derive(Debug, thiserror::Error)]
 enum ConfigurationError {

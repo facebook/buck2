@@ -11,7 +11,7 @@ use std::fmt::Debug;
 
 use allocative::Allocative;
 use buck2_build_api_derive::internal_provider;
-use buck2_core::configuration::ConfigurationData;
+use buck2_core::configuration::data::ConfigurationData;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
 use starlark::environment::GlobalsBuilder;

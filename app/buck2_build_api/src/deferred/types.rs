@@ -981,7 +981,7 @@ mod tests {
     use std::sync::Arc;
 
     use allocative::Allocative;
-    use buck2_core::configuration::ConfigurationData;
+    use buck2_core::configuration::data::ConfigurationData;
     use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
     use buck2_core::fs::project::ProjectRoot;
     use buck2_core::package::PackageLabel;

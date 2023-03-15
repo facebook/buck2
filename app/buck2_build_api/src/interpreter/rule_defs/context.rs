@@ -1053,7 +1053,7 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
 
 #[cfg(test)]
 mod tests {
-    use buck2_core::configuration::ConfigurationData;
+    use buck2_core::configuration::data::ConfigurationData;
     use buck2_core::provider::label::ConfiguredProvidersLabel;
     use buck2_core::provider::label::ProvidersName;
     use buck2_core::target::label::TargetLabel;

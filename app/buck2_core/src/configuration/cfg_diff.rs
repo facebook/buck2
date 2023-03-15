@@ -13,8 +13,8 @@ use std::fmt::Write;
 
 use crate::configuration::constraints::ConstraintKey;
 use crate::configuration::constraints::ConstraintValue;
-use crate::configuration::ConfigurationData;
-use crate::configuration::ConfigurationDataData;
+use crate::configuration::data::ConfigurationData;
+use crate::configuration::data::ConfigurationDataData;
 
 /// If configurations are not equal, return difference.
 pub fn cfg_diff(a: &ConfigurationData, b: &ConfigurationData) -> Result<(), String> {
@@ -157,8 +157,8 @@ mod tests {
     use crate::configuration::cfg_diff::cfg_diff;
     use crate::configuration::constraints::ConstraintKey;
     use crate::configuration::constraints::ConstraintValue;
-    use crate::configuration::ConfigurationData;
-    use crate::configuration::ConfigurationDataData;
+    use crate::configuration::data::ConfigurationData;
+    use crate::configuration::data::ConfigurationDataData;
     use crate::target::label::TargetLabel;
 
     #[test]

@@ -440,7 +440,7 @@ mod tests {
     use buck2_core::cells::CellAliasResolver;
     use buck2_core::cells::CellsAggregator;
     use buck2_core::collections::ordered_map::OrderedMap;
-    use buck2_core::configuration::ConfigurationData;
+    use buck2_core::configuration::data::ConfigurationData;
     use buck2_core::fs::project::ProjectRootTemp;
     use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
     use buck2_core::package::PackageLabel;

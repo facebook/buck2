@@ -11,8 +11,8 @@ use std::collections::HashSet;
 use std::hash::Hash;
 
 use allocative::Allocative;
-use buck2_core::configuration::ConfigurationData;
-use buck2_core::configuration::ConfigurationDataData;
+use buck2_core::configuration::data::ConfigurationData;
+use buck2_core::configuration::data::ConfigurationDataData;
 use buck2_core::package::PackageLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_util::arc_str::ArcSlice;

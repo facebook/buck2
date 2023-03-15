@@ -143,7 +143,7 @@ impl Display for IncompatiblePlatformReason {
 
 #[cfg(test)]
 mod tests {
-    use buck2_core::configuration::ConfigurationData;
+    use buck2_core::configuration::data::ConfigurationData;
     use buck2_core::target::label::TargetLabel;
 
     use crate::query::compatibility::IncompatiblePlatformReason;

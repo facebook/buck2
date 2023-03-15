@@ -20,8 +20,8 @@ use static_assertions::assert_eq_size;
 use thiserror::Error;
 
 use crate::ascii_char_set::AsciiCharSet;
+use crate::configuration::data::ConfigurationData;
 use crate::configuration::pair::Configuration;
-use crate::configuration::ConfigurationData;
 use crate::target::label::ConfiguredTargetLabel;
 use crate::target::label::TargetLabel;
 

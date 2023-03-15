@@ -11,12 +11,12 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use buck2_core::collections::ordered_map::OrderedMap;
+use buck2_core::configuration::data::ConfigurationData;
+use buck2_core::configuration::data::ConfigurationDataData;
 use buck2_core::configuration::pair::ConfigurationNoExec;
 use buck2_core::configuration::pair::ConfigurationWithExec;
 use buck2_core::configuration::transition::applied::TransitionApplied;
 use buck2_core::configuration::transition::id::TransitionId;
-use buck2_core::configuration::ConfigurationData;
-use buck2_core::configuration::ConfigurationDataData;
 use buck2_core::target::label::TargetLabel;
 use dupe::Dupe;
 

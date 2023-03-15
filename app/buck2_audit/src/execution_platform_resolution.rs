@@ -15,7 +15,7 @@ use buck2_build_api::calculation::Calculation;
 use buck2_cli_proto::ClientContext;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
-use buck2_core::configuration::ConfigurationData;
+use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::target::name::TargetName;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;

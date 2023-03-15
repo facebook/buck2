@@ -11,7 +11,7 @@ use std::io::Write;
 
 use async_trait::async_trait;
 use buck2_cli_proto::ClientContext;
-use buck2_core::configuration::ConfigurationData;
+use buck2_core::configuration::data::ConfigurationData;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use itertools::Itertools;

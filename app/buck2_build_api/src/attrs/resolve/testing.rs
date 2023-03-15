@@ -10,7 +10,7 @@
 use std::sync::Arc;
 
 use buck2_common::result::SharedResult;
-use buck2_core::configuration::ConfigurationData;
+use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_interpreter_for_build::attrs::coerce;
 use buck2_interpreter_for_build::attrs::coerce::testing;

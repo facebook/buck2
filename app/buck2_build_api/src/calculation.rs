@@ -19,7 +19,7 @@ use buck2_common::pattern::resolve::ResolvedPattern;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
 use buck2_core::buck_path::resolver::BuckPathResolver;
-use buck2_core::configuration::ConfigurationData;
+use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::buck_out_path::BuckOutPathResolver;
 use buck2_core::package::PackageLabel;

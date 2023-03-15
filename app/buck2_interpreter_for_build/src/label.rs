@@ -8,7 +8,7 @@
  */
 
 pub mod testing {
-    use buck2_core::configuration::ConfigurationData;
+    use buck2_core::configuration::data::ConfigurationData;
     use buck2_core::pattern::ParsedPattern;
     use buck2_core::pattern::ProvidersPattern;
     use buck2_core::target::label::TargetLabel;

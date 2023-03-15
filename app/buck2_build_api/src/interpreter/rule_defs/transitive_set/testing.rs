@@ -11,7 +11,7 @@ use std::sync::atomic::AtomicU32;
 use std::sync::atomic::Ordering;
 
 use anyhow::Context as _;
-use buck2_core::configuration::ConfigurationData;
+use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::package::PackageLabel;
 use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_core::target::name::TargetName;

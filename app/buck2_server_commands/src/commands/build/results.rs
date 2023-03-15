@@ -39,7 +39,7 @@ pub mod result_report {
     use buck2_cli_proto::build_target::BuildOutput;
     use buck2_cli_proto::BuildTarget;
     use buck2_common::result::SharedError;
-    use buck2_core::configuration::ConfigurationData;
+    use buck2_core::configuration::data::ConfigurationData;
     use buck2_core::fs::artifact_path_resolver::ArtifactFs;
     use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
     use dupe::Dupe;
@@ -183,7 +183,7 @@ pub mod build_report {
 
     use buck2_build_api::build::BuildProviderType;
     use buck2_build_api::bxl::types::BxlFunctionLabel;
-    use buck2_core::configuration::ConfigurationData;
+    use buck2_core::configuration::data::ConfigurationData;
     use buck2_core::fs::artifact_path_resolver::ArtifactFs;
     use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
     use buck2_core::fs::project::ProjectRoot;
