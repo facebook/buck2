@@ -29,6 +29,8 @@ use buck2_common::liveliness_observer::LivelinessGuard;
 use buck2_common::pattern::resolve::ResolvedPattern;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellResolver;
+use buck2_core::env_helper::EnvHelper;
+use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::package::PackageLabel;
@@ -889,10 +891,25 @@ fn post_process_test_executor(s: &str) -> anyhow::Result<PathBuf> {
     match s.split_once("$BUCK2_BINARY_DIR/") {
         Some(("", rest)) => {
             let exe = std::env::current_exe().context("Cannot get Buck2 executable")?;
-            let exe_dir = exe
+            let exe = fs_util::canonicalize(exe)
+                .context("Failed to canonicalize path to Buck2 executable")?;
+            let exe = exe.as_abs_path();
+            let mut exe_dir = exe
                 .parent()
                 .context("Buck2 executable directory has no parent")?;
-            Ok(exe_dir.join(rest))
+
+            // We allow overriding the dir here. This is used for buck2.sh
+            static BINARY_DIR_RELATIVE_OVERRIDE: EnvHelper<PathBuf> =
+                EnvHelper::new("BUCK2_BINARY_DIR_RELATIVE_TO");
+
+            let overridden;
+
+            if let Some(v) = BINARY_DIR_RELATIVE_OVERRIDE.get()? {
+                overridden = exe_dir.join(v.as_path());
+                exe_dir = &overridden;
+            }
+
+            Ok(exe_dir.join(rest).to_path_buf())
         }
         Some(..) => Err(anyhow::anyhow!("Invalid value: {}", s)),
         None => Ok(s.into()),
