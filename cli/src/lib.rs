@@ -75,6 +75,14 @@ use crate::commands::docs::DocsCommand;
 use crate::commands::forkserver::ForkserverCommand;
 use crate::commands::internal_test_runner::InternalTestRunnerCommand;
 
+/// Tell the linter the crate is needed so the linter doesn't complain about unused dependency,
+/// and linker won't remove this dependency.
+///
+/// The crate only has `#[ctor]` and no public members.
+pub fn _buck2_action_impl_crate_is_used() {
+    buck2_action_impl::this_crate_is_used();
+}
+
 #[macro_use]
 pub mod panic;
 mod check_user_allowed;

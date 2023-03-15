@@ -7,6 +7,7 @@ members = [
     "allocative/allocative_derive",
     # @oss-disable: "attic/uniplate",
     # @oss-disable: "attic/uniplate_derive",
+    "app/buck2_action_impl",
     "app/buck2_audit",
     "app/buck2_bxl",
     "app/buck2_build_info",
@@ -240,6 +241,7 @@ remote_execution = { path = "remote_execution/oss/re_grpc" }
 starlark = { version = "0.9.0-pre", path = "starlark-rust/starlark" }
 starlark_map = { version = "0.9.0-pre", path = "starlark-rust/starlark_map" }
 
+buck2_action_impl = { path = "app/buck2_action_impl" }
 buck2_bxl = { path = "app/buck2_bxl" }
 buck2_build_info = { path = "app/buck2_build_info" }
 buck2_client_ctx = { path = "app/buck2_client_ctx" }
