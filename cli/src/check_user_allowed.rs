@@ -14,6 +14,7 @@ pub(crate) fn check_user_allowed() -> anyhow::Result<()> {
     use std::mem::MaybeUninit;
     use std::ptr;
 
+    use anyhow::Context;
     use winapi::ctypes::c_void;
     use winapi::shared::minwindef::DWORD;
     use winapi::um::handleapi::CloseHandle;
@@ -24,6 +25,12 @@ pub(crate) fn check_user_allowed() -> anyhow::Result<()> {
     use winapi::um::winnt::HANDLE;
     use winapi::um::winnt::TOKEN_ELEVATION;
     use winapi::um::winnt::TOKEN_QUERY;
+
+    #[derive(Debug, thiserror::Error)]
+    enum CheckUserAllowedError {
+        #[error("OpenProcessToken returned null token handle (unreachable)")]
+        NullTokenHandle,
+    }
 
     struct Handle(HANDLE);
     impl Drop for Handle {
@@ -37,41 +44,38 @@ pub(crate) fn check_user_allowed() -> anyhow::Result<()> {
 
     let mut handle = ptr::null_mut();
     let token_ok = unsafe { OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut handle) };
-    if !handle.is_null() && token_ok != 0 {
-        let handle = Handle(handle);
-        let size = mem::size_of::<TOKEN_ELEVATION>();
-        let elevation: MaybeUninit<TOKEN_ELEVATION> = MaybeUninit::zeroed();
-        let mut ret_size = 0;
-
-        let success_get = unsafe {
-            GetTokenInformation(
-                handle.0,
-                TokenElevation,
-                elevation.as_ptr() as *mut c_void,
-                size as DWORD,
-                &mut ret_size,
-            )
-        };
-
-        if success_get != 0 {
-            let elevation_struct: TOKEN_ELEVATION = unsafe { elevation.assume_init() };
-            if elevation_struct.TokenIsElevated == 1 {
-                tracing::warn!(
-                    "You're running buck2 from an admin shell. Invocations from non-admin shells will likely fail going forward. To remediate, run `buck2 clean` in this admin shell, then switch to a non-admin shell."
-                );
-            }
-            return Ok(());
-        }
+    if token_ok == 0 {
+        return Err(io::Error::last_os_error()).context("OpenProcessToken failed");
     }
-    let err = io::Error::last_os_error();
-    Err(io::Error::new(
-        err.kind(),
-        format!(
-            "Failed while trying to determine shell permissions: {}",
-            err
-        ),
-    )
-    .into())
+    if handle.is_null() {
+        return Err(CheckUserAllowedError::NullTokenHandle.into());
+    }
+
+    let handle = Handle(handle);
+    let size = mem::size_of::<TOKEN_ELEVATION>();
+    let elevation: MaybeUninit<TOKEN_ELEVATION> = MaybeUninit::zeroed();
+    let mut ret_size = 0;
+
+    let success_get = unsafe {
+        GetTokenInformation(
+            handle.0,
+            TokenElevation,
+            elevation.as_ptr() as *mut c_void,
+            size as DWORD,
+            &mut ret_size,
+        )
+    };
+    if success_get == 0 {
+        return Err(io::Error::last_os_error()).context("GetTokenInformation failed");
+    }
+
+    let elevation_struct: TOKEN_ELEVATION = unsafe { elevation.assume_init() };
+    if elevation_struct.TokenIsElevated == 1 {
+        tracing::warn!(
+            "You're running buck2 from an admin shell. Invocations from non-admin shells will likely fail going forward. To remediate, run `buck2 clean` in this admin shell, then switch to a non-admin shell."
+        );
+    }
+    Ok(())
 }
 
 #[cfg(not(windows))]
