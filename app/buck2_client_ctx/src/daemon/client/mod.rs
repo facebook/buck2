@@ -35,7 +35,6 @@ use tonic::Status;
 use crate::command_outcome::CommandOutcome;
 use crate::console_interaction_stream::ConsoleInteractionStream;
 use crate::daemon::client::connect::BuckAddAuthTokenInterceptor;
-use crate::daemon_constraints::gen_daemon_constraints;
 use crate::events_ctx::EventsCtx;
 use crate::events_ctx::FileTailers;
 use crate::events_ctx::PartialResultCtx;
@@ -47,31 +46,6 @@ pub mod kill;
 
 use crate::replayer::Replayer;
 use crate::startup_deadline::StartupDeadline;
-
-pub enum VersionCheckResult {
-    Match,
-    Mismatch {
-        expected: buck2_cli_proto::DaemonConstraints,
-        actual: buck2_cli_proto::DaemonConstraints,
-    },
-}
-
-impl VersionCheckResult {
-    fn from(
-        expected: buck2_cli_proto::DaemonConstraints,
-        actual: buck2_cli_proto::DaemonConstraints,
-    ) -> Self {
-        if expected == actual {
-            Self::Match
-        } else {
-            Self::Mismatch { expected, actual }
-        }
-    }
-
-    fn is_match(&self) -> bool {
-        matches!(self, Self::Match)
-    }
-}
 
 enum ClientKind {
     Daemon(DaemonApiClient<InterceptedService<Channel, BuckAddAuthTokenInterceptor>>),
@@ -311,14 +285,6 @@ impl BuckdClient {
                 Err(anyhow::anyhow!("Unexpected failure message in status()"))
             }
         }
-    }
-
-    pub async fn check_version(&mut self) -> anyhow::Result<VersionCheckResult> {
-        let status = self.status(false).await?;
-        Ok(VersionCheckResult::from(
-            gen_daemon_constraints()?,
-            status.daemon_constraints.unwrap_or_default(),
-        ))
     }
 
     pub async fn set_log_filter(&mut self, req: SetLogFilterRequest) -> anyhow::Result<()> {
@@ -695,7 +661,6 @@ impl<'a> FlushingBuckdClient<'a> {
 
     wrap_method!(kill(reason: &str), ());
     wrap_method!(status(snapshot: bool), StatusResponse);
-    wrap_method!(check_version(), VersionCheckResult);
     wrap_method!(set_log_filter(log_filter: SetLogFilterRequest), ());
 }
 

@@ -35,17 +35,44 @@ use tonic::transport::Channel;
 use tonic::Request;
 use tonic::Status;
 
+use crate::command_outcome::CommandOutcome;
+use crate::daemon::client::kill;
 use crate::daemon::client::BuckdClient;
 use crate::daemon::client::BuckdClientConnector;
 use crate::daemon::client::BuckdLifecycleLock;
 use crate::daemon::client::ClientKind;
-use crate::daemon::client::VersionCheckResult;
 use crate::daemon::daemon_windows::spawn_background_process_on_windows;
+use crate::daemon_constraints::gen_daemon_constraints;
 use crate::events_ctx::EventsCtx;
 use crate::replayer::Replayer;
 use crate::startup_deadline::StartupDeadline;
 use crate::subscribers::stdout_stderr_forwarder::StdoutStderrForwarder;
 use crate::subscribers::subscriber::EventSubscriber;
+
+pub enum VersionCheckResult {
+    Match,
+    Mismatch {
+        expected: buck2_cli_proto::DaemonConstraints,
+        actual: buck2_cli_proto::DaemonConstraints,
+    },
+}
+
+impl VersionCheckResult {
+    fn from(
+        expected: buck2_cli_proto::DaemonConstraints,
+        actual: buck2_cli_proto::DaemonConstraints,
+    ) -> Self {
+        if expected == actual {
+            Self::Match
+        } else {
+            Self::Mismatch { expected, actual }
+        }
+    }
+
+    fn is_match(&self) -> bool {
+        matches!(self, Self::Match)
+    }
+}
 
 static BUCKD_STARTUP_TIMEOUT: EnvHelper<u64> = EnvHelper::new("BUCKD_STARTUP_TIMEOUT");
 
@@ -61,6 +88,7 @@ async fn get_channel(
     }
 }
 
+#[derive(Clone)]
 pub struct BuckAddAuthTokenInterceptor {
     auth_token: AsciiMetadataValue,
 }
@@ -270,36 +298,74 @@ impl<'a> BuckdLifecycle<'a> {
     }
 }
 
-/// Type-safe indicator that the buckd client must be given the expected subscribers
-/// prior to being used outside of startup.
-struct BootstrapBuckdClient(BuckdClientConnector);
+/// Client used for connection setup. Can be used to create BuckdClientConnector instances later.
+#[derive(Clone)]
+struct BootstrapBuckdClient {
+    info: DaemonProcessInfo,
+    daemon_dir: DaemonDir,
+    client: DaemonApiClient<InterceptedService<Channel, BuckAddAuthTokenInterceptor>>,
+}
 
 impl BootstrapBuckdClient {
     pub fn new(
-        client: DaemonApiClient<InterceptedService<Channel, BuckAddAuthTokenInterceptor>>,
         info: DaemonProcessInfo,
         daemon_dir: DaemonDir,
+        client: DaemonApiClient<InterceptedService<Channel, BuckAddAuthTokenInterceptor>>,
     ) -> Self {
-        // Start with basic output forwarding to catch any output (usually errors or panics) at startup.
-        // This subscriber gets replaced with the actual subscribers once the startup stage of the daemon lifecycle is complete.
-        let events_ctx = EventsCtx::new(vec![Box::new(StdoutStderrForwarder)]);
-        let client = BuckdClient {
+        Self {
             info,
-            client: ClientKind::Daemon(client),
-            events_ctx,
             daemon_dir,
-            tailers: None,
-        };
-        Self(BuckdClientConnector { client })
+            client,
+        }
     }
 
     pub fn with_subscribers(
         self,
         subscribers: Vec<Box<dyn EventSubscriber>>,
     ) -> BuckdClientConnector {
-        let mut client = self.0;
-        client.client.events_ctx.subscribers = subscribers;
-        client
+        BuckdClientConnector {
+            client: BuckdClient {
+                info: self.info,
+                daemon_dir: self.daemon_dir,
+                client: ClientKind::Daemon(self.client),
+                events_ctx: EventsCtx::new(subscribers),
+                tailers: None,
+            },
+        }
+    }
+
+    async fn kill_for_version_mismatch(&mut self) -> anyhow::Result<()> {
+        kill::kill(
+            &mut self.client,
+            &self.info,
+            "client expected different buck version",
+        )
+        .await
+    }
+
+    async fn check_version(&mut self) -> anyhow::Result<VersionCheckResult> {
+        // NOTE: No tailers in bootstrap client, we capture logs if we fail to connect, but
+        // otherwise we leave them alone.
+        let status = EventsCtx::new(vec![Box::new(StdoutStderrForwarder)])
+            .unpack_oneshot(&mut None, || {
+                self.client
+                    .status(tonic::Request::new(buck2_cli_proto::StatusRequest {
+                        snapshot: false,
+                    }))
+            })
+            .await?;
+
+        let status: buck2_cli_proto::StatusResponse = match status {
+            CommandOutcome::Success(r) => Ok(r),
+            CommandOutcome::Failure(_) => {
+                Err(anyhow::anyhow!("Unexpected failure message in status()"))
+            }
+        }?;
+
+        Ok(VersionCheckResult::from(
+            gen_daemon_constraints()?,
+            status.daemon_constraints.unwrap_or_default(),
+        ))
     }
 }
 
@@ -408,17 +474,14 @@ impl BuckdConnectOptions {
             .try_connect_existing(&paths.daemon_dir()?, &deadline)
             .await
         {
-            if self.existing_only || client.0.client.check_version().await?.is_match() {
+            if self.existing_only || client.check_version().await?.is_match() {
                 // either the version matches or we don't care about the version, return the client.
                 return Ok(client);
             }
             deadline
                 .run(
                     "sending kill command to the Buck daemon",
-                    client
-                        .0
-                        .client
-                        .kill("client expected different buck version"),
+                    client.kill_for_version_mismatch(),
                 )
                 .await?;
         }
@@ -447,7 +510,7 @@ impl BuckdConnectOptions {
             return Ok(client);
         }
 
-        match client.0.client.check_version().await? {
+        match client.check_version().await? {
             VersionCheckResult::Match => Ok(client),
             VersionCheckResult::Mismatch { expected, actual } => {
                 Err(BuckdConnectError::BuckDaemonVersionWrongAfterStart { expected, actual }.into())
@@ -468,7 +531,7 @@ impl BuckdConnectOptions {
     ) -> anyhow::Result<Option<BootstrapBuckdClient>> {
         match self.try_connect_existing_impl(&paths.daemon_dir()?).await {
             Ok(mut client) => {
-                if self.existing_only || client.0.client.check_version().await?.is_match() {
+                if self.existing_only || client.check_version().await?.is_match() {
                     // either the version matches or we don't care about the version, return the client.
                     return Ok(Some(client));
                 }
@@ -517,7 +580,7 @@ impl BuckdConnectOptions {
 
         let client = new_daemon_api_client(connection_type, info.auth_token.clone()).await?;
 
-        Ok(BootstrapBuckdClient::new(client, info, daemon_dir.clone()))
+        Ok(BootstrapBuckdClient::new(info, daemon_dir.clone(), client))
     }
 }
 
