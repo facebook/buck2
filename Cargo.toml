@@ -69,6 +69,7 @@ members = [
     "starlark-rust/starlark_map",
     "shed/internment_tweaks",
     "shed/more_futures",
+    "shed/three_billion_instructions",
     "superconsole",
     "buck2_subscription_proto",
     "install_proto",
