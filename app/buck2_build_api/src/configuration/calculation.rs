@@ -23,10 +23,8 @@ use buck2_core::collections::unordered_map::UnorderedMap;
 use buck2_core::configuration::pair::ConfigurationNoExec;
 use buck2_core::configuration::ConfigurationData;
 use buck2_core::configuration::ConfigurationDataData;
-use buck2_core::pattern::ParsedPattern;
 use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_core::target::label::TargetLabel;
-use buck2_core::target::name::TargetName;
 use buck2_node::configuration::execution::ExecutionPlatform;
 use buck2_node::configuration::execution::ExecutionPlatformError;
 use buck2_node::configuration::execution::ExecutionPlatformIncompatibleReason;
@@ -125,18 +123,12 @@ async fn get_execution_platforms(
     let execution_platforms_target = match execution_platforms_target {
         Some(v) => {
             let root_cell = cells.root_cell_instance();
-            ParsedPattern::<TargetName>::parse_precise(root_cell.cell_alias_resolver(), &v)?
-                .as_literal(&v)?
+            TargetLabel::parse(&v, root_cell.cell_alias_resolver())?
         }
         None => {
             return Ok(None);
         }
     };
-
-    let execution_platforms_target = TargetLabel::new(
-        execution_platforms_target.0,
-        execution_platforms_target.1.as_ref(),
-    );
 
     let analysis_result = ctx
         .get_configuration_analysis_result(&execution_platforms_target)

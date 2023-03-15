@@ -22,10 +22,12 @@ use serde::Serializer;
 use starlark_map::StarlarkHashValue;
 use triomphe::ThinArc;
 
+use crate::cells::CellAliasResolver;
 use crate::configuration::pair::Configuration;
 use crate::configuration::pair::ConfigurationNoExec;
 use crate::configuration::ConfigurationData;
 use crate::package::PackageLabel;
+use crate::pattern::ParsedPattern;
 use crate::target::name::TargetName;
 use crate::target::name::TargetNameRef;
 
@@ -134,6 +136,15 @@ impl TargetLabel {
     #[inline]
     pub fn configure_pair_no_exec(&self, cfg: ConfigurationNoExec) -> ConfiguredTargetLabel {
         self.configure_pair(cfg.cfg_pair().dupe())
+    }
+
+    pub fn parse(
+        label: &str,
+        cell_alias_resolver: &CellAliasResolver,
+    ) -> anyhow::Result<TargetLabel> {
+        let (pkg, name) = ParsedPattern::<TargetName>::parse_precise(cell_alias_resolver, label)?
+            .as_literal(label)?;
+        Ok(TargetLabel::new(pkg, name.as_ref()))
     }
 
     /// Simple and incorrect target label parser which can be used in tests.
