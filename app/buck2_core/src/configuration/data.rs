@@ -175,7 +175,7 @@ impl ConfigurationData {
         static CONFIG: Lazy<ConfigurationData> = Lazy::new(|| {
             ConfigurationData::from_data(HashedPlatformConfigurationData::new(
                 PlatformConfigurationData {
-                    platform: ConfigurationPlatform::Unbound,
+                    platform: ConfigurationPlatform::UnboundExec,
                     data: ConfigurationDataData::empty(),
                 },
             ))
