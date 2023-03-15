@@ -12,9 +12,7 @@ use std::io::Write;
 use anyhow::Context;
 use async_trait::async_trait;
 use buck2_cli_proto::ClientContext;
-use buck2_execute::materialize::materializer::HasMaterializer;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
-use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use futures::stream::StreamExt;
 
@@ -58,52 +56,48 @@ impl AuditSubcommand for DeferredMaterializerCommand {
         mut stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         _client_ctx: ClientContext,
     ) -> anyhow::Result<()> {
-        server_ctx
-            .with_dice_ctx(move |_server_ctx, dice| async move {
-                let mut stdout = stdout.as_writer();
-                let materializer = dice.per_transaction_data().get_materializer();
+        let mut stdout = stdout.as_writer();
 
-                let deferred_materializer = materializer
-                    .as_deferred_materializer_extension()
-                    .context("Deferred materializer is not in use")?;
+        let materializer = server_ctx.materializer();
+        let deferred_materializer = materializer
+            .as_deferred_materializer_extension()
+            .context("Deferred materializer is not in use")?;
 
-                match self.subcommand {
-                    DeferredMaterializerSubcommand::List => {
-                        let mut stream = deferred_materializer
-                            .iterate()
-                            .context("Failed to start iterating")?;
+        match self.subcommand {
+            DeferredMaterializerSubcommand::List => {
+                let mut stream = deferred_materializer
+                    .iterate()
+                    .context("Failed to start iterating")?;
 
-                        while let Some((path, entry)) = stream.next().await {
-                            writeln!(stdout, "{}\t{}", path, entry)?;
-                        }
-                    }
-                    DeferredMaterializerSubcommand::Refresh { min_ttl } => {
-                        deferred_materializer
-                            .refresh_ttls(min_ttl)
-                            .await
-                            .context("Failed to refresh")?;
-                    }
-                    DeferredMaterializerSubcommand::GetRefreshLog => {
-                        let text = deferred_materializer
-                            .get_ttl_refresh_log()
-                            .await
-                            .context("Failed to get_ttl_refresh_log")?;
-
-                        write!(stdout, "{}", text)?;
-                    }
-                    DeferredMaterializerSubcommand::TestIter { count } => {
-                        let text = deferred_materializer
-                            .test_iter(count)
-                            .await
-                            .context("Failed to test_iter")?;
-
-                        write!(stdout, "{}", text)?;
-                    }
+                while let Some((path, entry)) = stream.next().await {
+                    writeln!(stdout, "{}\t{}", path, entry)?;
                 }
+            }
+            DeferredMaterializerSubcommand::Refresh { min_ttl } => {
+                deferred_materializer
+                    .refresh_ttls(min_ttl)
+                    .await
+                    .context("Failed to refresh")?;
+            }
+            DeferredMaterializerSubcommand::GetRefreshLog => {
+                let text = deferred_materializer
+                    .get_ttl_refresh_log()
+                    .await
+                    .context("Failed to get_ttl_refresh_log")?;
 
-                anyhow::Ok(())
-            })
-            .await
+                write!(stdout, "{}", text)?;
+            }
+            DeferredMaterializerSubcommand::TestIter { count } => {
+                let text = deferred_materializer
+                    .test_iter(count)
+                    .await
+                    .context("Failed to test_iter")?;
+
+                write!(stdout, "{}", text)?;
+            }
+        }
+
+        anyhow::Ok(())
     }
 
     fn common_opts(&self) -> &AuditCommandCommonOptions {
