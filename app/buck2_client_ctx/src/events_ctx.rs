@@ -100,7 +100,6 @@ impl<'a> PartialResultCtx<'a> {
 /// Manages incoming event streams from the daemon for the buck2 client and
 /// fowards them to the appropriate subscribers registered on this struct
 pub struct EventsCtx {
-    pub daemon_dir: DaemonDir,
     pub(crate) subscribers: Vec<Box<dyn EventSubscriber>>,
     ticker: Ticker,
     client_cpu_tracker: ClientCpuTracker,
@@ -119,9 +118,8 @@ pub struct FileTailers {
 }
 
 impl EventsCtx {
-    pub(crate) fn new(daemon_dir: DaemonDir, subscribers: Vec<Box<dyn EventSubscriber>>) -> Self {
+    pub(crate) fn new(subscribers: Vec<Box<dyn EventSubscriber>>) -> Self {
         Self {
-            daemon_dir,
             subscribers,
             ticker: Ticker::new(TICKS_PER_SECOND),
             client_cpu_tracker: ClientCpuTracker::new(),

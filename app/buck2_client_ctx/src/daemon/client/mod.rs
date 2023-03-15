@@ -182,6 +182,7 @@ impl Drop for BuckdLifecycleLock {
 pub struct BuckdClient {
     client: ClientKind,
     info: DaemonProcessInfo,
+    daemon_dir: DaemonDir,
     // TODO(brasselsprouts): events_ctx should own tailers
     tailers: Option<FileTailers>,
     pub(crate) events_ctx: EventsCtx,
@@ -236,7 +237,7 @@ impl BuckdClient {
     fn open_tailers(&mut self) -> anyhow::Result<()> {
         match &self.client {
             ClientKind::Daemon(..) => {
-                let tailers = FileTailers::new(&self.events_ctx.daemon_dir)?;
+                let tailers = FileTailers::new(&self.daemon_dir)?;
                 self.tailers = Some(tailers);
             }
             ClientKind::Replayer(..) => {
