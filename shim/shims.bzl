@@ -31,9 +31,11 @@ def rust_binary(
         rustc_flags = [],
         deps = [],
         unittests = None,
+        allocator = None,
+        default_strip_mode = None,
         visibility = ["PUBLIC"],
         **kwargs):
-    _unused = unittests  # @unused
+    _unused = (unittests, allocator, default_strip_mode)  # @unused
     deps = _fix_deps(deps)
     native.rust_binary(
         rustc_flags = rustc_flags + [_CFG_BUCK_OSS_BUILD],

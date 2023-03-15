@@ -1,0 +1,15 @@
+[package]
+name = "buck2_miniperf"
+version = "0.1.0"
+edition = "2021"
+description = "A minimal implementation of perf. This has lower overhead when only CPU instruction counts are needed."
+license = "MIT OR Apache-2.0"
+authors = ["Meta"]
+
+[dependencies]
+anyhow = { workspace = true }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+bincode = { workspace = true }
+perf-event = { workspace = true }
+buck2_miniperf_proto = { workspace = true }

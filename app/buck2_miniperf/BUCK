@@ -1,0 +1,49 @@
+load("@fbcode_macros//build_defs:rust_binary.bzl", "rust_binary")
+load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
+load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
+
+oncall("buck2")
+
+rust_binary(
+    name = "buck2_miniperf",
+    srcs = glob(
+        ["src/**/*.rs"],
+    ),
+    allocator = "malloc",
+    # JEMalloc isn't super lean (and we don't actually allocate anything here),
+    # so dont use it.
+    default_strip_mode = "full",
+    deps = [
+        "fbsource//third-party/rust:anyhow",
+    ] + select({
+        # Ideally we'd use compatible_with, but TD does not understand that.
+        "DEFAULT": [],
+        "ovr_config//os:linux": [
+            "fbsource//third-party/rust:bincode",
+            "fbsource//third-party/rust:perf-event",
+            "//buck2/app/buck2_miniperf_proto:buck2_miniperf_proto",
+        ],
+    }),
+)
+
+# TODO
+rust_library(
+    name = "buck2_miniperf_test",
+    srcs = glob(
+        ["test/**/*.rs"],
+    ),
+    test_deps = select({
+        # Ideally we'd use compatible_with, but TD does not understand that.
+        "DEFAULT": [],
+        "ovr_config//os:linux": [
+            "fbsource//third-party/rust:anyhow",
+            "fbsource//third-party/rust:bincode",
+            "fbsource//third-party/rust:tempfile",
+            "//buck2/app/buck2_miniperf_proto:buck2_miniperf_proto",
+        ],
+    }),
+    test_env = {
+        "MINIPERF": "$(exe_target :buck2_miniperf)",
+        "THREE_BILLION_INSTRUCTIONS": "$(exe_target //buck2/shed/three_billion_instructions:three_billion_instructions)",
+    },
+)

@@ -26,6 +26,8 @@ members = [
     "app/buck2_interpreter_for_build",
     "app/buck2_interpreter_for_build_tests",
     "app/buck2_interpreter_tests",
+    "app/buck2_miniperf",
+    "app/buck2_miniperf_proto",
     "app/buck2_node",
     "app/buck2_starlark",
     "app/buck2_test",
@@ -154,6 +156,8 @@ object = "0.29.0"
 once_cell = "1.3"
 os_str_bytes = "6.0"
 parking_lot = { version = "0.11.2", features = ["send_guard"] }
+perf-event = "0.4"
+perf-event-open-sys = "4.0"
 pin-project = "0.4.29"
 plist = "0.5"
 pretty_assertions = "1.2.1"
@@ -271,6 +275,8 @@ buck2_client = { path = "app/buck2_client" }
 buck2_interpreter = { path = "app/buck2_interpreter" }
 buck2_interpreter_tests = { path = "app/buck2_interpreter_tests" }
 buck2_interpreter_for_build_tests = { path = "app/buck2_interpreter_for_build_tests" }
+buck2_miniperf = { path = "app/buck2_miniperf" }
+buck2_miniperf_proto = { path = "app/buck2_miniperf_proto" }
 buck2_node = { path = "app/buck2_node" }
 buck2_execute = { path = "app/buck2_execute" }
 buck2_execute_impl = { path = "app/buck2_execute_impl" }
@@ -315,3 +321,6 @@ prost-derive = { git = "https://github.com/krallin/prost.git", rev = "90b7e204c6
 # For https://github.com/hyperium/tonic/pull/1252
 tonic = { git = "https://github.com/krallin/tonic.git", rev = "c67fc25b636b48b90c83dfc8dd1f89c00b84846d", version = "0.8.3" }
 tonic-build = { git = "https://github.com/krallin/tonic.git", rev = "c67fc25b636b48b90c83dfc8dd1f89c00b84846d", version = "0.8.4" }
+# For https://github.com/jimblandy/perf-event/pull/29
+perf-event = { git = "https://github.com/krallin/perf-event.git", rev = "f15d5fa9c82a59d6134ca706b047a6baa2c24e58", version = "0.4" }
+perf-event-open-sys = { git = "https://github.com/krallin/perf-event.git", rev = "f15d5fa9c82a59d6134ca706b047a6baa2c24e58", version = "4.0" }
