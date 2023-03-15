@@ -18,6 +18,7 @@ use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonConsoleOptions;
 use buck2_client_ctx::common::CommonDaemonCommandOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
+use buck2_client_ctx::daemon::client::StdoutPartialResultHandler;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
@@ -108,6 +109,7 @@ impl StreamingCommand for StarlarkCommand {
                     serialized_opts: serialized,
                 },
                 ctx.stdin().console_interaction_stream(self.console_opts()),
+                &mut StdoutPartialResultHandler,
             )
             .await??;
         ExitResult::success()

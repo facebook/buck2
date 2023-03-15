@@ -16,6 +16,7 @@ use buck2_client_ctx::common::CommonBuildOptions;
 use buck2_client_ctx::common::CommonConsoleOptions;
 use buck2_client_ctx::common::CommonDaemonCommandOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
+use buck2_client_ctx::daemon::client::StdoutPartialResultHandler;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::StreamingCommand;
 
@@ -89,6 +90,7 @@ impl StreamingCommand for BxlCommand {
                         as i32,
                 },
                 ctx.stdin().console_interaction_stream(&self.console_opts),
+                &mut StdoutPartialResultHandler,
             )
             .await;
         let success = match &result {

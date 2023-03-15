@@ -16,6 +16,7 @@ use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonConsoleOptions;
 use buck2_client_ctx::common::CommonDaemonCommandOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
+use buck2_client_ctx::daemon::client::NoPartialResultHandler;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::StreamingCommand;
 use dupe::Dupe;
@@ -100,6 +101,7 @@ impl StreamingCommand for DocsStarlarkCommand {
                     retrieve_prelude: self.prelude,
                 },
                 ctx.stdin().console_interaction_stream(&self.console_opts),
+                &mut NoPartialResultHandler,
             )
             .await??;
 

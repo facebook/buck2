@@ -314,7 +314,7 @@ impl<'a> FlushingBuckdClient<'a> {
     }
 }
 
-enum NoPartialResult {}
+pub enum NoPartialResult {}
 
 impl TryFrom<buck2_cli_proto::partial_result::PartialResult> for NoPartialResult {
     type Error = buck2_cli_proto::partial_result::PartialResult;
@@ -324,7 +324,7 @@ impl TryFrom<buck2_cli_proto::partial_result::PartialResult> for NoPartialResult
     }
 }
 
-struct NoPartialResultHandler;
+pub struct NoPartialResultHandler;
 
 #[async_trait]
 impl PartialResultHandler for NoPartialResultHandler {
@@ -344,7 +344,7 @@ impl PartialResultHandler for NoPartialResultHandler {
 }
 
 /// Receives StdoutBytes, writes them to stdout.
-struct StdoutPartialResultHandler;
+pub struct StdoutPartialResultHandler;
 
 #[async_trait]
 impl PartialResultHandler for StdoutPartialResultHandler {
@@ -420,18 +420,18 @@ impl PartialResultHandler for SubscriptionPartialResultHandler {
 
 /// Implement a streaming method with full event reporting.
 macro_rules! stream_method {
-    ($method: ident, $req: ty, $res: ty, $handler: ty) => {
-        stream_method!($method, $method, $req, $res, $handler);
+    ($method: ident, $req: ty, $res: ty, $message: ty) => {
+        stream_method!($method, $method, $req, $res, $message);
     };
 
-    ($method: ident, $grpc_method: ident, $req: ty, $res: ty, $handler: ty) => {
+    ($method: ident, $grpc_method: ident, $req: ty, $res: ty, $message: ty) => {
         pub async fn $method(
             &mut self,
             req: $req,
             console_interaction: Option<ConsoleInteractionStream<'_>>,
+            handler: &mut impl PartialResultHandler<PartialResult = $message>,
         ) -> anyhow::Result<CommandOutcome<$res>> {
             self.enter()?;
-            let mut handler = <$handler>::new();
             let res = self
                 .inner
                 .stream(
@@ -440,7 +440,7 @@ macro_rules! stream_method {
                     // For now we only support handlers that can be constructed like so, and we
                     // don't let anything go out. Eventually if we wanted to stream structured
                     // data, that could change.
-                    &mut handler,
+                    handler,
                     console_interaction,
                 )
                 .await;
@@ -546,89 +546,84 @@ impl<'a> FlushingBuckdClient<'a> {
         aquery,
         AqueryRequest,
         AqueryResponse,
-        StdoutPartialResultHandler
+        buck2_cli_proto::StdoutBytes
     );
     stream_method!(
         cquery,
         CqueryRequest,
         CqueryResponse,
-        StdoutPartialResultHandler
+        buck2_cli_proto::StdoutBytes
     );
     stream_method!(
         uquery,
         UqueryRequest,
         UqueryResponse,
-        StdoutPartialResultHandler
+        buck2_cli_proto::StdoutBytes
     );
     stream_method!(
         targets,
         TargetsRequest,
         TargetsResponse,
-        StdoutPartialResultHandler
+        buck2_cli_proto::StdoutBytes
     );
     stream_method!(
         targets_show_outputs,
         TargetsRequest,
         TargetsShowOutputsResponse,
-        NoPartialResultHandler
+        NoPartialResult
     );
-    stream_method!(build, BuildRequest, BuildResponse, NoPartialResultHandler);
-    stream_method!(bxl, BxlRequest, BxlResponse, StdoutPartialResultHandler);
-    stream_method!(test, TestRequest, TestResponse, NoPartialResultHandler);
-    stream_method!(
-        install,
-        InstallRequest,
-        InstallResponse,
-        NoPartialResultHandler
-    );
+    stream_method!(build, BuildRequest, BuildResponse, NoPartialResult);
+    stream_method!(bxl, BxlRequest, BxlResponse, buck2_cli_proto::StdoutBytes);
+    stream_method!(test, TestRequest, TestResponse, NoPartialResult);
+    stream_method!(install, InstallRequest, InstallResponse, NoPartialResult);
     stream_method!(
         audit,
         GenericRequest,
         GenericResponse,
-        StdoutPartialResultHandler
+        buck2_cli_proto::StdoutBytes
     );
     stream_method!(
         starlark,
         GenericRequest,
         GenericResponse,
-        StdoutPartialResultHandler
+        buck2_cli_proto::StdoutBytes
     );
     stream_method!(
         materialize,
         MaterializeRequest,
         MaterializeResponse,
-        NoPartialResultHandler
+        NoPartialResult
     );
     stream_method!(
         clean_stale,
         CleanStaleRequest,
         CleanStaleResponse,
-        NoPartialResultHandler
+        NoPartialResult
     );
     stream_method!(
         file_status,
         FileStatusRequest,
         GenericResponse,
-        NoPartialResultHandler
+        NoPartialResult
     );
     stream_method!(
         unstable_docs,
         UnstableDocsRequest,
         UnstableDocsResponse,
-        NoPartialResultHandler
+        NoPartialResult
     );
     stream_method!(
         profile,
         profile2,
         ProfileRequest,
         ProfileResponse,
-        NoPartialResultHandler
+        NoPartialResult
     );
     stream_method!(
         allocative,
         AllocativeRequest,
         AllocativeResponse,
-        NoPartialResultHandler
+        NoPartialResult
     );
 
     bidirectional_stream_method!(lsp, LspRequest, LspResponse, LspPartialResultHandler);

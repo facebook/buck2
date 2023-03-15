@@ -15,6 +15,8 @@ use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonConsoleOptions;
 use buck2_client_ctx::common::CommonDaemonCommandOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
+use buck2_client_ctx::daemon::client::NoPartialResultHandler;
+use buck2_client_ctx::daemon::client::StdoutPartialResultHandler;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::path_arg::PathArg;
 use buck2_client_ctx::stdin::Stdin;
@@ -303,6 +305,7 @@ async fn targets_show_outputs(
         .targets_show_outputs(
             target_request,
             stdin.console_interaction_stream(console_opts),
+            &mut NoPartialResultHandler,
         )
         .await??;
     for target_paths in response.targets_paths {
@@ -338,6 +341,7 @@ async fn targets(
         .targets(
             target_request,
             stdin.console_interaction_stream(console_opts),
+            &mut StdoutPartialResultHandler,
         )
         .await??;
     if !response.serialized_targets_output.is_empty() {
