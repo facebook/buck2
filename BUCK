@@ -20,6 +20,6 @@ alias(
 # buildifier: disable=no-effect
 symlinked_buck2_and_tpx(
     name = "symlinked_buck2_and_tpx",
-    buck2 = "//buck2/cli:buck2",
+    buck2 = "//buck2:buck2",
     tpx = "//buck2/buck2_tpx_cli:buck2_tpx_cli",
 ) if is_buck2() else None
