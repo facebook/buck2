@@ -164,7 +164,7 @@ def cxx_toolchain_extra_attributes(is_toolchain_rule):
         "supports_distributed_thinlto": attrs.bool(default = False),
         "use_archiver_flags": attrs.bool(default = True),
         "use_dep_files": attrs.option(attrs.bool(), default = None),
-        "_dep_files_processor": dep_type(providers = [RunInfo], default = "prelude//cxx/tools:makefile_to_dep_file"),
+        "_dep_files_processor": dep_type(providers = [RunInfo], default = "prelude//cxx/tools:dep_file_processor"),
         "_dist_lto_tools": attrs.default_only(dep_type(providers = [DistLtoToolsInfo], default = "prelude//cxx/dist_lto/tools:dist_lto_tools")),
         "_mk_comp_db": attrs.default_only(dep_type(providers = [RunInfo], default = "prelude//cxx/tools:make_comp_db")),
         # FIXME: prelude// should be standalone (not refer to fbsource//)

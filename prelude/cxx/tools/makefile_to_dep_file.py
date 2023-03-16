@@ -90,16 +90,16 @@ def rewrite_dep_file(src_path, dst_path):
             f.write("\n")
 
 
-def main():
+def makefile_to_depfile(args):
     """
     Expects the src dep file to be the first argument, dst dep file to be the
     second argument, and the command to follow.
     """
-    ret = subprocess.call(sys.argv[3:])
+    ret = subprocess.call(args[2:])
     if ret == 0:
-        rewrite_dep_file(sys.argv[1], sys.argv[2])
+        rewrite_dep_file(args[0], args[1])
     sys.exit(ret)
 
 
 if __name__ == "__main__":
-    main()
+    makefile_to_depfile(sys.argv[1:])
