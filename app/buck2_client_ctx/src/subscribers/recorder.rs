@@ -55,7 +55,7 @@ mod imp {
         async_cleanup_context: AsyncCleanupContext,
         scribe: Arc<ThriftScribeSink>,
         build_count_manager: BuildCountManager,
-        trace_id: Option<TraceId>,
+        trace_id: TraceId,
         command_start: Option<buck2_data::CommandStart>,
         command_end: Option<buck2_data::CommandEnd>,
         command_critical_start: Option<buck2_data::CommandCriticalStart>,
@@ -109,6 +109,7 @@ mod imp {
             scribe: ThriftScribeSink,
             mut command_name: &'static str,
             sanitized_argv: Vec<String>,
+            trace_id: TraceId,
             isolation_dir: String,
             build_count_manager: BuildCountManager,
             invocation_root_path: AbsNormPathBuf,
@@ -126,7 +127,7 @@ mod imp {
                 async_cleanup_context,
                 scribe: Arc::new(scribe),
                 build_count_manager,
-                trace_id: None,
+                trace_id,
                 command_start: None,
                 command_end: None,
                 command_critical_start: None,
@@ -198,113 +199,107 @@ mod imp {
         }
 
         fn exit(&mut self) -> Option<impl Future<Output = ()> + 'static + Send> {
-            if let Some(trace_id) = self.trace_id.take() {
-                let mut sink_success_count = None;
-                let mut sink_failure_count = None;
-                let mut sink_dropped_count = None;
-                if let Some(snapshot) = &self.last_snapshot {
-                    sink_success_count = calculate_diff_if_some(
-                        &snapshot.sink_successes,
-                        &self.initial_sink_success_count,
-                    );
-                    sink_failure_count = calculate_diff_if_some(
-                        &snapshot.sink_failures,
-                        &self.initial_sink_failure_count,
-                    );
-                    sink_dropped_count = calculate_diff_if_some(
-                        &snapshot.sink_dropped,
-                        &self.initial_sink_dropped_count,
-                    );
-                }
-
-                let record = buck2_data::InvocationRecord {
-                    command_name: Some(self.command_name.to_owned()),
-                    command_start: self.command_start.take(),
-                    command_end: self.command_end.take(),
-                    command_critical_start: self.command_critical_start.take(),
-                    command_critical_end: self.command_critical_end.take(),
-                    command_duration: self.command_duration.take(),
-                    client_walltime: self.start_time.elapsed().try_into().ok(),
-                    re_session_id: self.re_session_id.take().unwrap_or_default(),
-                    re_experiment_name: self.re_experiment_name.take().unwrap_or_default(),
-                    cli_args: self.cli_args.clone(),
-                    critical_path_duration: self
-                        .critical_path_duration
-                        .and_then(|x| x.try_into().ok()),
-                    client_metadata: Some(Self::collect_client_metadata()),
-                    tags: self.tags.drain(..).collect(),
-                    run_local_count: self.run_local_count,
-                    run_remote_count: self.run_remote_count,
-                    run_action_cache_count: self.run_action_cache_count,
-                    run_skipped_count: self.run_skipped_count,
-                    run_fallback_count: Some(self.run_fallback_count),
-                    first_snapshot: self.first_snapshot.take(),
-                    last_snapshot: self.last_snapshot.take(),
-                    min_build_count_since_rebase: self.min_build_count_since_rebase,
-                    cache_upload_count: self.cache_upload_count,
-                    cache_upload_attempt_count: self.cache_upload_attempt_count,
-                    resolved_target_patterns: self.resolved_target_patterns.take(),
-                    filesystem: self.filesystem.take().unwrap_or_default(),
-                    watchman_version: self.watchman_version.take(),
-                    test_info: self.test_info.take(),
-                    eligible_for_full_hybrid: Some(self.eligible_for_full_hybrid),
-                    max_event_client_delay_ms: self
-                        .max_event_client_delay
-                        .and_then(|d| u64::try_from(d.as_millis()).ok()),
-                    max_malloc_bytes_active: self.max_malloc_bytes_active.take(),
-                    max_malloc_bytes_allocated: self.max_malloc_bytes_allocated.take(),
-                    run_command_failure_count: Some(self.run_command_failure_count),
-                    event_count: Some(self.event_count),
-                    time_to_first_action_execution_ms: self
-                        .time_to_first_action_execution
-                        .and_then(|d| u64::try_from(d.as_millis()).ok()),
-                    materialization_output_size: Some(self.materialization_output_size),
-                    initial_materializer_entries_from_sqlite: self
-                        .initial_materializer_entries_from_sqlite,
-                    time_to_command_start_ms: self
-                        .time_to_command_start
-                        .and_then(|d| u64::try_from(d.as_millis()).ok()),
-                    time_to_command_critical_section_ms: self
-                        .time_to_command_critical_section
-                        .and_then(|d| u64::try_from(d.as_millis()).ok()),
-                    time_to_first_analysis_ms: self
-                        .time_to_first_analysis
-                        .and_then(|d| u64::try_from(d.as_millis()).ok()),
-                    time_to_load_first_build_file_ms: self
-                        .time_to_load_first_build_file
-                        .and_then(|d| u64::try_from(d.as_millis()).ok()),
-                    time_to_first_command_execution_start_ms: self
-                        .time_to_first_command_execution_start
-                        .and_then(|d| u64::try_from(d.as_millis()).ok()),
-                    system_total_memory_bytes: self.system_total_memory_bytes,
-                    file_watcher_stats: self.file_watcher_stats.take(),
-                    time_to_last_action_execution_end_ms: self
-                        .time_to_last_action_execution_end
-                        .and_then(|d| u64::try_from(d.as_millis()).ok()),
-                    isolation_dir: Some(self.isolation_dir.clone()),
-                    sink_success_count,
-                    sink_failure_count,
-                    sink_dropped_count,
-                    sink_max_buffer_depth: Some(self.sink_max_buffer_depth),
-                };
-                let event = BuckEvent::new(
-                    SystemTime::now(),
-                    trace_id.dupe(),
-                    None,
-                    None,
-                    buck2_data::RecordEvent {
-                        data: Some((Box::new(record)).into()),
-                    }
-                    .into(),
+            let mut sink_success_count = None;
+            let mut sink_failure_count = None;
+            let mut sink_dropped_count = None;
+            if let Some(snapshot) = &self.last_snapshot {
+                sink_success_count = calculate_diff_if_some(
+                    &snapshot.sink_successes,
+                    &self.initial_sink_success_count,
                 );
-                tracing::info!("Recording invocation to Scribe: {:?}", &event);
-                let scribe = self.scribe.dupe();
-                Some(async move {
-                    scribe.send_now(event).await;
-                })
-            } else {
-                None
+                sink_failure_count = calculate_diff_if_some(
+                    &snapshot.sink_failures,
+                    &self.initial_sink_failure_count,
+                );
+                sink_dropped_count = calculate_diff_if_some(
+                    &snapshot.sink_dropped,
+                    &self.initial_sink_dropped_count,
+                );
             }
+
+            let record = buck2_data::InvocationRecord {
+                command_name: Some(self.command_name.to_owned()),
+                command_start: self.command_start.take(),
+                command_end: self.command_end.take(),
+                command_critical_start: self.command_critical_start.take(),
+                command_critical_end: self.command_critical_end.take(),
+                command_duration: self.command_duration.take(),
+                client_walltime: self.start_time.elapsed().try_into().ok(),
+                re_session_id: self.re_session_id.take().unwrap_or_default(),
+                re_experiment_name: self.re_experiment_name.take().unwrap_or_default(),
+                cli_args: self.cli_args.clone(),
+                critical_path_duration: self.critical_path_duration.and_then(|x| x.try_into().ok()),
+                client_metadata: Some(Self::collect_client_metadata()),
+                tags: self.tags.drain(..).collect(),
+                run_local_count: self.run_local_count,
+                run_remote_count: self.run_remote_count,
+                run_action_cache_count: self.run_action_cache_count,
+                run_skipped_count: self.run_skipped_count,
+                run_fallback_count: Some(self.run_fallback_count),
+                first_snapshot: self.first_snapshot.take(),
+                last_snapshot: self.last_snapshot.take(),
+                min_build_count_since_rebase: self.min_build_count_since_rebase,
+                cache_upload_count: self.cache_upload_count,
+                cache_upload_attempt_count: self.cache_upload_attempt_count,
+                resolved_target_patterns: self.resolved_target_patterns.take(),
+                filesystem: self.filesystem.take().unwrap_or_default(),
+                watchman_version: self.watchman_version.take(),
+                test_info: self.test_info.take(),
+                eligible_for_full_hybrid: Some(self.eligible_for_full_hybrid),
+                max_event_client_delay_ms: self
+                    .max_event_client_delay
+                    .and_then(|d| u64::try_from(d.as_millis()).ok()),
+                max_malloc_bytes_active: self.max_malloc_bytes_active.take(),
+                max_malloc_bytes_allocated: self.max_malloc_bytes_allocated.take(),
+                run_command_failure_count: Some(self.run_command_failure_count),
+                event_count: Some(self.event_count),
+                time_to_first_action_execution_ms: self
+                    .time_to_first_action_execution
+                    .and_then(|d| u64::try_from(d.as_millis()).ok()),
+                materialization_output_size: Some(self.materialization_output_size),
+                initial_materializer_entries_from_sqlite: self
+                    .initial_materializer_entries_from_sqlite,
+                time_to_command_start_ms: self
+                    .time_to_command_start
+                    .and_then(|d| u64::try_from(d.as_millis()).ok()),
+                time_to_command_critical_section_ms: self
+                    .time_to_command_critical_section
+                    .and_then(|d| u64::try_from(d.as_millis()).ok()),
+                time_to_first_analysis_ms: self
+                    .time_to_first_analysis
+                    .and_then(|d| u64::try_from(d.as_millis()).ok()),
+                time_to_load_first_build_file_ms: self
+                    .time_to_load_first_build_file
+                    .and_then(|d| u64::try_from(d.as_millis()).ok()),
+                time_to_first_command_execution_start_ms: self
+                    .time_to_first_command_execution_start
+                    .and_then(|d| u64::try_from(d.as_millis()).ok()),
+                system_total_memory_bytes: self.system_total_memory_bytes,
+                file_watcher_stats: self.file_watcher_stats.take(),
+                time_to_last_action_execution_end_ms: self
+                    .time_to_last_action_execution_end
+                    .and_then(|d| u64::try_from(d.as_millis()).ok()),
+                isolation_dir: Some(self.isolation_dir.clone()),
+                sink_success_count,
+                sink_failure_count,
+                sink_dropped_count,
+                sink_max_buffer_depth: Some(self.sink_max_buffer_depth),
+            };
+            let event = BuckEvent::new(
+                SystemTime::now(),
+                self.trace_id.dupe(),
+                None,
+                None,
+                buck2_data::RecordEvent {
+                    data: Some((Box::new(record)).into()),
+                }
+                .into(),
+            );
+            tracing::info!("Recording invocation to Scribe: {:?}", &event);
+            let scribe = self.scribe.dupe();
+            Some(async move {
+                scribe.send_now(event).await;
+            })
         }
 
         // Collects client-side state and data, suitable for telemetry.
@@ -318,10 +313,9 @@ mod imp {
         fn handle_command_start(
             &mut self,
             command: &buck2_data::CommandStart,
-            event: &BuckEvent,
+            _event: &BuckEvent,
         ) -> anyhow::Result<()> {
             self.command_start = Some(command.clone());
-            self.trace_id = Some(event.trace_id()?);
             self.time_to_command_start = Some(self.start_time.elapsed());
             Ok(())
         }
@@ -769,6 +763,7 @@ pub(crate) fn try_get_invocation_recorder(
                 sink,
                 command_name,
                 sanitized_argv,
+                ctx.trace_id.dupe(),
                 ctx.paths()?.isolation.as_str().to_owned(),
                 BuildCountManager::new(ctx.paths()?.build_count_dir()),
                 ctx.paths()?.project_root().root().to_buf(),
