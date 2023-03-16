@@ -9,7 +9,7 @@ load("@prelude//configurations:rules.bzl", _config_implemented_rules = "implemen
 
 # Combine the attributes we generate, we the custom implementations we have.
 load(":attributes.bzl", "attributes")
-load(":rules_impl.bzl", "extra_attributes", "implemented_rules", "transitions")
+load(":rules_impl.bzl", "extra_attributes", "implemented_rules", "toolchain_rule_names", "transitions")
 
 def _unimplemented(name, ctx):
     fail("Unimplemented rule type `{}` for target `{}`.".format(name, ctx.label))
@@ -51,6 +51,7 @@ def _mk_rule(name: str.type, attributes: {str.type: "attribute"}) -> "rule":
         impl = getattr(implemented_rules, name, _unimplemented_impl(name)),
         attrs = attributes,
         is_configuration_rule = name in _config_implemented_rules,
+        is_toolchain_rule = name in toolchain_rule_names,
         **extra_args
     )
 

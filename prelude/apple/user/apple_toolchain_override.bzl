@@ -46,7 +46,8 @@ registration_spec = RuleRegistrationSpec(
     name = "apple_toolchain_override",
     impl = _impl,
     attrs = {
-        "base": attrs.dep(providers = [AppleToolchainInfo]),
-        "cxx_toolchain": attrs.dep(providers = [CxxToolchainInfo]),
+        "base": attrs.toolchain_dep(providers = [AppleToolchainInfo]),
+        "cxx_toolchain": attrs.exec_dep(providers = [CxxToolchainInfo]),
     },
+    is_toolchain_rule = True,
 )

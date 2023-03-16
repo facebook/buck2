@@ -23,7 +23,7 @@ _all_specs = [
     _apple_toolchain_override_spec,
 ]
 
-rules = {s.name: rule(impl = s.impl, attrs = s.attrs, **{k: v for k, v in {"cfg": s.cfg}.items() if v != None}) for s in _all_specs}
+rules = {s.name: rule(impl = s.impl, attrs = s.attrs, is_toolchain_rule = s.is_toolchain_rule, **{k: v for k, v in {"cfg": s.cfg}.items() if v != None}) for s in _all_specs}
 
 # The rules are accessed by doing module.name, so we have to put them on the correct module.
 load_symbols(rules)

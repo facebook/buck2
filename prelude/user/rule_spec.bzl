@@ -10,4 +10,5 @@ RuleRegistrationSpec = record(
     impl = field("function"),
     attrs = field({str.type: "attribute"}),
     cfg = field([None, "transition"], None),
+    is_toolchain_rule = field(bool.type, False),
 )

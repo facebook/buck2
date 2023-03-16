@@ -684,3 +684,7 @@ transitions = {
     "python_binary": constraint_overrides_transition,
     "python_test": constraint_overrides_transition,
 }
+
+toolchain_rule_names = [
+    "apple_toolchain",
+]
