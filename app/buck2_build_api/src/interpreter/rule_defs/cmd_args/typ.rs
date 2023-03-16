@@ -416,7 +416,7 @@ impl<'v> StarlarkCommandLine<'v> {
         Self::default()
     }
 
-    pub(crate) fn try_from_value(value: Value<'v>) -> anyhow::Result<Self> {
+    pub fn try_from_value(value: Value<'v>) -> anyhow::Result<Self> {
         let mut builder = Self::new();
         builder.0.get_mut().add_value(value)?;
         Ok(builder)

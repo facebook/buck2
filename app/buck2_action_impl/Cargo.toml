@@ -3,3 +3,31 @@ name = "buck2_action_impl"
 version = "0.1.0"
 edition = "2021"
 description = "Action implementations and context functions"
+
+[dependencies]
+anyhow = { workspace = true }
+chrono = { workspace = true }
+ctor = { workspace = true }
+dupe = { workspace = true }
+hex = { workspace = true }
+indexmap = { workspace = true }
+relative-path = { workspace = true }
+sha1 = { workspace = true }
+thiserror = { workspace = true }
+
+starlark = { workspace = true }
+starlark_map = { workspace = true }
+
+buck2_build_api = { workspace = true }
+buck2_common = { workspace = true }
+buck2_core = { workspace = true }
+buck2_execute = { workspace = true }
+buck2_interpreter = { workspace = true }
+buck2_interpreter_for_build = { workspace = true }
+host_sharing = { workspace = true }
+
+[dev-dependencies]
+indoc = { workspace = true }
+maplit = { workspace = true }
+
+buck2_node = { workspace = true }

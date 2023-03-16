@@ -57,7 +57,7 @@ enum SymlinkedDirError {
 }
 
 #[derive(Allocative)]
-pub(crate) struct UnregisteredSymlinkedDirAction {
+pub struct UnregisteredSymlinkedDirAction {
     copy: bool,
     args: Vec<(ArtifactGroup, PathBuf)>,
     // All associated artifacts of inputs unioned together

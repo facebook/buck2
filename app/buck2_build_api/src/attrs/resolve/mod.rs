@@ -8,7 +8,7 @@
  */
 
 pub(crate) mod attr_literal;
-pub(crate) mod attr_type;
+pub mod attr_type;
 pub(crate) mod coerced_attr;
 pub mod configured_attr;
 pub mod ctx;

@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+mod context;
+
 /// This crate has `#[ctor]` and no public members.
 ///
 /// Reference this symbol from `cli` crate so linter would not complain about unused dependency

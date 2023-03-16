@@ -306,7 +306,7 @@ impl DeclaredArtifact {
     /// When we freeze `DeclaredArtifact`, we then just call `get_bound_artifact()`, and `expect`
     /// it to be valid. We have the `ensure_bound` method to make sure that we can return
     /// a friendlier message to users because `freeze()` does not return error messages
-    pub(crate) fn ensure_bound(self) -> anyhow::Result<BoundBuildArtifact> {
+    pub fn ensure_bound(self) -> anyhow::Result<BoundBuildArtifact> {
         let borrow = self.artifact.borrow();
 
         let artifact = match &*borrow {

@@ -110,7 +110,7 @@ impl<'v> AnalysisRegistry<'v> {
     /// Reserves a path in an output directory. Doesn't declare artifact,
     /// but checks that there is no previously declared artifact with a path
     /// which is in conflict with claimed `path`.
-    pub(crate) fn claim_output_path(
+    pub fn claim_output_path(
         &mut self,
         eval: &Evaluator<'_, '_>,
         path: &ForwardRelativePath,
@@ -127,7 +127,7 @@ impl<'v> AnalysisRegistry<'v> {
         self.actions.declare_dynamic_output(path, output_type)
     }
 
-    pub(crate) fn declare_output(
+    pub fn declare_output(
         &mut self,
         prefix: Option<&str>,
         filename: &str,
@@ -163,7 +163,7 @@ impl<'v> AnalysisRegistry<'v> {
     ///  - `str`: A new file is declared with this name.
     ///  - `StarlarkOutputArtifact`: The original artifact is returned
     ///  - `StarlarkArtifact`/`StarlarkDeclaredArtifact`: If the artifact is already bound, an error is raised. Otherwise we proceed with the original artifact.
-    pub(crate) fn get_or_declare_output<'v2>(
+    pub fn get_or_declare_output<'v2>(
         &mut self,
         eval: &Evaluator<'v2, '_>,
         value: Value<'v2>,
@@ -210,7 +210,7 @@ impl<'v> AnalysisRegistry<'v> {
         }
     }
 
-    pub(crate) fn register_action<A: UnregisteredAction + 'static>(
+    pub fn register_action<A: UnregisteredAction + 'static>(
         &mut self,
         inputs: IndexSet<ArtifactGroup>,
         outputs: IndexSet<OutputArtifact>,
@@ -226,7 +226,7 @@ impl<'v> AnalysisRegistry<'v> {
         Ok(())
     }
 
-    pub(crate) fn create_transitive_set(
+    pub fn create_transitive_set(
         &mut self,
         definition: Value<'v>,
         value: Option<Value<'v>>,
@@ -249,7 +249,7 @@ impl<'v> AnalysisRegistry<'v> {
         Ok(set)
     }
 
-    pub(crate) fn register_dynamic_output(
+    pub fn register_dynamic_output(
         &mut self,
         dynamic: IndexSet<Artifact>,
         inputs: IndexSet<Artifact>,
@@ -263,7 +263,7 @@ impl<'v> AnalysisRegistry<'v> {
         Ok(())
     }
 
-    pub(crate) fn register_anon_target(
+    pub fn register_anon_target(
         &mut self,
         promise: ValueTyped<'v, StarlarkPromise<'v>>,
         rule: ValueTyped<'v, FrozenRuleCallable>,
@@ -272,7 +272,7 @@ impl<'v> AnalysisRegistry<'v> {
         self.anon_targets.register_one(promise, rule, attributes)
     }
 
-    pub(crate) fn register_anon_targets(
+    pub fn register_anon_targets(
         &mut self,
         promise: ValueTyped<'v, StarlarkPromise<'v>>,
         rules: Vec<(

@@ -74,12 +74,12 @@ enum RunActionValidationError {
 }
 
 #[derive(Debug, Allocative)]
-pub(crate) struct MetadataParameter {
+pub struct MetadataParameter {
     /// Name of the environment variable which is set to contain
     /// resolved path of the metadata file when requested by user.
-    pub(crate) env_var: String,
+    pub env_var: String,
     /// User-defined path in the output directory of the metadata file.
-    pub(crate) path: ForwardRelativePathBuf,
+    pub path: ForwardRelativePathBuf,
 }
 
 impl Display for MetadataParameter {
@@ -113,7 +113,7 @@ pub fn new_executor_preference(
 }
 
 #[derive(Debug, Allocative)]
-pub(crate) struct UnregisteredRunAction {
+pub struct UnregisteredRunAction {
     pub category: Category,
     pub identifier: Option<String>,
     pub executor_preference: ExecutorPreference,

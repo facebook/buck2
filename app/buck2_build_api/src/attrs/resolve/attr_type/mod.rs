@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-pub(crate) mod arg;
+pub mod arg;
 pub(crate) mod configuration_dep;
 pub(crate) mod dep;
 pub(crate) mod query;
