@@ -6,11 +6,13 @@ edition = "2021"
 [dependencies]
 anyhow = { workspace = true }
 async-trait = { workspace = true }
+bincode = { workspace = true }
 bytes = { workspace = true }
 futures = { workspace = true }
 libc = { workspace = true }
 nix = { workspace = true }
 pin-project = { workspace = true }
+rand = { workspace = true }
 take_mut = { workspace = true }
 tokio-util = { workspace = true }
 tokio = { workspace = true }
@@ -29,6 +31,7 @@ buck2_core = { workspace = true }
 buck2_forkserver_proto = { workspace = true }
 buck2_grpc = { workspace = true }
 buck2_util = { workspace = true }
+buck2_miniperf_proto = { workspace = true }
 
 [target.'cfg(windows)'.dependencies]
 winapi = { workspace = true }

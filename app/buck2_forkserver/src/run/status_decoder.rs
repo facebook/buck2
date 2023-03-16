@@ -9,7 +9,10 @@
 
 use std::process::ExitStatus;
 
+use anyhow::Context as _;
 use async_trait::async_trait;
+use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_miniperf_proto::MiniperfOutput;
 
 pub enum DecodedStatus {
     /// An actual status.
@@ -59,4 +62,66 @@ fn default_decode(status: ExitStatus) -> DecodedStatus {
     }
 
     DecodedStatus::Status(exit_code.unwrap_or(-1))
+}
+
+pub struct MiniperfStatusDecoder {
+    out_path: AbsNormPathBuf,
+}
+
+impl MiniperfStatusDecoder {
+    pub fn new(out_path: AbsNormPathBuf) -> Self {
+        Self { out_path }
+    }
+}
+
+#[async_trait]
+impl StatusDecoder for MiniperfStatusDecoder {
+    async fn decode_status(self, status: ExitStatus) -> anyhow::Result<DecodedStatus> {
+        if !status.success() {
+            return Ok(default_decode(status));
+        }
+
+        let status = tokio::fs::read(&self.out_path).await.with_context(|| {
+            format!(
+                "Error reading miniperf output at `{}`",
+                self.out_path.display()
+            )
+        })?;
+
+        tokio::fs::remove_file(&self.out_path)
+            .await
+            .with_context(|| format!("Error removing miniperf output at `{}`", self.out_path))?;
+
+        let status = bincode::deserialize::<MiniperfOutput>(&status)
+            .with_context(|| format!("Invalid miniperf output at `{}`", self.out_path.display()))?;
+
+        match status.raw_exit_code {
+            Ok(v) => {
+                #[cfg(unix)]
+                {
+                    use std::os::unix::process::ExitStatusExt;
+                    Ok(default_decode(ExitStatus::from_raw(v)))
+                }
+
+                #[cfg(not(unix))]
+                {
+                    Err(anyhow::anyhow!("Attempted to use Miniperf output off-UNIX"))
+                }
+            }
+            Err(e) => Ok(DecodedStatus::SpawnFailed(e)),
+        }
+    }
+
+    async fn cancel(self) -> anyhow::Result<()> {
+        let res = tokio::fs::remove_file(&self.out_path).await;
+
+        match res {
+            Ok(()) => Ok(()),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            Err(e) => Err(anyhow::Error::from(e).context(format!(
+                "Error removing miniperf output at `{}`",
+                self.out_path
+            ))),
+        }
+    }
 }

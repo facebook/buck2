@@ -30,6 +30,9 @@ use buck2_util::process::background_command;
 use futures::future::select;
 use futures::future::FutureExt;
 use futures::stream::Stream;
+use futures::stream::StreamExt;
+use rand::distributions::Alphanumeric;
+use rand::distributions::DistString;
 use tonic::Request;
 use tonic::Response;
 use tonic::Status;
@@ -38,6 +41,7 @@ use tonic::Streaming;
 use crate::convert::encode_event_stream;
 use crate::run::prepare_command;
 use crate::run::status_decoder::DefaultStatusDecoder;
+use crate::run::status_decoder::MiniperfStatusDecoder;
 use crate::run::stream_command_events;
 use crate::run::timeout_into_cancellation;
 use crate::run::DefaultKillProcess;
@@ -51,7 +55,6 @@ pub struct UnixForkserverService {
     log_reload_handle: Box<dyn LogConfigurationReloadHandle>,
 
     /// State for Miniperf.
-    #[allow(unused)]
     miniperf: Option<MiniperfContainer>,
 }
 
@@ -114,7 +117,17 @@ impl Forkserver for UnixForkserverService {
                 .transpose()
                 .context("Invalid timeout")?;
 
-            let mut cmd = background_command(exe);
+            let (mut cmd, miniperf_output) = match &self.miniperf {
+                Some(miniperf) => {
+                    let mut cmd = background_command(miniperf.miniperf.as_path());
+                    let output_path = miniperf.allocate_output_path();
+                    cmd.arg(output_path.as_path());
+                    cmd.arg(exe);
+                    (cmd, Some(output_path))
+                }
+                None => (background_command(exe), None),
+            };
+
             if let Some(cwd) = cwd {
                 cmd.current_dir(cwd);
             }
@@ -139,19 +152,29 @@ impl Forkserver for UnixForkserverService {
             }
 
             let mut cmd = prepare_command(cmd);
-
             let child = cmd.spawn();
 
             let timeout = timeout_into_cancellation(timeout);
 
             let cancellation = select(timeout.boxed(), cancel.boxed()).map(|r| r.factor_first().0);
 
-            let stream = stream_command_events(
-                child,
-                cancellation,
-                DefaultStatusDecoder,
-                DefaultKillProcess,
-            )?;
+            let stream = match miniperf_output {
+                Some(out) => stream_command_events(
+                    child,
+                    cancellation,
+                    MiniperfStatusDecoder::new(out),
+                    DefaultKillProcess,
+                )?
+                .left_stream(),
+                None => stream_command_events(
+                    child,
+                    cancellation,
+                    DefaultStatusDecoder,
+                    DefaultKillProcess,
+                )?
+                .right_stream(),
+            };
+
             let stream = encode_event_stream(stream);
             Ok(Box::pin(stream) as _)
         })
@@ -173,11 +196,9 @@ impl Forkserver for UnixForkserverService {
 
 struct MiniperfContainer {
     /// The Miniperf binary
-    #[allow(unused)]
     miniperf: AbsNormPathBuf,
 
     /// The directory where Miniperf outputs go.
-    #[allow(unused)]
     output_dir: AbsNormPathBuf,
 }
 
@@ -230,5 +251,11 @@ impl MiniperfContainer {
             miniperf,
             output_dir,
         }))
+    }
+
+    fn allocate_output_path(&self) -> AbsNormPathBuf {
+        let name = Alphanumeric.sample_string(&mut rand::thread_rng(), 16);
+        self.output_dir
+            .join(ForwardRelativePath::unchecked_new(&name))
     }
 }
