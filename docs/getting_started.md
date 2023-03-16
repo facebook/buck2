@@ -11,7 +11,7 @@ To get started, first install the `buck2` executable:
 
 ```
 rustup install nightly
-cargo +nightly install --git https://github.com/facebookincubator/buck2.git cli
+cargo +nightly install --git https://github.com/facebook/buck2.git cli
 ```
 
 That will install `buck2` into a suitable directory, e.g. `$HOME/.cargo/bin`, which you should then add to your `$PATH`.
