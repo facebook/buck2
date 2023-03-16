@@ -26,6 +26,8 @@ message CommandRequest {
   google.protobuf.Duration timeout = 6;
   // Control the environment
   repeated EnvDirective env = 8;
+  // Enable Miniperf if available?
+  bool enable_miniperf = 9;
 }
 
 message WorkingDirectory {

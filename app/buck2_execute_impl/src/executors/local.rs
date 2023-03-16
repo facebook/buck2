@@ -155,6 +155,7 @@ impl LocalExecutor {
                             timeout,
                             env_inheritance,
                             liveliness_observer,
+                            self.knobs.enable_miniperf,
                         )
                         .await
                     }
@@ -820,6 +821,7 @@ mod unix {
         comand_timeout: Option<Duration>,
         env_inheritance: Option<&EnvironmentInheritance>,
         liveliness_observer: impl LivelinessObserver + 'static,
+        enable_miniperf: bool,
     ) -> anyhow::Result<(GatherOutputStatus, Vec<u8>, Vec<u8>)> {
         let exe = exe.as_ref();
 
@@ -834,6 +836,7 @@ mod unix {
             }),
             env: vec![],
             timeout: comand_timeout.try_map(|d| d.try_into())?,
+            enable_miniperf,
         };
         apply_local_execution_environment(&mut req, working_directory, env, env_inheritance);
         forkserver

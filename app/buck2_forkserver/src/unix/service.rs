@@ -107,6 +107,7 @@ impl Forkserver for UnixForkserverService {
                 env,
                 cwd,
                 timeout,
+                enable_miniperf,
             } = msg;
 
             let exe = OsStr::from_bytes(&exe);
@@ -117,15 +118,15 @@ impl Forkserver for UnixForkserverService {
                 .transpose()
                 .context("Invalid timeout")?;
 
-            let (mut cmd, miniperf_output) = match &self.miniperf {
-                Some(miniperf) => {
+            let (mut cmd, miniperf_output) = match (enable_miniperf, &self.miniperf) {
+                (true, Some(miniperf)) => {
                     let mut cmd = background_command(miniperf.miniperf.as_path());
                     let output_path = miniperf.allocate_output_path();
                     cmd.arg(output_path.as_path());
                     cmd.arg(exe);
                     (cmd, Some(output_path))
                 }
-                None => (background_command(exe), None),
+                _ => (background_command(exe), None),
             };
 
             if let Some(cwd) = cwd {

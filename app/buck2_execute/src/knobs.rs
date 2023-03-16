@@ -9,6 +9,8 @@
 
 use dupe::Dupe;
 
-/// Daemon-level config that can tweak how the executors work.
+/// Command-level config that can tweak how the executors work.
 #[derive(Clone, Dupe, Default)]
-pub struct ExecutorGlobalKnobs {}
+pub struct ExecutorGlobalKnobs {
+    pub enable_miniperf: bool,
+}

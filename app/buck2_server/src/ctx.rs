@@ -475,7 +475,12 @@ impl DiceDataProvider for DiceCommandDataProvider {
                 .instant_event(buck2_data::ConsolePreferences { max_lines });
         }
 
-        let executor_global_knobs = ExecutorGlobalKnobs {};
+        let enable_miniperf = root_config
+            .parse::<RolloutPercentage>("buck2", "miniperf")?
+            .unwrap_or_else(RolloutPercentage::never)
+            .roll();
+
+        let executor_global_knobs = ExecutorGlobalKnobs { enable_miniperf };
 
         let host_sharing_broker =
             HostSharingBroker::new(HostSharingStrategy::SmallerTasksFirst, concurrency);
@@ -532,7 +537,10 @@ impl DiceDataProvider for DiceCommandDataProvider {
         data.set_create_unhashed_symlink_lock(self.create_unhashed_symlink_lock.dupe());
         data.spawner = Arc::new(BuckSpawner::default());
 
-        let tags = vec![format!("lazy-cycle-detector:{}", has_cycle_detector)];
+        let tags = vec![
+            format!("lazy-cycle-detector:{}", has_cycle_detector),
+            format!("miniperf:{}", enable_miniperf),
+        ];
         self.events.instant_event(buck2_data::TagEvent { tags });
 
         Ok(data)
