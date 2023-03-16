@@ -12,6 +12,8 @@ import os
 import subprocess
 import sys
 
+import dep_file_utils
+
 
 def rewrite_dep_file(src_path, dst_path):
     """
@@ -80,30 +82,7 @@ def rewrite_dep_file(src_path, dst_path):
 
     # Now that we've parsed deps, we need to normalize them.
 
-    normalized_deps = []
-
-    for dep in deps:
-        # The paths we get sometimes include "../" components, so get rid
-        # of those because we want ForwardRelativePath here.
-        dep = os.path.normpath(dep).replace("\\", "/")
-
-        if os.path.isabs(dep):
-            if dep.startswith(here):
-                # The dep file included a path inside the build root, but
-                # expressed an absolute path. In this case, rewrite it to
-                # be a relative path.
-                dep = dep[len(here) :]
-            else:
-                # The dep file included a path to something outside the
-                # build root. That's bad (actions shouldn't depend on
-                # anything outside the build root), but that dependency is
-                # therefore not tracked by Buck2 (which can only see things
-                # in the build root), so it cannot be represented as a
-                # dependency and therefore we don't include it (event if we
-                # could include it, this could never cause a miss).
-                continue
-
-        normalized_deps.append(dep)
+    normalized_deps = dep_file_utils.normalize_deps(deps, here)
 
     with open(dst_path, "w") as f:
         for dep in normalized_deps:
