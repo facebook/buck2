@@ -1,6 +1,6 @@
 # Contributing to Buck2 Prelude
 
-This repository is a subset of <https://github.com/facebookincubator/buck2>.
+This repository is a subset of <https://github.com/facebook/buck2>.
 You can contribute to either that repo, or this repo - changes will be mirrored to both.
 
 We want to make contributing to this project as easy and transparent as possible.

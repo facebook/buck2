@@ -42,7 +42,7 @@ For a comprehensive list of benefits, see [Benefits Compared to Buck1](benefits.
 
 ## Why use Buck2?
 
-It would be delightful if you tried out Buck2! But it is early-stage software, so users may run into unexpected issues. If you encounter an issue, please report it via [Github issues](https://github.com/facebookincubator/buck2/issues).
+It would be delightful if you tried out Buck2! But it is early-stage software, so users may run into unexpected issues. If you encounter an issue, please report it via [Github issues](https://github.com/facebook/buck2/issues).
 
 Buck2 is being used internally within Meta and is available as open-source from 2023.
 

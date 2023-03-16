@@ -2,7 +2,7 @@
 
 This repo contains a copy of the Buck2 Prelude, which is often included as a submodule with a Buck2 project.
 To obtain a copy of this repo, and set up other details of a Buck2, you should usually run `buck2 init`.
-Most information can be found on the main [Buck2 GitHub project](https://github.com/facebookincubator/buck2).
+Most information can be found on the main [Buck2 GitHub project](https://github.com/facebook/buck2).
 
 ## License
 

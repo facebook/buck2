@@ -216,7 +216,7 @@ def _http_archive_impl(ctx: "context") -> ["provider"]:
     return [DefaultInfo(default_output = output)]
 
 # TODO Switch to http_archive once that supports zip download.
-#   See https://github.com/facebookincubator/buck2/issues/21
+#   See https://github.com/facebook/buck2/issues/21
 _http_archive = rule(
     impl = _http_archive_impl,
     attrs = {

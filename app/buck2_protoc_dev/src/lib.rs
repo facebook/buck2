@@ -44,7 +44,7 @@ fn maybe_set_protoc() {
         // `cargo build` of `buck2` does not require external `protoc` dependency
         // because it uses prebuilt bundled `protoc` binary from `protoc-bin-vendored` crate.
         // However, prebuilt `protoc` binaries do not work in NixOS builds, see
-        // https://github.com/facebookincubator/buck2/issues/65
+        // https://github.com/facebook/buck2/issues/65
         // So for NixOS builds path to `protoc` binary can be overridden with
         // `BUCK2_BUILD_PROTOC` environment variable.
         set_var(

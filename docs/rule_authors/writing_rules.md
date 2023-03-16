@@ -15,7 +15,7 @@ Rules such as `@fbcode_macros//build_defs:native_rules.bzl buck_genrule` are not
 
 The built-in Buck2 rules are stored in `fbsource` in `fbcode/buck2/prelude`. To add a rule for a language, say `pascal`:
 
-1. Look at [prelude/attributes.bzl](https://github.com/facebookincubator/buck2/blob/main/prelude/attributes.bzl) to see the attributes that are supported in Buck1 and are mirrored into Buck2. If `pascal` was an existing rule, you would see what attributes it takes (often it will be `pascal_libary` and `pascal_binary`).
+1. Look at [prelude/attributes.bzl](https://github.com/facebook/buck2/blob/main/prelude/attributes.bzl) to see the attributes that are supported in Buck1 and are mirrored into Buck2. If `pascal` was an existing rule, you would see what attributes it takes (often it will be `pascal_libary` and `pascal_binary`).
 
 2. Create a file at `prelude/pascal.bzl` that will contain your rule implementations. The details are explained later, but a dummy rule looks like the following:
 
@@ -24,7 +24,7 @@ The built-in Buck2 rules are stored in `fbsource` in `fbcode/buck2/prelude`. To 
         return [DefaultInfo()]
     ```
 
-3. Register that rule in [`prelude/rules_impl.bzl`](https://github.com/facebookincubator/buck2/blob/main/prelude/rules_impl.bzl), which involves adding a `load(":pascal.bzl", "pascal_binary_impl")` at the top and an additional entry in `implemented_rules` section to wire up `pascal_binary = pascal_binary_impl`.
+3. Register that rule in [`prelude/rules_impl.bzl`](https://github.com/facebook/buck2/blob/main/prelude/rules_impl.bzl), which involves adding a `load(":pascal.bzl", "pascal_binary_impl")` at the top and an additional entry in `implemented_rules` section to wire up `pascal_binary = pascal_binary_impl`.
 
 4. Create a directory in `fbcode/buck2/tests/targets/rules/pascal` with `TARGETS` and whatever source files and test targets you need to test your project. Note, Apple tests are currently located at `xplat/buck2/tests/apple/...`.
 
@@ -163,7 +163,7 @@ The command has been written to a shell script, which is now run. Beforehand, al
 
 For more complicated actions, which perform meaningful logic beyond invoking a simple command, the tendency is to write custom Python scripts. Python scripts are used instead of shell scripts as they have better cross-platform compatibility and fewer hidden corners (especially in error paths).
 
-As an example of a Python helper, see [make_comp_db.py](https://github.com/facebookincubator/buck2/blob/main/prelude/cxx/tools/make_comp_db.py).
+As an example of a Python helper, see [make_comp_db.py](https://github.com/facebook/buck2/blob/main/prelude/cxx/tools/make_comp_db.py).
 
 A further advantage of using Python is that these commands can be tested in isolation, outside of Buck2.
 

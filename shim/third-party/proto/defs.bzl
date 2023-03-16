@@ -33,7 +33,7 @@ def _get_protoc_release(
 
 def _download_protoc_distribution_impl(ctx: "context") -> ["provider"]:
     # TODO Switch to http_archive once that supports zip download.
-    #   See https://github.com/facebookincubator/buck2/issues/21
+    #   See https://github.com/facebook/buck2/issues/21
     archive = ctx.actions.declare_output("archive.zip")
     ctx.actions.download_file(archive.as_output(), ctx.attrs.url, sha256 = ctx.attrs.sha256, is_deferrable = True)
     exe = ctx.attrs.exe_extension

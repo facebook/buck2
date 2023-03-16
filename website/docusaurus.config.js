@@ -88,7 +88,7 @@ const { fbContent, isInternal } = require('docusaurus-plugin-internaldocs-fb/int
           {
             href: fbContent({
               internal: 'https://www.internalfb.com/code/buck2',
-              external: 'https://github.com/facebookincubator/buck2',
+              external: 'https://github.com/facebook/buck2',
             }),
             label: fbContent({
               internal: 'CodeHub',
@@ -124,7 +124,7 @@ const { fbContent, isInternal } = require('docusaurus-plugin-internaldocs-fb/int
             ] : [
               {
                 label: 'GitHub issues',
-                href: 'https://github.com/facebookincubator/buck2/issues',
+                href: 'https://github.com/facebook/buck2/issues',
               },
             ],
           },
@@ -135,7 +135,7 @@ const { fbContent, isInternal } = require('docusaurus-plugin-internaldocs-fb/int
                 label: 'Code',
                 href: fbContent({
                   internal: 'https://www.internalfb.com/code/fbsource/fbcode/buck2/',
-                  external: 'https://github.com/facebookincubator/buck2',
+                  external: 'https://github.com/facebook/buck2',
                 }),
               },
             ],
