@@ -13,6 +13,7 @@ pub mod status_decoder;
 use std::io;
 use std::pin::Pin;
 use std::process::Command;
+use std::process::ExitStatus;
 use std::process::Stdio;
 use std::task::Context;
 use std::task::Poll;
@@ -160,9 +161,10 @@ pub fn stream_command_events<T>(
     child: io::Result<Child>,
     cancellation: T,
     decoder: impl StatusDecoder,
+    kill_process: impl KillProcess,
 ) -> anyhow::Result<impl Stream<Item = anyhow::Result<CommandEvent>>>
 where
-    T: Future<Output = anyhow::Result<GatherOutputStatus>>,
+    T: Future<Output = anyhow::Result<GatherOutputStatus>> + Send,
 {
     let mut child = match child {
         Ok(child) => child,
@@ -189,32 +191,36 @@ where
     let stderr = InterruptibleAsyncRead::<_, Drainer<_>>::new(stderr);
 
     let status = async move {
-        let (result, cancelled) = {
-            let wait = async {
-                let status = child.wait().await?;
-                let status = decoder.decode_status(status).await?.into();
-                anyhow::Ok((status, false))
-            };
-
-            let cancellation = async {
-                let status = cancellation.await?;
-                anyhow::Ok((status, true))
-            };
-
-            futures::pin_mut!(wait);
-            futures::pin_mut!(cancellation);
-
-            futures::future::select(wait, cancellation)
-                .await
-                .factor_first()
-                .0
-        }?;
-
-        if cancelled {
-            kill_process(&child).context("Failed to terminate child after timeout")?;
+        enum Outcome {
+            Finished(ExitStatus),
+            Cancelled(GatherOutputStatus),
         }
 
-        Ok(result)
+        // NOTE: This wrapping here is so that we release the borrow of `child` that stems from
+        // `wait()` by the time we call kill_process a few lines down.
+        let execute = async {
+            let status = child.wait();
+            futures::pin_mut!(status);
+            futures::pin_mut!(cancellation);
+
+            anyhow::Ok(match futures::future::select(status, cancellation).await {
+                futures::future::Either::Left((status, _)) => Outcome::Finished(status?),
+                futures::future::Either::Right((res, _)) => Outcome::Cancelled(res?),
+            })
+        };
+
+        anyhow::Ok(match execute.await? {
+            Outcome::Finished(status) => decoder.decode_status(status).await?.into(),
+            Outcome::Cancelled(res) => {
+                kill_process
+                    .kill(&child)
+                    .context("Failed to terminate child after timeout")?;
+
+                drop(decoder);
+
+                res
+            }
+        })
     };
 
     let stdout = FramedRead::new(stdout, BytesCodec::new())
@@ -261,20 +267,34 @@ where
     let cmd = prepare_command(cmd);
 
     let child = spawn_retry_txt_busy(cmd, || tokio::time::sleep(Duration::from_millis(50))).await;
-    let stream = stream_command_events(child, cancellation, DefaultStatusDecoder)?;
+    let stream = stream_command_events(
+        child,
+        cancellation,
+        DefaultStatusDecoder,
+        DefaultKillProcess,
+    )?;
     decode_command_event_stream(stream).await
 }
 
-fn kill_process(child: &Child) -> anyhow::Result<()> {
-    let pid = match child.id() {
-        Some(pid) => pid,
-        None => {
-            // Child just exited, so in this case we don't want to kill anything.
-            return Ok(());
-        }
-    };
-    tracing::info!("Killing process {}", pid);
-    kill_process_impl(pid)
+/// Dependency injection for kill. We use this in testing.
+pub trait KillProcess {
+    fn kill(self, child: &Child) -> anyhow::Result<()>;
+}
+
+pub struct DefaultKillProcess;
+
+impl KillProcess for DefaultKillProcess {
+    fn kill(self, child: &Child) -> anyhow::Result<()> {
+        let pid = match child.id() {
+            Some(pid) => pid,
+            None => {
+                // Child just exited, so in this case we don't want to kill anything.
+                return Ok(());
+            }
+        };
+        tracing::info!("Killing process {}", pid);
+        kill_process_impl(pid)
+    }
 }
 
 #[cfg(unix)]
@@ -366,11 +386,14 @@ where
 #[cfg(test)]
 mod tests {
     use std::str;
+    use std::sync::Arc;
+    use std::sync::Mutex;
     use std::time::Instant;
 
     use assert_matches::assert_matches;
     use buck2_util::process::async_background_command;
     use buck2_util::process::background_command;
+    use dupe::Dupe;
 
     use super::*;
 
@@ -535,8 +558,13 @@ mod tests {
         cmd.args(["-c", "exit 0"]);
 
         let child = prepare_command(cmd).spawn();
-        let mut events =
-            stream_command_events(child, futures::future::pending(), DefaultStatusDecoder)?.boxed();
+        let mut events = stream_command_events(
+            child,
+            futures::future::pending(),
+            DefaultStatusDecoder,
+            DefaultKillProcess,
+        )?
+        .boxed();
         assert_matches!(events.next().await, Some(Ok(CommandEvent::Exit(..))));
         assert_matches!(futures::poll!(events.next()), Poll::Ready(None));
         Ok(())
@@ -555,6 +583,65 @@ mod tests {
             status,
             GatherOutputStatus::Finished(v) if v == 128 + Signal::SIGKILL as i32
         );
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn timeout_kills_before_dropping_decoder() -> anyhow::Result<()> {
+        struct Kill {
+            killed: Arc<Mutex<bool>>,
+        }
+
+        impl KillProcess for Kill {
+            fn kill(self, _child: &Child) -> anyhow::Result<()> {
+                *self.killed.lock().unwrap() = true;
+                Ok(())
+            }
+        }
+
+        struct Decoder {
+            killed: Arc<Mutex<bool>>,
+        }
+
+        #[async_trait::async_trait]
+        impl StatusDecoder for Decoder {
+            async fn decode_status(self, _status: ExitStatus) -> anyhow::Result<DecodedStatus> {
+                panic!("Should not be called in this test since we timeout")
+            }
+        }
+
+        impl Drop for Decoder {
+            fn drop(&mut self) {
+                assert!(*self.killed.lock().unwrap());
+            }
+        }
+
+        let killed = Arc::new(Mutex::new(false));
+
+        let mut cmd = if cfg!(windows) {
+            background_command("powershell")
+        } else {
+            background_command("sh")
+        };
+        cmd.args(["-c", "sleep 10000"]);
+
+        let mut cmd = prepare_command(cmd);
+        let child = cmd.spawn();
+
+        let stream = stream_command_events(
+            child,
+            timeout_into_cancellation(Some(Duration::from_secs(1))),
+            Decoder {
+                killed: killed.dupe(),
+            },
+            Kill {
+                killed: killed.dupe(),
+            },
+        )?;
+
+        let (status, _stdout, _stderr) = decode_command_event_stream(stream).await?;
+        assert!(matches!(status, GatherOutputStatus::TimedOut(..)));
 
         Ok(())
     }
