@@ -13,7 +13,7 @@ pub(crate) mod build_id_writer;
 pub mod event_log;
 pub(crate) mod get;
 pub mod re_log;
-pub(crate) mod recorder;
+pub mod recorder;
 pub(crate) mod simpleconsole;
 pub(crate) mod stdout_stderr_forwarder;
 pub mod subscriber;

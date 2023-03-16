@@ -22,6 +22,7 @@ use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::final_console::FinalConsole;
 use buck2_client_ctx::startup_deadline::StartupDeadline;
 use buck2_client_ctx::streaming::BuckSubcommand;
+use buck2_client_ctx::subscribers::recorder::try_get_invocation_recorder;
 use buck2_common::daemon_dir::DaemonDir;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
@@ -81,6 +82,8 @@ impl CleanCommand {
             };
             return cmd.exec(matches, ctx);
         }
+
+        let _log_on_drop = try_get_invocation_recorder(&ctx, "clean", std::env::args().collect())?;
 
         ctx.with_runtime(async move |ctx| {
             let buck_out_dir = ctx.paths()?.buck_out_path();

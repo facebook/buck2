@@ -749,7 +749,7 @@ mod imp {
     }
 }
 
-pub(crate) fn try_get_invocation_recorder(
+pub fn try_get_invocation_recorder(
     ctx: &ClientCommandContext,
     command_name: &'static str,
     sanitized_argv: Vec<String>,
