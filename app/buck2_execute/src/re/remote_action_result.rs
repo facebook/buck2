@@ -127,5 +127,6 @@ fn timing_from_re_metadata(meta: &TExecutedActionMetadata) -> CommandExecutionTi
         re_queue_time: Some(re_queue_time),
         execution_time,
         start_time,
+        execution_stats: None,
     }
 }

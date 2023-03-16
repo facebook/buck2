@@ -116,6 +116,7 @@ fn main() -> io::Result<()> {
             "buck.data.MaterializationMethod",
             "#[derive(::gazebo::variants::VariantName)]",
         )
+        .type_attribute("buck.data.CommandExecutionStats", "#[derive(Copy, dupe::Dupe)]")
         .type_attribute(".", "#[derive(::serde::Serialize, ::serde::Deserialize)]")
         .type_attribute(".", "#[derive(::allocative::Allocative)]")
         .field_attribute(

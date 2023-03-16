@@ -96,6 +96,9 @@ pub struct CommandExecutionTimingData {
 
     /// When execution started.
     pub start_time: SystemTime,
+
+    /// Additional stats.
+    pub execution_stats: Option<buck2_data::CommandExecutionStats>,
 }
 
 impl Default for CommandExecutionTimingData {
@@ -105,6 +108,7 @@ impl Default for CommandExecutionTimingData {
             re_queue_time: None,
             execution_time: Duration::default(),
             start_time: SystemTime::now(),
+            execution_stats: None,
         }
     }
 }

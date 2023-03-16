@@ -331,7 +331,7 @@ impl LocalExecutor {
 
         let liveliness_observer = manager.liveliness_observer.dupe().and(cancellation);
 
-        let (timing, res) = executor_stage_async(
+        let (mut timing, res) = executor_stage_async(
             {
                 let env = iter_env()
                     .map(|(k, v)| buck2_data::local_command::EnvironmentEntry {
@@ -374,6 +374,7 @@ impl LocalExecutor {
                     re_queue_time: None,
                     execution_time,
                     start_time,
+                    execution_stats: None, // We fill this in later if available.
                 };
 
                 (timing, r)
@@ -397,7 +398,7 @@ impl LocalExecutor {
         match status {
             GatherOutputStatus::Finished {
                 exit_code,
-                execution_stats: _, // TODO: use this
+                execution_stats,
             } => {
                 let outputs = match self
                     .calculate_and_declare_output_values(request, digest_config)
@@ -408,6 +409,7 @@ impl LocalExecutor {
                 };
 
                 if exit_code == 0 {
+                    timing.execution_stats = execution_stats;
                     manager.success(execution_kind, outputs, std_streams, timing)
                 } else {
                     manager.failure(execution_kind, outputs, std_streams, Some(exit_code))

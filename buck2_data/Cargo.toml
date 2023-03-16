@@ -13,6 +13,7 @@ tonic = { workspace = true }
 allocative = { workspace = true }
 buck2_core = { workspace = true }
 
+dupe = { workspace = true }
 gazebo = { workspace = true }
 
 [build-dependencies]
