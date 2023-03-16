@@ -136,19 +136,6 @@ ErlangParseTransformInfo = provider(
     ],
 )
 
-# migration related providers
-
-ErlangRebar3TestsInfo = provider(
-    fields = [
-        # application the test dir belongs to
-        "app_name",
-        # reference to the test directory anker
-        "test_dir",
-        # all files
-        "files",
-    ],
-)
-
 ErlangTestInfo = provider(
     fields =
         [

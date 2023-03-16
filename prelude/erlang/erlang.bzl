@@ -9,7 +9,6 @@ load(":erlang_application.bzl", "StartTypeValues", "erlang_application_impl")
 load(":erlang_application_includes.bzl", "erlang_application_includes_impl")
 load(":erlang_escript.bzl", "erlang_escript_impl")
 load(":erlang_otp_application.bzl", "normalize_application")
-load(":erlang_rebar3_interface.bzl", "erlang_rebar3_interface_impl")
 load(":erlang_release.bzl", "erlang_release_impl")
 load(":erlang_tests.bzl", "erlang_test_impl", "erlang_tests_macro")
 load(":erlang_toolchain.bzl", "erlang_otp_binaries_impl")
@@ -64,9 +63,6 @@ rules_attributes = {
         "erlc": attrs.source(),
         "escript": attrs.source(),
     },
-    "erlang_rebar3_interface": {
-        "deps": attrs.list(attrs.dep(), default = []),
-    },
     "erlang_release": {
         "applications": attrs.list(attrs.one_of(attrs.dep(), attrs.tuple(attrs.dep(), attrs.enum(StartTypeValues)))),
         "include_erts": attrs.bool(default = False),
@@ -101,7 +97,6 @@ implemented_rules = {
     "erlang_app_includes": erlang_application_includes_impl,
     "erlang_escript": erlang_escript_impl,
     "erlang_otp_binaries": erlang_otp_binaries_impl,
-    "erlang_rebar3_interface": erlang_rebar3_interface_impl,
     "erlang_release": erlang_release_impl,
     "erlang_test": erlang_test_impl,
 }
