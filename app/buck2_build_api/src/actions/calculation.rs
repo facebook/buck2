@@ -352,7 +352,7 @@ async fn command_details(
         stderr = pair.stderr;
     };
 
-    let command = command.status.execution_kind().map(|kind| match kind {
+    let command_data = command.status.execution_kind().map(|kind| match kind {
         CommandExecutionKind::Local {
             command,
             env,
@@ -396,8 +396,9 @@ async fn command_details(
         exit_code: signed_exit_code.and_then(|e| e.try_into().ok()), // To be deprecated in favor of signed_exit_code
         stdout,
         stderr,
-        command,
+        command: command_data,
         signed_exit_code,
+        execution_stats: command.timing.execution_stats,
     }
 }
 

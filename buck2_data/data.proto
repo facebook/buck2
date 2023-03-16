@@ -805,6 +805,10 @@ message CommandExecutionDetails {
     // brevity.
     OmittedLocalCommand omitted_local_command = 9;
   }
+
+  // We should probably get the some more fields from CommandExecutionMetadata
+  // in there.
+  optional CommandExecutionStats execution_stats = 10;
 }
 
 message CommandOutputsMissing {
