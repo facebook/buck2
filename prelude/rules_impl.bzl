@@ -271,32 +271,10 @@ def _python_executable_attrs():
 
     return updated_attrs
 
-# Attributes types do not have records.
-# The expected shape of re_opts is:
-# {
-#     "capabilities": Dict<str, str> | None
-#     "use_case": str | None
-# }
-re_opts = attrs.dict(
-    key = attrs.string(),
-    value = attrs.option(
-        attrs.one_of(
-            attrs.dict(
-                key = attrs.string(),
-                value = attrs.string(),
-                sorted = False,
-            ),
-            attrs.string(),
-        ),
-        default = None,
-    ),
-    sorted = False,
-)
-
 def _python_test_attrs():
     test_attrs = _python_executable_attrs()
     test_attrs.update({
-        "remote_execution": attrs.option(re_opts, default = None),
+        "remote_execution": attrs.option(attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False), default = None),
         "_test_main": attrs.source(default = "prelude//python/tools:__test_main__.py"),
     })
     return test_attrs
@@ -425,7 +403,7 @@ inlined_extra_attributes = {
     },
     "cxx_python_extension": _cxx_python_extension_attrs(),
     "cxx_test": dict(
-        remote_execution = attrs.option(re_opts, default = None),
+        remote_execution = attrs.option(attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False), default = None),
         **_cxx_binary_and_test_attrs()
     ),
     "cxx_toolchain": cxx_toolchain_extra_attributes(is_toolchain_rule = False),
@@ -550,7 +528,7 @@ inlined_extra_attributes = {
         "env": attrs.dict(key = attrs.string(), value = attrs.arg(), sorted = False, default = {}),
         "labels": attrs.list(attrs.string(), default = []),
         "needed_coverage": attrs.list(attrs.tuple(attrs.int(), attrs.dep(), attrs.option(attrs.string())), default = []),
-        "remote_execution": attrs.option(re_opts, default = None),
+        "remote_execution": attrs.option(attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False), default = None),
         "test": attrs.dep(providers = [ExternalRunnerTestInfo]),
     },
     "python_test": _python_test_attrs(),
@@ -599,7 +577,7 @@ inlined_extra_attributes = {
         "framework": attrs.bool(default = True),
         "incremental_build_mode": attrs.option(attrs.string(), default = None),
         "incremental_enabled": attrs.bool(default = False),
-        "remote_execution": attrs.option(re_opts, default = None),
+        "remote_execution": attrs.option(attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False), default = None),
         "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source()), sorted = True, default = []),
         "_cxx_toolchain": _cxx_toolchain(),
         "_exec_os_type": _exec_os_type(),

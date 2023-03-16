@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-def get_re_executor_from_props(re_props: [{str.type: [{str.type: str.type}, str.type, None]}, None]) -> ["command_executor_config", None]:
+def get_re_executor_from_props(re_props: [{str.type: str.type}, None]) -> ["command_executor_config", None]:
     """
     Convert the `remote_execution` properties param into a `CommandExecutorConfig`
     to use with test providers.
@@ -14,16 +14,9 @@ def get_re_executor_from_props(re_props: [{str.type: [{str.type: str.type}, str.
     if re_props == None:
         return None
 
-    re_props_copy = dict(re_props)
-    capabilities = re_props_copy.pop("capabilities")
-    use_case = re_props_copy.pop("use_case")
-    if re_props_copy:
-        unexpected_props = ", ".join(re_props_copy.keys())
-        fail("found unexpected re props: " + unexpected_props)
-
     return CommandExecutorConfig(
         local_enabled = False,
         remote_enabled = True,
-        remote_execution_properties = capabilities,
-        remote_execution_use_case = use_case or "tpx-default",
+        remote_execution_properties = re_props,
+        remote_execution_use_case = "tpx-default",
     )
