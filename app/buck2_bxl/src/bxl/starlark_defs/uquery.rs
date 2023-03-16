@@ -75,11 +75,8 @@ impl<'v> StarlarkValue<'v> for StarlarkUQueryCtx<'v> {
 
 pub(crate) async fn get_uquery_env<'v>(
     ctx: &'v BxlContext<'v>,
-    use_correct_cell_resolution: bool,
 ) -> anyhow::Result<UqueryEnvironment<'v>> {
-    let dice_query_delegate = ctx
-        .dice_query_delegate(None, use_correct_cell_resolution)
-        .await?;
+    let dice_query_delegate = ctx.dice_query_delegate(None).await?;
     let uquery_delegate = Arc::new(dice_query_delegate);
     Ok(UqueryEnvironment::new(
         uquery_delegate.dupe(),

@@ -29,7 +29,6 @@ use buck2_common::target_aliases::BuckConfigTargetAliasResolver;
 use buck2_common::target_aliases::HasTargetAliasResolver;
 use buck2_core::cells::CellInstance;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::target::label::TargetLabel;
 use buck2_execute::digest_config::DigestConfig;
@@ -172,24 +171,12 @@ impl<'v> BxlContext<'v> {
     pub(crate) async fn dice_query_delegate(
         &'v self,
         target_platform: Option<TargetLabel>,
-        use_correct_cell_resolution: bool,
     ) -> anyhow::Result<DiceQueryDelegate<'_>> {
         let ctx = self.async_ctx.0;
         let cell_resolver = ctx.get_cell_resolver().await?;
 
-        let (working_dir, project_root) = if use_correct_cell_resolution {
-            let working_dir = self.cell.path().as_project_relative_path();
-            let project_root = self.project_root().clone();
-            (working_dir.to_owned(), project_root)
-        } else {
-            let cwd = AbsNormPathBuf::try_from(std::env::current_dir()?)?;
-            let working_dir = {
-                let fs = ProjectRoot::new(cwd.clone())?;
-                fs.relativize(&cwd)?.as_ref().to_owned()
-            };
-            let project_root = ProjectRoot::new(cwd)?;
-            (working_dir, project_root)
-        };
+        let working_dir = self.cell.path().as_project_relative_path().to_owned();
+        let project_root = self.project_root().clone();
 
         let package_boundary_exceptions = ctx.get_package_boundary_exceptions().await?;
         let target_alias_resolver = ctx
@@ -210,10 +197,9 @@ impl<'v> BxlContext<'v> {
     pub(crate) fn sync_dice_query_delegate(
         &'v self,
         global_target_platform: Option<TargetLabel>,
-        use_correct_cell_resolution: bool,
     ) -> anyhow::Result<DiceQueryDelegate<'_>> {
         self.async_ctx
-            .via(|| self.dice_query_delegate(global_target_platform, use_correct_cell_resolution))
+            .via(|| self.dice_query_delegate(global_target_platform))
     }
 
     /// Must take an `AnalysisContext` and `OutputStream` which has never had `take_state` called on it before.
@@ -383,7 +369,7 @@ fn register_context(builder: &mut MethodsBuilder) {
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         let res: anyhow::Result<Value<'v>> = this.async_ctx.via_dice(|ctx| async move {
-            let query_env = get_uquery_env(this, true).await?;
+            let query_env = get_uquery_env(this).await?;
             Ok(
                 match TargetExpr::<'v, TargetNode>::unpack(labels, this, eval).await? {
                     TargetExpr::Label(label) => {
@@ -405,14 +391,7 @@ fn register_context(builder: &mut MethodsBuilder) {
 
     /// Returns the [`StarlarkUQueryCtx`] that holds all uquery functions.
     fn uquery<'v>(this: &'v BxlContext<'v>) -> anyhow::Result<StarlarkUQueryCtx<'v>> {
-        // TODO(@wendyy) - change this to true once everyone is migrated to cquery_legacy()
-        let delegate = this.sync_dice_query_delegate(None, true)?;
-        StarlarkUQueryCtx::new(this, Arc::new(delegate))
-    }
-
-    /// Please do not use this at the moment. We need to fix how cell resolution is done within cquery.
-    fn uquery_legacy<'v>(this: &'v BxlContext<'v>) -> anyhow::Result<StarlarkUQueryCtx<'v>> {
-        let delegate = this.sync_dice_query_delegate(None, false)?;
+        let delegate = this.sync_dice_query_delegate(None)?;
         StarlarkUQueryCtx::new(this, Arc::new(delegate))
     }
 
@@ -426,21 +405,8 @@ fn register_context(builder: &mut MethodsBuilder) {
         // TODO(brasselsprouts): I would like to strongly type this.
         #[starlark(default = NoneType)] target_platform: Value<'v>,
     ) -> anyhow::Result<StarlarkCQueryCtx<'v>> {
-        // TODO(@wendyy) - change this to true once everyone is migrated to cquery_legacy()
-        this.async_ctx.via(|| {
-            StarlarkCQueryCtx::new(this, target_platform, &this.global_target_platform, true)
-        })
-    }
-
-    /// Please do not use this at the moment. We need to fix how cell resolution is done within cquery.
-    fn cquery_legacy<'v>(
-        this: &'v BxlContext<'v>,
-        // TODO(brasselsprouts): I would like to strongly type this.
-        #[starlark(default = NoneType)] target_platform: Value<'v>,
-    ) -> anyhow::Result<StarlarkCQueryCtx<'v>> {
-        this.async_ctx.via(|| {
-            StarlarkCQueryCtx::new(this, target_platform, &this.global_target_platform, false)
-        })
+        this.async_ctx
+            .via(|| StarlarkCQueryCtx::new(this, target_platform, &this.global_target_platform))
     }
 
     /// Returns the action context [`BxlActionsCtx`] for creating and running actions.
