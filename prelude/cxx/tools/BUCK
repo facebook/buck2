@@ -9,15 +9,6 @@ prelude.python_bootstrap_binary(
 )
 
 prelude.python_bootstrap_binary(
-    name = "makefile_to_dep_file",
-    main = "makefile_to_dep_file.py",
-    deps = [
-        ":dep_file_processors",
-    ],
-    visibility = ["PUBLIC"],
-)
-
-prelude.python_bootstrap_binary(
     name = "dep_file_processor",
     main = "dep_file_processor.py",
     deps = [
