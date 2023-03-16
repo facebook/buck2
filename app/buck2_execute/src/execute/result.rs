@@ -85,8 +85,8 @@ pub struct CommandExecutionTimingData {
     /// How long this build actually waited for this action to complete
     pub wall_time: Duration,
 
-    // How long this command queued in RE. This value excludes execution time, i.e. for action cache hit,
-    // this value represents how long a request has to wait for server to handle.
+    /// How long this command queued in RE. This value excludes execution time, i.e. for action cache hit,
+    /// this value represents how long a request has to wait for server to handle.
     pub re_queue_time: Option<Duration>,
 
     /// How long this command actually took to execute. This can be different from the wall_time if
