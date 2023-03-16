@@ -73,6 +73,12 @@ impl ReplayCommand {
             (override_args, ctx.working_dir.clone())
         };
 
-        exec(args, working_dir, ctx.process_context, replayer)
+        exec(
+            args,
+            working_dir,
+            ctx.process_context,
+            replayer,
+            invocation.trace_id,
+        )
     }
 }

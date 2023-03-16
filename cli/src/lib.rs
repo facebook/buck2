@@ -69,6 +69,7 @@ use clap::AppSettings;
 use clap::Parser;
 use dice::DetectCycles;
 use dice::WhichDice;
+use dupe::Dupe;
 use gazebo::variants::VariantName;
 
 use crate::check_user_allowed::check_user_allowed;
@@ -164,7 +165,7 @@ impl Opt {
         matches: &clap::ArgMatches,
         init: fbinit::FacebookInit,
         log_reload_handle: Box<dyn LogConfigurationReloadHandle>,
-        replay: Option<(ProcessContext, Replayer)>,
+        replay: Option<(ProcessContext, Replayer, TraceId)>,
     ) -> ExitResult {
         let subcommand_matches = match matches.subcommand().map(|s| s.1) {
             Some(submatches) => submatches,
@@ -187,7 +188,7 @@ pub fn exec(
     working_dir: WorkingDir,
     init: fbinit::FacebookInit,
     log_reload_handle: Box<dyn LogConfigurationReloadHandle>,
-    replay: Option<(ProcessContext, Replayer)>,
+    replay: Option<(ProcessContext, Replayer, TraceId)>,
 ) -> ExitResult {
     let mut expanded_args =
         expand_argfiles(args, &working_dir).context("Error expanding argsfiles")?;
@@ -272,7 +273,7 @@ impl CommandKind {
         common_opts: CommonOptions,
         init: fbinit::FacebookInit,
         log_reload_handle: Box<dyn LogConfigurationReloadHandle>,
-        replay: Option<(ProcessContext, Replayer)>,
+        replay: Option<(ProcessContext, Replayer, TraceId)>,
     ) -> ExitResult {
         let roots = find_invocation_roots(working_dir.path());
         let paths = roots
@@ -298,10 +299,22 @@ impl CommandKind {
                 .into();
         }
 
-        let replay_speed = replay.as_ref().map(|(_, r)| r.speed());
+        let trace_id = match replay.as_ref() {
+            Some((_, _, trace_id)) => trace_id.dupe(),
+            None => match std::env::var("BUCK_WRAPPER_UUID") {
+                Ok(uuid_str) => {
+                    TraceId::from_str(&uuid_str).context("invalid trace ID in BUCK_WRAPPER_UUID")?
+                }
+                _ => TraceId::new(),
+            },
+        };
+
+        let replay_speed = replay.as_ref().map(|(_, r, _)| r.speed());
 
         let (process_context, _cleanup_drop_guard, replayer) = match replay {
-            Some((pctx, replayer)) => (pctx, None, Some(sync_wrapper::SyncWrapper::new(replayer))),
+            Some((pctx, replayer, _)) => {
+                (pctx, None, Some(sync_wrapper::SyncWrapper::new(replayer)))
+            }
             None => {
                 let (pctx, drop_guard) = ProcessContext::initialize()?;
                 (pctx, Some(drop_guard), None)
@@ -354,13 +367,6 @@ impl CommandKind {
                 None
             };
 
-        let trace_id = match std::env::var("BUCK_WRAPPER_UUID") {
-            Ok(uuid_str) => {
-                TraceId::from_str(&uuid_str).context("invalid trace ID in BUCK_WRAPPER_UUID")?
-            }
-            _ => TraceId::new(),
-        };
-
         let command_ctx = ClientCommandContext {
             init,
             paths,
@@ -406,13 +412,13 @@ impl CommandKind {
             CommandKind::Debug(cmd) => cmd.exec(
                 matches,
                 command_ctx,
-                |args, cwd, process_context, replayer| {
+                |args, cwd, process_context, replayer, trace_id| {
                     exec(
                         args,
                         cwd,
                         init,
                         <dyn LogConfigurationReloadHandle>::noop(),
-                        Some((process_context, replayer)),
+                        Some((process_context, replayer, trace_id)),
                     )
                 },
             ),

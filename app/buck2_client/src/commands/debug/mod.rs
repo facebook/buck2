@@ -14,6 +14,7 @@ use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::replayer::Replayer;
 use buck2_client_ctx::streaming::BuckSubcommand;
 use buck2_core::fs::working_dir::WorkingDir;
+use buck2_events::trace::TraceId;
 use chrome_trace::ChromeTraceCommand;
 use crash::CrashCommand;
 use dice_dump::DiceDumpCommand;
@@ -100,7 +101,7 @@ pub enum DebugCommand {
 }
 
 /// `cli::exec` function.
-pub trait ExecFn = FnOnce(Vec<String>, WorkingDir, ProcessContext, Replayer) -> ExitResult;
+pub trait ExecFn = FnOnce(Vec<String>, WorkingDir, ProcessContext, Replayer, TraceId) -> ExitResult;
 
 impl DebugCommand {
     pub fn exec(
