@@ -27,7 +27,7 @@ pub async fn upload_dice_dump(
     manifold_id: &String,
 ) -> anyhow::Result<String> {
     let buckd = buckd.with_subscribers(Default::default());
-    let manifold_filename = &format!("{}_dice-dump.gz", manifold_id);
+    let manifold_filename = &format!("{}_dice-dump.tar", manifold_id);
     let this_dump_folder_name = chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string();
     DiceDump::new(buck_out_dice, &this_dump_folder_name)
         .upload(buckd, manifold_filename)
@@ -96,7 +96,7 @@ async fn upload_to_manifold(dump_folder: &Path, manifold_filename: &str) -> anyh
     if !cfg!(target_os = "windows") {
         buck2_core::facebook_only();
 
-        let tar_gzip = background_command("tar")
+        let tar = background_command("tar")
             .arg("-c")
             .arg(dump_folder)
             .stdin(std::process::Stdio::null())
@@ -105,7 +105,7 @@ async fn upload_to_manifold(dump_folder: &Path, manifold_filename: &str) -> anyh
             .spawn()?;
 
         manifold::Upload::new(manifold::Bucket::RageDumps, manifold_filename)
-            .from_stdio(tar_gzip.stdout.unwrap().into())?
+            .from_stdio(tar.stdout.unwrap().into())?
             .spawn()
             .await?;
     }
