@@ -7,11 +7,9 @@
  * of this source tree.
  */
 
-use std::collections::HashMap;
 use std::io::ErrorKind;
 use std::io::Write;
 use std::path::Path;
-use std::path::PathBuf;
 use std::process::Command;
 
 use anyhow::Context;
@@ -21,8 +19,6 @@ use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::final_console::FinalConsole;
 use buck2_client_ctx::path_arg::PathArg;
 use buck2_core::fs::fs_util;
-use itertools::Itertools;
-use walkdir::DirEntry;
 
 /// Buck2 Init
 ///
@@ -65,38 +61,6 @@ impl InitCommand {
                 console.print_error(&format!("{:?}", e))?;
                 ExitResult::Status(1)
             }
-        }
-    }
-}
-
-/// A number of known filetypes that buck2 init recognises.
-///
-/// This is used to generate a stub build file using rules
-/// from the prelude.
-#[derive(Debug, PartialEq, Eq, Hash)]
-enum FileType {
-    Rust,
-    Python,
-    Starlark,
-    Javascript,
-    Typescript,
-    Go,
-    Unknown,
-    Directory,
-    Cxx,
-}
-
-impl FileType {
-    fn from_ext(ext: &str) -> Self {
-        match ext {
-            "rs" => FileType::Rust,
-            "py" => FileType::Python,
-            "c" | "cpp" | "h" | "hpp" => FileType::Cxx,
-            "bzl" => FileType::Starlark,
-            "go" => FileType::Go,
-            "js" | "jsx" => FileType::Javascript,
-            "ts" | "tsx" => FileType::Typescript,
-            _ => FileType::Unknown,
         }
     }
 }
@@ -144,75 +108,76 @@ fn exec_impl(
         ));
     }
 
-    let name = match cmd
-        .name
-        .as_deref()
-        .or_else(|| absolute.file_name().and_then(|s| s.to_str()))
-    {
-        Some(x) => x,
-        None => {
-            return Err(anyhow::anyhow!(
-                "Could not set project name `{}`. Is it valid unicode?",
-                absolute.display()
-            ));
-        }
-    };
-
-    let discovered_langs = discover_project(&absolute);
-
-    set_up_project(name, &absolute, !cmd.no_prelude, &discovered_langs)
+    set_up_project(&absolute, !cmd.no_prelude)
 }
 
-fn discover_project(path: &Path) -> HashMap<FileType, Vec<PathBuf>> {
-    let mut discovered_langs = HashMap::<FileType, Vec<PathBuf>>::new();
+fn initialize_buckconfig(path: &Path, prelude: bool) -> anyhow::Result<()> {
+    let mut buckconfig = std::fs::File::create(path.join(".buckconfig"))?;
+    writeln!(buckconfig, "[repositories]")?;
+    writeln!(buckconfig, "root = .")?;
+    writeln!(buckconfig, "prelude = prelude")?;
 
-    // ignore common build folders
-    fn ignore(e: &DirEntry) -> bool {
-        e.file_name().to_str().map_or(true, |s| {
-            !s.starts_with('.') && !["node_modules", "target", "buck-out"].contains(&s)
-        })
+    // Add additional configs that depend on prelude / no-prelude mode
+    if prelude {
+        writeln!(buckconfig, "toolchains = toolchains")?;
+        writeln!(buckconfig, "none = none")?;
+        writeln!(buckconfig)?;
+        writeln!(buckconfig, "[repository_aliases]")?;
+        writeln!(buckconfig, "config = prelude")?;
+        writeln!(buckconfig, "fbcode = none")?;
+        writeln!(buckconfig, "fbsource = none")?;
+        writeln!(buckconfig, "buck = none")?;
+        writeln!(buckconfig)?;
+        writeln!(buckconfig, "[parser]")?;
+        writeln!(
+            buckconfig,
+            "target_platform_detector_spec = target:root//...->prelude//platforms:default"
+        )?;
+    } else {
+        // For the no-prelude mode, create an empty prelude/prelude.bzl as Buck2 expects one.
+        let prelude_dir = path.join("prelude");
+        fs_util::create_dir(prelude_dir.as_path())?;
+        fs_util::create_file(prelude_dir.join("prelude.bzl"))?;
     }
-
-    // if the folder exists and is nonempty, recursive walk to discover the contents
-    // limit depth to 5 and take the first 1000 files picking the top match based on ext
-    // to prevent taking too much time on huge projects
-    for entry in walkdir::WalkDir::new(path)
-        .max_depth(5)
-        .into_iter()
-        .filter_entry(ignore)
-        .take(1000)
-        .filter_map(Result::ok)
-    {
-        let ext = entry
-            .file_name()
-            .to_str()
-            .unwrap()
-            .split_once('.') // assume anything after the first . is the extension
-            .map(|(_, ext)| ext);
-
-        let dir = entry.metadata().map(|m| m.is_dir()).ok();
-
-        let lang = match (ext, dir) {
-            (_, Some(true)) => FileType::Directory,
-            (Some(ext), _) => FileType::from_ext(ext),
-            _ => FileType::Unknown,
-        };
-
-        discovered_langs
-            .entry(lang)
-            .or_default()
-            .push(entry.path().to_owned());
-    }
-
-    discovered_langs
+    Ok(())
 }
 
-fn set_up_project(
-    name: &str,
-    path: &Path,
-    prelude: bool,
-    discovered_langs: &HashMap<FileType, Vec<PathBuf>>,
-) -> anyhow::Result<()> {
+fn initialize_toolchains_buck(path: &Path) -> anyhow::Result<()> {
+    let mut buck = std::fs::File::create(path.join("BUCK"))?;
+
+    writeln!(
+        buck,
+        "load(\"@prelude//toolchains:genrule.bzl\", \"system_genrule_toolchain\")",
+    )?;
+    writeln!(buck)?;
+    writeln!(buck, "system_genrule_toolchain(")?;
+    writeln!(buck, "    name = \"genrule\",")?;
+    writeln!(buck, "    visibility = [\"PUBLIC\"],")?;
+    writeln!(buck, ")")?;
+
+    Ok(())
+}
+
+fn initialize_root_buck(path: &Path, prelude: bool) -> anyhow::Result<()> {
+    let mut buck = std::fs::File::create(path.join("BUCK"))?;
+
+    if prelude {
+        writeln!(
+            buck,
+            "# A list of available rules and their signatures can be found here: https://buck2.build/docs/generated/starlark/prelude/prelude.bzl"
+        )?;
+        writeln!(buck)?;
+        writeln!(buck, "genrule(")?;
+        writeln!(buck, "    name = \"hello_world\",")?;
+        writeln!(buck, "    out = \"out.txt\",")?;
+        writeln!(buck, "    cmd = \"echo BUILT BY BUCK2> $OUT\",")?;
+        writeln!(buck, ")")?;
+    }
+    // TODO: Add a doc pointers for rules
+    Ok(())
+}
+
+fn set_up_project(path: &Path, prelude: bool) -> anyhow::Result<()> {
     if !Command::new("git")
         .arg("init")
         .current_dir(path)
@@ -221,18 +186,6 @@ fn set_up_project(
     {
         return Err(anyhow::anyhow!("Failure when running `git init`."));
     };
-
-    let mut buck_config = {
-        let mut buck_config = std::fs::File::create(path.join(".buckconfig"))?;
-        writeln!(buck_config, "[buildfile]")?;
-        writeln!(buck_config, "name = BUCK")?;
-        writeln!(buck_config)?;
-        writeln!(buck_config, "[repositories]")?;
-        writeln!(buck_config, "root = .")?;
-        buck_config
-    };
-
-    let mut buck2 = std::fs::File::create(path.join("BUCK"))?;
 
     if prelude {
         if !Command::new("git")
@@ -250,87 +203,100 @@ fn set_up_project(
                 "Unable to clone the prelude. Is the folder in use?"
             ));
         }
-
-        let toolchains = path.join("toolchains");
-        if !toolchains.exists() {
-            std::fs::create_dir(&toolchains)?;
-        }
-
-        writeln!(buck_config, "prelude = prelude")?;
-        writeln!(buck_config, "toolchains = toolchains")?;
-
-        for (lang, files) in discovered_langs.iter() {
-            match lang {
-                FileType::Cxx => write!(buck2, "{}", generate_cxx_rule(name, path, files))?,
-                FileType::Python => write!(buck2, "{}", generate_python_rule(name, path, files))?,
-                _ => (),
-            }
-        }
-    } else {
-        writeln!(buck2, "# to get started without using the prelude")?;
-        writeln!(
-            buck2,
-            "# please visit buck2.build/docs/quickstart/no-prelude"
-        )?;
     }
 
+    // If the project already contains a .buckconfig, leave it alone
+    if path.join(".buckconfig").exists() {
+        return Ok(());
+    }
+
+    initialize_buckconfig(path, prelude)?;
+    if prelude {
+        let toolchains = path.join("toolchains");
+        if !toolchains.exists() {
+            fs_util::create_dir(&toolchains)?;
+            initialize_toolchains_buck(toolchains.as_path())?;
+        }
+    }
+    if !path.join("BUCK").exists() {
+        initialize_root_buck(path, prelude)?;
+    }
     Ok(())
 }
 
-fn generate_python_rule(name: &str, path: &Path, files: &[PathBuf]) -> String {
-    let srcs = files
-        .iter()
-        .map(|f| {
-            format!(
-                "\"{}\"",
-                f.strip_prefix(path)
-                    .expect("always a subpath")
-                    .to_string_lossy()
-            )
-        })
-        .join(",\n        ");
+#[cfg(test)]
+mod tests {
+    use buck2_core::fs::fs_util;
 
-    format!(
-        "# to learn about how to use this, please visit buck2.build/docs/python
-python_binary(
-    name = \"{}-py\",
-    main = \"\" # todo: set the main entrypoint
+    use crate::commands::init::initialize_buckconfig;
+    use crate::commands::init::initialize_root_buck;
+
+    #[test]
+    fn test_buckconfig_generation_with_prelude() -> anyhow::Result<()> {
+        let tempdir = tempfile::tempdir()?;
+        let tempdir_path = tempdir.path();
+        fs_util::create_dir_all(tempdir_path)?;
+
+        let buckconfig_path = tempdir_path.join(".buckconfig");
+        initialize_buckconfig(tempdir_path, true)?;
+        let actual_buckconfig = fs_util::read_to_string(buckconfig_path)?;
+        let expected_buckconfig = "[repositories]
+root = .
+prelude = prelude
+toolchains = toolchains
+none = none
+
+[repository_aliases]
+config = prelude
+fbcode = none
+fbsource = none
+buck = none
+
+[parser]
+target_platform_detector_spec = target:root//...->prelude//platforms:default
+";
+        assert_eq!(actual_buckconfig, expected_buckconfig);
+        Ok(())
+    }
+
+    #[test]
+    fn test_buckconfig_generation_without_prelude() -> anyhow::Result<()> {
+        let tempdir = tempfile::tempdir()?;
+        let tempdir_path = tempdir.path();
+        fs_util::create_dir_all(tempdir_path)?;
+
+        let buckconfig_path = tempdir_path.join(".buckconfig");
+        initialize_buckconfig(tempdir_path, false)?;
+        let actual_buckconfig = fs_util::read_to_string(buckconfig_path)?;
+        let expected_buckconfig = "[repositories]
+root = .
+prelude = prelude
+";
+        assert_eq!(actual_buckconfig, expected_buckconfig);
+
+        // Test we have an empty prelude directory and prelude.bzl file
+        assert!(tempdir_path.join("prelude/prelude.bzl").exists());
+        Ok(())
+    }
+
+    #[test]
+    fn test_buckfile_generation_with_prelude() -> anyhow::Result<()> {
+        let tempdir = tempfile::tempdir()?;
+        let tempdir_path = tempdir.path();
+        fs_util::create_dir_all(tempdir_path)?;
+
+        let buck_path = tempdir_path.join("BUCK");
+        initialize_root_buck(tempdir_path, true)?;
+        let actual_buck = fs_util::read_to_string(buck_path)?;
+        let expected_buck = "# A list of available rules and their signatures can be found here: https://buck2.build/docs/generated/starlark/prelude/prelude.bzl
+
+genrule(
+    name = \"hello_world\",
+    out = \"out.txt\",
+    cmd = \"echo BUILT BY BUCK2> $OUT\",
 )
-
-# to learn about how to use this, please visit buck2.build/docs/python
-python_library(
-    name = \"{}-lib-py\",
-    srcs = [
-        {}
-    ],
-    visibility = [\"PUBLIC\"],
-    base_module = \"{}\",
-)\n\n",
-        name, name, srcs, name
-    )
-}
-
-fn generate_cxx_rule(name: &str, path: &Path, files: &[PathBuf]) -> String {
-    let srcs = files
-        .iter()
-        .map(|f| {
-            format!(
-                "\"{}\"",
-                f.strip_prefix(path)
-                    .expect("always a subpath")
-                    .to_string_lossy()
-            )
-        })
-        .join(",\n        ");
-    format!(
-        "# to learn about how to use this, please visit buck2.build/docs/cxx
-cxx_binary(
-    name = \"{}-cpp\",
-    link_style = \"static\",
-    srcs = [
-        {}
-    ]
-)\n\n",
-        name, srcs
-    )
+";
+        assert_eq!(actual_buck, expected_buck);
+        Ok(())
+    }
 }
