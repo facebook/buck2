@@ -41,6 +41,19 @@ impl serde::ser::Serialize for TraceId {
     }
 }
 
+impl<'de> serde::de::Deserialize<'de> for TraceId {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        use serde::de::Error;
+
+        <&str>::deserialize(deserializer)?
+            .parse()
+            .map_err(D::Error::custom)
+    }
+}
+
 impl Display for TraceId {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let mut buf = Uuid::encode_buffer();
@@ -75,5 +88,18 @@ impl TraceId {
 impl Hash for TraceId {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.hash().hash(state);
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn roundtrip() {
+        let a = TraceId::new();
+        let s = serde_json::to_string(&a).unwrap();
+        let b = serde_json::from_str::<TraceId>(&s).unwrap();
+        assert_eq!(a, b);
     }
 }
