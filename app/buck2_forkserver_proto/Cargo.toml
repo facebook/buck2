@@ -11,5 +11,7 @@ tonic = { workspace = true }
 derive_more = { workspace = true }
 gazebo = { workspace = true }
 
+buck2_data = { workspace = true }
+
 [build-dependencies]
 buck2_protoc_dev = { workspace = true }

@@ -395,7 +395,10 @@ impl LocalExecutor {
         let std_streams = CommandStdStreams::Local { stdout, stderr };
 
         match status {
-            GatherOutputStatus::Finished(status) => {
+            GatherOutputStatus::Finished {
+                exit_code,
+                execution_stats: _, // TODO: use this
+            } => {
                 let outputs = match self
                     .calculate_and_declare_output_values(request, digest_config)
                     .await
@@ -404,10 +407,10 @@ impl LocalExecutor {
                     Err(e) => return manager.error("calculate_output_values_failed", e),
                 };
 
-                if status == 0 {
+                if exit_code == 0 {
                     manager.success(execution_kind, outputs, std_streams, timing)
                 } else {
-                    manager.failure(execution_kind, outputs, std_streams, Some(status))
+                    manager.failure(execution_kind, outputs, std_streams, Some(exit_code))
                 }
             }
             GatherOutputStatus::SpawnFailed(reason) => {
@@ -906,7 +909,7 @@ mod tests {
         cmd.args(["-c", "echo hello"]);
 
         let (status, stdout, stderr) = gather_output(cmd, futures::future::pending()).await?;
-        assert!(matches!(status, GatherOutputStatus::Finished(s) if s == 0));
+        assert!(matches!(status, GatherOutputStatus::Finished{ exit_code, .. } if exit_code == 0));
         assert_eq!(str::from_utf8(&stdout)?.trim(), "hello");
         assert_eq!(stderr, b"");
 
@@ -937,7 +940,7 @@ mod tests {
         )
         .await?;
         assert!(
-            matches!(status, GatherOutputStatus::Finished(s) if s == 0),
+            matches!(status, GatherOutputStatus::Finished { exit_code, .. } if exit_code == 0),
             "status: {:?}",
             status
         );
@@ -1030,7 +1033,7 @@ mod tests {
                 NoopLivelinessObserver::create(),
             )
             .await?;
-        assert!(matches!(status, GatherOutputStatus::Finished(s) if s == 0));
+        assert!(matches!(status, GatherOutputStatus::Finished { exit_code, .. } if exit_code == 0));
 
         let stdout = std::str::from_utf8(&stdout).context("Invalid stdout")?;
 
@@ -1065,7 +1068,7 @@ mod tests {
                 NoopLivelinessObserver::create(),
             )
             .await?;
-        assert!(matches!(status, GatherOutputStatus::Finished(s) if s == 0));
+        assert!(matches!(status, GatherOutputStatus::Finished { exit_code, .. } if exit_code == 0));
         assert_eq!(stdout, b"\n");
 
         Ok(())

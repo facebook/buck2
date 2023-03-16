@@ -1540,8 +1540,13 @@ message ReUploadEnd {
   optional uint64 digests_uploaded = 1;
   optional uint64 bytes_uploaded = 2;
 }
+
 message ConnectToInstallerStart {
   uint32 tcp_port = 1;
 }
 
 message ConnectToInstallerEnd {}
+
+message CommandExecutionStats {
+  optional uint64 cpu_instructions_user = 1;
+}

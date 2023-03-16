@@ -31,9 +31,13 @@ where
             CommandEvent::Stderr(bytes) => Data::Stderr(buck2_forkserver_proto::StreamEvent {
                 data: bytes.to_vec(),
             }),
-            CommandEvent::Exit(GatherOutputStatus::Finished(exit_code)) => {
-                Data::Exit(buck2_forkserver_proto::ExitEvent { exit_code })
-            }
+            CommandEvent::Exit(GatherOutputStatus::Finished {
+                exit_code,
+                execution_stats,
+            }) => Data::Exit(buck2_forkserver_proto::ExitEvent {
+                exit_code,
+                execution_stats,
+            }),
             CommandEvent::Exit(GatherOutputStatus::TimedOut(duration)) => {
                 Data::Timeout(buck2_forkserver_proto::TimeoutEvent {
                     duration: duration.try_into().ok(),
@@ -71,9 +75,13 @@ where
             Data::Stderr(buck2_forkserver_proto::StreamEvent { data }) => {
                 CommandEvent::Stderr(data.into())
             }
-            Data::Exit(buck2_forkserver_proto::ExitEvent { exit_code }) => {
-                CommandEvent::Exit(GatherOutputStatus::Finished(exit_code))
-            }
+            Data::Exit(buck2_forkserver_proto::ExitEvent {
+                exit_code,
+                execution_stats,
+            }) => CommandEvent::Exit(GatherOutputStatus::Finished {
+                exit_code,
+                execution_stats,
+            }),
             Data::Timeout(buck2_forkserver_proto::TimeoutEvent { duration }) => {
                 CommandEvent::Exit(GatherOutputStatus::TimedOut(
                     duration

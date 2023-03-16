@@ -16,7 +16,10 @@ use buck2_miniperf_proto::MiniperfOutput;
 
 pub enum DecodedStatus {
     /// An actual status.
-    Status(i32),
+    Status {
+        exit_code: i32,
+        execution_stats: Option<buck2_data::CommandExecutionStats>,
+    },
 
     /// Spawn failed, provide the error.
     SpawnFailed(String),
@@ -37,7 +40,10 @@ pub struct DefaultStatusDecoder;
 #[async_trait]
 impl StatusDecoder for DefaultStatusDecoder {
     async fn decode_status(self, status: ExitStatus) -> anyhow::Result<DecodedStatus> {
-        Ok(default_decode(status))
+        Ok(DecodedStatus::Status {
+            exit_code: default_decode_exit_code(status),
+            execution_stats: None,
+        })
     }
 
     async fn cancel(self) -> anyhow::Result<()> {
@@ -45,7 +51,7 @@ impl StatusDecoder for DefaultStatusDecoder {
     }
 }
 
-fn default_decode(status: ExitStatus) -> DecodedStatus {
+fn default_decode_exit_code(status: ExitStatus) -> i32 {
     let exit_code;
 
     #[cfg(unix)]
@@ -61,7 +67,7 @@ fn default_decode(status: ExitStatus) -> DecodedStatus {
         exit_code = status.code();
     }
 
-    DecodedStatus::Status(exit_code.unwrap_or(-1))
+    exit_code.unwrap_or(-1)
 }
 
 pub struct MiniperfStatusDecoder {
@@ -78,7 +84,10 @@ impl MiniperfStatusDecoder {
 impl StatusDecoder for MiniperfStatusDecoder {
     async fn decode_status(self, status: ExitStatus) -> anyhow::Result<DecodedStatus> {
         if !status.success() {
-            return Ok(default_decode(status));
+            return Ok(DecodedStatus::Status {
+                exit_code: default_decode_exit_code(status),
+                execution_stats: None,
+            });
         }
 
         let status = tokio::fs::read(&self.out_path).await.with_context(|| {
@@ -100,7 +109,13 @@ impl StatusDecoder for MiniperfStatusDecoder {
                 #[cfg(unix)]
                 {
                     use std::os::unix::process::ExitStatusExt;
-                    Ok(default_decode(ExitStatus::from_raw(v)))
+                    let exit_code = default_decode_exit_code(ExitStatus::from_raw(v));
+                    Ok(DecodedStatus::Status {
+                        exit_code,
+                        execution_stats: Some(buck2_data::CommandExecutionStats {
+                            cpu_instructions_user: Some(status.user_instructions.adjusted_count()),
+                        }),
+                    })
                 }
 
                 #[cfg(not(unix))]

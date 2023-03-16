@@ -10,6 +10,7 @@
 syntax = "proto3";
 
 import "google/protobuf/duration.proto";
+import "data.proto";
 
 package buck.forkserver;
 
@@ -66,6 +67,7 @@ message CommandEvent {
 
 message ExitEvent {
   int32 exit_code = 1;
+  optional buck.data.CommandExecutionStats execution_stats = 2;
 }
 
 message TimeoutEvent {

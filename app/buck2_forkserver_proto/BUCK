@@ -4,12 +4,16 @@ load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
 rust_protobuf_library(
     name = "buck2_forkserver_proto",
     srcs = glob(["src/**/*.rs"]),
+    build_env = {
+        "BUCK_HACK_DATA_PROTOC_INCLUDE": "$(location //buck2/buck2_data:data.proto)",
+    },
     build_script = "build.rs",
     doctests = False,  # FIXME
     protos = ["forkserver.proto"],
     deps = [
         "fbsource//third-party/rust:derive_more",
         "fbsource//third-party/rust:prost-types",
+        "//buck2/buck2_data:buck2_data",
         "//buck2/gazebo/gazebo:gazebo",
     ],
 )

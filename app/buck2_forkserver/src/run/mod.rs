@@ -40,7 +40,10 @@ use self::status_decoder::StatusDecoder;
 #[derive(Debug)]
 pub enum GatherOutputStatus {
     /// Contains the exit code.
-    Finished(i32),
+    Finished {
+        exit_code: i32,
+        execution_stats: Option<buck2_data::CommandExecutionStats>,
+    },
     TimedOut(Duration),
     Cancelled,
     SpawnFailed(String),
@@ -49,7 +52,13 @@ pub enum GatherOutputStatus {
 impl From<DecodedStatus> for GatherOutputStatus {
     fn from(d: DecodedStatus) -> Self {
         match d {
-            DecodedStatus::Status(v) => Self::Finished(v),
+            DecodedStatus::Status {
+                exit_code,
+                execution_stats,
+            } => Self::Finished {
+                exit_code,
+                execution_stats,
+            },
             DecodedStatus::SpawnFailed(v) => Self::SpawnFailed(v),
         }
     }
@@ -410,7 +419,7 @@ mod tests {
         cmd.args(["-c", "echo hello"]);
 
         let (status, stdout, stderr) = gather_output(cmd, futures::future::pending()).await?;
-        assert!(matches!(status, GatherOutputStatus::Finished(s) if s == 0));
+        assert!(matches!(status, GatherOutputStatus::Finished { exit_code, .. } if exit_code == 0));
         assert_eq!(str::from_utf8(&stdout)?.trim(), "hello");
         assert_eq!(stderr, b"");
 
@@ -440,7 +449,7 @@ mod tests {
             timeout_into_cancellation(Some(Duration::from_secs(timeout))),
         )
         .await?;
-        assert!(matches!(status, GatherOutputStatus::Finished(s) if s == 0));
+        assert!(matches!(status, GatherOutputStatus::Finished { exit_code, .. } if exit_code == 0));
         assert_eq!(str::from_utf8(&stdout)?.trim(), "hello");
         assert_eq!(stderr, b"");
 
@@ -584,7 +593,7 @@ mod tests {
 
         assert_matches!(
             status,
-            GatherOutputStatus::Finished(v) if v == 128 + Signal::SIGKILL as i32
+            GatherOutputStatus::Finished { exit_code, .. } if exit_code == 128 + Signal::SIGKILL as i32
         );
 
         Ok(())

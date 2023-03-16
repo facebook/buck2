@@ -7,10 +7,19 @@
  * of this source tree.
  */
 
+use std::env;
 use std::io;
+use std::path::PathBuf;
 
 fn main() -> io::Result<()> {
     let proto_files = &["forkserver.proto"];
+
+    let data_include = if let Ok(value) = env::var("BUCK_HACK_DATA_PROTOC_INCLUDE") {
+        let path = PathBuf::from(value);
+        path.parent().unwrap().to_str().unwrap().to_owned()
+    } else {
+        "../../buck2_data".to_owned()
+    };
 
     buck2_protoc_dev::configure()
         .setup_protoc()
@@ -22,5 +31,6 @@ fn main() -> io::Result<()> {
             "buck.forkserver.EnvDirective.data",
             "#[derive(::derive_more::From, ::gazebo::variants::VariantName, ::gazebo::variants::UnpackVariants)]",
         )
-        .compile(proto_files, &["."])
+        .extern_path(".buck.data", "::buck2_data")
+        .compile(proto_files, &[".", &data_include])
 }
