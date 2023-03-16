@@ -151,6 +151,14 @@ def get_android_binary_resources_info(
         resources,
         android_toolchain,
     )
+    voltron_string_source_map = _maybe_generate_string_source_map(
+        ctx.actions,
+        getattr(ctx.attrs, "is_voltron_language_pack_enabled", False),
+        resources,
+        android_toolchain,
+        is_voltron_string_source_map = True,
+    )
+
     packaged_string_assets = _maybe_package_strings_as_assets(
         ctx,
         string_files_list,
@@ -167,6 +175,7 @@ def get_android_binary_resources_info(
         proguard_config_file = aapt2_link_info.proguard_config_file,
         r_dot_javas = r_dot_javas,
         string_source_map = string_source_map,
+        voltron_string_source_map = voltron_string_source_map,
         jar_files_that_may_contain_resources = jar_files_that_may_contain_resources,
         unfiltered_resource_infos = unfiltered_resource_infos,
     )
@@ -336,13 +345,15 @@ def _maybe_generate_string_source_map(
         actions: "actions",
         should_build_source_string_map: bool.type,
         resource_infos: [AndroidResourceInfo.type],
-        android_toolchain: AndroidToolchainInfo.type) -> ["artifact", None]:
+        android_toolchain: AndroidToolchainInfo.type,
+        is_voltron_string_source_map: bool.type = False) -> ["artifact", None]:
     if not should_build_source_string_map or len(resource_infos) == 0:
         return None
 
+    prefix = "voltron_" if is_voltron_string_source_map else ""
     res_dirs = [resource_info.res for resource_info in resource_infos]
-    output = actions.declare_output("string_source_map", dir = True)
-    res_dirs_file = actions.write("resource_dirs_for_string_source_map", res_dirs)
+    output = actions.declare_output("{}string_source_map".format(prefix), dir = True)
+    res_dirs_file = actions.write("resource_dirs_for_{}string_source_map".format(prefix), res_dirs)
     generate_string_source_map_cmd = cmd_args([
         android_toolchain.copy_string_resources[RunInfo],
         "--res-dirs",
@@ -351,7 +362,10 @@ def _maybe_generate_string_source_map(
         output.as_output(),
     ]).hidden(res_dirs)
 
-    actions.run(generate_string_source_map_cmd, category = "generate_string_source_map")
+    if is_voltron_string_source_map:
+        generate_string_source_map_cmd.add("--is-voltron")
+
+    actions.run(generate_string_source_map_cmd, category = "generate_{}string_source_map".format(prefix))
 
     return output
 
