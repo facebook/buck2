@@ -196,6 +196,65 @@ impl Diagnostic {
             Some(diag) => diagnostic_stderr(diag),
         }
     }
+
+    /// Gets annotated snippets for a [`Diagnostic`].
+    pub fn get_display_list<'a>(
+        &'a self,
+        annotation_label: &'a str,
+        color: bool,
+    ) -> DisplayList<'a> {
+        fn convert_span_to_range_relative_to_first_line(
+            diagnostic_span: Span,
+            start_column: usize,
+        ) -> (usize, usize) {
+            let span_length = diagnostic_span.len() as usize;
+            (start_column, start_column + span_length)
+        }
+
+        fn convert_span_to_slice<'a>(span: &'a FileSpan) -> Slice<'a> {
+            let region = span.resolve_span();
+
+            // we want the source_span to capture any whitespace ahead of the diagnostic span to
+            // get the column numbers correct in the DisplayList, and any trailing source code
+            // on the last line for context.
+            let first_line_span = span.file.line_span(region.begin_line);
+            let last_line_span = span.file.line_span(region.end_line);
+            let source_span = span.span.merge(first_line_span).merge(last_line_span);
+
+            Slice {
+                source: span.file.source_span(source_span),
+                line_start: 1 + region.begin_line,
+                origin: Some(span.file.filename()),
+                fold: false,
+                annotations: vec![SourceAnnotation {
+                    label: "",
+                    annotation_type: AnnotationType::Error,
+                    range: convert_span_to_range_relative_to_first_line(
+                        span.span,
+                        region.begin_column,
+                    ),
+                }],
+            }
+        }
+
+        let slice = self.span.as_ref().map(convert_span_to_slice);
+
+        let snippet = Snippet {
+            title: Some(Annotation {
+                label: Some(annotation_label),
+                id: None,
+                annotation_type: AnnotationType::Error,
+            }),
+            footer: Vec::new(),
+            slices: slice.map(|s| vec![s]).unwrap_or_default(),
+            opt: FormatOptions {
+                color,
+                ..Default::default()
+            },
+        };
+
+        DisplayList::from(snippet)
+    }
 }
 
 impl Display for Diagnostic {
@@ -210,74 +269,19 @@ impl Display for Diagnostic {
 // variants by doing a conversion using annotate-snippets
 // (https://github.com/rust-lang/annotate-snippets-rs)
 
-fn get_display_list_for_diagnostic<'a>(
-    annotation_label: &'a str,
-    x: &'a Diagnostic,
-    color: bool,
-) -> DisplayList<'a> {
-    fn convert_span_to_range_relative_to_first_line(
-        diagnostic_span: Span,
-        start_column: usize,
-    ) -> (usize, usize) {
-        let span_length = diagnostic_span.len() as usize;
-        (start_column, start_column + span_length)
-    }
-
-    fn convert_span_to_slice<'a>(span: &'a FileSpan) -> Slice<'a> {
-        let region = span.resolve_span();
-
-        // we want the source_span to capture any whitespace ahead of the diagnostic span to
-        // get the column numbers correct in the DisplayList, and any trailing source code
-        // on the last line for context.
-        let first_line_span = span.file.line_span(region.begin_line);
-        let last_line_span = span.file.line_span(region.end_line);
-        let source_span = span.span.merge(first_line_span).merge(last_line_span);
-
-        Slice {
-            source: span.file.source_span(source_span),
-            line_start: 1 + region.begin_line,
-            origin: Some(span.file.filename()),
-            fold: false,
-            annotations: vec![SourceAnnotation {
-                label: "",
-                annotation_type: AnnotationType::Error,
-                range: convert_span_to_range_relative_to_first_line(span.span, region.begin_column),
-            }],
-        }
-    }
-
-    let slice = x.span.as_ref().map(convert_span_to_slice);
-
-    let snippet = Snippet {
-        title: Some(Annotation {
-            label: Some(annotation_label),
-            id: None,
-            annotation_type: AnnotationType::Error,
-        }),
-        footer: Vec::new(),
-        slices: slice.map(|s| vec![s]).unwrap_or_default(),
-        opt: FormatOptions {
-            color,
-            ..Default::default()
-        },
-    };
-
-    DisplayList::from(snippet)
-}
-
 fn diagnostic_display(diagnostic: &Diagnostic, f: &mut Formatter<'_>) -> fmt::Result {
     write!(f, "{}", &diagnostic.call_stack)?;
     let annotation_label = format!("{:#}", diagnostic.message);
     // I set color to false here to make the comparison easier with tests (coloring
     // adds in pretty strange unicode chars).
-    let display_list = get_display_list_for_diagnostic(&annotation_label, diagnostic, false);
+    let display_list = diagnostic.get_display_list(&annotation_label, false);
     writeln!(f, "{}", display_list)
 }
 
 fn diagnostic_stderr(diagnostic: &Diagnostic) {
     eprint!("{}", diagnostic.call_stack);
     let annotation_label = format!("{:#}", diagnostic.message);
-    let display_list = get_display_list_for_diagnostic(&annotation_label, diagnostic, true);
+    let display_list = diagnostic.get_display_list(&annotation_label, true);
     eprintln!("{}", display_list);
 }
 
