@@ -73,6 +73,9 @@ pub fn map_flavors(flavors: &str) -> anyhow::Result<ProvidersName> {
                     "unstripped_native_libraries" => "unstripped_native_libraries".to_owned(),
                     "proguard_text_output" => "proguard_text_output".to_owned(),
                     "generate_string_resources" => "generate_string_resources".to_owned(),
+                    "generate_voltron_string_resources" => {
+                        "generate_voltron_string_resources".to_owned()
+                    }
                     "exo_symlink_tree" => "exo_symlink_tree".to_owned(),
 
                     // android_library secondary outputs
