@@ -195,14 +195,20 @@ def _maybe_filter_resources(
         return resources, None, None, []
 
     res_info_to_out_res_dir = {}
+    voltron_res_info_to_out_res_dir = {}
     res_infos_with_no_res = []
     skip_crunch_pngs = getattr(ctx.attrs, "skip_crunch_pngs", None) or False
+    is_voltron_language_pack_enabled = getattr(ctx.attrs, "is_voltron_language_pack_enabled", False)
     for i, resource in enumerate(resources):
         if resource.res == None:
             res_infos_with_no_res.append(resource)
         else:
             filtered_res = ctx.actions.declare_output("filtered_res_{}".format(i), dir = True)
             res_info_to_out_res_dir[resource] = filtered_res
+
+            if is_voltron_language_pack_enabled:
+                filtered_res_for_voltron = ctx.actions.declare_output("filtered_res_for_voltron_{}".format(i), dir = True)
+                voltron_res_info_to_out_res_dir[resource] = filtered_res_for_voltron
 
     filter_resources_cmd = cmd_args(android_toolchain.filter_resources[RunInfo])
     in_res_dir_to_out_res_dir_dict = {
@@ -217,6 +223,18 @@ def _maybe_filter_resources(
         "--in-res-dir-to-out-res-dir-map",
         in_res_dir_to_out_res_dir_map,
     ])
+
+    if is_voltron_language_pack_enabled:
+        voltron_in_res_dir_to_out_res_dir_dict = {
+            in_res.res: out_res
+            for in_res, out_res in voltron_res_info_to_out_res_dir.items()
+        }
+        voltron_in_res_dir_to_out_res_dir_map = ctx.actions.write_json("voltron_in_res_dir_to_out_res_dir_map", {"res_dir_map": voltron_in_res_dir_to_out_res_dir_dict})
+        filter_resources_cmd.hidden([out_res.as_output() for out_res in voltron_res_info_to_out_res_dir.values()])
+        filter_resources_cmd.add([
+            "--voltron-in-res-dir-to-out-res-dir-map",
+            voltron_in_res_dir_to_out_res_dir_map,
+        ])
 
     if resources_filter:
         filter_resources_cmd.add([
