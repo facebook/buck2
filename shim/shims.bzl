@@ -14,10 +14,12 @@ def rust_library(
         os_deps = None,
         test_deps = None,
         test_env = None,
+        mapped_srcs = {},
         visibility = ["PUBLIC"],
         **kwargs):
     _unused = (test_deps, test_env, named_deps)  # @unused
     deps = _fix_deps(deps)
+    mapped_srcs = _fix_mapped_srcs(mapped_srcs)
     if os_deps:
         deps += _select_os_deps(_fix_dict_deps(os_deps))
     native.rust_library(
@@ -139,6 +141,11 @@ def _fix_dict_deps(xss: [(
         (k, _fix_deps(xs))
         for k, xs in xss
     ]
+
+def _fix_mapped_srcs(xs: {"string": "string"}):
+    # For reasons, this is source -> file path, which is the opposite of what
+    # it should be.
+    return {_fix_dep(k): v for (k, v) in xs.items()}
 
 def _fix_deps(xs: ["string"]) -> ["string"]:
     return filter(None, map(_fix_dep, xs))
