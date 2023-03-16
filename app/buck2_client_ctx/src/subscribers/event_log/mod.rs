@@ -321,6 +321,12 @@ impl EventLogPathBuf {
         let invocation = Invocation {
             command_line_args: invocation.command_line_args,
             working_dir: invocation.working_dir,
+            trace_id: invocation
+                .trace_id
+                .map(|t| t.parse())
+                .transpose()
+                .context("Invalid TraceId")?
+                .unwrap_or_else(TraceId::null),
         };
 
         let events = stream.and_then(|data| async move {
@@ -479,6 +485,8 @@ pub(crate) struct EventLog {
 pub struct Invocation {
     pub command_line_args: Vec<String>,
     pub working_dir: String,
+    #[serde(default = "TraceId::null")]
+    pub trace_id: TraceId,
 }
 
 impl fmt::Display for Invocation {
@@ -511,11 +519,12 @@ impl EventLog {
     }
 
     /// Get the command line arguments and cwd and serialize them for replaying later.
-    async fn log_invocation(&mut self) -> anyhow::Result<()> {
+    async fn log_invocation(&mut self, trace_id: TraceId) -> anyhow::Result<()> {
         let command_line_args = self.sanitized_argv.clone();
         let invocation = Invocation {
             command_line_args,
             working_dir: self.working_dir.to_string(),
+            trace_id,
         };
         self.write_ln(&[invocation]).await
     }
@@ -623,7 +632,7 @@ impl EventLog {
         }
 
         self.state = LogFileState::Opened(log_files);
-        self.log_invocation().await
+        self.log_invocation(event.trace_id()?).await
     }
 
     fn exit(&mut self) -> impl Future<Output = anyhow::Result<()>> + 'static + Send + Sync {
@@ -803,6 +812,7 @@ impl SerializeForLog for Invocation {
         let invocation = buck2_data::Invocation {
             command_line_args: self.command_line_args.clone(),
             working_dir: self.working_dir.clone(),
+            trace_id: Some(self.trace_id.to_string()),
         };
         invocation.encode_length_delimited(buf)?;
         Ok(())
@@ -908,7 +918,7 @@ mod tests {
 
         //Log event
         let value = StreamValueForWrite::Event(event.event());
-        event_log.log_invocation().await?;
+        event_log.log_invocation(event.trace_id()?).await?;
         event_log.write_ln(&[value]).await?;
         event_log.exit().await?;
 
@@ -961,7 +971,7 @@ mod tests {
 
         let event = make_event();
         let value = StreamValueForWrite::Event(event.event());
-        event_log.log_invocation().await?;
+        event_log.log_invocation(event.trace_id()?).await?;
         event_log.write_ln(&[value]).await?;
 
         assert!(

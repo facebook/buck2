@@ -1230,6 +1230,7 @@ message RemoteCommand {
 message Invocation {
   repeated string command_line_args = 1;
   string working_dir = 2;
+  optional string trace_id = 3;
 }
 
 message RecordEvent {
