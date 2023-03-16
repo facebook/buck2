@@ -272,8 +272,9 @@ impl ConfigurationData {
         &self.0.output_hash
     }
 
-    pub fn configuration_platform(&self) -> &ConfigurationPlatform {
-        &self.0.platform_configuration_data.platform
+    /// Name without hash.
+    pub fn short_name(&self) -> String {
+        self.0.platform_configuration_data.platform.to_string()
     }
 
     pub fn full_name(&self) -> &str {
@@ -291,7 +292,7 @@ impl Serialize for ConfigurationData {
 }
 
 #[derive(Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative)]
-pub enum ConfigurationPlatform {
+enum ConfigurationPlatform {
     /// This represents the normal case where a platform has been defined by a `platform()` (or similar) target.
     Bound(String),
     /// The unbound platform is used when we don't yet have a platform bound. This is to support initialization

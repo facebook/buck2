@@ -35,7 +35,7 @@ impl<'v> StarlarkValue<'v> for StarlarkConfiguration {
 fn configuration_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn name(this: &StarlarkConfiguration) -> anyhow::Result<String> {
-        Ok(this.0.configuration_platform().to_string())
+        Ok(this.0.short_name())
     }
 
     #[starlark(attribute)]
