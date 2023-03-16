@@ -21,7 +21,7 @@ use remote_execution::TTimestamp;
 use crate::digest_config::DigestConfig;
 use crate::execute::action_digest::ActionDigest;
 use crate::execute::kind::CommandExecutionKind;
-use crate::execute::result::CommandExecutionTimingData;
+use crate::execute::result::CommandExecutionMetadata;
 use crate::re::manager::ManagedRemoteExecutionClient;
 use crate::re::streams::RemoteCommandStdStreams;
 
@@ -31,7 +31,7 @@ pub trait RemoteActionResult: Send + Sync {
 
     fn execution_kind(&self, digest: ActionDigest) -> CommandExecutionKind;
 
-    fn timing(&self) -> CommandExecutionTimingData;
+    fn timing(&self) -> CommandExecutionMetadata;
 
     fn std_streams(
         &self,
@@ -57,7 +57,7 @@ impl RemoteActionResult for ExecuteResponse {
         CommandExecutionKind::Remote { digest }
     }
 
-    fn timing(&self) -> CommandExecutionTimingData {
+    fn timing(&self) -> CommandExecutionMetadata {
         timing_from_re_metadata(&self.action_result.execution_metadata)
     }
 
@@ -88,7 +88,7 @@ impl RemoteActionResult for ActionResultResponse {
         CommandExecutionKind::ActionCache { digest }
     }
 
-    fn timing(&self) -> CommandExecutionTimingData {
+    fn timing(&self) -> CommandExecutionMetadata {
         let mut timing = timing_from_re_metadata(&self.action_result.execution_metadata);
         timing.wall_time = Duration::ZERO; // This was a cache hit so we didn't wait.
         timing
@@ -108,7 +108,7 @@ impl RemoteActionResult for ActionResultResponse {
     }
 }
 
-fn timing_from_re_metadata(meta: &TExecutedActionMetadata) -> CommandExecutionTimingData {
+fn timing_from_re_metadata(meta: &TExecutedActionMetadata) -> CommandExecutionMetadata {
     let execution_time = meta
         .execution_completed_timestamp
         .saturating_duration_since(&meta.execution_start_timestamp);
@@ -122,7 +122,7 @@ fn timing_from_re_metadata(meta: &TExecutedActionMetadata) -> CommandExecutionTi
             .execution_start_timestamp
             .saturating_duration_since(&TTimestamp::unix_epoch());
 
-    CommandExecutionTimingData {
+    CommandExecutionMetadata {
         wall_time: execution_time,
         re_queue_time: Some(re_queue_time),
         execution_time,

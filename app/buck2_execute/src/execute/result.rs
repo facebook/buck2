@@ -81,7 +81,7 @@ impl Display for CommandExecutionStatus {
 /// Unlike action where we only really have just 1 time, commands can have slightly richer timing
 /// data.
 #[derive(Debug, Copy, Clone, Dupe)]
-pub struct CommandExecutionTimingData {
+pub struct CommandExecutionMetadata {
     /// How long this build actually waited for this action to complete
     pub wall_time: Duration,
 
@@ -101,7 +101,7 @@ pub struct CommandExecutionTimingData {
     pub execution_stats: Option<buck2_data::CommandExecutionStats>,
 }
 
-impl Default for CommandExecutionTimingData {
+impl Default for CommandExecutionMetadata {
     fn default() -> Self {
         Self {
             wall_time: Duration::default(),
@@ -152,7 +152,7 @@ impl CommandExecutionResult {
 pub struct CommandExecutionReport {
     pub claim: Option<Box<dyn Claim>>,
     pub status: CommandExecutionStatus,
-    pub timing: CommandExecutionTimingData,
+    pub timing: CommandExecutionMetadata,
     pub std_streams: CommandStdStreams,
     /// No exit_code means the command did not finish executing. Signals get mapped into this as
     /// 128 + SIGNUM, which is the convention shells follow.

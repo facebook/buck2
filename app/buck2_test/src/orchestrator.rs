@@ -65,10 +65,10 @@ use buck2_execute::execute::request::CommandExecutionOutput;
 use buck2_execute::execute::request::CommandExecutionRequest;
 use buck2_execute::execute::request::ExecutorPreference;
 use buck2_execute::execute::request::OutputCreationBehavior;
+use buck2_execute::execute::result::CommandExecutionMetadata;
 use buck2_execute::execute::result::CommandExecutionReport;
 use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_execute::execute::result::CommandExecutionStatus;
-use buck2_execute::execute::result::CommandExecutionTimingData;
 use buck2_execute::execute::target::CommandExecutionTarget;
 use buck2_execute::materialize::materializer::HasMaterializer;
 use buck2_execute_impl::executors::local::apply_local_execution_environment;
@@ -384,7 +384,7 @@ impl BuckTestOrchestrator {
         ExecutionStream,
         ExecutionStream,
         ExecutionStatus,
-        CommandExecutionTimingData,
+        CommandExecutionMetadata,
         Vec<BuckOutTestPath>,
     )> {
         let mut executor_preference = ExecutorPreference::Default;

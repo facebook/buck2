@@ -53,8 +53,8 @@ use buck2_execute::execute::request::CommandExecutionInput;
 use buck2_execute::execute::request::CommandExecutionOutput;
 use buck2_execute::execute::request::CommandExecutionOutputRef;
 use buck2_execute::execute::request::CommandExecutionRequest;
+use buck2_execute::execute::result::CommandExecutionMetadata;
 use buck2_execute::execute::result::CommandExecutionResult;
-use buck2_execute::execute::result::CommandExecutionTimingData;
 use buck2_execute::knobs::ExecutorGlobalKnobs;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_forkserver::client::ForkserverClient;
@@ -369,7 +369,7 @@ impl LocalExecutor {
 
                 let execution_time = execution_start.elapsed();
 
-                let timing = CommandExecutionTimingData {
+                let timing = CommandExecutionMetadata {
                     wall_time: execution_time,
                     re_queue_time: None,
                     execution_time,

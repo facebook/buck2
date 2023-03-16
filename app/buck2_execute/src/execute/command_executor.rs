@@ -43,8 +43,8 @@ use crate::execute::request::CommandExecutionInput;
 use crate::execute::request::CommandExecutionOutputRef;
 use crate::execute::request::CommandExecutionRequest;
 use crate::execute::request::OutputType;
+use crate::execute::result::CommandExecutionMetadata;
 use crate::execute::result::CommandExecutionResult;
-use crate::execute::result::CommandExecutionTimingData;
 use crate::execute::target::CommandExecutionTarget;
 
 #[derive(Copy, Dupe, Clone, Debug, PartialEq, Eq)]
@@ -60,8 +60,8 @@ impl Default for ActionExecutionTimingData {
     }
 }
 
-impl From<CommandExecutionTimingData> for ActionExecutionTimingData {
-    fn from(command: CommandExecutionTimingData) -> Self {
+impl From<CommandExecutionMetadata> for ActionExecutionTimingData {
+    fn from(command: CommandExecutionMetadata) -> Self {
         Self {
             wall_time: command.wall_time,
         }

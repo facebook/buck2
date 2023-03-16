@@ -23,8 +23,8 @@ use crate::execute::manager::CommandExecutionManagerExt;
 use crate::execute::prepared::PreparedCommand;
 use crate::execute::prepared::PreparedCommandExecutor;
 use crate::execute::request::CommandExecutionOutput;
+use crate::execute::result::CommandExecutionMetadata;
 use crate::execute::result::CommandExecutionResult;
-use crate::execute::result::CommandExecutionTimingData;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct DryRunEntry {
@@ -92,7 +92,7 @@ impl PreparedCommandExecutor for DryRunExecutor {
                 exec_kind,
                 outputs,
                 Default::default(),
-                CommandExecutionTimingData::default(),
+                CommandExecutionMetadata::default(),
             ),
             // NOTE: This should probaby be an error() but who cares.
             Err(..) => manager.failure(exec_kind, IndexMap::new(), Default::default(), Some(1)),

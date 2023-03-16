@@ -20,10 +20,10 @@ use crate::execute::claim::ClaimManager;
 use crate::execute::kind::CommandExecutionKind;
 use crate::execute::output::CommandStdStreams;
 use crate::execute::request::CommandExecutionOutput;
+use crate::execute::result::CommandExecutionMetadata;
 use crate::execute::result::CommandExecutionReport;
 use crate::execute::result::CommandExecutionResult;
 use crate::execute::result::CommandExecutionStatus;
-use crate::execute::result::CommandExecutionTimingData;
 
 trait CommandExecutionManagerLike: Sized {
     /// Create a new Command execution result.
@@ -33,7 +33,7 @@ trait CommandExecutionManagerLike: Sized {
         outputs: IndexMap<CommandExecutionOutput, ArtifactValue>,
         std_streams: CommandStdStreams,
         exit_code: Option<i32>,
-        timing: CommandExecutionTimingData,
+        timing: CommandExecutionMetadata,
     ) -> CommandExecutionResult;
 }
 
@@ -80,7 +80,7 @@ impl CommandExecutionManagerLike for CommandExecutionManager {
         outputs: IndexMap<CommandExecutionOutput, ArtifactValue>,
         std_streams: CommandStdStreams,
         exit_code: Option<i32>,
-        timing: CommandExecutionTimingData,
+        timing: CommandExecutionMetadata,
     ) -> CommandExecutionResult {
         CommandExecutionResult {
             outputs,
@@ -113,7 +113,7 @@ impl CommandExecutionManagerWithClaim {
         execution_kind: CommandExecutionKind,
         outputs: IndexMap<CommandExecutionOutput, ArtifactValue>,
         std_streams: CommandStdStreams,
-        timing: CommandExecutionTimingData,
+        timing: CommandExecutionMetadata,
     ) -> CommandExecutionResult {
         self.result(
             CommandExecutionStatus::Success { execution_kind },
@@ -130,7 +130,7 @@ impl CommandExecutionManagerWithClaim {
             IndexMap::new(),
             Default::default(),
             None,
-            CommandExecutionTimingData::default(),
+            CommandExecutionMetadata::default(),
         )
     }
 }
@@ -142,7 +142,7 @@ impl CommandExecutionManagerLike for CommandExecutionManagerWithClaim {
         outputs: IndexMap<CommandExecutionOutput, ArtifactValue>,
         std_streams: CommandStdStreams,
         exit_code: Option<i32>,
-        timing: CommandExecutionTimingData,
+        timing: CommandExecutionMetadata,
     ) -> CommandExecutionResult {
         CommandExecutionResult {
             outputs,
@@ -174,7 +174,7 @@ pub trait CommandExecutionManagerExt: Sized {
         execution_kind: CommandExecutionKind,
         duration: Duration,
         std_streams: CommandStdStreams,
-        timing: CommandExecutionTimingData,
+        timing: CommandExecutionMetadata,
     ) -> CommandExecutionResult;
 
     fn error(self, stage: &'static str, error: impl Into<anyhow::Error>) -> CommandExecutionResult;
@@ -196,7 +196,7 @@ where
             outputs,
             std_streams,
             exit_code,
-            CommandExecutionTimingData::default(),
+            CommandExecutionMetadata::default(),
         )
     }
 
@@ -205,7 +205,7 @@ where
         execution_kind: CommandExecutionKind,
         duration: Duration,
         std_streams: CommandStdStreams,
-        timing: CommandExecutionTimingData,
+        timing: CommandExecutionMetadata,
     ) -> CommandExecutionResult {
         self.result(
             CommandExecutionStatus::TimedOut {
@@ -228,7 +228,7 @@ where
             IndexMap::new(),
             Default::default(),
             None,
-            CommandExecutionTimingData::default(),
+            CommandExecutionMetadata::default(),
         )
     }
 }
