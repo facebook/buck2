@@ -26,6 +26,7 @@ use buck2_event_observer::verbosity::Verbosity;
 use buck2_event_observer::what_ran;
 use buck2_event_observer::what_ran::local_command_to_string;
 use buck2_event_observer::what_ran::WhatRanOptions;
+use buck2_events::trace::TraceId;
 use buck2_events::BuckEvent;
 use dupe::Dupe;
 use gazebo::prelude::*;
@@ -167,6 +168,7 @@ impl StatefulSuperConsole {
     }
 
     pub fn new_with_root_forced(
+        trace_id: TraceId,
         root: Box<dyn Component>,
         verbosity: Verbosity,
         show_waiting_message: bool,
@@ -184,6 +186,7 @@ impl StatefulSuperConsole {
             builder.write_to(stream);
         }
         Self::new(
+            trace_id,
             builder.build_forced(root, fallback_size)?,
             verbosity,
             show_waiting_message,
@@ -194,6 +197,7 @@ impl StatefulSuperConsole {
     }
 
     pub(crate) fn new_with_root(
+        trace_id: TraceId,
         root: Box<dyn Component>,
         verbosity: Verbosity,
         show_waiting_message: bool,
@@ -204,6 +208,7 @@ impl StatefulSuperConsole {
         match Self::console_builder().build(root)? {
             None => Ok(None),
             Some(sc) => Ok(Some(Self::new(
+                trace_id,
                 sc,
                 verbosity,
                 show_waiting_message,
@@ -215,6 +220,7 @@ impl StatefulSuperConsole {
     }
 
     pub(crate) fn new(
+        trace_id: TraceId,
         super_console: SuperConsole,
         verbosity: Verbosity,
         show_waiting_message: bool,
@@ -227,6 +233,7 @@ impl StatefulSuperConsole {
                 current_tick: Tick::now(),
                 time_speed: TimeSpeed::new(replay_speed)?,
                 simple_console: SimpleConsole::with_tty(
+                    trace_id,
                     isolation_dir,
                     verbosity,
                     show_waiting_message,
@@ -745,17 +752,15 @@ impl Component for SessionInfoComponent {
             Ok(session_info) => {
                 let mut headers = vec![];
                 let mut ids = vec![];
-                if let Some(trace_id) = &session_info.trace_id {
-                    if cfg!(fbcode_build) {
-                        headers.push(Line::unstyled("Buck UI:")?);
-                        ids.push(Span::new_unstyled(format!(
-                            "https://www.internalfb.com/buck2/{}",
-                            trace_id
-                        ))?);
-                    } else {
-                        headers.push(Line::unstyled("Build ID:")?);
-                        ids.push(Span::new_unstyled(trace_id)?);
-                    }
+                if cfg!(fbcode_build) {
+                    headers.push(Line::unstyled("Buck UI:")?);
+                    ids.push(Span::new_unstyled(format!(
+                        "https://www.internalfb.com/buck2/{}",
+                        session_info.trace_id
+                    ))?);
+                } else {
+                    headers.push(Line::unstyled("Build ID:")?);
+                    ids.push(Span::new_unstyled(&session_info.trace_id)?);
                 }
                 if let Some(buck2_data::TestSessionInfo { info }) = &session_info.test_session {
                     headers.push(Line::unstyled("Test UI:")?);
@@ -821,7 +826,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_transfer_state_to_simpleconsole() {
+        let trace_id = TraceId::new();
         let mut console = StatefulSuperConsole::new_with_root_forced(
+            trace_id.dupe(),
             StatefulSuperConsole::default_layout("test", None),
             Verbosity::Default,
             true,
@@ -836,7 +843,7 @@ mod tests {
         let id = SpanId::new();
         let event = Arc::new(BuckEvent::new(
             SystemTime::now(),
-            TraceId::new(),
+            trace_id,
             Some(id),
             None,
             buck2_data::buck_event::Data::SpanStart(SpanStartEvent {
@@ -887,6 +894,7 @@ mod tests {
         let tick = Tick::now();
 
         let mut console = StatefulSuperConsole::new(
+            trace_id.dupe(),
             test_console(StatefulSuperConsole::default_layout("build", None)),
             Verbosity::Default,
             true,
@@ -981,7 +989,7 @@ mod tests {
     #[test]
     fn test_session_info() -> anyhow::Result<()> {
         let info = SessionInfo {
-            trace_id: Some(TraceId::null()),
+            trace_id: TraceId::null(),
             test_session: Some(buck2_data::TestSessionInfo {
                 info: (0..100).map(|_| "a").collect(),
             }),

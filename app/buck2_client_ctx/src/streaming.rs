@@ -8,6 +8,7 @@
  */
 
 use async_trait::async_trait;
+use dupe::Dupe;
 use futures::future;
 use futures::future::Either;
 use superconsole::Component;
@@ -42,6 +43,7 @@ fn default_subscribers<T: StreamingCommand>(
     let show_waiting_message = T::COMMAND_NAME != LSP_COMMAND_NAME;
 
     if let Some(v) = get_console_with_root(
+        ctx.trace_id.dupe(),
         console_opts.console_type,
         ctx.verbosity,
         show_waiting_message,

@@ -11,6 +11,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use anyhow::Context;
+use buck2_events::trace::TraceId;
 use buck2_events::BuckEvent;
 
 use crate::action_stats::ActionStats;
@@ -40,13 +41,16 @@ impl<E> EventObserver<E>
 where
     E: EventObserverExtra,
 {
-    pub fn new() -> Self {
+    pub fn new(trace_id: TraceId) -> Self {
         Self {
             span_tracker: BuckEventSpanTracker::new(),
             action_stats: ActionStats::default(),
             re_state: ReState::new(),
             two_snapshots: TwoSnapshots::default(),
-            session_info: SessionInfo::default(),
+            session_info: SessionInfo {
+                trace_id,
+                test_session: None,
+            },
             io_state: IoState::default(),
             test_state: TestState::default(),
             extra: E::new(),
@@ -55,9 +59,6 @@ where
 
     pub fn observe(&mut self, receive_time: Instant, event: &Arc<BuckEvent>) -> anyhow::Result<()> {
         self.span_tracker.handle_event(event)?;
-        if self.session_info.trace_id.is_none() {
-            self.session_info.trace_id = Some(event.trace_id()?);
-        }
 
         {
             use buck2_data::buck_event::Data::*;

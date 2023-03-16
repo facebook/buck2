@@ -10,8 +10,7 @@
 use buck2_events::trace::TraceId;
 
 /// Information about the current command, such as session or build ids.
-#[derive(Default)]
 pub struct SessionInfo {
-    pub trace_id: Option<TraceId>,
+    pub trace_id: TraceId,
     pub test_session: Option<buck2_data::TestSessionInfo>,
 }

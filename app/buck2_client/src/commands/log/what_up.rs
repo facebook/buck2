@@ -25,6 +25,7 @@ use buck2_client_ctx::subscribers::superconsole::SuperConsoleConfig;
 use buck2_client_ctx::subscribers::superconsole::CUTOFFS;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_event_observer::verbosity::Verbosity;
+use buck2_events::trace::TraceId;
 use buck2_events::BuckEvent;
 use superconsole::components::splitting::SplitKind;
 use superconsole::components::Split;
@@ -74,6 +75,7 @@ impl WhatUpCommand {
 
             //Create new superconsole
             let mut console = StatefulSuperConsole::new_with_root_forced(
+                TraceId::null(), // Technically not right but this won't hurt anyone.
                 console_root,
                 Verbosity::Default,
                 true,

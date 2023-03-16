@@ -11,6 +11,7 @@ use ::superconsole::Component;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_event_observer::event_observer::NoopEventObserverExtra;
 use buck2_event_observer::verbosity::Verbosity;
+use buck2_events::trace::TraceId;
 use dupe::Dupe;
 
 use crate::client_ctx::ClientCommandContext;
@@ -27,6 +28,7 @@ use crate::subscribers::superconsole::SuperConsoleConfig;
 
 /// Given a command name and the command arguments, create a default console / superconsole.
 pub(crate) fn get_console_with_root(
+    trace_id: TraceId,
     console_type: ConsoleType,
     verbosity: Verbosity,
     show_waiting_message: bool,
@@ -38,6 +40,7 @@ pub(crate) fn get_console_with_root(
     match console_type {
         ConsoleType::Simple => Ok(Some(Box::new(UnpackingEventSubscriberAsEventSubscriber(
             SimpleConsole::<NoopEventObserverExtra>::autodetect(
+                trace_id,
                 isolation_dir,
                 verbosity,
                 show_waiting_message,
@@ -45,6 +48,7 @@ pub(crate) fn get_console_with_root(
         )))),
         ConsoleType::SimpleNoTty => Ok(Some(Box::new(UnpackingEventSubscriberAsEventSubscriber(
             SimpleConsole::<NoopEventObserverExtra>::without_tty(
+                trace_id,
                 isolation_dir,
                 verbosity,
                 show_waiting_message,
@@ -52,6 +56,7 @@ pub(crate) fn get_console_with_root(
         )))),
         ConsoleType::SimpleTty => Ok(Some(Box::new(UnpackingEventSubscriberAsEventSubscriber(
             SimpleConsole::<NoopEventObserverExtra>::with_tty(
+                trace_id,
                 isolation_dir,
                 verbosity,
                 show_waiting_message,
@@ -59,6 +64,7 @@ pub(crate) fn get_console_with_root(
         )))),
         ConsoleType::Super => Ok(Some(Box::new(UnpackingEventSubscriberAsEventSubscriber(
             StatefulSuperConsole::new_with_root_forced(
+                trace_id,
                 root,
                 verbosity,
                 show_waiting_message,
@@ -70,6 +76,7 @@ pub(crate) fn get_console_with_root(
         )))),
         ConsoleType::Auto => {
             match StatefulSuperConsole::new_with_root(
+                trace_id.dupe(),
                 root,
                 verbosity,
                 show_waiting_message,
@@ -82,6 +89,7 @@ pub(crate) fn get_console_with_root(
                 ))),
                 None => Ok(Some(Box::new(UnpackingEventSubscriberAsEventSubscriber(
                     SimpleConsole::<NoopEventObserverExtra>::autodetect(
+                        trace_id,
                         isolation_dir,
                         verbosity,
                         show_waiting_message,

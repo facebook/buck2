@@ -32,6 +32,7 @@ use buck2_event_observer::what_ran::WhatRanCommandConsoleFormat;
 use buck2_event_observer::what_ran::WhatRanOptions;
 use buck2_event_observer::what_ran::WhatRanOutputCommand;
 use buck2_event_observer::what_ran::WhatRanOutputWriter;
+use buck2_events::trace::TraceId;
 use buck2_events::BuckEvent;
 use dupe::Dupe;
 use superconsole::DrawMode;
@@ -158,6 +159,7 @@ where
     E: EventObserverExtra,
 {
     pub(crate) fn with_tty(
+        trace_id: TraceId,
         isolation_dir: FileNameBuf,
         verbosity: Verbosity,
         show_waiting_message: bool,
@@ -166,7 +168,7 @@ where
             tty_mode: TtyMode::Enabled,
             verbosity,
             show_waiting_message,
-            observer: EventObserver::new(),
+            observer: EventObserver::new(trace_id),
             action_errors: Vec::new(),
             last_print_time: Instant::now(),
             last_had_open_spans: Instant::now(),
@@ -176,6 +178,7 @@ where
     }
 
     pub(crate) fn without_tty(
+        trace_id: TraceId,
         isolation_dir: FileNameBuf,
         verbosity: Verbosity,
         show_waiting_message: bool,
@@ -184,7 +187,7 @@ where
             tty_mode: TtyMode::Disabled,
             verbosity,
             show_waiting_message,
-            observer: EventObserver::new(),
+            observer: EventObserver::new(trace_id),
             action_errors: Vec::new(),
             last_print_time: Instant::now(),
             last_had_open_spans: Instant::now(),
@@ -195,13 +198,14 @@ where
 
     /// Create a SimpleConsole that auto detects whether it has a TTY or not.
     pub(crate) fn autodetect(
+        trace_id: TraceId,
         isolation_dir: FileNameBuf,
         verbosity: Verbosity,
         show_waiting_message: bool,
     ) -> Self {
         match SuperConsole::compatible() {
-            true => Self::with_tty(isolation_dir, verbosity, show_waiting_message),
-            false => Self::without_tty(isolation_dir, verbosity, show_waiting_message),
+            true => Self::with_tty(trace_id, isolation_dir, verbosity, show_waiting_message),
+            false => Self::without_tty(trace_id, isolation_dir, verbosity, show_waiting_message),
         }
     }
 
@@ -278,11 +282,7 @@ where
             self.already_raged = true;
             tokio::spawn(call_rage(
                 self.isolation_dir.clone(),
-                self.observer()
-                    .session_info()
-                    .trace_id
-                    .as_ref()
-                    .map(|t| t.to_string()),
+                self.observer().session_info().trace_id.to_string(),
             ));
         }
         Ok(())
@@ -656,32 +656,24 @@ mod tests {
     }
 }
 
-async fn call_rage(isolation_dir: FileNameBuf, trace_id: Option<String>) {
+async fn call_rage(isolation_dir: FileNameBuf, trace_id: String) {
     match call_rage_impl(isolation_dir, trace_id).await {
         Ok(_) => {}
         Err(e) => tracing::warn!("Error calling buck2 rage: {:#}", e),
     };
 }
 
-async fn call_rage_impl(
-    isolation_dir: FileNameBuf,
-    trace_id: Option<String>,
-) -> anyhow::Result<()> {
+async fn call_rage_impl(isolation_dir: FileNameBuf, trace_id: String) -> anyhow::Result<()> {
     let current_exe = std::env::current_exe().context("Not current_exe")?;
     let mut command = buck2_util::process::async_background_command(current_exe);
-    let mut command = command
+    command
         .args(["--isolation-dir", isolation_dir.as_str()])
         .arg("rage")
         .arg("--timeout")
         .arg("3600")
         .arg("--no-paste")
-        .args(["--origin", "hang-detector"]);
-    if let Some(ref trace_id) = trace_id {
-        command = command.args(["--invocation-id", trace_id]);
-    } else {
-        tracing::warn!("More than 1 minute has passed and still no trace id");
-        command = command.arg("--no-invocation");
-    };
+        .args(["--origin", "hang-detector"])
+        .args(["--invocation-id", &trace_id]);
     command
         .stdin(Stdio::null())
         .stdout(Stdio::null())
