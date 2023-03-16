@@ -561,7 +561,7 @@ async fn connect_to_installer(tcp_port: u16) -> anyhow::Result<InstallerClient<C
     // These numbers might need to be configured based on the installer
     let initial_delay = Duration::from_millis(100);
     let max_delay = Duration::from_millis(500);
-    let timeout = Duration::from_secs(5);
+    let timeout = Duration::from_secs(120);
 
     span_async(
         buck2_data::ConnectToInstallerStart {
