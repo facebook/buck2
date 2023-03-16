@@ -297,6 +297,9 @@ pub fn display_event(event: &BuckEvent, opts: TargetDisplayOptions) -> anyhow::R
             }
             Data::BxlDiceInvocation(..) => Ok("Waiting for graph computations".to_owned()),
             Data::ReUpload(..) => Ok("re_upload".to_owned()),
+            Data::ConnectToInstaller(buck2_data::ConnectToInstallerStart { tcp_port }) => {
+                Ok(format!("Connecting to installer on port {}", tcp_port))
+            }
             Data::Fake(fake) => Ok(format!("{} -- speak of the devil", fake.caramba)),
         };
 

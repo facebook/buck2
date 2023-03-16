@@ -410,7 +410,8 @@ impl SpanTrackable for Arc<BuckEvent> {
                 | Data::DynamicLambda(..)
                 | Data::BxlExecution(..)
                 | Data::BxlDiceInvocation(..)
-                | Data::ReUpload(..),
+                | Data::ReUpload(..)
+                | Data::ConnectToInstaller(..),
             ) => true,
             None => false,
         }

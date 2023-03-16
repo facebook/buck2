@@ -356,6 +356,7 @@ mod fbcode {
                     Some(Data::BxlExecution(_)) => false,
                     Some(Data::BxlDiceInvocation(_)) => false,
                     Some(Data::ReUpload(_)) => false,
+                    Some(Data::ConnectToInstaller(_)) => false,
                     Some(Data::Fake(..)) => false,
                     None => false,
                 }
@@ -401,6 +402,7 @@ mod fbcode {
                     Some(Data::BxlExecution(_)) => false,
                     Some(Data::BxlDiceInvocation(_)) => false,
                     Some(Data::ReUpload(_)) => false,
+                    Some(Data::ConnectToInstaller(_)) => false,
                     Some(Data::Fake(..)) => true,
                     None => false,
                 }

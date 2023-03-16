@@ -76,6 +76,7 @@ message SpanStartEvent {
     BxlExecutionStart bxl_execution = 76;
     BxlDiceInvocationStart bxl_dice_invocation = 77;
     ReUploadStart re_upload = 78;
+    ConnectToInstallerStart connect_to_installer = 79;
     // Used in Buck unit tests.
     FakeStart fake = 999;
   }
@@ -118,6 +119,7 @@ message SpanEndEvent {
     BxlExecutionEnd bxl_execution = 77;
     BxlDiceInvocationEnd bxl_dice_invocation = 78;
     ReUploadEnd re_upload = 79;
+    ConnectToInstallerEnd connect_to_installer = 80;
     // Used in Buck unit tests.
     FakeEnd fake = 999;
   }
@@ -1538,3 +1540,8 @@ message ReUploadEnd {
   optional uint64 digests_uploaded = 1;
   optional uint64 bytes_uploaded = 2;
 }
+message ConnectToInstallerStart {
+  uint32 tcp_port = 1;
+}
+
+message ConnectToInstallerEnd {}

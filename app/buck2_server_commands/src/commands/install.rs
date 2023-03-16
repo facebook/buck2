@@ -74,6 +74,7 @@ use dice::DiceTransaction;
 use dupe::Dupe;
 use futures::future::try_join;
 use futures::future::try_join_all;
+use futures::future::FutureExt;
 use futures::stream::StreamExt;
 use futures::stream::TryStreamExt;
 use install_proto::installer_client::InstallerClient;
@@ -562,13 +563,22 @@ async fn connect_to_installer(tcp_port: u16) -> anyhow::Result<InstallerClient<C
     let max_delay = Duration::from_millis(500);
     let timeout = Duration::from_secs(5);
 
-    let channel = retrying(initial_delay, max_delay, timeout, async || {
-        get_channel_tcp(Ipv4Addr::LOCALHOST, tcp_port).await
-    })
-    .await
-    .context("Failed to connect to the installer using TCP")?;
+    span_async(
+        buck2_data::ConnectToInstallerStart {
+            tcp_port: tcp_port.into(),
+        },
+        async move {
+            let channel = retrying(initial_delay, max_delay, timeout, async || {
+                get_channel_tcp(Ipv4Addr::LOCALHOST, tcp_port).await
+            })
+            .await
+            .context("Failed to connect to the installer using TCP")?;
 
-    Ok(InstallerClient::new(channel))
+            Ok(InstallerClient::new(channel))
+        }
+        .map(|res| (res, buck2_data::ConnectToInstallerEnd {})),
+    )
+    .await
 }
 
 async fn send_file(
