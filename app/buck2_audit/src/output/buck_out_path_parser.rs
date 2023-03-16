@@ -16,6 +16,7 @@ use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::file_name::FileName;
+use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::package::PackageLabel;
 use buck2_core::target::label::TargetLabel;
@@ -122,13 +123,11 @@ fn get_cell_path<'v>(
                 match iter.peek() {
                     Some(maybe_target_name) => {
                         let maybe_target_name = maybe_target_name.as_str();
-                        // TODO(@wendyy) We assume that the first string that we find that starts and ends with "__"
+                        // TODO(@wendyy) We assume that the first string that we find that starts with "__"
                         // is the target name. There is a small risk of naming collisions (ex: if there's a directory
                         // name that follows this convention that contains a build file), but I will fix this at a
                         // later date.
-                        if (*maybe_target_name).starts_with("__")
-                            && (*maybe_target_name).ends_with("__")
-                        {
+                        if (*maybe_target_name).starts_with("__") {
                             // If it's an anonymous target, then the last part before the target name is actually the
                             // hash, and not part of the cell relative path.
                             let cell_path = if is_anon {
@@ -174,14 +173,26 @@ fn get_cell_path<'v>(
 
 fn get_target_name<'v>(
     iter: &mut Peekable<impl Iterator<Item = &'v FileName>>,
-) -> anyhow::Result<&'v str> {
+) -> anyhow::Result<String> {
     // Get target name, which is prefixed and suffixed with "__"
     match iter.next() {
-        Some(target_name_with_underscores) => {
+        Some(raw_target_name) => {
+            let mut target_name_with_underscores =
+                <&ForwardRelativePath>::from(raw_target_name).to_owned();
+
+            while !target_name_with_underscores.as_str().ends_with("__") {
+                match iter.next() {
+                    Some(next) => {
+                        target_name_with_underscores = target_name_with_underscores.join(next);
+                    }
+                    None => return Err(anyhow::anyhow!("Invalid target name")),
+                }
+            }
+
             let target_name_with_underscores = target_name_with_underscores.as_str();
             let target_name =
                 &target_name_with_underscores[2..(target_name_with_underscores.len() - 2)];
-            Ok(target_name)
+            Ok(target_name.to_owned())
         }
         None => Err(anyhow::anyhow!("Invalid target name")),
     }
@@ -193,7 +204,7 @@ fn get_target_label<'v>(
 ) -> anyhow::Result<TargetLabel> {
     let target_name = get_target_name(iter)?;
     let package = PackageLabel::new(path.cell(), path.path());
-    let target = TargetNameRef::new(target_name)?;
+    let target = TargetNameRef::new(target_name.as_str())?;
     let target_label = TargetLabel::new(package.dupe(), target);
     Ok(target_label)
 }
@@ -206,7 +217,7 @@ fn get_bxl_function_label<'v>(
     let bxl_path = BxlFilePath::new(path)?;
     let bxl_function_label = BxlFunctionLabel {
         bxl_path,
-        name: target_name.to_owned(),
+        name: target_name,
     };
 
     Ok(bxl_function_label)
@@ -416,7 +427,8 @@ mod tests {
             CellRelativePath::unchecked_new("path/to/target"),
         );
 
-        let expected_target_label = TargetLabel::new(pkg, TargetNameRef::new("target_name")?);
+        let expected_target_label =
+            TargetLabel::new(pkg.clone(), TargetNameRef::new("target_name")?);
 
         let expected_cell_path = CellPath::new(
             CellName::testing_new("bar"),
@@ -444,6 +456,36 @@ mod tests {
                     ForwardRelativePathBuf::new("output".to_owned())?,
                 );
                 assert_eq!(target_label, expected_target_label,);
+                assert_eq!(path, expected_cell_path,);
+                assert_eq!(config_hash, expected_config_hash,);
+            }
+            _ => panic!("Should have parsed buck-out path successfully"),
+        }
+
+        let rule_path_target_label_with_slashes = format!(
+            "buck-out/v2/gen/bar/{}/path/to/target/__target_name_start/target_name_end__/output",
+            expected_config_hash
+        );
+
+        let res = buck_out_parser.parse(&rule_path_target_label_with_slashes)?;
+
+        let expected_target_label_with_slashes = TargetLabel::new(
+            pkg,
+            TargetNameRef::new("target_name_start/target_name_end")?,
+        );
+
+        match res {
+            BuckOutPathType::RuleOutput {
+                _path: path,
+                target_label,
+                path_after_target_name,
+                config_hash,
+            } => {
+                assert_eq!(
+                    path_after_target_name,
+                    ForwardRelativePathBuf::new("output".to_owned())?,
+                );
+                assert_eq!(target_label, expected_target_label_with_slashes,);
                 assert_eq!(path, expected_cell_path,);
                 assert_eq!(config_hash, expected_config_hash,);
             }
