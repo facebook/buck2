@@ -216,7 +216,10 @@ where
                     .kill(&child)
                     .context("Failed to terminate child after timeout")?;
 
-                drop(decoder);
+                decoder
+                    .cancel()
+                    .await
+                    .context("Failed to cancel status decoder after timeout")?;
 
                 res
             }
@@ -602,6 +605,7 @@ mod tests {
 
         struct Decoder {
             killed: Arc<Mutex<bool>>,
+            cancelled: Arc<Mutex<bool>>,
         }
 
         #[async_trait::async_trait]
@@ -609,15 +613,16 @@ mod tests {
             async fn decode_status(self, _status: ExitStatus) -> anyhow::Result<DecodedStatus> {
                 panic!("Should not be called in this test since we timeout")
             }
-        }
 
-        impl Drop for Decoder {
-            fn drop(&mut self) {
+            async fn cancel(self) -> anyhow::Result<()> {
                 assert!(*self.killed.lock().unwrap());
+                *self.cancelled.lock().unwrap() = true;
+                Ok(())
             }
         }
 
         let killed = Arc::new(Mutex::new(false));
+        let cancelled = Arc::new(Mutex::new(false));
 
         let mut cmd = if cfg!(windows) {
             background_command("powershell")
@@ -634,6 +639,7 @@ mod tests {
             timeout_into_cancellation(Some(Duration::from_secs(1))),
             Decoder {
                 killed: killed.dupe(),
+                cancelled: cancelled.dupe(),
             },
             Kill {
                 killed: killed.dupe(),
@@ -642,6 +648,9 @@ mod tests {
 
         let (status, _stdout, _stderr) = decode_command_event_stream(stream).await?;
         assert!(matches!(status, GatherOutputStatus::TimedOut(..)));
+
+        assert!(*killed.lock().unwrap());
+        assert!(*cancelled.lock().unwrap());
 
         Ok(())
     }

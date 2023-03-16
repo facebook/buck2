@@ -24,6 +24,9 @@ pub trait StatusDecoder {
     /// Status decoders receive the exit status of the command we ran, but they might also obtain
     /// information out of band to obtain a different exit status.
     async fn decode_status(self, status: ExitStatus) -> anyhow::Result<DecodedStatus>;
+
+    /// Notify this decoder that it will not be used.
+    async fn cancel(self) -> anyhow::Result<()>;
 }
 
 pub struct DefaultStatusDecoder;
@@ -32,6 +35,10 @@ pub struct DefaultStatusDecoder;
 impl StatusDecoder for DefaultStatusDecoder {
     async fn decode_status(self, status: ExitStatus) -> anyhow::Result<DecodedStatus> {
         Ok(default_decode(status))
+    }
+
+    async fn cancel(self) -> anyhow::Result<()> {
+        Ok(())
     }
 }
 
