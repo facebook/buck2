@@ -85,11 +85,14 @@ def android_apk_impl(ctx: "context") -> ["provider"]:
         if has_proguard_config:
             proguard_output = get_proguard_output(ctx, jars_to_owners, dex_java_packaging_deps, resources_info.proguard_config_file)
             jars_to_owners = proguard_output.jars_to_owners
+            dir_srcs = {artifact.basename: artifact for artifact in proguard_output.proguard_artifacts}
+            for i, hidden_artifact in enumerate(proguard_output.proguard_hidden_artifacts):
+                dir_srcs["hidden/{}_{}".format(i, hidden_artifact.basename)] = hidden_artifact
             sub_targets["proguard_text_output"] = [
                 DefaultInfo(
                     default_output = ctx.actions.symlinked_dir(
                         "proguard_text_output",
-                        {artifact.basename: artifact for artifact in proguard_output.proguard_artifacts},
+                        dir_srcs,
                     ),
                 ),
             ]

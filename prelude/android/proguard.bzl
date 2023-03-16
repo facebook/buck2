@@ -17,6 +17,7 @@ ProguardOutput = record(
     proguard_configuration_output_file = ["artifact", None],
     proguard_mapping_output_file = "artifact",
     proguard_artifacts = ["artifact"],
+    proguard_hidden_artifacts = ["artifact"],
 )
 
 def _get_proguard_command_line_args(
@@ -27,28 +28,33 @@ def _get_proguard_command_line_args(
         configuration: ["artifact", None],
         seeds: ["artifact", None],
         usage: ["artifact", None],
-        android_toolchain: "AndroidToolchainInfo") -> "cmd_args":
+        android_toolchain: "AndroidToolchainInfo") -> ("cmd_args", ["artifact"]):
     cmd = cmd_args()
+    hidden = []
     cmd.add("-basedirectory", "<user.dir>")
 
     android_sdk_proguard_config = ctx.attrs.android_sdk_proguard_config or "none"
     if android_sdk_proguard_config == "optimized":
         cmd.add("-include", android_toolchain.optimized_proguard_config)
         cmd.add("-optimizationpasses", str(ctx.attrs.optimization_passes))
+        hidden.append(android_toolchain.optimized_proguard_config)
     elif android_sdk_proguard_config == "default":
         cmd.add("-include", android_toolchain.proguard_config)
+        hidden.append(android_toolchain.proguard_config)
     else:
         expect(android_sdk_proguard_config == "none")
 
     for proguard_config in dedupe(proguard_configs):
         cmd.add("-include")
         cmd.add(cmd_args("\"", proguard_config, "\"", delimiter = ""))
+        hidden.append(proguard_config)
 
     for jar_input, jar_output in inputs_to_unscrubbed_outputs.items():
         cmd.add("-injars", jar_input, "-outjars", jar_output if jar_output == jar_input else jar_output.as_output())
 
     cmd.add("-libraryjars")
     cmd.add(cmd_args(android_toolchain.android_bootclasspath, delimiter = get_path_separator()))
+    hidden.extend(android_toolchain.android_bootclasspath)
 
     cmd.add("-printmapping", mapping.as_output())
     if configuration:
@@ -58,7 +64,7 @@ def _get_proguard_command_line_args(
     if usage:
         cmd.add("-printusage", usage.as_output())
 
-    return cmd
+    return cmd, hidden
 
 def run_proguard(
         ctx: "context",
@@ -120,7 +126,7 @@ def get_proguard_output(
         seeds = ctx.actions.declare_output("proguard/seeds.txt")
         usage = ctx.actions.declare_output("proguard/usage.txt")
 
-    command_line_args = _get_proguard_command_line_args(
+    command_line_args, hidden_artifacts = _get_proguard_command_line_args(
         ctx,
         inputs_to_unscrubbed_outputs,
         proguard_configs,
@@ -139,6 +145,7 @@ def get_proguard_output(
             proguard_configuration_output_file = None,
             proguard_mapping_output_file = mapping,
             proguard_artifacts = [command_line_args_file, mapping],
+            proguard_hidden_artifacts = hidden_artifacts,
         )
     else:
         unscrubbed_output_jars = {unscrubbed_output: input_jars[input_jar] for input_jar, unscrubbed_output in inputs_to_unscrubbed_outputs.items()}
@@ -165,4 +172,5 @@ def get_proguard_output(
             proguard_configuration_output_file = configuration,
             proguard_mapping_output_file = mapping,
             proguard_artifacts = [command_line_args_file, mapping, configuration, seeds, usage],
+            proguard_hidden_artifacts = hidden_artifacts,
         )
