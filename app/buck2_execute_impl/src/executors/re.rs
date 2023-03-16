@@ -165,7 +165,9 @@ impl ReExecutor {
                         stdout: Vec::new(),
                         stderr: out.to_owned().into(),
                     },
+                    // We also don't get this output so don't put trash in here.
                     None,
+                    Default::default(),
                 )
             } else {
                 manager.error(
@@ -194,6 +196,7 @@ impl ReExecutor {
                     digest_config,
                 )),
                 Some(action_result.exit_code),
+                response.timing(),
             ));
         }
 

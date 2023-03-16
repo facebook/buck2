@@ -167,6 +167,7 @@ pub trait CommandExecutionManagerExt: Sized {
         outputs: IndexMap<CommandExecutionOutput, ArtifactValue>,
         std_streams: CommandStdStreams,
         exit_code: Option<i32>,
+        timing: CommandExecutionMetadata,
     ) -> CommandExecutionResult;
 
     fn timeout(
@@ -190,13 +191,14 @@ where
         outputs: IndexMap<CommandExecutionOutput, ArtifactValue>,
         std_streams: CommandStdStreams,
         exit_code: Option<i32>,
+        timing: CommandExecutionMetadata,
     ) -> CommandExecutionResult {
         self.result(
             CommandExecutionStatus::Failure { execution_kind },
             outputs,
             std_streams,
             exit_code,
-            CommandExecutionMetadata::default(),
+            timing,
         )
     }
 

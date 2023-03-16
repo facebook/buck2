@@ -408,11 +408,18 @@ impl LocalExecutor {
                     Err(e) => return manager.error("calculate_output_values_failed", e),
                 };
 
+                timing.execution_stats = execution_stats;
+
                 if exit_code == 0 {
-                    timing.execution_stats = execution_stats;
                     manager.success(execution_kind, outputs, std_streams, timing)
                 } else {
-                    manager.failure(execution_kind, outputs, std_streams, Some(exit_code))
+                    manager.failure(
+                        execution_kind,
+                        outputs,
+                        std_streams,
+                        Some(exit_code),
+                        timing,
+                    )
                 }
             }
             GatherOutputStatus::SpawnFailed(reason) => {
@@ -428,6 +435,7 @@ impl LocalExecutor {
                             .into_bytes(),
                     },
                     None,
+                    timing,
                 )
             }
             GatherOutputStatus::TimedOut(duration) => {

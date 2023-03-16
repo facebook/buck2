@@ -95,7 +95,13 @@ impl PreparedCommandExecutor for DryRunExecutor {
                 CommandExecutionMetadata::default(),
             ),
             // NOTE: This should probaby be an error() but who cares.
-            Err(..) => manager.failure(exec_kind, IndexMap::new(), Default::default(), Some(1)),
+            Err(..) => manager.failure(
+                exec_kind,
+                IndexMap::new(),
+                Default::default(),
+                Some(1),
+                CommandExecutionMetadata::default(),
+            ),
         }
     }
 }
