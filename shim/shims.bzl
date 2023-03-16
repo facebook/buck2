@@ -7,6 +7,11 @@
 
 # @lint-ignore FBCODEBZLADDLOADS
 
+_SELECT_TYPE = type(select({"DEFAULT": []}))
+
+def is_select(thing):
+    return type(thing) == _SELECT_TYPE
+
 def rust_library(
         rustc_flags = [],
         deps = [],
@@ -18,8 +23,8 @@ def rust_library(
         visibility = ["PUBLIC"],
         **kwargs):
     _unused = (test_deps, test_env, named_deps)  # @unused
-    deps = _fix_deps(deps)
-    mapped_srcs = _fix_mapped_srcs(mapped_srcs)
+    deps = _maybe_select_map(deps, _fix_deps)
+    mapped_srcs = _maybe_select_map(mapped_srcs, _fix_mapped_srcs)
     if os_deps:
         deps += _select_os_deps(_fix_dict_deps(os_deps))
     native.rust_library(
@@ -38,7 +43,7 @@ def rust_binary(
         visibility = ["PUBLIC"],
         **kwargs):
     _unused = (unittests, allocator, default_strip_mode)  # @unused
-    deps = _fix_deps(deps)
+    deps = _maybe_select_map(deps, _fix_deps)
     native.rust_binary(
         rustc_flags = rustc_flags + [_CFG_BUCK_OSS_BUILD],
         deps = deps,
@@ -52,9 +57,9 @@ def rust_protobuf_library(
         build_script,
         protos,
         build_env = None,
-        deps = None,
+        deps = [],
         doctests = True):
-    deps = _fix_deps(deps) if deps else None
+    deps = _maybe_select_map(deps, _fix_deps)
     if build_env:
         build_env = {
             k: _fix_dep_in_string(v)
@@ -118,6 +123,11 @@ def rust_protobuf_library(
 # E.g. not applied either internally, or when using Cargo to build the open source code.
 # At the moment of writing, mostly used to disable jemalloc.
 _CFG_BUCK_OSS_BUILD = "--cfg=buck_oss_build"
+
+def _maybe_select_map(v, mapper):
+    if is_select(v):
+        return select_map(v, mapper)
+    return mapper(v)
 
 def _select_os_deps(xss: [(
     "string",
