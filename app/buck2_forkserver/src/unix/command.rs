@@ -11,6 +11,8 @@ use std::os::unix::io::FromRawFd;
 use std::os::unix::io::RawFd;
 use std::os::unix::net::UnixStream as StdUnixStream;
 
+use anyhow::Context as _;
+use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::logging::LogConfigurationReloadHandle;
 use buck2_forkserver_proto::forkserver_server;
 use buck2_grpc::DuplexChannel;
@@ -21,6 +23,7 @@ use super::service::UnixForkserverService;
 pub async fn run_forkserver(
     fd: RawFd,
     log_reload_handle: Box<dyn LogConfigurationReloadHandle>,
+    state_dir: AbsNormPathBuf,
 ) -> anyhow::Result<()> {
     // SAFETY: At worst, we just read (or close) the wrong FD.
     let io = UnixStream::from_std(unsafe { StdUnixStream::from_raw_fd(fd) })
@@ -31,9 +34,11 @@ pub async fn run_forkserver(
         DuplexChannel::new(read, write)
     };
 
-    let router = tonic::transport::Server::builder().add_service(
-        forkserver_server::ForkserverServer::new(UnixForkserverService { log_reload_handle }),
-    );
+    let service = UnixForkserverService::new(log_reload_handle, &state_dir)
+        .context("Failed to create UnixForkserverService")?;
+
+    let router = tonic::transport::Server::builder()
+        .add_service(forkserver_server::ForkserverServer::new(service));
 
     buck2_grpc::spawn_oneshot(io, router)
         .into_join_handle()

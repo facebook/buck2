@@ -8,11 +8,17 @@
  */
 
 use std::ffi::OsStr;
+use std::fs::OpenOptions;
+use std::io::Write;
 use std::os::unix::ffi::OsStrExt;
 use std::pin::Pin;
 
 use anyhow::Context as _;
 use buck2_common::convert::ProstDurationExt;
+use buck2_core::fs::fs_util;
+use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
+use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::logging::LogConfigurationReloadHandle;
 use buck2_forkserver_proto::forkserver_server::Forkserver;
 use buck2_forkserver_proto::CommandRequest;
@@ -42,7 +48,25 @@ type RunStream =
     Pin<Box<dyn Stream<Item = Result<buck2_forkserver_proto::CommandEvent, Status>> + Send>>;
 
 pub struct UnixForkserverService {
-    pub(super) log_reload_handle: Box<dyn LogConfigurationReloadHandle>,
+    log_reload_handle: Box<dyn LogConfigurationReloadHandle>,
+
+    /// State for Miniperf.
+    #[allow(unused)]
+    miniperf: Option<MiniperfContainer>,
+}
+
+impl UnixForkserverService {
+    pub fn new(
+        log_reload_handle: Box<dyn LogConfigurationReloadHandle>,
+        state_dir: &AbsNormPath,
+    ) -> anyhow::Result<Self> {
+        let miniperf = MiniperfContainer::new(state_dir)?;
+
+        Ok(Self {
+            log_reload_handle,
+            miniperf,
+        })
+    }
 }
 
 #[async_trait::async_trait]
@@ -144,5 +168,67 @@ impl Forkserver for UnixForkserverService {
             .map_err(|e| Status::invalid_argument(format!("{:#}", e)))?;
 
         Ok(Response::new(SetLogFilterResponse {}))
+    }
+}
+
+struct MiniperfContainer {
+    /// The Miniperf binary
+    #[allow(unused)]
+    miniperf: AbsNormPathBuf,
+
+    /// The directory where Miniperf outputs go.
+    #[allow(unused)]
+    output_dir: AbsNormPathBuf,
+}
+
+impl MiniperfContainer {
+    fn new(forkserver_state_dir: &AbsNormPath) -> anyhow::Result<Option<Self>> {
+        let miniperf_bin: Option<&'static [u8]>;
+
+        #[cfg(all(fbcode_build, target_os = "linux"))]
+        {
+            miniperf_bin = Some(include_bytes!("miniperf.bin").as_slice());
+        }
+
+        #[cfg(not(all(fbcode_build, target_os = "linux")))]
+        {
+            miniperf_bin = None;
+        }
+
+        let miniperf_bin = match miniperf_bin {
+            Some(m) => m,
+            None => return Ok(None),
+        };
+
+        let miniperf = forkserver_state_dir.join(ForwardRelativePath::unchecked_new("miniperf"));
+        let output_dir = forkserver_state_dir.join(ForwardRelativePath::unchecked_new("out"));
+
+        fs_util::remove_all(&miniperf)?;
+        fs_util::remove_all(&output_dir)?;
+        fs_util::create_dir_all(&output_dir)?;
+
+        let mut opts = OpenOptions::new();
+        opts.create_new(true);
+        opts.write(true);
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            opts.mode(0o755);
+        }
+
+        let mut miniperf_writer = opts
+            .open(miniperf.as_path())
+            .with_context(|| format!("Error opening: `{}`", miniperf.display()))?;
+
+        miniperf_writer
+            .write_all(miniperf_bin)
+            .and_then(|()| miniperf_writer.flush())
+            .with_context(|| format!("Error writing miniperf to `{}`", miniperf.display()))?;
+
+        Ok(Some(Self {
+            miniperf,
+            output_dir,
+        }))
     }
 }

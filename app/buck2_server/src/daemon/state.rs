@@ -277,32 +277,30 @@ impl DaemonState {
             }
         };
 
-        let (io, forkserver, _, (materializer_db, materializer_state)) =
-            futures::future::try_join4(
-                buck2_common::io::create_io_provider(
-                    fb,
-                    fs.dupe(),
-                    legacy_configs.get(cells.root_cell()).ok(),
-                    digest_config.cas_digest_config(),
-                ),
-                maybe_launch_forkserver(root_config),
-                (blocking_executor.dupe() as Arc<dyn BlockingExecutor>).execute_io_inline(|| {
-                    // Using `execute_io_inline` is just out of convenience.
-                    // It doesn't really matter what's used here since there's no IO-heavy
-                    // operations on daemon startup
-                    delete_unknown_disk_state(&cache_dir_path, &valid_cache_dirs, fs_duped)
-                }),
-                maybe_initialize_materializer_sqlite_db(
-                    &disk_state_options,
-                    paths,
-                    blocking_executor.dupe() as Arc<dyn BlockingExecutor>,
-                    root_config,
-                    &deferred_materializer_configs,
-                    fs,
-                    digest_config,
-                ),
-            )
-            .await?;
+        let (io, _, (materializer_db, materializer_state)) = futures::future::try_join3(
+            buck2_common::io::create_io_provider(
+                fb,
+                fs.dupe(),
+                legacy_configs.get(cells.root_cell()).ok(),
+                digest_config.cas_digest_config(),
+            ),
+            (blocking_executor.dupe() as Arc<dyn BlockingExecutor>).execute_io_inline(|| {
+                // Using `execute_io_inline` is just out of convenience.
+                // It doesn't really matter what's used here since there's no IO-heavy
+                // operations on daemon startup
+                delete_unknown_disk_state(&cache_dir_path, &valid_cache_dirs, fs_duped)
+            }),
+            maybe_initialize_materializer_sqlite_db(
+                &disk_state_options,
+                paths,
+                blocking_executor.dupe() as Arc<dyn BlockingExecutor>,
+                root_config,
+                &deferred_materializer_configs,
+                fs,
+                digest_config,
+            ),
+        )
+        .await?;
 
         let re_client_manager = Arc::new(ReConnectionManager::new(
             fb,
@@ -324,6 +322,11 @@ impl DaemonState {
             materializer_db,
             materializer_state,
         )?;
+
+        // Create this after the materializer because it'll want to write to buck-out, and an Eden
+        // materializer would create buck-out now.
+        let forkserver =
+            maybe_launch_forkserver(root_config, &paths.forkserver_state_dir()).await?;
 
         let dice = dice_constructor
             .construct_dice(io.dupe(), digest_config, root_config)

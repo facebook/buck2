@@ -183,6 +183,14 @@ impl InvocationPaths {
             .join(self.materializer_state_dir_name())
     }
 
+    /// This is used by the forkserver to write the miniperf wrapper binary (if used), as well as
+    /// temporary files used by miniperf. We put this in buck-out because that directory gets
+    /// allowlisted for execution (because we write lots of tools there).
+    pub fn forkserver_state_dir(&self) -> AbsNormPathBuf {
+        self.buck_out_path()
+            .join(ForwardRelativePath::unchecked_new("forkserver"))
+    }
+
     pub fn materializer_state_dir_name(&self) -> &FileName {
         FileName::unchecked_new("materializer_state")
     }

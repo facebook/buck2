@@ -7,7 +7,11 @@
  * of this source tree.
  */
 
+use std::path::PathBuf;
+
 use buck2_client_ctx::client_ctx::ClientCommandContext;
+use buck2_core::fs::fs_util;
+use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::logging::LogConfigurationReloadHandle;
 
 #[cfg(unix)]
@@ -21,6 +25,9 @@ type RawFd = String;
 pub(crate) struct ForkserverCommand {
     #[clap(long)]
     fd: RawFd,
+
+    #[clap(long)]
+    state_dir: PathBuf,
 }
 
 impl ForkserverCommand {
@@ -30,6 +37,10 @@ impl ForkserverCommand {
         _ctx: ClientCommandContext,
         log_reload_handle: Box<dyn LogConfigurationReloadHandle>,
     ) -> anyhow::Result<()> {
+        let state_dir = AbsNormPathBuf::try_from(self.state_dir)?;
+
+        fs_util::create_dir_all(&state_dir)?;
+
         #[cfg(unix)]
         {
             // For us to get this FD it must be non-CLOEXEC but we don't want our children to
@@ -43,6 +54,7 @@ impl ForkserverCommand {
             rt.block_on(buck2_forkserver::unix::run_forkserver(
                 self.fd,
                 log_reload_handle,
+                state_dir,
             ))
         }
 

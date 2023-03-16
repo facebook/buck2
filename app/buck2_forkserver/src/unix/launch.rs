@@ -14,6 +14,7 @@ use std::os::unix::process::CommandExt;
 use std::process::Stdio;
 
 use anyhow::Context;
+use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_util::process::background_command;
 use tokio::net::UnixStream;
 
@@ -22,6 +23,7 @@ use crate::client::ForkserverClient;
 pub async fn launch_forkserver(
     exe: impl AsRef<OsStr>,
     args: impl IntoIterator<Item = impl AsRef<OsStr>>,
+    state_dir: &AbsNormPath,
 ) -> anyhow::Result<ForkserverClient> {
     let (client_io, server_io) =
         UnixStream::pair().context("Failed to create fork server channel")?;
@@ -40,7 +42,9 @@ pub async fn launch_forkserver(
         .arg0("(buck2-forkserver)")
         .args(args)
         .arg("--fd")
-        .arg(server_io.as_raw_fd().to_string());
+        .arg(server_io.as_raw_fd().to_string())
+        .arg("--state-dir")
+        .arg(state_dir.as_path());
 
     let fds = [server_io.as_raw_fd()];
 

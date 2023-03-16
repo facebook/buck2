@@ -8,6 +8,12 @@ rust_library(
     srcs = glob(
         ["src/**/*.rs"],
     ),
+    mapped_srcs = select({
+        "DEFAULT": {},
+        "ovr_config//os:linux": {
+            "//buck2/app/buck2_miniperf:buck2_miniperf": "src/unix/miniperf.bin",
+        },
+    }),
     os_deps = [
         (
             "windows",
