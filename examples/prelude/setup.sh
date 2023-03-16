@@ -12,21 +12,6 @@
 # switch and create symlinks in the 'third-party/opam' directory to
 # support building the example OCaml targets.
 
-CWD="$(pwd)"
-BASENAME="$(basename "$CWD")"
-DIRNAME="$(basename "$(dirname "$CWD")")"
-if [ "$DIRNAME" != "examples" ] && [ "$BASENAME" != "prelude" ]; then
-    echo "$0 should be sourced from directory 'examples/prelude'"
-    exit 1
-fi
-
-# Link 'prelude'.
-if [ ! -L prelude ]; then
-    ln -s "$(realpath ../../prelude)" prelude
-else
-    echo "Link 'prelude' exists. To overwrite it, first remove it and run $0 again"
-fi
-
 if ! command -v opam &> /dev/null
 then
     echo "opam is not installed, which is a dependency for building targets in ocaml."

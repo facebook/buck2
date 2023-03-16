@@ -111,6 +111,7 @@ jobs:
           name: Setup and build example/prelude directory
           command: |
             cd examples/prelude
+            /tmp/artifacts/buck2 init
             source ./setup.sh
             /tmp/artifacts/buck2 build //... -v 2
       - when:
@@ -153,6 +154,7 @@ jobs:
           command: |
             export PATH=/usr/local/opt/llvm/bin:"$PATH"
             cd examples/prelude
+            /tmp/artifacts/buck2 init
             source ./setup.sh
             /tmp/artifacts/buck2 build //... -v 2
       - when:
