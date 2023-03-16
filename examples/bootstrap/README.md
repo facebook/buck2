@@ -2,6 +2,13 @@
 
 This project provides an example of what it might look like to configure a bootstrapping toolchain and construct a different toolchain using an artifact built with the former.
 
+## How to build
+
+1. Build or install `buck2` with Cargo
+2. This project assumes Rust, Clang, and Python to be present. See `toolchains/BUCK` for how we pull those in from the system.
+3. Run `buck2 init`
+4. Run commands: e.g. `buck2 run :hello_world`, `buck2 build //...`
+
 ## Project setup
 
 ### Bootstrap constraint
@@ -78,10 +85,3 @@ toolchain_alias(
    visibility = ["PUBLIC"],
 )
 ```
-
-## User guide
-
-1. Build or install `buck2` with Cargo
-2. This project assumes Rust, Clang, and Python to be present. See `toolchains/BUCK` for how we pull those in from the system.
-3. Either run `git submodule update` or `setup.sh` to symlink in `buck2/prelude` into repository root
-4. Run commands: e.g. `buck2 run :hello_world`, `buck2 build //...`

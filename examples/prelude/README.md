@@ -7,17 +7,11 @@ cargo install --path=cli --root=/tmp
 export BUCK2="/tmp/bin/buck2"
 ```
 
-## Add in prelude into the project
+## Run `buck2 init`
 
-For now, we can symlink in the project's prelude into the directory
+Run `buck2 init` to initialize the prelude directory.
 
-```sh
-ln -s $(realpath ../../prelude) prelude
-```
-
-If you are using any other prelude directory, make sure the prelude points to it in `.buckconfig`
-
-On Linux and macOS, an alternative to symlinking the prelude manually in this way is to `source setup.sh` (see the next section for details).
+Now all targets aside from OCaml related ones are ready to be built.
 
 ## Support for building the example OCaml targets
 
