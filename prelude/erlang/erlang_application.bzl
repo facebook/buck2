@@ -128,6 +128,12 @@ def _build_erlang_application(ctx: "context", toolchain: "Toolchain", dependenci
 
     private_header_artifacts = [header for header in ctx.attrs.srcs if erlang_build.utils.is_hrl(header)]
 
+    # build input mapping
+    build_environment = erlang_build.build_steps.generate_input_mapping(
+        build_environment,
+        src_artifacts + header_artifacts + private_header_artifacts,
+    )
+
     # build output artifacts
 
     # public includes

@@ -121,14 +121,6 @@ def _prepare_build_environment(
         # collect deps_files
         deps_files.update(dep_info.deps_files[toolchain.name])
 
-    # collect input artifacts for current targets
-    # Note: this must be after the dependencies to overwrite private includes
-    for input_artifact in getattr(ctx.attrs, "srcs", []) + getattr(ctx.attrs, "includes", []):
-        key = input_artifact.basename
-        if key in input_mapping and input_mapping[key] != input_artifact:
-            fail("conflicting inputs for {}: {} {}".format(key, input_mapping[key], input_artifact))
-        input_mapping[key] = input_artifact
-
     return BuildEnvironment(
         includes = includes,
         beams = beams,
@@ -139,6 +131,36 @@ def _prepare_build_environment(
         app_files = app_files,
         full_dependencies = full_dependencies,
         input_mapping = input_mapping,
+    )
+
+def _generate_input_mapping(build_environment: "BuildEnvironment", input_artifacts: ["artifact"]) -> "BuildEnvironment":
+    # collect input artifacts for current targets
+    # Note: this must be after the dependencies to overwrite private includes
+    input_mapping = dict(build_environment.input_mapping)
+
+    for input_artifact in input_artifacts:
+        key = input_artifact.basename
+        if key in input_mapping and input_mapping[key] != input_artifact:
+            fail("conflicting inputs for {}: {} {}".format(key, input_mapping[key], input_artifact))
+        input_mapping[key] = input_artifact
+
+    return BuildEnvironment(
+        # updated field
+        input_mapping = input_mapping,
+        # copied fields
+        includes = build_environment.includes,
+        private_includes = build_environment.private_includes,
+        beams = build_environment.beams,
+        priv_dirs = build_environment.priv_dirs,
+        include_dirs = build_environment.include_dirs,
+        private_include_dir = build_environment.private_include_dir,
+        ebin_dirs = build_environment.ebin_dirs,
+        deps_files = build_environment.deps_files,
+        app_files = build_environment.app_files,
+        full_dependencies = build_environment.full_dependencies,
+        app_includes = build_environment.app_includes,
+        app_beams = build_environment.app_beams,
+        app_chunks = build_environment.app_chunks,
     )
 
 def _generated_source_artifacts(ctx: "context", toolchain: "Toolchain", name: "string") -> PathArtifactMapping:
@@ -740,6 +762,7 @@ def _generate_file_mapping_string(mapping: {"string": ("bool", ["string", "artif
 erlang_build = struct(
     prepare_build_environment = _prepare_build_environment,
     build_steps = struct(
+        generate_input_mapping = _generate_input_mapping,
         generated_source_artifacts = _generated_source_artifacts,
         generate_include_artifacts = _generate_include_artifacts,
         generate_beam_artifacts = _generate_beam_artifacts,
