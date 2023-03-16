@@ -105,6 +105,7 @@ impl StatusDecoder for MiniperfStatusDecoder {
             .with_context(|| format!("Invalid miniperf output at `{}`", self.out_path.display()))?;
 
         match status.raw_exit_code {
+            #[allow(unused_variables)]
             Ok(v) => {
                 #[cfg(unix)]
                 {
