@@ -48,7 +48,7 @@ use crate::actions::artifact::artifact_type::Artifact;
 use crate::actions::artifact::artifact_type::OutputArtifact;
 use crate::actions::execute::action_execution_target::ActionExecutionTarget;
 use crate::actions::execute::action_executor::ActionOutputs;
-use crate::actions::impls::run::expanded_command_line::ExpandedCommandLineDigest;
+use crate::actions::impls::expanded_command_line::ExpandedCommandLineDigest;
 use crate::actions::ActionExecutionCtx;
 use crate::actions::BuildArtifact;
 use crate::artifact_groups::ArtifactGroup;

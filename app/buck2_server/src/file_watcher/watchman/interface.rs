@@ -226,7 +226,7 @@ impl SyncableQueryProcessor for WatchmanQueryProcessor {
         eprintln!("watchman fresh instance event, clearing cache");
 
         if !self.retain_dep_files_on_watchman_fresh_instance {
-            buck2_build_api::actions::impls::run::dep_files::flush_dep_files();
+            buck2_build_api::actions::impls::dep_files::flush_dep_files();
         }
 
         // TODO(cjhopman): could probably get away with just invalidating all fs things, but that's not supported.

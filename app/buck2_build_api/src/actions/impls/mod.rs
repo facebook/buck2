@@ -9,8 +9,11 @@
 
 pub mod cas_artifact;
 pub mod copy;
+pub mod dep_files;
 pub mod download_file;
+mod expanded_command_line;
 pub mod run;
+pub mod run_action_knobs;
 pub mod symlinked_dir;
 pub mod write;
 pub mod write_json;

@@ -859,7 +859,7 @@ impl DaemonApi for BuckdServer {
     ) -> Result<Response<CommandResult>, Status> {
         self.oneshot(req, DefaultCommandOptions, move |req| async move {
             let FlushDepFilesRequest {} = req;
-            buck2_build_api::actions::impls::run::dep_files::flush_dep_files();
+            buck2_build_api::actions::impls::dep_files::flush_dep_files();
             Ok(GenericResponse {})
         })
         .await

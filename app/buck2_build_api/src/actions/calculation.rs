@@ -476,7 +476,7 @@ mod tests {
     use crate::actions::artifact::source_artifact::SourceArtifact;
     use crate::actions::calculation::command_details;
     use crate::actions::calculation::ActionCalculation;
-    use crate::actions::impls::run::knobs::RunActionKnobs;
+    use crate::actions::impls::run_action_knobs::RunActionKnobs;
     use crate::actions::testings::SimpleAction;
     use crate::actions::Action;
     use crate::actions::RegisteredAction;

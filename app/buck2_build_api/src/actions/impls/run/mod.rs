@@ -42,12 +42,12 @@ use crate::actions::box_slice_set::BoxSliceSet;
 use crate::actions::execute::action_executor::ActionExecutionKind;
 use crate::actions::execute::action_executor::ActionExecutionMetadata;
 use crate::actions::execute::action_executor::ActionOutputs;
-use crate::actions::impls::run::dep_files::match_or_clear_dep_file;
-use crate::actions::impls::run::dep_files::populate_dep_files;
-use crate::actions::impls::run::dep_files::DepFilesCommandLineVisitor;
-use crate::actions::impls::run::dep_files::DepFilesKey;
-use crate::actions::impls::run::dep_files::RunActionDepFiles;
-use crate::actions::impls::run::expanded_command_line::ExpandedCommandLine;
+use crate::actions::impls::dep_files::match_or_clear_dep_file;
+use crate::actions::impls::dep_files::populate_dep_files;
+use crate::actions::impls::dep_files::DepFilesCommandLineVisitor;
+use crate::actions::impls::dep_files::DepFilesKey;
+use crate::actions::impls::dep_files::RunActionDepFiles;
+use crate::actions::impls::expanded_command_line::ExpandedCommandLine;
 use crate::actions::impls::run::metadata::metadata_content;
 use crate::actions::Action;
 use crate::actions::ActionExecutable;
@@ -62,9 +62,6 @@ use crate::interpreter::rule_defs::cmd_args::DefaultCommandLineContext;
 use crate::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
 
-pub mod dep_files;
-mod expanded_command_line;
-pub mod knobs;
 mod metadata;
 
 #[derive(Debug, Error)]
