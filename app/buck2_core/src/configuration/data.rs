@@ -10,7 +10,6 @@
 use std::borrow::Borrow;
 use std::collections::hash_map::DefaultHasher;
 use std::collections::BTreeMap;
-use std::fmt::Display;
 use std::hash::Hash;
 use std::hash::Hasher;
 
@@ -124,20 +123,14 @@ impl ConfigurationData {
             return Err(ConfigurationError::BuckConfigValuesMustBeEmpty.into());
         }
         Ok(Self::from_data(HashedPlatformConfigurationData::new(
-            PlatformConfigurationData {
-                platform: ConfigurationPlatform::Bound(label),
-                data,
-            },
+            ConfigurationPlatform::Bound(label, data),
         )))
     }
 
     pub fn unspecified() -> Self {
         static CONFIG: Lazy<ConfigurationData> = Lazy::new(|| {
             ConfigurationData::from_data(HashedPlatformConfigurationData::new(
-                PlatformConfigurationData {
-                    platform: ConfigurationPlatform::Unspecified,
-                    data: ConfigurationDataData::empty(),
-                },
+                ConfigurationPlatform::Unspecified,
             ))
         });
         CONFIG.dupe()
@@ -146,10 +139,7 @@ impl ConfigurationData {
     pub fn unspecified_exec() -> Self {
         static CONFIG: Lazy<ConfigurationData> = Lazy::new(|| {
             ConfigurationData::from_data(HashedPlatformConfigurationData::new(
-                PlatformConfigurationData {
-                    platform: ConfigurationPlatform::UnspecifiedExec,
-                    data: ConfigurationDataData::empty(),
-                },
+                ConfigurationPlatform::UnspecifiedExec,
             ))
         });
         CONFIG.dupe()
@@ -160,10 +150,7 @@ impl ConfigurationData {
     pub fn unbound() -> Self {
         static CONFIG: Lazy<ConfigurationData> = Lazy::new(|| {
             ConfigurationData::from_data(HashedPlatformConfigurationData::new(
-                PlatformConfigurationData {
-                    platform: ConfigurationPlatform::Unbound,
-                    data: ConfigurationDataData::empty(),
-                },
+                ConfigurationPlatform::Unbound,
             ))
         });
         CONFIG.dupe()
@@ -174,10 +161,7 @@ impl ConfigurationData {
     pub fn unbound_exec() -> Self {
         static CONFIG: Lazy<ConfigurationData> = Lazy::new(|| {
             ConfigurationData::from_data(HashedPlatformConfigurationData::new(
-                PlatformConfigurationData {
-                    platform: ConfigurationPlatform::UnboundExec,
-                    data: ConfigurationDataData::empty(),
-                },
+                ConfigurationPlatform::UnboundExec,
             ))
         });
         CONFIG.dupe()
@@ -187,10 +171,7 @@ impl ConfigurationData {
     pub fn testing_new() -> Self {
         static CONFIG: Lazy<ConfigurationData> = Lazy::new(|| {
             ConfigurationData::from_data(HashedPlatformConfigurationData::new(
-                PlatformConfigurationData {
-                    platform: ConfigurationPlatform::Testing,
-                    data: ConfigurationDataData::empty(),
-                },
+                ConfigurationPlatform::Testing,
             ))
         });
         CONFIG.dupe()
@@ -236,25 +217,25 @@ impl ConfigurationData {
     }
 
     pub fn label(&self) -> anyhow::Result<&str> {
-        match &self.0.platform_configuration_data.platform {
-            ConfigurationPlatform::Bound(label) => Ok(label),
+        match &self.0.configuration_platform {
+            ConfigurationPlatform::Bound(label, _) => Ok(label.as_ref()),
             _ => Err(ConfigurationError::NotBound(self.to_string()).into()),
         }
     }
 
     pub fn data(&self) -> anyhow::Result<&ConfigurationDataData> {
-        match &self.0.platform_configuration_data.platform {
+        match &self.0.configuration_platform {
             ConfigurationPlatform::Unbound => Err(ConfigurationError::Unbound.into()),
             ConfigurationPlatform::Unspecified => Err(ConfigurationError::Unspecified.into()),
             ConfigurationPlatform::UnspecifiedExec => {
                 Err(ConfigurationError::UnspecifiedExec.into())
             }
-            _ => Ok(&self.0.platform_configuration_data.data),
+            _ => Ok(self.0.configuration_platform.cfg_data_data()),
         }
     }
 
     pub fn is_unbound(&self) -> bool {
-        match &self.0.platform_configuration_data.platform {
+        match &self.0.configuration_platform {
             ConfigurationPlatform::Unbound => true,
             ConfigurationPlatform::UnboundExec => true,
             _ => false,
@@ -262,7 +243,7 @@ impl ConfigurationData {
     }
 
     pub fn is_bound(&self) -> bool {
-        match &self.0.platform_configuration_data.platform {
+        match &self.0.configuration_platform {
             ConfigurationPlatform::Bound(..) => true,
             _ => false,
         }
@@ -273,8 +254,8 @@ impl ConfigurationData {
     }
 
     /// Name without hash.
-    pub fn short_name(&self) -> String {
-        self.0.platform_configuration_data.platform.to_string()
+    pub fn short_name(&self) -> &str {
+        self.0.configuration_platform.label()
     }
 
     pub fn full_name(&self) -> &str {
@@ -291,10 +272,10 @@ impl Serialize for ConfigurationData {
     }
 }
 
-#[derive(Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative)]
+#[derive(Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative)]
 enum ConfigurationPlatform {
     /// This represents the normal case where a platform has been defined by a `platform()` (or similar) target.
-    Bound(String),
+    Bound(String, ConfigurationDataData),
     /// The unbound platform is used when we don't yet have a platform bound. This is to support initialization
     /// and is used when analyzing a platform target itself (since we clearly can't have a platform yet bound
     /// at that point).
@@ -323,15 +304,26 @@ enum ConfigurationPlatform {
     UnboundExec,
 }
 
-impl Display for ConfigurationPlatform {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl ConfigurationPlatform {
+    fn label(&self) -> &str {
         match self {
-            ConfigurationPlatform::Bound(label) => write!(f, "{}", label),
-            ConfigurationPlatform::Testing => write!(f, "<testing>"),
-            ConfigurationPlatform::Unbound => write!(f, "<unbound>"),
-            ConfigurationPlatform::UnboundExec => write!(f, "<unbound_exec>"),
-            ConfigurationPlatform::Unspecified => write!(f, "<unspecified>"),
-            ConfigurationPlatform::UnspecifiedExec => write!(f, "<unspecified_exec>"),
+            ConfigurationPlatform::Bound(label, _) => label.as_str(),
+            ConfigurationPlatform::Testing => "<testing>",
+            ConfigurationPlatform::Unbound => "<unbound>",
+            ConfigurationPlatform::UnboundExec => "<unbound_exec>",
+            ConfigurationPlatform::Unspecified => "<unspecified>",
+            ConfigurationPlatform::UnspecifiedExec => "<unspecified_exec>",
+        }
+    }
+
+    fn cfg_data_data(&self) -> &ConfigurationDataData {
+        match self {
+            ConfigurationPlatform::Bound(_, cfg) => cfg,
+            ConfigurationPlatform::Unbound
+            | ConfigurationPlatform::Unspecified
+            | ConfigurationPlatform::UnspecifiedExec
+            | ConfigurationPlatform::Testing
+            | ConfigurationPlatform::UnboundExec => ConfigurationDataData::empty_ref(),
         }
     }
 }
@@ -369,6 +361,14 @@ impl ConfigurationDataData {
             constraints: Default::default(),
             buckconfigs: Default::default(),
         }
+    }
+
+    fn empty_ref() -> &'static ConfigurationDataData {
+        static EMPTY: ConfigurationDataData = ConfigurationDataData {
+            constraints: BTreeMap::new(),
+            buckconfigs: BTreeMap::new(),
+        };
+        &EMPTY
     }
 
     pub fn new(
@@ -416,17 +416,6 @@ impl ConfigurationDataData {
     }
 }
 
-/// Represents the configuration passed down to a target through its
-/// dependent. A target may also be affected by global configuration that isn't captured here.
-#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Allocative)]
-struct PlatformConfigurationData {
-    /// platform is just informative and indicates the initial platform that formed this configuration. It
-    /// doesn't fully specify the configuration as transitions could add, change, or remove values.
-    platform: ConfigurationPlatform,
-    /// data contains the fully specified "configuration"
-    data: ConfigurationDataData,
-}
-
 #[derive(
     Debug,
     Eq,
@@ -438,7 +427,7 @@ struct PlatformConfigurationData {
 )]
 #[display(fmt = "{}", full_name)]
 pub(crate) struct HashedPlatformConfigurationData {
-    platform_configuration_data: PlatformConfigurationData,
+    configuration_platform: ConfigurationPlatform,
     // The remaining fields are computed from `platform_configuration_data`.
     /// The "full name" includes both the platform and a hash of the configuration data.
     full_name: String,
@@ -461,20 +450,20 @@ impl std::hash::Hash for HashedPlatformConfigurationData {
 }
 
 impl HashedPlatformConfigurationData {
-    fn new(platform_configuration_data: PlatformConfigurationData) -> Self {
+    fn new(configuration_platform: ConfigurationPlatform) -> Self {
         // TODO(cjhopman): Should this be a crypto hasher?
         let mut hasher = DefaultHasher::new();
-        platform_configuration_data.hash(&mut hasher);
+        configuration_platform.hash(&mut hasher);
         let output_hash = hasher.finish();
         let output_hash = format!("{:x}", output_hash);
 
-        let full_name = if platform_configuration_data.data.is_empty() {
-            platform_configuration_data.platform.to_string()
+        let full_name = if configuration_platform.cfg_data_data().is_empty() {
+            configuration_platform.label().to_owned()
         } else {
-            format!("{:#}#{}", platform_configuration_data.platform, output_hash)
+            format!("{:#}#{}", configuration_platform.label(), output_hash)
         };
         Self {
-            platform_configuration_data,
+            configuration_platform,
             full_name,
             output_hash,
         }
