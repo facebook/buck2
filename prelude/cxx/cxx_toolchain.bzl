@@ -149,6 +149,10 @@ def cxx_toolchain_extra_attributes(is_toolchain_rule):
         "linker": dep_type(providers = [RunInfo]),
         "nm": dep_type(providers = [RunInfo]),
         "objcopy_for_shared_library_interface": dep_type(providers = [RunInfo]),
+        # A placeholder tool that can be used to set up toolchain constraints.
+        # Useful when fat and thin toolchahins share the same underlying tools via `command_alias()`,
+        # which requires setting up separate platform-specific aliases with the correct constraints.
+        "placeholder_tool": attrs.option(dep_type(providers = [RunInfo]), default = None),
         # Used for resolving any 'platform_*' attributes.
         "platform_name": attrs.option(attrs.string(), default = None),
         "private_headers_symlinks_enabled": attrs.bool(default = True),

@@ -155,6 +155,10 @@ extra_attributes = {
         "lipo": attrs.dep(providers = [RunInfo]),
         "min_version": attrs.option(attrs.string(), default = None),
         "momc": attrs.dep(providers = [RunInfo]),
+        # A placeholder tool that can be used to set up toolchain constraints.
+        # Useful when fat and thin toolchahins share the same underlying tools via `command_alias()`,
+        # which requires setting up separate platform-specific aliases with the correct constraints.
+        "placeholder_tool": attrs.option(attrs.dep(providers = [RunInfo]), default = None),
         "platform_path": attrs.option(attrs.source(), default = None),  # Mark as optional until we remove `_internal_platform_path`
         # Defines whether the Xcode project generator needs to check
         # that the selected Xcode version matches the one defined
@@ -189,6 +193,10 @@ extra_attributes = {
     },
     "swift_toolchain": {
         "architecture": attrs.option(attrs.string(), default = None),  # TODO(T115173356): Make field non-optional
+        # A placeholder tool that can be used to set up toolchain constraints.
+        # Useful when fat and thin toolchahins share the same underlying tools via `command_alias()`,
+        # which requires setting up separate platform-specific aliases with the correct constraints.
+        "placeholder_tool": attrs.option(attrs.dep(providers = [RunInfo]), default = None),
         "platform_path": attrs.option(attrs.source(), default = None),  # Mark as optional until we remove `_internal_platform_path`
         "sdk_modules": attrs.list(attrs.dep(), default = []),  # A list or a root target that represent a graph of sdk modules (e.g Frameworks)
         "sdk_path": attrs.option(attrs.source(), default = None),  # Mark as optional until we remove `_internal_sdk_path`
