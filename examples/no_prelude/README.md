@@ -1,5 +1,5 @@
 ## No-prelude example
-This is an example project that does not rely on https://github.com/facebookincubator/buck2-prelude. Instead the prelude cell points to the project root where there is an empty `prelude.bzl` file, like so:
+This is an example project that does not rely on https://github.com/facebook/buck2-prelude. Instead the prelude cell points to the project root where there is an empty `prelude.bzl` file, like so:
 ```
 #.buckconfig
 [repositories]

@@ -192,7 +192,7 @@ fn set_up_project(path: &Path, prelude: bool) -> anyhow::Result<()> {
             .args([
                 "submodule",
                 "add",
-                "https://github.com/facebookincubator/buck2-prelude.git",
+                "https://github.com/facebook/buck2-prelude.git",
                 "prelude",
             ])
             .current_dir(path)

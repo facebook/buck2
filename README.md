@@ -38,7 +38,7 @@ Note that the resulting binary will be compiled without optimisations or [jemall
 A Buck2 project requires:
 
 * A `.buckconfig` file in the root which has a `[repositories]` section listing out interesting cells. We recommend copying from `examples/prelude` to ensure it contains the necessary fields.
-* A `prelude` directory, which should be produced with `git submodule add https://github.com/facebookincubator/buck2-prelude.git prelude`
+* A `prelude` directory, which should be produced with `git submodule add https://github.com/facebook/buck2-prelude.git prelude`
 * A `toolchains` directory, which specifies where to find the relevant toolchains. We recommend copying from `examples/prelude` to start, but you may wish to use alternative toolchains.
 * Some `BUILD` files that specify the targets specific to your project.
 
