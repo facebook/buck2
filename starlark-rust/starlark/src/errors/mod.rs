@@ -270,19 +270,29 @@ impl Display for Diagnostic {
 // (https://github.com/rust-lang/annotate-snippets-rs)
 
 fn diagnostic_display(diagnostic: &Diagnostic, f: &mut Formatter<'_>) -> fmt::Result {
-    write!(f, "{}", &diagnostic.call_stack)?;
-    let annotation_label = format!("{:#}", diagnostic.message);
+    write!(f, "{}", diagnostic.call_stack)?;
+    let annotation_label = format!("{}", diagnostic.message);
     // I set color to false here to make the comparison easier with tests (coloring
     // adds in pretty strange unicode chars).
     let display_list = diagnostic.get_display_list(&annotation_label, false);
-    writeln!(f, "{}", display_list)
+    writeln!(f, "{}", display_list)?;
+    // Print out the `Caused by:` trace, if exists
+    if diagnostic.message.source().is_some() {
+        writeln!(f, "\n\n{:?}", diagnostic.message)?;
+    }
+
+    Ok(())
 }
 
 fn diagnostic_stderr(diagnostic: &Diagnostic) {
     eprint!("{}", diagnostic.call_stack);
-    let annotation_label = format!("{:#}", diagnostic.message);
+    let annotation_label = format!("{}", diagnostic.message);
     let display_list = diagnostic.get_display_list(&annotation_label, true);
     eprintln!("{}", display_list);
+    // Print out the `Caused by:` trace, if exists
+    if diagnostic.message.source().is_some() {
+        eprintln!("\n\n{:?}", diagnostic.message);
+    }
 }
 
 #[cfg(test)]
