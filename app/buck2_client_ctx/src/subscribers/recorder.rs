@@ -48,6 +48,7 @@ mod imp {
     use crate::subscribers::subscriber::EventSubscriber;
 
     pub struct InvocationRecorder {
+        command_name: &'static str,
         cli_args: Vec<String>,
         isolation_dir: String,
         start_time: Instant,
@@ -106,12 +107,19 @@ mod imp {
         pub fn new(
             async_cleanup_context: AsyncCleanupContext,
             scribe: ThriftScribeSink,
+            mut command_name: &'static str,
             sanitized_argv: Vec<String>,
             isolation_dir: String,
             build_count_manager: BuildCountManager,
             invocation_root_path: AbsNormPathBuf,
         ) -> Self {
+            // FIXME: Figure out if we can replace this. We used to log this this way in Ingress :/
+            if command_name == "uquery" {
+                command_name = "query";
+            }
+
             Self {
+                command_name,
                 cli_args: sanitized_argv,
                 isolation_dir,
                 start_time: Instant::now(),
@@ -210,6 +218,7 @@ mod imp {
                 }
 
                 let record = buck2_data::InvocationRecord {
+                    command_name: Some(self.command_name.to_owned()),
                     command_start: self.command_start.take(),
                     command_end: self.command_end.take(),
                     command_critical_start: self.command_critical_start.take(),
@@ -748,6 +757,7 @@ mod imp {
 
 pub(crate) fn try_get_invocation_recorder(
     ctx: &ClientCommandContext,
+    command_name: &'static str,
     sanitized_argv: Vec<String>,
     isolation_dir: String,
 ) -> anyhow::Result<Option<Box<dyn EventSubscriber>>> {
@@ -758,6 +768,7 @@ pub(crate) fn try_get_invocation_recorder(
             let recorder = imp::InvocationRecorder::new(
                 ctx.async_cleanup_context().dupe(),
                 sink,
+                command_name,
                 sanitized_argv,
                 isolation_dir,
                 BuildCountManager::new(ctx.paths()?.build_count_dir()),

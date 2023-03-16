@@ -65,6 +65,7 @@ fn default_subscribers<T: StreamingCommand>(
     }
     if let Some(recorder) = try_get_invocation_recorder(
         ctx,
+        T::COMMAND_NAME,
         cmd.sanitized_argv(),
         ctx.paths()?.isolation.as_str().to_owned(),
     )? {

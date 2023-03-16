@@ -1354,6 +1354,7 @@ message InvocationRecord {
   optional uint64 sink_max_buffer_depth = 54;
   // Version number of watchman
   optional string watchman_version = 55;
+  optional string command_name = 56;
 }
 
 message CacheUploadStart {
