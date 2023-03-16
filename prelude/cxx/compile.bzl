@@ -78,6 +78,8 @@ _HeadersDepFiles = record(
     # get it to emit the dep file. This will receive the output dep file as an
     # input.
     mk_flags = field("function"),
+    # Compiler type to determine which dep file processor to use.
+    compiler_type = field(str.type),
 )
 
 # Information about how to compile a source file of particular extension.
@@ -213,6 +215,7 @@ def create_compile_cmds(
                         processor = cmd_args(compiler_info.dep_files_processor),
                         mk_flags = mk_dep_files_flags,
                         tag = headers_tag,
+                        compiler_type = compiler_info.compiler_type,
                     )
 
             argsfile_by_ext[ext.value] = _mk_argsfile(ctx, compiler_info, pre, ext, headers_tag)
@@ -320,6 +323,7 @@ def compile_cxx(
             # command.
             cmd = cmd_args([
                 headers_dep_files.processor,
+                headers_dep_files.compiler_type,
                 intermediary_dep_file,
                 headers_dep_files.tag.tag_artifacts(dep_file),
                 cmd,
