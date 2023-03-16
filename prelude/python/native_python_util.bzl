@@ -171,12 +171,20 @@ def _write_syms_file(
         "set -euo pipefail; " +  # fail if any command in the script fails
         '"$NM" --no-sort --defined-only -j @"$OBJECTS" | sed "/:$/d;/^$/d" | sort -u'
     )
+
     if not suffix_all:
         script += ' | grep "^PyInit_"'
+
+    # Don't suffix asan symbols, as they shouldn't conflict, and suffixing
+    # prevents deduplicating all the module constructors, which can be really
+    # expensive to run.
+    script += ' | grep -v "^\\(__\\)\\?\\(a\\|t\\)san"'
+
     script += (
         ' | awk \'{{print $1" "$1"_{suffix}"}}\' > '.format(suffix = suffix) +
         '"$SYMSFILE";'
     )
+
     ctx.actions.run(
         [
             "/bin/bash",
@@ -187,6 +195,7 @@ def _write_syms_file(
         category = "write_syms_file",
         identifier = "{}_write_syms_file".format(symbols_file.basename),
     )
+
     return symbols_file
 
 def suffix_symbols(
