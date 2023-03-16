@@ -8,9 +8,7 @@
  */
 
 use std::future::Future;
-use std::str::FromStr;
 
-use anyhow::Context;
 use buck2_cli_proto::client_context::HostArchOverride as GrpcHostArchOverride;
 use buck2_cli_proto::client_context::HostPlatformOverride as GrpcHostPlatformOverride;
 use buck2_cli_proto::ClientContext;
@@ -69,6 +67,7 @@ pub struct ClientCommandContext {
     pub start_in_process_daemon: Option<Box<dyn FnOnce() -> anyhow::Result<()> + Send + Sync>>,
     pub command_name: String,
     pub sanitized_argv: Vec<String>,
+    pub trace_id: TraceId,
 }
 
 impl ClientCommandContext {
@@ -144,13 +143,6 @@ impl ClientCommandContext {
         #[error("Current directory is not UTF-8")]
         struct CurrentDirIsNotUtf8;
 
-        let trace_id = match std::env::var("BUCK_WRAPPER_UUID") {
-            Ok(uuid_str) => {
-                TraceId::from_str(&uuid_str).context("invalid trace ID in BUCK_WRAPPER_UUID")?
-            }
-            _ => TraceId::new(),
-        };
-
         let daemon_uuid = match std::env::var("BUCK2_DAEMON_UUID") {
             Ok(daemon_uuid) => Some(daemon_uuid),
             _ => None,
@@ -169,7 +161,7 @@ impl ClientCommandContext {
             host_arch: Default::default(),
             oncall: Default::default(),
             disable_starlark_types: false,
-            trace_id: format!("{}", trace_id),
+            trace_id: format!("{}", self.trace_id),
             reuse_current_config: false,
             daemon_uuid,
             sanitized_argv: Vec::new(),

@@ -21,6 +21,7 @@
 #![cfg_attr(feature = "gazebo_lint", allow(deprecated))] // :(
 #![cfg_attr(feature = "gazebo_lint", plugin(gazebo_lint))]
 
+use std::str::FromStr;
 use std::thread;
 
 use anyhow::Context as _;
@@ -62,6 +63,7 @@ use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::working_dir::WorkingDir;
 use buck2_core::logging::LogConfigurationReloadHandle;
 use buck2_event_observer::verbosity::Verbosity;
+use buck2_events::trace::TraceId;
 use buck2_starlark::StarlarkCommand;
 use clap::AppSettings;
 use clap::Parser;
@@ -352,6 +354,13 @@ impl CommandKind {
                 None
             };
 
+        let trace_id = match std::env::var("BUCK_WRAPPER_UUID") {
+            Ok(uuid_str) => {
+                TraceId::from_str(&uuid_str).context("invalid trace ID in BUCK_WRAPPER_UUID")?
+            }
+            _ => TraceId::new(),
+        };
+
         let command_ctx = ClientCommandContext {
             init,
             paths,
@@ -363,6 +372,7 @@ impl CommandKind {
             command_name: self.command_name(),
             working_dir,
             sanitized_argv: Vec::new(),
+            trace_id,
         };
 
         match self {
