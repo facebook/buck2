@@ -759,7 +759,6 @@ pub(crate) fn try_get_invocation_recorder(
     ctx: &ClientCommandContext,
     command_name: &'static str,
     sanitized_argv: Vec<String>,
-    isolation_dir: String,
 ) -> anyhow::Result<Option<Box<dyn EventSubscriber>>> {
     if ctx.replayer.is_none() {
         if let Some(sink) =
@@ -770,7 +769,7 @@ pub(crate) fn try_get_invocation_recorder(
                 sink,
                 command_name,
                 sanitized_argv,
-                isolation_dir,
+                ctx.paths()?.isolation.as_str().to_owned(),
                 BuildCountManager::new(ctx.paths()?.build_count_dir()),
                 ctx.paths()?.project_root().root().to_buf(),
             );
