@@ -231,7 +231,9 @@ def get_apk_module_graph_info(
         target_to_module_mapping[target] = module
 
     def target_to_module_mapping_function(raw_target: str.type) -> str.type:
-        return target_to_module_mapping.get(raw_target)
+        mapped_module = target_to_module_mapping.get(raw_target)
+        expect(mapped_module != None, "No module found for target {}!".format(raw_target))
+        return mapped_module
 
     def module_to_canary_class_name_function(voltron_module: str.type) -> str.type:
         return module_to_canary_class_name_map.get(voltron_module)
