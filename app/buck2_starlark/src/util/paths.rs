@@ -24,6 +24,7 @@ use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::package::PackageLabel;
 use buck2_interpreter::path::BxlFilePath;
 use buck2_interpreter::path::OwnedStarlarkPath;
+use buck2_interpreter::path::PackageFilePath;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use dupe::Dupe;
 use thiserror::Error;
@@ -100,6 +101,11 @@ async fn starlark_file(
                 )));
             } else if proj_path.as_str().ends_with(".bxl") {
                 files.push(OwnedStarlarkPath::BxlFile(BxlFilePath::new(cell_path)?));
+            } else if proj_path.ends_with(PackageFilePath::PACKAGE_FILE_NAME) {
+                // `parent` must return `Some` if we have a non-empty file, which we do because of above
+                files.push(OwnedStarlarkPath::PackageFile(PackageFilePath::for_dir(
+                    cell_path.parent().unwrap(),
+                )))
             } else if recursive.is_none() || proj_path.as_str().ends_with(".bzl") {
                 // If a file was asked for explicitly, and is nothing else, treat it as .bzl file
                 // If it's not explicit, just ignore it (probably a source file)
