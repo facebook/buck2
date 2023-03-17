@@ -24,16 +24,16 @@ export PATH=$HOME/.cargo/bin:$PATH
 
 Once it is installed, you can now build projects with `buck2`!
 
-In this section, we will go over building the [hello_world example project](https://github.com/facebookincubator/buck2/tree/main/examples/hello_world), which builds a simple C++ binary. If you are interested in seeing how other languages can be built, check the [prelude example project](https://github.com/facebookincubator/buck2/tree/main/examples/prelude) which contains Rust, C++, Python, and OCaml targets.
+In this section, we will go over building the [hello_world example project](https://github.com/facebook/buck2/tree/main/examples/hello_world), which builds a simple C++ binary. If you are interested in seeing how other languages can be built, check the [prelude example project](https://github.com/facebook/buck2/tree/main/examples/prelude) which contains Rust, C++, Python, and OCaml targets.
 
 First, clone the buck2 repository and cd into the hello_world project:
 
 ```
-$ git clone https://github.com/facebookincubator/buck2.git
+$ git clone https://github.com/facebook/buck2.git
 $ cd examples/hello_world
 ```
 
- `buck2 init` is all the setup you need to start building. This will pull in [buck2-prelude](https://github.com/facebookincubator/buck2-prelude) in to your project:
+ `buck2 init` is all the setup you need to start building. This will pull in [buck2-prelude](https://github.com/facebook/buck2-prelude) in to your project:
 
 ```
 $ buck2 init
@@ -84,7 +84,7 @@ $ cd hello_world
 ```
 
 
-Next, run `buck2 init` to initialize the project. This command will set up your project with `git` and pull in [buck2-prelude](https://github.com/facebookincubator/buck2-prelude) as a submodule. Additionally, it will generate multiple files with default values.
+Next, run `buck2 init` to initialize the project. This command will set up your project with `git` and pull in [buck2-prelude](https://github.com/facebook/buck2-prelude) as a submodule. Additionally, it will generate multiple files with default values.
 
 ```
 $ buck2 init
@@ -158,7 +158,7 @@ $ buck2 run //:main
 
 ## Learning More
 
-You should now be ready to explore Buck2 for use in your own projects. You can explore the [examples](https://github.com/facebookincubator/buck2/tree/main/examples) folder and look out for more tutorials in the future.
+You should now be ready to explore Buck2 for use in your own projects. You can explore the [examples](https://github.com/facebook/buck2/tree/main/examples) folder and look out for more tutorials in the future.
 
 
 <FbInternalOnly>

@@ -1,4 +1,4 @@
-# Buck2 [![CI](https://circleci.com/gh/facebook/buck2.svg?style=svg)](https://app.circleci.com/pipelines/github/facebookincubator/buck2)
+# Buck2 [![CI](https://circleci.com/gh/facebook/buck2.svg?style=svg)](https://app.circleci.com/pipelines/github/facebook/buck2)
 
 **WARNING:** This project is not yet polished. We are continuing to develop it in the open, but don't expect it to be suitable for most people until Mar/Apr/May 2023 (at which point we'll properly announce it). If you try and use it, you will probably have a bad time. If you are willing to work closely with us, please give it a go and [let us know](https://github.com/facebook/buck2/issues) what is blocking you.
 
