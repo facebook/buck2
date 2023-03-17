@@ -95,6 +95,8 @@ impl BuckOutScratchPath {
         identifier: Option<&str>,
     ) -> anyhow::Result<Self> {
         const MAKE_SENSIBLE_PREFIX: &str = "_buck_";
+        // Windows has MAX_PATH limit (260 chars).
+        const LENGTH_THRESHOLD: usize = 50;
 
         /// A path is sensible if it's going to produce a ForwardRelativePath that works and isn't too long.
         /// These are heuristics to make it more likely that paths that are not sensible are replaced, not guarantees.
@@ -104,7 +106,7 @@ impl BuckOutScratchPath {
                 return None;
             }
             // If things are too long they don't make good paths
-            if x.len() > 200 {
+            if x.len() > LENGTH_THRESHOLD {
                 return None;
             }
 
