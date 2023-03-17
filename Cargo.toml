@@ -183,7 +183,7 @@ sha2 = "0.10"
 shlex = "1.0"
 siphasher = "0.3.3"
 slog = "2.7.0"
-smallvec = "1.7"
+smallvec = { version = "1.10", features = ["const_generics", "const_new", "serde", "specialization", "union", "write"] }
 static_assertions = "1.1.0"
 strsim = "0.10.0"
 structopt = "0.3.0"
