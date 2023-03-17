@@ -12,6 +12,7 @@ pub mod copy;
 pub mod dep_files;
 pub mod download_file;
 mod expanded_command_line;
+pub mod json;
 pub mod run;
 pub mod run_action_knobs;
 pub mod symlinked_dir;

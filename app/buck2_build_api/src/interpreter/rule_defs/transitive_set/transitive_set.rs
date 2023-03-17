@@ -37,8 +37,8 @@ use starlark::values::Value;
 use starlark::values::ValueLike;
 use starlark::values::ValueOf;
 
-use crate::actions::impls::write_json::visit_json_artifacts;
-use crate::actions::impls::write_json::UnregisteredWriteJsonAction;
+use crate::actions::impls::json::validate_json;
+use crate::actions::impls::json::visit_json_artifacts;
 use crate::artifact_groups::deferred::TransitiveSetKey;
 use crate::artifact_groups::ArtifactGroup;
 use crate::artifact_groups::TransitiveSetProjectionKey;
@@ -386,7 +386,7 @@ impl<'v> TransitiveSet<'v> {
                             TransitiveSetArgsProjection::as_command_line(projected_value)?;
                         }
                         TransitiveSetProjectionKind::Json => {
-                            UnregisteredWriteJsonAction::validate(projected_value)?;
+                            validate_json(projected_value)?;
                         }
                     }
                     anyhow::Ok(projected_value)

@@ -20,6 +20,7 @@ use buck2_build_api::actions::impls::copy::CopyMode;
 use buck2_build_api::actions::impls::copy::UnregisteredCopyAction;
 use buck2_build_api::actions::impls::dep_files::RunActionDepFiles;
 use buck2_build_api::actions::impls::download_file::UnregisteredDownloadFileAction;
+use buck2_build_api::actions::impls::json::validate_json;
 use buck2_build_api::actions::impls::run::new_executor_preference;
 use buck2_build_api::actions::impls::run::MetadataParameter;
 use buck2_build_api::actions::impls::run::UnregisteredRunAction;
@@ -231,7 +232,7 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         let (declaration, output_artifact) =
             this.get_or_declare_output(eval, output, "output", OutputType::File)?;
 
-        UnregisteredWriteJsonAction::validate(content)?;
+        validate_json(content)?;
         this.register_action(
             IndexSet::new(),
             indexset![output_artifact],
