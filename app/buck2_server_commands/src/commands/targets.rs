@@ -905,7 +905,7 @@ async fn targets_streaming(
             dice.temporary_spawn(move |dice| async move {
                 let mut res = Res::default();
                 let (package, spec) = x?;
-                match load_package(&dice, package.dupe(), spec, cached).await {
+                match load_targets(&dice, package.dupe(), spec, cached).await {
                     Ok((eval_result, targets)) => {
                         res.stats.success += 1;
                         if imports {
@@ -1027,7 +1027,7 @@ fn stream_packages<T: PatternType>(
         .chain(find_package_roots_stream(dice, recursive_paths).map(|x| Ok((x?, PackageSpec::All))))
 }
 
-async fn load_package(
+async fn load_targets(
     dice: &DiceComputations,
     package: PackageLabel,
     spec: PackageSpec<TargetName>,
