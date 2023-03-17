@@ -188,8 +188,15 @@ def _cxx_toolchain_override_inheriting_target_platform_attrs(is_toolchain_rule):
         "use_archiver_flags": attrs.option(attrs.bool(), default = None),
     }
 
-registration_spec = RuleRegistrationSpec(
+cxx_toolchain_override_registration_spec = RuleRegistrationSpec(
     name = "cxx_toolchain_override",
     impl = _cxx_toolchain_override,
     attrs = _cxx_toolchain_override_inheriting_target_platform_attrs(is_toolchain_rule = False),
+)
+
+cxx_toolchain_override_inheriting_target_platform_registration_spec = RuleRegistrationSpec(
+    name = "cxx_toolchain_override_inheriting_target_platform",
+    impl = _cxx_toolchain_override,
+    attrs = _cxx_toolchain_override_inheriting_target_platform_attrs(is_toolchain_rule = True),
+    is_toolchain_rule = True,
 )

@@ -324,6 +324,12 @@ def _cxx_toolchain_macro_stub(inherit_target_platform = False, **kwargs):
     else:
         __rules__["cxx_toolchain"](**kwargs)
 
+def _cxx_toolchain_override_macro_stub(inherit_target_platform = False, **kwargs):
+    if inherit_target_platform:
+        _user_rules["cxx_toolchain_override_inheriting_target_platform"](**kwargs)
+    else:
+        _user_rules["cxx_toolchain_override"](**kwargs)
+
 def _erlang_application_macro_stub(**kwargs):
     _erlang_application(
         erlang_app_rule = __rules__["erlang_app"],
@@ -352,6 +358,7 @@ __extra_rules__ = {
     "apple_watchos_bundle": _apple_watchos_bundle_macro_stub,
     "configured_alias": _configured_alias_macro_stub,
     "cxx_toolchain": _cxx_toolchain_macro_stub,
+    "cxx_toolchain_override": _cxx_toolchain_override_macro_stub,
     "erlang_application": _erlang_application_macro_stub,
     "erlang_tests": _erlang_tests_macro_stub,
     "export_file": _export_file_macro_stub,
