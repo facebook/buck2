@@ -52,6 +52,7 @@ fn init_logging(_fb: FacebookInit) -> anyhow::Result<Box<dyn LogConfigurationRel
 
     #[cfg(fbcode_build)]
     {
+        use buck2_client_ctx::subscribers::should_upload_log;
         use buck2_events::sink::scribe;
         use gflags::GflagValue;
 
@@ -71,6 +72,10 @@ fn init_logging(_fb: FacebookInit) -> anyhow::Result<Box<dyn LogConfigurationRel
         if let Ok("0") = std::env::var("BUCK2_ENABLE_SCRIBE").as_deref() {
             scribe::disable();
             std::env::remove_var("BUCK2_ENABLE_SCRIBE");
+        }
+
+        if !should_upload_log()? {
+            scribe::disable();
         }
     }
 
