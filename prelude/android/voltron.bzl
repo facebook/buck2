@@ -41,6 +41,12 @@ load("@prelude//utils:utils.bzl", "expect", "flatten")
 # There is also an `android_app_modularity` rule that just prints out details of the Voltron
 # module graph and is used for any subsequent verification.
 def android_app_modularity_impl(ctx: "context") -> ["provider"]:
+    if ctx.attrs._build_only_native_code:
+        return [
+            # Add an unused default output in case this target is used as an attr.source() anywhere.
+            DefaultInfo(default_output = ctx.actions.write("{}/unused.txt".format(ctx.label.name), [])),
+        ]
+
     all_deps = ctx.attrs.deps + flatten(ctx.attrs.application_module_configs.values())
     android_packageable_info = merge_android_packageable_info(ctx.label, ctx.actions, all_deps)
 

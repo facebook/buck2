@@ -112,6 +112,7 @@ extra_attributes = {
     },
     "android_app_modularity": {
         "_android_toolchain": android_toolchain(),
+        "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
     },
     "android_binary": {
         "aapt_mode": attrs.enum(AaptMode, default = "aapt1"),  # Match default in V1
