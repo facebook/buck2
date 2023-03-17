@@ -16,6 +16,7 @@ use std::sync::Arc;
 use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_core::directory::DirectoryEntry;
+use buck2_core::fs::fs_util;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_execute::directory::ActionDirectoryMember;
 use buck2_execute::materialize::materializer::DeferredMaterializerEntry;
@@ -120,6 +121,44 @@ impl ExtensionCommand<DefaultIoHandler> for Iterate {
             match self.sender.send((path, Box::new(path_data) as _)) {
                 Ok(..) => {}
                 Err(..) => break, // No use sending more if the client disconnected.
+            }
+        }
+    }
+}
+
+#[derive(Derivative)]
+#[derivative(Debug)]
+struct Fsck {
+    /// This is for debug commands so we use an unbounded channel to avoid locking up the
+    /// materializer command thread.
+    #[derivative(Debug = "ignore")]
+    sender: UnboundedSender<(ProjectRelativePathBuf, anyhow::Error)>,
+}
+
+impl ExtensionCommand<DefaultIoHandler> for Fsck {
+    fn execute(
+        self: Box<Self>,
+        processor: &mut DeferredMaterializerCommandProcessor<DefaultIoHandler>,
+    ) {
+        for (path, data) in processor.tree.iter_with_paths() {
+            match &data.stage {
+                ArtifactMaterializationStage::Declared { .. } => {
+                    continue;
+                }
+                ArtifactMaterializationStage::Materialized { .. } => {}
+            };
+
+            // We actually block the thread here. This is to ensure we don't try to delete things
+            // when we check them. This is primarily a debug command. We don't run this while
+            // actual things are in flight.
+
+            let path = ProjectRelativePathBuf::from(path);
+            let res = fs_util::symlink_metadata(processor.io.fs.resolve(&path));
+            match res {
+                Ok(..) => {}
+                Err(e) => {
+                    let _ignored = self.sender.send((path, e));
+                }
             }
         }
     }
@@ -247,6 +286,14 @@ impl DeferredMaterializerExtensions for DeferredMaterializer {
         let (sender, receiver) = mpsc::unbounded_channel();
         self.command_sender.send(MaterializerCommand::Extension(
             Box::new(Iterate { sender }) as _
+        ))?;
+        Ok(UnboundedReceiverStream::new(receiver).boxed())
+    }
+
+    fn fsck(&self) -> anyhow::Result<BoxStream<'static, (ProjectRelativePathBuf, anyhow::Error)>> {
+        let (sender, receiver) = mpsc::unbounded_channel();
+        self.command_sender.send(MaterializerCommand::Extension(
+            Box::new(Fsck { sender }) as _
         ))?;
         Ok(UnboundedReceiverStream::new(receiver).boxed())
     }

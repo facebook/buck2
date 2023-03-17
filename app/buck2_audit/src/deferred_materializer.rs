@@ -35,6 +35,7 @@ pub struct DeferredMaterializerCommand {
 #[derive(Debug, clap::Subcommand, serde::Serialize, serde::Deserialize)]
 pub enum DeferredMaterializerSubcommand {
     List,
+    Fsck,
     Refresh {
         /// Minimum TTL to require for actions.
         #[clap()]
@@ -72,6 +73,21 @@ impl AuditSubcommand for DeferredMaterializerCommand {
                 while let Some((path, entry)) = stream.next().await {
                     writeln!(stdout, "{}\t{}", path, entry)?;
                 }
+            }
+            DeferredMaterializerSubcommand::Fsck => {
+                let mut stream = deferred_materializer
+                    .fsck()
+                    .context("Failed to start iterating")?;
+
+                let mut n = 0;
+
+                while let Some((path, error)) = stream.next().await {
+                    n += 1;
+                    writeln!(stdout, "{}\t{:#}", path, error)?;
+                }
+
+                let mut stderr = server_ctx.stderr()?;
+                writeln!(&mut stderr, "total errors: {}", n)?;
             }
             DeferredMaterializerSubcommand::Refresh { min_ttl } => {
                 deferred_materializer

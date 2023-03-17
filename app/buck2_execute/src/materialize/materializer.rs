@@ -643,6 +643,10 @@ pub trait DeferredMaterializerExtensions: Send + Sync {
         BoxStream<'static, (ProjectRelativePathBuf, Box<dyn DeferredMaterializerEntry>)>,
     >;
 
+    /// Obtain a list of files that don't match their in-memory representation. This may not catch
+    /// all discrepancies.
+    fn fsck(&self) -> anyhow::Result<BoxStream<'static, (ProjectRelativePathBuf, anyhow::Error)>>;
+
     async fn refresh_ttls(&self, min_ttl: i64) -> anyhow::Result<()>;
 
     async fn get_ttl_refresh_log(&self) -> anyhow::Result<String>;
