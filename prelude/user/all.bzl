@@ -10,6 +10,7 @@ load("@prelude//apple/user:apple_toolchain_override.bzl", _apple_toolchain_overr
 load("@prelude//apple/user:apple_tools.bzl", _apple_tools_spec = "registration_spec")
 load("@prelude//apple/user:apple_watchos_bundle.bzl", _apple_watchos_bundle_spec = "registration_spec")
 load("@prelude//apple/user:resource_group_map.bzl", _resource_group_map_spec = "registration_spec")
+load("@prelude//cxx/user:cxx_toolchain_override.bzl", _cxx_toolchain_override_spec = "registration_spec")
 load("@prelude//cxx/user:link_group_map.bzl", _link_group_map_spec = "registration_spec")
 load(":extract_archive.bzl", _extract_archive_spec = "registration_spec")
 
@@ -21,6 +22,7 @@ _all_specs = [
     _resource_group_map_spec,
     _apple_watchos_bundle_spec,
     _apple_toolchain_override_spec,
+    _cxx_toolchain_override_spec,
 ]
 
 rules = {s.name: rule(impl = s.impl, attrs = s.attrs, is_toolchain_rule = s.is_toolchain_rule, **{k: v for k, v in {"cfg": s.cfg}.items() if v != None}) for s in _all_specs}
