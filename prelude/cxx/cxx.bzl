@@ -6,6 +6,10 @@
 # of this source tree.
 
 load(
+    "@prelude//android:android_providers.bzl",
+    "merge_android_packageable_info",
+)
+load(
     "@prelude//cxx:link_groups.bzl",
     "LinkGroupInfo",  # @unused Used as a type
 )
@@ -551,6 +555,9 @@ def prebuilt_cxx_library_impl(ctx: "context") -> ["provider"]:
             deps = first_order_deps + exported_first_order_deps,
         ),
     )
+
+    # TODO(T107163344) this shouldn't be in prebuilt_cxx_library itself, use overlays to remove it.
+    providers.append(merge_android_packageable_info(ctx.label, ctx.actions, first_order_deps + exported_first_order_deps))
 
     return providers
 
