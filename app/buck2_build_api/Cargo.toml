@@ -10,7 +10,6 @@ anyhow = { workspace = true }
 async-recursion = { workspace = true }
 async-trait = { workspace = true }
 blake3 = { workspace = true }
-chrono = { workspace = true }
 derive_more = { workspace = true }
 derivative = { workspace = true }
 hashbrown = { workspace = true }
@@ -38,11 +37,9 @@ tokio-stream = { workspace = true }
 glob = { workspace = true }
 indexmap = { workspace = true }
 either = { workspace = true }
-reqwest = { workspace = true }
 smallvec = { workspace = true }
 assert_matches = { workspace = true }
 crossbeam-epoch = { workspace = true }
-http = { workspace = true }
 parking_lot = { workspace = true }
 fnv = { workspace = true }
 
@@ -54,9 +51,7 @@ dupe = { workspace = true }
 gazebo_lint.version = "0.1"
 gazebo_lint.optional = true
 # @oss-disable: gazebo_lint.path = "../../gazebo_lint/gazebo_lint"
-host_sharing = { workspace = true }
 more_futures = { workspace = true }
-remote_execution = { workspace = true }
 sorted_vector_map = { workspace = true }
 starlark = { workspace = true }
 starlark_map = { workspace = true }

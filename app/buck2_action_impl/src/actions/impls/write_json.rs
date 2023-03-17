@@ -17,6 +17,24 @@ use std::time::Instant;
 use allocative::Allocative;
 use anyhow::Context as _;
 use async_trait::async_trait;
+use buck2_build_api::actions::artifact::build_artifact::BuildArtifact;
+use buck2_build_api::actions::execute::action_executor::ActionExecutionKind;
+use buck2_build_api::actions::execute::action_executor::ActionExecutionMetadata;
+use buck2_build_api::actions::execute::action_executor::ActionOutputs;
+use buck2_build_api::actions::impls::json;
+use buck2_build_api::actions::impls::json::validate_json;
+use buck2_build_api::actions::Action;
+use buck2_build_api::actions::ActionExecutable;
+use buck2_build_api::actions::ActionExecutionCtx;
+use buck2_build_api::actions::IncrementalActionExecutable;
+use buck2_build_api::actions::UnregisteredAction;
+use buck2_build_api::artifact_groups::ArtifactGroup;
+use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
+use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
+use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineBuilder;
+use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineContext;
+use buck2_build_api::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
+use buck2_build_api::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 use buck2_core::category::Category;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
@@ -28,6 +46,8 @@ use indexmap::IndexSet;
 use once_cell::sync::Lazy;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
+use starlark::starlark_complex_value;
+use starlark::starlark_type;
 use starlark::values::Demand;
 use starlark::values::Freeze;
 use starlark::values::NoSerialize;
@@ -37,25 +57,6 @@ use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueLike;
 use thiserror::Error;
-
-use crate::actions::artifact::build_artifact::BuildArtifact;
-use crate::actions::execute::action_executor::ActionExecutionKind;
-use crate::actions::execute::action_executor::ActionExecutionMetadata;
-use crate::actions::execute::action_executor::ActionOutputs;
-use crate::actions::impls::json;
-use crate::actions::impls::json::validate_json;
-use crate::actions::Action;
-use crate::actions::ActionExecutable;
-use crate::actions::ActionExecutionCtx;
-use crate::actions::IncrementalActionExecutable;
-use crate::actions::UnregisteredAction;
-use crate::artifact_groups::ArtifactGroup;
-use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
-use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
-use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
-use crate::interpreter::rule_defs::cmd_args::CommandLineContext;
-use crate::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
-use crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 
 #[derive(Debug, Error)]
 enum WriteJsonActionValidationError {
@@ -68,14 +69,14 @@ enum WriteJsonActionValidationError {
 }
 
 #[derive(Allocative)]
-pub struct UnregisteredWriteJsonAction;
+pub(crate) struct UnregisteredWriteJsonAction;
 
 impl UnregisteredWriteJsonAction {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self
     }
 
-    pub fn cli<'v>(
+    pub(crate) fn cli<'v>(
         artifact: Value<'v>,
         content: Value<'v>,
     ) -> anyhow::Result<WriteJsonCommandLineArg<'v>> {
@@ -225,7 +226,7 @@ impl IncrementalActionExecutable for WriteJsonAction {
 #[derive(Debug, Clone, Trace, Coerce, Freeze, ProvidesStaticType, Allocative)]
 #[derive(NoSerialize)] // TODO we should probably have a serialization for transitive set
 #[repr(C)]
-pub struct WriteJsonCommandLineArgGen<V> {
+pub(crate) struct WriteJsonCommandLineArgGen<V> {
     artifact: V,
     // The list of artifacts here could be large and we don't want to hold those explicitly (due to
     // the memory cost) and so we hold the same content value that the write_json action itself will and
@@ -239,7 +240,7 @@ impl<'v, V: ValueLike<'v>> fmt::Display for WriteJsonCommandLineArgGen<V> {
     }
 }
 
-starlark_complex_value!(pub WriteJsonCommandLineArg);
+starlark_complex_value!(pub(crate) WriteJsonCommandLineArg);
 
 impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for WriteJsonCommandLineArgGen<V>
 where

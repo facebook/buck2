@@ -13,21 +13,8 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use buck2_build_api::actions::artifact::artifact_type::OutputArtifact;
-use buck2_build_api::actions::impls::cas_artifact::ArtifactKind;
-use buck2_build_api::actions::impls::cas_artifact::DirectoryKind;
-use buck2_build_api::actions::impls::cas_artifact::UnregisteredCasArtifactAction;
-use buck2_build_api::actions::impls::copy::CopyMode;
-use buck2_build_api::actions::impls::copy::UnregisteredCopyAction;
 use buck2_build_api::actions::impls::dep_files::RunActionDepFiles;
-use buck2_build_api::actions::impls::download_file::UnregisteredDownloadFileAction;
 use buck2_build_api::actions::impls::json::validate_json;
-use buck2_build_api::actions::impls::run::new_executor_preference;
-use buck2_build_api::actions::impls::run::MetadataParameter;
-use buck2_build_api::actions::impls::run::UnregisteredRunAction;
-use buck2_build_api::actions::impls::symlinked_dir::UnregisteredSymlinkedDirAction;
-use buck2_build_api::actions::impls::write::UnregisteredWriteAction;
-use buck2_build_api::actions::impls::write_json::UnregisteredWriteJsonAction;
-use buck2_build_api::actions::impls::write_macros::UnregisteredWriteMacrosToFileAction;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::attrs::resolve::attr_type::arg::value::ResolvedMacro;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
@@ -79,6 +66,20 @@ use starlark::values::ValueOf;
 use starlark::values::ValueTyped;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
+
+use crate::actions::impls::cas_artifact::ArtifactKind;
+use crate::actions::impls::cas_artifact::DirectoryKind;
+use crate::actions::impls::cas_artifact::UnregisteredCasArtifactAction;
+use crate::actions::impls::copy::CopyMode;
+use crate::actions::impls::copy::UnregisteredCopyAction;
+use crate::actions::impls::download_file::UnregisteredDownloadFileAction;
+use crate::actions::impls::run::new_executor_preference;
+use crate::actions::impls::run::MetadataParameter;
+use crate::actions::impls::run::UnregisteredRunAction;
+use crate::actions::impls::symlinked_dir::UnregisteredSymlinkedDirAction;
+use crate::actions::impls::write::UnregisteredWriteAction;
+use crate::actions::impls::write_json::UnregisteredWriteJsonAction;
+use crate::actions::impls::write_macros::UnregisteredWriteMacrosToFileAction;
 
 #[derive(thiserror::Error, Debug)]
 enum DownloadFileError {

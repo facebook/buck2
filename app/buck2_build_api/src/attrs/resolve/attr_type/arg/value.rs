@@ -207,7 +207,7 @@ impl ResolvedMacro {
         }
     }
 
-    pub(crate) fn add_to_arg(
+    pub fn add_to_arg(
         &self,
         builder: &mut dyn ArgBuilder,
         ctx: &mut dyn CommandLineContext,

@@ -12,6 +12,29 @@ use std::fmt::Display;
 
 use allocative::Allocative;
 use async_trait::async_trait;
+use buck2_build_api::actions::artifact::build_artifact::BuildArtifact;
+use buck2_build_api::actions::box_slice_set::BoxSliceSet;
+use buck2_build_api::actions::execute::action_executor::ActionExecutionKind;
+use buck2_build_api::actions::execute::action_executor::ActionExecutionMetadata;
+use buck2_build_api::actions::execute::action_executor::ActionOutputs;
+use buck2_build_api::actions::impls::dep_files::match_or_clear_dep_file;
+use buck2_build_api::actions::impls::dep_files::populate_dep_files;
+use buck2_build_api::actions::impls::dep_files::DepFilesCommandLineVisitor;
+use buck2_build_api::actions::impls::dep_files::DepFilesKey;
+use buck2_build_api::actions::impls::dep_files::RunActionDepFiles;
+use buck2_build_api::actions::impls::expanded_command_line::ExpandedCommandLine;
+use buck2_build_api::actions::Action;
+use buck2_build_api::actions::ActionExecutable;
+use buck2_build_api::actions::ActionExecutionCtx;
+use buck2_build_api::actions::IncrementalActionExecutable;
+use buck2_build_api::actions::UnregisteredAction;
+use buck2_build_api::artifact_groups::ArtifactGroup;
+use buck2_build_api::artifact_groups::ArtifactGroupValues;
+use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
+use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
+use buck2_build_api::interpreter::rule_defs::cmd_args::DefaultCommandLineContext;
+use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
+use buck2_build_api::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
 use buck2_core::category::Category;
 use buck2_core::fs::buck_out_path::BuckOutPath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
@@ -37,30 +60,7 @@ use starlark::values::tuple::TupleRef;
 use starlark::values::OwnedFrozenValue;
 use thiserror::Error;
 
-use crate::actions::artifact::build_artifact::BuildArtifact;
-use crate::actions::box_slice_set::BoxSliceSet;
-use crate::actions::execute::action_executor::ActionExecutionKind;
-use crate::actions::execute::action_executor::ActionExecutionMetadata;
-use crate::actions::execute::action_executor::ActionOutputs;
-use crate::actions::impls::dep_files::match_or_clear_dep_file;
-use crate::actions::impls::dep_files::populate_dep_files;
-use crate::actions::impls::dep_files::DepFilesCommandLineVisitor;
-use crate::actions::impls::dep_files::DepFilesKey;
-use crate::actions::impls::dep_files::RunActionDepFiles;
-use crate::actions::impls::expanded_command_line::ExpandedCommandLine;
 use crate::actions::impls::run::metadata::metadata_content;
-use crate::actions::Action;
-use crate::actions::ActionExecutable;
-use crate::actions::ActionExecutionCtx;
-use crate::actions::IncrementalActionExecutable;
-use crate::actions::UnregisteredAction;
-use crate::artifact_groups::ArtifactGroup;
-use crate::artifact_groups::ArtifactGroupValues;
-use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
-use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
-use crate::interpreter::rule_defs::cmd_args::DefaultCommandLineContext;
-use crate::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
-use crate::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
 
 mod metadata;
 
@@ -71,12 +71,12 @@ enum RunActionValidationError {
 }
 
 #[derive(Debug, Allocative)]
-pub struct MetadataParameter {
+pub(crate) struct MetadataParameter {
     /// Name of the environment variable which is set to contain
     /// resolved path of the metadata file when requested by user.
-    pub env_var: String,
+    pub(crate) env_var: String,
     /// User-defined path in the output directory of the metadata file.
-    pub path: ForwardRelativePathBuf,
+    pub(crate) path: ForwardRelativePathBuf,
 }
 
 impl Display for MetadataParameter {
@@ -95,7 +95,7 @@ enum LocalPreferenceError {
     LocalOnlyAndPreferLocal,
 }
 
-pub fn new_executor_preference(
+pub(crate) fn new_executor_preference(
     local_only: bool,
     prefer_local: bool,
 ) -> anyhow::Result<ExecutorPreference> {
@@ -110,17 +110,17 @@ pub fn new_executor_preference(
 }
 
 #[derive(Debug, Allocative)]
-pub struct UnregisteredRunAction {
-    pub category: Category,
-    pub identifier: Option<String>,
-    pub executor_preference: ExecutorPreference,
-    pub always_print_stderr: bool,
-    pub weight: WeightClass,
-    pub dep_files: RunActionDepFiles,
-    pub metadata_param: Option<MetadataParameter>,
-    pub no_outputs_cleanup: bool,
-    pub allow_cache_upload: bool,
-    pub force_full_hybrid_if_capable: bool,
+pub(crate) struct UnregisteredRunAction {
+    pub(crate) category: Category,
+    pub(crate) identifier: Option<String>,
+    pub(crate) executor_preference: ExecutorPreference,
+    pub(crate) always_print_stderr: bool,
+    pub(crate) weight: WeightClass,
+    pub(crate) dep_files: RunActionDepFiles,
+    pub(crate) metadata_param: Option<MetadataParameter>,
+    pub(crate) no_outputs_cleanup: bool,
+    pub(crate) allow_cache_upload: bool,
+    pub(crate) force_full_hybrid_if_capable: bool,
 }
 
 impl UnregisteredAction for UnregisteredRunAction {

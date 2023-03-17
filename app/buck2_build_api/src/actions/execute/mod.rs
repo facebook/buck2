@@ -8,5 +8,5 @@
  */
 
 pub(crate) mod action_execution_target;
-pub(crate) mod action_executor;
+pub mod action_executor;
 pub(crate) mod error;

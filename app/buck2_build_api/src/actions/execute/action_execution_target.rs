@@ -31,7 +31,7 @@ impl<'a> ActionExecutionTarget<'a> {
         Self { action }
     }
 
-    pub(crate) fn owner(&self) -> &'a BaseDeferredKey {
+    pub fn owner(&self) -> &'a BaseDeferredKey {
         self.action.owner()
     }
 
@@ -43,7 +43,7 @@ impl<'a> ActionExecutionTarget<'a> {
         self.action.identifier()
     }
 
-    pub(crate) fn custom_tmpdir(&self) -> BuckOutScratchPath {
+    pub fn custom_tmpdir(&self) -> BuckOutScratchPath {
         BuckOutScratchPath::new(
             self.action.owner().dupe().into_dyn(),
             self.action.category(),

@@ -13,6 +13,16 @@ use std::sync::Arc;
 use allocative::Allocative;
 use anyhow::Context as _;
 use async_trait::async_trait;
+use buck2_build_api::actions::artifact::build_artifact::BuildArtifact;
+use buck2_build_api::actions::execute::action_executor::ActionExecutionKind;
+use buck2_build_api::actions::execute::action_executor::ActionExecutionMetadata;
+use buck2_build_api::actions::execute::action_executor::ActionOutputs;
+use buck2_build_api::actions::Action;
+use buck2_build_api::actions::ActionExecutable;
+use buck2_build_api::actions::ActionExecutionCtx;
+use buck2_build_api::actions::IncrementalActionExecutable;
+use buck2_build_api::actions::UnregisteredAction;
+use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_common::cas_digest::RawDigest;
 use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::FileMetadata;
@@ -33,17 +43,6 @@ use once_cell::sync::Lazy;
 use starlark::values::OwnedFrozenValue;
 use thiserror::Error;
 
-use crate::actions::artifact::build_artifact::BuildArtifact;
-use crate::actions::execute::action_executor::ActionExecutionKind;
-use crate::actions::execute::action_executor::ActionExecutionMetadata;
-use crate::actions::execute::action_executor::ActionOutputs;
-use crate::actions::Action;
-use crate::actions::ActionExecutable;
-use crate::actions::ActionExecutionCtx;
-use crate::actions::IncrementalActionExecutable;
-use crate::actions::UnregisteredAction;
-use crate::artifact_groups::ArtifactGroup;
-
 #[derive(Debug, Error)]
 enum DownloadFileActionError {
     #[error("download file action should not have inputs, got {0}")]
@@ -55,7 +54,7 @@ enum DownloadFileActionError {
 }
 
 #[derive(Debug, Allocative)]
-pub struct UnregisteredDownloadFileAction {
+pub(crate) struct UnregisteredDownloadFileAction {
     checksum: Checksum,
     url: Arc<str>,
     is_executable: bool,
@@ -63,7 +62,7 @@ pub struct UnregisteredDownloadFileAction {
 }
 
 impl UnregisteredDownloadFileAction {
-    pub fn new(
+    pub(crate) fn new(
         checksum: Checksum,
         url: Arc<str>,
         is_executable: bool,

@@ -12,6 +12,17 @@ use std::borrow::Cow;
 use allocative::Allocative;
 use anyhow::Context as _;
 use async_trait::async_trait;
+use buck2_build_api::actions::artifact::build_artifact::BuildArtifact;
+use buck2_build_api::actions::box_slice_set::BoxSliceSet;
+use buck2_build_api::actions::execute::action_executor::ActionExecutionKind;
+use buck2_build_api::actions::execute::action_executor::ActionExecutionMetadata;
+use buck2_build_api::actions::execute::action_executor::ActionOutputs;
+use buck2_build_api::actions::Action;
+use buck2_build_api::actions::ActionExecutable;
+use buck2_build_api::actions::ActionExecutionCtx;
+use buck2_build_api::actions::IncrementalActionExecutable;
+use buck2_build_api::actions::UnregisteredAction;
+use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_core::category::Category;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::artifact_utils::ArtifactValueBuilder;
@@ -24,18 +35,6 @@ use once_cell::sync::Lazy;
 use starlark::values::OwnedFrozenValue;
 use thiserror::Error;
 
-use crate::actions::artifact::build_artifact::BuildArtifact;
-use crate::actions::box_slice_set::BoxSliceSet;
-use crate::actions::execute::action_executor::ActionExecutionKind;
-use crate::actions::execute::action_executor::ActionExecutionMetadata;
-use crate::actions::execute::action_executor::ActionOutputs;
-use crate::actions::Action;
-use crate::actions::ActionExecutable;
-use crate::actions::ActionExecutionCtx;
-use crate::actions::IncrementalActionExecutable;
-use crate::actions::UnregisteredAction;
-use crate::artifact_groups::ArtifactGroup;
-
 #[derive(Debug, Error)]
 enum CopyActionValidationError {
     #[error("Exactly one input file must be specified for a copy action, got {0}")]
@@ -47,18 +46,18 @@ enum CopyActionValidationError {
 }
 
 #[derive(Debug, Allocative)]
-pub enum CopyMode {
+pub(crate) enum CopyMode {
     Copy,
     Symlink,
 }
 
 #[derive(Allocative)]
-pub struct UnregisteredCopyAction {
+pub(crate) struct UnregisteredCopyAction {
     copy: CopyMode,
 }
 
 impl UnregisteredCopyAction {
-    pub fn new(copy: CopyMode) -> Self {
+    pub(crate) fn new(copy: CopyMode) -> Self {
         Self { copy }
     }
 }

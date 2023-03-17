@@ -14,6 +14,19 @@ use std::time::Instant;
 use allocative::Allocative;
 use anyhow::Context as _;
 use async_trait::async_trait;
+use buck2_build_api::actions::artifact::artifact_type::Artifact;
+use buck2_build_api::actions::artifact::build_artifact::BuildArtifact;
+use buck2_build_api::actions::execute::action_executor::ActionExecutionKind;
+use buck2_build_api::actions::execute::action_executor::ActionExecutionMetadata;
+use buck2_build_api::actions::execute::action_executor::ActionOutputs;
+use buck2_build_api::actions::Action;
+use buck2_build_api::actions::ActionExecutable;
+use buck2_build_api::actions::ActionExecutionCtx;
+use buck2_build_api::actions::IncrementalActionExecutable;
+use buck2_build_api::actions::UnregisteredAction;
+use buck2_build_api::artifact_groups::ArtifactGroup;
+use buck2_build_api::interpreter::rule_defs::cmd_args::DefaultCommandLineContext;
+use buck2_build_api::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
 use buck2_core::category::Category;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
@@ -25,20 +38,6 @@ use indexmap::IndexSet;
 use once_cell::sync::Lazy;
 use starlark::values::OwnedFrozenValue;
 use thiserror::Error;
-
-use crate::actions::artifact::artifact_type::Artifact;
-use crate::actions::artifact::build_artifact::BuildArtifact;
-use crate::actions::execute::action_executor::ActionExecutionKind;
-use crate::actions::execute::action_executor::ActionExecutionMetadata;
-use crate::actions::execute::action_executor::ActionOutputs;
-use crate::actions::Action;
-use crate::actions::ActionExecutable;
-use crate::actions::ActionExecutionCtx;
-use crate::actions::IncrementalActionExecutable;
-use crate::actions::UnregisteredAction;
-use crate::artifact_groups::ArtifactGroup;
-use crate::interpreter::rule_defs::cmd_args::DefaultCommandLineContext;
-use crate::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
 
 #[derive(Debug, Error)]
 enum WriteActionValidationError {
@@ -53,13 +52,13 @@ enum WriteActionValidationError {
 }
 
 #[derive(Allocative)]
-pub struct UnregisteredWriteAction {
+pub(crate) struct UnregisteredWriteAction {
     is_executable: bool,
     macro_files: Option<IndexSet<Artifact>>,
 }
 
 impl UnregisteredWriteAction {
-    pub fn new(is_executable: bool, macro_files: Option<IndexSet<Artifact>>) -> Self {
+    pub(crate) fn new(is_executable: bool, macro_files: Option<IndexSet<Artifact>>) -> Self {
         Self {
             is_executable,
             macro_files,

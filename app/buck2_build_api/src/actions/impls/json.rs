@@ -246,16 +246,12 @@ pub fn validate_json(x: Value) -> anyhow::Result<()> {
     write_json(x, None, &mut sink())
 }
 
-pub(crate) fn write_json(
-    x: Value,
-    fs: Option<&ExecutorFs>,
-    writer: impl Write,
-) -> anyhow::Result<()> {
+pub fn write_json(x: Value, fs: Option<&ExecutorFs>, writer: impl Write) -> anyhow::Result<()> {
     serde_json::ser::to_writer(writer, &SerializeValue { value: x, fs })
         .context("Error converting to JSON for `write_json`")
 }
 
-pub(crate) fn visit_json_artifacts(
+pub fn visit_json_artifacts(
     v: Value,
     visitor: &mut dyn CommandLineArtifactVisitor,
 ) -> anyhow::Result<()> {

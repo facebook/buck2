@@ -11,9 +11,9 @@ use allocative::Allocative;
 use sorted_vector_map::SortedVectorMap;
 
 /// A command line's expansion, suitable to actually run it.
-pub(crate) struct ExpandedCommandLine {
-    pub(crate) cli: Vec<String>,
-    pub(crate) env: SortedVectorMap<String, String>,
+pub struct ExpandedCommandLine {
+    pub cli: Vec<String>,
+    pub env: SortedVectorMap<String, String>,
 }
 
 /// The digest of an ExpandedCommandLine.

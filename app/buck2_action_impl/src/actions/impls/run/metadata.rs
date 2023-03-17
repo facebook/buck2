@@ -9,6 +9,7 @@
 
 use std::fmt::Display;
 
+use buck2_build_api::artifact_groups::ArtifactGroupValues;
 use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::directory::Directory;
@@ -21,8 +22,6 @@ use buck2_execute::directory::ActionDirectoryBuilder;
 use buck2_execute::directory::ActionDirectoryMember;
 use serde::Serialize;
 use serde::Serializer;
-
-use crate::artifact_groups::ArtifactGroupValues;
 
 fn stringify<T, S>(value: &T, serializer: S) -> Result<S::Ok, S::Error>
 where

@@ -7,13 +7,4 @@
  * of this source tree.
  */
 
-#![feature(try_blocks)]
-
-pub(crate) mod actions;
-mod context;
-
-/// This crate has `#[ctor]` and no public members.
-///
-/// Reference this symbol from `cli` crate so linter would not complain about unused dependency
-/// and linker won't erase this dependency on macOS.
-pub fn this_crate_is_used() {}
+pub(crate) mod impls;

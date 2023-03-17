@@ -14,6 +14,16 @@ use std::sync::Arc;
 use allocative::Allocative;
 use anyhow::Context as _;
 use async_trait::async_trait;
+use buck2_build_api::actions::artifact::build_artifact::BuildArtifact;
+use buck2_build_api::actions::execute::action_executor::ActionExecutionKind;
+use buck2_build_api::actions::execute::action_executor::ActionExecutionMetadata;
+use buck2_build_api::actions::execute::action_executor::ActionOutputs;
+use buck2_build_api::actions::Action;
+use buck2_build_api::actions::ActionExecutable;
+use buck2_build_api::actions::ActionExecutionCtx;
+use buck2_build_api::actions::IncrementalActionExecutable;
+use buck2_build_api::actions::UnregisteredAction;
+use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::FileMetadata;
@@ -36,17 +46,6 @@ use once_cell::sync::Lazy;
 use remote_execution as RE;
 use starlark::values::OwnedFrozenValue;
 use thiserror::Error;
-
-use crate::actions::artifact::build_artifact::BuildArtifact;
-use crate::actions::execute::action_executor::ActionExecutionKind;
-use crate::actions::execute::action_executor::ActionExecutionMetadata;
-use crate::actions::execute::action_executor::ActionOutputs;
-use crate::actions::Action;
-use crate::actions::ActionExecutable;
-use crate::actions::ActionExecutionCtx;
-use crate::actions::IncrementalActionExecutable;
-use crate::actions::UnregisteredAction;
-use crate::artifact_groups::ArtifactGroup;
 
 #[derive(Debug, Error)]
 enum CasArtifactActionDeclarationError {
@@ -72,13 +71,13 @@ enum CasArtifactActionExecutionError {
 }
 
 #[derive(Debug, Allocative, Clone, Dupe, Copy)]
-pub enum DirectoryKind {
+pub(crate) enum DirectoryKind {
     Directory,
     Tree,
 }
 
 #[derive(Debug, Allocative)]
-pub enum ArtifactKind {
+pub(crate) enum ArtifactKind {
     Directory(DirectoryKind),
     File,
 }
@@ -89,15 +88,15 @@ pub enum ArtifactKind {
 /// of the artifacts they are referencing (though admittedly this was also an issue in
 /// download_file).
 #[derive(Debug, Allocative)]
-pub struct UnregisteredCasArtifactAction {
-    pub digest: FileDigest,
-    pub re_use_case: RemoteExecutorUseCase,
+pub(crate) struct UnregisteredCasArtifactAction {
+    pub(crate) digest: FileDigest,
+    pub(crate) re_use_case: RemoteExecutorUseCase,
     /// We require the caller to declare when this digest will expire. The intention is to force
     /// callers to pay some modicum of attention to when their digests expire.
     #[allocative(skip)]
-    pub expires_after: DateTime<Utc>,
-    pub executable: bool,
-    pub kind: ArtifactKind,
+    pub(crate) expires_after: DateTime<Utc>,
+    pub(crate) executable: bool,
+    pub(crate) kind: ArtifactKind,
 }
 
 impl UnregisteredAction for UnregisteredCasArtifactAction {

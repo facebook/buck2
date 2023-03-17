@@ -14,6 +14,18 @@ use std::sync::Arc;
 use allocative::Allocative;
 use anyhow::Context as _;
 use async_trait::async_trait;
+use buck2_build_api::actions::artifact::build_artifact::BuildArtifact;
+use buck2_build_api::actions::box_slice_set::BoxSliceSet;
+use buck2_build_api::actions::execute::action_executor::ActionExecutionKind;
+use buck2_build_api::actions::execute::action_executor::ActionExecutionMetadata;
+use buck2_build_api::actions::execute::action_executor::ActionOutputs;
+use buck2_build_api::actions::Action;
+use buck2_build_api::actions::ActionExecutable;
+use buck2_build_api::actions::ActionExecutionCtx;
+use buck2_build_api::actions::IncrementalActionExecutable;
+use buck2_build_api::actions::UnregisteredAction;
+use buck2_build_api::artifact_groups::ArtifactGroup;
+use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
 use buck2_core::category::Category;
 use buck2_core::collections::ordered_set::OrderedSet;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
@@ -33,19 +45,6 @@ use starlark::values::ValueError;
 use starlark_map::small_set::SmallSet;
 use thiserror::Error;
 
-use crate::actions::artifact::build_artifact::BuildArtifact;
-use crate::actions::box_slice_set::BoxSliceSet;
-use crate::actions::execute::action_executor::ActionExecutionKind;
-use crate::actions::execute::action_executor::ActionExecutionMetadata;
-use crate::actions::execute::action_executor::ActionOutputs;
-use crate::actions::Action;
-use crate::actions::ActionExecutable;
-use crate::actions::ActionExecutionCtx;
-use crate::actions::IncrementalActionExecutable;
-use crate::actions::UnregisteredAction;
-use crate::artifact_groups::ArtifactGroup;
-use crate::interpreter::rule_defs::artifact::ValueAsArtifactLike;
-
 #[derive(Debug, Error)]
 enum SymlinkedDirError {
     #[error("Paths to symlink_dir must be non-overlapping, but got {0:?} and {1:?}")]
@@ -57,7 +56,7 @@ enum SymlinkedDirError {
 }
 
 #[derive(Allocative)]
-pub struct UnregisteredSymlinkedDirAction {
+pub(crate) struct UnregisteredSymlinkedDirAction {
     copy: bool,
     args: Vec<(ArtifactGroup, PathBuf)>,
     // All associated artifacts of inputs unioned together
@@ -132,7 +131,7 @@ impl UnregisteredSymlinkedDirAction {
         res
     }
 
-    pub fn new(copy: bool, srcs: Value) -> anyhow::Result<Self> {
+    pub(crate) fn new(copy: bool, srcs: Value) -> anyhow::Result<Self> {
         let (mut args, unioned_associated_artifacts) = Self::unpack_args(srcs)
             // FIXME: This warning is talking about the Starlark-level argument name `srcs`.
             //        Once we use a proper Value parser this should all get cleaned up.
@@ -149,11 +148,11 @@ impl UnregisteredSymlinkedDirAction {
         })
     }
 
-    pub fn inputs(&self) -> IndexSet<ArtifactGroup> {
+    pub(crate) fn inputs(&self) -> IndexSet<ArtifactGroup> {
         self.args.iter().map(|x| x.0.dupe()).collect()
     }
 
-    pub fn unioned_associated_artifacts(&self) -> Arc<OrderedSet<ArtifactGroup>> {
+    pub(crate) fn unioned_associated_artifacts(&self) -> Arc<OrderedSet<ArtifactGroup>> {
         self.unioned_associated_artifacts.dupe()
     }
 }
@@ -270,14 +269,13 @@ impl IncrementalActionExecutable for SymlinkedDirAction {
 
 #[cfg(test)]
 mod tests {
+    use buck2_build_api::actions::artifact::artifact_type::Artifact;
+    use buck2_build_api::actions::artifact::source_artifact::SourceArtifact;
     use buck2_core::buck_path::path::BuckPath;
     use buck2_core::package::package_relative_path::PackageRelativePathBuf;
     use buck2_core::package::PackageLabel;
 
     use super::*;
-    use crate::actions::artifact::artifact_type::Artifact;
-    use crate::actions::artifact::source_artifact::SourceArtifact;
-    use crate::actions::ArtifactGroup;
 
     fn mk_artifact() -> Artifact {
         let pkg = PackageLabel::testing_parse("cell//pkg");

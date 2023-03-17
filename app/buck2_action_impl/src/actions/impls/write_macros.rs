@@ -13,6 +13,23 @@ use std::time::Instant;
 use allocative::Allocative;
 use anyhow::Context;
 use async_trait::async_trait;
+use buck2_build_api::actions::artifact::build_artifact::BuildArtifact;
+use buck2_build_api::actions::execute::action_executor::ActionExecutionKind;
+use buck2_build_api::actions::execute::action_executor::ActionExecutionMetadata;
+use buck2_build_api::actions::execute::action_executor::ActionOutputs;
+use buck2_build_api::actions::Action;
+use buck2_build_api::actions::ActionExecutable;
+use buck2_build_api::actions::ActionExecutionCtx;
+use buck2_build_api::actions::IncrementalActionExecutable;
+use buck2_build_api::actions::UnregisteredAction;
+use buck2_build_api::artifact_groups::ArtifactGroup;
+use buck2_build_api::attrs::resolve::attr_type::arg::value::ResolvedMacro;
+use buck2_build_api::attrs::resolve::attr_type::arg::ArgBuilder;
+use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineContext;
+use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineLocation;
+use buck2_build_api::interpreter::rule_defs::cmd_args::DefaultCommandLineContext;
+use buck2_build_api::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
+use buck2_build_api::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 use buck2_core::category::Category;
 use buck2_core::fs::paths::RelativePathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
@@ -25,31 +42,13 @@ use once_cell::sync::Lazy;
 use starlark::values::OwnedFrozenValue;
 use thiserror::Error;
 
-use crate::actions::artifact::build_artifact::BuildArtifact;
-use crate::actions::execute::action_executor::ActionExecutionKind;
-use crate::actions::execute::action_executor::ActionExecutionMetadata;
-use crate::actions::execute::action_executor::ActionOutputs;
-use crate::actions::Action;
-use crate::actions::ActionExecutable;
-use crate::actions::ActionExecutionCtx;
-use crate::actions::ArtifactGroup;
-use crate::actions::IncrementalActionExecutable;
-use crate::actions::UnregisteredAction;
-use crate::attrs::resolve::attr_type::arg::value::ResolvedMacro;
-use crate::attrs::resolve::attr_type::arg::ArgBuilder;
-use crate::interpreter::rule_defs::cmd_args::CommandLineContext;
-use crate::interpreter::rule_defs::cmd_args::CommandLineLocation;
-use crate::interpreter::rule_defs::cmd_args::DefaultCommandLineContext;
-use crate::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
-use crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
-
 #[derive(Allocative)]
-pub struct UnregisteredWriteMacrosToFileAction {
+pub(crate) struct UnregisteredWriteMacrosToFileAction {
     _private: (),
 }
 
 impl UnregisteredWriteMacrosToFileAction {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self { _private: () }
     }
 }
