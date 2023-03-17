@@ -186,15 +186,6 @@ impl<'a> BuckdLifecycle<'a> {
             cmd.env("BUCK_LOG_TO_FILE_PATH", self.paths.log_dir().as_os_str());
         }
 
-        // It is the responsibility of processes that invoke buck2 to indicate via this environment variable whether or
-        // not the child process should log to Scribe. The top-level buck2 CLI is invoked via the wrapper, which does
-        // this; the `buck2 daemon` command must also be instructed to log to Scribe if the top-level CLI was itself
-        // instructed to log.
-        // This environment variable ensures that Scribe logging is enabled upon entry of the buck2 daemon command.
-        if !buck2_events::sink::scribe::is_enabled() {
-            cmd.env("BUCK2_ENABLE_SCRIBE", "0");
-        }
-
         if env::var_os("RUST_BACKTRACE").is_some() || env::var_os("RUST_LIB_BACKTRACE").is_some() {
             // Inherit.
         } else {

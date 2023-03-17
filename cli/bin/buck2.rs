@@ -66,14 +66,6 @@ fn init_logging(_fb: FacebookInit) -> anyhow::Result<Box<dyn LogConfigurationRel
         gflags::set_gflag_value(_fb, "minloglevel", GflagValue::U32(5))?;
         gflags::set_gflag_value(_fb, "stderrthreshold", GflagValue::U32(5))?;
 
-        // The Buck2 wrapper sets the "BUCK2_ENABLE_SCRIBE" environment variable to indicate that we are being launched
-        // in production. When we're in production, enable Scribe logging. We also need to delete the environment
-        // variable so that child buck2 invocations (i.e. buck2 run //buck2:buck2) don't inherit this value.
-        if let Ok("0") = std::env::var("BUCK2_ENABLE_SCRIBE").as_deref() {
-            scribe::disable();
-            std::env::remove_var("BUCK2_ENABLE_SCRIBE");
-        }
-
         if !should_upload_log()? {
             scribe::disable();
         }
