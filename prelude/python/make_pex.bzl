@@ -237,6 +237,10 @@ def _make_pex_impl(
         package_style,
     )
     bootstrap_args.add(build_args)
+    if package_style == PackageStyle("standalone"):
+        bootstrap_args.add(ctx.attrs.standalone_build_args)
+    else:
+        bootstrap_args.add(ctx.attrs.inplace_build_args)
 
     if standalone:
         # We support building _standalone_ packages locally to e.g. support fbcode's
