@@ -198,11 +198,7 @@ impl Diagnostic {
     }
 
     /// Gets annotated snippets for a [`Diagnostic`].
-    pub fn get_display_list<'a>(
-        &'a self,
-        annotation_label: &'a str,
-        color: bool,
-    ) -> DisplayList<'a> {
+    fn get_display_list<'a>(&'a self, annotation_label: &'a str, color: bool) -> DisplayList<'a> {
         fn convert_span_to_range_relative_to_first_line(
             diagnostic_span: Span,
             start_column: usize,
