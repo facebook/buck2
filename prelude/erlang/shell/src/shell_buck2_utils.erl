@@ -41,6 +41,20 @@ project_root() ->
             error(failed_to_query_project_root)
     end.
 
+-spec project_cell() -> binary().
+project_cell() ->
+    ProjectRoot = project_root(),
+    case run_command("buck2 audit cell --json 2>/dev/null", [], [{replay, false}]) of
+        {ok, Output} ->
+            [ProjectCell] = [
+                Cell
+             || {Cell, CellRoot} <- maps:to_list(jsone:decode(Output)), string:equal(ProjectRoot, CellRoot)
+            ],
+            ProjectCell;
+        error ->
+            error(failed_to_query_project_cell)
+    end.
+
 -spec rebuild_modules([module()]) -> ok | error.
 rebuild_modules([]) ->
     ok;
@@ -126,11 +140,12 @@ port_loop(Port, Replay, StdOut) ->
 
 -spec get_additional_paths(file:filename_all()) -> [file:filename_all()].
 get_additional_paths(Path) ->
+    PrefixedPath = io_lib:format("~s//~s", [project_cell(), Path]),
     case
         run_command(
             "buck2 bxl --reuse-current-config --console super prelude//erlang/shell/shell.bxl:ebin_paths -- --source ~s",
             [
-                Path
+                PrefixedPath
             ]
         )
     of
