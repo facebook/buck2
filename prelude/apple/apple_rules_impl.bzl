@@ -166,7 +166,7 @@ extra_attributes = {
         # by the `xcode_build_version` fields.
         "requires_xcode_version_match": attrs.bool(default = False),
         "sdk_path": attrs.option(attrs.source(), default = None),  # Mark as optional until we remove `_internal_sdk_path`
-        "swift_toolchain": attrs.option(attrs.exec_dep(), default = None),
+        "swift_toolchain": attrs.option(attrs.toolchain_dep(), default = None),
         "version": attrs.option(attrs.string(), default = None),
         "xcode_build_version": attrs.option(attrs.string(), default = None),
         "xcode_version": attrs.option(attrs.string(), default = None),
@@ -198,9 +198,9 @@ extra_attributes = {
         # A placeholder tool that can be used to set up toolchain constraints.
         # Useful when fat and thin toolchahins share the same underlying tools via `command_alias()`,
         # which requires setting up separate platform-specific aliases with the correct constraints.
-        "placeholder_tool": attrs.option(attrs.dep(providers = [RunInfo]), default = None),
+        "placeholder_tool": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
         "platform_path": attrs.option(attrs.source(), default = None),  # Mark as optional until we remove `_internal_platform_path`
-        "sdk_modules": attrs.list(attrs.dep(), default = []),  # A list or a root target that represent a graph of sdk modules (e.g Frameworks)
+        "sdk_modules": attrs.list(attrs.exec_dep(), default = []),  # A list or a root target that represent a graph of sdk modules (e.g Frameworks)
         "sdk_path": attrs.option(attrs.source(), default = None),  # Mark as optional until we remove `_internal_sdk_path`
         "swift_stdlib_tool": attrs.exec_dep(providers = [RunInfo]),
         "swiftc": attrs.exec_dep(providers = [RunInfo]),
@@ -210,6 +210,6 @@ extra_attributes = {
         # TODO(T111858757): Mirror of `sdk_path` but treated as a string. It allows us to
         #                   pass abs paths during development and using the currently selected Xcode.
         "_internal_sdk_path": attrs.option(attrs.string(), default = None),
-        "_swiftc_wrapper": attrs.dep(providers = [RunInfo], default = "prelude//apple/tools:swift_exec"),
+        "_swiftc_wrapper": attrs.exec_dep(providers = [RunInfo], default = "prelude//apple/tools:swift_exec"),
     },
 }
