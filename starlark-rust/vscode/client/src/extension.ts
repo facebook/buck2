@@ -48,7 +48,7 @@ const STARLARK_FILE_CONTENTS_METHOD = 'starlark/fileContents';
 const STARLARK_URI_SCHEME = 'starlark';
 
 class StarlarkFileContentsParams {
-  constructor(public uri: vscode.Uri) {}
+  constructor(public uri: String) {}
 }
 
 class StarlarkFileContentsResponse {
@@ -67,7 +67,7 @@ class StarlarkFileHandler implements vscode.TextDocumentContentProvider {
       return client
         .sendRequest<StarlarkFileContentsResponse>(
           STARLARK_FILE_CONTENTS_METHOD,
-          new StarlarkFileContentsParams(uri),
+          new StarlarkFileContentsParams(uri.toString()),
         )
         .then((response: StarlarkFileContentsResponse) => {
           if (response.contents !== undefined && response.contents !== null) {
