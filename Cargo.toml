@@ -23,6 +23,7 @@ members = [
     "app/buck2_execute",
     "app/buck2_execute_impl",
     "app/buck2_grpc",
+    "app/buck2_install_proto",
     "app/buck2_interpreter",
     "app/buck2_interpreter_for_build",
     "app/buck2_interpreter_for_build_tests",
@@ -75,7 +76,6 @@ members = [
     "shed/three_billion_instructions",
     "superconsole",
     "buck2_subscription_proto",
-    "install_proto",
 ]
 
 [workspace.dependencies]
@@ -274,6 +274,7 @@ buck2_tpx_cli = { path = "buck2_tpx_cli" }
 buck2_build_api = { path = "app/buck2_build_api" }
 buck2_build_api_derive = { path = "app/buck2_build_api_derive" }
 buck2_client = { path = "app/buck2_client" }
+buck2_install_proto = {path = "app/buck2_install_proto" }
 buck2_interpreter = { path = "app/buck2_interpreter" }
 buck2_interpreter_tests = { path = "app/buck2_interpreter_tests" }
 buck2_interpreter_for_build_tests = { path = "app/buck2_interpreter_for_build_tests" }

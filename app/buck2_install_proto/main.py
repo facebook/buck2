@@ -16,7 +16,7 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Optional
 
 import grpc
-from buck2.install_proto import install_pb2, install_pb2_grpc
+from buck2.app.buck2_install_proto import install_pb2, install_pb2_grpc
 
 
 class RsyncInstallerService(install_pb2_grpc.InstallerServicer):
