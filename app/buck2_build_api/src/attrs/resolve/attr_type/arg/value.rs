@@ -25,6 +25,7 @@ use dupe::Dupe;
 use either::Either;
 use starlark::any::ProvidesStaticType;
 use starlark::starlark_type;
+use starlark::values::Demand;
 use starlark::values::FrozenRef;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
@@ -422,5 +423,9 @@ impl<'v> StarlarkValue<'v> for ResolvedStringWithMacros {
             None => Ok(false),
             Some(other) => Ok(*self == *other),
         }
+    }
+
+    fn provide(&'v self, demand: &mut Demand<'_, 'v>) {
+        demand.provide_value::<&dyn CommandLineArgLike>(self);
     }
 }

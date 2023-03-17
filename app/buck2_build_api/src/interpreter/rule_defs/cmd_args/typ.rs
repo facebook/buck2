@@ -35,6 +35,7 @@ use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::starlark_type;
 use starlark::values::list::ListRef;
+use starlark::values::Demand;
 use starlark::values::Freeze;
 use starlark::values::Freezer;
 use starlark::values::FrozenValue;
@@ -272,6 +273,10 @@ impl<'v> StarlarkValue<'v> for StarlarkCommandLine<'v> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(command_line_builder_methods)
     }
+
+    fn provide(&'v self, demand: &mut Demand<'_, 'v>) {
+        demand.provide_value::<&dyn CommandLineArgLike>(self);
+    }
 }
 
 impl<'v> StarlarkValue<'v> for FrozenStarlarkCommandLine {
@@ -282,6 +287,10 @@ impl<'v> StarlarkValue<'v> for FrozenStarlarkCommandLine {
         // so the methods remain consistent during freezing
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(command_line_builder_methods)
+    }
+
+    fn provide(&'v self, demand: &mut Demand<'_, 'v>) {
+        demand.provide_value::<&dyn CommandLineArgLike>(self);
     }
 }
 

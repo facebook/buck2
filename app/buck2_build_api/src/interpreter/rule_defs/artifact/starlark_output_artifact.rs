@@ -17,6 +17,7 @@ use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
 use starlark::starlark_type;
 use starlark::values::AllocValue;
+use starlark::values::Demand;
 use starlark::values::Freeze;
 use starlark::values::Freezer;
 use starlark::values::Heap;
@@ -150,10 +151,18 @@ starlark_simple_value!(FrozenStarlarkOutputArtifact);
 
 impl<'v> StarlarkValue<'v> for FrozenStarlarkOutputArtifact {
     starlark_type!("output_artifact");
+
+    fn provide(&'v self, demand: &mut Demand<'_, 'v>) {
+        demand.provide_value::<&dyn CommandLineArgLike>(self);
+    }
 }
 
 impl<'v> StarlarkValue<'v> for StarlarkOutputArtifact {
     starlark_type!("output_artifact");
+
+    fn provide(&'v self, demand: &mut Demand<'_, 'v>) {
+        demand.provide_value::<&dyn CommandLineArgLike>(self);
+    }
 }
 
 impl FrozenStarlarkOutputArtifact {

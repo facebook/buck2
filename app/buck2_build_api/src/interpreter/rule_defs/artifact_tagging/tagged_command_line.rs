@@ -12,6 +12,7 @@ use derive_more::Display;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
 use starlark::starlark_type;
+use starlark::values::Demand;
 use starlark::values::Freeze;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
@@ -58,6 +59,10 @@ where
     Self: ProvidesStaticType,
 {
     starlark_type!("tagged_command_line");
+
+    fn provide(&'v self, demand: &mut Demand<'_, 'v>) {
+        demand.provide_value::<&dyn CommandLineArgLike>(self);
+    }
 }
 
 impl<'v, V: ValueLike<'v>> CommandLineArgLike for TaggedCommandLineGen<V> {

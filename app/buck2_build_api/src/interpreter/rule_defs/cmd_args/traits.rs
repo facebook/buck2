@@ -22,6 +22,7 @@ use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use indexmap::IndexSet;
+use starlark::any::ProvidesStaticType;
 use starlark::values::string::StarlarkStr;
 
 use crate::actions::artifact::artifact_type::Artifact;
@@ -92,6 +93,10 @@ pub trait CommandLineArgLike {
         &self,
         visitor: &mut dyn WriteToFileMacroVisitor,
     ) -> anyhow::Result<()>;
+}
+
+unsafe impl<'v> ProvidesStaticType for &'v dyn CommandLineArgLike {
+    type StaticType = &'static dyn CommandLineArgLike;
 }
 
 impl CommandLineArgLike for &str {

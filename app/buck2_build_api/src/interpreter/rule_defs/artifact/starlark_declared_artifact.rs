@@ -31,6 +31,7 @@ use starlark::environment::MethodsStatic;
 use starlark::starlark_type;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;
+use starlark::values::Demand;
 use starlark::values::Freeze;
 use starlark::values::Freezer;
 use starlark::values::Heap;
@@ -217,6 +218,10 @@ impl<'v> StarlarkValue<'v> for StarlarkDeclaredArtifact {
 
     fn write_hash(&self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {
         StarlarkArtifactLike::write_hash(self, hasher)
+    }
+
+    fn provide(&'v self, demand: &mut Demand<'_, 'v>) {
+        demand.provide_value::<&dyn CommandLineArgLike>(self);
     }
 }
 

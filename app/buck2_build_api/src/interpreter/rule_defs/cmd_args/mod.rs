@@ -20,20 +20,13 @@ use starlark::values::Value;
 use starlark::values::ValueLike;
 use thiserror::Error;
 
-use crate::actions::impls::write_json::FrozenWriteJsonCommandLineArg;
-use crate::actions::impls::write_json::WriteJsonCommandLineArg;
 use crate::attrs::resolve::attr_type::arg::value::ResolvedStringWithMacros;
 use crate::interpreter::rule_defs::artifact::FrozenStarlarkOutputArtifact;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
-use crate::interpreter::rule_defs::artifact::StarlarkDeclaredArtifact;
-use crate::interpreter::rule_defs::artifact::StarlarkOutputArtifact;
-use crate::interpreter::rule_defs::artifact_tagging::FrozenTaggedCommandLine;
-use crate::interpreter::rule_defs::artifact_tagging::TaggedCommandLine;
 use crate::interpreter::rule_defs::cmd_args::options::QuoteStyle;
 use crate::interpreter::rule_defs::provider::builtin::run_info::FrozenRunInfo;
 use crate::interpreter::rule_defs::provider::builtin::run_info::RunInfo;
 use crate::interpreter::rule_defs::transitive_set::FrozenTransitiveSetArgsProjection;
-use crate::interpreter::rule_defs::transitive_set::TransitiveSetArgsProjection;
 
 mod builder;
 mod options;
@@ -77,24 +70,18 @@ impl<'v> ValueAsCommandLineLike<'v> for Value<'v> {
             };
         }
 
-        check!(StarlarkCommandLine);
-        check!(FrozenStarlarkCommandLine);
-        check!(StarlarkArtifact);
-        check!(StarlarkDeclaredArtifact);
-        check!(StarlarkOutputArtifact);
-        check!(FrozenStarlarkOutputArtifact);
-        check!(ResolvedStringWithMacros);
+        // Typically downcasting is provided by implementing `StarlarkValue::provide`.
+        // These are exceptions:
+        // * either providers, where `StarlarkValue` is generated,
+        //   and plugging in `provide` is tricky
+        // * or live outside of `buck2_build_api` crate,
+        //   so `impl StarlarkValue` cannot provide `CommandLineArgLike`
         check!(RunInfo);
         check!(FrozenRunInfo);
         check!(LabelRelativePath);
-        check!(FrozenTransitiveSetArgsProjection);
-        check!(TransitiveSetArgsProjection);
-        check!(FrozenTaggedCommandLine);
-        check!(TaggedCommandLine);
-        check!(FrozenWriteJsonCommandLineArg);
-        check!(WriteJsonCommandLineArg);
         check!(StarlarkTargetLabel);
-        None
+
+        self.request_value()
     }
 
     fn as_command_line_err(&self) -> anyhow::Result<&'v dyn CommandLineArgLike> {

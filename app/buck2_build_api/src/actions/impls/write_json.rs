@@ -40,6 +40,7 @@ use starlark::values::list::ListRef;
 use starlark::values::record::Record;
 use starlark::values::structs::StructRef;
 use starlark::values::tuple::TupleRef;
+use starlark::values::Demand;
 use starlark::values::Freeze;
 use starlark::values::NoSerialize;
 use starlark::values::OwnedFrozenValue;
@@ -474,6 +475,10 @@ where
     Self: ProvidesStaticType,
 {
     starlark_type!("write_json_cli_args");
+
+    fn provide(&'v self, demand: &mut Demand<'_, 'v>) {
+        demand.provide_value::<&dyn CommandLineArgLike>(self);
+    }
 }
 
 pub(crate) fn visit_json_artifacts(
