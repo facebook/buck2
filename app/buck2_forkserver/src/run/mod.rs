@@ -230,6 +230,13 @@ where
                     .await
                     .context("Failed to cancel status decoder after timeout")?;
 
+                // We just killed the child, so this should finish immediately. We should stil call
+                // this to release any process.
+                child
+                    .wait()
+                    .await
+                    .context("Failed to await child after kill")?;
+
                 res
             }
         })
